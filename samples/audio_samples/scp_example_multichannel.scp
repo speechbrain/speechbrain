@@ -1,0 +1,2 @@
+ID=example1 duration=3.260 wav=($data_folder/example_multichannel.wav,wav) spk_id=(spk01,string)
+
