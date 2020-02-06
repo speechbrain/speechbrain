@@ -890,15 +890,16 @@ class speed_perturb(nn.Module):
 
                 # config dictionary definition
                 config = {
-                    'class_name':'data_augmentation.speed_perturb',
+                    'class_name': 'data_augmentation.speed_perturb',
                     'orig_freq': str(rate),
+                    'speeds': '9,11',
                 }
 
                 # Initialization of the class
                 perturbator = speed_perturb(config)
 
                 # Executing computations
-                clean = torch.tensor(signal).unsqueeze(0)
+                clean = torch.tensor(signal, dtype=torch.float32).unsqueeze(0)
                 perturbed = perturbator([clean])
 
                 # save config dictionary definition
