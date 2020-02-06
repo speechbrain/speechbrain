@@ -1,0 +1,6 @@
+ID=example1 duration=3.260 wav=(samples/audio_samples/example1.wav,wav) spk_id=(spk01,string)
+ID=example2 duration=2.068 wav=(samples/audio_samples/example2.flac,flac) spk_id=(spk02,string)
+ID=example3 duration=2.890 wav=(samples/audio_samples/example3.sph,wav) spk_id=(spk03,string)
+ID=example4 duration=2.180 wav=(samples/audio_samples/example4.raw,raw,samplerate:16000,subtype:PCM_16,endian:LITTLE,channels:1) spk_id=(spk04,string)
+ID=example5 duration=1.00 wav=(samples/audio_samples/example5.wav,wav,start:10000, stop:26000) spk_id=(spk05,string)
+

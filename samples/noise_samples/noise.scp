@@ -1,0 +1,6 @@
+ID=noise1 duration=33.12325 wav=(samples/noise_samples/noise1.wav,wav)
+ID=noise2 duration=5.0 wav=(samples/noise_samples/noise2.wav,wav)
+ID=noise3 duration=1.0 wav=(samples/noise_samples/noise3.wav,wav,start:0,stop:16000)
+ID=noise4 duration=17.65875 wav=(samples/noise_samples/noise4.wav,wav)
+ID=noise5 duration=13.685625 wav=(samples/noise_samples/noise5.wav,wav)
+
