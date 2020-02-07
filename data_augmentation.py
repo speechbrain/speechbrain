@@ -298,6 +298,12 @@ class add_noise(nn.Module):
                        - snr_high (type, float, optional, default: 0):
                            The high end of the mixing ratios, in decibels.
 
+                       - pad_noise (type, boolean, optional, default: False):
+                           If True, copy noise signals that are shorter than
+                           their corresponding clean signals so as to cover
+                           the whole clean signal. Otherwise, leave the noise
+                           un-padded.
+
                        - mix_prob (type, float, optional, default: 1.0):
                            The probability that a batch of signals will be
                            mixed with a noise signal. By default, every
@@ -406,6 +412,7 @@ class add_noise(nn.Module):
             "do_cache": ("boolean", "optional", "False"),
             "snr_low": ("float(-inf,inf)", "optional", "0"),
             "snr_high": ("float(-inf,inf)", "optional", "0"),
+            "pad_noise": ("boolean", "optional", "True"),
             "mix_prob": ("float(0,1)", "optional", "1"),
             "random_seed": ("int(-inf,inf)", "optional", "None"),
         }
@@ -591,11 +598,12 @@ class add_noise(nn.Module):
 
         # Ensure shortest wav can cover speech signal
         # WARNING: THIS COULD BE SLOW IF THERE ARE VERY SHORT NOISES
-        while torch.any(wav_len < clean_len):
-            min_len = torch.min(wav_len)
-            prepend = noise_batch[..., :min_len]
-            noise_batch = torch.cat((prepend, noise_batch), axis=-1)
-            wav_len += min_len
+        if self.pad_noise:
+            while torch.any(wav_len < clean_len):
+                min_len = torch.min(wav_len)
+                prepend = noise_batch[..., :min_len]
+                noise_batch = torch.cat((prepend, noise_batch), axis=-1)
+                wav_len += min_len
 
         # Select a random starting location in the waveform
         start_index = 0
