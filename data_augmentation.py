@@ -492,7 +492,7 @@ class add_noise(nn.Module):
         clean_amplitude = compute_amplitude(clean_waveform, clean_length)
 
         # Pick an SNR and use it to compute the mixture amplitude factors
-        SNR = torch.rand(batch_size, 1)
+        SNR = torch.rand(batch_size, 1, device=clean_waveform.device)
         SNR = SNR * (self.snr_high - self.snr_low) - self.snr_low
         clean_amplitude_factor = 1 / (dB_to_amplitude(SNR) + 1)
         new_noise_amplitude = (1 - clean_amplitude_factor) * clean_amplitude
@@ -509,8 +509,6 @@ class add_noise(nn.Module):
             noise_waveform, noise_length = self._load_noise(
                 clean_length, tensor_length, batch_size,
             )
-            noise_waveform = noise_waveform.to(clean_waveform.device)
-            noise_length = noise_length.to(clean_waveform.device)
 
             # Rescale and add
             noise_amplitude = compute_amplitude(noise_waveform, noise_length)
@@ -587,6 +585,9 @@ class add_noise(nn.Module):
         except StopIteration:
             self.noise_data = zip(*self.data_loader.dataloader)
             wav_id, noise_batch, wav_len = next(self.noise_data)[0]
+
+        noise_batch = noise_batch.to(clean_len.device)
+        wav_len = wav_len.to(clean_len.device)
 
         # Chop to correct size
         if len(noise_batch) > batch_size:
@@ -1733,7 +1734,7 @@ class add_babble(nn.Module):
         clean_amplitude = compute_amplitude(clean_waveform, clean_len)
 
         # Pick an SNR and use it to compute the mixture amplitude factors
-        SNR = torch.rand(batch_size, 1)
+        SNR = torch.rand(batch_size, 1, device=clean_waveform.device)
         SNR = SNR * (self.snr_high - self.snr_low) - self.snr_low
         clean_amplitude_factor = 1 / (dB_to_amplitude(SNR) + 1)
         new_noise_amplitude = (1 - clean_amplitude_factor) * clean_amplitude
@@ -1921,7 +1922,7 @@ class drop_freq(nn.Module):
         drop_frequency = torch.rand(1) * drop_range + self.drop_freq_low
 
         # Compute and apply filter
-        notch_kernel = notch_filter(drop_frequency)
+        notch_kernel = notch_filter(drop_frequency).to(clean_waveform.device)
         padding = (len(notch_kernel) // 2, len(notch_kernel) // 2)
         dropped_waveform = convolve1d(dropped_waveform, notch_kernel, padding)
 
