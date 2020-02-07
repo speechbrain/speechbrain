@@ -1197,14 +1197,59 @@ class resample(nn.Module):
             if self.device is None:
                 self.device = str(first_input[0].device)
 
+        # Compute rate for striding
+        self._compute_strides()
+        assert self.orig_freq % self.conv_stride == 0
+        assert self.new_freq % self.conv_transpose_stride == 0
+
+        # Generate and store the filter to use for resampling
+        self._get_LR_indices_and_weights()
+        assert self.first_indices.dim() == 1
+
+    def _compute_strides(self):
+        """
+        ---------------------------------------------------------------------
+        data_augmentation.resample._compute_strides
+        (almost directly from torchaudio.compliance.kaldi)
+
+        Description: Compute the phases in polyphase filter
+
+        Input:   self (type, resample, mandatory)
+
+        Output:  None
+
+        Example: import torch
+                 import soundfile as sf
+                 from data_augmentation import resample
+
+                 # reading an audio signal
+                 signal, rate = sf.read('samples/audio_samples/example1.wav')
+                 signal = torch.tensor(signal, dtype=torch.float32)
+                 signal = signal[None, None, :]
+
+                 # config dictionary definition
+                 config = {
+                     'class_name': 'data_augmentation.resample',
+                     'orig_freq': str(rate),
+                     'new_freq': str(rate // 2),
+                 }
+
+                 # Initialization of the class
+                 resampler = resample(config)
+
+                 # Change frequency
+                 resampler.new_freq = rate * 2
+                 resampler._compute_strides()
+                 resampler._get_LR_indices_and_weights()
+
+                 # Executing computations
+                 resampled = resampler(signal)
+        ---------------------------------------------------------------------
+        """
         # Compute new unit based on ratio of in/out frequencies
         base_freq = math.gcd(self.orig_freq, self.new_freq)
         input_samples_in_unit = self.orig_freq // base_freq
         self.output_samples = self.new_freq // base_freq
-
-        # Generate and store the filter to use for resampling
-        self.first_indices, self.weights = self._get_LR_indices_and_weights()
-        assert self.first_indices.dim() == 1
 
         # Store the appropriate stride based on the new units
         self.conv_stride = input_samples_in_unit
@@ -1220,8 +1265,64 @@ class resample(nn.Module):
         if self.orig_freq == self.new_freq:
             return [waveform]
 
+        # Add channels dimension if necessary
         if len(waveform.shape) == 2:
             waveform = waveform.unsqueeze(1)
+
+        # Do resampling
+        resampled_waveform = self._perform_resample(waveform)
+
+        # Remove unnecessary channels dimension
+        return [resampled_waveform.squeeze(1)]
+
+    def _perform_resample(self, waveform):
+        """
+        ---------------------------------------------------------------
+        data_augmentation.resample._perform_resample
+        (almost directly from torchaudio.compliance.kaldi)
+
+        Description: Resamples the waveform at the new frequency. This matches
+                     Kaldi's OfflineFeatureTpl ResampleWaveform which uses a
+                     LinearResample (resample a signal at linearly spaced
+                     intervals to up/downsample a signal). LinearResample (LR)
+                     means that the output signal is at linearly spaced
+                     intervals (i.e the output signal has a frequency of
+                     ``new_freq``). It uses sinc/bandlimited interpolation to
+                     upsample/downsample the signal.
+
+                     https://ccrma.stanford.edu/~jos/resample/
+                     Theory_Ideal_Bandlimited_Interpolation.html
+
+                     https://github.com/kaldi-asr/kaldi/blob/master/src/feat/
+                     resample.h#L56
+
+        Inputs: waveform (type, torch.tensor, mandatory)
+
+        Output: The waveform at the new frequency (type, torch.tensor)
+
+        Example: import torch
+                 import soundfile as sf
+                 from data_augmentation import resample
+
+                 # reading an audio signal
+                 signal, rate = sf.read('samples/audio_samples/example1.wav')
+                 signal = torch.tensor(signal, dtype=torch.float32)
+                 signal = signal[None, None, :]
+
+                 # config dictionary definition
+                 config = {
+                     'class_name': 'data_augmentation.resample',
+                     'orig_freq': str(rate),
+                     'new_freq': str(rate // 2),
+                 }
+
+                 # Initialization of the class
+                 resampler = resample(config)
+
+                 # Executing computations
+                 resampled = resampler._perform_resample(signal)
+        -----------------------------------------------------------------
+        """
 
         # Compute output size and initialize
         batch_size, num_channels, wave_len = waveform.size()
@@ -1275,10 +1376,11 @@ class resample(nn.Module):
 
             resampled_waveform += dilated_conv_wave
 
-        return [resampled_waveform]
+        return resampled_waveform
 
     def _get_num_LR_output_samples(self, input_num_samp):
         """
+        ---------------------------------------------------------------------
         data_augmentation.resample._get_num_LR_output_samples
         (almost directly from torchaudio.compliance.kaldi)
 
@@ -1294,6 +1396,35 @@ class resample(nn.Module):
                          The number of samples in each example in the batch
 
         Output:      Number of samples in the output waveform (type, int)
+
+        Example: import torch
+                 import soundfile as sf
+                 from data_augmentation import resample
+
+                 # reading an audio signal
+                 signal, rate = sf.read('samples/audio_samples/example1.wav')
+                 signal = torch.tensor(signal, dtype=torch.float32)
+                 signal = signal[None, None, :]
+
+                 # config dictionary definition
+                 config = {
+                     'class_name': 'data_augmentation.resample',
+                     'orig_freq': str(rate),
+                     'new_freq': str(rate // 2),
+                 }
+
+                 # Initialization of the class
+                 resampler = resample(config)
+
+                 # Executing computations
+                 resampled = resampler(signal)
+
+                 length = signal.size(-1)
+                 num_samples = resampler._get_num_LR_output_samples(length)
+
+                 assert resampled[0].size(-1) == num_samples
+                 assert num_samples - num_samples % 2 == length // 2
+        ---------------------------------------------------------------------
         """
         # For exact computation, we measure time in "ticks" of 1.0 / tick_freq,
         # where tick_freq is the least common multiple of samp_in and
@@ -1330,6 +1461,7 @@ class resample(nn.Module):
 
     def _get_LR_indices_and_weights(self):
         """
+        ---------------------------------------------------------------------
         data_augmentation.resample._get_LR_indices_and_weights
         (almost directly from torchaudio.compliance.kaldi)
 
@@ -1348,6 +1480,34 @@ class resample(nn.Module):
 
                      - filter weights (type, torch.tensor):
                          The filter to be applied to the signal for resampling
+
+        Example: import torch
+                 import soundfile as sf
+                 from data_augmentation import resample
+
+                 # reading an audio signal
+                 signal, rate = sf.read('samples/audio_samples/example1.wav')
+                 signal = torch.tensor(signal, dtype=torch.float32)
+                 signal = signal[None, None, :]
+
+                 # config dictionary definition
+                 config = {
+                     'class_name': 'data_augmentation.resample',
+                     'orig_freq': str(rate),
+                     'new_freq': str(rate // 2),
+                 }
+
+                 # Initialization of the class
+                 resampler = resample(config)
+
+                 # Change frequency
+                 resampler.new_freq = rate * 2
+                 resampler._compute_strides()
+                 resampler._get_LR_indices_and_weights()
+
+                 # Executing computations
+                 resampled = resampler(signal)
+        ---------------------------------------------------------------------
         """
 
         # Lowpass filter frequency depends on smaller of two frequencies
@@ -1396,7 +1556,8 @@ class resample(nn.Module):
         # size (output_samples, max_weight_width)
         weights /= self.orig_freq
 
-        return min_input_index, weights
+        self.first_indices = min_input_index
+        self.weights = weights
 
 
 class add_babble(nn.Module):
