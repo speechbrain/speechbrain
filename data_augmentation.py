@@ -106,6 +106,7 @@ def compute_amplitude(waveform, length):
                  from data_augmentation import compute_amplitude
 
                  signal, rate = sf.read('samples/audio_samples/example1.wav')
+                 signal = torch.tensor(signal, dtype=torch.float32)
 
                  amplitude = compute_amplitude(signal, len(signal))
 
@@ -355,8 +356,9 @@ class add_noise(nn.Module):
 
                 # config dictionary definition
                 config = {
-                    'class_name':'data_augmentation.add_noise',
-                    'noise_scp': 'samples/noise_samples/noise.scp',
+                    'class_name': 'data_augmentation.add_noise',
+                    'scp_file': 'samples/noise_samples/noise.scp',
+                    'batch_size': '1',
                 }
 
                 # Initialization of the class
@@ -427,9 +429,6 @@ class add_noise(nn.Module):
         if first_input is not None:
             check_input_shapes([[2, 3], [1]], first_input, logger)
 
-            # Use the same device as the input vector
-            self.device = str(first_input[0].device)
-
             # Use the same batch size as clean
             if self.batch_size is None:
                 self.batch_size = first_input[0].shape[0]
@@ -468,9 +467,9 @@ class add_noise(nn.Module):
         torch.random.set_rng_state(self.rng_state)
 
         # Reading input list
-        clean_waveform, clean_len = input_lst
+        clean_waveform, clean_length = input_lst
         noisy_waveform = clean_waveform.clone()
-        clean_len = (clean_len * clean_waveform.shape[1]).unsqueeze(1)
+        clean_length = (clean_length * clean_waveform.shape[1]).unsqueeze(1)
 
         # current batch size is min of stored size and clean size
         batch_size = self.batch_size
@@ -483,7 +482,7 @@ class add_noise(nn.Module):
             return [noisy_waveform]
 
         # Compute the average amplitude of the clean waveforms
-        clean_amplitude = compute_amplitude(clean_waveform, clean_len)
+        clean_amplitude = compute_amplitude(clean_waveform, clean_length)
 
         # Pick an SNR and use it to compute the mixture amplitude factors
         SNR = torch.rand(batch_size, 1)
@@ -500,13 +499,15 @@ class add_noise(nn.Module):
             noisy_waveform += new_noise_amplitude * white_noise
         else:
             tensor_length = clean_waveform.shape[-1]
-            noise_waveform, noise_len = self._load_noise(
-                clean_len, tensor_length, batch_size,
+            noise_waveform, noise_length = self._load_noise(
+                clean_length, tensor_length, batch_size,
             )
+            noise_waveform = noise_waveform.to(clean_waveform.device)
+            noise_length = noise_length.to(clean_waveform.device)
 
             # Rescale and add
-            noise_amp = compute_amplitude(noise_waveform, noise_len)
-            noise_waveform *= new_noise_amplitude / noise_amp
+            noise_amplitude = compute_amplitude(noise_waveform, noise_length)
+            noise_waveform *= new_noise_amplitude / noise_amplitude
             noisy_waveform[:batch_size] += noise_waveform
 
         # Save the RNG state for reproducibility
@@ -522,33 +523,68 @@ class add_noise(nn.Module):
         Description: Load a section of the noise file of the appropriate
                      length. Then pad to the length of the tensor.
 
-        Input:       - self (type, add_noise, mandatory)
+        Input:   - self (type, add_noise, mandatory)
 
-                     - clean_len (type, torch.tensor, mandatory):
-                         The length of the (un-padded) clean waveform
+                 - clean_len (type, torch.tensor, mandatory):
+                     The length of the (un-padded) clean waveform
 
-                     - tensor_len (type, torch.tensor, mandatory):
-                         The length of the (padded) final tensor
+                 - tensor_len (type, torch.tensor, mandatory):
+                     The length of the (padded) final tensor
 
-        Output:      - noise segment (type, torch.tensor)
+        Output:  - noise segment (type, torch.tensor)
 
-        Example:     xxx
+        Example: import torch
+                 import soundfile as sf
+                 from data_processing import save
+                 from data_augmentation import add_noise
+
+                 signal, rate = sf.read('samples/audio_samples/example1.wav')
+                 # config dictionary definition
+                 config = {
+                    'class_name': 'data_augmentation.add_noise',
+                    'scp_file': 'samples/noise_samples/noise.scp',
+                    'batch_size': '1',
+                 }
+
+                 # Initialization of the class
+                 noisifier = add_noise(config)
+
+                 # Executing computations
+                 clean = torch.tensor([signal], dtype=torch.float32)
+                 clean_len = torch.tensor([[len(signal)]])
+                 tensor_len = torch.tensor(len(signal))
+                 noise = noisifier._load_noise(clean_len, tensor_len, 1)
+                 noisy = clean[0] + noise[0]
+
+                 # save config dictionary definition
+                 config = {
+                    'class_name': 'data_processing.save',
+                    'save_folder': 'exp/write_example',
+                    'save_format': 'wav',
+                 }
+
+                 # class initialization
+                 save_signal = save(config)
+
+                 # saving
+                 save_signal([noisy, ['example_load_noise'], torch.ones(1)])
+
+                 # signal save in exp/write_example
         --------------------------------------------------------
         """
         clean_len = clean_len.long().squeeze(1)
 
-        # Load a noise batch to device
+        # Load a noise batch
         try:
             wav_id, noise_batch, wav_len = next(self.noise_data)[0]
         except StopIteration:
             self.noise_data = zip(*self.data_loader.dataloader)
             wav_id, noise_batch, wav_len = next(self.noise_data)[0]
 
-        # Chop to correct size and move to correct device
+        # Chop to correct size
         if len(noise_batch) > batch_size:
             noise_batch = noise_batch[:batch_size]
             wav_len = wav_len[:batch_size]
-        noise_batch = noise_batch.to(self.device)
 
         # Convert relative length to an index
         wav_len = (wav_len * noise_batch.shape[-1]).long()
@@ -1625,9 +1661,10 @@ class drop_freq(nn.Module):
 
                 # Load sample
                 signal, rate = sf.read('samples/audio_samples/example1.wav')
+                signal = torch.tensor(signal, dtype=torch.float32)
 
                 # Perform drop
-                dropped_signal = dropper([torch.tensor(signal).unsqueeze(0)])
+                dropped_signal = dropper([signal.unsqueeze(0)])
 
                 # save config dictionary definition
                 config = {
