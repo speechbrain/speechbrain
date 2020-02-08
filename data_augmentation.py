@@ -1587,6 +1587,9 @@ class add_babble(nn.Module):
                            mixed with babble noise. By default, every signal
                            is mixed.
 
+                       - random_seed (type, int, optional, default: None):
+                           The seed for randomly selecting SNR level.
+
                    - funct_name (type, str, optional, default: None):
                        it is a string containing the name of the parent
                        function that has called this method.
@@ -1684,6 +1687,7 @@ class add_babble(nn.Module):
             "snr_low": ("float(-inf,inf)", "optional", "0"),
             "snr_high": ("float(-inf,inf)", "optional", "0"),
             "mix_prob": ("float(0,1)", "optional", "1"),
+            "random_seed": ("int(-inf,inf)", "optional", "None"),
         }
 
         # Check, cast, and expand the options
@@ -1717,7 +1721,17 @@ class add_babble(nn.Module):
 
                 logger_write(err_msg, logfile=logger)
 
+        # Initialize a random number generator with the provided seed
+        if self.random_seed is not None:
+            torch.random.manual_seed(self.random_seed)
+
+        # Save the state of the RNG for reproducibility
+        self.rng_state = torch.random.get_rng_state()
+
     def forward(self, input_lst):
+
+        # Load the state of the RNG for reproducibility
+        torch.random.set_rng_state(self.rng_state)
 
         # Reading input list
         clean_waveform, clean_len = input_lst
@@ -1753,6 +1767,9 @@ class add_babble(nn.Module):
         babble_amplitude = compute_amplitude(babble_waveform, babble_len)
         babble_waveform *= new_noise_amplitude / babble_amplitude
         babbled_waveform += babble_waveform
+
+        # Save the state of the RNG for reproducibility
+        self.rng_state = torch.random.get_rng_state()
 
         return [babbled_waveform]
 
