@@ -29,7 +29,7 @@ The following documentation is not the final documentation that will be released
 	* [Writing Example](#writing-example)
 - [Basic processing](#basic-processing)
 	* [Adding Noise](#adding-noise)
-        * [Other augmentations](#other-augmentations)
+	* [Other augmentations](#other-augmentations)
 - [Feature extraction](#feature-extraction)
 	* [Computing STFT](#computing-the-short-time-fourier-transform)
 	* [Computing Spectrograms](#computing-spectrograms)
@@ -711,14 +711,14 @@ Use the ```\parallel{}``` statement at your own risk. Before using it you have t
 In addition to adding noise, the [```data_augmentation.py```](data_augmentation.py) file defines a set of augmentations for increasing the robustness of machine learning models, and for creating datasets for speech enhancement and other environment-related tasks. The current list of enhancements follows, with links to sample files of each:
 
  * Adding noise - [white noise example](cfg/minimal_examples/basic_processing/save_signals_with_noise.cfg) or [noise from scp file example](cfg/minimal_examples/basic_processing/save_signals_with_noise_scp.cfg)
- * Adding reverberation [reverb example](cfg/minimal_examples/basic_processing/save_signals_with_reverb.cfg)
- * Adding babble [babble example](cfg/minimal_examples/basic_processing/save_signals_with_babble.cfg)
- * Speed perturbation [perturbation example](cfg/minimal_examples/basic_processing/save_signals_with_speed_perturb.cfg)
- * Dropping a frequency [frequency drop example](cfg/minimal_examples/basic_processing/save_signals_with_drop_freq.cfg)
- * Dropping chunks [chunk drop example](cfg/minimal_examples/basic_processing/save_signals_with_drop_chunk.cfg)
- * Clipping [clipping example](cfg/minimal_examples/basic_processing/save_signals_with_clipping.cfg)
+ * Adding reverberation - [reverb example](cfg/minimal_examples/basic_processing/save_signals_with_reverb.cfg)
+ * Adding babble - [babble example](cfg/minimal_examples/basic_processing/save_signals_with_babble.cfg)
+ * Speed perturbation - [perturbation example](cfg/minimal_examples/basic_processing/save_signals_with_speed_perturb.cfg)
+ * Dropping a frequency - [frequency drop example](cfg/minimal_examples/basic_processing/save_signals_with_drop_freq.cfg)
+ * Dropping chunks - [chunk drop example](cfg/minimal_examples/basic_processing/save_signals_with_drop_chunk.cfg)
+ * Clipping - [clipping example](cfg/minimal_examples/basic_processing/save_signals_with_clipping.cfg)
 
-These augmentations are designed to be efficient, so that you can use them on data during training without worrying about saving the augmented data to disk. In addition, all augmentations should be differentiable, since they are implemented as ```nn.Module```s. Finally, all augmentations have a ```random_seed``` parameter, to ensure that the augmentations are repeatable, and your results are comparable from experiment to experiment.
+These augmentations are designed to be efficient, so that you can use them on data during training without worrying about saving the augmented data to disk. This also allows using a dynamic training set that can change from epoch to epoch, rather than relying on a static set. In addition, all augmentations should be differentiable, since they are implemented as ```nn.Module```s. Finally, all augmentations have a ```random_seed``` parameter, to ensure that the augmentations are repeatable, and your results are comparable from experiment to experiment.
 
 Aside from adding noise, all augmentations work on a batch level for the sake of efficiency. This means that for smaller datasets and larger batch sizes, the diversity of augmentations applied may be limited. However, the fact that these augmentations can be different for different epochs can make up for this fact.
 
