@@ -708,7 +708,7 @@ So far we only have seen computations that must be executed in cascade. We can a
 Use the ```\parallel{}``` statement at your own risk. Before using it you have to make sure that the computations are independent. The current version **does not support parallel computations on the same gpu**. According to our experience, parallelizing over the same gpu is critical and often the time took by parallel processes is larger than two processes in sequence.
 
 ### Other augmentations
-In addition to adding noise, the [```data_augmentations.py```](data_augmentations.py) file defines a set of augmentations for increasing the robustness of machine learning models, and for creating datasets for speech enhancement and other environment-related tasks. The current list of enhancements follows, with links to sample files of each:
+In addition to adding noise, the [```data_augmentation.py```](data_augmentation.py) file defines a set of augmentations for increasing the robustness of machine learning models, and for creating datasets for speech enhancement and other environment-related tasks. The current list of enhancements follows, with links to sample files of each:
 
  * Adding noise - [white noise example](cfg/minimal_examples/basic_processing/save_signals_with_noise.cfg) or [noise from scp file example](cfg/minimal_examples/basic_processing/save_signals_with_noise_scp.cfg)
  * Adding reverberation [reverb example](cfg/minimal_examples/basic_processing/save_signals_with_reverb.cfg)
