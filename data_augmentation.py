@@ -2019,7 +2019,7 @@ def notch_filter(notch_freq, b=0.08):
 class drop_chunk(nn.Module):
     """
      -------------------------------------------------------------------------
-     data_augmentation.drop_freq (author: Peter Plantinga)
+     data_augmentation.drop_chunk (author: Peter Plantinga)
 
      Description: This class drops portions of the input signal, so that
                   models learn to rely on all parts of the signal.
@@ -2321,7 +2321,7 @@ class do_clip(nn.Module):
         self.expected_options = {
             "class_name": ("str", "mandatory"),
             "clip_low": ("float(0,1)", "optional", "0.5"),
-            "clip_high": ("int(0,1)", "optional", "1"),
+            "clip_high": ("float(0,1)", "optional", "1"),
             "clip_prob": ("float(0,1)", "optional", "1"),
             "random_seed": ("int(-inf,inf)", "optional", "None"),
         }

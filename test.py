@@ -43,7 +43,9 @@ cfg_lst = ['cfg/minimal_examples/data_reading/read_write_data.cfg',
            'cfg/minimal_examples/neural_networks/E2E_ASR/CTC/CTC_example.cfg'
            ]
 
-augmentation_config_list = glob('cfg/minimal_examples/basic_processing/minimal*.cfg')
+augmentation_config_list = glob(
+    'cfg/minimal_examples/basic_processing/minimal*.cfg'
+)
 cfg_lst += augmentation_config_list
 
 # List of files to check:
