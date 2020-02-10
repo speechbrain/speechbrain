@@ -120,7 +120,7 @@ def compute_amplitude(waveform, length):
     ) / length
 
 
-def convolve1d(waveform, kernel, padding=None, pad_type='constant',
+def convolve1d(waveform, kernel, padding=0, pad_type='constant',
                stride=1, groups=1, use_fft=False, rotation_index=0):
     """
     ----------------------------------------------------
@@ -137,7 +137,8 @@ def convolve1d(waveform, kernel, padding=None, pad_type='constant',
 
                  - padding (type, tuple, optional, default: None):
                      The padding (pad_left, pad_right) to apply.
-                     If `None` is passed, no padding is applied.
+                     If an integer is passed instead, this is passed
+                     to the conv1d function and pad_type is ignored.
 
                  - pad_type (type, string, optional, default: 'constant'):
                      The type of padding to use. Passed directly to
@@ -197,7 +198,7 @@ def convolve1d(waveform, kernel, padding=None, pad_type='constant',
     ----------------------------------------------------
     """
 
-    if padding is not None:
+    if type(padding) is tuple:
         waveform = nn.functional.pad(
             input=waveform,
             pad=padding,
@@ -234,6 +235,7 @@ def convolve1d(waveform, kernel, padding=None, pad_type='constant',
             weight=kernel,
             stride=stride,
             groups=groups,
+            padding=padding if type(padding) is not tuple else 0,
         )
 
 
@@ -256,6 +258,88 @@ def dB_to_amplitude(a):
     --------------------------------------------------
     """
     return 10 ** (a / 20)
+
+
+def notch_filter(notch_freq, N=101, notch_width=0.05):
+    """
+    ---------------------------------------------------------
+    data_augmentation.notch_filter(from https://tomroelandts.com/articles/
+    how-to-create-simple-band-pass-and-band-reject-filters)
+
+    Description: Simple band-pass filter with small passband. Convolve
+                 with an impulse response to get the notch filter.
+
+    Inputs: - notch_freq (type, float, mandatory):
+                frequency to put notch as a fraction of the sampling rate / 2.
+                The range of possible inputs is 0 to 1.
+
+            - filter_width (type, int, optional):
+                Filter width in samples. Longer filters have smaller
+                transition bands, but are more inefficient
+
+            - notch_width (type, float, optional):
+                Width of the notch, as a fraction of the sampling_rate / 2.
+
+    Output: notch filter (type, torch.tensor)
+
+    Example: import torch
+             import soundfile as sf
+             from data_processing import save
+             from data_augmentation import notch_filter
+
+             signal, rate = sf.read('samples/audio_samples/example1.wav')
+             signal = torch.tensor(signal, dtype=torch.float32)[None, None, :]
+
+             kernel = notch_filter(0.25)
+             notched_signal = torch.nn.functional.conv1d(signal, kernel)
+
+             # save config dictionary definition
+             config = {
+                'class_name': 'data_processing.save',
+                'save_folder': 'exp/write_example',
+                'save_format': 'wav',
+             }
+
+             # class initialization
+             save_signal = save(config)
+
+             # saving
+             save_signal([notched_signal, ['freq_drop'], torch.ones(1)])
+
+             # signal save in exp/write_example
+    -----------------------------------------------------------
+    """
+
+    # Check inputs
+    assert notch_freq > 0 and notch_freq <= 1
+    assert N % 2 != 0
+    pad = N // 2
+    n = torch.arange(N) - pad
+
+    # Avoid frequencies that are too low
+    notch_freq += notch_width
+
+    # Define sinc function, avoiding division by zero
+    def sinc(x):
+        def _sinc(x):
+            return torch.sin(x) / x
+
+        # The zero is at the middle index
+        return torch.cat([_sinc(x[:pad]), torch.ones(1), _sinc(x[pad+1:])])
+
+    # Compute a low-pass filter with cutoff frequency notch_freq.
+    hlpf = sinc(3 * (notch_freq - notch_width) * n)
+    hlpf *= torch.blackman_window(N)
+    hlpf /= torch.sum(hlpf)
+
+    # Compute a high-pass filter with cutoff frequency notch_freq.
+    hhpf = sinc(3 * (notch_freq + notch_width) * n)
+    hhpf *= torch.blackman_window(N)
+    hhpf /= -torch.sum(hhpf)
+    hhpf[pad] += 1
+
+    # Adding filters creates notch filter
+    return (hlpf + hhpf).view(1, 1, -1)
 
 
 """
@@ -1794,6 +1878,14 @@ class drop_freq(nn.Module):
                            The high end of frequencies that can be dropped,
                            as a fraction of the sampling rate / 2.
 
+                       - drop_count_low (type, int, optional, default: 1):
+                           The low end of number of frequencies that could
+                           be dropped.
+
+                       - drop_count_high (type, int, optional, default: 2):
+                           The high end of number of frequencies that could
+                           be dropped.
+
                        - drop_prob (type, float, optional, default: 1.0):
                            The probability that the batch of signals will
                            have a frequency dropped. By default, every batch
@@ -1887,6 +1979,9 @@ class drop_freq(nn.Module):
             "class_name": ("str", "mandatory"),
             "drop_freq_low": ("float(0,1)", "optional", "0"),
             "drop_freq_high": ("float(0,1)", "optional", "1"),
+            "drop_count_low": ("int(0,inf)", "optional", "1"),
+            "drop_count_high": ("int(0,inf)", "optional", "2"),
+            "drop_width": ("float(0,0.2)", "optional", "0.05"),
             "drop_prob": ("float(0,1)", "optional", "1"),
             "random_seed": ("int(-inf,inf)", "optional", "None"),
         }
@@ -1934,86 +2029,40 @@ class drop_freq(nn.Module):
         if len(clean_waveform.shape) == 2:
             dropped_waveform = dropped_waveform.unsqueeze(1)
 
+        # Pick number of frequencies to drop
+        drop_count = torch.randint(
+            low=self.drop_count_low,
+            high=self.drop_count_high + 1,
+            size=(1,),
+        )
+
         # Pick a frequency to drop
         drop_range = self.drop_freq_high - self.drop_freq_low
-        drop_frequency = torch.rand(1) * drop_range + self.drop_freq_low
+        drop_frequency = torch.rand(drop_count)*drop_range + self.drop_freq_low
 
-        # Compute and apply filter
-        notch_kernel = notch_filter(drop_frequency).to(clean_waveform.device)
-        padding = (len(notch_kernel) // 2, len(notch_kernel) // 2)
-        dropped_waveform = convolve1d(dropped_waveform, notch_kernel, padding)
+        # Filter parameters
+        filter_length = 101
+        pad = filter_length // 2
+
+        # Start with delta function
+        drop_filter = torch.zeros(1, 1, filter_length)
+        drop_filter[0, 0, pad] = 1
+
+        # Subtract each frequency
+        for frequency in drop_frequency:
+            notch_kernel = notch_filter(
+                frequency, filter_length, self.drop_width,
+            ).to(clean_waveform.device)
+            drop_filter = convolve1d(drop_filter, notch_kernel, pad)
+
+        # Apply filter
+        dropped_waveform = convolve1d(dropped_waveform, drop_filter, pad)
 
         # Save the state of the RNG for reproducibility
         self.rng_state = torch.random.get_rng_state()
 
         # Remove channels dimension if added
         return [dropped_waveform.squeeze(1)]
-
-
-def notch_filter(notch_freq, b=0.08):
-    """
-    ---------------------------------------------------------
-    data_augmentation.notch_filter(from https://tomroelandts.com/articles/
-    how-to-create-simple-band-pass-and-band-reject-filters)
-
-    Description: Simple band-stop filter
-
-    Inputs: - notch_freq (type, float, mandatory):
-                frequency to put notch as a fraction of the sampling rate / 2.
-
-            - b (type, float, optional):
-                Transition band, as a fraction of the sampling rate.
-
-    Output: notch filter (type, torch.tensor)
-
-    Example: import torch
-             import soundfile as sf
-             from data_processing import save
-             from data_augmentation import notch_filter
-
-             signal, rate = sf.read('samples/audio_samples/example1.wav')
-             signal = torch.tensor(signal, dtype=torch.float32)[None, None, :]
-             kernel = notch_filter(0.25)
-             notched_signal = torch.nn.functional.conv1d(signal, kernel)
-
-             # save config dictionary definition
-             config = {
-                'class_name': 'data_processing.save',
-                'save_folder': 'exp/write_example',
-                'save_format': 'wav',
-             }
-
-             # class initialization
-             save_signal = save(config)
-
-             # saving
-             save_signal([notched_signal, ['freq_drop'], torch.ones(1)])
-
-             # signal save in exp/write_example
-    -----------------------------------------------------------
-    """
-
-    # Compute filter length, ensuring length is odd
-    N = int(math.ceil(4 / b))
-    N += N % 2
-    n = torch.arange(N)
-
-    # Define sinc function, avoiding division by zero
-    def sinc(x): return torch.sin(x) / (x + 1e-10)
-
-    # Compute a low-pass filter with cutoff frequency notch_freq.
-    hlpf = sinc((notch_freq - 2*b) * (n - (N - 1) / 2))
-    hlpf *= torch.blackman_window(N)
-    hlpf /= torch.sum(hlpf)
-
-    # Compute a high-pass filter with cutoff frequency notch_freq.
-    hhpf = sinc((notch_freq + 2*b) * (n - (N - 1) / 2))
-    hhpf *= torch.blackman_window(N)
-    hhpf /= -torch.sum(hhpf)
-    hhpf[(N - 1) // 2] += 1
-
-    # Add both filters and add in/out channel dimensions
-    return (hlpf + hhpf).unsqueeze(0).unsqueeze(0)
 
 
 class drop_chunk(nn.Module):
