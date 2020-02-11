@@ -2197,7 +2197,8 @@ class drop_chunk(nn.Module):
 
         # Expected inputs when calling this class:
         #    Input 1: Batch of waveforms to be processed
-        self.expected_inputs = ["torch.Tensor"]
+        #    Input 2: Length of waveforms in the batch
+        self.expected_inputs = ["torch.Tensor", "torch.Tensor"]
 
         # Check the first input
         check_inputs(
@@ -2206,7 +2207,7 @@ class drop_chunk(nn.Module):
 
         # Additional check on the input shapes
         if first_input is not None:
-            check_input_shapes([[2, 3]], first_input, logger)
+            check_input_shapes([[2, 3], [1]], first_input, logger)
 
         # Initialize a random number generator with the provided seed
         if self.random_seed is not None:
@@ -2222,6 +2223,8 @@ class drop_chunk(nn.Module):
 
         # Reading input list
         clean_waveform = input_lst[0]
+        clean_length = (input_lst[1] * clean_waveform.size(-1)).long()
+        batch_size = clean_waveform.size(0)
         dropped_waveform = clean_waveform.clone()
 
         # Don't drop (return early) 1-`drop_prob` portion of the batches
@@ -2233,25 +2236,28 @@ class drop_chunk(nn.Module):
         drop_times = torch.randint(
             low=self.drop_count_low,
             high=self.drop_count_high,
-            size=(1,),
+            size=(batch_size,),
         )
 
-        # Pick lengths
-        length = torch.randint(
-            low=self.drop_length_low,
-            high=self.drop_length_high,
-            size=(drop_times,),
-        )
+        # Iterate batch to set mask
+        for i in range(batch_size):
 
-        # Pick starting locations
-        start = torch.randint(
-            high=clean_waveform.size(-1) - length.max(),
-            size=(drop_times,),
-        )
+            # Pick lengths
+            length = torch.randint(
+                low=self.drop_length_low,
+                high=self.drop_length_high,
+                size=(drop_times[i],),
+            )
 
-        # Apply drops
-        for i in range(drop_times):
-            dropped_waveform[..., start[i]:start[i]+length[i]] = 0
+            # Pick starting locations
+            start = torch.randint(
+                high=clean_length[i] - length.max(),
+                size=(drop_times[i],),
+            )
+
+            # Update waveform
+            for j in range(drop_times[i]):
+                dropped_waveform[i, ..., start[j]:start[j]+length[j]] = 0
 
         # Save the state of the RNG for reproducibility
         self.rng_state = torch.random.get_rng_state()
