@@ -1418,6 +1418,10 @@ class resample(nn.Module):
             device=waveform.device,
         )
 
+        # Check weights are on correct device
+        if waveform.device != self.weights.device:
+            self.weights = self.weights.to(waveform.device)
+
         # eye size: (num_channels, num_channels, 1)
         eye = torch.eye(num_channels, device=waveform.device).unsqueeze(2)
 
