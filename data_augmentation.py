@@ -1417,6 +1417,7 @@ class resample(nn.Module):
             (batch_size, num_channels, tot_output_samp),
             device=waveform.device,
         )
+        self.weights = self.weights.to(waveform.device)
 
         # Check weights are on correct device
         if waveform.device != self.weights.device:
