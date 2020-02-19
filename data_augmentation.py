@@ -496,7 +496,7 @@ class add_noise(nn.Module):
             "do_cache": ("boolean", "optional", "False"),
             "snr_low": ("float(-inf,inf)", "optional", "0"),
             "snr_high": ("float(-inf,inf)", "optional", "0"),
-            "pad_noise": ("boolean", "optional", "True"),
+            "pad_noise": ("boolean", "optional", "False"),
             "mix_prob": ("float(0,1)", "optional", "1"),
             "random_seed": ("int(-inf,inf)", "optional", "None"),
         }
