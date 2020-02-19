@@ -539,14 +539,16 @@ class add_noise(nn.Module):
                              "pass either a first input or a batch_size.")
                 logger_write(error_msg, logfile=logger)
 
-            loader_config = {
-                'class_name': 'core.loop',
-                'scp': self.scp_file,
-                'sentence_sorting': sorting,
-                'batch_size': str(self.batch_size),
-                'do_cache': str(self.do_cache),
-            }
-            self.data_loader = create_dataloader(loader_config)
+            self.data_loader = create_dataloader(
+                {
+                    'class_name': 'core.loop',
+                    'scp': self.scp_file,
+                    'sentence_sorting': sorting,
+                    'batch_size': str(self.batch_size),
+                    'do_cache': str(self.do_cache),
+                },
+                global_config=global_config,
+            )
             self.noise_data = zip(*self.data_loader.dataloader)
 
         # Save the state of the RNG for reproducibility
@@ -857,13 +859,15 @@ class add_reverb(nn.Module):
             sorting = 'original'
 
         # Create a data loader for the RIR waveforms
-        loader_config = {
-            'class_name': 'core.loop',
-            'scp': self.scp_file,
-            'sentence_sorting': sorting,
-            'do_cache': self.do_cache,
-        }
-        self.data_loader = create_dataloader(loader_config)
+        self.data_loader = create_dataloader(
+            {
+                'class_name': 'core.loop',
+                'scp': self.scp_file,
+                'sentence_sorting': sorting,
+                'do_cache': self.do_cache,
+            },
+            global_config=global_config,
+        )
         self.rir_data = zip(*self.data_loader.dataloader)
 
         # Save the state of the RNG for reproducibility
