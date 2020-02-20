@@ -366,6 +366,11 @@ class add_noise(nn.Module):
                            noise audio files. If none is provided, white
                            noise will be used instead.
 
+                       - order (type, str, optional, default: 'random'):
+                           The order to iterate the scp file, from one of
+                           the following options: random, original, ascending,
+                           and descending.
+
                        - batch_size (type, int, optional, default: None):
                            If an scp_file is passed, this controls the number
                            of samples that are loaded at the same time, should
@@ -492,6 +497,7 @@ class add_noise(nn.Module):
         self.expected_options = {
             "class_name": ("str", "mandatory"),
             "scp_file": ("str", "optional", "None"),
+            "order": ("str", "optional", "random"),
             "batch_size": ("int(1,inf)", "optional", "None"),
             "do_cache": ("boolean", "optional", "False"),
             "snr_low": ("float(-inf,inf)", "optional", "0"),
@@ -527,9 +533,6 @@ class add_noise(nn.Module):
         # Initialize a random number generator with the provided seed
         if self.random_seed is not None:
             torch.random.manual_seed(self.random_seed)
-            sorting = 'random'
-        else:
-            sorting = 'original'
 
         # Create a data loader for the noise wavforms
         if self.scp_file is not None:
@@ -543,7 +546,7 @@ class add_noise(nn.Module):
                 {
                     'class_name': 'core.loop',
                     'scp': self.scp_file,
-                    'sentence_sorting': sorting,
+                    'sentence_sorting': self.order,
                     'batch_size': str(self.batch_size),
                     'do_cache': str(self.do_cache),
                 },
