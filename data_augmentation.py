@@ -695,13 +695,16 @@ class add_noise(nn.Module):
                 noise_batch = torch.cat((prepend, noise_batch), axis=-1)
                 wav_len += min_len
 
+        # Ensure noise batch is long enough
+        elif noise_batch.size(-1) < tensor_len:
+            padding = (0, tensor_len - noise_batch.size(-1))
+            noise_batch = nn.functional.pad(noise_batch, padding)
+
         # Select a random starting location in the waveform
         start_index = 0
         if self.random_seed is not None:
-            shortest_index = torch.argmin(wav_len)
-            max_chop = wav_len[shortest_index] - clean_len[shortest_index]
-            if max_chop > 0:
-                start_index = torch.randint(high=max_chop, size=(1,))
+            max_chop = (wav_len - clean_len).min().clamp(min=1)
+            start_index = torch.randint(high=max_chop, size=(1,))
 
         # Truncate noise_batch to tensor_len
         noise_batch = noise_batch[..., start_index:start_index+tensor_len]
