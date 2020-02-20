@@ -155,7 +155,7 @@ def convolve1d(waveform, kernel, padding=0, pad_type='constant',
                      into groups for convolution. Input channels should
                      be divisible by number of groups.
 
-                 - use_fft (type, boolean, optional, default: False):
+                 - use_fft (type, bool, optional, default: False):
                      When `use_fft` is passed `True`, then compute the
                      convolution in the spectral domain using complex
                      multiply. This is more efficient on CPU when the
@@ -387,7 +387,7 @@ class add_noise(nn.Module):
                        - snr_high (type, float, optional, default: 0):
                            The high end of the mixing ratios, in decibels.
 
-                       - pad_noise (type, boolean, optional, default: False):
+                       - pad_noise (type, bool, optional, default: False):
                            If True, copy noise signals that are shorter than
                            their corresponding clean signals so as to cover
                            the whole clean signal. Otherwise, leave the noise
@@ -499,10 +499,10 @@ class add_noise(nn.Module):
             "scp_file": ("str", "optional", "None"),
             "order": ("str", "optional", "random"),
             "batch_size": ("int(1,inf)", "optional", "None"),
-            "do_cache": ("boolean", "optional", "False"),
+            "do_cache": ("bool", "optional", "False"),
             "snr_low": ("float(-inf,inf)", "optional", "0"),
             "snr_high": ("float(-inf,inf)", "optional", "0"),
-            "pad_noise": ("boolean", "optional", "False"),
+            "pad_noise": ("bool", "optional", "False"),
             "mix_prob": ("float(0,1)", "optional", "1"),
             "random_seed": ("int(-inf,inf)", "optional", "None"),
         }
@@ -725,7 +725,7 @@ class add_reverb(nn.Module):
                            The SCP file containing the location of the
                            impulse response files.
 
-                       - do_cache (type, boolean, optional, default: False):
+                       - do_cache (type, bool, optional, default: False):
                            Whether or not to lazily load the files to a
                            cache and read the data from the cache.
 
@@ -827,7 +827,7 @@ class add_reverb(nn.Module):
         self.expected_options = {
             "class_name": ("str", "mandatory"),
             "scp_file": ("str", "mandatory"),
-            "do_cache": ("boolean", "optional", "False"),
+            "do_cache": ("bool", "optional", "False"),
             "reverb_prob": ("float(0,1)", "optional", "1"),
             "random_seed": ("int(-inf, inf)", "optional", "None"),
             "pad_type": (
