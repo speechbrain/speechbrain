@@ -582,12 +582,12 @@ class add_noise(nn.Module):
 
         # Pick an SNR and use it to compute the mixture amplitude factors
         SNR = torch.rand(batch_size, 1, device=clean_waveform.device)
-        SNR = SNR * (self.snr_high - self.snr_low) - self.snr_low
-        clean_amplitude_factor = 1 / (dB_to_amplitude(SNR) + 1)
-        new_noise_amplitude = (1 - clean_amplitude_factor) * clean_amplitude
+        SNR = SNR * (self.snr_high - self.snr_low) + self.snr_low
+        noise_amplitude_factor = 1 / (dB_to_amplitude(SNR) + 1)
+        new_noise_amplitude = noise_amplitude_factor * clean_amplitude
 
         # Scale clean signal appropriately
-        noisy_waveform[:batch_size] *= clean_amplitude_factor
+        noisy_waveform[:batch_size] *= (1 - noise_amplitude_factor)
 
         # Loop through clean samples and create mixture
         if self.scp_file is None:
@@ -1848,12 +1848,12 @@ class add_babble(nn.Module):
 
         # Pick an SNR and use it to compute the mixture amplitude factors
         SNR = torch.rand(batch_size, 1, device=clean_waveform.device)
-        SNR = SNR * (self.snr_high - self.snr_low) - self.snr_low
-        clean_amplitude_factor = 1 / (dB_to_amplitude(SNR) + 1)
-        new_noise_amplitude = (1 - clean_amplitude_factor) * clean_amplitude
+        SNR = SNR * (self.snr_high - self.snr_low) + self.snr_low
+        noise_amplitude_factor = 1 / (dB_to_amplitude(SNR) + 1)
+        new_noise_amplitude = noise_amplitude_factor * clean_amplitude
 
         # Scale clean signal appropriately
-        babbled_waveform *= clean_amplitude_factor
+        babbled_waveform *= (1 - noise_amplitude_factor)
 
         # For each speaker in the mixture, roll and add
         babble_waveform = clean_waveform.roll((1,), dims=0)
