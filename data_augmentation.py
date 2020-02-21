@@ -1628,7 +1628,7 @@ class resample(nn.Module):
         num_indices = max_input_index - min_input_index + 1
 
         max_weight_width = num_indices.max()
-        j = torch.arange(max_weight_width).unsqueeze(0)
+        j = torch.arange(max_weight_width, device=self.device).unsqueeze(0)
         input_index = min_input_index.unsqueeze(1) + j
         delta_t = (input_index / self.orig_freq) - output_t.unsqueeze(1)
 
