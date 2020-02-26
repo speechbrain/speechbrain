@@ -208,10 +208,12 @@ def convolve1d(waveform, kernel, padding=0, pad_type='constant',
     # This approach uses FFT, which is more efficient if the kernel is large
     if use_fft:
 
-        # Pad kernel to same length as signal
-        padding_left = waveform.size(-1) - kernel.size(-1) - rotation_index
-        padding_right = rotation_index
-        kernel = nn.functional.pad(kernel, (padding_left, padding_right))
+        # Pad kernel to same length as signal, ensuring correct alignment
+        zero_length = waveform.size(-1) - kernel.size(-1)
+        zeros = torch.zeros(kernel.size(0), kernel.size(1), zero_length)
+        after_index = kernel[..., rotation_index:]
+        before_index = kernel[..., :rotation_index]
+        kernel = torch.cat((after_index, zeros, before_index), dim=-1)
 
         # Compute FFT for both signals
         f_signal = torch.rfft(waveform, 1)
