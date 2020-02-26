@@ -945,7 +945,7 @@ class add_reverb(nn.Module):
         try:
             wav_id, rir_waveform, length = next(self.rir_data)[0]
         except StopIteration:
-            self.noise_data = zip(*self.data_loader.dataloader)
+            self.rir_data = zip(*self.data_loader.dataloader)
             wav_id, rir_waveform, length = next(self.rir_data)[0]
 
         # Make sure RIR has correct channels
