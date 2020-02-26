@@ -210,6 +210,13 @@ def convolve1d(waveform, kernel, padding=0, pad_type='constant',
 
         # Pad kernel to same length as signal, ensuring correct alignment
         zero_length = waveform.size(-1) - kernel.size(-1)
+
+        # Handle case where signal is shorter
+        if zero_length < 0:
+            kernel = kernel[..., :zero_length]
+            zero_length = 0
+
+        # Perform rotation to ensure alignment
         zeros = torch.zeros(kernel.size(0), kernel.size(1), zero_length)
         after_index = kernel[..., rotation_index:]
         before_index = kernel[..., :rotation_index]
