@@ -2116,6 +2116,12 @@ class drop_chunk(nn.Module):
                            The high end of number of times that the signal
                            can be dropped to zero.
 
+                       - drop_start (type, int, optional, default: 0):
+                           The first index for which dropping will be allowed.
+
+                       - drop_end (type, int, optional, default: None):
+                           The last index for which dropping will be allowed.
+
                        - drop_prob (type, float, optional, default: 1.0):
                            The probability that the batch of signals will
                            have a portion dropped. By default, every batch
@@ -2210,6 +2216,8 @@ class drop_chunk(nn.Module):
             "drop_length_high": ("int(0,inf)", "optional", "1000"),
             "drop_count_low": ("int(0,inf)", "optional", "1"),
             "drop_count_high": ("int(0,inf)", "optional", "10"),
+            "drop_start": ("int(-inf,inf)", "optional", "0"),
+            "drop_end": ("int(-inf,inf)", "optional", "None"),
             "drop_prob": ("float(0,1)", "optional", "1"),
             "random_seed": ("int(-inf,inf)", "optional", "None"),
         }
@@ -2259,7 +2267,7 @@ class drop_chunk(nn.Module):
         # Pick a number of times to drop
         drop_times = torch.randint(
             low=self.drop_count_low,
-            high=self.drop_count_high,
+            high=self.drop_count_high + 1,
             size=(batch_size,),
         )
 
@@ -2269,13 +2277,25 @@ class drop_chunk(nn.Module):
             # Pick lengths
             length = torch.randint(
                 low=self.drop_length_low,
-                high=self.drop_length_high,
+                high=self.drop_length_high + 1,
                 size=(drop_times[i],),
             )
 
+            # Compute range of starting locations
+            start_min = self.drop_start
+            if start_min < 0:
+                start_min += clean_length[i]
+            start_max = self.drop_end
+            if start_max is None:
+                start_max = clean_length[i]
+            if start_max < 0:
+                start_max += clean_length[i]
+            start_max -= length.max()
+
             # Pick starting locations
             start = torch.randint(
-                high=clean_length[i] - length.max(),
+                low=start_min,
+                high=start_max + 1,
                 size=(drop_times[i],),
             )
 
