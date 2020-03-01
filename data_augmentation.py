@@ -57,9 +57,9 @@ def check_input_shapes(expected_dims, inputs, logger=None):
     """
 
     # Check all inputs
-    for i in range(len(inputs)):
+    for i, input_to_check in enumerate(inputs):
 
-        dimensions = len(inputs[i].shape)
+        dimensions = len(input_to_check.shape)
 
         # For efficiency, only do something if an error occurs
         if dimensions not in expected_dims[i]:
@@ -198,7 +198,7 @@ def convolve1d(waveform, kernel, padding=0, pad_type='constant',
     ----------------------------------------------------
     """
 
-    if type(padding) is tuple:
+    if isinstance(padding, tuple):
         waveform = nn.functional.pad(
             input=waveform,
             pad=padding,
@@ -238,14 +238,13 @@ def convolve1d(waveform, kernel, padding=0, pad_type='constant',
         return torch.irfft(f_result, 1)
 
     # Use the implemenation given by torch, which should be efficient on GPU
-    else:
-        return nn.functional.conv1d(
-            input=waveform,
-            weight=kernel,
-            stride=stride,
-            groups=groups,
-            padding=padding if type(padding) is not tuple else 0,
-        )
+    return nn.functional.conv1d(
+        input=waveform,
+        weight=kernel,
+        stride=stride,
+        groups=groups,
+        padding=padding if not isinstance(padding, tuple) else 0,
+    )
 
 
 def dB_to_amplitude(a):
@@ -269,7 +268,7 @@ def dB_to_amplitude(a):
     return 10 ** (a / 20)
 
 
-def notch_filter(notch_freq, N=101, notch_width=0.05):
+def notch_filter(notch_freq, filter_width=101, notch_width=0.05):
     """
     ---------------------------------------------------------
     data_augmentation.notch_filter(from https://tomroelandts.com/articles/
@@ -320,10 +319,10 @@ def notch_filter(notch_freq, N=101, notch_width=0.05):
     """
 
     # Check inputs
-    assert notch_freq > 0 and notch_freq <= 1
-    assert N % 2 != 0
-    pad = N // 2
-    n = torch.arange(N) - pad
+    assert 0 < notch_freq <= 1
+    assert filter_width % 2 != 0
+    pad = filter_width // 2
+    inputs = torch.arange(filter_width) - pad
 
     # Avoid frequencies that are too low
     notch_freq += notch_width
@@ -337,13 +336,13 @@ def notch_filter(notch_freq, N=101, notch_width=0.05):
         return torch.cat([_sinc(x[:pad]), torch.ones(1), _sinc(x[pad+1:])])
 
     # Compute a low-pass filter with cutoff frequency notch_freq.
-    hlpf = sinc(3 * (notch_freq - notch_width) * n)
-    hlpf *= torch.blackman_window(N)
+    hlpf = sinc(3 * (notch_freq - notch_width) * inputs)
+    hlpf *= torch.blackman_window(filter_width)
     hlpf /= torch.sum(hlpf)
 
     # Compute a high-pass filter with cutoff frequency notch_freq.
-    hhpf = sinc(3 * (notch_freq + notch_width) * n)
-    hhpf *= torch.blackman_window(N)
+    hhpf = sinc(3 * (notch_freq + notch_width) * inputs)
+    hhpf *= torch.blackman_window(filter_width)
     hhpf /= -torch.sum(hhpf)
     hhpf[pad] += 1
 
