@@ -1,0 +1,5 @@
+ID, duration, wav, wav_format, wav_opts, spk_id, spk_id_format, spk_id_opts, ali, ali_format, ali_opts, phn, phn_format, phn_opts
+
+spk1_snt6, 2.29,$data_folderspk1_snt6.wav, wav, ,spk1,string, ,$data_folderspk1_snt6.pkl,pkl, ,dh ax cl p eh n s el z hh ae v ao l vcl b ih n y uw z vcl,string, 
+
+spk2_snt6 ,1.8,$data_folderspk2_snt6.wav, wav, ,spk2,string, ,$data_folderspk2_snt6.pkl,pkl, ,k ae n vcl d cl p eh r z l ae cl k f uh l f l ey v,string, 

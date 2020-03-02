@@ -1,3 +1,4 @@
+
 """
 -------------------------------------------------------------------------------
  speechbrain.py (author: Mirco Ravanelli)
@@ -17,8 +18,8 @@
 
 # Importing libraries
 import sys
-from utils import create_exec_config
-from core import execute_computations
+from lib.utils import create_exec_config
+from lib.core import execute_computations
 
 
 # Definition of the main function
@@ -30,9 +31,9 @@ if __name__ == "__main__":
 
     # Creating config dict for executing computations
     exec_config = create_exec_config(cfg_file, cmd_arg)
-
+    
     # Initializing the execute computation class
     computations = execute_computations(exec_config)
-
+    
     # Executing the computations specified in the config file
     computations([])
