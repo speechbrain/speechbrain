@@ -28,7 +28,7 @@ def import_class(library, logfile=None):
      Output (call):  target_class (type: class)
 
 
-     Example:  from lib.utils.superpowers import import_class
+     Example:  from speechbrain.utils.superpowers import import_class
 
                # importing class
                loop=import_class('lib.core.execute_computations')
@@ -87,7 +87,7 @@ def run_shell(cmd, logger=None):
                        it is a string containign the standard output
 
 
-     Example:   from lib.utils.superpowers import run_shell
+     Example:   from speechbrain.utils.superpowers import run_shell
 
                 run_shell("echo 'hello world'")
 

@@ -52,7 +52,7 @@ def get_all_files(
                        it is the output list of files.
 
 
-     Example:   from lib.utils.data_utils import get_all_files
+     Example:   from speechbrain.utils.data_utils import get_all_files
 
                 # List of wav files
                 print(get_all_files('samples',match_and=['.wav']))
@@ -157,7 +157,7 @@ def split_list(seq, num):
                        it is a list containing all chunks created.
 
 
-     Example:  from lib.utils.data_utils import split_list
+     Example:  from speechbrain.utils.data_utils import split_list
 
                print(split_list([1,2,3,4,5,6,7,8,9],4))
 

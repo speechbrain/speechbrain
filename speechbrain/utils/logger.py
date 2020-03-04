@@ -39,8 +39,8 @@ def setup_logger(
      Output (call):  logger (type class logger)
 
 
-     Example:   from lib.utils.logger import setup_logger
-                from lib.utils.logger import logger_write
+     Example:   from speechbrain.utils.logger import setup_logger
+                from speechbrain.utils.logger import logger_write
 
                 # Initialization of the logger
                 logfile=setup_logger('logger','exp/log.log')
@@ -104,8 +104,8 @@ def logger_write(msg, logfile=None, level="error"):
      Output (call):  None
 
 
-     Example:   from from lib.utils.logger import setup_logger
-                from from lib.utils.logger import logger_write
+     Example:   from from speechbrain.utils.logger import setup_logger
+                from from speechbrain.utils.logger import logger_write
 
                 # Initialization of the logger
                 logfile=setup_logger('logger','exp/log.log')

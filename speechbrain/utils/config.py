@@ -433,7 +433,7 @@ def write_config(text, filename, modality="w", logger=None):
      Output (call):  None
 
 
-     Example:   from lib.utils.config import write_config
+     Example:   from speechbrain.utils.config import write_config
 
                 text='hello world!'
 
@@ -494,7 +494,7 @@ def conf_to_text(config, conf_text=None, tabs=None):
      Output (call):  - conf_text (type: str)
 
 
-     Example:   from lib.utils.config import conf_to_text
+     Example:   from speechbrain.utils.config import conf_to_text
 
                 config={'global':'verbosity:1'}
 
@@ -578,7 +578,7 @@ def replace_global_variable(
      Output (call):  None
 
 
-     Example:   from lib.utils.config import replace_global_variable
+     Example:   from speechbrain.utils.config import replace_global_variable
 
                 # Initialization of the config dictionary
                 config={'functions':{'param1':'1','param2':'$glob_value'}}
@@ -653,7 +653,7 @@ def process_cmd_string(cmd_str, all_funct):
                      the functions are executed through self.run_functions
                      
 
-     Example:    from lib.utils.config import process_cmd_string
+     Example:    from speechbrain.utils.config import process_cmd_string
      
                  cmd_str='out=my_function(input1,input2)'
                  all_funct=['my_function','my_function2']
@@ -707,7 +707,7 @@ def create_exec_config(cfg_file, cmd_arg):
                        computations.
 
 
-     Example:   from lib.utils.config import create_exec_config
+     Example:   from speechbrain.utils.config import create_exec_config
 
                 cfg_file='cfg/minimal_examples/data_reading\
                 /read_data_example.cfg'
@@ -745,7 +745,7 @@ def remove_comments(line):
                        it is the output line (without comments)
 
 
-     Example:  from lib.utils.config import remove_comments
+     Example:  from speechbrain.utils.config import remove_comments
 
                print(remove_comments('Hello! # World'))
 
