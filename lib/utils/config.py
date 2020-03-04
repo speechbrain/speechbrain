@@ -1,3 +1,12 @@
+"""
+ -----------------------------------------------------------------------------
+ config.py
+
+ Description: This library gathers utils functions for reading and writing
+              configuration files.
+ -----------------------------------------------------------------------------
+"""
+
 import os
 import re
 import numpy

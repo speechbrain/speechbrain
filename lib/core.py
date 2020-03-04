@@ -1964,6 +1964,7 @@ class execute_computations(nn.Module):
                      
                      cmd_str_repl=computations.manage_replicate(cmd_str)
                      
+                     # added connections
                      print(cmd_str_repl)
                      
          ---------------------------------------------------------------------
@@ -2002,77 +2003,146 @@ class execute_computations(nn.Module):
         cmd_str=self.config_proc_replicate['computations']
         
         return cmd_str
-    
-    def create_replace_dict(self,):
 
-        self.replace_dict={}
+    def replicate_computations(self,cmd_to_replicate,current_inp):
+        """
+         ---------------------------------------------------------------------
+         core.execute_computations.replicate_computations
+         (author: Mirco Ravanelli)
+
+         Description: This support function takes in input the command string
+                      to replicate and stores the computations in 
+                      self.config_proc_replicate['computations'].
+
+         Input:       - cmd_to_replicate (type: string, mandatory)
+                         it is a string contaning the computations to 
+                         replicate.
+                         
+                     - current_inp (type: string, mandatory)
+                         it is a string containing the variable in input
+                         to the computation block.
+
+
+         Output:      - None
+                         the output is saved in self.config_proc_replicate['computations']                     
+         ---------------------------------------------------------------------
+        """
+         
+        out_lst=[]
         
-        if self.replicate_with is not None:
+        lin_comb_cnt=0
+        
+        # Replicating the computations
+        for block_id in range(self.replicate):
             
-            replicate_with_fields = self.replicate_with.split(' ')
+            cmd_append = cmd_to_replicate
             
-            for repl_str in replicate_with_fields:
-                
-                field = repl_str.split('=')[0].replace(',','_')
-                
-                self.replace_dict[field]=[]
-                
-                values = repl_str.split('=')[1].split(',')
-                
-                for value in values:
+            # replacing function name
+            for funct_name in self.config_proc['functions']:
+                cmd_append = cmd_append.replace('"'+funct_name+'"','"'+funct_name+'_'+str(block_id)+'"')
+            
+            cmd_append = cmd_append.replace('$current_inp',current_inp)
+            
+            cmd_append = cmd_append.replace('$current_out',self.out_var[0]+'_'+str(block_id))
+            
+            out_lst.append(self.out_var[0]+'_'+str(block_id))
+            
+            
+            # Adding residual connection:
+            if self.add_connections == 'residual' and block_id > 0:               
+                cmd_append,lin_comb_cnt=self.add_residual(cmd_append,block_id,out_lst,lin_comb_cnt)
+                current_inp =self.out_var[0]+'_'+str(block_id)+'_res' 
                     
-                    val_append=[value]
-                                            
-                    if '*' in value:
-                        val = value.split('*')[0]
-                        multiplier = int(value.split('*')[1])
-
-                        if ':' in val:
-                            val=val.replace(':',',')
-                        
-                        val_append=[val] *   multiplier
-                        
-                    else:
-                        
-                        if ':' in value:
-                            val_append=[value.replace(':',',')]
-                            
-                        
-                    self.replace_dict[field] = self.replace_dict[field] + val_append
-                      
-
-    def add_residual(self,cmd_append,block_id,out_lst,lin_comb_cnt):
-        
+            # Adding dense connection:     
+            elif self.add_connections == 'dense' and block_id > 0:
+                cmd_append,lin_comb_cnt=self.add_dense(cmd_append,block_id,out_lst,lin_comb_cnt)
+                current_inp =self.out_var[0]+'_'+str(block_id)+'_dense'
                 
+            else:
+                current_inp =self.out_var[0]+'_'+str(block_id)
+            
+            # Appending command
+            self.config_proc_replicate['computations']=self.config_proc_replicate['computations']+cmd_append+'\n'
+            
+        # Managing dense connections
+        if self.add_connections == 'dense':
+           self.config_proc_replicate['computations']=self.config_proc_replicate['computations']+str(self.out_var[0])+'=' + self.out_var[0]+'_'+str(block_id) + '_dense' 
+        
+        # Managing residual connections
+        elif self.add_connections == 'residual':
+            self.config_proc_replicate['computations']=self.config_proc_replicate['computations']+str(self.out_var[0])+'=' + self.out_var[0]+'_'+str(block_id) + '_res'
+     
+        # Managing skip connections
+        elif self.add_connections == 'skip':
+            lin_comb_cnt=self.add_skip(block_id,out_lst,lin_comb_cnt)
+            self.config_proc_replicate['computations']=self.config_proc_replicate['computations']+str(self.out_var[0])+'=' + self.out_var[0]+'_'+str(block_id) + '_skip'
+        
+        # Managing standard case (no shortcut connections)
+        else:
+            self.config_proc_replicate['computations']=self.config_proc_replicate['computations']+str(self.out_var[0])+'=' + self.out_var[0]+'_'+str(block_id)  
+        
+        self.config_proc_replicate['computations'] = self.config_proc_replicate['computations'].split('\n')
+        
+        
+        
+    def add_residual(self,cmd_append,block_id,out_lst,lin_comb_cnt):
+        """
+         ---------------------------------------------------------------------
+         core.execute_computations.add_residual
+         (author: Mirco Ravanelli)
+
+         Description: This function creates residual connnections when 
+                      replicating the basic computation block.
+
+         ---------------------------------------------------------------------
+         """        
+        
+        # Managing diffence combination        
         if self.connection_merge == 'diff':
             cmd_append='\n'+cmd_append+self.out_var[0]+'_'+str(block_id)+'_res='+self.out_var[0]+'_'+str(block_id)+"-"+out_lst[-2]
         
+        # Managing sum combination        
         if self.connection_merge == 'sum':
             cmd_append='\n'+cmd_append+self.out_var[0]+'_'+str(block_id)+'_res='+self.out_var[0]+'_'+str(block_id)+"+"+out_lst[-2] 
-            
+          
+        # Managing average combination        
         if self.connection_merge == 'average':
             cmd_append='\n'+cmd_append+self.out_var[0]+'_'+str(block_id)+'_res=('+self.out_var[0]+'_'+str(block_id)+"+"+out_lst[-2]+')/2' 
         
+        # Managing concat combination       
         if self.connection_merge == 'concat':
             cmd_append='\n'+cmd_append+self.out_var[0]+'_'+str(block_id)+'_res=torch.cat(['+self.out_var[0]+'_'+str(block_id)+","+out_lst[-2]+'],dim=1)'
         
+        # Managing linear combination    
         if self.connection_merge == 'linear_comb':
             
-            # add linear_comb function in the function pool
+            # Adding linear_comb function in the function pool
             lin_comb_id = 'linear_comb_'+str(lin_comb_cnt)
             lin_comb_cfg={'class_name':'neural_networks.linear_combination'}
             self.config_proc_replicate['functions'][lin_comb_id]=lin_comb_cfg
             
-            # adding computation
+            # Adding computation
             cmd_append='\n'+cmd_append+self.out_var[0]+'_'+str(block_id)+'_res=self.run_function("linear_comb_'+str(lin_comb_cnt)+'",'+out_lst[-2]+','+self.out_var[0]+'_'+str(block_id)+')'
             
-            
+            # Updating linear combination counter
             lin_comb_cnt=lin_comb_cnt+1
                     
         return cmd_append, lin_comb_cnt
                             
+    
     def add_dense(self,cmd_append,block_id,out_lst,lin_comb_cnt):
-        
+        """
+         ---------------------------------------------------------------------
+         core.execute_computations.add_dense
+         (author: Mirco Ravanelli)
+
+         Description: This function creates dense connnections when 
+                      replicating the basic computation block.
+
+         ---------------------------------------------------------------------
+         """  
+
+        # Managing diffence combination         
         if self.connection_merge == 'diff':
             cmd_dense=''
             for out in out_lst:
@@ -2080,14 +2150,15 @@ class execute_computations(nn.Module):
                 
             cmd_append='\n'+cmd_append+self.out_var[0]+'_'+str(block_id)+'_dense='+cmd_dense[0:-1]
             
-        
+        # Managing sum combination         
         if self.connection_merge == 'sum':
             cmd_dense=''
             for out in out_lst:
                 cmd_dense=cmd_dense+out+'+'
                 
             cmd_append='\n'+cmd_append+self.out_var[0]+'_'+str(block_id)+'_dense='+cmd_dense[0:-1]
-           
+        
+        # Managing average combination     
         if self.connection_merge == 'average':
             cmd_dense = ''
             for out in out_lst:
@@ -2095,14 +2166,15 @@ class execute_computations(nn.Module):
                 
             cmd_append='\n'+cmd_append+self.out_var[0]+'_'+str(block_id)+'_dense='+cmd_dense[0:-1]    
         
-            
+        # Managing concat combination         
         if self.connection_merge == 'concat':
             cmd_dense = 'torch.cat(['
             for out in out_lst:
                 cmd_dense=cmd_dense+out+','
             
             cmd_append='\n'+cmd_append+self.out_var[0]+'_'+str(block_id)+'_dense='+cmd_dense[0:-1]+'],dim=1)\n'
-            
+        
+        # Managing linear combination         
         if self.connection_merge == 'linear_comb':
             
             # adding linear combination function
@@ -2110,9 +2182,10 @@ class execute_computations(nn.Module):
             lin_comb_cfg={'class_name':'neural_networks.linear_combination'}
             self.config_proc_replicate['functions'][lin_comb_id]=lin_comb_cfg
                 
-            
+
             cmd_dense = ''
             
+            # Linear combination of all the block outputs
             for out in out_lst:
                 
                 # adding computation
@@ -2125,7 +2198,18 @@ class execute_computations(nn.Module):
                         
     
     def add_skip(self,block_id,out_lst,lin_comb_cnt):
+        """
+         ---------------------------------------------------------------------
+         core.execute_computations.add_skip
+         (author: Mirco Ravanelli)
+
+         Description: This function creates skip connnections when 
+                      replicating the basic computation block.
+
+         ---------------------------------------------------------------------
+        """
         
+        # Managing sum combination     
         if self.connection_merge == 'sum':
             cmd_skip = ''
             for out in out_lst:
@@ -2133,7 +2217,7 @@ class execute_computations(nn.Module):
                     
             self.config_proc_replicate['computations']='\n'+self.config_proc_replicate['computations']+self.out_var[0]+'_'+str(block_id)+'_skip='+cmd_skip[0:-1]+'\n'
         
-        
+        # Managing difference combination   
         if self.connection_merge == 'diff':
             cmd_skip = ''
             for out in out_lst:
@@ -2141,7 +2225,7 @@ class execute_computations(nn.Module):
                     
             self.config_proc_replicate['computations']='\n'+self.config_proc_replicate['computations']+self.out_var[0]+'_'+str(block_id)+'_skip='+cmd_skip[0:-1]+'\n'
         
-        
+        # Managing average combination   
         if self.connection_merge == 'average':
             cmd_skip = ''
             for out in out_lst:
@@ -2149,7 +2233,7 @@ class execute_computations(nn.Module):
                     
             self.config_proc_replicate['computations']='\n'+self.config_proc_replicate['computations']+self.out_var[0]+'_'+str(block_id)+'_skip='+cmd_skip[0:-1]+'\n'
             
-        
+        # Managing concat combination   
         if self.connection_merge == 'concat':
             cmd_skip = 'torch.cat(['
             for out in out_lst:
@@ -2157,10 +2241,10 @@ class execute_computations(nn.Module):
                     
             self.config_proc_replicate['computations']='\n'+self.config_proc_replicate['computations']+self.out_var[0]+'_'+str(block_id)+'_skip='+cmd_skip[0:-1]+'],dim=1)\n'
         
-        
+        # Managing linear combination   
         if self.connection_merge == 'linear_comb':
             
-            # adding linear combination function
+            # Adding linear combination function
             lin_comb_id = 'linear_comb_'+str(lin_comb_cnt)
             lin_comb_cfg={'class_name':'neural_networks.linear_combination'}
             self.config_proc_replicate['functions'][lin_comb_id]=lin_comb_cfg
@@ -2168,9 +2252,9 @@ class execute_computations(nn.Module):
             
             cmd_skip = ''
             
-            for out in out_lst:
-                
-                # adding computation
+            # Combining all the outputs of the blocks
+            for out in out_lst:   
+                # Adding computation
                 cmd_skip=cmd_skip+out+','
         
             self.config_proc_replicate['computations']='\n'+self.config_proc_replicate['computations']+self.out_var[0]+'_'+str(block_id)+'_skip=self.run_function("linear_comb_'+ str(lin_comb_cnt)+'",'+  cmd_skip[:-1]+')\n'
@@ -2178,39 +2262,151 @@ class execute_computations(nn.Module):
             
         return lin_comb_cnt
     
-    
-    def detect_cmd_to_replicate(self,cmd_str):
+
+    def create_replace_dict(self,):
+        """
+         ---------------------------------------------------------------------
+         core.execute_computations.create_replace_dict
+         (author: Mirco Ravanelli)
+
+         Description: This function analysize the replicate_with field and
+                      creates a dictionary with the changes to to at each
+                      replica.
+
+         Input:       -None
+
+
+         Output:      - None
+                         the dictionary is written in self.replace_dict
+
+         Example:    from lib.core import execute_computations
+
+                     cfg_file='cfg/minimal_examples/neural_networks/spk_id/spk_id_example.cfg'
+
+                     # Definition of the exec_config dictionary
+                     exec_config={'class_name':'core.execute_computations', \
+                                  'cfg_file': cfg_file}
+
+                     # Initialization of the class
+                     computations=execute_computations(exec_config)
+                     
+                     # set the number of replicas
+                     computations.replicate_with='conv2d,kernel_size=5:9*2,9:5 conv2d,out_channels=2*3'
+                     
+                     # computing the replace dict
+                     computations.create_replace_dict()
+                     
+                     # replace_dict
+                     print(computations.replace_dict)
+                                          
+         ---------------------------------------------------------------------
+         """
+         
+        # Initialization of the dictionary
+        self.replace_dict={}
         
+        # Creating the replace _dict
+        if self.replicate_with is not None:
+
+            # Separate the replicate fields
+            replicate_with_fields = self.replicate_with.split(' ')
+            
+            # Processing all the entries
+            for repl_str in replicate_with_fields:
+                
+                # Getting the field to change
+                field = repl_str.split('=')[0].replace(',','_')
+                
+                self.replace_dict[field]=[]
+                
+                # Getting the values
+                values = repl_str.split('=')[1].split(',')
+                
+                # Processing all the values
+                for value in values:
+                    
+                    val_append=[value]
+                    
+                    # '*' indicates the number of replica to get with
+                    # the corresponding value                        
+                    if '*' in value:
+                        val = value.split('*')[0]
+                        multiplier = int(value.split('*')[1])
+                        
+                        # ':' is use to set up the value to replace
+                        if ':' in val:
+                            val=val.replace(':',',')
+                        
+                        val_append=[val] *   multiplier
+                        
+                    else:
+                        
+                        if ':' in value:
+                            val_append=[value.replace(':',',')]
+                            
+                    # Appending value to the replace dictionary    
+                    self.replace_dict[field] = self.replace_dict[field] + val_append
+                    
+                    
+    def detect_cmd_to_replicate(self,cmd_str):
+        """
+         ---------------------------------------------------------------------
+         core.execute_computations.detect_cmd_to_replicate
+         (author: Mirco Ravanelli)
+
+         Description: This function analyzes the command string and detects
+                      automatically the block of computations to replicate.
+
+         Input:       - cmd_str (type: string, mandatory)
+                         it is a string contaning the basic computation
+                         to replicate.
+
+
+         Output:      - cmd_to_replicate,current_inp (type: str)
+                         it is the part of the command to replicate                     
+         ---------------------------------------------------------------------
+         """        
         self.config_proc_replicate['computations']=''
            
         cmd_to_replicate = ''
         
         first_comp = True
         
+        # Loop over all the command lines
         for cmd_id, cmd in enumerate(cmd_str.split('\n')):
             
+            # Append get_input_var
             if 'get_input_var()' in cmd:
                 self.config_proc_replicate['computations']=cmd+'\n'
             else:
                                     
                 if first_comp:
-                    # check the input of this computation block
+                    
+                    # Check the input of this computation block
                     current_inp=cmd[cmd.find('",')+2:cmd.find(')')].split(',')[0]
                     
+                    # replace input with the tag $current_inp 
+                    # this operation is useful to later detect the input
+                    # of the computation block. This must be done only
+                    # for hte first computation line (i.e, the one take
+                    # takes the input variable)
                     cmd = cmd.replace(','+current_inp,',$current_inp')
                     
                     first_comp=False
                     
                 if cmd_id == len(cmd_str.split('\n'))-1:
+                   
                    current_out=cmd.split('=')[0].split(',')[0]
                    
                    out_vars = cmd.split('=')[0]
                    cmd = cmd.split('=')[1:]
                    
+                   # Tagging the current output as $current_out
                    out_vars = out_vars.replace(current_out,'$current_out')
                    
                    cmd = out_vars + '=' + "=".join(cmd) 
-                   
+                
+                # Appending command
                 cmd_to_replicate = cmd_to_replicate + cmd + '\n' 
         
         
@@ -2218,12 +2414,26 @@ class execute_computations(nn.Module):
     
     
     def replicate_functions(self):
+        """
+         ---------------------------------------------------------------------
+         core.execute_computations.replicate_functions
+         (author: Mirco Ravanelli)
+
+         Description: This function check for all the functions defined in
+                      the config file and replicates them.                 
+         -----
+        """
         
         self.config_proc_replicate['functions']={}
         
+        # Replicate the functions self.replicate times
         for block_id in range(self.replicate):
+            
+            # Loop over all the function defined in the config file
             for funct_name in self.config_proc['functions']:
                 
+                # Replicate the function with a different name 
+                # (i.e, funct_name_block_id)
                 funct_rep = funct_name+'_'+str(block_id)
                 self.config_proc_replicate['functions'][funct_rep] =  self.config_proc['functions'][funct_name].copy()
                 
@@ -2231,57 +2441,3 @@ class execute_computations(nn.Module):
                 for field in self.config_proc_replicate['functions'][funct_rep]:
                     if funct_name+'_'+field in self.replace_dict:
                         self.config_proc_replicate['functions'][funct_rep][field] = self.replace_dict[funct_name+'_'+field][block_id]
-
-
-    def replicate_computations(self,cmd_to_replicate,current_inp):
-        
-        out_lst=[]
-        
-        lin_comb_cnt=0
-        
-        for block_id in range(self.replicate):
-            
-            cmd_append = cmd_to_replicate
-            
-            for funct_name in self.config_proc['functions']:
-                cmd_append = cmd_append.replace('"'+funct_name+'"','"'+funct_name+'_'+str(block_id)+'"')
-            
-            cmd_append = cmd_append.replace('$current_inp',current_inp)
-            
-            cmd_append = cmd_append.replace('$current_out',self.out_var[0]+'_'+str(block_id))
-            
-            out_lst.append(self.out_var[0]+'_'+str(block_id))
-            
-            
-            # Adding Residual connection:
-            if self.add_connections == 'residual' and block_id > 0:               
-                cmd_append,lin_comb_cnt=self.add_residual(cmd_append,block_id,out_lst,lin_comb_cnt)
-                current_inp =self.out_var[0]+'_'+str(block_id)+'_res' 
-                    
-                
-            elif self.add_connections == 'dense' and block_id > 0:
-                cmd_append,lin_comb_cnt=self.add_dense(cmd_append,block_id,out_lst,lin_comb_cnt)
-                current_inp =self.out_var[0]+'_'+str(block_id)+'_dense'
-                
-            else:
-                current_inp =self.out_var[0]+'_'+str(block_id)
-            
-            
-            self.config_proc_replicate['computations']=self.config_proc_replicate['computations']+cmd_append+'\n'
-            
-
-        if self.add_connections == 'dense':
-           self.config_proc_replicate['computations']=self.config_proc_replicate['computations']+str(self.out_var[0])+'=' + self.out_var[0]+'_'+str(block_id) + '_dense' 
-        
-        elif self.add_connections == 'residual':
-            self.config_proc_replicate['computations']=self.config_proc_replicate['computations']+str(self.out_var[0])+'=' + self.out_var[0]+'_'+str(block_id) + '_res'
-     
-        elif self.add_connections == 'skip':
-            lin_comb_cnt=self.add_skip(block_id,out_lst,lin_comb_cnt)
-            self.config_proc_replicate['computations']=self.config_proc_replicate['computations']+str(self.out_var[0])+'=' + self.out_var[0]+'_'+str(block_id) + '_skip'
-             
-        else:
-            self.config_proc_replicate['computations']=self.config_proc_replicate['computations']+str(self.out_var[0])+'=' + self.out_var[0]+'_'+str(block_id)  
-        
-        self.config_proc_replicate['computations'] = self.config_proc_replicate['computations'].split('\n')
-    

@@ -1,3 +1,11 @@
+"""
+ -----------------------------------------------------------------------------
+ logger.py
+
+ Description: This library contains functions for managing the logger.
+ -----------------------------------------------------------------------------
+"""
+
 import logging
 import sys
 import traceback

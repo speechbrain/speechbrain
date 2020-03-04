@@ -1,3 +1,12 @@
+"""
+ -----------------------------------------------------------------------------
+ input_validation.py
+
+ Description: This library contains functions for validation of input 
+              and hyperparameters.
+ -----------------------------------------------------------------------------
+"""
+
 import os
 from pydoc import locate
 

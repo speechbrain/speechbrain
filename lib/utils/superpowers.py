@@ -1,3 +1,12 @@
+"""
+ -----------------------------------------------------------------------------
+ superpowerrs.py
+
+ Description: This library contains functions for importing python classes and
+              for running shell commands.
+ -----------------------------------------------------------------------------
+"""
+
 import importlib
 import subprocess
 
