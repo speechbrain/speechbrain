@@ -13,8 +13,9 @@
 import math
 import torch
 import torch.nn as nn
-from ..utils import check_opts, logger_write, check_inputs
-from ..data_io.data_io import recovery, initialize_with
+from lib.utils.input_validation import check_opts, check_inputs
+from lib.utils.logger import logger_write
+from lib.data_io.data_io import recovery, initialize_with
 
 
 

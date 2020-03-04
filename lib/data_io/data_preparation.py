@@ -10,14 +10,12 @@ import os
 import sys
 import csv
 import errno
-from ..utils import (
-    check_opts,
-    get_all_files,
-    logger_write,
-    check_inputs,
-    run_shell,
-)
-from .data_io import (
+from lib.utils.input_validation import check_opts,check_inputs
+from lib.utils.data_utils import get_all_files
+from lib.utils.logger import logger_write
+from lib.utils.superpowers import run_shell
+
+from lib.data_io.data_io import (
     read_wav_soundfile,
     load_pkl,
     save_pkl,
@@ -29,7 +27,7 @@ from .data_io import (
 class copy_data_locally:
     """
      -------------------------------------------------------------------------
-     data_preparation.copy_data_locally (author: Mirco Ravanelli)
+     lib.data_io.data_preparation.copy_data_locally (author: Mirco Ravanelli)
 
      Description: This class copies a compressed dataset into another folder.
                   It can be used to store the data locally when the original
@@ -93,7 +91,7 @@ class copy_data_locally:
                        Otherwise it returns None. It this case it returns
                        always None.
 
-     Example:    from data_preparation import copy_data_locally
+     Example:    from lib.data_io.data_preparation import copy_data_locally
 
                  data_file='/home/mirco/datasets/TIMIT.tar.gz'
                  local_folder='/home/mirco/datasets/local_folder/TIMIT'
@@ -105,6 +103,7 @@ class copy_data_locally:
 
                 # Initialization of the class
                 copy_data_locally(config)
+
 
      -------------------------------------------------------------------------
      """
@@ -215,7 +214,7 @@ class copy_data_locally:
 class timit_prepare:
     """
      -------------------------------------------------------------------------
-     data_preparation.timit_prepare (author: Mirco Ravanelli)
+     lib.data_io.data_preparation.timit_prepare (author: Mirco Ravanelli)
 
      Description: This class prepares the csv files for the TIMIT dataset.
 
@@ -284,7 +283,7 @@ class timit_prepare:
                        Otherwise it returns None. It this case it returns
                        always None.
 
-     Example:    from data_preparation import timit_prepare
+     Example:    from lib.data_io.data_preparation import timit_prepare
 
                  local_folder='/home/mirco/datasets/TIMIT'
                  save_folder='exp/TIMIT_exp'
@@ -598,7 +597,7 @@ class timit_prepare:
     def skip(self):
         """
          ---------------------------------------------------------------------
-         data_preparation.prepare_timit.skip (author: Mirco Ravanelli)
+          lib.data_io.data_preparation.prepare_timit.skip (author: Mirco Ravanelli)
 
          Description: This function detects when the timit data_preparation
                       has been already done and can be skipped.
@@ -610,7 +609,7 @@ class timit_prepare:
                            if True, the preparation phase can be skipped.
                            if False, it must be done.
 
-         Example:    from data_preparation import timit_prepare
+         Example:    from lib.data_io.data_preparation import timit_prepare
 
                      local_folder='/home/mirco/datasets/TIMIT'
                      save_folder='exp/TIMIT_exp'
@@ -625,9 +624,9 @@ class timit_prepare:
                     # Initialization of the class
                     data_prep=timit_prepare(config)
 
-                   # Skip function is True because data_pre has already
-                   been done:
-                   print(data_prep.skip())
+                    # Skip function is True because data_pre has already
+                    been done:
+                    print(data_prep.skip())
 
          ---------------------------------------------------------------------
          """
@@ -657,7 +656,7 @@ class timit_prepare:
     ):
         """
          ---------------------------------------------------------------------
-         data_preparation.prepare_timit.create_csv (author: Mirco Ravanelli)
+          lib.data_io.data_preparation.prepare_timit.create_csv (author: Mirco Ravanelli)
 
          Description: This function creates the csv file given a list of wav
                        files.
@@ -684,7 +683,7 @@ class timit_prepare:
          Output:      None
 
 
-         Example:   from data_preparation import timit_prepare
+         Example:   from lib.data_io.data_preparation import timit_prepare
 
                     local_folder='/home/mirco/datasets/TIMIT'
                     save_folder='exp/TIMIT_exp'
@@ -854,7 +853,7 @@ class timit_prepare:
     def check_timit_folders(self):
         """
          ---------------------------------------------------------------------
-         data_preparation.check_timit_folders (author: Mirco Ravanelli)
+         lib.data_io.check_timit_folders (author: Mirco Ravanelli)
 
          Description: This function cheks if the dat folder actually contains
                       the TIMIT dataset. If not, it raises an error.
@@ -865,7 +864,7 @@ class timit_prepare:
          Output:      None
 
 
-         Example:   from data_preparation import timit_prepare
+         Example:   from lib.data_io.data_preparation import timit_prepare
 
                     local_folder='/home/mirco/datasets/TIMIT'
                     save_folder='exp/TIMIT_exp'
@@ -911,7 +910,7 @@ class timit_prepare:
 class librispeech_prepare:
     """
      -------------------------------------------------------------------------
-     data_preparation.librispeech_prepare (author: Mirco Ravanelli)
+     lib.data_io.librispeech_prepare (author: Mirco Ravanelli)
 
      Description: This class prepares the csv files for the LibriSpeech
                   dataset.
@@ -972,7 +971,7 @@ class librispeech_prepare:
                        Otherwise it returns None. It this case it returns
                        always None.
 
-     Example:    from data_preparation import librispeech_prepare
+     Example:    from lib.data_io.data_preparation import librispeech_prepare
 
                  local_folder='/home/mirco/datasets/LibriSpeech'
                  save_folder='exp/LibriSpeech_exp'
@@ -1083,7 +1082,7 @@ class librispeech_prepare:
     def create_csv(self, wav_lst, text_dict, split, select_n_sentences):
         """
          ---------------------------------------------------------------------
-         data_preparation.prepare_librispeech.create_csv
+         lib.data_io.prepare_librispeech.create_csv
          (author: Mirco Ravanelli)
 
          Description: This function creates the csv file given a list of wav
@@ -1107,7 +1106,7 @@ class librispeech_prepare:
          Output:      None
 
 
-         Example:   from data_preparation import librispeech_prepare
+         Example:   from lib.data_io.data_preparation import librispeech_prepare
 
                     local_folder='/home/mirco/datasets/LibriSpeech'
                     save_folder='exp/LibriSpeech_exp'
@@ -1115,7 +1114,7 @@ class librispeech_prepare:
                     # Definition of the config dictionary
                     config={'class_name':'data_processing.copy_data_locally',\
                                   'data_folder': local_folder, \
-                                  'splits':'train,test,dev',
+                                  'splits':'train-clean-100',
                                    'save_folder': save_folder}
 
                    # Initialization of the class
@@ -1193,7 +1192,7 @@ class librispeech_prepare:
     def skip(self):
         """
          ---------------------------------------------------------------------
-         data_preparation.prepare_librispeech.skip (author: Mirco Ravanelli)
+         lib.data_io.prepare_librispeech.skip (author: Mirco Ravanelli)
 
          Description: This function detects when the librispeeh data_prep
                        has been already done and can be skipped.
@@ -1205,7 +1204,7 @@ class librispeech_prepare:
                            if True, the preparation phase can be skipped.
                            if False, it must be done.
 
-         Example:    from data_preparation import librispeech_prepare
+         Example:    from lib.data_io.data_preparation import librispeech_prepare
 
                      local_folder='/home/mirco/datasets/LibriSpeech'
                      save_folder='exp/LibriSpeech_exp'
@@ -1220,9 +1219,9 @@ class librispeech_prepare:
                     # Running the data preparation
                     data_prep=librispeech_prepare(config)
 
-                   # Skip function is True because data_pre has already been
-                   done:
-                   print(data_prep.skip())
+                    # Skip function is True because data_pre has already been
+                    # done:
+                    print(data_prep.skip())
 
          ---------------------------------------------------------------------
          """
@@ -1248,7 +1247,7 @@ class librispeech_prepare:
     def text_to_dict(text_lst):
         """
          ---------------------------------------------------------------------
-         data_preparation.prepare_librispeech.text_to_dict
+         lib.data_io.data_preparation.prepare_librispeech.text_to_dict
          (author: Mirco Ravanelli)
 
          Description: This converts lines of text into a dictionary-
@@ -1263,7 +1262,7 @@ class librispeech_prepare:
                            it is the dictionary containing the text
                            transcriptions for each sentence.
 
-         Example:    from data_preparation import librispeech_prepare
+         Example:    from lib.data_io.data_preparation import librispeech_prepare
 
                      local_folder='/home/mirco/datasets/LibriSpeech'
                      save_folder='exp/LibriSpeech_exp'
@@ -1304,7 +1303,7 @@ class librispeech_prepare:
     def check_librispeech_folders(self):
         """
          ---------------------------------------------------------------------
-         data_preparation.check_librispeech_folders (author: Mirco Ravanelli)
+         lib.data_io.data_preparation.check_librispeech_folders (author: Mirco Ravanelli)
 
          Description: This function cheks if the dat folder actually contains
                       the LibriSpeech dataset. If not, it raises an error.
@@ -1315,7 +1314,7 @@ class librispeech_prepare:
          Output:      None
 
 
-         Example:    from data_preparation import librispeech_prepare
+         Example:    from lib.data_io.data_preparation import librispeech_prepare
 
                      local_folder='/home/mirco/datasets/LibriSpeech'
                      save_folder='exp/LibriSpeech_exp'
@@ -1330,8 +1329,8 @@ class librispeech_prepare:
                     # Running the data preparation
                     data_prep=librispeech_prepare(config)
 
-                   # Check folder
-                   data_prep.check_librispeech_folders()
+                    # Check folder
+                    data_prep.check_librispeech_folders()
 
          ---------------------------------------------------------------------
          """

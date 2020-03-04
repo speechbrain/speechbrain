@@ -8,8 +8,9 @@
 
 import torch
 import torch.nn as nn
-from ..data_io.data_io import recovery
-from ..utils import check_opts, logger_write
+from lib.data_io.data_io import recovery
+from lib.utils.input_validation import check_opts
+from lib.utils.logger import logger_write
 
 
 class optimize(nn.Module):

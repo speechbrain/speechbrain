@@ -26,8 +26,9 @@ import soundfile as sf
 import multiprocessing as mp
 from torch.multiprocessing import Manager
 from torch.utils.data import Dataset, DataLoader
-from ..utils import logger_write, check_opts ,check_inputs,recursive_items
-
+from lib.utils.input_validation import check_opts ,check_inputs
+from lib.utils.logger import logger_write
+from lib.utils.data_utils import recursive_items
 
 class create_dataloader:
     """
@@ -1734,78 +1735,16 @@ class save_ckpt:
                 file.write(string+'\n')
         
         
-class count_labels:
-
-    def __init__(
-        self,
-        config,
-        funct_name=None,
-        global_config=None,
-        functions=None,
-        logger=None,
-        first_input=None,
-    ):
-
-        # Logger Setup
-        self.logger = logger
-        
-        # Here are summarized the expected options for this class
-        self.expected_options = {
-            "class_name": ("str", "mandatory"),
-        }
-
-        # Check, cast , and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, logger=self.logger
-        )
-
-        # Expected inputs when calling the class (no inputs in this case)
-        self.expected_inputs = ["torch.Tensor","torch.Tensor"]
-
-        # Checking the first input
-        check_inputs(
-            self.conf, self.expected_inputs, first_input, logger=self.logger
-        )
-        
-        # Initializing the lab count dictionary
-        self.lab_counts_dict={}
-        
-            
-    def __call__(self, input_lst):
-        
-        # Reading input arguments
-        lab, lab_len = input_lst
-        
-        lab=lab.cpu().numpy()
-                
-        val, counts = np.unique(lab, return_counts=True)
-        
-        zero_pad=0
-        
-        # counting zero padding elements
-        for i, length in enumerate(lab_len):
-            actual_size = int(torch.round(length * lab[i].shape[0]))
-            zero_pad=zero_pad+(lab[i].shape[0]-actual_size)
-
-        # removing zero padding elements
-        if val[0] == 0 :
-            counts[0] = counts[0] - zero_pad
-        
-        # adding elements into the count dictionary
-        for i,lab_value in enumerate(val):
-            
-            lab_value=int(lab_value)
-            
-            if lab_value not in self.lab_counts_dict:
-                self.lab_counts_dict[lab_value]=counts[i]
-            else:
-                self.lab_counts_dict[lab_value]=self.lab_counts_dict[lab_value]+counts[i]
-            
-        return [self.lab_counts_dict]
-            
 
 class print_predictions:
+    """
+     -------------------------------------------------------------------------
+     lib.data_io.data_io.print_predictions (author: Mirco Ravanelli)
 
+     Description: This class can be use to print in a text form the 
+                   predictions performed by a neural network.
+     --------------------------------------------.----------------------------
+     """
     def __init__(
         self,
         config,
@@ -1842,13 +1781,14 @@ class print_predictions:
         )
         
         
+        # Using index2lab dictionary from the label_dict
         self.lab_dict=global_config['label_dict'][self.ind2lab]['index2lab']
         
+        # if ctc_out is True, add blank symbol into the dictionary
         if self.ctc_out:
             self.lab_dict[len(self.lab_dict)]='blank'
             
-
-        
+        # Set up file where to write predictions        
         if self.out_file is None:
             self.out_file=global_config['output_folder']+'/predictions.txt'
             
@@ -1871,31 +1811,38 @@ class print_predictions:
             
     
             
-                
-                
     def __call__(self, input_lst):
         
         # Reading input arguments
         ids, prob, prob_len = input_lst
         
+        # Getting scores and predictions
         scores,predictions = torch.max(prob,dim=-2)
         
+        # Opening the prediction file
         self.file_pred = open(self.out_file, 'a')
 
+        # Loop over all the input sentences
         for i, snt_id in enumerate(ids):
             
+            # Getting current predictions
             current_pred=predictions[i]
 
+            # Getting corrent scores (switch to linear prob)
             current_score=torch.exp(scores[i])
             
+            # Score averaginf
             current_score=current_score.mean()
             
             if len(predictions.shape)>1:
                 actual_size = int(torch.round(prob_len[i] * predictions.shape[-1]))
                 current_pred=current_pred[0:actual_size]
             
+            
             if len(self.lab_dict)>0:
                 string_pred=[]
+                
+                # Getting the label corresponding to the output index
                 for pred_index in range(current_pred.shape[0]):
                     index_lab=int(current_pred[pred_index])
                 
@@ -1916,9 +1863,7 @@ class print_predictions:
                         
                         logger_write(err_msg, logfile=self.logger)
                     
-                    
-
-            
+                
             if len(self.lab_dict)>0:
                 if len(string_pred)==1:
                     string_pred=string_pred[0]
@@ -1927,22 +1872,35 @@ class print_predictions:
                     string_pred=list(filter(lambda elem: elem!='blank', string_pred))
                     string_pred=[v for i, v in enumerate(string_pred) if i == 0 or v != string_pred[i-1]]
 
-                
+                # Writing output
                 msg="%s\t%.3f\t%s" %(snt_id, current_score,string_pred) 
                 logger_write(msg, logfile=self.logger, level="info")
                 self.file_pred.write(msg+'\n')
                 
             else:
+                # Writing output
                 msg="%s\t%.3f" %(snt_id, current_score)
                 logger_write(msg, logfile=self.logger, level="info")
                 self.file_pred.write(msg+'\n')
 
+        # Closing the prediction file
         self.file_pred.close()
                 
            
             
 def recovery(self):
-    
+    """
+     -------------------------------------------------------------------------
+     lib.data_io.data_io.recovery(author: Mirco Ravanelli)
+
+     Description: when the recovery dictionary exists, this function
+                  loads the saved parameters into the corresponding
+                  neural networks. The function is used to re-start
+                  the neural network training from the last epoch
+                  correctly saved.
+     --------------------------------------------.----------------------------
+     """
+     
     if self.recovery:
         
         recovery_file=self.output_folder+'/recovery.pkl'
@@ -1974,7 +1932,16 @@ def recovery(self):
                     break
                     
 def initialize_with(self):
-    
+    """
+     -------------------------------------------------------------------------
+     lib.data_io.data_io.initialize_with(author: Mirco Ravanelli)
+
+     Description: This function initialize the parameters of the neural
+                  network with the pkl file reported in the field 
+                  initialized_with
+     --------------------------------------------.----------------------------
+    """
+     
     if self.initialize_with is not None and self.initialize_with != "random":
         
         # Check if the specified file exists:
@@ -2016,7 +1983,7 @@ def read_wav_soundfile(file, data_options={}, logger=None, lab2ind=None):
                        it is the array containing the read signal
 
 
-     Example:  from data_io import read_wav_soundfile
+     Example:  from lib.data_io.data_io import read_wav_soundfile
 
                print(read_wav_soundfile('samples/audio_samples/example1.wav'))
 
@@ -2163,7 +2130,7 @@ def read_pkl(file, data_options={}, logger=None, lab2ind=None):
                        it is the array containing the read signal.
 
 
-     Example:  from data_io import read_pkl
+     Example:  from lib.data_io.data_io import read_pkl
 
                print(read_pkl('pkl_file.pkl'))
 
@@ -2242,7 +2209,7 @@ def read_string(string, data_options={}, logger=None, lab2ind=None):
                        it is the array containing the read signal.
 
 
-     Example:  from data_io import read_string
+     Example:  from lib.data_io.data_io import read_string
 
                print(read_string('hello_world'))
 
@@ -2288,7 +2255,7 @@ def read_kaldi_lab(kaldi_ali, kaldi_lab_opts, logfile=None):
                        it is a dictionary contaning the labels
 
 
-     Example:  from data_io import read_kaldi_lab
+     Example:  from lib.data_io.data_io import read_kaldi_lab
 
                lab_folder='/home/kaldi/egs/TIMIT/s5/exp\
                /dnn4_pretrain-dbn_dnn_ali'
@@ -2338,7 +2305,7 @@ def write_wav_soundfile(data, filename, sampling_rate=None, logger=None):
 
 
      Example:  import torch
-               from data_io import write_wav_soundfile
+               from lib.data_io.data_io import write_wav_soundfile
 
                signal=0.1*torch.rand([16000])
                write_wav_soundfile(signal,'exp/wav_example.wav',
@@ -2399,7 +2366,7 @@ def write_txt_file(data, filename, sampling_rate=None, logger=None):
 
 
      Example:  import torch
-               from data_io import write_txt_file
+               from lib.data_io.data_io import write_txt_file
 
                signal=torch.tensor([1,2,3,4])
                write_txt_file(signal,'exp/example.txt')
@@ -2470,7 +2437,7 @@ def write_stdout(data, filename, sampling_rate=None, logger=None):
 
 
      Example:  import torch
-               from data_io import write_stdout
+               from lib.data_io.data_io import write_stdout
 
                signal=torch.tensor([1,2,3,4])
                write_stdout(signal,'exp/example.txt')
@@ -2638,7 +2605,7 @@ class save:
      Output (call): None
 
      Example:  import torch
-               from data_processing import save
+               from lib.data_io.data_io import save
 
                # save config dictionary definition
                config={'class_name':'data_processing.save',
@@ -2654,7 +2621,7 @@ class save:
                # saving
                save_signal([signal,['example_random'],torch.ones(1)])
 
-              # signal save in exp/write_example
+               # signal save in exp/write_example
      -------------------------------------------------------------------------
      """
 
@@ -2689,14 +2656,6 @@ class save:
         self.conf = check_opts(
             self, self.expected_options, config, logger=self.logger
         )
-
-        # Expected inputs when calling the class (no inputs in this case)
-        #self.expected_inputs = ["torch.Tensor", "list", "torch.Tensor"]
-
-        # Checking the first input
-        #check_inputs(
-        #    self.conf, self.expected_inputs, first_input, logger=self.logger
-        #)
 
         # Definition of other variables
         self.supported_formats = self.get_supported_formats()
@@ -2742,6 +2701,7 @@ class save:
         # Writing data on disk (in parallel)
         self.write_batch(data, data_id, data_len)
 
+
     def write_batch(self, data, data_id, data_len):
         """
          ---------------------------------------------------------------------
@@ -2757,7 +2717,7 @@ class save:
          Output:      None
 
          Example:  import torch
-                   from data_processing import save
+                   from lib.data_io.data_io import save
 
                    # save config dictionary definition
                    config={'class_name':'data_processing.save',
@@ -2872,7 +2832,7 @@ class save:
          Output:      -supported_formats (type:dict)
 
          Example:  import torch
-                   from data_processing import save
+                   from lib.data_io.data_io import save
 
                    # save config dictionary definition
                    config={'class_name':'data_processing.save',
@@ -2952,7 +2912,7 @@ def write_ark(data, filename, key="", sampling_rate=None, logger=None):
      Output (call):  None
      
      Example:   import torch
-                from data_io import write_ark
+                from lib.data_io.data_io import write_ark
                 
                 matrix = torch.rand([5,10])
                 
@@ -3016,7 +2976,7 @@ def get_md5(file):
                        it is the checksum for the given file
 
 
-     Example:  from data_io import  get_md5
+     Example:  from lib.data_io.data_io import  get_md5
                print(get_md5('samples/audio_samples/example1.wav'))
 
      -------------------------------------------------------------------------
@@ -3057,7 +3017,7 @@ def save_md5(files, out_file):
      Output (call):  None
 
 
-     Example:  from data_io import save_md5
+     Example:  from lib.data_io.data_io import save_md5
 
                files=['samples/audio_samples/example1.wav']
                out_file='exp/md5.pkl'
@@ -3099,7 +3059,7 @@ def save_pkl(obj, file, sampling_rate=None, logger=None):
      Output (call):  None
 
 
-     Example:  from data_io import save_pkl
+     Example:  from lib.data_io.data_io import save_pkl
 
                out_file='exp/example.pkl'
                save_pkl([1,2,3,4,5],out_file)
@@ -3130,7 +3090,7 @@ def load_pkl(file, logger=None):
      Output (call):  obj (type:obj)
 
 
-     Example:  from data_io import load_pkl
+     Example:  from lib.data_io.data_io import load_pkl
 
                pkl_file='exp/example.pkl'
                print(load_pkl(pkl_file))

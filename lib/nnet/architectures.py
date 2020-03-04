@@ -12,8 +12,9 @@ import torch
 import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
-from ..data_io.data_io import recovery, initialize_with
-from ..utils import check_opts, check_inputs, logger_write
+from lib.data_io.data_io import recovery, initialize_with
+from lib.utils.input_validation import check_opts, check_inputs
+from lib.utils.logger import logger_write
 
 
 

@@ -1,13 +1,112 @@
 import os
 import threading
 from shutil import copyfile
-from ..utils import check_opts, logger_write, check_inputs,get_all_files,  split_list, run_shell
-
+from lib.utils.superpowers import run_shell
+from lib.utils.logger import logger_write
+from lib.utils.input_validation import check_inputs,  check_opts
+from lib.utils.data_utils import get_all_files, split_list
 
 
 
 class kaldi_decoder:
-    
+    """
+     -------------------------------------------------------------------------
+     lib.decoders.decoder.kaldi_decoder (author: Mirco Ravanelli)
+
+     Description: This class manages decoding using the kaldi decoder.
+
+     Input (init):  - config (type, dict, mandatory):
+                       it is a dictionary containing the keys described below.
+
+            
+                           - decoding_script_folder (type: directory, mandatory):
+                               it the folder where the kaldi decoding script 
+                               are saved (e.g, tools/kaldi_decoder)
+
+                           - decoding_script (type: str, mandatory):
+                               it the folder decoding script (within the 
+                               decoding_script_folder) to use for decoding
+                               (e.g, decode_dnn.sh)
+  
+                           - graphdir (type: directory, mandatory):
+                               it the folder containing the kaldi graph
+                               to use for decoding (e.g.,$kaldi_folder/graph )
+                               
+                            - alidir (type: directory, mandatory):
+                               it the folder containing the alignments.
+                               (e.g., $kaldi_folder/dnn4_pretrain-dbn_dnn_ali_test)
+                               
+                            - datadir (type: directory, mandatory):
+                               it the folder contaning data transcriptions
+                               (e.g,$kaldi_folder/data/test )
+ 
+                            - posterior_folder (type: directory, mandatory):
+                               it the folder where the neural network 
+                               posterior probabilities are saved.
+ 
+                            - save_folder (type: directory, mandatory):
+                               it the folder where to save the decoding 
+                               results.                                                       
+                               
+                            - min_active (type: int(1,inf), optional, Def: 200):
+                                Decoder minimum #active states.
+                                
+                            - max_active (type: int(1,inf), optional, Def: 7000):
+                                Decoder maxmium #active states.                               
+
+                            - beam (type: float(0,inf), optional, Def: 13.0):
+                                Decoding beam.  Larger->slower, more accurate. 
+
+                            - lat_beam (type: float(0,inf), optional, Def: 13.0):
+                                Lattice generation beam.  
+                                Larger->slower, and deeper lattices
+   
+                            - acwt (type: float(0,inf), optional, Def: 0.2):
+                                Scaling factor for acoustic likelihoods
+
+                            - max_arcs (type: int, optional, Def: -1):
+                                
+                            - scoring (type: bool, optional, Def: True):
+                                If True, the scoring script based on sclite
+                                is used.
+                                
+                           - scoring_script (type: path, optional, Def:None):
+                               it the scoring script used to compute the
+                               final score (e.g.
+                               tools/kaldi_decoder/local/score.sh)
+                                                              
+                          - scoring_opt (type: str, optional, Def: None):
+                              are the options give to the scoring script
+                              (e.g, --min_lmwt 1 --max_lmwt 10)
+                              
+                          -norm_vars (type: bool, optional, Def: False):
+                                If True, variace are normalized.                      
+ 
+                           - num_jobs (type: int(1,inf), optional, Def: 8):
+                                it is the number of decoding jobs to run
+                                in parallel.
+                            
+            
+                   - funct_name (type, str, optional, default: None):
+                       it is a string containing the name of the parent
+                       function that has called this method.
+
+                   - global_config (type, dict, optional, default: None):
+                       it a dictionary containing the global variables of the
+                       parent config file.
+
+                   - logger (type, logger, optional, default: None):
+                       it the logger used to write debug and error messages.
+                       If logger=None and root_cfg=True, the file is created
+                       from scratch.
+
+                   - first_input (type, list, optional, default: None)
+                      this variable allows users to analyze the first input
+                      given when calling the class for the first time.
+
+
+     -------------------------------------------------------------------------
+    """   
 
     def __init__(
         self,
@@ -46,7 +145,6 @@ class kaldi_decoder:
             "scoring_script": ("file", "optional","None"),
             "scoring_opts": ("str", "optional","--min-lmwt 1 --max-lmwt 10"),
             "norm_vars": ("bool", "optional","False"),
-            "data_text": ("directory", "optional","None"),
             "num_job": ("int(1,inf)", "optional","8"),
         }
 
@@ -129,13 +227,19 @@ class kaldi_decoder:
 
 
                                   
-
     def __call__(self, inp_lst):
         return 
     
     
     def decode_sentence(self,ark_file,cnt):
-        
+        """
+         ---------------------------------------------------------------------
+         lib.decoders.decoders.decode_sentence (author: Mirco Ravanelli)
+
+         Description: This function runs a decoding job.
+
+         ---------------------------------------------------------------------
+        """       
         # Getting the absolute path
         ark_file=os.path.abspath(ark_file)
                 
@@ -159,6 +263,14 @@ class kaldi_decoder:
         
     
     def print_results(self):
+        """
+         ---------------------------------------------------------------------
+         lib.decoders.decoders.decode_sentence (author: Mirco Ravanelli)
+
+         Description: This print the final performance on the logger.
+
+         ---------------------------------------------------------------------
+        """ 
         
         # Print the results (change it for librispeech scoring)
         subfolders = [f.path for f in os.scandir(self.save_folder) if f.is_dir() ]
@@ -187,12 +299,9 @@ class kaldi_decoder:
                                    
                                line = fp.readline()
                                cnt += 1
-        print(errors)                       
+                     
         logger_write('\nBEST ERROR RATE: %f\n' %(min(errors)), logfile=self.logger,level='info')
 
         
         
-        
-        
-     
         
