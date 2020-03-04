@@ -9,7 +9,7 @@
 
 import os
 from pydoc import locate
-from lib.utils.logger import logger_write
+from speechbrain.utils.logger import logger_write
 
 def str_to_bool(s):
     """

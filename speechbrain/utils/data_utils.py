@@ -8,14 +8,14 @@
 
 import os
 import re
-from lib.utils.config import remove_comments
+from speechbrain.utils.config import remove_comments
 
 def get_all_files(
     dirName, match_and=None, match_or=None, exclude_and=None, exclude_or=None
 ):
     """
      -------------------------------------------------------------------------
-     lib.utils.data_utils.get_all_files (author: Mirco Ravanelli)
+     speechbrain.utils.data_utils.get_all_files (author: Mirco Ravanelli)
 
      Description: This function get a list of files within found within a
                   folder. Different options can be used to restrict the search
@@ -143,7 +143,7 @@ def get_all_files(
 def split_list(seq, num):
     """
      -------------------------------------------------------------------------
-     lib.utils.data_utils.split_list (author: Mirco Ravanelli)
+     speechbrain.utils.data_utils.split_list (author: Mirco Ravanelli)
 
      Description: This function splits the input list in N parts.
 
@@ -179,7 +179,7 @@ def split_list(seq, num):
 def csv_to_dict(csv_file):
     """
      -------------------------------------------------------------------------
-     lib.utils.data_utils.csv_to_dict (author: Mirco Ravanelli)
+     speechbrain.utils.data_utils.csv_to_dict (author: Mirco Ravanelli)
 
      Description: This function reads the csv_file and coverts into into a
                   a dictionary.
@@ -248,7 +248,7 @@ def csv_to_dict(csv_file):
 def recursive_items(dictionary):
     """
      -------------------------------------------------------------------------
-     lib.utils.data_utils.recursive_items (author: Mirco Ravanelli)
+     speechbrain.utils.data_utils.recursive_items (author: Mirco Ravanelli)
 
      Description: This function output the key, value of a recursive
                   dictionary (i.e, a dictionary that might contain other
@@ -262,7 +262,7 @@ def recursive_items(dictionary):
                        recursive dictionary.
 
 
-     Example:   from lib.utils.data_utils import recursive_items
+     Example:   from speechbrain.utils.data_utils import recursive_items
 
                 rec_dict={}
                 rec_dict['lev1']={}

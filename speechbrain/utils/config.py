@@ -12,14 +12,14 @@ import re
 import numpy
 import torch
 import random
-from lib.utils.logger import logger_write
+from speechbrain.utils.logger import logger_write
 
 def read_config(
     config_file, cfg_change=None, global_config={}, root_cfg=False, logger=None
 ):
     """
      -------------------------------------------------------------------------
-     lib.utils.config.read_config (author: Mirco Ravanelli)
+     speechbrain.utils.config.read_config (author: Mirco Ravanelli)
 
      Description: This function reads a speechbrain config file and converts
                   into a config dictionary. Errors are raised when the format
@@ -51,7 +51,7 @@ def read_config(
                        the config file.
 
 
-     Example:   from lib.utils.config.read_config import read_config
+     Example:   from speechbrain.utils.config.read_config import read_config
 
                 cfg_file='cfg/minimal_examples/data_reading/\
                 read_data_example.cfg'
@@ -411,7 +411,7 @@ def read_config(
 def write_config(text, filename, modality="w", logger=None):
     """
      -------------------------------------------------------------------------
-     lib.utils.config.write_config (author: Mirco Ravanelli)
+     speechbrain.utils.config.write_config (author: Mirco Ravanelli)
 
      Description: This function writes a text into the specified file.
 
@@ -475,7 +475,7 @@ def write_config(text, filename, modality="w", logger=None):
 def conf_to_text(config, conf_text=None, tabs=None):
     """
      -------------------------------------------------------------------------
-     lib.utils.config.conf_to_text (author: Mirco Ravanelli)
+     speechbrain.utils.config.conf_to_text (author: Mirco Ravanelli)
 
      Description: This recursive function converts a config dictionary into
                   the corresponding text.
@@ -552,7 +552,7 @@ def replace_global_variable(
 ):
     """
     -------------------------------------------------------------------------
-    lib.utils.config.replace_global_variable (author: Mirco Ravanelli)
+    speechbrain.utils.config.replace_global_variable (author: Mirco Ravanelli)
 
      Description: This recursive function replaces the variable of the config
                   file with the ones defined in the global_var dictionary.
@@ -631,7 +631,7 @@ def replace_global_variable(
 def process_cmd_string(cmd_str, all_funct):
     """
      ---------------------------------------------------------------------
-     lib.utils.config.process_cmd_string
+     speechbrain.utils.config.process_cmd_string
      (author: Mirco Ravanelli)
 
      Description: This function processes the string in the section 
@@ -689,7 +689,7 @@ def process_cmd_string(cmd_str, all_funct):
 def create_exec_config(cfg_file, cmd_arg):
     """
      -------------------------------------------------------------------------
-     lib.utils.config.create_exec_config (author: Mirco Ravanelli)
+     speechbrain.utils.config.create_exec_config (author: Mirco Ravanelli)
 
      Description: This function creates the exec_config dict for the root cfg
                    file.
@@ -733,7 +733,7 @@ def create_exec_config(cfg_file, cmd_arg):
 def remove_comments(line):
     """
      -------------------------------------------------------------------------
-     lib.utils.config.remove_comments (author: Mirco Ravanelli)
+     speechbrain.utils.config.remove_comments (author: Mirco Ravanelli)
 
      Description: This function removes comments from a line
 

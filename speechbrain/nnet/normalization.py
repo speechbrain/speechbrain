@@ -144,7 +144,7 @@ class normalize(nn.Module):
                        
 
      Example:   import torch
-                from lib.nnet.normalization import normalize
+                from speechbrain.nnet.normalization import normalize
                 
                 # input tensor
                 inp_tensor = torch.rand([4,660,3])
@@ -326,7 +326,7 @@ class normalize(nn.Module):
                            
     
          Example:   import torch
-                    from lib.nnet.normalization import normalize
+                    from speechbrain.nnet.normalization import normalize
                     
                     # input tensor
                     inp_tensor = torch.rand([4,660,3])
@@ -400,7 +400,7 @@ class normalize(nn.Module):
                            
     
          Example:   import torch
-                    from lib.nnet.normalization import normalize
+                    from speechbrain.nnet.normalization import normalize
                     
                     # input tensor
                     inp_tensor = torch.rand([4,660,3])
@@ -500,7 +500,7 @@ class normalize_posteriors(nn.Module):
                        
 
      Example:   import torch
-                from lib.nnet.normalization import normalize_posteriors
+                from speechbrain.nnet.normalization import normalize_posteriors
                 
                 # input tensor
                 pout = torch.rand([4,3,10])

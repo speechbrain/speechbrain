@@ -123,10 +123,10 @@ class optimize(nn.Module):
                        
                        
      Example:   import torch
-                from lib.nnet.architectures import linear
-                from lib.nnet.architectures import activation
-                from lib.nnet.losses import compute_cost
-                from lib.nnet.optimizers import optimize
+                from speechbrain.nnet.architectures import linear
+                from speechbrain.nnet.architectures import activation
+                from speechbrain.nnet.losses import compute_cost
+                from speechbrain.nnet.optimizers import optimize
                 
                 # Definition the input tensor
                 inp_tensor = torch.rand([1,660,3])

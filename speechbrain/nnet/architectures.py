@@ -79,7 +79,7 @@ class linear(nn.Module):
                        
 
      Example:   import torch
-                from lib.nnet.architectures import linear
+                from speechbrain.nnet.architectures import linear
                 
                 inp_tensor = torch.rand([4,660,190])
                 
@@ -250,7 +250,7 @@ class linear_combination(nn.Module):
                        
 
      Example:   import torch
-                from lib.nnet.architectures import linear_combination
+                from speechbrain.nnet.architectures import linear_combination
                 
                 inp1 = torch.rand([4,100,190])
                 inp2 = torch.rand([4,200,190])
@@ -505,7 +505,7 @@ class conv(nn.Module):
                        
 
      Example:   import torch
-                from lib.nnet.architectures import conv
+                from speechbrain.nnet.architectures import conv
                 
                 inp_tensor = torch.rand([4,100,190])
                 
@@ -756,7 +756,7 @@ class conv(nn.Module):
     def compute_conv1d_shape(L_in, kernel_size, dilation, stride):
         """
         -----------------------------------------------------------------------
-        lib.nnet.architectures.conv.compute_conv1d_shape (author: Mirco Ravanelli)
+        speechbrain.nnet.architectures.conv.compute_conv1d_shape (author: Mirco Ravanelli)
     
         Description: This support function can be use to compute the output
                      dimensioality of a 1D convolutional layer. It is used
@@ -780,7 +780,7 @@ class conv(nn.Module):
     
     
      Example:   import torch
-                from lib.nnet.architectures import conv
+                from speechbrain.nnet.architectures import conv
                 
                 inp_tensor = torch.rand([4,100,190])
                 
@@ -810,7 +810,7 @@ class conv(nn.Module):
     def manage_padding(self,x,kernel_size,dilation,stride):
         """
         -----------------------------------------------------------------------
-        lib.nnet.architectures.conv.manage_padding (author: Mirco Ravanelli)
+        speechbrain.nnet.architectures.conv.manage_padding (author: Mirco Ravanelli)
     
         Description: This function performs padding such that input and output
                      tensors have the same length.
@@ -833,7 +833,7 @@ class conv(nn.Module):
     
     
      Example:   import torch
-                from lib.nnet.architectures import conv
+                from speechbrain.nnet.architectures import conv
                 
                 inp_tensor = torch.rand([4,100,190])
                 
@@ -1003,7 +1003,7 @@ class SincConv(nn.Module):
                        
 
      Example:   import torch
-                from lib.nnet.architectures import SincConv
+                from speechbrain.nnet.architectures import SincConv
                 
                 inp_tensor = torch.rand([4,32000])
                 
@@ -1221,7 +1221,7 @@ class SincConv(nn.Module):
     
 
         Example:    import torch
-                    from lib.nnet.architectures import SincConv
+                    from speechbrain.nnet.architectures import SincConv
                     
                     inp_tensor = torch.rand([4,32000])
                     
@@ -1264,7 +1264,7 @@ class SincConv(nn.Module):
     
 
         Example:    import torch
-                    from lib.nnet.architectures import SincConv
+                    from speechbrain.nnet.architectures import SincConv
                     
                     inp_tensor = torch.rand([4,32000])
                     
@@ -1288,7 +1288,7 @@ class SincConv(nn.Module):
     def compute_conv1d_shape(L_in, kernel_size, dilation, stride):
         """
         -----------------------------------------------------------------------
-        lib.nnet.architectures.SincConv.compute_conv1d_shape (author: Mirco Ravanelli)
+        speechbrain.nnet.architectures.SincConv.compute_conv1d_shape (author: Mirco Ravanelli)
     
         Description: This support function can be use to compute the output
                      dimensionality of a 1D convolutional layer. It is used
@@ -1312,7 +1312,7 @@ class SincConv(nn.Module):
     
     
      Example:   import torch
-                from lib.nnet.architectures import SincConv
+                from speechbrain.nnet.architectures import SincConv
                 
                 inp_tensor = torch.rand([4,32000])
                 
@@ -1341,7 +1341,7 @@ class SincConv(nn.Module):
         
         """
         -----------------------------------------------------------------------
-        lib.nnet.architectures.SincConv.manage_padding (author: Mirco Ravanelli)
+        speechbrain.nnet.architectures.SincConv.manage_padding (author: Mirco Ravanelli)
     
         Description: This function performs padding such that input and output
                      tensors have the same length.
@@ -1364,7 +1364,7 @@ class SincConv(nn.Module):
     
     
      Example:   import torch
-                from lib.nnet.architectures import SincConv
+                from speechbrain.nnet.architectures import SincConv
                 
                 inp_tensor = torch.rand([4,32000])
                 
@@ -1488,7 +1488,7 @@ class RNN_basic(nn.Module):
                        
 
      Example:   import torch
-                from lib.nnet.architectures import RNN_basic
+                from speechbrain.nnet.architectures import RNN_basic
                 
                 inp_tensor = torch.rand([4,100,190])
                 
@@ -1733,7 +1733,7 @@ class liGRU(nn.Module):
                        
 
      Example:   import torch
-                from lib.nnet.architectures import liGRU
+                from speechbrain.nnet.architectures import liGRU
                 
                 # Initialization of the class
                 model=liGRU(100,200,1,0.15,'relu',True)
@@ -1910,7 +1910,7 @@ class liGRU(nn.Module):
                            
     
          Example:   import torch
-                    from lib.nnet.architectures import liGRU
+                    from speechbrain.nnet.architectures import liGRU
                     
                     # Initialization of the class
                     model=liGRU(100,200,1,0.15,'relu',True)
@@ -2045,7 +2045,7 @@ class activation(nn.Module):
                        
 
      Example:   import torch
-                from lib.nnet.architectures import activation
+                from speechbrain.nnet.architectures import activation
                 
                 # config dictionary definition
                 config={'class_name':'lib.nnet.architectures.activation',
@@ -2304,7 +2304,7 @@ class dropout(nn.Module):
                        
 
      Example:   import torch
-                from lib.nnet.architectures import dropout
+                from speechbrain.nnet.architectures import dropout
                 
                 # config dictionary definition
                 config={'class_name':'lib.nnet.architectures.dropout',

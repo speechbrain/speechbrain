@@ -15,8 +15,8 @@ import torch
 import itertools
 import torch.nn as nn
 from tqdm import tqdm
-from lib.data_io.data_io import create_dataloader, load_pkl, save_pkl
-from lib.utils import (
+from speechbrain.data_io.data_io import create_dataloader, load_pkl, save_pkl
+from speechbrain.utils import (
     check_opts,
     import_class,
     logger_write,
@@ -379,7 +379,7 @@ class execute_computations(nn.Module):
                          options).
 
      Example:   # EX1: read audio file and add random noise
-                from lib.core import execute_computations
+                from speechbrain.core import execute_computations
                 
                 exec_cfg={'class_name': 'speechbrain.py', 
                           'cfg_file': 'cfg/minimal_examples/basic_processing/minimal_processing_read_write_example_noise.cfg', 
@@ -816,7 +816,7 @@ class execute_computations(nn.Module):
 
          Output:      - data_list (type: list)
 
-         Example:   from lib.core import execute_computations
+         Example:   from speechbrain.core import execute_computations
                 
                     exec_cfg={'class_name': 'speechbrain.py', 
                               'cfg_file': 'cfg/minimal_examples/basic_processing/minimal_processing_read_write_example_noise.cfg', 
@@ -885,7 +885,7 @@ class execute_computations(nn.Module):
                          it is the output list with the tensor detached
 
          Example:   import torch
-                    from lib.core import execute_computations
+                    from speechbrain.core import execute_computations
                 
                     exec_cfg={'class_name': 'speechbrain.py', 
                               'cfg_file': 'cfg/minimal_examples/basic_processing/minimal_processing_read_write_example_noise.cfg', 
@@ -932,7 +932,7 @@ class execute_computations(nn.Module):
 
 
          Example:   import torch
-                    from lib.core import execute_computations
+                    from speechbrain.core import execute_computations
                 
                     exec_cfg={'class_name': 'speechbrain.py', 
                               'cfg_file': 'cfg/minimal_examples/basic_processing/minimal_processing_read_write_example_noise.cfg', 
@@ -988,7 +988,7 @@ class execute_computations(nn.Module):
                            finished.
                       
          Example:   import torch
-                    from lib.core import execute_computations
+                    from speechbrain.core import execute_computations
                 
                     exec_cfg={'class_name': 'speechbrain.py', 
                               'cfg_file': 'cfg/minimal_examples/neural_networks/spk_id/spk_id_example.cfg', 
@@ -1050,8 +1050,8 @@ class execute_computations(nn.Module):
                         the function directly write into the recovery dict.
                      
         Example:   import torch
-                   from lib.data_io.data_io import load_pkl 
-                   from lib.core import execute_computations
+                   from speechbrain.data_io.data_io import load_pkl 
+                   from speechbrain.core import execute_computations
                
                    exec_cfg={'class_name': 'speechbrain.py', 
                              'cfg_file': 'cfg/minimal_examples/neural_networks/spk_id/spk_id_example.cfg', 
@@ -1126,8 +1126,8 @@ class execute_computations(nn.Module):
                         in a list.
                      
         Example:   import torch
-                   from lib.data_io.data_io import load_pkl 
-                   from lib.core import execute_computations
+                   from speechbrain.data_io.data_io import load_pkl 
+                   from speechbrain.core import execute_computations
                
                    exec_cfg={'class_name': 'speechbrain.py', 
                              'cfg_file': 'cfg/minimal_examples/neural_networks/spk_id/spk_id_example.cfg', 
@@ -1206,7 +1206,7 @@ class execute_computations(nn.Module):
                             by the executed function.
             
 
-         Example:    from lib.core import execute_computations
+         Example:    from speechbrain.core import execute_computations
 
                      cfg='cfg/minimal_examples/data_reading/\
                      loop_example.cfg'
@@ -1323,7 +1323,7 @@ class execute_computations(nn.Module):
         Output:      - None
                      
         Example:   import torch 
-                   from lib.core import execute_computations
+                   from speechbrain.core import execute_computations
                
                    exec_cfg={'class_name': 'speechbrain.py', 
                              'cfg_file': 'cfg/minimal_examples/neural_networks/spk_id/spk_id_example.cfg', 
@@ -1405,7 +1405,7 @@ class execute_computations(nn.Module):
                         device.
                      
         Example:   import torch 
-                   from lib.core import execute_computations
+                   from speechbrain.core import execute_computations
                
                    exec_cfg={'class_name': 'speechbrain.py', 
                              'cfg_file': 'cfg/minimal_examples/neural_networks/spk_id/spk_id_example.cfg', 
@@ -1465,7 +1465,7 @@ class execute_computations(nn.Module):
 
                      
         Example:   import torch 
-                   from lib.core import execute_computations
+                   from speechbrain.core import execute_computations
                
                    exec_cfg={'class_name': 'speechbrain.py', 
                              'cfg_file': 'cfg/minimal_examples/neural_networks/spk_id/spk_id_example.cfg', 
@@ -1756,7 +1756,7 @@ class execute_computations(nn.Module):
                         the output is directly written into the dest_file.
                         
         Example:   import torch 
-                   from lib.core import execute_computations
+                   from speechbrain.core import execute_computations
                
                    cfg_file = 'cfg/minimal_examples/neural_networks/spk_id/spk_id_example.cfg'
                    
@@ -1858,7 +1858,7 @@ class execute_computations(nn.Module):
                             it is the line where we have to stop the 
                             computations.
 
-         Example:    from lib.core import execute_computations
+         Example:    from speechbrain.core import execute_computations
 
                    cfg_file = 'cfg/minimal_examples/neural_networks/spk_id/spk_id_example.cfg'
                    
@@ -1943,7 +1943,7 @@ class execute_computations(nn.Module):
          Output:      - cmd_str (type: str)
                          it is the new string the replicated computations
 
-         Example:    from lib.core import execute_computations
+         Example:    from speechbrain.core import execute_computations
 
                      cfg_file='cfg/minimal_examples/neural_networks/spk_id/spk_id_example.cfg'
 
@@ -2279,7 +2279,7 @@ class execute_computations(nn.Module):
          Output:      - None
                          the dictionary is written in self.replace_dict
 
-         Example:    from lib.core import execute_computations
+         Example:    from speechbrain.core import execute_computations
 
                      cfg_file='cfg/minimal_examples/neural_networks/spk_id/spk_id_example.cfg'
 

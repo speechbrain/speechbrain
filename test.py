@@ -16,8 +16,8 @@
 
 import sys
 import pycodestyle
-from lib.utils import create_exec_config
-from lib.core import execute_computations
+from speechbrain.utils import create_exec_config
+from speechbrain.core import execute_computations
 
 # List of config files to run:
 cfg_lst = ['cfg/minimal_examples/data_reading/read_write_data.cfg',
@@ -45,7 +45,7 @@ cfg_lst = ['cfg/minimal_examples/data_reading/read_write_data.cfg',
 
 # List of files to check:
 check_lst = [
-'speechbrain.py',
+'run_experiment.py',
 'lib/utils.py',
 'lib/core.py',
 'lib/data_io/data_io.py',

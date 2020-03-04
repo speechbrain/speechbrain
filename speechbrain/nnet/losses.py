@@ -92,9 +92,9 @@ class compute_cost(nn.Module):
                        
 
      Example:   import torch
-                from lib.nnet.architectures import linear
-                from lib.nnet.architectures import activation
-                from lib.nnet.losses import compute_cost
+                from speechbrain.nnet.architectures import linear
+                from speechbrain.nnet.architectures import activation
+                from speechbrain.nnet.losses import compute_cost
                 
                 # Definition of a linear model
                 inp_tensor = torch.rand([1,660,3])
@@ -360,7 +360,7 @@ class compute_cost(nn.Module):
                            
     
          Example:   import torch
-                    from lib.nnet.losses import compute_cost
+                    from speechbrain.nnet.losses import compute_cost
                           
                     
                     # Definition of the loss
