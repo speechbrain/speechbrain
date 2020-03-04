@@ -39,16 +39,16 @@ def setup_logger(
      Output (call):  logger (type class logger)
 
 
-     Example:   from utils import setup_logger
-                from utils import logger_write
+     Example:   from lib.utils.logger import setup_logger
+                from lib.utils.logger import logger_write
 
                 # Initialization of the logger
                 logfile=setup_logger('logger','exp/log.log')
 
-               #  Writing an error message
-               logger_write('Running log experiment',level='info',
-               logfile=logfile)
-               logger_write('Error1',level='error',logfile=logfile)
+                # Writing an error message
+                logger_write('Running log experiment',level='info',
+                logfile=logfile)
+                logger_write('Error1',level='error',logfile=logfile)
 
      -------------------------------------------------------------------------
      """
@@ -104,16 +104,16 @@ def logger_write(msg, logfile=None, level="error"):
      Output (call):  None
 
 
-     Example:   from utils import setup_logger
-                from utils import logger_write
+     Example:   from from lib.utils.logger import setup_logger
+                from from lib.utils.logger import logger_write
 
                 # Initialization of the logger
                 logfile=setup_logger('logger','exp/log.log')
 
-               #  Writing an error message
-               logger_write('Running log experiment',level='info',
-               logfile=logfile)
-               logger_write('Error1',level='error',logfile=logfile)
+                # Writing an error message
+                logger_write('Running log experiment',level='info',
+                logfile=logfile)
+                logger_write('Error1',level='error',logfile=logfile)
 
      -------------------------------------------------------------------------
      """

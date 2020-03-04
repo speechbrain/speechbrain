@@ -1,9 +1,10 @@
 """
  -----------------------------------------------------------------------------
- superpowerrs.py
+ superpowers.py
 
  Description: This library contains functions for importing python classes and
-              for running shell commands.
+              for running shell commands. Remember, great power comes great 
+              responsibility.
  -----------------------------------------------------------------------------
 """
 
@@ -27,10 +28,10 @@ def import_class(library, logfile=None):
      Output (call):  target_class (type: class)
 
 
-     Example:  from utils import import_class
+     Example:  from lib.utils.superpowers import import_class
 
                # importing class
-               loop=import_class('core.loop')
+               loop=import_class('lib.core.execute_computations')
 
      -------------------------------------------------------------------------
      """
@@ -86,7 +87,7 @@ def run_shell(cmd, logger=None):
                        it is a string containign the standard output
 
 
-     Example:   from utils import run_shell
+     Example:   from lib.utils.superpowers import run_shell
 
                 run_shell("echo 'hello world'")
 

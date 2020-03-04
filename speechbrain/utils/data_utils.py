@@ -52,13 +52,13 @@ def get_all_files(
                        it is the output list of files.
 
 
-     Example:   from utils import get_all_files
+     Example:   from lib.utils.data_utils import get_all_files
 
                 # List of wav files
                 print(get_all_files('samples',match_and=['.wav']))
 
-               # List of cfg files
-               print(get_all_files('exp',match_and=['.cfg']))
+                # List of cfg files
+                print(get_all_files('exp',match_and=['.cfg']))
 
      -------------------------------------------------------------------------
      """
@@ -157,7 +157,7 @@ def split_list(seq, num):
                        it is a list containing all chunks created.
 
 
-     Example:  from utils import split_list
+     Example:  from lib.utils.data_utils import split_list
 
                print(split_list([1,2,3,4,5,6,7,8,9],4))
 
@@ -176,74 +176,6 @@ def split_list(seq, num):
 
     return out
 
-def csv_to_dict(csv_file):
-    """
-     -------------------------------------------------------------------------
-     speechbrain.utils.data_utils.csv_to_dict (author: Mirco Ravanelli)
-
-     Description: This function reads the csv_file and coverts into into a
-                  a dictionary.
-
-     Input (call):    - csv_file (type: file, mandatory):
-                           it is the csv file to convert.
-
-     Output (call):   - data_dict (type: dict):
-                           it is a dictionary containing the sentences
-                           reported in the input csv file.
-
-
-     Example:   from utils import csv_to_dict
-
-                csv_file='samples/audio_samples/csv_example.csv'
-
-                print(csv_to_dict(csv_file))
-
-     -------------------------------------------------------------------------
-     """
-
-    # Setting regex to read the data entries
-    value_regex = re.compile(r"([\w]*)=([\w\$\(\)\/'\"\,\-\_\.\:\#]*)")
-    del_spaces = re.compile(r"=([\s]*)")
-
-    # Initialization of the data_dict function
-    data_dict = {}
-
-    # Reading the csv file line by line
-    for data_line in open(csv_file):
-
-        # Removing spaces
-        data_line = data_line.strip()
-
-        # Removing comments
-        data_line = remove_comments(data_line)
-
-        # Skip empty lines
-        if len(data_line) == 0:
-            continue
-
-        # Replacing multiple spaces
-        data_line = (
-            re.sub(" +", " ", data_line)
-            .replace(" ,", ",")
-            .replace(", ", ",")
-            .replace("= ", "=")
-            .replace(" =", "=")
-        )
-
-        # Extracting key=value patterns in the csv file
-        data_line = del_spaces.sub("=", data_line)
-        values = value_regex.findall(data_line)
-
-        # Creating a dictionary from values
-        data = dict(values)
-
-        # Retrieving the sentence_id
-        snt_id = data["ID"]
-
-        # Adding the current data into the data_dict
-        data_dict[snt_id] = data
-
-    return data_dict
 
 def recursive_items(dictionary):
     """
