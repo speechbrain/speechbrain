@@ -423,6 +423,75 @@ class timit_prepare:
             "mthc0",
             "mwjg0",
         ]
+        
+        
+        # This dictionary is used to conver the 60 phoneme set
+        # into the 48 one
+        from_60_to_48_phn={}
+        from_60_to_48_phn['sil']='sil'
+        from_60_to_48_phn['aa']='aa'
+        from_60_to_48_phn['ae']='ae'
+        from_60_to_48_phn['ah']='ah'
+        from_60_to_48_phn['ao']='ao'
+        from_60_to_48_phn['aw']='aw'
+        from_60_to_48_phn['ax']='ax'
+        from_60_to_48_phn['ax-h']='ax'
+        from_60_to_48_phn['axr']='er'
+        from_60_to_48_phn['ay']='ay'
+        from_60_to_48_phn['b']='b'
+        from_60_to_48_phn['bcl']='vcl'
+        from_60_to_48_phn['ch']='ch'
+        from_60_to_48_phn['d']='d'
+        from_60_to_48_phn['dcl']='vcl'
+        from_60_to_48_phn['dh']='dh'
+        from_60_to_48_phn['dx']='dx'
+        from_60_to_48_phn['eh']='eh'
+        from_60_to_48_phn['el']='el'
+        from_60_to_48_phn['em']='m'
+        from_60_to_48_phn['en']='en'
+        from_60_to_48_phn['eng']='ng'
+        from_60_to_48_phn['epi']='epi'
+        from_60_to_48_phn['er']='er'
+        from_60_to_48_phn['ey']='ey'
+        from_60_to_48_phn['f']='f'
+        from_60_to_48_phn['g']='g'
+        from_60_to_48_phn['gcl']='vcl'
+        from_60_to_48_phn['h#']='sil'
+        from_60_to_48_phn['hh']='hh'
+        from_60_to_48_phn['hv']='hh'
+        from_60_to_48_phn['ih']='ih'
+        from_60_to_48_phn['ix']='ix'
+        from_60_to_48_phn['iy']='iy'
+        from_60_to_48_phn['jh']='jh'
+        from_60_to_48_phn['k']='k'
+        from_60_to_48_phn['kcl']='cl'
+        from_60_to_48_phn['l']='l'
+        from_60_to_48_phn['m']='m'
+        from_60_to_48_phn['n']='n'
+        from_60_to_48_phn['ng']='ng'
+        from_60_to_48_phn['nx']='n'
+        from_60_to_48_phn['ow']='ow'
+        from_60_to_48_phn['oy']='oy'
+        from_60_to_48_phn['p']='p'
+        from_60_to_48_phn['pau']='sil'
+        from_60_to_48_phn['pcl']='cl'
+        from_60_to_48_phn['q']='k'
+        from_60_to_48_phn['r']='r'
+        from_60_to_48_phn['s']='s'
+        from_60_to_48_phn['sh']='sh'
+        from_60_to_48_phn['t']='t'
+        from_60_to_48_phn['tcl']='cl'
+        from_60_to_48_phn['th']='th'
+        from_60_to_48_phn['uh']='uh'
+        from_60_to_48_phn['uw']='uw'
+        from_60_to_48_phn['ux']='uw'
+        from_60_to_48_phn['v']='v'
+        from_60_to_48_phn['w']='w'
+        from_60_to_48_phn['y']='y'
+        from_60_to_48_phn['z']='z'
+        from_60_to_48_phn['zh']='zh'
+        
+        self.from_60_to_48_phn=from_60_to_48_phn
 
         # Avoid calibration sentences
         self.avoid_sentences = ["sa1", "sa2"]
@@ -740,11 +809,19 @@ class timit_prepare:
 
                 logger_write(err_msg, logfile=logfile)
 
-            phonemes = [
-                line.rstrip("\n").replace("h#", "sil").split(" ")[2]
-                for line in open(phn_file)
-            ]
-
+            # Phoneme list
+            phonemes = []
+            
+            for line in open(phn_file):
+                
+                phoneme = line.rstrip("\n").replace("h#", "sil").split(" ")[2]    
+                
+                # From 60 to 48 phonemes
+                phoneme = self.from_60_to_48_phn[phoneme]
+                
+                # Apping phoneme in the phoneme list
+                phonemes.append(phoneme)
+            
             phonemes = " ".join(phonemes)
 
             # Composition of the csv_line
