@@ -51,10 +51,10 @@ def read_config(
                        the config file.
 
 
-     Example:   from lib.utils.config.read_config import read_config
+     Example:   from lib.utils.config import read_config
 
-                cfg_file='cfg/minimal_examples/data_reading/\
-                read_data_example.cfg'
+                cfg_file='cfg/minimal_examples/basic_processing/\
+                minimal_processing_read_write_example_noise.cfg'
 
                 # reading the config file
                 config=read_config(cfg_file)
@@ -433,7 +433,7 @@ def write_config(text, filename, modality="w", logger=None):
      Output (call):  None
 
 
-     Example:   from utils import write_config
+     Example:   from lib.utils.config import write_config
 
                 text='hello world!'
 
@@ -494,9 +494,9 @@ def conf_to_text(config, conf_text=None, tabs=None):
      Output (call):  - conf_text (type: str)
 
 
-     Example:   from utils import conf_to_text
+     Example:   from lib.utils.config import conf_to_text
 
-                config={'global':{'verbosity':'1','ouput_folder':'exp/exp_1'}}
+                config={'global':'verbosity:1'}
 
                 # writing text
                 text=conf_to_text(config)
@@ -512,11 +512,12 @@ def conf_to_text(config, conf_text=None, tabs=None):
     if tabs is None:
         tabs = ""
 
+   
     # If the current section is a dictionary, process it
     if isinstance(config, dict):
-
+        
         for key in config.keys():
-            
+           
             if isinstance(config[key],dict):
                 continue
 
@@ -577,7 +578,7 @@ def replace_global_variable(
      Output (call):  None
 
 
-     Example:   from utils import replace_global_variable
+     Example:   from lib.utils.config import replace_global_variable
 
                 # Initialization of the config dictionary
                 config={'functions':{'param1':'1','param2':'$glob_value'}}
@@ -652,7 +653,7 @@ def process_cmd_string(cmd_str, all_funct):
                      the functions are executed through self.run_functions
                      
 
-     Example:    from utils import process_cmd_string
+     Example:    from lib.utils.config import process_cmd_string
      
                  cmd_str='out=my_function(input1,input2)'
                  all_funct=['my_function','my_function2']
@@ -706,7 +707,7 @@ def create_exec_config(cfg_file, cmd_arg):
                        computations.
 
 
-     Example:   from utils import create_exec_config
+     Example:   from lib.utils.config import create_exec_config
 
                 cfg_file='cfg/minimal_examples/data_reading\
                 /read_data_example.cfg'
@@ -744,7 +745,7 @@ def remove_comments(line):
                        it is the output line (without comments)
 
 
-     Example:  from utils import remove_comments
+     Example:  from lib.utils.config import remove_comments
 
                print(remove_comments('Hello! # World'))
 

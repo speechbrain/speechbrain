@@ -158,10 +158,10 @@ class create_dataloader:
      Output (call):  - dataloader (type: dataloader):
                        It is a list returning all the dataloaders created.
 
-     Example:   from data_io import create_dataloader
+     Example:   from lib.data_io.data_io import create_dataloader
 
                 config={'class_name':'core.loop',\
-                         'csv':'samples/audio_samples/csv_example2.csv'}
+                         'csv_file':'samples/audio_samples/csv_example2.csv'}
 
                 # Initialization of the class
                 data_loader=create_dataloader(config)
@@ -217,7 +217,10 @@ class create_dataloader:
         # create data dictionary
         data_dict = self.generate_data_dict()
         
-        self.label_dict = self.label_dict_creation(data_dict)
+        if self.global_config is not None:
+            self.label_dict = self.label_dict_creation(data_dict)
+        else:
+            self.label_dict = None
         
         
         self.data_len = len(data_dict['data_list'])
@@ -277,10 +280,10 @@ class create_dataloader:
                         [data_id,data,data_len] where zero-padding is
                         performed where needed.
 
-         Example:   from data_io import create_dataloader
+         Example:   from lib.data_io.data_io import create_dataloader
 
                     config={'class_name':'core.loop',\
-                             'csv':'samples/audio_samples/csv_example2.csv'}
+                             'csv_file':'samples/audio_samples/csv_example2.csv'}
 
                     # Initialization of the class
                     data_loader=create_dataloader(config)
@@ -338,10 +341,10 @@ class create_dataloader:
                         it is a tensor gathering all the padded tensors.
 
          Example:   import torch
-                    from data_io import create_dataloader
+                    from lib.data_io.data_io import create_dataloader
 
                     config={'class_name':'core.loop',\
-                             'csv':'samples/audio_samples/csv_example2.csv'}
+                             'csv_file':'samples/audio_samples/csv_example2.csv'}
 
                     # Initialization of the class
                     data_loader=create_dataloader(config)
@@ -395,10 +398,10 @@ class create_dataloader:
          Output:    None
 
          Example:  import numpy as np
-                   from data_io import create_dataloader
+                   from lib.data_io.data_io import create_dataloader
 
                    config={'class_name':'core.loop',\
-                             'csv':'samples/audio_samples/csv_example2.csv'}
+                             'csv_file':'samples/audio_samples/csv_example2.csv'}
 
                    # Initialization of the class
                    data_loader=create_dataloader(config)
@@ -520,10 +523,10 @@ class create_dataloader:
                        it is a dictionary with the data itemized in the csv
                        file.
 
-         Example:  from data_io import create_dataloader
+         Example:  from lib.data_io.data_io import create_dataloader
 
                    config={'class_name':'core.loop',\
-                             'csv':'samples/audio_samples/csv_example2.csv'}
+                             'csv_file':'samples/audio_samples/csv_example2.csv'}
 
                    # Initialization of the class
                    data_loader=create_dataloader(config)
@@ -626,10 +629,11 @@ class create_dataloader:
             else:
                 
                 # replace local variables with global ones
-                for var in self.global_config:
-                    for i in range(len(row)):
-                        if '$'+var in row[i]:
-                            row[i]=row[i].replace('$'+var,self.global_config[var])
+                if self.global_config is not None:
+                    for var in self.global_config:
+                        for i in range(len(row)):
+                            if '$'+var in row[i]:
+                                row[i]=row[i].replace('$'+var,self.global_config[var])
 
                 # Make sure that the current row contains all the fields
                 if len(row) != len(field_lst):
@@ -734,10 +738,10 @@ class create_dataloader:
          Output:    - sorted_dictionary (type: dict):
                        it is a dictionary with the sorted data
 
-         Example:  from data_io import create_dataloader
+         Example:  from lib.data_io.data_io import create_dataloader
 
                    config={'class_name':'core.loop',\
-                             'csv':'samples/audio_samples/csv_example2.csv'}
+                             'csv_file':'samples/audio_samples/csv_example2.csv'}
 
                    # Initialization of the class
                    data_loader=create_dataloader(config)
@@ -803,10 +807,10 @@ class create_dataloader:
                        it is a dictionary contained the supported formats and
                        the related readers.
 
-         Example:  from data_io import create_dataloader
+         Example:  from lib.data_io.data_io import create_dataloader
 
                    config={'class_name':'core.loop',\
-                           'csv':'samples/audio_samples/csv_example2.csv'}
+                           'csv_file':'samples/audio_samples/csv_example2.csv'}
 
                    # Initialization of the class
                    data_loader=create_dataloader(config)
@@ -901,11 +905,12 @@ class create_dataset(Dataset):
                                    is formatted in the following way:
                                    [data_id,data,data_len]
 
-     Example:  from data_io import create_dataloader
-               from data_io import create_dataset
+     Example:  from lib.data_io.data_io import create_dataloader
+               from lib.data_io.data_io import create_dataset
 
                config={'class_name':'core.loop',\
-                       'csv':'samples/audio_samples/csv_example2.csv'}
+                       'csv_file':'samples/audio_samples/csv_example2.csv'
+                       }
 
                # Initialization of the data_loader class
                data_loader=create_dataloader(config)
@@ -917,11 +922,10 @@ class create_dataset(Dataset):
                formats=data_loader.get_supported_formats()
 
                # Initialization of the dataser class
-               dataset=create_dataset(data_dict,formats,'wav',False,0)
+               dataset=create_dataset(data_dict,{},formats,'wav',False,0)
 
-              # Reading data
-              print(dataset.__getitem__(0))
-              print(dataset.__getitem__(1))
+               # Reading data
+               print(dataset.__getitem__(0))
      -------------------------------------------------------------------------
      """
 
@@ -968,11 +972,11 @@ class create_dataset(Dataset):
                       it is the number of data to read (i.e. len of the
                       data_list entry of the data_dict).
 
-         Example:  from data_io import create_dataloader
-                   from data_io import create_dataset
+         Example:  from lib.data_io.data_io import create_dataloader
+                   from lib.data_io.data_io import create_dataset
 
                    config={'class_name':'core.loop',\
-                           'csv':'samples/audio_samples/csv_example2.csv'}
+                           'csv_file':'samples/audio_samples/csv_example2.csv'}
 
                    # Initialization of the data_loader class
                    data_loader=create_dataloader(config)
@@ -984,10 +988,10 @@ class create_dataset(Dataset):
                    formats=data_loader.get_supported_formats()
 
                    # Initialization of the dataser class
-                   dataset=create_dataset(data_dict,formats,'wav',False,0)
+                   dataset=create_dataset(data_dict,{},formats,'wav',False,0)
 
-                  # Getting data length
-                  print(dataset.__len__())
+                   # Getting data length
+                   print(dataset.__len__())
          --------------------------------------------.------------------------
          """
 
@@ -1072,11 +1076,11 @@ class create_dataset(Dataset):
                       it is a list contaning the read data. The list if
                       formatted in the followig way: [data_id,data_data_len]
 
-         Example:  from data_io import create_dataloader
-                   from data_io import create_dataset
+         Example:  from lib.data_io.data_io import create_dataloader
+                   from lib.data_io.data_io import create_dataset
 
                    config={'class_name':'core.loop',\
-                           'csv':'samples/audio_samples/csv_example2.csv'}
+                           'csv_file':'samples/audio_samples/csv_example2.csv'}
 
                    # Initialization of the data_loader class
                    data_loader=create_dataloader(config)
@@ -1088,7 +1092,7 @@ class create_dataset(Dataset):
                    formats=data_loader.get_supported_formats()
 
                    # Initialization of the dataser class
-                   dataset=create_dataset(data_dict,formats,'wav',False,0)
+                   dataset=create_dataset(data_dict,{},formats,'wav',False,0)
 
                    # data line example
                    data_line={'data': 'samples/audio_samples/example5.wav', \
@@ -1129,7 +1133,85 @@ class create_dataset(Dataset):
 
 
 class save_ckpt:
+    """
+     -------------------------------------------------------------------------
+     lib.data_io.data_io.save_ckpt (author: Mirco Ravanelli)
 
+     Description: This class can be use to save checkpoint during neural
+                  network training. It saves the current neural model,
+                  the current status of the optimizer, and stores the 
+                  recovery information in the recovery dictionary.
+
+     Input (init):  - exec_config (type, dict, mandatory):
+                       it is a dictionary containing the keys described below.
+
+                           - save_folder (type: str, optional, def:None):
+                               it is the folder where the recovery dict
+                               is saved. By default it is saved in the
+                               output_folder specified in the global
+                               section of the roor config file.
+
+                           - save_format: (type: pkl,optional,
+                               default: pkl):
+                               it is the format used to save neural
+                               models.
+                               
+                           - save_last (type: int(0,inf), optional, def:1):
+                               this flag can be use to save the neural models
+                               of the last N epochs.
+
+                           - print (type: bool, optional, def:True):
+                               when True, it save the performance on a res.res
+                               file in the output_folder.
+                               
+                   - funct_name (type, str, optional, default: None):
+                       it is a string containing the name of the parent
+                       function that has called this method.
+
+                   - global_config (type, dict, optional, default: None):
+                       it a dictionary containing the global variables of the
+                       parent config file.
+
+                   - logger (type, logger, optional, default: None):
+                       it the logger used to write debug and error messages.
+                       If logger=None and root_cfg=True, the file is created
+                       from scratch.
+
+                   - first_input (type, list, optional, default: None)
+                      this variable allows users to analyze the first input
+                       given when calling the class for the first time.
+
+
+     Input (call): - inp_lst(type, list, mandatory):
+                       by default the input arguments are passed with a list.
+                       In this case the list must contain the epoch_id (e.g, 1)
+                       and a performance dictionary to save.
+
+
+     Output (call):  - None
+                       the ouput is directly saved on the disk (see save_folder)
+
+     Example:   import torch
+                from lib.data_io.data_io import save_ckpt
+                from lib.data_io.data_io import load_pkl
+                
+                config={'class_name':'lib.data_io.data_io.save_ckpt'}
+
+                # Initialization of the class
+                performance_dict={'loss':torch.tensor([0.69]),
+                                  'error':torch.tensor([0.35])}
+                
+                save=save_ckpt(config,global_config={'output_folder':'exp'},
+                                 first_input=[0,performance_dict])
+
+                # Calling the function
+                save([0,performance_dict])
+                
+                # print recovery dictionary
+                print(load_pkl('exp/recovery.pkl'))
+     --------------------------------------------.----------------------------
+     """
+     
     def __init__(
         self,
         config,
@@ -1244,14 +1326,12 @@ class save_ckpt:
 
     def __call__(self, input_lst):
         
-        
         # Reading input arguments
         epoch, performance_dict = input_lst
         
         # By default I use the lasr performance in input to decide the best
         # model.
         loss= performance_dict[list(performance_dict.keys())[-1]]
-        
         
         # Converting loss to numpy array
         loss=loss.cpu().numpy()
@@ -1288,11 +1368,51 @@ class save_ckpt:
             
            
     def write_recovery_info(self,epoch,performance_dict):
-        
+        """
+         ---------------------------------------------------------------------
+         lib.data_io.data_io.save_ckpt.write_recovery_info (author: Mirco Ravanelli)
+
+         Description: This function writes the performance dictionary on 
+                      disk.
+
+         Input:       - epoch (type:  int(0,inf), mandatory):
+                         it is the epoch id.
+
+                       - performance_dict (type: dict, mandatory):
+                           it the recovery dictionary to store
+
+         Output:    - None
+                      the recovery dictionary is save in the save_folder
+                      directory.
+
+         Example:   import torch
+                    from lib.data_io.data_io import save_ckpt
+                    from lib.data_io.data_io import load_pkl
+                    
+                    config={'class_name':'lib.data_io.data_io.save_ckpt'}
+    
+                    # Initialization of the class
+                    performance_dict={'loss':torch.tensor([0.69]),
+                                      'error':torch.tensor([0.35])}
+                    
+                    save=save_ckpt(config,global_config={'output_folder':'exp'},
+                                     first_input=[0,performance_dict])
+    
+    
+                    save.write_recovery_info(1,performance_dict)
+                    
+                    # print recovery dictionary
+                    print(load_pkl('exp/recovery.pkl'))
+         --------------------------------------------.------------------------
+         """ 
+         
+        # Path where previous performance dict is written 
         recovery_file=self.output_folder+'/recovery.pkl'
         
+        # check first entry of the performance dict
         loss= list(performance_dict.keys())[0] 
     
+        # Recovery previous recovery dict
         if os.path.exists(recovery_file):
             
             # Loading the last best_loss/epoch saved
@@ -1302,7 +1422,7 @@ class save_ckpt:
                 
                 self.recovery_dict[self.funct_name] = {}
                 
-        
+        # Creating a new recovery dictionary
         else:
             self.recovery_dict={}
             self.recovery_dict[self.funct_name]={}
@@ -1323,31 +1443,141 @@ class save_ckpt:
         
 
     def save_neural_networks(self,path):
-        
-        for funct in self.functions:
-            
-            if hasattr(self.functions[funct], 'parameters'):
-                
-                if len(list(self.functions[funct].parameters()))>0:
-                    
-                    path_full=path + '_' + funct
-                    self.save_model(self.functions[funct],path_full,funct)
-            
-            if hasattr(self.functions[funct], 'optim'):
-                 path_full=path + '_' + funct
-                 self.save_model(self.functions[funct].optim,path_full,funct)
+        """
+         ---------------------------------------------------------------------
+         lib.data_io.data_io.save_ckpt.save_neural_networks (author: Mirco Ravanelli)
+
+         Description: This function saves on disk all the parameters of 
+                      the neural networks found in the self.functions
+                      dictionary. 
          
-            if hasattr(self.functions[funct], 'mean_norm'):
-                path_full=path + '_' + funct
-                self.save_model(self.functions[funct],path_full,funct,mean_stat=True)
-                                 
-            
+         Input:       - path (type:  str, mandatory):
+                         it is the path where to store the neural models
+
+
+         Output:    - None
+                      the neural models are directly stored in the specified 
+                      path.
+                      
+                      
+         Example:   import torch
+                    from lib.data_io.data_io import save_ckpt
+                    from lib.data_io.data_io import load_pkl
+                    from lib.nnet.architectures import linear
+                
+                    # Initializing a linear layer
+                    inp_tensor = torch.rand([4,660,190])
+                
+                    config={'class_name':'lib.nnet.architectures.linear',
+                            'n_neurons':'1024'}
                     
-    def save_model(self,model,path,funct,mean_stat=False):
+                    linear_transf=linear(config,first_input=[inp_tensor])
+                    
+                    config={'class_name':'lib.data_io.data_io.save_ckpt'}
+    
+                    # Initialization of the class
+                    performance_dict={'loss':torch.tensor([0.69]),
+                                      'error':torch.tensor([0.35])}
+                    
+                    save=save_ckpt(config,global_config={'output_folder':'exp'},
+                                     first_input=[0,performance_dict],
+                                     functions={'linear':linear_transf})
+    
+    
+                    save.save_neural_networks('exp/save_nn_exp')
+                    
+                    # print recovery dictionary
+                    print(torch.load('exp/save_nn_exp_linear.pkl'))
+         --------------------------------------------.------------------------
+         """ 
         
+
+        if self.functions is not None:
+            
+            # Loops over all the functions
+            for funct in self.functions:
+                
+                # Check all the functions with the parameters attribute
+                if hasattr(self.functions[funct], 'parameters'):
+                    
+                     # Save only model that actially have parameters
+                    if len(list(self.functions[funct].parameters()))>0:
+                        
+                        path_full=path + '_' + funct
+                        self.save_model(self.functions[funct],path_full,funct)
+                
+                # Saving optimizers
+                if hasattr(self.functions[funct], 'optim'):
+                     path_full=path + '_' + funct
+                     self.save_model(self.functions[funct].optim,path_full,funct)
+                     
+                 # Saving mean_norm statistics
+                if hasattr(self.functions[funct], 'mean_norm'):
+                    path_full=path + '_' + funct
+                    self.save_model(self.functions[funct],path_full,funct,mean_stat=True)
+                                     
+            
+    def save_model(self,model,path,funct,mean_stat=False):
+        """
+         ---------------------------------------------------------------------
+         lib.data_io.data_io.save_ckpt.save_model (author: Mirco Ravanelli)
+
+         Description: This function saves on disk the pkl model
+         
+         Input:       - model (type:  str, mandatory):
+                         it is the model to save.
+                        
+                      - path (type: str, mandatory):
+                          it is the directory where storing the model.
+                          
+                      - funct_name (type: str, mandatory):
+                          it is the name of the neural model.
+                          
+                      - mean_stat (type: str, optinal, def:False):
+                          this flag is True when the input model is just
+                           a dictionary containing mean_statisics.
+                          
+                          
+         Output:    - None
+                      the neural models id directly save in the specified 
+                      path. 
+                      
+                      
+         Example:   import torch
+                    from lib.data_io.data_io import save_ckpt
+                    from lib.data_io.data_io import load_pkl
+                    from lib.nnet.architectures import linear
+                
+                    # Initializing a linear layer
+                    inp_tensor = torch.rand([4,660,190])
+                
+                    config={'class_name':'lib.nnet.architectures.linear',
+                            'n_neurons':'1024'}
+                    
+                    linear_transf=linear(config,first_input=[inp_tensor])
+                    
+                    config={'class_name':'lib.data_io.data_io.save_ckpt'}
+    
+                    # Initialization of the class
+                    performance_dict={'loss':torch.tensor([0.69]),
+                                      'error':torch.tensor([0.35])}
+                    
+                    save=save_ckpt(config,global_config={'output_folder':'exp'},
+                                     first_input=[0,performance_dict],
+                                     functions={'linear':linear_transf})
+    
+    
+                    save.save_model(linear_transf,'save_nn_example.pkl','linear')
+                    
+         --------------------------------------------.------------------------
+         """    
+         
         # Managing pkl format
         if self.save_format=='pkl':
+            
             path=path+'.pkl'
+            
+            # Check if model is mean_stat dictionary
             if mean_stat:
                 torch.save(model.statistics_dict(), path)
             else:
@@ -1358,36 +1588,143 @@ class save_ckpt:
         
         
     def remove_model(self,epoch):
-        
+        """
+         ---------------------------------------------------------------------
+         lib.data_io.data_io.save_ckpt.remove_model (author: Mirco Ravanelli)
+
+         Description: This function support class removes old neural models
+                      corresponding to previous epochs.
+         
+         Input:       - epoch (type:  int(0,inf), mandatory):
+                         all the  neural models corresponding the specified 
+                         epoch will be removed from the save_folder.
+
+
+         Output:    - None
+                      the neural models are directly removed from the disk.
+                      
+                      
+         Example:   import torch
+                    from lib.data_io.data_io import save_ckpt
+                    from lib.data_io.data_io import load_pkl
+                    from lib.nnet.architectures import linear
+                
+                    # Initializing a linear layer
+                    inp_tensor = torch.rand([4,660,190])
+                
+                    config={'class_name':'lib.nnet.architectures.linear',
+                            'n_neurons':'1024'}
+                    
+                    linear_transf=linear(config,first_input=[inp_tensor])
+                    
+                    config={'class_name':'lib.data_io.data_io.save_ckpt'}
+    
+                    # Initialization of the class
+                    performance_dict={'loss':torch.tensor([0.69]),
+                                      'error':torch.tensor([0.35])}
+                    
+                    save=save_ckpt(config,global_config={'output_folder':'exp'},
+                                     first_input=[0,performance_dict],
+                                     functions={'linear':linear_transf})
+    
+    
+                    save.save_neural_networks('exp/save_nn_exp')
+                    
+                    # print recovery dictionary
+                    print(torch.load('exp/save_nn_exp_linear.pkl'))
+                    
+                    save.remove_model(0)
+         --------------------------------------------.------------------------
+         """   
+         
+        # Loop over all files in the save_folder
         for file in os.listdir(self.save_folder):
+            # Check if files containing the given epoch-id are present
             if 'epoch_'+str(epoch)+'_' in file:
                 os.remove(self.save_folder+'/'+file)
                 
     
     def print_epoch(self,epoch,performance_dict):
-        
+        """
+         ---------------------------------------------------------------------
+         lib.data_io.data_io.save_ckpt.print_epoch (author: Mirco Ravanelli)
+
+         Description: This function prints the current performance in 
+                      the logger and in the res.res.file
+         
+         Input:       - epoch (type:  int(0,inf), mandatory):
+                         it is the current epoch_id
+                    
+                       - performance_dict (type: dict, mandatory):
+                           it is the dictionary containing the current
+                           performance metrics.
+
+
+         Output:    - None
+                      the neural models are directly written in the log file
+                      and in the res.res.file
+                      
+                      
+         Example:   import torch
+                    from lib.data_io.data_io import save_ckpt
+                    from lib.data_io.data_io import load_pkl
+                    from lib.nnet.architectures import linear
+                
+                    # Initializing a linear layer
+                    inp_tensor = torch.rand([4,660,190])
+                
+                    config={'class_name':'lib.nnet.architectures.linear',
+                            'n_neurons':'1024'}
+                    
+                    linear_transf=linear(config,first_input=[inp_tensor])
+                    
+                    config={'class_name':'lib.data_io.data_io.save_ckpt'}
+    
+                    # Initialization of the class
+                    performance_dict={'loss':torch.tensor([0.69]),
+                                      'error':torch.tensor([0.35])}
+                    
+                    save=save_ckpt(config,global_config={'output_folder':'exp'},
+                                     first_input=[0,performance_dict],
+                                     functions={'linear':linear_transf})
+    
+    
+                    save.print_epoch(0,performance_dict)
+                    
+                    # see exp/nnets/res.res
+
+         --------------------------------------------.------------------------
+         """ 
+         
         if self.print:
-            
+
             # Composing string to write
             string='epoch %i:' %(epoch)
             
+            # Printing all the metrics in the performance dict
             for perf in performance_dict:
                 performance_dict[perf]=performance_dict[perf].cpu().numpy()
                 string = " %s %s=%.4f" %(string,perf,performance_dict[perf])
                 
             
             # Print learning rates
-            for funct in self.functions:
-                if 'optim' in self.functions[funct].__dict__:
-                    if 'lr' in self.functions[funct].optim.param_groups[0]:
+            if self.functions is not None:
+                
+                for funct in self.functions:
+                    
+                    # Checking for optimization info
+                    if 'optim' in self.functions[funct].__dict__:
                         
-                        if 'prev_lr' in self.functions[funct].optim.param_groups[0]:
-                            lr=self.functions[funct].optim.param_groups[0]['prev_lr']
-                        else:
-                            lr=self.functions[funct].optim.param_groups[0]['lr']
+                        # Check the learning rate
+                        if 'lr' in self.functions[funct].optim.param_groups[0]:
                             
-                        
-                        string= "%s lr_%s=%.8f" %(string,funct,lr)
+                            if 'prev_lr' in self.functions[funct].optim.param_groups[0]:
+                                lr=self.functions[funct].optim.param_groups[0]['prev_lr']
+                            else:
+                                lr=self.functions[funct].optim.param_groups[0]['lr']
+                                
+                            
+                            string= "%s lr_%s=%.8f" %(string,funct,lr)
     
             # Printing on logger
             logger_write(string, logfile=self.logger, level="info")
