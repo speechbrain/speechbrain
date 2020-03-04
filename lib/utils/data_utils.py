@@ -8,13 +8,14 @@
 
 import os
 import re
+from config import remove_comments
 
 def get_all_files(
     dirName, match_and=None, match_or=None, exclude_and=None, exclude_or=None
 ):
     """
      -------------------------------------------------------------------------
-     utils.get_all_files (author: Mirco Ravanelli)
+     lib.utils.data_utils.get_all_files (author: Mirco Ravanelli)
 
      Description: This function get a list of files within found within a
                   folder. Different options can be used to restrict the search
@@ -138,17 +139,11 @@ def get_all_files(
     return allFiles
 
 
-        
-
-
-       
-
-
 
 def split_list(seq, num):
     """
      -------------------------------------------------------------------------
-     utils.split_list (author: Mirco Ravanelli)
+     lib.utils.data_utils.split_list (author: Mirco Ravanelli)
 
      Description: This function splits the input list in N parts.
 
@@ -184,7 +179,7 @@ def split_list(seq, num):
 def csv_to_dict(csv_file):
     """
      -------------------------------------------------------------------------
-     utils.csv_to_dict (author: Mirco Ravanelli)
+     lib.utils.data_utils.csv_to_dict (author: Mirco Ravanelli)
 
      Description: This function reads the csv_file and coverts into into a
                   a dictionary.
@@ -251,7 +246,33 @@ def csv_to_dict(csv_file):
     return data_dict
 
 def recursive_items(dictionary):
-    
+    """
+     -------------------------------------------------------------------------
+     lib.utils.data_utils.recursive_items (author: Mirco Ravanelli)
+
+     Description: This function output the key, value of a recursive
+                  dictionary (i.e, a dictionary that might contain other
+                  dictionaries).
+
+     Input (call):    - dictionary (type: dict, mandatory):
+                           the dictionary (or dictionary of dictionaries)
+                           in input.
+
+     Output (call):   - (key,valies): key value tuples on the 
+                       recursive dictionary.
+
+
+     Example:   from lib.utils.data_utils import recursive_items
+
+                rec_dict={}
+                rec_dict['lev1']={}
+                rec_dict['lev1']['lev2']={}
+                rec_dict['lev1']['lev2']['lev3']='current_val'
+                
+                print(list(recursive_items(rec_dict)))
+
+     -------------------------------------------------------------------------
+     """    
     for key, value in dictionary.items():
         if type(value) is dict:
             yield from recursive_items(value)
