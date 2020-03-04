@@ -9,7 +9,7 @@
 
 import importlib
 import subprocess
-from logger import logger_write
+from lib.utils.logger import logger_write
 
 def import_class(library, logfile=None):
     """

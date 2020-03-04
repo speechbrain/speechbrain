@@ -8,7 +8,7 @@
 
 import os
 import re
-from config import remove_comments
+from lib.utils.config import remove_comments
 
 def get_all_files(
     dirName, match_and=None, match_or=None, exclude_and=None, exclude_or=None

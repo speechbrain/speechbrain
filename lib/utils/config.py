@@ -12,7 +12,7 @@ import re
 import numpy
 import torch
 import random
-from logger import logger_write
+from lib.utils.logger import logger_write
 
 def read_config(
     config_file, cfg_change=None, global_config={}, root_cfg=False, logger=None
@@ -51,7 +51,7 @@ def read_config(
                        the config file.
 
 
-     Example:   from lib.utils import read_config
+     Example:   from lib.utils.config.read_config import read_config
 
                 cfg_file='cfg/minimal_examples/data_reading/\
                 read_data_example.cfg'
