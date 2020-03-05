@@ -1462,7 +1462,9 @@ class execute_computations(nn.Module):
                 inp_lst_device.append(inp)
                 inp_lst = inp_lst_device
 
-        return inp_lst_device
+            return inp_lst_device
+        else:
+            return inp_lst
 
     def set_eval_mode(self, funct_name):
         """
