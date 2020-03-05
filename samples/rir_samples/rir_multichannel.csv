@@ -1,0 +1,2 @@
+ID, duration, wav, wav_format
+rir_multichannel, 0.5, samples/rir_samples/rir_multichannel.wav, wav
