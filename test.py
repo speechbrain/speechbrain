@@ -20,33 +20,32 @@ from lib.utils import create_exec_config
 from lib.core import execute_computations
 
 # List of config files to run:
-cfg_lst = ['cfg/minimal_examples/data_reading/read_write_data.cfg',
-           'cfg/minimal_examples/data_reading/loop_example.cfg',
-           'cfg/minimal_examples/basic_processing/'
-           'minimal_processing_read_write_example_noise.cfg',
-           'cfg/minimal_examples/features/compute_stft_example.cfg',
-           'cfg/minimal_examples/features/'
-           'compute_spectrogram_example.cfg',
-           'cfg/minimal_examples/features/compute_fbanks_example.cfg',
-           'cfg/minimal_examples/features/compute_mfccs_example.cfg',
-           'cfg/minimal_examples/features/compute_mfccs_example2.cfg',
-           'cfg/minimal_examples/multichannel/'
-           'compute_stft_multichannel_example.cfg',
-           'cfg/minimal_examples/multichannel/'
-           'compute_spectrogram_multichannel_example.cfg',
-           'cfg/minimal_examples/multichannel/'
-           'compute_fbanks_multichannel_example.cfg',
-           'cfg/minimal_examples/neural_networks/spk_id/spk_id_example.cfg',
-           'cfg/minimal_examples/neural_networks/DNN_HMM_ASR/ASR_example.cfg',
-           'cfg/minimal_examples/neural_networks/autoencoder/autoencoder_example.cfg',
-           'cfg/minimal_examples/neural_networks/E2E_ASR/CTC/CTC_example.cfg'
-           ]
+cfg_lst = [
+    "cfg/minimal_examples/data_reading/read_write_data.cfg",
+    "cfg/minimal_examples/data_reading/loop_example.cfg",
+    "cfg/minimal_examples/basic_processing/"
+    "minimal_processing_read_write_example_noise.cfg",
+    "cfg/minimal_examples/features/compute_stft_example.cfg",
+    "cfg/minimal_examples/features/" "compute_spectrogram_example.cfg",
+    "cfg/minimal_examples/features/compute_fbanks_example.cfg",
+    "cfg/minimal_examples/features/compute_mfccs_example.cfg",
+    "cfg/minimal_examples/features/compute_mfccs_example2.cfg",
+    "cfg/minimal_examples/multichannel/"
+    "compute_stft_multichannel_example.cfg",
+    "cfg/minimal_examples/multichannel/"
+    "compute_spectrogram_multichannel_example.cfg",
+    "cfg/minimal_examples/multichannel/"
+    "compute_fbanks_multichannel_example.cfg",
+    "cfg/minimal_examples/neural_networks/spk_id/spk_id_example.cfg",
+    "cfg/minimal_examples/neural_networks/DNN_HMM_ASR/ASR_example.cfg",
+    "cfg/minimal_examples/neural_networks/autoencoder/autoencoder_example.cfg",
+    "cfg/minimal_examples/neural_networks/E2E_ASR/CTC/CTC_example.cfg",
+]
 
 
 # List of files to check:
 check_lst = [
 'speechbrain.py',
-'lib/utils.py',
 'lib/core.py',
 'lib/data_io/data_io.py',
 'lib/data_io/data_preparation.py',
@@ -54,6 +53,13 @@ check_lst = [
 'lib/processing/features.py',
 'lib/processing/multi_mic.py',
 'lib/processing/speech_augmentation.py',
+'lib/utils/input_validation.py',
+'lib/utils/data_utils.py',
+'lib/utils/config.py',
+'lib/utils/edit_distance.py',
+'lib/utils/superpowers.py',
+'lib/utils/logger.py',
+'lib/utils/__init__.py',
 'lib/nnet/normalization.py',
 'lib/nnet/losses.py',
 'lib/nnet/lr_scheduling.py',
@@ -65,9 +71,9 @@ check_lst = [
 # Running examples in config files
 for cfg_file in cfg_lst:
 
-    print('checking %s' % cfg_file)
+    print("checking %s" % cfg_file)
     # Creating config dict for executing computations
-    exec_config = create_exec_config(cfg_file, '')
+    exec_config = create_exec_config(cfg_file, "")
 
     # Initializing the execute computation class
     computations = execute_computations(exec_config)
@@ -76,7 +82,7 @@ for cfg_file in cfg_lst:
     computations([])
 
 # Checking PEP8 consistency
-print('check PEP8 consistency:')
+print("check PEP8 consistency:")
 
 for file in check_lst:
 
@@ -89,4 +95,4 @@ for file in check_lst:
     if file_errors > 0:
         sys.exit(0)
 
-print('Test finished without errors!')
+print("Test finished without errors!")

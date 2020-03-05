@@ -3,7 +3,7 @@
  superpowers.py
 
  Description: This library contains functions for importing python classes and
-              for running shell commands. Remember, great power comes great 
+              for running shell commands. Remember, great power comes great
               responsibility.
  -----------------------------------------------------------------------------
 """
@@ -11,6 +11,7 @@
 import importlib
 import subprocess
 from lib.utils.logger import logger_write
+
 
 def import_class(library, logfile=None):
     """
@@ -40,16 +41,15 @@ def import_class(library, logfile=None):
     if len(library.split(".")) == 1:
 
         err_msg = (
-            'the class to import must be in the following format: '
-            'library.class (e.g., data_io.load_data). Got %s".'
-            % (library)
+            "the class to import must be in the following format: "
+            'library.class (e.g., data_io.load_data). Got %s".' % (library)
         )
 
         logger_write(err_msg, logfile=logfile)
 
     # Split library and class
-    module_name = '.'.join(library.split(".")[:-1])
-    class_name =  library.split(".")[-1]   
+    module_name = ".".join(library.split(".")[:-1])
+    class_name = library.split(".")[-1]
 
     # Loading the module
     try:
@@ -72,6 +72,7 @@ def import_class(library, logfile=None):
         logger_write(err_msg, logfile=logfile)
 
     return target_class
+
 
 def run_shell(cmd, logger=None):
     """
@@ -108,4 +109,4 @@ def run_shell(cmd, logger=None):
         msg = output.decode("utf-8") + "\n" + err.decode("utf-8")
         logger_write(msg, logfile=logger, level="debug")
 
-    return output,err
+    return output, err

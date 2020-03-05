@@ -14,6 +14,7 @@ import torch
 import random
 from lib.utils.logger import logger_write
 
+
 def read_config(
     config_file, cfg_change=None, global_config={}, root_cfg=False, logger=None
 ):
@@ -87,21 +88,21 @@ def read_config(
     for line in config_lst:
 
         line = line.rstrip()
-        
-        if "[computations]" not in active_tags or  "[/computations]" in line:
-            
+
+        if "[computations]" not in active_tags or "[/computations]" in line:
+
             # Removing empty characters
             line = line.lstrip()
-    
+
         # Removing comments
         line = remove_comments(line)
-            
+
         # Skipping empty lines
         if len(line) == 0:
             continue
-        
+
         # Skipping empty lines composed of spaces only
-        if len(line)==line.count(' '):
+        if len(line) == line.count(" "):
             continue
 
         # Detecting open tags [..]
@@ -117,14 +118,15 @@ def read_config(
             ):
 
                 # Replacing tabs with spaces
-                line = line.replace('\t','        ')
-                
-                if len(config['computations'])==0:
-                    left_spaces=len(line)-len(line.lstrip())
-                
-                config['computations']= config['computations']+\
-                                    line[left_spaces:]+'\n'
-                                    
+                line = line.replace("\t", "        ")
+
+                if len(config["computations"]) == 0:
+                    left_spaces = len(line) - len(line.lstrip())
+
+                config["computations"] = (
+                    config["computations"] + line[left_spaces:] + "\n"
+                )
+
                 continue
 
             # Setting tag_closed
@@ -151,7 +153,7 @@ def read_config(
                     # For the special tag "computations", initialize a list
                     # that will contain the list of computations to perform.
                     if tag == "computations":
-                        config['computations'] = ''
+                        config["computations"] = ""
 
                     curr_dict = curr_dict[tag]
             continue
@@ -175,8 +177,8 @@ def read_config(
             if closed_tag.replace("[/", "[") != active_tags[-1]:
 
                 err_msg = (
-                    'the tag %s of the cfg file %s is not closed '
-                    'properly! It should be closed before %s.'
+                    "the tag %s of the cfg file %s is not closed "
+                    "properly! It should be closed before %s."
                     % (active_tags[-1], config_file, closed_tag)
                 )
 
@@ -194,9 +196,8 @@ def read_config(
         if tag_closed and not bool(re.search(open_tag, line)):
 
             err_msg = (
-                'after closing the tag %s in cfg file %s, you must '
-                'open a new tag!'
-                % (closed_tag, config_file)
+                "after closing the tag %s in cfg file %s, you must "
+                "open a new tag!" % (closed_tag, config_file)
             )
 
             logger_write(err_msg, logfile=logger)
@@ -210,22 +211,22 @@ def read_config(
             curr_dict[field] = value
 
         if tag == "computations":
-            
+
             # Replacing tabs with spaces
-            line = line.replace('\t','        ')
-            if len(config['computations'])==0:
-                left_spaces=len(line)-len(line.lstrip())
-                
-            config['computations']= config['computations']+\
-                                    line[left_spaces:]+'\n'
+            line = line.replace("\t", "        ")
+            if len(config["computations"]) == 0:
+                left_spaces = len(line) - len(line.lstrip())
+
+            config["computations"] = (
+                config["computations"] + line[left_spaces:] + "\n"
+            )
 
     # check if all the tags are closed
     if len(active_tags) > 0:
 
         err_msg = (
-            'the following tags are opened but not closed in '
-            'cfg file %s! %s.'
-            % (active_tags, config_file)
+            "the following tags are opened but not closed in "
+            "cfg file %s! %s." % (active_tags, config_file)
         )
 
         logger_write(err_msg, logfile=logger)
@@ -239,8 +240,8 @@ def read_config(
             if sec not in config.keys():
 
                 err_msg = (
-                    'the section [%s] is mandatory and not present in '
-                    'the config file %s (got %s)'
+                    "the section [%s] is mandatory and not present in "
+                    "the config file %s (got %s)"
                     % (sec, config_file, config.keys())
                 )
 
@@ -257,12 +258,11 @@ def read_config(
             if len(arg.split("=")) != 2:
 
                 err_msg = (
-                    'the argument specified in the command line '
-                    '(or cfg_change field) must be formatted in the '
-                    'following way: --section,sub-section,field=value '
-                    '(e.g, functions,prepare_timit,splits=train,dev). '
-                    'Got "%s"'
-                    % (arg)
+                    "the argument specified in the command line "
+                    "(or cfg_change field) must be formatted in the "
+                    "following way: --section,sub-section,field=value "
+                    "(e.g, functions,prepare_timit,splits=train,dev). "
+                    'Got "%s"' % (arg)
                 )
 
                 logger_write(err_msg, logfile=logger)
@@ -270,12 +270,11 @@ def read_config(
             if len(arg.split("=")[0].split(",")) < 2:
 
                 err_msg = (
-                    'the argument specified in the command line '
-                    '(or cfg_change field)  must be formatted in the '
-                    'following way: --section,sub-section,field=value '
-                    '(e.g, functions,prepare_timit,splits=train,dev). '
-                    'Got "%s"'
-                    % (arg)
+                    "the argument specified in the command line "
+                    "(or cfg_change field)  must be formatted in the "
+                    "following way: --section,sub-section,field=value "
+                    "(e.g, functions,prepare_timit,splits=train,dev). "
+                    'Got "%s"' % (arg)
                 )
 
                 logger_write(err_msg, logfile=logger)
@@ -291,9 +290,9 @@ def read_config(
                 except Exception:
 
                     err_msg = (
-                        'the section [%s] specified in the command line '
-                        '(or cfg_change field) does not exist in the '
-                        'config file %s'
+                        "the section [%s] specified in the command line "
+                        "(or cfg_change field) does not exist in the "
+                        "config file %s"
                         % (args[i].replace("--", ""), config_file)
                     )
 
@@ -308,13 +307,11 @@ def read_config(
     if root_cfg and "global" not in config:
 
         err_msg = (
-            'The root config file %s must  contain '
-            'a section [global]'
-            % (config_file)
+            "The root config file %s must  contain "
+            "a section [global]" % (config_file)
         )
 
         logger_write(err_msg, logfile=logger)
-
 
     # Replacing patterns with global variables where needed
     if "global" in config:
@@ -337,10 +334,9 @@ def read_config(
             if "output_folder" not in global_config:
 
                 err_msg = (
-                    'the section [global] in the cfg file %s must contain '
+                    "the section [global] in the cfg file %s must contain "
                     'a field "output_folder=" (i.e, the folder where the logs '
-                    'and results are saved)'
-                    % (config_file)
+                    "and results are saved)" % (config_file)
                 )
 
                 logger_write(err_msg, logfile=logger)
@@ -354,9 +350,8 @@ def read_config(
 
                     err_msg = (
                         'the field "verbosity" in section [global] of the '
-                        'cfg file %s must contain an integer between 0 and 2. '
-                        'Got %s'
-                        % (config_file, global_config["verbosity"])
+                        "cfg file %s must contain an integer between 0 and 2. "
+                        "Got %s" % (config_file, global_config["verbosity"])
                     )
 
                     logger_write(err_msg, logfile=logger)
@@ -367,10 +362,9 @@ def read_config(
                 if "class_name" not in config["functions"][funct]:
 
                     err_msg = (
-                        'the function %s of the config file %s does not '
+                        "the function %s of the config file %s does not "
                         'contain the mandatory field "class_name=" '
-                        '(e.g, class_name=core.loop)'
-                        % (funct, config_file)
+                        "(e.g, class_name=core.loop)" % (funct, config_file)
                     )
 
                     logger_write(err_msg, logfile=logger)
@@ -388,21 +382,22 @@ def read_config(
             )
 
     # Setting seeds
-    if 'seed' in config['global']:
+    if "seed" in config["global"]:
 
         try:
-            seed = int(config['global']['seed'])
+            seed = int(config["global"]["seed"])
         except Exception:
 
-            err_msg = ('The seed in the [global] section of the config file '
-                       '%s must be an integer' % (config_file))
+            err_msg = (
+                "The seed in the [global] section of the config file "
+                "%s must be an integer" % (config_file)
+            )
             logger_write(err_msg, logfile=logger)
 
         # Setting seeds for random, numpy, torch
         random.seed(seed)
         numpy.random.seed(seed)
         torch.manual_seed(seed)
-
 
     # Returning the processed config dictionary
     return config
@@ -512,13 +507,12 @@ def conf_to_text(config, conf_text=None, tabs=None):
     if tabs is None:
         tabs = ""
 
-   
     # If the current section is a dictionary, process it
     if isinstance(config, dict):
-        
+
         for key in config.keys():
-           
-            if isinstance(config[key],dict):
+
+            if isinstance(config[key], dict):
                 continue
 
             # If next element is a dictionary, call the function recursively
@@ -534,10 +528,12 @@ def conf_to_text(config, conf_text=None, tabs=None):
                 # Managing the special section computations
                 if key == "computations":
                     conf_text = conf_text + tabs + "\n[computations]\n\n"
-                    if isinstance(config[key],list):
-                        config[key]='\n'.join(config[key])
-                        
-                    lines = [tabs + "\t" + line for line in config[key].split('\n')]
+                    if isinstance(config[key], list):
+                        config[key] = "\n".join(config[key])
+
+                    lines = [
+                        tabs + "\t" + line for line in config[key].split("\n")
+                    ]
                     conf_text = conf_text + "\n".join(lines)
                     conf_text = conf_text + tabs + "\n[/computations]\n"
                 else:
@@ -547,6 +543,7 @@ def conf_to_text(config, conf_text=None, tabs=None):
                     )
 
     return conf_text
+
 
 def replace_global_variable(
     value, global_var, curr_key=None, parent=None, logger=None
@@ -615,9 +612,8 @@ def replace_global_variable(
                     )
                 if "$" in value and var not in global_var.keys():
                     err_msg = (
-                        'The variable %s is not defined in the [global] of the'
-                        ' config file'
-                        % ("$" + value)
+                        "The variable %s is not defined in the [global] of the"
+                        " config file" % ("$" + value)
                     )
                     logger_write(err_msg, logfile=logger)
 
@@ -629,13 +625,14 @@ def replace_global_variable(
                         element.replace("$" + var, global_var[var])
                     )
 
+
 def process_cmd_string(cmd_str, all_funct):
     """
      ---------------------------------------------------------------------
      lib.utils.config.process_cmd_string
      (author: Mirco Ravanelli)
 
-     Description: This function processes the string in the section 
+     Description: This function processes the string in the section
                   computations and replaces all the functions in all_funct
                   with  the method self.run_fuction. The latter initializes
                   the class only the first time it is called and then
@@ -644,48 +641,49 @@ def process_cmd_string(cmd_str, all_funct):
      Input:       - cmd_str (type: str, mandatory):
                       it is the string containing the command to execute.
                   - all_funct (type: list, mandatory):
-                      it is a list containing all the functions already 
+                      it is a list containing all the functions already
                       defined.
 
 
      Output:      - cmd_str  (type: str):
-                     it is a string contaning the commands to run where 
+                     it is a string contaning the commands to run where
                      the functions are executed through self.run_functions
-                     
+
 
      Example:    from lib.utils.config import process_cmd_string
-     
+
                  cmd_str='out=my_function(input1,input2)'
                  all_funct=['my_function','my_function2']
                  print(process_cmd_string(cmd_str,all_funct))
      ---------------------------------------------------------------------
      """
-    
-    # Looping overl all the functions defined 
+
+    # Looping overl all the functions defined
     for funct_name in all_funct:
-                    
+
         # Manage the case in which the function object is given in input
         # to another function
-        pattern_lst = [' ', ',',')']
-        
-        for pattern in pattern_lst:                
+        pattern_lst = [" ", ",", ")"]
+
+        for pattern in pattern_lst:
             inp_pattern = funct_name + pattern
             out_pattern = 'self.functions["' + funct_name + '"]' + pattern
-            
+
             # Replace patterns
-            cmd_str = cmd_str.replace(inp_pattern,out_pattern)
-        
+            cmd_str = cmd_str.replace(inp_pattern, out_pattern)
+
         # Replace function name with the method run_function
-        inp_pattern = funct_name + '('
+        inp_pattern = funct_name + "("
         out_pattern = 'self.run_function("' + funct_name + '",'
-        
+
         # Replace patterns
-        cmd_str = cmd_str.replace(inp_pattern,out_pattern)
-        
+        cmd_str = cmd_str.replace(inp_pattern, out_pattern)
+
     # Manage special function get_input_var
-    cmd_str = cmd_str.replace('get_input_var','self.get_input_var')
-    
+    cmd_str = cmd_str.replace("get_input_var", "self.get_input_var")
+
     return cmd_str
+
 
 def create_exec_config(cfg_file, cmd_arg):
     """
@@ -731,6 +729,7 @@ def create_exec_config(cfg_file, cmd_arg):
 
     return exec_config
 
+
 def remove_comments(line):
     """
      -------------------------------------------------------------------------
@@ -755,7 +754,7 @@ def remove_comments(line):
     # Removing comments
     if "#" in line:
         if line[0] != "#":
-            line = line[0:line.find("#") - 1]
+            line = line[0: line.find("#") - 1]
         else:
             line = ""
     return line

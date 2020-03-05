@@ -53,11 +53,14 @@ def accumulatable_wer_stats(refs, hyps, stats=collections.Counter()):
     if updated_stats["num_ref_tokens"] == 0:
         updated_stats["WER"] = float("nan")
     else:
-        num_edits = sum(updated_stats["insertions"],
-                        updated_stats["deletions"],
-                        updated_stats["substitutions"])
-        updated_stats["WER"] = \
+        num_edits = sum(
+            updated_stats["insertions"],
+            updated_stats["deletions"],
+            updated_stats["substitutions"],
+        )
+        updated_stats["WER"] = (
             100.0 * num_edits / updated_stats["num_ref_tokens"]
+        )
     return updated_stats
 
 

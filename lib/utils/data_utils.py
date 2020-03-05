@@ -10,6 +10,7 @@ import os
 import re
 from lib.utils.config import remove_comments
 
+
 def get_all_files(
     dirName, match_and=None, match_or=None, exclude_and=None, exclude_or=None
 ):
@@ -139,7 +140,6 @@ def get_all_files(
     return allFiles
 
 
-
 def split_list(seq, num):
     """
      -------------------------------------------------------------------------
@@ -171,7 +171,7 @@ def split_list(seq, num):
 
     # Creating the chunks
     while last < len(seq):
-        out.append(seq[int(last):int(last + avg)])
+        out.append(seq[int(last): int(last + avg)])
         last += avg
 
     return out
@@ -190,7 +190,7 @@ def recursive_items(dictionary):
                            the dictionary (or dictionary of dictionaries)
                            in input.
 
-     Output (call):   - (key,valies): key value tuples on the 
+     Output (call):   - (key,valies): key value tuples on the
                        recursive dictionary.
 
 
@@ -200,14 +200,13 @@ def recursive_items(dictionary):
                 rec_dict['lev1']={}
                 rec_dict['lev1']['lev2']={}
                 rec_dict['lev1']['lev2']['lev3']='current_val'
-                
+
                 print(list(recursive_items(rec_dict)))
 
      -------------------------------------------------------------------------
-     """    
+     """
     for key, value in dictionary.items():
         if type(value) is dict:
             yield from recursive_items(value)
         else:
             yield (key, value)
-            

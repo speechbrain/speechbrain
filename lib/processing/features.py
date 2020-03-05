@@ -18,7 +18,6 @@ from lib.utils.logger import logger_write
 from lib.data_io.data_io import recovery, initialize_with
 
 
-
 class STFT(nn.Module):
     """
      -------------------------------------------------------------------------
@@ -141,6 +140,7 @@ class STFT(nn.Module):
 
      -------------------------------------------------------------------------
      """
+
     def __init__(
         self,
         config,
@@ -197,14 +197,13 @@ class STFT(nn.Module):
             if len(first_input[0].shape) > 3 or len(first_input[0].shape) < 1:
 
                 err_msg = (
-                    'The input of STFT must be a tensor with one of the  '
-                    'following dimensions: [time] or [batch,time] or '
-                    '[batch,channels,time]. Got %s '
+                    "The input of STFT must be a tensor with one of the  "
+                    "following dimensions: [time] or [batch,time] or "
+                    "[batch,channels,time]. Got %s "
                     % (str(first_input[0].shape))
                 )
 
                 logger_write(err_msg, logfile=logger)
-
 
         # Convert win_length and hop_length from ms to samples
         self.win_length = int(
@@ -436,20 +435,18 @@ class spectrogram(nn.Module):
 
                 err_msg = (
                     'The input of "spectrogram" must be a tensor with one '
-                    'of the  following dimensions: [n_freq_points, 2, time] or'
-                    '[batch,n_freq_points, 2, time] or '
-                    '[batch,channels,n_freq_points, 2, time]. Got %s '
+                    "of the  following dimensions: [n_freq_points, 2, time] or"
+                    "[batch,n_freq_points, 2, time] or "
+                    "[batch,channels,n_freq_points, 2, time]. Got %s "
                     % (str(first_input[0].shape))
                 )
 
                 logger_write(err_msg, logfile=logger)
 
-
     def forward(self, input_lst):
 
         # Reading input _list
         stft = input_lst[0]
-
 
         # Get power of "complex" tensor (index=-2 are real and complex parts)
         spectrogram = stft.pow(self.power_spectrogram).sum(-2)
@@ -523,15 +520,15 @@ class FBANKs(nn.Module):
                                features are computed.
                            - recovery (type: bool, optional, True)
                                this option is used to recover the last filter
-                               banks parameters saved during training. It is 
+                               banks parameters saved during training. It is
                                activated only if freeze=False.
-                               
+
                            - initialize_with (type: str, optional, None)
                               this option is a path to a pkl file that
-                              contains personalized bands and central 
+                              contains personalized bands and central
                               frequnecy for each filter.
-                              
-                            
+
+
 
 
                    - funct_name (type, str, optional, default: None):
@@ -649,8 +646,8 @@ class FBANKs(nn.Module):
             "ref_value": ("float", "optional", "1.0"),
             "top_db": ("float", "optional", "80"),
             "freeze": ("bool", "optional", "True"),
-            "recovery": ("bool", "optional","True"),
-            "initialize_with": ("str", "optional","None"),
+            "recovery": ("bool", "optional", "True"),
+            "initialize_with": ("str", "optional", "None"),
         }
 
         # Check, cast , and expand the options
@@ -674,15 +671,13 @@ class FBANKs(nn.Module):
 
                 err_msg = (
                     'The input of "FBANKs" must be a tensor with one of '
-                    'the following dimensions: [n_freq_points, time] or '
-                    '[batch,n_freq_points, time] or '
-                    '[batch,channels,n_freq_points, time]. '
-                    'Got %s '
-                    % (str(first_input[0].shape))
+                    "the following dimensions: [n_freq_points, time] or "
+                    "[batch,n_freq_points, time] or "
+                    "[batch,channels,n_freq_points, time]. "
+                    "Got %s " % (str(first_input[0].shape))
                 )
 
                 logger_write(err_msg, logfile=logger)
-
 
         # Additional options
         self.n_stft = self.n_fft // 2 + 1
@@ -727,12 +722,12 @@ class FBANKs(nn.Module):
 
         # replicating for all the filters
         self.all_freqs_mat = all_freqs.repeat(self.f_central.shape[0], 1)
-        
+
         # Managing initialization with an external filter bank parameters
-        # (useful for pre-training) 
+        # (useful for pre-training)
         initialize_with(self)
-                
-        if not(self.freeze):
+
+        if not (self.freeze):
             # Automatic recovery
             recovery(self)
 
@@ -753,7 +748,9 @@ class FBANKs(nn.Module):
         )
 
         # Creation of the multiplication matrix
-        fbank_matrix = self.create_fbank_matrix(f_central_mat, band_mat).to(spectrogram.device)
+        fbank_matrix = self.create_fbank_matrix(f_central_mat, band_mat).to(
+            spectrogram.device
+        )
 
         # FBANK computation
         fbanks = torch.matmul(
@@ -1088,9 +1085,7 @@ class FBANKs(nn.Module):
 
         # Setting up dB max
         new_x_db_max = torch.tensor(
-            float(x_db.max()) - self.top_db,
-            dtype=x_db.dtype,
-            device=x.device,
+            float(x_db.max()) - self.top_db, dtype=x_db.dtype, device=x.device,
         )
         # Clipping to dB max
         x_db = torch.max(x_db, new_x_db_max)
@@ -1253,11 +1248,10 @@ class MFCCs(nn.Module):
             if len(first_input[0].shape) > 4 or len(first_input[0].shape) < 2:
 
                 err_msg = (
-                    'The input of MFCCs must be a tensor with one of the '
-                    'following dimensions: [n_mel, time] or '
-                    '[batch,n_mel, time] or [batch,channels,n_mel, time].'
-                    'Got %s '
-                    % (str(first_input[0].shape))
+                    "The input of MFCCs must be a tensor with one of the "
+                    "following dimensions: [n_mel, time] or "
+                    "[batch,n_mel, time] or [batch,channels,n_mel, time]."
+                    "Got %s " % (str(first_input[0].shape))
                 )
 
                 logger_write(err_msg, logfile=logger)
@@ -1269,9 +1263,8 @@ class MFCCs(nn.Module):
         if self.n_mfcc > self.n_mels:
 
             err_msg = (
-                'Cannot select more MFCC coefficients than mel filters '
-                '(n_mfcc=%i, n_mels=%i)'
-                % (self.n_mfcc, self.n_mels)
+                "Cannot select more MFCC coefficients than mel filters "
+                "(n_mfcc=%i, n_mels=%i)" % (self.n_mfcc, self.n_mels)
             )
 
             logger_write(err_msg, logfile=logger)
@@ -1358,11 +1351,10 @@ class MFCCs(nn.Module):
         # Reading input _list
         fbanks = input_lst[0]
 
-
         # Computing MFCCs by applying the DCT transform
-        mfcc = torch.matmul(fbanks.transpose(1, -1), self.dct_mat.to(fbanks.device)).transpose(
-            1, -1
-        )
+        mfcc = torch.matmul(
+            fbanks.transpose(1, -1), self.dct_mat.to(fbanks.device)
+        ).transpose(1, -1)
 
         return mfcc
 
@@ -1479,25 +1471,18 @@ class deltas(nn.Module):
             if len(first_input[0].shape) > 4 or len(first_input[0].shape) < 2:
                 err_msg = (
                     'The input of "deltas" must be a tensor with one of the  '
-                    'following dimensions: [n_fea, time] or '
-                    '[batch,n_fea, time] or [batch,channels,n_fea, time].'
-                    'Got %s '
-                    % (str(first_input[0].shape))
+                    "following dimensions: [n_fea, time] or "
+                    "[batch,n_fea, time] or [batch,channels,n_fea, time]."
+                    "Got %s " % (str(first_input[0].shape))
                 )
                 logger_write(err_msg, logfile=logger)
-
-
-
-
 
         # Additional parameters
         self.n = (self.der_win_length - 1) // 2
 
         self.denom = self.n * (self.n + 1) * (2 * self.n + 1) / 3
 
-        self.kernel = (
-            torch.arange(-self.n, self.n + 1, 1).float()
-        )
+        self.kernel = torch.arange(-self.n, self.n + 1, 1).float()
 
         # Extending kernel to all the features
         if first_input is not None:
@@ -1507,7 +1492,6 @@ class deltas(nn.Module):
 
         # Reading the input_list
         x = input_lst[0]
-
 
         # Managing multi-channel deltas reshape tensor (batch*channel,time)
         or_shape = x.shape
@@ -1520,7 +1504,9 @@ class deltas(nn.Module):
 
         # Derivative estimation (with a fixed convolutional kernel)
         delta_coeff = (
-            torch.nn.functional.conv1d(x, self.kernel.to(x.device), groups=x.shape[1])
+            torch.nn.functional.conv1d(
+                x, self.kernel.to(x.device), groups=x.shape[1]
+            )
             / self.denom
         )
 
@@ -1657,14 +1643,12 @@ class context_window(nn.Module):
 
                 err_msg = (
                     'The input of "context_window" must be a tensor with '
-                    'one of the  following dimensions: [n_fea, time] or '
-                    '[batch,n_fea, time] or [batch,channels,n_fea, time].'
-                    'Got %s '
-                    % (str(first_input[0].shape))
+                    "one of the  following dimensions: [n_fea, time] or "
+                    "[batch,n_fea, time] or [batch,channels,n_fea, time]."
+                    "Got %s " % (str(first_input[0].shape))
                 )
 
                 logger_write(err_msg, logfile=logger)
-
 
         # Additional parameters
         self.context_len = self.left_frames + self.right_frames + 1
@@ -1672,7 +1656,6 @@ class context_window(nn.Module):
 
         # Kernel definition
         self.kernel = torch.eye(self.context_len, self.kernel_len)
-        
 
         if self.right_frames > self.left_frames:
             lag = self.right_frames - self.left_frames
@@ -1698,10 +1681,13 @@ class context_window(nn.Module):
 
         if len(or_shape) == 4:
             x = x.reshape(or_shape[0] * or_shape[2], or_shape[1], or_shape[3])
-            
-        if len(or_shape) == 5:
-            x = x.reshape(or_shape[0] * or_shape[2] * or_shape[3], or_shape[1], or_shape[4])
 
+        if len(or_shape) == 5:
+            x = x.reshape(
+                or_shape[0] * or_shape[2] * or_shape[3],
+                or_shape[1],
+                or_shape[4],
+            )
 
         # Compute context (using the estimated convolutional kernel)
         cw_x = torch.nn.functional.conv1d(
@@ -1713,17 +1699,23 @@ class context_window(nn.Module):
 
         # Retrieving the original dimensionality (for multi-channel case)
         if len(or_shape) == 4:
-            cw_x = cw_x.reshape(or_shape[0], cw_x.shape[1], or_shape[2], cw_x.shape[-1])
-            
+            cw_x = cw_x.reshape(
+                or_shape[0], cw_x.shape[1], or_shape[2], cw_x.shape[-1]
+            )
+
         if len(or_shape) == 5:
-            cw_x = cw_x.reshape(or_shape[0], cw_x.shape[1], or_shape[2], or_shape[3],cw_x.shape[-1])
+            cw_x = cw_x.reshape(
+                or_shape[0],
+                cw_x.shape[1],
+                or_shape[2],
+                or_shape[3],
+                cw_x.shape[-1],
+            )
 
         return cw_x
 
 
 class mean_var_norm(nn.Module):
-    
-
     def __init__(
         self,
         config,
@@ -1743,195 +1735,205 @@ class mean_var_norm(nn.Module):
             "class_name": ("str", "mandatory"),
             "mean_norm": ("bool", "optional", "True"),
             "std_norm": ("bool", "optional", "True"),
-            "norm_type": ("one_of(sentence,batch,speaker,global)", "optional", "global"),
+            "norm_type": (
+                "one_of(sentence,batch,speaker,global)",
+                "optional",
+                "global",
+            ),
             "avg_factor": ("float(0,1)", "optional", "None"),
-            "recovery": ("bool", "optional","True")
+            "recovery": ("bool", "optional", "True"),
         }
 
         # Check, cast , and expand the options
         self.conf = check_opts(
             self, self.expected_options, config, self.logger
         )
-        
+
         # Output folder (useful for parameter saving)
-        self.output_folder = global_config['output_folder']
+        self.output_folder = global_config["output_folder"]
         self.funct_name = funct_name
 
         # Parameter initialization
         self.glob_mean = 0
         self.glob_std = 0
-        self.spk_dict_mean={}
-        self.spk_dict_std={}
-        self.spk_dict_count={}
-            
-            
+        self.spk_dict_mean = {}
+        self.spk_dict_std = {}
+        self.spk_dict_count = {}
+
         # Expected inputs when calling the class
-        if self.norm_type=='speaker':
-            self.expected_inputs = ["torch.Tensor","torch.Tensor","torch.Tensor"]
+        if self.norm_type == "speaker":
+            self.expected_inputs = [
+                "torch.Tensor",
+                "torch.Tensor",
+                "torch.Tensor",
+            ]
         else:
-            self.expected_inputs = ["torch.Tensor","torch.Tensor"]   
+            self.expected_inputs = ["torch.Tensor", "torch.Tensor"]
 
         # Check the first input
         check_inputs(
             self.conf, self.expected_inputs, first_input, logger=self.logger
         )
-        
-            
-        # Counter initialization
-        self.count=0
 
-    	# Numerical stability for std
-        self.eps=1e-10
-        
+        # Counter initialization
+        self.count = 0
+
+        # Numerical stability for std
+        self.eps = 1e-10
+
         recovery(self)
 
- 
     def forward(self, input_lst):
 
         # Reading input_list
         x = input_lst[0]
-        
+
         # Reading lengths
         lengths = input_lst[1]
-        
-        if self.norm_type=='speaker':
+
+        if self.norm_type == "speaker":
             spk_ids = input_lst[2]
 
-        
         N_batches = x.shape[0]
-        
-        current_means=[]
-        current_stds=[]
-        
-        x= x.unsqueeze(1).transpose(1,-1).squeeze(-1) 
-           
+
+        current_means = []
+        current_stds = []
+
+        x = x.unsqueeze(1).transpose(1, -1).squeeze(-1)
+
         for snt_id in range(N_batches):
-            
+
             # Avoiding padded time steps
             actual_size = int(torch.round(lengths[snt_id] * x.shape[1]))
-                            
+
             # computing statistics
-            current_mean, current_std= self.compute_current_stats(x[snt_id,0:actual_size,...],(0))
-             
+            current_mean, current_std = self.compute_current_stats(
+                x[snt_id, 0:actual_size, ...], (0)
+            )
+
             # appending values
             current_means.append(current_mean)
             current_stds.append(current_std)
-            
+
             # sentence normalization
-            if self.norm_type=='sentence':
-            
-                x[snt_id] = (x[snt_id] - current_mean.data ) /  current_std.data
-            
-            if self.norm_type=='speaker':
-                
-                spk_id=int(spk_ids[snt_id][0])
-                
+            if self.norm_type == "sentence":
+
+                x[snt_id] = (x[snt_id] - current_mean.data) / current_std.data
+
+            if self.norm_type == "speaker":
+
+                spk_id = int(spk_ids[snt_id][0])
+
                 if spk_id not in self.spk_dict_mean:
-                    
+
                     # Initialization of the dictionary
-                    self.spk_dict_mean[spk_id]=current_mean
-                    self.spk_dict_std[spk_id]=current_std
-                    self.spk_dict_count[spk_id]=1
-                    
+                    self.spk_dict_mean[spk_id] = current_mean
+                    self.spk_dict_std[spk_id] = current_std
+                    self.spk_dict_count[spk_id] = 1
+
                 else:
-                    self.spk_dict_count[spk_id]=self.spk_dict_count[spk_id]+1
-                    
+                    self.spk_dict_count[spk_id] = (
+                        self.spk_dict_count[spk_id] + 1
+                    )
+
                     if self.avg_factor is None:
-                        self.weight=1/self.spk_dict_count[spk_id]
+                        self.weight = 1 / self.spk_dict_count[spk_id]
                     else:
-                        self.weight=self.avg_factor
-                    
-                    self.spk_dict_mean[spk_id]=(1-self.weight)*self.spk_dict_mean[spk_id]+self.weight*current_mean
-                    self.spk_dict_std[spk_id]=(1-self.weight)*self.spk_dict_std[spk_id]+self.weight*current_std
-                    
+                        self.weight = self.avg_factor
+
+                    self.spk_dict_mean[spk_id] = (
+                        1 - self.weight
+                    ) * self.spk_dict_mean[spk_id] + self.weight * current_mean
+                    self.spk_dict_std[spk_id] = (
+                        1 - self.weight
+                    ) * self.spk_dict_std[spk_id] + self.weight * current_std
+
                     self.spk_dict_mean[spk_id].detach()
                     self.spk_dict_std[spk_id].detach()
-                    
-                
 
-                x[snt_id] = (x[snt_id] -self.spk_dict_mean[spk_id].data ) /  self.spk_dict_std[spk_id].data
-                
-                
-                
-        if self.norm_type=='batch' or self.norm_type=='global':
-            
-            current_mean=torch.mean(torch.stack(current_means),dim=0)
-            current_std=torch.mean(torch.stack(current_stds),dim=0)
-            
-            if self.norm_type=='batch':
+                x[snt_id] = (
+                    x[snt_id] - self.spk_dict_mean[spk_id].data
+                ) / self.spk_dict_std[spk_id].data
+
+        if self.norm_type == "batch" or self.norm_type == "global":
+
+            current_mean = torch.mean(torch.stack(current_means), dim=0)
+            current_std = torch.mean(torch.stack(current_stds), dim=0)
+
+            if self.norm_type == "batch":
                 x = (x - current_mean.data) / (current_std.data)
-            
-            if self.norm_type=='global':
-                
-                if self.count==0:
-                    self.glob_mean=current_mean
-                    self.glob_std=current_std
-                    
+
+            if self.norm_type == "global":
+
+                if self.count == 0:
+                    self.glob_mean = current_mean
+                    self.glob_std = current_std
+
                 else:
                     if self.avg_factor is None:
-                        self.weight=1/(self.count+1)
+                        self.weight = 1 / (self.count + 1)
                     else:
-                        self.weight=self.avg_factor
-                        
-                    self.glob_mean=(1-self.weight)*self.glob_mean+self.weight*current_mean
-                    self.glob_std=(1-self.weight)*self.glob_std+self.weight*current_std
-                
+                        self.weight = self.avg_factor
+
+                    self.glob_mean = (
+                        1 - self.weight
+                    ) * self.glob_mean + self.weight * current_mean
+                    self.glob_std = (
+                        1 - self.weight
+                    ) * self.glob_std + self.weight * current_std
+
                 self.glob_mean.detach()
                 self.glob_std.detach()
-                
+
                 x = (x - self.glob_mean.data) / (self.glob_std.data)
-                
-                        
-                                    
+
         # Update counter
-        self.count=self.count+1
-        
-        x= x.unsqueeze(-1).transpose(1,-1).squeeze(1)
-        
+        self.count = self.count + 1
+
+        x = x.unsqueeze(-1).transpose(1, -1).squeeze(1)
+
         return x
-    
-    
-    def compute_current_stats(self,x, dims):
-        
-        # Compute current mean 
+
+    def compute_current_stats(self, x, dims):
+
+        # Compute current mean
         if self.mean_norm:
-            current_mean=torch.mean(x,dim=dims).detach().data
+            current_mean = torch.mean(x, dim=dims).detach().data
         else:
             current_mean = torch.tensor([0.0]).to(x.device)
-        
+
         # Compute current std
         if self.std_norm:
-            current_std=torch.std(x,dim=dims).detach().data
+            current_std = torch.std(x, dim=dims).detach().data
         else:
-             current_std=torch.tensor([1.0]).to(x.device)
+            current_std = torch.tensor([1.0]).to(x.device)
 
-	# Improving numerical stability of std
-        current_std=torch.max(current_std,self.eps*torch.ones_like(current_std))
-        
-             
+        # Improving numerical stability of std
+        current_std = torch.max(
+            current_std, self.eps * torch.ones_like(current_std)
+        )
+
         return current_mean, current_std
 
-    
     def statistics_dict(self):
-        
-        state={}
-        state['count'] = self.count
-        state['glob_mean'] = self.glob_mean
-        state['glob_std'] = self.glob_std
-        state['spk_dict_mean'] = self.spk_dict_mean
-        state['spk_dict_std'] = self.spk_dict_std
-        state['spk_dict_count'] = self.spk_dict_count
-        
+
+        state = {}
+        state["count"] = self.count
+        state["glob_mean"] = self.glob_mean
+        state["glob_std"] = self.glob_std
+        state["spk_dict_mean"] = self.spk_dict_mean
+        state["spk_dict_std"] = self.spk_dict_std
+        state["spk_dict_count"] = self.spk_dict_count
+
         return state
-    
-    
-    def load_statistics_dict(self,state):
-        
-        self.count = state['count']
-        self.glob_mean = state['glob_mean']
-        self.glob_std = state['glob_std']
-        self.spk_dict_mean = state['spk_dict_mean']
-        self.spk_dict_std = state['spk_dict_std']
-        self.spk_dict_count = state['spk_dict_count']
-        
+
+    def load_statistics_dict(self, state):
+
+        self.count = state["count"]
+        self.glob_mean = state["glob_mean"]
+        self.glob_std = state["glob_std"]
+        self.spk_dict_mean = state["spk_dict_mean"]
+        self.spk_dict_std = state["spk_dict_std"]
+        self.spk_dict_count = state["spk_dict_count"]
+
         return state

@@ -2,14 +2,15 @@
  -----------------------------------------------------------------------------
  input_validation.py
 
- Description: This library contains functions for validation of input 
-              and hyperparameters.
+ Description: This library contains functions for validation of input and
+              hyperparameters.
  -----------------------------------------------------------------------------
 """
 
 import os
 from pydoc import locate
 from lib.utils.logger import logger_write
+
 
 def str_to_bool(s):
     """
@@ -152,8 +153,7 @@ def check_and_cast_type(option_field, option, option_type, logger=None):
 
                 err_msg = (
                     'the field "%s" contains a path "%s" that does '
-                    'not exist!'
-                    % (option_field, element)
+                    "not exist!" % (option_field, element)
                 )
 
                 logger_write(err_msg, logfile=logger)
@@ -177,8 +177,7 @@ def check_and_cast_type(option_field, option, option_type, logger=None):
 
                 err_msg = (
                     'the field "%s" contains a directory "%s" that does '
-                    'not exist!'
-                    % (option_field, element)
+                    "not exist!" % (option_field, element)
                 )
 
                 logger_write(err_msg, logfile=logger)
@@ -209,7 +208,7 @@ def check_and_cast_type(option_field, option, option_type, logger=None):
 
                 err_msg = (
                     'the field "%s" must contain one of the following '
-                    'values %s (got %s).'
+                    "values %s (got %s)."
                     % (option_field, possible_values, element)
                 )
 
@@ -240,7 +239,7 @@ def check_and_cast_type(option_field, option, option_type, logger=None):
                 logger_write(err_msg, logfile=logger)
 
         if option_type == "bool" or len(option) == 1:
-            if '_list' not in option_type:
+            if "_list" not in option_type:
                 option = option[0]
 
     # Managing integer or list of integers
@@ -282,14 +281,14 @@ def check_and_cast_type(option_field, option, option_type, logger=None):
 
                 err_msg = (
                     'the field "%s" must contain an integer ranging '
-                    'between %f and %f (got %s).'
+                    "between %f and %f (got %s)."
                     % (option_field, lower_value, upper_value, elements)
                 )
 
                 logger_write(err_msg, logfile=logger)
 
         if "int(" in option_type or len(option) == 1:
-            if '_list' not in option_type:
+            if "_list" not in option_type:
                 option = option[0]
 
     # Managing float or list of floats
@@ -328,14 +327,14 @@ def check_and_cast_type(option_field, option, option_type, logger=None):
 
                 err_msg = (
                     'the field "%s" must contain a float ranging '
-                    'between %f and %f (got %s).'
+                    "between %f and %f (got %s)."
                     % (option_field, lower_value, upper_value, elements)
                 )
 
                 logger_write(err_msg, logfile=logger)
 
         if "float(" in option_type or len(option) == 1:
-            if '_list' not in option_type:
+            if "_list" not in option_type:
                 option = option[0]
 
     return option
@@ -405,8 +404,8 @@ def check_expected_options(expected_options, logger=None):
 
             err_msg = (
                 'the option "%s" reported in self.expected_options '
-                'must be a tuple composed of two or three elements '
-                '(e.g, %s=(int,mandatory) or %s=(int,optional,0)). Got %s'
+                "must be a tuple composed of two or three elements "
+                "(e.g, %s=(int,mandatory) or %s=(int,optional,0)). Got %s"
                 % (option, option, option, expected_options[option],)
             )
 
@@ -416,8 +415,8 @@ def check_expected_options(expected_options, logger=None):
 
             err_msg = (
                 'the option "%s" reported in self.expected_options '
-                'must be a tuple composed of two or three elements '
-                '(e.g, %s=(int,mandatory) or %s=(int,optional,0)).Got %s '
+                "must be a tuple composed of two or three elements "
+                "(e.g, %s=(int,mandatory) or %s=(int,optional,0)).Got %s "
                 % (option, option, option, expected_options[option],)
             )
 
@@ -426,7 +425,7 @@ def check_expected_options(expected_options, logger=None):
         if expected_options[option][1] not in field[1]:
 
             err_msg = (
-                'the type reported in self.expected_options for the '
+                "the type reported in self.expected_options for the "
                 'option "%s" must be a tuple composed of two or three elements'
                 '(e.g, %s=(int,mandatory) or %s=(int,optional,0)). "mandatory"'
                 ' or "optional" are the only options supported. Got ("%s")'
@@ -443,7 +442,7 @@ def check_expected_options(expected_options, logger=None):
             err_msg = (
                 'the type "mandatory" reported in '
                 'self.expected_options for the option "%s" must be a tuple '
-                'composed of two elements (e.g, %s=(int,mandatory)). Got %s'
+                "composed of two elements (e.g, %s=(int,mandatory)). Got %s"
                 % (option, option, expected_options[option],)
             )
 
@@ -457,9 +456,8 @@ def check_expected_options(expected_options, logger=None):
             err_msg = (
                 'the type "optional" reported in self.expected_options '
                 'for the option "%s" must be a tuple composed of three elem '
-                '(e.g, %s=(int,mandatory,0)). The last element is the default '
-                'value. Got %s'
-                % (option, option, expected_options[option],)
+                "(e.g, %s=(int,mandatory,0)). The last element is the default "
+                "value. Got %s" % (option, option, expected_options[option],)
             )
 
             logger_write(err_msg, logfile=logger)
@@ -645,10 +643,14 @@ def check_inputs(config, expected_inputs, input_lst, logger=None):
     if len(expected_inputs) != len(input_lst):
 
         err_msg = (
-            'the number of inputs got to the function %s is different '
-            'from the exepcted number (got %s, expected %s of type %s)'
-            % (config["class_name"], len(input_lst),
-               len(expected_inputs), expected_inputs)
+            "the number of inputs got to the function %s is different "
+            "from the exepcted number (got %s, expected %s of type %s)"
+            % (
+                config["class_name"],
+                len(input_lst),
+                len(expected_inputs),
+                expected_inputs,
+            )
         )
 
         logger_write(err_msg, logfile=logger)
@@ -656,43 +658,37 @@ def check_inputs(config, expected_inputs, input_lst, logger=None):
     # Checking all the elements of the input_lst
     for i, elem in enumerate(input_lst):
 
-        if not isinstance(expected_inputs[i],list):
-            expected_inputs[i]=[expected_inputs[i]]
-        
+        if not isinstance(expected_inputs[i], list):
+            expected_inputs[i] = [expected_inputs[i]]
+
         type_ok = False
-        
+
         for exp_inp in expected_inputs[i]:
-            
+
             # Continue if expected_inputs[i] is a class
-            if exp_inp == 'class':
+            if exp_inp == "class":
                 continue
-    
+
             # Check if expected option is a valid type
             exp_type = locate(exp_inp)
-    
+
             if exp_type is None:
-    
+
                 err_msg = (
                     "the input type %s set in the function %s does not exist"
                     % (exp_inp, config["class_name"])
                 )
-    
+
                 logger_write(err_msg, logfile=logger)
-    
+
             if isinstance(input_lst[i], exp_type):
                 type_ok = True
-                
-                
-        if not(type_ok):
-          
+
+        if not (type_ok):
+
             err_msg = (
                 "the input %i of the function %s must be a %s (got %s)"
-                % (
-                    i,
-                    config["class_name"],
-                    exp_inp,
-                    type(input_lst[i]),
-                )
+                % (i, config["class_name"], exp_inp, type(input_lst[i]),)
             )
 
             logger_write(err_msg, logfile=logger)

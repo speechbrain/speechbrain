@@ -10,6 +10,7 @@ import logging
 import sys
 import traceback
 
+
 def setup_logger(
     name, log_file, level_file=logging.DEBUG, verbosity_stdout="2"
 ):
@@ -81,6 +82,7 @@ def setup_logger(
     logger.addHandler(stream_handler)
 
     return logger
+
 
 def logger_write(msg, logfile=None, level="error"):
     """
