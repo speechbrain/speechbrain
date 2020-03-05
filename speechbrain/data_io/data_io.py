@@ -26,7 +26,9 @@ import soundfile as sf
 import multiprocessing as mp
 from torch.multiprocessing import Manager
 from torch.utils.data import Dataset, DataLoader
-from ..utils import logger_write, check_opts ,check_inputs,recursive_items
+from speechbrain.utils.input_validation import check_opts, check_inputs
+from speechbrain.utils.logger import logger_write
+from speechbrain.utils.data_utils import recursive_items
 
 
 class create_dataloader:
@@ -171,11 +173,12 @@ class create_dataloader:
      """
 
     def __init__(
-        self, config, 
-        funct_name=None, 
-        global_config=None,  
-        functions=None, 
-        logger=None
+        self,
+        config,
+        funct_name=None,
+        global_config=None,
+        functions=None,
+        logger=None,
     ):
 
         # Here are summarized the expected options for this class
@@ -199,14 +202,12 @@ class create_dataloader:
 
         # Check, cast , and expand the options
         self.conf = check_opts(self, self.expected_options, config)
-        
 
         # Other variables
         self.global_config = global_config
         self.logger = logger
         self.supported_formats = self.get_supported_formats()
         self.padding_value = 0
-        
 
         # Shuffle the data every time if random is selected
         if self.sentence_sorting == "random":
@@ -216,14 +217,13 @@ class create_dataloader:
 
         # create data dictionary
         data_dict = self.generate_data_dict()
-        
+
         if self.global_config is not None:
             self.label_dict = self.label_dict_creation(data_dict)
         else:
             self.label_dict = None
-        
-        
-        self.data_len = len(data_dict['data_list'])
+
+        self.data_len = len(data_dict["data_list"])
 
         if self.csv_read is None:
             self.csv_read = data_dict["data_entries"]
@@ -256,9 +256,9 @@ class create_dataloader:
             )
 
     def __call__(self, inp):
-        
+
         return [self.dataloader]
-        
+
     def batch_creation(self, data_list):
         """
          ---------------------------------------------------------------------
@@ -283,7 +283,8 @@ class create_dataloader:
          Example:   from speechbrain.data_io.data_io import create_dataloader
 
                     config={'class_name':'core.loop',\
-                             'csv_file':'samples/audio_samples/csv_example2.csv'}
+                             'csv_file':'samples/audio_samples/\
+                                 csv_example2.csv'}
 
                     # Initialization of the class
                     data_loader=create_dataloader(config)
@@ -318,7 +319,6 @@ class create_dataloader:
             # Non-tensor case
             batch_data = sequences
 
-
         # Batch composition
         batch = [snt_ids, batch_data, time_steps]
 
@@ -344,7 +344,8 @@ class create_dataloader:
                     from speechbrain.data_io.data_io import create_dataloader
 
                     config={'class_name':'core.loop',\
-                             'csv_file':'samples/audio_samples/csv_example2.csv'}
+                             'csv_file':'samples/audio_samples/\
+                                 csv_example2.csv'}
 
                     # Initialization of the class
                     data_loader=create_dataloader(config)
@@ -401,7 +402,8 @@ class create_dataloader:
                    from speechbrain.data_io.data_io import create_dataloader
 
                    config={'class_name':'core.loop',\
-                             'csv_file':'samples/audio_samples/csv_example2.csv'}
+                             'csv_file':'samples/audio_samples/\
+                                 csv_example2.csv'}
 
                    # Initialization of the class
                    data_loader=create_dataloader(config)
@@ -422,93 +424,97 @@ class create_dataloader:
                 if isinstance(data_list[i][j], np.ndarray):
                     data_list[i][j] = torch.from_numpy(data_list[i][j])
 
-    def label_dict_creation(self,data_dict):
-        
-        label_dict_file=self.global_config['output_folder']+'/label_dict.pkl'
-        
+    def label_dict_creation(self, data_dict):
+
+        label_dict_file = (
+            self.global_config["output_folder"] + "/label_dict.pkl"
+        )
+
         if not os.path.isfile(label_dict_file):
             # create label counts and label2index automatically when needed
-            label_dict={}
-            
+            label_dict = {}
+
             for snt in data_dict:
-                if isinstance(data_dict[snt],dict):
+                if isinstance(data_dict[snt], dict):
                     for elem in data_dict[snt]:
-                        
-                        if 'format' in data_dict[snt][elem]:
-                            
-                            count_lab=False
-                            
-                            if data_dict[snt][elem]['format']=='string':
-                                
-                                if len(data_dict[snt][elem]['data'].split(' ')) > 1:
+
+                        if "format" in data_dict[snt][elem]:
+
+                            count_lab = False
+
+                            if data_dict[snt][elem]["format"] == "string":
+
+                                if (
+                                    len(
+                                        data_dict[snt][elem]["data"].split(" ")
+                                    )
+                                    > 1
+                                ):
                                     # Processing list of string labels
-                                    labels=data_dict[snt][elem]['data'].split(' ')
-                                    count_lab=True
-    
+                                    labels = data_dict[snt][elem][
+                                        "data"
+                                    ].split(" ")
+                                    count_lab = True
+
                                 else:
                                     # Processing a single label
-                                    labels=[data_dict[snt][elem]['data']]
-                                    count_lab=True
-    
-                                
-                            if data_dict[snt][elem]['format']=='pkl':
-                                
-                                
-                                
-                                labels=load_pkl(data_dict[snt][elem]['data'])
-                                
-                               
+                                    labels = [data_dict[snt][elem]["data"]]
+                                    count_lab = True
+
+                            if data_dict[snt][elem]["format"] == "pkl":
+
+                                labels = load_pkl(data_dict[snt][elem]["data"])
+
                                 # Create counts if tensor is a list of integers
-                                if isinstance(labels,list):
-                                    if isinstance(labels[0],int):
-                                        count_lab=True
-                                
-                                if isinstance(labels,np.ndarray):
-                                     if  'numpy.int' in str(type(labels[0])):
-                                         count_lab=True                                     
-                                     
-                                # Create counts if tensor is a list of integers 
-                                if isinstance(labels,torch.Tensor):
-                                    
-                                    if labels.type() == 'torch.LongTensor':
-                                        count_lab=True
-                                    if labels.type() == 'torch.IntTensor':
-                                        count_lab=True
-                                        
-                                 
-                            if count_lab:    
+                                if isinstance(labels, list):
+                                    if isinstance(labels[0], int):
+                                        count_lab = True
+
+                                if isinstance(labels, np.ndarray):
+                                    if "numpy.int" in str(type(labels[0])):
+                                        count_lab = True
+
+                                # Create counts if tensor is a list of integers
+                                if isinstance(labels, torch.Tensor):
+
+                                    if labels.type() == "torch.LongTensor":
+                                        count_lab = True
+                                    if labels.type() == "torch.IntTensor":
+                                        count_lab = True
+
+                            if count_lab:
                                 if elem not in label_dict:
-                                    label_dict[elem]={}
-                                    label_dict[elem]['counts']={}
-                            
+                                    label_dict[elem] = {}
+                                    label_dict[elem]["counts"] = {}
+
                                 for lab in labels:
-                                    if lab not in label_dict[elem]['counts']:
-                                        label_dict[elem]['counts'][lab]=1
+                                    if lab not in label_dict[elem]["counts"]:
+                                        label_dict[elem]["counts"][lab] = 1
                                     else:
-                                        label_dict[elem]['counts'][lab]=label_dict[elem]['counts'][lab]+1
-                        
+                                        label_dict[elem]["counts"][lab] = (
+                                            label_dict[elem]["counts"][lab] + 1
+                                        )
+
             # create label2index:
             for lab in label_dict:
-                sorted_ids=sorted(label_dict[lab]['counts'].keys())
-                cnt_id=0
-                
-                label_dict[lab]['lab2index']={}
-                label_dict[lab]['index2lab']={}
+                sorted_ids = sorted(label_dict[lab]["counts"].keys())
+                cnt_id = 0
+
+                label_dict[lab]["lab2index"] = {}
+                label_dict[lab]["index2lab"] = {}
                 for sorted_id in sorted_ids:
-                    label_dict[lab]['lab2index'][sorted_id]=cnt_id
-                    label_dict[lab]['index2lab'][cnt_id]=sorted_id
+                    label_dict[lab]["lab2index"][sorted_id] = cnt_id
+                    label_dict[lab]["index2lab"][cnt_id] = sorted_id
                     cnt_id = cnt_id + 1
-    
+
             # saving the label_dict:
             save_pkl(label_dict, label_dict_file)
-            
-        else:
-           label_dict=load_pkl(label_dict_file) 
-        
 
-        return label_dict 
-            
-        
+        else:
+            label_dict = load_pkl(label_dict_file)
+
+        return label_dict
+
     def generate_data_dict(self,):
         """
          ---------------------------------------------------------------------
@@ -526,7 +532,8 @@ class create_dataloader:
          Example:  from speechbrain.data_io.data_io import create_dataloader
 
                    config={'class_name':'core.loop',\
-                             'csv_file':'samples/audio_samples/csv_example2.csv'}
+                             'csv_file':'samples/audio_samples/\
+                                 csv_example2.csv'}
 
                    # Initialization of the class
                    data_loader=create_dataloader(config)
@@ -538,162 +545,162 @@ class create_dataloader:
         # Initial prints
         msg = "\tCreating dataloader for %s" % (self.csv_file)
         logger_write(msg, logfile=self.logger, level="debug")
-        
+
         # Initialization of the data_dict
         data_dict = {}
-        
+
         # CSV file reader
-        reader = csv.reader(open(self.csv_file, 'r'))
-        
+        reader = csv.reader(open(self.csv_file, "r"))
+
         first_row = True
-        
+
         # Tracking the total sentence duration
         total_duration = 0
-        
+
         for row in reader:
-            
+
             # Skipping empty lines
-            if len(row) == 0 :
+            if len(row) == 0:
                 continue
-            
+
             # remove left/right spaces
-            row = [elem.strip(' ') for elem in row]
-            
+            row = [elem.strip(" ") for elem in row]
+
             if first_row:
- 
+
                 # Make sure ID field exists
-                if 'ID' not in row:
+                if "ID" not in row:
                     err_msg = (
-                        'The mandatory field ID (i.e, the field that contains '
-                        'a unique  id for each sentence is not present in the ' 
-                        'csv file  %s' % (self.csv_file)
+                        "The mandatory field ID (i.e, the field that contains "
+                        "a unique  id for each sentence is not present in the "
+                        "csv file  %s" % (self.csv_file)
                     )
 
                     logger_write(err_msg, logfile=self.logger)
-                    
 
                 # Make sure the duration field exists
-                if 'duration' not in row:
+                if "duration" not in row:
                     err_msg = (
-                        'The mandatory field duration (i.e, the field that '
-                        'contains the  duration of each sentence is not ' 
-                        'present in the csv  file %s' % (self.csv_file)
+                        "The mandatory field duration (i.e, the field that "
+                        "contains the  duration of each sentence is not "
+                        "present in the csv  file %s" % (self.csv_file)
                     )
 
                     logger_write(err_msg, logfile=self.logger)
-                
-                
+
                 if len(row) == 2:
                     err_msg = (
-                        'The cvs file %s does not contain features entries! ' 
-                        'The features are specified with the following fields:' 
-                        'feaname, feaname_format, feaname_opts' 
+                        "The cvs file %s does not contain features entries! "
+                        "The features are specified with the following fields:"
+                        "feaname, feaname_format, feaname_opts"
                         % (self.csv_file)
                     )
 
                     logger_write(err_msg, logfile=self.logger)
-                    
-                    
+
                 # Make sure the features are expressed in the following way:
                 # feaname, feaname_format, feaname_opts
                 feats = row[2:]
                 feat_names = feats[0::3]
-                
+
                 for feat_name in feat_names:
-                    
-                    if feat_name+'_format' not in row:
+
+                    if feat_name + "_format" not in row:
                         err_msg = (
-                            'The feature %s in the cvs file %s does not ' 
-                            'contain the field %s to specified its format.'  
-                            % (feat_name, self.csv_file, feat_name+'_format')
+                            "The feature %s in the cvs file %s does not "
+                            "contain the field %s to specified its format."
+                            % (feat_name, self.csv_file, feat_name + "_format")
                         )
-    
+
                         logger_write(err_msg, logfile=self.logger)
-                        
-                    if feat_name+'_opts' not in row:
+
+                    if feat_name + "_opts" not in row:
                         err_msg = (
-                            'The feature %s in the cvs file %s does not ' 
-                            'contain the field %s to specified the reader '
-                            'options. '
-                            % (feat_name, self.csv_file, feat_name+'_opts')
+                            "The feature %s in the cvs file %s does not "
+                            "contain the field %s to specified the reader "
+                            "options. "
+                            % (feat_name, self.csv_file, feat_name + "_opts")
                         )
-    
+
                         logger_write(err_msg, logfile=self.logger)
-                
+
                 # Store the field list
-                field_lst=row
-                
-                
+                field_lst = row
+
                 first_row = False
-                
+
             else:
-                
+
                 # replace local variables with global ones
                 if self.global_config is not None:
                     for var in self.global_config:
                         for i in range(len(row)):
-                            if '$'+var in row[i]:
-                                row[i]=row[i].replace('$'+var,self.global_config[var])
+                            if "$" + var in row[i]:
+                                row[i] = row[i].replace(
+                                    "$" + var, self.global_config[var]
+                                )
 
                 # Make sure that the current row contains all the fields
                 if len(row) != len(field_lst):
                     err_msg = (
-                         'The row "%s" of the cvs file %s does not ' 
-                         'contain the right number fields (they must be %i ' 
-                         "%s"')'
-                         % (row, self.csv_file, len(field_lst),field_lst)
-                         
-                         )
- 
+                        'The row "%s" of the cvs file %s does not '
+                        "contain the right number fields (they must be %i "
+                        "%s"
+                        ")" % (row, self.csv_file, len(field_lst), field_lst)
+                    )
+
                     logger_write(err_msg, logfile=self.logger)
-                    
-                
+
                 # Filling the data dictionary
                 for i, field in enumerate(field_lst):
-                    
-                    field_name=row[i]
-                    
-                    if i==0:
-                        id_field=field_name
-                        data_dict[id_field]={}
-                    else:
-                        
-                        if field == 'duration':
-                            data_dict[id_field][field]={}
-                            duration = float(row[i])
-                            data_dict[id_field][field]=row[i]
-                            total_duration=total_duration+duration
-                        else:
-                           
-                           field_or=field
-                           field=field.replace('_format','').replace('_opts','')
-                           
-                           if field not in data_dict[id_field]:
-                               data_dict[id_field][field]={}
-                               data_dict[id_field][field]['data']={} 
-                               data_dict[id_field][field]['format']={} 
-                               data_dict[id_field][field]['options']={}
 
-                           if '_format' in field_or:
-                               data_dict[id_field][field]['format']=row[i] 
-                               
-                           elif '_opts' in field_or:
-                               data_dict[id_field][field]['options']={}
-                               if len(row[i]) > 0:
-                                   lst_opt = row[i].split(' ')
-                                   for opt in lst_opt:
-                                      opt_name=opt.split(':')[0]
-                                      opt_val=opt.split(':')[1]
-                                      
-                                      data_dict[id_field][field]['options'][opt_name]={}
-                                      data_dict[id_field][field]['options'][opt_name]=opt_val
-                             
-                           else:
-                                data_dict[id_field][field]['data']=row[i]
-                                
-                              
+                    field_name = row[i]
+
+                    if i == 0:
+                        id_field = field_name
+                        data_dict[id_field] = {}
+                    else:
+
+                        if field == "duration":
+                            data_dict[id_field][field] = {}
+                            duration = float(row[i])
+                            data_dict[id_field][field] = row[i]
+                            total_duration = total_duration + duration
+                        else:
+
+                            field_or = field
+                            field = field.replace("_format", "").replace(
+                                "_opts", ""
+                            )
+
+                            if field not in data_dict[id_field]:
+                                data_dict[id_field][field] = {}
+                                data_dict[id_field][field]["data"] = {}
+                                data_dict[id_field][field]["format"] = {}
+                                data_dict[id_field][field]["options"] = {}
+
+                            if "_format" in field_or:
+                                data_dict[id_field][field]["format"] = row[i]
+
+                            elif "_opts" in field_or:
+                                data_dict[id_field][field]["options"] = {}
+                                if len(row[i]) > 0:
+                                    lst_opt = row[i].split(" ")
+                                    for opt in lst_opt:
+                                        opt_name = opt.split(":")[0]
+                                        opt_val = opt.split(":")[1]
+
+                                        data_dict[id_field][field]["options"][
+                                            opt_name
+                                        ] = {}
+                                        data_dict[id_field][field]["options"][
+                                            opt_name
+                                        ] = opt_val
+
+                            else:
+                                data_dict[id_field][field]["data"] = row[i]
+
         data_dict = self.sort_sentences(data_dict, self.sentence_sorting)
-        
 
         log_text = (
             "\tNumber of sentences: %i\n" % (len(data_dict.keys()))
@@ -713,7 +720,7 @@ class create_dataloader:
         data_entries.remove("duration")
 
         data_dict["data_entries"] = data_entries
-        
+
         return data_dict
 
     @staticmethod
@@ -741,7 +748,8 @@ class create_dataloader:
          Example:  from speechbrain.data_io.data_io import create_dataloader
 
                    config={'class_name':'core.loop',\
-                             'csv_file':'samples/audio_samples/csv_example2.csv'}
+                             'csv_file':'samples/audio_samples/\
+                                 csv_example2.csv'}
 
                    # Initialization of the class
                    data_loader=create_dataloader(config)
@@ -1011,20 +1019,18 @@ class create_dataset(Dataset):
 
         # Reading data from data_dict
         data_line = self.data_dict[snt_id][self.data_entry]
-        
+
         # Check if we need to convert labels to indexes
         if self.data_entry in self.label_dict:
-            lab2ind=self.label_dict[self.data_entry]['lab2index']
+            lab2ind = self.label_dict[self.data_entry]["lab2index"]
         else:
-            lab2ind=None 
-        
+            lab2ind = None
 
         # Managing caching
         if self.do_cache:
 
             if snt_id not in self.cache:
 
-                
                 # Reading data
                 data = self.read_data(data_line, snt_id, lab2ind=lab2ind)
 
@@ -1109,25 +1115,25 @@ class create_dataset(Dataset):
         data_format = data_line["format"]
         data_source = data_line["data"]
         data_options = data_line["options"]
-        
 
         # Read the data from disk
         data = self.supported_formats[data_format]["reader"](
-            data_source, data_options=data_options, logger=self.logger, lab2ind=lab2ind
+            data_source,
+            data_options=data_options,
+            logger=self.logger,
+            lab2ind=lab2ind,
         )
-        
 
         # Convert numpy array to float32
         if isinstance(data, np.ndarray):
             data_shape = np.asarray(data.shape[-1]).astype("float32")
-        elif  isinstance(data, torch.Tensor):
+        elif isinstance(data, torch.Tensor):
             data_shape = np.asarray(data.shape[-1]).astype("float32")
-            
+
         else:
             data_shape = np.asarray(1).astype("float32")
 
         data_read = [snt_id, data, data_shape]
-        
 
         return data_read
 
@@ -1139,7 +1145,7 @@ class save_ckpt:
 
      Description: This class can be use to save checkpoint during neural
                   network training. It saves the current neural model,
-                  the current status of the optimizer, and stores the 
+                  the current status of the optimizer, and stores the
                   recovery information in the recovery dictionary.
 
      Input (init):  - exec_config (type, dict, mandatory):
@@ -1155,7 +1161,7 @@ class save_ckpt:
                                default: pkl):
                                it is the format used to save neural
                                models.
-                               
+
                            - save_last (type: int(0,inf), optional, def:1):
                                this flag can be use to save the neural models
                                of the last N epochs.
@@ -1163,7 +1169,7 @@ class save_ckpt:
                            - print (type: bool, optional, def:True):
                                when True, it save the performance on a res.res
                                file in the output_folder.
-                               
+
                    - funct_name (type, str, optional, default: None):
                        it is a string containing the name of the parent
                        function that has called this method.
@@ -1189,29 +1195,29 @@ class save_ckpt:
 
 
      Output (call):  - None
-                       the ouput is directly saved on the disk (see save_folder)
+                       the ouput is directly saved on the disk (save_folder)
 
      Example:   import torch
                 from speechbrain.data_io.data_io import save_ckpt
                 from speechbrain.data_io.data_io import load_pkl
-                
-                config={'class_name':'lib.data_io.data_io.save_ckpt'}
+
+                config={'class_name':'speechbrain.data_io.data_io.save_ckpt'}
 
                 # Initialization of the class
                 performance_dict={'loss':torch.tensor([0.69]),
                                   'error':torch.tensor([0.35])}
-                
+
                 save=save_ckpt(config,global_config={'output_folder':'exp'},
                                  first_input=[0,performance_dict])
 
                 # Calling the function
                 save([0,performance_dict])
-                
+
                 # print recovery dictionary
                 print(load_pkl('exp/recovery.pkl'))
      --------------------------------------------.----------------------------
      """
-     
+
     def __init__(
         self,
         config,
@@ -1224,13 +1230,13 @@ class save_ckpt:
 
         # Logger Setup
         self.logger = logger
-        
+
         # Storing function name
         self.funct_name = funct_name
-        
+
         # Storing output folder
         self.output_folder = global_config["output_folder"]
-        
+
         # Storing function dictionary
         self.functions = functions
 
@@ -1240,7 +1246,7 @@ class save_ckpt:
             "save_folder": ("str", "optional", "None"),
             "save_format": ("one_of(pkl)", "optional", "pkl"),
             "save_last": ("int(0,inf)", "optional", "1"),
-            "print": ("bool", "optional", "True")
+            "print": ("bool", "optional", "True"),
         }
 
         # Check, cast , and expand the options
@@ -1249,43 +1255,38 @@ class save_ckpt:
         )
 
         # Expected inputs when calling the class (no inputs in this case)
-        self.expected_inputs = ["int","dict"]
+        self.expected_inputs = ["int", "dict"]
 
         # Checking the first input
         check_inputs(
             self.conf, self.expected_inputs, first_input, logger=self.logger
         )
-        
+
         # Additional checks on the input
-        perform_dict=first_input[1]
-        
-        
-        if len(perform_dict)==0:
+        perform_dict = first_input[1]
+
+        if len(perform_dict) == 0:
             err_msg = (
-                    'The second input to the function save_ckpt must be a '
-                    'dict contaning at least one element (i.e, performance)'
-                    )
+                "The second input to the function save_ckpt must be a "
+                "dict contaning at least one element (i.e, performance)"
+            )
             logger_write(err_msg, logfile=logger)
-        
-        
+
         # Making sure that the list contains performance in tensor formats
         for perf in perform_dict:
-            
-            if isinstance(perform_dict[perf], list):
-                if len(perform_dict[perf])==1:
-                    if isinstance(perform_dict[perf][0], torch.Tensor):
-                        perform_dict[perf]=perform_dict[perf][0]
 
-                
-            
+            if isinstance(perform_dict[perf], list):
+                if len(perform_dict[perf]) == 1:
+                    if isinstance(perform_dict[perf][0], torch.Tensor):
+                        perform_dict[perf] = perform_dict[perf][0]
+
             if not isinstance(perform_dict[perf], torch.Tensor):
                 err_msg = (
-                        'The second input to the function save_ckpt must be a '
-                        'dict contaning torch.Tensor elements (Got %s)'
-                        ) %(type(perform_dict[perf]))
+                    "The second input to the function save_ckpt must be a "
+                    "dict contaning torch.Tensor elements (Got %s)"
+                ) % (type(perform_dict[perf]))
                 logger_write(err_msg, logfile=logger)
-                
-                
+
         # Setting the save folder
         if self.save_folder is None:
             self.save_folder = self.output_folder + "/nnets"
@@ -1293,86 +1294,80 @@ class save_ckpt:
         # Creating the save folder if it does not exist
         if not os.path.exists(self.save_folder):
             os.makedirs(self.save_folder)
-        
+
         # Initializing the best loss
-        self.best_loss=None
-        self.best_epoch=None
-        
+        self.best_loss = None
+        self.best_epoch = None
+
         # Check if the recovery file exists
-        recovery_file=self.output_folder+'/recovery.pkl'
+        recovery_file = self.output_folder + "/recovery.pkl"
 
         if os.path.exists(recovery_file):
-            
-            # Loading the last best_loss/epoch saved
-            self.recovery_dict=load_pkl(recovery_file)
-            
-            if funct_name in self.recovery_dict:
-                self.best_loss=self.recovery_dict[funct_name]['best_loss']
-                self.best_epoch=self.recovery_dict[funct_name]['best_epoch']
-        else:
-           self.recovery_dict={}
-           self.recovery_dict[funct_name]={}
-        
-        
-        if self.print:
-            
-            self.res_file = self.save_folder + '/res.res'
-            
-            if not os.path.exists(self.res_file):
-                open(self.res_file, 'a').close()
-            
-            
 
+            # Loading the last best_loss/epoch saved
+            self.recovery_dict = load_pkl(recovery_file)
+
+            if funct_name in self.recovery_dict:
+                self.best_loss = self.recovery_dict[funct_name]["best_loss"]
+                self.best_epoch = self.recovery_dict[funct_name]["best_epoch"]
+        else:
+            self.recovery_dict = {}
+            self.recovery_dict[funct_name] = {}
+
+        if self.print:
+
+            self.res_file = self.save_folder + "/res.res"
+
+            if not os.path.exists(self.res_file):
+                open(self.res_file, "a").close()
 
     def __call__(self, input_lst):
-        
+
         # Reading input arguments
         epoch, performance_dict = input_lst
-        
+
         # By default I use the lasr performance in input to decide the best
         # model.
-        loss= performance_dict[list(performance_dict.keys())[-1]]
-        
-        # Converting loss to numpy array
-        loss=loss.cpu().numpy()
-                
-        if self.best_loss is None:
-            self.best_loss=loss
-            self.best_epoch=epoch
+        loss = performance_dict[list(performance_dict.keys())[-1]]
 
+        # Converting loss to numpy array
+        loss = loss.cpu().numpy()
+
+        if self.best_loss is None:
+            self.best_loss = loss
+            self.best_epoch = epoch
 
         if loss <= self.best_loss:
-            self.best_loss=loss
-            self.best_epoch=epoch
-            
+            self.best_loss = loss
+            self.best_epoch = epoch
+
             # Saving the current best
-            path=self.save_folder+'/current_best'
+            path = self.save_folder + "/current_best"
             self.save_neural_networks(path)
-            
 
         # Write recovery info
-        self.write_recovery_info(epoch,performance_dict)
-        
+        self.write_recovery_info(epoch, performance_dict)
+
         #  Saving current models
-        path=self.save_folder+'/epoch_'+str(epoch)+'_loss_'+str(loss)
+        path = self.save_folder + "/epoch_" + str(epoch) + "_loss_" + str(loss)
         self.save_neural_networks(path)
-        
+
         # Save recovery info
-        save_pkl(self.recovery_dict, self.output_folder+'/'+'recovery.pkl')
-        
+        save_pkl(self.recovery_dict, self.output_folder + "/" + "recovery.pkl")
+
         # Delete old models
-        if epoch-self.save_last >= 0 :
-            
+        if epoch - self.save_last >= 0:
+
             # Removing oldest models
-            self.remove_model(epoch-self.save_last)
-            
-           
-    def write_recovery_info(self,epoch,performance_dict):
+            self.remove_model(epoch - self.save_last)
+
+    def write_recovery_info(self, epoch, performance_dict):
         """
          ---------------------------------------------------------------------
-         speechbrain.data_io.data_io.save_ckpt.write_recovery_info (author: Mirco Ravanelli)
+         speechbrain.data_io.data_io.save_ckpt.write_recovery_info
+         (auth: M. Ravanelli)
 
-         Description: This function writes the performance dictionary on 
+         Description: This function writes the performance dictionary on
                       disk.
 
          Input:       - epoch (type:  int(0,inf), mandatory):
@@ -1388,273 +1383,283 @@ class save_ckpt:
          Example:   import torch
                     from speechbrain.data_io.data_io import save_ckpt
                     from speechbrain.data_io.data_io import load_pkl
-                    
-                    config={'class_name':'lib.data_io.data_io.save_ckpt'}
-    
+
+                    config={'class_name':'speechbrain.data_io.data_io.save_ckpt'}
+
                     # Initialization of the class
                     performance_dict={'loss':torch.tensor([0.69]),
                                       'error':torch.tensor([0.35])}
-                    
-                    save=save_ckpt(config,global_config={'output_folder':'exp'},
+
+                    save=save_ckpt(config,global_config={'output_folder':\
+                        'exp'},
                                      first_input=[0,performance_dict])
-    
-    
+
+
                     save.write_recovery_info(1,performance_dict)
-                    
+
                     # print recovery dictionary
                     print(load_pkl('exp/recovery.pkl'))
          --------------------------------------------.------------------------
-         """ 
-         
-        # Path where previous performance dict is written 
-        recovery_file=self.output_folder+'/recovery.pkl'
-        
+         """
+
+        # Path where previous performance dict is written
+        recovery_file = self.output_folder + "/recovery.pkl"
+
         # check first entry of the performance dict
-        loss= list(performance_dict.keys())[0] 
-    
+        loss = list(performance_dict.keys())[0]
+
         # Recovery previous recovery dict
         if os.path.exists(recovery_file):
-            
+
             # Loading the last best_loss/epoch saved
-            self.recovery_dict=load_pkl(recovery_file)
-            
+            self.recovery_dict = load_pkl(recovery_file)
+
             if self.funct_name not in self.recovery_dict:
-                
+
                 self.recovery_dict[self.funct_name] = {}
-                
+
         # Creating a new recovery dictionary
         else:
-            self.recovery_dict={}
-            self.recovery_dict[self.funct_name]={}
-        
+            self.recovery_dict = {}
+            self.recovery_dict[self.funct_name] = {}
+
         # Saving recovery information in the recovery dictionary
-        self.recovery_dict[self.funct_name]={
-                           'current_epoch': epoch,
-                           'current_loss': loss,
-                           'best_epoch': self.best_epoch,
-                           'best_loss': self.best_loss
-                           }
-        
+        self.recovery_dict[self.funct_name] = {
+            "current_epoch": epoch,
+            "current_loss": loss,
+            "best_epoch": self.best_epoch,
+            "best_loss": self.best_loss,
+        }
+
         # Updating the recovery_dict with all the performance metrics
         self.recovery_dict[self.funct_name].update(performance_dict)
-        
-        # Pring results (if needed)
-        self.print_epoch(epoch,performance_dict)
-        
 
-    def save_neural_networks(self,path):
+        # Pring results (if needed)
+        self.print_epoch(epoch, performance_dict)
+
+    def save_neural_networks(self, path):
         """
          ---------------------------------------------------------------------
-         speechbrain.data_io.data_io.save_ckpt.save_neural_networks (author: Mirco Ravanelli)
+         speechbrain.data_io.data_io.save_ckpt.save_neural_networks
+         (M. Ravanelli)
 
-         Description: This function saves on disk all the parameters of 
+         Description: This function saves on disk all the parameters of
                       the neural networks found in the self.functions
-                      dictionary. 
-         
+                      dictionary.
+
          Input:       - path (type:  str, mandatory):
                          it is the path where to store the neural models
 
 
          Output:    - None
-                      the neural models are directly stored in the specified 
+                      the neural models are directly stored in the specified
                       path.
-                      
-                      
+
+
          Example:   import torch
                     from speechbrain.data_io.data_io import save_ckpt
                     from speechbrain.data_io.data_io import load_pkl
                     from speechbrain.nnet.architectures import linear
-                
+
                     # Initializing a linear layer
                     inp_tensor = torch.rand([4,660,190])
-                
-                    config={'class_name':'lib.nnet.architectures.linear',
+
+                    config={'class_name':'speechbrain.nnet.architectures.linear',
                             'n_neurons':'1024'}
-                    
+
                     linear_transf=linear(config,first_input=[inp_tensor])
-                    
-                    config={'class_name':'lib.data_io.data_io.save_ckpt'}
-    
+
+                    config={'class_name':'speechbrain.data_io.data_io.save_ckpt'}
+
                     # Initialization of the class
                     performance_dict={'loss':torch.tensor([0.69]),
                                       'error':torch.tensor([0.35])}
-                    
-                    save=save_ckpt(config,global_config={'output_folder':'exp'},
+
+                    save=save_ckpt(config,global_config={'output_folder':\
+                        'exp'},
                                      first_input=[0,performance_dict],
                                      functions={'linear':linear_transf})
-    
-    
+
+
                     save.save_neural_networks('exp/save_nn_exp')
-                    
+
                     # print recovery dictionary
                     print(torch.load('exp/save_nn_exp_linear.pkl'))
          --------------------------------------------.------------------------
-         """ 
-        
+         """
 
         if self.functions is not None:
-            
+
             # Loops over all the functions
             for funct in self.functions:
-                
+
                 # Check all the functions with the parameters attribute
-                if hasattr(self.functions[funct], 'parameters'):
-                    
-                     # Save only model that actially have parameters
-                    if len(list(self.functions[funct].parameters()))>0:
-                        
-                        path_full=path + '_' + funct
-                        self.save_model(self.functions[funct],path_full,funct)
-                
+                if hasattr(self.functions[funct], "parameters"):
+
+                    # Save only model that actially have parameters
+                    if len(list(self.functions[funct].parameters())) > 0:
+
+                        path_full = path + "_" + funct
+                        self.save_model(
+                            self.functions[funct], path_full, funct
+                        )
+
                 # Saving optimizers
-                if hasattr(self.functions[funct], 'optim'):
-                     path_full=path + '_' + funct
-                     self.save_model(self.functions[funct].optim,path_full,funct)
-                     
-                 # Saving mean_norm statistics
-                if hasattr(self.functions[funct], 'mean_norm'):
-                    path_full=path + '_' + funct
-                    self.save_model(self.functions[funct],path_full,funct,mean_stat=True)
-                                     
-            
-    def save_model(self,model,path,funct,mean_stat=False):
+                if hasattr(self.functions[funct], "optim"):
+                    path_full = path + "_" + funct
+                    self.save_model(
+                        self.functions[funct].optim, path_full, funct
+                    )
+
+                # Saving mean_norm statistics
+                if hasattr(self.functions[funct], "mean_norm"):
+                    path_full = path + "_" + funct
+                    self.save_model(
+                        self.functions[funct], path_full, funct, mean_stat=True
+                    )
+
+    def save_model(self, model, path, funct, mean_stat=False):
         """
          ---------------------------------------------------------------------
-         speechbrain.data_io.data_io.save_ckpt.save_model (author: Mirco Ravanelli)
+         speechbrain.data_io.data_io.save_ckpt.save_model
+         (author: Mirco Ravanelli)
 
          Description: This function saves on disk the pkl model
-         
+
          Input:       - model (type:  str, mandatory):
                          it is the model to save.
-                        
+
                       - path (type: str, mandatory):
                           it is the directory where storing the model.
-                          
+
                       - funct_name (type: str, mandatory):
                           it is the name of the neural model.
-                          
+
                       - mean_stat (type: str, optinal, def:False):
                           this flag is True when the input model is just
                            a dictionary containing mean_statisics.
-                          
-                          
+
+
          Output:    - None
-                      the neural models id directly save in the specified 
-                      path. 
-                      
-                      
+                      the neural models id directly save in the specified
+                      path.
+
+
          Example:   import torch
                     from speechbrain.data_io.data_io import save_ckpt
                     from speechbrain.data_io.data_io import load_pkl
                     from speechbrain.nnet.architectures import linear
-                
+
                     # Initializing a linear layer
                     inp_tensor = torch.rand([4,660,190])
-                
-                    config={'class_name':'lib.nnet.architectures.linear',
+
+                    config={'class_name':'speechbrain.nnet.architectures.linear',
                             'n_neurons':'1024'}
-                    
+
                     linear_transf=linear(config,first_input=[inp_tensor])
-                    
-                    config={'class_name':'lib.data_io.data_io.save_ckpt'}
-    
+
+                    config={'class_name':'speechbrain.data_io.data_io.save_ckpt'}
+
                     # Initialization of the class
                     performance_dict={'loss':torch.tensor([0.69]),
                                       'error':torch.tensor([0.35])}
-                    
-                    save=save_ckpt(config,global_config={'output_folder':'exp'},
+
+                    save=save_ckpt(config,global_config={'output_folder':\
+                        'exp'},
                                      first_input=[0,performance_dict],
                                      functions={'linear':linear_transf})
-    
-    
-                    save.save_model(linear_transf,'save_nn_example.pkl','linear')
-                    
+
+
+                    save.save_model(linear_transf,'save_nn_example.pkl',\
+                        'linear')
+
          --------------------------------------------.------------------------
-         """    
-         
+         """
+
         # Managing pkl format
-        if self.save_format=='pkl':
-            
-            path=path+'.pkl'
-            
+        if self.save_format == "pkl":
+
+            path = path + ".pkl"
+
             # Check if model is mean_stat dictionary
             if mean_stat:
                 torch.save(model.statistics_dict(), path)
             else:
                 torch.save(model.state_dict(), path)
-        
+
         # Update Recovery info:
-        self.recovery_dict[self.funct_name][funct]=path
-        
-        
-    def remove_model(self,epoch):
+        self.recovery_dict[self.funct_name][funct] = path
+
+    def remove_model(self, epoch):
         """
          ---------------------------------------------------------------------
-         speechbrain.data_io.data_io.save_ckpt.remove_model (author: Mirco Ravanelli)
+         speechbrain.data_io.data_io.save_ckpt.remove_model
+         (author: Mirco Ravanelli)
 
          Description: This function support class removes old neural models
                       corresponding to previous epochs.
-         
+
          Input:       - epoch (type:  int(0,inf), mandatory):
-                         all the  neural models corresponding the specified 
+                         all the  neural models corresponding the specified
                          epoch will be removed from the save_folder.
 
 
          Output:    - None
                       the neural models are directly removed from the disk.
-                      
-                      
+
+
          Example:   import torch
                     from speechbrain.data_io.data_io import save_ckpt
                     from speechbrain.data_io.data_io import load_pkl
                     from speechbrain.nnet.architectures import linear
-                
+
                     # Initializing a linear layer
                     inp_tensor = torch.rand([4,660,190])
-                
-                    config={'class_name':'lib.nnet.architectures.linear',
+
+                    config={'class_name':'speechbrain.nnet.architectures.linear',
                             'n_neurons':'1024'}
-                    
+
                     linear_transf=linear(config,first_input=[inp_tensor])
-                    
-                    config={'class_name':'lib.data_io.data_io.save_ckpt'}
-    
+
+                    config={'class_name':'speechbrain.data_io.data_io.save_ckpt'}
+
                     # Initialization of the class
                     performance_dict={'loss':torch.tensor([0.69]),
                                       'error':torch.tensor([0.35])}
-                    
-                    save=save_ckpt(config,global_config={'output_folder':'exp'},
+
+                    save=save_ckpt(config,global_config={'output_folder':\
+                        'exp'},
                                      first_input=[0,performance_dict],
                                      functions={'linear':linear_transf})
-    
-    
+
+
                     save.save_neural_networks('exp/save_nn_exp')
-                    
+
                     # print recovery dictionary
                     print(torch.load('exp/save_nn_exp_linear.pkl'))
-                    
+
                     save.remove_model(0)
          --------------------------------------------.------------------------
-         """   
-         
+         """
+
         # Loop over all files in the save_folder
         for file in os.listdir(self.save_folder):
             # Check if files containing the given epoch-id are present
-            if 'epoch_'+str(epoch)+'_' in file:
-                os.remove(self.save_folder+'/'+file)
-                
-    
-    def print_epoch(self,epoch,performance_dict):
+            if "epoch_" + str(epoch) + "_" in file:
+                os.remove(self.save_folder + "/" + file)
+
+    def print_epoch(self, epoch, performance_dict):
         """
          ---------------------------------------------------------------------
-         speechbrain.data_io.data_io.save_ckpt.print_epoch (author: Mirco Ravanelli)
+         speechbrain.data_io.data_io.save_ckpt.print_epoch
+         (author: Mirco Ravanelli)
 
-         Description: This function prints the current performance in 
+         Description: This function prints the current performance in
                       the logger and in the res.res.file
-         
+
          Input:       - epoch (type:  int(0,inf), mandatory):
                          it is the current epoch_id
-                    
+
                        - performance_dict (type: dict, mandatory):
                            it is the dictionary containing the current
                            performance metrics.
@@ -1663,148 +1668,92 @@ class save_ckpt:
          Output:    - None
                       the neural models are directly written in the log file
                       and in the res.res.file
-                      
-                      
+
+
          Example:   import torch
                     from speechbrain.data_io.data_io import save_ckpt
                     from speechbrain.data_io.data_io import load_pkl
                     from speechbrain.nnet.architectures import linear
-                
+
                     # Initializing a linear layer
                     inp_tensor = torch.rand([4,660,190])
-                
-                    config={'class_name':'lib.nnet.architectures.linear',
+
+                    config={'class_name':'speechbrain.nnet.architectures.linear',
                             'n_neurons':'1024'}
-                    
+
                     linear_transf=linear(config,first_input=[inp_tensor])
-                    
-                    config={'class_name':'lib.data_io.data_io.save_ckpt'}
-    
+
+                    config={'class_name':'speechbrain.data_io.data_io.save_ckpt'}
+
                     # Initialization of the class
                     performance_dict={'loss':torch.tensor([0.69]),
                                       'error':torch.tensor([0.35])}
-                    
-                    save=save_ckpt(config,global_config={'output_folder':'exp'},
+
+                    save=save_ckpt(config,global_config={'output_folder':\
+                        'exp'},
                                      first_input=[0,performance_dict],
                                      functions={'linear':linear_transf})
-    
-    
+
+
                     save.print_epoch(0,performance_dict)
-                    
+
                     # see exp/nnets/res.res
 
          --------------------------------------------.------------------------
-         """ 
-         
+         """
+
         if self.print:
 
             # Composing string to write
-            string='epoch %i:' %(epoch)
-            
+            string = "epoch %i:" % (epoch)
+
             # Printing all the metrics in the performance dict
             for perf in performance_dict:
-                performance_dict[perf]=performance_dict[perf].cpu().numpy()
-                string = " %s %s=%.4f" %(string,perf,performance_dict[perf])
-                
-            
+                performance_dict[perf] = performance_dict[perf].cpu().numpy()
+                string = " %s %s=%.4f" % (string, perf, performance_dict[perf])
+
             # Print learning rates
             if self.functions is not None:
-                
+
                 for funct in self.functions:
-                    
+
                     # Checking for optimization info
-                    if 'optim' in self.functions[funct].__dict__:
-                        
+                    if "optim" in self.functions[funct].__dict__:
+
                         # Check the learning rate
-                        if 'lr' in self.functions[funct].optim.param_groups[0]:
-                            
-                            if 'prev_lr' in self.functions[funct].optim.param_groups[0]:
-                                lr=self.functions[funct].optim.param_groups[0]['prev_lr']
+                        if "lr" in self.functions[funct].optim.param_groups[0]:
+
+                            if (
+                                "prev_lr"
+                                in self.functions[funct].optim.param_groups[0]
+                            ):
+                                lr = self.functions[funct].optim.param_groups[
+                                    0
+                                ]["prev_lr"]
                             else:
-                                lr=self.functions[funct].optim.param_groups[0]['lr']
-                                
-                            
-                            string= "%s lr_%s=%.8f" %(string,funct,lr)
-    
+                                lr = self.functions[funct].optim.param_groups[
+                                    0
+                                ]["lr"]
+
+                            string = "%s lr_%s=%.8f" % (string, funct, lr)
+
             # Printing on logger
             logger_write(string, logfile=self.logger, level="info")
-            
+
             # Writing on the res.res file
             with open(self.res_file, "a") as file:
-                file.write(string+'\n')
-        
-        
-class count_labels:
+                file.write(string + "\n")
 
-    def __init__(
-        self,
-        config,
-        funct_name=None,
-        global_config=None,
-        functions=None,
-        logger=None,
-        first_input=None,
-    ):
-
-        # Logger Setup
-        self.logger = logger
-        
-        # Here are summarized the expected options for this class
-        self.expected_options = {
-            "class_name": ("str", "mandatory"),
-        }
-
-        # Check, cast , and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, logger=self.logger
-        )
-
-        # Expected inputs when calling the class (no inputs in this case)
-        self.expected_inputs = ["torch.Tensor","torch.Tensor"]
-
-        # Checking the first input
-        check_inputs(
-            self.conf, self.expected_inputs, first_input, logger=self.logger
-        )
-        
-        # Initializing the lab count dictionary
-        self.lab_counts_dict={}
-        
-            
-    def __call__(self, input_lst):
-        
-        # Reading input arguments
-        lab, lab_len = input_lst
-        
-        lab=lab.cpu().numpy()
-                
-        val, counts = np.unique(lab, return_counts=True)
-        
-        zero_pad=0
-        
-        # counting zero padding elements
-        for i, length in enumerate(lab_len):
-            actual_size = int(torch.round(length * lab[i].shape[0]))
-            zero_pad=zero_pad+(lab[i].shape[0]-actual_size)
-
-        # removing zero padding elements
-        if val[0] == 0 :
-            counts[0] = counts[0] - zero_pad
-        
-        # adding elements into the count dictionary
-        for i,lab_value in enumerate(val):
-            
-            lab_value=int(lab_value)
-            
-            if lab_value not in self.lab_counts_dict:
-                self.lab_counts_dict[lab_value]=counts[i]
-            else:
-                self.lab_counts_dict[lab_value]=self.lab_counts_dict[lab_value]+counts[i]
-            
-        return [self.lab_counts_dict]
-            
 
 class print_predictions:
+    """
+     -------------------------------------------------------------------------
+     speechbrain.data_io.data_io.print_predictions (author: Mirco Ravanelli)
+
+     Description: This class can be use to print in a text form the
+                   predictions performed by a neural network.
+     --------------------------------------------.----------------------------
+     """
 
     def __init__(
         self,
@@ -1818,7 +1767,7 @@ class print_predictions:
 
         # Logger Setup
         self.logger = logger
-        
+
         # Here are summarized the expected options for this class
         self.expected_options = {
             "class_name": ("str", "mandatory"),
@@ -1833,167 +1782,192 @@ class print_predictions:
         )
 
         # Expected inputs when calling the class (no inputs in this case)
-        self.expected_inputs = ["list","torch.Tensor","torch.Tensor"]
-        
+        self.expected_inputs = ["list", "torch.Tensor", "torch.Tensor"]
 
         # Checking the first input
         check_inputs(
             self.conf, self.expected_inputs, first_input, logger=self.logger
         )
-        
-        
-        self.lab_dict=global_config['label_dict'][self.ind2lab]['index2lab']
-        
-        if self.ctc_out:
-            self.lab_dict[len(self.lab_dict)]='blank'
-            
 
-        
+        # Using index2lab dictionary from the label_dict
+        self.lab_dict = global_config["label_dict"][self.ind2lab]["index2lab"]
+
+        # if ctc_out is True, add blank symbol into the dictionary
+        if self.ctc_out:
+            self.lab_dict[len(self.lab_dict)] = "blank"
+
+        # Set up file where to write predictions
         if self.out_file is None:
-            self.out_file=global_config['output_folder']+'/predictions.txt'
-            
-        
-        self.file_pred = open(self.out_file, 'w')
-        
-        msg='\nPredictions:'
+            self.out_file = global_config["output_folder"] + "/predictions.txt"
+
+        self.file_pred = open(self.out_file, "w")
+
+        msg = "\nPredictions:"
         logger_write(msg, logfile=self.logger, level="info")
-        self.file_pred.write(msg+'\n')
-        
-        
-        if len(self.lab_dict)>0:
-            msg="id\t\tprob\tprediction"
+        self.file_pred.write(msg + "\n")
+
+        if len(self.lab_dict) > 0:
+            msg = "id\t\tprob\tprediction"
             logger_write(msg, logfile=self.logger, level="info")
-            self.file_pred.write(msg+'\n')
+            self.file_pred.write(msg + "\n")
         else:
-            msg="id\t\\tprob"
+            msg = "id\t\\tprob"
             logger_write(msg, logfile=self.logger, level="info")
-            self.file_pred.write(msg+'\n')
-            
-    
-            
-                
-                
+            self.file_pred.write(msg + "\n")
+
     def __call__(self, input_lst):
-        
+
         # Reading input arguments
         ids, prob, prob_len = input_lst
-        
-        scores,predictions = torch.max(prob,dim=-2)
-        
-        self.file_pred = open(self.out_file, 'a')
 
+        # Getting scores and predictions
+        scores, predictions = torch.max(prob, dim=-2)
+
+        # Opening the prediction file
+        self.file_pred = open(self.out_file, "a")
+
+        # Loop over all the input sentences
         for i, snt_id in enumerate(ids):
-            
-            current_pred=predictions[i]
 
-            current_score=torch.exp(scores[i])
-            
-            current_score=current_score.mean()
-            
-            if len(predictions.shape)>1:
-                actual_size = int(torch.round(prob_len[i] * predictions.shape[-1]))
-                current_pred=current_pred[0:actual_size]
-            
-            if len(self.lab_dict)>0:
-                string_pred=[]
+            # Getting current predictions
+            current_pred = predictions[i]
+
+            # Getting corrent scores (switch to linear prob)
+            current_score = torch.exp(scores[i])
+
+            # Score averaginf
+            current_score = current_score.mean()
+
+            if len(predictions.shape) > 1:
+                actual_size = int(
+                    torch.round(prob_len[i] * predictions.shape[-1])
+                )
+                current_pred = current_pred[0:actual_size]
+
+            if len(self.lab_dict) > 0:
+                string_pred = []
+
+                # Getting the label corresponding to the output index
                 for pred_index in range(current_pred.shape[0]):
-                    index_lab=int(current_pred[pred_index])
-                
+                    index_lab = int(current_pred[pred_index])
+
                     if index_lab in self.lab_dict:
                         string_pred.append(self.lab_dict[index_lab])
-                    
+
                     else:
-                        
-                        err_msg = ('The index %i is not found in the self.lab_dict '
-                        'for the label %s. This might happen when some labels '
-                        'are present in the test set, but not in the '
-                        'training set. Make sure your training set contains '
-                        'all the needed labels. It might also happend when '
-                        'the fields  lab2index= and  lab2index_dict= contain'
-                        'wrong labels or path to different dictionary. '
-                        %(index_lab, self.ind2lab)
+
+                        err_msg = (
+                            "The index %i is not found in the self.lab_dict "
+                            "for the lab %s. This might happen when some labs "
+                            "are present in the test set, but not in the "
+                            "training set. Make sure your train set contains "
+                            "all the needed labels. It might happens when "
+                            "the fields lab2index= and lab2index_dict= contain"
+                            "wrong labels or path to different dictionary. "
+                            % (index_lab, self.ind2lab)
                         )
-                        
+
                         logger_write(err_msg, logfile=self.logger)
-                    
-                    
 
-            
-            if len(self.lab_dict)>0:
-                if len(string_pred)==1:
-                    string_pred=string_pred[0]
-                
+            if len(self.lab_dict) > 0:
+                if len(string_pred) == 1:
+                    string_pred = string_pred[0]
+
                 if self.ctc_out:
-                    string_pred=list(filter(lambda elem: elem!='blank', string_pred))
-                    string_pred=[v for i, v in enumerate(string_pred) if i == 0 or v != string_pred[i-1]]
+                    string_pred = list(
+                        filter(lambda elem: elem != "blank", string_pred)
+                    )
+                    string_pred = [
+                        v
+                        for i, v in enumerate(string_pred)
+                        if i == 0 or v != string_pred[i - 1]
+                    ]
 
-                
-                msg="%s\t%.3f\t%s" %(snt_id, current_score,string_pred) 
+                # Writing output
+                msg = "%s\t%.3f\t%s" % (snt_id, current_score, string_pred)
                 logger_write(msg, logfile=self.logger, level="info")
-                self.file_pred.write(msg+'\n')
-                
+                self.file_pred.write(msg + "\n")
+
             else:
-                msg="%s\t%.3f" %(snt_id, current_score)
+                # Writing output
+                msg = "%s\t%.3f" % (snt_id, current_score)
                 logger_write(msg, logfile=self.logger, level="info")
-                self.file_pred.write(msg+'\n')
+                self.file_pred.write(msg + "\n")
 
+        # Closing the prediction file
         self.file_pred.close()
-                
-           
-            
+
+
 def recovery(self):
-    
+    """
+     -------------------------------------------------------------------------
+     speechbrain.data_io.data_io.recovery(author: Mirco Ravanelli)
+
+     Description: when the recovery dictionary exists, this function
+                  loads the saved parameters into the corresponding
+                  neural networks. The function is used to re-start
+                  the neural network training from the last epoch
+                  correctly saved.
+     --------------------------------------------.----------------------------
+     """
+
     if self.recovery:
-        
-        recovery_file=self.output_folder+'/recovery.pkl'
-        
+
+        recovery_file = self.output_folder + "/recovery.pkl"
+
         if os.path.exists(recovery_file):
-            
+
             # Reading the recovery dictionary to recover file
-            recovery_dict=load_pkl(recovery_file)
-            
+            recovery_dict = load_pkl(recovery_file)
+
             # finding all the entries in the recovery_dict
             for key, value in recursive_items(recovery_dict):
-                
-                if key==self.funct_name:
-                    
+
+                if key == self.funct_name:
+
                     model_file = value
-                    
+
                     # Loading the model
-                    if hasattr(self, 'optim'):
+                    if hasattr(self, "optim"):
                         self.optim.load_state_dict(torch.load(model_file))
-                    elif hasattr(self, 'mean_norm'):
+                    elif hasattr(self, "mean_norm"):
                         self.load_statistics_dict(torch.load(model_file))
-                        
+
                     else:
                         self.load_state_dict(torch.load(model_file))
-                    
-                    text='Loaded model %s' % (model_file)
-                    logger_write(text, logfile=self.logger, level="debug")  
-                    
+
+                    text = "Loaded model %s" % (model_file)
+                    logger_write(text, logfile=self.logger, level="debug")
+
                     break
-                    
+
+
 def initialize_with(self):
-    
+    """
+     -------------------------------------------------------------------------
+     speechbrain.data_io.data_io.initialize_with(author: Mirco Ravanelli)
+
+     Description: This function initialize the parameters of the neural
+                  network with the pkl file reported in the field
+                  initialized_with
+     --------------------------------------------.----------------------------
+    """
+
     if self.initialize_with is not None and self.initialize_with != "random":
-        
+
         # Check if the specified file exists:
         if not os.path.isfile(self.initialize_with):
-             err_msg = (
-                    'the file specified in the field "initialize_with"'
-                    'does not exist'
-                     )
-    
-             logger_write(err_msg, logfile=self.logger)
-                    
-        
+            err_msg = (
+                'the file specified in the field "initialize_with"'
+                "does not exist"
+            )
+
+            logger_write(err_msg, logfile=self.logger)
+
         # Loading the initialization parameters
         self.load_state_dict(torch.load(self.initialize_with))
-            
-            
 
 
-                    
 def read_wav_soundfile(file, data_options={}, logger=None, lab2ind=None):
     """
      -------------------------------------------------------------------------
@@ -2016,7 +1990,7 @@ def read_wav_soundfile(file, data_options={}, logger=None, lab2ind=None):
                        it is the array containing the read signal
 
 
-     Example:  from data_io import read_wav_soundfile
+     Example:  from speechbrain.data_io.data_io import read_wav_soundfile
 
                print(read_wav_soundfile('samples/audio_samples/example1.wav'))
 
@@ -2059,9 +2033,8 @@ def read_wav_soundfile(file, data_options={}, logger=None, lab2ind=None):
         except Exception:
 
             err_msg = (
-                'The start value for the file %s must be an integer '
-                '(e.g start:405)'
-                % (file)
+                "The start value for the file %s must be an integer "
+                "(e.g start:405)" % (file)
             )
 
             logger_write(err_msg, logfile=logger)
@@ -2073,9 +2046,8 @@ def read_wav_soundfile(file, data_options={}, logger=None, lab2ind=None):
         except Exception:
 
             err_msg = (
-                'The stop value for the file %s must be an integer '
-                '(e.g stop:405)'
-                % (file)
+                "The stop value for the file %s must be an integer "
+                "(e.g stop:405)" % (file)
             )
 
             logger_write(err_msg, logfile=logger)
@@ -2087,9 +2059,8 @@ def read_wav_soundfile(file, data_options={}, logger=None, lab2ind=None):
         except Exception:
 
             err_msg = (
-                'The sampling rate for the file %s must be an integer '
-                '(e.g samplingrate:16000)'
-                % (file)
+                "The sampling rate for the file %s must be an integer "
+                "(e.g samplingrate:16000)" % (file)
             )
 
             logger_write(err_msg, logfile=logger)
@@ -2109,9 +2080,8 @@ def read_wav_soundfile(file, data_options={}, logger=None, lab2ind=None):
         except Exception:
 
             err_msg = (
-                'The number of channels for the file %s must be an integer '
-                '(e.g channels:2)'
-                % (file)
+                "The number of channels for the file %s must be an integer "
+                "(e.g channels:2)" % (file)
             )
 
             logger_write(err_msg, logfile=logger)
@@ -2163,7 +2133,7 @@ def read_pkl(file, data_options={}, logger=None, lab2ind=None):
                        it is the array containing the read signal.
 
 
-     Example:  from data_io import read_pkl
+     Example:  from speechbrain.data_io.data_io import read_pkl
 
                print(read_pkl('pkl_file.pkl'))
 
@@ -2177,37 +2147,36 @@ def read_pkl(file, data_options={}, logger=None, lab2ind=None):
     except Exception:
         err_msg = "cannot read the pkl file %s" % (file)
         logger_write(err_msg, logfile=logger)
-    
+
     type_ok = False
-    
-    if isinstance(pkl_element,list):
-        
-        if isinstance(pkl_element[0],float):
-            tensor = torch.FloatTensor(pkl_element) 
+
+    if isinstance(pkl_element, list):
+
+        if isinstance(pkl_element[0], float):
+            tensor = torch.FloatTensor(pkl_element)
             type_ok = True
-        
-        if isinstance(pkl_element[0],int):
+
+        if isinstance(pkl_element[0], int):
             tensor = torch.LongTensor(pkl_element)
             type_ok = True
-            
-        if isinstance(pkl_element[0],str):
-            
+
+        if isinstance(pkl_element[0], str):
+
             # convert string to integer as specified in self.label_dict
             if lab2ind is not None:
                 for index, val in enumerate(pkl_element):
                     pkl_element[index] = lab2ind[val]
-        
+
             tensor = torch.LongTensor(pkl_element)
             type_ok = True
-    
-        if not(type_ok):
-            err_msg = "The pkl file %s can only contain list of integers, " 
-            "floats, or strings. Got %s"  % (file, type(pkl_element[0]))
-            logger_write(err_msg, logfile=logger) 
+
+        if not (type_ok):
+            err_msg = "The pkl file %s can only contain list of integers, "
+            "floats, or strings. Got %s" % (file, type(pkl_element[0]))
+            logger_write(err_msg, logfile=logger)
     else:
         tensor = pkl_element
-            
-            
+
     tensor_type = tensor.dtype
 
     # Conversion to 32 bit (if needed)
@@ -2242,26 +2211,26 @@ def read_string(string, data_options={}, logger=None, lab2ind=None):
                        it is the array containing the read signal.
 
 
-     Example:  from data_io import read_string
+     Example:  from speechbrain.data_io.data_io import read_string
 
                print(read_string('hello_world'))
 
      -------------------------------------------------------------------------
      """
-    
+
     # Splitting elements with ' '
-    string = string.split(' ')
-        
+    string = string.split(" ")
+
     # convert string to integer as specified in self.label_dict
     if lab2ind is not None:
         for index, val in enumerate(string):
             if val not in lab2ind:
                 lab2ind[val] = len(lab2ind)
-                
+
             string[index] = lab2ind[val]
-        
-        string = torch.LongTensor(string)    
-        
+
+        string = torch.LongTensor(string)
+
     return string
 
 
@@ -2288,7 +2257,7 @@ def read_kaldi_lab(kaldi_ali, kaldi_lab_opts, logfile=None):
                        it is a dictionary contaning the labels
 
 
-     Example:  from data_io import read_kaldi_lab
+     Example:  from speechbrain.data_io.data_io import read_kaldi_lab
 
                lab_folder='/home/kaldi/egs/TIMIT/s5/exp\
                /dnn4_pretrain-dbn_dnn_ali'
@@ -2338,7 +2307,7 @@ def write_wav_soundfile(data, filename, sampling_rate=None, logger=None):
 
 
      Example:  import torch
-               from data_io import write_wav_soundfile
+               from speechbrain.data_io.data_io import write_wav_soundfile
 
                signal=0.1*torch.rand([16000])
                write_wav_soundfile(signal,'exp/wav_example.wav',
@@ -2351,8 +2320,8 @@ def write_wav_soundfile(data, filename, sampling_rate=None, logger=None):
     if len(data.shape) > 2:
 
         err_msg = (
-            'expected signal in the format (channel,time). Got %s '
-            'dimensions instead of two for file %s'
+            "expected signal in the format (channel,time). Got %s "
+            "dimensions instead of two for file %s"
             % (len(data.shape), filename)
         )
 
@@ -2399,7 +2368,7 @@ def write_txt_file(data, filename, sampling_rate=None, logger=None):
 
 
      Example:  import torch
-               from data_io import write_txt_file
+               from speechbrain.data_io.data_io import write_txt_file
 
                signal=torch.tensor([1,2,3,4])
                write_txt_file(signal,'exp/example.txt')
@@ -2470,7 +2439,7 @@ def write_stdout(data, filename, sampling_rate=None, logger=None):
 
 
      Example:  import torch
-               from data_io import write_stdout
+               from speechbrain.data_io.data_io import write_stdout
 
                signal=torch.tensor([1,2,3,4])
                write_stdout(signal,'exp/example.txt')
@@ -2528,9 +2497,9 @@ def save_img(data, filename, sampling_rate=None, logger=None):
 
     except Exception:
 
-        err_msg = (
-                'cannot import matplotlib. Make sure it is installed.'
-                % (filename, str(data.shape))
+        err_msg = "cannot import matplotlib. Make sure it is installed." % (
+            filename,
+            str(data.shape),
         )
 
         logger_write(err_msg, logfile=logger)
@@ -2540,10 +2509,9 @@ def save_img(data, filename, sampling_rate=None, logger=None):
     if len(data.shape) < 2 or len(data.shape) > 3:
 
         err_msg = (
-            'cannot save image  %s. Save in png format supports 2-D or '
-            '3-D tensors only (e.g. [x,y] or [channel,x,y]). '
-            'Got %s'
-            % (filename, str(data.shape))
+            "cannot save image  %s. Save in png format supports 2-D or "
+            "3-D tensors only (e.g. [x,y] or [channel,x,y]). "
+            "Got %s" % (filename, str(data.shape))
         )
 
         logger_write(err_msg, logfile=logger)
@@ -2601,7 +2569,7 @@ class save:
                             default:False):
                                if True it saves the data using parallel
                                processes.
-                               
+
                           - transpose (type:bool,optional,
                             default:False):
                                if True it transposes the data matrix
@@ -2638,7 +2606,7 @@ class save:
      Output (call): None
 
      Example:  import torch
-               from data_processing import save
+               from speechbrain.data_io.data_io import save
 
                # save config dictionary definition
                config={'class_name':'data_processing.save',
@@ -2654,7 +2622,7 @@ class save:
                # saving
                save_signal([signal,['example_random'],torch.ones(1)])
 
-              # signal save in exp/write_example
+               # signal save in exp/write_example
      -------------------------------------------------------------------------
      """
 
@@ -2667,7 +2635,6 @@ class save:
         logger=None,
         first_input=None,
     ):
-
 
         # Logger Setup
         self.logger = logger
@@ -2690,14 +2657,6 @@ class save:
             self, self.expected_options, config, logger=self.logger
         )
 
-        # Expected inputs when calling the class (no inputs in this case)
-        #self.expected_inputs = ["torch.Tensor", "list", "torch.Tensor"]
-
-        # Checking the first input
-        #check_inputs(
-        #    self.conf, self.expected_inputs, first_input, logger=self.logger
-        #)
-
         # Definition of other variables
         self.supported_formats = self.get_supported_formats()
 
@@ -2714,8 +2673,8 @@ class save:
         if self.save_format not in self.supported_formats:
 
             err_msg = (
-                'the format %s specified in the config file is not '
-                'supported. The current version supports %s'
+                "the format %s specified in the config file is not "
+                "supported. The current version supports %s"
                 % (self.save_format, self.supported_formats.keys())
             )
 
@@ -2725,20 +2684,20 @@ class save:
         if self.save_csv:
             self.save_csv_path = self.save_folder + "/csv.csv"
             open(self.save_csv_path, "w").close()
-            self.first_line_csv=True
+            self.first_line_csv = True
 
     def __call__(self, input_lst):
 
         # Reading input arguments
         data, data_id, data_len = input_lst
-        
+
         if data is None:
             return
 
         # Convertion to log (if specified)
         if self.decibel:
             data = 10 * data.log10()
-            
+
         # Writing data on disk (in parallel)
         self.write_batch(data, data_id, data_len)
 
@@ -2757,7 +2716,7 @@ class save:
          Output:      None
 
          Example:  import torch
-                   from data_processing import save
+                   from speechbrain.data_io.data_io import save
 
                    # save config dictionary definition
                    config={'class_name':'data_processing.save',
@@ -2786,13 +2745,15 @@ class save:
 
         if self.save_csv:
             csv_f = open(self.save_csv_path, "a")
-            
+
             if self.first_line_csv:
-                line = "ID, duration, %s, %s_format, %s_opts\n" % (self.data_name,
-                                                                 self.data_name,
-                                                                 self.data_name)
-                self.first_line_csv=False
-                
+                line = "ID, duration, %s, %s_format, %s_opts\n" % (
+                    self.data_name,
+                    self.data_name,
+                    self.data_name,
+                )
+                self.first_line_csv = False
+
                 csv_f.write(line)
 
         # Processing all the batches in data
@@ -2801,12 +2762,10 @@ class save:
             # Selection up to the true data length (without padding)
             actual_size = int(torch.round(data_len[j] * data[j].shape[-1]))
             data_save = data[j].narrow(-1, 0, actual_size)
-            
+
             # Transposing the data if needed
             if self.transpose:
-                data_save = data_save.transpose(-1,-2)
-                
-                
+                data_save = data_save.transpose(-1, -2)
 
             # Selection of the needed data writer
             writer = self.supported_formats[self.save_format]["writer"]
@@ -2841,7 +2800,7 @@ class save:
             if self.save_csv:
                 line = "%s, %f, %s, %s, ,\n" % (
                     data_id[j],
-                    actual_size, # We are here saving the number of time steps
+                    actual_size,  # We are here saving the number of time steps
                     data_file,
                     self.save_format,
                 )
@@ -2872,7 +2831,7 @@ class save:
          Output:      -supported_formats (type:dict)
 
          Example:  import torch
-                   from data_processing import save
+                   from speechbrain.data_io.data_io import save
 
                    # save config dictionary definition
                    config={'class_name':'data_processing.save',
@@ -2924,6 +2883,7 @@ class save:
 
         return supported_formats
 
+
 def write_ark(data, filename, key="", sampling_rate=None, logger=None):
     """
      -------------------------------------------------------------------------
@@ -2950,12 +2910,12 @@ def write_ark(data, filename, key="", sampling_rate=None, logger=None):
                        it the logger used to write debug and error messages.
 
      Output (call):  None
-     
+
      Example:   import torch
-                from data_io import write_ark
-                
+                from speechbrain.data_io.data_io import write_ark
+
                 matrix = torch.rand([5,10])
-                
+
                 write_ark(matrix,'matrix.ark',key='snt')
      -------------------------------------------------------------------------
      """
@@ -2964,11 +2924,10 @@ def write_ark(data, filename, key="", sampling_rate=None, logger=None):
         data = data.detach().cpu().numpy()
 
     fd = open_or_fd(filename, None, mode="wb")
-    
-    # Detecting sentence id to write
-    key=os.path.basename(filename).split('.')[0]
 
-    
+    # Detecting sentence id to write
+    key = os.path.basename(filename).split(".")[0]
+
     if sys.version_info[0] == 3:
         assert fd.mode == "wb"
     try:
@@ -3016,7 +2975,7 @@ def get_md5(file):
                        it is the checksum for the given file
 
 
-     Example:  from data_io import  get_md5
+     Example:  from speechbrain.data_io.data_io import  get_md5
                print(get_md5('samples/audio_samples/example1.wav'))
 
      -------------------------------------------------------------------------
@@ -3038,7 +2997,7 @@ def get_md5(file):
 
     return md5.hexdigest()
 
-    
+
 def save_md5(files, out_file):
     """
      -------------------------------------------------------------------------
@@ -3057,7 +3016,7 @@ def save_md5(files, out_file):
      Output (call):  None
 
 
-     Example:  from data_io import save_md5
+     Example:  from speechbrain.data_io.data_io import save_md5
 
                files=['samples/audio_samples/example1.wav']
                out_file='exp/md5.pkl'
@@ -3099,7 +3058,7 @@ def save_pkl(obj, file, sampling_rate=None, logger=None):
      Output (call):  None
 
 
-     Example:  from data_io import save_pkl
+     Example:  from speechbrain.data_io.data_io import save_pkl
 
                out_file='exp/example.pkl'
                save_pkl([1,2,3,4,5],out_file)
@@ -3130,7 +3089,7 @@ def load_pkl(file, logger=None):
      Output (call):  obj (type:obj)
 
 
-     Example:  from data_io import load_pkl
+     Example:  from speechbrain.data_io.data_io import load_pkl
 
                pkl_file='exp/example.pkl'
                print(load_pkl(pkl_file))
@@ -3146,7 +3105,6 @@ def load_pkl(file, logger=None):
         logger_write(err_msg, logfile=logger)
 
 
-        
 def read_vec_int_ark(file_or_fd, logfile=None):
     """
      -------------------------------------------------------------------------
@@ -3342,6 +3300,7 @@ class SubprocessFailed(Exception):
     data_io.SubprocessFailed (author: github.com/vesis84/kaldi-io-for-python)
     -------------------------------------------------------------------------
     """
+
     pass
 
 
@@ -3351,4 +3310,5 @@ class UnsupportedDataType(Exception):
     data_io.UnsupportedDataType (github.com/vesis84/kaldi-io-for-python)
     -------------------------------------------------------------------------
     """
+
     pass

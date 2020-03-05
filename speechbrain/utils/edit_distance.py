@@ -53,11 +53,14 @@ def accumulatable_wer_stats(refs, hyps, stats=collections.Counter()):
     if updated_stats["num_ref_tokens"] == 0:
         updated_stats["WER"] = float("nan")
     else:
-        num_edits = sum(updated_stats["insertions"],
-                        updated_stats["deletions"],
-                        updated_stats["substitutions"])
-        updated_stats["WER"] = \
+        num_edits = sum(
+            updated_stats["insertions"],
+            updated_stats["deletions"],
+            updated_stats["substitutions"],
+        )
+        updated_stats["WER"] = (
             100.0 * num_edits / updated_stats["num_ref_tokens"]
+        )
     return updated_stats
 
 
@@ -77,7 +80,7 @@ def _batch_stats(refs, hyps):
                 "substitutions" - number of substitutions
                 "num_ref_tokens" - number of reference tokens
     Example:
-        from speechbrain.utils.edit_distance import batch_stats
+        from speechbrain.utils.edit_distance import _batch_stats
         batch = [[[1,2,3],[4,5,6]], [[1,2,4],[5,6]]]
         refs, hyps = batch
         print(_batch_stats(refs, hyps))

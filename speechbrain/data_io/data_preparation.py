@@ -10,14 +10,12 @@ import os
 import sys
 import csv
 import errno
-from ..utils import (
-    check_opts,
-    get_all_files,
-    logger_write,
-    check_inputs,
-    run_shell,
-)
-from .data_io import (
+from speechbrain.utils.input_validation import check_opts, check_inputs
+from speechbrain.utils.data_utils import get_all_files
+from speechbrain.utils.logger import logger_write
+from speechbrain.utils.superpowers import run_shell
+
+from speechbrain.data_io.data_io import (
     read_wav_soundfile,
     load_pkl,
     save_pkl,
@@ -29,7 +27,8 @@ from .data_io import (
 class copy_data_locally:
     """
      -------------------------------------------------------------------------
-     data_preparation.copy_data_locally (author: Mirco Ravanelli)
+     speechbrain.data_io.data_preparation.copy_data_locally
+     (author: Mirco Ravanelli)
 
      Description: This class copies a compressed dataset into another folder.
                   It can be used to store the data locally when the original
@@ -93,7 +92,8 @@ class copy_data_locally:
                        Otherwise it returns None. It this case it returns
                        always None.
 
-     Example:    from data_preparation import copy_data_locally
+     Example:    from speechbrain.data_io.data_preparation import (
+                    copy_data_locally)
 
                  data_file='/home/mirco/datasets/TIMIT.tar.gz'
                  local_folder='/home/mirco/datasets/local_folder/TIMIT'
@@ -106,8 +106,10 @@ class copy_data_locally:
                 # Initialization of the class
                 copy_data_locally(config)
 
+
      -------------------------------------------------------------------------
      """
+
     def __init__(
         self,
         config,
@@ -215,7 +217,8 @@ class copy_data_locally:
 class timit_prepare:
     """
      -------------------------------------------------------------------------
-     data_preparation.timit_prepare (author: Mirco Ravanelli)
+     speechbrain.data_io.data_preparation.timit_prepare
+     (author: Mirco Ravanelli)
 
      Description: This class prepares the csv files for the TIMIT dataset.
 
@@ -284,7 +287,7 @@ class timit_prepare:
                        Otherwise it returns None. It this case it returns
                        always None.
 
-     Example:    from data_preparation import timit_prepare
+     Example:    from speechbrain.data_io.data_preparation import timit_prepare
 
                  local_folder='/home/mirco/datasets/TIMIT'
                  save_folder='exp/TIMIT_exp'
@@ -423,75 +426,74 @@ class timit_prepare:
             "mthc0",
             "mwjg0",
         ]
-        
-        
+
         # This dictionary is used to conver the 60 phoneme set
         # into the 48 one
-        from_60_to_48_phn={}
-        from_60_to_48_phn['sil']='sil'
-        from_60_to_48_phn['aa']='aa'
-        from_60_to_48_phn['ae']='ae'
-        from_60_to_48_phn['ah']='ah'
-        from_60_to_48_phn['ao']='ao'
-        from_60_to_48_phn['aw']='aw'
-        from_60_to_48_phn['ax']='ax'
-        from_60_to_48_phn['ax-h']='ax'
-        from_60_to_48_phn['axr']='er'
-        from_60_to_48_phn['ay']='ay'
-        from_60_to_48_phn['b']='b'
-        from_60_to_48_phn['bcl']='vcl'
-        from_60_to_48_phn['ch']='ch'
-        from_60_to_48_phn['d']='d'
-        from_60_to_48_phn['dcl']='vcl'
-        from_60_to_48_phn['dh']='dh'
-        from_60_to_48_phn['dx']='dx'
-        from_60_to_48_phn['eh']='eh'
-        from_60_to_48_phn['el']='el'
-        from_60_to_48_phn['em']='m'
-        from_60_to_48_phn['en']='en'
-        from_60_to_48_phn['eng']='ng'
-        from_60_to_48_phn['epi']='epi'
-        from_60_to_48_phn['er']='er'
-        from_60_to_48_phn['ey']='ey'
-        from_60_to_48_phn['f']='f'
-        from_60_to_48_phn['g']='g'
-        from_60_to_48_phn['gcl']='vcl'
-        from_60_to_48_phn['h#']='sil'
-        from_60_to_48_phn['hh']='hh'
-        from_60_to_48_phn['hv']='hh'
-        from_60_to_48_phn['ih']='ih'
-        from_60_to_48_phn['ix']='ix'
-        from_60_to_48_phn['iy']='iy'
-        from_60_to_48_phn['jh']='jh'
-        from_60_to_48_phn['k']='k'
-        from_60_to_48_phn['kcl']='cl'
-        from_60_to_48_phn['l']='l'
-        from_60_to_48_phn['m']='m'
-        from_60_to_48_phn['n']='n'
-        from_60_to_48_phn['ng']='ng'
-        from_60_to_48_phn['nx']='n'
-        from_60_to_48_phn['ow']='ow'
-        from_60_to_48_phn['oy']='oy'
-        from_60_to_48_phn['p']='p'
-        from_60_to_48_phn['pau']='sil'
-        from_60_to_48_phn['pcl']='cl'
-        from_60_to_48_phn['q']='k'
-        from_60_to_48_phn['r']='r'
-        from_60_to_48_phn['s']='s'
-        from_60_to_48_phn['sh']='sh'
-        from_60_to_48_phn['t']='t'
-        from_60_to_48_phn['tcl']='cl'
-        from_60_to_48_phn['th']='th'
-        from_60_to_48_phn['uh']='uh'
-        from_60_to_48_phn['uw']='uw'
-        from_60_to_48_phn['ux']='uw'
-        from_60_to_48_phn['v']='v'
-        from_60_to_48_phn['w']='w'
-        from_60_to_48_phn['y']='y'
-        from_60_to_48_phn['z']='z'
-        from_60_to_48_phn['zh']='zh'
-        
-        self.from_60_to_48_phn=from_60_to_48_phn
+        from_60_to_48_phn = {}
+        from_60_to_48_phn["sil"] = "sil"
+        from_60_to_48_phn["aa"] = "aa"
+        from_60_to_48_phn["ae"] = "ae"
+        from_60_to_48_phn["ah"] = "ah"
+        from_60_to_48_phn["ao"] = "ao"
+        from_60_to_48_phn["aw"] = "aw"
+        from_60_to_48_phn["ax"] = "ax"
+        from_60_to_48_phn["ax-h"] = "ax"
+        from_60_to_48_phn["axr"] = "er"
+        from_60_to_48_phn["ay"] = "ay"
+        from_60_to_48_phn["b"] = "b"
+        from_60_to_48_phn["bcl"] = "vcl"
+        from_60_to_48_phn["ch"] = "ch"
+        from_60_to_48_phn["d"] = "d"
+        from_60_to_48_phn["dcl"] = "vcl"
+        from_60_to_48_phn["dh"] = "dh"
+        from_60_to_48_phn["dx"] = "dx"
+        from_60_to_48_phn["eh"] = "eh"
+        from_60_to_48_phn["el"] = "el"
+        from_60_to_48_phn["em"] = "m"
+        from_60_to_48_phn["en"] = "en"
+        from_60_to_48_phn["eng"] = "ng"
+        from_60_to_48_phn["epi"] = "epi"
+        from_60_to_48_phn["er"] = "er"
+        from_60_to_48_phn["ey"] = "ey"
+        from_60_to_48_phn["f"] = "f"
+        from_60_to_48_phn["g"] = "g"
+        from_60_to_48_phn["gcl"] = "vcl"
+        from_60_to_48_phn["h#"] = "sil"
+        from_60_to_48_phn["hh"] = "hh"
+        from_60_to_48_phn["hv"] = "hh"
+        from_60_to_48_phn["ih"] = "ih"
+        from_60_to_48_phn["ix"] = "ix"
+        from_60_to_48_phn["iy"] = "iy"
+        from_60_to_48_phn["jh"] = "jh"
+        from_60_to_48_phn["k"] = "k"
+        from_60_to_48_phn["kcl"] = "cl"
+        from_60_to_48_phn["l"] = "l"
+        from_60_to_48_phn["m"] = "m"
+        from_60_to_48_phn["n"] = "n"
+        from_60_to_48_phn["ng"] = "ng"
+        from_60_to_48_phn["nx"] = "n"
+        from_60_to_48_phn["ow"] = "ow"
+        from_60_to_48_phn["oy"] = "oy"
+        from_60_to_48_phn["p"] = "p"
+        from_60_to_48_phn["pau"] = "sil"
+        from_60_to_48_phn["pcl"] = "cl"
+        from_60_to_48_phn["q"] = "k"
+        from_60_to_48_phn["r"] = "r"
+        from_60_to_48_phn["s"] = "s"
+        from_60_to_48_phn["sh"] = "sh"
+        from_60_to_48_phn["t"] = "t"
+        from_60_to_48_phn["tcl"] = "cl"
+        from_60_to_48_phn["th"] = "th"
+        from_60_to_48_phn["uh"] = "uh"
+        from_60_to_48_phn["uw"] = "uw"
+        from_60_to_48_phn["ux"] = "uw"
+        from_60_to_48_phn["v"] = "v"
+        from_60_to_48_phn["w"] = "w"
+        from_60_to_48_phn["y"] = "y"
+        from_60_to_48_phn["z"] = "z"
+        from_60_to_48_phn["zh"] = "zh"
+
+        self.from_60_to_48_phn = from_60_to_48_phn
 
         # Avoid calibration sentences
         self.avoid_sentences = ["sa1", "sa2"]
@@ -598,7 +600,8 @@ class timit_prepare:
     def skip(self):
         """
          ---------------------------------------------------------------------
-         data_preparation.prepare_timit.skip (author: Mirco Ravanelli)
+          speechbrain.data_io.data_preparation.prepare_timit.skip
+          (auth: M. Ravanelli)
 
          Description: This function detects when the timit data_preparation
                       has been already done and can be skipped.
@@ -610,7 +613,8 @@ class timit_prepare:
                            if True, the preparation phase can be skipped.
                            if False, it must be done.
 
-         Example:    from data_preparation import timit_prepare
+         Example:    from speechbrain.data_io.data_preparation import (
+                        timit_prepare)
 
                      local_folder='/home/mirco/datasets/TIMIT'
                      save_folder='exp/TIMIT_exp'
@@ -625,9 +629,9 @@ class timit_prepare:
                     # Initialization of the class
                     data_prep=timit_prepare(config)
 
-                   # Skip function is True because data_pre has already
-                   been done:
-                   print(data_prep.skip())
+                    # Skip function is True because data_pre has already
+                    been done:
+                    print(data_prep.skip())
 
          ---------------------------------------------------------------------
          """
@@ -657,7 +661,8 @@ class timit_prepare:
     ):
         """
          ---------------------------------------------------------------------
-         data_preparation.prepare_timit.create_csv (author: Mirco Ravanelli)
+          speechbrain.data_io.data_preparation.prepare_timit.create_csv
+          (M. Ravanelli)
 
          Description: This function creates the csv file given a list of wav
                        files.
@@ -684,7 +689,8 @@ class timit_prepare:
          Output:      None
 
 
-         Example:   from data_preparation import timit_prepare
+         Example:   from speechbrain.data_io.data_preparation import (
+                        timit_prepare)
 
                     local_folder='/home/mirco/datasets/TIMIT'
                     save_folder='exp/TIMIT_exp'
@@ -731,16 +737,29 @@ class timit_prepare:
             if not os.path.exists(lab_out_dir):
                 os.makedirs(lab_out_dir)
 
-        csv_lines = [['ID','duration','wav','wav_format', 'wav_opts','spk_id',
-                      'spk_id_format', 'spk_id_opts', 'phn', 'phn_format',
-                      'phn_opts','wrd','wrd_format','wrd_opts']]
-        
+        csv_lines = [
+            [
+                "ID",
+                "duration",
+                "wav",
+                "wav_format",
+                "wav_opts",
+                "spk_id",
+                "spk_id_format",
+                "spk_id_opts",
+                "phn",
+                "phn_format",
+                "phn_opts",
+                "wrd",
+                "wrd_format",
+                "wrd_opts",
+            ]
+        ]
 
         if kaldi_lab is not None:
-            csv_lines[0].append('kaldi_lab')
-            csv_lines[0].append('kaldi_lab_format')
-            csv_lines[0].append('kaldi_lab_opts')
-
+            csv_lines[0].append("kaldi_lab")
+            csv_lines[0].append("kaldi_lab_format")
+            csv_lines[0].append("kaldi_lab_opts")
 
         # Processing all the wav files in the list
         for wav_file in wav_lst:
@@ -756,8 +775,8 @@ class timit_prepare:
                     missing_lab = False
 
                     msg = (
-                         '\tThe sentence %s does not have a corresponding '
-                         'kaldi label' % (snt_id)
+                        "\tThe sentence %s does not have a corresponding "
+                        "kaldi label" % (snt_id)
                     )
 
                     logger_write(msg, logfile=self.logger, level="debug")
@@ -771,9 +790,9 @@ class timit_prepare:
                 if snt_no_lab / len(wav_lst) > 0.05:
 
                     err_msg = (
-                        'Too many sentences do not have the '
-                        'corresponding kaldi label. Please check data and '
-                        'kaldi labels (check %s and %s).'
+                        "Too many sentences do not have the "
+                        "corresponding kaldi label. Please check data and "
+                        "kaldi labels (check %s and %s)."
                         % (self.data_folder, self.kaldi_ali_test)
                     )
 
@@ -811,41 +830,53 @@ class timit_prepare:
 
             # Phoneme list
             phonemes = []
-            
+
             for line in open(phn_file):
-                
-                phoneme = line.rstrip("\n").replace("h#", "sil").split(" ")[2]    
-                
+
+                phoneme = line.rstrip("\n").replace("h#", "sil").split(" ")[2]
+
                 # From 60 to 48 phonemes
                 phoneme = self.from_60_to_48_phn[phoneme]
-                
+
                 # Apping phoneme in the phoneme list
                 phonemes.append(phoneme)
-            
+
             phonemes = " ".join(phonemes)
 
             # Composition of the csv_line
-            csv_line = [snt_id,str(duration),wav_file,'wav','',spk_id,'string','',str(phonemes),'string','', str(words),'string','']
-            
+            csv_line = [
+                snt_id,
+                str(duration),
+                wav_file,
+                "wav",
+                "",
+                spk_id,
+                "string",
+                "",
+                str(phonemes),
+                "string",
+                "",
+                str(words),
+                "string",
+                "",
+            ]
 
             if kaldi_lab is not None:
                 csv_line.append(snt_lab_path)
-                csv_line.append('pkl')
-                csv_line.append('')
-                
+                csv_line.append("pkl")
+                csv_line.append("")
 
             # Adding this line to the csv_lines list
             csv_lines.append(csv_line)
 
-        # -Writing the csv lines            
-        with open(csv_file, mode='w') as csv_f:
-            csv_writer = csv.writer(csv_f, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-        
+        # -Writing the csv lines
+        with open(csv_file, mode="w") as csv_f:
+            csv_writer = csv.writer(
+                csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
+            )
+
             for line in csv_lines:
                 csv_writer.writerow(line)
-        
-        
-
 
         # Final prints
         msg = "\t%s sucessfully created!" % (csv_file)
@@ -854,7 +885,7 @@ class timit_prepare:
     def check_timit_folders(self):
         """
          ---------------------------------------------------------------------
-         data_preparation.check_timit_folders (author: Mirco Ravanelli)
+         speechbrain.data_io.check_timit_folders (author: Mirco Ravanelli)
 
          Description: This function cheks if the dat folder actually contains
                       the TIMIT dataset. If not, it raises an error.
@@ -865,7 +896,8 @@ class timit_prepare:
          Output:      None
 
 
-         Example:   from data_preparation import timit_prepare
+         Example:   from speechbrain.data_io.data_preparation import (
+                        timit_prepare)
 
                     local_folder='/home/mirco/datasets/TIMIT'
                     save_folder='exp/TIMIT_exp'
@@ -889,9 +921,8 @@ class timit_prepare:
         if not os.path.exists(self.data_folder + "/test/dr1"):
 
             err_msg = (
-                'the folder %s does not exist (it is expected in '
-                'the TIMIT dataset)'
-                % (self.data_folder + "/test/dr*")
+                "the folder %s does not exist (it is expected in "
+                "the TIMIT dataset)" % (self.data_folder + "/test/dr*")
             )
 
             logger_write(err_msg, logfile=self.logger)
@@ -900,9 +931,8 @@ class timit_prepare:
         if not os.path.exists(self.data_folder + "/train/dr1"):
 
             err_msg = (
-                'the folder %s does not exist (it is expected in '
-                'the TIMIT dataset)'
-                % (self.data_folder + "/train/dr*")
+                "the folder %s does not exist (it is expected in "
+                "the TIMIT dataset)" % (self.data_folder + "/train/dr*")
             )
 
             logger_write(err_msg, logfile=self.logger)
@@ -911,7 +941,7 @@ class timit_prepare:
 class librispeech_prepare:
     """
      -------------------------------------------------------------------------
-     data_preparation.librispeech_prepare (author: Mirco Ravanelli)
+     speechbrain.data_io.librispeech_prepare (author: Mirco Ravanelli)
 
      Description: This class prepares the csv files for the LibriSpeech
                   dataset.
@@ -972,7 +1002,8 @@ class librispeech_prepare:
                        Otherwise it returns None. It this case it returns
                        always None.
 
-     Example:    from data_preparation import librispeech_prepare
+     Example:    from speechbrain.data_io.data_preparation import (
+                    librispeech_prepare)
 
                  local_folder='/home/mirco/datasets/LibriSpeech'
                  save_folder='exp/LibriSpeech_exp'
@@ -1006,8 +1037,8 @@ class librispeech_prepare:
         self.expected_options = {
             "data_folder": ("directory", "mandatory"),
             "splits": (
-                "one_of_list(dev-clean,dev-others,test-clean,test-others,"+
-                "train-clean-100,train-clean-360,train-other-500)",
+                "one_of_list(dev-clean,dev-others,test-clean,test-others,"
+                + "train-clean-100,train-clean-360,train-other-500)",
                 "mandatory",
             ),
             "save_folder": ("str", "optional", "None"),
@@ -1083,7 +1114,7 @@ class librispeech_prepare:
     def create_csv(self, wav_lst, text_dict, split, select_n_sentences):
         """
          ---------------------------------------------------------------------
-         data_preparation.prepare_librispeech.create_csv
+         speechbrain.data_io.prepare_librispeech.create_csv
          (author: Mirco Ravanelli)
 
          Description: This function creates the csv file given a list of wav
@@ -1107,7 +1138,8 @@ class librispeech_prepare:
          Output:      None
 
 
-         Example:   from data_preparation import librispeech_prepare
+         Example:   from speechbrain.data_io.data_preparation import \
+             librispeech_prepare
 
                     local_folder='/home/mirco/datasets/LibriSpeech'
                     save_folder='exp/LibriSpeech_exp'
@@ -1115,7 +1147,7 @@ class librispeech_prepare:
                     # Definition of the config dictionary
                     config={'class_name':'data_processing.copy_data_locally',\
                                   'data_folder': local_folder, \
-                                  'splits':'train,test,dev',
+                                  'splits':'train-clean-100',
                                    'save_folder': save_folder}
 
                    # Initialization of the class
@@ -1193,7 +1225,7 @@ class librispeech_prepare:
     def skip(self):
         """
          ---------------------------------------------------------------------
-         data_preparation.prepare_librispeech.skip (author: Mirco Ravanelli)
+         speechbrain.data_io.prepare_librispeech.skip (author: Mirco Ravanelli)
 
          Description: This function detects when the librispeeh data_prep
                        has been already done and can be skipped.
@@ -1205,7 +1237,8 @@ class librispeech_prepare:
                            if True, the preparation phase can be skipped.
                            if False, it must be done.
 
-         Example:    from data_preparation import librispeech_prepare
+         Example:    from speechbrain.data_io.data_preparation import \
+             librispeech_prepare
 
                      local_folder='/home/mirco/datasets/LibriSpeech'
                      save_folder='exp/LibriSpeech_exp'
@@ -1220,9 +1253,9 @@ class librispeech_prepare:
                     # Running the data preparation
                     data_prep=librispeech_prepare(config)
 
-                   # Skip function is True because data_pre has already been
-                   done:
-                   print(data_prep.skip())
+                    # Skip function is True because data_pre has already been
+                    # done:
+                    print(data_prep.skip())
 
          ---------------------------------------------------------------------
          """
@@ -1248,7 +1281,7 @@ class librispeech_prepare:
     def text_to_dict(text_lst):
         """
          ---------------------------------------------------------------------
-         data_preparation.prepare_librispeech.text_to_dict
+         speechbrain.data_io.data_preparation.prepare_librispeech.text_to_dict
          (author: Mirco Ravanelli)
 
          Description: This converts lines of text into a dictionary-
@@ -1263,7 +1296,8 @@ class librispeech_prepare:
                            it is the dictionary containing the text
                            transcriptions for each sentence.
 
-         Example:    from data_preparation import librispeech_prepare
+         Example:    from speechbrain.data_io.data_preparation import \
+             librispeech_prepare
 
                      local_folder='/home/mirco/datasets/LibriSpeech'
                      save_folder='exp/LibriSpeech_exp'
@@ -1304,7 +1338,8 @@ class librispeech_prepare:
     def check_librispeech_folders(self):
         """
          ---------------------------------------------------------------------
-         data_preparation.check_librispeech_folders (author: Mirco Ravanelli)
+         speechbrain.data_io.data_preparation.check_librispeech_folders
+         (M. Ravanelli)
 
          Description: This function cheks if the dat folder actually contains
                       the LibriSpeech dataset. If not, it raises an error.
@@ -1315,7 +1350,8 @@ class librispeech_prepare:
          Output:      None
 
 
-         Example:    from data_preparation import librispeech_prepare
+         Example:    from speechbrain.data_io.data_preparation import \
+             librispeech_prepare
 
                      local_folder='/home/mirco/datasets/LibriSpeech'
                      save_folder='exp/LibriSpeech_exp'
@@ -1330,8 +1366,8 @@ class librispeech_prepare:
                     # Running the data preparation
                     data_prep=librispeech_prepare(config)
 
-                   # Check folder
-                   data_prep.check_librispeech_folders()
+                    # Check folder
+                    data_prep.check_librispeech_folders()
 
          ---------------------------------------------------------------------
          """
@@ -1341,9 +1377,8 @@ class librispeech_prepare:
             if not os.path.exists(self.data_folder + "/" + split):
 
                 err_msg = (
-                    'the folder %s does not exist (it is expected in the '
-                    'Librispeech dataset)'
-                    % (self.data_folder + "/" + split)
+                    "the folder %s does not exist (it is expected in the "
+                    "Librispeech dataset)" % (self.data_folder + "/" + split)
                 )
 
                 logger_write(err_msg, logfile=self.logger)

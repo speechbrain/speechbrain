@@ -10,6 +10,7 @@ import logging
 import sys
 import traceback
 
+
 def setup_logger(
     name, log_file, level_file=logging.DEBUG, verbosity_stdout="2"
 ):
@@ -82,6 +83,7 @@ def setup_logger(
 
     return logger
 
+
 def logger_write(msg, logfile=None, level="error"):
     """
      -------------------------------------------------------------------------
@@ -99,7 +101,7 @@ def logger_write(msg, logfile=None, level="error"):
                       - level ('error','debug','info', optional,
                        default: 'error'):
                            it is level associated with the message. Errors
-                           will stop the execution of the scirpt.
+                           will stop the execution of the script.
 
      Output (call):  None
 
