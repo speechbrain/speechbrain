@@ -9,8 +9,8 @@
 
 import torch
 import torch.nn as nn
-from lib.utils.input_validation import check_opts, check_inputs
-from lib.utils.logger import logger_write
+from speechbrain.utils.input_validation import check_opts, check_inputs
+from speechbrain.utils.logger import logger_write
 
 
 class compute_cost(nn.Module):
@@ -94,15 +94,15 @@ class compute_cost(nn.Module):
 
 
      Example:   import torch
-                from lib.nnet.architectures import linear
-                from lib.nnet.architectures import activation
-                from lib.nnet.losses import compute_cost
+                from speechbrain.nnet.architectures import linear
+                from speechbrain.nnet.architectures import activation
+                from speechbrain.nnet.losses import compute_cost
 
                 # Definition of a linear model
                 inp_tensor = torch.rand([1,660,3])
 
                 # config dictionary definition
-                config={'class_name':'lib.nnet.architectures.linear',
+                config={'class_name':'speechbrain.nnet.architectures.linear',
                         'n_neurons':'4'}
 
                 # Initialization of the linear class
@@ -110,7 +110,7 @@ class compute_cost(nn.Module):
 
 
                 # Definition of the log_softmax
-                config={'class_name':'lib.nnet.architectures.activation',
+                config={'class_name':'speechbrain.nnet.architectures.activation',
                         'act_type':'log_softmax',
                         }
 
@@ -119,7 +119,7 @@ class compute_cost(nn.Module):
 
 
                 # Definition of the loss
-                config={'class_name':'lib.nnet.losses.compute_cost',
+                config={'class_name':'speechbrain.nnet.losses.compute_cost',
                         'cost_type':'nll'}
 
                 # Initialization of the loss function
@@ -373,11 +373,11 @@ class compute_cost(nn.Module):
 
 
          Example:   import torch
-                    from lib.nnet.losses import compute_cost
+                    from speechbrain.nnet.losses import compute_cost
 
 
                     # Definition of the loss
-                    config={'class_name':'lib.nnet.losses.compute_cost',
+                    config={'class_name':'speechbrain.nnet.losses.compute_cost',
                             'cost_type':'nll'}
 
                     # Initialization of the loss function

@@ -8,8 +8,8 @@
 
 import math
 import torch.nn as nn
-from lib.utils.input_validation import check_opts, check_inputs
-from lib.utils.logger import logger_write
+from speechbrain.utils.input_validation import check_opts, check_inputs
+from speechbrain.utils.logger import logger_write
 
 
 class lr_annealing(nn.Module):
@@ -142,12 +142,12 @@ class lr_annealing(nn.Module):
 
 
      Example:   import torch
-                from lib.nnet.optimizers import optimize
-                from lib.nnet.lr_scheduling import lr_annealing
+                from speechbrain.nnet.optimizers import optimize
+                from speechbrain.nnet.lr_scheduling import lr_annealing
 
 
                 # Initialization of the optimizer
-                config={'class_name':'lib.nnet.optimizers.optimizer',
+                config={'class_name':'speechbrain.nnet.optimizers.optimizer',
                         'optimizer_type': 'sgd',
                         'learning_rate': '0.01'
                         }
@@ -156,7 +156,7 @@ class lr_annealing(nn.Module):
 
 
                 # Initialization of the lr scheduler
-                config={'class_name':'lib.nnet.lr_scheduler.lr_annealing',
+                config={'class_name':'speechbrain.nnet.lr_scheduler.lr_annealing',
                         'annealing_type':'exp_decay',
                         'lr_initial' : '0.01'
                         }
@@ -314,21 +314,21 @@ class lr_annealing(nn.Module):
                            dictionary contaning the optimizer objects.
 
          Example:   import torch
-                    from lib.nnet.architectures import linear
-                    from lib.nnet.optimizers import optimize
-                    from lib.nnet.lr_scheduling import lr_annealing
+                    from speechbrain.nnet.architectures import linear
+                    from speechbrain.nnet.optimizers import optimize
+                    from speechbrain.nnet.lr_scheduling import lr_annealing
 
                     # Definition the input tensor
                     inp_tensor = torch.rand([1,660,3])
 
                     # Initialization of the linear class
-                    config={'class_name':'lib.nnet.architectures.linear',
+                    config={'class_name':'speechbrain.nnet.architectures.linear',
                             'n_neurons':'4'}
 
                     model=linear(config,first_input=[inp_tensor])
 
                     # Initialization of the optimizer
-                    config={'class_name':'lib.nnet.optimizers.optimizer',
+                    config={'class_name':'speechbrain.nnet.optimizers.optimizer',
                             'optimizer_type': 'sgd',
                             'learning_rate': '0.01'
                             }
@@ -337,7 +337,7 @@ class lr_annealing(nn.Module):
 
 
                     # Initialization of the lr scheduler
-                    config={'class_name':'lib.nnet.lr_scheduler.lr_annealing',
+                    config={'class_name':'speechbrain.nnet.lr_scheduler.lr_annealing',
                             'annealing_type':'exp_decay',
                             'lr_initial' : '0.01'
                             }
@@ -408,10 +408,10 @@ class lr_annealing(nn.Module):
 
          Example:   import torch
 
-                    from lib.nnet.lr_scheduling import lr_annealing
+                    from speechbrain.nnet.lr_scheduling import lr_annealing
 
                     # Initialization of the lr scheduler
-                    config={'class_name':'lib.nnet.lr_scheduler.lr_annealing',
+                    config={'class_name':'speechbrain.nnet.lr_scheduler.lr_annealing',
                             'annealing_type':'custom',
                             }
 

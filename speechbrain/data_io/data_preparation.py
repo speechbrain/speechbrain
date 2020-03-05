@@ -10,12 +10,12 @@ import os
 import sys
 import csv
 import errno
-from lib.utils.input_validation import check_opts, check_inputs
-from lib.utils.data_utils import get_all_files
-from lib.utils.logger import logger_write
-from lib.utils.superpowers import run_shell
+from speechbrain.utils.input_validation import check_opts, check_inputs
+from speechbrain.utils.data_utils import get_all_files
+from speechbrain.utils.logger import logger_write
+from speechbrain.utils.superpowers import run_shell
 
-from lib.data_io.data_io import (
+from speechbrain.data_io.data_io import (
     read_wav_soundfile,
     load_pkl,
     save_pkl,
@@ -27,7 +27,8 @@ from lib.data_io.data_io import (
 class copy_data_locally:
     """
      -------------------------------------------------------------------------
-     lib.data_io.data_preparation.copy_data_locally (author: Mirco Ravanelli)
+     speechbrain.data_io.data_preparation.copy_data_locally
+     (author: Mirco Ravanelli)
 
      Description: This class copies a compressed dataset into another folder.
                   It can be used to store the data locally when the original
@@ -91,7 +92,8 @@ class copy_data_locally:
                        Otherwise it returns None. It this case it returns
                        always None.
 
-     Example:    from lib.data_io.data_preparation import copy_data_locally
+     Example:    from speechbrain.data_io.data_preparation import (
+                    copy_data_locally)
 
                  data_file='/home/mirco/datasets/TIMIT.tar.gz'
                  local_folder='/home/mirco/datasets/local_folder/TIMIT'
@@ -215,7 +217,8 @@ class copy_data_locally:
 class timit_prepare:
     """
      -------------------------------------------------------------------------
-     lib.data_io.data_preparation.timit_prepare (author: Mirco Ravanelli)
+     speechbrain.data_io.data_preparation.timit_prepare
+     (author: Mirco Ravanelli)
 
      Description: This class prepares the csv files for the TIMIT dataset.
 
@@ -284,7 +287,7 @@ class timit_prepare:
                        Otherwise it returns None. It this case it returns
                        always None.
 
-     Example:    from lib.data_io.data_preparation import timit_prepare
+     Example:    from speechbrain.data_io.data_preparation import timit_prepare
 
                  local_folder='/home/mirco/datasets/TIMIT'
                  save_folder='exp/TIMIT_exp'
@@ -597,7 +600,8 @@ class timit_prepare:
     def skip(self):
         """
          ---------------------------------------------------------------------
-          lib.data_io.data_preparation.prepare_timit.skip (auth: M. Ravanelli)
+          speechbrain.data_io.data_preparation.prepare_timit.skip
+          (auth: M. Ravanelli)
 
          Description: This function detects when the timit data_preparation
                       has been already done and can be skipped.
@@ -609,7 +613,8 @@ class timit_prepare:
                            if True, the preparation phase can be skipped.
                            if False, it must be done.
 
-         Example:    from lib.data_io.data_preparation import timit_prepare
+         Example:    from speechbrain.data_io.data_preparation import (
+                        timit_prepare)
 
                      local_folder='/home/mirco/datasets/TIMIT'
                      save_folder='exp/TIMIT_exp'
@@ -656,7 +661,8 @@ class timit_prepare:
     ):
         """
          ---------------------------------------------------------------------
-          lib.data_io.data_preparation.prepare_timit.create_csv (M. Ravanelli)
+          speechbrain.data_io.data_preparation.prepare_timit.create_csv
+          (M. Ravanelli)
 
          Description: This function creates the csv file given a list of wav
                        files.
@@ -683,7 +689,8 @@ class timit_prepare:
          Output:      None
 
 
-         Example:   from lib.data_io.data_preparation import timit_prepare
+         Example:   from speechbrain.data_io.data_preparation import (
+                        timit_prepare)
 
                     local_folder='/home/mirco/datasets/TIMIT'
                     save_folder='exp/TIMIT_exp'
@@ -878,7 +885,7 @@ class timit_prepare:
     def check_timit_folders(self):
         """
          ---------------------------------------------------------------------
-         lib.data_io.check_timit_folders (author: Mirco Ravanelli)
+         speechbrain.data_io.check_timit_folders (author: Mirco Ravanelli)
 
          Description: This function cheks if the dat folder actually contains
                       the TIMIT dataset. If not, it raises an error.
@@ -889,7 +896,8 @@ class timit_prepare:
          Output:      None
 
 
-         Example:   from lib.data_io.data_preparation import timit_prepare
+         Example:   from speechbrain.data_io.data_preparation import (
+                        timit_prepare)
 
                     local_folder='/home/mirco/datasets/TIMIT'
                     save_folder='exp/TIMIT_exp'
@@ -933,7 +941,7 @@ class timit_prepare:
 class librispeech_prepare:
     """
      -------------------------------------------------------------------------
-     lib.data_io.librispeech_prepare (author: Mirco Ravanelli)
+     speechbrain.data_io.librispeech_prepare (author: Mirco Ravanelli)
 
      Description: This class prepares the csv files for the LibriSpeech
                   dataset.
@@ -994,7 +1002,8 @@ class librispeech_prepare:
                        Otherwise it returns None. It this case it returns
                        always None.
 
-     Example:    from lib.data_io.data_preparation import librispeech_prepare
+     Example:    from speechbrain.data_io.data_preparation import (
+                    librispeech_prepare)
 
                  local_folder='/home/mirco/datasets/LibriSpeech'
                  save_folder='exp/LibriSpeech_exp'
@@ -1105,7 +1114,7 @@ class librispeech_prepare:
     def create_csv(self, wav_lst, text_dict, split, select_n_sentences):
         """
          ---------------------------------------------------------------------
-         lib.data_io.prepare_librispeech.create_csv
+         speechbrain.data_io.prepare_librispeech.create_csv
          (author: Mirco Ravanelli)
 
          Description: This function creates the csv file given a list of wav
@@ -1129,7 +1138,7 @@ class librispeech_prepare:
          Output:      None
 
 
-         Example:   from lib.data_io.data_preparation import \
+         Example:   from speechbrain.data_io.data_preparation import \
              librispeech_prepare
 
                     local_folder='/home/mirco/datasets/LibriSpeech'
@@ -1216,7 +1225,7 @@ class librispeech_prepare:
     def skip(self):
         """
          ---------------------------------------------------------------------
-         lib.data_io.prepare_librispeech.skip (author: Mirco Ravanelli)
+         speechbrain.data_io.prepare_librispeech.skip (author: Mirco Ravanelli)
 
          Description: This function detects when the librispeeh data_prep
                        has been already done and can be skipped.
@@ -1228,7 +1237,7 @@ class librispeech_prepare:
                            if True, the preparation phase can be skipped.
                            if False, it must be done.
 
-         Example:    from lib.data_io.data_preparation import \
+         Example:    from speechbrain.data_io.data_preparation import \
              librispeech_prepare
 
                      local_folder='/home/mirco/datasets/LibriSpeech'
@@ -1272,7 +1281,7 @@ class librispeech_prepare:
     def text_to_dict(text_lst):
         """
          ---------------------------------------------------------------------
-         lib.data_io.data_preparation.prepare_librispeech.text_to_dict
+         speechbrain.data_io.data_preparation.prepare_librispeech.text_to_dict
          (author: Mirco Ravanelli)
 
          Description: This converts lines of text into a dictionary-
@@ -1287,7 +1296,7 @@ class librispeech_prepare:
                            it is the dictionary containing the text
                            transcriptions for each sentence.
 
-         Example:    from lib.data_io.data_preparation import \
+         Example:    from speechbrain.data_io.data_preparation import \
              librispeech_prepare
 
                      local_folder='/home/mirco/datasets/LibriSpeech'
@@ -1329,7 +1338,8 @@ class librispeech_prepare:
     def check_librispeech_folders(self):
         """
          ---------------------------------------------------------------------
-         lib.data_io.data_preparation.check_librispeech_folders (M. Ravanelli)
+         speechbrain.data_io.data_preparation.check_librispeech_folders
+         (M. Ravanelli)
 
          Description: This function cheks if the dat folder actually contains
                       the LibriSpeech dataset. If not, it raises an error.
@@ -1340,7 +1350,7 @@ class librispeech_prepare:
          Output:      None
 
 
-         Example:    from lib.data_io.data_preparation import \
+         Example:    from speechbrain.data_io.data_preparation import \
              librispeech_prepare
 
                      local_folder='/home/mirco/datasets/LibriSpeech'

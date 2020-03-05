@@ -36,7 +36,7 @@ def accumulatable_wer_stats(refs, hyps, stats=collections.Counter()):
                 "substitutions" - number of substitutions
                 "num_ref_tokens" - number of reference tokens
     Example:
-        from lib.utils.edit_distance import accumulatable_wer_stats
+        from speechbrain.utils.edit_distance import accumulatable_wer_stats
         import collections
         batches = [[[[1,2,3],[4,5,6]], [[1,2,4],[5,6]]],
                     [[[7,8], [9]],     [[7,8],  [10]]]]
@@ -80,7 +80,7 @@ def _batch_stats(refs, hyps):
                 "substitutions" - number of substitutions
                 "num_ref_tokens" - number of reference tokens
     Example:
-        from lib.utils.edit_distance import _batch_stats
+        from speechbrain.utils.edit_distance import _batch_stats
         batch = [[[1,2,3],[4,5,6]], [[1,2,4],[5,6]]]
         refs, hyps = batch
         print(_batch_stats(refs, hyps))
@@ -121,7 +121,7 @@ def op_table(a, b):
     Output:
         op_table: (type: list of lists, as matrix) Table of edit operations
     Example:
-        from lib.utils.edit_distance import op_table
+        from speechbrain.utils.edit_distance import op_table
         ref = [1,2,3]
         hyp = [1,2,4]
         print(op_table(ref, hyp))
@@ -199,7 +199,7 @@ def alignment(op_table):
             i indexes a, j indexes b, and the indices can be None, which means
             aligning to nothing
     Example:
-        from lib.utils.edit_distance import alignment
+        from speechbrain.utils.edit_distance import alignment
         # table for a=[1,2,3], b=[1,2,4]
         table = [['I', 'I', 'I', 'I'],
                  ['D', '=', 'I', 'I'],
@@ -260,7 +260,7 @@ def count_ops(op_table):
             NOTE: not all of the keys might appear explicitly in the output,
                 but for the missing keys collections.Counter will return 0
     Example:
-        from lib.utils.edit_distance import count_ops
+        from speechbrain.utils.edit_distance import count_ops
         table = [['I', 'I', 'I', 'I'],
                  ['D', '=', 'I', 'I'],
                  ['D', 'D', '=', 'I'],

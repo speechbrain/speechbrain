@@ -12,9 +12,9 @@ import torch
 import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
-from lib.data_io.data_io import recovery, initialize_with
-from lib.utils.input_validation import check_opts, check_inputs
-from lib.utils.logger import logger_write
+from speechbrain.data_io.data_io import recovery, initialize_with
+from speechbrain.utils.input_validation import check_opts, check_inputs
+from speechbrain.utils.logger import logger_write
 
 
 class linear(nn.Module):
@@ -80,12 +80,12 @@ class linear(nn.Module):
 
 
      Example:   import torch
-                from lib.nnet.architectures import linear
+                from speechbrain.nnet.architectures import linear
 
                 inp_tensor = torch.rand([4,660,190])
 
                 # config dictionary definition
-                config={'class_name':'lib.nnet.architectures.linear',
+                config={'class_name':'speechbrain.nnet.architectures.linear',
                         'n_neurons':'1024'}
 
                 # Initialization of the class
@@ -250,14 +250,14 @@ class linear_combination(nn.Module):
 
 
      Example:   import torch
-                from lib.nnet.architectures import linear_combination
+                from speechbrain.nnet.architectures import linear_combination
 
                 inp1 = torch.rand([4,100,190])
                 inp2 = torch.rand([4,200,190])
                 inp3 = torch.rand([4,50,190])
 
                 # config dictionary definition
-                config={'class_name':'lib.nnet.architectures.\
+                config={'class_name':'speechbrain.nnet.architectures.\
                     linear_combination'}
 
                 # Initialization of the class
@@ -517,12 +517,12 @@ class conv(nn.Module):
 
 
      Example:   import torch
-                from lib.nnet.architectures import conv
+                from speechbrain.nnet.architectures import conv
 
                 inp_tensor = torch.rand([4,100,190])
 
                 # config dictionary definition
-                config={'class_name':'lib.nnet.architectures.\
+                config={'class_name':'speechbrain.nnet.architectures.\
                     linear_combination',
                         'out_channels':'25',
                         'kernel_size': '11'}
@@ -782,7 +782,7 @@ class conv(nn.Module):
     def compute_conv1d_shape(L_in, kernel_size, dilation, stride):
         """
         -----------------------------------------------------------------------
-        lib.nnet.architectures.conv.compute_conv1d_shape (M Ravanelli)
+        speechbrain.nnet.architectures.conv.compute_conv1d_shape (M Ravanelli)
 
         Description: This support function can be use to compute the output
                      dimensioality of a 1D convolutional layer. It is used
@@ -808,12 +808,12 @@ class conv(nn.Module):
 
 
      Example:   import torch
-                from lib.nnet.architectures import conv
+                from speechbrain.nnet.architectures import conv
 
                 inp_tensor = torch.rand([4,100,190])
 
                 # config dictionary definition
-                config={'class_name':'lib.nnet.architectures.\
+                config={'class_name':'speechbrain.nnet.architectures.\
                     linear_combination',
                         'out_channels':'25',
                         'kernel_size': '11',
@@ -836,7 +836,8 @@ class conv(nn.Module):
     def manage_padding(self, x, kernel_size, dilation, stride):
         """
         -----------------------------------------------------------------------
-        lib.nnet.architectures.conv.manage_padding (author: Mirco Ravanelli)
+        speechbrain.nnet.architectures.conv.manage_padding
+        (author: Mirco Ravanelli)
 
         Description: This function performs padding such that input and output
                      tensors have the same length.
@@ -861,12 +862,12 @@ class conv(nn.Module):
 
 
      Example:   import torch
-                from lib.nnet.architectures import conv
+                from speechbrain.nnet.architectures import conv
 
                 inp_tensor = torch.rand([4,100,190])
 
                 # config dictionary definition
-                config={'class_name':'lib.nnet.architectures.\
+                config={'class_name':'speechbrain.nnet.architectures.\
                     linear_combination',
                         'out_channels':'25',
                         'kernel_size': '11',
@@ -1048,12 +1049,12 @@ class SincConv(nn.Module):
 
 
      Example:   import torch
-                from lib.nnet.architectures import SincConv
+                from speechbrain.nnet.architectures import SincConv
 
                 inp_tensor = torch.rand([4,32000])
 
                 # config dictionary definition
-                config={'class_name':'lib.nnet.architectures.\
+                config={'class_name':'speechbrain.nnet.architectures.\
                     linear_combination',
                         'out_channels':'25',
                         'kernel_size': '129'}
@@ -1283,12 +1284,12 @@ class SincConv(nn.Module):
 
 
         Example:    import torch
-                    from lib.nnet.architectures import SincConv
+                    from speechbrain.nnet.architectures import SincConv
 
                     inp_tensor = torch.rand([4,32000])
 
                     # config dictionary definition
-                    config={'class_name':'lib.nnet.architectures.\
+                    config={'class_name':'speechbrain.nnet.architectures.\
                         linear_combination',
                             'out_channels':'25',
                             'kernel_size': '129'}
@@ -1327,12 +1328,12 @@ class SincConv(nn.Module):
 
 
         Example:    import torch
-                    from lib.nnet.architectures import SincConv
+                    from speechbrain.nnet.architectures import SincConv
 
                     inp_tensor = torch.rand([4,32000])
 
                     # config dictionary definition
-                    config={'class_name':'lib.nnet.architectures.\
+                    config={'class_name':'speechbrain.nnet.architectures.\
                         linear_combination',
                             'out_channels':'25',
                             'kernel_size': '129'}
@@ -1352,7 +1353,8 @@ class SincConv(nn.Module):
     def compute_conv1d_shape(L_in, kernel_size, dilation, stride):
         """
         -----------------------------------------------------------------------
-        lib.nnet.architectures.SincConv.compute_conv1d_shape (M. Ravanelli)
+        speechbrain.nnet.architectures.SincConv.compute_conv1d_shape
+        (M. Ravanelli)
 
         Description: This support function can be use to compute the output
                      dimensionality of a 1D convolutional layer. It is used
@@ -1378,12 +1380,12 @@ class SincConv(nn.Module):
 
 
      Example:   import torch
-                from lib.nnet.architectures import SincConv
+                from speechbrain.nnet.architectures import SincConv
 
                 inp_tensor = torch.rand([4,32000])
 
                 # config dictionary definition
-                config={'class_name':'lib.nnet.architectures.\
+                config={'class_name':'speechbrain.nnet.architectures.\
                     linear_combination',
                             'out_channels':'25',
                             'kernel_size': '129'}
@@ -1404,7 +1406,7 @@ class SincConv(nn.Module):
     def manage_padding(self, x, kernel_size, dilation, stride):
         """
         -----------------------------------------------------------------------
-        lib.nnet.architectures.SincConv.manage_padding (M. Ravanelli)
+        speechbrain.nnet.architectures.SincConv.manage_padding (M. Ravanelli)
 
         Description: This function performs padding such that input and output
                      tensors have the same length.
@@ -1429,12 +1431,12 @@ class SincConv(nn.Module):
 
 
      Example:   import torch
-                from lib.nnet.architectures import SincConv
+                from speechbrain.nnet.architectures import SincConv
 
                 inp_tensor = torch.rand([4,32000])
 
                 # config dictionary definition
-                config={'class_name':'lib.nnet.architectures.\
+                config={'class_name':'speechbrain.nnet.architectures.\
                     linear_combination',
                             'out_channels':'25',
                             'kernel_size': '129'}
@@ -1555,12 +1557,12 @@ class RNN_basic(nn.Module):
 
 
      Example:   import torch
-                from lib.nnet.architectures import RNN_basic
+                from speechbrain.nnet.architectures import RNN_basic
 
                 inp_tensor = torch.rand([4,100,190])
 
                 # config dictionary definition
-                config={'class_name':'lib.nnet.architectures.linear',
+                config={'class_name':'speechbrain.nnet.architectures.linear',
                         'rnn_type': 'gru',
                         'n_neurons':'512',
                         'nonlinearity': 'tanh',
@@ -1801,7 +1803,7 @@ class liGRU(nn.Module):
 
 
      Example:   import torch
-                from lib.nnet.architectures import liGRU
+                from speechbrain.nnet.architectures import liGRU
 
                 # Initialization of the class
                 model=liGRU(100,200,1,0.15,'relu',True)
@@ -1993,7 +1995,7 @@ class liGRU(nn.Module):
 
 
          Example:   import torch
-                    from lib.nnet.architectures import liGRU
+                    from speechbrain.nnet.architectures import liGRU
 
                     # Initialization of the class
                     model=liGRU(100,200,1,0.15,'relu',True)
@@ -2132,10 +2134,10 @@ class activation(nn.Module):
 
 
      Example:   import torch
-                from lib.nnet.architectures import activation
+                from speechbrain.nnet.architectures import activation
 
                 # config dictionary definition
-                config={'class_name':'lib.nnet.architectures.activation',
+                config={'class_name':'speechbrain.nnet.architectures.activation',
                         'act_type': 'relu'}
 
                 # Initialization of the class
@@ -2403,10 +2405,10 @@ class dropout(nn.Module):
 
 
      Example:   import torch
-                from lib.nnet.architectures import dropout
+                from speechbrain.nnet.architectures import dropout
 
                 # config dictionary definition
-                config={'class_name':'lib.nnet.architectures.dropout',
+                config={'class_name':'speechbrain.nnet.architectures.dropout',
                         'drop_rate': '0.5'}
 
                 # Initialization of the class

@@ -26,9 +26,9 @@ import soundfile as sf
 import multiprocessing as mp
 from torch.multiprocessing import Manager
 from torch.utils.data import Dataset, DataLoader
-from lib.utils.input_validation import check_opts, check_inputs
-from lib.utils.logger import logger_write
-from lib.utils.data_utils import recursive_items
+from speechbrain.utils.input_validation import check_opts, check_inputs
+from speechbrain.utils.logger import logger_write
+from speechbrain.utils.data_utils import recursive_items
 
 
 class create_dataloader:
@@ -160,7 +160,7 @@ class create_dataloader:
      Output (call):  - dataloader (type: dataloader):
                        It is a list returning all the dataloaders created.
 
-     Example:   from lib.data_io.data_io import create_dataloader
+     Example:   from speechbrain.data_io.data_io import create_dataloader
 
                 config={'class_name':'core.loop',\
                          'csv_file':'samples/audio_samples/csv_example2.csv'}
@@ -280,7 +280,7 @@ class create_dataloader:
                         [data_id,data,data_len] where zero-padding is
                         performed where needed.
 
-         Example:   from lib.data_io.data_io import create_dataloader
+         Example:   from speechbrain.data_io.data_io import create_dataloader
 
                     config={'class_name':'core.loop',\
                              'csv_file':'samples/audio_samples/\
@@ -341,7 +341,7 @@ class create_dataloader:
                         it is a tensor gathering all the padded tensors.
 
          Example:   import torch
-                    from lib.data_io.data_io import create_dataloader
+                    from speechbrain.data_io.data_io import create_dataloader
 
                     config={'class_name':'core.loop',\
                              'csv_file':'samples/audio_samples/\
@@ -399,7 +399,7 @@ class create_dataloader:
          Output:    None
 
          Example:  import numpy as np
-                   from lib.data_io.data_io import create_dataloader
+                   from speechbrain.data_io.data_io import create_dataloader
 
                    config={'class_name':'core.loop',\
                              'csv_file':'samples/audio_samples/\
@@ -529,7 +529,7 @@ class create_dataloader:
                        it is a dictionary with the data itemized in the csv
                        file.
 
-         Example:  from lib.data_io.data_io import create_dataloader
+         Example:  from speechbrain.data_io.data_io import create_dataloader
 
                    config={'class_name':'core.loop',\
                              'csv_file':'samples/audio_samples/\
@@ -745,7 +745,7 @@ class create_dataloader:
          Output:    - sorted_dictionary (type: dict):
                        it is a dictionary with the sorted data
 
-         Example:  from lib.data_io.data_io import create_dataloader
+         Example:  from speechbrain.data_io.data_io import create_dataloader
 
                    config={'class_name':'core.loop',\
                              'csv_file':'samples/audio_samples/\
@@ -815,7 +815,7 @@ class create_dataloader:
                        it is a dictionary contained the supported formats and
                        the related readers.
 
-         Example:  from lib.data_io.data_io import create_dataloader
+         Example:  from speechbrain.data_io.data_io import create_dataloader
 
                    config={'class_name':'core.loop',\
                            'csv_file':'samples/audio_samples/csv_example2.csv'}
@@ -913,8 +913,8 @@ class create_dataset(Dataset):
                                    is formatted in the following way:
                                    [data_id,data,data_len]
 
-     Example:  from lib.data_io.data_io import create_dataloader
-               from lib.data_io.data_io import create_dataset
+     Example:  from speechbrain.data_io.data_io import create_dataloader
+               from speechbrain.data_io.data_io import create_dataset
 
                config={'class_name':'core.loop',\
                        'csv_file':'samples/audio_samples/csv_example2.csv'
@@ -980,8 +980,8 @@ class create_dataset(Dataset):
                       it is the number of data to read (i.e. len of the
                       data_list entry of the data_dict).
 
-         Example:  from lib.data_io.data_io import create_dataloader
-                   from lib.data_io.data_io import create_dataset
+         Example:  from speechbrain.data_io.data_io import create_dataloader
+                   from speechbrain.data_io.data_io import create_dataset
 
                    config={'class_name':'core.loop',\
                            'csv_file':'samples/audio_samples/csv_example2.csv'}
@@ -1082,8 +1082,8 @@ class create_dataset(Dataset):
                       it is a list contaning the read data. The list if
                       formatted in the followig way: [data_id,data_data_len]
 
-         Example:  from lib.data_io.data_io import create_dataloader
-                   from lib.data_io.data_io import create_dataset
+         Example:  from speechbrain.data_io.data_io import create_dataloader
+                   from speechbrain.data_io.data_io import create_dataset
 
                    config={'class_name':'core.loop',\
                            'csv_file':'samples/audio_samples/csv_example2.csv'}
@@ -1141,7 +1141,7 @@ class create_dataset(Dataset):
 class save_ckpt:
     """
      -------------------------------------------------------------------------
-     lib.data_io.data_io.save_ckpt (author: Mirco Ravanelli)
+     speechbrain.data_io.data_io.save_ckpt (author: Mirco Ravanelli)
 
      Description: This class can be use to save checkpoint during neural
                   network training. It saves the current neural model,
@@ -1198,10 +1198,10 @@ class save_ckpt:
                        the ouput is directly saved on the disk (save_folder)
 
      Example:   import torch
-                from lib.data_io.data_io import save_ckpt
-                from lib.data_io.data_io import load_pkl
+                from speechbrain.data_io.data_io import save_ckpt
+                from speechbrain.data_io.data_io import load_pkl
 
-                config={'class_name':'lib.data_io.data_io.save_ckpt'}
+                config={'class_name':'speechbrain.data_io.data_io.save_ckpt'}
 
                 # Initialization of the class
                 performance_dict={'loss':torch.tensor([0.69]),
@@ -1364,7 +1364,8 @@ class save_ckpt:
     def write_recovery_info(self, epoch, performance_dict):
         """
          ---------------------------------------------------------------------
-         lib.data_io.data_io.save_ckpt.write_recovery_info (auth: M. Ravanelli)
+         speechbrain.data_io.data_io.save_ckpt.write_recovery_info
+         (auth: M. Ravanelli)
 
          Description: This function writes the performance dictionary on
                       disk.
@@ -1380,10 +1381,10 @@ class save_ckpt:
                       directory.
 
          Example:   import torch
-                    from lib.data_io.data_io import save_ckpt
-                    from lib.data_io.data_io import load_pkl
+                    from speechbrain.data_io.data_io import save_ckpt
+                    from speechbrain.data_io.data_io import load_pkl
 
-                    config={'class_name':'lib.data_io.data_io.save_ckpt'}
+                    config={'class_name':'speechbrain.data_io.data_io.save_ckpt'}
 
                     # Initialization of the class
                     performance_dict={'loss':torch.tensor([0.69]),
@@ -1439,7 +1440,8 @@ class save_ckpt:
     def save_neural_networks(self, path):
         """
          ---------------------------------------------------------------------
-         lib.data_io.data_io.save_ckpt.save_neural_networks (M. Ravanelli)
+         speechbrain.data_io.data_io.save_ckpt.save_neural_networks
+         (M. Ravanelli)
 
          Description: This function saves on disk all the parameters of
                       the neural networks found in the self.functions
@@ -1455,19 +1457,19 @@ class save_ckpt:
 
 
          Example:   import torch
-                    from lib.data_io.data_io import save_ckpt
-                    from lib.data_io.data_io import load_pkl
-                    from lib.nnet.architectures import linear
+                    from speechbrain.data_io.data_io import save_ckpt
+                    from speechbrain.data_io.data_io import load_pkl
+                    from speechbrain.nnet.architectures import linear
 
                     # Initializing a linear layer
                     inp_tensor = torch.rand([4,660,190])
 
-                    config={'class_name':'lib.nnet.architectures.linear',
+                    config={'class_name':'speechbrain.nnet.architectures.linear',
                             'n_neurons':'1024'}
 
                     linear_transf=linear(config,first_input=[inp_tensor])
 
-                    config={'class_name':'lib.data_io.data_io.save_ckpt'}
+                    config={'class_name':'speechbrain.data_io.data_io.save_ckpt'}
 
                     # Initialization of the class
                     performance_dict={'loss':torch.tensor([0.69]),
@@ -1519,7 +1521,8 @@ class save_ckpt:
     def save_model(self, model, path, funct, mean_stat=False):
         """
          ---------------------------------------------------------------------
-         lib.data_io.data_io.save_ckpt.save_model (author: Mirco Ravanelli)
+         speechbrain.data_io.data_io.save_ckpt.save_model
+         (author: Mirco Ravanelli)
 
          Description: This function saves on disk the pkl model
 
@@ -1543,19 +1546,19 @@ class save_ckpt:
 
 
          Example:   import torch
-                    from lib.data_io.data_io import save_ckpt
-                    from lib.data_io.data_io import load_pkl
-                    from lib.nnet.architectures import linear
+                    from speechbrain.data_io.data_io import save_ckpt
+                    from speechbrain.data_io.data_io import load_pkl
+                    from speechbrain.nnet.architectures import linear
 
                     # Initializing a linear layer
                     inp_tensor = torch.rand([4,660,190])
 
-                    config={'class_name':'lib.nnet.architectures.linear',
+                    config={'class_name':'speechbrain.nnet.architectures.linear',
                             'n_neurons':'1024'}
 
                     linear_transf=linear(config,first_input=[inp_tensor])
 
-                    config={'class_name':'lib.data_io.data_io.save_ckpt'}
+                    config={'class_name':'speechbrain.data_io.data_io.save_ckpt'}
 
                     # Initialization of the class
                     performance_dict={'loss':torch.tensor([0.69]),
@@ -1590,7 +1593,8 @@ class save_ckpt:
     def remove_model(self, epoch):
         """
          ---------------------------------------------------------------------
-         lib.data_io.data_io.save_ckpt.remove_model (author: Mirco Ravanelli)
+         speechbrain.data_io.data_io.save_ckpt.remove_model
+         (author: Mirco Ravanelli)
 
          Description: This function support class removes old neural models
                       corresponding to previous epochs.
@@ -1605,19 +1609,19 @@ class save_ckpt:
 
 
          Example:   import torch
-                    from lib.data_io.data_io import save_ckpt
-                    from lib.data_io.data_io import load_pkl
-                    from lib.nnet.architectures import linear
+                    from speechbrain.data_io.data_io import save_ckpt
+                    from speechbrain.data_io.data_io import load_pkl
+                    from speechbrain.nnet.architectures import linear
 
                     # Initializing a linear layer
                     inp_tensor = torch.rand([4,660,190])
 
-                    config={'class_name':'lib.nnet.architectures.linear',
+                    config={'class_name':'speechbrain.nnet.architectures.linear',
                             'n_neurons':'1024'}
 
                     linear_transf=linear(config,first_input=[inp_tensor])
 
-                    config={'class_name':'lib.data_io.data_io.save_ckpt'}
+                    config={'class_name':'speechbrain.data_io.data_io.save_ckpt'}
 
                     # Initialization of the class
                     performance_dict={'loss':torch.tensor([0.69]),
@@ -1647,7 +1651,8 @@ class save_ckpt:
     def print_epoch(self, epoch, performance_dict):
         """
          ---------------------------------------------------------------------
-         lib.data_io.data_io.save_ckpt.print_epoch (author: Mirco Ravanelli)
+         speechbrain.data_io.data_io.save_ckpt.print_epoch
+         (author: Mirco Ravanelli)
 
          Description: This function prints the current performance in
                       the logger and in the res.res.file
@@ -1666,19 +1671,19 @@ class save_ckpt:
 
 
          Example:   import torch
-                    from lib.data_io.data_io import save_ckpt
-                    from lib.data_io.data_io import load_pkl
-                    from lib.nnet.architectures import linear
+                    from speechbrain.data_io.data_io import save_ckpt
+                    from speechbrain.data_io.data_io import load_pkl
+                    from speechbrain.nnet.architectures import linear
 
                     # Initializing a linear layer
                     inp_tensor = torch.rand([4,660,190])
 
-                    config={'class_name':'lib.nnet.architectures.linear',
+                    config={'class_name':'speechbrain.nnet.architectures.linear',
                             'n_neurons':'1024'}
 
                     linear_transf=linear(config,first_input=[inp_tensor])
 
-                    config={'class_name':'lib.data_io.data_io.save_ckpt'}
+                    config={'class_name':'speechbrain.data_io.data_io.save_ckpt'}
 
                     # Initialization of the class
                     performance_dict={'loss':torch.tensor([0.69]),
@@ -1743,7 +1748,7 @@ class save_ckpt:
 class print_predictions:
     """
      -------------------------------------------------------------------------
-     lib.data_io.data_io.print_predictions (author: Mirco Ravanelli)
+     speechbrain.data_io.data_io.print_predictions (author: Mirco Ravanelli)
 
      Description: This class can be use to print in a text form the
                    predictions performed by a neural network.
@@ -1896,7 +1901,7 @@ class print_predictions:
 def recovery(self):
     """
      -------------------------------------------------------------------------
-     lib.data_io.data_io.recovery(author: Mirco Ravanelli)
+     speechbrain.data_io.data_io.recovery(author: Mirco Ravanelli)
 
      Description: when the recovery dictionary exists, this function
                   loads the saved parameters into the corresponding
@@ -1940,7 +1945,7 @@ def recovery(self):
 def initialize_with(self):
     """
      -------------------------------------------------------------------------
-     lib.data_io.data_io.initialize_with(author: Mirco Ravanelli)
+     speechbrain.data_io.data_io.initialize_with(author: Mirco Ravanelli)
 
      Description: This function initialize the parameters of the neural
                   network with the pkl file reported in the field
@@ -1985,7 +1990,7 @@ def read_wav_soundfile(file, data_options={}, logger=None, lab2ind=None):
                        it is the array containing the read signal
 
 
-     Example:  from lib.data_io.data_io import read_wav_soundfile
+     Example:  from speechbrain.data_io.data_io import read_wav_soundfile
 
                print(read_wav_soundfile('samples/audio_samples/example1.wav'))
 
@@ -2128,7 +2133,7 @@ def read_pkl(file, data_options={}, logger=None, lab2ind=None):
                        it is the array containing the read signal.
 
 
-     Example:  from lib.data_io.data_io import read_pkl
+     Example:  from speechbrain.data_io.data_io import read_pkl
 
                print(read_pkl('pkl_file.pkl'))
 
@@ -2206,7 +2211,7 @@ def read_string(string, data_options={}, logger=None, lab2ind=None):
                        it is the array containing the read signal.
 
 
-     Example:  from lib.data_io.data_io import read_string
+     Example:  from speechbrain.data_io.data_io import read_string
 
                print(read_string('hello_world'))
 
@@ -2252,7 +2257,7 @@ def read_kaldi_lab(kaldi_ali, kaldi_lab_opts, logfile=None):
                        it is a dictionary contaning the labels
 
 
-     Example:  from lib.data_io.data_io import read_kaldi_lab
+     Example:  from speechbrain.data_io.data_io import read_kaldi_lab
 
                lab_folder='/home/kaldi/egs/TIMIT/s5/exp\
                /dnn4_pretrain-dbn_dnn_ali'
@@ -2302,7 +2307,7 @@ def write_wav_soundfile(data, filename, sampling_rate=None, logger=None):
 
 
      Example:  import torch
-               from lib.data_io.data_io import write_wav_soundfile
+               from speechbrain.data_io.data_io import write_wav_soundfile
 
                signal=0.1*torch.rand([16000])
                write_wav_soundfile(signal,'exp/wav_example.wav',
@@ -2363,7 +2368,7 @@ def write_txt_file(data, filename, sampling_rate=None, logger=None):
 
 
      Example:  import torch
-               from lib.data_io.data_io import write_txt_file
+               from speechbrain.data_io.data_io import write_txt_file
 
                signal=torch.tensor([1,2,3,4])
                write_txt_file(signal,'exp/example.txt')
@@ -2434,7 +2439,7 @@ def write_stdout(data, filename, sampling_rate=None, logger=None):
 
 
      Example:  import torch
-               from lib.data_io.data_io import write_stdout
+               from speechbrain.data_io.data_io import write_stdout
 
                signal=torch.tensor([1,2,3,4])
                write_stdout(signal,'exp/example.txt')
@@ -2601,7 +2606,7 @@ class save:
      Output (call): None
 
      Example:  import torch
-               from lib.data_io.data_io import save
+               from speechbrain.data_io.data_io import save
 
                # save config dictionary definition
                config={'class_name':'data_processing.save',
@@ -2711,7 +2716,7 @@ class save:
          Output:      None
 
          Example:  import torch
-                   from lib.data_io.data_io import save
+                   from speechbrain.data_io.data_io import save
 
                    # save config dictionary definition
                    config={'class_name':'data_processing.save',
@@ -2826,7 +2831,7 @@ class save:
          Output:      -supported_formats (type:dict)
 
          Example:  import torch
-                   from lib.data_io.data_io import save
+                   from speechbrain.data_io.data_io import save
 
                    # save config dictionary definition
                    config={'class_name':'data_processing.save',
@@ -2907,7 +2912,7 @@ def write_ark(data, filename, key="", sampling_rate=None, logger=None):
      Output (call):  None
 
      Example:   import torch
-                from lib.data_io.data_io import write_ark
+                from speechbrain.data_io.data_io import write_ark
 
                 matrix = torch.rand([5,10])
 
@@ -2970,7 +2975,7 @@ def get_md5(file):
                        it is the checksum for the given file
 
 
-     Example:  from lib.data_io.data_io import  get_md5
+     Example:  from speechbrain.data_io.data_io import  get_md5
                print(get_md5('samples/audio_samples/example1.wav'))
 
      -------------------------------------------------------------------------
@@ -3011,7 +3016,7 @@ def save_md5(files, out_file):
      Output (call):  None
 
 
-     Example:  from lib.data_io.data_io import save_md5
+     Example:  from speechbrain.data_io.data_io import save_md5
 
                files=['samples/audio_samples/example1.wav']
                out_file='exp/md5.pkl'
@@ -3053,7 +3058,7 @@ def save_pkl(obj, file, sampling_rate=None, logger=None):
      Output (call):  None
 
 
-     Example:  from lib.data_io.data_io import save_pkl
+     Example:  from speechbrain.data_io.data_io import save_pkl
 
                out_file='exp/example.pkl'
                save_pkl([1,2,3,4,5],out_file)
@@ -3084,7 +3089,7 @@ def load_pkl(file, logger=None):
      Output (call):  obj (type:obj)
 
 
-     Example:  from lib.data_io.data_io import load_pkl
+     Example:  from speechbrain.data_io.data_io import load_pkl
 
                pkl_file='exp/example.pkl'
                print(load_pkl(pkl_file))

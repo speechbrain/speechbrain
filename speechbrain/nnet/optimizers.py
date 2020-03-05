@@ -8,9 +8,9 @@
 
 import torch
 import torch.nn as nn
-from lib.data_io.data_io import recovery
-from lib.utils.input_validation import check_opts
-from lib.utils.logger import logger_write
+from speechbrain.data_io.data_io import recovery
+from speechbrain.utils.input_validation import check_opts
+from speechbrain.utils.logger import logger_write
 
 
 class optimize(nn.Module):
@@ -124,23 +124,23 @@ class optimize(nn.Module):
 
 
      Example:   import torch
-                from lib.nnet.architectures import linear
-                from lib.nnet.architectures import activation
-                from lib.nnet.losses import compute_cost
-                from lib.nnet.optimizers import optimize
+                from speechbrain.nnet.architectures import linear
+                from speechbrain.nnet.architectures import activation
+                from speechbrain.nnet.losses import compute_cost
+                from speechbrain.nnet.optimizers import optimize
 
                 # Definition the input tensor
                 inp_tensor = torch.rand([1,660,3])
 
                 # Initialization of the linear class
-                config={'class_name':'lib.nnet.architectures.linear',
+                config={'class_name':'speechbrain.nnet.architectures.linear',
                         'n_neurons':'4'}
 
                 model=linear(config,first_input=[inp_tensor])
 
 
                 # Initialization of the log_softmax class
-                config={'class_name':'lib.nnet.architectures.activation',
+                config={'class_name':'speechbrain.nnet.architectures.activation',
                         'act_type':'log_softmax',
                         }
 
@@ -148,13 +148,13 @@ class optimize(nn.Module):
 
 
                 # Initialization of the loss function
-                config={'class_name':'lib.nnet.losses.compute_cost',
+                config={'class_name':'speechbrain.nnet.losses.compute_cost',
                         'cost_type':'nll'}
 
                 cost=compute_cost(config)
 
                 # Initialization of the optimizer
-                config={'class_name':'lib.nnet.optimizers.optimizer',
+                config={'class_name':'speechbrain.nnet.optimizers.optimizer',
                         'optimizer_type': 'sgd',
                         'learning_rate': '0.01'
                         }

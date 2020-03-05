@@ -13,9 +13,9 @@
 import math
 import torch
 import torch.nn as nn
-from lib.utils.input_validation import check_opts, check_inputs
-from lib.utils.logger import logger_write
-from lib.data_io.data_io import recovery, initialize_with
+from speechbrain.utils.input_validation import check_opts, check_inputs
+from speechbrain.utils.logger import logger_write
+from speechbrain.data_io.data_io import recovery, initialize_with
 
 
 class STFT(nn.Module):

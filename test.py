@@ -16,8 +16,8 @@
 
 import sys
 import pycodestyle
-from lib.utils import create_exec_config
-from lib.core import execute_computations
+from speechbrain.utils import create_exec_config
+from speechbrain.core import execute_computations
 
 # List of config files to run:
 cfg_lst = [
@@ -45,26 +45,26 @@ cfg_lst = [
 
 # List of files to check:
 check_lst = [
-'speechbrain.py',
-'lib/core.py',
-'lib/data_io/data_io.py',
-'lib/data_io/data_preparation.py',
-'lib/decoders/decoders.py',
-'lib/processing/features.py',
-'lib/processing/multi_mic.py',
-'lib/processing/speech_augmentation.py',
-'lib/utils/input_validation.py',
-'lib/utils/data_utils.py',
-'lib/utils/config.py',
-'lib/utils/edit_distance.py',
-'lib/utils/superpowers.py',
-'lib/utils/logger.py',
-'lib/utils/__init__.py',
-'lib/nnet/normalization.py',
-'lib/nnet/losses.py',
-'lib/nnet/lr_scheduling.py',
-'lib/nnet/architectures.py',
-'lib/nnet/optimizers.py'
+'run_experiment.py',
+'speechbrain/core.py',
+'speechbrain/data_io/data_io.py',
+'speechbrain/data_io/data_preparation.py',
+'speechbrain/decoders/decoders.py',
+'speechbrain/processing/features.py',
+'speechbrain/processing/multi_mic.py',
+'speechbrain/processing/speech_augmentation.py',
+'speechbrain/utils/input_validation.py',
+'speechbrain/utils/data_utils.py',
+'speechbrain/utils/config.py',
+'speechbrain/utils/edit_distance.py',
+'speechbrain/utils/superpowers.py',
+'speechbrain/utils/logger.py',
+'speechbrain/utils/__init__.py',
+'speechbrain/nnet/normalization.py',
+'speechbrain/nnet/losses.py',
+'speechbrain/nnet/lr_scheduling.py',
+'speechbrain/nnet/architectures.py',
+'speechbrain/nnet/optimizers.py'
 ]
 
 

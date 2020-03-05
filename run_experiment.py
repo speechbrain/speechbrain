@@ -17,8 +17,8 @@
 
 # Importing libraries
 import sys
-from lib.utils import create_exec_config
-from lib.core import execute_computations
+from speechbrain.utils import create_exec_config
+from speechbrain.core import execute_computations
 
 
 # Definition of the main function

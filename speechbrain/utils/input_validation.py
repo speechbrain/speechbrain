@@ -9,7 +9,7 @@
 
 import os
 from pydoc import locate
-from lib.utils.logger import logger_write
+from speechbrain.utils.logger import logger_write
 
 
 def str_to_bool(s):
@@ -25,7 +25,7 @@ def str_to_bool(s):
      Output (call):  None
 
 
-     Example:   from lib.utils.input_validation import str_to_bool
+     Example:   from speechbrain.utils.input_validation import str_to_bool
 
                 print(str_to_bool('False'))
                 print(str_to_bool('true'))
@@ -60,7 +60,8 @@ def set_default_values(field, expected, logger=None):
      Output (call):  value(type: str,int,float,bool)
 
 
-     Example:   from lib.utils.input_validation import set_default_values
+     Example:   from speechbrain.utils.input_validation import (
+                    set_default_values)
 
                 # Setting expected value
                 expected=('float(0,inf)','optional','0.8')
@@ -108,7 +109,8 @@ def check_and_cast_type(option_field, option, option_type, logger=None):
                        it is the cas (and checked) version of option
 
 
-     Example:   from lib.utils.input_validation import check_and_cast_type
+     Example:   from speechbrain.utils.input_validation import (
+                    check_and_cast_type)
 
                 # Cast option drop_out
                 print(check_and_cast_type('drop_out','0.1','float(0,1)'))
@@ -358,7 +360,8 @@ def check_expected_options(expected_options, logger=None):
      Output (call):  None
 
 
-     Example:   from lib.utils.input_validation import check_expected_options
+     Example:   from speechbrain.utils.input_validation import (
+                    check_expected_options)
 
                 # Expected options
                 expected_options={
@@ -492,7 +495,7 @@ def check_opts(self, expected_options, data_opts, logger=None):
                        it is the output dictionary containing the cast options.
 
 
-     Example:   from lib.utils.input_validation import check_opts
+     Example:   from speechbrain.utils.input_validation import check_opts
 
                 # Expected options
                 expected_options={
@@ -618,7 +621,7 @@ def check_inputs(config, expected_inputs, input_lst, logger=None):
      Output (call):  None
 
      Example:   import torch
-                from lib.utils.input_validation import check_inputs
+                from speechbrain.utils.input_validation import check_inputs
 
                 # Dummy config file initialization
                 config={'class_name':'loop'}
