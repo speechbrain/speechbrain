@@ -1,16 +1,16 @@
 import os
 import threading
 from shutil import copyfile
-from lib.utils.superpowers import run_shell
-from lib.utils.logger import logger_write
-from lib.utils.input_validation import check_inputs, check_opts
-from lib.utils.data_utils import get_all_files, split_list
+from speechbrain.utils.superpowers import run_shell
+from speechbrain.utils.logger import logger_write
+from speechbrain.utils.input_validation import check_inputs, check_opts
+from speechbrain.utils.data_utils import get_all_files, split_list
 
 
 class kaldi_decoder:
     """
      -------------------------------------------------------------------------
-     lib.decoders.decoder.kaldi_decoder (author: Mirco Ravanelli)
+     speechbrain.decoders.decoder.kaldi_decoder (author: Mirco Ravanelli)
 
      Description: This class manages decoding using the kaldi decoder.
 
@@ -237,7 +237,8 @@ class kaldi_decoder:
     def decode_sentence(self, ark_file, cnt):
         """
          ---------------------------------------------------------------------
-         lib.decoders.decoders.decode_sentence (author: Mirco Ravanelli)
+         speechbrain.decoders.decoders.decode_sentence
+         (author: Mirco Ravanelli)
 
          Description: This function runs a decoding job.
 
@@ -276,7 +277,8 @@ class kaldi_decoder:
     def print_results(self):
         """
          ---------------------------------------------------------------------
-         lib.decoders.decoders.decode_sentence (author: Mirco Ravanelli)
+         speechbrain.decoders.decoders.decode_sentence
+         (author: Mirco Ravanelli)
 
          Description: This print the final performance on the logger.
 

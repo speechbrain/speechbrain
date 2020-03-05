@@ -1,6 +1,6 @@
 """
 -------------------------------------------------------------------------------
- lib.utils
+ speechbrain.utils
 
  Description: This library contains support functions that implement useful
               functionalities.
@@ -8,9 +8,9 @@
 """
 
 # TODO: get rid of the imports here, replace most with explicit import
-# (e.g. import lib.utils.config)
-# for the core utilities we may still keep them in the lib.utils namespace
-from lib.utils.config import (
+# (e.g. import speechbrain.utils.config)
+# some core utilities we may still keep them in the speechbrain.utils namespace
+from speechbrain.utils.config import (
     read_config,
     write_config,
     conf_to_text,
@@ -18,8 +18,12 @@ from lib.utils.config import (
     replace_global_variable,
     create_exec_config,
 )
-from lib.utils.data_utils import get_all_files, split_list, recursive_items
-from lib.utils.input_validation import (
+from speechbrain.utils.data_utils import (
+    get_all_files,
+    split_list,
+    recursive_items,
+)
+from speechbrain.utils.input_validation import (
     str_to_bool,
     set_default_values,
     check_and_cast_type,
@@ -27,5 +31,5 @@ from lib.utils.input_validation import (
     check_opts,
     check_inputs,
 )
-from lib.utils.logger import setup_logger, logger_write
-from lib.utils.superpowers import import_class, run_shell
+from speechbrain.utils.logger import setup_logger, logger_write
+from speechbrain.utils.superpowers import import_class, run_shell

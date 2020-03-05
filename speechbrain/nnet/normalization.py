@@ -9,9 +9,9 @@
 
 import torch
 import torch.nn as nn
-from lib.utils.input_validation import check_opts, check_inputs
-from lib.utils.logger import logger_write
-from lib.data_io.data_io import recovery, initialize_with
+from speechbrain.utils.input_validation import check_opts, check_inputs
+from speechbrain.utils.logger import logger_write
+from speechbrain.data_io.data_io import recovery, initialize_with
 
 
 class normalize(nn.Module):
@@ -147,13 +147,13 @@ class normalize(nn.Module):
 
 
      Example:   import torch
-                from lib.nnet.normalization import normalize
+                from speechbrain.nnet.normalization import normalize
 
                 # input tensor
                 inp_tensor = torch.rand([4,660,3])
 
                 # normalization initialization
-                config={'class_name':'lib.nnet.normalization.normalization',
+                config={'class_name':'speechbrain.nnet.normalization.normalization',
                         'norm_type':'batchnorm',
                         'track_running_stats': 'False'}
 
@@ -327,13 +327,13 @@ class normalize(nn.Module):
 
 
          Example:   import torch
-                    from lib.nnet.normalization import normalize
+                    from speechbrain.nnet.normalization import normalize
 
                     # input tensor
                     inp_tensor = torch.rand([4,660,3])
 
                     # normalization initialization
-                    config={'class_name':'lib.nnet.normalization.\
+                    config={'class_name':'speechbrain.nnet.normalization.\
                         normalization',
                             'norm_type':'batchnorm',
                             'track_running_stats': 'False'}
@@ -409,13 +409,13 @@ class normalize(nn.Module):
 
 
          Example:   import torch
-                    from lib.nnet.normalization import normalize
+                    from speechbrain.nnet.normalization import normalize
 
                     # input tensor
                     inp_tensor = torch.rand([4,660,3])
 
                     # normalization initialization
-                    config={'class_name':'lib.nnet.normalization.\
+                    config={'class_name':'speechbrain.nnet.normalization.\
                         normalization',
                             'norm_type':'instancenorm',
                             'track_running_stats': 'False'}
@@ -516,7 +516,7 @@ class normalize_posteriors(nn.Module):
 
 
      Example:   import torch
-                from lib.nnet.normalization import normalize_posteriors
+                from speechbrain.nnet.normalization import normalize_posteriors
 
                 # input tensor
                 pout = torch.rand([4,3,10])
@@ -531,7 +531,7 @@ class normalize_posteriors(nn.Module):
 
 
                 # normalization initialization
-                config={'class_name':'lib.nnet.normalization.\
+                config={'class_name':'speechbrain.nnet.normalization.\
                     normalize_posteriors',
                         'count_lab':'phn'}
 
