@@ -80,7 +80,7 @@ def _batch_stats(refs, hyps):
                 "substitutions" - number of substitutions
                 "num_ref_tokens" - number of reference tokens
     Example:
-        from lib.utils.edit_distance import batch_stats
+        from lib.utils.edit_distance import _batch_stats
         batch = [[[1,2,3],[4,5,6]], [[1,2,4],[5,6]]]
         refs, hyps = batch
         print(_batch_stats(refs, hyps))
