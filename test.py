@@ -45,7 +45,7 @@ cfg_lst = [
 
 # List of files to check:
 check_lst = [
-'run_experiment.py',
+'spbrain.py',
 'speechbrain/core.py',
 'speechbrain/data_io/data_io.py',
 'speechbrain/data_io/data_preparation.py',
