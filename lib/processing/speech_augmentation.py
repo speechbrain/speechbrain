@@ -177,7 +177,7 @@ def convolve1d(waveform, kernel, padding=0, pad_type='constant',
 
     Example:     import torch
                  import soundfile as sf
-                 from data_processing import save
+                 from lib.data_io.data_io import save
                  from lib.processing.speech_augmentation import convolve1d
 
                  signal, rate = sf.read('samples/audio_samples/example1.wav')
@@ -187,7 +187,7 @@ def convolve1d(waveform, kernel, padding=0, pad_type='constant',
 
                  # save config dictionary definition
                  config = {
-                    'class_name':'data_processing.save',
+                    'class_name':'lib.data_io.data_io.save',
                     'save_folder': 'exp/write_example',
                     'save_format': 'wav',
                  }
@@ -298,7 +298,7 @@ def notch_filter(notch_freq, filter_width=101, notch_width=0.05):
 
     Example: import torch
              import soundfile as sf
-             from data_processing import save
+             from lib.data_io.data_io import save
              from lib.processing.speech_augmentation import notch_filter
 
              signal, rate = sf.read('samples/audio_samples/example1.wav')
@@ -309,7 +309,7 @@ def notch_filter(notch_freq, filter_width=101, notch_width=0.05):
 
              # save config dictionary definition
              config = {
-                'class_name': 'data_processing.save',
+                'class_name': 'lib.data_io.data_io.save',
                 'save_folder': 'exp/write_example',
                 'save_format': 'wav',
              }
@@ -462,7 +462,7 @@ class add_noise(nn.Module):
 
     Example: import torch
              import soundfile as sf
-             from data_processing import save
+             from lib.data_io.data_io import save
              from lib.processing.speech_augmentation import add_noise
 
              # reading an audio signal
@@ -485,7 +485,7 @@ class add_noise(nn.Module):
 
              # save config dictionary definition
              config = {
-                'class_name': 'data_processing.save',
+                'class_name': 'lib.data_io.data_io.save',
                 'save_folder': 'exp/write_example',
                 'save_format': 'wav',
              }
@@ -494,7 +494,7 @@ class add_noise(nn.Module):
              save_signal = save(config)
 
              # saving
-             save_signal([noisy[0], ['example_add_noise'], clean_len])
+             save_signal([noisy, ['example_add_noise'], clean_len])
 
              # signal save in exp/write_example
     -------------------------------------------------------------------------
@@ -650,7 +650,7 @@ class add_noise(nn.Module):
 
         Example: import torch
                  import soundfile as sf
-                 from data_processing import save
+                 from lib.data_io.data_io import save
                  from lib.processing.speech_augmentation import add_noise
 
                  signal, rate = sf.read('samples/audio_samples/example1.wav')
@@ -674,7 +674,7 @@ class add_noise(nn.Module):
 
                  # save config dictionary definition
                  config = {
-                    'class_name': 'data_processing.save',
+                    'class_name': 'lib.data_io.data_io.save',
                     'save_folder': 'exp/write_example',
                     'save_format': 'wav',
                  }
@@ -804,7 +804,7 @@ class add_reverb(nn.Module):
 
     Example:   import torch
                import soundfile as sf
-               from data_processing import save
+               from lib.data_io.data_io import save
                from lib.processing.speech_augmentation import add_reverb
 
                # reading an audio signal
@@ -820,13 +820,13 @@ class add_reverb(nn.Module):
                reverberator = add_reverb(config)
 
                # Executing computations
-               clean = torch.tensor([signal])
+               clean = torch.tensor([signal], dtype=torch.float32)
                clean_len = torch.ones(1)
                reverbed = reverberator([clean, clean_len])
 
                # save config dictionary definition
                config = {
-                  'class_name': 'data_processing.save',
+                  'class_name': 'lib.data_io.data_io.save',
                   'save_folder': 'exp/write_example',
                   'save_format': 'wav',
                }
@@ -835,7 +835,7 @@ class add_reverb(nn.Module):
                save_signal = save(config)
 
                # saving
-               save_signal([reverbed[0], ['example_add_reverb'], clean_len])
+               save_signal([reverbed, ['example_add_reverb'], clean_len])
 
                # signal save in exp/write_example
     -------------------------------------------------------------------------
@@ -1053,7 +1053,7 @@ class speed_perturb(nn.Module):
 
     Example:   import torch
                import soundfile as sf
-               from data_processing import save
+               from lib.data_io.data_io import save
                from lib.processing.speech_augmentation import speed_perturb
 
                # reading an audio signal
@@ -1076,7 +1076,7 @@ class speed_perturb(nn.Module):
 
                # save config dictionary definition
                config = {
-                  'class_name': 'data_processing.save',
+                  'class_name': 'lib.data_io.data_io.save',
                   'save_folder': 'exp/write_example',
                   'save_format': 'wav',
                }
@@ -1085,7 +1085,7 @@ class speed_perturb(nn.Module):
                save_signal = save(config)
 
                # saving
-               save_signal([perturbed[0], ['example_perturb'], torch.ones(1)])
+               save_signal([perturbed, ['example_perturb'], torch.ones(1)])
 
                # signal save in exp/write_example
     -------------------------------------------------------------------------
@@ -1251,7 +1251,7 @@ class resample(nn.Module):
 
     Example:   import torch
                import soundfile as sf
-               from data_processing import save
+               from lib.data_io.data_io import save
                from lib.processing.speech_augmentation import resample
 
                # reading an audio signal
@@ -1273,7 +1273,7 @@ class resample(nn.Module):
 
                # Save signal config
                config = {
-                   'class_name': 'data_processing.save',
+                   'class_name': 'lib.data_io.data_io.save',
                    'save_folder': 'exp/write_example',
                    'save_format': 'wav',
                    'sampling_rate': str(rate // 2),
@@ -1283,7 +1283,7 @@ class resample(nn.Module):
                save_signal = save(config)
 
                # saving
-               save_signal([resampled[0], ["example_resamp"], torch.ones(1)])
+               save_signal([resampled, ["example_resamp"], torch.ones(1)])
 
                # signal save in exp/write_example
     -------------------------------------------------------------------------
@@ -1565,7 +1565,7 @@ class resample(nn.Module):
                  length = signal.size(-1)
                  num_samples = resampler._get_num_LR_output_samples(length)
 
-                 assert resampled[0].size(-1) == num_samples
+                 assert resampled.size(-1) == num_samples
                  assert num_samples - num_samples % 2 == length // 2
         ---------------------------------------------------------------------
         """
@@ -1773,8 +1773,8 @@ class add_babble(nn.Module):
                       [batch, time_steps], or [batch, channels, time_steps]
 
     Example:   import torch
-               from data_processing import save
-               from data_io import create_dataloader
+               from lib.data_io.data_io import save
+               from lib.data_io.data_io import create_dataloader
                from lib.processing.speech_augmentation import add_babble
 
                # config dictionary definition
@@ -1787,8 +1787,8 @@ class add_babble(nn.Module):
 
                # Load batch
                config = {
-                   'class_name':'data_io.create_dataloader',
-                   'csv':'samples/audio_samples/csv_example3.csv',
+                   'class_name':'lib.data_io.data_io.create_dataloader',
+                   'csv_file':'samples/audio_samples/csv_example3.csv',
                    'batch_size':'5',
                }
 
@@ -1801,7 +1801,7 @@ class add_babble(nn.Module):
 
                # save config dictionary definition
                config = {
-                  'class_name': 'data_processing.save',
+                  'class_name': 'lib.data_io.data_io.save',
                   'save_folder': 'exp/write_example',
                   'save_format': 'wav',
                }
@@ -1810,7 +1810,7 @@ class add_babble(nn.Module):
                save_signal = save(config)
 
                # saving
-               save_signal([noisy[0], ids, lengths])
+               save_signal([noisy, ids, lengths])
 
                # signal save in exp/write_example
     -------------------------------------------------------------------------
@@ -1997,7 +1997,7 @@ class drop_freq(nn.Module):
 
     Example:   import torch
                import soundfile as sf
-               from data_processing import save
+               from lib.data_io.data_io import save
                from lib.processing.speech_augmentation import drop_freq
 
                # config dictionary definition
@@ -2017,7 +2017,7 @@ class drop_freq(nn.Module):
 
                # save config dictionary definition
                config = {
-                  'class_name': 'data_processing.save',
+                  'class_name': 'lib.data_io.data_io.save',
                   'save_folder': 'exp/write_example',
                   'save_format': 'wav',
                }
@@ -2026,7 +2026,7 @@ class drop_freq(nn.Module):
                save_signal = save(config)
 
                # saving
-               save_signal([dropped_signal[0], ['freq_drop'], torch.ones(1)])
+               save_signal([dropped_signal, ['freq_drop'], torch.ones(1)])
 
                # signal save in exp/write_example
     -------------------------------------------------------------------------
@@ -2215,7 +2215,7 @@ class drop_chunk(nn.Module):
 
     Example:   import torch
                import soundfile as sf
-               from data_processing import save
+               from lib.data_io.data_io import save
                from lib.processing.speech_augmentation import drop_chunk
 
                # config dictionary definition
@@ -2228,13 +2228,15 @@ class drop_chunk(nn.Module):
 
                # Load sample
                signal, rate = sf.read('samples/audio_samples/example1.wav')
+               signal = torch.tensor(signal).unsqueeze(0)
+               length = torch.ones(1)
 
                # Perform drop
-               dropped_signal = dropper([torch.tensor(signal).unsqueeze(0)])
+               dropped_signal = dropper([signal, length])
 
                # save config dictionary definition
                config = {
-                  'class_name': 'data_processing.save',
+                  'class_name': 'lib.data_io.data_io.save',
                   'save_folder': 'exp/write_example',
                   'save_format': 'wav',
                }
@@ -2243,7 +2245,7 @@ class drop_chunk(nn.Module):
                save_signal = save(config)
 
                # saving
-               save_signal([dropped_signal[0], ['drop_chunk'], torch.ones(1)])
+               save_signal([dropped_signal, ['drop_chunk'], length])
 
                # signal save in exp/write_example
     -------------------------------------------------------------------------
@@ -2428,7 +2430,7 @@ class do_clip(nn.Module):
 
     Example:   import torch
                import soundfile as sf
-               from data_processing import save
+               from lib.data_io.data_io import save
                from lib.processing.speech_augmentation import do_clip
 
                # config dictionary definition
@@ -2447,7 +2449,7 @@ class do_clip(nn.Module):
 
                # save config dictionary definition
                config = {
-                  'class_name': 'data_processing.save',
+                  'class_name': 'lib.data_io.data_io.save',
                   'save_folder': 'exp/write_example',
                   'save_format': 'wav',
                }
@@ -2456,7 +2458,7 @@ class do_clip(nn.Module):
                save_signal = save(config)
 
                # saving
-               save_signal([clipped_signal[0], ['clip'], torch.ones(1)])
+               save_signal([clipped_signal, ['clip'], torch.ones(1)])
 
                # signal save in exp/write_example
     -------------------------------------------------------------------------
