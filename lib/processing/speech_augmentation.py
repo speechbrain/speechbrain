@@ -980,8 +980,6 @@ class add_reverb(nn.Module):
         # Make sure RIR has correct channels
         if len(rir_waveform.shape) == 2:
             rir_waveform = rir_waveform.unsqueeze(1)
-        else:
-            rir_waveform = rir_waveform.transpose(0, 1)
 
         # Make sure RIR has correct type and device
         rir_waveform = rir_waveform.type(clean_waveform.dtype)
