@@ -33,7 +33,7 @@ def _plain_text_reader(path):
 
 def _plain_text_keydict(path):
     out_dict = {}  # key: token_list
-    for key, tokens in plain_text_reader(path):
+    for key, tokens in _plain_text_reader(path):
         out_dict[key] = tokens
     return out_dict
 
@@ -141,9 +141,9 @@ def wer_details_by_utterance(
                 "hyp_empty": True
                 if len(hyp_tokens) == 0
                 else False,  # This also works for e.g. torch tensors
-                "num_edits": sum(ops),
+                "num_edits": sum(ops.values()),
                 "num_ref_tokens": len(ref_tokens),
-                "WER": 100.0 * sum(ops) / len(ref_tokens),
+                "WER": 100.0 * sum(ops.values()) / len(ref_tokens),
                 "insertions": ops["insertions"],
                 "deletions": ops["deletions"],
                 "substitutions": ops["substitutions"],
@@ -379,7 +379,7 @@ def top_wer_spks(details_by_speaker, top_k=10):
 def _print_wer_summary(wer_details, file=sys.stdout):
     # This function essentially mirrors the Kaldi compute-wer output format
     print(
-        "%WER {WER:.2f} [ {num_edits} / {num_scored_tokens}, {ins} ins, {del} del, {sub} sub ]".format(  # noqa
+        "%WER {WER:.2f} [ {num_edits} / {num_scored_tokens}, {insertions} ins, {deletions} del, {substitutions} sub ]".format(  # noqa
             **wer_details
         ),
         file=file,
@@ -474,7 +474,7 @@ def _print_alignments_global_header(
 def _print_alignment_header(wer_details, file=sys.stdout):
     print("=" * 80)
     print(
-        "{key}, %WER {WER:.2f} [ {num_edits} / {num_ref_tokens}, {ins} ins, {del} del, {sub} sub ]".format(  # noqa
+        "{key}, %WER {WER:.2f} [ {num_edits} / {num_ref_tokens}, {insertions} ins, {deletions} del, {substitutions} sub ]".format(  # noqa
             **wer_details
         ),
         file=file,
