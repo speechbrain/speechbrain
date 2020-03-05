@@ -311,7 +311,7 @@ class normalize(nn.Module):
          ----------------------------------------------------------------------
          nnet.normalization.normalize.batchnorm (author: Mirco Ravanelli)
 
-         Description:  This support function intializaes 1D, 2D, or 2D
+         Description:  This support function intializes 1D, 2D, or 2D
                        batch normalization.
 
 
@@ -393,7 +393,7 @@ class normalize(nn.Module):
          nnet.normalization.normalize.instancenorm (author: Mirco Ravanelli)
 
          Description:  This support function intializaes 1D, 2D, or 2D
-                       instabce normalization.
+                       instance normalization.
 
 
          Input (call):
@@ -470,7 +470,7 @@ class normalize_posteriors(nn.Module):
 
      Description:  This function normalizes the posterior probabilities
                    using the counts of the given input label. This operation
-                   can be useful when likelihhod are neeed instead of
+                   can be useful when likelihood are need instead of
                    posterior probabilities (e.g, when feeding an HMM-DNN
                    decoder).
 

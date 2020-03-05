@@ -101,7 +101,7 @@ def logger_write(msg, logfile=None, level="error"):
                       - level ('error','debug','info', optional,
                        default: 'error'):
                            it is level associated with the message. Errors
-                           will stop the execution of the scirpt.
+                           will stop the execution of the script.
 
      Output (call):  None
 

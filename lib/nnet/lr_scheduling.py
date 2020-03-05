@@ -64,7 +64,7 @@ class lr_annealing(nn.Module):
 
 
                            - annealing_factor (float, optional, Default: 0.5):
-                               it is annaling factor used in new_bob strategy.
+                               it is annealing factor used in new_bob strategy.
 
                            - improvement_threshold (float, optional, Default:\
                                0.0025):
@@ -74,7 +74,7 @@ class lr_annealing(nn.Module):
                            - lr_at_epoch (float_list, optional, Default: None):
                                it is a float containing the learning rates to
                                use for each epoch in the "custom" setting.
-                               The lenght of the list must be equal to the
+                               The length of the list must be equal to the
                                number of epochs.
 
                            - N_epochs (int(1,inf), optional, Default: None):
@@ -101,14 +101,14 @@ class lr_annealing(nn.Module):
 
                            - patient (int(0,inf), optional, Default: 0):
                                it is used in new_bob setting. When the
-                               annealing condition is violted patient times,
+                               annealing condition is violeted patient times,
                                the learning rate is finally reduced.
 
                            - optim_list (str_lst, optional, Default: None):
                                If None, the code search for all the optimizers
                                defined by the users and perform annealing of
                                all of them. If this is not what the user wants,
-                               one can specifi here the list on optimizers
+                               one can specify here the list on optimizers
                                whose lr must be annaled.
 
 

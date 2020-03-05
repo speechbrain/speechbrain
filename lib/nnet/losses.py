@@ -47,7 +47,7 @@ class compute_cost(nn.Module):
 
 
                            - avoid_pad (bool, optional, Default: False):
-                               when True, the time steps corresponsing to
+                               when True, the time steps corresponding to
                                zero-padding are not included in the cost
                                function computation.
 

@@ -20,7 +20,7 @@ def str_to_bool(s):
      Description: This function converts a string to a boolean.
 
      Input (call):    - s (type: str, mandatory):
-                           string to conver to a boolean.
+                           string to convert to a boolean.
 
      Output (call):  None
 
@@ -99,7 +99,7 @@ def check_and_cast_type(option_field, option, option_type, logger=None):
                            it is a string containing the name of the option.
 
                       - option_field (type: str, mandatory):
-                            it is string contaning the option.
+                            it is string containing the option.
 
                       - option_type (type: str, mandatory):
                            it is a string containing the option type.
@@ -489,7 +489,7 @@ def check_opts(self, expected_options, data_opts, logger=None):
 
 
      Output (call):  cast_options (type: dict):
-                       it is the output dictionary contaning the cast options.
+                       it is the output dictionary containing the cast options.
 
 
      Example:   from lib.utils.input_validation import check_opts

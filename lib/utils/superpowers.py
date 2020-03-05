@@ -85,7 +85,7 @@ def run_shell(cmd, logger=None):
                        it a string containing the command.
 
      Output (call):   - output(type: str):
-                       it is a string containign the standard output
+                       it is a string containing the standard output
 
 
      Example:   from lib.utils.superpowers import run_shell

@@ -69,7 +69,7 @@ class execute_computations(nn.Module):
 
                            - csv_file (type: file, optional, None):
                                it is the csv file that contains the data.
-                               When specified, we automatially read the
+                               When specified, we automatically read the
                                file and create the needed batches of data.
                                When specified, the computations are executed
                                within a loop that loops over all the
@@ -788,7 +788,7 @@ class execute_computations(nn.Module):
             # Store iteration (if needed)
             self.store_iteration(i)
 
-        # Saving the output variabels when required
+        # Saving the output variables when required
         if self.save_folder is not None:
 
             for index, out in enumerate(self.out_var_lst):
@@ -798,7 +798,7 @@ class execute_computations(nn.Module):
                     + "/"
                     + self.funct_name
                     + "/"
-                    + self.out_var[index]
+                    + self.ot_var[index]
                     + ".pkl"
                 )
 
@@ -1462,8 +1462,6 @@ class execute_computations(nn.Module):
                 inp_lst_device.append(inp)
                 inp_lst = inp_lst_device
 
-        return inp_lst
-
         return inp_lst_device
 
     def set_eval_mode(self, funct_name):
@@ -1683,7 +1681,7 @@ class execute_computations(nn.Module):
         # Creating the cfg_file for the current device in the output_folder
         self.change_funct_name(orig_file, dest_file, "_" + str(device_id))
 
-        # copy the configucation file
+        # copy the configuration file
         config_proc_gpu = self.config_proc["functions"][funct_name].copy()
         config_proc_gpu["cfg_file"] = dest_file
 
@@ -2190,7 +2188,7 @@ class execute_computations(nn.Module):
          ---------------------------------------------------------------------
          """
 
-        # Managing diffence combination
+        # Managing difference combination
         if self.connection_merge == "diff":
             cmd_append = (
                 "\n"
@@ -2299,7 +2297,7 @@ class execute_computations(nn.Module):
          ---------------------------------------------------------------------
          """
 
-        # Managing diffence combination
+        # Managing difference combination
         if self.connection_merge == "diff":
             cmd_dense = ""
             for out in out_lst:

@@ -7,8 +7,6 @@
 """
 
 import os
-import re
-from lib.utils.config import remove_comments
 
 
 def get_all_files(

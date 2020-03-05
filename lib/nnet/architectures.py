@@ -334,7 +334,7 @@ class linear_combination(nn.Module):
 
                 logger_write(err_msg, logfile=logger)
 
-        # Initializing the matrixes
+        # Initializing the matrices
         dim_out = first_input[-1].shape[1]
 
         # Initialization of the parameters
@@ -590,7 +590,7 @@ class conv(nn.Module):
         self.transp_conv2d = False
 
         # Making sure that the kernel size is odd (if the kernel is not
-        # simmetric there could a problem with the padding function)
+        # symmetric there could a problem with the padding function)
         for size in self.kernel_size:
             if size % 2 == 0:
                 err_msg = (
@@ -753,7 +753,7 @@ class conv(nn.Module):
         # Performing convolution
         wx = self.conv(x)
 
-        # Retrieving the orginal shape format when needed
+        # Retrieving the original shape format when needed
         if self.conv2d:
             if self.squeeze_conv2d:
                 wx = wx.squeeze(1)
@@ -902,7 +902,7 @@ class conv(nn.Module):
             )
             padding = [(L_in - L_out) // 2, (L_in - L_out) // 2]
 
-        # Managing frequnecy padding (for 2D CNNs)
+        # Managing frequency padding (for 2D CNNs)
         if self.conv2d:
 
             if stride[-2] > 1:
@@ -1132,7 +1132,7 @@ class SincConv(nn.Module):
 
                 logger_write(err_msg, logfile=logger)
 
-        # Forcing the filters to be odd (i.e, perfectly symmetrics)
+        # Forcing the filters to be odd (i.e, perfectly symmetric)
         if self.kernel_size % 2 == 0:
             err_msg = (
                 "The field kernel size must be and odd number. Got %s."
@@ -1222,7 +1222,7 @@ class SincConv(nn.Module):
         # central element of the filter
         band_pass_center = 2 * band.view(-1, 1)
 
-        # Right part of the filter (sinc filters are simmetric)
+        # Right part of the filter (sinc filters are symmetric)
         band_pass_right = torch.flip(band_pass_left, dims=[1])
 
         # Combining left, central, and right part of the filter

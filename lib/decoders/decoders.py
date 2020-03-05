@@ -38,7 +38,7 @@ class kaldi_decoder:
                                    dnn4_pretrain-dbn_dnn_ali_test)
 
                             - datadir (type: directory, mandatory):
-                               it the folder contaning data transcriptions
+                               it the folder containing data transcriptions
                                (e.g,$kaldi_folder/data/test )
 
                             - posterior_folder (type: directory, mandatory):
@@ -212,7 +212,7 @@ class kaldi_decoder:
 
         if self.scoring:
 
-            # copy final model as expectd by the kaldi scoring algorithm
+            # copy final model as expected by the kaldi scoring algorithm
             copyfile(
                 self.alidir + "/final.mdl", self.output_folder + "/final.mdl"
             )

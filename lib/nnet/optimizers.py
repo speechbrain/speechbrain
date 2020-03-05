@@ -63,7 +63,7 @@ class optimize(nn.Module):
 
                            - weight_decay (int, optional, Default: 0):
                                it is the weight decay (L2 penalty) factor
-                               used as as additionaly loss.
+                               used as as additionally loss.
 
                            - momentum (float, optional, Default: 0.0):
                               it is the momentum factor for the optimizers.
