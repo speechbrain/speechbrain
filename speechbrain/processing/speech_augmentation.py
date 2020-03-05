@@ -1,6 +1,6 @@
 """
 -----------------------------------------------------------------------------
- lib.processing.speech_augmentation.py
+ speechbrain.processing.speech_augmentation.py
 
  Description: This library gathers functions that mutate batches of data
               in order to improve training of machine learning models.
@@ -15,8 +15,8 @@ import math
 import torch
 import torch.nn as nn
 
-from lib.data_io.data_io import create_dataloader
-from lib.utils import check_opts, logger_write, check_inputs
+from speechbrain.data_io.data_io import create_dataloader
+from speechbrain.utils import check_opts, logger_write, check_inputs
 
 """
 -------------------------------------------
@@ -28,7 +28,7 @@ Define utility functions for augmentations
 def check_input_shapes(expected_dims, inputs, logger=None):
     """
     ------------------------------------------------------
-    lib.processing.speech_augmentation.check_input_shape
+    speechbrain.processing.speech_augmentation.check_input_shape
     (author: Peter Plantinga)
 
     Description: Check whether the input tensor has the correct
@@ -49,7 +49,7 @@ def check_input_shapes(expected_dims, inputs, logger=None):
     Output:      None
 
     Example:     import torch
-                 from lib.processing.speech_augmentation \
+                 from speechbrain.processing.speech_augmentation \
                     import check_input_shapes
 
                  inputs = [torch.randn(1, 3), torch.randn(3, 1)]
@@ -89,7 +89,7 @@ def check_input_shapes(expected_dims, inputs, logger=None):
 def compute_amplitude(waveform, length):
     """
     ------------------------------------------------------
-    lib.processing.speech_augmentation.compute_amplitude
+    speechbrain.processing.speech_augmentation.compute_amplitude
     (author: Peter Plantinga)
 
     Description: Compute the average amplitude of a batch of waveforms for
@@ -106,7 +106,7 @@ def compute_amplitude(waveform, length):
 
     Example:     import torch
                  import soundfile as sf
-                 from lib.processing.speech_augmentation \
+                 from speechbrain.processing.speech_augmentation \
                      import compute_amplitude
 
                  signal, rate = sf.read('samples/audio_samples/example1.wav')
@@ -128,7 +128,8 @@ def convolve1d(waveform, kernel, padding=0, pad_type='constant',
                stride=1, groups=1, use_fft=False, rotation_index=0):
     """
     ----------------------------------------------------
-    lib.processing.speech_augmentation.convolve1d (author: Peter Plantinga)
+    speechbrain.processing.speech_augmentation.convolve1d
+    (author: Peter Plantinga)
 
     Description: Use torch.nn.functional to perform first 1d padding
                  and then 1d convolution.
@@ -177,8 +178,9 @@ def convolve1d(waveform, kernel, padding=0, pad_type='constant',
 
     Example:     import torch
                  import soundfile as sf
-                 from lib.data_io.data_io import save
-                 from lib.processing.speech_augmentation import convolve1d
+                 from speechbrain.data_io.data_io import save
+                 from speechbrain.processing.speech_augmentation \
+                     import convolve1d
 
                  signal, rate = sf.read('samples/audio_samples/example1.wav')
                  signal = torch.tensor(signal[None, None, :])
@@ -187,7 +189,7 @@ def convolve1d(waveform, kernel, padding=0, pad_type='constant',
 
                  # save config dictionary definition
                  config = {
-                    'class_name':'lib.data_io.data_io.save',
+                    'class_name':'speechbrain.data_io.data_io.save',
                     'save_folder': 'exp/write_example',
                     'save_format': 'wav',
                  }
@@ -254,7 +256,7 @@ def convolve1d(waveform, kernel, padding=0, pad_type='constant',
 def dB_to_amplitude(a):
     """
     --------------------------------------------------
-    lib.processing.speech_augmentation.dB_to_amplitude
+    speechbrain.processing.speech_augmentation.dB_to_amplitude
     (author: Peter Plantinga)
 
     Description: Convert decibels to amplitude
@@ -264,7 +266,8 @@ def dB_to_amplitude(a):
 
     Output: ratio between average amplitudes (float)
 
-    Example: from lib.processing.speech_augmentation import dB_to_amplitude
+    Example: from speechbrain.processing.speech_augmentation \
+                 import dB_to_amplitude
 
              SNR = 10
              amplitude = dB_to_amplitude(SNR) # Results in 3.16
@@ -276,7 +279,7 @@ def dB_to_amplitude(a):
 def notch_filter(notch_freq, filter_width=101, notch_width=0.05):
     """
     ---------------------------------------------------------
-    lib.processing.speech_augmentation.notch_filter
+    speechbrain.processing.speech_augmentation.notch_filter
     (from https://tomroelandts.com/articles/
     how-to-create-simple-band-pass-and-band-reject-filters)
 
@@ -298,8 +301,9 @@ def notch_filter(notch_freq, filter_width=101, notch_width=0.05):
 
     Example: import torch
              import soundfile as sf
-             from lib.data_io.data_io import save
-             from lib.processing.speech_augmentation import notch_filter
+             from speechbrain.data_io.data_io import save
+             from speechbrain.processing.speech_augmentation \
+                 import notch_filter
 
              signal, rate = sf.read('samples/audio_samples/example1.wav')
              signal = torch.tensor(signal, dtype=torch.float32)[None, None, :]
@@ -309,7 +313,7 @@ def notch_filter(notch_freq, filter_width=101, notch_width=0.05):
 
              # save config dictionary definition
              config = {
-                'class_name': 'lib.data_io.data_io.save',
+                'class_name': 'speechbrain.data_io.data_io.save',
                 'save_folder': 'exp/write_example',
                 'save_format': 'wav',
              }
@@ -366,7 +370,8 @@ Augmentation classes
 class add_noise(nn.Module):
     """
     -------------------------------------------------------------------------
-    lib.processing.speech_augmentation.add_noise (author: Peter Plantinga)
+    speechbrain.processing.speech_augmentation.add_noise
+    (author: Peter Plantinga)
 
     Description: This class additively combines a noise signal to the input
                  signal. The noise can come from a provided file or
@@ -462,15 +467,16 @@ class add_noise(nn.Module):
 
     Example: import torch
              import soundfile as sf
-             from lib.data_io.data_io import save
-             from lib.processing.speech_augmentation import add_noise
+             from speechbrain.data_io.data_io import save
+             from speechbrain.processing.speech_augmentation import add_noise
 
              # reading an audio signal
              signal, rate = sf.read('samples/audio_samples/example1.wav')
 
              # config dictionary definition
              config = {
-                 'class_name': 'lib.processing.speech_augmentation.add_noise',
+                 'class_name':
+                     'speechbrain.processing.speech_augmentation.add_noise',
                  'csv_file': 'samples/noise_samples/noise.csv',
                  'batch_size': '1',
              }
@@ -485,7 +491,7 @@ class add_noise(nn.Module):
 
              # save config dictionary definition
              config = {
-                'class_name': 'lib.data_io.data_io.save',
+                'class_name': 'speechbrain.data_io.data_io.save',
                 'save_folder': 'exp/write_example',
                 'save_format': 'wav',
              }
@@ -632,7 +638,7 @@ class add_noise(nn.Module):
     def _load_noise(self, clean_len, tensor_len, batch_size):
         """
         -----------------------------------------------------
-        lib.processing.speech_augmentation.add_noise._load_noise
+        speechbrain.processing.speech_augmentation.add_noise._load_noise
         (author: Peter Plantinga)
 
         Description: Load a section of the noise file of the appropriate
@@ -650,14 +656,15 @@ class add_noise(nn.Module):
 
         Example: import torch
                  import soundfile as sf
-                 from lib.data_io.data_io import save
-                 from lib.processing.speech_augmentation import add_noise
+                 from speechbrain.data_io.data_io import save
+                 from speechbrain.processing.speech_augmentation \
+                     import add_noise
 
                  signal, rate = sf.read('samples/audio_samples/example1.wav')
                  # config dictionary definition
                  config = {
                     'class_name':
-                        'lib.processing.speech_augmentation.add_noise',
+                        'speechbrain.processing.speech_augmentation.add_noise',
                     'csv_file': 'samples/noise_samples/noise.csv',
                     'batch_size': '1',
                  }
@@ -674,7 +681,7 @@ class add_noise(nn.Module):
 
                  # save config dictionary definition
                  config = {
-                    'class_name': 'lib.data_io.data_io.save',
+                    'class_name': 'speechbrain.data_io.data_io.save',
                     'save_folder': 'exp/write_example',
                     'save_format': 'wav',
                  }
@@ -737,7 +744,8 @@ class add_noise(nn.Module):
 class add_reverb(nn.Module):
     """
     -------------------------------------------------------------------------
-    lib.processing.speech_augmentation.add_reverb (author: Peter Plantinga)
+    speechbrain.processing.speech_augmentation.add_reverb
+    (author: Peter Plantinga)
 
     Description: This class convolves the audio signal with an impulse
                  response. The impulse response must be provided in
@@ -804,15 +812,16 @@ class add_reverb(nn.Module):
 
     Example:   import torch
                import soundfile as sf
-               from lib.data_io.data_io import save
-               from lib.processing.speech_augmentation import add_reverb
+               from speechbrain.data_io.data_io import save
+               from speechbrain.processing.speech_augmentation \
+                   import add_reverb
 
                # reading an audio signal
                signal, rate = sf.read('samples/audio_samples/example1.wav')
 
                # config dictionary definition
                config = {
-                   'class_name':'lib.processing.speech_augmentation.add_reverb',
+                   'class_name':'speechbrain.processing.speech_augmentation.add_reverb',
                    'csv_file': 'samples/rir_samples/rirs.csv',
                }
 
@@ -826,7 +835,7 @@ class add_reverb(nn.Module):
 
                # save config dictionary definition
                config = {
-                  'class_name': 'lib.data_io.data_io.save',
+                  'class_name': 'speechbrain.data_io.data_io.save',
                   'save_folder': 'exp/write_example',
                   'save_format': 'wav',
                }
@@ -957,7 +966,7 @@ class add_reverb(nn.Module):
     def _load_rir(self, clean_waveform):
         """
         ---------------------------------------------------------
-        lib.processing.speech_augmentation.add_reverb._load_rir
+        speechbrain.processing.speech_augmentation.add_reverb._load_rir
         (author: Peter Plantinga)
 
         Description: Internal method for loading RIR wav files.
@@ -989,7 +998,8 @@ class add_reverb(nn.Module):
 class speed_perturb(nn.Module):
     """
     -------------------------------------------------------------------------
-    lib.processing.speech_augmentation.speed_perturb (author: Peter Plantinga)
+    speechbrain.processing.speech_augmentation.speed_perturb
+    (author: Peter Plantinga)
 
     Description: This class resamples the original signal at a similar
                  sample rate, to achieve a slightly slower or slightly
@@ -1053,8 +1063,9 @@ class speed_perturb(nn.Module):
 
     Example:   import torch
                import soundfile as sf
-               from lib.data_io.data_io import save
-               from lib.processing.speech_augmentation import speed_perturb
+               from speechbrain.data_io.data_io import save
+               from speechbrain.processing.speech_augmentation \
+                   import speed_perturb
 
                # reading an audio signal
                signal, rate = sf.read('samples/audio_samples/example1.wav')
@@ -1062,7 +1073,7 @@ class speed_perturb(nn.Module):
                # config dictionary definition
                config = {
                    'class_name':
-                       'lib.processing.speech_augmentation.speed_perturb',
+                       'speechbrain.processing.speech_augmentation.speed_perturb',
                    'orig_freq': str(rate),
                    'speeds': '9,11',
                }
@@ -1076,7 +1087,7 @@ class speed_perturb(nn.Module):
 
                # save config dictionary definition
                config = {
-                  'class_name': 'lib.data_io.data_io.save',
+                  'class_name': 'speechbrain.data_io.data_io.save',
                   'save_folder': 'exp/write_example',
                   'save_format': 'wav',
                }
@@ -1138,7 +1149,8 @@ class speed_perturb(nn.Module):
         for speed in self.speeds:
 
             config = {
-                'class_name': 'lib.processing.speech_augmentation.resample',
+                'class_name':
+                    'speechbrain.processing.speech_augmentation.resample',
                 'orig_freq': str(self.orig_freq),
                 'new_freq': str(self.orig_freq * speed // 10),
             }
@@ -1185,7 +1197,8 @@ class speed_perturb(nn.Module):
 class resample(nn.Module):
     """
     -------------------------------------------------------------------------
-    lib.processing.speech_augmentation.resample (author: Peter Plantinga)
+    speechbrain.processing.speech_augmentation.resample
+    (author: Peter Plantinga)
 
     Description: This class resamples an audio signal using sinc-based
                  interpolation. It is a modification of the `resample`
@@ -1251,8 +1264,8 @@ class resample(nn.Module):
 
     Example:   import torch
                import soundfile as sf
-               from lib.data_io.data_io import save
-               from lib.processing.speech_augmentation import resample
+               from speechbrain.data_io.data_io import save
+               from speechbrain.processing.speech_augmentation import resample
 
                # reading an audio signal
                signal, rate = sf.read('samples/audio_samples/example1.wav')
@@ -1260,7 +1273,8 @@ class resample(nn.Module):
 
                # config dictionary definition
                config = {
-                   'class_name': 'lib.processing.speech_augmentation.resample',
+                   'class_name':
+                       'speechbrain.processing.speech_augmentation.resample',
                    'orig_freq': str(rate),
                    'new_freq': str(rate // 2),
                }
@@ -1273,7 +1287,7 @@ class resample(nn.Module):
 
                # Save signal config
                config = {
-                   'class_name': 'lib.data_io.data_io.save',
+                   'class_name': 'speechbrain.data_io.data_io.save',
                    'save_folder': 'exp/write_example',
                    'save_format': 'wav',
                    'sampling_rate': str(rate // 2),
@@ -1338,13 +1352,13 @@ class resample(nn.Module):
         assert self.new_freq % self.conv_transpose_stride == 0
 
         # Generate and store the filter to use for resampling
-        self._get_LR_indices_and_weights()
+        self._indices_and_weights()
         assert self.first_indices.dim() == 1
 
     def _compute_strides(self):
         """
         ---------------------------------------------------------------------
-        lib.processing.speech_augmentation.resample._compute_strides
+        speechbrain.processing.speech_augmentation.resample._compute_strides
         (almost directly from torchaudio.compliance.kaldi)
 
         Description: Compute the phases in polyphase filter
@@ -1355,7 +1369,8 @@ class resample(nn.Module):
 
         Example: import torch
                  import soundfile as sf
-                 from lib.processing.speech_augmentation import resample
+                 from speechbrain.processing.speech_augmentation \
+                     import resample
 
                  # reading an audio signal
                  signal, rate = sf.read('samples/audio_samples/example1.wav')
@@ -1365,7 +1380,7 @@ class resample(nn.Module):
                  # config dictionary definition
                  config = {
                      'class_name':
-                        'lib.processing.speech_augmentation.resample',
+                        'speechbrain.processing.speech_augmentation.resample',
                      'orig_freq': str(rate),
                      'new_freq': str(rate // 2),
                  }
@@ -1376,7 +1391,7 @@ class resample(nn.Module):
                  # Change frequency
                  resampler.new_freq = rate * 2
                  resampler._compute_strides()
-                 resampler._get_LR_indices_and_weights()
+                 resampler._indices_and_weights()
 
                  # Executing computations
                  resampled = resampler(signal)
@@ -1414,7 +1429,7 @@ class resample(nn.Module):
     def _perform_resample(self, waveform):
         """
         ---------------------------------------------------------------
-        lib.processing.speech_augmentation.resample._perform_resample
+        speechbrain.processing.speech_augmentation.resample._perform_resample
         (almost directly from torchaudio.compliance.kaldi)
 
         Description: Resamples the waveform at the new frequency. This matches
@@ -1438,7 +1453,8 @@ class resample(nn.Module):
 
         Example: import torch
                  import soundfile as sf
-                 from lib.processing.speech_augmentation import resample
+                 from speechbrain.processing.speech_augmentation \
+                     import resample
 
                  # reading an audio signal
                  signal, rate = sf.read('samples/audio_samples/example1.wav')
@@ -1448,7 +1464,7 @@ class resample(nn.Module):
                  # config dictionary definition
                  config = {
                      'class_name':
-                        'lib.processing.speech_augmentation.resample',
+                        'speechbrain.processing.speech_augmentation.resample',
                      'orig_freq': str(rate),
                      'new_freq': str(rate // 2),
                  }
@@ -1464,7 +1480,7 @@ class resample(nn.Module):
         # Compute output size and initialize
         batch_size, num_channels, wave_len = waveform.size()
         window_size = self.weights.size(1)
-        tot_output_samp = self._get_num_LR_output_samples(wave_len)
+        tot_output_samp = self._output_samples(wave_len)
         resampled_waveform = torch.zeros(
             (batch_size, num_channels, tot_output_samp),
             device=waveform.device,
@@ -1520,10 +1536,10 @@ class resample(nn.Module):
 
         return resampled_waveform
 
-    def _get_num_LR_output_samples(self, input_num_samp):
+    def _output_samples(self, input_num_samp):
         """
         ---------------------------------------------------------------------
-        lib.processing.speech_augmentation.resample._get_num_LR_output_samples
+        speechbrain.processing.speech_augmentation.resample._output_samples
         (almost directly from torchaudio.compliance.kaldi)
 
         Description: Based on LinearResample::GetNumOutputSamples.
@@ -1541,7 +1557,8 @@ class resample(nn.Module):
 
         Example: import torch
                  import soundfile as sf
-                 from lib.processing.speech_augmentation import resample
+                 from speechbrain.processing.speech_augmentation \
+                     import resample
 
                  # reading an audio signal
                  signal, rate = sf.read('samples/audio_samples/example1.wav')
@@ -1551,7 +1568,7 @@ class resample(nn.Module):
                  # config dictionary definition
                  config = {
                      'class_name':
-                        'lib.processing.speech_augmentation.resample',
+                        'speechbrain.processing.speech_augmentation.resample',
                      'orig_freq': str(rate),
                      'new_freq': str(rate // 2),
                  }
@@ -1563,7 +1580,7 @@ class resample(nn.Module):
                  resampled = resampler(signal)
 
                  length = signal.size(-1)
-                 num_samples = resampler._get_num_LR_output_samples(length)
+                 num_samples = resampler._output_samples(length)
 
                  assert resampled.size(-1) == num_samples
                  assert num_samples - num_samples % 2 == length // 2
@@ -1602,10 +1619,10 @@ class resample(nn.Module):
 
         return num_output_samp
 
-    def _get_LR_indices_and_weights(self):
+    def _indices_and_weights(self):
         """
         ---------------------------------------------------------------------
-        lib.processing.speech_augmentation.resample._get_LR_indices_and_weights
+        speechbrain.processing.speech_augmentation.resample._indices_and_weights
         (almost directly from torchaudio.compliance.kaldi)
 
         Description: Based on LinearResample::SetIndexesAndWeights where it
@@ -1626,7 +1643,8 @@ class resample(nn.Module):
 
         Example: import torch
                  import soundfile as sf
-                 from lib.processing.speech_augmentation import resample
+                 from speechbrain.processing.speech_augmentation \
+                     import resample
 
                  # reading an audio signal
                  signal, rate = sf.read('samples/audio_samples/example1.wav')
@@ -1636,7 +1654,7 @@ class resample(nn.Module):
                  # config dictionary definition
                  config = {
                      'class_name':
-                        'lib.processing.speech_augmentation.resample',
+                        'speechbrain.processing.speech_augmentation.resample',
                      'orig_freq': str(rate),
                      'new_freq': str(rate // 2),
                  }
@@ -1647,7 +1665,7 @@ class resample(nn.Module):
                  # Change frequency
                  resampler.new_freq = rate * 2
                  resampler._compute_strides()
-                 resampler._get_LR_indices_and_weights()
+                 resampler._indices_and_weights()
 
                  # Executing computations
                  resampled = resampler(signal)
@@ -1707,7 +1725,8 @@ class resample(nn.Module):
 class add_babble(nn.Module):
     """
     -------------------------------------------------------------------------
-    lib.processing.speech_augmentation.add_babble (author: Peter Plantinga)
+    speechbrain.processing.speech_augmentation.add_babble
+    (author: Peter Plantinga)
 
     Description: This class additively combines a signal with other signals
                  from the batch, to simulate babble noise.
@@ -1773,13 +1792,14 @@ class add_babble(nn.Module):
                       [batch, time_steps], or [batch, channels, time_steps]
 
     Example:   import torch
-               from lib.data_io.data_io import save
-               from lib.data_io.data_io import create_dataloader
-               from lib.processing.speech_augmentation import add_babble
+               from speechbrain.data_io.data_io import save
+               from speechbrain.data_io.data_io import create_dataloader
+               from speechbrain.processing.speech_augmentation \
+                   import add_babble
 
                # config dictionary definition
                config = {
-                   'class_name':'lib.processing.speech_augmentation.add_babble',
+                   'class_name':'speechbrain.processing.speech_augmentation.add_babble',
                }
 
                # Initialization of the class
@@ -1787,7 +1807,7 @@ class add_babble(nn.Module):
 
                # Load batch
                config = {
-                   'class_name':'lib.data_io.data_io.create_dataloader',
+                   'class_name':'speechbrain.data_io.data_io.create_dataloader',
                    'csv_file':'samples/audio_samples/csv_example3.csv',
                    'batch_size':'5',
                }
@@ -1801,7 +1821,7 @@ class add_babble(nn.Module):
 
                # save config dictionary definition
                config = {
-                  'class_name': 'lib.data_io.data_io.save',
+                  'class_name': 'speechbrain.data_io.data_io.save',
                   'save_folder': 'exp/write_example',
                   'save_format': 'wav',
                }
@@ -1926,7 +1946,8 @@ class add_babble(nn.Module):
 class drop_freq(nn.Module):
     """
     -------------------------------------------------------------------------
-    lib.processing.speech_augmentation.drop_freq (author: Peter Plantinga)
+    speechbrain.processing.speech_augmentation.drop_freq
+    (author: Peter Plantinga)
 
     Description: This class drops a random frequency from the signal, so that
                  models learn to rely on all parts of the signal, not just
@@ -1997,12 +2018,12 @@ class drop_freq(nn.Module):
 
     Example:   import torch
                import soundfile as sf
-               from lib.data_io.data_io import save
-               from lib.processing.speech_augmentation import drop_freq
+               from speechbrain.data_io.data_io import save
+               from speechbrain.processing.speech_augmentation import drop_freq
 
                # config dictionary definition
                config = {
-                   'class_name':'lib.processing.speech_augmentation.drop_freq',
+                   'class_name':'speechbrain.processing.speech_augmentation.drop_freq',
                }
 
                # Initialization of the class
@@ -2017,7 +2038,7 @@ class drop_freq(nn.Module):
 
                # save config dictionary definition
                config = {
-                  'class_name': 'lib.data_io.data_io.save',
+                  'class_name': 'speechbrain.data_io.data_io.save',
                   'save_folder': 'exp/write_example',
                   'save_format': 'wav',
                }
@@ -2139,7 +2160,8 @@ class drop_freq(nn.Module):
 class drop_chunk(nn.Module):
     """
     -------------------------------------------------------------------------
-    lib.processing.speech_augmentation.drop_chunk (author: Peter Plantinga)
+    speechbrain.processing.speech_augmentation.drop_chunk
+    (author: Peter Plantinga)
 
     Description: This class drops portions of the input signal, so that
                  models learn to rely on all parts of the signal.
@@ -2215,12 +2237,13 @@ class drop_chunk(nn.Module):
 
     Example:   import torch
                import soundfile as sf
-               from lib.data_io.data_io import save
-               from lib.processing.speech_augmentation import drop_chunk
+               from speechbrain.data_io.data_io import save
+               from speechbrain.processing.speech_augmentation \
+                   import drop_chunk
 
                # config dictionary definition
                config = {
-                   'class_name':'lib.processing.speech_augmentation.drop_chunk',
+                   'class_name':'speechbrain.processing.speech_augmentation.drop_chunk',
                }
 
                # Initialization of the class
@@ -2236,7 +2259,7 @@ class drop_chunk(nn.Module):
 
                # save config dictionary definition
                config = {
-                  'class_name': 'lib.data_io.data_io.save',
+                  'class_name': 'speechbrain.data_io.data_io.save',
                   'save_folder': 'exp/write_example',
                   'save_format': 'wav',
                }
@@ -2367,7 +2390,8 @@ class drop_chunk(nn.Module):
 class do_clip(nn.Module):
     """
     -------------------------------------------------------------------------
-    lib.processing.speech_augmentation.do_clip (author: Peter Plantinga)
+    speechbrain.processing.speech_augmentation.do_clip
+    (author: Peter Plantinga)
 
     Description: This class drops a random frequency from the signal, so that
                  models learn to rely on all parts of the signal, not just
@@ -2430,12 +2454,12 @@ class do_clip(nn.Module):
 
     Example:   import torch
                import soundfile as sf
-               from lib.data_io.data_io import save
-               from lib.processing.speech_augmentation import do_clip
+               from speechbrain.data_io.data_io import save
+               from speechbrain.processing.speech_augmentation import do_clip
 
                # config dictionary definition
                config = {
-                   'class_name':'lib.processing.speech_augmentation.do_clip',
+                   'class_name':'speechbrain.processing.speech_augmentation.do_clip',
                }
 
                # Initialization of the class
@@ -2449,7 +2473,7 @@ class do_clip(nn.Module):
 
                # save config dictionary definition
                config = {
-                  'class_name': 'lib.data_io.data_io.save',
+                  'class_name': 'speechbrain.data_io.data_io.save',
                   'save_folder': 'exp/write_example',
                   'save_format': 'wav',
                }
