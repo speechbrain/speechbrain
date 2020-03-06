@@ -44,8 +44,8 @@ def accumulatable_wer_stats(refs, hyps, stats=collections.Counter()):
         for batch in batches:
             refs, hyps = batch
             stats = accumulatable_wer_stats(refs, hyps, stats)
-        print("%WER {WER:.2f}, in {num_ref_tokens} ref tokens".format(**stats))
-        # %WER 33.33, computed over 9 reference tokens
+        print("%WER {WER:.2f}, {num_ref_tokens} ref tokens".format(**stats))
+        # %WER 33.33, 9 ref tokens
     Author:
         Aku Rouhe
     """
@@ -54,9 +54,11 @@ def accumulatable_wer_stats(refs, hyps, stats=collections.Counter()):
         updated_stats["WER"] = float("nan")
     else:
         num_edits = sum(
-            updated_stats["insertions"],
-            updated_stats["deletions"],
-            updated_stats["substitutions"],
+            [
+                updated_stats["insertions"],
+                updated_stats["deletions"],
+                updated_stats["substitutions"],
+            ]
         )
         updated_stats["WER"] = (
             100.0 * num_edits / updated_stats["num_ref_tokens"]
@@ -276,10 +278,10 @@ def count_ops(op_table):
     j = len(op_table[0]) - 1
     while not (i == 0 and j == 0):
         if i == 0:
-            ins += 1
+            edits["insertions"] += 1
             j -= 1
         elif i == 0:
-            dels += 1
+            edits["deletions"] += 1
             j -= 1
         else:
             if op_table[i][j] == EDIT_SYMBOLS["ins"]:
