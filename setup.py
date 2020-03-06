@@ -6,6 +6,6 @@ setup(name="SpeechBrain",
         description="All-in-one speech toolkit in pure Python and Pytorch",
         author="Mirco Ravanelli",
         author_email = "speechbrain@gmail.com",
-        packages = ["speechbrain"],
+        packages = ["speechbrain"],
         python_requires = ">=3.6",
 )
