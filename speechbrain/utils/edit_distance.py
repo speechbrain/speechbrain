@@ -278,10 +278,10 @@ def count_ops(op_table):
     j = len(op_table[0]) - 1
     while not (i == 0 and j == 0):
         if i == 0:
-            ins += 1
+            edits["insertions"] += 1
             j -= 1
         elif i == 0:
-            dels += 1
+            edits["deletions"] += 1
             j -= 1
         else:
             if op_table[i][j] == EDIT_SYMBOLS["ins"]:
