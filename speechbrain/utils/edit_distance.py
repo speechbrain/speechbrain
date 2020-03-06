@@ -44,8 +44,8 @@ def accumulatable_wer_stats(refs, hyps, stats=collections.Counter()):
         for batch in batches:
             refs, hyps = batch
             stats = accumulatable_wer_stats(refs, hyps, stats)
-        print("%WER {WER:.2f}, in {num_ref_tokens} ref tokens".format(**stats))
-        # %WER 33.33, computed over 9 reference tokens
+        print("%WER {WER:.2f}, {num_ref_tokens} ref tokens".format(**stats))
+        # %WER 33.33, 9 ref tokens
     Author:
         Aku Rouhe
     """
@@ -54,9 +54,11 @@ def accumulatable_wer_stats(refs, hyps, stats=collections.Counter()):
         updated_stats["WER"] = float("nan")
     else:
         num_edits = sum(
-            updated_stats["insertions"],
-            updated_stats["deletions"],
-            updated_stats["substitutions"],
+            [
+                updated_stats["insertions"],
+                updated_stats["deletions"],
+                updated_stats["substitutions"],
+            ]
         )
         updated_stats["WER"] = (
             100.0 * num_edits / updated_stats["num_ref_tokens"]
