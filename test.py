@@ -46,8 +46,8 @@ cfg_lst = [
 augmentation_config_list = glob(
     'cfg/minimal_examples/basic_processing/minimal*.cfg'
 )
-#cfg_lst += augmentation_config_list
-cfg_lst = augmentation_config_list
+
+cfg_lst += augmentation_config_list
 
 # List of files to check:
 check_lst = [

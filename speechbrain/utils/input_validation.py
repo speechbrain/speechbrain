@@ -695,3 +695,64 @@ def check_inputs(config, expected_inputs, input_lst, logger=None):
             )
 
             logger_write(err_msg, logfile=logger)
+
+
+def check_input_shapes(expected_dims, inputs, logger=None):
+    """
+    ------------------------------------------------------
+    speechbrain.processing.speech_augmentation.check_input_shape
+    (author: Peter Plantinga)
+
+    Description: Check whether the input tensor has the correct
+                 number of dimensions.
+
+    Input:       - expected_dims (type, list, mandatory):
+                     A list of possible number of dimensions that are
+                     expected for each input. Should be the same length
+                     as the list of inputs.
+
+                 - inputs (type, list, mandatory):
+                     A list of inputs which have shapes that need to be
+                     checked.
+
+                 - logger (type, logger, optional):
+                     A place to record the errors if any occur.
+
+    Output:      None
+
+    Example:     import torch
+                 from speechbrain.processing.speech_augmentation \
+                    import check_input_shapes
+
+                 inputs = [torch.randn(1, 3), torch.randn(3, 1)]
+
+                 check_input_shapes([[2, 3], [2]], inputs)
+    ------------------------------------------------------
+    """
+
+    # Check all inputs
+    for i, input_to_check in enumerate(inputs):
+
+        dimensions = len(input_to_check.shape)
+
+        # For efficiency, only do something if an error occurs
+        if dimensions not in expected_dims[i]:
+
+            # Find the calling function's class name. Its okay if this is
+            # slow because we should never come across this except if an
+            # error has occurred. This comes from:
+            # https://stackoverflow.com/a/53490973
+            import inspect
+            calling_frame = inspect.currentframe().f_back
+            class_name = calling_frame.f_locals["self"].__class__.__name__
+
+            # Build error message
+            err_msg = (
+                'Function: `%s` expected a tensor with dimension count that '
+                'is one of %s for parameter #%d but got a dimension count of '
+                '%d instead' % (
+                    class_name, str(expected_dims[i]), i+1, dimensions
+                )
+            )
+
+            logger_write(err_msg, logfile=logger)
