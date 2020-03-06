@@ -18,6 +18,7 @@ import sys
 import pycodestyle
 from speechbrain.utils import create_exec_config
 from speechbrain.core import execute_computations
+from glob import glob
 
 # List of config files to run:
 cfg_lst = [
@@ -42,6 +43,11 @@ cfg_lst = [
     "cfg/minimal_examples/neural_networks/E2E_ASR/CTC/CTC_example.cfg",
 ]
 
+augmentation_config_list = glob(
+    'cfg/minimal_examples/basic_processing/minimal*.cfg'
+)
+#cfg_lst += augmentation_config_list
+cfg_lst = augmentation_config_list
 
 # List of files to check:
 check_lst = [
@@ -66,7 +72,6 @@ check_lst = [
 'speechbrain/nnet/architectures.py',
 'speechbrain/nnet/optimizers.py'
 ]
-
 
 # Running examples in config files
 for cfg_file in cfg_lst:

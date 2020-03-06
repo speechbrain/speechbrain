@@ -1021,7 +1021,7 @@ class create_dataset(Dataset):
         data_line = self.data_dict[snt_id][self.data_entry]
 
         # Check if we need to convert labels to indexes
-        if self.data_entry in self.label_dict:
+        if self.label_dict and self.data_entry in self.label_dict:
             lab2ind = self.label_dict[self.data_entry]["lab2index"]
         else:
             lab2ind = None
