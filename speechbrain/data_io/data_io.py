@@ -2643,7 +2643,8 @@ class save:
         self.expected_options = {
             "class_name": ("str", "mandatory"),
             "save_folder": ("str", "optional", "None"),
-            "save_format": ("str", "optional", "pkl"),
+            "save_format": ("one_of(wav,flac,pkl,txt,ark,png,std_out)",
+                            "optional", "pkl"),
             "save_csv": ("bool", "optional", "False"),
             "data_name": ("str", "optional", "data"),
             "sampling_rate": ("int(0,inf)", "optional", "16000"),
