@@ -26,10 +26,6 @@ SpeechBrain is currently under development.
   * [Filter banks (FBANKs)](#filter-banks-(fbanks))
   * [Mel Frequency Cepstral Coefficients (MFCCs)](#mel-frequency-cepstral-coefficients-mfccs)
 - [Data augmentation](#data-augmentation)
-  * [Noise](#noise)
-  * [Reverberation](#reverberation)
-  * [Speed perturbation](#speed-perturbation)
-  * [Other distortions](#other-distortions)
 - [Neural Networks](#neural-networks)
   * [Training](#training)
   * [Validation](#validation)
@@ -482,10 +478,11 @@ sort the data. This way, we use more efficiently the computational resources, wi
 
 ### Output variables
 
-# Data augmentations
-In addition to adding noise, the [```data_augmentation.py```](data_augmentation.py) file defines a set of augmentations for increasing the robustness of machine learning models, and for creating datasets for speech enhancement and other environment-related tasks. The current list of enhancements follows, with links to sample files of each:
+# Data augmentation
 
- * Adding noise - [white noise example](cfg/minimal_examples/basic_processing/save_signals_with_noise.cfg) or [noise from scp file example](cfg/minimal_examples/basic_processing/save_signals_with_noise_scp.cfg)
+In addition to adding noise, the [```speechbrain/processing/speech_augmentation.py```](speechbrain/processing/speech_augmentation.py) file defines a set of augmentations for increasing the robustness of machine learning models, and for creating datasets for speech enhancement and other environment-related tasks. The current list of enhancements follows, with links to sample files of each:
+
+ * Adding noise - [white noise example](cfg/minimal_examples/basic_processing/save_signals_with_noise.cfg) or [noise from csv file example](cfg/minimal_examples/basic_processing/save_signals_with_noise_csv.cfg)
  * Adding reverberation - [reverb example](cfg/minimal_examples/basic_processing/save_signals_with_reverb.cfg)
  * Adding babble - [babble example](cfg/minimal_examples/basic_processing/save_signals_with_babble.cfg)
  * Speed perturbation - [perturbation example](cfg/minimal_examples/basic_processing/save_signals_with_speed_perturb.cfg)
