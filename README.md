@@ -8,9 +8,6 @@ The goal is to create a **single**, **flexible**, and **user-friendly** toolkit 
 
 SpeechBrain is currently under development.
 
-
- 
- 
 # Table of Contents
 - [Basics](#basics)
   * [License](#license)
@@ -23,19 +20,16 @@ SpeechBrain is currently under development.
   * [Execute computation class](#execute-computation-class)
   * [Tensor format](#tensor-format)
   * [Data preparation](#data-preparation)
-
 - [Feature extraction](#feature-extraction)
   * [Short-time Fourier transform (STFT)](#short-time-fourier-transform-(stft))
   * [Spectrograms](#spectrograms)
   * [Filter banks (FBANKs)](#filter-banks-(fbanks))
   * [Mel Frequency Cepstral Coefficients (MFCCs)](#mel-frequency-cepstral-coefficients-mfccs)
-
 - [Data augmentation](#data-augmentation)
   * [Noise](#noise)
   * [Reverberation](#reverberation)
   * [Speed perturbation](#speed-perturbation)
   * [Other distortions](#other-distortions)
-
 - [Neural Networks](#neural-networks)
   * [Training](#training)
   * [Validation](#validation)
@@ -51,7 +45,6 @@ SpeechBrain is currently under development.
   * [Classification example](#losses)
   * [Sequence-to-sequence example](#losses)
   * [Regression example](#losses)
-
 - [HMM-DNN speech recogntition](#hmm-dnn-speech-recogntition)
 - [End-to-end speech recogntition](#end-to-end-speech-recogntition)
 - [Speech enhancement](#speech-enhancement)
