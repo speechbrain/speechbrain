@@ -88,7 +88,7 @@ For instance, the config file *cfg/minimal_examples/features/compute_fbanks_exam
 python spbrain.py  cfg/minimal_examples/features/compute_fbanks_example.cfg
  ```
  
-The output will be saved in *exp/compute_fbanks* (i.e, the output_folder specified in the config file). As you can see, this folder contains a file called *log.log*, which reports useful information on the computations that have been performed. 
+The output will be saved in *exp/minimal/compute_fbanks* (i.e, the output_folder specified in the config file). As you can see, this folder contains a file called *log.log*, which reports useful information on the computations that have been performed. 
 Errors will appear both in the log file and in the standard error. The output folder also contains all the configuration files used during the computations. The file *cfg/minimal_examples/features/compute_fbanks_example.cfg* is called root config file, but other config files might be used while performing the various processing steps. All of them will be saved here to allow users to have a  clear idea about all the computations performed. The fbank features, finally, are stored in the *save* folder (in this case are saved in pkl format).
 
 ## Configuration Files
@@ -274,10 +274,10 @@ To take a look into that, let's run
 ```
 python spbrain.py  cfg/minimal_examples/features/compute_fbanks_example.cfg
 ```
-and open the `label_dict.pkl` that has been created in `/exp/compute_fbanks/`. We can read it with the following command:
+and open the `label_dict.pkl` that has been created in `/exp/minimal/compute_fbanks/`. We can read it with the following command:
 ```
 from speechbrain.data_io.data_io import load_pkl
-abel_dict=load_pkl('exp/compute_fbanks/label_dict.pkl')
+abel_dict=load_pkl('exp/minimal/compute_fbanks/label_dict.pkl')
 print(label_dict)
 ```
 And you will see the following:
@@ -306,7 +306,7 @@ The current implementation can store tensors in the following formats:
 - **png**: image format (useful to store image-like tensors like spectrograms).
 - **std_out**: the output is directly printed into the standard output.
 
- See for instance `cfg/minimal_examples/features/FBANKs.cfg` to see how one can use it within a configuration file.  The latter is called by the root config file `cfg/minimal_examples/features/compute_fbanks_example.cfg` and saves the FBANK features (using the pkl format) in `exp/compute_fbanks/save` folder.
+ See for instance `cfg/minimal_examples/features/FBANKs.cfg` to see how one can use it within a configuration file.  The latter is called by the root config file `cfg/minimal_examples/features/compute_fbanks_example.cfg` and saves the FBANK features (using the pkl format) in `exp/minimal/compute_fbanks/save` folder.
 
 ### Copying data locally
 **SpeechBrain is designed to read data on-the-fly from disk**. Copying your data in the local computation node is of crucial importance to reading them quickly. For instance, in most HPC clusters reading several small files from the shared filesystem can be slow and can even slow down the entire cluster (e.g., think about a lustre file system that is designed to read and write large files only, but it is very inefficient to read/write several small files). 
@@ -347,7 +347,7 @@ For instance, let's take a look into the execute_computations function called in
 ```
 [global]
     verbosity=2
-    output_folder=exp/read_write_mininal
+    output_folder=exp/minimal/read_write_mininal
     data_folder=samples/audio_samples
     csv_file=$data_folder/csv_example.csv
 [/global]
@@ -462,6 +462,7 @@ tensor([1.])
 ```
 As you can see, the CSV file is composed of 5 sentences and we thus have three batches (two composed of two sentences and the last one composed of a single sentences).
 
+
 ### Data sorting
 
 Batches can be created differently based on how the field sentence_sorting is set.
@@ -474,9 +475,298 @@ This parameter specifies how to sort the data before the batch creation:
 Note that if the data are sorted in ascending or descending order the batches will approximately have the same size and the need for zero paddings is minimized. Instead, if sentence_sorting is set to random, the batches might be composed of both short and long sequences and several zeros might be added in the batch. When possible, it is desirable to
 sort the data. This way, we use more efficiently the computational resources, without wasting time on processing time steps composed on zeros only. 
 
+
+### Data Loader
+SpeechBrain uses the pytorch dataloader. All the features and labels reported in the csv files are read in parallel using different workers. The option **num_workers** in exec_computations sets the number of workers used to read the data from disk and form the related batch of data. When num_workers=0, the data are not read in parallel.
+Please, see the [pytorch documentation on the data loader](https://pytorch.org/docs/stable/data.html) for more details.
+
 ### Data caching
+SpeechBrain also supports a **caching mechanism** that allows users to store data in the RAM instead of reading them from disk every time.   If we set ```cache=True``` in execute_computation function, we activate this option.
+Data are stored while the total RAM used in less or equal than cache_ram_percent. For instance, if we set ```cache_ram_percent=75``` it means that we will keep storing data until the RAM available is less than 75%. This helps when processing the same data multiple times (i.e, when n_loops>1). The first time the data are read from the disk and stored into a variable called **self.cache** in the dataloader (see create_dataloader in data_io.py ). **From the second time on, we read the data from the cache when possible**.
 
 ### Output variables
+The execute_computation function executes the computations reported in the specified configuration file *cfg_file*.
+The parameters *stop_at*, *out_var*, *accum_type* provides more advanced functionalities useful to stop the execution when a certain variable is met, to return one of the variables defined in the computations, and to accumulate the return variable.
+
+To familiarize with these functionalities, let's open the following config file: `cfg/minimal_examples/neural_networks/spk_id/training_loop.cfg`. The function validation_loop defined here executes the computations reported in `cfg/minimal_examples/neural_networks/spk_id/basic_MLP.cfg`. In this case, the output-related arguments are set as follows:
+
+- **stop_at=loss**: this means that we stop the computations in the basic_MLP file when the loss variable is computed for the last time (i.e, in the following line `loss,error=compute_cost(pout,spk_id,spk_id_len)`). The reason why we stop here in this case is that during validation we do not want to compute gradient and optimize the neural parameters.
+
+- **out_var=loss,error**:  this means that among all the variables defined in the basic_MLP file, we only return loss and error.
+
+- **accum_type=average,average**: when the csv_file is specified, the execute_computation functions loops over the batch of data. It is thus important to specify how the output variables specified before are accumulated. They can be accumulated in different ways:
+    -  *average*: the elements are averaged (this is useful, for instance, when computing the loss at each iteration and we want to return the average loss over all the iterations).
+
+    -  *sum*: the elements are summed up over the iterations.
+    
+    -  *list*: the output variables will be accumulated into a list (whose length depends on the number of batches processed).
+
+    -  *last*:  last returned element is saved (this can be useful for instance when we want to return the final model at the end of the training loop). 
+
+###  Device selection
+The execute_computation function can specify on which device the computations should be executed. 
+This is done with the field *device* that can be *cpu*, or *cuda* (see for instance `cfg/minimal_examples/neural_networks/spk_id/spk_id_example.cfg`)
+When specified, all the computations (and the related child computations when present) are performed on the selected device.
+When not specified, we inherit the device of the parent execute_computation function.
+
+In SpeechBrain it is also possible to specify the id of the cuda device where to perform the computation with the field 
+"gpu_id" (by default we perform computations on `cuda:0`).
+
+###  Multi-GPU parallelization
+Speechbrain supports two different modalities of parallelization on multiple GPUs: 
+
+- **model parallelization**:  in this case, we split the neural model on the different GPUs. This modality can be implemented very naturally within speechbrain. It is thus sufficient to select different devices and gpu_ids for the different execute_function that we want to run.
+
+- **data parallelization**:  in this case, we split the batches over multiple GPUs and we gather their results. This operation can be activated with the *multi_gpu* flag. In practice, the batches of data created from the csv file are split into n chunks. For instance, if the batch_size=4 and we have 2 GPUs, each GPU will see batches composed of 2 sentences. Each GPU processes the batches in parallel. At the end, all the results are combined in the reference GPU (by default cuda:0). We suggest using this functionality carefully. According to our experience, we can see significant speedups only then the model is very big and when the batch size is high. If this is not the case, the time needed to copy the neural parameters on the various GPUs and gather the results could be higher than employed to directly processing all the data on a single GPU. Also, remember that operations whose computations depends on the batch size (e.g, batch normalization) might be affected and behave differently.
+
+The current version of SpeechBrain supports parallelization over GPUs on the same computation node. Distributed training (i.e, training a model on different GPUs on different nodes) is not implemented yet.
+
+## Tensor format.
+All the tensors within SpeechBrain are formatted using the following convention:
+```
+tensor=(batch, channels[optional], time_steps).
+```
+**The batch is always the first element, while time_steps is always the last one. In the middle, you might have a variable number of channels**.
+
+ *Why we need tensor with the same format?*
+It is crucial to have a shared format for all the classes that process data and all the processing functions must be designed considering it. In SpeechBrain we might have pipelines of modules and if each module was based on different tensor formats, exchanging data between processing units would have been painful. Many formats are possible. For SpeechBrain we selected this one because it is the same used in **torch.audio**. 
+
+The format is very **flexible** and allows users to read different types of data. As we have seen, for **single-channel** raw waveform signals, the tensor will be ```tensor=(batch, time_steps)```, while for **multi-channel** raw waveform it will be ```tensor=(batch, n_channel, time_steps)```. Beyond waveforms, this format is used for any tensor in the computation pipeline. For instance,  fbank features that are formatted in this way:
+```
+(batch, n_filters, time_step)
+```
+The Short-Time Fourier Transform (STFT) the tensor, instead, will be:
+```
+(batch, n_fft, 2, time_step)
+```
+where the "2" is because STFT is based on complex numbers with a real and imaginary part.
+We can also read multi-channel SFT data, that will be formatted in this way:
+```
+(batch, n_channels,n_fft, 2, time_step)
+```
+
+## Data preparation
+**The data_preparation is the process of creating the CSV file starting from a certain dataset**.  
+Since every dataset is formatted in a different way, typically a different data_preparation script must be designed. Even though we will provide data_preparation scripts for several popular datasets (see data_preparation.py), in general, this part should be **done by the users**. In *samples/audio_samples* you can find some examples of CSV files from which it is possible to easily infer the type of information required in input by speechbrain.
+
+# Feature extraction
+This section reports some examples of feature extraction performed with SpeechBrain.
+The feature extraction process is extremely efficient for standard features, especially if performed on the GPUs. For this reason, we suggest to do **feature extraction on-the-fly** and to consider it just as any other speech processing module. The on-the-fly feature computation has the following advantages:
+
+1- The speech processing pipeline is cleaner and does not require a feature computation step before starting the processing.
+2- It is more compliant with on-the-fly data augmentation that can be used to significantly improve the system performance in many speech applications.
+
+Note that the standard feature extraction pipelines (e.g, MFCCS or FBANKs) are **fully differentiable** and we can backpropagate the gradient through them if needed. Thanks to this property, we can **learn** (when requested by the users) some of the **parameters** related to the feature extraction such as the filter frequencies and bands (similarly to what done in SincNet).
+
+## Short-time Fourier transform (STFT)
+We start from the most basic speech features i.e. the *Short-Time Fourier transform (STFT)*. The STFT computes the FFT transformation using sliding windows with a certain length (win_length) and a certain hop size (hop_length). 
+
+Let's open *cfg/minimal_examples/features/compute_stft_example.cfg*. The root config file just call a *loop function* that processes the data with the processing_cfg *cfg/minimal_examples/features/STFT.cfg*. The latter defines a function called compute STFT:
+```
+[global]
+    sample_rate=16000
+[/global]
+
+[functions]
+    [compute_STFT]
+        class_name=speechbrain.processing.features.STFT
+        sample_rate=$sample_rate
+        win_length=25
+        hop_length=10
+        n_fft=400
+        window_type=hamming
+        normalized_stft=False
+        center=True
+        pad_mode=reflect
+        onesided=True
+        amin= 1e-10
+        ref_value=1.0
+        top_db=80     
+    [/compute_STFT]
+    
+    [save]
+        class_name=speechbrain.data_io.data_io.save
+        save_format=pkl
+        save_csv=True
+        data_name=stft    
+    [/save]
+[/functions]
+
+[computations]
+    id,wav,wav_len,batch_id,iter_id=get_input_var()
+    STFT=compute_STFT(wav)
+    save(STFT,id,wav_len)
+[/computations]
+[/computations]
+```
+After reading the input data, we run the *STFT* function that takes in input only the speech waveform as one can see from the *STFT* description or from the relative forward method ():
+
+```python
+# reading input _list
+x=input_lst[0]
+```
+
+Once computed the *STFT*, we save it in pkl format with the function save. 
+Let's now run the STFT feature extraction with the following command:
+```
+python speechbrain.py cfg/minimal_examples/features/compute_stft_example.cfg.
+```
+
+Once run, you can find the STFT tensors in *exp/minimal/compute_stft/save*. You can open and inspect them from a python shell this way:
+
+```python
+>>> from speechbrain.data_io.data_io import read_pkl
+>>> stft_tensor=read_pkl('exp/minimal/compute_stft/save/example1.pkl')
+>>> stft_tensor
+tensor([[[ 3.8108e-03,  5.7270e-04,  3.9190e-03,  ...,  4.1250e-04,
+          -1.6833e-03, -1.2516e-03],
+         [ 0.0000e+00,  0.0000e+00,  0.0000e+00,  ...,  0.0000e+00,
+           0.0000e+00,  0.0000e+00]],
+
+        [[-4.9213e-03,  1.9049e-03,  3.3945e-03,  ...,  3.7572e-03,
+           2.6394e-05, -5.7473e-03],
+         [ 4.7684e-10,  8.7459e-04, -1.3462e-03,  ..., -1.2747e-03,
+          -7.4749e-03,  2.2892e-03]],
+
+        [[ 8.6700e-03,  2.0907e-03,  4.8991e-03,  ..., -1.2160e-02,
+           1.9242e-04,  8.6598e-03],
+         [ 5.0885e-11, -1.0420e-03,  2.4084e-04,  ...,  6.0171e-03,
+           1.3465e-02, -2.5232e-03]],
+
+        ...,
+
+        [[ 2.3675e-03, -1.8950e-04,  1.5863e-03,  ..., -3.3456e-04,
+           1.7539e-03, -1.7516e-03],
+         [ 2.8372e-10,  2.3330e-03,  3.6345e-04,  ...,  9.0855e-04,
+           2.0035e-03, -2.6378e-04]],
+
+        [[-2.3171e-04,  1.5940e-03, -2.0379e-03,  ...,  2.0709e-03,
+          -2.2090e-03,  2.7626e-03],
+         [-4.5449e-10, -2.2351e-03,  1.4587e-04,  ...,  2.9044e-04,
+          -1.2591e-03,  7.4596e-04]],
+
+        [[-2.7688e-03, -1.6443e-03,  2.3796e-03,  ..., -1.4062e-03,
+           1.3985e-03, -1.1332e-03],
+         [ 0.0000e+00,  0.0000e+00,  0.0000e+00,  ...,  0.0000e+00,
+          -0.0000e+00, -0.0000e+00]]])
+>>> stft_tensor.shape
+torch.Size([201, 2, 327])
+```
+
+As you can see we have 201 points (i.e, n_fft/2+1), a real plus and imaginary part (2) and 327 time steps (i.e, sig_len/hop_length).
+
+Now, let's add a print into the forward method of STFT to take a look into the input and output dimensionality. In particular, let's add ```print(x.shape)``` right after reading the input  list and ```print(stft.shape)``` right before the return. You should see the following shapes:
+```
+batch 1
+x torch.Size([2, 33088])
+stft torch.Size([2, 201, 2, 207])
+
+batch 2
+x torch.Size([2, 46242])
+stft torch.Size([2, 201, 2, 290])
+
+batch 3
+x torch.Size([1, 52173])
+stft torch.Size([1, 201, 2, 327])
+```
+
+As you can see the input is formated with **[batch_size, n_samples]**, while the stft has **[batch,n_fft,2, time_steps]**.
+
+## Spectrograms
+Let's now to one more step and compute spectrograms. The spectrogram can is simply the module of the complex stft function (it is thus a real number).
+
+To compute the spectrogram, let's just run the following config files:
+```
+python speechbrain.py cfg/minimal_examples/features/compute_spectrogram_example.cfg
+```
+This root config file processes the data with  the computations specified in  *cfg/minimal_examples/features/spectrogram.cfg*. The computations section execute the following functions:
+
+```
+[computations]
+    id,wav,wav_len=get_input_var()
+    STFT=compute_STFT(wav)
+    spectr=compute_spectrogram(STFT)
+    save(spectr,id,wav_len)
+[/computations]
+```
+As you can see, the function *compute_spectrogram* (implemented in *data_processing.spectrogram*)  takes in input an STFT tensor and returns a spectrogram by taking its module. 
+To visualize the spectrograms you can type:
+
+```
+python tools/visualize_pkl.py \
+              exp/minimal/compute_spectrogram/save/example1.pkl \
+              exp/minimal/compute_spectrogram/save/example2.pkl \
+```
+
+The spectrogram is one of the most popular features that can feed a neural speech processing system. The spectrogram, however, is a very high-dimensional representation of an audio signal and many times the frequency resolution is reduced by applying mel-filters. 
+
+## Filter banks (FBANKs)
+Mel filters average the frequency axis of the spectrogram with a set of filters (usually with a triangular shape)  that cover the full band. The filters, however, are not equally distributed, but we allocated more "narrow-band" filters in the lower part of the spectrum and fewer "large-band" filters for higher frequencies.  This processing is inspired by our auditory system, which is much more sensitive to low frequencies rather than high ones. Let's compute mel-filters by running:
+
+```
+python speechbrain.py  cfg/minimal_examples/features/compute_fbanks_example.cfg
+```
+
+The root_config file calls *cfg/minimal_examples/features/FBANKS.cfg*. The latter is very similar to the one discussed before for the spectrogram computation, where a function compute_fbanks is added to compute the filterbanks. 
+**This function takes in input the spectrogram and averages in with the set of mel filters**. See the FBANK class description for more details. One important parameter is ```freeze=True```. In this case, *freeze* is set to true and the filters will remain always the same every time we call the function. 
+If we set ```freeze=False```, **the central frequency and the band of each filter become learnable parameters** and can be changed by an optimizer.  In practice, if "freeze=False", this function can be seen as **a layer of a neural network where we can learn two parameters for each filter: the central frequency and the band**.
+
+## Mel Frequency Cepstral Coefficients (MFCCs)
+Beyond FBANKs, other very popular features are the Mel-Frequency Cepstral Coefficients (MFCCs). **MFCCs are built on the top of the FBANK feature by applying a Discrete Cosine Transformation (DCT)**. 
+DCT is just a linear transformation that fosters the coefficients to be less correlated. These features were extremely useful before neural networks (e.g, in the case of Gaussian Mixture Models). 
+Neural networks, however, work very well also when the input features are highly correlated and for this reason, in standard speech processing pipeline FBANKs and MFCCs often provide similar performance. To compute MFCCs, you can run:
+
+```
+python speechbrain.py  cfg/minimal_examples/features/compute_mfccs_example.cfg
+```
+
+As you can see from the processing_cfg file *cfg/minimal_examples/features/compute_mfccs_example.cfg*,  the computation pipeline is now the following:
+
+```
+[computations]
+    id,wav,wav_len=get_input_var()
+    
+    # mfcc computation pipeline
+    STFT=compute_STFT(wav)
+    spectr=compute_spectrogram(STFT)
+    FBANKs=compute_fbanks(spectr)
+    MFCCs=compute_mfccs(FBANKs)
+
+    # computing derivatives
+    delta1=compute_deltas(MFCCs)
+    delta2=compute_deltas(delta1)
+
+    # concatenate mfcc+delta1+delta2
+    pycmd(mfcc_with_deltas=torch.cat([MFCCs,delta1,delta2],dim=-2))
+
+    # applying the context window
+    mfcc_cw=context_window(mfcc_with_deltas)
+
+    save(mfcc_cw,id,wav_len)
+
+[/computations]
+```
+
+The compute_mfccs function takes in input the FBANKs and gives in output the MFCCs after applying the DCT transform and selecting n_mfcc coefficients.  
+
+
+## Derivatives
+A standard practice is to compute the derivatives of the speech features over the time axis to embed a bit of local context. This is done with **compute_deltas function** (implemented data_processing.deltas). In the previous MFCCs example, for instance, we compute the first and the second derivative  (```delta1=compute_deltas(MFCCs)``` and ```delta2=compute_deltas(delta1)```)
+and the then concatenate them with the static coefficients:
+``` python
+  # concatenate mfcc+delta1+delta2
+   mfcc_with_deltas=torch.cat([MFCCs,delta1,delta2],dim=-2)
+```
+
+## Context Window
+When processing the speech features with feedforward networks, another standard **approach to embedding a larger context consists of gathering more local frames using a context window**.  This operation is performed with the function **context_window** (implemented in *speechbrain.processing.features.context_window*):
+``` python
+    # applying the context window
+    mfcc_cw=context_window(mfcc_with_deltas)
+```
+The context_window function takes in input a tensor and returns the expanded tensor. The only two hyperparameters are *left* and *right*, that corresponds to the number of past and future frames to add, respectively.
+Note that delta and context window can be used for any kind of feature (e.g, FBANKs) and not only for MFCCs.
+
 
 # Data augmentation
 
