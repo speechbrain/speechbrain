@@ -785,3 +785,342 @@ These augmentations are designed to be efficient, so that you can use them on da
 Aside from adding noise, all augmentations work on a batch level for the sake of efficiency. This means that for smaller datasets and larger batch sizes, the diversity of augmentations applied may be limited. However, the fact that these augmentations can be different for different epochs can make up for this fact.
 
 
+# Neural Networks
+Speechbrain supports different typologies of neural networks, that can be applied to a large variety of speech processing problems. Some minimal working examples of toy tasks for autoencoder, speech recognition (both end-to-end and HMM-DNN), and spk_id can be found in *cfg/minimal_examples/neural_networks/*.
+For instance, to run the minimal spk_id experiment, you can type:
+
+```
+python spbrain.py cfg/minimal_examples/neural_networks/spk_id/spk_id_example.cfg
+```
+
+Similarly to the other examples, the root config file calls the *training loop* (that manages training and validation phases) and finally tests the performance of the network using test data. The set of computations is organized using three configuration files organized with the following hierarchy:
+
+
+├──  `cfg/minimal_examples/neural_networks/spk_id/spk_id_example.cfg ` (*root config file)*
+|----------------------└── `cfg/minimal_examples/neural_networks/spk_id/training_loop.cfg` (*training/validation  loop)
+|---------------------------------└── `cfg/minimal_examples/neural_networks/spk_id/basic_MLP.cfg` (*neural computations*)
+
+In the following subsections, we provide some examples of how a neural speech processing pipeline can be set up within SpeechBrain.
+
+## Data Splits
+To set up a neural speech processing pipeline, we need to split our dataset into three different chunks:
+- **Training set**: it is used to train the parameters of the neural network.
+- **Validation set**: it is used to monitor the performance of the neural network on held-out data during the training phase. The validation phase can be also used for different other purposes, such as hyperparameter tuning, early stopping, or learning rate annealing.
+- **Test set**: it is used to check the final performance of the neural network.  
+
+For instance, let's take a look into the following configuration file: `cfg/minimal_examples/neural_networks/spk_id/spk_id_example.cfg`. The configuration files implement a tiny toy example whose goal ss to classify whether a sentence belongs to a speaker 1 or to a speaker 2. To do it, we have the following data:
+- *samples/audio_samples/nn_training_sample/train.csv*: is it composed of 8 speech signals (4 from speaker1 and 4 from speaker 2). The speaker identities are annotated in the column *spk_id*. This dataset will be used to train the neural network.
+- *samples/audio_samples/nn_training_sample/dev.csv*: is it composed of 2 speech signals (1 from speaker1 and 1 from speaker 2). It will be used for validation.
+- *samples/audio_samples/nn_training_sample/test.csv*: is it composed of 2 speech signals (1 from speaker1 and 1 from speaker 2). It will be used for test purposes.
+
+## Training/Validation Loops
+Let's now take a look into the root config file `cfg/minimal_examples/neural_networks/spk_id/spk_id_example.cfg`.
+This configuration file defines and runs two functions executed in sequence:
+
+- **training_validation**: it manages the main training loop that alternates training and validation phases for N epochs.
+- **test**: it manages the test phase, that is used to check the performance of the system after training.
+
+The *training_validation* function takes in input the following parameters:
+```
+[training_validation]
+    class_name=speechbrain.core.execute_computations
+    cfg_file=$training_computations
+    device=$device
+    n_loops=$N_epochs
+    recovery=True
+[/training_validation]
+```        
+
+The *training_validation* function runs the computations reported in another config file (i.e., ``cfg/minimal_examples/neural_networks/spk_id/training_loop.cfg``). As we will see, the latter manages both training and validation phases. We also specify the device where all the computations must be executed and the number of training iterations (N_epohcs). Finally, we set ``` recovery=True```  to make sure the training can be resumed from the last epoch correctly executed if training is interrupted for some reason.
+
+### Training Loop
+Let's now take a look into the file ``cfg/minimal_examples/neural_networks/spk_id/training_loop.cfg` that is called from the root config file to manage training and validations loops. It defines and runs two functions:
+- **training_loop**: it loops over all the training data and trains the neural architecture specified in the configuration file. 
+- **validation_loop**: it loops over all the test data check the performance after each training epoch.
+
+The training loop function takes the following arguments:
+
+```
+[training_loop]
+    class_name=speechbrain.core.execute_computations
+    cfg_file=$neural_computations
+    csv_file=$csv_train
+    csv_read=wav,spk_id
+    batch_size=$N_batch
+    sentence_sorting=ascending
+    stop_at=optimizer
+    out_var=loss,error
+    accum_type=average,average
+    eval_mode=False
+[/training_loop]
+```
+
+The function runs the computations specified in `cfg/minimal_examples/neural_networks/spk_id/Basic_MLP.cfg`, which implements a simple single-layer MLP. The difference with the previous *traning/validation* loop is that here we specify the data in csv_file (i.e, *csv_file=samples/audio_samples/nn_training_samples/train.csv*). We thus loop over the train data and we create mini-batches, as discussed in the [basics/execute_computations] section. In particular, we create batches for the data entries specified in csv_read:  wav (i.e, the audio waveform) and spk_id (i.e., the speaker label).
+
+The batches are creating using a batch size=2 and the sentences are sorted in ascending order before creating the batches. The latter can be useful to minimize the need for zero paddings. 
+
+Let's now take a look into the variables returned by the training_loop (see  stop_at, out_var, and  accum_type fields). To better understand them, let's open the child configuration file that `cfg/minimal_examples/neural_networks/spk_id/Basic_MLP.cfg` and take a look into the related computation section:
+
+```
+[computations]
+ 
+    id,wav,wav_len, spk_id,spk_id_len,batch_id,loop_id,mode,*_=get_input_var()
+    
+    feats=compute_features(wav)
+    feats = mean_var_norm(feats,wav_len)
+    out=linear1(feats)
+    out=activation(out)
+    out=linear2(out)
+    out=torch.mean(out,dim=-1).unsqueeze(-1)
+    pout=softmax(out)
+    
+    if mode=='valid' or mode=='train':
+        loss,error=compute_cost(pout,spk_id,spk_id_len)
+    if mode == 'train':
+        loss.backward()
+        optimizer(linear1,linear2)
+    if mode=='test':
+        print_predictions(id,pout,wav_len)
+[/computations]
+```
+As specified in the *stop_at* variable, we stop the computations when the function *optimizer*
+is met. Then, we return the variables *loss* , *error* and the average them before finally giving then in output.
+In practice, when calling the training_loop function we got the average training loss and classifications errors:
+
+```
+# Training Loop
+mode='train'
+avg_loss,avg_err=training_loop(mode)
+```
+
+Note that *training loop* also takes an additional input called *mode*, that is used to discriminate between training and test phases (as you can see from `cfg/minimal_examples/neural_networks/spk_id/Basic_MLP.cfg`, the training phase requires computing the gradient and calling the optimizer, while validation and test phases do not require it).
+
+Finally, the training loop sets the flag `eval_mode=False` to make sure that all the computations are performed with the training flag active (that might impact techniques such as dropout or batch normalization, whose behavior is different from training and test phases).
+
+## Validation Loop
+The validation loop is performed after the training one to progressively monitor the performance evolution of the system.  The validation loop takes in input exactly the same neural computations specified in `cfg/minimal_examples/neural_networks/spk_id/Basic_MLP.cfg`. The main difference are the following:
+- the loop is performed on the test data (csv_file=samples/audio_samples/nn_training_samples/dev.csv).
+- we stop the computations when we meet the *loss* variable (i.e we avoid the optimization step).
+- we run the computations with the flag `torch_no_grad=True` active (to avoid computing gradient buffers)
+and with `eval_mode=True` (to perform computations in eval modality).
+
+# Test Loop
+The final loop over the test data is performed only after having completed the neural training part and it is used to check the final performance of the neural network. The test loop in  `cfg/minimal_examples/neural_networks/spk_id/spk_id_example.cfg` takes the same parameters of the validation loop. The only difference is that the function *test* is called with `mode='test'`:
+
+```
+[computations]
+    # training/validation epochs
+    training_validation()
+    
+    # test
+    mode='test'
+    test(mode)
+[/computations]
+```
+As you can see from `cfg/minimal_examples/neural_networks/spk_id/Basic_MLP.cfg`, thisflag activates the function 
+*print_predictions* that prints the predictions performed by the neural networks on the test data.
+
+# Saving checkpoints
+After each training/validation loop, it is possible to save a checkpoint of the current status of the system. 
+The saved checkpoint can be used to resume the training loop when needed. 
+Checkpoints can be saved with speechbrain.data_io.data_io.save_ckpt, as shown in  `cfg/minimal_examples/neural_networks/spk_id/training_loop.cfg`. The checkpoint saves all the neural parameters, the optimization status, and the current performance.  All the information needed to recover an experiment is stored in the recovery.pkl dictionary saved in the output folder. See the function documentation for more information on this functionality.
+
+# Architectures
+The library in *speechbrain.nnet/architectures.py* contains different types of neural networks, that can
+be used to implement **fully-connected**, **convolutional**, and **recurrent models**.  All the models are designed to be combined to create more complex neural architectures. 
+Please, take a look into the following configuration files to see an example different architectures:
+
+| Architecture   |      Configuration file      | 
+|----------|:-------------:|
+| MLP |  *cfg/minimal_examples/neural_networks/spk_id/Basic_MLP.cfg* | 
+| CNN |    -  |
+| SincNet |    -  |
+| RNN | - |
+| GRU | - |
+| Li-GRU | - |
+| LSTM | - |
+| CNN+MLP+RNN | - |
+
+In the spk_id example introduced in the previous section, one can simply switch from architecture to another. 
+
+# Replicate computations
+Many neural networks are composed of the same basic computation blocks replicated for several different layers.
+For instance, the basic computation block for standard MLP can be the following:
+```
+[functions]    
+        
+        [linear]
+        class_name=neural_networks.linear
+        n_neurons=1024
+            bias = False
+        [/linear]
+
+
+        [batch_norm]
+        class_name=neural_networks.normalize
+            norm_type=batchnorm
+        [/batch_norm]
+
+        [activation]
+        class_name=neural_networks.activation
+            act_type=leaky_relu
+        [/activation]
+
+        [dropout]
+        class_name=neural_networks.dropout
+            drop_rate=0.15
+        [/dropout]
+
+[/functions]
+
+
+[computations]
+ 
+    fea,*_=get_input_var()
+    out=linear(fea)
+    out=batch_norm(out)
+    out=activation(out)
+    out=dropout(out)
+
+[/computations]
+```
+In this case, we have in input some features, we perform a linear transformation, followed by batch normalization, application of the non-linearity and dropout. When we add multiple layers, we just have to replicate the same type of computations N times. Instead of requiring users to do by themselves this operation for every single model they implement, Speechrain offers the possibility to grow neural architectures automatically. This is done using the replicate field in the execute_computation functions. 
+Do an example of replication
+
+# Residual, Skip, and Dense connections
+The advantage of growing neural networks automatically is that we can automatically add additional connections such as residual, skip, and dense connections when required by the user. The current version of SpeechBrain supports the following additional connections:
+- **residual connections**: They are created between adjacent blocks
+- **Skip connections**: they are created between each block and the final one. 
+- **Dense connections**:  They are created between the current block and all the previous ones.
+The typology of new connections to create can be selected with the parameter *add_connections* of the execute_computations function.
+
+The new connections can be combined with the existing ones in different ways:
+- **sum**: the activations are summed together. This can be done only if the tensors have the same dimensionality (e.g., when the number of neurons is the same for all the hidden layers)
+- **diff**: the new activations are the difference between the original ones and the new ones. This can be done only if the tensors have the same dimensionality.
+- **average**: the new activations are the average between the original ones and the new ones. This can be done only if the tensors have the same dimensionality.
+- **linear_comb**: the tensor corresponding to the new activations are linearly combined with the original ones. The weights of the linear combination are learned. This operation can be done also for tensors with different dimensionality, and the final dimensionality corresponds to the original one.
+
+The modality with which the new connections are combined can be specified with the *connection_merge* parameter of the *execute_computations* function.
+Let's now see an example.
+
+Other examples can be found here:
+
+| Architecture   |      Configuration file      | 
+|----------|:-------------:|
+| MLP |  *cfg/minimal_examples/neural_networks/spk_id/Basic_MLP.cfg* | 
+| MLP + Residual Connection |    -  |
+| MLP + Skip Connection |    -  |
+| MLP + Dense Connection |    -  |
+
+Note that any architecture, including convolutional and recurrent neural networks, can be replicated with the additional connections described in this sub-section.
+
+# Normalization
+SpeechBrain implements different modalities to normalize neural networks in speechbrain/speechbrain/nnet/normalization.py. The function currently supports:
+- **batchnorm**: it applies the standard batch normalization by normalizing the mean and std of the input tensor over the batch axis.
+- **layernorm**: it applies the standard layer normalization by normalizing the mean and std of the input tensor over the neuron axis.
+- **groupnorm"**: it applies group normalization over a mini-batch of inputs. See torch.nn documentation for more info.
+
+- **instancenorm**: it applies instance norm over a mini-batch of inputs. It is similar to layernorm, but different statistics for each channel are computed.
+
+- **localresponsenorm**: it applies local response normalization over an input signal composed of several input planes. See torch.nn documentation for more info.
+
+An example of an MLP coupled with batch normalization can be found here:
+
+# Losses
+The loss is a measure that estimates "how far" are the target labels from the current network output.
+The loss (also known as *cost function* or *objective*) are scalars from which the gradient is computed. 
+
+In Speechbrain the cost functions are implemented in *speechbrain/speechbrain/nnet/losses.py*. Currently, the following losses are supported:
+- **nll**: it is the standard negative log-likelihood cost (categorical cross-entropy).
+- **mse**: it is the mean squared error between the prediction and the target.
+- **l1**:  it is the l1 distance between the prediction and the target.
+- **ctc**:  it is the ctc function used for sequence-to-sequence learning. It sums p over all the possible alignments between targets and predictions.
+- **error**:  it is the standard classification error.
+
+Depending on the typology of the problem to address, a different loss function must be used. For instance, regression problems typically use *l1* or *mse* losses, while classification problems require often *nll*. 
+
+An important option is *avoid_pad*. when True, the time steps corresponding to zero-padding are not included in the cost function computation.
+
+Please, see the following configuration files to see some examples with different loss functions:
+
+| Loss   |      Configuration file      | 
+|----------|-------------|
+| mse |  *cfg/minimal_examples/neural_networks/autoencoder/basic_MLP.cfg* | 
+| nll |    *cfg/minimal_examples/neural_networks/spk_id/basic_MLP.cfg*  |
+| nnl |    *cfg/minimal_examples/neural_networks/DNN_HMM_ASR/basic_MLP.cfg*  |
+| ctc |    *cfg/minimal_examples/neural_networks/E2E_ASR/basic_MLP.cfg*  |
+
+As you can see from  *cfg/minimal_examples/neural_networks/autoencoder/basic_MLP.cfg*, the cost function is defined in this way:
+
+```
+[compute_cost]
+    class_name=speechbrain.nnet.losses.compute_cost
+    cost_type=nll,error
+[/compute_cost]
+```
+and it called in the computation section as follows:
+```
+    if mode=='valid' or mode=='train':
+        loss,error=compute_cost(pout,spk_id,spk_id_len)
+```
+The gradient of the neural parameters over the loss can be computed in this way:
+```
+    if mode =='train':
+        loss.backward()
+```
+After computing the gradient, the parameters of the neural network can be updated with an optimization algorithm, as described in the following section.
+
+# Optimizers
+In SpeechBrain the optimizers are implemented in *speechbrain/speechbrain/nnet/optimizers.py*. All the basic optimizers such as *Adam*, *SGD*, *Rmseprop* (along with their most popular variations) are implemented. See the function documentation for a complete list of all the available alternatives. 
+
+In *cfg/minimal_examples/neural_networks/autoencoder/basic_MLP.cfg*, we used a standard Adam optimizer defined in this way:
+
+```
+[optimizer]
+    class_name=speechbrain.nnet.optimizers.optimize
+    recovery=True
+    optimizer_type=adam
+    learning_rate=$lr
+[/optimizer]
+```
+The parameter updates is performed by calling the optimizer after the gradient computation:
+
+```
+    if mode == 'train':
+        loss.backward()
+        optimizer(linear1,linear2)
+ ```
+ As you can see, the optimizer takes in input the names of the functions contaning the parameters.
+ After updating the parameters, the optimizer automatically calls the function *zero_grad()* to add zeros in the gradient buffers (and avoid its accumulation in the next batch of data).
+
+# Learning rate scheduler
+During neural network training, it is very convenient to change the values of the learning rate. Typically, the learning rate is annealed during the training phase. In *speechbrain/speechbrain/nnet/lr_scheduling.py* we implemented some learning rate schedules.  In particular, the following strategies are currently available:
+
+- **newbob**: the learning rate is annealed based on the validation performance. In particular:
+    ```
+    if (past_loss-current_loss)/past_loss < impr_threshold:
+    lr=lr * annealing_factor
+    ```                                              
+                                              
+- **time_decay**: linear decay over the epochs:
+    ```
+    lr=lr_ini/(epoch_decay*(epoch)) 
+    ```
+
+- **step_decay**:  decay over the epochs with the selected epoch_decay factor
+     ```
+    lr=self.lr_int*epoch_decay/((1+epoch)/self.epoch_drop)
+     ```
+
+- **exp_decay**:   exponential decay over the epochs selected epoch_decay factor
+    ```
+    lr=lr_ini*exp^(-self.exp_decay*epoch)
+    ```
+- **custom**:   the learning rate is set by the user with an external array (with length equal to the number of epochs)
+
+In you can find an example of, ...
+
+
+# Classification examples
+
+# Regression example

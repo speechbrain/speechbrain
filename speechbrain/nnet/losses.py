@@ -43,7 +43,7 @@ class compute_cost(nn.Module):
                                         up over all the possible alignments
                                         between targets and predictions.
 
-                               "ctc":  it is the standard classification error.
+                               "error":  it is the standard classification error.
 
 
                            - avoid_pad (bool, optional, Default: False):
