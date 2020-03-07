@@ -43,8 +43,8 @@ class compute_cost(nn.Module):
                                         up over all the possible alignments
                                         between targets and predictions.
 
-                               "error":  it is the standard classification error.
-
+                               "error":  it is the standard classification
+                               error.
 
                            - avoid_pad (bool, optional, Default: False):
                                when True, the time steps corresponding to
