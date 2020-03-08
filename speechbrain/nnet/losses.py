@@ -7,10 +7,13 @@
  -----------------------------------------------------------------------------
 """
 
+import collections
 import torch
 import torch.nn as nn
 from speechbrain.utils.input_validation import check_opts, check_inputs
 from speechbrain.utils.logger import logger_write
+from speechbrain.utils.edit_distance import accumulatable_wer_stats
+from speechbrain.data_io.data_io import filter_ctc_output
 
 
 class compute_cost(nn.Module):
@@ -45,6 +48,9 @@ class compute_cost(nn.Module):
 
                                "error":  it is the standard classification
                                error.
+
+                               "wer":  it is the word error rate computed
+                               with the edit distance algorithm.
 
                            - avoid_pad (bool, optional, Default: False):
                                when True, the time steps corresponding to
@@ -160,7 +166,10 @@ class compute_cost(nn.Module):
         # Here are summarized the expected options for this class
         self.expected_options = {
             "class_name": ("str", "mandatory"),
-            "cost_type": ("one_of_list(nll,error,mse,l1,ctc)", "mandatory"),
+            "cost_type": (
+                "one_of_list(nll,error,mse,l1,ctc,wer)",
+                "mandatory",
+            ),
             "avoid_pad": ("bool_list", "optional", "None"),
             "allow_lab_diff": ("int(0,inf)", "optional", "3"),
         }
@@ -207,6 +216,9 @@ class compute_cost(nn.Module):
                 self.blank_index = first_input[0].shape[1] - 1
                 self.costs.append(nn.CTCLoss(blank=self.blank_index))
                 self.avoid_pad[cost_index] = False
+
+            if cost == "wer":
+                self.costs.append(self.compute_wer)
 
     def forward(self, input_lst):
 
@@ -310,13 +322,18 @@ class compute_cost(nn.Module):
                 # Managing ctc cost for sequence-to-sequence learning
                 if self.cost_type[i] == "ctc":
 
+                    # Permuting output probs
                     prob_curr = prob_curr.permute(2, 0, 1)
+
+                    # Getting the input lengths
                     input_lengths = torch.round(
                         lengths[0] * prob_curr.shape[0]
                     ).int()
+
+                    # Getting the label lengths
                     lab_lengths = torch.round(lengths[1] * lab.shape[-1]).int()
 
-                    # ctc cost computation
+                    # CTC cost computation
                     ctc_cost = cost(
                         prob_curr, lab_curr, input_lengths, lab_lengths
                     )
@@ -397,3 +414,71 @@ class compute_cost(nn.Module):
         error = torch.mean((predictions != lab).float())
 
         return error
+
+    def compute_wer(self, prob, lab):
+        """
+         ----------------------------------------------------------------------
+         nnet.losses.compute_cost.compute_wer
+         (authors: Aku Rouhe, Mirco Ravanelli)
+
+         Description:  This support function computes the wer based on the
+                       edit distance.
+
+
+         Input (call):
+                        - prob (type:torch.Tensor, mandatory):
+                            it is the tensor containing the posterior
+                            probabilities in the following format:
+                            [batch,prob].
+
+                        - lab (type:torch.Tensor, mandatory):
+                            it is the FloatTensor containing the labels
+                            in the following format:
+                            [batch].
+
+
+         Output (call): - wer(type, torch.Tensor):
+                           it is the wer for the given input batch.
+
+
+         Example:   import torch
+                    from speechbrain.nnet.losses import compute_cost
+
+
+                    # Definition of the loss
+                    config={'class_name':'speechbrain.nnet.losses.compute_cost',
+                            'cost_type':'nll'}
+
+                    # Initialization of the loss function
+                    cost=compute_cost(config)
+
+                    # fake probabilities/labels
+                    prob=torch.rand([4,3])
+                    lab=torch.FloatTensor([1,0,2,0])
+                    print(cost.compute_error(prob,lab))
+
+
+         """
+        # Computing predictions
+        scores, predictions = torch.max(prob, dim=-1)
+
+        # If the case of CTC, filter the predicted output
+        if "ctc" in self.cost_type:
+            predictions = filter_ctc_output(
+                predictions, blank_id=self.blank_index
+            )
+
+        # Computing the word error rate
+        stats = accumulatable_wer_stats([lab], [predictions])
+
+        # Getting the wer
+        wer = stats["WER"]
+
+        # Setting the max value of wer
+        if wer > 100:
+            wer = 100
+
+        # Converting to a FloatTensor
+        wer = torch.FloatTensor([wer])
+
+        return wer
