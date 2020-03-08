@@ -1289,3 +1289,304 @@ The result is the following:
 ```
 
 Similar to the previous example, we tend to overfit the small training dataset used in this experiment, as witnessed by the consistent difference between training and validation losses.
+
+
+## Documentation Guidelines
+In SpeechBrain, we plan to provide documentation at different levels:
+
+-  **Website documentation**. In the SpeechBrain website, we will put detailed documentation where we put both the written tutorials and descriptions of all the functionalities of the toolkit. 
+
+-  **The SpeechBrain book**: Similarly to HTK (an old HMM-based speech toolkit developed by Cambridge) we plan to have a book that summarized the functionalities of speechbrain. The book will be mainly based on the website documentation, but also summarizing everything in a book, make it simpler to cite us.
+
+-  **Video tutorial**: For each important topic (e.g, speech recognition, speaker recognition, speech enhancement) we plan to have some video tutorials.
+  
+-  **Function/class header**: For each class/function in the repository, there should a header that properly describes its functionality, inputs, and outputs. It is also crucial to provide an example that shows how it can be used as a stand-alone function.  For each function there must be a header formatted in the following way:
+
+    ```
+    library.class/function name (authors:Author1, Author2,..)
+    
+    Description: function description
+     
+    Input: input description
+     
+    Output: output description
+    
+    Example: an example
+    ```
+
+-  **Comments**: We encourage developers to comments well on the lines of code. Please, take a look at some classes/functions in the available SpeechBrain libraries.
+
+
+### How to write a processing class
+The processing classes are those that can be called directly within a configuration file (e.g., all the classes in *processing* and *nnet* libraries). **All these classes must share the input arguments and general architecture**.
+
+**Suggestion**: *The best way to write a novel processing class is to copy and paste all the content of an existing one and do the needed changes.*
+
+The processing classes must have an initialization method followed by a __call__ or **forward** method. 
+
+#### Initialization method
+The **initialization** method initializes all the parameters and performs **all the computations that need to be done only once**. 
+
+The only mandatory argument to initialize the class is the following:
+
+- **config** (dict, mandatory): it is a dictionary containing the hyperparameters needed by the current class. For instance, if the config file contains a section like this:
+    ```
+        [linear1]
+            class_name=speechbrain.nnet.architectures.linear
+            n_neurons=1024
+            bias = False
+        [/linear1]
+    ```
+    The function *speechbrain.nnet.architectures.linear* will receive the following dictionary:
+    ```
+    config={'class_name':'speechbrain.nnet.architectures.linear',   
+            'n_neurons':'1024',
+            'bias':'True'}
+    ```
+    Note that all the values of the dictionary are string at this point of the code (they will cast later in the code).
+
+Beyond the mandatory fields, other optional fields can be given:
+
+- **funct_name** (str, optional, default:None): It is the name of the current function. For instance, in the previous example, it will be  "linear1".
+
+-  **global_config** (dict, optional, default:None): This is the dictionary containing the global variables. If the [global] section of the config  file is the following:
+    ```
+    [global]
+        verbosity=2
+        output_folder=exp/read_mininal_example2
+    [/global]
+     ```
+
+    This dictionary is the following way:
+    ```
+    global_config={'verbosity':'2', output_folder:'exp/read_mininal_example2'}
+    ```
+    These variables can be used within the code. 
+
+- **logger** (logger, optional, default: None): This is the logger that must be used to write error, info, and debug messages. In SpeechBrain all the log information is stored in a single file that is placed in $output_folder/log.log
+
+- **first_input** : (list, optional, default: None): This is a list containing the first input provided when calling the class for the first time. In SpeechBrain, **we initialize the class only the first time we call it** (see execute_computations class) and we thus have the chance to analyze the input and make sure it is the expected one (e.g, analyzing number, type, and shapes of the input list).
+
+Note that **all these arguments are automatically passed to the class when executing the related configuration file** withing SpeechBrain.
+
+The initialization method then goes ahead with the definition of the expected inputs. Let's discuss this part more in detail in the next subsection:
+
+##### Expected options
+The variable *self.expected_options* should be defined for all the classes that SpeechBrain can execute. As you can see, in *speechbrain.nnet.architectures.linear* it is defined in this way:
+``` 
+        self.expected_options = {
+            "class_name": ("str", "mandatory"),
+            "recovery": ("bool", "optional", "True"),
+            "initialize_with": ("str", "optional", "None"),
+            "n_neurons": ("int(1,inf)", "mandatory"),
+            "bias": ("bool", "optional", "True"),
+        }
+``` 
+The *self.expected_variables* is a simple python dictionary that collects all the options expected by this class. Some options are **mandatory** (e.g, *class_name* or *n_neurons*) and an error will be raised if they are missing in the config file. Other options (e.g, *recovery*, *initialize_with*, *bias* ) are **optional** and a **default value** is assigned to them when not specified in the config file.
+
+The  *self.expected_options* dictionary is organized in this way: the key of the dictionary represents the options to check. For each key, a tuple of 2 or 3 elements is expected for mandatory and optional parameters, respectively:
+
+``` 
+param_name: (parameter_type, 'mandatory')
+param_name: (parameter_type, 'optional', default_value)
+``` 
+
+The current version of SpeechBrain supports the following types (defined in the function *check_and_cast_type* of *utils.py* ):
+- **"str"**: a single string (e.g, *modality=training* )
+- **"str_list"**: a list of strings. Each element must be separated by a comma (e.g., *scp_read=wav,spk_id*)
+- **"int"**: a single integer (e.g., *batch_size=4*). For integers it is also possible to specified a valide range. For 'batch_size': ('int(1,inf)','optional','1') means that the specified value of batch_size must be an integer between 1 and infinite.
+- **"int_lst**: a list of integers separated by commas (e.g., *layers=1024,1024,512*)
+- **"float"**: a single float (e.g, learning_rate=0.001). Similarly to integers, a range can be specified (e.g. *float(0,1.0)*)
+- **float_lst**: a list of floats (e.g., *dropout_layers=0.8,0.5,0.0*)
+- **bool**: a single boolean (e.g., *drop_last=False*)
+- **file**: a single file (e.g, *processing_cfg=cfg/features/features.cfg*)
+- **file_lst**: a list of files (e.g, *models=exp/exp1/mdl1.pkl,exp/exp1/mdl2.pkl*)
+- **directory**: a single directory (e.g., *save_folder=exp/exp_speech*)
+- **directory_lst**: a list of directory (e.g., *save_folders=exp/exp_speech*, *save_folders=exp/exp_speech2*)
+- **"one_of"** : it can be used when the selection is limited to a fixed number of options. For instance, the sentence order can be *ascending* or *descending* or *random*, or *original* (i.e, *one_of(ascending,descending,random,original)*). 
+
+##### Checking the options
+After defining the self.expected_option dictionary, we can run the *check_opts* function.
+The function **check_opts checks if the options set in the config file by the users corresponding to the type expected**. If not, an error will be raised. 
+Moreover, the function assigns the specified default value for the optional parameters.  In the current example, for instance, the variable "bias" is not defined and it will be automatically set to True.
+The  check_opts not only performs a check over the parameters specified by the users but also **creates and casts the needed parameters**.  For instance, after calling *check_opts* the variable *self.n_neurons* will be created and will contain an integer (self.n_neurons=1024). **The variables created in this case, can be used in the rest of the code**.
+
+In the *speechbrain.nnet.architectures.linear*, the check_opts creates the following variables
+``` 
+self.recovery=True
+self.initialize_with=None
+self.n_neurons= 1024
+self.bias = True
+``` 
+
+Feel free to add some prints after *check_opts* (e.g, *print(self.batch_size)*) to verify it.
+
+##### Checking the first input
+As outlined before, we can also have the chance to analyze the first input given when calling the class for the first time.
+In  *speechbrain.nnet.architectures.linear*, we expect in input a single tensor and we can thus perform the check-in the following way:
+```python 
+        # Definition of the expected input
+        self.expected_inputs = ["torch.Tensor"]
+
+        # Check the first input
+        check_inputs(
+            self.conf, self.expected_inputs, first_input, logger=self.logger
+        )
+```
+
+The check_inputs function from *speechbrain.utils.input_validation* makes sure that the first input is of the expected type.
+
+The initialization then goes ahead with additional operations and performs all computations that are class-specific.For instance *speechbrain.nnet.architectures.linear*, defines the output folder,  performs additional checks in the input shapes and initializes the parameters of the linear transformation.
+
+#### Call Method
+The __call__ (or forward method), instead, can be called only after initializing the class. By default, it receives a list in input and returns another list. The input received here is the one reported in the [computation] of the config file. 
+For instance, in */cfg/minimal_examples/neural_networks/spk_id/basic_MLP.cfg*, the comoputations section contains:
+```
+out=linear1(feats)
+```
+The input_list given when calling the loop function will be thus:
+
+```
+# Reading input _list
+x = input_lst[0]
+```
+
+### Example of Processing Class
+To clarify how to write a data_processing class, let's write a very minimal processing function. For instance, let's write a function that takes in input an audio signal and normalizes its amplitude. For a class like this, we can think about the following parameters:
+```
+        [normalize]
+        class_name=speechbrain.data_io.data_processing.normalize_amp
+        normalize=True
+        [/normalize]
+```
+If normalize is True we return the signal with a maximum amplitude of 1 or -1, if not we return the original input signal.
+Let's now go in *speechbrain.data_io.data_processing.py* and create a new class called normalize_amp:
+```python
+class normalize_amp(nn.Module):
+    """
+     -------------------------------------------------------------------------
+     data_processing.normalize_amp (author: add here the author name)
+
+     Description:  Add here the function description.
+     Input (init): Add here the description of the parameters (see other classes).
+     Input (call): Add here the description of the inputs expected when calling the function.
+ output(call ): Add there the description of the outputs expected when calling the function.
+ -------------------------------------------------------------------------
+"""
+    def __init__(
+        self,
+        config,
+        funct_name=None,
+        global_config=None,
+        logger=None,
+        first_input=None,
+    ):
+        super(normalize_amp, self).__init__()
+        
+# let's add here the initialization part
+
+def forward(self, input_lst):
+# let's add here the output class
+
+```
+The initialization method will be like this:
+```python
+     self.logger=logger
+      self.expected_options = {
+            "class_name": ("str", "mandatory"),
+            "normalize": ("bool", "optional", "True"),
+        }
+
+        # Check, cast , and expand the options
+        self.conf = check_opts(
+            self, self.expected_options, config, self.logger
+        )
+
+        # Definition of the expected input
+        self.expected_inputs = ["torch.Tensor"]
+
+        # Check the first input
+        check_inputs(
+            self.conf, self.expected_inputs, first_input, logger=self.logger
+        )
+```
+
+The forward method will simply be:
+```python
+    def forward(self, input_lst):
+
+        # Reading input _list
+        x = input_lst[0]
+
+        # Normalization
+    if self.normalize:
+        x= x/x.abs().max()
+      return [x]
+```
+This function operates at the signal level and must be called within a data loop. The root config file (that should be saved somewhere, e.g, in *cfg/minimal_examples/basic_processing/normalize_loop.cfg*) will be like this:
+
+```
+[global]
+    verbosity=2
+    output_folder=exp/minimal/normalize_amplitude
+    data_folder=samples/audio_samples
+    csv_file=samples/audio_samples/scp_example.csv
+[/global]
+
+[functions]    
+        
+        [normalize_loop]
+        class_name=core.loop
+        csv_file=$scp_file
+        processing_cfg=cfg/minimal_examples/basic_processing/normalize_sig.cfg
+        [/normalize_loop]
+
+[/functions]
+
+[computations]
+
+    # loop over data batches
+    normalize_loop()
+    
+[/computations]
+```
+
+while the processing_cfg (*cfg/minimal_examples/basic_processing/normalize_sig.cfg*) must be created like this:
+
+```
+[global]
+    device=cuda
+[/global]
+
+[functions]
+
+    [normalize]
+        class_name=speechbrain.data_io.data_processing.normalize_amp
+         normalize=True
+    [/normalize]
+
+[/functions]
+
+
+[computations]
+    id,wav,wav_len=get_input_var()
+    norm_sig=normalize(wav)
+[/computations]
+```
+
+You can now run the experiment in the following way:
+```
+python speechbrain.py cfg/minimal_examples/basic_processing/normalize_loop.cfg
+```
+
+Please, take a look at the other data processing class to figure out how to implement more complex functionalities.   
+
+### Pull Requests:
+
+Before doing a pull request:
+1. Make sure that the group leader or the project leader is aware and accepts the functionality that you want to implement.
+2. Test your code accurately and make sure there are no performance bottlenecks.
+3. Make sure the code is formatted as outlined  before (do not forget the header of the functions and the related comments)
+4. Run ```python test.py``` to make sure your code doesn't harm some core functionalities. Note that the checks done by test.py are rather superficial and it is thus necessary to test your code in a very deep way before asking for a pull request.
+5. Ask for the pull request and review it according to the group leader/project leader feedback. 
+
