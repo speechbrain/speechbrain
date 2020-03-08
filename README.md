@@ -1122,5 +1122,170 @@ In you can find an example of, ...
 
 
 # Classification examples
+Neural speech processing pipelines can be divided into two different categories based on the typologies of the problem that neural networks solve:
+- **Classification problems**: The output of this system is a single prediction or a sequence of predictions. *Speech recognition*, *speaker recognition*, *emotion recognition* are all types of problems that fall into this category
+
+- **Regression problems**: the output of this system is a continuous value such as another speech signal. Systems for speech enhancement and speech separation falls into this category.
+
+
+Let's focus here on classification problems. Based on the output predicted, this problem can be classified in turn into the following categories:
+
+- *Single Prediction problems*: For each sentence, a single prediction is required. **Speaker Recognition** or other tasks that perform high-level global classification over the entire sentence such **language identification**, **emotion recognition**, **accent classification** falls into this category.
+
+- *Sequence Prediction problems*: in this case for each sentence a sequence of predictions is generated. Speech recognition is an example of such type of problems. In particular, **HMM-DNN speech recognition** is a task that requires one phone prediction at every time-steps. This means that the length of the input is equal to the length of the output label. **End-to-end speech recognition**, instead, can predict an output sequence of arbitrary size and input and labels might have different lengths.
+
+## Single Prediction problems
+Let's see an example of a single prediction problem, by taking another loop into the toy speaker classification task.
+We can run it by typing:
+```
+python spbrain.py cfg/minimal_examples/neural_networks/spk_id/spk_id_example.cfg
+```
+The roor config files call the **training_loop*, which in turn performs the computation reported in 
+``cfg/minimal_examples/neural_networks/spk_id/spk_id_example.cfg``.  Let's take a look into the first part of the computation section of the latter file:
+
+```
+    feats=compute_features(wav)
+    feats = mean_var_norm(feats,wav_len)
+
+    out=linear1(feats)
+    out=activation(out)
+    out=linear2(out)
+
+  
+    out=torch.mean(out,dim=-1).unsqueeze(-1)
+
+    pout=softmax(out)
+
+        
+    if mode=='valid' or mode=='train':
+        loss,error=compute_cost(pout,spk_id,spk_id_len)
+```
+The neural model takes in input some speech features and process them with a couple of linear transformations and activation functions. Note that after the second linear transformation (```out=linear2(out)```), we have an output vector with the following dimensionality:
+```
+torch.Size([2, 2, 189])
+```
+We thus have 2 batches, 2 neurons in output (we have two speakers), and 189 time-steps. 
+In practice, we still have one vector for each time-step, while we only have a single label for all the utterances.
+One possible approach (not, of course, the only one) is to average all the time steps using the following command:
+
+```
+out=torch.mean(out,dim=-1).unsqueeze(-1)
+```
+
+After this operation, the dimensionality of the out tensor is
+
+```
+torch.Size([2, 2, 1])
+```
+since we squeeze all the time steps into a single one. We can then apply the softmax function to this single vector, compute the loss, the related gradients and finally update the neural layers:
+
+```
+    pout=softmax(out)
+
+        
+    if mode=='valid' or mode=='train':
+        loss,error=compute_cost(pout,spk_id,spk_id_len)
+    
+    if mode == 'train':
+        loss.backward()
+        optimizer(linear1,linear2)
+ ```
+When we run the root configuration file, the following ouput is produced:
+```
+    epoch 0: loss_tr=0.8686 err_tr=0.5000 loss_valid=0.6290 err_valid=0.5000 lr_optimizer=0.00040000
+    epoch 1: loss_tr=0.4430 err_tr=0.0000 loss_valid=0.3849 err_valid=0.0000 lr_optimizer=0.00040000
+    epoch 2: loss_tr=0.2147 err_tr=0.0000 loss_valid=0.2236 err_valid=0.0000 lr_optimizer=0.00040000
+    epoch 3: loss_tr=0.1140 err_tr=0.0000 loss_valid=0.1357 err_valid=0.0000 lr_optimizer=0.00040000
+
+Predictions:
+id              prob    prediction
+spk2_snt6       0.938   spk2
+spk1_snt6       0.959   spk1
+```
+
+As you can see, the task is extremely easy and can be solved quickly even with a tiny dataset composed of 4 sentences only. The classification error in the validation set is zero, and the same happens on the test set (see the predictions printed). The results are also stored in the output folder:  ```exp/minimal/spk_id_minimal/nnets ```.
+This folder contains the last and the best neural models as well as a *res.res* file that reports the evolution of the performance during training.
+
+Even though more sophisticated techniques for more challenging problems, several popular speech processing pipelines based on a single prediction can be approached in the way described in this section.
+
+## Sequence Prediction problems
+Let's now see some examples of sequence prediction problems such as speech recognition. 
+
+### HMM-DNN ASR example
+Let's start with an HMM-DNN speech recognition example, where the neural network must provide a prediction for each time step. In a real application, an alignment step over HMM states representing phone-like units must be performed, as will be shown in the HMM-DNN section.  For now, we assume that this step is already done and we read the alignments (i.e, the labels for each time step). In particular, *cfg/minimal_examples/neural_networks/DNN_HMM_ASR/ASR_example.cfg* imports the labels form the pkl files derived from the "ali" column of the csv file (*samples/audio_samples/nn_training_samples/*.csv*). The neural computations are performed in *cfg/minimal_examples/neural_networks/DNN_HMM_ASR/basic_MLP.cfg* and are very similar to that reported in the previous example. The main difference is that in this case, we do not perform any time step squeezing because a prediction in each time step is required.
+
+We can run this example by typing:
+
+```
+python spbrain.py cfg/minimal_examples/neural_networks/DNN_HMM_ASR/ASR_example.cfg
+```
+
+The results are the following:
+```
+    epoch 0: loss_tr=3.7217 err_tr=0.9474 loss_valid=3.5079 err_valid=0.8885 lr_optimizer=0.00040000
+    epoch 1: loss_tr=3.1739 err_tr=0.6314 loss_valid=3.2666 err_valid=0.7577 lr_optimizer=0.00040000
+    epoch 2: loss_tr=2.7578 err_tr=0.5369 loss_valid=3.0712 err_valid=0.7462 lr_optimizer=0.00040000
+    epoch 3: loss_tr=2.4065 err_tr=0.4679 loss_valid=2.9143 err_valid=0.7327 lr_optimizer=0.00040000
+    epoch 4: loss_tr=2.1042 err_tr=0.3956 loss_valid=2.7846 err_valid=0.7154 lr_optimizer=0.00040000
+    epoch 5: loss_tr=1.8383 err_tr=0.3358 loss_valid=2.6772 err_valid=0.6788 lr_optimizer=0.00040000
+    epoch 6: loss_tr=1.6040 err_tr=0.2856 loss_valid=2.5920 err_valid=0.6731 lr_optimizer=0.00040000
+    epoch 7: loss_tr=1.3985 err_tr=0.2354 loss_valid=2.5244 err_valid=0.6788 lr_optimizer=0.00040000
+    epoch 8: loss_tr=1.2182 err_tr=0.1971 loss_valid=2.4688 err_valid=0.6596 lr_optimizer=0.00040000
+    epoch 9: loss_tr=1.0596 err_tr=0.1545 loss_valid=2.4227 err_valid=0.6481 lr_optimizer=0.00040000
+    epoch 10: loss_tr=0.9204 err_tr=0.1228 loss_valid=2.3857 err_valid=0.6269 lr_optimizer=0.00040000
+    epoch 11: loss_tr=0.7990 err_tr=0.0944 loss_valid=2.3570 err_valid=0.6058 lr_optimizer=0.00040000
+    ....................
+    epoch 24: loss_tr=0.1578 err_tr=0.0029 loss_valid=2.3773 err_valid=0.6154 lr_optimizer=0.00040000
+```    
+
+This time a tiny dataset composed on 4 sentences only is not enough to provide good performance in speech recognition (which is notoriously a challenging problem). From these results, it emerges that we can perfectly **overfit the training set** (i.e, training error = 0%), but as expected we  *fail to generalize* well on the validation set (err_valid=61%). The fact that we can overfit a tiny dataset, however, is an important **sanity check**. Implementations containing some bugs, in fact, usually struggle to overfit on tiny datasets like this one. When implementing a neural model, we strongly recommend to always perform an overfitting test as an important debug step.
+
+### CTC example
+
+Let's see now an example that predicts sequences of arbitrary length, as commonly done in the so-called end-to-end speech recognition. In  *cfg/minimal_examples/neural_networks/E2E_ASR/CTC/CTC_example.cfg* we report an example with a technique called Connectionist Temporal Classification (CTC). 
+As you can see from the neural computations reported in *cfg/minimal_examples/neural_networks/E2E_ASR/CTC/basic_GRU.cfg* this technique requires a recurrent neural network to work properly. A key difference with the previous examples lies in the cost function. CTC utilizes a special cost function that takes in input the current set of predictions and the target phoneme sequence:
+
+```  
+loss=compute_cost(pout,phn,[wav_len,phn_len])
+```  
+
+CTC introduces a special *blank* symbol that is used internally by CTC to explore all the possible alignments between the neural predictions and the target labels. 
+The cost function exploits a dynamic programming technique very similar to the forward algorithm used in the context of Hidden Markov Models (HMMS).
+
+The minimal CTC example can be executed by typing:
+
+```
+python spbrain.py cfg/minimal_examples/neural_networks/E2E_ASR/CTC/CTC_example.cfg
+```
+The results are the following:
+
+### Attention-based example
 
 # Regression example
+Some speech processing tasks require the estimation of continuous values. In speech enhancement, we have a noisy speech signal in input and we try to output a clean version of the input waveform. A standard autoencoder is another example of a regression problem. Regression neural networks are normally trained with the Mean-Squared-Error (MSE) or the L1 metrics as losses. 
+
+In *cfg/minimal_examples/neural_networks/autoencoder/autoencoder_example.cfg*, we provide an example of an autoencoder, that takes in input the speech features, it applies a bottleneck, and then tries to predict in the output the original output. The main difference with the previous examples lies in the labels (that are not categorical but contain real values) and the cost functions (in this case we use the standard MSE).
+
+This examples can be executed with the following command:
+
+```
+python spbrain.py cfg/minimal_examples/neural_networks/autoencoder/autoencoder_example.cfg
+```
+
+The result is the following:
+
+```
+  epoch 0: loss_tr=1.0349 loss_valid=0.8065 lr_optimizer=0.00400000
+  epoch 1: loss_tr=0.7715 loss_valid=0.6327 lr_optimizer=0.00400000
+  epoch 2: loss_tr=0.6052 loss_valid=0.5134 lr_optimizer=0.00400000
+..................
+  epoch 25: loss_tr=0.1103 loss_valid=0.1627 lr_optimizer=0.00400000
+..................
+  epoch 50: loss_tr=0.0835 loss_valid=0.1478 lr_optimizer=0.00400000
+..................
+  epoch 75: loss_tr=0.0760 loss_valid=0.1392 lr_optimizer=0.00400000
+..................
+  epoch 99: loss_tr=0.0678 loss_valid=0.1297 lr_optimizer=0.00400000
+```
+
+Similar to the previous example, we tend to overfit the small training dataset used in this experiment, as witnessed by the consistent difference between training and validation losses.
