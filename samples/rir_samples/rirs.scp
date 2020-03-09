@@ -1,5 +1,0 @@
-ID=rir1 duration=1.0 wav=(samples/rir_samples/rir1.wav,wav)
-ID=rir2 duration=1.3653125 wav=(samples/rir_samples/rir2.wav,wav)
-ID=rir3 duration=2.0 wav=(samples/rir_samples/rir3.wav,wav)
-ID=rir4 duration=0.5 wav=(samples/rir_samples/rir4.wav,wav)
-

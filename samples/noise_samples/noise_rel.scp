@@ -1,6 +1,0 @@
-ID=noise1 duration=33.12325 wav=($noise_folder/noise1.wav,wav)
-ID=noise2 duration=5.0 wav=($noise_folder/noise2.wav,wav)
-ID=noise3 duration=1.0 wav=($noise_folder/noise3.wav,wav,start:0,stop:16000)
-ID=noise4 duration=17.65875 wav=($noise_folder/noise4.wav,wav)
-ID=noise5 duration=13.685625 wav=($noise_folder/noise5.wav,wav)
-
