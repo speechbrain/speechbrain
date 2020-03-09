@@ -395,7 +395,7 @@ For instance, let's take a look into the execute_computations function called in
             cfg_file=cfg/minimal_examples/data_reading/save_signals.cfg
             csv_file=$csv_file
             batch_size=2
-            csv_read=wav,spk_id
+            csv_read=wav
             sentence_sorting=ascending
             num_workers=2
             cache=True
