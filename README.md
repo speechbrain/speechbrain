@@ -982,8 +982,10 @@ Similarly to the other examples, the root config file calls the *training loop* 
 
 
 ├──  `cfg/minimal_examples/neural_networks/spk_id/spk_id_example.cfg ` (*root config file)*
-|----------------------└── `cfg/minimal_examples/neural_networks/spk_id/training_loop.cfg` (*training/validation  loop)
-|---------------------------------└── `cfg/minimal_examples/neural_networks/spk_id/basic_MLP.cfg` (*neural computations*)
+
+|--------└── `cfg/minimal_examples/neural_networks/spk_id/training_loop.cfg` (*training/validation  loop)
+
+|----------------└── `cfg/minimal_examples/neural_networks/spk_id/basic_MLP.cfg` (*neural computations*)
 
 In the following subsections, we provide some examples of how a neural speech processing pipeline can be set up within SpeechBrain.
 
