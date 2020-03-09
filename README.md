@@ -67,7 +67,7 @@ The goal is to create a **single**, **flexible**, and **user-friendly** toolkit 
 		* [CTC Example](#ctc-example)
   * [Regression example](#regression-example)
 - [HMM-DNN Speech Recognition](#hmm-dnn-speech-recognition)
-- [End-to-End Speech Recognition](end-to-end-speech-recognition)
+- [End-to-End Speech Recognition](#end-to-end-speech-recognition)
 - [Speech enhancement](#speech-enhancement)
 - [Speaker recognition and diarization](#speaker-recognition-and-diarization)
 - [Multi-microphone processing](#multi-microphone-processing)
@@ -1342,7 +1342,7 @@ Similar to the previous example, we tend to overfit the small training dataset u
 # Speech enhancement
 # Speaker recognition and diarization
 # Multi-microphone processing
-- 
+
 # Developer Guidelines
 The goal is to write a set of libraries that process audio and speech in several different ways. The goal is to build a set of homogeneous libraries that are all compliant with the guidelines described in the following sub-sections.
 
