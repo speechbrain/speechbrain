@@ -578,7 +578,7 @@ The Short-Time Fourier Transform (STFT) the tensor, instead, will be:
 where the "2" is because STFT is based on complex numbers with a real and imaginary part.
 We can also read multi-channel SFT data, that will be formatted in this way:
 ```
-(batch, n_channels,n_fft, 2, time_step)
+(batch, n_fft, 2, time_step, n_channels)
 ```
 
 ## Data preparation
