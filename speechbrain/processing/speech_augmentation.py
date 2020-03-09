@@ -465,7 +465,10 @@ class add_noise(nn.Module):
         self.expected_options = {
             "class_name": ("str", "mandatory"),
             "csv_file": ("str", "optional", "None"),
-            "order": ("str", "optional", "random"),
+            "order": (
+                "one_of(random,ascending,descending,original)",
+                "optional", "random",
+            ),
             "batch_size": ("int(1,inf)", "optional", "None"),
             "do_cache": ("bool", "optional", "False"),
             "snr_low": ("float(-inf,inf)", "optional", "0"),
@@ -700,6 +703,11 @@ class add_reverb(nn.Module):
                           The csv file containing the location of the
                           impulse response files.
 
+                      - order (type, str, optional, default: 'random'):
+                          The order to iterate the csv file, from one of
+                          the following options: random, original, ascending,
+                          and descending.
+
                       - do_cache (type, bool, optional, default: False):
                           Whether or not to lazily load the files to a
                           cache and read the data from the cache.
@@ -809,6 +817,10 @@ class add_reverb(nn.Module):
         self.expected_options = {
             "class_name": ("str", "mandatory"),
             "csv_file": ("str", "mandatory"),
+            "order": (
+                "one_of(random,ascending,descending,original)",
+                "optional", "random",
+            ),
             "do_cache": ("bool", "optional", "False"),
             "reverb_prob": ("float(0,1)", "optional", "1"),
             "random_seed": ("int(-inf, inf)", "optional", "None"),
@@ -839,16 +851,13 @@ class add_reverb(nn.Module):
         # Initialize a random number generator with the provided seed
         if self.random_seed is not None:
             torch.random.manual_seed(self.random_seed)
-            sorting = 'random'
-        else:
-            sorting = 'original'
 
         # Create a data loader for the RIR waveforms
         self.data_loader = create_dataloader(
             {
                 'class_name': 'core.loop',
                 'csv_file': self.csv_file,
-                'sentence_sorting': sorting,
+                'sentence_sorting': self.order,
                 'do_cache': self.do_cache,
             },
             global_config=global_config,
@@ -2165,9 +2174,9 @@ class drop_chunk(nn.Module):
 
     Input (call): - inp_lst(type, list, mandatory):
                       by default the input arguments are passed with a list.
-                      In this case, inp is a list containing a single
-                      torch.tensor which contains an audio signal. The input
-                      tensor must be in one of the following formats:
+                      In this case, inp is a list containing two torch.tensors
+                      which contains a batch of signals and their lengths. The
+                      input batch must be in one of the following formats:
                       [batch, time_steps], or [batch, channels, time_steps]
 
     Output (call): - out_lst(type, list, mandatory):
