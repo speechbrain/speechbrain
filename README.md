@@ -46,6 +46,10 @@ The goal is to create a **single**, **flexible**, and **user-friendly** toolkit 
   * [Derivatives](#derivatives)
   * [Context Window](#context-window)
 - [Data augmentation](#data-augmentation)
+  * [Adding noise](#adding-noise)
+  * [Adding reverberation](#adding-reverberation)
+  * [Speed perturbation](#speed-perturbation)
+  * [Other augmentations](#other-augmentations)
 - [Neural Networks](#neural-networks)
   * [Data splits](#data-splits)
   * [Training and Validation Loops](#training-and-validation-loops)
@@ -800,9 +804,12 @@ The context_window function takes in input a tensor and returns the expanded ten
 Note that delta and context window can be used for any kind of feature (e.g, FBANKs) and not only for MFCCs.
 
 
-# Data augmentation
+# Data Augmentation
 
-In addition to adding noise, the [```speechbrain/processing/speech_augmentation.py```](speechbrain/processing/speech_augmentation.py) file defines a set of augmentations for increasing the robustness of machine learning models, and for creating datasets for speech enhancement and other environment-related tasks. The current list of enhancements follows, with links to sample files of each:
+Similarly to generating features on-the-fly, there are advantages to augmenting data on-the-fly rather than pre-computing augmented data. Our augmentation module is designed to be efficient so you can dynamically apply the augmentations during training, rather than multiplying the size of the dataset on the disk. Besides the disk and speed savings, this will improve the training process by presenting different examples each epoch rather than relying on a fixed set of examples.
+
+
+The [`speechbrain/processing/speech_augmentation.py`](speechbrain/processing/speech_augmentation.py) file defines the set of augmentations for increasing the robustness of machine learning models, and for creating datasets for speech enhancement and other environment-related tasks. The current list of enhancements is below, with a link for each to an example of a config file with all options specified:
 
  * Adding noise - [white noise example](cfg/minimal_examples/basic_processing/save_signals_with_noise.cfg) or [noise from csv file example](cfg/minimal_examples/basic_processing/save_signals_with_noise_csv.cfg)
  * Adding reverberation - [reverb example](cfg/minimal_examples/basic_processing/save_signals_with_reverb.cfg)
@@ -812,9 +819,155 @@ In addition to adding noise, the [```speechbrain/processing/speech_augmentation.
  * Dropping chunks - [chunk drop example](cfg/minimal_examples/basic_processing/save_signals_with_drop_chunk.cfg)
  * Clipping - [clipping example](cfg/minimal_examples/basic_processing/save_signals_with_clipping.cfg)
 
-These augmentations are designed to be efficient so that you can use them on data during training without worrying about saving the augmented data to disk. This also allows using a dynamic training set that can change from epoch to epoch, rather than relying on a static set. In addition, all augmentations should be differentiable, since they are implemented as ```nn.Module```s. Finally, all augmentations have a ```random_seed``` parameter, to ensure that the augmentations are repeatable, and your results are comparable from experiment to experiment.
+In order to use these augmentations, a function is defined and used in the same way as the feature generation functions. More details about some important augmentations follows:
 
-Aside from adding noise, all augmentations work on a batch level for the sake of efficiency. This means that for smaller datasets and larger batch sizes, the diversity of augmentations applied may be limited. However, the fact that these augmentations can be different for different epochs can make up for this fact.
+## Adding Noise or Reverberation
+
+In order to add pre-recorded noise or reverberation to a dataset, one needs to specify the relevant files in the same way that the speech files are specified: with a csv file. An example, found at `samples/noise_samples/noise_rel.csv`, is reproduced below:
+
+```
+ID, duration, wav, wav_format, wav_opts
+
+noise1, 33.12325, $noise_folder/noise1.wav, wav,
+noise2, 5.0, $noise_folder/noise2.wav, wav,
+noise3, 1.0, $noise_folder/noise3.wav, wav, start:0 stop:16000
+noise4, 17.65875, $noise_folder/noise4.wav, wav,
+noise5, 13.685625, $noise_folder/noise5.wav, wav,
+```
+
+The function can then be defined in a configuration file to load data from the locations listed in this file. A simple example config file can be found at `cfg/minimal_examples/basic_processing/save_signals_with_noise_csv.cfg`, reproduced below:
+
+```
+[functions]
+    [add_noise]
+        class_name=speechbrain.processing.speech_augmentation.add_noise
+        csv_file=$noise_folder/noise_rel.csv
+        order=descending
+        batch_size=2
+        do_cache=True
+        snr_low=-6
+        snr_high=10
+        pad_noise=True
+        mix_prob=0.8
+        random_seed=0
+    [/add_noise]
+    [save]
+        class_name=speechbrain.data_io.data_io.save
+        sample_rate=16000
+        save_format=flac
+        parallel_write=True
+    [/save]
+[/functions]
+
+
+[computations]
+    id,wav,wav_len,*_=get_input_var()
+    wav_noise=add_noise(wav,wav_len)
+    save(wav_noise,id,wav_len)
+[/computations]
+```
+
+The `.csv` file is passed to this function through the csv_file parameter. This file will be processed in the same way that speech is processed, with ordering, batching, and caching options.
+
+Adding noise has additional options that are not available to adding reverberation. The `snr_low` and `snr_high` parameters define a range of SNRs from which this function will randomly choose an SNR for mixing each sample. If the `pad_noise` parameter is `True`, any noise samples that are shorter than their respective speech clips will be replicated until the whole speech signal is covered.
+
+## Adding Babble
+
+Babble can be automatically generated by rotating samples in a batch and adding the samples at a high SNR. We provide this functionality, with similar SNR options to adding noise. The example from `cfg/minimal_examples/basic_processing/save_signals_with_babble.cfg` is reproduced here:
+
+```
+[functions]
+    [add_babble]
+        class_name=speechbrain.processing.speech_augmentation.add_babble
+        speaker_count=4
+        snr_low=0
+        snr_high=10
+        mix_prob=0.8
+        random_seed=0
+    [/add_babble]
+    [save]
+        class_name=speechbrain.data_io.data_io.save
+        sample_rate=16000
+        save_format=flac
+        parallel_write=True
+    [/save]
+[/functions]
+
+
+[computations]
+    id,wav,wav_len,*_=get_input_var()
+    wav_noise=add_babble(wav,wav_len)
+    save(wav_noise,id,wav_len)
+[/computations]
+```
+
+The `speaker_count` option determines the number of speakers that are added to the mixture, before the SNR is determined. Once the babble mixture has been computed, a random SNR between `snr_low` and `snr_high` is computed, and the mixture is added at the appropriate level to the original speech. The batch size must be larger than the `speaker_count`.
+
+
+## Speed perturbation
+
+Speed perturbation is a data augmentation strategy popularized by Kaldi. We provide it here with defaults that are similar to Kaldi's implementation. Our implementation is based on the included `resample` function, which comes from torchaudio. Our investigations showed that the implementation is efficient, since it is based on a polyphase filter that computes no more than the necessary information, and uses `conv1d` for fast convolutions. The example config is reproduced below:
+
+```
+[functions]
+    [speed_perturb]
+        class_name=speechbrain.processing.speech_augmentation.speed_perturb
+        orig_freq=$sample_rate
+        speeds=8,9,11,12
+        perturb_prob=0.8
+        random_seed=0
+    [/speed_perturb]
+    [save]
+        class_name=speechbrain.data_io.data_io.save
+        sample_rate=16000
+        save_format=flac
+        parallel_write=True
+    [/save]
+[/functions]
+
+
+[computations]
+    id,wav,wav_len,*_=get_input_var()
+    wav_perturb=speed_perturb(wav)
+    save(wav_perturb,id,wav_len)
+[/computations]
+```
+
+The `speeds` parameter takes a list of integers, which are divided by 10 to determine a fraction of the original speed. Of course the `resample` method can be used for arbitrary changes in speed, but simple ratios are more efficient. Passing 9, 10, and 11 for the `speeds` parameter (the default) mimics Kaldi's functionality.
+
+
+## Other augmentations
+
+The remaining augmentations: dropping a frequency, dropping chunks, and clipping are straightforward. They augment the data by removing portions of the data so that a learning model does not rely too heavily on any one type of data. In addition, dropping frequencies and dropping chunks can be combined with speed perturbation to create an augmentation scheme very similar to SpecAugment. An example would be a config file like the following:
+
+```
+[functions]
+    [speed_perturb]
+        class_name=speechbrain.processing.speech_augmentation.speed_perturb
+    [/speed_perturb]
+    [drop_freq]
+        class_name=speechbrain.processing.speech_augmentation.drop_freq
+    [/drop_freq]
+    [drop_chunk]
+        class_name=speechbrain.processing.speech_augmentation.drop_chunk
+    [/drop_chunk]
+    [compute_STFT]
+        class_name=speechbrain.processing.features.STFT
+    [/compute_STFT]
+    [compute_spectrogram]
+        class_name=speechbrain.processing.features.spectrogram
+    [/compute_spectrogram]
+[/functions]
+
+[computations]
+    id,wav,wav_len,*_=get_input_var()
+    wav_perturb=speed_perturb(wav)
+    wav_drop=drop_freq(wav_perturb)
+    wav_chunk=drop_chunk(wav_drop,wav_len)
+    stft=compute_stft(wav_chunk)
+    augmented_spec=compute_spectrogram(stft)
+[/computations]
+```
 
 
 # Neural Networks
