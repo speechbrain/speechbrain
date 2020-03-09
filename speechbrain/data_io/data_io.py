@@ -1835,7 +1835,7 @@ class print_predictions:
             # Getting corrent scores (switch to linear prob)
             current_score = torch.exp(scores[i])
 
-            # Score averaginf
+            # Score averaging
             current_score = current_score.mean()
 
             if len(predictions.shape) > 1:
@@ -1874,14 +1874,9 @@ class print_predictions:
                     string_pred = string_pred[0]
 
                 if self.ctc_out:
-                    string_pred = list(
-                        filter(lambda elem: elem != "blank", string_pred)
-                    )
-                    string_pred = [
-                        v
-                        for i, v in enumerate(string_pred)
-                        if i == 0 or v != string_pred[i - 1]
-                    ]
+
+                    # Filtering the ctc output predictions
+                    string_pred = filter_ctc_output(string_pred)
 
                 # Writing output
                 msg = "%s\t%.3f\t%s" % (snt_id, current_score, string_pred)
@@ -1896,6 +1891,77 @@ class print_predictions:
 
         # Closing the prediction file
         self.file_pred.close()
+
+
+def filter_ctc_output(string_pred, blank_id=-1, logger=None):
+    """
+     -------------------------------------------------------------------------
+     speechbrain.data_io.data_io.filter_ctc_output (author: Mirco Ravanelli)
+
+     Description: This filters the output of a ctc-based system by removing
+                  the blank symbol and the output repetitions. The function
+                  also accept in input tensors of integer indexes.
+
+
+     Input (call): - string_pred(type, list, mandatory):
+                       it is a list contaning the output strings predicted
+                       by the CTC system.
+
+
+     Output (call): - string_out(type, list):
+                       It is a list returning the output predicted by CTC
+                       without the blank symbol and the repetitions
+
+     Example:   from speechbrain.data_io.data_io import filter_ctc_output
+
+                string_pred = ['a','a','blank','b','b','blank','c']
+
+                string_out = filter_ctc_output(string_pred)
+
+                print(string_out)
+     --------------------------------------------.----------------------------
+     """
+
+    if isinstance(string_pred, list):
+        # Filterning the blank symbol
+        string_out = list(filter(lambda elem: elem != "blank", string_pred))
+
+        # Filterning the repetitions
+        string_out = [
+            v
+            for i, v in enumerate(string_out)
+            if i == 0 or v != string_out[i - 1]
+        ]
+
+    if isinstance(string_pred, torch.Tensor):
+
+        if blank_id < 0:
+            err_msg = (
+                "The blank index specified whe calling filter_ctc_output "
+                "is not valid (got %i)" % (blank_id)
+            )
+
+            logger_write(err_msg, logfile=logger)
+
+        # remove blank
+        string_pred = string_pred[string_pred != blank_id]
+
+        # remove duplicates
+        string_out = []
+
+        # Looping over all the elements of the tensor
+        for index, elem in enumerate(string_pred):
+
+            # Check if the two consecutive elements are equal
+            if index > 0 and elem == string_pred[index - 1]:
+                continue
+            else:
+                string_out.append(elem)
+
+        # Output a LongTensor
+        string_out = torch.LongTensor(string_out)
+
+    return string_out
 
 
 def recovery(self):
@@ -2643,8 +2709,11 @@ class save:
         self.expected_options = {
             "class_name": ("str", "mandatory"),
             "save_folder": ("str", "optional", "None"),
-            "save_format": ("one_of(wav,flac,pkl,txt,ark,png,std_out)",
-                            "optional", "pkl"),
+            "save_format": (
+                "one_of(wav,flac,pkl,txt,ark,png,std_out)",
+                "optional",
+                "pkl",
+            ),
             "save_csv": ("bool", "optional", "False"),
             "data_name": ("str", "optional", "data"),
             "sampling_rate": ("int(0,inf)", "optional", "16000"),
