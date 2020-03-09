@@ -6,7 +6,7 @@ SpeechBrain is an **open-source** and **all-in-one** speech toolkit based on PyT
 
 The goal is to create a **single**, **flexible**, and **user-friendly** toolkit that can be used to easily develop **state-of-the-art speech technologies**, including systems for **speech recognition**, **speaker recognition**, **speech enhancement**, **multi-microphone signal processing** and many others. 
 
-SpeechBrain is currently under development.
+*SpeechBrain is currently under development*.
 
 # Table of Contents
 - [Basics](#basics)
@@ -16,8 +16,26 @@ SpeechBrain is currently under development.
   * [Folder Structure](#folder-structure)
   * [How to run an experiment](#how-to-run-an-experiment)
   * [Configuration files](#configuration-files)
+  	* [Global section] (#global-section)
+	* [Function section] (#function-section)
+	* [Computation section] (#computation-section)
+  	* [Hierarchical Configuration Files] (#hierarchical-configuration-files)
   * [Data reading and writing](#data-reading-and-writing)
+  	* [CSV Format](#csv-format)
+	* [Audio File Reader](#audio-file-reader)
+	* [Pkl file reader](#pkl-file-reader)
+	* [String Labels](#string-labels)
+	* [Data Writing](#data-writing)
+	* [Copying Data Locally](#copying-data-locally)
   * [Execute computation class](#execute-computation-class)
+	* Data Loop(#data-loop)
+   	* Minibatch Creation(#minibatch-creation)
+	* Data Sorting(#data-sorting)
+	* Data Loader(#data-loader)
+	* Data Caching(#data-caching)
+	* Output Variables(#output-variables)
+	* Device Selection(#device-selection)
+        * Multi-GPU parallelization(#multi-gpu-parallelization)
   * [Tensor format](#tensor-format)
   * [Data preparation](#data-preparation)
 - [Feature extraction](#feature-extraction)
@@ -25,36 +43,46 @@ SpeechBrain is currently under development.
   * [Spectrograms](#spectrograms)
   * [Filter banks (FBANKs)](#filter-banks-(fbanks))
   * [Mel Frequency Cepstral Coefficients (MFCCs)](#mel-frequency-cepstral-coefficients-mfccs)
+ * [Derivatives](#derivatives)
+ * [Context Window](#contex-window)
 - [Data augmentation](#data-augmentation)
 - [Neural Networks](#neural-networks)
-  * [Training](#training)
-  * [Validation](#validation)
-  * [Test](#test)
+  * [Data splits](#data-splits)
+  * [Training/Validation Loops](#training-validation-loops)
+	* [Training Loop](#training-loop)
+	* [Validation Loop](#validation-loop)
   * [Saving checkpoints](#saving-checkpoints)
   * [Architectures](#architectures)
+  * [Replicate computations](#replicate-computations)
+  * [Residual, Skip, and Dense connections](#residual,skip,and-dense-connections)
   * [Normalization](#normalization)
   * [Losses](#losses)
   * [Optimizers](#optimizers)
   * [Learning rate scheduler](#learning-rate-scheduler)
-  * [Replicate computations](#replicate-computations)
-  * [Residual, Skip, and Dense connections](#replicate-computations)
-  * [Classification example](#losses)
-  * [Sequence-to-sequence example](#losses)
+  * [Classification example](#classification-example)
+	* [Single Prediction Problems](#single-prediction-problems)
+	* [Sequence Prediction Problems](#sequence-prediction-problems)
+        	* [HMM-DNN ASR Example](#hmm-dnn-asr-example)
+		* [CTC Example](#ctc-example)
   * [Regression example](#losses)
-- [HMM-DNN speech recogntition](#hmm-dnn-speech-recogntition)
-- [End-to-end speech recogntition](#end-to-end-speech-recogntition)
 - [Speech enhancement](#speech-enhancement)
 - [Speaker recognition and diarization](#speaker-recognition-and-diarization)
 - [Multi-microphone processing](#multi-microphone-processing)
 - [Developer Guidelines](#developer-guidelines)
-
+   * [General Guidelines](#general-guidelines)
+   * [Documentation](#documentation)
+   * [How to write a processing class](#how-to-write-a-processing-class)
+	* [Initialization Method](#initialization-method)
+	* [Call Method](#call-method)
+	* [Example of Processing Clas](#example-of-processing-class)
+ * [Merge Requests](#merge-requests)
 # Basics
 In the following sections, the basic functionalities of SpeechBrain are described. 
 
 ## License
 SpeechBrain is licensed under the [Apache License v2.0](https://tldrlegal.com/license/apache-license-2.0-(apache-2.0)) (i.e., the same as the popular Kaldi toolkit).
 
-## Installing Requirements
+## Requirements
  ```
 cd SpeechBrain
 pip install -r requirements.txt
@@ -92,7 +120,7 @@ The output will be saved in *exp/minimal/compute_fbanks* (i.e, the output_folder
 Errors will appear both in the log file and in the standard error. The output folder also contains all the configuration files used during the computations. The file *cfg/minimal_examples/features/compute_fbanks_example.cfg* is called root config file, but other config files might be used while performing the various processing steps. All of them will be saved here to allow users to have a  clear idea about all the computations performed. The fbank features, finally, are stored in the *save* folder (in this case are saved in pkl format).
 
 ## Configuration Files
-SpeechBrain can be used in two different ways by the users. Users, for instance, can directly import the functions coded in the speechbrain libraries in their own python scripts.  To make this simpler, the functions in our libraries are **properly documented**, also reporting **examples** on how they can be used as stand-alone functions. 
+SpeechBrain can be used in two different ways by the users. Users, for instance, can directly import the functions coded in the speechbrain libraries in their python scripts.  To make this simpler, the functions in our libraries are **properly documented**, also reporting **examples** on how they can be used as stand-alone functions. 
 
 The preferred modality in SpeechBrain, however, is to use the **speechbrain configuration files**. As we will see in this section, the configuration files define an *elegant*, *clean*, *transparent*, and *standard* framework where all the speechbrain modules can be **naturally integrated and combined**. The modularity and flexibility offered by this environment can allow users to code only minimal parts of the speech processing system, leaving unchanged the other parts. In the cfg folder, several examples of configuration files implementing recipes for many different speech processing systems are reported.
 
@@ -191,7 +219,7 @@ The *[global]* section **declares some variables** that could be reused in the f
 
 ### Function section
 The section *[functions]* **defines the set of functions** used in the experiment with the related hyper-parameters (or arguments). Each function must start with the mandatory field *"class_name="* that specifies where the current function is implemented. The other fields correspond to function-specific arguments (e.g, *batch_size*, *win_length*, *hop_length*, etc.). The list of the required hyperparameters of each function can be found in the documentation of the function itself. In this case, we can open the *lib.processing.features.STFT* and take a look into the documentation (or into the self.expected_options) for a list of the expected arguments. As you can see, some arguments are mandatory, while others are optional (in this case the specified default value is taken).
-The functions called in the config file are actually classes, that must have an **init** and **call** method (see class *STFT* in *data_processing.py for an example*). 
+The functions called in the config file are classes, that must have an **init** and **call** method (see class *STFT* in *data_processing.py for an example*). 
 
 The initialization method takes in input the parameters, it checks them and then performs all the **computations that need to be done only once** and not be repeated every time the function is called. 
 
@@ -203,6 +231,7 @@ The section *[computations]* finally defines **how the functions are combined** 
 ### Hierarchical configuration files
 Standard speech processing pipelines are rather complex. In many cases, it could be better to organize the computations in a  more structured way rather than writing a single big configuration file. For instance, one might want to gather the computations for feature extraction in a config file and the neural network computations in another one.
 SpeechBrain supports hierarchical configuration files, i.e, configuration files that can call other configuration files. The first configuration file is the root one, while the others are child configuration files. The latter can be called from the root one using the execute_computations function, as we will be described in detail below.
+Note that the **child computation inherits all the global variables defined in the parent configuration file**.
 
 
 ## Data Reading and Writing
@@ -226,7 +255,7 @@ The first line shows the fields that are specified in the CSV file. The mandator
 - **duration**: it reports how much each sentence lasts in seconds. As we will see later, this can be useful for processing the sentence in ascending or descending order according to their lengths. 
 
 After these two mandatory fields, the CSV contains a variable number of optional fields that depend on the features and labels
-we want to read. Each feature/label takes exactly three colums: **[data_name][data_format][data_opts]**. 
+we want to read. Each feature/label takes exactly three columns: **[data_name][data_format][data_opts]**. 
 
 - **data_name** is the name given to the data-entry to read (e.g, wav) and contains the paths where the current element is saved (for wav and pkl format) or the label string (for string format). 
 - **data_format** specifies the format of the data_name. The currently supported formats are wav, pkl, or string.
@@ -293,16 +322,16 @@ In practice the label_dict contains the following information:
 Note that we also support a list of labels for each sentence. This can be useful to set up phonemes or word labels for speech recognition. In this case, it is simply necessary to add a space between the labels, as shown in this example:
 ```
 ID,duration,wav,wav_format,wav_opts, phn,phn_format,phn_opts
-fpkt0_sx188,2.2208125,TIMIT/test/dr3/fpkt0/sx188.wav,wav,, sil hh uw ao th er ay z dh iy ix n l ix m ix dx ih dx ix cl k s cl p eh n s ix cl k aw n cl sil,string
+fpkt0_sx188,2.2208125,TIMIT/test/dr3/fpkt0/sx188.wav,wav,, sil hh uw ao th er ay z dh iy ix n l ix m ix dx ih dx ix cl k s cl p eh n s ix cl k aw n cl sil, string
 ```
 ### Data writing
-Speechbrain can store tensors that are created during the computations into disk.
+Speechbrain can store tensors that are created during the computations into the disk.
 This operation is perfomed by the `speechbrain.data_io.data_io.save` function.
 The current implementation can store tensors in the following formats:
 - **wav**: wav file format. It used the sound file writers and supports all its formats.
 - **pkl**: python pkl format.
 - **txt**: text format.
-- **ark** : kaldi binary format.
+- **ark**: Kaldi binary format.
 - **png**: image format (useful to store image-like tensors like spectrograms).
 - **std_out**: the output is directly printed into the standard output.
 
@@ -340,7 +369,7 @@ As you can see from the function documentation in *speechbrain.core.py*, this fu
 
 The numerous optional arguments can be used to implement more advanced functionalities, such *data loops*, *minibatch_creation*, *data caching*. We will discuss here the main functionalities. More advanced functionalities will be described in the following sections and in the function documentation.
 
-### Data Loop and minibatch creation
+### Data Loop
 When a csv_file (i.e, the file containing the list of sentences to process) is passed as an argument, execute_computations automatically create mini-batches and loops over all the data. 
 
 For instance, let's take a look into the execute_computations function called in this minimal example: `cfg/minimal_examples/data_reading/read_write_data.cfg`:
@@ -437,7 +466,7 @@ tensor([0.4836, 1.0000])
 0
 ```
 Note that wav is a torch.tensor composed of two signals (batch_size=2).  
-Signals are in general of different lengths and to create batches with the same size we have to perform zero paddings. This operation is automatically performed within speechbrain. It is, however, important to keep track of the original length of the signals (e.g, this could be important when we want to save non-padded signals, or when we want to compute neural network cost on valid time steps only). For this reason we also automatically return wav_len, that is a tensor containing the relative lengths of the sentences within the batch (in this case the length of the first sentence is 0.48 times the length of the second sentence)
+Signals are in general of different lengths and to create batches with the same size we have to perform zero paddings. This operation is automatically performed within SpeechBrain. It is, however, important to keep track of the original length of the signals (e.g, this could be important when we want to save non-padded signals, or when we want to compute neural network cost on valid time steps only). For this reason we also automatically return wav_len, that is a tensor containing the relative lengths of the sentences within the batch (in this case the length of the first sentence is 0.48 times the length of the second sentence)
 
 We return the relative information because it is more flexible than the absolute one. In a standard feature processing pipeline, we can change the temporal resolution of our tensors. This happens, for instance, when we compute the FBANK features from a raw waveform using windows every 10 ms. With the relative measure, we are still able to save the valid time steps, as done in the current example.
 
@@ -482,7 +511,7 @@ Please, see the [pytorch documentation on the data loader](https://pytorch.org/d
 
 ### Data caching
 SpeechBrain also supports a **caching mechanism** that allows users to store data in the RAM instead of reading them from disk every time.   If we set ```cache=True``` in execute_computation function, we activate this option.
-Data are stored while the total RAM used in less or equal than cache_ram_percent. For instance, if we set ```cache_ram_percent=75``` it means that we will keep storing data until the RAM available is less than 75%. This helps when processing the same data multiple times (i.e, when n_loops>1). The first time the data are read from the disk and stored into a variable called **self.cache** in the dataloader (see create_dataloader in data_io.py ). **From the second time on, we read the data from the cache when possible**.
+Data are stored while the total RAM used in less or equal than cache_ram_percent. For instance, if we set ```cache_ram_percent=75``` it means that we will keep storing data until the RAM available is less than 75%. This helps when processing the same data multiple times (i.e, when n_loops>1). The first time the data are read from the disk and stored into a variable called **self.cache** in the data loader (see create_dataloader in data_io.py ). **From the second time on, we read the data from the cache when possible**.
 
 ### Output variables
 The execute_computation function executes the computations reported in the specified configuration file *cfg_file*.
@@ -509,7 +538,7 @@ This is done with the field *device* that can be *cpu*, or *cuda* (see for insta
 When specified, all the computations (and the related child computations when present) are performed on the selected device.
 When not specified, we inherit the device of the parent execute_computation function.
 
-In SpeechBrain it is also possible to specify the id of the cuda device where to perform the computation with the field 
+In SpeechBrain it is also possible to specify the id of the Cuda device where to perform the computation with the field 
 "gpu_id" (by default we perform computations on `cuda:0`).
 
 ###  Multi-GPU parallelization
@@ -517,7 +546,7 @@ Speechbrain supports two different modalities of parallelization on multiple GPU
 
 - **model parallelization**:  in this case, we split the neural model on the different GPUs. This modality can be implemented very naturally within speechbrain. It is thus sufficient to select different devices and gpu_ids for the different execute_function that we want to run.
 
-- **data parallelization**:  in this case, we split the batches over multiple GPUs and we gather their results. This operation can be activated with the *multi_gpu* flag. In practice, the batches of data created from the csv file are split into n chunks. For instance, if the batch_size=4 and we have 2 GPUs, each GPU will see batches composed of 2 sentences. Each GPU processes the batches in parallel. At the end, all the results are combined in the reference GPU (by default cuda:0). We suggest using this functionality carefully. According to our experience, we can see significant speedups only then the model is very big and when the batch size is high. If this is not the case, the time needed to copy the neural parameters on the various GPUs and gather the results could be higher than employed to directly processing all the data on a single GPU. Also, remember that operations whose computations depends on the batch size (e.g, batch normalization) might be affected and behave differently.
+- **data parallelization**:  in this case, we split the batches over multiple GPUs and we gather their results. This operation can be activated with the *multi_gpu* flag. In practice, the batches of data created from the CSV file are split into n chunks. For instance, if the batch_size=4 and we have 2 GPUs, each GPU will see batches composed of 2 sentences. Each GPU processes the batches in parallel. In the end, all the results are combined in the reference GPU (by default cuda:0). We suggest using this functionality carefully. According to our experience, we can see significant speedups only then the model is very big and when the batch size is high. If this is not the case, the time needed to copy the neural parameters on the various GPUs and gather the results could be higher than employed to directly processing all the data on a single GPU. Also, remember that operations whose computations depends on the batch size (e.g, batch normalization) might be affected and behave differently.
 
 The current version of SpeechBrain supports parallelization over GPUs on the same computation node. Distributed training (i.e, training a model on different GPUs on different nodes) is not implemented yet.
 
@@ -673,7 +702,7 @@ stft torch.Size([1, 201, 2, 327])
 As you can see the input is formated with **[batch_size, n_samples]**, while the stft has **[batch,n_fft,2, time_steps]**.
 
 ## Spectrograms
-Let's now to one more step and compute spectrograms. The spectrogram can is simply the module of the complex stft function (it is thus a real number).
+Let's now do one more step and compute spectrograms. The spectrogram can is simply the module of the complex STFT function (it is thus a real number).
 
 To compute the spectrogram, let's just run the following config files:
 ```
@@ -708,7 +737,7 @@ python speechbrain.py  cfg/minimal_examples/features/compute_fbanks_example.cfg
 ```
 
 The root_config file calls *cfg/minimal_examples/features/FBANKS.cfg*. The latter is very similar to the one discussed before for the spectrogram computation, where a function compute_fbanks is added to compute the filterbanks. 
-**This function takes in input the spectrogram and averages in with the set of mel filters**. See the FBANK class description for more details. One important parameter is ```freeze=True```. In this case, *freeze* is set to true and the filters will remain always the same every time we call the function. 
+**This function takes in input the spectrogram and averages in with the set of Mel filters**. See the FBANK class description for more details. One important parameter is ```freeze=True```. In this case, *freeze* is set to true and the filters will remain always the same every time we call the function. 
 If we set ```freeze=False```, **the central frequency and the band of each filter become learnable parameters** and can be changed by an optimizer.  In practice, if "freeze=False", this function can be seen as **a layer of a neural network where we can learn two parameters for each filter: the central frequency and the band**.
 
 ## Mel Frequency Cepstral Coefficients (MFCCs)
@@ -747,7 +776,7 @@ As you can see from the processing_cfg file *cfg/minimal_examples/features/compu
 [/computations]
 ```
 
-The compute_mfccs function takes in input the FBANKs and gives in output the MFCCs after applying the DCT transform and selecting n_mfcc coefficients.  
+The compute_mfccs function takes in input the FBANKs and outputs the MFCCs after applying the DCT transform and selecting n_mfcc coefficients.  
 
 
 ## Derivatives
@@ -780,7 +809,7 @@ In addition to adding noise, the [```speechbrain/processing/speech_augmentation.
  * Dropping chunks - [chunk drop example](cfg/minimal_examples/basic_processing/save_signals_with_drop_chunk.cfg)
  * Clipping - [clipping example](cfg/minimal_examples/basic_processing/save_signals_with_clipping.cfg)
 
-These augmentations are designed to be efficient, so that you can use them on data during training without worrying about saving the augmented data to disk. This also allows using a dynamic training set that can change from epoch to epoch, rather than relying on a static set. In addition, all augmentations should be differentiable, since they are implemented as ```nn.Module```s. Finally, all augmentations have a ```random_seed``` parameter, to ensure that the augmentations are repeatable, and your results are comparable from experiment to experiment.
+These augmentations are designed to be efficient so that you can use them on data during training without worrying about saving the augmented data to disk. This also allows using a dynamic training set that can change from epoch to epoch, rather than relying on a static set. In addition, all augmentations should be differentiable, since they are implemented as ```nn.Module```s. Finally, all augmentations have a ```random_seed``` parameter, to ensure that the augmentations are repeatable, and your results are comparable from experiment to experiment.
 
 Aside from adding noise, all augmentations work on a batch level for the sake of efficiency. This means that for smaller datasets and larger batch sizes, the diversity of augmentations applied may be limited. However, the fact that these augmentations can be different for different epochs can make up for this fact.
 
@@ -808,7 +837,7 @@ To set up a neural speech processing pipeline, we need to split our dataset into
 - **Validation set**: it is used to monitor the performance of the neural network on held-out data during the training phase. The validation phase can be also used for different other purposes, such as hyperparameter tuning, early stopping, or learning rate annealing.
 - **Test set**: it is used to check the final performance of the neural network.  
 
-For instance, let's take a look into the following configuration file: `cfg/minimal_examples/neural_networks/spk_id/spk_id_example.cfg`. The configuration files implement a tiny toy example whose goal ss to classify whether a sentence belongs to a speaker 1 or to a speaker 2. To do it, we have the following data:
+For instance, let's take a look into the following configuration file: `cfg/minimal_examples/neural_networks/spk_id/spk_id_example.cfg`. The configuration files implement a tiny toy example whose goal ss to classify whether a sentence belongs to a speaker 1 or a speaker 2. To do it, we have the following data:
 - *samples/audio_samples/nn_training_sample/train.csv*: is it composed of 8 speech signals (4 from speaker1 and 4 from speaker 2). The speaker identities are annotated in the column *spk_id*. This dataset will be used to train the neural network.
 - *samples/audio_samples/nn_training_sample/dev.csv*: is it composed of 2 speech signals (1 from speaker1 and 1 from speaker 2). It will be used for validation.
 - *samples/audio_samples/nn_training_sample/test.csv*: is it composed of 2 speech signals (1 from speaker1 and 1 from speaker 2). It will be used for test purposes.
@@ -897,7 +926,7 @@ Note that *training loop* also takes an additional input called *mode*, that is 
 
 Finally, the training loop sets the flag `eval_mode=False` to make sure that all the computations are performed with the training flag active (that might impact techniques such as dropout or batch normalization, whose behavior is different from training and test phases).
 
-## Validation Loop
+### Validation Loop
 The validation loop is performed after the training one to progressively monitor the performance evolution of the system.  The validation loop takes in input exactly the same neural computations specified in `cfg/minimal_examples/neural_networks/spk_id/Basic_MLP.cfg`. The main difference are the following:
 - the loop is performed on the test data (csv_file=samples/audio_samples/nn_training_samples/dev.csv).
 - we stop the computations when we meet the *loss* variable (i.e we avoid the optimization step).
@@ -920,12 +949,12 @@ The final loop over the test data is performed only after having completed the n
 As you can see from `cfg/minimal_examples/neural_networks/spk_id/Basic_MLP.cfg`, thisflag activates the function 
 *print_predictions* that prints the predictions performed by the neural networks on the test data.
 
-# Saving checkpoints
+## Saving checkpoints
 After each training/validation loop, it is possible to save a checkpoint of the current status of the system. 
 The saved checkpoint can be used to resume the training loop when needed. 
 Checkpoints can be saved with speechbrain.data_io.data_io.save_ckpt, as shown in  `cfg/minimal_examples/neural_networks/spk_id/training_loop.cfg`. The checkpoint saves all the neural parameters, the optimization status, and the current performance.  All the information needed to recover an experiment is stored in the recovery.pkl dictionary saved in the output folder. See the function documentation for more information on this functionality.
 
-# Architectures
+## Architectures
 The library in *speechbrain.nnet/architectures.py* contains different types of neural networks, that can
 be used to implement **fully-connected**, **convolutional**, and **recurrent models**.  All the models are designed to be combined to create more complex neural architectures. 
 Please, take a look into the following configuration files to see an example different architectures:
@@ -943,7 +972,7 @@ Please, take a look into the following configuration files to see an example dif
 
 In the spk_id example introduced in the previous section, one can simply switch from architecture to another. 
 
-# Replicate computations
+## Replicate computations
 Many neural networks are composed of the same basic computation blocks replicated for several different layers.
 For instance, the basic computation block for standard MLP can be the following:
 ```
@@ -987,7 +1016,7 @@ For instance, the basic computation block for standard MLP can be the following:
 In this case, we have in input some features, we perform a linear transformation, followed by batch normalization, application of the non-linearity and dropout. When we add multiple layers, we just have to replicate the same type of computations N times. Instead of requiring users to do by themselves this operation for every single model they implement, Speechrain offers the possibility to grow neural architectures automatically. This is done using the replicate field in the execute_computation functions. 
 Do an example of replication
 
-# Residual, Skip, and Dense connections
+## Residual, Skip, and Dense connections
 The advantage of growing neural networks automatically is that we can automatically add additional connections such as residual, skip, and dense connections when required by the user. The current version of SpeechBrain supports the following additional connections:
 - **residual connections**: They are created between adjacent blocks
 - **Skip connections**: they are created between each block and the final one. 
@@ -1014,7 +1043,7 @@ Other examples can be found here:
 
 Note that any architecture, including convolutional and recurrent neural networks, can be replicated with the additional connections described in this sub-section.
 
-# Normalization
+## Normalization
 SpeechBrain implements different modalities to normalize neural networks in speechbrain/speechbrain/nnet/normalization.py. The function currently supports:
 - **batchnorm**: it applies the standard batch normalization by normalizing the mean and std of the input tensor over the batch axis.
 - **layernorm**: it applies the standard layer normalization by normalizing the mean and std of the input tensor over the neuron axis.
@@ -1026,7 +1055,7 @@ SpeechBrain implements different modalities to normalize neural networks in spee
 
 An example of an MLP coupled with batch normalization can be found here:
 
-# Losses
+## Losses
 The loss is a measure that estimates "how far" are the target labels from the current network output.
 The loss (also known as *cost function* or *objective*) are scalars from which the gradient is computed. 
 
@@ -1034,7 +1063,7 @@ In Speechbrain the cost functions are implemented in *speechbrain/speechbrain/nn
 - **nll**: it is the standard negative log-likelihood cost (categorical cross-entropy).
 - **mse**: it is the mean squared error between the prediction and the target.
 - **l1**:  it is the l1 distance between the prediction and the target.
-- **ctc**:  it is the ctc function used for sequence-to-sequence learning. It sums p over all the possible alignments between targets and predictions.
+- **ctc**:  it is the CTC function used for sequence-to-sequence learning. It sums p over all the possible alignments between targets and predictions.
 - **error**:  it is the standard classification error.
 
 Depending on the typology of the problem to address, a different loss function must be used. For instance, regression problems typically use *l1* or *mse* losses, while classification problems require often *nll*. 
@@ -1093,7 +1122,7 @@ The parameter updates is performed by calling the optimizer after the gradient c
  As you can see, the optimizer takes in input the names of the functions contaning the parameters.
  After updating the parameters, the optimizer automatically calls the function *zero_grad()* to add zeros in the gradient buffers (and avoid its accumulation in the next batch of data).
 
-# Learning rate scheduler
+## Learning rate scheduler
 During neural network training, it is very convenient to change the values of the learning rate. Typically, the learning rate is annealed during the training phase. In *speechbrain/speechbrain/nnet/lr_scheduling.py* we implemented some learning rate schedules.  In particular, the following strategies are currently available:
 
 - **newbob**: the learning rate is annealed based on the validation performance. In particular:
@@ -1121,7 +1150,7 @@ During neural network training, it is very convenient to change the values of th
 In you can find an example of, ...
 
 
-# Classification examples
+## Classification examples
 Neural speech processing pipelines can be divided into two different categories based on the typologies of the problem that neural networks solve:
 - **Classification problems**: The output of this system is a single prediction or a sequence of predictions. *Speech recognition*, *speaker recognition*, *emotion recognition* are all types of problems that fall into this category
 
@@ -1134,7 +1163,7 @@ Let's focus here on classification problems. Based on the output predicted, this
 
 - *Sequence Prediction problems*: in this case for each sentence a sequence of predictions is generated. Speech recognition is an example of such type of problems. In particular, **HMM-DNN speech recognition** is a task that requires one phone prediction at every time-steps. This means that the length of the input is equal to the length of the output label. **End-to-end speech recognition**, instead, can predict an output sequence of arbitrary size and input and labels might have different lengths.
 
-## Single Prediction problems
+### Single Prediction problems
 Let's see an example of a single prediction problem, by taking another loop into the toy speaker classification task.
 We can run it by typing:
 ```
@@ -1208,10 +1237,10 @@ This folder contains the last and the best neural models as well as a *res.res* 
 
 Even though more sophisticated techniques for more challenging problems, several popular speech processing pipelines based on a single prediction can be approached in the way described in this section.
 
-## Sequence Prediction problems
+### Sequence Prediction problems
 Let's now see some examples of sequence prediction problems such as speech recognition. 
 
-### HMM-DNN ASR example
+#### HMM-DNN ASR example
 Let's start with an HMM-DNN speech recognition example, where the neural network must provide a prediction for each time step. In a real application, an alignment step over HMM states representing phone-like units must be performed, as will be shown in the HMM-DNN section.  For now, we assume that this step is already done and we read the alignments (i.e, the labels for each time step). In particular, *cfg/minimal_examples/neural_networks/DNN_HMM_ASR/ASR_example.cfg* imports the labels form the pkl files derived from the "ali" column of the csv file (*samples/audio_samples/nn_training_samples/*.csv*). The neural computations are performed in *cfg/minimal_examples/neural_networks/DNN_HMM_ASR/basic_MLP.cfg* and are very similar to that reported in the previous example. The main difference is that in this case, we do not perform any time step squeezing because a prediction in each time step is required.
 
 We can run this example by typing:
@@ -1242,7 +1271,7 @@ This time a tiny dataset composed on 4 sentences only is not enough to provide g
 
 ### CTC example
 
-Let's see now an example that predicts sequences of arbitrary length, as commonly done in the so-called end-to-end speech recognition. In  *cfg/minimal_examples/neural_networks/E2E_ASR/CTC/CTC_example.cfg* we report an example with a technique called Connectionist Temporal Classification (CTC). 
+Let's now see an example that predicts sequences of arbitrary length, as commonly done in the so-called end-to-end speech recognition. In  *cfg/minimal_examples/neural_networks/E2E_ASR/CTC/CTC_example.cfg* we report an example with a technique called Connectionist Temporal Classification (CTC). 
 As you can see from the neural computations reported in *cfg/minimal_examples/neural_networks/E2E_ASR/CTC/basic_GRU.cfg* this technique requires a recurrent neural network to work properly. A key difference with the previous examples lies in the cost function. CTC utilizes a special cost function that takes in input the current set of predictions and the target phoneme sequence:
 
 ```  
@@ -1252,12 +1281,27 @@ loss=compute_cost(pout,phn,[wav_len,phn_len])
 CTC introduces a special *blank* symbol that is used internally by CTC to explore all the possible alignments between the neural predictions and the target labels. 
 The cost function exploits a dynamic programming technique very similar to the forward algorithm used in the context of Hidden Markov Models (HMMS).
 
-The minimal CTC example can be executed by typing:
+The minimal CTC example (standard CTC+ greedy decoder) can be executed by typing:
 
 ```
 python spbrain.py cfg/minimal_examples/neural_networks/E2E_ASR/CTC/CTC_example.cfg
 ```
 The results are the following:
+
+```
+    epoch 0: loss_tr=13.0512 wer_tr=93.1280 loss_valid=9.2014 wer_valid=92.7910 lr_optimizer=0.00400000
+    epoch 1: loss_tr=6.4152 wer_tr=88.2063 loss_valid=4.7612 wer_valid=94.6429 lr_optimizer=0.00400000
+    epoch 2: loss_tr=4.6752 wer_tr=91.7736 loss_valid=4.3100 wer_valid=98.1481 lr_optimizer=0.00400000
+    epoch 3: loss_tr=3.5873 wer_tr=90.3361 loss_valid=4.1391 wer_valid=92.7249 lr_optimizer=0.00400000
+    epoch 4: loss_tr=2.9066 wer_tr=75.6517 loss_valid=4.5876 wer_valid=94.5106 lr_optimizer=0.00400000
+    epoch 5: loss_tr=2.3078 wer_tr=68.7263 loss_valid=4.3725 wer_valid=92.6587 lr_optimizer=0.00400000
+    epoch 6: loss_tr=1.7537 wer_tr=53.4681 loss_valid=4.6528 wer_valid=94.5106 lr_optimizer=0.00400000
+    epoch 7: loss_tr=1.2776 wer_tr=40.2720 loss_valid=4.5146 wer_valid=90.8730 lr_optimizer=0.00400000
+    epoch 8: loss_tr=0.9414 wer_tr=32.6076 loss_valid=4.9586 wer_valid=92.7249 lr_optimizer=0.00400000
+    epoch 9: loss_tr=0.6902 wer_tr=24.2274 loss_valid=5.1190 wer_valid=92.7249 lr_optimizer=0.00400000
+```
+
+As expected on such a tiny dataset, the neural network overfits the training data but cannot generalize well on the validation set.
 
 ### Attention-based example
 
@@ -1290,8 +1334,21 @@ The result is the following:
 
 Similar to the previous example, we tend to overfit the small training dataset used in this experiment, as witnessed by the consistent difference between training and validation losses.
 
+# Developer Guidelines
+The goal is to write a set of libraries that process audio and speech in several different ways. The goal is to build a set of homogeneous libraries that are all compliant with the guidelines described in the following sub-sections.
 
-## Documentation Guidelines
+## General Guidelines
+SpeechBrain could be used for *research*, *academic*, *commercial*,*non-commercial* purposes. Ideally, the code should have the following features:
+- **Simple:**  the code must be easy to understand even by students or by users that are not professional programmers or speech researchers. Try to design your code such that it can be easily read. Given alternatives with the same level of performance, code the simplest one. (the most explicit and straightforward manner is preferred)
+- **Readable:** SpeechBrain adopts the code style conventions in PEP8. The code written by the users must be compliant with that. Please use  *pycodestyle* to check the compatibility with PEP8 guidelines.
+We also suggest using *pylint* for further checks (e.g, to find typos in comments or other suggestions).
+
+- **Efficient**: The code should be as efficient as possible. When possible, users should maximize the use of pytorch native operations.  Remember that in generally very convenient to process in parallel multiple signals rather than processing them one by one (e.g try to use *batch_size > 1* when possible). Test the code carefully with your favorite profiler (e.g, torch.utils.bottleneck https://pytorch.org/docs/stable/bottleneck.html ) to make sure there are no bottlenecks if your code.  Since we are not working in *c++* directly, performance can be an issue. Despite that, our goal is to make SpeechBrain as fast as possible. 
+- **modular:** Write your code such that is is very modular and fits well with the other functionalities of the toolkit. The idea is to develop a bunch of models that can be naturally interconnected with each other to implement complex modules.
+- **well documented:**  Given the goals of SpeechBrain, writing a rich a good documentation is a crucial step. Many existing toolkits are not well documented, and we have to succeed in that to make the difference.
+This aspect will be better described in the following sub-section.
+
+## Documentation
 In SpeechBrain, we plan to provide documentation at different levels:
 
 -  **Website documentation**. In the SpeechBrain website, we will put detailed documentation where we put both the written tutorials and descriptions of all the functionalities of the toolkit. 
@@ -1581,7 +1638,7 @@ python speechbrain.py cfg/minimal_examples/basic_processing/normalize_loop.cfg
 
 Please, take a look at the other data processing class to figure out how to implement more complex functionalities.   
 
-### Pull Requests:
+### Merge Requests:
 
 Before doing a pull request:
 1. Make sure that the group leader or the project leader is aware and accepts the functionality that you want to implement.
