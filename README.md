@@ -16,55 +16,58 @@ The goal is to create a **single**, **flexible**, and **user-friendly** toolkit 
   * [Folder Structure](#folder-structure)
   * [How to run an experiment](#how-to-run-an-experiment)
   * [Configuration files](#configuration-files)
-  	* [Global section] (#global-section)
-	* [Function section] (#function-section)
-	* [Computation section] (#computation-section)
-  	* [Hierarchical Configuration Files] (#hierarchical-configuration-files)
+  	* [Global section](#global-section)
+	* [Function section](#function-section)
+	* [Computation section](#computation-section)
+  	* [Hierarchical Configuration Files](#hierarchical-configuration-files)
   * [Data reading and writing](#data-reading-and-writing)
-  	* [CSV Format](#csv-format)
+  	* [CSV file format](#csv-file-format)
 	* [Audio File Reader](#audio-file-reader)
 	* [Pkl file reader](#pkl-file-reader)
 	* [String Labels](#string-labels)
 	* [Data Writing](#data-writing)
 	* [Copying Data Locally](#copying-data-locally)
   * [Execute computation class](#execute-computation-class)
-	* Data Loop(#data-loop)
-   	* Minibatch Creation(#minibatch-creation)
-	* Data Sorting(#data-sorting)
-	* Data Loader(#data-loader)
-	* Data Caching(#data-caching)
-	* Output Variables(#output-variables)
-	* Device Selection(#device-selection)
-        * Multi-GPU parallelization(#multi-gpu-parallelization)
+	* [Data Loop](#data-loop)
+   	* [Minibatch Creation](#minibatch-creation)
+	* [Data Sorting](#data-sorting)
+	* [Data Loader](#data-loader)
+	* [Data Caching](#data-caching)
+	* [Output Variables](#output-variables)
+	* [Device Selection](#device-selection)
+    * [Multi-GPU parallelization](#multi-gpu-parallelization)
   * [Tensor format](#tensor-format)
   * [Data preparation](#data-preparation)
 - [Feature extraction](#feature-extraction)
-  * [Short-time Fourier transform (STFT)](#short-time-fourier-transform-(stft))
+  * [Short-time Fourier transform (STFT)](#short-time-fourier-transform-stft)
   * [Spectrograms](#spectrograms)
-  * [Filter banks (FBANKs)](#filter-banks-(fbanks))
+  * [Filter banks (FBANKs)](#filter-banks-fbanks)
   * [Mel Frequency Cepstral Coefficients (MFCCs)](#mel-frequency-cepstral-coefficients-mfccs)
- * [Derivatives](#derivatives)
- * [Context Window](#contex-window)
+  * [Derivatives](#derivatives)
+  * [Context Window](#context-window)
 - [Data augmentation](#data-augmentation)
 - [Neural Networks](#neural-networks)
   * [Data splits](#data-splits)
-  * [Training/Validation Loops](#training-validation-loops)
-	* [Training Loop](#training-loop)
-	* [Validation Loop](#validation-loop)
+  * [Training and Validation Loops](#training-and-validation-loops)
+	* [Training](#training)
+	* [Validation](#validation)
+	* [Test](#test)
   * [Saving checkpoints](#saving-checkpoints)
   * [Architectures](#architectures)
   * [Replicate computations](#replicate-computations)
-  * [Residual, Skip, and Dense connections](#residual,skip,and-dense-connections)
+  * [Residual, Skip, and Dense connections](#residual-skip-and-dense-connections)
   * [Normalization](#normalization)
   * [Losses](#losses)
   * [Optimizers](#optimizers)
   * [Learning rate scheduler](#learning-rate-scheduler)
-  * [Classification example](#classification-example)
+  * [Classification examples](#classification-examples)
 	* [Single Prediction Problems](#single-prediction-problems)
 	* [Sequence Prediction Problems](#sequence-prediction-problems)
-        	* [HMM-DNN ASR Example](#hmm-dnn-asr-example)
+        * [HMM-DNN ASR Example](#hmm-dnn-asr-example)
 		* [CTC Example](#ctc-example)
-  * [Regression example](#losses)
+  * [Regression example](#regression-example)
+- [HMM-DNN Speech Recognition](#hmm-dnn-speech-recognition)
+- [End-to-End Speech Recognition](end-to-end-speech-recognition)
 - [Speech enhancement](#speech-enhancement)
 - [Speaker recognition and diarization](#speaker-recognition-and-diarization)
 - [Multi-microphone processing](#multi-microphone-processing)
@@ -74,8 +77,8 @@ The goal is to create a **single**, **flexible**, and **user-friendly** toolkit 
    * [How to write a processing class](#how-to-write-a-processing-class)
 	* [Initialization Method](#initialization-method)
 	* [Call Method](#call-method)
-	* [Example of Processing Clas](#example-of-processing-class)
- * [Merge Requests](#merge-requests)
+	* [Example of Processing Class](#example-of-processing-class)
+   * [Merge Requests](#merge-requests)
 # Basics
 In the following sections, the basic functionalities of SpeechBrain are described. 
 
@@ -842,7 +845,7 @@ For instance, let's take a look into the following configuration file: `cfg/mini
 - *samples/audio_samples/nn_training_sample/dev.csv*: is it composed of 2 speech signals (1 from speaker1 and 1 from speaker 2). It will be used for validation.
 - *samples/audio_samples/nn_training_sample/test.csv*: is it composed of 2 speech signals (1 from speaker1 and 1 from speaker 2). It will be used for test purposes.
 
-## Training/Validation Loops
+## Training and Validation Loops
 Let's now take a look into the root config file `cfg/minimal_examples/neural_networks/spk_id/spk_id_example.cfg`.
 This configuration file defines and runs two functions executed in sequence:
 
@@ -862,7 +865,7 @@ The *training_validation* function takes in input the following parameters:
 
 The *training_validation* function runs the computations reported in another config file (i.e., ``cfg/minimal_examples/neural_networks/spk_id/training_loop.cfg``). As we will see, the latter manages both training and validation phases. We also specify the device where all the computations must be executed and the number of training iterations (N_epohcs). Finally, we set ``` recovery=True```  to make sure the training can be resumed from the last epoch correctly executed if training is interrupted for some reason.
 
-### Training Loop
+### Training
 Let's now take a look into the file ``cfg/minimal_examples/neural_networks/spk_id/training_loop.cfg` that is called from the root config file to manage training and validations loops. It defines and runs two functions:
 - **training_loop**: it loops over all the training data and trains the neural architecture specified in the configuration file. 
 - **validation_loop**: it loops over all the test data check the performance after each training epoch.
@@ -926,14 +929,14 @@ Note that *training loop* also takes an additional input called *mode*, that is 
 
 Finally, the training loop sets the flag `eval_mode=False` to make sure that all the computations are performed with the training flag active (that might impact techniques such as dropout or batch normalization, whose behavior is different from training and test phases).
 
-### Validation Loop
+### Validation
 The validation loop is performed after the training one to progressively monitor the performance evolution of the system.  The validation loop takes in input exactly the same neural computations specified in `cfg/minimal_examples/neural_networks/spk_id/Basic_MLP.cfg`. The main difference are the following:
 - the loop is performed on the test data (csv_file=samples/audio_samples/nn_training_samples/dev.csv).
 - we stop the computations when we meet the *loss* variable (i.e we avoid the optimization step).
 - we run the computations with the flag `torch_no_grad=True` active (to avoid computing gradient buffers)
 and with `eval_mode=True` (to perform computations in eval modality).
 
-# Test Loop
+### Test
 The final loop over the test data is performed only after having completed the neural training part and it is used to check the final performance of the neural network. The test loop in  `cfg/minimal_examples/neural_networks/spk_id/spk_id_example.cfg` takes the same parameters of the validation loop. The only difference is that the function *test* is called with `mode='test'`:
 
 ```
@@ -1334,6 +1337,12 @@ The result is the following:
 
 Similar to the previous example, we tend to overfit the small training dataset used in this experiment, as witnessed by the consistent difference between training and validation losses.
 
+# HMM-DNN Speech Recognition
+# End-to-End Speech Recognition
+# Speech enhancement
+# Speaker recognition and diarization
+# Multi-microphone processing
+- 
 # Developer Guidelines
 The goal is to write a set of libraries that process audio and speech in several different ways. The goal is to build a set of homogeneous libraries that are all compliant with the guidelines described in the following sub-sections.
 
