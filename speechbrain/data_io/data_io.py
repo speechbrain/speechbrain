@@ -774,7 +774,7 @@ class create_dataloader:
         if sorting == "ascending":
             sorted_ids = sorted(
                 sorted(data_dict.keys()),
-                key=lambda k: data_dict[k]["duration"],
+                key=lambda k: float(data_dict[k]["duration"]),
             )
 
         # Descending sorting
