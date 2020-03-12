@@ -1923,15 +1923,16 @@ def filter_ctc_output(string_pred, blank_id=-1, logger=None):
      """
 
     if isinstance(string_pred, list):
-        # Filterning the blank symbol
-        string_out = list(filter(lambda elem: elem != "blank", string_pred))
-
         # Filterning the repetitions
         string_out = [
             v
-            for i, v in enumerate(string_out)
-            if i == 0 or v != string_out[i - 1]
+            for i, v in enumerate(string_pred)
+            if i == 0 or v != string_pred[i - 1]
         ]
+
+        # Filterning the blank symbol
+        string_out = list(filter(lambda elem: elem != "blank", string_out))
+
 
     if isinstance(string_pred, torch.Tensor):
 
@@ -1942,9 +1943,6 @@ def filter_ctc_output(string_pred, blank_id=-1, logger=None):
             )
 
             logger_write(err_msg, logfile=logger)
-
-        # remove blank
-        string_pred = string_pred[string_pred != blank_id]
 
         # remove duplicates
         string_out = []
@@ -1960,6 +1958,9 @@ def filter_ctc_output(string_pred, blank_id=-1, logger=None):
 
         # Output a LongTensor
         string_out = torch.LongTensor(string_out)
+
+        # remove blank
+        string_out = string_out[string_out != blank_id]
 
     return string_out
 
