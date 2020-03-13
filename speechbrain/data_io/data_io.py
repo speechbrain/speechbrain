@@ -1936,7 +1936,6 @@ def filter_ctc_output(string_pred, blank_id=-1, logger=None):
         # Filterning the blank symbol
         string_out = list(filter(lambda elem: elem != "blank", string_out))
 
-
     if isinstance(string_pred, torch.Tensor):
 
         if blank_id < 0:
