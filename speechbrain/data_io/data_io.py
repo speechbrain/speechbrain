@@ -441,8 +441,11 @@ class create_dataloader:
                         if "format" in data_dict[snt][elem]:
 
                             count_lab = False
+                            opts = data_dict[snt][elem]["options"]
 
-                            if data_dict[snt][elem]["format"] == "string":
+                            if (data_dict[snt][elem]["format"] == "string"
+                                    and ("label" not in opts
+                                         or opts["label"] == 'True')):
 
                                 if (
                                     len(

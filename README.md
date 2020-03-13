@@ -331,6 +331,14 @@ Note that we also support a list of labels for each sentence. This can be useful
 ID,duration,wav,wav_format,wav_opts, phn,phn_format,phn_opts
 fpkt0_sx188,2.2208125,TIMIT/test/dr3/fpkt0/sx188.wav,wav,, sil hh uw ao th er ay z dh iy ix n l ix m ix dx ih dx ix cl k s cl p eh n s ix cl k aw n cl sil, string
 ```
+
+If you do not wish to have your string added to a label_dict and converted to an integer, you can turn this behavior off by adding `label:False` to the `xxx_opts` column. For example,
+
+```
+ID, duration, wav, wav_format, wav_opts, spk_id, spk_id_format, spk_id_opts
+example1, 1.0, xx.wav, wav, , spk1, string, label:False
+```
+
 ### Data writing
 Speechbrain can store tensors that are created during the computations into the disk.
 This operation is perfomed by the `speechbrain.data_io.data_io.save` function.
