@@ -668,6 +668,12 @@ def check_inputs(config, expected_inputs, input_lst, logger=None):
 
         for exp_inp in expected_inputs[i]:
 
+            # If the expected input is a tensor, check the shape
+            if isinstance(exp_inp, dict):
+                if 'shape' in exp_inp:
+                    check_input_shape(exp_inp['shape'], input_lst[i])
+                exp_inp = exp_inp['type']
+
             # Continue if expected_inputs[i] is a class
             if exp_inp == "class":
                 continue
@@ -697,7 +703,7 @@ def check_inputs(config, expected_inputs, input_lst, logger=None):
             logger_write(err_msg, logfile=logger)
 
 
-def check_input_shapes(expected_dims, inputs, logger=None):
+def check_input_shape(expected_dims, input_to_check, logger=None):
     """
     ------------------------------------------------------
     speechbrain.processing.speech_augmentation.check_input_shape
@@ -724,35 +730,33 @@ def check_input_shapes(expected_dims, inputs, logger=None):
                  from speechbrain.processing.speech_augmentation \
                     import check_input_shapes
 
-                 inputs = [torch.randn(1, 3), torch.randn(3, 1)]
+                 inputs = torch.randn(1, 3)
 
-                 check_input_shapes([[2, 3], [2]], inputs)
+                 check_input_shapes([2, 3], inputs)
     ------------------------------------------------------
     """
 
-    # Check all inputs
-    for i, input_to_check in enumerate(inputs):
 
-        dimensions = len(input_to_check.shape)
+    dimensions = len(input_to_check.shape)
 
-        # For efficiency, only do something if an error occurs
-        if dimensions not in expected_dims[i]:
+    # For efficiency, only do something if an error occurs
+    if dimensions not in expected_dims:
 
-            # Find the calling function's class name. Its okay if this is
-            # slow because we should never come across this except if an
-            # error has occurred. This comes from:
-            # https://stackoverflow.com/a/53490973
-            import inspect
-            calling_frame = inspect.currentframe().f_back
-            class_name = calling_frame.f_locals["self"].__class__.__name__
+        # Find the calling function's class name. Its okay if this is
+        # slow because we should never come across this except if an
+        # error has occurred. This comes from:
+        # https://stackoverflow.com/a/53490973
+        import inspect
+        calling_frame = inspect.currentframe().f_back.f_back
+        class_name = calling_frame.f_locals["self"].__class__.__name__
 
-            # Build error message
-            err_msg = (
-                'Function: `%s` expected a tensor with dimension count that '
-                'is one of %s for parameter #%d but got a dimension count of '
-                '%d instead' % (
-                    class_name, str(expected_dims[i]), i+1, dimensions
-                )
+        # Build error message
+        err_msg = (
+            'Function: `%s` expected a tensor with dimension count that '
+            'is one of %s but got a dimension count of '
+            '%d instead' % (
+                class_name, str(expected_dims), dimensions
             )
+        )
 
-            logger_write(err_msg, logfile=logger)
+        logger_write(err_msg, logfile=logger)

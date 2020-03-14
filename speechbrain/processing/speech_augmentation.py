@@ -17,9 +17,8 @@ import torch.nn as nn
 
 from speechbrain.data_io.data_io import create_dataloader
 from speechbrain.utils.logger import logger_write
-from speechbrain.utils.input_validation import (check_opts,
-                                                check_inputs,
-                                                check_input_shapes)
+
+from speechbrain.sbmodule import SBModule
 
 """
 -------------------------------------------
@@ -309,7 +308,7 @@ Augmentation classes
 """
 
 
-class add_noise(nn.Module):
+class add_noise(SBModule):
     """
     -------------------------------------------------------------------------
     speechbrain.processing.speech_augmentation.add_noise
@@ -367,28 +366,6 @@ class add_noise(nn.Module):
                           seed is passed, the order is randomized, and
                           the noise samples are shifted by a random
                           amount before adding.
-
-                  - funct_name (type, str, optional, default: None):
-                      it is a string containing the name of the parent
-                      function that has called this method.
-
-                  - global_config (type, dict, optional, default: None):
-                      it a dictionary containing the global variables of the
-                      parent config file.
-
-                  - functions (type, dict, optional, default: None):
-                      dictionary for storing user-defined functions. Keys are
-                      the function names, values are their corresponding
-                      objects.
-
-                  - logger (type, logger, optional, default: None):
-                      it the logger used to write debug and error messages.
-                      If logger=None and root_cfg=True, the file is created
-                      from scratch.
-
-                  - first_input (type, list, optional, default: None):
-                      this variable allows users to analyze the first input
-                      given when calling the class for the first time.
 
     Input (call): - inp_lst(type, list, mandatory):
                       by default the input arguments are passed with a list.
@@ -451,18 +428,10 @@ class add_noise(nn.Module):
     def __init__(
         self,
         config,
-        funct_name=None,
-        global_config=None,
-        functions=None,
-        logger=None,
-        first_input=None,
+        **kwargs
     ):
-        super(add_noise, self).__init__()
 
-        # Logger setup
-        self.logger = logger
-
-        self.expected_options = {
+        expected_options = {
             "class_name": ("str", "mandatory"),
             "csv_file": ("str", "optional", "None"),
             "order": (
@@ -478,32 +447,12 @@ class add_noise(nn.Module):
             "random_seed": ("int(-inf,inf)", "optional", "None"),
         }
 
-        # Check, cast, and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, self.logger
-        )
+        expected_inputs = [
+            {'type': 'torch.Tensor', 'shape': [2, 3]},
+            {'type': 'torch.Tensor', 'shape': [1]},
+        ]
 
-        # Expected inputs when calling this class:
-        #    Input 1: Batch of waveforms to be processed
-        #    Input 2: Length of waveforms in the batch
-        self.expected_inputs = ["torch.Tensor", "torch.Tensor"]
-
-        # Check the first input
-        check_inputs(
-            self.conf, self.expected_inputs, first_input, logger=self.logger
-        )
-
-        # Additional check on the input shapes
-        if first_input is not None:
-            check_input_shapes([[2, 3], [1]], first_input, logger)
-
-            # Use the same batch size as clean
-            if self.batch_size is None:
-                self.batch_size = first_input[0].shape[0]
-
-        # Initialize a random number generator with the provided seed
-        if self.random_seed is not None:
-            torch.random.manual_seed(self.random_seed)
+        super().__init__(config, expected_options, expected_inputs, **kwargs)
 
         # Create a data loader for the noise wavforms
         if self.csv_file is not None:
@@ -521,9 +470,13 @@ class add_noise(nn.Module):
                     'batch_size': str(self.batch_size),
                     'do_cache': str(self.do_cache),
                 },
-                global_config=global_config,
+                global_config=self.global_config,
             )
             self.noise_data = zip(*self.data_loader.dataloader)
+
+        # Initialize a random number generator with the provided seed
+        if self.random_seed is not None:
+            torch.random.manual_seed(self.random_seed)
 
         # Save the state of the RNG for reproducibility
         self.rng_state = torch.random.get_rng_state()
