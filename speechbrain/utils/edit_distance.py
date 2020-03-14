@@ -151,6 +151,7 @@ def op_table(a, b):
         op_table[i][0] = EDIT_SYMBOLS["del"]
     for j in range(len(b) + 1):
         op_table[0][j] = EDIT_SYMBOLS["ins"]
+    op_table[0][0] = EDIT_SYMBOLS["eq"]
     # The rest of the table is filled in row-wise:
     for i, a_token in enumerate(a, start=1):
         curr_row[0] += 1  # This trick just deals with the first column.
