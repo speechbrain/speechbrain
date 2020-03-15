@@ -272,6 +272,44 @@ class compute_cost(nn.Module):
         # Loop over all the cost specified in self.costs
         for i, cost in enumerate(self.costs):
 
+            if self.cost_type[i] == "wer":
+
+                # Getting the number of sentences in the minibatch
+                N_snt = prob.shape[0]
+
+                # Wer initialization
+                wer = 0
+
+                # Loop over all the sentences of the minibatch
+                for j in range(N_snt):
+
+                    # getting the current probabilities and labels
+                    prob_curr = prob[j]
+                    lab_curr = lab[j]
+
+                    # Avoiding padded time steps
+                    actual_size_prob = int(
+                        torch.round(lengths[0][j] * prob_curr.shape[-1])
+                    )
+
+                    actual_size_lab = int(
+                        torch.round(lengths[1][j] * lab_curr.shape[0])
+                    )
+
+                    prob_curr = prob_curr.narrow(-1, 0, actual_size_prob)
+                    lab_curr = lab_curr.narrow(-1, 0, actual_size_lab)
+
+                    # Computing the wer
+                    wer = wer + cost(prob_curr, lab_curr)
+
+                # WER averaging
+                wer = wer / N_snt
+
+                # Appending current loss
+                out_costs.append(wer)
+
+                continue
+
             # Managing avoid_pad to avoid adding costs of padded time steps
             if self.avoid_pad[i]:
 
@@ -282,15 +320,15 @@ class compute_cost(nn.Module):
                 loss = 0
 
                 # Loop over all the sentences of the minibatch
-                for i in range(N_snt):
+                for j in range(N_snt):
 
                     # Selecting sentence
-                    prob_curr = prob[i]
-                    lab_curr = lab[i]
+                    prob_curr = prob[j]
+                    lab_curr = lab[j]
 
                     # Avoiding padded time steps
                     actual_size = int(
-                        torch.round(lengths[i] * lab_curr.shape[0])
+                        torch.round(lengths[j] * lab_curr.shape[0])
                     )
 
                     prob_curr = prob_curr.narrow(-1, 0, actual_size)
@@ -460,7 +498,7 @@ class compute_cost(nn.Module):
 
          """
         # Computing predictions
-        scores, predictions = torch.max(prob, dim=-1)
+        scores, predictions = torch.max(prob, dim=0)
 
         # If the case of CTC, filter the predicted output
         if "ctc" in self.cost_type:
