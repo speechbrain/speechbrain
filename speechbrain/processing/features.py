@@ -1781,6 +1781,10 @@ class mean_var_norm(nn.Module):
         # Numerical stability for std
         self.eps = 1e-10
 
+        # detecting the device
+        self.device_inp = str(first_input[0].device)
+
+        # Recovery stored stats
         recovery(self)
 
     def forward(self, input_lst):
@@ -1878,6 +1882,7 @@ class mean_var_norm(nn.Module):
                     self.glob_mean = (
                         1 - self.weight
                     ) * self.glob_mean + self.weight * current_mean
+
                     self.glob_std = (
                         1 - self.weight
                     ) * self.glob_std + self.weight * current_std
@@ -1930,10 +1935,23 @@ class mean_var_norm(nn.Module):
     def load_statistics_dict(self, state):
 
         self.count = state["count"]
-        self.glob_mean = state["glob_mean"]
-        self.glob_std = state["glob_std"]
-        self.spk_dict_mean = state["spk_dict_mean"]
-        self.spk_dict_std = state["spk_dict_std"]
+        self.glob_mean = state["glob_mean"].to(self.device_inp)
+        self.glob_std = state["glob_std"].to(self.device_inp)
+
+        # Loading the spk_dict_mean in the right device
+        self.spk_dict_mean = {}
+        for spk in state["spk_dict_mean"]:
+            self.spk_dict_mean[spk] = state["spk_dict_mean"][spk].to(
+                self.device_inp
+            )
+
+        # Loading the spk_dict_std in the right device
+        self.spk_dict_std = {}
+        for spk in state["spk_dict_std"]:
+            self.spk_dict_std[spk] = state["spk_dict_std"][spk].to(
+                self.device_inp
+            )
+
         self.spk_dict_count = state["spk_dict_count"]
 
         return state

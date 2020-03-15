@@ -593,7 +593,7 @@ class execute_computations(nn.Module):
             self.global_config["label_dict"] = dataloader_obj.label_dict
 
         # Selecting recovery path
-        if self.n_loops > 1:
+        if self.n_loops >= 1:
             self.start_index = self.recover_iteration()
         else:
             self.start_index = 0

@@ -196,8 +196,8 @@ class lr_annealing(nn.Module):
         self.expected_options = {
             "class_name": ("str", "mandatory"),
             "annealing_type": (
-                "one_of(constant,time_decay,step_decay,exp_decay,\
-                    newbob,custom)",
+                "one_of(constant,time_decay,step_decay,exp_decay," +
+                "newbob,custom)",
                 "mandatory",
             ),
             "annealing_factor": ("float", "optional", "0.50"),
