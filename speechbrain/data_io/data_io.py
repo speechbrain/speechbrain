@@ -443,9 +443,9 @@ class create_dataloader:
                             count_lab = False
                             opts = data_dict[snt][elem]["options"]
 
-                            if (data_dict[snt][elem]["format"] == "string"
-                                    and ("label" not in opts
-                                         or opts["label"] == 'True')):
+                            if data_dict[snt][elem]["format"] == "string" and (
+                                "label" not in opts or opts["label"] == "True"
+                            ):
 
                                 if (
                                     len(
@@ -1753,7 +1753,7 @@ class print_predictions:
      -------------------------------------------------------------------------
      speechbrain.data_io.data_io.print_predictions (author: Mirco Ravanelli)
 
-     Description: This class can be use to print in a text form the
+     Description: This class can be use to print in a csv file the
                    predictions performed by a neural network.
      --------------------------------------------.----------------------------
      """
@@ -1801,22 +1801,21 @@ class print_predictions:
 
         # Set up file where to write predictions
         if self.out_file is None:
-            self.out_file = global_config["output_folder"] + "/predictions.txt"
+            self.out_file = global_config["output_folder"] + "/predictions.csv"
 
         self.file_pred = open(self.out_file, "w")
 
         msg = "\nPredictions:"
         logger_write(msg, logfile=self.logger, level="info")
-        self.file_pred.write(msg + "\n")
 
         if len(self.lab_dict) > 0:
-            msg = "id\t\tprob\tprediction"
+            msg = "id\t\tpredictions\tprobs"
             logger_write(msg, logfile=self.logger, level="info")
-            self.file_pred.write(msg + "\n")
+            self.file_pred.write("ID, predictions, probs\n\n")
         else:
             msg = "id\t\\tprob"
             logger_write(msg, logfile=self.logger, level="info")
-            self.file_pred.write(msg + "\n")
+            self.file_pred.write("ID, probs\n\n")
 
     def __call__(self, input_lst):
 
@@ -1881,16 +1880,23 @@ class print_predictions:
                     # Filtering the ctc output predictions
                     string_pred = filter_ctc_output(string_pred)
 
-                # Writing output
-                msg = "%s\t%.3f\t%s" % (snt_id, current_score, string_pred)
+                # Converting list to string
+                if isinstance(string_pred, list):
+                    string_pred = " ".join(str(x) for x in string_pred)
+
+                # Writing the output
+                msg = "%s\t%s\t%.3f" % (snt_id, string_pred, current_score)
                 logger_write(msg, logfile=self.logger, level="info")
-                self.file_pred.write(msg + "\n")
+
+                self.file_pred.write(
+                    "%s,%s,%.3f\n" % (snt_id, string_pred, current_score)
+                )
 
             else:
                 # Writing output
                 msg = "%s\t%.3f" % (snt_id, current_score)
                 logger_write(msg, logfile=self.logger, level="info")
-                self.file_pred.write(msg + "\n")
+                self.file_pred.write("%s,%.3f\n" % (snt_id, current_score))
 
         # Closing the prediction file
         self.file_pred.close()
