@@ -102,11 +102,10 @@ def run_shell(cmd, logger=None):
 
     # Capturing standard output and error
     (output, err) = p.communicate()
-    p.wait()
 
     # Adding information in the logger
     if logger is not None:
         msg = output.decode("utf-8") + "\n" + err.decode("utf-8")
         logger_write(msg, logfile=logger, level="debug")
 
-    return output, err
+    return output, err, p.returncode
