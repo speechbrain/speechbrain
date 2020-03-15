@@ -2005,6 +2005,7 @@ def recovery(self):
                     # Loading the model
                     if hasattr(self, "optim"):
                         self.optim.load_state_dict(torch.load(model_file))
+
                     elif hasattr(self, "mean_norm"):
                         self.load_statistics_dict(torch.load(model_file))
 
