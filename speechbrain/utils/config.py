@@ -513,7 +513,8 @@ def conf_to_text(config, conf_text=None, tabs=None):
         for key in config.keys():
 
             if isinstance(config[key], dict):
-                continue
+                if key == 'label_dict':
+                    continue
 
             # If next element is a dictionary, call the function recursively
             if isinstance(config[key], dict):
