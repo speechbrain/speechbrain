@@ -15,6 +15,7 @@ import torch
 import itertools
 import torch.nn as nn
 from tqdm import tqdm
+from pydoc import locate
 from speechbrain.data_io.data_io import create_dataloader, load_pkl, save_pkl
 from speechbrain.utils import (
     check_opts,
@@ -576,22 +577,6 @@ class execute_computations(nn.Module):
             if len(self.gpu_id) == 1:
                 self.gpu_id = self.gpu_id[0]
 
-        # Creating dataloader for the specified csv file
-        if self.csv_file is not None:
-
-            dataloader_obj = create_dataloader(
-                config, global_config=self.global_config, logger=self.logger
-            )
-            self.dataloader = dataloader_obj.dataloader
-            self.ite_num = dataloader_obj.data_len / self.batch_size
-
-            # Updating csv read
-            self.csv_read = dataloader_obj.csv_read
-
-            # Adding label dict in global. This way will be visible by all
-            # the config files called.
-            self.global_config["label_dict"] = dataloader_obj.label_dict
-
         # Selecting recovery path
         if self.n_loops >= 1:
             self.start_index = self.recover_iteration()
@@ -701,7 +686,27 @@ class execute_computations(nn.Module):
             if not os.path.exists(self.save_folder):
                 os.makedirs(self.save_folder)
 
+        self.config = config
+
     def forward(self, inp):
+        # Creating dataloader for the specified csv file
+        if self.csv_file is not None:
+
+            dataloader_obj = create_dataloader(
+                self.config, global_config=self.global_config,
+                logger=self.logger
+            )
+            dataloader_obj([])
+            self.dataloader = dataloader_obj.dataloader
+            self.ite_num = dataloader_obj.data_len / self.batch_size
+
+            # Updating csv read
+            self.csv_read = dataloader_obj.csv_read
+
+            # Adding label dict in global. This way will be visible by all
+            # the config files called.
+            self.global_config["label_dict"] = dataloader_obj.label_dict
+
 
         # Initializing the output_var list
         self.out_var_lst = []
@@ -2696,3 +2701,72 @@ class execute_computations(nn.Module):
                         ] = self.replace_dict[funct_name + "_" + field][
                             block_id
                         ]
+
+import yaml, re, sys
+from types import SimpleNamespace
+def load_params():
+
+    if len(sys.argv) < 2:
+        print("pass the param file as an argument")
+        sys.exit(1)
+
+    filename = sys.argv[1]
+
+    with open(filename) as f:
+        params = yaml.load(f, Loader=yaml.Loader)
+
+    global_params = {}
+    if 'global' in params:
+        global_params.update(params['global'])
+        del params['global']
+
+    if len(sys.argv) > 2:
+        parse_overrides(global_params, sys.argv[2:])
+
+    def var_replace(match_obj):
+        try:
+            return global_params[match_obj.group(1)]
+        except:
+            print("ERROR: %s not in global" % match_obj.group(1))
+            return match_obj.group(0)
+
+    def simple_string_replace(config, global_config):
+        pattern = re.compile(r'\$(\w*)')
+        for key in config:
+            try:
+                config[key] = pattern.sub(var_replace, config[key])
+            except TypeError:
+
+                # TEMPORARILY CONVERT ALL TYPES TO STRINGS
+                if isinstance(config[key], list):
+                    config[key] = ','.join(config[key])
+                else:
+                    config[key] = str(config[key])
+
+    simple_string_replace(global_params, global_params)
+
+    functions = {}
+    functions2 = {}
+    for function in params:
+        simple_string_replace(params[function], global_params),
+        _class = locate(params[function]['class_name'])
+        print(_class)
+        functions[function] = _class(
+            params[function],
+            funct_name=params[function]['class_name'],
+            global_config=global_params,
+            functions=functions2,
+        )
+        functions2[params[function]['class_name']] = functions[function]
+
+    return SimpleNamespace(**functions), global_params
+
+import argparse
+def parse_overrides(global_params, argv):
+    parser = argparse.ArgumentParser()
+    for key in global_params:
+        parser.add_argument("--" + key)
+
+    for key, value in vars(parser.parse_args(argv)).items():
+        if value is not None:
+            global_params[key] = value

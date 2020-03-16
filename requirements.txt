@@ -6,3 +6,4 @@ SoundFile>=0.10.0
 tqdm>=4.42.0
 black>=19.10b0
 pytest>=5.4.1
+pyyaml>=5.3

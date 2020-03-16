@@ -215,6 +215,8 @@ class create_dataloader:
         else:
             self.shuffle = False
 
+    def __call__(self, inp):
+
         # create data dictionary
         data_dict = self.generate_data_dict()
 
@@ -254,8 +256,6 @@ class create_dataloader:
                     collate_fn=self.batch_creation,
                 )
             )
-
-    def __call__(self, inp):
 
         return [self.dataloader]
 

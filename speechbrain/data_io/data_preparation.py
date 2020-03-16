@@ -529,6 +529,8 @@ class timit_prepare:
 
             return
 
+    def __call__(self, inp):
+
         # Additional checks to make sure the data folder contains TIMIT
         self.check_timit_folders()
 
@@ -594,8 +596,8 @@ class timit_prepare:
         # Saving options (useful to skip this phase when already done)
         save_pkl(self.conf, self.save_opt)
 
-    def __call__(self, inp):
         return
+
 
     def skip(self):
         """

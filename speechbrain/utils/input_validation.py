@@ -151,14 +151,15 @@ def check_and_cast_type(option_field, option, option_type, logger=None):
         for element in elements:
             element = element.strip()
 
-            if not os.path.exists(element):
+            # TODO: RE-ENABLE PATH CHECKING IN __CALL__
+            # if not os.path.exists(element):
 
-                err_msg = (
-                    'the field "%s" contains a path "%s" that does '
-                    "not exist!" % (option_field, element)
-                )
+            #    err_msg = (
+            #        'the field "%s" contains a path "%s" that does '
+            #        "not exist!" % (option_field, element)
+            #    )
 
-                logger_write(err_msg, logfile=logger)
+            #    logger_write(err_msg, logfile=logger)
 
             option.append(element)
 
@@ -548,6 +549,8 @@ def check_opts(self, expected_options, data_opts, logger=None):
 
         # Check if the current option is in the list of expected options
         if option not in expected_options.keys():
+            #err_msg = 'the option "%s" not in expected options.' % (option)
+            #logger_write(err_msg, logfile=logger)
             continue
 
         option_value = data_opts[option]
