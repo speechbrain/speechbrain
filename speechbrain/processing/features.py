@@ -1935,8 +1935,12 @@ class mean_var_norm(nn.Module):
     def load_statistics_dict(self, state):
 
         self.count = state["count"]
-        self.glob_mean = state["glob_mean"].to(self.device_inp)
-        self.glob_std = state["glob_std"].to(self.device_inp)
+        if isinstance(state["glob_mean"], int):
+            self.glob_mean = state["glob_mean"]
+            self.glob_std = state["glob_std"]
+        else:
+            self.glob_mean = state["glob_mean"].to(self.device_inp)
+            self.glob_std = state["glob_std"].to(self.device_inp)
 
         # Loading the spk_dict_mean in the right device
         self.spk_dict_mean = {}
