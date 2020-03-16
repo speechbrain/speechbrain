@@ -298,6 +298,7 @@ def count_ops(table):
                 j -= 1
     return edits
 
+
 def wer_details_by_utterance(
     ref_reader, hyp_dict, compute_alignments=False, scoring_mode="strict"
 ):
@@ -398,9 +399,7 @@ def wer_details_by_utterance(
                 "insertions": ops["insertions"],
                 "deletions": ops["deletions"],
                 "substitutions": ops["substitutions"],
-                "alignment": alignment(table)
-                if compute_alignments
-                else None,
+                "alignment": alignment(table) if compute_alignments else None,
                 "ref_tokens": ref_tokens if compute_alignments else None,
                 "hyp_tokens": hyp_tokens if compute_alignments else None,
             }
@@ -623,5 +622,3 @@ def top_wer_spks(details_by_speaker, top_k=10):
         return spks_by_wer[:top_k]
     else:
         return spks_by_wer
-
-
