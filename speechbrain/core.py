@@ -2704,18 +2704,14 @@ class execute_computations(nn.Module):
 
 import yaml, re, sys
 from types import SimpleNamespace
-def load_params():
+def load_params(recipe_filepath, params_filename, global_params={}):
 
-    if len(sys.argv) < 2:
-        print("pass the param file as an argument")
-        sys.exit(1)
+    dirname = os.path.dirname(os.path.realpath(recipe_filepath))
+    params_filepath = os.path.join(dirname, params_filename)
 
-    filename = sys.argv[1]
-
-    with open(filename) as f:
+    with open(params_filepath) as f:
         params = yaml.load(f, Loader=yaml.Loader)
 
-    global_params = {}
     if 'global' in params:
         global_params.update(params['global'])
         del params['global']
@@ -2750,7 +2746,6 @@ def load_params():
     for function in params:
         simple_string_replace(params[function], global_params),
         _class = locate(params[function]['class_name'])
-        print(_class)
         functions[function] = _class(
             params[function],
             funct_name=params[function]['class_name'],

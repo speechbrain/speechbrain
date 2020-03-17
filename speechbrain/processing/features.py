@@ -1485,13 +1485,18 @@ class deltas(nn.Module):
         self.kernel = torch.arange(-self.n, self.n + 1, 1).float()
 
         # Extending kernel to all the features
-        if first_input is not None:
-            self.kernel = self.kernel.repeat(first_input[0].shape[-2], 1, 1)
+        #if first_input is not None:
+        #    self.kernel = self.kernel.repeat(first_input[0].shape[-2], 1, 1)
+        self.first_call = True
 
     def forward(self, input_lst):
 
         # Reading the input_list
         x = input_lst[0]
+
+        if self.first_call:
+            self.first_call = False
+            self.kernel = self.kernel.repeat(x.shape[-2], 1, 1)
 
         # Managing multi-channel deltas reshape tensor (batch*channel,time)
         or_shape = x.shape
@@ -1661,20 +1666,23 @@ class context_window(nn.Module):
             lag = self.right_frames - self.left_frames
             self.kernel = torch.roll(self.kernel, lag, 1)
 
-        if first_input is not None:
-            self.kernel = (
-                self.kernel.repeat(first_input[0].shape[1], 1, 1)
-                .view(
-                    first_input[0].shape[1] * self.context_len,
-                    self.kernel_len,
-                )
-                .unsqueeze(1)
-            )
+        self.first_call = True
 
     def forward(self, input_lst):
 
         # Reading input_list
         x = input_lst[0]
+
+        if self.first_call == True:
+            self.first_call = False
+            self.kernel = (
+                self.kernel.repeat(x.shape[1], 1, 1)
+                .view(
+                    x.shape[1] * self.context_len,
+                    self.kernel_len,
+                )
+                .unsqueeze(1)
+            )
 
         # Managing multi-channel case
         or_shape = x.shape

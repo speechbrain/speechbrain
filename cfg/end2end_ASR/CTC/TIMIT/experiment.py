@@ -1,13 +1,13 @@
 from speechbrain.core import load_params
-functions, params = load_params()
+f, params = load_params(__file__, 'params.yaml')
 
-functions.copy_locally([])
-functions.prepare_timit([])
+f.copy_locally([])
+f.prepare_timit([])
 
 # training/validation epochs
-functions.training_nn([])
+f.training_nn([])
 
 # test
 mode='test'
-avg_loss, avg_wer = functions.test(mode)
+avg_loss, avg_wer = f.test(mode)
 print("Final WER: %f" % (avg_wer))
