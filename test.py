@@ -16,8 +16,7 @@
 
 import sys
 import pycodestyle
-from speechbrain.utils import create_exec_config
-from speechbrain.core import execute_computations
+from speechbrain.utils.superpowers import run_shell
 from glob import glob
 
 # List of config files to run:
@@ -44,47 +43,48 @@ cfg_lst = [
 ]
 
 augmentation_config_list = glob(
-    'cfg/minimal_examples/basic_processing/minimal*.cfg'
+    "cfg/minimal_examples/basic_processing/minimal*.cfg"
 )
 
 cfg_lst += augmentation_config_list
 
 # List of files to check:
 check_lst = [
-'spbrain.py',
-'speechbrain/core.py',
-'speechbrain/data_io/data_io.py',
-'speechbrain/data_io/data_preparation.py',
-'speechbrain/decoders/decoders.py',
-'speechbrain/processing/features.py',
-'speechbrain/processing/multi_mic.py',
-'speechbrain/processing/speech_augmentation.py',
-'speechbrain/utils/input_validation.py',
-'speechbrain/utils/data_utils.py',
-'speechbrain/utils/config.py',
-'speechbrain/utils/edit_distance.py',
-'speechbrain/utils/superpowers.py',
-'speechbrain/utils/logger.py',
-'speechbrain/utils/__init__.py',
-'speechbrain/nnet/normalization.py',
-'speechbrain/nnet/losses.py',
-'speechbrain/nnet/lr_scheduling.py',
-'speechbrain/nnet/architectures.py',
-'speechbrain/nnet/optimizers.py'
+    "spbrain.py",
+    "speechbrain/core.py",
+    "speechbrain/data_io/data_io.py",
+    "speechbrain/data_io/data_preparation.py",
+    "speechbrain/decoders/decoders.py",
+    "speechbrain/processing/features.py",
+    "speechbrain/processing/multi_mic.py",
+    "speechbrain/processing/speech_augmentation.py",
+    "speechbrain/utils/input_validation.py",
+    "speechbrain/utils/data_utils.py",
+    "speechbrain/utils/config.py",
+    "speechbrain/utils/edit_distance.py",
+    "speechbrain/utils/superpowers.py",
+    "speechbrain/utils/logger.py",
+    "speechbrain/utils/__init__.py",
+    "speechbrain/nnet/normalization.py",
+    "speechbrain/nnet/losses.py",
+    "speechbrain/nnet/lr_scheduling.py",
+    "speechbrain/nnet/architectures.py",
+    "speechbrain/nnet/optimizers.py",
 ]
 
 # Running examples in config files
 for cfg_file in cfg_lst:
 
     print("checking %s" % cfg_file)
-    # Creating config dict for executing computations
-    exec_config = create_exec_config(cfg_file, "")
 
-    # Initializing the execute computation class
-    computations = execute_computations(exec_config)
+    out, err, returncode = run_shell("python spbrain.py " + cfg_file)
 
-    # Executing the computations specified in the config file
-    computations([])
+    print(out.decode())
+    print(err.decode())
+
+    # Output in case of errors
+    if returncode != 0:
+        sys.exit(0)
 
 # Checking PEP8 consistency
 print("check PEP8 consistency:")

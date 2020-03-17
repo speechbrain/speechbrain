@@ -1811,11 +1811,11 @@ class print_predictions:
         if len(self.lab_dict) > 0:
             msg = "id\t\tpredictions\tprobs"
             logger_write(msg, logfile=self.logger, level="info")
-            self.file_pred.write("ID, predictions, probs\n\n")
+            self.file_pred.write("ID, duration,out,out_format,out_opts\n\n")
         else:
-            msg = "id\t\\tprob"
+            msg = "id\t\\tpredictions"
             logger_write(msg, logfile=self.logger, level="info")
-            self.file_pred.write("ID, probs\n\n")
+            self.file_pred.write("ID, duration,out,out_format,out_opts\n\n")
 
     def __call__(self, input_lst):
 
@@ -1881,6 +1881,7 @@ class print_predictions:
                     string_pred = filter_ctc_output(string_pred)
 
                 # Converting list to string
+                len_str = len(string_pred)
                 if isinstance(string_pred, list):
                     string_pred = " ".join(str(x) for x in string_pred)
 
@@ -1889,14 +1890,16 @@ class print_predictions:
                 logger_write(msg, logfile=self.logger, level="info")
 
                 self.file_pred.write(
-                    "%s,%s,%.3f\n" % (snt_id, string_pred, current_score)
+                    "%s,%i,%s,string,\n" % (snt_id, len_str, string_pred)
                 )
 
             else:
                 # Writing output
-                msg = "%s\t%.3f" % (snt_id, current_score)
+                msg = "%s\t%i" % (snt_id, current_pred)
                 logger_write(msg, logfile=self.logger, level="info")
-                self.file_pred.write("%s,%.3f\n" % (snt_id, current_score))
+                self.file_pred.write(
+                    "%s,1.0,%i,string,\n" % (snt_id, current_pred)
+                )
 
         # Closing the prediction file
         self.file_pred.close()

@@ -513,7 +513,8 @@ def conf_to_text(config, conf_text=None, tabs=None):
         for key in config.keys():
 
             if isinstance(config[key], dict):
-                continue
+                if key == "label_dict":
+                    continue
 
             # If next element is a dictionary, call the function recursively
             if isinstance(config[key], dict):
@@ -602,14 +603,23 @@ def replace_global_variable(
 
     # If it is not a dictionary, read the variables
     else:
-        for var in global_var.keys():
+
+        # Sort global variables in ascending order (this prevents bad
+        # replacements when one variable is the prefix of another one)
+        keys_glob = list(global_var.keys())
+        keys_glob.sort(key=len)
+
+        for var in keys_glob:
+
             if isinstance(value, str):
                 #  It the current value contains the pattern '$' replace it
                 #  with the corresponding variable of the global_var dictionary
                 if "$" + var in value:
+
                     parent[curr_key] = value.replace(
                         "$" + var, global_var[var]
                     )
+
                 if "$" in value and var not in global_var.keys():
                     err_msg = (
                         "The variable %s is not defined in the [global] of the"
@@ -659,30 +669,70 @@ def process_cmd_string(cmd_str, all_funct):
      """
 
     # Looping overl all the functions defined
-    for funct_name in all_funct:
+    cmd_str_out = []
 
-        # Manage the case in which the function object is given in input
-        # to another function
-        pattern_lst = [" ", ",", ")"]
+    for line in cmd_str.split("\n"):
 
-        for pattern in pattern_lst:
-            inp_pattern = funct_name + pattern
-            out_pattern = 'self.functions["' + funct_name + '"]' + pattern
+        for funct_name in all_funct:
+
+            # Manage the case in which the function object is given in input
+            # to another function
+            pattern_lst_right = [" ,", ",", " )", ")"]
+            pattern_lst_left = [", ", ",", "(", "( "]
+
+            right = False
+            pattern_right = ""
+
+            left = False
+            pattern_left = ""
+
+            for pattern in pattern_lst_right:
+
+                # Checking right pattern
+                if funct_name + pattern in line:
+                    right = True
+                    pattern_right = pattern
+
+            for pattern in pattern_lst_left:
+                # Checking left pattern
+                if pattern + funct_name in line:
+                    left = True
+                    pattern_left = pattern
+
+            if left and right:
+
+                # Input pattern
+                inp_pattern = pattern_left + funct_name + pattern_right
+
+                # Output pattern
+                out_pattern = (
+                    pattern_left
+                    + 'self.functions["'
+                    + funct_name
+                    + '"]'
+                    + pattern_right
+                )
+
+                # Replace patterns
+                line = line.replace(inp_pattern, out_pattern)
+
+            # Replace function name with the method run_function
+            inp_pattern = funct_name + "("
+            out_pattern = 'self.run_function("' + funct_name + '",'
 
             # Replace patterns
-            cmd_str = cmd_str.replace(inp_pattern, out_pattern)
+            line = line.replace(inp_pattern, out_pattern)
 
-        # Replace function name with the method run_function
-        inp_pattern = funct_name + "("
-        out_pattern = 'self.run_function("' + funct_name + '",'
+        # Manage special function get_input_var
+        line = line.replace("get_input_var", "self.get_input_var")
 
-        # Replace patterns
-        cmd_str = cmd_str.replace(inp_pattern, out_pattern)
+        # output list
+        cmd_str_out.append(line)
 
-    # Manage special function get_input_var
-    cmd_str = cmd_str.replace("get_input_var", "self.get_input_var")
+    # output string
+    cmd_str_out = "\n".join(cmd_str_out)
 
-    return cmd_str
+    return cmd_str_out
 
 
 def create_exec_config(cfg_file, cmd_arg):
