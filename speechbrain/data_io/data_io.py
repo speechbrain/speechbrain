@@ -24,7 +24,7 @@ import subprocess
 import numpy as np
 import soundfile as sf
 import multiprocessing as mp
-from torch.multiprocessing import Manager
+from multiprocessing import Manager
 from torch.utils.data import Dataset, DataLoader
 from speechbrain.utils.input_validation import check_opts, check_inputs
 from speechbrain.utils.logger import logger_write
