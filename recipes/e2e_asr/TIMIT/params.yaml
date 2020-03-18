@@ -14,11 +14,6 @@ global:
     csv_valid: $local_data_folder/dev.csv
     csv_test: $local_data_folder/test.csv
 
-    # Computation files
-    training_computations: cfg/end2end_ASR/CTC/TIMIT/training_loop.cfg
-    feature_computations: cfg.features.mfcc_features.mfcc_features
-    neural_computations: cfg/end2end_ASR/CTC/TIMIT/basic_GRU.cfg
-
     # Neural Parameters
     N_epochs: 28
     N_batch: 16
