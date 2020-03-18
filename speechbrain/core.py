@@ -410,83 +410,84 @@ class execute_computations(nn.Module):
 
     def __init__(
         self,
-        config,
-        funct_name=None,
-        global_config=None,
-        functions=None,
-        logger=None,
-        first_input=None,
+        class_name,
+        cfg_file,
+        csv_file=None,
+        cfg_change=None,
+        root_cfg=False,
+        n_loops=1,
+        stop_at=None,
+        out_var=None,
+        save_folder=None,
+        recover=False,
+        accum_type=None,
+        torch_no_grad=False,
+        eval_mode=None,
+        device=None,
+        gpu_id=0,
+        multi_gpu=None,
+        batch_size=1,
+        csv_read=None,
+        sentence_sorting='original',
+        num_workers=0,
+        cache=False,
+        cache_ram_percent=75,
+        select_n_sentences=None,
+        drop_last=False,
+        replicate=1,
+        replicate_with=None,
+        add_connections=None,
+        connection_merge='sum',
+        progress_bar=False,
     ):
-        super(execute_computations, self).__init__()
-
-        # Logger
-        self.logger = logger
-
-        # Global Config
-        self.global_config = global_config
-
-        # Storing function namae
-        self.funct_name = funct_name
-
-        # Storing function dictionary.
-        # Keys are the function names, values are their corresponding
-        # objects. This dictionary will gather all the functions called in the
-        # current config file. Also child computations are visible here.
-        self.functions = functions
 
         # Here are summarized the expected options for this class
         self.expected_options = {
             "class_name": ("str", "mandatory"),
             "cfg_file": ("file", "mandatory"),
-            "csv_file": ("file", "optional", "None"),
-            "cfg_change": ("str", "optional", "None"),
-            "root_cfg": ("bool", "optional", "False"),
-            "n_loops": ("int(1,inf)", "optional", "1"),
-            "stop_at": ("str_list", "optional", "None"),
-            "out_var": ("str_list", "optional", "None"),
-            "save_folder": ("str", "optional", "None"),
-            "recovery": ("bool", "optional", "False"),
-            "accum_type": (
-                "one_of_list(list,sum,average,last)",
-                "optional",
-                "None",
-            ),
-            "torch_no_grad": ("bool", "optional", "False"),
-            "eval_mode": ("bool", "optional", "None"),
-            "device": ("one_of(cuda,cpu)", "optional", "None"),
-            "gpu_id": ("int_list(0,inf)", "optional", "0"),
-            "multi_gpu": ("bool", "optional", "None"),
-            "batch_size": ("int(1,inf)", "optional", "1"),
-            "csv_read": ("str_list", "optional", "None"),
-            "sentence_sorting": (
-                "one_of(ascending,descending,random,original)",
-                "optional",
-                "original",
-            ),
-            "num_workers": ("int(0,inf)", "optional", "0"),
-            "cache": ("bool", "optional", "False"),
-            "cache_ram_percent": ("int(0,100)", "optional", "75"),
-            "select_n_sentences": ("int(1,inf)", "optional", "None"),
-            "drop_last": ("bool", "optional", "False"),
-            "replicate": ("int(1,inf)", "optional", "1"),
-            "replicate_with": ("str", "optional", "None"),
-            "add_connections": (
-                "one_of(residual,skip,dense)",
-                "optional",
-                "None",
-            ),
-            "connection_merge": (
-                "one_of(sum,average,diff,concat,linear_comb)",
-                "optional",
-                "sum",
-            ),
-            "progress_bar": ("bool", "optional", "False"),
+            'csv_file': {'type': 'file', 'value': csv_file},
+            'cfg_change': {'type': 'str', 'value': cfg_change},
+            'root_cfg': {'type': 'bool', 'value': root_cfg},
+            'n_loops': {'type': 'int(1,inf)', 'value': n_loops},
+            'stop_at': {'type': 'str_list', 'value': stop_at},
+            'out_var': {'type': 'str_list', 'value': out_var},
+            'save_folder': {'type': 'str', 'value': save_folder},
+            'recovery': {'type': 'bool', 'value': recovery},
+            'accum_type': {
+                'type': 'one_of_list(list,sum,average,last)',
+                'value': accum_type,
+            },
+            'torch_no_grad': {'type': 'bool', 'value': torch_no_grad},
+            'eval_mode': {'type': 'bool', 'value': eval_mode},
+            'device': {'type': 'one_of(cuda,cpu)', 'value': device},
+            'gpu_id': {'type': 'int_list(0,inf)', 'value': gpu_id},
+            'multi_gpu': {'type': 'bool', 'value': multi_gpu},
+            'batch_size': {'type': 'int(1,inf)', 'value': batch_size},
+            'csv_read': {'type': 'str_list', 'value': csv_read},
+            'sentence_sorting': {
+                'type': 'one_of(ascending,descending,random,original)',
+                'value': sentence_sorting,
+            },
+            'num_workers': {'type': 'int(0,inf)', 'value': num_workers},
+            'cache': {'type': 'bool', 'value': cache},
+            'cache_ram_percent': {'type': 'int(0,100)', 'value': cache_ram_percent},
+            'select_n_sentences': {'type': 'int(1,inf)', 'value': select_n_sentences},
+            'drop_last': {'type': 'bool', 'value': drop_last},
+            'replicate': {'type': 'int(1,inf)', 'value': replicate},
+            'replicate_with': {'type': 'str', 'value': replicate_with},
+            'add_connections': {
+                'type': 'one_of(residual,skip,dense)',
+                'value': add_connections,
+            },
+            'connection_merge': {
+                'type': 'one_of(sum,average,diff,concat,linear_comb)',
+                'value': connection_merge,
+            },
+            'progress_bar': {'type': 'bool', 'value': progress_bar},
         }
 
         # Check, cast , and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, logger=self.logger
-        )
+        check_opts(options)
 
         # Setting global config
         if global_config is None:
@@ -1260,6 +1261,7 @@ class execute_computations(nn.Module):
                 library = self.config_proc["functions"][funct_name][
                     "class_name"
                 ]
+                del self.config_proc["functions"][funct_name]["class_name"]
 
                 # Importing Library
                 try:
@@ -1272,12 +1274,9 @@ class execute_computations(nn.Module):
                 # Function Initialization
                 try:
                     self.functions[funct_name] = lib(
-                        self.config_proc["functions"][funct_name],
-                        funct_name=funct_name,
+                        **self.config_proc["functions"][funct_name],
                         global_config=self.global_config,
-                        functions=self.functions,
                         logger=self.logger,
-                        first_input=argv[1:],
                     )
 
                     # Keeping track of parent name

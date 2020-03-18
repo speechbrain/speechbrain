@@ -466,7 +466,7 @@ def check_expected_options(expected_options, logger=None):
             logger_write(err_msg, logfile=logger)
 
 
-def check_opts(self, expected_options, data_opts, logger=None):
+def check_opts(options, logger=None):
     """
      -------------------------------------------------------------------------
      utils.check_opts (author: Mirco Ravanelli)
@@ -477,33 +477,23 @@ def check_opts(self, expected_options, data_opts, logger=None):
                   expected_options dictionary. Moreover is stored in the given
                   input class the cast variables.
 
-     Input (call):     - self (type: class, mandatory):
-                           it is the input class where the cast variables will
-                           be defined.
+     Input: - options (type: dict, mandatory)
+                A dictionary with the option name as a key, with the
+                value equal to another dict with expected type and
+                actual value.
 
-                       - expected_options(type: dict, mandatory):
-                           it is a dictionary containing the expected options.
-
-                      - data_options(type: dict, mandatory):
-                           it is a dictionary containing the expected options.
-
-                      - logger (type: logger, optional, default: None):
-                       it the logger used to write debug and error messages.
-
-
-     Output (call):  cast_options (type: dict):
-                       it is the output dictionary containing the cast options.
-
+            - logger (type: logger, optional, default: None):
+                it the logger used to write debug and error messages.
 
      Example:   from speechbrain.utils.input_validation import check_opts
 
                 # Expected options
                 expected_options={
-               'class_name': ('str','mandatory'),
-               'cfg_file': ('path','mandatory'),
-               'cfg_change': ('str','optional','None'),
-               'stop_at': ('str_list','optional','None'),
-               'root_cfg': ('bool','optional','False')}
+                   'class_name': ('str','mandatory'),
+                   'cfg_file': ('path','mandatory'),
+                   'cfg_change': ('str','optional','None'),
+                   'stop_at': ('str_list','optional','None'),
+                   'root_cfg': ('bool','optional','False')}
 
                # creation of a dummy class
 

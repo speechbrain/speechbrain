@@ -1,6 +1,6 @@
 """
 -----------------------------------------------------------------------------
- speechbrain/sbmodule.py
+ speechbrain/module.py
 
  Description: This class provides the base class for speechbrain classes.
  -----------------------------------------------------------------------------
@@ -13,24 +13,20 @@ from speechbrain.utils.input_validation import (check_opts,
                                                 check_inputs)
 
 
-class SBModule(nn.Module):
+class SpeechBrainModule(nn.Module):
     """
     -------------------------------------------------------------------------
-    speechbrain.sbmodule.SBModule (author: Peter Plantinga)
+    speechbrain.module.SpeechBrainModule (author: Peter Plantinga)
 
     Description: This class defines input type checking and other functions
                  common to all speechbrain classes. All new speechbrain
                  classes should inherit from this class, and pass expected
                  inputs to init, so inputs can be checked.
 
-    Input (init): - config (type, dict, mandatory):
-                      If a config dict is passed, all options are checked
-                      against the list of expected types given by
-                      the `expected_options` variable.
-
-                  - expected_options(type, dict, mandatory):
+    Input (init): - options(type, dict, mandatory):
                       This dict defines the types expected in the config
-                      dict. Available types are defined in `check_opts`.
+                      dict, as well as the values that were passed.
+                      Available types are defined in `check_opts`.
 
                   - expected_inputs(type, list, mandatory):
                       This dict defines the types of the inputs when
@@ -40,10 +36,6 @@ class SBModule(nn.Module):
                       thereafter, for efficiency. If a tensor is
                       passed, the shape that it is expected to
                       have must also be passed.
-
-                  - funct_name (type, str, optional, default: None):
-                      it is a string containing the name of the parent
-                      function that has called this method.
 
                   - global_config (type, dict, optional, default: None):
                       it a dictionary containing the global variables of the
@@ -58,46 +50,54 @@ class SBModule(nn.Module):
                       it the logger used to write debug and error messages.
                       If logger=None and root_cfg=True, the file is created
                       from scratch.
+
+                  - first_input_hook (type, function, optional, default: None)
+                      A function to be run when `forward` is called for the
+                      first time. For example: defining the size of a
+                      neural network layer based on the input size.
     -------------------------------------------------------------------------
     """
 
     def __init__(
         self,
-        config,
-        expected_options,
+        options,
         expected_inputs,
-        funct_name=None,
         global_config=None,
-        functions=None,
         logger=None,
-        first_input=None,
+        first_input_hook=None,
     ):
         # Initialize the torch module code
         super().__init__()
 
         # Store vars
-        self.funct_name = funct_name
         self.global_config = global_config
-        self.functions = functions
         self.logger = logger
 
-        # Check, cast, and expand the options
-        self.conf = check_opts(self, expected_options, config, logger)
+        # Check the options
+        check_opts(options, logger)
 
-        # This records if the first input has been checked
-        self.first_input = True
+        # Prepare for checking the first input
         self.expected_inputs = expected_inputs
+        self.first_input_hook = first_input_hook
+        self.hook = self.register_forward_pre_hook(first_pass_check_inputs)
 
-        # Register a hook to check the first input passed to forward
-        def first_pass_check_inputs(self, input, output):
-            if self.first_input:
-                self.first_input = False
-                check_inputs(
-                    self.conf,
-                    self.expected_inputs,
-                    input[0],
-                    self.logger,
-                )
 
-        self.register_forward_hook(first_pass_check_inputs)
+def first_pass_check_inputs(self, input):
+    """
+    Description: Register a hook to check the first input passed to forward.
+    (Author: Peter Plantinga)
 
+    Input: - self: class with registered hook
+
+           - input: the first input to get passed to forward
+    """
+
+    # Check the type and shape of the inputs
+    check_inputs(self.expected_inputs, input[0], self.logger)
+
+    # Run user-defined first input hook
+    if self.first_input_hook is not None:
+        self.first_input_hook(input[0])
+
+    # Remove hook, since we only want to do this once
+    self.hook.remove()
