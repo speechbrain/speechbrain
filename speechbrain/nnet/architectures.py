@@ -155,24 +155,28 @@ class linear(nn.Module):
 
                 logger_write(err_msg, logfile=logger)
 
-        # Computing the dimensionality of the input
-        fea_dim = first_input[0].shape[1]
-
-        # Initialization of the parameters
-        self.w = nn.Linear(fea_dim, self.n_neurons, bias=self.bias)
-
-        # Managing initialization with an external model
-        # (useful for pre-training)
-        initialize_with(self)
-
-        # Automatic recovery (when needed)
-        if global_config is not None:
-            recovery(self)
+        self.first_call = True
 
     def forward(self, input_lst):
 
         # Reading input _list
         x = input_lst[0]
+
+        if self.first_call is True:
+            self.first_call = False
+
+            # Computing the dimensionality of the input
+            fea_dim = x.shape[1]
+
+            # Initialization of the parameters
+            self.w = nn.Linear(fea_dim, self.n_neurons, bias=self.bias)
+
+            # Managing initialization with an external model
+            # (useful for pre-training)
+            initialize_with(self)
+
+            # Automatic recovery (when needed)
+            recovery(self)
 
         # Transposing tensor
         x = x.transpose(1, -1)
@@ -1655,90 +1659,94 @@ class RNN_basic(nn.Module):
                 if len(first_input[0].shape) > 3:
                     self.reshape = True
 
-        # Computing the feature dimensionality
-        self.fea_dim = torch.prod(torch.tensor(first_input[0].shape[1:-1]))
-
-        # Vanilla RNN
-        if self.rnn_type == "rnn":
-            self.rnn = torch.nn.RNN(
-                input_size=self.fea_dim,
-                hidden_size=self.n_neurons,
-                nonlinearity=self.nonlinearity,
-                num_layers=self.num_layers,
-                bias=self.bias,
-                dropout=self.dropout,
-                bidirectional=self.bidirectional,
-            )
-        # Vanilla LSTM
-        if self.rnn_type == "lstm":
-            self.rnn = torch.nn.LSTM(
-                input_size=self.fea_dim,
-                hidden_size=self.n_neurons,
-                num_layers=self.num_layers,
-                bias=self.bias,
-                dropout=self.dropout,
-                bidirectional=self.bidirectional,
-            )
-        # Vanilla GRU
-        if self.rnn_type == "gru":
-            self.rnn = torch.nn.GRU(
-                input_size=self.fea_dim,
-                hidden_size=self.n_neurons,
-                num_layers=self.num_layers,
-                bias=self.bias,
-                dropout=self.dropout,
-                bidirectional=self.bidirectional,
-            )
-        # Vanilla light-GRU
-        if self.rnn_type == "ligru":
-            self.rnn = liGRU(
-                input_size=self.fea_dim,
-                hidden_size=self.n_neurons,
-                num_layers=self.num_layers,
-                dropout=self.dropout,
-                bidirectional=self.bidirectional,
-            )
-
-        # Quasi RNN
-        if self.rnn_type == "qrnn":
-
-            # Check if qrnn (quasi-rnn) library is installed
-            try:
-                from torchqrnn import QRNN
-            except Exception:
-                err_msg = (
-                    "QRNN is not installed. Please run "
-                    "pip install cupy pynvrtc \
-                        git+https://github.com/salesforce/pytorch-qrnn ."
-                    "Go to https://github.com/salesforce/pytorch-qrnn \
-                        for more info."
-                )
-                logger_write(err_msg, logfile=logger)
-
-            # Needed to avoid qrnn warnings
-            import warnings
-
-            warnings.filterwarnings("ignore")
-
-            self.rnn = QRNN(
-                input_size=self.fea_dim,
-                hidden_size=self.n_neurons,
-                num_layers=self.num_layers,
-                dropout=self.dropout,
-            )
-
-        # Managing initialization with an external model
-        # (useful for pre-training)
-        initialize_with(self)
-
-        # Automatic recovery
-        if global_config is not None:
-            recovery(self)
+        self.first_call = True
 
     def forward(self, input_lst):
 
         # Reading input _list
         x = input_lst[0]
+
+        if self.first_call is True:
+            self.first_call = False
+
+            # Computing the feature dimensionality
+            self.fea_dim = torch.prod(torch.tensor(x.shape[1:-1]))
+
+            # Vanilla RNN
+            if self.rnn_type == "rnn":
+                self.rnn = torch.nn.RNN(
+                    input_size=self.fea_dim,
+                    hidden_size=self.n_neurons,
+                    nonlinearity=self.nonlinearity,
+                    num_layers=self.num_layers,
+                    bias=self.bias,
+                    dropout=self.dropout,
+                    bidirectional=self.bidirectional,
+                )
+            # Vanilla LSTM
+            if self.rnn_type == "lstm":
+                self.rnn = torch.nn.LSTM(
+                    input_size=self.fea_dim,
+                    hidden_size=self.n_neurons,
+                    num_layers=self.num_layers,
+                    bias=self.bias,
+                    dropout=self.dropout,
+                    bidirectional=self.bidirectional,
+                )
+            # Vanilla GRU
+            if self.rnn_type == "gru":
+                self.rnn = torch.nn.GRU(
+                    input_size=self.fea_dim,
+                    hidden_size=self.n_neurons,
+                    num_layers=self.num_layers,
+                    bias=self.bias,
+                    dropout=self.dropout,
+                    bidirectional=self.bidirectional,
+                )
+            # Vanilla light-GRU
+            if self.rnn_type == "ligru":
+                self.rnn = liGRU(
+                    input_size=self.fea_dim,
+                    hidden_size=self.n_neurons,
+                    num_layers=self.num_layers,
+                    dropout=self.dropout,
+                    bidirectional=self.bidirectional,
+                )
+
+            # Quasi RNN
+            if self.rnn_type == "qrnn":
+
+                # Check if qrnn (quasi-rnn) library is installed
+                try:
+                    from torchqrnn import QRNN
+                except Exception:
+                    err_msg = (
+                        "QRNN is not installed. Please run "
+                        "pip install cupy pynvrtc \
+                            git+https://github.com/salesforce/pytorch-qrnn ."
+                        "Go to https://github.com/salesforce/pytorch-qrnn \
+                            for more info."
+                    )
+                    logger_write(err_msg, logfile=logger)
+
+                # Needed to avoid qrnn warnings
+                import warnings
+
+                warnings.filterwarnings("ignore")
+
+                self.rnn = QRNN(
+                    input_size=self.fea_dim,
+                    hidden_size=self.n_neurons,
+                    num_layers=self.num_layers,
+                    dropout=self.dropout,
+                )
+
+            # Managing initialization with an external model
+            # (useful for pre-training)
+            initialize_with(self)
+
+            # Automatic recovery
+            recovery(self)
 
         # Reshaping input tensors when needed
         if self.reshape:
@@ -2220,86 +2228,86 @@ class activation(nn.Module):
 
                 logger_write(err_msg, logfile=logger)
 
-            if self.act_type == "relu":
-                self.act = torch.nn.ReLU(inplace=self.inplace)
+        if self.act_type == "relu":
+            self.act = torch.nn.ReLU(inplace=self.inplace)
 
-            if self.act_type == "leaky_relu":
-                self.act = torch.nn.LeakyReLU(
-                    negative_slope=self.negative_slope, inplace=self.inplace
-                )
+        if self.act_type == "leaky_relu":
+            self.act = torch.nn.LeakyReLU(
+                negative_slope=self.negative_slope, inplace=self.inplace
+            )
 
-            if self.act_type == "relu_6":
-                self.act = torch.nn.ReLU6(inplace=self.inplace)
+        if self.act_type == "relu_6":
+            self.act = torch.nn.ReLU6(inplace=self.inplace)
 
-            if self.act_type == "r_relu":
-                self.act = torch.nn.RReLU(
-                    lower=self.lower, upper=self.upper, inplace=self.inplace
-                )
+        if self.act_type == "r_relu":
+            self.act = torch.nn.RReLU(
+                lower=self.lower, upper=self.upper, inplace=self.inplace
+            )
 
-            if self.act_type == "elu":
-                self.act = torch.nn.ELU(alpha=self.alpha, inplace=self.inplace)
+        if self.act_type == "elu":
+            self.act = torch.nn.ELU(alpha=self.alpha, inplace=self.inplace)
 
-            if self.act_type == "selu":
-                self.act = torch.nn.SELU(inplace=self.inplace)
+        if self.act_type == "selu":
+            self.act = torch.nn.SELU(inplace=self.inplace)
 
-            if self.act_type == "celu":
-                self.act = torch.nn.CELU(
-                    alpha=self.alpha, inplace=self.inplace
-                )
+        if self.act_type == "celu":
+            self.act = torch.nn.CELU(
+                alpha=self.alpha, inplace=self.inplace
+            )
 
-            if self.act_type == "hard_shrink":
-                self.act = torch.nn.Hardshrink(lambd=self.lambd)
+        if self.act_type == "hard_shrink":
+            self.act = torch.nn.Hardshrink(lambd=self.lambd)
 
-            if self.act_type == "soft_shrink":
-                self.act = torch.nn.Softshrink(lambd=self.lambd)
+        if self.act_type == "soft_shrink":
+            self.act = torch.nn.Softshrink(lambd=self.lambd)
 
-            if self.act_type == "softplus":
-                self.act = torch.nn.Softplus(
-                    beta=self.beta, threshold=self.threshold
-                )
+        if self.act_type == "softplus":
+            self.act = torch.nn.Softplus(
+                beta=self.beta, threshold=self.threshold
+            )
 
-            if self.act_type == "soft_sign":
-                self.act = torch.nn.SoftSign()
+        if self.act_type == "soft_sign":
+            self.act = torch.nn.SoftSign()
 
-            if self.act_type == "threshold":
-                self.act = torch.nn.Threshold(
-                    self.threshold, self.value, inplace=self.inplace
-                )
+        if self.act_type == "threshold":
+            self.act = torch.nn.Threshold(
+                self.threshold, self.value, inplace=self.inplace
+            )
 
-            if self.act_type == "hard_tanh":
-                self.act = torch.nn.Hardtanh(
-                    min_val=self.min_val,
-                    max_val=self.max_val,
-                    inplace=self.inplace,
-                )
+        if self.act_type == "hard_tanh":
+            self.act = torch.nn.Hardtanh(
+                min_val=self.min_val,
+                max_val=self.max_val,
+                inplace=self.inplace,
+            )
 
-            if self.act_type == "tanh":
-                self.act = torch.nn.Tanh()
+        if self.act_type == "tanh":
+            self.act = torch.nn.Tanh()
 
-            if self.act_type == "tanh_shrink":
-                self.act = torch.nn.Tanhshrink()
+        if self.act_type == "tanh_shrink":
+            self.act = torch.nn.Tanhshrink()
 
-            if self.act_type == "sigmoid":
-                self.act = torch.nn.Sigmoid()
+        if self.act_type == "sigmoid":
+            self.act = torch.nn.Sigmoid()
 
-            if self.act_type == "log_sigmoid":
-                self.act = torch.nn.LogSigmoid()
-                self.reshape = True
+        if self.act_type == "log_sigmoid":
+            self.act = torch.nn.LogSigmoid()
+            self.reshape = True
 
-            if self.act_type == "softmax":
-                self.act = torch.nn.Softmax(dim=self.dim)
-                self.reshape = True
+        if self.act_type == "softmax":
+            self.act = torch.nn.Softmax(dim=self.dim)
+            self.reshape = True
 
-            if self.act_type == "log_softmax":
-                self.act = torch.nn.LogSoftmax(dim=self.dim)
-                self.reshape = True
+        if self.act_type == "log_softmax":
+            self.act = torch.nn.LogSoftmax(dim=self.dim)
+            self.reshape = True
 
-            if self.act_type == "softmax2d":
-                self.act = torch.nn.Softmax2d()
+        if self.act_type == "softmax2d":
+            self.act = torch.nn.Softmax2d()
 
-            if self.act_type == "softmin":
-                self.act = torch.nn.Softmin(dim=self.dim)
-                self.reshape = True
+        if self.act_type == "softmin":
+            self.act = torch.nn.Softmin(dim=self.dim)
+            self.reshape = True
 
     def forward(self, input_lst):
 

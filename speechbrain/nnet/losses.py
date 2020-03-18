@@ -195,35 +195,39 @@ class compute_cost(nn.Module):
         if self.avoid_pad is None:
             self.avoid_pad = [False] * len(self.cost_type)
 
-        # Adding cost functions is a list
-        self.costs = []
-
-        for cost_index, cost in enumerate(self.cost_type):
-
-            if cost == "nll":
-                self.costs.append(torch.nn.NLLLoss())
-
-            if cost == "error":
-                self.costs.append(self.compute_error)
-
-            if cost == "mse":
-                self.costs.append(nn.MSELoss())
-
-            if cost == "l1":
-                self.costs.append(nn.L1Loss())
-
-            if cost == "ctc":
-                self.blank_index = first_input[0].shape[1] - 1
-                self.costs.append(nn.CTCLoss(blank=self.blank_index))
-                self.avoid_pad[cost_index] = False
-
-            if cost == "wer":
-                self.costs.append(self.compute_wer)
+        self.first_call = True
 
     def forward(self, input_lst):
 
         # Reading input prediction
         prob = input_lst[0]
+
+        if self.first_call is True:
+            self.first_call = False
+            # Adding cost functions is a list
+            self.costs = []
+
+            for cost_index, cost in enumerate(self.cost_type):
+
+                if cost == "nll":
+                    self.costs.append(torch.nn.NLLLoss())
+
+                if cost == "error":
+                    self.costs.append(self.compute_error)
+
+                if cost == "mse":
+                    self.costs.append(nn.MSELoss())
+
+                if cost == "l1":
+                    self.costs.append(nn.L1Loss())
+
+                if cost == "ctc":
+                    self.blank_index = prob.shape[1] - 1
+                    self.costs.append(nn.CTCLoss(blank=self.blank_index))
+                    self.avoid_pad[cost_index] = False
+
+                if cost == "wer":
+                    self.costs.append(self.compute_wer)
 
         # Reading the targets
         lab = input_lst[1]

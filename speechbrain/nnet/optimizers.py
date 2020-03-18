@@ -235,117 +235,123 @@ class optimize(nn.Module):
         )
 
         # Analysis of the first input
-        if len(first_input) == 0:
-            err_msg = (
-                "The class optimize expected in input a list of neural "
-                "classes (nn.Module). Got an empty list."
-            )
-
-            logger_write(err_msg, logfile=logger)
-
-        # Making sure the input is class with parameters to optimize
-        param_lst = []
-
-        # Storing all the parameters to updated in the param_lst
-        for inp in first_input:
-
-            try:
-                param_lst = param_lst + list(inp.parameters())
-            except Exception:
-
+        if first_input is not None:
+            if len(first_input) == 0:
                 err_msg = (
-                    "The class optimize expected in input a list of"
-                    "neural classes (nn.Module), but %s has no parameters"
-                    % (inp)
+                    "The class optimize expected in input a list of neural "
+                    "classes (nn.Module). Got an empty list."
                 )
 
                 logger_write(err_msg, logfile=logger)
 
-        # Initialization of the rmsprop optimizer
-        if self.optimizer_type == "rmsprop":
-
-            self.optim = torch.optim.RMSprop(
-                param_lst,
-                lr=self.learning_rate,
-                alpha=self.alpha,
-                eps=self.eps,
-                weight_decay=self.weight_decay,
-                momentum=self.momentum,
-                centered=self.centered,
-            )
-
-        # Initialization of the adam optimizer
-        if self.optimizer_type == "adam":
-
-            self.optim = torch.optim.Adam(
-                param_lst,
-                lr=self.learning_rate,
-                betas=tuple(self.betas),
-                eps=self.eps,
-                weight_decay=self.weight_decay,
-                amsgrad=self.amsgrad,
-            )
-
-        # Initialization of the adamw optimizer
-        if self.optimizer_type == "adamw":
-
-            self.optim = torch.optim.AdamW(
-                param_lst,
-                lr=self.learning_rate,
-                betas=tuple(self.betas),
-                eps=self.eps,
-                weight_decay=self.weight_decay,
-                amsgrad=self.amsgrad,
-            )
-
-        # Initialization of the adamax optimizer
-        if self.optimizer_type == "adamax":
-
-            self.optim = torch.optim.Adamax(
-                param_lst,
-                lr=self.learning_rate,
-                betas=tuple(self.betas),
-                eps=self.eps,
-            )
-
-        # Initialization of the adadelta optimizer
-        if self.optimizer_type == "adadelta":
-
-            self.optim = torch.optim.Adadelta(
-                param_lst,
-                lr=self.learning_rate,
-                rho=self.rho,
-                eps=self.eps,
-                weight_decay=self.weight_decay,
-            )
-
-        # Initialization of the sgd optimizer
-        if self.optimizer_type == "sgd":
-
-            self.optim = torch.optim.SGD(
-                param_lst,
-                lr=self.learning_rate,
-                momentum=self.momentum,
-                dampening=self.dampening,
-                weight_decay=self.weight_decay,
-                nesterov=self.nesterov,
-            )
-
-        # Initialization of the rprop optimizer
-        if self.optimizer_type == "rprop":
-
-            self.optim = torch.optim.Rprop(
-                param_lst,
-                lr=self.learning_rate,
-                etas=tuple(self.etas),
-                step_sizes=tuple(self.step_sizes),
-            )
-
-        # Automatic recovery
-        if global_config is not None:
-            recovery(self)
+        self.first_call = True
 
     def forward(self, input_lst):
+
+        if self.first_call is True:
+            self.first_call = False
+
+            # Making sure the input is class with parameters to optimize
+            param_lst = []
+
+            # Storing all the parameters to updated in the param_lst
+            for inp in input_lst:
+
+                try:
+                    param_lst = param_lst + list(inp.parameters())
+                except Exception:
+
+                    err_msg = (
+                        "The class optimize expected in input a list of"
+                        "neural classes (nn.Module), but %s has no parameters"
+                        % (inp)
+                    )
+
+                    logger_write(err_msg, logfile=logger)
+
+            # Initialization of the rmsprop optimizer
+            if self.optimizer_type == "rmsprop":
+
+                self.optim = torch.optim.RMSprop(
+                    param_lst,
+                    lr=self.learning_rate,
+                    alpha=self.alpha,
+                    eps=self.eps,
+                    weight_decay=self.weight_decay,
+                    momentum=self.momentum,
+                    centered=self.centered,
+                )
+
+            # Initialization of the adam optimizer
+            if self.optimizer_type == "adam":
+
+                self.optim = torch.optim.Adam(
+                    param_lst,
+                    lr=self.learning_rate,
+                    betas=tuple(self.betas),
+                    eps=self.eps,
+                    weight_decay=self.weight_decay,
+                    amsgrad=self.amsgrad,
+                )
+
+            # Initialization of the adamw optimizer
+            if self.optimizer_type == "adamw":
+
+                self.optim = torch.optim.AdamW(
+                    param_lst,
+                    lr=self.learning_rate,
+                    betas=tuple(self.betas),
+                    eps=self.eps,
+                    weight_decay=self.weight_decay,
+                    amsgrad=self.amsgrad,
+                )
+
+            # Initialization of the adamax optimizer
+            if self.optimizer_type == "adamax":
+
+                self.optim = torch.optim.Adamax(
+                    param_lst,
+                    lr=self.learning_rate,
+                    betas=tuple(self.betas),
+                    eps=self.eps,
+                )
+
+            # Initialization of the adadelta optimizer
+            if self.optimizer_type == "adadelta":
+
+                self.optim = torch.optim.Adadelta(
+                    param_lst,
+                    lr=self.learning_rate,
+                    rho=self.rho,
+                    eps=self.eps,
+                    weight_decay=self.weight_decay,
+                )
+
+            # Initialization of the sgd optimizer
+            if self.optimizer_type == "sgd":
+
+                self.optim = torch.optim.SGD(
+                    param_lst,
+                    lr=self.learning_rate,
+                    momentum=self.momentum,
+                    dampening=self.dampening,
+                    weight_decay=self.weight_decay,
+                    nesterov=self.nesterov,
+                )
+
+            # Initialization of the rprop optimizer
+            if self.optimizer_type == "rprop":
+
+                self.optim = torch.optim.Rprop(
+                    param_lst,
+                    lr=self.learning_rate,
+                    etas=tuple(self.etas),
+                    step_sizes=tuple(self.step_sizes),
+                )
+
+            # Automatic recovery
+            # if global_config is not None:
+            #    recovery(self)
 
         # Gradient combination for the multi-gpu case
         self.sum_grad_multi_gpu(input_lst)

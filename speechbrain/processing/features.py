@@ -1484,9 +1484,6 @@ class deltas(nn.Module):
 
         self.kernel = torch.arange(-self.n, self.n + 1, 1).float()
 
-        # Extending kernel to all the features
-        #if first_input is not None:
-        #    self.kernel = self.kernel.repeat(first_input[0].shape[-2], 1, 1)
         self.first_call = True
 
     def forward(self, input_lst):
@@ -1494,6 +1491,7 @@ class deltas(nn.Module):
         # Reading the input_list
         x = input_lst[0]
 
+        # Extending kernel to all the features
         if self.first_call:
             self.first_call = False
             self.kernel = self.kernel.repeat(x.shape[-2], 1, 1)
@@ -1673,7 +1671,7 @@ class context_window(nn.Module):
         # Reading input_list
         x = input_lst[0]
 
-        if self.first_call == True:
+        if self.first_call is True:
             self.first_call = False
             self.kernel = (
                 self.kernel.repeat(x.shape[1], 1, 1)
@@ -1789,9 +1787,6 @@ class mean_var_norm(nn.Module):
         # Numerical stability for std
         self.eps = 1e-10
 
-        # detecting the device
-        self.device_inp = str(first_input[0].device)
-
         # Recovery stored stats
         recovery(self)
 
@@ -1799,6 +1794,7 @@ class mean_var_norm(nn.Module):
 
         # Reading input_list
         x = input_lst[0]
+        self.device_inp = str(x.device)
 
         # Reading lengths
         lengths = input_lst[1]
@@ -1947,8 +1943,8 @@ class mean_var_norm(nn.Module):
             self.glob_mean = state["glob_mean"]
             self.glob_std = state["glob_std"]
         else:
-            self.glob_mean = state["glob_mean"].to(self.device_inp)
-            self.glob_std = state["glob_std"].to(self.device_inp)
+            self.glob_mean = state["glob_mean"]  # .to(self.device_inp)
+            self.glob_std = state["glob_std"]  # .to(self.device_inp)
 
         # Loading the spk_dict_mean in the right device
         self.spk_dict_mean = {}

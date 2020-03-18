@@ -1266,29 +1266,30 @@ class save_ckpt:
         )
 
         # Additional checks on the input
-        perform_dict = first_input[1]
+        if first_input is not None:
+            perform_dict = first_input[1]
 
-        if len(perform_dict) == 0:
-            err_msg = (
-                "The second input to the function save_ckpt must be a "
-                "dict contaning at least one element (i.e, performance)"
-            )
-            logger_write(err_msg, logfile=logger)
-
-        # Making sure that the list contains performance in tensor formats
-        for perf in perform_dict:
-
-            if isinstance(perform_dict[perf], list):
-                if len(perform_dict[perf]) == 1:
-                    if isinstance(perform_dict[perf][0], torch.Tensor):
-                        perform_dict[perf] = perform_dict[perf][0]
-
-            if not isinstance(perform_dict[perf], torch.Tensor):
+            if len(perform_dict) == 0:
                 err_msg = (
                     "The second input to the function save_ckpt must be a "
-                    "dict contaning torch.Tensor elements (Got %s)"
-                ) % (type(perform_dict[perf]))
+                    "dict contaning at least one element (i.e, performance)"
+                )
                 logger_write(err_msg, logfile=logger)
+
+            # Making sure that the list contains performance in tensor formats
+            for perf in perform_dict:
+
+                if isinstance(perform_dict[perf], list):
+                    if len(perform_dict[perf]) == 1:
+                        if isinstance(perform_dict[perf][0], torch.Tensor):
+                            perform_dict[perf] = perform_dict[perf][0]
+
+                if not isinstance(perform_dict[perf], torch.Tensor):
+                    err_msg = (
+                        "The second input to the function save_ckpt must be a "
+                        "dict contaning torch.Tensor elements (Got %s)"
+                    ) % (type(perform_dict[perf]))
+                    logger_write(err_msg, logfile=logger)
 
         # Setting the save folder
         if self.save_folder is None:
