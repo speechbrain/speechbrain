@@ -359,7 +359,9 @@ class compute_cost(nn.Module):
 
                 # Managing ctc cost for sequence-to-sequence learning
                 if self.cost_type[i] == "ctc":
-
+                    # cast lab_curr to int32 for using Cudnn computation
+                    # In the case of using CPU training, int type is mondatory.
+                    lab_curr = lab_curr.int()
                     # Permuting output probs
                     prob_curr = prob_curr.permute(2, 0, 1)
 
