@@ -666,6 +666,9 @@ class FBANKs(nn.Module):
         # Additional check on the input shapes
         if first_input is not None:
 
+            # Setting the device
+            self.device_inp = first_input[0].device
+
             # Check shape
             if len(first_input[0].shape) > 4 or len(first_input[0].shape) < 2:
 
@@ -679,7 +682,12 @@ class FBANKs(nn.Module):
 
                 logger_write(err_msg, logfile=logger)
 
+        # Getting the outut folder
+        if not self.freeze:
+            self.output_folder = global_config["output_folder"]
+
         # Additional options
+        self.funct_name = funct_name
         self.n_stft = self.n_fft // 2 + 1
 
         # Make sure that the selected f_min < f_max
@@ -709,8 +717,8 @@ class FBANKs(nn.Module):
         # Computation of the filter bands
         band = hz[1:] - hz[:-1]
 
-        self.band = band[:-1]
-        self.f_central = hz[1:-1]
+        self.band = band[:-1].to(self.device_inp)
+        self.f_central = hz[1:-1].to(self.device_inp)
 
         # Adding the central frequency and the band to the list of nn param
         if not self.freeze:
@@ -719,9 +727,11 @@ class FBANKs(nn.Module):
 
         # Frequency axis
         all_freqs = torch.linspace(0, self.sample_rate // 2, self.n_stft)
+        all_freqs = all_freqs.to(self.device_inp)
 
         # replicating for all the filters
         self.all_freqs_mat = all_freqs.repeat(self.f_central.shape[0], 1)
+        self.all_freqs_mat = self.all_freqs_mat.to(self.device_inp)
 
         # Managing initialization with an external filter bank parameters
         # (useful for pre-training)
@@ -736,8 +746,13 @@ class FBANKs(nn.Module):
         # Reading input_list
         spectrogram = input_lst[0]
 
-        # Adding signal to gpu or cpu
-        spectrogram = spectrogram
+        # Getting the current device
+        self.device_inp = spectrogram.device
+
+        # Putting all_freq tensor in the current device
+        self.all_freqs_mat = self.all_freqs_mat.to(self.device_inp)
+        self.band = self.band.to(self.device_inp)
+        self.f_central = self.f_central.to(self.device_inp)
 
         # Computing central frequency and bandwidth of each filter
         f_central_mat = self.f_central.repeat(
@@ -866,7 +881,7 @@ class FBANKs(nn.Module):
         # Right part of the filter
         right_side = -slope + 1.0
 
-        zero = torch.zeros(1)
+        zero = torch.zeros(1).to(self.device_inp)
 
         # Adding zeros for negative values
         fbank_matrix = torch.max(
@@ -1244,6 +1259,9 @@ class MFCCs(nn.Module):
         # Additional check on the input shapes
         if first_input is not None:
 
+            # Getting the input device
+            self.device_inp = first_input[0].device
+
             # Check shapes
             if len(first_input[0].shape) > 4 or len(first_input[0].shape) < 2:
 
@@ -1258,6 +1276,7 @@ class MFCCs(nn.Module):
 
         # Generate matix for DCT transformation
         self.dct_mat = self.create_dct()
+        self.dct_mat = self.dct_mat.to(self.device_inp)
 
         # Check n_mfcc
         if self.n_mfcc > self.n_mels:
