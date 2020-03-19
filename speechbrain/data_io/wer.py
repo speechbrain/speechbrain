@@ -93,6 +93,7 @@ class ComputeAndSaveWERAndAlignments:
                 ref_reader, hyp_dict, 
                 compute_alignments=True, scoring_mode=self.conf['scoring_mode'])
         summary_details = edit_distance.wer_summary(details_by_utterance)
+        _print_wer_summary(summary_details)
         with open(self.conf['outfile'], "w") as fo:
             _print_wer_summary(summary_details, file=fo)
             _print_alignments_global_header(file=fo)
