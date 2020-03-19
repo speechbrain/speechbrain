@@ -32,7 +32,7 @@ if __name__ == "__main__":
     exec_config = create_exec_config(cfg_file, cmd_arg)
 
     # Initializing the execute computation class
-    computations = execute_computations(exec_config)
+    computations = execute_computations(**exec_config)
 
     # Executing the computations specified in the config file
     computations([])

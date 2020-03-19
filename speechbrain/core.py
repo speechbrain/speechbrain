@@ -419,7 +419,7 @@ class execute_computations(nn.Module):
         stop_at=None,
         out_var=None,
         save_folder=None,
-        recover=False,
+        recovery=False,
         accum_type=None,
         torch_no_grad=False,
         eval_mode=None,
@@ -442,9 +442,9 @@ class execute_computations(nn.Module):
     ):
 
         # Here are summarized the expected options for this class
-        self.expected_options = {
-            "class_name": ("str", "mandatory"),
-            "cfg_file": ("file", "mandatory"),
+        options = [
+            'class_name': {'type': 'file', 'value': class_name},
+            'cfg_file': ('type': 'file', 'value': cfg_file},
             'csv_file': {'type': 'file', 'value': csv_file},
             'cfg_change': {'type': 'str', 'value': cfg_change},
             'root_cfg': {'type': 'bool', 'value': root_cfg},
@@ -470,8 +470,14 @@ class execute_computations(nn.Module):
             },
             'num_workers': {'type': 'int(0,inf)', 'value': num_workers},
             'cache': {'type': 'bool', 'value': cache},
-            'cache_ram_percent': {'type': 'int(0,100)', 'value': cache_ram_percent},
-            'select_n_sentences': {'type': 'int(1,inf)', 'value': select_n_sentences},
+            'cache_ram_percent': {
+                'type': 'int(0,100)',
+                'value': cache_ram_percent,
+            },
+            'select_n_sentences': {
+                'type': 'int(1,inf)',
+                'value': select_n_sentences,
+            },
             'drop_last': {'type': 'bool', 'value': drop_last},
             'replicate': {'type': 'int(1,inf)', 'value': replicate},
             'replicate_with': {'type': 'str', 'value': replicate_with},

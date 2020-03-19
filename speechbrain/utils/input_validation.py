@@ -377,90 +377,21 @@ def check_expected_options(expected_options, logger=None):
      -------------------------------------------------------------------------
      """
 
-    # List of all the supported types
-    field = []
-    field.append(
-        [
-            "str",
-            "str_list",
-            "file",
-            "file_list",
-            "directory",
-            "directory_list",
-            "one_of",
-            "one_of_list",
-            "bool",
-            "bool_list",
-            "int",
-            "int_list",
-            "float",
-            "float_list",
-        ]
-    )
-
-    field.append(["mandatory", "optional"])
-
     # Check if the option is supported. Otherwise, raise and error
     for option in expected_options.keys():
 
-        if not isinstance(expected_options[option], tuple):
-
-            err_msg = (
-                'the option "%s" reported in self.expected_options '
-                "must be a tuple composed of two or three elements "
-                "(e.g, %s=(int,mandatory) or %s=(int,optional,0)). Got %s"
-                % (option, option, option, expected_options[option],)
-            )
-
-            logger_write(err_msg, logfile=logger)
-
-        if len(expected_options[option]) <= 1:
-
-            err_msg = (
-                'the option "%s" reported in self.expected_options '
-                "must be a tuple composed of two or three elements "
-                "(e.g, %s=(int,mandatory) or %s=(int,optional,0)).Got %s "
-                % (option, option, option, expected_options[option],)
-            )
-
-            logger_write(err_msg, logfile=logger)
-
-        if expected_options[option][1] not in field[1]:
-
-            err_msg = (
-                "the type reported in self.expected_options for the "
-                'option "%s" must be a tuple composed of two or three elements'
-                '(e.g, %s=(int,mandatory) or %s=(int,optional,0)). "mandatory"'
-                ' or "optional" are the only options supported. Got ("%s")'
-                % (option, option, option, expected_options[option],)
-            )
-
-            logger_write(err_msg, logfile=logger)
-
         if (
-            expected_options[option][1] == "mandatory"
-            and len(expected_options[option]) != 2
+                not isinstance(expected_options[option], dict) or
+                len(expected_options[option]) != 2 or
+                'type' not in expected_options[option] or
+                'value' not in expected_options[option]
         ):
 
             err_msg = (
-                'the type "mandatory" reported in '
-                'self.expected_options for the option "%s" must be a tuple '
-                "composed of two elements (e.g, %s=(int,mandatory)). Got %s"
+                'the option "%s" reported in self.expected_options '
+                "must be a dict composed of two elements "
+                "(e.g, %s={'type': 'int', 'value': 1})). Got %s"
                 % (option, option, expected_options[option],)
-            )
-
-            logger_write(err_msg, logfile=logger)
-
-        if (
-            expected_options[option][1] == "optional"
-            and len(expected_options[option]) != 3
-        ):
-
-            err_msg = (
-                'the type "optional" reported in self.expected_options '
-                'for the option "%s" must be a tuple composed of three elem '
-                "(e.g, %s=(int,mandatory,0)). The last element is the default "
-                "value. Got %s" % (option, option, expected_options[option],)
             )
 
             logger_write(err_msg, logfile=logger)
@@ -518,31 +449,14 @@ def check_opts(options, logger=None):
      """
 
     # Check expected options
-    check_expected_options(expected_options, logger=logger)
-
-    # List of mandatory fields
-    mandatory_fields = []
-    optional_fields = []
-
-    for field in expected_options:
-        option_mandatory = expected_options[field][1]
-        if option_mandatory == "mandatory":
-            mandatory_fields.append(field)
-        if option_mandatory == "optional":
-            optional_fields.append(field)
+    check_expected_options(options, logger=logger)
 
     # Check and cast options
     cast_options = {}
 
-    for option in data_opts.keys():
-
-        # Check if the current option is in the list of expected options
-        if option not in expected_options.keys():
-            continue
-
-        option_value = data_opts[option]
-        option_type = expected_options[option][0]
-        option_mandatory = expected_options[option][1]
+    for option in options:
+        option_value = option['value']
+        option_type = option['type']
 
         if len(option_value.strip()) == 0:
             err_msg = 'the field "%s" contains an empty value.' % (option)
@@ -725,7 +639,6 @@ def check_input_shape(expected_dims, input_to_check, logger=None):
                  check_input_shapes([2, 3], inputs)
     ------------------------------------------------------
     """
-
 
     dimensions = len(input_to_check.shape)
 
