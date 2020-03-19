@@ -378,96 +378,27 @@ def check_expected_options(expected_options, logger=None):
      -------------------------------------------------------------------------
      """
 
-    # List of all the supported types
-    field = []
-    field.append(
-        [
-            "str",
-            "str_list",
-            "file",
-            "file_list",
-            "directory",
-            "directory_list",
-            "one_of",
-            "one_of_list",
-            "bool",
-            "bool_list",
-            "int",
-            "int_list",
-            "float",
-            "float_list",
-        ]
-    )
-
-    field.append(["mandatory", "optional"])
-
     # Check if the option is supported. Otherwise, raise and error
     for option in expected_options.keys():
 
-        if not isinstance(expected_options[option], tuple):
-
-            err_msg = (
-                'the option "%s" reported in self.expected_options '
-                "must be a tuple composed of two or three elements "
-                "(e.g, %s=(int,mandatory) or %s=(int,optional,0)). Got %s"
-                % (option, option, option, expected_options[option],)
-            )
-
-            logger_write(err_msg, logfile=logger)
-
-        if len(expected_options[option]) <= 1:
-
-            err_msg = (
-                'the option "%s" reported in self.expected_options '
-                "must be a tuple composed of two or three elements "
-                "(e.g, %s=(int,mandatory) or %s=(int,optional,0)).Got %s "
-                % (option, option, option, expected_options[option],)
-            )
-
-            logger_write(err_msg, logfile=logger)
-
-        if expected_options[option][1] not in field[1]:
-
-            err_msg = (
-                "the type reported in self.expected_options for the "
-                'option "%s" must be a tuple composed of two or three elements'
-                '(e.g, %s=(int,mandatory) or %s=(int,optional,0)). "mandatory"'
-                ' or "optional" are the only options supported. Got ("%s")'
-                % (option, option, option, expected_options[option],)
-            )
-
-            logger_write(err_msg, logfile=logger)
-
         if (
-            expected_options[option][1] == "mandatory"
-            and len(expected_options[option]) != 2
+                not isinstance(expected_options[option], dict) or
+                len(expected_options[option]) != 2 or
+                'type' not in expected_options[option] or
+                'value' not in expected_options[option]
         ):
 
             err_msg = (
-                'the type "mandatory" reported in '
-                'self.expected_options for the option "%s" must be a tuple '
-                "composed of two elements (e.g, %s=(int,mandatory)). Got %s"
+                'the option "%s" reported in self.expected_options '
+                "must be a dict composed of two elements "
+                "(e.g, %s={'type': 'int', 'value': 1})). Got %s"
                 % (option, option, expected_options[option],)
             )
 
             logger_write(err_msg, logfile=logger)
 
-        if (
-            expected_options[option][1] == "optional"
-            and len(expected_options[option]) != 3
-        ):
 
-            err_msg = (
-                'the type "optional" reported in self.expected_options '
-                'for the option "%s" must be a tuple composed of three elem '
-                "(e.g, %s=(int,mandatory,0)). The last element is the default "
-                "value. Got %s" % (option, option, expected_options[option],)
-            )
-
-            logger_write(err_msg, logfile=logger)
-
-
-def check_opts(self, expected_options, data_opts, logger=None):
+def check_opts(options, logger=None):
     """
      -------------------------------------------------------------------------
      utils.check_opts (author: Mirco Ravanelli)
@@ -478,33 +409,23 @@ def check_opts(self, expected_options, data_opts, logger=None):
                   expected_options dictionary. Moreover is stored in the given
                   input class the cast variables.
 
-     Input (call):     - self (type: class, mandatory):
-                           it is the input class where the cast variables will
-                           be defined.
+     Input: - options (type: dict, mandatory)
+                A dictionary with the option name as a key, with the
+                value equal to another dict with expected type and
+                actual value.
 
-                       - expected_options(type: dict, mandatory):
-                           it is a dictionary containing the expected options.
-
-                      - data_options(type: dict, mandatory):
-                           it is a dictionary containing the expected options.
-
-                      - logger (type: logger, optional, default: None):
-                       it the logger used to write debug and error messages.
-
-
-     Output (call):  cast_options (type: dict):
-                       it is the output dictionary containing the cast options.
-
+            - logger (type: logger, optional, default: None):
+                it the logger used to write debug and error messages.
 
      Example:   from speechbrain.utils.input_validation import check_opts
 
                 # Expected options
                 expected_options={
-               'class_name': ('str','mandatory'),
-               'cfg_file': ('path','mandatory'),
-               'cfg_change': ('str','optional','None'),
-               'stop_at': ('str_list','optional','None'),
-               'root_cfg': ('bool','optional','False')}
+                   'class_name': ('str','mandatory'),
+                   'cfg_file': ('path','mandatory'),
+                   'cfg_change': ('str','optional','None'),
+                   'stop_at': ('str_list','optional','None'),
+                   'root_cfg': ('bool','optional','False')}
 
                # creation of a dummy class
 
@@ -529,33 +450,14 @@ def check_opts(self, expected_options, data_opts, logger=None):
      """
 
     # Check expected options
-    check_expected_options(expected_options, logger=logger)
-
-    # List of mandatory fields
-    mandatory_fields = []
-    optional_fields = []
-
-    for field in expected_options:
-        option_mandatory = expected_options[field][1]
-        if option_mandatory == "mandatory":
-            mandatory_fields.append(field)
-        if option_mandatory == "optional":
-            optional_fields.append(field)
+    check_expected_options(options, logger=logger)
 
     # Check and cast options
     cast_options = {}
 
-    for option in data_opts.keys():
-
-        # Check if the current option is in the list of expected options
-        if option not in expected_options.keys():
-            #err_msg = 'the option "%s" not in expected options.' % (option)
-            #logger_write(err_msg, logfile=logger)
-            continue
-
-        option_value = data_opts[option]
-        option_type = expected_options[option][0]
-        option_mandatory = expected_options[option][1]
+    for option in options:
+        option_value = option['value']
+        option_type = option['type']
 
         if len(option_value.strip()) == 0:
             err_msg = 'the field "%s" contains an empty value.' % (option)
@@ -671,6 +573,12 @@ def check_inputs(config, expected_inputs, input_lst, logger=None):
 
         for exp_inp in expected_inputs[i]:
 
+            # If the expected input is a tensor, check the shape
+            if isinstance(exp_inp, dict):
+                if 'shape' in exp_inp:
+                    check_input_shape(exp_inp['shape'], input_lst[i])
+                exp_inp = exp_inp['type']
+
             # Continue if expected_inputs[i] is a class
             if exp_inp == "class":
                 continue
@@ -700,7 +608,7 @@ def check_inputs(config, expected_inputs, input_lst, logger=None):
             logger_write(err_msg, logfile=logger)
 
 
-def check_input_shapes(expected_dims, inputs, logger=None):
+def check_input_shape(expected_dims, input_to_check, logger=None):
     """
     ------------------------------------------------------
     speechbrain.processing.speech_augmentation.check_input_shape
@@ -727,35 +635,32 @@ def check_input_shapes(expected_dims, inputs, logger=None):
                  from speechbrain.processing.speech_augmentation \
                     import check_input_shapes
 
-                 inputs = [torch.randn(1, 3), torch.randn(3, 1)]
+                 inputs = torch.randn(1, 3)
 
-                 check_input_shapes([[2, 3], [2]], inputs)
+                 check_input_shapes([2, 3], inputs)
     ------------------------------------------------------
     """
 
-    # Check all inputs
-    for i, input_to_check in enumerate(inputs):
+    dimensions = len(input_to_check.shape)
 
-        dimensions = len(input_to_check.shape)
+    # For efficiency, only do something if an error occurs
+    if dimensions not in expected_dims:
 
-        # For efficiency, only do something if an error occurs
-        if dimensions not in expected_dims[i]:
+        # Find the calling function's class name. Its okay if this is
+        # slow because we should never come across this except if an
+        # error has occurred. This comes from:
+        # https://stackoverflow.com/a/53490973
+        import inspect
+        calling_frame = inspect.currentframe().f_back.f_back
+        class_name = calling_frame.f_locals["self"].__class__.__name__
 
-            # Find the calling function's class name. Its okay if this is
-            # slow because we should never come across this except if an
-            # error has occurred. This comes from:
-            # https://stackoverflow.com/a/53490973
-            import inspect
-            calling_frame = inspect.currentframe().f_back
-            class_name = calling_frame.f_locals["self"].__class__.__name__
-
-            # Build error message
-            err_msg = (
-                'Function: `%s` expected a tensor with dimension count that '
-                'is one of %s for parameter #%d but got a dimension count of '
-                '%d instead' % (
-                    class_name, str(expected_dims[i]), i+1, dimensions
-                )
+        # Build error message
+        err_msg = (
+            'Function: `%s` expected a tensor with dimension count that '
+            'is one of %s but got a dimension count of '
+            '%d instead' % (
+                class_name, str(expected_dims), dimensions
             )
+        )
 
-            logger_write(err_msg, logfile=logger)
+        logger_write(err_msg, logfile=logger)

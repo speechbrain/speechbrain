@@ -17,9 +17,8 @@ import torch.nn as nn
 
 from speechbrain.data_io.data_io import create_dataloader
 from speechbrain.utils.logger import logger_write
-from speechbrain.utils.input_validation import (check_opts,
-                                                check_inputs,
-                                                check_input_shapes)
+
+from speechbrain.module import SpeechBrainModule
 
 """
 -------------------------------------------
@@ -37,13 +36,13 @@ def compute_amplitude(waveform, length):
     Description: Compute the average amplitude of a batch of waveforms for
                  scaling different waveforms to a given ratio.
 
-    Input:       - waveform (type, torch.tensor, mandatory):
+    Input:       - waveform (type: torch.tensor, mandatory):
                      The waveform used for computing amplitude
 
-                 - length (type, torch.tensor, mandatory):
+                 - length (type: torch.tensor, mandatory):
                      The length of the (un-padded) waveform
 
-    Output:      - average amplitude (type, torch.tensor):
+    Output:      - average amplitude (type: torch.tensor):
                      The average amplitude of each waveform
 
     Example:     import torch
@@ -76,33 +75,33 @@ def convolve1d(waveform, kernel, padding=0, pad_type='constant',
     Description: Use torch.nn.functional to perform first 1d padding
                  and then 1d convolution.
 
-    Input:       - waveform (type, torch.tensor, mandatory):
+    Input:       - waveform (type: torch.tensor, mandatory):
                      The tensor to perform operations on.
 
-                 - kernel (type, torch.tensor, mandatory):
+                 - kernel (type: torch.tensor, mandatory):
                      The filter to apply during convolution
 
-                 - padding (type, tuple, optional, default: None):
+                 - padding (type: tuple, default: None):
                      The padding (pad_left, pad_right) to apply.
                      If an integer is passed instead, this is passed
                      to the conv1d function and pad_type is ignored.
 
-                 - pad_type (type, string, optional, default: 'constant'):
+                 - pad_type (type: string, default: 'constant'):
                      The type of padding to use. Passed directly to
                      `torch.nn.functional.pad`, see PyTorch documentation
                      for available options.
 
-                 - stride (type, int, optional, default: 1):
+                 - stride (type: int, default: 1):
                      The number of units to move each time convolution
                      is applied. Passed to conv1d. Has no effect if
                      `use_fft` is True.
 
-                 - groups (type, int, optional, default: 1):
+                 - groups (type: int, default: 1):
                      This option is passed to `conv1d` to split the input
                      into groups for convolution. Input channels should
                      be divisible by number of groups.
 
-                 - use_fft (type, bool, optional, default: False):
+                 - use_fft (type: bool, default: False):
                      When `use_fft` is passed `True`, then compute the
                      convolution in the spectral domain using complex
                      multiply. This is more efficient on CPU when the
@@ -111,12 +110,12 @@ def convolve1d(waveform, kernel, padding=0, pad_type='constant',
                      This makes little difference in the case of reverberation,
                      but may make more difference with different kernels.
 
-                 - rotation_index (type, int, optional, default: 0):
+                 - rotation_index (type: int, default: 0):
                      This option only applies if `use_fft` is true. If so,
                      the kernel is rolled by this amount before convolution
                      to shift the output location.
 
-    Output:      - convolved waveform (type, torch.tensor)
+    Output:      - convolved waveform (type: torch.tensor)
 
     Example:     import torch
                  import soundfile as sf
@@ -228,18 +227,18 @@ def notch_filter(notch_freq, filter_width=101, notch_width=0.05):
     Description: Simple band-pass filter with small passband. Convolve
                  with an impulse response to get the notch filter.
 
-    Inputs: - notch_freq (type, float, mandatory):
+    Inputs: - notch_freq (type: float, mandatory):
                 frequency to put notch as a fraction of the sampling rate / 2.
                 The range of possible inputs is 0 to 1.
 
-            - filter_width (type, int, optional):
+            - filter_width (type: int, optional):
                 Filter width in samples. Longer filters have smaller
                 transition bands, but are more inefficient
 
-            - notch_width (type, float, optional):
+            - notch_width (type: float, optional):
                 Width of the notch, as a fraction of the sampling_rate / 2.
 
-    Output: notch filter (type, torch.tensor)
+    Output: notch filter (type: torch.tensor)
 
     Example: import torch
              import soundfile as sf
@@ -309,7 +308,7 @@ Augmentation classes
 """
 
 
-class add_noise(nn.Module):
+class add_noise(SpeechBrainModule):
     """
     -------------------------------------------------------------------------
     speechbrain.processing.speech_augmentation.add_noise
@@ -319,93 +318,37 @@ class add_noise(nn.Module):
                  signal. The noise can come from a provided file or
                  from a generated white noise signal.
 
-    Input (init):  - config (type, dict, mandatory):
-                      it is a dictionary containing the keys described below.
+    Input: - csv_file (type: str, default: None):
+               The csv file containing the location of the noise audio files.
+               If none is provided, white noise will be used instead.
 
-                      - csv_file (type, str, optional, default: None):
-                          The csv file containing the location of the
-                          noise audio files. If none is provided, white
-                          noise will be used instead.
+           - order (type: str, default: 'random'):
+               The order to iterate the csv file, from one of the following
+               options: random, original, ascending, and descending.
 
-                      - order (type, str, optional, default: 'random'):
-                          The order to iterate the csv file, from one of
-                          the following options: random, original, ascending,
-                          and descending.
+           - batch_size (type: int, default: None):
+               If an csv_file is passed, this controls the number of samples
+               that are loaded at the same time, should be the same as or less
+               than the size of the clean batch. If `None` is passed, the size
+               of the first clean batch will be used.
 
-                      - batch_size (type, int, optional, default: None):
-                          If an csv_file is passed, this controls the number
-                          of samples that are loaded at the same time, should
-                          be the same as or less than the size of the clean
-                          batch. If `None` is passed, the size of the
-                          first clean batch will be used.
+           - do_cache (type: bool, default: False):
+               Whether or not to store noise files in the cache.
 
-                      - do_cache (type, bool, optional, default: False):
-                          Whether or not to store noise files in the cache.
+           - snr_low (type: float, default: 0):
+               The low end of the mixing ratios, in decibels.
 
-                      - snr_low (type, float, optional, default: 0):
-                          The low end of the mixing ratios, in decibels.
+           - snr_high (type: float, default: 0):
+               The high end of the mixing ratios, in decibels.
 
-                      - snr_high (type, float, optional, default: 0):
-                          The high end of the mixing ratios, in decibels.
+           - pad_noise (type: bool, default: False):
+               If True, copy noise signals that are shorter than their
+               corresponding clean signals so as to cover the whole clean
+               signal. Otherwise, leave the noise un-padded.
 
-                      - pad_noise (type, bool, optional, default: False):
-                          If True, copy noise signals that are shorter than
-                          their corresponding clean signals so as to cover
-                          the whole clean signal. Otherwise, leave the noise
-                          un-padded.
-
-                      - mix_prob (type, float, optional, default: 1.0):
-                          The probability that a batch of signals will be
-                          mixed with a noise signal. By default, every
-                          batch is mixed with noise.
-
-                      - random_seed (type, int, optional, default: None):
-                          The seed for randomly selecting noise conditions
-                          for mixing with the original signal. If `None`
-                          is passed, the csv will be traversed in order,
-                          one noise file per clean file. If a random
-                          seed is passed, the order is randomized, and
-                          the noise samples are shifted by a random
-                          amount before adding.
-
-                  - funct_name (type, str, optional, default: None):
-                      it is a string containing the name of the parent
-                      function that has called this method.
-
-                  - global_config (type, dict, optional, default: None):
-                      it a dictionary containing the global variables of the
-                      parent config file.
-
-                  - functions (type, dict, optional, default: None):
-                      dictionary for storing user-defined functions. Keys are
-                      the function names, values are their corresponding
-                      objects.
-
-                  - logger (type, logger, optional, default: None):
-                      it the logger used to write debug and error messages.
-                      If logger=None and root_cfg=True, the file is created
-                      from scratch.
-
-                  - first_input (type, list, optional, default: None):
-                      this variable allows users to analyze the first input
-                      given when calling the class for the first time.
-
-    Input (call): - inp_lst(type, list, mandatory):
-                      by default the input arguments are passed with a list.
-                      In this case, inp is a list containing two tensors.
-                      The first should contain an audio signal, and the
-                      second should contain the lengths of the audio signals
-                      contained in the first tensor. The first input
-                      tensor must be in one of the following formats:
-                      [batch, time_steps], or [batch, channels, time_steps]
-                      and the second must be in the format [batch].
-
-    Output (call): - out_lst(type, list, mandatory):
-                      by default the output arguments are passed with a list.
-                      In this case, out is a list containing a torch.tensor
-                      with the noisy audio signal. The tensor is the same
-                      shape as the input, i.e. formatted in the following way:
-                      [batch, time_steps], or [batch, channels, time_steps]
+           - mix_prob (type: float, default: 1.0):
+               The probability that a batch of signals will be mixed with a
+               noise signal. By default, every batch is mixed with noise.
 
     Example: import torch
              import soundfile as sf
@@ -415,34 +358,25 @@ class add_noise(nn.Module):
              # reading an audio signal
              signal, rate = sf.read('samples/audio_samples/example1.wav')
 
-             # config dictionary definition
-             config = {
-                 'class_name':
-                     'speechbrain.processing.speech_augmentation.add_noise',
-                 'csv_file': 'samples/noise_samples/noise.csv',
-                 'batch_size': '1',
-             }
-
              # Initialization of the class
-             noisifier = add_noise(config)
+             noisifier = add_noise(
+                'csv_file': 'samples/noise_samples/noise.csv',
+                'batch_size': 1,
+             )
 
              # Executing computations
-             clean = torch.tensor([signal])
+             clean = torch.tensor([signal], dtype=torch.float32)
              clean_len = torch.ones(1)
-             noisy = noisifier([clean, clean_len])
-
-             # save config dictionary definition
-             config = {
-                'class_name': 'speechbrain.data_io.data_io.save',
-                'save_folder': 'exp/write_example',
-                'save_format': 'wav',
-             }
+             noisy = noisifier(clean, clean_len)
 
              # class initialization
-             save_signal = save(config)
+             save_signal = save(
+                'save_folder': 'exp/write_example',
+                'save_format': 'wav',
+             )
 
              # saving
-             save_signal([noisy, ['example_add_noise'], clean_len])
+             save_signal(noisy, ['example_add_noise'], clean_len)
 
              # signal save in exp/write_example
     -------------------------------------------------------------------------
@@ -450,91 +384,74 @@ class add_noise(nn.Module):
 
     def __init__(
         self,
-        config,
-        funct_name=None,
-        global_config=None,
-        functions=None,
-        logger=None,
-        first_input=None,
+        csv_file = None,
+        order = 'random',
+        batch_size = None,
+        do_cache = False,
+        snr_low = 0,
+        snr_high = 0,
+        pad_noise = False,
+        mix_prob = 1.,
+        random_seed = None,
+        **kwargs
     ):
-        super(add_noise, self).__init__()
 
-        # Logger setup
-        self.logger = logger
-
-        self.expected_options = {
-            "class_name": ("str", "mandatory"),
-            "csv_file": ("str", "optional", "None"),
-            "order": (
-                "one_of(random,ascending,descending,original)",
-                "optional", "random",
-            ),
-            "batch_size": ("int(1,inf)", "optional", "None"),
-            "do_cache": ("bool", "optional", "False"),
-            "snr_low": ("float(-inf,inf)", "optional", "0"),
-            "snr_high": ("float(-inf,inf)", "optional", "0"),
-            "pad_noise": ("bool", "optional", "False"),
-            "mix_prob": ("float(0,1)", "optional", "1"),
-            "random_seed": ("int(-inf,inf)", "optional", "None"),
+        options = {
+            'csv_file': {'type': 'str', 'value': csv_file},
+            'order': {
+                'type': 'one_of(random,ascending,descending,original)',
+                'value': order,
+            },
+            'batch_size': {'type': 'int(1,inf)', 'value': batch_size},
+            'do_cache': {'type': 'bool', 'value': do_cache},
+            'snr_low': {'type': 'float(-inf,inf)', 'value': snr_low},
+            'snr_high': {'type': 'float(-inf,inf)', 'value': snr_high},
+            'pad_noise': {'type': 'bool', 'value': pad_noise},
+            'mix_prob': {'type': 'float(0,1)', 'value': mix_prob},
+            'random_seed': {'type': 'int(-inf,inf)', 'value': random_seed},
         }
 
-        # Check, cast, and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, self.logger
-        )
+        expected_inputs = [
+            {'type': 'torch.Tensor', 'dim_count': [2, 3]},
+            {'type': 'torch.Tensor', 'dim_count': [1]},
+        ]
 
-        # Expected inputs when calling this class:
-        #    Input 1: Batch of waveforms to be processed
-        #    Input 2: Length of waveforms in the batch
-        self.expected_inputs = ["torch.Tensor", "torch.Tensor"]
+        # On first input, create dataloader with correct batch size
+        def hook(self, input):
 
-        # Check the first input
-        check_inputs(
-            self.conf, self.expected_inputs, first_input, logger=self.logger
-        )
+            # Set parameters based on input
+            self.device = input.device
+            if not self.batch_size:
+                self.batch_size = len(input)
 
-        # Additional check on the input shapes
-        if first_input is not None:
-            check_input_shapes([[2, 3], [1]], first_input, logger)
+            # Create a data loader for the noise wavforms
+            if self.csv_file is not None:
+                self.data_loader = create_dataloader(
+                    csv_file=self.csv_file,
+                    sentence_sorting=self.order,
+                    batch_size=self.batch_size,
+                    do_cache=self.do_cache,
+                    global_config=self.global_config,
+                )
+                self.noise_data = zip(*self.data_loader.dataloader)
 
-            # Use the same batch size as clean
-            if self.batch_size is None:
-                self.batch_size = first_input[0].shape[0]
+        super().__init__(options, expected_inputs, hook, **kwargs)
 
-        # Initialize a random number generator with the provided seed
-        if self.random_seed is not None:
-            torch.random.manual_seed(self.random_seed)
+    def forward(self, clean_waveform, clean_length):
+        """
+        Input: - clean_waveform (type: torch.tensor, mandatory):
+                   A batch of audio signals, in one of the following formats:
+                   [batch, time_steps], or [batch, channels, time_steps]
 
-        # Create a data loader for the noise wavforms
-        if self.csv_file is not None:
+               - clean_length (type: torch.tensor, mandatory):
+                   The lengths of the audio signals contained in the batch.
+                   Must be in the format [batch].
 
-            if self.batch_size is None:
-                error_msg = ("Error in add_noise: If reading from csv, must"
-                             "pass either a first input or a batch_size.")
-                logger_write(error_msg, logfile=logger)
+        Output: A batch of audio signals of the same shape as the input,
+                with noise added to each signal.
+        """
 
-            self.data_loader = create_dataloader(
-                {
-                    'class_name': 'core.loop',
-                    'csv_file': self.csv_file,
-                    'sentence_sorting': self.order,
-                    'batch_size': str(self.batch_size),
-                    'do_cache': str(self.do_cache),
-                },
-                global_config=global_config,
-            )
-            self.noise_data = zip(*self.data_loader.dataloader)
-
-        # Save the state of the RNG for reproducibility
-        self.rng_state = torch.random.get_rng_state()
-
-    def forward(self, input_lst):
-
-        # Reset the RNG state for reproducibility
-        torch.random.set_rng_state(self.rng_state)
-
-        # Reading input list
-        clean_waveform, clean_length = input_lst
+        # Copy clean waveform to initialize noisy waveform
         noisy_waveform = clean_waveform.clone()
         clean_length = (clean_length * clean_waveform.shape[1]).unsqueeze(1)
 
@@ -575,9 +492,6 @@ class add_noise(nn.Module):
             noise_waveform *= new_noise_amplitude / noise_amplitude
             noisy_waveform[:batch_size] += noise_waveform
 
-        # Save the RNG state for reproducibility
-        self.rng_state = torch.random.get_rng_state()
-
         return noisy_waveform
 
     def _load_noise(self, clean_len, tensor_len, batch_size):
@@ -589,55 +503,15 @@ class add_noise(nn.Module):
         Description: Load a section of the noise file of the appropriate
                      length. Then pad to the length of the tensor.
 
-        Input:   - self (type, add_noise, mandatory)
+        Input:   - self (type: add_noise, mandatory)
 
-                 - clean_len (type, torch.tensor, mandatory):
+                 - clean_len (type: torch.tensor, mandatory):
                      The length of the (un-padded) clean waveform
 
-                 - tensor_len (type, torch.tensor, mandatory):
+                 - tensor_len (type: torch.tensor, mandatory):
                      The length of the (padded) final tensor
 
-        Output:  - noise segment (type, torch.tensor)
-
-        Example: import torch
-                 import soundfile as sf
-                 from speechbrain.data_io.data_io import save
-                 from speechbrain.processing.speech_augmentation \
-                     import add_noise
-
-                 signal, rate = sf.read('samples/audio_samples/example1.wav')
-                 # config dictionary definition
-                 config = {
-                    'class_name':
-                        'speechbrain.processing.speech_augmentation.add_noise',
-                    'csv_file': 'samples/noise_samples/noise.csv',
-                    'batch_size': '1',
-                 }
-
-                 # Initialization of the class
-                 noisifier = add_noise(config)
-
-                 # Executing computations
-                 clean = torch.tensor([signal], dtype=torch.float32)
-                 clean_len = torch.tensor([[len(signal)]])
-                 tensor_len = torch.tensor(len(signal))
-                 noise = noisifier._load_noise(clean_len, tensor_len, 1)
-                 noisy = clean[0] + noise[0]
-
-                 # save config dictionary definition
-                 config = {
-                    'class_name': 'speechbrain.data_io.data_io.save',
-                    'save_folder': 'exp/write_example',
-                    'save_format': 'wav',
-                 }
-
-                 # class initialization
-                 save_signal = save(config)
-
-                 # saving
-                 save_signal([noisy, ['example_load_noise'], torch.ones(1)])
-
-                 # signal save in exp/write_example
+        Output:  - noise segment (type: torch.tensor)
         --------------------------------------------------------
         """
         clean_len = clean_len.long().squeeze(1)
@@ -686,7 +560,7 @@ class add_noise(nn.Module):
         return noise_batch, wav_len
 
 
-class add_reverb(nn.Module):
+class add_reverb(SpeechBrainModule):
     """
     -------------------------------------------------------------------------
     speechbrain.processing.speech_augmentation.add_reverb
@@ -696,69 +570,22 @@ class add_reverb(nn.Module):
                  response. The impulse response must be provided in
                  an csv file.
 
-    Input (init):  - config (type, dict, mandatory):
-                      it is a dictionary containing the keys described below.
+    Input: - csv_file (type: str, mandatory):
+               The csv file containing the location of the
+               impulse response files.
 
-                      - csv_file (type, str, mandatory):
-                          The csv file containing the location of the
-                          impulse response files.
+           - order (type: str, default: 'random'):
+               The order to iterate the csv file, from one of
+               the following options: random, original, ascending,
+               and descending.
 
-                      - order (type, str, optional, default: 'random'):
-                          The order to iterate the csv file, from one of
-                          the following options: random, original, ascending,
-                          and descending.
+           - do_cache (type: bool, default: False):
+               Whether or not to lazily load the files to a
+               cache and read the data from the cache.
 
-                      - do_cache (type, bool, optional, default: False):
-                          Whether or not to lazily load the files to a
-                          cache and read the data from the cache.
-
-                      - reverb_prob (type, float, optional, default: 1.0):
-                          The chance that the audio signal will be reverbed.
-                          By default, every signal is reverbed.
-
-                      - random_seed (type, int, optional, default: None):
-                          The seed for randomly selecting RIR files
-                          for mixing with the original signal. If `None`
-                          is passed, then the RIRs will be applied in order.
-
-                  - funct_name (type, str, optional, default: None):
-                      it is a string containing the name of the parent
-                      function that has called this method.
-
-                  - global_config (type, dict, optional, default: None):
-                      it a dictionary containing the global variables of the
-                      parent config file.
-
-                  - functions (type, dict, optional, default: None):
-                      dictionary for storing user-defined functions. Keys are
-                      the function names, values are their corresponding
-                      objects.
-
-                  - logger (type, logger, optional, default: None):
-                      it the logger used to write debug and error messages.
-                      If logger=None and root_cfg=True, the file is created
-                      from scratch.
-
-                  - first_input (type, list, optional, default: None):
-                      this variable allows users to analyze the first input
-                      given when calling the class for the first time.
-
-    Input (call): - inp_lst(type, list, mandatory):
-                      by default the input arguments are passed with a list.
-                      In this case, inp is a list containing two tensors.
-                      The first should contain an audio signal, and the
-                      second should contain the lengths of the audio signals
-                      contained in the first tensor. The first input
-                      tensor must be in one of the following formats:
-                      [batch, time_steps], or [batch, channels, time_steps]
-                      and the second must be in the format [batch].
-
-    Output (call): - out_lst(type, list, mandatory):
-                      by default the output arguments are passed with a list.
-                      In this case, out is a list containing a torch.tensor
-                      with the reverbed audio signal. The tensor is the same
-                      shape as the input, i.e. formatted in the following way:
-                      [batch, time_steps], or [batch, channels, time_steps]
+           - reverb_prob (type: float, default: 1.0):
+               The chance that the audio signal will be reverbed.
+               By default, every signal is reverbed.
 
     Example:   import torch
                import soundfile as sf
@@ -769,32 +596,22 @@ class add_reverb(nn.Module):
                # reading an audio signal
                signal, rate = sf.read('samples/audio_samples/example1.wav')
 
-               # config dictionary definition
-               config = {
-                   'class_name':'speechbrain.processing.speech_augmentation.add_reverb',
-                   'csv_file': 'samples/rir_samples/rirs.csv',
-               }
-
                # Initialization of the class
-               reverberator = add_reverb(config)
+               reverb = add_reverb(csv_file='samples/rir_samples/rirs.csv')
 
                # Executing computations
                clean = torch.tensor([signal], dtype=torch.float32)
                clean_len = torch.ones(1)
-               reverbed = reverberator([clean, clean_len])
-
-               # save config dictionary definition
-               config = {
-                  'class_name': 'speechbrain.data_io.data_io.save',
-                  'save_folder': 'exp/write_example',
-                  'save_format': 'wav',
-               }
+               reverbed = reverb(clean, clean_len)
 
                # class initialization
-               save_signal = save(config)
+               save_signal = save(
+                   save_folder='exp/write_example',
+                   save_format='wav',
+               )
 
                # saving
-               save_signal([reverbed, ['example_add_reverb'], clean_len])
+               save_signal(reverbed, ['example_add_reverb'], clean_len)
 
                # signal save in exp/write_example
     -------------------------------------------------------------------------
@@ -802,55 +619,35 @@ class add_reverb(nn.Module):
 
     def __init__(
         self,
-        config,
-        funct_name=None,
-        global_config=None,
-        functions=None,
-        logger=None,
-        first_input=None,
+        csv_file,
+        order='random',
+        do_cache=False,
+        reverb_prob=1.,
+        pad_type='zero',
+        **kwargs
     ):
-        super(add_reverb, self).__init__()
 
-        # Logger setup
-        self.logger = logger
-
-        self.expected_options = {
-            "class_name": ("str", "mandatory"),
-            "csv_file": ("str", "mandatory"),
-            "order": (
-                "one_of(random,ascending,descending,original)",
-                "optional", "random",
-            ),
-            "do_cache": ("bool", "optional", "False"),
-            "reverb_prob": ("float(0,1)", "optional", "1"),
-            "random_seed": ("int(-inf, inf)", "optional", "None"),
-            "pad_type": (
-                "one_of(zero,reflect,edge)", "optional", "zero"
-            ),
+        self.options = {
+            'csv_file': {'type': 'string', 'value': csv_file},
+            'order': {
+                'type': 'one_of(random,ascending,descending,original)',
+                'value': order,
+            },
+            'do_cache': {'type': 'bool', 'value': do_cache},
+            'reverb_prob': {'type': 'float(0,1)', 'value': reverb_prob},
+            'random_seed': {'type': 'int(-inf, inf)', 'value': random_seed},
+            'pad_type': {
+                'type': 'one_of(zero,reflect,edge)',
+                'value': pad_type,
+            },
         }
 
-        # Check, cast, and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, self.logger
-        )
+        self.expected_inputs = [
+            {'type': 'torch.Tensor', 'dim_count': [2, 3]},
+            {'type': 'torch.Tensor', 'dim_count': [1]},
+        ]
 
-        # Expected inputs when calling the class
-        #     Input 1: Batch of waveforms to add reverberation to
-        #     Input 2: Length of waveforms in batch
-        self.expected_inputs = ["torch.Tensor", "torch.Tensor"]
-
-        # Check the first input
-        check_inputs(
-            self.conf, self.expected_inputs, first_input, logger=self.logger
-        )
-
-        # Additional check on the input shapes
-        if first_input is not None:
-            check_input_shapes([[2, 3], [1]], first_input, logger)
-
-        # Initialize a random number generator with the provided seed
-        if self.random_seed is not None:
-            torch.random.manual_seed(self.random_seed)
+        super().__init__(options, expected_inputs, **kwargs)
 
         # Create a data loader for the RIR waveforms
         self.data_loader = create_dataloader(
@@ -864,16 +661,21 @@ class add_reverb(nn.Module):
         )
         self.rir_data = zip(*self.data_loader.dataloader)
 
-        # Save the state of the RNG for reproducibility
-        self.rng_state = torch.random.get_rng_state()
+    def forward(self, clean_waveform, clean_lengths):
+        """
+        Input: - clean_waveform (type: torch.Tensor, mandatory)
+                   a batch of audio signals, and the
+                   tensor must be in one of the following formats:
+                   [batch, time_steps], or [batch, channels, time_steps]
 
-    def forward(self, input_lst):
+               - clean_lengths (type: torch.Tensor, mandatory)
+                   The lengths of the audio signals contained in the first tensor.
+                   and the second must be in the format [batch].
 
-        # Reset the RNG state for reproducibility
-        torch.random.set_rng_state(self.rng_state)
-
-        # Read input list
-        clean_waveform = input_lst[0]
+        Output: the reverbed audio signal. The tensor is the same
+                shape as the input, i.e. formatted in the following way:
+                [batch, time_steps], or [batch, channels, time_steps]
+        """
 
         # Don't add reverb (return early) 1-`reverb_prob` portion of the time
         if torch.rand(1) > self.reverb_prob:
@@ -881,8 +683,10 @@ class add_reverb(nn.Module):
             return clean_waveform.clone()
 
         # Add channels dimension if necessary
+        channel_added = False
         if len(clean_waveform.shape) == 2:
             clean_waveform = clean_waveform.unsqueeze(1)
+            channel_added = True
 
         # Convert length from ratio to number of indices
         clean_len = (input_lst[1] * clean_waveform.shape[2])[:, None, None]
@@ -908,11 +712,11 @@ class add_reverb(nn.Module):
         reverbed_amplitude = compute_amplitude(reverbed_waveform, clean_len)
         reverbed_waveform *= clean_amplitude / reverbed_amplitude
 
-        # Save the RNG state for reproducibility
-        self.rng_state = torch.random.get_rng_state()
-
         # Remove channels dimension if added
-        return reverbed_waveform.squeeze(1)
+        if channel_added:
+            return reverbed_waveform.squeeze(1)
+
+        return reverbed_waveform
 
     def _load_rir(self, clean_waveform):
         """
@@ -922,9 +726,9 @@ class add_reverb(nn.Module):
 
         Description: Internal method for loading RIR wav files.
 
-        Input: - self (type, add_reverb, mandatory)
+        Input: - self (type: add_reverb, mandatory)
 
-               - clean_wavefrom (type, torch.tensor, mandatory):
+               - clean_wavefrom (type: torch.tensor, mandatory):
                   For collecting dtype and device info.
 
         Output: A single RIR waveform
@@ -957,55 +761,55 @@ class speed_perturb(nn.Module):
                  faster signal. This technique is outlined in the paper:
                  "Audio Augmentation for Speech Recognition"
 
-    Input (init):  - config (type, dict, mandatory):
+    Input (init):  - config (type: dict, mandatory):
                       it is a dictionary containing the keys described below.
 
-                      - orig_freq (type, int, mandatory):
+                      - orig_freq (type: int, mandatory):
                           The frequency of the original signal.
 
-                      - speeds (type, list, optional, default: [9, 10, 11]):
+                      - speeds (type: list, default: [9, 10, 11]):
                           The speeds that the signal should be changed to,
                           where 10 is the speed of the original signal.
 
-                      - perturb_prob (type, float, optional, default: 1.0):
+                      - perturb_prob (type: float, default: 1.0):
                           The chance that the batch will be speed-perturbed.
                           By default, every batch is perturbed.
 
-                      - random_seed (type, int, optional, default: None):
+                      - random_seed (type: int, default: None):
                           The seed for randomly selecting which perturbation
                           to use. If `None` is passed, then this method will
                           cycle through the list of speeds.
 
-                  - funct_name (type, str, optional, default: None):
+                  - funct_name (type: str, default: None):
                       it is a string containing the name of the parent
                       function that has called this method.
 
-                  - global_config (type, dict, optional, default: None):
+                  - global_config (type: dict, default: None):
                       it a dictionary containing the global variables of the
                       parent config file.
 
-                  - functions (type, dict, optional, default: None):
+                  - functions (type: dict, default: None):
                       dictionary for storing user-defined functions. Keys are
                       the function names, values are their corresponding
                       objects.
 
-                  - logger (type, logger, optional, default: None):
+                  - logger (type: logger, default: None):
                       it the logger used to write debug and error messages.
                       If logger=None and root_cfg=True, the file is created
                       from scratch.
 
-                  - first_input (type, list, optional, default: None):
+                  - first_input (type: list, default: None):
                       this variable allows users to analyze the first input
                       given when calling the class for the first time.
 
-    Input (call): - inp_lst(type, list, mandatory):
+    Input (call): - inp_lst(type: list, mandatory):
                       by default the input arguments are passed with a list.
                       In this case, inp is a list containing a single
                       torch.tensor which contains an audio signal. The input
                       tensor must be in one of the following formats:
                       [batch, time_steps], or [batch, channels, time_steps]
 
-    Output (call): - out_lst(type, list, mandatory):
+    Output (call): - out_lst(type: list, mandatory):
                       by default the output arguments are passed with a list.
                       In this case, out is a list containing a torch.tensor
                       with the reverbed audio signal. The tensor is the same
@@ -1156,56 +960,56 @@ class resample(nn.Module):
                  function from torchaudio (https://pytorch.org/audio/
                  transforms.html#resample)
 
-    Input (init):  - config (type, dict, mandatory):
+    Input (init):  - config (type: dict, mandatory):
                       a dictionary containing the keys described below.
 
-                      - device ('cuda', 'cpu', optional, default: None):
+                      - device ('cuda', 'cpu', default: None):
                           the device where to compute the resample. If None,
                           it uses the device of the input signal.
 
-                      - orig_freq (type, int, optional, default: 16000):
+                      - orig_freq (type: int, default: 16000):
                           the sampling frequency of the input signal.
 
-                      - new_freq (type, int, optional, default: 16000):
+                      - new_freq (type: int, default: 16000):
                           the new sampling frequency after this operation
                           is performed.
 
-                      - lowpass_filter_width (type, int, optional,
+                      - lowpass_filter_width (type: int, optional,
                               default: 6):
                           Controls the sharpness of the filter, larger
                           numbers result in a sharper filter, but they are
                           less efficient. Values from 4 to 10 are allowed.
 
-                  - funct_name (type, str, optional, default: None):
+                  - funct_name (type: str, default: None):
                       it is a string containing the name of the parent
                       function that has called this method.
 
-                  - global_config (type, dict, optional, default: None):
+                  - global_config (type: dict, default: None):
                       it a dictionary containing the global variables of the
                       parent config file.
 
-                  - functions (type, dict, optional, default: None):
+                  - functions (type: dict, default: None):
                       dictionary for storing user-defined functions. Keys are
                       the function names, values are their corresponding
                       objects.
 
-                  - logger (type, logger, optional, default: None):
+                  - logger (type: logger, default: None):
                       it the logger used to write debug and error messages.
                       If logger=None and root_cfg=True, the file is created
                       from scratch.
 
-                  - first_input (type, list, optional, default: None):
+                  - first_input (type: list, default: None):
                       this variable allows users to analyze the first input
                       given when calling the class for the first time.
 
-    Input (call): - inp_lst(type, list, mandatory):
+    Input (call): - inp_lst(type: list, mandatory):
                       by default the input arguments are passed with a list.
                       In this case, inp is a list containing a single
                       torch.tensor which contains an audio signal. The input
                       tensor must be in one of the following formats:
                       [batch, time_steps], or [batch, channels, time_steps]
 
-    Output (call): - out_lst(type, list, mandatory):
+    Output (call): - out_lst(type: list, mandatory):
                       by default the output arguments are passed with a list.
                       In this case, out is a list containing a torch.tensor
                       with the resampled audio signal. The tensor is
@@ -1314,7 +1118,7 @@ class resample(nn.Module):
 
         Description: Compute the phases in polyphase filter
 
-        Input:   self (type, resample, mandatory)
+        Input:   self (type: resample, mandatory)
 
         Output:  None
 
@@ -1398,9 +1202,9 @@ class resample(nn.Module):
                      https://github.com/kaldi-asr/kaldi/blob/master/src/feat/
                      resample.h#L56
 
-        Inputs: waveform (type, torch.tensor, mandatory)
+        Inputs: waveform (type: torch.tensor, mandatory)
 
-        Output: The waveform at the new frequency (type, torch.tensor)
+        Output: The waveform at the new frequency (type: torch.tensor)
 
         Example: import torch
                  import soundfile as sf
@@ -1499,12 +1303,12 @@ class resample(nn.Module):
                      frequency of ``new_freq``). It uses sinc/bandlimited
                      interpolation to upsample/downsample the signal.
 
-        Input:       - self (type, resample, mandatory)
+        Input:       - self (type: resample, mandatory)
 
-                     - input_num_samp (type, torch.tensor, mandatory):
+                     - input_num_samp (type: torch.tensor, mandatory):
                          The number of samples in each example in the batch
 
-        Output:      Number of samples in the output waveform (type, int)
+        Output:      Number of samples in the output waveform (type: int)
 
         Example: import torch
                  import soundfile as sf
@@ -1584,12 +1388,12 @@ class resample(nn.Module):
                      ``new_freq``). It uses sinc/bandlimited interpolation to
                      upsample/downsample the signal.
 
-        Input:       - self (type, resample, mandatory)
+        Input:       - self (type: resample, mandatory)
 
-        Output:      - min_index (type, torch.tensor):
+        Output:      - min_index (type: torch.tensor):
                          The place where each filter should start being applied
 
-                     - filter weights (type, torch.tensor):
+                     - filter weights (type: torch.tensor):
                          The filter to be applied to the signal for resampling
 
         Example: import torch
@@ -1682,50 +1486,50 @@ class add_babble(nn.Module):
     Description: This class additively combines a signal with other signals
                  from the batch, to simulate babble noise.
 
-    Input (init):  - config (type, dict, mandatory):
+    Input (init):  - config (type: dict, mandatory):
                       it is a dictionary containing the keys described below.
 
-                      - speaker_count (type, int, optional, default: 3):
+                      - speaker_count (type: int, default: 3):
                           The number of signals to mix with the original
                           signal.
 
-                      - snr_low (type, float, optional, default: 0):
+                      - snr_low (type: float, default: 0):
                           The low end of the mixing ratios, in decibels.
 
-                      - snr_high (type, float, optional, default: 0):
+                      - snr_high (type: float, default: 0):
                           The high end of the mixing ratios, in decibels.
 
-                      - mix_prob (type, float, optional, default: 1.0):
+                      - mix_prob (type: float, default: 1.0):
                           The probability that the batch of signals will be
                           mixed with babble noise. By default, every signal
                           is mixed.
 
-                      - random_seed (type, int, optional, default: None):
+                      - random_seed (type: int, default: None):
                           The seed for randomly selecting SNR level.
 
-                  - funct_name (type, str, optional, default: None):
+                  - funct_name (type: str, default: None):
                       it is a string containing the name of the parent
                       function that has called this method.
 
-                  - global_config (type, dict, optional, default: None):
+                  - global_config (type: dict, default: None):
                       it a dictionary containing the global variables of the
                       parent config file.
 
-                  - functions (type, dict, optional, default: None):
+                  - functions (type: dict, default: None):
                       dictionary for storing user-defined functions. Keys are
                       the function names, values are their corresponding
                       objects.
 
-                  - logger (type, logger, optional, default: None):
+                  - logger (type: logger, default: None):
                       it the logger used to write debug and error messages.
                       If logger=None and root_cfg=True, the file is created
                       from scratch.
 
-                  - first_input (type, list, optional, default: None):
+                  - first_input (type: list, default: None):
                       this variable allows users to analyze the first input
                       given when calling the class for the first time.
 
-    Input (call): - inp_lst(type, list, mandatory):
+    Input (call): - inp_lst(type: list, mandatory):
                       by default the input arguments are passed with a list.
                       In this case, inp is a list containing two tensors.
                       The first should contain an audio signal, and the
@@ -1735,7 +1539,7 @@ class add_babble(nn.Module):
                       [batch, time_steps], or [batch, channels, time_steps]
                       and the second must be in the format [batch].
 
-    Output (call): - out_lst(type, list, mandatory):
+    Output (call): - out_lst(type: list, mandatory):
                       by default the output arguments are passed with a list.
                       In this case, out is a list containing a torch.tensor
                       with the noisy audio signal. The tensor is the same
@@ -1904,63 +1708,63 @@ class drop_freq(nn.Module):
                  models learn to rely on all parts of the signal, not just
                  a single frequency band.
 
-    Input (init):  - config (type, dict, mandatory):
+    Input (init):  - config (type: dict, mandatory):
                       it is a dictionary containing the keys described below.
 
-                      - drop_freq_low (type, float, optional, default: 0):
+                      - drop_freq_low (type: float, default: 0):
                           The low end of frequencies that can be dropped,
                           as a fraction of the sampling rate / 2.
 
-                      - drop_freq_high (type, float, optional, default: 1):
+                      - drop_freq_high (type: float, default: 1):
                           The high end of frequencies that can be dropped,
                           as a fraction of the sampling rate / 2.
 
-                      - drop_count_low (type, int, optional, default: 1):
+                      - drop_count_low (type: int, default: 1):
                           The low end of number of frequencies that could
                           be dropped.
 
-                      - drop_count_high (type, int, optional, default: 2):
+                      - drop_count_high (type: int, default: 2):
                           The high end of number of frequencies that could
                           be dropped.
 
-                      - drop_prob (type, float, optional, default: 1.0):
+                      - drop_prob (type: float, default: 1.0):
                           The probability that the batch of signals will
                           have a frequency dropped. By default, every batch
                           has frequencies dropped.
 
-                      - random_seed (type, int, optional, default: None):
+                      - random_seed (type: int, default: None):
                           The seed for randomly selecting band to drop.
 
-                  - funct_name (type, str, optional, default: None):
+                  - funct_name (type: str, default: None):
                       it is a string containing the name of the parent
                       function that has called this method.
 
-                  - global_config (type, dict, optional, default: None):
+                  - global_config (type: dict, default: None):
                       it a dictionary containing the global variables of the
                       parent config file.
 
-                  - functions (type, dict, optional, default: None):
+                  - functions (type: dict, default: None):
                       dictionary for storing user-defined functions. Keys are
                       the function names, values are their corresponding
                       objects.
 
-                  - logger (type, logger, optional, default: None):
+                  - logger (type: logger, default: None):
                       it the logger used to write debug and error messages.
                       If logger=None and root_cfg=True, the file is created
                       from scratch.
 
-                  - first_input (type, list, optional, default: None):
+                  - first_input (type: list, default: None):
                       this variable allows users to analyze the first input
                       given when calling the class for the first time.
 
-    Input (call): - inp_lst(type, list, mandatory):
+    Input (call): - inp_lst(type: list, mandatory):
                       by default the input arguments are passed with a list.
                       In this case, inp is a list containing a single
                       torch.tensor which contains an audio signal. The input
                       tensor must be in one of the following formats:
                       [batch, time_steps], or [batch, channels, time_steps]
 
-    Output (call): - out_lst(type, list, mandatory):
+    Output (call): - out_lst(type: list, mandatory):
                       by default the output arguments are passed with a list.
                       In this case, out is a list containing a torch.tensor
                       with the noisy audio signal. The tensor is the same
@@ -2117,69 +1921,69 @@ class drop_chunk(nn.Module):
     Description: This class drops portions of the input signal, so that
                  models learn to rely on all parts of the signal.
 
-    Input (init):  - config (type, dict, mandatory):
+    Input (init):  - config (type: dict, mandatory):
                       it is a dictionary containing the keys described below.
 
-                      - drop_length_low (type, int, optional, default: 100):
+                      - drop_length_low (type: int, default: 100):
                           The low end of lengths for which to set the signal
                           to zero, in samples.
 
-                      - drop_length_high (type, int, optional, default: 1000):
+                      - drop_length_high (type: int, default: 1000):
                           The high end of lengths for which to set the signal
                           to zero, in samples.
 
-                      - drop_count_low (type, int, optional, default: 1):
+                      - drop_count_low (type: int, default: 1):
                           The low end of number of times that the signal
                           can be dropped to zero.
 
-                      - drop_count_high (type, int, optional, default: 10):
+                      - drop_count_high (type: int, default: 10):
                           The high end of number of times that the signal
                           can be dropped to zero.
 
-                      - drop_start (type, int, optional, default: 0):
+                      - drop_start (type: int, default: 0):
                           The first index for which dropping will be allowed.
 
-                      - drop_end (type, int, optional, default: None):
+                      - drop_end (type: int, default: None):
                           The last index for which dropping will be allowed.
 
-                      - drop_prob (type, float, optional, default: 1.0):
+                      - drop_prob (type: float, default: 1.0):
                           The probability that the batch of signals will
                           have a portion dropped. By default, every batch
                           has portions dropped.
 
-                      - random_seed (type, int, optional, default: None):
+                      - random_seed (type: int, default: None):
                           The seed for randomly selecting band to drop.
 
-                  - funct_name (type, str, optional, default: None):
+                  - funct_name (type: str, default: None):
                       it is a string containing the name of the parent
                       function that has called this method.
 
-                  - global_config (type, dict, optional, default: None):
+                  - global_config (type: dict, default: None):
                       it a dictionary containing the global variables of the
                       parent config file.
 
-                  - functions (type, dict, optional, default: None):
+                  - functions (type: dict, default: None):
                       dictionary for storing user-defined functions. Keys are
                       the function names, values are their corresponding
                       objects.
 
-                  - logger (type, logger, optional, default: None):
+                  - logger (type: logger, default: None):
                       it the logger used to write debug and error messages.
                       If logger=None and root_cfg=True, the file is created
                       from scratch.
 
-                  - first_input (type, list, optional, default: None):
+                  - first_input (type: list, default: None):
                       this variable allows users to analyze the first input
                       given when calling the class for the first time.
 
-    Input (call): - inp_lst(type, list, mandatory):
+    Input (call): - inp_lst(type: list, mandatory):
                       by default the input arguments are passed with a list.
                       In this case, inp is a list containing two torch.tensors
                       which contains a batch of signals and their lengths. The
                       input batch must be in one of the following formats:
                       [batch, time_steps], or [batch, channels, time_steps]
 
-    Output (call): - out_lst(type, list, mandatory):
+    Output (call): - out_lst(type: list, mandatory):
                       by default the output arguments are passed with a list.
                       In this case, out is a list containing a torch.tensor
                       with the noisy audio signal. The tensor is the same
@@ -2348,55 +2152,55 @@ class do_clip(nn.Module):
                  models learn to rely on all parts of the signal, not just
                  a single frequency band.
 
-    Input (init):  - config (type, dict, mandatory):
+    Input (init):  - config (type: dict, mandatory):
                       it is a dictionary containing the keys described below.
 
-                      - clip_low (type, float, optional, default: 0.5):
+                      - clip_low (type: float, default: 0.5):
                           The low end of amplitudes for which to clip
                           the signal.
 
-                      - clip_high (type, float, optional, default: 1.0):
+                      - clip_high (type: float, default: 1.0):
                           The high end of amplitudes for which to clip
                           the signal.
 
-                      - clip_prob (type, float, optional, default: 1.0):
+                      - clip_prob (type: float, default: 1.0):
                           The probability that the batch of signals will
                           have a portion clipped. By default, every batch
                           has portions clipped.
 
-                      - random_seed (type, int, optional, default: None):
+                      - random_seed (type: int, default: None):
                           The seed for randomly selecting clipping range.
 
-                  - funct_name (type, str, optional, default: None):
+                  - funct_name (type: str, default: None):
                       it is a string containing the name of the parent
                       function that has called this method.
 
-                  - global_config (type, dict, optional, default: None):
+                  - global_config (type: dict, default: None):
                       it a dictionary containing the global variables of the
                       parent config file.
 
-                  - functions (type, dict, optional, default: None):
+                  - functions (type: dict, default: None):
                       dictionary for storing user-defined functions. Keys are
                       the function names, values are their corresponding
                       objects.
 
-                  - logger (type, logger, optional, default: None):
+                  - logger (type: logger, default: None):
                       it the logger used to write debug and error messages.
                       If logger=None and root_cfg=True, the file is created
                       from scratch.
 
-                  - first_input (type, list, optional, default: None):
+                  - first_input (type: list, default: None):
                       this variable allows users to analyze the first input
                       given when calling the class for the first time.
 
-    Input (call): - inp_lst(type, list, mandatory):
+    Input (call): - inp_lst(type: list, mandatory):
                       by default the input arguments are passed with a list.
                       In this case, inp is a list containing a single
                       torch.tensor which contains an audio signal. The input
                       tensor must be in one of the following formats:
                       [batch, time_steps], or [batch, channels, time_steps]
 
-    Output (call): - out_lst(type, list, mandatory):
+    Output (call): - out_lst(type: list, mandatory):
                       by default the output arguments are passed with a list.
                       In this case, out is a list containing a torch.tensor
                       with the noisy audio signal. The tensor is the same
