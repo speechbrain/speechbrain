@@ -77,16 +77,14 @@ save_checkpoint:
     save_folder: $output_folder/nnets/
     save_format: pkl
     save_last: 1
-    print: True
+    write_result: True
 
 compute_features:
-    class_name: $feature_computations
-    torch_no_grad: True
+    class_name: recipes.features.mfcc_features.mfcc_features
 
 mean_var_norm:
     class_name: speechbrain.processing.features.mean_var_norm
     norm_type: global
-    torch_no_grad: True
 
 RNN:
     class_name: speechbrain.nnet.architectures.RNN_basic
@@ -108,7 +106,8 @@ softmax:
 
 compute_cost:
     class_name: speechbrain.nnet.losses.compute_cost
-    cost_type: ctc
+    cost_type:
+        - ctc
 
 compute_cost_wer:
     class_name: speechbrain.nnet.losses.compute_cost
@@ -118,7 +117,7 @@ compute_cost_wer:
 
 optimizer:
     class_name: speechbrain.nnet.optimizers.optimize
-    recovery: True
+    do_recovery: True
     optimizer_type: adam
     learning_rate: $lr
 

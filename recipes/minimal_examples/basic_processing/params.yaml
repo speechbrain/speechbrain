@@ -1,0 +1,54 @@
+global:
+    verbosity: 2
+    output_folder: exp/minimal/process_augment_gpu
+    data_folder: samples/audio_samples
+    csv_file: $data_folder/csv_example.csv
+    sample_rate: 16000
+
+sample_data:
+    class_name: speechbrain.data_io.data_io.create_dataloader
+    csv_file: $csv_file
+    batch_size: 2
+    csv_read:
+        - wav
+
+# add_babble:
+#     class_name: speechbrain.processing.speech_augmentation.add_babble
+#     snr_low: 10
+#     snr_high: 10
+
+# add_reverb:
+#     class_name: speechbrain.processing.speech_augmentation.add_reverb
+#     csv_file: samples/rir_samples/rirs.csv
+
+# add_noise:
+#     class_name: speechbrain.processing.speech_augmentation.add_noise
+#     snr_low: 10
+#     snr_high: 10
+
+add_noise_csv:
+    class_name: speechbrain.processing.speech_augmentation.add_noise
+    csv_file: samples/noise_samples/noise.csv
+    snr_low: 10
+    snr_high: 10
+
+# drop_freq:
+#     class_name: speechbrain.processing.speech_augmentation.drop_freq
+
+# drop_chunk:
+#     class_name: speechbrain.processing.speech_augmentation.drop_chunk
+
+# do_clip:
+#     class_name: speechbrain.processing.speech_augmentation.do_clip
+
+# speed_perturb:
+#     class_name: speechbrain.processing.speech_augmentation.speed_perturb
+#     orig_freq: $sample_rate
+#     speeds: 9,11
+
+save:
+    class_name: speechbrain.data_io.data_io.save
+    sampling_rate: $sample_rate
+    save_format: flac
+    parallel_write: True
+

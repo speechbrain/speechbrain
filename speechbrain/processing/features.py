@@ -16,9 +16,10 @@ import torch.nn as nn
 from speechbrain.utils.input_validation import check_opts, check_inputs
 from speechbrain.utils.logger import logger_write
 from speechbrain.data_io.data_io import recovery, initialize_with
+from speechbrain.module import SpeechBrainModule
 
 
-class STFT(nn.Module):
+class STFT(SpeechBrainModule):
     """
      -------------------------------------------------------------------------
      data_processing.STFT (author: Mirco Ravanelli)
@@ -28,98 +29,61 @@ class STFT(nn.Module):
                   a modification of the STFT of the torch audio toolkit
                   (https://github.com/pytorch/audio).
 
-     Input (init):  - config (type, dict, mandatory):
-                       it is a dictionary containing the keys described below.
+     Input: - sample_rate (type:int(0,inf),mandatory):
+               it is the sample rate of the input audio signal
 
-                           - sample_rate (type:int(0,inf),mandatory):
-                               it is the sample rate of the input audio signal
+           - device('cuda','cpu',optional,default:None):
+               it is the device where to compute the STFT.
+               If None, it uses the device of the input signal
 
-                           - device('cuda','cpu',optional,default:None):
-                               it is the device where to compute the STFT.
-                               If None, it uses the device of the input signal
+           - win_length (type: float(0,inf), opt, default:25):
+               it is the length (in ms) of the sliding window
+               used to compute the STFT.
 
-                           - win_length (type: float(0,inf), opt, default:25):
-                               it is the length (in ms) of the sliding window
-                               used to compute the STFT.
+           - hop_length (type: float(0,inf), optional,
+             default:10):
+               it is the length (in ms) of the hope of the
+               sliding window used to compute the STFT.
 
-                           - hop_length (type: float(0,inf), optional,
-                             default:10):
-                               it is the length (in ms) of the hope of the
-                               sliding window used to compute the STFT.
+           - n_fft (type:int(0,inf), optional, default:400):
+              it the number of fft point of the STFT. It
+             defines the frequency resolution (n_fft should
+             be <= than win_len).
 
-                           - n_fft (type:int(0,inf), optional, default:400):
-                              it the number of fft point of the STFT. It
-                             defines the frequency resolution (n_fft should
-                             be <= than win_len).
+           - window_type ('bartlett','blackman','hamming',
+                          'hann', optional, default: hamming):
+               it is the window function used to compute the
+               STFT.
 
-                           - window_type ('bartlett','blackman','hamming',
-                                          'hann', optional, default: hamming):
-                               it is the window function used to compute the
-                               STFT.
+           - normalized_stft (type:bool,optional,
+             default:False):
+               if normalized is True (default is False), the
+               function returns the normalized STFT results,
+               i.e., multiplied by win_length^-0.5.
 
-                           - normalized_stft (type:bool,optional,
-                             default:False):
-                               if normalized is True (default is False), the
-                               function returns the normalized STFT results,
-                               i.e., multiplied by win_length^-0.5.
+           - center: (type:bool,optional, default:True):
+               if center is True (default), input will be
+               padded on both sides so that the t-th frame is
+               centered at time t×hop_length. Otherwise, the
+               t-th frame begins at time t×hop_length.
 
-                           - center: (type:bool,optional, default:True):
-                               if center is True (default), input will be
-                               padded on both sides so that the t-th frame is
-                               centered at time t×hop_length. Otherwise, the
-                               t-th frame begins at time t×hop_length.
+           - pad_mode: ('constant','reflect','replicate',
+                        'circular', optional default:reflect):
+               It determines the padding method used on input
+               when center is True. 'constant' pads the input
+               tensor boundaries with a constant value.
+               'reflect' pads the input tensor using the
+               reflection of the input boundary. 'replicate'
+               pads the input tensor using replication of the
+               input boundary. 'circular' pads using  circular
+               replication.
 
-                           - pad_mode: ('constant','reflect','replicate',
-                                        'circular', optional default:reflect):
-                               It determines the padding method used on input
-                               when center is True. 'constant' pads the input
-                               tensor boundaries with a constant value.
-                               'reflect' pads the input tensor using the
-                               reflection of the input boundary. 'replicate'
-                               pads the input tensor using replication of the
-                               input boundary. 'circular' pads using  circular
-                               replication.
+           - onesided: (type:bool,optional,default:True)
+               if True only return nfft/2 values. Note that
+               the other samples are redundant due to the
+                Fourier transform conjugate symmetry.
 
-                           - onesided: (type:bool,optional,default:True)
-                               if True only return nfft/2 values. Note that
-                               the other samples are redundant due to the
-                                Fourier transform conjugate symmetry.
-
-                   - funct_name (type, str, optional, default: None):
-                       it is a string containing the name of the parent
-                       function that has called this method.
-
-                   - global_config (type, dict, optional, default: None):
-                       it a dictionary containing the global variables of the
-                       parent config file.
-
-                   - logger (type, logger, optional, default: None):
-                       it the logger used to write debug and error messages.
-                       If logger=None and root_cfg=True, the file is created
-                       from scratch.
-
-                   - first_input (type, list, optional, default: None)
-                      this variable allows users to analyze the first input
-                      given when calling the class for the first time.
-
-
-     Input (call): - inp_lst(type, list, mandatory):
-                       by default the input arguments are passed with a list.
-                       In this case, inp is a list containing a single
-                       torch.tensor with the audio samples. The tensor must be
-                        in one of the following formats: [batch,samples],
-                       [batch,channels,samples]
-
-
-     Output (call): - out_lst(type, list, mandatory):
-                       by default the output arguments are passed with a list.
-                       In this case, out is a list containing the STFT of the
-                       input signal. The tensor is formatted in one of the
-                       following ways depending on the input shape:
-                       [batch,n_fft/2, 2, time_steps],
-                       [batch,channels,n_fft/2, 2, time_steps]
-
-     Example:   import torch
+      Example:  import torch
                 import soundfile as sf
                 from data_processing import STFT
 
@@ -143,67 +107,30 @@ class STFT(nn.Module):
 
     def __init__(
         self,
-        config,
-        funct_name=None,
-        global_config=None,
-        functions=None,
-        logger=None,
-        first_input=None,
+        sample_rate,
+        win_length=25,
+        hop_length=10,
+        n_fft=400,
+        window_type='hamming',
+        normalized_stft=False,
+        center=True,
+        pad_mode='reflect',
+        onesided=True,
+        **kwargs
     ):
-        super(STFT, self).__init__()
-
-        # Logger setup
-        self.logger = logger
-
-        # Here are summarized the expected options for this class
-        self.expected_options = {
-            "class_name": ("str", "mandatory"),
-            "sample_rate": ("int(0,inf)", "mandatory"),
-            "win_length": ("float(0,inf)", "optional", "25"),
-            "hop_length": ("float(0,inf)", "optional", "10"),
-            "n_fft": ("int(0,inf)", "optional", "400"),
-            "window_type": (
-                "one_of(bartlett,blackman,hamming,hann)",
-                "optional",
-                "hamming",
-            ),
-            "normalized_stft": ("bool", "optional", "False"),
-            "center": ("bool", "optional", "True"),
-            "pad_mode": (
-                "one_of(constant,reflect,replicate,circular)",
-                "optional",
-                "reflect",
-            ),
-            "onesided": ("bool", "optional", "True"),
-        }
-
-        # Check, cast , and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, self.logger
-        )
-
         # Definition of the expected input
-        self.expected_inputs = ["torch.Tensor"]
+        expected_inputs = [{'type': "torch.Tensor", 'dim_count': [2, 3]}]
+        super().__init__(expected_inputs, **kwargs)
 
-        # Check the first input
-        check_inputs(
-            self.conf, self.expected_inputs, first_input, logger=self.logger
-        )
-
-        # Additional check on the input shapes
-        if first_input is not None:
-
-            # Shape check
-            if len(first_input[0].shape) > 3 or len(first_input[0].shape) < 1:
-
-                err_msg = (
-                    "The input of STFT must be a tensor with one of the  "
-                    "following dimensions: [time] or [batch,time] or "
-                    "[batch,channels,time]. Got %s "
-                    % (str(first_input[0].shape))
-                )
-
-                logger_write(err_msg, logfile=logger)
+        self.sample_rate = sample_rate
+        self.win_length = win_length
+        self.hop_length = hop_length
+        self.n_fft = n_fft
+        self.window_type = window_type
+        self.normalized_stft = normalized_stft
+        self.center = center
+        self.pad_mode = pad_mode
+        self.onesided = onesided
 
         # Convert win_length and hop_length from ms to samples
         self.win_length = int(
@@ -216,10 +143,19 @@ class STFT(nn.Module):
         # Window creation
         self.window = self.create_window()
 
-    def forward(self, input_lst):
+    def forward(self, x):
+        """
+        Input: - x (type: torch.Tensor, mandatory):
+                   torch.tensor with the audio samples. The tensor must be
+                    in one of the following formats: [batch,samples],
+                   [batch,channels,samples]
 
-        # Reading input _list
-        x = input_lst[0]
+        Output: - complex spectrogram (type: torch.Tensor)
+                   The tensor is formatted in one of the
+                   following ways depending on the input shape:
+                   [batch,n_fft/2, 2, time_steps],
+                   [batch,channels,n_fft/2, 2, time_steps]
+        """
 
         # Managing multi-channel stft:
         or_shape = x.shape
@@ -305,7 +241,7 @@ class STFT(nn.Module):
         return window
 
 
-class spectrogram(nn.Module):
+class spectrogram(SpeechBrainModule):
     """
      -------------------------------------------------------------------------
      data_processing.spectrogram (author: Mirco Ravanelli)
@@ -315,53 +251,10 @@ class spectrogram(nn.Module):
                   modification of the spectrogram of the torch audio toolkit
                   (https://github.com/pytorch/audio).
 
-     Input (init):  - config (type, dict, mandatory):
-                       it is a dictionary containing the keys described below.
-
-                           - device ('cuda','cpu',optional,default:None):
-                               it is the device where to compute the STFT.
-                               If None, it uses the device of the input signal
-
-                           - power_spectrogram (type:float,optional,
-                             default:2):
-                               It is the exponent used for spectrogram
-                               computation.  By default, we compute the power
-                               spectrogram (power_spectrogram=2)
-
-                   - funct_name (type, str, optional, default: None):
-                       it is a string containing the name of the parent
-                       function that has called this method.
-
-                   - global_config (type, dict, optional, default: None):
-                       it a dictionary containing the global variables of the
-                       parent config file.
-
-                   - logger (type, logger, optional, default: None):
-                       it the logger used to write debug and error messages.
-                       If logger=None and root_cfg=True, the file is created
-                       from scratch.
-
-                   - first_input (type, list, optional, default: None)
-                      this variable allows users to analyze the first input
-                      given when calling the class for the first time.
-
-
-     Input (call): - inp_lst(type, list, mandatory):
-                       by default the input arguments are passed with a list.
-                       In this case, inp is a list containing a single
-                       torch.tensor which contains the STFT of an audio
-                       signal.  The input STFT tensor must be in one of the
-                       following formats: [batch,n_fft/2, 2, time_steps],
-                       [batch,channels,n_fft/2, 2, time_steps]
-
-
-     Output (call): - out_lst(type, list, mandatory):
-                       by default the output arguments are passed with a list.
-                       In this case, out is a list containing the spectrogram
-                       of the input STFT. The tensor is formatted in one of
-                       the following ways depending on the input shape:
-                       [batch,n_fft/2, time_steps],
-                       [batch,channels,n_fft/2,time_steps]
+     Input: - power_spectrogram (type: float, default:2):
+                It is the exponent used for spectrogram
+                computation.  By default, we compute the power
+                spectrogram (power_spectrogram=2)
 
      Example:   import torch
                 import soundfile as sf
@@ -371,90 +264,55 @@ class spectrogram(nn.Module):
                 # reading an audio signal
                 signal, fs=sf.read('samples/audio_samples/example1.wav')
 
-                # STFT config dictionary definition
-                config={'class_name':'data_processing.STFT',
-                        'sample_rate':str(fs)}
-
                 # Initialization of the class
-                compute_stft=STFT(config)
+                compute_stft=STFT(sample_rate=fs)
 
                 # Executing computations
                 stft_out=compute_stft(torch.tensor(signal).unsqueeze(0))
 
-                # Initialization of the spectrogram class
-                config={'class_name':'data_processing.spectrogram'}
-
                 # Initialization of the class
-                compute_spectr=spectrogram(config)
+                compute_spectr=spectrogram()
 
                 # Executing computations
                 spectr_out=compute_spectr(stft_out)
                 print(spectr_out)
                 print(spectr_out[0].shape)
-
      -------------------------------------------------------------------------
      """
 
     def __init__(
         self,
-        config,
-        funct_name=None,
-        global_config=None,
-        functions=None,
-        logger=None,
-        first_input=None,
+        power_spectrogram=2,
+        **kwargs
     ):
-        super(spectrogram, self).__init__()
-
-        # # Logger setup
-        self.logger = logger
-
-        self.expected_options = {
-            "class_name": ("str", "mandatory"),
-            "power_spectrogram": ("float(-inf,inf)", "optional", "2"),
-        }
-
-        # Check, cast , and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, self.logger
-        )
-
         # Expected inputs when calling the class
-        self.expected_inputs = ["torch.Tensor"]
+        expected_inputs = [{'type': 'torch.Tensor', 'dim_count': [3, 4]}]
 
-        # Check the first input
-        check_inputs(
-            self.conf, self.expected_inputs, first_input, logger=self.logger
-        )
+        super().__init__(expected_inputs, **kwargs)
 
-        # Additional check on the input shapes
-        if first_input is not None:
+        self.power_spectrogram = power_spectrogram
 
-            # Check shape
-            if len(first_input[0].shape) > 5 or len(first_input[0].shape) < 3:
+    def forward(self, stft):
+        """
+        Input: - stft (type: torch.Tensor, mandatory):
+                   The input STFT tensor must be in one of the
+                   following formats: [batch, n_fft/2, 2, time_steps],
+                   [batch, channels, n_fft/2, 2, time_steps]
 
-                err_msg = (
-                    'The input of "spectrogram" must be a tensor with one '
-                    "of the  following dimensions: [n_freq_points, 2, time] or"
-                    "[batch,n_freq_points, 2, time] or "
-                    "[batch,channels,n_freq_points, 2, time]. Got %s "
-                    % (str(first_input[0].shape))
-                )
 
-                logger_write(err_msg, logfile=logger)
-
-    def forward(self, input_lst):
-
-        # Reading input _list
-        stft = input_lst[0]
-
+        Output: - spectrogram (type: torch.Tensor):
+                   The tensor is formatted in one of
+                   the following ways depending on the input shape:
+                   [batch,n_fft/2, time_steps],
+                   [batch,channels,n_fft/2,time_steps]
+        """
         # Get power of "complex" tensor (index=-2 are real and complex parts)
         spectrogram = stft.pow(self.power_spectrogram).sum(-2)
 
         return spectrogram
 
 
-class FBANKs(nn.Module):
+class FBANKs(SpeechBrainModule):
     """
      -------------------------------------------------------------------------
      data_processing.FBANKs (author: Mirco Ravanelli)
@@ -464,108 +322,62 @@ class FBANKs(nn.Module):
                   funct of the torch audio toolkit
                   (https://github.com/pytorch/audio).
 
-     Input (init):  - config (type, dict, mandatory):
-                       it is a dictionary containing the keys described below.
+     Input: - n_mels (type:int(1,inf),optional,default:40):
+               it the number of Mel fiters used to average the
+               spectrogram.
 
-                           - device ('cuda','cpu',optional,default:None):
-                               it is the device where to compute the STFT.
-                               If None,it uses the device of the input signal.
+           - log_mel (type:bool, optional, default:True):
+               if True, it computes the log of the FBANKs
 
-                           - n_mels (type:int(1,inf),optional,default:40):
-                               it the number of Mel fiters used to average the
-                               spectrogram.
+           - filter_shape (triangular,rectangular,gaussian,
+                           optional,default:triangular),
+               it is the shape of the filters used to compute
+               the FBANK filters.
 
-                           - log_mel (type:bool, optional, default:True):
-                               if True, it computes the log of the FBANKs
+           - f_min (type:float(0,inf),optional, default:0)
+               it is the lowest frequency for the Mel filters.
 
-                           - filter_shape (triangular,rectangular,gaussian,
-                                           optional,default:triangular),
-                               it is the shape of the filters used to compute
-                               the FBANK filters.
+           - f_max (type:float(0,inf),optional, default:8000)
+               it is the highest freq for the Mel filters.
 
-                           - f_min (type:float(0,inf),optional, default:0)
-                               it is the lowest frequency for the Mel filters.
+           - n_fft (type:int(0,inf), optional, default:400):
+              it the number of fft point of the STFT. It
+             defines the frequency resolution (n_fft should be
+              <= than win_len).
 
-                           - f_max (type:float(0,inf),optional, default:8000)
-                               it is the highest freq for the Mel filters.
+           - sample_rate (type:int(0,inf),mandatory):
+               it is the samplerate of the input audio signal.
 
-                           - n_fft (type:int(0,inf), optional, default:400):
-                              it the number of fft point of the STFT. It
-                             defines the frequency resolution (n_fft should be
-                              <= than win_len).
+           - power_spectrogram (type:float,optional,
+             default:2):
+               It is the exponent used for spectrogram
+               computation. By default, we compute the power
+                spectrogram (power_spectrogram=2).
 
-                           - sample_rate (type:int(0,inf),mandatory):
-                               it is the samplerate of the input audio signal.
+           - amin (type: float, optional, default: 1e-10)
+               it is the minimum amplitude (used for numerical
+               stability).
 
-                           - power_spectrogram (type:float,optional,
-                             default:2):
-                               It is the exponent used for spectrogram
-                               computation. By default, we compute the power
-                                spectrogram (power_spectrogram=2).
+           - ref_value (type: float, optional, default: 1.0)
+               it is the refence value use for the dB scale.
 
-                           - amin (type: float, optional, default: 1e-10)
-                               it is the minimum amplitude (used for numerical
-                               stability).
+           - top_db (type: float, optional, default: 80)
+               it is the top dB value.
 
-                           - ref_value (type: float, optional, default: 1.0)
-                               it is the refence value use for the dB scale.
+           - freeze (type: bool, optional, True)
+               if False, it the central frequency and the band
+               of each filter are added into nn.parameters
+               can be trained. If True, the standard frozen
+               features are computed.
+           - recovery (type: bool, optional, True)
+               this option is used to recover the last filter
+               banks parameters saved during training. It is
+               activated only if freeze=False.
 
-                           - top_db (type: float, optional, default: 80)
-                               it is the top dB value.
-
-                           - freeze (type: bool, optional, True)
-                               if False, it the central frequency and the band
-                               of each filter are added into nn.parameters
-                               can be trained. If True, the standard frozen
-                               features are computed.
-                           - recovery (type: bool, optional, True)
-                               this option is used to recover the last filter
-                               banks parameters saved during training. It is
-                               activated only if freeze=False.
-
-                           - initialize_with (type: str, optional, None)
-                              this option is a path to a pkl file that
-                              contains personalized bands and central
-                              frequnecy for each filter.
-
-
-
-
-                   - funct_name (type, str, optional, default: None):
-                       it is a string containing the name of the parent
-                       function that has called this method.
-
-                   - global_config (type, dict, optional, default: None):
-                       it a dictionary containing the global variables of the
-                       parent config file.
-
-                   - logger (type, logger, optional, default: None):
-                       it the logger used to write debug and error messages.
-                       If logger=None and root_cfg=True, the file is created
-                       from scratch.
-
-                   - first_input (type, list, optional, default: None)
-                      this variable allows users to analyze the first input
-                      given when calling the class for the first time.
-
-
-     Input (call): - inp_lst(type, list, mandatory):
-                       by default the input arguments are passed with a list.
-                       In this case, inp is a list containing a single
-                       torch.tensor which contains the spectrogram of an audio
-                       signal. The input spectrogram tensor must be in one of
-                       the following formats: [batch,n_fft/2, time_steps],
-                       [batch,channels,n_fft/2, time_steps]
-
-
-     Output (call): - out_lst(type, list, mandatory):
-                       by default the output arguments are passed with a list.
-                       In this case, out is a list containing the FBANKs
-                       corresponding to of the input spectrogram. The tensor
-                       is formatted in one of the  following ways depending on
-                       the input shape:
-                       [batch,n_mel, time_steps],
-                       [batch,channels,n_mel,time_steps]
+           - initialize_with (type: str, optional, None)
+              this option is a path to a pkl file that
+              contains personalized bands and central
+              frequnecy for each filter.
 
      Example:   import torch
                 import soundfile as sf
@@ -576,28 +388,18 @@ class FBANKs(nn.Module):
                 # reading an audio signal
                 signal, fs=sf.read('samples/audio_samples/example1.wav')
 
-                # STFT config dictionary definition
-                config={'class_name':'data_processing.STFT',
-                        'sample_rate':str(fs)}
-
                 # Initialization of the STFT class
-                compute_stft=STFT(config)
+                compute_stft=STFT(sample_rate=fs)
 
                 # Executing computations
                 stft_out=compute_stft(torch.tensor(signal)\
                          .unsqueeze(0).float())
 
-                # Initialization of the spectrogram config
-                config={'class_name':'data_processing.spectrogram'}
-
                 # Initialization of the spectrogram class
-                compute_spectr=spectrogram(config)
+                compute_spectr=spectrogram()
 
                 # Computation of the spectrogram
                 spectr_out=compute_spectr(stft_out)
-
-                # FBANK config dictionary definition
-                config={'class_name':'data_processing.FBANKs'}
 
                 Initialization of the FBANK class
                 compute_fbank=FBANKs(config)
@@ -609,75 +411,45 @@ class FBANKs(nn.Module):
                 fbank_out=compute_fbank(spectr_out)
                 print(fbank_out)
                 print(fbank_out[0].shape)
-
      --------------------------------------------.----------------------------
      """
 
     def __init__(
         self,
-        config,
-        funct_name=None,
-        global_config=None,
-        functions=None,
-        logger=None,
-        first_input=None,
+        n_mels=40,
+        log_mel=True,
+        filter_shape='triangular',
+        f_min=0,
+        f_max=8000,
+        n_fft=400,
+        sample_rate=16000,
+        power_spectrogram=2,
+        amin=1e-10,
+        ref_value=1.,
+        top_db=80.,
+        freeze=True,
+        recovery=True,
+        initialize_path=None,
+        **kwargs
     ):
-        super(FBANKs, self).__init__()
-
-        # Logger
-        self.logger = logger
-
-        # Here are summarized the expected options for this class
-        self.expected_options = {
-            "class_name": ("str", "mandatory"),
-            "n_mels": ("int(1,inf)", "optional", "40"),
-            "log_mel": ("bool", "optional", "True"),
-            "filter_shape": (
-                "one_of(triangular,rectangular,gaussian)",
-                "optional",
-                "triangular",
-            ),
-            "f_min": ("float(0,inf)", "optional", "0"),
-            "f_max": ("float(0,inf)", "optional", "8000"),
-            "n_fft": ("int(0,inf)", "optional", "400"),
-            "sample_rate": ("int(0,inf)", "optional", "16000"),
-            "power_spectrogram": ("float(-inf,inf)", "optional", "2"),
-            "amin": ("float", "optional", "1e-10"),
-            "ref_value": ("float", "optional", "1.0"),
-            "top_db": ("float", "optional", "80"),
-            "freeze": ("bool", "optional", "True"),
-            "recovery": ("bool", "optional", "True"),
-            "initialize_with": ("str", "optional", "None"),
-        }
-
-        # Check, cast , and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, self.logger
-        )
-
         # Expected inputs when calling the class
-        self.expected_inputs = ["torch.Tensor"]
+        expected_inputs = [{'type': 'torch.Tensor', 'dim_count': [3, 4]}]
+        super().__init__(expected_inputs, **kwargs)
 
-        # Check the first input
-        check_inputs(
-            self.conf, self.expected_inputs, first_input, logger=self.logger
-        )
-
-        # Additional check on the input shapes
-        if first_input is not None:
-
-            # Check shape
-            if len(first_input[0].shape) > 4 or len(first_input[0].shape) < 2:
-
-                err_msg = (
-                    'The input of "FBANKs" must be a tensor with one of '
-                    "the following dimensions: [n_freq_points, time] or "
-                    "[batch,n_freq_points, time] or "
-                    "[batch,channels,n_freq_points, time]. "
-                    "Got %s " % (str(first_input[0].shape))
-                )
-
-                logger_write(err_msg, logfile=logger)
+        self.n_mels = n_mels
+        self.log_mel = log_mel
+        self.filter_shape = filter_shape
+        self.f_min = f_min
+        self.f_max = f_max
+        self.n_fft = n_fft
+        self.sample_rate = sample_rate
+        self.power_spectrogram = power_spectrogram
+        self.amin = amin
+        self.ref_value = ref_value
+        self.top_db = top_db
+        self.freeze = freeze
+        self.recovery = recovery
+        self.initialize_with = initialize_path
 
         # Additional options
         self.n_stft = self.n_fft // 2 + 1
@@ -731,14 +503,19 @@ class FBANKs(nn.Module):
             # Automatic recovery
             recovery(self)
 
-    def forward(self, input_lst):
+    def forward(self, spectrogram):
+        """
+        Input: - spectrogram (type: torch.Tensor, mandatory)
+                   torch.tensor which contains the spectrogram of an audio
+                   signal. The input spectrogram tensor must be in one of
+                   the following formats: [batch, n_fft/2, time_steps],
+                   [batch, channels, n_fft/2, time_steps]
 
-        # Reading input_list
-        spectrogram = input_lst[0]
-
-        # Adding signal to gpu or cpu
-        spectrogram = spectrogram
-
+        Output: fbanks (type: torch.Tensor)
+                   Formatted in one of the following ways depending on
+                   the input shape: [batch, n_mel, time_steps],
+                   [batch, channels, n_mel, time_steps]
+        """
         # Computing central frequency and bandwidth of each filter
         f_central_mat = self.f_central.repeat(
             self.all_freqs_mat.shape[1], 1
@@ -1093,7 +870,7 @@ class FBANKs(nn.Module):
         return x_db
 
 
-class MFCCs(nn.Module):
+class MFCCs(SpeechBrainModule):
     """
      -------------------------------------------------------------------------
      data_processing.MFCCs (author: Mirco Ravanelli)
@@ -1102,56 +879,11 @@ class MFCCs(nn.Module):
                    FBANKs in input. It is a modification of the spectrogram of
                     the torch audio toolkit (https://github.com/pytorch/audio)
 
-     Input (init):  - config (type, dict, mandatory):
-                       it is a dictionary containing the keys described below.
+     Input: - n_mels (type: int(1,inf), default: 40):
+               it the number of Mel fiters used to average the spectrogram.
 
-                           - device ('cuda','cpu',optional,default:None):
-                               it is the device where to compute the MFCCs.
-                               If None, it uses the device of the input signal
-
-                           - n_mels (type:int(1,inf),optional,default:40):
-                               it the number of Mel fiters used to average the
-                               spectrogram.
-
-                           - dct_norm ('ortho','None',optional,
-                             default:'ortho'):
-                               it is the type of dct transform used to compute
-                               MFCCs.
-                   - funct_name (type, str, optional, default: None):
-                       it is a string containing the name of the parent
-                       function that has called this method.
-
-                   - global_config (type, dict, optional, default: None):
-                       it a dictionary containing the global variables of the
-                       parent config file.
-
-                   - logger (type, logger, optional, default: None):
-                       it the logger used to write debug and error messages.
-                       If logger=None and root_cfg=True, the file is created
-                       from scratch.
-
-                   - first_input (type, list, optional, default: None)
-                      this variable allows users to analyze the first input
-                      given when calling the class for the first time.
-
-
-     Input (call): - inp_lst(type, list, mandatory):
-                       by default the input arguments are passed with a list.
-                       In this case, inp is a list containing a single
-                       torch.tensor which contains the FBANKs of an audio
-                       signal. The input FBANK tensor must be in one of the
-                       following ways:
-                       [batch,n_mels, time_steps],
-                       [batch,channels,n_mels, time_steps]
-
-
-     Output (call): - out_lst(type, list, mandatory):
-                       by default the output arguments are passed with a list.
-                       In this case, out is a list containing the MFCCs.
-                       The tensor is formatted in one of the following ways
-                       depending on the input shape:
-                       [batch,n_mfcc, time_steps],
-                       [batch,channels,n_mfcc,time_steps]
+           - dct_norm ('ortho', 'None', default: 'ortho'):
+               it is the type of dct transform used to compute MFCCs.
 
      Example:   import torch
                 import soundfile as sf
@@ -1163,98 +895,49 @@ class MFCCs(nn.Module):
                 # reading an audio signal
                 signal, fs=sf.read('samples/audio_samples/example1.wav')
 
-                # STFT config dictionary definition
-                config={'class_name':'data_processing.STFT',\
-                        'sample_rate':str(fs)}
-
                 # Initialization of the STFT class
-                compute_stft=STFT(config)
+                compute_stft=STFT(sample_rate=fs)
 
                 # Executing computations
                 stft_out=compute_stft(torch.tensor(signal)\
                          .unsqueeze(0).float())
 
-                # Initialization of the spectrogram config
-                config={'class_name':'data_processing.spectrogram'}
-
                 # Initialization of the spectrogram class
-                compute_spectr=spectrogram(config)
+                compute_spectr=spectrogram()
 
                 # Computation of the spectrogram
                 spectr_out=compute_spectr(stft_out)
 
-                # FBANK config dictionary definition
-                config={'class_name':'data_processing.FBANKs'}
-
                 Initialization of the FBANK class
-                compute_fbank=FBANKs(config)
+                compute_fbank=FBANKs()
 
                 # Executing computations
                 fbank_out=compute_fbank(spectr_out)
 
-                # MFCC config dictionary definition
-                config={'class_name':'data_processing.MFCCs'}
-
                 Initialization of the MFCC class
-                compute_mfccs=MFCCs(config)
+                compute_mfccs=MFCCs()
 
                 # Executing computations
                 mfcc_out=compute_mfccs(fbank_out)
                 print(mfcc_out)
                 print(mfcc_out[0].shape)
-
      -------------------------------------------------------------------------
      """
 
     def __init__(
         self,
-        config,
-        funct_name=None,
-        global_config=None,
-        functions=None,
-        logger=None,
-        first_input=None,
+        n_mfcc=20,
+        n_mels=40,
+        dct_norm='ortho',
+        **kwargs
     ):
-        super(MFCCs, self).__init__()
-
-        # Logger Setup
-        self.logger = logger
-
-        # Here are summarized the expected options for this class
-        self.expected_options = {
-            "class_name": ("str", "mandatory"),
-            "n_mfcc": ("int(1,inf)", "optional", "20"),
-            "n_mels": ("int(1,inf)", "optional", "40"),
-            "dct_norm": ("one_of(ortho,None)", "optional", "ortho"),
-        }
-
-        # Check, cast , and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, self.logger
-        )
-
         # Expected inputs when calling the class (no inputs in this case)
-        self.expected_inputs = ["torch.Tensor"]
+        expected_inputs = [{'type': "torch.Tensor", 'dim_count': [3, 4]}]
+        super().__init__(expected_inputs, **kwargs)
 
-        # Check the first input
-        check_inputs(
-            self.conf, self.expected_inputs, first_input, logger=self.logger
-        )
-
-        # Additional check on the input shapes
-        if first_input is not None:
-
-            # Check shapes
-            if len(first_input[0].shape) > 4 or len(first_input[0].shape) < 2:
-
-                err_msg = (
-                    "The input of MFCCs must be a tensor with one of the "
-                    "following dimensions: [n_mel, time] or "
-                    "[batch,n_mel, time] or [batch,channels,n_mel, time]."
-                    "Got %s " % (str(first_input[0].shape))
-                )
-
-                logger_write(err_msg, logfile=logger)
+        self.n_mfcc = n_mfcc
+        self.n_mels = n_mels
+        self.dct_norm = dct_norm
 
         # Generate matix for DCT transformation
         self.dct_mat = self.create_dct()
@@ -1346,11 +1029,22 @@ class MFCCs(nn.Module):
 
         return dct.t()
 
-    def forward(self, input_lst):
+    def forward(self, fbanks):
+        """
+        Input: - (type, list, mandatory):
+                   Contains the FBANKs of an audio
+                   signal. The input FBANK tensor must be in one of the
+                   following ways: [batch, n_mels, time_steps],
+                   [batch, channels, n_mels, time_steps]
 
-        # Reading input _list
-        fbanks = input_lst[0]
 
+         Output: - out_lst(type, list, mandatory):
+                   by default the output arguments are passed with a list.
+                   In this case, out is a list containing the MFCCs.
+                   The tensor is formatted in one of the following ways
+                   depending on the input shape: [batch, n_mfcc, time_steps],
+                   [batch, channels, n_mfcc, time_steps]
+        """
         # Computing MFCCs by applying the DCT transform
         mfcc = torch.matmul(
             fbanks.transpose(1, -1), self.dct_mat.to(fbanks.device)
@@ -1359,123 +1053,47 @@ class MFCCs(nn.Module):
         return mfcc
 
 
-class deltas(nn.Module):
+class deltas(SpeechBrainModule):
     """
-     -------------------------------------------------------------------------
-     data_processing.deltas (author: Mirco Ravanelli)
+    -------------------------------------------------------------------------
+    data_processing.deltas (author: Mirco Ravanelli)
 
-     Description:  This class computes time derivatives of an input tensor.
-                   It is a modification of the spectrogram of the torch audio
-                   toolkit (https://github.com/pytorch/audio).
+    Description:  This class computes time derivatives of an input tensor.
+                  It is a modification of the spectrogram of the torch audio
+                  toolkit (https://github.com/pytorch/audio).
 
-     Input (init):  - config (type, dict, mandatory):
-                       it is a dictionary containing the keys described below.
+    Input: - der_win_length (type: int(3,inf), default: 3):
+              it the length of the window used to compute the
+              time derivatives.
 
-                           - device ('cuda','cpu',optional,default:None):
-                               it is the device where to compute the MFCCs.
-                               If None, it uses the device of the input signal
+    Example:  import torch
+              from data_processing import deltas
 
-                           - der_win_length (type:int(3,inf),optional,
-                             default:3):
-                               it the length of the window used to compute the
-                               time derivatives.
+              # Initialization of the delta class
+              compute_deltas=deltas()
 
-                   - funct_name (type, str, optional, default: None):
-                       it is a string containing the name of the parent
-                       function that has called this method.
-
-                   - global_config (type, dict, optional, default: None):
-                       it a dictionary containing the global variables of the
-                       parent config file.
-
-                   - logger (type, logger, optional, default: None):
-                       it the logger used to write debug and error messages.
-                       If logger=None and root_cfg=True, the file is created
-                       from scratch.
-
-                   - first_input (type, list, optional, default: None)
-                      this variable allows users to analyze the first input
-                      given when calling the class for the first time.
-
-
-     Input (call): - inp_lst(type, list, mandatory):
-                       by default the input arguments are passed with a list.
-                       In this case, inp is a list containing a single
-                       torch.tensor The input tensor must be in one of the
-                       following way:
-                       [*, time_steps],
-
-
-     Output (call): - out_lst(type, list, mandatory):
-                       by default the output arguments are passed with a list.
-                       In this case, out is a list containing the MFCCs.
-                       The tensor is formatted in one of the following way
-                       depending on the input shape:
-                       [*, time_steps]
-
-     Example:  import torch
-               from data_processing import deltas
-
-               # delta config dictionary definition
-               config={'class_name':'data_processing.deltas'}
-
-               # Initialization of the delta class
-               compute_deltas=deltas(config,\
-               first_input=[torch.rand([4,13,100])])
-
-               # Delta computations
-               batch=torch.rand([4,13,230])
-               delta_out=compute_deltas([batch])
-               print(delta_out)
-               print(delta_out[0].shape)
-     -------------------------------------------------------------------------
-     """
+              # Delta computations
+              batch=torch.rand([4,13,230])
+              delta_out=compute_deltas(batch)
+              print(delta_out)
+              print(delta_out[0].shape)
+    -------------------------------------------------------------------------
+    """
 
     def __init__(
         self,
-        config,
-        funct_name=None,
-        global_config=None,
-        functions=None,
-        logger=None,
-        first_input=None,
+        der_win_length=5,
+        **kwargs
     ):
-        super(deltas, self).__init__()
-
-        # Logger Setup
-        self.logger = logger
-
-        # Here are summarized the expected options for this class
-        self.expected_options = {
-            "class_name": ("str", "mandatory"),
-            "der_win_length": ("int(3,inf)", "optional", "5"),
-        }
-
-        # Check, cast , and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, self.logger
-        )
-
         # Expected inputs when calling the class (no inputs in this case)
-        self.expected_inputs = ["torch.Tensor"]
+        expected_inputs = [{'type': 'torch.Tensor', 'dim_count': [2, 3, 4]}]
 
-        # Check the first input
-        check_inputs(
-            self.conf, self.expected_inputs, first_input, logger=self.logger
-        )
+        def hook(self, input):
+            self.kernel = self.kernel.repeat(input[0].shape[-2], 1, 1)
 
-        # Additional check on the input shapes
-        if first_input is not None:
+        super().__init__(expected_inputs, hook, **kwargs)
 
-            # Check shape
-            if len(first_input[0].shape) > 4 or len(first_input[0].shape) < 2:
-                err_msg = (
-                    'The input of "deltas" must be a tensor with one of the  '
-                    "following dimensions: [n_fea, time] or "
-                    "[batch,n_fea, time] or [batch,channels,n_fea, time]."
-                    "Got %s " % (str(first_input[0].shape))
-                )
-                logger_write(err_msg, logfile=logger)
+        self.der_win_length = der_win_length
 
         # Additional parameters
         self.n = (self.der_win_length - 1) // 2
@@ -1486,16 +1104,14 @@ class deltas(nn.Module):
 
         self.first_call = True
 
-    def forward(self, input_lst):
+    def forward(self, x):
+        """
+        Input: - x (type, torch.Tensor, mandatory):
+                   The input tensor must be 2-4 dims, with time_steps last.
 
-        # Reading the input_list
-        x = input_lst[0]
-
-        # Extending kernel to all the features
-        if self.first_call:
-            self.first_call = False
-            self.kernel = self.kernel.repeat(x.shape[-2], 1, 1)
-
+        Output: deltas (type, torch.Tensor):
+                   The same shape as the inputs
+        """
         # Managing multi-channel deltas reshape tensor (batch*channel,time)
         or_shape = x.shape
 
@@ -1525,7 +1141,7 @@ class deltas(nn.Module):
         return delta_coeff
 
 
-class context_window(nn.Module):
+class context_window(SpeechBrainModule):
     """
      -------------------------------------------------------------------------
      data_processing.context_window (author: Mirco Ravanelli)
@@ -1535,55 +1151,13 @@ class context_window(nn.Module):
                    performed with a convolutional layer based on a fixed
                    kernel designed for that.
 
-     Input (init):  - config (type, dict, mandatory):
-                       it is a dictionary containing the keys described below.
+     Input: - left_frames (type: int(0,inf), default: 0):
+               it is this the number of left frames (i.e, past
+               frames to collect)
 
-                           - device ('cuda','cpu',optional, default:None):
-                               it is the device where to compute the MFCCs.
-                               If None, it uses the device of the input sig.
-
-                           - left_frames (type:int(0,inf),optional,
-                             default:0):
-                               it is this the number of left frames (i.e, past
-                               frames to collect)
-
-                           - right_frames (type:int(0,inf),optional,
-                             default:0):
-                               it is this the number of right frames (i.e,
-                               future frames to collect)
-
-                   - funct_name (type, str, optional, default: None):
-                       it is a string containing the name of the parent
-                       function that has called this method.
-
-                   - global_config (type, dict, optional, default: None):
-                       it a dictionary containing the global variables of the
-                       parent config file.
-
-                   - logger (type, logger, optional, default: None):
-                       it the logger used to write debug and error messages.
-                       If logger=None and root_cfg=True, the file is created
-                       from scratch.
-
-                   - first_input (type, list, optional, default: None)
-                      this variable allows users to analyze the first input
-                      given when calling the class for the first time.
-
-
-     Input (call): - inp_lst(type, list, mandatory):
-                       by default the input arguments are passed with a list.
-                       In this case, inp is a list containing a single
-                       torch.tensor. The input tensor must be in one of the
-                       following way: [*, time_steps].
-
-
-     Output (call): - out_lst(type, list, mandatory):
-                       by default the output arguments are passed with a list.
-                       In this case, out is a list containing the MFCCs.
-                       The tensor is formatted in one of the following way
-                       depending on the input shape:
-                       [*, time_steps]
-
+           - right_frames (type: int(0,inf), default: 0):
+               it is this the number of right frames (i.e,
+               future frames to collect)
      Example:  import torch
                from data_processing import context_window
 
@@ -1606,52 +1180,16 @@ class context_window(nn.Module):
 
     def __init__(
         self,
-        config,
-        funct_name=None,
-        global_config=None,
-        functions=None,
-        logger=None,
-        first_input=None,
+        left_frames=0,
+        right_frames=0,
+        **kwargs
     ):
-        super(context_window, self).__init__()
-
-        # Setting logger and exec_config
-        self.logger = logger
-
-        # Definition of the expected options
-        self.expected_options = {
-            "class_name": ("str", "mandatory"),
-            "left_frames": ("int(0,inf)", "optional", "0"),
-            "right_frames": ("int(0,inf)", "optional", "0"),
-        }
-
-        # Check, cast , and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, self.logger
-        )
-
         # Expected inputs when calling the class
-        self.expected_inputs = ["torch.Tensor"]
+        expected_inputs = [{'type': 'torch.Tensor', 'dim_count': [2, 3, 4, 5]}]
+        super().__init__(expected_inputs, **kwargs)
 
-        # Check the first input
-        check_inputs(
-            self.conf, self.expected_inputs, first_input, logger=self.logger
-        )
-
-        # Additional checks
-        if first_input is not None:
-
-            # Check shape
-            if len(first_input[0].shape) > 5 or len(first_input[0].shape) < 2:
-
-                err_msg = (
-                    'The input of "context_window" must be a tensor with '
-                    "one of the  following dimensions: [n_fea, time] or "
-                    "[batch,n_fea, time] or [batch,channels,n_fea, time]."
-                    "Got %s " % (str(first_input[0].shape))
-                )
-
-                logger_write(err_msg, logfile=logger)
+        self.left_frames = left_frames
+        self.right_frames = right_frames
 
         # Additional parameters
         self.context_len = self.left_frames + self.right_frames + 1
@@ -1666,10 +1204,15 @@ class context_window(nn.Module):
 
         self.first_call = True
 
-    def forward(self, input_lst):
+    def forward(self, x):
+        """
+        Input: - x (type: torch.Tensor, mandatory):
+                   The input tensor must be 2-4 dims with time_steps last.
 
-        # Reading input_list
-        x = input_lst[0]
+        Output: tensor with context (type: torch.Tensor)
+                    Tensor has context added, the second from the end
+                    dimension has been increased in size.
+        """
 
         if self.first_call is True:
             self.first_call = False
@@ -1721,43 +1264,39 @@ class context_window(nn.Module):
         return cw_x
 
 
-class mean_var_norm(nn.Module):
+class mean_var_norm(SpeechBrainModule):
     def __init__(
         self,
-        config,
-        funct_name=None,
-        global_config=None,
-        functions=None,
-        logger=None,
-        first_input=None,
+        mean_norm=True,
+        std_norm=True,
+        norm_type='global',
+        avg_factor=None,
+        do_recovery=True,
+        **kwargs
     ):
-        super(mean_var_norm, self).__init__()
+        # Expected inputs when calling the class
+        if norm_type == "speaker":
+            expected_inputs = [
+                {'type': 'torch.Tensor'},
+                {'type': 'torch.Tensor'},
+                {'type': 'torch.Tensor'},
+            ]
+        else:
+            expected_inputs = [
+                {'type': 'torch.Tensor'},
+                {'type': 'torch.Tensor'},
+            ]
 
-        # Setting logger and exec_config
-        self.logger = logger
+        super().__init__(expected_inputs, **kwargs)
 
-        # Definition of the expected options
-        self.expected_options = {
-            "class_name": ("str", "mandatory"),
-            "mean_norm": ("bool", "optional", "True"),
-            "std_norm": ("bool", "optional", "True"),
-            "norm_type": (
-                "one_of(sentence,batch,speaker,global)",
-                "optional",
-                "global",
-            ),
-            "avg_factor": ("float(0,1)", "optional", "None"),
-            "recovery": ("bool", "optional", "True"),
-        }
-
-        # Check, cast , and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, self.logger
-        )
+        self.mean_norm = mean_norm
+        self.std_norm = std_norm
+        self.norm_type = norm_type
+        self.avg_factor = avg_factor
+        self.recovery = do_recovery
 
         # Output folder (useful for parameter saving)
-        self.output_folder = global_config["output_folder"]
-        self.funct_name = funct_name
+        self.output_folder = self.global_config["output_folder"]
 
         # Parameter initialization
         self.glob_mean = 0
@@ -1765,22 +1304,6 @@ class mean_var_norm(nn.Module):
         self.spk_dict_mean = {}
         self.spk_dict_std = {}
         self.spk_dict_count = {}
-
-        # Expected inputs when calling the class
-        if self.norm_type == "speaker":
-            self.expected_inputs = [
-                "torch.Tensor",
-                "torch.Tensor",
-                "torch.Tensor",
-            ]
-        else:
-            self.expected_inputs = ["torch.Tensor", "torch.Tensor"]
-
-        # Check the first input
-        check_inputs(
-            self.conf, self.expected_inputs, first_input, logger=self.logger
-        )
-
         # Counter initialization
         self.count = 0
 
@@ -1788,19 +1311,11 @@ class mean_var_norm(nn.Module):
         self.eps = 1e-10
 
         # Recovery stored stats
-        recovery(self)
+        # recovery(self)
 
-    def forward(self, input_lst):
+    def forward(self, x, lengths, spk_ids=None):
 
-        # Reading input_list
-        x = input_lst[0]
         self.device_inp = str(x.device)
-
-        # Reading lengths
-        lengths = input_lst[1]
-
-        if self.norm_type == "speaker":
-            spk_ids = input_lst[2]
 
         N_batches = x.shape[0]
 

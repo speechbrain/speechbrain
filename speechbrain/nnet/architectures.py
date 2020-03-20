@@ -15,9 +15,10 @@ import torch.nn.functional as F
 from speechbrain.data_io.data_io import recovery, initialize_with
 from speechbrain.utils.input_validation import check_opts, check_inputs
 from speechbrain.utils.logger import logger_write
+from speechbrain.module import SpeechBrainModule
 
 
-class linear(nn.Module):
+class linear(SpeechBrainModule):
     """
      -------------------------------------------------------------------------
      nnet.architectures.linear (author: Mirco Ravanelli)
@@ -25,71 +26,29 @@ class linear(nn.Module):
      Description:  This function implements a fully connected linear layer:
                    y = Wx + b.
 
-     Input (init):  - config (type, dict, mandatory):
-                       it is a dictionary containing the keys described below.
+     Input: - n_neurons (type: int(1,inf), mandatory):
+               it is the number of output neurons (i.e, the
+               dimensionality of the output)
 
-                           - n_neurons (type: int(1,inf), mandatory):
-                               it is the number of output neurons (i.e, the
-                               dimensionality of the output)
+           - bias (type: bool, Default:True):
+               if True, the additive bias b is adopted.
 
-                           - bias (type: bool, optional, Default:True):
-                               if True, the additive bias b is adopted.
+           - recovery (type: bool, Default:True):
+               if True, the system restarts from the last
+               epoch correctly executed.
 
-                           - recovery (type: bool, optional, Default:True):
-                               if True, the system restarts from the last
-                               epoch correctly executed.
-
-                           - initialize_with (type: str, optional, Default:\
-                               None):
-                               when set, this flag can be used to initialize
-                               the parameters with an external pkl file. It
-                               could be useful for pre-training purposes.
-
-
-                   - funct_name (type, str, optional, default: None):
-                       it is a string containing the name of the parent
-                       function that has called this method.
-
-                   - global_config (type, dict, optional, default: None):
-                       it a dictionary containing the global variables of the
-                       parent config file.
-
-                   - logger (type, logger, optional, default: None):
-                       it the logger used to write debug and error messages.
-                       If logger=None and root_cfg=True, the file is created
-                       from scratch.
-
-                   - first_input (type, list, optional, default: None)
-                      this variable allows users to analyze the first input
-                      given when calling the class for the first time.
-
-
-     Input (call): - inp_lst(type, list, mandatory):
-                       by default the input arguments are passed with a list.
-                       In this case, inp is a list containing a single
-                       torch.tensor that we want to transform linearly.
-                       The tensor must be in one of the following format:
-                       [batch,channels,time]. Note that we can have up to
-                       three channels.
-
-
-
-     Output (call): - wx(type, torch.Tensor, mandatory):
-                       The output is a tensor that corresponds to the linear
-                       transformation of the input tensor.
-
+           - initialize_with (type: str, Default: None):
+               when set, this flag can be used to initialize
+               the parameters with an external pkl file. It
+               could be useful for pre-training purposes.
 
      Example:   import torch
                 from speechbrain.nnet.architectures import linear
 
                 inp_tensor = torch.rand([4,660,190])
 
-                # config dictionary definition
-                config={'class_name':'speechbrain.nnet.architectures.linear',
-                        'n_neurons':'1024'}
-
                 # Initialization of the class
-                linear_transf=linear(config,first_input=[inp_tensor])
+                linear_transf=linear(n_neurons=1024)
 
                 # Executing computations
                 inp_tensor = torch.rand([4,660,120])
@@ -101,72 +60,24 @@ class linear(nn.Module):
 
     def __init__(
         self,
-        config,
-        funct_name=None,
-        global_config=None,
-        functions=None,
-        logger=None,
-        first_input=None,
+        n_neurons,
+        bias=True,
+        initialize_from=None,
+        do_recovery=True,
+        **kwargs
     ):
-        super(linear, self).__init__()
-
-        # Logger setup
-        self.logger = logger
-
-        # Here are summarized the expected options for this class
-        self.expected_options = {
-            "class_name": ("str", "mandatory"),
-            "recovery": ("bool", "optional", "True"),
-            "initialize_with": ("str", "optional", "None"),
-            "n_neurons": ("int(1,inf)", "mandatory"),
-            "bias": ("bool", "optional", "True"),
-        }
-
-        # Check, cast, and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, self.logger
-        )
-
         # Definition of the expected input
-        self.expected_inputs = ["torch.Tensor"]
+        expected_inputs = [{'type': 'torch.Tensor', 'dim_count': [2, 3, 4, 5]}]
 
-        # Check the first input
-        check_inputs(
-            self.conf, self.expected_inputs, first_input, logger=self.logger
-        )
+        self.n_neurons = n_neurons
+        self.bias = bias
+        self.initialize_with = initialize_from
+        self.recovery = do_recovery
 
-        # Output folder (useful for parameter saving)
-        if global_config is not None:
-            self.output_folder = global_config["output_folder"]
-        self.funct_name = funct_name
-
-        # Additional check on the input shapes
-        if first_input is not None:
-
-            # Shape check
-            if len(first_input[0].shape) > 5 or len(first_input[0].shape) < 2:
-
-                err_msg = (
-                    'The input of "linear" must be a tensor with one of the  '
-                    "following dimensions: [time] or [batch,time] or "
-                    "[batch,channels,time]. Got %s "
-                    % (str(first_input[0].shape))
-                )
-
-                logger_write(err_msg, logfile=logger)
-
-        self.first_call = True
-
-    def forward(self, input_lst):
-
-        # Reading input _list
-        x = input_lst[0]
-
-        if self.first_call is True:
-            self.first_call = False
+        def hook(self, input):
 
             # Computing the dimensionality of the input
-            fea_dim = x.shape[1]
+            fea_dim = input[0].shape[1]
 
             # Initialization of the parameters
             self.w = nn.Linear(fea_dim, self.n_neurons, bias=self.bias)
@@ -176,8 +87,26 @@ class linear(nn.Module):
             initialize_with(self)
 
             # Automatic recovery (when needed)
-            recovery(self)
+            # recovery(self)
 
+        super().__init__(expected_inputs, hook, **kwargs)
+
+        # Output folder (useful for parameter saving)
+        if self.global_config is not None:
+            self.output_folder = self.global_config["output_folder"]
+
+    def forward(self, x):
+        """
+        Input: - x (type: torch.Tensor, mandatory):
+                   torch.tensor that we want to transform linearly.
+                   The tensor must be in one of the following format:
+                   [batch, channels, time]. Note that we can have up to
+                   three channels.
+
+        Output: - wx (type: torch.Tensor)
+                   The output is a tensor that corresponds to the linear
+                   transformation of the input tensor.
+        """
         # Transposing tensor
         x = x.transpose(1, -1)
 
@@ -206,34 +135,34 @@ class linear_combination(nn.Module):
      Input (init):  - config (type, dict, mandatory):
                        it is a dictionary containing the keys described below.
 
-                           - bias (type: bool, optional, Default:True):
+                           - bias (type: bool, Default:True):
                                if True, the additive bias b is adopted.
 
-                           - recovery (type: bool, optional, Default:True):
+                           - recovery (type: bool, Default:True):
                                if True, the system restarts from the last
                                epoch correctly executed.
 
-                           - initialize_with (type: str, optional, Default:\
+                           - initialize_with (type: str, Default:\
                                None):
                                when set, this flag can be used to initialize
                                the parameters with an external pkl file. It
                                could be useful for pre-training purposes.
 
 
-                   - funct_name (type, str, optional, default: None):
+                   - funct_name (type, str, default: None):
                        it is a string containing the name of the parent
                        function that has called this method.
 
-                   - global_config (type, dict, optional, default: None):
+                   - global_config (type, dict, default: None):
                        it a dictionary containing the global variables of the
                        parent config file.
 
-                   - logger (type, logger, optional, default: None):
+                   - logger (type, logger, default: None):
                        it the logger used to write debug and error messages.
                        If logger=None and root_cfg=True, the file is created
                        from scratch.
 
-                   - first_input (type, list, optional, default: None)
+                   - first_input (type, list, default: None)
                       this variable allows users to analyze the first input
                       given when calling the class for the first time.
 
@@ -473,34 +402,34 @@ class conv(nn.Module):
                                See torch.nn documentation for more information.
 
 
-                           - bias (type: bool, optional, default:True):
+                           - bias (type: bool, default:True):
                                if True, the additive bias b is adopted.
 
-                           - recovery (type: bool, optional, default:True):
+                           - recovery (type: bool, default:True):
                                if True, the system restarts from the last
                                epoch correctly executed.
 
-                           - initialize_with (type: str, optional, \
+                           - initialize_with (type: str, \
                                default:None):
                                when set, this flag can be used to initialize
                                the parameters with an external pkl file. It
                                could be useful for pre-training purposes.
 
 
-                   - funct_name (type, str, optional, default: None):
+                   - funct_name (type, str, default: None):
                        it is a string containing the name of the parent
                        function that has called this method.
 
-                   - global_config (type, dict, optional, default: None):
+                   - global_config (type, dict, default: None):
                        it a dictionary containing the global variables of the
                        parent config file.
 
-                   - logger (type, logger, optional, default: None):
+                   - logger (type, logger, default: None):
                        it the logger used to write debug and error messages.
                        If logger=None and root_cfg=True, the file is created
                        from scratch.
 
-                   - first_input (type, list, optional, default: None)
+                   - first_input (type, list, default: None)
                       this variable allows users to analyze the first input
                       given when calling the class for the first time.
 
@@ -993,47 +922,47 @@ class SincConv(nn.Module):
                                This flag specifies the type of padding.
                                See torch.nn documentation for more information.
 
-                           - sample_rate (type: int(1,inf), optional,
+                           - sample_rate (type: int(1,inf),
                                default: 16000):
                                it is the sampling frequency of the input
                                waveform.
 
-                            - min_low_hz (type: float(0,inf), optional,
+                            - min_low_hz (type: float(0,inf),
                                 default: 50):
                                it is the mininum frequnecy (in Hz) that a
                                learned filter can have.
 
-                            - min_band_hz (type: float(0,inf), optional,
+                            - min_band_hz (type: float(0,inf),
                                 default: 50):
                                it is the minimum band (in Hz) that a learned
                                filter can have.
 
 
-                           - recovery (type: bool, optional, default:True):
+                           - recovery (type: bool, default:True):
                                if True, the system restarts from the last
                                epoch correctly executed.
 
-                           - initialize_with (type: str, optional,
+                           - initialize_with (type: str,
                            default:None):
                                when set, this flag can be used to initialize
                                the parameters with an external pkl file. It
                                could be useful for pre-training purposes.
 
 
-                   - funct_name (type, str, optional, default: None):
+                   - funct_name (type, str, default: None):
                        it is a string containing the name of the parent
                        function that has called this method.
 
-                   - global_config (type, dict, optional, default: None):
+                   - global_config (type, dict, default: None):
                        it a dictionary containing the global variables of the
                        parent config file.
 
-                   - logger (type, logger, optional, default: None):
+                   - logger (type, logger, default: None):
                        it the logger used to write debug and error messages.
                        If logger=None and root_cfg=True, the file is created
                        from scratch.
 
-                   - first_input (type, list, optional, default: None)
+                   - first_input (type, list, default: None)
                       this variable allows users to analyze the first input
                       given when calling the class for the first time.
 
@@ -1482,82 +1411,45 @@ class SincConv(nn.Module):
         return x
 
 
-class RNN_basic(nn.Module):
+class RNN_basic(SpeechBrainModule):
     """
      -------------------------------------------------------------------------
      nnet.architectures.RNN_basic (author: Mirco Ravanelli)
 
      Description:  This function implements basic RNN, LSTM and GRU models.
 
-     Input (init):  - config (type, dict, mandatory):
-                       it is a dictionary containing the keys described below.
+     Input: - rnn_type (type:rnn,lstm,gru,ligru,qrnn, mandatory):
+               it is the type of recurrent neural network to
+               use.
 
-                           - rnn_type (type:rnn,lstm,gru,ligru,qrnn,
-                           mandatory):
-                               it is the type of recurrent neural network to
-                               use.
+           - n_neurons (type: int(1,inf), mandatory):
+               it is the number of output neurons (i.e, the
+               dimensionality of the output).
 
-                           - n_neurons (type: int(1,inf), mandatory):
-                               it is the number of output neurons (i.e, the
-                               dimensionality of the output).
+           - nonlinearity (type:tanh, relu, mandatory):
+               it is the type of nonlinearity.
 
-                           - nonlinearity (type:tanh, relu, mandatory):
-                               it is the type of nonlinearity.
+           - num_layers (type: int(1,inf), mandatory):
+               it is the number of layers.
 
-                           - num_layers (type: int(1,inf), mandatory):
-                               it is the number of layers.
+           - bias (type: bool, Default:True):
+               if True, the additive bias b is adopted.
 
-                           - bias (type: bool, optional, Default:True):
-                               if True, the additive bias b is adopted.
+           - dropout (type: float(0,1), optional:0.0):
+               it is the dropout factor.
 
-                           - dropout (type: float(0,1), optional:0.0):
-                               it is the dropout factor.
+           - bidirectional (type: bool,
+           Default:False):
+               if True, a bidirectioal model is used.
 
-                           - bidirectional (type: bool, optional,
-                           Default:False):
-                               if True, a bidirectioal model is used.
+           - recovery (type: bool, default: True):
+               if True, the system restarts from the last
+               epoch correctly executed.
 
-                           - recovery (type: bool, optional, Default:True):
-                               if True, the system restarts from the last
-                               epoch correctly executed.
-
-                           - initialize_with (type: str, optional,
-                           Default:None):
-                               when set, this flag can be used to initialize
-                               the parameters with an external pkl file. It
-                               could be useful for pre-training purposes.
-
-
-                   - funct_name (type, str, optional, default: None):
-                       it is a string containing the name of the parent
-                       function that has called this method.
-
-                   - global_config (type, dict, optional, default: None):
-                       it a dictionary containing the global variables of the
-                       parent config file.
-
-                   - logger (type, logger, optional, default: None):
-                       it the logger used to write debug and error messages.
-                       If logger=None and root_cfg=True, the file is created
-                       from scratch.
-
-                   - first_input (type, list, optional, default: None)
-                      this variable allows users to analyze the first input
-                      given when calling the class for the first time.
-
-
-     Input (call): - inp_lst(type, list, mandatory):
-                       by default the input arguments are passed with a list.
-                       In this case, inp is a list containing a single
-                       torch.tensor that we want to transform with the RNN.
-                       The tensor must be in one of the following format:
-                       [batch,channels,time]. Note that we can have up to
-                       three channels.
-
-
-
-     Output (call): - wx(type, torch.Tensor, mandatory):
-                       it is the RNN output.
+           - initialize_with (type: str, default: None):
+               when set, this flag can be used to initialize
+               the parameters with an external pkl file. It
+               could be useful for pre-training purposes.
 
 
      Example:   import torch
@@ -1596,81 +1488,34 @@ class RNN_basic(nn.Module):
 
     def __init__(
         self,
-        config,
-        funct_name=None,
-        global_config=None,
-        functions=None,
-        logger=None,
-        first_input=None,
+        rnn_type,
+        n_neurons,
+        nonlinearity,
+        num_layers=1,
+        dropout=0.,
+        bidirectional=False,
+        initialize_from=None,
+        do_recovery=True,
+        **kwargs
     ):
-        super(RNN_basic, self).__init__()
-
-        # Logger setup
-        self.funct_name = funct_name
-        self.logger = logger
-
-        # Here are summarized the expected options for this class
-        self.expected_options = {
-            "class_name": ("str", "mandatory"),
-            "recovery": ("bool", "optional", "True"),
-            "initialize_with": ("str", "optional", "None"),
-            "rnn_type": ("one_of(rnn,lstm,gru,ligru,qrnn)", "mandatory"),
-            "n_neurons": ("int(1,inf)", "mandatory"),
-            "nonlinearity": ("one_of(tanh,relu)", "mandatory"),
-            "num_layers": ("int(1,inf)", "optional", "1"),
-            "bias": ("bool", "optional", "True"),
-            "dropout": ("float(0,1)", "optional", "0.0"),
-            "bidirectional": ("bool", "optional", "False"),
-        }
-
-        # Check, cast, and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, self.logger
-        )
+        self.rnn_type = rnn_type
+        self.n_neurons = n_neurons
+        self.nonlinearity = nonlinearity,
+        self.num_layers = num_layers
+        self.dropout = dropout
+        self.bidirectional = bidirectional
+        self.initialize_with = initialize_from
+        self.recovery = do_recovery
 
         # Definition of the expected input
-        self.expected_inputs = ["torch.Tensor"]
+        expected_inputs = [{'type': 'torch.Tensor', 'dim_count': [3, 4, 5]}]
 
-        # Check the first input
-        check_inputs(
-            self.conf, self.expected_inputs, first_input, logger=self.logger
-        )
-
-        if global_config is not None:
-            self.output_folder = global_config["output_folder"]
-
-        self.reshape = False
-
-        # Check input dimensionality
-        if first_input is not None:
-
-            # Shape check
-            if len(first_input[0].shape) > 5 or len(first_input[0].shape) < 3:
-
-                err_msg = (
-                    'The input of "RNN_basic" must be a tensor with one of '
-                    "the  following dimensions: [time] or [batch,time] or "
-                    "[batch,channels,time]. Got %s "
-                    % (str(first_input[0].shape))
-                )
-
-                logger_write(err_msg, logfile=logger)
-
-                if len(first_input[0].shape) > 3:
-                    self.reshape = True
-
-        self.first_call = True
-
-    def forward(self, input_lst):
-
-        # Reading input _list
-        x = input_lst[0]
-
-        if self.first_call is True:
-            self.first_call = False
+        def hook(self, input):
+            if len(input[0].shape) > 3:
+                self.reshape = True
 
             # Computing the feature dimensionality
-            self.fea_dim = torch.prod(torch.tensor(x.shape[1:-1]))
+            self.fea_dim = torch.prod(torch.tensor(input[0].shape[1:-1]))
 
             # Vanilla RNN
             if self.rnn_type == "rnn":
@@ -1746,8 +1591,28 @@ class RNN_basic(nn.Module):
             initialize_with(self)
 
             # Automatic recovery
-            recovery(self)
+            # recovery(self)
 
+        super().__init__(expected_inputs, hook, **kwargs)
+
+        if self.global_config is not None:
+            self.output_folder = self.global_config["output_folder"]
+
+        self.reshape = False
+
+    def forward(self, x):
+        """
+        Input: - x (type: torch.Tensor, mandatory):
+                   by default the input arguments are passed with a list.
+                   In this case, inp is a list containing a single
+                   torch.tensor that we want to transform with the RNN.
+                   The tensor must be in one of the following format:
+                   [batch,channels,time]. Note that we can have up to
+                   three channels.
+
+        Output: - wx (type, torch.Tensor, mandatory):
+                       it is the RNN output.
+        """
         # Reshaping input tensors when needed
         if self.reshape:
             if len(x.shape) == 4:
@@ -1794,7 +1659,7 @@ class liGRU(nn.Module):
                     - num_layers (type: int(1,inf), mandatory):
                         it is the number of layers.
 
-                    - bidirectional (type: bool, optional, Default:False):
+                    - bidirectional (type: bool, Default:False):
                         if True, a bidirectioal model is used.
 
 
@@ -2035,7 +1900,7 @@ class liGRU(nn.Module):
         return x.view(xsize)
 
 
-class activation(nn.Module):
+class activation(SpeechBrainModule):
     """
      -------------------------------------------------------------------------
      nnet.architectures.activation (author: Mirco Ravanelli)
@@ -2044,101 +1909,62 @@ class activation(nn.Module):
                    applied element-wise to the input tensor:
                    y = act(x)
 
-     Input (init):  - config (type, dict, mandatory):
-                       it is a dictionary containing the keys described below.
+     Input: - act_type (type:relu,leaky_relu,relu_6,r_relu,p_relu,elu,selu,
+                 celu,hard_shrink,soft_shrink,softplus,soft_sign,threshold,
+                 hard_tanh,tanh,tanh_shrink,sigmoid,log_sigmoid,softmax,
+                 log_softmax,softmax2d,softmin,linear):
+               it is the type of activation function to use
 
-                           - act_type (type:relu,leaky_relu,relu_6,r_relu,
-                                       p_relu,elu, selu,celu,hard_shrink,
-                                       soft_shrink,softplus, soft_sign,
-                                       threshold,hard_tanh,tanh, tanh_shrink,
-                                       sigmoid,log_sigmoid,softmax,
-                                       log_softmax,softmax2d,softmin,linear):
-                               it is the type of activation function to use
+            - inplace (type: bool, Default: False):
+               if True, it uses inplace operations.
 
-                            - inplace (type: bool, optional, Default:False):
-                               if True, it uses inplace operations.
+           - negative_slope (type: float, Default: 0.01):
+               it is the negative slope for leaky_relu
+               activation. Controls the angle of the negative
+               slope.
 
-                           - negative_slope (type: float, optional,
-                           Default:0.01):
-                               it is the negative slope for leaky_relu
-                               activation. Controls the angle of the negative
-                               slope.
+           - lower (type: float, Default: 0.125):
+                It is used for RReLU. It is the lower bound of
+                the uniform distribution.
 
-                           - lower (type: float, optional, Default:0.125):
-                                It is used for RReLU. It is the lower bound of
-                                the uniform distribution.
+           - upper (type: float, Default: 0.333):
+               It is used for RReLU. It is the upper bound of
+               the uniform distribution.
 
-                           - upper (type: float, optional, Default:0.333):
-                               It is used for RReLU. It is the upper bound of
-                               the uniform distribution.
+           - min_val (type: float, Default: -1.0):
+               It is used for Hardtanh. It is minimum value of
+               the linear region range.
 
-                           - min_val (type: float, optional, Default:-1.0):
-                               It is used for Hardtanh. It is minimum value of
-                               the linear region range.
+            - max_val (type: float, Default: 1.0):
+               It is used for Hardtanh. It is maximum value of
+               the linear region range.
 
-                            - max_val (type: float, optional, Default:1.0):
-                               It is used for Hardtanh. It is maximum value of
-                               the linear region range.
+            - alpha (type: float, Default: 1.0):
+               It is used for elu/celu. It is alpha value
+               in the elu/celu formulation.
 
-                            - alpha (type: float, optional, Default:1.0):
-                               It is used for elu/celu. It is alpha value
-                               in the elu/celu formulation.
+            - beta (type: float, Default: 1.0):
+               It is used for softplus. It is beta value
+               in the softplus formulation.
 
-                            - beta (type: float, optional, Default:1.0):
-                               It is used for softplus. It is beta value
-                               in the softplus formulation.
+            - threshold (type: float, Default: 20.0):
+               It is used for thresold and sofplus activations.
+               It is corresponds to the threshold value.
 
-                            - threshold (type: float, optional, Default:20.0):
-                               It is used for thresold and sofplus activations.
-                               It is corresponds to the threshold value.
+            - lambd (type: float, Default: 0.5):
+               It is used for soft_shrink and hard_shrink
+               activations. It is corresponds to the lamda
+               value of soft_shrink/hard_shrink activations.
+               See torch.nn documentation.
 
-                            - lambd (type: float, optional, Default:0.5):
-                               It is used for soft_shrink and hard_shrink
-                               activations. It is corresponds to the lamda
-                               value of soft_shrink/hard_shrink activations.
-                               See torch.nn documentation.
-
-                            - value (type: float, optional, Default:0.5):
-                               It is used for the threshold function. it is
-                               the value taken when x<=threshold.
+            - value (type: float, Default: 0.5):
+               It is used for the threshold function. it is
+               the value taken when x<=threshold.
 
 
-                           - dim (type: int(1,inf), optional, Default:-1):
-                               it is used in softmax activations to determine
-                               the axis on which the softmax is computed.
-
-
-                   - funct_name (type, str, optional, default: None):
-                       it is a string containing the name of the parent
-                       function that has called this method.
-
-                   - global_config (type, dict, optional, default: None):
-                       it a dictionary containing the global variables of the
-                       parent config file.
-
-                   - logger (type, logger, optional, default: None):
-                       it the logger used to write debug and error messages.
-                       If logger=None and root_cfg=True, the file is created
-                       from scratch.
-
-                   - first_input (type, list, optional, default: None)
-                      this variable allows users to analyze the first input
-                      given when calling the class for the first time.
-
-
-     Input (call): - inp_lst(type, list, mandatory):
-                       by default the input arguments are passed with a list.
-                       In this case, inp is a list containing a single
-                       torch.tensor that we want to transform with the RNN.
-                       The tensor must be in one of the following format:
-                       [batch,channels,time]. Note that we can have up to
-                       three channels.
-
-
-
-     Output (call): - wx(type, torch.Tensor, mandatory):
-                       it is the output after applying element-wise the
-                       activation function.
+           - dim (type: int(1,inf), Default: -1):
+               it is used in softmax activations to determine
+               the axis on which the softmax is computed.
 
 
      Example:   import torch
@@ -2160,73 +1986,41 @@ class activation(nn.Module):
 
     def __init__(
         self,
-        config,
-        funct_name=None,
-        global_config=None,
-        functions=None,
-        logger=None,
-        first_input=None,
+        act_type,
+        inplace=False,
+        negative_slope=0.01,
+        lower=0.125,
+        upper=0.33333333,
+        min_val=-1.,
+        max_val=1.,
+        alpha=1.,
+        beta=1.,
+        threshold=20.,
+        lambd=0.5,
+        value=0.5,
+        dim=-1,
+        **kwargs
     ):
-        super(activation, self).__init__()
-
-        # Logger setup
-        self.logger = logger
-
-        # Here are summarized the expected options for this class
-        self.expected_options = {
-            "class_name": ("str", "mandatory"),
-            "act_type": (
-                "one_of(relu,leaky_relu,relu_6,r_relu,p_relu,elu,"
-                + "selu,celu,hard_shrink,soft_shrink,softplus,"
-                + "soft_sign,threshold,hard_tanh,tanh,"
-                + "tanh_shrink,sigmoid,log_sigmoid,softmax,"
-                + "log_softmax,softmax2d,softmin,linear)",
-                "mandatory",
-            ),
-            "inplace": ("bool", "optional", "False"),
-            "negative_slope": ("float", "optional", "0.01"),
-            "lower": ("float", "optional", "0.125"),
-            "upper": ("float", "optional", "0.33333333"),
-            "min_val": ("float", "optional", "-1.0"),
-            "max_val": ("float", "optional", "1.0"),
-            "alpha": ("float", "optional", "1.0"),
-            "beta": ("float", "optional", "1.0"),
-            "threshold": ("float", "optional", "20.0"),
-            "lambd": ("float", "optional", "0.5"),
-            "value": ("float", "optional", "0.5"),
-            "dim": ("int", "optional", "-1"),
-        }
-
-        # Check, cast, and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, self.logger
-        )
-
         # Definition of the expected input
-        self.expected_inputs = ["torch.Tensor"]
+        expected = [{'type': 'torch.Tensor', 'dim_count': [1, 2, 3, 4, 5]}]
+        super().__init__(expected, **kwargs)
 
-        # Check the first input
-        check_inputs(
-            self.conf, self.expected_inputs, first_input, logger=self.logger
-        )
+        self.act_type = act_type
+        self.inplace = inplace
+        self.negative_slope = negative_slope
+        self.lower = lower
+        self.upper = upper
+        self.min_val = min_val
+        self.max_val = max_val
+        self.alpha = alpha
+        self.beta = beta
+        self.threshold = threshold
+        self.lambd = lambd
+        self.value = value
+        self.dim = dim
 
         # Reshaping tensors can speed up some functions (e.g softmax)
         self.reshape = False
-
-        # Additional check on the input shapes
-        if first_input is not None:
-
-            # Shape check
-            if len(first_input[0].shape) > 5 or len(first_input[0].shape) < 1:
-
-                err_msg = (
-                    'The input of "activation must be a tensor with one of '
-                    "the following dimensions: [batch,time] or "
-                    "[batch,channels,time]. Got %s "
-                    % (str(first_input[0].shape))
-                )
-
-                logger_write(err_msg, logfile=logger)
 
         if self.act_type == "relu":
             self.act = torch.nn.ReLU(inplace=self.inplace)
@@ -2309,10 +2103,18 @@ class activation(nn.Module):
             self.act = torch.nn.Softmin(dim=self.dim)
             self.reshape = True
 
-    def forward(self, input_lst):
+    def forward(self, x):
+        """
+        Input: - x (type: torch.Tensor, mandatory):
+                   torch.tensor that we want to transform with the RNN.
+                   The tensor must be in one of the following format:
+                   [batch,channels,time]. Note that we can have up to
+                   three channels.
 
-        # Reading input _list
-        x = input_lst[0]
+        Output: - wx (type, torch.Tensor, mandatory):
+                   it is the output after applying element-wise the
+                   activation function.
+        """
 
         if self.act_type == "linear":
             return x
@@ -2372,27 +2174,27 @@ class dropout(nn.Module):
                                        log_softmax,softmax2d,softmin,linear):
                                it is the type of activation function to use
 
-                            - inplace (type: bool, optional, Default:False):
+                            - inplace (type: bool, Default:False):
                                if True, it uses inplace operations.
 
-                            - drop_rate (type: float(0,1), optional,
+                            - drop_rate (type: float(0,1),
                             Default:0.0):
                                it is the dropout factor.
 
-                   - funct_name (type, str, optional, default: None):
+                   - funct_name (type, str, default: None):
                        it is a string containing the name of the parent
                        function that has called this method.
 
-                   - global_config (type, dict, optional, default: None):
+                   - global_config (type, dict, default: None):
                        it a dictionary containing the global variables of the
                        parent config file.
 
-                   - logger (type, logger, optional, default: None):
+                   - logger (type, logger, default: None):
                        it the logger used to write debug and error messages.
                        If logger=None and root_cfg=True, the file is created
                        from scratch.
 
-                   - first_input (type, list, optional, default: None)
+                   - first_input (type, list, default: None)
                       this variable allows users to analyze the first input
                       given when calling the class for the first time.
 

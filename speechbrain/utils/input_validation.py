@@ -502,7 +502,7 @@ def check_opts(options, logger=None):
     return cast_options
 
 
-def check_inputs(config, expected_inputs, input_lst, logger=None):
+def check_inputs(expected_inputs, input_lst, logger=None):
     """
      -------------------------------------------------------------------------
      utils.check_inputs (author: Mirco Ravanelli)
@@ -542,10 +542,6 @@ def check_inputs(config, expected_inputs, input_lst, logger=None):
 
      -------------------------------------------------------------------------
      """
-
-    # Check input_lst
-    if input_lst is None:
-        return
 
     # Making sure that the input and expected input lists have the same length
     if len(expected_inputs) != len(input_lst):

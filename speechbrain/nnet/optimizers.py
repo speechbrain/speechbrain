@@ -1,9 +1,9 @@
 """
- -----------------------------------------------------------------------------
- optimizers.py
+-----------------------------------------------------------------------------
+optimizers.py
 
- Description: This library implements different optimizers.
- -----------------------------------------------------------------------------
+Description: This library implements different optimizers.
+-----------------------------------------------------------------------------
 """
 
 import torch
@@ -11,251 +11,195 @@ import torch.nn as nn
 from speechbrain.data_io.data_io import recovery
 from speechbrain.utils.input_validation import check_opts
 from speechbrain.utils.logger import logger_write
+from speechbrain.module import SpeechBrainModule
 
 
-class optimize(nn.Module):
+class optimize(SpeechBrainModule):
     """
-     -------------------------------------------------------------------------
-     nnet.optimizers.optimize (author: Mirco Ravanelli)
+    -------------------------------------------------------------------------
+    nnet.optimizers.optimize (author: Mirco Ravanelli)
 
-     Description:  This function implements different optimizers.
-                   It supports standard optimizers such as adam, sgd, rmseprop,
-                   and some of their variations such as as adamw, adamax,
-                   adadelta. The function takes in input some neural networks
-                   and updates their parameters according to the optimization
-                   algorithm adopted.
+    Description:  This function implements different optimizers.
+                  It supports standard optimizers such as adam, sgd, rmseprop,
+                  and some of their variations such as as adamw, adamax,
+                  adadelta. The function takes in input some neural networks
+                  and updates their parameters according to the optimization
+                  algorithm adopted.
 
-     Input (init):  - config (type, dict, mandatory):
-                       it is a dictionary containing the keys described below.
-
-                           - optimizer_type (one_of(rmsprop,adam,adamw,adamax,
-                                             adadelta,sgd,rprop), mandatory):
-                               it is the type of optimizer to be used.
-                               Refer to torch.nn documentation of a more
-                               detailed description of each optimizer.
+    Input: - optimizer_type (one_of(rmsprop,adam,adamw,adamax,
+                            adadelta,sgd,rprop), mandatory):
+              it is the type of optimizer to be used.
+              Refer to torch.nn documentation of a more
+              detailed description of each optimizer.
 
 
-                           - learning_rate (float, mandatory):
-                               it is the learning rate used to update the
-                               parameters.
+          - learning_rate (float, mandatory):
+              it is the learning rate used to update the
+              parameters.
 
-                           - alpha (float, optional, Default:0.95):
-                               it is used the smoothing constant used in
-                               rmseprop.
+          - alpha (float, optional, Default:0.95):
+              it is used the smoothing constant used in
+              rmseprop.
 
-                           - betas (float_list, optional, Default:0.95):
-                                are coefficients used for computing running
-                                averages of gradient and its square in adam
-                                optimizer and its variations.
+          - betas (float_list, optional, Default:0.95):
+               are coefficients used for computing running
+               averages of gradient and its square in adam
+               optimizer and its variations.
 
-                           - etas (float_list, optional, Default:0.5,1.2):
-                               yt is used in Rprop optimizer. It is a
-                               pair of (etaminus, etaplis), that are
-                               multiplicative increase and decrease factors.
+          - etas (float_list, optional, Default:0.5,1.2):
+              yt is used in Rprop optimizer. It is a
+              pair of (etaminus, etaplis), that are
+              multiplicative increase and decrease factors.
 
-                           - eps (float, optional, Default:1e-8):
-                               it is the numerical stability factor.
+          - eps (float, optional, Default:1e-8):
+              it is the numerical stability factor.
 
-                           - step_sizes (float_list, optional,
-                                         Default: 1e-06, 50):
-                              It is used in rprop optimizer and contains a
-                              pair of minimal and maximal allowed step sizes.
+          - step_sizes (float_list, optional,
+                        Default: 1e-06, 50):
+             It is used in rprop optimizer and contains a
+             pair of minimal and maximal allowed step sizes.
 
-                           - weight_decay (int, optional, Default: 0):
-                               it is the weight decay (L2 penalty) factor
-                               used as as additionally loss.
+          - weight_decay (int, optional, Default: 0):
+              it is the weight decay (L2 penalty) factor
+              used as as additionally loss.
 
-                           - momentum (float, optional, Default: 0.0):
-                              it is the momentum factor for the optimizers.
+          - momentum (float, optional, Default: 0.0):
+             it is the momentum factor for the optimizers.
 
-                           - dampening (float, optional, Default: 0.0):
-                               it is  dampening facror for SGD momentum.
+          - dampening (float, optional, Default: 0.0):
+              it is  dampening facror for SGD momentum.
 
-                           - rho (float, optional, Default: 0.0):
-                               it is used in adadelta and it is the coefficient
-                               used for computing a running average of
-                               squared gradients.
+          - rho (float, optional, Default: 0.0):
+              it is used in adadelta and it is the coefficient
+              used for computing a running average of
+              squared gradients.
 
-                           - centered (bool, optional, Default: False):
-                               if True, compute the centered RMSProp, the
-                               gradient is normalized by an estimation of
-                               its variance.
+          - centered (bool, optional, Default: False):
+              if True, compute the centered RMSProp, the
+              gradient is normalized by an estimation of
+              its variance.
 
-                           - amsgrad (bool, optional, Default: False):
-                                if True it uses the AMSGrad variant of the
-                                adam optimizer.
+          - amsgrad (bool, optional, Default: False):
+               if True it uses the AMSGrad variant of the
+               adam optimizer.
 
-                           - nesterov (bool, optional, Default: False):
-                                it enables Nesterov momentum for SGD.
+          - nesterov (bool, optional, Default: False):
+               it enables Nesterov momentum for SGD.
 
-                           - recovery (type: bool, optional, Default:True):
-                               if True, the system restarts from the last
-                               epoch correctly executed.
-
-
-                   - funct_name (type, str, optional, default: None):
-                       it is a string containing the name of the parent
-                       function that has called this method.
-
-                   - global_config (type, dict, optional, default: None):
-                       it a dictionary containing the global variables of the
-                       parent config file.
-
-                   - logger (type, logger, optional, default: None):
-                       it the logger used to write debug and error messages.
-                       If logger=None and root_cfg=True, the file is created
-                       from scratch.
-
-                   - first_input (type, list, optional, default: None)
-                      this variable allows users to analyze the first input
-                      given when calling the class for the first time. In this
-                      case, it contains the list of neural model to optimize.
+          - do_recovery (type: bool, optional, Default:True):
+              if True, the system restarts from the last
+              epoch correctly executed.
 
 
-     Input (call): - inp_lst(type, list, mandatory):
-                       it is a list containing the neural networks to optimize.
+    Example:   import torch
+               from speechbrain.nnet.architectures import linear
+               from speechbrain.nnet.architectures import activation
+               from speechbrain.nnet.losses import compute_cost
+               from speechbrain.nnet.optimizers import optimize
+
+               # Definition the input tensor
+               inp_tensor = torch.rand([1,660,3])
+
+               # Initialization of the linear class
+               config={'class_name':'speechbrain.nnet.architectures.linear',
+                       'n_neurons':'4'}
+
+               model=linear(config,first_input=[inp_tensor])
 
 
+               # Initialization of the log_softmax class
+               config={'class_name':'speechbrain.nnet.architectures.activation',
+                       'act_type':'log_softmax',
+                       }
 
-     Output (call): - None
-                       This function returns "None" when called. It directly
-                       changes the parameters of the neural networks listed
-                       in the input.
-
-
-     Example:   import torch
-                from speechbrain.nnet.architectures import linear
-                from speechbrain.nnet.architectures import activation
-                from speechbrain.nnet.losses import compute_cost
-                from speechbrain.nnet.optimizers import optimize
-
-                # Definition the input tensor
-                inp_tensor = torch.rand([1,660,3])
-
-                # Initialization of the linear class
-                config={'class_name':'speechbrain.nnet.architectures.linear',
-                        'n_neurons':'4'}
-
-                model=linear(config,first_input=[inp_tensor])
+               softmax=activation(config, first_input=[inp_tensor])
 
 
-                # Initialization of the log_softmax class
-                config={'class_name':'speechbrain.nnet.architectures.activation',
-                        'act_type':'log_softmax',
-                        }
+               # Initialization of the loss function
+               config={'class_name':'speechbrain.nnet.losses.compute_cost',
+                       'cost_type':'nll'}
 
-                softmax=activation(config, first_input=[inp_tensor])
+               cost=compute_cost(config)
 
+               # Initialization of the optimizer
+               config={'class_name':'speechbrain.nnet.optimizers.optimizer',
+                       'optimizer_type': 'sgd',
+                       'learning_rate': '0.01'
+                       }
 
-                # Initialization of the loss function
-                config={'class_name':'speechbrain.nnet.losses.compute_cost',
-                        'cost_type':'nll'}
-
-                cost=compute_cost(config)
-
-                # Initialization of the optimizer
-                config={'class_name':'speechbrain.nnet.optimizers.optimizer',
-                        'optimizer_type': 'sgd',
-                        'learning_rate': '0.01'
-                        }
-
-                optim=optimize(config, first_input=[model])
+               optim=optimize(config, first_input=[model])
 
 
-                # Computatitions of the prediction for the current input
-                pre_act=model([inp_tensor])
-                pred = softmax([pre_act])
+               # Computatitions of the prediction for the current input
+               pre_act=model([inp_tensor])
+               pred = softmax([pre_act])
 
-                # fake label
-                label=torch.FloatTensor([0,1,3]).unsqueeze(0)
-                lengths=torch.Tensor([1.0])
+               # fake label
+               label=torch.FloatTensor([0,1,3]).unsqueeze(0)
+               lengths=torch.Tensor([1.0])
 
-                out_cost= cost([pred,label,lengths])
+               out_cost= cost([pred,label,lengths])
 
-                print(out_cost)
+               print(out_cost)
 
-                # back propagation
-                out_cost.backward()
+               # back propagation
+               out_cost.backward()
 
-                print(list(model.parameters()))
+               print(list(model.parameters()))
 
-                # applying optimization
-                optim([model])
+               # applying optimization
+               optim([model])
 
-                print(list(model.parameters()))
+               print(list(model.parameters()))
 
-     """
+    """
 
     def __init__(
         self,
-        config,
-        funct_name=None,
-        global_config=None,
-        functions=None,
-        logger=None,
-        first_input=None,
+        optimizer_type,
+        learning_rate,
+        alpha=0.95,
+        betas=[0.9, 0.999],
+        etas=[0.5, 1.2],
+        step_sizes=[1e-06, 50],
+        eps=1e-8,
+        weight_decay=0.,
+        momentum=0.,
+        dampening=0.,
+        rho=0.,
+        initial_accumulator_value=0.,
+        centered=False,
+        amsgrad=False,
+        nesterov=False,
+        do_recovery=True,
+        **kwargs
     ):
-        super(optimize, self).__init__()
 
-        # Logger setup
-        self.logger = logger
+        self.optimizer_type = optimizer_type
+        self.learning_rate = learning_rate
+        self.alpha = alpha
+        self.betas = betas
+        self.etas = etas
+        self.step_sizes = step_sizes
+        self.eps = eps
+        self.weight_decay = weight_decay
+        self.momentum = momentum
+        self.dampening = dampening
+        self.rho = rho
+        self.initial_accumulator_value = initial_accumulator_value
+        self.centered = centered
+        self.amsgrad = amsgrad
+        self.recovery = do_recovery
+        self.global_config = kwargs['global_config']
+        self.logger = kwargs['logger']
 
-        if global_config is not None:
-            self.output_folder = global_config["output_folder"]
-
-        self.funct_name = funct_name
-
-        # Here are summarized the expected options for this class
-        self.expected_options = {
-            "class_name": ("str", "mandatory"),
-            "optimizer_type": (
-                "one_of(rmsprop,adam,adamw,adamax,adadelta,sgd,rprop)",
-                "mandatory",
-            ),
-            "learning_rate": ("float", "mandatory"),
-            "recovery": ("bool", "optional", "True"),
-            "alpha": ("float", "optional", "0.95"),
-            "betas": ("float_list", "optional", "0.9,0.999"),
-            "etas": ("float_list", "optional", "0.5,1.2"),
-            "step_sizes": ("float_list", "optional", "1e-06, 50"),
-            "eps": ("float", "optional", "1e-8"),
-            "weight_decay": ("int", "optional", "0"),
-            "momentum": ("float", "optional", "0.0"),
-            "dampening": ("float", "optional", "0.0"),
-            "rho": ("float", "optional", "0.0"),
-            "initial_accumulator_value": ("float", "optional", "0.0"),
-            "centered": ("bool", "optional", "False"),
-            "amsgrad": ("bool", "optional", "False"),
-            "nesterov": ("bool", "optional", "False"),
-        }
-
-        # Check, cast , and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, self.logger
-        )
-
-        # Analysis of the first input
-        if first_input is not None:
-            if len(first_input) == 0:
-                err_msg = (
-                    "The class optimize expected in input a list of neural "
-                    "classes (nn.Module). Got an empty list."
-                )
-
-                logger_write(err_msg, logfile=logger)
-
-        self.first_call = True
-
-    def forward(self, input_lst):
-
-        if self.first_call is True:
-            self.first_call = False
+        def hook(self, input):
 
             # Making sure the input is class with parameters to optimize
             param_lst = []
 
             # Storing all the parameters to updated in the param_lst
-            for inp in input_lst:
+            for inp in input[0]:
 
                 try:
                     param_lst = param_lst + list(inp.parameters())
@@ -267,7 +211,7 @@ class optimize(nn.Module):
                         % (inp)
                     )
 
-                    logger_write(err_msg, logfile=logger)
+                    logger_write(err_msg, logfile=self.logger)
 
             # Initialization of the rmsprop optimizer
             if self.optimizer_type == "rmsprop":
@@ -353,6 +297,18 @@ class optimize(nn.Module):
             # if global_config is not None:
             #    recovery(self)
 
+        expected_inputs = [{'type': 'list'}]
+        super().__init__(expected_inputs, hook, **kwargs)
+
+        if self.global_config is not None:
+            self.output_folder = self.global_config["output_folder"]
+
+    def forward(self, input_lst):
+        """
+        Input (call): - inp_lst(type, list, mandatory):
+                       it is a list containing the neural networks to optimize.
+        """
+
         # Gradient combination for the multi-gpu case
         self.sum_grad_multi_gpu(input_lst)
 
@@ -361,8 +317,6 @@ class optimize(nn.Module):
 
         # Zeroing gradient buffers
         self.optim.zero_grad()
-
-        return
 
     def sum_grad_multi_gpu(self, input_lst):
         """

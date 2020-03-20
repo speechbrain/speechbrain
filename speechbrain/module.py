@@ -8,9 +8,7 @@
 
 # Importing libraries
 import torch.nn as nn
-
-from speechbrain.utils.input_validation import (check_opts,
-                                                check_inputs)
+from speechbrain.utils.input_validation import check_inputs
 
 
 class SpeechBrainModule(nn.Module):
@@ -23,48 +21,42 @@ class SpeechBrainModule(nn.Module):
                  classes should inherit from this class, and pass expected
                  inputs to init, so inputs can be checked.
 
-    Input (init): - options(type, dict, mandatory):
-                      This dict defines the types expected in the config
-                      dict, as well as the values that were passed.
-                      Available types are defined in `check_opts`.
+    Input: - expected_inputs(type, list, mandatory):
+              This dict defines the types of the inputs when
+              the class is called as a function (i.e. passed
+              to the `forward` or `call` method). This input
+              will be checked on the first call, but not
+              thereafter, for efficiency. If a tensor is
+              passed, the shape that it is expected to
+              have must also be passed.
 
-                  - expected_inputs(type, list, mandatory):
-                      This dict defines the types of the inputs when
-                      the class is called as a function (i.e. passed
-                      to the `forward` or `call` method). This input
-                      will be checked on the first call, but not
-                      thereafter, for efficiency. If a tensor is
-                      passed, the shape that it is expected to
-                      have must also be passed.
+          - global_config (type, dict, optional, default: None):
+              it a dictionary containing the global variables of the
+              parent config file.
 
-                  - global_config (type, dict, optional, default: None):
-                      it a dictionary containing the global variables of the
-                      parent config file.
+          - functions (type, dict, optional, default: None):
+              dictionary for storing user-defined functions. Keys are
+              the function names, values are their corresponding
+              objects.
 
-                  - functions (type, dict, optional, default: None):
-                      dictionary for storing user-defined functions. Keys are
-                      the function names, values are their corresponding
-                      objects.
+          - logger (type, logger, optional, default: None):
+              it the logger used to write debug and error messages.
+              If logger=None and root_cfg=True, the file is created
+              from scratch.
 
-                  - logger (type, logger, optional, default: None):
-                      it the logger used to write debug and error messages.
-                      If logger=None and root_cfg=True, the file is created
-                      from scratch.
-
-                  - first_input_hook (type, function, optional, default: None)
-                      A function to be run when `forward` is called for the
-                      first time. For example: defining the size of a
-                      neural network layer based on the input size.
+          - first_input_hook (type, function, optional, default: None)
+              A function to be run when `forward` is called for the
+              first time. For example: defining the size of a
+              neural network layer based on the input size.
     -------------------------------------------------------------------------
     """
 
     def __init__(
         self,
-        options,
         expected_inputs,
+        first_input_hook=None,
         global_config=None,
         logger=None,
-        first_input_hook=None,
     ):
         # Initialize the torch module code
         super().__init__()
@@ -72,9 +64,6 @@ class SpeechBrainModule(nn.Module):
         # Store vars
         self.global_config = global_config
         self.logger = logger
-
-        # Check the options
-        check_opts(options, logger)
 
         # Prepare for checking the first input
         self.expected_inputs = expected_inputs
@@ -93,11 +82,11 @@ def first_pass_check_inputs(self, input):
     """
 
     # Check the type and shape of the inputs
-    check_inputs(self.expected_inputs, input[0], self.logger)
+    check_inputs(self.expected_inputs, input, self.logger)
 
     # Run user-defined first input hook
     if self.first_input_hook is not None:
-        self.first_input_hook(input[0])
+        self.first_input_hook(self, input)
 
     # Remove hook, since we only want to do this once
     self.hook.remove()

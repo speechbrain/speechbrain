@@ -384,45 +384,40 @@ class add_noise(SpeechBrainModule):
 
     def __init__(
         self,
-        csv_file = None,
-        order = 'random',
-        batch_size = None,
-        do_cache = False,
-        snr_low = 0,
-        snr_high = 0,
-        pad_noise = False,
-        mix_prob = 1.,
-        random_seed = None,
+        csv_file=None,
+        order='random',
+        batch_size=None,
+        do_cache=False,
+        snr_low=0,
+        snr_high=0,
+        pad_noise=False,
+        mix_prob=1.,
         **kwargs
     ):
-
-        options = {
-            'csv_file': {'type': 'str', 'value': csv_file},
-            'order': {
-                'type': 'one_of(random,ascending,descending,original)',
-                'value': order,
-            },
-            'batch_size': {'type': 'int(1,inf)', 'value': batch_size},
-            'do_cache': {'type': 'bool', 'value': do_cache},
-            'snr_low': {'type': 'float(-inf,inf)', 'value': snr_low},
-            'snr_high': {'type': 'float(-inf,inf)', 'value': snr_high},
-            'pad_noise': {'type': 'bool', 'value': pad_noise},
-            'mix_prob': {'type': 'float(0,1)', 'value': mix_prob},
-            'random_seed': {'type': 'int(-inf,inf)', 'value': random_seed},
-        }
 
         expected_inputs = [
             {'type': 'torch.Tensor', 'dim_count': [2, 3]},
             {'type': 'torch.Tensor', 'dim_count': [1]},
         ]
 
+        self.csv_file = csv_file
+        self.order = order
+        self.batch_size = batch_size
+        self.do_cache = do_cache
+        self.snr_low = snr_low
+        self.snr_high = snr_high
+        self.pad_noise = pad_noise
+        self.mix_prob = mix_prob
+
         # On first input, create dataloader with correct batch size
         def hook(self, input):
 
+            clean_waveform, clean_length = input
+
             # Set parameters based on input
-            self.device = input.device
+            self.device = clean_waveform.device
             if not self.batch_size:
-                self.batch_size = len(input)
+                self.batch_size = len(clean_waveform)
 
             # Create a data loader for the noise wavforms
             if self.csv_file is not None:
@@ -430,12 +425,12 @@ class add_noise(SpeechBrainModule):
                     csv_file=self.csv_file,
                     sentence_sorting=self.order,
                     batch_size=self.batch_size,
-                    do_cache=self.do_cache,
+                    cache=self.do_cache,
                     global_config=self.global_config,
                 )
-                self.noise_data = zip(*self.data_loader.dataloader)
+                self.noise_data = zip(*self.data_loader())
 
-        super().__init__(options, expected_inputs, hook, **kwargs)
+        super().__init__(expected_inputs, hook, **kwargs)
 
     def forward(self, clean_waveform, clean_length):
         """
@@ -520,7 +515,7 @@ class add_noise(SpeechBrainModule):
         try:
             wav_id, noise_batch, wav_len = next(self.noise_data)[0]
         except StopIteration:
-            self.noise_data = zip(*self.data_loader.dataloader)
+            self.noise_data = zip(*self.data_loader())
             wav_id, noise_batch, wav_len = next(self.noise_data)[0]
 
         noise_batch = noise_batch.to(clean_len.device)
@@ -550,9 +545,8 @@ class add_noise(SpeechBrainModule):
 
         # Select a random starting location in the waveform
         start_index = 0
-        if self.random_seed is not None:
-            max_chop = (wav_len - clean_len).min().clamp(min=1)
-            start_index = torch.randint(high=max_chop, size=(1,))
+        max_chop = (wav_len - clean_len).min().clamp(min=1)
+        start_index = torch.randint(high=max_chop, size=(1,))
 
         # Truncate noise_batch to tensor_len
         noise_batch = noise_batch[..., start_index:start_index+tensor_len]
@@ -669,8 +663,8 @@ class add_reverb(SpeechBrainModule):
                    [batch, time_steps], or [batch, channels, time_steps]
 
                - clean_lengths (type: torch.Tensor, mandatory)
-                   The lengths of the audio signals contained in the first tensor.
-                   and the second must be in the format [batch].
+                   The lengths of the audio signals contained in the tensor.
+                   and must be in the format [batch].
 
         Output: the reverbed audio signal. The tensor is the same
                 shape as the input, i.e. formatted in the following way:

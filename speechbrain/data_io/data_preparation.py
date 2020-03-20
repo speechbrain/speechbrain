@@ -10,6 +10,7 @@ import os
 import sys
 import csv
 import errno
+from speechbrain.module import SpeechBrainModule
 from speechbrain.utils.input_validation import check_opts, check_inputs
 from speechbrain.utils.data_utils import get_all_files
 from speechbrain.utils.logger import logger_write
@@ -24,7 +25,7 @@ from speechbrain.data_io.data_io import (
 )
 
 
-class copy_data_locally:
+class copy_data_locally(SpeechBrainModule):
     """
      -------------------------------------------------------------------------
      speechbrain.data_io.data_preparation.copy_data_locally
@@ -34,63 +35,27 @@ class copy_data_locally:
                   It can be used to store the data locally when the original
                   dataset it is stored in a shared filesystem.
 
-     Input (init):  - config (type, dict, mandatory):
-                       it is a dictionary containing the keys described below.
+     Input:- data_file (type: file_list, mandatory):
+               it is a list containing the files to copy.
 
-                           - data_file (type: file_list, mandatory):
-                               it is a list containing the files to copy.
+           - local_folder (type: directory, mandatory):
+               it the local directory where to store the
+               dataset. The dataset will be uncompressed in
+               this folder.
 
-                           - local_folder (type:directory,mandatory):
-                               it the local directory where to store the
-                               dataset. The dataset will be uncompressed in
-                               this folder.
+           - copy_cmd (type: str, default: 'rsync'):
+               it is command to run for copying the dataset.
 
-                           - copy_cmd (type: str, optional, default: 'rsync'):
-                               it is command to run for copying the dataset.
+           - copy_opts (type: str, default: ''):
+               it is a string containing the flags to be used
+               for the copy command copy_cmd.
 
-                           - copy_opts (type: str,optional, default: ''):
-                               it is a string containing the flags to be used
-                               for the copy command copy_cmd.
+           - uncompress_cmd (type: str, default: 'tar'):
+               it is command to uncompress the dataset.
 
-                           - uncompress_cmd (type: str, optional,
-                            default: 'tar'):
-                               it is command to uncompress the dataset.
-
-                           - uncompress_opts (type:str,optional,
-                             default: '-zxf'):
-                               it is a string containing the flags to be used
-                               for the uncompress command.
-
-                   - funct_name (type, str, optional, default: None):
-                       it is a string containing the name of the parent
-                       function that has called this method.
-
-                   - global_config (type, dict, optional, default: None):
-                       it a dictionary containing the global variables of the
-                       parent config file.
-
-                   - logger (type, logger, optional, default: None):
-                       it the logger used to write debug and error messages.
-                       If logger=None and root_cfg=True, the file is created
-                       from scratch.
-
-                   - first_input (type, list, optional, default: None)
-                      this variable allows users to analyze the first input
-                      given when calling the class for the first time.
-
-
-     Input (call): - inp_lst(type, list, mandatory):
-                       by default the input arguments are passed with a list.
-                       In this case, the list is empty. The call function is
-                       just a dummy function here because all the meaningful
-                       computation must be executed only once and they are
-                       thus done in the initialization method only.
-
-
-     Output (call):  - stop_at_lst (type: list):
-                       when stop_at is set, it returns the stop_at in a list.
-                       Otherwise it returns None. It this case it returns
-                       always None.
+           - uncompress_opts (type: str, default: '-zxf'):
+               it is a string containing the flags to be used
+               for the uncompress command.
 
      Example:    from speechbrain.data_io.data_preparation import (
                     copy_data_locally)
@@ -98,54 +63,32 @@ class copy_data_locally:
                  data_file='/home/mirco/datasets/TIMIT.tar.gz'
                  local_folder='/home/mirco/datasets/local_folder/TIMIT'
 
-                 # Definition of the config dictionary
-                 config={'class_name':'data_processing.copy_data_locally', \
-                              'data_file': data_file, \
-                              'local_folder':local_folder}
-
                 # Initialization of the class
-                copy_data_locally(config)
-
-
+                copy_data_locally(data_file=data_file,
+                                  local_folder=local_folder)
      -------------------------------------------------------------------------
      """
 
     def __init__(
         self,
-        config,
-        funct_name=None,
-        global_config=None,
-        functions=None,
-        logger=None,
-        first_input=None,
+        data_file,
+        local_folder,
+        copy_cmd='rsync',
+        copy_opts='',
+        uncompress_cmd='tar',
+        uncompress_opts='-zxf',
+        **kwargs
     ):
+        super().__init__(expected_inputs=[], **kwargs)
 
-        # Setting the logger
-        self.logger = logger
+        self.data_file = data_file
+        self.local_folder = local_folder
+        self.copy_cmd = copy_cmd
+        self.copy_opts = copy_opts
+        self.uncompress_cmd = uncompress_cmd
+        self.uncompress_opts = uncompress_opts
 
-        # Definition of the expected options
-        self.expected_options = {
-            "class_name": ("str", "mandatory"),
-            "data_file": ("file_list", "mandatory"),
-            "local_folder": ("str", "mandatory"),
-            "copy_cmd": ("str", "optional", "rsync"),
-            "copy_opts": ("str", "optional", ""),
-            "uncompress_cmd": ("str", "optional", "tar"),
-            "uncompress_opts": ("str", "optional", "-zxf"),
-        }
-
-        # Check, cast , and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, logger=self.logger
-        )
-
-        # Expected inputs when calling the class (no inputs in this case)
-        self.expected_inputs = []
-
-        # Checking the first input
-        check_inputs(
-            self.conf, self.expected_inputs, first_input, logger=self.logger
-        )
+    def __call__(self):
 
         # Try to make the local folder
         try:
@@ -210,11 +153,8 @@ class copy_data_locally:
 
                 run_shell(cmd)
 
-    def __call__(self, inp):
-        return
 
-
-class timit_prepare:
+class timit_prepare(SpeechBrainModule):
     """
      -------------------------------------------------------------------------
      speechbrain.data_io.data_preparation.timit_prepare
@@ -222,70 +162,36 @@ class timit_prepare:
 
      Description: This class prepares the csv files for the TIMIT dataset.
 
-     Input (init):  - config (type, dict, mandatory):
-                       it is a dictionary containing the keys described below.
+     Input: - data_folder (type: directory, mandatory):
+               it the folder where the original TIMIT dataset
+               is stored.
 
-                           - data_folder (type: directory, mandatory):
-                               it the folder where the original TIMIT dataset
-                               is stored.
+           - splits ('train','dev','test',mandatory):
+               it the local directory where to store the
+               dataset. The dataset will be uncompressed in
+               this folder.
 
-                           - splits ('train','dev','test',mandatory):
-                               it the local directory where to store the
-                               dataset. The dataset will be uncompressed in
-                               this folder.
+           - kaldi_ali_tr (type: direcory, optional,
+               default: 'None'):
+               When set, this is the directiory where the
+               kaldi training alignments are stored.
+               They will be automatically converted into pkl
+               for an easier use within speechbrain.
 
-                           - kaldi_ali_tr (type: direcory, optional,
-                               default: 'None'):
-                               When set, this is the directiory where the
-                               kaldi training alignments are stored.
-                               They will be automatically converted into pkl
-                               for an easier use within speechbrain.
+           - kaldi_ali_dev (type: direcory, optional,
+               default: 'None'):
+               When set, this is the directiory where the
+               kaldi dev alignments are stored.
 
-                           - kaldi_ali_dev (type: direcory, optional,
-                               default: 'None'):
-                               When set, this is the directiory where the
-                               kaldi dev alignments are stored.
+           - kaldi_ali_te (type: direcory, optional,
+               default: 'None'):
+               When set, this is the directiory where the
+               kaldi test alignments are stored.
 
-                           - kaldi_ali_te (type: direcory, optional,
-                               default: 'None'):
-                               When set, this is the directiory where the
-                               kaldi test alignments are stored.
-
-                           - save_folder (type: str,optional, default: None):
-                               it the folder where to store the csv files.
-                               If None, the results will be saved in
-                               $output_folder/prepare_timit/*.csv.
-
-                   - funct_name (type, str, optional, default: None):
-                       it is a string containing the name of the parent
-                       function that has called this method.
-
-                   - global_config (type, dict, optional, default: None):
-                       it a dictionary containing the global variables of the
-                       parent config file.
-
-                   - logger (type, logger, optional, default: None):
-                       it the logger used to write debug and error messages.
-                       If logger=None and root_cfg=True, the file is created
-                       from scratch.
-
-                   - first_input (type, list, optional, default: None)
-                      this variable allows users to analyze the first input
-                      given when calling the class for the first time.
-
-
-     Input (call): - inp_lst(type, list, mandatory):
-                       by default the input arguments are passed with a list.
-                       In this case, the list is empty. The call function is
-                       just a dummy function here because all the meaningful
-                       computation must be executed only once and they are
-                       thus done in the initialization method only.
-
-
-     Output (call):  - stop_at_lst (type: list):
-                       when stop_at is set, it returns the stop_at in a list.
-                       Otherwise it returns None. It this case it returns
-                       always None.
+           - save_folder (type: str,default: None):
+               it the folder where to store the csv files.
+               If None, the results will be saved in
+               $output_folder/prepare_timit/*.csv.
 
      Example:    from speechbrain.data_io.data_preparation import timit_prepare
 
@@ -306,43 +212,27 @@ class timit_prepare:
 
     def __init__(
         self,
-        config,
-        funct_name=None,
-        global_config=None,
-        functions=None,
-        logger=None,
-        first_input=None,
+        data_folder,
+        splits,
+        kaldi_ali_tr=None,
+        kaldi_ali_dev=None,
+        kaldi_ali_test=None,
+        kaldi_lab_opts=None,
+        save_folder=None,
+        **kwargs
     ):
-
-        self.logger = logger
-
-        # Here are summarized the expected options for this class
-        self.expected_options = {
-            "class_name": ("str", "mandatory"),
-            "data_folder": ("directory", "mandatory"),
-            "splits": ("one_of_list(train,dev,test)", "mandatory"),
-            "kaldi_ali_tr": ("directory", "optional", "None"),
-            "kaldi_ali_dev": ("directory", "optional", "None"),
-            "kaldi_ali_test": ("directory", "optional", "None"),
-            "kaldi_lab_opts": ("str", "optional", "None"),
-            "save_folder": ("str", "optional", "None"),
-        }
-
-        # Check, cast , and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, logger=self.logger
-        )
-
         # Expected inputs when calling the class (no inputs in this case)
-        self.expected_inputs = []
+        super().__init__(expected_inputs=[], **kwargs)
 
-        # Check the first input
-        check_inputs(
-            self.conf, self.expected_inputs, first_input, logger=self.logger
-        )
+        self.data_folder = data_folder
+        self.splits = splits
+        self.kaldi_ali_tr = kaldi_ali_tr
+        self.kaldi_ali_dev = kaldi_ali_dev
+        self.kaldi_ali_test = kaldi_ali_test
+        self.kaldi_lab_opts = kaldi_lab_opts
+        self.save_folder = save_folder
 
         # Other variables
-        self.global_config = global_config
         self.samplerate = 16000
 
         # List of test speakers
@@ -529,7 +419,7 @@ class timit_prepare:
 
             return
 
-    def __call__(self, inp):
+    def __call__(self):
 
         # Additional checks to make sure the data folder contains TIMIT
         self.check_timit_folders()
@@ -594,10 +484,9 @@ class timit_prepare:
             )
 
         # Saving options (useful to skip this phase when already done)
-        save_pkl(self.conf, self.save_opt)
+        # save_pkl(self.conf, self.save_opt)
 
         return
-
 
     def skip(self):
         """
@@ -647,9 +536,7 @@ class timit_prepare:
             and os.path.isfile(self.save_csv_test)
             and os.path.isfile(self.save_opt)
         ):
-            opts_old = load_pkl(self.save_opt)
-            if opts_old == self.conf:
-                skip = True
+            skip = True
 
         return skip
 
@@ -677,14 +564,14 @@ class timit_prepare:
                        - csv_file (type:file, mandatory):
                            it is the path of the output csv file
 
-                       - kaldi_lab (type:file, optional, default:None):
+                       - kaldi_lab (type:file, default:None):
                            it is the path of the kaldi labels (optional).
 
-                       - kaldi_lab_opts (type:str, optional, default:None):
+                       - kaldi_lab_opts (type:str, default:None):
                            it a string containing the options use to compute
                            the labels.
 
-                       - logfile(type, logger, optional, default: None):
+                       - logfile(type, logger, default: None):
                            it the logger used to write debug and error msgs.
 
 
@@ -968,25 +855,25 @@ class librispeech_prepare:
                                test the script on a reduced number of
                                sentences only.
 
-                           - save_folder (type: str,optional, default: None):
+                           - save_folder (type: str,default: None):
                                it the folder where to store the csv files.
                                If None, the results will be saved in
                                $output_folder/prepare_librispeech/*.csv.
 
-                   - funct_name (type, str, optional, default: None):
+                   - funct_name (type, str, default: None):
                        it is a string containing the name of the parent
                        function that has called this method.
 
-                   - global_config (type, dict, optional, default: None):
+                   - global_config (type, dict, default: None):
                        it a dictionary containing the global variables of the
                        parent config file.
 
-                   - logger (type, logger, optional, default: None):
+                   - logger (type, logger, default: None):
                        it the logger used to write debug and error messages.
                        If logger=None and root_cfg=True, the file is created
                        from scratch.
 
-                   - first_input (type, list, optional, default: None)
+                   - first_input (type, list, default: None)
                       this variable allows users to analyze the first input
                       given when calling the class for the first time.
 

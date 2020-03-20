@@ -26,139 +26,106 @@ import soundfile as sf
 import multiprocessing as mp
 from multiprocessing import Manager
 from torch.utils.data import Dataset, DataLoader
+from speechbrain.module import SpeechBrainModule
 from speechbrain.utils.input_validation import check_opts, check_inputs
 from speechbrain.utils.logger import logger_write
 from speechbrain.utils.data_utils import recursive_items
 
 
-class create_dataloader:
+class create_dataloader(SpeechBrainModule):
     """
      -------------------------------------------------------------------------
      data_io.create_dataloader (author: Mirco Ravanelli)
 
      Description: This class creates the data_loaders for the given csv file.
 
-     Input (init):  - exec_config (type, dict, mandatory):
-                       it is a dictionary containing the keys described below.
+     Input: - csv (type: file, mandatory):
+                it is the csv file that itemized the data.
 
-                           - csv (type: file, mandatory):
-                               it is the csv file that itemized the data.
+            - batch_size: (type: int(1, inf), default: 1):
+               the data itemized in the csv file are automatically
+               organized in batches. In the case of variable size
+               tensors, zero padding is performed. When batch_size=1,
+               the data are simply processed one by one without the
+               creation of batches.
 
-                           - batch_size: (type: int(1,inf),optional,
-                               default: 1):
-                               the data itemized in the csv file are
-                               automatically organized in batches. In the case
-                               of variable size tensors, zero padding is
-                               performed. When batch_size=1, the data are
-                               simply processed one by one without the
-                               creation of batches.
+           - csv_read (type: str_list, default: None):
+               this option can be used to read only some data_entries of
+               the csv file. When not specified, it automatically reads
+               all the data entries.
 
-                           - csv_read (type: str_list,optional,default:None):
-                               this option can be used to read only some
-                               data_entries of the csv file. When not
-                                specified, it automatically reads all the data
-                                entries.
+           - sentence_sorting: ('ascending,descending,random,
+             original', default: 'original'):
+               This parameter specifies how to sort the data
+               before the batch creation. Ascending and
+               descending values sort the data using the
+               "duration" field in the csv files. Random sort
+               the data randomly, while original (the default
+               option) keeps the original sequence of data
+               defined in the csv file. Note that this option
+               affects the batch creation. If the data are
+               sorted in ascending or descending order the
+               batches will approximately have the same size
+               and the need for zero padding is minimized.
+               Instead, if sentence_sorting is set to random,
+               the batches might be composed of both short and
+               long sequences and several zeros might be added
+               in the batch. When possible, it is desirable to
+               sort the data. This way, we use more
+               efficiently the computational resources,
+               without wasting time on processing time steps
+               composed on zeros only. Note that is the data
+               are sorted in ascending/ descending errors the
+               same batches will be created every time we
+               want to loop over the dataset, while if we set
+               a random order the batches will be different
+               every time we loop over the dataset.
 
-                           - sentence_sorting: ('ascending,descending,random,
-                             original', optional, 'original'):
-                               This parameter specifies how to sort the data
-                               before the batch creation. Ascending and
-                               descending values sort the data using the
-                               "duration" field in the csv files. Random sort
-                               the data randomly, while original (the default
-                               option) keeps the original sequence of data
-                               defined in the csv file. Note that this option
-                               affects the batch creation. If the data are
-                               sorted in ascending or descending order the
-                               batches will approximately have the same size
-                               and the need for zero padding is minimized.
-                               Instead, if sentence_sorting is set to random,
-                               the batches might be composed of both short and
-                               long sequences and several zeros might be added
-                               in the batch. When possible, it is desirable to
-                               sort the data. This way, we use more
-                               efficiently the computational resources,
-                               without wasting time on processing time steps
-                               composed on zeros only. Note that is the data
-                               are sorted in ascending/ descending errors the
-                               same batches will be created every time we
-                               want to loop over the dataset, while if we set
-                               a random order the batches will be different
-                               every time we loop over the dataset.
+           - select_n_sentences (type: int(1,inf), default: None):
+               this option can be used to read-only n
+               sentences from the csv file. This option can be
+               useful to debug the code, when instead of
+               running an experiment of a full set of data I
+               might just want to run it with a little about
+               of data.
 
-                           - select_n_sentences (type: int(1,inf),
-                             optional,None):
-                               this option can be used to read-only n
-                               sentences from the csv file. This option can be
-                               useful to debug the code, when instead of
-                               running an experiment of a full set of data I
-                               might just want to run it with a little about
-                               of data.
+           - num_workers (int(0,inf), default: 0):
+               data are read using the pytorch data_loader.
+               This option set the number of workers used to
+               read the data from disk and form the related
+               batch of data. Please, see the pytorch
+               documentation on the data loader for more
+               details.
 
-                           - num_workers (int(0,inf),optional,Default:0):
-                               data are read using the pytorch data_loader.
-                               This option set the number of workers used to
-                               read the data from disk and form the related
-                               batch of data. Please, see the pytorch
-                               documentation on the data loader for more
-                               details.
+           - cache (bool, default: False):
+               When set to true, this option stores the input
+               data in a variable called self.cache (see
+               create_dataloader in data_io.py). In practice,
+               the first time the data are read from the disk,
+               they are stored in the cpu RAM. If the data
+               needs to be used again (e.g. when loops>1)
+               the data will be read from the RAM directly.
+               If False, data are read from the disk every
+               time.  Data are stored until a certain
+               percentage of the total ram available is
+               reached (see cache_ram_percent below).
 
-                           - cache(bool,optional,Default:False):
-                               When set to true, this option stores the input
-                               data in a variable called self.cache (see
-                               create_dataloader in data_io.py). In practice,
-                               the first time the data are read from the disk,
-                               they are stored in the cpu RAM. If the data
-                               needs to be used again (e.g. when loops>1)
-                               the data will be read from the RAM directly.
-                               If False, data are read from the disk every
-                               time.  Data are stored until a certain
-                               percentage of the total ram available is
-                               reached (see cache_ram_percent below).
+           - cache_ram_percent (int(0,100), default: 75):
+               If cache if True, data will be stored in the
+               cpu RAM until the total RAM occupation is less
+               or equal than the specified threshold
+               (by default 75%). In practice, if a lot of RAM
+               is available several data will be stored in
+               memory, otherwise, most of them will be read
+               from the disk directly.
 
-                           - cache_ram_percent (int(0,100),optional,
-                             default:75):
-                               If cache if True, data will be stored in the
-                               cpu RAM until the total RAM occupation is less
-                               or equal than the specified threshold
-                               (by default 75%). In practice, if a lot of RAM
-                               is available several data will be stored in
-                               memory, otherwise, most of them will be read
-                               from the disk directly.
+           - drop_last (bool, default: False):
+               this is an option directly passed to the
+               pytorch dataloader (see the related
+               documentation for more details). When True,
+               it skips the last batch of data if contains
+               fewer samples than the other ones.
 
-                           - drop_last (bool,optional,Default: False):
-                               this is an option directly passed to the
-                               pytorch dataloader (see the related
-                               documentation for more details). When True,
-                               it skips the last batch of data if contains
-                               fewer samples than the other ones.
-
-                   - funct_name (type, str, optional, default: None):
-                       it is a string containing the name of the parent
-                       function that has called this method.
-
-                   - global_config (type, dict, optional, default: None):
-                       it a dictionary containing the global variables of the
-                       parent config file.
-
-                   - logger (type, logger, optional, default: None):
-                       it the logger used to write debug and error messages.
-                       If logger=None and root_cfg=True, the file is created
-                       from scratch.
-
-                   - first_input (type, list, optional, default: None)
-                      this variable allows users to analyze the first input
-                       given when calling the class for the first time.
-
-
-     Input (call): - inp_lst(type, list, mandatory):
-                       by default the input arguments are passed with a list.
-                       In this case, the list gathers input variables that can
-                       be used in the computations.
-
-
-     Output (call):  - dataloader (type: dataloader):
-                       It is a list returning all the dataloaders created.
 
      Example:   from speechbrain.data_io.data_io import create_dataloader
 
@@ -174,40 +141,34 @@ class create_dataloader:
 
     def __init__(
         self,
-        config,
-        funct_name=None,
-        global_config=None,
-        functions=None,
-        logger=None,
+        csv_file,
+        batch_size=1,
+        csv_read=None,
+        sentence_sorting='original',
+        num_workers=0,
+        cache=False,
+        cache_ram_percent=75,
+        select_n_sentences=None,
+        drop_last=False,
+        padding_value=0,
+        **kwargs
     ):
+        super().__init__(expected_inputs=[], **kwargs)
 
-        # Here are summarized the expected options for this class
-        self.expected_options = {
-            "class_name": ("str", "mandatory"),
-            "csv_file": ("file", "mandatory"),
-            "batch_size": ("int(1,inf)", "optional", "1"),
-            "csv_read": ("str_list", "optional", "None"),
-            "sentence_sorting": (
-                "one_of(ascending,descending,random,original)",
-                "optional",
-                "original",
-            ),
-            "num_workers": ("int(0,inf)", "optional", "0"),
-            "cache": ("bool", "optional", "False"),
-            "cache_ram_percent": ("int(0,100)", "optional", "75"),
-            "select_n_sentences": ("int(1,inf)", "optional", "None"),
-            "drop_last": ("bool", "optional", "False"),
-            "padding_value": ("int(-inf,inf)", "optional", "0"),
-        }
-
-        # Check, cast , and expand the options
-        self.conf = check_opts(self, self.expected_options, config)
+        # Store init params
+        self.csv_file = csv_file
+        self.batch_size = batch_size
+        self.csv_read = csv_read
+        self.sentence_sorting = sentence_sorting
+        self.num_workers = num_workers
+        self.cache = cache
+        self.cache_ram_percent = cache_ram_percent
+        self.select_n_sentences = select_n_sentences
+        self.drop_last = drop_last
+        self.padding_value = padding_value
 
         # Other variables
-        self.global_config = global_config
-        self.logger = logger
         self.supported_formats = self.get_supported_formats()
-        self.padding_value = 0
 
         # Shuffle the data every time if random is selected
         if self.sentence_sorting == "random":
@@ -215,7 +176,11 @@ class create_dataloader:
         else:
             self.shuffle = False
 
-    def __call__(self, inp):
+    def forward(self):
+        """
+        Output: - dataloader (type: dataloader):
+                    It is a list returning all the dataloaders created.
+        """
 
         # create data dictionary
         data_dict = self.generate_data_dict()
@@ -257,7 +222,7 @@ class create_dataloader:
                 )
             )
 
-        return [self.dataloader]
+        return self.dataloader
 
     def batch_creation(self, data_list):
         """
@@ -881,7 +846,7 @@ class create_dataset(Dataset):
                        it is a list containing the data_entries to read from
                        the csv file.
 
-                    - do_cache(bool,optional,Default:False):
+                    - do_cache(bool,Default:False):
                        When set to true, this option stores the input data
                        in a variable called self.cache. In practice, the
                        first time the data are read from the disk, they are
@@ -892,7 +857,7 @@ class create_dataset(Dataset):
                        certain percentage of the total ram available is
                        reached (see cache_ram_percent below)
 
-                   - cache_ram_percent (int(0,100),optional,default:75):
+                   - cache_ram_percent (int(0,100),default:75):
                      If cache if True, data will be stored in the cpu
                      RAM until the total RAM occupation is less or equal
                      than the specified threshold. In practice, if a lot
@@ -900,7 +865,7 @@ class create_dataset(Dataset):
                      memory, otherwise, most of them will be read from the
                      disk directly.
 
-                   - logger (type, logger, optional, default: None):
+                   - logger (type, logger,  default: None):
                        it the logger used to write debug and error messages.
                        If logger=None and root_cfg=True, the file is created
                        from scratch.
@@ -1141,7 +1106,7 @@ class create_dataset(Dataset):
         return data_read
 
 
-class save_ckpt:
+class save_ckpt(SpeechBrainModule):
     """
      -------------------------------------------------------------------------
      speechbrain.data_io.data_io.save_ckpt (author: Mirco Ravanelli)
@@ -1151,54 +1116,24 @@ class save_ckpt:
                   the current status of the optimizer, and stores the
                   recovery information in the recovery dictionary.
 
-     Input (init):  - exec_config (type, dict, mandatory):
-                       it is a dictionary containing the keys described below.
+     Input: - save_folder (type: str, default: None):
+               it is the folder where the recovery dict
+               is saved. By default it is saved in the
+               output_folder specified in the global
+               section of the roor config file.
 
-                           - save_folder (type: str, optional, def:None):
-                               it is the folder where the recovery dict
-                               is saved. By default it is saved in the
-                               output_folder specified in the global
-                               section of the roor config file.
+           - save_format: (type: pkl,
+               default: pkl):
+               it is the format used to save neural
+               models.
 
-                           - save_format: (type: pkl,optional,
-                               default: pkl):
-                               it is the format used to save neural
-                               models.
+           - save_last (type: int(0,inf),  def:1):
+               this flag can be use to save the neural models
+               of the last N epochs.
 
-                           - save_last (type: int(0,inf), optional, def:1):
-                               this flag can be use to save the neural models
-                               of the last N epochs.
-
-                           - print (type: bool, optional, def:True):
-                               when True, it save the performance on a res.res
-                               file in the output_folder.
-
-                   - funct_name (type, str, optional, default: None):
-                       it is a string containing the name of the parent
-                       function that has called this method.
-
-                   - global_config (type, dict, optional, default: None):
-                       it a dictionary containing the global variables of the
-                       parent config file.
-
-                   - logger (type, logger, optional, default: None):
-                       it the logger used to write debug and error messages.
-                       If logger=None and root_cfg=True, the file is created
-                       from scratch.
-
-                   - first_input (type, list, optional, default: None)
-                      this variable allows users to analyze the first input
-                       given when calling the class for the first time.
-
-
-     Input (call): - inp_lst(type, list, mandatory):
-                       by default the input arguments are passed with a list.
-                       In this case the list must contain the epoch_id (e.g, 1)
-                       and a performance dictionary to save.
-
-
-     Output (call):  - None
-                       the ouput is directly saved on the disk (save_folder)
+           - print (type: bool,  def:True):
+               when True, it save the performance on a res.res
+               file in the output_folder.
 
      Example:   import torch
                 from speechbrain.data_io.data_io import save_ckpt
@@ -1223,51 +1158,17 @@ class save_ckpt:
 
     def __init__(
         self,
-        config,
-        funct_name=None,
-        global_config=None,
-        functions=None,
-        logger=None,
-        first_input=None,
+        save_folder=None,
+        save_format='pkl',
+        save_last=1,
+        write_result=True,
+        **kwargs
     ):
-
-        # Logger Setup
-        self.logger = logger
-
-        # Storing function name
-        self.funct_name = funct_name
-
-        # Storing output folder
-        self.output_folder = global_config["output_folder"]
-
-        # Storing function dictionary
-        self.functions = functions
-
-        # Here are summarized the expected options for this class
-        self.expected_options = {
-            "class_name": ("str", "mandatory"),
-            "save_folder": ("str", "optional", "None"),
-            "save_format": ("one_of(pkl)", "optional", "pkl"),
-            "save_last": ("int(0,inf)", "optional", "1"),
-            "print": ("bool", "optional", "True"),
-        }
-
-        # Check, cast , and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, logger=self.logger
-        )
-
         # Expected inputs when calling the class (no inputs in this case)
-        self.expected_inputs = ["int", "dict"]
+        expected_inputs = ["int", "dict"]
 
-        # Checking the first input
-        check_inputs(
-            self.conf, self.expected_inputs, first_input, logger=self.logger
-        )
-
-        # Additional checks on the input
-        if first_input is not None:
-            perform_dict = first_input[1]
+        def hook(self, input):
+            perform_dict = input[1]
 
             if len(perform_dict) == 0:
                 err_msg = (
@@ -1291,6 +1192,16 @@ class save_ckpt:
                     ) % (type(perform_dict[perf]))
                     logger_write(err_msg, logfile=logger)
 
+        super().__init__(expected_inputs, **kwargs)
+
+        # Storing output folder
+        self.output_folder = self.global_config["output_folder"]
+
+        self.save_folder = save_folder
+        self.save_format = save_format
+        self.save_last = save_last
+        self.write_result = write_result
+
         # Setting the save folder
         if self.save_folder is None:
             self.save_folder = self.output_folder + "/nnets"
@@ -1311,25 +1222,29 @@ class save_ckpt:
             # Loading the last best_loss/epoch saved
             self.recovery_dict = load_pkl(recovery_file)
 
-            if funct_name in self.recovery_dict:
-                self.best_loss = self.recovery_dict[funct_name]["best_loss"]
-                self.best_epoch = self.recovery_dict[funct_name]["best_epoch"]
+            # if funct_name in self.recovery_dict:
+            #    self.best_loss = self.recovery_dict[funct_name]["best_loss"]
+            #    self.best_epoch = self.recovery_dict[funct_name]["best_epoch"]
         else:
             self.recovery_dict = {}
             self.recovery_dict[funct_name] = {}
 
-        if self.print:
+        if self.write_result:
 
             self.res_file = self.save_folder + "/res.res"
 
             if not os.path.exists(self.res_file):
                 open(self.res_file, "a").close()
 
-    def __call__(self, input_lst):
+    def forward(self, epoch, performance_dict):
+        """
+        Input: - epoch (type: int, mandatory):
+                    the epoch label for record keeping
 
-        # Reading input arguments
-        epoch, performance_dict = input_lst
-
+               - performance_dict (type: dict, mandatory):
+                    a dictionary with the types of performance and
+                    their corresponding values
+        """
         # By default I use the lasr performance in input to decide the best
         # model.
         loss = performance_dict[list(performance_dict.keys())[-1]]
@@ -1418,9 +1333,8 @@ class save_ckpt:
             # Loading the last best_loss/epoch saved
             self.recovery_dict = load_pkl(recovery_file)
 
-            if self.funct_name not in self.recovery_dict:
-
-                self.recovery_dict[self.funct_name] = {}
+            # if self.funct_name not in self.recovery_dict:
+            #    self.recovery_dict[self.funct_name] = {}
 
         # Creating a new recovery dictionary
         else:
@@ -1428,15 +1342,15 @@ class save_ckpt:
             self.recovery_dict[self.funct_name] = {}
 
         # Saving recovery information in the recovery dictionary
-        self.recovery_dict[self.funct_name] = {
-            "current_epoch": epoch,
-            "current_loss": loss,
-            "best_epoch": self.best_epoch,
-            "best_loss": self.best_loss,
-        }
+        # self.recovery_dict[self.funct_name] = {
+        #     "current_epoch": epoch,
+        #     "current_loss": loss,
+        #     "best_epoch": self.best_epoch,
+        #     "best_loss": self.best_loss,
+        # }
 
-        # Updating the recovery_dict with all the performance metrics
-        self.recovery_dict[self.funct_name].update(performance_dict)
+        # # Updating the recovery_dict with all the performance metrics
+        # self.recovery_dict[self.funct_name].update(performance_dict)
 
         # Pring results (if needed)
         self.print_epoch(epoch, performance_dict)
@@ -1491,7 +1405,7 @@ class save_ckpt:
                     print(torch.load('exp/save_nn_exp_linear.pkl'))
          --------------------------------------------.------------------------
          """
-
+        """
         if self.functions is not None:
 
             # Loops over all the functions
@@ -1521,6 +1435,7 @@ class save_ckpt:
                     self.save_model(
                         self.functions[funct], path_full, funct, mean_stat=True
                     )
+        """
 
     def save_model(self, model, path, funct, mean_stat=False):
         """
@@ -1706,7 +1621,7 @@ class save_ckpt:
          --------------------------------------------.------------------------
          """
 
-        if self.print:
+        if self.write_result:
 
             # Composing string to write
             string = "epoch %i:" % (epoch)
@@ -1717,29 +1632,29 @@ class save_ckpt:
                 string = " %s %s=%.4f" % (string, perf, performance_dict[perf])
 
             # Print learning rates
-            if self.functions is not None:
+            # if self.functions is not None:
 
-                for funct in self.functions:
+            #     for funct in self.functions:
 
-                    # Checking for optimization info
-                    if "optim" in self.functions[funct].__dict__:
+            #         # Checking for optimization info
+            #         if "optim" in self.functions[funct].__dict__:
 
-                        # Check the learning rate
-                        if "lr" in self.functions[funct].optim.param_groups[0]:
+            #             # Check the learning rate
+            #             if "lr" in self.functions[funct].optim.param_groups[0]:
 
-                            if (
-                                "prev_lr"
-                                in self.functions[funct].optim.param_groups[0]
-                            ):
-                                lr = self.functions[funct].optim.param_groups[
-                                    0
-                                ]["prev_lr"]
-                            else:
-                                lr = self.functions[funct].optim.param_groups[
-                                    0
-                                ]["lr"]
+            #                 if (
+            #                     "prev_lr"
+            #                     in self.functions[funct].optim.param_groups[0]
+            #                 ):
+            #                     lr = self.functions[funct].optim.param_groups[
+            #                         0
+            #                     ]["prev_lr"]
+            #                 else:
+            #                     lr = self.functions[funct].optim.param_groups[
+            #                         0
+            #                     ]["lr"]
 
-                            string = "%s lr_%s=%.8f" % (string, funct, lr)
+            #                 string = "%s lr_%s=%.8f" % (string, funct, lr)
 
             # Printing on logger
             logger_write(string, logfile=self.logger, level="info")
@@ -2062,7 +1977,7 @@ def read_wav_soundfile(file, data_options={}, logger=None, lab2ind=None):
                            it is a dictionary containing options for the
                            reader.
 
-                      - logger (type: logger, optional, default: None):
+                      - logger (type: logger,  default: None):
                        it the logger used to write debug and error messages.
 
 
@@ -2205,7 +2120,7 @@ def read_pkl(file, data_options={}, logger=None, lab2ind=None):
                            it is a dictionary containing options for the
                            reader.
 
-                      - logger (type: logger, optional, default: None):
+                      - logger (type: logger,  default: None):
                        it the logger used to write debug and error messages.
 
 
@@ -2283,7 +2198,7 @@ def read_string(string, data_options={}, logger=None, lab2ind=None):
                            it is a dictionary containing options for the
                            reader.
 
-                      - logger (type: logger, optional, default: None):
+                      - logger (type: logger,  default: None):
                        it the logger used to write debug and error messages.
 
 
@@ -2329,7 +2244,7 @@ def read_kaldi_lab(kaldi_ali, kaldi_lab_opts, logfile=None):
                            it is a string that contains the options for
                            reading the kaldi alignments.
 
-                      - logfile (type: logger, optional, default: None):
+                      - logfile (type: logger,  default: None):
                           it the logger used to write debug and error msgs.
 
 
@@ -2376,10 +2291,10 @@ def write_wav_soundfile(data, filename, sampling_rate=None, logger=None):
                        - filename (type: file, mandatory):
                          it is the file where writign the data.
 
-                      - sampling_rate (type: int, optional, default: None):
+                      - sampling_rate (type: int,  default: None):
                        it sampling rate of the audio file.
 
-                      - logger (type: logger, optional, default: None):
+                      - logger (type: logger,  default: None):
                        it the logger used to write debug and error messages.
 
 
@@ -2437,10 +2352,10 @@ def write_txt_file(data, filename, sampling_rate=None, logger=None):
                        - filename (type: file, mandatory):
                          it is the file where writing the data.
 
-                      - sampling_rate (type: int, optional, default: None):
+                      - sampling_rate (type: int,  default: None):
                        it sampling rate of the audio file.
 
-                      - logger (type: logger, optional, default: None):
+                      - logger (type: logger,  default: None):
                        it the logger used to write debug and error messages.
 
 
@@ -2508,10 +2423,10 @@ def write_stdout(data, filename, sampling_rate=None, logger=None):
                       - filename (type: file, mandatory):
                          it is the file where writing the data.
 
-                      - sampling_rate (type: int, optional, default: None):
+                      - sampling_rate (type: int,  default: None):
                        it sampling rate of the audio file.
 
-                      - logger (type: logger, optional, default: None):
+                      - logger (type: logger,  default: None):
                        it the logger used to write debug and error messages.
 
 
@@ -2552,10 +2467,10 @@ def save_img(data, filename, sampling_rate=None, logger=None):
                        - filename (type: file, mandatory):
                          it is the file where writing the data.
 
-                      - sampling_rate (type: int, optional, default: None):
+                      - sampling_rate (type: int,  default: None):
                        it sampling rate of the audio file.
 
-                      - logger (type: logger, optional, default: None):
+                      - logger (type: logger,  default: None):
                        it the logger used to write debug and error messages.
 
 
@@ -2620,68 +2535,37 @@ def save_img(data, filename, sampling_rate=None, logger=None):
             logger_write(err_msg, logfile=logger)
 
 
-class save:
+class save(SpeechBrainModule):
     """
      -------------------------------------------------------------------------
      data_processing.save (author: Mirco Ravanelli)
 
      Description:  This class can be used to save tensors on disk.
 
-     Input (init):  - config (type, dict, mandatory):
-                       it is a dictionary containing the keys described below.
+     Input: - save_folder (type:str, default:None):
+               it is the folder where the tensors are stored.
 
-                           - save_folder (type:str,optional, default:None):
-                               it is the folder where the tensors are stored.
+           - save_format (type:str, default:0):
+               it is the format to use to save the tensor.
+               See get_supported_formats() for an overview of
+               the supported data formats.
 
-                           - save_format (type:str,optional, default:0):
-                               it is the format to use to save the tensor.
-                               See get_supported_formats() for an overview of
-                               the supported data formats.
+           - save_csv (type:bool, default:False):
+               if True it saves the list of data written in a
+               csv file.
 
-                           - save_csv (type:bool,optional, default:False):
-                               if True it saves the list of data written in a
-                               csv file.
+          - data_name (type:str, default:data):
+               it is the name to give to saved data
 
-                          - data_name (type:str,optional, default:data):
-                               it is the name to give to saved data
+          - parallel_write (type:bool, default:False):
+               if True it saves the data using parallel
+               processes.
 
-                          - parallel_write (type:bool,optional,
-                            default:False):
-                               if True it saves the data using parallel
-                               processes.
+          - transpose (type:bool, default:False):
+               if True it transposes the data matrix
 
-                          - transpose (type:bool,optional,
-                            default:False):
-                               if True it transposes the data matrix
-
-                          - decibel (type:bool,optional, default:False):
-                               if True it saves the log of the data.
-
-
-                   - funct_name (type, str, optional, default: None):
-                       it is a string containing the name of the parent
-                       function that has called this method.
-
-                   - global_config (type, dict, optional, default: None):
-                       it a dictionary containing the global variables of the
-                       parent config file.
-
-                   - logger (type, logger, optional, default: None):
-                       it the logger used to write debug and error messages.
-                       If logger=None and root_cfg=True, the file is created
-                       from scratch.
-
-                   - first_input (type, list, optional, default: None)
-                      this variable allows users to analyze the first input
-                      given when calling the class for the first time.
-
-
-     Input (call): - inp_lst(type, list, mandatory):
-                       by default the input arguments are passed with a list.
-                       In this case, inp is a list containing:
-                       [data,data_id,data_len], where data_id is the id of the
-                       sentence and data_len is the % of time steps to save
-
+          - decibel (type:bool, default:False):
+               if True it saves the log of the data.
 
      Output (call): None
 
@@ -2694,13 +2578,13 @@ class save:
                        'save_format': 'wav' }
 
                # class initialization
-               save_signal=save(config)
+               save_signal = save('exp/write_example', 'wav')
 
                # random signal
-               signal=0.1*torch.rand([1,16000])
+               signal = 0.1 * torch.rand([1, 16000])
 
                # saving
-               save_signal([signal,['example_random'],torch.ones(1)])
+               save_signal(signal, ['example_random'], torch.ones(1))
 
                # signal save in exp/write_example
      -------------------------------------------------------------------------
@@ -2708,46 +2592,40 @@ class save:
 
     def __init__(
         self,
-        config,
-        funct_name=None,
-        global_config=None,
-        functions=None,
-        logger=None,
-        first_input=None,
+        save_folder=None,
+        save_format='pkl',
+        save_csv=False,
+        data_name='data',
+        sampling_rate=16000,
+        parallel_write=False,
+        transpose=False,
+        decibel=False,
+        **kwargs
     ):
+        expected_inputs = [
+            {'type': 'torch.Tensor', 'shape': [2, 3]},
+            {'type': 'list'},
+            {'type': 'torch.Tensor', 'shape': [1]},
+        ]
 
-        # Logger Setup
-        self.logger = logger
+        super().__init__(expected_inputs, **kwargs)
 
-        # Here are summarized the expected options for this class
-        self.expected_options = {
-            "class_name": ("str", "mandatory"),
-            "save_folder": ("str", "optional", "None"),
-            "save_format": (
-                "one_of(wav,flac,pkl,txt,ark,png,std_out)",
-                "optional",
-                "pkl",
-            ),
-            "save_csv": ("bool", "optional", "False"),
-            "data_name": ("str", "optional", "data"),
-            "sampling_rate": ("int(0,inf)", "optional", "16000"),
-            "parallel_write": ("bool", "optional", "False"),
-            "transpose": ("bool", "optional", "False"),
-            "decibel": ("bool", "optional", "False"),
-        }
-
-        # Check, cast , and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, logger=self.logger
-        )
+        self.save_folder = save_folder
+        self.save_format = save_format
+        self.save_csv = save_csv
+        self.data_name = data_name
+        self.sampling_rate = sampling_rate
+        self.parallel_write = parallel_write
+        self.transpose = transpose
+        self.decibel = decibel
 
         # Definition of other variables
         self.supported_formats = self.get_supported_formats()
 
         # Setting the save folder
         if self.save_folder is None:
-            self.output_folder = global_config["output_folder"]
-            self.save_folder = self.output_folder + "/" + funct_name
+            self.output_folder = self.global_config["output_folder"]
+            self.save_folder = self.output_folder + "/save"
 
         # Creating the save folder if it does not exist
         if not os.path.exists(self.save_folder):
@@ -2770,14 +2648,17 @@ class save:
             open(self.save_csv_path, "w").close()
             self.first_line_csv = True
 
-    def __call__(self, input_lst):
+    def forward(self, data, data_id, data_len):
+        """
+        Input : - data (type: tensor)
+                    batch of audio signals to save
 
-        # Reading input arguments
-        data, data_id, data_len = input_lst
+                - data_id (type: str_list)
+                    list of ids in the batch
 
-        if data is None:
-            return
-
+                - data_len (type: tensor)
+                    length of each audio signal
+        """
         # Convertion to log (if specified)
         if self.decibel:
             data = 10 * data.log10()
@@ -2983,14 +2864,14 @@ def write_ark(data, filename, key="", sampling_rate=None, logger=None):
                    - data (type:np.ndarray, mandatory):
                        it is the matrix to be stored
 
-                   - key (type:str, optional, default=''):
+                   - key (type:str,  default=''):
                        it is used for writing ark-file, the utterance-id gets
                        written before the matrix.
 
-                   - sampling_rate (type: int, optional, default: None):
+                   - sampling_rate (type: int,  default: None):
                        it sampling rate of the audio file.
 
-                   - logger (type: logger, optional, default: None):
+                   - logger (type: logger,  default: None):
                        it the logger used to write debug and error messages.
 
      Output (call):  None
@@ -3133,10 +3014,10 @@ def save_pkl(obj, file, sampling_rate=None, logger=None):
                    - file (type:file, mandatory):
                        it is name of the output file.
 
-                   - sampling_rate (type: int, optional, default: None):
+                   - sampling_rate (type: int,  default: None):
                        it sampling rate of the audio file.
 
-                   - logger (type: logger, optional, default: None):
+                   - logger (type: logger,  default: None):
                        it the logger used to write debug and error messages.
 
      Output (call):  None
@@ -3167,7 +3048,7 @@ def load_pkl(file, logger=None):
      Input (call): - file (type:file, mandatory):
                        it is name of the input pkl file.
 
-                   - logger (type: logger, optional, default: None):
+                   - logger (type: logger,  default: None):
                        it the logger used to write debug and error messages.
 
      Output (call):  obj (type:obj)
