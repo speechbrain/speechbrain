@@ -128,7 +128,7 @@ class copy_data_locally:
             "class_name": ("str", "mandatory"),
             "data_file": ("file_list", "mandatory"),
             "local_folder": ("str", "mandatory"),
-            "copy_cmd": ("str", "optional", "scp"),
+            "copy_cmd": ("str", "optional", "rsync"),
             "copy_opts": ("str", "optional", ""),
             "uncompress_cmd": ("str", "optional", "tar"),
             "uncompress_opts": ("str", "optional", "-zxf"),
@@ -256,6 +256,12 @@ class timit_prepare:
                                If None, the results will be saved in
                                $output_folder/prepare_timit/*.csv.
 
+                           - phn_set (type: '60','48','39',optional,
+                               default: 39):
+                               it the set of phonemes to use for the phn
+                               label. It could be composed of 60, 48, or
+                               39 phonemes.
+
                    - funct_name (type, str, optional, default: None):
                        it is a string containing the name of the parent
                        function that has called this method.
@@ -326,6 +332,7 @@ class timit_prepare:
             "kaldi_ali_test": ("directory", "optional", "None"),
             "kaldi_lab_opts": ("str", "optional", "None"),
             "save_folder": ("str", "optional", "None"),
+            "phn_set": ("one_of(60,48,39)", "optional", "39"),
         }
 
         # Check, cast , and expand the options
@@ -494,6 +501,74 @@ class timit_prepare:
         from_60_to_48_phn["zh"] = "zh"
 
         self.from_60_to_48_phn = from_60_to_48_phn
+
+        # This dictionary is used to conver the 60 phoneme set
+        # into the 39 one
+        from_60_to_39_phn = {}
+        from_60_to_39_phn["sil"] = "sil"
+        from_60_to_39_phn["aa"] = "aa"
+        from_60_to_39_phn["ae"] = "ae"
+        from_60_to_39_phn["ah"] = "ah"
+        from_60_to_39_phn["ao"] = "aa"
+        from_60_to_39_phn["aw"] = "aw"
+        from_60_to_39_phn["ax"] = "ah"
+        from_60_to_39_phn["ax-h"] = "ah"
+        from_60_to_39_phn["axr"] = "er"
+        from_60_to_39_phn["ay"] = "ay"
+        from_60_to_39_phn["b"] = "b"
+        from_60_to_39_phn["bcl"] = "sil"
+        from_60_to_39_phn["ch"] = "ch"
+        from_60_to_39_phn["d"] = "d"
+        from_60_to_39_phn["dcl"] = "sil"
+        from_60_to_39_phn["dh"] = "dh"
+        from_60_to_39_phn["dx"] = "dx"
+        from_60_to_39_phn["eh"] = "eh"
+        from_60_to_39_phn["el"] = "l"
+        from_60_to_39_phn["em"] = "m"
+        from_60_to_39_phn["en"] = "n"
+        from_60_to_39_phn["eng"] = "ng"
+        from_60_to_39_phn["epi"] = "sil"
+        from_60_to_39_phn["er"] = "er"
+        from_60_to_39_phn["ey"] = "ey"
+        from_60_to_39_phn["f"] = "f"
+        from_60_to_39_phn["g"] = "g"
+        from_60_to_39_phn["gcl"] = "sil"
+        from_60_to_39_phn["h#"] = "sil"
+        from_60_to_39_phn["hh"] = "hh"
+        from_60_to_39_phn["hv"] = "hh"
+        from_60_to_39_phn["ih"] = "ih"
+        from_60_to_39_phn["ix"] = "ih"
+        from_60_to_39_phn["iy"] = "iy"
+        from_60_to_39_phn["jh"] = "jh"
+        from_60_to_39_phn["k"] = "k"
+        from_60_to_39_phn["kcl"] = "sil"
+        from_60_to_39_phn["l"] = "l"
+        from_60_to_39_phn["m"] = "m"
+        from_60_to_39_phn["ng"] = "n"
+        from_60_to_39_phn["n"] = "ng"
+        from_60_to_39_phn["nx"] = "n"
+        from_60_to_39_phn["ow"] = "ow"
+        from_60_to_39_phn["oy"] = "oy"
+        from_60_to_39_phn["p"] = "p"
+        from_60_to_39_phn["pau"] = "sil"
+        from_60_to_39_phn["pcl"] = "sil"
+        from_60_to_39_phn["q"] = "k"
+        from_60_to_39_phn["r"] = "r"
+        from_60_to_39_phn["s"] = "s"
+        from_60_to_39_phn["sh"] = "sh"
+        from_60_to_39_phn["t"] = "t"
+        from_60_to_39_phn["tcl"] = "sil"
+        from_60_to_39_phn["th"] = "th"
+        from_60_to_39_phn["uh"] = "uh"
+        from_60_to_39_phn["uw"] = "uw"
+        from_60_to_39_phn["ux"] = "uw"
+        from_60_to_39_phn["v"] = "v"
+        from_60_to_39_phn["w"] = "w"
+        from_60_to_39_phn["y"] = "y"
+        from_60_to_39_phn["z"] = "z"
+        from_60_to_39_phn["zh"] = "sh"
+
+        self.from_60_to_39_phn = from_60_to_39_phn
 
         # Avoid calibration sentences
         self.avoid_sentences = ["sa1", "sa2"]
@@ -835,8 +910,13 @@ class timit_prepare:
 
                 phoneme = line.rstrip("\n").replace("h#", "sil").split(" ")[2]
 
-                # From 60 to 48 phonemes
-                phoneme = self.from_60_to_48_phn[phoneme]
+                if self.phn_set == "48":
+                    # From 60 to 48 phonemes
+                    phoneme = self.from_60_to_48_phn[phoneme]
+
+                if self.phn_set == "39":
+                    # From 60 to 39 phonemes
+                    phoneme = self.from_60_to_39_phn[phoneme]
 
                 # Apping phoneme in the phoneme list
                 phonemes.append(phoneme)
