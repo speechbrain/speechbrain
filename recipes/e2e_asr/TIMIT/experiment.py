@@ -3,7 +3,49 @@ from speechbrain.core import load_params
 sb, params = load_params('params.yaml')
 
 
-def neural_computations(wav, phn, mode):
+def main():
+
+    # Prepare the data
+    sb.copy_locally()
+    sb.prepare_timit()
+
+    model = torch.nn.Sequential(sb.RNN, sb.lin, sb.softmax).cuda()
+
+    # training/validation epochs
+    for epoch in range(int(params['N_epochs'])):
+        train_loss = {'loss': []}
+        valid_loss = {'loss': [], 'wer': []}
+
+        # Iterate train and perform updates
+        for wav, phn in zip(*sb.train_loader()):
+            neural_computations(train_loss, model, wav, phn, 'train')
+
+        # Iterate validataion to check progress
+        with torch.no_grad():
+            for wav, phn in zip(*sb.valid_loader()):
+                neural_computations(valid_loss, model, wav, phn, 'valid')
+
+            sb.lr_annealing([sb.optimizer], epoch, mean(valid_loss['wer']))
+            performance = {
+                'loss_tr': mean(train_loss['loss']),
+                'loss_valid': mean(valid_loss['loss']),
+                'wer_valid': mean(valid_loss['wer']),
+            }
+            sb.save_checkpoint(epoch, performance)
+
+    # Evaluate our model
+    test_loss = {'loss': [], 'wer': []}
+    for wav, phn in zip(*sb.test_loader()):
+        neural_computations(test_loss, model, wav, phn, 'test')
+
+    print("Final WER: %f" % mean(test_loss['wer']))
+
+
+def mean(loss):
+    return sum(loss) / len(loss)
+
+
+def neural_computations(losses, model, wav, phn, mode):
 
     id, wav, wav_len = wav
     id, phn, phn_len = phn
@@ -11,57 +53,21 @@ def neural_computations(wav, phn, mode):
     feats = sb.compute_features(wav)
     feats = sb.mean_var_norm(feats, wav_len)
 
-    out = sb.RNN(feats)
-    out = sb.lin(out)
-
-    pout = sb.softmax(out)
+    pout = model(feats)
 
     if mode == 'train':
         loss = sb.compute_cost(pout, phn, [wav_len, phn_len])
         loss.backward()
-        sb.optimizer([sb.RNN, sb.lin])
-        return loss
+        sb.optimizer([model])
+        losses['loss'].append(loss.detach())
     else:
-        return sb.compute_cost_wer(pout, phn, [wav_len, phn_len])
+        loss, wer = sb.compute_cost_wer(pout, phn, [wav_len, phn_len])
+        losses['loss'].append(loss.detach())
+        losses['wer'].append(wer.detach())
 
     # if mode == 'test':
     #    print_predictions(id, pout, wav_len)
 
 
-# Prepare the data
-sb.copy_locally()
-sb.prepare_timit()
-
-# training/validation epochs
-for epoch in range(int(params['N_epochs'])):
-    tr_loss = []
-    for wav, phn in zip(*sb.train_loader()):
-        tr_loss.append(neural_computations(wav, phn, 'train').detach())
-        break
-
-    with torch.no_grad():
-        valid_loss, valid_wer = [], []
-        for wav, phn in zip(*sb.valid_loader()):
-            loss, wer = neural_computations(wav, phn, 'valid')
-            valid_loss.append(loss.detach())
-            valid_wer.append(wer.detach())
-            break
-
-        sb.lr_annealing([sb.optimizer], epoch, torch.mean(wer))
-        performance = {
-            'loss_tr': sum(tr_loss) / len(tr_loss),
-            'loss_valid': sum(valid_loss) / len(valid_loss),
-            'wer_valid': sum(valid_wer) / len(valid_wer),
-        }
-        sb.save_checkpoint(epoch, performance)
-    break
-
-# test
-losses, wers = [], []
-for wav, phn in zip(*sb.test_loader()):
-    loss, wer = neural_computations(wav, phn, 'test')
-    losses.append(loss)
-    wers.append(wer)
-    break
-
-print("Final WER: %f" % (sum(wers) / len(wers)))
+if __name__ == '__main__':
+    main()

@@ -1,9 +1,9 @@
 """
 -----------------------------------------------------------------------------
- speechbrain/module.py
+speechbrain/module.py
 
- Description: This class provides the base class for speechbrain classes.
- -----------------------------------------------------------------------------
+Description: This class provides the base class for speechbrain classes.
+-----------------------------------------------------------------------------
 """
 
 # Importing libraries
@@ -21,33 +21,47 @@ class SpeechBrainModule(nn.Module):
                  classes should inherit from this class, and pass expected
                  inputs to init, so inputs can be checked.
 
-    Input: - expected_inputs(type, list, mandatory):
-              This dict defines the types of the inputs when
-              the class is called as a function (i.e. passed
-              to the `forward` or `call` method). This input
-              will be checked on the first call, but not
-              thereafter, for efficiency. If a tensor is
-              passed, the shape that it is expected to
-              have must also be passed.
+    Input:
+      - expected_inputs(type, list, mandatory):
+          This dict defines the types of the inputs when
+          the class is called as a function (i.e. passed
+          to the `forward` or `call` method). This input
+          will be checked on the first call, but not
+          thereafter, for efficiency. If a tensor is
+          passed, the shape that it is expected to
+          have must also be passed.
 
-          - global_config (type, dict, optional, default: None):
-              it a dictionary containing the global variables of the
-              parent config file.
+      - global_config (type, dict, optional, default: None):
+          it a dictionary containing the global variables of the
+          parent config file.
 
-          - functions (type, dict, optional, default: None):
-              dictionary for storing user-defined functions. Keys are
-              the function names, values are their corresponding
-              objects.
+      - functions (type, dict, optional, default: None):
+          dictionary for storing user-defined functions. Keys are
+          the function names, values are their corresponding
+          objects.
 
-          - logger (type, logger, optional, default: None):
-              it the logger used to write debug and error messages.
-              If logger=None and root_cfg=True, the file is created
-              from scratch.
+      - logger (type, logger, optional, default: None):
+          it the logger used to write debug and error messages.
+          If logger=None and root_cfg=True, the file is created
+          from scratch.
 
-          - first_input_hook (type, function, optional, default: None)
-              A function to be run when `forward` is called for the
-              first time. For example: defining the size of a
-              neural network layer based on the input size.
+      - first_input_hook (type, function, optional, default: None)
+          A function to be run when `forward` is called for the
+          first time. For example: defining the size of a
+          neural network layer based on the input size.
+
+    Example:
+
+        >>> class example(SpeechBrainModule):
+        ...     def __init__(param1, **kwargs):
+        ...         super().__init__(expected_inputs=[], **kwargs)
+        ...         self.param1 = param1
+        ...     def forward():
+        ...         return self.param1
+        >>> instance = example(3)
+        >>> instance()
+        3
+
     -------------------------------------------------------------------------
     """
 
