@@ -2003,7 +2003,17 @@ def recovery(self):
 
                 if key == self.funct_name:
 
-                    model_file = value
+                    if self.recovery_type == "last":
+                        model_file = value
+
+                    if self.recovery_type == "best":
+
+                        # Getting file of the best model
+                        model_folder = "/".join(value.split("/")[:-1])
+                        model_name = value.split("/")[-1]
+                        model_name = "_".join(model_name.split("_")[4:])
+                        model_name = "current_best_" + model_name
+                        model_file = model_folder + "/" + model_name
 
                     # Loading the model
                     if hasattr(self, "optim"):
