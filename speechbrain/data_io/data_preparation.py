@@ -128,7 +128,7 @@ class copy_data_locally:
             "class_name": ("str", "mandatory"),
             "data_file": ("file_list", "mandatory"),
             "local_folder": ("str", "mandatory"),
-            "copy_cmd": ("str", "optional", "rsync"),
+            "copy_cmd": ("str", "optional", "scp"),
             "copy_opts": ("str", "optional", ""),
             "uncompress_cmd": ("str", "optional", "tar"),
             "uncompress_opts": ("str", "optional", "-zxf"),
@@ -251,16 +251,19 @@ class timit_prepare:
                                When set, this is the directiory where the
                                kaldi test alignments are stored.
 
+                           - phn_set (type: 60,48,39, optional,
+                               default: 39):
+                               It is the phoneme set to use in the phn label.
+                               It could be composed of 60, 48, or 39 phonemes.
+
+                           - uppercase (type: bool, optional, default: False):
+                               This option must be True when the TIMIT dataset
+                               is in the upper-case version.
+
                            - save_folder (type: str,optional, default: None):
                                it the folder where to store the csv files.
                                If None, the results will be saved in
                                $output_folder/prepare_timit/*.csv.
-
-                           - phn_set (type: '60','48','39',optional,
-                               default: 39):
-                               it the set of phonemes to use for the phn
-                               label. It could be composed of 60, 48, or
-                               39 phonemes.
 
                    - funct_name (type, str, optional, default: None):
                        it is a string containing the name of the parent
@@ -332,7 +335,8 @@ class timit_prepare:
             "kaldi_ali_test": ("directory", "optional", "None"),
             "kaldi_lab_opts": ("str", "optional", "None"),
             "save_folder": ("str", "optional", "None"),
-            "phn_set": ("one_of(60,48,39)", "optional", "39"),
+            "phn_set": ("one_of(60,48,39", "optional", "39"),
+            "uppercase": ("bool", "optional", "False"),
         }
 
         # Check, cast , and expand the options
@@ -576,6 +580,15 @@ class timit_prepare:
         # Setting file extension.
         self.extension = [".wav"]
 
+        # Checking TIMIT_uppercase
+        if self.uppercase:
+            self.avoid_sentences = [
+                item.upper() for item in self.avoid_sentences
+            ]
+            self.extension = [item.upper() for item in self.extension]
+            self.dev_spk = [item.upper() for item in self.dev_spk]
+            self.test_spk = [item.upper() for item in self.test_spk]
+
         # Setting the save folder
         if self.save_folder is None:
             self.output_folder = self.global_config["output_folder"]
@@ -612,7 +625,12 @@ class timit_prepare:
 
         # Creating csv file for training data
         if "train" in self.splits:
-            match_lst = self.extension + ["train"]
+
+            # Checking TIMIT_uppercase
+            if self.uppercase:
+                match_lst = self.extension + ["TRAIN"]
+            else:
+                match_lst = self.extension + ["train"]
 
             wav_lst_train = get_all_files(
                 self.data_folder,
@@ -630,7 +648,12 @@ class timit_prepare:
 
         # Creating csv file for dev data
         if "dev" in self.splits:
-            match_lst = self.extension + ["test"]
+
+            # Checking TIMIT_uppercase
+            if self.uppercase:
+                match_lst = self.extension + ["TEST"]
+            else:
+                match_lst = self.extension + ["test"]
 
             wav_lst_dev = get_all_files(
                 self.data_folder,
@@ -649,7 +672,12 @@ class timit_prepare:
 
         # Creating csv file for test data
         if "test" in self.splits:
-            match_lst = self.extension + ["test"]
+
+            # Checking TIMIT_uppercase
+            if self.uppercase:
+                match_lst = self.extension + ["TEST"]
+            else:
+                match_lst = self.extension + ["test"]
 
             wav_lst_test = get_all_files(
                 self.data_folder,
@@ -880,8 +908,11 @@ class timit_prepare:
             signal = read_wav_soundfile(wav_file, logger=logfile)
             duration = signal.shape[0] / self.samplerate
 
-            # Retrieving words
-            wrd_file = wav_file.replace(".wav", ".wrd")
+            # Retrieving words and check for uppercase
+            if self.uppercase:
+                wrd_file = wav_file.replace(".WAV", ".WRD")
+            else:
+                wrd_file = wav_file.replace(".wav", ".wrd")
             if not os.path.exists(os.path.dirname(wrd_file)):
 
                 err_msg = "the wrd file %s does not exists!" % (wrd_file)
@@ -895,7 +926,10 @@ class timit_prepare:
             words = " ".join(words)
 
             # Retrieving phonemes
-            phn_file = wav_file.replace(".wav", ".phn")
+            if self.uppercase:
+                phn_file = wav_file.replace(".WAV", ".PHN")
+            else:
+                phn_file = wav_file.replace(".wav", ".phn")
 
             if not os.path.exists(os.path.dirname(phn_file)):
 
@@ -949,7 +983,7 @@ class timit_prepare:
             # Adding this line to the csv_lines list
             csv_lines.append(csv_line)
 
-        # -Writing the csv lines
+        # Writing the csv lines
         with open(csv_file, mode="w") as csv_f:
             csv_writer = csv.writer(
                 csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
@@ -997,22 +1031,30 @@ class timit_prepare:
          ---------------------------------------------------------------------
          """
 
+        # Creating checking string wrt to lower or uppercase
+        if self.uppercase:
+            test_str = "/TEST/DR1"
+            train_str = "/TRAIN/DR1"
+        else:
+            test_str = "/test/dr1"
+            train_str = "/train/dr1"
+
         # Checking test/dr1
-        if not os.path.exists(self.data_folder + "/test/dr1"):
+        if not os.path.exists(self.data_folder + test_str):
 
             err_msg = (
                 "the folder %s does not exist (it is expected in "
-                "the TIMIT dataset)" % (self.data_folder + "/test/dr*")
+                "the TIMIT dataset)" % (self.data_folder + test_str)
             )
 
             logger_write(err_msg, logfile=self.logger)
 
         # Checking train/dr1
-        if not os.path.exists(self.data_folder + "/train/dr1"):
+        if not os.path.exists(self.data_folder + train_str):
 
             err_msg = (
                 "the folder %s does not exist (it is expected in "
-                "the TIMIT dataset)" % (self.data_folder + "/train/dr*")
+                "the TIMIT dataset)" % (self.data_folder + train_str)
             )
 
             logger_write(err_msg, logfile=self.logger)
