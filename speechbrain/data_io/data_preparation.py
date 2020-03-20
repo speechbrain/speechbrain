@@ -128,7 +128,7 @@ class copy_data_locally:
             "class_name": ("str", "mandatory"),
             "data_file": ("file_list", "mandatory"),
             "local_folder": ("str", "mandatory"),
-            "copy_cmd": ("str", "optional", "rsync"),
+            "copy_cmd": ("str", "optional", "scp"),
             "copy_opts": ("str", "optional", ""),
             "uncompress_cmd": ("str", "optional", "tar"),
             "uncompress_opts": ("str", "optional", "-zxf"),
