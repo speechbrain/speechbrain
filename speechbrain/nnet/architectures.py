@@ -117,6 +117,7 @@ class linear(nn.Module):
         self.expected_options = {
             "class_name": ("str", "mandatory"),
             "recovery": ("bool", "optional", "True"),
+            "recovery_type": ("one_of(last,best)", "optional", "best"),
             "initialize_with": ("str", "optional", "None"),
             "n_neurons": ("int(1,inf)", "mandatory"),
             "bias": ("bool", "optional", "True"),
@@ -293,6 +294,7 @@ class linear_combination(nn.Module):
         self.expected_options = {
             "class_name": ("str", "mandatory"),
             "recovery": ("bool", "optional", "True"),
+            "recovery_type": ("one_of(last,best)", "optional", "best"),
             "initialize_with": ("str", "optional", "None"),
             "bias": ("bool", "optional", "True"),
         }
@@ -556,6 +558,7 @@ class conv(nn.Module):
         self.expected_options = {
             "class_name": ("str", "mandatory"),
             "recovery": ("bool", "optional", "True"),
+            "recovery_type": ("one_of(last,best)", "optional", "best"),
             "initialize_with": ("str", "optional", "None"),
             "out_channels": ("int(1,inf)", "mandatory"),
             "kernel_size": ("int_list(1,inf)", "mandatory"),
@@ -1091,6 +1094,7 @@ class SincConv(nn.Module):
         self.expected_options = {
             "class_name": ("str", "mandatory"),
             "recovery": ("bool", "optional", "True"),
+            "recovery_type": ("one_of(last,best)", "optional", "best"),
             "initialize_with": ("str", "optional", "None"),
             "out_channels": ("int(1,inf)", "mandatory"),
             "kernel_size": ("int(1,inf)", "mandatory"),
@@ -1609,6 +1613,7 @@ class RNN_basic(nn.Module):
         self.expected_options = {
             "class_name": ("str", "mandatory"),
             "recovery": ("bool", "optional", "True"),
+            "recovery_type": ("one_of(last,best)", "optional", "best"),
             "initialize_with": ("str", "optional", "None"),
             "rnn_type": ("one_of(rnn,lstm,gru,ligru,qrnn)", "mandatory"),
             "n_neurons": ("int(1,inf)", "mandatory"),

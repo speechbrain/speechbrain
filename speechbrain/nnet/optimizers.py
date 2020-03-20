@@ -214,6 +214,7 @@ class optimize(nn.Module):
             ),
             "learning_rate": ("float", "mandatory"),
             "recovery": ("bool", "optional", "True"),
+            "recovery_type": ("one_of(last,best)", "optional", "best"),
             "alpha": ("float", "optional", "0.95"),
             "betas": ("float_list", "optional", "0.9,0.999"),
             "etas": ("float_list", "optional", "0.5,1.2"),

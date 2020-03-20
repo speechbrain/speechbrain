@@ -192,6 +192,7 @@ class normalize(nn.Module):
                 "mandatory",
             ),
             "recovery": ("bool", "optional", "True"),
+            "recovery_type": ("one_of(last,best)", "optional", "best"),
             "initialize_with": ("str", "optional", "None"),
             "eps": ("float(0,inf)", "optional", "1e-05"),
             "momentum": ("float(0,inf)", "optional", "0.1"),

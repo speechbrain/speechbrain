@@ -647,6 +647,7 @@ class FBANKs(nn.Module):
             "top_db": ("float", "optional", "80"),
             "freeze": ("bool", "optional", "True"),
             "recovery": ("bool", "optional", "True"),
+            "recovery_type": ("one_of(last,best)", "optional", "best"),
             "initialize_with": ("str", "optional", "None"),
         }
 
@@ -1761,6 +1762,7 @@ class mean_var_norm(nn.Module):
             ),
             "avg_factor": ("float(0,1)", "optional", "None"),
             "recovery": ("bool", "optional", "True"),
+            "recovery_type": ("one_of(last,best)", "optional", "best"),
         }
 
         # Check, cast , and expand the options
