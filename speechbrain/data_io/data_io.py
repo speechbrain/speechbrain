@@ -1879,7 +1879,8 @@ class print_predictions:
                 if self.ctc_out:
 
                     # Filtering the ctc output predictions
-                    string_pred = filter_ctc_output(string_pred)
+                    string_pred = filter_ctc_output(string_pred,
+                                                    blank_id='blank')
 
                 # Converting list to string
                 len_str = len(string_pred)
@@ -1942,13 +1943,13 @@ def filter_ctc_output(string_pred, blank_id=-1, logger=None):
             for i, v in enumerate(string_pred)
             if i == 0 or v != string_pred[i - 1]
         ]
-      
+
         # Removing duplicates
         string_out = [i[0] for i in groupby(string_out)]
-        
+
         # Filterning the blank symbol
         string_out = list(filter(lambda elem: elem != blank_id, string_out))
-        
+
     return string_out
 
 
