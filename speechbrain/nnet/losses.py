@@ -501,6 +501,10 @@ class compute_cost(nn.Module):
          """
         # Computing predictions
         scores, predictions = torch.max(prob, dim=0)
+        
+        # Converting labels and prediction to lists (faster)
+        lab = lab.tolist()
+        predictions = predictions.tolist()
 
         # If the case of CTC, filter the predicted output
         if "ctc" in self.cost_type:

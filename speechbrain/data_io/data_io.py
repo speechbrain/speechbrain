@@ -24,6 +24,7 @@ import subprocess
 import numpy as np
 import soundfile as sf
 import multiprocessing as mp
+from itertools import groupby
 from multiprocessing import Manager
 from torch.utils.data import Dataset, DataLoader
 from speechbrain.utils.input_validation import check_opts, check_inputs
@@ -1928,7 +1929,7 @@ def filter_ctc_output(string_pred, blank_id=-1, logger=None):
 
                 string_pred = ['a','a','blank','b','b','blank','c']
 
-                string_out = filter_ctc_output(string_pred)
+                string_out = filter_ctc_output(string_pred, blank_id='blank')
 
                 print(string_out)
      --------------------------------------------.----------------------------
@@ -1941,38 +1942,13 @@ def filter_ctc_output(string_pred, blank_id=-1, logger=None):
             for i, v in enumerate(string_pred)
             if i == 0 or v != string_pred[i - 1]
         ]
-
+      
+        # Removing duplicates
+        string_out = [i[0] for i in groupby(string_out)]
+        
         # Filterning the blank symbol
-        string_out = list(filter(lambda elem: elem != "blank", string_out))
-
-    if isinstance(string_pred, torch.Tensor):
-
-        if blank_id < 0:
-            err_msg = (
-                "The blank index specified whe calling filter_ctc_output "
-                "is not valid (got %i)" % (blank_id)
-            )
-
-            logger_write(err_msg, logfile=logger)
-
-        # remove duplicates
-        string_out = []
-
-        # Looping over all the elements of the tensor
-        for index, elem in enumerate(string_pred):
-
-            # Check if the two consecutive elements are equal
-            if index > 0 and elem == string_pred[index - 1]:
-                continue
-            else:
-                string_out.append(elem)
-
-        # Output a LongTensor
-        string_out = torch.LongTensor(string_out)
-
-        # remove blank
-        string_out = string_out[string_out != blank_id]
-
+        string_out = list(filter(lambda elem: elem != blank_id, string_out))
+        
     return string_out
 
 
