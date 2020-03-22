@@ -172,7 +172,7 @@ class STFT(nn.Module):
             "pad_mode": (
                 "one_of(constant,reflect,replicate,circular)",
                 "optional",
-                "reflect",
+                "constant",
             ),
             "onesided": ("bool", "optional", "True"),
         }
