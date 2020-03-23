@@ -1657,8 +1657,8 @@ class RNN_basic(nn.Module):
 
                 logger_write(err_msg, logfile=logger)
 
-                if len(first_input[0].shape) > 3:
-                    self.reshape = True
+            if len(first_input[0].shape) > 3:
+                self.reshape = True
 
         # Computing the feature dimensionality
         self.fea_dim = torch.prod(torch.tensor(first_input[0].shape[1:-1]))
