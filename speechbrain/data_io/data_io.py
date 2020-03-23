@@ -1879,13 +1879,17 @@ class print_predictions:
                 if self.ctc_out:
 
                     # Filtering the ctc output predictions
-                    string_pred = filter_ctc_output(string_pred,
-                                                    blank_id='blank')
+                    string_pred = filter_ctc_output(
+                        string_pred, blank_id="blank"
+                    )
 
                 # Converting list to string
                 len_str = len(string_pred)
                 if isinstance(string_pred, list):
                     string_pred = " ".join(str(x) for x in string_pred)
+
+                    # Filtering sil sil patterns
+                    string_pred = string_pred.replace("sil sil", "sil")
 
                 # Writing the output
                 msg = "%s\t%s\t%.3f" % (snt_id, string_pred, current_score)

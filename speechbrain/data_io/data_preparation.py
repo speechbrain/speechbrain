@@ -957,6 +957,9 @@ class timit_prepare:
 
             phonemes = " ".join(phonemes)
 
+            # Filtering consecutive silences
+            phonemes = phonemes.replace("sil sil", "sil")
+
             # Composition of the csv_line
             csv_line = [
                 snt_id,
