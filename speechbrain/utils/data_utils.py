@@ -7,7 +7,15 @@
 """
 
 import os
+import re
+import copy
+import yaml
+import logging
+import ruamel.yaml
 import collections.abc
+from io import StringIO
+from pydoc import locate
+logger = logging.getLogger(__name__)
 
 
 def get_all_files(
@@ -21,36 +29,33 @@ def get_all_files(
                   folder. Different options can be used to restrict the search
                   to some specific patterns.
 
-     Input (call):     - dirName (type: directory, mandatory):
-                           it is the configuration dictionary.
+     Input (call):
+        - dirName (type: directory, mandatory):
+            it is the configuration dictionary.
 
-                       - match_and (type: list, optional, default:None):
-                           it is a list that contains pattern to match. The
-                           file is returned if all the entries in match_and
-                           are founded.
+        - match_and (type: list, optional, default:None):
+            it is a list that contains pattern to match. The
+            file is returned if all the entries in match_and
+            are founded.
 
-                       - match_or (type: list, optional, default:None):
-                           it is a list that contains pattern to match. The
-                           file is returned if one the entries in match_or are
-                           founded.
+        - match_or (type: list, optional, default:None):
+            it is a list that contains pattern to match. The
+            file is returned if one the entries in match_or are
+            founded.
 
-                       - exclude_and (type: list, optional, default:None):
-                           it is a list that contains pattern to match. The
-                           file is returned if all the entries in match_or are
-                            not founded.
+        - exclude_and (type: list, optional, default:None):
+            it is a list that contains pattern to match. The
+            file is returned if all the entries in match_or are
+            not founded.
 
-                       - exclude_or (type: list, optional, default:None):
-                           it is a list that contains pattern to match. The
-                           file is returned if one of the entries in match_or
-                           is not founded.
+        - exclude_or (type: list, optional, default:None):
+            it is a list that contains pattern to match. The
+            file is returned if one of the entries in match_or
+            is not founded.
 
-                      - logger (type: logger, optional, default: None):
-                       it the logger used to write debug and error messages.
-
-
-     Output (call):  - allFiles(type:list):
-                       it is the output list of files.
-
+     Output (call):
+        - allFiles(type:list):
+            it is the output list of files.
 
      Example:   from speechbrain.utils.data_utils import get_all_files
 
@@ -243,3 +248,186 @@ def recursive_update(d, u):
         else:
             d[k] = v
     return d
+
+
+def load_extended_yaml(
+    yaml_string,
+    overrides={},
+):
+    """
+    Description:
+        This function implements the SpeechBrain extended YAML syntax
+        by providing parser for it. The purpose for this syntax is a compact,
+        structured hyperparameter and computation block definition. This
+        function implements two extensions to the yaml syntax, $-reference
+        and object instantiation.
+
+        $-reference substitution:
+            Allows internal references. These are restricted to refer to
+            keys listed in the `constants` section. A value of $<key> gets
+            replaced by the value mapped to <key> in the `constants` section:
+
+            ```
+            constants:
+                experiment_dir: exp/asr
+            alignment_saver: !asr.ali.hmm.save
+                save_dir: !$experiment_dir # replaced with exp/asr
+            ```
+
+            Strings values are handled specially: $-strings are substituted but
+            the rest of the string is left in place, allowing for example
+            filepaths to be easily extended:
+
+            ```
+            constants:
+                experiment_dir: exp/asr/
+            alignment_saver: !asr.ali.hmm.save
+                save_dir: !$experiment_dir/ali # exp/asr/ali
+            ```
+
+        object instantiation:
+            If a '!' tag is used, the node is interpreted as the parameters
+            for instantiating the named class. In the previous example,
+            the alignment_saver will be an instance of the asr.ali.hmm.save
+            class, with 'exp/asr/ali' passed to the __init__() method as
+            a keyword argument. This is equivalent to:
+
+            ```
+            import asr.ali.hmm
+            alignment_saver = asr.ali.hmm.save(save_dir='exp/asr/ali')
+            ```
+
+    Input:
+        yaml_string:
+            A file-like object or string from which to read.
+
+        overrides:
+            mapping with which to override the values read the string.
+            As yaml implements a nested structure, so can the overrides.
+            See speechbrain.utils.data_utils.recursive_update
+
+    Output:
+        A dictionary reflecting the structure of `yaml_string`.
+
+    Authors:
+        Aku Rouhe and Peter Plantinga 2020
+    """
+
+    # Load once to store references and apply overrides
+    # using ruamel.yaml to preserve the tags
+    ruamel_yaml = ruamel.yaml.YAML()
+    preview = ruamel_yaml.load(yaml_string)
+    preview = recursive_update(preview, overrides)
+    constants = {}
+    if 'constants' in preview:
+        constants = preview['constants']
+
+    # Dump back to string so we can load with bells and whistles
+    yaml_string = StringIO()
+    ruamel_yaml.dump(preview, yaml_string)
+    yaml_string.seek(0)
+
+    def obj_and_ref_constructor(loader, tag_suffix, node):
+        if '$' in tag_suffix:
+            # Check that the node is a scalar
+            loader.construct_scalar(node)
+            return _recursive_resolve(tag_suffix, [], constants)
+        else:
+            return object_constructor(loader, tag_suffix, node)
+
+    yaml.SafeLoader.add_multi_constructor('!', obj_and_ref_constructor)
+    return yaml.safe_load(yaml_string)
+
+
+def object_constructor(loader, tag_suffix, node):
+    """
+    Description:
+        A constructor method for a '!' tag with a class name. The class
+        is instantiated, and the sub-tree is passed as arguments.
+
+    Inputs:
+        - loader: loader
+            The loader used to call this constructor (e.g. yaml.SafeLoader)
+
+        - tag_suffix: string
+            The rest of the tag (after the '!' in this case)
+
+        - node: node
+            The sub-tree belonging to the tagged node
+
+    Outputs:
+        The instantiated class
+
+    Author:
+        Peter Plantinga 2020
+    """
+    class_ = locate(tag_suffix)
+
+    # Parse arguments from the node
+    kwargs = {}
+    if isinstance(node, yaml.MappingNode):
+        kwargs = loader.construct_mapping(node, deep=True)
+    elif isinstance(node, yaml.SequenceNode):
+        args = loader.construct_sequence(node, deep=True)
+        signature = inspect.signature(class_)
+        kwargs = signature.bind(*args).arguments
+
+    return class_(**kwargs)
+
+
+def deref(ref, constants):
+    """
+    Description:
+        Find the value referred to by a reference in dot-notation
+
+    Inputs:
+        - ref: string
+            The location of the requested value, e.g. 'constants.value'
+
+        - constants: dict
+            The constants dictionary to search
+
+    Author:
+        Peter Plantinga 2020
+    """
+
+    # Follow references in dot notation
+    for part in ref[1:].split('.'):
+        if part not in constants:
+            error_msg = 'Constants does not include %s' % ref
+            logger.error(error_msg, exc_info=True)
+        constants = constants[part]
+
+    # For ruamel.yaml classes, the value is in the tag attribute
+    try:
+        constants = constants.tag.value[1:]
+    except AttributeError:
+        pass
+
+    return constants
+
+
+def _recursive_resolve(reference, reference_list, constants):
+    reference_finder = re.compile(r'\$[\w.]+')
+    if len(reference_list) > 1 and reference in reference_list[1:]:
+        raise ValueError("Circular reference detected: ", reference_list)
+
+    # Base case, no '$' present
+    if '$' not in str(reference):
+        return reference
+
+    # First check for a full match. These replacements preserve type
+    if reference_finder.fullmatch(reference):
+        value = deref(reference, constants)
+        reference_list += [reference]
+        return _recursive_resolve(value, reference_list, constants)
+
+    # Next, do replacements within the string (interpolation)
+    matches = reference_finder.findall(reference)
+    reference_list += [match[0] for match in matches]
+
+    def replace_fn(x):
+        return str(deref(x[0], constants))
+
+    sub = reference_finder.sub(replace_fn, reference)
+    return _recursive_resolve(sub, reference_list, constants)

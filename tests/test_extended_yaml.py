@@ -2,7 +2,7 @@ import pytest
 
 
 def test_load_extended_yaml():
-    from speechbrain.core import load_extended_yaml
+    from speechbrain.utils.data_utils import load_extended_yaml
     # Basic functionality
     # NOTE: using unittest.TestCase as an importable standard library class
     yaml = """
@@ -10,7 +10,7 @@ def test_load_extended_yaml():
         a: 1
     thing: !unittest.TestCase
     """
-    things, variables = load_extended_yaml(yaml, string=True)
+    things, variables = load_extended_yaml(yaml)
     assert variables.a == 1
     from unittest import TestCase
     assert things.thing.__class__ == TestCase
@@ -19,11 +19,11 @@ def test_load_extended_yaml():
     thing: !unittest.TestCase
     """
     with pytest.raises(ValueError):
-        things, variables = load_extended_yaml(yaml, string=True)
+        things, variables = load_extended_yaml(yaml)
     assert variables == {}
     yaml = """
     """
-    things, variables = load_extended_yaml(yaml, string=True)
+    things, variables = load_extended_yaml(yaml)
     assert things == {}
     assert variables == {}
     # String replacement
@@ -34,7 +34,7 @@ def test_load_extended_yaml():
     thing: !unittest.TestCase
         a: !$a
     """
-    things, variables = load_extended_yaml(yaml, string=True)
+    things, variables = load_extended_yaml(yaml)
     assert things.thing['a'] == variables.a
     assert variables.b == variables.a
     # Partial substitution:
@@ -43,7 +43,7 @@ def test_load_extended_yaml():
         a: "a"
         b: !$a/b
     """
-    things, variables = load_extended_yaml(yaml, string=True)
+    things, variables = load_extended_yaml(yaml)
     assert variables['b'] == 'a/b'
     # Partial substitution with bad val raises TypeError:
     yaml = """
@@ -52,7 +52,7 @@ def test_load_extended_yaml():
         b: !$a/
     """
     with pytest.raises(TypeError):
-        load_extended_yaml(yaml, string=True)
+        load_extended_yaml(yaml)
     # Nested structures:
     yaml = """
     variables:
@@ -61,7 +61,7 @@ def test_load_extended_yaml():
         other: !unittest.TestCase
             a: !$a
     """
-    things, variables = load_extended_yaml(yaml, string=True)
+    things, variables = load_extended_yaml(yaml)
     assert things['thing']['other']['object'] == TestCase
     assert things['thing']['other']['a'] == variables.a
     yaml = """
@@ -71,7 +71,7 @@ def test_load_extended_yaml():
         - !$a
         - object: !unittest.TestCase
     """
-    things, variables = load_extended_yaml(yaml, string=True)
+    things, variables = load_extended_yaml(yaml)
     assert isinstance(things['thing'][1], dict)
     assert things['thing'][1]['object'] == TestCase
     assert things['thing'][0] == variables.a

@@ -35,6 +35,7 @@ train_loader: !speechbrain.data_io.data_io.create_dataloader
     csv_file: !$csv_train
     batch_size: !$N_batch
     sentence_sorting: ascending
+    output_folder: !$output_folder
     csv_read:
         - wav
         - phn
@@ -43,6 +44,7 @@ valid_loader: !speechbrain.data_io.data_io.create_dataloader
     csv_file: !$csv_valid
     batch_size: !$N_batch
     sentence_sorting: ascending
+    output_folder: !$output_folder
     csv_read:
         - wav
         - phn
@@ -50,6 +52,7 @@ valid_loader: !speechbrain.data_io.data_io.create_dataloader
 test_loader: !speechbrain.data_io.data_io.create_dataloader
     csv_file: !$csv_test
     batch_size: 1
+    output_folder: !$output_folder
     csv_read:
         - wav
         - phn
@@ -69,6 +72,7 @@ save_checkpoint: !speechbrain.data_io.data_io.save_ckpt
     write_result: True
 
 compute_features: !recipes.features.mfcc_features.mfcc_features
+    sample_rate: !$sample_rate
 
 mean_var_norm: !speechbrain.processing.features.mean_var_norm
     norm_type: global

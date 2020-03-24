@@ -314,71 +314,61 @@ class add_noise(SpeechBrainModule):
     speechbrain.processing.speech_augmentation.add_noise
     (author: Peter Plantinga)
 
-    Description: This class additively combines a noise signal to the input
-                 signal. The noise can come from a provided file or
-                 from a generated white noise signal.
+    Description:
+        This class additively combines a noise signal to the input signal. The
+        noise can come from a provided file or from a generated noise signal.
 
-    Input: - csv_file (type: str, default: None):
-               The csv file containing the location of the noise audio files.
-               If none is provided, white noise will be used instead.
+    Input:
+        - csv_file (type: str, default: None):
+            The csv file containing the location of the noise audio files.
+            If none is provided, white noise will be used instead.
 
-           - order (type: str, default: 'random'):
-               The order to iterate the csv file, from one of the following
-               options: random, original, ascending, and descending.
+        - order (type: str, default: 'random'):
+            The order to iterate the csv file, from one of the following
+            options: random, original, ascending, and descending.
 
-           - batch_size (type: int, default: None):
-               If an csv_file is passed, this controls the number of samples
-               that are loaded at the same time, should be the same as or less
-               than the size of the clean batch. If `None` is passed, the size
-               of the first clean batch will be used.
+        - batch_size (type: int, default: None):
+           If an csv_file is passed, this controls the number of samples
+           that are loaded at the same time, should be the same as or less
+           than the size of the clean batch. If `None` is passed, the size
+           of the first clean batch will be used.
 
-           - do_cache (type: bool, default: False):
-               Whether or not to store noise files in the cache.
+       - do_cache (type: bool, default: False):
+           Whether or not to store noise files in the cache.
 
-           - snr_low (type: float, default: 0):
-               The low end of the mixing ratios, in decibels.
+       - snr_low (type: float, default: 0):
+           The low end of the mixing ratios, in decibels.
 
-           - snr_high (type: float, default: 0):
-               The high end of the mixing ratios, in decibels.
+       - snr_high (type: float, default: 0):
+           The high end of the mixing ratios, in decibels.
 
-           - pad_noise (type: bool, default: False):
-               If True, copy noise signals that are shorter than their
-               corresponding clean signals so as to cover the whole clean
-               signal. Otherwise, leave the noise un-padded.
+       - pad_noise (type: bool, default: False):
+           If True, copy noise signals that are shorter than their
+           corresponding clean signals so as to cover the whole clean
+           signal. Otherwise, leave the noise un-padded.
 
-           - mix_prob (type: float, default: 1.0):
-               The probability that a batch of signals will be mixed with a
-               noise signal. By default, every batch is mixed with noise.
+       - mix_prob (type: float, default: 1.0):
+           The probability that a batch of signals will be mixed with a
+           noise signal. By default, every batch is mixed with noise.
 
-    Example: import torch
-             import soundfile as sf
-             from speechbrain.data_io.data_io import save
-             from speechbrain.processing.speech_augmentation import add_noise
-
-             # reading an audio signal
-             signal, rate = sf.read('samples/audio_samples/example1.wav')
-
-             # Initialization of the class
-             noisifier = add_noise(
-                'csv_file': 'samples/noise_samples/noise.csv',
-                'batch_size': 1,
-             )
-
-             # Executing computations
-             clean = torch.tensor([signal], dtype=torch.float32)
-             clean_len = torch.ones(1)
-             noisy = noisifier(clean, clean_len)
-
-             # class initialization
-             save_signal = save(
-                'save_folder': 'exp/write_example',
-                'save_format': 'wav',
-             )
-
-             # saving
-             save_signal(noisy, ['example_add_noise'], clean_len)
-
-             # signal save in exp/write_example
+    Example:
+        >>> import torch
+        >>> import soundfile as sf
+        >>> from speechbrain.data_io.data_io import save
+        >>> from speechbrain.processing.speech_augmentation import add_noise
+        >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
+        >>> noisifier = add_noise(
+        ...    csv_file='samples/noise_samples/noise.csv',
+        ...    batch_size=1,
+        ... )
+        >>> clean = torch.tensor([signal], dtype=torch.float32)
+        >>> clean_len = torch.ones(1)
+        >>> noisy = noisifier(clean, clean_len)
+        >>> save_signal = save(
+        ...    save_folder='exp/write_example',
+        ...    save_format='wav',
+        ... )
+        >>> save_signal(noisy, ['example_add_noise'], clean_len)
     -------------------------------------------------------------------------
     """
 

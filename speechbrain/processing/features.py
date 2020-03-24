@@ -1264,7 +1264,7 @@ class context_window(SpeechBrainModule):
         return cw_x
 
 
-class mean_var_norm(SpeechBrainModule):
+class mean_var_norm(torch.nn.Module):
     def __init__(
         self,
         mean_norm=True,
@@ -1272,31 +1272,16 @@ class mean_var_norm(SpeechBrainModule):
         norm_type='global',
         avg_factor=None,
         do_recovery=True,
-        **kwargs
+        output_folder=None,
     ):
-        # Expected inputs when calling the class
-        if norm_type == "speaker":
-            expected_inputs = [
-                {'type': 'torch.Tensor'},
-                {'type': 'torch.Tensor'},
-                {'type': 'torch.Tensor'},
-            ]
-        else:
-            expected_inputs = [
-                {'type': 'torch.Tensor'},
-                {'type': 'torch.Tensor'},
-            ]
-
-        super().__init__(expected_inputs, **kwargs)
+        super().__init__()
 
         self.mean_norm = mean_norm
         self.std_norm = std_norm
         self.norm_type = norm_type
         self.avg_factor = avg_factor
         self.recovery = do_recovery
-
-        # Output folder (useful for parameter saving)
-        self.output_folder = self.global_config["output_folder"]
+        self.output_folder = output_folder
 
         # Parameter initialization
         self.glob_mean = 0

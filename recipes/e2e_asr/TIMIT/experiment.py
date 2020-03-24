@@ -1,6 +1,7 @@
 import torch
-from speechbrain.core import start_experiment
-sb, constants = load_extended_yaml('params.yaml', start_experiment=True)
+from tqdm import tqdm
+from speechbrain.core import Experiment
+sb = Experiment('params.yaml')
 
 
 def main():
@@ -12,17 +13,17 @@ def main():
     model = torch.nn.Sequential(sb.RNN, sb.lin, sb.softmax).cuda()
 
     # training/validation epochs
-    for epoch in range(constants.N_epochs):
+    for epoch in range(sb.constants['N_epochs']):
         train_loss = {'loss': []}
         valid_loss = {'loss': [], 'wer': []}
 
         # Iterate train and perform updates
-        for wav, phn in zip(*sb.train_loader()):
+        for wav, phn in tqdm(zip(*sb.train_loader())):
             neural_computations(train_loss, model, wav, phn, 'train')
 
         # Iterate validataion to check progress
         with torch.no_grad():
-            for wav, phn in zip(*sb.valid_loader()):
+            for wav, phn in tqdm(zip(*sb.valid_loader())):
                 neural_computations(valid_loss, model, wav, phn, 'valid')
 
             sb.lr_annealing([sb.optimizer], epoch, mean(valid_loss['wer']))
@@ -35,7 +36,7 @@ def main():
 
     # Evaluate our model
     test_loss = {'loss': [], 'wer': []}
-    for wav, phn in zip(*sb.test_loader()):
+    for wav, phn in tqdm(zip(*sb.test_loader())):
         neural_computations(test_loss, model, wav, phn, 'test')
 
     print("Final WER: %f" % mean(test_loss['wer']))
