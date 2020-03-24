@@ -1,6 +1,6 @@
 import torch
-from speechbrain.core import load_params
-sb, params = load_params('params.yaml')
+from speechbrain.core import start_experiment
+sb, constants = load_extended_yaml('params.yaml', start_experiment=True)
 
 
 def main():
@@ -12,7 +12,7 @@ def main():
     model = torch.nn.Sequential(sb.RNN, sb.lin, sb.softmax).cuda()
 
     # training/validation epochs
-    for epoch in range(int(params['N_epochs'])):
+    for epoch in range(constants.N_epochs):
         train_loss = {'loss': []}
         valid_loss = {'loss': [], 'wer': []}
 

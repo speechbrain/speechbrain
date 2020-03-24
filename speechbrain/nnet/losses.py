@@ -126,6 +126,14 @@ class compute_cost(SpeechBrainModule):
             {'type': 'list'},
         ]
 
+        self.cost_type = cost_type
+        self.avoid_pad = avoid_pad
+        self.allow_lab_diff = allow_lab_diff
+
+        # if not specified, set avoid_pad to False
+        if self.avoid_pad is None:
+            self.avoid_pad = [False] * len(self.cost_type)
+
         def hook(self, input):
 
             # Adding cost functions is a list
@@ -155,21 +163,11 @@ class compute_cost(SpeechBrainModule):
 
         super().__init__(expected_inputs, hook, **kwargs)
 
-        self.cost_type = cost_type
-        self.avoid_pad = avoid_pad
-        self.allow_lab_diff = allow_lab_diff
-
-        # if not specified, set avoid_pad to False
-        if self.avoid_pad is None:
-            self.avoid_pad = [False] * len(self.cost_type)
-
-        self.first_call = True
-
     def forward(self, prediction, target, lengths):
         """
         Input: - prediction (type: torch.Tensor, mandatory)
                    the output of the neural network,
-                
+
                - target (type: torch.Tensor, mandatory)
                    the label
 

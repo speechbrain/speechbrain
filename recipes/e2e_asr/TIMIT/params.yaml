@@ -1,4 +1,4 @@
-global:
+constants:
 
     # Basic parameters
     output_folder: exp/TIMIT_CTC
@@ -10,84 +10,70 @@ global:
     # Data files
     data_file: /home/peter/Downloads/TIMIT.tar.gz
     local_data_folder: /tmp/timit_experiment
-    csv_train: $local_data_folder/train.csv
-    csv_valid: $local_data_folder/dev.csv
-    csv_test: $local_data_folder/test.csv
+    csv_train: !$local_data_folder/train.csv
+    csv_valid: !$local_data_folder/dev.csv
+    csv_test: !$local_data_folder/test.csv
 
     # Neural Parameters
     N_epochs: 28
     N_batch: 16
     lr: 0.0005
 
-    # Other Parameters
-    sample_rate: 16000
-    seed: 456
+copy_locally: !speechbrain.data_io.data_preparation.copy_data_locally
+    data_file: !$data_file
+    local_folder: !$local_data_folder
 
-copy_locally:
-    class_name: speechbrain.data_io.data_preparation.copy_data_locally
-    data_file: $data_file
-    local_folder: $local_data_folder
-
-prepare_timit:
-    class_name: speechbrain.data_io.data_preparation.timit_prepare
-    data_folder: $local_data_folder
+prepare_timit: !speechbrain.data_io.data_preparation.timit_prepare
+    data_folder: !$local_data_folder
     splits:
         - train
         - dev
         - test
-    save_folder: $local_data_folder
+    save_folder: !$local_data_folder
 
-train_loader:
-    class_name: speechbrain.data_io.data_io.create_dataloader
-    csv_file: $csv_train
-    batch_size: $N_batch
+train_loader: !speechbrain.data_io.data_io.create_dataloader
+    csv_file: !$csv_train
+    batch_size: !$N_batch
     sentence_sorting: ascending
     csv_read:
         - wav
         - phn
 
-valid_loader:
-    class_name: speechbrain.data_io.data_io.create_dataloader
-    csv_file: $csv_valid
-    batch_size: $N_batch
+valid_loader: !speechbrain.data_io.data_io.create_dataloader
+    csv_file: !$csv_valid
+    batch_size: !$N_batch
     sentence_sorting: ascending
     csv_read:
         - wav
         - phn
 
-test_loader:
-    class_name: speechbrain.data_io.data_io.create_dataloader
-    csv_file: $csv_test
+test_loader: !speechbrain.data_io.data_io.create_dataloader
+    csv_file: !$csv_test
     batch_size: 1
     csv_read:
         - wav
         - phn
 
-lr_annealing:
-    class_name: speechbrain.nnet.lr_scheduling.lr_annealing
+lr_annealing: !speechbrain.nnet.lr_scheduling.lr_annealing
     annealing_type: newbob
-    N_epochs: $N_epochs
-    lr_initial: $lr
+    N_epochs: !$N_epochs
+    lr_initial: !$lr
     improvement_threshold: 0.0025
     annealing_factor: 0.8
     patient: 0
 
-save_checkpoint:
-    class_name: speechbrain.data_io.data_io.save_ckpt
-    save_folder: $output_folder/nnets/
+save_checkpoint: !speechbrain.data_io.data_io.save_ckpt
+    save_folder: !$output_folder/nnets/
     save_format: pkl
     save_last: 1
     write_result: True
 
-compute_features:
-    class_name: recipes.features.mfcc_features.mfcc_features
+compute_features: !recipes.features.mfcc_features.mfcc_features
 
-mean_var_norm:
-    class_name: speechbrain.processing.features.mean_var_norm
+mean_var_norm: !speechbrain.processing.features.mean_var_norm
     norm_type: global
 
-RNN:
-    class_name: speechbrain.nnet.architectures.RNN_basic
+RNN: !speechbrain.nnet.architectures.RNN_basic
     rnn_type: ligru
     n_neurons: 1024
     nonlinearity: relu
@@ -95,29 +81,21 @@ RNN:
     dropout: 0.3
     bidirectional: True
 
-lin:
-    class_name: speechbrain.nnet.architectures.linear
+lin: !speechbrain.nnet.architectures.linear
     n_neurons: 49 # 48 phonemes + blank (at the end)
     bias: False
 
-softmax:
-    class_name: speechbrain.nnet.architectures.activation
+softmax: !speechbrain.nnet.architectures.activation
     act_type: log_softmax
 
-compute_cost:
-    class_name: speechbrain.nnet.losses.compute_cost
-    cost_type:
-        - ctc
+compute_cost: !speechbrain.nnet.losses.compute_cost
+    cost_type: [ctc]
 
-compute_cost_wer:
-    class_name: speechbrain.nnet.losses.compute_cost
-    cost_type:
-        - ctc
-        - wer
+compute_cost_wer: !speechbrain.nnet.losses.compute_cost
+    cost_type: [ctc, wer]
 
-optimizer:
-    class_name: speechbrain.nnet.optimizers.optimize
+optimizer: !speechbrain.nnet.optimizers.optimize
     do_recovery: True
     optimizer_type: adam
-    learning_rate: $lr
+    learning_rate: !$lr
 

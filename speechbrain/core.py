@@ -1,150 +1,190 @@
-"""
- -----------------------------------------------------------------------------
- core.py
-
- Description: This library gathers important classes that implement crucial
-              functionalities of SpeechBrain.
- -----------------------------------------------------------------------------
-"""
-
-# Importing libraries
-import os
 import re
-import sys
-import ast
+import os
 import yaml
-import torch
 import inspect
-import argparse
-import itertools
-import torch.nn as nn
-from tqdm import tqdm
+import ruamel.yaml
+from io import StringIO
 from pydoc import locate
 from types import SimpleNamespace
-from speechbrain.data_io.data_io import create_dataloader, load_pkl, save_pkl
-from speechbrain.utils import (
-    check_opts,
-    import_class,
-    logger_write,
-    read_config,
-    setup_logger,
-    process_cmd_string,
-    conf_to_text,
-    write_config,
-)
+from speechbrain.utils.logger import setup_logger
+from speechbrain.utils.data_utils import recursive_update
 
 
-def load_params(params_filename, global_params={}):
+def load_extended_yaml(
+    yaml_filename,
+    overrides={},
+    logger=None,
+    start_experiment=False,
+):
+    """
+    Description:
+        This function implements the SpeechBrain extended YAML syntax
+        by providing parser for it. The purpose for this syntax is a compact,
+        structured hyperparameter and computation block definition. This
+        function implements two extensions to the yaml syntax, $-reference
+        and object instantiation.
 
-    # Find path of the calling file, so we can load the param
+        $-reference substitution:
+            Allows internal references. These are restricted to refer to
+            values in the variables on the top level of the variables section.
+            A value of $<key> gets replaced by the value mapped to <key>
+            in the variables section:
+
+            ```
+            constants:
+                experiment_dir: exp/asr
+            alignment_saver: !asr.ali.hmm.save
+                save_dir: !$constants.experiment_dir # replaced with exp/asr
+            ```
+
+            Strings values are handled specially: $-strings are substituted but
+            the rest of the string is left in place, allowing for example
+            filepaths to be easily extended:
+
+            ```
+            constants:
+                experiment_dir: exp/asr/
+            alignment_saver: !asr.ali.hmm.save
+                save_dir: !$constants.experiment_dir/ali # exp/asr/ali
+            ```
+
+        object instantiation:
+            If a '!' tag is used, the node is interpreted as the parameters
+            for instantiating the named class. In the previous example,
+            the alignment_saver will be an instance of the asr.ali.hmm.save
+            class, with 'exp/asr/ali' passed to the __init__() method as
+            a keyword argument. This is equivalent to:
+
+            ```
+            import asr.ali.hmm
+            alignment_saver = asr.ali.hmm.save(save_dir='exp/asr/ali')
+            ```
+
+    Input:
+        yaml_filename: a string representing a yaml filename, located
+            in the same directory as the file calling this one.
+        overrides: mapping with which to override the values read from f
+            As yaml implements a nested structure, so can the overrides.
+            See speechbrain.utils.data_utils.recursive_update
+        logger: A logger object for recording errors
+
+    Output:
+        class_specs - the loaded class specifications
+        variables - the loaded variables section
+
+    Authors:
+        Aku Rouhe and Peter Plantinga 2020
+    """
+    # Find path of the calling file, so we can load the yaml
     # file from the same directory
     calling_filename = inspect.getfile(inspect.currentframe().f_back)
     calling_dirname = os.path.dirname(os.path.abspath(calling_filename))
-    params_filepath = os.path.join(calling_dirname, params_filename)
+    yaml_filepath = os.path.join(calling_dirname, yaml_filename)
 
-    # Load all parameters
-    with open(params_filepath) as f:
-        params = yaml.load(f, Loader=yaml.Loader)
+    # Load once to store references and apply overrides
+    # using ruamel.yaml to preserve the tags
+    ruamel_yaml = ruamel.yaml.YAML()
+    preview = ruamel_yaml.load(open(yaml_filepath))
+    preview = recursive_update(preview, overrides)
 
-    # Create global parameters object
-    if 'global' in params:
-        global_params.update(params['global'])
-        del params['global']
+    # Dump back to string so we can load with bells and whistles
+    yaml_string = StringIO()
+    ruamel_yaml.dump(preview, yaml_string)
+    if 'constants' in preview:
+        const = preview['constants']
     else:
-        raise ValueError('global section required in params file')
+        raise ValueError("Required section: 'constants'")
 
-    # Parse overrides to global variables, e.g. --local_folder=xxx
-    if len(sys.argv) > 2:
-        parse_overrides(global_params, sys.argv[2:])
-
-    # Function to use for variable replacement
-    def var_replace(match_obj):
-        try:
-            return global_params[match_obj.group(1)]
-        except KeyError:
-            print("ERROR: %s not in global" % match_obj.group(1))
-            return match_obj.group(0)
-
-    # Replace variables with their values
-    def simple_string_replace(config, global_config):
-        full_pattern = re.compile(r'^\$(\w*)$')
-        sub_pattern = re.compile(r'\$(\w*)')
-        for key in config:
-            try:
-                # If the whole variable is matched, preserve type
-                match = full_pattern.match(config[key])
-                if match is not None:
-                    config[key] = var_replace(match)
-
-                # If a sub-string is matched, replace with a string
-                else:
-                    config[key] = sub_pattern.sub(var_replace, config[key])
-
-            # Ignore errors due to variable not being a string
-            except TypeError:
-                pass
-
-    # Update global_params
-    simple_string_replace(global_params, global_params)
+    # TODO: Does converting to string really need to happen?
+    # It may be inefficient. But then again, we may not care.
+    yaml_string = yaml_string.getvalue()
 
     # Check for required variables in params file
-    for required in ['output_folder', 'verbosity']:
-        if required not in global_params:
-            raise ValueError('%s required in global section of config'
-                             % required)
+    if start_experiment:
+        for required in ['output_folder', 'verbosity']:
+            if required not in const:
+                raise ValueError('%s required in "constants" section of config'
+                                 % required)
 
-    # Set up output folder
-    if not os.path.isdir(global_params['output_folder']):
-        os.makedirs(global_params['output_folder'])
+        # Set up output folder
+        if not os.path.isdir(const['output_folder']):
+            os.makedirs(const['output_folder'])
 
-    # Setup logger
-    log_file = global_params['output_folder'] + "/log.log"
-    logger = setup_logger(
-        "logger",
-        log_file,
-        verbosity_stdout=global_params["verbosity"],
-    )
+        # Setup logger
+        if logger is None:
+            log_file = const['output_folder'] + '/log.log'
+            logger = setup_logger(
+                "logger",
+                log_file,
+                verbosity_stdout=const['verbosity'],
+            )
 
-    # Setup functions
-    functions = {}
-    for function in params:
+    # reference finder for string replacements
+    reference_finder = re.compile(r'\$[\w.]+')
 
-        # Replace variable names
-        simple_string_replace(params[function], global_params),
+    # Now do the full parse, with dereferencing and object creation
+    def deref(ref, constants):
+        if isinstance(ref, re.Match):
+            ref = ref[0]
+        for part in ref[1:].split('.'):
+            constants = constants[part]
 
-        # Load class
-        _class = locate(params[function]['class_name'])
-        del params[function]['class_name']
-        print(function)
-        print(_class)
+        # For ruamel.yaml classes, the value is in the tag attribute
+        try:
+            constants = constants.tag.value[1:]
+        except AttributeError:
+            pass
+        return constants
 
-        # Initialize class
-        functions[function] = _class(
-            **params[function],
-            global_config=global_params,
-            logger=logger,
-        )
+    def _recursive_resolve(reference, reference_list):
+        if len(reference_list) > 1 and reference in reference_list[1:]:
+            raise ValueError("Circular reference detected: ", reference_list)
 
-    return SimpleNamespace(**functions), global_params
+        # Base case, no '$' present
+        if '$' not in str(reference):
+            return reference
 
+        # First check for a full match. These replacements preserve type
+        if reference_finder.fullmatch(reference):
+            value = deref(reference, const)
+            return _recursive_resolve(value, reference_list + [reference])
 
-def parse_overrides(global_params, argv):
-    """
-    Parse the overrides to the global variables. (Author: Peter Plantinga)
+        # Next, do replacements within the string (interpolation)
+        matches = reference_finder.findall(reference)
+        reference_list += [match[0] for match in matches]
+        sub = reference_finder.sub(lambda x: str(deref(x, const)), reference)
+        return _recursive_resolve(sub, reference_list)
 
-    Input: - global_params (type: dict)
-               The set of parameters in the global section of params file.
+    def reference_constructor(loader, tag_suffix, node):
 
-           - argv (type: list)
-               The list of arguments passed on the command-line
-    """
+        # Check that this node is a scalar before resolving
+        loader.construct_scalar(node)
+        return _recursive_resolve(tag_suffix, [])
 
-    # Initialize parser with global params
-    parser = argparse.ArgumentParser()
-    for key in global_params:
-        parser.add_argument("--" + key)
+    def object_constructor(loader, tag_suffix, node):
+        class_ = locate(tag_suffix)
+        kwargs = {}
+        if isinstance(node, yaml.MappingNode):
+            kwargs = loader.construct_mapping(node, deep=True)
+        elif isinstance(node, yaml.SequenceNode):
+            args = loader.construct_sequence(node, deep=True)
+            signature = inspect.signature(class_)
+            kwargs = signature.bind(*args).arguments
 
-    # Parse command line
-    for key, value in vars(parser.parse_args(argv)).items():
-        if value is not None:
-            global_params[key] = value
+        kwargs['global_config'] = const
+        kwargs['logger'] = logger
+
+        return class_(**kwargs)
+
+    def obj_and_ref_constructor(loader, tag_suffix, node):
+        if '$' in tag_suffix:
+            return reference_constructor(loader, tag_suffix, node)
+        else:
+            return object_constructor(loader, tag_suffix, node)
+
+    yaml.SafeLoader.add_multi_constructor('!', obj_and_ref_constructor)
+    params = yaml.safe_load(yaml_string)
+    constants = params['constants']
+    del params['constants']
+
+    return SimpleNamespace(**params), SimpleNamespace(**constants)

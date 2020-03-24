@@ -7,6 +7,7 @@
 """
 
 import os
+import collections.abc
 
 
 def get_all_files(
@@ -208,3 +209,37 @@ def recursive_items(dictionary):
             yield from recursive_items(value)
         else:
             yield (key, value)
+
+
+def recursive_update(d, u):
+    """
+    Description:
+        This function performs what dict.update does, but for any
+        nested structure.
+        If you have to a nested mapping structure, for example:
+        { "a": 1, "b": { "c": 2 } }
+         So say you want to update the above structure
+        with:
+        { "b": { "d": 3 } }
+        This function will produce:
+        { "a": 1, "b": { "c": 2, "d": 3 } }
+        Instead of
+        { "a": 1, "b": { "d": 3 } }
+    Input:
+        d - mapping to be updated
+        u - mapping to update with
+    Output:
+        d - the updated mapping,
+            note that the mapping is updated in place
+    Author:
+        Alex Martelli, with possibly other editors
+        From: https://stackoverflow.com/a/3233356
+    """
+    # TODO: Consider cases where u has branch off k, but d does not.
+    # e.g. d = {"a":1}, u = {"a": {"b": 2 }}
+    for k, v in u.items():
+        if isinstance(v, collections.abc.Mapping):
+            d[k] = recursive_update(d.get(k, {}), v)
+        else:
+            d[k] = v
+    return d

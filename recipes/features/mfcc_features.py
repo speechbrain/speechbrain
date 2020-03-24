@@ -1,12 +1,13 @@
 import torch
-from speechbrain.core import load_params
+from speechbrain.core import load_extended_yaml
 
 
 class mfcc_features(torch.nn.Module):
     def __init__(self, **kwargs):
         super().__init__()
-        g = kwargs['global_config']
-        self.sb, self.params = load_params('features.yaml', g)
+        g = {'constants': kwargs['global_config']}
+        logger = kwargs['logger']
+        self.sb, self.params = load_extended_yaml('features.yaml', g, logger)
 
     def forward(self, wav):
 
