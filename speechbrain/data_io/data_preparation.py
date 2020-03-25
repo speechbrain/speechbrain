@@ -556,7 +556,7 @@ class timit_prepare:
         from_60_to_39_phn["p"] = "p"
         from_60_to_39_phn["pau"] = "sil"
         from_60_to_39_phn["pcl"] = "sil"
-        from_60_to_39_phn["q"] = "k"
+        from_60_to_39_phn["q"] = ""
         from_60_to_39_phn["r"] = "r"
         from_60_to_39_phn["s"] = "s"
         from_60_to_39_phn["sh"] = "sh"
@@ -953,7 +953,8 @@ class timit_prepare:
                     phoneme = self.from_60_to_39_phn[phoneme]
 
                 # Apping phoneme in the phoneme list
-                phonemes.append(phoneme)
+                if len(phoneme) > 0:
+                    phonemes.append(phoneme)
 
             phonemes = " ".join(phonemes)
 
