@@ -250,6 +250,8 @@ def recursive_update(d, u):
     return d
 
 
+# NOTE: Empty dict as default parameter is fine here since overrides are never 
+# modified
 def load_extended_yaml(
     yaml_string,
     overrides={},
@@ -327,16 +329,23 @@ def load_extended_yaml(
     ruamel_yaml.dump(preview, yaml_string)
     yaml_string.seek(0)
 
+    # NOTE: obj_and_ref_constructor needs to be defined in this scope to have
+    # the correct version of constants
     def obj_and_ref_constructor(loader, tag_suffix, node):
+        nonlocal constants  # Not needed, but let's be explicit
         if '$' in tag_suffix:
             # Check that the node is a scalar
             loader.construct_scalar(node)
             return _recursive_resolve(tag_suffix, [], constants)
         else:
             return object_constructor(loader, tag_suffix, node)
-
-    yaml.SafeLoader.add_multi_constructor('!', obj_and_ref_constructor)
-    return yaml.safe_load(yaml_string)
+    
+    # We also need a PyYAML Loader that is specific to this context 
+    # PyYAML syntax requires defining a new class to get a new loader
+    class CustomLoader(yaml.SafeLoader):
+        pass
+    CustomLoader.add_multi_constructor('!', obj_and_ref_constructor)
+    return yaml.load(yaml_string, Loader=CustomLoader)
 
 
 def object_constructor(loader, tag_suffix, node):
