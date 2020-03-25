@@ -5,7 +5,6 @@ import logging
 import inspect
 import argparse
 from speechbrain.utils.logger import setup_logger
-from speechbrain.utils.data_utils import recursive_update
 from speechbrain.utils.data_utils import load_extended_yaml
 logger = logging.getLogger(__name__)
 
