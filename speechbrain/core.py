@@ -28,40 +28,28 @@ class Experiment:
         yaml-formatted string, though a shortcut has been provided for
         nested items, e.g.
 
-        ```
-        {model.arg1: value, model.arg2.arg3: 3., model.arg2.arg4: True}
-        ```
-        will be interpreted as:
-        ```
-        {'model': {'arg1': 'value', 'arg2': {'arg3': 3., 'arg4': True}}}
-        ```
+            {model.arg1: value, model.arg2.arg3: 3., model.arg2.arg4: True}
 
-    Input:
-        - param_filename (type: file, default: None)
-            A file for reading experimental hyperparameters. This file is
-            expected to be in the same folder as the function that calls
-            this one. The format of the file is described in the method
-            `load_extended_yaml()`. The rest of the parameters to this
+        will be interpreted as:
+
+            {'model': {'arg1': 'value', 'arg2': {'arg3': 3., 'arg4': True}}}
+
+    Args:
+        param_filename: A file for reading experimental hyperparameters.
+            The filepath may be relative to the executing directory, or
+            may be relative to the folder containing the function
+            that calls this one. The format of the file is described in the
+            method `load_extended_yaml()`. The rest of the parameters to this
             function may also be specified in the command-line parameters
             or in the `constants:` section of the yaml file.
-
-        - overrides (type: string, default: '')
-            A yaml-formatted string containing overrides for the parameters
-            listed in the file passed to `param_filename`.
-
-        - output_folder (type: file, default: 'exp')
-            A folder to store the results of the experiment, as well as
-            any checkpoints, logs, or other generated data.
-
-        - verbosity (type: int, default: 0)
-            How much information to give the user about the progress
+        overrides: A yaml-formatted string containing overrides for the
+            parameters listed in the file passed to `param_filename`.
+        output_folder: A folder to store the results of the experiment, as
+            well as any checkpoints, logs, or other generated data.
+        verbosity: How much information to give the user about the progress
             of the experiment. Levels range from 0 to 2.
-
-        - device (type: one_of(cuda, cpu), default: 'cuda')
-            The device to execute the experiment on.
-
-        - seed (type: int, default: None)
-            The random seed used to ensure the experiment is reproducible
+        device: The device to execute the experiment on.
+        seed: The random seed used to ensure the experiment is reproducible
             if executed on the same device on the same machine.
 
     Example:
@@ -122,10 +110,9 @@ class Experiment:
             Update the attributes of this class to reflect the parameters
             passed via the config file.
 
-        Input:
-            - parameters (type: dict, mandatory)
-                A dict that contains the essential parameters for running
-                the experiment. Usually loaded from a yaml file using
+        Args:
+            parameters: A dict that contains the essential parameters for
+                running the experiment. Usually loaded from a yaml file using
                 `load_extended_yaml()`.
 
         Author:
@@ -193,10 +180,9 @@ def parse_overrides(override_string):
     Description:
         Parse overrides from a yaml string representing paired args and values
 
-    Input:
-        - override_string (type: string, mandatory)
-            A yaml-formatted string, where each (key: value) pair overrides
-            the same pair in a loaded file.
+    Args:
+        override_string: A yaml-formatted string, where each (key: value) pair
+            overrides the same pair in a loaded file.
 
     Example:
         >>> parse_overrides("{model.arg1: val1, model.arg2.arg3: 3.}")
@@ -218,15 +204,10 @@ def nest(dictionary, args, val):
     Description:
         Create a nested sequence of dictionaries, based on an arg list.
 
-    Input:
-        - dictionary: dict
-            this object will be updated with the nested arguments.
-
-        - args: list
-            a list of parameters specifying a nested location.
-
-        - val: any
-            The value to store at the specified nested location.
+    Args:
+        dictionary: this object will be updated with the nested arguments.
+        args: a list of parameters specifying a nested location.
+        val: The value to store at the specified nested location.
 
     Example:
         >>> params = {}
