@@ -11,6 +11,7 @@ import re
 import copy
 import yaml
 import logging
+import inspect
 import ruamel.yaml
 import collections.abc
 from io import StringIO
@@ -250,7 +251,7 @@ def recursive_update(d, u):
     return d
 
 
-# NOTE: Empty dict as default parameter is fine here since overrides are never 
+# NOTE: Empty dict as default parameter is fine here since overrides are never
 # modified
 def load_extended_yaml(
     yaml_string,
@@ -265,26 +266,26 @@ def load_extended_yaml(
         and object instantiation.
 
         $-reference substitution:
-            Allows internal references. These are restricted to refer to
-            keys listed in the `constants` section. A value of $<key> gets
-            replaced by the value mapped to <key> in the `constants` section:
+            Allows internal references to any other node in the file. Any
+            tag (starting with '!') that contains $<key> will have all
+            referrences replaced by the corresponding value, :
 
             ```
             constants:
-                experiment_dir: exp/asr
+                output_folder: exp/asr
             alignment_saver: !asr.ali.hmm.save
-                save_dir: !$experiment_dir # replaced with exp/asr
+                save_dir: !$constants.output_folder # replaced with exp/asr
             ```
 
             Strings values are handled specially: $-strings are substituted but
-            the rest of the string is left in place, allowing for example
-            filepaths to be easily extended:
+            the rest of the string is left in place, allowing filepaths to be
+            easily extended:
 
             ```
             constants:
-                experiment_dir: exp/asr/
+                output_folder: exp/asr
             alignment_saver: !asr.ali.hmm.save
-                save_dir: !$experiment_dir/ali # exp/asr/ali
+                save_dir: !$constants.output_folder/ali # exp/asr/ali
             ```
 
         object instantiation:
@@ -320,9 +321,6 @@ def load_extended_yaml(
     ruamel_yaml = ruamel.yaml.YAML()
     preview = ruamel_yaml.load(yaml_string)
     preview = recursive_update(preview, overrides)
-    constants = {}
-    if 'constants' in preview:
-        constants = preview['constants']
 
     # Dump back to string so we can load with bells and whistles
     yaml_string = StringIO()
@@ -330,17 +328,17 @@ def load_extended_yaml(
     yaml_string.seek(0)
 
     # NOTE: obj_and_ref_constructor needs to be defined in this scope to have
-    # the correct version of constants
+    # the correct version of preview
     def obj_and_ref_constructor(loader, tag_suffix, node):
-        nonlocal constants  # Not needed, but let's be explicit
+        nonlocal preview  # Not needed, but let's be explicit
         if '$' in tag_suffix:
             # Check that the node is a scalar
             loader.construct_scalar(node)
-            return _recursive_resolve(tag_suffix, [], constants)
+            return _recursive_resolve(tag_suffix, [], preview)
         else:
             return object_constructor(loader, tag_suffix, node)
-    
-    # We also need a PyYAML Loader that is specific to this context 
+
+    # We also need a PyYAML Loader that is specific to this context
     # PyYAML syntax requires defining a new class to get a new loader
     class CustomLoader(yaml.SafeLoader):
         pass
@@ -371,6 +369,8 @@ def object_constructor(loader, tag_suffix, node):
         Peter Plantinga 2020
     """
     class_ = locate(tag_suffix)
+    if class_ is None:
+        raise ValueError('There is no such class as %s' % tag_suffix)
 
     # Parse arguments from the node
     kwargs = {}
@@ -384,17 +384,17 @@ def object_constructor(loader, tag_suffix, node):
     return class_(**kwargs)
 
 
-def deref(ref, constants):
+def deref(ref, preview):
     """
     Description:
         Find the value referred to by a reference in dot-notation
 
     Inputs:
         - ref: string
-            The location of the requested value, e.g. 'constants.value'
+            The location of the requested value, e.g. 'constants.param'
 
-        - constants: dict
-            The constants dictionary to search
+        - preview: dict
+            The dictionary to use for finding values
 
     Author:
         Peter Plantinga 2020
@@ -402,21 +402,21 @@ def deref(ref, constants):
 
     # Follow references in dot notation
     for part in ref[1:].split('.'):
-        if part not in constants:
-            error_msg = 'Constants does not include %s' % ref
+        if part not in preview:
+            error_msg = 'The reference "%s" does not exist' % ref
             logger.error(error_msg, exc_info=True)
-        constants = constants[part]
+        preview = preview[part]
 
     # For ruamel.yaml classes, the value is in the tag attribute
     try:
-        constants = constants.tag.value[1:]
+        preview = preview.tag.value[1:]
     except AttributeError:
         pass
 
-    return constants
+    return preview
 
 
-def _recursive_resolve(reference, reference_list, constants):
+def _recursive_resolve(reference, reference_list, preview):
     reference_finder = re.compile(r'\$[\w.]+')
     if len(reference_list) > 1 and reference in reference_list[1:]:
         raise ValueError("Circular reference detected: ", reference_list)
@@ -427,16 +427,16 @@ def _recursive_resolve(reference, reference_list, constants):
 
     # First check for a full match. These replacements preserve type
     if reference_finder.fullmatch(reference):
-        value = deref(reference, constants)
+        value = deref(reference, preview)
         reference_list += [reference]
-        return _recursive_resolve(value, reference_list, constants)
+        return _recursive_resolve(value, reference_list, preview)
 
     # Next, do replacements within the string (interpolation)
     matches = reference_finder.findall(reference)
     reference_list += [match[0] for match in matches]
 
     def replace_fn(x):
-        return str(deref(x[0], constants))
+        return str(deref(x[0], preview))
 
     sub = reference_finder.sub(replace_fn, reference)
-    return _recursive_resolve(sub, reference_list, constants)
+    return _recursive_resolve(sub, reference_list, preview)
