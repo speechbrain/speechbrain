@@ -2629,7 +2629,7 @@ class pooling(nn.Module):
         # Here are summarized the expected options for this class
         self.expected_options = {
             "class_name": ("str", "mandatory"),
-            "pool_type": ("str", "mandatory"),
+            "pool_type": ("one_of(avg,max)", "mandatory"),
             "pool_dim": ("int(1,3)", "optional", "1"),
             "pool_axis": ("int_list(-1,3)", "optional", "1"),
             "kernel_size": ("int_list(1,inf)", "mandatory"),
