@@ -1,7 +1,8 @@
+import sys
 import torch
 from tqdm import tqdm
 from speechbrain.core import Experiment
-sb = Experiment('params.yaml')
+sb = Experiment('params.yaml', args=sys.argv[1:])
 
 
 def main():

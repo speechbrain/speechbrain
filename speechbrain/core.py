@@ -1,5 +1,6 @@
 import re
 import os
+import sys
 import yaml
 import logging
 import inspect
@@ -51,6 +52,9 @@ class Experiment:
         device: The device to execute the experiment on.
         seed: The random seed used to ensure the experiment is reproducible
             if executed on the same device on the same machine.
+        log_config: A file specifying the parameters for logging
+        args: The arguments from the command-line for overriding the other
+            parameters to this method
 
     Example:
         >>> sb = Experiment()
@@ -69,6 +73,7 @@ class Experiment:
         device='cuda',
         seed=None,
         log_config=None,
+        commandline_args=[],
     ):
         # Initialize stored values
         self.constants = {
@@ -82,27 +87,32 @@ class Experiment:
         # Parse overrides, with command-line args taking precedence
         # over the parameters passed to this method. These overrides
         # will take precedence over the parameters listed in the file.
-        commandline_args = parse_arguments()
         overrides = parse_overrides(overrides)
-        overrides.update(parse_overrides(commandline_args['overrides']))
+        cmd_args = parse_arguments(commandline_args)
+        if 'overrides' in cmd_args:
+            overrides.update(parse_overrides(cmd_args['overrides']))
 
         # Find path of the calling file, so we can load the yaml
         # file from the same directory
-        calling_filename = inspect.getfile(inspect.currentframe().f_back)
-        calling_dirname = os.path.dirname(os.path.abspath(calling_filename))
-        relative_filepath = os.path.join(calling_dirname, param_filename)
-        if os.path.isfile(relative_filepath):
-            param_filename = relative_filepath
+        if param_filename is not None:
+            calling_file = inspect.getfile(inspect.currentframe().f_back)
+            calling_dirname = os.path.dirname(os.path.abspath(calling_file))
+            relative_filepath = os.path.join(calling_dirname, param_filename)
+            if os.path.isfile(relative_filepath):
+                param_filename = relative_filepath
 
-        # Load parameters file and store
-        parameters = load_extended_yaml(open(param_filename), overrides)
-        self.update_attributes(parameters)
+            # Load parameters file and store
+            parameters = load_extended_yaml(open(param_filename), overrides)
+            self.update_attributes(parameters)
 
-        # Set up output folder and logger
-        if (self.constants['output_folder']
-                and not os.path.isdir(self.constants['output_folder'])):
-            os.makedirs(self.constants['output_folder'])
-        # logger = setup_logger(log_config, self.constants['verbosity'])
+            # Now apply command-line values
+            self.update_attributes(cmd_args)
+
+            # Set up output folder and logger
+            if (self.constants['output_folder']
+                    and not os.path.isdir(self.constants['output_folder'])):
+                os.makedirs(self.constants['output_folder'])
+            # logger = setup_logger(log_config, self.constants['verbosity'])
 
     def update_attributes(self, parameters):
         """
@@ -127,11 +137,18 @@ class Experiment:
             setattr(self, param, value)
 
 
-def parse_arguments():
+def parse_arguments(args):
     """
     Description:
         Parse command-line arguments to the experiment. The parsed
         arguments are returned as a dictionary.
+
+    Args:
+        args: a list of arguments to parse, most often from sys.argv[1:]
+
+    Example:
+        >>> parse_arguments(['--param_filename', 'params.yaml'])
+        {'param_filename': 'params.yaml'}
 
     Author:
         Peter Plantinga 2020
@@ -172,7 +189,14 @@ def parse_arguments():
         type=int,
         help='A random seed to reproduce experiments on the same machine',
     )
-    return parser.parse_args().__dict__
+    parser.add_argument(
+        '--log_config',
+        help='A file storing the configuration options for logging',
+    )
+
+    # Ignore items that are "None", they were not passed
+    parsed_args = vars(parser.parse_args(args))
+    return {k: v for k, v in parsed_args.items() if v is not None}
 
 
 def parse_overrides(override_string):
@@ -186,15 +210,18 @@ def parse_overrides(override_string):
 
     Example:
         >>> parse_overrides("{model.arg1: val1, model.arg2.arg3: 3.}")
-        {'model': {'arg1': 'val1', 'arg2': {'arg3': 3.}}}
+        {'model': {'arg1': 'val1', 'arg2': {'arg3': 3.0}}}
     """
-    overrides = {}
+    preview = {}
     if override_string:
-        overrides = yaml.safe_load(override_string)
-        for arg, val in overrides.items():
-            if '.' in arg:
-                nest(overrides, arg.split('.'), val)
-                del overrides[arg]
+        preview = yaml.safe_load(override_string)
+
+    overrides = {}
+    for arg, val in preview.items():
+        if '.' in arg:
+            nest(overrides, arg.split('.'), val)
+        else:
+            overrides[arg] = val
 
     return overrides
 
@@ -219,10 +246,10 @@ def nest(dictionary, args, val):
         Peter Plantinga 2020
     """
     if len(args) == 1:
-        overrides[args[0]] = val
+        dictionary[args[0]] = val
         return
 
-    if arg[0] not in overrides:
-        overrides[arg[0]] = {}
+    if args[0] not in dictionary:
+        dictionary[args[0]] = {}
 
-    nest(overrides[arg[0]], arg[1:], val)
+    nest(dictionary[args[0]], args[1:], val)
