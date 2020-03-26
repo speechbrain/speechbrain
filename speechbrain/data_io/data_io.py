@@ -41,9 +41,8 @@ class create_dataloader(torch.nn.Module):
      Description:
         This class creates the data_loaders for the given csv file.
 
-     Input:
-        - csv (type: file, mandatory):
-           it is the csv file that itemized the data.
+     Args:
+        csv: it is the csv file that itemized the data.
 
         - batch_size: (type: int(1, inf), default: 1):
            the data itemized in the csv file are automatically
@@ -51,9 +50,7 @@ class create_dataloader(torch.nn.Module):
            tensors, zero padding is performed. When batch_size=1,
            the data are simply processed one by one without the
            creation of batches.
-
-       - csv_read (type: str_list, default: None):
-           this option can be used to read only some data_entries of
+        csv_read: this option can be used to read only some data_entries of
            the csv file. When not specified, it automatically reads
            all the data entries.
 
@@ -83,25 +80,19 @@ class create_dataloader(torch.nn.Module):
            want to loop over the dataset, while if we set
            a random order the batches will be different
            every time we loop over the dataset.
-
-       - select_n_sentences (type: int(1,inf), default: None):
-           this option can be used to read-only n
+        select_n_sentences: this option can be used to read-only n
            sentences from the csv file. This option can be
            useful to debug the code, when instead of
            running an experiment of a full set of data I
            might just want to run it with a little about
            of data.
-
-       - num_workers (int(0,inf), default: 0):
-           data are read using the pytorch data_loader.
+        num_workers: data are read using the pytorch data_loader.
            This option set the number of workers used to
            read the data from disk and form the related
            batch of data. Please, see the pytorch
            documentation on the data loader for more
            details.
-
-       - cache (bool, default: False):
-           When set to true, this option stores the input
+        cache: When set to true, this option stores the input
            data in a variable called self.cache (see
            create_dataloader in data_io.py). In practice,
            the first time the data are read from the disk,
@@ -112,28 +103,20 @@ class create_dataloader(torch.nn.Module):
            time.  Data are stored until a certain
            percentage of the total ram available is
            reached (see cache_ram_percent below).
-
-       - cache_ram_percent (int(0,100), default: 75):
-           If cache if True, data will be stored in the
+        cache_ram_percent: If cache if True, data will be stored in the
            cpu RAM until the total RAM occupation is less
            or equal than the specified threshold
            (by default 75%). In practice, if a lot of RAM
            is available several data will be stored in
            memory, otherwise, most of them will be read
            from the disk directly.
-
-       - drop_last (bool, default: False):
-           this is an option directly passed to the
+        drop_last: this is an option directly passed to the
            pytorch dataloader (see the related
            documentation for more details). When True,
            it skips the last batch of data if contains
            fewer samples than the other ones.
-
-        - replacements (type: dict, default: {})
-            String replacements to perform in this method
-
-        - output_folder (type: string, default: None)
-            A folder for storing the label dict
+        replacements: String replacements to perform in this method
+        output_folder: A folder for storing the label dict
 
 
      Example:   from speechbrain.data_io.data_io import create_dataloader
@@ -190,8 +173,8 @@ class create_dataloader(torch.nn.Module):
 
     def forward(self):
         """
-        Output: - dataloader (type: dataloader):
-                    It is a list returning all the dataloaders created.
+        Output:
+        dataloader: It is a list returning all the dataloaders created.
         """
 
         # create data dictionary
@@ -245,14 +228,13 @@ class create_dataloader(torch.nn.Module):
                       function is executed in collate_fn of the pytorch
                       DataLoader.
 
-         Input:       - self (type:  create_dataloader class, mandatory)
-
-                      - data_list (type: list, mandatory):
+         Args:
+        self: - data_list (type: list, mandatory):
                         it is the list of data returned by the data reader
                         [data_id,data,data_len]
 
-         Output:      - batch (type: list):
-                        it is a list containing the final batches:
+         Output:
+        batch: it is a list containing the final batches:
                         [data_id,data,data_len] where zero-padding is
                         performed where needed.
 
@@ -308,13 +290,12 @@ class create_dataloader(torch.nn.Module):
          Description: This function perform zero padding on the input list of
                       tensors.
 
-         Input:       - self (type:  create_dataloader class, mandatory)
-
-                      - sequences (type: list, mandatory):
+         Args:
+        self: - sequences (type: list, mandatory):
                         it is the list of tensor to pad.
 
-         Output:      - batch_data (type: torch.Tensor):
-                        it is a tensor gathering all the padded tensors.
+         Output:
+        batch_data: it is a tensor gathering all the padded tensors.
 
          Example:   import torch
                     from speechbrain.data_io.data_io import create_dataloader
@@ -367,9 +348,8 @@ class create_dataloader(torch.nn.Module):
          Description: This function coverts a list of numpy tensors to
                        torch.Tensor
 
-         Input:       - self (type:  create_dataloader class, mandatory)
-
-                      - data_list (type: list, mandatory):
+         Args:
+        self: - data_list (type: list, mandatory):
                         it is a list of numpy arrays.
 
          Output:    None
@@ -501,11 +481,9 @@ class create_dataloader(torch.nn.Module):
 
          Description: This function creates a dictionary from the csv file
 
-         Input:       - self (type:  create_dataloader class, mandatory)
-
-
-         Output:    - data_dict (type: dict):
-                       it is a dictionary with the data itemized in the csv
+         Args:
+        self: Output:
+        data_dict: it is a dictionary with the data itemized in the csv
                        file.
 
          Example:  from speechbrain.data_io.data_io import create_dataloader
@@ -714,19 +692,16 @@ class create_dataloader(torch.nn.Module):
 
          Description: This function sorts the data dictionary as specified.
 
-         Input:       - self (type:  create_dataloader class, mandatory)
-
-                      - data_dict (type: dict, mandatory):
+         Args:
+        self: - data_dict (type: dict, mandatory):
                        it is a dictionary with the data itemized in the csv
                        file.
-
-                      - sorting ('ascending','descending','random','original',
-                        mandatory):
+        sorting: mandatory):
                            it is a dictionary with the data itemized in the
                            csv file.
 
-         Output:    - sorted_dictionary (type: dict):
-                       it is a dictionary with the sorted data
+         Output:
+        sorted_dictionary: it is a dictionary with the sorted data
 
          Example:  from speechbrain.data_io.data_io import create_dataloader
 
@@ -785,29 +760,22 @@ class create_dataloader(torch.nn.Module):
     @staticmethod
     def get_supported_formats():
         """
-         ---------------------------------------------------------------------
-         data_io.create_dataloader.get_supported_formats
-         (author: Mirco Ravanelli)
+        ---------------------------------------------------------------------
+        data_io.create_dataloader.get_supported_formats
+        (author: Mirco Ravanelli)
 
-         Description: This function itemize the supported reading formats
+        Description: This function itemize the supported reading formats
 
-         Input:       - self (type:  create_dataset class, mandatory)
+        Returns:
+            a dictionary contained the supported formats and the related
+            readers.
 
+        Example:
+            >>> data_loader=create_dataloader(
+            ...     csv_file='samples/audio_samples/csv_example2.csv'
+            ... )
+            >>> data_loader.get_supported_formats()
 
-         Output:    - supported_formats (type: dict):
-                       it is a dictionary contained the supported formats and
-                       the related readers.
-
-         Example:  from speechbrain.data_io.data_io import create_dataloader
-
-                   config={'class_name':'core.loop',\
-                           'csv_file':'samples/audio_samples/csv_example2.csv'}
-
-                   # Initialization of the class
-                   data_loader=create_dataloader(config)
-
-                   # Getting the supported reading formats
-                   print(data_loader.get_supported_formats())
          --------------------------------------------.------------------------
          """
 
@@ -852,13 +820,9 @@ class create_dataset(Dataset):
      Input (init):  - data_dict, (type: dict, mandatory):
                        it is a dictionary containing all the entries of the
                        csv file.
-
-                    - supported_formats (type: dict, mandatory):
-                       it is a dictionary contaning the reading supported
+        supported_formats: it is a dictionary contaning the reading supported
                        format.
-
-                   - data_entry (type: list, mandatory):
-                       it is a list containing the data_entries to read from
+        data_entry: it is a list containing the data_entries to read from
                        the csv file.
 
                     - do_cache(bool,Default:False):
@@ -871,24 +835,20 @@ class create_dataset(Dataset):
                        the disk every time.  Data are stored until a
                        certain percentage of the total ram available is
                        reached (see cache_ram_percent below)
-
-                   - cache_ram_percent (int(0,100),default:75):
-                     If cache if True, data will be stored in the cpu
+        cache_ram_percent: If cache if True, data will be stored in the cpu
                      RAM until the total RAM occupation is less or equal
                      than the specified threshold. In practice, if a lot
                      of RAM is available several  data will be stored in
                      memory, otherwise, most of them will be read from the
                      disk directly.
-
-                   - logger (type, logger,  default: None):
-                       it the logger used to write debug and error messages.
+        logger: it the logger used to write debug and error messages.
                        If logger=None and root_cfg=True, the file is created
                        from scratch.
 
 
 
-     Input (call,__getitem__):  - idx (type: int):
-                                   it is the index to read from the data list
+     Input (call,__getitem__):
+        idx: it is the index to read from the data list
                                    stored in data_dict['data_list'].
 
      Output (call,__getitem__):  - data: (type: list):
@@ -956,11 +916,9 @@ class create_dataset(Dataset):
          Description: This (mandatory) function returns the length of the
                       data list
 
-         Input:       - self (type:  create_dataset class, mandatory)
-
-
-         Output:    - data_len (type: int):
-                      it is the number of data to read (i.e. len of the
+         Args:
+        self: Output:
+        data_len: it is the number of data to read (i.e. len of the
                       data_list entry of the data_dict).
 
          Example:  from speechbrain.data_io.data_io import create_dataloader
@@ -1051,18 +1009,15 @@ class create_dataset(Dataset):
 
          Description: This function manages reading operation from disk.
 
-         Input:       - self (type:  create_dataset class, mandatory)
-
-                       - data_line (type: dict, mandatory):
+         Args:
+        self: - data_line (type: dict, mandatory):
                            it is one of entries extreacted from the data_dict.
                            It contains all the needed information to read the
                            data from the disk.
+        snt_id: it the sentence identifier.
 
-                       - snt_id (type: str, mandatory):
-                           it the sentence identifier.
-
-         Output:    - data_read (type: list):
-                      it is a list contaning the read data. The list if
+         Output:
+        data_read: it is a list contaning the read data. The list if
                       formatted in the followig way: [data_id,data_data_len]
 
          Example:  from speechbrain.data_io.data_io import create_dataloader
@@ -1132,7 +1087,7 @@ class save_ckpt(torch.nn.Module):
         the current status of the optimizer, and stores the
         recovery information in the recovery dictionary.
 
-     Input:
+     Args:
         - save_folder: str
            the folder where the recovery dict will be saved.
 
@@ -1231,11 +1186,9 @@ class save_ckpt(torch.nn.Module):
 
     def forward(self, epoch, performance_dict):
         """
-        Input: - epoch (type: int, mandatory):
-                    the epoch label for record keeping
-
-               - performance_dict (type: dict, mandatory):
-                    a dictionary with the types of performance and
+        Args:
+        epoch: the epoch label for record keeping
+        performance_dict: a dictionary with the types of performance and
                     their corresponding values
         """
         # By default I use the lasr performance in input to decide the best
@@ -1282,11 +1235,9 @@ class save_ckpt(torch.nn.Module):
          Description: This function writes the performance dictionary on
                       disk.
 
-         Input:       - epoch (type:  int(0,inf), mandatory):
-                         it is the epoch id.
-
-                       - performance_dict (type: dict, mandatory):
-                           it the recovery dictionary to store
+         Args:
+        epoch: it is the epoch id.
+        performance_dict: it the recovery dictionary to store
 
          Output:    - None
                       the recovery dictionary is save in the save_folder
@@ -1357,8 +1308,8 @@ class save_ckpt(torch.nn.Module):
                       the neural networks found in the self.functions
                       dictionary.
 
-         Input:       - path (type:  str, mandatory):
-                         it is the path where to store the neural models
+         Args:
+        path: it is the path where to store the neural models
 
 
          Output:    - None
@@ -1437,17 +1388,11 @@ class save_ckpt(torch.nn.Module):
 
          Description: This function saves on disk the pkl model
 
-         Input:       - model (type:  str, mandatory):
-                         it is the model to save.
-
-                      - path (type: str, mandatory):
-                          it is the directory where storing the model.
-
-                      - funct_name (type: str, mandatory):
-                          it is the name of the neural model.
-
-                      - mean_stat (type: str, optinal, def:False):
-                          this flag is True when the input model is just
+         Args:
+        model: it is the model to save.
+        path: it is the directory where storing the model.
+        funct_name: it is the name of the neural model.
+        mean_stat: this flag is True when the input model is just
                            a dictionary containing mean_statisics.
 
 
@@ -1510,8 +1455,8 @@ class save_ckpt(torch.nn.Module):
          Description: This function support class removes old neural models
                       corresponding to previous epochs.
 
-         Input:       - epoch (type:  int(0,inf), mandatory):
-                         all the  neural models corresponding the specified
+         Args:
+        epoch: all the  neural models corresponding the specified
                          epoch will be removed from the save_folder.
 
 
@@ -1568,11 +1513,9 @@ class save_ckpt(torch.nn.Module):
          Description: This function prints the current performance in
                       the logger and in the res.res.file
 
-         Input:       - epoch (type:  int(0,inf), mandatory):
-                         it is the current epoch_id
-
-                       - performance_dict (type: dict, mandatory):
-                           it is the dictionary containing the current
+         Args:
+        epoch: it is the current epoch_id
+        performance_dict: it is the dictionary containing the current
                            performance metrics.
 
 
@@ -1962,15 +1905,13 @@ def read_wav_soundfile(file, data_options={}, logger=None, lab2ind=None):
 
      Description: This function reads audio files with soundfile.
 
-     Input (call):     - file (type: file, mandatory):
-                           it is the file to read.
+     Input (call):
+        file: it is the file to read.
 
                        - data_options(type: dict, mandatory):
                            it is a dictionary containing options for the
                            reader.
-
-                      - logger (type: logger,  default: None):
-                       it the logger used to write debug and error messages.
+        logger: it the logger used to write debug and error messages.
 
 
      Output (call):  signal (type: numpy.array):
@@ -2105,15 +2046,13 @@ def read_pkl(file, data_options={}, logger=None, lab2ind=None):
 
      Description: This function reads tensors store in pkl format.
 
-     Input (call):     - file (type: file, mandatory):
-                           it is the file to read.
+     Input (call):
+        file: it is the file to read.
 
                        - data_options(type: dict, mandatory):
                            it is a dictionary containing options for the
                            reader.
-
-                      - logger (type: logger,  default: None):
-                       it the logger used to write debug and error messages.
+        logger: it the logger used to write debug and error messages.
 
 
      Output (call):  tensor (type: numpy.array):
@@ -2183,15 +2122,13 @@ def read_string(string, data_options={}, logger=None, lab2ind=None):
 
      Description: This function reads data in string format.
 
-     Input (call):     - string (type: str, mandatory):
-                           it is the string to read
+     Input (call):
+        string: it is the string to read
 
                        - data_options(type: dict, mandatory):
                            it is a dictionary containing options for the
                            reader.
-
-                      - logger (type: logger,  default: None):
-                       it the logger used to write debug and error messages.
+        logger: it the logger used to write debug and error messages.
 
 
      Output (call):  tensor (type: numpy.array):
@@ -2228,16 +2165,14 @@ def read_kaldi_lab(kaldi_ali, kaldi_lab_opts, logfile=None):
 
      Description: This function reads label in kaldi format
 
-     Input (call):     - kaldi_ali (type: directory, mandatory):
-                           it is the directory where kaldi alignents are
+     Input (call):
+        kaldi_ali: it is the directory where kaldi alignents are
                            stored.
 
                        - kaldi_lab_opts(type: str, mandatory):
                            it is a string that contains the options for
                            reading the kaldi alignments.
-
-                      - logfile (type: logger,  default: None):
-                          it the logger used to write debug and error msgs.
+        logfile: it the logger used to write debug and error msgs.
 
 
      Output (call):  lab (type: dict):
@@ -2277,17 +2212,11 @@ def write_wav_soundfile(data, filename, sampling_rate=None, logger=None):
 
      Description: This function can be used to write audio with soundfile.
 
-     Input (call):     - data (type: torch.Tensor, mandatory):
-                           it is the tensor to store as and audio file
-
-                       - filename (type: file, mandatory):
-                         it is the file where writign the data.
-
-                      - sampling_rate (type: int,  default: None):
-                       it sampling rate of the audio file.
-
-                      - logger (type: logger,  default: None):
-                       it the logger used to write debug and error messages.
+     Input (call):
+        data: it is the tensor to store as and audio file
+        filename: it is the file where writign the data.
+        sampling_rate: it sampling rate of the audio file.
+        logger: it the logger used to write debug and error messages.
 
 
      Output (call):  None
@@ -2337,18 +2266,12 @@ def write_txt_file(data, filename, sampling_rate=None, logger=None):
 
      Description: This function write data in text format
 
-     Input (call):     - data (type: torch.Tensor, np.ndarray, str, list,
-                         mandatory):
+     Input (call):
+        data: mandatory):
                            it is the data to write in the text file
-
-                       - filename (type: file, mandatory):
-                         it is the file where writing the data.
-
-                      - sampling_rate (type: int,  default: None):
-                       it sampling rate of the audio file.
-
-                      - logger (type: logger,  default: None):
-                       it the logger used to write debug and error messages.
+        filename: it is the file where writing the data.
+        sampling_rate: it sampling rate of the audio file.
+        logger: it the logger used to write debug and error messages.
 
 
      Output (call):  None
@@ -2408,18 +2331,12 @@ def write_stdout(data, filename, sampling_rate=None, logger=None):
 
      Description: This function write data to standar output
 
-     Input (call):    - data (type: torch.Tensor, np.ndarray, str, list,
-                         mandatory):
+     Input (call):
+        data: mandatory):
                            it is the data to write in the text file
-
-                      - filename (type: file, mandatory):
-                         it is the file where writing the data.
-
-                      - sampling_rate (type: int,  default: None):
-                       it sampling rate of the audio file.
-
-                      - logger (type: logger,  default: None):
-                       it the logger used to write debug and error messages.
+        filename: it is the file where writing the data.
+        sampling_rate: it sampling rate of the audio file.
+        logger: it the logger used to write debug and error messages.
 
 
      Output (call):  None
@@ -2453,17 +2370,11 @@ def save_img(data, filename, sampling_rate=None, logger=None):
 
      Description: This function save a tensor as an image.
 
-     Input (call):     - data (type: torch.Tensor, mandatory):
-                           it is the tensor to write in the text file
-
-                       - filename (type: file, mandatory):
-                         it is the file where writing the data.
-
-                      - sampling_rate (type: int,  default: None):
-                       it sampling rate of the audio file.
-
-                      - logger (type: logger,  default: None):
-                       it the logger used to write debug and error messages.
+     Input (call):
+        data: it is the tensor to write in the text file
+        filename: it is the file where writing the data.
+        sampling_rate: it sampling rate of the audio file.
+        logger: it the logger used to write debug and error messages.
 
 
      Output (call):  None
@@ -2530,56 +2441,31 @@ def save_img(data, filename, sampling_rate=None, logger=None):
 class save(torch.nn.Module):
     """
     -------------------------------------------------------------------------
-    data_processing.save (author: Mirco Ravanelli)
-
     Description:
        This class can be used to save tensors on disk.
 
-    Input:
-        - save_folder (type:str, default:None):
-            it is the folder where the tensors are stored.
-
-        - save_format (type:str, default:0):
-            it is the format to use to save the tensor.
+    Args:
+        save_folder: it is the folder where the tensors are stored.
+        save_format: it is the format to use to save the tensor.
             See get_supported_formats() for an overview of
             the supported data formats.
-
-        - save_csv (type:bool, default:False):
-            if True it saves the list of data written in a
+        save_csv: if True it saves the list of data written in a
             csv file.
+        data_name: it is the name to give to saved data
+        parallel_write: if True it saves the data using parallel processes.
+        transpose: if True it transposes the data matrix
+        decibel: if True it saves the log of the data.
 
-        - data_name (type:str, default:data):
-            it is the name to give to saved data
+     Example:
+        >>> import torch
+        >>> save_signal = save(save_folder='exp/example', save_format='wav')
+        >>> signal = 0.1 * torch.rand([1, 16000])
+        >>> save_signal(signal, ['example_random'], torch.ones(1))
 
-        - parallel_write (type:bool, default:False):
-            if True it saves the data using parallel processes.
-
-        - transpose (type:bool, default:False):
-            if True it transposes the data matrix
-
-        - decibel (type:bool, default:False):
-            if True it saves the log of the data.
-
-     Example:  import torch
-               from speechbrain.data_io.data_io import save
-
-               # save config dictionary definition
-               config={'class_name':'data_processing.save',
-                       'save_folder': 'exp/write_example',
-                       'save_format': 'wav' }
-
-               # class initialization
-               save_signal = save('exp/write_example', 'wav')
-
-               # random signal
-               signal = 0.1 * torch.rand([1, 16000])
-
-               # saving
-               save_signal(signal, ['example_random'], torch.ones(1))
-
-               # signal save in exp/write_example
-     -------------------------------------------------------------------------
-     """
+    Author:
+        Mirco Ravanelli 2020
+    -------------------------------------------------------------------------
+    """
 
     def __init__(
         self,
@@ -2612,14 +2498,12 @@ class save(torch.nn.Module):
 
         # Check specified format
         if self.save_format not in self.supported_formats:
-
             err_msg = (
                 "the format %s specified in the config file is not "
                 "supported. The current version supports %s"
                 % (self.save_format, self.supported_formats.keys())
             )
-
-            logger_write(err_msg, logfile=logger)
+            logger.error(err_msg)
 
         # Create the csv file (if specified)
         if self.save_csv:
@@ -2629,14 +2513,10 @@ class save(torch.nn.Module):
 
     def forward(self, data, data_id, data_len):
         """
-        Input : - data (type: tensor)
-                    batch of audio signals to save
-
-                - data_id (type: str_list)
-                    list of ids in the batch
-
-                - data_len (type: tensor)
-                    length of each audio signal
+        Input :
+        data: batch of audio signals to save
+        data_id: list of ids in the batch
+        data_len: length of each audio signal
         """
         # Convertion to log (if specified)
         if self.decibel:
@@ -2652,10 +2532,9 @@ class save(torch.nn.Module):
 
          Description: This function saves a batch of data.
 
-         Input:        - self (type: save class, mandatory)
-                       - data (type: torch.tensor, mandatory)
-                       - data_id (type: str, mandatory)
-                       - data_len (type: torch.tensor, mandatory)
+         Args:
+        self: - data (type: torch.tensor, mandatory)
+        data_id: - data_len (type: torch.tensor, mandatory)
 
          Output:      None
 
@@ -2737,7 +2616,6 @@ class save(torch.nn.Module):
                     data_save,
                     data_file,
                     sampling_rate=self.sampling_rate,
-                    logger=self.logger,
                 )
 
             # Saving csv file
@@ -2769,10 +2647,8 @@ class save(torch.nn.Module):
                       supported writing format and the related writers
                       implemented in data_io.py.
 
-         Input:        - self (type: save class, mandatory)
-
-
-         Output:      -supported_formats (type:dict)
+         Args:
+        self: Output:      -supported_formats (type:dict)
 
          Example:  import torch
                    from speechbrain.data_io.data_io import save
@@ -2837,21 +2713,13 @@ def write_ark(data, filename, key="", sampling_rate=None, logger=None):
                   Write a binary kaldi matrix to filename or stream.
                   Supports 32bit and 64bit floats.
 
-     Input (call): - filename (type:file, mandatory):
-                       it is filename of opened file descriptor for writing.
-
-                   - data (type:np.ndarray, mandatory):
-                       it is the matrix to be stored
-
-                   - key (type:str,  default=''):
-                       it is used for writing ark-file, the utterance-id gets
+     Input (call):
+        filename: it is filename of opened file descriptor for writing.
+        data: it is the matrix to be stored
+        key: it is used for writing ark-file, the utterance-id gets
                        written before the matrix.
-
-                   - sampling_rate (type: int,  default: None):
-                       it sampling rate of the audio file.
-
-                   - logger (type: logger,  default: None):
-                       it the logger used to write debug and error messages.
+        sampling_rate: it sampling rate of the audio file.
+        logger: it the logger used to write debug and error messages.
 
      Output (call):  None
 
@@ -2910,8 +2778,8 @@ def get_md5(file):
 
      Description: This function return the md5 checksum of an input file
 
-     Input (call):     - file (type: file, mandatory):
-                           it is the file from which we want to computed the
+     Input (call):
+        file: it is the file from which we want to computed the
                            md5
 
 
@@ -2950,12 +2818,10 @@ def save_md5(files, out_file):
      Description: This function saves the md5 of a list of input files into
                    a dictionary. The dictionary is then save in pkl format.
 
-     Input (call):     - files (type: file_list, mandatory):
-                           it is a list of input files from which we will
+     Input (call):
+        files: it is a list of input files from which we will
                            compute the md5.
-
-                       - outfile (type: file, mandatory):
-                           it is the path where storing the output pkl file.
+        outfile: it is the path where storing the output pkl file.
 
      Output (call):  None
 
@@ -2982,33 +2848,25 @@ def save_md5(files, out_file):
 
 def save_pkl(obj, file, sampling_rate=None, logger=None):
     """
-     -------------------------------------------------------------------------
-     data_io.save_pkl (author: Mirco Ravanelli)
+    -------------------------------------------------------------------------
+    Description: This function saves an object in pkl format.
 
-     Description: This function saves an object in pkl format.
+    Args:
+        obj: it object to save in pkl format
+        file: it is name of the output file.
+        sampling_rate: it sampling rate of the audio file.
+        logger: it the logger used to write debug and error messages.
 
-     Input (call): - obj (type:obj, mandatory):
-                       it object to save in pkl format
+    Example:
+        >>> out_file='exp/example.pkl'
+        >>> save_pkl([1, 2, 3, 4, 5], out_file)
+        >>> load_pkl(out_file)
+        [1, 2, 3, 4, 5]
 
-                   - file (type:file, mandatory):
-                       it is name of the output file.
-
-                   - sampling_rate (type: int,  default: None):
-                       it sampling rate of the audio file.
-
-                   - logger (type: logger,  default: None):
-                       it the logger used to write debug and error messages.
-
-     Output (call):  None
-
-
-     Example:  from speechbrain.data_io.data_io import save_pkl
-
-               out_file='exp/example.pkl'
-               save_pkl([1,2,3,4,5],out_file)
-
-     -------------------------------------------------------------------------
-     """
+    Author:
+        Mirco Ravanelli 2020
+    -------------------------------------------------------------------------
+    """
     try:
         with open(file, "wb") as f:
             pickle.dump(obj, f)
@@ -3022,21 +2880,22 @@ def load_pkl(file, logger=None):
      -------------------------------------------------------------------------
      data_io.load_pkl (author: Mirco Ravanelli)
 
-     Description: This function load a pkl file
+     Description:
+        This function load a pkl file
 
-     Input (call): - file (type:file, mandatory):
-                       it is name of the input pkl file.
+     Args:
+        file: it is name of the input pkl file.
+        logger: it the logger used to write debug and error messages.
 
-                   - logger (type: logger,  default: None):
-                       it the logger used to write debug and error messages.
-
-     Output (call):  obj (type:obj)
+     Returns:
+        the loaded object
 
 
-     Example:  from speechbrain.data_io.data_io import load_pkl
-
-               pkl_file='exp/example.pkl'
-               print(load_pkl(pkl_file))
+     Example:
+        >>> pkl_file='exp/example.pkl'
+        >>> save_pkl([1, 2, 3, 4, 5], pkl_file)
+        >>> load_pkl(pkl_file)
+        [1, 2, 3, 4, 5]
 
      -------------------------------------------------------------------------
      """

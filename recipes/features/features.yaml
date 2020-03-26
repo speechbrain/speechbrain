@@ -7,6 +7,7 @@ constants:
     freeze: True
 
 compute_STFT: !speechbrain.processing.features.STFT
+    sample_rate: 16000
     win_length: 25
     hop_length: 10
     n_fft: !$constants.n_fft

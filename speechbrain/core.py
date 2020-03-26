@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class Experiment:
-    """
+    r"""
     Description:
         The experiment class implements important functionality related to
         running experiments, such as setting up the experimental directories
@@ -36,10 +36,8 @@ class Experiment:
             {'model': {'arg1': 'value', 'arg2': {'arg3': 3., 'arg4': True}}}
 
     Args:
-        param_filename: A file for reading experimental hyperparameters.
-            The filepath may be relative to the executing directory, or
-            may be relative to the folder containing the function
-            that calls this one. The format of the file is described in the
+        yaml_stream: A file-like object or string for reading experimental
+            parameters. The format of the file is described in the
             method `load_extended_yaml()`. The rest of the parameters to this
             function may also be specified in the command-line parameters
             or in the `constants:` section of the yaml file.
@@ -57,16 +55,21 @@ class Experiment:
             parameters to this method
 
     Example:
-        >>> sb = Experiment()
-        >>> sb.constants['verbosity']
-        0
+        >>> yaml_string = (""
+        ... "constants:\n"
+        ... "  verbosity: 2\n"
+        ... "  output_folder: exp\n"
+        ... "  save_folder: !$constants.output_folder/save")
+        >>> sb = Experiment(yaml_string)
+        >>> sb.constants['save_folder']
+        'exp/save'
 
     Author:
         Peter Plantinga 2020
     """
     def __init__(
         self,
-        param_filename=None,
+        yaml_stream,
         overrides='',
         output_folder=None,
         verbosity=0,
@@ -94,28 +97,22 @@ class Experiment:
 
         # Find path of the calling file, so we can load the yaml
         # file from the same directory
-        if param_filename is not None:
-            calling_file = inspect.getfile(inspect.currentframe().f_back)
-            calling_dirname = os.path.dirname(os.path.abspath(calling_file))
-            relative_filepath = os.path.join(calling_dirname, param_filename)
-            if os.path.isfile(relative_filepath):
-                param_filename = relative_filepath
 
-            # Load parameters file and store
-            parameters = load_extended_yaml(open(param_filename), overrides)
-            self.update_attributes(parameters)
+        # Load parameters file and store
+        parameters = load_extended_yaml(yaml_stream, overrides)
+        self.update_attributes(parameters)
 
-            # Now apply command-line values
-            self.update_attributes(cmd_args)
+        # Now apply command-line values
+        self.update_attributes(cmd_args)
 
-            # Set up output folder and logger
-            if (self.constants['output_folder']
-                    and not os.path.isdir(self.constants['output_folder'])):
-                os.makedirs(self.constants['output_folder'])
-            # logger = setup_logger(log_config, self.constants['verbosity'])
+        # Set up output folder and logger
+        if (self.constants['output_folder']
+                and not os.path.isdir(self.constants['output_folder'])):
+            os.makedirs(self.constants['output_folder'])
+        # logger = setup_logger(log_config, self.constants['verbosity'])
 
     def update_attributes(self, parameters):
-        """
+        r"""
         Description:
             Update the attributes of this class to reflect the parameters
             passed via the config file.
@@ -124,6 +121,17 @@ class Experiment:
             parameters: A dict that contains the essential parameters for
                 running the experiment. Usually loaded from a yaml file using
                 `load_extended_yaml()`.
+
+        Example:
+            >>> yaml_string = (""
+            ... "constants:\n"
+            ... "  verbosity: 2")
+            >>> sb = Experiment(yaml_string)
+            >>> sb.constants['verbosity']
+            2
+            >>> sb.update_attributes({'constants': {'verbosity': 1}})
+            >>> sb.constants['verbosity']
+            1
 
         Author:
             Peter Plantinga 2020
@@ -211,6 +219,9 @@ def parse_overrides(override_string):
     Example:
         >>> parse_overrides("{model.arg1: val1, model.arg2.arg3: 3.}")
         {'model': {'arg1': 'val1', 'arg2': {'arg3': 3.0}}}
+
+    Author:
+        Peter Plantinga 2020
     """
     preview = {}
     if override_string:
