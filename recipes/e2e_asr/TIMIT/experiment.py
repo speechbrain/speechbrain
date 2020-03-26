@@ -1,7 +1,11 @@
+import sys
 import torch
 from tqdm import tqdm
 from speechbrain.core import Experiment
-sb = Experiment('params.yaml')
+sb = Experiment(
+    yaml_stream=open('recipes/e2e_asr/TIMIT/params.yaml'),
+    commandline_args=sys.argv[1:],
+)
 
 
 def main():

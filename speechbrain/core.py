@@ -1,5 +1,6 @@
 import re
 import os
+import sys
 import yaml
 import logging
 import inspect
@@ -10,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class Experiment:
-    """
+    r"""
     Description:
         The experiment class implements important functionality related to
         running experiments, such as setting up the experimental directories
@@ -28,59 +29,54 @@ class Experiment:
         yaml-formatted string, though a shortcut has been provided for
         nested items, e.g.
 
-        ```
-        {model.arg1: value, model.arg2.arg3: 3., model.arg2.arg4: True}
-        ```
-        will be interpreted as:
-        ```
-        {'model': {'arg1': 'value', 'arg2': {'arg3': 3., 'arg4': True}}}
-        ```
+            {model.arg1: value, model.arg2.arg3: 3., model.arg2.arg4: True}
 
-    Input:
-        - param_filename (type: file, default: None)
-            A file for reading experimental hyperparameters. This file is
-            expected to be in the same folder as the function that calls
-            this one. The format of the file is described in the method
-            `load_extended_yaml()`. The rest of the parameters to this
+        will be interpreted as:
+
+            {'model': {'arg1': 'value', 'arg2': {'arg3': 3., 'arg4': True}}}
+
+    Args:
+        yaml_stream: A file-like object or string for reading experimental
+            parameters. The format of the file is described in the
+            method `load_extended_yaml()`. The rest of the parameters to this
             function may also be specified in the command-line parameters
             or in the `constants:` section of the yaml file.
-
-        - overrides (type: string, default: '')
-            A yaml-formatted string containing overrides for the parameters
-            listed in the file passed to `param_filename`.
-
-        - output_folder (type: file, default: 'exp')
-            A folder to store the results of the experiment, as well as
-            any checkpoints, logs, or other generated data.
-
-        - verbosity (type: int, default: 0)
-            How much information to give the user about the progress
+        overrides: A yaml-formatted string containing overrides for the
+            parameters listed in the file passed to `param_filename`.
+        output_folder: A folder to store the results of the experiment, as
+            well as any checkpoints, logs, or other generated data.
+        verbosity: How much information to give the user about the progress
             of the experiment. Levels range from 0 to 2.
-
-        - device (type: one_of(cuda, cpu), default: 'cuda')
-            The device to execute the experiment on.
-
-        - seed (type: int, default: None)
-            The random seed used to ensure the experiment is reproducible
+        device: The device to execute the experiment on.
+        seed: The random seed used to ensure the experiment is reproducible
             if executed on the same device on the same machine.
+        log_config: A file specifying the parameters for logging
+        args: The arguments from the command-line for overriding the other
+            parameters to this method
 
     Example:
-        >>> sb = Experiment()
-        >>> sb.constants['verbosity']
-        0
+        >>> yaml_string = (""
+        ... "constants:\n"
+        ... "  verbosity: 2\n"
+        ... "  output_folder: exp\n"
+        ... "  save_folder: !$constants.output_folder/save")
+        >>> sb = Experiment(yaml_string)
+        >>> sb.constants['save_folder']
+        'exp/save'
 
     Author:
         Peter Plantinga 2020
     """
     def __init__(
         self,
-        param_filename=None,
+        yaml_stream,
         overrides='',
         output_folder=None,
         verbosity=0,
         device='cuda',
         seed=None,
         log_config=None,
+        commandline_args=[],
     ):
         # Initialize stored values
         self.constants = {
@@ -94,21 +90,20 @@ class Experiment:
         # Parse overrides, with command-line args taking precedence
         # over the parameters passed to this method. These overrides
         # will take precedence over the parameters listed in the file.
-        commandline_args = parse_arguments()
         overrides = parse_overrides(overrides)
-        overrides.update(parse_overrides(commandline_args['overrides']))
+        cmd_args = parse_arguments(commandline_args)
+        if 'overrides' in cmd_args:
+            overrides.update(parse_overrides(cmd_args['overrides']))
 
         # Find path of the calling file, so we can load the yaml
         # file from the same directory
-        calling_filename = inspect.getfile(inspect.currentframe().f_back)
-        calling_dirname = os.path.dirname(os.path.abspath(calling_filename))
-        relative_filepath = os.path.join(calling_dirname, param_filename)
-        if os.path.isfile(relative_filepath):
-            param_filename = relative_filepath
 
         # Load parameters file and store
-        parameters = load_extended_yaml(open(param_filename), overrides)
+        parameters = load_extended_yaml(yaml_stream, overrides)
         self.update_attributes(parameters)
+
+        # Now apply command-line values
+        self.update_attributes(cmd_args)
 
         # Set up output folder and logger
         if (self.constants['output_folder']
@@ -117,16 +112,26 @@ class Experiment:
         # logger = setup_logger(log_config, self.constants['verbosity'])
 
     def update_attributes(self, parameters):
-        """
+        r"""
         Description:
             Update the attributes of this class to reflect the parameters
             passed via the config file.
 
-        Input:
-            - parameters (type: dict, mandatory)
-                A dict that contains the essential parameters for running
-                the experiment. Usually loaded from a yaml file using
+        Args:
+            parameters: A dict that contains the essential parameters for
+                running the experiment. Usually loaded from a yaml file using
                 `load_extended_yaml()`.
+
+        Example:
+            >>> yaml_string = (""
+            ... "constants:\n"
+            ... "  verbosity: 2")
+            >>> sb = Experiment(yaml_string)
+            >>> sb.constants['verbosity']
+            2
+            >>> sb.update_attributes({'constants': {'verbosity': 1}})
+            >>> sb.constants['verbosity']
+            1
 
         Author:
             Peter Plantinga 2020
@@ -140,11 +145,18 @@ class Experiment:
             setattr(self, param, value)
 
 
-def parse_arguments():
+def parse_arguments(args):
     """
     Description:
         Parse command-line arguments to the experiment. The parsed
         arguments are returned as a dictionary.
+
+    Args:
+        args: a list of arguments to parse, most often from sys.argv[1:]
+
+    Example:
+        >>> parse_arguments(['--param_filename', 'params.yaml'])
+        {'param_filename': 'params.yaml'}
 
     Author:
         Peter Plantinga 2020
@@ -185,7 +197,14 @@ def parse_arguments():
         type=int,
         help='A random seed to reproduce experiments on the same machine',
     )
-    return parser.parse_args().__dict__
+    parser.add_argument(
+        '--log_config',
+        help='A file storing the configuration options for logging',
+    )
+
+    # Ignore items that are "None", they were not passed
+    parsed_args = vars(parser.parse_args(args))
+    return {k: v for k, v in parsed_args.items() if v is not None}
 
 
 def parse_overrides(override_string):
@@ -193,22 +212,27 @@ def parse_overrides(override_string):
     Description:
         Parse overrides from a yaml string representing paired args and values
 
-    Input:
-        - override_string (type: string, mandatory)
-            A yaml-formatted string, where each (key: value) pair overrides
-            the same pair in a loaded file.
+    Args:
+        override_string: A yaml-formatted string, where each (key: value) pair
+            overrides the same pair in a loaded file.
 
     Example:
         >>> parse_overrides("{model.arg1: val1, model.arg2.arg3: 3.}")
-        {'model': {'arg1': 'val1', 'arg2': {'arg3': 3.}}}
+        {'model': {'arg1': 'val1', 'arg2': {'arg3': 3.0}}}
+
+    Author:
+        Peter Plantinga 2020
     """
-    overrides = {}
+    preview = {}
     if override_string:
-        overrides = yaml.safe_load(override_string)
-        for arg, val in overrides.items():
-            if '.' in arg:
-                nest(overrides, arg.split('.'), val)
-                del overrides[arg]
+        preview = yaml.safe_load(override_string)
+
+    overrides = {}
+    for arg, val in preview.items():
+        if '.' in arg:
+            nest(overrides, arg.split('.'), val)
+        else:
+            overrides[arg] = val
 
     return overrides
 
@@ -218,15 +242,10 @@ def nest(dictionary, args, val):
     Description:
         Create a nested sequence of dictionaries, based on an arg list.
 
-    Input:
-        - dictionary: dict
-            this object will be updated with the nested arguments.
-
-        - args: list
-            a list of parameters specifying a nested location.
-
-        - val: any
-            The value to store at the specified nested location.
+    Args:
+        dictionary: this object will be updated with the nested arguments.
+        args: a list of parameters specifying a nested location.
+        val: The value to store at the specified nested location.
 
     Example:
         >>> params = {}
@@ -238,10 +257,10 @@ def nest(dictionary, args, val):
         Peter Plantinga 2020
     """
     if len(args) == 1:
-        overrides[args[0]] = val
+        dictionary[args[0]] = val
         return
 
-    if arg[0] not in overrides:
-        overrides[arg[0]] = {}
+    if args[0] not in dictionary:
+        dictionary[args[0]] = {}
 
-    nest(overrides[arg[0]], arg[1:], val)
+    nest(dictionary[args[0]], args[1:], val)
