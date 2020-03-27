@@ -1,6 +1,6 @@
 import pytest
 
-def test_recoverer(tmpdir_factory):
+def test_recoverer(tmpdir):
     from speechbrain.utils.recovery import Recoverer
     import torch
 
@@ -12,7 +12,6 @@ def test_recoverer(tmpdir_factory):
         def forward(self, x):
             return x * self.param
    
-    tmpdir = tmpdir_factory.mktemp("checkpoint")
     recoverable = Recoverable(2.)
     recoverables = {"recoverable": recoverable}
     recoverer = Recoverer(tmpdir, recoverables)
@@ -110,3 +109,40 @@ def test_recoverer(tmpdir_factory):
     with pytest.raises(FileExistsError):
         recoverer.save_checkpoint(name = "ep1")
     
+def test_recovery_custom_io(tmpdir):
+    from speechbrain.utils.recovery import register_recovery_hooks
+    from speechbrain.utils.recovery import mark_as_saver 
+    from speechbrain.utils.recovery import mark_as_loader 
+    from speechbrain.utils.recovery import Recoverer 
+   
+    @register_recovery_hooks
+    class CustomRecoverable:
+        def __init__(self, param):
+            self.param = int(param)
+        
+        @mark_as_saver
+        def save(self, path):
+            with open(path, "w") as fo:
+                fo.write(str(self.param))
+
+        @mark_as_loader
+        def load(self, path):
+            with open(path) as fi:
+                self.param = int(fi.read())
+
+    
+    custom_recoverable = CustomRecoverable(0)
+    recoverer = Recoverer(tmpdir, {"custom_recoverable": custom_recoverable})
+    custom_recoverable.param = 1
+    # First, make sure no checkpoints are found 
+    # (e.g. somehow tmpdir contaminated)
+    ckpt = recoverer.recover_if_possible()
+    assert ckpt is None
+    ckpt = recoverer.save_checkpoint()
+    custom_recoverable.param = 2
+    loaded_ckpt = recoverer.recover_if_possible()
+    # Make sure we got the same thing:
+    assert ckpt == loaded_ckpt
+    # With this custom recoverable, the load is instant:
+    assert custom_recoverable.param == 1
+

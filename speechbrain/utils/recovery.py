@@ -38,12 +38,13 @@ DEFAULT_SAVE_HOOKS = {
         }
 
 def mark_as_saver(method):
-    method._speechbrain_saver = True
+    sig = inspect.signature(method)
     try:
         sig.bind(object(), pathlib.Path("testpath"))
     except TypeError:
         MSG = "Recovery saver must match signature (instance, path)"
         raise TypeError(MSG)
+    method._speechbrain_saver = True
     return method
 
 def mark_as_loader(method):
@@ -63,7 +64,8 @@ def register_recovery_hooks(cls):
         if hasattr(method, "_speechbrain_saver"):
             DEFAULT_SAVE_HOOKS[cls] = method
         if hasattr(method, "_speechbrain_loader"):
-            DEFAULT_SAVE_HOOKS[cls] = method
+            DEFAULT_LOAD_HOOKS[cls] = method
+    return cls
             
 def get_default_hook(obj, default_hooks): 
     mro = inspect.getmro(type(obj))
@@ -182,7 +184,7 @@ class Recoverer:
         return chosen_ckpt
 
     def list_checkpoints(self):
-        return self._load_meta_files(self._list_checkpoint_dirs())
+        return self._load_checkpoint_meta(self._list_checkpoint_dirs())
     
     def _call_load_hooks(self, checkpoint):
         for name, obj in self.recoverables.items():
@@ -214,12 +216,12 @@ class Recoverer:
                 if Recoverer._is_checkpoint_dir(x)]
     
     @staticmethod
-    def _load_meta_files(checkpoint_dirs):
-        meta_files = []
+    def _load_checkpoint_meta(checkpoint_dirs):
+        checkpoints = []
         for ckpt_dir in checkpoint_dirs:
             with open(ckpt_dir / METAFNAME) as fi:
-                meta_files.append(Checkpoint(ckpt_dir, yaml.safe_load(fi)))
-        return meta_files
+                checkpoints.append(Checkpoint(ckpt_dir, yaml.safe_load(fi)))
+        return checkpoints
 
     @staticmethod
     def _is_checkpoint_dir(path):
