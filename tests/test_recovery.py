@@ -18,7 +18,7 @@ def test_recoverer(tmpdir_factory):
     recoverer = Recoverer(tmpdir, recoverables)
     recoverable.param.data = torch.tensor([1.])
     # Should not be possible since no checkpoint saved yet:
-    assert not recoverer.lazy_recovery_if_possible()  
+    assert not recoverer.recover_if_possible()  
     result = recoverable(10.)
     # Check that parameter has not been loaded from original value:
     assert recoverable.param.data == torch.tensor([1.])
@@ -26,12 +26,12 @@ def test_recoverer(tmpdir_factory):
     ckpt = recoverer.save_checkpoint()
     # Check that the name recoverable has a save file:
     # NOTE: Here assuming .pt filename; if convention changes, change test
-    assert (ckpt.path / "recoverable.pt").exists()
+    assert (ckpt.path / "recoverable.ckpt").exists()
     # Check that saved checkpoint is found, and location correct:
     assert recoverer.list_checkpoints()[0] == ckpt
     assert recoverer.list_checkpoints()[0].path.parent == tmpdir
     recoverable.param.data = torch.tensor([2.])
-    recoverer.lazy_recovery_if_possible()
+    recoverer.recover_if_possible()
     # Check that parameter hasn't been loaded yet:
     assert recoverable.param.data == torch.tensor([2.])
     result = recoverable(10.)
@@ -47,12 +47,12 @@ def test_recoverer(tmpdir_factory):
     assert recoverer.recoverables["other"] == other
     new_ckpt = recoverer.save_checkpoint()
     # Check that now both recoverables have a save file:
-    assert (new_ckpt.path / "recoverable.pt").exists()
-    assert (new_ckpt.path / "other.pt").exists()
+    assert (new_ckpt.path / "recoverable.ckpt").exists()
+    assert (new_ckpt.path / "other.ckpt").exists()
     assert new_ckpt in recoverer.list_checkpoints()
     recoverable.param.data = torch.tensor([2.])
     other.param.data = torch.tensor([10.])
-    chosen_ckpt = recoverer.lazy_recovery_if_possible()
+    chosen_ckpt = recoverer.recover_if_possible()
     # Should choose newest by default:
     assert chosen_ckpt == new_ckpt
     # Check again that parameters have not been loaded yet:
@@ -73,8 +73,8 @@ def test_recoverer(tmpdir_factory):
     # Recover from oldest, which does not have "other":
     # This also tests a custom sort
     # Raises by default:
-    with pytest.raises(ValueError):
-        chosen_ckpt = recoverer.lazy_recovery_if_possible(ckpt_sort_key = \
+    with pytest.raises(RuntimeError):
+        chosen_ckpt = recoverer.recover_if_possible(ckpt_sort_key = \
                 lambda x: x[1]["unixtime"])
     # However this operation may leave a dangling hook. 
     # For now, just run the recoverable to get rid of it in the test:
@@ -82,7 +82,7 @@ def test_recoverer(tmpdir_factory):
     recoverable.param.data = torch.tensor([2.])
     other.param.data = torch.tensor([10.])
     recoverer.allow_partial_load = True
-    chosen_ckpt = recoverer.lazy_recovery_if_possible(ckpt_sort_key = \
+    chosen_ckpt = recoverer.recover_if_possible(ckpt_sort_key = \
             lambda x: x[1]["unixtime"])
     # Should have chosen the original:
     assert chosen_ckpt == ckpt
@@ -99,7 +99,7 @@ def test_recoverer(tmpdir_factory):
     assert "ep1" in epoch_ckpt.path.name
     other.param.data = torch.tensor([2.])
     recoverer.save_checkpoint(meta = {"loss": 3.})
-    chosen_ckpt = recoverer.lazy_recovery_if_possible(
+    chosen_ckpt = recoverer.recover_if_possible(
             ckpt_filter = lambda ckpt: "loss" in ckpt.meta,
             ckpt_sort_key = lambda ckpt: ckpt.meta["loss"])
     assert chosen_ckpt == epoch_ckpt
