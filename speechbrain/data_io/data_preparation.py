@@ -10,10 +10,9 @@ import os
 import sys
 import csv
 import errno
-from speechbrain.module import SpeechBrainModule
-from speechbrain.utils.input_validation import check_opts, check_inputs
+import torch
+import logging
 from speechbrain.utils.data_utils import get_all_files
-from speechbrain.utils.logger import logger_write
 from speechbrain.utils.superpowers import run_shell
 
 from speechbrain.data_io.data_io import (
@@ -23,17 +22,16 @@ from speechbrain.data_io.data_io import (
     read_kaldi_lab,
     write_txt_file,
 )
+logger = logging.getLogger(__name__)
 
 
-class copy_data_locally(SpeechBrainModule):
+class copy_data_locally():
     """
      -------------------------------------------------------------------------
-     speechbrain.data_io.data_preparation.copy_data_locally
-     (author: Mirco Ravanelli)
-
-     Description: This class copies a compressed dataset into another folder.
-                  It can be used to store the data locally when the original
-                  dataset it is stored in a shared filesystem.
+     Description:
+        This class copies a compressed dataset into another folder.
+        It can be used to store the data locally when the original
+        dataset it is stored in a shared filesystem.
 
      Input:- data_file (type: file_list, mandatory):
                it is a list containing the files to copy.
@@ -77,10 +75,7 @@ class copy_data_locally(SpeechBrainModule):
         copy_opts='',
         uncompress_cmd='tar',
         uncompress_opts='-zxf',
-        **kwargs
     ):
-        super().__init__(expected_inputs=[], **kwargs)
-
         self.data_file = data_file
         self.local_folder = local_folder
         self.copy_cmd = copy_cmd
@@ -100,7 +95,7 @@ class copy_data_locally(SpeechBrainModule):
                     self.local_folder
                 )
 
-                logger_write(err_msg, logfile=self.logger)
+                logger.error(err_msg, exc_info=True)
 
         self.local_folder = self.local_folder + "/"
         upper_folder = os.path.dirname(os.path.dirname(self.local_folder))
@@ -119,7 +114,7 @@ class copy_data_locally(SpeechBrainModule):
                     self.dest_file,
                 )
 
-                logger_write(msg, logfile=self.logger, level="debug")
+                logger.debug(msg)
 
                 cmd = (
                     self.copy_cmd
@@ -138,7 +133,7 @@ class copy_data_locally(SpeechBrainModule):
                     self.local_folder,
                 )
 
-                logger_write(msg, logfile=self.logger, level="debug")
+                logger.debug(msg)
 
                 cmd = (
                     self.uncompress_cmd
@@ -154,7 +149,7 @@ class copy_data_locally(SpeechBrainModule):
                 run_shell(cmd)
 
 
-class timit_prepare(SpeechBrainModule):
+class timit_prepare(torch.nn.Module):
     """
      -------------------------------------------------------------------------
      speechbrain.data_io.data_preparation.timit_prepare
@@ -219,10 +214,9 @@ class timit_prepare(SpeechBrainModule):
         kaldi_ali_test=None,
         kaldi_lab_opts=None,
         save_folder=None,
-        **kwargs
     ):
         # Expected inputs when calling the class (no inputs in this case)
-        super().__init__(expected_inputs=[], **kwargs)
+        super().__init__()
 
         self.data_folder = data_folder
         self.splits = splits
@@ -409,13 +403,13 @@ class timit_prepare(SpeechBrainModule):
         if self.skip():
 
             msg = "\t%s sucessfully created!" % (self.save_csv_train)
-            logger_write(msg, logfile=self.logger, level="debug")
+            logger.debug(msg)
 
             msg = "\t%s sucessfully created!" % (self.save_csv_dev)
-            logger_write(msg, logfile=self.logger, level="debug")
+            logger.debug(msg)
 
             msg = "\t%s sucessfully created!" % (self.save_csv_test)
-            logger_write(msg, logfile=self.logger, level="debug")
+            logger.debug(msg)
 
             return
 
@@ -425,7 +419,7 @@ class timit_prepare(SpeechBrainModule):
         self.check_timit_folders()
 
         msg = "\tCreating csv file for the TIMIT Dataset.."
-        logger_write(msg, logfile=self.logger, level="debug")
+        logger.debug(msg)
 
         # Creating csv file for training data
         if "train" in self.splits:
@@ -442,7 +436,6 @@ class timit_prepare(SpeechBrainModule):
                 self.save_csv_train,
                 kaldi_lab=self.kaldi_ali_tr,
                 kaldi_lab_opts=self.kaldi_lab_opts,
-                logfile=self.logger,
             )
 
         # Creating csv file for dev data
@@ -461,7 +454,6 @@ class timit_prepare(SpeechBrainModule):
                 self.save_csv_dev,
                 kaldi_lab=self.kaldi_ali_dev,
                 kaldi_lab_opts=self.kaldi_lab_opts,
-                logfile=self.logger,
             )
 
         # Creating csv file for test data
@@ -480,7 +472,6 @@ class timit_prepare(SpeechBrainModule):
                 self.save_csv_test,
                 kaldi_lab=self.kaldi_ali_test,
                 kaldi_lab_opts=self.kaldi_lab_opts,
-                logfile=self.logger,
             )
 
         # Saving options (useful to skip this phase when already done)
@@ -607,7 +598,7 @@ class timit_prepare(SpeechBrainModule):
 
         # Adding some Prints
         msg = '\t"Creating csv lists in  %s..."' % (csv_file)
-        logger_write(msg, logfile=self.logger, level="debug")
+        logger.debug(msg)
 
         # Reading kaldi labels if needed:
         snt_no_lab = 0
@@ -668,7 +659,7 @@ class timit_prepare(SpeechBrainModule):
                         "kaldi label" % (snt_id)
                     )
 
-                    logger_write(msg, logfile=self.logger, level="debug")
+                    logger.debug(msg)
 
                     snt_no_lab = snt_no_lab + 1
                 else:
@@ -685,13 +676,13 @@ class timit_prepare(SpeechBrainModule):
                         % (self.data_folder, self.kaldi_ali_test)
                     )
 
-                    logger_write(err_msg, logfile=self.logger)
+                    logger.error(err_msg, exc_info=True)
 
             if missing_lab:
                 continue
 
             # Reading the signal (to retrieve duration in seconds)
-            signal = read_wav_soundfile(wav_file, logger=logfile)
+            signal = read_wav_soundfile(wav_file)
             duration = signal.shape[0] / self.samplerate
 
             # Retrieving words
@@ -700,7 +691,7 @@ class timit_prepare(SpeechBrainModule):
 
                 err_msg = "the wrd file %s does not exists!" % (wrd_file)
 
-                logger_write(err_msg, logfile=logfile)
+                logger.error(err_msg, exc_info=True)
 
             words = [
                 line.rstrip("\n").split(" ")[2] for line in open(wrd_file)
@@ -715,7 +706,7 @@ class timit_prepare(SpeechBrainModule):
 
                 err_msg = "the wrd file %s does not exists!" % (phn_file)
 
-                logger_write(err_msg, logfile=logfile)
+                logger.error(err_msg, exc_info=True)
 
             # Phoneme list
             phonemes = []
@@ -769,7 +760,7 @@ class timit_prepare(SpeechBrainModule):
 
         # Final prints
         msg = "\t%s sucessfully created!" % (csv_file)
-        logger_write(msg, logfile=self.logger, level="debug")
+        logger.debug(msg)
 
     def check_timit_folders(self):
         """
@@ -814,7 +805,7 @@ class timit_prepare(SpeechBrainModule):
                 "the TIMIT dataset)" % (self.data_folder + "/test/dr*")
             )
 
-            logger_write(err_msg, logfile=self.logger)
+            logger.error(err_msg, exc_info=True)
 
         # Checking train/dr1
         if not os.path.exists(self.data_folder + "/train/dr1"):
@@ -824,7 +815,7 @@ class timit_prepare(SpeechBrainModule):
                 "the TIMIT dataset)" % (self.data_folder + "/train/dr*")
             )
 
-            logger_write(err_msg, logfile=self.logger)
+            logger.error(err_msg, exc_info=True)
 
 
 class librispeech_prepare:
@@ -966,7 +957,7 @@ class librispeech_prepare:
             for split in self.splits:
                 text = self.save_folder + "/" + split + ".csv"
                 msg = "\t" + text + " created!"
-                logger_write(msg, logfile=self.logger, level="debug")
+                logger.debug(msg)
             return
 
         # Additional checks to make sure the data folder contains Librispeech
@@ -1065,7 +1056,7 @@ class librispeech_prepare:
 
         # Preliminary prints
         msg = "\tCreating csv lists in  %s..." % (csv_file)
-        logger_write(msg, logfile=self.logger, level="debug")
+        logger.debug(msg)
 
         csv_lines = []
         snt_cnt = 0
@@ -1077,7 +1068,7 @@ class librispeech_prepare:
             spk_id = "-".join(snt_id.split("-")[0:2])
             wrd = text_dict[snt_id]
 
-            signal = read_wav_soundfile(wav_file, logger=self.logger)
+            signal = read_wav_soundfile(wav_file)
             duration = signal.shape[0] / self.samplerate
 
             # Composing the csv file
@@ -1105,11 +1096,11 @@ class librispeech_prepare:
                 break
 
         # Writing the csv_lines
-        write_txt_file(csv_lines, csv_file, logger=self.logger)
+        write_txt_file(csv_lines, csv_file)
 
         # Final print
         msg = "\t%s sucessfully created!" % (csv_file)
-        logger_write(msg, logfile=self.logger, level="debug")
+        logger.debug(msg)
 
     def skip(self):
         """
@@ -1270,4 +1261,4 @@ class librispeech_prepare:
                     "Librispeech dataset)" % (self.data_folder + "/" + split)
                 )
 
-                logger_write(err_msg, logfile=self.logger)
+                logger.error(err_msg, exc_info=True)

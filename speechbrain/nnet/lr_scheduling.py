@@ -7,13 +7,12 @@
 """
 
 import math
-import torch.nn as nn
-from speechbrain.utils.input_validation import check_opts, check_inputs
-from speechbrain.utils.logger import logger_write
-from speechbrain.module import SpeechBrainModule
+import torch
+import logging
+logger = logging.getLogger(__name__)
 
 
-class lr_annealing(SpeechBrainModule):
+class lr_annealing(torch.nn.Module):
     """
      -------------------------------------------------------------------------
      nnet.lr_scheduling.lr_annealing (author: Mirco Ravanelli)
@@ -163,15 +162,8 @@ class lr_annealing(SpeechBrainModule):
         exp_decay=0.1,
         epoch_drop=2,
         patient=0,
-        **kwargs
     ):
-        # Definition of the expected input
-        expected_inputs = [
-            {'type': 'list'},
-            {'type': 'int'},
-            {'type': 'torch.Tensor'},
-        ]
-        super().__init__(expected_inputs, **kwargs)
+        super().__init__()
 
         self.annealing_type = annealing_type
         self.annealing_factor = annealing_factor
@@ -339,7 +331,7 @@ class lr_annealing(SpeechBrainModule):
                         % (opt_name, optimizers.keys())
                     )
 
-                    logger_write(err_msg, logfile=self.logger)
+                    logger.error(err_msg, exc_info=True)
                 else:
                     # Adding optimizer
                     selected_optim[opt_name] = optimizers[opt_name]
@@ -389,7 +381,7 @@ class lr_annealing(SpeechBrainModule):
                     "N_epochs elements when annealing_type=custom"
                 )
 
-                logger_write(err_msg, logfile=self.logger)
+                logger.error(err_msg, exc_info=True)
 
             # Checking the N_epochs field
             if self.N_epochs is None:
@@ -399,7 +391,7 @@ class lr_annealing(SpeechBrainModule):
                     "annealing_type=custom=custom"
                 )
 
-                logger_write(err_msg, logfile=self.logger)
+                logger.error(err_msg, exc_info=True)
 
             # Making sure that the list of learning rate specified by
             # the user has length = N_epochs:
@@ -411,4 +403,4 @@ class lr_annealing(SpeechBrainModule):
                     "Got a list of %i elements (%i expected)"
                 ) % (len(self.lr_at_epoch), len(self.N_epochs))
 
-                logger_write(err_msg, logfile=self.logger)
+                logger.error(err_msg, exc_info=True)

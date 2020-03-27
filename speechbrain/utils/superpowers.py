@@ -8,12 +8,13 @@
  -----------------------------------------------------------------------------
 """
 
+import logging
 import importlib
 import subprocess
-from speechbrain.utils.logger import logger_write
+logger = logging.getLogger(__name__)
 
 
-def import_class(library, logfile=None):
+def import_class(library):
     """
      -------------------------------------------------------------------------
      utils.import_class (author: Mirco Ravanelli)
@@ -22,9 +23,6 @@ def import_class(library, logfile=None):
 
      Input (call):    - library (type: str, mandatory):
                            it is the string containing the library to load
-
-                      - logfile (type: logger, optional, default: None):
-                           it the logfile used to write messages.
 
      Output (call):  target_class (type: class)
 
@@ -45,7 +43,7 @@ def import_class(library, logfile=None):
             'library.class (e.g., data_io.load_data). Got %s".' % (library)
         )
 
-        logger_write(err_msg, logfile=logfile)
+        logger.error(err_msg, exc_info=True)
 
     # Split library and class
     module_name = ".".join(library.split(".")[:-1])
@@ -56,7 +54,7 @@ def import_class(library, logfile=None):
         module_object = importlib.import_module(module_name)
     except Exception:
         err_msg = 'cannot import module %s".' % (module_name)
-        logger_write(err_msg, logfile=logfile)
+        logger.error(err_msg, exc_info=True)
 
     # Loading the class
     try:
@@ -69,12 +67,12 @@ def import_class(library, logfile=None):
             module_name,
         )
 
-        logger_write(err_msg, logfile=logfile)
+        logger.error(err_msg, exc_info=True)
 
     return target_class
 
 
-def run_shell(cmd, logger=None):
+def run_shell(cmd):
     """
      -------------------------------------------------------------------------
      utils.run_shell (author: Mirco Ravanelli)
@@ -104,8 +102,7 @@ def run_shell(cmd, logger=None):
     (output, err) = p.communicate()
 
     # Adding information in the logger
-    if logger is not None:
-        msg = output.decode("utf-8") + "\n" + err.decode("utf-8")
-        logger_write(msg, logfile=logger, level="debug")
+    msg = output.decode("utf-8") + "\n" + err.decode("utf-8")
+    logger.debug(msg)
 
     return output, err, p.returncode

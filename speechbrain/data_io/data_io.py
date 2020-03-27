@@ -27,8 +27,6 @@ import soundfile as sf
 import multiprocessing as mp
 from multiprocessing import Manager
 from torch.utils.data import Dataset, DataLoader
-from speechbrain.utils.input_validation import check_opts, check_inputs
-from speechbrain.utils.logger import logger_write
 from speechbrain.utils.data_utils import recursive_items
 logger = logging.getLogger(__name__)
 
@@ -533,7 +531,7 @@ class create_dataloader(torch.nn.Module):
                         "csv file  %s" % (self.csv_file)
                     )
 
-                    logger_write(err_msg, logfile=self.logger)
+                    logger.error(err_msg, exc_info=True)
 
                 # Make sure the duration field exists
                 if "duration" not in row:
@@ -543,7 +541,7 @@ class create_dataloader(torch.nn.Module):
                         "present in the csv  file %s" % (self.csv_file)
                     )
 
-                    logger_write(err_msg, logfile=self.logger)
+                    logger.error(err_msg, exc_info=True)
 
                 if len(row) == 2:
                     err_msg = (
@@ -553,7 +551,7 @@ class create_dataloader(torch.nn.Module):
                         % (self.csv_file)
                     )
 
-                    logger_write(err_msg, logfile=self.logger)
+                    logger.error(err_msg, exc_info=True)
 
                 # Make sure the features are expressed in the following way:
                 # feaname, feaname_format, feaname_opts
@@ -569,7 +567,7 @@ class create_dataloader(torch.nn.Module):
                             % (feat_name, self.csv_file, feat_name + "_format")
                         )
 
-                        logger_write(err_msg, logfile=self.logger)
+                        logger.error(err_msg, exc_info=True)
 
                     if feat_name + "_opts" not in row:
                         err_msg = (
@@ -579,7 +577,7 @@ class create_dataloader(torch.nn.Module):
                             % (feat_name, self.csv_file, feat_name + "_opts")
                         )
 
-                        logger_write(err_msg, logfile=self.logger)
+                        logger.error(err_msg, exc_info=True)
 
                 # Store the field list
                 field_lst = row
@@ -610,7 +608,7 @@ class create_dataloader(torch.nn.Module):
                         ")" % (row, self.csv_file, len(field_lst), field_lst)
                     )
 
-                    logger_write(err_msg, logfile=self.logger)
+                    logger.error(err_msg, exc_info=True)
 
                 # Filling the data dictionary
                 for i, field in enumerate(field_lst):
@@ -1058,7 +1056,6 @@ class create_dataset(Dataset):
         data = self.supported_formats[data_format]["reader"](
             data_source,
             data_options=data_options,
-            logger=self.logger,
             lab2ind=lab2ind,
         )
 
@@ -1133,7 +1130,7 @@ class save_ckpt(torch.nn.Module):
                     "The second input to the function save_ckpt must be a "
                     "dict contaning at least one element (i.e, performance)"
                 )
-                logger_write(err_msg, logfile=logger)
+                logger.error(err_msg, exc_info=True)
 
             # Making sure that the list contains performance in tensor formats
             for perf in perform_dict:
@@ -1148,7 +1145,7 @@ class save_ckpt(torch.nn.Module):
                         "The second input to the function save_ckpt must be a "
                         "dict contaning torch.Tensor elements (Got %s)"
                     ) % (type(perform_dict[perf]))
-                    logger_write(err_msg, logfile=logger)
+                    logger.error(err_msg, exc_info=True)
 
         self.save_folder = save_folder
         self.save_format = save_format
@@ -1720,7 +1717,7 @@ class print_predictions:
                             % (index_lab, self.ind2lab)
                         )
 
-                        logger_write(err_msg, logfile=self.logger)
+                        logger.error(err_msg, exc_info=True)
 
             if len(self.lab_dict) > 0:
                 if len(string_pred) == 1:
@@ -1804,7 +1801,7 @@ def filter_ctc_output(string_pred, blank_id=-1, logger=None):
                 "is not valid (got %i)" % (blank_id)
             )
 
-            logger_write(err_msg, logfile=logger)
+            logger.error(err_msg, exc_info=True)
 
         # remove duplicates
         string_out = []
@@ -1892,36 +1889,31 @@ def initialize_with(self):
                 "does not exist"
             )
 
-            logger_write(err_msg, logfile=self.logger)
+            logger.error(err_msg, exc_info=True)
 
         # Loading the initialization parameters
         self.load_state_dict(torch.load(self.initialize_with))
 
 
-def read_wav_soundfile(file, data_options={}, logger=None, lab2ind=None):
+def read_wav_soundfile(file, data_options={}, lab2ind=None):
     """
-     -------------------------------------------------------------------------
-     data_io.read_wav_soundfile (author: Mirco Ravanelli)
+    -------------------------------------------------------------------------
+    Description:
+        This function reads audio files with soundfile.
 
-     Description: This function reads audio files with soundfile.
-
-     Input (call):
+    Args:
         file: it is the file to read.
+        data_options: a dictionary containing options for the reader.
+        lab2ind: a dictionary for converting labels to indices
 
-                       - data_options(type: dict, mandatory):
-                           it is a dictionary containing options for the
-                           reader.
-        logger: it the logger used to write debug and error messages.
+    Returns:
+        An array with the read signal
 
+    Example:
+        >>> read_wav_soundfile('samples/audio_samples/example1.wav')
 
-     Output (call):  signal (type: numpy.array):
-                       it is the array containing the read signal
-
-
-     Example:  from speechbrain.data_io.data_io import read_wav_soundfile
-
-               print(read_wav_soundfile('samples/audio_samples/example1.wav'))
-
+    Author:
+        Mirco Ravanelli 2020
      -------------------------------------------------------------------------
      """
 
@@ -1952,7 +1944,7 @@ def read_wav_soundfile(file, data_options={}, logger=None, lab2ind=None):
                 possible_options,
             )
 
-            logger_write(err_msg, logfile=logger)
+            logger.error(err_msg, exc_info=True)
 
     # Managing start option
     if "start" in data_options:
@@ -1965,7 +1957,7 @@ def read_wav_soundfile(file, data_options={}, logger=None, lab2ind=None):
                 "(e.g start:405)" % (file)
             )
 
-            logger_write(err_msg, logfile=logger)
+            logger.error(err_msg, exc_info=True)
 
     # Managing stop option
     if "stop" in data_options:
@@ -1978,7 +1970,7 @@ def read_wav_soundfile(file, data_options={}, logger=None, lab2ind=None):
                 "(e.g stop:405)" % (file)
             )
 
-            logger_write(err_msg, logfile=logger)
+            logger.error(err_msg, exc_info=True)
 
     # Managing samplerate option
     if "samplerate" in data_options:
@@ -1991,7 +1983,7 @@ def read_wav_soundfile(file, data_options={}, logger=None, lab2ind=None):
                 "(e.g samplingrate:16000)" % (file)
             )
 
-            logger_write(err_msg, logfile=logger)
+            logger.error(err_msg, exc_info=True)
 
     # Managing endian option
     if "endian" in data_options:
@@ -2012,7 +2004,7 @@ def read_wav_soundfile(file, data_options={}, logger=None, lab2ind=None):
                 "(e.g channels:2)" % (file)
             )
 
-            logger_write(err_msg, logfile=logger)
+            logger.error(err_msg, exc_info=True)
 
     # Reading the file with the soundfile reader
     try:
@@ -2030,7 +2022,7 @@ def read_wav_soundfile(file, data_options={}, logger=None, lab2ind=None):
 
     except Exception:
         err_msg = "cannot read the wav file %s" % (file)
-        logger_write(err_msg, logfile=logger)
+        logger.error(err_msg, exc_info=True)
 
     # Set time_steps always last as last dimension
     if len(signal.shape) > 1:
@@ -2072,7 +2064,7 @@ def read_pkl(file, data_options={}, logger=None, lab2ind=None):
             pkl_element = pickle.load(f)
     except Exception:
         err_msg = "cannot read the pkl file %s" % (file)
-        logger_write(err_msg, logfile=logger)
+        logger.error(err_msg, exc_info=True)
 
     type_ok = False
 
@@ -2099,7 +2091,7 @@ def read_pkl(file, data_options={}, logger=None, lab2ind=None):
         if not (type_ok):
             err_msg = "The pkl file %s can only contain list of integers, "
             "floats, or strings. Got %s" % (file, type(pkl_element[0]))
-            logger_write(err_msg, logfile=logger)
+            logger.error(err_msg, exc_info=True)
     else:
         tensor = pkl_element
 
@@ -2158,7 +2150,7 @@ def read_string(string, data_options={}, logger=None, lab2ind=None):
     return string
 
 
-def read_kaldi_lab(kaldi_ali, kaldi_lab_opts, logfile=None):
+def read_kaldi_lab(kaldi_ali, kaldi_lab_opts):
     """
      -------------------------------------------------------------------------
      data_io.read_kaldi_lab (author: Mirco Ravanelli)
@@ -2241,7 +2233,7 @@ def write_wav_soundfile(data, filename, sampling_rate=None, logger=None):
             % (len(data.shape), filename)
         )
 
-        logger_write(err_msg, logfile=logger)
+        logger.error(err_msg, exc_info=True)
 
     if isinstance(data, torch.Tensor):
 
@@ -2256,7 +2248,7 @@ def write_wav_soundfile(data, filename, sampling_rate=None, logger=None):
         sf.write(filename, data, sampling_rate)
     except Exception:
         err_msg = "cannot write the wav file %s" % (filename)
-        logger_write(err_msg, logfile=logger)
+        logger.error(err_msg, exc_info=True)
 
 
 def write_txt_file(data, filename, sampling_rate=None, logger=None):
@@ -2293,7 +2285,7 @@ def write_txt_file(data, filename, sampling_rate=None, logger=None):
             os.makedirs(os.path.dirname(filename))
         except Exception:
             err_msg = "cannot create the file %s." % (filename)
-            logger_write(err_msg, logfile=logger)
+            logger.error(err_msg, exc_info=True)
 
     # Opening the file
     try:
@@ -2301,7 +2293,7 @@ def write_txt_file(data, filename, sampling_rate=None, logger=None):
 
     except Exception:
         err_msg = "cannot create the file %s." % (filename)
-        logger_write(err_msg, logfile=logger)
+        logger.error(err_msg, exc_info=True)
 
     # Managing torch.Tensor
     if isinstance(data, torch.Tensor):
@@ -2400,7 +2392,7 @@ def save_img(data, filename, sampling_rate=None, logger=None):
             str(data.shape),
         )
 
-        logger_write(err_msg, logfile=logger)
+        logger.error(err_msg, exc_info=True)
         raise
 
     # Checking tensor dimensionality
@@ -2412,7 +2404,7 @@ def save_img(data, filename, sampling_rate=None, logger=None):
             "Got %s" % (filename, str(data.shape))
         )
 
-        logger_write(err_msg, logfile=logger)
+        logger.error(err_msg, exc_info=True)
 
     if len(data.shape) == 2:
         N_ch = 1
@@ -2435,7 +2427,7 @@ def save_img(data, filename, sampling_rate=None, logger=None):
                 plt.imsave(filename, data)
         except Exception:
             err_msg = "cannot save image  %s." % (filename)
-            logger_write(err_msg, logfile=logger)
+            logger.error(err_msg, exc_info=True)
 
 
 class save(torch.nn.Module):
@@ -2872,7 +2864,7 @@ def save_pkl(obj, file, sampling_rate=None, logger=None):
             pickle.dump(obj, f)
     except Exception:
         err_msg = "Cannot save file %s" % (file)
-        logger_write(err_msg, logfile=logger)
+        logger.error(err_msg, exc_info=True)
 
 
 def load_pkl(file, logger=None):
@@ -2905,10 +2897,10 @@ def load_pkl(file, logger=None):
             return pickle.load(f)
     except Exception:
         err_msg = "Cannot read file %s" % (file)
-        logger_write(err_msg, logfile=logger)
+        logger.error(err_msg, exc_info=True)
 
 
-def read_vec_int_ark(file_or_fd, logfile=None):
+def read_vec_int_ark(file_or_fd):
     """
      -------------------------------------------------------------------------
      data_io.read_vec_int_ark (author: github.com/vesis84/kaldi-io-for-python)
@@ -2952,7 +2944,7 @@ def read_key(fd):
     return key
 
 
-def read_vec_int(file_or_fd, logfile=None):
+def read_vec_int(file_or_fd):
     """
      -------------------------------------------------------------------------
      data_io.read_key (author: github.com/vesis84/kaldi-io-for-python)
@@ -2991,7 +2983,7 @@ def read_vec_int(file_or_fd, logfile=None):
     return ans
 
 
-def open_or_fd(file, logfile=None, mode="rb"):
+def open_or_fd(file, mode="rb"):
     """
      -------------------------------------------------------------------------
      data_io.open_or_fd (author: github.com/vesis84/kaldi-io-for-python)
@@ -3036,7 +3028,7 @@ def open_or_fd(file, logfile=None, mode="rb"):
     return fd
 
 
-def popen(cmd, logfile=None, mode="rb"):
+def popen(cmd, mode="rb"):
     """
      -------------------------------------------------------------------------
      data_io.popen (author: github.com/vesis84/kaldi-io-for-python)

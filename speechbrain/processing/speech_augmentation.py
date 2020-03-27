@@ -13,8 +13,6 @@
 # Importing libraries
 import math
 import torch
-import logging
-
 from speechbrain.data_io.data_io import create_dataloader
 from speechbrain.utils.data_utils import (
     compute_amplitude,
@@ -23,18 +21,9 @@ from speechbrain.utils.data_utils import (
     notch_filter,
 )
 
-logger = logging.getLogger(__name__)
-
 
 class add_noise(torch.nn.Module):
-    """
-    -------------------------------------------------------------------------
-    speechbrain.processing.speech_augmentation.add_noise
-    (author: Peter Plantinga)
-
-    Description:
-        This class additively combines a noise signal to the input signal. The
-        noise can come from a provided file or from a generated noise signal.
+    """This class additively combines a noise signal to the input signal.
 
     Args:
         csv_file: The csv file containing the location of the noise audio
@@ -45,14 +34,19 @@ class add_noise(torch.nn.Module):
             samples that are loaded at the same time, should be the same as
             or less than the size of the clean batch. If `None` is passed,
             the size of the first clean batch will be used.
-       do_cache: Whether or not to store noise files in the cache.
-       snr_low: The low end of the mixing ratios, in decibels.
-       snr_high: The high end of the mixing ratios, in decibels.
-       pad_noise: If True, copy noise signals that are shorter than their
-           corresponding clean signals so as to cover the whole clean
-           signal. Otherwise, leave the noise un-padded.
-       mix_prob: The probability that a batch of signals will be mixed with a
-           noise signal. By default, every batch is mixed with noise.
+        do_cache: Whether or not to store noise files in the cache.
+        snr_low: The low end of the mixing ratios, in decibels.
+        snr_high: The high end of the mixing ratios, in decibels.
+        pad_noise: If True, copy noise signals that are shorter than their
+            corresponding clean signals so as to cover the whole clean
+            signal. Otherwise, leave the noise un-padded.
+        mix_prob: The probability that a batch of signals will be mixed with a
+            noise signal. By default, every batch is mixed with noise.
+
+    Shape:
+        - waveform: [batch, time_steps] or [batch, channels, time_steps]
+        - lengths: [batch]
+        - output: [batch, time_steps] or [batch, channels, time_steps]
 
     Example:
         >>> import torch
@@ -66,7 +60,8 @@ class add_noise(torch.nn.Module):
         >>> save_signal = save(save_folder='exp/example', save_format='wav')
         >>> save_signal(noisy, ['example_add_noise'], torch.ones(1))
 
-    -------------------------------------------------------------------------
+    Author:
+        Peter Plantinga 2020
     """
 
     def __init__(
@@ -120,19 +115,6 @@ class add_noise(torch.nn.Module):
         self.hook = self.register_forward_pre_hook(hook)
 
     def forward(self, clean_waveform, clean_length):
-        """
-        Args:
-            clean_waveform: A batch of audio signals, in one of the
-                following formats: [batch, time_steps],
-                or [batch, channels, time_steps]
-            clean_length: The lengths of the audio signals contained
-                in the batch. Must be in the format [batch].
-
-        Returns:
-            A batch of audio signals of the same shape as the input,
-            with noise added to each signal.
-        """
-
         # Copy clean waveform to initialize noisy waveform
         noisy_waveform = clean_waveform.clone()
         clean_length = (clean_length * clean_waveform.shape[1]).unsqueeze(1)
@@ -177,23 +159,6 @@ class add_noise(torch.nn.Module):
         return noisy_waveform
 
     def _load_noise(self, clean_len, tensor_len, batch_size):
-        """
-        -----------------------------------------------------
-        Description:
-            Load a section of the noise file of the appropriate
-            length. Then pad to the length of the tensor.
-
-        Args:
-            clean_len: The length of the (un-padded) clean waveform
-            tensor_len: The length of the (padded) final tensor
-
-        Returns:
-            A batch of noise, and the lengths of the noises
-
-        Author:
-            Peter Plantinga 2020
-        --------------------------------------------------------
-        """
         clean_len = clean_len.long().squeeze(1)
 
         # Load a noise batch
@@ -240,11 +205,7 @@ class add_noise(torch.nn.Module):
 
 
 class add_reverb(torch.nn.Module):
-    """
-    -------------------------------------------------------------------------
-    Description:
-        This class convolves the audio signal with an impulse response. The
-        impulse response must be provided in a csv file.
+    """This class convolves an audio signal with an impulse response.
 
     Args:
         csv_file: The csv file containing the location of the
@@ -256,6 +217,11 @@ class add_reverb(torch.nn.Module):
             cache and read the data from the cache.
         reverb_prob: The chance that the audio signal will be reverbed.
             By default, every batch is reverbed.
+
+    Shape:
+        - waveform: [batch, time_steps] or [batch, channels, time_steps]
+        - lengths: [batch]
+        - output: [batch, time_steps] or [batch, channels, time_steps]
 
     Example:
         >>> import torch
@@ -307,20 +273,6 @@ class add_reverb(torch.nn.Module):
         self.hook = self.register_forward_pre_hook(hook)
 
     def forward(self, clean_waveform, clean_lengths):
-        """
-        Args:
-            clean_waveform: a batch of audio signals, and the
-                tensor must be in one of the following formats:
-                [batch, time_steps], or [batch, channels, time_steps]
-            clean_lengths: The lengths of the audio signals contained in
-                the tensor, must be in the format [batch].
-
-        Returns:
-            the reverbed audio signal. The tensor is the same
-            shape as the input, i.e. formatted in the following way:
-            [batch, time_steps], or [batch, channels, time_steps]
-        """
-
         # Don't add reverb (return early) 1-`reverb_prob` portion of the time
         if torch.rand(1) > self.reverb_prob:
             self.rng_state = torch.random.get_rng_state()
@@ -363,16 +315,6 @@ class add_reverb(torch.nn.Module):
         return reverbed_waveform
 
     def _load_rir(self):
-        """
-        ---------------------------------------------------------
-        Description:
-            Internal method for loading RIR wav files.
-
-        Returns:
-            A single RIR waveform
-        --------------------------------------------------------
-        """
-
         try:
             wav_id, rir_waveform, length = next(self.rir_data)[0]
         except StopIteration:
@@ -389,13 +331,11 @@ class add_reverb(torch.nn.Module):
 
 
 class speed_perturb(torch.nn.Module):
-    """
-    -------------------------------------------------------------------------
-    Description:
-        This class resamples the original signal at a similar
-        sample rate, to achieve a slightly slower or slightly
-        faster signal. This technique is outlined in the paper:
-        "Audio Augmentation for Speech Recognition"
+    """Slightly speed up or slow down an audio signal
+
+    Resample the audio signal at a rate that is similar to the original rate,
+    to achieve a slightly slower or slightly faster signal. This technique is
+    outlined in the paper: "Audio Augmentation for Speech Recognition"
 
     Args:
         orig_freq: The frequency of the original signal.
@@ -406,6 +346,11 @@ class speed_perturb(torch.nn.Module):
         random_seed: The seed for randomly selecting which perturbation
             to use. If `None` is passed, then this method will
             cycle through the list of speeds.
+
+    Shape:
+        - waveform: [batch, time_steps_in] or [batch, channels, time_steps_in]
+        - output: [batch, time_steps_out] or [batch, channels, time_steps_out]
+            where `time_steps_out` = `time_steps_in * speeds / 10`
 
     Example:
         >>> import torch
@@ -445,17 +390,6 @@ class speed_perturb(torch.nn.Module):
             self.resamplers.append(resample(**config))
 
     def forward(self, waveform):
-        """
-        Args:
-            waveform: Batch of audio signals. The input
-                tensor must be in one of the following formats:
-                [batch, time_steps], or [batch, channels, time_steps]
-
-        Returns:
-            the reverbed audio signal. The tensor is the same
-            shape as the input, i.e. formatted in the following way:
-            [batch, time_steps], or [batch, channels, time_steps]
-        """
         # add channels dimension
         waveform = waveform.unsqueeze(1)
 
@@ -485,6 +419,11 @@ class resample(torch.nn.Module):
         lowpass_filter_width: Controls the sharpness of the filter, larger
             numbers result in a sharper filter, but they are less efficient.
             Values from 4 to 10 are allowed.
+
+    Shape:
+        - waveform: [batch, time_steps_in] or [batch, channels, time_steps_in]
+        - output: [batch, time_steps_out] or [batch, channels, time_steps_out]
+            where `time_steps_out` = `time_steps_in * new_freq / old_freq`
 
     Example:
         >>> import torch
@@ -534,10 +473,7 @@ class resample(torch.nn.Module):
         self.hook = self.register_forward_pre_hook(hook)
 
     def _compute_strides(self):
-        """
-        ---------------------------------------------------------------------
-        Description:
-            Compute the phases in polyphase filter
+        """Compute the phases in polyphase filter
 
         Example:
             >>> import torch
@@ -549,7 +485,6 @@ class resample(torch.nn.Module):
 
         Author:
             (almost directly from torchaudio.compliance.kaldi)
-        ---------------------------------------------------------------------
         """
         # Compute new unit based on ratio of in/out frequencies
         base_freq = math.gcd(self.orig_freq, self.new_freq)
@@ -561,18 +496,6 @@ class resample(torch.nn.Module):
         self.conv_transpose_stride = self.output_samples
 
     def forward(self, waveform):
-        """
-        Args:
-            waveform: torch.tensor which contains an audio signal. The input
-                tensor must be in one of the following formats:
-                [batch, time_steps], or [batch, channels, time_steps]
-
-        Returns:
-            the resampled audio signal. The tensor is formatted in one of the
-            following ways based on input:
-            [batch, time_steps * new_freq // orig_freq], or
-            [batch, channels, time_steps * new_freq // orig_freq]
-        """
         waveform = waveform.to(self.device)
 
         # Don't do anything if the frequencies are the same
@@ -590,23 +513,19 @@ class resample(torch.nn.Module):
         return resampled_waveform.squeeze(1)
 
     def _perform_resample(self, waveform):
-        """
-        ---------------------------------------------------------------
-        Description:
-            Resamples the waveform at the new frequency. This matches
-            Kaldi's OfflineFeatureTpl ResampleWaveform which uses a
-            LinearResample (resample a signal at linearly spaced
-            intervals to up/downsample a signal). LinearResample (LR)
-            means that the output signal is at linearly spaced
-            intervals (i.e the output signal has a frequency of
-            `new_freq`). It uses sinc/bandlimited interpolation to
-            upsample/downsample the signal.
+        """Resamples the waveform at the new frequency.
 
-            https://ccrma.stanford.edu/~jos/resample/
-            Theory_Ideal_Bandlimited_Interpolation.html
+        This matches Kaldi's OfflineFeatureTpl ResampleWaveform which uses a
+        LinearResample (resample a signal at linearly spaced intervals to
+        up/downsample a signal). LinearResample (LR) means that the output
+        signal is at linearly spaced intervals (i.e the output signal has a
+        frequency of `new_freq`). It uses sinc/bandlimited interpolation to
+        upsample/downsample the signal.
 
-            https://github.com/kaldi-asr/kaldi/blob/master/src/feat/
-                resample.h#L56
+        https://ccrma.stanford.edu/~jos/resample/
+        Theory_Ideal_Bandlimited_Interpolation.html
+
+        https://github.com/kaldi-asr/kaldi/blob/master/src/feat/resample.h#L56
 
         Args:
             waveform: the tensor to resample
@@ -616,7 +535,6 @@ class resample(torch.nn.Module):
 
         Author:
             (almost directly from torchaudio.compliance.kaldi)
-        -----------------------------------------------------------------
         """
 
         # Compute output size and initialize
@@ -679,14 +597,12 @@ class resample(torch.nn.Module):
         return resampled_waveform
 
     def _output_samples(self, input_num_samp):
-        """
-        ---------------------------------------------------------------------
-        Description:
-            Based on LinearResample::GetNumOutputSamples.
-            LinearResample (LR) means that the output signal is at
-            linearly spaced intervals (i.e the output signal has a
-            frequency of ``new_freq``). It uses sinc/bandlimited
-            interpolation to upsample/downsample the signal.
+        """Based on LinearResample::GetNumOutputSamples.
+
+        LinearResample (LR) means that the output signal is at
+        linearly spaced intervals (i.e the output signal has a
+        frequency of ``new_freq``). It uses sinc/bandlimited
+        interpolation to upsample/downsample the signal.
 
         Args:
             input_num_samp: The number of samples in each example in the batch
@@ -710,7 +626,6 @@ class resample(torch.nn.Module):
 
         Author:
             (almost directly from torchaudio.compliance.kaldi)
-        ---------------------------------------------------------------------
         """
         # For exact computation, we measure time in "ticks" of 1.0 / tick_freq,
         # where tick_freq is the least common multiple of samp_in and
@@ -746,22 +661,17 @@ class resample(torch.nn.Module):
         return num_output_samp
 
     def _indices_and_weights(self):
-        """
-        ---------------------------------------------------------------------
-        speechbrain.processing.speech_augmentation.resample._indices_and_weights
-        (almost directly from torchaudio.compliance.kaldi)
+        """Based on LinearResample::SetIndexesAndWeights
 
-        Description:
-            Based on LinearResample::SetIndexesAndWeights where it retrieves
-            the weights for resampling as well as the indices in which they
-            are valid. LinearResample (LR) means that the output signal is at
-            linearly spaced intervals (i.e the output signal has a frequency
-            of ``new_freq``). It uses sinc/bandlimited interpolation to
-            upsample/downsample the signal.
+        Retrieves the weights for resampling as well as the indices in which
+        they are valid. LinearResample (LR) means that the output signal is at
+        linearly spaced intervals (i.e the output signal has a frequency
+        of ``new_freq``). It uses sinc/bandlimited interpolation to
+        upsample/downsample the signal.
 
         Returns:
-        the place where each filter should start being applied, and
-            the filters to be applied to the signal for resampling
+            - the place where each filter should start being applied
+            - the filters to be applied to the signal for resampling
 
         Example:
             >>> import torch
@@ -772,7 +682,8 @@ class resample(torch.nn.Module):
             >>> resampled = resampler(signal)
             >>> resampler._indices_and_weights()
 
-        ---------------------------------------------------------------------
+        Author:
+            (almost directly from torchaudio.compliance.kaldi)
         """
         # Lowpass filter frequency depends on smaller of two frequencies
         min_freq = min(self.orig_freq, self.new_freq)
@@ -825,11 +736,7 @@ class resample(torch.nn.Module):
 
 
 class add_babble(torch.nn.Module):
-    """
-    -------------------------------------------------------------------------
-    Description:
-        This class additively combines a signal with other signals
-        from the batch, to simulate babble noise.
+    """Simulate babble noise by mixing the signals in a batch.
 
     Args:
         speaker_count: The number of signals to mix with the original signal.
@@ -837,6 +744,11 @@ class add_babble(torch.nn.Module):
         snr_high: The high end of the mixing ratios, in decibels.
         mix_prob: The probability that the batch of signals will be
             mixed with babble noise. By default, every signal is mixed.
+
+    Shape:
+        - waveform: [batch, time_steps] or [batch, channels, time_steps]
+        - lengths: [batch]
+        - output: [batch, time_steps] or [batch, channels, time_steps]
 
     Example:
         >>> import torch
@@ -855,7 +767,6 @@ class add_babble(torch.nn.Module):
 
     Author:
         Peter Plantinga 2020
-    -------------------------------------------------------------------------
     """
 
     def __init__(
@@ -872,15 +783,6 @@ class add_babble(torch.nn.Module):
         self.mix_prob = mix_prob
 
     def forward(self, clean_waveform, clean_len):
-        """
-        Args:
-            clean_waveform: A batch of audio signals, a tensor of the shape
-                [batch, time_steps] or [batch, channels, time_steps]
-            clean_len: A tensor representing the length of each signal.
-
-        Returns:
-            The babbled waveforms, in the same shape as the input
-        """
         babbled_waveform = clean_waveform.clone()
         clean_len = (clean_len * clean_waveform.shape[1]).unsqueeze(1)
         batch_size = len(clean_waveform)
@@ -936,6 +838,10 @@ class drop_freq(torch.nn.Module):
             have a frequency dropped. By default, every batch
             has frequencies dropped.
 
+    Shape:
+        - waveform: [batch, time_steps] or [batch, channels, time_steps]
+        - output: [batch, time_steps] or [batch, channels, time_steps]
+
     Example:
         >>> import torch
         >>> import soundfile as sf
@@ -970,14 +876,6 @@ class drop_freq(torch.nn.Module):
         self.drop_prob = drop_prob
 
     def forward(self, clean_waveform):
-        """
-        Args:
-            clean_waveform: the batch to drop frequencies from, in the format
-                [batch, time_steps], or [batch, channels, time_steps]
-
-        Returns:
-            batch with frequencies dropped
-        """
         # Don't drop (return early) 1-`drop_prob` portion of the batches
         dropped_waveform = clean_waveform.clone()
         if torch.rand(1) > self.drop_prob:
@@ -1046,6 +944,11 @@ class drop_chunk(torch.nn.Module):
             have a portion dropped. By default, every batch
             has portions dropped.
 
+    Shape:
+        - waveform: [batch, time_steps] or [batch, channels, time_steps]
+        - lengths: [batch]
+        - output: [batch, time_steps] or [batch, channels, time_steps]
+
     Example:
         >>> import torch
         >>> import soundfile as sf
@@ -1082,15 +985,6 @@ class drop_chunk(torch.nn.Module):
         self.drop_prob = drop_prob
 
     def forward(self, clean_waveform, clean_len):
-        """
-        Args:
-            clean_waveform: a batch of audio signals of the shape
-                [batch, time_steps], or [batch, channels, time_steps]
-            clean_len: The lengths of all the audio signals
-
-        Returns:
-            The audio signals with dropped portions
-        """
         # Reading input list
         clean_length = (clean_len * clean_waveform.size(-1)).long()
         batch_size = clean_waveform.size(0)
@@ -1162,6 +1056,10 @@ class do_clip(torch.nn.Module):
             have a portion clipped. By default, every batch
             has portions clipped.
 
+    Shape:
+        - waveform: [batch, time_steps] or [batch, channels, time_steps]
+        - output: [batch, time_steps] or [batch, channels, time_steps]
+
      Example:
         >>> import torch
         >>> import soundfile as sf
@@ -1189,14 +1087,6 @@ class do_clip(torch.nn.Module):
         self.clip_prob = clip_prob
 
     def forward(self, clean_waveform):
-        """
-        Args:
-            clean_waveform: the waveform to clip, in the format
-                [batch, time_steps] or [batch, channels, time_steps]
-
-        Returns:
-            clipped waveforms
-        """
         # Don't clip (return early) 1-`clip_prob` portion of the batches
         if torch.rand(1) > self.clip_prob:
             return clean_waveform.clone()

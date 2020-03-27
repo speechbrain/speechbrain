@@ -9,16 +9,15 @@
 
 import math
 import torch
+import logging
 import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 from speechbrain.data_io.data_io import recovery, initialize_with
-from speechbrain.utils.input_validation import check_opts, check_inputs
-from speechbrain.utils.logger import logger_write
-from speechbrain.module import SpeechBrainModule
+logger = logging.getLogger(__name__)
 
 
-class linear(SpeechBrainModule):
+class linear(torch.nn.Module):
     """
      -------------------------------------------------------------------------
      nnet.architectures.linear (author: Mirco Ravanelli)
@@ -64,15 +63,15 @@ class linear(SpeechBrainModule):
         bias=True,
         initialize_from=None,
         do_recovery=True,
-        **kwargs
+        output_folder=None,
     ):
-        # Definition of the expected input
-        expected_inputs = [{'type': 'torch.Tensor', 'dim_count': [2, 3, 4, 5]}]
+        super().__init__()
 
         self.n_neurons = n_neurons
         self.bias = bias
         self.initialize_with = initialize_from
         self.recovery = do_recovery
+        self.output_folder = output_folder
 
         def hook(self, input):
 
@@ -89,23 +88,17 @@ class linear(SpeechBrainModule):
             # Automatic recovery (when needed)
             # recovery(self)
 
-        super().__init__(expected_inputs, hook, **kwargs)
+            self.hook.remove()
 
-        # Output folder (useful for parameter saving)
-        if self.global_config is not None:
-            self.output_folder = self.global_config["output_folder"]
+        self.hook = self.register_forward_pre_hook(hook)
 
     def forward(self, x):
         """
-        Input: - x (type: torch.Tensor, mandatory):
-                   torch.tensor that we want to transform linearly.
-                   The tensor must be in one of the following format:
-                   [batch, channels, time]. Note that we can have up to
-                   three channels.
+        Args:
+            x: torch.tensor that we want to transform linearly.
 
-        Output: - wx (type: torch.Tensor)
-                   The output is a tensor that corresponds to the linear
-                   transformation of the input tensor.
+        Returns:
+            The linear transformation of the input tensor.
         """
         # Transposing tensor
         x = x.transpose(1, -1)
@@ -147,25 +140,6 @@ class linear_combination(nn.Module):
                                when set, this flag can be used to initialize
                                the parameters with an external pkl file. It
                                could be useful for pre-training purposes.
-
-
-                   - funct_name (type, str, default: None):
-                       it is a string containing the name of the parent
-                       function that has called this method.
-
-                   - global_config (type, dict, default: None):
-                       it a dictionary containing the global variables of the
-                       parent config file.
-
-                   - logger (type, logger, default: None):
-                       it the logger used to write debug and error messages.
-                       If logger=None and root_cfg=True, the file is created
-                       from scratch.
-
-                   - first_input (type, list, default: None)
-                      this variable allows users to analyze the first input
-                      given when calling the class for the first time.
-
 
      Input (call): - inp_lst(type, list, mandatory):
                        by default the input arguments are passed with a list.
@@ -526,12 +500,10 @@ class conv(nn.Module):
         # symmetric there could a problem with the padding function)
         for size in self.kernel_size:
             if size % 2 == 0:
-                err_msg = (
-                    "The field kernel size must be and odd number. Got %s."
+                raise ValueError(
+                    "The field kernel size must be an odd number. Got %s."
                     % (self.kernel_size)
                 )
-
-                logger_write(err_msg, logfile=logger)
 
         # Checking if 1d or 2d is specified
         self.conv1d = False
@@ -1411,7 +1383,7 @@ class SincConv(nn.Module):
         return x
 
 
-class RNN_basic(SpeechBrainModule):
+class RNN_basic(torch.nn.Module):
     """
      -------------------------------------------------------------------------
      nnet.architectures.RNN_basic (author: Mirco Ravanelli)
@@ -1492,23 +1464,24 @@ class RNN_basic(SpeechBrainModule):
         n_neurons,
         nonlinearity,
         num_layers=1,
+        bias=True,
         dropout=0.,
         bidirectional=False,
         initialize_from=None,
         do_recovery=True,
-        **kwargs
+        output_folder=None
     ):
+        super().__init__()
         self.rnn_type = rnn_type
         self.n_neurons = n_neurons
         self.nonlinearity = nonlinearity,
         self.num_layers = num_layers
+        self.bias = bias
         self.dropout = dropout
         self.bidirectional = bidirectional
         self.initialize_with = initialize_from
         self.recovery = do_recovery
-
-        # Definition of the expected input
-        expected_inputs = [{'type': 'torch.Tensor', 'dim_count': [3, 4, 5]}]
+        self.output_folder = output_folder
 
         def hook(self, input):
             if len(input[0].shape) > 3:
@@ -1517,46 +1490,32 @@ class RNN_basic(SpeechBrainModule):
             # Computing the feature dimensionality
             self.fea_dim = torch.prod(torch.tensor(input[0].shape[1:-1]))
 
+            kwargs = {
+                'input_size': self.fea_dim,
+                'hidden_size': self.n_neurons,
+                'num_layers': self.num_layers,
+                'dropout': self.dropout,
+                'bidirectional': self.bidirectional,
+                'bias': self.bias,
+            }
+
             # Vanilla RNN
             if self.rnn_type == "rnn":
-                self.rnn = torch.nn.RNN(
-                    input_size=self.fea_dim,
-                    hidden_size=self.n_neurons,
-                    nonlinearity=self.nonlinearity,
-                    num_layers=self.num_layers,
-                    bias=self.bias,
-                    dropout=self.dropout,
-                    bidirectional=self.bidirectional,
-                )
+                kwargs.update({'nonlinearity': self.nonlinearity})
+                self.rnn = torch.nn.RNN(**kwargs)
+
             # Vanilla LSTM
             if self.rnn_type == "lstm":
-                self.rnn = torch.nn.LSTM(
-                    input_size=self.fea_dim,
-                    hidden_size=self.n_neurons,
-                    num_layers=self.num_layers,
-                    bias=self.bias,
-                    dropout=self.dropout,
-                    bidirectional=self.bidirectional,
-                )
+                self.rnn = torch.nn.LSTM(**kwargs)
+
             # Vanilla GRU
             if self.rnn_type == "gru":
-                self.rnn = torch.nn.GRU(
-                    input_size=self.fea_dim,
-                    hidden_size=self.n_neurons,
-                    num_layers=self.num_layers,
-                    bias=self.bias,
-                    dropout=self.dropout,
-                    bidirectional=self.bidirectional,
-                )
+                self.rnn = torch.nn.GRU(**kwargs)
+
             # Vanilla light-GRU
             if self.rnn_type == "ligru":
-                self.rnn = liGRU(
-                    input_size=self.fea_dim,
-                    hidden_size=self.n_neurons,
-                    num_layers=self.num_layers,
-                    dropout=self.dropout,
-                    bidirectional=self.bidirectional,
-                )
+                del kwargs['bias']
+                self.rnn = liGRU(**kwargs)
 
             # Quasi RNN
             if self.rnn_type == "qrnn":
@@ -1564,27 +1523,23 @@ class RNN_basic(SpeechBrainModule):
                 # Check if qrnn (quasi-rnn) library is installed
                 try:
                     from torchqrnn import QRNN
-                except Exception:
-                    err_msg = (
+                except ImportError:
+                    raise ImportError(
                         "QRNN is not installed. Please run "
                         "pip install cupy pynvrtc \
                             git+https://github.com/salesforce/pytorch-qrnn ."
                         "Go to https://github.com/salesforce/pytorch-qrnn \
                             for more info."
                     )
-                    logger_write(err_msg, logfile=logger)
 
                 # Needed to avoid qrnn warnings
                 import warnings
 
                 warnings.filterwarnings("ignore")
 
-                self.rnn = QRNN(
-                    input_size=self.fea_dim,
-                    hidden_size=self.n_neurons,
-                    num_layers=self.num_layers,
-                    dropout=self.dropout,
-                )
+                del kwargs['bias']
+                del kwargs['bidirectional']
+                self.rnn = QRNN(**kwargs)
 
             # Managing initialization with an external model
             # (useful for pre-training)
@@ -1592,13 +1547,10 @@ class RNN_basic(SpeechBrainModule):
 
             # Automatic recovery
             # recovery(self)
-
-        super().__init__(expected_inputs, hook, **kwargs)
-
-        if self.global_config is not None:
-            self.output_folder = self.global_config["output_folder"]
+            self.hook.remove()
 
         self.reshape = False
+        self.hook = self.register_forward_pre_hook(hook)
 
     def forward(self, x):
         """
@@ -1900,7 +1852,7 @@ class liGRU(nn.Module):
         return x.view(xsize)
 
 
-class activation(SpeechBrainModule):
+class activation(torch.nn.Module):
     """
      -------------------------------------------------------------------------
      nnet.architectures.activation (author: Mirco Ravanelli)
@@ -1999,11 +1951,8 @@ class activation(SpeechBrainModule):
         lambd=0.5,
         value=0.5,
         dim=-1,
-        **kwargs
     ):
-        # Definition of the expected input
-        expected = [{'type': 'torch.Tensor', 'dim_count': [1, 2, 3, 4, 5]}]
-        super().__init__(expected, **kwargs)
+        super().__init__()
 
         self.act_type = act_type
         self.inplace = inplace

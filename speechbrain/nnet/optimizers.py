@@ -7,11 +7,9 @@ Description: This library implements different optimizers.
 """
 
 import torch
-import torch.nn as nn
+import logging
 from speechbrain.data_io.data_io import recovery
-from speechbrain.utils.input_validation import check_opts
-from speechbrain.utils.logger import logger_write
-from speechbrain.module import SpeechBrainModule
+logger = logging.getLogger(__name__)
 
 
 class optimize(torch.nn.Module):
@@ -212,11 +210,9 @@ class optimize(torch.nn.Module):
                         % (inp)
                     )
 
-                    logger_write(err_msg, logfile=self.logger)
+                    logger.error(err_msg, exc_info=True)
 
-            # Initialization of the rmsprop optimizer
             if self.optimizer_type == "rmsprop":
-
                 self.optim = torch.optim.RMSprop(
                     param_lst,
                     lr=self.learning_rate,
@@ -227,9 +223,7 @@ class optimize(torch.nn.Module):
                     centered=self.centered,
                 )
 
-            # Initialization of the adam optimizer
             if self.optimizer_type == "adam":
-
                 self.optim = torch.optim.Adam(
                     param_lst,
                     lr=self.learning_rate,
@@ -239,9 +233,7 @@ class optimize(torch.nn.Module):
                     amsgrad=self.amsgrad,
                 )
 
-            # Initialization of the adamw optimizer
             if self.optimizer_type == "adamw":
-
                 self.optim = torch.optim.AdamW(
                     param_lst,
                     lr=self.learning_rate,
@@ -251,9 +243,7 @@ class optimize(torch.nn.Module):
                     amsgrad=self.amsgrad,
                 )
 
-            # Initialization of the adamax optimizer
             if self.optimizer_type == "adamax":
-
                 self.optim = torch.optim.Adamax(
                     param_lst,
                     lr=self.learning_rate,
@@ -261,9 +251,7 @@ class optimize(torch.nn.Module):
                     eps=self.eps,
                 )
 
-            # Initialization of the adadelta optimizer
             if self.optimizer_type == "adadelta":
-
                 self.optim = torch.optim.Adadelta(
                     param_lst,
                     lr=self.learning_rate,
@@ -272,9 +260,7 @@ class optimize(torch.nn.Module):
                     weight_decay=self.weight_decay,
                 )
 
-            # Initialization of the sgd optimizer
             if self.optimizer_type == "sgd":
-
                 self.optim = torch.optim.SGD(
                     param_lst,
                     lr=self.learning_rate,
@@ -284,9 +270,7 @@ class optimize(torch.nn.Module):
                     nesterov=self.nesterov,
                 )
 
-            # Initialization of the rprop optimizer
             if self.optimizer_type == "rprop":
-
                 self.optim = torch.optim.Rprop(
                     param_lst,
                     lr=self.learning_rate,
