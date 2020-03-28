@@ -22,19 +22,17 @@ instance or a for a class.
 
 Example:
     from speechbrain.utils.recovery import Recoverer
-    # In simple cases, the module aims to have a terse syntax, consisting of
-    # three steps:
-    # 1. Specifying what is included in a checkpoint, and the checkpoint dir:
     model = speechbrain.nnet.architectures.linear(n_neurons = 512)j
+    # In simple cases, the module aims to have a terse syntax, consisting of
+    # three steps.
+    # 1. Specifying what is included in a checkpoint, and the checkpoint dir:
     recoverer = Recoverer("exp/checkpoint_dir", {"network": model}
-
     # 2. Recover from the latest checkpoint, if one is found:
     recoverer.recover_if_possible()
-
     # Run your experiment:
     data = [([0.2, 0.3, 0.4], 0.9), ([0.3, 0.3, 0.2], 0.8)]
     for example, target in data:
-        result = asrmodel(example)
+        result = model(example)
         # 3. Save checkpoints:
         recoverer.save_checkpoint()
 Author:
@@ -552,7 +550,7 @@ class Recoverer:
         # This internal method creates a checkpoint name and returns a path
         # to that directory (but does not create the directory!)
         t = time.time()
-        stamp = time.strftime('%Y-%m-%d+%H-%M-%Z', time.localtime(t))
+        stamp = time.strftime('%Y-%m-%d+%H-%M-%S', time.localtime(t))
         unique_id = uuid.uuid4().hex[:4]
         return self.checkpoints_dir / f"{CKPT_PREFIX}+{stamp}+{unique_id}"
     
