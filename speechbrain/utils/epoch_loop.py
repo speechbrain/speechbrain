@@ -2,6 +2,7 @@ from .recovery import register_recovery_hooks
 from .recovery import mark_as_saver
 from .recovery import mark_as_loader
 
+
 @register_recovery_hooks
 class EpochCounter:
     """
@@ -24,13 +25,14 @@ class EpochCounter:
     Author:
         Aku Rouhe 2020
     """
+
     def __init__(self, limit):
         self.current = 0
         self.limit = int(limit)
 
     def __iter__(self):
         return self
-    
+
     def __next__(self):
         if self.current <= self.limit:
             self.current += 1
@@ -41,7 +43,7 @@ class EpochCounter:
     def _save(self, path):
         with open(path, "w") as fo:
             fo.write(str(self.current))
-    
+
     @mark_as_loader
     def _recover(self, path):
         with open(path) as fi:

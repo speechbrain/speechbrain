@@ -80,8 +80,10 @@ def torch_lazy_load(obj, path):
     def _lazy_recovery_hook(path, self, *input):
         self.load_state_dict(torch.load(path))
         self._speechbrain_lazy_recovery_hook.remove()
+
     hook = functools.partial(_lazy_recovery_hook, path)
     obj._speechbrain_lazy_recovery_hook = obj.register_forward_pre_hook(hook)
+
 
 def torch_instant_load(obj, path):
     """
@@ -100,6 +102,7 @@ def torch_instant_load(obj, path):
     """
     obj.load_state_dict(torch.load(path))
 
+
 def torch_save(obj, path):
     """
     Default save hook for torch.nn.Modules
@@ -117,11 +120,12 @@ def torch_save(obj, path):
 
 
 DEFAULT_LOAD_HOOKS = {
-        torch.nn.Module: torch_lazy_load,
-        }
+    torch.nn.Module: torch_lazy_load,
+}
 DEFAULT_SAVE_HOOKS = {
-        torch.nn.Module: torch_save,
-        }
+    torch.nn.Module: torch_save,
+}
+
 
 def mark_as_saver(method):
     """
@@ -150,6 +154,7 @@ def mark_as_saver(method):
     method._speechbrain_saver = True
     return method
 
+
 def mark_as_loader(method):
     """
     Method decorator which marks the given method as the recovery loading hook.
@@ -176,6 +181,7 @@ def mark_as_loader(method):
         raise TypeError(MSG)
     method._speechbrain_loader = True
     return method
+
 
 def register_recovery_hooks(cls):
     """
@@ -211,8 +217,9 @@ def register_recovery_hooks(cls):
         if hasattr(method, "_speechbrain_loader"):
             DEFAULT_LOAD_HOOKS[cls] = method
     return cls
-            
-def get_default_hook(obj, default_hooks): 
+
+
+def get_default_hook(obj, default_hooks):
     """
     Description:
         Finds the default recovery hook to use with the given object.
@@ -230,26 +237,27 @@ def get_default_hook(obj, default_hooks):
         if cls in default_hooks:
             return default_hooks[cls]
     # If we got here, no hook found
-    return None  
+    return None
 
 
 Checkpoint = collections.namedtuple("Checkpoint", ["path", "meta"])
 # To select a checkpoint to load from many checkpoints,
 # checkpoints are first filtered and sorted based on this namedtuple.
-# Recoverer put pathlib.Path in path and a dict in meta 
+# Recoverer put pathlib.Path in path and a dict in meta
 # You can essentially add any info you want to meta when saving a checkpoint
-# The only default key in meta is "unixtime" 
+# The only default key in meta is "unixtime"
 
 
-# These internal functions also act as examples of how to make checkpoint 
-# filters and keyfuncs. These are proper functions, but as you can see 
-# they could be easily implemented as lambdas in a pinch. 
+# These internal functions also act as examples of how to make checkpoint
+# filters and keyfuncs. These are proper functions, but as you can see
+# they could be easily implemented as lambdas in a pinch.
 def _latest_ckpt_keyfunc(ckpt):
     # Negative of unixtime -> latest first
-    return - ckpt.meta["unixtime"]
+    return -ckpt.meta["unixtime"]
+
+
 def _latest_ckpt_filter(ckpt):
     return "unixtime" in ckpt.meta
-
 
 
 class Recoverer:
@@ -309,15 +317,17 @@ class Recoverer:
         Aku Rouhe 2020
     """
 
-    def __init__(self, 
-            checkpoints_dir, 
-            recoverables = None, 
-            custom_load_hooks = None,
-            custom_save_hooks = None,
-            allow_partial_load = False):
+    def __init__(
+        self,
+        checkpoints_dir,
+        recoverables=None,
+        custom_load_hooks=None,
+        custom_save_hooks=None,
+        allow_partial_load=False,
+    ):
         self.checkpoints_dir = pathlib.Path(checkpoints_dir)
         os.makedirs(self.checkpoints_dir, exist_ok=True)
-        self.recoverables = {} 
+        self.recoverables = {}
         if recoverables is not None:
             self.add_recoverables(recoverables)
         self.custom_load_hooks = {}
@@ -328,11 +338,9 @@ class Recoverer:
             self.custom_save_hooks.update(custom_io_hooks)
         self.allow_partial_load = allow_partial_load
 
-    def add_recoverable(self, 
-            name, 
-            obj, 
-            custom_load_hook = None, 
-            custom_save_hook = None):
+    def add_recoverable(
+        self, name, obj, custom_load_hook=None, custom_save_hook=None
+    ):
         """
         Description:
             Register a recoverable with possible custom hooks.
@@ -356,7 +364,7 @@ class Recoverer:
             self.custom_load_hooks[name] = custom_load_hook
         if custom_save_hook is not None:
             self.custom_save_hooks[name] = custom_save_hook
-    
+
     def add_recoverables(self, recoverables):
         """
         Description:
@@ -378,7 +386,7 @@ class Recoverer:
                     got {rec} instead."
             raise AttributeError(MSG)
 
-    def save_checkpoint(self, name=None, meta = {}):
+    def save_checkpoint(self, name=None, meta={}):
         """
         Description:
             Saves a checkpoint. The whole checkpoint becomes a directory.
@@ -408,7 +416,7 @@ class Recoverer:
             savepath = ckpt_dir / objfname
             # First see if object has custom load hook:
             if name in self.custom_save_hooks:
-                self.custom_save_hooks[name](obj, savepath) 
+                self.custom_save_hooks[name](obj, savepath)
                 continue
             # Otherwise find the default saver for that type:
             default_hook = get_default_hook(obj, DEFAULT_SAVE_HOOKS)
@@ -421,9 +429,11 @@ class Recoverer:
             raise RuntimeError(MSG)
         return Checkpoint(ckpt_dir, saved_meta)
 
-    def find_checkpoint(self, 
-            ckpt_sort_key = _latest_ckpt_keyfunc,
-            ckpt_filter = _latest_ckpt_filter):
+    def find_checkpoint(
+        self,
+        ckpt_sort_key=_latest_ckpt_keyfunc,
+        ckpt_filter=_latest_ckpt_filter,
+    ):
         """
         Description:
             Picks a particular checkpoint from all the checkpoints saved in the
@@ -453,9 +463,11 @@ class Recoverer:
         else:
             return None  # Be explicit :)
 
-    def recover_if_possible(self,
-            ckpt_sort_key = _latest_ckpt_keyfunc,
-            ckpt_filter = _latest_ckpt_filter):
+    def recover_if_possible(
+        self,
+        ckpt_sort_key=_latest_ckpt_keyfunc,
+        ckpt_filter=_latest_ckpt_filter,
+    ):
         """
         Description:
             Picks a checkpoint and recovers from that, if one is found.
@@ -473,7 +485,7 @@ class Recoverer:
         if chosen_ckpt is not None:
             self.load_checkpoint(chosen_ckpt)
         return chosen_ckpt
-    
+
     def load_checkpoint(self, checkpoint):
         """
         Description:
@@ -491,7 +503,7 @@ class Recoverer:
             List of Checkpoint namedtuple (see above)
         """
         return self._load_checkpoint_meta(self._list_checkpoint_dirs())
-    
+
     def _call_load_hooks(self, checkpoint):
         # This internal function finds the correct hook to call for every
         # recoverable, and calls it.
@@ -507,7 +519,7 @@ class Recoverer:
                     raise RuntimeError(MSG)
             # First see if object has custom load hook:
             if name in self.custom_load_hooks:
-                self.custom_load_hooks[name](obj, loadpath) 
+                self.custom_load_hooks[name](obj, loadpath)
                 continue
             # Otherwise find the default saver for that type:
             default_hook = get_default_hook(obj, DEFAULT_LOAD_HOOKS)
@@ -522,9 +534,12 @@ class Recoverer:
     def _list_checkpoint_dirs(self):
         # This internal method returns a list of individual checkpoint
         # directory paths in the top checkpoint directory
-        return [x for x in self.checkpoints_dir.iterdir()
-                if Recoverer._is_checkpoint_dir(x)]
-    
+        return [
+            x
+            for x in self.checkpoints_dir.iterdir()
+            if Recoverer._is_checkpoint_dir(x)
+        ]
+
     @staticmethod
     def _load_checkpoint_meta(checkpoint_dirs):
         # This internal method takes a list of individual checkpoint
@@ -545,26 +560,25 @@ class Recoverer:
         if not path.name.startswith(CKPT_PREFIX):
             return False
         return (path / METAFNAME).exists()
-        
+
     def _new_checkpoint_dirpath(self):
         # This internal method creates a checkpoint name and returns a path
         # to that directory (but does not create the directory!)
         t = time.time()
-        stamp = time.strftime('%Y-%m-%d+%H-%M-%S', time.localtime(t))
+        stamp = time.strftime("%Y-%m-%d+%H-%M-%S", time.localtime(t))
         unique_id = uuid.uuid4().hex[:4]
         return self.checkpoints_dir / f"{CKPT_PREFIX}+{stamp}+{unique_id}"
-    
+
     def _custom_checkpoint_dirpath(self, name):
-        # This internal method creates a checkpoint name based on a given 
-        # custom name and returns a path to that directory (but does not 
+        # This internal method creates a checkpoint name based on a given
+        # custom name and returns a path to that directory (but does not
         # create the directory!)
         return self.checkpoints_dir / f"{CKPT_PREFIX}+{name}"
 
-    def _save_checkpoint_metafile(self, fpath, meta_to_include = {}):
+    def _save_checkpoint_metafile(self, fpath, meta_to_include={}):
         # This internal method saves the meta information in the given path
         meta = {"unixtime": time.time()}
         meta.update(meta_to_include)
         with open(fpath, "w") as fo:
             fo.write(yaml.dump(meta))
         return meta
-
