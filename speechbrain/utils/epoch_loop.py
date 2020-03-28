@@ -34,7 +34,7 @@ class EpochCounter:
         return self
 
     def __next__(self):
-        if self.current <= self.limit:
+        if self.current < self.limit:
             self.current += 1
             return self.current
         raise StopIteration
