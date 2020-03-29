@@ -80,6 +80,7 @@ class linear(torch.nn.Module):
 
             # Initialization of the parameters
             self.w = nn.Linear(fea_dim, self.n_neurons, bias=self.bias)
+            self.w.to(input[0].device)
 
             # Managing initialization with an external model
             # (useful for pre-training)
@@ -1544,6 +1545,7 @@ class RNN_basic(torch.nn.Module):
             # Managing initialization with an external model
             # (useful for pre-training)
             initialize_with(self)
+            self.rnn.to(input[0].device)
 
             # Automatic recovery
             # recovery(self)

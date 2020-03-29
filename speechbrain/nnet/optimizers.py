@@ -13,146 +13,57 @@ logger = logging.getLogger(__name__)
 
 
 class optimize(torch.nn.Module):
-    """
-    -------------------------------------------------------------------------
-    nnet.optimizers.optimize (author: Mirco Ravanelli)
+    """This function implements different optimizers.
 
-    Description:
-        This function implements different optimizers.
-        It supports standard optimizers such as adam, sgd, rmseprop,
-        and some of their variations such as as adamw, adamax,
-        adadelta. The function takes in input some neural networks
-        and updates their parameters according to the optimization
-        algorithm adopted.
+    Supports standard optimizers such as adam, sgd, rmseprop, and some of
+    their variations such as as adamw, adamax, adadelta. The function takes
+    in input some neural networks and updates their parameters according to
+    the optimization algorithm adopted.
 
-    Input:
-       - optimizer_type (one_of(rmsprop,adam,adamw,adamax,
-                        adadelta,sgd,rprop), mandatory):
-          it is the type of optimizer to be used.
-          Refer to torch.nn documentation of a more
-          detailed description of each optimizer.
-
-
-      - learning_rate (float, mandatory):
-          it is the learning rate used to update the
-          parameters.
-
-      - alpha (float, optional, Default:0.95):
-          it is used the smoothing constant used in
-          rmseprop.
-
-      - betas (float_list, optional, Default:0.95):
-           are coefficients used for computing running
-           averages of gradient and its square in adam
-           optimizer and its variations.
-
-      - etas (float_list, optional, Default:0.5,1.2):
-          yt is used in Rprop optimizer. It is a
-          pair of (etaminus, etaplis), that are
-          multiplicative increase and decrease factors.
-
-      - eps (float, optional, Default:1e-8):
-          it is the numerical stability factor.
-
-      - step_sizes (float_list, optional,
-                    Default: 1e-06, 50):
-         It is used in rprop optimizer and contains a
-         pair of minimal and maximal allowed step sizes.
-
-      - weight_decay (int, optional, Default: 0):
-          it is the weight decay (L2 penalty) factor
-          used as as additionally loss.
-
-      - momentum (float, optional, Default: 0.0):
-         it is the momentum factor for the optimizers.
-
-      - dampening (float, optional, Default: 0.0):
-          it is  dampening facror for SGD momentum.
-
-      - rho (float, optional, Default: 0.0):
-          it is used in adadelta and it is the coefficient
-          used for computing a running average of
-          squared gradients.
-
-      - centered (bool, optional, Default: False):
-          if True, compute the centered RMSProp, the
-          gradient is normalized by an estimation of
-          its variance.
-
-      - amsgrad (bool, optional, Default: False):
-           if True it uses the AMSGrad variant of the
-           adam optimizer.
-
-      - nesterov (bool, optional, Default: False):
-           it enables Nesterov momentum for SGD.
-
-      - do_recovery (type: bool, optional, Default:True):
-          if True, the system restarts from the last
+    Args:
+        optimizer_type: the type of optimizer to be used, one of (rmsprop,
+            adam, adamw, adamax, adadelta, sgd, rprop). Refer to torch.nn
+            documentation for a more detailed description of each optimizer.
+        learning_rate: the learning rate used to update the parameters.
+        alpha: smoothing constant used in rmseprop.
+        betas: coefficients used for computing running averages of gradient
+            and its square in adam optimizer and its variations.
+        etas: (etaminus, etaplis), that are multiplicative increase and
+            decrease factors, used in Rprop.
+        eps: it is the numerical stability factor.
+        step_sizes: used in rprop optimizer and contains a pair of minimal
+            and maximal allowed step sizes.
+        weight_decay: it is the weight decay (L2 penalty) factor
+            used as as additionally loss.
+        momentum: it is the momentum factor for the optimizers.
+        dampening: dampening factor for SGD momentum.
+        rho: it is used in adadelta and it is the coefficient used for
+            computing a running average of squared gradients.
+        centered: if True, compute the centered RMSProp, the gradient is
+            normalized by an estimation of its variance.
+        amsgrad: if True it uses the AMSGrad variant of the adam optimizer.
+        nesterov: enables Nesterov momentum for SGD.
+        do_recovery: if True, the system restarts from the last
           epoch correctly executed.
 
-
     Example:
-       import torch
-       from speechbrain.nnet.architectures import linear
-       from speechbrain.nnet.architectures import activation
-       from speechbrain.nnet.losses import compute_cost
-       from speechbrain.nnet.optimizers import optimize
+       >>> import torch
+       >>> from speechbrain.nnet.architectures import linear
+       >>> from speechbrain.nnet.architectures import activation
+       >>> from speechbrain.nnet.losses import compute_cost
+       >>> inp_tensor = torch.rand([1,660,3])
+       >>> model = linear(n_neurons=4))
+       >>> cost = compute_cost(cost_type='nll')
+       >>> optim = optimize(optimizer_type='sgd', learning_rate=0.01)
+       >>> prediction = torch.nn.functional.softmax(model(inp_tensor))
+       >>> label = torch.FloatTensor([0,1,3]).unsqueeze(0)
+       >>> lengths = torch.Tensor([1.0])
+       >>> out_cost = cost(pred, label, lengths)
+       >>> out_cost.backward()
+       >>> optim([model])
 
-       # Definition the input tensor
-       inp_tensor = torch.rand([1,660,3])
-
-       # Initialization of the linear class
-       config={'class_name':'speechbrain.nnet.architectures.linear',
-               'n_neurons':'4'}
-
-       model=linear(config,first_input=[inp_tensor])
-
-
-       # Initialization of the log_softmax class
-       config={'class_name':'speechbrain.nnet.architectures.activation',
-               'act_type':'log_softmax',
-               }
-
-       softmax=activation(config, first_input=[inp_tensor])
-
-
-       # Initialization of the loss function
-       config={'class_name':'speechbrain.nnet.losses.compute_cost',
-               'cost_type':'nll'}
-
-       cost=compute_cost(config)
-
-       # Initialization of the optimizer
-       config={'class_name':'speechbrain.nnet.optimizers.optimizer',
-               'optimizer_type': 'sgd',
-               'learning_rate': '0.01'
-               }
-
-       optim=optimize(config, first_input=[model])
-
-
-       # Computatitions of the prediction for the current input
-       pre_act=model([inp_tensor])
-       pred = softmax([pre_act])
-
-       # fake label
-       label=torch.FloatTensor([0,1,3]).unsqueeze(0)
-       lengths=torch.Tensor([1.0])
-
-       out_cost= cost([pred,label,lengths])
-
-       print(out_cost)
-
-       # back propagation
-       out_cost.backward()
-
-       print(list(model.parameters()))
-
-       # applying optimization
-       optim([model])
-
-       print(list(model.parameters()))
-
+    Author:
+        Mirco Ravanelli 2020
     """
 
     def __init__(
@@ -199,7 +110,6 @@ class optimize(torch.nn.Module):
 
             # Storing all the parameters to updated in the param_lst
             for inp in input[0]:
-
                 try:
                     param_lst = param_lst + list(inp.parameters())
                 except Exception:
@@ -287,10 +197,6 @@ class optimize(torch.nn.Module):
         self.hook = self.register_forward_pre_hook(hook)
 
     def forward(self, input_lst):
-        """
-        Input (call): - inp_lst(type, list, mandatory):
-                       it is a list containing the neural networks to optimize.
-        """
 
         # Gradient combination for the multi-gpu case
         self.sum_grad_multi_gpu(input_lst)
@@ -302,23 +208,14 @@ class optimize(torch.nn.Module):
         self.optim.zero_grad()
 
     def sum_grad_multi_gpu(self, input_lst):
+        """Sum all gradients from different gpus
+
+        Args:
+            input_list: list of all neural models to optimize
+
+        Author:
+            Mirco Ravanelli 2020
         """
-         ----------------------------------------------------------------------
-         nnet.optimizers.optimize.sum_grad_multi_gpu (author: Mirco Ravanelli)
-
-         Description: This support function is used in the multi-gpu scenario
-                      and sums all the gradients from the different gpus.
-
-         Input (call):    - input_lst (type: list, mandatory):
-                               list of all the neural models to optimize.
-
-
-         Output (call):  None:
-                          the gradient is directly updated in the reference
-                          device (which is by default cuda:0).
-
-         ----------------------------------------------------------------------
-         """
 
         # Loops over all the input models
         for inp in input_lst:

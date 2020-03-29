@@ -363,6 +363,8 @@ class speed_perturb(torch.nn.Module):
         >>> save_signal = save(save_folder='exp/example', save_format='wav')
         >>> save_signal(perturbed, ['example_perturb'], torch.ones(1))
 
+    Author:
+        Peter Plantinga 2020
     -------------------------------------------------------------------------
     """
 

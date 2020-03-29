@@ -19,5 +19,5 @@ handlers:
     encoding: utf8
 
 root:
-  level: INFO
+  level: DEBUG
   handlers: [console, file_handler]
