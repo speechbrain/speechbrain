@@ -73,25 +73,24 @@ def import_class(library):
 
 
 def run_shell(cmd):
+    r"""This function can be used to run a command in the bash shell
+
+    Args:
+        cmd: a string containing the bash shell command to be run
+
+    Returns:
+        - the captured standard output
+        - the captured standard error
+        - the returncode
+
+    Example:
+        >>> out, err, code = run_shell("echo 'hello world'")
+        >>> out.decode("utf-8")
+        'hello world\n'
+
+    Author:
+        Mirco Ravanelli 2020
     """
-     -------------------------------------------------------------------------
-     utils.run_shell (author: Mirco Ravanelli)
-
-     Description: This function can be used to run command from the bash shell
-
-     Input (call):    - cmd (type: str, mandatory):
-                       it a string containing the command.
-
-     Output (call):   - output(type: str):
-                       it is a string containing the standard output
-
-
-     Example:   from speechbrain.utils.superpowers import run_shell
-
-                run_shell("echo 'hello world'")
-
-     -------------------------------------------------------------------------
-     """
 
     # Executing the command
     p = subprocess.Popen(
@@ -100,6 +99,9 @@ def run_shell(cmd):
 
     # Capturing standard output and error
     (output, err) = p.communicate()
+
+    if p.returncode != 0:
+        raise OSError(err.decode("utf-8"))
 
     # Adding information in the logger
     msg = output.decode("utf-8") + "\n" + err.decode("utf-8")

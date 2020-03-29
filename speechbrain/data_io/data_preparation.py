@@ -90,63 +90,56 @@ class copy_data_locally():
             os.makedirs(self.local_folder)
         except OSError as e:
             if e.errno != errno.EEXIST:
-
                 err_msg = "Cannot create the data local folder %s!" % (
                     self.local_folder
                 )
+                raise OSError(err_msg)
 
-                logger.error(err_msg, exc_info=True)
+        # Destination file
+        filename = os.path.basename(self.data_file)
+        self.dest_file = os.path.join(self.local_folder, filename)
 
-        self.local_folder = self.local_folder + "/"
-        upper_folder = os.path.dirname(os.path.dirname(self.local_folder))
+        # TODO: This is not OS independent. Better may be to do the copy
+        # and uncompress using Python std lib to preserve OS independence
+        if not os.path.exists(self.dest_file):
 
-        # Copying all the files in the data_file list
-        for data_file in self.data_file:
+            # Copy data file in the local_folder
+            msg = "copying file %s into %s !" % (
+                self.data_file,
+                self.dest_file,
+            )
+            logger.debug(msg)
 
-            # Destination file
-            self.dest_file = upper_folder + "/" + os.path.basename(data_file)
+            cmd = (
+                self.copy_cmd
+                + " "
+                + self.copy_opts
+                + self.data_file
+                + " "
+                + self.dest_file
+            )
 
-            if not os.path.exists(self.dest_file):
+            run_shell(cmd)
 
-                # Copy data file in the local_folder
-                msg = "\tcopying file %s into %s !" % (
-                    data_file,
-                    self.dest_file,
-                )
+            # Uncompress the data_file in the local_folder
+            msg = "uncompressing file %s into %s !" % (
+                self.dest_file,
+                self.local_folder,
+            )
+            logger.debug(msg)
 
-                logger.debug(msg)
+            cmd = (
+                self.uncompress_cmd
+                + " "
+                + self.uncompress_opts
+                + self.dest_file
+                + " -C "
+                + " "
+                + self.local_folder
+                + " --strip-components=1"
+            )
 
-                cmd = (
-                    self.copy_cmd
-                    + " "
-                    + self.copy_opts
-                    + data_file
-                    + " "
-                    + self.dest_file
-                )
-
-                run_shell(cmd)
-
-                # Uncompress the data_file in the local_folder
-                msg = "\tuncompressing file %s into %s !" % (
-                    self.dest_file,
-                    self.local_folder,
-                )
-
-                logger.debug(msg)
-
-                cmd = (
-                    self.uncompress_cmd
-                    + " "
-                    + self.uncompress_opts
-                    + self.dest_file
-                    + " -C "
-                    + " "
-                    + self.local_folder
-                    + " --strip-components=1"
-                )
-
-                run_shell(cmd)
+            run_shell(cmd)
 
 
 class timit_prepare(torch.nn.Module):
@@ -688,10 +681,8 @@ class timit_prepare(torch.nn.Module):
             # Retrieving words
             wrd_file = wav_file.replace(".wav", ".wrd")
             if not os.path.exists(os.path.dirname(wrd_file)):
-
                 err_msg = "the wrd file %s does not exists!" % (wrd_file)
-
-                logger.error(err_msg, exc_info=True)
+                raise FileNotFoundError(err_msg)
 
             words = [
                 line.rstrip("\n").split(" ")[2] for line in open(wrd_file)
@@ -703,10 +694,8 @@ class timit_prepare(torch.nn.Module):
             phn_file = wav_file.replace(".wav", ".phn")
 
             if not os.path.exists(os.path.dirname(phn_file)):
-
                 err_msg = "the wrd file %s does not exists!" % (phn_file)
-
-                logger.error(err_msg, exc_info=True)
+                raise FileNotFoundError(err_msg)
 
             # Phoneme list
             phonemes = []
@@ -799,23 +788,19 @@ class timit_prepare(torch.nn.Module):
 
         # Checking test/dr1
         if not os.path.exists(self.data_folder + "/test/dr1"):
-
             err_msg = (
                 "the folder %s does not exist (it is expected in "
                 "the TIMIT dataset)" % (self.data_folder + "/test/dr*")
             )
-
-            logger.error(err_msg, exc_info=True)
+            raise FileNotFoundError(err_msg)
 
         # Checking train/dr1
         if not os.path.exists(self.data_folder + "/train/dr1"):
-
             err_msg = (
                 "the folder %s does not exist (it is expected in "
                 "the TIMIT dataset)" % (self.data_folder + "/train/dr*")
             )
-
-            logger.error(err_msg, exc_info=True)
+            raise FileNotFoundError(err_msg)
 
 
 class librispeech_prepare:
