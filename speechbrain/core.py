@@ -252,7 +252,8 @@ class Replicate(torch.nn.Module):
             be a dict with a parameter 'class_name' that specifies which class
             the module belongs to, and either 'args' or 'kwargs' parameter with
             corresponding list or dict of parameters to be passed.
-        overrides: A dictionary specifying overrides to make at each block.
+        overrides: A list supplying a list of overrides for each block. The
+            overrides can only be used in conjuction with keyword arguments.
         connections: whether to add additional connections between blocks.
             The type of connection is one of residual, skip, or dense
         connection_merge: The operation to use for merging connections.
@@ -273,22 +274,20 @@ class Replicate(torch.nn.Module):
         self,
         number_of_copies,
         module_list,
-        override_list=[],
+        override_list=None,
         connections=None,
         connection_merge='sum',
     ):
         super().__init__()
-        self.number_of_copies = number_of_copies
-        self.override_list = override_list
         self.connections = connections
         self.connection_merge = connection_merge
 
         # Initialize the modules
         block_list = []
-        for copy_count in range(self.number_of_copies):
+        for i in range(number_of_copies):
             block_list.append([])
 
-            for module_defn in module_list:
+            for j, module_defn in enumerate(module_list):
                 # Check for necessary parameters
                 if 'class_name' not in module_defn:
                     err_msg = "'class_name' key required in %s" % module_defn
@@ -297,6 +296,8 @@ class Replicate(torch.nn.Module):
                 # Supply appropriate defaults for args and kwargs
                 class_defn = {'args': [], 'kwargs': {}}
                 class_defn.update(module_defn)
+                if override_list is not None:
+                    class_defn['kwargs'].update(override_list[i][j])
                 block_list[-1].append(instantiate(**class_defn))
 
         # Properly register all the modules
