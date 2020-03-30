@@ -66,14 +66,12 @@ def test_load_extended_yaml():
     # Positional arguments
     yaml = """
     constants:
-        a: 1
+        a: hello
     thing: !collections.Counter
         - !$ <constants.a>
     """
     things = load_extended_yaml(yaml)
-    # load_extended_yaml inspects the class signature, and determines
-    # that the first parameter to Counter is called "iterable"
-    assert things['thing']['iterable'] == things['constants']['a']
+    assert things['thing']['l'] == 2
 
     # Invalid class
     yaml = """

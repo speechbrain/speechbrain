@@ -305,14 +305,14 @@ def load_extended_yaml(
     return yaml.load(yaml_string, Loader=CustomLoader)
 
 
-def object_constructor(loader, classname, node):
+def object_constructor(loader, class_name, node):
     """A constructor method for a '!' tag with a class name.
 
     The class is instantiated, and the sub-tree is passed as arguments.
 
     Args:
         loader: The loader used to call this constructor (e.g. CustomLoader)
-        classname: The name of the class (suffix after the '!' in this case)
+        class_name: The name of the class (suffix after the '!' in this case)
         node: The sub-tree belonging to the tagged node
 
     Returns:
@@ -321,20 +321,40 @@ def object_constructor(loader, classname, node):
     Author:
         Peter Plantinga 2020
     """
-    class_ = locate(classname)
-    if class_ is None:
-        raise ValueError('There is no such class as %s' % classname)
 
     # Parse arguments from the node
-    kwargs = {}
     if isinstance(node, yaml.MappingNode):
         kwargs = loader.construct_mapping(node, deep=True)
+        return instantiate(class_name, kwargs=kwargs)
     elif isinstance(node, yaml.SequenceNode):
         args = loader.construct_sequence(node, deep=True)
-        signature = inspect.signature(class_)
-        kwargs = signature.bind(*args).arguments
+        return instantiate(class_name, args=args)
 
-    return class_(**kwargs)
+    return instantiate(class_name)
+
+
+def instantiate(class_name, args=[], kwargs={}):
+    """Use pydoc.locate to create an instance of the specified class+params.
+
+    Args:
+        class_name: The fully-qualified name of the class to instantiate.
+        args: A list of parameters to pass the the class.
+        kwargs: A dict defining keyword parameters to pass to the class.
+
+    Example:
+        >>> kwargs = {'in_features': 100, 'out_features': 100}
+        >>> model = instantiate('torch.nn.Linear', kwargs=kwargs)
+        >>> model.__class__.__name__
+        'Linear'
+
+    Author:
+        Peter Plantinga 2020
+    """
+    class_ = locate(class_name)
+    if class_ is None:
+        raise ValueError('There is no such class as %s' % class_name)
+
+    return class_(*args, **kwargs)
 
 
 def deref(ref, preview):

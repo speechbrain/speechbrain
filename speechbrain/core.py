@@ -2,11 +2,12 @@ import re
 import os
 import sys
 import yaml
+import torch
 import logging
 import inspect
 import argparse
 from speechbrain.utils.logger import setup_logging
-from speechbrain.utils.data_utils import load_extended_yaml
+from speechbrain.utils.data_utils import load_extended_yaml, instantiate
 logger = logging.getLogger(__name__)
 
 
@@ -240,3 +241,75 @@ def nest(dictionary, args, val):
         dictionary[args[0]] = {}
 
     nest(dictionary[args[0]], args[1:], val)
+
+
+class Replicate(torch.nn.Module):
+    """This class controls replicating a sequence of Modules.
+
+    Args:
+        number_of_copies: the number of times to replicate the sequence
+        module_list: A list of modules to apply in sequence. Each entry should
+            be a dict with a parameter 'class_name' that specifies which class
+            the module belongs to, and either 'args' or 'kwargs' parameter with
+            corresponding list or dict of parameters to be passed.
+        overrides: A dictionary specifying overrides to make at each block.
+        connections: whether to add additional connections between blocks.
+            The type of connection is one of residual, skip, or dense
+        connection_merge: The operation to use for merging connections.
+            This can be one of sum, average, diff, concat, linear_comb
+
+    Example:
+        >>> module_list = [{'class_name': 'torch.nn.Linear', 'kwargs': {}}]
+        >>> module_list[0]['kwargs']['in_features'] = 100
+        >>> module_list[0]['kwargs']['out_features'] = 100
+        >>> model = Replicate(number_of_copies=2, module_list=module_list)
+        >>> len(list(model.parameters()))
+        4
+
+    Author:
+        Mirco Ravanelli and Peter Plantinga 2020
+    """
+    def __init__(
+        self,
+        number_of_copies,
+        module_list,
+        override_list=[],
+        connections=None,
+        connection_merge='sum',
+    ):
+        super().__init__()
+        self.number_of_copies = number_of_copies
+        self.override_list = override_list
+        self.connections = connections
+        self.connection_merge = connection_merge
+
+        # Initialize the modules
+        block_list = []
+        for copy_count in range(self.number_of_copies):
+            block_list.append([])
+
+            for module_defn in module_list:
+                # Check for necessary parameters
+                if 'class_name' not in module_defn:
+                    err_msg = "'class_name' key required in %s" % module_defn
+                    raise ValueError(err_msg)
+
+                # Supply appropriate defaults for args and kwargs
+                class_defn = {'args': [], 'kwargs': {}}
+                class_defn.update(module_defn)
+                block_list[-1].append(instantiate(**class_defn))
+
+        # Properly register all the modules
+        self.block_list = []
+        for i, block in enumerate(block_list):
+            self.block_list.append(torch.nn.Sequential(*block))
+        self.block_list = torch.nn.ModuleList(self.block_list)
+
+    def forward(inputs):
+        outputs = inputs
+
+        # TODO: HANDLE CONNECTIONS
+        for block in self.block_list:
+            outputs = block(outputs)
+
+        return outputs
