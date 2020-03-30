@@ -3,7 +3,7 @@ import torch
 from tqdm import tqdm
 from speechbrain.core import Experiment
 sb = Experiment(
-    yaml_stream=open('recipes/e2e_asr/TIMIT/params.yaml'),
+    yaml_stream=open('recipes/CTC/TIMIT/RNN/params.yaml'),
     commandline_args=sys.argv[1:],
 )
 
