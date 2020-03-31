@@ -22,8 +22,8 @@ def test_replicate():
 
     # Vary parameter based on block position in the stack
     override_list = [
-        [{'out_features': 100}, {'in_features': 100}],
-        [{'out_features': 300}, {'in_features': 300}],
+        {0: {'out_features': 100}, 1: {'in_features': 100}},
+        {0: {'out_features': 300}, 1: {'in_features': 300}},
     ]
     model = Replicate(2, module_list, override_list)
 

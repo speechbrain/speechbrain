@@ -313,189 +313,107 @@ class linear_combination(nn.Module):
 
 
 class conv(nn.Module):
+    """This function implements 1D or 2D convolutional layers.
+
+    Args:
+        out_channels: it is the number of output channels.
+        kernel_size: it is a list containing the size of the kernels.
+            For 1D convolutions, the list contains a single
+            integer (convolution over the time axis), while
+            for 2D convolutions the list is composed of two
+            values (i.e, time and frequenecy kernel sizes respectively).
+        stride: it is a list containing the stride factors.
+            For 1D convolutions, the list contains a single
+            integer (stride over the time axis), while
+            for 2D convolutions the list is composed of two
+            values (i.e, time and frequenecy kernel sizes,
+            respectively). When the stride factor > 1, a
+            decimantion (in the time or frequnecy domain) is
+            implicitely performed.
+        dilation: it is a list containing the dilation factors.
+            For 1D convolutions, the list contains a single
+            integer (dilation over the time axis), while
+            for 2D convolutions the list is composed of two
+            values (i.e, time and frequenecy kernel sizes,
+            respectively).
+        padding: it is a list containing the number of elements to pad.
+            For 1D convolutions, the list contains a single
+            integer (padding over the time axis), while
+            for 2D convolutions the list is composed of two
+            values (i.e, time and frequenecy kernel sizes,
+            respectively). When not specified, the padding
+            is automatically performed such that the input
+            and the output have the same time/frequency
+            dimensionalities.
+        padding_mode: This flag specifies the type of padding.
+            See torch.nn documentation for more information.
+        groups: This option specifies the convolutional groups.
+            See torch.nn documentation for more information.
+        bias: if True, the additive bias b is adopted.
+        do_recovery: if True, the system restarts from the last
+            epoch correctly executed.
+        initialize_from: when set, this flag can be used to initialize
+           the parameters with an external pkl file. It
+           could be useful for pre-training purposes.
+
+    Shape (1D case):
+        - x: [batch, time_steps]
+        - output: [batch, out_channels, time_steps]
+
+    Shape (2D case):
+        - x: [batch, channels, time_steps]
+        - output: [batch, channels, out_channels, time_steps]
+
+    Example:
+        >>> import torch
+        >>> inp_tensor = torch.rand([10, 16000])
+        >>> cnn = conv(out_channels=25, kernel_size=11)
+        >>> out_tensor = cnn([inp_tensor])
+        >>> out_tensor.shape()
+        torch.Size([10, 25, 15990])
+
+    Author:
+        Mirco Ravanelli 2020
     """
-     -------------------------------------------------------------------------
-     nnet.architectures.conv (author: Mirco Ravanelli)
-
-     Description:  This function implements 1D or 2D convolutional layers.
-
-     Input (init):  - config (type, dict, mandatory):
-                       it is a dictionary containing the keys described below.
-
-                           - out_channels (type: int(1,inf), mandatory):
-                               it is the number of output channels.
-
-                           - kernel_size (type: int_list(1,inf), mandatory):
-                               it is a list containing the size of the kernels.
-                               For 1D convolutions, the list contains a single
-                               integer (convolution over the time axis), while
-                               for 2D convolutions the list is composed of two
-                               values (i.e, time and frequenecy kernel sizes,
-                               respectively).
-
-                           - stride (type: int_list(1,inf), optional: \
-                               default: 1,1):
-                               it is a list containing the stride factors.
-                               For 1D convolutions, the list contains a single
-                               integer (stride over the time axis), while
-                               for 2D convolutions the list is composed of two
-                               values (i.e, time and frequenecy kernel sizes,
-                               respectively). When the stride factor > 1, a
-                               decimantion (in the time or frequnecy domain) is
-                               implicitely performed.
-
-                           - dilation (type: int_list(1,inf), optional: \
-                               default: 1,1):
-                               it is a list containing the dilation factors.
-                               For 1D convolutions, the list contains a single
-                               integer (dilation over the time axis), while
-                               for 2D convolutions the list is composed of two
-                               values (i.e, time and frequenecy kernel sizes,
-                               respectively).
-
-                           - padding (type: int_list(1,inf), optional: \
-                               default: None):
-                               it is a list containing the number of elements
-                               to pad.
-                               For 1D convolutions, the list contains a single
-                               integer (padding over the time axis), while
-                               for 2D convolutions the list is composed of two
-                               values (i.e, time and frequenecy kernel sizes,
-                               respectively). When not specified, the padding
-                               is automatically performed such that the input
-                               and the output have the same time/frequency
-                               dimensionalities.
-
-                           - padding_mode (one_of(circular,zeros), optional: \
-                               default: zeros):
-                               This flag specifies the type of padding.
-                               See torch.nn documentation for more information.
-
-                            - groups (type:int(1,inf), optional: \
-                                default: zeros):
-                               This option specifies the convolutional groups.
-                               See torch.nn documentation for more information.
-
-
-                           - bias (type: bool, default:True):
-                               if True, the additive bias b is adopted.
-
-                           - recovery (type: bool, default:True):
-                               if True, the system restarts from the last
-                               epoch correctly executed.
-
-                           - initialize_with (type: str, \
-                               default:None):
-                               when set, this flag can be used to initialize
-                               the parameters with an external pkl file. It
-                               could be useful for pre-training purposes.
-
-
-                   - funct_name (type, str, default: None):
-                       it is a string containing the name of the parent
-                       function that has called this method.
-
-                   - global_config (type, dict, default: None):
-                       it a dictionary containing the global variables of the
-                       parent config file.
-
-                   - logger (type, logger, default: None):
-                       it the logger used to write debug and error messages.
-                       If logger=None and root_cfg=True, the file is created
-                       from scratch.
-
-                   - first_input (type, list, default: None)
-                      this variable allows users to analyze the first input
-                      given when calling the class for the first time.
-
-
-     Input (call): - inp_lst(type, list, mandatory):
-                       by default the input arguments are passed with a list.
-                       In this case, inp is a list containing the
-                       torch.tensor element that we want to transform.
-                       The tensor must be in one of the following format:
-                       [batch,channels,time]. Note that we can have up to
-                       three channels.
-
-
-
-     Output (call): - wx(type, torch.Tensor, mandatory):
-                       The output is a tensor that corresponds to the convolved
-                       input.
-
-
-     Example:   import torch
-                from speechbrain.nnet.architectures import conv
-
-                inp_tensor = torch.rand([4,100,190])
-
-                # config dictionary definition
-                config={'class_name':'speechbrain.nnet.architectures.\
-                    linear_combination',
-                        'out_channels':'25',
-                        'kernel_size': '11'}
-
-                # Initialization of the class
-                cnn=conv(config,first_input=[inp_tensor])
-
-                # Executing computations
-                inp_tensor = torch.rand([4,100,190])
-                out_tensor = cnn([inp_tensor])
-                print(out_tensor)
-                print(out_tensor.shape)
-
-     """
 
     def __init__(
         self,
-        config,
-        funct_name=None,
-        global_config=None,
-        functions=None,
-        logger=None,
-        first_input=None,
+        out_channels,
+        kernel_size,
+        stride=[1, 1],
+        dilation=[1, 1],
+        padding=None,
+        groups=1,
+        bias=True,
+        padding_mode='zeros',
+        output_folder=None,
+        do_recovery=True,
+        initialize_from=None,
     ):
-        super(conv, self).__init__()
+        super().__init__()
 
-        # Logger setup
-        self.logger = logger
+        self.out_channels = out_channels
+        self.kernel_size = kernel_size
+        self.stride = stride
+        self.dilation = dilation
+        self.padding = padding
+        self.groups = groups
+        self.bias = bias
+        self.padding_mode = padding_mode
+        self.output_folder = output_folder
+        self.recovery = do_recovery
+        self.initialize_with = initialize_from
 
-        # Here are summarized the expected options for this class
-        self.expected_options = {
-            "class_name": ("str", "mandatory"),
-            "recovery": ("bool", "optional", "True"),
-            "initialize_with": ("str", "optional", "None"),
-            "out_channels": ("int(1,inf)", "mandatory"),
-            "kernel_size": ("int_list(1,inf)", "mandatory"),
-            "stride": ("int_list(1,inf)", "optional", "1,1"),
-            "dilation": ("int_list(1,inf)", "optional", "1,1"),
-            "padding": ("int_list(0,inf)", "optional", "None"),
-            "groups": ("int(1,inf)", "optional", "1"),
-            "bias": ("bool", "optional", "True"),
-            "padding_mode": ("one_of(zeros,circular)", "optional", "zeros"),
-        }
-
-        # Check, cast, and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, self.logger
-        )
-
-        # Definition of the expected input
-        self.expected_inputs = ["torch.Tensor"]
-
-        # Check the first input
-        check_inputs(
-            self.conf, self.expected_inputs, first_input, logger=self.logger
-        )
-
-        # Output folder (useful for parameter saving)
-        if global_config is not None:
-            self.output_folder = global_config["output_folder"]
-        self.funct_name = funct_name
         self.reshape_conv1d = False
         self.reshape_conv2d = False
         self.squeeze_conv2d = False
         self.transp_conv2d = False
+
+        # Ensure kernel_size and padding are lists
+        if not isinstance(self.kernel_size, list):
+            self.kernel_size = [self.kernel_size]
+        if self.padding is not None and not isinstance(self.padding, list):
+            self.padding = [self.padding]
 
         # Making sure that the kernel size is odd (if the kernel is not
         # symmetric there could a problem with the padding function)
@@ -516,20 +434,7 @@ class conv(nn.Module):
         if len(self.kernel_size) == 2:
             self.conv2d = True
 
-        # Additional check on the input shapes
-        if first_input is not None:
-
-            # Shape check
-            if len(first_input[0].shape) > 5 or len(first_input[0].shape) < 2:
-
-                err_msg = (
-                    'The input of "linear" must be a tensor with one of the  '
-                    "following dimensions: [time] or [batch,time] or "
-                    "[batch,channels,time]. Got %s "
-                    % (str(first_input[0].shape))
-                )
-
-                logger_write(err_msg, logfile=logger)
+        def hook(self, first_input):
 
             # Manage reshaping flags
             if len(first_input[0].shape) > 3:
@@ -562,56 +467,55 @@ class conv(nn.Module):
                         first_input[0].shape[2] * first_input[0].shape[3]
                     )
 
-        # Managing 1d convolutions
-        if self.conv1d:
+            # Managing 1d convolutions
+            if self.conv1d:
 
-            if self.padding is not None:
-                self.padding = self.padding[0]
+                if self.padding is not None:
+                    self.padding = self.padding[0]
 
-            # Initialization of the parameters
-            self.conv = nn.Conv1d(
-                self.in_channels,
-                self.out_channels,
-                self.kernel_size[0],
-                stride=self.stride[0],
-                dilation=self.dilation[0],
-                padding=0,
-                groups=self.groups,
-                bias=self.bias,
-                padding_mode=self.padding_mode,
-            )
+                # Initialization of the parameters
+                self.conv = nn.Conv1d(
+                    self.in_channels,
+                    self.out_channels,
+                    self.kernel_size[0],
+                    stride=self.stride[0],
+                    dilation=self.dilation[0],
+                    padding=0,
+                    groups=self.groups,
+                    bias=self.bias,
+                    padding_mode=self.padding_mode,
+                ).to(first_input[0].device)
 
-        # Managing 2d convolutions
-        if self.conv2d:
+            # Managing 2d convolutions
+            if self.conv2d:
 
-            if self.padding is not None:
-                self.padding = self.padding[0:-1]
+                if self.padding is not None:
+                    self.padding = self.padding[0:-1]
 
-            # Initialization of the parameters
-            self.conv = nn.Conv2d(
-                self.in_channels,
-                self.out_channels,
-                tuple(self.kernel_size),
-                stride=tuple(self.stride),
-                padding=0,
-                dilation=tuple(self.dilation),
-                groups=self.groups,
-                bias=self.bias,
-                padding_mode=self.padding_mode,
-            )
+                # Initialization of the parameters
+                self.conv = nn.Conv2d(
+                    self.in_channels,
+                    self.out_channels,
+                    tuple(self.kernel_size),
+                    stride=tuple(self.stride),
+                    padding=0,
+                    dilation=tuple(self.dilation),
+                    groups=self.groups,
+                    bias=self.bias,
+                    padding_mode=self.padding_mode,
+                ).to(first_input[0].device)
 
-        # Managing initialization with an external model
-        # (useful for pre-training)
-        initialize_with(self)
+            # Managing initialization with an external model
+            # (useful for pre-training)
+            initialize_with(self)
 
-        # Automatic recovery
-        if global_config is not None:
-            recovery(self)
+            # Automatic recovery
+            # recovery(self)
 
-    def forward(self, input_lst):
+            self.hook.remove()
+        self.hook = self.register_forward_pre_hook(hook)
 
-        # Reading input _list
-        x = input_lst[0]
+    def forward(self, x):
 
         # Reshaping the inputs when needed
         if self.reshape_conv1d:
@@ -2184,55 +2088,14 @@ class dropout(nn.Module):
 
     def __init__(
         self,
-        config,
-        funct_name=None,
-        global_config=None,
-        functions=None,
-        logger=None,
-        first_input=None,
+        drop_rate,
+        inplace=False,
     ):
-        super(dropout, self).__init__()
+        super().__init__()
+        self.drop_rate = drop_rate
+        self.inplace = inplace
 
-        # Logger setup
-        self.logger = logger
-
-        # Here are summarized the expected options for this class
-        self.expected_options = {
-            "class_name": ("str", "mandatory"),
-            "drop_rate": ("float(0,1)", "mandatory"),
-            "inplace": ("bool", "optional", "False"),
-        }
-
-        # Check, cast, and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, self.logger
-        )
-
-        # Definition of the expected input
-        self.expected_inputs = ["torch.Tensor"]
-
-        # Check the first input
-        check_inputs(
-            self.conf, self.expected_inputs, first_input, logger=self.logger
-        )
-
-        # reshaping 3d tensor in input to 1d dropput is faster
-        self.reshape = False
-
-        # Additional check on the input shapes
-        if first_input is not None:
-
-            # Shape check
-            if len(first_input[0].shape) > 5 or len(first_input[0].shape) < 1:
-
-                err_msg = (
-                    'The input of "dropout" must be a tensor with one of the  '
-                    "following dimensions: [batch,time] or "
-                    "[batch,channels,time]. Got %s "
-                    % (str(first_input[0].shape))
-                )
-
-                logger_write(err_msg, logfile=logger)
+        def hook(self, first_input):
 
             # Dropout initialization
             if len(first_input[0].shape) <= 3:
@@ -2250,11 +2113,11 @@ class dropout(nn.Module):
                 self.drop = nn.Dropout3d(
                     p=self.drop_rate, inplace=self.inplace
                 )
+            self.hook.remove()
 
-    def forward(self, input_lst):
+        self.hook = self.register_forward_pre_hook(hook)
 
-        # Reading input _list
-        x = input_lst[0]
+    def forward(self, x):
 
         # Avoing the next steps in dropuut_rate is 0
         if self.drop_rate == 0.0:

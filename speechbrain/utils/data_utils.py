@@ -352,7 +352,14 @@ def instantiate(class_name, args=[], kwargs={}):
     """
     class_ = locate(class_name)
     if class_ is None:
-        raise ValueError('There is no such class as %s' % class_name)
+        raise ImportError('There is no such class as %s' % class_name)
+
+    signature = inspect.signature(class_)
+
+    try:
+        signature.bind(*args, **kwargs)
+    except TypeError as e:
+        raise TypeError('Invalid argument to class %s' % class_name) from e
 
     return class_(*args, **kwargs)
 

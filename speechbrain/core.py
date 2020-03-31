@@ -296,7 +296,7 @@ class Replicate(torch.nn.Module):
                 # Supply appropriate defaults for args and kwargs
                 class_defn = {'args': [], 'kwargs': {}}
                 class_defn.update(module_defn)
-                if override_list is not None:
+                if override_list is not None and j in override_list[i]:
                     class_defn['kwargs'].update(override_list[i][j])
                 block_list[-1].append(instantiate(**class_defn))
 
@@ -306,7 +306,7 @@ class Replicate(torch.nn.Module):
             self.block_list.append(torch.nn.Sequential(*block))
         self.block_list = torch.nn.ModuleList(self.block_list)
 
-    def forward(inputs):
+    def forward(self, inputs):
         outputs = inputs
 
         # TODO: HANDLE CONNECTIONS

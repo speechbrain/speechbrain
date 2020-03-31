@@ -1249,6 +1249,7 @@ class mean_var_norm(torch.nn.Module):
         avg_factor=None,
         do_recovery=True,
         output_folder=None,
+        requires_grad=False,
     ):
         super().__init__()
 
@@ -1258,6 +1259,7 @@ class mean_var_norm(torch.nn.Module):
         self.avg_factor = avg_factor
         self.recovery = do_recovery
         self.output_folder = output_folder
+        self.requires_grad = requires_grad
 
         # Parameter initialization
         self.glob_mean = 0

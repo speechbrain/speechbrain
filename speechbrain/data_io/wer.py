@@ -1,10 +1,6 @@
 import sys
 import speechbrain.utils.edit_distance as edit_distance
 from speechbrain.data_io.data_io import create_dataloader
-from speechbrain.utils.logger import logger_write
-from speechbrain.utils.input_validation import (check_opts,
-                                                check_inputs,
-                                                check_input_shapes)
 
 ## These internal functions convert CSV data dictionaries to 
 ## generators and dicts which simply provide the info in
