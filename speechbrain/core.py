@@ -85,7 +85,7 @@ class Experiment:
         # will take precedence over the parameters listed in the file.
         overrides = parse_overrides(yaml_overrides)
         cmd_args = parse_arguments(commandline_args)
-        if 'overrides' in cmd_args:
+        if 'yaml_overrides' in cmd_args:
             overrides.update(parse_overrides(cmd_args['yaml_overrides']))
 
         # Load parameters file and store
