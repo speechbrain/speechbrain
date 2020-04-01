@@ -19,7 +19,11 @@ constants:
 
 compute_features: !recipes.features.Features
     feature_type: fbank
+    deltas: False
+    context: False
     requires_grad: False
+    constants:
+        n_mels: 40
 
 mean_var_norm: !speechbrain.processing.features.mean_var_norm
     norm_type: global
@@ -29,13 +33,13 @@ model: !torch.nn.Sequential
         number_of_copies: 2
         module_list:
             - class_name: speechbrain.nnet.architectures.conv
-              kwargs: {out_channels: 64, kernel_size: 3, padding: 0}
+              kwargs: {out_channels: 64, kernel_size: [3, 3], padding: 0}
             - class_name: speechbrain.nnet.normalization.normalize
               kwargs: {norm_type: batchnorm}
             - class_name: speechbrain.nnet.architectures.activation
               kwargs: {act_type: leaky_relu}
             - class_name: speechbrain.nnet.architectures.conv
-              kwargs: {out_channels: 64, kernel_size: 3, padding: 0}
+              kwargs: {out_channels: 64, kernel_size: [3, 3], padding: 0}
             - class_name: speechbrain.nnet.normalization.normalize
               kwargs: {norm_type: batchnorm}
             - class_name: speechbrain.nnet.architectures.activation
@@ -69,7 +73,8 @@ model: !torch.nn.Sequential
               kwargs: {drop_rate: 0.15}
 
     - !speechbrain.nnet.architectures.linear
-        n_neurons: 40 # 39 phonemes + blank (at the end)
+        # n_neurons: 40 # 39 phonemes + blank (at the end)
+        n_neurons: 49
         bias: False
 
     - !speechbrain.nnet.architectures.activation
@@ -115,6 +120,20 @@ optimizer: !speechbrain.nnet.optimizers.optimize
     optimizer_type: adadelta
     rho: 0.95
     learning_rate: !$ <constants.lr>
+
+lr_annealing: !speechbrain.nnet.lr_scheduling.lr_annealing
+    annealing_type: newbob
+    N_epochs: !$ <constants.N_epochs>
+    lr_initial: !$ <constants.lr>
+    improvement_threshold: 0.0025
+    annealing_factor: 0.8
+    patient: 0
+
+save_checkpoint: !speechbrain.data_io.data_io.save_ckpt
+    save_folder: !$ <constants.output_folder>/nnets/
+    save_format: pkl
+    save_last: 1
+    write_result: True
 
 #compute_WER_final: !speechbrain.data_io.wer.ComputeAndSaveWERAndAlignments
 #    ref_csv: !$ <constants.csv_test>

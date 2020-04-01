@@ -2094,6 +2094,7 @@ class dropout(nn.Module):
         super().__init__()
         self.drop_rate = drop_rate
         self.inplace = inplace
+        self.reshape = False
 
         def hook(self, first_input):
 

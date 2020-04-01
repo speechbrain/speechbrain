@@ -1,6 +1,7 @@
 import sys
 import torch
 from tqdm import tqdm
+from torch import autograd
 from speechbrain.core import Experiment
 sb = Experiment(
     yaml_stream=open('recipes/CTC/TIMIT/VGG2_BLSTM_MLP/params.yaml'),
