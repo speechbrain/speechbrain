@@ -2,8 +2,8 @@ import os
 import threading
 from shutil import copyfile
 from speechbrain.utils.superpowers import run_shell
-from speechbrain.utils.logger import logger_write
-from speechbrain.utils.input_validation import check_inputs, check_opts
+#from speechbrain.utils.logger import logger_write
+#from speechbrain.utils.input_validation import check_inputs, check_opts
 from speechbrain.utils.data_utils import get_all_files, split_list
 
 
