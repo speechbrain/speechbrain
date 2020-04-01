@@ -181,6 +181,15 @@ class timit_prepare(torch.nn.Module):
                If None, the results will be saved in
                $output_folder/prepare_timit/*.csv.
 
+                           - phn_set (type: 60,48,39, optional,
+                               default: 39):
+                               It is the phoneme set to use in the phn label.
+                               It could be composed of 60, 48, or 39 phonemes.
+
+                           - uppercase (type: bool, optional, default: False):
+                               This option must be True when the TIMIT dataset
+                               is in the upper-case version.
+
      Example:    from speechbrain.data_io.data_preparation import timit_prepare
 
                  local_folder='/home/mirco/datasets/TIMIT'
@@ -207,6 +216,8 @@ class timit_prepare(torch.nn.Module):
         kaldi_ali_test=None,
         kaldi_lab_opts=None,
         save_folder=None,
+        phn_set="39",
+        uppercase=False,
     ):
         # Expected inputs when calling the class (no inputs in this case)
         super().__init__()
@@ -372,11 +383,88 @@ class timit_prepare(torch.nn.Module):
 
         self.from_60_to_48_phn = from_60_to_48_phn
 
+        # This dictionary is used to conver the 60 phoneme set
+        # into the 39 one
+        from_60_to_39_phn = {}
+        from_60_to_39_phn["sil"] = "sil"
+        from_60_to_39_phn["aa"] = "aa"
+        from_60_to_39_phn["ae"] = "ae"
+        from_60_to_39_phn["ah"] = "ah"
+        from_60_to_39_phn["ao"] = "aa"
+        from_60_to_39_phn["aw"] = "aw"
+        from_60_to_39_phn["ax"] = "ah"
+        from_60_to_39_phn["ax-h"] = "ah"
+        from_60_to_39_phn["axr"] = "er"
+        from_60_to_39_phn["ay"] = "ay"
+        from_60_to_39_phn["b"] = "b"
+        from_60_to_39_phn["bcl"] = "sil"
+        from_60_to_39_phn["ch"] = "ch"
+        from_60_to_39_phn["d"] = "d"
+        from_60_to_39_phn["dcl"] = "sil"
+        from_60_to_39_phn["dh"] = "dh"
+        from_60_to_39_phn["dx"] = "dx"
+        from_60_to_39_phn["eh"] = "eh"
+        from_60_to_39_phn["el"] = "l"
+        from_60_to_39_phn["em"] = "m"
+        from_60_to_39_phn["en"] = "n"
+        from_60_to_39_phn["eng"] = "ng"
+        from_60_to_39_phn["epi"] = "sil"
+        from_60_to_39_phn["er"] = "er"
+        from_60_to_39_phn["ey"] = "ey"
+        from_60_to_39_phn["f"] = "f"
+        from_60_to_39_phn["g"] = "g"
+        from_60_to_39_phn["gcl"] = "sil"
+        from_60_to_39_phn["h#"] = "sil"
+        from_60_to_39_phn["hh"] = "hh"
+        from_60_to_39_phn["hv"] = "hh"
+        from_60_to_39_phn["ih"] = "ih"
+        from_60_to_39_phn["ix"] = "ih"
+        from_60_to_39_phn["iy"] = "iy"
+        from_60_to_39_phn["jh"] = "jh"
+        from_60_to_39_phn["k"] = "k"
+        from_60_to_39_phn["kcl"] = "sil"
+        from_60_to_39_phn["l"] = "l"
+        from_60_to_39_phn["m"] = "m"
+        from_60_to_39_phn["ng"] = "n"
+        from_60_to_39_phn["n"] = "ng"
+        from_60_to_39_phn["nx"] = "n"
+        from_60_to_39_phn["ow"] = "ow"
+        from_60_to_39_phn["oy"] = "oy"
+        from_60_to_39_phn["p"] = "p"
+        from_60_to_39_phn["pau"] = "sil"
+        from_60_to_39_phn["pcl"] = "sil"
+        from_60_to_39_phn["q"] = "k"
+        from_60_to_39_phn["r"] = "r"
+        from_60_to_39_phn["s"] = "s"
+        from_60_to_39_phn["sh"] = "sh"
+        from_60_to_39_phn["t"] = "t"
+        from_60_to_39_phn["tcl"] = "sil"
+        from_60_to_39_phn["th"] = "th"
+        from_60_to_39_phn["uh"] = "uh"
+        from_60_to_39_phn["uw"] = "uw"
+        from_60_to_39_phn["ux"] = "uw"
+        from_60_to_39_phn["v"] = "v"
+        from_60_to_39_phn["w"] = "w"
+        from_60_to_39_phn["y"] = "y"
+        from_60_to_39_phn["z"] = "z"
+        from_60_to_39_phn["zh"] = "sh"
+
+        self.from_60_to_39_phn = from_60_to_39_phn
+
         # Avoid calibration sentences
         self.avoid_sentences = ["sa1", "sa2"]
 
         # Setting file extension.
         self.extension = [".wav"]
+
+        # Checking TIMIT_uppercase
+        if self.uppercase:
+            self.avoid_sentences = [
+                item.upper() for item in self.avoid_sentences
+            ]
+            self.extension = [item.upper() for item in self.extension]
+            self.dev_spk = [item.upper() for item in self.dev_spk]
+            self.test_spk = [item.upper() for item in self.test_spk]
 
         # Setting the save folder
         if self.save_folder is None:
@@ -416,7 +504,12 @@ class timit_prepare(torch.nn.Module):
 
         # Creating csv file for training data
         if "train" in self.splits:
-            match_lst = self.extension + ["train"]
+
+            # Checking TIMIT_uppercase
+            if self.uppercase:
+                match_lst = self.extension + ["TRAIN"]
+            else:
+                match_lst = self.extension + ["train"]
 
             wav_lst_train = get_all_files(
                 self.data_folder,
@@ -433,7 +526,12 @@ class timit_prepare(torch.nn.Module):
 
         # Creating csv file for dev data
         if "dev" in self.splits:
-            match_lst = self.extension + ["test"]
+
+            # Checking TIMIT_uppercase
+            if self.uppercase:
+                match_lst = self.extension + ["TEST"]
+            else:
+                match_lst = self.extension + ["test"]
 
             wav_lst_dev = get_all_files(
                 self.data_folder,
@@ -451,7 +549,12 @@ class timit_prepare(torch.nn.Module):
 
         # Creating csv file for test data
         if "test" in self.splits:
-            match_lst = self.extension + ["test"]
+
+            # Checking TIMIT_uppercase
+            if self.uppercase:
+                match_lst = self.extension + ["TEST"]
+            else:
+                match_lst = self.extension + ["test"]
 
             wav_lst_test = get_all_files(
                 self.data_folder,
@@ -678,8 +781,11 @@ class timit_prepare(torch.nn.Module):
             signal = read_wav_soundfile(wav_file)
             duration = signal.shape[0] / self.samplerate
 
-            # Retrieving words
-            wrd_file = wav_file.replace(".wav", ".wrd")
+            # Retrieving words and check for uppercase
+            if self.uppercase:
+                wrd_file = wav_file.replace(".WAV", ".WRD")
+            else:
+                wrd_file = wav_file.replace(".wav", ".wrd")
             if not os.path.exists(os.path.dirname(wrd_file)):
                 err_msg = "the wrd file %s does not exists!" % (wrd_file)
                 raise FileNotFoundError(err_msg)
@@ -691,7 +797,10 @@ class timit_prepare(torch.nn.Module):
             words = " ".join(words)
 
             # Retrieving phonemes
-            phn_file = wav_file.replace(".wav", ".phn")
+            if self.uppercase:
+                phn_file = wav_file.replace(".WAV", ".PHN")
+            else:
+                phn_file = wav_file.replace(".wav", ".phn")
 
             if not os.path.exists(os.path.dirname(phn_file)):
                 err_msg = "the wrd file %s does not exists!" % (phn_file)
@@ -704,13 +813,21 @@ class timit_prepare(torch.nn.Module):
 
                 phoneme = line.rstrip("\n").replace("h#", "sil").split(" ")[2]
 
-                # From 60 to 48 phonemes
-                phoneme = self.from_60_to_48_phn[phoneme]
+                if self.phn_set == "48":
+                    # From 60 to 48 phonemes
+                    phoneme = self.from_60_to_48_phn[phoneme]
+
+                if self.phn_set == "39":
+                    # From 60 to 39 phonemes
+                    phoneme = self.from_60_to_39_phn[phoneme]
 
                 # Apping phoneme in the phoneme list
                 phonemes.append(phoneme)
 
             phonemes = " ".join(phonemes)
+
+            # Filtering consecutive silences
+            phonemes = phonemes.replace("sil sil", "sil")
 
             # Composition of the csv_line
             csv_line = [
@@ -738,7 +855,7 @@ class timit_prepare(torch.nn.Module):
             # Adding this line to the csv_lines list
             csv_lines.append(csv_line)
 
-        # -Writing the csv lines
+        # Writing the csv lines
         with open(csv_file, mode="w") as csv_f:
             csv_writer = csv.writer(
                 csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
@@ -786,19 +903,29 @@ class timit_prepare(torch.nn.Module):
          ---------------------------------------------------------------------
          """
 
+        # Creating checking string wrt to lower or uppercase
+        if self.uppercase:
+            test_str = "/TEST/DR1"
+            train_str = "/TRAIN/DR1"
+        else:
+            test_str = "/test/dr1"
+            train_str = "/train/dr1"
+
         # Checking test/dr1
-        if not os.path.exists(self.data_folder + "/test/dr1"):
+        if not os.path.exists(self.data_folder + test_str):
+
             err_msg = (
                 "the folder %s does not exist (it is expected in "
-                "the TIMIT dataset)" % (self.data_folder + "/test/dr*")
+                "the TIMIT dataset)" % (self.data_folder + test_str)
             )
             raise FileNotFoundError(err_msg)
 
         # Checking train/dr1
-        if not os.path.exists(self.data_folder + "/train/dr1"):
+        if not os.path.exists(self.data_folder + train_str):
+
             err_msg = (
                 "the folder %s does not exist (it is expected in "
-                "the TIMIT dataset)" % (self.data_folder + "/train/dr*")
+                "the TIMIT dataset)" % (self.data_folder + train_str)
             )
             raise FileNotFoundError(err_msg)
 

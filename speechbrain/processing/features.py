@@ -112,7 +112,7 @@ class STFT(torch.nn.Module):
         window_type='hamming',
         normalized_stft=False,
         center=True,
-        pad_mode='reflect',
+        pad_mode='constant',
         onesided=True,
     ):
         super().__init__()
@@ -440,6 +440,7 @@ class FBANKs(torch.nn.Module):
         self.initialize_with = initialize_path
 
         # Additional options
+        self.funct_name = funct_name
         self.n_stft = self.n_fft // 2 + 1
 
         # Make sure that the selected f_min < f_max
@@ -469,8 +470,8 @@ class FBANKs(torch.nn.Module):
         # Computation of the filter bands
         band = hz[1:] - hz[:-1]
 
-        self.band = band[:-1]
-        self.f_central = hz[1:-1]
+        self.band = band[:-1].to(self.device_inp)
+        self.f_central = hz[1:-1].to(self.device_inp)
 
         # Adding the central frequency and the band to the list of nn param
         if not self.freeze:
@@ -479,9 +480,11 @@ class FBANKs(torch.nn.Module):
 
         # Frequency axis
         all_freqs = torch.linspace(0, self.sample_rate // 2, self.n_stft)
+        all_freqs = all_freqs.to(self.device_inp)
 
         # replicating for all the filters
         self.all_freqs_mat = all_freqs.repeat(self.f_central.shape[0], 1)
+        self.all_freqs_mat = self.all_freqs_mat.to(self.device_inp)
 
         # Managing initialization with an external filter bank parameters
         # (useful for pre-training)
@@ -492,18 +495,15 @@ class FBANKs(torch.nn.Module):
             recovery(self)
 
     def forward(self, spectrogram):
-        """
-        Input: - spectrogram (type: torch.Tensor, mandatory)
-                   torch.tensor which contains the spectrogram of an audio
-                   signal. The input spectrogram tensor must be in one of
-                   the following formats: [batch, n_fft/2, time_steps],
-                   [batch, channels, n_fft/2, time_steps]
 
-        Output: fbanks (type: torch.Tensor)
-                   Formatted in one of the following ways depending on
-                   the input shape: [batch, n_mel, time_steps],
-                   [batch, channels, n_mel, time_steps]
-        """
+        # Getting the current device
+        self.device_inp = spectrogram.device
+
+        # Putting all_freq tensor in the current device
+        self.all_freqs_mat = self.all_freqs_mat.to(self.device_inp)
+        self.band = self.band.to(self.device_inp)
+        self.f_central = self.f_central.to(self.device_inp)
+
         # Computing central frequency and bandwidth of each filter
         f_central_mat = self.f_central.repeat(
             self.all_freqs_mat.shape[1], 1
@@ -631,7 +631,7 @@ class FBANKs(torch.nn.Module):
         # Right part of the filter
         right_side = -slope + 1.0
 
-        zero = torch.zeros(1)
+        zero = torch.zeros(1).to(self.device_inp)
 
         # Adding zeros for negative values
         fbank_matrix = torch.max(
@@ -926,6 +926,13 @@ class MFCCs(torch.nn.Module):
 
         # Generate matix for DCT transformation
         self.dct_mat = self.create_dct()
+
+        def hook(self, first_input):
+            self.device_inp = first_input[0].device
+            self.dct_mat = self.dct_mat.to(self.device_inp)
+            self.hook.remove()
+
+        self.hook = self.register_forward_pre_hook(hook)
 
         # Check n_mfcc
         if self.n_mfcc > self.n_mels:

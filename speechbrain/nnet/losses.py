@@ -247,7 +247,9 @@ class compute_cost(nn.Module):
 
                 # Managing ctc cost for sequence-to-sequence learning
                 if self.cost_type[i] == "ctc":
-
+                    # cast lab_curr to int32 for using Cudnn computation
+                    # In the case of using CPU training, int type is mondatory.
+                    lab_curr = lab_curr.int()
                     # Permuting output probs
                     prob_curr = prob_curr.permute(2, 0, 1)
 
@@ -384,6 +386,10 @@ class compute_cost(nn.Module):
          """
         # Computing predictions
         scores, predictions = torch.max(prob, dim=0)
+
+        # Converting labels and prediction to lists (faster)
+        lab = lab.tolist()
+        predictions = predictions.tolist()
 
         # If the case of CTC, filter the predicted output
         if "ctc" in self.cost_type:

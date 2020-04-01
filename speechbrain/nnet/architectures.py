@@ -201,6 +201,7 @@ class linear_combination(nn.Module):
         self.expected_options = {
             "class_name": ("str", "mandatory"),
             "recovery": ("bool", "optional", "True"),
+            "recovery_type": ("one_of(last,best)", "optional", "best"),
             "initialize_with": ("str", "optional", "None"),
             "bias": ("bool", "optional", "True"),
         }
@@ -901,6 +902,7 @@ class SincConv(nn.Module):
         self.expected_options = {
             "class_name": ("str", "mandatory"),
             "recovery": ("bool", "optional", "True"),
+            "recovery_type": ("one_of(last,best)", "optional", "best"),
             "initialize_with": ("str", "optional", "None"),
             "out_channels": ("int(1,inf)", "mandatory"),
             "kernel_size": ("int(1,inf)", "mandatory"),
@@ -2141,3 +2143,272 @@ class dropout(nn.Module):
             x_drop = x_drop.transpose(1, -1)
 
         return x_drop
+
+
+class pooling(nn.Module):
+    """
+     -------------------------------------------------------------------------
+     nnet.architectures.dropout (author: Titouan Parcollet)
+
+     Description:  This function implements pooling of the input tensor:
+                   y = pooling(x).
+
+     Input (init):  - config (type, dict, mandatory):
+                       it is a dictionary containing the keys described below.
+
+                            - pool_type (type: str, max):
+                                it is the type of pooling function to use.
+
+                            - pool_axis (type: int_list(-1, 3), max):
+                                it is a list containing the axis that will be
+                                considered during pooling. It must match the
+                                dimensionality of the pooling. If the pooling
+                                is 2D, then a list of 2 indices is expected.
+
+                            - kernel_size (type: int_list, mandatory):
+                                it is the kernel size. Note that it also define
+                                the pooling dimension. 3 is a 1D Pooling with a
+                                kernel of size 3, while 3:3 is a 2D Pooling and
+                                3:3:3 is a 3D pooling.
+
+                            - stride (type: int, optional, Default:1):
+                                it is the stride size.
+
+                            - padding (type: int, optional, Default:0):
+                                it is the padding to apply.
+
+                            - dilation (type: int, optional, Default:1):
+                                controls the dilation of pooling.
+
+                            - ceil_mode (type: bool, optional, Default:False):
+                                when True, will use ceil instead of floor
+                                to compute the output shape
+
+                   - funct_name (type, str, optional, default: None):
+                       it is a string containing the name of the parent
+                       function that has called this method.
+
+                   - global_config (type, dict, optional, default: None):
+                       it a dictionary containing the global variables of the
+                       parent config file.
+
+                   - logger (type, logger, optional, default: None):
+                       it the logger used to write debug and error messages.
+                       If logger=None and root_cfg=True, the file is created
+                       from scratch.
+
+                   - first_input (type, list, optional, default: None)
+                      this variable allows users to analyze the first input
+                      given when calling the class for the first time.
+
+
+     Input (call): - inp_lst(type, list, mandatory):
+                       by default the input arguments are passed with a list.
+                       In this case, inp is a list containing a single
+                       torch.tensor that we want to transform with the pooling.
+                       The tensor must be in any form since the pooling axis
+                       are specified. By default, the input is of shape:
+                       [batch,features,channels,time]
+
+
+
+     Output (call): - wx(type, torch.Tensor, mandatory):
+                       it is the output after applying the pooling.
+
+
+     Example:   import torch
+                from speechbrain.nnet.architectures import pooling
+
+                 # config dictionary definition
+                 config={'class_name':'speechbrain.nnet.architectures.pooling',
+                 'pool_type': 'max',
+                 'kernel_size': '2,2',
+                 'stride': '2',
+                 'pool_axis': '1,2'}
+
+                 # Initialization of the class
+                 inp_tensor = torch.rand([1,4,1,4])
+                 pool = pooling(config, first_input=[inp_tensor])
+
+                 # Executing computations
+                 out_tensor = pool([inp_tensor])
+                 print(out_tensor)
+    """
+
+    def __init__(
+        self,
+        config,
+        funct_name=None,
+        global_config=None,
+        functions=None,
+        logger=None,
+        first_input=None,
+    ):
+        super(pooling, self).__init__()
+
+        # Logger setup
+        self.logger = logger
+
+        # Here are summarized the expected options for this class
+        self.expected_options = {
+            "class_name": ("str", "mandatory"),
+            "pool_type": ("one_of(avg,max)", "mandatory"),
+            "pool_dim": ("int(1,3)", "optional", "1"),
+            "pool_axis": ("int_list(-1,3)", "optional", "1"),
+            "kernel_size": ("int_list(1,inf)", "mandatory"),
+            "ceil_mode": ("bool", "optional", "False"),
+            "dilation": ("int(1,inf)", "optional", "1"),
+            "padding": ("int(0,inf)", "optional", "0"),
+            "stride": ("int(1,inf)", "optional", "1"),
+        }
+
+        # Check, cast, and expand the options
+        self.conf = check_opts(
+            self, self.expected_options, config, self.logger
+        )
+
+        # Definition of the expected input
+        self.expected_inputs = ["torch.Tensor"]
+
+        # Check the first input
+        check_inputs(
+            self.conf, self.expected_inputs, first_input, logger=self.logger
+        )
+
+        # Option for pooling
+        self.pool1d = False
+        self.pool2d = False
+        self.combine_batch_time = False
+
+        # Check that enough pooling axes are specified
+        if len(self.kernel_size) == 1:
+            self.pool1d = True
+
+            # In the case of a 4 dimensional input vector, we need to combine
+            # the batch and time dimension together because torch.nn.pool1d
+            # only accepts 3D vectors as inputs.
+            if len(first_input[0].shape) > 3:
+                self.combine_batch_time = True
+
+            if len(self.pool_axis) != 1:
+                err_msg = (
+                    'pool_axes must corresponds to the pooling dimension. '
+                    " The pooling dimension is 1 and %s axes are specified."
+                    % (str(len(self.pool_axis)))
+                )
+
+                logger_write(err_msg, logfile=logger)
+
+            if self.pool_axis[0] >= len(first_input[0].shape):
+                err_msg = (
+                    'pool_axes is greater than the number of dimensions. '
+                    " The tensor dimension is %s and the specified pooling "
+                    "axis is %s."
+                    % (str(len(first_input[0].shape)), str(self.pool_axis))
+                )
+
+                logger_write(err_msg, logfile=logger)
+
+        if len(self.kernel_size) == 2:
+            self.pool2d = True
+
+            if len(self.pool_axis) != 2:
+                err_msg = (
+                    'pool_axes must corresponds to the pooling dimension. '
+                    " The pooling dimension is 2 and %s axes are specified."
+                    % (str(len(self.pool_axis)))
+                )
+
+                logger_write(err_msg, logfile=logger)
+
+            if self.pool_axis[0] >= len(first_input[0].shape) or \
+               self.pool_axis[1] >= len(first_input[0].shape):
+                err_msg = (
+                    'pool_axes is greater than the number of dimensions. '
+                    " The tensor dimension is %s and the specified pooling "
+                    "axis are %s."
+                    % (str(len(first_input[0].shape)), str(self.pool_axis))
+                )
+
+                logger_write(err_msg, logfile=logger)
+
+        # Additional check on the input shapes
+        if first_input is not None:
+
+            # Shape check
+            if len(first_input[0].shape) > 5 or len(first_input[0].shape) < 3:
+
+                err_msg = (
+                    'The input of "pooling" must be a tensor with one of the '
+                    "following dimensions: [batch,C, fea] or "
+                    "[batch,fea,fea,C]. Got %s"
+                    % (str(first_input[0].shape))
+                )
+
+                logger_write(err_msg, logfile=logger)
+
+            # Pooling initialization
+            if self.pool_type == "avg":
+
+                # Check Pooling dimension
+                if self.pool1d:
+                    self.pool_layer = torch.nn.AvgPool1d(
+                        self.kernel_size[0],
+                        stride=self.stride,
+                        padding=self.padding,
+                        ceil_mode=self.ceil_mode)
+
+                else:
+                    self.pool_layer = torch.nn.AvgPool2d(
+                        self.kernel_size,
+                        stride=self.stride,
+                        padding=self.padding,
+                        ceil_mode=self.ceil_mode)
+            else:
+                if self.pool1d:
+                    self.pool_layer = torch.nn.MaxPool1d(
+                        self.kernel_size[0],
+                        stride=self.stride,
+                        padding=self.padding,
+                        ceil_mode=self.ceil_mode)
+
+                else:
+                    self.pool_layer = torch.nn.MaxPool2d(
+                        self.kernel_size,
+                        stride=self.stride,
+                        padding=self.padding,
+                        ceil_mode=self.ceil_mode)
+
+    def forward(self, input_lst):
+
+        # Reading input list
+        x = input_lst[0]
+        or_shape = x.shape
+
+        # Put the pooling axes as the last dimension for torch.nn.pool
+        # If the input tensor is 4 dimensional, combine the first and second
+        # axes together to respect the input shape of torch.nn.pool1d
+        if self.pool1d:
+            x = x.transpose(len(or_shape)-1, self.pool_axis[0])
+            new_shape = x.shape
+            if self.combine_batch_time:
+                x = x.reshape(new_shape[0]*new_shape[1], new_shape[2], -1)
+
+        if self.pool2d:
+            x = x.transpose(len(or_shape)-2, self.pool_axis[0]).transpose(
+                            len(or_shape)-1, self.pool_axis[1])
+
+        # Apply pooling
+        x = self.pool_layer(x)
+
+        # Recover input shape
+        if self.pool1d:
+            if self.combine_batch_time:
+                x = x.reshape(new_shape[0], new_shape[1], new_shape[2], -1)
+            x = x.transpose(len(or_shape)-1, self.pool_axis[0])
+
+        if self.pool2d:
+            x = x.transpose(len(or_shape)-2, self.pool_axis[0]).transpose(
+                            len(or_shape)-1, self.pool_axis[1])
+
+        return x

@@ -25,6 +25,7 @@ import subprocess
 import numpy as np
 import soundfile as sf
 import multiprocessing as mp
+from itertools import groupby
 from multiprocessing import Manager
 from torch.utils.data import Dataset, DataLoader
 from speechbrain.utils.data_utils import recursive_items
@@ -384,91 +385,92 @@ class create_dataloader(torch.nn.Module):
             self.output_folder + "/label_dict.pkl"
         )
 
-        if not os.path.isfile(label_dict_file):
+        # Read previously stored label_dict
+        if os.path.isfile(label_dict_file):
+            label_dict = load_pkl(label_dict_file)
+        else:
             # create label counts and label2index automatically when needed
             label_dict = {}
 
-            for snt in data_dict:
-                if isinstance(data_dict[snt], dict):
-                    for elem in data_dict[snt]:
+        # Update label dict
+        for snt in data_dict:
+            if isinstance(data_dict[snt], dict):
+                for elem in data_dict[snt]:
 
-                        if "format" in data_dict[snt][elem]:
+                    if "format" in data_dict[snt][elem]:
 
-                            count_lab = False
-                            opts = data_dict[snt][elem]["options"]
+                        count_lab = False
+                        opts = data_dict[snt][elem]["options"]
 
-                            if data_dict[snt][elem]["format"] == "string" and (
-                                "label" not in opts or opts["label"] == "True"
+                        if data_dict[snt][elem]["format"] == "string" and (
+                            "label" not in opts or opts["label"] == "True"
+                        ):
+
+                            if (
+                                len(
+                                    data_dict[snt][elem]["data"].split(" ")
+                                )
+                                > 1
                             ):
+                                # Processing list of string labels
+                                labels = data_dict[snt][elem][
+                                    "data"
+                                ].split(" ")
+                                count_lab = True
 
-                                if (
-                                    len(
-                                        data_dict[snt][elem]["data"].split(" ")
-                                    )
-                                    > 1
-                                ):
-                                    # Processing list of string labels
-                                    labels = data_dict[snt][elem][
-                                        "data"
-                                    ].split(" ")
+                            else:
+                                # Processing a single label
+                                labels = [data_dict[snt][elem]["data"]]
+                                count_lab = True
+
+                        if data_dict[snt][elem]["format"] == "pkl":
+
+                            labels = load_pkl(data_dict[snt][elem]["data"])
+
+                            # Create counts if tensor is a list of integers
+                            if isinstance(labels, list):
+                                if isinstance(labels[0], int):
                                     count_lab = True
 
+                            if isinstance(labels, np.ndarray):
+                                if "numpy.int" in str(type(labels[0])):
+                                    count_lab = True
+
+                            # Create counts if tensor is a list of integers
+                            if isinstance(labels, torch.Tensor):
+
+                                if labels.type() == "torch.LongTensor":
+                                    count_lab = True
+                                if labels.type() == "torch.IntTensor":
+                                    count_lab = True
+
+                        if count_lab:
+                            if elem not in label_dict:
+                                label_dict[elem] = {}
+                                label_dict[elem]["counts"] = {}
+
+                            for lab in labels:
+                                if lab not in label_dict[elem]["counts"]:
+                                    label_dict[elem]["counts"][lab] = 1
                                 else:
-                                    # Processing a single label
-                                    labels = [data_dict[snt][elem]["data"]]
-                                    count_lab = True
+                                    label_dict[elem]["counts"][lab] = (
+                                        label_dict[elem]["counts"][lab] + 1
+                                    )
 
-                            if data_dict[snt][elem]["format"] == "pkl":
+        # create label2index:
+        for lab in label_dict:
+            # sorted_ids = sorted(label_dict[lab]["counts"].keys())
+            cnt_id = 0
 
-                                labels = load_pkl(data_dict[snt][elem]["data"])
+            label_dict[lab]["lab2index"] = {}
+            label_dict[lab]["index2lab"] = {}
+            for lab_id in label_dict[lab]["counts"]:
+                label_dict[lab]["lab2index"][lab_id] = cnt_id
+                label_dict[lab]["index2lab"][cnt_id] = lab_id
+                cnt_id = cnt_id + 1
 
-                                # Create counts if tensor is a list of integers
-                                if isinstance(labels, list):
-                                    if isinstance(labels[0], int):
-                                        count_lab = True
-
-                                if isinstance(labels, np.ndarray):
-                                    if "numpy.int" in str(type(labels[0])):
-                                        count_lab = True
-
-                                # Create counts if tensor is a list of integers
-                                if isinstance(labels, torch.Tensor):
-
-                                    if labels.type() == "torch.LongTensor":
-                                        count_lab = True
-                                    if labels.type() == "torch.IntTensor":
-                                        count_lab = True
-
-                            if count_lab:
-                                if elem not in label_dict:
-                                    label_dict[elem] = {}
-                                    label_dict[elem]["counts"] = {}
-
-                                for lab in labels:
-                                    if lab not in label_dict[elem]["counts"]:
-                                        label_dict[elem]["counts"][lab] = 1
-                                    else:
-                                        label_dict[elem]["counts"][lab] = (
-                                            label_dict[elem]["counts"][lab] + 1
-                                        )
-
-            # create label2index:
-            for lab in label_dict:
-                sorted_ids = sorted(label_dict[lab]["counts"].keys())
-                cnt_id = 0
-
-                label_dict[lab]["lab2index"] = {}
-                label_dict[lab]["index2lab"] = {}
-                for sorted_id in sorted_ids:
-                    label_dict[lab]["lab2index"][sorted_id] = cnt_id
-                    label_dict[lab]["index2lab"][cnt_id] = sorted_id
-                    cnt_id = cnt_id + 1
-
-            # saving the label_dict:
-            save_pkl(label_dict, label_dict_file)
-
-        else:
-            label_dict = load_pkl(label_dict_file)
+        # saving the label_dict:
+        save_pkl(label_dict, label_dict_file)
 
         return label_dict
 
@@ -1726,12 +1728,17 @@ class print_predictions:
                 if self.ctc_out:
 
                     # Filtering the ctc output predictions
-                    string_pred = filter_ctc_output(string_pred)
+                    string_pred = filter_ctc_output(
+                        string_pred, blank_id="blank"
+                    )
 
                 # Converting list to string
                 len_str = len(string_pred)
                 if isinstance(string_pred, list):
                     string_pred = " ".join(str(x) for x in string_pred)
+
+                    # Filtering sil sil patterns
+                    string_pred = string_pred.replace("sil sil", "sil")
 
                 # Writing the output
                 msg = "%s\t%s\t%.3f" % (snt_id, string_pred, current_score)
@@ -1776,7 +1783,7 @@ def filter_ctc_output(string_pred, blank_id=-1, logger=None):
 
                 string_pred = ['a','a','blank','b','b','blank','c']
 
-                string_out = filter_ctc_output(string_pred)
+                string_out = filter_ctc_output(string_pred, blank_id='blank')
 
                 print(string_out)
      --------------------------------------------.----------------------------
@@ -1790,36 +1797,11 @@ def filter_ctc_output(string_pred, blank_id=-1, logger=None):
             if i == 0 or v != string_pred[i - 1]
         ]
 
+        # Removing duplicates
+        string_out = [i[0] for i in groupby(string_out)]
+
         # Filterning the blank symbol
-        string_out = list(filter(lambda elem: elem != "blank", string_out))
-
-    if isinstance(string_pred, torch.Tensor):
-
-        if blank_id < 0:
-            err_msg = (
-                "The blank index specified whe calling filter_ctc_output "
-                "is not valid (got %i)" % (blank_id)
-            )
-
-            logger.error(err_msg, exc_info=True)
-
-        # remove duplicates
-        string_out = []
-
-        # Looping over all the elements of the tensor
-        for index, elem in enumerate(string_pred):
-
-            # Check if the two consecutive elements are equal
-            if index > 0 and elem == string_pred[index - 1]:
-                continue
-            else:
-                string_out.append(elem)
-
-        # Output a LongTensor
-        string_out = torch.LongTensor(string_out)
-
-        # remove blank
-        string_out = string_out[string_out != blank_id]
+        string_out = list(filter(lambda elem: elem != blank_id, string_out))
 
     return string_out
 
@@ -1851,7 +1833,17 @@ def recovery(self):
 
                 if key == self.funct_name:
 
-                    model_file = value
+                    if self.recovery_type == "last":
+                        model_file = value
+
+                    if self.recovery_type == "best":
+
+                        # Getting file of the best model
+                        model_folder = "/".join(value.split("/")[:-1])
+                        model_name = value.split("/")[-1]
+                        model_name = "_".join(model_name.split("_")[4:])
+                        model_name = "current_best_" + model_name
+                        model_file = model_folder + "/" + model_name
 
                     # Loading the model
                     if hasattr(self, "optim"):
