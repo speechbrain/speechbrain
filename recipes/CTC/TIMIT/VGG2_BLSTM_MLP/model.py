@@ -75,7 +75,7 @@ class VGG2_BLSTM_MLP(torch.nn.Module):
             conv(block_index * 128, kernel_size=[3, 3]),
             normalize('batchnorm'),
             activation(self.activation),
-            pooling('max', kernel_size=2),
+            pooling('max', kernel_size=2, stride=2),
             dropout(self.drop_rate),
         )
 
