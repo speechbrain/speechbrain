@@ -12,14 +12,12 @@
 # Importing libraries
 import math
 import torch
-import torch.nn as nn
-from speechbrain.utils.input_validation import check_opts, check_inputs
-from speechbrain.utils.logger import logger_write
+import logging
 from speechbrain.data_io.data_io import recovery, initialize_with
-from speechbrain.module import SpeechBrainModule
+logger = logging.getLogger(__name__)
 
 
-class STFT(SpeechBrainModule):
+class STFT(torch.nn.Module):
     """
      -------------------------------------------------------------------------
      data_processing.STFT (author: Mirco Ravanelli)
@@ -114,13 +112,10 @@ class STFT(SpeechBrainModule):
         window_type='hamming',
         normalized_stft=False,
         center=True,
-        pad_mode='reflect',
+        pad_mode='constant',
         onesided=True,
-        **kwargs
     ):
-        # Definition of the expected input
-        expected_inputs = [{'type': "torch.Tensor", 'dim_count': [2, 3]}]
-        super().__init__(expected_inputs, **kwargs)
+        super().__init__()
 
         self.sample_rate = sample_rate
         self.win_length = win_length
@@ -241,7 +236,7 @@ class STFT(SpeechBrainModule):
         return window
 
 
-class spectrogram(SpeechBrainModule):
+class spectrogram(torch.nn.Module):
     """
      -------------------------------------------------------------------------
      data_processing.spectrogram (author: Mirco Ravanelli)
@@ -283,12 +278,8 @@ class spectrogram(SpeechBrainModule):
     def __init__(
         self,
         power_spectrogram=2,
-        **kwargs
     ):
-        # Expected inputs when calling the class
-        expected_inputs = [{'type': 'torch.Tensor', 'dim_count': [3, 4]}]
-
-        super().__init__(expected_inputs, **kwargs)
+        super().__init__()
 
         self.power_spectrogram = power_spectrogram
 
@@ -312,7 +303,7 @@ class spectrogram(SpeechBrainModule):
         return spectrogram
 
 
-class FBANKs(SpeechBrainModule):
+class FBANKs(torch.nn.Module):
     """
      -------------------------------------------------------------------------
      data_processing.FBANKs (author: Mirco Ravanelli)
@@ -430,11 +421,8 @@ class FBANKs(SpeechBrainModule):
         freeze=True,
         recovery=True,
         initialize_path=None,
-        **kwargs
     ):
-        # Expected inputs when calling the class
-        expected_inputs = [{'type': 'torch.Tensor', 'dim_count': [3, 4]}]
-        super().__init__(expected_inputs, **kwargs)
+        super().__init__()
 
         self.n_mels = n_mels
         self.log_mel = log_mel
@@ -460,7 +448,7 @@ class FBANKs(SpeechBrainModule):
                 self.f_min,
                 self.f_max,
             )
-            logger_write(err_msg, logfile=logger)
+            logger.error(err_msg, exc_info=True)
 
         # Setting the multiplier for log conversion
         if self.power_spectrogram == 2:
@@ -495,6 +483,15 @@ class FBANKs(SpeechBrainModule):
         # replicating for all the filters
         self.all_freqs_mat = all_freqs.repeat(self.f_central.shape[0], 1)
 
+        def hook(self, first_input):
+            self.device_inp = first_input[0].device
+            self.band = self.band.to(self.device_inp)
+            self.f_central = self.f_central.to(self.device_inp)
+            self.all_freqs_mat = self.all_freqs_mat.to(self.device_inp)
+            self.hook.remove()
+
+        self.hook = self.register_forward_pre_hook(hook)
+
         # Managing initialization with an external filter bank parameters
         # (useful for pre-training)
         initialize_with(self)
@@ -504,18 +501,15 @@ class FBANKs(SpeechBrainModule):
             recovery(self)
 
     def forward(self, spectrogram):
-        """
-        Input: - spectrogram (type: torch.Tensor, mandatory)
-                   torch.tensor which contains the spectrogram of an audio
-                   signal. The input spectrogram tensor must be in one of
-                   the following formats: [batch, n_fft/2, time_steps],
-                   [batch, channels, n_fft/2, time_steps]
 
-        Output: fbanks (type: torch.Tensor)
-                   Formatted in one of the following ways depending on
-                   the input shape: [batch, n_mel, time_steps],
-                   [batch, channels, n_mel, time_steps]
-        """
+        # Getting the current device
+        self.device_inp = spectrogram.device
+
+        # Putting all_freq tensor in the current device
+        self.all_freqs_mat = self.all_freqs_mat.to(self.device_inp)
+        self.band = self.band.to(self.device_inp)
+        self.f_central = self.f_central.to(self.device_inp)
+
         # Computing central frequency and bandwidth of each filter
         f_central_mat = self.f_central.repeat(
             self.all_freqs_mat.shape[1], 1
@@ -643,7 +637,7 @@ class FBANKs(SpeechBrainModule):
         # Right part of the filter
         right_side = -slope + 1.0
 
-        zero = torch.zeros(1)
+        zero = torch.zeros(1).to(self.device_inp)
 
         # Adding zeros for negative values
         fbank_matrix = torch.max(
@@ -870,7 +864,7 @@ class FBANKs(SpeechBrainModule):
         return x_db
 
 
-class MFCCs(SpeechBrainModule):
+class MFCCs(torch.nn.Module):
     """
      -------------------------------------------------------------------------
      data_processing.MFCCs (author: Mirco Ravanelli)
@@ -929,11 +923,8 @@ class MFCCs(SpeechBrainModule):
         n_mfcc=20,
         n_mels=40,
         dct_norm='ortho',
-        **kwargs
     ):
-        # Expected inputs when calling the class (no inputs in this case)
-        expected_inputs = [{'type': "torch.Tensor", 'dim_count': [3, 4]}]
-        super().__init__(expected_inputs, **kwargs)
+        super().__init__()
 
         self.n_mfcc = n_mfcc
         self.n_mels = n_mels
@@ -941,6 +932,13 @@ class MFCCs(SpeechBrainModule):
 
         # Generate matix for DCT transformation
         self.dct_mat = self.create_dct()
+
+        def hook(self, first_input):
+            self.device_inp = first_input[0].device
+            self.dct_mat = self.dct_mat.to(self.device_inp)
+            self.hook.remove()
+
+        self.hook = self.register_forward_pre_hook(hook)
 
         # Check n_mfcc
         if self.n_mfcc > self.n_mels:
@@ -950,7 +948,7 @@ class MFCCs(SpeechBrainModule):
                 "(n_mfcc=%i, n_mels=%i)" % (self.n_mfcc, self.n_mels)
             )
 
-            logger_write(err_msg, logfile=logger)
+            logger.error(err_msg, exc_info=True)
 
     def create_dct(self):
 
@@ -1053,7 +1051,7 @@ class MFCCs(SpeechBrainModule):
         return mfcc
 
 
-class deltas(SpeechBrainModule):
+class deltas(torch.nn.Module):
     """
     -------------------------------------------------------------------------
     data_processing.deltas (author: Mirco Ravanelli)
@@ -1083,26 +1081,20 @@ class deltas(SpeechBrainModule):
     def __init__(
         self,
         der_win_length=5,
-        **kwargs
     ):
-        # Expected inputs when calling the class (no inputs in this case)
-        expected_inputs = [{'type': 'torch.Tensor', 'dim_count': [2, 3, 4]}]
+        super().__init__()
+        self.der_win_length = der_win_length
 
         def hook(self, input):
             self.kernel = self.kernel.repeat(input[0].shape[-2], 1, 1)
+            self.hook.remove()
 
-        super().__init__(expected_inputs, hook, **kwargs)
-
-        self.der_win_length = der_win_length
+        self.hook = self.register_forward_pre_hook(hook)
 
         # Additional parameters
         self.n = (self.der_win_length - 1) // 2
-
         self.denom = self.n * (self.n + 1) * (2 * self.n + 1) / 3
-
         self.kernel = torch.arange(-self.n, self.n + 1, 1).float()
-
-        self.first_call = True
 
     def forward(self, x):
         """
@@ -1141,7 +1133,7 @@ class deltas(SpeechBrainModule):
         return delta_coeff
 
 
-class context_window(SpeechBrainModule):
+class context_window(torch.nn.Module):
     """
      -------------------------------------------------------------------------
      data_processing.context_window (author: Mirco Ravanelli)
@@ -1182,11 +1174,8 @@ class context_window(SpeechBrainModule):
         self,
         left_frames=0,
         right_frames=0,
-        **kwargs
     ):
-        # Expected inputs when calling the class
-        expected_inputs = [{'type': 'torch.Tensor', 'dim_count': [2, 3, 4, 5]}]
-        super().__init__(expected_inputs, **kwargs)
+        super().__init__()
 
         self.left_frames = left_frames
         self.right_frames = right_frames
@@ -1273,6 +1262,7 @@ class mean_var_norm(torch.nn.Module):
         avg_factor=None,
         do_recovery=True,
         output_folder=None,
+        requires_grad=False,
     ):
         super().__init__()
 
@@ -1282,6 +1272,7 @@ class mean_var_norm(torch.nn.Module):
         self.avg_factor = avg_factor
         self.recovery = do_recovery
         self.output_folder = output_folder
+        self.requires_grad = requires_grad
 
         # Parameter initialization
         self.glob_mean = 0

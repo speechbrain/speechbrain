@@ -3,7 +3,7 @@ import torch
 from tqdm import tqdm
 from speechbrain.core import Experiment
 sb = Experiment(
-    yaml_stream=open('recipes/e2e_asr/TIMIT/params.yaml'),
+    yaml_stream=open('recipes/CTC/TIMIT/RNN/params.yaml'),
     commandline_args=sys.argv[1:],
 )
 
@@ -14,7 +14,7 @@ def main():
     sb.copy_locally()
     sb.prepare_timit()
 
-    model = torch.nn.Sequential(sb.RNN, sb.lin, sb.softmax).cuda()
+    model = torch.nn.Sequential(sb.RNN, sb.lin, sb.softmax)
 
     # training/validation epochs
     for epoch in range(sb.constants['N_epochs']):
@@ -55,8 +55,8 @@ def neural_computations(losses, model, wav, phn, mode):
     id, wav, wav_len = wav
     id, phn, phn_len = phn
 
-    feats = sb.compute_features(wav)
-    feats = sb.mean_var_norm(feats, wav_len)
+    feats = sb.compute_features(wav.cuda())
+    feats = sb.mean_var_norm(feats, wav_len.cuda())
 
     pout = model(feats)
 

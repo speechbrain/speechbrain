@@ -11,28 +11,22 @@ import re
 import copy
 import yaml
 import torch
-import logging
 import inspect
 import ruamel.yaml
 import collections.abc
 from io import StringIO
 from pydoc import locate
-logger = logging.getLogger(__name__)
 
 
 def get_all_files(
     dirName, match_and=None, match_or=None, exclude_and=None, exclude_or=None
 ):
-    """
-     -------------------------------------------------------------------------
-     speechbrain.utils.data_utils.get_all_files (author: Mirco Ravanelli)
+    """This function get a list of files within found within a folder.
 
-     Description:
-        This function get a list of files within found within a folder.
-        Different options can be used to restrict the search to some specific
-        patterns.
+    Different options can be used to restrict the search to some specific
+    patterns.
 
-     Args:
+    Args:
         dirName: the directory to search
         match_and: a list that contains patterns to match. The file is returned
             if it matches all the entries in match_and.
@@ -43,15 +37,16 @@ def get_all_files(
         exclude_or: a list that contains pattern to match. The
             file is returned if fails to match one of the entries in exclude_or
 
-     Returns:
+    Returns:
         a list of files.
 
-     Example:
+    Example:
         >>> get_all_files('samples/rir_samples', match_and=['3.wav'])
         ['samples/rir_samples/rir3.wav']
 
-     -------------------------------------------------------------------------
-     """
+    Author:
+        Mirco Ravanelli 2020
+    """
 
     # Match/exclude variable initialization
     match_and_entry = True
@@ -130,27 +125,22 @@ def get_all_files(
 
 
 def split_list(seq, num):
-    """
-     -------------------------------------------------------------------------
-     speechbrain.utils.data_utils.split_list (author: Mirco Ravanelli)
+    """Split the input list into N parts.
 
-     Description:
-        This function splits the input list in N parts.
-
-     Args:
+    Args:
         seq: the input list, to be split
-        nums: the number of chunks to produce
+        num: the number of chunks to produce
 
-     Returns:
+    Returns:
         a list containing all chunks created.
 
-     Example:
+    Example:
         >>> split_list([1,2,3,4,5,6,7,8,9],4)
         [[1, 2], [3, 4], [5, 6], [7, 8, 9]]
 
-     -------------------------------------------------------------------------
-     """
-
+    Author:
+        Mirco Ravanelli 2020
+    """
     # Average length of the chunk
     avg = len(seq) / float(num)
     out = []
@@ -165,27 +155,22 @@ def split_list(seq, num):
 
 
 def recursive_items(dictionary):
-    """
-     -------------------------------------------------------------------------
-     speechbrain.utils.data_utils.recursive_items (author: Mirco Ravanelli)
+    """Yield each (key, value) of a nested dictionary
 
-     Description:
-         This function output each (key, value) of a recursive dictionary
-         (i.e, a dictionary that might contain other dictionaries).
-
-     Args:
+    Args:
         dictionary: the dictionary (or dictionary of dictionaries) to list.
 
-     Yields:
+    Yields:
         key value tuples from the dictionary.
 
-     Example:
+    Example:
         >>> rec_dict={'lev1': {'lev2': {'lev3': 'current_val'}}}
         >>> [item for item in recursive_items(rec_dict)]
         [('lev3', 'current_val')]
 
-     -------------------------------------------------------------------------
-     """
+    Author:
+        Mirco Ravanelli 2020
+    """
     for key, value in dictionary.items():
         if type(value) is dict:
             yield from recursive_items(value)
@@ -194,22 +179,20 @@ def recursive_items(dictionary):
 
 
 def recursive_update(d, u):
-    """
-    Description:
-        This function performs what dict.update does, but for a
-        nested structure.
-        If you have to a nested mapping structure, for example:
-            {"a": 1, "b": {"c": 2}}
-        Say you want to update the above structure with:
-            {"b": {"d": 3}}
-        This function will produce:
-            {"a": 1, "b": {"c": 2, "d": 3}}
-        Instead of:
-            {"a": 1, "b": {"d": 3}}
+    """Similar function to dict.update, but for a nested dict
+
+    If you have to a nested mapping structure, for example:
+        {"a": 1, "b": {"c": 2}}
+    Say you want to update the above structure with:
+        {"b": {"d": 3}}
+    This function will produce:
+        {"a": 1, "b": {"c": 2, "d": 3}}
+    Instead of:
+        {"a": 1, "b": {"d": 3}}
 
     Args:
-        d - mapping to be updated
-        u - mapping to update with
+        d: mapping to be updated
+        u: mapping to update with
 
     Example:
         >>> d = {'a': 1, 'b': {'c': 2}}
@@ -236,42 +219,40 @@ def load_extended_yaml(
     yaml_string,
     overrides={},
 ):
-    r"""
-    Description:
-        This function implements the SpeechBrain extended YAML syntax
-        by providing parser for it. The purpose for this syntax is a compact,
-        structured hyperparameter and computation block definition. This
-        function implements two extensions to the yaml syntax, $-reference
-        and object instantiation.
+    r"""This function implements the SpeechBrain extended YAML syntax
 
-        $-reference substitution:
-            Allows internal references to any other node in the file. Any
-            tag (starting with '!') that contains $<key> will have all
-            referrences replaced by the corresponding value, :
+    The purpose for this syntax is a compact, structured hyperparameter and
+    function definition. This function implements two extensions to the yaml
+    syntax, references and and object instantiation.
 
-                constants:
-                    output_folder: exp/asr
-                alignment_saver: !asr.ali.hmm.save
-                    save_dir: !$constants.output_folder # replaced with exp/asr
+    Reference substitution:
+        Allows internal references to any other node in the file. Any
+        node with tag '!$' will have $<key> references replaced with
+        the referenced value, following reference chains.
 
-            Strings values are handled specially: $-strings are substituted but
-            the rest of the string is left in place, allowing filepaths to be
-            easily extended:
+            constants:
+                output_folder: exp/asr
+            alignment_saver: !asr.ali.hmm.save
+                save_dir: !$ $constants.output_folder # exp/asr
 
-                constants:
-                    output_folder: exp/asr
-                alignment_saver: !asr.ali.hmm.save
-                    save_dir: !$constants.output_folder/ali # exp/asr/ali
+        Strings values are handled specially: $-strings are substituted but
+        the rest of the string is left in place, allowing filepaths to be
+        easily extended:
 
-        object instantiation:
-            If a '!' tag is used, the node is interpreted as the parameters
-            for instantiating the named class. In the previous example,
-            the alignment_saver will be an instance of the asr.ali.hmm.save
-            class, with 'exp/asr/ali' passed to the __init__() method as
-            a keyword argument. This is equivalent to:
+            constants:
+                output_folder: exp/asr
+            alignment_saver: !asr.ali.hmm.save
+                save_dir: !$ $constants.output_folder/ali # exp/asr/ali
 
-                import asr.ali.hmm
-                alignment_saver = asr.ali.hmm.save(save_dir='exp/asr/ali')
+    Object instantiation:
+        If a '!'-prefixed tag is used, the node is interpreted as the
+        parameters for instantiating the named class. In the previous example,
+        the alignment_saver will be an instance of the asr.ali.hmm.save class,
+        with 'exp/asr/ali' passed to the __init__() method as a keyword
+        argument. This is equivalent to:
+
+            import asr.ali.hmm
+            alignment_saver = asr.ali.hmm.save(save_dir='exp/asr/ali')
 
     Args:
         yaml_string: A file-like object or string from which to read.
@@ -287,7 +268,7 @@ def load_extended_yaml(
         ... "constants:\n"
         ... "  a: 3\n"
         ... "thing: !collections.Counter\n"
-        ... "  b: !$constants.a")
+        ... "  b: !$ <constants.a>")
         >>> load_extended_yaml(yaml_string)
         {'constants': {'a': 3}, 'thing': Counter({'b': 3})}
 
@@ -309,11 +290,10 @@ def load_extended_yaml(
     # NOTE: obj_and_ref_constructor needs to be defined in this scope to have
     # the correct version of preview
     def obj_and_ref_constructor(loader, tag_suffix, node):
-        nonlocal preview  # Not needed, but let's be explicit
-        if '$' in tag_suffix:
-            # Check that the node is a scalar
-            loader.construct_scalar(node)
-            return _recursive_resolve(tag_suffix, [], preview)
+        if tag_suffix == '$':
+            nonlocal preview  # Not needed, but let's be explicit
+            reference = loader.construct_scalar(node)
+            return recursive_resolve(reference, [], preview)
         else:
             return object_constructor(loader, tag_suffix, node)
 
@@ -325,15 +305,14 @@ def load_extended_yaml(
     return yaml.load(yaml_string, Loader=CustomLoader)
 
 
-def object_constructor(loader, tag_suffix, node):
-    """
-    Description:
-        A constructor method for a '!' tag with a class name. The class
-        is instantiated, and the sub-tree is passed as arguments.
+def object_constructor(loader, class_name, node):
+    """A constructor method for a '!' tag with a class name.
+
+    The class is instantiated, and the sub-tree is passed as arguments.
 
     Args:
         loader: The loader used to call this constructor (e.g. CustomLoader)
-        tag_suffix: The rest of the tag (after the '!' in this case)
+        class_name: The name of the class (suffix after the '!' in this case)
         node: The sub-tree belonging to the tagged node
 
     Returns:
@@ -342,26 +321,51 @@ def object_constructor(loader, tag_suffix, node):
     Author:
         Peter Plantinga 2020
     """
-    class_ = locate(tag_suffix)
-    if class_ is None:
-        raise ValueError('There is no such class as %s' % tag_suffix)
 
     # Parse arguments from the node
-    kwargs = {}
     if isinstance(node, yaml.MappingNode):
         kwargs = loader.construct_mapping(node, deep=True)
+        return instantiate(class_name, kwargs=kwargs)
     elif isinstance(node, yaml.SequenceNode):
         args = loader.construct_sequence(node, deep=True)
-        signature = inspect.signature(class_)
-        kwargs = signature.bind(*args).arguments
+        return instantiate(class_name, args=args)
 
-    return class_(**kwargs)
+    return instantiate(class_name)
+
+
+def instantiate(class_name, args=[], kwargs={}):
+    """Use pydoc.locate to create an instance of the specified class+params.
+
+    Args:
+        class_name: The fully-qualified name of the class to instantiate.
+        args: A list of parameters to pass the the class.
+        kwargs: A dict defining keyword parameters to pass to the class.
+
+    Example:
+        >>> kwargs = {'in_features': 100, 'out_features': 100}
+        >>> model = instantiate('torch.nn.Linear', kwargs=kwargs)
+        >>> model.__class__.__name__
+        'Linear'
+
+    Author:
+        Peter Plantinga 2020
+    """
+    class_ = locate(class_name)
+    if class_ is None:
+        raise ImportError('There is no such class as %s' % class_name)
+
+    signature = inspect.signature(class_)
+
+    try:
+        signature.bind(*args, **kwargs)
+    except TypeError as e:
+        raise TypeError('Invalid argument to class %s' % class_name) from e
+
+    return class_(*args, **kwargs)
 
 
 def deref(ref, preview):
-    """
-    Description:
-        Find the value referred to by a reference in dot-notation
+    """Find the value referred to by a reference in dot-notation
 
     Args:
         ref: The location of the requested value, e.g. 'constants.param'
@@ -371,7 +375,7 @@ def deref(ref, preview):
         The value in the preview dictionary referenced by ref
 
     Example:
-        >>> deref('$constants.arg1.arg2', {'constants': {'arg1': {'arg2': 3}}})
+        >>> deref('<constants.a.b>', {'constants': {'a': {'b': 3}}})
         3
 
     Author:
@@ -379,25 +383,22 @@ def deref(ref, preview):
     """
 
     # Follow references in dot notation
-    for part in ref[1:].split('.'):
+    for part in ref[1:-1].split('.'):
         if part not in preview:
-            error_msg = 'The reference "%s" does not exist' % ref
-            logger.error(error_msg, exc_info=True)
+            raise ValueError('The reference "%s" is not valid' % ref)
         preview = preview[part]
 
     # For ruamel.yaml classes, the value is in the tag attribute
     try:
-        preview = preview.tag.value[1:]
+        preview = preview.value
     except AttributeError:
         pass
 
     return preview
 
 
-def _recursive_resolve(reference, reference_list, preview):
-    """
-    Description:
-        Resolve a reference to a value, following chained references
+def recursive_resolve(reference, reference_list, preview):
+    """Resolve a reference to a value, following chained references
 
     Args:
         reference: the current reference
@@ -409,26 +410,28 @@ def _recursive_resolve(reference, reference_list, preview):
         The dereferenced value, with possible string interpolation
 
     Example:
-        >>> preview = {'a': 3, 'b': '$a', 'c': '$b/$b'}
-        >>> _recursive_resolve('$c', [], preview)
+        >>> preview = {'a': 3, 'b': '<a>', 'c': '<b>/<b>'}
+        >>> recursive_resolve('<c>', [], preview)
         '3/3'
 
     Author:
         Peter Plantinga 2020
     """
-    reference_finder = re.compile(r'\$[\w.]+')
+    # Non-greedy operator won't work here, because the fullmatch will
+    # still match if the first and last things happen to be references
+    reference_finder = re.compile(r'<[^>]*>')
     if len(reference_list) > 1 and reference in reference_list[1:]:
         raise ValueError("Circular reference detected: ", reference_list)
 
-    # Base case, no '$' present
-    if '$' not in str(reference):
+    # Base case, no '<ref>' present
+    if not reference_finder.search(str(reference)):
         return reference
 
     # First check for a full match. These replacements preserve type
     if reference_finder.fullmatch(reference):
         value = deref(reference, preview)
         reference_list += [reference]
-        return _recursive_resolve(value, reference_list, preview)
+        return recursive_resolve(value, reference_list, preview)
 
     # Next, do replacements within the string (interpolation)
     matches = reference_finder.findall(reference)
@@ -438,22 +441,18 @@ def _recursive_resolve(reference, reference_list, preview):
         return str(deref(x[0], preview))
 
     sub = reference_finder.sub(replace_fn, reference)
-    return _recursive_resolve(sub, reference_list, preview)
+    return recursive_resolve(sub, reference_list, preview)
 
 
 def compute_amplitude(waveform, length):
-    """
-    ------------------------------------------------------------------
-    Description:
-        Compute the average amplitude of a batch of waveforms for scaling
-        different waveforms to a given ratio.
+    """Compute the average amplitude of a batch of waveforms.
 
     Args:
-        waveform: The waveform used for computing amplitude
-        length: The length of the (un-padded) waveform
+        waveform: The waveforms used for computing amplitude
+        length: The length of the (un-padded) waveforms
 
     Returns:
-        the average amplitude of the waveform
+        the average amplitude of the waveforms
 
     Example:
         >>> import torch
@@ -465,7 +464,6 @@ def compute_amplitude(waveform, length):
 
     Author:
         Peter Plantinga 2020
-    ------------------------------------------------------
     """
     return torch.sum(
         input=torch.abs(waveform),
@@ -484,11 +482,7 @@ def convolve1d(
     use_fft=False,
     rotation_index=0
 ):
-    """
-    ----------------------------------------------------
-    Description:
-        Use torch.nn.functional to perform first 1d padding and then
-        1d convolution.
+    """Use torch.nn.functional to perform 1d padding and conv.
 
     Args:
         waveform: The tensor to perform operations on.
@@ -530,7 +524,8 @@ def convolve1d(
         >>> save_signal = save(save_folder='exp/example', save_format='wav')
         >>> save_signal(signal, ['example_conv'], torch.ones(1))
 
-    ----------------------------------------------------
+    Author:
+        Peter Plantinga 2020
     """
 
     # Padding can be a tuple (left_pad, right_pad) or an int
@@ -584,13 +579,10 @@ def convolve1d(
 
 
 def dB_to_amplitude(SNR):
-    """
-    --------------------------------------------------
-    Description:
-        Convert decibels to amplitude
+    """Convert decibels to amplitude
 
     Args:
-        a: The ratio in decibels to convert
+        SNR: The ratio in decibels to convert
 
     Returns:
         ratio between average amplitudes
@@ -601,18 +593,12 @@ def dB_to_amplitude(SNR):
 
     Author:
         Peter Plantinga 2020
-    --------------------------------------------------
     """
     return 10 ** (SNR / 20)
 
 
 def notch_filter(notch_freq, filter_width=101, notch_width=0.05):
-    """
-    ---------------------------------------------------------
-    Description:
-        Simple notch filter constructed from a high-pass and low-pass filter.
-        (from https://tomroelandts.com/articles/
-        how-to-create-simple-band-pass-and-band-reject-filters)
+    """Simple notch filter constructed from a high-pass and low-pass filter.
 
     Args:
         notch_freq: frequency to put notch as a fraction of the
@@ -636,7 +622,10 @@ def notch_filter(notch_freq, filter_width=101, notch_width=0.05):
         >>> save_signal = save(save_folder='exp/example', save_format='wav')
         >>> save_signal(notched_signal, ['freq_drop'], torch.ones(1))
 
-    -----------------------------------------------------------
+    Author:
+        Tom Roelandts
+        (from https://tomroelandts.com/articles/
+        how-to-create-simple-band-pass-and-band-reject-filters)
     """
 
     # Check inputs

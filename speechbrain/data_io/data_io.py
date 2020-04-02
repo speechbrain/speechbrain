@@ -25,10 +25,9 @@ import subprocess
 import numpy as np
 import soundfile as sf
 import multiprocessing as mp
+from itertools import groupby
 from multiprocessing import Manager
 from torch.utils.data import Dataset, DataLoader
-from speechbrain.utils.input_validation import check_opts, check_inputs
-from speechbrain.utils.logger import logger_write
 from speechbrain.utils.data_utils import recursive_items
 logger = logging.getLogger(__name__)
 
@@ -386,91 +385,92 @@ class create_dataloader(torch.nn.Module):
             self.output_folder + "/label_dict.pkl"
         )
 
-        if not os.path.isfile(label_dict_file):
+        # Read previously stored label_dict
+        if os.path.isfile(label_dict_file):
+            label_dict = load_pkl(label_dict_file)
+        else:
             # create label counts and label2index automatically when needed
             label_dict = {}
 
-            for snt in data_dict:
-                if isinstance(data_dict[snt], dict):
-                    for elem in data_dict[snt]:
+        # Update label dict
+        for snt in data_dict:
+            if isinstance(data_dict[snt], dict):
+                for elem in data_dict[snt]:
 
-                        if "format" in data_dict[snt][elem]:
+                    if "format" in data_dict[snt][elem]:
 
-                            count_lab = False
-                            opts = data_dict[snt][elem]["options"]
+                        count_lab = False
+                        opts = data_dict[snt][elem]["options"]
 
-                            if data_dict[snt][elem]["format"] == "string" and (
-                                "label" not in opts or opts["label"] == "True"
+                        if data_dict[snt][elem]["format"] == "string" and (
+                            "label" not in opts or opts["label"] == "True"
+                        ):
+
+                            if (
+                                len(
+                                    data_dict[snt][elem]["data"].split(" ")
+                                )
+                                > 1
                             ):
+                                # Processing list of string labels
+                                labels = data_dict[snt][elem][
+                                    "data"
+                                ].split(" ")
+                                count_lab = True
 
-                                if (
-                                    len(
-                                        data_dict[snt][elem]["data"].split(" ")
-                                    )
-                                    > 1
-                                ):
-                                    # Processing list of string labels
-                                    labels = data_dict[snt][elem][
-                                        "data"
-                                    ].split(" ")
+                            else:
+                                # Processing a single label
+                                labels = [data_dict[snt][elem]["data"]]
+                                count_lab = True
+
+                        if data_dict[snt][elem]["format"] == "pkl":
+
+                            labels = load_pkl(data_dict[snt][elem]["data"])
+
+                            # Create counts if tensor is a list of integers
+                            if isinstance(labels, list):
+                                if isinstance(labels[0], int):
                                     count_lab = True
 
+                            if isinstance(labels, np.ndarray):
+                                if "numpy.int" in str(type(labels[0])):
+                                    count_lab = True
+
+                            # Create counts if tensor is a list of integers
+                            if isinstance(labels, torch.Tensor):
+
+                                if labels.type() == "torch.LongTensor":
+                                    count_lab = True
+                                if labels.type() == "torch.IntTensor":
+                                    count_lab = True
+
+                        if count_lab:
+                            if elem not in label_dict:
+                                label_dict[elem] = {}
+                                label_dict[elem]["counts"] = {}
+
+                            for lab in labels:
+                                if lab not in label_dict[elem]["counts"]:
+                                    label_dict[elem]["counts"][lab] = 1
                                 else:
-                                    # Processing a single label
-                                    labels = [data_dict[snt][elem]["data"]]
-                                    count_lab = True
+                                    label_dict[elem]["counts"][lab] = (
+                                        label_dict[elem]["counts"][lab] + 1
+                                    )
 
-                            if data_dict[snt][elem]["format"] == "pkl":
+        # create label2index:
+        for lab in label_dict:
+            # sorted_ids = sorted(label_dict[lab]["counts"].keys())
+            cnt_id = 0
 
-                                labels = load_pkl(data_dict[snt][elem]["data"])
+            label_dict[lab]["lab2index"] = {}
+            label_dict[lab]["index2lab"] = {}
+            for lab_id in label_dict[lab]["counts"]:
+                label_dict[lab]["lab2index"][lab_id] = cnt_id
+                label_dict[lab]["index2lab"][cnt_id] = lab_id
+                cnt_id = cnt_id + 1
 
-                                # Create counts if tensor is a list of integers
-                                if isinstance(labels, list):
-                                    if isinstance(labels[0], int):
-                                        count_lab = True
-
-                                if isinstance(labels, np.ndarray):
-                                    if "numpy.int" in str(type(labels[0])):
-                                        count_lab = True
-
-                                # Create counts if tensor is a list of integers
-                                if isinstance(labels, torch.Tensor):
-
-                                    if labels.type() == "torch.LongTensor":
-                                        count_lab = True
-                                    if labels.type() == "torch.IntTensor":
-                                        count_lab = True
-
-                            if count_lab:
-                                if elem not in label_dict:
-                                    label_dict[elem] = {}
-                                    label_dict[elem]["counts"] = {}
-
-                                for lab in labels:
-                                    if lab not in label_dict[elem]["counts"]:
-                                        label_dict[elem]["counts"][lab] = 1
-                                    else:
-                                        label_dict[elem]["counts"][lab] = (
-                                            label_dict[elem]["counts"][lab] + 1
-                                        )
-
-            # create label2index:
-            for lab in label_dict:
-                sorted_ids = sorted(label_dict[lab]["counts"].keys())
-                cnt_id = 0
-
-                label_dict[lab]["lab2index"] = {}
-                label_dict[lab]["index2lab"] = {}
-                for sorted_id in sorted_ids:
-                    label_dict[lab]["lab2index"][sorted_id] = cnt_id
-                    label_dict[lab]["index2lab"][cnt_id] = sorted_id
-                    cnt_id = cnt_id + 1
-
-            # saving the label_dict:
-            save_pkl(label_dict, label_dict_file)
-
-        else:
-            label_dict = load_pkl(label_dict_file)
+        # saving the label_dict:
+        save_pkl(label_dict, label_dict_file)
 
         return label_dict
 
@@ -533,7 +533,7 @@ class create_dataloader(torch.nn.Module):
                         "csv file  %s" % (self.csv_file)
                     )
 
-                    logger_write(err_msg, logfile=self.logger)
+                    logger.error(err_msg, exc_info=True)
 
                 # Make sure the duration field exists
                 if "duration" not in row:
@@ -543,7 +543,7 @@ class create_dataloader(torch.nn.Module):
                         "present in the csv  file %s" % (self.csv_file)
                     )
 
-                    logger_write(err_msg, logfile=self.logger)
+                    logger.error(err_msg, exc_info=True)
 
                 if len(row) == 2:
                     err_msg = (
@@ -553,7 +553,7 @@ class create_dataloader(torch.nn.Module):
                         % (self.csv_file)
                     )
 
-                    logger_write(err_msg, logfile=self.logger)
+                    logger.error(err_msg, exc_info=True)
 
                 # Make sure the features are expressed in the following way:
                 # feaname, feaname_format, feaname_opts
@@ -569,7 +569,7 @@ class create_dataloader(torch.nn.Module):
                             % (feat_name, self.csv_file, feat_name + "_format")
                         )
 
-                        logger_write(err_msg, logfile=self.logger)
+                        logger.error(err_msg, exc_info=True)
 
                     if feat_name + "_opts" not in row:
                         err_msg = (
@@ -579,7 +579,7 @@ class create_dataloader(torch.nn.Module):
                             % (feat_name, self.csv_file, feat_name + "_opts")
                         )
 
-                        logger_write(err_msg, logfile=self.logger)
+                        logger.error(err_msg, exc_info=True)
 
                 # Store the field list
                 field_lst = row
@@ -610,7 +610,7 @@ class create_dataloader(torch.nn.Module):
                         ")" % (row, self.csv_file, len(field_lst), field_lst)
                     )
 
-                    logger_write(err_msg, logfile=self.logger)
+                    logger.error(err_msg, exc_info=True)
 
                 # Filling the data dictionary
                 for i, field in enumerate(field_lst):
@@ -1058,7 +1058,6 @@ class create_dataset(Dataset):
         data = self.supported_formats[data_format]["reader"](
             data_source,
             data_options=data_options,
-            logger=self.logger,
             lab2ind=lab2ind,
         )
 
@@ -1133,7 +1132,7 @@ class save_ckpt(torch.nn.Module):
                     "The second input to the function save_ckpt must be a "
                     "dict contaning at least one element (i.e, performance)"
                 )
-                logger_write(err_msg, logfile=logger)
+                logger.error(err_msg, exc_info=True)
 
             # Making sure that the list contains performance in tensor formats
             for perf in perform_dict:
@@ -1148,7 +1147,7 @@ class save_ckpt(torch.nn.Module):
                         "The second input to the function save_ckpt must be a "
                         "dict contaning torch.Tensor elements (Got %s)"
                     ) % (type(perform_dict[perf]))
-                    logger_write(err_msg, logfile=logger)
+                    logger.error(err_msg, exc_info=True)
 
         self.save_folder = save_folder
         self.save_format = save_format
@@ -1720,7 +1719,7 @@ class print_predictions:
                             % (index_lab, self.ind2lab)
                         )
 
-                        logger_write(err_msg, logfile=self.logger)
+                        logger.error(err_msg, exc_info=True)
 
             if len(self.lab_dict) > 0:
                 if len(string_pred) == 1:
@@ -1729,12 +1728,17 @@ class print_predictions:
                 if self.ctc_out:
 
                     # Filtering the ctc output predictions
-                    string_pred = filter_ctc_output(string_pred)
+                    string_pred = filter_ctc_output(
+                        string_pred, blank_id="blank"
+                    )
 
                 # Converting list to string
                 len_str = len(string_pred)
                 if isinstance(string_pred, list):
                     string_pred = " ".join(str(x) for x in string_pred)
+
+                    # Filtering sil sil patterns
+                    string_pred = string_pred.replace("sil sil", "sil")
 
                 # Writing the output
                 msg = "%s\t%s\t%.3f" % (snt_id, string_pred, current_score)
@@ -1779,7 +1783,7 @@ def filter_ctc_output(string_pred, blank_id=-1, logger=None):
 
                 string_pred = ['a','a','blank','b','b','blank','c']
 
-                string_out = filter_ctc_output(string_pred)
+                string_out = filter_ctc_output(string_pred, blank_id='blank')
 
                 print(string_out)
      --------------------------------------------.----------------------------
@@ -1793,36 +1797,11 @@ def filter_ctc_output(string_pred, blank_id=-1, logger=None):
             if i == 0 or v != string_pred[i - 1]
         ]
 
+        # Removing duplicates
+        string_out = [i[0] for i in groupby(string_out)]
+
         # Filterning the blank symbol
-        string_out = list(filter(lambda elem: elem != "blank", string_out))
-
-    if isinstance(string_pred, torch.Tensor):
-
-        if blank_id < 0:
-            err_msg = (
-                "The blank index specified whe calling filter_ctc_output "
-                "is not valid (got %i)" % (blank_id)
-            )
-
-            logger_write(err_msg, logfile=logger)
-
-        # remove duplicates
-        string_out = []
-
-        # Looping over all the elements of the tensor
-        for index, elem in enumerate(string_pred):
-
-            # Check if the two consecutive elements are equal
-            if index > 0 and elem == string_pred[index - 1]:
-                continue
-            else:
-                string_out.append(elem)
-
-        # Output a LongTensor
-        string_out = torch.LongTensor(string_out)
-
-        # remove blank
-        string_out = string_out[string_out != blank_id]
+        string_out = list(filter(lambda elem: elem != blank_id, string_out))
 
     return string_out
 
@@ -1854,7 +1833,17 @@ def recovery(self):
 
                 if key == self.funct_name:
 
-                    model_file = value
+                    if self.recovery_type == "last":
+                        model_file = value
+
+                    if self.recovery_type == "best":
+
+                        # Getting file of the best model
+                        model_folder = "/".join(value.split("/")[:-1])
+                        model_name = value.split("/")[-1]
+                        model_name = "_".join(model_name.split("_")[4:])
+                        model_name = "current_best_" + model_name
+                        model_file = model_folder + "/" + model_name
 
                     # Loading the model
                     if hasattr(self, "optim"):
@@ -1892,36 +1881,31 @@ def initialize_with(self):
                 "does not exist"
             )
 
-            logger_write(err_msg, logfile=self.logger)
+            logger.error(err_msg, exc_info=True)
 
         # Loading the initialization parameters
         self.load_state_dict(torch.load(self.initialize_with))
 
 
-def read_wav_soundfile(file, data_options={}, logger=None, lab2ind=None):
+def read_wav_soundfile(file, data_options={}, lab2ind=None):
     """
-     -------------------------------------------------------------------------
-     data_io.read_wav_soundfile (author: Mirco Ravanelli)
+    -------------------------------------------------------------------------
+    Description:
+        This function reads audio files with soundfile.
 
-     Description: This function reads audio files with soundfile.
-
-     Input (call):
+    Args:
         file: it is the file to read.
+        data_options: a dictionary containing options for the reader.
+        lab2ind: a dictionary for converting labels to indices
 
-                       - data_options(type: dict, mandatory):
-                           it is a dictionary containing options for the
-                           reader.
-        logger: it the logger used to write debug and error messages.
+    Returns:
+        An array with the read signal
 
+    Example:
+        >>> read_wav_soundfile('samples/audio_samples/example1.wav')
 
-     Output (call):  signal (type: numpy.array):
-                       it is the array containing the read signal
-
-
-     Example:  from speechbrain.data_io.data_io import read_wav_soundfile
-
-               print(read_wav_soundfile('samples/audio_samples/example1.wav'))
-
+    Author:
+        Mirco Ravanelli 2020
      -------------------------------------------------------------------------
      """
 
@@ -1952,7 +1936,7 @@ def read_wav_soundfile(file, data_options={}, logger=None, lab2ind=None):
                 possible_options,
             )
 
-            logger_write(err_msg, logfile=logger)
+            logger.error(err_msg, exc_info=True)
 
     # Managing start option
     if "start" in data_options:
@@ -1965,7 +1949,7 @@ def read_wav_soundfile(file, data_options={}, logger=None, lab2ind=None):
                 "(e.g start:405)" % (file)
             )
 
-            logger_write(err_msg, logfile=logger)
+            logger.error(err_msg, exc_info=True)
 
     # Managing stop option
     if "stop" in data_options:
@@ -1978,7 +1962,7 @@ def read_wav_soundfile(file, data_options={}, logger=None, lab2ind=None):
                 "(e.g stop:405)" % (file)
             )
 
-            logger_write(err_msg, logfile=logger)
+            logger.error(err_msg, exc_info=True)
 
     # Managing samplerate option
     if "samplerate" in data_options:
@@ -1991,7 +1975,7 @@ def read_wav_soundfile(file, data_options={}, logger=None, lab2ind=None):
                 "(e.g samplingrate:16000)" % (file)
             )
 
-            logger_write(err_msg, logfile=logger)
+            logger.error(err_msg, exc_info=True)
 
     # Managing endian option
     if "endian" in data_options:
@@ -2012,7 +1996,7 @@ def read_wav_soundfile(file, data_options={}, logger=None, lab2ind=None):
                 "(e.g channels:2)" % (file)
             )
 
-            logger_write(err_msg, logfile=logger)
+            logger.error(err_msg, exc_info=True)
 
     # Reading the file with the soundfile reader
     try:
@@ -2030,7 +2014,7 @@ def read_wav_soundfile(file, data_options={}, logger=None, lab2ind=None):
 
     except Exception:
         err_msg = "cannot read the wav file %s" % (file)
-        logger_write(err_msg, logfile=logger)
+        logger.error(err_msg, exc_info=True)
 
     # Set time_steps always last as last dimension
     if len(signal.shape) > 1:
@@ -2072,7 +2056,7 @@ def read_pkl(file, data_options={}, logger=None, lab2ind=None):
             pkl_element = pickle.load(f)
     except Exception:
         err_msg = "cannot read the pkl file %s" % (file)
-        logger_write(err_msg, logfile=logger)
+        logger.error(err_msg, exc_info=True)
 
     type_ok = False
 
@@ -2099,7 +2083,7 @@ def read_pkl(file, data_options={}, logger=None, lab2ind=None):
         if not (type_ok):
             err_msg = "The pkl file %s can only contain list of integers, "
             "floats, or strings. Got %s" % (file, type(pkl_element[0]))
-            logger_write(err_msg, logfile=logger)
+            logger.error(err_msg, exc_info=True)
     else:
         tensor = pkl_element
 
@@ -2158,7 +2142,7 @@ def read_string(string, data_options={}, logger=None, lab2ind=None):
     return string
 
 
-def read_kaldi_lab(kaldi_ali, kaldi_lab_opts, logfile=None):
+def read_kaldi_lab(kaldi_ali, kaldi_lab_opts):
     """
      -------------------------------------------------------------------------
      data_io.read_kaldi_lab (author: Mirco Ravanelli)
@@ -2241,7 +2225,7 @@ def write_wav_soundfile(data, filename, sampling_rate=None, logger=None):
             % (len(data.shape), filename)
         )
 
-        logger_write(err_msg, logfile=logger)
+        logger.error(err_msg, exc_info=True)
 
     if isinstance(data, torch.Tensor):
 
@@ -2256,7 +2240,7 @@ def write_wav_soundfile(data, filename, sampling_rate=None, logger=None):
         sf.write(filename, data, sampling_rate)
     except Exception:
         err_msg = "cannot write the wav file %s" % (filename)
-        logger_write(err_msg, logfile=logger)
+        logger.error(err_msg, exc_info=True)
 
 
 def write_txt_file(data, filename, sampling_rate=None, logger=None):
@@ -2293,7 +2277,7 @@ def write_txt_file(data, filename, sampling_rate=None, logger=None):
             os.makedirs(os.path.dirname(filename))
         except Exception:
             err_msg = "cannot create the file %s." % (filename)
-            logger_write(err_msg, logfile=logger)
+            logger.error(err_msg, exc_info=True)
 
     # Opening the file
     try:
@@ -2301,7 +2285,7 @@ def write_txt_file(data, filename, sampling_rate=None, logger=None):
 
     except Exception:
         err_msg = "cannot create the file %s." % (filename)
-        logger_write(err_msg, logfile=logger)
+        logger.error(err_msg, exc_info=True)
 
     # Managing torch.Tensor
     if isinstance(data, torch.Tensor):
@@ -2400,7 +2384,7 @@ def save_img(data, filename, sampling_rate=None, logger=None):
             str(data.shape),
         )
 
-        logger_write(err_msg, logfile=logger)
+        logger.error(err_msg, exc_info=True)
         raise
 
     # Checking tensor dimensionality
@@ -2412,7 +2396,7 @@ def save_img(data, filename, sampling_rate=None, logger=None):
             "Got %s" % (filename, str(data.shape))
         )
 
-        logger_write(err_msg, logfile=logger)
+        logger.error(err_msg, exc_info=True)
 
     if len(data.shape) == 2:
         N_ch = 1
@@ -2435,7 +2419,7 @@ def save_img(data, filename, sampling_rate=None, logger=None):
                 plt.imsave(filename, data)
         except Exception:
             err_msg = "cannot save image  %s." % (filename)
-            logger_write(err_msg, logfile=logger)
+            logger.error(err_msg, exc_info=True)
 
 
 class save(torch.nn.Module):
@@ -2872,7 +2856,7 @@ def save_pkl(obj, file, sampling_rate=None, logger=None):
             pickle.dump(obj, f)
     except Exception:
         err_msg = "Cannot save file %s" % (file)
-        logger_write(err_msg, logfile=logger)
+        logger.error(err_msg, exc_info=True)
 
 
 def load_pkl(file, logger=None):
@@ -2905,10 +2889,10 @@ def load_pkl(file, logger=None):
             return pickle.load(f)
     except Exception:
         err_msg = "Cannot read file %s" % (file)
-        logger_write(err_msg, logfile=logger)
+        logger.error(err_msg, exc_info=True)
 
 
-def read_vec_int_ark(file_or_fd, logfile=None):
+def read_vec_int_ark(file_or_fd):
     """
      -------------------------------------------------------------------------
      data_io.read_vec_int_ark (author: github.com/vesis84/kaldi-io-for-python)
@@ -2952,7 +2936,7 @@ def read_key(fd):
     return key
 
 
-def read_vec_int(file_or_fd, logfile=None):
+def read_vec_int(file_or_fd):
     """
      -------------------------------------------------------------------------
      data_io.read_key (author: github.com/vesis84/kaldi-io-for-python)
@@ -2991,7 +2975,7 @@ def read_vec_int(file_or_fd, logfile=None):
     return ans
 
 
-def open_or_fd(file, logfile=None, mode="rb"):
+def open_or_fd(file, mode="rb"):
     """
      -------------------------------------------------------------------------
      data_io.open_or_fd (author: github.com/vesis84/kaldi-io-for-python)
@@ -3036,7 +3020,7 @@ def open_or_fd(file, logfile=None, mode="rb"):
     return fd
 
 
-def popen(cmd, logfile=None, mode="rb"):
+def popen(cmd, mode="rb"):
     """
      -------------------------------------------------------------------------
      data_io.popen (author: github.com/vesis84/kaldi-io-for-python)

@@ -12,11 +12,11 @@ import re
 import numpy
 import torch
 import random
-from speechbrain.utils.logger import logger_write
-
+import logging
+logger = logging.getLogger(__name__)
 
 def read_config(
-    config_file, cfg_change=None, global_config={}, root_cfg=False, logger=None
+    config_file, cfg_change=None, global_config={}, root_cfg=False
 ):
     """
      -------------------------------------------------------------------------
@@ -42,11 +42,6 @@ def read_config(
                        it is a flag that indicates if the current config file
                        is the root one or not.
 
-                   - logger (type, logger, optional, default: None):
-                       it the logger used to write debug and error messages.
-                       If logger=None and root_cfg=True, the file is created
-                       from scratch.
-
      Output (call):  - config (type:dict):
                        the output is a dictionary summarizing the content of
                        the config file.
@@ -71,7 +66,7 @@ def read_config(
         config_lst = open(config_file, "r")
     except Exception:
         err_msg = "Cannot read the config file %s" % (config_file)
-        logger_write(err_msg, logfile=logger)
+        logger.error(err_msg, exc_info=True)
 
     # Initialization of the config dictionary
     config = {}
@@ -172,7 +167,7 @@ def read_config(
                     % (closed_tag, config_file)
                 )
 
-                logger_write(err_msg, logfile=logger)
+                logger.error(err_msg, exc_info=True)
 
             if closed_tag.replace("[/", "[") != active_tags[-1]:
 
@@ -182,7 +177,7 @@ def read_config(
                     % (active_tags[-1], config_file, closed_tag)
                 )
 
-                logger_write(err_msg, logfile=logger)
+                logger.error(err_msg, exc_info=True)
 
             else:
                 # Removing from the active tag list the closed element
@@ -200,7 +195,7 @@ def read_config(
                 "open a new tag!" % (closed_tag, config_file)
             )
 
-            logger_write(err_msg, logfile=logger)
+            logger.error(err_msg, exc_info=True)
 
         # Detecting value lines and adding them into the dictionary
         if bool(re.search(value_pattern, line)) and tag != "computations":
@@ -229,7 +224,7 @@ def read_config(
             "cfg file %s! %s." % (active_tags, config_file)
         )
 
-        logger_write(err_msg, logfile=logger)
+        logger.error(err_msg, exc_info=True)
 
     # Closing the config file
     config_lst.close()
@@ -245,7 +240,7 @@ def read_config(
                     % (sec, config_file, config.keys())
                 )
 
-                logger_write(err_msg, logfile=logger)
+                logger.error(err_msg, exc_info=True)
 
     # If needed, replace fields with the values specified in the command line
     if cfg_change is not None and len(cfg_change) > 0:
@@ -265,7 +260,7 @@ def read_config(
                     'Got "%s"' % (arg)
                 )
 
-                logger_write(err_msg, logfile=logger)
+                logger.error(err_msg, exc_info=True)
 
             if len(arg.split("=")[0].split(",")) < 2:
 
@@ -277,7 +272,7 @@ def read_config(
                     'Got "%s"' % (arg)
                 )
 
-                logger_write(err_msg, logfile=logger)
+                logger.error(err_msg, exc_info=True)
 
             args = arg.split("=")[0].split(",")
 
@@ -296,7 +291,7 @@ def read_config(
                         % (args[i].replace("--", ""), config_file)
                     )
 
-                    logger_write(err_msg, logfile=logger)
+                    logger.error(err_msg, exc_info=True)
 
             values = arg.split("=")[1]
             out[args[-1]] = values
@@ -311,7 +306,7 @@ def read_config(
             "a section [global]" % (config_file)
         )
 
-        logger_write(err_msg, logfile=logger)
+        logger.error(err_msg, exc_info=True)
 
     # Replacing patterns with global variables where needed
     if "global" in config:
@@ -339,7 +334,7 @@ def read_config(
                     "and results are saved)" % (config_file)
                 )
 
-                logger_write(err_msg, logfile=logger)
+                logger.error(err_msg, exc_info=True)
 
             if "verbosity" not in global_config:
                 global_config["verbosity"] = "2"
@@ -354,7 +349,7 @@ def read_config(
                         "Got %s" % (config_file, global_config["verbosity"])
                     )
 
-                    logger_write(err_msg, logfile=logger)
+                    logger.error(err_msg, exc_info=True)
 
         # Check if all the functions have the mandatory field "class_name="
         if "functions" in config:
@@ -367,7 +362,7 @@ def read_config(
                         "(e.g, class_name=core.loop)" % (funct, config_file)
                     )
 
-                    logger_write(err_msg, logfile=logger)
+                    logger.error(err_msg, exc_info=True)
 
         # Saving the config file in the output folder:
         conf_text = conf_to_text(config)
@@ -392,7 +387,7 @@ def read_config(
                 "The seed in the [global] section of the config file "
                 "%s must be an integer" % (config_file)
             )
-            logger_write(err_msg, logfile=logger)
+            logger.error(err_msg, exc_info=True)
 
         # Setting seeds for random, numpy, torch
         random.seed(seed)
@@ -444,7 +439,7 @@ def write_config(text, filename, modality="w", logger=None):
             os.makedirs(os.path.dirname(filename))
         except Exception:
             err_msg = "cannot create the config file %s." % (filename)
-            logger_write(err_msg, logfile=logger)
+            logger.error(err_msg, exc_info=True)
 
     # Creating the file
     try:
@@ -452,7 +447,7 @@ def write_config(text, filename, modality="w", logger=None):
 
     except Exception:
         err_msg = "cannot create the config file %s." % (filename)
-        logger_write(err_msg, logfile=logger)
+        logger.error(err_msg, exc_info=True)
 
     # Writing list on the file
     if isinstance(text, list):
@@ -625,7 +620,7 @@ def replace_global_variable(
                         "The variable %s is not defined in the [global] of the"
                         " config file" % ("$" + value)
                     )
-                    logger_write(err_msg, logfile=logger)
+                    logger.error(err_msg, exc_info=True)
 
             # Managing list entries
             if isinstance(value, list):

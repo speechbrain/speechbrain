@@ -23,13 +23,4 @@ from speechbrain.utils.data_utils import (
     split_list,
     recursive_items,
 )
-from speechbrain.utils.input_validation import (
-    str_to_bool,
-    set_default_values,
-    check_and_cast_type,
-    check_expected_options,
-    check_opts,
-    check_inputs,
-)
-from speechbrain.utils.logger import setup_logger, logger_write
 from speechbrain.utils.superpowers import import_class, run_shell

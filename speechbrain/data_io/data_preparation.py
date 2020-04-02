@@ -10,10 +10,9 @@ import os
 import sys
 import csv
 import errno
-from speechbrain.module import SpeechBrainModule
-from speechbrain.utils.input_validation import check_opts, check_inputs
+import torch
+import logging
 from speechbrain.utils.data_utils import get_all_files
-from speechbrain.utils.logger import logger_write
 from speechbrain.utils.superpowers import run_shell
 
 from speechbrain.data_io.data_io import (
@@ -23,17 +22,16 @@ from speechbrain.data_io.data_io import (
     read_kaldi_lab,
     write_txt_file,
 )
+logger = logging.getLogger(__name__)
 
 
-class copy_data_locally(SpeechBrainModule):
+class copy_data_locally():
     """
      -------------------------------------------------------------------------
-     speechbrain.data_io.data_preparation.copy_data_locally
-     (author: Mirco Ravanelli)
-
-     Description: This class copies a compressed dataset into another folder.
-                  It can be used to store the data locally when the original
-                  dataset it is stored in a shared filesystem.
+     Description:
+        This class copies a compressed dataset into another folder.
+        It can be used to store the data locally when the original
+        dataset it is stored in a shared filesystem.
 
      Input:- data_file (type: file_list, mandatory):
                it is a list containing the files to copy.
@@ -77,10 +75,7 @@ class copy_data_locally(SpeechBrainModule):
         copy_opts='',
         uncompress_cmd='tar',
         uncompress_opts='-zxf',
-        **kwargs
     ):
-        super().__init__(expected_inputs=[], **kwargs)
-
         self.data_file = data_file
         self.local_folder = local_folder
         self.copy_cmd = copy_cmd
@@ -95,66 +90,59 @@ class copy_data_locally(SpeechBrainModule):
             os.makedirs(self.local_folder)
         except OSError as e:
             if e.errno != errno.EEXIST:
-
                 err_msg = "Cannot create the data local folder %s!" % (
                     self.local_folder
                 )
+                raise OSError(err_msg)
 
-                logger_write(err_msg, logfile=self.logger)
+        # Destination file
+        filename = os.path.basename(self.data_file)
+        self.dest_file = os.path.join(self.local_folder, filename)
 
-        self.local_folder = self.local_folder + "/"
-        upper_folder = os.path.dirname(os.path.dirname(self.local_folder))
+        # TODO: This is not OS independent. Better may be to do the copy
+        # and uncompress using Python std lib to preserve OS independence
+        if not os.path.exists(self.dest_file):
 
-        # Copying all the files in the data_file list
-        for data_file in self.data_file:
+            # Copy data file in the local_folder
+            msg = "copying file %s into %s !" % (
+                self.data_file,
+                self.dest_file,
+            )
+            logger.debug(msg)
 
-            # Destination file
-            self.dest_file = upper_folder + "/" + os.path.basename(data_file)
+            cmd = (
+                self.copy_cmd
+                + " "
+                + self.copy_opts
+                + self.data_file
+                + " "
+                + self.dest_file
+            )
 
-            if not os.path.exists(self.dest_file):
+            run_shell(cmd)
 
-                # Copy data file in the local_folder
-                msg = "\tcopying file %s into %s !" % (
-                    data_file,
-                    self.dest_file,
-                )
+            # Uncompress the data_file in the local_folder
+            msg = "uncompressing file %s into %s !" % (
+                self.dest_file,
+                self.local_folder,
+            )
+            logger.debug(msg)
 
-                logger_write(msg, logfile=self.logger, level="debug")
+            cmd = (
+                self.uncompress_cmd
+                + " "
+                + self.uncompress_opts
+                + self.dest_file
+                + " -C "
+                + " "
+                + self.local_folder
+                + " --strip-components=1"
+            )
 
-                cmd = (
-                    self.copy_cmd
-                    + " "
-                    + self.copy_opts
-                    + data_file
-                    + " "
-                    + self.dest_file
-                )
-
-                run_shell(cmd)
-
-                # Uncompress the data_file in the local_folder
-                msg = "\tuncompressing file %s into %s !" % (
-                    self.dest_file,
-                    self.local_folder,
-                )
-
-                logger_write(msg, logfile=self.logger, level="debug")
-
-                cmd = (
-                    self.uncompress_cmd
-                    + " "
-                    + self.uncompress_opts
-                    + self.dest_file
-                    + " -C "
-                    + " "
-                    + self.local_folder
-                    + " --strip-components=1"
-                )
-
-                run_shell(cmd)
+            run_shell(cmd)
 
 
-class timit_prepare(SpeechBrainModule):
+class timit_prepare(torch.nn.Module):
     """
      -------------------------------------------------------------------------
      speechbrain.data_io.data_preparation.timit_prepare
@@ -193,6 +181,15 @@ class timit_prepare(SpeechBrainModule):
                If None, the results will be saved in
                $output_folder/prepare_timit/*.csv.
 
+                           - phn_set (type: 60,48,39, optional,
+                               default: 39):
+                               It is the phoneme set to use in the phn label.
+                               It could be composed of 60, 48, or 39 phonemes.
+
+                           - uppercase (type: bool, optional, default: False):
+                               This option must be True when the TIMIT dataset
+                               is in the upper-case version.
+
      Example:    from speechbrain.data_io.data_preparation import timit_prepare
 
                  local_folder='/home/mirco/datasets/TIMIT'
@@ -219,10 +216,11 @@ class timit_prepare(SpeechBrainModule):
         kaldi_ali_test=None,
         kaldi_lab_opts=None,
         save_folder=None,
-        **kwargs
+        phn_set="39",
+        uppercase=False,
     ):
         # Expected inputs when calling the class (no inputs in this case)
-        super().__init__(expected_inputs=[], **kwargs)
+        super().__init__()
 
         self.data_folder = data_folder
         self.splits = splits
@@ -231,6 +229,8 @@ class timit_prepare(SpeechBrainModule):
         self.kaldi_ali_test = kaldi_ali_test
         self.kaldi_lab_opts = kaldi_lab_opts
         self.save_folder = save_folder
+        self.phn_set = phn_set
+        self.uppercase = uppercase
 
         # Other variables
         self.samplerate = 16000
@@ -385,11 +385,88 @@ class timit_prepare(SpeechBrainModule):
 
         self.from_60_to_48_phn = from_60_to_48_phn
 
+        # This dictionary is used to conver the 60 phoneme set
+        # into the 39 one
+        from_60_to_39_phn = {}
+        from_60_to_39_phn["sil"] = "sil"
+        from_60_to_39_phn["aa"] = "aa"
+        from_60_to_39_phn["ae"] = "ae"
+        from_60_to_39_phn["ah"] = "ah"
+        from_60_to_39_phn["ao"] = "aa"
+        from_60_to_39_phn["aw"] = "aw"
+        from_60_to_39_phn["ax"] = "ah"
+        from_60_to_39_phn["ax-h"] = "ah"
+        from_60_to_39_phn["axr"] = "er"
+        from_60_to_39_phn["ay"] = "ay"
+        from_60_to_39_phn["b"] = "b"
+        from_60_to_39_phn["bcl"] = "sil"
+        from_60_to_39_phn["ch"] = "ch"
+        from_60_to_39_phn["d"] = "d"
+        from_60_to_39_phn["dcl"] = "sil"
+        from_60_to_39_phn["dh"] = "dh"
+        from_60_to_39_phn["dx"] = "dx"
+        from_60_to_39_phn["eh"] = "eh"
+        from_60_to_39_phn["el"] = "l"
+        from_60_to_39_phn["em"] = "m"
+        from_60_to_39_phn["en"] = "n"
+        from_60_to_39_phn["eng"] = "ng"
+        from_60_to_39_phn["epi"] = "sil"
+        from_60_to_39_phn["er"] = "er"
+        from_60_to_39_phn["ey"] = "ey"
+        from_60_to_39_phn["f"] = "f"
+        from_60_to_39_phn["g"] = "g"
+        from_60_to_39_phn["gcl"] = "sil"
+        from_60_to_39_phn["h#"] = "sil"
+        from_60_to_39_phn["hh"] = "hh"
+        from_60_to_39_phn["hv"] = "hh"
+        from_60_to_39_phn["ih"] = "ih"
+        from_60_to_39_phn["ix"] = "ih"
+        from_60_to_39_phn["iy"] = "iy"
+        from_60_to_39_phn["jh"] = "jh"
+        from_60_to_39_phn["k"] = "k"
+        from_60_to_39_phn["kcl"] = "sil"
+        from_60_to_39_phn["l"] = "l"
+        from_60_to_39_phn["m"] = "m"
+        from_60_to_39_phn["ng"] = "n"
+        from_60_to_39_phn["n"] = "ng"
+        from_60_to_39_phn["nx"] = "n"
+        from_60_to_39_phn["ow"] = "ow"
+        from_60_to_39_phn["oy"] = "oy"
+        from_60_to_39_phn["p"] = "p"
+        from_60_to_39_phn["pau"] = "sil"
+        from_60_to_39_phn["pcl"] = "sil"
+        from_60_to_39_phn["q"] = "k"
+        from_60_to_39_phn["r"] = "r"
+        from_60_to_39_phn["s"] = "s"
+        from_60_to_39_phn["sh"] = "sh"
+        from_60_to_39_phn["t"] = "t"
+        from_60_to_39_phn["tcl"] = "sil"
+        from_60_to_39_phn["th"] = "th"
+        from_60_to_39_phn["uh"] = "uh"
+        from_60_to_39_phn["uw"] = "uw"
+        from_60_to_39_phn["ux"] = "uw"
+        from_60_to_39_phn["v"] = "v"
+        from_60_to_39_phn["w"] = "w"
+        from_60_to_39_phn["y"] = "y"
+        from_60_to_39_phn["z"] = "z"
+        from_60_to_39_phn["zh"] = "sh"
+
+        self.from_60_to_39_phn = from_60_to_39_phn
+
         # Avoid calibration sentences
         self.avoid_sentences = ["sa1", "sa2"]
 
         # Setting file extension.
         self.extension = [".wav"]
+
+        # Checking TIMIT_uppercase
+        if self.uppercase:
+            self.avoid_sentences = [
+                item.upper() for item in self.avoid_sentences
+            ]
+            self.extension = [item.upper() for item in self.extension]
+            self.dev_spk = [item.upper() for item in self.dev_spk]
+            self.test_spk = [item.upper() for item in self.test_spk]
 
         # Setting the save folder
         if self.save_folder is None:
@@ -409,13 +486,13 @@ class timit_prepare(SpeechBrainModule):
         if self.skip():
 
             msg = "\t%s sucessfully created!" % (self.save_csv_train)
-            logger_write(msg, logfile=self.logger, level="debug")
+            logger.debug(msg)
 
             msg = "\t%s sucessfully created!" % (self.save_csv_dev)
-            logger_write(msg, logfile=self.logger, level="debug")
+            logger.debug(msg)
 
             msg = "\t%s sucessfully created!" % (self.save_csv_test)
-            logger_write(msg, logfile=self.logger, level="debug")
+            logger.debug(msg)
 
             return
 
@@ -425,11 +502,16 @@ class timit_prepare(SpeechBrainModule):
         self.check_timit_folders()
 
         msg = "\tCreating csv file for the TIMIT Dataset.."
-        logger_write(msg, logfile=self.logger, level="debug")
+        logger.debug(msg)
 
         # Creating csv file for training data
         if "train" in self.splits:
-            match_lst = self.extension + ["train"]
+
+            # Checking TIMIT_uppercase
+            if self.uppercase:
+                match_lst = self.extension + ["TRAIN"]
+            else:
+                match_lst = self.extension + ["train"]
 
             wav_lst_train = get_all_files(
                 self.data_folder,
@@ -442,12 +524,16 @@ class timit_prepare(SpeechBrainModule):
                 self.save_csv_train,
                 kaldi_lab=self.kaldi_ali_tr,
                 kaldi_lab_opts=self.kaldi_lab_opts,
-                logfile=self.logger,
             )
 
         # Creating csv file for dev data
         if "dev" in self.splits:
-            match_lst = self.extension + ["test"]
+
+            # Checking TIMIT_uppercase
+            if self.uppercase:
+                match_lst = self.extension + ["TEST"]
+            else:
+                match_lst = self.extension + ["test"]
 
             wav_lst_dev = get_all_files(
                 self.data_folder,
@@ -461,12 +547,16 @@ class timit_prepare(SpeechBrainModule):
                 self.save_csv_dev,
                 kaldi_lab=self.kaldi_ali_dev,
                 kaldi_lab_opts=self.kaldi_lab_opts,
-                logfile=self.logger,
             )
 
         # Creating csv file for test data
         if "test" in self.splits:
-            match_lst = self.extension + ["test"]
+
+            # Checking TIMIT_uppercase
+            if self.uppercase:
+                match_lst = self.extension + ["TEST"]
+            else:
+                match_lst = self.extension + ["test"]
 
             wav_lst_test = get_all_files(
                 self.data_folder,
@@ -480,7 +570,6 @@ class timit_prepare(SpeechBrainModule):
                 self.save_csv_test,
                 kaldi_lab=self.kaldi_ali_test,
                 kaldi_lab_opts=self.kaldi_lab_opts,
-                logfile=self.logger,
             )
 
         # Saving options (useful to skip this phase when already done)
@@ -607,7 +696,7 @@ class timit_prepare(SpeechBrainModule):
 
         # Adding some Prints
         msg = '\t"Creating csv lists in  %s..."' % (csv_file)
-        logger_write(msg, logfile=self.logger, level="debug")
+        logger.debug(msg)
 
         # Reading kaldi labels if needed:
         snt_no_lab = 0
@@ -668,7 +757,7 @@ class timit_prepare(SpeechBrainModule):
                         "kaldi label" % (snt_id)
                     )
 
-                    logger_write(msg, logfile=self.logger, level="debug")
+                    logger.debug(msg)
 
                     snt_no_lab = snt_no_lab + 1
                 else:
@@ -685,22 +774,23 @@ class timit_prepare(SpeechBrainModule):
                         % (self.data_folder, self.kaldi_ali_test)
                     )
 
-                    logger_write(err_msg, logfile=self.logger)
+                    logger.error(err_msg, exc_info=True)
 
             if missing_lab:
                 continue
 
             # Reading the signal (to retrieve duration in seconds)
-            signal = read_wav_soundfile(wav_file, logger=logfile)
+            signal = read_wav_soundfile(wav_file)
             duration = signal.shape[0] / self.samplerate
 
-            # Retrieving words
-            wrd_file = wav_file.replace(".wav", ".wrd")
+            # Retrieving words and check for uppercase
+            if self.uppercase:
+                wrd_file = wav_file.replace(".WAV", ".WRD")
+            else:
+                wrd_file = wav_file.replace(".wav", ".wrd")
             if not os.path.exists(os.path.dirname(wrd_file)):
-
                 err_msg = "the wrd file %s does not exists!" % (wrd_file)
-
-                logger_write(err_msg, logfile=logfile)
+                raise FileNotFoundError(err_msg)
 
             words = [
                 line.rstrip("\n").split(" ")[2] for line in open(wrd_file)
@@ -709,13 +799,14 @@ class timit_prepare(SpeechBrainModule):
             words = " ".join(words)
 
             # Retrieving phonemes
-            phn_file = wav_file.replace(".wav", ".phn")
+            if self.uppercase:
+                phn_file = wav_file.replace(".WAV", ".PHN")
+            else:
+                phn_file = wav_file.replace(".wav", ".phn")
 
             if not os.path.exists(os.path.dirname(phn_file)):
-
                 err_msg = "the wrd file %s does not exists!" % (phn_file)
-
-                logger_write(err_msg, logfile=logfile)
+                raise FileNotFoundError(err_msg)
 
             # Phoneme list
             phonemes = []
@@ -724,13 +815,21 @@ class timit_prepare(SpeechBrainModule):
 
                 phoneme = line.rstrip("\n").replace("h#", "sil").split(" ")[2]
 
-                # From 60 to 48 phonemes
-                phoneme = self.from_60_to_48_phn[phoneme]
+                if self.phn_set == "48":
+                    # From 60 to 48 phonemes
+                    phoneme = self.from_60_to_48_phn[phoneme]
+
+                if self.phn_set == "39":
+                    # From 60 to 39 phonemes
+                    phoneme = self.from_60_to_39_phn[phoneme]
 
                 # Apping phoneme in the phoneme list
                 phonemes.append(phoneme)
 
             phonemes = " ".join(phonemes)
+
+            # Filtering consecutive silences
+            phonemes = phonemes.replace("sil sil", "sil")
 
             # Composition of the csv_line
             csv_line = [
@@ -758,7 +857,7 @@ class timit_prepare(SpeechBrainModule):
             # Adding this line to the csv_lines list
             csv_lines.append(csv_line)
 
-        # -Writing the csv lines
+        # Writing the csv lines
         with open(csv_file, mode="w") as csv_f:
             csv_writer = csv.writer(
                 csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
@@ -769,7 +868,7 @@ class timit_prepare(SpeechBrainModule):
 
         # Final prints
         msg = "\t%s sucessfully created!" % (csv_file)
-        logger_write(msg, logfile=self.logger, level="debug")
+        logger.debug(msg)
 
     def check_timit_folders(self):
         """
@@ -806,25 +905,31 @@ class timit_prepare(SpeechBrainModule):
          ---------------------------------------------------------------------
          """
 
+        # Creating checking string wrt to lower or uppercase
+        if self.uppercase:
+            test_str = "/TEST/DR1"
+            train_str = "/TRAIN/DR1"
+        else:
+            test_str = "/test/dr1"
+            train_str = "/train/dr1"
+
         # Checking test/dr1
-        if not os.path.exists(self.data_folder + "/test/dr1"):
+        if not os.path.exists(self.data_folder + test_str):
 
             err_msg = (
                 "the folder %s does not exist (it is expected in "
-                "the TIMIT dataset)" % (self.data_folder + "/test/dr*")
+                "the TIMIT dataset)" % (self.data_folder + test_str)
             )
-
-            logger_write(err_msg, logfile=self.logger)
+            raise FileNotFoundError(err_msg)
 
         # Checking train/dr1
-        if not os.path.exists(self.data_folder + "/train/dr1"):
+        if not os.path.exists(self.data_folder + train_str):
 
             err_msg = (
                 "the folder %s does not exist (it is expected in "
-                "the TIMIT dataset)" % (self.data_folder + "/train/dr*")
+                "the TIMIT dataset)" % (self.data_folder + train_str)
             )
-
-            logger_write(err_msg, logfile=self.logger)
+            raise FileNotFoundError(err_msg)
 
 
 class librispeech_prepare:
@@ -966,7 +1071,7 @@ class librispeech_prepare:
             for split in self.splits:
                 text = self.save_folder + "/" + split + ".csv"
                 msg = "\t" + text + " created!"
-                logger_write(msg, logfile=self.logger, level="debug")
+                logger.debug(msg)
             return
 
         # Additional checks to make sure the data folder contains Librispeech
@@ -1065,7 +1170,7 @@ class librispeech_prepare:
 
         # Preliminary prints
         msg = "\tCreating csv lists in  %s..." % (csv_file)
-        logger_write(msg, logfile=self.logger, level="debug")
+        logger.debug(msg)
 
         csv_lines = []
         snt_cnt = 0
@@ -1077,7 +1182,7 @@ class librispeech_prepare:
             spk_id = "-".join(snt_id.split("-")[0:2])
             wrd = text_dict[snt_id]
 
-            signal = read_wav_soundfile(wav_file, logger=self.logger)
+            signal = read_wav_soundfile(wav_file)
             duration = signal.shape[0] / self.samplerate
 
             # Composing the csv file
@@ -1105,11 +1210,11 @@ class librispeech_prepare:
                 break
 
         # Writing the csv_lines
-        write_txt_file(csv_lines, csv_file, logger=self.logger)
+        write_txt_file(csv_lines, csv_file)
 
         # Final print
         msg = "\t%s sucessfully created!" % (csv_file)
-        logger_write(msg, logfile=self.logger, level="debug")
+        logger.debug(msg)
 
     def skip(self):
         """
@@ -1270,4 +1375,4 @@ class librispeech_prepare:
                     "Librispeech dataset)" % (self.data_folder + "/" + split)
                 )
 
-                logger_write(err_msg, logfile=self.logger)
+                logger.error(err_msg, exc_info=True)

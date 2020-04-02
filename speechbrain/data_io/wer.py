@@ -1,10 +1,6 @@
 import sys
 import speechbrain.utils.edit_distance as edit_distance
 from speechbrain.data_io.data_io import create_dataloader
-from speechbrain.utils.logger import logger_write
-from speechbrain.utils.input_validation import (check_opts,
-                                                check_inputs,
-                                                check_input_shapes)
 
 ## These internal functions convert CSV data dictionaries to 
 ## generators and dicts which simply provide the info in
@@ -93,6 +89,7 @@ class ComputeAndSaveWERAndAlignments:
                 ref_reader, hyp_dict, 
                 compute_alignments=True, scoring_mode=self.conf['scoring_mode'])
         summary_details = edit_distance.wer_summary(details_by_utterance)
+        _print_wer_summary(summary_details)
         with open(self.conf['outfile'], "w") as fo:
             _print_wer_summary(summary_details, file=fo)
             _print_alignments_global_header(file=fo)

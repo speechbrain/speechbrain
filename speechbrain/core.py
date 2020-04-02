@@ -2,38 +2,39 @@ import re
 import os
 import sys
 import yaml
+import torch
 import logging
 import inspect
 import argparse
-from speechbrain.utils.logger import setup_logger
-from speechbrain.utils.data_utils import load_extended_yaml
+from speechbrain.utils.logger import setup_logging
+from speechbrain.utils.data_utils import load_extended_yaml, instantiate
 logger = logging.getLogger(__name__)
 
 
 class Experiment:
-    r"""
-    Description:
-        The experiment class implements important functionality related to
-        running experiments, such as setting up the experimental directories
-        and loading hyperparameters. A few key parameters, listed below,
-        can be set in three ways, in increasing priority order.
+    r"""A class for reading configuration files and creating folders
 
-            1. They may be passed to the `__init__()` method for this class
-            2. They may be stored in a yaml file, the name of which is
-                passed to the `__init__()` method of this class.
-            3. They may be passed as command-line arguments.
+    The experiment class implements important functionality related to
+    running experiments, such as setting up the experimental directories
+    and loading hyperparameters. A few key parameters, listed below,
+    can be set in three ways, in increasing priority order.
 
-        Any of the keys listed in the yaml file may be overriden using
-        the `overrides` parameter passed either via `__init__()` or
-        via the command-line. The value of this parameter should be a
-        yaml-formatted string, though a shortcut has been provided for
-        nested items, e.g.
+        1. They may be passed to the `__init__()` method for this class
+        2. They may be stored in a yaml file, the name of which is
+            passed to the `__init__()` method of this class.
+        3. They may be passed as command-line arguments.
 
-            {model.arg1: value, model.arg2.arg3: 3., model.arg2.arg4: True}
+    Any of the keys listed in the yaml file may be overriden using
+    the `overrides` parameter passed either via `__init__()` or
+    via the command-line. The value of this parameter should be a
+    yaml-formatted string, though a shortcut has been provided for
+    nested items, e.g.
 
-        will be interpreted as:
+        {model.arg1: value, model.arg2.arg3: 3., model.arg2.arg4: True}
 
-            {'model': {'arg1': 'value', 'arg2': {'arg3': 3., 'arg4': True}}}
+    will be interpreted as:
+
+        {'model': {'arg1': 'value', 'arg2': {'arg3': 3., 'arg4': True}}}
 
     Args:
         yaml_stream: A file-like object or string for reading experimental
@@ -41,13 +42,10 @@ class Experiment:
             method `load_extended_yaml()`. The rest of the parameters to this
             function may also be specified in the command-line parameters
             or in the `constants:` section of the yaml file.
-        overrides: A yaml-formatted string containing overrides for the
+        yaml_overrides: A yaml-formatted string containing overrides for the
             parameters listed in the file passed to `param_filename`.
         output_folder: A folder to store the results of the experiment, as
             well as any checkpoints, logs, or other generated data.
-        verbosity: How much information to give the user about the progress
-            of the experiment. Levels range from 0 to 2.
-        device: The device to execute the experiment on.
         seed: The random seed used to ensure the experiment is reproducible
             if executed on the same device on the same machine.
         log_config: A file specifying the parameters for logging
@@ -57,9 +55,8 @@ class Experiment:
     Example:
         >>> yaml_string = (""
         ... "constants:\n"
-        ... "  verbosity: 2\n"
         ... "  output_folder: exp\n"
-        ... "  save_folder: !$constants.output_folder/save")
+        ... "  save_folder: !$ <constants.output_folder>/save")
         >>> sb = Experiment(yaml_string)
         >>> sb.constants['save_folder']
         'exp/save'
@@ -70,52 +67,49 @@ class Experiment:
     def __init__(
         self,
         yaml_stream,
-        overrides='',
+        yaml_overrides='',
         output_folder=None,
-        verbosity=0,
-        device='cuda',
         seed=None,
-        log_config=None,
+        log_config='logging.yaml',
         commandline_args=[],
     ):
         # Initialize stored values
         self.constants = {
             'output_folder': output_folder,
-            'verbosity': verbosity,
-            'device': device,
             'seed': seed,
             'log_config': log_config,
         }
 
-        # Parse overrides, with command-line args taking precedence
+        # Parse yaml overrides, with command-line args taking precedence
         # over the parameters passed to this method. These overrides
         # will take precedence over the parameters listed in the file.
-        overrides = parse_overrides(overrides)
+        overrides = parse_overrides(yaml_overrides)
         cmd_args = parse_arguments(commandline_args)
-        if 'overrides' in cmd_args:
-            overrides.update(parse_overrides(cmd_args['overrides']))
-
-        # Find path of the calling file, so we can load the yaml
-        # file from the same directory
+        if 'yaml_overrides' in cmd_args:
+            overrides.update(parse_overrides(cmd_args['yaml_overrides']))
 
         # Load parameters file and store
         parameters = load_extended_yaml(yaml_stream, overrides)
         self.update_attributes(parameters)
-
-        # Now apply command-line values
         self.update_attributes(cmd_args)
 
         # Set up output folder and logger
-        if (self.constants['output_folder']
-                and not os.path.isdir(self.constants['output_folder'])):
-            os.makedirs(self.constants['output_folder'])
-        # logger = setup_logger(log_config, self.constants['verbosity'])
+        logger_overrides = {}
+        if self.constants['output_folder']:
+            if not os.path.isdir(self.constants['output_folder']):
+                os.makedirs(self.constants['output_folder'])
+            logger_override_string = (
+                '{handlers.file_handler.filename: %s}'
+                % os.path.join(self.constants['output_folder'], 'log.txt')
+            )
+            logger_overrides = parse_overrides(logger_override_string)
+        logger = setup_logging(log_config, logger_overrides)
+
+        # Automatically log any exceptions that are raised
+        sys.excepthook = logging_excepthook
 
     def update_attributes(self, parameters):
-        r"""
-        Description:
-            Update the attributes of this class to reflect the parameters
-            passed via the config file.
+        r"""Update the attributes of this class to reflect a set of parameters
 
         Args:
             parameters: A dict that contains the essential parameters for
@@ -125,12 +119,12 @@ class Experiment:
         Example:
             >>> yaml_string = (""
             ... "constants:\n"
-            ... "  verbosity: 2")
-            >>> sb = Experiment(yaml_string)
-            >>> sb.constants['verbosity']
+            ... "  seed: 2")
+            >>> sb = Experiment(yaml_string, seed=10)
+            >>> sb.constants['seed']
             2
-            >>> sb.update_attributes({'constants': {'verbosity': 1}})
-            >>> sb.constants['verbosity']
+            >>> sb.update_attributes({'constants': {'seed': 1}})
+            >>> sb.constants['seed']
             1
 
         Author:
@@ -145,18 +139,21 @@ class Experiment:
             setattr(self, param, value)
 
 
-def parse_arguments(args):
-    """
-    Description:
-        Parse command-line arguments to the experiment. The parsed
-        arguments are returned as a dictionary.
+def logging_excepthook(exc_type, exc_value, exc_traceback):
+    """Interrupt exception raising to log the error."""
+    logger.error("Exception:", exc_info=(exc_type, exc_value, exc_traceback))
+    sys.exit(1)
+
+
+def parse_arguments(arg_list):
+    """Parse command-line arguments to the experiment.
 
     Args:
-        args: a list of arguments to parse, most often from sys.argv[1:]
+        arg_list: a list of arguments to parse, most often from sys.argv[1:]
 
     Example:
-        >>> parse_arguments(['--param_filename', 'params.yaml'])
-        {'param_filename': 'params.yaml'}
+        >>> parse_arguments(['--seed', '10'])
+        {'seed': 10}
 
     Author:
         Peter Plantinga 2020
@@ -165,12 +162,7 @@ def parse_arguments(args):
         description='Run a SpeechBrain experiment',
     )
     parser.add_argument(
-        '--param_filename',
-        help='An extended-yaml formatted file containing experimental '
-        'parameters.',
-    )
-    parser.add_argument(
-        '--overrides',
+        '--yaml_overrides',
         help='A yaml-formatted string representing a dictionary of '
         'overrides to the parameters in the param file. The keys of '
         'the dictionary can use dots to represent levels in the yaml '
@@ -180,17 +172,6 @@ def parse_arguments(args):
     parser.add_argument(
         '--output_folder',
         help='A folder for storing all experiment-related outputs.',
-    )
-    parser.add_argument(
-        '--verbosity',
-        type=int,
-        choices=[0, 1, 2],
-        help='The amount of output to print to stdout.',
-    )
-    parser.add_argument(
-        '--device',
-        choices=['cuda', 'cpu'],
-        help='The device to use for PyTorch computations.',
     )
     parser.add_argument(
         '--seed',
@@ -203,14 +184,12 @@ def parse_arguments(args):
     )
 
     # Ignore items that are "None", they were not passed
-    parsed_args = vars(parser.parse_args(args))
+    parsed_args = vars(parser.parse_args(arg_list))
     return {k: v for k, v in parsed_args.items() if v is not None}
 
 
 def parse_overrides(override_string):
-    """
-    Description:
-        Parse overrides from a yaml string representing paired args and values
+    """Parse overrides from a yaml string representing paired args and values
 
     Args:
         override_string: A yaml-formatted string, where each (key: value) pair
@@ -238,9 +217,7 @@ def parse_overrides(override_string):
 
 
 def nest(dictionary, args, val):
-    """
-    Description:
-        Create a nested sequence of dictionaries, based on an arg list.
+    """Create a nested sequence of dictionaries, based on an arg list.
 
     Args:
         dictionary: this object will be updated with the nested arguments.

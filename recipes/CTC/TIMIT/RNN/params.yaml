@@ -10,9 +10,9 @@ constants:
     # Data files
     data_file: /home/peter/Downloads/TIMIT.tar.gz
     local_data_folder: /tmp/timit_experiment
-    csv_train: !$constants.local_data_folder/train.csv
-    csv_valid: !$constants.local_data_folder/dev.csv
-    csv_test: !$constants.local_data_folder/test.csv
+    csv_train: !$ <constants.local_data_folder>/train.csv
+    csv_valid: !$ <constants.local_data_folder>/dev.csv
+    csv_test: !$ <constants.local_data_folder>/test.csv
 
     # Neural Parameters
     N_epochs: 28
@@ -20,50 +20,52 @@ constants:
     lr: 0.0005
 
 copy_locally: !speechbrain.data_io.data_preparation.copy_data_locally
-    data_file: !$constants.data_file
-    local_folder: !$constants.local_data_folder
+    data_file: !$ <constants.data_file>
+    local_folder: !$ <constants.local_data_folder>
 
 prepare_timit: !speechbrain.data_io.data_preparation.timit_prepare
-    data_folder: !$constants.local_data_folder
+    data_folder: !$ <constants.local_data_folder>
     splits: [train, test, dev]
-    save_folder: !$constants.local_data_folder
+    save_folder: !$ <constants.local_data_folder>
 
 train_loader: !speechbrain.data_io.data_io.create_dataloader
-    csv_file: !$constants.csv_train
-    batch_size: !$constants.N_batch
+    csv_file: !$ <constants.csv_train>
+    batch_size: !$ <constants.N_batch>
     sentence_sorting: ascending
-    output_folder: !$constants.output_folder
+    output_folder: !$ <constants.output_folder>
     csv_read: [wav, phn]
 
 valid_loader: !speechbrain.data_io.data_io.create_dataloader
-    csv_file: !$constants.csv_valid
-    batch_size: !$constants.N_batch
+    csv_file: !$ <constants.csv_valid>
+    batch_size: !$ <constants.N_batch>
     sentence_sorting: ascending
-    output_folder: !$constants.output_folder
+    output_folder: !$ <constants.output_folder>
     csv_read: [wav, phn]
 
 test_loader: !speechbrain.data_io.data_io.create_dataloader
-    csv_file: !$constants.csv_test
+    csv_file: !$ <constants.csv_test>
     batch_size: 1
-    output_folder: !$constants.output_folder
+    output_folder: !$ <constants.output_folder>
     csv_read: [wav, phn]
 
 lr_annealing: !speechbrain.nnet.lr_scheduling.lr_annealing
     annealing_type: newbob
-    N_epochs: !$constants.N_epochs
-    lr_initial: !$constants.lr
+    N_epochs: !$ <constants.N_epochs>
+    lr_initial: !$ <constants.lr>
     improvement_threshold: 0.0025
     annealing_factor: 0.8
     patient: 0
 
 save_checkpoint: !speechbrain.data_io.data_io.save_ckpt
-    save_folder: !$constants.output_folder/nnets/
+    save_folder: !$ <constants.output_folder>/nnets/
     save_format: pkl
     save_last: 1
     write_result: True
 
-compute_features: !recipes.features.mfcc_features.mfcc_features
-    sample_rate: !$constants.sample_rate
+compute_features: !recipes.features.Features
+    feature_type: mfcc
+    compute_STFT:
+        sample_rate: !$ <constants.sample_rate>
 
 mean_var_norm: !speechbrain.processing.features.mean_var_norm
     norm_type: global
@@ -92,5 +94,5 @@ compute_cost_wer: !speechbrain.nnet.losses.compute_cost
 optimizer: !speechbrain.nnet.optimizers.optimize
     do_recovery: True
     optimizer_type: adam
-    learning_rate: !$constants.lr
+    learning_rate: !$ <constants.lr>
 

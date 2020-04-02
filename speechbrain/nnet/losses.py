@@ -7,125 +7,61 @@
  -----------------------------------------------------------------------------
 """
 
-import collections
 import torch
+import logging
+import collections
 import torch.nn as nn
-from speechbrain.utils.input_validation import check_opts, check_inputs
-from speechbrain.utils.logger import logger_write
 from speechbrain.utils.edit_distance import accumulatable_wer_stats
 from speechbrain.data_io.data_io import filter_ctc_output
-from speechbrain.module import SpeechBrainModule
+logger = logging.getLogger(__name__)
 
 
-class compute_cost(SpeechBrainModule):
+class compute_cost(nn.Module):
     """
-     -------------------------------------------------------------------------
-     nnet.losses.compute_cost (author: Mirco Ravanelli)
+    -------------------------------------------------------------------------
+    Description:
+        This function implements different cost functions for training neural
+        networks. It supports NLL, MSE, L1 and CTC objectives.
 
-     Description:  This function implements different cost functions for
-                   training neural networks. It supports NLL, MSE, L1 and
-                   CTC objectives.
+    Args:
+        cost_type: one of the following options
+            "nll": negative log-likelihood cost.
+            "mse": mean squared error between the prediction and the target.
+            "l1": l1 distance between the prediction and the target.
+            "ctc": connectionist temporal classification, this loss sums
+                up all the possible alignments between targets and predictions.
+            "error": classification error.
+            "wer": word error rate, computed with the edit distance algorithm.
+        avoid_pad: when True, the time steps corresponding to zero-padding
+            are not included in the cost function computation.
+        allow_lab_diff: the number of tolerated differences between the label
+            and prediction lengths. Minimal differences can be tolerated and
+            could be due to different way of processing the signal. Big
+            differences are likely due to an error.
 
-     Input: - cost_type (one_of(nll,mse,l1,ctc,error), mandatory):
-               it is the type of cost used.
+     Example:
+        >>> import torch
+        >>> from speechbrain.nnet.architectures import linear
+        >>> from speechbrain.nnet.architectures import activation
+        >>> model = linear(n_neurons=4)
+        >>> softmax = activation(act_type='log_softmax')
+        >>> cost = compute_cost(cost_type='nll')
+        >>> pred = softmax(model(torch.rand([1, 660, 3])))
+        >>> label = torch.FloatTensor([0,1,3]).unsqueeze(0)
+        >>> lengths = torch.Tensor([1.0])
+        >>> out_cost = cost(pred, label, lengths)
+        >>> out_cost.backward()
 
-               "nll": it is the standard negative
-               log-likelihood cost.
-
-               "mse": it is the mean squared error between
-                      the prediction and the target.
-
-               "l1":  it is the l1 distance between the
-                      prediction and the target.
-
-               "ctc":  it is the ctc function used for
-                        sequence-to-sequence learning. It sums
-                        up over all the possible alignments
-                        between targets and predictions.
-
-               "error":  it is the standard classification
-               error.
-
-               "wer":  it is the word error rate computed
-               with the edit distance algorithm.
-
-           - avoid_pad (bool, optional, Default: False):
-               when True, the time steps corresponding to
-               zero-padding are not included in the cost
-               function computation.
-
-          - allow_lab_diff (int(0,inf), Default:False):
-              It is the number of tollerable difference
-              between the label and prediction lengths.
-              Minimal differences can be tollerated and
-              could be due to different way of processing
-              the signal. Big differences and likely due
-              to an error.
-
-     Example:   import torch
-                from speechbrain.nnet.architectures import linear
-                from speechbrain.nnet.architectures import activation
-                from speechbrain.nnet.losses import compute_cost
-
-                # Definition of a linear model
-                inp_tensor = torch.rand([1,660,3])
-
-                # config dictionary definition
-                config={'class_name':'speechbrain.nnet.architectures.linear',
-                        'n_neurons':'4'}
-
-                # Initialization of the linear class
-                model=linear(config,first_input=[inp_tensor])
-
-
-                # Definition of the log_softmax
-                config={'class_name':'speechbrain.nnet.architectures.activation',
-                        'act_type':'log_softmax',
-                        }
-
-                # Initialization of the log_softmax class
-                softmax=activation(config, first_input=[inp_tensor])
-
-
-                # Definition of the loss
-                config={'class_name':'speechbrain.nnet.losses.compute_cost',
-                        'cost_type':'nll'}
-
-                # Initialization of the loss function
-                cost=compute_cost(config)
-
-                # Computatitions of the prediction for the current input
-                pre_act=model([inp_tensor])
-                pred = softmax([pre_act])
-
-                # fake label
-                label=torch.FloatTensor([0,1,3]).unsqueeze(0)
-                lengths=torch.Tensor([1.0])
-
-                out_cost= cost([pred,label,lengths])
-
-                print(out_cost)
-
-                # back propagation
-                out_cost.backward()
-
-
-     """
-
+    Author:
+        Mirco Ravanelli 2020
+    """
     def __init__(
         self,
         cost_type,
         avoid_pad=None,
         allow_lab_diff=3,
-        **kwargs
     ):
-        # Definition of the expected input
-        expected_inputs = [
-            {'type': 'torch.Tensor'},
-            {'type': 'torch.Tensor'},
-            {'type': 'list'},
-        ]
-
+        super().__init__()
         self.cost_type = cost_type
         self.avoid_pad = avoid_pad
         self.allow_lab_diff = allow_lab_diff
@@ -161,7 +97,9 @@ class compute_cost(SpeechBrainModule):
                 if cost == "wer":
                     self.costs.append(self.compute_wer)
 
-        super().__init__(expected_inputs, hook, **kwargs)
+            self.hook.remove()
+
+        self.hook = self.register_forward_pre_hook(hook)
 
     def forward(self, prediction, target, lengths):
         """
@@ -192,7 +130,7 @@ class compute_cost(SpeechBrainModule):
                     % (target.shape[-1], prediction.shape[-1])
                 )
 
-                logger_write(err_msg, logfile=self.logger)
+                logger.error(err_msg, exc_info=True)
 
             prediction = prediction[:, :, 0: target.shape[-1]]
 
@@ -205,7 +143,7 @@ class compute_cost(SpeechBrainModule):
                     "be a list [wav_len, lab_len] when ctc is the cost. "
                 )
 
-                logger_write(err_msg, logfile=self.logger)
+                logger.error(err_msg, exc_info=True)
 
         # Adding signal to gpu or cpu
         prediction = prediction.to(prediction.device)
@@ -309,7 +247,9 @@ class compute_cost(SpeechBrainModule):
 
                 # Managing ctc cost for sequence-to-sequence learning
                 if self.cost_type[i] == "ctc":
-
+                    # cast lab_curr to int32 for using Cudnn computation
+                    # In the case of using CPU training, int type is mondatory.
+                    lab_curr = lab_curr.int()
                     # Permuting output probs
                     prob_curr = prob_curr.permute(2, 0, 1)
 
@@ -446,6 +386,10 @@ class compute_cost(SpeechBrainModule):
          """
         # Computing predictions
         scores, predictions = torch.max(prob, dim=0)
+
+        # Converting labels and prediction to lists (faster)
+        lab = lab.tolist()
+        predictions = predictions.tolist()
 
         # If the case of CTC, filter the predicted output
         if "ctc" in self.cost_type:

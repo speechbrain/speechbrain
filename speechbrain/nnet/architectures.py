@@ -9,16 +9,15 @@
 
 import math
 import torch
+import logging
 import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 from speechbrain.data_io.data_io import recovery, initialize_with
-from speechbrain.utils.input_validation import check_opts, check_inputs
-from speechbrain.utils.logger import logger_write
-from speechbrain.module import SpeechBrainModule
+logger = logging.getLogger(__name__)
 
 
-class linear(SpeechBrainModule):
+class linear(torch.nn.Module):
     """
      -------------------------------------------------------------------------
      nnet.architectures.linear (author: Mirco Ravanelli)
@@ -64,15 +63,15 @@ class linear(SpeechBrainModule):
         bias=True,
         initialize_from=None,
         do_recovery=True,
-        **kwargs
+        output_folder=None,
     ):
-        # Definition of the expected input
-        expected_inputs = [{'type': 'torch.Tensor', 'dim_count': [2, 3, 4, 5]}]
+        super().__init__()
 
         self.n_neurons = n_neurons
         self.bias = bias
         self.initialize_with = initialize_from
         self.recovery = do_recovery
+        self.output_folder = output_folder
 
         def hook(self, input):
 
@@ -81,6 +80,7 @@ class linear(SpeechBrainModule):
 
             # Initialization of the parameters
             self.w = nn.Linear(fea_dim, self.n_neurons, bias=self.bias)
+            self.w.to(input[0].device)
 
             # Managing initialization with an external model
             # (useful for pre-training)
@@ -89,23 +89,17 @@ class linear(SpeechBrainModule):
             # Automatic recovery (when needed)
             # recovery(self)
 
-        super().__init__(expected_inputs, hook, **kwargs)
+            self.hook.remove()
 
-        # Output folder (useful for parameter saving)
-        if self.global_config is not None:
-            self.output_folder = self.global_config["output_folder"]
+        self.hook = self.register_forward_pre_hook(hook)
 
     def forward(self, x):
         """
-        Input: - x (type: torch.Tensor, mandatory):
-                   torch.tensor that we want to transform linearly.
-                   The tensor must be in one of the following format:
-                   [batch, channels, time]. Note that we can have up to
-                   three channels.
+        Args:
+            x: torch.tensor that we want to transform linearly.
 
-        Output: - wx (type: torch.Tensor)
-                   The output is a tensor that corresponds to the linear
-                   transformation of the input tensor.
+        Returns:
+            The linear transformation of the input tensor.
         """
         # Transposing tensor
         x = x.transpose(1, -1)
@@ -147,25 +141,6 @@ class linear_combination(nn.Module):
                                when set, this flag can be used to initialize
                                the parameters with an external pkl file. It
                                could be useful for pre-training purposes.
-
-
-                   - funct_name (type, str, default: None):
-                       it is a string containing the name of the parent
-                       function that has called this method.
-
-                   - global_config (type, dict, default: None):
-                       it a dictionary containing the global variables of the
-                       parent config file.
-
-                   - logger (type, logger, default: None):
-                       it the logger used to write debug and error messages.
-                       If logger=None and root_cfg=True, the file is created
-                       from scratch.
-
-                   - first_input (type, list, default: None)
-                      this variable allows users to analyze the first input
-                      given when calling the class for the first time.
-
 
      Input (call): - inp_lst(type, list, mandatory):
                        by default the input arguments are passed with a list.
@@ -226,6 +201,7 @@ class linear_combination(nn.Module):
         self.expected_options = {
             "class_name": ("str", "mandatory"),
             "recovery": ("bool", "optional", "True"),
+            "recovery_type": ("one_of(last,best)", "optional", "best"),
             "initialize_with": ("str", "optional", "None"),
             "bias": ("bool", "optional", "True"),
         }
@@ -338,200 +314,116 @@ class linear_combination(nn.Module):
 
 
 class conv(nn.Module):
+    """This function implements 1D or 2D convolutional layers.
+
+    Args:
+        out_channels: it is the number of output channels.
+        kernel_size: it is a list containing the size of the kernels.
+            For 1D convolutions, the list contains a single
+            integer (convolution over the time axis), while
+            for 2D convolutions the list is composed of two
+            values (i.e, time and frequenecy kernel sizes respectively).
+        stride: it is a list containing the stride factors.
+            For 1D convolutions, the list contains a single
+            integer (stride over the time axis), while
+            for 2D convolutions the list is composed of two
+            values (i.e, time and frequenecy kernel sizes,
+            respectively). When the stride factor > 1, a
+            decimantion (in the time or frequnecy domain) is
+            implicitely performed.
+        dilation: it is a list containing the dilation factors.
+            For 1D convolutions, the list contains a single
+            integer (dilation over the time axis), while
+            for 2D convolutions the list is composed of two
+            values (i.e, time and frequenecy kernel sizes,
+            respectively).
+        padding: it is a list containing the number of elements to pad.
+            For 1D convolutions, the list contains a single
+            integer (padding over the time axis), while
+            for 2D convolutions the list is composed of two
+            values (i.e, time and frequenecy kernel sizes,
+            respectively). When not specified, the padding
+            is automatically performed such that the input
+            and the output have the same time/frequency
+            dimensionalities.
+        padding_mode: This flag specifies the type of padding.
+            See torch.nn documentation for more information.
+        groups: This option specifies the convolutional groups.
+            See torch.nn documentation for more information.
+        bias: if True, the additive bias b is adopted.
+        do_recovery: if True, the system restarts from the last
+            epoch correctly executed.
+        initialize_from: when set, this flag can be used to initialize
+           the parameters with an external pkl file. It
+           could be useful for pre-training purposes.
+
+    Shape (1D case):
+        - x: [batch, time_steps]
+        - output: [batch, out_channels, time_steps]
+
+    Shape (2D case):
+        - x: [batch, channels, time_steps]
+        - output: [batch, channels, out_channels, time_steps]
+
+    Example:
+        >>> import torch
+        >>> inp_tensor = torch.rand([10, 16000])
+        >>> cnn = conv(out_channels=25, kernel_size=11)
+        >>> out_tensor = cnn([inp_tensor])
+        >>> out_tensor.shape()
+        torch.Size([10, 25, 15990])
+
+    Author:
+        Mirco Ravanelli 2020
     """
-     -------------------------------------------------------------------------
-     nnet.architectures.conv (author: Mirco Ravanelli)
-
-     Description:  This function implements 1D or 2D convolutional layers.
-
-     Input (init):  - config (type, dict, mandatory):
-                       it is a dictionary containing the keys described below.
-
-                           - out_channels (type: int(1,inf), mandatory):
-                               it is the number of output channels.
-
-                           - kernel_size (type: int_list(1,inf), mandatory):
-                               it is a list containing the size of the kernels.
-                               For 1D convolutions, the list contains a single
-                               integer (convolution over the time axis), while
-                               for 2D convolutions the list is composed of two
-                               values (i.e, time and frequenecy kernel sizes,
-                               respectively).
-
-                           - stride (type: int_list(1,inf), optional: \
-                               default: 1,1):
-                               it is a list containing the stride factors.
-                               For 1D convolutions, the list contains a single
-                               integer (stride over the time axis), while
-                               for 2D convolutions the list is composed of two
-                               values (i.e, time and frequenecy kernel sizes,
-                               respectively). When the stride factor > 1, a
-                               decimantion (in the time or frequnecy domain) is
-                               implicitely performed.
-
-                           - dilation (type: int_list(1,inf), optional: \
-                               default: 1,1):
-                               it is a list containing the dilation factors.
-                               For 1D convolutions, the list contains a single
-                               integer (dilation over the time axis), while
-                               for 2D convolutions the list is composed of two
-                               values (i.e, time and frequenecy kernel sizes,
-                               respectively).
-
-                           - padding (type: int_list(1,inf), optional: \
-                               default: None):
-                               it is a list containing the number of elements
-                               to pad.
-                               For 1D convolutions, the list contains a single
-                               integer (padding over the time axis), while
-                               for 2D convolutions the list is composed of two
-                               values (i.e, time and frequenecy kernel sizes,
-                               respectively). When not specified, the padding
-                               is automatically performed such that the input
-                               and the output have the same time/frequency
-                               dimensionalities.
-
-                           - padding_mode (one_of(circular,zeros), optional: \
-                               default: zeros):
-                               This flag specifies the type of padding.
-                               See torch.nn documentation for more information.
-
-                            - groups (type:int(1,inf), optional: \
-                                default: zeros):
-                               This option specifies the convolutional groups.
-                               See torch.nn documentation for more information.
-
-
-                           - bias (type: bool, default:True):
-                               if True, the additive bias b is adopted.
-
-                           - recovery (type: bool, default:True):
-                               if True, the system restarts from the last
-                               epoch correctly executed.
-
-                           - initialize_with (type: str, \
-                               default:None):
-                               when set, this flag can be used to initialize
-                               the parameters with an external pkl file. It
-                               could be useful for pre-training purposes.
-
-
-                   - funct_name (type, str, default: None):
-                       it is a string containing the name of the parent
-                       function that has called this method.
-
-                   - global_config (type, dict, default: None):
-                       it a dictionary containing the global variables of the
-                       parent config file.
-
-                   - logger (type, logger, default: None):
-                       it the logger used to write debug and error messages.
-                       If logger=None and root_cfg=True, the file is created
-                       from scratch.
-
-                   - first_input (type, list, default: None)
-                      this variable allows users to analyze the first input
-                      given when calling the class for the first time.
-
-
-     Input (call): - inp_lst(type, list, mandatory):
-                       by default the input arguments are passed with a list.
-                       In this case, inp is a list containing the
-                       torch.tensor element that we want to transform.
-                       The tensor must be in one of the following format:
-                       [batch,channels,time]. Note that we can have up to
-                       three channels.
-
-
-
-     Output (call): - wx(type, torch.Tensor, mandatory):
-                       The output is a tensor that corresponds to the convolved
-                       input.
-
-
-     Example:   import torch
-                from speechbrain.nnet.architectures import conv
-
-                inp_tensor = torch.rand([4,100,190])
-
-                # config dictionary definition
-                config={'class_name':'speechbrain.nnet.architectures.\
-                    linear_combination',
-                        'out_channels':'25',
-                        'kernel_size': '11'}
-
-                # Initialization of the class
-                cnn=conv(config,first_input=[inp_tensor])
-
-                # Executing computations
-                inp_tensor = torch.rand([4,100,190])
-                out_tensor = cnn([inp_tensor])
-                print(out_tensor)
-                print(out_tensor.shape)
-
-     """
 
     def __init__(
         self,
-        config,
-        funct_name=None,
-        global_config=None,
-        functions=None,
-        logger=None,
-        first_input=None,
+        out_channels,
+        kernel_size,
+        stride=[1, 1],
+        dilation=[1, 1],
+        padding=None,
+        groups=1,
+        bias=True,
+        padding_mode='zeros',
+        output_folder=None,
+        do_recovery=True,
+        initialize_from=None,
     ):
-        super(conv, self).__init__()
+        super().__init__()
 
-        # Logger setup
-        self.logger = logger
+        self.out_channels = out_channels
+        self.kernel_size = kernel_size
+        self.stride = stride
+        self.dilation = dilation
+        self.padding = padding
+        self.groups = groups
+        self.bias = bias
+        self.padding_mode = padding_mode
+        self.output_folder = output_folder
+        self.recovery = do_recovery
+        self.initialize_with = initialize_from
 
-        # Here are summarized the expected options for this class
-        self.expected_options = {
-            "class_name": ("str", "mandatory"),
-            "recovery": ("bool", "optional", "True"),
-            "initialize_with": ("str", "optional", "None"),
-            "out_channels": ("int(1,inf)", "mandatory"),
-            "kernel_size": ("int_list(1,inf)", "mandatory"),
-            "stride": ("int_list(1,inf)", "optional", "1,1"),
-            "dilation": ("int_list(1,inf)", "optional", "1,1"),
-            "padding": ("int_list(0,inf)", "optional", "None"),
-            "groups": ("int(1,inf)", "optional", "1"),
-            "bias": ("bool", "optional", "True"),
-            "padding_mode": ("one_of(zeros,circular)", "optional", "zeros"),
-        }
-
-        # Check, cast, and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, self.logger
-        )
-
-        # Definition of the expected input
-        self.expected_inputs = ["torch.Tensor"]
-
-        # Check the first input
-        check_inputs(
-            self.conf, self.expected_inputs, first_input, logger=self.logger
-        )
-
-        # Output folder (useful for parameter saving)
-        if global_config is not None:
-            self.output_folder = global_config["output_folder"]
-        self.funct_name = funct_name
         self.reshape_conv1d = False
         self.reshape_conv2d = False
         self.squeeze_conv2d = False
         self.transp_conv2d = False
 
+        # Ensure kernel_size and padding are lists
+        if not isinstance(self.kernel_size, list):
+            self.kernel_size = [self.kernel_size]
+        if self.padding is not None and not isinstance(self.padding, list):
+            self.padding = [self.padding]
+
         # Making sure that the kernel size is odd (if the kernel is not
         # symmetric there could a problem with the padding function)
         for size in self.kernel_size:
             if size % 2 == 0:
-                err_msg = (
-                    "The field kernel size must be and odd number. Got %s."
+                raise ValueError(
+                    "The field kernel size must be an odd number. Got %s."
                     % (self.kernel_size)
                 )
-
-                logger_write(err_msg, logfile=logger)
 
         # Checking if 1d or 2d is specified
         self.conv1d = False
@@ -543,20 +435,7 @@ class conv(nn.Module):
         if len(self.kernel_size) == 2:
             self.conv2d = True
 
-        # Additional check on the input shapes
-        if first_input is not None:
-
-            # Shape check
-            if len(first_input[0].shape) > 5 or len(first_input[0].shape) < 2:
-
-                err_msg = (
-                    'The input of "linear" must be a tensor with one of the  '
-                    "following dimensions: [time] or [batch,time] or "
-                    "[batch,channels,time]. Got %s "
-                    % (str(first_input[0].shape))
-                )
-
-                logger_write(err_msg, logfile=logger)
+        def hook(self, first_input):
 
             # Manage reshaping flags
             if len(first_input[0].shape) > 3:
@@ -589,56 +468,55 @@ class conv(nn.Module):
                         first_input[0].shape[2] * first_input[0].shape[3]
                     )
 
-        # Managing 1d convolutions
-        if self.conv1d:
+            # Managing 1d convolutions
+            if self.conv1d:
 
-            if self.padding is not None:
-                self.padding = self.padding[0]
+                if self.padding is not None:
+                    self.padding = self.padding[0]
 
-            # Initialization of the parameters
-            self.conv = nn.Conv1d(
-                self.in_channels,
-                self.out_channels,
-                self.kernel_size[0],
-                stride=self.stride[0],
-                dilation=self.dilation[0],
-                padding=0,
-                groups=self.groups,
-                bias=self.bias,
-                padding_mode=self.padding_mode,
-            )
+                # Initialization of the parameters
+                self.conv = nn.Conv1d(
+                    self.in_channels,
+                    self.out_channels,
+                    self.kernel_size[0],
+                    stride=self.stride[0],
+                    dilation=self.dilation[0],
+                    padding=0,
+                    groups=self.groups,
+                    bias=self.bias,
+                    padding_mode=self.padding_mode,
+                ).to(first_input[0].device)
 
-        # Managing 2d convolutions
-        if self.conv2d:
+            # Managing 2d convolutions
+            if self.conv2d:
 
-            if self.padding is not None:
-                self.padding = self.padding[0:-1]
+                if self.padding is not None:
+                    self.padding = self.padding[0:-1]
 
-            # Initialization of the parameters
-            self.conv = nn.Conv2d(
-                self.in_channels,
-                self.out_channels,
-                tuple(self.kernel_size),
-                stride=tuple(self.stride),
-                padding=0,
-                dilation=tuple(self.dilation),
-                groups=self.groups,
-                bias=self.bias,
-                padding_mode=self.padding_mode,
-            )
+                # Initialization of the parameters
+                self.conv = nn.Conv2d(
+                    self.in_channels,
+                    self.out_channels,
+                    tuple(self.kernel_size),
+                    stride=tuple(self.stride),
+                    padding=0,
+                    dilation=tuple(self.dilation),
+                    groups=self.groups,
+                    bias=self.bias,
+                    padding_mode=self.padding_mode,
+                ).to(first_input[0].device)
 
-        # Managing initialization with an external model
-        # (useful for pre-training)
-        initialize_with(self)
+            # Managing initialization with an external model
+            # (useful for pre-training)
+            initialize_with(self)
 
-        # Automatic recovery
-        if global_config is not None:
-            recovery(self)
+            # Automatic recovery
+            # recovery(self)
 
-    def forward(self, input_lst):
+            self.hook.remove()
+        self.hook = self.register_forward_pre_hook(hook)
 
-        # Reading input _list
-        x = input_lst[0]
+    def forward(self, x):
 
         # Reshaping the inputs when needed
         if self.reshape_conv1d:
@@ -1024,6 +902,7 @@ class SincConv(nn.Module):
         self.expected_options = {
             "class_name": ("str", "mandatory"),
             "recovery": ("bool", "optional", "True"),
+            "recovery_type": ("one_of(last,best)", "optional", "best"),
             "initialize_with": ("str", "optional", "None"),
             "out_channels": ("int(1,inf)", "mandatory"),
             "kernel_size": ("int(1,inf)", "mandatory"),
@@ -1411,7 +1290,7 @@ class SincConv(nn.Module):
         return x
 
 
-class RNN_basic(SpeechBrainModule):
+class RNN_basic(torch.nn.Module):
     """
      -------------------------------------------------------------------------
      nnet.architectures.RNN_basic (author: Mirco Ravanelli)
@@ -1492,23 +1371,24 @@ class RNN_basic(SpeechBrainModule):
         n_neurons,
         nonlinearity,
         num_layers=1,
+        bias=True,
         dropout=0.,
         bidirectional=False,
         initialize_from=None,
         do_recovery=True,
-        **kwargs
+        output_folder=None
     ):
+        super().__init__()
         self.rnn_type = rnn_type
         self.n_neurons = n_neurons
         self.nonlinearity = nonlinearity,
         self.num_layers = num_layers
+        self.bias = bias
         self.dropout = dropout
         self.bidirectional = bidirectional
         self.initialize_with = initialize_from
         self.recovery = do_recovery
-
-        # Definition of the expected input
-        expected_inputs = [{'type': 'torch.Tensor', 'dim_count': [3, 4, 5]}]
+        self.output_folder = output_folder
 
         def hook(self, input):
             if len(input[0].shape) > 3:
@@ -1517,46 +1397,32 @@ class RNN_basic(SpeechBrainModule):
             # Computing the feature dimensionality
             self.fea_dim = torch.prod(torch.tensor(input[0].shape[1:-1]))
 
+            kwargs = {
+                'input_size': self.fea_dim,
+                'hidden_size': self.n_neurons,
+                'num_layers': self.num_layers,
+                'dropout': self.dropout,
+                'bidirectional': self.bidirectional,
+                'bias': self.bias,
+            }
+
             # Vanilla RNN
             if self.rnn_type == "rnn":
-                self.rnn = torch.nn.RNN(
-                    input_size=self.fea_dim,
-                    hidden_size=self.n_neurons,
-                    nonlinearity=self.nonlinearity,
-                    num_layers=self.num_layers,
-                    bias=self.bias,
-                    dropout=self.dropout,
-                    bidirectional=self.bidirectional,
-                )
+                kwargs.update({'nonlinearity': self.nonlinearity})
+                self.rnn = torch.nn.RNN(**kwargs)
+
             # Vanilla LSTM
             if self.rnn_type == "lstm":
-                self.rnn = torch.nn.LSTM(
-                    input_size=self.fea_dim,
-                    hidden_size=self.n_neurons,
-                    num_layers=self.num_layers,
-                    bias=self.bias,
-                    dropout=self.dropout,
-                    bidirectional=self.bidirectional,
-                )
+                self.rnn = torch.nn.LSTM(**kwargs)
+
             # Vanilla GRU
             if self.rnn_type == "gru":
-                self.rnn = torch.nn.GRU(
-                    input_size=self.fea_dim,
-                    hidden_size=self.n_neurons,
-                    num_layers=self.num_layers,
-                    bias=self.bias,
-                    dropout=self.dropout,
-                    bidirectional=self.bidirectional,
-                )
+                self.rnn = torch.nn.GRU(**kwargs)
+
             # Vanilla light-GRU
             if self.rnn_type == "ligru":
-                self.rnn = liGRU(
-                    input_size=self.fea_dim,
-                    hidden_size=self.n_neurons,
-                    num_layers=self.num_layers,
-                    dropout=self.dropout,
-                    bidirectional=self.bidirectional,
-                )
+                del kwargs['bias']
+                self.rnn = liGRU(**kwargs)
 
             # Quasi RNN
             if self.rnn_type == "qrnn":
@@ -1564,41 +1430,35 @@ class RNN_basic(SpeechBrainModule):
                 # Check if qrnn (quasi-rnn) library is installed
                 try:
                     from torchqrnn import QRNN
-                except Exception:
-                    err_msg = (
+                except ImportError:
+                    raise ImportError(
                         "QRNN is not installed. Please run "
                         "pip install cupy pynvrtc \
                             git+https://github.com/salesforce/pytorch-qrnn ."
                         "Go to https://github.com/salesforce/pytorch-qrnn \
                             for more info."
                     )
-                    logger_write(err_msg, logfile=logger)
 
                 # Needed to avoid qrnn warnings
                 import warnings
 
                 warnings.filterwarnings("ignore")
 
-                self.rnn = QRNN(
-                    input_size=self.fea_dim,
-                    hidden_size=self.n_neurons,
-                    num_layers=self.num_layers,
-                    dropout=self.dropout,
-                )
+                del kwargs['bias']
+                del kwargs['bidirectional']
+                self.rnn = QRNN(**kwargs)
 
             # Managing initialization with an external model
             # (useful for pre-training)
             initialize_with(self)
+            self.rnn.to(input[0].device)
 
             # Automatic recovery
             # recovery(self)
-
-        super().__init__(expected_inputs, hook, **kwargs)
-
-        if self.global_config is not None:
-            self.output_folder = self.global_config["output_folder"]
+            self.hook.remove()
 
         self.reshape = False
+        self.hook = self.register_forward_pre_hook(hook)
 
     def forward(self, x):
         """
@@ -1900,7 +1760,7 @@ class liGRU(nn.Module):
         return x.view(xsize)
 
 
-class activation(SpeechBrainModule):
+class activation(torch.nn.Module):
     """
      -------------------------------------------------------------------------
      nnet.architectures.activation (author: Mirco Ravanelli)
@@ -1999,11 +1859,8 @@ class activation(SpeechBrainModule):
         lambd=0.5,
         value=0.5,
         dim=-1,
-        **kwargs
     ):
-        # Definition of the expected input
-        expected = [{'type': 'torch.Tensor', 'dim_count': [1, 2, 3, 4, 5]}]
-        super().__init__(expected, **kwargs)
+        super().__init__()
 
         self.act_type = act_type
         self.inplace = inplace
@@ -2233,55 +2090,15 @@ class dropout(nn.Module):
 
     def __init__(
         self,
-        config,
-        funct_name=None,
-        global_config=None,
-        functions=None,
-        logger=None,
-        first_input=None,
+        drop_rate,
+        inplace=False,
     ):
-        super(dropout, self).__init__()
-
-        # Logger setup
-        self.logger = logger
-
-        # Here are summarized the expected options for this class
-        self.expected_options = {
-            "class_name": ("str", "mandatory"),
-            "drop_rate": ("float(0,1)", "mandatory"),
-            "inplace": ("bool", "optional", "False"),
-        }
-
-        # Check, cast, and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, self.logger
-        )
-
-        # Definition of the expected input
-        self.expected_inputs = ["torch.Tensor"]
-
-        # Check the first input
-        check_inputs(
-            self.conf, self.expected_inputs, first_input, logger=self.logger
-        )
-
-        # reshaping 3d tensor in input to 1d dropput is faster
+        super().__init__()
+        self.drop_rate = drop_rate
+        self.inplace = inplace
         self.reshape = False
 
-        # Additional check on the input shapes
-        if first_input is not None:
-
-            # Shape check
-            if len(first_input[0].shape) > 5 or len(first_input[0].shape) < 1:
-
-                err_msg = (
-                    'The input of "dropout" must be a tensor with one of the  '
-                    "following dimensions: [batch,time] or "
-                    "[batch,channels,time]. Got %s "
-                    % (str(first_input[0].shape))
-                )
-
-                logger_write(err_msg, logfile=logger)
+        def hook(self, first_input):
 
             # Dropout initialization
             if len(first_input[0].shape) <= 3:
@@ -2299,11 +2116,11 @@ class dropout(nn.Module):
                 self.drop = nn.Dropout3d(
                     p=self.drop_rate, inplace=self.inplace
                 )
+            self.hook.remove()
 
-    def forward(self, input_lst):
+        self.hook = self.register_forward_pre_hook(hook)
 
-        # Reading input _list
-        x = input_lst[0]
+    def forward(self, x):
 
         # Avoing the next steps in dropuut_rate is 0
         if self.drop_rate == 0.0:
@@ -2326,3 +2143,240 @@ class dropout(nn.Module):
             x_drop = x_drop.transpose(1, -1)
 
         return x_drop
+
+
+class pooling(nn.Module):
+    """
+     -------------------------------------------------------------------------
+     nnet.architectures.dropout (author: Titouan Parcollet)
+
+     Description:  This function implements pooling of the input tensor:
+                   y = pooling(x).
+
+     Input (init):  - config (type, dict, mandatory):
+                       it is a dictionary containing the keys described below.
+
+                            - pool_type (type: str, max):
+                                it is the type of pooling function to use.
+
+                            - pool_axis (type: int_list(-1, 3), max):
+                                it is a list containing the axis that will be
+                                considered during pooling. It must match the
+                                dimensionality of the pooling. If the pooling
+                                is 2D, then a list of 2 indices is expected.
+
+                            - kernel_size (type: int_list, mandatory):
+                                it is the kernel size. Note that it also define
+                                the pooling dimension. 3 is a 1D Pooling with a
+                                kernel of size 3, while 3:3 is a 2D Pooling and
+                                3:3:3 is a 3D pooling.
+
+                            - stride (type: int, optional, Default:1):
+                                it is the stride size.
+
+                            - padding (type: int, optional, Default:0):
+                                it is the padding to apply.
+
+                            - dilation (type: int, optional, Default:1):
+                                controls the dilation of pooling.
+
+                            - ceil_mode (type: bool, optional, Default:False):
+                                when True, will use ceil instead of floor
+                                to compute the output shape
+
+                   - funct_name (type, str, optional, default: None):
+                       it is a string containing the name of the parent
+                       function that has called this method.
+
+                   - global_config (type, dict, optional, default: None):
+                       it a dictionary containing the global variables of the
+                       parent config file.
+
+                   - logger (type, logger, optional, default: None):
+                       it the logger used to write debug and error messages.
+                       If logger=None and root_cfg=True, the file is created
+                       from scratch.
+
+                   - first_input (type, list, optional, default: None)
+                      this variable allows users to analyze the first input
+                      given when calling the class for the first time.
+
+
+     Input (call): - inp_lst(type, list, mandatory):
+                       by default the input arguments are passed with a list.
+                       In this case, inp is a list containing a single
+                       torch.tensor that we want to transform with the pooling.
+                       The tensor must be in any form since the pooling axis
+                       are specified. By default, the input is of shape:
+                       [batch,features,channels,time]
+
+
+
+     Output (call): - wx(type, torch.Tensor, mandatory):
+                       it is the output after applying the pooling.
+
+
+     Example:   import torch
+                from speechbrain.nnet.architectures import pooling
+
+                 # config dictionary definition
+                 config={'class_name':'speechbrain.nnet.architectures.pooling',
+                 'pool_type': 'max',
+                 'kernel_size': '2,2',
+                 'stride': '2',
+                 'pool_axis': '1,2'}
+
+                 # Initialization of the class
+                 inp_tensor = torch.rand([1,4,1,4])
+                 pool = pooling(config, first_input=[inp_tensor])
+
+                 # Executing computations
+                 out_tensor = pool([inp_tensor])
+                 print(out_tensor)
+    """
+
+    def __init__(
+        self,
+        pool_type,
+        kernel_size,
+        pool_axis=1,
+        ceil_mode=False,
+        padding=0,
+        dilation=1,
+        stride=1,
+    ):
+        super().__init__()
+
+        self.pool_type = pool_type
+        self.kernel_size = kernel_size
+        self.pool_axis = pool_axis
+        self.ceil_mode = ceil_mode
+        self.padding = padding
+        self.dilation = dilation
+        self.stride = stride
+
+        # Option for pooling
+        self.pool1d = False
+        self.pool2d = False
+        self.combine_batch_time = False
+
+        if not isinstance(self.kernel_size, list):
+            self.kernel_size = [self.kernel_size]
+        if not isinstance(self.pool_axis, list):
+            self.pool_axis = [self.pool_axis]
+
+        def hook(self, first_input):
+
+            # Check that enough pooling axes are specified
+            if len(self.kernel_size) == 1:
+                self.pool1d = True
+
+                # In the case of a 4 dimensional input vector, we need to
+                # combine the batch and time dimension together because
+                # torch.nn.pool1d only accepts 3D vectors as inputs.
+                if len(first_input[0].shape) > 3:
+                    self.combine_batch_time = True
+
+                if len(self.pool_axis) != 1:
+                    err_msg = (
+                        'pool_axes must corresponds to the pooling dimension. '
+                        "The pooling dimension is 1 and %s axes are specified."
+                        % (str(len(self.pool_axis)))
+                    )
+                    raise ValueError(err_msg)
+
+                if self.pool_axis[0] >= len(first_input[0].shape):
+                    err_msg = (
+                        'pool_axes is greater than the number of dimensions. '
+                        "The tensor dimension is %s and the specified pooling "
+                        "axis is %s."
+                        % (str(len(first_input[0].shape)), str(self.pool_axis))
+                    )
+                    raise ValueError(err_msg)
+
+            if len(self.kernel_size) == 2:
+                self.pool2d = True
+
+                if len(self.pool_axis) != 2:
+                    err_msg = (
+                        'pool_axes must corresponds to the pooling dimension. '
+                        "The pooling dimension is 2 and %s axes are specified."
+                        % (str(len(self.pool_axis)))
+                    )
+                    raise ValueError(err_msg)
+
+                if self.pool_axis[0] >= len(first_input[0].shape) or \
+                   self.pool_axis[1] >= len(first_input[0].shape):
+                    err_msg = (
+                        'pool_axes is greater than the number of dimensions. '
+                        "The tensor dimension is %s and the specified pooling "
+                        "axis are %s."
+                        % (str(len(first_input[0].shape)), str(self.pool_axis))
+                    )
+                    raise ValueError(err_msg)
+
+            # Pooling initialization
+            if self.pool_type == "avg":
+
+                # Check Pooling dimension
+                if self.pool1d:
+                    self.pool_layer = torch.nn.AvgPool1d(
+                        self.kernel_size[0],
+                        stride=self.stride,
+                        padding=self.padding,
+                        ceil_mode=self.ceil_mode)
+
+                else:
+                    self.pool_layer = torch.nn.AvgPool2d(
+                        self.kernel_size,
+                        stride=self.stride,
+                        padding=self.padding,
+                        ceil_mode=self.ceil_mode)
+            else:
+                if self.pool1d:
+                    self.pool_layer = torch.nn.MaxPool1d(
+                        self.kernel_size[0],
+                        stride=self.stride,
+                        padding=self.padding,
+                        ceil_mode=self.ceil_mode)
+
+                else:
+                    self.pool_layer = torch.nn.MaxPool2d(
+                        self.kernel_size,
+                        stride=self.stride,
+                        padding=self.padding,
+                        ceil_mode=self.ceil_mode)
+            self.hook.remove()
+        self.hook = self.register_forward_pre_hook(hook)
+
+    def forward(self, x):
+
+        or_shape = x.shape
+
+        # Put the pooling axes as the last dimension for torch.nn.pool
+        # If the input tensor is 4 dimensional, combine the first and second
+        # axes together to respect the input shape of torch.nn.pool1d
+        if self.pool1d:
+            x = x.transpose(len(or_shape)-1, self.pool_axis[0])
+            new_shape = x.shape
+            if self.combine_batch_time:
+                x = x.reshape(new_shape[0]*new_shape[1], new_shape[2], -1)
+
+        if self.pool2d:
+            x = x.transpose(len(or_shape)-2, self.pool_axis[0]).transpose(
+                            len(or_shape)-1, self.pool_axis[1])
+
+        # Apply pooling
+        x = self.pool_layer(x)
+
+        # Recover input shape
+        if self.pool1d:
+            if self.combine_batch_time:
+                x = x.reshape(new_shape[0], new_shape[1], new_shape[2], -1)
+            x = x.transpose(len(or_shape)-1, self.pool_axis[0])
+
+        if self.pool2d:
+            x = x.transpose(len(or_shape)-2, self.pool_axis[0]).transpose(
+                            len(or_shape)-1, self.pool_axis[1])
+
+        return x

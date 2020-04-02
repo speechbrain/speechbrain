@@ -25,9 +25,9 @@ def test_load_extended_yaml():
     yaml = """
     constants:
         a: abc
-        b: !$constants.a
+        b: !$ <constants.a>
     thing: !collections.Counter
-        a: !$constants.a
+        a: !$ <constants.a>
     """
     things = load_extended_yaml(yaml)
     assert things['thing']['a'] == things['constants']['a']
@@ -37,7 +37,7 @@ def test_load_extended_yaml():
     yaml = """
     constants:
         a: "a"
-        b: !$constants.a/b
+        b: !$ <constants.a>/b
     """
     things = load_extended_yaml(yaml)
     assert things['constants']['b'] == 'a/b'
@@ -46,7 +46,7 @@ def test_load_extended_yaml():
     yaml = """
     constants:
         a: 1
-        b: !$constants.a/b
+        b: !$ <constants.a>/b
     """
     things = load_extended_yaml(yaml)
     assert things['constants']['b'] == '1/b'
@@ -57,7 +57,7 @@ def test_load_extended_yaml():
         a: 1
     thing: !collections.Counter
         other: !collections.Counter
-            a: !$constants.a
+            a: !$ <constants.a>
     """
     things = load_extended_yaml(yaml)
     assert things['thing']['other'].__class__ == Counter
@@ -66,11 +66,51 @@ def test_load_extended_yaml():
     # Positional arguments
     yaml = """
     constants:
-        a: 1
+        a: hello
     thing: !collections.Counter
-        - !$constants.a
+        - !$ <constants.a>
     """
     things = load_extended_yaml(yaml)
-    # load_extended_yaml inspects the class signature, and determines
-    # that the first parameter to Counter is called "iterable"
-    assert things['thing']['iterable'] == things['constants']['a']
+    assert things['thing']['l'] == 2
+
+    # Invalid class
+    yaml = """
+    thing: !abcdefg.hij
+    """
+    with pytest.raises(ImportError):
+        things = load_extended_yaml(yaml)
+
+    # Invalid reference
+    yaml = """
+    constants:
+        a: 1
+        b: !$ <constants.c>
+    """
+    with pytest.raises(ValueError):
+        things = load_extended_yaml(yaml)
+
+    # Anchors and aliases
+    yaml = """
+    thing1: !collections.Counter &thing
+        a: 3
+        b: 5
+    thing2: !collections.Counter
+        <<: *thing
+        b: 7
+    """
+    things = load_extended_yaml(yaml)
+    assert things['thing1']['a'] == things['thing2']['a']
+    assert things['thing1']['b'] != things['thing2']['b']
+
+    # List of arguments that are objects
+    yaml = """
+    thing: !os.path.join
+        - !os.path.join
+            - abc
+            - def
+        - !os.path.join
+            - foo
+            - bar
+    """
+    things = load_extended_yaml(yaml)
+    assert things['thing'] == 'abc/def/foo/bar'
