@@ -62,14 +62,17 @@ def neural_computations(losses, model, wav, phn, mode):
     phn = phn.cuda()
     phn_len = phn_len.cuda()
 
-    pout = model(feats)
 
     if mode == 'train':
+        model.train()
+        pout = model(feats)
         loss = sb.compute_cost(pout, phn, [wav_len, phn_len])
         loss.backward()
         sb.optimizer([model])
         losses['loss'].append(loss.detach())
     else:
+        model.eval()
+        pout = model(feats)
         loss, wer = sb.compute_cost_wer(pout, phn, [wav_len, phn_len])
         losses['loss'].append(loss.detach())
         losses['wer'].append(wer.detach())

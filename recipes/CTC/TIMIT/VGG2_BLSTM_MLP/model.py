@@ -57,6 +57,7 @@ class VGG2_BLSTM_MLP(torch.nn.Module):
             nonlinearity='tanh',
             num_layers=4,
             dropout=drop_rate,
+            bidirectional=True,
         ))
 
         for i in range(mlp_blocks):
