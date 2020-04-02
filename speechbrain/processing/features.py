@@ -440,7 +440,6 @@ class FBANKs(torch.nn.Module):
         self.initialize_with = initialize_path
 
         # Additional options
-        self.funct_name = funct_name
         self.n_stft = self.n_fft // 2 + 1
 
         # Make sure that the selected f_min < f_max
@@ -470,8 +469,8 @@ class FBANKs(torch.nn.Module):
         # Computation of the filter bands
         band = hz[1:] - hz[:-1]
 
-        self.band = band[:-1].to(self.device_inp)
-        self.f_central = hz[1:-1].to(self.device_inp)
+        self.band = band[:-1]
+        self.f_central = hz[1:-1]
 
         # Adding the central frequency and the band to the list of nn param
         if not self.freeze:
@@ -480,11 +479,18 @@ class FBANKs(torch.nn.Module):
 
         # Frequency axis
         all_freqs = torch.linspace(0, self.sample_rate // 2, self.n_stft)
-        all_freqs = all_freqs.to(self.device_inp)
 
         # replicating for all the filters
         self.all_freqs_mat = all_freqs.repeat(self.f_central.shape[0], 1)
-        self.all_freqs_mat = self.all_freqs_mat.to(self.device_inp)
+
+        def hook(self, first_input):
+            self.device_inp = first_input[0].device
+            self.band = self.band.to(self.device_inp)
+            self.f_central = self.f_central.to(self.device_inp)
+            self.all_freqs_mat = self.all_freqs_mat.to(self.device_inp)
+            self.hook.remove()
+
+        self.hook = self.register_forward_pre_hook(hook)
 
         # Managing initialization with an external filter bank parameters
         # (useful for pre-training)

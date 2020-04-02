@@ -56,6 +56,8 @@ def neural_computations(losses, model, wav, phn, mode):
 
     feats = sb.compute_features(wav.cuda())
     feats = sb.mean_var_norm(feats, wav_len.cuda())
+    phn = phn.cuda()
+    phn_len = phn_len.cuda()
 
     pout = model(feats)
 

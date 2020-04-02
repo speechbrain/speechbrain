@@ -229,6 +229,8 @@ class timit_prepare(torch.nn.Module):
         self.kaldi_ali_test = kaldi_ali_test
         self.kaldi_lab_opts = kaldi_lab_opts
         self.save_folder = save_folder
+        self.phn_set = phn_set
+        self.uppercase = uppercase
 
         # Other variables
         self.samplerate = 16000

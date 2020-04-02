@@ -73,8 +73,7 @@ model: !torch.nn.Sequential
               kwargs: {drop_rate: 0.15}
 
     - !speechbrain.nnet.architectures.linear
-        # n_neurons: 40 # 39 phonemes + blank (at the end)
-        n_neurons: 49
+        n_neurons: 40 # 39 phonemes + blank (at the end)
         bias: False
 
     - !speechbrain.nnet.architectures.activation
