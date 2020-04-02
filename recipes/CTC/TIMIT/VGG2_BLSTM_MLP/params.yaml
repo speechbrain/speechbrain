@@ -34,7 +34,7 @@ model: !model.VGG2_BLSTM_MLP
     vgg_blocks: 2
     mlp_blocks: 2
     n_neurons: 512
-    activation: leaky_relu
+    activation_fn: leaky_relu
     drop_rate: !$ <constants.dropout_rate>
 
 copy_locally: !speechbrain.data_io.data_preparation.copy_data_locally

@@ -35,7 +35,7 @@ class VGG2_BLSTM_MLP(torch.nn.Module):
         vgg_blocks=2,
         n_neurons=512,
         mlp_blocks=2,
-        activation='leaky_relu',
+        activation_fn='leaky_relu',
         drop_rate=0.15,
     ):
         super().__init__()
@@ -43,7 +43,7 @@ class VGG2_BLSTM_MLP(torch.nn.Module):
         self.vgg_blocks = vgg_blocks
         self.n_neurons = n_neurons
         self.mlp_blocks = mlp_blocks
-        self.activation = activation
+        self.activation_fn = activation_fn
         self.drop_rate = drop_rate
 
         blocks = []
@@ -62,6 +62,9 @@ class VGG2_BLSTM_MLP(torch.nn.Module):
         for i in range(mlp_blocks):
             blocks.append(self._mlp_block())
 
+        blocks.append(linear(self.output_len, bias=False))
+        blocks.append(activation('log_softmax'))
+
         self.blocks = torch.nn.Sequential(*blocks)
 
     def forward(self, features):
@@ -71,10 +74,10 @@ class VGG2_BLSTM_MLP(torch.nn.Module):
         return torch.nn.Sequential(
             conv(block_index * 128, kernel_size=[3, 3]),
             normalize('batchnorm'),
-            activation(self.activation),
+            activation(self.activation_fn),
             conv(block_index * 128, kernel_size=[3, 3]),
             normalize('batchnorm'),
-            activation(self.activation),
+            activation(self.activation_fn),
             pooling('max', kernel_size=2, stride=2),
             dropout(self.drop_rate),
         )
@@ -83,6 +86,6 @@ class VGG2_BLSTM_MLP(torch.nn.Module):
         return torch.nn.Sequential(
             linear(self.n_neurons),
             normalize('batchnorm'),
-            activation(self.activation),
+            activation(self.activation_fn),
             dropout(self.drop_rate),
         )
