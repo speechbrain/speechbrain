@@ -14,6 +14,9 @@ def main():
     # Prepare the data
     sb.copy_locally()
     sb.prepare_timit()
+    train_set = sb.train_loader()
+    valid_set = sb.valid_loader()
+    test_set = sb.test_loader()
 
     # training/validation epochs
     for epoch in range(sb.constants['N_epochs']):
@@ -21,12 +24,12 @@ def main():
         valid_loss = {'loss': [], 'wer': []}
 
         # Iterate train and perform updates
-        for wav, phn in tqdm(zip(*sb.train_loader())):
+        for wav, phn in tqdm(zip(*train_set), total=len(train_set[0])):
             neural_computations(train_loss, sb.model, wav, phn, 'train')
 
         # Iterate validataion to check progress
         with torch.no_grad():
-            for wav, phn in tqdm(zip(*sb.valid_loader())):
+            for wav, phn in tqdm(zip(*valid_set), total=len(valid_set[0])):
                 neural_computations(valid_loss, sb.model, wav, phn, 'valid')
 
             sb.lr_annealing([sb.optimizer], epoch, mean(valid_loss['wer']))
@@ -39,7 +42,7 @@ def main():
 
     # Evaluate our model
     test_loss = {'loss': [], 'wer': []}
-    for wav, phn in tqdm(zip(*sb.test_loader())):
+    for wav, phn in tqdm(zip(*test_set), total=len(test_set[0])):
         neural_computations(test_loss, sb.model, wav, phn, 'test')
 
     print("Final WER: %f" % mean(test_loss['wer']))
