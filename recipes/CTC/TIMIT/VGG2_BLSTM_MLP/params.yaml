@@ -28,6 +28,7 @@ compute_features: !recipes.features.Features
 
 mean_var_norm: !speechbrain.processing.features.mean_var_norm
     norm_type: global
+    requires_grad: False
 
 model: !model.VGG2_BLSTM_MLP
     output_len: 40 # 39 phonemes + 1 blank symbol

@@ -12,17 +12,17 @@ logger = logging.getLogger(__name__)
 
 
 class Experiment:
-    r"""A class for reading configuration files and creating folders
+    r'''A class for reading configuration files and creating folders
 
     The experiment class implements important functionality related to
     running experiments, such as setting up the experimental directories
     and loading hyperparameters. A few key parameters, listed below,
     can be set in three ways, in increasing priority order.
 
-        1. They may be passed to the `__init__()` method for this class
-        2. They may be stored in a yaml file, the name of which is
-            passed to the `__init__()` method of this class.
-        3. They may be passed as command-line arguments.
+    1. They may be passed to the `__init__()` method for this class
+    2. They may be stored in a yaml file, the name of which is
+        passed to the `__init__()` method of this class.
+    3. They may be passed as command-line arguments.
 
     Any of the keys listed in the yaml file may be overriden using
     the `overrides` parameter passed either via `__init__()` or
@@ -53,17 +53,18 @@ class Experiment:
             parameters to this method
 
     Example:
-        >>> yaml_string = (""
-        ... "constants:\n"
-        ... "  output_folder: exp\n"
-        ... "  save_folder: !$ <constants.output_folder>/save")
+        >>> yaml_string = """
+        ... constants:
+        ...     output_folder: exp
+        ...     save_folder: !$ <constants.output_folder>/save
+        ... """
         >>> sb = Experiment(yaml_string)
         >>> sb.constants['save_folder']
         'exp/save'
 
     Author:
         Peter Plantinga 2020
-    """
+    '''
     def __init__(
         self,
         yaml_stream,
@@ -109,7 +110,7 @@ class Experiment:
         sys.excepthook = logging_excepthook
 
     def update_attributes(self, parameters):
-        r"""Update the attributes of this class to reflect a set of parameters
+        r'''Update the attributes of this class to reflect a set of parameters
 
         Args:
             parameters: A dict that contains the essential parameters for
@@ -117,9 +118,10 @@ class Experiment:
                 `load_extended_yaml()`.
 
         Example:
-            >>> yaml_string = (""
-            ... "constants:\n"
-            ... "  seed: 2")
+            >>> yaml_string = """
+            ... constants:
+            ...     seed: 2
+            ... """
             >>> sb = Experiment(yaml_string, seed=10)
             >>> sb.constants['seed']
             2
@@ -129,7 +131,7 @@ class Experiment:
 
         Author:
             Peter Plantinga 2020
-        """
+        '''
         for param, new_value in parameters.items():
             if isinstance(new_value, dict):
                 value = getattr(self, param, {})
