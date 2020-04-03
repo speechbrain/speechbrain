@@ -2159,7 +2159,7 @@ class pooling(nn.Module):
                             - pool_type (type: str, max):
                                 it is the type of pooling function to use.
 
-                            - pool_axis (type: int_list(-1, 3), max):
+                            - pool_axis (type: int_list(0, 3), mandatory):
                                 it is a list containing the axis that will be
                                 considered during pooling. It must match the
                                 dimensionality of the pooling. If the pooling
@@ -2168,8 +2168,7 @@ class pooling(nn.Module):
                             - kernel_size (type: int_list, mandatory):
                                 it is the kernel size. Note that it also define
                                 the pooling dimension. 3 is a 1D Pooling with a
-                                kernel of size 3, while 3:3 is a 2D Pooling and
-                                3:3:3 is a 3D pooling.
+                                kernel of size 3, while 3,3 is a 2D Pooling.
 
                             - stride (type: int, optional, Default:1):
                                 it is the stride size.
