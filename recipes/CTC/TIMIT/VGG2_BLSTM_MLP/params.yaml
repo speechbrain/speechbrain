@@ -47,7 +47,7 @@ prepare_timit: !speechbrain.data_io.data_preparation.timit_prepare
     splits: [train, dev, test]
     save_folder: !$ <constants.local_data_folder>
 
-train_loader: !speechbrain.data_io.data_io.create_dataloader
+train_loader: !speechbrain.data_io.data_io.create_dataloader &loader
     csv_file: !$ <constants.csv_train>
     batch_size: !$ <constants.batch_size>
     sentence_sorting: ascending
@@ -55,17 +55,13 @@ train_loader: !speechbrain.data_io.data_io.create_dataloader
     csv_read: [wav, phn]
 
 valid_loader: !speechbrain.data_io.data_io.create_dataloader
+    <<: *loader
     csv_file: !$ <constants.csv_valid>
-    batch_size: !$ <constants.batch_size>
-    sentence_sorting: ascending
-    output_folder: !$ <constants.output_folder>
-    csv_read: [wav, phn]
 
 test_loader: !speechbrain.data_io.data_io.create_dataloader
+    <<: *loader
     csv_file: !$ <constants.csv_test>
     batch_size: 1
-    output_folder: !$ <constants.output_folder>
-    csv_read: [wav, phn]
 
 compute_cost: !speechbrain.nnet.losses.compute_cost
     cost_type: [ctc]
