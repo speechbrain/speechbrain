@@ -36,21 +36,22 @@ class Experiment:
 
         {'model': {'arg1': 'value', 'arg2': {'arg3': 3., 'arg4': True}}}
 
-    Args:
-        yaml_stream: A file-like object or string for reading experimental
-            parameters. The format of the file is described in the
-            method `load_extended_yaml()`. The rest of the parameters to this
-            function may also be specified in the command-line parameters
+    Parameters:
+        yaml_stream (stream): A file-like object or string containing
+            experimental parameters. The format of the file is described in
+            the method `load_extended_yaml()`. The rest of the parameters to
+            this function may also be specified in the command-line parameters
             or in the `constants:` section of the yaml file.
-        yaml_overrides: A yaml-formatted string containing overrides for the
-            parameters listed in the file passed to `param_filename`.
-        output_folder: A folder to store the results of the experiment, as
-            well as any checkpoints, logs, or other generated data.
-        seed: The random seed used to ensure the experiment is reproducible
-            if executed on the same device on the same machine.
-        log_config: A file specifying the parameters for logging
-        args: The arguments from the command-line for overriding the other
-            parameters to this method
+        yaml_overrides (str): A yaml-formatted string containing overrides for
+            the parameters listed in the file passed to `param_filename`.
+        output_folder (str): A folder to store the results of the experiment,
+            as well as any checkpoints, logs, or other generated data.
+        seed (int): The random seed used to ensure the experiment is
+            reproducible if executed on the same device on the same machine.
+        log_config (str): The name of a file specifying the parameters for
+            logging, in yaml format.
+        commandline_args (list): The arguments from the command-line for
+            overriding the other parameters to this method
 
     Example:
         >>> yaml_string = """
@@ -91,10 +92,11 @@ class Experiment:
 
         # Load parameters file and store
         parameters = load_extended_yaml(yaml_stream, overrides)
-        self.update_attributes(parameters)
-        self.update_attributes(cmd_args)
+        self._update_attributes(parameters)
+        self._update_attributes(cmd_args)
 
-        # Set up output folder and logger
+        # Use experimental parameters to initialize experiment
+        torch.manual_seed(self.constants['seed'])
         logger_overrides = {}
         if self.constants['output_folder']:
             if not os.path.isdir(self.constants['output_folder']):
@@ -107,27 +109,15 @@ class Experiment:
         logger = setup_logging(log_config, logger_overrides)
 
         # Automatically log any exceptions that are raised
-        sys.excepthook = logging_excepthook
+        sys.excepthook = _logging_excepthook
 
-    def update_attributes(self, parameters):
+    def _update_attributes(self, attributes):
         r'''Update the attributes of this class to reflect a set of parameters
 
-        Args:
-            parameters: A dict that contains the essential parameters for
+        Parameters:
+            attributes: A dict that contains the essential parameters for
                 running the experiment. Usually loaded from a yaml file using
                 `load_extended_yaml()`.
-
-        Example:
-            >>> yaml_string = """
-            ... constants:
-            ...     seed: 2
-            ... """
-            >>> sb = Experiment(yaml_string, seed=10)
-            >>> sb.constants['seed']
-            2
-            >>> sb.update_attributes({'constants': {'seed': 1}})
-            >>> sb.constants['seed']
-            1
 
         Author:
             Peter Plantinga 2020
@@ -141,7 +131,7 @@ class Experiment:
             setattr(self, param, value)
 
 
-def logging_excepthook(exc_type, exc_value, exc_traceback):
+def _logging_excepthook(exc_type, exc_value, exc_traceback):
     """Interrupt exception raising to log the error."""
     logger.error("Exception:", exc_info=(exc_type, exc_value, exc_traceback))
     sys.exit(1)
@@ -150,7 +140,7 @@ def logging_excepthook(exc_type, exc_value, exc_traceback):
 def parse_arguments(arg_list):
     """Parse command-line arguments to the experiment.
 
-    Args:
+    Parameters:
         arg_list: a list of arguments to parse, most often from sys.argv[1:]
 
     Example:
@@ -193,7 +183,7 @@ def parse_arguments(arg_list):
 def parse_overrides(override_string):
     """Parse overrides from a yaml string representing paired args and values
 
-    Args:
+    Parameters:
         override_string: A yaml-formatted string, where each (key: value) pair
             overrides the same pair in a loaded file.
 
@@ -221,10 +211,10 @@ def parse_overrides(override_string):
 def nest(dictionary, args, val):
     """Create a nested sequence of dictionaries, based on an arg list.
 
-    Args:
-        dictionary: this object will be updated with the nested arguments.
-        args: a list of parameters specifying a nested location.
-        val: The value to store at the specified nested location.
+    Parameters:
+        dictionary (dict): this ref will be updated with the nested arguments.
+        args (list): a list of parameters specifying a nested location.
+        val (obj): The value to store at the specified nested location.
 
     Example:
         >>> params = {}
