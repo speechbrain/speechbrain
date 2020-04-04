@@ -1,27 +1,29 @@
-from .recovery import register_recovery_hooks
-from .recovery import mark_as_saver
-from .recovery import mark_as_loader
+from .checkpoints import register_checkpoint_hooks
+from .checkpoints import mark_as_saver
+from .checkpoints import mark_as_loader
 
 
-@register_recovery_hooks
+@register_checkpoint_hooks
 class EpochCounter:
-    """
-    An epoch counter which can save and recall its state.
-    Use this as the iterator for epochs.
+    """An epoch counter which can save and recall its state.
 
+    Use this as the iterator for epochs.
     Note that this iterator gives you the numbers from [1 ... limit] not
     [0 ... limit-1] as range(limit) would.
 
     Example:
-        from speechbrain.utils.epoch_loop import EpochCounter
-        from speechbrain.utils.recovery import Recoverer
-        epoch_counter = EpochCounter(10)
-        recoverer = Recoverer("exp/train", {"epoch": epoch_counter})
-        recoverer.recover_if_possible()
-        # Now after recovery, the epoch starts from where it left off!
-        for epoch in epoch_counter:
-            # Run training...
-            recoverer.save_checkpoint()
+        >>> from speechbrain.utils.checkpoints import Checkpointer
+        >>> import tempfile
+        >>> epoch_counter = EpochCounter(10)
+        >>> with tempfile.TemporaryDirectory() as tempdir:
+        ...         recoverer = Checkpointer(tempdir, {"epoch": epoch_counter})
+        ...         recoverer.recover_if_possible()
+        ...         # Now after recovery, 
+        ...         # the epoch starts from where it left off!
+        ...         for epoch in epoch_counter:
+        ...             # Run training...
+        ...             ckpt = recoverer.save_checkpoint()
+
     Author:
         Aku Rouhe 2020
     """

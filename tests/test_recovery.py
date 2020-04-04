@@ -1,8 +1,8 @@
 import pytest
 
 
-def test_recoverer(tmpdir):
-    from speechbrain.utils.recovery import Recoverer
+def test_checkpointer(tmpdir):
+    from speechbrain.utils.checkpoints import Checkpointer
     import torch
 
     class Recoverable(torch.nn.Module):
@@ -15,7 +15,7 @@ def test_recoverer(tmpdir):
 
     recoverable = Recoverable(2.0)
     recoverables = {"recoverable": recoverable}
-    recoverer = Recoverer(tmpdir, recoverables)
+    recoverer = Checkpointer(tmpdir, recoverables)
     recoverable.param.data = torch.tensor([1.0])
     # Should not be possible since no checkpoint saved yet:
     assert not recoverer.recover_if_possible()
@@ -115,12 +115,12 @@ def test_recoverer(tmpdir):
 
 
 def test_recovery_custom_io(tmpdir):
-    from speechbrain.utils.recovery import register_recovery_hooks
-    from speechbrain.utils.recovery import mark_as_saver
-    from speechbrain.utils.recovery import mark_as_loader
-    from speechbrain.utils.recovery import Recoverer
+    from speechbrain.utils.checkpoints import register_checkpoint_hooks
+    from speechbrain.utils.checkpoints import mark_as_saver
+    from speechbrain.utils.checkpoints import mark_as_loader
+    from speechbrain.utils.checkpoints import Checkpointer
 
-    @register_recovery_hooks
+    @register_checkpoint_hooks
     class CustomRecoverable:
         def __init__(self, param):
             self.param = int(param)
@@ -136,7 +136,7 @@ def test_recovery_custom_io(tmpdir):
                 self.param = int(fi.read())
 
     custom_recoverable = CustomRecoverable(0)
-    recoverer = Recoverer(tmpdir, {"custom_recoverable": custom_recoverable})
+    recoverer = Checkpointer(tmpdir, {"custom_recoverable": custom_recoverable})
     custom_recoverable.param = 1
     # First, make sure no checkpoints are found
     # (e.g. somehow tmpdir contaminated)
