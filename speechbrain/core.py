@@ -96,7 +96,8 @@ class Experiment:
         self._update_attributes(cmd_args)
 
         # Use experimental parameters to initialize experiment
-        torch.manual_seed(self.constants['seed'])
+        if self.constants['seed'] is not None:
+            torch.manual_seed(self.constants['seed'])
         logger_overrides = {}
         if self.constants['output_folder']:
             if not os.path.isdir(self.constants['output_folder']):
@@ -122,7 +123,7 @@ class Experiment:
         Author:
             Peter Plantinga 2020
         '''
-        for param, new_value in parameters.items():
+        for param, new_value in attributes.items():
             if isinstance(new_value, dict):
                 value = getattr(self, param, {})
                 value.update(new_value)
