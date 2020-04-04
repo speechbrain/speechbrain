@@ -147,7 +147,6 @@ DEFAULT_SAVE_HOOKS = {
 }
 
 
-
 def mark_as_saver(method):
     """Method decorator which marks given method as the checkpoint saving hook.
 
@@ -263,8 +262,9 @@ def get_default_hook(obj, default_hooks):
     return None
 
 
-Checkpoint = collections.namedtuple("Checkpoint",
-        ["path", "meta", "paramfiles"])
+Checkpoint = collections.namedtuple(
+    "Checkpoint", ["path", "meta", "paramfiles"]
+)
 Checkpoint.__doc__ = """NamedTuple describing one saved checkpoint
 
 To select a checkpoint to load from many checkpoint,

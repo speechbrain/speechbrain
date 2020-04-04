@@ -36,6 +36,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 def torch_parameter_transfer(obj, path):
     """Non-strict Torch Module state_dict load
 
@@ -55,17 +56,22 @@ def torch_parameter_transfer(obj, path):
     """
     incompatible_keys = obj.load_state_dict(torch.load(path), strict=False)
     for missing_key in incompatible_keys.missing_keys:
-        logger.warning(f"During parameter transfer to {obj} loading from " +
-                f"{path}, the transferred parameters did not have " +
-                f"parameters for the key: {missing_key}")
+        logger.warning(
+            f"During parameter transfer to {obj} loading from "
+            + f"{path}, the transferred parameters did not have "
+            + f"parameters for the key: {missing_key}"
+        )
     for unexpected_key in incompatible_keys.unexpected_keys:
-        logger.warning(f"During parameter transfer to {obj} loading from " +
-                f"{path}, the object could not use the parameters loaded" +
-                f"with the key: {unexpected_key}")
+        logger.warning(
+            f"During parameter transfer to {obj} loading from "
+            + f"{path}, the object could not use the parameters loaded"
+            + f"with the key: {unexpected_key}"
+        )
 
-def torch_lazy_parameter_transfer(obj,
-        path,
-        load_method=torch_parameter_transfer):
+
+def torch_lazy_parameter_transfer(
+    obj, path, load_method=torch_parameter_transfer
+):
     """Init Torch object from path at first forward() call
 
     Loads a torch.nn.Module state_dict from the given path.
@@ -106,4 +112,3 @@ def torch_lazy_parameter_transfer(obj,
 
     hook = functools.partial(_lazy_transfer_hook, path)
     obj._speechbrain_lazy_transfer_hook = obj.register_forward_pre_hook(hook)
-
