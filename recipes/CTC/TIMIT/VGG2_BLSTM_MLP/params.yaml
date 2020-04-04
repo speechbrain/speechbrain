@@ -18,7 +18,7 @@ constants:
     lr: 1.0
     dropout_rate: 0.15
 
-compute_features: !recipes.features.Features
+compute_features: !speechbrain.lobes.features.Features
     feature_type: fbank
     deltas: False
     context: False
