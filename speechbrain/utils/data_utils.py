@@ -21,24 +21,21 @@ from pydoc import locate
 def get_all_files(
     dirName, match_and=None, match_or=None, exclude_and=None, exclude_or=None
 ):
-    """This function get a list of files within found within a folder.
+    """Returns a list of files within found within a folder.
 
     Different options can be used to restrict the search to some specific
     patterns.
 
-    Args:
-        dirName: the directory to search
-        match_and: a list that contains patterns to match. The file is returned
-            if it matches all the entries in match_and.
-        match_or: a list that contains patterns to match. The file is returned
-            if it matches one or more of the entries in match_or.
-        exclude_and: a list that contains patterns to match. The file is
-            returned if it matches none of the entries in exclude_and.
-        exclude_or: a list that contains pattern to match. The
-            file is returned if fails to match one of the entries in exclude_or
-
-    Returns:
-        a list of files.
+    Parameters:
+        dirName (str): the directory to search
+        match_and (list): a list that contains patterns to match. The file is
+            returned if it matches all the entries in `match_and`.
+        match_or (list): a list that contains patterns to match. The file is
+            returned if it matches one or more of the entries in `match_or`.
+        exclude_and (list): a list that contains patterns to match. The file is
+            returned if it matches none of the entries in `exclude_and`.
+        exclude_or (list): a list that contains pattern to match. The file is
+            returned if it fails to match one of the entries in `exclude_or`.
 
     Example:
         >>> get_all_files('samples/rir_samples', match_and=['3.wav'])
@@ -125,17 +122,14 @@ def get_all_files(
 
 
 def split_list(seq, num):
-    """Split the input list into N parts.
+    """Returns a list of splits in the sequence.
 
-    Args:
-        seq: the input list, to be split
-        num: the number of chunks to produce
-
-    Returns:
-        a list containing all chunks created.
+    Parameters:
+        seq (iterable): the input list, to be split.
+        num (int): the number of chunks to produce.
 
     Example:
-        >>> split_list([1,2,3,4,5,6,7,8,9],4)
+        >>> split_list([1, 2, 3, 4, 5, 6, 7, 8, 9], 4)
         [[1, 2], [3, 4], [5, 6], [7, 8, 9]]
 
     Author:
@@ -157,11 +151,11 @@ def split_list(seq, num):
 def recursive_items(dictionary):
     """Yield each (key, value) of a nested dictionary
 
-    Args:
-        dictionary: the dictionary (or dictionary of dictionaries) to list.
+    Parameters:
+        dictionary (dict): the nested dictionary to list.
 
     Yields:
-        key value tuples from the dictionary.
+        `(key, value)` tuples from the dictionary.
 
     Example:
         >>> rec_dict={'lev1': {'lev2': {'lev3': 'current_val'}}}
@@ -179,20 +173,27 @@ def recursive_items(dictionary):
 
 
 def recursive_update(d, u):
-    """Similar function to dict.update, but for a nested dict
+    """Similar function to `dict.update`, but for a nested `dict`.
 
     If you have to a nested mapping structure, for example:
+
         {"a": 1, "b": {"c": 2}}
+
     Say you want to update the above structure with:
+
         {"b": {"d": 3}}
+
     This function will produce:
+
         {"a": 1, "b": {"c": 2, "d": 3}}
+
     Instead of:
+
         {"a": 1, "b": {"d": 3}}
 
-    Args:
-        d: mapping to be updated
-        u: mapping to update with
+    Parameters:
+        d (dict): mapping to be updated
+        u (dict): mapping to update with
 
     Example:
         >>> d = {'a': 1, 'b': {'c': 2}}
@@ -219,42 +220,44 @@ def load_extended_yaml(
     yaml_string,
     overrides={},
 ):
-    r"""This function implements the SpeechBrain extended YAML syntax
+    r'''This function implements the SpeechBrain extended YAML syntax
 
     The purpose for this syntax is a compact, structured hyperparameter and
     function definition. This function implements two extensions to the yaml
     syntax, references and and object instantiation.
 
-    Reference substitution:
-        Allows internal references to any other node in the file. Any
-        node with tag '!$' will have $<key> references replaced with
-        the referenced value, following reference chains.
+    Reference substitution
+    ----------------------
+    Allows internal references to any scalar node in the file. Any
+    node with tag '!$' will have <key> references replaced with
+    the referenced value, following reference chains.
 
-            constants:
-                output_folder: exp/asr
-            alignment_saver: !asr.ali.hmm.save
-                save_dir: !$ $constants.output_folder # exp/asr
+        constants:
+            output_folder: exp/asr
+        alignment_saver: !asr.ali.hmm.save
+            save_dir: !$ <constants.output_folder> # exp/asr
 
-        Strings values are handled specially: $-strings are substituted but
-        the rest of the string is left in place, allowing filepaths to be
-        easily extended:
+    Strings values are handled specially: references are substituted but
+    the rest of the string is left in place, allowing filepaths to be
+    easily extended:
 
-            constants:
-                output_folder: exp/asr
-            alignment_saver: !asr.ali.hmm.save
-                save_dir: !$ $constants.output_folder/ali # exp/asr/ali
+        constants:
+            output_folder: exp/asr
+        alignment_saver: !asr.ali.hmm.save
+            save_dir: !$ <constants.output_folder>/ali # exp/asr/ali
 
-    Object instantiation:
-        If a '!'-prefixed tag is used, the node is interpreted as the
-        parameters for instantiating the named class. In the previous example,
-        the alignment_saver will be an instance of the asr.ali.hmm.save class,
-        with 'exp/asr/ali' passed to the __init__() method as a keyword
-        argument. This is equivalent to:
+    Object instantiation
+    --------------------
+    If a '!'-prefixed tag is used, the node is interpreted as the
+    parameters for instantiating the named class. In the previous example,
+    the alignment_saver will be an instance of the asr.ali.hmm.save class,
+    with 'exp/asr/ali' passed to the __init__() method as a keyword
+    argument. This is equivalent to:
 
-            import asr.ali.hmm
-            alignment_saver = asr.ali.hmm.save(save_dir='exp/asr/ali')
+        import asr.ali.hmm
+        alignment_saver = asr.ali.hmm.save(save_dir='exp/asr/ali')
 
-    Args:
+    Parameters:
         yaml_string: A file-like object or string from which to read.
         overrides: mapping with which to override the values read the string.
             As yaml implements a nested structure, so can the overrides.
@@ -264,17 +267,18 @@ def load_extended_yaml(
         A dictionary reflecting the structure of `yaml_string`.
 
     Example:
-        >>> yaml_string = (""
-        ... "constants:\n"
-        ... "  a: 3\n"
-        ... "thing: !collections.Counter\n"
-        ... "  b: !$ <constants.a>")
+        >>> yaml_string = """
+        ... constants:
+        ...     a: 3
+        ... thing: !collections.Counter
+        ...     b: !$ <constants.a>
+        ... """
         >>> load_extended_yaml(yaml_string)
         {'constants': {'a': 3}, 'thing': Counter({'b': 3})}
 
     Authors:
         Aku Rouhe and Peter Plantinga 2020
-    """
+    '''
 
     # Load once to store references and apply overrides
     # using ruamel.yaml to preserve the tags
@@ -305,18 +309,20 @@ def load_extended_yaml(
     return yaml.load(yaml_string, Loader=CustomLoader)
 
 
-def object_constructor(loader, class_name, node):
+def object_constructor(loader, callable_string, node):
     """A constructor method for a '!' tag with a class name.
 
     The class is instantiated, and the sub-tree is passed as arguments.
 
-    Args:
-        loader: The loader used to call this constructor (e.g. CustomLoader)
-        class_name: The name of the class (suffix after the '!' in this case)
-        node: The sub-tree belonging to the tagged node
+    Parameters:
+        loader (yaml loader): The loader used to call this constructor
+            (e.g. `yaml.SafeLoader`).
+        callable_string (str): The name of the callables (suffix after
+            the '!' in this case).
+        node (yaml.Node): The sub-tree belonging to the tagged node.
 
     Returns:
-        The instantiated class
+        The result of calling the callable.
 
     Author:
         Peter Plantinga 2020
@@ -325,51 +331,57 @@ def object_constructor(loader, class_name, node):
     # Parse arguments from the node
     if isinstance(node, yaml.MappingNode):
         kwargs = loader.construct_mapping(node, deep=True)
-        return instantiate(class_name, kwargs=kwargs)
+        return call(callable_string, kwargs=kwargs)
     elif isinstance(node, yaml.SequenceNode):
         args = loader.construct_sequence(node, deep=True)
-        return instantiate(class_name, args=args)
+        return call(callable_string, args=args)
 
-    return instantiate(class_name)
+    return call(callable_string)
 
 
-def instantiate(class_name, args=[], kwargs={}):
-    """Use pydoc.locate to create an instance of the specified class+params.
+def call(callable_string, args=[], kwargs={}):
+    """Use pydoc.locate to create the callable, and then call it.
 
-    Args:
-        class_name: The fully-qualified name of the class to instantiate.
-        args: A list of parameters to pass the the class.
-        kwargs: A dict defining keyword parameters to pass to the class.
+    Parameters:
+        callable_string (str): The fully-qualified name of a callable.
+        args (list): A list of parameters to pass to the callable.
+        kwargs (dict): A dict defining keyword parameters to pass to the
+            callable.
 
     Example:
         >>> kwargs = {'in_features': 100, 'out_features': 100}
-        >>> model = instantiate('torch.nn.Linear', kwargs=kwargs)
+        >>> model = call('torch.nn.Linear', kwargs=kwargs)
         >>> model.__class__.__name__
         'Linear'
+
+    Raises:
+        ImportError: An invalid callable string was passed.
+        TypeError: An invalid parameter was passed.
 
     Author:
         Peter Plantinga 2020
     """
-    class_ = locate(class_name)
-    if class_ is None:
-        raise ImportError('There is no such class as %s' % class_name)
+    callable_ = locate(callable_string)
+    if callable_ is None:
+        raise ImportError('There is no such callable as %s' % callable_string)
 
-    signature = inspect.signature(class_)
+    signature = inspect.signature(callable_)
 
     try:
         signature.bind(*args, **kwargs)
     except TypeError as e:
-        raise TypeError('Invalid argument to class %s' % class_name) from e
+        err_msg = 'Invalid argument to callable %s' % callable_string
+        raise TypeError(err_msg) from e
 
-    return class_(*args, **kwargs)
+    return callable_(*args, **kwargs)
 
 
 def deref(ref, preview):
     """Find the value referred to by a reference in dot-notation
 
-    Args:
-        ref: The location of the requested value, e.g. 'constants.param'
-        preview: The dictionary to use for finding values
+    Parameters:
+        ref (str): The location of the requested value, e.g. 'constants.param'
+        preview (dict): The dictionary to use for finding values
 
     Returns:
         The value in the preview dictionary referenced by ref
@@ -400,14 +412,16 @@ def deref(ref, preview):
 def recursive_resolve(reference, reference_list, preview):
     """Resolve a reference to a value, following chained references
 
-    Args:
-        reference: the current reference
-        reference list: list of prior references in the chain, in order
-            to catch circular references
-        preview: the dictionary that stores all the values and references
+    Parameters:
+        reference (str): a string containing '<x.y>' in it where x.y refers
+            to a scalar node in the file.
+        reference_list (list): list of prior references in the chain, in order
+            to catch circular references.
+        preview (dict): the dictionary that stores all references and their
+            values.
 
     Returns:
-        The dereferenced value, with possible string interpolation
+        The dereferenced value, with possible string interpolation.
 
     Example:
         >>> preview = {'a': 3, 'b': '<a>', 'c': '<b>/<b>'}
@@ -444,15 +458,16 @@ def recursive_resolve(reference, reference_list, preview):
     return recursive_resolve(sub, reference_list, preview)
 
 
-def compute_amplitude(waveform, length):
+def compute_amplitude(waveforms, lengths):
     """Compute the average amplitude of a batch of waveforms.
 
-    Args:
-        waveform: The waveforms used for computing amplitude
-        length: The length of the (un-padded) waveforms
+    Parameters:
+        waveform (tensor): The waveforms used for computing amplitude.
+        lengths: The lengths of the waveforms excluding the padding
+            added to put all waveforms in the same tensor.
 
     Returns:
-        the average amplitude of the waveforms
+        The average amplitude of the waveforms.
 
     Example:
         >>> import torch
@@ -484,7 +499,7 @@ def convolve1d(
 ):
     """Use torch.nn.functional to perform 1d padding and conv.
 
-    Args:
+    Parameters:
         waveform: The tensor to perform operations on.
         kernel: The filter to apply during convolution
         padding: The padding (pad_left, pad_right) to apply.
@@ -511,7 +526,7 @@ def convolve1d(
             to shift the output location.
 
     Returns:
-        convolved waveform (type: torch.tensor)
+        The convolved waveform.
 
     Example:
         >>> import torch
@@ -579,13 +594,10 @@ def convolve1d(
 
 
 def dB_to_amplitude(SNR):
-    """Convert decibels to amplitude
+    """Returns the amplitude ratio, converted from decibels.
 
-    Args:
-        SNR: The ratio in decibels to convert
-
-    Returns:
-        ratio between average amplitudes
+    Parameters:
+        SNR (float): The ratio in decibels to convert.
 
     Example:
         >>> round(dB_to_amplitude(SNR=10), 3)
@@ -598,18 +610,15 @@ def dB_to_amplitude(SNR):
 
 
 def notch_filter(notch_freq, filter_width=101, notch_width=0.05):
-    """Simple notch filter constructed from a high-pass and low-pass filter.
+    """Returns a notch filter constructed from a high-pass and low-pass filter.
 
-    Args:
-        notch_freq: frequency to put notch as a fraction of the
+    Parameters:
+        notch_freq (float): frequency to put notch as a fraction of the
             sampling rate / 2. The range of possible inputs is 0 to 1.
-        filter_width: Filter width in samples. Longer filters have smaller
-            transition bands, but are more inefficient
-        notch_width: Width of the notch, as a fraction of the
+        filter_width (int): Filter width in samples. Longer filters have
+            smaller transition bands, but are more inefficient.
+        notch_width (float): Width of the notch, as a fraction of the
             sampling_rate / 2.
-
-    Returns:
-        notch filter
 
     Example:
         >>> import torch
