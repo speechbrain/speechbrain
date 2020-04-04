@@ -1,9 +1,8 @@
-"""
- -----------------------------------------------------------------------------
- data_utils.py
+"""This library gathers utilities for data io operation.
 
- Description: This library gathers utils for data io operation.
- -----------------------------------------------------------------------------
+Perhaps the most notable utility is the `load_extended_yaml` function
+which implements the extended YAML syntax that SpeechBrain uses for
+hyperparameters.
 """
 
 import os
