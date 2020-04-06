@@ -42,8 +42,8 @@ Example:
     ...     data = [(0.1, 0.9), (0.3, 0.8)]
     ...     for example, target in data:
     ...         loss = (model(example) - target)**2
-    ...         # 3. Save checkpoints:
-    ...         ckpt = checkpointer.save_checkpoint()
+    ...         # 3. Save checkpoints, and keep by default just one, the newest:
+    ...         ckpt = checkpointer.save_and_keep_only()
 
 Author:
     Aku Rouhe 2020
@@ -59,6 +59,7 @@ import yaml
 import pathlib
 import inspect
 import functools
+import shutil
 
 CKPT_PREFIX = "CKPT"
 METAFNAME = f"{CKPT_PREFIX}.yaml"  # Important that this is not .ckpt
@@ -75,8 +76,10 @@ def torch_recovery(obj, path):
         obj (torch.nn.Module): Instance for which to
             load the parameters
         path (str, pathlib.Path): Path where to load from
+
     Returns:
         None - given object is modified in place
+
     Author:
         Aku Rouhe 2020
     """
@@ -103,11 +106,14 @@ def torch_lazy_recovery(obj, path, load_method=torch_recovery):
         load_method (callable): Callable with signature (instance, path)
             [e.g. def load(self, path)], which actually performs the
             recovery from the given path.
+
     Returns:
         None - given object is modified in place
+
     Note:
         The hook is added as the _speechbrain_lazy_recovery_hook attribute,
         which could theoretically conflict with other attributes
+
     Author:
         Aku Rouhe 2020
     """
@@ -132,6 +138,7 @@ def torch_save(obj, path):
         path (str, pathlib.Path): Path where to save to
     Returns:
         None - state dict is written to disk.
+
     Author:
         Aku Rouhe 2020
     """
@@ -158,8 +165,10 @@ def mark_as_saver(method):
         method: Method of the class to decorate. Must be callable with
             signature (instance, path) using positional arguments. This is
             satisfied by for example: def saver(self, path):
+
     Example:
         See register_checkpoint_hooks
+
     Author:
         Aku Rouhe 2020
     """
@@ -184,8 +193,10 @@ def mark_as_loader(method):
         method: Method of the class to decorate. Must be callable with
             signature (instance, path) using positional arguments. This is
             satisfied by for example: def loader(self, path):
+
     Example:
         See register_checkpoint_hooks
+
     Author:
         Aku Rouhe 2020
     """
@@ -203,23 +214,25 @@ def register_checkpoint_hooks(cls):
     """Class decorator which registers the recover load and save hooks
 
     The hooks must have been marked with mark_as_loader and mark_as_saver.
+
     Args:
         cls: Class to decorate
+
     Example:
         >>> @register_checkpoint_hooks
-        >>> class CustomRecoverable:
-        >>>     def __init__(self, param):
-        >>>         self.param = int(param)
-
-        >>>     @mark_as_saver
-        >>>     def save(self, path):
-        >>>         with open(path, "w") as fo:
-        >>>             fo.write(str(self.param))
-
-        >>>     @mark_as_loader
-        >>>     def load(self, path):
-        >>>         with open(path) as fi:
-        >>>             self.param = int(fi.read())
+        ... class CustomRecoverable:
+        ...     def __init__(self, param):
+        ...         self.param = int(param)
+        ... 
+        ...     @mark_as_saver
+        ...     def save(self, path):
+        ...         with open(path, "w") as fo:
+        ...             fo.write(str(self.param))
+        ... 
+        ...     @mark_as_loader
+        ...     def load(self, path):
+        ...         with open(path) as fi:
+        ...             self.param = int(fi.read())
 
     Author:
         Aku Rouhe 2020
@@ -244,8 +257,10 @@ def get_default_hook(obj, default_hooks):
     Args:
         obj: Instance of a class
         default_hooks: Mapping from classes to (checkpointing hook) functions
+
     Returns:
         The correct method or None if no method is registered.
+
     Example:
         >>> a = torch.nn.Module()
         >>> get_default_hook(a, DEFAULT_SAVE_HOOKS) == torch_save
@@ -269,23 +284,27 @@ Checkpoint.__doc__ = """NamedTuple describing one saved checkpoint
 
 To select a checkpoint to load from many checkpoint,
 Checkpoints are first filtered and sorted based on this namedtuple.
-Checkpointers put pathlib.Path in path and a dict in meta
-You can essentially add any info you want to meta when saving a checkpoint
-The only default key in meta is "unixtime"
-Checkpoint.parameters is a dict from recoverable name to parameter filepath
+Checkpointers put pathlib.Path in path and a dict in meta.
+You can essentially add any info you want to meta when saving a checkpoint.
+The only default key in meta is "unixtime".
+Checkpoint.parameters is a dict from recoverable name to parameter filepath.
+
+Author:
+    Aku Rouhe 2020
 """
 
 
-# These internal functions also act as examples of how to make checkpoint
-# filters and keyfuncs. These are proper functions, but as you can see
-# they could be easily implemented as lambdas in a pinch.
-def _latest_ckpt_keyfunc(ckpt):
-    # Negative of unixtime -> latest first
-    return -ckpt.meta["unixtime"]
+def ckpt_recency(ckpt):
+    """Recency as Checkpoint importance metric
 
+    This function can also act as an example of how to make checkpoint
+    importance keyfuncs. This is a named function, but as you can see
+    it could be easily implemented as a lambda in a pinch.
 
-def _latest_ckpt_filter(ckpt):
-    return "unixtime" in ckpt.meta
+    Author:
+        Aku Rouhe 2020
+    """
+    return ckpt.meta["unixtime"]
 
 
 class Checkpointer:
@@ -318,6 +337,7 @@ class Checkpointer:
             for every registered recoverable. In that case, only the found 
             savefiles are loaded. When False, loading such a save will raise 
             RuntimeError.
+
     Example:
         >>> from speechbrain.utils.checkpoints import Checkpointer
         >>> import torch
@@ -334,9 +354,9 @@ class Checkpointer:
         >>> with tempfile.TemporaryDirectory() as tempdir:
         ...     # SETUP DONE.
         ...     checkpointer = Checkpointer(tempdir, recoverables)
-        ...     ckpt = checkpointer.save_checkpoint()
+        ...     first_ckpt = checkpointer.save_checkpoint()
         ...     recoverable.param.data = torch.tensor([2.])
-        ...     ckpt = checkpointer.recover_if_possible()
+        ...     loaded_ckpt = checkpointer.recover_if_possible()
         ...     # Parameter hasn't been loaded yet:
         ...     assert recoverable.param.data == torch.tensor([2.])
         ...     result = recoverable(10.)
@@ -344,6 +364,9 @@ class Checkpointer:
         ...     assert recoverable.param.data == torch.tensor([1.])
         ...     # And parameter was loaded before computation:
         ...     assert result == 10.
+        ...     # With this call, by default, oldest checkpoints are deleted:
+        ...     checkpointer.save_and_keep_only()
+        ...     assert first_ckpt not in checkpointer.list_checkpoints() 
 
     Author:
         Aku Rouhe 2020
@@ -429,8 +452,9 @@ class Checkpointer:
             meta (mapping, optional): A mapping which is added to the meta 
                 file in the checkpoint. The key "unixtime" is included by 
                 default.
+
         Returns:
-            Checkpoint namedtuple [see above], the saved checkpoint as
+            Checkpoint namedtuple [see above], the saved checkpoint
         """
         if name is None:
             ckpt_dir = self._new_checkpoint_dirpath()
@@ -458,57 +482,88 @@ class Checkpointer:
             raise RuntimeError(MSG)
         return Checkpoint(ckpt_dir, saved_meta, saved_paramfiles)
 
-    def find_checkpoint(
+    def save_and_keep_only(
         self,
-        ckpt_sort_key=_latest_ckpt_keyfunc,
-        ckpt_filter=_latest_ckpt_filter,
+        name=None,
+        meta={},
+        num_to_keep=1,
+        importance_keys=[ckpt_recency],
+        ckpt_predicate=None,
+    ):
+        """Saves a checkpoint, then deletes the least important checkpoints
+
+        Essentially this combines save_checkpoint() and delete_checkpoints()
+        in one call, only provided for very short syntax in simple cases.
+
+        Arguments:
+            name (str, optional): See `save_checkpoint`
+            meta (mapping, optional): See `save_checkpoint`
+            num_to_keep (int, optional): See `delete_checkpoints`
+            importance_keys (callable, optional): See `delete_checkpoints`
+            ckpt_predicate (callable, optional): See `delete_checkpoints`
+
+        Returns:
+            None - Unlike save_checkpoint, this does not return anything, since
+            we cannot guarantee that the saved checkpoint actually survives 
+            deletion.
+        """
+        self.save_checkpoint(name=name, meta=meta)
+        self.delete_checkpoints(
+            num_to_keep=num_to_keep,
+            importance_keys=importance_keys,
+            ckpt_predicate=ckpt_predicate,
+        )
+
+    def find_checkpoint(
+        self, importance_key=ckpt_recency, ckpt_predicate=None,
     ):
         """Picks a particular checkpoint from all available checkpoints.
         
         Args:
-            ckpt_sort_key (callable, optional): The key function used in
-                sorting (see the sorted built-in). The first checkpoint in the
-                list after sorting is picked. The function is called with
+            importance_key (callable, optional): The key function used in
+                sorting (see the max built-in). The checkpoint with the 
+                highest key value is picked. By default, the key value is
+                unixtime. The higher the unixtime, the newer -> the latest
+                checkpoint is picked. The function is called with
                 Checkpoint namedtuples (see above). See also the default
-                (_latest_ckpt_keyfunc, above). The default pick "unixtime" from
-                the Checkpoint meta.
-            ckpt_filter (callable, optional): Before sorting, the list of
-                checkpoints is filtered with this. The function is called with
-                Checkpoint namedtuples (see above). See also the default
-                (_latest_ckpt_filter, above). The default filter out any
-                Checkpoints which donot have the "unixtime" key in meta.
+                (ckpt_recency, above).
+            ckpt_predicate (callable, optional): Before sorting, the list of
+                checkpoints is filtered with this predicate. 
+                See the filter builtin.
+                The function is called with Checkpoint namedtuples (see above). 
+                By default, all checkpoints are considered.
+
         Returns:
             The picked Checkpoint
             OR
             None if no Checkpoints exist/remain after filtering
         """
         ckpts = self.list_checkpoints()
-        ckpts = list(filter(ckpt_filter, ckpts))
+        ckpts = list(filter(ckpt_predicate, ckpts))
         if ckpts:
-            chosen_ckpt = sorted(ckpts, key=ckpt_sort_key)[0]
+            chosen_ckpt = max(ckpts, key=importance_key)
             return chosen_ckpt
         else:
             return None  # Be explicit :)
 
     def recover_if_possible(
-        self,
-        ckpt_sort_key=_latest_ckpt_keyfunc,
-        ckpt_filter=_latest_ckpt_filter,
+        self, importance_key=ckpt_recency, ckpt_predicate=None,
     ):
         """Picks a checkpoint and recovers from that, if one is found.
         
         If a checkpoint is not found, no recovery is run.
 
         Args:
-            ckpt_sort_key (callable, optional): See find_checkpoint above.
-            ckpt_sort_filter (callable, optional): See find_checkpoint above.
+            importance_key (callable, optional): See find_checkpoint above.
+            ckpt_predicate (callable, optional): See find_checkpoint above.
+
         Returns:
             The picked, recovered Checkpoint
             OR
             None if no checkpoints exist/remain after filtering (and in this
                 case no recovery is done).
         """
-        chosen_ckpt = self.find_checkpoint(ckpt_sort_key, ckpt_filter)
+        chosen_ckpt = self.find_checkpoint(importance_key, ckpt_predicate)
         if chosen_ckpt is not None:
             self.load_checkpoint(chosen_ckpt)
         return chosen_ckpt
@@ -529,18 +584,83 @@ class Checkpointer:
         """
         return self._load_checkpoint_extra_data(self._list_checkpoint_dirs())
 
+    # NOTE: * in arglist -> keyword only arguments
+    def delete_checkpoints(
+        self,
+        *,
+        num_to_keep=1,
+        importance_keys=[ckpt_recency],
+        ckpt_predicate=None,
+    ):
+        """Deletes least important checkpoints.
+        
+        Since there can be many ways to define importance (e.g. lowest WER,
+        lowest loss), the user should provide a list of sort key functions, 
+        each defining a particular importance order. In essence, each 
+        importance key function extracts one importance metric (higher is more
+        important). For each of these orders, num_to_keep checkpoints are kept.
+        However if there is overlap between each orders' preserved checkpoints,
+        the additional checkpoints are not preserved, so the total number of
+        preserved checkpoints can be less than 
+            num_to_keep * len(importance_keys)
+        
+        Arguments:
+            num_to_keep (int, optional): Number of checkpoints to keep.
+                Defaults to 10. You choose to keep 0. This deletes all
+                checkpoints remaining after filtering. Must be >=0
+            importance_keys (list, optional): A list of key functions used 
+                in sorting (see the sorted built-in). Each callable defines a 
+                sort order and num_to_keep checkpoints are kept for each 
+                callable. To be clear, those with the highest key are 
+                kept. 
+                The functions are called with Checkpoint namedtuples 
+                (see above). See also the default (ckpt_recency, 
+                above). The default deletes all but the latest checkpoint.
+            ckpt_predicate (callable, optional): Use this to exclude some 
+                checkpoints from deletion. Before any sorting, the list of
+                checkpoints is filtered with this predicate. Only the 
+                checkpoints for which ckpt_predicate is True can be deleted.
+                The function is called with Checkpoint namedtuples (see above). 
+
+        Note:
+            Must be called with keyword arguments, as a signoff that you 
+            know what you are doing. Deletion is permanent.
+        """
+        if num_to_keep < 0:
+            raise ValueError("Number of checkpoints to keep must be positive.")
+        ckpts = self.list_checkpoints()
+        ckpts = list(filter(ckpt_predicate, ckpts))
+        protected_checkpoints = []
+        for importance_key in importance_keys:
+            to_keep = sorted(ckpts, key=importance_key, reverse=True)[
+                :num_to_keep
+            ]
+            protected_checkpoints.extend(to_keep)
+        for ckpt in ckpts:
+            if ckpt not in protected_checkpoints:
+                Checkpointer._delete_checkpoint(ckpt)
+
+    @staticmethod
+    def _delete_checkpoint(checkpoint):
+        if not Checkpointer._is_checkpoint_dir(checkpoint.path):
+            raise RuntimeError("Checkpoint does not appear valid for deletion.")
+        shutil.rmtree(checkpoint.path)
+
     def _call_load_hooks(self, checkpoint):
         # This internal function finds the correct hook to call for every
         # recoverable, and calls it.
         for name, obj in self.recoverables.items():
-            objfname = f"{name}.ckpt"
-            loadpath = checkpoint.path / objfname
-            if not loadpath.exists():
+            # NOTE: We want the checkpoint namedtuple to have the paramfile
+            # paths for each recoverable.
+            # In some rare case, the user can e.g. add a path there manually.
+            try:
+                loadpath = checkpoint.paramfiles[name]
+            except KeyError:
                 if self.allow_partial_load:
                     continue
                 else:
                     MSG = f"Loading checkpoint from {checkpoint.path}, \
-                            expected {loadpath} to exist"
+                            expected a load path for {name}"
                     raise RuntimeError(MSG)
             # First see if object has custom load hook:
             if name in self.custom_load_hooks:
@@ -551,7 +671,7 @@ class Checkpointer:
             if default_hook is not None:
                 default_hook(obj, loadpath)
                 continue
-            # If we got here, no custom hook or registered default hook
+            # If we got here, no custom hook or registered default hook exists
             MSG = f"Don't know how to load {type(obj)}. Register default hook \
                     or add custom hook for this object."
             raise RuntimeError(MSG)
