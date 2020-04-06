@@ -284,10 +284,10 @@ Checkpoint.__doc__ = """NamedTuple describing one saved checkpoint
 
 To select a checkpoint to load from many checkpoint,
 Checkpoints are first filtered and sorted based on this namedtuple.
-Checkpointers put pathlib.Path in path and a dict in meta
-You can essentially add any info you want to meta when saving a checkpoint
-The only default key in meta is "unixtime"
-Checkpoint.parameters is a dict from recoverable name to parameter filepath
+Checkpointers put pathlib.Path in path and a dict in meta.
+You can essentially add any info you want to meta when saving a checkpoint.
+The only default key in meta is "unixtime".
+Checkpoint.parameters is a dict from recoverable name to parameter filepath.
 
 Author:
     Aku Rouhe 2020
@@ -482,10 +482,14 @@ class Checkpointer:
             raise RuntimeError(MSG)
         return Checkpoint(ckpt_dir, saved_meta, saved_paramfiles)
 
-    def save_and_keep_only(self, name=None, meta={}, 
-            num_to_keep = 1,
-            importance_keys=[ckpt_recency],
-            ckpt_predicate=None):
+    def save_and_keep_only(
+        self,
+        name=None,
+        meta={},
+        num_to_keep=1,
+        importance_keys=[ckpt_recency],
+        ckpt_predicate=None,
+    ):
         """Saves a checkpoint, then deletes the least important checkpoints
 
         Essentially this combines save_checkpoint() and delete_checkpoints()
@@ -503,15 +507,15 @@ class Checkpointer:
             we cannot guarantee that the saved checkpoint actually survives 
             deletion.
         """
-        self.save_checkpoint(name = name, meta = meta)
-        self.delete_checkpoints(num_to_keep = num_to_keep, 
-                importance_keys = importance_keys, 
-                ckpt_predicate = ckpt_predicate)
+        self.save_checkpoint(name=name, meta=meta)
+        self.delete_checkpoints(
+            num_to_keep=num_to_keep,
+            importance_keys=importance_keys,
+            ckpt_predicate=ckpt_predicate,
+        )
 
     def find_checkpoint(
-        self,
-        importance_key=ckpt_recency,
-        ckpt_predicate=None,
+        self, importance_key=ckpt_recency, ckpt_predicate=None,
     ):
         """Picks a particular checkpoint from all available checkpoints.
         
@@ -537,15 +541,13 @@ class Checkpointer:
         ckpts = self.list_checkpoints()
         ckpts = list(filter(ckpt_predicate, ckpts))
         if ckpts:
-            chosen_ckpt = max(ckpts, key = importance_key)
+            chosen_ckpt = max(ckpts, key=importance_key)
             return chosen_ckpt
         else:
             return None  # Be explicit :)
 
     def recover_if_possible(
-        self,
-        importance_key=ckpt_recency,
-        ckpt_predicate=None,
+        self, importance_key=ckpt_recency, ckpt_predicate=None,
     ):
         """Picks a checkpoint and recovers from that, if one is found.
         
@@ -583,10 +585,13 @@ class Checkpointer:
         return self._load_checkpoint_extra_data(self._list_checkpoint_dirs())
 
     # NOTE: * in arglist -> keyword only arguments
-    def delete_checkpoints(self, *,
-            num_to_keep = 1,
-            importance_keys=[ckpt_recency],
-            ckpt_predicate=None):
+    def delete_checkpoints(
+        self,
+        *,
+        num_to_keep=1,
+        importance_keys=[ckpt_recency],
+        ckpt_predicate=None,
+    ):
         """Deletes least important checkpoints.
         
         Since there can be many ways to define importance (e.g. lowest WER,
@@ -627,10 +632,9 @@ class Checkpointer:
         ckpts = list(filter(ckpt_predicate, ckpts))
         protected_checkpoints = []
         for importance_key in importance_keys:
-            to_keep = sorted(ckpts, 
-                    key = importance_key, 
-                    reverse = True
-                )[:num_to_keep]
+            to_keep = sorted(ckpts, key=importance_key, reverse=True)[
+                :num_to_keep
+            ]
             protected_checkpoints.extend(to_keep)
         for ckpt in ckpts:
             if ckpt not in protected_checkpoints:
@@ -650,7 +654,7 @@ class Checkpointer:
             # paths for each recoverable.
             # In some rare case, the user can e.g. add a path there manually.
             try:
-                loadpath = checkpoint.paramfiles[name] 
+                loadpath = checkpoint.paramfiles[name]
             except KeyError:
                 if self.allow_partial_load:
                     continue
