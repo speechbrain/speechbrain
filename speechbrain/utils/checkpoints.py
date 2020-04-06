@@ -119,12 +119,15 @@ def torch_lazy_recovery(obj, path, load_method=torch_recovery):
     """
     # Use this hook with functools.partial to save objpath properly
     # Otherwise, objpath is searched for dynamically (and has probably changed)
-    def _lazy_recovery_hook(path, self, *input):
+    def _lazy_recovery_hook(path, self, input, output):
         load_method(self, path)
         self._speechbrain_lazy_recovery_hook.remove()
 
+        # Re-do forward now that the parameters are loaded
+        return self.forward(*input)
+
     hook = functools.partial(_lazy_recovery_hook, path)
-    obj._speechbrain_lazy_recovery_hook = obj.register_forward_pre_hook(hook)
+    obj._speechbrain_lazy_recovery_hook = obj.register_forward_hook(hook)
 
 
 def torch_save(obj, path):

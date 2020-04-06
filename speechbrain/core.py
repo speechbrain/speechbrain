@@ -9,6 +9,7 @@ import logging
 import inspect
 import argparse
 from speechbrain.utils.logger import setup_logging
+from speechbrain.utils.checkpoints import Checkpointer
 from speechbrain.utils.data_utils import load_extended_yaml
 logger = logging.getLogger(__name__)
 
@@ -16,20 +17,53 @@ logger = logging.getLogger(__name__)
 class Experiment:
     r'''A class for reading configuration files and creating folders
 
-    The experiment class implements important functionality related to
-    running experiments, such as setting up the experimental directories
-    and loading hyperparameters. A few key parameters, listed below,
-    can be set in three ways, in increasing priority order.
+    The primary method for specifying parameters for an experiment is
+    to provide a YAML file with the syntax extensions described by
+    `speechbrain.utils.data_utils.load_extended_yaml`. In addition,
+    the Experiment class expects the loaded YAML to have three
+    top-level sections: `constants`, `saveables`, and `functions`.
+    These three sections indicate the following:
 
-    1. They may be passed to the `__init__()` method for this class
-    2. They may be stored in a yaml file, the name of which is
-        passed to the `__init__()` method of this class.
-    3. They may be passed as command-line arguments.
+    Constants
+    ---------
+    These items are expected to be scalar nodes that can be referenced
+    throughout the file by using the extended YAML reference tags `!$`.
+    In addition, a few constants are treated as experimental arguments:
 
-    Any of the keys listed in the yaml file may be overriden using
-    the `overrides` parameter passed either via `__init__()` or
-    via the command-line. The value of this parameter should be a
-    yaml-formatted string, though a shortcut has been provided for
+    * output_folder (str): The experimental directory for logs, results,
+        labels, and other experimental files.
+    * local_folder (str): The directory to use for local storage.
+    * save_folder (str): The directory to use for storing parameters
+        (see next section).
+    * ckpts_to_keep (int): The number of "best" checkpoints to keep.
+    * seed (int): The random seed for reproducing the experiment on the same
+        device on the same machine.
+    * log_config (str): A yaml file specifying how logging should be done.
+
+    These arguments can be specified in the command line, for easier
+    spawning of multiple experiments.
+
+    Saveables
+    ---------
+    These items are expected to be instances of sub-classes of
+    `torch.nn.Module`, so that the relevant parameters can be automatically
+    discovered and saved. The parameters are saved in the `save_folder`
+    which should be specified in the `Constants` section above. In
+    addition, these items will be made available as attributes of
+    the `Experiment` instance, so they can be easily accessed.
+
+    Functions
+    ---------
+    Additional functions that do not need to have their state saved
+    by the saver. Like the items defined in `Saveables`, all of these
+    items will be added as attributes to the `Experiment` instance,
+    so that they can be easily accessed.
+
+    Overrides
+    ---------
+    Any of the keys listed in the yaml file may be overriden via the
+    command-line argument: `yaml_overrides`. The value of this argument should
+    be a yaml-formatted string, though a shortcut has been provided for
     nested items, e.g.
 
         {model.arg1: value, model.arg2.arg3: 3., model.arg2.arg4: True}
@@ -38,22 +72,12 @@ class Experiment:
 
         {'model': {'arg1': 'value', 'arg2': {'arg3': 3., 'arg4': True}}}
 
-    Parameters:
+    Arguments:
         yaml_stream (stream): A file-like object or string containing
             experimental parameters. The format of the file is described in
-            the method `load_extended_yaml()`. The rest of the parameters to
-            this function may also be specified in the command-line parameters
-            or in the `constants:` section of the yaml file.
-        yaml_overrides (str): A yaml-formatted string containing overrides for
-            the parameters listed in the file passed to `param_filename`.
-        output_folder (str): A folder to store the results of the experiment,
-            as well as any checkpoints, logs, or other generated data.
-        seed (int): The random seed used to ensure the experiment is
-            reproducible if executed on the same device on the same machine.
-        log_config (str): The name of a file specifying the parameters for
-            logging, in yaml format.
+            the method `speechbrain.load_extended_yaml()`.
         commandline_args (list): The arguments from the command-line for
-            overriding the other parameters to this method
+            overriding the experimental parameters.
 
     Example:
         >>> yaml_string = """
@@ -71,53 +95,90 @@ class Experiment:
     def __init__(
         self,
         yaml_stream,
-        yaml_overrides='',
-        output_folder=None,
-        seed=None,
-        log_config='logging.yaml',
         commandline_args=[],
     ):
-        # Initialize stored values
-        self.constants = {
-            'output_folder': output_folder,
-            'seed': seed,
-            'log_config': log_config,
-        }
-
         # Parse yaml overrides, with command-line args taking precedence
-        # over the parameters passed to this method. These overrides
-        # will take precedence over the parameters listed in the file.
-        overrides = parse_overrides(yaml_overrides)
+        # precedence over the parameters listed in the file.
+        overrides = {}
         cmd_args = parse_arguments(commandline_args)
         if 'yaml_overrides' in cmd_args:
-            overrides.update(parse_overrides(cmd_args['yaml_overrides']))
+            overrides = parse_overrides(cmd_args['yaml_overrides'])
 
         # Load parameters file and store
         parameters = load_extended_yaml(yaml_stream, overrides)
-        self._update_attributes(parameters)
+        self._update_attributes(parameters['constants'])
+        self._update_attributes(parameters['saveables'])
+        self._update_attributes(parameters['functions'])
         self._update_attributes(cmd_args)
 
         # Use experimental parameters to initialize experiment
-        if self.constants['seed'] is not None:
-            torch.manual_seed(self.constants['seed'])
+        if self.seed is not None:
+            torch.manual_seed(self.seed)
+
+        # Stuff depending on having an output_folder
         logger_overrides = {}
-        if self.constants['output_folder']:
-            if not os.path.isdir(self.constants['output_folder']):
-                os.makedirs(self.constants['output_folder'])
+        if hasattr(self, 'output_folder'):
+            if not os.path.isdir(self.output_folder):
+                os.makedirs(self.output_folder)
+
+            # Change logging file to be in output dir
             logger_override_string = (
                 '{handlers.file_handler.filename: %s}'
-                % os.path.join(self.constants['output_folder'], 'log.txt')
+                % os.path.join(self.output_folder, 'log.txt')
             )
             logger_overrides = parse_overrides(logger_override_string)
-        logger = setup_logging(log_config, logger_overrides)
 
-        # Automatically log any exceptions that are raised
+            # Create checkpointer for loading/saving state
+            if hasattr(self, 'save_folder'):
+                self.saver = Checkpointer(
+                    checkpoints_dir=self.save_folder,
+                    recoverables=parameters['saveables'],
+                )
+
+        # Log exceptions automatically
+        if not hasattr(self, 'log_config'):
+            self.log_config = 'logging.yaml'
+        logger = setup_logging(self.log_config, logger_overrides)
         sys.excepthook = _logging_excepthook
+
+    def recover_if_possible(self, importance_key=None):
+        """See `speechbrain.utils.checkpoints.Checkpointer.recover_if_possible`
+        """
+        if hasattr(self, 'saver'):
+            if importance_key is None:
+                self.saver.recover_if_possible()
+            else:
+                self.saver.recover_if_possible(importance_key)
+        else:
+            raise KeyError(
+                'The field <constants.output_folder> and the field '
+                '<constants.save_folder> must both be '
+                'specified in order to load a checkpoint.'
+            )
+
+    def save_and_keep_only(self, meta={}, importance_keys=None, **kwargs):
+        """See `speechbrain.utils.checkpoints.Checkpointer.save_and_keep_only`
+        """
+        if hasattr(self, 'saver'):
+            if importance_keys is None:
+                self.saver.save_and_keep_only(meta=meta, **kwargs)
+            else:
+                self.saver.save_and_keep_only(
+                    meta=meta,
+                    importance_keys=importance_keys,
+                    **kwargs
+                )
+        else:
+            raise KeyError(
+                'The field <constants.output_folder> and the field '
+                '<constants.save_folder> must both be '
+                'specified in order to save a checkpoint.'
+            )
 
     def _update_attributes(self, attributes):
         r'''Update the attributes of this class to reflect a set of parameters
 
-        Parameters:
+        Arguments:
             attributes: A dict that contains the essential parameters for
                 running the experiment. Usually loaded from a yaml file using
                 `load_extended_yaml()`.
@@ -143,7 +204,7 @@ def _logging_excepthook(exc_type, exc_value, exc_traceback):
 def parse_arguments(arg_list):
     """Parse command-line arguments to the experiment.
 
-    Parameters:
+    Arguments:
         arg_list: a list of arguments to parse, most often from sys.argv[1:]
 
     Example:
@@ -169,6 +230,21 @@ def parse_arguments(arg_list):
         help='A folder for storing all experiment-related outputs.',
     )
     parser.add_argument(
+        '--local_folder',
+        help='A folder for storing temporary on-disk information. Useful '
+        'for functions like `copy_locally()`.',
+    )
+    parser.add_argument(
+        '--save_folder',
+        help='A folder for storing checkpoints that allow restoring '
+        'progress for testing or re-starting training.',
+    )
+    parser.add_argument(
+        '--ckpts_to_save',
+        type=int,
+        help='The number of checkpoints to keep before deleting.',
+    )
+    parser.add_argument(
         '--seed',
         type=int,
         help='A random seed to reproduce experiments on the same machine',
@@ -184,9 +260,9 @@ def parse_arguments(arg_list):
 
 
 def parse_overrides(override_string):
-    """Parse overrides from a yaml string representing paired args and values
+    """Parse overrides from a yaml string representing paired args and values.
 
-    Parameters:
+    Arguments:
         override_string: A yaml-formatted string, where each (key: value) pair
             overrides the same pair in a loaded file.
 
@@ -214,7 +290,7 @@ def parse_overrides(override_string):
 def nest(dictionary, args, val):
     """Create a nested sequence of dictionaries, based on an arg list.
 
-    Parameters:
+    Arguments:
         dictionary (dict): this ref will be updated with the nested arguments.
         args (list): a list of parameters specifying a nested location.
         val (obj): The value to store at the specified nested location.
