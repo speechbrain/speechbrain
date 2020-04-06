@@ -75,7 +75,7 @@ def test_checkpointer(tmpdir):
     # Raises by default:
     with pytest.raises(RuntimeError):
         chosen_ckpt = recoverer.recover_if_possible(
-            ckpt_sort_key=lambda x: x[1]["unixtime"]
+            importance_key=lambda x: -x.meta["unixtime"]
         )
     # However this operation may leave a dangling hook.
     # For now, just run the recoverable to get rid of it in the test:
@@ -84,7 +84,7 @@ def test_checkpointer(tmpdir):
     other.param.data = torch.tensor([10.0])
     recoverer.allow_partial_load = True
     chosen_ckpt = recoverer.recover_if_possible(
-        ckpt_sort_key=lambda x: x[1]["unixtime"]
+        importance_key=lambda x: -x.meta["unixtime"]
     )
     # Should have chosen the original:
     assert chosen_ckpt == ckpt
@@ -103,7 +103,7 @@ def test_checkpointer(tmpdir):
     recoverer.save_checkpoint(meta={"loss": 3.0})
     chosen_ckpt = recoverer.recover_if_possible(
         ckpt_filter=lambda ckpt: "loss" in ckpt.meta,
-        ckpt_sort_key=lambda ckpt: ckpt.meta["loss"],
+        importance_key=lambda ckpt: -ckpt.meta["loss"],
     )
     assert chosen_ckpt == epoch_ckpt
     other(10.0)
@@ -149,3 +149,47 @@ def test_recovery_custom_io(tmpdir):
     assert ckpt == loaded_ckpt
     # With this custom recoverable, the load is instant:
     assert custom_recoverable.param == 1
+
+
+def test_checkpoint_deletion(tmpdir):
+    from speechbrain.utils.checkpoints import Checkpointer
+    import torch
+
+    class Recoverable(torch.nn.Module):
+        def __init__(self, param):
+            super().__init__()
+            self.param = torch.nn.Parameter(torch.tensor([param]))
+
+        def forward(self, x):
+            return x * self.param
+
+    recoverable = Recoverable(1.0)
+    recoverables = {"recoverable": recoverable}
+    recoverer = Checkpointer(tmpdir, recoverables)
+    first_ckpt = recoverer.save_checkpoint()
+    recoverer.delete_checkpoints()
+    # Will not delete only checkpoint by default:
+    assert first_ckpt in recoverer.list_checkpoints()
+    second_ckpt = recoverer.save_checkpoint()
+    recoverer.delete_checkpoints()
+    # Oldest checkpoint is deleted by default:
+    assert first_ckpt not in recoverer.list_checkpoints()
+    # Other syntax also should work:
+    recoverer.save_and_keep_only()
+    assert second_ckpt not in recoverer.list_checkpoints()
+    # Can delete all checkpoints:
+    recoverer.delete_checkpoints(num_to_keep=0)
+    assert not recoverer.list_checkpoints()
+
+    # Now each should be kept:
+    # Highest foo
+    c1 = recoverer.save_checkpoint(meta={"foo":2})
+    # Latest CKPT after filtering
+    c2 = recoverer.save_checkpoint(meta={"foo":1})
+    # Filtered out
+    c3 = recoverer.save_checkpoint(meta={"epoch_ckpt":True})
+    recoverer.delete_checkpoints(num_to_keep=1,
+            importance_keys = [lambda c: c.meta["unixtime"],
+                                lambda c: c.meta["foo"]],
+            ckpt_filter = lambda c: "epoch_ckpt" in c)
+    assert all(c in recoverer.list_checkpoints() for c in [c1, c2, c3])
