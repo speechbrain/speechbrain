@@ -76,8 +76,10 @@ def torch_recovery(obj, path):
         obj (torch.nn.Module): Instance for which to
             load the parameters
         path (str, pathlib.Path): Path where to load from
+
     Returns:
         None - given object is modified in place
+
     Author:
         Aku Rouhe 2020
     """
@@ -104,11 +106,14 @@ def torch_lazy_recovery(obj, path, load_method=torch_recovery):
         load_method (callable): Callable with signature (instance, path)
             [e.g. def load(self, path)], which actually performs the
             recovery from the given path.
+
     Returns:
         None - given object is modified in place
+
     Note:
         The hook is added as the _speechbrain_lazy_recovery_hook attribute,
         which could theoretically conflict with other attributes
+
     Author:
         Aku Rouhe 2020
     """
@@ -133,6 +138,7 @@ def torch_save(obj, path):
         path (str, pathlib.Path): Path where to save to
     Returns:
         None - state dict is written to disk.
+
     Author:
         Aku Rouhe 2020
     """
@@ -159,8 +165,10 @@ def mark_as_saver(method):
         method: Method of the class to decorate. Must be callable with
             signature (instance, path) using positional arguments. This is
             satisfied by for example: def saver(self, path):
+
     Example:
         See register_checkpoint_hooks
+
     Author:
         Aku Rouhe 2020
     """
@@ -185,8 +193,10 @@ def mark_as_loader(method):
         method: Method of the class to decorate. Must be callable with
             signature (instance, path) using positional arguments. This is
             satisfied by for example: def loader(self, path):
+
     Example:
         See register_checkpoint_hooks
+
     Author:
         Aku Rouhe 2020
     """
@@ -204,8 +214,10 @@ def register_checkpoint_hooks(cls):
     """Class decorator which registers the recover load and save hooks
 
     The hooks must have been marked with mark_as_loader and mark_as_saver.
+
     Args:
         cls: Class to decorate
+
     Example:
         >>> @register_checkpoint_hooks
         ... class CustomRecoverable:
@@ -245,8 +257,10 @@ def get_default_hook(obj, default_hooks):
     Args:
         obj: Instance of a class
         default_hooks: Mapping from classes to (checkpointing hook) functions
+
     Returns:
         The correct method or None if no method is registered.
+
     Example:
         >>> a = torch.nn.Module()
         >>> get_default_hook(a, DEFAULT_SAVE_HOOKS) == torch_save
@@ -274,21 +288,23 @@ Checkpointers put pathlib.Path in path and a dict in meta
 You can essentially add any info you want to meta when saving a checkpoint
 The only default key in meta is "unixtime"
 Checkpoint.parameters is a dict from recoverable name to parameter filepath
+
+Author:
+    Aku Rouhe 2020
 """
 
 
-# These internal functions also act as examples of how to make checkpoint
-# filters and keyfuncs. These are proper functions, but as you can see
-# they could be easily implemented as lambdas in a pinch.
-def _latest_ckpt_keyfunc(ckpt):
-    # The higher the unixtime, the newer and thus more important
+def ckpt_recency(ckpt):
+    """Recency as Checkpoint importance metric
+
+    This function can also act as an example of how to make checkpoint
+    importance keyfuncs. This is a named function, but as you can see
+    it could be easily implemented as a lambda in a pinch.
+
+    Author:
+        Aku Rouhe 2020
+    """
     return ckpt.meta["unixtime"]
-
-
-def _unixtime_ckpt_filter(ckpt):
-    return "unixtime" in ckpt.meta
-
-
 
 
 class Checkpointer:
@@ -321,6 +337,7 @@ class Checkpointer:
             for every registered recoverable. In that case, only the found 
             savefiles are loaded. When False, loading such a save will raise 
             RuntimeError.
+
     Example:
         >>> from speechbrain.utils.checkpoints import Checkpointer
         >>> import torch
@@ -435,8 +452,9 @@ class Checkpointer:
             meta (mapping, optional): A mapping which is added to the meta 
                 file in the checkpoint. The key "unixtime" is included by 
                 default.
+
         Returns:
-            Checkpoint namedtuple [see above], the saved checkpoint as
+            Checkpoint namedtuple [see above], the saved checkpoint
         """
         if name is None:
             ckpt_dir = self._new_checkpoint_dirpath()
@@ -466,9 +484,9 @@ class Checkpointer:
 
     def save_and_keep_only(self, name=None, meta={}, 
             num_to_keep = 1,
-            importance_keys=[_latest_ckpt_keyfunc],
-            ckpt_filter=_unixtime_ckpt_filter):
-        """Saves a checkpoint and keeps only num_to_keep, deletes the rest.
+            importance_keys=[ckpt_recency],
+            ckpt_predicate=None):
+        """Saves a checkpoint, then deletes the least important checkpoints
 
         Essentially this combines save_checkpoint() and delete_checkpoints()
         in one call, only provided for very short syntax in simple cases.
@@ -478,7 +496,8 @@ class Checkpointer:
             meta (mapping, optional): See `save_checkpoint`
             num_to_keep (int, optional): See `delete_checkpoints`
             importance_keys (callable, optional): See `delete_checkpoints`
-            ckpt_filter (callable, optional): See `delete_checkpoints`
+            ckpt_predicate (callable, optional): See `delete_checkpoints`
+
         Returns:
             None - Unlike save_checkpoint, this does not return anything, since
             we cannot guarantee that the saved checkpoint actually survives 
@@ -487,35 +506,36 @@ class Checkpointer:
         self.save_checkpoint(name = name, meta = meta)
         self.delete_checkpoints(num_to_keep = num_to_keep, 
                 importance_keys = importance_keys, 
-                ckpt_filter = ckpt_filter)
+                ckpt_predicate = ckpt_predicate)
 
     def find_checkpoint(
         self,
-        importance_key=_latest_ckpt_keyfunc,
-        ckpt_filter=_unixtime_ckpt_filter,
+        importance_key=ckpt_recency,
+        ckpt_predicate=None,
     ):
         """Picks a particular checkpoint from all available checkpoints.
         
         Args:
-            ckpt_sort_key (callable, optional): The key function used in
+            importance_key (callable, optional): The key function used in
                 sorting (see the max built-in). The checkpoint with the 
                 highest key value is picked. By default, the key value is
                 unixtime. The higher the unixtime, the newer -> the latest
                 checkpoint is picked. The function is called with
                 Checkpoint namedtuples (see above). See also the default
-                (_latest_ckpt_keyfunc, above).
-            ckpt_filter (callable, optional): Before sorting, the list of
-                checkpoints is filtered with this. The function is called with
-                Checkpoint namedtuples (see above). See also the default
-                (_unixtime_ckpt_filter, above). The default filter out any
-                Checkpoints which donot have the "unixtime" key in meta.
+                (ckpt_recency, above).
+            ckpt_predicate (callable, optional): Before sorting, the list of
+                checkpoints is filtered with this predicate. 
+                See the filter builtin.
+                The function is called with Checkpoint namedtuples (see above). 
+                By default, all checkpoints are considered.
+
         Returns:
             The picked Checkpoint
             OR
             None if no Checkpoints exist/remain after filtering
         """
         ckpts = self.list_checkpoints()
-        ckpts = list(filter(ckpt_filter, ckpts))
+        ckpts = list(filter(ckpt_predicate, ckpts))
         if ckpts:
             chosen_ckpt = max(ckpts, key = importance_key)
             return chosen_ckpt
@@ -524,23 +544,24 @@ class Checkpointer:
 
     def recover_if_possible(
         self,
-        importance_key=_latest_ckpt_keyfunc,
-        ckpt_filter=_unixtime_ckpt_filter,
+        importance_key=ckpt_recency,
+        ckpt_predicate=None,
     ):
         """Picks a checkpoint and recovers from that, if one is found.
         
         If a checkpoint is not found, no recovery is run.
 
         Args:
-            ckpt_sort_key (callable, optional): See find_checkpoint above.
-            ckpt_sort_filter (callable, optional): See find_checkpoint above.
+            importance_key (callable, optional): See find_checkpoint above.
+            ckpt_predicate (callable, optional): See find_checkpoint above.
+
         Returns:
             The picked, recovered Checkpoint
             OR
             None if no checkpoints exist/remain after filtering (and in this
                 case no recovery is done).
         """
-        chosen_ckpt = self.find_checkpoint(importance_key, ckpt_filter)
+        chosen_ckpt = self.find_checkpoint(importance_key, ckpt_predicate)
         if chosen_ckpt is not None:
             self.load_checkpoint(chosen_ckpt)
         return chosen_ckpt
@@ -564,8 +585,8 @@ class Checkpointer:
     # NOTE: * in arglist -> keyword only arguments
     def delete_checkpoints(self, *,
             num_to_keep = 1,
-            importance_keys=[_latest_ckpt_keyfunc],
-            ckpt_filter=_unixtime_ckpt_filter):
+            importance_keys=[ckpt_recency],
+            ckpt_predicate=None):
         """Deletes least important checkpoints.
         
         Since there can be many ways to define importance (e.g. lowest WER,
@@ -573,6 +594,10 @@ class Checkpointer:
         each defining a particular importance order. In essence, each 
         importance key function extracts one importance metric (higher is more
         important). For each of these orders, num_to_keep checkpoints are kept.
+        However if there is overlap between each orders' preserved checkpoints,
+        the additional checkpoints are not preserved, so the total number of
+        preserved checkpoints can be less than 
+            num_to_keep * len(importance_keys)
         
         Arguments:
             num_to_keep (int, optional): Number of checkpoints to keep.
@@ -584,22 +609,22 @@ class Checkpointer:
                 callable. To be clear, those with the highest key are 
                 kept. 
                 The functions are called with Checkpoint namedtuples 
-                (see above). See also the default (_latest_ckpt_keyfunc, 
+                (see above). See also the default (ckpt_recency, 
                 above). The default deletes all but the latest checkpoint.
-            ckpt_sort_filter (callable, optional): Use this to exclude some 
+            ckpt_predicate (callable, optional): Use this to exclude some 
                 checkpoints from deletion. Before any sorting, the list of
-                checkpoints is filtered with this. The function is called with
-                Checkpoint namedtuples (see above). See also the default
-                (_unixtime_ckpt_filter, above). The default filters out any
-                Checkpoints which do not have the "unixtime" key in meta.
+                checkpoints is filtered with this predicate. Only the 
+                checkpoints for which ckpt_predicate is True can be deleted.
+                The function is called with Checkpoint namedtuples (see above). 
+
         Note:
-            Must be called with keyword arguments, as a sign that you 
+            Must be called with keyword arguments, as a signoff that you 
             know what you are doing. Deletion is permanent.
         """
         if num_to_keep < 0:
             raise ValueError("Number of checkpoints to keep must be positive.")
         ckpts = self.list_checkpoints()
-        ckpts = list(filter(ckpt_filter, ckpts))
+        ckpts = list(filter(ckpt_predicate, ckpts))
         protected_checkpoints = []
         for importance_key in importance_keys:
             to_keep = sorted(ckpts, 

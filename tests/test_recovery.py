@@ -102,7 +102,7 @@ def test_checkpointer(tmpdir):
     other.param.data = torch.tensor([2.0])
     recoverer.save_checkpoint(meta={"loss": 3.0})
     chosen_ckpt = recoverer.recover_if_possible(
-        ckpt_filter=lambda ckpt: "loss" in ckpt.meta,
+        ckpt_predicate=lambda ckpt: "loss" in ckpt.meta,
         importance_key=lambda ckpt: -ckpt.meta["loss"],
     )
     assert chosen_ckpt == epoch_ckpt
@@ -191,5 +191,5 @@ def test_checkpoint_deletion(tmpdir):
     recoverer.delete_checkpoints(num_to_keep=1,
             importance_keys = [lambda c: c.meta["unixtime"],
                                 lambda c: c.meta["foo"]],
-            ckpt_filter = lambda c: "epoch_ckpt" in c)
+            ckpt_predicate = lambda c: "epoch_ckpt" not in c.meta)
     assert all(c in recoverer.list_checkpoints() for c in [c1, c2, c3])
