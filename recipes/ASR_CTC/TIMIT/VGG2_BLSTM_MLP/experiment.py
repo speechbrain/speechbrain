@@ -4,7 +4,7 @@ from tqdm import tqdm
 from torch import autograd
 from speechbrain.core import Experiment
 sb = Experiment(
-    yaml_stream=open('recipes/CTC/TIMIT/VGG2_BLSTM_MLP/params.yaml'),
+    yaml_stream=open('recipes/ASR_CTC/TIMIT/VGG2_BLSTM_MLP/params.yaml'),
     commandline_args=sys.argv[1:],
 )
 
@@ -38,6 +38,7 @@ def main():
 
         validation_wer = float(mean(valid_loss['wer']))
         print(validation_wer)
+        sys.exit(0)
         sb.lr_annealing([sb.optimizer], epoch, validation_wer)
         sb.save_and_keep_only({'wer': validation_wer}, [best_model])
 
