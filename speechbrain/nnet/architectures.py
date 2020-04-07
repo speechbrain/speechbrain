@@ -2159,7 +2159,7 @@ class pooling(nn.Module):
                             - pool_type (type: str, max):
                                 it is the type of pooling function to use.
 
-                            - pool_axis (type: int_list(-1, 3), max):
+                            - pool_axis (type: int_list(0, 3), mandatory):
                                 it is a list containing the axis that will be
                                 considered during pooling. It must match the
                                 dimensionality of the pooling. If the pooling
@@ -2168,8 +2168,7 @@ class pooling(nn.Module):
                             - kernel_size (type: int_list, mandatory):
                                 it is the kernel size. Note that it also define
                                 the pooling dimension. 3 is a 1D Pooling with a
-                                kernel of size 3, while 3:3 is a 2D Pooling and
-                                3:3:3 is a 3D pooling.
+                                kernel of size 3, while 3,3 is a 2D Pooling.
 
                             - stride (type: int, optional, Default:1):
                                 it is the stride size.
@@ -2237,115 +2236,83 @@ class pooling(nn.Module):
 
     def __init__(
         self,
-        config,
-        funct_name=None,
-        global_config=None,
-        functions=None,
-        logger=None,
-        first_input=None,
+        pool_type,
+        kernel_size,
+        pool_axis=1,
+        ceil_mode=False,
+        padding=0,
+        dilation=1,
+        stride=1,
     ):
-        super(pooling, self).__init__()
+        super().__init__()
 
-        # Logger setup
-        self.logger = logger
-
-        # Here are summarized the expected options for this class
-        self.expected_options = {
-            "class_name": ("str", "mandatory"),
-            "pool_type": ("one_of(avg,max)", "mandatory"),
-            "pool_dim": ("int(1,3)", "optional", "1"),
-            "pool_axis": ("int_list(-1,3)", "optional", "1"),
-            "kernel_size": ("int_list(1,inf)", "mandatory"),
-            "ceil_mode": ("bool", "optional", "False"),
-            "dilation": ("int(1,inf)", "optional", "1"),
-            "padding": ("int(0,inf)", "optional", "0"),
-            "stride": ("int(1,inf)", "optional", "1"),
-        }
-
-        # Check, cast, and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, self.logger
-        )
-
-        # Definition of the expected input
-        self.expected_inputs = ["torch.Tensor"]
-
-        # Check the first input
-        check_inputs(
-            self.conf, self.expected_inputs, first_input, logger=self.logger
-        )
+        self.pool_type = pool_type
+        self.kernel_size = kernel_size
+        self.pool_axis = pool_axis
+        self.ceil_mode = ceil_mode
+        self.padding = padding
+        self.dilation = dilation
+        self.stride = stride
 
         # Option for pooling
         self.pool1d = False
         self.pool2d = False
         self.combine_batch_time = False
 
-        # Check that enough pooling axes are specified
-        if len(self.kernel_size) == 1:
-            self.pool1d = True
+        if not isinstance(self.kernel_size, list):
+            self.kernel_size = [self.kernel_size]
+        if not isinstance(self.pool_axis, list):
+            self.pool_axis = [self.pool_axis]
 
-            # In the case of a 4 dimensional input vector, we need to combine
-            # the batch and time dimension together because torch.nn.pool1d
-            # only accepts 3D vectors as inputs.
-            if len(first_input[0].shape) > 3:
-                self.combine_batch_time = True
+        def hook(self, first_input):
 
-            if len(self.pool_axis) != 1:
-                err_msg = (
-                    'pool_axes must corresponds to the pooling dimension. '
-                    " The pooling dimension is 1 and %s axes are specified."
-                    % (str(len(self.pool_axis)))
-                )
+            # Check that enough pooling axes are specified
+            if len(self.kernel_size) == 1:
+                self.pool1d = True
 
-                logger_write(err_msg, logfile=logger)
+                # In the case of a 4 dimensional input vector, we need to
+                # combine the batch and time dimension together because
+                # torch.nn.pool1d only accepts 3D vectors as inputs.
+                if len(first_input[0].shape) > 3:
+                    self.combine_batch_time = True
 
-            if self.pool_axis[0] >= len(first_input[0].shape):
-                err_msg = (
-                    'pool_axes is greater than the number of dimensions. '
-                    " The tensor dimension is %s and the specified pooling "
-                    "axis is %s."
-                    % (str(len(first_input[0].shape)), str(self.pool_axis))
-                )
+                if len(self.pool_axis) != 1:
+                    err_msg = (
+                        'pool_axes must corresponds to the pooling dimension. '
+                        "The pooling dimension is 1 and %s axes are specified."
+                        % (str(len(self.pool_axis)))
+                    )
+                    raise ValueError(err_msg)
 
-                logger_write(err_msg, logfile=logger)
+                if self.pool_axis[0] >= len(first_input[0].shape):
+                    err_msg = (
+                        'pool_axes is greater than the number of dimensions. '
+                        "The tensor dimension is %s and the specified pooling "
+                        "axis is %s."
+                        % (str(len(first_input[0].shape)), str(self.pool_axis))
+                    )
+                    raise ValueError(err_msg)
 
-        if len(self.kernel_size) == 2:
-            self.pool2d = True
+            if len(self.kernel_size) == 2:
+                self.pool2d = True
 
-            if len(self.pool_axis) != 2:
-                err_msg = (
-                    'pool_axes must corresponds to the pooling dimension. '
-                    " The pooling dimension is 2 and %s axes are specified."
-                    % (str(len(self.pool_axis)))
-                )
+                if len(self.pool_axis) != 2:
+                    err_msg = (
+                        'pool_axes must corresponds to the pooling dimension. '
+                        "The pooling dimension is 2 and %s axes are specified."
+                        % (str(len(self.pool_axis)))
+                    )
+                    raise ValueError(err_msg)
 
-                logger_write(err_msg, logfile=logger)
-
-            if self.pool_axis[0] >= len(first_input[0].shape) or \
-               self.pool_axis[1] >= len(first_input[0].shape):
-                err_msg = (
-                    'pool_axes is greater than the number of dimensions. '
-                    " The tensor dimension is %s and the specified pooling "
-                    "axis are %s."
-                    % (str(len(first_input[0].shape)), str(self.pool_axis))
-                )
-
-                logger_write(err_msg, logfile=logger)
-
-        # Additional check on the input shapes
-        if first_input is not None:
-
-            # Shape check
-            if len(first_input[0].shape) > 5 or len(first_input[0].shape) < 3:
-
-                err_msg = (
-                    'The input of "pooling" must be a tensor with one of the '
-                    "following dimensions: [batch,C, fea] or "
-                    "[batch,fea,fea,C]. Got %s"
-                    % (str(first_input[0].shape))
-                )
-
-                logger_write(err_msg, logfile=logger)
+                if self.pool_axis[0] >= len(first_input[0].shape) or \
+                   self.pool_axis[1] >= len(first_input[0].shape):
+                    err_msg = (
+                        'pool_axes is greater than the number of dimensions. '
+                        "The tensor dimension is %s and the specified pooling "
+                        "axis are %s."
+                        % (str(len(first_input[0].shape)), str(self.pool_axis))
+                    )
+                    raise ValueError(err_msg)
 
             # Pooling initialization
             if self.pool_type == "avg":
@@ -2378,11 +2345,11 @@ class pooling(nn.Module):
                         stride=self.stride,
                         padding=self.padding,
                         ceil_mode=self.ceil_mode)
+            self.hook.remove()
+        self.hook = self.register_forward_pre_hook(hook)
 
-    def forward(self, input_lst):
+    def forward(self, x):
 
-        # Reading input list
-        x = input_lst[0]
         or_shape = x.shape
 
         # Put the pooling axes as the last dimension for torch.nn.pool

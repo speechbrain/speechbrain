@@ -229,6 +229,8 @@ class timit_prepare(torch.nn.Module):
         self.kaldi_ali_test = kaldi_ali_test
         self.kaldi_lab_opts = kaldi_lab_opts
         self.save_folder = save_folder
+        self.phn_set = phn_set
+        self.uppercase = uppercase
 
         # Other variables
         self.samplerate = 16000
@@ -425,15 +427,15 @@ class timit_prepare(torch.nn.Module):
         from_60_to_39_phn["kcl"] = "sil"
         from_60_to_39_phn["l"] = "l"
         from_60_to_39_phn["m"] = "m"
-        from_60_to_39_phn["ng"] = "n"
-        from_60_to_39_phn["n"] = "ng"
+        from_60_to_39_phn["ng"] = "ng"
+        from_60_to_39_phn["n"] = "n"
         from_60_to_39_phn["nx"] = "n"
         from_60_to_39_phn["ow"] = "ow"
         from_60_to_39_phn["oy"] = "oy"
         from_60_to_39_phn["p"] = "p"
         from_60_to_39_phn["pau"] = "sil"
         from_60_to_39_phn["pcl"] = "sil"
-        from_60_to_39_phn["q"] = "k"
+        from_60_to_39_phn["q"] = ""
         from_60_to_39_phn["r"] = "r"
         from_60_to_39_phn["s"] = "s"
         from_60_to_39_phn["sh"] = "sh"
@@ -822,7 +824,8 @@ class timit_prepare(torch.nn.Module):
                     phoneme = self.from_60_to_39_phn[phoneme]
 
                 # Apping phoneme in the phoneme list
-                phonemes.append(phoneme)
+                if len(phoneme) > 0:
+                    phonemes.append(phoneme)
 
             phonemes = " ".join(phonemes)
 

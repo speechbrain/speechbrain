@@ -15,8 +15,8 @@ from speechbrain.utils.data_utils import recursive_update
 
 def setup_logging(
     config_path='logging.yaml',
-    default_level=logging.INFO,
     overrides={},
+    default_level=logging.INFO,
 ):
     """Setup logging configuration
 

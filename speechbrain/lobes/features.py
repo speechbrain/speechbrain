@@ -46,7 +46,7 @@ class Features(torch.nn.Module):
         self.deltas = deltas
         self.context = context
         self.requires_grad = requires_grad
-        path = 'recipes/features.yaml'
+        path = 'speechbrain/lobes/features.yaml'
         self.params = load_extended_yaml(open(path), overrides)
 
     def forward(self, wav):
