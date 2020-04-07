@@ -24,40 +24,36 @@ class Experiment:
     top-level sections: `constants`, `saveables`, and `functions`.
     These three sections indicate the following:
 
-    Constants
-    ---------
-    These items are expected to be scalar nodes that can be referenced
-    throughout the file by using the extended YAML reference tags `!$`.
-    In addition, a few constants are treated as experimental arguments:
+    1. `constants:` These items are expected to be scalar nodes that
+        can be referenced throughout the file by using the extended YAML
+        reference tags `!$`. In addition, a few constants are treated as
+        experimental arguments:
 
-    * output_folder (str): The experimental directory for logs, results,
-        labels, and other experimental files.
-    * local_folder (str): The directory to use for local storage.
-    * save_folder (str): The directory to use for storing parameters
-        (see next section).
-    * ckpts_to_keep (int): The number of "best" checkpoints to keep.
-    * seed (int): The random seed for reproducing the experiment on the same
-        device on the same machine.
-    * log_config (str): A yaml file specifying how logging should be done.
+        * output_folder (str): The experimental directory for logs, results,
+            labels, and other experimental files.
+        * local_folder (str): The directory to use for local storage.
+        * save_folder (str): The directory to use for storing parameters
+            (see next section).
+        * ckpts_to_keep (int): The number of "best" checkpoints to keep.
+        * seed (int): The random seed for reproducing the experiment on the
+            same device on the same machine.
+        * log_config (str): A yaml file specifying how logging should be done.
 
-    These arguments can be specified in the command line, for easier
-    spawning of multiple experiments.
+        These arguments can be specified in the command line, for easier
+        spawning of multiple experiments.
 
-    Saveables
-    ---------
-    These items are expected to be instances of sub-classes of
-    `torch.nn.Module`, so that the relevant parameters can be automatically
-    discovered and saved. The parameters are saved in the `save_folder`
-    which should be specified in the `Constants` section above. In
-    addition, these items will be made available as attributes of
-    the `Experiment` instance, so they can be easily accessed.
+    2. `saveables:` These items are expected to be instances of sub-classes
+        of `torch.nn.Module` or to implement a custom saver method, so that
+        the relevant parameters can be automatically discovered and saved.
+        The parameters are saved in the `save_folder` which should be
+        specified in the `Constants` section above. In addition, these
+        items will be made available as attributes of
+        the `Experiment` instance, so they can be easily accessed.
 
-    Functions
-    ---------
-    Additional functions that do not need to have their state saved
-    by the saver. Like the items defined in `Saveables`, all of these
-    items will be added as attributes to the `Experiment` instance,
-    so that they can be easily accessed.
+    3. `functions:` Additional functions that do not need to have their
+        state saved by the saver. Like the items defined in `saveables`,
+        all of these items will be added as attributes to the `Experiment`
+        instance, so that they can be easily accessed.
 
     Overrides
     ---------
@@ -71,13 +67,6 @@ class Experiment:
     will be interpreted as:
 
         {'model': {'arg1': 'value', 'arg2': {'arg3': 3., 'arg4': True}}}
-
-    Arguments:
-        yaml_stream (stream): A file-like object or string containing
-            experimental parameters. The format of the file is described in
-            the method `speechbrain.load_extended_yaml()`.
-        commandline_args (list): The arguments from the command-line for
-            overriding the experimental parameters.
 
     Example:
         >>> yaml_string = """
@@ -97,6 +86,15 @@ class Experiment:
         yaml_stream,
         commandline_args=[],
     ):
+        """
+        Arguments:
+            yaml_stream (stream): A file-like object or string containing
+                experimental parameters. The format of the file is described in
+                the method `speechbrain.utils.data_utils.load_extended_yaml()`.
+            commandline_args (list): The arguments from the command-line for
+                overriding the experimental parameters.
+        """
+
         # Parse yaml overrides, with command-line args taking precedence
         # precedence over the parameters listed in the file.
         overrides = {}
@@ -142,7 +140,8 @@ class Experiment:
         sys.excepthook = _logging_excepthook
 
     def recover_if_possible(self, importance_key=None):
-        """See `speechbrain.utils.checkpoints.Checkpointer.recover_if_possible`
+        """
+        See `speechbrain.utils.checkpoints.Checkpointer.recover_if_possible`
         """
         if hasattr(self, 'saver'):
             if importance_key is None:
@@ -157,7 +156,8 @@ class Experiment:
             )
 
     def save_and_keep_only(self, meta={}, importance_keys=None, **kwargs):
-        """See `speechbrain.utils.checkpoints.Checkpointer.save_and_keep_only`
+        """
+        See `speechbrain.utils.checkpoints.Checkpointer.save_and_keep_only`
         """
         if hasattr(self, 'saver'):
             if importance_keys is None:
