@@ -86,7 +86,7 @@ class Experiment:
         ...     save_folder: !$ <constants.output_folder>/save
         ... """
         >>> sb = Experiment(yaml_string)
-        >>> sb.constants['save_folder']
+        >>> sb.save_folder
         'exp/save'
 
     Author:
@@ -106,13 +106,13 @@ class Experiment:
 
         # Load parameters file and store
         parameters = load_extended_yaml(yaml_stream, overrides)
-        self._update_attributes(parameters['constants'])
-        self._update_attributes(parameters['saveables'])
-        self._update_attributes(parameters['functions'])
-        self._update_attributes(cmd_args)
+        for toplevel_field in ['constants', 'saveables', 'functions']:
+            if toplevel_field in parameters:
+                self._update_attributes(parameters[toplevel_field])
+        self._update_attributes(cmd_args, override=True)
 
         # Use experimental parameters to initialize experiment
-        if self.seed is not None:
+        if hasattr(self, 'seed'):
             torch.manual_seed(self.seed)
 
         # Stuff depending on having an output_folder
@@ -129,7 +129,7 @@ class Experiment:
             logger_overrides = parse_overrides(logger_override_string)
 
             # Create checkpointer for loading/saving state
-            if hasattr(self, 'save_folder'):
+            if hasattr(self, 'save_folder') and 'saveables' in parameters:
                 self.saver = Checkpointer(
                     checkpoints_dir=self.save_folder,
                     recoverables=parameters['saveables'],
@@ -175,7 +175,7 @@ class Experiment:
                 'specified in order to save a checkpoint.'
             )
 
-    def _update_attributes(self, attributes):
+    def _update_attributes(self, attributes, override=False):
         r'''Update the attributes of this class to reflect a set of parameters
 
         Arguments:
@@ -191,6 +191,8 @@ class Experiment:
                 value = getattr(self, param, {})
                 value.update(new_value)
             else:
+                if hasattr(self, param) and not override:
+                    raise KeyError('Parameter %s is defined multiple times')
                 value = new_value
             setattr(self, param, value)
 
