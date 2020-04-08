@@ -1,7 +1,6 @@
 import sys
 import torch
-from tqdm import tqdm
-from torch import autograd
+from tqdm.contrib import tzip
 from speechbrain.core import Experiment
 sb = Experiment(
     yaml_stream=open('recipes/ASR_CTC/TIMIT/VGG2_BLSTM_MLP/params.yaml'),
@@ -26,16 +25,16 @@ def main():
 
         # Iterate train and perform updates
         train_loss = {'loss': []}
-        for wav, phn in tqdm(zip(*train_set), total=len(train_set[0])):
+        for wav, phn in tzip(*train_set):
             neural_computations(train_loss, sb.model, wav, phn, 'train')
-        train_loss['loss'] = float(mean(train_loss['loss']))
+        train_loss['loss'] = mean(train_loss['loss'])
 
         # Iterate validataion to check progress
         valid_loss = {'loss': [], 'wer': []}
-        for wav, phn in tqdm(zip(*valid_set), total=len(valid_set[0])):
+        for wav, phn in tzip(*valid_set):
             neural_computations(valid_loss, sb.model, wav, phn, 'valid')
+        valid_loss = {key: mean(valid_loss[key]) for key in valid_loss}
 
-        valid_loss = {key: float(mean(valid_loss[key])) for key in valid_loss}
         sb.lr_annealing([sb.optimizer], epoch, valid_loss['wer'])
         sb.save_and_keep_only({'wer': valid_loss['wer']}, min_keys=['wer'])
         sb.log_epoch_stats(epoch, train_loss, valid_loss)
@@ -43,22 +42,24 @@ def main():
     # Evaluate our model
     test_loss = {'loss': [], 'wer': []}
     sb.recover_if_possible(min_key='wer')
-    for wav, phn in tqdm(zip(*test_set), total=len(test_set[0])):
+    for wav, phn in tzip(*test_set):
         neural_computations(test_loss, sb.model, wav, phn, 'test')
 
     print("Final WER: %f" % mean(test_loss['wer']))
 
 
 def mean(loss):
-    return sum(loss) / len(loss)
+    return float(sum(loss) / len(loss))
 
 
 def neural_computations(losses, model, wav, phn, mode):
 
     id, wav, wav_len = wav
     id, phn, phn_len = phn
+    wav, wav_len = wav.cuda(), wav_len.cuda()
+    phn, phn_len = phn.cuda(), phn_len.cuda()
 
-    feats = sb.compute_features(wav.cuda(), wav_len.cuda())
+    feats = sb.compute_features(wav, wav_len)
 
     if mode == 'train':
         model.train()
