@@ -56,9 +56,6 @@ functions:
         requires_grad: False
         constants:
             n_mels: 40
-    mean_var_norm: !speechbrain.processing.features.mean_var_norm
-        norm_type: global
-        requires_grad: False
     train_loader: !speechbrain.data_io.data_io.create_dataloader &loader
         csv_file: !$ <constants.csv_train>
         batch_size: !$ <constants.batch_size>
