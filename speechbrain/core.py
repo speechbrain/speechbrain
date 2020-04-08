@@ -24,40 +24,36 @@ class Experiment:
     top-level sections: `constants`, `saveables`, and `functions`.
     These three sections indicate the following:
 
-    Constants
-    ---------
-    These items are expected to be scalar nodes that can be referenced
-    throughout the file by using the extended YAML reference tags `!$`.
-    In addition, a few constants are treated as experimental arguments:
+    1. `constants:` These items are expected to be scalar nodes that
+        can be referenced throughout the file by using the extended YAML
+        reference tags `!$`. In addition, a few constants are treated as
+        experimental arguments:
 
-    * output_folder (str): The experimental directory for logs, results,
-        labels, and other experimental files.
-    * local_folder (str): The directory to use for local storage.
-    * save_folder (str): The directory to use for storing parameters
-        (see next section).
-    * ckpts_to_keep (int): The number of "best" checkpoints to keep.
-    * seed (int): The random seed for reproducing the experiment on the same
-        device on the same machine.
-    * log_config (str): A yaml file specifying how logging should be done.
+        * output_folder (str): The experimental directory for logs, results,
+            labels, and other experimental files.
+        * local_folder (str): The directory to use for local storage.
+        * save_folder (str): The directory to use for storing parameters
+            (see next section).
+        * ckpts_to_keep (int): The number of "best" checkpoints to keep.
+        * seed (int): The random seed for reproducing the experiment on the
+            same device on the same machine.
+        * log_config (str): A yaml file specifying how logging should be done.
 
-    These arguments can be specified in the command line, for easier
-    spawning of multiple experiments.
+        These arguments can be specified in the command line, for easier
+        spawning of multiple experiments.
 
-    Saveables
-    ---------
-    These items are expected to be instances of sub-classes of
-    `torch.nn.Module`, so that the relevant parameters can be automatically
-    discovered and saved. The parameters are saved in the `save_folder`
-    which should be specified in the `Constants` section above. In
-    addition, these items will be made available as attributes of
-    the `Experiment` instance, so they can be easily accessed.
+    2. `saveables:` These items are expected to be instances of sub-classes
+        of `torch.nn.Module` or to implement a custom saver method, so that
+        the relevant parameters can be automatically discovered and saved.
+        The parameters are saved in the `save_folder` which should be
+        specified in the `Constants` section above. In addition, these
+        items will be made available as attributes of
+        the `Experiment` instance, so they can be easily accessed.
 
-    Functions
-    ---------
-    Additional functions that do not need to have their state saved
-    by the saver. Like the items defined in `Saveables`, all of these
-    items will be added as attributes to the `Experiment` instance,
-    so that they can be easily accessed.
+    3. `functions:` Additional functions that do not need to have their
+        state saved by the saver. Like the items defined in `saveables`,
+        all of these items will be added as attributes to the `Experiment`
+        instance, so that they can be easily accessed.
 
     Overrides
     ---------
@@ -72,13 +68,6 @@ class Experiment:
 
         {'model': {'arg1': 'value', 'arg2': {'arg3': 3., 'arg4': True}}}
 
-    Arguments:
-        yaml_stream (stream): A file-like object or string containing
-            experimental parameters. The format of the file is described in
-            the method `speechbrain.load_extended_yaml()`.
-        commandline_args (list): The arguments from the command-line for
-            overriding the experimental parameters.
-
     Example:
         >>> yaml_string = """
         ... constants:
@@ -86,7 +75,7 @@ class Experiment:
         ...     save_folder: !$ <constants.output_folder>/save
         ... """
         >>> sb = Experiment(yaml_string)
-        >>> sb.constants['save_folder']
+        >>> sb.save_folder
         'exp/save'
 
     Author:
@@ -97,6 +86,15 @@ class Experiment:
         yaml_stream,
         commandline_args=[],
     ):
+        """
+        Arguments:
+            yaml_stream (stream): A file-like object or string containing
+                experimental parameters. The format of the file is described in
+                the method `speechbrain.utils.data_utils.load_extended_yaml()`.
+            commandline_args (list): The arguments from the command-line for
+                overriding the experimental parameters.
+        """
+
         # Parse yaml overrides, with command-line args taking precedence
         # precedence over the parameters listed in the file.
         overrides = {}
@@ -106,13 +104,13 @@ class Experiment:
 
         # Load parameters file and store
         parameters = load_extended_yaml(yaml_stream, overrides)
-        self._update_attributes(parameters['constants'])
-        self._update_attributes(parameters['saveables'])
-        self._update_attributes(parameters['functions'])
-        self._update_attributes(cmd_args)
+        for toplevel_field in ['constants', 'saveables', 'functions']:
+            if toplevel_field in parameters:
+                self._update_attributes(parameters[toplevel_field])
+        self._update_attributes(cmd_args, override=True)
 
         # Use experimental parameters to initialize experiment
-        if self.seed is not None:
+        if hasattr(self, 'seed'):
             torch.manual_seed(self.seed)
 
         # Stuff depending on having an output_folder
@@ -129,7 +127,7 @@ class Experiment:
             logger_overrides = parse_overrides(logger_override_string)
 
             # Create checkpointer for loading/saving state
-            if hasattr(self, 'save_folder'):
+            if hasattr(self, 'save_folder') and 'saveables' in parameters:
                 self.saver = Checkpointer(
                     checkpoints_dir=self.save_folder,
                     recoverables=parameters['saveables'],
@@ -141,14 +139,33 @@ class Experiment:
         logger = setup_logging(self.log_config, logger_overrides)
         sys.excepthook = _logging_excepthook
 
-    def recover_if_possible(self, importance_key=None):
-        """See `speechbrain.utils.checkpoints.Checkpointer.recover_if_possible`
+    def recover_if_possible(self, max_key=None, min_key=None):
         """
+        See `speechbrain.utils.checkpoints.Checkpointer.recover_if_possible`
+
+        If neither ``max_key`` nor ``min_key`` is passed, the default
+        for ``recover_if_possible`` is used (most recent checkpoint).
+
+        Arguments:
+            max_key (str): A key that was stored in meta when the checkpoint
+                was created. The checkpoint with the `highest` stored value
+                for this key will be loaded.
+            min_key (str): A key that was stored in meta when the checkpoint
+                was created. The checkpoint with the `lowest` stored value
+                for this key will be loaded.
+        """
+        assert max_key is None or min_key is None, "Can't use both max and min"
         if hasattr(self, 'saver'):
-            if importance_key is None:
+            if max_key is None and min_key is None:
                 self.saver.recover_if_possible()
-            else:
-                self.saver.recover_if_possible(importance_key)
+            elif max_key is not None:
+                def max_sort(ckpt):
+                    return ckpt.meta[max_key]
+                self.saver.recover_if_possible(max_sort)
+            elif min_key is not None:
+                def min_sort(ckpt):
+                    return -ckpt.meta[min_key]
+                self.saver.recover_if_possible(min_sort)
         else:
             raise KeyError(
                 'The field <constants.output_folder> and the field '
@@ -156,18 +173,46 @@ class Experiment:
                 'specified in order to load a checkpoint.'
             )
 
-    def save_and_keep_only(self, meta={}, importance_keys=None, **kwargs):
-        """See `speechbrain.utils.checkpoints.Checkpointer.save_and_keep_only`
+    def save_and_keep_only(
+        self,
+        meta={},
+        num_to_keep=1,
+        max_keys=[],
+        min_keys=[],
+    ):
+        """
+        See `speechbrain.utils.checkpoints.Checkpointer.save_and_keep_only`
+
+        Arguments:
+            meta (mapping): a set of key, value pairs to store alongside
+                the checkpoint.
+            num_to_keep (int): The number of checkpoints to keep for
+                each metric that is specified.
+            max_keys (iterable): a set of keys in the meta to use for
+                determining which checkpoints to keep. The highest N of
+                each listed key will be kept.
+            min_keys (iterable): a set of keys in the meta to use for
+                determining which checkpoints to keep. The lowest N of
+                each listed key will be kept.
+
+        Author:
+            Peter Plantinga 2020
         """
         if hasattr(self, 'saver'):
-            if importance_keys is None:
-                self.saver.save_and_keep_only(meta=meta, **kwargs)
-            else:
-                self.saver.save_and_keep_only(
-                    meta=meta,
-                    importance_keys=importance_keys,
-                    **kwargs
-                )
+            for key in max_keys:
+                assert key in meta, 'Max key {} must be in meta'.format(key)
+            for key in min_keys:
+                assert key in meta, 'Min key {} must be in meta'.format(key)
+
+            importance_keys = []
+            for key in ['unixtime'] + max_keys:
+                importance_keys.append(lambda x: x.meta[key])
+            for key in min_keys:
+                importance_keys.append(lambda x: -x.meta[key])
+            self.saver.save_and_keep_only(
+                meta=meta,
+                importance_keys=importance_keys,
+            )
         else:
             raise KeyError(
                 'The field <constants.output_folder> and the field '
@@ -175,7 +220,32 @@ class Experiment:
                 'specified in order to save a checkpoint.'
             )
 
-    def _update_attributes(self, attributes):
+    def log_epoch_stats(self, epoch, train_stats, valid_stats):
+        """Log key stats about the epoch.
+
+        Arguments:
+            epoch (int): The epoch to log.
+            train_stats (mapping): The training statistics to log,
+                in the form of `{'statistic': <value>}`
+            valid_stats (mapping): The validation statistics to log,
+                in the same format as the `train_stats`.
+
+        Example:
+            >>> yaml_string = "{Constants: {output_folder: exp}}"
+            >>> sb = Experiment(yaml_string)
+            >>> sb.log_epoch_stats(3, {'loss': 4}, {'loss': 5})
+            core - epoch: 3 - train loss: 4.00 - valid loss: 5.00
+
+        Author:
+            Peter Plantinga 2020
+        """
+        log_string = "epoch: {} - ".format(epoch)
+        train_str = ['train %s: %.2f' % i for i in train_stats.items()]
+        valid_str = ['valid %s: %.2f' % i for i in valid_stats.items()]
+        log_string += ' - '.join(train_str + valid_str)
+        logger.info(log_string)
+
+    def _update_attributes(self, attributes, override=False):
         r'''Update the attributes of this class to reflect a set of parameters
 
         Arguments:
@@ -191,6 +261,8 @@ class Experiment:
                 value = getattr(self, param, {})
                 value.update(new_value)
             else:
+                if hasattr(self, param) and not override:
+                    raise KeyError('Parameter %s is defined multiple times')
                 value = new_value
             setattr(self, param, value)
 

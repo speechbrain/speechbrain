@@ -3,12 +3,14 @@ disable_existing_loggers: False
 formatters:
   simple:
     format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  console:
+    format: "%(name)s - %(message)s"
 
 handlers:
   console:
     class: logging.StreamHandler
     level: DEBUG
-    formatter: simple
+    formatter: console
     stream: ext://sys.stdout
 
   file_handler:
