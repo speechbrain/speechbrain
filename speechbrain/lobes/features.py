@@ -30,6 +30,9 @@ class Features(torch.nn.Module):
         >>> feats.shape
         torch.Size([10, 759, 101])
 
+    .. literalinclude:: /../../speechbrain/lobes/features.yaml
+        :language: yaml
+
     Authors:
         Mirco Ravanelli and Peter Plantinga 2020
     """

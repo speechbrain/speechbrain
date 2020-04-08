@@ -231,6 +231,8 @@ def load_extended_yaml(
     node with tag '!$' will have <key> references replaced with
     the referenced value, following reference chains.
 
+    .. code-block:: yaml
+
         constants:
             output_folder: exp/asr
         alignment_saver: !asr.ali.hmm.save
@@ -239,6 +241,8 @@ def load_extended_yaml(
     Strings values are handled specially: references are substituted but
     the rest of the string is left in place, allowing filepaths to be
     easily extended:
+
+    .. code-block:: yaml
 
         constants:
             output_folder: exp/asr

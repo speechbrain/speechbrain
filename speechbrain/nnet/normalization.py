@@ -1,10 +1,5 @@
 """
- -----------------------------------------------------------------------------
- normalization.py
-
- Description: This library implements different neural normalization
-              strategies.
- -----------------------------------------------------------------------------
+Neural normalization strategies.
 """
 
 import torch
