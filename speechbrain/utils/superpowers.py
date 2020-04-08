@@ -1,11 +1,8 @@
-"""
- -----------------------------------------------------------------------------
- superpowers.py
+"""Superpowers which should be rarely used.
 
- Description: This library contains functions for importing python classes and
-              for running shell commands. Remember, great power comes great
-              responsibility.
- -----------------------------------------------------------------------------
+This library contains functions for importing python classes and
+for running shell commands. Remember, with great power comes great
+responsibility.
 """
 
 import logging

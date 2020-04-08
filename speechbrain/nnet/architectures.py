@@ -1,10 +1,5 @@
 """
- -----------------------------------------------------------------------------
- architectures.py
-
- Description: This library contains the most popular neural architectures that
-              can be used to process audio and speech signals.
- -----------------------------------------------------------------------------
+Most popular neural architectures in speech and audio
 """
 
 import math

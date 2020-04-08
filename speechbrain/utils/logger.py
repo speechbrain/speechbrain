@@ -1,9 +1,5 @@
 """
------------------------------------------------------------------------------
-logger.py
-
-Description: This library contains functions for managing the logger.
------------------------------------------------------------------------------
+Managing the logger.
 """
 
 import os

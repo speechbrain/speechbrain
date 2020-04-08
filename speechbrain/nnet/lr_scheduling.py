@@ -1,9 +1,5 @@
 """
- -----------------------------------------------------------------------------
- lr_scheduling.py
-
- Description: This library implements different learning rate schedulers.
- -----------------------------------------------------------------------------
+Learning rate schedulers.
 """
 
 import math

@@ -1,10 +1,5 @@
 """
------------------------------------------------------------------------------
- data_io.py
-
- Description: This library gathers that implement support functions for
-              data i/o operations.
- -----------------------------------------------------------------------------
+Data i/o operations.
 """
 
 import io

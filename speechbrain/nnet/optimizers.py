@@ -1,9 +1,5 @@
 """
------------------------------------------------------------------------------
-optimizers.py
-
-Description: This library implements different optimizers.
------------------------------------------------------------------------------
+Optimizers.
 """
 
 import torch

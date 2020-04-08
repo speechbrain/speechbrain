@@ -1,10 +1,5 @@
 """
- -----------------------------------------------------------------------------
- losses.py
-
- Description: This library implements different losses for training neural
-              models.
- -----------------------------------------------------------------------------
+Losses for training neural networks.
 """
 
 import torch

@@ -1,12 +1,10 @@
-"""
------------------------------------------------------------------------------
- data_processing.py
+"""Low-level feature pipeline components
 
- Description: This library gathers functions that process batches for data.
-              All the classes are of type nn.Module. This gives the
-              possibility to have end-to-end differentiability and b
-              backpropagate the gradient through them.
- -----------------------------------------------------------------------------
+This library gathers functions that process batches for data.
+All the classes are of type nn.Module. This gives the
+possibility to have end-to-end differentiability and to 
+backpropagate the gradient through them.
+----------------------------------------------------------------
 """
 
 # Importing libraries

@@ -15,7 +15,6 @@ import sys
 sys.path.insert(0, os.path.abspath('../../speechbrain'))
 
 
-
 # -- Project information -----------------------------------------------------
 
 project = 'SpeechBrain'
@@ -35,7 +34,10 @@ extensions = ['sphinx.ext.autodoc',
     'sphinx.ext.intersphinx',
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
-    'sphinx.ext.napoleon',]
+    'sphinx.ext.autosummary',
+    'sphinx.ext.napoleon',
+    ]
+
 
 # Napoleon settings
 napoleon_google_docstring = True

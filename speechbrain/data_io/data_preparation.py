@@ -1,10 +1,6 @@
 """
------------------------------------------------------------------------------
- data_preparation.py
-
- Description: This library gathers classes form data preparation.
- -----------------------------------------------------------------------------
- """
+Data preparation.
+"""
 
 import os
 import sys
