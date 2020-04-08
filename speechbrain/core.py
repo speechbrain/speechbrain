@@ -139,15 +139,33 @@ class Experiment:
         logger = setup_logging(self.log_config, logger_overrides)
         sys.excepthook = _logging_excepthook
 
-    def recover_if_possible(self, importance_key=None):
+    def recover_if_possible(self, max_key=None, min_key=None):
         """
         See `speechbrain.utils.checkpoints.Checkpointer.recover_if_possible`
+
+        If neither ``max_key`` nor ``min_key`` is passed, the default
+        for ``recover_if_possible`` is used (most recent checkpoint).
+
+        Arguments:
+            max_key (str): A key that was stored in meta when the checkpoint
+                was created. The checkpoint with the `highest` stored value
+                for this key will be loaded.
+            min_key (str): A key that was stored in meta when the checkpoint
+                was created. The checkpoint with the `lowest` stored value
+                for this key will be loaded.
         """
+        assert max_key is None or min_key is None, "Can't use both max and min"
         if hasattr(self, 'saver'):
-            if importance_key is None:
+            if max_key is None and min_key is None:
                 self.saver.recover_if_possible()
-            else:
-                self.saver.recover_if_possible(importance_key)
+            elif max_key is not None:
+                def max_sort(ckpt):
+                    return ckpt.meta[max_key]
+                self.saver.recover_if_possible(max_sort)
+            elif min_key is not None:
+                def min_sort(ckpt):
+                    return -ckpt.meta[min_key]
+                self.saver.recover_if_possible(min_sort)
         else:
             raise KeyError(
                 'The field <constants.output_folder> and the field '
@@ -155,25 +173,77 @@ class Experiment:
                 'specified in order to load a checkpoint.'
             )
 
-    def save_and_keep_only(self, meta={}, importance_keys=None, **kwargs):
+    def save_and_keep_only(
+        self,
+        meta={},
+        num_to_keep=1,
+        max_keys=[],
+        min_keys=[],
+    ):
         """
         See `speechbrain.utils.checkpoints.Checkpointer.save_and_keep_only`
+
+        Arguments:
+            meta (mapping): a set of key, value pairs to store alongside
+                the checkpoint.
+            num_to_keep (int): The number of checkpoints to keep for
+                each metric that is specified.
+            max_keys (iterable): a set of keys in the meta to use for
+                determining which checkpoints to keep. The highest N of
+                each listed key will be kept.
+            min_keys (iterable): a set of keys in the meta to use for
+                determining which checkpoints to keep. The lowest N of
+                each listed key will be kept.
+
+        Author:
+            Peter Plantinga 2020
         """
         if hasattr(self, 'saver'):
-            if importance_keys is None:
-                self.saver.save_and_keep_only(meta=meta, **kwargs)
-            else:
-                self.saver.save_and_keep_only(
-                    meta=meta,
-                    importance_keys=importance_keys,
-                    **kwargs
-                )
+            for key in max_keys:
+                assert key in meta, 'Max key {} must be in meta'.format(key)
+            for key in min_keys:
+                assert key in meta, 'Min key {} must be in meta'.format(key)
+
+            importance_keys = []
+            for key in ['unixtime'] + max_keys:
+                importance_keys.append(lambda x: x.meta[key])
+            for key in min_keys:
+                importance_keys.append(lambda x: -x.meta[key])
+            self.saver.save_and_keep_only(
+                meta=meta,
+                importance_keys=importance_keys,
+            )
         else:
             raise KeyError(
                 'The field <constants.output_folder> and the field '
                 '<constants.save_folder> must both be '
                 'specified in order to save a checkpoint.'
             )
+
+    def log_epoch_stats(self, epoch, train_stats, valid_stats):
+        """Log key stats about the epoch.
+
+        Arguments:
+            epoch (int): The epoch to log.
+            train_stats (mapping): The training statistics to log,
+                in the form of `{'statistic': <value>}`
+            valid_stats (mapping): The validation statistics to log,
+                in the same format as the `train_stats`.
+
+        Example:
+            >>> yaml_string = "{Constants: {output_folder: exp}}"
+            >>> sb = Experiment(yaml_string)
+            >>> sb.log_epoch_stats(3, {'loss': 4}, {'loss': 5})
+            core - epoch: 3 - train loss: 4.00 - valid loss: 5.00
+
+        Author:
+            Peter Plantinga 2020
+        """
+        log_string = "epoch: {} - ".format(epoch)
+        train_str = ['train %s: %.2f' % i for i in train_stats.items()]
+        valid_str = ['valid %s: %.2f' % i for i in valid_stats.items()]
+        log_string += ' - '.join(train_str + valid_str)
+        logger.info(log_string)
 
     def _update_attributes(self, attributes, override=False):
         r'''Update the attributes of this class to reflect a set of parameters

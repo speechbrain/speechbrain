@@ -500,8 +500,7 @@ class create_dataloader(torch.nn.Module):
          """
 
         # Initial prints
-        msg = "\tCreating dataloader for %s" % (self.csv_file)
-        logger.debug(msg)
+        logger.debug("Creating dataloader for %s" % (self.csv_file))
 
         # Initialization of the data_dict
         data_dict = {}
@@ -532,8 +531,7 @@ class create_dataloader(torch.nn.Module):
                         "a unique  id for each sentence is not present in the "
                         "csv file  %s" % (self.csv_file)
                     )
-
-                    logger.error(err_msg, exc_info=True)
+                    raise ValueError(err_msg)
 
                 # Make sure the duration field exists
                 if "duration" not in row:
@@ -542,8 +540,7 @@ class create_dataloader(torch.nn.Module):
                         "contains the  duration of each sentence is not "
                         "present in the csv  file %s" % (self.csv_file)
                     )
-
-                    logger.error(err_msg, exc_info=True)
+                    raise ValueError(err_msg)
 
                 if len(row) == 2:
                     err_msg = (
@@ -552,8 +549,7 @@ class create_dataloader(torch.nn.Module):
                         "feaname, feaname_format, feaname_opts"
                         % (self.csv_file)
                     )
-
-                    logger.error(err_msg, exc_info=True)
+                    raise ValueError(err_msg)
 
                 # Make sure the features are expressed in the following way:
                 # feaname, feaname_format, feaname_opts
@@ -568,8 +564,7 @@ class create_dataloader(torch.nn.Module):
                             "contain the field %s to specified its format."
                             % (feat_name, self.csv_file, feat_name + "_format")
                         )
-
-                        logger.error(err_msg, exc_info=True)
+                        raise ValueError(err_msg)
 
                     if feat_name + "_opts" not in row:
                         err_msg = (
@@ -578,8 +573,7 @@ class create_dataloader(torch.nn.Module):
                             "options. "
                             % (feat_name, self.csv_file, feat_name + "_opts")
                         )
-
-                        logger.error(err_msg, exc_info=True)
+                        raise ValueError(err_msg)
 
                 # Store the field list
                 field_lst = row
@@ -596,10 +590,12 @@ class create_dataloader(torch.nn.Module):
                             lambda x: self.replacements[x[0]],
                             item,
                         )
-                    except KeyError:
-                        log_msg = ("The item '%s' contains variables "
-                                   "not included in 'replacements'" % item)
-                        logger.error(log_msg)
+                    except KeyError as e:
+                        e.args = (
+                            *e.args, "The item '%s' contains variables "
+                            "not included in 'replacements'" % item
+                        )
+                        raise
 
                 # Make sure that the current row contains all the fields
                 if len(row) != len(field_lst):
@@ -663,14 +659,12 @@ class create_dataloader(torch.nn.Module):
 
         data_dict = self.sort_sentences(data_dict, self.sentence_sorting)
 
-        log_text = (
-            "\tNumber of sentences: %i\n" % (len(data_dict.keys()))
-            + "\tTotal duration (hours): %1.2f \n" % (total_duration / 3600)
-            + "\tAverage duration (seconds): %1.2f \n"
+        logger.debug("Number of sentences: %i" % (len(data_dict.keys())))
+        logger.debug("Total duration (hours): %1.2f" % (total_duration / 3600))
+        logger.debug(
+            "Average duration (seconds): %1.2f"
             % (total_duration / len(data_dict.keys()))
         )
-
-        logger.debug(log_text)
 
         # Adding sorted list of sentences
         data_dict["data_list"] = list(data_dict.keys())

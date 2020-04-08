@@ -19,9 +19,7 @@ def main():
     test_set = sb.test_loader()
 
     # Load best (lowest) WER model
-    def best_model(ckpt):
-        return -ckpt.meta['wer']
-    sb.recover_if_possible(best_model)
+    sb.recover_if_possible(min_key='wer')
 
     # training/validation epochs
     for epoch in sb.epoch_counter:
@@ -30,21 +28,21 @@ def main():
         train_loss = {'loss': []}
         for wav, phn in tqdm(zip(*train_set), total=len(train_set[0])):
             neural_computations(train_loss, sb.model, wav, phn, 'train')
+        train_loss['loss'] = float(mean(train_loss['loss']))
 
         # Iterate validataion to check progress
         valid_loss = {'loss': [], 'wer': []}
         for wav, phn in tqdm(zip(*valid_set), total=len(valid_set[0])):
             neural_computations(valid_loss, sb.model, wav, phn, 'valid')
 
-        validation_wer = float(mean(valid_loss['wer']))
-        print(validation_wer)
-        sys.exit(0)
-        sb.lr_annealing([sb.optimizer], epoch, validation_wer)
-        sb.save_and_keep_only({'wer': validation_wer}, [best_model])
+        valid_loss = {key: float(mean(valid_loss[key])) for key in valid_loss}
+        sb.lr_annealing([sb.optimizer], epoch, valid_loss['wer'])
+        sb.save_and_keep_only({'wer': valid_loss['wer']}, min_keys=['wer'])
+        sb.log_epoch_stats(epoch, train_loss, valid_loss)
 
     # Evaluate our model
     test_loss = {'loss': [], 'wer': []}
-    sb.recover_if_possible(best_model)
+    sb.recover_if_possible(min_key='wer')
     for wav, phn in tqdm(zip(*test_set), total=len(test_set[0])):
         neural_computations(test_loss, sb.model, wav, phn, 'test')
 
