@@ -1510,8 +1510,6 @@ class librispeech_prepare:
                 logger_write(err_msg, logfile=self.logger)
 
 
-
-
 # Future: May add kaldi labels (not required at this point)
 class Voxceleb_prepare:
     """
@@ -1629,8 +1627,9 @@ class Voxceleb_prepare:
         self.samplerate = 16000
 
         # ND
-        wav_lst_train, wav_lst_dev, wav_lst_test  = self.prepare_wav_list(self.data_folder)
-
+        wav_lst_train, wav_lst_dev, wav_lst_test = self.prepare_wav_list(
+            self.data_folder
+        )
 
         # Setting the save folder
         if self.save_folder is None:
@@ -1647,7 +1646,7 @@ class Voxceleb_prepare:
         self.save_csv_test = self.save_folder + "/test.csv"
 
         # Check if this phase is already done (if so, skip it)
-        if self.skip():   
+        if self.skip():
 
             msg = "\t%s sucessfully created!" % (self.save_csv_train)
             logger_write(msg, logfile=self.logger, level="debug")
@@ -1671,7 +1670,7 @@ class Voxceleb_prepare:
             self.prepare_csv(
                 wav_lst_train,
                 self.save_csv_train,
-                kaldi_lab=self.kaldi_ali_tr, 
+                kaldi_lab=self.kaldi_ali_tr,
                 kaldi_lab_opts=self.kaldi_lab_opts,
                 logfile=self.logger,
             )
@@ -1680,7 +1679,7 @@ class Voxceleb_prepare:
             self.prepare_csv(
                 wav_lst_dev,
                 self.save_csv_dev,
-                kaldi_lab=self.kaldi_ali_dev, 
+                kaldi_lab=self.kaldi_ali_dev,
                 kaldi_lab_opts=self.kaldi_lab_opts,
                 logfile=self.logger,
             )
@@ -1689,7 +1688,7 @@ class Voxceleb_prepare:
             self.prepare_csv(
                 wav_lst_test,
                 self.save_csv_test,
-                kaldi_lab=self.kaldi_ali_tr, 
+                kaldi_lab=self.kaldi_ali_tr,
                 kaldi_lab_opts=self.kaldi_lab_opts,
                 logfile=self.logger,
             )
@@ -1701,27 +1700,31 @@ class Voxceleb_prepare:
         return
 
     def prepare_wav_list(self, data_folder):
-        iden_split_file = os.path.join(data_folder, 'iden_split_sample.txt')
-        train_wav_lst = [] 
-        dev_wav_lst = [] 
-        test_wav_lst = [] 
-        with open(iden_split_file, 'r') as f:
+        iden_split_file = os.path.join(data_folder, "iden_split_sample.txt")
+        train_wav_lst = []
+        dev_wav_lst = []
+        test_wav_lst = []
+        with open(iden_split_file, "r") as f:
             for line in f:
-                [spkr_split, audio_path] = line.split(' ')
-                [spkr_id, session_id, utt_id] = audio_path.split('/')
-                if spkr_split not in ['1', '2', '3']:
+                [spkr_split, audio_path] = line.split(" ")
+                [spkr_id, session_id, utt_id] = audio_path.split("/")
+                if spkr_split not in ["1", "2", "3"]:
                     # todo: raise an error here!
                     break
-                if spkr_split == '1':
-                    train_wav_lst.append(os.path.join(data_folder,audio_path.strip()))
-                if spkr_split == '2':
-                    dev_wav_lst.append(os.path.join(data_folder,audio_path.strip()))
-                if spkr_split == '3':
-                    test_wav_lst.append(os.path.join(data_folder,audio_path.strip()))
+                if spkr_split == "1":
+                    train_wav_lst.append(
+                        os.path.join(data_folder, audio_path.strip())
+                    )
+                if spkr_split == "2":
+                    dev_wav_lst.append(
+                        os.path.join(data_folder, audio_path.strip())
+                    )
+                if spkr_split == "3":
+                    test_wav_lst.append(
+                        os.path.join(data_folder, audio_path.strip())
+                    )
         f.close()
         return train_wav_lst, dev_wav_lst, test_wav_lst
-
-
 
     def skip(self):
         """
@@ -1846,7 +1849,7 @@ class Voxceleb_prepare:
         # Reading kaldi labels if needed:
         snt_no_lab = 0
         missing_lab = False
-        '''
+        """
         # Kaldi labs will be added in future
         if kaldi_lab is not None:
 
@@ -1860,7 +1863,7 @@ class Voxceleb_prepare:
 
             if not os.path.exists(lab_out_dir):
                 os.makedirs(lab_out_dir)
-        '''
+        """
         csv_lines = [
             [
                 "ID",
@@ -1871,26 +1874,25 @@ class Voxceleb_prepare:
                 "spk_id",
                 "spk_id_format",
                 "spk_id_opts",
-
             ]
         ]
 
-        '''
+        """
         if kaldi_lab is not None:
             csv_lines[0].append("kaldi_lab")
             csv_lines[0].append("kaldi_lab_format")
             csv_lines[0].append("kaldi_lab_opts")
-        '''
+        """
 
-        my_sep = '---'
+        my_sep = "---"
         # Processing all the wav files in the list
         for wav_file in wav_lst:
 
             # Getting sentence and speaker ids
-            [spk_id, sess_id, utt_id] = wav_file.split('/')[-3:]
-            uniq_utt_id = my_sep.join([spk_id, sess_id, utt_id.split('.')[0]])
-            #spk_id = wav_file.split("/")[-2]
-            #snt_id = wav_file.split("/")[-1].replace(".wav", "")
+            [spk_id, sess_id, utt_id] = wav_file.split("/")[-3:]
+            uniq_utt_id = my_sep.join([spk_id, sess_id, utt_id.split(".")[0]])
+            # spk_id = wav_file.split("/")[-2]
+            # snt_id = wav_file.split("/")[-1].replace(".wav", "")
 
             # Reading the signal (to retrieve duration in seconds)
             signal = read_wav_soundfile(wav_file, logger=logfile)
@@ -1906,11 +1908,10 @@ class Voxceleb_prepare:
                 spk_id,
                 "string",
                 " ",
-
             ]
 
             # Future
-            #if kaldi_lab is not None:
+            # if kaldi_lab is not None:
             #    csv_line.append(snt_lab_path)
             #    csv_line.append("pkl")
             #    csv_line.append("")
@@ -1930,9 +1931,6 @@ class Voxceleb_prepare:
         # Final prints
         msg = "\t%s sucessfully created!" % (csv_file)
         logger_write(msg, logfile=self.logger, level="debug")
-
-
-
 
     def check_voxceleb1_folders(self):
         """
@@ -1978,8 +1976,3 @@ class Voxceleb_prepare:
             )
 
             logger_write(err_msg, logfile=self.logger)
-
-
-
-
-
