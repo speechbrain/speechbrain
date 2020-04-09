@@ -1569,10 +1569,10 @@ class Voxceleb_prepare:
                        Otherwise it returns None. It this case it returns
                        always None.
 
-     Example:    from speechbrain.data_io.data_preparation import timit_prepare
+     Example:    from speechbrain.data_io.data_preparation import Voxceleb_prepare
 
-                 local_folder='/home/mirco/datasets/TIMIT'
-                 save_folder='exp/TIMIT_exp'
+                 local_folder='/home/nauman/datasets/Vox1'
+                 save_folder='exp/Vox1_exp'
 
                  # Definition of the config dictionary
                  config={'class_name':'data_processing.copy_data_locally', \
@@ -1581,7 +1581,7 @@ class Voxceleb_prepare:
                                'save_folder': save_folder}
 
                 # Initialization of the class
-                timit_prepare(config)
+                Voxceleb_prepare(config)
 
      -------------------------------------------------------------------------
      """
@@ -1599,7 +1599,7 @@ class Voxceleb_prepare:
         self.logger = logger
 
         # Here are summarized the expected options for this class
-        # Note: Kaldi ali not applicable here (None)
+        # Note: Kaldi ali will be added in future (currently: None)
         self.expected_options = {
             "class_name": ("str", "mandatory"),
             "data_folder": ("directory", "mandatory"),
@@ -1816,10 +1816,10 @@ class Voxceleb_prepare:
 
 
          Example:   from speechbrain.data_io.data_preparation import (
-                        timit_prepare)
+                        Voxceleb_prepare)
 
-                    local_folder='/home/mirco/datasets/TIMIT'
-                    save_folder='exp/TIMIT_exp'
+                    local_folder='/home/nauman/datasets/VoxCeleb1'
+                    save_folder='exp/VoxCeleb1_exp'
 
                     # Definition of the config dictionary
                     config={'class_name':'data_processing.copy_data_locally',\
@@ -1828,16 +1828,13 @@ class Voxceleb_prepare:
                                    'save_folder': save_folder}
 
                    # Initialization of the class
-                   data_prep=timit_prepare(config)
+                   data_prep=Voxceleb_prepare(config)
 
-                   # Get csv list
-                   wav_lst=['/home/mirco/datasets/TIMIT\
-                           /train/dr3/mtpg0/sx213.wav',
-                           '/home/mirco/datasets/TIMIT\
-                           /train/dr3/mtpg0/si2013.wav']
+                   data_prep.prepare_csv(wav_lst,csv_file)
 
-                   csv_file='exp/ex_csv.csv'
-                   data_prep.create_csv(wav_lst,csv_file)
+                   # Sample output csv list
+                   id10001---1zcIwhmdeo4---00001,8.1200625,/home/nauman/datasets/VoxCeleb1/id10001/1zcIwhmdeo4/00001.wav,wav, ,id10001,string,
+                   id10002---xTV-jFAUKcw---00001,5.4400625,/home/nauman/datasets/VoxCeleb1/id10002/xTV-jFAUKcw/00001.wav,wav, ,id10002,string,
 
          ---------------------------------------------------------------------
          """
@@ -1850,6 +1847,7 @@ class Voxceleb_prepare:
         snt_no_lab = 0
         missing_lab = False
         '''
+        # Kaldi labs will be added in future
         if kaldi_lab is not None:
 
             lab = read_kaldi_lab(
@@ -1944,17 +1942,17 @@ class Voxceleb_prepare:
          Description: This function cheks if the dat folder actually contains
                       the Voxceleb1 dataset. If not, it raises an error.
 
-         Input:        - self (type, prepare_timit class, mandatory)
+         Input:        - self (type, prepare_Voxceleb class, mandatory)
 
 
          Output:      None
 
 
          Example:   from speechbrain.data_io.data_preparation import (
-                        timit_prepare)
+                        Voxceleb_prepare)
 
-                    local_folder='/home/mirco/datasets/TIMIT'
-                    save_folder='exp/TIMIT_exp'
+                    local_folder='/home/nauman/datasets/VoxCeleb1'
+                    save_folder='exp/VoxCeleb1_exp'
 
                     # Definition of the config dictionary
                     config={'class_name':'data_processing.copy_data_locally',\
@@ -1963,15 +1961,15 @@ class Voxceleb_prepare:
                                    'save_folder': save_folder}
 
                    # Initialization of the class
-                   data_prep=timit_prepare(config)
+                   data_prep=Voxceleb_prepare(config)
 
                    # Check folder
-                   data_prep.check_timit_folders()
+                   data_prep.check_voxceleb1_folders()
 
          ---------------------------------------------------------------------
          """
 
-        # Checking test/dr1
+        # Checking
         if not os.path.exists(self.data_folder + "/id10001"):
 
             err_msg = (
