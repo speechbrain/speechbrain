@@ -236,13 +236,13 @@ def load_extended_yaml(yaml_stream, overrides={}):
     Reference substitution
     ----------------------
     Allows internal references to any scalar node in the file. Any
-    node with tag `!$` will have `<key>` references replaced with
+    node with tag `!ref` will have `<key>` references replaced with
     the referenced value, following reference chains.
 
         constants:
             output_folder: exp/asr
         alignment_saver: !asr.ali.hmm.save
-            save_dir: !$ <constants.output_folder> # exp/asr
+            save_dir: !ref <constants.output_folder> # exp/asr
 
     Strings values are handled specially: references are substituted but
     the rest of the string is left in place, allowing filepaths to be
@@ -251,7 +251,7 @@ def load_extended_yaml(yaml_stream, overrides={}):
         constants:
             output_folder: exp/asr
         alignment_saver: !asr.ali.hmm.save
-            save_dir: !$ <constants.output_folder>/ali # exp/asr/ali
+            save_dir: !ref <constants.output_folder>/ali # exp/asr/ali
 
     Object instantiation
     --------------------
@@ -283,7 +283,7 @@ def load_extended_yaml(yaml_stream, overrides={}):
     ... constants:
     ...     a: 3
     ... thing: !collections.Counter
-    ...     b: !$ <constants.a>
+    ...     b: !ref <constants.a>
     ... """
     >>> load_extended_yaml(yaml_string)
     {'constants': {'a': 3}, 'thing': Counter({'b': 3})}
@@ -294,7 +294,7 @@ def load_extended_yaml(yaml_stream, overrides={}):
 
 
 def resolve_references(yaml_stream, overrides={}):
-    '''Resolves inter-document references, a component of extended YAML.
+    r'''Resolves inter-document references, a component of extended YAML.
 
     Arguments
     ---------
@@ -313,11 +313,11 @@ def resolve_references(yaml_stream, overrides={}):
     >>> yaml_string = """
     ... constants:
     ...     a: 3
-    ...     b: !$ <constants.a>
+    ...     b: !ref <constants.a>
     ... """
     >>> overrides = {'constants': {'a': 4}}
-    >>> resolve_overrides_references(yaml_string, overrides)
-    {'constants': {'a': 4, 'b': 4}}
+    >>> resolve_references(yaml_string, overrides).getvalue()
+    'constants:\n  a: 4\n  b: 4\n'
     '''
     # Load once to store references and apply overrides
     # using ruamel.yaml to preserve the tags
@@ -335,7 +335,7 @@ def resolve_references(yaml_stream, overrides={}):
 
 
 def _walk_tree_and_resolve(current_node, tree):
-    """A recursive function for resolving `!$` tags.
+    """A recursive function for resolving `!ref` tags.
 
     Arguments
     ---------
@@ -348,7 +348,7 @@ def _walk_tree_and_resolve(current_node, tree):
     -------
     A yaml tree with all references resolved.
     """
-    if hasattr(current_node, 'tag') and current_node.tag.value == '!$':
+    if hasattr(current_node, 'tag') and current_node.tag.value == '!ref':
         current_node = recursive_resolve(current_node.value, [], tree)
     elif isinstance(current_node, list):
         for i, item in enumerate(current_node):

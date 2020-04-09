@@ -30,7 +30,7 @@ class Experiment:
 
     1. `constants:` These items are expected to be scalar nodes that
         can be referenced throughout the file by using the extended YAML
-        reference tags `!$`. In addition, a few constants are treated as
+        reference tags `!ref`. In addition, a few constants are treated as
         experimental arguments:
 
         * output_folder (str): The experimental directory for logs, results,
@@ -87,7 +87,7 @@ class Experiment:
     >>> yaml_string = """
     ... constants:
     ...     output_folder: exp
-    ...     save_folder: !$ <constants.output_folder>/save
+    ...     save_folder: !ref <constants.output_folder>/save
     ... """
     >>> sb = Experiment(yaml_string)
     >>> sb.save_folder
@@ -124,7 +124,8 @@ class Experiment:
                 os.makedirs(self.output_folder)
 
             # Write the parameters file
-            yaml_stream.seek(0)
+            if hasattr(yaml_stream, 'seek'):
+                yaml_stream.seek(0)
             resolved_yaml = resolve_references(yaml_stream, overrides)
             params_filename = os.path.join(self.output_folder, 'params.yaml')
             with open(params_filename, 'w') as w:

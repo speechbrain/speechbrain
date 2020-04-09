@@ -26,9 +26,9 @@ functions:
     drop_chunk: !speechbrain.processing.speech_augmentation.drop_chunk
     do_clip: !speechbrain.processing.speech_augmentation.do_clip
     speed_perturb: !speechbrain.processing.speech_augmentation.speed_perturb
-        orig_freq: !$ <constants.sample_rate>
+        orig_freq: !ref <constants.sample_rate>
         speeds: [9, 11]
     save: !speechbrain.data_io.data_io.save
-        sampling_rate: !$ <constants.sample_rate>
+        sampling_rate: !ref <constants.sample_rate>
         save_format: flac
         parallel_write: True

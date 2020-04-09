@@ -2,15 +2,15 @@ constants:
     output_folder: exp/CTC/TIMIT_VGG2_BSLTM_MLP
     data_file: /home/peter/Downloads/TIMIT.tar.gz
     local_folder: /tmp/timit
-    save_folder: !$ <constants.output_folder>/save
+    save_folder: !ref <constants.output_folder>/save
     ckpts_to_keep: 1
     sample_rate: 16000
     seed: 1234
 
     # Data files
-    csv_train: !$ <constants.local_folder>/train.csv
-    csv_valid: !$ <constants.local_folder>/dev.csv
-    csv_test: !$ <constants.local_folder>/test.csv
+    csv_train: !ref <constants.local_folder>/train.csv
+    csv_valid: !ref <constants.local_folder>/dev.csv
+    csv_test: !ref <constants.local_folder>/test.csv
 
     # Neural Parameters
     N_epochs: 25
@@ -25,30 +25,30 @@ saveables:
         mlp_blocks: 2
         n_neurons: 512
         activation_fn: leaky_relu
-        drop_rate: !$ <constants.dropout_rate>
+        drop_rate: !ref <constants.dropout_rate>
     optimizer: !speechbrain.nnet.optimizers.optimize
         do_recovery: True
         optimizer_type: adadelta
         rho: 0.95
-        learning_rate: !$ <constants.lr>
+        learning_rate: !ref <constants.lr>
     lr_annealing: !speechbrain.nnet.lr_scheduling.lr_annealing
         annealing_type: newbob
-        N_epochs: !$ <constants.N_epochs>
-        lr_initial: !$ <constants.lr>
+        N_epochs: !ref <constants.N_epochs>
+        lr_initial: !ref <constants.lr>
         improvement_threshold: 0.0025
         annealing_factor: 0.8
         patient: 0
     epoch_counter: !speechbrain.utils.epoch_loop.EpochCounter
-        limit: !$ <constants.N_epochs>
+        limit: !ref <constants.N_epochs>
 
 functions:
     copy_locally: !speechbrain.data_io.data_preparation.copy_data_locally
-        data_file: !$ <constants.data_file>
-        local_folder: !$ <constants.local_folder>
+        data_file: !ref <constants.data_file>
+        local_folder: !ref <constants.local_folder>
     prepare_timit: !speechbrain.data_io.data_preparation.timit_prepare
-        data_folder: !$ <constants.local_folder>
+        data_folder: !ref <constants.local_folder>
         splits: [train, dev, test]
-        save_folder: !$ <constants.local_folder>
+        save_folder: !ref <constants.local_folder>
     compute_features: !speechbrain.lobes.features.Features
         feature_type: fbank
         deltas: False
@@ -57,17 +57,17 @@ functions:
         constants:
             n_mels: 40
     train_loader: !speechbrain.data_io.data_io.create_dataloader &loader
-        csv_file: !$ <constants.csv_train>
-        batch_size: !$ <constants.batch_size>
+        csv_file: !ref <constants.csv_train>
+        batch_size: !ref <constants.batch_size>
         sentence_sorting: ascending
-        output_folder: !$ <constants.output_folder>
+        output_folder: !ref <constants.output_folder>
         csv_read: [wav, phn]
     valid_loader: !speechbrain.data_io.data_io.create_dataloader
         <<: *loader
-        csv_file: !$ <constants.csv_valid>
+        csv_file: !ref <constants.csv_valid>
     test_loader: !speechbrain.data_io.data_io.create_dataloader
         <<: *loader
-        csv_file: !$ <constants.csv_test>
+        csv_file: !ref <constants.csv_test>
         batch_size: 1
     compute_cost: !speechbrain.nnet.losses.compute_cost
         cost_type: [ctc]
