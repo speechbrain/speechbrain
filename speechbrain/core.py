@@ -1,4 +1,7 @@
-"""Core SpeechBrain code for running experiments."""
+"""Core SpeechBrain code for running experiments.
+
+Author(s): Peter Plantinga 2020
+"""
 
 import re
 import os
@@ -62,39 +65,39 @@ class Experiment:
     be a yaml-formatted string, though a shortcut has been provided for
     nested items, e.g.
 
-        {model.arg1: value, model.arg2.arg3: 3., model.arg2.arg4: True}
+        "{model.arg1: value, model.arg2.arg3: 3., model.arg2.arg4: True}"
 
     will be interpreted as:
 
         {'model': {'arg1': 'value', 'arg2': {'arg3': 3., 'arg4': True}}}
 
-    Example:
-        >>> yaml_string = """
-        ... constants:
-        ...     output_folder: exp
-        ...     save_folder: !$ <constants.output_folder>/save
-        ... """
-        >>> sb = Experiment(yaml_string)
-        >>> sb.save_folder
-        'exp/save'
+    Arguments
+    ---------
+    yaml_stream : stream
+        A file-like object or string containing
+        experimental parameters. The format of the file is described in
+        the method `speechbrain.utils.data_utils.load_extended_yaml()`.
+    commandline_args : list
+        The arguments from the command-line for
+        overriding the experimental parameters.
 
-    Author:
-        Peter Plantinga 2020
+    Example
+    -------
+    >>> yaml_string = """
+    ... constants:
+    ...     output_folder: exp
+    ...     save_folder: !$ <constants.output_folder>/save
+    ... """
+    >>> sb = Experiment(yaml_string)
+    >>> sb.save_folder
+    'exp/save'
     '''
     def __init__(
         self,
         yaml_stream,
         commandline_args=[],
     ):
-        """
-        Arguments:
-            yaml_stream (stream): A file-like object or string containing
-                experimental parameters. The format of the file is described in
-                the method `speechbrain.utils.data_utils.load_extended_yaml()`.
-            commandline_args (list): The arguments from the command-line for
-                overriding the experimental parameters.
-        """
-
+        """"""
         # Parse yaml overrides, with command-line args taking precedence
         # precedence over the parameters listed in the file.
         overrides = {}
@@ -143,16 +146,19 @@ class Experiment:
         """
         See `speechbrain.utils.checkpoints.Checkpointer.recover_if_possible`
 
-        If neither ``max_key`` nor ``min_key`` is passed, the default
-        for ``recover_if_possible`` is used (most recent checkpoint).
+        If neither `max_key` nor `min_key` is passed, the default
+        for `recover_if_possible` is used (most recent checkpoint).
 
-        Arguments:
-            max_key (str): A key that was stored in meta when the checkpoint
-                was created. The checkpoint with the `highest` stored value
-                for this key will be loaded.
-            min_key (str): A key that was stored in meta when the checkpoint
-                was created. The checkpoint with the `lowest` stored value
-                for this key will be loaded.
+        Arguments
+        ---------
+        max_key : str
+            A key that was stored in meta when the checkpoint
+            was created. The checkpoint with the `highest` stored value
+            for this key will be loaded.
+        min_key : str
+            A key that was stored in meta when the checkpoint
+            was created. The checkpoint with the `lowest` stored value
+            for this key will be loaded.
         """
         assert max_key is None or min_key is None, "Can't use both max and min"
         if hasattr(self, 'saver'):
@@ -183,20 +189,18 @@ class Experiment:
         """
         See `speechbrain.utils.checkpoints.Checkpointer.save_and_keep_only`
 
-        Arguments:
-            meta (mapping): a set of key, value pairs to store alongside
-                the checkpoint.
-            num_to_keep (int): The number of checkpoints to keep for
-                each metric that is specified.
-            max_keys (iterable): a set of keys in the meta to use for
-                determining which checkpoints to keep. The highest N of
-                each listed key will be kept.
-            min_keys (iterable): a set of keys in the meta to use for
-                determining which checkpoints to keep. The lowest N of
-                each listed key will be kept.
-
-        Author:
-            Peter Plantinga 2020
+        Arguments
+        ---------
+        meta : mapping
+            a set of key, value pairs to store alongside the checkpoint.
+        num_to_keep : int
+            The number of checkpoints to keep for each metric.
+        max_keys : iterable
+            a set of keys in the meta to use for determining which checkpoints
+            to keep. The highest N of each listed key will be kept.
+        min_keys : iterable
+            a set of keys in the meta to use for determining which checkpoints
+            to keep. The lowest N of each listed key will be kept.
         """
         if hasattr(self, 'saver'):
             for key in max_keys:
@@ -223,21 +227,21 @@ class Experiment:
     def log_epoch_stats(self, epoch, train_stats, valid_stats):
         """Log key stats about the epoch.
 
-        Arguments:
-            epoch (int): The epoch to log.
-            train_stats (mapping): The training statistics to log,
-                in the form of `{'statistic': <value>}`
-            valid_stats (mapping): The validation statistics to log,
-                in the same format as the `train_stats`.
+        Arguments
+        ---------
+        epoch : int
+            The epoch to log.
+        train_stats : mapping
+            The training statistics to log, e.g. `{'wer': 22.1}`
+        valid_stats : mapping
+            The validation statistics to log, same format as above.
 
-        Example:
-            >>> yaml_string = "{Constants: {output_folder: exp}}"
-            >>> sb = Experiment(yaml_string)
-            >>> sb.log_epoch_stats(3, {'loss': 4}, {'loss': 5})
-            core - epoch: 3 - train loss: 4.00 - valid loss: 5.00
-
-        Author:
-            Peter Plantinga 2020
+        Example
+        -------
+        >>> yaml_string = "{Constants: {output_folder: exp}}"
+        >>> sb = Experiment(yaml_string)
+        >>> sb.log_epoch_stats(3, {'loss': 4}, {'loss': 5})
+        core - epoch: 3 - train loss: 4.00 - valid loss: 5.00
         """
         log_string = "epoch: {} - ".format(epoch)
         train_str = ['train %s: %.2f' % i for i in train_stats.items()]
@@ -248,13 +252,12 @@ class Experiment:
     def _update_attributes(self, attributes, override=False):
         r'''Update the attributes of this class to reflect a set of parameters
 
-        Arguments:
-            attributes: A dict that contains the essential parameters for
-                running the experiment. Usually loaded from a yaml file using
-                `load_extended_yaml()`.
-
-        Author:
-            Peter Plantinga 2020
+        Arguments
+        ---------
+        attributes : mapping
+            A dict that contains the essential parameters for
+            running the experiment. Usually loaded from a yaml file using
+            `load_extended_yaml()`.
         '''
         for param, new_value in attributes.items():
             if isinstance(new_value, dict):
@@ -276,15 +279,15 @@ def _logging_excepthook(exc_type, exc_value, exc_traceback):
 def parse_arguments(arg_list):
     """Parse command-line arguments to the experiment.
 
-    Arguments:
-        arg_list: a list of arguments to parse, most often from sys.argv[1:]
+    Arguments
+    ---------
+    arg_list: list
+        a list of arguments to parse, most often from `sys.argv[1:]`
 
-    Example:
-        >>> parse_arguments(['--seed', '10'])
-        {'seed': 10}
-
-    Author:
-        Peter Plantinga 2020
+    Example
+    -------
+    >>> parse_arguments(['--seed', '10'])
+    {'seed': 10}
     """
     parser = argparse.ArgumentParser(
         description='Run a SpeechBrain experiment',
@@ -334,16 +337,16 @@ def parse_arguments(arg_list):
 def parse_overrides(override_string):
     """Parse overrides from a yaml string representing paired args and values.
 
-    Arguments:
-        override_string: A yaml-formatted string, where each (key: value) pair
-            overrides the same pair in a loaded file.
+    Arguments
+    ---------
+    override_string: str
+        A yaml-formatted string, where each (key: value) pair
+        overrides the same pair in a loaded file.
 
-    Example:
-        >>> parse_overrides("{model.arg1: val1, model.arg2.arg3: 3.}")
-        {'model': {'arg1': 'val1', 'arg2': {'arg3': 3.0}}}
-
-    Author:
-        Peter Plantinga 2020
+    Example
+    -------
+    >>> parse_overrides("{model.arg1: val1, model.arg2.arg3: 3.}")
+    {'model': {'arg1': 'val1', 'arg2': {'arg3': 3.0}}}
     """
     preview = {}
     if override_string:
@@ -362,19 +365,21 @@ def parse_overrides(override_string):
 def nest(dictionary, args, val):
     """Create a nested sequence of dictionaries, based on an arg list.
 
-    Arguments:
-        dictionary (dict): this ref will be updated with the nested arguments.
-        args (list): a list of parameters specifying a nested location.
-        val (obj): The value to store at the specified nested location.
+    Arguments
+    ---------
+    dictionary : dict
+        this object will be updated with the nested arguments.
+    args : list
+        a list of parameters specifying a nested location.
+    val : obj
+        The value to store at the specified nested location.
 
-    Example:
-        >>> params = {}
-        >>> nest(params, ['arg1', 'arg2', 'arg3'], 'value')
-        >>> params
-        {'arg1': {'arg2': {'arg3': 'value'}}}
-
-    Author:
-        Peter Plantinga 2020
+    Example
+    -------
+    >>> params = {}
+    >>> nest(params, ['arg1', 'arg2', 'arg3'], 'value')
+    >>> params
+    {'arg1': {'arg2': {'arg3': 'value'}}}
     """
     if len(args) == 1:
         dictionary[args[0]] = val

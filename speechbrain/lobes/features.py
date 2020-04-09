@@ -5,36 +5,41 @@ from speechbrain.utils.data_utils import load_extended_yaml
 class Features(torch.nn.Module):
     """Generate features for input to the speech pipeline.
 
-    Args:
-        feature_type: One of 'spectrogram', 'fbank', or 'mfcc', the type of
-            feature to generate.
-        deltas: Whether or not to append derivatives and second derivatives
-            to the features.
-        context: Whether or not to append forward and backward contexts to
-            the features.
-        requires_grad: Whether to allow parameters (i.e. fbank centers and
-            spreads) to update during training.
-        overrides: A set of overrides to use when reading the default
-            parameters from `features.yaml`
+    Arguments
+    ---------
+    feature_type : int
+        One of 'spectrogram', 'fbank', or 'mfcc', the type of feature
+        to generate.
+    deltas : bool
+        Whether or not to append derivatives and second derivatives
+        to the features.
+    context : bool
+        Whether or not to append forward and backward contexts to
+        the features.
+    requires_grad : bool
+        Whether to allow parameters (i.e. fbank centers and
+        spreads) to update during training.
+    **overrides
+        A set of overrides to use when reading the default
+        parameters from `features.yaml`
 
-    Shapes:
-        - wav: [batch, time_steps] or [batch, channels, time_steps]
-        - output: see corresponding documentation in relevant feature
-            function, in `speechbrain/processing/features.py`
+    Example
+    -------
+    >>> import torch
+    >>> inputs = torch.randn([10, 16000])
+    >>> feature_maker = Features(feature_type='fbank')
+    >>> feats = feature_maker(inputs)
+    >>> feats.shape
+    torch.Size([10, 759, 101])
 
-    Example:
-        >>> import torch
-        >>> inputs = torch.randn([10, 16000])
-        >>> feature_maker = Features(feature_type='fbank')
-        >>> feats = feature_maker(inputs)
-        >>> feats.shape
-        torch.Size([10, 759, 101])
+    Hyperparams
+    -----------
 
-    .. literalinclude:: /../../speechbrain/lobes/features.yaml
-        :language: yaml
+        .. include:: features.yaml
 
-    Authors:
-        Mirco Ravanelli and Peter Plantinga 2020
+    Authors
+    -------
+    Mirco Ravanelli and Peter Plantinga 2020
     """
     def __init__(
         self,
