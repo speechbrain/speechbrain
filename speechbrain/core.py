@@ -8,12 +8,13 @@ import os
 import sys
 import yaml
 import torch
+import shutil
 import logging
 import inspect
 import argparse
 from speechbrain.utils.logger import setup_logging
 from speechbrain.utils.checkpoints import Checkpointer
-from speechbrain.utils.data_utils import load_extended_yaml
+from speechbrain.utils.data_utils import load_extended_yaml, resolve_references
 logger = logging.getLogger(__name__)
 
 
@@ -121,6 +122,13 @@ class Experiment:
         if hasattr(self, 'output_folder'):
             if not os.path.isdir(self.output_folder):
                 os.makedirs(self.output_folder)
+
+            # Write the parameters file
+            yaml_stream.seek(0)
+            resolved_yaml = resolve_references(yaml_stream, overrides)
+            params_filename = os.path.join(self.output_folder, 'params.yaml')
+            with open(params_filename, 'w') as w:
+                shutil.copyfileobj(resolved_yaml, w)
 
             # Change logging file to be in output dir
             logger_override_string = (

@@ -17,6 +17,7 @@ import ruamel.yaml
 import collections.abc
 from io import StringIO
 from pydoc import locate
+from ruamel.yaml.nodes import ScalarNode
 
 
 def get_all_files(
@@ -225,10 +226,7 @@ def recursive_update(d, u):
 
 # NOTE: Empty dict as default parameter is fine here since overrides are never
 # modified
-def load_extended_yaml(
-    yaml_string,
-    overrides={},
-):
+def load_extended_yaml(yaml_stream, overrides={}):
     r'''This function implements the SpeechBrain extended YAML syntax
 
     The purpose for this syntax is a compact, structured hyperparameter and
@@ -268,7 +266,7 @@ def load_extended_yaml(
 
     Arguments
     ---------
-    yaml_string : stream
+    yaml_stream : stream
         A file-like object or string from which to read.
     overrides : mapping
         A set of overrides for the values read from the stream.
@@ -277,7 +275,7 @@ def load_extended_yaml(
 
     Returns
     -------
-    A dictionary reflecting the structure of `yaml_string`.
+    A dictionary reflecting the structure of `yaml_stream`.
 
     Example
     -------
@@ -290,34 +288,76 @@ def load_extended_yaml(
     >>> load_extended_yaml(yaml_string)
     {'constants': {'a': 3}, 'thing': Counter({'b': 3})}
     '''
+    yaml_stream = resolve_references(yaml_stream, overrides)
+    yaml.SafeLoader.add_multi_constructor('!', object_constructor)
+    return yaml.safe_load(yaml_stream)
 
+
+def resolve_references(yaml_stream, overrides={}):
+    '''Resolves inter-document references, a component of extended YAML.
+
+    Arguments
+    ---------
+    yaml_stream : stream
+        A file-like object or string with the contents of a yaml file
+        written with the extended YAML syntax.
+    overrides : mapping
+        A set of keys for which to change the value listed in the stream.
+
+    Returns
+    -------
+    A text stream with all references and overrides resolved.
+
+    Example
+    -------
+    >>> yaml_string = """
+    ... constants:
+    ...     a: 3
+    ...     b: !$ <constants.a>
+    ... """
+    >>> overrides = {'constants': {'a': 4}}
+    >>> resolve_overrides_references(yaml_string, overrides)
+    {'constants': {'a': 4, 'b': 4}}
+    '''
     # Load once to store references and apply overrides
     # using ruamel.yaml to preserve the tags
     ruamel_yaml = ruamel.yaml.YAML()
-    preview = ruamel_yaml.load(yaml_string)
+    preview = ruamel_yaml.load(yaml_stream)
     recursive_update(preview, overrides)
+    _walk_tree_and_resolve(current_node=preview, tree=preview)
 
     # Dump back to string so we can load with bells and whistles
-    yaml_string = StringIO()
-    ruamel_yaml.dump(preview, yaml_string)
-    yaml_string.seek(0)
+    yaml_stream = StringIO()
+    ruamel_yaml.dump(preview, yaml_stream)
+    yaml_stream.seek(0)
 
-    # NOTE: obj_and_ref_constructor needs to be defined in this scope to have
-    # the correct version of preview
-    def obj_and_ref_constructor(loader, tag_suffix, node):
-        if tag_suffix == '$':
-            nonlocal preview  # Not needed, but let's be explicit
-            reference = loader.construct_scalar(node)
-            return recursive_resolve(reference, [], preview)
-        else:
-            return object_constructor(loader, tag_suffix, node)
+    return yaml_stream
 
-    # We also need a PyYAML Loader that is specific to this context
-    # PyYAML syntax requires defining a new class to get a new loader
-    class CustomLoader(yaml.SafeLoader):
-        pass
-    CustomLoader.add_multi_constructor('!', obj_and_ref_constructor)
-    return yaml.load(yaml_string, Loader=CustomLoader)
+
+def _walk_tree_and_resolve(current_node, tree):
+    """A recursive function for resolving `!$` tags.
+
+    Arguments
+    ---------
+    current_node : node
+        A node in the yaml tree loaded with ruamel.yaml.
+    tree : node
+        The base node in the yaml tree loaded with ruamel.yaml.
+
+    Returns
+    -------
+    A yaml tree with all references resolved.
+    """
+    if hasattr(current_node, 'tag') and current_node.tag.value == '!$':
+        current_node = recursive_resolve(current_node.value, [], tree)
+    elif isinstance(current_node, list):
+        for i, item in enumerate(current_node):
+            current_node[i] = _walk_tree_and_resolve(item, tree)
+    elif isinstance(current_node, dict):
+        for k, v in current_node.items():
+            current_node[k] = _walk_tree_and_resolve(v, tree)
+
+    return current_node
 
 
 def object_constructor(loader, callable_string, node):

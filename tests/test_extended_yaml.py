@@ -15,6 +15,9 @@ def test_load_extended_yaml():
     from collections import Counter
     assert things['thing'].__class__ == Counter
 
+    overrides = {'constants': {'a': 2}}
+    things = load_extended_yaml(yaml, overrides=overrides)
+
     # Missing sections
     yaml = """
     """
@@ -124,4 +127,4 @@ def test_load_extended_yaml():
     things = load_extended_yaml(yaml)
     assert things['thing2']['b'] == things['thing1']['b']
     things['thing2']['b'] = 7
-    assert things['thing2']['b'] != things['thing1']['b']
+    assert things['thing2']['b'] == things['thing1']['b']
