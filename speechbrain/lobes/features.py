@@ -1,3 +1,6 @@
+"""
+Authors: Mirco Ravanelli 2020, Peter Plantinga 2020
+"""
 import torch
 from speechbrain.utils.data_utils import load_extended_yaml
 
@@ -7,7 +10,7 @@ class Features(torch.nn.Module):
 
     Arguments
     ---------
-    feature_type : int
+    feature_type : str
         One of 'spectrogram', 'fbank', or 'mfcc', the type of feature
         to generate.
     deltas : bool
@@ -36,10 +39,6 @@ class Features(torch.nn.Module):
     -----------
 
         .. include:: features.yaml
-
-    Authors
-    -------
-    Mirco Ravanelli and Peter Plantinga 2020
     """
     def __init__(
         self,
@@ -60,6 +59,18 @@ class Features(torch.nn.Module):
         self.params = load_extended_yaml(open(path), overrides)
 
     def forward(self, wav, wav_len=None):
+        """
+        Arguments
+        ---------
+        wav : tensor
+            A batch of audio signals to transform to features.
+        wav_len : tensor
+            Only needed for normalization, the length of each audio signal.
+
+        Returns
+        -------
+        The generated features.
+        """
         STFT = self.params['compute_STFT'](wav)
         features = self.params['compute_spectrogram'](STFT)
 
