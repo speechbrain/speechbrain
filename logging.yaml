@@ -9,13 +9,13 @@ formatters:
 handlers:
   console:
     class: logging.StreamHandler
-    level: DEBUG
+    level: INFO
     formatter: console
     stream: ext://sys.stdout
 
   file_handler:
     class: logging.FileHandler
-    level: INFO
+    level: DEBUG
     formatter: simple
     filename: log.txt
     encoding: utf8
