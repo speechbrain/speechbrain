@@ -114,3 +114,14 @@ def test_load_extended_yaml():
     """
     things = load_extended_yaml(yaml)
     assert things['thing'] == 'abc/def/foo/bar'
+
+    yaml = """
+    thing1: !collections.Counter
+        a: 3
+        b: 5
+    thing2: !$ <thing1>
+    """
+    things = load_extended_yaml(yaml)
+    assert things['thing2']['b'] == things['thing1']['b']
+    things['thing2']['b'] = 7
+    assert things['thing2']['b'] != things['thing1']['b']
