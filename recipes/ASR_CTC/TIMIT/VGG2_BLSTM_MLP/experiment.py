@@ -6,6 +6,7 @@ sb = Experiment(
     yaml_stream=open('recipes/ASR_CTC/TIMIT/VGG2_BLSTM_MLP/params.yaml'),
     commandline_args=sys.argv[1:],
 )
+device = 'cuda:0'
 
 
 def main():
@@ -56,8 +57,8 @@ def neural_computations(losses, model, wav, phn, mode):
 
     id, wav, wav_len = wav
     id, phn, phn_len = phn
-    wav, wav_len = wav.cuda(), wav_len.cuda()
-    phn, phn_len = phn.cuda(), phn_len.cuda()
+    wav, wav_len = wav.to(device), wav_len.to(device)
+    phn, phn_len = phn.to(device), phn_len.to(device)
 
     feats = sb.compute_features(wav, wav_len)
 
