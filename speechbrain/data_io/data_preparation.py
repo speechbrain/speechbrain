@@ -1567,7 +1567,8 @@ class Voxceleb_prepare:
                        Otherwise it returns None. It this case it returns
                        always None.
 
-     Example:    from speechbrain.data_io.data_preparation import Voxceleb_prepare
+     Example:    from speechbrain.data_io.data_preparation \
+                    import Voxceleb_prepare
 
                  local_folder='/home/nauman/datasets/Vox1'
                  save_folder='exp/Vox1_exp'
@@ -1836,8 +1837,12 @@ class Voxceleb_prepare:
                    data_prep.prepare_csv(wav_lst,csv_file)
 
                    # Sample output csv list
-                   id10001---1zcIwhmdeo4---00001,8.1200625,/home/nauman/datasets/VoxCeleb1/id10001/1zcIwhmdeo4/00001.wav,wav, ,id10001,string,
-                   id10002---xTV-jFAUKcw---00001,5.4400625,/home/nauman/datasets/VoxCeleb1/id10002/xTV-jFAUKcw/00001.wav,wav, ,id10002,string,
+                   id10001---1zcIwhmdeo4---00001,8.1200625, \
+                           /home/nauman/datasets/VoxCeleb1/id10001/ \
+                           1zcIwhmdeo4/00001.wav,wav, ,id10001,string,
+                   id10002---xTV-jFAUKcw---00001,5.4400625, \
+                           /home/nauman/datasets/VoxCeleb1/id10002/ \
+                           xTV-jFAUKcw/00001.wav,wav, ,id10002,string,
 
          ---------------------------------------------------------------------
          """
@@ -1935,7 +1940,8 @@ class Voxceleb_prepare:
     def check_voxceleb1_folders(self):
         """
          ---------------------------------------------------------------------
-         speechbrain.data_io.check_voxceleb1_folders (author: Nauman Dawalatabad)
+         speechbrain.data_io.check_voxceleb1_folders
+         (author: Nauman Dawalatabad)
 
          Description: This function cheks if the dat folder actually contains
                       the Voxceleb1 dataset. If not, it raises an error.
