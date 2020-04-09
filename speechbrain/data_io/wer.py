@@ -1,114 +1,30 @@
+"""WER print functions
+
+The functions here are used to print the computed statistics
+with human readable formatting.
+They have a file argument, but you can also just use
+contextlib.redirect_stdout, which may give a nicer syntax
+"""
 import sys
+import contextlib
 import speechbrain.utils.edit_distance as edit_distance
-from speechbrain.data_io.data_io import create_dataloader
 
-## These internal functions convert CSV data dictionaries to 
-## generators and dicts which simply provide the info in
-## one field of the csv. Here used because we just want to
-## access the label sequences.
-def _label_sequence_generator(data_dict, field):
-    for key in data_dict['data_list']:
-        yield key, data_dict[key][field]['data'].split()
 
-def _label_sequence_dict(data_dict, field):
-    return {key: data_dict[key][field]['data'].split() for key in data_dict['data_list']}
+def print_wer_summary(wer_details, file=sys.stdout):
+    """Prints out WER summary details in human readable format.
+    
+    This function essentially mirrors the Kaldi compute-wer output format
 
-class ComputeAndSaveWERAndAlignments:
-    """
-    Description:
-        Takes in two CSV filenames, computes WER and Alignments
-        based on specified CSV fields,
-        then writes the WER and alignments in a file.
-    Input(init):
-        ref_csv (type: string, mandatory) Filepath to reference label CSV
-        ref_csv_field (type: string, mandatory) Field to read in reference CSV
-        hyp_csv (type: string, mandatory) Filepath to hypothesis label CSV
-        hyp_csv_field (type: string, mandatory) Field to read in hypothesis CSV
-        outfile (type: string, optional) File to write output in. If not 
-            specified, outfile becomes <output_folder>/wer.txt 
-            (<output_folder> from global config)
-        scoring_mode (type: string, optional)
-            Must be one of 'strict', 'present', 'all':
-            'strict': raise error for missing hypothesis
-            'present': only score existing hypotheses
-            'all': score missing hypotheses as empty
-    Input(call): <empty input list>
-    Output(call): <None> (Output is written to <outfile>)
-    Author:)
+    Arguments:
+        wer_details (dict): Dict of wer summary details,
+            see `speechbrain.utils.edit_distance.wer_summary`
+            for format.
+        file (stream, optional): Where to write. By default: sys.stdout
+
+    Author:
         Aku Rouhe 2020
+        
     """
-   
-    def __init__(
-        self,
-        config,
-        funct_name=None,
-        global_config=None,
-        functions=None,
-        logger=None,
-        first_input=None
-        ):
-
-        # Logger setup
-        self.logger = logger
-
-        # Here are summarized the expected options for this class
-        self.expected_options = {
-            "class_name": ("str", "mandatory"),
-            "ref_csv": ("str", "mandatory"),
-            "ref_csv_field": ("str", "mandatory"),
-            "hyp_csv": ("str", "mandatory"),
-            "hyp_csv_field": ("str", "mandatory"),
-            "outfile": ("str", "optional", ""),
-            "scoring_mode": ("one_of(strict,present,all)", "optional", "strict")
-        }
-
-        # Check, cast , and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, self.logger
-        )
-        if not self.conf['outfile']:
-            #NOTE: "output_folder" is mandatory in root config.
-            self.conf['outfile'] = global_config["output_folder"]+ "/wer.txt"
-
-    def __call__(self, input_list):
-        ref_data_loader = create_dataloader({
-            'class_name': 'core.loop',
-            'csv_file': self.conf['ref_csv'],
-            })
-        hyp_data_loader = create_dataloader({
-            'class_name': 'core.loop',
-            'csv_file': self.conf['hyp_csv'],
-            })
-        ref_data_dict = ref_data_loader.generate_data_dict()
-        hyp_data_dict = hyp_data_loader.generate_data_dict()
-        ref_reader = _label_sequence_generator(ref_data_dict, 
-                self.conf['ref_csv_field'])
-        hyp_dict = _label_sequence_dict(hyp_data_dict, 
-                self.conf['hyp_csv_field'])
-        details_by_utterance = edit_distance.wer_details_by_utterance(
-                ref_reader, hyp_dict, 
-                compute_alignments=True, scoring_mode=self.conf['scoring_mode'])
-        summary_details = edit_distance.wer_summary(details_by_utterance)
-        _print_wer_summary(summary_details)
-        with open(self.conf['outfile'], "w") as fo:
-            _print_wer_summary(summary_details, file=fo)
-            _print_alignments_global_header(file=fo)
-            for dets in details_by_utterance:
-                if dets["scored"]:
-                    _print_alignment_header(dets,file=fo)
-                    _print_alignment(
-                        dets["alignment"],
-                        dets["ref_tokens"],
-                        dets["hyp_tokens"],
-                        file=fo
-                    )
-
-
-         
-# The following internal functions are used to print the computed statistics
-# with human readable formatting.
-def _print_wer_summary(wer_details, file=sys.stdout):
-    # This function essentially mirrors the Kaldi compute-wer output format
     print(
         "%WER {WER:.2f} [ {num_edits} / {num_scored_tokens}, {insertions} ins, {deletions} del, {substitutions} sub ]".format(  # noqa
             **wer_details
@@ -135,6 +51,34 @@ def _print_wer_summary(wer_details, file=sys.stdout):
         file=file,
     )
 
+
+def print_alignments(details_by_utterance, 
+        file=sys.stdout):
+    """Print WER summary and alignments
+
+    Arguments:
+        details_by_utterance (list): List of wer details by utterance,
+            see `speechbrain.utils.edit_distance.wer_details_by_utterance`
+            for format. Has to have alignments included.
+        file (stream, optional): Where to write. By default: sys.stdout
+
+    Author:
+        Aku Rouhe 2020
+    """
+    with contextlib.redirect_stdout(file):
+        _print_alignments_global_header()
+        for dets in details_by_utterance:
+            if dets["scored"]:
+                _print_alignment_header(dets)
+                _print_alignment(
+                    dets["alignment"],
+                    dets["ref_tokens"],
+                    dets["hyp_tokens"],
+                )
+
+
+# The following internal functions are used to
+# print out more specific things
 
 def _print_top_wer_utts(top_non_empty, file=sys.stdout):
     print("=" * 80, file=file)

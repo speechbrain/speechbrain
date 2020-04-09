@@ -300,16 +300,16 @@ def count_ops(table):
 
 
 def wer_details_by_utterance(
-    ref_reader, hyp_dict, compute_alignments=False, scoring_mode="strict"
+    ref_dict, hyp_dict, compute_alignments=False, scoring_mode="strict"
 ):
-    """
-    Description:
-        Computes a wealth of salient info about each single utterance.
-        This info can then be used to compute summary details (WER, SER).
-    Input:
-        ref_reader (type: generator) Should yield a tuple of utterance id
-            (hashable) and reference tokens (iterable)
-        hyp_dict (type: dict) Should be indexable by utterance ids, and return
+    """Computes a wealth WER info about each single utterance.
+        
+    This info can then be used to compute summary details (WER, SER).
+
+    Arguments:
+        ref_dict (dict): Should be indexable by utterance ids, and return
+            the hypothesis tokens for each utterance id (iterable)
+        hyp_dict (dict): Should be indexable by utterance ids, and return
             the hypothesis tokens for each utterance id (iterable)
         compute_alignments (type: bool) Whether alignments
             should also be saved.
@@ -321,8 +321,8 @@ def wer_details_by_utterance(
             'strict': raise error for missing hypotheses
             'all': score missing hypotheses as empty
             'present': only score existing hypotheses
-    Output:
-        details_by_utterance (type: list of dicts) A list with one entry
+    Returns:
+        details_by_utterance (list): A list with one entry
             for every reference utterance. Each entry is a dict with keys:
                 "key": utterance id
                 "scored": bool, whether utterance was scored
@@ -348,7 +348,7 @@ def wer_details_by_utterance(
         Aku Rouhe
     """
     details_by_utterance = []
-    for key, ref_tokens in ref_reader:
+    for key, ref_tokens in ref_dict.items():
         # Initialize utterance_details
         utterance_details = {
             "key": key,

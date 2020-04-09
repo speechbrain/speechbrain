@@ -1,5 +1,9 @@
 import sys
 import torch
+import collections
+import speechbrain.utils.edit_distance as edit_distance 
+import speechbrain.data_io.wer as wer_io
+from speechbrain.data_io.data_io import filter_ctc_output
 from tqdm.contrib import tzip
 from speechbrain.core import Experiment
 sb = Experiment(
@@ -30,29 +34,31 @@ def main():
         train_loss['loss'] = mean(train_loss['loss'])
 
         # Iterate validataion to check progress
-        valid_loss = {'loss': [], 'wer': []}
+        valid_loss = {'loss': [], 'wer_stats': collections.Counter()}
         for wav, phn in tzip(*valid_set):
             neural_computations(valid_loss, sb.model, wav, phn, 'valid')
-        valid_loss = {key: mean(valid_loss[key]) for key in valid_loss}
+        valid_stats = {'loss': mean(valid_loss['loss']), 
+                       'wer': valid_loss['wer_stats']['WER']}
 
-        sb.lr_annealing([sb.optimizer], epoch, valid_loss['wer'])
-        sb.save_and_keep_only({'wer': valid_loss['wer']}, min_keys=['wer'])
-        sb.log_epoch_stats(epoch, train_loss, valid_loss)
+        sb.lr_annealing([sb.optimizer], epoch, valid_stats['wer'])
+        sb.save_and_keep_only({'wer': valid_stats['wer']}, min_keys=['wer'])
+        sb.log_epoch_stats(epoch, train_loss, valid_stats)
 
     # Evaluate our model
-    test_loss = {'loss': [], 'wer': []}
+    test_loss = {'wer_details': []}
     sb.recover_if_possible(min_key='wer')
     for wav, phn in tzip(*test_set):
         neural_computations(test_loss, sb.model, wav, phn, 'test')
 
-    print("Final WER: %f" % mean(test_loss['wer']))
+    summary_details = edit_distance.wer_summary(test_loss['wer_details'])
+    wer_io.print_wer_summary(summary_details)
 
 
 def mean(loss):
     return float(sum(loss) / len(loss))
 
 
-def neural_computations(losses, model, wav, phn, mode):
+def neural_computations(losses, model, wav, phn, mode, wer_stats=None):
 
     id, wav, wav_len = wav
     id, phn, phn_len = phn
@@ -68,13 +74,30 @@ def neural_computations(losses, model, wav, phn, mode):
         loss.backward()
         sb.optimizer([model])
         losses['loss'].append(loss.detach())
-    else:
+    elif mode == 'valid':
         with torch.no_grad():
             model.eval()
             pout = model(feats)
-            loss, wer = sb.compute_cost_wer(pout, phn, [wav_len, phn_len])
+            loss = sb.compute_cost(pout, phn, [wav_len, phn_len])
             losses['loss'].append(loss.detach())
-            losses['wer'].append(wer.detach())
+            predictions = filter_ctc_output(
+                predictions, blank_id=sb.compute_cost.blank_index
+            )
+            losses['wer_stats'] = edit_distance.accumulatable_wer_stats(
+                    phn, predictions, stats = losses['wer_stats']
+            )
+    elif mode == 'test':
+        with torch.no_grad():
+            model.eval()
+            pout = model(feats)
+            predictions = filter_ctc_output(
+                predictions, blank_id=sb.compute_cost.blank_index
+            )
+            refs = zip(id, phn)
+            hyps = zip(id, predictions)
+            details_by_utt = edit_distance.wer_details_by_utterance(refs, hyps)
+            losses['wer_details'].extend(details_by_utt)
+
 
 
 if __name__ == '__main__':
