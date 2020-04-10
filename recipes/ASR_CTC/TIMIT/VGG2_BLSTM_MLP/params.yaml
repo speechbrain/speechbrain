@@ -1,6 +1,6 @@
 constants:
     output_folder: exp/CTC/TIMIT_VGG2_BSLTM_MLP
-    data_file: /home/peter/Downloads/TIMIT.tar.gz
+    data_file: /network/tmp1/plantinp/data/TIMIT.tar.gz
     local_folder: /tmp/timit
     save_folder: !$ <constants.output_folder>/save
     ckpts_to_keep: 1
@@ -13,7 +13,7 @@ constants:
     csv_test: !$ <constants.local_folder>/test.csv
 
     # Neural Parameters
-    N_epochs: 25
+    N_epochs: 1
     batch_size: 8
     lr: 1.0
     dropout_rate: 0.15

@@ -52,13 +52,35 @@ def main():
 
     summary_details = edit_distance.wer_summary(test_loss['wer_details'])
     wer_io.print_wer_summary(summary_details)
+    wer_io.print_alignments(test_loss['wer_details'])
 
 
 def mean(loss):
     return float(sum(loss) / len(loss))
 
 
-def neural_computations(losses, model, wav, phn, mode, wer_stats=None):
+def ctc_greedy_decode(probabilities, seq_lens, blank_id):
+    batch_max_len = probabilities.shape[-1]  # Time last
+    batch_outputs = []
+    for seq, seq_len in zip(probabilities, seq_lens):
+        actual_size = int(
+            torch.round(seq_len * batch_max_len)
+        )
+        scores, predictions = torch.max(seq.narrow(-1, 0, actual_size), dim=0)
+        out = filter_ctc_output(
+                predictions.tolist(), blank_id=blank_id
+        )
+        batch_outputs.append(out)
+    return batch_outputs
+
+
+def to_output_format(ids, seqs):
+    out = [[sb.train_loader.label_dict["phn"]["index2lab"][int(ind)]
+            for ind in seq] for seq in seqs]
+    return dict(zip(ids, out))
+
+
+def neural_computations(losses, model, wav, phn, mode, ):
 
     id, wav, wav_len = wav
     id, phn, phn_len = phn
@@ -80,24 +102,25 @@ def neural_computations(losses, model, wav, phn, mode, wer_stats=None):
             pout = model(feats)
             loss = sb.compute_cost(pout, phn, [wav_len, phn_len])
             losses['loss'].append(loss.detach())
-            predictions = filter_ctc_output(
-                predictions, blank_id=sb.compute_cost.blank_index
-            )
+            batch_outputs = ctc_greedy_decode(pout, 
+                    wav_len, 
+                    blank_id = sb.compute_cost.blank_index)
             losses['wer_stats'] = edit_distance.accumulatable_wer_stats(
-                    phn, predictions, stats = losses['wer_stats']
+                    phn.tolist(), batch_outputs, stats = losses['wer_stats']
             )
     elif mode == 'test':
         with torch.no_grad():
             model.eval()
             pout = model(feats)
-            predictions = filter_ctc_output(
-                predictions, blank_id=sb.compute_cost.blank_index
-            )
-            refs = zip(id, phn)
-            hyps = zip(id, predictions)
-            details_by_utt = edit_distance.wer_details_by_utterance(refs, hyps)
+            batch_outputs = ctc_greedy_decode(pout, 
+                    wav_len,
+                    blank_id = sb.compute_cost.blank_index)
+            refs = to_output_format(id, phn.tolist())
+            hyps = to_output_format(id, batch_outputs)
+            details_by_utt = edit_distance.wer_details_by_utterance(refs, 
+                    hyps, 
+                    compute_alignments=True)
             losses['wer_details'].extend(details_by_utt)
-
 
 
 if __name__ == '__main__':
