@@ -3,6 +3,7 @@ constants:
     data_file: /network/tmp1/plantinp/data/TIMIT.tar.gz
     local_folder: /tmp/timit
     save_folder: !$ <constants.output_folder>/save
+    predictions_file: !$ <constants.output_folder>/predictions.csv
     ckpts_to_keep: 1
     sample_rate: 16000
     seed: 1234
@@ -13,10 +14,12 @@ constants:
     csv_test: !$ <constants.local_folder>/test.csv
 
     # Neural Parameters
-    N_epochs: 1
+    N_epochs: 25
     batch_size: 8
     lr: 1.0
     dropout_rate: 0.15
+    
+    device: cuda
 
 saveables:
     model: !model.VGG2_BLSTM_MLP

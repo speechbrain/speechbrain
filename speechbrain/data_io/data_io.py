@@ -1587,6 +1587,40 @@ class save_ckpt(torch.nn.Module):
                 file.write(string + "\n")
 
 
+class IterativeCSVWriter:
+    """Write CSV files a line at a time.
+    """
+    def __init__(self, outstream, data_fields):
+        self._outstream = outstream
+        self._fields = ["ID", "duration"] + self._expand_data_fields(data_fields)
+        self._outstream.write(",".join( self._fields))
+
+    def write(self, *args, **kwargs):
+        if args and kwargs:
+            raise ValueError("Use either positional fields or named fields, but not both.")
+        if args:
+            if len(args) != len(self._fields):
+                raise ValueError("Need consistent fields")
+            to_write = [str(arg) for arg in args]
+        if kwargs:
+            if not "ID" in kwargs:
+                raise ValueError("I'll need to see some ID")
+            to_write = [str(kwargs.get(field, "")) for field in self._fields]
+        self._outstream.write("\n")
+        self._outstream.write(",".join(to_write))
+
+    @staticmethod
+    def _expand_data_fields(data_fields):
+        expanded = []
+        for data_field in data_fields:
+            expanded.append(data_field)
+            expanded.append(data_field + "_format")
+            expanded.append(data_field + "_opts")
+        return expanded
+
+
+
+
 class print_predictions:
     """
      -------------------------------------------------------------------------
@@ -1755,8 +1789,7 @@ def filter_ctc_output(string_pred, blank_id=-1, logger=None):
      speechbrain.data_io.data_io.filter_ctc_output (author: Mirco Ravanelli)
 
      Description: This filters the output of a ctc-based system by removing
-                  the blank symbol and the output repetitions. The function
-                  also accept in input tensors of integer indexes.
+                  the blank symbol and the output repetitions. 
 
 
      Input (call): - string_pred(type, list, mandatory):
@@ -1791,6 +1824,8 @@ def filter_ctc_output(string_pred, blank_id=-1, logger=None):
 
         # Filterning the blank symbol
         string_out = list(filter(lambda elem: elem != blank_id, string_out))
+    else:
+        raise ValueError("filter_ctc_out can only filter python lists")
 
     return string_out
 
