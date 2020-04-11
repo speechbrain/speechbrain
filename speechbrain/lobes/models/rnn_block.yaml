@@ -1,0 +1,10 @@
+constants:
+    block_index: 1
+
+rnn: !speechbrain.nnet.architectures.RNN_basic
+    rnn_type: lstm
+    n_neurons: 512
+    nonlinearity: tanh
+    num_layers: 4
+    dropout: 0.15
+    bidirectional: True

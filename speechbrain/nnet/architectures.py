@@ -378,7 +378,7 @@ class conv(nn.Module):
         kernel_size,
         stride=[1, 1],
         dilation=[1, 1],
-        padding=None,
+        padding=0,
         groups=1,
         bias=True,
         padding_mode='zeros',

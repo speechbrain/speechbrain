@@ -19,13 +19,10 @@ constants:
     dropout_rate: 0.15
 
 saveables:
-    model: !model.VGG2_BLSTM_MLP
-        output_len: 40 # 39 phonemes + 1 blank symbol
-        vgg_blocks: 2
-        mlp_blocks: 2
-        n_neurons: 512
-        activation_fn: leaky_relu
-        drop_rate: !ref <constants.dropout_rate>
+    model: !speechbrain.lobes.models.CRDNN.CRDNN
+        output_size: 40 # 39 phonemes + 1 blank symbol
+        cnn_blocks: 2
+        dnn_blocks: 2
     optimizer: !speechbrain.nnet.optimizers.optimize
         do_recovery: True
         optimizer_type: adadelta

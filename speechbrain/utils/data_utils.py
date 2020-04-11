@@ -218,7 +218,7 @@ def recursive_update(d, u):
     # TODO: Consider cases where u has branch off k, but d does not.
     # e.g. d = {"a":1}, u = {"a": {"b": 2 }}
     for k, v in u.items():
-        if isinstance(v, collections.abc.Mapping):
+        if isinstance(v, collections.abc.Mapping) and k in d:
             recursive_update(d.get(k, {}), v)
         else:
             d[k] = v
