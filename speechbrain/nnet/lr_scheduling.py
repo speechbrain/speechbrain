@@ -237,7 +237,7 @@ class lr_annealing(torch.nn.Module):
 
             if next_lr != current_lr:
                 logger.info(
-                    'Changing lr from %.2g to %.2g' % (next_lr, current_lr)
+                    'Changing lr from %.2g to %.2g' % (current_lr, next_lr)
                 )
 
         # Appending current loss
