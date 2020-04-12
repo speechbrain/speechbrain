@@ -424,7 +424,8 @@ def call(callable_string, args=[], kwargs={}):
         signature.bind(*args, **kwargs)
     except TypeError as e:
         err_msg = 'Invalid argument to callable %s' % callable_string
-        raise TypeError(err_msg) from e
+        e.args = (err_msg, *e.args)
+        raise
 
     return callable_(*args, **kwargs)
 

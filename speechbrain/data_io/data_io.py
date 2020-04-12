@@ -581,7 +581,7 @@ class create_dataloader(torch.nn.Module):
                 variable_finder = re.compile(r'\$[\w.]+')
                 for i, item in enumerate(row):
                     try:
-                        variable_finder.sub(
+                        row[i] = variable_finder.sub(
                             lambda x: self.replacements[x[0]],
                             item,
                         )
@@ -600,8 +600,7 @@ class create_dataloader(torch.nn.Module):
                         "%s"
                         ")" % (row, self.csv_file, len(field_lst), field_lst)
                     )
-
-                    logger.error(err_msg, exc_info=True)
+                    raise ValueError(err_msg)
 
                 # Filling the data dictionary
                 for i, field in enumerate(field_lst):
@@ -2001,9 +2000,10 @@ def read_wav_soundfile(file, data_options={}, lab2ind=None):
 
         signal = signal.astype("float32")
 
-    except Exception:
+    except RuntimeError as e:
         err_msg = "cannot read the wav file %s" % (file)
-        logger.error(err_msg, exc_info=True)
+        e.args = (*e.args, err_msg)
+        raise
 
     # Set time_steps always last as last dimension
     if len(signal.shape) > 1:
@@ -2442,7 +2442,7 @@ class save(torch.nn.Module):
 
     def __init__(
         self,
-        save_folder=None,
+        save_folder,
         save_format='pkl',
         save_csv=False,
         data_name='data',
@@ -2578,7 +2578,6 @@ class save(torch.nn.Module):
                     args=(data_save, data_file),
                     kwargs={
                         "sampling_rate": self.sampling_rate,
-                        "logger": self.logger,
                     },
                 )
                 p.start()
