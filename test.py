@@ -40,6 +40,7 @@ cfg_lst = [
     "cfg/minimal_examples/neural_networks/DNN_HMM_ASR/ASR_example.cfg",
     "cfg/minimal_examples/neural_networks/autoencoder/autoencoder_example.cfg",
     "cfg/minimal_examples/neural_networks/E2E_ASR/CTC/CTC_example.cfg",
+    "cfg/minimal_examples/data_preparation/VoxCeleb1/minimal_processing_voxceleb.cfg"
 ]
 
 augmentation_config_list = glob(
