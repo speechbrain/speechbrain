@@ -7,6 +7,8 @@ and more. All the classes are of type `torch.nn.Module`. This gives the
 possibility to have end-to-end differentiability and
 backpropagate the gradient through them. In addition, all operations
 are expected to be performed on the GPU (where available) for efficiency.
+
+Author: Peter Plantinga 2020
 """
 
 # Importing libraries
@@ -24,40 +26,48 @@ from speechbrain.utils.data_utils import (
 class AddNoise(torch.nn.Module):
     """This class additively combines a noise signal to the input signal.
 
-    Attributes:
-        csv_file (str): The name of a csv file containing the location of the
-            noise audio files. If none is provided, white noise will be used.
-        order (str): The order to iterate the csv file, from one of the
-            following options: random, original, ascending, and descending.
-        batch_size (int): If an csv_file is passed, this controls the number of
-            samples that are loaded at the same time, should be the same as
-            or less than the size of the clean batch. If `None` is passed,
-            the size of the first clean batch will be used.
-        do_cache (bool): Whether or not to store noise files in the cache.
-        snr_low (int): The low end of the mixing ratios, in decibels.
-        snr_high (int): The high end of the mixing ratios, in decibels.
-        pad_noise (bool): If True, copy noise signals that are shorter than
-            their corresponding clean signals so as to cover the whole clean
-            signal. Otherwise, leave the noise un-padded.
-        mix_prob (float): The probability that a batch of signals will be mixed
-            with a noise signal. By default, every batch is mixed with noise.
-        replacements (dict): A set of string replacements to carry out in the
-            csv file. Each time a key is found in the text, it will be replaced
-            with the corresponding value.
+    Arguments
+    ---------
+    csv_file : str
+        The name of a csv file containing the location of the
+        noise audio files. If none is provided, white noise will be used.
+    order : str
+        The order to iterate the csv file, from one of the
+        following options: random, original, ascending, and descending.
+    batch_size : int
+        If an csv_file is passed, this controls the number of
+        samples that are loaded at the same time, should be the same as
+        or less than the size of the clean batch. If `None` is passed,
+        the size of the first clean batch will be used.
+    do_cache : bool
+        Whether or not to store noise files in the cache.
+    snr_low : int
+        The low end of the mixing ratios, in decibels.
+    snr_high : int
+        The high end of the mixing ratios, in decibels.
+    pad_noise : bool
+        If True, copy noise signals that are shorter than
+        their corresponding clean signals so as to cover the whole clean
+        signal. Otherwise, leave the noise un-padded.
+    mix_prob : float
+        The probability that a batch of signals will be mixed
+        with a noise signal. By default, every batch is mixed with noise.
+    replacements : dict
+        A set of string replacements to carry out in the
+        csv file. Each time a key is found in the text, it will be replaced
+        with the corresponding value.
 
-    Example:
-        >>> import torch
-        >>> import soundfile as sf
-        >>> from speechbrain.data_io.data_io import save
-        >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
-        >>> noisifier = AddNoise('samples/noise_samples/noise.csv')
-        >>> clean = torch.tensor([signal], dtype=torch.float32)
-        >>> noisy = noisifier(clean, torch.ones(1))
-        >>> save_signal = save(save_folder='exp/example', save_format='wav')
-        >>> save_signal(noisy, ['example_add_noise'], torch.ones(1))
-
-    Author:
-        Peter Plantinga 2020
+    Example
+    -------
+    >>> import torch
+    >>> import soundfile as sf
+    >>> from speechbrain.data_io.data_io import save
+    >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
+    >>> noisifier = AddNoise('samples/noise_samples/noise.csv')
+    >>> clean = torch.tensor([signal], dtype=torch.float32)
+    >>> noisy = noisifier(clean, torch.ones(1))
+    >>> save_signal = save(save_folder='exp/example', save_format='wav')
+    >>> save_signal(noisy, ['example_add_noise'], torch.ones(1))
     """
     def __init__(
         self,
@@ -112,14 +122,16 @@ class AddNoise(torch.nn.Module):
 
     def forward(self, waveforms, lengths):
         """
-        Parameters:
-            waveforms (tensor): Shape should be `[batch, time_steps]`
-                or`[batch, channels, time_steps]`.
-            lengths (tensor): Shape should be a single dimension, `[batch]`.
+        Arguments
+        ---------
+        waveforms : tensor
+            Shape should be `[batch, time]` or `[batch, channels, time]`.
+        lengths : tensor
+            Shape should be a single dimension, `[batch]`.
 
-        Returns:
-            Tensor of shape `[batch, time_steps]` or
-                `[batch, channels, time_steps]`
+        Returns
+        -------
+        Tensor of shape `[batch, time]` or `[batch, channels, time]`.
         """
         # Copy clean waveform to initialize noisy waveform
         noisy_waveform = waveforms.clone()
@@ -212,33 +224,36 @@ class AddNoise(torch.nn.Module):
 class AddReverb(torch.nn.Module):
     """This class convolves an audio signal with an impulse response.
 
-    Attributes:
-        csv_file (str): The name of a csv file containing the location of the
-            impulse response files.
-        order (str): The order to iterate the csv file, from one of
-            the following options: random, original, ascending,
-            and descending.
-        do_cache (bool): Whether or not to lazily load the files to a
-            cache and read the data from the cache.
-        reverb_prob (float): The chance that the audio signal will be reverbed.
-            By default, every batch is reverbed.
-        replacements (dict): A set of string replacements to carry out in the
-            csv file. Each time a key is found in the text, it will be replaced
-            with the corresponding value.
+    Arguments
+    ---------
+    csv_file : str
+        The name of a csv file containing the location of the
+        impulse response files.
+    order : str
+        The order to iterate the csv file, from one of
+        the following options: random, original, ascending, and descending.
+    do_cache : bool
+        Whether or not to lazily load the files to a
+        cache and read the data from the cache.
+    reverb_prob : float
+        The chance that the audio signal will be reverbed.
+        By default, every batch is reverbed.
+    replacements : dict
+        A set of string replacements to carry out in the
+        csv file. Each time a key is found in the text, it will be replaced
+        with the corresponding value.
 
-    Example:
-        >>> import torch
-        >>> import soundfile as sf
-        >>> from speechbrain.data_io.data_io import save
-        >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
-        >>> reverb = AddReverb('samples/rir_samples/rirs.csv')
-        >>> clean = torch.tensor([signal], dtype=torch.float32)
-        >>> reverbed = reverb(clean, torch.ones(1))
-        >>> save_signal = save(save_folder='exp/example', save_format='wav')
-        >>> save_signal(reverbed, ['example_add_reverb'], torch.ones(1))
-
-    Author:
-        Peter Plantinga 2020
+    Example
+    -------
+    >>> import torch
+    >>> import soundfile as sf
+    >>> from speechbrain.data_io.data_io import save
+    >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
+    >>> reverb = AddReverb('samples/rir_samples/rirs.csv')
+    >>> clean = torch.tensor([signal], dtype=torch.float32)
+    >>> reverbed = reverb(clean, torch.ones(1))
+    >>> save_signal = save(save_folder='exp/example', save_format='wav')
+    >>> save_signal(reverbed, ['example_add_reverb'], torch.ones(1))
     """
 
     def __init__(
@@ -275,14 +290,16 @@ class AddReverb(torch.nn.Module):
 
     def forward(self, waveforms, lengthss):
         """
-        Parameters:
-            waveforms (tensor): Shape should be `[batch, time_steps]`
-                or`[batch, channels, time_steps]`.
-            lengths (tensor): Shape should be a single dimension, `[batch]`.
+        Arguments
+        ---------
+        waveforms : tensor
+            Shape should be `[batch, time]` or `[batch, channels, time]`.
+        lengths : tensor
+            Shape should be a single dimension, `[batch]`.
 
-        Returns:
-            Tensor of shape `[batch, time_steps]` or
-                `[batch, channels, time_steps]`
+        Returns
+        -------
+        Tensor of shape `[batch, time]` or `[batch, channels, time]`.
         """
         # Don't add reverb (return early) 1-`reverb_prob` portion of the time
         if torch.rand(1) > self.reverb_prob:
@@ -347,26 +364,28 @@ class SpeedPerturb(torch.nn.Module):
     to achieve a slightly slower or slightly faster signal. This technique is
     outlined in the paper: "Audio Augmentation for Speech Recognition"
 
-    Attributes:
-        orig_freq (int): The frequency of the original signal.
-        speeds (list): The speeds that the signal should be changed to,
-            where 10 is the speed of the original signal.
-        perturb_prob (float): The chance that the batch will be speed-
-            perturbed. By default, every batch is perturbed.
+    Arguments
+    ---------
+    orig_freq : int
+        The frequency of the original signal.
+    speeds : list
+        The speeds that the signal should be changed to,
+        where 10 is the speed of the original signal.
+    perturb_prob : float
+        The chance that the batch will be speed-
+        perturbed. By default, every batch is perturbed.
 
-    Example:
-        >>> import torch
-        >>> import soundfile as sf
-        >>> from speechbrain.data_io.data_io import save
-        >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
-        >>> perturbator = SpeedPerturb(orig_freq=rate, speeds=[9])
-        >>> clean = torch.tensor(signal, dtype=torch.float32).unsqueeze(0)
-        >>> perturbed = perturbator(clean)
-        >>> save_signal = save(save_folder='exp/example', save_format='wav')
-        >>> save_signal(perturbed, ['example_perturb'], torch.ones(1))
-
-    Author:
-        Peter Plantinga 2020
+    Example
+    -------
+    >>> import torch
+    >>> import soundfile as sf
+    >>> from speechbrain.data_io.data_io import save
+    >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
+    >>> perturbator = SpeedPerturb(orig_freq=rate, speeds=[9])
+    >>> clean = torch.tensor(signal, dtype=torch.float32).unsqueeze(0)
+    >>> perturbed = perturbator(clean)
+    >>> save_signal = save(save_folder='exp/example', save_format='wav')
+    >>> save_signal(perturbed, ['example_perturb'], torch.ones(1))
     """
 
     def __init__(
@@ -395,14 +414,16 @@ class SpeedPerturb(torch.nn.Module):
 
     def forward(self, waveform):
         """
-        Parameters:
-            waveforms (tensor): Shape should be `[batch, time_steps]`
-                or`[batch, channels, time_steps]`.
-            lengths (tensor): Shape should be a single dimension, `[batch]`.
+        Arguments
+        ---------
+        waveforms : tensor
+            Shape should be `[batch, time]` or `[batch, channels, time]`.
+        lengths : tensor
+            Shape should be a single dimension, `[batch]`.
 
-        Returns:
-            Tensor of shape `[batch, time_steps]` or
-                `[batch, channels, time_steps]`
+        Returns
+        -------
+        Tensor of shape `[batch, time]` or `[batch, channels, time]`.
         """
         # add channels dimension
         waveform = waveform.unsqueeze(1)
@@ -424,31 +445,33 @@ class Resample(torch.nn.Module):
     It is a modification of the `resample` function from torchaudio
     (https://pytorch.org/audio/transforms.html#resample)
 
-    Attributes:
-        orig_freq (int): the sampling frequency of the input signal.
-        new_freq (int): the new sampling frequency after this operation
-            is performed.
-        lowpass_filter_width (int): Controls the sharpness of the filter,
-            larger numbers result in a sharper filter, but they are less
-            efficient. Values from 4 to 10 are allowed.
+    Arguments
+    ---------
+    orig_freq : int
+        the sampling frequency of the input signal.
+    new_freq : int
+        the new sampling frequency after this operation
+        is performed.
+    lowpass_filter_width : int
+        Controls the sharpness of the filter,
+        larger numbers result in a sharper filter, but they are less
+        efficient. Values from 4 to 10 are allowed.
 
-    Example:
-        >>> import torch
-        >>> import soundfile as sf
-        >>> from speechbrain.data_io.data_io import save
-        >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
-        >>> signal = torch.tensor(signal, dtype=torch.float32)[None,None,:]
-        >>> resampler = Resample(orig_freq=rate, new_freq=rate//2)
-        >>> resampled = resampler(signal)
-        >>> save_signal = save(
-        ...     save_folder='exp/example',
-        ...     save_format='wav',
-        ...     sampling_rate=rate//2,
-        ... )
-        >>> save_signal(resampled, ["example_resamp"], torch.ones(1))
-
-    Author:
-        Peter Plantinga 2020
+    Example
+    -------
+    >>> import torch
+    >>> import soundfile as sf
+    >>> from speechbrain.data_io.data_io import save
+    >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
+    >>> signal = torch.tensor(signal, dtype=torch.float32)[None,None,:]
+    >>> resampler = Resample(orig_freq=rate, new_freq=rate//2)
+    >>> resampled = resampler(signal)
+    >>> save_signal = save(
+    ...     save_folder='exp/example',
+    ...     save_format='wav',
+    ...     sampling_rate=rate//2,
+    ... )
+    >>> save_signal(resampled, ["example_resamp"], torch.ones(1))
     """
     def __init__(
         self,
@@ -481,8 +504,7 @@ class Resample(torch.nn.Module):
     def _compute_strides(self):
         """Compute the phases in polyphase filter
 
-        Author:
-            (almost directly from torchaudio.compliance.kaldi)
+        (almost directly from torchaudio.compliance.kaldi)
         """
         # Compute new unit based on ratio of in/out frequencies
         base_freq = math.gcd(self.orig_freq, self.new_freq)
@@ -495,14 +517,16 @@ class Resample(torch.nn.Module):
 
     def forward(self, waveform):
         """
-        Parameters:
-            waveforms (tensor): Shape should be `[batch, time_steps]`
-                or`[batch, channels, time_steps]`.
-            lengths (tensor): Shape should be a single dimension, `[batch]`.
+        Parameters
+        ----------
+        waveforms : tensor
+            Shape should be `[batch, time]` or `[batch, channels, time]`.
+        lengths : tensor
+            Shape should be a single dimension, `[batch]`.
 
-        Returns:
-            Tensor of shape `[batch, time_steps]` or
-                `[batch, channels, time_steps]`
+        Returns
+        -------
+        Tensor of shape `[batch, time]` or `[batch, channels, time]`.
         """
         waveform = waveform.to(self.device)
 
@@ -530,19 +554,21 @@ class Resample(torch.nn.Module):
         frequency of `new_freq`). It uses sinc/bandlimited interpolation to
         upsample/downsample the signal.
 
+        (almost directly from torchaudio.compliance.kaldi)
+
         https://ccrma.stanford.edu/~jos/resample/
         Theory_Ideal_Bandlimited_Interpolation.html
 
         https://github.com/kaldi-asr/kaldi/blob/master/src/feat/resample.h#L56
 
-        Parameters:
-            waveform (tensor): the batch of audio signals to resample
+        Arguments
+        ---------
+        waveform : tensor
+            the batch of audio signals to resample
 
-        Returns:
-            The waveform at the new frequency
-
-        Author:
-            (almost directly from torchaudio.compliance.kaldi)
+        Returns
+        -------
+        The waveform at the new frequency
         """
 
         # Compute output size and initialize
@@ -612,15 +638,16 @@ class Resample(torch.nn.Module):
         frequency of ``new_freq``). It uses sinc/bandlimited
         interpolation to upsample/downsample the signal.
 
-        Parameters:
-            input_num_samp (int): The number of samples in each example in
-                the batch.
+        (almost directly from torchaudio.compliance.kaldi)
 
-        Returns:
-            Number of samples in the output waveform.
+        Arguments
+        ---------
+        input_num_samp : int
+            The number of samples in each example in the batch.
 
-        Author:
-            (almost directly from torchaudio.compliance.kaldi)
+        Returns
+        -------
+        Number of samples in the output waveform.
         """
         # For exact computation, we measure time in "ticks" of 1.0 / tick_freq,
         # where tick_freq is the least common multiple of samp_in and
@@ -664,12 +691,10 @@ class Resample(torch.nn.Module):
         of ``new_freq``). It uses sinc/bandlimited interpolation to
         upsample/downsample the signal.
 
-        Returns:
-            - the place where each filter should start being applied
-            - the filters to be applied to the signal for resampling
-
-        Author:
-            (almost directly from torchaudio.compliance.kaldi)
+        Returns
+        -------
+        - the place where each filter should start being applied
+        - the filters to be applied to the signal for resampling
         """
         # Lowpass filter frequency depends on smaller of two frequencies
         min_freq = min(self.orig_freq, self.new_freq)
@@ -724,31 +749,33 @@ class Resample(torch.nn.Module):
 class AddBabble(torch.nn.Module):
     """Simulate babble noise by mixing the signals in a batch.
 
-    Attributes:
-        speaker_count (int): The number of signals to mix with the original
-            signal.
-        snr_low (int): The low end of the mixing ratios, in decibels.
-        snr_high (int): The high end of the mixing ratios, in decibels.
-        mix_prob (float): The probability that the batch of signals will be
-            mixed with babble noise. By default, every signal is mixed.
+    Arguments
+    ---------
+    speaker_count : int
+        The number of signals to mix with the original signal.
+    snr_low : int
+        The low end of the mixing ratios, in decibels.
+    snr_high : int
+        The high end of the mixing ratios, in decibels.
+    mix_prob : float
+        The probability that the batch of signals will be
+        mixed with babble noise. By default, every signal is mixed.
 
-    Example:
-        >>> import torch
-        >>> from speechbrain.data_io.data_io import save
-        >>> from speechbrain.data_io.data_io import create_dataloader
-        >>> babbler = AddBabble()
-        >>> dataloader = create_dataloader(
-        ...     csv_file='samples/audio_samples/csv_example3.csv',
-        ...     batch_size=5,
-        ... )
-        >>> loader = zip(*dataloader())
-        >>> ids, batch, lengths = next(loader)[0]
-        >>> noisy = babbler(batch, lengths)
-        >>> save_signal = save(save_folder='exp/example', save_format='wav')
-        >>> save_signal(noisy, ids, lengths)
-
-    Author:
-        Peter Plantinga 2020
+    Example
+    -------
+    >>> import torch
+    >>> from speechbrain.data_io.data_io import save
+    >>> from speechbrain.data_io.data_io import create_dataloader
+    >>> babbler = AddBabble()
+    >>> dataloader = create_dataloader(
+    ...     csv_file='samples/audio_samples/csv_example3.csv',
+    ...     batch_size=5,
+    ... )
+    >>> loader = zip(*dataloader())
+    >>> ids, batch, lengths = next(loader)[0]
+    >>> noisy = babbler(batch, lengths)
+    >>> save_signal = save(save_folder='exp/example', save_format='wav')
+    >>> save_signal(noisy, ids, lengths)
     """
 
     def __init__(
@@ -767,15 +794,17 @@ class AddBabble(torch.nn.Module):
 
     def forward(self, waveforms, lengths):
         """
-        Parameters:
-            waveforms (tensor): A batch of audio signals to process,
-                with shape `[batch, time_steps]` or
-                `[batch, channels, time_steps]`
-            lengths (tensor): The length of each audio in the batch,
-                with shape `[batch]`
+        Arguments
+        ---------
+        waveforms : tensor
+            A batch of audio signals to process, with shape `[batch, time]` or
+            `[batch, channels, time]`
+        lengths : tensor
+            The length of each audio in the batch, with shape `[batch]`
 
-        Returns:
-            Tensor with processed waveforms.
+        Returns
+        -------
+        Tensor with processed waveforms.
         """
         babbled_waveform = waveforms.clone()
         clean_len = (clean_len * waveforms.shape[1]).unsqueeze(1)
@@ -816,34 +845,36 @@ class DropFreq(torch.nn.Module):
     The purpose of this class is to teach models to learn to rely on all parts
     of the signal, not just a few frequency bands.
 
-    Attributes:
-        drop_freq_low (float): The low end of frequencies that can be dropped,
-            as a fraction of the sampling rate / 2.
-        drop_freq_high (float): The high end of frequencies that can be
-            dropped, as a fraction of the sampling rate / 2.
-        drop_count_low (int): The low end of number of frequencies that could
-            be dropped.
-        drop_count_high (int): The high end of number of frequencies that could
-            be dropped.
-        drop_width (float): The width of the frequency band to drop, as
-            a fraction of the sampling_rate / 2.
-        drop_prob (float): The probability that the batch of signals will
-            have a frequency dropped. By default, every batch
-            has frequencies dropped.
+    Arguments
+    ---------
+    drop_freq_low : float
+        The low end of frequencies that can be dropped,
+        as a fraction of the sampling rate / 2.
+    drop_freq_high : float
+        The high end of frequencies that can be
+        dropped, as a fraction of the sampling rate / 2.
+    drop_count_low : int
+        The low end of number of frequencies that could be dropped.
+    drop_count_high : int
+        The high end of number of frequencies that could be dropped.
+    drop_width : float
+        The width of the frequency band to drop, as
+        a fraction of the sampling_rate / 2.
+    drop_prob : float
+        The probability that the batch of signals will  have a frequency
+        dropped. By default, every batch has frequencies dropped.
 
-    Example:
-        >>> import torch
-        >>> import soundfile as sf
-        >>> from speechbrain.data_io.data_io import save
-        >>> dropper = DropFreq()
-        >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
-        >>> signal = torch.tensor(signal, dtype=torch.float32)
-        >>> dropped_signal = dropper(signal.unsqueeze(0))
-        >>> save_signal = save(save_folder='exp/example', save_format='wav')
-        >>> save_signal(dropped_signal, ['freq_drop'], torch.ones(1))
-
-    Author:
-        Peter Plantinga 2020
+    Example
+    -------
+    >>> import torch
+    >>> import soundfile as sf
+    >>> from speechbrain.data_io.data_io import save
+    >>> dropper = DropFreq()
+    >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
+    >>> signal = torch.tensor(signal, dtype=torch.float32)
+    >>> dropped_signal = dropper(signal.unsqueeze(0))
+    >>> save_signal = save(save_folder='exp/example', save_format='wav')
+    >>> save_signal(dropped_signal, ['freq_drop'], torch.ones(1))
     """
 
     def __init__(
@@ -866,13 +897,14 @@ class DropFreq(torch.nn.Module):
 
     def forward(self, waveforms):
         """
-        Parameters:
-            waveforms (tensor): Shape should be `[batch, time_steps]`
-                or`[batch, channels, time_steps]`.
+        Arguments
+        ---------
+        waveforms : tensor
+            Shape should be `[batch, time]` or `[batch, channels, time]`.
 
-        Returns:
-            Tensor of shape `[batch, time_steps]` or
-                `[batch, channels, time_steps]`
+        Returns
+        -------
+        Tensor of shape `[batch, time]` or `[batch, channels, time]`
         """
         # Don't drop (return early) 1-`drop_prob` portion of the batches
         dropped_waveform = waveforms.clone()
@@ -923,35 +955,41 @@ class DropChunk(torch.nn.Module):
     on all parts of the signal, since it can't expect a given part to be
     present.
 
-    Attributes:
-        drop_length_low (int): The low end of lengths for which to set the
-            signal to zero, in samples.
-        drop_length_high (int): The high end of lengths for which to set the
-            signal to zero, in samples.
-        drop_count_low (int): The low end of number of times that the signal
-            can be dropped to zero.
-        drop_count_high (int): The high end of number of times that the signal
-            can be dropped to zero.
-        drop_start (int): The first index for which dropping will be allowed.
-        drop_end (int): The last index for which dropping will be allowed.
-        drop_prob (float): The probability that the batch of signals will
-            have a portion dropped. By default, every batch
-            has portions dropped.
+    Arguments
+    ---------
+    drop_length_low : int
+        The low end of lengths for which to set the
+        signal to zero, in samples.
+    drop_length_high : int
+        The high end of lengths for which to set the
+        signal to zero, in samples.
+    drop_count_low : int
+        The low end of number of times that the signal
+        can be dropped to zero.
+    drop_count_high : int
+        The high end of number of times that the signal
+        can be dropped to zero.
+    drop_start : int
+        The first index for which dropping will be allowed.
+    drop_end : int
+        The last index for which dropping will be allowed.
+    drop_prob : float
+        The probability that the batch of signals will
+        have a portion dropped. By default, every batch
+        has portions dropped.
 
-    Example:
-        >>> import torch
-        >>> import soundfile as sf
-        >>> from speechbrain.data_io.data_io import save
-        >>> dropper = DropChunk()
-        >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
-        >>> signal = torch.tensor(signal).unsqueeze(0)
-        >>> length = torch.ones(1)
-        >>> dropped_signal = dropper(signal, length)
-        >>> save_signal = save(save_folder='exp/example', save_format='wav')
-        >>> save_signal(dropped_signal, ['drop_chunk'], length)
-
-    Author:
-        Peter Plantinga 2020
+    Example
+    -------
+    >>> import torch
+    >>> import soundfile as sf
+    >>> from speechbrain.data_io.data_io import save
+    >>> dropper = DropChunk()
+    >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
+    >>> signal = torch.tensor(signal).unsqueeze(0)
+    >>> length = torch.ones(1)
+    >>> dropped_signal = dropper(signal, length)
+    >>> save_signal = save(save_folder='exp/example', save_format='wav')
+    >>> save_signal(dropped_signal, ['drop_chunk'], length)
     """
     def __init__(
         self,
@@ -975,14 +1013,17 @@ class DropChunk(torch.nn.Module):
 
     def forward(self, waveforms, lengths):
         """
-        Parameters:
-            waveforms (tensor): Shape should be `[batch, time_steps]`
-                or`[batch, channels, time_steps]`.
-            lengths (tensor): Shape should be a single dimension, `[batch]`.
+        Arguments
+        ---------
+        waveforms : tensor
+            Shape should be `[batch, time]` or `[batch, channels, time]`.
+        lengths : tensor
+            Shape should be a single dimension, `[batch]`.
 
-        Returns:
-            Tensor of shape `[batch, time_steps]` or
-                `[batch, channels, time_steps]`
+        Returns
+        -------
+        Tensor of shape `[batch, time]` or
+            `[batch, channels, time]`
         """
         # Reading input list
         lengths = (lengths * waveforms.size(-1)).long()
@@ -1038,27 +1079,26 @@ class DropChunk(torch.nn.Module):
 class DoClip(torch.nn.Module):
     """This function mimics audio clipping by clamping the input tensor.
 
-    Attributes:
-        clip_low (float): The low end of amplitudes for which to clip
-            the signal.
-        clip_high (float): The high end of amplitudes for which to clip
-            the signal.
-        clip_prob (float): The probability that the batch of signals will
-            have a portion clipped. By default, every batch
-            has portions clipped.
+    Arguments
+    ---------
+    clip_low : float
+        The low end of amplitudes for which to clip the signal.
+    clip_high : float
+        The high end of amplitudes for which to clip the signal.
+    clip_prob : float
+        The probability that the batch of signals will have a portion clipped.
+        By default, every batch has portions clipped.
 
-     Example:
-        >>> import torch
-        >>> import soundfile as sf
-        >>> from speechbrain.data_io.data_io import save
-        >>> clipper = DoClip()
-        >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
-        >>> clipped_signal = clipper(torch.tensor(signal).unsqueeze(0))
-        >>> save_signal = save(save_folder='exp/example', save_format='wav')
-        >>> save_signal(clipped_signal, ['clip'], torch.ones(1))
-
-    Author:
-        Peter Plantinga
+    Example
+    -------
+    >>> import torch
+    >>> import soundfile as sf
+    >>> from speechbrain.data_io.data_io import save
+    >>> clipper = DoClip()
+    >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
+    >>> clipped_signal = clipper(torch.tensor(signal).unsqueeze(0))
+    >>> save_signal = save(save_folder='exp/example', save_format='wav')
+    >>> save_signal(clipped_signal, ['clip'], torch.ones(1))
     """
 
     def __init__(
@@ -1075,13 +1115,14 @@ class DoClip(torch.nn.Module):
 
     def forward(self, waveforms):
         """
-        Parameters:
-            waveforms (tensor): Shape should be `[batch, time_steps]`
-                or`[batch, channels, time_steps]`.
+        Arguments
+        ---------
+        waveforms : tensor
+            Shape should be `[batch, time]` or `[batch, channels, time]`.
 
-        Returns:
-            Tensor of shape `[batch, time_steps]` or
-                `[batch, channels, time_steps]`
+        Returns
+        -------
+        Tensor of shape `[batch, time]` or `[batch, channels, time]`
         """
         # Don't clip (return early) 1-`clip_prob` portion of the batches
         if torch.rand(1) > self.clip_prob:
