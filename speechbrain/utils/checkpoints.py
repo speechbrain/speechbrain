@@ -60,6 +60,8 @@ import pathlib
 import inspect
 import functools
 import shutil
+import logging
+logger = logging.getLogger(__name__)
 
 CKPT_PREFIX = "CKPT"
 METAFNAME = f"{CKPT_PREFIX}.yaml"  # Important that this is not .ckpt
@@ -124,10 +126,13 @@ def torch_lazy_recovery(obj, path, load_method=torch_recovery):
         self._speechbrain_lazy_recovery_hook.remove()
 
         # Re-do forward now that the parameters are loaded
+        logger.debug(f"Loaded parameters to {self} with lazy hook, "
+                "rerunning forward.")
         return self.forward(*input)
 
     hook = functools.partial(_lazy_recovery_hook, path)
     obj._speechbrain_lazy_recovery_hook = obj.register_forward_hook(hook)
+    logger.debug(f"Added lazy recovery hook to {obj}, loaded on forward call.")
 
 
 def torch_save(obj, path):
@@ -245,8 +250,10 @@ def register_checkpoint_hooks(cls):
     for name, method in cls.__dict__.items():
         if hasattr(method, "_speechbrain_saver"):
             DEFAULT_SAVE_HOOKS[cls] = method
+            logger.debug(f"Registered checkpoint save hook for {name}")
         if hasattr(method, "_speechbrain_loader"):
             DEFAULT_LOAD_HOOKS[cls] = method
+            logger.debug(f"Registered checkpoint load hook for {name}")
     return cls
 
 
@@ -483,6 +490,7 @@ class Checkpointer:
             MSG = f"Don't know how to load {type(obj)}. Register default hook \
                     or add custom hook for this object."
             raise RuntimeError(MSG)
+        logger.info(f"Saved a checkpoint in {ckpt_dir}")
         return Checkpoint(ckpt_dir, saved_meta, saved_paramfiles)
 
     def save_and_keep_only(
@@ -569,6 +577,8 @@ class Checkpointer:
         chosen_ckpt = self.find_checkpoint(importance_key, ckpt_predicate)
         if chosen_ckpt is not None:
             self.load_checkpoint(chosen_ckpt)
+        else:
+            logger.info(f"Would load a checkpoint here, but none found yet.")
         return chosen_ckpt
 
     def load_checkpoint(self, checkpoint):
@@ -648,10 +658,12 @@ class Checkpointer:
         if not Checkpointer._is_checkpoint_dir(checkpoint.path):
             raise RuntimeError("Checkpoint does not appear valid for deletion.")
         shutil.rmtree(checkpoint.path)
+        logger.info(f"Deleted checkpoint in {checkpoint.path}")
 
     def _call_load_hooks(self, checkpoint):
         # This internal function finds the correct hook to call for every
         # recoverable, and calls it.
+        logger.info(f"Loading a checkpoint from {checkpoint.path}")
         for name, obj in self.recoverables.items():
             # NOTE: We want the checkpoint namedtuple to have the paramfile
             # paths for each recoverable.
@@ -663,7 +675,7 @@ class Checkpointer:
                     continue
                 else:
                     MSG = f"Loading checkpoint from {checkpoint.path}, \
-                            expected a load path for {name}"
+                            but missing a load path for {name}"
                     raise RuntimeError(MSG)
             # First see if object has custom load hook:
             if name in self.custom_load_hooks:

@@ -193,3 +193,40 @@ def test_checkpoint_deletion(tmpdir):
                                 lambda c: c.meta["foo"]],
             ckpt_predicate = lambda c: "epoch_ckpt" not in c.meta)
     assert all(c in recoverer.list_checkpoints() for c in [c1, c2, c3])
+
+
+def test_torch_lazy_recovery(tmpdir):
+    from speechbrain.utils.checkpoints import Checkpointer
+    import torch
+    class LazyInitRecoverable(torch.nn.Module):
+        def __init__(self, param):
+            super().__init__()
+            def lazy_init(self, input):
+                self.param = torch.nn.Parameter(torch.tensor([param]))
+                self.init_hook.remove()
+            self.init_hook = self.register_forward_pre_hook(lazy_init)
+
+        def forward(self, x):
+            return x * self.param
+
+    recoverable = LazyInitRecoverable(2.0)
+    # Setup the recovery
+    recoverables = {"recoverable": recoverable}
+    recoverer = Checkpointer(tmpdir, recoverables)
+    # Make sure the recoverable works as intended
+    assert not hasattr(recoverable, "param")
+    assert recoverable(3.) == 6.
+    assert hasattr(recoverable, "param")
+    # Save checkpoint with old, initialized recoverable
+    ckpt = recoverer.save_checkpoint()
+    # Now simulate a restore:
+    new_recoverable = LazyInitRecoverable(0.0)
+    recoverer.recoverables["recoverable"] = new_recoverable
+    recoverer.recover_if_possible()
+    # And even with the lazy init recoverable, this should work the same:
+    assert not hasattr(new_recoverable, "param")
+    assert new_recoverable(3.) == 6.
+    assert hasattr(new_recoverable, "param")
+
+
+    
