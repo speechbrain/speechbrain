@@ -119,6 +119,10 @@ def torch_lazy_recovery(obj, path, load_method=torch_recovery):
     Author:
         Aku Rouhe 2020
     """
+    # Removing a previous hook should be fine: the new hook is anyway expected
+    # to overwrite the previous recovered parameters.
+    if hasattr(obj, "_speechbrain_lazy_recovery_hook"):
+        obj._speechbrain_lazy_recovery_hook.remove()
     # Use this hook with functools.partial to save objpath properly
     # Otherwise, objpath is searched for dynamically (and has probably changed)
     def _lazy_recovery_hook(path, self, input, output):

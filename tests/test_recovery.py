@@ -228,5 +228,12 @@ def test_torch_lazy_recovery(tmpdir):
     assert new_recoverable(3.) == 6.
     assert hasattr(new_recoverable, "param")
 
-
-    
+    # Edge case: calling lazy recovery twice:
+    new_new_recoverable = LazyInitRecoverable(0.0)
+    recoverer.recoverables["recoverable"] = new_new_recoverable
+    recoverer.recover_if_possible()
+    recoverer.recover_if_possible()
+    # And even now, this should work 
+    assert not hasattr(new_new_recoverable, "param")
+    assert new_new_recoverable(3.) == 6.
+    assert hasattr(new_new_recoverable, "param")
