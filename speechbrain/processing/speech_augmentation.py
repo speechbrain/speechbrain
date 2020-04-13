@@ -391,7 +391,7 @@ class SpeedPerturb(torch.nn.Module):
                 'orig_freq': self.orig_freq,
                 'new_freq': self.orig_freq * speed // 10,
             }
-            self.resamplers.append(resample(**config))
+            self.resamplers.append(Resample(**config))
 
     def forward(self, waveform):
         """

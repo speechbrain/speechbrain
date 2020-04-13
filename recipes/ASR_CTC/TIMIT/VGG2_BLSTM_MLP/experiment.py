@@ -11,6 +11,7 @@ sb = Experiment(
     yaml_stream=open('recipes/ASR_CTC/TIMIT/VGG2_BLSTM_MLP/params.yaml'),
     commandline_args=sys.argv[1:],
 )
+device = 'cuda:0'
 
 
 def main():

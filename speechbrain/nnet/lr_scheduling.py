@@ -235,6 +235,11 @@ class lr_annealing(torch.nn.Module):
             opt.optim.param_groups[0]["lr"] = next_lr
             opt.optim.param_groups[0]["prev_lr"] = current_lr
 
+            if next_lr != current_lr:
+                logger.info(
+                    'Changing lr from %.2g to %.2g' % (current_lr, next_lr)
+                )
+
         # Appending current loss
         self.losses.append(current_loss)
 

@@ -7,9 +7,9 @@ import sys
 import csv
 import errno
 import torch
+import shutil
 import logging
 from speechbrain.utils.data_utils import get_all_files
-from speechbrain.utils.superpowers import run_shell
 
 from speechbrain.data_io.data_io import (
     read_wav_soundfile,
@@ -67,17 +67,9 @@ class copy_data_locally():
         self,
         data_file,
         local_folder,
-        copy_cmd='rsync',
-        copy_opts='',
-        uncompress_cmd='tar',
-        uncompress_opts='-zxf',
     ):
         self.data_file = data_file
         self.local_folder = local_folder
-        self.copy_cmd = copy_cmd
-        self.copy_opts = copy_opts
-        self.uncompress_cmd = uncompress_cmd
-        self.uncompress_opts = uncompress_opts
 
     def __call__(self):
 
@@ -89,14 +81,13 @@ class copy_data_locally():
                 err_msg = "Cannot create the data local folder %s!" % (
                     self.local_folder
                 )
-                raise OSError(err_msg)
+                e.args = (*e.args, err_msg)
+                raise
 
         # Destination file
         filename = os.path.basename(self.data_file)
         self.dest_file = os.path.join(self.local_folder, filename)
 
-        # TODO: This is not OS independent. Better may be to do the copy
-        # and uncompress using Python std lib to preserve OS independence
         if not os.path.exists(self.dest_file):
 
             # Copy data file in the local_folder
@@ -106,16 +97,14 @@ class copy_data_locally():
             )
             logger.debug(msg)
 
-            cmd = (
-                self.copy_cmd
-                + " "
-                + self.copy_opts
-                + self.data_file
-                + " "
-                + self.dest_file
-            )
-
-            run_shell(cmd)
+            # For pre-3.8, faster copy of large files, from:
+            # https://stackoverflow.com/a/20371865/1761970
+            if sys.version_info[1] < 8:
+                with open(self.data_file, 'rb') as fin:
+                    with open(self.dest_file, 'wb') as fout:
+                        shutil.copyfileobj(fin, fout, 128*1024)
+            else:
+                shutil.copy(self.data_file, self.dest_file)
 
             # Uncompress the data_file in the local_folder
             msg = "uncompressing file %s into %s !" % (
@@ -124,18 +113,7 @@ class copy_data_locally():
             )
             logger.debug(msg)
 
-            cmd = (
-                self.uncompress_cmd
-                + " "
-                + self.uncompress_opts
-                + self.dest_file
-                + " -C "
-                + " "
-                + self.local_folder
-                + " --strip-components=1"
-            )
-
-            run_shell(cmd)
+            shutil.unpack_archive(self.dest_file, self.local_folder)
 
 
 class timit_prepare(torch.nn.Module):
@@ -218,7 +196,7 @@ class timit_prepare(torch.nn.Module):
         # Expected inputs when calling the class (no inputs in this case)
         super().__init__()
 
-        self.data_folder = data_folder
+        self.data_folder = os.path.join(data_folder, 'TIMIT')
         self.splits = splits
         self.kaldi_ali_tr = kaldi_ali_tr
         self.kaldi_ali_dev = kaldi_ali_dev

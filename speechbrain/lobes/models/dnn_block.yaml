@@ -1,0 +1,15 @@
+constants:
+    block_index: 1
+
+linear: !speechbrain.nnet.architectures.linear
+    n_neurons: 512
+    bias: True
+
+norm: !speechbrain.nnet.normalization.normalize
+    norm_type: batchnorm
+
+activation: !speechbrain.nnet.architectures.activation
+    act_type: leaky_relu
+
+dropout: !speechbrain.nnet.architectures.dropout
+    drop_rate: 0.15

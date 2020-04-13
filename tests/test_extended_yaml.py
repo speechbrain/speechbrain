@@ -15,6 +15,9 @@ def test_load_extended_yaml():
     from collections import Counter
     assert things['thing'].__class__ == Counter
 
+    overrides = {'constants': {'a': 2}}
+    things = load_extended_yaml(yaml, overrides=overrides)
+
     # Missing sections
     yaml = """
     """
@@ -25,9 +28,9 @@ def test_load_extended_yaml():
     yaml = """
     constants:
         a: abc
-        b: !$ <constants.a>
+        b: !ref <constants.a>
     thing: !collections.Counter
-        a: !$ <constants.a>
+        a: !ref <constants.a>
     """
     things = load_extended_yaml(yaml)
     assert things['thing']['a'] == things['constants']['a']
@@ -37,7 +40,7 @@ def test_load_extended_yaml():
     yaml = """
     constants:
         a: "a"
-        b: !$ <constants.a>/b
+        b: !ref <constants.a>/b
     """
     things = load_extended_yaml(yaml)
     assert things['constants']['b'] == 'a/b'
@@ -46,7 +49,7 @@ def test_load_extended_yaml():
     yaml = """
     constants:
         a: 1
-        b: !$ <constants.a>/b
+        b: !ref <constants.a>/b
     """
     things = load_extended_yaml(yaml)
     assert things['constants']['b'] == '1/b'
@@ -57,7 +60,7 @@ def test_load_extended_yaml():
         a: 1
     thing: !collections.Counter
         other: !collections.Counter
-            a: !$ <constants.a>
+            a: !ref <constants.a>
     """
     things = load_extended_yaml(yaml)
     assert things['thing']['other'].__class__ == Counter
@@ -68,7 +71,7 @@ def test_load_extended_yaml():
     constants:
         a: hello
     thing: !collections.Counter
-        - !$ <constants.a>
+        - !ref <constants.a>
     """
     things = load_extended_yaml(yaml)
     assert things['thing']['l'] == 2
@@ -84,7 +87,7 @@ def test_load_extended_yaml():
     yaml = """
     constants:
         a: 1
-        b: !$ <constants.c>
+        b: !ref <constants.c>
     """
     with pytest.raises(ValueError):
         things = load_extended_yaml(yaml)
@@ -114,3 +117,14 @@ def test_load_extended_yaml():
     """
     things = load_extended_yaml(yaml)
     assert things['thing'] == 'abc/def/foo/bar'
+
+    yaml = """
+    thing1: !collections.Counter
+        a: 3
+        b: 5
+    thing2: !ref <thing1>
+    """
+    things = load_extended_yaml(yaml)
+    assert things['thing2']['b'] == things['thing1']['b']
+    things['thing2']['b'] = 7
+    assert things['thing2']['b'] == things['thing1']['b']
