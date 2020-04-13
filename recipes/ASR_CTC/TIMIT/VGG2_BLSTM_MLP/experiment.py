@@ -3,15 +3,14 @@ import torch
 import collections
 import speechbrain.utils.edit_distance as edit_distance 
 import speechbrain.data_io.wer as wer_io
-from speechbrain.data_io.data_io import filter_ctc_output
 from speechbrain.data_io.data_io import IterativeCSVWriter 
+from speechbrain.decoders.ctc import ctc_greedy_decode
 from tqdm.contrib import tzip
 from speechbrain.core import Experiment
 sb = Experiment(
     yaml_stream=open('recipes/ASR_CTC/TIMIT/VGG2_BLSTM_MLP/params.yaml'),
     commandline_args=sys.argv[1:],
 )
-device = 'cuda:0'
 
 
 def main():
@@ -33,8 +32,8 @@ def main():
         sb.model.train()
         train_losses = []
         for wav, phn in tzip(*train_set):
-            ids, wav, wav_len = mangle(wav)
-            ids, phn, phn_len = mangle(phn)
+            ids, wav, wav_len = prepare_for_computations(wav)
+            ids, phn, phn_len = prepare_for_computations(phn)
             pout = neural_computations(sb.model, wav, wav_len)
             detached_loss = learn(sb.model, pout, phn, wav_len, phn_len)
             train_losses.append(detached_loss)
@@ -44,8 +43,8 @@ def main():
         valid_losses = []
         valid_wer_stats = collections.Counter()
         for wav, phn in tzip(*valid_set):
-            ids, wav, wav_len = mangle(wav)
-            ids, phn, phn_len = mangle(phn)
+            ids, wav, wav_len = prepare_for_computations(wav)
+            ids, phn, phn_len = prepare_for_computations(phn)
             pout = neural_computations(sb.model, wav, wav_len)
             detached_loss, valid_wer_stats = validation(
                 ids, pout, phn, wav_len, phn_len, valid_wer_stats)
@@ -66,8 +65,8 @@ def main():
     with open(sb.predictions_file, "w") as fo:
         hyp_writer = IterativeCSVWriter(fo, ["predictions"])
         for wav, phn in tzip(*test_set):
-            ids, wav, wav_len = mangle(wav)
-            ids, phn, phn_len = mangle(phn)
+            ids, wav, wav_len = prepare_for_computations(wav)
+            ids, phn, phn_len = prepare_for_computations(phn)
             pout = neural_computations(sb.model, wav, wav_len)
             hyps, batch_details = evaluation(ids, pout, phn, wav_len, phn_len)
             details_by_utt.extend(batch_details)
@@ -78,28 +77,13 @@ def main():
     wer_io.print_alignments(details_by_utt)
 
 
-def mangle(data):
+def prepare_for_computations(data):
     identifier, data, data_len = data
     return identifier, data.to(sb.device), data_len.to(sb.device)
 
 
 def mean(loss):
     return float(sum(loss) / len(loss))
-
-
-def ctc_greedy_decode(probabilities, seq_lens, blank_id):
-    batch_max_len = probabilities.shape[-1]  # Time last
-    batch_outputs = []
-    for seq, seq_len in zip(probabilities, seq_lens):
-        actual_size = int(
-            torch.round(seq_len * batch_max_len)
-        )
-        scores, predictions = torch.max(seq.narrow(-1, 0, actual_size), dim=0)
-        out = filter_ctc_output(
-                predictions.tolist(), blank_id=blank_id
-        )
-        batch_outputs.append(out)
-    return batch_outputs
 
 
 def to_output_format(ids, seqs):
@@ -147,7 +131,7 @@ def evaluation(ids, pout, phn, wav_len, phn_len):
 
 def write_hyps(hyp_writer, hyps, wav_lens, max_len):
     for hyp_item, wav_len in zip(hyps.items(), wav_lens):
-        duration = float(wav_len * max_len * 0.01)  # 0.01s frame shift assumed
+        duration = int(wav_len * max_len) / sb.sample_rate 
         ID, decoded = hyp_item
         hyp_writer.write(ID=ID, duration=duration, 
                 predictions = f'"{" ".join(decoded)}"',

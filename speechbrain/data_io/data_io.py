@@ -24,6 +24,7 @@ from itertools import groupby
 from multiprocessing import Manager
 from torch.utils.data import Dataset, DataLoader
 from speechbrain.utils.data_utils import recursive_items
+from ..decoders.ctc import filter_ctc_output
 logger = logging.getLogger(__name__)
 
 
@@ -1780,53 +1781,6 @@ class print_predictions:
 
         # Closing the prediction file
         self.file_pred.close()
-
-
-def filter_ctc_output(string_pred, blank_id=-1, logger=None):
-    """
-     -------------------------------------------------------------------------
-     speechbrain.data_io.data_io.filter_ctc_output (author: Mirco Ravanelli)
-
-     Description: This filters the output of a ctc-based system by removing
-                  the blank symbol and the output repetitions. 
-
-
-     Input (call): - string_pred(type, list, mandatory):
-                       it is a list contaning the output strings predicted
-                       by the CTC system.
-
-
-     Output (call): - string_out(type, list):
-                       It is a list returning the output predicted by CTC
-                       without the blank symbol and the repetitions
-
-     Example:   from speechbrain.data_io.data_io import filter_ctc_output
-
-                string_pred = ['a','a','blank','b','b','blank','c']
-
-                string_out = filter_ctc_output(string_pred, blank_id='blank')
-
-                print(string_out)
-     --------------------------------------------.----------------------------
-     """
-
-    if isinstance(string_pred, list):
-        # Filterning the repetitions
-        string_out = [
-            v
-            for i, v in enumerate(string_pred)
-            if i == 0 or v != string_pred[i - 1]
-        ]
-
-        # Removing duplicates
-        string_out = [i[0] for i in groupby(string_out)]
-
-        # Filterning the blank symbol
-        string_out = list(filter(lambda elem: elem != blank_id, string_out))
-    else:
-        raise ValueError("filter_ctc_out can only filter python lists")
-
-    return string_out
 
 
 def recovery(self):
