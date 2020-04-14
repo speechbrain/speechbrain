@@ -348,7 +348,10 @@ def _walk_tree_and_resolve(current_node, tree):
     -------
     A yaml tree with all references resolved.
     """
-    if hasattr(current_node, 'tag') and current_node.tag.value == '!ref':
+    if hasattr(current_node, 'tag') and current_node.tag.value == '!PLACEHOLDER':
+        MSG = f"Replace !PLACEHOLDER values in YAML."
+        raise ValueError(MSG)
+    elif hasattr(current_node, 'tag') and current_node.tag.value == '!ref':
         current_node = recursive_resolve(current_node.value, [], tree)
     elif isinstance(current_node, list):
         for i, item in enumerate(current_node):
