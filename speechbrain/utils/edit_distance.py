@@ -1,4 +1,10 @@
-#!/usr/bin/env python3
+"""
+Edit distance and WER computation
+
+Author
+------
+Aku Rouhe 2020
+"""
 import collections
 
 EDIT_SYMBOLS = {
@@ -15,39 +21,46 @@ EDIT_SYMBOLS = {
 # and simply serves as an empty Counter.
 def accumulatable_wer_stats(refs, hyps, stats=collections.Counter()):
     """
-    Description:
-        Computes word error rate and the related counts for a batch.
-        Can also be used to accumulate the counts over many batches, by passing
-        the output back to the function in the call for the next batch.
-    Input:
-        ref: (type: iterable of iterables) Batch of reference sequences
-        hyp: (type: iterable of iterables) Batch of hypothesis sequences
-        stats (type: collections.Counter) The running statistics.
-            Pass the output of this function back as this parameter
-            to accumulate the counts. It may be cleanest to initialize
-            the stats yourself; then an empty collections.Counter() should
-            be used.
-    Output:
-        updated_stats: (type: collections.Counter) The updated running
-            statistics, with keys:
-                "WER" - word error rate
-                "insertions" - number of insertions
-                "deletions" - number of deletions
-                "substitutions" - number of substitutions
-                "num_ref_tokens" - number of reference tokens
-    Example:
-        from speechbrain.utils.edit_distance import accumulatable_wer_stats
-        import collections
-        batches = [[[[1,2,3],[4,5,6]], [[1,2,4],[5,6]]],
-                    [[[7,8], [9]],     [[7,8],  [10]]]]
-        stats = collections.Counter()
-        for batch in batches:
-            refs, hyps = batch
-            stats = accumulatable_wer_stats(refs, hyps, stats)
-        print("%WER {WER:.2f}, {num_ref_tokens} ref tokens".format(**stats))
-        # %WER 33.33, 9 ref tokens
-    Author:
-        Aku Rouhe
+    Computes word error rate and the related counts for a batch.
+    
+    Can also be used to accumulate the counts over many batches, by passing
+    the output back to the function in the call for the next batch.
+
+    Arguments
+    ----------
+    ref : iterable  
+        Batch of reference sequences
+    hyp: : iterable 
+        Batch of hypothesis sequences
+    stats : collections.Counter 
+        The running statistics.
+        Pass the output of this function back as this parameter
+        to accumulate the counts. It may be cleanest to initialize
+        the stats yourself; then an empty collections.Counter() should
+        be used.
+
+    Returns 
+    -------
+    collections.Counter 
+        The updated running
+        statistics, with keys:
+            "WER" - word error rate
+            "insertions" - number of insertions
+            "deletions" - number of deletions
+            "substitutions" - number of substitutions
+            "num_ref_tokens" - number of reference tokens
+
+    Example
+    -------
+    >>> import collections
+    >>> batches = [[[[1,2,3],[4,5,6]], [[1,2,4],[5,6]]],
+    ...             [[[7,8], [9]],     [[7,8],  [10]]]]
+    >>> stats = collections.Counter()
+    >>> for batch in batches:
+    ...     refs, hyps = batch
+    ...     stats = accumulatable_wer_stats(refs, hyps, stats)
+    >>> print("%WER {WER:.2f}, {num_ref_tokens} ref tokens".format(**stats))
+    %WER 33.33, 9 ref tokens
     """
     updated_stats = stats + _batch_stats(refs, hyps)
     if updated_stats["num_ref_tokens"] == 0:
@@ -68,27 +81,33 @@ def accumulatable_wer_stats(refs, hyps, stats=collections.Counter()):
 
 def _batch_stats(refs, hyps):
     """
-    Description:
-        Internal function which actually computes the counts.
-        Used by accumulatable_wer_stats
-    Input:
-        ref: (type: iterable of iterables) Batch of reference sequences
-        hyp: (type: iterable of iterables) Batch of hypothesis sequences
-    Output:
-        stats: (type: collections.Counter) Edit statistics over the batch,
-            with keys:
-                "insertions" - number of insertions
-                "deletions" - number of deletions
-                "substitutions" - number of substitutions
-                "num_ref_tokens" - number of reference tokens
-    Example:
-        from speechbrain.utils.edit_distance import _batch_stats
-        batch = [[[1,2,3],[4,5,6]], [[1,2,4],[5,6]]]
-        refs, hyps = batch
-        print(_batch_stats(refs, hyps))
-        ## Counter({'num_ref_tokens': 6, 'substitutions': 1, 'deletions': 1})
-    Author:
-        Aku Rouhe
+    Internal function which actually computes the counts.
+
+    Used by accumulatable_wer_stats
+
+    Arguments
+    ----------
+    ref : iterable 
+        Batch of reference sequences
+    hyp : iterable 
+        Batch of hypothesis sequences
+
+    Returns
+    -------
+    collections.Counter
+        Edit statistics over the batch, with keys:
+            "insertions" - number of insertions
+            "deletions" - number of deletions
+            "substitutions" - number of substitutions
+            "num_ref_tokens" - number of reference tokens
+
+    Example
+    -------
+    >>> from speechbrain.utils.edit_distance import _batch_stats
+    >>> batch = [[[1,2,3],[4,5,6]], [[1,2,4],[5,6]]]
+    >>> refs, hyps = batch
+    >>> print(_batch_stats(refs, hyps))
+    Counter({'num_ref_tokens': 6, 'substitutions': 1, 'deletions': 1})
     """
     if len(refs) != len(hyps):
         raise ValueError(
@@ -105,34 +124,42 @@ def _batch_stats(refs, hyps):
 
 def op_table(a, b):
     """
-    Description:
-        Solves for the table of edit operations, which is mainly used to
-        compute word error rate. The table is of size [|a|+1, |b|+1],
-        and each point (i, j) in the table has an edit operation. The
-        edit operations can be deterministically followed backwards to
-        find the shortest edit path to from a[:i-1] to b[:j-1]. Indexes
-        of zero (i=0 or j=0) correspond to an empty sequence.
+    Table of edit operations between a and b
 
-        The algorithm itself is well known, see
-            https://en.wikipedia.org/wiki/Levenshtein_distance
-        Note that in some cases there are multiple valid edit operation
-        paths which lead to the same edit distance minimum.
-    Input:
-        a and b: (type: any iterable) sequences between which the edit
-            operations are solved for.
-    Output:
-        op_table: (type: list of lists, as matrix) Table of edit operations
-    Example:
-        from speechbrain.utils.edit_distance import op_table
-        ref = [1,2,3]
-        hyp = [1,2,4]
-        print(op_table(ref, hyp))
-        # [['I', 'I', 'I', 'I'],
-        #  ['D', '=', 'I', 'I'],
-        #  ['D', 'D', '=', 'I'],
-        #  ['D', 'D', 'D', 'S']]
-    Author:
-        Aku Rouhe
+    Solves for the table of edit operations, which is mainly used to
+    compute word error rate. The table is of size [|a|+1, |b|+1],
+    and each point (i, j) in the table has an edit operation. The
+    edit operations can be deterministically followed backwards to
+    find the shortest edit path to from a[:i-1] to b[:j-1]. Indexes
+    of zero (i=0 or j=0) correspond to an empty sequence.
+
+    The algorithm itself is well known, see
+        https://en.wikipedia.org/wiki/Levenshtein_distance
+    Note that in some cases there are multiple valid edit operation
+    paths which lead to the same edit distance minimum.
+
+    Arguments
+    ----------
+    a : iterable 
+        Sequence for which the edit operations are solved.
+    b : iterable 
+        Sequence for which the edit operations are solved.
+
+    Returns
+    -------
+    list 
+        List of lists, Matrix, Table of edit operations
+
+    Example
+    -------
+    >>> ref = [1,2,3]
+    >>> hyp = [1,2,4]
+    >>> for row in op_table(ref, hyp):
+    ...     print(row)
+    ['=', 'I', 'I', 'I']
+    ['D', '=', 'I', 'I']
+    ['D', 'D', '=', 'I']
+    ['D', 'D', 'D', 'S']
     """
     # For the dynamic programming algorithm, only two rows are really needed:
     # the one currently being filled in, and the previous one
@@ -186,32 +213,37 @@ def op_table(a, b):
 
 def alignment(table):
     """
-    Description:
-        Walks back an edit operations table, produced by calling
-            table(a, b),
-        and collects the edit distance alignment of a to b. The alignment
-        shows which token in a corresponds to which token in b. Note that the
-        alignment is monotonic, one-to-zero-or-one.
-    Input:
-        table: (type: list of lists) Edit operations table from
-            table(a, b)
-    Output:
-        alignment (type: [(str <edit-op>, int-or-None <i>, int-or-None <j>),])
-            List of edit operations, and the corresponding indices to a and b.
-            See the EDIT_SYMBOLS dict for the edit-ops.
-            i indexes a, j indexes b, and the indices can be None, which means
-            aligning to nothing
-    Example:
-        from speechbrain.utils.edit_distance import alignment
-        # table for a=[1,2,3], b=[1,2,4]
-        table = [['I', 'I', 'I', 'I'],
-                 ['D', '=', 'I', 'I'],
-                 ['D', 'D', '=', 'I'],
-                 ['D', 'D', 'D', 'S']]
-        print(alignment(table))
-        # [('=', 0, 0), ('=', 1, 1), ('S', 2, 2)]
-    Author:
-        Aku Rouhe
+    Get the edit distance alignment from an edit op table
+
+    Walks back an edit operations table, produced by calling
+        table(a, b),
+    and collects the edit distance alignment of a to b. The alignment
+    shows which token in a corresponds to which token in b. Note that the
+    alignment is monotonic, one-to-zero-or-one.
+
+    Arguments
+    ----------
+    table : list 
+        Edit operations table from op_table(a, b)
+
+    Returns
+    -------
+    list 
+        Schema: [(str <edit-op>, int-or-None <i>, int-or-None <j>),]
+        List of edit operations, and the corresponding indices to a and b.
+        See the EDIT_SYMBOLS dict for the edit-ops.
+        i indexes a, j indexes b, and the indices can be None, which means
+        aligning to nothing
+
+    Example
+    -------
+    >>> # table for a=[1,2,3], b=[1,2,4]:
+    >>> table = [['I', 'I', 'I', 'I'],
+    >>>          ['D', '=', 'I', 'I'],
+    >>>          ['D', 'D', '=', 'I'],
+    >>>          ['D', 'D', 'D', 'S']]
+    >>> print(alignment(table))
+    [('=', 0, 0), ('=', 1, 1), ('S', 2, 2)]
     """
     # The alignment will be the size of the longer sequence.
     # form: [(op, a_index, b_index)], index is None when aligned to empty
@@ -246,32 +278,37 @@ def alignment(table):
 
 def count_ops(table):
     """
-    Description:
-        Walks back an edit operations table produced by table(a, b) and
-        counts the number of insertions, deletions, and substitutions in the
-        shortest edit path. This information is typically used in speech
-        recognition to report the number of different error types separately.
-    Input:
-        table: (type: list of lists) Edit operations table from
-            table(a, b)
-    Output:
-        edits: (type: collections.Counter) The counts of the edit operations,
-            with keys:
-                "insertions"
-                "deletions"
-                "substitutions"
-            NOTE: not all of the keys might appear explicitly in the output,
-                but for the missing keys collections.Counter will return 0
-    Example:
-        from speechbrain.utils.edit_distance import count_ops
-        table = [['I', 'I', 'I', 'I'],
-                 ['D', '=', 'I', 'I'],
-                 ['D', 'D', '=', 'I'],
-                 ['D', 'D', 'D', 'S']]
-        print(count_ops(table))
-        # Counter({'substitutions': 1})
-    Author:
-        Aku Rouhe
+    Count the edit operations in the shortest edit path in edit op table
+
+    Walks back an edit operations table produced by table(a, b) and
+    counts the number of insertions, deletions, and substitutions in the
+    shortest edit path. This information is typically used in speech
+    recognition to report the number of different error types separately.
+
+    Arguments
+    ----------
+    table : list 
+        Edit operations table from op_table(a, b)
+
+    Returns
+    -------
+    collections.Counter 
+        The counts of the edit operations, with keys:
+            "insertions"
+            "deletions"
+            "substitutions"
+        NOTE: not all of the keys might appear explicitly in the output,
+            but for the missing keys collections.Counter will return 0
+
+
+    Example
+    -------
+    >>> table = [['I', 'I', 'I', 'I'],
+    >>>          ['D', '=', 'I', 'I'],
+    >>>          ['D', 'D', '=', 'I'],
+    >>>          ['D', 'D', 'D', 'S']]
+    >>> print(count_ops(table))
+    Counter({'substitutions': 1})
     """
     edits = collections.Counter()
     # Walk back the table, gather the ops.
@@ -306,46 +343,53 @@ def wer_details_by_utterance(
         
     This info can then be used to compute summary details (WER, SER).
 
-    Arguments:
-        ref_dict (dict): Should be indexable by utterance ids, and return
-            the hypothesis tokens for each utterance id (iterable)
-        hyp_dict (dict): Should be indexable by utterance ids, and return
-            the hypothesis tokens for each utterance id (iterable)
-        compute_alignments (type: bool) Whether alignments
-            should also be saved.
-            This also saves the tokens themselves, as the they are probably
-            required for printing the alignments.
-        scoring_mode (type: str, one of: ['strict', 'all', 'present'])
-            How to deal with missing hypotheses (reference utterance id
-                not found in hyp_dict)
-            'strict': raise error for missing hypotheses
-            'all': score missing hypotheses as empty
-            'present': only score existing hypotheses
-    Returns:
-        details_by_utterance (list): A list with one entry
-            for every reference utterance. Each entry is a dict with keys:
-                "key": utterance id
-                "scored": bool, whether utterance was scored
-                "hyp_absent": bool, true if a hypothesis was NOT found
-                "hyp_empty": bool, true if hypothesis was considered empty
-                    (either because it was empty, or not found and mode 'all')
-                "num_edits": int, number of edits in total
-                "num_ref_tokens": int, number of tokens in the reference
-                "WER": float, word error rate of the utterance
-                "insertions": int, number of insertions
-                "deletions": int, number of deletions
-                "substitutions": int, number of substitutions
-                "alignment": if compute_alignments is True, alignment as list,
-                    see speechbrain.utils.edit_distance.alignment
-                    if compute_alignments is False, this is None
-                "ref_tokens": iterable, the reference tokens,
-                    only saved if alignments were computed, else None
-                "hyp_tokens": iterable, the hypothesis tokens,
-                    only saved if alignments were computed, else None
-    Raises:
-        KeyError if scoring mode is 'strict' and a hypothesis is not found
-    Author:
-        Aku Rouhe
+    Arguments
+    ---------
+    ref_dict : dict 
+        Should be indexable by utterance ids, and return the reference tokens 
+        for each utterance id as iterable
+    hyp_dict : dict 
+        Should be indexable by utterance ids, and return
+        the hypothesis tokens for each utterance id as iterable
+    compute_alignments : bool 
+        Whether alignments should also be saved.
+        This also saves the tokens themselves, as the they are probably
+        required for printing the alignments.
+    scoring_mode : {'strict', 'all', 'present'}
+        How to deal with missing hypotheses (reference utterance id
+            not found in hyp_dict)
+        'strict': raise error for missing hypotheses
+        'all': score missing hypotheses as empty
+        'present': only score existing hypotheses
+
+    Returns
+    -------
+    list
+        A list with one entry for every reference utterance. Each entry is a 
+        dict with keys:
+            "key": utterance id
+            "scored": bool, whether utterance was scored
+            "hyp_absent": bool, true if a hypothesis was NOT found
+            "hyp_empty": bool, true if hypothesis was considered empty
+                (either because it was empty, or not found and mode 'all')
+            "num_edits": int, number of edits in total
+            "num_ref_tokens": int, number of tokens in the reference
+            "WER": float, word error rate of the utterance
+            "insertions": int, number of insertions
+            "deletions": int, number of deletions
+            "substitutions": int, number of substitutions
+            "alignment": if compute_alignments is True, alignment as list,
+                see speechbrain.utils.edit_distance.alignment
+                if compute_alignments is False, this is None
+            "ref_tokens": iterable, the reference tokens,
+                only saved if alignments were computed, else None
+            "hyp_tokens": iterable, the hypothesis tokens,
+                only saved if alignments were computed, else None
+
+    Raises
+    ------
+    KeyError 
+        if scoring mode is 'strict' and a hypothesis is not found
     """
     details_by_utterance = []
     for key, ref_tokens in ref_dict.items():
@@ -410,14 +454,19 @@ def wer_details_by_utterance(
 
 def wer_summary(details_by_utterance):
     """
-    Description:
-        Computes Word Error Rate and other salient statistics
-        over the whole set of utterances.
-    Input:
-        details_by_utterance (type: list of dicts) See the output of
-            wer_details_by_utterance
-    Output:
-        wer_details (type: dict) Dictionary with keys:
+    Computes summary stats from the output of details_by_utterance
+    
+    Summary stats like WER 
+
+    Arguments
+    ---------
+    details_by_utterance : list 
+        See the output of wer_details_by_utterance
+
+    Returns
+    -------
+    dict 
+        Dictionary with keys:
             "WER": float, word error rate
             "SER": float, sentence error rate (percentage of utterances
                 which had at least one error)
@@ -434,11 +483,9 @@ def wer_summary(details_by_utterance):
             "insertions": int, total number of insertions
             "deletions": int, total number of deletions
             "substitutions": int, total number of substitutions
-            NOTE: Some cases lead to ambiguity over number of
-                insertions, deletions and substitutions. We
-                aim to replicate Kaldi compute_wer numbers.
-    Author:
-        Aku Rouhe
+        NOTE: Some cases lead to ambiguity over number of
+            insertions, deletions and substitutions. We
+            aim to replicate Kaldi compute_wer numbers.
     """
     # Build the summary details:
     ins = dels = subs = 0
@@ -476,15 +523,20 @@ def wer_summary(details_by_utterance):
 
 def wer_details_by_speaker(details_by_utterance, utt2spk):
     """
-    Description:
-        Compute word error rate and other salient info grouping by speakers.
-    Input:
-        details_by_utterance (type: list of dicts) See the output of
-            wer_details_by_utterance
-        utt2spk (type: dict) Map from utterance id to speaker id
-    Output:
-        details_by_speaker (type: dict of dicts) Maps speaker id
-            to a dictionary of the statistics, with keys:
+    Compute word error rate and other salient info grouping by speakers
+
+    Arguments
+    ---------
+    details_by_utterance : list 
+        See the output of wer_details_by_utterance
+    utt2spk : dict
+        Map from utterance id to speaker id
+
+
+    Returns
+    -------
+    dict 
+        Maps speaker id to a dictionary of the statistics, with keys:
             "speaker": speaker id,
             "num_edits": int, number of edits in total by this speaker
             "insertions": int, number insertions by this speaker
@@ -501,8 +553,6 @@ def wer_details_by_speaker(details_by_utterance, utt2spk):
                 hypothesis was found, by this speaker
             "num_ref_sents": int, number of utterances by this speaker
                 in total
-    Author:
-        Aku Rouhe
     """
     # Build the speakerwise details:
     details_by_speaker = {}
@@ -566,23 +616,27 @@ def wer_details_by_speaker(details_by_utterance, utt2spk):
 
 def top_wer_utts(details_by_utterance, top_k=20):
     """
-    Description:
-        Finds the k utterances with highest word error rates.
-        Useful for diagnostic purposes, to see where the system
-        is making the most mistakes.
-        Returns results utterances which were not empty
-        i.e. had to have been present in the hypotheses, with output produced
-    Input:
-        details_by_utterance (type: list of dicts) See output
-            of wer_details_by_utterance
-        top_k (type: int) Number of utterances to return
-    Output:
-        top_non_empty (type: list of dicts) List of at most K utterances,
-                with the highest word error rates, which were not empty
-                The utterance dict has the same keys as
-                details_by_utterance
-    Author:
-        Aku Rouhe
+    Finds the k utterances with highest word error rates.
+        
+    Useful for diagnostic purposes, to see where the system
+    is making the most mistakes.
+    Returns results utterances which were not empty
+    i.e. had to have been present in the hypotheses, with output produced
+
+    Arguments
+    ---------
+    details_by_utterance : list 
+        See output of wer_details_by_utterance
+    top_k : int 
+        Number of utterances to return
+
+    Returns
+    -------
+    list 
+        List of at most K utterances,
+        with the highest word error rates, which were not empty
+        The utterance dict has the same keys as
+        details_by_utterance
     """
     scored_utterances = [
         dets for dets in details_by_utterance if dets["scored"]
@@ -600,19 +654,22 @@ def top_wer_utts(details_by_utterance, top_k=20):
 
 def top_wer_spks(details_by_speaker, top_k=10):
     """
-    Description:
-        Finds the K speakers with highest word error rates.
-        Useful for diagnostic purposes.
-    Input:
-        details_by_speaker (type: list of dicts) See output of
-            wer_details_by_speaker
-        top_k (type: int) Number of seakers to return
-    Output:
-        spks_by_wer (type: list of dicts) List of at most K
-            dicts (with the same keys as details_by_speaker)
-            of speakers sorted by WER.
-    Author:
-        Aku Rouhe
+    Finds the K speakers with highest word error rates.
+        
+    Useful for diagnostic purposes.
+
+    Arguments
+    ---------
+    details_by_speaker : list 
+        See output of wer_details_by_speaker
+    top_k : int 
+        Number of seakers to return
+
+    Returns
+    -------
+    list 
+        List of at most K dicts (with the same keys as details_by_speaker)
+        of speakers sorted by WER.
     """
     scored_speakers = [
         dets for dets in details_by_speaker if dets["num_scored_sents"] > 0
