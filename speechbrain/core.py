@@ -169,7 +169,8 @@ class Experiment:
             was created. The checkpoint with the `lowest` stored value
             for this key will be loaded.
         """
-        assert max_key is None or min_key is None, "Can't use both max and min"
+        if not (max_key is None or min_key is None): 
+            raise ValueError("Can't use both max and min")
         if hasattr(self, 'saver'):
             if max_key is None and min_key is None:
                 self.saver.recover_if_possible()
@@ -213,9 +214,11 @@ class Experiment:
         """
         if hasattr(self, 'saver'):
             for key in max_keys:
-                assert key in meta, 'Max key {} must be in meta'.format(key)
+                if not key in meta:
+                    raise ValueError('Max key {} must be in meta'.format(key))
             for key in min_keys:
-                assert key in meta, 'Min key {} must be in meta'.format(key)
+                if not key in meta:
+                    raise ValueError('Min key {} must be in meta'.format(key))
 
             importance_keys = []
             for key in ['unixtime'] + max_keys:
@@ -282,7 +285,6 @@ class Experiment:
 def _logging_excepthook(exc_type, exc_value, exc_traceback):
     """Interrupt exception raising to log the error."""
     logger.error("Exception:", exc_info=(exc_type, exc_value, exc_traceback))
-    sys.exit(1)
 
 
 def parse_arguments(arg_list):
