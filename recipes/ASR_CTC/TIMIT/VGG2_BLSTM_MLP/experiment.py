@@ -7,8 +7,9 @@ from speechbrain.data_io.data_io import IterativeCSVWriter
 from speechbrain.decoders.ctc import ctc_greedy_decode
 from tqdm.contrib import tzip
 from speechbrain.core import Experiment
+with open('recipes/ASR_CTC/TIMIT/VGG2_BLSTM_MLP/params.yaml') as fi:
 sb = Experiment(
-    yaml_stream=open('recipes/ASR_CTC/TIMIT/VGG2_BLSTM_MLP/params.yaml'),
+    yaml_stream=fi,
     commandline_args=sys.argv[1:],
 )
 
