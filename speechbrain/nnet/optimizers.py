@@ -5,6 +5,7 @@ Optimizers.
 import torch
 import logging
 from speechbrain.data_io.data_io import recovery
+import functools
 from speechbrain.utils import checkpoints 
 logger = logging.getLogger(__name__)
 
@@ -228,7 +229,7 @@ class optimize(torch.nn.Module):
         hook = functools.partial(_lazy_recovery_hook, path)
         self._speechbrain_lazy_recovery_hook = \
                 self.register_forward_pre_hook(hook)
-        logger.debug(f"Added lazy recovery hook to {obj}, "
+        logger.debug(f"Added lazy recovery hook to {self}, "
                     "loaded before forward call.")
 
     @checkpoints.mark_as_saver
