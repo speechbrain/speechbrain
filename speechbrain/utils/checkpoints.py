@@ -68,9 +68,9 @@ METAFNAME = f"{CKPT_PREFIX}.yaml"  # Important that this is not .ckpt
 PARAMFILE_EXT = ".ckpt"  # ...because these files will be
 
 
-def torch_recovery(obj, path):
+def torch_recovery(obj, path, end_of_epoch):
     """Loads a torch.nn.Module state_dict from the given path instantly.
-
+    
     This can be made the default for torch.nn.Modules with:
     >>> DEFAULT_LOAD_HOOKS[torch.nn.Module] = torch_recovery
 
@@ -78,6 +78,8 @@ def torch_recovery(obj, path):
         obj (torch.nn.Module): Instance for which to
             load the parameters
         path (str, pathlib.Path): Path where to load from
+        end_of_epoch (bool): Whether the recovery comes from an end of epoch
+            checkpoint.
 
     Returns:
         None - given object is modified in place
@@ -85,10 +87,11 @@ def torch_recovery(obj, path):
     Author:
         Aku Rouhe 2020
     """
+    del end_of_epoch  # Unused
     obj.load_state_dict(torch.load(path), strict=True)
 
 
-def torch_lazy_recovery(obj, path, load_method=torch_recovery):
+def torch_lazy_recovery(obj, path, end_of_epoch, load_method=torch_recovery):
     """Recovers the obj's checkpoint from path at first forward() call.
 
     This is the default load hook for torch.nn.Modules.
@@ -105,6 +108,8 @@ def torch_lazy_recovery(obj, path, load_method=torch_recovery):
         obj (torch.nn.Module): Instance for which to
             load the parameters
         path (str, pathlib.Path): Path where to load from
+        end_of_epoch (bool): Whether the recovery comes from an end of epoch
+            checkpoint.
         load_method (callable): Callable with signature (instance, path)
             [e.g. def load(self, path)], which actually performs the
             recovery from the given path.
@@ -125,8 +130,8 @@ def torch_lazy_recovery(obj, path, load_method=torch_recovery):
         obj._speechbrain_lazy_recovery_hook.remove()
     # Use this hook with functools.partial to save objpath properly
     # Otherwise, objpath is searched for dynamically (and has probably changed)
-    def _lazy_recovery_hook(path, self, input, output):
-        load_method(self, path)
+    def _lazy_recovery_hook(path, end_of_epoch, self, input, output):
+        load_method(self, path, end_of_epoch)
         self._speechbrain_lazy_recovery_hook.remove()
 
         # Re-do forward now that the parameters are loaded
@@ -134,7 +139,7 @@ def torch_lazy_recovery(obj, path, load_method=torch_recovery):
                 "rerunning forward.")
         return self.forward(*input)
 
-    hook = functools.partial(_lazy_recovery_hook, path)
+    hook = functools.partial(_lazy_recovery_hook, path, end_of_epoch)
     obj._speechbrain_lazy_recovery_hook = obj.register_forward_hook(hook)
     logger.debug(f"Added lazy recovery hook to {obj}, loaded on forward call.")
 
@@ -203,8 +208,9 @@ def mark_as_loader(method):
 
     Args:
         method: Method of the class to decorate. Must be callable with
-            signature (instance, path) using positional arguments. This is
-            satisfied by for example: def loader(self, path):
+            signature (instance, path, end_of_epoch) using positional 
+            arguments. This is satisfied by for example: 
+            `def loader(self, path, end_of_epoch):`
 
     Example:
         See register_checkpoint_hooks
@@ -214,9 +220,9 @@ def mark_as_loader(method):
     """
     sig = inspect.signature(method)
     try:
-        sig.bind(object(), pathlib.Path("testpath"))
+        sig.bind(object(), pathlib.Path("testpath"), True)
     except TypeError:
-        MSG = "Checkpoint loader must match signature (instance, path)"
+        MSG = "Checkpoint loader must have signature (self, path, end_of_epoch)"
         raise TypeError(MSG)
     method._speechbrain_loader = True
     return method
@@ -449,7 +455,7 @@ class Checkpointer:
                     got {rec} instead."
             raise AttributeError(MSG)
 
-    def save_checkpoint(self, name=None, meta={}):
+    def save_checkpoint(self, meta={}, end_of_epoch = True, name=None):
         """Saves a checkpoint. 
         
         The whole checkpoint becomes a directory.
@@ -459,13 +465,18 @@ class Checkpointer:
         relevant yourself. The meta information is later used to pick the
         checkpoint to load.
 
+        The value of end_of_epoch is saved in the meta. This can affect how 
+        epoch counters and dataset iterators load their state.
+
         Args:
-            name (str, optional): Specify a custom name for your checkpoint. 
-                The name will still have a prefix added. If no name is given, 
-                a name is created from a timestamp and a random unique id.
             meta (mapping, optional): A mapping which is added to the meta 
                 file in the checkpoint. The key "unixtime" is included by 
                 default.
+            end_of_epoch (bool, optional): Whether the checkpoint is at the 
+                end of an epoch. True by default. May affect loading.
+            name (str, optional): Specify a custom name for your checkpoint. 
+                The name will still have a prefix added. If no name is given, 
+                a name is created from a timestamp and a random unique id.
 
         Returns:
             Checkpoint namedtuple [see above], the saved checkpoint
@@ -475,7 +486,8 @@ class Checkpointer:
         else:
             ckpt_dir = self._custom_checkpoint_dirpath(name)
         os.makedirs(ckpt_dir)  # May raise FileExistsError, let it.
-        saved_meta = self._save_checkpoint_metafile(ckpt_dir / METAFNAME, meta)
+        saved_meta = self._save_checkpoint_metafile(
+                ckpt_dir / METAFNAME, meta, end_of_epoch)
         saved_paramfiles = {}
         for name, obj in self.recoverables.items():
             objfname = f"{name}" + PARAMFILE_EXT
@@ -499,8 +511,9 @@ class Checkpointer:
 
     def save_and_keep_only(
         self,
-        name=None,
         meta={},
+        end_of_epoch=True,
+        name=None,
         num_to_keep=1,
         importance_keys=[ckpt_recency],
         ckpt_predicate=None,
@@ -511,8 +524,8 @@ class Checkpointer:
         in one call, only provided for very short syntax in simple cases.
 
         Arguments:
-            name (str, optional): See `save_checkpoint`
             meta (mapping, optional): See `save_checkpoint`
+            name (str, optional): See `save_checkpoint`
             num_to_keep (int, optional): See `delete_checkpoints`
             importance_keys (callable, optional): See `delete_checkpoints`
             ckpt_predicate (callable, optional): See `delete_checkpoints`
@@ -522,7 +535,7 @@ class Checkpointer:
             we cannot guarantee that the saved checkpoint actually survives 
             deletion.
         """
-        self.save_checkpoint(name=name, meta=meta)
+        self.save_checkpoint(meta=meta, end_of_epoch=end_of_epoch, name=name)
         self.delete_checkpoints(
             num_to_keep=num_to_keep,
             importance_keys=importance_keys,
@@ -668,6 +681,7 @@ class Checkpointer:
         # This internal function finds the correct hook to call for every
         # recoverable, and calls it.
         logger.info(f"Loading a checkpoint from {checkpoint.path}")
+        end_of_epoch = checkpoint.meta["end-of-epoch"]
         for name, obj in self.recoverables.items():
             # NOTE: We want the checkpoint namedtuple to have the paramfile
             # paths for each recoverable.
@@ -683,12 +697,12 @@ class Checkpointer:
                     raise RuntimeError(MSG)
             # First see if object has custom load hook:
             if name in self.custom_load_hooks:
-                self.custom_load_hooks[name](obj, loadpath)
+                self.custom_load_hooks[name](obj, loadpath, end_of_epoch)
                 continue
             # Otherwise find the default saver for that type:
             default_hook = get_default_hook(obj, DEFAULT_LOAD_HOOKS)
             if default_hook is not None:
-                default_hook(obj, loadpath)
+                default_hook(obj, loadpath, end_of_epoch)
                 continue
             # If we got here, no custom hook or registered default hook exists
             MSG = f"Don't know how to load {type(obj)}. Register default hook \
@@ -744,9 +758,10 @@ class Checkpointer:
         # create the directory!)
         return self.checkpoints_dir / f"{CKPT_PREFIX}+{name}"
 
-    def _save_checkpoint_metafile(self, fpath, meta_to_include={}):
+    def _save_checkpoint_metafile(
+            self, fpath, meta_to_include={}, end_of_epoch=True):
         # This internal method saves the meta information in the given path
-        meta = {"unixtime": time.time()}
+        meta = {"unixtime": time.time(), "end-of-epoch": end_of_epoch}
         meta.update(meta_to_include)
         with open(fpath, "w") as fo:
             fo.write(yaml.dump(meta))

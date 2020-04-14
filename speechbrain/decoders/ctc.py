@@ -56,19 +56,23 @@ def filter_ctc_output(string_pred, blank_id=-1):
     return string_out
 
 
-def ctc_greedy_decode(probabilities, seq_lens, blank_id):
+def ctc_greedy_decode(probabilities, seq_lens, blank_id = -1):
     """
     Greedy decode a batch of probabilities and apply CTC rules
 
     Parameters
     ----------
     probabilities : torch.tensor
-        Output probabilities (or log-probabilities) from network
+        Output probabilities (or log-probabilities) from network with shape
+        [batch, probabilities, time]
     seq_lens : torch.tensor
         Relative true sequence lengths (to deal with padded inputs),
         longest sequence has length 1.0, others a value betwee zero and one
+        shape [batch, lengths]
     blank_id : int, string
-        The blank symbol
+        The blank symbol/index. Default: -1. If a negative number is given,
+        it is assumed to mean counting down from the maximum possible index,
+        so that -1 refers to the maximum possible index.
 
     Returns
     -------
@@ -89,6 +93,8 @@ def ctc_greedy_decode(probabilities, seq_lens, blank_id):
     Author:
         Aku Rouhe 2020
     """
+    if isinstance(blank_id, int) and blank_id < 0:
+        blank_id = probabilities.shape[1] + blank_id
     batch_max_len = probabilities.shape[-1]  # Assume time last
     batch_outputs = []
     for seq, seq_len in zip(probabilities, seq_lens):

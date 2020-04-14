@@ -107,9 +107,12 @@ def torch_lazy_parameter_transfer(
         raise RuntimeError(MSG)
     # Use this hook with functools.partial to save objpath and hook name properly
     # Otherwise, objpath is searched for dynamically (and has probably changed)
-    def _lazy_transfer_hook(path, hookname, self, *input):
+    def _lazy_transfer_hook(path, hookname, self, input, output):
         load_method(self, path)
         getattr(self, hookname).remove()
+        logger.debug(f"Transferred parameters to {self} with lazy hook, "
+                "rerunning forward.")
+        return self.forward(*input)
 
     # Make a unique hook attribute name
     hookbase = "_speechbrain_lazy_transfer_hook"
@@ -117,4 +120,6 @@ def torch_lazy_parameter_transfer(
     while hasattr(obj, f"{hookbase}_{hook_x}"):
         hook_x += 1
     hook = functools.partial(_lazy_transfer_hook, path, f"{hookbase}_{hook_x}")
-    setattr(obj, f"{hookbase}_{hook_x}", obj.register_forward_pre_hook(hook))
+    setattr(obj, f"{hookbase}_{hook_x}", obj.register_forward_hook(hook))
+    logger.debug(f"Added lazy parameter transfer hook to {obj}, loaded on "
+            "first forward call.")

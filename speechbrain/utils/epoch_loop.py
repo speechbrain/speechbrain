@@ -47,6 +47,10 @@ class EpochCounter:
             fo.write(str(self.current))
 
     @mark_as_loader
-    def _recover(self, path):
+    def _recover(self, path, end_of_epoch):
         with open(path) as fi:
-            self.current = int(fi.read())
+            saved_value = int(fi.read())
+            if end_of_epoch:
+                self.current = saved_value
+            else:
+                self.current = saved_value - 1

@@ -109,7 +109,7 @@ def validation(ids, pout, phn, wav_len, phn_len, wer_stats):
         loss = sb.compute_cost(pout, phn, [wav_len, phn_len])
         batch_outputs = ctc_greedy_decode(pout, 
                 wav_len, 
-                blank_id = sb.compute_cost.blank_index)
+                blank_id = -1)
         wer_stats = edit_distance.accumulatable_wer_stats(
                 phn.tolist(), batch_outputs, stats = wer_stats
         )
@@ -120,7 +120,7 @@ def evaluation(ids, pout, phn, wav_len, phn_len):
     with torch.no_grad():
         batch_outputs = ctc_greedy_decode(pout, 
                 wav_len,
-                blank_id = sb.compute_cost.blank_index)
+                blank_id = -1)
         refs = to_output_format(ids, phn.tolist())
         hyps = to_output_format(ids, batch_outputs)
         details_by_utt = edit_distance.wer_details_by_utterance(refs, 
