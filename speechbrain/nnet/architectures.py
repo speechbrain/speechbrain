@@ -1417,6 +1417,7 @@ class RNN_basic(torch.nn.Module):
             # Vanilla light-GRU
             if self.rnn_type == "ligru":
                 del kwargs['bias']
+                kwargs['batch_size'] = first_input[0].shape[0],
                 self.rnn = liGRU(**kwargs)
 
             # Quasi RNN
@@ -1492,267 +1493,165 @@ class RNN_basic(torch.nn.Module):
         return output
 
 
-class liGRU(nn.Module):
-    """
-     -------------------------------------------------------------------------
-     nnet.architectures.liGRU (author: Mirco Ravanelli)
-
-     Description:  This function implements the Light-GRU model.
-
-
-     Input (init):
-                    - input_size (type:int(1,inf), mandatory):
-                        it is the dimensionality of the input.
-
-                    - hidden_size (type: int(1,inf), mandatory):
-                        it is the number of output neurons (i.e, the
-                        dimensionality of the output).
-
-                    - nonlinearity (type:tanh, relu, mandatory):
-                        it is the type of nonlinearity.
-
-                    - num_layers (type: int(1,inf), mandatory):
-                        it is the number of layers.
-
-                    - bidirectional (type: bool, Default:False):
-                        if True, a bidirectioal model is used.
-
-
-     Input (call): - x (type, torch.Tensor, mandatory):
-                       x is torch.tensor that we want to transf with the RNN.
-                       The tensor must be in one of the following format:
-                       [batch,channels,time]. Note that we can have up to
-                       three channels.
-
-
-
-     Output (call): - wx(type, torch.Tensor, mandatory):
-                       it is the RNN output.
-
-
-     Example:   import torch
-                from speechbrain.nnet.architectures import liGRU
-
-                # Initialization of the class
-                model=liGRU(100,200,1,0.15,'relu',True)
-
-                # Executing computations
-                inp_tensor = torch.rand([4,100,140])
-                out_tensor = model(inp_tensor.permute(2,0,1))
-                print(out_tensor)
-                print(out_tensor[0].shape)
-
-
-    Reference:     [1] M. Ravanelli, P. Brakel, M. Omologo, Y. Bengio,
-                   "Light Gated Recurrent Units for Speech Recognition",
-                   in IEEE Transactions on Emerging Topics in Computational
-                   Intelligence, 2018.
-                   https://arxiv.org/abs/1803.10225
-
-     """
-
+class liGRU(torch.jit.ScriptModule):
     def __init__(
         self,
         input_size,
         hidden_size,
         num_layers,
+        batch_size,
         dropout=0.0,
         nonlinearity="relu",
-        bidirectional=False,
+        bidirectional=True,
+        device="cuda",
     ):
-        super(liGRU, self).__init__()
 
-        # Parameter list initialization
-        self.wh = nn.ModuleList([])
-        self.uh = nn.ModuleList([])
+        super(liGRU_layer, self).__init__()
 
-        # Update Gate
-        self.wz = nn.ModuleList([])
-        self.uz = nn.ModuleList([])
-
-        # Layer Norm
-        self.ln = nn.ModuleList([])
-
-        # Batch Norm
-        self.bn_wh = nn.ModuleList([])
-        self.bn_wz = nn.ModuleList([])
-
-        # Activations
-        self.act = nn.ModuleList([])
-
-        # RNN parameters
-        self.num_layers = num_layers
+        self.hidden_size = int(hidden_size)
+        self.input_size = int(input_size)
+        self.batch_size = batch_size
         self.bidirectional = bidirectional
-        self.hidden_size = hidden_size
         self.dropout = dropout
+        self.device = device
 
-        current_dim = input_size
+        self.w = nn.Linear(
+            self.input_size, 2 * self.hidden_size, bias=False
+        ).to(device)
 
-        # Initializing multiple layers
-        for i in range(self.num_layers):
+        self.u = nn.Linear(
+            self.hidden_size, 2 * self.hidden_size, bias=False
+        ).to(device)
 
-            # Setting the activation function
-            if nonlinearity == "relu":
-                self.act.append(torch.nn.ReLU())
+        # Adding orthogonal initialization for recurrent connection
+        nn.init.orthogonal_(self.u.weight)
 
-            if nonlinearity == "tanh":
-                self.act.append(torch.nn.Tanh())
+        self.bn_w = nn.BatchNorm1d(2 * self.hidden_size, momentum=0.05).to(
+            device
+        )
 
-            # Feed-forward connections
-            self.wh.append(
-                nn.Linear(current_dim, self.hidden_size, bias=False)
+        self.drop = torch.nn.Dropout(p=self.dropout, inplace=False).to(device)
+        self.drop_mask_te = torch.tensor([1.0], device=device).float()
+        self.N_drop_masks = 100
+        self.drop_mask_cnt = 0
+
+        if self.bidirectional:
+            self.h_init = torch.zeros(
+                2 * self.batch_size,
+                self.hidden_size,
+                requires_grad=False,
+                device=device,
             )
-            self.wz.append(
-                nn.Linear(current_dim, self.hidden_size, bias=False)
+            self.drop_masks = self.drop(
+                torch.ones(
+                    self.N_drop_masks,
+                    2 * self.batch_size,
+                    self.hidden_size,
+                    device=device,
+                )
+            ).data
+
+        else:
+            self.h_init = torch.zeros(
+                self.batch_size,
+                self.hidden_size,
+                requires_grad=False,
+                device=device,
             )
+            self.drop_masks = self.drop(
+                torch.ones(
+                    self.N_drop_masks,
+                    self.batch_size,
+                    self.hidden_size,
+                    device=device,
+                )
+            ).data
 
-            # Recurrent connections
-            self.uh.append(
-                nn.Linear(self.hidden_size, self.hidden_size, bias=False)
-            )
-            self.uz.append(
-                nn.Linear(self.hidden_size, self.hidden_size, bias=False)
-            )
+        # Setting the activation function
+        self.act = torch.nn.ReLU().to(device)
 
-            # Adding orthogonal initialization for recurrent connection
-            nn.init.orthogonal_(self.uh[i].weight)
-            nn.init.orthogonal_(self.uz[i].weight)
-
-            # batch norm initialization
-            self.bn_wh.append(nn.BatchNorm1d(self.hidden_size, momentum=0.05))
-            self.bn_wz.append(nn.BatchNorm1d(self.hidden_size, momentum=0.05))
-
-            # updating current dimension
-            current_dim = self.hidden_size
-
-            if self.bidirectional:
-                current_dim = 2 * self.hidden_size
-
+    @torch.jit.script_method
     def forward(self, x):
+        # type: (Tensor) -> Tensor
 
-        # Loop over all the layers
-        for i in range(self.num_layers):
+        if self.bidirectional:
+            x_flip = x.flip(0)
+            x = torch.cat([x, x_flip], dim=1)
 
-            # Initial state and concatenation
-            if self.bidirectional:
-                h_init = torch.zeros(2 * x.shape[1], self.hidden_size)
-                x = torch.cat([x, self.flip(x, 0)], 1)
-            else:
-                h_init = torch.zeros(x.shape[1], self.hidden_size)
+        # Feed-forward affine transformations (all steps in parallel)
+        w = self.w(x)
 
-            # Dropout mask initilization (same mask for all time steps)
-            if self.training:
-                drop_mask = torch.bernoulli(
-                    torch.Tensor(h_init.shape[0], h_init.shape[1]).fill_(
-                        1.0 - self.dropout
+        # Apply batch normalization
+        w_bn = self.bn_w(w.view(w.shape[0] * w.shape[1], w.shape[2]))
+
+        w = w_bn.view(w.shape[0], w.shape[1], w.shape[2])
+
+        # Processing time steps
+        h = self.ligru_cell(w)
+
+        if self.bidirectional:
+            h_f, h_b = h.chunk(2, dim=1)
+            h_b = h_b.flip(0)
+            h = torch.cat([h_f, h_b], dim=2)
+
+        return h
+
+    @torch.jit.script_method
+    def ligru_cell(self, w):
+        # type: (Tensor) -> Tensor
+
+        hiddens = []
+        ht = self.h_init
+
+        if self.training:
+
+            drop_mask = self.drop_masks[self.drop_mask_cnt]
+            self.drop_mask_cnt = self.drop_mask_cnt + 1
+
+            if self.drop_mask_cnt >= self.N_drop_masks:
+                self.drop_mask_cnt = 0
+                if self.bidirectional:
+                    self.drop_masks = (
+                        self.drop(
+                            torch.ones(
+                                self.N_drop_masks,
+                                2 * self.batch_size,
+                                self.hidden_size,
+                            )
+                        )
+                        .to(self.device)
+                        .data
                     )
-                )
-            else:
-                drop_mask = torch.FloatTensor([1.0 - self.dropout])
+                else:
+                    self.drop_masks = (
+                        self.drop(
+                            torch.ones(
+                                self.N_drop_masks,
+                                self.batch_size,
+                                self.hidden_size,
+                            )
+                        )
+                        .to(self.device)
+                        .data
+                    )
 
-            h_init = h_init.to(x.device)
-            drop_mask = drop_mask.to(x.device)
+        else:
+            drop_mask = self.drop_mask_te
 
-            # Feed-forward affine transformations (all steps in parallel)
-            wh = self.wh[i](x)
-            wz = self.wz[i](x)
+        for k in range(w.shape[0]):
 
-            # Apply batch normalization
-            wh_bn = self.bn_wh[i](
-                wh.view(wh.shape[0] * wh.shape[1], wh.shape[2])
-            )
-            wh = wh_bn.view(wh.shape[0], wh.shape[1], wh.shape[2])
+            gates = w[k] + self.u(ht)
 
-            wz_bn = self.bn_wz[i](
-                wz.view(wz.shape[0] * wz.shape[1], wz.shape[2])
-            )
-            wz = wz_bn.view(wz.shape[0], wz.shape[1], wz.shape[2])
+            at, zt = gates.chunk(2, 1)
+            # ligru equation
+            zt = torch.sigmoid(zt)
+            hcand = self.act(at) * drop_mask
+            ht = zt * ht + (1 - zt) * hcand
+            hiddens.append(ht)
 
-            # Processing time steps
-            hiddens = []
-            ht = h_init
-            for k in range(x.shape[0]):
-
-                # ligru equation
-                zt = torch.sigmoid(wz[k] + self.uz[i](ht))
-                at = wh[k] + self.uh[i](ht)
-                hcand = self.act[i](at) * drop_mask
-                ht = zt * ht + (1 - zt) * hcand
-
-                hiddens.append(ht)
-
-            # Stacking hidden states
-            h = torch.stack(hiddens)
-
-            # Bidirectional concatenations
-            if self.bidirectional:
-                h_f = h[:, 0: int(x.shape[1] / 2)]
-                h_b = self.flip(
-                    h[:, int(x.shape[1] / 2): x.shape[1]].contiguous(), 0
-                )
-                h = torch.cat([h_f, h_b], 2)
-
-            # Setup x for the next hidden layer
-            x = h
-
-        return x, ht
-
-    @staticmethod
-    def flip(x, dim):
-        """
-         ----------------------------------------------------------------------
-         nnet.architectures.liGRU.flip (author: Mirco Ravanelli)
-
-         Description:  This support function flips the an input tensor along
-                       the specified dimension. It can be used to implement
-                       bidirectional models.
-
-
-         Input (init):
-                        - x (type:torch.Tensor, mandatory):
-                            it is the dimensionality of the input.
-
-                        - dim (type: int(0,inf), mandatory):
-                            it is the axes to flip.
-
-
-
-
-         Output (call): - x(type, torch.Tensor, mandatory):
-                           it is the RNN output.
-
-
-         Example:   import torch
-                    from speechbrain.nnet.architectures import liGRU
-
-                    # Initialization of the class
-                    model=liGRU(100,200,1,0.15,'relu',True)
-
-                    inp_tensor = torch.rand([4,100,140])
-
-                    print(inp_tensor)
-                    print(model.flip(inp_tensor,-1))
-
-         """
-        # Computing the input shape
-        xsize = x.size()
-
-        dim = x.dim() + dim if dim < 0 else dim
-
-        x = x.contiguous()
-
-        x = x.view(-1, *xsize[dim:])
-
-        # Getting the flipped version
-        x = x.view(x.size(0), x.size(1), -1)[
-            :,
-            getattr(
-                torch.arange(x.size(1) - 1, -1, -1), ("cpu", "cuda")[x.is_cuda]
-            )().long(),
-            :,
-        ]
-
-        return x.view(xsize)
+        # Stacking hidden states
+        h = torch.stack(hiddens)
+        return h
 
 
 class activation(torch.nn.Module):
@@ -2273,7 +2172,7 @@ class pooling(nn.Module):
 
                 if len(self.pool_axis) != 1:
                     err_msg = (
-                        'pool_axes must corresponds to the pooling dimension. '
+                        "pool_axes must corresponds to the pooling dimension. "
                         "The pooling dimension is 1 and %s axes are specified."
                         % (str(len(self.pool_axis)))
                     )
@@ -2281,7 +2180,7 @@ class pooling(nn.Module):
 
                 if self.pool_axis[0] >= len(first_input[0].shape):
                     err_msg = (
-                        'pool_axes is greater than the number of dimensions. '
+                        "pool_axes is greater than the number of dimensions. "
                         "The tensor dimension is %s and the specified pooling "
                         "axis is %s."
                         % (str(len(first_input[0].shape)), str(self.pool_axis))
@@ -2293,16 +2192,16 @@ class pooling(nn.Module):
 
                 if len(self.pool_axis) != 2:
                     err_msg = (
-                        'pool_axes must corresponds to the pooling dimension. '
+                        "pool_axes must corresponds to the pooling dimension. "
                         "The pooling dimension is 2 and %s axes are specified."
                         % (str(len(self.pool_axis)))
                     )
                     raise ValueError(err_msg)
 
-                if self.pool_axis[0] >= len(first_input[0].shape) or \
-                   self.pool_axis[1] >= len(first_input[0].shape):
+                dims = len(first_input[0].shape)
+                if self.pool_axis[0] >= dims or self.pool_axis[1] >= dims:
                     err_msg = (
-                        'pool_axes is greater than the number of dimensions. '
+                        "pool_axes is greater than the number of dimensions. "
                         "The tensor dimension is %s and the specified pooling "
                         "axis are %s."
                         % (str(len(first_input[0].shape)), str(self.pool_axis))
@@ -2318,28 +2217,32 @@ class pooling(nn.Module):
                         self.kernel_size[0],
                         stride=self.stride,
                         padding=self.padding,
-                        ceil_mode=self.ceil_mode)
+                        ceil_mode=self.ceil_mode,
+                    )
 
                 else:
                     self.pool_layer = torch.nn.AvgPool2d(
                         self.kernel_size,
                         stride=self.stride,
                         padding=self.padding,
-                        ceil_mode=self.ceil_mode)
+                        ceil_mode=self.ceil_mode,
+                    )
             else:
                 if self.pool1d:
                     self.pool_layer = torch.nn.MaxPool1d(
                         self.kernel_size[0],
                         stride=self.stride,
                         padding=self.padding,
-                        ceil_mode=self.ceil_mode)
+                        ceil_mode=self.ceil_mode,
+                    )
 
                 else:
                     self.pool_layer = torch.nn.MaxPool2d(
                         self.kernel_size,
                         stride=self.stride,
                         padding=self.padding,
-                        ceil_mode=self.ceil_mode)
+                        ceil_mode=self.ceil_mode,
+                    )
             self.hook.remove()
         self.hook = self.register_forward_pre_hook(hook)
 
@@ -2351,14 +2254,15 @@ class pooling(nn.Module):
         # If the input tensor is 4 dimensional, combine the first and second
         # axes together to respect the input shape of torch.nn.pool1d
         if self.pool1d:
-            x = x.transpose(len(or_shape)-1, self.pool_axis[0])
+            x = x.transpose(len(or_shape) - 1, self.pool_axis[0])
             new_shape = x.shape
             if self.combine_batch_time:
-                x = x.reshape(new_shape[0]*new_shape[1], new_shape[2], -1)
+                x = x.reshape(new_shape[0] * new_shape[1], new_shape[2], -1)
 
         if self.pool2d:
-            x = x.transpose(len(or_shape)-2, self.pool_axis[0]).transpose(
-                            len(or_shape)-1, self.pool_axis[1])
+            x = x.transpose(len(or_shape) - 2, self.pool_axis[0]).transpose(
+                len(or_shape) - 1, self.pool_axis[1]
+            )
 
         # Apply pooling
         x = self.pool_layer(x)
@@ -2367,10 +2271,11 @@ class pooling(nn.Module):
         if self.pool1d:
             if self.combine_batch_time:
                 x = x.reshape(new_shape[0], new_shape[1], new_shape[2], -1)
-            x = x.transpose(len(or_shape)-1, self.pool_axis[0])
+            x = x.transpose(len(or_shape) - 1, self.pool_axis[0])
 
         if self.pool2d:
-            x = x.transpose(len(or_shape)-2, self.pool_axis[0]).transpose(
-                            len(or_shape)-1, self.pool_axis[1])
+            x = x.transpose(len(or_shape) - 2, self.pool_axis[0]).transpose(
+                len(or_shape) - 1, self.pool_axis[1]
+            )
 
         return x
