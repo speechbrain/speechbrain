@@ -749,8 +749,11 @@ class Checkpointer:
         # to that directory (but does not create the directory!)
         t = time.time()
         stamp = time.strftime("%Y-%m-%d+%H-%M-%S", time.localtime(t))
-        unique_id = uuid.uuid4().hex[:4]
-        return self.checkpoints_dir / f"{CKPT_PREFIX}+{stamp}+{unique_id}"
+        suffix_num = 0
+        while (self.checkpoints_dir / 
+                f"{CKPT_PREFIX}+{stamp}+{suffix_num:02d}").exists():
+            suffix_num += 1
+        return self.checkpoints_dir / f"{CKPT_PREFIX}+{stamp}+{suffix_num:02d}"
 
     def _custom_checkpoint_dirpath(self, name):
         # This internal method creates a checkpoint name based on a given

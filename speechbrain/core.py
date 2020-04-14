@@ -192,6 +192,7 @@ class Experiment:
     def save_and_keep_only(
         self,
         meta={},
+        end_of_epoch=True,
         num_to_keep=1,
         max_keys=[],
         min_keys=[],
@@ -203,6 +204,9 @@ class Experiment:
         ---------
         meta : mapping
             a set of key, value pairs to store alongside the checkpoint.
+        end_of_spoech : bool
+            Whether the checkpoint happens at the end of an epoch (last thing)
+            or not. This may affect recovery. Default: True
         num_to_keep : int
             The number of checkpoints to keep for each metric.
         max_keys : iterable
@@ -227,7 +231,9 @@ class Experiment:
                 importance_keys.append(lambda x: -x.meta[key])
             self.saver.save_and_keep_only(
                 meta=meta,
+                end_of_epoch=end_of_epoch,
                 importance_keys=importance_keys,
+                num_to_keep=num_to_keep
             )
         else:
             raise KeyError(

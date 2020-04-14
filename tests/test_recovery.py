@@ -194,6 +194,18 @@ def test_checkpoint_deletion(tmpdir):
                                 lambda c: c.meta["foo"]],
             ckpt_predicate = lambda c: "epoch_ckpt" not in c.meta)
     assert all(c in recoverer.list_checkpoints() for c in [c1, c2, c3])
+    # Reset:
+    recoverer.delete_checkpoints(num_to_keep=0)
+    assert not recoverer.list_checkpoints()
+    # Test the keeping multiple checkpoints without predicate: 
+    # Highest foo
+    c1 = recoverer.save_checkpoint(meta={"foo":2})
+    # Latest CKPT after filtering
+    c2 = recoverer.save_checkpoint(meta={"foo":1})
+    recoverer.delete_checkpoints(num_to_keep=1,
+            importance_keys = [lambda c: c.meta["unixtime"],
+                                lambda c: c.meta["foo"]])
+    assert all(c in recoverer.list_checkpoints() for c in [c1, c2])
 
 
 def test_torch_lazy_recovery(tmpdir):

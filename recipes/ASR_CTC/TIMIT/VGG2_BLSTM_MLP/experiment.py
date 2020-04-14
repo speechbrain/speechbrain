@@ -8,10 +8,10 @@ from speechbrain.decoders.ctc import ctc_greedy_decode
 from tqdm.contrib import tzip
 from speechbrain.core import Experiment
 with open('recipes/ASR_CTC/TIMIT/VGG2_BLSTM_MLP/params.yaml') as fi:
-sb = Experiment(
-    yaml_stream=fi,
-    commandline_args=sys.argv[1:],
-)
+    sb = Experiment(
+        yaml_stream=fi,
+        commandline_args=sys.argv[1:],
+    )
 
 
 def main():

@@ -5,9 +5,11 @@ Optimizers.
 import torch
 import logging
 from speechbrain.data_io.data_io import recovery
+from speechbrain.utils import checkpoints 
 logger = logging.getLogger(__name__)
 
 
+@checkpoints.register_checkpoint_hooks
 class optimize(torch.nn.Module):
     """This function implements different optimizers.
 
@@ -203,6 +205,36 @@ class optimize(torch.nn.Module):
         # Zeroing gradient buffers
         self.optim.zero_grad()
 
+    @checkpoints.mark_as_loader
+    def _lazy_recovery(self, path, end_of_epoch):
+        """Lazy recovery of self.optim
+
+        Need special recovery because here the forward() should not and
+        need not be run before recovery of optimize; so we use forward_pre_hook
+        
+        (In many cases the forward does need to be run so that submodules
+        get initialized first, using forward_hook and rerunning forward())
+        Author:
+            Aku Rouhe 2020
+        """
+        del end_of_epoch  # Unused here.
+        if hasattr(self, "_speechbrain_lazy_recovery_hook"):
+            self._speechbrain_lazy_recovery_hook.remove()
+        def _lazy_recovery_hook(path, self, input):
+            self.optim.load_state_dict(torch.load(self, path))
+            self._speechbrain_lazy_recovery_hook.remove()
+            logger.debug(f"Loaded parameters to {self} with lazy hook")
+
+        hook = functools.partial(_lazy_recovery_hook, path)
+        self._speechbrain_lazy_recovery_hook = \
+                self.register_forward_pre_hook(hook)
+        logger.debug(f"Added lazy recovery hook to {obj}, "
+                    "loaded before forward call.")
+
+    @checkpoints.mark_as_saver
+    def _save(self, path):
+        torch.save(self.optim.state_dict(), path)
+
     def sum_grad_multi_gpu(self, input_lst):
         """Sum all gradients from different gpus
 
@@ -238,3 +270,4 @@ class optimize(torch.nn.Module):
 
                     # Summing up all the gradients
                     param.grad = param.grad + par_sum
+
