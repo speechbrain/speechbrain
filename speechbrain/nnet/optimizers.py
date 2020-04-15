@@ -102,98 +102,88 @@ class optimize(torch.nn.Module):
         self.amsgrad = amsgrad
         self.recovery = do_recovery
 
-        def hook(self, input):
 
-            # Making sure the input is class with parameters to optimize
-            param_lst = []
+    def init_params(self, modules):
+        # Making sure the input is class with parameters to optimize
+        param_lst = []
 
-            # Storing all the parameters to updated in the param_lst
-            for inp in input[0]:
-                try:
-                    param_lst = param_lst + list(inp.parameters())
-                except Exception:
-
-                    err_msg = (
-                        "The class optimize expected in input a list of"
-                        "neural classes (nn.Module), but %s has no parameters"
-                        % (inp)
-                    )
-
-                    logger.error(err_msg, exc_info=True)
-
-            if self.optimizer_type == "rmsprop":
-                self.optim = torch.optim.RMSprop(
-                    param_lst,
-                    lr=self.learning_rate,
-                    alpha=self.alpha,
-                    eps=self.eps,
-                    weight_decay=self.weight_decay,
-                    momentum=self.momentum,
-                    centered=self.centered,
+        # Storing all the parameters to updated in the param_lst
+        for module in modules:
+            try:
+                param_lst = param_lst + list(module.parameters())
+            except AttributeError:
+                err_msg = (
+                    "The class optimize expected in input a list of"
+                    "neural classes (nn.Module), but %s has no parameters"
+                    % (inp)
                 )
+                raise ValueError(err_msg)
 
-            if self.optimizer_type == "adam":
-                self.optim = torch.optim.Adam(
-                    param_lst,
-                    lr=self.learning_rate,
-                    betas=tuple(self.betas),
-                    eps=self.eps,
-                    weight_decay=self.weight_decay,
-                    amsgrad=self.amsgrad,
-                )
+        if self.optimizer_type == "rmsprop":
+            self.optim = torch.optim.RMSprop(
+                param_lst,
+                lr=self.learning_rate,
+                alpha=self.alpha,
+                eps=self.eps,
+                weight_decay=self.weight_decay,
+                momentum=self.momentum,
+                centered=self.centered,
+            )
 
-            if self.optimizer_type == "adamw":
-                self.optim = torch.optim.AdamW(
-                    param_lst,
-                    lr=self.learning_rate,
-                    betas=tuple(self.betas),
-                    eps=self.eps,
-                    weight_decay=self.weight_decay,
-                    amsgrad=self.amsgrad,
-                )
+        if self.optimizer_type == "adam":
+            self.optim = torch.optim.Adam(
+                param_lst,
+                lr=self.learning_rate,
+                betas=tuple(self.betas),
+                eps=self.eps,
+                weight_decay=self.weight_decay,
+                amsgrad=self.amsgrad,
+            )
 
-            if self.optimizer_type == "adamax":
-                self.optim = torch.optim.Adamax(
-                    param_lst,
-                    lr=self.learning_rate,
-                    betas=tuple(self.betas),
-                    eps=self.eps,
-                )
+        if self.optimizer_type == "adamw":
+            self.optim = torch.optim.AdamW(
+                param_lst,
+                lr=self.learning_rate,
+                betas=tuple(self.betas),
+                eps=self.eps,
+                weight_decay=self.weight_decay,
+                amsgrad=self.amsgrad,
+            )
 
-            if self.optimizer_type == "adadelta":
-                self.optim = torch.optim.Adadelta(
-                    param_lst,
-                    lr=self.learning_rate,
-                    rho=self.rho,
-                    eps=self.eps,
-                    weight_decay=self.weight_decay,
-                )
+        if self.optimizer_type == "adamax":
+            self.optim = torch.optim.Adamax(
+                param_lst,
+                lr=self.learning_rate,
+                betas=tuple(self.betas),
+                eps=self.eps,
+            )
 
-            if self.optimizer_type == "sgd":
-                self.optim = torch.optim.SGD(
-                    param_lst,
-                    lr=self.learning_rate,
-                    momentum=self.momentum,
-                    dampening=self.dampening,
-                    weight_decay=self.weight_decay,
-                    nesterov=self.nesterov,
-                )
+        if self.optimizer_type == "adadelta":
+            self.optim = torch.optim.Adadelta(
+                param_lst,
+                lr=self.learning_rate,
+                rho=self.rho,
+                eps=self.eps,
+                weight_decay=self.weight_decay,
+            )
 
-            if self.optimizer_type == "rprop":
-                self.optim = torch.optim.Rprop(
-                    param_lst,
-                    lr=self.learning_rate,
-                    etas=tuple(self.etas),
-                    step_sizes=tuple(self.step_sizes),
-                )
+        if self.optimizer_type == "sgd":
+            self.optim = torch.optim.SGD(
+                param_lst,
+                lr=self.learning_rate,
+                momentum=self.momentum,
+                dampening=self.dampening,
+                weight_decay=self.weight_decay,
+                nesterov=self.nesterov,
+            )
 
-            # Automatic recovery
-            # if global_config is not None:
-            #    recovery(self)
-
-            self.hook.remove()
-
-        self.hook = self.register_forward_pre_hook(hook)
+        if self.optimizer_type == "rprop":
+            self.optim = torch.optim.Rprop(
+                param_lst,
+                lr=self.learning_rate,
+                etas=tuple(self.etas),
+                step_sizes=tuple(self.step_sizes),
+            )
 
     def forward(self, input_lst):
 
@@ -207,7 +197,7 @@ class optimize(torch.nn.Module):
         self.optim.zero_grad()
 
     @checkpoints.mark_as_loader
-    def _lazy_recovery(self, path, end_of_epoch):
+    def _recovery(self, path, end_of_epoch):
         """Lazy recovery of self.optim
 
         Need special recovery because here the forward() should not and
@@ -219,18 +209,7 @@ class optimize(torch.nn.Module):
             Aku Rouhe 2020
         """
         del end_of_epoch  # Unused here.
-        if hasattr(self, "_speechbrain_lazy_recovery_hook"):
-            self._speechbrain_lazy_recovery_hook.remove()
-        def _lazy_recovery_hook(path, self, input):
-            self.optim.load_state_dict(torch.load(self, path))
-            self._speechbrain_lazy_recovery_hook.remove()
-            logger.debug(f"Loaded parameters to {self} with lazy hook")
-
-        hook = functools.partial(_lazy_recovery_hook, path)
-        self._speechbrain_lazy_recovery_hook = \
-                self.register_forward_pre_hook(hook)
-        logger.debug(f"Added lazy recovery hook to {self}, "
-                    "loaded before forward call.")
+        self.optim.load_state_dict(torch.load(path))
 
     @checkpoints.mark_as_saver
     def _save(self, path):
