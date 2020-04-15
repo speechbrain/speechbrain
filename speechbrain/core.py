@@ -149,8 +149,13 @@ class Experiment:
         # Log exceptions automatically
         if not hasattr(self, 'log_config'):
             self.log_config = 'logging.yaml'
-        logger = setup_logging(self.log_config, logger_overrides)
+        setup_logging(self.log_config, logger_overrides)
         sys.excepthook = _logging_excepthook
+
+        # Log beginning of experiment!
+        logger.info('Beginning experiment!')
+        if hasattr(self, 'output_folder'):
+            logger.info('Output folder: %s' % self.output_folder)
 
     def recover_if_possible(self, max_key=None, min_key=None):
         """
