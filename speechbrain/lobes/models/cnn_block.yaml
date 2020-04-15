@@ -4,6 +4,7 @@ constants:
     block_index: 1
     channels: 128
     kernel_size: [3, 3]
+    sequence: [conv1, norm1, activation, conv2, norm2, activation, pooling, dropout]
 
 conv1: !speechbrain.nnet.architectures.conv
     out_channels: !operator.mul

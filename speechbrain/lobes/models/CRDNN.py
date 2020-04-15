@@ -4,7 +4,7 @@ Authors: Mirco Ravanelli 2020, Peter Plantinga 2020, Ju-Chieh Chou 2020,
     Titouan Parcollet 2020, Abdel 2020
 """
 import torch
-from speechbrain.nnet.architectures import linear, activation
+from speechbrain.nnet.architectures import linear, activation, Sequential
 from speechbrain.utils.data_utils import load_extended_yaml, recursive_update
 
 
@@ -53,16 +53,10 @@ class CRDNN(torch.nn.Module):
 
         blocks = []
 
-        cnn_sequence = [
-            'conv1', 'norm1', 'activation',
-            'conv2', 'norm2', 'activation',
-            'pooling', 'dropout',
-        ]
         for i in range(cnn_blocks):
             blocks.append(NeuralBlock(
                 block_index=i + 1,
                 param_file='speechbrain/lobes/models/cnn_block.yaml',
-                sequence=cnn_sequence,
                 overrides=cnn_overrides,
             ))
 
@@ -70,7 +64,6 @@ class CRDNN(torch.nn.Module):
             blocks.append(NeuralBlock(
                 block_index=i + 1,
                 param_file='speechbrain/lobes/models/rnn_block.yaml',
-                sequence=['rnn'],
                 overrides=rnn_overrides,
             ))
 
@@ -78,14 +71,16 @@ class CRDNN(torch.nn.Module):
             blocks.append(NeuralBlock(
                 block_index=i + 1,
                 param_file='speechbrain/lobes/models/dnn_block.yaml',
-                sequence=['linear', 'norm', 'activation', 'dropout'],
                 overrides=dnn_overrides,
             ))
 
         blocks.append(linear(output_size, bias=False))
         blocks.append(activation('log_softmax'))
 
-        self.blocks = torch.nn.Sequential(*blocks)
+        self.blocks = Sequential(blocks)
+
+    def init_params(self, dummy_input):
+        self.blocks.init_params(dummy_input)
 
     def forward(self, features):
         """Returns the output of the model.
@@ -101,20 +96,26 @@ class CRDNN(torch.nn.Module):
 class NeuralBlock(torch.nn.Module):
     """A block of neural network layers.
 
+    This module loads a parameter file and constructs a model based on the
+    stored hyperparameters. Two hyperparameters are treated specially:
+
+    * `constants.block_index`: This module overrides this parameter with
+        the value that is passed to the constructor.
+    * `constants.sequence`: This indicates the order of applying layers.
+        If it doesn't exist, the layers are applied in the order they
+        appear in the file.
+
     Arguments
     ---------
     block_index : int
         The index of this block in the network (starting from 1).
     param_file : str
         The location of the file storing the parameters for this block.
-    layer_seq : sequence
-        A list of layers to apply in order.
     overrides : mapping
         Parameters to change from the defaults listed in yaml.
 
     Example
     -------
-    >>> import torch
     >>> inputs = torch.rand([10, 40, 200])
     >>> param_file = 'speechbrain/lobes/models/rnn_block.yaml'
     >>> cnn = NeuralBlock(1, param_file, ['rnn'])
@@ -122,15 +123,22 @@ class NeuralBlock(torch.nn.Module):
     >>> outputs.shape
     torch.Size([10, 40, 128, 196])
     """
-    def __init__(self, block_index, param_file, sequence, overrides={}):
+    def __init__(self, block_index, param_file, overrides={}):
         """"""
         super().__init__()
 
         block_override = {'constants': {'block_index': block_index}}
         recursive_update(overrides, block_override)
         layers = load_extended_yaml(open(param_file), overrides)
+        if 'sequence' in layers['constants']:
+            sequence = layers['constants']['sequence']
+        else:
+            sequence = layers.keys() - ['constants']
 
-        self.block = torch.nn.Sequential(*(layers[op] for op in sequence))
+        self.block = Sequential(layers[op] for op in sequence)
+
+    def init_params(self, dummy_input):
+        self.block.init_params(dummy_input)
 
     def forward(self, x):
         """Returns the output of the neural operations.

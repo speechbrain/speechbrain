@@ -12,6 +12,61 @@ from speechbrain.data_io.data_io import recovery, initialize_with
 logger = logging.getLogger(__name__)
 
 
+class Sequential(torch.nn.Module):
+    """A sequence of modules, implementing the `init_params` method.
+
+    Arguments
+    ---------
+    *layers
+        The remaining inputs are treated as a list of layers to be
+        applied in sequence. The output shape of each layer is used to
+        infer the shape of the following layer.
+
+    Example
+    -------
+    >>> model = Sequential(
+    ...     speechbrain.nnet.architecture.linear(n_neurons=100),
+    ... )
+    >>> inputs = torch.rand(10, 40, 50)
+    >>> model.init_params(inputs)
+    >>> outputs = model(inputs)
+    >>> outputs.shape
+    torch.Size([10, 100, 50])
+    """
+    def __init__(
+        self,
+        layers,
+    ):
+        """"""
+        super().__init__()
+        self.layers = torch.nn.ModuleList()
+        for layer in layers:
+            self.layers.append(layer)
+
+    def init_params(self, dummy_input):
+        """
+        Arguments
+        ---------
+        dummy_input : tensor
+            A dummy input of the right shape for initializing parameters.
+        """
+        for layer in self.layers:
+            if hasattr(layer, 'init_params'):
+                layer.init_params(dummy_input)
+            dummy_input = layer(dummy_input)
+
+    def forward(self, x):
+        """
+        Arguments
+        ---------
+        x : tensor
+            the input tensor to run through the network.
+        """
+        for layer in self.layers:
+            x = layer(x)
+        return x
+
+
 class linear(torch.nn.Module):
     """
      -------------------------------------------------------------------------
@@ -68,25 +123,20 @@ class linear(torch.nn.Module):
         self.recovery = do_recovery
         self.output_folder = output_folder
 
-        def hook(self, input):
+    def init_params(self, first_input):
+        """
+        Arguments
+        ---------
+        first_input : tensor
+            A dummy input of the right shape for initializing parameters.
+        """
 
-            # Computing the dimensionality of the input
-            fea_dim = input[0].shape[1]
+        # Computing the dimensionality of the input
+        fea_dim = first_input.shape[1]
 
-            # Initialization of the parameters
-            self.w = nn.Linear(fea_dim, self.n_neurons, bias=self.bias)
-            self.w.to(input[0].device)
-
-            # Managing initialization with an external model
-            # (useful for pre-training)
-            initialize_with(self)
-
-            # Automatic recovery (when needed)
-            # recovery(self)
-
-            self.hook.remove()
-
-        self.hook = self.register_forward_pre_hook(hook)
+        # Initialization of the parameters
+        self.w = nn.Linear(fea_dim, self.n_neurons, bias=self.bias)
+        self.w.to(first_input.device)
 
     def forward(self, x):
         """
@@ -430,86 +480,81 @@ class conv(nn.Module):
         if len(self.kernel_size) == 2:
             self.conv2d = True
 
-        def hook(self, first_input):
-
-            # Manage reshaping flags
-            if len(first_input[0].shape) > 3:
-                if self.conv1d:
-                    self.reshape_conv1d = True
-
-            if len(first_input[0].shape) > 4:
-                if self.conv2d:
-                    self.reshape_conv2d = True
-
-            if len(first_input[0].shape) == 3 and self.conv2d:
-                self.squeeze_conv2d = True
-
-            if len(first_input[0].shape) >= 4 and self.conv2d:
-                self.transp_conv2d = True
-
-            # Detecting the number of input channels
+    def init_params(self, first_input):
+        """
+        Arguments
+        ---------
+        first_input : tensor
+            A dummy input of the right shape for initializing parameters.
+        """
+        # Manage reshaping flags
+        if len(first_input.shape) > 3:
             if self.conv1d:
-                self.in_channels = first_input[0].shape[1]
+                self.reshape_conv1d = True
 
+        if len(first_input.shape) > 4:
             if self.conv2d:
-                if len(first_input[0].shape) == 3:
-                    self.in_channels = 1
+                self.reshape_conv2d = True
 
-                elif len(first_input[0].shape) == 4:
+        if len(first_input.shape) == 3 and self.conv2d:
+            self.squeeze_conv2d = True
 
-                    self.in_channels = first_input[0].shape[2]
-                elif len(first_input[0].shape) == 5:
-                    self.in_channels = (
-                        first_input[0].shape[2] * first_input[0].shape[3]
-                    )
+        if len(first_input.shape) >= 4 and self.conv2d:
+            self.transp_conv2d = True
 
-            # Managing 1d convolutions
-            if self.conv1d:
+        # Detecting the number of input channels
+        if self.conv1d:
+            self.in_channels = first_input.shape[1]
 
-                if self.padding is not None:
-                    self.padding = self.padding[0]
+        if self.conv2d:
+            if len(first_input.shape) == 3:
+                self.in_channels = 1
 
-                # Initialization of the parameters
-                self.conv = nn.Conv1d(
-                    self.in_channels,
-                    self.out_channels,
-                    self.kernel_size[0],
-                    stride=self.stride[0],
-                    dilation=self.dilation[0],
-                    padding=0,
-                    groups=self.groups,
-                    bias=self.bias,
-                    padding_mode=self.padding_mode,
-                ).to(first_input[0].device)
+            elif len(first_input.shape) == 4:
 
-            # Managing 2d convolutions
-            if self.conv2d:
+                self.in_channels = first_input.shape[2]
+            elif len(first_input.shape) == 5:
+                self.in_channels = (
+                    first_input.shape[2] * first_input.shape[3]
+                )
 
-                if self.padding is not None:
-                    self.padding = self.padding[0:-1]
+        # Managing 1d convolutions
+        if self.conv1d:
 
-                # Initialization of the parameters
-                self.conv = nn.Conv2d(
-                    self.in_channels,
-                    self.out_channels,
-                    tuple(self.kernel_size),
-                    stride=tuple(self.stride),
-                    padding=0,
-                    dilation=tuple(self.dilation),
-                    groups=self.groups,
-                    bias=self.bias,
-                    padding_mode=self.padding_mode,
-                ).to(first_input[0].device)
+            if self.padding is not None:
+                self.padding = self.padding[0]
 
-            # Managing initialization with an external model
-            # (useful for pre-training)
-            initialize_with(self)
+            # Initialization of the parameters
+            self.conv = nn.Conv1d(
+                self.in_channels,
+                self.out_channels,
+                self.kernel_size[0],
+                stride=self.stride[0],
+                dilation=self.dilation[0],
+                padding=0,
+                groups=self.groups,
+                bias=self.bias,
+                padding_mode=self.padding_mode,
+            ).to(first_input.device)
 
-            # Automatic recovery
-            # recovery(self)
+        # Managing 2d convolutions
+        if self.conv2d:
 
-            self.hook.remove()
-        self.hook = self.register_forward_pre_hook(hook)
+            if self.padding is not None:
+                self.padding = self.padding[0:-1]
+
+            # Initialization of the parameters
+            self.conv = nn.Conv2d(
+                self.in_channels,
+                self.out_channels,
+                tuple(self.kernel_size),
+                stride=tuple(self.stride),
+                padding=0,
+                dilation=tuple(self.dilation),
+                groups=self.groups,
+                bias=self.bias,
+                padding_mode=self.padding_mode,
+            ).to(first_input.device)
 
     def forward(self, x):
 
@@ -1384,77 +1429,74 @@ class RNN_basic(torch.nn.Module):
         self.initialize_with = initialize_from
         self.recovery = do_recovery
         self.output_folder = output_folder
-
-        def hook(self, input):
-            if len(input[0].shape) > 3:
-                self.reshape = True
-
-            # Computing the feature dimensionality
-            self.fea_dim = torch.prod(torch.tensor(input[0].shape[1:-1]))
-
-            kwargs = {
-                'input_size': self.fea_dim,
-                'hidden_size': self.n_neurons,
-                'num_layers': self.num_layers,
-                'dropout': self.dropout,
-                'bidirectional': self.bidirectional,
-                'bias': self.bias,
-            }
-
-            # Vanilla RNN
-            if self.rnn_type == "rnn":
-                kwargs.update({'nonlinearity': self.nonlinearity})
-                self.rnn = torch.nn.RNN(**kwargs)
-
-            # Vanilla LSTM
-            if self.rnn_type == "lstm":
-                self.rnn = torch.nn.LSTM(**kwargs)
-
-            # Vanilla GRU
-            if self.rnn_type == "gru":
-                self.rnn = torch.nn.GRU(**kwargs)
-
-            # Vanilla light-GRU
-            if self.rnn_type == "ligru":
-                del kwargs['bias']
-                kwargs['batch_size'] = first_input[0].shape[0],
-                self.rnn = liGRU(**kwargs)
-
-            # Quasi RNN
-            if self.rnn_type == "qrnn":
-
-                # Check if qrnn (quasi-rnn) library is installed
-                try:
-                    from torchqrnn import QRNN
-                except ImportError:
-                    raise ImportError(
-                        "QRNN is not installed. Please run "
-                        "pip install cupy pynvrtc \
-                            git+https://github.com/salesforce/pytorch-qrnn ."
-                        "Go to https://github.com/salesforce/pytorch-qrnn \
-                            for more info."
-                    )
-
-                # Needed to avoid qrnn warnings
-                import warnings
-
-                warnings.filterwarnings("ignore")
-
-                del kwargs['bias']
-                del kwargs['bidirectional']
-                self.rnn = QRNN(**kwargs)
-
-            # Managing initialization with an external model
-            # (useful for pre-training)
-            initialize_with(self)
-            self.rnn.to(input[0].device)
-
-            # Automatic recovery
-            # recovery(self)
-            self.hook.remove()
-
         self.reshape = False
-        self.hook = self.register_forward_pre_hook(hook)
+
+    def init_params(self, first_input):
+        """
+        Arguments
+        ---------
+        first_input : tensor
+            A dummy input of the right shape for initializing parameters.
+        """
+        if len(first_input.shape) > 3:
+            self.reshape = True
+
+        # Computing the feature dimensionality
+        self.fea_dim = torch.prod(torch.tensor(first_input.shape[1:-1]))
+
+        kwargs = {
+            'input_size': self.fea_dim,
+            'hidden_size': self.n_neurons,
+            'num_layers': self.num_layers,
+            'dropout': self.dropout,
+            'bidirectional': self.bidirectional,
+            'bias': self.bias,
+        }
+
+        # Vanilla RNN
+        if self.rnn_type == "rnn":
+            kwargs.update({'nonlinearity': self.nonlinearity})
+            self.rnn = torch.nn.RNN(**kwargs)
+
+        # Vanilla LSTM
+        if self.rnn_type == "lstm":
+            self.rnn = torch.nn.LSTM(**kwargs)
+
+        # Vanilla GRU
+        if self.rnn_type == "gru":
+            self.rnn = torch.nn.GRU(**kwargs)
+
+        # Vanilla light-GRU
+        if self.rnn_type == "ligru":
+            del kwargs['bias']
+            kwargs['batch_size'] = first_input.shape[0],
+            self.rnn = liGRU(**kwargs)
+
+        # Quasi RNN
+        if self.rnn_type == "qrnn":
+
+            # Check if qrnn (quasi-rnn) library is installed
+            try:
+                from torchqrnn import QRNN
+            except ImportError:
+                raise ImportError(
+                    "QRNN is not installed. Please run "
+                    "pip install cupy pynvrtc \
+                        git+https://github.com/salesforce/pytorch-qrnn ."
+                    "Go to https://github.com/salesforce/pytorch-qrnn \
+                        for more info."
+                )
+
+            # Needed to avoid qrnn warnings
+            import warnings
+
+            warnings.filterwarnings("ignore")
+
+            del kwargs['bias']
+            del kwargs['bidirectional']
+            self.rnn = QRNN(**kwargs)
+
+        self.rnn.to(first_input.device)
 
     def forward(self, x):
         """
@@ -1992,27 +2034,30 @@ class dropout(nn.Module):
         self.inplace = inplace
         self.reshape = False
 
-        def hook(self, first_input):
+    def init_params(self, first_input):
+        """
+        Arguments
+        ---------
+        first_input : tensor
+            A dummy input of the right shape for initializing parameters.
+        """
 
-            # Dropout initialization
-            if len(first_input[0].shape) <= 3:
-                self.drop = nn.Dropout(p=self.drop_rate, inplace=self.inplace)
+        # Dropout initialization
+        if len(first_input.shape) <= 3:
+            self.drop = nn.Dropout(p=self.drop_rate, inplace=self.inplace)
 
-                if len(first_input[0].shape) == 3:
-                    self.reshape = True
+            if len(first_input.shape) == 3:
+                self.reshape = True
 
-            if len(first_input[0].shape) == 4:
-                self.drop = nn.Dropout2d(
-                    p=self.drop_rate, inplace=self.inplace
-                )
+        if len(first_input.shape) == 4:
+            self.drop = nn.Dropout2d(
+                p=self.drop_rate, inplace=self.inplace
+            )
 
-            if len(first_input[0].shape) == 5:
-                self.drop = nn.Dropout3d(
-                    p=self.drop_rate, inplace=self.inplace
-                )
-            self.hook.remove()
-
-        self.hook = self.register_forward_pre_hook(hook)
+        if len(first_input.shape) == 5:
+            self.drop = nn.Dropout3d(
+                p=self.drop_rate, inplace=self.inplace
+            )
 
     def forward(self, x):
 
@@ -2158,93 +2203,97 @@ class pooling(nn.Module):
         if not isinstance(self.pool_axis, list):
             self.pool_axis = [self.pool_axis]
 
-        def hook(self, first_input):
+    def init_params(self, first_input):
+        """
+        Arguments
+        ---------
+        first_input : tensor
+            A dummy input of the right shape for initializing parameters.
+        """
 
-            # Check that enough pooling axes are specified
-            if len(self.kernel_size) == 1:
-                self.pool1d = True
+        # Check that enough pooling axes are specified
+        if len(self.kernel_size) == 1:
+            self.pool1d = True
 
-                # In the case of a 4 dimensional input vector, we need to
-                # combine the batch and time dimension together because
-                # torch.nn.pool1d only accepts 3D vectors as inputs.
-                if len(first_input[0].shape) > 3:
-                    self.combine_batch_time = True
+            # In the case of a 4 dimensional input vector, we need to
+            # combine the batch and time dimension together because
+            # torch.nn.pool1d only accepts 3D vectors as inputs.
+            if len(first_input.shape) > 3:
+                self.combine_batch_time = True
 
-                if len(self.pool_axis) != 1:
-                    err_msg = (
-                        "pool_axes must corresponds to the pooling dimension. "
-                        "The pooling dimension is 1 and %s axes are specified."
-                        % (str(len(self.pool_axis)))
-                    )
-                    raise ValueError(err_msg)
+            if len(self.pool_axis) != 1:
+                err_msg = (
+                    "pool_axes must corresponds to the pooling dimension. "
+                    "The pooling dimension is 1 and %s axes are specified."
+                    % (str(len(self.pool_axis)))
+                )
+                raise ValueError(err_msg)
 
-                if self.pool_axis[0] >= len(first_input[0].shape):
-                    err_msg = (
-                        "pool_axes is greater than the number of dimensions. "
-                        "The tensor dimension is %s and the specified pooling "
-                        "axis is %s."
-                        % (str(len(first_input[0].shape)), str(self.pool_axis))
-                    )
-                    raise ValueError(err_msg)
+            if self.pool_axis[0] >= len(first_input.shape):
+                err_msg = (
+                    "pool_axes is greater than the number of dimensions. "
+                    "The tensor dimension is %s and the specified pooling "
+                    "axis is %s."
+                    % (str(len(first_input.shape)), str(self.pool_axis))
+                )
+                raise ValueError(err_msg)
 
-            if len(self.kernel_size) == 2:
-                self.pool2d = True
+        if len(self.kernel_size) == 2:
+            self.pool2d = True
 
-                if len(self.pool_axis) != 2:
-                    err_msg = (
-                        "pool_axes must corresponds to the pooling dimension. "
-                        "The pooling dimension is 2 and %s axes are specified."
-                        % (str(len(self.pool_axis)))
-                    )
-                    raise ValueError(err_msg)
+            if len(self.pool_axis) != 2:
+                err_msg = (
+                    "pool_axes must corresponds to the pooling dimension. "
+                    "The pooling dimension is 2 and %s axes are specified."
+                    % (str(len(self.pool_axis)))
+                )
+                raise ValueError(err_msg)
 
-                dims = len(first_input[0].shape)
-                if self.pool_axis[0] >= dims or self.pool_axis[1] >= dims:
-                    err_msg = (
-                        "pool_axes is greater than the number of dimensions. "
-                        "The tensor dimension is %s and the specified pooling "
-                        "axis are %s."
-                        % (str(len(first_input[0].shape)), str(self.pool_axis))
-                    )
-                    raise ValueError(err_msg)
+            dims = len(first_input.shape)
+            if self.pool_axis[0] >= dims or self.pool_axis[1] >= dims:
+                err_msg = (
+                    "pool_axes is greater than the number of dimensions. "
+                    "The tensor dimension is %s and the specified pooling "
+                    "axis are %s."
+                    % (str(len(first_input.shape)), str(self.pool_axis))
+                )
+                raise ValueError(err_msg)
 
-            # Pooling initialization
-            if self.pool_type == "avg":
+        # Pooling initialization
+        if self.pool_type == "avg":
 
-                # Check Pooling dimension
-                if self.pool1d:
-                    self.pool_layer = torch.nn.AvgPool1d(
-                        self.kernel_size[0],
-                        stride=self.stride,
-                        padding=self.padding,
-                        ceil_mode=self.ceil_mode,
-                    )
+            # Check Pooling dimension
+            if self.pool1d:
+                self.pool_layer = torch.nn.AvgPool1d(
+                    self.kernel_size[0],
+                    stride=self.stride,
+                    padding=self.padding,
+                    ceil_mode=self.ceil_mode,
+                )
 
-                else:
-                    self.pool_layer = torch.nn.AvgPool2d(
-                        self.kernel_size,
-                        stride=self.stride,
-                        padding=self.padding,
-                        ceil_mode=self.ceil_mode,
-                    )
             else:
-                if self.pool1d:
-                    self.pool_layer = torch.nn.MaxPool1d(
-                        self.kernel_size[0],
-                        stride=self.stride,
-                        padding=self.padding,
-                        ceil_mode=self.ceil_mode,
-                    )
+                self.pool_layer = torch.nn.AvgPool2d(
+                    self.kernel_size,
+                    stride=self.stride,
+                    padding=self.padding,
+                    ceil_mode=self.ceil_mode,
+                )
+        else:
+            if self.pool1d:
+                self.pool_layer = torch.nn.MaxPool1d(
+                    self.kernel_size[0],
+                    stride=self.stride,
+                    padding=self.padding,
+                    ceil_mode=self.ceil_mode,
+                )
 
-                else:
-                    self.pool_layer = torch.nn.MaxPool2d(
-                        self.kernel_size,
-                        stride=self.stride,
-                        padding=self.padding,
-                        ceil_mode=self.ceil_mode,
-                    )
-            self.hook.remove()
-        self.hook = self.register_forward_pre_hook(hook)
+            else:
+                self.pool_layer = torch.nn.MaxPool2d(
+                    self.kernel_size,
+                    stride=self.stride,
+                    padding=self.padding,
+                    ceil_mode=self.ceil_mode,
+                )
 
     def forward(self, x):
 
