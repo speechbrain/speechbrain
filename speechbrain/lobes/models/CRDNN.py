@@ -130,10 +130,7 @@ class NeuralBlock(torch.nn.Module):
         block_override = {'constants': {'block_index': block_index}}
         recursive_update(overrides, block_override)
         layers = load_extended_yaml(open(param_file), overrides)
-        if 'sequence' in layers['constants']:
-            sequence = layers['constants']['sequence']
-        else:
-            sequence = layers.keys() - ['constants']
+        sequence = layers['constants']['sequence']
 
         self.block = Sequential(layers[op] for op in sequence)
 
