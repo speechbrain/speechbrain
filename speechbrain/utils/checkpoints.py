@@ -177,7 +177,7 @@ def torch_save(obj, path):
 
 # These dicts are indexed by class and hold the default checkpoints methods
 DEFAULT_LOAD_HOOKS = {
-    torch.nn.Module: torch_lazy_recovery,
+    torch.nn.Module: torch_recovery,
 }
 DEFAULT_SAVE_HOOKS = {
     torch.nn.Module: torch_save,

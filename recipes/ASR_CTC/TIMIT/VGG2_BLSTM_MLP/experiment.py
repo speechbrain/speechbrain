@@ -23,10 +23,11 @@ def main():
     valid_set = sb.valid_loader()
     test_set = sb.test_loader()
 
-    # Load latest model
+    # Initialize / Load latest model
     dummy_input = torch.rand([sb.batch_size, sb.n_mels, 100]).to(sb.device)
     sb.model.init_params(dummy_input)
     sb.recover_if_possible()
+    sb.optimizer([model])
 
     # training/validation epochs
     for epoch in sb.epoch_counter:
@@ -76,8 +77,11 @@ def main():
             write_hyps(hyp_writer, hyps, wav_len, wav.shape[-1])  # Time last 
 
     summary_details = edit_distance.wer_summary(details_by_utt)
+    with open(sb.wer_file, "w") as fo:
+        wer_io.print_wer_summary(summary_details, file=fo)
+        wer_io.print_alignments(details_by_utt, file=fo)
+    # Print to stdout too:
     wer_io.print_wer_summary(summary_details)
-    wer_io.print_alignments(details_by_utt)
 
 
 def prepare_for_computations(data):

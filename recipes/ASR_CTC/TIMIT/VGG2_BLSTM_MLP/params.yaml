@@ -3,6 +3,7 @@ constants:
     data_file: !PLACEHOLDER #e.g. /network/tmp1/plantinp/data/TIMIT.tar.gz
     local_folder: /tmp/timit
     predictions_file: !ref <constants.output_folder>/predictions.csv
+    wer_file: !ref <constants.output_folder>/wer.txt
     save_folder: !ref <constants.output_folder>/save
     ckpts_to_keep: 1
     sample_rate: 16000
