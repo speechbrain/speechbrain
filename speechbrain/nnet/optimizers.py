@@ -110,7 +110,7 @@ class optimize(torch.nn.Module):
         # Storing all the parameters to updated in the param_lst
         for module in modules:
             try:
-                param_lst = param_lst + list(inp.parameters())
+                param_lst = param_lst + list(module.parameters())
             except AttributeError:
                 err_msg = (
                     "The class optimize expected in input a list of"
@@ -209,7 +209,7 @@ class optimize(torch.nn.Module):
             Aku Rouhe 2020
         """
         del end_of_epoch  # Unused here.
-        self.optim.load_state_dict(torch.load(self, path))
+        self.optim.load_state_dict(torch.load(path))
 
     @checkpoints.mark_as_saver
     def _save(self, path):

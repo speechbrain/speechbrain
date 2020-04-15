@@ -26,8 +26,8 @@ def main():
     # Initialize / Load latest model
     dummy_input = torch.rand([sb.batch_size, sb.n_mels, 100]).to(sb.device)
     sb.model.init_params(dummy_input)
+    sb.optimizer.init_params([sb.model])
     sb.recover_if_possible()
-    sb.optimizer([model])
 
     # training/validation epochs
     for epoch in sb.epoch_counter:
