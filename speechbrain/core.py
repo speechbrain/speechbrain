@@ -204,7 +204,7 @@ class Experiment:
         ---------
         meta : mapping
             a set of key, value pairs to store alongside the checkpoint.
-        end_of_spoech : bool
+        end_of_epoch : bool
             Whether the checkpoint happens at the end of an epoch (last thing)
             or not. This may affect recovery. Default: True
         num_to_keep : int
