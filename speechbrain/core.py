@@ -36,6 +36,7 @@ class Experiment:
 
         * output_folder (str): The experimental directory for logs, results,
             labels, and other experimental files.
+        * data_file (str): The archived dataset folder.
         * local_folder (str): The directory to use for local storage.
         * save_folder (str): The directory to use for storing parameters
             (see next section).
@@ -102,10 +103,12 @@ class Experiment:
         """"""
         # Parse yaml overrides, with command-line args taking precedence
         # precedence over the parameters listed in the file.
-        overrides = {}
+        overrides = {'constants': {}}
         cmd_args = parse_arguments(commandline_args)
         if 'yaml_overrides' in cmd_args:
-            overrides = parse_overrides(cmd_args['yaml_overrides'])
+            overrides.update(parse_overrides(cmd_args['yaml_overrides']))
+            del cmd_args['yaml_overrides']
+        overrides['constants'].update(cmd_args)
 
         # Load parameters file and store
         parameters = load_extended_yaml(yaml_stream, overrides)
@@ -326,6 +329,10 @@ def parse_arguments(arg_list):
     parser.add_argument(
         '--output_folder',
         help='A folder for storing all experiment-related outputs.',
+    )
+    parser.add_argument(
+        '--data_file',
+        help='An archive containing all the data files used in training.',
     )
     parser.add_argument(
         '--local_folder',
