@@ -5,9 +5,11 @@ Learning rate schedulers.
 import math
 import torch
 import logging
+from speechbrain.utils import checkpoints
 logger = logging.getLogger(__name__)
 
 
+@checkpoints.register_checkpoint_hooks
 class lr_annealing(torch.nn.Module):
     """
      -------------------------------------------------------------------------
@@ -405,3 +407,17 @@ class lr_annealing(torch.nn.Module):
                 ) % (len(self.lr_at_epoch), len(self.N_epochs))
 
                 logger.error(err_msg, exc_info=True)
+
+    @checkpoints.mark_as_saver
+    def save(self, path):
+        data = {'losses': self.losses,
+                'current_patient': self.current_patient}
+        torch.save(data, path)
+
+    @checkpoints.mark_as_loader
+    def load(self, path, end_of_epoch):
+        del end_of_epoch  # Unused in this class
+        data = torch.load(path)
+        self.losses = data['losses']
+        self.current_patient = data['current_patient']
+        

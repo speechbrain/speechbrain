@@ -94,8 +94,9 @@ def torch_lazy_parameter_transfer(
     Returns:
         None - Given object is modified in place
     Note:
-        The hook is added as the _speechbrain_lazy_transfer_hook attribute,
-        which could theoretically conflict with other attributes
+        The hook is added as _speechbrain_lazy_recovery_hook[_X] where X
+        is an integer specifying a unique hook number. You can add multiple
+        parameter transfer hooks. (Not thread-safe)
     Author:
         Aku Rouhe 2020
     """
@@ -104,11 +105,21 @@ def torch_lazy_parameter_transfer(
                 parameters would be overwritten. Call parameter transfer before\
                 recovery"
         raise RuntimeError(MSG)
-    # Use this hook with functools.partial to save objpath properly
+    # Use this hook with functools.partial to save objpath and hook name properly
     # Otherwise, objpath is searched for dynamically (and has probably changed)
-    def _lazy_transfer_hook(path, self, *input):
+    def _lazy_transfer_hook(path, hookname, self, input, output):
         load_method(self, path)
-        self._speechbrain_lazy_transfer_hook.remove()
+        getattr(self, hookname).remove()
+        logger.debug(f"Transferred parameters to {self} with lazy hook, "
+                "rerunning forward.")
+        return self.forward(*input)
 
-    hook = functools.partial(_lazy_transfer_hook, path)
-    obj._speechbrain_lazy_transfer_hook = obj.register_forward_pre_hook(hook)
+    # Make a unique hook attribute name
+    hookbase = "_speechbrain_lazy_transfer_hook"
+    hook_x = 0
+    while hasattr(obj, f"{hookbase}_{hook_x}"):
+        hook_x += 1
+    hook = functools.partial(_lazy_transfer_hook, path, f"{hookbase}_{hook_x}")
+    setattr(obj, f"{hookbase}_{hook_x}", obj.register_forward_hook(hook))
+    logger.debug(f"Added lazy parameter transfer hook to {obj}, loaded on "
+            "first forward call.")

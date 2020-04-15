@@ -131,7 +131,8 @@ def test_recovery_custom_io(tmpdir):
                 fo.write(str(self.param))
 
         @mark_as_loader
-        def load(self, path):
+        def load(self, path, end_of_epoch):
+            del end_of_epoch  # Unused
             with open(path) as fi:
                 self.param = int(fi.read())
 
@@ -193,3 +194,59 @@ def test_checkpoint_deletion(tmpdir):
                                 lambda c: c.meta["foo"]],
             ckpt_predicate = lambda c: "epoch_ckpt" not in c.meta)
     assert all(c in recoverer.list_checkpoints() for c in [c1, c2, c3])
+    # Reset:
+    recoverer.delete_checkpoints(num_to_keep=0)
+    assert not recoverer.list_checkpoints()
+    # Test the keeping multiple checkpoints without predicate: 
+    # Highest foo
+    c1 = recoverer.save_checkpoint(meta={"foo":2})
+    # Latest CKPT after filtering
+    c2 = recoverer.save_checkpoint(meta={"foo":1})
+    recoverer.delete_checkpoints(num_to_keep=1,
+            importance_keys = [lambda c: c.meta["unixtime"],
+                                lambda c: c.meta["foo"]])
+    assert all(c in recoverer.list_checkpoints() for c in [c1, c2])
+
+
+def test_torch_lazy_recovery(tmpdir):
+    from speechbrain.utils.checkpoints import Checkpointer
+    import torch
+    class LazyInitRecoverable(torch.nn.Module):
+        def __init__(self, param):
+            super().__init__()
+            def lazy_init(self, input):
+                self.param = torch.nn.Parameter(torch.tensor([param]))
+                self.init_hook.remove()
+            self.init_hook = self.register_forward_pre_hook(lazy_init)
+
+        def forward(self, x):
+            return x * self.param
+
+    recoverable = LazyInitRecoverable(2.0)
+    # Setup the recovery
+    recoverables = {"recoverable": recoverable}
+    recoverer = Checkpointer(tmpdir, recoverables)
+    # Make sure the recoverable works as intended
+    assert not hasattr(recoverable, "param")
+    assert recoverable(3.) == 6.
+    assert hasattr(recoverable, "param")
+    # Save checkpoint with old, initialized recoverable
+    ckpt = recoverer.save_checkpoint()
+    # Now simulate a restore:
+    new_recoverable = LazyInitRecoverable(0.0)
+    recoverer.recoverables["recoverable"] = new_recoverable
+    recoverer.recover_if_possible()
+    # And even with the lazy init recoverable, this should work the same:
+    assert not hasattr(new_recoverable, "param")
+    assert new_recoverable(3.) == 6.
+    assert hasattr(new_recoverable, "param")
+
+    # Edge case: calling lazy recovery twice:
+    new_new_recoverable = LazyInitRecoverable(0.0)
+    recoverer.recoverables["recoverable"] = new_new_recoverable
+    recoverer.recover_if_possible()
+    recoverer.recover_if_possible()
+    # And even now, this should work 
+    assert not hasattr(new_new_recoverable, "param")
+    assert new_new_recoverable(3.) == 6.
+    assert hasattr(new_new_recoverable, "param")

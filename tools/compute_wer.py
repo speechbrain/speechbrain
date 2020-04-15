@@ -110,7 +110,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     details_by_utterance = edit_distance.wer_details_by_utterance(
-        _plain_text_reader(args.ref),
+        _plain_text_keydict(args.ref),
         _plain_text_keydict(args.hyp),
         compute_alignments=args.print_alignments,
         scoring_mode=args.mode,
