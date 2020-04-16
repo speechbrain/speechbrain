@@ -8,7 +8,7 @@ from speechbrain.nnet.architectures import linear, activation, Sequential
 from speechbrain.utils.data_utils import load_extended_yaml, recursive_update
 
 
-class CRDNN(torch.nn.Module):
+class CRDNN(Sequential):
     """This model is a combination of CNNs, RNNs, and DNNs.
 
     The default CNN model is based on VGG.
@@ -49,8 +49,6 @@ class CRDNN(torch.nn.Module):
         dnn_blocks=1,
         dnn_overrides={},
     ):
-        super().__init__()
-
         blocks = []
 
         for i in range(cnn_blocks):
@@ -77,23 +75,10 @@ class CRDNN(torch.nn.Module):
         blocks.append(linear(output_size, bias=False))
         blocks.append(activation('log_softmax'))
 
-        self.blocks = Sequential(blocks)
-
-    def init_params(self, dummy_input):
-        self.blocks.init_params(dummy_input)
-
-    def forward(self, features):
-        """Returns the output of the model.
-
-        Arguments
-        ---------
-        features : tensor
-            The input features to the network.
-        """
-        return self.blocks(features)
+        super().__init__(blocks)
 
 
-class NeuralBlock(torch.nn.Module):
+class NeuralBlock(Sequential):
     """A block of neural network layers.
 
     This module loads a parameter file and constructs a model based on the
@@ -125,24 +110,10 @@ class NeuralBlock(torch.nn.Module):
     """
     def __init__(self, block_index, param_file, overrides={}):
         """"""
-        super().__init__()
 
         block_override = {'constants': {'block_index': block_index}}
         recursive_update(overrides, block_override)
         layers = load_extended_yaml(open(param_file), overrides)
         sequence = layers['constants']['sequence']
 
-        self.block = Sequential(layers[op] for op in sequence)
-
-    def init_params(self, dummy_input):
-        self.block.init_params(dummy_input)
-
-    def forward(self, x):
-        """Returns the output of the neural operations.
-
-        Arguments
-        ---------
-        x : tensor
-            The tensor to perform neural operations on.
-        """
-        return self.block(x)
+        super().__init__([layers[op] for op in sequence])
