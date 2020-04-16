@@ -45,19 +45,18 @@ def main():
         # Iterate validataion to check progress
         sb.model.eval()
         valid_losses = []
-        valid_wer_stats = []#collections.Counter()
+        valid_wer_stats = collections.Counter()
         for wav, phn in tzip(*valid_set):
             ids, wav, wav_len = prepare_for_computations(wav)
             ids, phn, phn_len = prepare_for_computations(phn)
             pout = neural_computations(sb.model, wav, wav_len)
-            detached_loss, wer_stats = validation(
-                ids, pout, phn, wav_len, phn_len)
+            detached_loss, valid_wer_stats = validation(
+                ids, pout, phn, wav_len, phn_len, valid_wer_stats)
             valid_losses.append(detached_loss)
-            valid_wer_stats.append(wer_stats)
 
         train_stats = {"loss": mean(train_losses)}
         valid_stats = {'loss': mean(valid_losses), 
-                       'wer': mean(valid_wer_stats)}
+                       'wer': valid_wer_stats['WER']}
 
         sb.lr_annealing([sb.optimizer], epoch, valid_stats['wer'])
         sb.save_and_keep_only({'wer': valid_stats['wer']}, min_keys=['wer'])
@@ -113,10 +112,16 @@ def learn(model, pout, phn, wav_len, phn_len):
     return loss.detach()
 
 
-def validation(ids, pout, phn, wav_len, phn_len):
+def validation(ids, pout, phn, wav_len, phn_len, wer_stats):
     with torch.no_grad():
-        loss, wer_stats = sb.compute_cost_wer(pout, phn, [wav_len, phn_len])
-    return loss.detach(), wer_stats.detach()
+        loss = sb.compute_cost(pout, phn, [wav_len, phn_len])
+        batch_outputs = ctc_greedy_decode(pout, 
+                wav_len, 
+                blank_id = -1)
+        wer_stats = edit_distance.accumulatable_wer_stats(
+                phn.tolist(), batch_outputs, stats = wer_stats
+        )
+    return loss.detach(), wer_stats
 
 
 def evaluation(ids, pout, phn, wav_len, phn_len):
