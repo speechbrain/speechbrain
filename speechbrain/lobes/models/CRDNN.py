@@ -30,14 +30,27 @@ class CRDNN(Sequential):
     dnn_overrides : mapping
         Additional parameters overriding the DNN parameters.
 
+    CNN Block Parameters
+    --------------------
+        .. include:: cnn_block.yaml
+
+    RNN Block Parameters
+    --------------------
+        .. include:: rnn_block.yaml
+
+    DNN Block Parameters
+    --------------------
+        .. include:: dnn_block.yaml
+
     Example
     -------
     >>> import torch
-    >>> model = CRDNN(output_len=40)
+    >>> model = CRDNN(output_size=40)
     >>> inputs = torch.rand([10, 60, 120])
+    >>> model.init_params(inputs)
     >>> outputs = model(inputs)
     >>> outputs.shape
-    torch.Size([10, 120, 40])
+    torch.Size([10, 40, 116])
     """
     def __init__(
         self,
@@ -103,10 +116,11 @@ class NeuralBlock(Sequential):
     -------
     >>> inputs = torch.rand([10, 40, 200])
     >>> param_file = 'speechbrain/lobes/models/rnn_block.yaml'
-    >>> cnn = NeuralBlock(1, param_file, ['rnn'])
-    >>> outputs = cnn(inputs)
+    >>> rnn = NeuralBlock(1, param_file)
+    >>> rnn.init_params(inputs)
+    >>> outputs = rnn(inputs)
     >>> outputs.shape
-    torch.Size([10, 40, 128, 196])
+    torch.Size([10, 1024, 200])
     """
     def __init__(self, block_index, param_file, overrides={}):
         """"""
