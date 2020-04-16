@@ -17,7 +17,7 @@ class Sequential(torch.nn.Module):
 
     Arguments
     ---------
-    *layers
+    layers : iterable
         The remaining inputs are treated as a list of layers to be
         applied in sequence. The output shape of each layer is used to
         infer the shape of the following layer.
