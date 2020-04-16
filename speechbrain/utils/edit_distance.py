@@ -336,6 +336,56 @@ def count_ops(table):
     return edits
 
 
+def _batch_to_dict_format(ids, seqs):
+    #Used by wer_details_for_batch
+    return dict(zip(ids, seqs))
+
+
+def wer_details_for_batch(ids, refs, hyps, compute_alignments=False):
+    """Convenient batch interface for wer_details_by_utterance
+
+    `wer_details_by_utterance` can handle missing hypotheses, but
+    sometimes (e.g. CTC training with greedy decoding) they are not needed,
+    and this is a convenient interface in that case.
+
+    Arguments
+    ---------
+    ids : list, torch.tensor
+        Utterance ids for the batch
+    refs : list, torch.tensor
+        Reference sequences
+    hyps : list, torch.tensor
+        Hypothesis sequences
+    compute_alignments : bool, optional
+        Whether to compute alignments or not. If computed, the details
+        will also store the refs and hyps.
+        Default: False
+
+    Returns
+    -------
+    list
+        See `wer_details_by_utterance`    
+
+    Example
+    -------
+    >>> ids = [['utt1'], ['utt2']]
+    >>> refs = [[['a','b','c']], [['d','e']]]
+    >>> hyps = [[['a','b','d']], [['d','e']]]
+    >>> wer_details = []
+    >>> for ids_batch, refs_batch, hyps_batch in zip(ids, refs, hyps):
+    ...     details = wer_details_for_batch(ids_batch, refs_batch, hyps_batch)
+    ...     wer_details.extend(details)
+    >>> print(wer_details[0]['key'], ":", 
+    ...     "{:.2f}".format(wer_details[0]['WER']))
+    utt1 : 33.33
+    """
+    refs = _batch_to_dict_format(ids, refs)
+    hyps = _batch_to_dict_format(ids, hyps)
+    return wer_details_by_utterance(
+            refs, hyps, compute_alignments=compute_alignments, 
+            scoring_mode="strict")
+
+
 def wer_details_by_utterance(
     ref_dict, hyp_dict, compute_alignments=False, scoring_mode="strict"
 ):
@@ -645,11 +695,15 @@ def top_wer_utts(details_by_utterance, top_k=20):
         scored_utterances, key=lambda d: d["WER"], reverse=True
     )
     top_non_empty = []
-    while utts_by_wer and len(top_non_empty) < top_k:
+    top_empty = []
+    while (utts_by_wer and 
+            (len(top_non_empty) < top_k or len(top_empty) < top_k)):
         utt = utts_by_wer.pop(0)
-        if not utt["hyp_empty"]:
+        if utt["hyp_empty"] and len(top_empty) < top_k:
+            top_empty.append(utt)
+        elif not utt["hyp_empty"] and len(top_non_empty) < top_k:
             top_non_empty.append(utt)
-    return top_non_empty
+    return top_non_empty, top_empty
 
 
 def top_wer_spks(details_by_speaker, top_k=10):

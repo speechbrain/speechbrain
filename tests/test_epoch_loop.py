@@ -29,6 +29,12 @@ def test_epoch_loop_recovery(tmpdir):
     for epoch in epoch_counter:
         assert epoch == 2
         loop_runs += 1
+        recoverer.save_checkpoint(end_of_epoch = True)
     # And that is that:
     assert loop_runs == 1
+    # And now after recovery, no more epochs:
+    recoverer.recover_if_possible()
+    for epoch in epoch_counter:
+        # Will not get here:
+        assert False
     

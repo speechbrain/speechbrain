@@ -15,6 +15,7 @@ import inspect
 import argparse
 from speechbrain.utils.logger import setup_logging
 from speechbrain.utils.checkpoints import Checkpointer
+from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.data_utils import load_extended_yaml, resolve_references
 logger = logging.getLogger(__name__)
 
@@ -183,14 +184,13 @@ class Experiment:
         if hasattr(self, 'saver'):
             if max_key is None and min_key is None:
                 self.saver.recover_if_possible()
+            # NB: the lambdas need the key=key to actually store the key.
+            # Otherwise the value of key is looked up dynamically 
+            # (and will have changed)
             elif max_key is not None:
-                def max_sort(ckpt):
-                    return ckpt.meta[max_key]
-                self.saver.recover_if_possible(max_sort)
+                self.saver.recover_if_possible(lambda c, key=max_key: c.meta[key])
             elif min_key is not None:
-                def min_sort(ckpt):
-                    return -ckpt.meta[min_key]
-                self.saver.recover_if_possible(min_sort)
+                self.saver.recover_if_possible(lambda c, key=min_key: -c.meta[key])
         else:
             raise KeyError(
                 'The field <constants.output_folder> and the field '
@@ -233,11 +233,15 @@ class Experiment:
                 if not key in meta:
                     raise ValueError('Min key {} must be in meta'.format(key))
 
-            importance_keys = []
-            for key in ['unixtime'] + max_keys:
-                importance_keys.append(lambda x: x.meta[key])
+            # Always save the most recent checkpoint, as well:
+            importance_keys = [ckpt_recency]
+            # NB: the lambdas need the key=key to actually store the key.
+            # Otherwise the value of key is looked up dynamically 
+            # (and will have changed)
+            for key in max_keys:
+                importance_keys.append(lambda c, key=key: c.meta[key])
             for key in min_keys:
-                importance_keys.append(lambda x: -x.meta[key])
+                importance_keys.append(lambda c, key=key: -c.meta[key])
             self.saver.save_and_keep_only(
                 meta=meta,
                 end_of_epoch=end_of_epoch,

@@ -1,6 +1,8 @@
 from .checkpoints import register_checkpoint_hooks
 from .checkpoints import mark_as_saver
 from .checkpoints import mark_as_loader
+import logging
+logger = logging.getLogger(__name__)
 
 
 @register_checkpoint_hooks
@@ -38,6 +40,7 @@ class EpochCounter:
     def __next__(self):
         if self.current < self.limit:
             self.current += 1
+            logger.info(f"Going into epoch {self.current}")
             return self.current
         raise StopIteration
 

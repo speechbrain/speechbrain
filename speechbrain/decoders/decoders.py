@@ -1,9 +1,22 @@
 import os
 import threading
 from shutil import copyfile
+import torch
 from speechbrain.utils.superpowers import run_shell
 from speechbrain.utils.data_utils import get_all_files, split_list
 
+
+def undo_padding(batch, lengths):
+    # Produces Python lists
+    batch_max_len = batch.shape[-1]  # Assume time last
+    as_list = []
+    for seq, seq_length in zip(batch, lengths):
+        actual_size = int(
+            torch.round(seq_length * batch_max_len)
+        )
+        seq_true = seq.narrow(-1, 0, actual_size)
+        as_list.append(seq_true.tolist())
+    return as_list
 
 class kaldi_decoder:
     """

@@ -65,31 +65,43 @@ def print_alignments(details_by_utterance,
     Author:
         Aku Rouhe 2020
     """
-    with contextlib.redirect_stdout(file):
-        _print_alignments_global_header()
-        for dets in details_by_utterance:
-            if dets["scored"]:
-                _print_alignment_header(dets)
-                _print_alignment(
-                    dets["alignment"],
-                    dets["ref_tokens"],
-                    dets["hyp_tokens"],
-                )
+    _print_alignments_global_header(file=file)
+    for dets in details_by_utterance:
+        if dets["scored"]:
+            _print_alignment_header(dets, file=file)
+            _print_alignment(
+                dets["alignment"],
+                dets["ref_tokens"],
+                dets["hyp_tokens"],
+                file=file
+            )
 
 
 # The following internal functions are used to
 # print out more specific things
 
-def _print_top_wer_utts(top_non_empty, file=sys.stdout):
+def _print_top_wer_utts(top_non_empty, top_empty, file=sys.stdout):
     print("=" * 80, file=file)
     print("UTTERANCES WITH HIGHEST WER", file=file)
     if top_non_empty:
         print(
-            "Non-empty hypotheses -- utterances for which output was produced:",  # noqa
-            file=sys.stdout,
+            "Non-empty hypotheses -- utterances for which output was produced:",
+            file=file,
         )
         for dets in top_non_empty:
             print("{key} %WER {WER:.2f}".format(**dets), file=file)
+    else:
+        print("No utterances which had produced output!", file=file)
+    if top_empty:
+        print(
+            "Empty hypotheses -- utterances for which no output was produced:",
+            file=file,
+        )
+        for dets in top_empty:
+            print("{key} %WER {WER:.2f}".format(**dets), file=file)
+    else:
+        print("No utterances which had not produced output!", file=file)
+
 
 
 def _print_top_wer_spks(spks_by_wer, file=sys.stdout):
