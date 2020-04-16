@@ -75,3 +75,5 @@ functions:
         batch_size: 1
     compute_cost: !speechbrain.nnet.losses.compute_cost
         cost_type: [ctc]
+    compute_cost_wer: !speechbrain.nnet.losses.compute_cost
+        cost_type: [ctc, wer]
