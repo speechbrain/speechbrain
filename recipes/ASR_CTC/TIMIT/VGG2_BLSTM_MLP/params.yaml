@@ -42,6 +42,8 @@ saveables:
         patient: 0
     epoch_counter: !speechbrain.utils.epoch_loop.EpochCounter
         limit: !ref <constants.N_epochs>
+    normalize: !speechbrain.processing.features.mean_var_norm
+        norm_type: global
 
 functions:
     copy_locally: !speechbrain.data_io.data_preparation.copy_data_locally

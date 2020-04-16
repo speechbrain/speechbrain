@@ -37,7 +37,6 @@ class Features(torch.nn.Module):
 
     Hyperparams
     -----------
-
         .. include:: features.yaml
     """
     def __init__(
@@ -45,7 +44,6 @@ class Features(torch.nn.Module):
         feature_type='spectrogram',
         deltas=True,
         context=True,
-        normalize=True,
         requires_grad=False,
         **overrides
     ):
@@ -53,23 +51,17 @@ class Features(torch.nn.Module):
         self.feature_type = feature_type
         self.deltas = deltas
         self.context = context
-        self.normalize = normalize
         self.requires_grad = requires_grad
         path = 'speechbrain/lobes/features.yaml'
         self.params = load_extended_yaml(open(path), overrides)
 
-    def forward(self, wav, wav_len=None):
-        """
+    def forward(self, wav):
+        """Returns a set of features generated from the input waveforms.
+
         Arguments
         ---------
         wav : tensor
             A batch of audio signals to transform to features.
-        wav_len : tensor
-            Only needed for normalization, the length of each audio signal.
-
-        Returns
-        -------
-        The generated features.
         """
         STFT = self.params['compute_STFT'](wav)
         features = self.params['compute_spectrogram'](STFT)
@@ -86,8 +78,5 @@ class Features(torch.nn.Module):
 
         if self.context:
             features = self.params['context_window'](features)
-
-        if self.normalize:
-            features = self.params['normalize'](features, wav_len)
 
         return features

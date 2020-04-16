@@ -100,7 +100,8 @@ def to_output_format(ids, seqs):
 
 
 def neural_computations(model, wav, wav_len):
-    feats = sb.compute_features(wav, wav_len)
+    feats = sb.compute_features(wav)
+    feats = sb.normalize(feats, wav_len)
     return model(feats)
 
 

@@ -36,6 +36,3 @@ compute_deltas: !speechbrain.processing.features.deltas
 context_window: !speechbrain.processing.features.context_window
     left_frames: !ref <constants.left_frames>
     right_frames: !ref <constants.right_frames>
-
-normalize: !speechbrain.processing.features.mean_var_norm
-    norm_type: global
