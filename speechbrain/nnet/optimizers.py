@@ -4,7 +4,6 @@ Optimizers.
 
 import torch
 import logging
-from speechbrain.data_io.data_io import recovery
 import functools
 from speechbrain.utils import checkpoints 
 logger = logging.getLogger(__name__)
@@ -42,8 +41,6 @@ class optimize(torch.nn.Module):
             normalized by an estimation of its variance.
         amsgrad: if True it uses the AMSGrad variant of the adam optimizer.
         nesterov: enables Nesterov momentum for SGD.
-        do_recovery: if True, the system restarts from the last
-          epoch correctly executed.
 
     Example:
        >>> import torch
@@ -82,7 +79,6 @@ class optimize(torch.nn.Module):
         centered=False,
         amsgrad=False,
         nesterov=False,
-        do_recovery=True,
     ):
         super().__init__()
 
@@ -100,7 +96,6 @@ class optimize(torch.nn.Module):
         self.initial_accumulator_value = initial_accumulator_value
         self.centered = centered
         self.amsgrad = amsgrad
-        self.recovery = do_recovery
 
 
     def init_params(self, modules):

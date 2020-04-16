@@ -8,7 +8,6 @@ import logging
 import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
-from speechbrain.data_io.data_io import recovery, initialize_with
 logger = logging.getLogger(__name__)
 
 
@@ -82,15 +81,6 @@ class linear(torch.nn.Module):
            - bias (type: bool, Default:True):
                if True, the additive bias b is adopted.
 
-           - recovery (type: bool, Default:True):
-               if True, the system restarts from the last
-               epoch correctly executed.
-
-           - initialize_with (type: str, Default: None):
-               when set, this flag can be used to initialize
-               the parameters with an external pkl file. It
-               could be useful for pre-training purposes.
-
      Example:   import torch
                 from speechbrain.nnet.architectures import linear
 
@@ -111,17 +101,11 @@ class linear(torch.nn.Module):
         self,
         n_neurons,
         bias=True,
-        initialize_from=None,
-        do_recovery=True,
-        output_folder=None,
     ):
         super().__init__()
 
         self.n_neurons = n_neurons
         self.bias = bias
-        self.initialize_with = initialize_from
-        self.recovery = do_recovery
-        self.output_folder = output_folder
 
     def init_params(self, first_input):
         """
@@ -176,16 +160,6 @@ class linear_combination(nn.Module):
 
                            - bias (type: bool, Default:True):
                                if True, the additive bias b is adopted.
-
-                           - recovery (type: bool, Default:True):
-                               if True, the system restarts from the last
-                               epoch correctly executed.
-
-                           - initialize_with (type: str, Default:\
-                               None):
-                               when set, this flag can be used to initialize
-                               the parameters with an external pkl file. It
-                               could be useful for pre-training purposes.
 
      Input (call): - inp_lst(type, list, mandatory):
                        by default the input arguments are passed with a list.
@@ -245,9 +219,6 @@ class linear_combination(nn.Module):
         # Here are summarized the expected options for this class
         self.expected_options = {
             "class_name": ("str", "mandatory"),
-            "recovery": ("bool", "optional", "True"),
-            "recovery_type": ("one_of(last,best)", "optional", "best"),
-            "initialize_with": ("str", "optional", "None"),
             "bias": ("bool", "optional", "True"),
         }
 
@@ -255,11 +226,6 @@ class linear_combination(nn.Module):
         self.conf = check_opts(
             self, self.expected_options, config, self.logger
         )
-
-        # Output folder (useful for parameter saving)
-        if global_config is not None:
-            self.output_folder = global_config["output_folder"]
-        self.funct_name = funct_name
 
         # Additional check on the input shapes
         if first_input is not None:
@@ -297,14 +263,6 @@ class linear_combination(nn.Module):
             self.w.append(
                 nn.Linear(first_input[i].shape[1], dim_out, bias=self.bias)
             )
-
-        # Managing initialization with an external model
-        # (useful for pre-training)
-        initialize_with(self)
-
-        # Automatic recovery
-        if global_config is not None:
-            recovery(self)
 
     def forward(self, input_lst):
 
@@ -396,11 +354,6 @@ class conv(nn.Module):
         groups: This option specifies the convolutional groups.
             See torch.nn documentation for more information.
         bias: if True, the additive bias b is adopted.
-        do_recovery: if True, the system restarts from the last
-            epoch correctly executed.
-        initialize_from: when set, this flag can be used to initialize
-           the parameters with an external pkl file. It
-           could be useful for pre-training purposes.
 
     Shape (1D case):
         - x: [batch, time_steps]
@@ -432,9 +385,6 @@ class conv(nn.Module):
         groups=1,
         bias=True,
         padding_mode='zeros',
-        output_folder=None,
-        do_recovery=True,
-        initialize_from=None,
     ):
         super().__init__()
 
@@ -446,9 +396,6 @@ class conv(nn.Module):
         self.groups = groups
         self.bias = bias
         self.padding_mode = padding_mode
-        self.output_folder = output_folder
-        self.recovery = do_recovery
-        self.initialize_with = initialize_from
 
         self.reshape_conv1d = False
         self.reshape_conv2d = False
@@ -856,17 +803,6 @@ class SincConv(nn.Module):
                                filter can have.
 
 
-                           - recovery (type: bool, default:True):
-                               if True, the system restarts from the last
-                               epoch correctly executed.
-
-                           - initialize_with (type: str,
-                           default:None):
-                               when set, this flag can be used to initialize
-                               the parameters with an external pkl file. It
-                               could be useful for pre-training purposes.
-
-
                    - funct_name (type, str, default: None):
                        it is a string containing the name of the parent
                        function that has called this method.
@@ -941,9 +877,6 @@ class SincConv(nn.Module):
         # Here are summarized the expected options for this class
         self.expected_options = {
             "class_name": ("str", "mandatory"),
-            "recovery": ("bool", "optional", "True"),
-            "recovery_type": ("one_of(last,best)", "optional", "best"),
-            "initialize_with": ("str", "optional", "None"),
             "out_channels": ("int(1,inf)", "mandatory"),
             "kernel_size": ("int(1,inf)", "mandatory"),
             "stride": ("int(1,inf)", "optional", "1"),
@@ -967,9 +900,6 @@ class SincConv(nn.Module):
         check_inputs(
             self.conf, self.expected_inputs, first_input, logger=self.logger
         )
-
-        if global_config is not None:
-            self.output_folder = global_config["output_folder"]
 
         # Additional check on the input shapes
         if first_input is not None:
@@ -1027,14 +957,6 @@ class SincConv(nn.Module):
         self.n_ = (
             2 * math.pi * torch.arange(-n, 0).view(1, -1) / self.sample_rate
         )
-
-        # Managing initialization with an external model
-        # (useful for pre-training)
-        initialize_with(self)
-
-        # Automatic recovery
-        if global_config is not None:
-            recovery(self)
 
     def forward(self, input_lst):
 
@@ -1361,16 +1283,6 @@ class RNN_basic(torch.nn.Module):
            Default:False):
                if True, a bidirectioal model is used.
 
-           - recovery (type: bool, default: True):
-               if True, the system restarts from the last
-               epoch correctly executed.
-
-           - initialize_with (type: str, default: None):
-               when set, this flag can be used to initialize
-               the parameters with an external pkl file. It
-               could be useful for pre-training purposes.
-
-
      Example:   import torch
                 from speechbrain.nnet.architectures import RNN_basic
 
@@ -1414,9 +1326,6 @@ class RNN_basic(torch.nn.Module):
         bias=True,
         dropout=0.,
         bidirectional=False,
-        initialize_from=None,
-        do_recovery=True,
-        output_folder=None
     ):
         super().__init__()
         self.rnn_type = rnn_type
@@ -1426,9 +1335,6 @@ class RNN_basic(torch.nn.Module):
         self.bias = bias
         self.dropout = dropout
         self.bidirectional = bidirectional
-        self.initialize_with = initialize_from
-        self.recovery = do_recovery
-        self.output_folder = output_folder
         self.reshape = False
 
     def init_params(self, first_input):

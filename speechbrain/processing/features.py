@@ -11,7 +11,6 @@ backpropagate the gradient through them.
 import math
 import torch
 import logging
-from speechbrain.data_io.data_io import recovery, initialize_with
 logger = logging.getLogger(__name__)
 
 
@@ -358,15 +357,6 @@ class FBANKs(torch.nn.Module):
                of each filter are added into nn.parameters
                can be trained. If True, the standard frozen
                features are computed.
-           - recovery (type: bool, optional, True)
-               this option is used to recover the last filter
-               banks parameters saved during training. It is
-               activated only if freeze=False.
-
-           - initialize_with (type: str, optional, None)
-              this option is a path to a pkl file that
-              contains personalized bands and central
-              frequnecy for each filter.
 
      Example:   import torch
                 import soundfile as sf
@@ -417,8 +407,6 @@ class FBANKs(torch.nn.Module):
         ref_value=1.,
         top_db=80.,
         freeze=True,
-        recovery=True,
-        initialize_path=None,
     ):
         super().__init__()
 
@@ -434,8 +422,6 @@ class FBANKs(torch.nn.Module):
         self.ref_value = ref_value
         self.top_db = top_db
         self.freeze = freeze
-        self.recovery = recovery
-        self.initialize_with = initialize_path
 
         # Additional options
         self.n_stft = self.n_fft // 2 + 1
@@ -489,14 +475,6 @@ class FBANKs(torch.nn.Module):
             self.hook.remove()
 
         self.hook = self.register_forward_pre_hook(hook)
-
-        # Managing initialization with an external filter bank parameters
-        # (useful for pre-training)
-        initialize_with(self)
-
-        if not (self.freeze):
-            # Automatic recovery
-            recovery(self)
 
     def forward(self, spectrogram):
 
@@ -1258,8 +1236,6 @@ class mean_var_norm(torch.nn.Module):
         std_norm=True,
         norm_type='global',
         avg_factor=None,
-        do_recovery=True,
-        output_folder=None,
         requires_grad=False,
     ):
         super().__init__()
@@ -1268,8 +1244,6 @@ class mean_var_norm(torch.nn.Module):
         self.std_norm = std_norm
         self.norm_type = norm_type
         self.avg_factor = avg_factor
-        self.recovery = do_recovery
-        self.output_folder = output_folder
         self.requires_grad = requires_grad
 
         # Parameter initialization
@@ -1283,9 +1257,6 @@ class mean_var_norm(torch.nn.Module):
 
         # Numerical stability for std
         self.eps = 1e-10
-
-        # Recovery stored stats
-        # recovery(self)
 
     def forward(self, x, lengths, spk_ids=None):
 

@@ -4,7 +4,6 @@ Neural normalization strategies.
 
 import torch
 import torch.nn as nn
-from speechbrain.data_io.data_io import recovery, initialize_with
 
 
 class normalize(nn.Module):
@@ -15,11 +14,6 @@ class normalize(nn.Module):
      Description:  This function implements different normalization techniques
                    such as batchnorm, layernorm, groupnorm, instancenorm, and
                    localresponsenorm.
-
-
-            "recovery": ("bool", "optional","True"),
-            "initialize_with": ("str", "optional","None"),
-
 
      Input (init):  - config (type, dict, mandatory):
                        it is a dictionary containing the keys described below.
@@ -100,18 +94,6 @@ class normalize(nn.Module):
                                 it is number of groups to separate the
                                 channels into for the group normalization.
 
-                           - recovery (type: bool, optional, Default:True):
-                               if True, the system restarts from the last
-                               epoch correctly executed.
-
-                           - initialize_with (type: str, optional, \
-                               Default:None):
-                               when set, this flag can be used to initialize
-                               the parameters with an external pkl file. It
-                               could be useful for pre-training purposes.
-
-
-
                    - funct_name (type, str, optional, default: None):
                        it is a string containing the name of the parent
                        function that has called this method.
@@ -176,8 +158,6 @@ class normalize(nn.Module):
         num_groups=1,
         neigh_ch=2,
         output_folder=None,
-        do_recovery=True,
-        initialize_from=None,
     ):
         super().__init__()
 
@@ -193,8 +173,6 @@ class normalize(nn.Module):
         self.num_groups = num_groups
         self.neigh_ch = neigh_ch
         self.output_folder = output_folder
-        self.recovery = do_recovery
-        self.initialize_with = initialize_from
 
         # Reshaping when input to batchnorm1d is 3d makes it faster
         self.reshape = False
@@ -231,14 +209,6 @@ class normalize(nn.Module):
                 self.norm = torch.nn.LocalResponseNorm(
                     self.neigh_ch, alpha=self.alpha, beta=self.beta, k=self.k
                 )
-
-            # Managing initialization with an external model
-            # (useful for pre-training)
-            initialize_with(self)
-
-            # Automatic recovery
-            # recovery(self)
-            self.hook.remove()
 
         self.hook = self.register_forward_pre_hook(hook)
 

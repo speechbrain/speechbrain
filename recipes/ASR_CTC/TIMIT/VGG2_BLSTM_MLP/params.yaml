@@ -29,7 +29,6 @@ saveables:
         cnn_blocks: 2
         dnn_blocks: 2
     optimizer: !speechbrain.nnet.optimizers.optimize
-        do_recovery: True
         optimizer_type: adadelta
         rho: 0.95
         learning_rate: !ref <constants.lr>
