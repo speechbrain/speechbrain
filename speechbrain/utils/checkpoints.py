@@ -172,7 +172,10 @@ def torch_save(obj, path):
     None 
         State dict is written to disk.
     """
-    torch.save(obj.state_dict(), path)
+    state_dict = obj.state_dict()
+    if not state_dict:
+        logger.warning(f"Saving an empty state_dict for {obj} in {path}.")
+    torch.save(state_dict, path)
 
 
 # These dicts are indexed by class and hold the default checkpoints methods

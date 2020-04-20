@@ -46,16 +46,17 @@ def main():
 
         # Iterate validataion to check progress
         sb.model.eval()
-        valid_losses = []
-        valid_wer_details = []
-        for wav, phn in tzip(*valid_set):
-            ids, wav, wav_len = prepare_for_computations(wav)
-            ids, phn, phn_len = prepare_for_computations(phn)
-            pout = neural_computations(sb.model, wav, wav_len)
-            detached_loss, wer_details = validation(
-                ids, pout, phn, wav_len, phn_len)
-            valid_losses.append(detached_loss)
-            valid_wer_details.extend(wer_details)
+        with torch.no_grad():
+            valid_losses = []
+            valid_wer_details = []
+            for wav, phn in tzip(*valid_set):
+                ids, wav, wav_len = prepare_for_computations(wav)
+                ids, phn, phn_len = prepare_for_computations(phn)
+                pout = neural_computations(sb.model, wav, wav_len)
+                detached_loss, wer_details = validation(
+                    ids, pout, phn, wav_len, phn_len)
+                valid_losses.append(detached_loss)
+                valid_wer_details.extend(wer_details)
         valid_wer_summary = edit_distance.wer_summary(valid_wer_details)
         valid_wers = [utt['WER'] for utt in valid_wer_details]
         
@@ -72,19 +73,20 @@ def main():
     # Load best model, evaluate that: 
     sb.recover_if_possible(min_key='wer')
     sb.model.eval()
-    details_by_utt = []
-    ind2lab = sb.train_loader.label_dict["phn"]["index2lab"]
-    with open(sb.predictions_file, "w") as fo:
-        hyp_writer = IterativeCSVWriter(fo, ["predictions"])
-        for wav, phn in tzip(*test_set):
-            ids, wav, wav_len = prepare_for_computations(wav)
-            ids, phn, phn_len = prepare_for_computations(phn)
-            pout = neural_computations(sb.model, wav, wav_len)
-            hyps, batch_details = evaluation(
-                    ids, pout, phn, wav_len, phn_len, ind2lab)
-            details_by_utt.extend(batch_details)
-            write_hyps(hyp_writer, ids, 
-                    hyps, wav_len, wav.shape[-1])  # Time last 
+    with torch.no_grad():
+        details_by_utt = []
+        ind2lab = sb.train_loader.label_dict["phn"]["index2lab"]
+        with open(sb.predictions_file, "w") as fo:
+            hyp_writer = IterativeCSVWriter(fo, ["predictions"])
+            for wav, phn in tzip(*test_set):
+                ids, wav, wav_len = prepare_for_computations(wav)
+                ids, phn, phn_len = prepare_for_computations(phn)
+                pout = neural_computations(sb.model, wav, wav_len)
+                hyps, batch_details = evaluation(
+                        ids, pout, phn, wav_len, phn_len, ind2lab)
+                details_by_utt.extend(batch_details)
+                write_hyps(hyp_writer, ids, 
+                        hyps, wav_len, wav.shape[-1])  # Time last 
 
     summary_details = edit_distance.wer_summary(details_by_utt)
     with open(sb.wer_file, "w") as fo:
@@ -118,34 +120,32 @@ def learn(model, pout, phn, wav_len, phn_len):
 
 
 def validation(ids, pout, phn, wav_len, phn_len):
-    with torch.no_grad():
-        loss = sb.compute_cost(pout, phn, [wav_len, phn_len])
-        batch_outputs = ctc_greedy_decode(pout, 
-                wav_len, 
-                blank_id = -1)
-        phn_unpadded = undo_padding(phn, phn_len)
-        wer_details = edit_distance.wer_details_for_batch(
-                ids, phn_unpadded, batch_outputs
-        )
+    loss = sb.compute_cost(pout, phn, [wav_len, phn_len])
+    batch_outputs = ctc_greedy_decode(pout, 
+            wav_len, 
+            blank_id = -1)
+    phn_unpadded = undo_padding(phn, phn_len)
+    wer_details = edit_distance.wer_details_for_batch(
+            ids, phn_unpadded, batch_outputs
+    )
     return loss.detach(), wer_details
 
 
 def evaluation(ids, pout, phn, wav_len, phn_len, ind2lab):
-    with torch.no_grad():
-        batch_outputs = ctc_greedy_decode(pout, 
-                wav_len,
-                blank_id = -1)
-        phn_unpadded = undo_padding(phn, phn_len)
-        batch_outputs = convert_index_to_lab(
-                batch_outputs, ind2lab)
-        phn_unpadded = convert_index_to_lab(
-                phn_unpadded, ind2lab)
-        details_by_utt = edit_distance.wer_details_for_batch(
-                ids,
-                phn_unpadded, 
-                batch_outputs, 
-                compute_alignments=True)
-        return batch_outputs, details_by_utt
+    batch_outputs = ctc_greedy_decode(pout, 
+            wav_len,
+            blank_id = -1)
+    phn_unpadded = undo_padding(phn, phn_len)
+    batch_outputs = convert_index_to_lab(
+            batch_outputs, ind2lab)
+    phn_unpadded = convert_index_to_lab(
+            phn_unpadded, ind2lab)
+    details_by_utt = edit_distance.wer_details_for_batch(
+            ids,
+            phn_unpadded, 
+            batch_outputs, 
+            compute_alignments=True)
+    return batch_outputs, details_by_utt
 
 
 def write_hyps(hyp_writer, ids, hyps, wav_lens, max_len):
