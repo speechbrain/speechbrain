@@ -11,6 +11,11 @@ backpropagate the gradient through them.
 import math
 import torch
 import logging
+from speechbrain.utils.checkpoints import (
+        mark_as_saver, 
+        mark_as_loader,
+        register_checkpoint_hooks
+        )
 logger = logging.getLogger(__name__)
 
 
@@ -1228,7 +1233,7 @@ class context_window(torch.nn.Module):
 
         return cw_x
 
-
+@register_checkpoint_hooks
 class mean_var_norm(torch.nn.Module):
     def __init__(
         self,
@@ -1383,6 +1388,7 @@ class mean_var_norm(torch.nn.Module):
         )
 
         return current_mean, current_std
+    
 
     def statistics_dict(self):
 
@@ -1423,3 +1429,14 @@ class mean_var_norm(torch.nn.Module):
         self.spk_dict_count = state["spk_dict_count"]
 
         return state
+
+    @mark_as_saver
+    def _save(self, path):
+        stats = self.statistics_dict()
+        torch.save(stats, path)
+
+    @mark_as_loader
+    def _load(self, path, end_of_epoch):
+        del end_of_epoch  # Unused here.
+        stats = torch.load(path)
+        self.load_statistics_dict(stats)
