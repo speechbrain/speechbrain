@@ -13,6 +13,7 @@ import shutil
 import logging
 import inspect
 import argparse
+import subprocess
 from speechbrain.utils.logger import setup_logging
 from speechbrain.utils.checkpoints import Checkpointer
 from speechbrain.utils.checkpoints import ckpt_recency
@@ -136,6 +137,13 @@ class Experiment:
             with open(params_filename, 'w') as w:
                 shutil.copyfileobj(resolved_yaml, w)
 
+            # Copy executing folder to output directory
+            module = inspect.getmodule(inspect.currentframe().f_back)
+            callingdir = os.path.dirname(os.path.realpath(module.__file__))
+            parentdir, zipname = os.path.split(callingdir)
+            archivefile = os.path.join(self.output_folder, zipname)
+            shutil.make_archive(archivefile, 'zip', parentdir, zipname)
+
             # Change logging file to be in output dir
             logger_override_string = (
                 '{handlers.file_handler.filename: %s}'
@@ -160,6 +168,10 @@ class Experiment:
         logger.info('Beginning experiment!')
         if hasattr(self, 'output_folder'):
             logger.info('Output folder: %s' % self.output_folder)
+
+        # Log commit hash
+        commit_hash = subprocess.check_output(["git", "describe", "--always"])
+        logger.debug("Commit hash: '%s'" % commit_hash.decode('utf-8').strip())
 
     def recover_if_possible(self, max_key=None, min_key=None):
         """
