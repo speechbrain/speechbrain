@@ -421,16 +421,14 @@ def call(callable_string, args=[], kwargs={}):
     if callable_ is None:
         raise ImportError('There is no such callable as %s' % callable_string)
 
-    signature = inspect.signature(callable_)
-
     try:
-        signature.bind(*args, **kwargs)
+        result = callable_(*args, **kwargs)
     except TypeError as e:
         err_msg = 'Invalid argument to callable %s' % callable_string
         e.args = (err_msg, *e.args)
         raise
 
-    return callable_(*args, **kwargs)
+    return result
 
 
 def deref(ref, preview):
