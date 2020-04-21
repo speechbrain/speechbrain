@@ -14,6 +14,7 @@ import logging
 import inspect
 import argparse
 import subprocess
+from tqdm.contrib import tzip
 from speechbrain.utils.logger import setup_logging
 from speechbrain.utils.checkpoints import Checkpointer
 from speechbrain.utils.checkpoints import ckpt_recency
@@ -429,3 +430,167 @@ def nest(dictionary, args, val):
         dictionary[args[0]] = {}
 
     nest(dictionary[args[0]], args[1:], val)
+
+
+class Brain(torch.nn.Module):
+    """A class for abstracting details of training.
+
+    Sub-class this class to use the `learn` function, and override methods
+    to specify behavior. In particular, the  `loss_computation` method should
+    be overridden to compute your particular loss, and if the models are not
+    simply applied in sequence, then `init_params` and `forward` should be
+    overridden as well.
+
+    Arguments
+    ---------
+    models : list
+        A sequence of models that are being trained.
+    optimizer : optimizer
+        Takes a list of models for which the backwards has been
+        computed, and applies the updates to all the parameters.
+    scheduler : scheduler
+        Takes an optimizer and changes the learning rate appropriately.
+    checkpointer : checkpointer
+        A checkpointer that has been initialized with all the items
+        that need to be saved.
+
+    Example
+    -------
+    >>> class SimpleBrain(Brain):
+    ...     def loss_computation(self, predictions, targets):
+    ...         return torch.abs(predictions - targets)
+    >>> model = torch.nn.Linear(in_features=10, out_features=10)
+    >>> opt = torch.optim.SGD(model.parameters(), lr=0.01)
+    >>> brain = SimpleBrain([model], opt)
+    >>> brain.init_params(torch.rand(10, 10))
+    >>> brain.train_batch(torch.rand(10, 10), torch.rand(10, 10))
+    """
+    def __init__(
+        self,
+        models,
+        optimizer,
+        scheduler=None,
+        checkpointer=None,
+    ):
+        super().__init__()
+        self.models = torch.nn.ModuleList(models)
+        self.optimizer = optimizer
+        self.scheduler = scheduler
+        self.checkpointer = checkpointer
+
+    def forward(self, x):
+        """Override if the models aren't simply applied in order."""
+        for model in self.models:
+            x = model(x)
+        return x
+
+    def compute_objectives(self, predictions, targets, train=True):
+        """Compute loss, to be overridden by sub-classes."""
+        raise NotImplementedError
+
+    def train_batch(self, batch):
+        """Train on one batch, override to do multiple updates."""
+        inputs, targets = batch
+        predictions = self(inputs)
+        loss = self.compute_objectives(predictions, targets)
+        loss.backward()
+        self.optimizer(self.models)
+        return {'loss': loss.detach()}
+
+    def evaluate_batch(self, batch):
+        """Evaluate one batch, override for different procedure than train."""
+        inputs, targets = batch
+        output = self(inputs)
+        loss, stats = self.compute_objectives(output, targets, train=False)
+        stats['loss'] = loss.detach()
+        return stats
+
+    def summarize(self, stats):
+        """Take a list of stats from a pass through data and summarize it.
+
+        By default, averages the loss and returns the average.
+
+        Arguments
+        ---------
+        stats : list
+            A list of stats to summarize.
+        """
+        return float(sum(s['loss'] for s in stats) / len(stats))
+
+    def learn(
+        self,
+        epoch_counter,
+        train_set,
+        valid_set,
+        max_keys=[],
+        min_keys=[],
+    ):
+        """Iterate epochs and datasets to improve objective.
+
+        Should not need to override, but still possible.
+
+        Arguments
+        ---------
+        epoch_counter : epoch_counter
+            Keeps track of what epoch we're on, to save if necessary.
+        train_set : list
+            a list of datasets to use for training, zipped before iterating.
+        valid_set : list
+            a list of datasets to use for validation, zipped before iterating.
+        max_keys : list
+            a list of keys to use for checkpointing, highest value is kept.
+        min_keys : list
+            a list of keys to use for checkpointing, lowest value is kept.
+        """
+        self(next(iter(train_set[0])), init_params=True)
+        self.optimizer.init_params(self.models)
+        if self.checkpointer is not None:
+            self.checkpointer.recover_if_possible()
+
+        for epoch in epoch_counter:
+            self.train()
+            train_stats = []
+            for batch in tzip(*train_set):
+                train_stats.append(self.train_batch(batch))
+            train_summary = self.summarize(train_stats)
+
+            self.eval()
+            valid_stats = []
+            with torch.no_grad():
+                for batch in tzip(*valid_set):
+                    valid_stats.append(self.evaluate_batch(batch))
+            valid_summary = self.summarize(valid_stats)
+
+            if self.scheduler is not None:
+                min_val = valid_summary[min_keys[0]]
+                self.scheduler([self.optimizer], epoch, min_val)
+            if self.checkpointer is not None:
+                self.save(valid_summary, max_keys, min_keys)
+
+            logger.info(f'Epoch {epoch} complete')
+            for key in train_summary:
+                logger.info(f'Train {key}: {train_summary[key]:.2f}')
+            for key in valid_summary:
+                logger.info(f'Valid {key}: {valid_summary[key]:.2f}')
+
+    def evaluate(self, test_set):
+        test_stats = []
+        self.eval()
+        with torch.no_grad():
+            for batch in tzip(*test_set):
+                test_stats.append(self.evaluate_batch(batch))
+
+        test_summary = self.summarize(test_stats, write=True)
+        for key in test_summary:
+            logger.info(f'Test {key}: {test_summary[key]:.2f}')
+
+    def save(self, stats, max_keys=[], min_keys=[]):
+        importance_keys = [ckpt_recency]
+        for key in max_keys:
+            importance_keys.append(lambda c, key=key: c.meta[key])
+        for key in min_keys:
+            importance_keys.append(lambda c, key=key: -c.meta[key])
+        self.checkpointer.save_and_keep_only(
+            meta=stats,
+            importance_keys=importance_keys,
+        )
