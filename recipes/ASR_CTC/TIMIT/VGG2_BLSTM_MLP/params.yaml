@@ -1,7 +1,6 @@
 constants:
     output_folder: exp/CTC/TIMIT_VGG2_BSLTM_MLP
-    data_file: !PLACEHOLDER #e.g. /network/tmp1/plantinp/data/TIMIT.tar.gz
-    local_folder: /tmp/timit
+    data_folder: !PLACEHOLDER # e.g. /path/to/TIMIT
     predictions_file: !ref <constants.output_folder>/predictions.csv
     wer_file: !ref <constants.output_folder>/wer.txt
     save_folder: !ref <constants.output_folder>/save
@@ -10,9 +9,9 @@ constants:
     seed: 1234
 
     # Data files
-    csv_train: !ref <constants.local_folder>/train.csv
-    csv_valid: !ref <constants.local_folder>/dev.csv
-    csv_test: !ref <constants.local_folder>/test.csv
+    csv_train: !ref <constants.data_folder>/train.csv
+    csv_valid: !ref <constants.data_folder>/dev.csv
+    csv_test: !ref <constants.data_folder>/test.csv
 
     # Neural Parameters
     N_epochs: 25
@@ -45,13 +44,10 @@ saveables:
         norm_type: global
 
 functions:
-    copy_locally: !speechbrain.data_io.data_preparation.copy_data_locally
-        data_file: !ref <constants.data_file>
-        local_folder: !ref <constants.local_folder>
     prepare_timit: !speechbrain.data_io.data_preparation.timit_prepare
-        data_folder: !ref <constants.local_folder>
+        data_folder: !ref <constants.data_folder>
         splits: [train, dev, test]
-        save_folder: !ref <constants.local_folder>
+        save_folder: !ref <constants.data_folder>
     compute_features: !speechbrain.lobes.features.Features
         feature_type: fbank
         deltas: False

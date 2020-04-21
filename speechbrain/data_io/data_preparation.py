@@ -21,101 +21,6 @@ from speechbrain.data_io.data_io import (
 logger = logging.getLogger(__name__)
 
 
-class copy_data_locally():
-    """
-     -------------------------------------------------------------------------
-     Description:
-        This class copies a compressed dataset into another folder.
-        It can be used to store the data locally when the original
-        dataset it is stored in a shared filesystem.
-
-     Input:- data_file (type: file_list, mandatory):
-               it is a list containing the files to copy.
-
-           - local_folder (type: directory, mandatory):
-               it the local directory where to store the
-               dataset. The dataset will be uncompressed in
-               this folder.
-
-           - copy_cmd (type: str, default: 'rsync'):
-               it is command to run for copying the dataset.
-
-           - copy_opts (type: str, default: ''):
-               it is a string containing the flags to be used
-               for the copy command copy_cmd.
-
-           - uncompress_cmd (type: str, default: 'tar'):
-               it is command to uncompress the dataset.
-
-           - uncompress_opts (type: str, default: '-zxf'):
-               it is a string containing the flags to be used
-               for the uncompress command.
-
-     Example:    from speechbrain.data_io.data_preparation import (
-                    copy_data_locally)
-
-                 data_file='/home/mirco/datasets/TIMIT.tar.gz'
-                 local_folder='/home/mirco/datasets/local_folder/TIMIT'
-
-                # Initialization of the class
-                copy_data_locally(data_file=data_file,
-                                  local_folder=local_folder)
-     -------------------------------------------------------------------------
-     """
-
-    def __init__(
-        self,
-        data_file,
-        local_folder,
-    ):
-        self.data_file = data_file
-        self.local_folder = local_folder
-
-    def __call__(self):
-
-        # Try to make the local folder
-        try:
-            os.makedirs(self.local_folder)
-        except OSError as e:
-            if e.errno != errno.EEXIST:
-                err_msg = "Cannot create the data local folder %s!" % (
-                    self.local_folder
-                )
-                e.args = (*e.args, err_msg)
-                raise
-
-        # Destination file
-        filename = os.path.basename(self.data_file)
-        self.dest_file = os.path.join(self.local_folder, filename)
-
-        if not os.path.exists(self.dest_file):
-
-            # Copy data file in the local_folder
-            msg = "copying file %s into %s !" % (
-                self.data_file,
-                self.dest_file,
-            )
-            logger.debug(msg)
-
-            # For pre-3.8, faster copy of large files, from:
-            # https://stackoverflow.com/a/20371865/1761970
-            if sys.version_info[1] < 8:
-                with open(self.data_file, 'rb') as fin:
-                    with open(self.dest_file, 'wb') as fout:
-                        shutil.copyfileobj(fin, fout, 128*1024)
-            else:
-                shutil.copy(self.data_file, self.dest_file)
-
-            # Uncompress the data_file in the local_folder
-            msg = "uncompressing file %s into %s !" % (
-                self.dest_file,
-                self.local_folder,
-            )
-            logger.debug(msg)
-
-            shutil.unpack_archive(self.dest_file, self.local_folder)
-
-
 class timit_prepare(torch.nn.Module):
     """
      -------------------------------------------------------------------------
@@ -196,7 +101,7 @@ class timit_prepare(torch.nn.Module):
         # Expected inputs when calling the class (no inputs in this case)
         super().__init__()
 
-        self.data_folder = os.path.join(data_folder, 'TIMIT')
+        self.data_folder = data_folder
         self.splits = splits
         self.kaldi_ali_tr = kaldi_ali_tr
         self.kaldi_ali_dev = kaldi_ali_dev
