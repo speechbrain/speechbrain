@@ -1095,6 +1095,42 @@ def convert_index_to_lab(batch, ind2lab):
     return [[ind2lab[int(index)] for index in seq] for seq in batch]
 
 
+def relative_time_to_absolute(batch, relative_lens, rate):
+    """
+    Converts SpeechBrain style relative length to absolute duration
+
+    Operates on batch level.
+    
+    Arguments
+    ---------
+    batch : torch.tensor
+        Sequences to determine duration for.
+    relative_lens : torch.tensor
+        The relative length of each sequence in batch. The longest sequence in 
+        the batch needs to have relative length 1.0.
+    rate : float
+        The rate at which sequence elements occur in real world time. Sample
+        rate, if batch is raw wavs (recommended) or 1/frame_shift if batch is
+        features. This has to have 1/s as the unit.
+
+    Returns
+    -------
+    torch.tensor
+        Duration of each sequence in seconds.
+
+    Example
+    -------
+    >>> batch = torch.ones(2, 16000)
+    >>> relative_lens = torch.tensor([3./4., 1.0])
+    >>> rate = 16000
+    >>> print(relative_time_to_absolute(batch, relative_lens, rate))
+    tensor([0.7500, 1.0000])
+    """
+    max_len = batch.shape[-1]
+    durations = torch.round(relative_lens * max_len) / rate
+    return durations
+
+
 class IterativeCSVWriter:
     """Write CSV files a line at a time.
     
@@ -1122,11 +1158,35 @@ class IterativeCSVWriter:
     ID,duration,phn,phn_format,phn_opts
     UTT1,2.5,sil hh ee ll ll oo sil,string,
     UTT2,,sil ww oo rr ll dd sil,string,
+    >>> writer.set_default('phn_format', 'string')
+    >>> writer.write_batch(ID=["UTT3","UTT4"],phn=["ff oo oo", "bb aa rr"])
+    >>> print(f.getvalue())
+    ID,duration,phn,phn_format,phn_opts
+    UTT1,2.5,sil hh ee ll ll oo sil,string,
+    UTT2,,sil ww oo rr ll dd sil,string,
+    UTT3,,ff oo oo,string,
+    UTT4,,bb aa rr,string,
     """
-    def __init__(self, outstream, data_fields):
+    def __init__(self, outstream, data_fields, defaults={}):
         self._outstream = outstream
-        self._fields = ["ID", "duration"] + self._expand_data_fields(data_fields)
-        self._outstream.write(",".join( self._fields))
+        self.fields = ["ID", "duration"] + self._expand_data_fields(data_fields)
+        self.defaults = defaults
+        self._outstream.write(",".join( self.fields))
+
+    def set_default(self, field, value):
+        """
+        Sets a default value for the given CSV field.
+
+        Arguments
+        ---------
+        field : str
+            A field in the CSV
+        value
+            The default value
+        """
+        if field not in self.fields:
+            raise ValueError(f"{field} is not a field in this CSV!")
+        self.defaults[field] = value
 
     def write(self, *args, **kwargs):
         """
@@ -1143,15 +1203,47 @@ class IterativeCSVWriter:
         if args and kwargs:
             raise ValueError("Use either positional fields or named fields, but not both.")
         if args:
-            if len(args) != len(self._fields):
+            if len(args) != len(self.fields):
                 raise ValueError("Need consistent fields")
             to_write = [str(arg) for arg in args]
         if kwargs:
-            if not "ID" in kwargs:
+            if "ID" not in kwargs:
                 raise ValueError("I'll need to see some ID")
-            to_write = [str(kwargs.get(field, "")) for field in self._fields]
+            full_vals = self.defaults.copy()
+            full_vals.update(kwargs)
+            to_write = [str(full_vals.get(field, "")) for field in self.fields]
         self._outstream.write("\n")
         self._outstream.write(",".join(to_write))
+
+    def write_batch(self, *args, **kwargs):
+        """
+        Writes a batch of lines into the CSV 
+
+        Here each argument should be a list with the same length.
+
+        Arguments
+        ---------
+        *args
+            Supply every field with a value in positional form OR
+        **kwargs
+            Supply certain fields by key. The ID field is mandatory for all 
+            lines, but others can be left empty.
+        """
+        if args and kwargs:
+            raise ValueError("Use either positional fields or named fields, but not both.")
+        if args:
+            if len(args) != len(self.fields):
+                raise ValueError("Need consistent fields")
+            for arg_row in zip(*args):
+                self.write(*arg_row)
+        if kwargs:
+            if "ID" not in kwargs:
+                raise ValueError("I'll need to see some ID")
+            keys = kwargs.keys()
+            for value_row in zip(*kwargs.values()):
+                kwarg_row = dict(zip(keys, value_row))
+                self.write(**kwarg_row)
+
 
     @staticmethod
     def _expand_data_fields(data_fields):

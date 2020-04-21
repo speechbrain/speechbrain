@@ -5,6 +5,7 @@ import speechbrain.utils.edit_distance as edit_distance
 import speechbrain.data_io.wer as wer_io
 from speechbrain.data_io.data_io import IterativeCSVWriter 
 from speechbrain.data_io.data_io import convert_index_to_lab
+from speechbrain.data_io.data_io import relative_time_to_absolute 
 from speechbrain.decoders.ctc import ctc_greedy_decode
 from speechbrain.decoders.decoders import undo_padding 
 from tqdm.contrib import tzip
@@ -78,6 +79,7 @@ def main():
         ind2lab = sb.train_loader.label_dict["phn"]["index2lab"]
         with open(sb.predictions_file, "w") as fo:
             hyp_writer = IterativeCSVWriter(fo, ["predictions"])
+            hyp_writer.set_default('predictions_format', 'string')
             for wav, phn in tzip(*test_set):
                 ids, wav, wav_len = prepare_for_computations(wav)
                 ids, phn, phn_len = prepare_for_computations(phn)
@@ -85,8 +87,12 @@ def main():
                 hyps, batch_details = evaluation(
                         ids, pout, phn, wav_len, phn_len, ind2lab)
                 details_by_utt.extend(batch_details)
-                write_hyps(hyp_writer, ids, 
-                        hyps, wav_len, wav.shape[-1])  # Time last 
+                durations = relative_time_to_absolute(
+                        wav, wav_len, sb.sample_rate)
+                hyps_str = [" ".join(hyp) for hyp in hyps]
+                hyp_writer.write_batch(ID=ids, 
+                        duration=durations.tolist(),
+                        predictions=hyps_str)
 
     summary_details = edit_distance.wer_summary(details_by_utt)
     with open(sb.wer_file, "w") as fo:
@@ -146,14 +152,6 @@ def evaluation(ids, pout, phn, wav_len, phn_len, ind2lab):
             batch_outputs, 
             compute_alignments=True)
     return batch_outputs, details_by_utt
-
-
-def write_hyps(hyp_writer, ids, hyps, wav_lens, max_len):
-    for ID, hyp_item, wav_len in zip(ids, hyps, wav_lens):
-        duration = int(wav_len * max_len) / sb.sample_rate 
-        hyp_writer.write(ID=ID, duration=duration, 
-                predictions = f'"{" ".join(hyp_item)}"',
-                predictions_format = "string")
 
 
 if __name__ == '__main__':
