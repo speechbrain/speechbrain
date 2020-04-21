@@ -38,7 +38,6 @@ class Experiment:
 
         * output_folder (str): The experimental directory for logs, results,
             labels, and other experimental files.
-        * data_file (str): The archived dataset folder.
         * local_folder (str): The directory to use for local storage.
         * save_folder (str): The directory to use for storing parameters
             (see next section).
@@ -347,13 +346,8 @@ def parse_arguments(arg_list):
         help='A folder for storing all experiment-related outputs.',
     )
     parser.add_argument(
-        '--data_file',
-        help='An archive containing all the data files used in training.',
-    )
-    parser.add_argument(
-        '--local_folder',
-        help='A folder for storing temporary on-disk information. Useful '
-        'for functions like `copy_locally()`.',
+        '--data_folder',
+        help='A folder containing the data used for training', 
     )
     parser.add_argument(
         '--save_folder',

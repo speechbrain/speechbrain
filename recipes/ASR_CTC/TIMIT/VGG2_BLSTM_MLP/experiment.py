@@ -19,7 +19,6 @@ with open('recipes/ASR_CTC/TIMIT/VGG2_BLSTM_MLP/params.yaml') as fi:
 def main():
 
     # Prepare the data
-    sb.copy_locally()
     sb.prepare_timit()
     train_set = sb.train_loader()
     valid_set = sb.valid_loader()
