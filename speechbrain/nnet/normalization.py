@@ -177,40 +177,38 @@ class normalize(nn.Module):
         # Reshaping when input to batchnorm1d is 3d makes it faster
         self.reshape = False
 
-        def hook(self, first_input):
+    def init_params(self, first_input):
 
-            # Initializing bachnorm
-            if self.norm_type == "batchnorm":
-                self.norm = self.batchnorm(first_input)
+        # Initializing bachnorm
+        if self.norm_type == "batchnorm":
+            self.norm = self.batchnorm(first_input)
 
-            # Initializing groupnorm
-            if self.norm_type == "groupnorm":
-                n_ch = first_input[0].shape[1]
-                self.norm = torch.nn.GroupNorm(
-                    self.num_groups, n_ch, eps=self.eps, affine=self.affine
-                )
+        # Initializing groupnorm
+        if self.norm_type == "groupnorm":
+            n_ch = first_input.shape[1]
+            self.norm = torch.nn.GroupNorm(
+                self.num_groups, n_ch, eps=self.eps, affine=self.affine
+            )
 
-            # Initializing instancenorm
-            if self.norm_type == "instancenorm":
-                self.norm = self.instancenorm(first_input)
+        # Initializing instancenorm
+        if self.norm_type == "instancenorm":
+            self.norm = self.instancenorm(first_input)
 
-            # Initializing layernorm
-            if self.norm_type == "layernorm":
-                self.norm = torch.nn.LayerNorm(
-                    first_input[0].size()[1:-1],
-                    eps=self.eps,
-                    elementwise_affine=self.elementwise_affine,
-                )
+        # Initializing layernorm
+        if self.norm_type == "layernorm":
+            self.norm = torch.nn.LayerNorm(
+                first_input.size()[1:-1],
+                eps=self.eps,
+                elementwise_affine=self.elementwise_affine,
+            )
 
-                self.reshape = True
+            self.reshape = True
 
-            # Initializing localresponsenorm
-            if self.norm_type == "localresponsenorm":
-                self.norm = torch.nn.LocalResponseNorm(
-                    self.neigh_ch, alpha=self.alpha, beta=self.beta, k=self.k
-                )
-
-        self.hook = self.register_forward_pre_hook(hook)
+        # Initializing localresponsenorm
+        if self.norm_type == "localresponsenorm":
+            self.norm = torch.nn.LocalResponseNorm(
+                self.neigh_ch, alpha=self.alpha, beta=self.beta, k=self.k
+            )
 
     def forward(self, x):
 
@@ -274,10 +272,10 @@ class normalize(nn.Module):
          """
 
         # Getting the feature dimension
-        fea_dim = first_input[0].shape[1]
+        fea_dim = first_input.shape[1]
 
         # Based on the shape of the input tensor I can use 1D,2D, or 3D batchn
-        if len(first_input[0].shape) <= 3:
+        if len(first_input.shape) <= 3:
 
             # Managing 1D batchnorm
             norm = nn.BatchNorm1d(
@@ -288,10 +286,10 @@ class normalize(nn.Module):
                 track_running_stats=self.track_running_stats,
             )
 
-            if len(first_input[0].shape) == 3:
+            if len(first_input.shape) == 3:
                 self.reshape = True
 
-        if len(first_input[0].shape) == 4:
+        if len(first_input.shape) == 4:
 
             # Managing 2D batchnorm
             norm = nn.BatchNorm2d(
@@ -302,7 +300,7 @@ class normalize(nn.Module):
                 track_running_stats=self.track_running_stats,
             )
 
-        if len(first_input[0].shape) == 5:
+        if len(first_input.shape) == 5:
 
             # Managing 3D batchnorm
             norm = nn.BatchNorm3d(
@@ -313,7 +311,7 @@ class normalize(nn.Module):
                 track_running_stats=self.track_running_stats,
             )
 
-        return norm.to(first_input[0].device)
+        return norm.to(first_input.device)
 
     def instancenorm(self, first_input):
         """
@@ -355,12 +353,12 @@ class normalize(nn.Module):
 
          """
         # Getting the feature dimension
-        fea_dim = first_input[0].shape[1]
+        fea_dim = first_input.shape[1]
 
         # Based on the shape of the input tensor I can use 1D,2D, or 3D
         # instance normalization
 
-        if len(first_input[0].shape) == 3:
+        if len(first_input.shape) == 3:
             # 1D case
             norm = nn.InstanceNorm1d(
                 fea_dim,
@@ -369,7 +367,7 @@ class normalize(nn.Module):
                 track_running_stats=self.track_running_stats,
             )
 
-        if len(first_input[0].shape) == 4:
+        if len(first_input.shape) == 4:
             # 2D case
             norm = nn.InstanceNorm2d(
                 fea_dim,
@@ -379,7 +377,7 @@ class normalize(nn.Module):
                 track_running_stats=self.track_running_stats,
             )
 
-        if len(first_input[0].shape) == 5:
+        if len(first_input.shape) == 5:
             # 3D case
             norm = nn.InstanceNorm3d(
                 fea_dim,
