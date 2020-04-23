@@ -487,15 +487,15 @@ class Brain(torch.nn.Module):
                     for batch in tzip(*valid_set):
                         valid_stats.append(self.evaluate_batch(batch))
                 summary = self.summarize(valid_stats)
+                for key in summary:
+                    logger.info(f"Valid {key}: {summary[key]:.2f}")
 
-                if self.scheduler is not None:
-                    min_val = summary[min_keys[0]]
-                    self.scheduler([self.optimizer], epoch, min_val)
-                if self.saver is not None:
-                    self.save(valid_summary, max_keys, min_keys)
+            if self.scheduler is not None:
+                min_val = summary[min_keys[0]]
+                self.scheduler([self.optimizer], epoch, min_val)
+            if self.saver is not None:
+                self.save(summary, max_keys, min_keys)
 
-                for key in valid_summary:
-                    logger.info(f"Valid {key}: {valid_summary[key]:.2f}")
 
     def evaluate(self, test_set, max_key=None, min_key=None):
         """Iterate test_set and evaluate model performance.
