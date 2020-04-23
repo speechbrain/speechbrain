@@ -6,13 +6,12 @@ They have a file argument, but you can also just use
 contextlib.redirect_stdout, which may give a nicer syntax
 """
 import sys
-import contextlib
 import speechbrain.utils.edit_distance as edit_distance
 
 
 def print_wer_summary(wer_details, file=sys.stdout):
     """Prints out WER summary details in human readable format.
-    
+
     This function essentially mirrors the Kaldi compute-wer output format
 
     Arguments:
@@ -23,7 +22,7 @@ def print_wer_summary(wer_details, file=sys.stdout):
 
     Author:
         Aku Rouhe 2020
-        
+
     """
     print(
         "%WER {WER:.2f} [ {num_edits} / {num_scored_tokens}, {insertions} ins, {deletions} del, {substitutions} sub ]".format(  # noqa
@@ -52,8 +51,7 @@ def print_wer_summary(wer_details, file=sys.stdout):
     )
 
 
-def print_alignments(details_by_utterance, 
-        file=sys.stdout):
+def print_alignments(details_by_utterance, file=sys.stdout):
     """Print WER summary and alignments
 
     Arguments:
@@ -73,12 +71,13 @@ def print_alignments(details_by_utterance,
                 dets["alignment"],
                 dets["ref_tokens"],
                 dets["hyp_tokens"],
-                file=file
+                file=file,
             )
 
 
 # The following internal functions are used to
 # print out more specific things
+
 
 def _print_top_wer_utts(top_non_empty, top_empty, file=sys.stdout):
     print("=" * 80, file=file)
@@ -101,7 +100,6 @@ def _print_top_wer_utts(top_non_empty, top_empty, file=sys.stdout):
             print("{key} %WER {WER:.2f}".format(**dets), file=file)
     else:
         print("No utterances which had not produced output!", file=file)
-
 
 
 def _print_top_wer_spks(spks_by_wer, file=sys.stdout):

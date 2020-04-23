@@ -10,20 +10,20 @@ from itertools import groupby
 
 def filter_ctc_output(string_pred, blank_id=-1):
     """Apply CTC output merge and filter rules.
-    
-    Removes the blank symbol and output repetitions. 
+
+    Removes the blank symbol and output repetitions.
 
     Parameters
-    ---------- 
+    ----------
     string_pred : list
         a list containing the output strings/ints predicted by the CTC system
     blank_id : int, string
         the id of the blank
 
-    Returns 
+    Returns
     ------
     list
-          The output predicted by CTC without the blank symbol and 
+          The output predicted by CTC without the blank symbol and
           the repetitions
 
     Example
@@ -56,7 +56,7 @@ def filter_ctc_output(string_pred, blank_id=-1):
     return string_out
 
 
-def ctc_greedy_decode(probabilities, seq_lens, blank_id = -1):
+def ctc_greedy_decode(probabilities, seq_lens, blank_id=-1):
     """
     Greedy decode a batch of probabilities and apply CTC rules
 
@@ -89,7 +89,7 @@ def ctc_greedy_decode(probabilities, seq_lens, blank_id = -1):
         >>> blank_id = 0
         >>> ctc_greedy_decode(probs, lens, blank_id)
         [[1], [1]]
-    
+
     Author:
         Aku Rouhe 2020
     """
@@ -98,12 +98,8 @@ def ctc_greedy_decode(probabilities, seq_lens, blank_id = -1):
     batch_max_len = probabilities.shape[-1]  # Assume time last
     batch_outputs = []
     for seq, seq_len in zip(probabilities, seq_lens):
-        actual_size = int(
-            torch.round(seq_len * batch_max_len)
-        )
+        actual_size = int(torch.round(seq_len * batch_max_len))
         scores, predictions = torch.max(seq.narrow(-1, 0, actual_size), dim=0)
-        out = filter_ctc_output(
-                predictions.tolist(), blank_id=blank_id
-        )
+        out = filter_ctc_output(predictions.tolist(), blank_id=blank_id)
         batch_outputs.append(out)
     return batch_outputs

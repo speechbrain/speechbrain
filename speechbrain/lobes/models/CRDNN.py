@@ -3,7 +3,7 @@
 Authors: Mirco Ravanelli 2020, Peter Plantinga 2020, Ju-Chieh Chou 2020,
     Titouan Parcollet 2020, Abdel 2020
 """
-import torch
+import torch  # noqa: F401
 from speechbrain.nnet.architectures import linear, activation, Sequential
 from speechbrain.utils.data_utils import load_extended_yaml, recursive_update
 
@@ -52,6 +52,7 @@ class CRDNN(Sequential):
     >>> outputs.shape
     torch.Size([10, 40, 116])
     """
+
     def __init__(
         self,
         output_size,
@@ -65,28 +66,34 @@ class CRDNN(Sequential):
         blocks = []
 
         for i in range(cnn_blocks):
-            blocks.append(NeuralBlock(
-                block_index=i + 1,
-                param_file='speechbrain/lobes/models/cnn_block.yaml',
-                overrides=cnn_overrides,
-            ))
+            blocks.append(
+                NeuralBlock(
+                    block_index=i + 1,
+                    param_file="speechbrain/lobes/models/cnn_block.yaml",
+                    overrides=cnn_overrides,
+                )
+            )
 
         for i in range(rnn_blocks):
-            blocks.append(NeuralBlock(
-                block_index=i + 1,
-                param_file='speechbrain/lobes/models/rnn_block.yaml',
-                overrides=rnn_overrides,
-            ))
+            blocks.append(
+                NeuralBlock(
+                    block_index=i + 1,
+                    param_file="speechbrain/lobes/models/rnn_block.yaml",
+                    overrides=rnn_overrides,
+                )
+            )
 
         for i in range(dnn_blocks):
-            blocks.append(NeuralBlock(
-                block_index=i + 1,
-                param_file='speechbrain/lobes/models/dnn_block.yaml',
-                overrides=dnn_overrides,
-            ))
+            blocks.append(
+                NeuralBlock(
+                    block_index=i + 1,
+                    param_file="speechbrain/lobes/models/dnn_block.yaml",
+                    overrides=dnn_overrides,
+                )
+            )
 
         blocks.append(linear(output_size, bias=False))
-        blocks.append(activation('log_softmax'))
+        blocks.append(activation("log_softmax"))
 
         super().__init__(blocks)
 
@@ -122,12 +129,13 @@ class NeuralBlock(Sequential):
     >>> outputs.shape
     torch.Size([10, 1024, 200])
     """
+
     def __init__(self, block_index, param_file, overrides={}):
         """"""
 
-        block_override = {'constants': {'block_index': block_index}}
+        block_override = {"constants": {"block_index": block_index}}
         recursive_update(overrides, block_override)
         layers = load_extended_yaml(open(param_file), overrides)
-        sequence = layers['constants']['sequence']
+        sequence = layers["constants"]["sequence"]
 
         super().__init__([layers[op] for op in sequence])

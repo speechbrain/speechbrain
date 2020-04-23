@@ -9,15 +9,12 @@ Authors: Mirco Ravanelli 2020, Peter Plantinga 2020, Aku Rouhe 2020
 
 import os
 import re
-import copy
 import yaml
 import torch
-import inspect
 import ruamel.yaml
 import collections.abc
 from io import StringIO
 from pydoc import locate
-from ruamel.yaml.nodes import ScalarNode
 
 
 def get_all_files(
@@ -149,7 +146,7 @@ def split_list(seq, num):
 
     # Creating the chunks
     while last < len(seq):
-        out.append(seq[int(last): int(last + avg)])
+        out.append(seq[int(last) : int(last + avg)])
         last += avg
 
     return out
@@ -289,7 +286,7 @@ def load_extended_yaml(yaml_stream, overrides={}):
     {'constants': {'a': 3}, 'thing': Counter({'b': 3})}
     '''
     yaml_stream = resolve_references(yaml_stream, overrides)
-    yaml.SafeLoader.add_multi_constructor('!', object_constructor)
+    yaml.SafeLoader.add_multi_constructor("!", object_constructor)
     return yaml.safe_load(yaml_stream)
 
 
@@ -348,10 +345,13 @@ def _walk_tree_and_resolve(current_node, tree):
     -------
     A yaml tree with all references resolved.
     """
-    if hasattr(current_node, 'tag') and current_node.tag.value == '!PLACEHOLDER':
+    if (
+        hasattr(current_node, "tag")
+        and current_node.tag.value == "!PLACEHOLDER"
+    ):
         MSG = f"Replace !PLACEHOLDER values in YAML."
         raise ValueError(MSG)
-    elif hasattr(current_node, 'tag') and current_node.tag.value == '!ref':
+    elif hasattr(current_node, "tag") and current_node.tag.value == "!ref":
         current_node = recursive_resolve(current_node.value, [], tree)
     elif isinstance(current_node, list):
         for i, item in enumerate(current_node):
@@ -419,12 +419,12 @@ def call(callable_string, args=[], kwargs={}):
     """
     callable_ = locate(callable_string)
     if callable_ is None:
-        raise ImportError('There is no such callable as %s' % callable_string)
+        raise ImportError("There is no such callable as %s" % callable_string)
 
     try:
         result = callable_(*args, **kwargs)
     except TypeError as e:
-        err_msg = 'Invalid argument to callable %s' % callable_string
+        err_msg = "Invalid argument to callable %s" % callable_string
         e.args = (err_msg, *e.args)
         raise
 
@@ -452,7 +452,7 @@ def deref(ref, preview):
     """
 
     # Follow references in dot notation
-    for part in ref[1:-1].split('.'):
+    for part in ref[1:-1].split("."):
         if part not in preview:
             raise ValueError('The reference "%s" is not valid' % ref)
         preview = preview[part]
@@ -492,7 +492,7 @@ def recursive_resolve(reference, reference_list, preview):
     """
     # Non-greedy operator won't work here, because the fullmatch will
     # still match if the first and last things happen to be references
-    reference_finder = re.compile(r'<[^>]*>')
+    reference_finder = re.compile(r"<[^>]*>")
     if len(reference_list) > 1 and reference in reference_list[1:]:
         raise ValueError("Circular reference detected: ", reference_list)
 
@@ -541,22 +541,20 @@ def compute_amplitude(waveforms, lengths):
     >>> compute_amplitude(signal, len(signal))
     tensor([0.0125])
     """
-    return torch.sum(
-        input=torch.abs(waveforms),
-        dim=-1,
-        keepdim=True,
-    ) / lengths
+    return (
+        torch.sum(input=torch.abs(waveforms), dim=-1, keepdim=True,) / lengths
+    )
 
 
 def convolve1d(
     waveform,
     kernel,
     padding=0,
-    pad_type='constant',
+    pad_type="constant",
     stride=1,
     groups=1,
     use_fft=False,
-    rotation_index=0
+    rotation_index=0,
 ):
     """Use torch.nn.functional to perform 1d padding and conv.
 
@@ -611,9 +609,7 @@ def convolve1d(
     # Padding can be a tuple (left_pad, right_pad) or an int
     if isinstance(padding, tuple):
         waveform = torch.nn.functional.pad(
-            input=waveform,
-            pad=padding,
-            mode=pad_type,
+            input=waveform, pad=padding, mode=pad_type,
         )
 
     # This approach uses FFT, which is more efficient if the kernel is large
@@ -640,10 +636,13 @@ def convolve1d(
         # Complex multiply
         sig_real, sig_imag = f_signal.unbind(-1)
         ker_real, ker_imag = f_kernel.unbind(-1)
-        f_result = torch.stack([
-            sig_real*ker_real - sig_imag*ker_imag,
-            sig_real*ker_imag + sig_imag*ker_real,
-        ], dim=-1)
+        f_result = torch.stack(
+            [
+                sig_real * ker_real - sig_imag * ker_imag,
+                sig_real * ker_imag + sig_imag * ker_real,
+            ],
+            dim=-1,
+        )
 
         # Inverse FFT
         return torch.irfft(f_result, 1)
@@ -721,7 +720,7 @@ def notch_filter(notch_freq, filter_width=101, notch_width=0.05):
             return torch.sin(x) / x
 
         # The zero is at the middle index
-        return torch.cat([_sinc(x[:pad]), torch.ones(1), _sinc(x[pad+1:])])
+        return torch.cat([_sinc(x[:pad]), torch.ones(1), _sinc(x[pad + 1 :])])
 
     # Compute a low-pass filter with cutoff frequency notch_freq.
     hlpf = sinc(3 * (notch_freq - notch_width) * inputs)

@@ -6,6 +6,7 @@ import math
 import torch
 import logging
 from speechbrain.utils import checkpoints
+
 logger = logging.getLogger(__name__)
 
 
@@ -239,7 +240,7 @@ class lr_annealing(torch.nn.Module):
 
             if next_lr != current_lr:
                 logger.info(
-                    'Changing lr from %.2g to %.2g' % (current_lr, next_lr)
+                    "Changing lr from %.2g to %.2g" % (current_lr, next_lr)
                 )
 
         # Appending current loss
@@ -410,14 +411,12 @@ class lr_annealing(torch.nn.Module):
 
     @checkpoints.mark_as_saver
     def save(self, path):
-        data = {'losses': self.losses,
-                'current_patient': self.current_patient}
+        data = {"losses": self.losses, "current_patient": self.current_patient}
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
     def load(self, path, end_of_epoch):
         del end_of_epoch  # Unused in this class
         data = torch.load(path)
-        self.losses = data['losses']
-        self.current_patient = data['current_patient']
-        
+        self.losses = data["losses"]
+        self.current_patient = data["current_patient"]

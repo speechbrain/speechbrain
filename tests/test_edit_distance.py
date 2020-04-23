@@ -41,7 +41,7 @@ def test_op_table():
 def test_alignment():
     from speechbrain.utils.edit_distance import alignment, EDIT_SYMBOLS
 
-    I = EDIT_SYMBOLS["ins"]
+    I = EDIT_SYMBOLS["ins"]  # noqa: E741, here I is a good var name
     D = EDIT_SYMBOLS["del"]
     S = EDIT_SYMBOLS["sub"]
     E = EDIT_SYMBOLS["eq"]
@@ -52,7 +52,7 @@ def test_alignment():
 def test_count_ops():
     from speechbrain.utils.edit_distance import count_ops, EDIT_SYMBOLS
 
-    I = EDIT_SYMBOLS["ins"]
+    I = EDIT_SYMBOLS["ins"]  # noqa: E741, here I is a good var name
     D = EDIT_SYMBOLS["del"]
     S = EDIT_SYMBOLS["sub"]
     E = EDIT_SYMBOLS["eq"]

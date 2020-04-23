@@ -2,6 +2,7 @@ from .checkpoints import register_checkpoint_hooks
 from .checkpoints import mark_as_saver
 from .checkpoints import mark_as_loader
 import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -20,7 +21,7 @@ class EpochCounter:
         >>> with tempfile.TemporaryDirectory() as tempdir:
         ...         recoverer = Checkpointer(tempdir, {"epoch": epoch_counter})
         ...         recoverer.recover_if_possible()
-        ...         # Now after recovery, 
+        ...         # Now after recovery,
         ...         # the epoch starts from where it left off!
         ...         for epoch in epoch_counter:
         ...             # Run training...

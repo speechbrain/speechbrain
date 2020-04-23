@@ -70,16 +70,17 @@ class AddNoise(torch.nn.Module):
     >>> save_signal = save(save_folder='exp/example', save_format='wav')
     >>> save_signal(noisy, ['example_add_noise'], torch.ones(1))
     """
+
     def __init__(
         self,
         csv_file=None,
-        order='random',
+        order="random",
         batch_size=None,
         do_cache=False,
         snr_low=0,
         snr_high=0,
         pad_noise=False,
-        mix_prob=1.,
+        mix_prob=1.0,
         replacements={},
     ):
         super().__init__()
@@ -149,7 +150,7 @@ class AddNoise(torch.nn.Module):
         new_noise_amplitude = noise_amplitude_factor * clean_amplitude
 
         # Scale clean signal appropriately
-        noisy_waveform[:batch_size] *= (1 - noise_amplitude_factor)
+        noisy_waveform[:batch_size] *= 1 - noise_amplitude_factor
 
         # Loop through clean samples and create mixture
         if self.csv_file is None:
@@ -208,8 +209,8 @@ class AddNoise(torch.nn.Module):
         max_chop = (noise_len - lengths).min().clamp(min=1)
         start_index = torch.randint(high=max_chop, size=(1,))
 
-        # Truncate noise_batch to max_length 
-        noise_batch = noise_batch[..., start_index:start_index + max_length]
+        # Truncate noise_batch to max_length
+        noise_batch = noise_batch[..., start_index : start_index + max_length]
         noise_len = (noise_len - start_index).clamp(max=max_length).unsqueeze(1)
         return noise_batch, noise_len
 
@@ -253,9 +254,9 @@ class AddReverb(torch.nn.Module):
     def __init__(
         self,
         csv_file,
-        order='random',
+        order="random",
         do_cache=False,
-        reverb_prob=1.,
+        reverb_prob=1.0,
         replacements={},
     ):
         super().__init__()
@@ -380,10 +381,7 @@ class SpeedPerturb(torch.nn.Module):
     """
 
     def __init__(
-        self,
-        orig_freq,
-        speeds=[9, 10, 11],
-        perturb_prob=1.,
+        self, orig_freq, speeds=[9, 10, 11], perturb_prob=1.0,
     ):
         super().__init__()
         self.orig_freq = orig_freq
@@ -397,8 +395,8 @@ class SpeedPerturb(torch.nn.Module):
         self.resamplers = []
         for speed in self.speeds:
             config = {
-                'orig_freq': self.orig_freq,
-                'new_freq': self.orig_freq * speed // 10,
+                "orig_freq": self.orig_freq,
+                "new_freq": self.orig_freq * speed // 10,
             }
             self.resamplers.append(Resample(**config))
 
@@ -468,11 +466,9 @@ class Resample(torch.nn.Module):
     ... )
     >>> save_signal(resampled, ["example_resamp"], torch.ones(1))
     """
+
     def __init__(
-        self,
-        orig_freq=16000,
-        new_freq=16000,
-        lowpass_filter_width=6,
+        self, orig_freq=16000, new_freq=16000, lowpass_filter_width=6,
     ):
         super().__init__()
         self.orig_freq = orig_freq
@@ -566,8 +562,7 @@ class Resample(torch.nn.Module):
         window_size = self.weights.size(1)
         tot_output_samp = self._output_samples(wave_len)
         resampled_waveform = torch.zeros(
-            (batch_size, num_channels, tot_output_samp),
-            device=waveform.device,
+            (batch_size, num_channels, tot_output_samp), device=waveform.device,
         )
         self.weights = self.weights.to(waveform.device)
 
@@ -606,14 +601,16 @@ class Resample(torch.nn.Module):
             # we want conv_wave[:, i] to be at
             # output[:, i + n*conv_transpose_stride]
             dilated_conv_wave = torch.nn.functional.conv_transpose1d(
-                conv_wave, eye, stride=self.conv_transpose_stride)
+                conv_wave, eye, stride=self.conv_transpose_stride
+            )
 
             # pad dilated_conv_wave so it reaches the output length if needed.
             left_padding = i
             previous_padding = left_padding + dilated_conv_wave.size(-1)
             right_padding = max(0, tot_output_samp - previous_padding)
             dilated_conv_wave = torch.nn.functional.pad(
-                dilated_conv_wave, (left_padding, right_padding))
+                dilated_conv_wave, (left_padding, right_padding)
+            )
             dilated_conv_wave = dilated_conv_wave[..., :tot_output_samp]
 
             resampled_waveform += dilated_conv_wave
@@ -694,7 +691,7 @@ class Resample(torch.nn.Module):
         window_width = self.lowpass_filter_width / (2.0 * lowpass_cutoff)
 
         assert lowpass_cutoff < min(self.orig_freq, self.new_freq) / 2
-        output_t = torch.arange(0., self.output_samples, device=self.device)
+        output_t = torch.arange(0.0, self.output_samples, device=self.device)
         output_t /= self.new_freq
         min_t = output_t - window_width
         max_t = output_t + window_width
@@ -713,9 +710,14 @@ class Resample(torch.nn.Module):
 
         # raised-cosine (Hanning) window with width `window_width`
         weights[inside_window_indices] = 0.5 * (
-            1 + torch.cos(2 * math.pi * lowpass_cutoff
-                          / self.lowpass_filter_width
-                          * delta_t[inside_window_indices])
+            1
+            + torch.cos(
+                2
+                * math.pi
+                * lowpass_cutoff
+                / self.lowpass_filter_width
+                * delta_t[inside_window_indices]
+            )
         )
 
         t_eq_zero_indices = delta_t.eq(0.0)
@@ -769,11 +771,7 @@ class AddBabble(torch.nn.Module):
     """
 
     def __init__(
-        self,
-        speaker_count=3,
-        snr_low=0,
-        snr_high=0,
-        mix_prob=1,
+        self, speaker_count=3, snr_low=0, snr_high=0, mix_prob=1,
     ):
         super().__init__()
         self.speaker_count = speaker_count
@@ -811,13 +809,13 @@ class AddBabble(torch.nn.Module):
         new_noise_amplitude = noise_amplitude_factor * clean_amplitude
 
         # Scale clean signal appropriately
-        babbled_waveform *= (1 - noise_amplitude_factor)
+        babbled_waveform *= 1 - noise_amplitude_factor
 
         # For each speaker in the mixture, roll and add
         babble_waveform = waveforms.roll((1,), dims=0)
         babble_len = lengths.roll((1,), dims=0)
         for i in range(1, self.speaker_count):
-            babble_waveform += waveforms.roll((1+i,), dims=0)
+            babble_waveform += waveforms.roll((1 + i,), dims=0)
             babble_len = torch.max(babble_len, babble_len.roll((1,), dims=0))
 
         # Rescale and add to mixture
@@ -905,14 +903,14 @@ class DropFreq(torch.nn.Module):
 
         # Pick number of frequencies to drop
         drop_count = torch.randint(
-            low=self.drop_count_low,
-            high=self.drop_count_high + 1,
-            size=(1,),
+            low=self.drop_count_low, high=self.drop_count_high + 1, size=(1,),
         )
 
         # Pick a frequency to drop
         drop_range = self.drop_freq_high - self.drop_freq_low
-        drop_frequency = torch.rand(drop_count)*drop_range + self.drop_freq_low
+        drop_frequency = (
+            torch.rand(drop_count) * drop_range + self.drop_freq_low
+        )
 
         # Filter parameters
         filter_length = 101
@@ -979,6 +977,7 @@ class DropChunk(torch.nn.Module):
     >>> save_signal = save(save_folder='exp/example', save_format='wav')
     >>> save_signal(dropped_signal, ['drop_chunk'], length)
     """
+
     def __init__(
         self,
         drop_length_low=100,
@@ -1051,14 +1050,12 @@ class DropChunk(torch.nn.Module):
 
             # Pick starting locations
             start = torch.randint(
-                low=start_min,
-                high=start_max + 1,
-                size=(drop_times[i],),
+                low=start_min, high=start_max + 1, size=(drop_times[i],),
             )
 
             # Update waveform
             for j in range(drop_times[i]):
-                dropped_waveform[i, ..., start[j]:start[j]+length[j]] = 0
+                dropped_waveform[i, ..., start[j] : start[j] + length[j]] = 0
 
         return dropped_waveform
 
@@ -1089,10 +1086,7 @@ class DoClip(torch.nn.Module):
     """
 
     def __init__(
-        self,
-        clip_low=0.5,
-        clip_high=1,
-        clip_prob=1,
+        self, clip_low=0.5, clip_high=1, clip_prob=1,
     ):
         super().__init__()
         self.clip_low = clip_low

@@ -489,18 +489,17 @@ class normalize_posteriors(nn.Module):
             "count_lab": ("str", "mandatory"),
         }
 
+        # FIX: Old style
         # Check, cast , and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, self.logger
-        )
+        # self.conf = check_opts(self, self.expected_options, config, self.logger)
 
         # Expected inputs when calling the class
         self.expected_inputs = ["torch.Tensor"]
 
         # Check the first input
-        check_inputs(
-            self.conf, self.expected_inputs, first_input, logger=self.logger
-        )
+        # check_inputs(
+        #     self.conf, self.expected_inputs, first_input, logger=self.logger
+        # )
 
         # load the count dictionary
         if self.count_lab in global_config["label_dict"]:

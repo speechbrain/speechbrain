@@ -24,11 +24,9 @@ import subprocess
 import numpy as np
 import soundfile as sf
 import multiprocessing as mp
-from itertools import groupby
 from multiprocessing import Manager
 from torch.utils.data import Dataset, DataLoader
-from speechbrain.utils.data_utils import recursive_items
-from speechbrain.decoders.ctc import filter_ctc_output
+
 logger = logging.getLogger(__name__)
 
 
@@ -135,7 +133,7 @@ class create_dataloader(torch.nn.Module):
         csv_file,
         batch_size=1,
         csv_read=None,
-        sentence_sorting='original',
+        sentence_sorting="original",
         num_workers=0,
         cache=False,
         cache_ram_percent=75,
@@ -379,11 +377,11 @@ class create_dataloader(torch.nn.Module):
                 if isinstance(data_list[i][j], np.ndarray):
                     data_list[i][j] = torch.from_numpy(data_list[i][j])
 
-    def label_dict_creation(self, data_dict):
+    # FIX: Too complex! When fixed, remove the "# noqa: C901"
+    def label_dict_creation(self, data_dict):  # noqa: C901
+        logger.warning("label_dict_creation is too complex, please fix")
 
-        label_dict_file = (
-            self.output_folder + "/label_dict.pkl"
-        )
+        label_dict_file = self.output_folder + "/label_dict.pkl"
 
         # Read previously stored label_dict
         if os.path.isfile(label_dict_file):
@@ -406,16 +404,9 @@ class create_dataloader(torch.nn.Module):
                             "label" not in opts or opts["label"] == "True"
                         ):
 
-                            if (
-                                len(
-                                    data_dict[snt][elem]["data"].split(" ")
-                                )
-                                > 1
-                            ):
+                            if len(data_dict[snt][elem]["data"].split(" ")) > 1:
                                 # Processing list of string labels
-                                labels = data_dict[snt][elem][
-                                    "data"
-                                ].split(" ")
+                                labels = data_dict[snt][elem]["data"].split(" ")
                                 count_lab = True
 
                             else:
@@ -474,7 +465,8 @@ class create_dataloader(torch.nn.Module):
 
         return label_dict
 
-    def generate_data_dict(self,):
+    # FIX: Too complex! When fixed, remove the "# noqa: C901"
+    def generate_data_dict(self,):  # noqa: C901
         """
          ---------------------------------------------------------------------
          data_io.create_dataloader.generate_data_dict(author: Mirco Ravanelli)
@@ -498,6 +490,7 @@ class create_dataloader(torch.nn.Module):
                    print(data_loader.generate_data_dict())
          --------------------------------------------.------------------------
          """
+        logger.warning("generate_data_dict is too complex, please fix!")
 
         # Initial prints
         logger.debug("Creating dataloader for %s" % (self.csv_file))
@@ -583,17 +576,17 @@ class create_dataloader(torch.nn.Module):
             else:
 
                 # replace local variables with global ones
-                variable_finder = re.compile(r'\$[\w.]+')
+                variable_finder = re.compile(r"\$[\w.]+")
                 for i, item in enumerate(row):
                     try:
                         row[i] = variable_finder.sub(
-                            lambda x: self.replacements[x[0]],
-                            item,
+                            lambda x: self.replacements[x[0]], item,
                         )
                     except KeyError as e:
                         e.args = (
-                            *e.args, "The item '%s' contains variables "
-                            "not included in 'replacements'" % item
+                            *e.args,
+                            "The item '%s' contains variables "
+                            "not included in 'replacements'" % item,
                         )
                         raise
 
@@ -753,24 +746,21 @@ class create_dataloader(torch.nn.Module):
     @staticmethod
     def get_supported_formats():
         """
-        ---------------------------------------------------------------------
-        data_io.create_dataloader.get_supported_formats
-        (author: Mirco Ravanelli)
-
-        Description: This function itemize the supported reading formats
+        Itemize the supported reading formats
 
         Returns:
-            a dictionary contained the supported formats and the related
-            readers.
+        dict
+            The supported formats as top level keys, and the related
+            readers plus descriptions in nested keys.
 
         Example:
             >>> data_loader=create_dataloader(
             ...     csv_file='samples/audio_samples/csv_example2.csv'
             ... )
-            >>> data_loader.get_supported_formats()
+            >>> data_loader.get_supported_formats()['flac']['description']
+            'FLAC (Free Lossless Audio Codec)'
 
-         --------------------------------------------.------------------------
-         """
+        """
 
         # Initializing the supported formats dictionary
         supported_formats = {}
@@ -1049,9 +1039,7 @@ class create_dataset(Dataset):
 
         # Read the data from disk
         data = self.supported_formats[data_format]["reader"](
-            data_source,
-            data_options=data_options,
-            lab2ind=lab2ind,
+            data_source, data_options=data_options, lab2ind=lab2ind,
         )
 
         # Convert numpy array to float32
@@ -1067,6 +1055,7 @@ class create_dataset(Dataset):
 
         return data_read
 
+
 def convert_index_to_lab(batch, ind2lab):
     """
     Convert a batch of integer IDs to string labels
@@ -1077,7 +1066,7 @@ def convert_index_to_lab(batch, ind2lab):
         List of lists, a batch of sequences
     ind2lab : dict
         Mapping from integer IDs to labels
-    
+
     Returns
     -------
     list
@@ -1100,13 +1089,13 @@ def relative_time_to_absolute(batch, relative_lens, rate):
     Converts SpeechBrain style relative length to absolute duration
 
     Operates on batch level.
-    
+
     Arguments
     ---------
     batch : torch.tensor
         Sequences to determine duration for.
     relative_lens : torch.tensor
-        The relative length of each sequence in batch. The longest sequence in 
+        The relative length of each sequence in batch. The longest sequence in
         the batch needs to have relative length 1.0.
     rate : float
         The rate at which sequence elements occur in real world time. Sample
@@ -1133,13 +1122,13 @@ def relative_time_to_absolute(batch, relative_lens, rate):
 
 class IterativeCSVWriter:
     """Write CSV files a line at a time.
-    
+
     Arguments
     ---------
     outstream : file-object
         A writeable stream
     data_fields : list
-        List of the optional keys to write. Each key will be expanded to the 
+        List of the optional keys to write. Each key will be expanded to the
         SpeechBrain format, producing three fields: key, key_format, key_opts
 
     Example
@@ -1167,11 +1156,12 @@ class IterativeCSVWriter:
     UTT3,,ff oo oo,string,
     UTT4,,bb aa rr,string,
     """
+
     def __init__(self, outstream, data_fields, defaults={}):
         self._outstream = outstream
         self.fields = ["ID", "duration"] + self._expand_data_fields(data_fields)
         self.defaults = defaults
-        self._outstream.write(",".join( self.fields))
+        self._outstream.write(",".join(self.fields))
 
     def set_default(self, field, value):
         """
@@ -1197,11 +1187,13 @@ class IterativeCSVWriter:
         *args
             Supply every field with a value in positional form OR
         **kwargs
-            Supply certain fields by key. The ID field is mandatory for all 
+            Supply certain fields by key. The ID field is mandatory for all
             lines, but others can be left empty.
         """
         if args and kwargs:
-            raise ValueError("Use either positional fields or named fields, but not both.")
+            raise ValueError(
+                "Use either positional fields or named fields, but not both."
+            )
         if args:
             if len(args) != len(self.fields):
                 raise ValueError("Need consistent fields")
@@ -1217,7 +1209,7 @@ class IterativeCSVWriter:
 
     def write_batch(self, *args, **kwargs):
         """
-        Writes a batch of lines into the CSV 
+        Writes a batch of lines into the CSV
 
         Here each argument should be a list with the same length.
 
@@ -1226,11 +1218,13 @@ class IterativeCSVWriter:
         *args
             Supply every field with a value in positional form OR
         **kwargs
-            Supply certain fields by key. The ID field is mandatory for all 
+            Supply certain fields by key. The ID field is mandatory for all
             lines, but others can be left empty.
         """
         if args and kwargs:
-            raise ValueError("Use either positional fields or named fields, but not both.")
+            raise ValueError(
+                "Use either positional fields or named fields, but not both."
+            )
         if args:
             if len(args) != len(self.fields):
                 raise ValueError("Need consistent fields")
@@ -1244,7 +1238,6 @@ class IterativeCSVWriter:
                 kwarg_row = dict(zip(keys, value_row))
                 self.write(**kwarg_row)
 
-
     @staticmethod
     def _expand_data_fields(data_fields):
         expanded = []
@@ -1255,28 +1248,30 @@ class IterativeCSVWriter:
         return expanded
 
 
-def read_wav_soundfile(file, data_options={}, lab2ind=None):
+# TODO: Consider making less complex
+def read_wav_soundfile(file, data_options={}, lab2ind=None):  # noqa: C901
     """
-    -------------------------------------------------------------------------
-    Description:
-        This function reads audio files with soundfile.
+    Read wav audio files with soundfile.
 
-    Args:
-        file: it is the file to read.
-        data_options: a dictionary containing options for the reader.
-        lab2ind: a dictionary for converting labels to indices
+    Arguments
+    ---------
+    file : str
+        The filepath to the file to read
+    data_options : dict
+        a dictionary containing options for the reader.
+    lab2ind : dict, None
+        a dictionary for converting labels to indices
 
-    Returns:
+    Returns
+    -------
+    numpy.array
         An array with the read signal
 
-    Example:
-        >>> read_wav_soundfile('samples/audio_samples/example1.wav')
-
-    Author:
-        Mirco Ravanelli 2020
-     -------------------------------------------------------------------------
-     """
-
+    Example
+    -------
+    >>> read_wav_soundfile('samples/audio_samples/example1.wav')[0:2]
+    array([0.00024414, 0.00018311], dtype=float32)
+    """
     # Option initialization
     start = 0
     stop = None
@@ -1525,7 +1520,6 @@ def read_kaldi_lab(kaldi_ali, kaldi_lab_opts):
                        - kaldi_lab_opts(type: str, mandatory):
                            it is a string that contains the options for
                            reading the kaldi alignments.
-        logfile: it the logger used to write debug and error msgs.
 
 
      Output (call):  lab (type: dict):
@@ -1552,7 +1546,6 @@ def read_kaldi_lab(kaldi_ali, kaldi_lab_opts):
             + " "
             + kaldi_ali
             + "/final.mdl ark:- ark:-|",
-            logfile=logfile,
         )
     }
     return lab
@@ -1823,9 +1816,9 @@ class save(torch.nn.Module):
     def __init__(
         self,
         save_folder,
-        save_format='pkl',
+        save_format="pkl",
         save_csv=False,
-        data_name='data',
+        data_name="data",
         sampling_rate=16000,
         parallel_write=False,
         transpose=False,
@@ -1956,18 +1949,14 @@ class save(torch.nn.Module):
                 p = mp.Process(
                     target=writer,
                     args=(data_save, data_file),
-                    kwargs={
-                        "sampling_rate": self.sampling_rate,
-                    },
+                    kwargs={"sampling_rate": self.sampling_rate},
                 )
                 p.start()
                 jobs.append(p)
             else:
                 # Writing data on disk with the selected writer
                 writer(
-                    data_save,
-                    data_file,
-                    sampling_rate=self.sampling_rate,
+                    data_save, data_file, sampling_rate=self.sampling_rate,
                 )
 
             # Saving csv file
@@ -2198,26 +2187,27 @@ def save_md5(files, out_file):
     save_pkl(md5_dict, out_file)
 
 
-def save_pkl(obj, file, sampling_rate=None, logger=None):
+def save_pkl(obj, file):
     """
-    -------------------------------------------------------------------------
-    Description: This function saves an object in pkl format.
+    Save an object in pkl format.
 
-    Args:
-        obj: it object to save in pkl format
-        file: it is name of the output file.
-        sampling_rate: it sampling rate of the audio file.
-        logger: it the logger used to write debug and error messages.
+    Arguments
+    ---------
+    obj : object
+        Object to save in pkl format
+    file : str
+        Path to the output file
+    sampling_rate : int
+        Sampling rate of the audio file, TODO: this is not used?
 
     Example:
-        >>> out_file='exp/example.pkl'
-        >>> save_pkl([1, 2, 3, 4, 5], out_file)
-        >>> load_pkl(out_file)
+        >>> tmpfile = getfixture('tmp_path') / "example.pkl"
+        >>> save_pkl([1, 2, 3, 4, 5], tmpfile)
+        >>> load_pkl(tmpfile)
         [1, 2, 3, 4, 5]
 
     Author:
         Mirco Ravanelli 2020
-    -------------------------------------------------------------------------
     """
     try:
         with open(file, "wb") as f:
@@ -2244,10 +2234,7 @@ def load_pkl(file, logger=None):
 
 
      Example:
-        >>> pkl_file='exp/example.pkl'
-        >>> save_pkl([1, 2, 3, 4, 5], pkl_file)
-        >>> load_pkl(pkl_file)
-        [1, 2, 3, 4, 5]
+        See `save_pkl`
 
      -------------------------------------------------------------------------
      """
@@ -2267,11 +2254,11 @@ def read_vec_int_ark(file_or_fd):
      -------------------------------------------------------------------------
      """
 
-    fd = open_or_fd(file_or_fd, logfile)
+    fd = open_or_fd(file_or_fd)
     try:
         key = read_key(fd)
         while key:
-            ali = read_vec_int(fd, logfile)
+            ali = read_vec_int(fd)
             yield key, ali
             key = read_key(fd)
     finally:
@@ -2313,7 +2300,7 @@ def read_vec_int(file_or_fd):
      -------------------------------------------------------------------------
      """
 
-    fd = open_or_fd(file_or_fd, logfile=logfile)
+    fd = open_or_fd(file_or_fd)
     binary = fd.read(2).decode()
     if binary == "\0B":  # binary flag
         assert fd.read(1).decode() == "\4"
@@ -2368,10 +2355,10 @@ def open_or_fd(file, mode="rb"):
             (file, offset) = file.rsplit(":", 1)
         # Input pipe?
         if file[-1] == "|":
-            fd = popen(file[:-1], logfile=logfile, mode="rb")  # custom,
+            fd = popen(file[:-1], mode="rb")  # custom,
         # Output pipe?
         elif file[0] == "|":
-            fd = popen(file[1:], logfile=logfile, mode="wb")  # custom,
+            fd = popen(file[1:], mode="wb")  # custom,
         # Is it gzipped?
         elif file.split(".")[-1] == "gz":
             fd = gzip.open(file, mode)
@@ -2405,10 +2392,7 @@ def popen(cmd, mode="rb"):
             raise SubprocessFailed("cmd %s returned %d !" % (cmd, ret))
         return
 
-    if logfile is not None:
-        err = open(logfile, "a")
-    else:
-        err = None
+    err = None
 
     # text-mode,
     if mode == "r":

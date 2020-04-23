@@ -2,7 +2,7 @@
 
 This library gathers functions that process batches for data.
 All the classes are of type nn.Module. This gives the
-possibility to have end-to-end differentiability and to 
+possibility to have end-to-end differentiability and to
 backpropagate the gradient through them.
 ----------------------------------------------------------------
 """
@@ -12,10 +12,11 @@ import math
 import torch
 import logging
 from speechbrain.utils.checkpoints import (
-        mark_as_saver, 
-        mark_as_loader,
-        register_checkpoint_hooks
-        )
+    mark_as_saver,
+    mark_as_loader,
+    register_checkpoint_hooks,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -111,10 +112,10 @@ class STFT(torch.nn.Module):
         win_length=25,
         hop_length=10,
         n_fft=400,
-        window_type='hamming',
+        window_type="hamming",
         normalized_stft=False,
         center=True,
-        pad_mode='constant',
+        pad_mode="constant",
         onesided=True,
     ):
         super().__init__()
@@ -278,8 +279,7 @@ class spectrogram(torch.nn.Module):
      """
 
     def __init__(
-        self,
-        power_spectrogram=2,
+        self, power_spectrogram=2,
     ):
         super().__init__()
 
@@ -402,15 +402,15 @@ class FBANKs(torch.nn.Module):
         self,
         n_mels=40,
         log_mel=True,
-        filter_shape='triangular',
+        filter_shape="triangular",
         f_min=0,
         f_max=8000,
         n_fft=400,
         sample_rate=16000,
         power_spectrogram=2,
         amin=1e-10,
-        ref_value=1.,
-        top_db=80.,
+        ref_value=1.0,
+        top_db=80.0,
         freeze=True,
     ):
         super().__init__()
@@ -463,8 +463,8 @@ class FBANKs(torch.nn.Module):
 
         # Adding the central frequency and the band to the list of nn param
         if not self.freeze:
-            self.f_central = nn.Parameter(self.f_central)
-            self.band = nn.Parameter(self.band)
+            self.f_central = torch.nn.Parameter(self.f_central)
+            self.band = torch.nn.Parameter(self.band)
 
         # Frequency axis
         all_freqs = torch.linspace(0, self.sample_rate // 2, self.n_stft)
@@ -900,10 +900,7 @@ class MFCCs(torch.nn.Module):
      """
 
     def __init__(
-        self,
-        n_mfcc=20,
-        n_mels=40,
-        dct_norm='ortho',
+        self, n_mfcc=20, n_mels=40, dct_norm="ortho",
     ):
         super().__init__()
 
@@ -1060,8 +1057,7 @@ class deltas(torch.nn.Module):
     """
 
     def __init__(
-        self,
-        der_win_length=5,
+        self, der_win_length=5,
     ):
         super().__init__()
         self.der_win_length = der_win_length
@@ -1152,9 +1148,7 @@ class context_window(torch.nn.Module):
      """
 
     def __init__(
-        self,
-        left_frames=0,
-        right_frames=0,
+        self, left_frames=0, right_frames=0,
     ):
         super().__init__()
 
@@ -1188,10 +1182,7 @@ class context_window(torch.nn.Module):
             self.first_call = False
             self.kernel = (
                 self.kernel.repeat(x.shape[1], 1, 1)
-                .view(
-                    x.shape[1] * self.context_len,
-                    self.kernel_len,
-                )
+                .view(x.shape[1] * self.context_len, self.kernel_len,)
                 .unsqueeze(1)
             )
 
@@ -1233,13 +1224,14 @@ class context_window(torch.nn.Module):
 
         return cw_x
 
+
 @register_checkpoint_hooks
 class mean_var_norm(torch.nn.Module):
     def __init__(
         self,
         mean_norm=True,
         std_norm=True,
-        norm_type='global',
+        norm_type="global",
         avg_factor=None,
         requires_grad=False,
     ):
@@ -1388,7 +1380,6 @@ class mean_var_norm(torch.nn.Module):
         )
 
         return current_mean, current_std
-    
 
     def statistics_dict(self):
 

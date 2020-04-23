@@ -1835,3 +1835,4 @@ Before doing a pull request:
 4. Run ```python test.py``` to make sure your code doesn't harm some core functionalities. Note that the checks done by test.py are rather superficial and it is thus necessary to test your code in a very deep way before asking for a pull request.
 5. Ask for the pull request and review it according to the group leader/project leader feedback. 
 
+
