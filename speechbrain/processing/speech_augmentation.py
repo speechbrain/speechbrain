@@ -65,6 +65,7 @@ class AddNoise(torch.nn.Module):
     >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
     >>> noisifier = AddNoise('samples/noise_samples/noise.csv')
     >>> clean = torch.tensor([signal], dtype=torch.float32)
+    >>> noisifier.init_params(clean)
     >>> noisy = noisifier(clean, torch.ones(1))
     >>> save_signal = save(save_folder='exp/example', save_format='wav')
     >>> save_signal(noisy, ['example_add_noise'], torch.ones(1))
@@ -243,6 +244,7 @@ class AddReverb(torch.nn.Module):
     >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
     >>> reverb = AddReverb('samples/rir_samples/rirs.csv')
     >>> clean = torch.tensor([signal], dtype=torch.float32)
+    >>> reverb.init_params(clean)
     >>> reverbed = reverb(clean, torch.ones(1))
     >>> save_signal = save(save_folder='exp/example', save_format='wav')
     >>> save_signal(reverbed, ['example_add_reverb'], torch.ones(1))
@@ -371,6 +373,7 @@ class SpeedPerturb(torch.nn.Module):
     >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
     >>> perturbator = SpeedPerturb(orig_freq=rate, speeds=[9])
     >>> clean = torch.tensor(signal, dtype=torch.float32).unsqueeze(0)
+    >>> perturbator.init_params(clean)
     >>> perturbed = perturbator(clean)
     >>> save_signal = save(save_folder='exp/example', save_format='wav')
     >>> save_signal(perturbed, ['example_perturb'], torch.ones(1))
@@ -398,6 +401,10 @@ class SpeedPerturb(torch.nn.Module):
                 'new_freq': self.orig_freq * speed // 10,
             }
             self.resamplers.append(Resample(**config))
+
+    def init_params(self, first_input):
+        for sampler in self.resamplers:
+            sampler.init_params(first_input)
 
     def forward(self, waveform):
         """
@@ -452,6 +459,7 @@ class Resample(torch.nn.Module):
     >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
     >>> signal = torch.tensor(signal, dtype=torch.float32)[None,None,:]
     >>> resampler = Resample(orig_freq=rate, new_freq=rate//2)
+    >>> resampler.init_params(signal)
     >>> resampled = resampler(signal)
     >>> save_signal = save(
     ...     save_folder='exp/example',
