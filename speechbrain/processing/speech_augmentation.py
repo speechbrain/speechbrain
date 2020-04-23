@@ -94,31 +94,24 @@ class AddNoise(torch.nn.Module):
         self.mix_prob = mix_prob
         self.replacements = replacements
 
-        # On first input, create dataloader with correct batch size
-        def hook(self, input):
+    def init_params(self, first_input):
+        """On first input, create dataloader with correct batch size."""
 
-            waveforms, lengths = input
+        # Set parameters based on input
+        self.device = first_input.device
+        if not self.batch_size:
+            self.batch_size = len(first_input)
 
-            # Set parameters based on input
-            self.device = waveforms.device
-            if not self.batch_size:
-                self.batch_size = len(waveforms)
-
-            # Create a data loader for the noise wavforms
-            if self.csv_file is not None:
-                self.data_loader = create_dataloader(
-                    csv_file=self.csv_file,
-                    sentence_sorting=self.order,
-                    batch_size=self.batch_size,
-                    cache=self.do_cache,
-                    replacements=self.replacements,
-                )
-                self.noise_data = zip(*self.data_loader())
-
-            # Remove this hook after it runs once
-            self.hook.remove()
-
-        self.hook = self.register_forward_pre_hook(hook)
+        # Create a data loader for the noise wavforms
+        if self.csv_file is not None:
+            self.data_loader = create_dataloader(
+                csv_file=self.csv_file,
+                sentence_sorting=self.order,
+                batch_size=self.batch_size,
+                cache=self.do_cache,
+                replacements=self.replacements,
+            )
+            self.noise_data = zip(*self.data_loader())
 
     def forward(self, waveforms, lengths):
         """
@@ -281,12 +274,9 @@ class AddReverb(torch.nn.Module):
         )
         self.rir_data = zip(*self.data_loader())
 
-        def hook(self, input):
-            self.device = input[0].device
-            self.dtype = input[0].dtype
-            self.hook.remove()
-
-        self.hook = self.register_forward_pre_hook(hook)
+    def init_params(self, first_input):
+        self.device = first_input.device
+        self.dtype = first_input.dtype
 
     def forward(self, waveforms, lengthss):
         """
@@ -490,16 +480,12 @@ class Resample(torch.nn.Module):
         assert self.orig_freq % self.conv_stride == 0
         assert self.new_freq % self.conv_transpose_stride == 0
 
-        def hook(self, input):
-            self.device = input[0].device
+    def init_params(self, first_input):
+        self.device = first_input.device
 
-            # Generate and store the filter to use for resampling
-            self._indices_and_weights()
-            assert self.first_indices.dim() == 1
-
-            self.hook.remove()
-
-        self.hook = self.register_forward_pre_hook(hook)
+        # Generate and store the filter to use for resampling
+        self._indices_and_weights()
+        assert self.first_indices.dim() == 1
 
     def _compute_strides(self):
         """Compute the phases in polyphase filter

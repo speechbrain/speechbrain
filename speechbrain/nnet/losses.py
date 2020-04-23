@@ -55,6 +55,7 @@ class compute_cost(nn.Module):
         cost_type,
         avoid_pad=None,
         allow_lab_diff=3,
+        blank_index=None,
     ):
         super().__init__()
         self.cost_type = cost_type
@@ -65,36 +66,30 @@ class compute_cost(nn.Module):
         if self.avoid_pad is None:
             self.avoid_pad = [False] * len(self.cost_type)
 
-        def hook(self, input):
+        # Adding cost functions is a list
+        self.costs = []
 
-            # Adding cost functions is a list
-            self.costs = []
+        for cost_index, cost in enumerate(self.cost_type):
 
-            for cost_index, cost in enumerate(self.cost_type):
+            if cost == "nll":
+                self.costs.append(torch.nn.NLLLoss())
 
-                if cost == "nll":
-                    self.costs.append(torch.nn.NLLLoss())
+            if cost == "error":
+                self.costs.append(self.compute_error)
 
-                if cost == "error":
-                    self.costs.append(self.compute_error)
+            if cost == "mse":
+                self.costs.append(nn.MSELoss())
 
-                if cost == "mse":
-                    self.costs.append(nn.MSELoss())
+            if cost == "l1":
+                self.costs.append(nn.L1Loss())
 
-                if cost == "l1":
-                    self.costs.append(nn.L1Loss())
+            if cost == "ctc":
+                self.blank_index = blank_index
+                self.costs.append(nn.CTCLoss(blank=self.blank_index))
+                self.avoid_pad[cost_index] = False
 
-                if cost == "ctc":
-                    self.blank_index = input[0].shape[1] - 1
-                    self.costs.append(nn.CTCLoss(blank=self.blank_index))
-                    self.avoid_pad[cost_index] = False
-
-                if cost == "wer":
-                    self.costs.append(self.compute_wer)
-
-            self.hook.remove()
-
-        self.hook = self.register_forward_pre_hook(hook)
+            if cost == "wer":
+                self.costs.append(self.compute_wer)
 
     def forward(self, prediction, target, lengths):
         """

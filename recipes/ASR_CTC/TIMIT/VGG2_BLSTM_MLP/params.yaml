@@ -70,3 +70,4 @@ functions:
         batch_size: 1
     compute_cost: !speechbrain.nnet.losses.compute_cost
         cost_type: [ctc]
+        blank_index: 39
