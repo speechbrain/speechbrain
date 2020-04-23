@@ -1,12 +1,12 @@
 import sys
 import torch
-import speechbrain.utils.edit_distance as edit_distance
+from tqdm.contrib import tzip
 import speechbrain.data_io.wer as wer_io
+import speechbrain.utils.edit_distance as edit_distance
 from speechbrain.decoders.ctc import ctc_greedy_decode
 from speechbrain.decoders.decoders import undo_padding
-from tqdm.contrib import tzip
 from speechbrain.core import Experiment, Brain
-with open('recipes/ASR_CTC/TIMIT/VGG2_BLSTM_MLP/params.yaml') as fi:
+with open("recipes/ASR_CTC/TIMIT/VGG2_BLSTM_MLP/params.yaml") as fi:
     sb = Experiment(
         yaml_stream=fi,
         commandline_args=sys.argv[1:],
@@ -38,23 +38,32 @@ class ASR(Brain):
             stats = edit_distance.wer_details_for_batch(
                 ids, phns, sequence, compute_alignments=True
             )
-            stats = {'wer': stats}
+            stats = {"wer": stats}
             return loss, stats
 
         return loss
 
     def summarize(self, stats, write=False):
-        loss = sum(stat['loss'] for stat in stats)
-        summary = {'loss': float(loss / len(stats))}
 
-        if 'wer' in stats[0]:
-            wer_stats = [item for stat in stats for item in stat['wer']]
-            wer_summary = edit_distance.wer_summary(wer_stats)
+        # Accumulate
+        accumulator = {"loss": 0.}
+        if "wer" in stats[0]:
+            accumulator["wer"] = []
+        for stat in stats:
+            for stat_type in stat:
+                accumulator[stat_type] += stat[stat_type]
+
+        # Normalize
+        summary = {"loss": float(accumulator["loss"] / len(stats))}
+        if "wer" in accumulator:
+            wer_summary = edit_distance.wer_summary(accumulator["wer"])
+            summary["wer"] = wer_summary["WER"]
+
+            # Write test data to file
             if write:
                 with open(sb.wer_file, "w") as fo:
                     wer_io.print_wer_summary(wer_summary, fo)
-                    wer_io.print_alignments(wer_stats, fo)
-            summary['wer'] = wer_summary['WER']
+                    wer_io.print_alignments(accumulator["wer"], fo)
 
         return summary
 
@@ -68,13 +77,22 @@ def main():
     test_set = sb.test_loader()
 
     # Initialize brain and learn
-    asr_brain = ASR([sb.model], sb.optimizer, sb.lr_annealing, sb.saver)
-    asr_brain.learn(sb.epoch_counter, train_set, valid_set, min_keys=['wer'])
+    asr_brain = ASR(
+        models=[sb.model],
+        optimizer=sb.optimizer,
+        scheduler=sb.lr_annealing,
+        saver=sb.saver,
+    )
+    asr_brain.learn(
+        epoch_counter=sb.epoch_counter,
+        train_set=train_set,
+        valid_set=valid_set,
+        min_keys=["wer"],
+    )
 
     # Load best model, evaluate that:
-    sb.recover_if_possible(min_key='wer')
-    asr_brain.evaluate(test_set)
+    asr_brain.evaluate(test_set, min_key="wer")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -94,6 +94,8 @@ class Experiment:
     ...     save_folder: !ref <constants.output_folder>/save
     ... """
     >>> sb = Experiment(yaml_string)
+    core - Beginning experiment!
+    core - Output folder: exp
     >>> sb.save_folder
     'exp/save'
     '''
@@ -139,10 +141,11 @@ class Experiment:
 
             # Copy executing folder to output directory
             module = inspect.getmodule(inspect.currentframe().f_back)
-            callingdir = os.path.dirname(os.path.realpath(module.__file__))
-            parentdir, zipname = os.path.split(callingdir)
-            archivefile = os.path.join(self.output_folder, zipname)
-            shutil.make_archive(archivefile, 'zip', parentdir, zipname)
+            if module is not None:
+                callingdir = os.path.dirname(os.path.realpath(module.__file__))
+                parentdir, zipname = os.path.split(callingdir)
+                archivefile = os.path.join(self.output_folder, zipname)
+                shutil.make_archive(archivefile, 'zip', parentdir, zipname)
 
             # Change logging file to be in output dir
             logger_override_string = (
@@ -172,125 +175,6 @@ class Experiment:
         # Log commit hash
         commit_hash = subprocess.check_output(["git", "describe", "--always"])
         logger.debug("Commit hash: '%s'" % commit_hash.decode('utf-8').strip())
-
-    def recover_if_possible(self, max_key=None, min_key=None):
-        """
-        See `speechbrain.utils.checkpoints.Checkpointer.recover_if_possible`
-
-        If neither `max_key` nor `min_key` is passed, the default
-        for `recover_if_possible` is used (most recent checkpoint).
-
-        Arguments
-        ---------
-        max_key : str
-            A key that was stored in meta when the checkpoint
-            was created. The checkpoint with the `highest` stored value
-            for this key will be loaded.
-        min_key : str
-            A key that was stored in meta when the checkpoint
-            was created. The checkpoint with the `lowest` stored value
-            for this key will be loaded.
-        """
-        if not (max_key is None or min_key is None): 
-            raise ValueError("Can't use both max and min")
-        if hasattr(self, 'saver'):
-            if max_key is None and min_key is None:
-                self.saver.recover_if_possible()
-            # NB: the lambdas need the key=key to actually store the key.
-            # Otherwise the value of key is looked up dynamically 
-            # (and will have changed)
-            elif max_key is not None:
-                self.saver.recover_if_possible(lambda c, key=max_key: c.meta[key])
-            elif min_key is not None:
-                self.saver.recover_if_possible(lambda c, key=min_key: -c.meta[key])
-        else:
-            raise KeyError(
-                'The field <constants.output_folder> and the field '
-                '<constants.save_folder> must both be '
-                'specified in order to load a checkpoint.'
-            )
-
-    def save_and_keep_only(
-        self,
-        meta={},
-        end_of_epoch=True,
-        num_to_keep=1,
-        max_keys=[],
-        min_keys=[],
-    ):
-        """
-        See `speechbrain.utils.checkpoints.Checkpointer.save_and_keep_only`
-
-        Arguments
-        ---------
-        meta : mapping
-            a set of key, value pairs to store alongside the checkpoint.
-        end_of_epoch : bool
-            Whether the checkpoint happens at the end of an epoch (last thing)
-            or not. This may affect recovery. Default: True
-        num_to_keep : int
-            The number of checkpoints to keep for each metric.
-        max_keys : iterable
-            a set of keys in the meta to use for determining which checkpoints
-            to keep. The highest N of each listed key will be kept.
-        min_keys : iterable
-            a set of keys in the meta to use for determining which checkpoints
-            to keep. The lowest N of each listed key will be kept.
-        """
-        if hasattr(self, 'saver'):
-            for key in max_keys:
-                if not key in meta:
-                    raise ValueError('Max key {} must be in meta'.format(key))
-            for key in min_keys:
-                if not key in meta:
-                    raise ValueError('Min key {} must be in meta'.format(key))
-
-            # Always save the most recent checkpoint, as well:
-            importance_keys = [ckpt_recency]
-            # NB: the lambdas need the key=key to actually store the key.
-            # Otherwise the value of key is looked up dynamically 
-            # (and will have changed)
-            for key in max_keys:
-                importance_keys.append(lambda c, key=key: c.meta[key])
-            for key in min_keys:
-                importance_keys.append(lambda c, key=key: -c.meta[key])
-            self.saver.save_and_keep_only(
-                meta=meta,
-                end_of_epoch=end_of_epoch,
-                importance_keys=importance_keys,
-                num_to_keep=num_to_keep
-            )
-        else:
-            raise KeyError(
-                'The field <constants.output_folder> and the field '
-                '<constants.save_folder> must both be '
-                'specified in order to save a checkpoint.'
-            )
-
-    def log_epoch_stats(self, epoch, train_stats, valid_stats):
-        """Log key stats about the epoch.
-
-        Arguments
-        ---------
-        epoch : int
-            The epoch to log.
-        train_stats : mapping
-            The training statistics to log, e.g. `{'wer': 22.1}`
-        valid_stats : mapping
-            The validation statistics to log, same format as above.
-
-        Example
-        -------
-        >>> yaml_string = "{Constants: {output_folder: exp}}"
-        >>> sb = Experiment(yaml_string)
-        >>> sb.log_epoch_stats(3, {'loss': 4}, {'loss': 5})
-        core - epoch: 3 - train loss: 4.00 - valid loss: 5.00
-        """
-        log_string = "epoch: {} - ".format(epoch)
-        train_str = ['train %s: %.2f' % i for i in train_stats.items()]
-        valid_str = ['valid %s: %.2f' % i for i in valid_stats.items()]
-        log_string += ' - '.join(train_str + valid_str)
-        logger.info(log_string)
 
     def _update_attributes(self, attributes, override=False):
         r'''Update the attributes of this class to reflect a set of parameters
@@ -348,17 +232,12 @@ def parse_arguments(arg_list):
     )
     parser.add_argument(
         '--data_folder',
-        help='A folder containing the data used for training', 
+        help='A folder containing the data used for training',
     )
     parser.add_argument(
         '--save_folder',
         help='A folder for storing checkpoints that allow restoring '
         'progress for testing or re-starting training.',
-    )
-    parser.add_argument(
-        '--ckpts_to_save',
-        type=int,
-        help='The number of checkpoints to keep before deleting.',
     )
     parser.add_argument(
         '--seed',
@@ -450,59 +329,95 @@ class Brain(torch.nn.Module):
         computed, and applies the updates to all the parameters.
     scheduler : scheduler
         Takes an optimizer and changes the learning rate appropriately.
-    checkpointer : checkpointer
+    saver : checkpointer
         A checkpointer that has been initialized with all the items
         that need to be saved.
 
     Example
     -------
-    >>> class SimpleBrain(Brain):
-    ...     def loss_computation(self, predictions, targets):
-    ...         return torch.abs(predictions - targets)
+    >>> from speechbrain.nnet.optimizers import optimize
     >>> model = torch.nn.Linear(in_features=10, out_features=10)
-    >>> opt = torch.optim.SGD(model.parameters(), lr=0.01)
-    >>> brain = SimpleBrain([model], opt)
-    >>> brain.init_params(torch.rand(10, 10))
-    >>> brain.train_batch(torch.rand(10, 10), torch.rand(10, 10))
+    >>> class SimpleBrain(Brain):
+    ...     def forward(self, x, init_params=False):
+    ...         return model(x)
+    ...     def compute_objectives(self, predictions, targets, train=True):
+    ...         return torch.nn.functional.l1_loss(predictions, targets)
+    >>> brain = SimpleBrain([model], optimize('sgd', 0.01))
+    >>> brain.learn(
+    ...     epoch_counter=range(1),
+    ...     train_set=([torch.rand(10, 10)], [torch.rand(10, 10)]),
+    ... )
     """
     def __init__(
         self,
         models,
         optimizer,
         scheduler=None,
-        checkpointer=None,
+        saver=None,
     ):
         super().__init__()
         self.models = torch.nn.ModuleList(models)
         self.optimizer = optimizer
         self.scheduler = scheduler
-        self.checkpointer = checkpointer
+        self.saver = saver
 
-    def forward(self, x):
-        """Override if the models aren't simply applied in order."""
-        for model in self.models:
-            x = model(x)
-        return x
+    def forward(self, x, init_params=False):
+        """Forward pass, to be overridden by sub-classes.
+
+        Arguments
+        ---------
+        x : torch.Tensor or list of tensors
+            The input tensor or tensors for processing.
+        init_params : bool
+            Whether this pass should initialize parameters rather
+            than return the results of the forward pass.
+        """
+        raise NotImplementedError
 
     def compute_objectives(self, predictions, targets, train=True):
-        """Compute loss, to be overridden by sub-classes."""
+        """Compute loss, to be overridden by sub-classes.
+
+        Arguments
+        ---------
+        predictions : torch.Tensor or list of tensors
+            The output tensor or tensors to evaluate.
+        targets : torch.Tensor or list of tensors
+            The gold standard to use for evaluation.
+        train : bool
+            Whether this is computed for training or not. During training,
+            sometimes fewer stats will be computed for the sake of efficiency
+            (e.g. WER might only be computed for valid and test, not train).
+        """
         raise NotImplementedError
 
     def train_batch(self, batch):
-        """Train on one batch, override to do multiple updates."""
+        """Train on one batch, override to do multiple updates.
+
+        Arguments
+        ---------
+        batch : list of torch.Tensors
+            batch to use for training, usually including both inputs
+            and targets.
+        """
         inputs, targets = batch
         predictions = self(inputs)
         loss = self.compute_objectives(predictions, targets)
         loss.backward()
         self.optimizer(self.models)
-        return {'loss': loss.detach()}
+        return {"loss": loss.detach()}
 
     def evaluate_batch(self, batch):
-        """Evaluate one batch, override for different procedure than train."""
+        """Evaluate one batch, override for different procedure than train.
+
+        Arguments
+        ---------
+        batch : list of torch.Tensors
+            batch to evaluate, usually including inputs and targets.
+        """
         inputs, targets = batch
         output = self(inputs)
         loss, stats = self.compute_objectives(output, targets, train=False)
-        stats['loss'] = loss.detach()
+        stats["loss"] = loss.detach()
         return stats
 
     def summarize(self, stats):
@@ -512,68 +427,102 @@ class Brain(torch.nn.Module):
 
         Arguments
         ---------
-        stats : list
+        stats : list of dicts
             A list of stats to summarize.
         """
-        return float(sum(s['loss'] for s in stats) / len(stats))
+        return {"loss": float(sum(s["loss"] for s in stats) / len(stats))}
 
     def learn(
         self,
         epoch_counter,
         train_set,
-        valid_set,
+        valid_set=None,
         max_keys=[],
         min_keys=[],
     ):
         """Iterate epochs and datasets to improve objective.
 
-        Should not need to override, but still possible.
+        Relies on the existence of mulitple functions that can (or should) be
+        overridden. The following are functions not defined in `nn.Module`
+        but are used and expected to have a certain behavior:
+
+        * `train_batch`
+        * `evaluate_batch`
+        * `summarize`
+        * `save`
 
         Arguments
         ---------
         epoch_counter : epoch_counter
             Keeps track of what epoch we're on, to save if necessary.
-        train_set : list
+        train_set : list of DataLoaders
             a list of datasets to use for training, zipped before iterating.
-        valid_set : list
+        valid_set : list of Data Loaders
             a list of datasets to use for validation, zipped before iterating.
-        max_keys : list
+        max_keys : list of str
             a list of keys to use for checkpointing, highest value is kept.
-        min_keys : list
+        min_keys : list of str
             a list of keys to use for checkpointing, lowest value is kept.
         """
         self(next(iter(train_set[0])), init_params=True)
         self.optimizer.init_params(self.models)
-        if self.checkpointer is not None:
-            self.checkpointer.recover_if_possible()
+        if self.saver is not None:
+            self.saver.recover_if_possible()
 
         for epoch in epoch_counter:
             self.train()
             train_stats = []
             for batch in tzip(*train_set):
                 train_stats.append(self.train_batch(batch))
-            train_summary = self.summarize(train_stats)
+            summary = self.summarize(train_stats)
 
-            self.eval()
-            valid_stats = []
-            with torch.no_grad():
-                for batch in tzip(*valid_set):
-                    valid_stats.append(self.evaluate_batch(batch))
-            valid_summary = self.summarize(valid_stats)
+            logger.info(f"Epoch {epoch} complete")
+            for key in summary:
+                logger.info(f"Train {key}: {summary[key]:.2f}")
 
-            if self.scheduler is not None:
-                min_val = valid_summary[min_keys[0]]
-                self.scheduler([self.optimizer], epoch, min_val)
-            if self.checkpointer is not None:
-                self.save(valid_summary, max_keys, min_keys)
+            if valid_set is not None:
+                self.eval()
+                valid_stats = []
+                with torch.no_grad():
+                    for batch in tzip(*valid_set):
+                        valid_stats.append(self.evaluate_batch(batch))
+                summary = self.summarize(valid_stats)
 
-            logger.info(f'Epoch {epoch} complete')
-            for key in train_summary:
-                logger.info(f'Train {key}: {train_summary[key]:.2f}')
-            for key in valid_summary:
-                logger.info(f'Valid {key}: {valid_summary[key]:.2f}')
+                if self.scheduler is not None:
+                    min_val = summary[min_keys[0]]
+                    self.scheduler([self.optimizer], epoch, min_val)
+                if self.saver is not None:
+                    self.save(valid_summary, max_keys, min_keys)
 
-    def evaluate(self, test_set):
+                for key in valid_summary:
+                    logger.info(f"Valid {key}: {valid_summary[key]:.2f}")
+
+    def evaluate(self, test_set, max_key=None, min_key=None):
+        """Iterate test_set and evaluate model performance.
+
+        Arguments
+        ---------
+        test_set : list of DataLoaders
+            This list will be zipped before iterating.
+        max_key : str
+            This string references a key in the checkpoint, the
+            checkpoint with the highest value for this key will be loaded.
+        min_key : str
+            This string references a key in the checkpoint, the
+            checkpoint with the lowest value for this key will be loaded.
+        """
+        if self.saver is None and (max_key or min_key):
+            raise ValueError("max_key and min_key require a saver.")
+        elif max_key is not None and min_key is not None:
+            raise ValueError("Can't use both min_key and max_key.")
+
+        if max_key is not None:
+            self.saver.recover_if_possible(lambda c, key=max_key: c.meta[key])
+        elif min_key is not None:
+            self.saver.recover_if_possible(lambda c, key=min_key: -c.meta[key])
+        else:
+            self.saver.recover_if_possible()
+
         test_stats = []
         self.eval()
         with torch.no_grad():
@@ -582,15 +531,26 @@ class Brain(torch.nn.Module):
 
         test_summary = self.summarize(test_stats, write=True)
         for key in test_summary:
-            logger.info(f'Test {key}: {test_summary[key]:.2f}')
+            logger.info(f"Test {key}: {test_summary[key]:.2f}")
 
     def save(self, stats, max_keys=[], min_keys=[]):
+        """Record relevant data into a checkpoint file.
+
+        Arguments
+        ---------
+        stats : mapping
+            A set of meta keys and their values to store.
+        max_keys : list of str
+            A set of keys from the meta, keep the maximum of each.
+        min_keys : list of str
+            A set of keys from the meta, keep the minimum of each.
+        """
         importance_keys = [ckpt_recency]
         for key in max_keys:
             importance_keys.append(lambda c, key=key: c.meta[key])
         for key in min_keys:
             importance_keys.append(lambda c, key=key: -c.meta[key])
-        self.checkpointer.save_and_keep_only(
+        self.saver.save_and_keep_only(
             meta=stats,
             importance_keys=importance_keys,
         )

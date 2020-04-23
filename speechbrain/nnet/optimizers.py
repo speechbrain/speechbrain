@@ -96,7 +96,7 @@ class optimize(torch.nn.Module):
         self.initial_accumulator_value = initial_accumulator_value
         self.centered = centered
         self.amsgrad = amsgrad
-
+        self.nesterov = nesterov
 
     def init_params(self, modules):
         # Making sure the input is class with parameters to optimize
