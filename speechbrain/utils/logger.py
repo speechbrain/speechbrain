@@ -10,9 +10,7 @@ from speechbrain.utils.data_utils import recursive_update
 
 
 def setup_logging(
-    config_path='logging.yaml',
-    overrides={},
-    default_level=logging.INFO,
+    config_path="logging.yaml", overrides={}, default_level=logging.INFO,
 ):
     """Setup logging configuration
 
@@ -27,7 +25,7 @@ def setup_logging(
         https://fangpenlin.com/posts/2012/08/26/good-logging-practice-in-python/
     """
     if os.path.exists(config_path):
-        with open(config_path, 'rt') as f:
+        with open(config_path, "rt") as f:
             config = yaml.safe_load(f)
         recursive_update(config, overrides)
         logging.config.dictConfig(config)

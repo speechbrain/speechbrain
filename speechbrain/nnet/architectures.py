@@ -8,6 +8,7 @@ import logging
 import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
+
 logger = logging.getLogger(__name__)
 
 
@@ -23,8 +24,9 @@ class Sequential(torch.nn.Module):
 
     Example
     -------
+    >>> import speechbrain.nnet.architectures
     >>> model = Sequential(
-    ...     speechbrain.nnet.architecture.linear(n_neurons=100),
+    ...     [speechbrain.nnet.architectures.linear(n_neurons=100)],
     ... )
     >>> inputs = torch.rand(10, 40, 50)
     >>> model.init_params(inputs)
@@ -32,9 +34,9 @@ class Sequential(torch.nn.Module):
     >>> outputs.shape
     torch.Size([10, 100, 50])
     """
+
     def __init__(
-        self,
-        layers,
+        self, layers,
     ):
         """"""
         super().__init__()
@@ -50,7 +52,7 @@ class Sequential(torch.nn.Module):
             A dummy input of the right shape for initializing parameters.
         """
         for layer in self.layers:
-            if hasattr(layer, 'init_params'):
+            if hasattr(layer, "init_params"):
                 layer.init_params(dummy_input)
             dummy_input = layer(dummy_input)
 
@@ -98,9 +100,7 @@ class linear(torch.nn.Module):
      """
 
     def __init__(
-        self,
-        n_neurons,
-        bias=True,
+        self, n_neurons, bias=True,
     ):
         super().__init__()
 
@@ -223,36 +223,36 @@ class linear_combination(nn.Module):
         }
 
         # Check, cast, and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, self.logger
-        )
+        # FIX: old style
+        # self.conf = check_opts(self, self.expected_options, config, self.logger)
 
         # Additional check on the input shapes
-        if first_input is not None:
+        # FIX: This whole if block to new style logs
+        # if first_input is not None:
 
-            # Shape check
-            if len(first_input[0].shape) > 5 or len(first_input[0].shape) < 2:
+        #     # Shape check
+        #     if len(first_input[0].shape) > 5 or len(first_input[0].shape) < 2:
 
-                err_msg = (
-                    'The first input of "linear_combination" must be a tensor'
-                    " with  one of the   following dimensions: [time] or"
-                    " [batch,time] or  [batch,channels,time]. Got %s "
-                    % (str(first_input[0].shape))
-                )
+        #         err_msg = (
+        #             'The first input of "linear_combination" must be a tensor'
+        #             " with  one of the   following dimensions: [time] or"
+        #             " [batch,time] or  [batch,channels,time]. Got %s "
+        #             % (str(first_input[0].shape))
+        #         )
 
-                logger_write(err_msg, logfile=logger)
+        #         logger_write(err_msg, logfile=logger)
 
-            # Shape check
-            if len(first_input[1].shape) > 5 or len(first_input[1].shape) < 2:
+        #     # Shape check
+        #     if len(first_input[1].shape) > 5 or len(first_input[1].shape) < 2:
 
-                err_msg = (
-                    'The second input of "linear_combination" must be a tensor'
-                    " with  one of the   following dimensions: [time] or"
-                    " [batch,time] or  [batch,channels,time]. Got %s "
-                    % (str(first_input[0].shape))
-                )
+        #         err_msg = (
+        #             'The second input of "linear_combination" must be a tensor'
+        #             " with  one of the   following dimensions: [time] or"
+        #             " [batch,time] or  [batch,channels,time]. Got %s "
+        #             % (str(first_input[0].shape))
+        #         )
 
-                logger_write(err_msg, logfile=logger)
+        #         logger_write(err_msg, logfile=logger)
 
         # Initializing the matrices
         dim_out = first_input[-1].shape[1]
@@ -365,10 +365,11 @@ class conv(nn.Module):
 
     Example:
         >>> import torch
-        >>> inp_tensor = torch.rand([10, 16000])
+        >>> inp_tensor = torch.rand([10, 1, 16000])  # time last
         >>> cnn = conv(out_channels=25, kernel_size=11)
-        >>> out_tensor = cnn([inp_tensor])
-        >>> out_tensor.shape()
+        >>> cnn.init_params(inp_tensor)
+        >>> out_tensor = cnn(inp_tensor)
+        >>> out_tensor.shape
         torch.Size([10, 25, 15990])
 
     Author:
@@ -384,7 +385,7 @@ class conv(nn.Module):
         padding=0,
         groups=1,
         bias=True,
-        padding_mode='zeros',
+        padding_mode="zeros",
     ):
         super().__init__()
 
@@ -461,9 +462,7 @@ class conv(nn.Module):
 
                 self.in_channels = first_input.shape[2]
             elif len(first_input.shape) == 5:
-                self.in_channels = (
-                    first_input.shape[2] * first_input.shape[3]
-                )
+                self.in_channels = first_input.shape[2] * first_input.shape[3]
 
         # Managing 1d convolutions
         if self.conv1d:
@@ -888,41 +887,42 @@ class SincConv(nn.Module):
             "padding_mode": ("one_of(zeros,circular)", "optional", "zeros"),
         }
 
+        # FIX: Old style
         # Check, cast, and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, self.logger
-        )
+        # self.conf = check_opts(self, self.expected_options, config, self.logger)
 
         # Definition of the expected input
         self.expected_inputs = ["torch.Tensor"]
 
         # Check the first input
-        check_inputs(
-            self.conf, self.expected_inputs, first_input, logger=self.logger
-        )
+        # check_inputs(
+        #     self.conf, self.expected_inputs, first_input, logger=self.logger
+        # )
 
+        # FIX: The whole if block to new logger style
         # Additional check on the input shapes
-        if first_input is not None:
+        # if first_input is not None:
 
-            # Shape check
-            if len(first_input[0].shape) > 2:
+        #     # Shape check
+        #     if len(first_input[0].shape) > 2:
 
-                err_msg = (
-                    "SincConv only support one input channel (here, \
-                        in_channels = {%i})"
-                    % (len(first_input[1:-1].shape))
-                )
+        #         err_msg = (
+        #             "SincConv only support one input channel (here, \
+        #                 in_channels = {%i})"
+        #             % (len(first_input[1:-1].shape))
+        #         )
 
-                logger_write(err_msg, logfile=logger)
+        #         logger_write(err_msg, logfile=logger)
 
         # Forcing the filters to be odd (i.e, perfectly symmetric)
-        if self.kernel_size % 2 == 0:
-            err_msg = (
-                "The field kernel size must be and odd number. Got %s."
-                % (self.kernel_size)
-            )
+        # FIX: Whole if block to new logging style
+        # if self.kernel_size % 2 == 0:
+        #     err_msg = (
+        #         "The field kernel size must be and odd number. Got %s."
+        #         % (self.kernel_size)
+        #     )
 
-            logger_write(err_msg, logfile=logger)
+        #     logger_write(err_msg, logfile=logger)
 
         # Initialize filterbanks such that they are equally spaced in Mel scale
         low_hz = 30
@@ -1324,13 +1324,13 @@ class RNN_basic(torch.nn.Module):
         nonlinearity,
         num_layers=1,
         bias=True,
-        dropout=0.,
+        dropout=0.0,
         bidirectional=False,
     ):
         super().__init__()
         self.rnn_type = rnn_type
         self.n_neurons = n_neurons
-        self.nonlinearity = nonlinearity,
+        self.nonlinearity = (nonlinearity,)
         self.num_layers = num_layers
         self.bias = bias
         self.dropout = dropout
@@ -1351,17 +1351,17 @@ class RNN_basic(torch.nn.Module):
         self.fea_dim = torch.prod(torch.tensor(first_input.shape[1:-1]))
 
         kwargs = {
-            'input_size': self.fea_dim,
-            'hidden_size': self.n_neurons,
-            'num_layers': self.num_layers,
-            'dropout': self.dropout,
-            'bidirectional': self.bidirectional,
-            'bias': self.bias,
+            "input_size": self.fea_dim,
+            "hidden_size": self.n_neurons,
+            "num_layers": self.num_layers,
+            "dropout": self.dropout,
+            "bidirectional": self.bidirectional,
+            "bias": self.bias,
         }
 
         # Vanilla RNN
         if self.rnn_type == "rnn":
-            kwargs.update({'nonlinearity': self.nonlinearity})
+            kwargs.update({"nonlinearity": self.nonlinearity})
             self.rnn = torch.nn.RNN(**kwargs)
 
         # Vanilla LSTM
@@ -1374,8 +1374,8 @@ class RNN_basic(torch.nn.Module):
 
         # Vanilla light-GRU
         if self.rnn_type == "ligru":
-            del kwargs['bias']
-            kwargs['batch_size'] = first_input.shape[0],
+            del kwargs["bias"]
+            kwargs["batch_size"] = (first_input.shape[0],)
             self.rnn = liGRU(**kwargs)
 
         # Quasi RNN
@@ -1398,8 +1398,8 @@ class RNN_basic(torch.nn.Module):
 
             warnings.filterwarnings("ignore")
 
-            del kwargs['bias']
-            del kwargs['bidirectional']
+            del kwargs["bias"]
+            del kwargs["bidirectional"]
             self.rnn = QRNN(**kwargs)
 
         self.rnn.to(first_input.device)
@@ -1454,7 +1454,7 @@ class liGRU(torch.jit.ScriptModule):
         device="cuda",
     ):
 
-        super(liGRU_layer, self).__init__()
+        super().__init__()
 
         self.hidden_size = int(hidden_size)
         self.input_size = int(input_size)
@@ -1520,7 +1520,7 @@ class liGRU(torch.jit.ScriptModule):
 
     @torch.jit.script_method
     def forward(self, x):
-        # type: (Tensor) -> Tensor
+        # type: (torch.Tensor) -> torch.Tensor
 
         if self.bidirectional:
             x_flip = x.flip(0)
@@ -1546,7 +1546,7 @@ class liGRU(torch.jit.ScriptModule):
 
     @torch.jit.script_method
     def ligru_cell(self, w):
-        # type: (Tensor) -> Tensor
+        # type: (torch.Tensor) -> torch.Tensor
 
         hiddens = []
         ht = self.h_init
@@ -1686,18 +1686,19 @@ class activation(torch.nn.Module):
          ----------------------------------------------------------------------
      """
 
-    def __init__(
+    # TODO: Consider making this less complex. (So many if blocks, flake8 complains)
+    def __init__(  # noqa: C901
         self,
         act_type,
         inplace=False,
         negative_slope=0.01,
         lower=0.125,
         upper=0.33333333,
-        min_val=-1.,
-        max_val=1.,
-        alpha=1.,
-        beta=1.,
-        threshold=20.,
+        min_val=-1.0,
+        max_val=1.0,
+        alpha=1.0,
+        beta=1.0,
+        threshold=20.0,
         lambd=0.5,
         value=0.5,
         dim=-1,
@@ -1744,9 +1745,7 @@ class activation(torch.nn.Module):
             self.act = torch.nn.SELU(inplace=self.inplace)
 
         if self.act_type == "celu":
-            self.act = torch.nn.CELU(
-                alpha=self.alpha, inplace=self.inplace
-            )
+            self.act = torch.nn.CELU(alpha=self.alpha, inplace=self.inplace)
 
         if self.act_type == "hard_shrink":
             self.act = torch.nn.Hardshrink(lambd=self.lambd)
@@ -1931,9 +1930,7 @@ class dropout(nn.Module):
      """
 
     def __init__(
-        self,
-        drop_rate,
-        inplace=False,
+        self, drop_rate, inplace=False,
     ):
         super().__init__()
         self.drop_rate = drop_rate
@@ -1956,14 +1953,10 @@ class dropout(nn.Module):
                 self.reshape = True
 
         if len(first_input.shape) == 4:
-            self.drop = nn.Dropout2d(
-                p=self.drop_rate, inplace=self.inplace
-            )
+            self.drop = nn.Dropout2d(p=self.drop_rate, inplace=self.inplace)
 
         if len(first_input.shape) == 5:
-            self.drop = nn.Dropout3d(
-                p=self.drop_rate, inplace=self.inplace
-            )
+            self.drop = nn.Dropout3d(p=self.drop_rate, inplace=self.inplace)
 
     def forward(self, x):
 

@@ -1,13 +1,17 @@
 """
 Losses for training neural networks.
+
+Author
+------
+Mirco Ravanelli 2020
 """
 
 import torch
 import logging
-import collections
 import torch.nn as nn
 from speechbrain.utils.edit_distance import accumulatable_wer_stats
-from speechbrain.data_io.data_io import filter_ctc_output
+from speechbrain.decoders.ctc import filter_ctc_output
+
 logger = logging.getLogger(__name__)
 
 
@@ -38,24 +42,21 @@ class compute_cost(nn.Module):
         >>> import torch
         >>> from speechbrain.nnet.architectures import linear
         >>> from speechbrain.nnet.architectures import activation
+        >>> mock_input = torch.rand([1, 660, 3])
         >>> model = linear(n_neurons=4)
+        >>> model.init_params(mock_input)
         >>> softmax = activation(act_type='log_softmax')
         >>> cost = compute_cost(cost_type='nll')
-        >>> pred = softmax(model(torch.rand([1, 660, 3])))
+        >>> pred = softmax(model(mock_input))
         >>> label = torch.FloatTensor([0,1,3]).unsqueeze(0)
         >>> lengths = torch.Tensor([1.0])
         >>> out_cost = cost(pred, label, lengths)
-        >>> out_cost.backward()
-
-    Author:
-        Mirco Ravanelli 2020
+        >>> for cost in out_cost:
+        ...     cost.backward()
     """
+
     def __init__(
-        self,
-        cost_type,
-        avoid_pad=None,
-        allow_lab_diff=3,
-        blank_index=None,
+        self, cost_type, avoid_pad=None, allow_lab_diff=3, blank_index=None,
     ):
         super().__init__()
         self.cost_type = cost_type
@@ -122,7 +123,7 @@ class compute_cost(nn.Module):
 
                 logger.error(err_msg, exc_info=True)
 
-            prediction = prediction[:, :, 0: target.shape[-1]]
+            prediction = prediction[:, :, 0 : target.shape[-1]]
 
         else:
 
@@ -263,6 +264,9 @@ class compute_cost(nn.Module):
 
                     # Reshaping tensors when needed
                     if reshape:
+                        raise NotImplementedError("lab is undefined here!")
+                        # FIX: lab is undefined
+                        lab = None
                         lab_curr = lab.reshape(
                             lab.shape[0] * lab.shape[1]
                         ).long()

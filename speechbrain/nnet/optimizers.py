@@ -4,8 +4,8 @@ Optimizers.
 
 import torch
 import logging
-import functools
-from speechbrain.utils import checkpoints 
+from speechbrain.utils import checkpoints
+
 logger = logging.getLogger(__name__)
 
 
@@ -42,21 +42,25 @@ class optimize(torch.nn.Module):
         amsgrad: if True it uses the AMSGrad variant of the adam optimizer.
         nesterov: enables Nesterov momentum for SGD.
 
-    Example:
-       >>> import torch
-       >>> from speechbrain.nnet.architectures import linear
-       >>> from speechbrain.nnet.architectures import activation
-       >>> from speechbrain.nnet.losses import compute_cost
-       >>> inp_tensor = torch.rand([1,660,3])
-       >>> model = linear(n_neurons=4))
-       >>> cost = compute_cost(cost_type='nll')
-       >>> optim = optimize(optimizer_type='sgd', learning_rate=0.01)
-       >>> prediction = torch.nn.functional.softmax(model(inp_tensor))
-       >>> label = torch.FloatTensor([0,1,3]).unsqueeze(0)
-       >>> lengths = torch.Tensor([1.0])
-       >>> out_cost = cost(pred, label, lengths)
-       >>> out_cost.backward()
-       >>> optim([model])
+    Example
+    -------
+    >>> import torch
+    >>> from speechbrain.nnet.architectures import linear
+    >>> from speechbrain.nnet.architectures import activation
+    >>> from speechbrain.nnet.losses import compute_cost
+    >>> inp_tensor = torch.rand([1,660,3])
+    >>> model = linear(n_neurons=4)
+    >>> model.init_params(inp_tensor)
+    >>> cost = compute_cost(cost_type='nll')
+    >>> optim = optimize(optimizer_type='sgd', learning_rate=0.01)
+    >>> optim.init_params([model])
+    >>> prediction = torch.nn.functional.softmax(model(inp_tensor), dim=2)
+    >>> label = torch.FloatTensor([0,1,3]).unsqueeze(0)
+    >>> lengths = torch.Tensor([1.0])
+    >>> out_cost = cost(prediction, label, lengths)
+    >>> for cost in out_cost:
+    ...     cost.backward()
+    >>> optim([model])
 
     Author:
         Mirco Ravanelli 2020
@@ -71,11 +75,11 @@ class optimize(torch.nn.Module):
         etas=[0.5, 1.2],
         step_sizes=[1e-06, 50],
         eps=1e-8,
-        weight_decay=0.,
-        momentum=0.,
-        dampening=0.,
-        rho=0.,
-        initial_accumulator_value=0.,
+        weight_decay=0.0,
+        momentum=0.0,
+        dampening=0.0,
+        rho=0.0,
+        initial_accumulator_value=0.0,
         centered=False,
         amsgrad=False,
         nesterov=False,
@@ -110,7 +114,7 @@ class optimize(torch.nn.Module):
                 err_msg = (
                     "The class optimize expected in input a list of"
                     "neural classes (nn.Module), but %s has no parameters"
-                    % (inp)
+                    % (module)
                 )
                 raise ValueError(err_msg)
 
@@ -197,7 +201,7 @@ class optimize(torch.nn.Module):
 
         Need special recovery because here the forward() should not and
         need not be run before recovery of optimize; so we use forward_pre_hook
-        
+
         (In many cases the forward does need to be run so that submodules
         get initialized first, using forward_hook and rerunning forward())
         Author:
@@ -245,4 +249,3 @@ class optimize(torch.nn.Module):
 
                     # Summing up all the gradients
                     param.grad = param.grad + par_sum
-

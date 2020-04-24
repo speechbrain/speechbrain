@@ -4,18 +4,17 @@ import pytest
 def test_nest():
     from speechbrain.core import nest
 
-    params = {'a': {'b': 'c'}}
-    nest(params, ['a', 'b'], 'd')
-    assert params == {'a': {'b': 'd'}}
-    nest(params, ['a', 'c'], 'e')
-    assert params == {'a': {'b': 'd', 'c': 'e'}}
-    nest(params, ['a', 'b'], {'d': 'f'})
-    assert params == {'a': {'b': {'d': 'f'}, 'c': 'e'}}
+    params = {"a": {"b": "c"}}
+    nest(params, ["a", "b"], "d")
+    assert params == {"a": {"b": "d"}}
+    nest(params, ["a", "c"], "e")
+    assert params == {"a": {"b": "d", "c": "e"}}
+    nest(params, ["a", "b"], {"d": "f"})
+    assert params == {"a": {"b": {"d": "f"}, "c": "e"}}
 
 
 def test_parse_arguments():
     from speechbrain.core import parse_arguments
-
     args = parse_arguments(['--seed', '3', '--data_folder', 'TIMIT'])
     assert args == {'seed': 3, 'data_folder': 'TIMIT'}
 
@@ -23,8 +22,8 @@ def test_parse_arguments():
 def test_parse_overrides():
     from speechbrain.core import parse_overrides
 
-    overrides = parse_overrides('{model.arg1: 1, model.arg1: 2}')
-    assert overrides == {'model': {'arg1': 2}}
+    overrides = parse_overrides("{model.arg1: 1, model.arg1: 2}")
+    assert overrides == {"model": {"arg1": 2}}
 
 
 def test_experiment():
@@ -35,9 +34,9 @@ def test_experiment():
         output_folder: exp
     """
     sb = Experiment(yaml)
-    assert sb.output_folder == 'exp'
-    sb = Experiment(yaml, ['--output_folder', 'exp/example'])
-    assert sb.output_folder == 'exp/example'
+    assert sb.output_folder == "exp"
+    sb = Experiment(yaml, ["--output_folder", "exp/example"])
+    assert sb.output_folder == "exp/example"
 
     yaml = """
     constants:

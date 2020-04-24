@@ -3,11 +3,8 @@ Data preparation.
 """
 
 import os
-import sys
 import csv
-import errno
 import torch
-import shutil
 import logging
 from speechbrain.utils.data_utils import get_all_files
 
@@ -18,6 +15,7 @@ from speechbrain.data_io.data_io import (
     read_kaldi_lab,
     write_txt_file,
 )
+
 logger = logging.getLogger(__name__)
 
 
@@ -350,6 +348,9 @@ class timit_prepare(torch.nn.Module):
         # Setting the save folder
         if self.save_folder is None:
             self.output_folder = self.global_config["output_folder"]
+            raise NotImplementedError("funct_name is undefined here!")
+            # FIX: funct_name is undefined
+            funct_name = None
             self.save_folder = self.output_folder + "/" + funct_name
 
         if not os.path.exists(self.save_folder):
@@ -508,7 +509,8 @@ class timit_prepare(torch.nn.Module):
 
         return skip
 
-    def create_csv(
+    # TODO: Consider making this less complex
+    def create_csv(  # noqa: C901
         self,
         wav_lst,
         csv_file,
@@ -671,9 +673,7 @@ class timit_prepare(torch.nn.Module):
                 err_msg = "the wrd file %s does not exists!" % (wrd_file)
                 raise FileNotFoundError(err_msg)
 
-            words = [
-                line.rstrip("\n").split(" ")[2] for line in open(wrd_file)
-            ]
+            words = [line.rstrip("\n").split(" ")[2] for line in open(wrd_file)]
 
             words = " ".join(words)
 
@@ -920,17 +920,17 @@ class librispeech_prepare:
         }
 
         # Check, cast , and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, logger=self.logger
-        )
+        # self.conf = check_opts(
+        #     self, self.expected_options, config, logger=self.logger
+        # )
 
         # Expected input
         self.expected_inputs = []
 
         # Check the first input
-        check_inputs(
-            self.conf, self.expected_inputs, first_input, logger=self.logger
-        )
+        # check_inputs(
+        #     self.conf, self.expected_inputs, first_input, logger=self.logger
+        # )
 
         # Other variables
         self.samplerate = 16000
@@ -1358,17 +1358,17 @@ class Voxceleb_prepare:
         }
 
         # Check, cast , and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, logger=self.logger
-        )
+        # self.conf = check_opts(
+        #     self, self.expected_options, config, logger=self.logger
+        # )
 
         # Expected inputs when calling the class (no inputs in this case)
         self.expected_inputs = []
 
         # Check the first input
-        check_inputs(
-            self.conf, self.expected_inputs, first_input, logger=self.logger
-        )
+        # check_inputs(
+        #     self.conf, self.expected_inputs, first_input, logger=self.logger
+        # )
 
         # Other variables
         self.global_config = global_config
@@ -1395,23 +1395,24 @@ class Voxceleb_prepare:
 
         # Check if this phase is already done (if so, skip it)
         if self.skip():
+            # FIX: The logger_writes here
+            # msg = "\t%s sucessfully created!" % (self.save_csv_train)
+            # logger_write(msg, logfile=self.logger, level="debug")
 
-            msg = "\t%s sucessfully created!" % (self.save_csv_train)
-            logger_write(msg, logfile=self.logger, level="debug")
+            # msg = "\t%s sucessfully created!" % (self.save_csv_dev)
+            # logger_write(msg, logfile=self.logger, level="debug")
 
-            msg = "\t%s sucessfully created!" % (self.save_csv_dev)
-            logger_write(msg, logfile=self.logger, level="debug")
-
-            msg = "\t%s sucessfully created!" % (self.save_csv_test)
-            logger_write(msg, logfile=self.logger, level="debug")
+            # msg = "\t%s sucessfully created!" % (self.save_csv_test)
+            # logger_write(msg, logfile=self.logger, level="debug")
 
             return
 
         # Additional checks to make sure the data folder contains TIMIT
         self.check_voxceleb1_folders()
 
-        msg = "\tCreating csv file for the Voxceleb Dataset.."
-        logger_write(msg, logfile=self.logger, level="debug")
+        # FIX: The logger_write
+        # msg = "\tCreating csv file for the Voxceleb Dataset.."
+        # logger_write(msg, logfile=self.logger, level="debug")
 
         # Creating csv file for training data
         if "train" in self.splits:
@@ -1594,13 +1595,15 @@ class Voxceleb_prepare:
          ---------------------------------------------------------------------
          """
 
+        # FIX: The logger_write here
         # Adding some Prints
-        msg = '\t"Creating csv lists in  %s..."' % (csv_file)
-        logger_write(msg, logfile=self.logger, level="debug")
+        # msg = '\t"Creating csv lists in  %s..."' % (csv_file)
+        # logger_write(msg, logfile=self.logger, level="debug")
 
         # Reading kaldi labels if needed:
-        snt_no_lab = 0
-        missing_lab = False
+        # FIX: These statements were unused, should they be deleted?
+        # snt_no_lab = 0
+        # missing_lab = False
         """
         # Kaldi labs will be added in future
         if kaldi_lab is not None:
@@ -1680,9 +1683,10 @@ class Voxceleb_prepare:
             for line in csv_lines:
                 csv_writer.writerow(line)
 
+        # FIX: logger_write
         # Final prints
-        msg = "\t%s sucessfully created!" % (csv_file)
-        logger_write(msg, logfile=self.logger, level="debug")
+        # msg = "\t%s sucessfully created!" % (csv_file)
+        # logger_write(msg, logfile=self.logger, level="debug")
 
     def check_voxceleb1_folders(self):
         """
@@ -1720,12 +1724,14 @@ class Voxceleb_prepare:
          ---------------------------------------------------------------------
          """
 
+        raise NotImplementedError("Need fixing old style here!")
+        # FIX: logger_write, convert to raising an error most probably?
         # Checking
-        if not os.path.exists(self.data_folder + "/id10001"):
+        # if not os.path.exists(self.data_folder + "/id10001"):
 
-            err_msg = (
-                "the folder %s does not exist (it is expected in "
-                "the Voxceleb dataset)" % (self.data_folder + "/id*")
-            )
+        #    err_msg = (
+        #        "the folder %s does not exist (it is expected in "
+        #        "the Voxceleb dataset)" % (self.data_folder + "/id*")
+        #    )
 
-            logger_write(err_msg, logfile=self.logger)
+        #    logger_write(err_msg, logfile=self.logger)

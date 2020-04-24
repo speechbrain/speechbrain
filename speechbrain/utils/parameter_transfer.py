@@ -87,8 +87,8 @@ def torch_lazy_parameter_transfer(
         obj (instance of torch.nn.Module or derivative): Instance for which to
             load the parameters
         path (str, pathlib.Path): Path where to load from
-        load_method (callable, optional): Callable with signature 
-            (instance, path) [e.g. def load(self, path)], which actually 
+        load_method (callable, optional): Callable with signature
+            (instance, path) [e.g. def load(self, path)], which actually
             performs the parameter transfer from the given path. Defaults to
             `torch_parameter_transfer` which works for most torch
     Returns:
@@ -105,13 +105,16 @@ def torch_lazy_parameter_transfer(
                 parameters would be overwritten. Call parameter transfer before\
                 recovery"
         raise RuntimeError(MSG)
+
     # Use this hook with functools.partial to save objpath and hook name properly
     # Otherwise, objpath is searched for dynamically (and has probably changed)
     def _lazy_transfer_hook(path, hookname, self, input, output):
         load_method(self, path)
         getattr(self, hookname).remove()
-        logger.debug(f"Transferred parameters to {self} with lazy hook, "
-                "rerunning forward.")
+        logger.debug(
+            f"Transferred parameters to {self} with lazy hook, "
+            "rerunning forward."
+        )
         return self.forward(*input)
 
     # Make a unique hook attribute name
@@ -121,5 +124,7 @@ def torch_lazy_parameter_transfer(
         hook_x += 1
     hook = functools.partial(_lazy_transfer_hook, path, f"{hookbase}_{hook_x}")
     setattr(obj, f"{hookbase}_{hook_x}", obj.register_forward_hook(hook))
-    logger.debug(f"Added lazy parameter transfer hook to {obj}, loaded on "
-            "first forward call.")
+    logger.debug(
+        f"Added lazy parameter transfer hook to {obj}, loaded on "
+        "first forward call."
+    )

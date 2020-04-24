@@ -51,18 +51,17 @@ Author
 Aku Rouhe 2020
 """
 import torch
-import types
 import collections
 import collections.abc
 import os
 import time
-import uuid
 import yaml
 import pathlib
 import inspect
 import functools
 import shutil
 import logging
+
 logger = logging.getLogger(__name__)
 
 CKPT_PREFIX = "CKPT"
@@ -72,22 +71,22 @@ PARAMFILE_EXT = ".ckpt"  # ...because these files will be
 
 def torch_recovery(obj, path, end_of_epoch):
     """Loads a torch.nn.Module state_dict from the given path instantly.
-    
+
     This can be made the default for torch.nn.Modules with:
     >>> DEFAULT_LOAD_HOOKS[torch.nn.Module] = torch_recovery
 
     Arguments
     ---------
-    obj : torch.nn.Module 
+    obj : torch.nn.Module
         Instance for which to load the parameters
-    path : str, pathlib.Path 
+    path : str, pathlib.Path
         Path where to load from
-    end_of_epoch : bool 
+    end_of_epoch : bool
         Whether the recovery comes from an end of epoch checkpoint.
 
     Returns
     -------
-    None 
+    None
         Given object is modified in place
 
     Author
@@ -113,9 +112,9 @@ def torch_lazy_recovery(obj, path, end_of_epoch, load_method=torch_recovery):
 
     Arguments
     ---------
-    obj : torch.nn.Module 
+    obj : torch.nn.Module
         Instance for which to load the parameters
-    path : str, pathlib.Path 
+    path : str, pathlib.Path
         Path where to load from
     end_of_epoch : bool
         Whether the recovery comes from an end of epoch checkpoint.
@@ -126,7 +125,7 @@ def torch_lazy_recovery(obj, path, end_of_epoch, load_method=torch_recovery):
 
     Returns
     -------
-    None 
+    None
         Given object is modified in place
 
     Note
@@ -138,6 +137,7 @@ def torch_lazy_recovery(obj, path, end_of_epoch, load_method=torch_recovery):
     # to overwrite the previous recovered parameters.
     if hasattr(obj, "_speechbrain_lazy_recovery_hook"):
         obj._speechbrain_lazy_recovery_hook.remove()
+
     # Use this hook with functools.partial to save objpath properly
     # Otherwise, objpath is searched for dynamically (and has probably changed)
     def _lazy_recovery_hook(path, end_of_epoch, self, input, output):
@@ -145,8 +145,9 @@ def torch_lazy_recovery(obj, path, end_of_epoch, load_method=torch_recovery):
         self._speechbrain_lazy_recovery_hook.remove()
 
         # Re-do forward now that the parameters are loaded
-        logger.debug(f"Loaded parameters to {self} with lazy hook, "
-                "rerunning forward.")
+        logger.debug(
+            f"Loaded parameters to {self} with lazy hook, " "rerunning forward."
+        )
         return self.forward(*input)
 
     hook = functools.partial(_lazy_recovery_hook, path, end_of_epoch)
@@ -169,7 +170,7 @@ def torch_save(obj, path):
 
     Returns
     -------
-    None 
+    None
         State dict is written to disk.
     """
     state_dict = obj.state_dict()
@@ -194,7 +195,7 @@ def mark_as_saver(method):
 
     Arguments
     ---------
-    method : callable 
+    method : callable
         Method of the class to decorate. Must be callable with
         signature (instance, path) using positional arguments. This is
         satisfied by for example: def saver(self, path):
@@ -220,10 +221,10 @@ def mark_as_loader(method):
 
     Arguments
     ---------
-    method : callable 
+    method : callable
         Method of the class to decorate. Must be callable with
-        signature (instance, path, end_of_epoch) using positional 
-        arguments. This is satisfied by for example: 
+        signature (instance, path, end_of_epoch) using positional
+        arguments. This is satisfied by for example:
         `def loader(self, path, end_of_epoch):`
 
     Note
@@ -258,12 +259,12 @@ def register_checkpoint_hooks(cls):
     ... class CustomRecoverable:
     ...     def __init__(self, param):
     ...         self.param = int(param)
-    ... 
+    ...
     ...     @mark_as_saver
     ...     def save(self, path):
     ...         with open(path, "w") as fo:
     ...             fo.write(str(self.param))
-    ... 
+    ...
     ...     @mark_as_loader
     ...     def load(self, path, end_of_epoch):
     ...         del end_of_epoch  # Unused here
@@ -291,7 +292,7 @@ def get_default_hook(obj, default_hooks):
 
     Arguments
     ---------
-    obj : instance 
+    obj : instance
         Instance of a class
     default_hooks : dict
         Mapping from classes to (checkpointing hook) functions
@@ -343,16 +344,16 @@ class Checkpointer:
 
     Arguments:
 
-    checkpoints_dir : str, pathlib.Path 
+    checkpoints_dir : str, pathlib.Path
         Path to directory where to save checkpoints.
     recoverables : mapping, optional
-        Objects to to recover. They need a (unique) name: this is used 
-        to connect the parameters in a checkpoint to the correct recoverable. 
-        The name is also used in the filename of the 
-        savefile for the objects parameters. These can also be added with 
-        add_recoverable or add_recoverables or just modifying 
+        Objects to to recover. They need a (unique) name: this is used
+        to connect the parameters in a checkpoint to the correct recoverable.
+        The name is also used in the filename of the
+        savefile for the objects parameters. These can also be added with
+        add_recoverable or add_recoverables or just modifying
         checkpointer.recoverables directly.
-    custom_load_hooks : mapping, optional 
+    custom_load_hooks : mapping, optional
         A mapping from name [same as in recoverables] to function or method.
         Sets a custom loading hook for a particular object. The
         function/method must be callable with signature (instance, path)
@@ -365,18 +366,17 @@ class Checkpointer:
         signature (instance, path) using positional arguments. This is
         satisfied by for example: def saver(self, path):
     allow_partial_load : bool, optional
-        default: False 
-        If True, allows loading a checkpoint where a savefile is not found 
-        for every registered recoverable. In that case, only the found 
-        savefiles are loaded. When False, loading such a save will raise 
+        default: False
+        If True, allows loading a checkpoint where a savefile is not found
+        for every registered recoverable. In that case, only the found
+        savefiles are loaded. When False, loading such a save will raise
         RuntimeError.
 
     Example
     -------
-    >>> from speechbrain.utils.checkpoints import Checkpointer
     >>> import torch
-    >>> import tempfile
     >>> #SETUP:
+    >>> tempdir = getfixture('tmpdir')
     >>> class Recoverable(torch.nn.Module):
     ...     def __init__(self, param):
     ...         super().__init__()
@@ -385,22 +385,16 @@ class Checkpointer:
     ...         return x * self.param
     >>> recoverable = Recoverable(1.)
     >>> recoverables = {'recoverable': recoverable}
-    >>> with tempfile.TemporaryDirectory() as tempdir:
-    ...     # SETUP DONE.
-    ...     checkpointer = Checkpointer(tempdir, recoverables)
-    ...     first_ckpt = checkpointer.save_checkpoint()
-    ...     recoverable.param.data = torch.tensor([2.])
-    ...     loaded_ckpt = checkpointer.recover_if_possible()
-    ...     # Parameter hasn't been loaded yet:
-    ...     assert recoverable.param.data == torch.tensor([2.])
-    ...     result = recoverable(10.)
-    ...     # Parameter has been loaded now:
-    ...     assert recoverable.param.data == torch.tensor([1.])
-    ...     # And parameter was loaded before computation:
-    ...     assert result == 10.
-    ...     # With this call, by default, oldest checkpoints are deleted:
-    ...     checkpointer.save_and_keep_only()
-    ...     assert first_ckpt not in checkpointer.list_checkpoints() 
+    >>> # SETUP DONE.
+    >>> checkpointer = Checkpointer(tempdir, recoverables)
+    >>> first_ckpt = checkpointer.save_checkpoint()
+    >>> recoverable.param.data = torch.tensor([2.])
+    >>> loaded_ckpt = checkpointer.recover_if_possible()
+    >>> # Parameter has been loaded:
+    >>> assert recoverable.param.data == torch.tensor([1.])
+    >>> # With this call, by default, oldest checkpoints are deleted:
+    >>> checkpointer.save_and_keep_only()
+    >>> assert first_ckpt not in checkpointer.list_checkpoints()
     """
 
     def __init__(
@@ -418,10 +412,10 @@ class Checkpointer:
             self.add_recoverables(recoverables)
         self.custom_load_hooks = {}
         if custom_load_hooks is not None:
-            self.custom_load_hooks.update(custom_io_hooks)
+            self.custom_load_hooks.update(custom_load_hooks)
         self.custom_save_hooks = {}
         if custom_save_hooks is not None:
-            self.custom_save_hooks.update(custom_io_hooks)
+            self.custom_save_hooks.update(custom_save_hooks)
         self.allow_partial_load = allow_partial_load
 
     def add_recoverable(
@@ -431,17 +425,17 @@ class Checkpointer:
 
         Arguments
         ---------
-        name : str 
+        name : str
             Unique name for recoverable. Used to map savefiles to objects.
-        obj : instance 
+        obj : instance
             The object to recover
-        custom_load_hook : callable 
-            Called to load the object's savefile. The function/method must be 
-            callable with signature (instance, path) using positional 
+        custom_load_hook : callable
+            Called to load the object's savefile. The function/method must be
+            callable with signature (instance, path) using positional
             arguments. This is satisfied by for example: def load(self, path):
-        custom_save_hook : callable 
+        custom_save_hook : callable
             Called to save the object's parameters. The function/method must
-            be callable with signature (instance, path) using positional 
+            be callable with signature (instance, path) using positional
             arguments. This is satisfied by for example: def saver(self, path):
         """
         self.recoverables[name] = obj
@@ -455,24 +449,24 @@ class Checkpointer:
 
         Arguments
         ---------
-        recoverables : mapping 
-            Objects to to recover. 
+        recoverables : mapping
+            Objects to to recover.
             They need a (unique) name: this is used to
-            connect the parameters in a checkpoint to the correct 
-            recoverable. The name is also used in the filename of the 
+            connect the parameters in a checkpoint to the correct
+            recoverable. The name is also used in the filename of the
             savefile for the objects parameters.
         """
         if isinstance(recoverables, collections.abc.Mapping):
             self.recoverables.update(recoverables)
         else:
-            rec = repr(recoverables)
+            rec = repr(recoverables)  # noqa: F841, rec is used in MSG
             MSG = "Checkpointer needs a mapping (e.g. dict), \
                     got {rec} instead."
             raise AttributeError(MSG)
 
-    def save_checkpoint(self, meta={}, end_of_epoch = True, name=None):
-        """Saves a checkpoint. 
-        
+    def save_checkpoint(self, meta={}, end_of_epoch=True, name=None):
+        """Saves a checkpoint.
+
         The whole checkpoint becomes a directory.
         Saves each registered object's parameters in a separate file.
         Also a meta file is added. The meta file by default has just the
@@ -480,25 +474,25 @@ class Checkpointer:
         relevant yourself. The meta information is later used to pick the
         checkpoint to load.
 
-        The value of end_of_epoch is saved in the meta. This can affect how 
+        The value of end_of_epoch is saved in the meta. This can affect how
         epoch counters and dataset iterators load their state.
 
         Arguments
         ---------
-        meta : mapping, optional 
-            A mapping which is added to the meta file in the checkpoint. The 
+        meta : mapping, optional
+            A mapping which is added to the meta file in the checkpoint. The
             key "unixtime" is included by default.
-        end_of_epoch : bool, optional 
-            Whether the checkpoint is at the end of an epoch. True by default. 
+        end_of_epoch : bool, optional
+            Whether the checkpoint is at the end of an epoch. True by default.
             May affect loading.
         name : str, optional
-            Specify a custom name for your checkpoint. 
-            The name will still have a prefix added. If no name is given, 
+            Specify a custom name for your checkpoint.
+            The name will still have a prefix added. If no name is given,
             a name is created from a timestamp and a random unique id.
 
         Returns
         -------
-        Checkpoint 
+        Checkpoint
             namedtuple [see above], the saved checkpoint
         """
         if name is None:
@@ -507,7 +501,8 @@ class Checkpointer:
             ckpt_dir = self._custom_checkpoint_dirpath(name)
         os.makedirs(ckpt_dir)  # May raise FileExistsError, let it.
         saved_meta = self._save_checkpoint_metafile(
-                ckpt_dir / METAFNAME, meta, end_of_epoch)
+            ckpt_dir / METAFNAME, meta, end_of_epoch
+        )
         saved_paramfiles = {}
         for name, obj in self.recoverables.items():
             objfname = f"{name}" + PARAMFILE_EXT
@@ -545,40 +540,40 @@ class Checkpointer:
 
         Arguments
         ---------
-        meta : mapping, optional 
-            A mapping which is added to the meta file in the checkpoint. The 
+        meta : mapping, optional
+            A mapping which is added to the meta file in the checkpoint. The
             key "unixtime" is included by default.
-        end_of_epoch : bool, optional 
-            Whether the checkpoint is at the end of an epoch. True by default. 
+        end_of_epoch : bool, optional
+            Whether the checkpoint is at the end of an epoch. True by default.
             May affect loading.
         name : str, optional
-            Specify a custom name for your checkpoint. 
-            The name will still have a prefix added. If no name is given, 
+            Specify a custom name for your checkpoint.
+            The name will still have a prefix added. If no name is given,
             a name is created from a timestamp and a random unique id.
-        num_to_keep : int, optional 
+        num_to_keep : int, optional
             Number of checkpoints to keep.
             Defaults to 10. You choose to keep 0. This deletes all
             checkpoints remaining after filtering. Must be >=0
-        importance_keys : list, optional 
+        importance_keys : list, optional
             A list of key functions used in sorting (see the sorted built-in).
-            Each callable defines a sort order and num_to_keep checkpoints are 
-            kept for  callable. To be clear, those with the highest key are 
-            kept. 
-            The functions are called with Checkpoint namedtuples 
-            (see above). See also the default (ckpt_recency, 
+            Each callable defines a sort order and num_to_keep checkpoints are
+            kept for  callable. To be clear, those with the highest key are
+            kept.
+            The functions are called with Checkpoint namedtuples
+            (see above). See also the default (ckpt_recency,
             above). The default deletes all but the latest checkpoint.
         ckpt_predicate : callable, optional
-            Use this to exclude some checkpoints from deletion. Before any 
-            sorting, the list of checkpoints is filtered with this predicate. 
-            Only the checkpoints for which ckpt_predicate is True can be 
-            deleted. The function is called with Checkpoint namedtuples 
-            (see above). 
+            Use this to exclude some checkpoints from deletion. Before any
+            sorting, the list of checkpoints is filtered with this predicate.
+            Only the checkpoints for which ckpt_predicate is True can be
+            deleted. The function is called with Checkpoint namedtuples
+            (see above).
 
         Returns
         -------
-        None 
+        None
             Unlike save_checkpoint, this does not return anything, since
-            we cannot guarantee that the saved checkpoint actually survives 
+            we cannot guarantee that the saved checkpoint actually survives
             deletion.
         """
         self.save_checkpoint(meta=meta, end_of_epoch=end_of_epoch, name=name)
@@ -592,28 +587,28 @@ class Checkpointer:
         self, importance_key=ckpt_recency, ckpt_predicate=None,
     ):
         """Picks a particular checkpoint from all available checkpoints.
-        
+
         Arguments
         ---------
-        importance_key : callable, optional 
-            The key function used in sorting (see the max built-in). 
-            The checkpoint with the highest key value is picked. By default, 
-            the key value is unixtime. The higher the unixtime, 
-            the newer -> the latest checkpoint is picked. 
-            The function is called with Checkpoint namedtuples (see above). 
+        importance_key : callable, optional
+            The key function used in sorting (see the max built-in).
+            The checkpoint with the highest key value is picked. By default,
+            the key value is unixtime. The higher the unixtime,
+            the newer -> the latest checkpoint is picked.
+            The function is called with Checkpoint namedtuples (see above).
             See also the default (ckpt_recency, above).
-        ckpt_predicate : callable, optional 
+        ckpt_predicate : callable, optional
             Before sorting, the list of
-            checkpoints is filtered with this predicate. 
+            checkpoints is filtered with this predicate.
             See the filter builtin.
-            The function is called with Checkpoint namedtuples (see above). 
+            The function is called with Checkpoint namedtuples (see above).
             By default, all checkpoints are considered.
 
         Returns
         -------
         Checkpoint
             if found
-        None 
+        None
             if no Checkpoints exist/remain after filtering
         """
         ckpts = self.list_checkpoints()
@@ -628,23 +623,23 @@ class Checkpointer:
         self, importance_key=ckpt_recency, ckpt_predicate=None,
     ):
         """Picks a checkpoint and recovers from that, if one is found.
-        
+
         If a checkpoint is not found, no recovery is run.
 
         Arguments
         ---------
-        importance_key : callable, optional 
-            The key function used in sorting (see the max built-in). 
-            The checkpoint with the highest key value is picked. By default, 
-            the key value is unixtime. The higher the unixtime, 
-            the newer -> the latest checkpoint is picked. 
-            The function is called with Checkpoint namedtuples (see above). 
+        importance_key : callable, optional
+            The key function used in sorting (see the max built-in).
+            The checkpoint with the highest key value is picked. By default,
+            the key value is unixtime. The higher the unixtime,
+            the newer -> the latest checkpoint is picked.
+            The function is called with Checkpoint namedtuples (see above).
             See also the default (ckpt_recency, above).
-        ckpt_predicate : callable, optional 
+        ckpt_predicate : callable, optional
             Before sorting, the list of
-            checkpoints is filtered with this predicate. 
+            checkpoints is filtered with this predicate.
             See the filter builtin.
-            The function is called with Checkpoint namedtuples (see above). 
+            The function is called with Checkpoint namedtuples (see above).
             By default, all checkpoints are considered.
 
 
@@ -652,7 +647,7 @@ class Checkpointer:
         -------
         Checkpoint
             if found
-        None 
+        None
             if no Checkpoints exist/remain after filtering
         """
         chosen_ckpt = self.find_checkpoint(importance_key, ckpt_predicate)
@@ -691,41 +686,41 @@ class Checkpointer:
         ckpt_predicate=None,
     ):
         """Deletes least important checkpoints.
-        
+
         Since there can be many ways to define importance (e.g. lowest WER,
-        lowest loss), the user should provide a list of sort key functions, 
-        each defining a particular importance order. In essence, each 
+        lowest loss), the user should provide a list of sort key functions,
+        each defining a particular importance order. In essence, each
         importance key function extracts one importance metric (higher is more
         important). For each of these orders, num_to_keep checkpoints are kept.
         However if there is overlap between each orders' preserved checkpoints,
         the additional checkpoints are not preserved, so the total number of
-        preserved checkpoints can be less than 
+        preserved checkpoints can be less than
             num_to_keep * len(importance_keys)
-        
+
         Arguments
         ---------
-        num_to_keep : int, optional 
+        num_to_keep : int, optional
             Number of checkpoints to keep.
             Defaults to 10. You choose to keep 0. This deletes all
             checkpoints remaining after filtering. Must be >=0
-        importance_keys : list, optional 
+        importance_keys : list, optional
             A list of key functions used in sorting (see the sorted built-in).
-            Each callable defines a sort order and num_to_keep checkpoints are 
-            kept for  callable. To be clear, those with the highest key are 
-            kept. 
-            The functions are called with Checkpoint namedtuples 
-            (see above). See also the default (ckpt_recency, 
+            Each callable defines a sort order and num_to_keep checkpoints are
+            kept for  callable. To be clear, those with the highest key are
+            kept.
+            The functions are called with Checkpoint namedtuples
+            (see above). See also the default (ckpt_recency,
             above). The default deletes all but the latest checkpoint.
         ckpt_predicate : callable, optional
-            Use this to exclude some checkpoints from deletion. Before any 
-            sorting, the list of checkpoints is filtered with this predicate. 
-            Only the checkpoints for which ckpt_predicate is True can be 
-            deleted. The function is called with Checkpoint namedtuples 
-            (see above). 
+            Use this to exclude some checkpoints from deletion. Before any
+            sorting, the list of checkpoints is filtered with this predicate.
+            Only the checkpoints for which ckpt_predicate is True can be
+            deleted. The function is called with Checkpoint namedtuples
+            (see above).
 
         Note
         ----
-        Must be called with keyword arguments, as a signoff that you 
+        Must be called with keyword arguments, as a signoff that you
         know what you are doing. Deletion is permanent.
         """
         if num_to_keep < 0:
@@ -822,8 +817,9 @@ class Checkpointer:
         t = time.time()
         stamp = time.strftime("%Y-%m-%d+%H-%M-%S", time.localtime(t))
         suffix_num = 0
-        while (self.checkpoints_dir / 
-                f"{CKPT_PREFIX}+{stamp}+{suffix_num:02d}").exists():
+        while (
+            self.checkpoints_dir / f"{CKPT_PREFIX}+{stamp}+{suffix_num:02d}"
+        ).exists():
             suffix_num += 1
         return self.checkpoints_dir / f"{CKPT_PREFIX}+{stamp}+{suffix_num:02d}"
 
@@ -834,7 +830,8 @@ class Checkpointer:
         return self.checkpoints_dir / f"{CKPT_PREFIX}+{name}"
 
     def _save_checkpoint_metafile(
-            self, fpath, meta_to_include={}, end_of_epoch=True):
+        self, fpath, meta_to_include={}, end_of_epoch=True
+    ):
         # This internal method saves the meta information in the given path
         meta = {"unixtime": time.time(), "end-of-epoch": end_of_epoch}
         meta.update(meta_to_include)

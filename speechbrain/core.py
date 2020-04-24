@@ -3,12 +3,10 @@
 Author(s): Peter Plantinga 2020
 """
 
-import re
 import os
 import sys
 import yaml
 import torch
-import pydoc
 import shutil
 import logging
 import inspect
@@ -19,6 +17,7 @@ from speechbrain.utils.logger import setup_logging
 from speechbrain.utils.checkpoints import Checkpointer
 from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.data_utils import load_extended_yaml, resolve_references
+
 logger = logging.getLogger(__name__)
 
 
@@ -88,55 +87,55 @@ class Experiment:
 
     Example
     -------
-    >>> yaml_string = """
+    >>> tmpdir = getfixture('tmpdir')
+    >>> yaml_string = f"""
     ... constants:
-    ...     output_folder: exp
+    ...     output_folder: {tmpdir}
     ...     save_folder: !ref <constants.output_folder>/save
     ... """
     >>> sb = Experiment(yaml_string)
-    core - Beginning experiment!
-    core - Output folder: exp
+    speechbrain.core - Beginning experiment!
+    speechbrain.core - Output folder: ...
     >>> sb.save_folder
-    'exp/save'
+    '.../save'
     '''
+
     def __init__(
-        self,
-        yaml_stream,
-        commandline_args=[],
+        self, yaml_stream, commandline_args=[],
     ):
         """"""
         # Parse yaml overrides, with command-line args taking precedence
         # precedence over the parameters listed in the file.
-        overrides = {'constants': {}}
+        overrides = {"constants": {}}
         cmd_args = parse_arguments(commandline_args)
-        if 'yaml_overrides' in cmd_args:
-            overrides.update(parse_overrides(cmd_args['yaml_overrides']))
-            del cmd_args['yaml_overrides']
-        overrides['constants'].update(cmd_args)
+        if "yaml_overrides" in cmd_args:
+            overrides.update(parse_overrides(cmd_args["yaml_overrides"]))
+            del cmd_args["yaml_overrides"]
+        overrides["constants"].update(cmd_args)
 
         # Load parameters file and store
         parameters = load_extended_yaml(yaml_stream, overrides)
-        for toplevel_field in ['constants', 'saveables', 'functions']:
+        for toplevel_field in ["constants", "saveables", "functions"]:
             if toplevel_field in parameters:
                 self._update_attributes(parameters[toplevel_field])
         self._update_attributes(cmd_args, override=True)
 
         # Use experimental parameters to initialize experiment
-        if hasattr(self, 'seed'):
+        if hasattr(self, "seed"):
             torch.manual_seed(self.seed)
 
         # Stuff depending on having an output_folder
         logger_overrides = {}
-        if hasattr(self, 'output_folder'):
+        if hasattr(self, "output_folder"):
             if not os.path.isdir(self.output_folder):
                 os.makedirs(self.output_folder)
 
             # Write the parameters file
-            if hasattr(yaml_stream, 'seek'):
+            if hasattr(yaml_stream, "seek"):
                 yaml_stream.seek(0)
             resolved_yaml = resolve_references(yaml_stream, overrides)
-            params_filename = os.path.join(self.output_folder, 'params.yaml')
-            with open(params_filename, 'w') as w:
+            params_filename = os.path.join(self.output_folder, "params.yaml")
+            with open(params_filename, "w") as w:
                 shutil.copyfileobj(resolved_yaml, w)
 
             # Copy executing folder to output directory
@@ -145,39 +144,39 @@ class Experiment:
                 callingdir = os.path.dirname(os.path.realpath(module.__file__))
                 parentdir, zipname = os.path.split(callingdir)
                 archivefile = os.path.join(self.output_folder, zipname)
-                shutil.make_archive(archivefile, 'zip', parentdir, zipname)
+                shutil.make_archive(archivefile, "zip", parentdir, zipname)
 
             # Change logging file to be in output dir
             logger_override_string = (
-                '{handlers.file_handler.filename: %s}'
-                % os.path.join(self.output_folder, 'log.txt')
+                "{handlers.file_handler.filename: %s}"
+                % os.path.join(self.output_folder, "log.txt")
             )
             logger_overrides = parse_overrides(logger_override_string)
 
             # Create checkpointer for loading/saving state
-            if hasattr(self, 'save_folder') and 'saveables' in parameters:
+            if hasattr(self, "save_folder") and "saveables" in parameters:
                 self.saver = Checkpointer(
                     checkpoints_dir=self.save_folder,
-                    recoverables=parameters['saveables'],
+                    recoverables=parameters["saveables"],
                 )
 
         # Log exceptions automatically
-        if not hasattr(self, 'log_config'):
-            self.log_config = 'logging.yaml'
+        if not hasattr(self, "log_config"):
+            self.log_config = "logging.yaml"
         setup_logging(self.log_config, logger_overrides)
         sys.excepthook = _logging_excepthook
 
         # Log beginning of experiment!
-        logger.info('Beginning experiment!')
-        if hasattr(self, 'output_folder'):
-            logger.info('Output folder: %s' % self.output_folder)
+        logger.info("Beginning experiment!")
+        if hasattr(self, "output_folder"):
+            logger.info("Output folder: %s" % self.output_folder)
 
         # Log commit hash
         commit_hash = subprocess.check_output(["git", "describe", "--always"])
-        logger.debug("Commit hash: '%s'" % commit_hash.decode('utf-8').strip())
+        logger.debug("Commit hash: '%s'" % commit_hash.decode("utf-8").strip())
 
     def _update_attributes(self, attributes, override=False):
-        r'''Update the attributes of this class to reflect a set of parameters
+        r"""Update the attributes of this class to reflect a set of parameters
 
         Arguments
         ---------
@@ -185,14 +184,14 @@ class Experiment:
             A dict that contains the essential parameters for
             running the experiment. Usually loaded from a yaml file using
             `load_extended_yaml()`.
-        '''
+        """
         for param, new_value in attributes.items():
             if isinstance(new_value, dict):
                 value = getattr(self, param, {})
                 value.update(new_value)
             else:
                 if hasattr(self, param) and not override:
-                    raise KeyError('Parameter %s is defined multiple times')
+                    raise KeyError("Parameter %s is defined multiple times")
                 value = new_value
             setattr(self, param, value)
 
@@ -216,37 +215,36 @@ def parse_arguments(arg_list):
     {'seed': 10}
     """
     parser = argparse.ArgumentParser(
-        description='Run a SpeechBrain experiment',
+        description="Run a SpeechBrain experiment",
     )
     parser.add_argument(
-        '--yaml_overrides',
-        help='A yaml-formatted string representing a dictionary of '
-        'overrides to the parameters in the param file. The keys of '
-        'the dictionary can use dots to represent levels in the yaml '
+        "--yaml_overrides",
+        help="A yaml-formatted string representing a dictionary of "
+        "overrides to the parameters in the param file. The keys of "
+        "the dictionary can use dots to represent levels in the yaml "
         'hierarchy. For example: "{model.param1: value1}" would '
-        'override the param1 parameter of the model node.',
+        "override the param1 parameter of the model node.",
     )
     parser.add_argument(
-        '--output_folder',
-        help='A folder for storing all experiment-related outputs.',
+        "--output_folder",
+        help="A folder for storing all experiment-related outputs.",
     )
     parser.add_argument(
-        '--data_folder',
-        help='A folder containing the data used for training',
+        "--data_folder", help="A folder containing the data used for training",
     )
     parser.add_argument(
-        '--save_folder',
-        help='A folder for storing checkpoints that allow restoring '
-        'progress for testing or re-starting training.',
+        "--save_folder",
+        help="A folder for storing checkpoints that allow restoring "
+        "progress for testing or re-starting training.",
     )
     parser.add_argument(
         '--seed',
         type=int,
-        help='A random seed to reproduce experiments on the same machine',
+        help="A random seed to reproduce experiments on the same machine",
     )
     parser.add_argument(
-        '--log_config',
-        help='A file storing the configuration options for logging',
+        "--log_config",
+        help="A file storing the configuration options for logging",
     )
 
     # Ignore items that are "None", they were not passed
@@ -274,8 +272,8 @@ def parse_overrides(override_string):
 
     overrides = {}
     for arg, val in preview.items():
-        if '.' in arg:
-            nest(overrides, arg.split('.'), val)
+        if "." in arg:
+            nest(overrides, arg.split("."), val)
         else:
             overrides[arg] = val
 

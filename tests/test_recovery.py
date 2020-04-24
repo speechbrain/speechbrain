@@ -35,7 +35,7 @@ def test_checkpointer(tmpdir):
     # Check that parameter has been loaded immediately:
     assert recoverable.param.data == torch.tensor([1.0])
     result = recoverable(10.0)
-    # And result correct 
+    # And result correct
     assert result == 10.0
 
     other = Recoverable(2.0)
@@ -67,7 +67,7 @@ def test_checkpointer(tmpdir):
         chosen_ckpt = recoverer.recover_if_possible(
             importance_key=lambda x: -x.meta["unixtime"]
         )
-    # However this operation may have loaded the first object 
+    # However this operation may have loaded the first object
     # so let's set the values manually:
     recoverable.param.data = torch.tensor([2.0])
     other.param.data = torch.tensor([10.0])
@@ -171,43 +171,49 @@ def test_checkpoint_deletion(tmpdir):
 
     # Now each should be kept:
     # Highest foo
-    c1 = recoverer.save_checkpoint(meta={"foo":2})
+    c1 = recoverer.save_checkpoint(meta={"foo": 2})
     # Latest CKPT after filtering
-    c2 = recoverer.save_checkpoint(meta={"foo":1})
+    c2 = recoverer.save_checkpoint(meta={"foo": 1})
     # Filtered out
-    c3 = recoverer.save_checkpoint(meta={"epoch_ckpt":True})
-    recoverer.delete_checkpoints(num_to_keep=1,
-            importance_keys = [lambda c: c.meta["unixtime"],
-                                lambda c: c.meta["foo"]],
-            ckpt_predicate = lambda c: "epoch_ckpt" not in c.meta)
+    c3 = recoverer.save_checkpoint(meta={"epoch_ckpt": True})
+    recoverer.delete_checkpoints(
+        num_to_keep=1,
+        importance_keys=[lambda c: c.meta["unixtime"], lambda c: c.meta["foo"]],
+        ckpt_predicate=lambda c: "epoch_ckpt" not in c.meta,
+    )
     assert all(c in recoverer.list_checkpoints() for c in [c1, c2, c3])
     # Reset:
     recoverer.delete_checkpoints(num_to_keep=0)
     assert not recoverer.list_checkpoints()
 
-    # Test the keeping multiple checkpoints without predicate: 
+    # Test the keeping multiple checkpoints without predicate:
     # This should be deleted:
-    c_to_delete = recoverer.save_checkpoint(meta={"foo":2})
+    c_to_delete = recoverer.save_checkpoint(meta={"foo": 2})
     # Highest foo
-    c1 = recoverer.save_checkpoint(meta={"foo":3})
+    c1 = recoverer.save_checkpoint(meta={"foo": 3})
     # Latest CKPT after filtering
-    c2 = recoverer.save_checkpoint(meta={"foo":1})
-    recoverer.delete_checkpoints(num_to_keep=1,
-            importance_keys = [lambda c: c.meta["unixtime"],
-                                lambda c: c.meta["foo"]])
+    c2 = recoverer.save_checkpoint(meta={"foo": 1})
+    recoverer.delete_checkpoints(
+        num_to_keep=1,
+        importance_keys=[lambda c: c.meta["unixtime"], lambda c: c.meta["foo"]],
+    )
     assert all(c in recoverer.list_checkpoints() for c in [c1, c2])
+    assert c_to_delete not in recoverer.list_checkpoints()
 
 
 def test_torch_lazy_recovery(tmpdir):
     from speechbrain.utils.checkpoints import Checkpointer
-    from speechbrain.utils.checkpoints import torch_lazy_recovery 
+    from speechbrain.utils.checkpoints import torch_lazy_recovery
     import torch
+
     class LazyInitRecoverable(torch.nn.Module):
         def __init__(self, param):
             super().__init__()
+
             def lazy_init(self, input):
                 self.param = torch.nn.Parameter(torch.tensor([param]))
                 self.init_hook.remove()
+
             self.init_hook = self.register_forward_pre_hook(lazy_init)
 
         def forward(self, x):
@@ -216,22 +222,22 @@ def test_torch_lazy_recovery(tmpdir):
     recoverable = LazyInitRecoverable(2.0)
     # Setup the recovery
     recoverer = Checkpointer(tmpdir)
-    recoverer.add_recoverable("recoverable", 
-            recoverable, 
-            custom_load_hook = torch_lazy_recovery)
+    recoverer.add_recoverable(
+        "recoverable", recoverable, custom_load_hook=torch_lazy_recovery
+    )
     # Make sure the recoverable works as intended
     assert not hasattr(recoverable, "param")
-    assert recoverable(3.) == 6.
+    assert recoverable(3.0) == 6.0
     assert hasattr(recoverable, "param")
     # Save checkpoint with old, initialized recoverable
-    ckpt = recoverer.save_checkpoint()
+    recoverer.save_checkpoint()
     # Now simulate a restore:
     new_recoverable = LazyInitRecoverable(0.0)
     recoverer.recoverables["recoverable"] = new_recoverable
     recoverer.recover_if_possible()
     # And even with the lazy init recoverable, this should work the same:
     assert not hasattr(new_recoverable, "param")
-    assert new_recoverable(3.) == 6.
+    assert new_recoverable(3.0) == 6.0
     assert hasattr(new_recoverable, "param")
 
     # Edge case: calling lazy recovery twice:
@@ -239,7 +245,7 @@ def test_torch_lazy_recovery(tmpdir):
     recoverer.recoverables["recoverable"] = new_new_recoverable
     recoverer.recover_if_possible()
     recoverer.recover_if_possible()
-    # And even now, this should work 
+    # And even now, this should work
     assert not hasattr(new_new_recoverable, "param")
-    assert new_new_recoverable(3.) == 6.
+    assert new_new_recoverable(3.0) == 6.0
     assert hasattr(new_new_recoverable, "param")

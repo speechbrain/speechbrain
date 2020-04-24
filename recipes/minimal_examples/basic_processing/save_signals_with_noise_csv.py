@@ -1,5 +1,6 @@
 from speechbrain.core import Experiment
-filename = 'recipes/minimal_examples/basic_processing/params.yaml'
+
+filename = "recipes/minimal_examples/basic_processing/params.yaml"
 sb = Experiment(open(filename))
 
 for (batch,) in zip(*sb.sample_data()):

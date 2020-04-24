@@ -11,11 +11,12 @@ def test_load_extended_yaml():
     thing: !collections.Counter
     """
     things = load_extended_yaml(yaml)
-    assert things['constants']['a'] == 1
+    assert things["constants"]["a"] == 1
     from collections import Counter
-    assert things['thing'].__class__ == Counter
 
-    overrides = {'constants': {'a': 2}}
+    assert things["thing"].__class__ == Counter
+
+    overrides = {"constants": {"a": 2}}
     things = load_extended_yaml(yaml, overrides=overrides)
 
     # Missing sections
@@ -33,8 +34,8 @@ def test_load_extended_yaml():
         a: !ref <constants.a>
     """
     things = load_extended_yaml(yaml)
-    assert things['thing']['a'] == things['constants']['a']
-    assert things['constants']['a'] == things['constants']['b']
+    assert things["thing"]["a"] == things["constants"]["a"]
+    assert things["constants"]["a"] == things["constants"]["b"]
 
     # String interpolation
     yaml = """
@@ -43,7 +44,7 @@ def test_load_extended_yaml():
         b: !ref <constants.a>/b
     """
     things = load_extended_yaml(yaml)
-    assert things['constants']['b'] == 'a/b'
+    assert things["constants"]["b"] == "a/b"
 
     # Substitution with string conversion
     yaml = """
@@ -52,7 +53,7 @@ def test_load_extended_yaml():
         b: !ref <constants.a>/b
     """
     things = load_extended_yaml(yaml)
-    assert things['constants']['b'] == '1/b'
+    assert things["constants"]["b"] == "1/b"
 
     # Nested structures:
     yaml = """
@@ -63,8 +64,8 @@ def test_load_extended_yaml():
             a: !ref <constants.a>
     """
     things = load_extended_yaml(yaml)
-    assert things['thing']['other'].__class__ == Counter
-    assert things['thing']['other']['a'] == things['constants']['a']
+    assert things["thing"]["other"].__class__ == Counter
+    assert things["thing"]["other"]["a"] == things["constants"]["a"]
 
     # Positional arguments
     yaml = """
@@ -74,7 +75,7 @@ def test_load_extended_yaml():
         - !ref <constants.a>
     """
     things = load_extended_yaml(yaml)
-    assert things['thing']['l'] == 2
+    assert things["thing"]["l"] == 2
 
     # Invalid class
     yaml = """
@@ -102,8 +103,8 @@ def test_load_extended_yaml():
         b: 7
     """
     things = load_extended_yaml(yaml)
-    assert things['thing1']['a'] == things['thing2']['a']
-    assert things['thing1']['b'] != things['thing2']['b']
+    assert things["thing1"]["a"] == things["thing2"]["a"]
+    assert things["thing1"]["b"] != things["thing2"]["b"]
 
     # List of arguments that are objects
     yaml = """
@@ -116,7 +117,7 @@ def test_load_extended_yaml():
             - bar
     """
     things = load_extended_yaml(yaml)
-    assert things['thing'] == 'abc/def/foo/bar'
+    assert things["thing"] == "abc/def/foo/bar"
 
     yaml = """
     thing1: !collections.Counter
@@ -125,6 +126,6 @@ def test_load_extended_yaml():
     thing2: !ref <thing1>
     """
     things = load_extended_yaml(yaml)
-    assert things['thing2']['b'] == things['thing1']['b']
-    things['thing2']['b'] = 7
-    assert things['thing2']['b'] == things['thing1']['b']
+    assert things["thing2"]["b"] == things["thing1"]["b"]
+    things["thing2"]["b"] = 7
+    assert things["thing2"]["b"] == things["thing1"]["b"]

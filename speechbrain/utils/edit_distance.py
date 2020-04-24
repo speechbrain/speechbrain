@@ -22,26 +22,26 @@ EDIT_SYMBOLS = {
 def accumulatable_wer_stats(refs, hyps, stats=collections.Counter()):
     """
     Computes word error rate and the related counts for a batch.
-    
+
     Can also be used to accumulate the counts over many batches, by passing
     the output back to the function in the call for the next batch.
 
     Arguments
     ----------
-    ref : iterable  
+    ref : iterable
         Batch of reference sequences
-    hyp: : iterable 
+    hyp: : iterable
         Batch of hypothesis sequences
-    stats : collections.Counter 
+    stats : collections.Counter
         The running statistics.
         Pass the output of this function back as this parameter
         to accumulate the counts. It may be cleanest to initialize
         the stats yourself; then an empty collections.Counter() should
         be used.
 
-    Returns 
+    Returns
     -------
-    collections.Counter 
+    collections.Counter
         The updated running
         statistics, with keys:
             "WER" - word error rate
@@ -87,9 +87,9 @@ def _batch_stats(refs, hyps):
 
     Arguments
     ----------
-    ref : iterable 
+    ref : iterable
         Batch of reference sequences
-    hyp : iterable 
+    hyp : iterable
         Batch of hypothesis sequences
 
     Returns
@@ -140,14 +140,14 @@ def op_table(a, b):
 
     Arguments
     ----------
-    a : iterable 
+    a : iterable
         Sequence for which the edit operations are solved.
-    b : iterable 
+    b : iterable
         Sequence for which the edit operations are solved.
 
     Returns
     -------
-    list 
+    list
         List of lists, Matrix, Table of edit operations
 
     Example
@@ -223,12 +223,12 @@ def alignment(table):
 
     Arguments
     ----------
-    table : list 
+    table : list
         Edit operations table from op_table(a, b)
 
     Returns
     -------
-    list 
+    list
         Schema: [(str <edit-op>, int-or-None <i>, int-or-None <j>),]
         List of edit operations, and the corresponding indices to a and b.
         See the EDIT_SYMBOLS dict for the edit-ops.
@@ -287,12 +287,12 @@ def count_ops(table):
 
     Arguments
     ----------
-    table : list 
+    table : list
         Edit operations table from op_table(a, b)
 
     Returns
     -------
-    collections.Counter 
+    collections.Counter
         The counts of the edit operations, with keys:
             "insertions"
             "deletions"
@@ -337,7 +337,7 @@ def count_ops(table):
 
 
 def _batch_to_dict_format(ids, seqs):
-    #Used by wer_details_for_batch
+    # Used by wer_details_for_batch
     return dict(zip(ids, seqs))
 
 
@@ -364,7 +364,7 @@ def wer_details_for_batch(ids, refs, hyps, compute_alignments=False):
     Returns
     -------
     list
-        See `wer_details_by_utterance`    
+        See `wer_details_by_utterance`
 
     Example
     -------
@@ -375,33 +375,33 @@ def wer_details_for_batch(ids, refs, hyps, compute_alignments=False):
     >>> for ids_batch, refs_batch, hyps_batch in zip(ids, refs, hyps):
     ...     details = wer_details_for_batch(ids_batch, refs_batch, hyps_batch)
     ...     wer_details.extend(details)
-    >>> print(wer_details[0]['key'], ":", 
+    >>> print(wer_details[0]['key'], ":",
     ...     "{:.2f}".format(wer_details[0]['WER']))
     utt1 : 33.33
     """
     refs = _batch_to_dict_format(ids, refs)
     hyps = _batch_to_dict_format(ids, hyps)
     return wer_details_by_utterance(
-            refs, hyps, compute_alignments=compute_alignments, 
-            scoring_mode="strict")
+        refs, hyps, compute_alignments=compute_alignments, scoring_mode="strict"
+    )
 
 
 def wer_details_by_utterance(
     ref_dict, hyp_dict, compute_alignments=False, scoring_mode="strict"
 ):
     """Computes a wealth WER info about each single utterance.
-        
+
     This info can then be used to compute summary details (WER, SER).
 
     Arguments
     ---------
-    ref_dict : dict 
-        Should be indexable by utterance ids, and return the reference tokens 
+    ref_dict : dict
+        Should be indexable by utterance ids, and return the reference tokens
         for each utterance id as iterable
-    hyp_dict : dict 
+    hyp_dict : dict
         Should be indexable by utterance ids, and return
         the hypothesis tokens for each utterance id as iterable
-    compute_alignments : bool 
+    compute_alignments : bool
         Whether alignments should also be saved.
         This also saves the tokens themselves, as the they are probably
         required for printing the alignments.
@@ -415,7 +415,7 @@ def wer_details_by_utterance(
     Returns
     -------
     list
-        A list with one entry for every reference utterance. Each entry is a 
+        A list with one entry for every reference utterance. Each entry is a
         dict with keys:
             "key": utterance id
             "scored": bool, whether utterance was scored
@@ -438,7 +438,7 @@ def wer_details_by_utterance(
 
     Raises
     ------
-    KeyError 
+    KeyError
         if scoring mode is 'strict' and a hypothesis is not found
     """
     details_by_utterance = []
@@ -505,17 +505,17 @@ def wer_details_by_utterance(
 def wer_summary(details_by_utterance):
     """
     Computes summary stats from the output of details_by_utterance
-    
-    Summary stats like WER 
+
+    Summary stats like WER
 
     Arguments
     ---------
-    details_by_utterance : list 
+    details_by_utterance : list
         See the output of wer_details_by_utterance
 
     Returns
     -------
-    dict 
+    dict
         Dictionary with keys:
             "WER": float, word error rate
             "SER": float, sentence error rate (percentage of utterances
@@ -577,7 +577,7 @@ def wer_details_by_speaker(details_by_utterance, utt2spk):
 
     Arguments
     ---------
-    details_by_utterance : list 
+    details_by_utterance : list
         See the output of wer_details_by_utterance
     utt2spk : dict
         Map from utterance id to speaker id
@@ -585,7 +585,7 @@ def wer_details_by_speaker(details_by_utterance, utt2spk):
 
     Returns
     -------
-    dict 
+    dict
         Maps speaker id to a dictionary of the statistics, with keys:
             "speaker": speaker id,
             "num_edits": int, number of edits in total by this speaker
@@ -667,7 +667,7 @@ def wer_details_by_speaker(details_by_utterance, utt2spk):
 def top_wer_utts(details_by_utterance, top_k=20):
     """
     Finds the k utterances with highest word error rates.
-        
+
     Useful for diagnostic purposes, to see where the system
     is making the most mistakes.
     Returns results utterances which were not empty
@@ -675,14 +675,14 @@ def top_wer_utts(details_by_utterance, top_k=20):
 
     Arguments
     ---------
-    details_by_utterance : list 
+    details_by_utterance : list
         See output of wer_details_by_utterance
-    top_k : int 
+    top_k : int
         Number of utterances to return
 
     Returns
     -------
-    list 
+    list
         List of at most K utterances,
         with the highest word error rates, which were not empty
         The utterance dict has the same keys as
@@ -696,8 +696,9 @@ def top_wer_utts(details_by_utterance, top_k=20):
     )
     top_non_empty = []
     top_empty = []
-    while (utts_by_wer and 
-            (len(top_non_empty) < top_k or len(top_empty) < top_k)):
+    while utts_by_wer and (
+        len(top_non_empty) < top_k or len(top_empty) < top_k
+    ):
         utt = utts_by_wer.pop(0)
         if utt["hyp_empty"] and len(top_empty) < top_k:
             top_empty.append(utt)
@@ -709,19 +710,19 @@ def top_wer_utts(details_by_utterance, top_k=20):
 def top_wer_spks(details_by_speaker, top_k=10):
     """
     Finds the K speakers with highest word error rates.
-        
+
     Useful for diagnostic purposes.
 
     Arguments
     ---------
-    details_by_speaker : list 
+    details_by_speaker : list
         See output of wer_details_by_speaker
-    top_k : int 
+    top_k : int
         Number of seakers to return
 
     Returns
     -------
-    list 
+    list
         List of at most K dicts (with the same keys as details_by_speaker)
         of speakers sorted by WER.
     """

@@ -65,23 +65,24 @@ class AddNoise(torch.nn.Module):
     >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
     >>> noisifier = AddNoise('samples/noise_samples/noise.csv')
     >>> clean = torch.tensor([signal], dtype=torch.float32)
+    >>> noisifier.init_params(clean)
     >>> noisy = noisifier(clean, torch.ones(1))
     >>> save_signal = save(save_folder='exp/example', save_format='wav')
     >>> save_signal(noisy, ['example_add_noise'], torch.ones(1))
     """
+
     def __init__(
         self,
         csv_file=None,
-        order='random',
+        order="random",
         batch_size=None,
         do_cache=False,
         snr_low=0,
         snr_high=0,
         pad_noise=False,
-        mix_prob=1.,
+        mix_prob=1.0,
         replacements={},
     ):
-        """"""
         super().__init__()
 
         self.csv_file = csv_file
@@ -149,7 +150,7 @@ class AddNoise(torch.nn.Module):
         new_noise_amplitude = noise_amplitude_factor * clean_amplitude
 
         # Scale clean signal appropriately
-        noisy_waveform[:batch_size] *= (1 - noise_amplitude_factor)
+        noisy_waveform[:batch_size] *= 1 - noise_amplitude_factor
 
         # Loop through clean samples and create mixture
         if self.csv_file is None:
@@ -168,50 +169,50 @@ class AddNoise(torch.nn.Module):
 
         return noisy_waveform
 
-    def _load_noise(self, clean_len, tensor_len, batch_size):
-        clean_len = clean_len.long().squeeze(1)
+    def _load_noise(self, lengths, max_length, batch_size):
+        lengths = lengths.long().squeeze(1)
 
         # Load a noise batch
         try:
-            wav_id, noise_batch, wav_len = next(self.noise_data)[0]
+            wav_id, noise_batch, noise_len = next(self.noise_data)[0]
         except StopIteration:
             self.noise_data = zip(*self.data_loader())
-            wav_id, noise_batch, wav_len = next(self.noise_data)[0]
+            wav_id, noise_batch, noise_len = next(self.noise_data)[0]
 
-        noise_batch = noise_batch.to(clean_len.device)
-        wav_len = wav_len.to(clean_len.device)
+        noise_batch = noise_batch.to(lengths.device)
+        noise_len = noise_len.to(lengths.device)
 
         # Chop to correct size
         if len(noise_batch) > batch_size:
             noise_batch = noise_batch[:batch_size]
-            wav_len = wav_len[:batch_size]
+            noise_len = noise_len[:batch_size]
 
         # Convert relative length to an index
-        wav_len = (wav_len * noise_batch.shape[-1]).long()
+        noise_len = (noise_len * noise_batch.shape[-1]).long()
 
         # Ensure shortest wav can cover speech signal
         # WARNING: THIS COULD BE SLOW IF THERE ARE VERY SHORT NOISES
         if self.pad_noise:
-            while torch.any(wav_len < clean_len):
-                min_len = torch.min(wav_len)
+            while torch.any(noise_len < lengths):
+                min_len = torch.min(noise_len)
                 prepend = noise_batch[..., :min_len]
                 noise_batch = torch.cat((prepend, noise_batch), axis=-1)
-                wav_len += min_len
+                noise_len += min_len
 
         # Ensure noise batch is long enough
-        elif noise_batch.size(-1) < tensor_len:
-            padding = (0, tensor_len - noise_batch.size(-1))
+        elif noise_batch.size(-1) < max_length:
+            padding = (0, max_length - noise_batch.size(-1))
             noise_batch = torch.nn.functional.pad(noise_batch, padding)
 
         # Select a random starting location in the waveform
         start_index = 0
-        max_chop = (wav_len - clean_len).min().clamp(min=1)
+        max_chop = (noise_len - lengths).min().clamp(min=1)
         start_index = torch.randint(high=max_chop, size=(1,))
 
-        # Truncate noise_batch to tensor_len
-        noise_batch = noise_batch[..., start_index:start_index+tensor_len]
-        wav_len = (wav_len - start_index).clamp(max=tensor_len).unsqueeze(1)
-        return noise_batch, wav_len
+        # Truncate noise_batch to max_length
+        noise_batch = noise_batch[..., start_index : start_index + max_length]
+        noise_len = (noise_len - start_index).clamp(max=max_length).unsqueeze(1)
+        return noise_batch, noise_len
 
 
 class AddReverb(torch.nn.Module):
@@ -244,6 +245,7 @@ class AddReverb(torch.nn.Module):
     >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
     >>> reverb = AddReverb('samples/rir_samples/rirs.csv')
     >>> clean = torch.tensor([signal], dtype=torch.float32)
+    >>> reverb.init_params(clean)
     >>> reverbed = reverb(clean, torch.ones(1))
     >>> save_signal = save(save_folder='exp/example', save_format='wav')
     >>> save_signal(reverbed, ['example_add_reverb'], torch.ones(1))
@@ -252,12 +254,11 @@ class AddReverb(torch.nn.Module):
     def __init__(
         self,
         csv_file,
-        order='random',
+        order="random",
         do_cache=False,
-        reverb_prob=1.,
+        reverb_prob=1.0,
         replacements={},
     ):
-        """"""
         super().__init__()
         self.csv_file = csv_file
         self.order = order
@@ -278,7 +279,7 @@ class AddReverb(torch.nn.Module):
         self.device = first_input.device
         self.dtype = first_input.dtype
 
-    def forward(self, waveforms, lengthss):
+    def forward(self, waveforms, lengths):
         """
         Arguments
         ---------
@@ -298,14 +299,14 @@ class AddReverb(torch.nn.Module):
         # Add channels dimension if necessary
         channel_added = False
         if len(waveforms.shape) == 2:
-            waveforms = clean_waveform.unsqueeze(1)
+            waveforms = waveforms.unsqueeze(1)
             channel_added = True
 
         # Convert length from ratio to number of indices
-        clean_len = (lengthss * waveforms.shape[2])[:, None, None]
+        lengths = (lengths * waveforms.shape[2])[:, None, None]
 
         # Compute the average amplitude of the clean
-        clean_amplitude = compute_amplitude(waveforms, clean_len)
+        orig_amplitude = compute_amplitude(waveforms, lengths)
 
         # Load and prepare RIR
         rir_waveform = self._load_rir().abs()
@@ -322,8 +323,8 @@ class AddReverb(torch.nn.Module):
         )
 
         # Rescale to the average amplitude of the clean waveform
-        reverbed_amplitude = compute_amplitude(reverbed_waveform, clean_len)
-        reverbed_waveform *= clean_amplitude / reverbed_amplitude
+        reverbed_amplitude = compute_amplitude(reverbed_waveform, lengths)
+        reverbed_waveform *= orig_amplitude / reverbed_amplitude
 
         # Remove channels dimension if added
         if channel_added:
@@ -373,18 +374,15 @@ class SpeedPerturb(torch.nn.Module):
     >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
     >>> perturbator = SpeedPerturb(orig_freq=rate, speeds=[9])
     >>> clean = torch.tensor(signal, dtype=torch.float32).unsqueeze(0)
+    >>> perturbator.init_params(clean)
     >>> perturbed = perturbator(clean)
     >>> save_signal = save(save_folder='exp/example', save_format='wav')
     >>> save_signal(perturbed, ['example_perturb'], torch.ones(1))
     """
 
     def __init__(
-        self,
-        orig_freq,
-        speeds=[9, 10, 11],
-        perturb_prob=1.,
+        self, orig_freq, speeds=[9, 10, 11], perturb_prob=1.0,
     ):
-        """"""
         super().__init__()
         self.orig_freq = orig_freq
         self.speeds = speeds
@@ -397,10 +395,14 @@ class SpeedPerturb(torch.nn.Module):
         self.resamplers = []
         for speed in self.speeds:
             config = {
-                'orig_freq': self.orig_freq,
-                'new_freq': self.orig_freq * speed // 10,
+                "orig_freq": self.orig_freq,
+                "new_freq": self.orig_freq * speed // 10,
             }
             self.resamplers.append(Resample(**config))
+
+    def init_params(self, first_input):
+        for sampler in self.resamplers:
+            sampler.init_params(first_input)
 
     def forward(self, waveform):
         """
@@ -455,6 +457,7 @@ class Resample(torch.nn.Module):
     >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
     >>> signal = torch.tensor(signal, dtype=torch.float32)[None,None,:]
     >>> resampler = Resample(orig_freq=rate, new_freq=rate//2)
+    >>> resampler.init_params(signal)
     >>> resampled = resampler(signal)
     >>> save_signal = save(
     ...     save_folder='exp/example',
@@ -463,13 +466,10 @@ class Resample(torch.nn.Module):
     ... )
     >>> save_signal(resampled, ["example_resamp"], torch.ones(1))
     """
+
     def __init__(
-        self,
-        orig_freq=16000,
-        new_freq=16000,
-        lowpass_filter_width=6,
+        self, orig_freq=16000, new_freq=16000, lowpass_filter_width=6,
     ):
-        """"""
         super().__init__()
         self.orig_freq = orig_freq
         self.new_freq = new_freq
@@ -562,8 +562,7 @@ class Resample(torch.nn.Module):
         window_size = self.weights.size(1)
         tot_output_samp = self._output_samples(wave_len)
         resampled_waveform = torch.zeros(
-            (batch_size, num_channels, tot_output_samp),
-            device=waveform.device,
+            (batch_size, num_channels, tot_output_samp), device=waveform.device,
         )
         self.weights = self.weights.to(waveform.device)
 
@@ -602,14 +601,16 @@ class Resample(torch.nn.Module):
             # we want conv_wave[:, i] to be at
             # output[:, i + n*conv_transpose_stride]
             dilated_conv_wave = torch.nn.functional.conv_transpose1d(
-                conv_wave, eye, stride=self.conv_transpose_stride)
+                conv_wave, eye, stride=self.conv_transpose_stride
+            )
 
             # pad dilated_conv_wave so it reaches the output length if needed.
             left_padding = i
             previous_padding = left_padding + dilated_conv_wave.size(-1)
             right_padding = max(0, tot_output_samp - previous_padding)
             dilated_conv_wave = torch.nn.functional.pad(
-                dilated_conv_wave, (left_padding, right_padding))
+                dilated_conv_wave, (left_padding, right_padding)
+            )
             dilated_conv_wave = dilated_conv_wave[..., :tot_output_samp]
 
             resampled_waveform += dilated_conv_wave
@@ -690,7 +691,7 @@ class Resample(torch.nn.Module):
         window_width = self.lowpass_filter_width / (2.0 * lowpass_cutoff)
 
         assert lowpass_cutoff < min(self.orig_freq, self.new_freq) / 2
-        output_t = torch.arange(0., self.output_samples, device=self.device)
+        output_t = torch.arange(0.0, self.output_samples, device=self.device)
         output_t /= self.new_freq
         min_t = output_t - window_width
         max_t = output_t + window_width
@@ -709,9 +710,14 @@ class Resample(torch.nn.Module):
 
         # raised-cosine (Hanning) window with width `window_width`
         weights[inside_window_indices] = 0.5 * (
-            1 + torch.cos(2 * math.pi * lowpass_cutoff
-                          / self.lowpass_filter_width
-                          * delta_t[inside_window_indices])
+            1
+            + torch.cos(
+                2
+                * math.pi
+                * lowpass_cutoff
+                / self.lowpass_filter_width
+                * delta_t[inside_window_indices]
+            )
         )
 
         t_eq_zero_indices = delta_t.eq(0.0)
@@ -765,13 +771,8 @@ class AddBabble(torch.nn.Module):
     """
 
     def __init__(
-        self,
-        speaker_count=3,
-        snr_low=0,
-        snr_high=0,
-        mix_prob=1,
+        self, speaker_count=3, snr_low=0, snr_high=0, mix_prob=1,
     ):
-        """"""
         super().__init__()
         self.speaker_count = speaker_count
         self.snr_low = snr_low
@@ -793,7 +794,7 @@ class AddBabble(torch.nn.Module):
         Tensor with processed waveforms.
         """
         babbled_waveform = waveforms.clone()
-        clean_len = (clean_len * waveforms.shape[1]).unsqueeze(1)
+        lengths = (lengths * waveforms.shape[1]).unsqueeze(1)
         batch_size = len(waveforms)
 
         # Don't mix (return early) 1-`mix_prob` portion of the batches
@@ -801,20 +802,20 @@ class AddBabble(torch.nn.Module):
             return babbled_waveform
 
         # Pick an SNR and use it to compute the mixture amplitude factors
-        clean_amplitude = compute_amplitude(waveforms, clean_len)
+        clean_amplitude = compute_amplitude(waveforms, lengths)
         SNR = torch.rand(batch_size, 1, device=waveforms.device)
         SNR = SNR * (self.snr_high - self.snr_low) + self.snr_low
         noise_amplitude_factor = 1 / (dB_to_amplitude(SNR) + 1)
         new_noise_amplitude = noise_amplitude_factor * clean_amplitude
 
         # Scale clean signal appropriately
-        babbled_waveform *= (1 - noise_amplitude_factor)
+        babbled_waveform *= 1 - noise_amplitude_factor
 
         # For each speaker in the mixture, roll and add
         babble_waveform = waveforms.roll((1,), dims=0)
-        babble_len = clean_len.roll((1,), dims=0)
+        babble_len = lengths.roll((1,), dims=0)
         for i in range(1, self.speaker_count):
-            babble_waveform += waveforms.roll((1+i,), dims=0)
+            babble_waveform += waveforms.roll((1 + i,), dims=0)
             babble_len = torch.max(babble_len, babble_len.roll((1,), dims=0))
 
         # Rescale and add to mixture
@@ -872,7 +873,6 @@ class DropFreq(torch.nn.Module):
         drop_width=0.05,
         drop_prob=1,
     ):
-        """"""
         super().__init__()
         self.drop_freq_low = drop_freq_low
         self.drop_freq_high = drop_freq_high
@@ -903,14 +903,14 @@ class DropFreq(torch.nn.Module):
 
         # Pick number of frequencies to drop
         drop_count = torch.randint(
-            low=self.drop_count_low,
-            high=self.drop_count_high + 1,
-            size=(1,),
+            low=self.drop_count_low, high=self.drop_count_high + 1, size=(1,),
         )
 
         # Pick a frequency to drop
         drop_range = self.drop_freq_high - self.drop_freq_low
-        drop_frequency = torch.rand(drop_count)*drop_range + self.drop_freq_low
+        drop_frequency = (
+            torch.rand(drop_count) * drop_range + self.drop_freq_low
+        )
 
         # Filter parameters
         filter_length = 101
@@ -977,6 +977,7 @@ class DropChunk(torch.nn.Module):
     >>> save_signal = save(save_folder='exp/example', save_format='wav')
     >>> save_signal(dropped_signal, ['drop_chunk'], length)
     """
+
     def __init__(
         self,
         drop_length_low=100,
@@ -987,7 +988,6 @@ class DropChunk(torch.nn.Module):
         drop_end=None,
         drop_prob=1,
     ):
-        """"""
         super().__init__()
         self.drop_length_low = drop_length_low
         self.drop_length_high = drop_length_high
@@ -1050,14 +1050,12 @@ class DropChunk(torch.nn.Module):
 
             # Pick starting locations
             start = torch.randint(
-                low=start_min,
-                high=start_max + 1,
-                size=(drop_times[i],),
+                low=start_min, high=start_max + 1, size=(drop_times[i],),
             )
 
             # Update waveform
             for j in range(drop_times[i]):
-                dropped_waveform[i, ..., start[j]:start[j]+length[j]] = 0
+                dropped_waveform[i, ..., start[j] : start[j] + length[j]] = 0
 
         return dropped_waveform
 
@@ -1088,12 +1086,8 @@ class DoClip(torch.nn.Module):
     """
 
     def __init__(
-        self,
-        clip_low=0.5,
-        clip_high=1,
-        clip_prob=1,
+        self, clip_low=0.5, clip_high=1, clip_prob=1,
     ):
-        """"""
         super().__init__()
         self.clip_low = clip_low
         self.clip_high = clip_high
