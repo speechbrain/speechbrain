@@ -1,6 +1,7 @@
 import sys
 import speechbrain.data_io.wer as wer_io
 import speechbrain.utils.edit_distance as edit_distance
+from speechbrain.data_io.data_io import convert_index_to_lab
 from speechbrain.decoders.ctc import ctc_greedy_decode
 from speechbrain.decoders.decoders import undo_padding
 from speechbrain.core import Experiment, Brain
@@ -28,8 +29,11 @@ class ASR(Brain):
         loss = sb.compute_cost(pout, phns, [pout_lens, phn_lens])
 
         if not train:
+            ind2lab = sb.train_loader.label_dict["phn"]["index2lab"]
             sequence = ctc_greedy_decode(pout, pout_lens, blank_id=-1)
+            sequence = convert_index_to_lab(sequence, ind2lab)
             phns = undo_padding(phns, phn_lens)
+            phns = convert_index_to_lab(phns, ind2lab)
             stats = edit_distance.wer_details_for_batch(
                 ids, phns, sequence, compute_alignments=True
             )
@@ -38,7 +42,7 @@ class ASR(Brain):
 
         return loss
 
-    def summarize(self, stats, write=False):
+    def summarize(self, stats, ind2lab=None, write=False):
 
         # Accumulate
         accumulator = {"loss": 0.0}
@@ -67,9 +71,6 @@ def main():
 
     # Prepare the data
     sb.prepare_timit()
-    train_set = sb.train_loader()
-    valid_set = sb.valid_loader()
-    test_set = sb.test_loader()
 
     # Initialize brain and learn
     asr_brain = ASR(
@@ -80,13 +81,13 @@ def main():
     )
     asr_brain.learn(
         epoch_counter=sb.epoch_counter,
-        train_set=train_set,
-        valid_set=valid_set,
+        train_set=sb.train_loader(),
+        valid_set=sb.valid_loader(),
         min_keys=["wer"],
     )
 
     # Load best model, evaluate that:
-    asr_brain.evaluate(test_set, min_key="wer")
+    asr_brain.evaluate(sb.test_loader(), min_key="wer")
 
 
 if __name__ == "__main__":
