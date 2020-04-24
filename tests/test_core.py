@@ -15,8 +15,9 @@ def test_nest():
 
 def test_parse_arguments():
     from speechbrain.core import parse_arguments
-    args = parse_arguments(['--seed', '3', '--data_folder', 'TIMIT'])
-    assert args == {'seed': 3, 'data_folder': 'TIMIT'}
+
+    args = parse_arguments(["--seed", "3", "--data_folder", "TIMIT"])
+    assert args == {"seed": 3, "data_folder": "TIMIT"}
 
 
 def test_parse_overrides():
@@ -62,7 +63,7 @@ def test_brain():
         def compute_objectives(self, predictions, targets, train=True):
             return torch.nn.functional.l1_loss(predictions, targets)
 
-    brain = SimpleBrain([model], optimize('sgd', 0.1))
+    brain = SimpleBrain([model], optimize("sgd", 0.1))
 
     inputs = torch.rand(10, 10)
     targets = torch.rand(10, 10)
@@ -70,8 +71,7 @@ def test_brain():
 
     start_loss = brain.compute_objectives(brain(inputs), targets)
     brain.learn(
-        epoch_counter=range(10),
-        train_set=train_set,
+        epoch_counter=range(10), train_set=train_set,
     )
     end_loss = brain.compute_objectives(brain(inputs), targets)
     assert end_loss < start_loss
