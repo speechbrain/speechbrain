@@ -80,9 +80,12 @@ class Experiment:
         A file-like object or string containing
         experimental parameters. The format of the file is described in
         the method `speechbrain.utils.data_utils.load_extended_yaml()`.
+    overrides : mapping
+        A set of yaml overrides, that replace the values in the yaml_stream.
+        These will in turn get replaced by any values from the commandline.
     commandline_args : list
-        The arguments from the command-line for
-        overriding the experimental parameters.
+        The arguments from the command-line for overriding the experimental
+        parameters, usually from sys.argv[1:]. Overrides the `overrides` too.
 
     Example
     -------
@@ -100,19 +103,20 @@ class Experiment:
     '''
 
     def __init__(
-        self, yaml_stream, commandline_args=[],
+        self, yaml_stream, overrides={}, commandline_args=[],
     ):
-        """"""
         # Parse yaml overrides, with command-line args taking precedence
-        # precedence over the parameters listed in the file.
-        overrides = {"constants": {}}
+        # over the parameters in the `overrides` mapping.
         cmd_args = parse_arguments(commandline_args)
         if "yaml_overrides" in cmd_args:
             overrides.update(parse_overrides(cmd_args["yaml_overrides"]))
             del cmd_args["yaml_overrides"]
-        overrides["constants"].update(cmd_args)
+        if "constants" not in overrides:
+            overrides["constants"] = cmd_args
+        else:
+            overrides["constants"].update(cmd_args)
 
-        # Load parameters file and store
+        # Load parameters file and set parameters as attributes
         parameters = load_extended_yaml(yaml_stream, overrides)
         for toplevel_field in ["constants", "saveables", "functions"]:
             if toplevel_field in parameters:
