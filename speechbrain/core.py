@@ -238,7 +238,7 @@ def parse_arguments(arg_list):
         "progress for testing or re-starting training.",
     )
     parser.add_argument(
-        '--seed',
+        "--seed",
         type=int,
         help="A random seed to reproduce experiments on the same machine",
     )
@@ -346,12 +346,9 @@ class Brain(torch.nn.Module):
     ...     train_set=([torch.rand(10, 10)], [torch.rand(10, 10)]),
     ... )
     """
+
     def __init__(
-        self,
-        models,
-        optimizer,
-        scheduler=None,
-        saver=None,
+        self, models, optimizer, scheduler=None, saver=None,
     ):
         super().__init__()
         self.models = torch.nn.ModuleList(models)
@@ -494,7 +491,6 @@ class Brain(torch.nn.Module):
             if self.saver is not None:
                 self.save(summary, max_keys, min_keys)
 
-
     def evaluate(self, test_set, max_key=None, min_key=None):
         """Iterate test_set and evaluate model performance.
 
@@ -549,6 +545,5 @@ class Brain(torch.nn.Module):
         for key in min_keys:
             importance_keys.append(lambda c, key=key: -c.meta[key])
         self.saver.save_and_keep_only(
-            meta=stats,
-            importance_keys=importance_keys,
+            meta=stats, importance_keys=importance_keys,
         )
