@@ -329,7 +329,7 @@ class conv(nn.Module):
     def forward(self, x):
 
         # transposing input
-        x = x.transpose(1,2).transpose(2,-1)
+        x = x.transpose(1, 2).transpose(2, -1)
 
         # Reshaping the inputs when needed
         if self.reshape_conv1d:
@@ -403,7 +403,7 @@ class conv(nn.Module):
                     wx.shape[-1],
                 )
 
-        wx = wx.transpose(1,-1).transpose(2,-1)
+        wx = wx.transpose(1, -1).transpose(2, -1)
         return wx
 
     @staticmethod
@@ -1188,7 +1188,7 @@ class RNN_basic(torch.nn.Module):
             "dropout": self.dropout,
             "bidirectional": self.bidirectional,
             "bias": self.bias,
-            'batch_first': True
+            "batch_first": True,
         }
 
         # Vanilla RNN
@@ -1232,9 +1232,7 @@ class RNN_basic(torch.nn.Module):
 
             if len(x.shape) == 5:
                 x = x.reshape(
-                    x.shape[0],
-                    x.shape[1],
-                    x.shape[2] * x.shape[3], x.shape[4]
+                    x.shape[0], x.shape[1], x.shape[2] * x.shape[3], x.shape[4]
                 )
 
         # Computing RNN steps
@@ -1649,7 +1647,6 @@ class activation(torch.nn.Module):
                     dims[0], dims[1], dims[2], dims[3], dims[4]
                 )
 
-
         return x_act
 
 
@@ -1761,13 +1758,12 @@ class dropout(nn.Module):
             return x
 
         # time must be the last
-        x=x.transpose(1,2).transpose(2,-1)
-         
+        x = x.transpose(1, 2).transpose(2, -1)
+
         # Applying dropout
         x_drop = self.drop(x)
-        
-        
-        x_drop=x_drop.transpose(-1,1).transpose(2,-1)
+
+        x_drop = x_drop.transpose(-1, 1).transpose(2, -1)
 
         return x_drop
 
@@ -1984,7 +1980,7 @@ class pooling(nn.Module):
                 )
 
     def forward(self, x):
-        x = x.transpose(1,2).transpose(2,-1)
+        x = x.transpose(1, 2).transpose(2, -1)
         or_shape = x.shape
 
         # Put the pooling axes as the last dimension for torch.nn.pool
@@ -2015,6 +2011,6 @@ class pooling(nn.Module):
                 len(or_shape) - 1, self.pool_axis[1]
             )
 
-        x = x.transpose(-1,1).transpose(2,-1)
+        x = x.transpose(-1, 1).transpose(2, -1)
 
         return x

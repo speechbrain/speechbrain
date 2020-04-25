@@ -504,8 +504,7 @@ class FBANKs(torch.nn.Module):
         )
 
         # FBANK computation
-        fbanks = torch.matmul(spectrogram,fbank_matrix
-        )
+        fbanks = torch.matmul(spectrogram, fbank_matrix)
 
         # Add logarithm if needed
         if self.log_mel:
@@ -1078,7 +1077,7 @@ class deltas(torch.nn.Module):
                    The same shape as the inputs
         """
         # Managing multi-channel deltas reshape tensor (batch*channel,time)
-        x = x.transpose(1,2)
+        x = x.transpose(1, 2)
         or_shape = x.shape
 
         if len(or_shape) == 4:
@@ -1104,8 +1103,8 @@ class deltas(torch.nn.Module):
                 delta_coeff.shape[2],
             )
 
-        delta_coeff = delta_coeff.transpose(1,2) 
-        
+        delta_coeff = delta_coeff.transpose(1, 2)
+
         return delta_coeff
 
 
@@ -1177,8 +1176,8 @@ class context_window(torch.nn.Module):
                     dimension has been increased in size.
         """
 
-        x = x.transpose(1,2)
-        
+        x = x.transpose(1, 2)
+
         if self.first_call is True:
             self.first_call = False
             self.kernel = (
@@ -1223,7 +1222,7 @@ class context_window(torch.nn.Module):
                 cw_x.shape[-1],
             )
 
-        cw_x = cw_x.transpose(1,2)
+        cw_x = cw_x.transpose(1, 2)
 
         return cw_x
 
@@ -1356,7 +1355,6 @@ class mean_var_norm(torch.nn.Module):
 
         # Update counter
         self.count = self.count + 1
-
 
         return x
 

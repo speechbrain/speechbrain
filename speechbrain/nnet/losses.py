@@ -263,10 +263,10 @@ class compute_cost(nn.Module):
 
                     # Reshaping tensors when needed
                     if reshape:
-                        lab_curr =  target.reshape(
-                             target.shape[0] *  target.shape[1]
+                        lab_curr = target.reshape(
+                            target.shape[0] * target.shape[1]
                         ).long()
-                        
+
                         prob_curr = prob_curr.reshape(
                             prob_curr.shape[0] * prob_curr.shape[1],
                             prob_curr.shape[2],

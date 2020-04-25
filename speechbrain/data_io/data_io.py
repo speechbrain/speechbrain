@@ -266,10 +266,10 @@ class create_dataloader(torch.nn.Module):
 
             # Padding the sequence of sentences (if needed)
             batch_data = self.padding(sequences)
-            
+
             # Return % of time steps without padding (useful for save_batch)
             time_steps = time_steps / batch_data.shape[1]
-            
+
         else:
             # Non-tensor case
             batch_data = sequences
@@ -320,13 +320,13 @@ class create_dataloader(torch.nn.Module):
             self.data_dim
         except Exception:
             self.data_dim = list(sequences[0].shape[2:])
-            
+
         # Finding the max len across sequences
         max_len = max([s.size(0) for s in sequences])
 
         # Batch out dimensions
         out_dims = [batch_size] + [max_len] + self.data_dim
-        
+
         # Batch initialization
         batch_data = torch.zeros(out_dims) + self.padding_value
 
