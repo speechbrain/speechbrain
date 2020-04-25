@@ -65,7 +65,6 @@ class AddNoise(torch.nn.Module):
     >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
     >>> noisifier = AddNoise('samples/noise_samples/noise.csv')
     >>> clean = torch.tensor([signal], dtype=torch.float32)
-    >>> noisifier.init_params(clean)
     >>> noisy = noisifier(clean, torch.ones(1))
     >>> save_signal = save(save_folder='exp/example', save_format='wav')
     >>> save_signal(noisy, ['example_add_noise'], torch.ones(1))
@@ -94,25 +93,6 @@ class AddNoise(torch.nn.Module):
         self.pad_noise = pad_noise
         self.mix_prob = mix_prob
         self.replacements = replacements
-
-    def init_params(self, first_input):
-        """On first input, create dataloader with correct batch size."""
-
-        # Set parameters based on input
-        self.device = first_input.device
-        if not self.batch_size:
-            self.batch_size = len(first_input)
-
-        # Create a data loader for the noise wavforms
-        if self.csv_file is not None:
-            self.data_loader = create_dataloader(
-                csv_file=self.csv_file,
-                sentence_sorting=self.order,
-                batch_size=self.batch_size,
-                cache=self.do_cache,
-                replacements=self.replacements,
-            )
-            self.noise_data = zip(*self.data_loader())
 
     def forward(self, waveforms, lengths):
         """
@@ -173,6 +153,21 @@ class AddNoise(torch.nn.Module):
         lengths = lengths.long().squeeze(1)
 
         # Load a noise batch
+        if not hasattr(self, "data_loader"):
+            # Set parameters based on input
+            self.device = lengths.device
+
+            # Create a data loader for the noise wavforms
+            if self.csv_file is not None:
+                self.data_loader = create_dataloader(
+                    csv_file=self.csv_file,
+                    sentence_sorting=self.order,
+                    batch_size=batch_size,
+                    cache=self.do_cache,
+                    replacements=self.replacements,
+                )
+                self.noise_data = zip(*self.data_loader())
+
         try:
             wav_id, noise_batch, noise_len = next(self.noise_data)[0]
         except StopIteration:
@@ -245,7 +240,6 @@ class AddReverb(torch.nn.Module):
     >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
     >>> reverb = AddReverb('samples/rir_samples/rirs.csv')
     >>> clean = torch.tensor([signal], dtype=torch.float32)
-    >>> reverb.init_params(clean)
     >>> reverbed = reverb(clean, torch.ones(1))
     >>> save_signal = save(save_folder='exp/example', save_format='wav')
     >>> save_signal(reverbed, ['example_add_reverb'], torch.ones(1))
@@ -274,10 +268,6 @@ class AddReverb(torch.nn.Module):
             replacements=self.replacements,
         )
         self.rir_data = zip(*self.data_loader())
-
-    def init_params(self, first_input):
-        self.device = first_input.device
-        self.dtype = first_input.dtype
 
     def forward(self, waveforms, lengths):
         """
@@ -309,7 +299,7 @@ class AddReverb(torch.nn.Module):
         orig_amplitude = compute_amplitude(waveforms, lengths)
 
         # Load and prepare RIR
-        rir_waveform = self._load_rir().abs()
+        rir_waveform = self._load_rir(waveforms).abs()
 
         # Compute index of the direct signal, so we can preserve alignment
         direct_index = rir_waveform.argmax(axis=-1).median()
@@ -332,7 +322,7 @@ class AddReverb(torch.nn.Module):
 
         return reverbed_waveform
 
-    def _load_rir(self):
+    def _load_rir(self, waveforms):
         try:
             wav_id, rir_waveform, length = next(self.rir_data)[0]
         except StopIteration:
@@ -344,8 +334,8 @@ class AddReverb(torch.nn.Module):
             rir_waveform = rir_waveform.unsqueeze(1)
 
         # Make sure RIR has correct type and device
-        rir_waveform = rir_waveform.type(self.dtype)
-        return rir_waveform.to(self.device)
+        rir_waveform = rir_waveform.type(waveforms.dtype)
+        return rir_waveform.to(waveforms.device)
 
 
 class SpeedPerturb(torch.nn.Module):
@@ -374,7 +364,6 @@ class SpeedPerturb(torch.nn.Module):
     >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
     >>> perturbator = SpeedPerturb(orig_freq=rate, speeds=[9])
     >>> clean = torch.tensor(signal, dtype=torch.float32).unsqueeze(0)
-    >>> perturbator.init_params(clean)
     >>> perturbed = perturbator(clean)
     >>> save_signal = save(save_folder='exp/example', save_format='wav')
     >>> save_signal(perturbed, ['example_perturb'], torch.ones(1))
@@ -399,10 +388,6 @@ class SpeedPerturb(torch.nn.Module):
                 "new_freq": self.orig_freq * speed // 10,
             }
             self.resamplers.append(Resample(**config))
-
-    def init_params(self, first_input):
-        for sampler in self.resamplers:
-            sampler.init_params(first_input)
 
     def forward(self, waveform):
         """
@@ -457,7 +442,6 @@ class Resample(torch.nn.Module):
     >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
     >>> signal = torch.tensor(signal, dtype=torch.float32)[None,None,:]
     >>> resampler = Resample(orig_freq=rate, new_freq=rate//2)
-    >>> resampler.init_params(signal)
     >>> resampled = resampler(signal)
     >>> save_signal = save(
     ...     save_folder='exp/example',
@@ -480,13 +464,6 @@ class Resample(torch.nn.Module):
         assert self.orig_freq % self.conv_stride == 0
         assert self.new_freq % self.conv_transpose_stride == 0
 
-    def init_params(self, first_input):
-        self.device = first_input.device
-
-        # Generate and store the filter to use for resampling
-        self._indices_and_weights()
-        assert self.first_indices.dim() == 1
-
     def _compute_strides(self):
         """Compute the phases in polyphase filter
 
@@ -501,7 +478,7 @@ class Resample(torch.nn.Module):
         self.conv_stride = input_samples_in_unit
         self.conv_transpose_stride = self.output_samples
 
-    def forward(self, waveform):
+    def forward(self, waveforms):
         """
         Parameters
         ----------
@@ -514,23 +491,24 @@ class Resample(torch.nn.Module):
         -------
         Tensor of shape `[batch, time]` or `[batch, channels, time]`.
         """
-        waveform = waveform.to(self.device)
+        if not hasattr(self, "first_indices"):
+            self._indices_and_weights(waveforms)
 
         # Don't do anything if the frequencies are the same
         if self.orig_freq == self.new_freq:
-            return waveform
+            return waveforms
 
         # Add channels dimension if necessary
-        if len(waveform.shape) == 2:
-            waveform = waveform.unsqueeze(1)
+        if len(waveforms.shape) == 2:
+            waveforms = waveforms.unsqueeze(1)
 
         # Do resampling
-        resampled_waveform = self._perform_resample(waveform)
+        resampled_waveform = self._perform_resample(waveforms)
 
         # Remove unnecessary channels dimension
         return resampled_waveform.squeeze(1)
 
-    def _perform_resample(self, waveform):
+    def _perform_resample(self, waveforms):
         """Resamples the waveform at the new frequency.
 
         This matches Kaldi's OfflineFeatureTpl ResampleWaveform which uses a
@@ -549,33 +527,34 @@ class Resample(torch.nn.Module):
 
         Arguments
         ---------
-        waveform : tensor
+        waveforms : tensor
             the batch of audio signals to resample
 
         Returns
         -------
-        The waveform at the new frequency
+        The waveforms at the new frequency
         """
 
         # Compute output size and initialize
-        batch_size, num_channels, wave_len = waveform.size()
+        batch_size, num_channels, wave_len = waveforms.size()
         window_size = self.weights.size(1)
         tot_output_samp = self._output_samples(wave_len)
         resampled_waveform = torch.zeros(
-            (batch_size, num_channels, tot_output_samp), device=waveform.device,
+            (batch_size, num_channels, tot_output_samp),
+            device=waveforms.device,
         )
-        self.weights = self.weights.to(waveform.device)
+        self.weights = self.weights.to(waveforms.device)
 
         # Check weights are on correct device
-        if waveform.device != self.weights.device:
-            self.weights = self.weights.to(waveform.device)
+        if waveforms.device != self.weights.device:
+            self.weights = self.weights.to(waveforms.device)
 
         # eye size: (num_channels, num_channels, 1)
-        eye = torch.eye(num_channels, device=waveform.device).unsqueeze(2)
+        eye = torch.eye(num_channels, device=waveforms.device).unsqueeze(2)
 
         # Iterate over the phases in the polyphase filter
         for i in range(self.first_indices.size(0)):
-            wave_to_conv = waveform
+            wave_to_conv = waveforms
             first_index = int(self.first_indices[i].item())
             if first_index >= 0:
                 # trim the signal as the filter will not be applied
@@ -669,7 +648,7 @@ class Resample(torch.nn.Module):
 
         return num_output_samp
 
-    def _indices_and_weights(self):
+    def _indices_and_weights(self, waveforms):
         """Based on LinearResample::SetIndexesAndWeights
 
         Retrieves the weights for resampling as well as the indices in which
@@ -691,7 +670,9 @@ class Resample(torch.nn.Module):
         window_width = self.lowpass_filter_width / (2.0 * lowpass_cutoff)
 
         assert lowpass_cutoff < min(self.orig_freq, self.new_freq) / 2
-        output_t = torch.arange(0.0, self.output_samples, device=self.device)
+        output_t = torch.arange(
+            start=0.0, end=self.output_samples, device=waveforms.device,
+        )
         output_t /= self.new_freq
         min_t = output_t - window_width
         max_t = output_t + window_width
@@ -701,8 +682,8 @@ class Resample(torch.nn.Module):
         num_indices = max_input_index - min_input_index + 1
 
         max_weight_width = num_indices.max()
-        j = torch.arange(max_weight_width, device=self.device).unsqueeze(0)
-        input_index = min_input_index.unsqueeze(1) + j
+        j = torch.arange(max_weight_width, device=waveforms.device)
+        input_index = min_input_index.unsqueeze(1) + j.unsqueeze(0)
         delta_t = (input_index / self.orig_freq) - output_t.unsqueeze(1)
 
         weights = torch.zeros_like(delta_t)
