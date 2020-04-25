@@ -116,7 +116,7 @@ class linear(torch.nn.Module):
         """
 
         # Computing the dimensionality of the input
-        fea_dim = first_input.shape[1]
+        fea_dim = first_input.shape[2]
 
         # Initialization of the parameters
         self.w = nn.Linear(fea_dim, self.n_neurons, bias=self.bias)
@@ -130,189 +130,14 @@ class linear(torch.nn.Module):
         Returns:
             The linear transformation of the input tensor.
         """
-        # Transposing tensor
-        x = x.transpose(1, -1)
+        # Transposing tensor (features always at the end)
+        x = x.transpose(2, -1)
 
         # Apply linear transformation
         wx = self.w(x)
 
         # Going back to the original shape format
-        wx = wx.transpose(1, -1)
-
-        return wx
-
-
-class linear_combination(nn.Module):
-    """
-     -------------------------------------------------------------------------
-     nnet.architectures.linear_combination (author: Mirco Ravanelli)
-
-     Description:  This function implements a linear combination between n
-                   inputs (with combination weights learned). For instance,
-                   for three inputs x,y,z the output o will be:
-                   o = Wx + My + z. The weights W, M are learned.
-                   This function can be used to create shorcuts between
-                   layers of a neural architecture (e.g. dense/skip
-                   connections).
-
-     Input (init):  - config (type, dict, mandatory):
-                       it is a dictionary containing the keys described below.
-
-                           - bias (type: bool, Default:True):
-                               if True, the additive bias b is adopted.
-
-     Input (call): - inp_lst(type, list, mandatory):
-                       by default the input arguments are passed with a list.
-                       In this case, inp is a list containing the n
-                       torch.tensor elements that we want to combine.
-                       The tensor must be in one of the following format:
-                       [batch,channels,time]. Note that we can have up to
-                       three channels.
-
-
-
-     Output (call): - wx(type, torch.Tensor, mandatory):
-                       The output is a tensor that corresponds to linear
-                       combination of the n inputs.
-
-
-     Example:   import torch
-                from speechbrain.nnet.architectures import linear_combination
-
-                inp1 = torch.rand([4,100,190])
-                inp2 = torch.rand([4,200,190])
-                inp3 = torch.rand([4,50,190])
-
-                # config dictionary definition
-                config={'class_name':'speechbrain.nnet.architectures.\
-                    linear_combination'}
-
-                # Initialization of the class
-                linear_comb=linear_combination(config,\
-                    first_input=[inp1,inp2,inp3])
-
-                # Executing computations
-                inp1 = torch.rand([4,100,130])
-                inp2 = torch.rand([4,200,130])
-                inp3 = torch.rand([4,50,130])
-
-                out_tensor = linear_comb([inp1,inp2,inp3])
-                print(out_tensor)
-                print(out_tensor.shape)
-
-     """
-
-    def __init__(
-        self,
-        config,
-        funct_name=None,
-        global_config=None,
-        functions=None,
-        logger=None,
-        first_input=None,
-    ):
-        super(linear_combination, self).__init__()
-
-        # Logger setup
-        self.logger = logger
-
-        # Here are summarized the expected options for this class
-        self.expected_options = {
-            "class_name": ("str", "mandatory"),
-            "bias": ("bool", "optional", "True"),
-        }
-
-        # Check, cast, and expand the options
-        # FIX: old style
-        # self.conf = check_opts(self, self.expected_options, config, self.logger)
-
-        # Additional check on the input shapes
-        # FIX: This whole if block to new style logs
-        # if first_input is not None:
-
-        #     # Shape check
-        #     if len(first_input[0].shape) > 5 or len(first_input[0].shape) < 2:
-
-        #         err_msg = (
-        #             'The first input of "linear_combination" must be a tensor'
-        #             " with  one of the   following dimensions: [time] or"
-        #             " [batch,time] or  [batch,channels,time]. Got %s "
-        #             % (str(first_input[0].shape))
-        #         )
-
-        #         logger_write(err_msg, logfile=logger)
-
-        #     # Shape check
-        #     if len(first_input[1].shape) > 5 or len(first_input[1].shape) < 2:
-
-        #         err_msg = (
-        #             'The second input of "linear_combination" must be a tensor'
-        #             " with  one of the   following dimensions: [time] or"
-        #             " [batch,time] or  [batch,channels,time]. Got %s "
-        #             % (str(first_input[0].shape))
-        #         )
-
-        #         logger_write(err_msg, logfile=logger)
-
-        # Initializing the matrices
-        dim_out = first_input[-1].shape[1]
-
-        # Initialization of the parameters
-        self.w = nn.ModuleList([])
-        for i in range(len(first_input) - 1):
-            self.w.append(
-                nn.Linear(first_input[i].shape[1], dim_out, bias=self.bias)
-            )
-
-    def forward(self, input_lst):
-
-        # Reading reference input
-        x = input_lst[-1]
-
-        # Transposing the input
-        x = x.transpose(1, -1)
-
-        for i in range(len(input_lst) - 1):
-
-            x_inp = input_lst[i].to(x.device)
-            x_inp = x_inp.transpose(1, -1)
-
-            # Apply linear transformation
-            wx = self.w[i](x_inp)
-
-            if i == 0:
-                wx_tot = []
-
-            # Managing time reduction case (when stride >1)
-            if x.shape[1] != wx.shape[1]:
-
-                time_red_factor = (wx.shape[1]) / x.shape[1]
-                add_time_steps = (
-                    math.ceil(time_red_factor) * x.shape[1]
-                ) - wx.shape[1]
-
-                shape_add = list(wx.shape)
-                shape_add[1] = add_time_steps
-
-                wx = torch.cat(
-                    [wx, torch.zeros(tuple(shape_add)).to(x.device)], dim=1
-                )
-
-                wx = wx.reshape(x.shape[0], -1, x.shape[1], wx.shape[2])
-                wx = torch.mean(wx, dim=1)
-
-            # Appending transformation
-            wx_tot.append(wx)
-
-        # Combination of transformed inputs
-        wx_tot = torch.mean(torch.stack(wx_tot), dim=0)
-
-        # Final combination
-        wx_tot = wx_tot + x
-
-        # Going back to the original shape format
-        wx = wx.transpose(1, -1)
-
+        wx = wx.transpose(2, -1)
         return wx
 
 
@@ -452,17 +277,16 @@ class conv(nn.Module):
 
         # Detecting the number of input channels
         if self.conv1d:
-            self.in_channels = first_input.shape[1]
+            self.in_channels = first_input.shape[2]
 
         if self.conv2d:
             if len(first_input.shape) == 3:
                 self.in_channels = 1
 
             elif len(first_input.shape) == 4:
-
-                self.in_channels = first_input.shape[2]
+                self.in_channels = first_input.shape[3]
             elif len(first_input.shape) == 5:
-                self.in_channels = first_input.shape[2] * first_input.shape[3]
+                self.in_channels = first_input.shape[3] * first_input.shape[4]
 
         # Managing 1d convolutions
         if self.conv1d:
@@ -504,15 +328,20 @@ class conv(nn.Module):
 
     def forward(self, x):
 
+        # transposing input
+        x = x.transpose(1,2).transpose(2,-1)
+
         # Reshaping the inputs when needed
         if self.reshape_conv1d:
             or_shape = x.shape
 
+            # revise that
             if len(or_shape) == 4:
                 x = x.reshape(
                     or_shape[0] * or_shape[2], or_shape[1], or_shape[-1]
                 )
 
+            # revise that
             if len(or_shape) == 5:
                 x = x.reshape(
                     or_shape[0] * or_shape[2] * or_shape[3],
@@ -527,6 +356,7 @@ class conv(nn.Module):
 
                 or_shape = x.shape
 
+                # revise that
                 if len(or_shape) == 5:
                     x = x.reshape(
                         or_shape[0],
@@ -573,6 +403,7 @@ class conv(nn.Module):
                     wx.shape[-1],
                 )
 
+        wx = wx.transpose(1,-1).transpose(2,-1)
         return wx
 
     @staticmethod
@@ -1348,7 +1179,7 @@ class RNN_basic(torch.nn.Module):
             self.reshape = True
 
         # Computing the feature dimensionality
-        self.fea_dim = torch.prod(torch.tensor(first_input.shape[1:-1]))
+        self.fea_dim = torch.prod(torch.tensor(first_input.shape[2:]))
 
         kwargs = {
             "input_size": self.fea_dim,
@@ -1357,6 +1188,7 @@ class RNN_basic(torch.nn.Module):
             "dropout": self.dropout,
             "bidirectional": self.bidirectional,
             "bias": self.bias,
+            'batch_first': True
         }
 
         # Vanilla RNN
@@ -1372,35 +1204,11 @@ class RNN_basic(torch.nn.Module):
         if self.rnn_type == "gru":
             self.rnn = torch.nn.GRU(**kwargs)
 
-        # Vanilla light-GRU
+        # Light-GRU
         if self.rnn_type == "ligru":
             del kwargs["bias"]
             kwargs["batch_size"] = (first_input.shape[0],)
             self.rnn = liGRU(**kwargs)
-
-        # Quasi RNN
-        if self.rnn_type == "qrnn":
-
-            # Check if qrnn (quasi-rnn) library is installed
-            try:
-                from torchqrnn import QRNN
-            except ImportError:
-                raise ImportError(
-                    "QRNN is not installed. Please run "
-                    "pip install cupy pynvrtc \
-                        git+https://github.com/salesforce/pytorch-qrnn ."
-                    "Go to https://github.com/salesforce/pytorch-qrnn \
-                        for more info."
-                )
-
-            # Needed to avoid qrnn warnings
-            import warnings
-
-            warnings.filterwarnings("ignore")
-
-            del kwargs["bias"]
-            del kwargs["bidirectional"]
-            self.rnn = QRNN(**kwargs)
 
         self.rnn.to(first_input.device)
 
@@ -1420,23 +1228,17 @@ class RNN_basic(torch.nn.Module):
         # Reshaping input tensors when needed
         if self.reshape:
             if len(x.shape) == 4:
-                x = x.reshape(x.shape[0], x.shape[1] * x.shape[2], x.shape[3])
+                x = x.reshape(x.shape[0], x.shape[1], x.shape[2] * x.shape[3])
 
             if len(x.shape) == 5:
                 x = x.reshape(
                     x.shape[0],
-                    x.shape[1] * x.shape[2] * x.shape[3],
-                    x.shape[4],
+                    x.shape[1],
+                    x.shape[2] * x.shape[3], x.shape[4]
                 )
-
-        # Transposing input
-        x = x.permute(2, 0, 1)
 
         # Computing RNN steps
         output, hn = self.rnn(x)
-
-        # Tensor transpose
-        output = output.permute(1, 2, 0)
 
         return output
 
@@ -1819,7 +1621,6 @@ class activation(torch.nn.Module):
 
         # Reshaping the tensor when needed
         if self.reshape:
-            x = x.transpose(1, -1)
             dims = x.shape
 
             if len(dims) == 3:
@@ -1848,7 +1649,6 @@ class activation(torch.nn.Module):
                     dims[0], dims[1], dims[2], dims[3], dims[4]
                 )
 
-            x_act = x_act.transpose(1, -1)
 
         return x_act
 
@@ -1935,7 +1735,6 @@ class dropout(nn.Module):
         super().__init__()
         self.drop_rate = drop_rate
         self.inplace = inplace
-        self.reshape = False
 
     def init_params(self, first_input):
         """
@@ -1949,9 +1748,6 @@ class dropout(nn.Module):
         if len(first_input.shape) <= 3:
             self.drop = nn.Dropout(p=self.drop_rate, inplace=self.inplace)
 
-            if len(first_input.shape) == 3:
-                self.reshape = True
-
         if len(first_input.shape) == 4:
             self.drop = nn.Dropout2d(p=self.drop_rate, inplace=self.inplace)
 
@@ -1964,21 +1760,14 @@ class dropout(nn.Module):
         if self.drop_rate == 0.0:
             return x
 
-        # Reshaping tensor when needed
-        if self.reshape:
-
-            x = x.transpose(1, -1)
-            dims = x.shape
-
-            x = x.reshape(dims[0] * dims[1], dims[2])
-
+        # time must be the last
+        x=x.transpose(1,2).transpose(2,-1)
+         
         # Applying dropout
         x_drop = self.drop(x)
-
-        # Retrieving the original shape format
-        if self.reshape:
-            x_drop = x_drop.reshape(dims[0], dims[1], dims[2])
-            x_drop = x_drop.transpose(1, -1)
+        
+        
+        x_drop=x_drop.transpose(-1,1).transpose(2,-1)
 
         return x_drop
 
@@ -2195,7 +1984,7 @@ class pooling(nn.Module):
                 )
 
     def forward(self, x):
-
+        x = x.transpose(1,2).transpose(2,-1)
         or_shape = x.shape
 
         # Put the pooling axes as the last dimension for torch.nn.pool
@@ -2225,5 +2014,7 @@ class pooling(nn.Module):
             x = x.transpose(len(or_shape) - 2, self.pool_axis[0]).transpose(
                 len(or_shape) - 1, self.pool_axis[1]
             )
+
+        x = x.transpose(-1,1).transpose(2,-1)
 
         return x

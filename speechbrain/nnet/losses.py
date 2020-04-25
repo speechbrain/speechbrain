@@ -113,17 +113,17 @@ class compute_cost(nn.Module):
         if "ctc" not in self.cost_type:
 
             # Shapes cannot be too different (max 3 time steps)
-            diff = abs(prediction.shape[-1] - target.shape[-1])
+            diff = abs(prediction.shape[1] - target.shape[1])
             if diff > self.allow_lab_diff:
                 err_msg = (
                     "The length of labels differs from the length of the "
                     "output probabilities. (Got %i vs %i)"
-                    % (target.shape[-1], prediction.shape[-1])
+                    % (target.shape[1], prediction.shape[1])
                 )
 
                 logger.error(err_msg, exc_info=True)
 
-            prediction = prediction[:, :, 0 : target.shape[-1]]
+            prediction = prediction[:, 0 : target.shape[1], :]
 
         else:
 
@@ -168,15 +168,15 @@ class compute_cost(nn.Module):
 
                     # Avoiding padded time steps
                     actual_size_prob = int(
-                        torch.round(lengths[0][j] * prob_curr.shape[-1])
+                        torch.round(lengths[0][j] * prob_curr.shape[0])
                     )
 
                     actual_size_lab = int(
                         torch.round(lengths[1][j] * lab_curr.shape[0])
                     )
 
-                    prob_curr = prob_curr.narrow(-1, 0, actual_size_prob)
-                    lab_curr = lab_curr.narrow(-1, 0, actual_size_lab)
+                    prob_curr = prob_curr.narrow(0, 0, actual_size_prob)
+                    lab_curr = lab_curr.narrow(0, 0, actual_size_lab)
 
                     # Computing the wer
                     wer = wer + cost(prob_curr, lab_curr)
@@ -210,12 +210,11 @@ class compute_cost(nn.Module):
                         torch.round(lengths[j] * lab_curr.shape[0])
                     )
 
-                    prob_curr = prob_curr.narrow(-1, 0, actual_size)
-                    lab_curr = lab_curr.narrow(-1, 0, actual_size)
+                    prob_curr = prob_curr.narrow(0, 0, actual_size)
+                    lab_curr = lab_curr.narrow(0, 0, actual_size)
 
                     # Reshaping
                     if reshape:
-                        prob_curr = prob_curr.transpose(0, 1)
                         lab_curr = lab_curr.long()
 
                     # Loss accumulation
@@ -242,7 +241,7 @@ class compute_cost(nn.Module):
                     # In the case of using CPU training, int type is mondatory.
                     lab_curr = lab_curr.int()
                     # Permuting output probs
-                    prob_curr = prob_curr.permute(2, 0, 1)
+                    prob_curr = prob_curr.transpose(0, 1)
 
                     # Getting the input lengths
                     input_lengths = torch.round(
@@ -250,7 +249,7 @@ class compute_cost(nn.Module):
                     ).int()
 
                     # Getting the label lengths
-                    lab_lengths = lengths[1] * target.shape[-1]
+                    lab_lengths = lengths[1] * target.shape[1]
                     lab_lengths = torch.round(lab_lengths).int()
 
                     # CTC cost computation
@@ -264,13 +263,10 @@ class compute_cost(nn.Module):
 
                     # Reshaping tensors when needed
                     if reshape:
-                        raise NotImplementedError("lab is undefined here!")
-                        # FIX: lab is undefined
-                        lab = None
-                        lab_curr = lab.reshape(
-                            lab.shape[0] * lab.shape[1]
+                        lab_curr =  target.reshape(
+                             target.shape[0] *  target.shape[1]
                         ).long()
-                        prob_curr = prediction.transpose(1, 2)
+                        
                         prob_curr = prob_curr.reshape(
                             prob_curr.shape[0] * prob_curr.shape[1],
                             prob_curr.shape[2],

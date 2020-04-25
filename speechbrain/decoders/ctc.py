@@ -94,12 +94,12 @@ def ctc_greedy_decode(probabilities, seq_lens, blank_id=-1):
         Aku Rouhe 2020
     """
     if isinstance(blank_id, int) and blank_id < 0:
-        blank_id = probabilities.shape[1] + blank_id
-    batch_max_len = probabilities.shape[-1]  # Assume time last
+        blank_id = probabilities.shape[-1] + blank_id
+    batch_max_len = probabilities.shape[1]
     batch_outputs = []
     for seq, seq_len in zip(probabilities, seq_lens):
         actual_size = int(torch.round(seq_len * batch_max_len))
-        scores, predictions = torch.max(seq.narrow(-1, 0, actual_size), dim=0)
+        scores, predictions = torch.max(seq.narrow(0, 0, actual_size), dim=1)
         out = filter_ctc_output(predictions.tolist(), blank_id=blank_id)
         batch_outputs.append(out)
     return batch_outputs

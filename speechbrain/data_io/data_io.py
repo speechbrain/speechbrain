@@ -266,10 +266,10 @@ class create_dataloader(torch.nn.Module):
 
             # Padding the sequence of sentences (if needed)
             batch_data = self.padding(sequences)
-
+            
             # Return % of time steps without padding (useful for save_batch)
-            time_steps = time_steps / batch_data.shape[-1]
-
+            time_steps = time_steps / batch_data.shape[1]
+            
         else:
             # Non-tensor case
             batch_data = sequences
@@ -319,21 +319,21 @@ class create_dataloader(torch.nn.Module):
         try:
             self.data_dim
         except Exception:
-            self.data_dim = list(sequences[0].shape[:-1])
-
+            self.data_dim = list(sequences[0].shape[2:])
+            
         # Finding the max len across sequences
-        max_len = max([s.size(-1) for s in sequences])
+        max_len = max([s.size(0) for s in sequences])
 
         # Batch out dimensions
-        out_dims = [batch_size] + self.data_dim + [max_len]
-
+        out_dims = [batch_size] + [max_len] + self.data_dim
+        
         # Batch initialization
         batch_data = torch.zeros(out_dims) + self.padding_value
 
         # Appending data
         for i, tensor in enumerate(sequences):
-            length = tensor.shape[-1]
-            batch_data[i, ..., :length] = tensor
+            length = tensor.shape[0]
+            batch_data[i, :length, ...] = tensor
 
         return batch_data
 
@@ -1115,7 +1115,7 @@ def relative_time_to_absolute(batch, relative_lens, rate):
     >>> print(relative_time_to_absolute(batch, relative_lens, rate))
     tensor([0.7500, 1.0000])
     """
-    max_len = batch.shape[-1]
+    max_len = batch.shape[1]
     durations = torch.round(relative_lens * max_len) / rate
     return durations
 
@@ -1929,8 +1929,8 @@ class save(torch.nn.Module):
         for j in range(data.shape[0]):
 
             # Selection up to the true data length (without padding)
-            actual_size = int(torch.round(data_len[j] * data[j].shape[-1]))
-            data_save = data[j].narrow(-1, 0, actual_size)
+            actual_size = int(torch.round(data_len[j] * data[j].shape[0]))
+            data_save = data[j].narrow(0, 0, actual_size)
 
             # Transposing the data if needed
             if self.transpose:

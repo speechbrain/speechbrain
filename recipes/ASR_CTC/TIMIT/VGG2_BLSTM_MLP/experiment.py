@@ -23,7 +23,7 @@ def main():
     test_set = sb.test_loader()
 
     # Initialize / Load latest model
-    dummy_input = torch.rand([sb.batch_size, sb.n_mels, 100]).to(sb.device)
+    dummy_input = torch.rand([sb.batch_size, 100, sb.n_mels]).to(sb.device)
     sb.model.init_params(dummy_input)
     sb.optimizer.init_params([sb.model])
     sb.recover_if_possible()
