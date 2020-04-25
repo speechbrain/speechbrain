@@ -33,7 +33,7 @@ class Features(torch.nn.Module):
     >>> feature_maker = Features(feature_type='fbank')
     >>> feats = feature_maker(inputs)
     >>> feats.shape
-    torch.Size([10, 759, 101])
+    torch.Size([10, 101, 759])
 
     Hyperparams
     -----------

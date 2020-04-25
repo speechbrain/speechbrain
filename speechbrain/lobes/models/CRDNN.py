@@ -46,11 +46,11 @@ class CRDNN(Sequential):
     -------
     >>> import torch
     >>> model = CRDNN(output_size=40)
-    >>> inputs = torch.rand([10, 60, 120])
+    >>> inputs = torch.rand([10, 120, 60])
     >>> model.init_params(inputs)
     >>> outputs = model(inputs)
     >>> outputs.shape
-    torch.Size([10, 40, 116])
+    torch.Size([10, 116, 40])
     """
 
     def __init__(
@@ -121,13 +121,13 @@ class NeuralBlock(Sequential):
 
     Example
     -------
-    >>> inputs = torch.rand([10, 40, 200])
+    >>> inputs = torch.rand([10, 50, 40])
     >>> param_file = 'speechbrain/lobes/models/rnn_block.yaml'
     >>> rnn = NeuralBlock(1, param_file)
     >>> rnn.init_params(inputs)
     >>> outputs = rnn(inputs)
     >>> outputs.shape
-    torch.Size([10, 1024, 200])
+    torch.Size([10, 50, 1024])
     """
 
     def __init__(self, block_index, param_file, overrides={}):

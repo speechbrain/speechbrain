@@ -84,7 +84,7 @@ def ctc_greedy_decode(probabilities, seq_lens, blank_id=-1):
     -------
         >>> import torch
         >>> probs = torch.tensor([[[0.3, 0.7], [0.0, 0.0]],
-        ...                       [[0.2, 0.8], [0.9, 0.1]]]).transpose(2,1)
+        ...                       [[0.2, 0.8], [0.9, 0.1]]])
         >>> lens = torch.tensor([0.51, 1.0])
         >>> blank_id = 0
         >>> ctc_greedy_decode(probs, lens, blank_id)

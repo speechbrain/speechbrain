@@ -28,11 +28,11 @@ class Sequential(torch.nn.Module):
     >>> model = Sequential(
     ...     [speechbrain.nnet.architectures.linear(n_neurons=100)],
     ... )
-    >>> inputs = torch.rand(10, 40, 50)
+    >>> inputs = torch.rand(10, 50, 40)
     >>> model.init_params(inputs)
     >>> outputs = model(inputs)
     >>> outputs.shape
-    torch.Size([10, 100, 50])
+    torch.Size([10, 50, 100])
     """
 
     def __init__(
@@ -190,12 +190,12 @@ class conv(nn.Module):
 
     Example:
         >>> import torch
-        >>> inp_tensor = torch.rand([10, 1, 16000])  # time last
+        >>> inp_tensor = torch.rand([10, 16000, 1])
         >>> cnn = conv(out_channels=25, kernel_size=11)
         >>> cnn.init_params(inp_tensor)
         >>> out_tensor = cnn(inp_tensor)
         >>> out_tensor.shape
-        torch.Size([10, 25, 15990])
+        torch.Size([10, 15990, 25])
 
     Author:
         Mirco Ravanelli 2020
