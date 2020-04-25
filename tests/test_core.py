@@ -27,21 +27,34 @@ def test_parse_overrides():
     assert overrides == {"model": {"arg1": 2}}
 
 
-def test_experiment():
+def test_experiment(tmpdir):
     from speechbrain.core import Experiment
 
-    yaml = """
+    yaml = f"""
     constants:
-        output_folder: exp
+        output_folder: {tmpdir}
     """
     sb = Experiment(yaml)
-    assert sb.output_folder == "exp"
-    sb = Experiment(yaml, ["--output_folder", "exp/example"])
-    assert sb.output_folder == "exp/example"
+    assert sb.output_folder == tmpdir
+    sb = Experiment(
+        yaml_stream=yaml,
+        overrides={"constants": {"output_folder": f"{tmpdir}/example"}},
+    )
+    assert sb.output_folder == f"{tmpdir}/example"
+    sb = Experiment(
+        yaml, commandline_args=["--output_folder", f"{tmpdir}/example"]
+    )
+    assert sb.output_folder == f"{tmpdir}/example"
+    sb = Experiment(
+        yaml_stream=yaml,
+        overrides={"constants": {"output_folder": f"{tmpdir}/abc"}},
+        commandline_args=["--output_folder", f"{tmpdir}/example"],
+    )
+    assert sb.output_folder == f"{tmpdir}/example"
 
-    yaml = """
+    yaml = f"""
     constants:
-        output_folder: exp
+        output_folder: {tmpdir}
     functions:
         output_folder: y
     """
