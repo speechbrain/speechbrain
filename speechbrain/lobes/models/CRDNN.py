@@ -95,7 +95,7 @@ class CRDNN(Sequential):
         blocks.append(linear(output_size, bias=False))
         blocks.append(activation("log_softmax"))
 
-        super().__init__(blocks)
+        super().__init__(*blocks)
 
 
 class NeuralBlock(Sequential):
@@ -138,4 +138,4 @@ class NeuralBlock(Sequential):
         layers = load_extended_yaml(open(param_file), overrides)
         sequence = layers["constants"]["sequence"]
 
-        super().__init__([layers[op] for op in sequence])
+        super().__init__(*[layers[op] for op in sequence])

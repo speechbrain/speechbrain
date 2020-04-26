@@ -17,8 +17,8 @@ class Sequential(torch.nn.Module):
 
     Arguments
     ---------
-    layers : iterable
-        The remaining inputs are treated as a list of layers to be
+    *layers
+        The inputs are treated as a list of layers to be
         applied in sequence. The output shape of each layer is used to
         infer the shape of the following layer.
 
@@ -26,7 +26,7 @@ class Sequential(torch.nn.Module):
     -------
     >>> import speechbrain.nnet.architectures
     >>> model = Sequential(
-    ...     [speechbrain.nnet.architectures.linear(n_neurons=100)],
+    ...     speechbrain.nnet.architectures.linear(n_neurons=100),
     ... )
     >>> inputs = torch.rand(10, 50, 40)
     >>> model.init_params(inputs)
@@ -36,7 +36,7 @@ class Sequential(torch.nn.Module):
     """
 
     def __init__(
-        self, layers,
+        self, *layers,
     ):
         """"""
         super().__init__()
