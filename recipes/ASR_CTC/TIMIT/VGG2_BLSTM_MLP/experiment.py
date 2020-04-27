@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import sys
 import speechbrain.data_io.wer as wer_io
 import speechbrain.utils.edit_distance as edit_distance
@@ -67,28 +68,22 @@ class ASR(Brain):
         return summary
 
 
-def main():
+# prepare the data
+sb.prepare_timit()
 
-    # Prepare the data
-    sb.prepare_timit()
+# initialize brain and learn
+asr_brain = ASR(
+    models=[sb.model],
+    optimizer=sb.optimizer,
+    scheduler=sb.lr_annealing,
+    saver=sb.saver,
+)
+asr_brain.learn(
+    epoch_counter=sb.epoch_counter,
+    train_set=sb.train_loader(),
+    valid_set=sb.valid_loader(),
+    min_keys=["wer"],
+)
 
-    # Initialize brain and learn
-    asr_brain = ASR(
-        models=[sb.model],
-        optimizer=sb.optimizer,
-        scheduler=sb.lr_annealing,
-        saver=sb.saver,
-    )
-    asr_brain.learn(
-        epoch_counter=sb.epoch_counter,
-        train_set=sb.train_loader(),
-        valid_set=sb.valid_loader(),
-        min_keys=["wer"],
-    )
-
-    # Load best model, evaluate that:
-    asr_brain.evaluate(sb.test_loader(), min_key="wer")
-
-
-if __name__ == "__main__":
-    main()
+# load best model, evaluate that:
+asr_brain.evaluate(sb.test_loader(), min_key="wer")
