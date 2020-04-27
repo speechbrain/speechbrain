@@ -33,7 +33,7 @@ class Features(torch.nn.Module):
     >>> feature_maker = Features(feature_type='fbank')
     >>> feats = feature_maker(inputs)
     >>> feats.shape
-    torch.Size([10, 759, 101])
+    torch.Size([10, 101, 759])
 
     Hyperparams
     -----------
@@ -75,7 +75,7 @@ class Features(torch.nn.Module):
         if self.deltas:
             delta1 = self.params["compute_deltas"](features)
             delta2 = self.params["compute_deltas"](delta1)
-            features = torch.cat([features, delta1, delta2], dim=-2)
+            features = torch.cat([features, delta1, delta2], dim=2)
 
         if self.context:
             features = self.params["context_window"](features)

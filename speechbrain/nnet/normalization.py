@@ -213,23 +213,26 @@ class normalize(nn.Module):
     def forward(self, x):
 
         # Reshaping (if needed)
-        if self.reshape:
+        # if self.reshape:
 
-            x = x.transpose(1, -1)
-            dims = x.shape
+        # x = x.transpose(1, -1)
+        # dims = x.shape
 
-            x = x.reshape(dims[0] * dims[1], dims[2])
+        # x = x.reshape(dims[0] * dims[1], dims[2])
 
         # Applying batch normalization
+        # x = x.transpose(1, 2).transpose(2, -1)
+        x = x.transpose(-1, 1)
         x_n = self.norm(x)
 
         # Getting the original dimensionality
-        if self.reshape:
+        # if self.reshape:
 
-            x_n = x_n.reshape(dims[0], dims[1], dims[2])
+        # x_n = x_n.reshape(dims[0], dims[1], dims[2])
 
-            x_n = x_n.transpose(1, -1)
+        x_n = x_n.transpose(1, -1)
 
+        # x_n = x_n.transpose(1, -1).transpose(2, -1)
         return x_n
 
     def batchnorm(self, first_input):
@@ -272,7 +275,7 @@ class normalize(nn.Module):
          """
 
         # Getting the feature dimension
-        fea_dim = first_input.shape[1]
+        fea_dim = first_input.shape[-1]
 
         # Based on the shape of the input tensor I can use 1D,2D, or 3D batchn
         if len(first_input.shape) <= 3:
@@ -286,8 +289,8 @@ class normalize(nn.Module):
                 track_running_stats=self.track_running_stats,
             )
 
-            if len(first_input.shape) == 3:
-                self.reshape = True
+            # if len(first_input.shape) == 3:
+            #   self.reshape = True
 
         if len(first_input.shape) == 4:
 
