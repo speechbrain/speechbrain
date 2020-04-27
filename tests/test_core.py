@@ -69,9 +69,9 @@ def test_brain():
     targets = torch.rand(10, 10)
     train_set = ([inputs], [targets])
 
-    start_loss = brain.compute_objectives(brain(inputs), targets)
-    brain.learn(
-        epoch_counter=range(10), train_set=train_set,
+    start_loss = brain.compute_objectives(brain.forward(inputs), targets)
+    brain.fit(
+        train_set=train_set, number_of_epochs=10,
     )
-    end_loss = brain.compute_objectives(brain(inputs), targets)
+    end_loss = brain.compute_objectives(brain.forward(inputs), targets)
     assert end_loss < start_loss

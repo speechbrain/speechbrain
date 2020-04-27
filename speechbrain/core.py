@@ -342,8 +342,7 @@ class Brain:
     ...     def compute_objectives(self, predictions, targets, train=True):
     ...         return torch.nn.functional.l1_loss(predictions, targets)
     >>> brain = SimpleBrain([model], optimize("sgd", 0.01))
-    >>> brain.learn(
-    ...     epoch_counter=range(1),
+    >>> brain.fit(
     ...     train_set=([torch.rand(10, 10)], [torch.rand(10, 10)]),
     ... )
     """
