@@ -538,7 +538,7 @@ class Brain:
             self.saver.recover_if_possible()
 
         test_stats = []
-        self.eval()
+        self.modules.eval()
         with torch.no_grad():
             for batch in tzip(*test_set):
                 test_stats.append(self.evaluate_batch(batch))

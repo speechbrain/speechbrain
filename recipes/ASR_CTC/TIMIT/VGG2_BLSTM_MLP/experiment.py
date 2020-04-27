@@ -78,7 +78,7 @@ asr_brain = ASR(
     scheduler=sb.lr_annealing,
     saver=sb.saver,
 )
-asr_brain.learn(
+asr_brain.fit(
     train_set=sb.train_loader(),
     valid_set=sb.valid_loader(),
     number_of_epochs=sb.number_of_epochs,
