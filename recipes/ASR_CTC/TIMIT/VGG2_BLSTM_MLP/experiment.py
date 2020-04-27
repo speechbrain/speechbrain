@@ -23,10 +23,17 @@ def main():
     test_set = sb.test_loader()
 
     # Initialize / Load latest model
+    dummy_input = torch.rand([sb.batch_size, 1000]).to(sb.device)
+    sb.compute_features.init_params(dummy_input)
+
     dummy_input = torch.rand([sb.batch_size, 100, sb.n_mels]).to(sb.device)
     sb.model.init_params(dummy_input)
     sb.optimizer.init_params([sb.model])
     sb.recover_if_possible()
+
+    # jitability
+    sb.compute_features = torch.jit.script(sb.compute_features)
+    sb.normalize = torch.jit.script(sb.normalize)
 
     # training/validation epochs
     for epoch in sb.epoch_counter:
