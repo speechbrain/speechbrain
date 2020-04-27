@@ -38,32 +38,32 @@ class ASR(Brain):
             stats = edit_distance.wer_details_for_batch(
                 ids, phns, sequence, compute_alignments=True
             )
-            stats = {"wer": stats}
+            stats = {"per": stats}
             return loss, stats
 
         return loss
 
-    def summarize(self, stats, ind2lab=None, write=False):
+    def summarize(self, stats, write=False):
 
         # Accumulate
         accumulator = {"loss": 0.0}
-        if "wer" in stats[0]:
-            accumulator["wer"] = []
+        if "per" in stats[0]:
+            accumulator["per"] = []
         for stat in stats:
             for stat_type in stat:
                 accumulator[stat_type] += stat[stat_type]
 
         # Normalize
         summary = {"loss": float(accumulator["loss"] / len(stats))}
-        if "wer" in accumulator:
-            wer_summary = edit_distance.wer_summary(accumulator["wer"])
-            summary["wer"] = wer_summary["WER"]
+        if "per" in accumulator:
+            per_summary = edit_distance.wer_summary(accumulator["per"])
+            summary["per"] = per_summary["WER"]
 
             # Write test data to file
             if write:
                 with open(sb.wer_file, "w") as fo:
-                    wer_io.print_wer_summary(wer_summary, fo)
-                    wer_io.print_alignments(accumulator["wer"], fo)
+                    wer_io.print_wer_summary(per_summary, fo)
+                    wer_io.print_alignments(accumulator["per"], fo)
 
         return summary
 
@@ -73,17 +73,17 @@ sb.prepare_timit()
 
 # initialize brain and learn
 asr_brain = ASR(
-    models=[sb.model],
+    modules=[sb.model],
     optimizer=sb.optimizer,
     scheduler=sb.lr_annealing,
     saver=sb.saver,
 )
 asr_brain.learn(
-    epoch_counter=sb.epoch_counter,
     train_set=sb.train_loader(),
     valid_set=sb.valid_loader(),
-    min_keys=["wer"],
+    number_of_epochs=sb.number_of_epochs,
+    min_keys=["per"],
 )
 
 # load best model, evaluate that:
-asr_brain.evaluate(sb.test_loader(), min_key="wer")
+asr_brain.evaluate(sb.test_loader(), min_key="per")

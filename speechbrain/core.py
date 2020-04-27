@@ -17,6 +17,7 @@ from speechbrain.utils.logger import setup_logging
 from speechbrain.utils.checkpoints import Checkpointer
 from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.data_utils import load_extended_yaml, resolve_references
+from speechbrain.utils.epoch_loop import EpochCounter
 
 logger = logging.getLogger(__name__)
 
@@ -309,7 +310,7 @@ def nest(dictionary, args, val):
     nest(dictionary[args[0]], args[1:], val)
 
 
-class Brain(torch.nn.Module):
+class Brain:
     """A class for abstracting details of training.
 
     Sub-class this class to use the `learn` function, and override methods
@@ -340,7 +341,7 @@ class Brain(torch.nn.Module):
     ...         return model(x)
     ...     def compute_objectives(self, predictions, targets, train=True):
     ...         return torch.nn.functional.l1_loss(predictions, targets)
-    >>> brain = SimpleBrain([model], optimize('sgd', 0.01))
+    >>> brain = SimpleBrain([model], optimize("sgd", 0.01))
     >>> brain.learn(
     ...     epoch_counter=range(1),
     ...     train_set=([torch.rand(10, 10)], [torch.rand(10, 10)]),
@@ -348,10 +349,10 @@ class Brain(torch.nn.Module):
     """
 
     def __init__(
-        self, models, optimizer, scheduler=None, saver=None,
+        self, modules, optimizer, scheduler=None, saver=None,
     ):
         super().__init__()
-        self.models = torch.nn.ModuleList(models)
+        self.modules = torch.nn.ModuleList(modules)
         self.optimizer = optimizer
         self.scheduler = scheduler
         self.saver = saver
@@ -385,8 +386,8 @@ class Brain(torch.nn.Module):
         """
         raise NotImplementedError
 
-    def train_batch(self, batch):
-        """Train on one batch, override to do multiple updates.
+    def fit_batch(self, batch):
+        """Fit one batch, override to do multiple updates.
 
         Arguments
         ---------
@@ -395,10 +396,10 @@ class Brain(torch.nn.Module):
             and targets.
         """
         inputs, targets = batch
-        predictions = self(inputs)
+        predictions = self.forward(inputs)
         loss = self.compute_objectives(predictions, targets)
         loss.backward()
-        self.optimizer(self.models)
+        self.optimizer(self.modules)
         return {"loss": loss.detach()}
 
     def evaluate_batch(self, batch):
@@ -410,7 +411,7 @@ class Brain(torch.nn.Module):
             batch to evaluate, usually including inputs and targets.
         """
         inputs, targets = batch
-        output = self(inputs)
+        output = self.forward(inputs)
         loss, stats = self.compute_objectives(output, targets, train=False)
         stats["loss"] = loss.detach()
         return stats
@@ -427,11 +428,11 @@ class Brain(torch.nn.Module):
         """
         return {"loss": float(sum(s["loss"] for s in stats) / len(stats))}
 
-    def learn(
+    def fit(
         self,
-        epoch_counter,
         train_set,
         valid_set=None,
+        number_of_epochs=1,
         max_keys=[],
         min_keys=[],
     ):
@@ -441,34 +442,36 @@ class Brain(torch.nn.Module):
         overridden. The following are functions not defined in `nn.Module`
         but are used and expected to have a certain behavior:
 
-        * `train_batch`
+        * `fit_batch`
         * `evaluate_batch`
         * `summarize`
         * `save`
 
         Arguments
         ---------
-        epoch_counter : epoch_counter
-            Keeps track of what epoch we're on, to save if necessary.
         train_set : list of DataLoaders
             a list of datasets to use for training, zipped before iterating.
         valid_set : list of Data Loaders
             a list of datasets to use for validation, zipped before iterating.
+        number_of_epochs : int
+            number of epochs to iterate
         max_keys : list of str
             a list of keys to use for checkpointing, highest value is kept.
         min_keys : list of str
             a list of keys to use for checkpointing, lowest value is kept.
         """
-        self(next(iter(train_set[0])), init_params=True)
-        self.optimizer.init_params(self.models)
+        self.forward(next(iter(train_set[0])), init_params=True)
+        self.optimizer.init_params(self.modules)
+        epoch_counter = EpochCounter(number_of_epochs)
         if self.saver is not None:
+            self.saver.add_recoverable("counter", epoch_counter)
             self.saver.recover_if_possible()
 
         for epoch in epoch_counter:
-            self.train()
+            self.modules.train()
             train_stats = []
             for batch in tzip(*train_set):
-                train_stats.append(self.train_batch(batch))
+                train_stats.append(self.fit_batch(batch))
             summary = self.summarize(train_stats)
 
             logger.info(f"Epoch {epoch} complete")
@@ -476,7 +479,7 @@ class Brain(torch.nn.Module):
                 logger.info(f"Train {key}: {summary[key]:.2f}")
 
             if valid_set is not None:
-                self.eval()
+                self.modules.eval()
                 valid_stats = []
                 with torch.no_grad():
                     for batch in tzip(*valid_set):
@@ -485,14 +488,32 @@ class Brain(torch.nn.Module):
                 for key in summary:
                     logger.info(f"Valid {key}: {summary[key]:.2f}")
 
-            if self.scheduler is not None:
-                min_val = summary[min_keys[0]]
-                self.scheduler([self.optimizer], epoch, min_val)
-            if self.saver is not None:
-                self.save(summary, max_keys, min_keys)
+            self.on_epoch_end(epoch, summary, max_keys, min_keys)
+
+    def on_epoch_end(self, epoch, summary, max_keys, min_keys):
+        """Gets called at the end of each epoch.
+
+        Arguments
+        ---------
+        summary : mapping
+            This dict defines summary info about the validation pass, if
+            the validation data was passed, otherwise training pass. The
+            output of the `summarize` method is directly passed.
+        max_keys : list of str
+            A sequence of strings that match keys in the summary. Highest
+            value is the relevant value.
+        min_keys : list of str
+            A sequence of strings that match keys in the summary. Lowest
+            value is the relevant value.
+        """
+        if self.scheduler is not None:
+            min_val = summary[min_keys[0]]
+            self.scheduler([self.optimizer], epoch, min_val)
+        if self.saver is not None:
+            self.save(summary, max_keys, min_keys)
 
     def evaluate(self, test_set, max_key=None, min_key=None):
-        """Iterate test_set and evaluate model performance.
+        """Iterate test_set and evaluate brain performance.
 
         Arguments
         ---------

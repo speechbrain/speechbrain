@@ -14,7 +14,7 @@ constants:
     csv_test: !ref <constants.data_folder>/test.csv
 
     # Neural Parameters
-    N_epochs: 25
+    number_of_epochs: 25
     batch_size: 8
     lr: 1.0
     dropout_rate: 0.15
@@ -33,13 +33,11 @@ saveables:
         learning_rate: !ref <constants.lr>
     lr_annealing: !speechbrain.nnet.lr_scheduling.lr_annealing
         annealing_type: newbob
-        N_epochs: !ref <constants.N_epochs>
+        N_epochs: !ref <constants.number_of_epochs>
         lr_initial: !ref <constants.lr>
         improvement_threshold: 0.0025
         annealing_factor: 0.8
         patient: 0
-    epoch_counter: !speechbrain.utils.epoch_loop.EpochCounter
-        limit: !ref <constants.N_epochs>
     normalize: !speechbrain.processing.features.mean_var_norm
         norm_type: global
 
