@@ -160,7 +160,7 @@ class STFT(torch.nn.Module):
 
         # Reshaping tensor to (batch*channel,time) if needed
         if len(or_shape) == 3:
-            x = x.view(or_shape[0] * or_shape[1], or_shape[2])
+            x = x.reshape(or_shape[0] * or_shape[2], or_shape[1])
 
         # STFT computation
         stft = torch.stft(
@@ -179,15 +179,14 @@ class STFT(torch.nn.Module):
         if len(or_shape) == 3:
             stft = stft.reshape(
                 or_shape[0],
-                stft.shape[1],
-                or_shape[1],
                 stft.shape[2],
+                stft.shape[1],
                 stft.shape[3],
+                or_shape[2],
             )
-
-        # Batch is the first dim, time steps always the last one
-        stft = stft.transpose(-2, -1)
-
+        else:
+            # Batch is the first dim, time steps always the last one
+            stft = stft.transpose(2, 1)
         return stft
 
     def create_window(self):
@@ -299,8 +298,8 @@ class spectrogram(torch.nn.Module):
                    [batch,n_fft/2, time_steps],
                    [batch,channels,n_fft/2,time_steps]
         """
-        # Get power of "complex" tensor (index=-2 are real and complex parts)
-        spectrogram = stft.pow(self.power_spectrogram).sum(-2)
+        # Get power of "complex" tensor (index=-1 are real and complex parts)
+        spectrogram = stft.pow(self.power_spectrogram).sum(-1)
 
         return spectrogram
 
@@ -505,9 +504,7 @@ class FBANKs(torch.nn.Module):
         )
 
         # FBANK computation
-        fbanks = torch.matmul(
-            spectrogram.transpose(1, -1), fbank_matrix
-        ).transpose(1, -1)
+        fbanks = torch.matmul(spectrogram, fbank_matrix)
 
         # Add logarithm if needed
         if self.log_mel:
@@ -1022,9 +1019,7 @@ class MFCCs(torch.nn.Module):
                    [batch, channels, n_mfcc, time_steps]
         """
         # Computing MFCCs by applying the DCT transform
-        mfcc = torch.matmul(
-            fbanks.transpose(1, -1), self.dct_mat.to(fbanks.device)
-        ).transpose(1, -1)
+        mfcc = torch.matmul(fbanks, self.dct_mat)
 
         return mfcc
 
@@ -1063,7 +1058,7 @@ class deltas(torch.nn.Module):
         self.der_win_length = der_win_length
 
         def hook(self, input):
-            self.kernel = self.kernel.repeat(input[0].shape[-2], 1, 1)
+            self.kernel = self.kernel.repeat(input[0].shape[2], 1, 1)
             self.hook.remove()
 
         self.hook = self.register_forward_pre_hook(hook)
@@ -1082,6 +1077,7 @@ class deltas(torch.nn.Module):
                    The same shape as the inputs
         """
         # Managing multi-channel deltas reshape tensor (batch*channel,time)
+        x = x.transpose(1, 2)
         or_shape = x.shape
 
         if len(or_shape) == 4:
@@ -1106,6 +1102,8 @@ class deltas(torch.nn.Module):
                 delta_coeff.shape[1],
                 delta_coeff.shape[2],
             )
+
+        delta_coeff = delta_coeff.transpose(1, 2)
 
         return delta_coeff
 
@@ -1178,6 +1176,8 @@ class context_window(torch.nn.Module):
                     dimension has been increased in size.
         """
 
+        x = x.transpose(1, 2)
+
         if self.first_call is True:
             self.first_call = False
             self.kernel = (
@@ -1222,6 +1222,8 @@ class context_window(torch.nn.Module):
                 cw_x.shape[-1],
             )
 
+        cw_x = cw_x.transpose(1, 2)
+
         return cw_x
 
 
@@ -1263,8 +1265,6 @@ class mean_var_norm(torch.nn.Module):
 
         current_means = []
         current_stds = []
-
-        x = x.unsqueeze(1).transpose(1, -1).squeeze(-1)
 
         for snt_id in range(N_batches):
 
@@ -1355,8 +1355,6 @@ class mean_var_norm(torch.nn.Module):
 
         # Update counter
         self.count = self.count + 1
-
-        x = x.unsqueeze(-1).transpose(1, -1).squeeze(1)
 
         return x
 
