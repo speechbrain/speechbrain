@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-import sys
-import collections
 import speechbrain.utils.edit_distance as edit_distance
 import speechbrain.data_io.wer as wer_io
 
@@ -47,6 +45,7 @@ def _utt2spk_keydict(path):
             utt2spk[utt] = spk
     return utt2spk
 
+
 if __name__ == "__main__":
     import argparse
 
@@ -58,8 +57,10 @@ if __name__ == "__main__":
             return argparse.HelpFormatter._split_lines(self, text, width)
 
     parser = argparse.ArgumentParser(
-        description=("Compute word error rate or a Levenshtein alignment"
-                     "between a hypothesis and a reference."),
+        description=(
+            "Compute word error rate or a Levenshtein alignment"
+            "between a hypothesis and a reference."
+        ),
         formatter_class=SmartFormatter,
     )
     parser.add_argument(
@@ -89,14 +90,18 @@ if __name__ == "__main__":
     parser.add_argument(
         "--print-alignments",
         action="store_true",
-        help=("Print alignments for between all refs and hyps."
-              "Also has details for individual hyps. Outputs a lot of text."),
+        help=(
+            "Print alignments for between all refs and hyps."
+            "Also has details for individual hyps. Outputs a lot of text."
+        ),
     )
     parser.add_argument(
         "--align-separator",
         default=" ; ",
-        help=("When printing alignments, separate tokens with this."
-              "Note the spaces in the default."),
+        help=(
+            "When printing alignments, separate tokens with this."
+            "Note the spaces in the default."
+        ),
     )
     parser.add_argument(
         "--align_empty",

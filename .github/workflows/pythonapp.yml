@@ -1,0 +1,58 @@
+# SpeechBrain lint and unit tests to ease continuous integration
+# NOTE: Caching these offers no speedup
+name: SpeechBrain toolkit CI
+
+# Runs on pushes to master and all pull requests
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+
+jobs:
+  linters:
+    name: Linters
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python 3.7
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.7
+    - name: Lint dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r lint-requirements.txt
+    - name: Show errors separately 
+      uses: samuelmeuli/lint-action@v1
+      with:
+        github_token: ${{ secrets.github_token }}
+        # Enable linters
+        black: true
+        flake8: true
+    - name: Run lint again for error code
+      run: |
+        flake8 . --count --show-source --statistics
+        black --check --diff .
+
+  unittests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python 3.7
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.7
+    - name: Install libsndfile
+      run: |
+        sudo apt-get install -y libsndfile1
+    - name: Full dependencies 
+      run: |
+        pip install -r requirements.txt
+        pip install --editable .
+    - name: Unittests with pytest
+      run: |
+        pytest tests
+    - name: Doctests with pytest
+      run: |
+        pytest --doctest-modules speechbrain

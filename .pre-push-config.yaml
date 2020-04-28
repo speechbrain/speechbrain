@@ -1,6 +1,26 @@
 repos:
   - repo: local 
     hooks:
+    - id: flake8-lint 
+      name: flake8-lint
+      entry: flake8 . --count --show-source --statistics
+      language: python
+      pass_filenames: false
+      always_run: true
+      require_serial: false
+
+  - repo: local
+    hooks:
+    - id: black-lint 
+      name: black-lint
+      entry: black --check --diff .
+      language: python
+      pass_filenames: false
+      always_run: true
+      require_serial: false
+
+  - repo: local 
+    hooks:
     - id: unittests
       name: unittests
       entry: pytest tests
