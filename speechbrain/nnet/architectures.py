@@ -29,8 +29,7 @@ class Sequential(torch.nn.Module):
     ...     speechbrain.nnet.architectures.linear(n_neurons=100),
     ... )
     >>> inputs = torch.rand(10, 50, 40)
-    >>> model.init_params(inputs)
-    >>> outputs = model(inputs)
+    >>> outputs = model(inputs, init_params=True)
     >>> outputs.shape
     torch.Size([10, 50, 100])
     """
@@ -185,8 +184,7 @@ class conv(nn.Module):
         >>> import torch
         >>> inp_tensor = torch.rand([10, 16000, 1])
         >>> cnn = conv(out_channels=25, kernel_size=11)
-        >>> cnn.init_params(inp_tensor)
-        >>> out_tensor = cnn(inp_tensor)
+        >>> out_tensor = cnn(inp_tensor, init_params=True)
         >>> out_tensor.shape
         torch.Size([10, 15990, 25])
 

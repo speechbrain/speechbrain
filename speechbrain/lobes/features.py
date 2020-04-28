@@ -31,8 +31,7 @@ class Features(torch.nn.Module):
     >>> import torch
     >>> inputs = torch.randn([10, 16000])
     >>> feature_maker = Features(feature_type='fbank')
-    >>> feature_maker.init_params(inputs)
-    >>> feats = feature_maker(inputs)
+    >>> feats = feature_maker(inputs, init_params=True)
     >>> feats.shape
     torch.Size([10, 101, 759])
 
@@ -80,7 +79,7 @@ class Features(torch.nn.Module):
             features = self.compute_mfccs(features, init_params=init_params)
 
         if self.deltas:
-            delta1 = self.compute_deltas(features)
+            delta1 = self.compute_deltas(features, init_params=init_params)
             delta2 = self.compute_deltas(delta1)
             features = torch.cat([features, delta1, delta2], dim=2)
 

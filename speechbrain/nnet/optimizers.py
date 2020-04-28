@@ -50,17 +50,16 @@ class optimize(torch.nn.Module):
     >>> from speechbrain.nnet.losses import compute_cost
     >>> inp_tensor = torch.rand([1,660,3])
     >>> model = linear(n_neurons=4)
-    >>> model.init_params(inp_tensor)
     >>> cost = compute_cost(cost_type='nll')
     >>> optim = optimize(optimizer_type='sgd', learning_rate=0.01)
-    >>> optim.init_params([model])
-    >>> prediction = torch.nn.functional.softmax(model(inp_tensor), dim=2)
+    >>> output = model(inp_tensor, init_params=True)
+    >>> prediction = torch.nn.functional.softmax(output, dim=2)
     >>> label = torch.FloatTensor([0,1,3]).unsqueeze(0)
     >>> lengths = torch.Tensor([1.0])
     >>> out_cost = cost(prediction, label, lengths)
     >>> for cost in out_cost:
     ...     cost.backward()
-    >>> optim([model])
+    >>> optim([model], init_params=True)
 
     Author:
         Mirco Ravanelli 2020
@@ -101,6 +100,9 @@ class optimize(torch.nn.Module):
         self.centered = centered
         self.amsgrad = amsgrad
         self.nesterov = nesterov
+
+        # Dummy input for jitability
+        self.optim = torch.Tensor([])
 
     def init_params(self, modules):
         # Making sure the input is class with parameters to optimize
@@ -184,7 +186,10 @@ class optimize(torch.nn.Module):
                 step_sizes=tuple(self.step_sizes),
             )
 
-    def forward(self, input_lst):
+    def forward(self, input_lst, init_params=False):
+
+        if init_params:
+            self.init_params(input_lst)
 
         # Gradient combination for the multi-gpu case
         self.sum_grad_multi_gpu(input_lst)

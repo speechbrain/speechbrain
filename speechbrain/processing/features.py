@@ -22,14 +22,13 @@ Example:
     >>> features = compute_spectr(features)
     >>>
     >>> compute_fbanks = FBANKs(n_mels=40)
-    >>> features = compute_fbanks(features)
+    >>> features = compute_fbanks(features, init_params=True)
     >>>
     >>> compute_mfccs = MFCCs(n_mfcc=20)
-    >>> features = compute_mfccs(features)
+    >>> features = compute_mfccs(features, init_params=True)
     >>>
     >>> compute_deltas = deltas()
-    >>> compute_deltas.init_params(features)
-    >>> delta1 = compute_deltas(features)
+    >>> delta1 = compute_deltas(features, init_params=True)
     >>> delta2 = compute_deltas(delta1)
     >>> features = torch.cat([features, delta1, delta2], dim=2)
     >>>
@@ -277,7 +276,7 @@ class FBANKs(torch.nn.Module):
     >>> import torch
     >>> compute_fbanks = FBANKs()
     >>> inputs = torch.randn([10, 101, 201])
-    >>> features = compute_fbanks(inputs)
+    >>> features = compute_fbanks(inputs, init_params=True)
     >>> features.shape
     torch.Size([10, 101, 40])
     """
@@ -678,8 +677,7 @@ class deltas(torch.nn.Module):
     >>> import torch
     >>> compute_deltas = deltas()
     >>> inputs = torch.randn([10, 101, 20])
-    >>> compute_deltas.init_params(inputs)
-    >>> features = compute_deltas(inputs)
+    >>> features = compute_deltas(inputs, init_params=True)
     >>> features.shape
     torch.Size([10, 101, 20])
     """
