@@ -1,10 +1,20 @@
 import os
 import threading
 from shutil import copyfile
+import torch
 from speechbrain.utils.superpowers import run_shell
-from speechbrain.utils.logger import logger_write
-from speechbrain.utils.input_validation import check_inputs, check_opts
 from speechbrain.utils.data_utils import get_all_files, split_list
+
+
+def undo_padding(batch, lengths):
+    # Produces Python lists
+    batch_max_len = batch.shape[1]
+    as_list = []
+    for seq, seq_length in zip(batch, lengths):
+        actual_size = int(torch.round(seq_length * batch_max_len))
+        seq_true = seq.narrow(0, 0, actual_size)
+        as_list.append(seq_true.tolist())
+    return as_list
 
 
 class kaldi_decoder:
@@ -151,18 +161,17 @@ class kaldi_decoder:
             "num_job": ("int(1,inf)", "optional", "8"),
         }
 
+        # FIX: Old style
         # Check, cast , and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, self.logger
-        )
+        # self.conf = check_opts(self, self.expected_options, config, self.logger)
 
         # Expected inputs when calling the class
         self.expected_inputs = []
 
         # Check the first input
-        check_inputs(
-            self.conf, self.expected_inputs, first_input, logger=self.logger
-        )
+        # check_inputs(
+        #     self.conf, self.expected_inputs, first_input, logger=self.logger
+        # )
 
         # Setting the save folder
         if self.save_folder is None:
@@ -302,17 +311,19 @@ class kaldi_decoder:
                             line = fp.readline()
                             cnt = 1
                             while line:
-                                if "SPKR" in line and cnt == 1:
-                                    logger_write(
-                                        line, logfile=self.logger, level="info"
-                                    )
+                                # FIX: logger_write; re-enable if
+                                # if "SPKR" in line and cnt == 1:
+                                #     logger_write(
+                                #         line, logfile=self.logger, level="info"
+                                #     )
                                 if "Mean" in line:
                                     line = line.replace(
                                         " Mean ", subfolder.split("/")[-1]
                                     )
-                                    logger_write(
-                                        line, logfile=self.logger, level="info"
-                                    )
+                                    # FIX: logger_write
+                                    # logger_write(
+                                    #     line, logfile=self.logger, level="info"
+                                    # )
 
                                     line = (
                                         line.replace("  ", " ")
@@ -329,8 +340,9 @@ class kaldi_decoder:
                                 line = fp.readline()
                                 cnt += 1
 
-        logger_write(
-            "\nBEST ERROR RATE: %f\n" % (min(errors)),
-            logfile=self.logger,
-            level="info",
-        )
+        # FIX: logger_write
+        # logger_write(
+        #     "\nBEST ERROR RATE: %f\n" % (min(errors)),
+        #     logfile=self.logger,
+        #     level="info",
+        # )

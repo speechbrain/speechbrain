@@ -1,0 +1,37 @@
+constants:
+    verbosity: 2
+    output_folder: exp/minimal/process
+    data_folder: samples/audio_samples
+    csv_file: !ref <constants.data_folder>/csv_example.csv
+    sample_rate: 16000
+
+functions:
+    sample_data: !speechbrain.data_io.data_io.create_dataloader
+        csv_file: !ref <constants.csv_file>
+        batch_size: 2
+        csv_read: [wav]
+        replacements:
+            $data_folder: !ref <constants.data_folder>
+    add_babble: !speechbrain.processing.speech_augmentation.AddBabble
+        snr_low: 10
+        snr_high: 10
+    add_reverb: !speechbrain.processing.speech_augmentation.AddReverb
+        csv_file: samples/rir_samples/rirs.csv
+    add_noise: !speechbrain.processing.speech_augmentation.AddNoise
+        snr_low: 10
+        snr_high: 10
+    add_noise_csv: !speechbrain.processing.speech_augmentation.AddNoise
+        csv_file: samples/noise_samples/noise.csv
+        snr_low: 0
+        snr_high: 0
+    drop_freq: !speechbrain.processing.speech_augmentation.DropFreq
+    drop_chunk: !speechbrain.processing.speech_augmentation.DropChunk
+    do_clip: !speechbrain.processing.speech_augmentation.DoClip
+    speed_perturb: !speechbrain.processing.speech_augmentation.SpeedPerturb
+        orig_freq: !ref <constants.sample_rate>
+        speeds: [9, 11]
+    save: !speechbrain.data_io.data_io.save
+        sampling_rate: !ref <constants.sample_rate>
+        save_format: flac
+        parallel_write: True
+        save_folder: !ref <constants.output_folder>/save

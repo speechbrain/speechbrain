@@ -1,35 +1,13 @@
-"""
--------------------------------------------------------------------------------
- speechbrain.utils
-
- Description: This library contains support functions that implement useful
-              functionalities.
--------------------------------------------------------------------------------
+"""This package contains support functions.
 """
 
 # TODO: get rid of the imports here, replace most with explicit import
 # (e.g. import speechbrain.utils.config)
 # some core utilities we may still keep them in the speechbrain.utils namespace
-from speechbrain.utils.config import (
-    read_config,
-    write_config,
-    conf_to_text,
-    process_cmd_string,
-    replace_global_variable,
-    create_exec_config,
-)
-from speechbrain.utils.data_utils import (
+# TODO: Specify in __all__ what the public API of speechbrain.utils is
+from speechbrain.utils.data_utils import (  # noqa: F401
     get_all_files,
     split_list,
     recursive_items,
 )
-from speechbrain.utils.input_validation import (
-    str_to_bool,
-    set_default_values,
-    check_and_cast_type,
-    check_expected_options,
-    check_opts,
-    check_inputs,
-)
-from speechbrain.utils.logger import setup_logger, logger_write
-from speechbrain.utils.superpowers import import_class, run_shell
+from speechbrain.utils.superpowers import import_class, run_shell  # noqa: F401

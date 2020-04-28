@@ -1,0 +1,4 @@
+black>=19.10b0
+flake8
+pycodestyle>=2.5.0
+pytest>=5.4.1

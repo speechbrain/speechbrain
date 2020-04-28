@@ -1,0 +1,36 @@
+constants:
+
+    # The block index is multiplied with the channels to get out_channels
+    block_index: 1
+    channels: 128
+    kernel_size: [3, 3]
+    sequence: [conv1, norm1, activation, conv2, norm2, activation, pooling, dropout]
+
+conv1: !speechbrain.nnet.architectures.conv
+    out_channels: !operator.mul
+        - !ref <constants.block_index>
+        - !ref <constants.channels>
+    kernel_size: !ref <constants.kernel_size>
+
+norm1: !speechbrain.nnet.normalization.normalize
+    norm_type: batchnorm
+
+conv2: !speechbrain.nnet.architectures.conv
+    out_channels: !operator.mul
+        - !ref <constants.block_index>
+        - !ref <constants.channels>
+    kernel_size: !ref <constants.kernel_size>
+
+norm2: !speechbrain.nnet.normalization.normalize
+    norm_type: batchnorm
+
+activation: !speechbrain.nnet.architectures.activation
+    act_type: leaky_relu
+
+pooling: !speechbrain.nnet.architectures.pooling
+    pool_type: max
+    kernel_size: 2
+    stride: 2
+
+dropout: !speechbrain.nnet.architectures.dropout
+    drop_rate: 0.15
