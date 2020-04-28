@@ -1,209 +1,131 @@
-"""
------------------------------------------------------------------------------
- data_processing.py
+"""Low-level feature pipeline components
 
- Description: This library gathers functions that process batches for data.
-              All the classes are of type nn.Module. This gives the
-              possibility to have end-to-end differentiability and b
-              backpropagate the gradient through them.
- -----------------------------------------------------------------------------
-"""
+This library gathers functions that compute popular speech  features over
+batches of data. All the classes are of type nn.Module. This gives the
+possibility to have end-to-end  differentiability and to backpropagate the
+gradient through them. Our functions are a modified version the ones
+in torch audio toolkit (https://github.com/pytorch/audio).
 
-# Importing libraries
+Example:
+    >>> import torch
+    >>> import soundfile as sf
+    >>>
+    >>> signal, fs=sf.read('samples/audio_samples/example1.wav')
+    >>> signal=torch.tensor(signal).float().unsqueeze(0)
+    >>>
+    >>> compute_STFT = STFT(sample_rate=fs,
+    ...                     win_length=25,
+    ...                     hop_length=10,n_fft=400)
+    >>> features = compute_STFT(signal)
+    >>>
+    >>> compute_spectr = spectrogram()
+    >>> features = compute_spectr(features)
+    >>>
+    >>> compute_fbanks = FBANKs(n_mels=40)
+    >>> features = compute_fbanks(features)
+    >>>
+    >>> compute_mfccs = MFCCs(n_mfcc=20)
+    >>> features = compute_mfccs(features)
+    >>>
+    >>> compute_deltas = deltas()
+    >>> compute_deltas.init_params(features)
+    >>> delta1 = compute_deltas(features)
+    >>> delta2 = compute_deltas(delta1)
+    >>> features = torch.cat([features, delta1, delta2], dim=2)
+    >>>
+    >>> compute_cw = context_window(left_frames=5, right_frames=5)
+    >>> features  = compute_cw(features)
+    >>>
+    >>> norm = mean_var_norm()
+    >>> features = norm(features, torch.tensor([1]).float())
+
+Author
+    Mirco Ravanelli 2020
+"""
 import math
 import torch
-import torch.nn as nn
-from speechbrain.utils.input_validation import check_opts, check_inputs
-from speechbrain.utils.logger import logger_write
-from speechbrain.data_io.data_io import recovery, initialize_with
+import logging
+from speechbrain.utils.checkpoints import (
+    mark_as_saver,
+    mark_as_loader,
+    register_checkpoint_hooks,
+)
+
+logger = logging.getLogger(__name__)
 
 
-class STFT(nn.Module):
+class STFT(torch.nn.Module):
+    """computes the Short-Term Fourier Transform (STFT).
+
+    This class computes the Short-Term Fourier Transform of an audio signal.
+    It supports multi-channel audio inputs (batch, time, channels).
+
+    Arguments
+    ---------
+    sample_rate : int
+        Sample rate of the input audio signal (e.g 16000).
+    win_length : float
+         Length (in ms) of the sliding window used to compute the STFT.
+    hop_length : float
+        Length (in ms) of the hope of the sliding window used to compute
+        the STFT.
+    n_fft : int
+        Number of fft point of the STFT. It defines the frequency resolution
+        (n_fft should be <= than win_len).
+    window_type : str
+        Window function used to compute the STFT ('bartlett','blackman',
+        'hamming', 'hann', default: hamming).
+    normalized_stft : bool
+        If True, the function returns the  normalized STFT results,
+        i.e., multiplied by win_length^-0.5 (default is False).
+    center : bool
+        If True (default), the input will be padded on both sides so that the
+        t-th frame is centered at time t×hop_length. Otherwise, the t-th frame
+        begins at time t×hop_length.
+    pad_mode : str
+        It can be 'constant','reflect','replicate', 'circular', 'reflect'
+        (default). 'constant' pads the input tensor boundaries with a
+        constant value. 'reflect' pads the input tensor using the reflection
+        of the input boundary. 'replicate' pads the input tensor using
+        replication of the input boundary. 'circular' pads using  circular
+        replication.
+    onesided : True
+        If True (default) only returns nfft/2 values. Note that the other
+        samples are redundant due to the Fourier transform conjugate symmetry.
+
+    Example
+    -------
+    >>> import torch
+    >>> compute_STFT = STFT(sample_rate=16000, win_length=25,
+    ...                     hop_length=10,n_fft=400)
+    >>> inputs = torch.randn([10, 16000])
+    >>> features = compute_STFT(inputs)
+    >>> features.shape
+    torch.Size([10, 101, 201, 2])
     """
-     -------------------------------------------------------------------------
-     data_processing.STFT (author: Mirco Ravanelli)
-
-     Description: This class computes the Short-Term Fourier Transform of an
-                  audio signal. It supports multi-channel audio inputs. It is
-                  a modification of the STFT of the torch audio toolkit
-                  (https://github.com/pytorch/audio).
-
-     Input (init):  - config (type, dict, mandatory):
-                       it is a dictionary containing the keys described below.
-
-                           - sample_rate (type:int(0,inf),mandatory):
-                               it is the sample rate of the input audio signal
-
-                           - device('cuda','cpu',optional,default:None):
-                               it is the device where to compute the STFT.
-                               If None, it uses the device of the input signal
-
-                           - win_length (type: float(0,inf), opt, default:25):
-                               it is the length (in ms) of the sliding window
-                               used to compute the STFT.
-
-                           - hop_length (type: float(0,inf), optional,
-                             default:10):
-                               it is the length (in ms) of the hope of the
-                               sliding window used to compute the STFT.
-
-                           - n_fft (type:int(0,inf), optional, default:400):
-                              it the number of fft point of the STFT. It
-                             defines the frequency resolution (n_fft should
-                             be <= than win_len).
-
-                           - window_type ('bartlett','blackman','hamming',
-                                          'hann', optional, default: hamming):
-                               it is the window function used to compute the
-                               STFT.
-
-                           - normalized_stft (type:bool,optional,
-                             default:False):
-                               if normalized is True (default is False), the
-                               function returns the normalized STFT results,
-                               i.e., multiplied by win_length^-0.5.
-
-                           - center: (type:bool,optional, default:True):
-                               if center is True (default), input will be
-                               padded on both sides so that the t-th frame is
-                               centered at time t×hop_length. Otherwise, the
-                               t-th frame begins at time t×hop_length.
-
-                           - pad_mode: ('constant','reflect','replicate',
-                                        'circular', optional default:reflect):
-                               It determines the padding method used on input
-                               when center is True. 'constant' pads the input
-                               tensor boundaries with a constant value.
-                               'reflect' pads the input tensor using the
-                               reflection of the input boundary. 'replicate'
-                               pads the input tensor using replication of the
-                               input boundary. 'circular' pads using  circular
-                               replication.
-
-                           - onesided: (type:bool,optional,default:True)
-                               if True only return nfft/2 values. Note that
-                               the other samples are redundant due to the
-                                Fourier transform conjugate symmetry.
-
-                   - funct_name (type, str, optional, default: None):
-                       it is a string containing the name of the parent
-                       function that has called this method.
-
-                   - global_config (type, dict, optional, default: None):
-                       it a dictionary containing the global variables of the
-                       parent config file.
-
-                   - logger (type, logger, optional, default: None):
-                       it the logger used to write debug and error messages.
-                       If logger=None and root_cfg=True, the file is created
-                       from scratch.
-
-                   - first_input (type, list, optional, default: None)
-                      this variable allows users to analyze the first input
-                      given when calling the class for the first time.
-
-
-     Input (call): - inp_lst(type, list, mandatory):
-                       by default the input arguments are passed with a list.
-                       In this case, inp is a list containing a single
-                       torch.tensor with the audio samples. The tensor must be
-                        in one of the following formats: [batch,samples],
-                       [batch,channels,samples]
-
-
-     Output (call): - out_lst(type, list, mandatory):
-                       by default the output arguments are passed with a list.
-                       In this case, out is a list containing the STFT of the
-                       input signal. The tensor is formatted in one of the
-                       following ways depending on the input shape:
-                       [batch,n_fft/2, 2, time_steps],
-                       [batch,channels,n_fft/2, 2, time_steps]
-
-     Example:   import torch
-                import soundfile as sf
-                from data_processing import STFT
-
-                # reading an audio signal
-                signal, fs=sf.read('samples/audio_samples/example1.wav')
-
-                # config dictionary definition
-                config={'class_name':'data_processing.STFT',
-                       'sample_rate':str(fs)}
-
-                # Initialization of the class
-                compute_stft=STFT(config)
-
-                # Executing computations
-                stft_out=compute_stft(torch.tensor(signal).unsqueeze(0))
-                print(stft_out)
-                print(stft_out[0].shape)
-
-     -------------------------------------------------------------------------
-     """
 
     def __init__(
         self,
-        config,
-        funct_name=None,
-        global_config=None,
-        functions=None,
-        logger=None,
-        first_input=None,
+        sample_rate,
+        win_length=25,
+        hop_length=10,
+        n_fft=400,
+        window_type="hamming",
+        normalized_stft=False,
+        center=True,
+        pad_mode="constant",
+        onesided=True,
     ):
-        super(STFT, self).__init__()
-
-        # Logger setup
-        self.logger = logger
-
-        # Here are summarized the expected options for this class
-        self.expected_options = {
-            "class_name": ("str", "mandatory"),
-            "sample_rate": ("int(0,inf)", "mandatory"),
-            "win_length": ("float(0,inf)", "optional", "25"),
-            "hop_length": ("float(0,inf)", "optional", "10"),
-            "n_fft": ("int(0,inf)", "optional", "400"),
-            "window_type": (
-                "one_of(bartlett,blackman,hamming,hann)",
-                "optional",
-                "hamming",
-            ),
-            "normalized_stft": ("bool", "optional", "False"),
-            "center": ("bool", "optional", "True"),
-            "pad_mode": (
-                "one_of(constant,reflect,replicate,circular)",
-                "optional",
-                "constant",
-            ),
-            "onesided": ("bool", "optional", "True"),
-        }
-
-        # Check, cast , and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, self.logger
-        )
-
-        # Definition of the expected input
-        self.expected_inputs = ["torch.Tensor"]
-
-        # Check the first input
-        check_inputs(
-            self.conf, self.expected_inputs, first_input, logger=self.logger
-        )
-
-        # Additional check on the input shapes
-        if first_input is not None:
-
-            # Shape check
-            if len(first_input[0].shape) > 3 or len(first_input[0].shape) < 1:
-
-                err_msg = (
-                    "The input of STFT must be a tensor with one of the  "
-                    "following dimensions: [time] or [batch,time] or "
-                    "[batch,channels,time]. Got %s "
-                    % (str(first_input[0].shape))
-                )
-
-                logger_write(err_msg, logfile=logger)
+        super().__init__()
+        self.sample_rate = sample_rate
+        self.win_length = win_length
+        self.hop_length = hop_length
+        self.n_fft = n_fft
+        self.window_type = window_type
+        self.normalized_stft = normalized_stft
+        self.center = center
+        self.pad_mode = pad_mode
+        self.onesided = onesided
 
         # Convert win_length and hop_length from ms to samples
         self.win_length = int(
@@ -213,22 +135,22 @@ class STFT(nn.Module):
             round((self.sample_rate / 1000.0) * self.hop_length)
         )
 
-        # Window creation
-        self.window = self.create_window()
+        self.window = self._create_window()
 
-    def forward(self, input_lst):
+    def forward(self, x):
+        """Returns the STFT generated from the input waveforms.
 
-        # Reading input _list
-        x = input_lst[0]
+        Arguments
+        ---------
+        x : tensor
+            A batch of audio signals to transform.
+        """
 
-        # Managing multi-channel stft:
+        # Managing multi-channel stft
         or_shape = x.shape
-
-        # Reshaping tensor to (batch*channel,time) if needed
         if len(or_shape) == 3:
-            x = x.view(or_shape[0] * or_shape[1], or_shape[2])
+            x = x.reshape(or_shape[0] * or_shape[2], or_shape[1])
 
-        # STFT computation
         stft = torch.stft(
             x,
             self.n_fft,
@@ -241,52 +163,24 @@ class STFT(nn.Module):
             self.onesided,
         )
 
-        # Retrieving the original dimensionality (batch,channel,time)
+        # Retrieving the original dimensionality (batch,time, channels)
         if len(or_shape) == 3:
             stft = stft.reshape(
                 or_shape[0],
-                stft.shape[1],
-                or_shape[1],
                 stft.shape[2],
+                stft.shape[1],
                 stft.shape[3],
+                or_shape[2],
             )
-
-        # Batch is the first dim, time steps always the last one
-        stft = stft.transpose(-2, -1)
+        else:
+            # (batch, time, channels)
+            stft = stft.transpose(2, 1)
 
         return stft
 
-    def create_window(self):
+    def _create_window(self):
+        """Returns the window used for STFT computation.
         """
-         ---------------------------------------------------------------------
-         core.data_processing.create_window (author: Mirco Ravanelli)
-
-         Description: This function creates the window used to compute the
-                      STFT given the type and the w_lenth specified in the
-                      config file.
-
-         Input:        - self (type, loop class, mandatory)
-
-         Output:      - window (type, torch.tensor)
-
-         Example:    from data_processing import STFT
-
-                     # config dictionary definition
-                    config={'class_name':'data_processing.STFT',
-                           'sample_rate':'16000'}
-
-                    # initialization of the class
-                    compute_stft=STFT(config)
-
-                    # window creation
-                    window=compute_stft.create_window()
-                    print(window)
-                    print(window.shape)
-
-         ---------------------------------------------------------------------
-         """
-
-        # Selecting the window type
         if self.window_type == "bartlett":
             wind_cmd = torch.bartlett_window
 
@@ -299,458 +193,183 @@ class STFT(nn.Module):
         if self.window_type == "hann":
             wind_cmd = torch.hann_window
 
-        # Window creation
         window = wind_cmd(self.win_length)
 
         return window
 
 
-class spectrogram(nn.Module):
+class spectrogram(torch.nn.Module):
+    """computes the spectrogram of an audio signal.
+
+    It computes the spectrogram of an audio signal given its STFT in input.
+
+    Arguments
+    ---------
+    power_spectrogram : float
+        It is the exponent used for spectrogram computation.
+        By default, we compute the power spectrogram (power_spectrogram=2).
+
+    Example
+    -------
+    >>> import torch
+    >>> compute_spectr = spectrogram()
+    >>> inputs = torch.randn([10, 101, 201, 2])
+    >>> features = compute_spectr(inputs)
+    >>> features.shape
+    torch.Size([10, 101, 201])
     """
-     -------------------------------------------------------------------------
-     data_processing.spectrogram (author: Mirco Ravanelli)
-
-     Description: This class computes spectrogram of an audio
-                  signal given its STFT in input. It is a
-                  modification of the spectrogram of the torch audio toolkit
-                  (https://github.com/pytorch/audio).
-
-     Input (init):  - config (type, dict, mandatory):
-                       it is a dictionary containing the keys described below.
-
-                           - device ('cuda','cpu',optional,default:None):
-                               it is the device where to compute the STFT.
-                               If None, it uses the device of the input signal
-
-                           - power_spectrogram (type:float,optional,
-                             default:2):
-                               It is the exponent used for spectrogram
-                               computation.  By default, we compute the power
-                               spectrogram (power_spectrogram=2)
-
-                   - funct_name (type, str, optional, default: None):
-                       it is a string containing the name of the parent
-                       function that has called this method.
-
-                   - global_config (type, dict, optional, default: None):
-                       it a dictionary containing the global variables of the
-                       parent config file.
-
-                   - logger (type, logger, optional, default: None):
-                       it the logger used to write debug and error messages.
-                       If logger=None and root_cfg=True, the file is created
-                       from scratch.
-
-                   - first_input (type, list, optional, default: None)
-                      this variable allows users to analyze the first input
-                      given when calling the class for the first time.
-
-
-     Input (call): - inp_lst(type, list, mandatory):
-                       by default the input arguments are passed with a list.
-                       In this case, inp is a list containing a single
-                       torch.tensor which contains the STFT of an audio
-                       signal.  The input STFT tensor must be in one of the
-                       following formats: [batch,n_fft/2, 2, time_steps],
-                       [batch,channels,n_fft/2, 2, time_steps]
-
-
-     Output (call): - out_lst(type, list, mandatory):
-                       by default the output arguments are passed with a list.
-                       In this case, out is a list containing the spectrogram
-                       of the input STFT. The tensor is formatted in one of
-                       the following ways depending on the input shape:
-                       [batch,n_fft/2, time_steps],
-                       [batch,channels,n_fft/2,time_steps]
-
-     Example:   import torch
-                import soundfile as sf
-                from data_processing import STFT
-                from data_processing import spectrogram
-
-                # reading an audio signal
-                signal, fs=sf.read('samples/audio_samples/example1.wav')
-
-                # STFT config dictionary definition
-                config={'class_name':'data_processing.STFT',
-                        'sample_rate':str(fs)}
-
-                # Initialization of the class
-                compute_stft=STFT(config)
-
-                # Executing computations
-                stft_out=compute_stft(torch.tensor(signal).unsqueeze(0))
-
-                # Initialization of the spectrogram class
-                config={'class_name':'data_processing.spectrogram'}
-
-                # Initialization of the class
-                compute_spectr=spectrogram(config)
-
-                # Executing computations
-                spectr_out=compute_spectr(stft_out)
-                print(spectr_out)
-                print(spectr_out[0].shape)
-
-     -------------------------------------------------------------------------
-     """
 
     def __init__(
-        self,
-        config,
-        funct_name=None,
-        global_config=None,
-        functions=None,
-        logger=None,
-        first_input=None,
+        self, power_spectrogram=2,
     ):
-        super(spectrogram, self).__init__()
+        super().__init__()
+        self.power_spectrogram = power_spectrogram
 
-        # # Logger setup
-        self.logger = logger
+    def forward(self, stft):
+        """Returns the spectrogram.
 
-        self.expected_options = {
-            "class_name": ("str", "mandatory"),
-            "power_spectrogram": ("float(-inf,inf)", "optional", "2"),
-        }
-
-        # Check, cast , and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, self.logger
-        )
-
-        # Expected inputs when calling the class
-        self.expected_inputs = ["torch.Tensor"]
-
-        # Check the first input
-        check_inputs(
-            self.conf, self.expected_inputs, first_input, logger=self.logger
-        )
-
-        # Additional check on the input shapes
-        if first_input is not None:
-
-            # Check shape
-            if len(first_input[0].shape) > 5 or len(first_input[0].shape) < 3:
-
-                err_msg = (
-                    'The input of "spectrogram" must be a tensor with one '
-                    "of the  following dimensions: [n_freq_points, 2, time] or"
-                    "[batch,n_freq_points, 2, time] or "
-                    "[batch,channels,n_freq_points, 2, time]. Got %s "
-                    % (str(first_input[0].shape))
-                )
-
-                logger_write(err_msg, logfile=logger)
-
-    def forward(self, input_lst):
-
-        # Reading input _list
-        stft = input_lst[0]
-
-        # Get power of "complex" tensor (index=-2 are real and complex parts)
-        spectrogram = stft.pow(self.power_spectrogram).sum(-2)
-
+        Arguments
+        ---------
+        x : tensor
+            A batch of STFT tensors.
+        """
+        spectrogram = stft.pow(self.power_spectrogram).sum(-1)
         return spectrogram
 
 
-class FBANKs(nn.Module):
+class FBANKs(torch.nn.Module):
+    """computes filter bank (FBANK) features.
+
+    It computes FBANK features of an audio signal given its spectrogram.
+
+    Arguments
+    ---------
+     n_mels : float
+         Number of Mel fiters used to average the spectrogram.
+     log_mel : bool
+         If True, it computes the log of the FBANKs.
+     filter_shape : str
+         Shape of the filters ('triangular', 'rectangular', 'gaussian').
+     f_min : int
+         Lowest frequency for the Mel filters.
+     f_max : int
+         Highest frequency for the Mel filters.
+     n_fft : int
+         Number of fft points of the STFT. It defines the frequency resolution
+         (n_fft should be<= than win_len).
+     sample_rate : int
+         Sample rate of the input audio signal (e.g, 16000)
+     power_spectrogram : float
+         Exponent used for spectrogram computation.
+     amin : float
+         Minimum amplitude (used for numerical stability).
+     ref_value : float
+         Reference value used for the dB scale.
+     top_db : float
+         Top dB valu used for log-mels.
+     freeze : bool
+         if False, it the central frequency and the band of each filter are
+         added into nn.parameters. If True, the standard frozen features
+         are computed.
+
+    Example
+    -------
+    >>> import torch
+    >>> compute_fbanks = FBANKs()
+    >>> inputs = torch.randn([10, 101, 201])
+    >>> features = compute_fbanks(inputs)
+    >>> features.shape
+    torch.Size([10, 101, 40])
     """
-     -------------------------------------------------------------------------
-     data_processing.FBANKs (author: Mirco Ravanelli)
-
-     Description: This class computes FBANK features of an audio signal given
-                  its spectrogram in input. It is a modification of the FBANKs
-                  funct of the torch audio toolkit
-                  (https://github.com/pytorch/audio).
-
-     Input (init):  - config (type, dict, mandatory):
-                       it is a dictionary containing the keys described below.
-
-                           - device ('cuda','cpu',optional,default:None):
-                               it is the device where to compute the STFT.
-                               If None,it uses the device of the input signal.
-
-                           - n_mels (type:int(1,inf),optional,default:40):
-                               it the number of Mel fiters used to average the
-                               spectrogram.
-
-                           - log_mel (type:bool, optional, default:True):
-                               if True, it computes the log of the FBANKs
-
-                           - filter_shape (triangular,rectangular,gaussian,
-                                           optional,default:triangular),
-                               it is the shape of the filters used to compute
-                               the FBANK filters.
-
-                           - f_min (type:float(0,inf),optional, default:0)
-                               it is the lowest frequency for the Mel filters.
-
-                           - f_max (type:float(0,inf),optional, default:8000)
-                               it is the highest freq for the Mel filters.
-
-                           - n_fft (type:int(0,inf), optional, default:400):
-                              it the number of fft point of the STFT. It
-                             defines the frequency resolution (n_fft should be
-                              <= than win_len).
-
-                           - sample_rate (type:int(0,inf),mandatory):
-                               it is the samplerate of the input audio signal.
-
-                           - power_spectrogram (type:float,optional,
-                             default:2):
-                               It is the exponent used for spectrogram
-                               computation. By default, we compute the power
-                                spectrogram (power_spectrogram=2).
-
-                           - amin (type: float, optional, default: 1e-10)
-                               it is the minimum amplitude (used for numerical
-                               stability).
-
-                           - ref_value (type: float, optional, default: 1.0)
-                               it is the refence value use for the dB scale.
-
-                           - top_db (type: float, optional, default: 80)
-                               it is the top dB value.
-
-                           - freeze (type: bool, optional, True)
-                               if False, it the central frequency and the band
-                               of each filter are added into nn.parameters
-                               can be trained. If True, the standard frozen
-                               features are computed.
-                           - recovery (type: bool, optional, True)
-                               this option is used to recover the last filter
-                               banks parameters saved during training. It is
-                               activated only if freeze=False.
-
-                           - initialize_with (type: str, optional, None)
-                              this option is a path to a pkl file that
-                              contains personalized bands and central
-                              frequnecy for each filter.
-
-
-
-
-                   - funct_name (type, str, optional, default: None):
-                       it is a string containing the name of the parent
-                       function that has called this method.
-
-                   - global_config (type, dict, optional, default: None):
-                       it a dictionary containing the global variables of the
-                       parent config file.
-
-                   - logger (type, logger, optional, default: None):
-                       it the logger used to write debug and error messages.
-                       If logger=None and root_cfg=True, the file is created
-                       from scratch.
-
-                   - first_input (type, list, optional, default: None)
-                      this variable allows users to analyze the first input
-                      given when calling the class for the first time.
-
-
-     Input (call): - inp_lst(type, list, mandatory):
-                       by default the input arguments are passed with a list.
-                       In this case, inp is a list containing a single
-                       torch.tensor which contains the spectrogram of an audio
-                       signal. The input spectrogram tensor must be in one of
-                       the following formats: [batch,n_fft/2, time_steps],
-                       [batch,channels,n_fft/2, time_steps]
-
-
-     Output (call): - out_lst(type, list, mandatory):
-                       by default the output arguments are passed with a list.
-                       In this case, out is a list containing the FBANKs
-                       corresponding to of the input spectrogram. The tensor
-                       is formatted in one of the  following ways depending on
-                       the input shape:
-                       [batch,n_mel, time_steps],
-                       [batch,channels,n_mel,time_steps]
-
-     Example:   import torch
-                import soundfile as sf
-                from data_processing import STFT
-                from data_processing import spectrogram
-                from data_processing import FBANKs
-
-                # reading an audio signal
-                signal, fs=sf.read('samples/audio_samples/example1.wav')
-
-                # STFT config dictionary definition
-                config={'class_name':'data_processing.STFT',
-                        'sample_rate':str(fs)}
-
-                # Initialization of the STFT class
-                compute_stft=STFT(config)
-
-                # Executing computations
-                stft_out=compute_stft(torch.tensor(signal)\
-                         .unsqueeze(0).float())
-
-                # Initialization of the spectrogram config
-                config={'class_name':'data_processing.spectrogram'}
-
-                # Initialization of the spectrogram class
-                compute_spectr=spectrogram(config)
-
-                # Computation of the spectrogram
-                spectr_out=compute_spectr(stft_out)
-
-                # FBANK config dictionary definition
-                config={'class_name':'data_processing.FBANKs'}
-
-                Initialization of the FBANK class
-                compute_fbank=FBANKs(config)
-
-                # Executing computations
-                fbank_out=compute_fbank(spectr_out)
-
-                # Executing computations
-                fbank_out=compute_fbank(spectr_out)
-                print(fbank_out)
-                print(fbank_out[0].shape)
-
-     --------------------------------------------.----------------------------
-     """
 
     def __init__(
         self,
-        config,
-        funct_name=None,
-        global_config=None,
-        functions=None,
-        logger=None,
-        first_input=None,
+        n_mels=40,
+        log_mel=True,
+        filter_shape="triangular",
+        f_min=0,
+        f_max=8000,
+        n_fft=400,
+        sample_rate=16000,
+        power_spectrogram=2,
+        amin=1e-10,
+        ref_value=1.0,
+        top_db=80.0,
+        freeze=True,
     ):
-        super(FBANKs, self).__init__()
-
-        # Logger
-        self.logger = logger
-
-        # Here are summarized the expected options for this class
-        self.expected_options = {
-            "class_name": ("str", "mandatory"),
-            "n_mels": ("int(1,inf)", "optional", "40"),
-            "log_mel": ("bool", "optional", "True"),
-            "filter_shape": (
-                "one_of(triangular,rectangular,gaussian)",
-                "optional",
-                "triangular",
-            ),
-            "f_min": ("float(0,inf)", "optional", "0"),
-            "f_max": ("float(0,inf)", "optional", "8000"),
-            "n_fft": ("int(0,inf)", "optional", "400"),
-            "sample_rate": ("int(0,inf)", "optional", "16000"),
-            "power_spectrogram": ("float(-inf,inf)", "optional", "2"),
-            "amin": ("float", "optional", "1e-10"),
-            "ref_value": ("float", "optional", "1.0"),
-            "top_db": ("float", "optional", "80"),
-            "freeze": ("bool", "optional", "True"),
-            "recovery": ("bool", "optional", "True"),
-            "recovery_type": ("one_of(last,best)", "optional", "best"),
-            "initialize_with": ("str", "optional", "None"),
-        }
-
-        # Check, cast , and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, self.logger
-        )
-
-        # Expected inputs when calling the class
-        self.expected_inputs = ["torch.Tensor"]
-
-        # Check the first input
-        check_inputs(
-            self.conf, self.expected_inputs, first_input, logger=self.logger
-        )
-
-        # Additional check on the input shapes
-        if first_input is not None:
-
-            # Setting the device
-            self.device_inp = first_input[0].device
-
-            # Check shape
-            if len(first_input[0].shape) > 4 or len(first_input[0].shape) < 2:
-
-                err_msg = (
-                    'The input of "FBANKs" must be a tensor with one of '
-                    "the following dimensions: [n_freq_points, time] or "
-                    "[batch,n_freq_points, time] or "
-                    "[batch,channels,n_freq_points, time]. "
-                    "Got %s " % (str(first_input[0].shape))
-                )
-
-                logger_write(err_msg, logfile=logger)
-
-        # Getting the outut folder
-        if not self.freeze:
-            self.output_folder = global_config["output_folder"]
-
-        # Additional options
-        self.funct_name = funct_name
+        super().__init__()
+        self.n_mels = n_mels
+        self.log_mel = log_mel
+        self.filter_shape = filter_shape
+        self.f_min = f_min
+        self.f_max = f_max
+        self.n_fft = n_fft
+        self.sample_rate = sample_rate
+        self.power_spectrogram = power_spectrogram
+        self.amin = amin
+        self.ref_value = ref_value
+        self.top_db = top_db
+        self.freeze = freeze
         self.n_stft = self.n_fft // 2 + 1
+        self.db_multiplier = math.log10(max(self.amin, self.ref_value))
 
-        # Make sure that the selected f_min < f_max
-        if self.f_min >= self.f_max:
-            err_msg = "Require f_min: %f < f_max: %f" % (
-                self.f_min,
-                self.f_max,
-            )
-            logger_write(err_msg, logfile=logger)
-
-        # Setting the multiplier for log conversion
         if self.power_spectrogram == 2:
             self.multiplier = 10
         else:
             self.multiplier = 20
 
-        self.db_multiplier = math.log10(max(self.amin, self.ref_value))
+        # Make sure f_min < f_max
+        if self.f_min >= self.f_max:
+            err_msg = "Require f_min: %f < f_max: %f" % (
+                self.f_min,
+                self.f_max,
+            )
+            logger.error(err_msg, exc_info=True)
 
         # Filter definition
         mel = torch.linspace(
-            self.to_mel(self.f_min), self.to_mel(self.f_max), self.n_mels + 2
+            self._to_mel(self.f_min), self._to_mel(self.f_max), self.n_mels + 2
         )
-
-        # Conversion to hz
-        hz = self.to_hz(mel)
+        hz = self._to_hz(mel)
 
         # Computation of the filter bands
         band = hz[1:] - hz[:-1]
-
-        self.band = band[:-1].to(self.device_inp)
-        self.f_central = hz[1:-1].to(self.device_inp)
+        self.band = band[:-1]
+        self.f_central = hz[1:-1]
 
         # Adding the central frequency and the band to the list of nn param
         if not self.freeze:
-            self.f_central = nn.Parameter(self.f_central)
-            self.band = nn.Parameter(self.band)
+            self.f_central = torch.nn.Parameter(self.f_central)
+            self.band = torch.nn.Parameter(self.band)
 
         # Frequency axis
         all_freqs = torch.linspace(0, self.sample_rate // 2, self.n_stft)
-        all_freqs = all_freqs.to(self.device_inp)
 
-        # replicating for all the filters
+        # Replicating for all the filters
         self.all_freqs_mat = all_freqs.repeat(self.f_central.shape[0], 1)
+
+    def init_params(self, first_input):
+        """
+        Arguments
+        ---------
+        first_input : tensor
+            A dummy input of the right shape for initializing parameters.
+        """
+        self.device_inp = first_input[0].device
+        self.band = self.band.to(self.device_inp)
+        self.f_central = self.f_central.to(self.device_inp)
         self.all_freqs_mat = self.all_freqs_mat.to(self.device_inp)
 
-        # Managing initialization with an external filter bank parameters
-        # (useful for pre-training)
-        initialize_with(self)
+    def forward(self, spectrogram):
+        """Returns the FBANks.
 
-        if not (self.freeze):
-            # Automatic recovery
-            recovery(self)
+        Arguments
+        ---------
+        x : tensor
+            A batch of spectrogram tensors.
+        """
 
-    def forward(self, input_lst):
-
-        # Reading input_list
-        spectrogram = input_lst[0]
-
-        # Getting the current device
         self.device_inp = spectrogram.device
-
-        # Putting all_freq tensor in the current device
         self.all_freqs_mat = self.all_freqs_mat.to(self.device_inp)
         self.band = self.band.to(self.device_inp)
         self.f_central = self.f_central.to(self.device_inp)
@@ -764,338 +383,170 @@ class FBANKs(nn.Module):
         )
 
         # Creation of the multiplication matrix
-        fbank_matrix = self.create_fbank_matrix(f_central_mat, band_mat).to(
+        fbank_matrix = self._create_fbank_matrix(f_central_mat, band_mat).to(
             spectrogram.device
         )
 
-        # FBANK computation
-        fbanks = torch.matmul(
-            spectrogram.transpose(1, -1), fbank_matrix
-        ).transpose(1, -1)
+        sp_shape = spectrogram.shape
 
-        # Add logarithm if needed
+        # Managing multi-channels case (batch, time, channels)
+        if len(sp_shape) == 4:
+            spectrogram = spectrogram.reshape(
+                sp_shape[0] * sp_shape[3], sp_shape[1], sp_shape[2]
+            )
+
+        # FBANK computation
+        fbanks = torch.matmul(spectrogram, fbank_matrix)
         if self.log_mel:
-            fbanks = self.amplitude_to_DB(fbanks)
+            fbanks = self._amplitude_to_DB(fbanks)
+
+        # Reshaping in the case of multi-channel inputs
+        if len(sp_shape) == 4:
+            fb_shape = fbanks.shape
+            fbanks = fbanks.reshape(
+                sp_shape[0], fb_shape[1], fb_shape[2], sp_shape[3]
+            )
 
         return fbanks
 
     @staticmethod
-    def to_mel(hz):
+    def _to_mel(hz):
+        """Returns mel-frequency value corresponding to the input
+        frequency value in Hz.
+
+        Arguments
+        ---------
+        x : float
+            The frequency point in Hz.
         """
-         ---------------------------------------------------------------------
-         core.data_procesing.to_mel
-
-         Description: This function allows a conversion from Hz to Mel
-
-         Input:        - Hz (type: float, mandatory)
-
-         Output:      - Mel (type: float)
-
-         Example:     from data_processing import FBANKs
-
-                      # FBANK config dictionary definition
-                      config={'class_name':'data_processing.FBANKs'}
-
-                     # Initialization of the FBANK class
-                     compute_fbank=FBANKs(config)
-
-                     # Conversion to mel scale
-                     compute_fbank.to_hz(4000)
-         ---------------------------------------------------------------------
-         """
         return 2595 * math.log10(1 + hz / 700)
 
     @staticmethod
-    def to_hz(mel):
+    def _to_hz(mel):
+        """Returns hz-frequency value corresponding to the input
+        mel-frequency value.
+
+        Arguments
+        ---------
+        x : float
+            The frequency point in the mel-scale.
         """
-         ---------------------------------------------------------------------
-         core.data_procesing.to_hz
-
-         Description: This function allows a conversion from Mel scale to Hz
-
-         Input:        - self (type: data_processing class, mandatory)
-
-         Output:      - Hz (type: float)
-
-         Example:     from data_processing import FBANKs
-
-                      # FBANK config dictionary definition
-                      config={'class_name':'data_processing.FBANKs'}
-
-                     # Initialization of the FBANK class
-                     compute_fbank=FBANKs(config)
-
-                     # Conversion to mel scale
-                     compute_fbank.to_mel(23651.39)
-         ---------------------------------------------------------------------
-         """
         return 700 * (10 ** (mel / 2595) - 1)
 
-    def triangular_filters(self, all_freqs, f_central, band):
+    def _triangular_filters(self, all_freqs, f_central, band):
+        """Returns fbank matrix using triangular filters.
+
+        Arguments
+        ---------
+        all_freqs : Tensor
+            Tensor gathering all the frequency points.
+        f_central : Tensor
+            Tensor gathering central frequencies of each filter.
+        band : Tensor
+            Tensor gathering the bands of each filter.
         """
-         ---------------------------------------------------------------------
-         core.data_procesing.triangular_filters
-
-         Description: This function creates triangular filter banks
-
-         Input:        - self (type: data_processing class, mandatory)
-                       - all_freqs (type: torch.tensor, mandatory)
-                       - f_central (type: torch.tensor, mandatory)
-                       - band (type: torch.tensor, mandatory)
-
-         Output:      - fbank_matrix (type, torch.tensor)
-
-         Example:     import torch
-                      from data_processing import FBANKs
-
-                      # FBANK config dictionary definition
-                      config={'class_name':'data_processing.FBANKs'}
-
-                      # Initialization of the FBANK class
-                      compute_fbank=FBANKs(config)
-
-                     # All frequency tensor
-                     all_freqs=torch.linspace(0, 8000, 201).repeat(40,1)
-
-                     f_central_mat=compute_fbank.f_central.repeat(
-                                   all_freqs.shape[1],1).transpose(0,1)
-
-                     band_mat=compute_fbank.band.repeat(
-                              all_freqs.shape[1],1).transpose(0,1)
-
-                     # Compute triangular filters
-                     filters=compute_fbank.triangular_filters(
-                             all_freqs,f_central_mat,band_mat)
-
-                     print(filters)
-                     print(filters.shape)
-
-         ---------------------------------------------------------------------
-         """
 
         # Computing the slops of the filters
         slope = (all_freqs - f_central) / band
-
-        # Left part of the filter
         left_side = slope + 1.0
-
-        # Right part of the filter
         right_side = -slope + 1.0
 
-        zero = torch.zeros(1).to(self.device_inp)
-
         # Adding zeros for negative values
+        zero = torch.zeros(1).to(self.device_inp)
         fbank_matrix = torch.max(
             zero, torch.min(left_side, right_side)
         ).transpose(0, 1)
 
         return fbank_matrix
 
-    def rectangular_filters(self, all_freqs, f_central, band):
+    def _rectangular_filters(self, all_freqs, f_central, band):
+        """Returns fbank matrix using rectangular filters.
+
+        Arguments
+        ---------
+        all_freqs : Tensor
+            Tensor gathering all the frequency points.
+        f_central : Tensor
+            Tensor gathering central frequencies of each filter.
+        band : Tensor
+            Tensor gathering the bands of each filter.
         """
-         ---------------------------------------------------------------------
-         core.data_procesing.rectangular_filters
 
-         Description: This function creates rectangular filter banks
-
-         Input:        - self (type: data_processing class, mandatory)
-                       - all_freqs (type: torch.tensor, mandatory)
-                       - f_central (type: torch.tensor, mandatory)
-                       - band (type: torch.tensor, mandatory)
-
-         Output:      - fbank_matrix (type, torch.tensor)
-
-         Example:     import torch
-                      from data_processing import FBANKs
-
-                      # FBANK config dictionary definition
-                      config={'class_name':'data_processing.FBANKs'}
-
-                      # Initialization of the FBANK class
-                      compute_fbank=FBANKs(config)
-
-                     # All frequency tensor
-                     all_freqs=torch.linspace(0, 8000, 201).repeat(40,1)
-
-                     f_central_mat=compute_fbank.f_central.repeat(
-                                   all_freqs.shape[1],1).transpose(0,1)
-
-                     band_mat=compute_fbank.band.repeat(
-                              all_freqs.shape[1],1).transpose(0,1)
-
-                     # Compute rectangular filters
-                     filters=compute_fbank.rectangular_filters(
-                             all_freqs,f_central_mat,band_mat)
-
-                     print(filters)
-                     print(filters.shape)
-
-         ---------------------------------------------------------------------
-         """
-
-        # Low cut-off frequency of the filters
+        # cut-off frequencies of the filters
         low_hz = f_central - band
-
-        # High cut-off frequency of the filters
         high_hz = f_central + band
 
-        # Left part of the filter
+        # Left/right parts of the filter
         left_side = right_size = all_freqs.ge(low_hz)
-
-        # Right part of the filter
         right_size = all_freqs.le(high_hz)
 
-        # Computing fbank matrix
         fbank_matrix = (left_side * right_size).float().transpose(0, 1)
 
         return fbank_matrix
 
-    def gaussian_filters(self, all_freqs, f_central, band, smooth_factor=2):
+    def _gaussian_filters(
+        self, all_freqs, f_central, band, smooth_factor=torch.tensor(2)
+    ):
+        """Returns fbank matrix using gaussian filters.
+
+        Arguments
+        ---------
+        all_freqs : Tensor
+            Tensor gathering all the frequency points.
+        f_central : Tensor
+            Tensor gathering central frequencies of each filter.
+        band : Tensor
+            Tensor gathering the bands of each filter.
+        smooth_factor: Tensor
+            Smoothing factor of the gaussian filter. It can be used to employ
+            sharper or flatter filters.
         """
-         ---------------------------------------------------------------------
-         core.data_procesing.gaussian_filters
-
-         Description: This function creates gaussian filter banks
-
-         Input:        - self (type: data_processing class, mandatory)
-                       - all_freqs (type: torch.tensor, mandatory)
-                       - f_central (type: torch.tensor, mandatory)
-                       - band (type: torch.tensor, mandatory)
-
-         Output:      - fbank_matrix (type: torch.tensor)
-
-         Example:     import torch
-                      from data_processing import FBANKs
-
-                      # FBANK config dictionary definition
-                      config={'class_name':'data_processing.FBANKs'}
-
-                      # Initialization of the FBANK class
-                      compute_fbank=FBANKs(config)
-
-                     # All frequency tensor
-                     all_freqs=torch.linspace(0, 8000, 201).repeat(40,1)
-
-                     f_central_mat=compute_fbank.f_central.repeat(
-                                   all_freqs.shape[1],1).transpose(0,1)
-
-                     band_mat=compute_fbank.band.repeat(
-                              all_freqs.shape[1],1).transpose(0,1)
-
-                     # Compute gaussian filters
-                     filters=compute_fbank.gaussian_filters(
-                             all_freqs,f_central_mat,band_mat)
-
-                     print(filters)
-                     print(filters.shape)
-
-         ---------------------------------------------------------------------
-         """
-
-        # computing the fbank matrix with gaussian shapes
         fbank_matrix = torch.exp(
             -0.5 * ((all_freqs - f_central) / (band / smooth_factor)) ** 2
         ).transpose(0, 1)
 
         return fbank_matrix
 
-    def create_fbank_matrix(self, f_central_mat, band_mat):
+    def _create_fbank_matrix(self, f_central_mat, band_mat):
+        """Returns fbank matrix to use for averaging the spectrum with
+           the set of filter-banks.
+
+        Arguments
+        ---------
+        f_central : Tensor
+            Tensor gathering central frequencies of each filter.
+        band : Tensor
+            Tensor gathering the bands of each filter.
+        smooth_factor: Tensor
+            Smoothing factor of the gaussian filter. It can be used to employ
+            sharper or flatter filters.
         """
-        ---------------------------------------------------------------------
-        core.data_procesing.create_fbank_matrix
-
-        Description: This function creates a set filter as specified in the
-                      configuration file.
-
-        Input:        - self (type: data_processing class, mandatory)
-                       - f_central (type: torch.tensor, mandatory)
-                       - band (type: torch.tensor, mandatory)
-
-        Output:      - fbank_matrix (type: torch.tensor)
-
-        Example:     import torch
-                      from data_processing import FBANKs
-
-                      # FBANK config dictionary definition
-                      config={'class_name':'data_processing.FBANKs'}
-
-                      # Initialization of the FBANK class
-                      compute_fbank=FBANKs(config)
-
-                     # getting central frequency and band
-                     f_central_mat=compute_fbank.f_central.repeat(
-                                   all_freqs.shape[1],1).transpose(0,1)
-
-                     band_mat=compute_fbank.band.repeat(
-                              all_freqs.shape[1],1).transpose(0,1)
-
-                     # Compute gaussian filters
-                     filters=compute_fbank.create_fbank_matrix(f_central_mat,
-                                                               band_mat)
-
-                     print(filters)
-                     print(filters.shape)
-
-        ---------------------------------------------------------------------
-        """
-        # Triangular filters
         if self.filter_shape == "triangular":
-            fbank_matrix = self.triangular_filters(
+            fbank_matrix = self._triangular_filters(
                 self.all_freqs_mat, f_central_mat, band_mat
             )
-        # Rectangular filters
-        if self.filter_shape == "rectangular":
-            fbank_matrix = self.rectangular_filters(
+
+        elif self.filter_shape == "rectangular":
+            fbank_matrix = self._rectangular_filters(
                 self.all_freqs_mat, f_central_mat, band_mat
             )
-        # Gaussian filters
-        if self.filter_shape == "gaussian":
-            fbank_matrix = self.gaussian_filters(
+
+        else:
+            fbank_matrix = self._gaussian_filters(
                 self.all_freqs_mat, f_central_mat, band_mat
             )
 
         return fbank_matrix
 
-    def amplitude_to_DB(self, x):
+    def _amplitude_to_DB(self, x):
+        """Converts  linear-FBANKs to log-FBANKs.
+
+        Arguments
+        ---------
+        x : Tensor
+            A batch of linear FBANK tensors.
+
         """
-         ---------------------------------------------------------------------
-         core.data_procesing.amplitude_to_DB
-
-         Description: This function takes in input a set of linear FBANKs and
-                      and converts them in log-FBANKs
-
-         Input:        - self (type: execute_computaion class, mandatory)
-                       - x (type: )
-
-         Output:      - fbank_matrix (type: torch.tensor)
-
-         Example:     import torch
-                      from data_processing import FBANKs
-
-                      # FBANK config dictionary definition
-                      config={'class_name':'data_processing.FBANKs'}
-
-                      # Initialization of the FBANK class
-                      compute_fbank=FBANKs(config)
-
-                     # getting central frequency and band
-                     f_central_mat=compute_fbank.f_central.repeat(
-                                   all_freqs.shape[1],1).transpose(0,1)
-
-                     band_mat=compute_fbank.band.repeat(
-                              all_freqs.shape[1],1).transpose(0,1)
-
-                     # Compute gaussian filters
-                     filters=compute_fbank.create_fbank_matrix(f_central_mat,
-                                                               band_mat)
-
-                     print(filters)
-                     print(filters.shape)
-
-         ---------------------------------------------------------------------
-         """
-
-        # Converting x to the log domain
         x_db = self.multiplier * torch.log10(torch.clamp(x, min=self.amin))
         x_db -= self.multiplier * self.db_multiplier
 
@@ -1109,175 +560,42 @@ class FBANKs(nn.Module):
         return x_db
 
 
-class MFCCs(nn.Module):
+class MFCCs(torch.nn.Module):
+    """Computes the Mel-Frequnecy Cepstral Coefficientrs (MFCCs).
+
+    This class computes MFCCs of an audio signal given a set of FBANKs
+    in input.
+    n_mfcc=20, n_mels=40, dct_norm="ortho"
+
+    Arguments
+    ---------
+    n_mfcc : int
+        Number of output MFCC coefficients.
+    n_mel : int
+        Number of Mel fiters used to average the spectrogram.
+    dct_norm : str
+        Type of dct transform used to compute MFCCs ('ortho', 'None').
+
+    Example
+    -------
+    >>> import torch
+    >>> compute_mfccs = MFCCs()
+    >>> inputs = torch.randn([10, 101, 40])
+    >>> features = compute_mfccs(inputs)
+    >>> features.shape
+    torch.Size([10, 101, 20])
     """
-     -------------------------------------------------------------------------
-     data_processing.MFCCs (author: Mirco Ravanelli)
-
-     Description:  This class computes MFCCs of an audio signal given a set of
-                   FBANKs in input. It is a modification of the spectrogram of
-                    the torch audio toolkit (https://github.com/pytorch/audio)
-
-     Input (init):  - config (type, dict, mandatory):
-                       it is a dictionary containing the keys described below.
-
-                           - device ('cuda','cpu',optional,default:None):
-                               it is the device where to compute the MFCCs.
-                               If None, it uses the device of the input signal
-
-                           - n_mels (type:int(1,inf),optional,default:40):
-                               it the number of Mel fiters used to average the
-                               spectrogram.
-
-                           - dct_norm ('ortho','None',optional,
-                             default:'ortho'):
-                               it is the type of dct transform used to compute
-                               MFCCs.
-                   - funct_name (type, str, optional, default: None):
-                       it is a string containing the name of the parent
-                       function that has called this method.
-
-                   - global_config (type, dict, optional, default: None):
-                       it a dictionary containing the global variables of the
-                       parent config file.
-
-                   - logger (type, logger, optional, default: None):
-                       it the logger used to write debug and error messages.
-                       If logger=None and root_cfg=True, the file is created
-                       from scratch.
-
-                   - first_input (type, list, optional, default: None)
-                      this variable allows users to analyze the first input
-                      given when calling the class for the first time.
-
-
-     Input (call): - inp_lst(type, list, mandatory):
-                       by default the input arguments are passed with a list.
-                       In this case, inp is a list containing a single
-                       torch.tensor which contains the FBANKs of an audio
-                       signal. The input FBANK tensor must be in one of the
-                       following ways:
-                       [batch,n_mels, time_steps],
-                       [batch,channels,n_mels, time_steps]
-
-
-     Output (call): - out_lst(type, list, mandatory):
-                       by default the output arguments are passed with a list.
-                       In this case, out is a list containing the MFCCs.
-                       The tensor is formatted in one of the following ways
-                       depending on the input shape:
-                       [batch,n_mfcc, time_steps],
-                       [batch,channels,n_mfcc,time_steps]
-
-     Example:   import torch
-                import soundfile as sf
-                from data_processing import STFT
-                from data_processing import spectrogram
-                from data_processing import FBANKs
-                from data_processing import MFCCs
-
-                # reading an audio signal
-                signal, fs=sf.read('samples/audio_samples/example1.wav')
-
-                # STFT config dictionary definition
-                config={'class_name':'data_processing.STFT',\
-                        'sample_rate':str(fs)}
-
-                # Initialization of the STFT class
-                compute_stft=STFT(config)
-
-                # Executing computations
-                stft_out=compute_stft(torch.tensor(signal)\
-                         .unsqueeze(0).float())
-
-                # Initialization of the spectrogram config
-                config={'class_name':'data_processing.spectrogram'}
-
-                # Initialization of the spectrogram class
-                compute_spectr=spectrogram(config)
-
-                # Computation of the spectrogram
-                spectr_out=compute_spectr(stft_out)
-
-                # FBANK config dictionary definition
-                config={'class_name':'data_processing.FBANKs'}
-
-                Initialization of the FBANK class
-                compute_fbank=FBANKs(config)
-
-                # Executing computations
-                fbank_out=compute_fbank(spectr_out)
-
-                # MFCC config dictionary definition
-                config={'class_name':'data_processing.MFCCs'}
-
-                Initialization of the MFCC class
-                compute_mfccs=MFCCs(config)
-
-                # Executing computations
-                mfcc_out=compute_mfccs(fbank_out)
-                print(mfcc_out)
-                print(mfcc_out[0].shape)
-
-     -------------------------------------------------------------------------
-     """
 
     def __init__(
-        self,
-        config,
-        funct_name=None,
-        global_config=None,
-        functions=None,
-        logger=None,
-        first_input=None,
+        self, n_mfcc=20, n_mels=40, dct_norm="ortho",
     ):
-        super(MFCCs, self).__init__()
-
-        # Logger Setup
-        self.logger = logger
-
-        # Here are summarized the expected options for this class
-        self.expected_options = {
-            "class_name": ("str", "mandatory"),
-            "n_mfcc": ("int(1,inf)", "optional", "20"),
-            "n_mels": ("int(1,inf)", "optional", "40"),
-            "dct_norm": ("one_of(ortho,None)", "optional", "ortho"),
-        }
-
-        # Check, cast , and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, self.logger
-        )
-
-        # Expected inputs when calling the class (no inputs in this case)
-        self.expected_inputs = ["torch.Tensor"]
-
-        # Check the first input
-        check_inputs(
-            self.conf, self.expected_inputs, first_input, logger=self.logger
-        )
-
-        # Additional check on the input shapes
-        if first_input is not None:
-
-            # Getting the input device
-            self.device_inp = first_input[0].device
-
-            # Check shapes
-            if len(first_input[0].shape) > 4 or len(first_input[0].shape) < 2:
-
-                err_msg = (
-                    "The input of MFCCs must be a tensor with one of the "
-                    "following dimensions: [n_mel, time] or "
-                    "[batch,n_mel, time] or [batch,channels,n_mel, time]."
-                    "Got %s " % (str(first_input[0].shape))
-                )
-
-                logger_write(err_msg, logfile=logger)
+        super().__init__()
+        self.n_mfcc = n_mfcc
+        self.n_mels = n_mels
+        self.dct_norm = dct_norm
 
         # Generate matix for DCT transformation
-        self.dct_mat = self.create_dct()
-        self.dct_mat = self.dct_mat.to(self.device_inp)
+        self.dct_mat = self._create_dct()
 
         # Check n_mfcc
         if self.n_mfcc > self.n_mels:
@@ -1287,72 +605,25 @@ class MFCCs(nn.Module):
                 "(n_mfcc=%i, n_mels=%i)" % (self.n_mfcc, self.n_mels)
             )
 
-            logger_write(err_msg, logfile=logger)
+            logger.error(err_msg, exc_info=True)
 
-    def create_dct(self):
-
+    def init_params(self, first_input):
         """
-         ---------------------------------------------------------------------
-         core.data_procesing.create_dct
+        Arguments
+        ---------
+        first_input : tensor
+            A dummy input of the right shape for initializing parameters.
+        """
+        self.dct_mat = self.dct_mat.to(first_input.device)
 
-         Description: This function generate the dct matrix from MFCC
-                      computation.
+    def _create_dct(self):
+        """Compute the matrix for the DCT transformation.
 
-         Input:        - self (type: execute_computaion class, mandatory)
-
-         Output:      - dct (type: torch.tensor)
-
-         Example:   import torch
-                    import soundfile as sf
-                    from data_processing import STFT
-                    from data_processing import spectrogram
-                    from data_processing import FBANKs
-                    from data_processing import MFCCs
-
-                    # reading an audio signal
-                    signal, fs=sf.read('samples/audio_samples/example1.wav')
-
-                    # STFT config dictionary definition
-                    config={'class_name':'data_processing.STFT',\
-                            'sample_rate':str(fs)}
-
-                    # Initialization of the STFT class
-                    compute_stft=STFT(config)
-
-                    # Executing computations
-                    stft_out=compute_stft(torch.tensor(signal)\
-                             .unsqueeze(0).float())
-
-                    # Initialization of the spectrogram config
-                    config={'class_name':'data_processing.spectrogram'}
-
-                    # Initialization of the spectrogram class
-                    compute_spectr=spectrogram(config)
-
-                    # Computation of the spectrogram
-                    spectr_out=compute_spectr(stft_out)
-
-                    # FBANK config dictionary definition
-                    config={'class_name':'data_processing.FBANKs'}
-
-                    Initialization of the FBANK class
-                    compute_fbank=FBANKs(config)
-
-                    # Executing computations
-                    fbank_out=compute_fbank(spectr_out)
-
-                    # MFCC config dictionary definition
-                    config={'class_name':'data_processing.MFCCs'}
-
-                    Initialization of the MFCC class
-                    compute_mfccs=MFCCs(config)
-
-                    # Executing computations
-                    print(compute_mfccs.create_dct())
-
-     -------------------------------------------------------------------------
-     """
-
+        Arguments
+        ---------
+        x : Tensor
+            A batch of linear FBANK tensors.
+        """
         n = torch.arange(float(self.n_mels))
         k = torch.arange(float(self.n_mfcc)).unsqueeze(1)
         dct = torch.cos(math.pi / float(self.n_mels) * (n + 0.5) * k)
@@ -1366,160 +637,87 @@ class MFCCs(nn.Module):
 
         return dct.t()
 
-    def forward(self, input_lst):
+    def forward(self, fbanks):
+        """Returns the MFCCs.
 
-        # Reading input _list
-        fbanks = input_lst[0]
+        Arguments
+        ---------
+        x : tensor
+            A batch of FBANK tensors.
+        """
+
+        # Managing multi-channels case
+        fb_shape = fbanks.shape
+        if len(fb_shape) == 4:
+            fbanks = fbanks.reshape(
+                fb_shape[0] * fb_shape[3], fb_shape[1], fb_shape[2]
+            )
 
         # Computing MFCCs by applying the DCT transform
-        mfcc = torch.matmul(
-            fbanks.transpose(1, -1), self.dct_mat.to(fbanks.device)
-        ).transpose(1, -1)
+        mfcc = torch.matmul(fbanks, self.dct_mat)
+
+        # Reshape in the case of multi-channels
+        mfcc_shape = mfcc.shape
+        if len(fb_shape) == 4:
+            mfcc = mfcc.reshape(
+                fb_shape[0], mfcc_shape[1], mfcc_shape[2], fb_shape[3]
+            )
 
         return mfcc
 
 
-class deltas(nn.Module):
+class deltas(torch.nn.Module):
+    """Computes delta coefficients (time derivatives).
+
+    Arguments
+    ---------
+    der_win_length : int
+        Length of the window used to compute the time derivatives.
+
+    Example
+    -------
+    >>> import torch
+    >>> compute_deltas = deltas()
+    >>> inputs = torch.randn([10, 101, 20])
+    >>> compute_deltas.init_params(inputs)
+    >>> features = compute_deltas(inputs)
+    >>> features.shape
+    torch.Size([10, 101, 20])
     """
-     -------------------------------------------------------------------------
-     data_processing.deltas (author: Mirco Ravanelli)
-
-     Description:  This class computes time derivatives of an input tensor.
-                   It is a modification of the spectrogram of the torch audio
-                   toolkit (https://github.com/pytorch/audio).
-
-     Input (init):  - config (type, dict, mandatory):
-                       it is a dictionary containing the keys described below.
-
-                           - device ('cuda','cpu',optional,default:None):
-                               it is the device where to compute the MFCCs.
-                               If None, it uses the device of the input signal
-
-                           - der_win_length (type:int(3,inf),optional,
-                             default:3):
-                               it the length of the window used to compute the
-                               time derivatives.
-
-                   - funct_name (type, str, optional, default: None):
-                       it is a string containing the name of the parent
-                       function that has called this method.
-
-                   - global_config (type, dict, optional, default: None):
-                       it a dictionary containing the global variables of the
-                       parent config file.
-
-                   - logger (type, logger, optional, default: None):
-                       it the logger used to write debug and error messages.
-                       If logger=None and root_cfg=True, the file is created
-                       from scratch.
-
-                   - first_input (type, list, optional, default: None)
-                      this variable allows users to analyze the first input
-                      given when calling the class for the first time.
-
-
-     Input (call): - inp_lst(type, list, mandatory):
-                       by default the input arguments are passed with a list.
-                       In this case, inp is a list containing a single
-                       torch.tensor The input tensor must be in one of the
-                       following way:
-                       [*, time_steps],
-
-
-     Output (call): - out_lst(type, list, mandatory):
-                       by default the output arguments are passed with a list.
-                       In this case, out is a list containing the MFCCs.
-                       The tensor is formatted in one of the following way
-                       depending on the input shape:
-                       [*, time_steps]
-
-     Example:  import torch
-               from data_processing import deltas
-
-               # delta config dictionary definition
-               config={'class_name':'data_processing.deltas'}
-
-               # Initialization of the delta class
-               compute_deltas=deltas(config,\
-               first_input=[torch.rand([4,13,100])])
-
-               # Delta computations
-               batch=torch.rand([4,13,230])
-               delta_out=compute_deltas([batch])
-               print(delta_out)
-               print(delta_out[0].shape)
-     -------------------------------------------------------------------------
-     """
 
     def __init__(
-        self,
-        config,
-        funct_name=None,
-        global_config=None,
-        functions=None,
-        logger=None,
-        first_input=None,
+        self, der_win_length=5,
     ):
-        super(deltas, self).__init__()
-
-        # Logger Setup
-        self.logger = logger
-
-        # Here are summarized the expected options for this class
-        self.expected_options = {
-            "class_name": ("str", "mandatory"),
-            "der_win_length": ("int(3,inf)", "optional", "5"),
-        }
-
-        # Check, cast , and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, self.logger
-        )
-
-        # Expected inputs when calling the class (no inputs in this case)
-        self.expected_inputs = ["torch.Tensor"]
-
-        # Check the first input
-        check_inputs(
-            self.conf, self.expected_inputs, first_input, logger=self.logger
-        )
-
-        # Additional check on the input shapes
-        if first_input is not None:
-
-            # Check shape
-            if len(first_input[0].shape) > 4 or len(first_input[0].shape) < 2:
-                err_msg = (
-                    'The input of "deltas" must be a tensor with one of the  '
-                    "following dimensions: [n_fea, time] or "
-                    "[batch,n_fea, time] or [batch,channels,n_fea, time]."
-                    "Got %s " % (str(first_input[0].shape))
-                )
-                logger_write(err_msg, logfile=logger)
-
-        # Additional parameters
+        super().__init__()
+        self.der_win_length = der_win_length
         self.n = (self.der_win_length - 1) // 2
-
         self.denom = self.n * (self.n + 1) * (2 * self.n + 1) / 3
-
         self.kernel = torch.arange(-self.n, self.n + 1, 1).float()
 
-        # Extending kernel to all the features
-        if first_input is not None:
-            self.kernel = self.kernel.repeat(first_input[0].shape[-2], 1, 1)
+    def init_params(self, first_input):
+        """
+        Arguments
+        ---------
+        first_input : tensor
+            A dummy input of the right shape for initializing parameters.
+        """
+        self.kernel = self.kernel.repeat(first_input.shape[2], 1, 1)
 
-    def forward(self, input_lst):
+    def forward(self, x):
+        """Returns the delta coefficients.
 
-        # Reading the input_list
-        x = input_lst[0]
-
+        Arguments
+        ---------
+        x : tensor
+            A batch of tensors.
+        """
         # Managing multi-channel deltas reshape tensor (batch*channel,time)
+        x = x.transpose(1, 2).transpose(2, -1)
         or_shape = x.shape
-
         if len(or_shape) == 4:
-            x = x.view(or_shape[0] * or_shape[2], or_shape[1], or_shape[3])
+            x = x.reshape(or_shape[0] * or_shape[2], or_shape[1], or_shape[3])
 
-        # Doing padding for time borders
+        # Padding for time borders
         x = torch.nn.functional.pad(x, (self.n, self.n), mode="replicate")
 
         # Derivative estimation (with a fixed convolutional kernel)
@@ -1533,144 +731,43 @@ class deltas(nn.Module):
         # Retrieving the original dimensionality (for multi-channel case)
         if len(or_shape) == 4:
             delta_coeff = delta_coeff.reshape(
-                or_shape[0],
-                or_shape[1],
-                delta_coeff.shape[1],
-                delta_coeff.shape[2],
+                or_shape[0], or_shape[1], or_shape[2], or_shape[3],
             )
+        delta_coeff = delta_coeff.transpose(1, -1).transpose(2, -1)
 
         return delta_coeff
 
 
-class context_window(nn.Module):
+class context_window(torch.nn.Module):
+    """Computes the context window.
+
+    This class applies a context window by gathering multiple time steps
+    in a single feature vector. The operation is performed with a
+    convolutional layer based on a fixed kernel designed for that.
+
+    Arguments
+    ---------
+    left_frames : int
+         Number of left frames (i.e, past frames) to collect.
+    right_frames : int
+        Number of right frames (i.e, future frames) to collect.
+
+    Example
+    -------
+    >>> import torch
+    >>> compute_cw = context_window(left_frames=5, right_frames=5)
+    >>> inputs = torch.randn([10, 101, 20])
+    >>> features = compute_cw(inputs)
+    >>> features.shape
+    torch.Size([10, 101, 220])
     """
-     -------------------------------------------------------------------------
-     data_processing.context_window (author: Mirco Ravanelli)
-
-     Description:  This class applies a context window by gathering multiple
-                   time steps in a single feature vector. The operation is
-                   performed with a convolutional layer based on a fixed
-                   kernel designed for that.
-
-     Input (init):  - config (type, dict, mandatory):
-                       it is a dictionary containing the keys described below.
-
-                           - device ('cuda','cpu',optional, default:None):
-                               it is the device where to compute the MFCCs.
-                               If None, it uses the device of the input sig.
-
-                           - left_frames (type:int(0,inf),optional,
-                             default:0):
-                               it is this the number of left frames (i.e, past
-                               frames to collect)
-
-                           - right_frames (type:int(0,inf),optional,
-                             default:0):
-                               it is this the number of right frames (i.e,
-                               future frames to collect)
-
-                   - funct_name (type, str, optional, default: None):
-                       it is a string containing the name of the parent
-                       function that has called this method.
-
-                   - global_config (type, dict, optional, default: None):
-                       it a dictionary containing the global variables of the
-                       parent config file.
-
-                   - logger (type, logger, optional, default: None):
-                       it the logger used to write debug and error messages.
-                       If logger=None and root_cfg=True, the file is created
-                       from scratch.
-
-                   - first_input (type, list, optional, default: None)
-                      this variable allows users to analyze the first input
-                      given when calling the class for the first time.
-
-
-     Input (call): - inp_lst(type, list, mandatory):
-                       by default the input arguments are passed with a list.
-                       In this case, inp is a list containing a single
-                       torch.tensor. The input tensor must be in one of the
-                       following way: [*, time_steps].
-
-
-     Output (call): - out_lst(type, list, mandatory):
-                       by default the output arguments are passed with a list.
-                       In this case, out is a list containing the MFCCs.
-                       The tensor is formatted in one of the following way
-                       depending on the input shape:
-                       [*, time_steps]
-
-     Example:  import torch
-               from data_processing import context_window
-
-               # delta config dictionary definition
-               config={'class_name':'data_processing.context_window',
-                       'left_frames': '5',
-                       'right_frames': '5'}
-
-               # Initialization of the delta class
-               compute_cw=context_window(config,
-                                         first_input=[torch.rand([4,13,100])])
-
-               # context computations
-               batch=torch.rand([4,13,230])
-               batch_cw=compute_cw([batch])
-               print(batch_cw)
-               print(batch_cw[0].shape)
-     -------------------------------------------------------------------------
-     """
 
     def __init__(
-        self,
-        config,
-        funct_name=None,
-        global_config=None,
-        functions=None,
-        logger=None,
-        first_input=None,
+        self, left_frames=0, right_frames=0,
     ):
-        super(context_window, self).__init__()
-
-        # Setting logger and exec_config
-        self.logger = logger
-
-        # Definition of the expected options
-        self.expected_options = {
-            "class_name": ("str", "mandatory"),
-            "left_frames": ("int(0,inf)", "optional", "0"),
-            "right_frames": ("int(0,inf)", "optional", "0"),
-        }
-
-        # Check, cast , and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, self.logger
-        )
-
-        # Expected inputs when calling the class
-        self.expected_inputs = ["torch.Tensor"]
-
-        # Check the first input
-        check_inputs(
-            self.conf, self.expected_inputs, first_input, logger=self.logger
-        )
-
-        # Additional checks
-        if first_input is not None:
-
-            # Check shape
-            if len(first_input[0].shape) > 5 or len(first_input[0].shape) < 2:
-
-                err_msg = (
-                    'The input of "context_window" must be a tensor with '
-                    "one of the  following dimensions: [n_fea, time] or "
-                    "[batch,n_fea, time] or [batch,channels,n_fea, time]."
-                    "Got %s " % (str(first_input[0].shape))
-                )
-
-                logger_write(err_msg, logfile=logger)
-
-        # Additional parameters
+        super().__init__()
+        self.left_frames = left_frames
+        self.right_frames = right_frames
         self.context_len = self.left_frames + self.right_frames + 1
         self.kernel_len = 2 * max(self.left_frames, self.right_frames) + 1
 
@@ -1681,33 +778,31 @@ class context_window(nn.Module):
             lag = self.right_frames - self.left_frames
             self.kernel = torch.roll(self.kernel, lag, 1)
 
-        if first_input is not None:
+        self.first_call = True
+
+    def forward(self, x):
+        """Returns the tensor with the sourrounding context.
+
+        Arguments
+        ---------
+        x : tensor
+            A batch of tensors.
+        """
+
+        x = x.transpose(1, 2)
+
+        if self.first_call is True:
+            self.first_call = False
             self.kernel = (
-                self.kernel.repeat(first_input[0].shape[1], 1, 1)
-                .view(
-                    first_input[0].shape[1] * self.context_len,
-                    self.kernel_len,
-                )
+                self.kernel.repeat(x.shape[1], 1, 1)
+                .view(x.shape[1] * self.context_len, self.kernel_len,)
                 .unsqueeze(1)
             )
 
-    def forward(self, input_lst):
-
-        # Reading input_list
-        x = input_lst[0]
-
         # Managing multi-channel case
         or_shape = x.shape
-
         if len(or_shape) == 4:
             x = x.reshape(or_shape[0] * or_shape[2], or_shape[1], or_shape[3])
-
-        if len(or_shape) == 5:
-            x = x.reshape(
-                or_shape[0] * or_shape[2] * or_shape[3],
-                or_shape[1],
-                or_shape[4],
-            )
 
         # Compute context (using the estimated convolutional kernel)
         cw_x = torch.nn.functional.conv1d(
@@ -1723,108 +818,95 @@ class context_window(nn.Module):
                 or_shape[0], cw_x.shape[1], or_shape[2], cw_x.shape[-1]
             )
 
-        if len(or_shape) == 5:
-            cw_x = cw_x.reshape(
-                or_shape[0],
-                cw_x.shape[1],
-                or_shape[2],
-                or_shape[3],
-                cw_x.shape[-1],
-            )
+        cw_x = cw_x.transpose(1, 2)
 
         return cw_x
 
 
-class mean_var_norm(nn.Module):
+@register_checkpoint_hooks
+class mean_var_norm(torch.nn.Module):
+    """Performs mean and variance normalization of the input tensor.
+        mean_norm=True,
+        std_norm=True,
+        norm_type="global",
+        avg_factor=None,
+        requires_grad=False,
+
+    Arguments
+    ---------
+    mean_norm : True
+         If True, the mean will be normalized.
+    std_norm : True
+         If True, the standard deviation will be normalized.
+    norm_type : str
+         It defines how the statistics are computed ('sentence' computes them
+         at sentence level, 'batch' at batch level, 'speaker' at speaker
+         level, while global computes a single normalization vector for all
+         the sentences in the dataset). Speaker and global statistics are
+         computed with a moving average approach.
+    avg_factor : float
+         It can be used to manually set the weighting factor between
+         current statistics and accumulated ones.
+
+    Example
+    -------
+    >>> import torch
+    >>> norm = mean_var_norm()
+    >>> inputs = torch.randn([10, 101, 20])
+    >>> inp_len = torch.ones([10])
+    >>> features = norm(inputs, inp_len)
+    """
+
+    from typing import Dict
+
+    spk_dict_mean: Dict[int, torch.Tensor]
+    spk_dict_std: Dict[int, torch.Tensor]
+    spk_dict_count: Dict[int, int]
+
     def __init__(
         self,
-        config,
-        funct_name=None,
-        global_config=None,
-        functions=None,
-        logger=None,
-        first_input=None,
+        mean_norm=True,
+        std_norm=True,
+        norm_type="global",
+        avg_factor=None,
+        requires_grad=False,
     ):
-        super(mean_var_norm, self).__init__()
-
-        # Setting logger and exec_config
-        self.logger = logger
-
-        # Definition of the expected options
-        self.expected_options = {
-            "class_name": ("str", "mandatory"),
-            "mean_norm": ("bool", "optional", "True"),
-            "std_norm": ("bool", "optional", "True"),
-            "norm_type": (
-                "one_of(sentence,batch,speaker,global)",
-                "optional",
-                "global",
-            ),
-            "avg_factor": ("float(0,1)", "optional", "None"),
-            "recovery": ("bool", "optional", "True"),
-            "recovery_type": ("one_of(last,best)", "optional", "best"),
-        }
-
-        # Check, cast , and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, self.logger
-        )
-
-        # Output folder (useful for parameter saving)
-        self.output_folder = global_config["output_folder"]
-        self.funct_name = funct_name
-
-        # Parameter initialization
-        self.glob_mean = 0
-        self.glob_std = 0
+        super().__init__()
+        self.mean_norm = mean_norm
+        self.std_norm = std_norm
+        self.norm_type = norm_type
+        self.avg_factor = avg_factor
+        self.requires_grad = requires_grad
+        self.glob_mean = torch.tensor([0])
+        self.glob_std = torch.tensor([0])
         self.spk_dict_mean = {}
         self.spk_dict_std = {}
         self.spk_dict_count = {}
-
-        # Expected inputs when calling the class
-        if self.norm_type == "speaker":
-            self.expected_inputs = [
-                "torch.Tensor",
-                "torch.Tensor",
-                "torch.Tensor",
-            ]
-        else:
-            self.expected_inputs = ["torch.Tensor", "torch.Tensor"]
-
-        # Check the first input
-        check_inputs(
-            self.conf, self.expected_inputs, first_input, logger=self.logger
-        )
-
-        # Counter initialization
+        self.weight = 1.0
         self.count = 0
-
-        # Numerical stability for std
         self.eps = 1e-10
+        self.device_inp = torch.device("cpu")
 
-        # detecting the device
-        self.device_inp = str(first_input[0].device)
+    def forward(self, x, lengths, spk_ids=torch.tensor([])):
+        """Returns the tensor with the sourrounding context.
 
-        # Recovery stored stats
-        recovery(self)
-
-    def forward(self, input_lst):
-
-        # Reading input_list
-        x = input_lst[0]
-
-        # Reading lengths
-        lengths = input_lst[1]
-
-        if self.norm_type == "speaker":
-            spk_ids = input_lst[2]
-
+        Arguments
+        ---------
+        x : tensor
+            A batch of tensors.
+        lengths : tensor
+            A batch of tensors containing the relative length of each
+            sentence (e.g, [0.7, 0.9, 1.0]). It is used to avoid
+            computing stats on zero-padded steps.
+        spk_ids : tensor containing the ids of each speaker (e.g, [0 10 6]).
+                  It is used to perform per-speaker normalization when
+                  norm_type='speaker'.
+        """
+        self.device_inp = x.device
         N_batches = x.shape[0]
 
         current_means = []
         current_stds = []
-
-        x = x.unsqueeze(1).transpose(1, -1).squeeze(-1)
 
         for snt_id in range(N_batches):
 
@@ -1832,15 +914,13 @@ class mean_var_norm(nn.Module):
             actual_size = int(torch.round(lengths[snt_id] * x.shape[1]))
 
             # computing statistics
-            current_mean, current_std = self.compute_current_stats(
-                x[snt_id, 0:actual_size, ...], (0)
+            current_mean, current_std = self._compute_current_stats(
+                x[snt_id, 0:actual_size, ...]
             )
 
-            # appending values
             current_means.append(current_mean)
             current_stds.append(current_std)
 
-            # sentence normalization
             if self.norm_type == "sentence":
 
                 x[snt_id] = (x[snt_id] - current_mean.data) / current_std.data
@@ -1881,7 +961,6 @@ class mean_var_norm(nn.Module):
                 ) / self.spk_dict_std[spk_id].data
 
         if self.norm_type == "batch" or self.norm_type == "global":
-
             current_mean = torch.mean(torch.stack(current_means), dim=0)
             current_std = torch.mean(torch.stack(current_stds), dim=0)
 
@@ -1913,24 +992,27 @@ class mean_var_norm(nn.Module):
 
                 x = (x - self.glob_mean.data) / (self.glob_std.data)
 
-        # Update counter
         self.count = self.count + 1
-
-        x = x.unsqueeze(-1).transpose(1, -1).squeeze(1)
 
         return x
 
-    def compute_current_stats(self, x, dims):
+    def _compute_current_stats(self, x):
+        """Returns the tensor with the sourrounding context.
 
+        Arguments
+        ---------
+        x : tensor
+            A batch of tensors.
+        """
         # Compute current mean
         if self.mean_norm:
-            current_mean = torch.mean(x, dim=dims).detach().data
+            current_mean = torch.mean(x, dim=0).detach().data
         else:
             current_mean = torch.tensor([0.0]).to(x.device)
 
         # Compute current std
         if self.std_norm:
-            current_std = torch.std(x, dim=dims).detach().data
+            current_std = torch.std(x, dim=0).detach().data
         else:
             current_std = torch.tensor([1.0]).to(x.device)
 
@@ -1941,8 +1023,9 @@ class mean_var_norm(nn.Module):
 
         return current_mean, current_std
 
-    def statistics_dict(self):
-
+    def _statistics_dict(self):
+        """Fills the dictionary containing the normalization statistics.
+        """
         state = {}
         state["count"] = self.count
         state["glob_mean"] = self.glob_mean
@@ -1953,15 +1036,21 @@ class mean_var_norm(nn.Module):
 
         return state
 
-    def load_statistics_dict(self, state):
+    def _load_statistics_dict(self, state):
+        """Loads the dictionary containing the statistics.
 
+        Arguments
+        ---------
+        state : dict
+            A dictionary containing the normalization statistics.
+        """
         self.count = state["count"]
         if isinstance(state["glob_mean"], int):
             self.glob_mean = state["glob_mean"]
             self.glob_std = state["glob_std"]
         else:
-            self.glob_mean = state["glob_mean"].to(self.device_inp)
-            self.glob_std = state["glob_std"].to(self.device_inp)
+            self.glob_mean = state["glob_mean"]  # .to(self.device_inp)
+            self.glob_std = state["glob_std"]  # .to(self.device_inp)
 
         # Loading the spk_dict_mean in the right device
         self.spk_dict_mean = {}
@@ -1980,3 +1069,30 @@ class mean_var_norm(nn.Module):
         self.spk_dict_count = state["spk_dict_count"]
 
         return state
+
+    @mark_as_saver
+    def _save(self, path):
+        """Save statistic dictionary.
+
+        Arguments
+        ---------
+        path : str
+            A path where to save the dictionary.
+        """
+        stats = self._statistics_dict()
+        torch.save(stats, path)
+
+    @mark_as_loader
+    def _load(self, path, end_of_epoch):
+        """Load statistic dictionary.
+
+        Arguments
+        ---------
+        path : str
+            The path of the statistic dictionary
+        end_of_epoch: bool
+            If True, the training has completed a full epoch.
+        """
+        del end_of_epoch  # Unused here.
+        stats = torch.load(path)
+        self._load_statistics_dict(stats)

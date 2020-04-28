@@ -1,17 +1,9 @@
 """
- -----------------------------------------------------------------------------
- normalization.py
-
- Description: This library implements different neural normalization
-              strategies.
- -----------------------------------------------------------------------------
+Neural normalization strategies.
 """
 
 import torch
 import torch.nn as nn
-from speechbrain.utils.input_validation import check_opts, check_inputs
-from speechbrain.utils.logger import logger_write
-from speechbrain.data_io.data_io import recovery, initialize_with
 
 
 class normalize(nn.Module):
@@ -22,11 +14,6 @@ class normalize(nn.Module):
      Description:  This function implements different normalization techniques
                    such as batchnorm, layernorm, groupnorm, instancenorm, and
                    localresponsenorm.
-
-
-            "recovery": ("bool", "optional","True"),
-            "initialize_with": ("str", "optional","None"),
-
 
      Input (init):  - config (type, dict, mandatory):
                        it is a dictionary containing the keys described below.
@@ -107,18 +94,6 @@ class normalize(nn.Module):
                                 it is number of groups to separate the
                                 channels into for the group normalization.
 
-                           - recovery (type: bool, optional, Default:True):
-                               if True, the system restarts from the last
-                               epoch correctly executed.
-
-                           - initialize_with (type: str, optional, \
-                               Default:None):
-                               when set, this flag can be used to initialize
-                               the parameters with an external pkl file. It
-                               could be useful for pre-training purposes.
-
-
-
                    - funct_name (type, str, optional, default: None):
                        it is a string containing the name of the parent
                        function that has called this method.
@@ -171,140 +146,93 @@ class normalize(nn.Module):
 
     def __init__(
         self,
-        config,
-        funct_name=None,
-        global_config=None,
-        functions=None,
-        logger=None,
-        first_input=None,
+        norm_type,
+        eps=1e-05,
+        momentum=0.1,
+        alpha=0.0001,
+        beta=0.75,
+        k=1.0,
+        affine=True,
+        elementwise_affine=True,
+        track_running_stats=True,
+        num_groups=1,
+        neigh_ch=2,
+        output_folder=None,
     ):
-        super(normalize, self).__init__()
+        super().__init__()
 
-        # Logger setup
-        self.logger = logger
-
-        # Here are summarized the expected options for this class
-        self.expected_options = {
-            "class_name": ("str", "mandatory"),
-            "norm_type": (
-                "one_of(batchnorm,layernorm,groupnorm,instancenorm,\
-                    localresponsenorm)",
-                "mandatory",
-            ),
-            "recovery": ("bool", "optional", "True"),
-            "recovery_type": ("one_of(last,best)", "optional", "best"),
-            "initialize_with": ("str", "optional", "None"),
-            "eps": ("float(0,inf)", "optional", "1e-05"),
-            "momentum": ("float(0,inf)", "optional", "0.1"),
-            "alpha": ("float(0,inf)", "optional", "0.0001"),
-            "beta": ("float(0,inf)", "optional", "0.75"),
-            "k": ("float(0,inf)", "optional", "1.0"),
-            "affine": ("bool", "optional", "True"),
-            "elementwise_affine": ("bool", "optional", "True"),
-            "track_running_stats": ("bool", "optional", "True"),
-            "num_groups": ("int", "optional", "1"),
-            "neigh_ch": ("int", "optional", "2"),
-        }
-
-        # Check, cast, and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, self.logger
-        )
-
-        # Definition of the expected input
-        self.expected_inputs = ["torch.Tensor"]
-
-        # Check the first input
-        check_inputs(
-            self.conf, self.expected_inputs, first_input, logger=self.logger
-        )
+        self.norm_type = norm_type
+        self.eps = eps
+        self.momentum = momentum
+        self.alpha = alpha
+        self.beta = beta
+        self.k = k
+        self.affine = affine
+        self.elementwise_affine = elementwise_affine
+        self.track_running_stats = track_running_stats
+        self.num_groups = num_groups
+        self.neigh_ch = neigh_ch
+        self.output_folder = output_folder
 
         # Reshaping when input to batchnorm1d is 3d makes it faster
         self.reshape = False
 
-        # Output folder (useful for parameter saving)
-        if global_config is not None:
-            self.output_folder = global_config["output_folder"]
+    def init_params(self, first_input):
 
-        self.funct_name = funct_name
+        # Initializing bachnorm
+        if self.norm_type == "batchnorm":
+            self.norm = self.batchnorm(first_input)
 
-        # Additional check on the input shapes
-        if first_input is not None:
+        # Initializing groupnorm
+        if self.norm_type == "groupnorm":
+            n_ch = first_input.shape[1]
+            self.norm = torch.nn.GroupNorm(
+                self.num_groups, n_ch, eps=self.eps, affine=self.affine
+            )
 
-            # Shape check
-            if len(first_input[0].shape) > 5 or len(first_input[0].shape) < 2:
+        # Initializing instancenorm
+        if self.norm_type == "instancenorm":
+            self.norm = self.instancenorm(first_input)
 
-                err_msg = (
-                    'The input of "normalize" must be a tensor with one of'
-                    "the following dimensions: [batch,time] or "
-                    "[batch,channels,time]. Got %s "
-                    % (str(first_input[0].shape))
-                )
+        # Initializing layernorm
+        if self.norm_type == "layernorm":
+            self.norm = torch.nn.LayerNorm(
+                first_input.size()[1:-1],
+                eps=self.eps,
+                elementwise_affine=self.elementwise_affine,
+            )
 
-                logger_write(err_msg, logfile=logger)
+            self.reshape = True
 
-            # Initializing bachnorm
-            if self.norm_type == "batchnorm":
-                self.norm = self.batchnorm(first_input)
+        # Initializing localresponsenorm
+        if self.norm_type == "localresponsenorm":
+            self.norm = torch.nn.LocalResponseNorm(
+                self.neigh_ch, alpha=self.alpha, beta=self.beta, k=self.k
+            )
 
-            # Initializing groupnorm
-            if self.norm_type == "groupnorm":
-                n_ch = first_input[0].shape[1]
-                self.norm = torch.nn.GroupNorm(
-                    self.num_groups, n_ch, eps=self.eps, affine=self.affine
-                )
-
-            # Initializing instancenorm
-            if self.norm_type == "instancenorm":
-                self.norm = self.instancenorm(first_input)
-
-            # Initializing layernorm
-            if self.norm_type == "layernorm":
-                self.norm = torch.nn.LayerNorm(
-                    first_input[0].size()[1:-1],
-                    eps=self.eps,
-                    elementwise_affine=self.elementwise_affine,
-                )
-
-                self.reshape = True
-
-            # Initializing localresponsenorm
-            if self.norm_type == "localresponsenorm":
-                self.norm = torch.nn.LocalResponseNorm(
-                    self.neigh_ch, alpha=self.alpha, beta=self.beta, k=self.k
-                )
-
-            # Managing initialization with an external model
-            # (useful for pre-training)
-            initialize_with(self)
-
-            # Automatic recovery
-            if global_config is not None:
-                recovery(self)
-
-    def forward(self, input_lst):
-
-        # Reading input _list
-        x = input_lst[0]
+    def forward(self, x):
 
         # Reshaping (if needed)
-        if self.reshape:
+        # if self.reshape:
 
-            x = x.transpose(1, -1)
-            dims = x.shape
+        # x = x.transpose(1, -1)
+        # dims = x.shape
 
-            x = x.reshape(dims[0] * dims[1], dims[2])
+        # x = x.reshape(dims[0] * dims[1], dims[2])
 
         # Applying batch normalization
+        # x = x.transpose(1, 2).transpose(2, -1)
+        x = x.transpose(-1, 1)
         x_n = self.norm(x)
 
         # Getting the original dimensionality
-        if self.reshape:
+        # if self.reshape:
 
-            x_n = x_n.reshape(dims[0], dims[1], dims[2])
+        # x_n = x_n.reshape(dims[0], dims[1], dims[2])
 
-            x_n = x_n.transpose(1, -1)
+        x_n = x_n.transpose(1, -1)
 
+        # x_n = x_n.transpose(1, -1).transpose(2, -1)
         return x_n
 
     def batchnorm(self, first_input):
@@ -347,10 +275,10 @@ class normalize(nn.Module):
          """
 
         # Getting the feature dimension
-        fea_dim = first_input[0].shape[1]
+        fea_dim = first_input.shape[-1]
 
         # Based on the shape of the input tensor I can use 1D,2D, or 3D batchn
-        if len(first_input[0].shape) <= 3:
+        if len(first_input.shape) <= 3:
 
             # Managing 1D batchnorm
             norm = nn.BatchNorm1d(
@@ -361,10 +289,10 @@ class normalize(nn.Module):
                 track_running_stats=self.track_running_stats,
             )
 
-            if len(first_input[0].shape) == 3:
-                self.reshape = True
+            # if len(first_input.shape) == 3:
+            #   self.reshape = True
 
-        if len(first_input[0].shape) == 4:
+        if len(first_input.shape) == 4:
 
             # Managing 2D batchnorm
             norm = nn.BatchNorm2d(
@@ -375,7 +303,7 @@ class normalize(nn.Module):
                 track_running_stats=self.track_running_stats,
             )
 
-        if len(first_input[0].shape) == 5:
+        if len(first_input.shape) == 5:
 
             # Managing 3D batchnorm
             norm = nn.BatchNorm3d(
@@ -386,7 +314,7 @@ class normalize(nn.Module):
                 track_running_stats=self.track_running_stats,
             )
 
-        return norm
+        return norm.to(first_input.device)
 
     def instancenorm(self, first_input):
         """
@@ -428,12 +356,12 @@ class normalize(nn.Module):
 
          """
         # Getting the feature dimension
-        fea_dim = first_input[0].shape[1]
+        fea_dim = first_input.shape[1]
 
         # Based on the shape of the input tensor I can use 1D,2D, or 3D
         # instance normalization
 
-        if len(first_input[0].shape) == 3:
+        if len(first_input.shape) == 3:
             # 1D case
             norm = nn.InstanceNorm1d(
                 fea_dim,
@@ -442,7 +370,7 @@ class normalize(nn.Module):
                 track_running_stats=self.track_running_stats,
             )
 
-        if len(first_input[0].shape) == 4:
+        if len(first_input.shape) == 4:
             # 2D case
             norm = nn.InstanceNorm2d(
                 fea_dim,
@@ -452,7 +380,7 @@ class normalize(nn.Module):
                 track_running_stats=self.track_running_stats,
             )
 
-        if len(first_input[0].shape) == 5:
+        if len(first_input.shape) == 5:
             # 3D case
             norm = nn.InstanceNorm3d(
                 fea_dim,
@@ -564,18 +492,17 @@ class normalize_posteriors(nn.Module):
             "count_lab": ("str", "mandatory"),
         }
 
+        # FIX: Old style
         # Check, cast , and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, self.logger
-        )
+        # self.conf = check_opts(self, self.expected_options, config, self.logger)
 
         # Expected inputs when calling the class
         self.expected_inputs = ["torch.Tensor"]
 
         # Check the first input
-        check_inputs(
-            self.conf, self.expected_inputs, first_input, logger=self.logger
-        )
+        # check_inputs(
+        #     self.conf, self.expected_inputs, first_input, logger=self.logger
+        # )
 
         # load the count dictionary
         if self.count_lab in global_config["label_dict"]:
@@ -589,7 +516,7 @@ class normalize_posteriors(nn.Module):
                 'exists in the label dictionary (global_config["label_dict"])'
             )
 
-            logger_write(err_msg, logfile=logger)
+            raise ValueError(err_msg)
 
         # converting dictionary to list
         count_lst = []

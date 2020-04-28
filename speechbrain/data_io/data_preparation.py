@@ -1,19 +1,12 @@
 """
------------------------------------------------------------------------------
- data_preparation.py
-
- Description: This library gathers classes form data preparation.
- -----------------------------------------------------------------------------
- """
+Data preparation.
+"""
 
 import os
-import sys
 import csv
-import errno
-from speechbrain.utils.input_validation import check_opts, check_inputs
+import torch
+import logging
 from speechbrain.utils.data_utils import get_all_files
-from speechbrain.utils.logger import logger_write
-from speechbrain.utils.superpowers import run_shell
 
 from speechbrain.data_io.data_io import (
     read_wav_soundfile,
@@ -23,198 +16,10 @@ from speechbrain.data_io.data_io import (
     write_txt_file,
 )
 
-
-class copy_data_locally:
-    """
-     -------------------------------------------------------------------------
-     speechbrain.data_io.data_preparation.copy_data_locally
-     (author: Mirco Ravanelli)
-
-     Description: This class copies a compressed dataset into another folder.
-                  It can be used to store the data locally when the original
-                  dataset it is stored in a shared filesystem.
-
-     Input (init):  - config (type, dict, mandatory):
-                       it is a dictionary containing the keys described below.
-
-                           - data_file (type: file_list, mandatory):
-                               it is a list containing the files to copy.
-
-                           - local_folder (type:directory,mandatory):
-                               it the local directory where to store the
-                               dataset. The dataset will be uncompressed in
-                               this folder.
-
-                           - copy_cmd (type: str, optional, default: 'rsync'):
-                               it is command to run for copying the dataset.
-
-                           - copy_opts (type: str,optional, default: ''):
-                               it is a string containing the flags to be used
-                               for the copy command copy_cmd.
-
-                           - uncompress_cmd (type: str, optional,
-                            default: 'tar'):
-                               it is command to uncompress the dataset.
-
-                           - uncompress_opts (type:str,optional,
-                             default: '-zxf'):
-                               it is a string containing the flags to be used
-                               for the uncompress command.
-
-                   - funct_name (type, str, optional, default: None):
-                       it is a string containing the name of the parent
-                       function that has called this method.
-
-                   - global_config (type, dict, optional, default: None):
-                       it a dictionary containing the global variables of the
-                       parent config file.
-
-                   - logger (type, logger, optional, default: None):
-                       it the logger used to write debug and error messages.
-                       If logger=None and root_cfg=True, the file is created
-                       from scratch.
-
-                   - first_input (type, list, optional, default: None)
-                      this variable allows users to analyze the first input
-                      given when calling the class for the first time.
+logger = logging.getLogger(__name__)
 
 
-     Input (call): - inp_lst(type, list, mandatory):
-                       by default the input arguments are passed with a list.
-                       In this case, the list is empty. The call function is
-                       just a dummy function here because all the meaningful
-                       computation must be executed only once and they are
-                       thus done in the initialization method only.
-
-
-     Output (call):  - stop_at_lst (type: list):
-                       when stop_at is set, it returns the stop_at in a list.
-                       Otherwise it returns None. It this case it returns
-                       always None.
-
-     Example:    from speechbrain.data_io.data_preparation import (
-                    copy_data_locally)
-
-                 data_file='/home/mirco/datasets/TIMIT.tar.gz'
-                 local_folder='/home/mirco/datasets/local_folder/TIMIT'
-
-                 # Definition of the config dictionary
-                 config={'class_name':'data_processing.copy_data_locally', \
-                              'data_file': data_file, \
-                              'local_folder':local_folder}
-
-                # Initialization of the class
-                copy_data_locally(config)
-
-
-     -------------------------------------------------------------------------
-     """
-
-    def __init__(
-        self,
-        config,
-        funct_name=None,
-        global_config=None,
-        functions=None,
-        logger=None,
-        first_input=None,
-    ):
-
-        # Setting the logger
-        self.logger = logger
-
-        # Definition of the expected options
-        self.expected_options = {
-            "class_name": ("str", "mandatory"),
-            "data_file": ("file_list", "mandatory"),
-            "local_folder": ("str", "mandatory"),
-            "copy_cmd": ("str", "optional", "scp"),
-            "copy_opts": ("str", "optional", ""),
-            "uncompress_cmd": ("str", "optional", "tar"),
-            "uncompress_opts": ("str", "optional", "-zxf"),
-        }
-
-        # Check, cast , and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, logger=self.logger
-        )
-
-        # Expected inputs when calling the class (no inputs in this case)
-        self.expected_inputs = []
-
-        # Checking the first input
-        check_inputs(
-            self.conf, self.expected_inputs, first_input, logger=self.logger
-        )
-
-        # Try to make the local folder
-        try:
-            os.makedirs(self.local_folder)
-        except OSError as e:
-            if e.errno != errno.EEXIST:
-
-                err_msg = "Cannot create the data local folder %s!" % (
-                    self.local_folder
-                )
-
-                logger_write(err_msg, logfile=self.logger)
-
-        self.local_folder = self.local_folder + "/"
-        upper_folder = os.path.dirname(os.path.dirname(self.local_folder))
-
-        # Copying all the files in the data_file list
-        for data_file in self.data_file:
-
-            # Destination file
-            self.dest_file = upper_folder + "/" + os.path.basename(data_file)
-
-            if not os.path.exists(self.dest_file):
-
-                # Copy data file in the local_folder
-                msg = "\tcopying file %s into %s !" % (
-                    data_file,
-                    self.dest_file,
-                )
-
-                logger_write(msg, logfile=self.logger, level="debug")
-
-                cmd = (
-                    self.copy_cmd
-                    + " "
-                    + self.copy_opts
-                    + data_file
-                    + " "
-                    + self.dest_file
-                )
-
-                run_shell(cmd)
-
-                # Uncompress the data_file in the local_folder
-                msg = "\tuncompressing file %s into %s !" % (
-                    self.dest_file,
-                    self.local_folder,
-                )
-
-                logger_write(msg, logfile=self.logger, level="debug")
-
-                cmd = (
-                    self.uncompress_cmd
-                    + " "
-                    + self.uncompress_opts
-                    + self.dest_file
-                    + " -C "
-                    + " "
-                    + self.local_folder
-                    + " --strip-components=1"
-                )
-
-                run_shell(cmd)
-
-    def __call__(self, inp):
-        return
-
-
-class timit_prepare:
+class timit_prepare(torch.nn.Module):
     """
      -------------------------------------------------------------------------
      speechbrain.data_io.data_preparation.timit_prepare
@@ -222,34 +27,36 @@ class timit_prepare:
 
      Description: This class prepares the csv files for the TIMIT dataset.
 
-     Input (init):  - config (type, dict, mandatory):
-                       it is a dictionary containing the keys described below.
+     Input: - data_folder (type: directory, mandatory):
+               it the folder where the original TIMIT dataset
+               is stored.
 
-                           - data_folder (type: directory, mandatory):
-                               it the folder where the original TIMIT dataset
-                               is stored.
+           - splits ('train','dev','test',mandatory):
+               it the local directory where to store the
+               dataset. The dataset will be uncompressed in
+               this folder.
 
-                           - splits ('train','dev','test',mandatory):
-                               it the local directory where to store the
-                               dataset. The dataset will be uncompressed in
-                               this folder.
+           - kaldi_ali_tr (type: direcory, optional,
+               default: 'None'):
+               When set, this is the directiory where the
+               kaldi training alignments are stored.
+               They will be automatically converted into pkl
+               for an easier use within speechbrain.
 
-                           - kaldi_ali_tr (type: direcory, optional,
-                               default: 'None'):
-                               When set, this is the directiory where the
-                               kaldi training alignments are stored.
-                               They will be automatically converted into pkl
-                               for an easier use within speechbrain.
+           - kaldi_ali_dev (type: direcory, optional,
+               default: 'None'):
+               When set, this is the directiory where the
+               kaldi dev alignments are stored.
 
-                           - kaldi_ali_dev (type: direcory, optional,
-                               default: 'None'):
-                               When set, this is the directiory where the
-                               kaldi dev alignments are stored.
+           - kaldi_ali_te (type: direcory, optional,
+               default: 'None'):
+               When set, this is the directiory where the
+               kaldi test alignments are stored.
 
-                           - kaldi_ali_te (type: direcory, optional,
-                               default: 'None'):
-                               When set, this is the directiory where the
-                               kaldi test alignments are stored.
+           - save_folder (type: str,default: None):
+               it the folder where to store the csv files.
+               If None, the results will be saved in
+               $output_folder/prepare_timit/*.csv.
 
                            - phn_set (type: 60,48,39, optional,
                                default: 39):
@@ -259,42 +66,6 @@ class timit_prepare:
                            - uppercase (type: bool, optional, default: False):
                                This option must be True when the TIMIT dataset
                                is in the upper-case version.
-
-                           - save_folder (type: str,optional, default: None):
-                               it the folder where to store the csv files.
-                               If None, the results will be saved in
-                               $output_folder/prepare_timit/*.csv.
-
-                   - funct_name (type, str, optional, default: None):
-                       it is a string containing the name of the parent
-                       function that has called this method.
-
-                   - global_config (type, dict, optional, default: None):
-                       it a dictionary containing the global variables of the
-                       parent config file.
-
-                   - logger (type, logger, optional, default: None):
-                       it the logger used to write debug and error messages.
-                       If logger=None and root_cfg=True, the file is created
-                       from scratch.
-
-                   - first_input (type, list, optional, default: None)
-                      this variable allows users to analyze the first input
-                      given when calling the class for the first time.
-
-
-     Input (call): - inp_lst(type, list, mandatory):
-                       by default the input arguments are passed with a list.
-                       In this case, the list is empty. The call function is
-                       just a dummy function here because all the meaningful
-                       computation must be executed only once and they are
-                       thus done in the initialization method only.
-
-
-     Output (call):  - stop_at_lst (type: list):
-                       when stop_at is set, it returns the stop_at in a list.
-                       Otherwise it returns None. It this case it returns
-                       always None.
 
      Example:    from speechbrain.data_io.data_preparation import timit_prepare
 
@@ -315,45 +86,30 @@ class timit_prepare:
 
     def __init__(
         self,
-        config,
-        funct_name=None,
-        global_config=None,
-        functions=None,
-        logger=None,
-        first_input=None,
+        data_folder,
+        splits,
+        kaldi_ali_tr=None,
+        kaldi_ali_dev=None,
+        kaldi_ali_test=None,
+        kaldi_lab_opts=None,
+        save_folder=None,
+        phn_set="39",
+        uppercase=False,
     ):
-
-        self.logger = logger
-
-        # Here are summarized the expected options for this class
-        self.expected_options = {
-            "class_name": ("str", "mandatory"),
-            "data_folder": ("directory", "mandatory"),
-            "splits": ("one_of_list(train,dev,test)", "mandatory"),
-            "kaldi_ali_tr": ("directory", "optional", "None"),
-            "kaldi_ali_dev": ("directory", "optional", "None"),
-            "kaldi_ali_test": ("directory", "optional", "None"),
-            "kaldi_lab_opts": ("str", "optional", "None"),
-            "save_folder": ("str", "optional", "None"),
-            "phn_set": ("one_of(60,48,39", "optional", "39"),
-            "uppercase": ("bool", "optional", "False"),
-        }
-
-        # Check, cast , and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, logger=self.logger
-        )
-
         # Expected inputs when calling the class (no inputs in this case)
-        self.expected_inputs = []
+        super().__init__()
 
-        # Check the first input
-        check_inputs(
-            self.conf, self.expected_inputs, first_input, logger=self.logger
-        )
+        self.data_folder = data_folder
+        self.splits = splits
+        self.kaldi_ali_tr = kaldi_ali_tr
+        self.kaldi_ali_dev = kaldi_ali_dev
+        self.kaldi_ali_test = kaldi_ali_test
+        self.kaldi_lab_opts = kaldi_lab_opts
+        self.save_folder = save_folder
+        self.phn_set = phn_set
+        self.uppercase = uppercase
 
         # Other variables
-        self.global_config = global_config
         self.samplerate = 16000
 
         # List of test speakers
@@ -592,6 +348,9 @@ class timit_prepare:
         # Setting the save folder
         if self.save_folder is None:
             self.output_folder = self.global_config["output_folder"]
+            raise NotImplementedError("funct_name is undefined here!")
+            # FIX: funct_name is undefined
+            funct_name = None
             self.save_folder = self.output_folder + "/" + funct_name
 
         if not os.path.exists(self.save_folder):
@@ -607,21 +366,23 @@ class timit_prepare:
         if self.skip():
 
             msg = "\t%s sucessfully created!" % (self.save_csv_train)
-            logger_write(msg, logfile=self.logger, level="debug")
+            logger.debug(msg)
 
             msg = "\t%s sucessfully created!" % (self.save_csv_dev)
-            logger_write(msg, logfile=self.logger, level="debug")
+            logger.debug(msg)
 
             msg = "\t%s sucessfully created!" % (self.save_csv_test)
-            logger_write(msg, logfile=self.logger, level="debug")
+            logger.debug(msg)
 
             return
+
+    def __call__(self):
 
         # Additional checks to make sure the data folder contains TIMIT
         self.check_timit_folders()
 
         msg = "\tCreating csv file for the TIMIT Dataset.."
-        logger_write(msg, logfile=self.logger, level="debug")
+        logger.debug(msg)
 
         # Creating csv file for training data
         if "train" in self.splits:
@@ -643,7 +404,6 @@ class timit_prepare:
                 self.save_csv_train,
                 kaldi_lab=self.kaldi_ali_tr,
                 kaldi_lab_opts=self.kaldi_lab_opts,
-                logfile=self.logger,
             )
 
         # Creating csv file for dev data
@@ -667,7 +427,6 @@ class timit_prepare:
                 self.save_csv_dev,
                 kaldi_lab=self.kaldi_ali_dev,
                 kaldi_lab_opts=self.kaldi_lab_opts,
-                logfile=self.logger,
             )
 
         # Creating csv file for test data
@@ -691,13 +450,11 @@ class timit_prepare:
                 self.save_csv_test,
                 kaldi_lab=self.kaldi_ali_test,
                 kaldi_lab_opts=self.kaldi_lab_opts,
-                logfile=self.logger,
             )
 
         # Saving options (useful to skip this phase when already done)
-        save_pkl(self.conf, self.save_opt)
+        # save_pkl(self.conf, self.save_opt)
 
-    def __call__(self, inp):
         return
 
     def skip(self):
@@ -748,13 +505,12 @@ class timit_prepare:
             and os.path.isfile(self.save_csv_test)
             and os.path.isfile(self.save_opt)
         ):
-            opts_old = load_pkl(self.save_opt)
-            if opts_old == self.conf:
-                skip = True
+            skip = True
 
         return skip
 
-    def create_csv(
+    # TODO: Consider making this less complex
+    def create_csv(  # noqa: C901
         self,
         wav_lst,
         csv_file,
@@ -778,14 +534,14 @@ class timit_prepare:
                        - csv_file (type:file, mandatory):
                            it is the path of the output csv file
 
-                       - kaldi_lab (type:file, optional, default:None):
+                       - kaldi_lab (type:file, default:None):
                            it is the path of the kaldi labels (optional).
 
-                       - kaldi_lab_opts (type:str, optional, default:None):
+                       - kaldi_lab_opts (type:str, default:None):
                            it a string containing the options use to compute
                            the labels.
 
-                       - logfile(type, logger, optional, default: None):
+                       - logfile(type, logger, default: None):
                            it the logger used to write debug and error msgs.
 
 
@@ -821,7 +577,7 @@ class timit_prepare:
 
         # Adding some Prints
         msg = '\t"Creating csv lists in  %s..."' % (csv_file)
-        logger_write(msg, logfile=self.logger, level="debug")
+        logger.debug(msg)
 
         # Reading kaldi labels if needed:
         snt_no_lab = 0
@@ -882,7 +638,7 @@ class timit_prepare:
                         "kaldi label" % (snt_id)
                     )
 
-                    logger_write(msg, logfile=self.logger, level="debug")
+                    logger.debug(msg)
 
                     snt_no_lab = snt_no_lab + 1
                 else:
@@ -899,13 +655,13 @@ class timit_prepare:
                         % (self.data_folder, self.kaldi_ali_test)
                     )
 
-                    logger_write(err_msg, logfile=self.logger)
+                    logger.error(err_msg, exc_info=True)
 
             if missing_lab:
                 continue
 
             # Reading the signal (to retrieve duration in seconds)
-            signal = read_wav_soundfile(wav_file, logger=logfile)
+            signal = read_wav_soundfile(wav_file)
             duration = signal.shape[0] / self.samplerate
 
             # Retrieving words and check for uppercase
@@ -914,14 +670,10 @@ class timit_prepare:
             else:
                 wrd_file = wav_file.replace(".wav", ".wrd")
             if not os.path.exists(os.path.dirname(wrd_file)):
-
                 err_msg = "the wrd file %s does not exists!" % (wrd_file)
+                raise FileNotFoundError(err_msg)
 
-                logger_write(err_msg, logfile=logfile)
-
-            words = [
-                line.rstrip("\n").split(" ")[2] for line in open(wrd_file)
-            ]
+            words = [line.rstrip("\n").split(" ")[2] for line in open(wrd_file)]
 
             words = " ".join(words)
 
@@ -932,10 +684,8 @@ class timit_prepare:
                 phn_file = wav_file.replace(".wav", ".phn")
 
             if not os.path.exists(os.path.dirname(phn_file)):
-
                 err_msg = "the wrd file %s does not exists!" % (phn_file)
-
-                logger_write(err_msg, logfile=logfile)
+                raise FileNotFoundError(err_msg)
 
             # Phoneme list
             phonemes = []
@@ -998,7 +748,7 @@ class timit_prepare:
 
         # Final prints
         msg = "\t%s sucessfully created!" % (csv_file)
-        logger_write(msg, logfile=self.logger, level="debug")
+        logger.debug(msg)
 
     def check_timit_folders(self):
         """
@@ -1050,8 +800,7 @@ class timit_prepare:
                 "the folder %s does not exist (it is expected in "
                 "the TIMIT dataset)" % (self.data_folder + test_str)
             )
-
-            logger_write(err_msg, logfile=self.logger)
+            raise FileNotFoundError(err_msg)
 
         # Checking train/dr1
         if not os.path.exists(self.data_folder + train_str):
@@ -1060,8 +809,7 @@ class timit_prepare:
                 "the folder %s does not exist (it is expected in "
                 "the TIMIT dataset)" % (self.data_folder + train_str)
             )
-
-            logger_write(err_msg, logfile=self.logger)
+            raise FileNotFoundError(err_msg)
 
 
 class librispeech_prepare:
@@ -1092,25 +840,25 @@ class librispeech_prepare:
                                test the script on a reduced number of
                                sentences only.
 
-                           - save_folder (type: str,optional, default: None):
+                           - save_folder (type: str,default: None):
                                it the folder where to store the csv files.
                                If None, the results will be saved in
                                $output_folder/prepare_librispeech/*.csv.
 
-                   - funct_name (type, str, optional, default: None):
+                   - funct_name (type, str, default: None):
                        it is a string containing the name of the parent
                        function that has called this method.
 
-                   - global_config (type, dict, optional, default: None):
+                   - global_config (type, dict, default: None):
                        it a dictionary containing the global variables of the
                        parent config file.
 
-                   - logger (type, logger, optional, default: None):
+                   - logger (type, logger, default: None):
                        it the logger used to write debug and error messages.
                        If logger=None and root_cfg=True, the file is created
                        from scratch.
 
-                   - first_input (type, list, optional, default: None)
+                   - first_input (type, list, default: None)
                       this variable allows users to analyze the first input
                       given when calling the class for the first time.
 
@@ -1172,17 +920,17 @@ class librispeech_prepare:
         }
 
         # Check, cast , and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, logger=self.logger
-        )
+        # self.conf = check_opts(
+        #     self, self.expected_options, config, logger=self.logger
+        # )
 
         # Expected input
         self.expected_inputs = []
 
         # Check the first input
-        check_inputs(
-            self.conf, self.expected_inputs, first_input, logger=self.logger
-        )
+        # check_inputs(
+        #     self.conf, self.expected_inputs, first_input, logger=self.logger
+        # )
 
         # Other variables
         self.samplerate = 16000
@@ -1203,7 +951,7 @@ class librispeech_prepare:
             for split in self.splits:
                 text = self.save_folder + "/" + split + ".csv"
                 msg = "\t" + text + " created!"
-                logger_write(msg, logfile=self.logger, level="debug")
+                logger.debug(msg)
             return
 
         # Additional checks to make sure the data folder contains Librispeech
@@ -1302,7 +1050,7 @@ class librispeech_prepare:
 
         # Preliminary prints
         msg = "\tCreating csv lists in  %s..." % (csv_file)
-        logger_write(msg, logfile=self.logger, level="debug")
+        logger.debug(msg)
 
         csv_lines = []
         snt_cnt = 0
@@ -1314,7 +1062,7 @@ class librispeech_prepare:
             spk_id = "-".join(snt_id.split("-")[0:2])
             wrd = text_dict[snt_id]
 
-            signal = read_wav_soundfile(wav_file, logger=self.logger)
+            signal = read_wav_soundfile(wav_file)
             duration = signal.shape[0] / self.samplerate
 
             # Composing the csv file
@@ -1342,11 +1090,11 @@ class librispeech_prepare:
                 break
 
         # Writing the csv_lines
-        write_txt_file(csv_lines, csv_file, logger=self.logger)
+        write_txt_file(csv_lines, csv_file)
 
         # Final print
         msg = "\t%s sucessfully created!" % (csv_file)
-        logger_write(msg, logfile=self.logger, level="debug")
+        logger.debug(msg)
 
     def skip(self):
         """
@@ -1506,8 +1254,7 @@ class librispeech_prepare:
                     "the folder %s does not exist (it is expected in the "
                     "Librispeech dataset)" % (self.data_folder + "/" + split)
                 )
-
-                logger_write(err_msg, logfile=self.logger)
+                raise OSError(err_msg)
 
 
 # Future: May add kaldi labels (not required at this point)
@@ -1611,17 +1358,17 @@ class Voxceleb_prepare:
         }
 
         # Check, cast , and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, logger=self.logger
-        )
+        # self.conf = check_opts(
+        #     self, self.expected_options, config, logger=self.logger
+        # )
 
         # Expected inputs when calling the class (no inputs in this case)
         self.expected_inputs = []
 
         # Check the first input
-        check_inputs(
-            self.conf, self.expected_inputs, first_input, logger=self.logger
-        )
+        # check_inputs(
+        #     self.conf, self.expected_inputs, first_input, logger=self.logger
+        # )
 
         # Other variables
         self.global_config = global_config
@@ -1648,23 +1395,24 @@ class Voxceleb_prepare:
 
         # Check if this phase is already done (if so, skip it)
         if self.skip():
+            # FIX: The logger_writes here
+            # msg = "\t%s sucessfully created!" % (self.save_csv_train)
+            # logger_write(msg, logfile=self.logger, level="debug")
 
-            msg = "\t%s sucessfully created!" % (self.save_csv_train)
-            logger_write(msg, logfile=self.logger, level="debug")
+            # msg = "\t%s sucessfully created!" % (self.save_csv_dev)
+            # logger_write(msg, logfile=self.logger, level="debug")
 
-            msg = "\t%s sucessfully created!" % (self.save_csv_dev)
-            logger_write(msg, logfile=self.logger, level="debug")
-
-            msg = "\t%s sucessfully created!" % (self.save_csv_test)
-            logger_write(msg, logfile=self.logger, level="debug")
+            # msg = "\t%s sucessfully created!" % (self.save_csv_test)
+            # logger_write(msg, logfile=self.logger, level="debug")
 
             return
 
         # Additional checks to make sure the data folder contains TIMIT
         self.check_voxceleb1_folders()
 
-        msg = "\tCreating csv file for the Voxceleb Dataset.."
-        logger_write(msg, logfile=self.logger, level="debug")
+        # FIX: The logger_write
+        # msg = "\tCreating csv file for the Voxceleb Dataset.."
+        # logger_write(msg, logfile=self.logger, level="debug")
 
         # Creating csv file for training data
         if "train" in self.splits:
@@ -1847,13 +1595,15 @@ class Voxceleb_prepare:
          ---------------------------------------------------------------------
          """
 
+        # FIX: The logger_write here
         # Adding some Prints
-        msg = '\t"Creating csv lists in  %s..."' % (csv_file)
-        logger_write(msg, logfile=self.logger, level="debug")
+        # msg = '\t"Creating csv lists in  %s..."' % (csv_file)
+        # logger_write(msg, logfile=self.logger, level="debug")
 
         # Reading kaldi labels if needed:
-        snt_no_lab = 0
-        missing_lab = False
+        # FIX: These statements were unused, should they be deleted?
+        # snt_no_lab = 0
+        # missing_lab = False
         """
         # Kaldi labs will be added in future
         if kaldi_lab is not None:
@@ -1933,9 +1683,10 @@ class Voxceleb_prepare:
             for line in csv_lines:
                 csv_writer.writerow(line)
 
+        # FIX: logger_write
         # Final prints
-        msg = "\t%s sucessfully created!" % (csv_file)
-        logger_write(msg, logfile=self.logger, level="debug")
+        # msg = "\t%s sucessfully created!" % (csv_file)
+        # logger_write(msg, logfile=self.logger, level="debug")
 
     def check_voxceleb1_folders(self):
         """
@@ -1973,12 +1724,14 @@ class Voxceleb_prepare:
          ---------------------------------------------------------------------
          """
 
+        raise NotImplementedError("Need fixing old style here!")
+        # FIX: logger_write, convert to raising an error most probably?
         # Checking
-        if not os.path.exists(self.data_folder + "/id10001"):
+        # if not os.path.exists(self.data_folder + "/id10001"):
 
-            err_msg = (
-                "the folder %s does not exist (it is expected in "
-                "the Voxceleb dataset)" % (self.data_folder + "/id*")
-            )
+        #    err_msg = (
+        #        "the folder %s does not exist (it is expected in "
+        #        "the Voxceleb dataset)" % (self.data_folder + "/id*")
+        #    )
 
-            logger_write(err_msg, logfile=self.logger)
+        #    logger_write(err_msg, logfile=self.logger)

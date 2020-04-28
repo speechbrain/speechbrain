@@ -1,195 +1,67 @@
 """
- -----------------------------------------------------------------------------
- losses.py
+Losses for training neural networks.
 
- Description: This library implements different losses for training neural
-              models.
- -----------------------------------------------------------------------------
+Author
+------
+Mirco Ravanelli 2020
 """
 
-import collections
 import torch
+import logging
 import torch.nn as nn
-from speechbrain.utils.input_validation import check_opts, check_inputs
-from speechbrain.utils.logger import logger_write
 from speechbrain.utils.edit_distance import accumulatable_wer_stats
-from speechbrain.data_io.data_io import filter_ctc_output
+from speechbrain.decoders.ctc import filter_ctc_output
+
+logger = logging.getLogger(__name__)
 
 
 class compute_cost(nn.Module):
     """
-     -------------------------------------------------------------------------
-     nnet.losses.compute_cost (author: Mirco Ravanelli)
+    -------------------------------------------------------------------------
+    Description:
+        This function implements different cost functions for training neural
+        networks. It supports NLL, MSE, L1 and CTC objectives.
 
-     Description:  This function implements different cost functions for
-                   training neural networks. It supports NLL, MSE, L1 and
-                   CTC objectives.
+    Args:
+        cost_type: one of the following options
+            "nll": negative log-likelihood cost.
+            "mse": mean squared error between the prediction and the target.
+            "l1": l1 distance between the prediction and the target.
+            "ctc": connectionist temporal classification, this loss sums
+                up all the possible alignments between targets and predictions.
+            "error": classification error.
+            "wer": word error rate, computed with the edit distance algorithm.
+        avoid_pad: when True, the time steps corresponding to zero-padding
+            are not included in the cost function computation.
+        allow_lab_diff: the number of tolerated differences between the label
+            and prediction lengths. Minimal differences can be tolerated and
+            could be due to different way of processing the signal. Big
+            differences are likely due to an error.
 
-     Input (init):  - config (type, dict, mandatory):
-                       it is a dictionary containing the keys described below.
-
-                           - cost_type (one_of(nll,mse,l1,ctc,error), \
-                               mandatory):
-                               it is the type of cost used.
-
-                               "nll": it is the standard negative
-                               log-likelihood cost.
-
-                               "mse": it is the mean squared error between
-                                      the prediction and the target.
-
-                               "l1":  it is the l1 distance between the
-                                      prediction and the target.
-
-                               "ctc":  it is the ctc function used for
-                                        sequence-to-sequence learning. It sums
-                                        up over all the possible alignments
-                                        between targets and predictions.
-
-                               "error":  it is the standard classification
-                               error.
-
-                               "wer":  it is the word error rate computed
-                               with the edit distance algorithm.
-
-                           - avoid_pad (bool, optional, Default: False):
-                               when True, the time steps corresponding to
-                               zero-padding are not included in the cost
-                               function computation.
-
-                          - allow_lab_diff (int(0,inf), Default:False):
-                              It is the number of tollerable difference
-                              between the label and prediction lengths.
-                              Minimal differences can be tollerated and
-                              could be due to different way of processing
-                              the signal. Big differences and likely due
-                              to an error.
-
-                   - funct_name (type, str, optional, default: None):
-                       it is a string containing the name of the parent
-                       function that has called this method.
-
-                   - global_config (type, dict, optional, default: None):
-                       it a dictionary containing the global variables of the
-                       parent config file.
-
-                   - logger (type, logger, optional, default: None):
-                       it the logger used to write debug and error messages.
-                       If logger=None and root_cfg=True, the file is created
-                       from scratch.
-
-                   - first_input (type, list, optional, default: None)
-                      this variable allows users to analyze the first input
-                      given when calling the class for the first time.
-
-
-     Input (call): - inp_lst(type, list, mandatory):
-                       it is a list containing [predictions, target, lengths].
-                       where prediction is the output of the neural network,
-                       target is the label, while lengths contains the
-                       percentage of valid time steps for each batch. The
-                       latter can be used for removing zero-padded steps from
-                       the cost computation.
-
-
-
-     Output (call): - out_costs(type; lst)
-                       This function returns a list of scalar torch.Tensor
-                       elements that contain the cost function to optimize.
-
-
-
-     Example:   import torch
-                from speechbrain.nnet.architectures import linear
-                from speechbrain.nnet.architectures import activation
-                from speechbrain.nnet.losses import compute_cost
-
-                # Definition of a linear model
-                inp_tensor = torch.rand([1,660,3])
-
-                # config dictionary definition
-                config={'class_name':'speechbrain.nnet.architectures.linear',
-                        'n_neurons':'4'}
-
-                # Initialization of the linear class
-                model=linear(config,first_input=[inp_tensor])
-
-
-                # Definition of the log_softmax
-                config={'class_name':'speechbrain.nnet.architectures.activation',
-                        'act_type':'log_softmax',
-                        }
-
-                # Initialization of the log_softmax class
-                softmax=activation(config, first_input=[inp_tensor])
-
-
-                # Definition of the loss
-                config={'class_name':'speechbrain.nnet.losses.compute_cost',
-                        'cost_type':'nll'}
-
-                # Initialization of the loss function
-                cost=compute_cost(config)
-
-                # Computatitions of the prediction for the current input
-                pre_act=model([inp_tensor])
-                pred = softmax([pre_act])
-
-                # fake label
-                label=torch.FloatTensor([0,1,3]).unsqueeze(0)
-                lengths=torch.Tensor([1.0])
-
-                out_cost= cost([pred,label,lengths])
-
-                print(out_cost)
-
-                # back propagation
-                out_cost.backward()
-
-
-     """
+     Example:
+        >>> import torch
+        >>> from speechbrain.nnet.architectures import linear
+        >>> from speechbrain.nnet.architectures import activation
+        >>> mock_input = torch.rand([1, 660, 3])
+        >>> model = linear(n_neurons=4)
+        >>> model.init_params(mock_input)
+        >>> softmax = activation(act_type='log_softmax')
+        >>> cost = compute_cost(cost_type='nll')
+        >>> pred = softmax(model(mock_input))
+        >>> label = torch.FloatTensor([0,1,3]).unsqueeze(0)
+        >>> lengths = torch.Tensor([1.0])
+        >>> out_cost = cost(pred, label, lengths)
+        >>> for cost in out_cost:
+        ...     cost.backward()
+    """
 
     def __init__(
-        self,
-        config,
-        funct_name=None,
-        global_config=None,
-        functions=None,
-        logger=None,
-        first_input=None,
+        self, cost_type, avoid_pad=None, allow_lab_diff=3, blank_index=None,
     ):
-        super(compute_cost, self).__init__()
-
-        # Logger setup
-        self.logger = logger
-
-        # Here are summarized the expected options for this class
-        self.expected_options = {
-            "class_name": ("str", "mandatory"),
-            "cost_type": (
-                "one_of_list(nll,error,mse,l1,ctc,wer)",
-                "mandatory",
-            ),
-            "avoid_pad": ("bool_list", "optional", "None"),
-            "allow_lab_diff": ("int(0,inf)", "optional", "3"),
-        }
-
-        # Check, cast , and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, self.logger
-        )
-
-        # Definition of the expected input
-        self.expected_inputs = [
-            "torch.Tensor",
-            "torch.Tensor",
-            ["torch.Tensor", "list"],
-        ]
-
-        # Check the first input
-        check_inputs(
-            self.conf, self.expected_inputs, first_input, logger=self.logger
-        )
+        super().__init__()
+        self.cost_type = cost_type
+        self.avoid_pad = avoid_pad
+        self.allow_lab_diff = allow_lab_diff
 
         # if not specified, set avoid_pad to False
         if self.avoid_pad is None:
@@ -213,38 +85,45 @@ class compute_cost(nn.Module):
                 self.costs.append(nn.L1Loss())
 
             if cost == "ctc":
-                self.blank_index = first_input[0].shape[1] - 1
+                self.blank_index = blank_index
                 self.costs.append(nn.CTCLoss(blank=self.blank_index))
                 self.avoid_pad[cost_index] = False
 
             if cost == "wer":
                 self.costs.append(self.compute_wer)
 
-    def forward(self, input_lst):
+    def forward(self, prediction, target, lengths):
+        """
+        Input: - prediction (type: torch.Tensor, mandatory)
+                   the output of the neural network,
 
-        # Reading input prediction
-        prob = input_lst[0]
+               - target (type: torch.Tensor, mandatory)
+                   the label
 
-        # Reading the targets
-        lab = input_lst[1]
+               - lengths (type: torch.Tensor, mandatory)
+                   the percentage of valid time steps for each batch.
+                   Can be used for removing zero-padded steps from
+                   the cost computation.
 
-        # Reading the relative lengths
-        lengths = input_lst[2]
-
+        Output: - out_costs(type; lst)
+                   This function returns a list of scalar torch.Tensor
+                   elements that contain the cost function to optimize.
+        """
         # Check on input and label shapes
         if "ctc" not in self.cost_type:
 
             # Shapes cannot be too different (max 3 time steps)
-            if abs(prob.shape[-1] - lab.shape[-1]) > self.allow_lab_diff:
+            diff = abs(prediction.shape[1] - target.shape[1])
+            if diff > self.allow_lab_diff:
                 err_msg = (
                     "The length of labels differs from the length of the "
                     "output probabilities. (Got %i vs %i)"
-                    % (lab.shape[-1], prob.shape[-1])
+                    % (target.shape[1], prediction.shape[1])
                 )
 
-                logger_write(err_msg, logfile=self.logger)
+                logger.error(err_msg, exc_info=True)
 
-            prob = prob[:, :, 0: lab.shape[-1]]
+            prediction = prediction[:, 0 : target.shape[1], :]
 
         else:
 
@@ -255,16 +134,16 @@ class compute_cost(nn.Module):
                     "be a list [wav_len, lab_len] when ctc is the cost. "
                 )
 
-                logger_write(err_msg, logfile=self.logger)
+                logger.error(err_msg, exc_info=True)
 
         # Adding signal to gpu or cpu
-        prob = prob.to(prob.device)
-        lab = lab.to(prob.device)
+        prediction = prediction.to(prediction.device)
+        target = target.to(prediction.device)
 
         # Regression case
         reshape = True
 
-        if len(prob.shape) == len(lab.shape):
+        if len(prediction.shape) == len(target.shape):
             reshape = False
 
         out_costs = []
@@ -275,7 +154,7 @@ class compute_cost(nn.Module):
             if self.cost_type[i] == "wer":
 
                 # Getting the number of sentences in the minibatch
-                N_snt = prob.shape[0]
+                N_snt = prediction.shape[0]
 
                 # Wer initialization
                 wer = 0
@@ -284,20 +163,20 @@ class compute_cost(nn.Module):
                 for j in range(N_snt):
 
                     # getting the current probabilities and labels
-                    prob_curr = prob[j]
-                    lab_curr = lab[j]
+                    prob_curr = prediction[j]
+                    lab_curr = target[j]
 
                     # Avoiding padded time steps
                     actual_size_prob = int(
-                        torch.round(lengths[0][j] * prob_curr.shape[-1])
+                        torch.round(lengths[0][j] * prob_curr.shape[0])
                     )
 
                     actual_size_lab = int(
                         torch.round(lengths[1][j] * lab_curr.shape[0])
                     )
 
-                    prob_curr = prob_curr.narrow(-1, 0, actual_size_prob)
-                    lab_curr = lab_curr.narrow(-1, 0, actual_size_lab)
+                    prob_curr = prob_curr.narrow(0, 0, actual_size_prob)
+                    lab_curr = lab_curr.narrow(0, 0, actual_size_lab)
 
                     # Computing the wer
                     wer = wer + cost(prob_curr, lab_curr)
@@ -314,7 +193,7 @@ class compute_cost(nn.Module):
             if self.avoid_pad[i]:
 
                 # Getting the number of sentences in the minibatch
-                N_snt = prob.shape[0]
+                N_snt = prediction.shape[0]
 
                 # Loss initialization
                 loss = 0
@@ -323,20 +202,19 @@ class compute_cost(nn.Module):
                 for j in range(N_snt):
 
                     # Selecting sentence
-                    prob_curr = prob[j]
-                    lab_curr = lab[j]
+                    prob_curr = prediction[j]
+                    lab_curr = target[j]
 
                     # Avoiding padded time steps
                     actual_size = int(
                         torch.round(lengths[j] * lab_curr.shape[0])
                     )
 
-                    prob_curr = prob_curr.narrow(-1, 0, actual_size)
-                    lab_curr = lab_curr.narrow(-1, 0, actual_size)
+                    prob_curr = prob_curr.narrow(0, 0, actual_size)
+                    lab_curr = lab_curr.narrow(0, 0, actual_size)
 
                     # Reshaping
                     if reshape:
-                        prob_curr = prob_curr.transpose(0, 1)
                         lab_curr = lab_curr.long()
 
                     # Loss accumulation
@@ -354,8 +232,8 @@ class compute_cost(nn.Module):
             else:
 
                 # Reshaping
-                prob_curr = prob
-                lab_curr = lab
+                prob_curr = prediction
+                lab_curr = target
 
                 # Managing ctc cost for sequence-to-sequence learning
                 if self.cost_type[i] == "ctc":
@@ -363,7 +241,7 @@ class compute_cost(nn.Module):
                     # In the case of using CPU training, int type is mondatory.
                     lab_curr = lab_curr.int()
                     # Permuting output probs
-                    prob_curr = prob_curr.permute(2, 0, 1)
+                    prob_curr = prob_curr.transpose(0, 1)
 
                     # Getting the input lengths
                     input_lengths = torch.round(
@@ -371,7 +249,8 @@ class compute_cost(nn.Module):
                     ).int()
 
                     # Getting the label lengths
-                    lab_lengths = torch.round(lengths[1] * lab.shape[-1]).int()
+                    lab_lengths = lengths[1] * target.shape[1]
+                    lab_lengths = torch.round(lab_lengths).int()
 
                     # CTC cost computation
                     ctc_cost = cost(
@@ -384,10 +263,10 @@ class compute_cost(nn.Module):
 
                     # Reshaping tensors when needed
                     if reshape:
-                        lab_curr = lab.reshape(
-                            lab.shape[0] * lab.shape[1]
+                        lab_curr = target.reshape(
+                            target.shape[0] * target.shape[1]
                         ).long()
-                        prob_curr = prob.transpose(1, 2)
+
                         prob_curr = prob_curr.reshape(
                             prob_curr.shape[0] * prob_curr.shape[1],
                             prob_curr.shape[2],
@@ -420,10 +299,6 @@ class compute_cost(nn.Module):
                             it is the Floattensor containing the labels
                             in the following format:
                             [batch]
-
-
-
-
 
          Output (call): - error(type, torch.Tensor):
                            it is the classification error.
