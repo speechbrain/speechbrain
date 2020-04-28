@@ -355,12 +355,12 @@ class FBANKs(torch.nn.Module):
         first_input : tensor
             A dummy input of the right shape for initializing parameters.
         """
-        self.device_inp = first_input[0].device
+        self.device_inp = first_input.device
         self.band = self.band.to(self.device_inp)
         self.f_central = self.f_central.to(self.device_inp)
         self.all_freqs_mat = self.all_freqs_mat.to(self.device_inp)
 
-    def forward(self, spectrogram):
+    def forward(self, spectrogram, init_params=False):
         """Returns the FBANks.
 
         Arguments
@@ -368,11 +368,8 @@ class FBANKs(torch.nn.Module):
         x : tensor
             A batch of spectrogram tensors.
         """
-
-        self.device_inp = spectrogram.device
-        self.all_freqs_mat = self.all_freqs_mat.to(self.device_inp)
-        self.band = self.band.to(self.device_inp)
-        self.f_central = self.f_central.to(self.device_inp)
+        if init_params:
+            self.init_params(spectrogram)
 
         # Computing central frequency and bandwidth of each filter
         f_central_mat = self.f_central.repeat(
@@ -637,7 +634,7 @@ class MFCCs(torch.nn.Module):
 
         return dct.t()
 
-    def forward(self, fbanks):
+    def forward(self, fbanks, init_params=False):
         """Returns the MFCCs.
 
         Arguments
@@ -645,6 +642,8 @@ class MFCCs(torch.nn.Module):
         x : tensor
             A batch of FBANK tensors.
         """
+        if init_params:
+            self.init_params(fbanks)
 
         # Managing multi-channels case
         fb_shape = fbanks.shape
@@ -703,7 +702,7 @@ class deltas(torch.nn.Module):
         """
         self.kernel = self.kernel.repeat(first_input.shape[2], 1, 1)
 
-    def forward(self, x):
+    def forward(self, x, init_params=False):
         """Returns the delta coefficients.
 
         Arguments
@@ -711,6 +710,9 @@ class deltas(torch.nn.Module):
         x : tensor
             A batch of tensors.
         """
+        if init_params:
+            self.init_params(x)
+
         # Managing multi-channel deltas reshape tensor (batch*channel,time)
         x = x.transpose(1, 2).transpose(2, -1)
         or_shape = x.shape

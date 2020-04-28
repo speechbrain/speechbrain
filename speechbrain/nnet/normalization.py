@@ -177,6 +177,9 @@ class normalize(nn.Module):
         # Reshaping when input to batchnorm1d is 3d makes it faster
         self.reshape = False
 
+        # Fake initialization for jitability
+        self.norm = torch.Tensor([])
+
     def init_params(self, first_input):
 
         # Initializing bachnorm
@@ -210,7 +213,10 @@ class normalize(nn.Module):
                 self.neigh_ch, alpha=self.alpha, beta=self.beta, k=self.k
             )
 
-    def forward(self, x):
+    def forward(self, x, init_params=False):
+
+        if init_params:
+            self.init_params(x)
 
         # Reshaping (if needed)
         # if self.reshape:

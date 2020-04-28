@@ -63,7 +63,7 @@ class Features(torch.nn.Module):
         self.compute_deltas = self.params["compute_deltas"]
         self.context_window = self.params["context_window"]
 
-    def forward(self, wav):
+    def forward(self, wav, init_params=False):
         """Returns a set of features generated from the input waveforms.
 
         Arguments
@@ -75,9 +75,9 @@ class Features(torch.nn.Module):
         features = self.compute_spectrogram(STFT)
 
         if self.feature_type in ["fbank", "mfcc"]:
-            features = self.compute_fbanks(features)
+            features = self.compute_fbanks(features, init_params=init_params)
         if self.feature_type == "mfcc":
-            features = self.compute_mfccs(features)
+            features = self.compute_mfccs(features, init_params=init_params)
 
         if self.deltas:
             delta1 = self.compute_deltas(features)
@@ -88,16 +88,3 @@ class Features(torch.nn.Module):
             features = self.context_window(features)
 
         return features
-
-    def init_params(self, first_input):
-        self.compute_fbanks.init_params(first_input)
-        self.compute_mfccs.init_params(first_input)
-        # To fix
-        if self.feature_type == "mfcc":
-            self.compute_deltas.init_params(
-                torch.rand(4, 1000, self.compute_mfccs.n_mfcc)
-            )
-        if self.feature_type == "fbank":
-            self.compute_deltas.init_params(
-                torch.rand(4, 1000, self.compute_mfccs.n_mels)
-            )

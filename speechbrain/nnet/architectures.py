@@ -44,19 +44,7 @@ class Sequential(torch.nn.Module):
         for layer in layers:
             self.layers.append(layer)
 
-    def init_params(self, dummy_input):
-        """
-        Arguments
-        ---------
-        dummy_input : tensor
-            A dummy input of the right shape for initializing parameters.
-        """
-        for layer in self.layers:
-            if hasattr(layer, "init_params"):
-                layer.init_params(dummy_input)
-            dummy_input = layer(dummy_input)
-
-    def forward(self, x):
+    def forward(self, x, init_params=False):
         """
         Arguments
         ---------
@@ -64,7 +52,10 @@ class Sequential(torch.nn.Module):
             the input tensor to run through the network.
         """
         for layer in self.layers:
-            x = layer(x)
+            try:
+                x = layer(x, init_params=init_params)
+            except TypeError:
+                x = layer(x)
         return x
 
 
@@ -107,6 +98,9 @@ class linear(torch.nn.Module):
         self.n_neurons = n_neurons
         self.bias = bias
 
+        # Fake initialization for jitability
+        self.w = torch.Tensor([])
+
     def init_params(self, first_input):
         """
         Arguments
@@ -114,22 +108,21 @@ class linear(torch.nn.Module):
         first_input : tensor
             A dummy input of the right shape for initializing parameters.
         """
-
-        # Computing the dimensionality of the input
         fea_dim = first_input.shape[2]
-
-        # Initialization of the parameters
         self.w = nn.Linear(fea_dim, self.n_neurons, bias=self.bias)
         self.w.to(first_input.device)
 
-    def forward(self, x):
-        """
-        Args:
-            x: torch.tensor that we want to transform linearly.
+    def forward(self, x, init_params=False):
+        """Returns the linear transformation of input tensor.
 
-        Returns:
-            The linear transformation of the input tensor.
+        Arguments
+        ---------
+        x : torch.Tensor
+            input to transform linearly.
         """
+        if init_params:
+            self.init_params(x)
+
         # Transposing tensor (features always at the end)
         x = x.transpose(2, -1)
 
@@ -253,6 +246,9 @@ class conv(nn.Module):
         if len(self.kernel_size) == 2:
             self.conv2d = True
 
+        # Fake initialization for jitability
+        self.conv = torch.Tensor([])
+
     def init_params(self, first_input):
         """
         Arguments
@@ -326,7 +322,9 @@ class conv(nn.Module):
                 padding_mode=self.padding_mode,
             ).to(first_input.device)
 
-    def forward(self, x):
+    def forward(self, x, init_params=False):
+        if init_params:
+            self.init_params(x)
 
         # transposing input
         x = x.transpose(1, 2).transpose(2, -1)
@@ -1168,6 +1166,9 @@ class RNN_basic(torch.nn.Module):
         self.bidirectional = bidirectional
         self.reshape = False
 
+        # Fake initialization for jitability
+        self.rnn = torch.Tensor([])
+
     def init_params(self, first_input):
         """
         Arguments
@@ -1212,7 +1213,7 @@ class RNN_basic(torch.nn.Module):
 
         self.rnn.to(first_input.device)
 
-    def forward(self, x):
+    def forward(self, x, init_params=False):
         """
         Input: - x (type: torch.Tensor, mandatory):
                    by default the input arguments are passed with a list.
@@ -1225,6 +1226,9 @@ class RNN_basic(torch.nn.Module):
         Output: - wx (type, torch.Tensor, mandatory):
                        it is the RNN output.
         """
+        if init_params:
+            self.init_params(x)
+
         # Reshaping input tensors when needed
         if self.reshape:
             if len(x.shape) == 4:
@@ -1733,6 +1737,9 @@ class dropout(nn.Module):
         self.drop_rate = drop_rate
         self.inplace = inplace
 
+        # Fake initialization for jitability
+        self.drop = torch.Tensor([])
+
     def init_params(self, first_input):
         """
         Arguments
@@ -1751,7 +1758,9 @@ class dropout(nn.Module):
         if len(first_input.shape) == 5:
             self.drop = nn.Dropout3d(p=self.drop_rate, inplace=self.inplace)
 
-    def forward(self, x):
+    def forward(self, x, init_params=False):
+        if init_params:
+            self.init_params(x)
 
         # Avoing the next steps in dropuut_rate is 0
         if self.drop_rate == 0.0:
@@ -1887,6 +1896,9 @@ class pooling(nn.Module):
         if not isinstance(self.pool_axis, list):
             self.pool_axis = [self.pool_axis]
 
+        # Fake initialization for jitability
+        self.pool_layer = torch.Tensor([])
+
     def init_params(self, first_input):
         """
         Arguments
@@ -1979,7 +1991,10 @@ class pooling(nn.Module):
                     ceil_mode=self.ceil_mode,
                 )
 
-    def forward(self, x):
+    def forward(self, x, init_params=False):
+        if init_params:
+            self.init_params(x)
+
         x = x.transpose(1, 2).transpose(2, -1)
         or_shape = x.shape
 

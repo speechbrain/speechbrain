@@ -15,17 +15,9 @@ class ASR(Brain):
     def forward(self, x, init_params=False):
         ids, wavs, wav_lens = x
         wavs, wav_lens = wavs.to(sb.device), wav_lens.to(sb.device)
-
-        if init_params:
-            sb.compute_features.init_params(wavs)
-
-        feats = sb.compute_features(wavs)
+        feats = sb.compute_features(wavs, init_params=init_params)
         feats = sb.normalize(feats, wav_lens)
-
-        if init_params:
-            sb.model.init_params(feats)
-
-        return sb.model(feats), wav_lens
+        return sb.model(feats, init_params=init_params), wav_lens
 
     def compute_objectives(self, predictions, targets, train=True):
         pout, pout_lens = predictions
