@@ -18,7 +18,7 @@
 import sys
 import pickle
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 
     # Try to import matplotlib.pyplot
     try:
@@ -26,7 +26,7 @@ if __name__ == '__main__':
         import matplotlib.pyplot as plt
 
     except Exception:
-        err_msg = 'cannot import matplotlib. Make sure it is installed.'
+        err_msg = "cannot import matplotlib. Make sure it is installed."
         raise
 
     for pkl_file in sys.argv[1:]:
