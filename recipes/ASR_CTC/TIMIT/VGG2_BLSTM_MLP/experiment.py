@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import sys
-import torch
 import speechbrain.data_io.wer as wer_io
 import speechbrain.utils.edit_distance as edit_distance
 from speechbrain.data_io.data_io import convert_index_to_lab
@@ -19,8 +18,6 @@ class ASR(Brain):
 
         if init_params:
             sb.compute_features.init_params(wavs)
-            sb.compute_features = torch.jit.script(sb.compute_features)
-            sb.normalize = torch.jit.script(sb.normalize)
 
         feats = sb.compute_features(wavs)
         feats = sb.normalize(feats, wav_lens)
