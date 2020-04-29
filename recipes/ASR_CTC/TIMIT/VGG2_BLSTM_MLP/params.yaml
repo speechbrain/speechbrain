@@ -14,7 +14,7 @@ constants:
     csv_test: !ref <constants.data_folder>/test.csv
 
     # Neural Parameters
-    number_of_epochs: 16
+    number_of_epochs: 25
     batch_size: 8
     lr: 1.0
     dropout_rate: 0.15
