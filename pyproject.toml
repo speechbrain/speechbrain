@@ -10,6 +10,7 @@ exclude = '''
     | \.mypy_cache
     | \.tox
     | \.venv
+    | tools/kaldi_decoder
   )/
 )
 '''
