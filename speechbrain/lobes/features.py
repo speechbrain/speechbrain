@@ -62,7 +62,7 @@ class Features(torch.nn.Module):
         self.compute_deltas = self.params["compute_deltas"]
         self.context_window = self.params["context_window"]
 
-    def forward(self, wav, init_params=False):
+    def forward(self, wav, init_params:bool):
         """Returns a set of features generated from the input waveforms.
 
         Arguments
@@ -80,7 +80,7 @@ class Features(torch.nn.Module):
 
         if self.deltas:
             delta1 = self.compute_deltas(features, init_params=init_params)
-            delta2 = self.compute_deltas(delta1)
+            delta2 = self.compute_deltas(delta1, init_params=init_params)
             features = torch.cat([features, delta1, delta2], dim=2)
 
         if self.context:
