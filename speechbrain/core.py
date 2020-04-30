@@ -13,168 +13,96 @@ import inspect
 import argparse
 import subprocess
 from tqdm.contrib import tzip
+from speechbrain.yaml import resolve_references
 from speechbrain.utils.logger import setup_logging
-from speechbrain.utils.checkpoints import Checkpointer
-from speechbrain.utils.checkpoints import ckpt_recency
-from speechbrain.utils.data_utils import load_extended_yaml, resolve_references
 from speechbrain.utils.epoch_loop import EpochCounter
+from speechbrain.utils.checkpoints import ckpt_recency
+from speechbrain.utils.data_utils import recursive_update
 
 logger = logging.getLogger(__name__)
 
 
-class Experiment:
-    r'''A class for reading configuration files and creating folders
-
-    The primary method for specifying parameters for an experiment is
-    to provide a YAML file with the syntax extensions described by
-    `speechbrain.utils.data_utils.load_extended_yaml`. In addition,
-    the Experiment class expects the loaded YAML to have three
-    top-level sections: `constants`, `saveables`, and `functions`.
-    These three sections indicate the following:
-
-    1. `constants:` These items are expected to be scalar nodes that
-        can be referenced throughout the file by using the extended YAML
-        reference tags `!ref`. In addition, a few constants are treated as
-        experimental arguments:
-
-        * output_folder (str): The experimental directory for logs, results,
-            labels, and other experimental files.
-        * local_folder (str): The directory to use for local storage.
-        * save_folder (str): The directory to use for storing parameters
-            (see next section).
-        * ckpts_to_keep (int): The number of "best" checkpoints to keep.
-        * seed (int): The random seed for reproducing the experiment on the
-            same device on the same machine.
-        * log_config (str): A yaml file specifying how logging should be done.
-
-        These arguments can be specified in the command line, for easier
-        spawning of multiple experiments.
-
-    2. `saveables:` These items are expected to be instances of sub-classes
-        of `torch.nn.Module` or to implement a custom saver method, so that
-        the relevant parameters can be automatically discovered and saved.
-        The parameters are saved in the `save_folder` which should be
-        specified in the `Constants` section above. In addition, these
-        items will be made available as attributes of
-        the `Experiment` instance, so they can be easily accessed.
-
-    3. `functions:` Additional functions that do not need to have their
-        state saved by the saver. Like the items defined in `saveables`,
-        all of these items will be added as attributes to the `Experiment`
-        instance, so that they can be easily accessed.
-
-    Overrides
-    ---------
-    Any of the keys listed in the yaml file may be overriden via the
-    command-line argument: `yaml_overrides`. The value of this argument should
-    be a yaml-formatted string, though a shortcut has been provided for
-    nested items, e.g.
-
-        "{model.arg1: value, model.arg2.arg3: 3., model.arg2.arg4: True}"
-
-    will be interpreted as:
-
-        {'model': {'arg1': 'value', 'arg2': {'arg3': 3., 'arg4': True}}}
+def create_experiment_directory(
+    experiment_directory,
+    params_to_save=None,
+    overrides={},
+    log_config="logging.yaml",
+):
+    """Create the output folder and relevant experimental files.
 
     Arguments
     ---------
-    yaml_stream : stream
-        A file-like object or string containing
-        experimental parameters. The format of the file is described in
-        the method `speechbrain.utils.data_utils.load_extended_yaml()`.
-    commandline_args : list
-        The arguments from the command-line for
-        overriding the experimental parameters.
+    experiment_directory : str
+        The place where the experiment directory should be created.
+    params_to_save : file
+        A yaml-formatted file-like object representing the parameters for this
+        experiment. If passed, will be written to "params.yaml"
+    overrides : dict
+        A mapping of replacements made in the yaml file, to save.
+    log_config : str
+        A yaml filename containing configuration options for the logger.
+    """
+    if not os.path.isdir(experiment_directory):
+        os.makedirs(experiment_directory)
+
+    # Write the parameters file
+    if params_to_save is not None:
+        params_filename = os.path.join(experiment_directory, "params.yaml")
+        resolved_yaml = resolve_references(params_to_save, overrides)
+        with open(params_filename, "w") as w:
+            shutil.copyfileobj(resolved_yaml, w)
+
+    # Copy executing folder to output directory
+    module = inspect.getmodule(inspect.currentframe().f_back)
+    if module is not None:
+        callingdir = os.path.dirname(os.path.realpath(module.__file__))
+        parentdir, zipname = os.path.split(callingdir)
+        archivefile = os.path.join(experiment_directory, zipname)
+        shutil.make_archive(archivefile, "zip", parentdir, zipname)
+
+    # Log exceptions to output automatically
+    log_filepath = os.path.join(experiment_directory, "log.txt")
+    logger_overrides = parse_overrides(
+        "{handlers.file_handler.filename: %s}" % log_filepath
+    )
+    setup_logging(log_config, logger_overrides)
+    sys.excepthook = _logging_excepthook
+
+    # Log beginning of experiment!
+    logger.info("Beginning experiment!")
+    logger.info(f"Experiment folder: {experiment_directory}")
+    commit_hash = subprocess.check_output(["git", "describe", "--always"])
+    logger.debug("Commit hash: '%s'" % commit_hash.decode("utf-8").strip())
+
+
+class Brain:
+    r"""Interface for running SpeechBrain experiments.
+
+
+    Arguments
+    ---------
 
     Example
     -------
+    >>> from speechbrain.nnet.optimizers import optimize
+    >>> class SimpleBrain(Brain):
+    ...     def forward(self, x, init_params=False):
+    ...         return self.modules[0](x)
+    ...     def compute_objectives(self, predictions, targets, train=True):
+    ...         return torch.nn.functional.l1_loss(predictions, targets)
     >>> tmpdir = getfixture('tmpdir')
-    >>> yaml_string = f"""
-    ... constants:
-    ...     output_folder: {tmpdir}
-    ...     save_folder: !ref <constants.output_folder>/save
-    ... """
-    >>> sb = Experiment(yaml_string)
-    speechbrain.core - Beginning experiment!
-    speechbrain.core - Output folder: ...
-    >>> sb.save_folder
-    '.../save'
-    '''
+    >>> model = torch.nn.Linear(in_features=10, out_features=10)
+    >>> brain = SimpleBrain([model], optimize('sgd', 0.01))
+    >>> brain.fit(
+    ...     train_set=([torch.rand(10, 10)], [torch.rand(10, 10)]),
+    ... )
+    """
 
-    def __init__(
-        self, yaml_stream, commandline_args=[],
-    ):
-        """"""
-        # Parse yaml overrides, with command-line args taking precedence
-        # precedence over the parameters listed in the file.
-        overrides = {"constants": {}}
-        cmd_args = parse_arguments(commandline_args)
-        if "yaml_overrides" in cmd_args:
-            overrides.update(parse_overrides(cmd_args["yaml_overrides"]))
-            del cmd_args["yaml_overrides"]
-        overrides["constants"].update(cmd_args)
-
-        # Load parameters file and store
-        parameters = load_extended_yaml(yaml_stream, overrides)
-        for toplevel_field in ["constants", "saveables", "functions"]:
-            if toplevel_field in parameters:
-                self._update_attributes(parameters[toplevel_field])
-        self._update_attributes(cmd_args, override=True)
-
-        # Use experimental parameters to initialize experiment
-        if hasattr(self, "seed"):
-            torch.manual_seed(self.seed)
-
-        # Stuff depending on having an output_folder
-        logger_overrides = {}
-        if hasattr(self, "output_folder"):
-            if not os.path.isdir(self.output_folder):
-                os.makedirs(self.output_folder)
-
-            # Write the parameters file
-            if hasattr(yaml_stream, "seek"):
-                yaml_stream.seek(0)
-            resolved_yaml = resolve_references(yaml_stream, overrides)
-            params_filename = os.path.join(self.output_folder, "params.yaml")
-            with open(params_filename, "w") as w:
-                shutil.copyfileobj(resolved_yaml, w)
-
-            # Copy executing folder to output directory
-            module = inspect.getmodule(inspect.currentframe().f_back)
-            if module is not None:
-                callingdir = os.path.dirname(os.path.realpath(module.__file__))
-                parentdir, zipname = os.path.split(callingdir)
-                archivefile = os.path.join(self.output_folder, zipname)
-                shutil.make_archive(archivefile, "zip", parentdir, zipname)
-
-            # Change logging file to be in output dir
-            logger_override_string = (
-                "{handlers.file_handler.filename: %s}"
-                % os.path.join(self.output_folder, "log.txt")
-            )
-            logger_overrides = parse_overrides(logger_override_string)
-
-            # Create checkpointer for loading/saving state
-            if hasattr(self, "save_folder") and "saveables" in parameters:
-                self.saver = Checkpointer(
-                    checkpoints_dir=self.save_folder,
-                    recoverables=parameters["saveables"],
-                )
-
-        # Log exceptions automatically
-        if not hasattr(self, "log_config"):
-            self.log_config = "logging.yaml"
-        setup_logging(self.log_config, logger_overrides)
-        sys.excepthook = _logging_excepthook
-
-        # Log beginning of experiment!
-        logger.info("Beginning experiment!")
-        if hasattr(self, "output_folder"):
-            logger.info("Output folder: %s" % self.output_folder)
-
-        # Log commit hash
-        commit_hash = subprocess.check_output(["git", "describe", "--always"])
-        logger.debug("Commit hash: '%s'" % commit_hash.decode("utf-8").strip())
+    def __init__(self, modules, optimizer=None, scheduler=None, saver=None):
+        self.modules = torch.nn.ModuleList(modules)
+        self.optimizer = optimizer
+        self.scheduler = scheduler
+        self.saver = saver
 
     def _update_attributes(self, attributes, override=False):
         r"""Update the attributes of this class to reflect a set of parameters
@@ -195,166 +123,6 @@ class Experiment:
                     raise KeyError("Parameter %s is defined multiple times")
                 value = new_value
             setattr(self, param, value)
-
-
-def _logging_excepthook(exc_type, exc_value, exc_traceback):
-    """Interrupt exception raising to log the error."""
-    logger.error("Exception:", exc_info=(exc_type, exc_value, exc_traceback))
-
-
-def parse_arguments(arg_list):
-    """Parse command-line arguments to the experiment.
-
-    Arguments
-    ---------
-    arg_list: list
-        a list of arguments to parse, most often from `sys.argv[1:]`
-
-    Example
-    -------
-    >>> parse_arguments(['--seed', '10'])
-    {'seed': 10}
-    """
-    parser = argparse.ArgumentParser(
-        description="Run a SpeechBrain experiment",
-    )
-    parser.add_argument(
-        "--yaml_overrides",
-        help="A yaml-formatted string representing a dictionary of "
-        "overrides to the parameters in the param file. The keys of "
-        "the dictionary can use dots to represent levels in the yaml "
-        'hierarchy. For example: "{model.param1: value1}" would '
-        "override the param1 parameter of the model node.",
-    )
-    parser.add_argument(
-        "--output_folder",
-        help="A folder for storing all experiment-related outputs.",
-    )
-    parser.add_argument(
-        "--data_folder", help="A folder containing the data used for training",
-    )
-    parser.add_argument(
-        "--save_folder",
-        help="A folder for storing checkpoints that allow restoring "
-        "progress for testing or re-starting training.",
-    )
-    parser.add_argument(
-        "--seed",
-        type=int,
-        help="A random seed to reproduce experiments on the same machine",
-    )
-    parser.add_argument(
-        "--log_config",
-        help="A file storing the configuration options for logging",
-    )
-
-    # Ignore items that are "None", they were not passed
-    parsed_args = vars(parser.parse_args(arg_list))
-    return {k: v for k, v in parsed_args.items() if v is not None}
-
-
-def parse_overrides(override_string):
-    """Parse overrides from a yaml string representing paired args and values.
-
-    Arguments
-    ---------
-    override_string: str
-        A yaml-formatted string, where each (key: value) pair
-        overrides the same pair in a loaded file.
-
-    Example
-    -------
-    >>> parse_overrides("{model.arg1: val1, model.arg2.arg3: 3.}")
-    {'model': {'arg1': 'val1', 'arg2': {'arg3': 3.0}}}
-    """
-    preview = {}
-    if override_string:
-        preview = yaml.safe_load(override_string)
-
-    overrides = {}
-    for arg, val in preview.items():
-        if "." in arg:
-            nest(overrides, arg.split("."), val)
-        else:
-            overrides[arg] = val
-
-    return overrides
-
-
-def nest(dictionary, args, val):
-    """Create a nested sequence of dictionaries, based on an arg list.
-
-    Arguments
-    ---------
-    dictionary : dict
-        this object will be updated with the nested arguments.
-    args : list
-        a list of parameters specifying a nested location.
-    val : obj
-        The value to store at the specified nested location.
-
-    Example
-    -------
-    >>> params = {}
-    >>> nest(params, ['arg1', 'arg2', 'arg3'], 'value')
-    >>> params
-    {'arg1': {'arg2': {'arg3': 'value'}}}
-    """
-    if len(args) == 1:
-        dictionary[args[0]] = val
-        return
-
-    if args[0] not in dictionary:
-        dictionary[args[0]] = {}
-
-    nest(dictionary[args[0]], args[1:], val)
-
-
-class Brain:
-    """A class for abstracting details of training.
-
-    Sub-class this class to use the `learn` function, and override methods
-    to specify behavior. In particular, the  `loss_computation` method should
-    be overridden to compute your particular loss, and if the models are not
-    simply applied in sequence, then `init_params` and `forward` should be
-    overridden as well.
-
-    Arguments
-    ---------
-    models : list
-        A sequence of models that are being trained.
-    optimizer : optimizer
-        Takes a list of models for which the backwards has been
-        computed, and applies the updates to all the parameters.
-    scheduler : scheduler
-        Takes an optimizer and changes the learning rate appropriately.
-    saver : checkpointer
-        A checkpointer that has been initialized with all the items
-        that need to be saved.
-
-    Example
-    -------
-    >>> from speechbrain.nnet.optimizers import optimize
-    >>> model = torch.nn.Linear(in_features=10, out_features=10)
-    >>> class SimpleBrain(Brain):
-    ...     def forward(self, x, init_params=False):
-    ...         return model(x)
-    ...     def compute_objectives(self, predictions, targets, train=True):
-    ...         return torch.nn.functional.l1_loss(predictions, targets)
-    >>> brain = SimpleBrain([model], optimize("sgd", 0.01))
-    >>> brain.fit(
-    ...     train_set=([torch.rand(10, 10)], [torch.rand(10, 10)]),
-    ... )
-    """
-
-    def __init__(
-        self, modules, optimizer, scheduler=None, saver=None,
-    ):
-        super().__init__()
-        self.modules = torch.nn.ModuleList(modules)
-        self.optimizer = optimizer
-        self.scheduler = scheduler
-        self.saver = saver
 
     def forward(self, x, init_params=False):
         """Forward pass, to be overridden by sub-classes.
@@ -388,11 +156,18 @@ class Brain:
     def fit_batch(self, batch):
         """Fit one batch, override to do multiple updates.
 
+        The default impementation depends on three methods being defined
+        with a particular behavior:
+
+        * `forward`
+        * `compute_objectives`
+        * `optimizer`
+
         Arguments
         ---------
         batch : list of torch.Tensors
-            batch to use for training, usually including both inputs
-            and targets.
+            batch of data to use for training. Default implementation assumes
+            this batch has two elements: inputs and targets.
         """
         inputs, targets = batch
         predictions = self.forward(inputs)
@@ -404,10 +179,17 @@ class Brain:
     def evaluate_batch(self, batch):
         """Evaluate one batch, override for different procedure than train.
 
+        The default impementation depends on two methods being defined
+        with a particular behavior:
+
+        * `forward`
+        * `compute_objectives`
+
         Arguments
         ---------
         batch : list of torch.Tensors
-            batch to evaluate, usually including inputs and targets.
+            batch of data to use for evaluation. Default implementation assumes
+            this batch has two elements: inputs and targets.
         """
         inputs, targets = batch
         output = self.forward(inputs)
@@ -438,8 +220,8 @@ class Brain:
         """Iterate epochs and datasets to improve objective.
 
         Relies on the existence of mulitple functions that can (or should) be
-        overridden. The following are functions not defined in `nn.Module`
-        but are used and expected to have a certain behavior:
+        overridden. The following functions are used and expected to have a
+        certain behavior:
 
         * `fit_batch`
         * `evaluate_batch`
@@ -567,3 +349,124 @@ class Brain:
         self.saver.save_and_keep_only(
             meta=stats, importance_keys=importance_keys,
         )
+
+
+def _logging_excepthook(exc_type, exc_value, exc_traceback):
+    """Interrupt exception raising to log the error."""
+    logger.error("Exception:", exc_info=(exc_type, exc_value, exc_traceback))
+
+
+def parse_arguments(arg_list):
+    """Parse command-line arguments to the experiment.
+
+    Arguments
+    ---------
+    arg_list: list
+        a list of arguments to parse, most often from `sys.argv[1:]`
+
+    Example
+    -------
+    >>> parse_arguments(['--seed', '10'])
+    {'seed': 10}
+    """
+    parser = argparse.ArgumentParser(
+        description="Run a SpeechBrain experiment",
+    )
+    parser.add_argument(
+        "--yaml_overrides",
+        help="A yaml-formatted string representing a dictionary of "
+        "overrides to the parameters in the param file. The keys of "
+        "the dictionary can use dots to represent levels in the yaml "
+        'hierarchy. For example: "{model.param1: value1}" would '
+        "override the param1 parameter of the model node.",
+    )
+    parser.add_argument(
+        "--output_folder",
+        help="A folder for storing all experiment-related outputs.",
+    )
+    parser.add_argument(
+        "--data_folder", help="A folder containing the data used for training",
+    )
+    parser.add_argument(
+        "--save_folder",
+        help="A folder for storing checkpoints that allow restoring "
+        "progress for testing or re-starting training.",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        help="A random seed to reproduce experiments on the same machine",
+    )
+    parser.add_argument(
+        "--log_config",
+        help="A file storing the configuration options for logging",
+    )
+
+    # Ignore items that are "None", they were not passed
+    parsed_args = vars(parser.parse_args(arg_list))
+
+    # Convert yaml_overrides to dictionary
+    if parsed_args["yaml_overrides"] is not None:
+        overrides = parse_overrides(parsed_args["yaml_overrides"])
+        del parsed_args["yaml_overrides"]
+        recursive_update(parsed_args, overrides)
+
+    # Only return non-empty items
+    return {k: v for k, v in parsed_args.items() if v is not None}
+
+
+def parse_overrides(override_string):
+    """Parse overrides from a yaml string representing paired args and values.
+
+    Arguments
+    ---------
+    override_string: str
+        A yaml-formatted string, where each (key: value) pair
+        overrides the same pair in a loaded file.
+
+    Example
+    -------
+    >>> parse_overrides("{model.arg1: val1, model.arg2.arg3: 3.}")
+    {'model': {'arg1': 'val1', 'arg2': {'arg3': 3.0}}}
+    """
+    preview = {}
+    if override_string:
+        preview = yaml.safe_load(override_string)
+
+    overrides = {}
+    for arg, val in preview.items():
+        if "." in arg:
+            nest(overrides, arg.split("."), val)
+        else:
+            overrides[arg] = val
+
+    return overrides
+
+
+def nest(dictionary, args, val):
+    """Create a nested sequence of dictionaries, based on an arg list.
+
+    Arguments
+    ---------
+    dictionary : dict
+        this object will be updated with the nested arguments.
+    args : list
+        a list of parameters specifying a nested location.
+    val : obj
+        The value to store at the specified nested location.
+
+    Example
+    -------
+    >>> params = {}
+    >>> nest(params, ['arg1', 'arg2', 'arg3'], 'value')
+    >>> params
+    {'arg1': {'arg2': {'arg3': 'value'}}}
+    """
+    if len(args) == 1:
+        dictionary[args[0]] = val
+        return
+
+    if args[0] not in dictionary:
+        dictionary[args[0]] = {}
+
+    nest(dictionary[args[0]], args[1:], val)

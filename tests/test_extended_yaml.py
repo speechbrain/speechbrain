@@ -2,58 +2,49 @@ import pytest
 
 
 def test_load_extended_yaml():
-    from speechbrain.utils.data_utils import load_extended_yaml
+    from speechbrain.yaml import load_extended_yaml
 
     # Basic functionality
     yaml = """
-    constants:
-        a: 1
+    a: 1
     thing: !collections.Counter
     """
     things = load_extended_yaml(yaml)
-    assert things["constants"]["a"] == 1
+    assert things.a == 1
     from collections import Counter
 
-    assert things["thing"].__class__ == Counter
+    assert things.thing.__class__ == Counter
 
-    overrides = {"constants": {"a": 2}}
+    overrides = {"a": 2}
     things = load_extended_yaml(yaml, overrides=overrides)
-
-    # Missing sections
-    yaml = """
-    """
-    things = load_extended_yaml(yaml)
-    assert things is None
+    assert things.a == 2
 
     # String replacement
     yaml = """
-    constants:
-        a: abc
-        b: !ref <constants.a>
+    a: abc
+    b: !ref <a>
     thing: !collections.Counter
-        a: !ref <constants.a>
+        a: !ref <a>
     """
     things = load_extended_yaml(yaml)
-    assert things["thing"]["a"] == things["constants"]["a"]
-    assert things["constants"]["a"] == things["constants"]["b"]
+    assert things.thing["a"] == things.a
+    assert things.a == things.b
 
     # String interpolation
     yaml = """
-    constants:
-        a: "a"
-        b: !ref <constants.a>/b
+    a: "a"
+    b: !ref <a>/b
     """
     things = load_extended_yaml(yaml)
-    assert things["constants"]["b"] == "a/b"
+    assert things.b == "a/b"
 
     # Substitution with string conversion
     yaml = """
-    constants:
-        a: 1
-        b: !ref <constants.a>/b
+    a: 1
+    b: !ref <a>/b
     """
     things = load_extended_yaml(yaml)
-    assert things["constants"]["b"] == "1/b"
+    assert things.b == "1/b"
 
     # Nested structures:
     yaml = """
@@ -64,18 +55,17 @@ def test_load_extended_yaml():
             a: !ref <constants.a>
     """
     things = load_extended_yaml(yaml)
-    assert things["thing"]["other"].__class__ == Counter
-    assert things["thing"]["other"]["a"] == things["constants"]["a"]
+    assert things.thing["other"].__class__ == Counter
+    assert things.thing["other"]["a"] == things.constants["a"]
 
     # Positional arguments
     yaml = """
-    constants:
-        a: hello
+    a: hello
     thing: !collections.Counter
-        - !ref <constants.a>
+        - !ref <a>
     """
     things = load_extended_yaml(yaml)
-    assert things["thing"]["l"] == 2
+    assert things.thing["l"] == 2
 
     # Invalid class
     yaml = """
@@ -103,8 +93,8 @@ def test_load_extended_yaml():
         b: 7
     """
     things = load_extended_yaml(yaml)
-    assert things["thing1"]["a"] == things["thing2"]["a"]
-    assert things["thing1"]["b"] != things["thing2"]["b"]
+    assert things.thing1["a"] == things.thing2["a"]
+    assert things.thing1["b"] != things.thing2["b"]
 
     # List of arguments that are objects
     yaml = """
@@ -117,7 +107,7 @@ def test_load_extended_yaml():
             - bar
     """
     things = load_extended_yaml(yaml)
-    assert things["thing"] == "abc/def/foo/bar"
+    assert things.thing == "abc/def/foo/bar"
 
     yaml = """
     thing1: !collections.Counter
@@ -126,6 +116,6 @@ def test_load_extended_yaml():
     thing2: !ref <thing1>
     """
     things = load_extended_yaml(yaml)
-    assert things["thing2"]["b"] == things["thing1"]["b"]
-    things["thing2"]["b"] = 7
-    assert things["thing2"]["b"] == things["thing1"]["b"]
+    assert things.thing2["b"] == things.thing1["b"]
+    things.thing2["b"] = 7
+    assert things.thing2["b"] == things.thing1["b"]
