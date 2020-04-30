@@ -58,9 +58,9 @@ python recipes/<path>/<to>/<specific>/experiment.py
  
 The output will be saved in *exp/<outdir>* (relative to current working dir). 
 Both detailed logs and experiment output are saved there. 
-Furthermore, less detailed are output to stdout
-The experiment script and configuration (including possible command-line 
-overrides are also copied to the output directory.
+Furthermore, less detailed logs are output to stdout. The experiment script and 
+configuration (including possible command-line overrides are also copied to the 
+output directory.
 
 
 # Tensor format
