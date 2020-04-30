@@ -149,10 +149,13 @@ module, we suggest the extra tools pattern: don't add the dependency to general
 requirements, but check for installation and instruct to if the dependant code is run.
 
 ### Testing
-We are adopting unit-tests using [pytest](https://docs.pytest.org/en/latest/contents.html)
+We are adopting unit tests using 
+[pytest](https://docs.pytest.org/en/latest/contents.html).
+Run unit tests with `pytest tests`
 
 Additionally we have runnable doctests, though primarily these serve as 
-examples of the documented code.
+examples of the documented code. Run doctests with 
+`pytest --doctest-modules <file-or-directory>`
 
 ## Documentation
 In SpeechBrain, we plan to provide documentation at different levels:
