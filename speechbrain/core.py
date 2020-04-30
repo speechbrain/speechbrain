@@ -12,296 +12,107 @@ import logging
 import inspect
 import argparse
 import subprocess
+from tqdm.contrib import tzip
+from speechbrain.yaml import resolve_references
 from speechbrain.utils.logger import setup_logging
-from speechbrain.utils.checkpoints import Checkpointer
+from speechbrain.utils.epoch_loop import EpochCounter
 from speechbrain.utils.checkpoints import ckpt_recency
-from speechbrain.utils.data_utils import load_extended_yaml, resolve_references
+from speechbrain.utils.data_utils import recursive_update
 
 logger = logging.getLogger(__name__)
 
 
-class Experiment:
-    r'''A class for reading configuration files and creating folders
-
-    The primary method for specifying parameters for an experiment is
-    to provide a YAML file with the syntax extensions described by
-    `speechbrain.utils.data_utils.load_extended_yaml`. In addition,
-    the Experiment class expects the loaded YAML to have three
-    top-level sections: `constants`, `saveables`, and `functions`.
-    These three sections indicate the following:
-
-    1. `constants:` These items are expected to be scalar nodes that
-        can be referenced throughout the file by using the extended YAML
-        reference tags `!ref`. In addition, a few constants are treated as
-        experimental arguments:
-
-        * output_folder (str): The experimental directory for logs, results,
-            labels, and other experimental files.
-        * local_folder (str): The directory to use for local storage.
-        * save_folder (str): The directory to use for storing parameters
-            (see next section).
-        * ckpts_to_keep (int): The number of "best" checkpoints to keep.
-        * seed (int): The random seed for reproducing the experiment on the
-            same device on the same machine.
-        * log_config (str): A yaml file specifying how logging should be done.
-
-        These arguments can be specified in the command line, for easier
-        spawning of multiple experiments.
-
-    2. `saveables:` These items are expected to be instances of sub-classes
-        of `torch.nn.Module` or to implement a custom saver method, so that
-        the relevant parameters can be automatically discovered and saved.
-        The parameters are saved in the `save_folder` which should be
-        specified in the `Constants` section above. In addition, these
-        items will be made available as attributes of
-        the `Experiment` instance, so they can be easily accessed.
-
-    3. `functions:` Additional functions that do not need to have their
-        state saved by the saver. Like the items defined in `saveables`,
-        all of these items will be added as attributes to the `Experiment`
-        instance, so that they can be easily accessed.
-
-    Overrides
-    ---------
-    Any of the keys listed in the yaml file may be overriden via the
-    command-line argument: `yaml_overrides`. The value of this argument should
-    be a yaml-formatted string, though a shortcut has been provided for
-    nested items, e.g.
-
-        "{model.arg1: value, model.arg2.arg3: 3., model.arg2.arg4: True}"
-
-    will be interpreted as:
-
-        {'model': {'arg1': 'value', 'arg2': {'arg3': 3., 'arg4': True}}}
+def create_experiment_directory(
+    experiment_directory,
+    params_to_save=None,
+    overrides={},
+    log_config="logging.yaml",
+):
+    """Create the output folder and relevant experimental files.
 
     Arguments
     ---------
-    yaml_stream : stream
-        A file-like object or string containing
-        experimental parameters. The format of the file is described in
-        the method `speechbrain.utils.data_utils.load_extended_yaml()`.
-    commandline_args : list
-        The arguments from the command-line for
-        overriding the experimental parameters.
+    experiment_directory : str
+        The place where the experiment directory should be created.
+    params_to_save : str
+        A filename of a yaml file representing the parameters for this
+        experiment. If passed, references are resolved and the result
+        is written to a file in the experiment directory called "params.yaml"
+    overrides : dict
+        A mapping of replacements made in the yaml file, to save in yaml.
+    log_config : str
+        A yaml filename containing configuration options for the logger.
+    """
+    if not os.path.isdir(experiment_directory):
+        os.makedirs(experiment_directory)
+
+    # Write the parameters file
+    if params_to_save is not None:
+        params_filename = os.path.join(experiment_directory, "params.yaml")
+        with open(params_to_save) as f:
+            resolved_yaml = resolve_references(f, overrides)
+        with open(params_filename, "w") as w:
+            shutil.copyfileobj(resolved_yaml, w)
+
+    # Copy executing folder to output directory
+    module = inspect.getmodule(inspect.currentframe().f_back)
+    if module is not None:
+        callingdir = os.path.dirname(os.path.realpath(module.__file__))
+        parentdir, zipname = os.path.split(callingdir)
+        archivefile = os.path.join(experiment_directory, zipname)
+        shutil.make_archive(archivefile, "zip", parentdir, zipname)
+
+    # Log exceptions to output automatically
+    log_filepath = os.path.join(experiment_directory, "log.txt")
+    logger_overrides = parse_overrides(
+        "{handlers.file_handler.filename: %s}" % log_filepath
+    )
+    setup_logging(log_config, logger_overrides)
+    sys.excepthook = _logging_excepthook
+
+    # Log beginning of experiment!
+    logger.info("Beginning experiment!")
+    logger.info(f"Experiment folder: {experiment_directory}")
+    commit_hash = subprocess.check_output(["git", "describe", "--always"])
+    logger.debug("Commit hash: '%s'" % commit_hash.decode("utf-8").strip())
+
+
+class Brain:
+    r"""Interface for running SpeechBrain experiments.
+
+
+    Arguments
+    ---------
+    modules : list of torch.Tensors
+        The modules that will be updated using the optimizer.
+    optimizer : optimizer
+        The class to use for updating the modules' parameters.
+    scheduler : scheduler
+        An object that changes the learning rate based on performance.
+    saver : Checkpointer
+        This is called by default at the end of each epoch to save progress.
 
     Example
     -------
+    >>> from speechbrain.nnet.optimizers import optimize
+    >>> class SimpleBrain(Brain):
+    ...     def forward(self, x, init_params=False):
+    ...         return self.modules[0](x)
+    ...     def compute_objectives(self, predictions, targets, train=True):
+    ...         return torch.nn.functional.l1_loss(predictions, targets)
     >>> tmpdir = getfixture('tmpdir')
-    >>> yaml_string = f"""
-    ... constants:
-    ...     output_folder: {tmpdir}
-    ...     save_folder: !ref <constants.output_folder>/save
-    ... """
-    >>> sb = Experiment(yaml_string)
-    speechbrain.core - Beginning experiment!
-    speechbrain.core - Output folder: ...
-    >>> sb.save_folder
-    '.../save'
-    '''
+    >>> model = torch.nn.Linear(in_features=10, out_features=10)
+    >>> brain = SimpleBrain([model], optimize('sgd', 0.01))
+    >>> brain.fit(
+    ...     train_set=([torch.rand(10, 10)], [torch.rand(10, 10)]),
+    ... )
+    """
 
-    def __init__(
-        self, yaml_stream, commandline_args=[],
-    ):
-        """"""
-        # Parse yaml overrides, with command-line args taking precedence
-        # precedence over the parameters listed in the file.
-        overrides = {"constants": {}}
-        cmd_args = parse_arguments(commandline_args)
-        if "yaml_overrides" in cmd_args:
-            overrides.update(parse_overrides(cmd_args["yaml_overrides"]))
-            del cmd_args["yaml_overrides"]
-        overrides["constants"].update(cmd_args)
-
-        # Load parameters file and store
-        parameters = load_extended_yaml(yaml_stream, overrides)
-        for toplevel_field in ["constants", "saveables", "functions"]:
-            if toplevel_field in parameters:
-                self._update_attributes(parameters[toplevel_field])
-        self._update_attributes(cmd_args, override=True)
-
-        # Use experimental parameters to initialize experiment
-        if hasattr(self, "seed"):
-            torch.manual_seed(self.seed)
-
-        # Stuff depending on having an output_folder
-        logger_overrides = {}
-        if hasattr(self, "output_folder"):
-            if not os.path.isdir(self.output_folder):
-                os.makedirs(self.output_folder)
-
-            # Write the parameters file
-            if hasattr(yaml_stream, "seek"):
-                yaml_stream.seek(0)
-            resolved_yaml = resolve_references(yaml_stream, overrides)
-            params_filename = os.path.join(self.output_folder, "params.yaml")
-            with open(params_filename, "w") as w:
-                shutil.copyfileobj(resolved_yaml, w)
-
-            # Copy executing folder to output directory
-            module = inspect.getmodule(inspect.currentframe().f_back)
-            if module is not None:
-                callingdir = os.path.dirname(os.path.realpath(module.__file__))
-                parentdir, zipname = os.path.split(callingdir)
-                archivefile = os.path.join(self.output_folder, zipname)
-                shutil.make_archive(archivefile, "zip", parentdir, zipname)
-
-            # Change logging file to be in output dir
-            logger_override_string = (
-                "{handlers.file_handler.filename: %s}"
-                % os.path.join(self.output_folder, "log.txt")
-            )
-            logger_overrides = parse_overrides(logger_override_string)
-
-            # Create checkpointer for loading/saving state
-            if hasattr(self, "save_folder") and "saveables" in parameters:
-                self.saver = Checkpointer(
-                    checkpoints_dir=self.save_folder,
-                    recoverables=parameters["saveables"],
-                )
-
-        # Log exceptions automatically
-        if not hasattr(self, "log_config"):
-            self.log_config = "logging.yaml"
-        setup_logging(self.log_config, logger_overrides)
-        sys.excepthook = _logging_excepthook
-
-        # Log beginning of experiment!
-        logger.info("Beginning experiment!")
-        if hasattr(self, "output_folder"):
-            logger.info("Output folder: %s" % self.output_folder)
-
-        # Log commit hash
-        commit_hash = subprocess.check_output(["git", "describe", "--always"])
-        logger.debug("Commit hash: '%s'" % commit_hash.decode("utf-8").strip())
-
-    def recover_if_possible(self, max_key=None, min_key=None):
-        """
-        See `speechbrain.utils.checkpoints.Checkpointer.recover_if_possible`
-
-        If neither `max_key` nor `min_key` is passed, the default
-        for `recover_if_possible` is used (most recent checkpoint).
-
-        Arguments
-        ---------
-        max_key : str
-            A key that was stored in meta when the checkpoint
-            was created. The checkpoint with the `highest` stored value
-            for this key will be loaded.
-        min_key : str
-            A key that was stored in meta when the checkpoint
-            was created. The checkpoint with the `lowest` stored value
-            for this key will be loaded.
-        """
-        if not (max_key is None or min_key is None):
-            raise ValueError("Can't use both max and min")
-        if hasattr(self, "saver"):
-            if max_key is None and min_key is None:
-                self.saver.recover_if_possible()
-            # NB: the lambdas need the key=key to actually store the key.
-            # Otherwise the value of key is looked up dynamically
-            # (and will have changed)
-            elif max_key is not None:
-                self.saver.recover_if_possible(
-                    lambda c, key=max_key: c.meta[key]
-                )
-            elif min_key is not None:
-                self.saver.recover_if_possible(
-                    lambda c, key=min_key: -c.meta[key]
-                )
-        else:
-            raise KeyError(
-                "The field <constants.output_folder> and the field "
-                "<constants.save_folder> must both be "
-                "specified in order to load a checkpoint."
-            )
-
-    def save_and_keep_only(
-        self,
-        meta={},
-        end_of_epoch=True,
-        num_to_keep=1,
-        max_keys=[],
-        min_keys=[],
-    ):
-        """
-        See `speechbrain.utils.checkpoints.Checkpointer.save_and_keep_only`
-
-        Arguments
-        ---------
-        meta : mapping
-            a set of key, value pairs to store alongside the checkpoint.
-        end_of_epoch : bool
-            Whether the checkpoint happens at the end of an epoch (last thing)
-            or not. This may affect recovery. Default: True
-        num_to_keep : int
-            The number of checkpoints to keep for each metric.
-        max_keys : iterable
-            a set of keys in the meta to use for determining which checkpoints
-            to keep. The highest N of each listed key will be kept.
-        min_keys : iterable
-            a set of keys in the meta to use for determining which checkpoints
-            to keep. The lowest N of each listed key will be kept.
-        """
-        if hasattr(self, "saver"):
-            for key in max_keys:
-                if key not in meta:
-                    raise ValueError("Max key {} must be in meta".format(key))
-            for key in min_keys:
-                if key not in meta:
-                    raise ValueError("Min key {} must be in meta".format(key))
-
-            # Always save the most recent checkpoint, as well:
-            importance_keys = [ckpt_recency]
-            # NB: the lambdas need the key=key to actually store the key.
-            # Otherwise the value of key is looked up dynamically
-            # (and will have changed)
-            for key in max_keys:
-                importance_keys.append(lambda c, key=key: c.meta[key])
-            for key in min_keys:
-                importance_keys.append(lambda c, key=key: -c.meta[key])
-            self.saver.save_and_keep_only(
-                meta=meta,
-                end_of_epoch=end_of_epoch,
-                importance_keys=importance_keys,
-                num_to_keep=num_to_keep,
-            )
-        else:
-            raise KeyError(
-                "The field <constants.output_folder> and the field "
-                "<constants.save_folder> must both be "
-                "specified in order to save a checkpoint."
-            )
-
-    def log_epoch_stats(self, epoch, train_stats, valid_stats):
-        """Log key stats about the epoch.
-
-        Arguments
-        ---------
-        epoch : int
-            The epoch to log.
-        train_stats : mapping
-            The training statistics to log, e.g. `{'wer': 22.1}`
-        valid_stats : mapping
-            The validation statistics to log, same format as above.
-
-        Example
-        -------
-        >>> tmpdir = getfixture('tmpdir')
-        >>> yaml_string = f'''
-        ... constants:
-        ...     output_folder: {tmpdir}
-        ... '''
-        >>> sb = Experiment(yaml_string)
-        speechbrain.core - Beginning experiment!
-        speechbrain.core - Output folder: ...
-        >>> sb.log_epoch_stats(3, {'loss': 4}, {'loss': 5})
-        speechbrain.core - epoch: 3 - train loss: 4.00 - valid loss: 5.00
-        """
-        log_string = "epoch: {} - ".format(epoch)
-        train_str = ["train %s: %.2f" % i for i in train_stats.items()]
-        valid_str = ["valid %s: %.2f" % i for i in valid_stats.items()]
-        log_string += " - ".join(train_str + valid_str)
-        logger.info(log_string)
+    def __init__(self, modules, optimizer=None, scheduler=None, saver=None):
+        self.modules = torch.nn.ModuleList(modules)
+        self.optimizer = optimizer
+        self.scheduler = scheduler
+        self.saver = saver
 
     def _update_attributes(self, attributes, override=False):
         r"""Update the attributes of this class to reflect a set of parameters
@@ -322,6 +133,232 @@ class Experiment:
                     raise KeyError("Parameter %s is defined multiple times")
                 value = new_value
             setattr(self, param, value)
+
+    def forward(self, x, init_params=False):
+        """Forward pass, to be overridden by sub-classes.
+
+        Arguments
+        ---------
+        x : torch.Tensor or list of tensors
+            The input tensor or tensors for processing.
+        init_params : bool
+            Whether this pass should initialize parameters rather
+            than return the results of the forward pass.
+        """
+        raise NotImplementedError
+
+    def compute_objectives(self, predictions, targets, train=True):
+        """Compute loss, to be overridden by sub-classes.
+
+        Arguments
+        ---------
+        predictions : torch.Tensor or list of tensors
+            The output tensor or tensors to evaluate.
+        targets : torch.Tensor or list of tensors
+            The gold standard to use for evaluation.
+        train : bool
+            Whether this is computed for training or not. During training,
+            sometimes fewer stats will be computed for the sake of efficiency
+            (e.g. WER might only be computed for valid and test, not train).
+        """
+        raise NotImplementedError
+
+    def fit_batch(self, batch):
+        """Fit one batch, override to do multiple updates.
+
+        The default impementation depends on three methods being defined
+        with a particular behavior:
+
+        * `forward`
+        * `compute_objectives`
+        * `optimizer`
+
+        Arguments
+        ---------
+        batch : list of torch.Tensors
+            batch of data to use for training. Default implementation assumes
+            this batch has two elements: inputs and targets.
+        """
+        inputs, targets = batch
+        predictions = self.forward(inputs)
+        loss = self.compute_objectives(predictions, targets)
+        loss.backward()
+        self.optimizer(self.modules)
+        return {"loss": loss.detach()}
+
+    def evaluate_batch(self, batch):
+        """Evaluate one batch, override for different procedure than train.
+
+        The default impementation depends on two methods being defined
+        with a particular behavior:
+
+        * `forward`
+        * `compute_objectives`
+
+        Arguments
+        ---------
+        batch : list of torch.Tensors
+            batch of data to use for evaluation. Default implementation assumes
+            this batch has two elements: inputs and targets.
+        """
+        inputs, targets = batch
+        output = self.forward(inputs)
+        loss, stats = self.compute_objectives(output, targets, train=False)
+        stats["loss"] = loss.detach()
+        return stats
+
+    def summarize(self, stats):
+        """Take a list of stats from a pass through data and summarize it.
+
+        By default, averages the loss and returns the average.
+
+        Arguments
+        ---------
+        stats : list of dicts
+            A list of stats to summarize.
+        """
+        return {"loss": float(sum(s["loss"] for s in stats) / len(stats))}
+
+    def fit(
+        self,
+        train_set,
+        valid_set=None,
+        number_of_epochs=1,
+        max_keys=[],
+        min_keys=[],
+    ):
+        """Iterate epochs and datasets to improve objective.
+
+        Relies on the existence of mulitple functions that can (or should) be
+        overridden. The following functions are used and expected to have a
+        certain behavior:
+
+        * `fit_batch`
+        * `evaluate_batch`
+        * `summarize`
+        * `save`
+
+        Arguments
+        ---------
+        train_set : list of DataLoaders
+            a list of datasets to use for training, zipped before iterating.
+        valid_set : list of Data Loaders
+            a list of datasets to use for validation, zipped before iterating.
+        number_of_epochs : int
+            number of epochs to iterate
+        max_keys : list of str
+            a list of keys to use for checkpointing, highest value is kept.
+        min_keys : list of str
+            a list of keys to use for checkpointing, lowest value is kept.
+        """
+        self.forward(next(iter(train_set[0])), init_params=True)
+        self.optimizer.init_params(self.modules)
+        epoch_counter = EpochCounter(number_of_epochs)
+        if self.saver is not None:
+            self.saver.add_recoverable("counter", epoch_counter)
+            self.saver.recover_if_possible()
+
+        for epoch in epoch_counter:
+            self.modules.train()
+            train_stats = []
+            for batch in tzip(*train_set):
+                train_stats.append(self.fit_batch(batch))
+            summary = self.summarize(train_stats)
+
+            logger.info(f"Epoch {epoch} complete")
+            for key in summary:
+                logger.info(f"Train {key}: {summary[key]:.2f}")
+
+            if valid_set is not None:
+                self.modules.eval()
+                valid_stats = []
+                with torch.no_grad():
+                    for batch in tzip(*valid_set):
+                        valid_stats.append(self.evaluate_batch(batch))
+                summary = self.summarize(valid_stats)
+                for key in summary:
+                    logger.info(f"Valid {key}: {summary[key]:.2f}")
+
+            self.on_epoch_end(epoch, summary, max_keys, min_keys)
+
+    def on_epoch_end(self, epoch, summary, max_keys, min_keys):
+        """Gets called at the end of each epoch.
+
+        Arguments
+        ---------
+        summary : mapping
+            This dict defines summary info about the validation pass, if
+            the validation data was passed, otherwise training pass. The
+            output of the `summarize` method is directly passed.
+        max_keys : list of str
+            A sequence of strings that match keys in the summary. Highest
+            value is the relevant value.
+        min_keys : list of str
+            A sequence of strings that match keys in the summary. Lowest
+            value is the relevant value.
+        """
+        if self.scheduler is not None:
+            min_val = summary[min_keys[0]]
+            self.scheduler([self.optimizer], epoch, min_val)
+        if self.saver is not None:
+            self.save(summary, max_keys, min_keys)
+
+    def evaluate(self, test_set, max_key=None, min_key=None):
+        """Iterate test_set and evaluate brain performance.
+
+        Arguments
+        ---------
+        test_set : list of DataLoaders
+            This list will be zipped before iterating.
+        max_key : str
+            This string references a key in the checkpoint, the
+            checkpoint with the highest value for this key will be loaded.
+        min_key : str
+            This string references a key in the checkpoint, the
+            checkpoint with the lowest value for this key will be loaded.
+        """
+        if self.saver is None and (max_key or min_key):
+            raise ValueError("max_key and min_key require a saver.")
+        elif max_key is not None and min_key is not None:
+            raise ValueError("Can't use both min_key and max_key.")
+
+        if max_key is not None:
+            self.saver.recover_if_possible(lambda c, key=max_key: c.meta[key])
+        elif min_key is not None:
+            self.saver.recover_if_possible(lambda c, key=min_key: -c.meta[key])
+        else:
+            self.saver.recover_if_possible()
+
+        test_stats = []
+        self.modules.eval()
+        with torch.no_grad():
+            for batch in tzip(*test_set):
+                test_stats.append(self.evaluate_batch(batch))
+
+        test_summary = self.summarize(test_stats, write=True)
+        for key in test_summary:
+            logger.info(f"Test {key}: {test_summary[key]:.2f}")
+
+    def save(self, stats, max_keys=[], min_keys=[]):
+        """Record relevant data into a checkpoint file.
+
+        Arguments
+        ---------
+        stats : mapping
+            A set of meta keys and their values to store.
+        max_keys : list of str
+            A set of keys from the meta, keep the maximum of each.
+        min_keys : list of str
+            A set of keys from the meta, keep the minimum of each.
+        """
+        importance_keys = [ckpt_recency]
+        for key in max_keys:
+            importance_keys.append(lambda c, key=key: c.meta[key])
+        for key in min_keys:
+            importance_keys.append(lambda c, key=key: -c.meta[key])
+        self.saver.save_and_keep_only(
+            meta=stats, importance_keys=importance_keys,
+        )
 
 
 def _logging_excepthook(exc_type, exc_value, exc_traceback):
@@ -366,11 +403,6 @@ def parse_arguments(arg_list):
         "progress for testing or re-starting training.",
     )
     parser.add_argument(
-        "--ckpts_to_save",
-        type=int,
-        help="The number of checkpoints to keep before deleting.",
-    )
-    parser.add_argument(
         "--seed",
         type=int,
         help="A random seed to reproduce experiments on the same machine",
@@ -382,6 +414,14 @@ def parse_arguments(arg_list):
 
     # Ignore items that are "None", they were not passed
     parsed_args = vars(parser.parse_args(arg_list))
+
+    # Convert yaml_overrides to dictionary
+    if parsed_args["yaml_overrides"] is not None:
+        overrides = parse_overrides(parsed_args["yaml_overrides"])
+        del parsed_args["yaml_overrides"]
+        recursive_update(parsed_args, overrides)
+
+    # Only return non-empty items
     return {k: v for k, v in parsed_args.items() if v is not None}
 
 

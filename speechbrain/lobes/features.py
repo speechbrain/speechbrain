@@ -2,7 +2,7 @@
 Authors: Mirco Ravanelli 2020, Peter Plantinga 2020
 """
 import torch
-from speechbrain.utils.data_utils import load_extended_yaml
+from speechbrain.yaml import load_extended_yaml
 
 
 class Features(torch.nn.Module):
@@ -31,8 +31,7 @@ class Features(torch.nn.Module):
     >>> import torch
     >>> inputs = torch.randn([10, 16000])
     >>> feature_maker = Features(feature_type='fbank')
-    >>> feature_maker.init_params(inputs)
-    >>> feats = feature_maker(inputs)
+    >>> feats = feature_maker(inputs, init_params=True)
     >>> feats.shape
     torch.Size([10, 101, 759])
 
@@ -56,14 +55,8 @@ class Features(torch.nn.Module):
         self.requires_grad = requires_grad
         path = "speechbrain/lobes/features.yaml"
         self.params = load_extended_yaml(open(path), overrides)
-        self.compute_STFT = self.params["compute_STFT"]
-        self.compute_spectrogram = self.params["compute_spectrogram"]
-        self.compute_fbanks = self.params["compute_fbanks"]
-        self.compute_mfccs = self.params["compute_mfccs"]
-        self.compute_deltas = self.params["compute_deltas"]
-        self.context_window = self.params["context_window"]
 
-    def forward(self, wav):
+    def forward(self, wav, init_params: bool):
         """Returns a set of features generated from the input waveforms.
 
         Arguments
@@ -71,33 +64,20 @@ class Features(torch.nn.Module):
         wav : tensor
             A batch of audio signals to transform to features.
         """
-        STFT = self.compute_STFT(wav)
-        features = self.compute_spectrogram(STFT)
+        STFT = self.params.compute_STFT(wav)
+        features = self.params.compute_spectrogram(STFT)
 
         if self.feature_type in ["fbank", "mfcc"]:
-            features = self.compute_fbanks(features)
+            features = self.params.compute_fbanks(features, init_params)
         if self.feature_type == "mfcc":
-            features = self.compute_mfccs(features)
+            features = self.params.compute_mfccs(features, init_params)
 
         if self.deltas:
-            delta1 = self.compute_deltas(features)
-            delta2 = self.compute_deltas(delta1)
+            delta1 = self.params.compute_deltas(features, init_params)
+            delta2 = self.params.compute_deltas(delta1)
             features = torch.cat([features, delta1, delta2], dim=2)
 
         if self.context:
-            features = self.context_window(features)
+            features = self.params.context_window(features)
 
         return features
-
-    def init_params(self, first_input):
-        self.compute_fbanks.init_params(first_input)
-        self.compute_mfccs.init_params(first_input)
-        # To fix
-        if self.feature_type == "mfcc":
-            self.compute_deltas.init_params(
-                torch.rand(4, 1000, self.compute_mfccs.n_mfcc)
-            )
-        if self.feature_type == "fbank":
-            self.compute_deltas.init_params(
-                torch.rand(4, 1000, self.compute_mfccs.n_mels)
-            )
