@@ -18,9 +18,10 @@ The goal is to create a **single**, **flexible**, and **user-friendly** toolkit 
   * [Tensor format](#tensor-format)
 - [Developer Guidelines](#developer-guidelines)
   * [GitHub](#github)
-  * [Python guidelines](#python)
-  * [Development tools](#development-tools)
+  * [Python](#python)
   * [Documentation](#documentation)
+  * [Development tools](#development-tools)
+  * [Continuous integration](#continuous-integration)
 
 # Basics
 In the following sections, the basic functionalities of SpeechBrain are described. 
