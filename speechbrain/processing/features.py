@@ -311,7 +311,7 @@ class FBANKs(torch.nn.Module):
         self.freeze = freeze
         self.n_stft = self.n_fft // 2 + 1
         self.db_multiplier = math.log10(max(self.amin, self.ref_value))
-        self.device_inp = torch.device('cpu')
+        self.device_inp = torch.device("cpu")
 
         if self.power_spectrogram == 2:
             self.multiplier = 10
@@ -359,7 +359,7 @@ class FBANKs(torch.nn.Module):
         self.f_central = self.f_central.to(self.device_inp)
         self.all_freqs_mat = self.all_freqs_mat.to(self.device_inp)
 
-    def forward(self, spectrogram, init_params:bool):
+    def forward(self, spectrogram, init_params=False):
         """Returns the FBANks.
 
         Arguments
@@ -633,7 +633,7 @@ class MFCCs(torch.nn.Module):
 
         return dct.t()
 
-    def forward(self, fbanks, init_params:bool):
+    def forward(self, fbanks, init_params=False):
         """Returns the MFCCs.
 
         Arguments
@@ -700,7 +700,7 @@ class deltas(torch.nn.Module):
         """
         self.kernel = self.kernel.repeat(first_input.shape[2], 1, 1)
 
-    def forward(self, x, init_params:bool):
+    def forward(self, x, init_params=False):
         """Returns the delta coefficients.
 
         Arguments

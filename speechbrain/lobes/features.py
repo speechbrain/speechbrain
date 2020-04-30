@@ -56,7 +56,7 @@ class Features(torch.nn.Module):
         path = "speechbrain/lobes/features.yaml"
         self.params = load_extended_yaml(open(path), overrides)
 
-    def forward(self, wav, init_params:bool):
+    def forward(self, wav, init_params: bool):
         """Returns a set of features generated from the input waveforms.
 
         Arguments
@@ -74,7 +74,7 @@ class Features(torch.nn.Module):
 
         if self.deltas:
             delta1 = self.params.compute_deltas(features, init_params)
-            delta2 = self.params.compute_deltas(delta1, init_params)
+            delta2 = self.params.compute_deltas(delta1)
             features = torch.cat([features, delta1, delta2], dim=2)
 
         if self.context:
