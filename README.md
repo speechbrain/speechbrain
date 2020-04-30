@@ -48,6 +48,7 @@ The current version of Speechbrain has the following folder/file organization:
 - **exp**: Top directory under which to save experiment output (by convention)
 - **samples**: Some toy data for debugging and testing
 - **tools**: Additional, runnable utility script
+- **tests**: Unittests
 
 ## How to run an experiment
 In SpeechBrain an experiment can be simply run in this way:
@@ -61,6 +62,31 @@ Both detailed logs and experiment output are saved there.
 Furthermore, less detailed logs are output to stdout. The experiment script and 
 configuration (including possible command-line overrides are also copied to the 
 output directory.
+
+Also have a look at the YAML files in recipe directories. The YAML files
+specify the hyperparameters of the recipes. The syntax is explained in 
+`speechbrain.utils.data_utils` in the docstring of the `load_extended_yaml`
+
+A quick look at the extended features, using an example:
+```
+constants:
+    output_dir: exp/example_experiment
+    save_dir: !ref <constants.output_dir>/save
+    data_folder: !PLACEHOLDER # e.g. /path/to/TIMIT
+saveables:
+    model: !speechbrain.lobes.models.CRDNN.CRDNN
+        output_size: 40 # 39 phonemes + 1 blank symbol
+        cnn_blocks: 2
+        dnn_blocks: 2
+```
+- `!speechbrain.lobes.models.CRDNN.CRDNN` creates a `CRDNN` instance
+  from the module `speechbrain.lobes.models.CRDNN`
+- The indented keywords (`output_size` etc.) after it are passed as keyword 
+  arguments.
+- `!ref <constants.output_dir>/save` evaluates the part in angle brackets,
+  referencing the YAML itself (`.` accesses nested structures).
+- `!PLACEHOLDER` simply errors out when loaded; it is used for user specific
+  paths etc. and should be replaced by every user.
 
 
 # Tensor format
@@ -109,6 +135,9 @@ To settle code formatting, SpeechBrain adopts the [black](https://black.readthed
 
 In addition, we use [flake8](https://flake8.pycqa.org/en/latest/) to test code 
 style. Black as a tool does not enforce everything that flake8 tests.
+
+You can run the formatter with: `black <file-or-directory>`. Similarly the 
+flake8 tests can be run with `flake8 <file-or-directory>`.
 
 ### Adding dependencies
 In general, we strive to have as few dependencies as possible. However, we will 
