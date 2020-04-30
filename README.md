@@ -94,7 +94,8 @@ All the tensors within SpeechBrain are formatted using the following convention:
 ```
 tensor=(batch, time_steps, channels[optional])
 ```
-**The batch is always the first element, while time_steps is always the last one. In the middle, you might have a variable number of channels**.
+**The batch is always the first element, and time_steps is always the second one. 
+The rest of the dimensions are as many channels as you need**.
 
 *Why we need tensor with the same format?*
 It is crucial to have a shared format for all the classes that process data and all the processing functions must be designed considering it. In SpeechBrain we might have pipelines of modules and if each module was based on different tensor formats, exchanging data between processing units would have been painful. Many formats are possible. For SpeechBrain we selected this one because
@@ -160,7 +161,7 @@ examples of the documented code. Run doctests with
 ## Documentation
 In SpeechBrain, we plan to provide documentation at different levels:
 
--  **Docstrings**: For each class/function in the repository, there should a header that properly describes its functionality, inputs, and outputs. It is also crucial to provide an example that shows how it can be used as a stand-alone function. We use [Numpy-style](https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_numpy.html) docstrings. Consistent docstring style enables automatic API documentation.
+-  **Docstrings**: For each class/function in the repository, there should a header that properly describes its functionality, inputs, and outputs. It is also crucial to provide an example that shows how it can be used as a stand-alone function. We use [Numpy-style](https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_numpy.html) docstrings. Consistent docstring style enables automatic API documentation. Also note the automatic doctests (see [here](#testing).
 
 -  **Comments**: We encourage developers to write self-documenting code, and use
 comments only where the implementation is surprising (to a Python-literate audience)
