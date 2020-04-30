@@ -37,7 +37,6 @@ class Sequential(torch.nn.Module):
     def __init__(
         self, *layers,
     ):
-        """"""
         super().__init__()
         self.layers = torch.nn.ModuleList()
         for layer in layers:
@@ -196,8 +195,8 @@ class conv(nn.Module):
         self,
         out_channels,
         kernel_size,
-        stride=[1, 1],
-        dilation=[1, 1],
+        stride=(1, 1),
+        dilation=(1, 1),
         padding=0,
         groups=1,
         bias=True,
@@ -219,11 +218,11 @@ class conv(nn.Module):
         self.squeeze_conv2d = False
         self.transp_conv2d = False
 
-        # Ensure kernel_size and padding are lists
-        if not isinstance(self.kernel_size, list):
-            self.kernel_size = [self.kernel_size]
-        if self.padding is not None and not isinstance(self.padding, list):
-            self.padding = [self.padding]
+        # Ensure kernel_size and padding are tuples
+        if not isinstance(self.kernel_size, tuple):
+            self.kernel_size = (self.kernel_size,)
+        if self.padding is not None and not isinstance(self.padding, tuple):
+            self.padding = (self.padding,)
 
         # Making sure that the kernel size is odd (if the kernel is not
         # symmetric there could a problem with the padding function)
@@ -311,10 +310,10 @@ class conv(nn.Module):
             self.conv = nn.Conv2d(
                 self.in_channels,
                 self.out_channels,
-                tuple(self.kernel_size),
-                stride=tuple(self.stride),
+                self.kernel_size,
+                stride=self.stride,
                 padding=0,
-                dilation=tuple(self.dilation),
+                dilation=self.dilation,
                 groups=self.groups,
                 bias=self.bias,
                 padding_mode=self.padding_mode,

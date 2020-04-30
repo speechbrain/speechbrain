@@ -4,8 +4,9 @@ Authors: Mirco Ravanelli 2020, Peter Plantinga 2020, Ju-Chieh Chou 2020,
     Titouan Parcollet 2020, Abdel 2020
 """
 import torch  # noqa: F401
+from speechbrain.yaml import load_extended_yaml
 from speechbrain.nnet.architectures import linear, activation, Sequential
-from speechbrain.utils.data_utils import load_extended_yaml, recursive_update
+from speechbrain.utils.data_utils import recursive_update
 
 
 class CRDNN(Sequential):
@@ -129,11 +130,8 @@ class NeuralBlock(Sequential):
     """
 
     def __init__(self, block_index, param_file, overrides={}):
-        """"""
-
-        block_override = {"constants": {"block_index": block_index}}
+        block_override = {"block_index": block_index}
         recursive_update(overrides, block_override)
         layers = load_extended_yaml(open(param_file), overrides)
-        sequence = layers["constants"]["sequence"]
 
-        super().__init__(*[layers[op] for op in sequence])
+        super().__init__(*[getattr(layers, op) for op in layers.sequence])

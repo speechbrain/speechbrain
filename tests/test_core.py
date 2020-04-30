@@ -1,6 +1,3 @@
-import pytest
-
-
 def test_nest():
     from speechbrain.core import nest
 
@@ -25,28 +22,6 @@ def test_parse_overrides():
 
     overrides = parse_overrides("{model.arg1: 1, model.arg1: 2}")
     assert overrides == {"model": {"arg1": 2}}
-
-
-def test_experiment():
-    from speechbrain.core import Experiment
-
-    yaml = """
-    constants:
-        output_folder: exp
-    """
-    sb = Experiment(yaml)
-    assert sb.output_folder == "exp"
-    sb = Experiment(yaml, ["--output_folder", "exp/example"])
-    assert sb.output_folder == "exp/example"
-
-    yaml = """
-    constants:
-        output_folder: exp
-    functions:
-        output_folder: y
-    """
-    with pytest.raises(KeyError):
-        sb = Experiment(yaml)
 
 
 def test_brain():
