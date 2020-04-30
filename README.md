@@ -106,7 +106,7 @@ SpeechBrain targets Python >= 3.7.
 
 ### Formatting
 To settle code formatting, SpeechBrain adopts the [black](https://black.readthedocs.io/en/stable/) code formatter. Before submitting pull requests, please run the black formatter on your code.
-`
+
 In addition, we use [flake8](https://flake8.pycqa.org/en/latest/) to test code 
 style. Black as a tool does not enforce everything that flake8 tests.
 
@@ -128,11 +128,7 @@ examples of the documented code.
 ## Documentation
 In SpeechBrain, we plan to provide documentation at different levels:
 
--  **Docstrings**: For each class/function in the repository, there should a header that properly describes its functionality, inputs, and outputs. It is also crucial to provide an example that shows how it can be used as a stand-alone function.
-
-We use [Numpy-style](https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_numpy.html)
-docstrings. Consistent docstring style enables automatic API 
-documentation.
+-  **Docstrings**: For each class/function in the repository, there should a header that properly describes its functionality, inputs, and outputs. It is also crucial to provide an example that shows how it can be used as a stand-alone function. We use [Numpy-style](https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_numpy.html) docstrings. Consistent docstring style enables automatic API documentation.
 
 -  **Comments**: We encourage developers to write self-documenting code, and use
 comments only where the implementation is surprising (to a Python-literate audience)
