@@ -10,21 +10,22 @@ from speechbrain.decoders.decoders import undo_padding
 
 # Load hyperparameters file with command-line overrides
 overrides = sb.core.parse_arguments(sys.argv[1:])
-with open("recipes/ASR_CTC/TIMIT/VGG2_BLSTM_MLP/params.yaml") as fin:
+if "seed" in overrides:
+    torch.manual_seed(overrides["seed"])
+params_file = "recipes/ASR_CTC/TIMIT/VGG2_BLSTM_MLP/params.yaml"
+with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(fin, overrides)
 
-    # Create experiment directory
-    fin.seek(0)
-    sb.core.create_experiment_directory(
-        experiment_directory=params.output_folder,
-        params_to_save=fin,
-        overrides=overrides,
-        log_config="logging.yaml",
-    )
-
-torch.manual_seed(params.seed)
+# Create experiment directory
+sb.core.create_experiment_directory(
+    experiment_directory=params.output_folder,
+    params_to_save=params_file,
+    overrides=overrides,
+    log_config="logging.yaml",
+)
 
 
+# Define training procedure
 class ASR(sb.core.Brain):
     def forward(self, x, init_params=False):
         ids, wavs, wav_lens = x
@@ -54,8 +55,6 @@ class ASR(sb.core.Brain):
         return loss
 
     def summarize(self, stats, write=False):
-
-        # Accumulate
         accumulator = {"loss": 0.0}
         if "PER" in stats[0]:
             accumulator["PER"] = []
@@ -63,13 +62,10 @@ class ASR(sb.core.Brain):
             for stat_type in stat:
                 accumulator[stat_type] += stat[stat_type]
 
-        # Normalize
         summary = {"loss": float(accumulator["loss"] / len(stats))}
         if "PER" in accumulator:
             per_summary = edit_distance.wer_summary(accumulator["PER"])
             summary["PER"] = per_summary["WER"]
-
-            # Write test data to file
             if write:
                 with open(params.wer_file, "w") as fo:
                     wer_io.print_wer_summary(per_summary, fo)

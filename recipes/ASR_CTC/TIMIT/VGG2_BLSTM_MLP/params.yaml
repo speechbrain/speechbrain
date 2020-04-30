@@ -5,7 +5,7 @@ wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 ckpts_to_keep: 1
 sample_rate: 16000
-seed: 1234
+seed: !PLACEHOLDER
 
 # Data files
 csv_train: !ref <data_folder>/train.csv
