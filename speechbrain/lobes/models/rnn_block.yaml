@@ -1,6 +1,5 @@
-constants:
-    block_index: 1
-    sequence: [rnn]
+block_index: 1
+sequence: [rnn]
 
 rnn: !speechbrain.nnet.architectures.RNN_basic
     rnn_type: lstm

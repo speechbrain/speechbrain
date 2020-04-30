@@ -1,73 +1,76 @@
-constants:
-    output_folder: exp/CTC/TIMIT_VGG2_BSLTM_MLP
-    data_folder: !PLACEHOLDER # e.g. /path/to/TIMIT
-    predictions_file: !ref <constants.output_folder>/predictions.csv
-    wer_file: !ref <constants.output_folder>/wer.txt
-    save_folder: !ref <constants.output_folder>/save
-    ckpts_to_keep: 1
-    sample_rate: 16000
-    seed: 1234
+output_folder: exp/CTC/TIMIT_VGG2_BSLTM_MLP
+data_folder: !PLACEHOLDER # e.g. /path/to/TIMIT
+predictions_file: !ref <output_folder>/predictions.csv
+wer_file: !ref <output_folder>/wer.txt
+save_folder: !ref <output_folder>/save
+ckpts_to_keep: 1
+sample_rate: 16000
+seed: !PLACEHOLDER
 
-    # Data files
-    csv_train: !ref <constants.data_folder>/train.csv
-    csv_valid: !ref <constants.data_folder>/dev.csv
-    csv_test: !ref <constants.data_folder>/test.csv
+# Data files
+csv_train: !ref <data_folder>/train.csv
+csv_valid: !ref <data_folder>/dev.csv
+csv_test: !ref <data_folder>/test.csv
 
-    # Neural Parameters
-    N_epochs: 25
-    batch_size: 8
-    lr: 1.0
-    dropout_rate: 0.15
-    n_mels: 40
+# Neural Parameters
+number_of_epochs: 25
+batch_size: 8
+lr: 1.0
+dropout_rate: 0.15
+n_mels: 40
 
-    device: 'cuda:0'
+device: 'cuda:0'
 
-saveables:
-    model: !speechbrain.lobes.models.CRDNN.CRDNN
-        output_size: 40 # 39 phonemes + 1 blank symbol
-        cnn_blocks: 2
-        dnn_blocks: 2
-    optimizer: !speechbrain.nnet.optimizers.optimize
-        optimizer_type: adadelta
-        rho: 0.95
-        learning_rate: !ref <constants.lr>
-    lr_annealing: !speechbrain.nnet.lr_scheduling.lr_annealing
-        annealing_type: newbob
-        N_epochs: !ref <constants.N_epochs>
-        lr_initial: !ref <constants.lr>
-        improvement_threshold: 0.0025
-        annealing_factor: 0.8
-        patient: 0
-    epoch_counter: !speechbrain.utils.epoch_loop.EpochCounter
-        limit: !ref <constants.N_epochs>
-    normalize: !speechbrain.processing.features.mean_var_norm
-        norm_type: global
+# Functions
+model: !speechbrain.lobes.models.CRDNN.CRDNN
+    output_size: 40 # 39 phonemes + 1 blank symbol
+    cnn_blocks: 2
+    dnn_blocks: 2
 
-functions:
-    prepare_timit: !speechbrain.data_io.data_preparation.timit_prepare
-        data_folder: !ref <constants.data_folder>
-        splits: [train, dev, test]
-        save_folder: !ref <constants.data_folder>
-    compute_features: !speechbrain.lobes.features.Features
-        feature_type: fbank
-        deltas: False
-        context: False
-        requires_grad: False
-        constants:
-            n_mels: !ref <constants.n_mels>
-    train_loader: !speechbrain.data_io.data_io.create_dataloader &loader
-        csv_file: !ref <constants.csv_train>
-        batch_size: !ref <constants.batch_size>
-        sentence_sorting: ascending
-        output_folder: !ref <constants.output_folder>
-        csv_read: [wav, phn]
-    valid_loader: !speechbrain.data_io.data_io.create_dataloader
-        <<: *loader
-        csv_file: !ref <constants.csv_valid>
-    test_loader: !speechbrain.data_io.data_io.create_dataloader
-        <<: *loader
-        csv_file: !ref <constants.csv_test>
-        batch_size: 1
-    compute_cost: !speechbrain.nnet.losses.compute_cost
-        cost_type: [ctc]
-        blank_index: 39
+optimizer: !speechbrain.nnet.optimizers.optimize
+    optimizer_type: adadelta
+    rho: 0.95
+    learning_rate: !ref <lr>
+
+lr_annealing: !speechbrain.nnet.lr_scheduling.lr_annealing
+    annealing_type: newbob
+    N_epochs: !ref <number_of_epochs>
+    lr_initial: !ref <lr>
+    improvement_threshold: 0.0025
+    annealing_factor: 0.8
+    patient: 0
+
+normalize: !speechbrain.processing.features.mean_var_norm
+    norm_type: global
+
+prepare_timit: !speechbrain.data_io.data_preparation.timit_prepare
+    data_folder: !ref <data_folder>
+    splits: [train, dev, test]
+    save_folder: !ref <data_folder>
+
+compute_features: !speechbrain.lobes.features.Features
+    feature_type: fbank
+    deltas: False
+    context: False
+    requires_grad: False
+    n_mels: !ref <n_mels>
+
+train_loader: !speechbrain.data_io.data_io.create_dataloader &loader
+    csv_file: !ref <csv_train>
+    batch_size: !ref <batch_size>
+    sentence_sorting: ascending
+    output_folder: !ref <output_folder>
+    csv_read: [wav, phn]
+
+valid_loader: !speechbrain.data_io.data_io.create_dataloader
+    <<: *loader
+    csv_file: !ref <csv_valid>
+
+test_loader: !speechbrain.data_io.data_io.create_dataloader
+    <<: *loader
+    csv_file: !ref <csv_test>
+    batch_size: 1
+
+compute_cost: !speechbrain.nnet.losses.compute_cost
+    cost_type: [ctc]
+    blank_index: 39

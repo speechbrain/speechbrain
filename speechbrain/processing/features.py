@@ -22,14 +22,13 @@ Example:
     >>> features = compute_spectr(features)
     >>>
     >>> compute_fbanks = FBANKs(n_mels=40)
-    >>> features = compute_fbanks(features)
+    >>> features = compute_fbanks(features, init_params=True)
     >>>
     >>> compute_mfccs = MFCCs(n_mfcc=20)
-    >>> features = compute_mfccs(features)
+    >>> features = compute_mfccs(features, init_params=True)
     >>>
     >>> compute_deltas = deltas()
-    >>> compute_deltas.init_params(features)
-    >>> delta1 = compute_deltas(features)
+    >>> delta1 = compute_deltas(features, init_params=True)
     >>> delta2 = compute_deltas(delta1)
     >>> features = torch.cat([features, delta1, delta2], dim=2)
     >>>
@@ -277,7 +276,7 @@ class FBANKs(torch.nn.Module):
     >>> import torch
     >>> compute_fbanks = FBANKs()
     >>> inputs = torch.randn([10, 101, 201])
-    >>> features = compute_fbanks(inputs)
+    >>> features = compute_fbanks(inputs, init_params=True)
     >>> features.shape
     torch.Size([10, 101, 40])
     """
@@ -312,6 +311,7 @@ class FBANKs(torch.nn.Module):
         self.freeze = freeze
         self.n_stft = self.n_fft // 2 + 1
         self.db_multiplier = math.log10(max(self.amin, self.ref_value))
+        self.device_inp = torch.device("cpu")
 
         if self.power_spectrogram == 2:
             self.multiplier = 10
@@ -355,12 +355,11 @@ class FBANKs(torch.nn.Module):
         first_input : tensor
             A dummy input of the right shape for initializing parameters.
         """
-        self.device_inp = first_input[0].device
         self.band = self.band.to(self.device_inp)
         self.f_central = self.f_central.to(self.device_inp)
         self.all_freqs_mat = self.all_freqs_mat.to(self.device_inp)
 
-    def forward(self, spectrogram):
+    def forward(self, spectrogram, init_params=False):
         """Returns the FBANks.
 
         Arguments
@@ -368,11 +367,8 @@ class FBANKs(torch.nn.Module):
         x : tensor
             A batch of spectrogram tensors.
         """
-
-        self.device_inp = spectrogram.device
-        self.all_freqs_mat = self.all_freqs_mat.to(self.device_inp)
-        self.band = self.band.to(self.device_inp)
-        self.f_central = self.f_central.to(self.device_inp)
+        if init_params:
+            self.init_params(spectrogram)
 
         # Computing central frequency and bandwidth of each filter
         f_central_mat = self.f_central.repeat(
@@ -637,7 +633,7 @@ class MFCCs(torch.nn.Module):
 
         return dct.t()
 
-    def forward(self, fbanks):
+    def forward(self, fbanks, init_params=False):
         """Returns the MFCCs.
 
         Arguments
@@ -645,6 +641,8 @@ class MFCCs(torch.nn.Module):
         x : tensor
             A batch of FBANK tensors.
         """
+        if init_params:
+            self.init_params(fbanks)
 
         # Managing multi-channels case
         fb_shape = fbanks.shape
@@ -679,8 +677,7 @@ class deltas(torch.nn.Module):
     >>> import torch
     >>> compute_deltas = deltas()
     >>> inputs = torch.randn([10, 101, 20])
-    >>> compute_deltas.init_params(inputs)
-    >>> features = compute_deltas(inputs)
+    >>> features = compute_deltas(inputs, init_params=True)
     >>> features.shape
     torch.Size([10, 101, 20])
     """
@@ -703,7 +700,7 @@ class deltas(torch.nn.Module):
         """
         self.kernel = self.kernel.repeat(first_input.shape[2], 1, 1)
 
-    def forward(self, x):
+    def forward(self, x, init_params=False):
         """Returns the delta coefficients.
 
         Arguments
@@ -711,6 +708,9 @@ class deltas(torch.nn.Module):
         x : tensor
             A batch of tensors.
         """
+        if init_params:
+            self.init_params(x)
+
         # Managing multi-channel deltas reshape tensor (batch*channel,time)
         x = x.transpose(1, 2).transpose(2, -1)
         or_shape = x.shape
