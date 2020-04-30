@@ -53,8 +53,7 @@ compute_features: !speechbrain.lobes.features.Features
     deltas: False
     context: False
     requires_grad: False
-    overrides:
-        n_mels: !ref <n_mels>
+    n_mels: !ref <n_mels>
 
 train_loader: !speechbrain.data_io.data_io.create_dataloader &loader
     csv_file: !ref <csv_train>
