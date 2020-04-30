@@ -34,11 +34,12 @@ def create_experiment_directory(
     ---------
     experiment_directory : str
         The place where the experiment directory should be created.
-    params_to_save : file
-        A yaml-formatted file-like object representing the parameters for this
-        experiment. If passed, will be written to "params.yaml"
+    params_to_save : str
+        A filename of a yaml file representing the parameters for this
+        experiment. If passed, references are resolved and the result
+        is written to a file in the experiment directory called "params.yaml"
     overrides : dict
-        A mapping of replacements made in the yaml file, to save.
+        A mapping of replacements made in the yaml file, to save in yaml.
     log_config : str
         A yaml filename containing configuration options for the logger.
     """
@@ -48,7 +49,8 @@ def create_experiment_directory(
     # Write the parameters file
     if params_to_save is not None:
         params_filename = os.path.join(experiment_directory, "params.yaml")
-        resolved_yaml = resolve_references(params_to_save, overrides)
+        with open(params_to_save) as f:
+            resolved_yaml = resolve_references(f, overrides)
         with open(params_filename, "w") as w:
             shutil.copyfileobj(resolved_yaml, w)
 
@@ -81,6 +83,14 @@ class Brain:
 
     Arguments
     ---------
+    modules : list of torch.Tensors
+        The modules that will be updated using the optimizer.
+    optimizer : optimizer
+        The class to use for updating the modules' parameters.
+    scheduler : scheduler
+        An object that changes the learning rate based on performance.
+    saver : Checkpointer
+        This is called by default at the end of each epoch to save progress.
 
     Example
     -------
