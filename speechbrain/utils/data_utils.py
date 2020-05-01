@@ -168,7 +168,7 @@ def recursive_items(dictionary):
             yield (key, value)
 
 
-def recursive_update(d, u):
+def recursive_update(d, u, must_match=False):
     """Similar function to `dict.update`, but for a nested `dict`.
 
     From: https://stackoverflow.com/a/3233356
@@ -195,6 +195,8 @@ def recursive_update(d, u):
         mapping to be updated
     u : dict
         mapping to update with
+    must_match : bool
+        Whether to throw an error if the key in `u` does not exist in `d`.
 
     Example
     -------
@@ -208,6 +210,10 @@ def recursive_update(d, u):
     for k, v in u.items():
         if isinstance(v, collections.abc.Mapping) and k in d:
             recursive_update(d.get(k, {}), v)
+        elif must_match and k not in d:
+            raise KeyError(
+                f"Override '{k}' not found in: {[key for key in d.keys()]}"
+            )
         else:
             d[k] = v
 
