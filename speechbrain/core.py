@@ -26,7 +26,7 @@ def create_experiment_directory(
     experiment_directory,
     params_to_save=None,
     overrides={},
-    log_config="logging.yaml",
+    log_config="log-config.yaml",
 ):
     """Create the output folder and relevant experimental files.
 
