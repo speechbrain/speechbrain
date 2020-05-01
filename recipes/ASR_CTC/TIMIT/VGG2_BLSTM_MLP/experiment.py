@@ -21,7 +21,7 @@ sb.core.create_experiment_directory(
     experiment_directory=params.output_folder,
     params_to_save=params_file,
     overrides=overrides,
-    log_config="logging.yaml",
+    log_config="log-config.yaml",
 )
 
 
