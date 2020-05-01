@@ -4,4 +4,4 @@ pooling_time: !speechbrain.nnet.architectures.pooling
     pool_type: max
     kernel_size: 2
     stride: 2
-    pool_axis: -1
+    pool_axis: 1

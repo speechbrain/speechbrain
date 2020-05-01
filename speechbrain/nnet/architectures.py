@@ -1905,7 +1905,7 @@ class pooling(nn.Module):
         self,
         pool_type,
         kernel_size,
-        pool_axis=1,
+        pool_axis=2,
         ceil_mode=False,
         padding=0,
         dilation=1,
@@ -2027,21 +2027,18 @@ class pooling(nn.Module):
         if init_params:
             self.init_params(x)
 
-        x = x.transpose(1, 2).transpose(2, -1)
-        or_shape = x.shape
-
         # Put the pooling axes as the last dimension for torch.nn.pool
         # If the input tensor is 4 dimensional, combine the first and second
         # axes together to respect the input shape of torch.nn.pool1d
         if self.pool1d:
-            x = x.transpose(len(or_shape) - 1, self.pool_axis[0])
+            x = x.transpose(-1, self.pool_axis[0])
             new_shape = x.shape
             if self.combine_batch_time:
                 x = x.reshape(new_shape[0] * new_shape[1], new_shape[2], -1)
 
         if self.pool2d:
-            x = x.transpose(len(or_shape) - 2, self.pool_axis[0]).transpose(
-                len(or_shape) - 1, self.pool_axis[1]
+            x = x.transpose(-2, self.pool_axis[0]).transpose(
+                -1, self.pool_axis[1]
             )
 
         # Apply pooling
@@ -2051,12 +2048,11 @@ class pooling(nn.Module):
         if self.pool1d:
             if self.combine_batch_time:
                 x = x.reshape(new_shape[0], new_shape[1], new_shape[2], -1)
-            x = x.transpose(len(or_shape) - 1, self.pool_axis[0])
+            x = x.transpose(-1, self.pool_axis[0])
 
         if self.pool2d:
-            x = x.transpose(len(or_shape) - 2, self.pool_axis[0]).transpose(
-                len(or_shape) - 1, self.pool_axis[1]
+            x = x.transpose(-2, self.pool_axis[0]).transpose(
+                -1, self.pool_axis[1]
             )
 
-        x = x.transpose(-1, 1).transpose(2, -1)
         return x
