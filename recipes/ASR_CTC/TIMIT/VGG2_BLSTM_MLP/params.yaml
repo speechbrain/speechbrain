@@ -26,7 +26,6 @@ model: !speechbrain.lobes.models.CRDNN.CRDNN
     output_size: 40 # 39 phonemes + 1 blank symbol
     cnn_blocks: 2
     dnn_blocks: 2
-    rnn_overrides: {rnn_type: ligru}
 
 optimizer: !speechbrain.nnet.optimizers.optimize
     optimizer_type: adadelta
