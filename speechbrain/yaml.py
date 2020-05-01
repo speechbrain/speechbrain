@@ -111,7 +111,7 @@ def resolve_references(yaml_stream, overrides={}):
     # using ruamel.yaml to preserve the tags
     ruamel_yaml = ruamel.yaml.YAML()
     preview = ruamel_yaml.load(yaml_stream)
-    recursive_update(preview, overrides)
+    recursive_update(preview, overrides, error=True)
     _walk_tree_and_resolve(current_node=preview, tree=preview)
 
     # Dump back to string so we can load with bells and whistles
