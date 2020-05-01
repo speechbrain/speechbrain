@@ -1,25 +1,23 @@
-constants:
-
-    # The block index is multiplied with the channels to get out_channels
-    block_index: 1
-    channels: 128
-    kernel_size: [3, 3]
-    sequence: [conv1, norm1, activation, conv2, norm2, activation, pooling, dropout]
+# The block index is multiplied with the channels to get out_channels
+block_index: 1
+channels: 128
+kernel_size: !!python/tuple [3, 3]
+sequence: [conv1, norm1, activation, conv2, norm2, activation, pooling, dropout]
 
 conv1: !speechbrain.nnet.architectures.conv
     out_channels: !operator.mul
-        - !ref <constants.block_index>
-        - !ref <constants.channels>
-    kernel_size: !ref <constants.kernel_size>
+        - !ref <block_index>
+        - !ref <channels>
+    kernel_size: !ref <kernel_size>
 
 norm1: !speechbrain.nnet.normalization.normalize
     norm_type: batchnorm
 
 conv2: !speechbrain.nnet.architectures.conv
     out_channels: !operator.mul
-        - !ref <constants.block_index>
-        - !ref <constants.channels>
-    kernel_size: !ref <constants.kernel_size>
+        - !ref <block_index>
+        - !ref <channels>
+    kernel_size: !ref <kernel_size>
 
 norm2: !speechbrain.nnet.normalization.normalize
     norm_type: batchnorm

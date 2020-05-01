@@ -1,6 +1,3 @@
-import pytest
-
-
 def test_nest():
     from speechbrain.core import nest
 
@@ -16,8 +13,8 @@ def test_nest():
 def test_parse_arguments():
     from speechbrain.core import parse_arguments
 
-    args = parse_arguments(["--seed", "3", "--ckpts_to_save", "2"])
-    assert args == {"seed": 3, "ckpts_to_save": 2}
+    args = parse_arguments(["--seed", "3", "--data_folder", "TIMIT"])
+    assert args == {"seed": 3, "data_folder": "TIMIT"}
 
 
 def test_parse_overrides():
@@ -27,36 +24,29 @@ def test_parse_overrides():
     assert overrides == {"model": {"arg1": 2}}
 
 
-def test_experiment(tmpdir):
-    from speechbrain.core import Experiment
+def test_brain():
+    import torch
+    from speechbrain.core import Brain
+    from speechbrain.nnet.optimizers import optimize
 
-    yaml = f"""
-    constants:
-        output_folder: {tmpdir}
-    """
-    sb = Experiment(yaml)
-    assert sb.output_folder == tmpdir
-    sb = Experiment(
-        yaml_stream=yaml,
-        overrides={"constants": {"output_folder": f"{tmpdir}/example"}},
-    )
-    assert sb.output_folder == f"{tmpdir}/example"
-    sb = Experiment(
-        yaml, commandline_args=["--output_folder", f"{tmpdir}/example"]
-    )
-    assert sb.output_folder == f"{tmpdir}/example"
-    sb = Experiment(
-        yaml_stream=yaml,
-        overrides={"constants": {"output_folder": f"{tmpdir}/abc"}},
-        commandline_args=["--output_folder", f"{tmpdir}/example"],
-    )
-    assert sb.output_folder == f"{tmpdir}/example"
+    model = torch.nn.Linear(in_features=10, out_features=10)
 
-    yaml = f"""
-    constants:
-        output_folder: {tmpdir}
-    functions:
-        output_folder: y
-    """
-    with pytest.raises(KeyError):
-        sb = Experiment(yaml)
+    class SimpleBrain(Brain):
+        def forward(self, x, init_params=False):
+            return model(x)
+
+        def compute_objectives(self, predictions, targets, train=True):
+            return torch.nn.functional.l1_loss(predictions, targets)
+
+    brain = SimpleBrain([model], optimize("sgd", 0.1))
+
+    inputs = torch.rand(10, 10)
+    targets = torch.rand(10, 10)
+    train_set = ([inputs], [targets])
+
+    start_loss = brain.compute_objectives(brain.forward(inputs), targets)
+    brain.fit(
+        train_set=train_set, number_of_epochs=10,
+    )
+    end_loss = brain.compute_objectives(brain.forward(inputs), targets)
+    assert end_loss < start_loss

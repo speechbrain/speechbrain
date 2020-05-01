@@ -1,6 +1,5 @@
-constants:
-    block_index: 1
-    sequence: [linear, norm, activation, dropout]
+block_index: 1
+sequence: [linear, norm, activation, dropout]
 
 linear: !speechbrain.nnet.architectures.linear
     n_neurons: 512
