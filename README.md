@@ -57,7 +57,8 @@ In SpeechBrain an experiment can be simply run in this way:
 python recipes/<path>/<to>/<specific>/experiment.py
 ```
  
-The output will be saved in *exp/<outdir>* (relative to current working dir). 
+At the top of the `experiment.py` file, the function
+`sb.create_experiment_directory()` is called to create an output directory.
 Both detailed logs and experiment output are saved there. 
 Furthermore, less detailed logs are output to stdout. The experiment script and 
 configuration (including possible command-line overrides are also copied to the 
@@ -65,28 +66,28 @@ output directory.
 
 Also have a look at the YAML files in recipe directories. The YAML files
 specify the hyperparameters of the recipes. The syntax is explained in 
-`speechbrain.utils.data_utils` in the docstring of the `load_extended_yaml`
+`speechbrain.utils.data_utils` in the docstring of `load_extended_yaml`.
 
-A quick look at the extended features, using an example:
+A quick look at the extended YAML features, using an example:
 ```
-constants:
-    output_dir: exp/example_experiment
-    save_dir: !ref <constants.output_dir>/save
-    data_folder: !PLACEHOLDER # e.g. /path/to/TIMIT
-saveables:
-    model: !speechbrain.lobes.models.CRDNN.CRDNN
-        output_size: 40 # 39 phonemes + 1 blank symbol
-        cnn_blocks: 2
-        dnn_blocks: 2
+output_dir: exp/example_experiment
+save_dir: !ref <output_dir>/save
+data_folder: !PLACEHOLDER # e.g. /path/to/TIMIT
+
+model: !speechbrain.lobes.models.CRDNN.CRDNN
+    output_size: 40 # 39 phonemes + 1 blank symbol
+    cnn_blocks: 2
+    dnn_blocks: 2
 ```
 - `!speechbrain.lobes.models.CRDNN.CRDNN` creates a `CRDNN` instance
   from the module `speechbrain.lobes.models.CRDNN`
 - The indented keywords (`output_size` etc.) after it are passed as keyword 
   arguments.
-- `!ref <constants.output_dir>/save` evaluates the part in angle brackets,
-  referencing the YAML itself (`.` accesses nested structures).
-- `!PLACEHOLDER` simply errors out when loaded; it is used for user specific
-  paths etc. and should be replaced by every user.
+- `!ref <output_dir>/save` evaluates the part in angle brackets,
+  referencing the YAML itself.
+- `!PLACEHOLDER` simply errors out when loaded; it should be replaced by
+  every user either by editing the yaml, or with an override (passed to
+  `load_extended_yaml`).
 
 
 # Tensor format
