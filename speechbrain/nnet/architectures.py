@@ -1274,11 +1274,8 @@ class liGRU(torch.jit.ScriptModule):
 
     @torch.jit.script_method
     def forward(self, x):
-        x = x.transpose(0, 1)
         for ligru_lay in self.model:
             x = ligru_lay(x)
-
-        x = x.transpose(0, 1)
         return x, 0
 
 
@@ -1321,7 +1318,7 @@ class liGRU_layer(torch.jit.ScriptModule):
 
         self.drop = torch.nn.Dropout(p=self.dropout, inplace=False).to(device)
         self.drop_mask_te = torch.tensor([1.0], device=device).float()
-        self.N_drop_masks = 100
+        self.N_drop_masks = 1000
         self.drop_mask_cnt = 0
 
         if self.bidirectional:
@@ -1363,23 +1360,23 @@ class liGRU_layer(torch.jit.ScriptModule):
     def forward(self, x):
 
         if self.bidirectional:
-            x_flip = x.flip(0)
-            x = torch.cat([x, x_flip], dim=1)
+            x_flip = x.flip(1)
+            x = torch.cat([x, x_flip], dim=0)
 
         # Feed-forward affine transformations (all steps in parallel)
         w = self.w(x)
 
         # Apply batch normalization
-        w_bn = self.bn_w(w.view(w.shape[0] * w.shape[1], w.shape[2]))
+        w_bn = self.bn_w(w.reshape(w.shape[0] * w.shape[1], w.shape[2]))
 
-        w = w_bn.view(w.shape[0], w.shape[1], w.shape[2])
+        w = w_bn.reshape(w.shape[0], w.shape[1], w.shape[2])
 
         # Processing time steps
         h = self.ligru_cell(w)
 
         if self.bidirectional:
-            h_f, h_b = h.chunk(2, dim=1)
-            h_b = h_b.flip(0)
+            h_f, h_b = h.chunk(2, dim=0)
+            h_b = h_b.flip(1)
             h = torch.cat([h_f, h_b], dim=2)
 
         return h
@@ -1390,6 +1387,25 @@ class liGRU_layer(torch.jit.ScriptModule):
         hiddens = []
         ht = self.h_init
 
+        drop_mask = self.sample_drop_mask()
+
+        for k in range(w.shape[1]):
+
+            gates = w[:, k] + self.u(ht)
+
+            at, zt = gates.chunk(2, 1)
+            # ligru equation
+            zt = torch.sigmoid(zt)
+            hcand = self.act(at) * drop_mask
+            ht = zt * ht + (1 - zt) * hcand
+            hiddens.append(ht)
+
+        # Stacking hidden states
+        h = torch.stack(hiddens, dim=1)
+        return h
+
+    @torch.jit.script_method
+    def sample_drop_mask(self):
         if self.training:
 
             drop_mask = self.drop_masks[self.drop_mask_cnt]
@@ -1425,20 +1441,7 @@ class liGRU_layer(torch.jit.ScriptModule):
         else:
             drop_mask = self.drop_mask_te
 
-        for k in range(w.shape[0]):
-
-            gates = w[k] + self.u(ht)
-
-            at, zt = gates.chunk(2, 1)
-            # ligru equation
-            zt = torch.sigmoid(zt)
-            hcand = self.act(at) * drop_mask
-            ht = zt * ht + (1 - zt) * hcand
-            hiddens.append(ht)
-
-        # Stacking hidden states
-        h = torch.stack(hiddens)
-        return h
+        return drop_mask
 
 
 class activation(torch.nn.Module):
