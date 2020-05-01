@@ -77,9 +77,153 @@ def create_experiment_directory(
     logger.debug("Commit hash: '%s'" % commit_hash.decode("utf-8").strip())
 
 
-class Brain:
-    r"""Interface for running SpeechBrain experiments.
+def _logging_excepthook(exc_type, exc_value, exc_traceback):
+    """Interrupt exception raising to log the error."""
+    logger.error("Exception:", exc_info=(exc_type, exc_value, exc_traceback))
 
+
+def parse_arguments(arg_list):
+    """Parse command-line arguments to the experiment.
+
+    Arguments
+    ---------
+    arg_list: list
+        a list of arguments to parse, most often from `sys.argv[1:]`
+
+    Example
+    -------
+    >>> parse_arguments(['--seed', '10'])
+    {'seed': 10}
+    """
+    parser = argparse.ArgumentParser(
+        description="Run a SpeechBrain experiment",
+    )
+    parser.add_argument(
+        "--yaml_overrides",
+        help="A yaml-formatted string representing a dictionary of "
+        "overrides to the parameters in the param file. The keys of "
+        "the dictionary can use dots to represent levels in the yaml "
+        'hierarchy. For example: "{model.param1: value1}" would '
+        "override the param1 parameter of the model node.",
+    )
+    parser.add_argument(
+        "--output_folder",
+        help="A folder for storing all experiment-related outputs.",
+    )
+    parser.add_argument(
+        "--data_folder", help="A folder containing the data used for training",
+    )
+    parser.add_argument(
+        "--save_folder",
+        help="A folder for storing checkpoints that allow restoring "
+        "progress for testing or re-starting training.",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        help="A random seed to reproduce experiments on the same machine",
+    )
+    parser.add_argument(
+        "--log_config",
+        help="A file storing the configuration options for logging",
+    )
+
+    # Ignore items that are "None", they were not passed
+    parsed_args = vars(parser.parse_args(arg_list))
+
+    # Convert yaml_overrides to dictionary
+    if parsed_args["yaml_overrides"] is not None:
+        overrides = parse_overrides(parsed_args["yaml_overrides"])
+        del parsed_args["yaml_overrides"]
+        recursive_update(parsed_args, overrides)
+
+    # Only return non-empty items
+    return {k: v for k, v in parsed_args.items() if v is not None}
+
+
+def parse_overrides(override_string):
+    """Parse overrides from a yaml string representing paired args and values.
+
+    Arguments
+    ---------
+    override_string: str
+        A yaml-formatted string, where each (key: value) pair
+        overrides the same pair in a loaded file.
+
+    Example
+    -------
+    >>> parse_overrides("{model.arg1: val1, model.arg2.arg3: 3.}")
+    {'model': {'arg1': 'val1', 'arg2': {'arg3': 3.0}}}
+    """
+    preview = {}
+    if override_string:
+        preview = yaml.safe_load(override_string)
+
+    overrides = {}
+    for arg, val in preview.items():
+        if "." in arg:
+            nest(overrides, arg.split("."), val)
+        else:
+            overrides[arg] = val
+
+    return overrides
+
+
+def nest(dictionary, args, val):
+    """Create a nested sequence of dictionaries, based on an arg list.
+
+    Arguments
+    ---------
+    dictionary : dict
+        this object will be updated with the nested arguments.
+    args : list
+        a list of parameters specifying a nested location.
+    val : obj
+        The value to store at the specified nested location.
+
+    Example
+    -------
+    >>> params = {}
+    >>> nest(params, ['arg1', 'arg2', 'arg3'], 'value')
+    >>> params
+    {'arg1': {'arg2': {'arg3': 'value'}}}
+    """
+    if len(args) == 1:
+        dictionary[args[0]] = val
+        return
+
+    if args[0] not in dictionary:
+        dictionary[args[0]] = {}
+
+    nest(dictionary[args[0]], args[1:], val)
+
+
+class Brain:
+    r"""Brain class abstracts away the details of data loops.
+
+    The primary purpose of the `Brain` class is the implementation of
+    the `fit()` method, which iterates epochs and datasets for the
+    purpose of "fitting" a set of modules to a set of data.
+
+    In order to use the `fit()` method, one should sub-class the `Brain` class
+    and override any methods for which the default behavior does not match
+    the use case. For a simple use case (e.g. training a single model with
+    a single dataset) the only methods that need to be overridden are:
+
+    * `forward()`
+    * `compute_objectives()`
+
+    The example below illustrates how overriding these two methods is done.
+
+    For more complicated use cases, such as multiple modules that need to
+    be updated, the following methods can be overridden:
+
+    * `fit_batch()`
+    * `evaluate_batch()`
+
+    If there is more than one objective (either for training or evaluation),
+    the method for summarizing the losses (e.g. averaging) can be specified
+    by overriding the `summarize()` method.
 
     Arguments
     ---------
@@ -113,26 +257,6 @@ class Brain:
         self.optimizer = optimizer
         self.scheduler = scheduler
         self.saver = saver
-
-    def _update_attributes(self, attributes, override=False):
-        r"""Update the attributes of this class to reflect a set of parameters
-
-        Arguments
-        ---------
-        attributes : mapping
-            A dict that contains the essential parameters for
-            running the experiment. Usually loaded from a yaml file using
-            `load_extended_yaml()`.
-        """
-        for param, new_value in attributes.items():
-            if isinstance(new_value, dict):
-                value = getattr(self, param, {})
-                value.update(new_value)
-            else:
-                if hasattr(self, param) and not override:
-                    raise KeyError("Parameter %s is defined multiple times")
-                value = new_value
-            setattr(self, param, value)
 
     def forward(self, x, init_params=False):
         """Forward pass, to be overridden by sub-classes.
@@ -169,9 +293,9 @@ class Brain:
         The default impementation depends on three methods being defined
         with a particular behavior:
 
-        * `forward`
-        * `compute_objectives`
-        * `optimizer`
+        * `forward()`
+        * `compute_objectives()`
+        * `optimizer()`
 
         Arguments
         ---------
@@ -192,8 +316,8 @@ class Brain:
         The default impementation depends on two methods being defined
         with a particular behavior:
 
-        * `forward`
-        * `compute_objectives`
+        * `forward()`
+        * `compute_objectives()`
 
         Arguments
         ---------
@@ -233,10 +357,10 @@ class Brain:
         overridden. The following functions are used and expected to have a
         certain behavior:
 
-        * `fit_batch`
-        * `evaluate_batch`
-        * `summarize`
-        * `save`
+        * `fit_batch()`
+        * `evaluate_batch()`
+        * `summarize()`
+        * `save()`
 
         Arguments
         ---------
@@ -359,124 +483,3 @@ class Brain:
         self.saver.save_and_keep_only(
             meta=stats, importance_keys=importance_keys,
         )
-
-
-def _logging_excepthook(exc_type, exc_value, exc_traceback):
-    """Interrupt exception raising to log the error."""
-    logger.error("Exception:", exc_info=(exc_type, exc_value, exc_traceback))
-
-
-def parse_arguments(arg_list):
-    """Parse command-line arguments to the experiment.
-
-    Arguments
-    ---------
-    arg_list: list
-        a list of arguments to parse, most often from `sys.argv[1:]`
-
-    Example
-    -------
-    >>> parse_arguments(['--seed', '10'])
-    {'seed': 10}
-    """
-    parser = argparse.ArgumentParser(
-        description="Run a SpeechBrain experiment",
-    )
-    parser.add_argument(
-        "--yaml_overrides",
-        help="A yaml-formatted string representing a dictionary of "
-        "overrides to the parameters in the param file. The keys of "
-        "the dictionary can use dots to represent levels in the yaml "
-        'hierarchy. For example: "{model.param1: value1}" would '
-        "override the param1 parameter of the model node.",
-    )
-    parser.add_argument(
-        "--output_folder",
-        help="A folder for storing all experiment-related outputs.",
-    )
-    parser.add_argument(
-        "--data_folder", help="A folder containing the data used for training",
-    )
-    parser.add_argument(
-        "--save_folder",
-        help="A folder for storing checkpoints that allow restoring "
-        "progress for testing or re-starting training.",
-    )
-    parser.add_argument(
-        "--seed",
-        type=int,
-        help="A random seed to reproduce experiments on the same machine",
-    )
-    parser.add_argument(
-        "--log_config",
-        help="A file storing the configuration options for logging",
-    )
-
-    # Ignore items that are "None", they were not passed
-    parsed_args = vars(parser.parse_args(arg_list))
-
-    # Convert yaml_overrides to dictionary
-    if parsed_args["yaml_overrides"] is not None:
-        overrides = parse_overrides(parsed_args["yaml_overrides"])
-        del parsed_args["yaml_overrides"]
-        recursive_update(parsed_args, overrides)
-
-    # Only return non-empty items
-    return {k: v for k, v in parsed_args.items() if v is not None}
-
-
-def parse_overrides(override_string):
-    """Parse overrides from a yaml string representing paired args and values.
-
-    Arguments
-    ---------
-    override_string: str
-        A yaml-formatted string, where each (key: value) pair
-        overrides the same pair in a loaded file.
-
-    Example
-    -------
-    >>> parse_overrides("{model.arg1: val1, model.arg2.arg3: 3.}")
-    {'model': {'arg1': 'val1', 'arg2': {'arg3': 3.0}}}
-    """
-    preview = {}
-    if override_string:
-        preview = yaml.safe_load(override_string)
-
-    overrides = {}
-    for arg, val in preview.items():
-        if "." in arg:
-            nest(overrides, arg.split("."), val)
-        else:
-            overrides[arg] = val
-
-    return overrides
-
-
-def nest(dictionary, args, val):
-    """Create a nested sequence of dictionaries, based on an arg list.
-
-    Arguments
-    ---------
-    dictionary : dict
-        this object will be updated with the nested arguments.
-    args : list
-        a list of parameters specifying a nested location.
-    val : obj
-        The value to store at the specified nested location.
-
-    Example
-    -------
-    >>> params = {}
-    >>> nest(params, ['arg1', 'arg2', 'arg3'], 'value')
-    >>> params
-    {'arg1': {'arg2': {'arg3': 'value'}}}
-    """
-    if len(args) == 1:
-        dictionary[args[0]] = val
-        return
-
-    if args[0] not in dictionary:
-        dictionary[args[0]] = {}
-
-    nest(dictionary[args[0]], args[1:], val)
