@@ -2056,5 +2056,4 @@ class pooling(nn.Module):
             )
 
         x = x.transpose(-1, 1).transpose(2, -1)
-
         return x
