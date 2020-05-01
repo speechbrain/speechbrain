@@ -58,41 +58,27 @@ class Sequential(torch.nn.Module):
 
 
 class linear(torch.nn.Module):
+    """Computes a linear transformation y = wx + b.
+
+    Arguments
+    ---------
+    n_neurons : int
+        it is the number of output neurons (i.e, the dimensionality of the
+        output)
+    bias : bool
+        if True, the additive bias b is adopted.
+
+    Example
+    -------
+    >>> lin_t = linear(n_neurons=100)
+    >>> inputs = torch.rand(10, 50, 40)
+    >>> output = lin_t(inputs,init_params=True)
+    >>> output.shape
+    torch.Size([10, 50, 100])
     """
-     -------------------------------------------------------------------------
-     nnet.architectures.linear (author: Mirco Ravanelli)
 
-     Description:  This function implements a fully connected linear layer:
-                   y = Wx + b.
-
-     Input: - n_neurons (type: int(1,inf), mandatory):
-               it is the number of output neurons (i.e, the
-               dimensionality of the output)
-
-           - bias (type: bool, Default:True):
-               if True, the additive bias b is adopted.
-
-     Example:   import torch
-                from speechbrain.nnet.architectures import linear
-
-                inp_tensor = torch.rand([4,660,190])
-
-                # Initialization of the class
-                linear_transf=linear(n_neurons=1024)
-
-                # Executing computations
-                inp_tensor = torch.rand([4,660,120])
-                out_tensor = linear_transf([inp_tensor])
-                print(out_tensor)
-                print(out_tensor.shape)
-
-     """
-
-    def __init__(
-        self, n_neurons, bias=True,
-    ):
+    def __init__(self, n_neurons, bias=True):
         super().__init__()
-
         self.n_neurons = n_neurons
         self.bias = bias
 
@@ -101,7 +87,7 @@ class linear(torch.nn.Module):
         Arguments
         ---------
         first_input : tensor
-            A dummy input of the right shape for initializing parameters.
+            A first input used for initializing parameters.
         """
         fea_dim = first_input.shape[2]
         self.w = nn.Linear(fea_dim, self.n_neurons, bias=self.bias)
@@ -121,7 +107,6 @@ class linear(torch.nn.Module):
         # Transposing tensor (features always at the end)
         x = x.transpose(2, -1)
 
-        # Apply linear transformation
         wx = self.w(x)
 
         # Going back to the original shape format
@@ -194,13 +179,12 @@ class conv(nn.Module):
         kernel_size,
         stride=(1, 1),
         dilation=(1, 1),
-        padding=0,
+        padding=False,
         groups=1,
         bias=True,
         padding_mode="zeros",
     ):
         super().__init__()
-
         self.out_channels = out_channels
         self.kernel_size = kernel_size
         self.stride = stride
@@ -209,17 +193,12 @@ class conv(nn.Module):
         self.groups = groups
         self.bias = bias
         self.padding_mode = padding_mode
-
         self.reshape_conv1d = False
-        self.reshape_conv2d = False
-        self.squeeze_conv2d = False
-        self.transp_conv2d = False
+        self.unsqueeze = False
 
         # Ensure kernel_size and padding are tuples
         if not isinstance(self.kernel_size, tuple):
-            self.kernel_size = (self.kernel_size,)
-        if self.padding is not None and not isinstance(self.padding, tuple):
-            self.padding = (self.padding,)
+            self.kernel_size = tuple(self.kernel_size,)
 
         # Making sure that the kernel size is odd (if the kernel is not
         # symmetric there could a problem with the padding function)
@@ -247,121 +226,96 @@ class conv(nn.Module):
         first_input : tensor
             A dummy input of the right shape for initializing parameters.
         """
-        # Manage reshaping flags
-        if len(first_input.shape) > 3:
-            if self.conv1d:
-                self.reshape_conv1d = True
-
-        if len(first_input.shape) > 4:
-            if self.conv2d:
-                self.reshape_conv2d = True
-
-        if len(first_input.shape) == 3 and self.conv2d:
-            self.squeeze_conv2d = True
-
-        if len(first_input.shape) >= 4 and self.conv2d:
-            self.transp_conv2d = True
-
-        # Detecting the number of input channels
         if self.conv1d:
+            self.init_conv1d(first_input)
+
+        if self.conv2d:
+            self.init_conv2d(first_input)
+
+    def init_conv1d(self, first_input):
+
+        if len(first_input.shape) == 1:
+            raise ValueError(
+                "conv1d expects 2d, 3d, or 4d inputs. Got " + len(first_input)
+            )
+
+        if len(first_input.shape) == 2:
+            self.unsqueeze = True
+            self.in_channels = 1
+
+        if len(first_input.shape) == 3:
             self.in_channels = first_input.shape[2]
 
-        if self.conv2d:
-            if len(first_input.shape) == 3:
-                self.in_channels = 1
+        if len(first_input.shape) == 4:
+            self.reshape_conv1d = True
+            self.in_channels = first_input.shape[2] * first_input.shape[3]
 
-            elif len(first_input.shape) == 4:
-                self.in_channels = first_input.shape[3]
-            elif len(first_input.shape) == 5:
-                self.in_channels = first_input.shape[3] * first_input.shape[4]
+        if len(first_input.shape) > 4:
+            raise ValueError(
+                "conv1d expects 2d, 3d, or 4d inputs. Got " + len(first_input)
+            )
 
-        # Managing 1d convolutions
-        if self.conv1d:
+        self.conv = nn.Conv1d(
+            self.in_channels,
+            self.out_channels,
+            self.kernel_size[0],
+            stride=self.stride[0],
+            dilation=self.dilation[0],
+            padding=0,
+            groups=self.groups,
+            bias=self.bias,
+            padding_mode=self.padding_mode,
+        ).to(first_input.device)
 
-            if self.padding is not None:
-                self.padding = self.padding[0]
+    def init_conv2d(self, first_input):
+        if len(first_input.shape) <= 2:
+            raise ValueError(
+                "conv2d expects 3d or 4d inputs. Got " + len(first_input)
+            )
 
-            # Initialization of the parameters
-            self.conv = nn.Conv1d(
-                self.in_channels,
-                self.out_channels,
-                self.kernel_size[0],
-                stride=self.stride[0],
-                dilation=self.dilation[0],
-                padding=0,
-                groups=self.groups,
-                bias=self.bias,
-                padding_mode=self.padding_mode,
-            ).to(first_input.device)
+        if len(first_input.shape) == 3:
+            self.unsqueeze = True
+            self.in_channels = 1
 
-        # Managing 2d convolutions
-        if self.conv2d:
+        if len(first_input.shape) == 4:
+            self.in_channels = first_input.shape[3]
 
-            if self.padding is not None:
-                self.padding = self.padding[0:-1]
+        if len(first_input.shape) > 4:
+            raise ValueError(
+                "conv1d expects 3d or 4d inputs. Got " + len(first_input)
+            )
 
-            # Initialization of the parameters
-            self.conv = nn.Conv2d(
-                self.in_channels,
-                self.out_channels,
-                self.kernel_size,
-                stride=self.stride,
-                padding=0,
-                dilation=self.dilation,
-                groups=self.groups,
-                bias=self.bias,
-                padding_mode=self.padding_mode,
-            ).to(first_input.device)
+        self.conv = nn.Conv2d(
+            self.in_channels,
+            self.out_channels,
+            self.kernel_size,
+            stride=self.stride,
+            padding=0,
+            dilation=self.dilation,
+            groups=self.groups,
+            bias=self.bias,
+            padding_mode=self.padding_mode,
+        ).to(first_input.device)
 
     def forward(self, x, init_params=False):
+
         if init_params:
             self.init_params(x)
 
         # transposing input
-        x = x.transpose(1, 2).transpose(2, -1)
+        x = x.transpose(1, -1)
 
         # Reshaping the inputs when needed
         if self.reshape_conv1d:
             or_shape = x.shape
-
-            # revise that
-            if len(or_shape) == 4:
-                x = x.reshape(
-                    or_shape[0] * or_shape[2], or_shape[1], or_shape[-1]
-                )
-
-            # revise that
-            if len(or_shape) == 5:
-                x = x.reshape(
-                    or_shape[0] * or_shape[2] * or_shape[3],
-                    or_shape[1],
-                    or_shape[-1],
-                )
+            x = x.reshape(or_shape[0], or_shape[1] * or_shape[2], or_shape[3])
 
         # Reshaping the inputs when needed
-        if self.conv2d:
-
-            if self.reshape_conv2d:
-
-                or_shape = x.shape
-
-                # revise that
-                if len(or_shape) == 5:
-                    x = x.reshape(
-                        or_shape[0],
-                        or_shape[1],
-                        or_shape[2] * or_shape[3],
-                        or_shape[-1],
-                    )
-
-            if self.transp_conv2d:
-                x = x.transpose(1, 2)
-
-            if self.squeeze_conv2d:
-                x = x.unsqueeze(1)
+        if self.unsqueeze:
+            x = x.unsqueeze(1)
 
         # Manage padding
-        if self.padding is None:
+        if self.padding:
             x = self.manage_padding(
                 x, self.kernel_size, self.dilation, self.stride
             )
@@ -370,85 +324,15 @@ class conv(nn.Module):
         wx = self.conv(x)
 
         # Retrieving the original shape format when needed
-        if self.conv2d:
-            if self.squeeze_conv2d:
-                wx = wx.squeeze(1)
-
-            wx = wx.transpose(1, 2)
+        if self.unsqueeze:
+            wx = wx.squeeze(1)
 
         if self.reshape_conv1d:
+            wx = wx.reshape(or_shape[0], wx.shape[1], or_shape[2], wx.shape[3])
 
-            if len(or_shape) == 4:
-                wx = wx.reshape(
-                    or_shape[0], wx.shape[1], or_shape[2], wx.shape[-1]
-                )
+        wx = wx.transpose(1, -1)
 
-            if len(or_shape) == 5:
-                wx = wx.reshape(
-                    or_shape[0],
-                    wx.shape[1],
-                    or_shape[2],
-                    or_shape[3],
-                    wx.shape[-1],
-                )
-
-        wx = wx.transpose(1, -1).transpose(2, -1)
         return wx
-
-    @staticmethod
-    def compute_conv1d_shape(L_in, kernel_size, dilation, stride):
-        """
-        -----------------------------------------------------------------------
-        speechbrain.nnet.architectures.conv.compute_conv1d_shape (M Ravanelli)
-
-        Description: This support function can be use to compute the output
-                     dimensioality of a 1D convolutional layer. It is used
-                     to detect the number of padding elements.
-
-        Input (call):    - L_in (type: int, mandatory):
-                              it is the length of the input signal
-
-                         - kernel_size (type: int, mandatory):
-                              it is the kernel size used for the convolution
-
-                         - dilation (type: int, mandatory):
-                              it is the dilation factor used for the
-                              convolution.
-
-                          - stride (type: int, mandatory):
-                              it is the dilation factor used for the
-                              convolution.
-
-
-        Output (call):  L_out (type: integer):
-                            it is the length of the output.
-
-
-     Example:   import torch
-                from speechbrain.nnet.architectures import conv
-
-                inp_tensor = torch.rand([4,100,190])
-
-                # config dictionary definition
-                config={'class_name':'speechbrain.nnet.architectures.\
-                    linear_combination',
-                        'out_channels':'25',
-                        'kernel_size': '11',
-                        'stride': '2',
-                        'dilation': '3'}
-
-                # Initialization of the class
-                cnn=conv(config,first_input=[inp_tensor])
-
-                # Executing computations
-                print(cnn.compute_conv1d_shape(190,11,2,3))
-
-        -----------------------------------------------------------------------
-        """
-        # Output length computation
-        L_out = (L_in - dilation * (kernel_size - 1) - 1) / stride + 1
-
-        return int(L_out)
 
     def manage_padding(self, x, kernel_size, dilation, stride):
         """
@@ -505,46 +389,35 @@ class conv(nn.Module):
         # Detecting input shape
         L_in = x.shape[-1]
 
-        # Managing time padding
-        if stride[-1] > 1:
-            n_steps = math.ceil(
-                ((L_in - kernel_size[-1] * dilation[-1]) / stride[-1]) + 1
-            )
-            L_out = stride[-1] * (n_steps - 1) + kernel_size[-1] * dilation[-1]
-            padding = [kernel_size[-1] // 2, kernel_size[-1] // 2]
+        # Time padding
+        padding = self.get_padding_elem(
+            L_in, stride[-1], kernel_size[-1], dilation[-1]
+        )
 
-        else:
-            L_in = x.shape[-1]
-            L_out = self.compute_conv1d_shape(
-                L_in, kernel_size[-1], dilation[-1], stride[-1]
-            )
-            padding = [(L_in - L_out) // 2, (L_in - L_out) // 2]
-
-        # Managing frequency padding (for 2D CNNs)
         if self.conv2d:
-
-            if stride[-2] > 1:
-                n_steps = math.ceil(
-                    ((L_in - kernel_size[-2] * dilation[-2]) / stride[-2]) + 1
-                )
-                L_out = (
-                    stride[-2] * (n_steps - 1) + kernel_size[-2] * dilation[-2]
-                )
-                padding = padding + [
-                    kernel_size[-2] // 2,
-                    kernel_size[-2] // 2,
-                ]
-
-            else:
-                L_in = x.shape[-2]
-                L_out = self.compute_conv1d_shape(
-                    L_in, kernel_size[-2], dilation[-2], stride[-2]
-                )
-                padding = padding + [(L_in - L_out) // 2, (L_in - L_out) // 2]
+            padding_freq = self.get_padding_elem(
+                L_in, stride[-2], kernel_size[-2], dilation[-2]
+            )
+            padding = padding + padding_freq
 
         # Applying padding
         x = nn.functional.pad(input=x, pad=tuple(padding), mode="reflect")
+
         return x
+
+    @staticmethod
+    def get_padding_elem(L_in, stride, kernel_size, dilation):
+        if stride > 1:
+            n_steps = math.ceil(((L_in - kernel_size * dilation) / stride) + 1)
+            L_out = stride * (n_steps - 1) + kernel_size * dilation
+            padding = [kernel_size // 2, kernel_size // 2]
+
+        else:
+            L_out = (L_in - dilation * (kernel_size - 1) - 1) / stride + 1
+            L_out = int(L_out)
+
+            padding = [(L_in - L_out) // 2, (L_in - L_out) // 2]
+        return padding
 
 
 class SincConv(nn.Module):
