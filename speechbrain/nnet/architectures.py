@@ -96,9 +96,6 @@ class linear(torch.nn.Module):
         self.n_neurons = n_neurons
         self.bias = bias
 
-        # Fake initialization for jitability
-        self.w = torch.Tensor([])
-
     def init_params(self, first_input):
         """
         Arguments
@@ -242,9 +239,6 @@ class conv(nn.Module):
 
         if len(self.kernel_size) == 2:
             self.conv2d = True
-
-        # Fake initialization for jitability
-        self.conv = torch.Tensor([])
 
     def init_params(self, first_input):
         """
@@ -1163,9 +1157,6 @@ class RNN_basic(torch.nn.Module):
         self.bidirectional = bidirectional
         self.reshape = False
 
-        # Fake initialization for jitability
-        self.rnn = torch.Tensor([])
-
     def init_params(self, first_input):
         """
         Arguments
@@ -1206,8 +1197,9 @@ class RNN_basic(torch.nn.Module):
         if self.rnn_type == "ligru":
             del kwargs["bias"]
             del kwargs["batch_first"]
+
             kwargs["batch_size"] = first_input.shape[0]
-            kwargs["device"] = self.device
+            kwargs["device"] = first_input.device
             self.rnn = liGRU(**kwargs)
 
         self.rnn.to(first_input.device)
@@ -1282,12 +1274,11 @@ class liGRU(torch.jit.ScriptModule):
 
     @torch.jit.script_method
     def forward(self, x):
-        # type: (Tensor) -> Tuple[Tensor, int]
-        x = x.transpose(0,1)
+        x = x.transpose(0, 1)
         for ligru_lay in self.model:
             x = ligru_lay(x)
 
-        x = x.transpose(0,1)
+        x = x.transpose(0, 1)
         return x, 0
 
 
@@ -1370,7 +1361,6 @@ class liGRU_layer(torch.jit.ScriptModule):
 
     @torch.jit.script_method
     def forward(self, x):
-        # type: (Tensor) -> Tensor
 
         if self.bidirectional:
             x_flip = x.flip(0)
@@ -1396,7 +1386,6 @@ class liGRU_layer(torch.jit.ScriptModule):
 
     @torch.jit.script_method
     def ligru_cell(self, w):
-        # type: (Tensor) -> Tensor
 
         hiddens = []
         ht = self.h_init
@@ -1783,9 +1772,6 @@ class dropout(nn.Module):
         self.drop_rate = drop_rate
         self.inplace = inplace
 
-        # Fake initialization for jitability
-        self.drop = torch.Tensor([])
-
     def init_params(self, first_input):
         """
         Arguments
@@ -1941,9 +1927,6 @@ class pooling(nn.Module):
             self.kernel_size = [self.kernel_size]
         if not isinstance(self.pool_axis, list):
             self.pool_axis = [self.pool_axis]
-
-        # Fake initialization for jitability
-        self.pool_layer = torch.Tensor([])
 
     def init_params(self, first_input):
         """
