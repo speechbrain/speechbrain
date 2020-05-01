@@ -1205,7 +1205,9 @@ class RNN_basic(torch.nn.Module):
         # Light-GRU
         if self.rnn_type == "ligru":
             del kwargs["bias"]
-            kwargs["batch_size"] = (first_input.shape[0],)
+            del kwargs["batch_first"]
+            kwargs["batch_size"] = first_input.shape[0]
+            kwargs["device"] = self.device
             self.rnn = liGRU(**kwargs)
 
         self.rnn.to(first_input.device)
@@ -1250,12 +1252,59 @@ class liGRU(torch.jit.ScriptModule):
         num_layers,
         batch_size,
         dropout=0.0,
+        bidirectional=True,
+        device="cuda",
+    ):
+
+        super(liGRU, self).__init__()
+
+        current_dim = int(input_size)
+
+        self.model = torch.nn.ModuleList([])
+
+        for i in range(num_layers):
+            rnn_lay = liGRU_layer(
+                current_dim,
+                hidden_size,
+                num_layers,
+                batch_size,
+                dropout=dropout,
+                bidirectional=bidirectional,
+                device=device,
+            )
+
+            self.model.append(rnn_lay)
+
+            if bidirectional:
+                current_dim = hidden_size * 2
+            else:
+                current_dim == hidden_size
+
+    @torch.jit.script_method
+    def forward(self, x):
+        # type: (Tensor) -> Tuple[Tensor, int]
+        x = x.transpose(0,1)
+        for ligru_lay in self.model:
+            x = ligru_lay(x)
+
+        x = x.transpose(0,1)
+        return x, 0
+
+
+class liGRU_layer(torch.jit.ScriptModule):
+    def __init__(
+        self,
+        input_size,
+        hidden_size,
+        num_layers,
+        batch_size,
+        dropout=0.0,
         nonlinearity="relu",
         bidirectional=True,
         device="cuda",
     ):
 
-        super().__init__()
+        super(liGRU_layer, self).__init__()
 
         self.hidden_size = int(hidden_size)
         self.input_size = int(input_size)
@@ -1321,7 +1370,7 @@ class liGRU(torch.jit.ScriptModule):
 
     @torch.jit.script_method
     def forward(self, x):
-        # type: (torch.Tensor) -> torch.Tensor
+        # type: (Tensor) -> Tensor
 
         if self.bidirectional:
             x_flip = x.flip(0)
@@ -1347,7 +1396,7 @@ class liGRU(torch.jit.ScriptModule):
 
     @torch.jit.script_method
     def ligru_cell(self, w):
-        # type: (torch.Tensor) -> torch.Tensor
+        # type: (Tensor) -> Tensor
 
         hiddens = []
         ht = self.h_init
