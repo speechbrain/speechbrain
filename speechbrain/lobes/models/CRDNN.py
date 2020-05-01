@@ -62,6 +62,8 @@ class CRDNN(Sequential):
         rnn_overrides={},
         dnn_blocks=1,
         dnn_overrides={},
+        time_pooling=False,
+        pooling_overrides={},
     ):
         blocks = []
 
@@ -71,6 +73,15 @@ class CRDNN(Sequential):
                     block_index=i + 1,
                     param_file="speechbrain/lobes/models/cnn_block.yaml",
                     overrides=cnn_overrides,
+                )
+            )
+
+        if time_pooling:
+            blocks.append(
+                NeuralBlock(
+                    block_index=i + 1,
+                    param_file="speechbrain/lobes/models/pooling_block.yaml",
+                    overrides=pooling_overrides,
                 )
             )
 
