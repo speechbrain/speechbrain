@@ -183,6 +183,10 @@ class conv(nn.Module):
         groups=1,
         bias=True,
         padding_mode="zeros",
+        sinc_conv=False,
+        sample_rate=16000,
+        min_low_hz=50,
+        min_band_hz=50,
     ):
         super().__init__()
         self.out_channels = out_channels
@@ -193,6 +197,10 @@ class conv(nn.Module):
         self.groups = groups
         self.bias = bias
         self.padding_mode = padding_mode
+        self.sinc_conv = sinc_conv
+        self.sample_rate = sample_rate
+        self.min_low_hz = min_low_hz
+        self.min_band_hz = min_band_hz
         self.reshape_conv1d = False
         self.unsqueeze = False
 
@@ -219,6 +227,11 @@ class conv(nn.Module):
         if len(self.kernel_size) == 2:
             self.conv2d = True
 
+        if self.sinc_conv and self.conv2d:
+            raise ValueError(
+                "sinc_conv expects 1d kernels. Got " + len(self.kernel_size)
+            )
+
     def init_params(self, first_input):
         """
         Arguments
@@ -226,8 +239,15 @@ class conv(nn.Module):
         first_input : tensor
             A dummy input of the right shape for initializing parameters.
         """
+
+        self.device = first_input.device
+
         if self.conv1d:
-            self.init_conv1d(first_input)
+            if self.sinc_conv:
+                self.init_sinc_conv(first_input)
+
+            else:
+                self.init_conv1d(first_input)
 
         if self.conv2d:
             self.init_conv2d(first_input)
@@ -297,6 +317,52 @@ class conv(nn.Module):
             padding_mode=self.padding_mode,
         ).to(first_input.device)
 
+    def init_sinc_conv(self, first_input):
+
+        self.init_conv1d(first_input)
+
+        # Initialize filterbanks such that they are equally spaced in Mel scale
+        high_hz = self.sample_rate / 2 - (self.min_low_hz + self.min_band_hz)
+
+        mel = torch.linspace(
+            self.to_mel(self.min_low_hz),
+            self.to_mel(high_hz),
+            self.out_channels + 1,
+        )
+
+        hz = self.to_hz(mel)
+
+        # Filter lower frequency (out_channels, 1)
+        self.low_hz_ = hz[:-1].unsqueeze(1)
+
+        # Filter frequency band (out_channels, 1)
+        self.band_hz_ = (hz[1:] - hz[:-1]).unsqueeze(1)
+
+        # Learning parameters
+        self.low_hz_ = nn.Parameter(self.low_hz_).to(self.device)
+        self.band_hz_ = nn.Parameter(self.band_hz_).to(self.device)
+
+        # Hamming window
+        n_lin = torch.linspace(
+            0,
+            (self.kernel_size[0] / 2) - 1,
+            steps=int((self.kernel_size[0] / 2)),
+        )
+
+        # computing only half of the window
+        self.window_ = 0.54 - 0.46 * torch.cos(
+            2 * math.pi * n_lin / self.kernel_size[0]
+        )
+
+        n = (self.kernel_size[0] - 1) / 2.0
+        # Time axis. Due to symmetry, I only need half of it
+        self.n_ = (
+            2 * math.pi * torch.arange(-n, 0).view(1, -1) / self.sample_rate
+        )
+
+        self.n_ = self.n_.to(self.device)
+        self.window_ = self.window_.to(self.device)
+
     def forward(self, x, init_params=False):
 
         if init_params:
@@ -321,7 +387,21 @@ class conv(nn.Module):
             )
 
         # Performing convolution
-        wx = self.conv(x)
+        if self.sinc_conv:
+            sinc_filters = self.get_sinc_filters()
+
+            wx = F.conv1d(
+                x,
+                sinc_filters,
+                stride=self.stride[0],
+                padding=0,
+                dilation=self.dilation[0],
+                bias=None,
+                groups=1,
+            )
+
+        else:
+            wx = self.conv(x)
 
         # Retrieving the original shape format when needed
         if self.unsqueeze:
@@ -405,6 +485,55 @@ class conv(nn.Module):
 
         return x
 
+    def get_sinc_filters(self,):
+
+        # Computing the low frequencies of the filters
+        low = self.min_low_hz + torch.abs(self.low_hz_)
+
+        # Setting minimum band and minimum freq
+        high = torch.clamp(
+            low + self.min_band_hz + torch.abs(self.band_hz_),
+            self.min_low_hz,
+            self.sample_rate / 2,
+        )
+        band = (high - low)[:, 0]
+
+        # Passing from n_ to the corresponding f_times_t domain
+        f_times_t_low = torch.matmul(low, self.n_)
+        f_times_t_high = torch.matmul(high, self.n_)
+
+        #  left part of the filter
+        # Equivalent of Eq.4 of the reference paper (SPEAKER RECOGNITION FROM
+        # RAW WAVEFORM WITH SINCNET). I just have expanded the sinc and
+        # simplified the terms. This way I avoid several useless computations.
+        band_pass_left = (
+            (torch.sin(f_times_t_high) - torch.sin(f_times_t_low))
+            / (self.n_ / 2)
+        ) * self.window_
+
+        # central element of the filter
+        band_pass_center = 2 * band.view(-1, 1)
+
+        # Right part of the filter (sinc filters are symmetric)
+        band_pass_right = torch.flip(band_pass_left, dims=[1])
+
+        # Combining left, central, and right part of the filter
+        band_pass = torch.cat(
+            [band_pass_left, band_pass_center, band_pass_right], dim=1
+        )
+
+        # Amplitude normalization
+        band_pass = band_pass / (2 * band[:, None])
+
+        # Setting up the filter coefficients
+        filters = (
+            (band_pass)
+            .view(self.out_channels, 1, self.kernel_size[0])
+            .to(self.device)
+        )
+
+        return filters
+
     @staticmethod
     def get_padding_elem(L_in, stride, kernel_size, dilation):
         if stride > 1:
@@ -418,6 +547,92 @@ class conv(nn.Module):
 
             padding = [(L_in - L_out) // 2, (L_in - L_out) // 2]
         return padding
+
+    @staticmethod
+    def to_mel(hz):
+        """
+        -----------------------------------------------------------------------
+         nnet.architectures.SincConv.to_mel (author: Mirco Ravanelli)
+
+        Description: This support function can be use to switch from the
+                     standard frequency domain to the mel-frequnecy domain.
+
+        Input (call):    - hz (type: float(0,inf), mandatory):
+                              it is the current value in Hz
+
+
+
+        Output (call):  mel_hz (type: float):
+                            it is the mel-frequency that corresponds to the
+                            input mel.
+
+
+
+        Example:    import torch
+                    from speechbrain.nnet.architectures import SincConv
+
+                    inp_tensor = torch.rand([4,32000])
+
+                    # config dictionary definition
+                    config={'class_name':'speechbrain.nnet.architectures.\
+                        linear_combination',
+                            'out_channels':'25',
+                            'kernel_size': '129'}
+
+                    # Initialization of the class
+                    sincnet=SincConv(config,first_input=[inp_tensor])
+
+                    # Executing computations
+                    print(sincnet.to_mel(4000))
+        -----------------------------------------------------------------------
+        """
+
+        mel_hz = 2595 * np.log10(1 + hz / 700)
+
+        return mel_hz
+
+    @staticmethod
+    def to_hz(mel):
+        """
+        -----------------------------------------------------------------------
+         nnet.architectures.SincConv.to_mel (author: Mirco Ravanelli)
+
+        Description: This support function can be use to switch from the
+                     mel-frequency domain to the standard frequnecy domain.
+
+        Input (call):    - mel (type: float(0,inf), mandatory):
+                              it is the current value in the mel-frequency
+                              domain.
+
+
+
+        Output (call):  hz (type: float):
+                            it is the Hz value that corresponds to the
+                            input melvalue.
+
+
+
+        Example:    import torch
+                    from speechbrain.nnet.architectures import SincConv
+
+                    inp_tensor = torch.rand([4,32000])
+
+                    # config dictionary definition
+                    config={'class_name':'speechbrain.nnet.architectures.\
+                        linear_combination',
+                            'out_channels':'25',
+                            'kernel_size': '129'}
+
+                    # Initialization of the class
+                    sincnet=SincConv(config,first_input=[inp_tensor])
+
+                    # Executing computations
+                    print(sincnet.to_hz(2146.06452750619))
+        -----------------------------------------------------------------------
+        """
+        hz = 700 * (10 ** (mel / 2595) - 1)
+
+        return hz
 
 
 class SincConv(nn.Module):
