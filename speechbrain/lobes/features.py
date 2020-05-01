@@ -2,7 +2,7 @@
 Authors: Mirco Ravanelli 2020, Peter Plantinga 2020
 """
 import torch
-from speechbrain.utils.data_utils import load_extended_yaml
+from speechbrain.yaml import load_extended_yaml
 
 
 class Features(torch.nn.Module):
@@ -31,7 +31,7 @@ class Features(torch.nn.Module):
     >>> import torch
     >>> inputs = torch.randn([10, 16000])
     >>> feature_maker = Features(feature_type='fbank')
-    >>> feats = feature_maker(inputs)
+    >>> feats = feature_maker(inputs, init_params=True)
     >>> feats.shape
     torch.Size([10, 101, 759])
 
@@ -56,7 +56,7 @@ class Features(torch.nn.Module):
         path = "speechbrain/lobes/features.yaml"
         self.params = load_extended_yaml(open(path), overrides)
 
-    def forward(self, wav):
+    def forward(self, wav, init_params: bool):
         """Returns a set of features generated from the input waveforms.
 
         Arguments
@@ -64,20 +64,20 @@ class Features(torch.nn.Module):
         wav : tensor
             A batch of audio signals to transform to features.
         """
-        STFT = self.params["compute_STFT"](wav)
-        features = self.params["compute_spectrogram"](STFT)
+        STFT = self.params.compute_STFT(wav)
+        features = self.params.compute_spectrogram(STFT)
 
         if self.feature_type in ["fbank", "mfcc"]:
-            features = self.params["compute_fbanks"](features)
+            features = self.params.compute_fbanks(features, init_params)
         if self.feature_type == "mfcc":
-            features = self.params["compute_mfccs"](features)
+            features = self.params.compute_mfccs(features, init_params)
 
         if self.deltas:
-            delta1 = self.params["compute_deltas"](features)
-            delta2 = self.params["compute_deltas"](delta1)
+            delta1 = self.params.compute_deltas(features, init_params)
+            delta2 = self.params.compute_deltas(delta1)
             features = torch.cat([features, delta1, delta2], dim=2)
 
         if self.context:
-            features = self.params["context_window"](features)
+            features = self.params.context_window(features)
 
         return features
