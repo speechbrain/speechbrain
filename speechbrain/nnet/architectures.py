@@ -87,7 +87,7 @@ class linear(torch.nn.Module):
         Arguments
         ---------
         first_input : tensor
-            A first input used for initializing parameters.
+            A first input used for initializing the parameters.
         """
         fea_dim = first_input.shape[2]
         self.w = nn.Linear(fea_dim, self.n_neurons, bias=self.bias)
@@ -115,62 +115,74 @@ class linear(torch.nn.Module):
 
 
 class conv(nn.Module):
-    """This function implements 1D or 2D convolutional layers.
+    """This function implements 1D, 2D, and sinc_conv (SincNet) convolutionals.
+
+    This class implements convolutional layers:
+    Conv1d is used when the specified kernel size is 1d (e.g, kernel_size=3).
+    Conv2d is used when the specified kernel size is 2d (e.g, kernel_size=3,5).
+    sinc_conv (SincNet) is used when sinc_conv is True.
 
     Args:
-        out_channels: it is the number of output channels.
-        kernel_size: it is a list containing the size of the kernels.
+        out_channels: int
+            It is the number of output channels.
+        kernel_size: int
+            It is a list containing the size of the kernels.
             For 1D convolutions, the list contains a single
             integer (convolution over the time axis), while
             for 2D convolutions the list is composed of two
-            values (i.e, time and frequenecy kernel sizes respectively).
-        stride: it is a list containing the stride factors.
+            values (i.e, time and frequency kernel sizes respectively).
+        stride: int
+            it is a list containing the stride factors.
             For 1D convolutions, the list contains a single
             integer (stride over the time axis), while
             for 2D convolutions the list is composed of two
-            values (i.e, time and frequenecy kernel sizes,
+            values (i.e, time and frequency kernel sizes,
             respectively). When the stride factor > 1, a
-            decimantion (in the time or frequnecy domain) is
+            decimation (in the time or frequnecy domain) is
             implicitely performed.
-        dilation: it is a list containing the dilation factors.
+        dilation: int
+            it is a list containing the dilation factors.
             For 1D convolutions, the list contains a single
             integer (dilation over the time axis), while
             for 2D convolutions the list is composed of two
-            values (i.e, time and frequenecy kernel sizes,
+            values (i.e, time and frequency kernel sizes,
             respectively).
-        padding: it is a list containing the number of elements to pad.
-            For 1D convolutions, the list contains a single
-            integer (padding over the time axis), while
-            for 2D convolutions the list is composed of two
-            values (i.e, time and frequenecy kernel sizes,
-            respectively). When not specified, the padding
-            is automatically performed such that the input
-            and the output have the same time/frequency
-            dimensionalities.
-        padding_mode: This flag specifies the type of padding.
+        padding: bool
+            if True, zero-padding is performed.
+        padding_mode: str
+            This flag specifies the type of padding.
             See torch.nn documentation for more information.
-        groups: This option specifies the convolutional groups.
+        groups: int
+            This option specifies the convolutional groups.
             See torch.nn documentation for more information.
-        bias: if True, the additive bias b is adopted.
-
-    Shape (1D case):
-        - x: [batch, time_steps]
-        - output: [batch, out_channels, time_steps]
-
-    Shape (2D case):
-        - x: [batch, channels, time_steps]
-        - output: [batch, channels, out_channels, time_steps]
+        bias: bool
+            If True, the additive bias b is adopted.
+        sinc_conv: bool
+            If True computes convolution with sinc-based filters (SincNet).
+        sample_rate: int,
+            Sampling rate of the input signals. It is only used for sinc_conv.
+        min_low_hz: float
+            Lowest possible frequency (in Hz) for a filter. It is only used for
+            sinc_conv.
+        min_low_hz: float
+            Lowest possible value (in Hz) for a filter bandwidth.
 
     Example:
-        >>> import torch
         >>> inp_tensor = torch.rand([10, 16000, 1])
-        >>> cnn = conv(out_channels=25, kernel_size=11)
-        >>> out_tensor = cnn(inp_tensor, init_params=True)
+        >>> cnn_1d = conv(out_channels=25, kernel_size=(11,))
+        >>> out_tensor = cnn_1d(inp_tensor, init_params=True)
         >>> out_tensor.shape
         torch.Size([10, 15990, 25])
-
-    Author:
-        Mirco Ravanelli 2020
+        >>> inp_tensor = torch.rand([10, 100, 40, 128])
+        >>> cnn_2d = conv(out_channels=25, kernel_size=(11,5))
+        >>> out_tensor = cnn_2d(inp_tensor, init_params=True)
+        >>> out_tensor.shape
+        torch.Size([10, 90, 36, 25])
+        >>> inp_tensor = torch.rand([10, 4000])
+        >>> sinc_conv = conv(out_channels=8,kernel_size=(129,),sinc_conv=True)
+        >>> out_tensor = sinc_conv(inp_tensor, init_params=True)
+        >>> out_tensor.shape
+        torch.Size([10, 3872, 8])
     """
 
     def __init__(
@@ -204,22 +216,27 @@ class conv(nn.Module):
         self.reshape_conv1d = False
         self.unsqueeze = False
 
-        # Ensure kernel_size and padding are tuples
+        # Check the specified kernel (to decide between conv1d and conv2d)
+        self._kernel_check()
+
+    def _kernel_check(self):
+        """Checks the specified kernel and decides if we have to use conv1d,
+        conv2d, or sinc_conv.
+        """
+
+        self.conv1d = False
+        self.conv2d = False
+
         if not isinstance(self.kernel_size, tuple):
             self.kernel_size = tuple(self.kernel_size,)
 
-        # Making sure that the kernel size is odd (if the kernel is not
-        # symmetric there could a problem with the padding function)
+        # Make sure kernel_size is odd (needed for padding)
         for size in self.kernel_size:
             if size % 2 == 0:
                 raise ValueError(
                     "The field kernel size must be an odd number. Got %s."
                     % (self.kernel_size)
                 )
-
-        # Checking if 1d or 2d is specified
-        self.conv1d = False
-        self.conv2d = False
 
         if len(self.kernel_size) == 1:
             self.conv1d = True
@@ -234,26 +251,33 @@ class conv(nn.Module):
 
     def init_params(self, first_input):
         """
+        Initializes the parameters of the convolutional layer.
+
         Arguments
         ---------
         first_input : tensor
-            A dummy input of the right shape for initializing parameters.
+            A first input used for initializing the parameters.
         """
-
         self.device = first_input.device
 
         if self.conv1d:
             if self.sinc_conv:
-                self.init_sinc_conv(first_input)
-
+                self._init_sinc_conv(first_input)
             else:
-                self.init_conv1d(first_input)
+                self._init_conv1d(first_input)
 
         if self.conv2d:
-            self.init_conv2d(first_input)
+            self._init_conv2d(first_input)
 
-    def init_conv1d(self, first_input):
+    def _init_conv1d(self, first_input):
+        """
+        Initializes the parameters of the conv1d layer.
 
+        Arguments
+        ---------
+        first_input : tensor
+            A first input used for initializing the parameters.
+        """
         if len(first_input.shape) == 1:
             raise ValueError(
                 "conv1d expects 2d, 3d, or 4d inputs. Got " + len(first_input)
@@ -287,7 +311,15 @@ class conv(nn.Module):
             padding_mode=self.padding_mode,
         ).to(first_input.device)
 
-    def init_conv2d(self, first_input):
+    def _init_conv2d(self, first_input):
+        """
+        Initializes the parameters of the conv2d layer.
+
+        Arguments
+        ---------
+        first_input : tensor
+            A first input used for initializing the parameters.
+        """
         if len(first_input.shape) <= 2:
             raise ValueError(
                 "conv2d expects 3d or 4d inputs. Got " + len(first_input)
@@ -305,6 +337,8 @@ class conv(nn.Module):
                 "conv1d expects 3d or 4d inputs. Got " + len(first_input)
             )
 
+        self.kernel_size = (self.kernel_size[1], self.kernel_size[0])
+
         self.conv = nn.Conv2d(
             self.in_channels,
             self.out_channels,
@@ -317,28 +351,33 @@ class conv(nn.Module):
             padding_mode=self.padding_mode,
         ).to(first_input.device)
 
-    def init_sinc_conv(self, first_input):
+    def _init_sinc_conv(self, first_input):
+        """
+        Initializes the parameters of the sinc_conv layer.
 
-        self.init_conv1d(first_input)
+        Arguments
+        ---------
+        first_input : tensor
+            A first input used for initializing the parameters.
+        """
+        self._init_conv1d(first_input)
 
         # Initialize filterbanks such that they are equally spaced in Mel scale
         high_hz = self.sample_rate / 2 - (self.min_low_hz + self.min_band_hz)
 
         mel = torch.linspace(
-            self.to_mel(self.min_low_hz),
-            self.to_mel(high_hz),
+            self._to_mel(self.min_low_hz),
+            self._to_mel(high_hz),
             self.out_channels + 1,
         )
 
-        hz = self.to_hz(mel)
+        hz = self._to_hz(mel)
 
-        # Filter lower frequency (out_channels, 1)
+        # Filter lower frequency and bands
         self.low_hz_ = hz[:-1].unsqueeze(1)
-
-        # Filter frequency band (out_channels, 1)
         self.band_hz_ = (hz[1:] - hz[:-1]).unsqueeze(1)
 
-        # Learning parameters
+        # Maiking freq and bands learnable
         self.low_hz_ = nn.Parameter(self.low_hz_).to(self.device)
         self.band_hz_ = nn.Parameter(self.band_hz_).to(self.device)
 
@@ -348,47 +387,41 @@ class conv(nn.Module):
             (self.kernel_size[0] / 2) - 1,
             steps=int((self.kernel_size[0] / 2)),
         )
-
-        # computing only half of the window
         self.window_ = 0.54 - 0.46 * torch.cos(
             2 * math.pi * n_lin / self.kernel_size[0]
-        )
+        ).to(self.device)
 
+        # Time axis  (only half is needed due to symmetry)
         n = (self.kernel_size[0] - 1) / 2.0
-        # Time axis. Due to symmetry, I only need half of it
         self.n_ = (
             2 * math.pi * torch.arange(-n, 0).view(1, -1) / self.sample_rate
-        )
-
-        self.n_ = self.n_.to(self.device)
-        self.window_ = self.window_.to(self.device)
+        ).to(self.device)
 
     def forward(self, x, init_params=False):
+        """Returns the output of the convolution.
 
+        Arguments
+        ---------
+        x : torch.Tensor
+        """
         if init_params:
             self.init_params(x)
 
-        # transposing input
         x = x.transpose(1, -1)
 
-        # Reshaping the inputs when needed
         if self.reshape_conv1d:
             or_shape = x.shape
             x = x.reshape(or_shape[0], or_shape[1] * or_shape[2], or_shape[3])
 
-        # Reshaping the inputs when needed
         if self.unsqueeze:
             x = x.unsqueeze(1)
 
-        # Manage padding
         if self.padding:
-            x = self.manage_padding(
+            x = self._manage_padding(
                 x, self.kernel_size, self.dilation, self.stride
             )
-
-        # Performing convolution
         if self.sinc_conv:
-            sinc_filters = self.get_sinc_filters()
+            sinc_filters = self._get_sinc_filters()
 
             wx = F.conv1d(
                 x,
@@ -403,79 +436,39 @@ class conv(nn.Module):
         else:
             wx = self.conv(x)
 
-        # Retrieving the original shape format when needed
+        # Retrieving the original shapes
         if self.unsqueeze:
             wx = wx.squeeze(1)
 
         if self.reshape_conv1d:
-            wx = wx.reshape(or_shape[0], wx.shape[1], or_shape[2], wx.shape[3])
+            wx = wx.reshape(or_shape[0], wx.shape[1], wx.shape[2], wx.shape[3])
 
         wx = wx.transpose(1, -1)
 
         return wx
 
-    def manage_padding(self, x, kernel_size, dilation, stride):
-        """
-        -----------------------------------------------------------------------
-        speechbrain.nnet.architectures.conv.manage_padding
-        (author: Mirco Ravanelli)
+    def _manage_padding(self, x, kernel_size, dilation, stride):
+        """This function performs zero-padding on the time and frequency axis
+        such that their lengths is unchanged after the convolution.
 
-        Description: This function performs padding such that input and output
-                     tensors have the same length.
-
-        Input (call):    - x (type: torch.Tensor, mandatory):
-                              it is the input (unpadded) tensor.
-
-                         - kernel_size (type: int_list, mandatory):
-                              it is the kernel size used for the convolution
-
-                         - dilation (type: int_list, mandatory):
-                              it is the dilation factor used for the
-                              convolution.
-
-                          - stride (type: int_list, mandatory):
-                              it is the dilation factor used for the
-                              convolution.
-
-
-        Output (call):  x (type: integer):
-                            it is the output (padded) tensor
-
-
-     Example:   import torch
-                from speechbrain.nnet.architectures import conv
-
-                inp_tensor = torch.rand([4,100,190])
-
-                # config dictionary definition
-                config={'class_name':'speechbrain.nnet.architectures.\
-                    linear_combination',
-                        'out_channels':'25',
-                        'kernel_size': '11',
-                        'stride': '2',
-                        'dilation': '3'}
-
-                # Initialization of the class
-                cnn=conv(config,first_input=[inp_tensor])
-
-                # Executing computations
-                padded_tensor=cnn.manage_padding(inp_tensor,[11],[2],[3])
-                print(inp_tensor.shape)
-                print(padded_tensor.shape)
-
-        -----------------------------------------------------------------------
+        Arguments
+        ---------
+        x : torch.Tensor
+        kernel_size : int
+        dilation : int
+        stride: int
         """
 
         # Detecting input shape
         L_in = x.shape[-1]
 
         # Time padding
-        padding = self.get_padding_elem(
+        padding = self._get_padding_elem(
             L_in, stride[-1], kernel_size[-1], dilation[-1]
         )
 
         if self.conv2d:
-            padding_freq = self.get_padding_elem(
+            padding_freq = self._get_padding_elem(
                 L_in, stride[-2], kernel_size[-2], dilation[-2]
             )
             padding = padding + padding_freq
@@ -485,8 +478,9 @@ class conv(nn.Module):
 
         return x
 
-    def get_sinc_filters(self,):
-
+    def _get_sinc_filters(self,):
+        """This functions creates the sinc-filters to used for sinc-conv.
+        """
         # Computing the low frequencies of the filters
         low = self.min_low_hz + torch.abs(self.low_hz_)
 
@@ -502,16 +496,13 @@ class conv(nn.Module):
         f_times_t_low = torch.matmul(low, self.n_)
         f_times_t_high = torch.matmul(high, self.n_)
 
-        #  left part of the filter
-        # Equivalent of Eq.4 of the reference paper (SPEAKER RECOGNITION FROM
-        # RAW WAVEFORM WITH SINCNET). I just have expanded the sinc and
-        # simplified the terms. This way I avoid several useless computations.
+        # Left part of the filters.
         band_pass_left = (
             (torch.sin(f_times_t_high) - torch.sin(f_times_t_low))
             / (self.n_ / 2)
         ) * self.window_
 
-        # central element of the filter
+        # Central element of the filter
         band_pass_center = 2 * band.view(-1, 1)
 
         # Right part of the filter (sinc filters are symmetric)
@@ -535,7 +526,16 @@ class conv(nn.Module):
         return filters
 
     @staticmethod
-    def get_padding_elem(L_in, stride, kernel_size, dilation):
+    def _get_padding_elem(L_in, stride, kernel_size, dilation):
+        """This computes the number of elements to add for zero-padding.
+
+        Arguments
+        ---------
+        L_in : int
+        stride: int
+        kernel_size : int
+        dilation : int
+        """
         if stride > 1:
             n_steps = math.ceil(((L_in - kernel_size * dilation) / stride) + 1)
             L_out = stride * (n_steps - 1) + kernel_size * dilation
@@ -549,615 +549,16 @@ class conv(nn.Module):
         return padding
 
     @staticmethod
-    def to_mel(hz):
+    def _to_mel(hz):
+        """Converts frequency in Hz to the mel scale.
         """
-        -----------------------------------------------------------------------
-         nnet.architectures.SincConv.to_mel (author: Mirco Ravanelli)
-
-        Description: This support function can be use to switch from the
-                     standard frequency domain to the mel-frequnecy domain.
-
-        Input (call):    - hz (type: float(0,inf), mandatory):
-                              it is the current value in Hz
-
-
-
-        Output (call):  mel_hz (type: float):
-                            it is the mel-frequency that corresponds to the
-                            input mel.
-
-
-
-        Example:    import torch
-                    from speechbrain.nnet.architectures import SincConv
-
-                    inp_tensor = torch.rand([4,32000])
-
-                    # config dictionary definition
-                    config={'class_name':'speechbrain.nnet.architectures.\
-                        linear_combination',
-                            'out_channels':'25',
-                            'kernel_size': '129'}
-
-                    # Initialization of the class
-                    sincnet=SincConv(config,first_input=[inp_tensor])
-
-                    # Executing computations
-                    print(sincnet.to_mel(4000))
-        -----------------------------------------------------------------------
-        """
-
-        mel_hz = 2595 * np.log10(1 + hz / 700)
-
-        return mel_hz
+        return 2595 * np.log10(1 + hz / 700)
 
     @staticmethod
-    def to_hz(mel):
+    def _to_hz(mel):
+        """Converts frequency in the mel scale to Hz.
         """
-        -----------------------------------------------------------------------
-         nnet.architectures.SincConv.to_mel (author: Mirco Ravanelli)
-
-        Description: This support function can be use to switch from the
-                     mel-frequency domain to the standard frequnecy domain.
-
-        Input (call):    - mel (type: float(0,inf), mandatory):
-                              it is the current value in the mel-frequency
-                              domain.
-
-
-
-        Output (call):  hz (type: float):
-                            it is the Hz value that corresponds to the
-                            input melvalue.
-
-
-
-        Example:    import torch
-                    from speechbrain.nnet.architectures import SincConv
-
-                    inp_tensor = torch.rand([4,32000])
-
-                    # config dictionary definition
-                    config={'class_name':'speechbrain.nnet.architectures.\
-                        linear_combination',
-                            'out_channels':'25',
-                            'kernel_size': '129'}
-
-                    # Initialization of the class
-                    sincnet=SincConv(config,first_input=[inp_tensor])
-
-                    # Executing computations
-                    print(sincnet.to_hz(2146.06452750619))
-        -----------------------------------------------------------------------
-        """
-        hz = 700 * (10 ** (mel / 2595) - 1)
-
-        return hz
-
-
-class SincConv(nn.Module):
-    """
-     -------------------------------------------------------------------------
-     nnet.architectures.SincConv (author: Mirco Ravanelli)
-
-     Description:  This function implements a sinc-based convolution (SincNet)
-
-     Input (init):  - config (type, dict, mandatory):
-                       it is a dictionary containing the keys described below.
-
-                           - out_channels (type: int(1,inf), mandatory):
-                               it is the number of output channels.
-
-                           - kernel_size (type: int_list(1,inf), mandatory):
-                               it is a list containing the size of the kernels.
-                               For 1D convolutions, the list contains a single
-                               integer (convolution over the time axis), while
-                               for 2D convolutions the list is composed of two
-                               values (i.e, time and frequenecy kernel sizes,
-                               respectively).
-
-                           - stride (type: int_list(1,inf), optional:
-                               default: 1,1):
-                               it is a list containing the stride factors.
-                               For 1D convolutions, the list contains a single
-                               integer (stride over the time axis), while
-                               for 2D convolutions the list is composed of two
-                               values (i.e, time and frequenecy kernel sizes,
-                               respectively). When the stride factor > 1, a
-                               decimantion (in the time or frequnecy domain) is
-                               implicitely performed.
-
-                           - dilation (type: int_list(1,inf), optional:
-                               default: 1,1):
-                               it is a list containing the dilation factors.
-                               For 1D convolutions, the list contains a single
-                               integer (dilation over the time axis), while
-                               for 2D convolutions the list is composed of two
-                               values (i.e, time and frequenecy kernel sizes,
-                               respectively).
-
-                           - padding (type: int_list(1,inf), optional:
-                               default: None):
-                               it is a list containing the number of elements
-                               to pad.
-                               For 1D convolutions, the list contains a single
-                               integer (padding over the time axis), while
-                               for 2D convolutions the list is composed of two
-                               values (i.e, time and frequenecy kernel sizes,
-                               respectively). When not specified, the padding
-                               is automatically performed such that the input
-                               and the output have the same time/frequency
-                               dimensionalities.
-
-                           - padding_mode (one_of(circular,zeros), optional:
-                               default: zeros):
-                               This flag specifies the type of padding.
-                               See torch.nn documentation for more information.
-
-                           - sample_rate (type: int(1,inf),
-                               default: 16000):
-                               it is the sampling frequency of the input
-                               waveform.
-
-                            - min_low_hz (type: float(0,inf),
-                                default: 50):
-                               it is the mininum frequnecy (in Hz) that a
-                               learned filter can have.
-
-                            - min_band_hz (type: float(0,inf),
-                                default: 50):
-                               it is the minimum band (in Hz) that a learned
-                               filter can have.
-
-
-                   - funct_name (type, str, default: None):
-                       it is a string containing the name of the parent
-                       function that has called this method.
-
-                   - global_config (type, dict, default: None):
-                       it a dictionary containing the global variables of the
-                       parent config file.
-
-                   - logger (type, logger, default: None):
-                       it the logger used to write debug and error messages.
-                       If logger=None and root_cfg=True, the file is created
-                       from scratch.
-
-                   - first_input (type, list, default: None)
-                      this variable allows users to analyze the first input
-                      given when calling the class for the first time.
-
-
-     Input (call): - inp_lst(type, list, mandatory):
-                       by default the input arguments are passed with a list.
-                       In this case, inp is a list containing the
-                       torch.tensor that corresponds to the waveform to
-                       transform.
-                       The tensor must be in one of the following format:
-                       [batch, time].
-
-
-     Output (call): - wx(type, torch.Tensor, mandatory):
-                       The output is a tensor that corresponds to the convolved
-                       input.
-
-
-     Example:   import torch
-                from speechbrain.nnet.architectures import SincConv
-
-                inp_tensor = torch.rand([4,32000])
-
-                # config dictionary definition
-                config={'class_name':'speechbrain.nnet.architectures.\
-                    linear_combination',
-                        'out_channels':'25',
-                        'kernel_size': '129'}
-
-                # Initialization of the class
-                sincnet=SincConv(config,first_input=[inp_tensor])
-
-                # Executing computations
-                out_tensor = sincnet([inp_tensor])
-                print(out_tensor)
-                print(out_tensor.shape)
-
-
-    Reference:     Mirco Ravanelli, Yoshua Bengio,
-                   "Speaker Recognition from raw waveform with SincNet".
-                   https://arxiv.org/abs/1808.00158
-     """
-
-    def __init__(
-        self,
-        config,
-        funct_name=None,
-        global_config=None,
-        functions=None,
-        logger=None,
-        first_input=None,
-    ):
-        super(SincConv, self).__init__()
-
-        # Logger setup
-        self.logger = logger
-
-        # Here are summarized the expected options for this class
-        self.expected_options = {
-            "class_name": ("str", "mandatory"),
-            "out_channels": ("int(1,inf)", "mandatory"),
-            "kernel_size": ("int(1,inf)", "mandatory"),
-            "stride": ("int(1,inf)", "optional", "1"),
-            "dilation": ("int(1,inf)", "optional", "1"),
-            "padding": ("int(0,inf)", "optional", "None"),
-            "sample_rate": ("int(1,inf)", "optional", "16000"),
-            "min_low_hz": ("float(0,inf)", "optional", "50"),
-            "min_band_hz": ("float(1,inf)", "optional", "50"),
-            "padding_mode": ("one_of(zeros,circular)", "optional", "zeros"),
-        }
-
-        # FIX: Old style
-        # Check, cast, and expand the options
-        # self.conf = check_opts(self, self.expected_options, config, self.logger)
-
-        # Definition of the expected input
-        self.expected_inputs = ["torch.Tensor"]
-
-        # Check the first input
-        # check_inputs(
-        #     self.conf, self.expected_inputs, first_input, logger=self.logger
-        # )
-
-        # FIX: The whole if block to new logger style
-        # Additional check on the input shapes
-        # if first_input is not None:
-
-        #     # Shape check
-        #     if len(first_input[0].shape) > 2:
-
-        #         err_msg = (
-        #             "SincConv only support one input channel (here, \
-        #                 in_channels = {%i})"
-        #             % (len(first_input[1:-1].shape))
-        #         )
-
-        #         logger_write(err_msg, logfile=logger)
-
-        # Forcing the filters to be odd (i.e, perfectly symmetric)
-        # FIX: Whole if block to new logging style
-        # if self.kernel_size % 2 == 0:
-        #     err_msg = (
-        #         "The field kernel size must be and odd number. Got %s."
-        #         % (self.kernel_size)
-        #     )
-
-        #     logger_write(err_msg, logfile=logger)
-
-        # Initialize filterbanks such that they are equally spaced in Mel scale
-        low_hz = 30
-        high_hz = self.sample_rate / 2 - (self.min_low_hz + self.min_band_hz)
-
-        mel = np.linspace(
-            self.to_mel(low_hz), self.to_mel(high_hz), self.out_channels + 1
-        )
-
-        hz = self.to_hz(mel)
-
-        # Filter lower frequency (out_channels, 1)
-        self.low_hz_ = torch.Tensor(hz[:-1]).view(-1, 1)
-
-        # Filter frequency band (out_channels, 1)
-        self.band_hz_ = torch.Tensor(np.diff(hz)).view(-1, 1)
-
-        # Learning parameters
-        self.low_hz_ = nn.Parameter(self.low_hz_)
-        self.band_hz_ = nn.Parameter(self.band_hz_)
-
-        # Hamming window
-        n_lin = torch.linspace(
-            0, (self.kernel_size / 2) - 1, steps=int((self.kernel_size / 2))
-        )  # computing only half of the window
-        self.window_ = 0.54 - 0.46 * torch.cos(
-            2 * math.pi * n_lin / self.kernel_size
-        )
-
-        n = (self.kernel_size - 1) / 2.0
-        # Due to symmetry, I only need half of the time axes
-        self.n_ = (
-            2 * math.pi * torch.arange(-n, 0).view(1, -1) / self.sample_rate
-        )
-
-    def forward(self, input_lst):
-
-        # Reading input _list
-        x = input_lst[0]
-
-        # Unsqueezing waveform
-        x = x.unsqueeze(1)
-
-        # Putting n_ and window_ on the selected device
-        self.n_ = self.n_.to(x.device)
-        self.window_ = self.window_.to(x.device)
-
-        # Computing the low frequencies of the filters
-        low = self.min_low_hz + torch.abs(self.low_hz_)
-
-        # Setting minimum band and minimum freq
-        high = torch.clamp(
-            low + self.min_band_hz + torch.abs(self.band_hz_),
-            self.min_low_hz,
-            self.sample_rate / 2,
-        )
-        band = (high - low)[:, 0]
-
-        # Passing from n_ to the corresponding f_times_t domain
-        f_times_t_low = torch.matmul(low, self.n_)
-        f_times_t_high = torch.matmul(high, self.n_)
-
-        #  left part of the filter
-        # Equivalent of Eq.4 of the reference paper (SPEAKER RECOGNITION FROM
-        # RAW WAVEFORM WITH SINCNET). I just have expanded the sinc and
-        # simplified the terms. This way I avoid several useless computations.
-        band_pass_left = (
-            (torch.sin(f_times_t_high) - torch.sin(f_times_t_low))
-            / (self.n_ / 2)
-        ) * self.window_
-
-        # central element of the filter
-        band_pass_center = 2 * band.view(-1, 1)
-
-        # Right part of the filter (sinc filters are symmetric)
-        band_pass_right = torch.flip(band_pass_left, dims=[1])
-
-        # Combining left, central, and right part of the filter
-        band_pass = torch.cat(
-            [band_pass_left, band_pass_center, band_pass_right], dim=1
-        )
-
-        # Amplitude normalization
-        band_pass = band_pass / (2 * band[:, None])
-
-        # Setting up the filter coefficients
-        self.filters = (
-            (band_pass)
-            .view(self.out_channels, 1, self.kernel_size)
-            .to(x.device)
-        )
-
-        # Manage Padding:
-        if self.padding is None:
-
-            x = self.manage_padding(
-                x, self.kernel_size, self.dilation, self.stride
-            )
-        else:
-            self.padding = self.padding[0]
-
-        # Performing the convolution with the sinc filters
-        wx = F.conv1d(
-            x,
-            self.filters,
-            stride=self.stride,
-            padding=0,
-            dilation=self.dilation,
-            bias=None,
-            groups=1,
-        )
-
-        return wx
-
-    @staticmethod
-    def to_mel(hz):
-        """
-        -----------------------------------------------------------------------
-         nnet.architectures.SincConv.to_mel (author: Mirco Ravanelli)
-
-        Description: This support function can be use to switch from the
-                     standard frequency domain to the mel-frequnecy domain.
-
-        Input (call):    - hz (type: float(0,inf), mandatory):
-                              it is the current value in Hz
-
-
-
-        Output (call):  mel_hz (type: float):
-                            it is the mel-frequency that corresponds to the
-                            input mel.
-
-
-
-        Example:    import torch
-                    from speechbrain.nnet.architectures import SincConv
-
-                    inp_tensor = torch.rand([4,32000])
-
-                    # config dictionary definition
-                    config={'class_name':'speechbrain.nnet.architectures.\
-                        linear_combination',
-                            'out_channels':'25',
-                            'kernel_size': '129'}
-
-                    # Initialization of the class
-                    sincnet=SincConv(config,first_input=[inp_tensor])
-
-                    # Executing computations
-                    print(sincnet.to_mel(4000))
-        -----------------------------------------------------------------------
-        """
-
-        mel_hz = 2595 * np.log10(1 + hz / 700)
-
-        return mel_hz
-
-    @staticmethod
-    def to_hz(mel):
-        """
-        -----------------------------------------------------------------------
-         nnet.architectures.SincConv.to_mel (author: Mirco Ravanelli)
-
-        Description: This support function can be use to switch from the
-                     mel-frequency domain to the standard frequnecy domain.
-
-        Input (call):    - mel (type: float(0,inf), mandatory):
-                              it is the current value in the mel-frequency
-                              domain.
-
-
-
-        Output (call):  hz (type: float):
-                            it is the Hz value that corresponds to the
-                            input melvalue.
-
-
-
-        Example:    import torch
-                    from speechbrain.nnet.architectures import SincConv
-
-                    inp_tensor = torch.rand([4,32000])
-
-                    # config dictionary definition
-                    config={'class_name':'speechbrain.nnet.architectures.\
-                        linear_combination',
-                            'out_channels':'25',
-                            'kernel_size': '129'}
-
-                    # Initialization of the class
-                    sincnet=SincConv(config,first_input=[inp_tensor])
-
-                    # Executing computations
-                    print(sincnet.to_hz(2146.06452750619))
-        -----------------------------------------------------------------------
-        """
-        hz = 700 * (10 ** (mel / 2595) - 1)
-
-        return hz
-
-    @staticmethod
-    def compute_conv1d_shape(L_in, kernel_size, dilation, stride):
-        """
-        -----------------------------------------------------------------------
-        speechbrain.nnet.architectures.SincConv.compute_conv1d_shape
-        (M. Ravanelli)
-
-        Description: This support function can be use to compute the output
-                     dimensionality of a 1D convolutional layer. It is used
-                     to detect the number of padding elements.
-
-        Input (call):    - L_in (type: int, mandatory):
-                              it is the length of the input signal
-
-                         - kernel_size (type: int, mandatory):
-                              it is the kernel size used for the convolution
-
-                         - dilation (type: int, mandatory):
-                              it is the dilation factor used for the
-                              convolution.
-
-                          - stride (type: int, mandatory):
-                              it is the dilation factor used for the
-                              convolution.
-
-
-        Output (call):  L_out (type: integer):
-                            it is the length of the output.
-
-
-     Example:   import torch
-                from speechbrain.nnet.architectures import SincConv
-
-                inp_tensor = torch.rand([4,32000])
-
-                # config dictionary definition
-                config={'class_name':'speechbrain.nnet.architectures.\
-                    linear_combination',
-                            'out_channels':'25',
-                            'kernel_size': '129'}
-
-                # Initialization of the class
-                sincnet=SincConv(config,first_input=[inp_tensor])
-
-                # Executing computations
-                print(sincnet.compute_conv1d_shape(32000,129,1,1))
-
-        -----------------------------------------------------------------------
-        """
-
-        L_out = (L_in - dilation * (kernel_size - 1) - 1) / stride + 1
-
-        return int(L_out)
-
-    def manage_padding(self, x, kernel_size, dilation, stride):
-        """
-        -----------------------------------------------------------------------
-        speechbrain.nnet.architectures.SincConv.manage_padding (M. Ravanelli)
-
-        Description: This function performs padding such that input and output
-                     tensors have the same length.
-
-        Input (call):    - x (type: torch.Tensor, mandatory):
-                              it is the input (unpadded) tensor.
-
-                         - kernel_size (type: int(1,inf), mandatory):
-                              it is the kernel size used for the convolution
-
-                         - dilation (type: int(1,inf), mandatory):
-                              it is the dilation factor used for the
-                              convolution.
-
-                          - stride (type: int(1,inf), mandatory):
-                              it is the dilation factor used for the
-                              convolution.
-
-
-        Output (call):  x (type: integer):
-                            it is the output (padded) tensor
-
-
-     Example:   import torch
-                from speechbrain.nnet.architectures import SincConv
-
-                inp_tensor = torch.rand([4,32000])
-
-                # config dictionary definition
-                config={'class_name':'speechbrain.nnet.architectures.\
-                    linear_combination',
-                            'out_channels':'25',
-                            'kernel_size': '129'}
-
-                # Initialization of the class
-                sincnet=SincConv(config,first_input=[inp_tensor])
-
-                # Executing computations
-                padded_tensor=sincnet.manage_padding(inp_tensor.unsqueeze(0),\
-                    129,1,1)
-                print(inp_tensor.shape)
-                print(padded_tensor.shape)
-
-
-}
-
-
-        -----------------------------------------------------------------------
-        """
-
-        # Computing input length
-        L_in = x.shape[-1]
-
-        # Computing the number of padding elements
-        if stride > 1:
-            n_steps = math.ceil(((L_in - kernel_size * dilation) / stride) + 1)
-            L_out = stride * (n_steps - 1) + kernel_size * dilation
-            padding = [kernel_size // 2, kernel_size // 2]
-
-        else:
-            L_in = x.shape[-1]
-            L_out = self.compute_conv1d_shape(
-                L_in, kernel_size, dilation, stride
-            )
-            padding = [(L_in - L_out) // 2, (L_in - L_out) // 2]
-
-        # Performing padding
-        x = nn.functional.pad(input=x, pad=tuple(padding), mode="reflect")
-        return x
+        return 700 * (10 ** (mel / 2595) - 1)
 
 
 class RNN_basic(torch.nn.Module):
