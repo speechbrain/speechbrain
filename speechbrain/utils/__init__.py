@@ -10,4 +10,4 @@ from speechbrain.utils.data_utils import (  # noqa: F401
     split_list,
     recursive_items,
 )
-from speechbrain.utils.superpowers import import_class, run_shell  # noqa: F401
+from speechbrain.utils.superpowers import run_shell  # noqa: F401
