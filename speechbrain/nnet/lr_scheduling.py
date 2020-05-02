@@ -265,7 +265,7 @@ class lr_annealing(torch.nn.Module):
                            dictionary contaning the optimizer objects.
 
          Example:   import torch
-                    from speechbrain.nnet.architectures import linear
+                    from speechbrain.nnet.linear import linear
                     from speechbrain.nnet.optimizers import optimize
                     from speechbrain.nnet.lr_scheduling import lr_annealing
 
@@ -273,7 +273,7 @@ class lr_annealing(torch.nn.Module):
                     inp_tensor = torch.rand([1,660,3])
 
                     # Initialization of the linear class
-                    config={'class_name':'speechbrain.nnet.architectures.linear',
+                    config={'class_name':'speechbrain.nnet.linear.linear',
                             'n_neurons':'4'}
 
                     model=linear(config,first_input=[inp_tensor])

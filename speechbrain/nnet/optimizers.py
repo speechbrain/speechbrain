@@ -45,7 +45,7 @@ class optimize(torch.nn.Module):
     Example
     -------
     >>> import torch
-    >>> from speechbrain.nnet.architectures import linear
+    >>> from speechbrain.nnet.linear import linear
     >>> from speechbrain.nnet.losses import compute_cost
     >>> inp_tensor = torch.rand([1,660,3])
     >>> model = linear(n_neurons=4)

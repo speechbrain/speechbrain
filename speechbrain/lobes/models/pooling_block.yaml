@@ -1,6 +1,6 @@
 sequence: [pooling_time]
 
-pooling_time: !speechbrain.nnet.architectures.pooling
+pooling_time: !speechbrain.nnet.pooling.pooling
     pool_type: max
     kernel_size: 2
     stride: 2
