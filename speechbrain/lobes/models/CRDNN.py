@@ -5,7 +5,7 @@ Authors: Mirco Ravanelli 2020, Peter Plantinga 2020, Ju-Chieh Chou 2020,
 """
 import torch  # noqa: F401
 from speechbrain.yaml import load_extended_yaml
-from speechbrain.nnet.architectures import linear, activation, Sequential
+from speechbrain.nnet.architectures import linear, softmax, Sequential
 from speechbrain.utils.data_utils import recursive_update
 
 
@@ -104,7 +104,7 @@ class CRDNN(Sequential):
             )
 
         blocks.append(linear(output_size, bias=False))
-        blocks.append(activation("log_softmax"))
+        blocks.append(softmax("log_softmax"))
 
         super().__init__(*blocks)
 

@@ -22,8 +22,7 @@ conv2: !speechbrain.nnet.architectures.conv
 norm2: !speechbrain.nnet.normalization.normalize
     norm_type: batchnorm
 
-activation: !speechbrain.nnet.architectures.activation
-    act_type: leaky_relu
+activation: !torch.nn.LeakyReLU
 
 pooling: !speechbrain.nnet.architectures.pooling
     pool_type: max
