@@ -1,7 +1,7 @@
 block_index: 1
 sequence: [rnn]
 
-rnn: !speechbrain.nnet.architectures.RNN
+rnn: !speechbrain.nnet.RNN.RNN
     rnn_type: lstm
     n_neurons: 512
     nonlinearity: tanh

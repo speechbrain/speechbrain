@@ -5,7 +5,9 @@ Authors: Mirco Ravanelli 2020, Peter Plantinga 2020, Ju-Chieh Chou 2020,
 """
 import torch  # noqa: F401
 from speechbrain.yaml import load_extended_yaml
-from speechbrain.nnet.architectures import linear, softmax, Sequential
+from speechbrain.nnet.linear import linear
+from speechbrain.nnet.sequential import Sequential
+from speechbrain.nnet.activations import softmax
 from speechbrain.utils.data_utils import recursive_update
 
 

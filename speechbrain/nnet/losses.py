@@ -40,8 +40,8 @@ class compute_cost(nn.Module):
 
      Example:
         >>> import torch
-        >>> from speechbrain.nnet.architectures import linear
-        >>> from speechbrain.nnet.architectures import softmax
+        >>> from speechbrain.nnet.linear import linear
+        >>> from speechbrain.nnet.activations import softmax
         >>> mock_input = torch.rand([1, 660, 3])
         >>> model = linear(n_neurons=4)
         >>> softmax = softmax('log_softmax')
