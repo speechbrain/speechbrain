@@ -71,7 +71,7 @@ valid_loader: !speechbrain.data_io.data_io.create_dataloader
 test_loader: !speechbrain.data_io.data_io.create_dataloader
     <<: *loader
     csv_file: !ref <csv_test>
-    batch_size: 1
+    batch_size: !ref <batch_size>
 
 compute_cost: !speechbrain.nnet.losses.compute_cost
     cost_type: [ctc]
