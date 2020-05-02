@@ -1,3 +1,10 @@
+"""
+Implements a checkpointable epoch counter (loop)
+
+Author
+------
+Aku Rouhe 2020
+"""
 from .checkpoints import register_checkpoint_hooks
 from .checkpoints import mark_as_saver
 from .checkpoints import mark_as_loader
@@ -14,21 +21,19 @@ class EpochCounter:
     Note that this iterator gives you the numbers from [1 ... limit] not
     [0 ... limit-1] as range(limit) would.
 
-    Example:
-        >>> from speechbrain.utils.checkpoints import Checkpointer
-        >>> import tempfile
-        >>> epoch_counter = EpochCounter(10)
-        >>> with tempfile.TemporaryDirectory() as tempdir:
-        ...         recoverer = Checkpointer(tempdir, {"epoch": epoch_counter})
-        ...         recoverer.recover_if_possible()
-        ...         # Now after recovery,
-        ...         # the epoch starts from where it left off!
-        ...         for epoch in epoch_counter:
-        ...             # Run training...
-        ...             ckpt = recoverer.save_checkpoint()
+    Example
+    -------
+    >>> from speechbrain.utils.checkpoints import Checkpointer
+    >>> tmpdir = getfixture('tmpdir')
+    >>> epoch_counter = EpochCounter(10)
+    >>> recoverer = Checkpointer(tmpdir, {"epoch": epoch_counter})
+    >>> recoverer.recover_if_possible()
+    >>> # Now after recovery,
+    >>> # the epoch starts from where it left off!
+    >>> for epoch in epoch_counter:
+    ...     # Run training...
+    ...     ckpt = recoverer.save_checkpoint()
 
-    Author:
-        Aku Rouhe 2020
     """
 
     def __init__(self, limit):
