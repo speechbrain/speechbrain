@@ -5,7 +5,7 @@ wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 ckpts_to_keep: 1
 sample_rate: 16000
-seed: !PLACEHOLDER
+seed: 1234
 
 # Data files
 csv_train: !ref <data_folder>/train.csv
@@ -32,7 +32,7 @@ optimizer: !speechbrain.nnet.optimizers.optimize
     rho: 0.95
     learning_rate: !ref <lr>
 
-lr_annealing: !speechbrain.nnet.lr_scheduling.lr_annealing
+lr_annealing: !speechbrain.nnet.lr_scheduling.lr_scheduler
     annealing_type: newbob
     N_epochs: !ref <number_of_epochs>
     lr_initial: !ref <lr>

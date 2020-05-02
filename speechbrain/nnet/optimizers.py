@@ -1,5 +1,10 @@
 """
-Optimizers.
+Optimizers for neural network training.
+
+Author
+------
+Mirco Ravanelli 2020
+Aku Rouhe 2020
 """
 
 import torch
@@ -59,9 +64,6 @@ class optimize(torch.nn.Module):
     >>> for cost in out_cost:
     ...     cost.backward()
     >>> optim([model], init_params=True)
-
-    Author:
-        Mirco Ravanelli 2020
     """
 
     def __init__(
@@ -190,9 +192,6 @@ class optimize(torch.nn.Module):
         if init_params:
             self.init_params(input_lst)
 
-        # Gradient combination for the multi-gpu case
-        self.sum_grad_multi_gpu(input_lst)
-
         # Parameter update
         self.optim.step()
 
@@ -217,39 +216,3 @@ class optimize(torch.nn.Module):
     @checkpoints.mark_as_saver
     def _save(self, path):
         torch.save(self.optim.state_dict(), path)
-
-    def sum_grad_multi_gpu(self, input_lst):
-        """Sum all gradients from different gpus
-
-        Args:
-            input_list: list of all neural models to optimize
-
-        Author:
-            Mirco Ravanelli 2020
-        """
-
-        # Loops over all the input models
-        for inp in input_lst:
-
-            # Check if the computations are multi-gpu
-            if hasattr(inp, "multi_gpu_models"):
-
-                # list of all the parameters
-                for index, param in enumerate(inp.parameters()):
-
-                    first = True
-
-                    # look for the models replicated over the various gpus
-                    for model in inp.multi_gpu_models:
-
-                        # model parameter in the current gpu
-                        par_gpu = list(model.parameters())[index].grad
-
-                        if first:
-                            par_sum = par_gpu.to("cuda:0")
-                            first = False
-                        else:
-                            par_sum = par_sum + par_gpu.to("cuda:0")
-
-                    # Summing up all the gradients
-                    param.grad = param.grad + par_sum

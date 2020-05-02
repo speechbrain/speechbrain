@@ -9,8 +9,6 @@ Mirco Ravanelli 2020
 import torch
 import logging
 import torch.nn as nn
-from speechbrain.utils.edit_distance import accumulatable_wer_stats
-from speechbrain.decoders.ctc import filter_ctc_output
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +73,7 @@ class compute_cost(nn.Module):
                 self.costs.append(torch.nn.NLLLoss())
 
             if cost == "error":
-                self.costs.append(self.compute_error)
+                self.costs.append(self._compute_error)
 
             if cost == "mse":
                 self.costs.append(nn.MSELoss())
@@ -88,26 +86,19 @@ class compute_cost(nn.Module):
                 self.costs.append(nn.CTCLoss(blank=self.blank_index))
                 self.avoid_pad[cost_index] = False
 
-            if cost == "wer":
-                self.costs.append(self.compute_wer)
-
     def forward(self, prediction, target, lengths):
+        """Returns the cost function given predictions and targets.
+
+        Arguments
+        ---------
+        prediction : torch.Tensor
+            tensor containing the posterior probabilities
+        target : torch.Tensor
+            tensor containing the targets
+        lengths : torch.Tensor
+            tensor containing the relative lengths of each sentence
         """
-        Input: - prediction (type: torch.Tensor, mandatory)
-                   the output of the neural network,
 
-               - target (type: torch.Tensor, mandatory)
-                   the label
-
-               - lengths (type: torch.Tensor, mandatory)
-                   the percentage of valid time steps for each batch.
-                   Can be used for removing zero-padded steps from
-                   the cost computation.
-
-        Output: - out_costs(type; lst)
-                   This function returns a list of scalar torch.Tensor
-                   elements that contain the cost function to optimize.
-        """
         # Check on input and label shapes
         if "ctc" not in self.cost_type:
 
@@ -121,13 +112,11 @@ class compute_cost(nn.Module):
                 )
 
                 logger.error(err_msg, exc_info=True)
-
             prediction = prediction[:, 0 : target.shape[1], :]
 
         else:
 
             if not isinstance(lengths, list):
-
                 err_msg = (
                     "The third input to the compute_cost function must "
                     "be a list [wav_len, lab_len] when ctc is the cost. "
@@ -135,8 +124,6 @@ class compute_cost(nn.Module):
 
                 logger.error(err_msg, exc_info=True)
 
-        # Adding signal to gpu or cpu
-        prediction = prediction.to(prediction.device)
         target = target.to(prediction.device)
 
         # Regression case
@@ -147,46 +134,7 @@ class compute_cost(nn.Module):
 
         out_costs = []
 
-        # Loop over all the cost specified in self.costs
         for i, cost in enumerate(self.costs):
-
-            if self.cost_type[i] == "wer":
-
-                # Getting the number of sentences in the minibatch
-                N_snt = prediction.shape[0]
-
-                # Wer initialization
-                wer = 0
-
-                # Loop over all the sentences of the minibatch
-                for j in range(N_snt):
-
-                    # getting the current probabilities and labels
-                    prob_curr = prediction[j]
-                    lab_curr = target[j]
-
-                    # Avoiding padded time steps
-                    actual_size_prob = int(
-                        torch.round(lengths[0][j] * prob_curr.shape[0])
-                    )
-
-                    actual_size_lab = int(
-                        torch.round(lengths[1][j] * lab_curr.shape[0])
-                    )
-
-                    prob_curr = prob_curr.narrow(0, 0, actual_size_prob)
-                    lab_curr = lab_curr.narrow(0, 0, actual_size_lab)
-
-                    # Computing the wer
-                    wer = wer + cost(prob_curr, lab_curr)
-
-                # WER averaging
-                wer = wer / N_snt
-
-                # Appending current loss
-                out_costs.append(wer)
-
-                continue
 
             # Managing avoid_pad to avoid adding costs of padded time steps
             if self.avoid_pad[i]:
@@ -212,7 +160,6 @@ class compute_cost(nn.Module):
                     prob_curr = prob_curr.narrow(0, 0, actual_size)
                     lab_curr = lab_curr.narrow(0, 0, actual_size)
 
-                    # Reshaping
                     if reshape:
                         lab_curr = lab_curr.long()
 
@@ -236,22 +183,22 @@ class compute_cost(nn.Module):
 
                 # Managing ctc cost for sequence-to-sequence learning
                 if self.cost_type[i] == "ctc":
-                    # cast lab_curr to int32 for using Cudnn computation
+
+                    # Cast lab_curr to int32 for using Cudnn computation
                     # In the case of using CPU training, int type is mondatory.
                     lab_curr = lab_curr.int()
+
                     # Permuting output probs
                     prob_curr = prob_curr.transpose(0, 1)
 
-                    # Getting the input lengths
+                    # Getting the actual lengths
                     input_lengths = torch.round(
                         lengths[0] * prob_curr.shape[0]
                     ).int()
-
-                    # Getting the label lengths
                     lab_lengths = lengths[1] * target.shape[1]
                     lab_lengths = torch.round(lab_lengths).int()
 
-                    # CTC cost computation
+                    # Compute CTC loss
                     ctc_cost = cost(
                         prob_curr, lab_curr, input_lengths, lab_lengths
                     )
@@ -279,124 +226,20 @@ class compute_cost(nn.Module):
 
         return out_costs
 
-    def compute_error(self, prob, lab):
+    def _compute_error(self, prob, lab):
+        """Computes the classification error at frame level.
+
+        Arguments
+        ---------
+        prob : torch.Tensor
+            It is the tensor containing the posterior probabilities
+            as [batch,prob]
+        lab : torch.Tensor
+            tensor containing the targets ([batch])
+
         """
-         ----------------------------------------------------------------------
-         nnet.losses.compute_cost.compute_error (author: Mirco Ravanelli)
 
-         Description:  This support function compute the classification error
-                        given a set of posterior probabilities and a target.
-
-
-         Input (call):
-                        - prob (type:torch.Tensor, mandatory):
-                            it is the tensor containing the posterior
-                            probabilities in the following format:
-                            [batch,prob]
-
-                        - lab (type:torch.Tensor, mandatory):
-                            it is the Floattensor containing the labels
-                            in the following format:
-                            [batch]
-
-         Output (call): - error(type, torch.Tensor):
-                           it is the classification error.
-
-
-         Example:   import torch
-                    from speechbrain.nnet.losses import compute_cost
-
-
-                    # Definition of the loss
-                    config={'class_name':'speechbrain.nnet.losses.compute_cost',
-                            'cost_type':'nll'}
-
-                    # Initialization of the loss function
-                    cost=compute_cost(config)
-
-                    # fake probabilities/labels
-                    prob=torch.rand([4,3])
-                    lab=torch.FloatTensor([1,0,2,0])
-                    print(cost.compute_error(prob,lab))
-
-
-         """
-        # Computing predictions
         predictions = torch.max(prob, dim=-1)[1]
-
-        # Computing classification error
         error = torch.mean((predictions != lab).float())
 
         return error
-
-    def compute_wer(self, prob, lab):
-        """
-         ----------------------------------------------------------------------
-         nnet.losses.compute_cost.compute_wer
-         (authors: Aku Rouhe, Mirco Ravanelli)
-
-         Description:  This support function computes the wer based on the
-                       edit distance.
-
-
-         Input (call):
-                        - prob (type:torch.Tensor, mandatory):
-                            it is the tensor containing the posterior
-                            probabilities in the following format:
-                            [batch,prob].
-
-                        - lab (type:torch.Tensor, mandatory):
-                            it is the FloatTensor containing the labels
-                            in the following format:
-                            [batch].
-
-
-         Output (call): - wer(type, torch.Tensor):
-                           it is the wer for the given input batch.
-
-
-         Example:   import torch
-                    from speechbrain.nnet.losses import compute_cost
-
-
-                    # Definition of the loss
-                    config={'class_name':'speechbrain.nnet.losses.compute_cost',
-                            'cost_type':'nll'}
-
-                    # Initialization of the loss function
-                    cost=compute_cost(config)
-
-                    # fake probabilities/labels
-                    prob=torch.rand([4,3])
-                    lab=torch.FloatTensor([1,0,2,0])
-                    print(cost.compute_error(prob,lab))
-
-
-         """
-        # Computing predictions
-        scores, predictions = torch.max(prob, dim=0)
-
-        # Converting labels and prediction to lists (faster)
-        lab = lab.tolist()
-        predictions = predictions.tolist()
-
-        # If the case of CTC, filter the predicted output
-        if "ctc" in self.cost_type:
-            predictions = filter_ctc_output(
-                predictions, blank_id=self.blank_index
-            )
-
-        # Computing the word error rate
-        stats = accumulatable_wer_stats([lab], [predictions])
-
-        # Getting the wer
-        wer = stats["WER"]
-
-        # Setting the max value of wer
-        if wer > 100:
-            wer = 100
-
-        # Converting to a FloatTensor
-        wer = torch.FloatTensor([wer])
-
-        return wer
