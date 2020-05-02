@@ -1,0 +1,59 @@
+# Basic parameters
+output_folder: exp/minimal/ASR_CTC
+sample_rate: 16000
+
+# Data files
+data_folder: samples/audio_samples/nn_training_samples/
+csv_train: !ref <data_folder>/train.csv
+csv_valid: !ref <data_folder>/dev.csv
+csv_test: !ref <data_folder>/test.csv
+
+# Neural Parameters
+N_epochs: 10
+N_batch: 1
+lr: 0.004
+
+train_loader: !speechbrain.data_io.data_io.create_dataloader &loader
+    csv_file: !ref <csv_train>
+    batch_size: !ref <N_batch>
+    csv_read: [wav, spk_id]
+    output_folder: !ref <output_folder>
+    replacements:
+        $data_folder: !ref <data_folder>
+
+valid_loader: !speechbrain.data_io.data_io.create_dataloader
+    <<: *loader
+    csv_file: !ref <csv_valid>
+
+test_loader: !speechbrain.data_io.data_io.create_dataloader
+    <<: *loader
+    csv_file: !ref <csv_test>
+
+compute_features: !speechbrain.lobes.features.Features
+    feature_type: mfcc
+
+mean_var_norm: !speechbrain.processing.features.mean_var_norm
+    norm_type: global
+
+rnn: !speechbrain.nnet.architectures.RNN_basic
+    rnn_type: gru
+    n_neurons: 256
+    nonlinearity: tanh
+    num_layers: 2
+    dropout: 0.15
+    bidirectional: True
+
+lin: !speechbrain.nnet.architectures.linear
+    n_neurons: 43 # 42 phonemes + 1 blank
+    bias: False
+
+softmax: !speechbrain.nnet.architectures.activation
+    act_type: log_softmax
+
+compute_cost: !speechbrain.nnet.losses.compute_cost
+    cost_type: [ctc]
+    blank_index: 42
+
+optimizer: !speechbrain.nnet.optimizers.optimize
+    optimizer_type: adam
+    learning_rate: !ref <lr>
