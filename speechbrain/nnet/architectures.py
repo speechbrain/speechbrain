@@ -338,6 +338,8 @@ class conv(nn.Module):
             )
 
         self.kernel_size = (self.kernel_size[1], self.kernel_size[0])
+        self.stride = (self.stride[1], self.stride[0])
+        self.dilation = (self.dilation[1], self.dilation[0])
 
         self.conv = nn.Conv2d(
             self.in_channels,
@@ -561,76 +563,49 @@ class conv(nn.Module):
         return 700 * (10 ** (mel / 2595) - 1)
 
 
-class RNN_basic(torch.nn.Module):
+class RNN(torch.nn.Module):
+    """ This function implements basic RNN, LSTM and GRU models.
+
+    This function implelent different RNN models. It accepts in input tesors
+    formatted as (batch, time, fea). In the case of 4d inputs
+    like (batch, time, fea, channel) the tensor ais flattened in this way:
+    (batch, time, fea*channel).
+
+    Args:
+        rnn_type: str
+            Type of recurrent neural network to use (rnn, lstm, gru, ligru).
+        n_neurons: int
+            Number of output neurons (i.e, the dimensionality of the output).
+            values (i.e, time and frequency kernel sizes respectively).
+         nonlinearity: str
+             Type of nonlinearity (tanh, relu).
+        num_layers: int
+             Number of layers to employ in the RNN architecture.
+        bias: bool
+            If True, the additive bias b is adopted.
+        dropout: float
+            It is the dropout factor (must be between 0 and 1).
+        bidirectional: bool
+             if True, a bidirectioal model that scans the sequence both
+             right-to-left and left-to-right is used.
+.
+    Example:
+        >>> inp_tensor = torch.rand([4, 10, 20])
+        >>> net = RNN(rnn_type='lstm', n_neurons=5)
+        >>> out_tensor = net(inp_tensor, init_params=True)
+        >>> out_tensor.shape
+        torch.Size([4, 10, 5])
+        >>> net = RNN(rnn_type='ligru', n_neurons=5)
+        >>> out_tensor = net(inp_tensor, init_params=True)
+        >>> out_tensor.shape
+        torch.Size([4, 10, 5])
     """
-     -------------------------------------------------------------------------
-     nnet.architectures.RNN_basic (author: Mirco Ravanelli)
-
-     Description:  This function implements basic RNN, LSTM and GRU models.
-
-     Input: - rnn_type (type:rnn,lstm,gru,ligru,qrnn, mandatory):
-               it is the type of recurrent neural network to
-               use.
-
-           - n_neurons (type: int(1,inf), mandatory):
-               it is the number of output neurons (i.e, the
-               dimensionality of the output).
-
-           - nonlinearity (type:tanh, relu, mandatory):
-               it is the type of nonlinearity.
-
-           - num_layers (type: int(1,inf), mandatory):
-               it is the number of layers.
-
-           - bias (type: bool, Default:True):
-               if True, the additive bias b is adopted.
-
-           - dropout (type: float(0,1), optional:0.0):
-               it is the dropout factor.
-
-           - bidirectional (type: bool,
-           Default:False):
-               if True, a bidirectioal model is used.
-
-     Example:   import torch
-                from speechbrain.nnet.architectures import RNN_basic
-
-                inp_tensor = torch.rand([4,100,190])
-
-                # config dictionary definition
-                config={'class_name':'speechbrain.nnet.architectures.linear',
-                        'rnn_type': 'gru',
-                        'n_neurons':'512',
-                        'nonlinearity': 'tanh',
-                        'num_layers': '1'}
-
-                # Initialization of the class
-                RNN=RNN_basic(config,first_input=[inp_tensor])
-
-                # Executing computations
-                inp_tensor = torch.rand([4,100,140])
-                out_tensor = RNN([inp_tensor])
-                print(out_tensor)
-                print(out_tensor.shape)
-
-
-    Reference:     [1] M. Ravanelli, P. Brakel, M. Omologo, Y. Bengio,
-                   "Light Gated Recurrent Units for Speech Recognition",
-                   in IEEE Transactions on Emerging Topics in Computational
-                   Intelligence, 2018.
-                   https://arxiv.org/abs/1803.10225
-
-                   [2] J. Bradbury, S. Merity, and C. Xiong, R. Socher,
-                   "Quasi-Recurrent Neural Networks", ICLR 2017
-                    https://arxiv.org/abs/1611.01576
-
-     """
 
     def __init__(
         self,
         rnn_type,
         n_neurons,
-        nonlinearity,
+        nonlinearity="tanh",
         num_layers=1,
         bias=True,
         dropout=0.0,
@@ -648,10 +623,12 @@ class RNN_basic(torch.nn.Module):
 
     def init_params(self, first_input):
         """
+        Initializes the parameters of the convolutional layer.
+
         Arguments
         ---------
         first_input : tensor
-            A dummy input of the right shape for initializing parameters.
+            A first input used for initializing the parameters.
         """
         if len(first_input.shape) > 3:
             self.reshape = True
@@ -674,19 +651,15 @@ class RNN_basic(torch.nn.Module):
             kwargs.update({"nonlinearity": self.nonlinearity})
             self.rnn = torch.nn.RNN(**kwargs)
 
-        # Vanilla LSTM
         if self.rnn_type == "lstm":
             self.rnn = torch.nn.LSTM(**kwargs)
 
-        # Vanilla GRU
         if self.rnn_type == "gru":
             self.rnn = torch.nn.GRU(**kwargs)
 
-        # Light-GRU
         if self.rnn_type == "ligru":
             del kwargs["bias"]
             del kwargs["batch_first"]
-
             kwargs["batch_size"] = first_input.shape[0]
             kwargs["device"] = first_input.device
             self.rnn = liGRU(**kwargs)
@@ -694,38 +667,62 @@ class RNN_basic(torch.nn.Module):
         self.rnn.to(first_input.device)
 
     def forward(self, x, init_params=False):
-        """
-        Input: - x (type: torch.Tensor, mandatory):
-                   by default the input arguments are passed with a list.
-                   In this case, inp is a list containing a single
-                   torch.tensor that we want to transform with the RNN.
-                   The tensor must be in one of the following format:
-                   [batch,channels,time]. Note that we can have up to
-                   three channels.
+        """Returns the output of the RNN.
 
-        Output: - wx (type, torch.Tensor, mandatory):
-                       it is the RNN output.
+        Arguments
+        ---------
+        x : torch.Tensor
         """
         if init_params:
             self.init_params(x)
 
-        # Reshaping input tensors when needed
+        # Reshaping input tensors for 4d inputs
         if self.reshape:
             if len(x.shape) == 4:
                 x = x.reshape(x.shape[0], x.shape[1], x.shape[2] * x.shape[3])
 
-            if len(x.shape) == 5:
-                x = x.reshape(
-                    x.shape[0], x.shape[1], x.shape[2] * x.shape[3], x.shape[4]
-                )
-
-        # Computing RNN steps
         output, hn = self.rnn(x)
 
         return output
 
 
 class liGRU(torch.jit.ScriptModule):
+    """ This function implements Light-Gated Recurrent Units (ligru).
+
+    Ligru is a customized GRU model based on batch-norm + relu
+    activations + recurrent dropout. For more info see
+    "M. Ravanelli, P. Brakel, M. Omologo, Y. Bengio,
+    Light Gated Recurrent Units for Speech Recognition,
+    in IEEE Transactions on Emerging Topics in Computational Intelligence,
+    2018"
+    To speed it up, it is compiled with the torch just-in-time compiler (jit)
+    right before using it.
+
+    Args:
+        input_size: int
+            Feature dimensionality of the input tensors.
+        batch_size: int
+            Batch size of the input tensors.
+        hidden_size: int
+             Number of output neurons .
+        num_layers: int
+             Number of layers to employ in the RNN architecture.
+        dropout: float
+            It is the dropout factor (must be between 0 and 1).
+        bidirectional: bool
+             if True, a bidirectioal model that scans the sequence both
+             right-to-left and left-to-right is used.
+        device: str
+             Device used for running the computations (e.g, 'cpu', 'cuda').
+
+    Example:
+        >>> inp_tensor = torch.rand([4, 10, 20])
+        >>> net = liGRU(20,5,1,4, device='cpu')
+        >>> out_tensor, h = net(inp_tensor)
+        >>> out_tensor.shape
+        torch.Size([4, 10, 10])
+    """
+
     def __init__(
         self,
         input_size,
@@ -737,10 +734,8 @@ class liGRU(torch.jit.ScriptModule):
         device="cuda",
     ):
 
-        super(liGRU, self).__init__()
-
+        super().__init__()
         current_dim = int(input_size)
-
         self.model = torch.nn.ModuleList([])
 
         for i in range(num_layers):
@@ -763,12 +758,38 @@ class liGRU(torch.jit.ScriptModule):
 
     @torch.jit.script_method
     def forward(self, x):
+        """Returns the output of the liGRU.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+        """
         for ligru_lay in self.model:
             x = ligru_lay(x)
         return x, 0
 
 
 class liGRU_layer(torch.jit.ScriptModule):
+    """ This function implements Light-Gated Recurrent Units (ligru) layer.
+
+    Args:
+        input_size: int
+            Feature dimensionality of the input tensors.
+        batch_size: int
+            Batch size of the input tensors.
+        hidden_size: int
+             Number of output neurons .
+        num_layers: int
+             Number of layers to employ in the RNN architecture.
+        dropout: float
+            It is the dropout factor (must be between 0 and 1).
+        bidirectional: bool
+             if True, a bidirectioal model that scans the sequence both
+             right-to-left and left-to-right is used.
+        device: str
+             Device used for running the computations (e.g, 'cpu', 'cuda').
+    """
+
     def __init__(
         self,
         input_size,
@@ -782,7 +803,6 @@ class liGRU_layer(torch.jit.ScriptModule):
     ):
 
         super(liGRU_layer, self).__init__()
-
         self.hidden_size = int(hidden_size)
         self.input_size = int(input_size)
         self.batch_size = batch_size
@@ -801,53 +821,78 @@ class liGRU_layer(torch.jit.ScriptModule):
         # Adding orthogonal initialization for recurrent connection
         nn.init.orthogonal_(self.u.weight)
 
+        # Initializing batch norm
         self.bn_w = nn.BatchNorm1d(2 * self.hidden_size, momentum=0.05).to(
             device
         )
 
-        self.drop = torch.nn.Dropout(p=self.dropout, inplace=False).to(device)
-        self.drop_mask_te = torch.tensor([1.0], device=device).float()
+        # Initilizing dropout
+        self._init_drop()
+
+        # Initilizing initial state h
+        self._init_h()
+
+        # Setting the activation function
+        self.act = torch.nn.ReLU().to(device)
+
+    def _init_drop(self,):
+        """Initializes the recurrent dropout operation. To speed it up,
+        the dropout masks are sampled in advance.
+        """
+        self.drop = torch.nn.Dropout(p=self.dropout, inplace=False).to(
+            self.device
+        )
+        self.drop_mask_te = torch.tensor([1.0], device=self.device).float()
         self.N_drop_masks = 1000
         self.drop_mask_cnt = 0
 
         if self.bidirectional:
-            self.h_init = torch.zeros(
-                2 * self.batch_size,
-                self.hidden_size,
-                requires_grad=False,
-                device=device,
-            )
             self.drop_masks = self.drop(
                 torch.ones(
                     self.N_drop_masks,
                     2 * self.batch_size,
                     self.hidden_size,
-                    device=device,
+                    device=self.device,
                 )
             ).data
+
+        else:
+            self.drop_masks = self.drop(
+                torch.ones(
+                    self.N_drop_masks,
+                    self.batch_size,
+                    self.hidden_size,
+                    device=self.device,
+                )
+            ).data
+
+    def _init_h(self,):
+        """Initializes the initial state h_0 with zeros.
+        """
+        if self.bidirectional:
+            self.h_init = torch.zeros(
+                2 * self.batch_size,
+                self.hidden_size,
+                requires_grad=False,
+                device=self.device,
+            )
 
         else:
             self.h_init = torch.zeros(
                 self.batch_size,
                 self.hidden_size,
                 requires_grad=False,
-                device=device,
+                device=self.device,
             )
-            self.drop_masks = self.drop(
-                torch.ones(
-                    self.N_drop_masks,
-                    self.batch_size,
-                    self.hidden_size,
-                    device=device,
-                )
-            ).data
-
-        # Setting the activation function
-        self.act = torch.nn.ReLU().to(device)
 
     @torch.jit.script_method
     def forward(self, x):
+        """Returns the output of the liGRU layer.
 
+        Arguments
+        ---------
+        x : torch.Tensor
+        """
         if self.bidirectional:
             x_flip = x.flip(1)
             x = torch.cat([x, x_flip], dim=0)
@@ -861,7 +906,7 @@ class liGRU_layer(torch.jit.ScriptModule):
         w = w_bn.reshape(w.shape[0], w.shape[1], w.shape[2])
 
         # Processing time steps
-        h = self.ligru_cell(w)
+        h = self._ligru_cell(w)
 
         if self.bidirectional:
             h_f, h_b = h.chunk(2, dim=0)
@@ -871,19 +916,22 @@ class liGRU_layer(torch.jit.ScriptModule):
         return h
 
     @torch.jit.script_method
-    def ligru_cell(self, w):
+    def _ligru_cell(self, w):
+        """Returns the hidden states for each time step.
 
+        Arguments
+        ---------
+        wx : torch.Tensor
+            Linearly transformed input.
+        """
         hiddens = []
         ht = self.h_init
+        drop_mask = self._sample_drop_mask()
 
-        drop_mask = self.sample_drop_mask()
-
+        # Loop over time axis
         for k in range(w.shape[1]):
-
             gates = w[:, k] + self.u(ht)
-
             at, zt = gates.chunk(2, 1)
-            # ligru equation
             zt = torch.sigmoid(zt)
             hcand = self.act(at) * drop_mask
             ht = zt * ht + (1 - zt) * hcand
@@ -894,12 +942,14 @@ class liGRU_layer(torch.jit.ScriptModule):
         return h
 
     @torch.jit.script_method
-    def sample_drop_mask(self):
+    def _sample_drop_mask(self,):
+        """Selects one of the pre-defined dropout masks
+        """
         if self.training:
-
             drop_mask = self.drop_masks[self.drop_mask_cnt]
             self.drop_mask_cnt = self.drop_mask_cnt + 1
 
+            # Sample new masks when needed
             if self.drop_mask_cnt >= self.N_drop_masks:
                 self.drop_mask_cnt = 0
                 if self.bidirectional:
@@ -933,329 +983,86 @@ class liGRU_layer(torch.jit.ScriptModule):
         return drop_mask
 
 
-class activation(torch.nn.Module):
+class softmax(torch.nn.Module):
+    """Computes the softmax of a 2d, 3d, or 4d input tensor.
+
+    Arguments
+    ---------
+    softmax_type : str
+        it is the type of softmax to use ('softmax', 'log_softmax')
+    dim : int
+        if the dimension where softmax is applied.
+
+    Example
+    -------
+    >>> classifier = softmax()
+    >>> inputs = torch.rand(10, 50, 40)
+    >>> output = classifier(inputs)
+    >>> output.shape
+    torch.Size([10, 50, 40])
     """
-     -------------------------------------------------------------------------
-     nnet.architectures.activation (author: Mirco Ravanelli)
 
-     Description:  This function implements a set of activation functions
-                   applied element-wise to the input tensor:
-                   y = act(x)
-
-     Input: - act_type (type:relu,leaky_relu,relu_6,r_relu,p_relu,elu,selu,
-                 celu,hard_shrink,soft_shrink,softplus,soft_sign,threshold,
-                 hard_tanh,tanh,tanh_shrink,sigmoid,log_sigmoid,softmax,
-                 log_softmax,softmax2d,softmin,linear):
-               it is the type of activation function to use
-
-            - inplace (type: bool, Default: False):
-               if True, it uses inplace operations.
-
-           - negative_slope (type: float, Default: 0.01):
-               it is the negative slope for leaky_relu
-               activation. Controls the angle of the negative
-               slope.
-
-           - lower (type: float, Default: 0.125):
-                It is used for RReLU. It is the lower bound of
-                the uniform distribution.
-
-           - upper (type: float, Default: 0.333):
-               It is used for RReLU. It is the upper bound of
-               the uniform distribution.
-
-           - min_val (type: float, Default: -1.0):
-               It is used for Hardtanh. It is minimum value of
-               the linear region range.
-
-            - max_val (type: float, Default: 1.0):
-               It is used for Hardtanh. It is maximum value of
-               the linear region range.
-
-            - alpha (type: float, Default: 1.0):
-               It is used for elu/celu. It is alpha value
-               in the elu/celu formulation.
-
-            - beta (type: float, Default: 1.0):
-               It is used for softplus. It is beta value
-               in the softplus formulation.
-
-            - threshold (type: float, Default: 20.0):
-               It is used for thresold and sofplus activations.
-               It is corresponds to the threshold value.
-
-            - lambd (type: float, Default: 0.5):
-               It is used for soft_shrink and hard_shrink
-               activations. It is corresponds to the lamda
-               value of soft_shrink/hard_shrink activations.
-               See torch.nn documentation.
-
-            - value (type: float, Default: 0.5):
-               It is used for the threshold function. it is
-               the value taken when x<=threshold.
-
-
-           - dim (type: int(1,inf), Default: -1):
-               it is used in softmax activations to determine
-               the axis on which the softmax is computed.
-
-
-     Example:   import torch
-                from speechbrain.nnet.architectures import activation
-
-                # config dictionary definition
-                config={'class_name':'speechbrain.nnet.architectures.activation',
-                        'act_type': 'relu'}
-
-                # Initialization of the class
-                inp_tensor = torch.rand([4,100,190])-0.5
-                apply_act=activation(config, first_input=[inp_tensor])
-
-                # Executing computations
-                out_tensor = apply_act([inp_tensor])
-                print(out_tensor)
-         ----------------------------------------------------------------------
-     """
-
-    # TODO: Consider making this less complex. (So many if blocks, flake8 complains)
-    def __init__(  # noqa: C901
-        self,
-        act_type,
-        inplace=False,
-        negative_slope=0.01,
-        lower=0.125,
-        upper=0.33333333,
-        min_val=-1.0,
-        max_val=1.0,
-        alpha=1.0,
-        beta=1.0,
-        threshold=20.0,
-        lambd=0.5,
-        value=0.5,
-        dim=-1,
-    ):
+    def __init__(self, softmax_type="log_softmax", dim=-1):
         super().__init__()
 
-        self.act_type = act_type
-        self.inplace = inplace
-        self.negative_slope = negative_slope
-        self.lower = lower
-        self.upper = upper
-        self.min_val = min_val
-        self.max_val = max_val
-        self.alpha = alpha
-        self.beta = beta
-        self.threshold = threshold
-        self.lambd = lambd
-        self.value = value
-        self.dim = dim
+        if softmax_type == "softmax":
+            self.act = torch.nn.Softmax(dim=dim)
 
-        # Reshaping tensors can speed up some functions (e.g softmax)
-        self.reshape = False
-
-        if self.act_type == "relu":
-            self.act = torch.nn.ReLU(inplace=self.inplace)
-
-        if self.act_type == "leaky_relu":
-            self.act = torch.nn.LeakyReLU(
-                negative_slope=self.negative_slope, inplace=self.inplace
-            )
-
-        if self.act_type == "relu_6":
-            self.act = torch.nn.ReLU6(inplace=self.inplace)
-
-        if self.act_type == "r_relu":
-            self.act = torch.nn.RReLU(
-                lower=self.lower, upper=self.upper, inplace=self.inplace
-            )
-
-        if self.act_type == "elu":
-            self.act = torch.nn.ELU(alpha=self.alpha, inplace=self.inplace)
-
-        if self.act_type == "selu":
-            self.act = torch.nn.SELU(inplace=self.inplace)
-
-        if self.act_type == "celu":
-            self.act = torch.nn.CELU(alpha=self.alpha, inplace=self.inplace)
-
-        if self.act_type == "hard_shrink":
-            self.act = torch.nn.Hardshrink(lambd=self.lambd)
-
-        if self.act_type == "soft_shrink":
-            self.act = torch.nn.Softshrink(lambd=self.lambd)
-
-        if self.act_type == "softplus":
-            self.act = torch.nn.Softplus(
-                beta=self.beta, threshold=self.threshold
-            )
-
-        if self.act_type == "soft_sign":
-            self.act = torch.nn.SoftSign()
-
-        if self.act_type == "threshold":
-            self.act = torch.nn.Threshold(
-                self.threshold, self.value, inplace=self.inplace
-            )
-
-        if self.act_type == "hard_tanh":
-            self.act = torch.nn.Hardtanh(
-                min_val=self.min_val,
-                max_val=self.max_val,
-                inplace=self.inplace,
-            )
-
-        if self.act_type == "tanh":
-            self.act = torch.nn.Tanh()
-
-        if self.act_type == "tanh_shrink":
-            self.act = torch.nn.Tanhshrink()
-
-        if self.act_type == "sigmoid":
-            self.act = torch.nn.Sigmoid()
-
-        if self.act_type == "log_sigmoid":
-            self.act = torch.nn.LogSigmoid()
-            self.reshape = True
-
-        if self.act_type == "softmax":
-            self.act = torch.nn.Softmax(dim=self.dim)
-            self.reshape = True
-
-        if self.act_type == "log_softmax":
-            self.act = torch.nn.LogSoftmax(dim=self.dim)
-            self.reshape = True
-
-        if self.act_type == "softmax2d":
-            self.act = torch.nn.Softmax2d()
-
-        if self.act_type == "softmin":
-            self.act = torch.nn.Softmin(dim=self.dim)
-            self.reshape = True
+        if softmax_type == "log_softmax":
+            self.act = torch.nn.LogSoftmax(dim=dim)
 
     def forward(self, x):
+        """Returns the softmax of the input tensor.
+
+        Arguments
+        ---------
+        x : torch.Tensor
         """
-        Input: - x (type: torch.Tensor, mandatory):
-                   torch.tensor that we want to transform with the RNN.
-                   The tensor must be in one of the following format:
-                   [batch,channels,time]. Note that we can have up to
-                   three channels.
+        # Reshaping the tensors
+        dims = x.shape
 
-        Output: - wx (type, torch.Tensor, mandatory):
-                   it is the output after applying element-wise the
-                   activation function.
-        """
+        if len(dims) == 3:
+            x = x.reshape(dims[0] * dims[1], dims[2])
 
-        if self.act_type == "linear":
-            return x
+        if len(dims) == 4:
+            x = x.reshape(dims[0] * dims[1], dims[2], dims[3])
 
-        # Reshaping the tensor when needed
-        if self.reshape:
-            dims = x.shape
-
-            if len(dims) == 3:
-                x = x.reshape(dims[0] * dims[1], dims[2])
-
-            if len(dims) == 4:
-                x = x.reshape(dims[0] * dims[1], dims[2], dims[3])
-
-            if len(dims) == 5:
-                x = x.reshape(dims[0] * dims[1], dims[2], dims[3], dims[4])
-
-        # Applying the activation function
         x_act = self.act(x)
 
         # Retrieving the original shape format
-        if self.reshape:
+        if len(dims) == 3:
+            x_act = x_act.reshape(dims[0], dims[1], dims[2])
 
-            if len(dims) == 3:
-                x_act = x_act.reshape(dims[0], dims[1], dims[2])
-
-            if len(dims) == 4:
-                x_act = x_act.reshape(dims[0], dims[1], dims[2], dims[3])
-
-            if len(dims) == 5:
-                x_act = x_act.reshape(
-                    dims[0], dims[1], dims[2], dims[3], dims[4]
-                )
+        if len(dims) == 4:
+            x_act = x_act.reshape(dims[0], dims[1], dims[2], dims[3])
 
         return x_act
 
 
 class dropout(nn.Module):
+    """This function implements droput.
+
+    This function implements droput of the input tensor. In particular,
+    1d dropout (nn.Dropout) is activated with 2d or 3d input tensors, while
+    nn.Dropout2d is activated with 4d input tensors.
+
+
+    Arguments
+    ---------
+    dropout_rate : float
+        It is the dropout factor (between 0 and 1).
+    inplace : bool
+        If True, it uses inplace operations.
+
+    Example
+    -------
+    >>> drop = dropout(drop_rate=0.5)
+    >>> inputs = torch.rand(10, 50, 40)
+    >>> drop.init_params(inputs)
+    >>> output=drop(inputs)
+    >>> output.shape
+    torch.Size([10, 50, 40])
     """
-     -------------------------------------------------------------------------
-     nnet.architectures.dropout (author: Mirco Ravanelli)
-
-     Description:  This function implements droput of the input tensor:
-                   y = dropout(x).
-
-     Input (init):  - config (type, dict, mandatory):
-                       it is a dictionary containing the keys described below.
-
-                           - act_type (type:relu,leaky_relu,relu_6,r_relu,
-                                       p_relu,elu, selu,celu,hard_shrink,
-                                       soft_shrink,softplus, soft_sign,
-                                       threshold,hard_tanh,tanh, tanh_shrink,
-                                       sigmoid,log_sigmoid,softmax,
-                                       log_softmax,softmax2d,softmin,linear):
-                               it is the type of activation function to use
-
-                            - inplace (type: bool, Default:False):
-                               if True, it uses inplace operations.
-
-                            - drop_rate (type: float(0,1),
-                            Default:0.0):
-                               it is the dropout factor.
-
-                   - funct_name (type, str, default: None):
-                       it is a string containing the name of the parent
-                       function that has called this method.
-
-                   - global_config (type, dict, default: None):
-                       it a dictionary containing the global variables of the
-                       parent config file.
-
-                   - logger (type, logger, default: None):
-                       it the logger used to write debug and error messages.
-                       If logger=None and root_cfg=True, the file is created
-                       from scratch.
-
-                   - first_input (type, list, default: None)
-                      this variable allows users to analyze the first input
-                      given when calling the class for the first time.
-
-
-     Input (call): - inp_lst(type, list, mandatory):
-                       by default the input arguments are passed with a list.
-                       In this case, inp is a list containing a single
-                       torch.tensor that we want to transform with the RNN.
-                       The tensor must be in one of the following format:
-                       [batch,channels,time]. Note that we can have up to
-                       three channels.
-
-
-
-     Output (call): - wx(type, torch.Tensor, mandatory):
-                       it is the output after applying element-wise the
-                       activation function.
-
-
-     Example:   import torch
-                from speechbrain.nnet.architectures import dropout
-
-                # config dictionary definition
-                config={'class_name':'speechbrain.nnet.architectures.dropout',
-                        'drop_rate': '0.5'}
-
-                # Initialization of the class
-                inp_tensor = torch.rand([4,100,190])
-                drop_act=dropout(config, first_input=[inp_tensor])
-
-                # Executing computations
-                out_tensor = drop_act([inp_tensor])
-                print(out_tensor)
-
-     """
 
     def __init__(
         self, drop_rate, inplace=False,
@@ -1272,7 +1079,6 @@ class dropout(nn.Module):
             A dummy input of the right shape for initializing parameters.
         """
 
-        # Dropout initialization
         if len(first_input.shape) <= 3:
             self.drop = nn.Dropout(p=self.drop_rate, inplace=self.inplace)
 
@@ -1283,111 +1089,61 @@ class dropout(nn.Module):
             self.drop = nn.Dropout3d(p=self.drop_rate, inplace=self.inplace)
 
     def forward(self, x, init_params=False):
+        """Applies dropout to the input tensor.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+        """
         if init_params:
             self.init_params(x)
 
-        # Avoing the next steps in dropuut_rate is 0
         if self.drop_rate == 0.0:
             return x
 
         # time must be the last
         x = x.transpose(1, 2).transpose(2, -1)
 
-        # Applying dropout
         x_drop = self.drop(x)
 
+        # Getting original dimensionality
         x_drop = x_drop.transpose(-1, 1).transpose(2, -1)
 
         return x_drop
 
 
 class pooling(nn.Module):
-    """
-     -------------------------------------------------------------------------
-     nnet.architectures.dropout (author: Titouan Parcollet)
+    """This function implements pooling of the input tensor
 
-     Description:  This function implements pooling of the input tensor:
-                   y = pooling(x).
+    Arguments
+    ---------
+    pool_type : str
+        It is the type of pooling function to use ('avg','max')
+    pool_axis : list
+        It is a list containing the axis that will be considered
+        during pooling. It must match the dimensionality of the pooling.
+        If the pooling is 2D, then a list of 2 indices is expected.
+    kernel_size : list
+        It is the kernel size. Note that it also defines the pooling dimension.
+        For instance kernel size=3 applies a 1D Pooling with a size=3,
+        while kernel size=3,3 performs a 2D Pooling with a 3x3 kernel.
+    stride : int
+        It is the stride size.
+    padding : int
+        It is the numbe of padding elements to apply.
+    dilation : int
+        Controls the dilation factor of pooling.
+    ceil_mode : int
+        When True, will use ceil instead of floor to compute the output shape.
 
-     Input (init):  - config (type, dict, mandatory):
-                       it is a dictionary containing the keys described below.
-
-                            - pool_type (type: str, max):
-                                it is the type of pooling function to use.
-
-                            - pool_axis (type: int_list(0, 3), mandatory):
-                                it is a list containing the axis that will be
-                                considered during pooling. It must match the
-                                dimensionality of the pooling. If the pooling
-                                is 2D, then a list of 2 indices is expected.
-
-                            - kernel_size (type: int_list, mandatory):
-                                it is the kernel size. Note that it also define
-                                the pooling dimension. 3 is a 1D Pooling with a
-                                kernel of size 3, while 3,3 is a 2D Pooling.
-
-                            - stride (type: int, optional, Default:1):
-                                it is the stride size.
-
-                            - padding (type: int, optional, Default:0):
-                                it is the padding to apply.
-
-                            - dilation (type: int, optional, Default:1):
-                                controls the dilation of pooling.
-
-                            - ceil_mode (type: bool, optional, Default:False):
-                                when True, will use ceil instead of floor
-                                to compute the output shape
-
-                   - funct_name (type, str, optional, default: None):
-                       it is a string containing the name of the parent
-                       function that has called this method.
-
-                   - global_config (type, dict, optional, default: None):
-                       it a dictionary containing the global variables of the
-                       parent config file.
-
-                   - logger (type, logger, optional, default: None):
-                       it the logger used to write debug and error messages.
-                       If logger=None and root_cfg=True, the file is created
-                       from scratch.
-
-                   - first_input (type, list, optional, default: None)
-                      this variable allows users to analyze the first input
-                      given when calling the class for the first time.
-
-
-     Input (call): - inp_lst(type, list, mandatory):
-                       by default the input arguments are passed with a list.
-                       In this case, inp is a list containing a single
-                       torch.tensor that we want to transform with the pooling.
-                       The tensor must be in any form since the pooling axis
-                       are specified. By default, the input is of shape:
-                       [batch,features,channels,time]
-
-
-
-     Output (call): - wx(type, torch.Tensor, mandatory):
-                       it is the output after applying the pooling.
-
-
-     Example:   import torch
-                from speechbrain.nnet.architectures import pooling
-
-                 # config dictionary definition
-                 config={'class_name':'speechbrain.nnet.architectures.pooling',
-                 'pool_type': 'max',
-                 'kernel_size': '2,2',
-                 'stride': '2',
-                 'pool_axis': '1,2'}
-
-                 # Initialization of the class
-                 inp_tensor = torch.rand([1,4,1,4])
-                 pool = pooling(config, first_input=[inp_tensor])
-
-                 # Executing computations
-                 out_tensor = pool([inp_tensor])
-                 print(out_tensor)
+    Example
+    -------
+    >>> pool = pooling('max',3)
+    >>> inputs = torch.rand(10, 50, 40)
+    >>> pool.init_params(inputs)
+    >>> output=pool(inputs)
+    >>> output.shape
+    torch.Size([10, 50, 38])
     """
 
     def __init__(
@@ -1401,7 +1157,6 @@ class pooling(nn.Module):
         stride=1,
     ):
         super().__init__()
-
         self.pool_type = pool_type
         self.kernel_size = kernel_size
         self.pool_axis = pool_axis
@@ -1409,8 +1164,6 @@ class pooling(nn.Module):
         self.padding = padding
         self.dilation = dilation
         self.stride = stride
-
-        # Option for pooling
         self.pool1d = False
         self.pool2d = False
         self.combine_batch_time = False
@@ -1427,6 +1180,47 @@ class pooling(nn.Module):
         first_input : tensor
             A dummy input of the right shape for initializing parameters.
         """
+
+        # Check parameters
+        self.check_params(first_input)
+
+        # Pooling initialization
+        if self.pool_type == "avg":
+
+            # Check Pooling dimension
+            if self.pool1d:
+                self.pool_layer = torch.nn.AvgPool1d(
+                    self.kernel_size[0],
+                    stride=self.stride,
+                    padding=self.padding,
+                    ceil_mode=self.ceil_mode,
+                )
+
+            else:
+                self.pool_layer = torch.nn.AvgPool2d(
+                    self.kernel_size,
+                    stride=self.stride,
+                    padding=self.padding,
+                    ceil_mode=self.ceil_mode,
+                )
+        else:
+            if self.pool1d:
+                self.pool_layer = torch.nn.MaxPool1d(
+                    self.kernel_size[0],
+                    stride=self.stride,
+                    padding=self.padding,
+                    ceil_mode=self.ceil_mode,
+                )
+
+            else:
+                self.pool_layer = torch.nn.MaxPool2d(
+                    self.kernel_size,
+                    stride=self.stride,
+                    padding=self.padding,
+                    ceil_mode=self.ceil_mode,
+                )
+
+    def check_params(self, first_input):
 
         # Check that enough pooling axes are specified
         if len(self.kernel_size) == 1:
@@ -1475,42 +1269,6 @@ class pooling(nn.Module):
                     % (str(len(first_input.shape)), str(self.pool_axis))
                 )
                 raise ValueError(err_msg)
-
-        # Pooling initialization
-        if self.pool_type == "avg":
-
-            # Check Pooling dimension
-            if self.pool1d:
-                self.pool_layer = torch.nn.AvgPool1d(
-                    self.kernel_size[0],
-                    stride=self.stride,
-                    padding=self.padding,
-                    ceil_mode=self.ceil_mode,
-                )
-
-            else:
-                self.pool_layer = torch.nn.AvgPool2d(
-                    self.kernel_size,
-                    stride=self.stride,
-                    padding=self.padding,
-                    ceil_mode=self.ceil_mode,
-                )
-        else:
-            if self.pool1d:
-                self.pool_layer = torch.nn.MaxPool1d(
-                    self.kernel_size[0],
-                    stride=self.stride,
-                    padding=self.padding,
-                    ceil_mode=self.ceil_mode,
-                )
-
-            else:
-                self.pool_layer = torch.nn.MaxPool2d(
-                    self.kernel_size,
-                    stride=self.stride,
-                    padding=self.padding,
-                    ceil_mode=self.ceil_mode,
-                )
 
     def forward(self, x, init_params=False):
         if init_params:
