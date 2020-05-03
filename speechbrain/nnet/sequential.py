@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class Sequential(torch.nn.Module):
-    """A sequence of modules, implementing the `init_params` method.
+    """A sequence of modules which may use the `init_params=True` argument in `forward()` for initialization.
 
     Arguments
     ---------
