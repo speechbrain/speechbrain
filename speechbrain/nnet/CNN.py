@@ -222,7 +222,7 @@ class conv(nn.Module):
         """
         if len(first_input.shape) <= 2:
             raise ValueError(
-                "conv2d expects 3d or 4d inputs. Got " + len(first_input)
+                "conv2d expects 3d or 4d inputs. Got " + len(first_input.shape)
             )
 
         if len(first_input.shape) == 3:
