@@ -1,7 +1,0 @@
-sequence: [pooling_time]
-
-pooling_time: !speechbrain.nnet.pooling.pooling
-    pool_type: max
-    kernel_size: 2
-    stride: 2
-    pool_axis: 1

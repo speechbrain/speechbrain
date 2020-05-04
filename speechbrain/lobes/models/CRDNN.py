@@ -8,6 +8,7 @@ from speechbrain.yaml import load_extended_yaml
 from speechbrain.nnet.linear import linear
 from speechbrain.nnet.sequential import Sequential
 from speechbrain.nnet.activations import softmax
+from speechbrain.nnet.pooling import pooling
 from speechbrain.utils.data_utils import recursive_update
 
 
@@ -65,7 +66,8 @@ class CRDNN(Sequential):
         dnn_blocks=1,
         dnn_overrides={},
         time_pooling=False,
-        pooling_overrides={},
+        time_pooling_stride=2,
+        time_pooling_size=2,
     ):
         blocks = []
 
@@ -80,10 +82,11 @@ class CRDNN(Sequential):
 
         if time_pooling:
             blocks.append(
-                NeuralBlock(
-                    block_index=i + 1,
-                    param_file="speechbrain/lobes/models/pooling_block.yaml",
-                    overrides=pooling_overrides,
+                pooling(
+                    pool_type="max",
+                    stride=time_pooling_stride,
+                    kernel_size=time_pooling_size,
+                    pool_axis=1,
                 )
             )
 
