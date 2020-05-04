@@ -27,7 +27,7 @@ def test_parse_overrides():
 def test_brain():
     import torch
     from speechbrain.core import Brain
-    from speechbrain.nnet.optimizers import optimize
+    from speechbrain.nnet.optimizers import Optimize
 
     model = torch.nn.Linear(in_features=10, out_features=10)
 
@@ -38,7 +38,7 @@ def test_brain():
         def compute_objectives(self, predictions, targets, train=True):
             return torch.nn.functional.l1_loss(predictions, targets)
 
-    brain = SimpleBrain([model], optimize("sgd", 0.1))
+    brain = SimpleBrain([model], Optimize("sgd", 0.1))
 
     inputs = torch.rand(10, 10)
     targets = torch.rand(10, 10)

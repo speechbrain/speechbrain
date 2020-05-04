@@ -1,15 +1,14 @@
 block_index: 1
 sequence: [linear, norm, activation, dropout]
 
-linear: !speechbrain.nnet.architectures.linear
+linear: !speechbrain.nnet.linear.Linear
     n_neurons: 512
     bias: True
 
-norm: !speechbrain.nnet.normalization.normalize
+norm: !speechbrain.nnet.normalization.Normalize
     norm_type: batchnorm
 
-activation: !speechbrain.nnet.architectures.activation
-    act_type: leaky_relu
+activation: !torch.nn.LeakyReLU
 
-dropout: !speechbrain.nnet.architectures.dropout
+dropout: !speechbrain.nnet.dropout.Dropout
     drop_rate: 0.15
