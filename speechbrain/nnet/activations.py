@@ -10,7 +10,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class softmax(torch.nn.Module):
+class Softmax(torch.nn.Module):
     """Computes the softmax of a 2d, 3d, or 4d input tensor.
 
     Arguments
@@ -22,7 +22,7 @@ class softmax(torch.nn.Module):
 
     Example
     -------
-    >>> classifier = softmax()
+    >>> classifier = Softmax()
     >>> inputs = torch.rand(10, 50, 40)
     >>> output = classifier(inputs)
     >>> output.shape

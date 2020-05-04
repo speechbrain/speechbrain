@@ -5,10 +5,10 @@ Authors: Mirco Ravanelli 2020, Peter Plantinga 2020, Ju-Chieh Chou 2020,
 """
 import torch  # noqa: F401
 from speechbrain.yaml import load_extended_yaml
-from speechbrain.nnet.linear import linear
+from speechbrain.nnet.linear import Linear
 from speechbrain.nnet.sequential import Sequential
-from speechbrain.nnet.activations import softmax
-from speechbrain.nnet.pooling import pooling
+from speechbrain.nnet.activations import Softmax
+from speechbrain.nnet.pooling import Pooling
 from speechbrain.utils.data_utils import recursive_update
 
 
@@ -82,7 +82,7 @@ class CRDNN(Sequential):
 
         if time_pooling:
             blocks.append(
-                pooling(
+                Pooling(
                     pool_type="max",
                     stride=time_pooling_stride,
                     kernel_size=time_pooling_size,
@@ -108,8 +108,8 @@ class CRDNN(Sequential):
                 )
             )
 
-        blocks.append(linear(output_size, bias=False))
-        blocks.append(softmax(apply_log=True))
+        blocks.append(Linear(output_size, bias=False))
+        blocks.append(Softmax(apply_log=True))
 
         super().__init__(*blocks)
 

@@ -11,7 +11,7 @@ import torch.nn as nn
 logger = logging.getLogger(__name__)
 
 
-class linear(torch.nn.Module):
+class Linear(torch.nn.Module):
     """Computes a linear transformation y = wx + b.
 
     Arguments
@@ -24,7 +24,7 @@ class linear(torch.nn.Module):
 
     Example
     -------
-    >>> lin_t = linear(n_neurons=100)
+    >>> lin_t = Linear(n_neurons=100)
     >>> inputs = torch.rand(10, 50, 40)
     >>> output = lin_t(inputs,init_params=True)
     >>> output.shape

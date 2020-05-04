@@ -10,7 +10,7 @@ import torch.nn as nn
 logger = logging.getLogger(__name__)
 
 
-class dropout(nn.Module):
+class Dropout(nn.Module):
     """This function implements droput.
 
     This function implements droput of the input tensor. In particular,
@@ -27,7 +27,7 @@ class dropout(nn.Module):
 
     Example
     -------
-    >>> drop = dropout(drop_rate=0.5)
+    >>> drop = Dropout(drop_rate=0.5)
     >>> inputs = torch.rand(10, 50, 40)
     >>> drop.init_params(inputs)
     >>> output=drop(inputs)

@@ -14,7 +14,7 @@ import torch.nn.functional as F
 logger = logging.getLogger(__name__)
 
 
-class conv(nn.Module):
+class Conv(nn.Module):
     """This function implements 1D, 2D, and sinc_conv (SincNet) convolutionals.
 
     This class implements convolutional layers:
@@ -22,67 +22,63 @@ class conv(nn.Module):
     Conv2d is used when the specified kernel size is 2d (e.g, kernel_size=3,5).
     sinc_conv (SincNet) is used when sinc_conv is True.
 
-    Args:
-        out_channels: int
-            It is the number of output channels.
-        kernel_size: int
-            It is a list containing the size of the kernels.
-            For 1D convolutions, the list contains a single
-            integer (convolution over the time axis), while
-            for 2D convolutions the list is composed of two
-            values (i.e, time and frequency kernel sizes respectively).
-        stride: int
-            it is a list containing the stride factors.
-            For 1D convolutions, the list contains a single
-            integer (stride over the time axis), while
-            for 2D convolutions the list is composed of two
-            values (i.e, time and frequency kernel sizes,
-            respectively). When the stride factor > 1, a
-            decimation (in the time or frequnecy domain) is
-            implicitely performed.
-        dilation: int
-            it is a list containing the dilation factors.
-            For 1D convolutions, the list contains a single
-            integer (dilation over the time axis), while
-            for 2D convolutions the list is composed of two
-            values (i.e, time and frequency kernel sizes,
-            respectively).
-        padding: bool
-            if True, zero-padding is performed.
-        padding_mode: str
-            This flag specifies the type of padding.
-            See torch.nn documentation for more information.
-        groups: int
-            This option specifies the convolutional groups.
-            See torch.nn documentation for more information.
-        bias: bool
-            If True, the additive bias b is adopted.
-        sinc_conv: bool
-            If True computes convolution with sinc-based filters (SincNet).
-        sample_rate: int,
-            Sampling rate of the input signals. It is only used for sinc_conv.
-        min_low_hz: float
-            Lowest possible frequency (in Hz) for a filter. It is only used for
-            sinc_conv.
-        min_low_hz: float
-            Lowest possible value (in Hz) for a filter bandwidth.
+    Arguments
+    ---------
+    out_channels: int
+        It is the number of output channels.
+    kernel_size: int
+        It is a list containing the size of the kernels. For 1D convolutions,
+        the list contains a single integer (convolution over the time axis),
+        while for 2D convolutions the list is composed of two
+        values (i.e, time and frequency kernel sizes respectively).
+    stride: int
+        it is a list containing the stride factors. For 1D convolutions, the
+        list contains a single integer (stride over the time axis), while
+        for 2D convolutions the list is composed of two values (i.e, time and
+        frequency kernel sizes, respectively). When the stride factor > 1, a
+        decimation (in the time or frequnecy domain) is implicitly performed.
+    dilation: int
+        it is a list containing the dilation factors. For 1D convolutions, the
+        list contains a single integer (dilation over the time axis), while
+        for 2D convolutions the list is composed of two values (i.e, time and
+        frequency kernel sizes, respectively).
+    padding: bool
+        if True, zero-padding is performed.
+    padding_mode: str
+        This flag specifies the type of padding. See torch.nn documentation
+        for more information.
+    groups: int
+        This option specifies the convolutional groups. See torch.nn
+        documentation for more information.
+    bias: bool
+        If True, the additive bias b is adopted.
+    sinc_conv: bool
+        If True computes convolution with sinc-based filters (SincNet).
+    sample_rate: int,
+        Sampling rate of the input signals. It is only used for sinc_conv.
+    min_low_hz: float
+        Lowest possible frequency (in Hz) for a filter. It is only used for
+        sinc_conv.
+    min_low_hz: float
+        Lowest possible value (in Hz) for a filter bandwidth.
 
-    Example:
-        >>> inp_tensor = torch.rand([10, 16000, 1])
-        >>> cnn_1d = conv(out_channels=25, kernel_size=(11,))
-        >>> out_tensor = cnn_1d(inp_tensor, init_params=True)
-        >>> out_tensor.shape
-        torch.Size([10, 15990, 25])
-        >>> inp_tensor = torch.rand([10, 100, 40, 128])
-        >>> cnn_2d = conv(out_channels=25, kernel_size=(11,5))
-        >>> out_tensor = cnn_2d(inp_tensor, init_params=True)
-        >>> out_tensor.shape
-        torch.Size([10, 90, 36, 25])
-        >>> inp_tensor = torch.rand([10, 4000])
-        >>> sinc_conv = conv(out_channels=8,kernel_size=(129,),sinc_conv=True)
-        >>> out_tensor = sinc_conv(inp_tensor, init_params=True)
-        >>> out_tensor.shape
-        torch.Size([10, 3872, 8])
+    Example
+    -------
+    >>> inp_tensor = torch.rand([10, 16000, 1])
+    >>> cnn_1d = Conv(out_channels=25, kernel_size=(11,))
+    >>> out_tensor = cnn_1d(inp_tensor, init_params=True)
+    >>> out_tensor.shape
+    torch.Size([10, 15990, 25])
+    >>> inp_tensor = torch.rand([10, 100, 40, 128])
+    >>> cnn_2d = Conv(out_channels=25, kernel_size=(11,5))
+    >>> out_tensor = cnn_2d(inp_tensor, init_params=True)
+    >>> out_tensor.shape
+    torch.Size([10, 90, 36, 25])
+    >>> inp_tensor = torch.rand([10, 4000])
+    >>> sinc_conv = Conv(out_channels=8,kernel_size=(129,),sinc_conv=True)
+    >>> out_tensor = sinc_conv(inp_tensor, init_params=True)
+    >>> out_tensor.shape
+    torch.Size([10, 3872, 8])
     """
 
     def __init__(
