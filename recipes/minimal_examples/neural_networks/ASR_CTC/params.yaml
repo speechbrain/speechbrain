@@ -35,7 +35,7 @@ compute_features: !speechbrain.lobes.features.Features
 mean_var_norm: !speechbrain.processing.features.mean_var_norm
     norm_type: global
 
-rnn: !speechbrain.nnet.architectures.RNN_basic
+rnn: !speechbrain.nnet.RNN.RNN
     rnn_type: gru
     n_neurons: 256
     nonlinearity: tanh
@@ -43,17 +43,17 @@ rnn: !speechbrain.nnet.architectures.RNN_basic
     dropout: 0.15
     bidirectional: True
 
-lin: !speechbrain.nnet.architectures.linear
+lin: !speechbrain.nnet.linear.Linear
     n_neurons: 43 # 42 phonemes + 1 blank
     bias: False
 
-softmax: !speechbrain.nnet.architectures.activation
-    act_type: log_softmax
+softmax: !speechbrain.nnet.activations.Softmax
+    apply_log: True
 
-compute_cost: !speechbrain.nnet.losses.compute_cost
+compute_cost: !speechbrain.nnet.losses.ComputeCost
     cost_type: [ctc]
     blank_index: 42
 
-optimizer: !speechbrain.nnet.optimizers.optimize
+optimizer: !speechbrain.nnet.optimizers.Optimize
     optimizer_type: adam
     learning_rate: !ref <lr>
