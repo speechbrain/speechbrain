@@ -1,5 +1,10 @@
 """
-Optimizers.
+Optimizers for neural network training.
+
+Author
+------
+Mirco Ravanelli 2020
+Aku Rouhe 2020
 """
 
 import torch
@@ -10,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 @checkpoints.register_checkpoint_hooks
-class optimize(torch.nn.Module):
+class Optimize(torch.nn.Module):
     """This function implements different optimizers.
 
     Supports standard optimizers such as adam, sgd, rmseprop, and some of
@@ -18,40 +23,50 @@ class optimize(torch.nn.Module):
     in input some neural networks and updates their parameters according to
     the optimization algorithm adopted.
 
-    Args:
-        optimizer_type: the type of optimizer to be used, one of (rmsprop,
-            adam, adamw, adamax, adadelta, sgd, rprop). Refer to torch.nn
-            documentation for a more detailed description of each optimizer.
-        learning_rate: the learning rate used to update the parameters.
-        alpha: smoothing constant used in rmseprop.
-        betas: coefficients used for computing running averages of gradient
-            and its square in adam optimizer and its variations.
-        etas: (etaminus, etaplis), that are multiplicative increase and
-            decrease factors, used in Rprop.
-        eps: it is the numerical stability factor.
-        step_sizes: used in rprop optimizer and contains a pair of minimal
-            and maximal allowed step sizes.
-        weight_decay: it is the weight decay (L2 penalty) factor
-            used as as additionally loss.
-        momentum: it is the momentum factor for the optimizers.
-        dampening: dampening factor for SGD momentum.
-        rho: it is used in adadelta and it is the coefficient used for
-            computing a running average of squared gradients.
-        centered: if True, compute the centered RMSProp, the gradient is
-            normalized by an estimation of its variance.
-        amsgrad: if True it uses the AMSGrad variant of the adam optimizer.
-        nesterov: enables Nesterov momentum for SGD.
+    Arguments
+    ---------
+    optimizer_type: str
+        the type of optimizer to be used, one of (rmsprop,
+        adam, adamw, adamax, adadelta, sgd, rprop). Refer to torch.nn
+        documentation for a more detailed description of each optimizer.
+    learning_rate: float
+        the learning rate used to update the parameters.
+    alpha: float
+        smoothing constant used in rmseprop.
+    betas: float
+        coefficients used for computing running averages of gradient
+        and its square in adam optimizer and its variations.
+    etas: tuple (eta_minus : float, eta_plus : float)
+        that are multiplicative increase and decrease factors, used in Rprop.
+    eps: float
+        the numerical stability factor.
+    step_sizes: tuple (min_step : float, max_step : float)
+        used in rprop optimizer to control allowed step sizes.
+    weight_decay: float
+        weight decay (L2 penalty) factor used as as additionally loss.
+    momentum: float
+        the momentum factor for the optimizers.
+    dampening: float
+        dampening factor for SGD momentum.
+    rho: float
+        it is used in adadelta and it is the coefficient used for
+        computing a running average of squared gradients.
+    centered: bool
+        if True, compute the centered RMSProp, the gradient is
+        normalized by an estimation of its variance.
+    amsgrad: bool
+        if True it uses the AMSGrad variant of the adam optimizer.
+    nesterov: bool
+        enables Nesterov momentum for SGD.
 
     Example
     -------
-    >>> import torch
-    >>> from speechbrain.nnet.architectures import linear
-    >>> from speechbrain.nnet.architectures import activation
-    >>> from speechbrain.nnet.losses import compute_cost
+    >>> from speechbrain.nnet.linear import Linear
+    >>> from speechbrain.nnet.losses import ComputeCost
     >>> inp_tensor = torch.rand([1,660,3])
-    >>> model = linear(n_neurons=4)
-    >>> cost = compute_cost(cost_type='nll')
-    >>> optim = optimize(optimizer_type='sgd', learning_rate=0.01)
+    >>> model = Linear(n_neurons=4)
+    >>> cost = ComputeCost(cost_type='nll')
+    >>> optim = Optimize(optimizer_type='sgd', learning_rate=0.01)
     >>> output = model(inp_tensor, init_params=True)
     >>> prediction = torch.nn.functional.softmax(output, dim=2)
     >>> label = torch.FloatTensor([0,1,3]).unsqueeze(0)
@@ -60,9 +75,6 @@ class optimize(torch.nn.Module):
     >>> for cost in out_cost:
     ...     cost.backward()
     >>> optim([model], init_params=True)
-
-    Author:
-        Mirco Ravanelli 2020
     """
 
     def __init__(
@@ -191,9 +203,6 @@ class optimize(torch.nn.Module):
         if init_params:
             self.init_params(input_lst)
 
-        # Gradient combination for the multi-gpu case
-        self.sum_grad_multi_gpu(input_lst)
-
         # Parameter update
         self.optim.step()
 
@@ -209,8 +218,6 @@ class optimize(torch.nn.Module):
 
         (In many cases the forward does need to be run so that submodules
         get initialized first, using forward_hook and rerunning forward())
-        Author:
-            Aku Rouhe 2020
         """
         del end_of_epoch  # Unused here.
         self.optim.load_state_dict(torch.load(path))
@@ -218,39 +225,3 @@ class optimize(torch.nn.Module):
     @checkpoints.mark_as_saver
     def _save(self, path):
         torch.save(self.optim.state_dict(), path)
-
-    def sum_grad_multi_gpu(self, input_lst):
-        """Sum all gradients from different gpus
-
-        Args:
-            input_list: list of all neural models to optimize
-
-        Author:
-            Mirco Ravanelli 2020
-        """
-
-        # Loops over all the input models
-        for inp in input_lst:
-
-            # Check if the computations are multi-gpu
-            if hasattr(inp, "multi_gpu_models"):
-
-                # list of all the parameters
-                for index, param in enumerate(inp.parameters()):
-
-                    first = True
-
-                    # look for the models replicated over the various gpus
-                    for model in inp.multi_gpu_models:
-
-                        # model parameter in the current gpu
-                        par_gpu = list(model.parameters())[index].grad
-
-                        if first:
-                            par_sum = par_gpu.to("cuda:0")
-                            first = False
-                        else:
-                            par_sum = par_sum + par_gpu.to("cuda:0")
-
-                    # Summing up all the gradients
-                    param.grad = param.grad + par_sum
