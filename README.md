@@ -122,11 +122,35 @@ The goal is to write a set of libraries that process audio and speech in several
 
 ## GitHub
 
-Fork SpeechBrain and push your updates as a branch in your own fork. Then create
-a pull request to the upstream repository. We use basically the feature branches
-development style.
+Our development strategy is as follows:
 
-All pull requests should be reviewed by another pair of eyes before merging.
+1. Clone the main speechbrain repository (no fork necessary). SSH example:
+    `git clone git@github.com:speechbrain/speechbrain` 
+2. Create a branch for specific feature you are developing.
+    `git checkout -b your-branch-name`
+3. Make + commit changes. Do not commit to `master`.
+4. Push branch to github.
+    `git push --set-upstream origin your-branch-name`
+5. Navigate to github, and create a pull request from your branch to master.
+6. A reviewer will be assigned to your PR to (hopefully quickly) review.
+7. When reviewer is satisfied that the code improves repository quality, they can merge.
+8. Reviewer should delete the source branch in the origin. You can do this in your
+local copy too, after first making sure master is up-to-date (so git doesn't complain
+that your branch changes aren't in master):
+    `git checkout master`
+    `git pull`
+    `git branch -d your-branch-name`
+
+Note that CI tests will be run when you create a PR. If you want to be sure that your
+code will not fail these tests, we have set up pre-commit hooks that you can install:
+
+```
+> pip install pre-commit
+> pre-commit install
+> pre-commit install --hook-type pre-push --config .pre-push-config.yaml
+```
+
+These will automatically check the code when you commit and when you push.
 
 ## Python 
 ### Version
@@ -214,7 +238,7 @@ In addition we have plans for:
 
 ### CI / CD Pipelines
 - GitHub Actions (and also available as third-party solution) feature, which automatically runs basically anything in reaction to git events.
-- During private development, the CI pipeline is triggered by any push to GitHub. 
+- The CI pipeline is triggered by pull requests.
 - Runs in a Ubuntu environment provided by GitHub
 - GitHub offers a limited amount of CI pipeline minutes for free. 
 - CD would stand for continuous deployment, though we’re not doing that yet
