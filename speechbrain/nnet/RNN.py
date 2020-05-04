@@ -112,7 +112,7 @@ class RNN(torch.nn.Module):
             del kwargs["batch_first"]
             kwargs["batch_size"] = first_input.shape[0]
             kwargs["device"] = first_input.device
-            self.rnn = liGRU(**kwargs)
+            self.rnn = LiGRU(**kwargs)
 
         self.rnn.to(first_input.device)
 
@@ -136,7 +136,7 @@ class RNN(torch.nn.Module):
         return output
 
 
-class liGRU(torch.jit.ScriptModule):
+class LiGRU(torch.jit.ScriptModule):
     """ This function implements Light-Gated Recurrent Units (ligru).
 
     Ligru is a customized GRU model based on batch-norm + relu
@@ -148,29 +148,31 @@ class liGRU(torch.jit.ScriptModule):
     To speed it up, it is compiled with the torch just-in-time compiler (jit)
     right before using it.
 
-    Args:
-        input_size: int
-            Feature dimensionality of the input tensors.
-        batch_size: int
-            Batch size of the input tensors.
-        hidden_size: int
-             Number of output neurons .
-        num_layers: int
-             Number of layers to employ in the RNN architecture.
-        dropout: float
-            It is the dropout factor (must be between 0 and 1).
-        bidirectional: bool
-             if True, a bidirectioal model that scans the sequence both
-             right-to-left and left-to-right is used.
-        device: str
-             Device used for running the computations (e.g, 'cpu', 'cuda').
+    Arguments
+    ---------
+    input_size: int
+        Feature dimensionality of the input tensors.
+    batch_size: int
+        Batch size of the input tensors.
+    hidden_size: int
+         Number of output neurons .
+    num_layers: int
+         Number of layers to employ in the RNN architecture.
+    dropout: float
+        It is the dropout factor (must be between 0 and 1).
+    bidirectional: bool
+         if True, a bidirectioal model that scans the sequence both
+         right-to-left and left-to-right is used.
+    device: str
+         Device used for running the computations (e.g, 'cpu', 'cuda').
 
-    Example:
-        >>> inp_tensor = torch.rand([4, 10, 20])
-        >>> net = liGRU(20,5,1,4, device='cpu')
-        >>> out_tensor, h = net(inp_tensor)
-        >>> out_tensor.shape
-        torch.Size([4, 10, 10])
+    Example
+    -------
+    >>> inp_tensor = torch.rand([4, 10, 20])
+    >>> net = LiGRU(20, 5, 1, 4, device='cpu')
+    >>> out_tensor, h = net(inp_tensor)
+    >>> out_tensor.shape
+    torch.Size([4, 10, 10])
     """
 
     def __init__(
@@ -189,7 +191,7 @@ class liGRU(torch.jit.ScriptModule):
         self.model = torch.nn.ModuleList([])
 
         for i in range(num_layers):
-            rnn_lay = liGRU_layer(
+            rnn_lay = LiGRU_Layer(
                 current_dim,
                 hidden_size,
                 num_layers,
@@ -219,25 +221,26 @@ class liGRU(torch.jit.ScriptModule):
         return x, 0
 
 
-class liGRU_layer(torch.jit.ScriptModule):
+class LiGRU_Layer(torch.jit.ScriptModule):
     """ This function implements Light-Gated Recurrent Units (ligru) layer.
 
-    Args:
-        input_size: int
-            Feature dimensionality of the input tensors.
-        batch_size: int
-            Batch size of the input tensors.
-        hidden_size: int
-             Number of output neurons .
-        num_layers: int
-             Number of layers to employ in the RNN architecture.
-        dropout: float
-            It is the dropout factor (must be between 0 and 1).
-        bidirectional: bool
-             if True, a bidirectioal model that scans the sequence both
-             right-to-left and left-to-right is used.
-        device: str
-             Device used for running the computations (e.g, 'cpu', 'cuda').
+    Arguments
+    ---------
+    input_size: int
+        Feature dimensionality of the input tensors.
+    batch_size: int
+        Batch size of the input tensors.
+    hidden_size: int
+         Number of output neurons .
+    num_layers: int
+         Number of layers to employ in the RNN architecture.
+    dropout: float
+        It is the dropout factor (must be between 0 and 1).
+    bidirectional: bool
+         if True, a bidirectioal model that scans the sequence both
+         right-to-left and left-to-right is used.
+    device: str
+         Device used for running the computations (e.g, 'cpu', 'cuda').
     """
 
     def __init__(
@@ -252,7 +255,7 @@ class liGRU_layer(torch.jit.ScriptModule):
         device="cuda",
     ):
 
-        super(liGRU_layer, self).__init__()
+        super(LiGRU_Layer, self).__init__()
         self.hidden_size = int(hidden_size)
         self.input_size = int(input_size)
         self.batch_size = batch_size
