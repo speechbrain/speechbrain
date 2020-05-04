@@ -14,9 +14,9 @@ logger = logging.getLogger(__name__)
 class RNN(torch.nn.Module):
     """ This function implements basic RNN, LSTM and GRU models.
 
-    This function implelent different RNN models. It accepts in input tesors
+    This function implements different RNN models. It accepts in input tensors
     formatted as (batch, time, fea). In the case of 4d inputs
-    like (batch, time, fea, channel) the tensor ais flattened in this way:
+    like (batch, time, fea, channel) the tensor is flattened in this way:
     (batch, time, fea*channel).
 
     Arguments
