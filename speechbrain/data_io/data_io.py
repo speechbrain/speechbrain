@@ -6,21 +6,15 @@ Author
 Mirco Ravanelli, Aku Rouhe 2020
 """
 
-import io
 import os
 import re
 import csv
-import sys
-import gzip
 import torch
-import struct
 import psutil
 import random
 import pickle
 import logging
 import hashlib
-import threading
-import subprocess
 import numpy as np
 import soundfile as sf
 import multiprocessing as mp
@@ -1406,18 +1400,28 @@ def read_kaldi_lab(kaldi_ali, kaldi_lab_opts):
     dict
         A dictionary contaning the labels
 
+    Note
+    ----
+    This depends on kaldi-io-for-python. Install it separately.
+    See: https://github.com/vesis84/kaldi-io-for-python
+
     Example
     -------
-    This example
+    This example requires kaldi files
     ```
     lab_folder = '/home/kaldi/egs/TIMIT/s5/exp/dnn4_pretrain-dbn_dnn_ali'
     read_kaldi_lab(lab_folder, 'ali-to-pdf')
     ```
     """
+    # EXTRA TOOLS
+    try:
+        import kaldi_io
+    except ImportError:
+        raise ImportError("Could not import kaldi_io. Install it to use this.")
     # Reading the Kaldi labels
     lab = {
         k: v
-        for k, v in read_vec_int_ark(
+        for k, v in kaldi_io.read_vec_int_ark(
             "gunzip -c "
             + kaldi_ali
             + "/ali*.gz | "
@@ -1563,6 +1567,10 @@ def save_img(data, filename, sampling_rate=None, logger=None):
     -------
     None
 
+    Note
+    ----
+    Depends on matplotlib as an extra tool. Install it separately.
+
     Example
     -------
     >>> tmpdir = getfixture('tmpdir')
@@ -1572,7 +1580,7 @@ def save_img(data, filename, sampling_rate=None, logger=None):
     ... except ImportError:
     ...     pass
     """
-    # If needed import matplotlib
+    # EXTRA TOOLS
     try:
         import matplotlib.pyplot as plt
     except ImportError:
@@ -1839,10 +1847,6 @@ class save(torch.nn.Module):
         supported_formats["txt"]["writer"] = write_txt_file
         supported_formats["txt"]["description"] = "Plain text"
 
-        supported_formats["ark"] = {}
-        supported_formats["ark"]["writer"] = write_ark
-        supported_formats["ark"]["description"] = "Kaldi binary format"
-
         supported_formats["png"] = {}
         supported_formats["png"]["writer"] = save_img
         supported_formats["png"]["description"] = "image in png format"
@@ -1955,276 +1959,3 @@ def load_pkl(file):
     """
     with open(file, "rb") as f:
         return pickle.load(f)
-
-
-def write_ark(data, filename, key="", sampling_rate=None, logger=None):
-    """
-     -------------------------------------------------------------------------
-     data_io.write_ark (author: github.com/vesis84/kaldi-io-for-python)
-
-     Description: write_mat(data,filename key='')
-                  Write a binary kaldi matrix to filename or stream.
-                  Supports 32bit and 64bit floats.
-
-     Input (call):
-        filename: it is filename of opened file descriptor for writing.
-        data: it is the matrix to be stored
-        key: it is used for writing ark-file, the utterance-id gets
-                       written before the matrix.
-        sampling_rate: it sampling rate of the audio file.
-        logger: it the logger used to write debug and error messages.
-
-     Output (call):  None
-
-     Example:   import torch
-                from speechbrain.data_io.data_io import write_ark
-
-                matrix = torch.rand([5,10])
-
-                write_ark(matrix,'matrix.ark',key='snt')
-     -------------------------------------------------------------------------
-     """
-
-    if isinstance(data, torch.Tensor):
-        data = data.detach().cpu().numpy()
-
-    fd = open_or_fd(filename, None, mode="wb")
-
-    # Detecting sentence id to write
-    key = os.path.basename(filename).split(".")[0]
-
-    if sys.version_info[0] == 3:
-        assert fd.mode == "wb"
-    try:
-        if key != "":
-            # ark-files have keys (utterance-id),
-            fd.write((key + " ").encode("latin1"))
-        fd.write("\0B".encode())  # we write binary!
-
-        # Data-type,
-        if data.dtype == "float32":
-            fd.write("FM ".encode())
-        elif data.dtype == "float64":
-            fd.write("DM ".encode())
-        else:
-            raise UnsupportedDataType(
-                "'%s', please use 'float32' \
-                                      or 'float64'"
-                % data.dtype
-            )
-        # Dims,
-        fd.write("\04".encode())
-        fd.write(struct.pack(np.dtype("uint32").char, data.shape[0]))  # rows
-        fd.write("\04".encode())
-        fd.write(struct.pack(np.dtype("uint32").char, data.shape[1]))  # cols
-        # Data,
-        fd.write(data.tobytes())
-    finally:
-        if fd is not filename:
-            fd.close()
-
-
-def read_vec_int_ark(file_or_fd):
-    """
-     -------------------------------------------------------------------------
-     data_io.read_vec_int_ark (author: github.com/vesis84/kaldi-io-for-python)
-     -------------------------------------------------------------------------
-     """
-
-    fd = open_or_fd(file_or_fd)
-    try:
-        key = read_key(fd)
-        while key:
-            ali = read_vec_int(fd)
-            yield key, ali
-            key = read_key(fd)
-    finally:
-        if fd is not file_or_fd:
-            fd.close()
-
-
-def read_key(fd):
-    """
-     -------------------------------------------------------------------------
-     data_io.read_key (author: github.com/vesis84/kaldi-io-for-python)
-
-     Description: Read the utterance-key from the opened ark/stream descriptor
-                  'fd'.
-     -------------------------------------------------------------------------
-     """
-
-    key = ""
-    while 1:
-        char = fd.read(1).decode("latin1")
-        if char == "":
-            break
-        if char == " ":
-            break
-        key += char
-    key = key.strip()
-    if key == "":
-        return None  # end of file,
-    assert re.match(r"^\S+$", key) is not None  # check format (no white space)
-    return key
-
-
-def read_vec_int(file_or_fd):
-    """
-     -------------------------------------------------------------------------
-     data_io.read_key (author: github.com/vesis84/kaldi-io-for-python)
-
-     Description: Read kaldi integer vector, ascii or binary input,
-     -------------------------------------------------------------------------
-     """
-
-    fd = open_or_fd(file_or_fd)
-    binary = fd.read(2).decode()
-    if binary == "\0B":  # binary flag
-        assert fd.read(1).decode() == "\4"
-        # int-size
-        vec_size = np.frombuffer(fd.read(4), dtype="int32", count=1)[0]
-        if vec_size == 0:
-            return np.array([], dtype="int32")
-        # Elements from int32 vector are stored in tuples:
-        # (sizeof(int32), value),
-        vec = np.frombuffer(
-            fd.read(vec_size * 5),
-            dtype=[("size", "int8"), ("value", "int32")],
-            count=vec_size,
-        )
-        assert vec[0]["size"] == 4  # int32 size,
-        ans = vec[:]["value"]  # values are in 2nd column,
-    else:  # ascii,
-        arr = (binary + fd.readline().decode()).strip().split()
-        try:
-            arr.remove("[")
-            arr.remove("]")  # optionally
-        except ValueError:
-            pass
-        ans = np.array(arr, dtype=int)
-    if fd is not file_or_fd:
-        fd.close()  # cleanup
-    return ans
-
-
-def open_or_fd(file, mode="rb"):
-    """
-     -------------------------------------------------------------------------
-     data_io.open_or_fd (author: github.com/vesis84/kaldi-io-for-python)
-
-     Description: Open file, gzipped file, pipe, or forward the
-                  file-descriptor.
-                  Eventually seeks in the 'file' argument contains ':offset'
-                  suffix.
-     -------------------------------------------------------------------------
-     """
-
-    offset = None
-
-    try:
-        # Strip 'ark:' prefix from r{x,w}filename (optional),
-        if re.search(
-            "^(ark|csv)(,csv|,b|,t|,n?f|,n?p|,b?o|,n?s|,n?cs)*:", file
-        ):
-            (prefix, file) = file.split(":", 1)
-        # Separate offset from filename (optional),
-        if re.search(":[0-9]+$", file):
-            (file, offset) = file.rsplit(":", 1)
-        # Input pipe?
-        if file[-1] == "|":
-            fd = popen(file[:-1], mode="rb")  # custom,
-        # Output pipe?
-        elif file[0] == "|":
-            fd = popen(file[1:], mode="wb")  # custom,
-        # Is it gzipped?
-        elif file.split(".")[-1] == "gz":
-            fd = gzip.open(file, mode)
-        # A normal file...
-        else:
-            fd = open(file, mode)
-    except TypeError:
-        # 'file' is opened file descriptor,
-        fd = file
-    # Eventually seek to offset,
-    if offset is not None:
-        fd.seek(int(offset))
-
-    return fd
-
-
-def popen(cmd, mode="rb"):
-    """
-     -------------------------------------------------------------------------
-     data_io.popen (author: github.com/vesis84/kaldi-io-for-python)
-     -------------------------------------------------------------------------
-     """
-
-    if not isinstance(cmd, str):
-        raise TypeError("invalid cmd type (%s, expected string)" % type(cmd))
-
-    # cleanup function for subprocesses,
-    def cleanup(proc, cmd):
-        ret = proc.wait()
-        if ret > 0:
-            raise SubprocessFailed("cmd %s returned %d !" % (cmd, ret))
-        return
-
-    err = None
-
-    # text-mode,
-    if mode == "r":
-        proc = subprocess.Popen(
-            cmd, shell=True, stdout=subprocess.PIPE, stderr=err
-        )
-        threading.Thread(
-            target=cleanup, args=(proc, cmd)
-        ).start()  # clean-up thread,
-        return io.TextIOWrapper(proc.stdout)
-    elif mode == "w":
-        proc = subprocess.Popen(
-            cmd, shell=True, stdin=subprocess.PIPE, stderr=err
-        )
-        threading.Thread(
-            target=cleanup, args=(proc, cmd)
-        ).start()  # clean-up thread,
-        return io.TextIOWrapper(proc.stdin)
-    # binary,
-    elif mode == "rb":
-        proc = subprocess.Popen(
-            cmd, shell=True, stdout=subprocess.PIPE, stderr=err
-        )
-        threading.Thread(
-            target=cleanup, args=(proc, cmd)
-        ).start()  # clean-up thread,
-        return proc.stdout
-    elif mode == "wb":
-        proc = subprocess.Popen(
-            cmd, shell=True, stdin=subprocess.PIPE, stderr=err
-        )
-        threading.Thread(
-            target=cleanup, args=(proc, cmd)
-        ).start()  # clean-up thread,
-        return proc.stdin
-    # sanity,
-    else:
-        raise ValueError("invalid mode %s" % mode)
-
-
-class SubprocessFailed(Exception):
-    """
-    -------------------------------------------------------------------------
-    data_io.SubprocessFailed (author: github.com/vesis84/kaldi-io-for-python)
-    -------------------------------------------------------------------------
-    """
-
-    pass
-
-
-class UnsupportedDataType(Exception):
-    """
-    -------------------------------------------------------------------------
-    data_io.UnsupportedDataType (github.com/vesis84/kaldi-io-for-python)
-    -------------------------------------------------------------------------
-    """
-
-    pass
