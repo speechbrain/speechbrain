@@ -238,7 +238,7 @@ In addition we have plans for:
 
 ### CI / CD Pipelines
 - GitHub Actions (and also available as third-party solution) feature, which automatically runs basically anything in reaction to git events.
-- The CI pipeline is triggered by merge requests.
+- The CI pipeline is triggered by pull requests.
 - Runs in a Ubuntu environment provided by GitHub
 - GitHub offers a limited amount of CI pipeline minutes for free. 
 - CD would stand for continuous deployment, though we’re not doing that yet
