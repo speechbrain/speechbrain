@@ -36,21 +36,20 @@ compute_features: !speechbrain.lobes.features.Features
 mean_var_norm: !speechbrain.processing.features.mean_var_norm
     norm_type: global
 
-linear1: !speechbrain.nnet.architectures.linear
+linear1: !speechbrain.nnet.linear.Linear
     n_neurons: 128
     bias: False
 
-activation: !speechbrain.nnet.architectures.activation
-    act_type: leaky_relu
+activation: !torch.nn.LeakyReLU
 
-linear2: !speechbrain.nnet.architectures.linear
+linear2: !speechbrain.nnet.linear.Linear
     n_neurons: 180
     bias: False
 
-compute_cost: !speechbrain.nnet.losses.compute_cost
+compute_cost: !speechbrain.nnet.losses.ComputeCost
     cost_type: [mse]
     avoid_pad: [True]
 
-optimizer: !speechbrain.nnet.optimizers.optimize
+optimizer: !speechbrain.nnet.optimizers.Optimize
     optimizer_type: adam
     learning_rate: !ref <lr>
