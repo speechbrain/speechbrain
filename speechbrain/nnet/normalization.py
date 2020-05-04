@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 
 
-class normalize(nn.Module):
+class Normalize(nn.Module):
     """Normalizes the input tensors accoding to the specified normalization
     technique.
 
@@ -64,7 +64,7 @@ class normalize(nn.Module):
 
     Example
     -------
-    >>> normalize = normalize('batchnorm')
+    >>> normalize = Normalize('batchnorm')
     >>> inputs = torch.rand(10, 50, 40)
     >>> normalize.init_params(inputs)
     >>> output=normalize(inputs)

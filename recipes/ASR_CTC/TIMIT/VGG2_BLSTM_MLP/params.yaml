@@ -27,12 +27,12 @@ model: !speechbrain.lobes.models.CRDNN.CRDNN
     cnn_blocks: 2
     dnn_blocks: 2
 
-optimizer: !speechbrain.nnet.optimizers.optimize
+optimizer: !speechbrain.nnet.optimizers.Optimize
     optimizer_type: adadelta
     rho: 0.95
     learning_rate: !ref <lr>
 
-lr_annealing: !speechbrain.nnet.lr_scheduling.lr_scheduler
+lr_annealing: !speechbrain.nnet.lr_scheduling.LRScheduler
     annealing_type: newbob
     N_epochs: !ref <number_of_epochs>
     lr_initial: !ref <lr>
@@ -71,6 +71,6 @@ test_loader: !speechbrain.data_io.data_io.create_dataloader
     csv_file: !ref <csv_test>
     batch_size: 1
 
-compute_cost: !speechbrain.nnet.losses.compute_cost
+compute_cost: !speechbrain.nnet.losses.ComputeCost
     cost_type: [ctc]
     blank_index: 39

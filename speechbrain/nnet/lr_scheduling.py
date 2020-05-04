@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 @checkpoints.register_checkpoint_hooks
-class lr_scheduler(torch.nn.Module):
+class LRScheduler(torch.nn.Module):
     """Learning rate schedulers
 
     This function implements different strategies for lerarning rate
@@ -115,9 +115,14 @@ class lr_scheduler(torch.nn.Module):
 
     def forward(self, optim_list, current_epoch, current_loss):
         """
-        Input: - optim_list
-               - current_epoch
-               - current_loss
+        Arguments
+        ---------
+        optim_list : list of optimizers
+            The optimizers to update using this scheduler.
+        current_epoch : int
+            Number of times the dataset has been iterated.
+        current_loss : int
+            A number for determining whether to change the learning rate.
         """
 
         for opt in optim_list:

@@ -19,34 +19,36 @@ class RNN(torch.nn.Module):
     like (batch, time, fea, channel) the tensor ais flattened in this way:
     (batch, time, fea*channel).
 
-    Args:
-        rnn_type: str
-            Type of recurrent neural network to use (rnn, lstm, gru, ligru).
-        n_neurons: int
-            Number of output neurons (i.e, the dimensionality of the output).
-            values (i.e, time and frequency kernel sizes respectively).
-         nonlinearity: str
-             Type of nonlinearity (tanh, relu).
-        num_layers: int
-             Number of layers to employ in the RNN architecture.
-        bias: bool
-            If True, the additive bias b is adopted.
-        dropout: float
-            It is the dropout factor (must be between 0 and 1).
-        bidirectional: bool
-             if True, a bidirectioal model that scans the sequence both
-             right-to-left and left-to-right is used.
+    Arguments
+    ---------
+    rnn_type: str
+        Type of recurrent neural network to use (rnn, lstm, gru, ligru).
+    n_neurons: int
+        Number of output neurons (i.e, the dimensionality of the output).
+        values (i.e, time and frequency kernel sizes respectively).
+     nonlinearity: str
+         Type of nonlinearity (tanh, relu).
+    num_layers: int
+         Number of layers to employ in the RNN architecture.
+    bias: bool
+        If True, the additive bias b is adopted.
+    dropout: float
+        It is the dropout factor (must be between 0 and 1).
+    bidirectional: bool
+         if True, a bidirectioal model that scans the sequence both
+         right-to-left and left-to-right is used.
 .
-    Example:
-        >>> inp_tensor = torch.rand([4, 10, 20])
-        >>> net = RNN(rnn_type='lstm', n_neurons=5)
-        >>> out_tensor = net(inp_tensor, init_params=True)
-        >>> out_tensor.shape
-        torch.Size([4, 10, 5])
-        >>> net = RNN(rnn_type='ligru', n_neurons=5)
-        >>> out_tensor = net(inp_tensor, init_params=True)
-        >>> out_tensor.shape
-        torch.Size([4, 10, 5])
+    Example
+    -------
+    >>> inp_tensor = torch.rand([4, 10, 20])
+    >>> net = RNN(rnn_type='lstm', n_neurons=5)
+    >>> out_tensor = net(inp_tensor, init_params=True)
+    >>> out_tensor.shape
+    torch.Size([4, 10, 5])
+    >>> net = RNN(rnn_type='ligru', n_neurons=5)
+    >>> out_tensor = net(inp_tensor, init_params=True)
+    >>> out_tensor.shape
+    torch.Size([4, 10, 5])
     """
 
     def __init__(

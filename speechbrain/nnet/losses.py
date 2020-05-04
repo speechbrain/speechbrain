@@ -13,43 +13,44 @@ import torch.nn as nn
 logger = logging.getLogger(__name__)
 
 
-class compute_cost(nn.Module):
-    """
-    -------------------------------------------------------------------------
-    Description:
-        This function implements different cost functions for training neural
+class ComputeCost(nn.Module):
+    """This function implements different cost functions for training neural
         networks. It supports NLL, MSE, L1 and CTC objectives.
 
-    Args:
-        cost_type: one of the following options
-            "nll": negative log-likelihood cost.
-            "mse": mean squared error between the prediction and the target.
-            "l1": l1 distance between the prediction and the target.
-            "ctc": connectionist temporal classification, this loss sums
-                up all the possible alignments between targets and predictions.
-            "error": classification error.
-            "wer": word error rate, computed with the edit distance algorithm.
-        avoid_pad: when True, the time steps corresponding to zero-padding
-            are not included in the cost function computation.
-        allow_lab_diff: the number of tolerated differences between the label
-            and prediction lengths. Minimal differences can be tolerated and
-            could be due to different way of processing the signal. Big
-            differences are likely due to an error.
+    Arguments
+    ---------
+    cost_type: one of the following options
+        "nll": negative log-likelihood cost.
+        "mse": mean squared error between the prediction and the target.
+        "l1": l1 distance between the prediction and the target.
+        "ctc": connectionist temporal classification, this loss sums
+            up all the possible alignments between targets and predictions.
+        "error": classification error.
+        "wer": word error rate, computed with the edit distance algorithm.
+    avoid_pad: bool
+        when True, the time steps corresponding to zero-padding
+        are not included in the cost function computation.
+    allow_lab_diff: int
+        the number of tolerated differences between the label
+        and prediction lengths. Minimal differences can be tolerated and
+        could be due to different way of processing the signal. Big
+        differences are likely due to an error.
 
-     Example:
-        >>> import torch
-        >>> from speechbrain.nnet.linear import linear
-        >>> from speechbrain.nnet.activations import softmax
-        >>> mock_input = torch.rand([1, 660, 3])
-        >>> model = linear(n_neurons=4)
-        >>> softmax = softmax(apply_log=True)
-        >>> cost = compute_cost(cost_type='nll')
-        >>> pred = softmax(model(mock_input, init_params=True))
-        >>> label = torch.FloatTensor([0,1,3]).unsqueeze(0)
-        >>> lengths = torch.Tensor([1.0])
-        >>> out_cost = cost(pred, label, lengths)
-        >>> for cost in out_cost:
-        ...     cost.backward()
+    Example
+    -------
+    >>> import torch
+    >>> from speechbrain.nnet.linear import Linear
+    >>> from speechbrain.nnet.activations import Softmax
+    >>> mock_input = torch.rand([1, 660, 3])
+    >>> model = Linear(n_neurons=4)
+    >>> softmax = Softmax(apply_log=True)
+    >>> cost = ComputeCost(cost_type='nll')
+    >>> pred = softmax(model(mock_input, init_params=True))
+    >>> label = torch.FloatTensor([0,1,3]).unsqueeze(0)
+    >>> lengths = torch.Tensor([1.0])
+    >>> out_cost = cost(pred, label, lengths)
+    >>> for cost in out_cost:
+    ...     cost.backward()
     """
 
     def __init__(

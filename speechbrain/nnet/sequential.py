@@ -22,14 +22,15 @@ class Sequential(torch.nn.Module):
 
     Example
     -------
-    >>> import speechbrain.nnet.sequential
+    >>> from speechbrain.nnet.linear import Linear
     >>> model = Sequential(
-    ...     speechbrain.nnet.linear.linear(n_neurons=100),
+    ...     Linear(n_neurons=100),
+    ...     Linear(n_neurons=200),
     ... )
     >>> inputs = torch.rand(10, 50, 40)
     >>> outputs = model(inputs, init_params=True)
     >>> outputs.shape
-    torch.Size([10, 50, 100])
+    torch.Size([10, 50, 200])
     """
 
     def __init__(

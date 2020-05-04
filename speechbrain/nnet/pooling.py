@@ -11,7 +11,7 @@ import torch.nn as nn
 logger = logging.getLogger(__name__)
 
 
-class pooling(nn.Module):
+class Pooling(nn.Module):
     """This function implements pooling of the input tensor
 
     Arguments
@@ -37,7 +37,7 @@ class pooling(nn.Module):
 
     Example
     -------
-    >>> pool = pooling('max',3)
+    >>> pool = Pooling('max',3)
     >>> inputs = torch.rand(10, 50, 40)
     >>> pool.init_params(inputs)
     >>> output=pool(inputs)
