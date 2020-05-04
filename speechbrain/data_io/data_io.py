@@ -32,101 +32,80 @@ logger = logging.getLogger(__name__)
 
 class create_dataloader(torch.nn.Module):
     """
-     -------------------------------------------------------------------------
-     data_io.create_dataloader (author: Mirco Ravanelli)
+    Creates data loaders for a csv file
 
-     Description:
-        This class creates the data_loaders for the given csv file.
+    Arguments
+    ---------
+    csv : str
+        the csv file that itemizes the data
+    batch_size : int, optional
+        Default: 1 .  The data itemized in the csv file are automatically
+        organized in batches. In the case of variable size tensors, zero
+        padding is performed. When batch_size=1, the data are simply processed
+        one by one without the creation of batches.
+    csv_read : list, None, optional
+        Default: None .  A list of data entries may be specified.  If
+        specified, only those data entries are read from the csv file. If None,
+        read all the data entries.
+    sentence_sorting : {'ascending', 'descending', 'random', 'original'}
+        Default: 'original'. This parameter specifies how to sort the data
+        before the batch creation. Ascending and descending values sort the
+        data using the "duration" field in the csv files. Random sort the data
+        randomly, while original (the default option) keeps the original
+        sequence of data defined in the csv file. Note that this option affects
+        the batch creation. If the data are sorted in ascending or descending
+        order the batches will approximately have the same size and the need
+        for zero padding is minimized. Instead, if sentence_sorting is set to
+        random, the batches might be composed of both short and long sequences
+        and several zeros might be added in the batch. When possible, it is
+        desirable to sort the data. This way, we use more efficiently the
+        computational resources, without wasting time on processing time steps
+        composed on zeros only. Note that is the data are sorted in ascending/
+        descending errors the same batches will be created every time we want
+        to loop over the dataset, while if we set a random order the batches
+        will be different every time we loop over the dataset.
+    num_workers : int, optional
+        Default: 0 . Data is read using the pytorch data_loader.  This option
+        sets the number of workers used to read the data from disk and form the
+        related batch of data. Please, see the pytorch documentation on the
+        data loader for more details.
+    cache : bool, optional
+        Default: False . When set to true, this option stores the input data in
+        a variable called self.cache (see create_dataloader in data_io.py). In
+        practice, the first time the data are read from the disk, they are
+        stored in the cpu RAM. If the data needs to be used again (e.g. when
+        loops>1) the data will be read from the RAM directly.  If False, data
+        are read from the disk every time.  Data are stored until a certain
+        percentage of the total ram available is reached (see cache_ram_percent
+        below).
+    cache_ram_percent : float, optional
+        Default: 75 . If cache if True, data will be stored in the cpu RAM
+        until the total RAM occupation is less or equal than the specified
+        threshold (by default 75%). In practice, if a lot of RAM is available
+        several data will be stored in memory, otherwise, most of them will be
+        read from the disk directly.
+    drop_last : bool, optional
+        Default: False . This is an option directly passed to the pytorch
+        dataloader (see the related documentation for more details). When True,
+        it skips the last batch of data if contains fewer samples than the
+        other ones.
+    padding_value : int, optional
+        Default: 0. Value to use for padding.
+    replacements : dict, optional
+        String replacements to perform in this method
+    output_folder : str, optional
+        A folder for storing the label dict
 
-     Args:
-        csv: it is the csv file that itemized the data.
-
-        - batch_size: (type: int(1, inf), default: 1):
-           the data itemized in the csv file are automatically
-           organized in batches. In the case of variable size
-           tensors, zero padding is performed. When batch_size=1,
-           the data are simply processed one by one without the
-           creation of batches.
-        csv_read: this option can be used to read only some data_entries of
-           the csv file. When not specified, it automatically reads
-           all the data entries.
-
-       - sentence_sorting: ('ascending,descending,random,original',
-                default: 'original'):
-           This parameter specifies how to sort the data
-           before the batch creation. Ascending and
-           descending values sort the data using the
-           "duration" field in the csv files. Random sort
-           the data randomly, while original (the default
-           option) keeps the original sequence of data
-           defined in the csv file. Note that this option
-           affects the batch creation. If the data are
-           sorted in ascending or descending order the
-           batches will approximately have the same size
-           and the need for zero padding is minimized.
-           Instead, if sentence_sorting is set to random,
-           the batches might be composed of both short and
-           long sequences and several zeros might be added
-           in the batch. When possible, it is desirable to
-           sort the data. This way, we use more
-           efficiently the computational resources,
-           without wasting time on processing time steps
-           composed on zeros only. Note that is the data
-           are sorted in ascending/ descending errors the
-           same batches will be created every time we
-           want to loop over the dataset, while if we set
-           a random order the batches will be different
-           every time we loop over the dataset.
-        select_n_sentences: this option can be used to read-only n
-           sentences from the csv file. This option can be
-           useful to debug the code, when instead of
-           running an experiment of a full set of data I
-           might just want to run it with a little about
-           of data.
-        num_workers: data are read using the pytorch data_loader.
-           This option set the number of workers used to
-           read the data from disk and form the related
-           batch of data. Please, see the pytorch
-           documentation on the data loader for more
-           details.
-        cache: When set to true, this option stores the input
-           data in a variable called self.cache (see
-           create_dataloader in data_io.py). In practice,
-           the first time the data are read from the disk,
-           they are stored in the cpu RAM. If the data
-           needs to be used again (e.g. when loops>1)
-           the data will be read from the RAM directly.
-           If False, data are read from the disk every
-           time.  Data are stored until a certain
-           percentage of the total ram available is
-           reached (see cache_ram_percent below).
-        cache_ram_percent: If cache if True, data will be stored in the
-           cpu RAM until the total RAM occupation is less
-           or equal than the specified threshold
-           (by default 75%). In practice, if a lot of RAM
-           is available several data will be stored in
-           memory, otherwise, most of them will be read
-           from the disk directly.
-        drop_last: this is an option directly passed to the
-           pytorch dataloader (see the related
-           documentation for more details). When True,
-           it skips the last batch of data if contains
-           fewer samples than the other ones.
-        replacements: String replacements to perform in this method
-        output_folder: A folder for storing the label dict
-
-
-     Example:   from speechbrain.data_io.data_io import create_dataloader
-
-                config={'class_name':'core.loop',\
-                         'csv_file':'samples/audio_samples/csv_example2.csv'}
-
-                # Initialization of the class
-                data_loader=create_dataloader(config)
-
-                print(data_loader([]))
-     --------------------------------------------.----------------------------
-     """
+    Example
+    -------
+    >>> csv_file = 'samples/audio_samples/csv_example2.csv'
+    >>> # Initialization of the class
+    >>> data_loader=create_dataloader(csv_file)
+    >>> # When called, creates a dataloader for each entry in the csv file
+    >>> # The sample has two: wav and spk
+    >>> print(len(data_loader()))
+    2
+    """
 
     def __init__(
         self,
@@ -217,36 +196,23 @@ class create_dataloader(torch.nn.Module):
 
     def batch_creation(self, data_list):
         """
-         ---------------------------------------------------------------------
-         data_io.create_dataloader.batch_creation (author: Mirco Ravanelli)
+        Data batching
 
-         Description: This function create the batch of data. When necessary
-                      it performs zero padding on the input tensors. The
-                      function is executed in collate_fn of the pytorch
-                      DataLoader.
+        When necessary this performs zero padding on the input tensors. The
+        function is executed in collate_fn of the pytorch DataLoader.
 
-         Args:
-        self: - data_list (type: list, mandatory):
-                        it is the list of data returned by the data reader
-                        [data_id,data,data_len]
+        Arguments
+        ---------
+        data_list : list
+            list of data returned by the data reader [data_id, data, data_len]
 
-         Output:
-        batch: it is a list containing the final batches:
-                        [data_id,data,data_len] where zero-padding is
-                        performed where needed.
-
-         Example:   from speechbrain.data_io.data_io import create_dataloader
-
-                    config={'class_name':'core.loop',\
-                             'csv_file':'samples/audio_samples/\
-                                 csv_example2.csv'}
-
-                    # Initialization of the class
-                    data_loader=create_dataloader(config)
-
-                    print(data_loader([]))
-         --------------------------------------------.------------------------
-         """
+        Returns
+        -------
+        list :
+            list containing the final batches:
+            [data_id,data,data_len] where zero-padding is
+            performed where needed.
+        """
 
         # The data_list is always compose by [id,data,data_len]
         data_list = list(map(list, zip(*data_list)))
@@ -281,36 +247,30 @@ class create_dataloader(torch.nn.Module):
 
     def padding(self, sequences):
         """
-         ---------------------------------------------------------------------
-         data_io.create_dataloader.padding (author: Mirco Ravanelli)
+        This function perform zero padding on the input list of tensors
 
-         Description: This function perform zero padding on the input list of
-                      tensors.
+        Arguments
+        ---------
+        sequences : list
+            the list of tensors to pad
 
-         Args:
-        self: - sequences (type: list, mandatory):
-                        it is the list of tensor to pad.
+        Returns
+        -------
+        torch.tensor
+            a tensor gathering all the padded tensors
 
-         Output:
-        batch_data: it is a tensor gathering all the padded tensors.
+        Example
+        -------
+        import torch
 
-         Example:   import torch
-                    from speechbrain.data_io.data_io import create_dataloader
-
-                    config={'class_name':'core.loop',\
-                             'csv_file':'samples/audio_samples/\
-                                 csv_example2.csv'}
-
-                    # Initialization of the class
-                    data_loader=create_dataloader(config)
-
-                   # list of tensors
-                   tensor_lst=[torch.tensor([1,2,3,4]),torch.tensor([1,2])]
-
-                   # Applying zero padding
-                   print(data_loader.padding(tensor_lst))
-         --------------------------------------------.------------------------
-         """
+        >>> csv_file = 'samples/audio_samples/csv_example2.csv'
+        >>> # Initialization of the class
+        >>> data_loader=create_dataloader(csv_file)
+        >>> # list of tensors
+        >>> tensor_lst=[torch.tensor([1,2,3,4]),torch.tensor([1,2])]
+        >>> data_loader.padding(tensor_lst)[1,:]
+        tensor([1., 2., 0., 0.])
+        """
 
         # Batch size
         batch_size = len(sequences)
@@ -339,37 +299,37 @@ class create_dataloader(torch.nn.Module):
 
     def numpy2torch(self, data_list):
         """
-         ---------------------------------------------------------------------
-         data_io.create_dataloader.numpy2torch (author: Mirco Ravanelli)
+        This function coverts a list of numpy tensors to torch.Tensor
 
-         Description: This function coverts a list of numpy tensors to
-                       torch.Tensor
+        Arguments
+        ---------
+        data_list : list
+            list of numpy arrays
 
-         Args:
-        self: - data_list (type: list, mandatory):
-                        it is a list of numpy arrays.
+        Returns
+        -------
+        None
+            The tensors are modified in place!
 
-         Output:    None
+        Note
+        ----
+        Did you notice, the tensors are modified in place!
 
-         Example:  import numpy as np
-                   from speechbrain.data_io.data_io import create_dataloader
-
-                   config={'class_name':'core.loop',\
-                             'csv_file':'samples/audio_samples/\
-                                 csv_example2.csv'}
-
-                   # Initialization of the class
-                   data_loader=create_dataloader(config)
-
-                   # list of numpy tensors
-                   tensor_lst=[[np.asarray([1,2,3,4]),np.asarray([1,2])]]
-
-                   # Applying zero padding
-                   data_loader.numpy2torch(tensor_lst)
-                   print(tensor_lst)
-                   print(type(tensor_lst[0][0]))
-         ---------------------------------------------------------------------
-         """
+        Example
+        -------
+        >>> import numpy as np
+        >>> csv_file = 'samples/audio_samples/csv_example2.csv'
+        >>> # Initialization of the class
+        >>> data_loader=create_dataloader(csv_file)
+        >>> # list of numpy tensors
+        >>> tensor_lst=[[np.asarray([1,2,3,4]),np.asarray([1,2])]]
+        >>> # Applying zero padding
+        >>> data_loader.numpy2torch(tensor_lst)
+        >>> print(tensor_lst)
+        [[tensor([1, 2, 3, 4]), tensor([1, 2])]]
+        >>> print(type(tensor_lst[0][0]))
+        <class 'torch.Tensor'>
+        """
 
         # Covert all the elements of the list to torch.Tensor
         for i in range(len(data_list)):
@@ -468,28 +428,20 @@ class create_dataloader(torch.nn.Module):
     # FIX: Too complex! When fixed, remove the "# noqa: C901"
     def generate_data_dict(self,):  # noqa: C901
         """
-         ---------------------------------------------------------------------
-         data_io.create_dataloader.generate_data_dict(author: Mirco Ravanelli)
+        Create a dictionary from the csv file
 
-         Description: This function creates a dictionary from the csv file
+        Returns
+        -------
+        dict
+            Dictionary with the data itemized in the csv file
 
-         Args:
-        self: Output:
-        data_dict: it is a dictionary with the data itemized in the csv
-                       file.
-
-         Example:  from speechbrain.data_io.data_io import create_dataloader
-
-                   config={'class_name':'core.loop',\
-                             'csv_file':'samples/audio_samples/\
-                                 csv_example2.csv'}
-
-                   # Initialization of the class
-                   data_loader=create_dataloader(config)
-
-                   print(data_loader.generate_data_dict())
-         --------------------------------------------.------------------------
-         """
+        Example
+        -------
+        >>> csv_file = 'samples/audio_samples/csv_example2.csv'
+        >>> data_loader=create_dataloader(csv_file)
+        >>> data_loader.generate_data_dict().keys()
+        dict_keys(['example1', 'data_list', 'data_entries'])
+        """
         logger.warning("generate_data_dict is too complex, please fix!")
 
         # Initial prints
@@ -673,42 +625,36 @@ class create_dataloader(torch.nn.Module):
     @staticmethod
     def sort_sentences(data_dict, sorting):
         """
-         ---------------------------------------------------------------------
-         data_io.create_dataloader.sort_sentences (author: Mirco Ravanelli)
+        Sort the data dictionary
 
-         Description: This function sorts the data dictionary as specified.
+        Arguments
+        ---------
+        data_dict : dict
+            Dictionary with the data itemized in the csv file
+        sorting : {'ascending', 'descending', 'random', 'original'}
+            Default: 'original'. This parameter specifies how to sort the data
+            before the batch creation. Ascending and descending values sort the
+            data using the "duration" field in the csv files. Random sort the data
+            randomly, while original (the default option) keeps the original
+            sequence of data defined in the csv file. Note that this option affects
+            the batch creation. If the data are sorted in ascending or descending
+            order the batches will approximately have the same size and the need
+            for zero padding is minimized. Instead, if sentence_sorting is set to
+            random, the batches might be composed of both short and long sequences
+            and several zeros might be added in the batch. When possible, it is
+            desirable to sort the data. This way, we use more efficiently the
+            computational resources, without wasting time on processing time steps
+            composed on zeros only. Note that is the data are sorted in ascending/
+            descending errors the same batches will be created every time we want
+            to loop over the dataset, while if we set a random order the batches
+            will be different every time we loop over the dataset.
 
-         Args:
-        self: - data_dict (type: dict, mandatory):
-                       it is a dictionary with the data itemized in the csv
-                       file.
-        sorting: mandatory):
-                           it is a dictionary with the data itemized in the
-                           csv file.
 
-         Output:
-        sorted_dictionary: it is a dictionary with the sorted data
-
-         Example:  from speechbrain.data_io.data_io import create_dataloader
-
-                   config={'class_name':'core.loop',\
-                             'csv_file':'samples/audio_samples/\
-                                 csv_example2.csv'}
-
-                   # Initialization of the class
-                   data_loader=create_dataloader(config)
-
-                   # data_dict creation
-                   data_dict=data_loader.generate_data_dict()
-                   del data_dict['data_list']
-                   del data_dict['data_entries']
-
-                   print(data_loader.sort_sentences(data_dict,'original'))
-                   print(data_loader.sort_sentences(data_dict,'random'))
-                   print(data_loader.sort_sentences(data_dict,'ascending'))
-         --------------------------------------------.------------------------
-         """
-
+        Returns
+        -------
+        dict
+            dictionary with the sorted data
+        """
         # Initialization of the dictionary
         # Note: in Python 3.7 the order of the keys added in the dictionary is
         # preserved
@@ -748,18 +694,20 @@ class create_dataloader(torch.nn.Module):
         """
         Itemize the supported reading formats
 
-        Returns:
+        Returns
+        -------
         dict
             The supported formats as top level keys, and the related
             readers plus descriptions in nested keys.
 
-        Example:
-            >>> data_loader=create_dataloader(
-            ...     csv_file='samples/audio_samples/csv_example2.csv'
-            ... )
-            >>> data_loader.get_supported_formats()['flac']['description']
-            'FLAC (Free Lossless Audio Codec)'
+        Example
+        -------
 
+        >>> data_loader=create_dataloader(
+        ...     csv_file='samples/audio_samples/csv_example2.csv'
+        ... )
+        >>> data_loader.get_supported_formats()['flac']['description']
+        'FLAC (Free Lossless Audio Codec)'
         """
 
         # Initializing the supported formats dictionary
@@ -794,74 +742,44 @@ class create_dataloader(torch.nn.Module):
 
 class create_dataset(Dataset):
     """
-     -------------------------------------------------------------------------
-     data_io.create_dataset (author: Mirco Ravanelli)
+    This class implements the dataset needed by the pytorch data_loader.
 
-     Description: This class (of type dataset) creates the dataset needed by
-                  the pytorch data_loader.
-
-     Input (init):  - data_dict, (type: dict, mandatory):
-                       it is a dictionary containing all the entries of the
-                       csv file.
-        supported_formats: it is a dictionary contaning the reading supported
-                       format.
-        data_entry: it is a list containing the data_entries to read from
-                       the csv file.
-
-                    - do_cache(bool,Default:False):
-                       When set to true, this option stores the input data
-                       in a variable called self.cache. In practice, the
-                       first time the data are read from the disk, they are
-                       stored in the cpu RAM. If the data needs to be used
-                       again (e.g. when loops>1) the data will be read
-                       from the RAM directly. If False, data are read from
-                       the disk every time.  Data are stored until a
-                       certain percentage of the total ram available is
-                       reached (see cache_ram_percent below)
-        cache_ram_percent: If cache if True, data will be stored in the cpu
-                     RAM until the total RAM occupation is less or equal
-                     than the specified threshold. In practice, if a lot
-                     of RAM is available several  data will be stored in
-                     memory, otherwise, most of them will be read from the
-                     disk directly.
-        logger: it the logger used to write debug and error messages.
-                       If logger=None and root_cfg=True, the file is created
-                       from scratch.
+    Arguments
+    ---------
+    data_dict : dict
+        a dictionary containing all the entries of the csv file.
+    supported_formats : dict
+        a dictionary contaning the reading supported format
+    data_entry : list
+        it is a list containing the data_entries to read from the csv file
+    do_cache : bool, optional
+        Default:False When set to true, this option stores the input data in a
+        variable called self.cache. In practice, the first time the data are
+        read from the disk, they are stored in the cpu RAM. If the data needs
+        to be used again (e.g. when loops>1) the data will be read from the RAM
+        directly. If False, data are read from the disk every time.  Data are
+        stored until a certain percentage of the total ram available is reached
+        (see cache_ram_percent below)
+    cache_ram_percent : float
+        If cache if True, data will be stored in the cpu RAM until the total
+        RAM occupation is less or equal than the specified threshold. In
+        practice, if a lot of RAM is available several  data will be stored in
+        memory, otherwise, most of them will be read from the disk directly.
 
 
-
-     Input (call,__getitem__):
-        idx: it is the index to read from the data list
-                                   stored in data_dict['data_list'].
-
-     Output (call,__getitem__):  - data: (type: list):
-                                   it is a list containing the data. The list
-                                   is formatted in the following way:
-                                   [data_id,data,data_len]
-
-     Example:  from speechbrain.data_io.data_io import create_dataloader
-               from speechbrain.data_io.data_io import create_dataset
-
-               config={'class_name':'core.loop',\
-                       'csv_file':'samples/audio_samples/csv_example2.csv'
-                       }
-
-               # Initialization of the data_loader class
-               data_loader=create_dataloader(config)
-
-               # data_dict creation
-               data_dict=data_loader.generate_data_dict()
-
-               # supported formats
-               formats=data_loader.get_supported_formats()
-
-               # Initialization of the dataser class
-               dataset=create_dataset(data_dict,{},formats,'wav',False,0)
-
-               # Reading data
-               print(dataset.__getitem__(0))
-     -------------------------------------------------------------------------
-     """
+    Example
+    -------
+    >>> from speechbrain.data_io.data_io import create_dataloader
+    >>> csv_file = 'samples/audio_samples/csv_example2.csv'
+    >>> data_loader=create_dataloader(csv_file)
+    >>> # data_dict creation
+    >>> data_dict=data_loader.generate_data_dict()
+    >>> formats=data_loader.get_supported_formats()
+    >>> dataset=create_dataset(data_dict,{},formats,'wav',False,0)
+    >>> first_example_id, *first_example = dataset[0]
+    >>> print(first_example_id)
+    example1
+    """
 
     def __init__(
         self,
@@ -871,16 +789,13 @@ class create_dataset(Dataset):
         data_entry,
         do_cache,
         cache_ram_percent,
-        logger=None,
     ):
 
         # Setting the variables
         self.data_dict = data_dict
         self.label_dict = label_dict
         self.supported_formats = supported_formats
-        self.logger = logger
         self.data_entry = data_entry
-
         self.do_cache = do_cache
 
         # Creating a shared dictionary for caching
@@ -893,43 +808,32 @@ class create_dataset(Dataset):
 
     def __len__(self):
         """
-         ---------------------------------------------------------------------
-         data_io.create_dataloader.__len__ (author: Mirco Ravanelli)
+        This (mandatory) function returns the length of the data list
 
-         Description: This (mandatory) function returns the length of the
-                      data list
+        Returns
+        -------
+        int
+            the number of data that can be read (i.e. length of the data_list
+            entry of the data_dict)
 
-         Args:
-        self: Output:
-        data_len: it is the number of data to read (i.e. len of the
-                      data_list entry of the data_dict).
-
-         Example:  from speechbrain.data_io.data_io import create_dataloader
-                   from speechbrain.data_io.data_io import create_dataset
-
-                   config={'class_name':'core.loop',\
-                           'csv_file':'samples/audio_samples/csv_example2.csv'}
-
-                   # Initialization of the data_loader class
-                   data_loader=create_dataloader(config)
-
-                   # data_dict creation
-                   data_dict=data_loader.generate_data_dict()
-
-                   # supported formats
-                   formats=data_loader.get_supported_formats()
-
-                   # Initialization of the dataser class
-                   dataset=create_dataset(data_dict,{},formats,'wav',False,0)
-
-                   # Getting data length
-                   print(dataset.__len__())
-         --------------------------------------------.------------------------
-         """
-
+        Example
+        -------
+        >>> from speechbrain.data_io.data_io import create_dataloader
+        >>> csv_file = 'samples/audio_samples/csv_example2.csv'
+        >>> # Initialization of the data_loader class
+        >>> data_loader=create_dataloader(csv_file)
+        >>> # data_dict creation
+        >>> data_dict=data_loader.generate_data_dict()
+        >>> # supported formats
+        >>> formats=data_loader.get_supported_formats()
+        >>> # Initialization of the dataser class
+        >>> dataset=create_dataset(data_dict,{},formats,'wav',False,0)
+        >>> # Getting data length
+        >>> len(dataset)
+        1
+        """
         # Reading the data_list in data_dict
         data_len = len(self.data_dict["data_list"])
-
         return data_len
 
     def __getitem__(self, idx):
@@ -987,50 +891,44 @@ class create_dataset(Dataset):
 
     def read_data(self, data_line, snt_id, lab2ind=None):
         """
-         ---------------------------------------------------------------------
-         data_io.create_dataloader.read_data (author: Mirco Ravanelli)
+        This function manages reading operation from disk.
 
-         Description: This function manages reading operation from disk.
+        Arguments
+        ---------
+        data_line : dict
+            One of entries extreacted from the data_dict. It contains
+            all the needed information to read the data from the disk.
+        snt_id : str
+            Sentence identifier
 
-         Args:
-        self: - data_line (type: dict, mandatory):
-                           it is one of entries extreacted from the data_dict.
-                           It contains all the needed information to read the
-                           data from the disk.
-        snt_id: it the sentence identifier.
+        Returns
+        -------
+        list
+            List contaning the read data. The list is formatted in the following
+            way: [data_id,data_data_len]
 
-         Output:
-        data_read: it is a list contaning the read data. The list if
-                      formatted in the followig way: [data_id,data_data_len]
+        Example
+        -------
+        from speechbrain.data_io.data_io import create_dataloader
 
-         Example:  from speechbrain.data_io.data_io import create_dataloader
-                   from speechbrain.data_io.data_io import create_dataset
-
-                   config={'class_name':'core.loop',\
-                           'csv_file':'samples/audio_samples/csv_example2.csv'}
-
-                   # Initialization of the data_loader class
-                   data_loader=create_dataloader(config)
-
-                   # data_dict creation
-                   data_dict=data_loader.generate_data_dict()
-
-                   # supported formats
-                   formats=data_loader.get_supported_formats()
-
-                   # Initialization of the dataser class
-                   dataset=create_dataset(data_dict,{},formats,'wav',False,0)
-
-                   # data line example
-                   data_line={'data': 'samples/audio_samples/example5.wav', \
-                              'format': 'wav',
-                              'options': {'start': '10000', 'stop': '26000'}}
-                   snt_id='example5'
-
-                   # Reading data from disk
-                   print(dataset.read_data(data_line,snt_id))
-         --------------------------------------------.------------------------
-         """
+        >>> csv_file = 'samples/audio_samples/csv_example2.csv'
+        >>> # Initialization of the data_loader class
+        >>> data_loader=create_dataloader(csv_file)
+        >>> # data_dict creation
+        >>> data_dict=data_loader.generate_data_dict()
+        >>> # supported formats
+        >>> formats=data_loader.get_supported_formats()
+        >>> # Initialization of the dataser class
+        >>> dataset=create_dataset(data_dict,{},formats,'wav',False,0)
+        >>> # data line example
+        >>> data_line={'data': 'samples/audio_samples/example5.wav',
+        ...           'format': 'wav',
+        ...           'options': {'start': '10000', 'stop': '26000'}}
+        >>> snt_id='example5'
+        >>> # Reading data from disk
+        >>> print(dataset.read_data(data_line, snt_id))
+        ['example5', array(...)]
+        """
 
         # Reading the data_line dictionary
         data_format = data_line["format"]
@@ -1387,40 +1285,33 @@ def read_wav_soundfile(file, data_options={}, lab2ind=None):  # noqa: C901
     return signal
 
 
-def read_pkl(file, data_options={}, logger=None, lab2ind=None):
+def read_pkl(file, data_options={}, lab2ind=None):
     """
-     -------------------------------------------------------------------------
-     data_io.read_pkl (author: Mirco Ravanelli)
+    This function reads tensors store in pkl format.
 
-     Description: This function reads tensors store in pkl format.
+    Arguments
+    ---------
+    file : str
+        The path to file to read.
+    data_options : dict, optional
+        A dictionary containing options for the reader.
+    lab2ind : dict, optional
+        Mapping from label to integer indices.
 
-     Input (call):
-        file: it is the file to read.
+    Returns
+    -------
+    numpy.array
+        The array containing the read signal
 
-                       - data_options(type: dict, mandatory):
-                           it is a dictionary containing options for the
-                           reader.
-        logger: it the logger used to write debug and error messages.
-
-
-     Output (call):  tensor (type: numpy.array):
-                       it is the array containing the read signal.
-
-
-     Example:  from speechbrain.data_io.data_io import read_pkl
-
-               print(read_pkl('pkl_file.pkl'))
-
-     -------------------------------------------------------------------------
-     """
+    """
 
     # Trying to read data
     try:
         with open(file, "rb") as f:
             pkl_element = pickle.load(f)
-    except Exception:
+    except pickle.UnpicklingError:
         err_msg = "cannot read the pkl file %s" % (file)
-        logger.error(err_msg, exc_info=True)
+        raise ValueError(err_msg)
 
     type_ok = False
 
@@ -1447,7 +1338,7 @@ def read_pkl(file, data_options={}, logger=None, lab2ind=None):
         if not (type_ok):
             err_msg = "The pkl file %s can only contain list of integers, "
             "floats, or strings. Got %s" % (file, type(pkl_element[0]))
-            logger.error(err_msg, exc_info=True)
+            raise ValueError(err_msg)
     else:
         tensor = pkl_element
 
@@ -1463,32 +1354,31 @@ def read_pkl(file, data_options={}, logger=None, lab2ind=None):
     return tensor
 
 
-def read_string(string, data_options={}, logger=None, lab2ind=None):
+def read_string(string, data_options={}, lab2ind=None):
     """
-     -------------------------------------------------------------------------
-     data_io.read_string (author: Mirco Ravanelli)
+    This function reads data in string format.
 
-     Description: This function reads data in string format.
+    Arguments
+    ---------
+    string : str
+        String to read
+    data_options : dict, optional
+        Options for the reader
+    lab2ind : dict, optional
+        Mapping from label to index
 
-     Input (call):
-        string: it is the string to read
+    Returns
+    -------
+    torch.LongTensor
+        The read string in integer indices, if lab2ind is provided, else
+    list
+        The read string split at each space
 
-                       - data_options(type: dict, mandatory):
-                           it is a dictionary containing options for the
-                           reader.
-        logger: it the logger used to write debug and error messages.
-
-
-     Output (call):  tensor (type: numpy.array):
-                       it is the array containing the read signal.
-
-
-     Example:  from speechbrain.data_io.data_io import read_string
-
-               print(read_string('hello_world'))
-
-     -------------------------------------------------------------------------
-     """
+    Example
+    -------
+    >>> read_string('hello world', lab2ind = {"hello":1, "world": 2})
+    tensor([1, 2])
+    """
 
     # Splitting elements with ' '
     string = string.split(" ")
@@ -2045,73 +1935,6 @@ class save(torch.nn.Module):
         return supported_formats
 
 
-def write_ark(data, filename, key="", sampling_rate=None, logger=None):
-    """
-     -------------------------------------------------------------------------
-     data_io.write_ark (author: github.com/vesis84/kaldi-io-for-python)
-
-     Description: write_mat(data,filename key='')
-                  Write a binary kaldi matrix to filename or stream.
-                  Supports 32bit and 64bit floats.
-
-     Input (call):
-        filename: it is filename of opened file descriptor for writing.
-        data: it is the matrix to be stored
-        key: it is used for writing ark-file, the utterance-id gets
-                       written before the matrix.
-        sampling_rate: it sampling rate of the audio file.
-        logger: it the logger used to write debug and error messages.
-
-     Output (call):  None
-
-     Example:   import torch
-                from speechbrain.data_io.data_io import write_ark
-
-                matrix = torch.rand([5,10])
-
-                write_ark(matrix,'matrix.ark',key='snt')
-     -------------------------------------------------------------------------
-     """
-
-    if isinstance(data, torch.Tensor):
-        data = data.detach().cpu().numpy()
-
-    fd = open_or_fd(filename, None, mode="wb")
-
-    # Detecting sentence id to write
-    key = os.path.basename(filename).split(".")[0]
-
-    if sys.version_info[0] == 3:
-        assert fd.mode == "wb"
-    try:
-        if key != "":
-            # ark-files have keys (utterance-id),
-            fd.write((key + " ").encode("latin1"))
-        fd.write("\0B".encode())  # we write binary!
-
-        # Data-type,
-        if data.dtype == "float32":
-            fd.write("FM ".encode())
-        elif data.dtype == "float64":
-            fd.write("DM ".encode())
-        else:
-            raise UnsupportedDataType(
-                "'%s', please use 'float32' \
-                                      or 'float64'"
-                % data.dtype
-            )
-        # Dims,
-        fd.write("\04".encode())
-        fd.write(struct.pack(np.dtype("uint32").char, data.shape[0]))  # rows
-        fd.write("\04".encode())
-        fd.write(struct.pack(np.dtype("uint32").char, data.shape[1]))  # cols
-        # Data,
-        fd.write(data.tobytes())
-    finally:
-        if fd is not filename:
-            fd.close()
-
-
 def get_md5(file):
     """
      -------------------------------------------------------------------------
@@ -2245,6 +2068,73 @@ def load_pkl(file, logger=None):
     except Exception:
         err_msg = "Cannot read file %s" % (file)
         logger.error(err_msg, exc_info=True)
+
+
+def write_ark(data, filename, key="", sampling_rate=None, logger=None):
+    """
+     -------------------------------------------------------------------------
+     data_io.write_ark (author: github.com/vesis84/kaldi-io-for-python)
+
+     Description: write_mat(data,filename key='')
+                  Write a binary kaldi matrix to filename or stream.
+                  Supports 32bit and 64bit floats.
+
+     Input (call):
+        filename: it is filename of opened file descriptor for writing.
+        data: it is the matrix to be stored
+        key: it is used for writing ark-file, the utterance-id gets
+                       written before the matrix.
+        sampling_rate: it sampling rate of the audio file.
+        logger: it the logger used to write debug and error messages.
+
+     Output (call):  None
+
+     Example:   import torch
+                from speechbrain.data_io.data_io import write_ark
+
+                matrix = torch.rand([5,10])
+
+                write_ark(matrix,'matrix.ark',key='snt')
+     -------------------------------------------------------------------------
+     """
+
+    if isinstance(data, torch.Tensor):
+        data = data.detach().cpu().numpy()
+
+    fd = open_or_fd(filename, None, mode="wb")
+
+    # Detecting sentence id to write
+    key = os.path.basename(filename).split(".")[0]
+
+    if sys.version_info[0] == 3:
+        assert fd.mode == "wb"
+    try:
+        if key != "":
+            # ark-files have keys (utterance-id),
+            fd.write((key + " ").encode("latin1"))
+        fd.write("\0B".encode())  # we write binary!
+
+        # Data-type,
+        if data.dtype == "float32":
+            fd.write("FM ".encode())
+        elif data.dtype == "float64":
+            fd.write("DM ".encode())
+        else:
+            raise UnsupportedDataType(
+                "'%s', please use 'float32' \
+                                      or 'float64'"
+                % data.dtype
+            )
+        # Dims,
+        fd.write("\04".encode())
+        fd.write(struct.pack(np.dtype("uint32").char, data.shape[0]))  # rows
+        fd.write("\04".encode())
+        fd.write(struct.pack(np.dtype("uint32").char, data.shape[1]))  # cols
+        # Data,
+        fd.write(data.tobytes())
+    finally:
+        if fd is not filename:
+            fd.close()
 
 
 def read_vec_int_ark(file_or_fd):
