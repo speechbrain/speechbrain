@@ -42,7 +42,7 @@ class compute_cost(nn.Module):
         >>> from speechbrain.nnet.activations import softmax
         >>> mock_input = torch.rand([1, 660, 3])
         >>> model = linear(n_neurons=4)
-        >>> softmax = softmax('log_softmax')
+        >>> softmax = softmax(apply_log=True)
         >>> cost = compute_cost(cost_type='nll')
         >>> pred = softmax(model(mock_input, init_params=True))
         >>> label = torch.FloatTensor([0,1,3]).unsqueeze(0)

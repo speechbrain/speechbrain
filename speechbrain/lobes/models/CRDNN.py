@@ -106,7 +106,7 @@ class CRDNN(Sequential):
             )
 
         blocks.append(linear(output_size, bias=False))
-        blocks.append(softmax("log_softmax"))
+        blocks.append(softmax(apply_log=True))
 
         super().__init__(*blocks)
 

@@ -15,8 +15,8 @@ class softmax(torch.nn.Module):
 
     Arguments
     ---------
-    softmax_type : str
-        it is the type of softmax to use ('softmax', 'log_softmax')
+    apply_log : bool
+        Whether to apply the log function before softmax.
     dim : int
         if the dimension where softmax is applied.
 
@@ -29,14 +29,13 @@ class softmax(torch.nn.Module):
     torch.Size([10, 50, 40])
     """
 
-    def __init__(self, softmax_type="log_softmax", dim=-1):
+    def __init__(self, apply_log=False, dim=-1):
         super().__init__()
 
-        if softmax_type == "softmax":
-            self.act = torch.nn.Softmax(dim=dim)
-
-        if softmax_type == "log_softmax":
+        if apply_log:
             self.act = torch.nn.LogSoftmax(dim=dim)
+        else:
+            self.act = torch.nn.Softmax(dim=dim)
 
     def forward(self, x):
         """Returns the softmax of the input tensor.
