@@ -235,7 +235,6 @@ def compute_amplitude(waveforms, lengths):
 
     Example
     -------
-    >>> import torch
     >>> import soundfile as sf
     >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
     >>> signal = torch.tensor(signal, dtype=torch.float32)
@@ -265,7 +264,7 @@ def convolve1d(
         The tensor to perform operations on.
     kernel : tensor
         The filter to apply during convolution
-    padding : int, tuple
+    padding : int or tuple
         The padding (pad_left, pad_right) to apply.
         If an integer is passed instead, this is passed
         to the conv1d function and pad_type is ignored.
@@ -296,16 +295,21 @@ def convolve1d(
 
     Example
     -------
-    >>> import torch
     >>> import soundfile as sf
     >>> from speechbrain.data_io.data_io import save
     >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
-    >>> signal = torch.tensor(signal[None, None, :])
-    >>> filter = torch.rand(1, 1, 10, dtype=signal.dtype)
+    >>> signal = torch.tensor(signal[None, :, None])
+    >>> filter = torch.rand(1, 10, 1, dtype=signal.dtype)
     >>> signal = convolve1d(signal, filter, padding=(9, 0))
     >>> save_signal = save(save_folder='exp/example', save_format='wav')
     >>> save_signal(signal, ['example_conv'], torch.ones(1))
     """
+    if len(waveform.shape) != 3:
+        raise ValueError("Convolve1D expects a 3-dimensional tensor")
+
+    # Move time dimension last, which pad and fft and conv expect.
+    waveform = waveform.transpose(2, 1)
+    kernel = kernel.transpose(2, 1)
 
     # Padding can be a tuple (left_pad, right_pad) or an int
     if isinstance(padding, tuple):
@@ -346,16 +350,26 @@ def convolve1d(
         )
 
         # Inverse FFT
-        return torch.irfft(f_result, 1)
+        convolved = torch.irfft(f_result, 1)
+
+        # Because we're using `onesided`, sometimes the output's length
+        # is increased by one in the time dimension. Truncate to ensure
+        # that the length is preserved.
+        if convolved.size(-1) > waveform.size(-1):
+            convolved = convolved[..., : waveform.size(-1)]
 
     # Use the implemenation given by torch, which should be efficient on GPU
-    return torch.nn.functional.conv1d(
-        input=waveform,
-        weight=kernel,
-        stride=stride,
-        groups=groups,
-        padding=padding if not isinstance(padding, tuple) else 0,
-    )
+    else:
+        convolved = torch.nn.functional.conv1d(
+            input=waveform,
+            weight=kernel,
+            stride=stride,
+            groups=groups,
+            padding=padding if not isinstance(padding, tuple) else 0,
+        )
+
+    # Return time dimension to the second dimension.
+    return convolved.transpose(2, 1)
 
 
 def dB_to_amplitude(SNR):
@@ -395,13 +409,12 @@ def notch_filter(notch_freq, filter_width=101, notch_width=0.05):
 
     Example
     -------
-    >>> import torch
     >>> import soundfile as sf
     >>> from speechbrain.data_io.data_io import save
     >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
-    >>> signal = torch.tensor(signal, dtype=torch.float32)[None, None, :]
+    >>> signal = torch.tensor(signal, dtype=torch.float32)[None, :, None]
     >>> kernel = notch_filter(0.25)
-    >>> notched_signal = torch.nn.functional.conv1d(signal, kernel)
+    >>> notched_signal = convolve1d(signal, kernel)
     >>> save_signal = save(save_folder='exp/example', save_format='wav')
     >>> save_signal(notched_signal, ['freq_drop'], torch.ones(1))
     """
@@ -435,4 +448,4 @@ def notch_filter(notch_freq, filter_width=101, notch_width=0.05):
     hhpf[pad] += 1
 
     # Adding filters creates notch filter
-    return (hlpf + hhpf).view(1, 1, -1)
+    return (hlpf + hhpf).view(1, -1, 1)

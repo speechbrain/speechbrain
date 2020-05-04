@@ -1909,6 +1909,9 @@ class save(torch.nn.Module):
         # Write in parallel all the examples in the batch on disk:
         jobs = []
 
+        # Move time dimension last
+        data = data.transpose(1, -1)
+
         # Multiprocessing on gpu is something we have to fix
         data = data.cpu()
 
