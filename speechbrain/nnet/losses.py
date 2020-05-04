@@ -83,6 +83,8 @@ class ComputeCost(nn.Module):
                 self.costs.append(nn.L1Loss())
 
             if cost == "ctc":
+                if blank_index is None:
+                    raise ValueError("Must pass blank index for CTC")
                 self.blank_index = blank_index
                 self.costs.append(nn.CTCLoss(blank=self.blank_index))
                 self.avoid_pad[cost_index] = False
