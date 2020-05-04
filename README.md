@@ -141,6 +141,17 @@ that your branch changes aren't in master):
     `git pull`
     `git branch -d your-branch-name`
 
+Note that CI tests will be run when you create a PR. If you want to be sure that your
+code will not fail these tests, we have set up pre-commit hooks that you can install:
+
+```
+> pip install pre-commit
+> pre-commit install
+> pre-commit install --hook-type pre-push --config .pre-push-config.yaml
+```
+
+These will automatically check the code when you commit and when you push.
+
 ## Python 
 ### Version
 SpeechBrain targets Python >= 3.7.
