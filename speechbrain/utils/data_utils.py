@@ -352,6 +352,12 @@ def convolve1d(
         # Inverse FFT
         convolved = torch.irfft(f_result, 1)
 
+        # Because we're using `onesided`, sometimes the output's length
+        # is increased by one in the time dimension. Truncate to ensure
+        # that the length is preserved.
+        if convolved.size(-1) > waveform.size(-1):
+            convolved = convolved[..., : waveform.size(-1)]
+
     # Use the implemenation given by torch, which should be efficient on GPU
     else:
         convolved = torch.nn.functional.conv1d(
