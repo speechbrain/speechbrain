@@ -5,6 +5,7 @@ name: SpeechBrain toolkit CI
 # Runs on pushes to master and all pull requests
 on:
   push:
+    branches: [master]
   pull_request:
 
 jobs:
