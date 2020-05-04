@@ -331,7 +331,7 @@ class Brain:
         stats["loss"] = loss.detach()
         return stats
 
-    def summarize(self, stats):
+    def summarize(self, stats, write=False):
         """Take a list of stats from a pass through data and summarize it.
 
         By default, averages the loss and returns the average.
@@ -446,12 +446,17 @@ class Brain:
         elif max_key is not None and min_key is not None:
             raise ValueError("Can't use both min_key and max_key.")
 
-        if max_key is not None:
-            self.saver.recover_if_possible(lambda c, key=max_key: c.meta[key])
-        elif min_key is not None:
-            self.saver.recover_if_possible(lambda c, key=min_key: -c.meta[key])
-        else:
-            self.saver.recover_if_possible()
+        if self.saver is not None:
+            if max_key is not None:
+                self.saver.recover_if_possible(
+                    lambda c, key=max_key: c.meta[key]
+                )
+            elif min_key is not None:
+                self.saver.recover_if_possible(
+                    lambda c, key=min_key: -c.meta[key]
+                )
+            else:
+                self.saver.recover_if_possible()
 
         test_stats = []
         self.modules.eval()
