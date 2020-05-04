@@ -261,8 +261,6 @@ class create_dataloader(torch.nn.Module):
 
         Example
         -------
-        import torch
-
         >>> csv_file = 'samples/audio_samples/csv_example2.csv'
         >>> # Initialization of the class
         >>> data_loader=create_dataloader(csv_file)
@@ -317,7 +315,6 @@ class create_dataloader(torch.nn.Module):
 
         Example
         -------
-        >>> import numpy as np
         >>> csv_file = 'samples/audio_samples/csv_example2.csv'
         >>> # Initialization of the class
         >>> data_loader=create_dataloader(csv_file)
@@ -769,7 +766,6 @@ class create_dataset(Dataset):
 
     Example
     -------
-    >>> from speechbrain.data_io.data_io import create_dataloader
     >>> csv_file = 'samples/audio_samples/csv_example2.csv'
     >>> data_loader=create_dataloader(csv_file)
     >>> # data_dict creation
@@ -818,7 +814,6 @@ class create_dataset(Dataset):
 
         Example
         -------
-        >>> from speechbrain.data_io.data_io import create_dataloader
         >>> csv_file = 'samples/audio_samples/csv_example2.csv'
         >>> # Initialization of the data_loader class
         >>> data_loader=create_dataloader(csv_file)
@@ -909,8 +904,6 @@ class create_dataset(Dataset):
 
         Example
         -------
-        from speechbrain.data_io.data_io import create_dataloader
-
         >>> csv_file = 'samples/audio_samples/csv_example2.csv'
         >>> # Initialization of the data_loader class
         >>> data_loader=create_dataloader(csv_file)
@@ -1302,7 +1295,6 @@ def read_pkl(file, data_options={}, lab2ind=None):
     -------
     numpy.array
         The array containing the read signal
-
     """
 
     # Trying to read data
@@ -1398,33 +1390,30 @@ def read_string(string, data_options={}, lab2ind=None):
 
 def read_kaldi_lab(kaldi_ali, kaldi_lab_opts):
     """
-     -------------------------------------------------------------------------
-     data_io.read_kaldi_lab (author: Mirco Ravanelli)
+    Read labels in kaldi format
 
-     Description: This function reads label in kaldi format
+    Uses kaldi IO
 
-     Input (call):
-        kaldi_ali: it is the directory where kaldi alignents are
-                           stored.
+    Arguments
+    ---------
+    kaldi_ali : str
+        Path to directory where kaldi alignents are stored.
+    kaldi_lab_opts : str
+        A string that contains the options for reading the kaldi alignments.
 
-                       - kaldi_lab_opts(type: str, mandatory):
-                           it is a string that contains the options for
-                           reading the kaldi alignments.
+    Returns
+    -------
+    dict
+        A dictionary contaning the labels
 
-
-     Output (call):  lab (type: dict):
-                       it is a dictionary contaning the labels
-
-
-     Example:  from speechbrain.data_io.data_io import read_kaldi_lab
-
-               lab_folder='/home/kaldi/egs/TIMIT/s5/exp\
-               /dnn4_pretrain-dbn_dnn_ali'
-               print(read_kaldi_lab(lab_folder,'ali-to-pdf'))
-
-     -------------------------------------------------------------------------
-     """
-
+    Example
+    -------
+    This example
+    ```
+    lab_folder = '/home/kaldi/egs/TIMIT/s5/exp/dnn4_pretrain-dbn_dnn_ali'
+    read_kaldi_lab(lab_folder, 'ali-to-pdf')
+    ```
+    """
     # Reading the Kaldi labels
     lab = {
         k: v
@@ -1441,266 +1430,211 @@ def read_kaldi_lab(kaldi_ali, kaldi_lab_opts):
     return lab
 
 
-def write_wav_soundfile(data, filename, sampling_rate=None, logger=None):
+def write_wav_soundfile(data, filename, sampling_rate):
     """
-     -------------------------------------------------------------------------
-     data_io.write_wav_soundfile (author: Mirco Ravanelli)
+    Can be used to write audio with soundfile
 
-     Description: This function can be used to write audio with soundfile.
+    Expecting data in (time, [channels]) format
 
-     Input (call):
-        data: it is the tensor to store as and audio file
-        filename: it is the file where writign the data.
-        sampling_rate: it sampling rate of the audio file.
-        logger: it the logger used to write debug and error messages.
+    Arguments
+    ---------
+    data : torch.tensor
+        it is the tensor to store as and audio file
+    filename : str
+        path to file where writing the data
+    sampling_rate : int, None
+        sampling rate of the audio file
 
+    Returns
+    -------
+    None
 
-     Output (call):  None
+    Example
+    -------
+    >>> tmpdir = getfixture('tmpdir')
+    >>> signal = 0.1*torch.rand([16000])
+    >>> write_wav_soundfile(signal, tmpdir + '/wav_example.wav',
+    ...                     sampling_rate=16000)
+    """
 
-
-     Example:  import torch
-               from speechbrain.data_io.data_io import write_wav_soundfile
-
-               signal=0.1*torch.rand([16000])
-               write_wav_soundfile(signal,'exp/wav_example.wav',
-               sampling_rate=16000)
-
-     -------------------------------------------------------------------------
-     """
-
-    # Switch from (channel,time) to (time,channel) as Expected
     if len(data.shape) > 2:
-
         err_msg = (
-            "expected signal in the format (channel,time). Got %s "
+            "expected signal in the format (time, channel). Got %s "
             "dimensions instead of two for file %s"
             % (len(data.shape), filename)
         )
-
-        logger.error(err_msg, exc_info=True)
-
+        raise ValueError(err_msg)
     if isinstance(data, torch.Tensor):
-
-        if len(data.shape) == 2:
-            data = data.transpose(0, 1)
-
-        # Switching to cpu and converting to numpy
         data = data.cpu().numpy()
-
     # Writing the file
-    try:
-        sf.write(filename, data, sampling_rate)
-    except Exception:
-        err_msg = "cannot write the wav file %s" % (filename)
-        logger.error(err_msg, exc_info=True)
+    sf.write(filename, data, sampling_rate)
 
 
-def write_txt_file(data, filename, sampling_rate=None, logger=None):
+def write_txt_file(data, filename, sampling_rate=None):
     """
-     -------------------------------------------------------------------------
-     data_io.write_txt_file (author: Mirco Ravanelli)
+    Write data in text format
 
-     Description: This function write data in text format
+    Arguments
+    ---------
+    data : str, list, torch.tensor, numpy.ndarray
+        The data to write in the text file
+    filename : str
+        Path to file where to write the data
+    sampling_rate : None
+        Not used, just here for interface compatibility
 
-     Input (call):
-        data: mandatory):
-                           it is the data to write in the text file
-        filename: it is the file where writing the data.
-        sampling_rate: it sampling rate of the audio file.
-        logger: it the logger used to write debug and error messages.
+    Returns
+    -------
+    None
 
-
-     Output (call):  None
-
-
-     Example:  import torch
-               from speechbrain.data_io.data_io import write_txt_file
-
-               signal=torch.tensor([1,2,3,4])
-               write_txt_file(signal,'exp/example.txt')
-
-     -------------------------------------------------------------------------
-     """
-
+    Example
+    -------
+    >>> tmpdir = getfixture('tmpdir')
+    >>> signal=torch.tensor([1,2,3,4])
+    >>> write_txt_file(signal, tmpdir + '/example.txt')
+    """
+    del sampling_rate  # Not used.
     # Check if the path of filename exists
-    if not os.path.exists(os.path.dirname(filename)):
-
-        try:
-            os.makedirs(os.path.dirname(filename))
-        except Exception:
-            err_msg = "cannot create the file %s." % (filename)
-            logger.error(err_msg, exc_info=True)
-
-    # Opening the file
-    try:
-        file_id = open(filename, "w")
-
-    except Exception:
-        err_msg = "cannot create the file %s." % (filename)
-        logger.error(err_msg, exc_info=True)
-
-    # Managing torch.Tensor
-    if isinstance(data, torch.Tensor):
-        data = data.tolist()
-
-    # Managing np.ndarray
-    if isinstance(data, np.ndarray):
-        data = data.tolist()
-
-    # Managing list
-    if isinstance(data, list):
-        for line in data:
-            print(line, file=file_id)
-
-    # Managing str
-    if isinstance(data, str):
-        print(data, file=file_id)
-
-    # Closing the file
-    file_id.close()
+    os.makedirs(os.path.dirname(filename), exist_ok=True)
+    with open(filename, "w") as fout:
+        if isinstance(data, torch.Tensor):
+            data = data.tolist()
+        if isinstance(data, np.ndarray):
+            data = data.tolist()
+        if isinstance(data, list):
+            for line in data:
+                print(line, file=fout)
+        if isinstance(data, str):
+            print(data, file=fout)
 
 
-def write_stdout(data, filename, sampling_rate=None, logger=None):
+def write_stdout(data, filename=None, sampling_rate=None):
     """
-     -------------------------------------------------------------------------
-     data_io.write_txt_file (author: Mirco Ravanelli)
+    Write data to standard output
 
-     Description: This function write data to standar output
+    Arguments
+    ---------
+    data : str, list, torch.tensor, numpy.ndarray
+        The data to write in the text file
+    filename : None
+        Not used, just here for compatibility
+    sampling_rate : None
+        Not used, just here for compatibility
 
-     Input (call):
-        data: mandatory):
-                           it is the data to write in the text file
-        filename: it is the file where writing the data.
-        sampling_rate: it sampling rate of the audio file.
-        logger: it the logger used to write debug and error messages.
+    Returns
+    -------
+    None
 
 
-     Output (call):  None
-
-
-     Example:  import torch
-               from speechbrain.data_io.data_io import write_stdout
-
-               signal=torch.tensor([1,2,3,4])
-               write_stdout(signal,'exp/example.txt')
-
-     -------------------------------------------------------------------------
-     """
-
+    Example
+    -------
+    >>> tmpdir = getfixture('tmpdir')
+    >>> signal = torch.tensor([[1,2,3,4]])
+    >>> write_stdout(signal, tmpdir + '/example.txt')
+    [1, 2, 3, 4]
+    """
     # Managing Torch.Tensor
     if isinstance(data, torch.Tensor):
         data = data.tolist()
-
     # Managing np.ndarray
     if isinstance(data, np.ndarray):
         data = data.tolist()
-
-    # Writing to stdout
-    print(data, file=sys.stdout)
+    if isinstance(data, list):
+        for line in data:
+            print(line)
+    if isinstance(data, str):
+        print(data)
 
 
 def save_img(data, filename, sampling_rate=None, logger=None):
     """
-     -------------------------------------------------------------------------
-     data_io. save_img (author: Mirco Ravanelli)
+    Save a tensor as an image.
 
-     Description: This function save a tensor as an image.
+    Arguments
+    ---------
+    data : torch.tensor
+        The tensor to write in the text file
+    filename : str
+        Path where to write the data.
+    sampling_rate : int
+        Sampling rate of the audio file.
 
-     Input (call):
-        data: it is the tensor to write in the text file
-        filename: it is the file where writing the data.
-        sampling_rate: it sampling rate of the audio file.
-        logger: it the logger used to write debug and error messages.
+    Returns
+    -------
+    None
 
-
-     Output (call):  None
-
-
-     Example:  import torch
-               from data_io import save_img
-
-               signal=torch.rand([100,200])
-               save_img(signal,'exp/example.png')
-
-     -------------------------------------------------------------------------
-     """
+    Example
+    -------
+    >>> tmpdir = getfixture('tmpdir')
+    >>> signal=torch.rand([100,200])
+    >>> try:
+    ...     save_img(signal, tmpdir + '/example.png')
+    ... except ImportError:
+    ...     pass
+    """
     # If needed import matplotlib
     try:
-
         import matplotlib.pyplot as plt
-
-    except Exception:
-
-        err_msg = "cannot import matplotlib. Make sure it is installed." % (
-            filename,
-            str(data.shape),
-        )
-
-        logger.error(err_msg, exc_info=True)
-        raise
-
+    except ImportError:
+        err_msg = "Cannot import matplotlib. To use this, install matplotlib"
+        raise ImportError(err_msg)
     # Checking tensor dimensionality
     if len(data.shape) < 2 or len(data.shape) > 3:
-
         err_msg = (
             "cannot save image  %s. Save in png format supports 2-D or "
             "3-D tensors only (e.g. [x,y] or [channel,x,y]). "
             "Got %s" % (filename, str(data.shape))
         )
-
-        logger.error(err_msg, exc_info=True)
-
+        raise ValueError(err_msg)
     if len(data.shape) == 2:
         N_ch = 1
     else:
         N_ch = data.shape[0]
-
     # Flipping axis
     data = data.flip([-2])
-
     for i in range(N_ch):
-
         if N_ch > 1:
             filename = filename.replace(".png", "_ch_" + str(i) + ".png")
-
-        # Saving the image
-        try:
-            if N_ch > 1:
-                plt.imsave(filename, data[i])
-            else:
-                plt.imsave(filename, data)
-        except Exception:
-            err_msg = "cannot save image  %s." % (filename)
-            logger.error(err_msg, exc_info=True)
+        if N_ch > 1:
+            plt.imsave(filename, data[i])
+        else:
+            plt.imsave(filename, data)
 
 
 class save(torch.nn.Module):
     """
-    -------------------------------------------------------------------------
-    Description:
-       This class can be used to save tensors on disk.
+    Save tensors on disk.
 
-    Args:
-        save_folder: it is the folder where the tensors are stored.
-        save_format: it is the format to use to save the tensor.
-            See get_supported_formats() for an overview of
-            the supported data formats.
-        save_csv: if True it saves the list of data written in a
-            csv file.
-        data_name: it is the name to give to saved data
-        parallel_write: if True it saves the data using parallel processes.
-        transpose: if True it transposes the data matrix
-        decibel: if True it saves the log of the data.
+    Arguments
+    ---------
+    save_folder : str
+        The folder where the tensors are stored.
+    save_format : str, optional
+        Default: "pkl"
+        The format to use to save the tensor.
+        See get_supported_formats() for an overview of
+        the supported data formats.
+    save_csv : bool, optional
+        Default: False
+        If True it saves the list of data written in a csv file.
+    data_name : str, optional
+        Default: "data"
+        The name to give to saved data
+    parallel_write : bool, optional
+        Default: False
+        If True it saves the data using parallel processes.
+    transpose : bool, optional
+        Default: False
+        if True it transposes the data matrix
+    decibel : bool, optional
+        Default: False
+        if True it saves the log of the data.
 
-     Example:
-        >>> import torch
-        >>> save_signal = save(save_folder='exp/example', save_format='wav')
-        >>> signal = 0.1 * torch.rand([1, 16000])
-        >>> save_signal(signal, ['example_random'], torch.ones(1))
-
-    Author:
-        Mirco Ravanelli 2020
-    -------------------------------------------------------------------------
+    Example:
+    >>> tmpdir = getfixture('tmpdir')
+    >>> save_signal = save(save_folder=tmpdir, save_format='wav')
+    >>> signal = 0.1 * torch.rand([1, 16000])
+    >>> save_signal(signal, ['example_random'], torch.ones(1))
     """
 
     def __init__(
@@ -1749,10 +1683,14 @@ class save(torch.nn.Module):
 
     def forward(self, data, data_id, data_len):
         """
-        Input :
-        data: batch of audio signals to save
-        data_id: list of ids in the batch
-        data_len: length of each audio signal
+        Arguments
+        ---------
+        data : torch.tensor
+            batch of audio signals to save
+        data_id : list
+            list of ids in the batch
+        data_len : torch.tensor
+            length of each audio signal
         """
         # Convertion to log (if specified)
         if self.decibel:
@@ -1763,38 +1701,27 @@ class save(torch.nn.Module):
 
     def write_batch(self, data, data_id, data_len):
         """
-         ---------------------------------------------------------------------
-         core.data_procesing.save.write_batch
+        Saves a batch of data.
 
-         Description: This function saves a batch of data.
+        Arguments
+        ---------
+        data : torch.tensor
+            batch of audio signals to save
+        data_id : list
+            list of ids in the batch
+        data_len : torch.tensor
+            relative length of each audio signal
 
-         Args:
-        self: - data (type: torch.tensor, mandatory)
-        data_id: - data_len (type: torch.tensor, mandatory)
-
-         Output:      None
-
-         Example:  import torch
-                   from speechbrain.data_io.data_io import save
-
-                   # save config dictionary definition
-                   config={'class_name':'data_processing.save',
-                           'save_folder': 'exp/write_example',
-                           'save_format': 'wav' }
-
-                   # class initialization
-                   save_signal=save(config)
-
-                   # random signal
-                   signal=0.1*torch.rand([1,16000])
-
-                   # saving
-                   save_signal.write_batch(signal,['example_random'],
-                   torch.ones(1))
-
-                  # signal save in exp/write_example
-         ---------------------------------------------------------------------
-         """
+        Example
+        -------
+        >>> save_folder = getfixture('tmpdir')
+        >>> save_format = 'wav'
+        >>> save_signal=save(save_folder, save_format)
+        >>> # random signal
+        >>> signal=0.1*torch.rand([1,16000])
+        >>> # saving
+        >>> save_signal.write_batch(signal, ['example_random'], torch.ones(1))
+        """
 
         # Write in parallel all the examples in the batch on disk:
         jobs = []
@@ -1871,31 +1798,23 @@ class save(torch.nn.Module):
     @staticmethod
     def get_supported_formats():
         """
-         ---------------------------------------------------------------------
-         core.data_procesing.save.get_supported_formats
+        Lists the supported formats and their related writers
 
-         Description: This function returns a dictionay containing the
-                      supported writing format and the related writers
-                      implemented in data_io.py.
+        Returns
+        -------
+        dict
+            Maps from file name extensions to dicts which have the keys
+            "writer" and "description"
 
-         Args:
-        self: Output:      -supported_formats (type:dict)
-
-         Example:  import torch
-                   from speechbrain.data_io.data_io import save
-
-                   # save config dictionary definition
-                   config={'class_name':'data_processing.save',
-                           'save_folder': 'exp/write_example',
-                           'save_format': 'wav' }
-
-                   # class initialization
-                   save_signal=save(config)
-
-                   supported_formats=save_signal.get_supported_formats()
-                   print(supported_formats)
-         ---------------------------------------------------------------------
-         """
+        Example
+        -------
+        >>> save_folder = getfixture('tmpdir')
+        >>> save_format = 'wav'
+        >>> # class initialization
+        >>> saver = save(save_folder, save_format)
+        >>> saver.get_supported_formats()['wav']
+        {'writer': <function ...>, 'description': ...}
+        """
 
         # Dictionary initialization
         supported_formats = {}
@@ -1937,75 +1856,61 @@ class save(torch.nn.Module):
 
 def get_md5(file):
     """
-     -------------------------------------------------------------------------
-     data_io.get_md5 (author: Mirco Ravanelli)
+    Get the md5 checksum of an input file
 
-     Description: This function return the md5 checksum of an input file
+    Arguments
+    ---------
+    file : str
+        Path to file for which compute the checksum
 
-     Input (call):
-        file: it is the file from which we want to computed the
-                           md5
+    Returns
+    -------
+    md5
+        Checksum for the given filepath
 
-
-     Output (call):  md5 (type: md5):
-                       it is the checksum for the given file
-
-
-     Example:  from speechbrain.data_io.data_io import  get_md5
-               print(get_md5('samples/audio_samples/example1.wav'))
-
-     -------------------------------------------------------------------------
-     """
-
+    Example
+    -------
+    >>> get_md5('samples/audio_samples/example1.wav')
+    'c482d0081ca35302d30d12f1136c34e5'
+    """
     # Lets read stuff in 64kb chunks!
     BUF_SIZE = 65536
-
     md5 = hashlib.md5()
-
     # Computing md5
-
     with open(file, "rb") as f:
         while True:
             data = f.read(BUF_SIZE)
             if not data:
                 break
             md5.update(data)
-
     return md5.hexdigest()
 
 
 def save_md5(files, out_file):
     """
-     -------------------------------------------------------------------------
-     data_io.save_md5 (author: Mirco Ravanelli)
+    Saves the md5 of a list of input files as a pickled dict into a file.
 
-     Description: This function saves the md5 of a list of input files into
-                   a dictionary. The dictionary is then save in pkl format.
+    Arguments
+    ---------
+    files : list
+        List of input files from which we will compute the md5.
+    outfile : str
+        The path where to store the output pkl file.
 
-     Input (call):
-        files: it is a list of input files from which we will
-                           compute the md5.
-        outfile: it is the path where storing the output pkl file.
+    Returns
+    -------
+    None
 
-     Output (call):  None
-
-
-     Example:  from speechbrain.data_io.data_io import save_md5
-
-               files=['samples/audio_samples/example1.wav']
-               out_file='exp/md5.pkl'
-               save_md5(files,out_file)
-
-     -------------------------------------------------------------------------
-     """
-
+    Example:
+    >>> files=['samples/audio_samples/example1.wav']
+    >>> out_file=getfixture('tmpdir') + "/md5.pkl"
+    >>> save_md5(files, out_file)
+    """
     # Initialization of the dictionary
     md5_dict = {}
-
     # Computing md5 for all the files in the list
     for file in files:
         md5_dict[file] = get_md5(file)
-
     # Saving dictionary in pkl format
     save_pkl(md5_dict, out_file)
 
@@ -2024,50 +1929,32 @@ def save_pkl(obj, file):
         Sampling rate of the audio file, TODO: this is not used?
 
     Example:
-        >>> tmpfile = getfixture('tmp_path') / "example.pkl"
-        >>> save_pkl([1, 2, 3, 4, 5], tmpfile)
-        >>> load_pkl(tmpfile)
-        [1, 2, 3, 4, 5]
-
-    Author:
-        Mirco Ravanelli 2020
+    >>> tmpfile = getfixture('tmp_path') / "example.pkl"
+    >>> save_pkl([1, 2, 3, 4, 5], tmpfile)
+    >>> load_pkl(tmpfile)
+    [1, 2, 3, 4, 5]
     """
-    try:
-        with open(file, "wb") as f:
-            pickle.dump(obj, f)
-    except Exception:
-        err_msg = "Cannot save file %s" % (file)
-        logger.error(err_msg, exc_info=True)
+    with open(file, "wb") as f:
+        pickle.dump(obj, f)
 
 
-def load_pkl(file, logger=None):
+def load_pkl(file):
     """
-     -------------------------------------------------------------------------
-     data_io.load_pkl (author: Mirco Ravanelli)
+    Loads a pkl file
 
-     Description:
-        This function load a pkl file
+    For an example, see `save_pkl`
 
-     Args:
-        file: it is name of the input pkl file.
-        logger: it the logger used to write debug and error messages.
+    Arguments
+    ---------
+    file : str
+        Path to the input pkl file.
 
-     Returns:
-        the loaded object
-
-
-     Example:
-        See `save_pkl`
-
-     -------------------------------------------------------------------------
-     """
-
-    try:
-        with open(file, "rb") as f:
-            return pickle.load(f)
-    except Exception:
-        err_msg = "Cannot read file %s" % (file)
-        logger.error(err_msg, exc_info=True)
+    Returns
+    -------
+    The loaded object
+    """
+    with open(file, "rb") as f:
+        return pickle.load(f)
 
 
 def write_ark(data, filename, key="", sampling_rate=None, logger=None):
