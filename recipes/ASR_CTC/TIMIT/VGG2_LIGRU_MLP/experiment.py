@@ -12,7 +12,7 @@ from speechbrain.decoders.decoders import undo_padding
 overrides = sb.core.parse_arguments(sys.argv[1:])
 if "seed" in overrides:
     torch.manual_seed(overrides["seed"])
-params_file = "recipes/ASR_CTC/TIMIT/VGG2_BLSTM_MLP/params.yaml"
+params_file = "recipes/ASR_CTC/TIMIT/VGG2_LIGRU_MLP/params.yaml"
 with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(fin, overrides)
 
@@ -21,7 +21,7 @@ sb.core.create_experiment_directory(
     experiment_directory=params.output_folder,
     params_to_save=params_file,
     overrides=overrides,
-    log_config="log-config.yaml",
+    log_config="logging.yaml",
 )
 
 
