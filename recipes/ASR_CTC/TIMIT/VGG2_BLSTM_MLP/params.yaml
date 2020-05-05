@@ -43,7 +43,7 @@ lr_annealing: !speechbrain.nnet.lr_scheduling.LRScheduler
 normalize: !speechbrain.processing.features.mean_var_norm
     norm_type: global
 
-prepare_timit: !speechbrain.data_io.data_preparation.timit_prepare
+prepare_timit: !speechbrain.data_io.data_preparation.TIMITPreparer
     data_folder: !ref <data_folder>
     splits: [train, dev, test]
     save_folder: !ref <data_folder>
