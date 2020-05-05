@@ -59,13 +59,11 @@ class AddNoise(torch.nn.Module):
 
     Example
     -------
-    >>> import torch
     >>> import soundfile as sf
     >>> from speechbrain.data_io.data_io import save
     >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
     >>> noisifier = AddNoise('samples/noise_samples/noise.csv')
     >>> clean = torch.tensor([signal], dtype=torch.float32)
-    >>> noisifier.init_params(clean)
     >>> noisy = noisifier(clean, torch.ones(1))
     >>> save_signal = save(save_folder='exp/example', save_format='wav')
     >>> save_signal(noisy, ['example_add_noise'], torch.ones(1))
@@ -95,37 +93,18 @@ class AddNoise(torch.nn.Module):
         self.mix_prob = mix_prob
         self.replacements = replacements
 
-    def init_params(self, first_input):
-        """On first input, create dataloader with correct batch size."""
-
-        # Set parameters based on input
-        self.device = first_input.device
-        if not self.batch_size:
-            self.batch_size = len(first_input)
-
-        # Create a data loader for the noise wavforms
-        if self.csv_file is not None:
-            self.data_loader = create_dataloader(
-                csv_file=self.csv_file,
-                sentence_sorting=self.order,
-                batch_size=self.batch_size,
-                cache=self.do_cache,
-                replacements=self.replacements,
-            )
-            self.noise_data = zip(*self.data_loader())
-
     def forward(self, waveforms, lengths):
         """
         Arguments
         ---------
         waveforms : tensor
-            Shape should be `[batch, time]` or `[batch, channels, time]`.
+            Shape should be `[batch, time]` or `[batch, time, channels]`.
         lengths : tensor
             Shape should be a single dimension, `[batch]`.
 
         Returns
         -------
-        Tensor of shape `[batch, time]` or `[batch, channels, time]`.
+        Tensor of shape `[batch, time]` or `[batch, time, channels]`.
         """
         # Copy clean waveform to initialize noisy waveform
         noisy_waveform = waveforms.clone()
@@ -157,7 +136,7 @@ class AddNoise(torch.nn.Module):
             white_noise = torch.randn_like(waveforms)
             noisy_waveform += new_noise_amplitude * white_noise
         else:
-            tensor_length = waveforms.shape[-1]
+            tensor_length = waveforms.shape[1]
             noise_waveform, noise_length = self._load_noise(
                 lengths, tensor_length, batch_size,
             )
@@ -173,6 +152,21 @@ class AddNoise(torch.nn.Module):
         lengths = lengths.long().squeeze(1)
 
         # Load a noise batch
+        if not hasattr(self, "data_loader"):
+            # Set parameters based on input
+            self.device = lengths.device
+
+            # Create a data loader for the noise wavforms
+            if self.csv_file is not None:
+                self.data_loader = create_dataloader(
+                    csv_file=self.csv_file,
+                    sentence_sorting=self.order,
+                    batch_size=batch_size,
+                    cache=self.do_cache,
+                    replacements=self.replacements,
+                )
+                self.noise_data = zip(*self.data_loader())
+
         try:
             wav_id, noise_batch, noise_len = next(self.noise_data)[0]
         except StopIteration:
@@ -188,20 +182,20 @@ class AddNoise(torch.nn.Module):
             noise_len = noise_len[:batch_size]
 
         # Convert relative length to an index
-        noise_len = (noise_len * noise_batch.shape[-1]).long()
+        noise_len = (noise_len * noise_batch.shape[1]).long()
 
         # Ensure shortest wav can cover speech signal
         # WARNING: THIS COULD BE SLOW IF THERE ARE VERY SHORT NOISES
         if self.pad_noise:
             while torch.any(noise_len < lengths):
                 min_len = torch.min(noise_len)
-                prepend = noise_batch[..., :min_len]
-                noise_batch = torch.cat((prepend, noise_batch), axis=-1)
+                prepend = noise_batch[:, :min_len]
+                noise_batch = torch.cat((prepend, noise_batch), axis=1)
                 noise_len += min_len
 
         # Ensure noise batch is long enough
-        elif noise_batch.size(-1) < max_length:
-            padding = (0, max_length - noise_batch.size(-1))
+        elif noise_batch.size(1) < max_length:
+            padding = (0, max_length - noise_batch.size(1))
             noise_batch = torch.nn.functional.pad(noise_batch, padding)
 
         # Select a random starting location in the waveform
@@ -210,7 +204,7 @@ class AddNoise(torch.nn.Module):
         start_index = torch.randint(high=max_chop, size=(1,))
 
         # Truncate noise_batch to max_length
-        noise_batch = noise_batch[..., start_index : start_index + max_length]
+        noise_batch = noise_batch[:, start_index : start_index + max_length]
         noise_len = (noise_len - start_index).clamp(max=max_length).unsqueeze(1)
         return noise_batch, noise_len
 
@@ -239,13 +233,11 @@ class AddReverb(torch.nn.Module):
 
     Example
     -------
-    >>> import torch
     >>> import soundfile as sf
     >>> from speechbrain.data_io.data_io import save
     >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
     >>> reverb = AddReverb('samples/rir_samples/rirs.csv')
     >>> clean = torch.tensor([signal], dtype=torch.float32)
-    >>> reverb.init_params(clean)
     >>> reverbed = reverb(clean, torch.ones(1))
     >>> save_signal = save(save_folder='exp/example', save_format='wav')
     >>> save_signal(reverbed, ['example_add_reverb'], torch.ones(1))
@@ -275,22 +267,18 @@ class AddReverb(torch.nn.Module):
         )
         self.rir_data = zip(*self.data_loader())
 
-    def init_params(self, first_input):
-        self.device = first_input.device
-        self.dtype = first_input.dtype
-
     def forward(self, waveforms, lengths):
         """
         Arguments
         ---------
         waveforms : tensor
-            Shape should be `[batch, time]` or `[batch, channels, time]`.
+            Shape should be `[batch, time]` or `[batch, time, channels]`.
         lengths : tensor
             Shape should be a single dimension, `[batch]`.
 
         Returns
         -------
-        Tensor of shape `[batch, time]` or `[batch, channels, time]`.
+        Tensor of shape `[batch, time]` or `[batch, time, channels]`.
         """
         # Don't add reverb (return early) 1-`reverb_prob` portion of the time
         if torch.rand(1) > self.reverb_prob:
@@ -299,20 +287,20 @@ class AddReverb(torch.nn.Module):
         # Add channels dimension if necessary
         channel_added = False
         if len(waveforms.shape) == 2:
-            waveforms = waveforms.unsqueeze(1)
+            waveforms = waveforms.unsqueeze(-1)
             channel_added = True
 
         # Convert length from ratio to number of indices
-        lengths = (lengths * waveforms.shape[2])[:, None, None]
+        lengths = (lengths * waveforms.shape[1])[:, None, None]
 
         # Compute the average amplitude of the clean
         orig_amplitude = compute_amplitude(waveforms, lengths)
 
         # Load and prepare RIR
-        rir_waveform = self._load_rir().abs()
+        rir_waveform = self._load_rir(waveforms).abs()
 
         # Compute index of the direct signal, so we can preserve alignment
-        direct_index = rir_waveform.argmax(axis=-1).median()
+        direct_index = rir_waveform.argmax(axis=1).median()
 
         # Use FFT to compute convolution, because of long reverberation filter
         reverbed_waveform = convolve1d(
@@ -328,11 +316,11 @@ class AddReverb(torch.nn.Module):
 
         # Remove channels dimension if added
         if channel_added:
-            return reverbed_waveform.squeeze(1)
+            return reverbed_waveform.squeeze(-1)
 
         return reverbed_waveform
 
-    def _load_rir(self):
+    def _load_rir(self, waveforms):
         try:
             wav_id, rir_waveform, length = next(self.rir_data)[0]
         except StopIteration:
@@ -341,11 +329,11 @@ class AddReverb(torch.nn.Module):
 
         # Make sure RIR has correct channels
         if len(rir_waveform.shape) == 2:
-            rir_waveform = rir_waveform.unsqueeze(1)
+            rir_waveform = rir_waveform.unsqueeze(-1)
 
         # Make sure RIR has correct type and device
-        rir_waveform = rir_waveform.type(self.dtype)
-        return rir_waveform.to(self.device)
+        rir_waveform = rir_waveform.type(waveforms.dtype)
+        return rir_waveform.to(waveforms.device)
 
 
 class SpeedPerturb(torch.nn.Module):
@@ -368,13 +356,11 @@ class SpeedPerturb(torch.nn.Module):
 
     Example
     -------
-    >>> import torch
     >>> import soundfile as sf
     >>> from speechbrain.data_io.data_io import save
     >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
     >>> perturbator = SpeedPerturb(orig_freq=rate, speeds=[9])
     >>> clean = torch.tensor(signal, dtype=torch.float32).unsqueeze(0)
-    >>> perturbator.init_params(clean)
     >>> perturbed = perturbator(clean)
     >>> save_signal = save(save_folder='exp/example', save_format='wav')
     >>> save_signal(perturbed, ['example_perturb'], torch.ones(1))
@@ -400,25 +386,21 @@ class SpeedPerturb(torch.nn.Module):
             }
             self.resamplers.append(Resample(**config))
 
-    def init_params(self, first_input):
-        for sampler in self.resamplers:
-            sampler.init_params(first_input)
-
     def forward(self, waveform):
         """
         Arguments
         ---------
         waveforms : tensor
-            Shape should be `[batch, time]` or `[batch, channels, time]`.
+            Shape should be `[batch, time]` or `[batch, time, channels]`.
         lengths : tensor
             Shape should be a single dimension, `[batch]`.
 
         Returns
         -------
-        Tensor of shape `[batch, time]` or `[batch, channels, time]`.
+        Tensor of shape `[batch, time]` or `[batch, time, channels]`.
         """
         # add channels dimension
-        waveform = waveform.unsqueeze(1)
+        waveform = waveform.unsqueeze(-1)
 
         # Don't perturb (return early) 1-`perturb_prob` portion of the batches
         if torch.rand(1) > self.perturb_prob:
@@ -442,27 +424,24 @@ class Resample(torch.nn.Module):
     orig_freq : int
         the sampling frequency of the input signal.
     new_freq : int
-        the new sampling frequency after this operation
-        is performed.
+        the new sampling frequency after this operation is performed.
     lowpass_filter_width : int
-        Controls the sharpness of the filter,
-        larger numbers result in a sharper filter, but they are less
-        efficient. Values from 4 to 10 are allowed.
+        Controls the sharpness of the filter, larger numbers result in a
+        sharper filter, but they are less efficient. Values from 4 to 10 are
+        allowed.
 
     Example
     -------
-    >>> import torch
     >>> import soundfile as sf
     >>> from speechbrain.data_io.data_io import save
     >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
-    >>> signal = torch.tensor(signal, dtype=torch.float32)[None,None,:]
-    >>> resampler = Resample(orig_freq=rate, new_freq=rate//2)
-    >>> resampler.init_params(signal)
+    >>> signal = torch.tensor(signal, dtype=torch.float32)[None, :, None]
+    >>> resampler = Resample(orig_freq=rate, new_freq=rate // 2)
     >>> resampled = resampler(signal)
     >>> save_signal = save(
     ...     save_folder='exp/example',
     ...     save_format='wav',
-    ...     sampling_rate=rate//2,
+    ...     sampling_rate=rate // 2,
     ... )
     >>> save_signal(resampled, ["example_resamp"], torch.ones(1))
     """
@@ -480,13 +459,6 @@ class Resample(torch.nn.Module):
         assert self.orig_freq % self.conv_stride == 0
         assert self.new_freq % self.conv_transpose_stride == 0
 
-    def init_params(self, first_input):
-        self.device = first_input.device
-
-        # Generate and store the filter to use for resampling
-        self._indices_and_weights()
-        assert self.first_indices.dim() == 1
-
     def _compute_strides(self):
         """Compute the phases in polyphase filter
 
@@ -501,36 +473,46 @@ class Resample(torch.nn.Module):
         self.conv_stride = input_samples_in_unit
         self.conv_transpose_stride = self.output_samples
 
-    def forward(self, waveform):
+    def forward(self, waveforms):
         """
         Parameters
         ----------
         waveforms : tensor
-            Shape should be `[batch, time]` or `[batch, channels, time]`.
+            Shape should be `[batch, time]` or `[batch, time, channels]`.
         lengths : tensor
             Shape should be a single dimension, `[batch]`.
 
         Returns
         -------
-        Tensor of shape `[batch, time]` or `[batch, channels, time]`.
+        Tensor of shape `[batch, time]` or `[batch, time, channels]`.
         """
-        waveform = waveform.to(self.device)
+        if not hasattr(self, "first_indices"):
+            self._indices_and_weights(waveforms)
 
         # Don't do anything if the frequencies are the same
         if self.orig_freq == self.new_freq:
-            return waveform
+            return waveforms
 
-        # Add channels dimension if necessary
-        if len(waveform.shape) == 2:
-            waveform = waveform.unsqueeze(1)
+        unsqueezed = False
+        if len(waveforms.shape) == 2:
+            waveforms = waveforms.unsqueeze(1)
+            unsqueezed = True
+        elif len(waveforms.shape) == 3:
+            waveforms = waveforms.transpose(1, 2)
+        else:
+            raise ValueError("Input must be 2 or 3 dimensions")
 
         # Do resampling
-        resampled_waveform = self._perform_resample(waveform)
+        resampled_waveform = self._perform_resample(waveforms)
 
-        # Remove unnecessary channels dimension
-        return resampled_waveform.squeeze(1)
+        if unsqueezed:
+            resampled_waveform = resampled_waveform.squeeze(1)
+        else:
+            resampled_waveform = waveforms.transpose(1, 2)
 
-    def _perform_resample(self, waveform):
+        return resampled_waveform
+
+    def _perform_resample(self, waveforms):
         """Resamples the waveform at the new frequency.
 
         This matches Kaldi's OfflineFeatureTpl ResampleWaveform which uses a
@@ -549,33 +531,34 @@ class Resample(torch.nn.Module):
 
         Arguments
         ---------
-        waveform : tensor
+        waveforms : tensor
             the batch of audio signals to resample
 
         Returns
         -------
-        The waveform at the new frequency
+        The waveforms at the new frequency
         """
 
         # Compute output size and initialize
-        batch_size, num_channels, wave_len = waveform.size()
+        batch_size, num_channels, wave_len = waveforms.size()
         window_size = self.weights.size(1)
         tot_output_samp = self._output_samples(wave_len)
         resampled_waveform = torch.zeros(
-            (batch_size, num_channels, tot_output_samp), device=waveform.device,
+            (batch_size, num_channels, tot_output_samp),
+            device=waveforms.device,
         )
-        self.weights = self.weights.to(waveform.device)
+        self.weights = self.weights.to(waveforms.device)
 
         # Check weights are on correct device
-        if waveform.device != self.weights.device:
-            self.weights = self.weights.to(waveform.device)
+        if waveforms.device != self.weights.device:
+            self.weights = self.weights.to(waveforms.device)
 
         # eye size: (num_channels, num_channels, 1)
-        eye = torch.eye(num_channels, device=waveform.device).unsqueeze(2)
+        eye = torch.eye(num_channels, device=waveforms.device).unsqueeze(2)
 
         # Iterate over the phases in the polyphase filter
         for i in range(self.first_indices.size(0)):
-            wave_to_conv = waveform
+            wave_to_conv = waveforms
             first_index = int(self.first_indices[i].item())
             if first_index >= 0:
                 # trim the signal as the filter will not be applied
@@ -590,10 +573,12 @@ class Resample(torch.nn.Module):
             current_wave_len = wave_len - first_index
             right_padding = max(0, end_index + 1 - current_wave_len)
             left_padding = max(0, -first_index)
-            conv_wave = convolve1d(
-                waveform=wave_to_conv,
-                kernel=self.weights[i].repeat(num_channels, 1, 1),
-                padding=(left_padding, right_padding),
+            wave_to_conv = torch.nn.functional.pad(
+                wave_to_conv, (left_padding, right_padding)
+            )
+            conv_wave = torch.nn.functional.conv1d(
+                input=wave_to_conv,
+                weight=self.weights[i].repeat(num_channels, 1, 1),
                 stride=self.conv_stride,
                 groups=num_channels,
             )
@@ -669,7 +654,7 @@ class Resample(torch.nn.Module):
 
         return num_output_samp
 
-    def _indices_and_weights(self):
+    def _indices_and_weights(self, waveforms):
         """Based on LinearResample::SetIndexesAndWeights
 
         Retrieves the weights for resampling as well as the indices in which
@@ -691,7 +676,9 @@ class Resample(torch.nn.Module):
         window_width = self.lowpass_filter_width / (2.0 * lowpass_cutoff)
 
         assert lowpass_cutoff < min(self.orig_freq, self.new_freq) / 2
-        output_t = torch.arange(0.0, self.output_samples, device=self.device)
+        output_t = torch.arange(
+            start=0.0, end=self.output_samples, device=waveforms.device,
+        )
         output_t /= self.new_freq
         min_t = output_t - window_width
         max_t = output_t + window_width
@@ -701,8 +688,8 @@ class Resample(torch.nn.Module):
         num_indices = max_input_index - min_input_index + 1
 
         max_weight_width = num_indices.max()
-        j = torch.arange(max_weight_width, device=self.device).unsqueeze(0)
-        input_index = min_input_index.unsqueeze(1) + j
+        j = torch.arange(max_weight_width, device=waveforms.device)
+        input_index = min_input_index.unsqueeze(1) + j.unsqueeze(0)
         delta_t = (input_index / self.orig_freq) - output_t.unsqueeze(1)
 
         weights = torch.zeros_like(delta_t)
@@ -755,7 +742,6 @@ class AddBabble(torch.nn.Module):
 
     Example
     -------
-    >>> import torch
     >>> from speechbrain.data_io.data_io import save
     >>> from speechbrain.data_io.data_io import create_dataloader
     >>> babbler = AddBabble()
@@ -785,7 +771,7 @@ class AddBabble(torch.nn.Module):
         ---------
         waveforms : tensor
             A batch of audio signals to process, with shape `[batch, time]` or
-            `[batch, channels, time]`
+            `[batch, time, channels]`
         lengths : tensor
             The length of each audio in the batch, with shape `[batch]`
 
@@ -853,7 +839,6 @@ class DropFreq(torch.nn.Module):
 
     Example
     -------
-    >>> import torch
     >>> import soundfile as sf
     >>> from speechbrain.data_io.data_io import save
     >>> dropper = DropFreq()
@@ -886,11 +871,11 @@ class DropFreq(torch.nn.Module):
         Arguments
         ---------
         waveforms : tensor
-            Shape should be `[batch, time]` or `[batch, channels, time]`.
+            Shape should be `[batch, time]` or `[batch, time, channels]`.
 
         Returns
         -------
-        Tensor of shape `[batch, time]` or `[batch, channels, time]`
+        Tensor of shape `[batch, time]` or `[batch, time, channels]`
         """
         # Don't drop (return early) 1-`drop_prob` portion of the batches
         dropped_waveform = waveforms.clone()
@@ -899,7 +884,7 @@ class DropFreq(torch.nn.Module):
 
         # Add channels dimension
         if len(waveforms.shape) == 2:
-            dropped_waveform = dropped_waveform.unsqueeze(1)
+            dropped_waveform = dropped_waveform.unsqueeze(-1)
 
         # Pick number of frequencies to drop
         drop_count = torch.randint(
@@ -917,8 +902,8 @@ class DropFreq(torch.nn.Module):
         pad = filter_length // 2
 
         # Start with delta function
-        drop_filter = torch.zeros(1, 1, filter_length)
-        drop_filter[0, 0, pad] = 1
+        drop_filter = torch.zeros(1, filter_length, 1)
+        drop_filter[0, pad, 0] = 1
 
         # Subtract each frequency
         for frequency in drop_frequency:
@@ -966,7 +951,6 @@ class DropChunk(torch.nn.Module):
 
     Example
     -------
-    >>> import torch
     >>> import soundfile as sf
     >>> from speechbrain.data_io.data_io import save
     >>> dropper = DropChunk()
@@ -1002,17 +986,17 @@ class DropChunk(torch.nn.Module):
         Arguments
         ---------
         waveforms : tensor
-            Shape should be `[batch, time]` or `[batch, channels, time]`.
+            Shape should be `[batch, time]` or `[batch, time, channels]`.
         lengths : tensor
             Shape should be a single dimension, `[batch]`.
 
         Returns
         -------
         Tensor of shape `[batch, time]` or
-            `[batch, channels, time]`
+            `[batch, time, channels]`
         """
         # Reading input list
-        lengths = (lengths * waveforms.size(-1)).long()
+        lengths = (lengths * waveforms.size(1)).long()
         batch_size = waveforms.size(0)
         dropped_waveform = waveforms.clone()
 
@@ -1055,7 +1039,7 @@ class DropChunk(torch.nn.Module):
 
             # Update waveform
             for j in range(drop_times[i]):
-                dropped_waveform[i, ..., start[j] : start[j] + length[j]] = 0
+                dropped_waveform[i, start[j] : start[j] + length[j]] = 0
 
         return dropped_waveform
 
@@ -1075,7 +1059,6 @@ class DoClip(torch.nn.Module):
 
     Example
     -------
-    >>> import torch
     >>> import soundfile as sf
     >>> from speechbrain.data_io.data_io import save
     >>> clipper = DoClip()
@@ -1098,11 +1081,11 @@ class DoClip(torch.nn.Module):
         Arguments
         ---------
         waveforms : tensor
-            Shape should be `[batch, time]` or `[batch, channels, time]`.
+            Shape should be `[batch, time]` or `[batch, time, channels]`.
 
         Returns
         -------
-        Tensor of shape `[batch, time]` or `[batch, channels, time]`
+        Tensor of shape `[batch, time]` or `[batch, time, channels]`
         """
         # Don't clip (return early) 1-`clip_prob` portion of the batches
         if torch.rand(1) > self.clip_prob:

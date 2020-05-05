@@ -238,7 +238,7 @@ class Brain:
 
     Example
     -------
-    >>> from speechbrain.nnet.optimizers import optimize
+    >>> from speechbrain.nnet.optimizers import Optimize
     >>> class SimpleBrain(Brain):
     ...     def forward(self, x, init_params=False):
     ...         return self.modules[0](x)
@@ -246,7 +246,7 @@ class Brain:
     ...         return torch.nn.functional.l1_loss(predictions, targets)
     >>> tmpdir = getfixture('tmpdir')
     >>> model = torch.nn.Linear(in_features=10, out_features=10)
-    >>> brain = SimpleBrain([model], optimize('sgd', 0.01))
+    >>> brain = SimpleBrain([model], Optimize('sgd', 0.01))
     >>> brain.fit(
     ...     train_set=([torch.rand(10, 10)], [torch.rand(10, 10)]),
     ... )
@@ -331,7 +331,7 @@ class Brain:
         stats["loss"] = loss.detach()
         return stats
 
-    def summarize(self, stats):
+    def summarize(self, stats, write=False):
         """Take a list of stats from a pass through data and summarize it.
 
         By default, averages the loss and returns the average.
@@ -446,12 +446,17 @@ class Brain:
         elif max_key is not None and min_key is not None:
             raise ValueError("Can't use both min_key and max_key.")
 
-        if max_key is not None:
-            self.saver.recover_if_possible(lambda c, key=max_key: c.meta[key])
-        elif min_key is not None:
-            self.saver.recover_if_possible(lambda c, key=min_key: -c.meta[key])
-        else:
-            self.saver.recover_if_possible()
+        if self.saver is not None:
+            if max_key is not None:
+                self.saver.recover_if_possible(
+                    lambda c, key=max_key: c.meta[key]
+                )
+            elif min_key is not None:
+                self.saver.recover_if_possible(
+                    lambda c, key=min_key: -c.meta[key]
+                )
+            else:
+                self.saver.recover_if_possible()
 
         test_stats = []
         self.modules.eval()
