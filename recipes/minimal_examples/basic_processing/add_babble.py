@@ -1,12 +1,14 @@
+import os
 import speechbrain as sb
 
-output_folder = "exp/minimal/add_babble"
+output_folder = "results/add_babble"
 overrides = {
     "output_folder": output_folder,
     "batch_size": 5,
     "add_babble": {"snr_low": 0, "snr_high": 0},
 }
-params_file = "recipes/minimal_examples/basic_processing/params.yaml"
+current_dir = os.path.dirname(os.path.abspath(__file__))
+params_file = os.path.join(current_dir, "params.yaml")
 with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(fin, overrides)
 

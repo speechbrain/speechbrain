@@ -1,11 +1,13 @@
+import os
 import speechbrain as sb
 
-output_folder = "exp/minimal/do_clip"
+output_folder = "results/do_clip"
 overrides = {
     "output_folder": output_folder,
     "do_clip": {"clip_high": 0.05, "clip_low": 0.01},
 }
-params_file = "recipes/minimal_examples/basic_processing/params.yaml"
+current_dir = os.path.dirname(os.path.abspath(__file__))
+params_file = os.path.join(current_dir, "params.yaml")
 with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(fin, overrides)
 
