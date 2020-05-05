@@ -1,12 +1,12 @@
 import os
-import threading
-import logging
-from shutil import copyfile
 import torch
+import logging
+import threading
+from shutil import copyfile
 from speechbrain.utils.superpowers import run_shell
 from speechbrain.utils.data_utils import get_all_files, split_list
 
-logger = logging.getlogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def undo_padding(batch, lengths):
