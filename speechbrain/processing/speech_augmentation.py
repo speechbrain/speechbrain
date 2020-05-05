@@ -15,7 +15,7 @@ Author: Peter Plantinga 2020
 import math
 import torch
 from speechbrain.data_io.data_io import DataLoaderFactory
-from speechbrain.utils.data_utils import (
+from speechbrain.processing.signal_processing import (
     compute_amplitude,
     dB_to_amplitude,
     convolve1d,
