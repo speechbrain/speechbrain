@@ -12,8 +12,9 @@ import logging
 import inspect
 import argparse
 import subprocess
+import speechbrain as sb
 from tqdm.contrib import tzip
-from speechbrain.yaml import resolve_references
+import speechbrain.utils.train_logger as tl
 from speechbrain.utils.logger import setup_logging
 from speechbrain.utils.epoch_loop import EpochCounter
 from speechbrain.utils.checkpoints import ckpt_recency
@@ -22,6 +23,7 @@ from speechbrain.utils.data_utils import recursive_update
 logger = logging.getLogger(__name__)
 DEFAULT_LOG_CONFIG = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_LOG_CONFIG = os.path.join(DEFAULT_LOG_CONFIG, "log-config.yaml")
+DEFAULT_TRAIN_LOGGER = tl.TrainLogger({"loss": tl.float_summary})
 
 
 def create_experiment_directory(
@@ -52,7 +54,7 @@ def create_experiment_directory(
     if params_to_save is not None:
         params_filename = os.path.join(experiment_directory, "params.yaml")
         with open(params_to_save) as f:
-            resolved_yaml = resolve_references(f, overrides)
+            resolved_yaml = sb.yaml.resolve_references(f, overrides)
         with open(params_filename, "w") as w:
             shutil.copyfileobj(resolved_yaml, w)
 
@@ -232,19 +234,19 @@ class Brain:
     * `fit_batch()`
     * `evaluate_batch()`
 
-    If there is more than one objective (either for training or evaluation),
-    the method for summarizing the losses (e.g. averaging) can be specified
-    by overriding the `summarize()` method.
-
     Arguments
     ---------
     modules : list of torch.Tensors
         The modules that will be updated using the optimizer.
+    train_logger : TrainLogger
+        This logger is updated each batch and called at the end of the batch
+        to record the results of training for the current batch. By default,
+        this summarizes training info and writes to the python logger.
     optimizer : optimizer
         The class to use for updating the modules' parameters.
     scheduler : scheduler
         An object that changes the learning rate based on performance.
-    saver : Checkpointer
+    checkpointer : Checkpointer
         This is called by default at the end of each epoch to save progress.
 
     Example
@@ -263,11 +265,19 @@ class Brain:
     ... )
     """
 
-    def __init__(self, modules, optimizer=None, scheduler=None, saver=None):
+    def __init__(
+        self,
+        modules,
+        train_logger=DEFAULT_TRAIN_LOGGER,
+        optimizer=None,
+        scheduler=None,
+        checkpointer=None,
+    ):
         self.modules = torch.nn.ModuleList(modules)
         self.optimizer = optimizer
         self.scheduler = scheduler
-        self.saver = saver
+        self.checkpointer = checkpointer
+        self.train_logger = train_logger
 
     def forward(self, x, init_params=False):
         """Forward pass, to be overridden by sub-classes.
@@ -342,18 +352,6 @@ class Brain:
         stats["loss"] = loss.detach()
         return stats
 
-    def summarize(self, stats, write=False):
-        """Take a list of stats from a pass through data and summarize it.
-
-        By default, averages the loss and returns the average.
-
-        Arguments
-        ---------
-        stats : list of dicts
-            A list of stats to summarize.
-        """
-        return {"loss": float(sum(s["loss"] for s in stats) / len(stats))}
-
     def fit(
         self,
         train_set,
@@ -370,7 +368,6 @@ class Brain:
 
         * `fit_batch()`
         * `evaluate_batch()`
-        * `summarize()`
         * `save()`
 
         Arguments
@@ -389,42 +386,32 @@ class Brain:
         self.forward(next(iter(train_set[0])), init_params=True)
         self.optimizer.init_params(self.modules)
         epoch_counter = EpochCounter(number_of_epochs)
-        if self.saver is not None:
-            self.saver.add_recoverable("counter", epoch_counter)
-            self.saver.recover_if_possible()
+        if self.checkpointer is not None:
+            self.checkpointer.add_recoverable("counter", epoch_counter)
+            self.checkpointer.recover_if_possible()
 
         for epoch in epoch_counter:
             self.modules.train()
-            train_stats = []
             for batch in tzip(*train_set):
-                train_stats.append(self.fit_batch(batch))
-            summary = self.summarize(train_stats)
-
-            logger.info(f"Epoch {epoch} complete")
-            for key in summary:
-                logger.info(f"Train {key}: {summary[key]:.2f}")
+                stats = self.fit_batch(batch)
+                self.train_logger.add_batch(stats, "train")
 
             if valid_set is not None:
                 self.modules.eval()
-                valid_stats = []
                 with torch.no_grad():
                     for batch in tzip(*valid_set):
-                        valid_stats.append(self.evaluate_batch(batch))
-                summary = self.summarize(valid_stats)
-                for key in summary:
-                    logger.info(f"Valid {key}: {summary[key]:.2f}")
+                        stats = self.evaluate_batch(batch)
+                        self.train_logger.add_batch(stats, "valid")
 
-            self.on_epoch_end(epoch, summary, max_keys, min_keys)
+            self.on_epoch_end(epoch, max_keys, min_keys)
 
-    def on_epoch_end(self, epoch, summary, max_keys, min_keys):
+    def on_epoch_end(self, epoch, max_keys, min_keys):
         """Gets called at the end of each epoch.
 
         Arguments
         ---------
-        summary : mapping
-            This dict defines summary info about the validation pass, if
-            the validation data was passed, otherwise training pass. The
-            output of the `summarize` method is directly passed.
+        epoch : int
+            The current epoch count.
         max_keys : list of str
             A sequence of strings that match keys in the summary. Highest
             value is the relevant value.
@@ -432,11 +419,12 @@ class Brain:
             A sequence of strings that match keys in the summary. Lowest
             value is the relevant value.
         """
+        self.train_logger.log_epoch({"Epoch": epoch})
         if self.scheduler is not None:
-            min_val = summary[min_keys[0]]
+            min_val = self.train_logger.summary["valid"][min_keys[0]]
             self.scheduler([self.optimizer], epoch, min_val)
-        if self.saver is not None:
-            self.save(summary, max_keys, min_keys)
+        if self.checkpointer is not None:
+            self.save(self.train_logger.summary["valid"], max_keys, min_keys)
 
     def evaluate(self, test_set, max_key=None, min_key=None):
         """Iterate test_set and evaluate brain performance.
@@ -452,22 +440,22 @@ class Brain:
             This string references a key in the checkpoint, the
             checkpoint with the lowest value for this key will be loaded.
         """
-        if self.saver is None and (max_key or min_key):
-            raise ValueError("max_key and min_key require a saver.")
+        if self.checkpointer is None and (max_key or min_key):
+            raise ValueError("max_key and min_key require a checkpointer.")
         elif max_key is not None and min_key is not None:
             raise ValueError("Can't use both min_key and max_key.")
 
-        if self.saver is not None:
+        if self.checkpointer is not None:
             if max_key is not None:
-                self.saver.recover_if_possible(
+                self.checkpointer.recover_if_possible(
                     lambda c, key=max_key: c.meta[key]
                 )
             elif min_key is not None:
-                self.saver.recover_if_possible(
+                self.checkpointer.recover_if_possible(
                     lambda c, key=min_key: -c.meta[key]
                 )
             else:
-                self.saver.recover_if_possible()
+                self.checkpointer.recover_if_possible()
 
         test_stats = []
         self.modules.eval()
@@ -496,6 +484,6 @@ class Brain:
             importance_keys.append(lambda c, key=key: c.meta[key])
         for key in min_keys:
             importance_keys.append(lambda c, key=key: -c.meta[key])
-        self.saver.save_and_keep_only(
+        self.checkpointer.save_and_keep_only(
             meta=stats, importance_keys=importance_keys,
         )
