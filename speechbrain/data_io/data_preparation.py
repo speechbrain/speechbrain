@@ -701,7 +701,7 @@ class TIMITPreparer(torch.nn.Module):
             raise FileNotFoundError(err_msg)
 
 
-class librispeech_prepare:
+class LibriSpeechPreparer:
     """
     This class prepares the csv files for the LibriSpeech dataset
 
@@ -739,7 +739,7 @@ class librispeech_prepare:
         if not os.path.exists(self.save_folder):
             os.makedirs(self.save_folder)
 
-        self.save_opt = self.save_folder + "/opt_librispeech_prepare.pkl"
+        self.save_opt = self.save_folder + "/opt_LibriSpeechPreparer.pkl"
 
         # Check if this phase is already done (if so, skip it)
         if self.skip():
