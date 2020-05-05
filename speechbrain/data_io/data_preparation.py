@@ -19,7 +19,7 @@ from speechbrain.data_io.data_io import (
 logger = logging.getLogger(__name__)
 
 
-class timit_prepare(torch.nn.Module):
+class TIMITPreparer(torch.nn.Module):
     """
     repares the csv files for the TIMIT dataset.
 
@@ -63,7 +63,7 @@ class timit_prepare(torch.nn.Module):
     data_folder = local_folder
     splits = ['train', 'test', 'dev']
     # Initialization of the class
-    timit_prepare(data_folder, splits)
+    TIMITPreparer(data_folder, splits)
     ```
 
     Author
