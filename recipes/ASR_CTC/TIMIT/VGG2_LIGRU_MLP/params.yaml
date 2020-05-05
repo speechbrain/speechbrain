@@ -1,10 +1,10 @@
-data_folder: !PLACEHOLDER # e.g. /path/to/TIMIT
+data_folder: !PLACEHOLDER  # e.g. /path/to/TIMIT
 predictions_file: !ref <output_folder>/predictions.csv
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 ckpts_to_keep: 1
 sample_rate: 16000
-seed: !PLACEHOLDER # e.g, 1234
+seed: !PLACEHOLDER  # e.g, 1234
 output_folder: !ref results/<seed>
 
 # Data files
@@ -23,7 +23,7 @@ device: 'cuda:0'
 
 # Functions
 model: !speechbrain.lobes.models.CRDNN.CRDNN
-    output_size: 40 # 39 phonemes + 1 blank symbol
+    output_size: 40  # 39 phonemes + 1 blank symbol
     cnn_blocks: 2
     dnn_blocks: 2
     rnn_overrides: {rnn: {rnn_type: ligru}}
@@ -57,7 +57,8 @@ compute_features: !speechbrain.lobes.features.Features
     requires_grad: False
     n_mels: !ref <n_mels>
 
-train_loader: !speechbrain.data_io.data_io.DataLoaderFactory &loader
+train_loader: !speechbrain.data_io.data_io.DataLoaderFactory
+    &loader
     csv_file: !ref <csv_train>
     batch_size: !ref <batch_size>
     sentence_sorting: ascending

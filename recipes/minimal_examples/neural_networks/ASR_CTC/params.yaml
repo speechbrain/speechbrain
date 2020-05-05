@@ -13,7 +13,8 @@ N_epochs: 10
 N_batch: 1
 lr: 0.004
 
-train_loader: !speechbrain.data_io.data_io.DataLoaderFactory &loader
+train_loader: !speechbrain.data_io.data_io.DataLoaderFactory
+    &loader
     csv_file: !ref <csv_train>
     batch_size: !ref <N_batch>
     csv_read: [wav, spk_id]
@@ -44,7 +45,7 @@ rnn: !speechbrain.nnet.RNN.RNN
     bidirectional: True
 
 lin: !speechbrain.nnet.linear.Linear
-    n_neurons: 43 # 42 phonemes + 1 blank
+    n_neurons: 43  # 42 phonemes + 1 blank
     bias: False
 
 softmax: !speechbrain.nnet.activations.Softmax
