@@ -1460,7 +1460,6 @@ def write_wav_soundfile(data, filename, sampling_rate):
     >>> write_wav_soundfile(signal, tmpdir + '/wav_example.wav',
     ...                     sampling_rate=16000)
     """
-
     if len(data.shape) > 2:
         err_msg = (
             "expected signal in the format (time, channel). Got %s "
@@ -1469,6 +1468,9 @@ def write_wav_soundfile(data, filename, sampling_rate):
         )
         raise ValueError(err_msg)
     if isinstance(data, torch.Tensor):
+        if len(data.shape) == 2:
+            data = data.transpose(0, 1)
+        # Switching to cpu and converting to numpy
         data = data.cpu().numpy()
     # Writing the file
     sf.write(filename, data, sampling_rate)

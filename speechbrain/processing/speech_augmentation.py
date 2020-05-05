@@ -362,7 +362,7 @@ class SpeedPerturb(torch.nn.Module):
     >>> perturbator = SpeedPerturb(orig_freq=rate, speeds=[9])
     >>> clean = torch.tensor(signal, dtype=torch.float32).unsqueeze(0)
     >>> perturbed = perturbator(clean)
-    >>> save_signal = save(save_folder='exp/example', save_format='wav')
+    >>> save_signal = TensorSaver(save_folder='exp/example', save_format='wav')
     >>> save_signal(perturbed, ['example_perturb'], torch.ones(1))
     """
 
