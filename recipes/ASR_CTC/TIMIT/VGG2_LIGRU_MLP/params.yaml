@@ -1,4 +1,3 @@
-output_folder: exp/CTC/TIMIT_VGG2_LIGRU_MLP
 data_folder: !PLACEHOLDER # e.g. /path/to/TIMIT
 predictions_file: !ref <output_folder>/predictions.csv
 wer_file: !ref <output_folder>/wer.txt
@@ -6,6 +5,7 @@ save_folder: !ref <output_folder>/save
 ckpts_to_keep: 1
 sample_rate: 16000
 seed: !PLACEHOLDER # e.g, 1234
+output_folder: !ref results/<seed>
 
 # Data files
 csv_train: !ref <data_folder>/train.csv
