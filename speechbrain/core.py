@@ -92,7 +92,10 @@ def parse_arguments(arg_list):
 
     Example
     -------
-    >>> parse_arguments(['--seed', '10'])
+    >>> filename, overrides = parse_arguments(['params.yaml', '--seed', '10'])
+    >>> filename
+    'params.yaml'
+    >>> overrides
     {'seed': 10}
     """
     parser = argparse.ArgumentParser(
