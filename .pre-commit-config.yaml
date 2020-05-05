@@ -3,7 +3,7 @@ repos:
     rev: v2.5.0  # Use the ref you want to point at
     hooks:
       - id: trailing-whitespace
-        types: [python]
+        types: [file, text]
       - id: end-of-file-fixer
         types: [python]
       - id: requirements-txt-fixer
@@ -24,3 +24,8 @@ repos:
     hooks:
       - id: flake8
         types: [python]
+
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.23.0
+    hooks:
+      - id: yamllint

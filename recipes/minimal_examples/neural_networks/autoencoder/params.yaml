@@ -13,7 +13,8 @@ N_epochs: 100
 N_batch: 2
 lr: 0.004
 
-train_loader: !speechbrain.data_io.data_io.DataLoaderFactory &loader
+train_loader: !speechbrain.data_io.data_io.DataLoaderFactory
+    &loader
     csv_file: !ref <csv_train>
     batch_size: !ref <N_batch>
     csv_read: [wav]
