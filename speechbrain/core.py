@@ -259,7 +259,7 @@ class Brain:
     ...         return torch.nn.functional.l1_loss(predictions, targets)
     >>> tmpdir = getfixture('tmpdir')
     >>> model = torch.nn.Linear(in_features=10, out_features=10)
-    >>> brain = SimpleBrain([model], Optimize('sgd', 0.01))
+    >>> brain = SimpleBrain([model], optimizer=Optimize('sgd', 0.01))
     >>> brain.fit(
     ...     train_set=([torch.rand(10, 10)], [torch.rand(10, 10)]),
     ... )
