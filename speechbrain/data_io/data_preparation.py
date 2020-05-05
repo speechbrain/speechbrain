@@ -739,7 +739,7 @@ class LibriSpeechPreparer:
         if not os.path.exists(self.save_folder):
             os.makedirs(self.save_folder)
 
-        self.save_opt = self.save_folder + "/opt_LibriSpeechPreparer.pkl"
+        self.save_opt = self.save_folder + "/opt_librispeech_prepare.pkl"
 
         # Check if this phase is already done (if so, skip it)
         if self.skip():
