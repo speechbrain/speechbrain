@@ -932,7 +932,7 @@ class LibriSpeechPreparer:
 
 
 # Future: May add kaldi labels (not required at this point)
-class Voxceleb_prepare:
+class VoxCelebPreparer:
     """
     Prepares the csv files for the Voxceleb1 dataset.
 
