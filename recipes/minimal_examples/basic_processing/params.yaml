@@ -1,6 +1,6 @@
 output_folder: !PLACEHOLDER
-data_folder: samples/audio_samples
-csv_file: !ref <data_folder>/csv_example.csv
+data_folder: ../../../samples
+csv_file: !ref <data_folder>/audio_samples/csv_example.csv
 sample_rate: 16000
 batch_size: 2
 
@@ -9,7 +9,7 @@ sample_data: !speechbrain.data_io.data_io.DataLoaderFactory
     batch_size: !ref <batch_size>
     csv_read: [wav]
     replacements:
-        $data_folder: !ref <data_folder>
+        $data_folder: !ref <data_folder>/audio_samples
 
 add_babble: !speechbrain.processing.speech_augmentation.AddBabble
     speaker_count: 4 # Must set batch size to 5 or more
@@ -17,19 +17,19 @@ add_babble: !speechbrain.processing.speech_augmentation.AddBabble
     snr_high: 10
 
 add_reverb: !speechbrain.processing.speech_augmentation.AddReverb
-    csv_file: samples/rir_samples/rirs_rel.csv
+    csv_file: !ref <data_folder>/rir_samples/rirs_rel.csv
     order: random
     replacements:
-        $rir_folder: samples/rir_samples
+        $rir_folder: !ref <data_folder>/rir_samples
 
 add_noise: !speechbrain.processing.speech_augmentation.AddNoise
-    csv_file: samples/noise_samples/noise_rel.csv
+    csv_file: !ref <data_folder>/noise_samples/noise_rel.csv
     order: random
     snr_low: 10
     snr_high: 10
     pad_noise: False
     replacements:
-        $noise_folder: samples/noise_samples
+        $noise_folder: !ref <data_folder>/noise_samples
 
 drop_freq: !speechbrain.processing.speech_augmentation.DropFreq
     drop_freq_low: 0.1
