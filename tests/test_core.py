@@ -13,7 +13,10 @@ def test_nest():
 def test_parse_arguments():
     from speechbrain.core import parse_arguments
 
-    args = parse_arguments(["--seed", "3", "--data_folder", "TIMIT"])
+    filename, args = parse_arguments(
+        ["params.yaml", "--seed", "3", "--data_folder", "TIMIT"]
+    )
+    assert filename == "params.yaml"
     assert args == {"seed": 3, "data_folder": "TIMIT"}
 
 
