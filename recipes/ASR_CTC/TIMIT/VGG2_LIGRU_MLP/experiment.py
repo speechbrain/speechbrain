@@ -2,8 +2,8 @@
 import sys
 import torch
 import speechbrain as sb
-import speechbrain.data_io.wer as wer_io
-import speechbrain.utils.edit_distance as edit_distance
+import speechbrain.utils.train_logger as tl
+from speechbrain.utils.edit_distance import wer_details_for_batch
 from speechbrain.data_io.data_io import convert_index_to_lab
 from speechbrain.decoders.ctc import ctc_greedy_decode
 from speechbrain.decoders.decoders import undo_padding
@@ -44,7 +44,7 @@ class ASR(sb.core.Brain):
             sequence = convert_index_to_lab(sequence, ind2lab)
             phns = undo_padding(phns, phn_lens)
             phns = convert_index_to_lab(phns, ind2lab)
-            stats = edit_distance.wer_details_for_batch(
+            stats = wer_details_for_batch(
                 ids, phns, sequence, compute_alignments=True
             )
             stats = {"PER": stats}
@@ -52,27 +52,12 @@ class ASR(sb.core.Brain):
 
         return loss
 
-    def summarize(self, stats, write=False):
-        accumulator = {"loss": 0.0}
-        if "PER" in stats[0]:
-            accumulator["PER"] = []
-        for stat in stats:
-            for stat_type in stat:
-                accumulator[stat_type] += stat[stat_type]
 
-        summary = {"loss": float(accumulator["loss"] / len(stats))}
-        if "PER" in accumulator:
-            per_summary = edit_distance.wer_summary(accumulator["PER"])
-            summary["PER"] = per_summary["WER"]
-            if write:
-                with open(params.wer_file, "w") as fo:
-                    wer_io.print_wer_summary(per_summary, fo)
-                    wer_io.print_alignments(accumulator["PER"], fo)
-
-        return summary
-
-
-saver = sb.utils.checkpoints.Checkpointer(
+train_logger = tl.TextLogger(
+    save_file=params.train_log,
+    summary_fns={"loss": tl.float_summary, "PER": tl.error_rate_summary},
+)
+checkpointer = sb.utils.checkpoints.Checkpointer(
     checkpoints_dir=params.save_folder,
     recoverables={
         "model": params.model,
@@ -83,9 +68,10 @@ saver = sb.utils.checkpoints.Checkpointer(
 )
 asr_brain = ASR(
     modules=[params.model],
+    train_logger=train_logger,
     optimizer=params.optimizer,
     scheduler=params.lr_annealing,
-    saver=saver,
+    checkpointer=checkpointer,
 )
 
 # Experiment
