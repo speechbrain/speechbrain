@@ -3,7 +3,7 @@ repos:
     rev: v2.5.0  # Use the ref you want to point at
     hooks:
       - id: trailing-whitespace
-        types: [file, python, yaml]
+        types: [file, text]
       - id: end-of-file-fixer
         types: [python]
       - id: requirements-txt-fixer
