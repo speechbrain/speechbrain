@@ -60,12 +60,12 @@ class AddNoise(torch.nn.Module):
     Example
     -------
     >>> import soundfile as sf
-    >>> from speechbrain.data_io.data_io import save
+    >>> from speechbrain.data_io.data_io import TensorSaver
     >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
     >>> noisifier = AddNoise('samples/noise_samples/noise.csv')
     >>> clean = torch.tensor([signal], dtype=torch.float32)
     >>> noisy = noisifier(clean, torch.ones(1))
-    >>> save_signal = save(save_folder='exp/example', save_format='wav')
+    >>> save_signal = TensorSaver(save_folder='exp/example', save_format='wav')
     >>> save_signal(noisy, ['example_add_noise'], torch.ones(1))
     """
 
@@ -234,12 +234,12 @@ class AddReverb(torch.nn.Module):
     Example
     -------
     >>> import soundfile as sf
-    >>> from speechbrain.data_io.data_io import save
+    >>> from speechbrain.data_io.data_io import TensorSaver
     >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
     >>> reverb = AddReverb('samples/rir_samples/rirs.csv')
     >>> clean = torch.tensor([signal], dtype=torch.float32)
     >>> reverbed = reverb(clean, torch.ones(1))
-    >>> save_signal = save(save_folder='exp/example', save_format='wav')
+    >>> save_signal = TensorSaver(save_folder='exp/example', save_format='wav')
     >>> save_signal(reverbed, ['example_add_reverb'], torch.ones(1))
     """
 
@@ -357,7 +357,7 @@ class SpeedPerturb(torch.nn.Module):
     Example
     -------
     >>> import soundfile as sf
-    >>> from speechbrain.data_io.data_io import save
+    >>> from speechbrain.data_io.data_io import TensorSaver
     >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
     >>> perturbator = SpeedPerturb(orig_freq=rate, speeds=[9])
     >>> clean = torch.tensor(signal, dtype=torch.float32).unsqueeze(0)
@@ -433,12 +433,12 @@ class Resample(torch.nn.Module):
     Example
     -------
     >>> import soundfile as sf
-    >>> from speechbrain.data_io.data_io import save
+    >>> from speechbrain.data_io.data_io import TensorSaver
     >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
     >>> signal = torch.tensor(signal, dtype=torch.float32)[None, :, None]
     >>> resampler = Resample(orig_freq=rate, new_freq=rate // 2)
     >>> resampled = resampler(signal)
-    >>> save_signal = save(
+    >>> save_signal = TensorSaver(
     ...     save_folder='exp/example',
     ...     save_format='wav',
     ...     sampling_rate=rate // 2,
@@ -742,7 +742,7 @@ class AddBabble(torch.nn.Module):
 
     Example
     -------
-    >>> from speechbrain.data_io.data_io import save
+    >>> from speechbrain.data_io.data_io import TensorSaver
     >>> from speechbrain.data_io.data_io import DataLoaderFactory
     >>> babbler = AddBabble()
     >>> dataloader = DataLoaderFactory(
@@ -752,7 +752,7 @@ class AddBabble(torch.nn.Module):
     >>> loader = zip(*dataloader())
     >>> ids, batch, lengths = next(loader)[0]
     >>> noisy = babbler(batch, lengths)
-    >>> save_signal = save(save_folder='exp/example', save_format='wav')
+    >>> save_signal = TensorSaver(save_folder='exp/example', save_format='wav')
     >>> save_signal(noisy, ids, lengths)
     """
 
@@ -840,12 +840,12 @@ class DropFreq(torch.nn.Module):
     Example
     -------
     >>> import soundfile as sf
-    >>> from speechbrain.data_io.data_io import save
+    >>> from speechbrain.data_io.data_io import TensorSaver
     >>> dropper = DropFreq()
     >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
     >>> signal = torch.tensor(signal, dtype=torch.float32)
     >>> dropped_signal = dropper(signal.unsqueeze(0))
-    >>> save_signal = save(save_folder='exp/example', save_format='wav')
+    >>> save_signal = TensorSaver(save_folder='exp/example', save_format='wav')
     >>> save_signal(dropped_signal, ['freq_drop'], torch.ones(1))
     """
 
@@ -952,13 +952,13 @@ class DropChunk(torch.nn.Module):
     Example
     -------
     >>> import soundfile as sf
-    >>> from speechbrain.data_io.data_io import save
+    >>> from speechbrain.data_io.data_io import TensorSaver
     >>> dropper = DropChunk()
     >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
     >>> signal = torch.tensor(signal).unsqueeze(0)
     >>> length = torch.ones(1)
     >>> dropped_signal = dropper(signal, length)
-    >>> save_signal = save(save_folder='exp/example', save_format='wav')
+    >>> save_signal = TensorSaver(save_folder='exp/example', save_format='wav')
     >>> save_signal(dropped_signal, ['drop_chunk'], length)
     """
 
@@ -1060,11 +1060,11 @@ class DoClip(torch.nn.Module):
     Example
     -------
     >>> import soundfile as sf
-    >>> from speechbrain.data_io.data_io import save
+    >>> from speechbrain.data_io.data_io import TensorSaver
     >>> clipper = DoClip()
     >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
     >>> clipped_signal = clipper(torch.tensor(signal).unsqueeze(0))
-    >>> save_signal = save(save_folder='exp/example', save_format='wav')
+    >>> save_signal = TensorSaver(save_folder='exp/example', save_format='wav')
     >>> save_signal(clipped_signal, ['clip'], torch.ones(1))
     """
 

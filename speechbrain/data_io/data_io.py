@@ -1609,7 +1609,7 @@ def save_img(data, filename, sampling_rate=None, logger=None):
             plt.imsave(filename, data)
 
 
-class save(torch.nn.Module):
+class TensorSaver(torch.nn.Module):
     """
     Save tensors on disk.
 
@@ -1640,7 +1640,7 @@ class save(torch.nn.Module):
 
     Example:
     >>> tmpdir = getfixture('tmpdir')
-    >>> save_signal = save(save_folder=tmpdir, save_format='wav')
+    >>> save_signal = TensorSaver(save_folder=tmpdir, save_format='wav')
     >>> signal = 0.1 * torch.rand([1, 16000])
     >>> save_signal(signal, ['example_random'], torch.ones(1))
     """
@@ -1724,7 +1724,7 @@ class save(torch.nn.Module):
         -------
         >>> save_folder = getfixture('tmpdir')
         >>> save_format = 'wav'
-        >>> save_signal=save(save_folder, save_format)
+        >>> save_signal=TensorSaver(save_folder, save_format)
         >>> # random signal
         >>> signal=0.1*torch.rand([1,16000])
         >>> # saving
@@ -1822,7 +1822,7 @@ class save(torch.nn.Module):
         >>> save_folder = getfixture('tmpdir')
         >>> save_format = 'wav'
         >>> # class initialization
-        >>> saver = save(save_folder, save_format)
+        >>> saver = TensorSaver(save_folder, save_format)
         >>> saver.get_supported_formats()['wav']
         {'writer': <function ...>, 'description': ...}
         """
