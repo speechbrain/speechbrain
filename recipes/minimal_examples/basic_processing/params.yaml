@@ -4,7 +4,7 @@ csv_file: !ref <data_folder>/csv_example.csv
 sample_rate: 16000
 batch_size: 2
 
-sample_data: !speechbrain.data_io.data_io.create_dataloader
+sample_data: !speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_file>
     batch_size: !ref <batch_size>
     csv_read: [wav]
