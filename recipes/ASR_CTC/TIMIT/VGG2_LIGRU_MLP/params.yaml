@@ -45,7 +45,7 @@ lr_annealing: !speechbrain.nnet.lr_scheduling.LRScheduler
 normalize: !speechbrain.processing.features.mean_var_norm
     norm_type: global
 
-prepare_timit: !speechbrain.data_io.data_preparation.timit_prepare
+prepare_timit: !speechbrain.data_io.data_preparation.TIMITPreparer
     data_folder: !ref <data_folder>
     splits: [train, dev, test]
     save_folder: !ref <data_folder>
@@ -57,18 +57,18 @@ compute_features: !speechbrain.lobes.features.Features
     requires_grad: False
     n_mels: !ref <n_mels>
 
-train_loader: !speechbrain.data_io.data_io.create_dataloader &loader
+train_loader: !speechbrain.data_io.data_io.DataLoaderFactory &loader
     csv_file: !ref <csv_train>
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
     csv_read: [wav, phn]
 
-valid_loader: !speechbrain.data_io.data_io.create_dataloader
+valid_loader: !speechbrain.data_io.data_io.DataLoaderFactory
     <<: *loader
     csv_file: !ref <csv_valid>
 
-test_loader: !speechbrain.data_io.data_io.create_dataloader
+test_loader: !speechbrain.data_io.data_io.DataLoaderFactory
     <<: *loader
     csv_file: !ref <csv_test>
     batch_size: !ref <batch_size>
