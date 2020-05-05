@@ -14,7 +14,7 @@ Author: Peter Plantinga 2020
 # Importing libraries
 import math
 import torch
-from speechbrain.data_io.data_io import create_dataloader
+from speechbrain.data_io.data_io import DataLoaderFactory
 from speechbrain.utils.data_utils import (
     compute_amplitude,
     dB_to_amplitude,
@@ -158,7 +158,7 @@ class AddNoise(torch.nn.Module):
 
             # Create a data loader for the noise wavforms
             if self.csv_file is not None:
-                self.data_loader = create_dataloader(
+                self.data_loader = DataLoaderFactory(
                     csv_file=self.csv_file,
                     sentence_sorting=self.order,
                     batch_size=batch_size,
@@ -259,7 +259,7 @@ class AddReverb(torch.nn.Module):
         self.replacements = replacements
 
         # Create a data loader for the RIR waveforms
-        self.data_loader = create_dataloader(
+        self.data_loader = DataLoaderFactory(
             csv_file=self.csv_file,
             sentence_sorting=self.order,
             cache=self.do_cache,
@@ -743,9 +743,9 @@ class AddBabble(torch.nn.Module):
     Example
     -------
     >>> from speechbrain.data_io.data_io import save
-    >>> from speechbrain.data_io.data_io import create_dataloader
+    >>> from speechbrain.data_io.data_io import DataLoaderFactory
     >>> babbler = AddBabble()
-    >>> dataloader = create_dataloader(
+    >>> dataloader = DataLoaderFactory(
     ...     csv_file='samples/audio_samples/csv_example3.csv',
     ...     batch_size=5,
     ... )

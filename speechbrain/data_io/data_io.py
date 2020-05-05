@@ -24,7 +24,7 @@ from torch.utils.data import Dataset, DataLoader
 logger = logging.getLogger(__name__)
 
 
-class create_dataloader(torch.nn.Module):
+class DataLoaderFactory(torch.nn.Module):
     """
     Creates data loaders for a csv file
 
@@ -65,7 +65,7 @@ class create_dataloader(torch.nn.Module):
         data loader for more details.
     cache : bool, optional
         Default: False . When set to true, this option stores the input data in
-        a variable called self.cache (see create_dataloader in data_io.py). In
+        a variable called self.cache (see DataLoaderFactory in data_io.py). In
         practice, the first time the data are read from the disk, they are
         stored in the cpu RAM. If the data needs to be used again (e.g. when
         loops>1) the data will be read from the RAM directly.  If False, data
@@ -94,7 +94,7 @@ class create_dataloader(torch.nn.Module):
     -------
     >>> csv_file = 'samples/audio_samples/csv_example2.csv'
     >>> # Initialization of the class
-    >>> data_loader=create_dataloader(csv_file)
+    >>> data_loader=DataLoaderFactory(csv_file)
     >>> # When called, creates a dataloader for each entry in the csv file
     >>> # The sample has two: wav and spk
     >>> print(len(data_loader()))
@@ -165,7 +165,7 @@ class create_dataloader(torch.nn.Module):
         # Creating a dataloader for each data entry in the csv file
         for data_entry in self.csv_read:
 
-            dataset = create_dataset(
+            dataset = DatasetFactory(
                 data_dict,
                 self.label_dict,
                 self.supported_formats,
@@ -257,7 +257,7 @@ class create_dataloader(torch.nn.Module):
         -------
         >>> csv_file = 'samples/audio_samples/csv_example2.csv'
         >>> # Initialization of the class
-        >>> data_loader=create_dataloader(csv_file)
+        >>> data_loader=DataLoaderFactory(csv_file)
         >>> # list of tensors
         >>> tensor_lst=[torch.tensor([1,2,3,4]),torch.tensor([1,2])]
         >>> data_loader.padding(tensor_lst)[1,:]
@@ -311,7 +311,7 @@ class create_dataloader(torch.nn.Module):
         -------
         >>> csv_file = 'samples/audio_samples/csv_example2.csv'
         >>> # Initialization of the class
-        >>> data_loader=create_dataloader(csv_file)
+        >>> data_loader=DataLoaderFactory(csv_file)
         >>> # list of numpy tensors
         >>> tensor_lst=[[np.asarray([1,2,3,4]),np.asarray([1,2])]]
         >>> # Applying zero padding
@@ -429,7 +429,7 @@ class create_dataloader(torch.nn.Module):
         Example
         -------
         >>> csv_file = 'samples/audio_samples/csv_example2.csv'
-        >>> data_loader=create_dataloader(csv_file)
+        >>> data_loader=DataLoaderFactory(csv_file)
         >>> data_loader.generate_data_dict().keys()
         dict_keys(['example1', 'data_list', 'data_entries'])
         """
@@ -694,7 +694,7 @@ class create_dataloader(torch.nn.Module):
         Example
         -------
 
-        >>> data_loader=create_dataloader(
+        >>> data_loader=DataLoaderFactory(
         ...     csv_file='samples/audio_samples/csv_example2.csv'
         ... )
         >>> data_loader.get_supported_formats()['flac']['description']
@@ -731,7 +731,7 @@ class create_dataloader(torch.nn.Module):
         return supported_formats
 
 
-class create_dataset(Dataset):
+class DatasetFactory(Dataset):
     """
     This class implements the dataset needed by the pytorch data_loader.
 
@@ -761,11 +761,11 @@ class create_dataset(Dataset):
     Example
     -------
     >>> csv_file = 'samples/audio_samples/csv_example2.csv'
-    >>> data_loader=create_dataloader(csv_file)
+    >>> data_loader=DataLoaderFactory(csv_file)
     >>> # data_dict creation
     >>> data_dict=data_loader.generate_data_dict()
     >>> formats=data_loader.get_supported_formats()
-    >>> dataset=create_dataset(data_dict,{},formats,'wav',False,0)
+    >>> dataset=DatasetFactory(data_dict,{},formats,'wav',False,0)
     >>> first_example_id, *first_example = dataset[0]
     >>> print(first_example_id)
     example1
@@ -810,13 +810,13 @@ class create_dataset(Dataset):
         -------
         >>> csv_file = 'samples/audio_samples/csv_example2.csv'
         >>> # Initialization of the data_loader class
-        >>> data_loader=create_dataloader(csv_file)
+        >>> data_loader=DataLoaderFactory(csv_file)
         >>> # data_dict creation
         >>> data_dict=data_loader.generate_data_dict()
         >>> # supported formats
         >>> formats=data_loader.get_supported_formats()
         >>> # Initialization of the dataser class
-        >>> dataset=create_dataset(data_dict,{},formats,'wav',False,0)
+        >>> dataset=DatasetFactory(data_dict,{},formats,'wav',False,0)
         >>> # Getting data length
         >>> len(dataset)
         1
@@ -900,13 +900,13 @@ class create_dataset(Dataset):
         -------
         >>> csv_file = 'samples/audio_samples/csv_example2.csv'
         >>> # Initialization of the data_loader class
-        >>> data_loader=create_dataloader(csv_file)
+        >>> data_loader=DataLoaderFactory(csv_file)
         >>> # data_dict creation
         >>> data_dict=data_loader.generate_data_dict()
         >>> # supported formats
         >>> formats=data_loader.get_supported_formats()
         >>> # Initialization of the dataser class
-        >>> dataset=create_dataset(data_dict,{},formats,'wav',False,0)
+        >>> dataset=DatasetFactory(data_dict,{},formats,'wav',False,0)
         >>> # data line example
         >>> data_line={'data': 'samples/audio_samples/example5.wav',
         ...           'format': 'wav',
