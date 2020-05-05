@@ -21,84 +21,70 @@ logger = logging.getLogger(__name__)
 
 class timit_prepare(torch.nn.Module):
     """
-     -------------------------------------------------------------------------
-     speechbrain.data_io.data_preparation.timit_prepare
-     (author: Mirco Ravanelli)
+    repares the csv files for the TIMIT dataset.
 
-     Description: This class prepares the csv files for the TIMIT dataset.
+    Arguments
+    ---------
+    data_folder : str
+        Path to the folder where the original TIMIT dataset is stored.
+    splits : list
+        List of splits to prepare from ['train', 'dev', 'test']
+    save_folder : str
+        The directory where to store the csv files.
+    kaldi_ali_tr : dict, optional
+        Default: 'None'
+        When set, this is the directiory where the kaldi
+        training alignments are stored.  They will be automatically converted
+        into pkl for an easier use within speechbrain.
+    kaldi_ali_dev : str, optional
+        Default: 'None'
+        When set, this is the path to directory where the
+        kaldi dev alignments are stored.
+    kaldi_ali_te : str, optional
+        Default: 'None'
+        When set, this is the path to the directory where the
+        kaldi test alignments are stored.
+    phn_set : {60, 48, 39}, optional,
+        Default: 39
+        The phoneme set to use in the phn label.
+        It could be composed of 60, 48, or 39 phonemes.
+    uppercase : bool, optional
+        Default: False
+        This option must be True when the TIMIT dataset
+        is in the upper-case version.
 
-     Input: - data_folder (type: directory, mandatory):
-               it the folder where the original TIMIT dataset
-               is stored.
+    Example
+    -------
+    This example requires the actual TIMIT dataset.
+    ```
+    local_folder='/home/mirco/datasets/TIMIT'
+    save_folder='exp/TIMIT_exp'
+    # Definition of the config dictionary
+    data_folder = local_folder
+    splits = ['train', 'test', 'dev']
+    # Initialization of the class
+    timit_prepare(data_folder, splits)
+    ```
 
-           - splits ('train','dev','test',mandatory):
-               it the local directory where to store the
-               dataset. The dataset will be uncompressed in
-               this folder.
-
-           - kaldi_ali_tr (type: direcory, optional,
-               default: 'None'):
-               When set, this is the directiory where the
-               kaldi training alignments are stored.
-               They will be automatically converted into pkl
-               for an easier use within speechbrain.
-
-           - kaldi_ali_dev (type: direcory, optional,
-               default: 'None'):
-               When set, this is the directiory where the
-               kaldi dev alignments are stored.
-
-           - kaldi_ali_te (type: direcory, optional,
-               default: 'None'):
-               When set, this is the directiory where the
-               kaldi test alignments are stored.
-
-           - save_folder (type: str,default: None):
-               it the folder where to store the csv files.
-               If None, the results will be saved in
-               $output_folder/prepare_timit/*.csv.
-
-                           - phn_set (type: 60,48,39, optional,
-                               default: 39):
-                               It is the phoneme set to use in the phn label.
-                               It could be composed of 60, 48, or 39 phonemes.
-
-                           - uppercase (type: bool, optional, default: False):
-                               This option must be True when the TIMIT dataset
-                               is in the upper-case version.
-
-     Example:    from speechbrain.data_io.data_preparation import timit_prepare
-
-                 local_folder='/home/mirco/datasets/TIMIT'
-                 save_folder='exp/TIMIT_exp'
-
-                 # Definition of the config dictionary
-                 config={'class_name':'data_processing.copy_data_locally', \
-                              'data_folder': local_folder, \
-                              'splits':'train,test,dev',
-                               'save_folder': save_folder}
-
-                # Initialization of the class
-                timit_prepare(config)
-
-     -------------------------------------------------------------------------
-     """
+    Author
+    ------
+    Mirco Ravanelli
+    """
 
     def __init__(
         self,
         data_folder,
         splits,
+        save_folder,
         kaldi_ali_tr=None,
         kaldi_ali_dev=None,
         kaldi_ali_test=None,
         kaldi_lab_opts=None,
-        save_folder=None,
         phn_set="39",
         uppercase=False,
     ):
         # Expected inputs when calling the class (no inputs in this case)
         super().__init__()
-
         self.data_folder = data_folder
         self.splits = splits
         self.kaldi_ali_tr = kaldi_ali_tr
@@ -346,13 +332,6 @@ class timit_prepare(torch.nn.Module):
             self.test_spk = [item.upper() for item in self.test_spk]
 
         # Setting the save folder
-        if self.save_folder is None:
-            self.output_folder = self.global_config["output_folder"]
-            raise NotImplementedError("funct_name is undefined here!")
-            # FIX: funct_name is undefined
-            funct_name = None
-            self.save_folder = self.output_folder + "/" + funct_name
-
         if not os.path.exists(self.save_folder):
             os.makedirs(self.save_folder)
 
@@ -377,7 +356,6 @@ class timit_prepare(torch.nn.Module):
             return
 
     def __call__(self):
-
         # Additional checks to make sure the data folder contains TIMIT
         self.check_timit_folders()
 
@@ -452,49 +430,20 @@ class timit_prepare(torch.nn.Module):
                 kaldi_lab_opts=self.kaldi_lab_opts,
             )
 
-        # Saving options (useful to skip this phase when already done)
-        # save_pkl(self.conf, self.save_opt)
-
         return
 
     def skip(self):
         """
-         ---------------------------------------------------------------------
-          speechbrain.data_io.data_preparation.prepare_timit.skip
-          (auth: M. Ravanelli)
+        Detects if the timit data_preparation has been already done.
 
-         Description: This function detects when the timit data_preparation
-                      has been already done and can be skipped.
+        If the preparation has been done, we can skip it.
 
-         Input:        - self (type, prepare_timit class, mandatory)
-
-
-         Output:      - skip (type: boolean):
-                           if True, the preparation phase can be skipped.
-                           if False, it must be done.
-
-         Example:    from speechbrain.data_io.data_preparation import (
-                        timit_prepare)
-
-                     local_folder='/home/mirco/datasets/TIMIT'
-                     save_folder='exp/TIMIT_exp'
-
-                     # Definition of the config dictionary
-                     config={'class_name':\
-                            'data_processing.copy_data_locally',\
-                            'data_folder': local_folder, \
-                            'splits':'train,test,dev',
-                            'save_folder': save_folder}
-
-                    # Initialization of the class
-                    data_prep=timit_prepare(config)
-
-                    # Skip function is True because data_pre has already
-                    been done:
-                    print(data_prep.skip())
-
-         ---------------------------------------------------------------------
-         """
+        Returns
+        -------
+        bool
+            if True, the preparation phase can be skipped.
+            if False, it must be done.
+        """
 
         # Checking folders and save options
         skip = False
@@ -511,69 +460,28 @@ class timit_prepare(torch.nn.Module):
 
     # TODO: Consider making this less complex
     def create_csv(  # noqa: C901
-        self,
-        wav_lst,
-        csv_file,
-        kaldi_lab=None,
-        kaldi_lab_opts=None,
-        logfile=None,
+        self, wav_lst, csv_file, kaldi_lab=None, kaldi_lab_opts=None,
     ):
         """
-         ---------------------------------------------------------------------
-          speechbrain.data_io.data_preparation.prepare_timit.create_csv
-          (M. Ravanelli)
+        Creates the csv file given a list of wav files.
 
-         Description: This function creates the csv file given a list of wav
-                       files.
+        Arguments
+        ---------
+        wav_lst : list
+            The list of wav files of a given data split.
+        csv_file : str
+            The path of the output csv file
+        kaldi_lab : str, optional
+            Default: None
+            The path of the kaldi labels (optional).
+        kaldi_lab_opts : str, optional
+            Default: None
+            A string containing the options used to compute the labels.
 
-         Input:        - self (type, prepare_timit class, mandatory)
-
-                       - wav_lst (type: list, mandatory):
-                           it is the list of wav files of a given data split.
-
-                       - csv_file (type:file, mandatory):
-                           it is the path of the output csv file
-
-                       - kaldi_lab (type:file, default:None):
-                           it is the path of the kaldi labels (optional).
-
-                       - kaldi_lab_opts (type:str, default:None):
-                           it a string containing the options use to compute
-                           the labels.
-
-                       - logfile(type, logger, default: None):
-                           it the logger used to write debug and error msgs.
-
-
-         Output:      None
-
-
-         Example:   from speechbrain.data_io.data_preparation import (
-                        timit_prepare)
-
-                    local_folder='/home/mirco/datasets/TIMIT'
-                    save_folder='exp/TIMIT_exp'
-
-                    # Definition of the config dictionary
-                    config={'class_name':'data_processing.copy_data_locally',\
-                                  'data_folder': local_folder, \
-                                  'splits':'train,test,dev',
-                                   'save_folder': save_folder}
-
-                   # Initialization of the class
-                   data_prep=timit_prepare(config)
-
-                   # Get csv list
-                   wav_lst=['/home/mirco/datasets/TIMIT\
-                           /train/dr3/mtpg0/sx213.wav',
-                           '/home/mirco/datasets/TIMIT\
-                           /train/dr3/mtpg0/si2013.wav']
-
-                   csv_file='exp/ex_csv.csv'
-                   data_prep.create_csv(wav_lst,csv_file)
-
-         ---------------------------------------------------------------------
-         """
+        Returns
+        -------
+        None
+        """
 
         # Adding some Prints
         msg = '\t"Creating csv lists in  %s..."' % (csv_file)
@@ -752,38 +660,19 @@ class timit_prepare(torch.nn.Module):
 
     def check_timit_folders(self):
         """
-         ---------------------------------------------------------------------
-         speechbrain.data_io.check_timit_folders (author: Mirco Ravanelli)
+        Check if the data folder actually contains the TIMIT dataset.
 
-         Description: This function cheks if the dat folder actually contains
-                      the TIMIT dataset. If not, it raises an error.
+        If not, raises an error.
 
-         Input:        - self (type, prepare_timit class, mandatory)
+        Returns
+        -------
+        None
 
-
-         Output:      None
-
-
-         Example:   from speechbrain.data_io.data_preparation import (
-                        timit_prepare)
-
-                    local_folder='/home/mirco/datasets/TIMIT'
-                    save_folder='exp/TIMIT_exp'
-
-                    # Definition of the config dictionary
-                    config={'class_name':'data_processing.copy_data_locally',\
-                                  'data_folder': local_folder, \
-                                  'splits':'train,test,dev',
-                                   'save_folder': save_folder}
-
-                   # Initialization of the class
-                   data_prep=timit_prepare(config)
-
-                   # Check folder
-                   data_prep.check_timit_folders()
-
-         ---------------------------------------------------------------------
-         """
+        Raises
+        ------
+        FileNotFoundError
+            If data folder doesn't contain TIMIT dataset.
+        """
 
         # Creating checking string wrt to lower or uppercase
         if self.uppercase:
@@ -814,133 +703,39 @@ class timit_prepare(torch.nn.Module):
 
 class librispeech_prepare:
     """
-     -------------------------------------------------------------------------
-     speechbrain.data_io.librispeech_prepare (author: Mirco Ravanelli)
+    This class prepares the csv files for the LibriSpeech dataset
 
-     Description: This class prepares the csv files for the LibriSpeech
-                  dataset.
+    Arguments
+    ---------
+    data_folder : str
+        Path to the folder where the original LibriSpeech dataset is stored.
+    splits : list
+        List of splits to prepare from ['dev-clean','dev-others','test-clean',
+        'test-others','train-clean-100','train-clean-360','train-other-500']
+    save_folder : str
+        The directory where to store the csv files.
+        If None, the results will be saved in
+        $output_folder/prepare_librispeech/*.csv.
+    select_n_sentences : int
+        Default : None
+        If not None, only pick this many sentences.
 
-     Input (init):  - config (type, dict, mandatory):
-                       it is a dictionary containing the keys described below.
-
-                           - data_folder (type: directory, mandatory):
-                               it the folder where the original TIMIT dataset
-                               is stored.
-
-                           - splits ('dev-clean','dev-others','test-clean','
-                             'test-others','train-clean-100',
-                             'train-clean-360', 'train-other-500',mandatory):
-                               it contains the list of splits for which we are
-                               going to create the corresponding csv file.
-
-                           - select_n_sentences (type:int,opt,
-                             default:'None'0):
-                               it is the number of sentences to select.
-                               It might be useful for debugging when I want to
-                               test the script on a reduced number of
-                               sentences only.
-
-                           - save_folder (type: str,default: None):
-                               it the folder where to store the csv files.
-                               If None, the results will be saved in
-                               $output_folder/prepare_librispeech/*.csv.
-
-                   - funct_name (type, str, default: None):
-                       it is a string containing the name of the parent
-                       function that has called this method.
-
-                   - global_config (type, dict, default: None):
-                       it a dictionary containing the global variables of the
-                       parent config file.
-
-                   - logger (type, logger, default: None):
-                       it the logger used to write debug and error messages.
-                       If logger=None and root_cfg=True, the file is created
-                       from scratch.
-
-                   - first_input (type, list, default: None)
-                      this variable allows users to analyze the first input
-                      given when calling the class for the first time.
-
-
-     Input (call): - inp_lst(type, list, mandatory):
-                       by default the input arguments are passed with a list.
-                       In this case, the list is empty. The call function is
-                       just a dummy function here because all the meaningful
-                       computation must be executed only once and they are
-                       thus done in the initialization method only.
-
-
-     Output (call):  - stop_at_lst (type: list):
-                       when stop_at is set, it returns the stop_at in a list.
-                       Otherwise it returns None. It this case it returns
-                       always None.
-
-     Example:    from speechbrain.data_io.data_preparation import (
-                    librispeech_prepare)
-
-                 local_folder='/home/mirco/datasets/LibriSpeech'
-                 save_folder='exp/LibriSpeech_exp'
-
-                 # Definition of the config dictionary
-                 config={'class_name':'data_processing.copy_data_locally', \
-                              'data_folder': local_folder, \
-                              'splits':'dev-clean,test-clean',
-                               'save_folder': save_folder}
-
-                # Running the data preparation
-                librispeech_prepare(config)
-
-     -------------------------------------------------------------------------
-     """
+    Author
+    ------
+    Mirco Ravanelli 2020
+    """
 
     def __init__(
-        self,
-        config,
-        funct_name=None,
-        global_config=None,
-        logger=None,
-        first_input=None,
-        functions=None,
+        self, data_folder, splits, save_folder, select_n_sentences=None
     ):
-
-        # Logger setup
-        self.logger = logger
-
-        # Here are summarized the expected options for this class
-        self.expected_options = {
-            "data_folder": ("directory", "mandatory"),
-            "splits": (
-                "one_of_list(dev-clean,dev-others,test-clean,test-others,"
-                + "train-clean-100,train-clean-360,train-other-500)",
-                "mandatory",
-            ),
-            "save_folder": ("str", "optional", "None"),
-            "select_n_sentences": ("int_list(1,inf)", "optional", "None"),
-        }
-
-        # Check, cast , and expand the options
-        # self.conf = check_opts(
-        #     self, self.expected_options, config, logger=self.logger
-        # )
-
-        # Expected input
-        self.expected_inputs = []
-
-        # Check the first input
-        # check_inputs(
-        #     self.conf, self.expected_inputs, first_input, logger=self.logger
-        # )
-
+        super().__init__()
+        self.data_folder = data_folder
+        self.splits = splits
+        self.save_folder = save_folder
+        self.select_n_sentences = select_n_sentences
         # Other variables
         self.samplerate = 16000
-        self.funct_name = funct_name
-
         # Saving folder
-        if self.save_folder is None:
-            self.output_folder = global_config["output_folder"]
-            self.save_folder = self.output_folder + "/" + funct_name
-
         if not os.path.exists(self.save_folder):
             os.makedirs(self.save_folder)
 
@@ -987,63 +782,23 @@ class librispeech_prepare:
 
     def create_csv(self, wav_lst, text_dict, split, select_n_sentences):
         """
-         ---------------------------------------------------------------------
-         speechbrain.data_io.prepare_librispeech.create_csv
-         (author: Mirco Ravanelli)
+        Create the csv file given a list of wav files.
 
-         Description: This function creates the csv file given a list of wav
-                      files.
+        Arguments
+        ---------
+        wav_lst : list
+            The list of wav files of a given data split.
+        text_dict : list
+            The dictionary containing the text of each sentence.
+        split : str
+            The name of the current data split.
+        select_n_sentences : int, optional
+            The number of sentences to select.
 
-         Input:        - self (type, prepare_librispeecg class, mandatory)
-
-                       - wav_lst (type: list, mandatory):
-                           it is the list of wav files of a given data split.
-
-                       - text_dict (type: list, mandatory):
-                           it is the a dictionary containing the text of each
-                           sentence.
-
-                       - split (type: str, mandatory):
-                           it is the name of the current data split.
-
-                       - select_n_sentences (type:int,opt, default:'None'0):
-                           it is the number of sentences to select.
-
-         Output:      None
-
-
-         Example:   from speechbrain.data_io.data_preparation import \
-             librispeech_prepare
-
-                    local_folder='/home/mirco/datasets/LibriSpeech'
-                    save_folder='exp/LibriSpeech_exp'
-
-                    # Definition of the config dictionary
-                    config={'class_name':'data_processing.copy_data_locally',\
-                                  'data_folder': local_folder, \
-                                  'splits':'train-clean-100',
-                                   'save_folder': save_folder}
-
-                   # Initialization of the class
-                   data_prep=librispeech_prepare(config)
-
-                   # Get csv list
-                   wav_lst=['/home/mirco/datasets/LibriSpeech/dev-clean/84\
-                   /121123/84-121123-0000.flac']
-
-                   text_dict={'84-121123-0000':'Hello world'}
-
-                   split='debug_split'
-
-                   select_n_sentences=1
-
-                   data_prep.create_csv(wav_lst,text_dict,split,
-                   select_n_sentences)
-
-                   # take a look into exp/LibriSpeech_exp
-
-         ---------------------------------------------------------------------
-         """
+        Returns
+        -------
+        None
+        """
 
         # Setting path for the csv file
         csv_file = self.save_folder + "/" + split + ".csv"
@@ -1098,41 +853,14 @@ class librispeech_prepare:
 
     def skip(self):
         """
-         ---------------------------------------------------------------------
-         speechbrain.data_io.prepare_librispeech.skip (author: Mirco Ravanelli)
+        Detect when the librispeech data prep can be skipped.
 
-         Description: This function detects when the librispeeh data_prep
-                       has been already done and can be skipped.
-
-         Input:        - self (type, prepare_timit class, mandatory)
-
-
-         Output:      - skip (type: boolean):
-                           if True, the preparation phase can be skipped.
-                           if False, it must be done.
-
-         Example:    from speechbrain.data_io.data_preparation import \
-             librispeech_prepare
-
-                     local_folder='/home/mirco/datasets/LibriSpeech'
-                     save_folder='exp/LibriSpeech_exp'
-
-                     # Definition of the config dictionary
-                     config={'class_name':\
-                             'data_processing.copy_data_locally', \
-                             'data_folder': local_folder, \
-                             'splits':'dev-clean,test-clean',
-                             'save_folder': save_folder}
-
-                    # Running the data preparation
-                    data_prep=librispeech_prepare(config)
-
-                    # Skip function is True because data_pre has already been
-                    # done:
-                    print(data_prep.skip())
-
-         ---------------------------------------------------------------------
-         """
+        Returns
+        -------
+        bool
+            if True, the preparation phase can be skipped.
+            if False, it must be done.
+        """
 
         # Checking csv files
         skip = True
@@ -1154,102 +882,48 @@ class librispeech_prepare:
     @staticmethod
     def text_to_dict(text_lst):
         """
-         ---------------------------------------------------------------------
-         speechbrain.data_io.data_preparation.prepare_librispeech.text_to_dict
-         (author: Mirco Ravanelli)
+        This converts lines of text into a dictionary-
 
-         Description: This converts lines of text into a dictionary-
+        Arguments
+        ---------
+        text_lst : str
+            Path to the file containing the librispeech text transcription.
 
-         Input:        - self (type: prepare_timit class, mandatory)
+        Returns
+        -------
+        dict
+            The dictionary containing the text transcriptions for each sentence.
 
-                       text_lst (type: file, mandatory):
-                        it is the file containing  the librispeech text
-                        transcription.
-
-         Output:      text_dict (type: dictionary)
-                           it is the dictionary containing the text
-                           transcriptions for each sentence.
-
-         Example:    from speechbrain.data_io.data_preparation import \
-             librispeech_prepare
-
-                     local_folder='/home/mirco/datasets/LibriSpeech'
-                     save_folder='exp/LibriSpeech_exp'
-
-                     # Definition of the config dictionary
-                     config={'class_name':
-                             'data_processing.copy_data_locally', \
-                             'data_folder': local_folder, \
-                             'splits':'dev-clean,test-clean',
-                             'save_folder': save_folder}
-
-                    # Running the data preparation
-                    data_prep=librispeech_prepare(config)
-
-                    # Text dictionary creation
-                    text_lst=['/home/mirco/datasets/LibriSpeech/dev-clean\
-                    /84/121550/84-121550.trans.txt']
-
-                    print(data_prep.text_to_dict(text_lst))
-
-         ---------------------------------------------------------------------
-         """
-
+        """
         # Initialization of the text dictionary
         text_dict = {}
-
         # Reading all the transcription files is text_lst
         for file in text_lst:
             with open(file, "r") as f:
-
                 # Reading all line of the transcription file
                 for line in f:
                     line_lst = line.strip().split(" ")
                     text_dict[line_lst[0]] = "_".join(line_lst[1:])
-
         return text_dict
 
     def check_librispeech_folders(self):
         """
-         ---------------------------------------------------------------------
-         speechbrain.data_io.data_preparation.check_librispeech_folders
-         (M. Ravanelli)
+        Check if the data folder actually contains the LibriSpeech dataset.
 
-         Description: This function cheks if the dat folder actually contains
-                      the LibriSpeech dataset. If not, it raises an error.
+        If it does not, an error is raised.
 
-         Input:        - self (type, prepare_librispeech class, mandatory)
+        Returns
+        -------
+        None
 
-
-         Output:      None
-
-
-         Example:    from speechbrain.data_io.data_preparation import \
-             librispeech_prepare
-
-                     local_folder='/home/mirco/datasets/LibriSpeech'
-                     save_folder='exp/LibriSpeech_exp'
-
-                     # Definition of the config dictionary
-                     config={'class_name':
-                             'data_processing.copy_data_locally', \
-                             'data_folder': local_folder, \
-                             'splits':'dev-clean,test-clean',
-                              'save_folder': save_folder}
-
-                    # Running the data preparation
-                    data_prep=librispeech_prepare(config)
-
-                    # Check folder
-                    data_prep.check_librispeech_folders()
-
-         ---------------------------------------------------------------------
-         """
-
+        Raises
+        ------
+        OSError
+            If LibriSpeech is not found at the specified path.
+        """
         # Checking if all the splits exist
         for split in self.splits:
             if not os.path.exists(self.data_folder + "/" + split):
-
                 err_msg = (
                     "the folder %s does not exist (it is expected in the "
                     "Librispeech dataset)" % (self.data_folder + "/" + split)
@@ -1260,129 +934,62 @@ class librispeech_prepare:
 # Future: May add kaldi labels (not required at this point)
 class Voxceleb_prepare:
     """
-     -------------------------------------------------------------------------
-     speechbrain.data_io.data_preparation_voxceleb.Voxceleb_prepare
-     (author: Nauman Dawalatabad)
+    Prepares the csv files for the Voxceleb1 dataset.
 
-     Description: This class prepares the csv files for the Voxceleb1 dataset.
+    Arguments
+    ---------
+    data_folder : str
+        Path to the folder where the original VoxCeleb dataset is stored.
+    splits : list
+        List of splits to prepare from ['train', 'dev', 'test']
+    save_folder : str
+        The directory where to store the csv files.
+    kaldi_ali_tr : dict, optional
+        Default: 'None'
+        When set, this is the directiory where the kaldi
+        training alignments are stored.  They will be automatically converted
+        into pkl for an easier use within speechbrain.
+    kaldi_ali_dev : str, optional
+        Default: 'None'
+        When set, this is the path to directory where the
+        kaldi dev alignments are stored.
+    kaldi_ali_test : str, optional
+        Default: 'None'
+        When set, this is the path to the directory where the
+        kaldi test alignments are stored.
+    kaldi_lab_opts : str, optional
+        it a string containing the options use to compute
+        the labels.
 
-     Input (init):  - config (type, dict, mandatory):
-                       it is a dictionary containing the keys described below.
-
-                           - data_folder (type: directory, mandatory):
-                               it the folder where the original TIMIT dataset
-                               is stored.
-
-                           - splits ('train','dev','test',mandatory):
-                               it the local directory where to store the
-                               dataset. The dataset will be uncompressed in
-                               this folder.
-
-                           - save_folder (type: str,optional, default: None):
-                               it the folder where to store the csv files.
-                               If None, the results will be saved in
-                               $output_folder/prepare_timit/*.csv.
-
-                   - funct_name (type, str, optional, default: None):
-                       it is a string containing the name of the parent
-                       function that has called this method.
-
-                   - global_config (type, dict, optional, default: None):
-                       it a dictionary containing the global variables of the
-                       parent config file.
-
-                   - logger (type, logger, optional, default: None):
-                       it the logger used to write debug and error messages.
-                       If logger=None and root_cfg=True, the file is created
-                       from scratch.
-
-                   - first_input (type, list, optional, default: None)
-                      this variable allows users to analyze the first input
-                      given when calling the class for the first time.
-
-
-     Input (call): - inp_lst(type, list, mandatory):
-                       by default the input arguments are passed with a list.
-                       In this case, the list is empty. The call function is
-                       just a dummy function here because all the meaningful
-                       computation must be executed only once and they are
-                       thus done in the initialization method only.
-
-
-     Output (call):  - stop_at_lst (type: list):
-                       when stop_at is set, it returns the stop_at in a list.
-                       Otherwise it returns None. It this case it returns
-                       always None.
-
-     Example:    from speechbrain.data_io.data_preparation \
-                    import Voxceleb_prepare
-
-                 local_folder='/home/nauman/datasets/Vox1'
-                 save_folder='exp/Vox1_exp'
-
-                 # Definition of the config dictionary
-                 config={'class_name':'data_processing.copy_data_locally', \
-                              'data_folder': local_folder, \
-                              'splits':'train,test,dev',
-                               'save_folder': save_folder}
-
-                # Initialization of the class
-                Voxceleb_prepare(config)
-
-     -------------------------------------------------------------------------
-     """
+    Author
+    ------
+    Nauman Dawalatabad 2020
+    """
 
     def __init__(
         self,
-        config,
-        funct_name=None,
-        global_config=None,
-        functions=None,
-        logger=None,
-        first_input=None,
+        data_folder,
+        splits,
+        save_folder,
+        kaldi_ali_tr=None,
+        kaldi_ali_dev=None,
+        kaldi_ali_test=None,
+        kaldi_lab_opts=None,
     ):
 
-        self.logger = logger
+        self.data_folder = data_folder
+        self.splits = splits
+        self.save_folder = save_folder
+        self.kaldi_ali_tr = kaldi_ali_tr
+        self.kaldi_ali_dev = kaldi_ali_dev
+        self.kaldi_ali_test = kaldi_ali_test
+        self.kaldi_lab_opts = kaldi_lab_opts
 
-        # Here are summarized the expected options for this class
-        # Note: Kaldi ali will be added in future (currently: None)
-        self.expected_options = {
-            "class_name": ("str", "mandatory"),
-            "data_folder": ("directory", "mandatory"),
-            "splits": ("one_of_list(train,dev,test)", "mandatory"),
-            "kaldi_ali_tr": ("directory", "optional", "None"),
-            "kaldi_ali_dev": ("directory", "optional", "None"),
-            "kaldi_ali_test": ("directory", "optional", "None"),
-            "kaldi_lab_opts": ("str", "optional", "None"),
-            "save_folder": ("str", "optional", "None"),
-        }
-
-        # Check, cast , and expand the options
-        # self.conf = check_opts(
-        #     self, self.expected_options, config, logger=self.logger
-        # )
-
-        # Expected inputs when calling the class (no inputs in this case)
-        self.expected_inputs = []
-
-        # Check the first input
-        # check_inputs(
-        #     self.conf, self.expected_inputs, first_input, logger=self.logger
-        # )
-
-        # Other variables
-        self.global_config = global_config
         self.samplerate = 16000
-
         # ND
         wav_lst_train, wav_lst_dev, wav_lst_test = self.prepare_wav_list(
             self.data_folder
         )
-
-        # Setting the save folder
-        if self.save_folder is None:
-            self.output_folder = self.global_config["output_folder"]
-            self.save_folder = self.output_folder + "/" + funct_name
 
         if not os.path.exists(self.save_folder):
             os.makedirs(self.save_folder)
@@ -1395,24 +1002,19 @@ class Voxceleb_prepare:
 
         # Check if this phase is already done (if so, skip it)
         if self.skip():
-            # FIX: The logger_writes here
-            # msg = "\t%s sucessfully created!" % (self.save_csv_train)
-            # logger_write(msg, logfile=self.logger, level="debug")
-
-            # msg = "\t%s sucessfully created!" % (self.save_csv_dev)
-            # logger_write(msg, logfile=self.logger, level="debug")
-
-            # msg = "\t%s sucessfully created!" % (self.save_csv_test)
-            # logger_write(msg, logfile=self.logger, level="debug")
-
+            msg = "\t%s already existed, skipping" % (self.save_csv_train)
+            logger.debug(msg)
+            msg = "\t%s already existed, skipping" % (self.save_csv_dev)
+            logger.debug(msg)
+            msg = "\t%s already existed, skipping" % (self.save_csv_test)
+            logger.debug(msg)
             return
 
         # Additional checks to make sure the data folder contains TIMIT
         self.check_voxceleb1_folders()
 
-        # FIX: The logger_write
-        # msg = "\tCreating csv file for the Voxceleb Dataset.."
-        # logger_write(msg, logfile=self.logger, level="debug")
+        msg = "\tCreating csv file for the Voxceleb Dataset.."
+        logger.debug(msg)
 
         # Creating csv file for training data
         if "train" in self.splits:
@@ -1477,46 +1079,17 @@ class Voxceleb_prepare:
 
     def skip(self):
         """
-         ---------------------------------------------------------------------
-          speechbrain.data_io.data_preparation.prepare_timit.skip
-          (auth: M. Ravanelli)
+        Detect when the VoxCeleb data preparation can be skipped.
 
-         Description: This function detects when the timit data_preparation
-                      has been already done and can be skipped.
-
-         Input:        - self (type, prepare_timit class, mandatory)
-
-
-         Output:      - skip (type: boolean):
-                           if True, the preparation phase can be skipped.
-                           if False, it must be done.
-
-         Example:    from speechbrain.data_io.data_preparation import (
-                        timit_prepare)
-
-                     local_folder='/home/mirco/datasets/TIMIT'
-                     save_folder='exp/TIMIT_exp'
-
-                     # Definition of the config dictionary
-                     config={'class_name':\
-                            'data_processing.copy_data_locally',\
-                            'data_folder': local_folder, \
-                            'splits':'train,test,dev',
-                            'save_folder': save_folder}
-
-                    # Initialization of the class
-                    data_prep=timit_prepare(config)
-
-                    # Skip function is True because data_pre has already
-                    been done:
-                    print(data_prep.skip())
-
-         ---------------------------------------------------------------------
-         """
+        Returns
+        -------
+        bool
+            if True, the preparation phase can be skipped.
+            if False, it must be done.
+        """
 
         # Checking folders and save options
         skip = False
-
         if (
             os.path.isfile(self.save_csv_train)
             and os.path.isfile(self.save_csv_dev)
@@ -1526,7 +1099,6 @@ class Voxceleb_prepare:
             opts_old = load_pkl(self.save_opt)
             if opts_old == self.conf:
                 skip = True
-
         return skip
 
     def prepare_csv(
@@ -1538,67 +1110,39 @@ class Voxceleb_prepare:
         logfile=None,
     ):
         """
-         ---------------------------------------------------------------------
-          speechbrain.data_io.data_preparation.prepare_timit.create_csv
-          (Nauman Dawalatabad)
+        Creates the csv file given a list of wav files.
 
-         Description: This function creates the csv file given a list of wav
-                       files.
+        Arguments
+        ---------
+        wav_lst : list
+            The list of wav files of a given data split.
+        csv_file : str
+            The path of the output csv file
+        kaldi_lab : str, optional
+            Default: None
+            The path of the kaldi labels (optional).
+        kaldi_lab_opts : str, optional
+            Default: None
+            A string containing the options used to compute the labels.
 
-         Input:        - self (type, prepare_timit class, mandatory)
+        Returns
+        -------
+        None
 
-                       - wav_lst (type: list, mandatory):
-                           it is the list of wav files of a given data split.
+        Example
+        -------
+        # Sample output csv list
+        id10001---1zcIwhmdeo4---00001,8.1200625, \
+              /home/nauman/datasets/VoxCeleb1/id10001/ \
+              1zcIwhmdeo4/00001.wav,wav, ,id10001,string,
+        id10002---xTV-jFAUKcw---00001,5.4400625, \
+              /home/nauman/datasets/VoxCeleb1/id10002/ \
+              xTV-jFAUKcw/00001.wav,wav, ,id10002,string,
+        """
 
-                       - csv_file (type:file, mandatory):
-                           it is the path of the output csv file
-
-                       - kaldi_lab (type:file, optional, default:None):
-                           it is the path of the kaldi labels (optional).
-
-                       - kaldi_lab_opts (type:str, optional, default:None):
-                           it a string containing the options use to compute
-                           the labels.
-
-                       - logfile(type, logger, optional, default: None):
-                           it the logger used to write debug and error msgs.
-
-
-         Output:      None
-
-
-         Example:   from speechbrain.data_io.data_preparation import (
-                        Voxceleb_prepare)
-
-                    local_folder='/home/nauman/datasets/VoxCeleb1'
-                    save_folder='exp/VoxCeleb1_exp'
-
-                    # Definition of the config dictionary
-                    config={'class_name':'data_processing.copy_data_locally',\
-                                  'data_folder': local_folder, \
-                                  'splits':'train,test,dev',
-                                   'save_folder': save_folder}
-
-                   # Initialization of the class
-                   data_prep=Voxceleb_prepare(config)
-
-                   data_prep.prepare_csv(wav_lst,csv_file)
-
-                   # Sample output csv list
-                   id10001---1zcIwhmdeo4---00001,8.1200625, \
-                           /home/nauman/datasets/VoxCeleb1/id10001/ \
-                           1zcIwhmdeo4/00001.wav,wav, ,id10001,string,
-                   id10002---xTV-jFAUKcw---00001,5.4400625, \
-                           /home/nauman/datasets/VoxCeleb1/id10002/ \
-                           xTV-jFAUKcw/00001.wav,wav, ,id10002,string,
-
-         ---------------------------------------------------------------------
-         """
-
-        # FIX: The logger_write here
         # Adding some Prints
-        # msg = '\t"Creating csv lists in  %s..."' % (csv_file)
-        # logger_write(msg, logfile=self.logger, level="debug")
+        msg = '\t"Creating csv lists in  %s..."' % (csv_file)
+        logger.debug(msg)
 
         # Reading kaldi labels if needed:
         # FIX: These statements were unused, should they be deleted?
@@ -1683,55 +1227,28 @@ class Voxceleb_prepare:
             for line in csv_lines:
                 csv_writer.writerow(line)
 
-        # FIX: logger_write
         # Final prints
-        # msg = "\t%s sucessfully created!" % (csv_file)
-        # logger_write(msg, logfile=self.logger, level="debug")
+        msg = "\t%s sucessfully created!" % (csv_file)
+        logger.debug(msg)
 
     def check_voxceleb1_folders(self):
         """
-         ---------------------------------------------------------------------
-         speechbrain.data_io.check_voxceleb1_folders
-         (author: Nauman Dawalatabad)
+        Check if the data folder actually contains the Voxceleb1 dataset.
 
-         Description: This function cheks if the dat folder actually contains
-                      the Voxceleb1 dataset. If not, it raises an error.
+        If it does not, raise an error.
 
-         Input:        - self (type, prepare_Voxceleb class, mandatory)
+        Returns
+        -------
+        None
 
-
-         Output:      None
-
-
-         Example:   from speechbrain.data_io.data_preparation import (
-                        Voxceleb_prepare)
-
-                    local_folder='/home/nauman/datasets/VoxCeleb1'
-                    save_folder='exp/VoxCeleb1_exp'
-
-                    # Definition of the config dictionary
-                    config={'class_name':'data_processing.copy_data_locally',\
-                                  'data_folder': local_folder, \
-                                  'splits':'train,test,dev',
-                                   'save_folder': save_folder}
-
-                   # Initialization of the class
-                   data_prep=Voxceleb_prepare(config)
-
-                   # Check folder
-                   data_prep.check_voxceleb1_folders()
-
-         ---------------------------------------------------------------------
-         """
-
-        raise NotImplementedError("Need fixing old style here!")
-        # FIX: logger_write, convert to raising an error most probably?
+        Raises
+        ------
+        FileNotFoundError
+        """
         # Checking
-        # if not os.path.exists(self.data_folder + "/id10001"):
-
-        #    err_msg = (
-        #        "the folder %s does not exist (it is expected in "
-        #        "the Voxceleb dataset)" % (self.data_folder + "/id*")
-        #    )
-
-        #    logger_write(err_msg, logfile=self.logger)
+        if not os.path.exists(self.data_folder + "/id10001"):
+            err_msg = (
+                "the folder %s does not exist (it is expected in "
+                "the Voxceleb dataset)" % (self.data_folder + "/id*")
+            )
+            raise FileNotFoundError(err_msg)
