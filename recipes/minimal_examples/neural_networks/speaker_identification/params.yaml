@@ -13,7 +13,7 @@ N_epochs: 4
 N_batch: 2
 lr: 0.0004
 
-train_loader: !speechbrain.data_io.data_io.create_dataloader &loader
+train_loader: !speechbrain.data_io.data_io.DataLoaderFactory &loader
     csv_file: !ref <csv_train>
     batch_size: !ref <N_batch>
     csv_read: [wav, spk_id]
@@ -21,11 +21,11 @@ train_loader: !speechbrain.data_io.data_io.create_dataloader &loader
     replacements:
         $data_folder: !ref <data_folder>
 
-valid_loader: !speechbrain.data_io.data_io.create_dataloader
+valid_loader: !speechbrain.data_io.data_io.DataLoaderFactory
     <<: *loader
     csv_file: !ref <csv_valid>
 
-test_loader: !speechbrain.data_io.data_io.create_dataloader
+test_loader: !speechbrain.data_io.data_io.DataLoaderFactory
     <<: *loader
     csv_file: !ref <csv_test>
     batch_size: 1
