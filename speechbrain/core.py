@@ -20,13 +20,15 @@ from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.data_utils import recursive_update
 
 logger = logging.getLogger(__name__)
+DEFAULT_LOG_CONFIG = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_LOG_CONFIG = os.path.join(DEFAULT_LOG_CONFIG, "log-config.yaml")
 
 
 def create_experiment_directory(
     experiment_directory,
     params_to_save=None,
     overrides={},
-    log_config="log-config.yaml",
+    log_config=DEFAULT_LOG_CONFIG,
 ):
     """Create the output folder and relevant experimental files.
 
@@ -54,13 +56,11 @@ def create_experiment_directory(
         with open(params_filename, "w") as w:
             shutil.copyfileobj(resolved_yaml, w)
 
-    # Copy executing folder to output directory
+    # Copy executing file to output directory
     module = inspect.getmodule(inspect.currentframe().f_back)
     if module is not None:
-        callingdir = os.path.dirname(os.path.realpath(module.__file__))
-        parentdir, zipname = os.path.split(callingdir)
-        archivefile = os.path.join(experiment_directory, zipname)
-        shutil.make_archive(archivefile, "zip", parentdir, zipname)
+        callingfile = os.path.realpath(module.__file__)
+        shutil.copy(callingfile, experiment_directory)
 
     # Log exceptions to output automatically
     log_filepath = os.path.join(experiment_directory, "log.txt")
@@ -99,6 +99,11 @@ def parse_arguments(arg_list):
         description="Run a SpeechBrain experiment",
     )
     parser.add_argument(
+        "param_file",
+        help="a yaml-formatted file using the extended YAML syntax "
+        "defined by SpeechBrain.",
+    )
+    parser.add_argument(
         "--yaml_overrides",
         help="A yaml-formatted string representing a dictionary of "
         "overrides to the parameters in the param file. The keys of "
@@ -131,6 +136,9 @@ def parse_arguments(arg_list):
     # Ignore items that are "None", they were not passed
     parsed_args = vars(parser.parse_args(arg_list))
 
+    param_file = parsed_args["param_file"]
+    del parsed_args["param_file"]
+
     # Convert yaml_overrides to dictionary
     if parsed_args["yaml_overrides"] is not None:
         overrides = parse_overrides(parsed_args["yaml_overrides"])
@@ -138,7 +146,7 @@ def parse_arguments(arg_list):
         recursive_update(parsed_args, overrides)
 
     # Only return non-empty items
-    return {k: v for k, v in parsed_args.items() if v is not None}
+    return param_file, {k: v for k, v in parsed_args.items() if v is not None}
 
 
 def parse_overrides(override_string):

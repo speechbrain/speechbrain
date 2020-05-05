@@ -1,6 +1,7 @@
 """
 Authors: Mirco Ravanelli 2020, Peter Plantinga 2020
 """
+import os
 import torch
 from speechbrain.yaml import load_extended_yaml
 
@@ -53,7 +54,8 @@ class Features(torch.nn.Module):
         self.deltas = deltas
         self.context = context
         self.requires_grad = requires_grad
-        path = "speechbrain/lobes/features.yaml"
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        path = os.path.join(current_dir, "features.yaml")
         self.params = load_extended_yaml(open(path), overrides)
 
     def forward(self, wav, init_params: bool):

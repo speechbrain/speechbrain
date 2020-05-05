@@ -3,6 +3,7 @@
 Authors: Mirco Ravanelli 2020, Peter Plantinga 2020, Ju-Chieh Chou 2020,
     Titouan Parcollet 2020, Abdel 2020
 """
+import os
 import torch  # noqa: F401
 from speechbrain.yaml import load_extended_yaml
 from speechbrain.nnet.linear import Linear
@@ -71,11 +72,12 @@ class CRDNN(Sequential):
     ):
         blocks = []
 
+        current_dir = os.path.dirname(os.path.abspath(__file__))
         for i in range(cnn_blocks):
             blocks.append(
                 NeuralBlock(
                     block_index=i + 1,
-                    param_file="speechbrain/lobes/models/cnn_block.yaml",
+                    param_file=os.path.join(current_dir, "cnn_block.yaml"),
                     overrides=cnn_overrides,
                 )
             )
@@ -94,7 +96,7 @@ class CRDNN(Sequential):
             blocks.append(
                 NeuralBlock(
                     block_index=i + 1,
-                    param_file="speechbrain/lobes/models/rnn_block.yaml",
+                    param_file=os.path.join(current_dir, "rnn_block.yaml"),
                     overrides=rnn_overrides,
                 )
             )
@@ -103,7 +105,7 @@ class CRDNN(Sequential):
             blocks.append(
                 NeuralBlock(
                     block_index=i + 1,
-                    param_file="speechbrain/lobes/models/dnn_block.yaml",
+                    param_file=os.path.join(current_dir, "dnn_block.yaml"),
                     overrides=dnn_overrides,
                 )
             )

@@ -1,7 +1,9 @@
 #!/usr/bin/python
+import os
 import speechbrain as sb
 
-params_file = "recipes/minimal_examples/neural_networks/autoencoder/params.yaml"
+current_dir = os.path.dirname(os.path.abspath(__file__))
+params_file = os.path.join(current_dir, "params.yaml")
 with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(fin)
 
