@@ -12,7 +12,7 @@ sample_data: !speechbrain.data_io.data_io.DataLoaderFactory
         $data_folder: !ref <data_folder>/audio_samples
 
 add_babble: !speechbrain.processing.speech_augmentation.AddBabble
-    speaker_count: 4 # Must set batch size to 5 or more
+    speaker_count: 4  # Must set batch size to 5 or more
     snr_low: 10
     snr_high: 10
 
