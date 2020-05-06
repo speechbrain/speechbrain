@@ -1,4 +1,5 @@
 import logging
+from torch.utils.tensorboard import SummaryWriter
 
 logger = logging.getLogger(__name__)
 
@@ -6,7 +7,6 @@ logger = logging.getLogger(__name__)
 class TrainLogger:
     def __init__(self, save_file):
         self.save_file = save_file
-        self.stats = {}
 
     def _item_to_string(self, key, value):
         if isinstance(value, float):
@@ -32,3 +32,18 @@ class TrainLogger:
             print(summary, file=fout)
         if verbose:
             logger.info(summary)
+
+
+class TensorboardLogger:
+    def __init__(self, save_dir):
+        self.save_dir = save_dir
+        self.writer = SummaryWriter(self.save_dir)
+        self.global_step = {}
+
+    def log_batch(self, batch_stats, dataset):
+        if dataset not in self.global_step:
+            self.global_step[dataset] = 0
+        self.global_step[dataset] += 1
+        for stat, value in batch_stats.items():
+            tag = f"{stat}/{dataset}"
+            self.writer.add_scalar(tag, value, self.global_step[dataset])
