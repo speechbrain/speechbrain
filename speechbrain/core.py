@@ -255,7 +255,11 @@ class Brain:
     ...         return torch.nn.functional.l1_loss(predictions, targets)
     >>> tmpdir = getfixture('tmpdir')
     >>> model = torch.nn.Linear(in_features=10, out_features=10)
-    >>> brain = SimpleBrain([model], optimizer=Optimize('sgd', 0.01))
+    >>> brain = SimpleBrain(
+    ...     modules=[model],
+    ...     optimizer=Optimize('sgd', 0.01),
+    ...     first_input=torch.rand(10, 10),
+    ... )
     >>> brain.fit(
     ...     epoch_counter=range(1),
     ...     train_set=([torch.rand(10, 10)], [torch.rand(10, 10)]),
@@ -302,13 +306,17 @@ class Brain:
         """
         raise NotImplementedError
 
-    def on_epoch_end(self, epoch):
+    def on_epoch_end(self, epoch, train_summary, valid_summary=None):
         """Gets called at the end of each epoch.
 
         Arguments
         ---------
         epoch : int
             The current epoch count.
+        train_summary : dict
+            A summary of the training statistics for the epoch.
+        valid_summary : dict
+            A summary of the validation statistics for the epoch.
         """
         pass
 
@@ -323,7 +331,8 @@ class Brain:
         test : bool
             Whether this is called for test-set data.
         """
-        return {"loss": float(sum(stats["loss"]) / len(stats["loss"]))}
+        if "loss" in stats:
+            return {"loss": float(sum(stats["loss"]) / len(stats["loss"]))}
 
     def fit_batch(self, batch):
         """Fit one batch, override to do multiple updates.

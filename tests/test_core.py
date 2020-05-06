@@ -41,15 +41,15 @@ def test_brain():
         def compute_objectives(self, predictions, targets, train=True):
             return torch.nn.functional.l1_loss(predictions, targets)
 
-    brain = SimpleBrain([model], optimizer=Optimize("sgd", 0.1))
-
     inputs = torch.rand(10, 10)
+    brain = SimpleBrain(
+        modules=[model], optimizer=Optimize("sgd", 0.1), first_input=inputs,
+    )
+
     targets = torch.rand(10, 10)
     train_set = ([inputs], [targets])
 
     start_loss = brain.compute_objectives(brain.forward(inputs), targets)
-    brain.fit(
-        train_set=train_set, number_of_epochs=10,
-    )
+    brain.fit(epoch_counter=range(10), train_set=train_set)
     end_loss = brain.compute_objectives(brain.forward(inputs), targets)
     assert end_loss < start_loss
