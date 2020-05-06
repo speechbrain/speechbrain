@@ -123,17 +123,21 @@ class LRScheduler(torch.nn.Module):
             Number of times the dataset has been iterated.
         current_loss : int
             A number for determining whether to change the learning rate.
+
+        Returns
+        -------
+        float
+            The updated (possibly to the same value) learning rate.
         """
 
         for opt in optim_list:
 
             # Current learning rate
             current_lr = opt.optim.param_groups[0]["lr"]
+            next_lr = current_lr
 
             # Managing newbob annealing
             if self.annealing_type == "newbob":
-
-                next_lr = current_lr
 
                 if len(self.losses) > 0:
                     if (self.losses[-1] - current_loss) / self.losses[
@@ -180,7 +184,7 @@ class LRScheduler(torch.nn.Module):
         # Appending current loss
         self.losses.append(current_loss)
 
-        return
+        return current_lr, next_lr
 
     def _check_annealing_type(self):
         """This support function checks that all the fields are specified

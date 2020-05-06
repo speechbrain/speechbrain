@@ -14,16 +14,12 @@ import argparse
 import subprocess
 import speechbrain as sb
 from tqdm.contrib import tzip
-import speechbrain.utils.train_logger as tl
 from speechbrain.utils.logger import setup_logging
-from speechbrain.utils.epoch_loop import EpochCounter
-from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.data_utils import recursive_update
 
 logger = logging.getLogger(__name__)
 DEFAULT_LOG_CONFIG = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_LOG_CONFIG = os.path.join(DEFAULT_LOG_CONFIG, "log-config.yaml")
-DEFAULT_TRAIN_LOGGER = tl.TrainLogger({"loss": tl.float_summary})
 
 
 def create_experiment_directory(
@@ -261,23 +257,21 @@ class Brain:
     >>> model = torch.nn.Linear(in_features=10, out_features=10)
     >>> brain = SimpleBrain([model], optimizer=Optimize('sgd', 0.01))
     >>> brain.fit(
+    ...     epoch_counter=range(1),
     ...     train_set=([torch.rand(10, 10)], [torch.rand(10, 10)]),
     ... )
     """
 
     def __init__(
-        self,
-        modules,
-        train_logger=DEFAULT_TRAIN_LOGGER,
-        optimizer=None,
-        scheduler=None,
-        checkpointer=None,
+        self, modules, optimizer=None, first_input=None,
     ):
         self.modules = torch.nn.ModuleList(modules)
         self.optimizer = optimizer
-        self.scheduler = scheduler
-        self.checkpointer = checkpointer
-        self.train_logger = train_logger
+
+        # Initialize parameters
+        if first_input is not None:
+            self.forward(first_input, init_params=True)
+            self.optimizer.init_params(self.modules)
 
     def forward(self, x, init_params=False):
         """Forward pass, to be overridden by sub-classes.
@@ -307,6 +301,29 @@ class Brain:
             (e.g. WER might only be computed for valid and test, not train).
         """
         raise NotImplementedError
+
+    def on_epoch_end(self, epoch):
+        """Gets called at the end of each epoch.
+
+        Arguments
+        ---------
+        epoch : int
+            The current epoch count.
+        """
+        pass
+
+    def summarize(self, stats, test=False):
+        """Summarize lists of batch statistics.
+
+        Arguments
+        ---------
+        stats : dict
+            A set of statistics to summarize, keys representing the
+            names of the statistic and values are lists.
+        test : bool
+            Whether this is called for test-set data.
+        """
+        return {"loss": float(sum(stats["loss"]) / len(stats["loss"]))}
 
     def fit_batch(self, batch):
         """Fit one batch, override to do multiple updates.
@@ -352,14 +369,25 @@ class Brain:
         stats["loss"] = loss.detach()
         return stats
 
-    def fit(
-        self,
-        train_set,
-        valid_set=None,
-        number_of_epochs=1,
-        max_keys=[],
-        min_keys=[],
-    ):
+    def add_stats(self, dataset_stats, batch_stats):
+        """Add the stats for a batch to the set of stats for a dataset.
+
+        Arguments
+        ---------
+        dataset_stats : dict
+            A mapping of stat name to a list of the stats in the dataset.
+        batch_stats : dict
+            A mapping of stat name to the value for that stat in a batch.
+        """
+        for key in batch_stats:
+            if key not in dataset_stats:
+                dataset_stats[key] = []
+            if isinstance(batch_stats[key], list):
+                dataset_stats[key].extend(batch_stats[key])
+            else:
+                dataset_stats[key].append(batch_stats[key])
+
+    def fit(self, epoch_counter, train_set, valid_set=None):
         """Iterate epochs and datasets to improve objective.
 
         Relies on the existence of mulitple functions that can (or should) be
@@ -368,122 +396,51 @@ class Brain:
 
         * `fit_batch()`
         * `evaluate_batch()`
-        * `save()`
+        * `add_stats()`
+        * `summarize()`
 
         Arguments
         ---------
+        epoch_counter : iterable
+            each call should return an integer indicating the epoch count.
         train_set : list of DataLoaders
             a list of datasets to use for training, zipped before iterating.
         valid_set : list of Data Loaders
             a list of datasets to use for validation, zipped before iterating.
-        number_of_epochs : int
-            number of epochs to iterate
-        max_keys : list of str
-            a list of keys to use for checkpointing, highest value is kept.
-        min_keys : list of str
-            a list of keys to use for checkpointing, lowest value is kept.
         """
-        self.forward(next(iter(train_set[0])), init_params=True)
-        self.optimizer.init_params(self.modules)
-        epoch_counter = EpochCounter(number_of_epochs)
-        if self.checkpointer is not None:
-            self.checkpointer.add_recoverable("counter", epoch_counter)
-            self.checkpointer.recover_if_possible()
-
         for epoch in epoch_counter:
             self.modules.train()
+            train_stats = {}
             for batch in tzip(*train_set):
                 stats = self.fit_batch(batch)
-                self.train_logger.add_batch(stats, "train")
+                self.add_stats(train_stats, stats)
+            train_summary = self.summarize(train_stats)
 
+            valid_stats = {}
             if valid_set is not None:
                 self.modules.eval()
                 with torch.no_grad():
                     for batch in tzip(*valid_set):
                         stats = self.evaluate_batch(batch)
-                        self.train_logger.add_batch(stats, "valid")
+                        self.add_stats(valid_stats, stats)
+            valid_summary = self.summarize(valid_stats)
 
-            self.on_epoch_end(epoch, max_keys, min_keys)
+            self.on_epoch_end(epoch, train_summary, valid_summary)
 
-    def on_epoch_end(self, epoch, max_keys, min_keys):
-        """Gets called at the end of each epoch.
-
-        Arguments
-        ---------
-        epoch : int
-            The current epoch count.
-        max_keys : list of str
-            A sequence of strings that match keys in the summary. Highest
-            value is the relevant value.
-        min_keys : list of str
-            A sequence of strings that match keys in the summary. Lowest
-            value is the relevant value.
-        """
-        self.train_logger.log_epoch({"Epoch": epoch})
-        if self.scheduler is not None:
-            min_val = self.train_logger.summary["valid"][min_keys[0]]
-            self.scheduler([self.optimizer], epoch, min_val)
-        if self.checkpointer is not None:
-            self.save(self.train_logger.summary["valid"], max_keys, min_keys)
-
-    def evaluate(self, test_set, max_key=None, min_key=None):
+    def evaluate(self, test_set):
         """Iterate test_set and evaluate brain performance.
 
         Arguments
         ---------
         test_set : list of DataLoaders
             This list will be zipped before iterating.
-        max_key : str
-            This string references a key in the checkpoint, the
-            checkpoint with the highest value for this key will be loaded.
-        min_key : str
-            This string references a key in the checkpoint, the
-            checkpoint with the lowest value for this key will be loaded.
         """
-        if self.checkpointer is None and (max_key or min_key):
-            raise ValueError("max_key and min_key require a checkpointer.")
-        elif max_key is not None and min_key is not None:
-            raise ValueError("Can't use both min_key and max_key.")
-
-        if self.checkpointer is not None:
-            if max_key is not None:
-                self.checkpointer.recover_if_possible(
-                    lambda c, key=max_key: c.meta[key]
-                )
-            elif min_key is not None:
-                self.checkpointer.recover_if_possible(
-                    lambda c, key=min_key: -c.meta[key]
-                )
-            else:
-                self.checkpointer.recover_if_possible()
-
-        test_stats = []
+        test_stats = {}
         self.modules.eval()
         with torch.no_grad():
             for batch in tzip(*test_set):
-                test_stats.append(self.evaluate_batch(batch))
+                stats = self.evaluate_batch(batch)
+                self.add_stats(test_stats, stats)
+        test_summary = self.summarize(test_stats, test=True)
 
-        test_summary = self.summarize(test_stats, write=True)
-        for key in test_summary:
-            logger.info(f"Test {key}: {test_summary[key]:.2f}")
-
-    def save(self, stats, max_keys=[], min_keys=[]):
-        """Record relevant data into a checkpoint file.
-
-        Arguments
-        ---------
-        stats : mapping
-            A set of meta keys and their values to store.
-        max_keys : list of str
-            A set of keys from the meta, keep the maximum of each.
-        min_keys : list of str
-            A set of keys from the meta, keep the minimum of each.
-        """
-        importance_keys = [ckpt_recency]
-        for key in max_keys:
-            importance_keys.append(lambda c, key=key: c.meta[key])
-        for key in min_keys:
-            importance_keys.append(lambda c, key=key: -c.meta[key])
-        self.checkpointer.save_and_keep_only(
-            meta=stats, importance_keys=importance_keys,
-        )
+        return test_summary
