@@ -127,7 +127,9 @@ class LRScheduler(torch.nn.Module):
         Returns
         -------
         float
-            The updated (possibly to the same value) learning rate.
+            The learning rate before the update
+        float
+            The learning rate after the update
         """
 
         for opt in optim_list:
