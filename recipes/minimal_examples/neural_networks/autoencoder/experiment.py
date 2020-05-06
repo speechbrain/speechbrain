@@ -44,7 +44,18 @@ class AutoBrain(sb.core.Brain):
         loss = self.compute_objectives(predictions, inputs, train=False)
         return {"loss": loss.detach()}
 
+    def on_epoch_end(self, epoch, train_stats, valid_stats):
+        print("Completed epoch %d" % epoch)
+        print("Train loss: %.3f" % train_stats["loss"])
+        print("Valid loss: %.3f" % valid_stats["loss"])
 
-auto_brain = AutoBrain([params.linear1, params.linear2], params.optimizer)
-auto_brain.fit(params.train_loader(), params.valid_loader(), params.N_epochs)
-auto_brain.evaluate(params.train_loader())
+
+train_set = params.train_loader()
+auto_brain = AutoBrain(
+    modules=[params.linear1, params.linear2],
+    optimizer=params.optimizer,
+    first_input=next(iter(train_set[0])),
+)
+auto_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
+test_stats = auto_brain.evaluate(params.test_loader())
+print("Test loss: %.3f" % test_stats["loss"])
