@@ -6,37 +6,29 @@ possibility to have end-to-end  differentiability and to backpropagate the
 gradient through them. Our functions are a modified version the ones
 in torch audio toolkit (https://github.com/pytorch/audio).
 
-Example:
-    >>> import torch
-    >>> import soundfile as sf
-    >>>
-    >>> signal, fs=sf.read('samples/audio_samples/example1.wav')
-    >>> signal=torch.tensor(signal).float().unsqueeze(0)
-    >>>
-    >>> compute_STFT = STFT(sample_rate=fs,
-    ...                     win_length=25,
-    ...                     hop_length=10,n_fft=400)
-    >>> features = compute_STFT(signal)
-    >>>
-    >>> compute_spectr = spectrogram()
-    >>> features = compute_spectr(features)
-    >>>
-    >>> compute_fbanks = FBANKs(n_mels=40)
-    >>> features = compute_fbanks(features, init_params=True)
-    >>>
-    >>> compute_mfccs = MFCCs(n_mfcc=20)
-    >>> features = compute_mfccs(features, init_params=True)
-    >>>
-    >>> compute_deltas = deltas()
-    >>> delta1 = compute_deltas(features, init_params=True)
-    >>> delta2 = compute_deltas(delta1)
-    >>> features = torch.cat([features, delta1, delta2], dim=2)
-    >>>
-    >>> compute_cw = context_window(left_frames=5, right_frames=5)
-    >>> features  = compute_cw(features)
-    >>>
-    >>> norm = mean_var_norm()
-    >>> features = norm(features, torch.tensor([1]).float())
+Example
+-------
+>>> import torch
+>>> import soundfile as sf
+>>> signal, fs=sf.read('samples/audio_samples/example1.wav')
+>>> signal=torch.tensor(signal).float().unsqueeze(0)
+>>> compute_STFT = STFT(
+...     sample_rate=fs, win_length=25, hop_length=10, n_fft=400
+... )
+>>> features = compute_STFT(signal)
+>>> features = spectral_magnitude(features)
+>>> compute_fbanks = Filterbank(n_mels=40)
+>>> features = compute_fbanks(features, init_params=True)
+>>> compute_mfccs = DCT(n_out=20)
+>>> features = compute_mfccs(features, init_params=True)
+>>> compute_deltas = Deltas()
+>>> delta1 = compute_deltas(features, init_params=True)
+>>> delta2 = compute_deltas(delta1)
+>>> features = torch.cat([features, delta1, delta2], dim=2)
+>>> compute_cw = ContextWindow(left_frames=5, right_frames=5)
+>>> features  = compute_cw(features)
+>>> norm = InputNormalization()
+>>> features = norm(features, torch.tensor([1]).float())
 
 Author
     Mirco Ravanelli 2020
@@ -95,8 +87,9 @@ class STFT(torch.nn.Module):
     Example
     -------
     >>> import torch
-    >>> compute_STFT = STFT(sample_rate=16000, win_length=25,
-    ...                     hop_length=10,n_fft=400)
+    >>> compute_STFT = STFT(
+    ...     sample_rate=16000, win_length=25, hop_length=10, n_fft=400
+    ... )
     >>> inputs = torch.randn([10, 16000])
     >>> features = compute_STFT(inputs)
     >>> features.shape
@@ -197,49 +190,30 @@ class STFT(torch.nn.Module):
         return window
 
 
-class spectrogram(torch.nn.Module):
-    """computes the spectrogram of an audio signal.
-
-    It computes the spectrogram of an audio signal given its STFT in input.
+def spectral_magnitude(stft, power=2, log=False):
+    """Returns the magnitude of a complex spectrogram.
 
     Arguments
     ---------
-    power_spectrogram : float
-        It is the exponent used for spectrogram computation.
-        By default, we compute the power spectrogram (power_spectrogram=2).
+    stft : torch.Tensor
+        A tensor, output from the stft function.
+    power : int
+        What power to use in computing the magnitude.
+    log : bool
+        Whether to apply log to the spectral features.
 
     Example
     -------
-    >>> import torch
-    >>> compute_spectr = spectrogram()
-    >>> inputs = torch.randn([10, 101, 201, 2])
-    >>> features = compute_spectr(inputs)
-    >>> features.shape
-    torch.Size([10, 101, 201])
+
     """
-
-    def __init__(
-        self, power_spectrogram=2,
-    ):
-        super().__init__()
-        self.power_spectrogram = power_spectrogram
-
-    def forward(self, stft):
-        """Returns the spectrogram.
-
-        Arguments
-        ---------
-        x : tensor
-            A batch of STFT tensors.
-        """
-        spectrogram = stft.pow(self.power_spectrogram).sum(-1)
-        return spectrogram
+    mag = stft.pow(power).sum(-1)
+    if log:
+        return torch.log(mag)
+    return mag
 
 
-class FBANKs(torch.nn.Module):
-    """computes filter bank (FBANK) features.
-
-    It computes FBANK features of an audio signal given its spectrogram.
+class Filterbank(torch.nn.Module):
+    """computes filter bank (FBANK) features given spectral magnitudes.
 
     Arguments
     ---------
@@ -274,7 +248,7 @@ class FBANKs(torch.nn.Module):
     Example
     -------
     >>> import torch
-    >>> compute_fbanks = FBANKs()
+    >>> compute_fbanks = Filterbank()
     >>> inputs = torch.randn([10, 101, 201])
     >>> features = compute_fbanks(inputs, init_params=True)
     >>> features.shape
@@ -556,52 +530,35 @@ class FBANKs(torch.nn.Module):
         return x_db
 
 
-class MFCCs(torch.nn.Module):
-    """Computes the Mel-Frequnecy Cepstral Coefficientrs (MFCCs).
+class DCT(torch.nn.Module):
+    """Computes the discrete cosine transform.
 
-    This class computes MFCCs of an audio signal given a set of FBANKs
-    in input.
-    n_mfcc=20, n_mels=40, dct_norm="ortho"
+    This class is primarily used to compute MFCC features of an audio signal
+    given a set of FBANK features as input.
 
     Arguments
     ---------
-    n_mfcc : int
-        Number of output MFCC coefficients.
-    n_mel : int
-        Number of Mel fiters used to average the spectrogram.
-    dct_norm : str
-        Type of dct transform used to compute MFCCs ('ortho', 'None').
+    n_out : int
+        Number of output coefficients.
+    ortho_norm : bool
+        Whether to use orthogonal norm.
 
     Example
     -------
     >>> import torch
-    >>> compute_mfccs = MFCCs()
+    >>> compute_mfccs = DCT()
     >>> inputs = torch.randn([10, 101, 40])
-    >>> features = compute_mfccs(inputs)
+    >>> features = compute_mfccs(inputs, init_params=True)
     >>> features.shape
     torch.Size([10, 101, 20])
     """
 
     def __init__(
-        self, n_mfcc=20, n_mels=40, dct_norm="ortho",
+        self, n_out=20, ortho_norm=True,
     ):
         super().__init__()
-        self.n_mfcc = n_mfcc
-        self.n_mels = n_mels
-        self.dct_norm = dct_norm
-
-        # Generate matix for DCT transformation
-        self.dct_mat = self._create_dct()
-
-        # Check n_mfcc
-        if self.n_mfcc > self.n_mels:
-
-            err_msg = (
-                "Cannot select more MFCC coefficients than mel filters "
-                "(n_mfcc=%i, n_mels=%i)" % (self.n_mfcc, self.n_mels)
-            )
-
-            logger.error(err_msg, exc_info=True)
+        self.n_out = n_out
+        self.ortho_norm = ortho_norm
 
     def init_params(self, first_input):
         """
@@ -610,72 +567,78 @@ class MFCCs(torch.nn.Module):
         first_input : tensor
             A dummy input of the right shape for initializing parameters.
         """
-        self.dct_mat = self.dct_mat.to(first_input.device)
+        self.n_in = first_input.size(-1)
 
-    def _create_dct(self):
+        if self.n_out > self.n_in:
+            err_msg = (
+                "Cannot select more DCT coefficients than inputs "
+                "(n_out=%i, n_in=%i)" % (self.n_out, self.n_in)
+            )
+            raise ValueError(err_msg)
+
+        # Generate matix for DCT transformation
+        self.dct_mat = self._create_dct(first_input.device)
+
+    def _create_dct(self, device):
         """Compute the matrix for the DCT transformation.
 
         Arguments
         ---------
-        x : Tensor
-            A batch of linear FBANK tensors.
+        device : str
+            A torch device to use for storing the dct matrix.
         """
-        n = torch.arange(float(self.n_mels))
-        k = torch.arange(float(self.n_mfcc)).unsqueeze(1)
-        dct = torch.cos(math.pi / float(self.n_mels) * (n + 0.5) * k)
+        n = torch.arange(float(self.n_in), device=device)
+        k = torch.arange(float(self.n_out), device=device).unsqueeze(1)
+        dct = torch.cos(math.pi / float(self.n_in) * (n + 0.5) * k)
 
-        if self.dct_norm is None:
-            dct *= 2.0
-        else:
-            assert self.dct_norm == "ortho"
+        if self.ortho_norm:
             dct[0] *= 1.0 / math.sqrt(2.0)
-            dct *= math.sqrt(2.0 / float(self.n_mels))
+            dct *= math.sqrt(2.0 / float(self.n_in))
+        else:
+            dct *= 2.0
 
         return dct.t()
 
-    def forward(self, fbanks, init_params=False):
-        """Returns the MFCCs.
+    def forward(self, x, init_params=False):
+        """Returns the DCT of the input tensor.
 
         Arguments
         ---------
         x : tensor
-            A batch of FBANK tensors.
+            A batch of tensors to transform, usually fbank features.
         """
         if init_params:
-            self.init_params(fbanks)
+            self.init_params(x)
 
         # Managing multi-channels case
-        fb_shape = fbanks.shape
-        if len(fb_shape) == 4:
-            fbanks = fbanks.reshape(
-                fb_shape[0] * fb_shape[3], fb_shape[1], fb_shape[2]
-            )
+        input_shape = x.shape
+        if len(input_shape) == 4:
+            x = x.reshape(x.shape[0] * x.shape[3], x.shape[1], x.shape[2])
 
-        # Computing MFCCs by applying the DCT transform
-        mfcc = torch.matmul(fbanks, self.dct_mat)
+        # apply the DCT transform
+        dct = torch.matmul(x, self.dct_mat)
 
         # Reshape in the case of multi-channels
-        mfcc_shape = mfcc.shape
-        if len(fb_shape) == 4:
-            mfcc = mfcc.reshape(
-                fb_shape[0], mfcc_shape[1], mfcc_shape[2], fb_shape[3]
+        if len(input_shape) == 4:
+            dct = dct.reshape(
+                input_shape[0], dct.shape[1], dct.shape[2], input_shape[3]
             )
 
-        return mfcc
+        return dct
 
 
-class deltas(torch.nn.Module):
+class Deltas(torch.nn.Module):
     """Computes delta coefficients (time derivatives).
 
     Arguments
     ---------
-    der_win_length : int
+    win_length : int
         Length of the window used to compute the time derivatives.
 
     Example
     -------
     >>> import torch
-    >>> compute_deltas = deltas()
+    >>> compute_deltas = Deltas()
     >>> inputs = torch.randn([10, 101, 20])
     >>> features = compute_deltas(inputs, init_params=True)
     >>> features.shape
@@ -683,13 +646,11 @@ class deltas(torch.nn.Module):
     """
 
     def __init__(
-        self, der_win_length=5,
+        self, window_length=5,
     ):
         super().__init__()
-        self.der_win_length = der_win_length
-        self.n = (self.der_win_length - 1) // 2
+        self.n = (window_length - 1) // 2
         self.denom = self.n * (self.n + 1) * (2 * self.n + 1) / 3
-        self.kernel = torch.arange(-self.n, self.n + 1, 1).float()
 
     def init_params(self, first_input):
         """
@@ -698,7 +659,10 @@ class deltas(torch.nn.Module):
         first_input : tensor
             A dummy input of the right shape for initializing parameters.
         """
-        self.kernel = self.kernel.repeat(first_input.shape[2], 1, 1)
+        self.device = first_input.device
+        self.kernel = torch.arange(
+            -self.n, self.n + 1, device=self.device, dtype=torch.float32,
+        ).repeat(first_input.shape[2], 1, 1)
 
     def forward(self, x, init_params=False):
         """Returns the delta coefficients.
@@ -722,9 +686,7 @@ class deltas(torch.nn.Module):
 
         # Derivative estimation (with a fixed convolutional kernel)
         delta_coeff = (
-            torch.nn.functional.conv1d(
-                x, self.kernel.to(x.device), groups=x.shape[1]
-            )
+            torch.nn.functional.conv1d(x, self.kernel, groups=x.shape[1])
             / self.denom
         )
 
@@ -738,7 +700,7 @@ class deltas(torch.nn.Module):
         return delta_coeff
 
 
-class context_window(torch.nn.Module):
+class ContextWindow(torch.nn.Module):
     """Computes the context window.
 
     This class applies a context window by gathering multiple time steps
@@ -755,7 +717,7 @@ class context_window(torch.nn.Module):
     Example
     -------
     >>> import torch
-    >>> compute_cw = context_window(left_frames=5, right_frames=5)
+    >>> compute_cw = ContextWindow(left_frames=5, right_frames=5)
     >>> inputs = torch.randn([10, 101, 20])
     >>> features = compute_cw(inputs)
     >>> features.shape
@@ -824,7 +786,7 @@ class context_window(torch.nn.Module):
 
 
 @register_checkpoint_hooks
-class mean_var_norm(torch.nn.Module):
+class InputNormalization(torch.nn.Module):
     """Performs mean and variance normalization of the input tensor.
         mean_norm=True,
         std_norm=True,
@@ -851,7 +813,7 @@ class mean_var_norm(torch.nn.Module):
     Example
     -------
     >>> import torch
-    >>> norm = mean_var_norm()
+    >>> norm = InputNormalization()
     >>> inputs = torch.randn([10, 101, 20])
     >>> inp_len = torch.ones([10])
     >>> features = norm(inputs, inp_len)
@@ -899,8 +861,8 @@ class mean_var_norm(torch.nn.Module):
             sentence (e.g, [0.7, 0.9, 1.0]). It is used to avoid
             computing stats on zero-padded steps.
         spk_ids : tensor containing the ids of each speaker (e.g, [0 10 6]).
-                  It is used to perform per-speaker normalization when
-                  norm_type='speaker'.
+            It is used to perform per-speaker normalization when
+            norm_type='speaker'.
         """
         self.device_inp = x.device
         N_batches = x.shape[0]
