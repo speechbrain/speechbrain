@@ -1,19 +1,28 @@
 import logging
-from torch.utils.tensorboard import SummaryWriter
 
 logger = logging.getLogger(__name__)
 
 
 class TrainLogger:
+    """Text logger of training information
+
+    Arguments
+    ---------
+    save_file : str
+        The file to use for logging train information.
+    """
+
     def __init__(self, save_file):
         self.save_file = save_file
 
     def _item_to_string(self, key, value):
+        """Convert one item to string, handling floats"""
         if isinstance(value, float):
             value = f"{value:.2f}"
         return f"{key}: {value}"
 
     def _stats_to_string(self, epoch_stats, train_stats, valid_stats=None):
+        """Convert all stats to a single string summary"""
         log_string = " - ".join(
             [self._item_to_string(k, v) for k, v in epoch_stats.items()]
         )
@@ -27,6 +36,19 @@ class TrainLogger:
     def log_epoch(
         self, epoch_stats, train_stats, valid_stats=None, verbose=True,
     ):
+        """Log the stats for one epoch.
+
+        Arguments
+        ---------
+        epoch_stats : dict
+            Stats relevant to the epoch (e.g. count, learning-rate, etc.)
+        train_stats : dict
+            Stats relevant to the training pass
+        valid_stats : dict
+            Stats relevant to the validation pass
+        verbose : bool
+            Whether to also put logging information to the standard logger.
+        """
         summary = self._stats_to_string(epoch_stats, train_stats, valid_stats)
         with open(self.save_file, "a") as fout:
             print(summary, file=fout)
@@ -35,12 +57,37 @@ class TrainLogger:
 
 
 class TensorboardLogger:
+    """Logs training information in the format required by Tensorboard.
+
+    Arguments
+    ---------
+    save_dir : str
+        A directory for storing all the relevant logs
+
+    Raises
+    ------
+    ImportError if Tensorboard is not installed.
+    """
+
     def __init__(self, save_dir):
         self.save_dir = save_dir
+
+        # Raises ImportError if TensorBoard is not installed
+        from torch.utils.tensorboard import SummaryWriter
+
         self.writer = SummaryWriter(self.save_dir)
         self.global_step = {}
 
     def log_batch(self, batch_stats, dataset):
+        """Logs one batch in TensorBoard format
+
+        Arguments
+        ---------
+        batch_stats : dict
+            All stats to be logged, key is name and value is a scalar.
+        dataset : str
+            The name of the dataset this batch belongs to (e.g. "train")
+        """
         if dataset not in self.global_step:
             self.global_step[dataset] = 0
         self.global_step[dataset] += 1
