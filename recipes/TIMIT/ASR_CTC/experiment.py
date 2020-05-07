@@ -7,6 +7,7 @@ import speechbrain.utils.edit_distance as edit_distance
 from speechbrain.data_io.data_io import convert_index_to_lab
 from speechbrain.decoders.ctc import ctc_greedy_decode
 from speechbrain.decoders.decoders import undo_padding
+from ..timit_prepare import TIMITPreparer
 
 # Load hyperparameters file with command-line overrides
 params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
@@ -89,7 +90,12 @@ asr_brain = ASR(
 )
 
 # Experiment
-params.prepare_timit()
+prepare_timit = TIMITPreparer(
+    data_folder=params.data_folder,
+    splits=["train", "dev", "test"],
+    save_folder=params.data_folder,
+)
+prepare_timit()
 
 asr_brain.fit(
     train_set=params.train_loader(),
