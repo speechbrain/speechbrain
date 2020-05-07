@@ -1,0 +1,37 @@
+n_fft: 400
+n_mels: 23
+n_mfcc: 20
+left_frames: 5
+right_frames: 5
+freeze: True
+
+compute_STFT: !speechbrain.processing.features.STFT
+    sample_rate: 16000
+    win_length: 25
+    hop_length: 10
+    n_fft: !ref <n_fft>
+    window_type: hamming
+
+compute_spectrogram: !speechbrain.processing.features.spectrogram
+    power_spectrogram: 2
+
+compute_fbanks: !speechbrain.processing.features.FBANKs
+    n_mels: !ref <n_mels>
+    log_mel: True
+    filter_shape: triangular
+    f_min: 0
+    f_max: 8000
+    freeze: !ref <freeze>
+    n_fft: !ref <n_fft>
+
+compute_mfccs: !speechbrain.processing.features.MFCCs
+    n_mfcc: !ref <n_mfcc>
+    n_mels: !ref <n_mels>
+    dct_norm: ortho
+
+compute_deltas: !speechbrain.processing.features.deltas
+    der_win_length: 5
+
+context_window: !speechbrain.processing.features.context_window
+    left_frames: !ref <left_frames>
+    right_frames: !ref <right_frames>

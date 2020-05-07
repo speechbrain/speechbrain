@@ -1,66 +1,42 @@
-"""
- -----------------------------------------------------------------------------
- data_utils.py
+"""This library gathers utilities for data io operation.
 
- Description: This library gathers utils for data io operation.
- -----------------------------------------------------------------------------
+Authors: Mirco Ravanelli 2020, Aku Rouhe 2020
 """
 
 import os
+import collections.abc
 
 
 def get_all_files(
     dirName, match_and=None, match_or=None, exclude_and=None, exclude_or=None
 ):
+    """Returns a list of files within found within a folder.
+
+    Different options can be used to restrict the search to some specific
+    patterns.
+
+    Arguments
+    ---------
+    dirName : str
+        the directory to search
+    match_and : list
+        a list that contains patterns to match. The file is
+        returned if it matches all the entries in `match_and`.
+    match_or : list
+        a list that contains patterns to match. The file is
+        returned if it matches one or more of the entries in `match_or`.
+    exclude_and : list
+        a list that contains patterns to match. The file is
+        returned if it matches none of the entries in `exclude_and`.
+    exclude_or : list
+        a list that contains pattern to match. The file is
+        returned if it fails to match one of the entries in `exclude_or`.
+
+    Example
+    -------
+    >>> get_all_files('samples/rir_samples', match_and=['3.wav'])
+    ['samples/rir_samples/rir3.wav']
     """
-     -------------------------------------------------------------------------
-     speechbrain.utils.data_utils.get_all_files (author: Mirco Ravanelli)
-
-     Description: This function get a list of files within found within a
-                  folder. Different options can be used to restrict the search
-                  to some specific patterns.
-
-     Input (call):     - dirName (type: directory, mandatory):
-                           it is the configuration dictionary.
-
-                       - match_and (type: list, optional, default:None):
-                           it is a list that contains pattern to match. The
-                           file is returned if all the entries in match_and
-                           are founded.
-
-                       - match_or (type: list, optional, default:None):
-                           it is a list that contains pattern to match. The
-                           file is returned if one the entries in match_or are
-                           founded.
-
-                       - exclude_and (type: list, optional, default:None):
-                           it is a list that contains pattern to match. The
-                           file is returned if all the entries in match_or are
-                            not founded.
-
-                       - exclude_or (type: list, optional, default:None):
-                           it is a list that contains pattern to match. The
-                           file is returned if one of the entries in match_or
-                           is not founded.
-
-                      - logger (type: logger, optional, default: None):
-                       it the logger used to write debug and error messages.
-
-
-     Output (call):  - allFiles(type:list):
-                       it is the output list of files.
-
-
-     Example:   from speechbrain.utils.data_utils import get_all_files
-
-                # List of wav files
-                print(get_all_files('samples',match_and=['.wav']))
-
-                # List of cfg files
-                print(get_all_files('exp',match_and=['.cfg']))
-
-     -------------------------------------------------------------------------
-     """
 
     # Match/exclude variable initialization
     match_and_entry = True
@@ -139,29 +115,20 @@ def get_all_files(
 
 
 def split_list(seq, num):
+    """Returns a list of splits in the sequence.
+
+    Arguments
+    ---------
+    seq : iterable
+        the input list, to be split.
+    num : int
+        the number of chunks to produce.
+
+    Example
+    -------
+    >>> split_list([1, 2, 3, 4, 5, 6, 7, 8, 9], 4)
+    [[1, 2], [3, 4], [5, 6], [7, 8, 9]]
     """
-     -------------------------------------------------------------------------
-     speechbrain.utils.data_utils.split_list (author: Mirco Ravanelli)
-
-     Description: This function splits the input list in N parts.
-
-     Input (call):    - seq (type: list, mandatory):
-                           it is the input list
-
-                      - nums (type: int(1,inf), mandatory):
-                           it is the number of chunks to produce
-
-     Output (call):  out (type: list):
-                       it is a list containing all chunks created.
-
-
-     Example:  from speechbrain.utils.data_utils import split_list
-
-               print(split_list([1,2,3,4,5,6,7,8,9],4))
-
-     -------------------------------------------------------------------------
-     """
-
     # Average length of the chunk
     avg = len(seq) / float(num)
     out = []
@@ -169,42 +136,82 @@ def split_list(seq, num):
 
     # Creating the chunks
     while last < len(seq):
-        out.append(seq[int(last): int(last + avg)])
+        out.append(seq[int(last) : int(last + avg)])
         last += avg
 
     return out
 
 
 def recursive_items(dictionary):
+    """Yield each (key, value) of a nested dictionary
+
+    Arguments
+    ---------
+    dictionary : dict
+        the nested dictionary to list.
+
+    Yields
+    ------
+    `(key, value)` tuples from the dictionary.
+
+    Example
+    -------
+    >>> rec_dict={'lev1': {'lev2': {'lev3': 'current_val'}}}
+    >>> [item for item in recursive_items(rec_dict)]
+    [('lev3', 'current_val')]
     """
-     -------------------------------------------------------------------------
-     speechbrain.utils.data_utils.recursive_items (author: Mirco Ravanelli)
-
-     Description: This function output the key, value of a recursive
-                  dictionary (i.e, a dictionary that might contain other
-                  dictionaries).
-
-     Input (call):    - dictionary (type: dict, mandatory):
-                           the dictionary (or dictionary of dictionaries)
-                           in input.
-
-     Output (call):   - (key,valies): key value tuples on the
-                       recursive dictionary.
-
-
-     Example:   from speechbrain.utils.data_utils import recursive_items
-
-                rec_dict={}
-                rec_dict['lev1']={}
-                rec_dict['lev1']['lev2']={}
-                rec_dict['lev1']['lev2']['lev3']='current_val'
-
-                print(list(recursive_items(rec_dict)))
-
-     -------------------------------------------------------------------------
-     """
     for key, value in dictionary.items():
         if type(value) is dict:
             yield from recursive_items(value)
         else:
             yield (key, value)
+
+
+def recursive_update(d, u, must_match=False):
+    """Similar function to `dict.update`, but for a nested `dict`.
+
+    From: https://stackoverflow.com/a/3233356
+
+    If you have to a nested mapping structure, for example:
+
+        {"a": 1, "b": {"c": 2}}
+
+    Say you want to update the above structure with:
+
+        {"b": {"d": 3}}
+
+    This function will produce:
+
+        {"a": 1, "b": {"c": 2, "d": 3}}
+
+    Instead of:
+
+        {"a": 1, "b": {"d": 3}}
+
+    Arguments
+    ---------
+    d : dict
+        mapping to be updated
+    u : dict
+        mapping to update with
+    must_match : bool
+        Whether to throw an error if the key in `u` does not exist in `d`.
+
+    Example
+    -------
+    >>> d = {'a': 1, 'b': {'c': 2}}
+    >>> recursive_update(d, {'b': {'d': 3}})
+    >>> d
+    {'a': 1, 'b': {'c': 2, 'd': 3}}
+    """
+    # TODO: Consider cases where u has branch off k, but d does not.
+    # e.g. d = {"a":1}, u = {"a": {"b": 2 }}
+    for k, v in u.items():
+        if isinstance(v, collections.abc.Mapping) and k in d:
+            recursive_update(d.get(k, {}), v)
+        elif must_match and k not in d:
+            raise KeyError(
+                f"Override '{k}' not found in: {[key for key in d.keys()]}"
+            )
+        else:
+            d[k] = v

@@ -1,357 +1,172 @@
-"""
- -----------------------------------------------------------------------------
- normalization.py
+"""Library implementing normalization.
 
- Description: This library implements different neural normalization
-              strategies.
- -----------------------------------------------------------------------------
+Author
+    Mirco Ravanelli 2020
 """
-
 import torch
 import torch.nn as nn
-from speechbrain.utils.input_validation import check_opts, check_inputs
-from speechbrain.utils.logger import logger_write
-from speechbrain.data_io.data_io import recovery, initialize_with
 
 
-class normalize(nn.Module):
+class Normalize(nn.Module):
+    """Normalizes the input tensors accoding to the specified normalization
+    technique.
+
+    Arguments
+    ---------
+    norm_type : str
+         It is the type of normalization used.
+
+         "batchnorm": it applies the standard batch normalization by
+         normalizing mean and std of the input tensor over the  batch axis.
+
+         "layernorm": it applies the standard layer normalization by
+         normalizing mean and std of the input tensor over the neuron axis.
+
+         "groupnorm": it applies group normalization over a mini-batch of
+         inputs. See torch.nn documentation for more info.
+
+         "instancenorm": it applies instance norm over a mini-batch of inputs.
+         It is similar to layernorm, but different statistic for each channel
+         are computed.
+
+        "localresponsenorm": it applies local response normalization over an
+        input signal composed of several input planes.See torch.nn
+        documentation for more info.
+
+    eps : float
+        This value is added to std deviation estimationto improve the numerical
+        stability.
+    momentum : float
+        It is a value used for the running_mean and running_var computation.
+    alpha : float
+        Alpha factor for localresponsenorm.
+    beta : float
+        Beta factor for localresponsenorm.
+    k : float
+        It is the k factor for localresponsenorm.
+    neigh_ch : int
+        It is amount of neighbouring channels used for localresponse
+        normalization.
+    affine : bool
+        When set to True, the affine parameters are learned.
+    elementwise_affine : bool
+        it is used for the layer normalization. If True, this module has
+        learnable per-element affine parameters initialized to ones
+        (for weights) and zeros (for biases).
+    track_running_stats : bool
+        When set to True, this module tracks the running mean and variance,
+        and when set to False, this module does not track such statistics.
+        Set it to True for batch normalization and to False for instancenorm.
+    num_groups : bool
+        It is number of groups to separate the channels into for the group
+        normalization.
+
+
+    Example
+    -------
+    >>> normalize = Normalize('batchnorm')
+    >>> inputs = torch.rand(10, 50, 40)
+    >>> normalize.init_params(inputs)
+    >>> output=normalize(inputs)
+    >>> output.shape
+    torch.Size([10, 50, 40])
     """
-     -------------------------------------------------------------------------
-     nnet.normalization.normalize (author: Mirco Ravanelli)
-
-     Description:  This function implements different normalization techniques
-                   such as batchnorm, layernorm, groupnorm, instancenorm, and
-                   localresponsenorm.
-
-
-            "recovery": ("bool", "optional","True"),
-            "initialize_with": ("str", "optional","None"),
-
-
-     Input (init):  - config (type, dict, mandatory):
-                       it is a dictionary containing the keys described below.
-
-                           - norm_type (one_of(batchnorm,layernorm,groupnorm,
-                                        instancenorm,localresponsenorm,
-                                        mandatory):
-                               it is the type of normalization used.
-
-                               "batchnorm": it applies the standard batch
-                                            normalization by normalizing
-                                            mean and std of the input tensor
-                                            over the  batch axis.
-
-                               "layernorm": it applies the standard layer
-                                            normalization by normalizing
-                                            mean and std of the input tensor
-                                            over the neuron axis.
-
-                               "groupnorm": it applies group normalization
-                                            over a mini-batch of inputs.
-                                            See torch.nn documentation for
-                                            more info.
-
-                               "instancenorm": it applies instance norm
-                                            over a mini-batch of inputs.
-                                            It is similar to layernorm,
-                                            but different statistic for each
-                                            channel are computed.
-
-                               "localresponsenorm": it applies local response
-                                            normalization over an input signal
-                                            composed of several input planes.
-                                            See torch.nn documentation for
-                                            more info.
-
-                           - eps (float(0,inf), optional, Default: 1e-05):
-                               this value is added to std deviation estimation
-                               to improve the numerical stability.
-
-                           - momentum (float(0,inf), optional, Default: 0.1):
-                               It is a value used for the running_mean and
-                               running_var computation.
-
-                           - alpha (float(0,inf), optional, Default: 0.0001"):
-                               alpha factor for localresponsenorm.
-
-                           - beta (float(0,inf), optional, Default: 0.75"):
-                               beta factor for localresponsenorm.
-
-                           - k (float(0,inf), optional, Default: 1.0"):
-                               k factor for localresponsenorm.
-
-                           - neigh_ch (int(1,inf), optional, Default: 2"):
-                                it is amount of neighbouring channels used for
-                                localresponse normalization.
-
-                           - affine (bool, optional, Default: "True"):.
-                             when set to True, the affine parameters are
-                             learned.
-
-                           - elementwise_affine (bool, optional, \
-                               Default: "True"):
-                             it is used for the layer normalization. If True,
-                             this module has learnable per-element affine
-                             parameters initialized to ones (for weights)
-                             and zeros (for biases).
-
-                           - track_running_stats (bool, optional, \
-                               Default: "True"):
-                               when set to True, this module tracks the
-                               running mean and variance, and when set to
-                               False, this module does not track
-                               such statistics. Set it to True for batch
-                               normalization and to False for instancenorm.
-
-                           - num_groups (int(1,inf), optional, Default: 1"):
-                                it is number of groups to separate the
-                                channels into for the group normalization.
-
-                           - recovery (type: bool, optional, Default:True):
-                               if True, the system restarts from the last
-                               epoch correctly executed.
-
-                           - initialize_with (type: str, optional, \
-                               Default:None):
-                               when set, this flag can be used to initialize
-                               the parameters with an external pkl file. It
-                               could be useful for pre-training purposes.
-
-
-
-                   - funct_name (type, str, optional, default: None):
-                       it is a string containing the name of the parent
-                       function that has called this method.
-
-                   - global_config (type, dict, optional, default: None):
-                       it a dictionary containing the global variables of the
-                       parent config file.
-
-                   - logger (type, logger, optional, default: None):
-                       it the logger used to write debug and error messages.
-                       If logger=None and root_cfg=True, the file is created
-                       from scratch.
-
-                   - first_input (type, list, optional, default: None)
-                      this variable allows users to analyze the first input
-                      given when calling the class for the first time.
-
-
-     Input (call): - inp_lst(type, list, mandatory):
-                       it is a list containing the tensor x to normalize.
-
-
-     Output (call): - x_n (type: torch.Tensor)
-                       the function returns the normalized tensor.
-
-
-
-     Example:   import torch
-                from speechbrain.nnet.normalization import normalize
-
-                # input tensor
-                inp_tensor = torch.rand([4,660,3])
-
-                # normalization initialization
-                config={'class_name':'speechbrain.nnet.normalization.normalization',
-                        'norm_type':'batchnorm',
-                        'track_running_stats': 'False'}
-
-                # Initialization of the linear class
-                batchnorm=normalize(config, first_input=[inp_tensor])
-
-                print(inp_tensor[:,0,0].mean())
-                print(inp_tensor[:,0,0].std())
-                out =  batchnorm([inp_tensor]
-
-                print(out[:,0,0].mean())
-                print(out[:,0,0].std())
-
-     """
 
     def __init__(
         self,
-        config,
-        funct_name=None,
-        global_config=None,
-        functions=None,
-        logger=None,
-        first_input=None,
+        norm_type,
+        eps=1e-05,
+        momentum=0.1,
+        alpha=0.0001,
+        beta=0.75,
+        k=1.0,
+        affine=True,
+        elementwise_affine=True,
+        track_running_stats=True,
+        num_groups=1,
+        neigh_ch=2,
+        output_folder=None,
     ):
-        super(normalize, self).__init__()
-
-        # Logger setup
-        self.logger = logger
-
-        # Here are summarized the expected options for this class
-        self.expected_options = {
-            "class_name": ("str", "mandatory"),
-            "norm_type": (
-                "one_of(batchnorm,layernorm,groupnorm,instancenorm,\
-                    localresponsenorm)",
-                "mandatory",
-            ),
-            "recovery": ("bool", "optional", "True"),
-            "initialize_with": ("str", "optional", "None"),
-            "eps": ("float(0,inf)", "optional", "1e-05"),
-            "momentum": ("float(0,inf)", "optional", "0.1"),
-            "alpha": ("float(0,inf)", "optional", "0.0001"),
-            "beta": ("float(0,inf)", "optional", "0.75"),
-            "k": ("float(0,inf)", "optional", "1.0"),
-            "affine": ("bool", "optional", "True"),
-            "elementwise_affine": ("bool", "optional", "True"),
-            "track_running_stats": ("bool", "optional", "True"),
-            "num_groups": ("int", "optional", "1"),
-            "neigh_ch": ("int", "optional", "2"),
-        }
-
-        # Check, cast, and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, self.logger
-        )
-
-        # Definition of the expected input
-        self.expected_inputs = ["torch.Tensor"]
-
-        # Check the first input
-        check_inputs(
-            self.conf, self.expected_inputs, first_input, logger=self.logger
-        )
-
-        # Reshaping when input to batchnorm1d is 3d makes it faster
+        super().__init__()
+        self.norm_type = norm_type
+        self.eps = eps
+        self.momentum = momentum
+        self.alpha = alpha
+        self.beta = beta
+        self.k = k
+        self.affine = affine
+        self.elementwise_affine = elementwise_affine
+        self.track_running_stats = track_running_stats
+        self.num_groups = num_groups
+        self.neigh_ch = neigh_ch
+        self.output_folder = output_folder
         self.reshape = False
 
-        # Output folder (useful for parameter saving)
-        if global_config is not None:
-            self.output_folder = global_config["output_folder"]
+    def init_params(self, first_input):
+        """
+        Arguments
+        ---------
+        first_input : tensor
+            A first input used for initializing the parameters.
+        """
+        if self.norm_type == "batchnorm":
+            self.norm = self._batchnorm(first_input)
 
-        self.funct_name = funct_name
+        if self.norm_type == "groupnorm":
+            n_ch = first_input.shape[1]
+            self.norm = torch.nn.GroupNorm(
+                self.num_groups, n_ch, eps=self.eps, affine=self.affine
+            )
 
-        # Additional check on the input shapes
-        if first_input is not None:
+        if self.norm_type == "instancenorm":
+            self.norm = self._instancenorm(first_input)
 
-            # Shape check
-            if len(first_input[0].shape) > 5 or len(first_input[0].shape) < 2:
+        if self.norm_type == "layernorm":
+            self.norm = torch.nn.LayerNorm(
+                first_input.size()[1:-1],
+                eps=self.eps,
+                elementwise_affine=self.elementwise_affine,
+            )
 
-                err_msg = (
-                    'The input of "normalize" must be a tensor with one of'
-                    "the following dimensions: [batch,time] or "
-                    "[batch,channels,time]. Got %s "
-                    % (str(first_input[0].shape))
-                )
+            self.reshape = True
 
-                logger_write(err_msg, logfile=logger)
+        if self.norm_type == "localresponsenorm":
+            self.norm = torch.nn.LocalResponseNorm(
+                self.neigh_ch, alpha=self.alpha, beta=self.beta, k=self.k
+            )
 
-            # Initializing bachnorm
-            if self.norm_type == "batchnorm":
-                self.norm = self.batchnorm(first_input)
+    def forward(self, x, init_params=False):
+        """Returns the normalized input tensor.
 
-            # Initializing groupnorm
-            if self.norm_type == "groupnorm":
-                n_ch = first_input[0].shape[1]
-                self.norm = torch.nn.GroupNorm(
-                    self.num_groups, n_ch, eps=self.eps, affine=self.affine
-                )
+        Arguments
+        ---------
+        x : torch.Tensor
+            input to transform linearly.
+        """
 
-            # Initializing instancenorm
-            if self.norm_type == "instancenorm":
-                self.norm = self.instancenorm(first_input)
+        if init_params:
+            self.init_params(x)
 
-            # Initializing layernorm
-            if self.norm_type == "layernorm":
-                self.norm = torch.nn.LayerNorm(
-                    first_input[0].size()[1:-1],
-                    eps=self.eps,
-                    elementwise_affine=self.elementwise_affine,
-                )
-
-                self.reshape = True
-
-            # Initializing localresponsenorm
-            if self.norm_type == "localresponsenorm":
-                self.norm = torch.nn.LocalResponseNorm(
-                    self.neigh_ch, alpha=self.alpha, beta=self.beta, k=self.k
-                )
-
-            # Managing initialization with an external model
-            # (useful for pre-training)
-            initialize_with(self)
-
-            # Automatic recovery
-            if global_config is not None:
-                recovery(self)
-
-    def forward(self, input_lst):
-
-        # Reading input _list
-        x = input_lst[0]
-
-        # Reshaping (if needed)
-        if self.reshape:
-
-            x = x.transpose(1, -1)
-            dims = x.shape
-
-            x = x.reshape(dims[0] * dims[1], dims[2])
-
-        # Applying batch normalization
+        x = x.transpose(-1, 1)
         x_n = self.norm(x)
-
-        # Getting the original dimensionality
-        if self.reshape:
-
-            x_n = x_n.reshape(dims[0], dims[1], dims[2])
-
-            x_n = x_n.transpose(1, -1)
+        x_n = x_n.transpose(1, -1)
 
         return x_n
 
-    def batchnorm(self, first_input):
+    def _batchnorm(self, first_input):
+        """Initializes batch normalization. BatchNorm1d is used for 2d or 3d
+        input vectors, while nn.BatchNorm2d is used for 4d inputs.
+
+        Arguments
+        ---------
+        first_input : tensor
+            A first input used for initializing the parameters.
         """
-         ----------------------------------------------------------------------
-         nnet.normalization.normalize.batchnorm (author: Mirco Ravanelli)
 
-         Description:  This support function intializes 1D, 2D, or 2D
-                       batch normalization.
+        fea_dim = first_input.shape[-1]
 
-
-         Input (call):
-                        - first_input (type:list, mandatory):
-                            it is the list containing the first torch.Tensor
-                            to normalize.
-
-
-
-         Output (call): - norm(type, object):
-                           it is the batch normalization object just created.
-
-
-         Example:   import torch
-                    from speechbrain.nnet.normalization import normalize
-
-                    # input tensor
-                    inp_tensor = torch.rand([4,660,3])
-
-                    # normalization initialization
-                    config={'class_name':'speechbrain.nnet.normalization.\
-                        normalization',
-                            'norm_type':'batchnorm',
-                            'track_running_stats': 'False'}
-
-                    # Initialization of the linear class
-                    batchnorm=normalize(config, first_input=[inp_tensor])
-
-                    print(batchnorm.batchnorm)
-
-         """
-
-        # Getting the feature dimension
-        fea_dim = first_input[0].shape[1]
-
-        # Based on the shape of the input tensor I can use 1D,2D, or 3D batchn
-        if len(first_input[0].shape) <= 3:
-
-            # Managing 1D batchnorm
+        # Based on the shape of the input tensor I can use 1D or 2D batchn
+        if len(first_input.shape) <= 3:
             norm = nn.BatchNorm1d(
                 fea_dim,
                 eps=self.eps,
@@ -360,12 +175,7 @@ class normalize(nn.Module):
                 track_running_stats=self.track_running_stats,
             )
 
-            if len(first_input[0].shape) == 3:
-                self.reshape = True
-
-        if len(first_input[0].shape) == 4:
-
-            # Managing 2D batchnorm
+        if len(first_input.shape) == 4:
             norm = nn.BatchNorm2d(
                 fea_dim,
                 eps=self.eps,
@@ -374,66 +184,22 @@ class normalize(nn.Module):
                 track_running_stats=self.track_running_stats,
             )
 
-        if len(first_input[0].shape) == 5:
+        return norm.to(first_input.device)
 
-            # Managing 3D batchnorm
-            norm = nn.BatchNorm3d(
-                fea_dim,
-                eps=self.eps,
-                momentum=self.momentum,
-                affine=self.affine,
-                track_running_stats=self.track_running_stats,
-            )
+    def _instancenorm(self, first_input):
+        """Initializes instance normalization. InstanceNorm1d is used for 2d
+        or or 3d input vectors, while InstanceNorm2d is used for 4d inputs.
 
-        return norm
-
-    def instancenorm(self, first_input):
+        Arguments
+        ---------
+        first_input : tensor
+            A first input used for initializing the parameters.
         """
-         ----------------------------------------------------------------------
-         nnet.normalization.normalize.instancenorm (author: Mirco Ravanelli)
 
-         Description:  This support function intializaes 1D, 2D, or 2D
-                       instance normalization.
+        fea_dim = first_input.shape[1]
 
-
-         Input (call):
-                        - first_input (type:list, mandatory):
-                            it is the list containing the first torch.Tensor
-                            to normalize.
-
-
-
-         Output (call): - norm(type, object):
-                           it is the instance normalization object just
-                           created.
-
-
-         Example:   import torch
-                    from speechbrain.nnet.normalization import normalize
-
-                    # input tensor
-                    inp_tensor = torch.rand([4,660,3])
-
-                    # normalization initialization
-                    config={'class_name':'speechbrain.nnet.normalization.\
-                        normalization',
-                            'norm_type':'instancenorm',
-                            'track_running_stats': 'False'}
-
-                    # Initialization of the linear class
-                    instancenorm=normalize(config, first_input=[inp_tensor])
-
-                    print(instancenorm.instancenorm)
-
-         """
-        # Getting the feature dimension
-        fea_dim = first_input[0].shape[1]
-
-        # Based on the shape of the input tensor I can use 1D,2D, or 3D
-        # instance normalization
-
-        if len(first_input[0].shape) == 3:
-            # 1D case
+        # Use 1D or 2D based in input dimensionality
+        if len(first_input.shape) == 3:
             norm = nn.InstanceNorm1d(
                 fea_dim,
                 eps=self.eps,
@@ -441,8 +207,7 @@ class normalize(nn.Module):
                 track_running_stats=self.track_running_stats,
             )
 
-        if len(first_input[0].shape) == 4:
-            # 2D case
+        if len(first_input.shape) == 4:
             norm = nn.InstanceNorm2d(
                 fea_dim,
                 eps=self.eps,
@@ -451,172 +216,4 @@ class normalize(nn.Module):
                 track_running_stats=self.track_running_stats,
             )
 
-        if len(first_input[0].shape) == 5:
-            # 3D case
-            norm = nn.InstanceNorm3d(
-                fea_dim,
-                eps=self.eps,
-                momentum=self.momentum,
-                track_running_stats=self.track_running_stats,
-            )
-
         return norm
-
-
-class normalize_posteriors(nn.Module):
-    """
-     -------------------------------------------------------------------------
-     nnet.normalization.normalize_posteriors (author: Mirco Ravanelli)
-
-     Description:  This function normalizes the posterior probabilities
-                   using the counts of the given input label. This operation
-                   can be useful when likelihood are need instead of
-                   posterior probabilities (e.g, when feeding an HMM-DNN
-                   decoder).
-
-
-
-     Input (init):  - config (type, dict, mandatory):
-                       it is a dictionary containing the keys described below.
-
-                           - count_lab (type: str, mandatory):
-                               it is the label used to normalize the
-                               posterior probabilities. In particular,
-                               for each label we pre-compute some counts
-                               in global_config['lab_dict']['count_lab'] and
-                               we use these counts to re-scale the posterior
-                               probabilities with the prior one.
-
-
-                   - funct_name (type, str, optional, default: None):
-                       it is a string containing the name of the parent
-                       function that has called this method.
-
-                   - global_config (type, dict, optional, default: None):
-                       it a dictionary containing the global variables of the
-                       parent config file.
-
-                   - logger (type, logger, optional, default: None):
-                       it the logger used to write debug and error messages.
-                       If logger=None and root_cfg=True, the file is created
-                       from scratch.
-
-                   - first_input (type, list, optional, default: None)
-                      this variable allows users to analyze the first input
-                      given when calling the class for the first time.
-
-
-     Input (call): - inp_lst(type, list, mandatory):
-                       it is a list containing the tensor x to normalize.
-
-
-     Output (call): - pout_norm (type: torch.Tensor)
-                       the function returns the normalized probabilities.
-
-
-
-     Example:   import torch
-                from speechbrain.nnet.normalization import normalize_posteriors
-
-                # input tensor
-                pout = torch.rand([4,3,10])
-
-                global_config={}
-                global_config['label_dict']={}
-                global_config['label_dict']['phn']={}
-                global_config['label_dict']['phn']['counts']={}
-                global_config['label_dict']['phn']['counts'][0]=1
-                global_config['label_dict']['phn']['counts'][1]=2
-                global_config['label_dict']['phn']['counts'][2]=2
-
-
-                # normalization initialization
-                config={'class_name':'speechbrain.nnet.normalization.\
-                    normalize_posteriors',
-                        'count_lab':'phn'}
-
-                # Initialization of the linear class
-                norm=normalize_posteriors(config, global_config=global_config)
-
-                print(norm.counts)
-
-                out_n = norm([pout])
-     """
-
-    def __init__(
-        self,
-        config,
-        funct_name=None,
-        global_config=None,
-        functions=None,
-        logger=None,
-        first_input=None,
-    ):
-        super(normalize_posteriors, self).__init__()
-
-        # Setting logger and exec_config
-        self.logger = logger
-
-        # Definition of the expected options
-        self.expected_options = {
-            "class_name": ("str", "mandatory"),
-            "count_lab": ("str", "mandatory"),
-        }
-
-        # Check, cast , and expand the options
-        self.conf = check_opts(
-            self, self.expected_options, config, self.logger
-        )
-
-        # Expected inputs when calling the class
-        self.expected_inputs = ["torch.Tensor"]
-
-        # Check the first input
-        check_inputs(
-            self.conf, self.expected_inputs, first_input, logger=self.logger
-        )
-
-        # load the count dictionary
-        if self.count_lab in global_config["label_dict"]:
-            self.count_dict = global_config["label_dict"][self.count_lab][
-                "counts"
-            ]
-
-        else:
-            err_msg = (
-                "The label specified in the field self.count_lab does not "
-                'exists in the label dictionary (global_config["label_dict"])'
-            )
-
-            logger_write(err_msg, logfile=logger)
-
-        # converting dictionary to list
-        count_lst = []
-
-        for key in sorted(self.count_dict.keys()):
-            count_lst.append(self.count_dict[key])
-
-        # converting list to tensor
-        self.counts = torch.Tensor(count_lst)
-
-        # Converting to log counts (we normalize log posterios)
-        self.counts = torch.log(self.counts / torch.sum(self.counts))
-
-    def forward(self, input_lst):
-
-        # Reading input_list
-        pout = input_lst[0]
-
-        # Transposing the pout tensor
-        pout_norm = pout.transpose(1, 2)
-
-        # Moving the counts to the right device
-        self.counts = self.counts.to(pout.device)
-
-        # Normalization (we assume log probabilities)
-        pout_norm = pout_norm - self.counts
-
-        # Getting the original shape format
-        pout_norm = pout_norm.transpose(1, 2)
-
-        return pout_norm

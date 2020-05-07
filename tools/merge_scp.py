@@ -24,13 +24,13 @@ import sys
 from utils import scp_to_dict, dict_to_str, logger_write
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 
     scp_lst = sys.argv[1:]
 
     # Check if the input scp files exist
     for inp_scp_file in scp_lst[:-1]:
-        if not(os.path.isfile(inp_scp_file)):
+        if not (os.path.isfile(inp_scp_file)):
             err_msg = 'the file "%s" does not exist' % (inp_scp_file)
             logger_write(err_msg)
 

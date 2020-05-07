@@ -1,11 +1,11 @@
 ID, duration, wav, wav_format, wav_opts, spk_id, spk_id_format, spk_id_opts, ali, ali_format, ali_opts, phn, phn_format, phn_opts
 
-spk1_snt1,2.87,$data_folderspk1_snt1.wav, wav, ,spk1,string, ,$data_folderspk1_snt1.pkl,pkl, ,dh ax cl ch ay l vcl d ao l m ow s cl t hh er cl t sil dh ax s m ao l vcl d ao vcl,string, 
-spk1_snt2,3.15,$data_folderspk1_snt2.wav, wav, ,spk1,string, ,$data_folderspk1_snt2.pkl,pkl, ,vcl d r aa cl p dh ax cl t uw sil w eh n y uw ae vcl d dh ax f ih vcl g y er,string, 
-spk1_snt3,2.72,$data_folderspk1_snt3.wav, wav, ,spk1,string, ,$data_folderspk1_snt3.pkl,pkl, ,ae cl t dh ae cl t hh ay l eh v ax l dh iy eh r ih z cl p y uh,string, 
-spk1_snt4,2.53,$data_folderspk1_snt4.wav, wav, ,spk1,string, ,$data_folderspk1_snt4.pkl,pkl, ,ey th ih n s cl t r ay cl p r ah n z vcl d aw n dh ax m ih vcl d ax,string, 
-spk2_snt1,2.01,$data_folderspk2_snt1.wav, wav, ,spk2,string, ,$data_folderspk2_snt1.pkl,pkl, ,w iy er sh ao r dh ax dx w ah n w ao r ih z ih n ah,string, 
-spk2_snt2,1.76,$data_folderspk2_snt2.wav, wav, ,spk2,string, ,$data_folderspk2_snt2.pkl,pkl, ,w ah cl t vcl jh oy dh eh r ih z ih n l ih v ih,string, 
-spk2_snt3,1.88,$data_folderspk2_snt3.wav, wav, ,spk2,string, ,$data_folderspk2_snt3.pkl,pkl, ,t eh r ah th ih n sh iy cl t f er m dh iy y eh l ow cl p ae vcl,string, 
-spk2_snt4,2.04,$data_folderspk2_snt4.wav, wav, ,spk2,string, ,$data_folderspk2_snt4.pkl,pkl, ,m eh n vcl d dh ax cl k ow cl t vcl b ih f ao r y uw vcl g ow aw cl,string, 
+spk1_snt1,2.87,$data_folder/spk1_snt1.wav, wav, ,spk1,string, ,$data_folder/spk1_snt1.pkl,pkl, ,dh ax cl ch ay l vcl d ao l m ow s cl t hh er cl t sil dh ax s m ao l vcl d ao vcl,string, 
+spk1_snt2,3.15,$data_folder/spk1_snt2.wav, wav, ,spk1,string, ,$data_folder/spk1_snt2.pkl,pkl, ,vcl d r aa cl p dh ax cl t uw sil w eh n y uw ae vcl d dh ax f ih vcl g y er,string, 
+spk1_snt3,2.72,$data_folder/spk1_snt3.wav, wav, ,spk1,string, ,$data_folder/spk1_snt3.pkl,pkl, ,ae cl t dh ae cl t hh ay l eh v ax l dh iy eh r ih z cl p y uh,string, 
+spk1_snt4,2.53,$data_folder/spk1_snt4.wav, wav, ,spk1,string, ,$data_folder/spk1_snt4.pkl,pkl, ,ey th ih n s cl t r ay cl p r ah n z vcl d aw n dh ax m ih vcl d ax,string, 
+spk2_snt1,2.01,$data_folder/spk2_snt1.wav, wav, ,spk2,string, ,$data_folder/spk2_snt1.pkl,pkl, ,w iy er sh ao r dh ax dx w ah n w ao r ih z ih n ah,string, 
+spk2_snt2,1.76,$data_folder/spk2_snt2.wav, wav, ,spk2,string, ,$data_folder/spk2_snt2.pkl,pkl, ,w ah cl t vcl jh oy dh eh r ih z ih n l ih v ih,string, 
+spk2_snt3,1.88,$data_folder/spk2_snt3.wav, wav, ,spk2,string, ,$data_folder/spk2_snt3.pkl,pkl, ,t eh r ah th ih n sh iy cl t f er m dh iy y eh l ow cl p ae vcl,string, 
+spk2_snt4,2.04,$data_folder/spk2_snt4.wav, wav, ,spk2,string, ,$data_folder/spk2_snt4.pkl,pkl, ,m eh n vcl d dh ax cl k ow cl t vcl b ih f ao r y uw vcl g ow aw cl,string, 
 
