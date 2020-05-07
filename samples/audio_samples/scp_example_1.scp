@@ -1,5 +1,0 @@
-# Description: This configuration file provides a minimal example on how to process the data specified in the scp files.
-# the processing_loop_examples, for simplicity, only reads the data, create the minibatches, and put them in the gpu memory 
-
-ID=example1 duration=3.260 wav=($data_folder/example1.wav,wav) spk_id=(spk01,string)
-

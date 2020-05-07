@@ -6,51 +6,22 @@ SpeechBrain is an **open-source** and **all-in-one** speech toolkit based on PyT
 
 The goal is to create a **single**, **flexible**, and **user-friendly** toolkit that can be used to easily develop **state-of-the-art speech technologies**, including systems for **speech recognition**, **speaker recognition**, **speech enhancement**, **multi-microphone signal processing** and many others. 
 
-SpeechBrain is currently under development.
+*SpeechBrain is currently under development*.
 
 # Table of Contents
 - [Basics](#basics)
   * [License](#license)
-  * [Requirements](#requirements)
+  * [Development requirements](#development-requirements)
   * [Test installation](#test-installation)
   * [Folder Structure](#folder-structure)
   * [How to run an experiment](#how-to-run-an-experiment)
-  * [Configuration files](#configuration-files)
-  * [Data reading and writing](#data-reading-and-writing)
-  * [Execute computation class](#execute-computation-class)
   * [Tensor format](#tensor-format)
-  * [Data preparation](#data-preparation)
-- [Feature extraction](#feature-extraction)
-  * [Short-time Fourier transform (STFT)](#short-time-fourier-transform-(stft))
-  * [Spectrograms](#spectrograms)
-  * [Filter banks (FBANKs)](#filter-banks-(fbanks))
-  * [Mel Frequency Cepstral Coefficients (MFCCs)](#mel-frequency-cepstral-coefficients-mfccs)
-- [Data augmentation](#data-augmentation)
-  * [Noise](#noise)
-  * [Reverberation](#reverberation)
-  * [Speed perturbation](#speed-perturbation)
-  * [Other distortions](#other-distortions)
-- [Neural Networks](#neural-networks)
-  * [Training](#training)
-  * [Validation](#validation)
-  * [Test](#test)
-  * [Saving checkpoints](#saving-checkpoints)
-  * [Architectures](#architectures)
-  * [Normalization](#normalization)
-  * [Losses](#losses)
-  * [Optimizers](#optimizers)
-  * [Learning rate scheduler](#learning-rate-scheduler)
-  * [Replicate computations](#replicate-computations)
-  * [Residual, Skip, and Dense connections](#replicate-computations)
-  * [Classification example](#losses)
-  * [Sequence-to-sequence example](#losses)
-  * [Regression example](#losses)
-- [HMM-DNN speech recogntition](#hmm-dnn-speech-recogntition)
-- [End-to-end speech recogntition](#end-to-end-speech-recogntition)
-- [Speech enhancement](#speech-enhancement)
-- [Speaker recognition and diarization](#speaker-recognition-and-diarization)
-- [Multi-microphone processing](#multi-microphone-processing)
 - [Developer Guidelines](#developer-guidelines)
+  * [GitHub](#github)
+  * [Python](#python)
+  * [Documentation](#documentation)
+  * [Development tools](#development-tools)
+  * [Continuous integration](#continuous-integration)
 
 # Basics
 In the following sections, the basic functionalities of SpeechBrain are described. 
@@ -58,437 +29,238 @@ In the following sections, the basic functionalities of SpeechBrain are describe
 ## License
 SpeechBrain is licensed under the [Apache License v2.0](https://tldrlegal.com/license/apache-license-2.0-(apache-2.0)) (i.e., the same as the popular Kaldi toolkit).
 
-## Installing Requirements
- ```
-cd SpeechBrain
+## Development requirements
+```
 pip install -r requirements.txt
+pip install --editable .
 ```
 ## Test Installation
 Please, run the following script to make sure your installation is working:
- ```
-python test.py
- ```
+```
+pytest tests
+pytest --doctest-modules speechbrain
+```
  
 ## Folder Structure
 The current version of Speechbrain has the following folder/file organization:
-- **cfg**: it contains the configuration files of different experiments. 
-- **exp**: it contains the results of the experiments run with SpeechBrain
-- **speechbrain**: it contains the python libraries
-- **samples**: it contains few data samples useful for running debugging experiments
-- **tools**:  it contains additional scripts that can be useful for different purposes (e.g, running debugging tests).
-- **speechbrain.py**: it is the python script used to run the experiments
+- **speechbrain**: The core library
+- **recipes**: Experiment scripts and configurations
+- **exp**: Top directory under which to save experiment output (by convention)
+- **samples**: Some toy data for debugging and testing
+- **tools**: Additional, runnable utility script
+- **tests**: Unittests
 
 ## How to run an experiment
 In SpeechBrain an experiment can be simply run in this way:
 
- ```
-python spbrain.py config_file
- ```
+```
+python recipes/<path>/<to>/<specific>/experiment.py
+```
  
-where `config_file`  is a configuration file (formatted as described below).
-For instance, the config file *cfg/minimal_examples/features/compute_fbanks_example.cfg* loops over the speech data itemized in *samples/audio_samples/csv_example.csv* and computes the corresponding fbank features.  To run this experiment you can simply type:
+At the top of the `experiment.py` file, the function
+`sb.create_experiment_directory()` is called to create an output directory.
+Both detailed logs and experiment output are saved there. 
+Furthermore, less detailed logs are output to stdout. The experiment script and 
+configuration (including possible command-line overrides are also copied to the 
+output directory.
 
- ```
-python spbrain.py  cfg/minimal_examples/features/compute_fbanks_example.cfg
- ```
- 
-The output will be saved in *exp/compute_fbanks* (i.e, the output_folder specified in the config file). As you can see, this folder contains a file called *log.log*, which reports useful information on the computations that have been performed. 
-Errors will appear both in the log file and in the standard error. The output folder also contains all the configuration files used during the computations. The file *cfg/minimal_examples/features/compute_fbanks_example.cfg* is called root config file, but other config files might be used while performing the various processing steps. All of them will be saved here to allow users to have a  clear idea about all the computations performed. The fbank features, finally, are stored in the *save* folder (in this case are saved in pkl format).
+Also have a look at the YAML files in recipe directories. The YAML files
+specify the hyperparameters of the recipes. The syntax is explained in 
+`speechbrain.utils.data_utils` in the docstring of `load_extended_yaml`.
 
-## Configuration Files
-SpeechBrain can be used in two different ways by the users. Users, for instance, can directly import the functions coded in the speechbrain libraries in their own python scripts.  To make this simpler, the functions in our libraries are **properly documented**, also reporting **examples** on how they can be used as stand-alone functions. 
-
-The preferred modality in SpeechBrain, however, is to use the **speechbrain configuration files**. As we will see in this section, the configuration files define an *elegant*, *clean*, *transparent*, and *standard* framework where all the speechbrain modules can be **naturally integrated and combined**. The modularity and flexibility offered by this environment can allow users to code only minimal parts of the speech processing system, leaving unchanged the other parts. In the cfg folder, several examples of configuration files implementing recipes for many different speech processing systems are reported.
-
-Standard configuration files are *flat* and *back-box* list of hyperparameters. Conversely, the SpeechBrain configuration files are designed such that it is immediately clear which function uses a certain hyperparameter. The configuration files also specify how the main functions are combined, thus offering a **"big picture" of the main computations** performed in a relatively compact way.
-
-More specifically, the configuration files are organized ib the following way:
-
-1. First, we **define a set of functions** to be used (with the related hyper-parameters)
-2. Then we **define how these functions are combined** to implement the desired functionality. 
-
-To better understand the logic behind the current version, let's take a look into  ```cfg/minimal_examples/features/FBANKs.cfg ```.
-This config file is designed to compute *FBANK* features:
- 
- ```
-[global]
-    sample_rate=$sample_rate
-    n_fft=1024
-    n_mels=40
-    left_frames=5
-    right_frames=5
-    freeze=True
-[/global]
-
-[functions]
-
-    [compute_STFT]
-        class_name=speechbrain.processing.features.STFT
-        sample_rate=$sample_rate
-        win_length=25
-        hop_length=10
-        n_fft=$n_fft
-        window_type=hamming    
-    [/compute_STFT]
-
-    [compute_spectrogram]
-        class_name=speechbrain.processing.features.spectrogram
-        power_spectrogram=2     
-    [/compute_spectrogram]
-
-    [compute_fbanks]
-        class_name=speechbrain.processing.features.FBANKs
-            n_mels=$n_mels
-        log_mel=True
-        filter_shape=triangular
-        f_min=0
-        f_max=8000          
-            freeze=$freeze
-        n_fft=$n_fft     
-    [/compute_fbanks]
-
-    [compute_deltas]
-        class_name=speechbrain.processing.features.deltas
-        der_win_length=5
-    [/compute_deltas]
-
-    [context_window]
-        class_name=speechbrain.processing.features.context_window
-        left_frames=$left_frames
-        right_frames=$right_frames
-    [/context_window]
-
-    [save]
-        class_name=speechbrain.processing.features.save
-        save_format=pkl    
-    [/save]
-
-
-[/functions]
-
-
-[computations]
-    wav,*_=get_input_var()
-    
-    # mfcc computation pipeline
-    STFT=compute_STFT(wav)
-    spectr=compute_spectrogram(STFT)
-    FBANKs=compute_fbanks(spectr)
-
-    # computing derivatives
-    delta1=compute_deltas(FBANKs)
-    delta2=compute_deltas(delta1)
-
-    # concatenate mfcc+delta1+delta2
-    fbank_with_deltas=torch.cat([FBANKs,delta1,delta2],dim=-2)
-
-    # applying the context window
-    fbank_cw=context_window(fbank_with_deltas)
-
-[/computations]
- ```
-
-### Global section
-All the config files have three main sections: **global**, **functions**, and **computations**.  
-
-The *[global]* section **declares some variables** that could be reused in the following part of the config file. For instance, one might want to set a variable called (*device* or *n_fft*) once and use it in other parts of the config file. 
-
-### Function section
-The section *[functions]* **defines the set of functions** used in the experiment with the related hyper-parameters (or arguments). Each function must start with the mandatory field *"class_name="* that specifies where the current function is implemented. The other fields correspond to function-specific arguments (e.g, *batch_size*, *win_length*, *hop_length*, etc.). The list of the required hyperparameters of each function can be found in the documentation of the function itself. In this case, we can open the *lib.processing.features.STFT* and take a look into the documentation (or into the self.expected_options) for a list of the expected arguments. As you can see, some arguments are mandatory, while others are optional (in this case the specified default value is taken).
-The functions called in the config file are actually classes, that must have an **init** and **call** method (see class *STFT* in *data_processing.py for an example*). 
-
-The initialization method takes in input the parameters, it checks them and then performs all the **computations that need to be done only once** and not be repeated every time the function is called. 
-
-The __call__ method, instead, takes in input a list of input and gives in output a list as well. This method should be designed to perform all the **computations that cannot be done only once** (e.g., updating the parameters of a neural network). Note that for neural network-based classes (like the STFT function in the example), we have a forward method instead of a __call__method.
-
-### Computation section
-The section *[computations]* finally defines **how the functions are combined** to implement the desired functionality. In this specific example, we implement the standard pipeline for computing *FBANK* features, where we first compute the Short-Term Fourier Transform, followed by a spectrogram and filter-bank computation. The computation section is a python shell, where simple python commands can be run as well. 
-
-### Hierarchical configuration files
-Standard speech processing pipelines are rather complex. In many cases, it could be better to organize the computations in a  more structured way rather than writing a single big configuration file. For instance, one might want to gather the computations for feature extraction in a config file and the neural network computations in another one.
-SpeechBrain supports hierarchical configuration files, i.e, configuration files that can call other configuration files. The first configuration file is the root one, while the others are child configuration files. The latter can be called from the root one using the execute_computations function, as we will be described in detail below.
-
-
-## Data Reading and Writing
-SpeechBrain is designed to read/write different audio formats (e.g., wav, flac, pcm). Moreover, the toolkit can read data entries (e.g, features or labels) stored in pkl files or directly specified as a string (e.g, spk_ids). All the data entries used in an experiment must be itemized in a comma-separated values (CSV) file, whose format is described in the following sub-section.
-
-### CSV file format
-The CSV files must itemize all the sentences, features, and labels to use in an experiment.  For instance, let's open the CSV file in   ```samples/audio_samples/csv_example.csv ``` . The file can be better rendered when opening it with a standard CSV reader, but let's open it as a raw text file for now:
-
- ```
-ID, duration, wav, wav_format, wav_opts, spk_id, spk_id_format, spk_id_opts
-
-example1, 3.260, $data_folder/example1.wav, wav, , spk01, string, 
-example2, 2.068, $data_folder/example2.flac, flac, , spk02, string,
-example3, 2.890, $data_folder/example3.sph, wav, , spk03, string,
-example4, 2.180, $data_folder/example4.raw, raw, samplerate:16000 subtype:PCM_16 endian:LITTLE channels:1, spk04, string,
-example5, 1.000, $data_folder/example5.wav, wav, start:10000 stop:26000, spk05, string,
- ```
-
-The first line shows the fields that are specified in the CSV file. The mandatory fields are the following:
-- **ID**: it is the unique sentence identifier. It must be different for each sentence. 
-- **duration**: it reports how much each sentence lasts in seconds. As we will see later, this can be useful for processing the sentence in ascending or descending order according to their lengths. 
-
-After these two mandatory fields, the CSV contains a variable number of optional fields that depend on the features and labels
-we want to read. Each feature/label takes exactly three colums: **[data_name][data_format][data_opts]**. 
-
-- **data_name** is the name given to the data-entry to read (e.g, wav) and contains the paths where the current element is saved (for wav and pkl format) or the label string (for string format). 
-- **data_format** specifies the format of the data_name. The currently supported formats are wav, pkl, or string.
-- **data_opts** specifies additional options that are passed to the data_reader.
-
-Each line contains a different sentence. For instance, the first line contains:
- ```
-example1, 3.260, $data_folder/example1.wav, wav, , spk01, string, 
- ```
-For the sentence called *example1*, we have two elements: the wav features read from  $data_folder/example1.wav and the 
-corresponding spk_id label "spk01" which is directly specified as a string.  
-
-### Audio file reader
-The audio files are read with [**soundfile**](https://pypi.org/project/SoundFile/), and we thus support all its audio formats.  We indeed can read files in *wav*, *flac*, *sphere*, and *raw* formats. Note that audio data in *raw* format are stored without header and thus some options such as *samplerate*, *dtype*, *endian*, and *channels* must be specified in the field data_opts.  
-
-In some cases, users might want to just read a portion of the audio file. It is possible to specify the portion to read by properly setting the data_ops as shown in the following line:
-
+A quick look at the extended YAML features, using an example:
 ```
-example5, 1.000, $data_folder/example5.wav, wav, start:10000 stop:26000, spk05, string,
+output_dir: exp/example_experiment
+save_dir: !ref <output_dir>/save
+data_folder: !PLACEHOLDER # e.g. /path/to/TIMIT
+
+model: !speechbrain.lobes.models.CRDNN.CRDNN
+    output_size: 40 # 39 phonemes + 1 blank symbol
+    cnn_blocks: 2
+    dnn_blocks: 2
 ```
-In this case, we read the audio from sample 10000 to sample 26000. 
+- `!speechbrain.lobes.models.CRDNN.CRDNN` creates a `CRDNN` instance
+  from the module `speechbrain.lobes.models.CRDNN`
+- The indented keywords (`output_size` etc.) after it are passed as keyword 
+  arguments.
+- `!ref <output_dir>/save` evaluates the part in angle brackets,
+  referencing the YAML itself.
+- `!PLACEHOLDER` simply errors out when loaded; it should be replaced by
+  every user either by editing the yaml, or with an override (passed to
+  `load_extended_yaml`).
 
-Soundfile can also read multi-channel data, as you can see in *samples/audio_samples/csv_example_multichannel.csv*
 
-### Pkl file reader
-SpeechBrain can read data in pkl format as well. This way we can read additional non-audio speech features, as shown in the following example:
+# Tensor format
+All the tensors within SpeechBrain are formatted using the following convention:
 ```
-ID, duration, pkl_fea, pkl_fea_format, pkl_fea_opts
-
-example1, 3.260, $data_folder/your_pkl_file, pkl,
+tensor=(batch, time_steps, channels[optional])
 ```
-The content of the pkl file must be numpy array. 
+**The batch is always the first element, and time_steps is always the second one. 
+The rest of the dimensions are as many channels as you need**.
 
-### String labels
-In speechbrain labels can be specified in a pkl file or, more directly, in a simple text string.
-In the example reported in the CSV file section, we report speaker-identities as strings (e.g, example1 => spk01, 
-example2 => spk02, ..). 
+*Why we need tensor with the same format?*
+It is crucial to have a shared format for all the classes that process data and all the processing functions must be designed considering it. In SpeechBrain we might have pipelines of modules and if each module was based on different tensor formats, exchanging data between processing units would have been painful. Many formats are possible. For SpeechBrain we selected this one because
+it is commonly used with recurrent layers, which are common in speech applications. 
 
-The big advantage of this modality is that users do not have to necessarily convert all these labels into the corresponding integer numbers (as required for instance during neural network training). Speechbrain will do it for you by automatically creating a label dictionary, as described in the following sub-section.
-
-### Label dictionary
-When reading a string label, a label dictionary is automatically created. In particular, during the initialization of the data_loader, we read all the data and we automatically create a dictionary that maps each label into a corresponding integer. 
-
-To take a look into that, let's run 
+The format is very **flexible** and allows users to read different types of data. As we have seen, for **single-channel** raw waveform signals, the tensor will be ```tensor=(batch, time_steps)```, while for **multi-channel** raw waveform it will be ```tensor=(batch, time_steps, n_channel)```. Beyond waveforms, this format is used for any tensor in the computation pipeline. For instance,  fbank features that are formatted in this way:
 ```
-python spbrain.py  cfg/minimal_examples/features/compute_fbanks_example.cfg
+(batch, time_step, n_filters)
 ```
-and open the `label_dict.pkl` that has been created in `/exp/compute_fbanks/`. We can read it with the following command:
+The Short-Time Fourier Transform (STFT) the tensor, instead, will be:
 ```
-from speechbrain.data_io.data_io import load_pkl
-abel_dict=load_pkl('exp/compute_fbanks/label_dict.pkl')
-print(label_dict)
+(batch, time_step, n_fft, 2)
 ```
-And you will see the following:
+where the "2" is because STFT is based on complex numbers with a real and imaginary part.
+We can also read multi-channel SFT data, that will be formatted in this way:
 ```
->>> label_dict
-{'spk_id': {'counts': {'spk05': 1, 'spk02': 1, 'spk04': 1, 'spk03': 1, 'spk01': 1}, 'lab2index': {'spk01': 0, 'spk02': 1, 'spk03': 2, 'spk04': 3, 'spk05': 4}, 'index2lab': {0: 'spk01', 1: 'spk02', 2: 'spk03', 3: 'spk04', 4: 'spk05'}}}
-```
-In practice the label_dict contains the following information:
-- **counts**: for each label entry we provide the number of times it appears
-- **lab2index**: it is a mapping from the string label to the corresponding id
-- **index2lab**: it is the mapping from indexes to labels 
-
-Note that we also support a list of labels for each sentence. This can be useful to set up phonemes or word labels for speech recognition. In this case, it is simply necessary to add a space between the labels, as shown in this example:
-```
-ID,duration,wav,wav_format,wav_opts, phn,phn_format,phn_opts
-fpkt0_sx188,2.2208125,TIMIT/test/dr3/fpkt0/sx188.wav,wav,, sil hh uw ao th er ay z dh iy ix n l ix m ix dx ih dx ix cl k s cl p eh n s ix cl k aw n cl sil,string
-```
-### Data writing
-Speechbrain can store tensors that are created during the computations into disk.
-This operation is perfomed by the `speechbrain.data_io.data_io.save` function.
-The current implementation can store tensors in the following formats:
-- **wav**: wav file format. It used the sound file writers and supports all its formats.
-- **pkl**: python pkl format.
-- **txt**: text format.
-- **ark** : kaldi binary format.
-- **png**: image format (useful to store image-like tensors like spectrograms).
-- **std_out**: the output is directly printed into the standard output.
-
- See for instance `cfg/minimal_examples/features/FBANKs.cfg` to see how one can use it within a configuration file.  The latter is called by the root config file `cfg/minimal_examples/features/compute_fbanks_example.cfg` and saves the FBANK features (using the pkl format) in `exp/compute_fbanks/save` folder.
-
-### Copying data locally
-**SpeechBrain is designed to read data on-the-fly from disk**. Copying your data in the local computation node is of crucial importance to reading them quickly. For instance, in most HPC clusters reading several small files from the shared filesystem can be slow and can even slow down the entire cluster (e.g., think about a lustre file system that is designed to read and write large files only, but it is very inefficient to read/write several small files). 
-
-The solution is thus to always read data from the local disk (e.g, in SLURM the local disk is in *$SLURM_TMPDIR*). To do it, we suggest to do the following steps:
-
-1. *If not already compressed, compress your dataset.*
-2. *Copy the compressed file in the local disk.*
-3. *Uncompress the dataset.*
-4. *Process it with SpeechBrain.*
-
-To help users with this operation, we created a function called copy_locally (see lib.data_io.data_io.copy_data_locally), which automatically implements steps 2 and 3. In particular, we can initialize this class with the following parameters:
-
-```
-    [copy_locally]
-            class_name=data_preparation.copy_data_locally
-            data_file=$data_file
-            local_folder=$local_data_folder
-    [/copy_locally]
+(batch, time_step, n_fft, 2, n_audio_channels)
 ```
 
-where data_file must be a single file (e.g. a *tar.gz* file that contains your dataset) and local_folder is the folder on the local computation node where you want to copy and uncompress the data. The function is automatically skipped when the tar.gz file is already present in the local folder. 
 
-## Execute computation class
-The *execute_computations* class is the most important core function within speechbrain and we require users to familiarize themselves with it.
+# Developer Guidelines
+The goal is to write a set of libraries that process audio and speech in several different ways. The goal is to build a set of homogeneous libraries that are all compliant with the guidelines described in the following sub-sections.
 
-The execute_computation class **reads a configuration file and executes the corresponding computations**.
-As you can see from the function documentation in *speechbrain.core.py*, this function has only one mandatory argument:
+## GitHub
 
-- **cfg_file**: it is the path of the config file that we want to execute. The computations reported in the [computation] section will be executed.
+Our development strategy is as follows:
 
-The numerous optional arguments can be used to implement more advanced functionalities, such *data loops*, *minibatch_creation*, *data caching*. We will discuss here the main functionalities. More advanced functionalities will be described in the following sections and in the function documentation.
+1. Clone the main speechbrain repository (no fork necessary). SSH example:
+    `git clone git@github.com:speechbrain/speechbrain` 
+2. Create a branch for specific feature you are developing.
+    `git checkout -b your-branch-name`
+3. Make + commit changes. Do not commit to `master`.
+4. Push branch to github.
+    `git push --set-upstream origin your-branch-name`
+5. Navigate to github, and create a pull request from your branch to master.
+6. A reviewer will be assigned to your PR to (hopefully quickly) review.
+7. When reviewer is satisfied that the code improves repository quality, they can merge.
+8. Reviewer should delete the source branch in the origin. You can do this in your
+local copy too, after first making sure master is up-to-date (so git doesn't complain
+that your branch changes aren't in master):
+    `git checkout master`
+    `git pull`
+    `git branch -d your-branch-name`
 
-### Data Loop and minibatch creation
-When a csv_file (i.e, the file containing the list of sentences to process) is passed as an argument, execute_computations automatically create mini-batches and loops over all the data. 
-
-For instance, let's take a look into the execute_computations function called in this minimal example: `cfg/minimal_examples/data_reading/read_write_data.cfg`:
-```
-[global]
-    verbosity=2
-    output_folder=exp/read_write_mininal
-    data_folder=samples/audio_samples
-    csv_file=$data_folder/csv_example.csv
-[/global]
-
-[functions]    
-        
-        [loop]
-            class_name=speechbrain.core.execute_computations
-            cfg_file=cfg/minimal_examples/data_reading/save_signals.cfg
-            csv_file=$csv_file
-            batch_size=2
-            csv_read=wav,spk_id
-            sentence_sorting=ascending
-            num_workers=2
-            cache=True
-            cache_ram_percent=75
-        [/loop]
-
-[/functions]
-
-[computations]
-    
-    # process the specified dataset
-    loop()    
-
-[/computations]
-```
-
-This root config file reads all the data itemized in `samples/audio_samples/sv_example.csv`, creates mini-batches of two sentences (see batch_size argument), and process them as specified in the child config file `cfg/minimal_examples/data_reading/save_signals.cfg`. The field `csv_read=wav,spk_id` can be use to select which set of features/labels read from the CSV file. If not specified, it automatically creates batches for all the features/labels available, otherwise, it creates batches for the subset of data specified (in this case, only wav features).
-
-### Minibatch creation
-To better explain how mini-batches are created within speechbrain, let's take a look into the child config file `cfg/minimal_examples/data_reading/save_signals.cfg`:
+Note that CI tests will be run when you create a PR. If you want to be sure that your
+code will not fail these tests, we have set up pre-commit hooks that you can install:
 
 ```
-[global]
-[/global]
-
-[functions]
-    [save]
-        class_name=speechbrain.data_io.data_io.save
-        sample_rate=16000
-        save_format=flac    
-    [/save]
-[/functions]
-
-
-[computations]
-    id,wav,wav_len,*_=get_input_var()
-    save(wav,id,wav_len)
-[/computations]
+> pip install pre-commit
+> pre-commit install
+> pre-commit install --hook-type pre-push --config .pre-push-config.yaml
 ```
-This config file defines the function save, that is used to store the output on the disk (in this case using the flac format). The most peculiar line is the following:
-```
-    id,wav,wav_len,it_id=get_input_var()
-```
-The special function *get_input_var()* returns by default the following elements: 
-- **id**: it is a list containing all the ids of all the sentences in the current batch
-- **data_batch** it is a torch.tensor containing the batch of the data specified in the csv_read file
-- **data_batch_len** it is a torch.tensor containing the relative length of the batches.
-- **it_id** it is an integer containing the iteration id. It will be 0 for the first iteration, 1 for the second and so on.
-- **epoch_id** it is the epoch_id (it is non-zero when looping over the same data multiple times).
 
-In this case, we asked our execute_computations functions to only create mini-batches for the wav files and *get_input_var*
-thus returns `id, wav, wav_len,it_id`.
+These will automatically check the code when you commit and when you push.
 
-To help users better understand the loop over the mini-batches works, let's add some prints into the computation section.
-Remember that the computation section is just a python shell and we can use it to add some prints and other python commands useful to debug. 
-Let's change the computation section of the child configuration file in the following way:
-```
-[computations]
-    id,wav,wav_len,it_id,epoch_id=get_input_var()
-    print(id)
-    print(wav.shape)
-    print(wav_len)
-    print(it_id)
-    print(epoch_id)
-    sys.exit(0)
-    save(wav,id,wav_len)
-[/computations]
-```
-In this case, we print the first batch of data created from the CSV file `samples/audio_samples/sv_example.csv` and we can see the following output:
-```
-['example5', 'example2']
-torch.Size([2, 33088])
-tensor([0.4836, 1.0000])
-0
-0
-```
-Note that wav is a torch.tensor composed of two signals (batch_size=2).  
-Signals are in general of different lengths and to create batches with the same size we have to perform zero paddings. This operation is automatically performed within speechbrain. It is, however, important to keep track of the original length of the signals (e.g, this could be important when we want to save non-padded signals, or when we want to compute neural network cost on valid time steps only). For this reason we also automatically return wav_len, that is a tensor containing the relative lengths of the sentences within the batch (in this case the length of the first sentence is 0.48 times the length of the second sentence)
+## Python 
+### Version
+SpeechBrain targets Python >= 3.7.
 
-We return the relative information because it is more flexible than the absolute one. In a standard feature processing pipeline, we can change the temporal resolution of our tensors. This happens, for instance, when we compute the FBANK features from a raw waveform using windows every 10 ms. With the relative measure, we are still able to save the valid time steps, as done in the current example.
+### Formatting
+To settle code formatting, SpeechBrain adopts the [black](https://black.readthedocs.io/en/stable/) code formatter. Before submitting pull requests, please run the black formatter on your code.
 
-If we remove `sys.exit(0)` we will see the following:
+In addition, we use [flake8](https://flake8.pycqa.org/en/latest/) to test code 
+style. Black as a tool does not enforce everything that flake8 tests.
 
-```
-['example5', 'example2']
-torch.Size([2, 33088])
-tensor([0.4836, 1.0000])
-0
-0
-['example4', 'example3']
-torch.Size([2, 46242])
-tensor([0.7571, 1.0000])
-1
-0
-['example1']
-torch.Size([1, 52173])
-tensor([1.])
-2
-0
-```
-As you can see, the CSV file is composed of 5 sentences and we thus have three batches (two composed of two sentences and the last one composed of a single sentences).
+You can run the formatter with: `black <file-or-directory>`. Similarly the 
+flake8 tests can be run with `flake8 <file-or-directory>`.
 
-### Data sorting
+### Adding dependencies
+In general, we strive to have as few dependencies as possible. However, we will 
+debate dependencies on a case-by-case basis. We value easy installability via 
+pip.
 
-Batches can be created differently based on how the field sentence_sorting is set.
-This parameter specifies how to sort the data before the batch creation:
-- **ascending**: sorts the data in ascending order using the "duration" field in the csv file.
-- **descending**  sorts the data in descending order using the "duration" field in the csv file.
-- **random**  sort the data randomly
-- **original**  keeps the original sequence of data defined in the csv file. 
+In case the dependency is only needed for a specific recipe or specific niche
+module, we suggest the extra tools pattern: don't add the dependency to general
+requirements, but check for installation and instruct to if the dependant code is run.
 
-Note that if the data are sorted in ascending or descending order the batches will approximately have the same size and the need for zero paddings is minimized. Instead, if sentence_sorting is set to random, the batches might be composed of both short and long sequences and several zeros might be added in the batch. When possible, it is desirable to
-sort the data. This way, we use more efficiently the computational resources, without wasting time on processing time steps composed on zeros only. 
+### Testing
+We are adopting unit tests using 
+[pytest](https://docs.pytest.org/en/latest/contents.html).
+Run unit tests with `pytest tests`
 
-### Data caching
+Additionally we have runnable doctests, though primarily these serve as 
+examples of the documented code. Run doctests with 
+`pytest --doctest-modules <file-or-directory>`
 
-### Output variables
+## Documentation
+In SpeechBrain, we plan to provide documentation at different levels:
+
+-  **Docstrings**: For each class/function in the repository, there should a header that properly describes its functionality, inputs, and outputs. It is also crucial to provide an example that shows how it can be used as a stand-alone function. We use [Numpy-style](https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_numpy.html) docstrings. Consistent docstring style enables automatic API documentation. Also note the automatic doctests (see [here](#testing).
+
+-  **Comments**: We encourage developers to write self-documenting code, and use
+comments only where the implementation is surprising (to a Python-literate audience)
+and where the implemented algorithm needs clarification. 
+
+In addition we have plans for:
+
+-  **Website documentation**. In the SpeechBrain website, we will put detailed documentation where we put both the written tutorials and descriptions of all the functionalities of the toolkit. 
+
+-  **The SpeechBrain book**: Similarly to HTK (an old HMM-based speech toolkit developed by Cambridge) we plan to have a book that summarized the functionalities of speechbrain. The book will be mainly based on the website documentation, but also summarizing everything in a book, make it simpler to cite us.
+
+-  **Video tutorial**: For each important topic (e.g, speech recognition, speaker recognition, speech enhancement) we plan to have some video tutorials.
+
+## Development tools
+
+### flake8
+- A bit like pycodestyle: make sure the codestyle is according to guidelines.
+- Compatible with black, in fact current flake8 config directly taken from black
+- Code compliance can be tested simply with: `flake8 <file-or-directory>`
+- You can bypass flake8 for a line with `# noqa: <QA-CODE> E.G. # noqa: E731 to allow lambda assignment`
+
+### pre-commit
+- Python tool which takes a configuration file (.pre-commit-config.yaml) and installs the git commit hooks specified in it.
+- Git commit hooks are local so all who want to use them need to install them separately. This is done by: `pre-commit install`
+- The tool can also install pre-push hooks. This is done separately with: `pre-commit install --hook-type pre-push --config .pre-push-config.yaml`
+
+### the git pre-commit hooks
+- Automatically run black
+- Automatically fix trailing whitespace, end of file, sort requirements.txt
+- Check that no large (>512kb) files are added by accident
+- Automatically run flake8
+- NOTE: If the hooks fix something (e.g. trailing whitespace or reformat with black), these changes are not automatically added and committed. You’ll have to add the fixed files again, and run the commit again. I guess this is a safeguard: don’t blindly accept changes from git hooks.
+- NOTE2: The hooks are only run on the files you git added to the commit. This is in contrast to the CI pipeline, which always tests everything.
+
+### the git pre-push hooks
+- Black and flake8 as checks on the whole repo
+- Unit-tests and doctests run on the whole repo
+- These hooks can only be run in the full environment, so if you install these, you’ll need to e.g. activate virtualenv before pushing.
+
+### pytest doctests
+- This is not an additional dependency, but just that doctests are now run with pytest. Use: `pytest --doctest-modules <file-or-directory>`
+- Thus you may use some pytest features in docstring examples. Most notably IMO: `tmpdir = getfixture('tmpdir')` which makes a temp dir and gives you a path to it, without needing a `with tempfile.TemporaryDirectory() as tmpdir:`
+
+## Continuous integration
+
+### What is CI
+- loose term for a tight merge schedule
+- typically assisted by automated testing and code review tools + practices 
+
+### CI / CD Pipelines
+- GitHub Actions (and also available as third-party solution) feature, which automatically runs basically anything in reaction to git events.
+- The CI pipeline is triggered by pull requests.
+- Runs in a Ubuntu environment provided by GitHub
+- GitHub offers a limited amount of CI pipeline minutes for free. 
+- CD would stand for continuous deployment, though we’re not doing that yet
+
+### Our test suite
+- Code linters are run. This means black and flake8. These are run on everything in speechbrain (the library directory), everything in recipes and everything in tests.
+- Note that black will only error out if it would change a file here, but won’t reformat anything at this stage. You’ll have to run black on your code and push a new commit. The black commit hook helps avoid these errors.
+- All unit-tests and doctests are run. You can check that these pass by running them yourself before pushing, with `pytest tests`  and `pytest --doctest-modules speechbrain`
+- Currently, these are not run: docstring format tests (this should be added once the docstring conversion is done), integration tests/minimal examples (I propose these to be added only to more significant merges, e.g. merges to master branch [assuming we start using a master/develop/feature branch structure]).
+- If all tests pass, the whole pipeline takes a couple of minutes.
 
 
+# Zen of Speechbrain
+SpeechBrain could be used for *research*, *academic*, *commercial*, *non-commercial* purposes. Ideally, the code should have the following features:
+- **Simple:**  the code must be easy to understand even by students or by users that are not professional programmers or speech researchers. Try to design your code such that it can be easily read. Given alternatives with the same level of performance, code the simplest one. (the most explicit and straightforward manner is preferred)
 
+- **Readable:** SpeechBrain mostly adopts the code style conventions in PEP8. The code written by the users must be compliant with that. We test codestyle with `flake8`
 
+- **Efficient**: The code should be as efficient as possible. When possible, users should maximize the use of pytorch native operations.  Remember that in generally very convenient to process in parallel multiple signals rather than processing them one by one (e.g try to use *batch_size > 1* when possible). Test the code carefully with your favorite profiler (e.g, torch.utils.bottleneck https://pytorch.org/docs/stable/bottleneck.html ) to make sure there are no bottlenecks if your code.  Since we are not working in *c++* directly, performance can be an issue. Despite that, our goal is to make SpeechBrain as fast as possible. 
 
+- **modular:** Write your code such that is is very modular and fits well with the other functionalities of the toolkit. The idea is to develop a bunch of models that can be naturally interconnected with each other to implement complex modules.
 
-
-
-
-
+- **well documented:**  Given the goals of SpeechBrain, writing a rich a good documentation is a crucial step. Many existing toolkits are not well documented, and we have to succeed in that to make the difference.
+This aspect will be better described in the following sub-section.
 
