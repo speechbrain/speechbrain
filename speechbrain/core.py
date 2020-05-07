@@ -12,6 +12,7 @@ import logging
 import inspect
 import argparse
 import subprocess
+from datetime import date
 from tqdm.contrib import tzip
 from speechbrain.yaml import resolve_references
 from speechbrain.utils.logger import setup_logging
@@ -54,6 +55,9 @@ def create_experiment_directory(
         with open(params_to_save) as f:
             resolved_yaml = resolve_references(f, overrides)
         with open(params_filename, "w") as w:
+            print("# Generated %s from:" % date.today(), file=w)
+            print("# %s" % os.path.abspath(params_to_save), file=w)
+            print("# yamllint disable", file=w)
             shutil.copyfileobj(resolved_yaml, w)
 
     # Copy executing file to output directory
