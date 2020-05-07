@@ -32,7 +32,7 @@ class MFCC(torch.nn.Module):
     >>> feature_maker = MFCC()
     >>> feats = feature_maker(inputs, init_params=True)
     >>> feats.shape
-    torch.Size([10, 101, 759])
+    torch.Size([10, 101, 660])
 
     Hyperparams
     -----------
