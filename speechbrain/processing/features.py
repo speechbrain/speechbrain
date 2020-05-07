@@ -17,7 +17,7 @@ Example
 ... )
 >>> features = compute_STFT(signal)
 >>> features = spectral_magnitude(features)
->>> compute_fbanks = ApplyFilterbank(n_mels=40)
+>>> compute_fbanks = Filterbank(n_mels=40)
 >>> features = compute_fbanks(features, init_params=True)
 >>> compute_mfccs = DCT(n_out=20)
 >>> features = compute_mfccs(features, init_params=True)
@@ -25,9 +25,9 @@ Example
 >>> delta1 = compute_deltas(features, init_params=True)
 >>> delta2 = compute_deltas(delta1)
 >>> features = torch.cat([features, delta1, delta2], dim=2)
->>> compute_cw = context_window(left_frames=5, right_frames=5)
+>>> compute_cw = ContextWindow(left_frames=5, right_frames=5)
 >>> features  = compute_cw(features)
->>> norm = mean_var_norm()
+>>> norm = InputNormalization()
 >>> features = norm(features, torch.tensor([1]).float())
 
 Author
@@ -248,7 +248,7 @@ class Filterbank(torch.nn.Module):
     Example
     -------
     >>> import torch
-    >>> compute_fbanks = Filterbanks()
+    >>> compute_fbanks = Filterbank()
     >>> inputs = torch.randn([10, 101, 201])
     >>> features = compute_fbanks(inputs, init_params=True)
     >>> features.shape
@@ -548,7 +548,7 @@ class DCT(torch.nn.Module):
     >>> import torch
     >>> compute_mfccs = DCT()
     >>> inputs = torch.randn([10, 101, 40])
-    >>> features = compute_mfccs(inputs)
+    >>> features = compute_mfccs(inputs, init_params=True)
     >>> features.shape
     torch.Size([10, 101, 20])
     """
