@@ -23,8 +23,8 @@ def test_parse_arguments():
 def test_parse_overrides():
     from speechbrain.core import parse_overrides
 
-    overrides = parse_overrides("{model.arg1: 1, model.arg1: 2}")
-    assert overrides == {"model": {"arg1": 2}}
+    overrides = parse_overrides("{model.arg1: 1, model.arg2: 2}")
+    assert overrides == {"model": {"arg1": 1, "arg2": 2}}
 
 
 def test_brain():
