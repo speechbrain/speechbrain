@@ -836,5 +836,6 @@ class Checkpointer:
         meta = {"unixtime": time.time(), "end-of-epoch": end_of_epoch}
         meta.update(meta_to_include)
         with open(fpath, "w") as fo:
+            fo.write("# yamllint disable\n")
             fo.write(yaml.dump(meta))
         return meta

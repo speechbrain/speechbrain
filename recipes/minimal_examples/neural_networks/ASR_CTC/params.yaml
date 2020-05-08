@@ -30,10 +30,9 @@ test_loader: !speechbrain.data_io.data_io.DataLoaderFactory
     <<: *loader
     csv_file: !ref <csv_test>
 
-compute_features: !speechbrain.lobes.features.Features
-    feature_type: mfcc
+compute_features: !speechbrain.lobes.features.mfcc.MFCC
 
-mean_var_norm: !speechbrain.processing.features.mean_var_norm
+mean_var_norm: !speechbrain.processing.features.InputNormalization
     norm_type: global
 
 rnn: !speechbrain.nnet.RNN.RNN
