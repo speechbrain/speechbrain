@@ -5,7 +5,6 @@ Author(s): Peter Plantinga 2020
 
 import os
 import sys
-import yaml
 import torch
 import shutil
 import logging
@@ -13,6 +12,7 @@ import inspect
 import argparse
 import subprocess
 import speechbrain as sb
+from datetime import date
 from tqdm.contrib import tzip
 from speechbrain.utils.logger import setup_logging
 from speechbrain.utils.data_utils import recursive_update
@@ -52,6 +52,9 @@ def create_experiment_directory(
         with open(params_to_save) as f:
             resolved_yaml = sb.yaml.resolve_references(f, overrides)
         with open(params_filename, "w") as w:
+            print("# Generated %s from:" % date.today(), file=w)
+            print("# %s" % os.path.abspath(params_to_save), file=w)
+            print("# yamllint disable", file=w)
             shutil.copyfileobj(resolved_yaml, w)
 
     # Copy executing file to output directory
@@ -166,10 +169,10 @@ def parse_overrides(override_string):
     """
     preview = {}
     if override_string:
-        preview = yaml.safe_load(override_string)
+        preview = sb.yaml.load_extended_yaml(override_string)
 
     overrides = {}
-    for arg, val in preview.items():
+    for arg, val in preview.__dict__.items():
         if "." in arg:
             nest(overrides, arg.split("."), val)
         else:
