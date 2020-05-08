@@ -48,15 +48,10 @@ lr_annealing: !speechbrain.nnet.lr_scheduling.LRScheduler
     annealing_factor: 0.8
     patient: 0
 
-normalize: !speechbrain.processing.features.mean_var_norm
+normalize: !speechbrain.processing.features.InputNormalization
     norm_type: global
 
-compute_features: !speechbrain.lobes.features.Features
-    feature_type: fbank
-    deltas: False
-    context: False
-    requires_grad: False
-    n_mels: !ref <n_mels>
+compute_features: !speechbrain.lobes.features.fbank.Fbank
 
 train_loader: !speechbrain.data_io.data_io.DataLoaderFactory
     &loader
