@@ -410,7 +410,7 @@ class SpeedPerturb(torch.nn.Module):
         self.samp_index = torch.randint(len(self.speeds), (1,))[0]
         perturbed_waveform = self.resamplers[self.samp_index](waveform)
 
-        return perturbed_waveform.squeeze(1)
+        return perturbed_waveform.squeeze(-1)
 
 
 class Resample(torch.nn.Module):
@@ -495,7 +495,7 @@ class Resample(torch.nn.Module):
 
         unsqueezed = False
         if len(waveforms.shape) == 2:
-            waveforms = waveforms.unsqueeze(1)
+            waveforms = waveforms.unsqueeze(-1)
             unsqueezed = True
         elif len(waveforms.shape) == 3:
             waveforms = waveforms.transpose(1, 2)
@@ -506,7 +506,7 @@ class Resample(torch.nn.Module):
         resampled_waveform = self._perform_resample(waveforms)
 
         if unsqueezed:
-            resampled_waveform = resampled_waveform.squeeze(1)
+            resampled_waveform = resampled_waveform.squeeze(-1)
         else:
             resampled_waveform = waveforms.transpose(1, 2)
 
@@ -902,7 +902,7 @@ class DropFreq(torch.nn.Module):
         pad = filter_length // 2
 
         # Start with delta function
-        drop_filter = torch.zeros(1, filter_length, 1)
+        drop_filter = torch.zeros(1, filter_length, 1).to(waveforms.device)
         drop_filter[0, pad, 0] = 1
 
         # Subtract each frequency
@@ -916,7 +916,7 @@ class DropFreq(torch.nn.Module):
         dropped_waveform = convolve1d(dropped_waveform, drop_filter, pad)
 
         # Remove channels dimension if added
-        return dropped_waveform.squeeze(1)
+        return dropped_waveform.squeeze(-1)
 
 
 class DropChunk(torch.nn.Module):

@@ -1,0 +1,37 @@
+n_fft: 400
+sample_rate: 16000
+
+drop_freq: !speechbrain.processing.speech_augmentation.DropFreq
+    drop_freq_low: 0.1
+    drop_freq_high: 0.9
+    drop_count_low: 0
+    drop_count_high: 3
+    drop_width: 0.05
+
+drop_chunk: !speechbrain.processing.speech_augmentation.DropChunk
+    drop_length_low: 1000
+    drop_length_high: 2000
+    drop_count_low: 1
+    drop_count_high: 5
+    drop_start: 0
+    drop_end: null
+
+speed_perturb: !speechbrain.processing.speech_augmentation.SpeedPerturb
+    orig_freq: !ref <sample_rate>
+    speeds: [9, 10, 11]
+
+compute_STFT: !speechbrain.processing.features.STFT
+    sample_rate: !ref <sample_rate>
+    win_length: 25
+    hop_length: 10
+    n_fft: !ref <n_fft>
+    window_type: hamming
+
+compute_fbanks: !speechbrain.processing.features.Filterbank
+    n_mels: 40
+    log_mel: False
+    filter_shape: triangular
+    f_min: 0
+    f_max: 8000
+    freeze: True
+    n_fft: !ref <n_fft>
