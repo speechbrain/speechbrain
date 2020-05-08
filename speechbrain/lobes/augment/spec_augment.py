@@ -24,8 +24,8 @@ class SpecAugment(torch.nn.Module):
     Example
     -------
     >>> inputs = torch.randn([10, 16000])
-    >>> feature_maker = SpecAugment(speed_perturb={speeds:[8]})
-    >>> feats = feature_maker(inputs, init_params=True)
+    >>> feature_maker = SpecAugment(speed_perturb={'speeds':[8]})
+    >>> feats = feature_maker(inputs, torch.ones(10), init_params=True)
     >>> feats.shape
     torch.Size([10, 81, 40])
     """

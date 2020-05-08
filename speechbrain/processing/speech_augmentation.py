@@ -508,7 +508,7 @@ class Resample(torch.nn.Module):
         if unsqueezed:
             resampled_waveform = resampled_waveform.squeeze(-1)
         else:
-            resampled_waveform = waveforms.transpose(1, 2)
+            resampled_waveform = resampled_waveform.transpose(1, 2)
 
         return resampled_waveform
 
