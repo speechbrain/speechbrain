@@ -8,6 +8,10 @@ from speechbrain.data_io.data_io import convert_index_to_lab
 from speechbrain.decoders.ctc import ctc_greedy_decode
 from speechbrain.decoders.decoders import undo_padding
 
+# This hack needed to import data preparation script from ..
+sys.path.append("..")
+from timit_prepare import TIMITPreparer  # noqa E402
+
 # Load hyperparameters file with command-line overrides
 params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
 if "seed" in overrides:
@@ -89,7 +93,12 @@ asr_brain = ASR(
 )
 
 # Experiment
-params.prepare_timit()
+prepare = TIMITPreparer(
+    data_folder=params.data_folder,
+    splits=["train", "dev", "test"],
+    save_folder=params.data_folder,
+)
+prepare()
 
 asr_brain.fit(
     train_set=params.train_loader(),
