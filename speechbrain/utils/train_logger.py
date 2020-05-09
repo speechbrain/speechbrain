@@ -1,19 +1,48 @@
 import logging
+from speechbrain.utils.edit_distance import wer_summary
 
 logger = logging.getLogger(__name__)
 
 
 class TrainLogger:
+    """Abstract class defining an interface for training loggers."""
+
+    def log_epoch(
+        self, epoch_stats, train_stats, valid_stats=None, verbose=False,
+    ):
+        """Log the stats for one epoch.
+
+        Arguments
+        ---------
+        epoch_stats : dict of str:scalar pairs
+            Stats relevant to the epoch (e.g. count, learning-rate, etc.)
+        train_stats : dict of str:list pairs
+            Each loss type is represented with a str : list pair including
+            all the values for the training pass.
+        valid_stats : dict of str:list pairs
+            Each loss type is represented with a str : list pair including
+            all the values for the validation pass.
+        verbose : bool
+            Whether to also put logging information to the standard logger.
+        """
+        raise NotImplementedError
+
+
+class FileTrainLogger(TrainLogger):
     """Text logger of training information
 
     Arguments
     ---------
     save_file : str
         The file to use for logging train information.
+    summary_fns : dict of str:function pairs
+        Each summary function should take a list produced as output
+        from a training/validation pass and summarize it to a single scalar.
     """
 
-    def __init__(self, save_file):
+    def __init__(self, save_file, summary_fns):
         self.save_file = save_file
+        self.summary_fns = summary_fns
 
     def _item_to_string(self, key, value):
         """Convert one item to string, handling floats"""
@@ -26,29 +55,19 @@ class TrainLogger:
         log_string = " - ".join(
             [self._item_to_string(k, v) for k, v in epoch_stats.items()]
         )
-        for key, value in train_stats.items():
-            log_string += " - train " + self._item_to_string(key, value)
+        for stat, value_list in train_stats.items():
+            value = self.summary_fns[stat](value_list)
+            log_string += " - train " + self._item_to_string(stat, value)
         if valid_stats is not None:
-            for key, value in valid_stats.items():
-                log_string += " - valid " + self._item_to_string(key, value)
+            for stat, value_list in valid_stats.items():
+                value = self.summary_fns[stat](value_list)
+                log_string += " - valid " + self._item_to_string(stat, value)
         return log_string
 
     def log_epoch(
         self, epoch_stats, train_stats, valid_stats=None, verbose=True,
     ):
-        """Log the stats for one epoch.
-
-        Arguments
-        ---------
-        epoch_stats : dict
-            Stats relevant to the epoch (e.g. count, learning-rate, etc.)
-        train_stats : dict
-            Stats relevant to the training pass
-        valid_stats : dict
-            Stats relevant to the validation pass
-        verbose : bool
-            Whether to also put logging information to the standard logger.
-        """
+        """See TrainLogger.log_epoch()"""
         summary = self._stats_to_string(epoch_stats, train_stats, valid_stats)
         with open(self.save_file, "a") as fout:
             print(summary, file=fout)
@@ -56,7 +75,7 @@ class TrainLogger:
             logger.info(summary)
 
 
-class TensorboardLogger:
+class TensorboardLogger(TrainLogger):
     """Logs training information in the format required by Tensorboard.
 
     Arguments
@@ -76,21 +95,31 @@ class TensorboardLogger:
         from torch.utils.tensorboard import SummaryWriter
 
         self.writer = SummaryWriter(self.save_dir)
-        self.global_step = {}
+        self.global_step = {"train": {}, "valid": {}, "epoch": 0}
 
-    def log_batch(self, batch_stats, dataset):
-        """Logs one batch in TensorBoard format
+    def log_epoch(
+        self, epoch_stats, train_stats, valid_stats=None, verbose=False,
+    ):
+        """See TrainLogger.log_epoch()"""
+        self.global_step["epoch"] += 1
+        for name, value in epoch_stats.items():
+            self.writer.add_scalar(name, value, self.global_step["epoch"])
 
-        Arguments
-        ---------
-        batch_stats : dict
-            All stats to be logged, key is name and value is a scalar.
-        dataset : str
-            The name of the dataset this batch belongs to (e.g. "train")
-        """
-        if dataset not in self.global_step:
-            self.global_step[dataset] = 0
-        self.global_step[dataset] += 1
-        for stat, value in batch_stats.items():
-            tag = f"{stat}/{dataset}"
-            self.writer.add_scalar(tag, value, self.global_step[dataset])
+        for dataset, stats in [("train", train_stats), ("valid", valid_stats)]:
+            for stat, value_list in stats.items():
+                if stat not in self.global_step[dataset]:
+                    self.global_step[dataset][stat] = 0
+                tag = f"{stat}/{dataset}"
+                for value in value_list:
+                    new_global_step = self.global_step[dataset][stat] + 1
+                    self.writer.add_scalar(tag, value, new_global_step)
+                    self.global_step[dataset][stat] = new_global_step
+
+
+def summarize_average(stat_list):
+    return float(sum(stat_list) / len(stat_list))
+
+
+def summarize_error_rate(stat_list):
+    summary = wer_summary(stat_list)
+    return summary["WER"]
