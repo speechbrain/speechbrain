@@ -14,6 +14,10 @@ from speechbrain.utils.train_logger import (
     summarize_error_rate,
 )
 
+# This hack needed to import data preparation script from ..
+sys.path.append("..")
+from timit_prepare import TIMITPreparer  # noqa E402
+
 # Load hyperparameters file with command-line overrides
 params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
 if "seed" in overrides:
@@ -86,7 +90,12 @@ class ASR(sb.core.Brain):
 
 
 # Experiment setup
-params.prepare_timit()
+prepare = TIMITPreparer(
+    data_folder=params.data_folder,
+    splits=["train", "dev", "test"],
+    save_folder=params.data_folder,
+)
+prepare()
 train_set = params.train_loader()
 valid_set = params.valid_loader()
 asr_brain = ASR(
