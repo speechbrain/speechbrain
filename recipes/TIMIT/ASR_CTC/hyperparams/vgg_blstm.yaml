@@ -1,11 +1,17 @@
+# ################################
+# Model: VGG2 + BLSTM + MLP
+# Author: Mirco Ravanelli 2020
+# ################################
+
 data_folder: !PLACEHOLDER  # e.g. /path/to/TIMIT
-predictions_file: !ref <output_folder>/predictions.csv
-wer_file: !ref <output_folder>/wer.txt
-save_folder: !ref <output_folder>/save
 ckpts_to_keep: 1
 sample_rate: 16000
 seed: !PLACEHOLDER  # e.g, 1234
-output_folder: !ref results/<seed>
+output_folder: !ref results/vgg_blstm/<seed>
+predictions_file: !ref <output_folder>/predictions.csv
+wer_file: !ref <output_folder>/wer.txt
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
 
 # Data files
 csv_train: !ref <data_folder>/train.csv
@@ -43,11 +49,6 @@ lr_annealing: !speechbrain.nnet.lr_scheduling.LRScheduler
 normalize: !speechbrain.processing.features.mean_var_norm
     norm_type: global
 
-prepare_timit: !speechbrain.data_io.data_preparation.TIMITPreparer
-    data_folder: !ref <data_folder>
-    splits: [train, dev, test]
-    save_folder: !ref <data_folder>
-
 compute_features: !speechbrain.lobes.features.Features
     feature_type: fbank
     deltas: False
@@ -70,7 +71,7 @@ valid_loader: !speechbrain.data_io.data_io.DataLoaderFactory
 test_loader: !speechbrain.data_io.data_io.DataLoaderFactory
     <<: *loader
     csv_file: !ref <csv_test>
-    batch_size: 1
+    batch_size: !ref <batch_size>
 
 compute_cost: !speechbrain.nnet.losses.ComputeCost
     cost_type: [ctc]
