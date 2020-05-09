@@ -7,8 +7,13 @@ logger = logging.getLogger(__name__)
 class TrainLogger:
     """Abstract class defining an interface for training loggers."""
 
-    def log_epoch(
-        self, epoch_stats, train_stats, valid_stats=None, verbose=False,
+    def log_stats(
+        self,
+        epoch_stats,
+        train_stats=None,
+        valid_stats=None,
+        test_stats=None,
+        verbose=False,
     ):
         """Log the stats for one epoch.
 
@@ -22,6 +27,9 @@ class TrainLogger:
         valid_stats : dict of str:list pairs
             Each loss type is represented with a str : list pair including
             all the values for the validation pass.
+        test_stats : dict of str:list pairs
+            Each loss type is represented with a str : list pair including
+            all the values for the test pass.
         verbose : bool
             Whether to also put logging information to the standard logger.
         """
@@ -50,29 +58,34 @@ class FileTrainLogger(TrainLogger):
             value = f"{value:.2f}"
         return f"{key}: {value}"
 
-    def _stats_to_string(self, epoch_stats, train_stats, valid_stats=None):
+    def _stats_to_string(self, stats):
         """Convert all stats to a single string summary"""
-        log_string = " - ".join(
-            [self._item_to_string(k, v) for k, v in epoch_stats.items()]
+        return " - ".join(
+            [self._item_to_string(k, v) for k, v in stats.items()]
         )
-        for stat, value_list in train_stats.items():
-            value = self.summary_fns[stat](value_list)
-            log_string += " - train " + self._item_to_string(stat, value)
-        if valid_stats is not None:
-            for stat, value_list in valid_stats.items():
-                value = self.summary_fns[stat](value_list)
-                log_string += " - valid " + self._item_to_string(stat, value)
-        return log_string
 
-    def log_epoch(
-        self, epoch_stats, train_stats, valid_stats=None, verbose=True,
+    def log_stats(
+        self,
+        epoch_stats,
+        train_stats=None,
+        valid_stats=None,
+        test_stats=None,
+        verbose=True,
     ):
         """See TrainLogger.log_epoch()"""
-        summary = self._stats_to_string(epoch_stats, train_stats, valid_stats)
+        string_summary = self._stats_to_string(epoch_stats)
+        for stats in [train_stats, valid_stats, test_stats]:
+            if stats is None:
+                continue
+            summary = {}
+            for stat, value_list in stats.items():
+                summary[stat] = self.summary_fns[stat](value_list)
+            string_summary += " - " + self._stats_to_string(summary)
+
         with open(self.save_file, "a") as fout:
-            print(summary, file=fout)
+            print(string_summary, file=fout)
         if verbose:
-            logger.info(summary)
+            logger.info(string_summary)
 
 
 class TensorboardLogger(TrainLogger):
@@ -97,15 +110,26 @@ class TensorboardLogger(TrainLogger):
         self.writer = SummaryWriter(self.save_dir)
         self.global_step = {"train": {}, "valid": {}, "epoch": 0}
 
-    def log_epoch(
-        self, epoch_stats, train_stats, valid_stats=None, verbose=False,
+    def log_stats(
+        self,
+        epoch_stats,
+        train_stats=None,
+        valid_stats=None,
+        test_stats=None,
+        verbose=False,
     ):
         """See TrainLogger.log_epoch()"""
         self.global_step["epoch"] += 1
         for name, value in epoch_stats.items():
             self.writer.add_scalar(name, value, self.global_step["epoch"])
 
-        for dataset, stats in [("train", train_stats), ("valid", valid_stats)]:
+        for dataset, stats in [
+            ("train", train_stats),
+            ("valid", valid_stats),
+            ("test", test_stats),
+        ]:
+            if stats is None:
+                continue
             for stat, value_list in stats.items():
                 if stat not in self.global_step[dataset]:
                     self.global_step[dataset][stat] = 0
