@@ -49,7 +49,7 @@ class AutoBrain(sb.core.Brain):
         return {"loss": loss.detach()}
 
     def on_epoch_end(self, epoch, train_stats, valid_stats):
-        train_logger.log_epoch({"Epoch": epoch}, train_stats, valid_stats)
+        train_logger.log_stats({"Epoch": epoch}, train_stats, valid_stats)
         print("Train loss: %.3f" % torch.Tensor(train_stats["loss"]).mean())
         print("Valid loss: %.3f" % torch.Tensor(valid_stats["loss"]).mean())
 

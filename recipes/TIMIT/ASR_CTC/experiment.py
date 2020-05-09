@@ -81,7 +81,7 @@ class ASR(sb.core.Brain):
         per = summarize_error_rate(valid_stats["PER"])
         old_lr, new_lr = params.lr_annealing([params.optimizer], epoch, per)
         epoch_stats = {"epoch": epoch, "lr": old_lr}
-        train_logger.log_epoch(epoch_stats, train_stats, valid_stats)
+        train_logger.log_stats(epoch_stats, train_stats, valid_stats)
 
         checkpointer.save_and_keep_only(
             meta={"PER": per},
@@ -111,10 +111,13 @@ asr_brain.fit(params.epoch_counter, train_set, valid_set)
 # Load best checkpoint for evaluation
 checkpointer.recover_if_possible(lambda c: -c.meta["PER"])
 test_stats = asr_brain.evaluate(params.test_loader())
+train_logger.log_stats(
+    epoch_stats={"Epoch loaded": params.epoch_counter.current},
+    test_stats=test_stats,
+)
 
 # Write alignments to file
 per_summary = edit_distance.wer_summary(test_stats["PER"])
 with open(params.wer_file, "w") as fo:
     wer_io.print_wer_summary(per_summary, fo)
     wer_io.print_alignments(test_stats["PER"], fo)
-print("Test PER: %.2f" % per_summary["WER"])
