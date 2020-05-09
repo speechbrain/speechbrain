@@ -237,16 +237,10 @@ class Brain:
     ---------
     modules : list of torch.Tensors
         The modules that will be updated using the optimizer.
-    train_logger : TrainLogger
-        This logger is updated each batch and called at the end of the batch
-        to record the results of training for the current batch. By default,
-        this summarizes training info and writes to the python logger.
     optimizer : optimizer
         The class to use for updating the modules' parameters.
-    scheduler : scheduler
-        An object that changes the learning rate based on performance.
-    checkpointer : Checkpointer
-        This is called by default at the end of each epoch to save progress.
+    first_input : torch.Tensor
+        An example of the input to the Brain class, for parameter init.
 
     Example
     -------
@@ -309,33 +303,21 @@ class Brain:
         """
         raise NotImplementedError
 
-    def on_epoch_end(self, epoch, train_summary, valid_summary=None):
+    def on_epoch_end(self, epoch, train_stats, valid_stats=None):
         """Gets called at the end of each epoch.
 
         Arguments
         ---------
         epoch : int
             The current epoch count.
-        train_summary : dict
-            A summary of the training statistics for the epoch.
-        valid_summary : dict
-            A summary of the validation statistics for the epoch.
+        train_stats : dict of str:list pairs
+            Each key refers to a statstic, and the list contains the values
+            for this statistic, generated in a training pass.
+        valid_stats : dict of str:list pairs
+            Each key refers to a statstic, and the list contains the values
+            for this statistic, generated in a training pass.
         """
         pass
-
-    def summarize(self, stats, test=False):
-        """Summarize lists of batch statistics.
-
-        Arguments
-        ---------
-        stats : dict
-            A set of statistics to summarize, keys representing the
-            names of the statistic and values are lists.
-        test : bool
-            Whether this is called for test-set data.
-        """
-        if "loss" in stats:
-            return {"loss": float(sum(stats["loss"]) / len(stats["loss"]))}
 
     def fit_batch(self, batch):
         """Fit one batch, override to do multiple updates.
@@ -409,7 +391,6 @@ class Brain:
         * `fit_batch()`
         * `evaluate_batch()`
         * `add_stats()`
-        * `summarize()`
 
         Arguments
         ---------
@@ -426,7 +407,6 @@ class Brain:
             for batch in tzip(*train_set):
                 stats = self.fit_batch(batch)
                 self.add_stats(train_stats, stats)
-            train_summary = self.summarize(train_stats)
 
             valid_stats = {}
             if valid_set is not None:
@@ -435,9 +415,8 @@ class Brain:
                     for batch in tzip(*valid_set):
                         stats = self.evaluate_batch(batch)
                         self.add_stats(valid_stats, stats)
-            valid_summary = self.summarize(valid_stats)
 
-            self.on_epoch_end(epoch, train_summary, valid_summary)
+            self.on_epoch_end(epoch, train_stats, valid_stats)
 
     def evaluate(self, test_set):
         """Iterate test_set and evaluate brain performance.
@@ -453,6 +432,5 @@ class Brain:
             for batch in tzip(*test_set):
                 stats = self.evaluate_batch(batch)
                 self.add_stats(test_stats, stats)
-        test_summary = self.summarize(test_stats, test=True)
 
-        return test_summary
+        return test_stats

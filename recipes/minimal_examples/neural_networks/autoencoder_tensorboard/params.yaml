@@ -31,11 +31,10 @@ test_loader: !speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_test>
     batch_size: 1
 
-compute_features: !speechbrain.lobes.features.Features
-    feature_type: mfcc
+compute_features: !speechbrain.lobes.features.mfcc.MFCC
     context_window: {left_frames: 1, right_frames: 1}
 
-mean_var_norm: !speechbrain.processing.features.mean_var_norm
+mean_var_norm: !speechbrain.processing.features.InputNormalization
     norm_type: global
 
 linear1: !speechbrain.nnet.linear.Linear
