@@ -6,10 +6,9 @@ Author: Peter Plantinga 2020
 import os
 import torch
 from speechbrain.yaml import load_extended_yaml
-from speechbrain.processing.features import spectral_magnitude
 
 
-class SpecAugment(torch.nn.Module):
+class TimeDomainSpecAugment(torch.nn.Module):
     """A time-domain approximation of the SpecAugment algorithm.
 
     Arguments
@@ -24,10 +23,10 @@ class SpecAugment(torch.nn.Module):
     Example
     -------
     >>> inputs = torch.randn([10, 16000])
-    >>> feature_maker = SpecAugment(speed_perturb={'speeds':[8]})
+    >>> feature_maker = SpecAugment(speed_perturb={'speeds':[80]})
     >>> feats = feature_maker(inputs, torch.ones(10), init_params=True)
     >>> feats.shape
-    torch.Size([10, 81, 40])
+    torch.Size([10, 12800])
     """
 
     def __init__(self, filterbank=True, log=True, **overrides):
@@ -52,12 +51,4 @@ class SpecAugment(torch.nn.Module):
             waveforms = self.params.drop_freq(waveforms)
             waveforms = self.params.drop_chunk(waveforms, lengths)
 
-        # Feature generation
-        features = self.params.compute_STFT(waveforms)
-        features = spectral_magnitude(features)
-        if self.filterbank:
-            features = self.params.compute_fbanks(features, init_params)
-        if self.log:
-            features = torch.log(features + 1e-10)
-
-        return features
+        return waveforms

@@ -32,6 +32,8 @@ class ASR(sb.core.Brain):
     def forward(self, x, init_params=False):
         ids, wavs, wav_lens = x
         wavs, wav_lens = wavs.to(params.device), wav_lens.to(params.device)
+        if hasattr(params, "augmentation"):
+            wavs = params.augmentation(wavs, wav_lens, init_params)
         feats = params.compute_features(wavs, init_params)
         feats = params.normalize(feats, wav_lens)
         return params.model(feats, init_params), wav_lens
@@ -85,8 +87,11 @@ saver = sb.utils.checkpoints.Checkpointer(
         "normalizer": params.normalize,
     },
 )
+modules = [params.model]
+if hasattr(params, "augmentation"):
+    modules.append(params.augmentation)
 asr_brain = ASR(
-    modules=[params.model],
+    modules=modules,
     optimizer=params.optimizer,
     scheduler=params.lr_annealing,
     saver=saver,

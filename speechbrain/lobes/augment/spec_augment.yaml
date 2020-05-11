@@ -18,7 +18,7 @@ drop_chunk: !speechbrain.processing.speech_augmentation.DropChunk
 
 speed_perturb: !speechbrain.processing.speech_augmentation.SpeedPerturb
     orig_freq: !ref <sample_rate>
-    speeds: [9, 10, 11]
+    speeds: [95, 100, 105]
 
 compute_STFT: !speechbrain.processing.features.STFT
     sample_rate: !ref <sample_rate>
