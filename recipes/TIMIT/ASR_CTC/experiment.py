@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import os
 import sys
 import torch
 import speechbrain as sb
@@ -15,7 +16,8 @@ from speechbrain.utils.train_logger import (
 )
 
 # This hack needed to import data preparation script from ..
-sys.path.append("..")
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.dirname(current_dir))
 from timit_prepare import TIMITPreparer  # noqa E402
 
 # Load hyperparameters file with command-line overrides
