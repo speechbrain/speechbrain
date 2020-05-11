@@ -52,6 +52,3 @@ stats_pool: !speechbrain.nnet.TDNN.TDNN
     input_dim: 512
     output_dim: 1500
     full_context: True
-
-dropout: !speechbrain.nnet.dropout.Dropout
-    drop_rate: 0.15

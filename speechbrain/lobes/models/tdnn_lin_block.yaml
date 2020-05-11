@@ -1,8 +1,6 @@
 block_index: 1
 sequence: [linear1, norm1, activation1, linear2, norm2, activation2, linear3]
 
-#linear1: !speechbrain.nnet.linear.Linear
-
 linear1: !speechbrain.nnet.linear.Linear
     n_neurons: 512
     bias: True
@@ -24,7 +22,3 @@ activation2: !torch.nn.LeakyReLU
 linear3: !speechbrain.nnet.linear.Linear
     n_neurons: 2
     bias: True
-
-# decide this after tunning
-dropout: !speechbrain.nnet.dropout.Dropout
-    drop_rate: 0.15

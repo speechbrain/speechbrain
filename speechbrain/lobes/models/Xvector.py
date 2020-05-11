@@ -1,3 +1,9 @@
+"""A popular speaker recognition and diarization model.
+
+Authors: Nauman Dawalatabad 2020
+
+"""
+
 import os
 import torch  # noqa: F401
 from speechbrain.yaml import load_extended_yaml
@@ -6,6 +12,46 @@ from speechbrain.utils.data_utils import recursive_update
 
 
 class Xvector(Sequential):
+    """This is Xvector model similar to David Sydner's paper ICASSP 2018.
+
+    Arguments
+    ---------
+    output_size : int
+        The length of the output (number of target classes).
+    tdnn_blocks : int
+        The number of time delay neural (TDNN) blocks to include.
+    tdnn_overrides : mapping
+        Additional parameters overriding the TDNN parameters.
+    tdnn_stat_pool_blocks : int
+        The number of statistic pool neural blocks to include.
+    tdnn_stat_pool_overrides : mapping
+        Additional parameters overriding the stats pool parameters.
+    tdnn_lin_blocks : int
+        The number of linear neural blocks to include.
+    tdnn_lin_overrides : mapping
+        Additional parameters overriding the linear parameters.
+
+    TDNN Block Parameters
+    --------------------
+        .. include:: tdnn_block.yaml
+
+    Stats Block Parameters
+    --------------------
+        .. include:: tdnn_stats_block.yaml
+
+    TDNN_LIN Block Parameters
+    --------------------
+        .. include:: tdnn_lin_block.yaml
+
+    Example
+    -------
+    >>> import torch
+    >>> from Xvector import Xvector
+    >>> model = Xvector(output_size=40)
+    >>> inputs = torch.rand([10, 120, 60])
+    >>> outputs = model(inputs, init_params=True)
+    """
+
     def __init__(
         self,
         output_size,
