@@ -43,7 +43,11 @@ class Linear(torch.nn.Module):
         first_input : tensor
             A first input used for initializing the parameters.
         """
-        fea_dim = first_input.shape[2]
+        if len(first_input.shape) == 3:
+            fea_dim = first_input.shape[2]
+        if len(first_input.shape) == 4:
+            fea_dim = first_input.shape[2] * first_input.shape[3]
+
         self.w = nn.Linear(fea_dim, self.n_neurons, bias=self.bias)
         self.w.to(first_input.device)
 
@@ -58,11 +62,15 @@ class Linear(torch.nn.Module):
         if init_params:
             self.init_params(x)
 
-        # Transposing tensor (features always at the end)
+        if len(x.shape) == 4:
+            x_or = x.shape
+            x = x.reshape(x.shape[0], x.shape[1], x.shape[2] * x.shape[3])
+
         x = x.transpose(2, -1)
-
         wx = self.w(x)
-
-        # Going back to the original shape format
         wx = wx.transpose(2, -1)
+
+        if len(x.shape) == 4:
+            x = x.reshape(x_or[0], x_or[1], x_or[2], x_or[3])
+
         return wx
