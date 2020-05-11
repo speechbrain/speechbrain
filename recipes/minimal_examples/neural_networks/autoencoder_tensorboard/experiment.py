@@ -1,6 +1,8 @@
 #!/usr/bin/python
 import os
+import torch
 import speechbrain as sb
+from speechbrain.utils.train_logger import TensorboardLogger
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 params_file = os.path.join(current_dir, "params.yaml")
@@ -10,6 +12,8 @@ with open(params_file) as fin:
 sb.core.create_experiment_directory(
     experiment_directory=params.output_folder, params_to_save=params_file,
 )
+
+train_logger = TensorboardLogger(save_dir=params.train_log)
 
 
 class AutoBrain(sb.core.Brain):
@@ -45,9 +49,9 @@ class AutoBrain(sb.core.Brain):
         return {"loss": loss.detach()}
 
     def on_epoch_end(self, epoch, train_stats, valid_stats):
-        print("Completed epoch %d" % epoch)
-        print("Train loss: %.3f" % train_stats["loss"])
-        print("Valid loss: %.3f" % valid_stats["loss"])
+        train_logger.log_stats({"Epoch": epoch}, train_stats, valid_stats)
+        print("Train loss: %.3f" % torch.Tensor(train_stats["loss"]).mean())
+        print("Valid loss: %.3f" % torch.Tensor(valid_stats["loss"]).mean())
 
 
 train_set = params.train_loader()
@@ -58,4 +62,4 @@ auto_brain = AutoBrain(
 )
 auto_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
 test_stats = auto_brain.evaluate(params.test_loader())
-print("Test loss: %.3f" % test_stats["loss"])
+print("Test loss: %.3f" % torch.Tensor(test_stats["loss"]).mean())
