@@ -1,5 +1,6 @@
 #!/usr/bin/python
 import os
+import torch
 import speechbrain as sb
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -46,8 +47,8 @@ class AutoBrain(sb.core.Brain):
 
     def on_epoch_end(self, epoch, train_stats, valid_stats):
         print("Completed epoch %d" % epoch)
-        print("Train loss: %.3f" % train_stats["loss"])
-        print("Valid loss: %.3f" % valid_stats["loss"])
+        print("Train loss: %.3f" % torch.Tensor(train_stats["loss"]).mean())
+        print("Valid loss: %.3f" % torch.Tensor(valid_stats["loss"]).mean())
 
 
 train_set = params.train_loader()
@@ -58,4 +59,4 @@ auto_brain = AutoBrain(
 )
 auto_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
 test_stats = auto_brain.evaluate(params.test_loader())
-print("Test loss: %.3f" % test_stats["loss"])
+print("Test loss: %.3f" % torch.Tensor(test_stats["loss"]).mean())

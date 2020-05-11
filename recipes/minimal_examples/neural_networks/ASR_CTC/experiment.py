@@ -1,5 +1,6 @@
 #!/usr/bin/python
 import os
+import torch
 import speechbrain as sb
 from speechbrain.decoders.ctc import ctc_greedy_decode
 from speechbrain.decoders.decoders import undo_padding
@@ -14,6 +15,11 @@ with open(params_file) as fin:
 sb.core.create_experiment_directory(
     experiment_directory=params.output_folder, params_to_save=params_file,
 )
+
+
+def summarize_per(stats):
+    per_summary = wer_summary(stats)
+    return per_summary["WER"]
 
 
 class CTCBrain(sb.core.Brain):
@@ -41,20 +47,11 @@ class CTCBrain(sb.core.Brain):
 
         return loss
 
-    def summarize(self, stats, test=False):
-        summary = {"loss": float(sum(stats["loss"]) / len(stats["loss"]))}
-
-        if "PER" in stats:
-            per_summary = wer_summary(stats["PER"])
-            summary["PER"] = per_summary["WER"]
-
-        return summary
-
     def on_epoch_end(self, epoch, train_stats, valid_stats):
         print("Epoch %d complete" % epoch)
-        print("Train loss: %.2f" % train_stats["loss"])
-        print("Valid loss: %.2f" % valid_stats["loss"])
-        print("Valid PER: %.2f" % valid_stats["PER"])
+        print("Train loss: %.2f" % torch.Tensor(train_stats["loss"]).mean())
+        print("Valid loss: %.2f" % torch.Tensor(valid_stats["loss"]).mean())
+        print("Valid PER: %.2f" % summarize_per(valid_stats["PER"]))
 
 
 train_set = params.train_loader()
@@ -65,4 +62,4 @@ ctc_brain = CTCBrain(
 )
 ctc_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
 test_stats = ctc_brain.evaluate(params.test_loader())
-print("Test PER: %.2f" % test_stats["PER"])
+print("Test PER: %.2f" % summarize_per(test_stats["PER"]))
