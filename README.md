@@ -277,6 +277,14 @@ However, this also means the pull request does not have to be perfect. Some feat
 best implemented incrementally over many pull requests, and you should be more concerned
 with making sure that the changes introduced lend themselves to painless further improvements.
 
+Fourthly, use the tools that GitHub has: comment on specific code lines, suggest edits,
+and once eveyrone involved has agreed that the PR is ready to merge, merge the
+request and delete the feature branch.
+
+Fifthly, though code review is a place for professional constructive criticism,
+a nice strategy to show (and validate) that you understand what the PR is really
+doing, is to provide some affirmative comments on its strengths.
+
 
 # Zen of Speechbrain
 SpeechBrain could be used for *research*, *academic*, *commercial*, *non-commercial* purposes. Ideally, the code should have the following features:
