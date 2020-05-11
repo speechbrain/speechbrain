@@ -51,6 +51,9 @@ lr_annealing: !speechbrain.nnet.lr_scheduling.LRScheduler
 normalize: !speechbrain.processing.features.InputNormalization
     norm_type: global
 
+epoch_counter: !speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
 compute_features: !speechbrain.lobes.features.fbank.Fbank
 
 train_loader: !speechbrain.data_io.data_io.DataLoaderFactory
