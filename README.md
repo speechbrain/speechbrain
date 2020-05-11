@@ -56,7 +56,7 @@ directory will be created relative to the directory you are in. The most common
 pattern for running experiments is as follows:
 
 ```
-> cd recipes/<task>/<dataset>/<model>/
+> cd recipes/<dataset>/<task>/
 > python experiment.py params.yaml
 ```
 
@@ -73,7 +73,8 @@ specify the hyperparameters of the recipes. The syntax is explained in
 
 A quick look at the extended YAML features, using an example:
 ```
-output_dir: exp/example_experiment
+seed: !PLACEHOLDER
+output_dir: !ref results/vgg_blstm/<seed>
 save_dir: !ref <output_dir>/save
 data_folder: !PLACEHOLDER # e.g. /path/to/TIMIT
 
