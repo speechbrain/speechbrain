@@ -272,7 +272,8 @@ things. Level of importance:
 - More subjective things which could be changed if the author also agrees with you.
 
 Thirdly, approve the pull request only once you believe the changes "improve overall
-code health" as attested [here](https://google.github.io/eng-practices/review/reviewer/standard.html).However, this also means the pull request does not have to be perfect. Many issues are
+code health" as attested to [here](https://google.github.io/eng-practices/review/reviewer/standard.html).
+However, this also means the pull request does not have to be perfect. Many issues are
 best solved incrementally over many pull requests, and you should be more concerned, that
 the changes introduced lend themselves to painless further improvements.
 
