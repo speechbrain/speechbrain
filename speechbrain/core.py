@@ -11,13 +11,11 @@ import logging
 import inspect
 import argparse
 import subprocess
+import speechbrain as sb
 from datetime import date
 from tqdm.contrib import tzip
 from speechbrain.utils.logger import setup_logging
-from speechbrain.utils.epoch_loop import EpochCounter
-from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.data_utils import recursive_update
-from speechbrain.yaml import resolve_references, load_extended_yaml
 
 logger = logging.getLogger(__name__)
 DEFAULT_LOG_CONFIG = os.path.dirname(os.path.abspath(__file__))
@@ -52,7 +50,7 @@ def create_experiment_directory(
     if params_to_save is not None:
         params_filename = os.path.join(experiment_directory, "params.yaml")
         with open(params_to_save) as f:
-            resolved_yaml = resolve_references(f, overrides)
+            resolved_yaml = sb.yaml.resolve_references(f, overrides)
         with open(params_filename, "w") as w:
             print("# Generated %s from:" % date.today(), file=w)
             print("# %s" % os.path.abspath(params_to_save), file=w)
@@ -171,7 +169,7 @@ def parse_overrides(override_string):
     """
     preview = {}
     if override_string:
-        preview = load_extended_yaml(override_string)
+        preview = sb.yaml.load_extended_yaml(override_string)
 
     overrides = {}
     for arg, val in preview.__dict__.items():
@@ -235,20 +233,14 @@ class Brain:
     * `fit_batch()`
     * `evaluate_batch()`
 
-    If there is more than one objective (either for training or evaluation),
-    the method for summarizing the losses (e.g. averaging) can be specified
-    by overriding the `summarize()` method.
-
     Arguments
     ---------
     modules : list of torch.Tensors
         The modules that will be updated using the optimizer.
     optimizer : optimizer
         The class to use for updating the modules' parameters.
-    scheduler : scheduler
-        An object that changes the learning rate based on performance.
-    saver : Checkpointer
-        This is called by default at the end of each epoch to save progress.
+    first_input : torch.Tensor
+        An example of the input to the Brain class, for parameter init.
 
     Example
     -------
@@ -260,17 +252,27 @@ class Brain:
     ...         return torch.nn.functional.l1_loss(predictions, targets)
     >>> tmpdir = getfixture('tmpdir')
     >>> model = torch.nn.Linear(in_features=10, out_features=10)
-    >>> brain = SimpleBrain([model], Optimize('sgd', 0.01))
+    >>> brain = SimpleBrain(
+    ...     modules=[model],
+    ...     optimizer=Optimize('sgd', 0.01),
+    ...     first_input=torch.rand(10, 10),
+    ... )
     >>> brain.fit(
+    ...     epoch_counter=range(1),
     ...     train_set=([torch.rand(10, 10)], [torch.rand(10, 10)]),
     ... )
     """
 
-    def __init__(self, modules, optimizer=None, scheduler=None, saver=None):
+    def __init__(
+        self, modules, optimizer=None, first_input=None,
+    ):
         self.modules = torch.nn.ModuleList(modules)
         self.optimizer = optimizer
-        self.scheduler = scheduler
-        self.saver = saver
+
+        # Initialize parameters
+        if first_input is not None:
+            self.forward(first_input, init_params=True)
+            self.optimizer.init_params(self.modules)
 
     def forward(self, x, init_params=False):
         """Forward pass, to be overridden by sub-classes.
@@ -300,6 +302,22 @@ class Brain:
             (e.g. WER might only be computed for valid and test, not train).
         """
         raise NotImplementedError
+
+    def on_epoch_end(self, epoch, train_stats, valid_stats=None):
+        """Gets called at the end of each epoch.
+
+        Arguments
+        ---------
+        epoch : int
+            The current epoch count.
+        train_stats : dict of str:list pairs
+            Each key refers to a statstic, and the list contains the values
+            for this statistic, generated in a training pass.
+        valid_stats : dict of str:list pairs
+            Each key refers to a statstic, and the list contains the values
+            for this statistic, generated in a training pass.
+        """
+        pass
 
     def fit_batch(self, batch):
         """Fit one batch, override to do multiple updates.
@@ -345,26 +363,25 @@ class Brain:
         stats["loss"] = loss.detach()
         return stats
 
-    def summarize(self, stats, write=False):
-        """Take a list of stats from a pass through data and summarize it.
-
-        By default, averages the loss and returns the average.
+    def add_stats(self, dataset_stats, batch_stats):
+        """Add the stats for a batch to the set of stats for a dataset.
 
         Arguments
         ---------
-        stats : list of dicts
-            A list of stats to summarize.
+        dataset_stats : dict
+            A mapping of stat name to a list of the stats in the dataset.
+        batch_stats : dict
+            A mapping of stat name to the value for that stat in a batch.
         """
-        return {"loss": float(sum(s["loss"] for s in stats) / len(stats))}
+        for key in batch_stats:
+            if key not in dataset_stats:
+                dataset_stats[key] = []
+            if isinstance(batch_stats[key], list):
+                dataset_stats[key].extend(batch_stats[key])
+            else:
+                dataset_stats[key].append(batch_stats[key])
 
-    def fit(
-        self,
-        train_set,
-        valid_set=None,
-        number_of_epochs=1,
-        max_keys=[],
-        min_keys=[],
-    ):
+    def fit(self, epoch_counter, train_set, valid_set=None):
         """Iterate epochs and datasets to improve objective.
 
         Relies on the existence of mulitple functions that can (or should) be
@@ -373,132 +390,47 @@ class Brain:
 
         * `fit_batch()`
         * `evaluate_batch()`
-        * `summarize()`
-        * `save()`
+        * `add_stats()`
 
         Arguments
         ---------
+        epoch_counter : iterable
+            each call should return an integer indicating the epoch count.
         train_set : list of DataLoaders
             a list of datasets to use for training, zipped before iterating.
         valid_set : list of Data Loaders
             a list of datasets to use for validation, zipped before iterating.
-        number_of_epochs : int
-            number of epochs to iterate
-        max_keys : list of str
-            a list of keys to use for checkpointing, highest value is kept.
-        min_keys : list of str
-            a list of keys to use for checkpointing, lowest value is kept.
         """
-        self.forward(next(iter(train_set[0])), init_params=True)
-        self.optimizer.init_params(self.modules)
-        epoch_counter = EpochCounter(number_of_epochs)
-        if self.saver is not None:
-            self.saver.add_recoverable("counter", epoch_counter)
-            self.saver.recover_if_possible()
-
         for epoch in epoch_counter:
             self.modules.train()
-            train_stats = []
+            train_stats = {}
             for batch in tzip(*train_set):
-                train_stats.append(self.fit_batch(batch))
-            summary = self.summarize(train_stats)
+                stats = self.fit_batch(batch)
+                self.add_stats(train_stats, stats)
 
-            logger.info(f"Epoch {epoch} complete")
-            for key in summary:
-                logger.info(f"Train {key}: {summary[key]:.2f}")
-
+            valid_stats = {}
             if valid_set is not None:
                 self.modules.eval()
-                valid_stats = []
                 with torch.no_grad():
                     for batch in tzip(*valid_set):
-                        valid_stats.append(self.evaluate_batch(batch))
-                summary = self.summarize(valid_stats)
-                for key in summary:
-                    logger.info(f"Valid {key}: {summary[key]:.2f}")
+                        stats = self.evaluate_batch(batch)
+                        self.add_stats(valid_stats, stats)
 
-            self.on_epoch_end(epoch, summary, max_keys, min_keys)
+            self.on_epoch_end(epoch, train_stats, valid_stats)
 
-    def on_epoch_end(self, epoch, summary, max_keys, min_keys):
-        """Gets called at the end of each epoch.
-
-        Arguments
-        ---------
-        summary : mapping
-            This dict defines summary info about the validation pass, if
-            the validation data was passed, otherwise training pass. The
-            output of the `summarize` method is directly passed.
-        max_keys : list of str
-            A sequence of strings that match keys in the summary. Highest
-            value is the relevant value.
-        min_keys : list of str
-            A sequence of strings that match keys in the summary. Lowest
-            value is the relevant value.
-        """
-        if self.scheduler is not None:
-            min_val = summary[min_keys[0]]
-            self.scheduler([self.optimizer], epoch, min_val)
-        if self.saver is not None:
-            self.save(summary, max_keys, min_keys)
-
-    def evaluate(self, test_set, max_key=None, min_key=None):
+    def evaluate(self, test_set):
         """Iterate test_set and evaluate brain performance.
 
         Arguments
         ---------
         test_set : list of DataLoaders
             This list will be zipped before iterating.
-        max_key : str
-            This string references a key in the checkpoint, the
-            checkpoint with the highest value for this key will be loaded.
-        min_key : str
-            This string references a key in the checkpoint, the
-            checkpoint with the lowest value for this key will be loaded.
         """
-        if self.saver is None and (max_key or min_key):
-            raise ValueError("max_key and min_key require a saver.")
-        elif max_key is not None and min_key is not None:
-            raise ValueError("Can't use both min_key and max_key.")
-
-        if self.saver is not None:
-            if max_key is not None:
-                self.saver.recover_if_possible(
-                    lambda c, key=max_key: c.meta[key]
-                )
-            elif min_key is not None:
-                self.saver.recover_if_possible(
-                    lambda c, key=min_key: -c.meta[key]
-                )
-            else:
-                self.saver.recover_if_possible()
-
-        test_stats = []
+        test_stats = {}
         self.modules.eval()
         with torch.no_grad():
             for batch in tzip(*test_set):
-                test_stats.append(self.evaluate_batch(batch))
+                stats = self.evaluate_batch(batch)
+                self.add_stats(test_stats, stats)
 
-        test_summary = self.summarize(test_stats, write=True)
-        for key in test_summary:
-            logger.info(f"Test {key}: {test_summary[key]:.2f}")
-
-    def save(self, stats, max_keys=[], min_keys=[]):
-        """Record relevant data into a checkpoint file.
-
-        Arguments
-        ---------
-        stats : mapping
-            A set of meta keys and their values to store.
-        max_keys : list of str
-            A set of keys from the meta, keep the maximum of each.
-        min_keys : list of str
-            A set of keys from the meta, keep the minimum of each.
-        """
-        importance_keys = [ckpt_recency]
-        for key in max_keys:
-            importance_keys.append(lambda c, key=key: c.meta[key])
-        for key in min_keys:
-            importance_keys.append(lambda c, key=key: -c.meta[key])
-        self.saver.save_and_keep_only(
-            meta=stats, importance_keys=importance_keys,
-        )
+        return test_stats

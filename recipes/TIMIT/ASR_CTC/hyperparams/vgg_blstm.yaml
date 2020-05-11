@@ -49,6 +49,9 @@ lr_annealing: !speechbrain.nnet.lr_scheduling.LRScheduler
 normalize: !speechbrain.processing.features.mean_var_norm
     norm_type: global
 
+epoch_counter: !speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
 compute_features: !speechbrain.lobes.features.Features
     feature_type: fbank
     deltas: False

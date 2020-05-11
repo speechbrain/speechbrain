@@ -37,17 +37,27 @@ class ASR_Brain(sb.core.Brain):
 
         return loss
 
-    def summarize(self, stats, write=False):
-        summary = {"loss": float(sum(s["loss"] for s in stats) / len(stats))}
+    def summarize(self, stats, test=False):
+        summary = {"loss": float(sum(stats["loss"]) / len(stats["loss"]))}
 
-        if "error" in stats[0]:
-            summary["error"] = float(
-                sum(s["error"] for s in stats) / len(stats)
-            )
+        if "error" in stats:
+            summary["error"] = float(sum(stats["error"]) / len(stats["error"]))
 
         return summary
 
+    def on_epoch_end(self, epoch, train_stats, valid_stats):
+        print("Epoch %d complete" % epoch)
+        print("Train loss: %.2f" % train_stats["loss"])
+        print("Valid loss: %.2f" % valid_stats["loss"])
+        print("Valid error: %.2f" % valid_stats["error"])
 
-asr_brain = ASR_Brain([params.linear1, params.linear2], params.optimizer)
-asr_brain.fit(params.train_loader(), params.valid_loader(), params.N_epochs)
-asr_brain.evaluate(params.train_loader())
+
+train_set = params.train_loader()
+asr_brain = ASR_Brain(
+    modules=[params.linear1, params.linear2],
+    optimizer=params.optimizer,
+    first_input=next(iter(train_set[0])),
+)
+asr_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
+test_stats = asr_brain.evaluate(params.test_loader())
+print("Test error: %.2f" % test_stats["error"])
