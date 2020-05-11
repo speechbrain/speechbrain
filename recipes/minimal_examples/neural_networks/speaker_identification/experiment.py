@@ -48,9 +48,9 @@ class SpkIdBrain(sb.core.Brain):
 
     def on_epoch_end(self, epoch, train_stats, valid_stats):
         print("Epoch %d complete" % epoch)
-        print("Train loss: %.2f" % train_stats["loss"])
-        print("Valid loss: %.2f" % valid_stats["loss"])
-        print("Valid error: %.2f" % valid_stats["error"])
+        print("Train loss: %.2f" % torch.Tensor(train_stats["loss"]).mean())
+        print("Valid loss: %.2f" % torch.Tensor(valid_stats["loss"]).mean())
+        print("Valid error: %.2f" % torch.Tensor(valid_stats["error"]).mean())
 
 
 train_set = params.train_loader()
@@ -61,4 +61,4 @@ spk_id_brain = SpkIdBrain(
 )
 spk_id_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
 test_stats = spk_id_brain.evaluate(params.test_loader())
-print("Test error: %.2f" % test_stats["error"])
+print("Test error: %.2f" % torch.Tensor(test_stats["error"]).mean())
