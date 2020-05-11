@@ -348,8 +348,8 @@ class SpeedPerturb(torch.nn.Module):
     orig_freq : int
         The frequency of the original signal.
     speeds : list
-        The speeds that the signal should be changed to,
-        where 10 is the speed of the original signal.
+        The speeds that the signal should be changed to, as a percentage of the
+        original signal (i.e. `speeds` is divided by 100 to get a ratio).
     perturb_prob : float
         The chance that the batch will be speed-
         perturbed. By default, every batch is perturbed.
@@ -359,7 +359,7 @@ class SpeedPerturb(torch.nn.Module):
     >>> import soundfile as sf
     >>> from speechbrain.data_io.data_io import TensorSaver
     >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
-    >>> perturbator = SpeedPerturb(orig_freq=rate, speeds=[9])
+    >>> perturbator = SpeedPerturb(orig_freq=rate, speeds=[90])
     >>> clean = torch.tensor(signal, dtype=torch.float32).unsqueeze(0)
     >>> perturbed = perturbator(clean)
     >>> save_signal = TensorSaver(save_folder='exp/example', save_format='wav')
@@ -367,7 +367,7 @@ class SpeedPerturb(torch.nn.Module):
     """
 
     def __init__(
-        self, orig_freq, speeds=[9, 10, 11], perturb_prob=1.0,
+        self, orig_freq, speeds=[90, 100, 110], perturb_prob=1.0,
     ):
         super().__init__()
         self.orig_freq = orig_freq
@@ -382,7 +382,7 @@ class SpeedPerturb(torch.nn.Module):
         for speed in self.speeds:
             config = {
                 "orig_freq": self.orig_freq,
-                "new_freq": self.orig_freq * speed // 10,
+                "new_freq": self.orig_freq * speed // 100,
             }
             self.resamplers.append(Resample(**config))
 
@@ -410,7 +410,7 @@ class SpeedPerturb(torch.nn.Module):
         self.samp_index = torch.randint(len(self.speeds), (1,))[0]
         perturbed_waveform = self.resamplers[self.samp_index](waveform)
 
-        return perturbed_waveform.squeeze(1)
+        return perturbed_waveform.squeeze(-1)
 
 
 class Resample(torch.nn.Module):
@@ -495,7 +495,7 @@ class Resample(torch.nn.Module):
 
         unsqueezed = False
         if len(waveforms.shape) == 2:
-            waveforms = waveforms.unsqueeze(1)
+            waveforms = waveforms.unsqueeze(-1)
             unsqueezed = True
         elif len(waveforms.shape) == 3:
             waveforms = waveforms.transpose(1, 2)
@@ -506,9 +506,9 @@ class Resample(torch.nn.Module):
         resampled_waveform = self._perform_resample(waveforms)
 
         if unsqueezed:
-            resampled_waveform = resampled_waveform.squeeze(1)
+            resampled_waveform = resampled_waveform.squeeze(-1)
         else:
-            resampled_waveform = waveforms.transpose(1, 2)
+            resampled_waveform = resampled_waveform.transpose(1, 2)
 
         return resampled_waveform
 
@@ -902,7 +902,7 @@ class DropFreq(torch.nn.Module):
         pad = filter_length // 2
 
         # Start with delta function
-        drop_filter = torch.zeros(1, filter_length, 1)
+        drop_filter = torch.zeros(1, filter_length, 1).to(waveforms.device)
         drop_filter[0, pad, 0] = 1
 
         # Subtract each frequency
@@ -916,7 +916,7 @@ class DropFreq(torch.nn.Module):
         dropped_waveform = convolve1d(dropped_waveform, drop_filter, pad)
 
         # Remove channels dimension if added
-        return dropped_waveform.squeeze(1)
+        return dropped_waveform.squeeze(-1)
 
 
 class DropChunk(torch.nn.Module):
