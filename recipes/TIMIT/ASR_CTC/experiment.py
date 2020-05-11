@@ -53,6 +53,8 @@ class ASR(sb.core.Brain):
     def forward(self, x, init_params=False):
         ids, wavs, wav_lens = x
         wavs, wav_lens = wavs.to(params.device), wav_lens.to(params.device)
+        if hasattr(params, "augmentation"):
+            wavs = params.augmentation(wavs, wav_lens, init_params)
         feats = params.compute_features(wavs, init_params)
         feats = params.normalize(feats, wav_lens)
         return params.model(feats, init_params), wav_lens
@@ -89,7 +91,6 @@ class ASR(sb.core.Brain):
         )
 
 
-# Experiment setup
 prepare = TIMITPreparer(
     data_folder=params.data_folder,
     splits=["train", "dev", "test"],
@@ -98,8 +99,11 @@ prepare = TIMITPreparer(
 prepare()
 train_set = params.train_loader()
 valid_set = params.valid_loader()
+modules = [params.model]
+if hasattr(params, "augmentation"):
+    modules.append(params.augmentation)
 asr_brain = ASR(
-    modules=[params.model],
+    modules=modules,
     optimizer=params.optimizer,
     first_input=next(iter(train_set[0])),
 )
