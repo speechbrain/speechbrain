@@ -43,13 +43,6 @@ class Xvector(Sequential):
     --------------------
         .. include:: tdnn_lin_block.yaml
 
-    Example
-    -------
-    >>> import torch
-    >>> from Xvector import Xvector
-    >>> model = Xvector(output_size=40)
-    >>> inputs = torch.rand([10, 120, 60])
-    >>> outputs = model(inputs, init_params=True)
     """
 
     def __init__(
