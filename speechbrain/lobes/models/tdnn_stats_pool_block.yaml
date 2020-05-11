@@ -1,0 +1,3 @@
+block_index: 1
+sequence: [stats_pool]
+stats_pool: !speechbrain.nnet.statistic_pooling.StatisticsPooling
