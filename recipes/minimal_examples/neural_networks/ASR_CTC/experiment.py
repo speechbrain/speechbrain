@@ -1,11 +1,11 @@
 #!/usr/bin/python
 import os
-import torch
 import speechbrain as sb
 from speechbrain.decoders.ctc import ctc_greedy_decode
 from speechbrain.decoders.decoders import undo_padding
-from speechbrain.utils.edit_distance import wer_summary
 from speechbrain.utils.edit_distance import wer_details_for_batch
+from speechbrain.utils.train_logger import summarize_average
+from speechbrain.utils.train_logger import summarize_error_rate
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 params_file = os.path.join(current_dir, "params.yaml")
@@ -15,11 +15,6 @@ with open(params_file) as fin:
 sb.core.create_experiment_directory(
     experiment_directory=params.output_folder, params_to_save=params_file,
 )
-
-
-def summarize_per(stats):
-    per_summary = wer_summary(stats)
-    return per_summary["WER"]
 
 
 class CTCBrain(sb.core.Brain):
@@ -49,9 +44,9 @@ class CTCBrain(sb.core.Brain):
 
     def on_epoch_end(self, epoch, train_stats, valid_stats):
         print("Epoch %d complete" % epoch)
-        print("Train loss: %.2f" % torch.Tensor(train_stats["loss"]).mean())
-        print("Valid loss: %.2f" % torch.Tensor(valid_stats["loss"]).mean())
-        print("Valid PER: %.2f" % summarize_per(valid_stats["PER"]))
+        print("Train loss: %.2f" % summarize_average(train_stats["loss"]))
+        print("Valid loss: %.2f" % summarize_average(valid_stats["loss"]))
+        print("Valid PER: %.2f" % summarize_error_rate(valid_stats["PER"]))
 
 
 train_set = params.train_loader()
@@ -62,4 +57,4 @@ ctc_brain = CTCBrain(
 )
 ctc_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
 test_stats = ctc_brain.evaluate(params.test_loader())
-print("Test PER: %.2f" % summarize_per(test_stats["PER"]))
+print("Test PER: %.2f" % summarize_error_rate(test_stats["PER"]))
