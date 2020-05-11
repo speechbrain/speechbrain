@@ -23,7 +23,7 @@ class TimeDomainSpecAugment(torch.nn.Module):
     Example
     -------
     >>> inputs = torch.randn([10, 16000])
-    >>> feature_maker = SpecAugment(speed_perturb={'speeds':[80]})
+    >>> feature_maker = TimeDomainSpecAugment(speed_perturb={'speeds':[80]})
     >>> feats = feature_maker(inputs, torch.ones(10), init_params=True)
     >>> feats.shape
     torch.Size([10, 12800])
