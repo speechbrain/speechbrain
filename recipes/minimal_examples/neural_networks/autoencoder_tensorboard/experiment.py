@@ -1,7 +1,7 @@
 #!/usr/bin/python
 import os
-import torch
 import speechbrain as sb
+from speechbrain.utils.train_logger import summarize_average
 from speechbrain.utils.train_logger import TensorboardLogger
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -50,8 +50,8 @@ class AutoBrain(sb.core.Brain):
 
     def on_epoch_end(self, epoch, train_stats, valid_stats):
         train_logger.log_stats({"Epoch": epoch}, train_stats, valid_stats)
-        print("Train loss: %.3f" % torch.Tensor(train_stats["loss"]).mean())
-        print("Valid loss: %.3f" % torch.Tensor(valid_stats["loss"]).mean())
+        print("Train loss: %.3f" % summarize_average(train_stats["loss"]))
+        print("Valid loss: %.3f" % summarize_average(valid_stats["loss"]))
 
 
 train_set = params.train_loader()
@@ -62,4 +62,4 @@ auto_brain = AutoBrain(
 )
 auto_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
 test_stats = auto_brain.evaluate(params.test_loader())
-print("Test loss: %.3f" % torch.Tensor(test_stats["loss"]).mean())
+print("Test loss: %.3f" % summarize_average(test_stats["loss"]))
