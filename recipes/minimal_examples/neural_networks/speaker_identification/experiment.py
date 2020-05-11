@@ -2,6 +2,7 @@
 import os
 import torch
 import speechbrain as sb
+from speechbrain.utils.train_logger import summarize_average
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 params_file = os.path.join(current_dir, "params.yaml")
@@ -38,19 +39,11 @@ class SpkIdBrain(sb.core.Brain):
 
         return loss
 
-    def summarize(self, stats, test=False):
-        summary = {"loss": float(sum(stats["loss"]) / len(stats["loss"]))}
-
-        if "error" in stats:
-            summary["error"] = float(sum(stats["error"]) / len(stats["error"]))
-
-        return summary
-
     def on_epoch_end(self, epoch, train_stats, valid_stats):
         print("Epoch %d complete" % epoch)
-        print("Train loss: %.2f" % torch.Tensor(train_stats["loss"]).mean())
-        print("Valid loss: %.2f" % torch.Tensor(valid_stats["loss"]).mean())
-        print("Valid error: %.2f" % torch.Tensor(valid_stats["error"]).mean())
+        print("Train loss: %.2f" % summarize_average(train_stats["loss"]))
+        print("Valid loss: %.2f" % summarize_average(valid_stats["loss"]))
+        print("Valid error: %.2f" % summarize_average(valid_stats["error"]))
 
 
 train_set = params.train_loader()
@@ -61,4 +54,4 @@ spk_id_brain = SpkIdBrain(
 )
 spk_id_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
 test_stats = spk_id_brain.evaluate(params.test_loader())
-print("Test error: %.2f" % torch.Tensor(test_stats["error"]).mean())
+print("Test error: %.2f" % summarize_average(test_stats["error"]))
