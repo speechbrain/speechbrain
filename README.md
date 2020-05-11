@@ -22,6 +22,7 @@ The goal is to create a **single**, **flexible**, and **user-friendly** toolkit 
   * [Documentation](#documentation)
   * [Development tools](#development-tools)
   * [Continuous integration](#continuous-integration)
+  * [Pull Request review guide](#pull-request-review-guide)
 
 # Basics
 In the following sections, the basic functionalities of SpeechBrain are described.
@@ -252,6 +253,28 @@ In addition we have plans for:
 - All unit-tests and doctests are run. You can check that these pass by running them yourself before pushing, with `pytest tests`  and `pytest --doctest-modules speechbrain`
 - Currently, these are not run: docstring format tests (this should be added once the docstring conversion is done), integration tests/minimal examples (I propose these to be added only to more significant merges, e.g. merges to master branch [assuming we start using a master/develop/feature branch structure]).
 - If all tests pass, the whole pipeline takes a couple of minutes.
+
+## Pull Request review guide
+
+This is not a comprehensive code review guide, but some rough guidelines to unify the
+general review practices across this project.
+
+Firstly, let the review take some time. Try to read every line that was added,
+if possible. Read the surrounding context of the code if needed to understand
+the changes introduced. Possibly ask for clarifications if you don't understand.
+If the pull request changes are hard to understand, maybe that that's a sign that
+the code is not clear enough yet. However, don't nitpick every detail.
+
+Secondly, focus on the major things first, and only then move on to smaller,
+things. Level of importance:
+- Immediate deal breakers (code does wrong thing, or feature shouldn't be added etc.)
+- Things to fix before merging (Add more documentation, reduce complexity, etc.)
+- More subjective things which could be changed if the author also agrees with you.
+
+Thirdly, approve the pull request only once you believe the changes "improve overall
+code health" as attested [here](https://google.github.io/eng-practices/review/reviewer/standard.html).However, this also means the pull request does not have to be perfect. Many issues are
+best solved incrementally over many pull requests, and you should be more concerned, that
+the changes introduced lend themselves to painless further improvements.
 
 
 # Zen of Speechbrain
