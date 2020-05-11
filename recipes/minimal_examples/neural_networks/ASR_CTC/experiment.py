@@ -41,17 +41,28 @@ class CTCBrain(sb.core.Brain):
 
         return loss
 
-    def summarize(self, stats, write=False):
-        summary = {"loss": float(sum(s["loss"] for s in stats) / len(stats))}
+    def summarize(self, stats, test=False):
+        summary = {"loss": float(sum(stats["loss"]) / len(stats["loss"]))}
 
-        if "PER" in stats[0]:
-            per_stats = [item for stat in stats for item in stat["PER"]]
-            per_summary = wer_summary(per_stats)
+        if "PER" in stats:
+            per_summary = wer_summary(stats["PER"])
             summary["PER"] = per_summary["WER"]
 
         return summary
 
+    def on_epoch_end(self, epoch, train_stats, valid_stats):
+        print("Epoch %d complete" % epoch)
+        print("Train loss: %.2f" % train_stats["loss"])
+        print("Valid loss: %.2f" % valid_stats["loss"])
+        print("Valid PER: %.2f" % valid_stats["PER"])
 
-ctc_brain = CTCBrain([params.rnn, params.lin], params.optimizer)
-ctc_brain.fit(params.train_loader(), params.valid_loader(), params.N_epochs)
-ctc_brain.evaluate(params.train_loader())
+
+train_set = params.train_loader()
+ctc_brain = CTCBrain(
+    modules=[params.rnn, params.lin],
+    optimizer=params.optimizer,
+    first_input=next(iter(train_set[0])),
+)
+ctc_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
+test_stats = ctc_brain.evaluate(params.test_loader())
+print("Test PER: %.2f" % test_stats["PER"])
