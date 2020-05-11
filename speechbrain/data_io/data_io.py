@@ -1322,8 +1322,10 @@ def read_pkl(file, data_options={}, lab2ind=None):
             type_ok = True
 
         if not (type_ok):
-            err_msg = "The pkl file %s can only contain list of integers, "
-            "floats, or strings. Got %s" % (file, type(pkl_element[0]))
+            err_msg = (
+                "The pkl file %s can only contain list of integers, "
+                "floats, or strings. Got %s"
+            ) % (file, type(pkl_element[0]))
             raise ValueError(err_msg)
     else:
         tensor = pkl_element

@@ -654,7 +654,7 @@ class Checkpointer:
         if chosen_ckpt is not None:
             self.load_checkpoint(chosen_ckpt)
         else:
-            logger.info(f"Would load a checkpoint here, but none found yet.")
+            logger.info("Would load a checkpoint here, but none found yet.")
         return chosen_ckpt
 
     def load_checkpoint(self, checkpoint):
