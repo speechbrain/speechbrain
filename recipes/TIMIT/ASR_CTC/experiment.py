@@ -112,7 +112,7 @@ asr_brain.fit(params.epoch_counter, train_set, valid_set)
 checkpointer.recover_if_possible(lambda c: -c.meta["PER"])
 test_stats = asr_brain.evaluate(params.test_loader())
 train_logger.log_stats(
-    epoch_stats={"Epoch loaded": params.epoch_counter.current},
+    stats_meta={"Epoch loaded": params.epoch_counter.current},
     test_stats=test_stats,
 )
 
