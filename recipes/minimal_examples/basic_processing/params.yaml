@@ -52,7 +52,7 @@ do_clip: !speechbrain.processing.speech_augmentation.DoClip
 
 speed_perturb: !speechbrain.processing.speech_augmentation.SpeedPerturb
     orig_freq: !ref <sample_rate>
-    speeds: [9, 11]
+    speeds: [90, 110]
 
 save: !speechbrain.data_io.data_io.TensorSaver
     sampling_rate: !ref <sample_rate>
