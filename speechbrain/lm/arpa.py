@@ -47,7 +47,7 @@ def find_data_section(fstream):
     for line in fstream:
         if line[:6] == "\\data\\":
             break
-    else:  # Have you seen a for-else before?
+    else:  # For-else is obscure but fits here perfectly
         raise ValueError("Not a properly formatted ARPA file")
 
 
