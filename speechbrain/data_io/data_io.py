@@ -3,7 +3,7 @@ Data i/o operations.
 
 Author
 ------
-Mirco Ravanelli, Aku Rouhe 2020
+Mirco Ravanelli, Aku Rouhe, Ju-Chieh Chou 2020
 """
 
 import os
@@ -1966,3 +1966,85 @@ def load_pkl(file):
     """
     with open(file, "rb") as f:
         return pickle.load(f)
+
+
+def length_to_mask(length, max_len=None, dtype=None, device=None):
+    """
+    Creates a binary mask for each sequence.
+    Reference: https://discuss.pytorch.org/t/how-to-generate-variable-length-mask/23397/3
+
+    Arguments
+    ---------
+    length : torch.LongTensor
+        Containing the length of each sequence in the batch. Must be 1D.
+    max_len : int
+        Max length for the mask, also the size of second dimension.
+    dtype : torch.dtype, default: None
+        The dtype of the generated mask.
+    device: torch.device, default: None
+        The device to put the mask variable.
+
+    Returns
+    -------
+    mask : The binary mask
+
+    Example:
+    >>> length=torch.Tensor([1,2,3])
+    >>> mask=length_to_mask(length)
+    >>> mask
+    tensor([[1., 0., 0.],
+            [1., 1., 0.],
+            [1., 1., 1.]])
+    """
+    assert len(length.shape) == 1
+
+    if max_len is None:
+        max_len = length.max().long().item()
+
+    # using arange to generate mask
+    mask = torch.arange(
+        max_len, device=length.device, dtype=length.dtype
+    ).expand(len(length), max_len) < length.unsqueeze(1)
+
+    if dtype is None:
+        dtype = length.dtype
+
+    if device is None:
+        device = length.device
+
+    mask = torch.as_tensor(mask, dtype=dtype, device=device)
+    return mask
+
+
+def append_eos_token(label, length, eos_index):
+    """Create labels with <eos> token appended.
+
+    Arguments
+    ---------
+    label : torch.IntTensor
+        Containing the original labels. Must be of size: [batch_size, max_length]
+    length : torch.LongTensor
+        Cotaining the original length of each label sequences. Must be 1D.
+    eos_index : int
+        The index for <eos> token.
+
+    Returns
+    -------
+    new_label : The new label with <eos> appended.
+
+    Example:
+    >>> label=torch.IntTensor([[1,0,0], [2,3,0], [4,5,6]]
+    >>> length=torch.LongTensor([1,2,3])
+    >>> new_label=append_eos_token(label, length, eos_index=7)
+    >>> new_label
+    tensor([[1, 7, 0, 0],
+            [2, 3, 7, 0],
+            [4, 5, 6, 7]])
+    """
+    new_label = label.int().clone()
+    batch_size = label.shape[0]
+
+    pad = label.new_zeros(batch_size, 1)
+    new_label = torch.cat([new_label, pad], dim=1)
+    new_label[torch.arange(batch_size), length.long()] = eos_index
+    return new_label
