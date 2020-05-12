@@ -512,9 +512,9 @@ class AttentionalRNNDecoder(nn.Module):
     def init_params(self, first_input):
         enc_states, wav_len, tokens = first_input
 
-        if len(enc_states.shape) > 3:
+        self.enc_dim = torch.prod(torch.tensor(enc_states.shape[2:]))
+        if len(enc_states.shape) == 4:
             self.reshape = True
-            self.enc_dim = torch.prod(torch.tensor(enc_states.shape[2:]))
 
         self.emb = nn.Embedding(self.vocab_dim, self.emb_dim).to(
             enc_states.device
@@ -602,22 +602,22 @@ class AttentionalRNNDecoder(nn.Module):
         if self.state_has_cell:
             hidden_state = (
                 torch.zeros(
-                    batch_size, self.num_layers, self.n_neurons, device=device
+                    self.num_layers, batch_size, self.n_neurons, device=device
                 ),
                 torch.zeros(
-                    batch_size, self.num_layers, self.n_neurons, device=device
+                    self.num_layers, batch_size, self.n_neurons, device=device
                 ),
             )
         else:
             hidden_state = torch.zeros(
-                batch_size, self.num_layers, self.n_neurons, device=device
+                self.num_layers, batch_size, self.n_neurons, device=device
             )
 
         return hidden_state
 
     def forward_step(self, y_t, hs, c, enc_states, enc_len):
         e = self.emb(y_t)
-        cell_inp = torch.cat([e, c], dim=-1).unsqueeze(0)
+        cell_inp = torch.cat([e, c], dim=-1).unsqueeze(1)
         cell_inp = self.drop(cell_inp)
         cell_out, hs = self.rnn(cell_inp, hs)
         cell_out = cell_out.squeeze(1)

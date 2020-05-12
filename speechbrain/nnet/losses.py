@@ -156,9 +156,7 @@ class ComputeCost(nn.Module):
 
         if len(prediction.shape) == len(target.shape):
             reshape = False
-
         out_costs = []
-
         for i, cost in enumerate(self.costs):
 
             # Managing avoid_pad to avoid adding costs of padded time steps
@@ -182,9 +180,16 @@ class ComputeCost(nn.Module):
                         torch.round(lengths[j] * lab_curr.shape[0])
                     )
 
-                    # add one for <eos> token
                     if self.cost_type[i] == "seq_nll":
-                        actual_size = actual_size + 1
+                        # the <eos> token has been added
+                        actual_size = (
+                            int(
+                                torch.round(
+                                    lengths[j] * (lab_curr.shape[0] - 1)
+                                )
+                            )
+                            + 1
+                        )
 
                     prob_curr = prob_curr.narrow(0, 0, actual_size)
                     lab_curr = lab_curr.narrow(0, 0, actual_size)

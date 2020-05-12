@@ -2044,7 +2044,7 @@ def append_eos_token(label, length, eos_index):
     new_label = label.int().clone()
     batch_size = label.shape[0]
 
-    pad = label.new_zeros(batch_size, 1)
+    pad = new_label.new_zeros(batch_size, 1)
     new_label = torch.cat([new_label, pad], dim=1)
     new_label[torch.arange(batch_size), length.long()] = eos_index
     return new_label
