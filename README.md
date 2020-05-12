@@ -278,7 +278,7 @@ best implemented incrementally over many pull requests, and you should be more c
 with making sure that the changes introduced lend themselves to painless further improvements.
 
 Fourthly, use the tools that GitHub has: comment on specific code lines, suggest edits,
-and once eveyrone involved has agreed that the PR is ready to merge, merge the
+and once everyone involved has agreed that the PR is ready to merge, merge the
 request and delete the feature branch.
 
 Fifthly, though code review is a place for professional constructive criticism,
@@ -298,4 +298,3 @@ SpeechBrain could be used for *research*, *academic*, *commercial*, *non-commerc
 
 - **well documented:**  Given the goals of SpeechBrain, writing a rich a good documentation is a crucial step. Many existing toolkits are not well documented, and we have to succeed in that to make the difference.
 This aspect will be better described in the following sub-section.
-
