@@ -1,9 +1,10 @@
 # Basic parameters
-output_folder: results
 sample_rate: 16000
+use_tensorboard: False
+tensorboard_logs: runs
 
 # Data files
-data_folder: ../../../../samples/audio_samples/nn_training_samples/
+data_folder: !PLACEHOLDER
 csv_train: !ref <data_folder>/train.csv
 csv_valid: !ref <data_folder>/dev.csv
 csv_test: !ref <data_folder>/test.csv
