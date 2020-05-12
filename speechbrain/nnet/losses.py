@@ -3,12 +3,13 @@ Losses for training neural networks.
 
 Author
 ------
-Mirco Ravanelli 2020
+Mirco Ravanelli, Ju-Chieh Chou 2020
 """
 
 import torch
 import logging
 import torch.nn as nn
+from speechbrain.data_io.data_io import append_eos_token
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +27,6 @@ class ComputeCost(nn.Module):
         "ctc": connectionist temporal classification, this loss sums
             up all the possible alignments between targets and predictions.
         "error": classification error.
-        "wer": word error rate, computed with the edit distance algorithm.
     avoid_pad: bool
         when True, the time steps corresponding to zero-padding
         are not included in the cost function computation.
@@ -54,12 +54,19 @@ class ComputeCost(nn.Module):
     """
 
     def __init__(
-        self, cost_type, avoid_pad=None, allow_lab_diff=3, blank_index=None,
+        self,
+        cost_type,
+        avoid_pad=None,
+        allow_lab_diff=3,
+        blank_index=None,
+        eos_index=None,
+        label_smoothing=0.0,
     ):
         super().__init__()
         self.cost_type = cost_type
         self.avoid_pad = avoid_pad
         self.allow_lab_diff = allow_lab_diff
+        self.label_smoothing = label_smoothing
 
         # if not specified, set avoid_pad to False
         if self.avoid_pad is None:
@@ -73,7 +80,7 @@ class ComputeCost(nn.Module):
             if cost == "nll":
                 self.costs.append(torch.nn.NLLLoss())
 
-            if cost == "error":
+            elif cost == "error":
                 self.costs.append(self._compute_error)
 
             if cost == "mse":
@@ -89,6 +96,13 @@ class ComputeCost(nn.Module):
                 self.costs.append(nn.CTCLoss(blank=self.blank_index))
                 self.avoid_pad[cost_index] = False
 
+            if cost == "seq_nll":
+                if eos_index is None:
+                    raise ValueError("Must pass eos index for seq_nll")
+                self.eos_index = eos_index
+                self.costs.append(nn.NLLLoss())
+                self.avoid_pad[cost_index] = True
+
     def forward(self, prediction, target, lengths):
         """Returns the cost function given predictions and targets.
 
@@ -99,11 +113,11 @@ class ComputeCost(nn.Module):
         target : torch.Tensor
             tensor containing the targets
         lengths : torch.Tensor
-            tensor containing the relative lengths of each sentence
+            tensor containing the relative lengths of each sentence.
         """
 
         # Check on input and label shapes
-        if "ctc" not in self.cost_type:
+        if "ctc" not in self.cost_type and "seq_nll" not in self.cost_type:
 
             # Shapes cannot be too different (max 3 time steps)
             diff = abs(prediction.shape[1] - target.shape[1])
@@ -117,7 +131,7 @@ class ComputeCost(nn.Module):
                 logger.error(err_msg, exc_info=True)
             prediction = prediction[:, 0 : target.shape[1], :]
 
-        else:
+        elif "ctc" in self.cost_type:
 
             if not isinstance(lengths, list):
                 err_msg = (
@@ -126,6 +140,14 @@ class ComputeCost(nn.Module):
                 )
 
                 logger.error(err_msg, exc_info=True)
+
+        elif "seq_nll" in self.cost_type:
+
+            lab_lengths = lengths * target.shape[1]
+            lab_lengths = torch.round(lab_lengths).int()
+            target = append_eos_token(
+                target, lab_lengths, eos_index=self.eos_index
+            )
 
         target = target.to(prediction.device)
 
@@ -160,6 +182,10 @@ class ComputeCost(nn.Module):
                         torch.round(lengths[j] * lab_curr.shape[0])
                     )
 
+                    # add one for <eos> token
+                    if self.cost_type[i] == "seq_nll":
+                        actual_size = actual_size + 1
+
                     prob_curr = prob_curr.narrow(0, 0, actual_size)
                     lab_curr = lab_curr.narrow(0, 0, actual_size)
 
@@ -167,7 +193,21 @@ class ComputeCost(nn.Module):
                         lab_curr = lab_curr.long()
 
                     # Loss accumulation
-                    loss = loss + cost(prob_curr, lab_curr)
+                    if self.label_smoothing == 0:
+                        loss = loss + cost(prob_curr, lab_curr)
+                    else:
+                        if "nll" in self.cost_type[i]:
+                            loss_reg = -prob_curr.mean()
+                            loss = (
+                                loss
+                                + (1 - self.label_smoothing)
+                                * cost(prob_curr, lab_curr)
+                                + self.label_smoothing * loss_reg
+                            )
+                        else:
+                            raise ValueError(
+                                "Label smoothing can only be used for nll and seq_nll loss."
+                            )
 
                 # Loss averaging
                 loss = loss / N_snt

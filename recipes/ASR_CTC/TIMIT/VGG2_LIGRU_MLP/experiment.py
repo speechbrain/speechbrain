@@ -30,7 +30,8 @@ class ASR(sb.core.Brain):
         wavs, wav_lens = wavs.to(params.device), wav_lens.to(params.device)
         feats = params.compute_features(wavs, init_params)
         feats = params.normalize(feats, wav_lens)
-        return params.model(feats, init_params), wav_lens
+        out = params.model(feats, init_params)
+        return out, wav_lens
 
     def compute_objectives(self, predictions, targets, train=True):
         pout, pout_lens = predictions

@@ -467,8 +467,8 @@ class AttentionalRNNDecoder(nn.Module):
         num_layers,
         weight_tying=False,
         scaling=1.0,
-        channels=10,
-        kernel_size=100,
+        channels=None,
+        kernel_size=None,
         bias=True,
         dropout=0.0,
         bos_index=-1,
@@ -482,6 +482,7 @@ class AttentionalRNNDecoder(nn.Module):
         self.attn_dim = attn_dim
         self.attn_out_dim = attn_out_dim
         self.vocab_dim = vocab_dim
+        self.weight_tying = weight_tying
 
         if self.weight_tying and emb_dim != n_neurons:
             raise ValueError(
@@ -551,7 +552,7 @@ class AttentionalRNNDecoder(nn.Module):
             ).to(enc_states.device)
 
         else:
-            raise ValueError(f"{self.attn_type} not implemented.")
+            raise ValueError(f"{self.attn_type} is not implemented.")
 
         self.drop = nn.Dropout(p=self.dropout).to(enc_states.device)
 
