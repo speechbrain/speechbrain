@@ -183,8 +183,12 @@ class Pooling(nn.Module):
                 x = x.reshape(new_shape[0] * new_shape[1], new_shape[2], -1)
 
         if self.pool2d:
-            x = x.transpose(-2, self.pool_axis[0]).transpose(
-                -1, self.pool_axis[1]
+            x = (
+                x.reshape(*x.shape, 1, 1)
+                .transpose(-2, self.pool_axis[0])
+                .transpose(-1, self.pool_axis[1])
+                .squeeze(self.pool_axis[1])
+                .squeeze(self.pool_axis[0])
             )
 
         # Apply pooling
@@ -197,8 +201,13 @@ class Pooling(nn.Module):
             x = x.transpose(-1, self.pool_axis[0])
 
         if self.pool2d:
-            x = x.transpose(-2, self.pool_axis[0]).transpose(
-                -1, self.pool_axis[1]
+            x = (
+                x.unsqueeze(self.pool_axis[0])
+                .unsqueeze(self.pool_axis[1])
+                .transpose(-2, self.pool_axis[0])
+                .transpose(-1, self.pool_axis[1])
+                .squeeze(-1)
+                .squeeze(-1)
             )
 
         return x
