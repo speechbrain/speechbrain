@@ -399,9 +399,6 @@ class SpeedPerturb(torch.nn.Module):
         -------
         Tensor of shape `[batch, time]` or `[batch, time, channels]`.
         """
-        # add channels dimension
-        waveform = waveform.unsqueeze(-1)
-
         # Don't perturb (return early) 1-`perturb_prob` portion of the batches
         if torch.rand(1) > self.perturb_prob:
             return waveform.clone()
@@ -410,7 +407,7 @@ class SpeedPerturb(torch.nn.Module):
         self.samp_index = torch.randint(len(self.speeds), (1,))[0]
         perturbed_waveform = self.resamplers[self.samp_index](waveform)
 
-        return perturbed_waveform.squeeze(-1)
+        return perturbed_waveform
 
 
 class Resample(torch.nn.Module):
@@ -495,7 +492,7 @@ class Resample(torch.nn.Module):
 
         unsqueezed = False
         if len(waveforms.shape) == 2:
-            waveforms = waveforms.unsqueeze(-1)
+            waveforms = waveforms.unsqueeze(1)
             unsqueezed = True
         elif len(waveforms.shape) == 3:
             waveforms = waveforms.transpose(1, 2)
@@ -506,7 +503,7 @@ class Resample(torch.nn.Module):
         resampled_waveform = self._perform_resample(waveforms)
 
         if unsqueezed:
-            resampled_waveform = resampled_waveform.squeeze(-1)
+            resampled_waveform = resampled_waveform.squeeze(1)
         else:
             resampled_waveform = resampled_waveform.transpose(1, 2)
 
@@ -981,6 +978,21 @@ class DropChunk(torch.nn.Module):
         self.drop_end = drop_end
         self.drop_prob = drop_prob
 
+        # Validate low < high
+        if drop_length_low > drop_length_high:
+            raise ValueError("Low limit must not be more than high limit")
+        if drop_count_low > drop_count_high:
+            raise ValueError("Low limit must not be more than high limit")
+
+        # Make sure the length doesn't exceed end - start
+        if drop_end is not None and drop_end >= 0:
+            if drop_start > drop_end:
+                raise ValueError("Low limit must not be more than high limit")
+
+            drop_range = drop_end - drop_start
+            self.drop_length_low = min(drop_length_low, drop_range)
+            self.drop_length_high = min(drop_length_high, drop_range)
+
     def forward(self, waveforms, lengths):
         """
         Arguments
@@ -1013,6 +1025,8 @@ class DropChunk(torch.nn.Module):
 
         # Iterate batch to set mask
         for i in range(batch_size):
+            if drop_times[i] == 0:
+                continue
 
             # Pick lengths
             length = torch.randint(
