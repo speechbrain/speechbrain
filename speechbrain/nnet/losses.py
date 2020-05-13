@@ -102,7 +102,7 @@ class ComputeCost(nn.Module):
 
         else:
             # Mask to avoid zero-padded time steps from  the total loss
-            mask = length_to_mask(target_len)
+            mask = length_to_mask(target_len, max_len=target.shape[1])
 
             if self.cost_type in ["nll", "error"]:
                 prediction = prediction[:, 0 : target.shape[1], :]
