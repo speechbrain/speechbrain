@@ -7,10 +7,10 @@ from speechbrain.utils.edit_distance import wer_details_for_batch
 from speechbrain.utils.train_logger import summarize_average
 from speechbrain.utils.train_logger import summarize_error_rate
 
-current_dir = os.path.dirname(os.path.abspath(__file__))
-params_file = os.path.join(current_dir, "params.yaml")
+experiment_dir = os.path.dirname(os.path.abspath(__file__))
+params_file = os.path.join(experiment_dir, "params.yaml")
 data_folder = "../../../../../samples/audio_samples/nn_training_samples"
-data_folder = os.path.abspath(current_dir + data_folder)
+data_folder = os.path.abspath(experiment_dir + data_folder)
 with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
 
@@ -57,4 +57,6 @@ ctc_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
 test_stats = ctc_brain.evaluate(params.test_loader())
 print("Test PER: %.2f" % summarize_error_rate(test_stats["PER"]))
 
+# For such a small dataset, the PER can be unpredictable.
+# Instead, check that at the end of training, the error is acceptable.
 assert summarize_average(test_stats["loss"]) < 2.0
