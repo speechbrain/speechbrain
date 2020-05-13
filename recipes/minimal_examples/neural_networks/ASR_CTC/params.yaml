@@ -51,7 +51,7 @@ softmax: !speechbrain.nnet.activations.Softmax
     apply_log: True
 
 compute_cost: !speechbrain.nnet.losses.ComputeCost
-    cost_type: [ctc]
+    cost_type: ctc
     blank_index: 42
 
 optimizer: !speechbrain.nnet.optimizers.Optimize
