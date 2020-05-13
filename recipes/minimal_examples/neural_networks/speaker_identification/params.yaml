@@ -49,10 +49,10 @@ softmax: !speechbrain.nnet.activations.Softmax
     apply_log: True
 
 compute_cost: !speechbrain.nnet.losses.ComputeCost
-    cost_type: [nll]
+    cost_type: nll
 
 compute_error: !speechbrain.nnet.losses.ComputeCost
-    cost_type: [error]
+    cost_type: error
 
 optimizer: !speechbrain.nnet.optimizers.Optimize
     optimizer_type: adam
