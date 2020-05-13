@@ -19,19 +19,3 @@ drop_chunk: !speechbrain.processing.speech_augmentation.DropChunk
 speed_perturb: !speechbrain.processing.speech_augmentation.SpeedPerturb
     orig_freq: !ref <sample_rate>
     speeds: [95, 100, 105]
-
-compute_STFT: !speechbrain.processing.features.STFT
-    sample_rate: !ref <sample_rate>
-    win_length: 25
-    hop_length: 10
-    n_fft: !ref <n_fft>
-    window_type: hamming
-
-compute_fbanks: !speechbrain.processing.features.Filterbank
-    n_mels: 40
-    log_mel: False
-    filter_shape: triangular
-    f_min: 0
-    f_max: 8000
-    freeze: True
-    n_fft: !ref <n_fft>
