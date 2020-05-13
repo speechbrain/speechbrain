@@ -72,8 +72,7 @@ class Optimize(torch.nn.Module):
     >>> label = torch.FloatTensor([0,1,3]).unsqueeze(0)
     >>> lengths = torch.Tensor([1.0])
     >>> out_cost = cost(prediction, label, lengths)
-    >>> for cost in out_cost:
-    ...     cost.backward()
+    >>> out_cost.backward()
     >>> optim([model], init_params=True)
     """
 
