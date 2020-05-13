@@ -74,5 +74,5 @@ test_loader: !speechbrain.data_io.data_io.DataLoaderFactory
     batch_size: !ref <batch_size>
 
 compute_cost: !speechbrain.nnet.losses.ComputeCost
-    cost_type: [ctc]
+    cost_type: ctc
     blank_index: 39
