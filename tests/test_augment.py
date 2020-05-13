@@ -77,3 +77,100 @@ def test_add_reverb(tmpdir):
     assert reverbed.allclose(test_waveform[:, 0:1000], atol=1e-1)
     reverbed = add_reverb(test_waveform, wav_lens)[:, 0:1000]
     assert reverbed.allclose(ir3_result[:, 0:1000], atol=2e-1)
+
+
+def test_speed_perturb():
+    from speechbrain.processing.speech_augmentation import SpeedPerturb
+
+    test_waveform = torch.sin(torch.arange(16000.0)).unsqueeze(0)
+
+    no_perturb = SpeedPerturb(16000, perturb_prob=0.0)
+    assert no_perturb(test_waveform).allclose(test_waveform)
+    no_perturb = SpeedPerturb(16000, speeds=[100])
+    assert no_perturb(test_waveform).allclose(test_waveform)
+
+    # half speed
+    half_speed = SpeedPerturb(16000, speeds=[50])
+    assert half_speed(test_waveform).allclose(test_waveform[:, ::2], atol=3e-1)
+
+
+def test_babble():
+    from speechbrain.processing.speech_augmentation import AddBabble
+
+    test_waveform = torch.stack(
+        (torch.sin(torch.arange(16000.0)), torch.cos(torch.arange(16000.0)),)
+    )
+    lengths = torch.ones(2)
+
+    nobabble = AddBabble(mix_prob=0.0)
+    assert nobabble(test_waveform, lengths).allclose(test_waveform)
+    nobabble = AddBabble(speaker_count=1, snr_low=1000, snr_high=1000)
+    assert nobabble(test_waveform, lengths).allclose(test_waveform)
+
+    babble = AddBabble(speaker_count=1)
+    expected = (test_waveform + test_waveform.roll(1, 0)) / 2
+    assert babble(test_waveform, lengths).allclose(expected, atol=1e-4)
+
+
+def test_drop_freq():
+    from speechbrain.processing.speech_augmentation import DropFreq
+
+    test_waveform = torch.sin(torch.arange(16000.0)).unsqueeze(0)
+
+    no_drop = DropFreq(drop_prob=0.0)
+    assert no_drop(test_waveform).allclose(test_waveform)
+    no_drop = DropFreq(drop_count_low=0, drop_count_high=0)
+    assert no_drop(test_waveform).allclose(test_waveform)
+
+    drop_diff_freq = DropFreq(drop_freq_low=0.5, drop_freq_high=0.9)
+    assert drop_diff_freq(test_waveform).allclose(test_waveform, atol=1e-1)
+
+    drop_same_freq = DropFreq(drop_freq_low=0.28, drop_freq_high=0.28)
+    assert drop_same_freq(test_waveform).allclose(
+        torch.zeros(1, 16000), atol=4e-1
+    )
+
+
+def test_drop_chunk():
+    from speechbrain.processing.speech_augmentation import DropChunk
+
+    test_waveform = torch.sin(torch.arange(16000.0)).unsqueeze(0)
+    lengths = torch.ones(1)
+
+    no_drop = DropChunk(drop_prob=0.0)
+    assert no_drop(test_waveform, lengths).allclose(test_waveform)
+    no_drop = DropChunk(drop_length_low=0, drop_length_high=0)
+    assert no_drop(test_waveform, lengths).allclose(test_waveform)
+    no_drop = DropChunk(drop_count_low=0, drop_count_high=0)
+    assert no_drop(test_waveform, lengths).allclose(test_waveform)
+    no_drop = DropChunk(drop_start=0, drop_end=0)
+    assert no_drop(test_waveform, lengths).allclose(test_waveform)
+
+    dropper = DropChunk(
+        drop_length_low=100,
+        drop_length_high=100,
+        drop_count_low=1,
+        drop_count_high=1,
+        drop_start=100,
+        drop_end=200,
+    )
+    expected_waveform = test_waveform.clone()
+    expected_waveform[:, 100:200] = 0.0
+
+    assert dropper(test_waveform, lengths).allclose(expected_waveform)
+
+
+def test_clip():
+    from speechbrain.processing.speech_augmentation import DoClip
+
+    test_waveform = torch.sin(torch.arange(16000.0)).unsqueeze(0)
+
+    no_clip = DoClip(clip_prob=0.0)
+    assert no_clip(test_waveform).allclose(test_waveform)
+    no_clip = DoClip(clip_low=1, clip_high=1)
+    assert no_clip(test_waveform).allclose(test_waveform)
+
+    half_clip = DoClip(clip_low=0.5, clip_high=0.5)
+    assert half_clip(test_waveform).allclose(
+        test_waveform.clamp(min=-0.5, max=0.5)
+    )
