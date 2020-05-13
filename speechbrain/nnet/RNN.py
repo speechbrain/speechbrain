@@ -1,7 +1,7 @@
 """Library implementing recurrent neural networks.
 
 Author
-    Mirco Ravanelli 2020
+    Mirco Ravanelli, Ju-Chieh Chou 2020
 """
 
 import torch
@@ -20,6 +20,18 @@ logger = logging.getLogger(__name__)
 def init_rnn_module(module):
     """
     This function is used to initialize the RNN weight with orthogonality.
+
+    Arguments
+    ---------
+    module: torch.nn.Module
+        Reccurent neural network module.
+
+    Example
+    -------
+    >>> inp_tensor = torch.rand([4, 10, 20])
+    >>> net = RNN(rnn_type='lstm', n_neurons=5)
+    >>> out_tensor = net(inp_tensor, init_params=True)
+    >>> init_rnn_module(net)
     """
     for param in module.parameters():
         if len(param.shape) >= 2:
@@ -465,15 +477,80 @@ class AttentionalRNNDecoder(nn.Module):
         vocab_dim,
         emb_dim,
         num_layers,
-        weight_tying=False,
         scaling=1.0,
         channels=None,
         kernel_size=None,
         bias=True,
         dropout=0.0,
         bos_index=-1,
-        eos_index=-1,
     ):
+        """This funtion implements RNN, LSTM, GRU models for sequence decoding.
+
+        This function implements different RNN models. It accepts in enc_states tensors
+        formatted as (batch, time, fea). In the case of 4d inputs
+        like (batch, time, fea, channel) the tensor is flattened in this way:
+        (batch, time, fea*channel).
+
+        Arguments
+        ---------
+        n_neurons,
+        attn_dim,
+        attn_out_dim,
+        vocab_dim,
+        emb_dim,
+        num_layers,
+        scaling=1.0,
+        channels=None,
+        kernel_size=None,
+        bias=True,
+        dropout=0.0,
+        bos_index=-1,
+        rnn_type: str
+            Type of recurrent neural network to use (rnn, lstm, gru).
+        attn_type: str
+            type of attention to use (location, content).
+        n_neurons: int
+            Number of internal and output neurons.
+        attn_dim: int
+            Number of attention module internal neurons.
+        attn_dim: int
+            Number of attention module output neurons.
+        vocab_dim: int
+            Size of vocabulary for embedding lookup.
+        emb_dim: int
+            Size of each embedding vector.
+        num_layers: int
+             Number of layers to employ in the RNN architecture.
+        scaling: float
+            The scaling factor to sharpen or smoothen the attention distribution.
+        channels: int
+            Number of channels for location-aware attention.
+        kernel_size: int
+            Size of the kernel for location-aware attention.
+        bias: bool
+            If True, the additive bias b is adopted.
+        dropout: float
+            It is the dropout factor (must be between 0 and 1).
+        bos_index: int
+            The vocabulary index of bos token.
+    .
+        Example
+        -------
+        >>> inp_tensor = torch.rand([4, 10, 20])
+        >>> inp_len = torch.rand([4])
+        >>> tokens = torch.randint(low=0, high=5, size=(4, 8))
+        >>> net = AttentionalRNNDecoder(rnn_type='lstm',
+        ...     attn_type='content',
+        ...     n_neurons=7,
+        ...     attn_dim=5,
+        ...     attn_out_dim=5,
+        ...     vocab_dim=6,
+        ...     emb_dim=5,
+        ...     num_layers=1)
+        >>> out_tensor, attn = net(inp_tensor, inp_len, tokens, init_params=True)
+        >>> out_tensor.shape
+        torch.Size([4, 9, 7])
+        """
         super(AttentionalRNNDecoder, self).__init__()
 
         self.rnn_type = rnn_type
@@ -482,16 +559,9 @@ class AttentionalRNNDecoder(nn.Module):
         self.attn_dim = attn_dim
         self.attn_out_dim = attn_out_dim
         self.vocab_dim = vocab_dim
-        self.weight_tying = weight_tying
-
-        if self.weight_tying and emb_dim != n_neurons:
-            raise ValueError(
-                "Weight tying must have the same emb_dim and n_neurons"
-            )
 
         self.emb_dim = emb_dim
         self.num_layers = num_layers
-        self.weight_tying = weight_tying
         self.scaling = scaling
         self.bias = bias
         self.dropout = dropout
@@ -502,9 +572,6 @@ class AttentionalRNNDecoder(nn.Module):
 
         self.bos_index = (
             bos_index if bos_index >= 0 else self.vocab_dim + bos_index
-        )
-        self.eos_index = (
-            eos_index if eos_index >= 0 else self.vocab_dim + eos_index
         )
 
         self.reshape = False
@@ -524,12 +591,6 @@ class AttentionalRNNDecoder(nn.Module):
         self.proj = nn.Linear(
             self.n_neurons + self.attn_out_dim, self.n_neurons
         ).to(enc_states.device)
-        self.out = nn.Linear(self.n_neurons, self.vocab_dim).to(
-            enc_states.device
-        )
-
-        if self.weight_tying:
-            self.out.weight = self.emb.weight
 
         if self.attn_type == "content":
             self.attn = ContentBasedAttention(
@@ -631,9 +692,8 @@ class AttentionalRNNDecoder(nn.Module):
         c, w = self.attn(enc_states, enc_len, dec_flatten)
         dec_out = torch.cat([c, cell_out], dim=1)
         dec_out = self.proj(dec_out)
-        logits = self.out(dec_out)
 
-        return logits, hs, c, w
+        return dec_out, hs, c, w
 
     def forward(self, enc_states, wav_len, tokens, init_params=False):
         if init_params:
@@ -660,19 +720,19 @@ class AttentionalRNNDecoder(nn.Module):
         c = torch.zeros(batch_size, self.attn_out_dim).to(enc_states.device)
 
         # store predicted tokens
-        logits_lst, attn_lst = [], []
+        outputs_lst, attn_lst = [], []
 
         for t in range(y_in.size(1)):
-            logits, hs, c, w = self.forward_step(
+            outputs, hs, c, w = self.forward_step(
                 y_in[:, t], hs, c, enc_states, enc_len
             )
-            logits_lst.append(logits)
+            outputs_lst.append(outputs)
             attn_lst.append(w)
 
         # [B, L_d, vocab_size]
-        logits = torch.stack(logits_lst, dim=1)
+        outputs = torch.stack(outputs_lst, dim=1)
 
         # [B, L_d, L_e]
         attn = torch.stack(attn_lst, dim=1)
 
-        return logits, attn
+        return outputs, attn
