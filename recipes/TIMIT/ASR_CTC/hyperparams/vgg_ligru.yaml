@@ -1,13 +1,14 @@
 # ################################
 # Model: VGG2 + LiGRU with time pooling for efficiency
-# Author: Mirco Ravanelli 2020
+# Additions: TimeDomainSpecAugment
+# Authors: Mirco Ravanelli
 # ################################
 
 data_folder: !PLACEHOLDER  # e.g. /path/to/TIMIT
 ckpts_to_keep: 1
 sample_rate: 16000
 seed: !PLACEHOLDER  # e.g, 1234
-output_folder: !ref results/vgg_ligru/<seed>
+output_folder: !ref results/augment_vgg_ligru/<seed>
 predictions_file: !ref <output_folder>/predictions.csv
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
@@ -19,7 +20,7 @@ csv_valid: !ref <data_folder>/dev.csv
 csv_test: !ref <data_folder>/test.csv
 
 # Neural Parameters
-number_of_epochs: 25
+number_of_epochs: 30
 batch_size: 8
 lr: 1.0
 dropout_rate: 0.15
@@ -31,8 +32,9 @@ device: 'cuda:0'
 model: !speechbrain.lobes.models.CRDNN.CRDNN
     output_size: 40  # 39 phonemes + 1 blank symbol
     cnn_blocks: 2
+    rnn_param_file: 'ligru_block.yaml'
+    rnn_blocks: 4
     dnn_blocks: 2
-    rnn_overrides: {rnn: {rnn_type: ligru}}
     time_pooling: True
 
 optimizer: !speechbrain.nnet.optimizers.Optimize

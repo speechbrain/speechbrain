@@ -60,10 +60,13 @@ class CRDNN(Sequential):
     def __init__(
         self,
         output_size,
+        cnn_param_file="cnn_block.yaml",
         cnn_blocks=1,
         cnn_overrides={},
+        rnn_param_file="rnn_block.yaml",
         rnn_blocks=1,
         rnn_overrides={},
+        dnn_param_file="dnn_block.yaml",
         dnn_blocks=1,
         dnn_overrides={},
         time_pooling=False,
@@ -77,7 +80,7 @@ class CRDNN(Sequential):
             blocks.append(
                 NeuralBlock(
                     block_index=i + 1,
-                    param_file=os.path.join(current_dir, "cnn_block.yaml"),
+                    param_file=os.path.join(current_dir, cnn_param_file),
                     overrides=cnn_overrides,
                 )
             )
@@ -96,7 +99,7 @@ class CRDNN(Sequential):
             blocks.append(
                 NeuralBlock(
                     block_index=i + 1,
-                    param_file=os.path.join(current_dir, "rnn_block.yaml"),
+                    param_file=os.path.join(current_dir, rnn_param_file),
                     overrides=rnn_overrides,
                 )
             )
@@ -105,7 +108,7 @@ class CRDNN(Sequential):
             blocks.append(
                 NeuralBlock(
                     block_index=i + 1,
-                    param_file=os.path.join(current_dir, "dnn_block.yaml"),
+                    param_file=os.path.join(current_dir, dnn_param_file),
                     overrides=dnn_overrides,
                 )
             )

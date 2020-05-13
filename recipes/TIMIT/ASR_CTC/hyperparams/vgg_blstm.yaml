@@ -7,7 +7,7 @@ data_folder: !PLACEHOLDER  # e.g. /path/to/TIMIT
 ckpts_to_keep: 1
 sample_rate: 16000
 seed: !PLACEHOLDER  # e.g, 1234
-output_folder: !ref results/vgg_blstm/<seed>
+output_folder: !ref results/augment_vgg_ligru/<seed>
 predictions_file: !ref <output_folder>/predictions.csv
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
@@ -17,6 +17,7 @@ train_log: !ref <output_folder>/train_log.txt
 csv_train: !ref <data_folder>/train.csv
 csv_valid: !ref <data_folder>/dev.csv
 csv_test: !ref <data_folder>/test.csv
+
 
 # Neural Parameters
 number_of_epochs: 25
@@ -31,6 +32,7 @@ device: 'cuda:0'
 model: !speechbrain.lobes.models.CRDNN.CRDNN
     output_size: 40  # 39 phonemes + 1 blank symbol
     cnn_blocks: 2
+    rnn_blocks: 4
     dnn_blocks: 2
 
 optimizer: !speechbrain.nnet.optimizers.Optimize
@@ -46,18 +48,13 @@ lr_annealing: !speechbrain.nnet.lr_scheduling.LRScheduler
     annealing_factor: 0.8
     patient: 0
 
-normalize: !speechbrain.processing.features.mean_var_norm
+normalize: !speechbrain.processing.features.InputNormalization
     norm_type: global
 
 epoch_counter: !speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-compute_features: !speechbrain.lobes.features.Features
-    feature_type: fbank
-    deltas: False
-    context: False
-    requires_grad: False
-    n_mels: !ref <n_mels>
+compute_features: !speechbrain.lobes.features.fbank.Fbank
 
 train_loader: !speechbrain.data_io.data_io.DataLoaderFactory
     &loader

@@ -32,8 +32,9 @@ device: 'cuda:0'
 model: !speechbrain.lobes.models.CRDNN.CRDNN
     output_size: 40  # 39 phonemes + 1 blank symbol
     cnn_blocks: 2
+    rnn_param_file: 'ligru_block.yaml'
+    rnn_blocks: 4
     dnn_blocks: 2
-    rnn_overrides: {rnn: {rnn_type: ligru}}
     time_pooling: True
 
 optimizer: !speechbrain.nnet.optimizers.Optimize
