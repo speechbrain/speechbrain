@@ -4,14 +4,12 @@ import torch
 import speechbrain as sb
 from speechbrain.utils.train_logger import summarize_average
 
-current_dir = os.path.dirname(os.path.abspath(__file__))
-params_file = os.path.join(current_dir, "params.yaml")
+experiment_dir = os.path.dirname(os.path.abspath(__file__))
+params_file = os.path.join(experiment_dir, "params.yaml")
+data_folder = "../../../../../samples/audio_samples/nn_training_samples"
+data_folder = os.path.abspath(experiment_dir + data_folder)
 with open(params_file) as fin:
-    params = sb.yaml.load_extended_yaml(fin)
-
-sb.core.create_experiment_directory(
-    experiment_directory=params.output_folder, params_to_save=params_file,
-)
+    params = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
 
 
 class SpkIdBrain(sb.core.Brain):
@@ -55,3 +53,6 @@ spk_id_brain = SpkIdBrain(
 spk_id_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
 test_stats = spk_id_brain.evaluate(params.test_loader())
 print("Test error: %.2f" % summarize_average(test_stats["error"]))
+
+# If training is successful, we get all test examples correct
+assert summarize_average(test_stats["error"]) == 0.0
