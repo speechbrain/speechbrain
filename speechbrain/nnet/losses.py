@@ -136,7 +136,7 @@ class ComputeCost(nn.Module):
             tensor containing the relative lengths of each sentence
         """
 
-        if "ctc" not in self.cost_type:
+        if self.cost_type != "ctc":
 
             # Shapes cannot be too different (max 3 time steps)
             diff = abs(prediction.shape[1] - target.shape[1])
@@ -160,10 +160,10 @@ class ComputeCost(nn.Module):
 
                 logger.error(err_msg, exc_info=True)
 
-        # Regression case (no reshape)
-        self.reshape = True
-        if len(prediction.shape) == len(target.shape):
-            self.reshape = False
+            # Regression case (no reshape)
+            self.reshape = True
+            if len(prediction.shape) == len(target.shape):
+                self.reshape = False
 
     def _compute_len(self, prediction, target, lengths):
         """Compute the actual length of prediction and targets given
