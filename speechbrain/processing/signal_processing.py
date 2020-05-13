@@ -31,9 +31,7 @@ def compute_amplitude(waveforms, lengths):
     >>> compute_amplitude(signal, len(signal))
     tensor([0.0125])
     """
-    return (
-        torch.sum(input=torch.abs(waveforms), dim=-1, keepdim=True,) / lengths
-    )
+    return torch.sum(input=torch.abs(waveforms), dim=1, keepdim=True,) / lengths
 
 
 def convolve1d(
