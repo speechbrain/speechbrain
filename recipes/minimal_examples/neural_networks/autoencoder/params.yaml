@@ -47,8 +47,7 @@ linear2: !speechbrain.nnet.linear.Linear
     bias: False
 
 compute_cost: !speechbrain.nnet.losses.ComputeCost
-    cost_type: [mse]
-    avoid_pad: [True]
+    cost_type: mse
 
 optimizer: !speechbrain.nnet.optimizers.Optimize
     optimizer_type: adam

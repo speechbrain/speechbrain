@@ -4,7 +4,7 @@
 # Authors: Mirco Ravanelli & Peter Plantinga 2020
 # ################################
 
-data_folder: !PLACEHOLDER  # e.g. /path/to/TIMIT
+data_folder: !PLACEHOLDER  # e.g. /path/to/TIMITz
 ckpts_to_keep: 1
 sample_rate: 16000
 seed: !PLACEHOLDER  # e.g, 1234
@@ -76,5 +76,5 @@ test_loader: !speechbrain.data_io.data_io.DataLoaderFactory
     batch_size: !ref <batch_size>
 
 compute_cost: !speechbrain.nnet.losses.ComputeCost
-    cost_type: [ctc]
+    cost_type: ctc
     blank_index: 39

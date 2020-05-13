@@ -9,6 +9,7 @@ Mirco Ravanelli 2020
 import torch
 import logging
 import torch.nn as nn
+from speechbrain.data_io.data_io import length_to_mask
 
 logger = logging.getLogger(__name__)
 
@@ -27,9 +28,6 @@ class ComputeCost(nn.Module):
             up all the possible alignments between targets and predictions.
         "error": classification error.
         "wer": word error rate, computed with the edit distance algorithm.
-    avoid_pad: bool
-        when True, the time steps corresponding to zero-padding
-        are not included in the cost function computation.
     allow_lab_diff: int
         the number of tolerated differences between the label
         and prediction lengths. Minimal differences can be tolerated and
@@ -49,45 +47,34 @@ class ComputeCost(nn.Module):
     >>> label = torch.FloatTensor([0,1,3]).unsqueeze(0)
     >>> lengths = torch.Tensor([1.0])
     >>> out_cost = cost(pred, label, lengths)
-    >>> for cost in out_cost:
-    ...     cost.backward()
+    >>> out_cost.backward()
     """
 
     def __init__(
-        self, cost_type, avoid_pad=None, allow_lab_diff=3, blank_index=None,
+        self, cost_type, allow_lab_diff=3, blank_index=None,
     ):
         super().__init__()
-        self.cost_type = cost_type
-        self.avoid_pad = avoid_pad
         self.allow_lab_diff = allow_lab_diff
+        self.cost_type = cost_type
+        
+        if cost_type == "nll":
+            self.cost = torch.nn.NLLLoss(reduction='none')
 
-        # if not specified, set avoid_pad to False
-        if self.avoid_pad is None:
-            self.avoid_pad = [False] * len(self.cost_type)
+        if cost_type == "error":
+            self.cost = self._compute_error
 
-        # Adding cost functions is a list
-        self.costs = []
+        if cost_type == "mse":
+            self.cost = nn.MSELoss(reduction='none')
 
-        for cost_index, cost in enumerate(self.cost_type):
+        if cost_type == "l1":
+           self.cost = nn.L1Loss(reduction='none')
 
-            if cost == "nll":
-                self.costs.append(torch.nn.NLLLoss())
+        if cost_type == "ctc":
+            if blank_index is None:
+                raise ValueError("Must pass blank index for CTC")
+            self.blank_index = blank_index
+            self.cost = nn.CTCLoss(blank=self.blank_index)
 
-            if cost == "error":
-                self.costs.append(self._compute_error)
-
-            if cost == "mse":
-                self.costs.append(nn.MSELoss())
-
-            if cost == "l1":
-                self.costs.append(nn.L1Loss())
-
-            if cost == "ctc":
-                if blank_index is None:
-                    raise ValueError("Must pass blank index for CTC")
-                self.blank_index = blank_index
-                self.costs.append(nn.CTCLoss(blank=self.blank_index))
-                self.avoid_pad[cost_index] = False
 
     def forward(self, prediction, target, lengths):
         """Returns the cost function given predictions and targets.
@@ -103,8 +90,50 @@ class ComputeCost(nn.Module):
         """
 
         # Check on input and label shapes
-        if "ctc" not in self.cost_type:
+        self._check_inp(prediction, target, lengths)
+        
+        # Computing actual target and prediction lengths
+        pred_len, target_len= self._compute_len(prediction, target, lengths)
+        target = target.to(prediction.device)
 
+        if self.cost_type == 'ctc':
+            target = target.int()
+            prediction = prediction.transpose(0, 1)
+            loss = self.cost(prediction, target, pred_len, target_len)
+
+        else:            
+            # Mask to avoid zero-padded time steps from  the total loss
+            mask = length_to_mask(target_len)
+
+            if self.cost_type in ['nll', 'error']:
+                prediction = prediction[:, 0 : target.shape[1], :]
+                prediction = prediction.reshape(prediction.shape[0] * prediction.shape[1],prediction.shape[2])
+                target = target.reshape(target.shape[0] * target.shape[1]).long()
+                mask = mask.reshape(mask.shape[0]* mask.shape[1])
+            
+            if self.cost_type in ['mse', 'l1']:
+                mask = mask.unsqueeze(2).repeat(1,1,target.shape[2])
+                
+            loss = self.cost(prediction, target)* mask
+            loss = torch.sum(loss * mask) / torch.sum(mask)
+            
+        return loss
+    
+    def _check_inp(self, prediction, target, lengths):
+        """Peforms some check on prediction, targets and lengths.
+
+        Arguments
+        ---------
+        prediction : torch.Tensor
+            tensor containing the posterior probabilities
+        target : torch.Tensor
+            tensor containing the targets
+        lengths : torch.Tensor
+            tensor containing the relative lengths of each sentence
+        """
+        
+        if "ctc" not in self.cost_type:
+    
             # Shapes cannot be too different (max 3 time steps)
             diff = abs(prediction.shape[1] - target.shape[1])
             if diff > self.allow_lab_diff:
@@ -113,122 +142,58 @@ class ComputeCost(nn.Module):
                     "output probabilities. (Got %i vs %i)"
                     % (target.shape[1], prediction.shape[1])
                 )
-
+    
                 logger.error(err_msg, exc_info=True)
             prediction = prediction[:, 0 : target.shape[1], :]
-
+    
         else:
-
+    
             if not isinstance(lengths, list):
                 err_msg = (
                     "The third input to the compute_cost function must "
                     "be a list [wav_len, lab_len] when ctc is the cost. "
                 )
-
-                logger.error(err_msg, exc_info=True)
-
-        target = target.to(prediction.device)
-
-        # Regression case
-        reshape = True
-
+    
+                logger.error(err_msg, exc_info=True)       
+        
+        # Regression case (no reshape)
+        self.reshape = True
         if len(prediction.shape) == len(target.shape):
-            reshape = False
+            self.reshape = False
+            
 
-        out_costs = []
+    def _compute_len(self,prediction, target, lengths):
+        """Compute the actual length of prediction and targets given
+        the relative length tensor.
 
-        for i, cost in enumerate(self.costs):
+        Arguments
+        ---------
+        prediction : torch.Tensor
+            tensor containing the posterior probabilities
+        target : torch.Tensor
+            tensor containing the targets
+        lengths : torch.Tensor
+            tensor containing the relative lengths of each sentence
 
-            # Managing avoid_pad to avoid adding costs of padded time steps
-            if self.avoid_pad[i]:
-
-                # Getting the number of sentences in the minibatch
-                N_snt = prediction.shape[0]
-
-                # Loss initialization
-                loss = 0
-
-                # Loop over all the sentences of the minibatch
-                for j in range(N_snt):
-
-                    # Selecting sentence
-                    prob_curr = prediction[j]
-                    lab_curr = target[j]
-
-                    # Avoiding padded time steps
-                    actual_size = int(
-                        torch.round(lengths[j] * lab_curr.shape[0])
-                    )
-
-                    prob_curr = prob_curr.narrow(0, 0, actual_size)
-                    lab_curr = lab_curr.narrow(0, 0, actual_size)
-
-                    if reshape:
-                        lab_curr = lab_curr.long()
-
-                    # Loss accumulation
-                    loss = loss + cost(prob_curr, lab_curr)
-
-                # Loss averaging
-                loss = loss / N_snt
-
-                # Appending current loss
-                out_costs.append(loss)
-
-            # Managing case in which we also include the cost of padded steps.
-            # This can be use when the number of padding elements is small
-            # (e.g, when we sort the sentences before creating the batches)
-            else:
-
-                # Reshaping
-                prob_curr = prediction
-                lab_curr = target
-
-                # Managing ctc cost for sequence-to-sequence learning
-                if self.cost_type[i] == "ctc":
-
-                    # Cast lab_curr to int32 for using Cudnn computation
-                    # In the case of using CPU training, int type is mondatory.
-                    lab_curr = lab_curr.int()
-
-                    # Permuting output probs
-                    prob_curr = prob_curr.transpose(0, 1)
-
-                    # Getting the actual lengths
-                    input_lengths = torch.round(
-                        lengths[0] * prob_curr.shape[0]
-                    ).int()
-                    lab_lengths = lengths[1] * target.shape[1]
-                    lab_lengths = torch.round(lab_lengths).int()
-
-                    # Compute CTC loss
-                    ctc_cost = cost(
-                        prob_curr, lab_curr, input_lengths, lab_lengths
-                    )
-
-                    out_costs.append(ctc_cost)
-
-                else:
-
-                    # Reshaping tensors when needed
-                    if reshape:
-                        lab_curr = target.reshape(
-                            target.shape[0] * target.shape[1]
-                        ).long()
-
-                        prob_curr = prob_curr.reshape(
-                            prob_curr.shape[0] * prob_curr.shape[1],
-                            prob_curr.shape[2],
-                        )
-
-                    # Cost computation
-                    out_costs.append(cost(prob_curr, lab_curr))
-
-        if len(out_costs) == 1:
-            out_costs = out_costs[0]
-
-        return out_costs
-
+        Returns
+        -------
+        pred_len : torch.Tensor
+            tensor contaning the length of each sentence in the batch 
+        target_len : torch.Tensor
+            tensor contaning the length of each target in the batch 
+        """   
+        
+        if isinstance(lengths,list) and len(lengths) == 2:
+            pred_len, target_len = lengths
+        else:
+             pred_len = target_len = lengths
+             
+        pred_len = torch.round(pred_len *  prediction.shape[1]).int()
+        target_len = torch.round(target_len * target.shape[1]).int()
+        
+        return pred_len, target_len
+        
+        
     def _compute_error(self, prob, lab):
         """Computes the classification error at frame level.
 
