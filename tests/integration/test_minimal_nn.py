@@ -1,3 +1,10 @@
+"""Integration tests for training neural networks
+
+The minimal examples are scripts and have assertions built-in, so
+the test are run just by importing the experiment.py file.
+
+Author: Peter Plantinga 2020
+"""
 import os
 import sys
 
