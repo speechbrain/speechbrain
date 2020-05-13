@@ -20,7 +20,7 @@ class ComputeCost(nn.Module):
 
     Arguments
     ---------
-    cost_type: one of the following options. let's fix it!
+    cost_type: one of the following options.
         "nll": negative log-likelihood cost.
         "mse": mean squared error between the prediction and the target.
         "l1": l1 distance between the prediction and the target.
