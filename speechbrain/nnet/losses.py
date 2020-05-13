@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class ComputeCost(nn.Module):
-    """This function implements different cost functions for training neural
+    """This function implements different losses for training neural
         networks. It supports NLL, MSE, L1 and CTC objectives.
 
     Arguments
@@ -181,9 +181,9 @@ class ComputeCost(nn.Module):
         Returns
         -------
         pred_len : torch.Tensor
-            tensor contaning the length of each sentence in the batch 
+            tensor contaning the length of each sentence in the batch
         target_len : torch.Tensor
-            tensor contaning the length of each target in the batch 
+            tensor contaning the length of each target in the batch
         """
 
         if isinstance(lengths, list) and len(lengths) == 2:

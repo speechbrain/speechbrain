@@ -1868,8 +1868,8 @@ class TensorSaver(torch.nn.Module):
 def length_to_mask(length, max_len=None, dtype=None, device=None):
     """
     Creates a binary mask for each sequence.
-    Reference: https://discuss.pytorch.org/t/how-to-generate-variable-length-mask/23397/3    
-    
+    Reference: https://discuss.pytorch.org/t/how-to-generate-variable-length-mask/23397/3
+
     Arguments
     ---------
     length : torch.LongTensor
@@ -1879,12 +1879,12 @@ def length_to_mask(length, max_len=None, dtype=None, device=None):
     dtype : torch.dtype, default: None
         The dtype of the generated mask.
     device: torch.device, default: None
-        The device to put the mask variable.    
-    
+        The device to put the mask variable.
+
     Returns
     -------
-    mask : The binary mask    
-    
+    mask : The binary mask
+
     Example:
     -------
     >>> length=torch.Tensor([1,2,3])
@@ -1894,22 +1894,23 @@ def length_to_mask(length, max_len=None, dtype=None, device=None):
             [1., 1., 0.],
             [1., 1., 1.]])
     """
-    assert len(length.shape) == 1    
-    
+    assert len(length.shape) == 1
+
     if max_len is None:
-        max_len = length.max().long().item()    # using arange to generate mask
+        max_len = length.max().long().item()  # using arange to generate mask
     mask = torch.arange(
         max_len, device=length.device, dtype=length.dtype
-    ).expand(len(length), max_len) < length.unsqueeze(1)    
-    
+    ).expand(len(length), max_len) < length.unsqueeze(1)
+
     if dtype is None:
-        dtype = length.dtype    
-        
+        dtype = length.dtype
+
     if device is None:
-        device = length.device    
-        
+        device = length.device
+
     mask = torch.as_tensor(mask, dtype=dtype, device=device)
     return mask
+
 
 def get_md5(file):
     """
