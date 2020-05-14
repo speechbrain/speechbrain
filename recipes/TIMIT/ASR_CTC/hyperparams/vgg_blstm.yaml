@@ -1,6 +1,7 @@
 # ################################
-# Model: VGG2 + BLSTM + MLP
-# Author: Mirco Ravanelli 2020
+# Model: VGG2 + LiGRU with time pooling for efficiency
+# Additions: TimeDomainSpecAugment
+# Authors: Mirco Ravanelli
 # ################################
 
 data_folder: !PLACEHOLDER  # e.g. /path/to/TIMIT
@@ -19,7 +20,7 @@ csv_valid: !ref <data_folder>/dev.csv
 csv_test: !ref <data_folder>/test.csv
 
 # Neural Parameters
-number_of_epochs: 25
+number_of_epochs: 30
 batch_size: 8
 lr: 1.0
 dropout_rate: 0.15
@@ -32,6 +33,7 @@ model: !speechbrain.lobes.models.CRDNN.CRDNN
     output_size: 40  # 39 phonemes + 1 blank symbol
     cnn_blocks: 2
     dnn_blocks: 2
+    time_pooling: True
 
 optimizer: !speechbrain.nnet.optimizers.Optimize
     optimizer_type: adadelta
@@ -46,18 +48,13 @@ lr_annealing: !speechbrain.nnet.lr_scheduling.LRScheduler
     annealing_factor: 0.8
     patient: 0
 
-normalize: !speechbrain.processing.features.mean_var_norm
+normalize: !speechbrain.processing.features.InputNormalization
     norm_type: global
 
 epoch_counter: !speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-compute_features: !speechbrain.lobes.features.Features
-    feature_type: fbank
-    deltas: False
-    context: False
-    requires_grad: False
-    n_mels: !ref <n_mels>
+compute_features: !speechbrain.lobes.features.fbank.Fbank
 
 train_loader: !speechbrain.data_io.data_io.DataLoaderFactory
     &loader
