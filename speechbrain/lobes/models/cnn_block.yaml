@@ -1,8 +1,17 @@
 # The block index is multiplied with the channels to get out_channels
-block_index: 1
+block_index: !PLACEHOLDER
 channels: 128
 kernel_size: !!python/tuple [3, 3]
-sequence: [conv1, norm1, activation, conv2, norm2, activation, pooling, dropout]
+
+block: !speechbrain.nnet.containers.Sequential
+    - !ref <conv1>
+    - !ref <norm1>
+    - !ref <act1>
+    - !ref <conv2>
+    - !ref <norm2>
+    - !ref <act2>
+    - !ref <pooling>
+    - !ref <dropout>
 
 conv1: !speechbrain.nnet.CNN.Conv
     out_channels: !operator.mul
@@ -13,6 +22,8 @@ conv1: !speechbrain.nnet.CNN.Conv
 norm1: !speechbrain.nnet.normalization.Normalize
     norm_type: batchnorm
 
+act1: !torch.nn.LeakyReLU []
+
 conv2: !speechbrain.nnet.CNN.Conv
     out_channels: !operator.mul
         - !ref <block_index>
@@ -22,7 +33,7 @@ conv2: !speechbrain.nnet.CNN.Conv
 norm2: !speechbrain.nnet.normalization.Normalize
     norm_type: batchnorm
 
-activation: !torch.nn.LeakyReLU
+act2: !torch.nn.LeakyReLU []
 
 pooling: !speechbrain.nnet.pooling.Pooling
     pool_type: max
