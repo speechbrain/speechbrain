@@ -1,6 +1,5 @@
 # ################################
-# Model: VGG2 + LiGRU with time pooling for efficiency
-# Additions: TimeDomainSpecAugment
+# Model: Model: VGG2 + BLSTM + MLP
 # Authors: Mirco Ravanelli
 # ################################
 
@@ -20,7 +19,7 @@ csv_valid: !ref <data_folder>/dev.csv
 csv_test: !ref <data_folder>/test.csv
 
 # Neural Parameters
-number_of_epochs: 30
+number_of_epochs: 25
 batch_size: 8
 lr: 1.0
 dropout_rate: 0.15
@@ -33,7 +32,6 @@ model: !speechbrain.lobes.models.CRDNN.CRDNN
     output_size: 40  # 39 phonemes + 1 blank symbol
     cnn_blocks: 2
     dnn_blocks: 2
-    time_pooling: True
 
 optimizer: !speechbrain.nnet.optimizers.Optimize
     optimizer_type: adadelta
