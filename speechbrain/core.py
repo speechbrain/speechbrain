@@ -256,6 +256,7 @@ class Brain:
     ...     modules=[model],
     ...     optimizer=Optimize('sgd', 0.01),
     ...     first_input=torch.rand(10, 10),
+    ...     device='cpu'
     ... )
     >>> brain.fit(
     ...     epoch_counter=range(1),
@@ -264,9 +265,11 @@ class Brain:
     """
 
     def __init__(
-        self, modules, optimizer=None, first_input=None,
+        self, modules, optimizer=None, first_input=None, device="cuda"
     ):
         self.modules = torch.nn.ModuleList(modules)
+        if device != "cpu":
+            self.module = torch.nn.DataParallel(self.modules)
         self.optimizer = optimizer
 
         # Initialize parameters

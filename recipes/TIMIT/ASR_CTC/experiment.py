@@ -34,6 +34,7 @@ sb.core.create_experiment_directory(
     overrides=overrides,
 )
 
+
 train_logger = FileTrainLogger(
     save_file=params.train_log,
     summary_fns={"loss": summarize_average, "PER": summarize_error_rate},
@@ -107,8 +108,10 @@ if hasattr(params, "augmentation"):
 asr_brain = ASR(
     modules=modules,
     optimizer=params.optimizer,
+    device=params.device,
     first_input=next(iter(train_set[0])),
 )
+
 
 # Load latest checkpoint to resume training
 checkpointer.recover_if_possible()
