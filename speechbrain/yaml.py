@@ -298,7 +298,7 @@ def recursive_resolve(reference, reference_list, preview):
         raise ValueError("Circular reference detected: ", reference_list)
 
     # Base case, no '<ref>' present
-    if not reference_finder.search(str(reference)):
+    if not isinstance(reference, str) or not reference_finder.search(reference):
         return reference
 
     # First check for a full match. These replacements preserve type
