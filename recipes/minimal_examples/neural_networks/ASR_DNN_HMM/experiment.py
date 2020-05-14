@@ -1,15 +1,14 @@
 #!/usr/bin/python
 import os
 import speechbrain as sb
+from speechbrain.utils.train_logger import summarize_average
 
-current_dir = os.path.dirname(os.path.abspath(__file__))
-params_file = os.path.join(current_dir, "params.yaml")
+experiment_dir = os.path.dirname(os.path.abspath(__file__))
+params_file = os.path.join(experiment_dir, "params.yaml")
+data_folder = "../../../../../samples/audio_samples/nn_training_samples"
+data_folder = os.path.abspath(experiment_dir + data_folder)
 with open(params_file) as fin:
-    params = sb.yaml.load_extended_yaml(fin)
-
-sb.core.create_experiment_directory(
-    experiment_directory=params.output_folder, params_to_save=params_file,
-)
+    params = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
 
 
 class ASR_Brain(sb.core.Brain):
@@ -37,17 +36,22 @@ class ASR_Brain(sb.core.Brain):
 
         return loss
 
-    def summarize(self, stats, write=False):
-        summary = {"loss": float(sum(s["loss"] for s in stats) / len(stats))}
-
-        if "error" in stats[0]:
-            summary["error"] = float(
-                sum(s["error"] for s in stats) / len(stats)
-            )
-
-        return summary
+    def on_epoch_end(self, epoch, train_stats, valid_stats):
+        print("Epoch %d complete" % epoch)
+        print("Train loss: %.2f" % summarize_average(train_stats["loss"]))
+        print("Valid loss: %.2f" % summarize_average(valid_stats["loss"]))
+        print("Valid error: %.2f" % summarize_average(valid_stats["error"]))
 
 
-asr_brain = ASR_Brain([params.linear1, params.linear2], params.optimizer)
-asr_brain.fit(params.train_loader(), params.valid_loader(), params.N_epochs)
-asr_brain.evaluate(params.train_loader())
+train_set = params.train_loader()
+asr_brain = ASR_Brain(
+    modules=[params.linear1, params.linear2],
+    optimizer=params.optimizer,
+    first_input=next(iter(train_set[0])),
+)
+asr_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
+test_stats = asr_brain.evaluate(params.test_loader())
+print("Test error: %.2f" % summarize_average(test_stats["error"]))
+
+# With such a small dataset, we only expect to get 35% correct
+assert summarize_average(test_stats["error"]) < 0.65
