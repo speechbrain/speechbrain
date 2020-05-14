@@ -23,8 +23,8 @@ def test_parse_arguments():
 def test_parse_overrides():
     from speechbrain.core import parse_overrides
 
-    overrides = parse_overrides("{model.arg1: 1, model.arg1: 2}")
-    assert overrides == {"model": {"arg1": 2}}
+    overrides = parse_overrides("{model.arg1: 1, model.arg2: 2}")
+    assert overrides == {"model": {"arg1": 1, "arg2": 2}}
 
 
 def test_brain():
@@ -41,15 +41,15 @@ def test_brain():
         def compute_objectives(self, predictions, targets, train=True):
             return torch.nn.functional.l1_loss(predictions, targets)
 
-    brain = SimpleBrain([model], Optimize("sgd", 0.1))
-
     inputs = torch.rand(10, 10)
+    brain = SimpleBrain(
+        modules=[model], optimizer=Optimize("sgd", 0.1), first_input=inputs,
+    )
+
     targets = torch.rand(10, 10)
     train_set = ([inputs], [targets])
 
     start_loss = brain.compute_objectives(brain.forward(inputs), targets)
-    brain.fit(
-        train_set=train_set, number_of_epochs=10,
-    )
+    brain.fit(epoch_counter=range(10), train_set=train_set)
     end_loss = brain.compute_objectives(brain.forward(inputs), targets)
     assert end_loss < start_loss

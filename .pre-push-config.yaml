@@ -32,7 +32,17 @@ repos:
       hooks:
           - id: unittests
             name: unittests
-            entry: pytest tests
+            entry: pytest tests/unittests
+            language: python
+            pass_filenames: False
+            always_run: True
+            require_serial: False
+
+    - repo: local
+      hooks:
+          - id: integration
+            name: integration
+            entry: pytest tests/integration
             language: python
             pass_filenames: False
             always_run: True

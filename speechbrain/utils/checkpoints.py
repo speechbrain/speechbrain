@@ -654,7 +654,7 @@ class Checkpointer:
         if chosen_ckpt is not None:
             self.load_checkpoint(chosen_ckpt)
         else:
-            logger.info(f"Would load a checkpoint here, but none found yet.")
+            logger.info("Would load a checkpoint here, but none found yet.")
         return chosen_ckpt
 
     def load_checkpoint(self, checkpoint):
@@ -836,5 +836,6 @@ class Checkpointer:
         meta = {"unixtime": time.time(), "end-of-epoch": end_of_epoch}
         meta.update(meta_to_include)
         with open(fpath, "w") as fo:
+            fo.write("# yamllint disable\n")
             fo.write(yaml.dump(meta))
         return meta

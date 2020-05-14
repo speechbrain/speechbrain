@@ -35,8 +35,8 @@ jobs:
                   black --check --diff .
                   yamllint .
 
-    unittests:
-        name: Unit Tests
+    tests:
+        name: Tests
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v2
@@ -53,7 +53,10 @@ jobs:
                   pip install --editable .
             - name: Unittests with pytest
               run: |
-                  pytest tests
+                  pytest tests/unittests
+            - name: Integration tests with pytest
+              run: |
+                  pytest tests/integration
             - name: Doctests with pytest
               run: |
                   pytest --doctest-modules speechbrain

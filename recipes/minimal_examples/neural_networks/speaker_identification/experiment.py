@@ -2,15 +2,14 @@
 import os
 import torch
 import speechbrain as sb
+from speechbrain.utils.train_logger import summarize_average
 
-current_dir = os.path.dirname(os.path.abspath(__file__))
-params_file = os.path.join(current_dir, "params.yaml")
+experiment_dir = os.path.dirname(os.path.abspath(__file__))
+params_file = os.path.join(experiment_dir, "params.yaml")
+data_folder = "../../../../../samples/audio_samples/nn_training_samples"
+data_folder = os.path.abspath(experiment_dir + data_folder)
 with open(params_file) as fin:
-    params = sb.yaml.load_extended_yaml(fin)
-
-sb.core.create_experiment_directory(
-    experiment_directory=params.output_folder, params_to_save=params_file,
-)
+    params = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
 
 
 class SpkIdBrain(sb.core.Brain):
@@ -38,17 +37,22 @@ class SpkIdBrain(sb.core.Brain):
 
         return loss
 
-    def summarize(self, stats, write=False):
-        summary = {"loss": float(sum(s["loss"] for s in stats) / len(stats))}
-
-        if "error" in stats[0]:
-            summary["error"] = float(
-                sum(s["error"] for s in stats) / len(stats)
-            )
-
-        return summary
+    def on_epoch_end(self, epoch, train_stats, valid_stats):
+        print("Epoch %d complete" % epoch)
+        print("Train loss: %.2f" % summarize_average(train_stats["loss"]))
+        print("Valid loss: %.2f" % summarize_average(valid_stats["loss"]))
+        print("Valid error: %.2f" % summarize_average(valid_stats["error"]))
 
 
-spk_id_brain = SpkIdBrain([params.linear1, params.linear2], params.optimizer)
-spk_id_brain.fit(params.train_loader(), params.valid_loader(), params.N_epochs)
-spk_id_brain.evaluate(params.train_loader())
+train_set = params.train_loader()
+spk_id_brain = SpkIdBrain(
+    modules=[params.linear1, params.linear2],
+    optimizer=params.optimizer,
+    first_input=next(iter(train_set[0])),
+)
+spk_id_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
+test_stats = spk_id_brain.evaluate(params.test_loader())
+print("Test error: %.2f" % summarize_average(test_stats["error"]))
+
+# If training is successful, we get all test examples correct
+assert summarize_average(test_stats["error"]) == 0.0

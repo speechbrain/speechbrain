@@ -4,7 +4,7 @@
 
 SpeechBrain is an **open-source** and **all-in-one** speech toolkit based on PyTorch.
 
-The goal is to create a **single**, **flexible**, and **user-friendly** toolkit that can be used to easily develop **state-of-the-art speech technologies**, including systems for **speech recognition**, **speaker recognition**, **speech enhancement**, **multi-microphone signal processing** and many others. 
+The goal is to create a **single**, **flexible**, and **user-friendly** toolkit that can be used to easily develop **state-of-the-art speech technologies**, including systems for **speech recognition**, **speaker recognition**, **speech enhancement**, **multi-microphone signal processing** and many others.
 
 *SpeechBrain is currently under development*.
 
@@ -22,9 +22,10 @@ The goal is to create a **single**, **flexible**, and **user-friendly** toolkit 
   * [Documentation](#documentation)
   * [Development tools](#development-tools)
   * [Continuous integration](#continuous-integration)
+  * [Pull Request review guide](#pull-request-review-guide)
 
 # Basics
-In the following sections, the basic functionalities of SpeechBrain are described. 
+In the following sections, the basic functionalities of SpeechBrain are described.
 
 ## License
 SpeechBrain is licensed under the [Apache License v2.0](https://tldrlegal.com/license/apache-license-2.0-(apache-2.0)) (i.e., the same as the popular Kaldi toolkit).
@@ -40,7 +41,7 @@ Please, run the following script to make sure your installation is working:
 pytest tests
 pytest --doctest-modules speechbrain
 ```
- 
+
 ## Folder Structure
 The current version of Speechbrain has the following folder/file organization:
 - **speechbrain**: The core library
@@ -51,26 +52,30 @@ The current version of Speechbrain has the following folder/file organization:
 - **tests**: Unittests
 
 ## How to run an experiment
-In SpeechBrain an experiment can be simply run in this way:
+In SpeechBrain experiments can be run from anywhere, but the experimental `results/`
+directory will be created relative to the directory you are in. The most common
+pattern for running experiments is as follows:
 
 ```
-python recipes/<path>/<to>/<specific>/experiment.py
+> cd recipes/<dataset>/<task>/
+> python experiment.py params.yaml
 ```
- 
+
 At the top of the `experiment.py` file, the function
-`sb.create_experiment_directory()` is called to create an output directory.
-Both detailed logs and experiment output are saved there. 
-Furthermore, less detailed logs are output to stdout. The experiment script and 
-configuration (including possible command-line overrides are also copied to the 
-output directory.
+`sb.core.create_experiment_directory()` is called to create an output directory
+(by default: `<cwd>/results/`). Both detailed logs and experiment output are saved
+there. Furthermore, less detailed logs are output to stdout. The experiment script
+and configuration (including possible command-line overrides) are also copied to
+the output directory.
 
 Also have a look at the YAML files in recipe directories. The YAML files
-specify the hyperparameters of the recipes. The syntax is explained in 
+specify the hyperparameters of the recipes. The syntax is explained in
 `speechbrain.utils.data_utils` in the docstring of `load_extended_yaml`.
 
 A quick look at the extended YAML features, using an example:
 ```
-output_dir: exp/example_experiment
+seed: !PLACEHOLDER
+output_dir: !ref results/vgg_blstm/<seed>
 save_dir: !ref <output_dir>/save
 data_folder: !PLACEHOLDER # e.g. /path/to/TIMIT
 
@@ -81,7 +86,7 @@ model: !speechbrain.lobes.models.CRDNN.CRDNN
 ```
 - `!speechbrain.lobes.models.CRDNN.CRDNN` creates a `CRDNN` instance
   from the module `speechbrain.lobes.models.CRDNN`
-- The indented keywords (`output_size` etc.) after it are passed as keyword 
+- The indented keywords (`output_size` etc.) after it are passed as keyword
   arguments.
 - `!ref <output_dir>/save` evaluates the part in angle brackets,
   referencing the YAML itself.
@@ -95,12 +100,12 @@ All the tensors within SpeechBrain are formatted using the following convention:
 ```
 tensor=(batch, time_steps, channels[optional])
 ```
-**The batch is always the first element, and time_steps is always the second one. 
+**The batch is always the first element, and time_steps is always the second one.
 The rest of the dimensions are as many channels as you need**.
 
 *Why we need tensor with the same format?*
 It is crucial to have a shared format for all the classes that process data and all the processing functions must be designed considering it. In SpeechBrain we might have pipelines of modules and if each module was based on different tensor formats, exchanging data between processing units would have been painful. Many formats are possible. For SpeechBrain we selected this one because
-it is commonly used with recurrent layers, which are common in speech applications. 
+it is commonly used with recurrent layers, which are common in speech applications.
 
 The format is very **flexible** and allows users to read different types of data. As we have seen, for **single-channel** raw waveform signals, the tensor will be ```tensor=(batch, time_steps)```, while for **multi-channel** raw waveform it will be ```tensor=(batch, time_steps, n_channel)```. Beyond waveforms, this format is used for any tensor in the computation pipeline. For instance,  fbank features that are formatted in this way:
 ```
@@ -125,7 +130,7 @@ The goal is to write a set of libraries that process audio and speech in several
 Our development strategy is as follows:
 
 1. Clone the main speechbrain repository (no fork necessary). SSH example:
-    `git clone git@github.com:speechbrain/speechbrain` 
+    `git clone git@github.com:speechbrain/speechbrain`
 2. Create a branch for specific feature you are developing.
     `git checkout -b your-branch-name`
 3. Make + commit changes. Do not commit to `master`.
@@ -152,22 +157,22 @@ code will not fail these tests, we have set up pre-commit hooks that you can ins
 
 These will automatically check the code when you commit and when you push.
 
-## Python 
+## Python
 ### Version
 SpeechBrain targets Python >= 3.7.
 
 ### Formatting
 To settle code formatting, SpeechBrain adopts the [black](https://black.readthedocs.io/en/stable/) code formatter. Before submitting pull requests, please run the black formatter on your code.
 
-In addition, we use [flake8](https://flake8.pycqa.org/en/latest/) to test code 
+In addition, we use [flake8](https://flake8.pycqa.org/en/latest/) to test code
 style. Black as a tool does not enforce everything that flake8 tests.
 
-You can run the formatter with: `black <file-or-directory>`. Similarly the 
+You can run the formatter with: `black <file-or-directory>`. Similarly the
 flake8 tests can be run with `flake8 <file-or-directory>`.
 
 ### Adding dependencies
-In general, we strive to have as few dependencies as possible. However, we will 
-debate dependencies on a case-by-case basis. We value easy installability via 
+In general, we strive to have as few dependencies as possible. However, we will
+debate dependencies on a case-by-case basis. We value easy installability via
 pip.
 
 In case the dependency is only needed for a specific recipe or specific niche
@@ -175,12 +180,12 @@ module, we suggest the extra tools pattern: don't add the dependency to general
 requirements, but check for installation and instruct to if the dependant code is run.
 
 ### Testing
-We are adopting unit tests using 
+We are adopting unit tests using
 [pytest](https://docs.pytest.org/en/latest/contents.html).
 Run unit tests with `pytest tests`
 
-Additionally we have runnable doctests, though primarily these serve as 
-examples of the documented code. Run doctests with 
+Additionally we have runnable doctests, though primarily these serve as
+examples of the documented code. Run doctests with
 `pytest --doctest-modules <file-or-directory>`
 
 ## Documentation
@@ -190,11 +195,11 @@ In SpeechBrain, we plan to provide documentation at different levels:
 
 -  **Comments**: We encourage developers to write self-documenting code, and use
 comments only where the implementation is surprising (to a Python-literate audience)
-and where the implemented algorithm needs clarification. 
+and where the implemented algorithm needs clarification.
 
 In addition we have plans for:
 
--  **Website documentation**. In the SpeechBrain website, we will put detailed documentation where we put both the written tutorials and descriptions of all the functionalities of the toolkit. 
+-  **Website documentation**. In the SpeechBrain website, we will put detailed documentation where we put both the written tutorials and descriptions of all the functionalities of the toolkit.
 
 -  **The SpeechBrain book**: Similarly to HTK (an old HMM-based speech toolkit developed by Cambridge) we plan to have a book that summarized the functionalities of speechbrain. The book will be mainly based on the website documentation, but also summarizing everything in a book, make it simpler to cite us.
 
@@ -234,13 +239,13 @@ In addition we have plans for:
 
 ### What is CI
 - loose term for a tight merge schedule
-- typically assisted by automated testing and code review tools + practices 
+- typically assisted by automated testing and code review tools + practices
 
 ### CI / CD Pipelines
 - GitHub Actions (and also available as third-party solution) feature, which automatically runs basically anything in reaction to git events.
 - The CI pipeline is triggered by pull requests.
 - Runs in a Ubuntu environment provided by GitHub
-- GitHub offers a limited amount of CI pipeline minutes for free. 
+- GitHub offers a limited amount of CI pipeline minutes for free.
 - CD would stand for continuous deployment, though we’re not doing that yet
 
 ### Our test suite
@@ -250,6 +255,37 @@ In addition we have plans for:
 - Currently, these are not run: docstring format tests (this should be added once the docstring conversion is done), integration tests/minimal examples (I propose these to be added only to more significant merges, e.g. merges to master branch [assuming we start using a master/develop/feature branch structure]).
 - If all tests pass, the whole pipeline takes a couple of minutes.
 
+## Pull Request review guide
+
+This is not a comprehensive code review guide, but some rough guidelines to unify the
+general review practices across this project.
+
+Firstly, let the review take some time. Try to read every line that was added,
+if possible. Read the surrounding context of the code if needed to understand
+the changes introduced. Possibly ask for clarifications if you don't understand.
+If the pull request changes are hard to understand, maybe that that's a sign that
+the code is not clear enough yet. However, don't nitpick every detail.
+
+Secondly, focus on the major things first, and only then move on to smaller,
+things. Level of importance:
+- Immediate deal breakers (code does wrong thing, or feature shouldn't be added etc.)
+- Things to fix before merging (Add more documentation, reduce complexity, etc.)
+- More subjective things which could be changed if the author also agrees with you.
+
+Thirdly, approve the pull request only once you believe the changes "improve overall
+code health" as attested to [here](https://google.github.io/eng-practices/review/reviewer/standard.html).
+However, this also means the pull request does not have to be perfect. Some features are
+best implemented incrementally over many pull requests, and you should be more concerned
+with making sure that the changes introduced lend themselves to painless further improvements.
+
+Fourthly, use the tools that GitHub has: comment on specific code lines, suggest edits,
+and once everyone involved has agreed that the PR is ready to merge, merge the
+request and delete the feature branch.
+
+Fifthly, though code review is a place for professional constructive criticism,
+a nice strategy to show (and validate) that you understand what the PR is really
+doing, is to provide some affirmative comments on its strengths.
+
 
 # Zen of Speechbrain
 SpeechBrain could be used for *research*, *academic*, *commercial*, *non-commercial* purposes. Ideally, the code should have the following features:
@@ -257,10 +293,9 @@ SpeechBrain could be used for *research*, *academic*, *commercial*, *non-commerc
 
 - **Readable:** SpeechBrain mostly adopts the code style conventions in PEP8. The code written by the users must be compliant with that. We test codestyle with `flake8`
 
-- **Efficient**: The code should be as efficient as possible. When possible, users should maximize the use of pytorch native operations.  Remember that in generally very convenient to process in parallel multiple signals rather than processing them one by one (e.g try to use *batch_size > 1* when possible). Test the code carefully with your favorite profiler (e.g, torch.utils.bottleneck https://pytorch.org/docs/stable/bottleneck.html ) to make sure there are no bottlenecks if your code.  Since we are not working in *c++* directly, performance can be an issue. Despite that, our goal is to make SpeechBrain as fast as possible. 
+- **Efficient**: The code should be as efficient as possible. When possible, users should maximize the use of pytorch native operations.  Remember that in generally very convenient to process in parallel multiple signals rather than processing them one by one (e.g try to use *batch_size > 1* when possible). Test the code carefully with your favorite profiler (e.g, torch.utils.bottleneck https://pytorch.org/docs/stable/bottleneck.html ) to make sure there are no bottlenecks if your code.  Since we are not working in *c++* directly, performance can be an issue. Despite that, our goal is to make SpeechBrain as fast as possible.
 
 - **modular:** Write your code such that is is very modular and fits well with the other functionalities of the toolkit. The idea is to develop a bunch of models that can be naturally interconnected with each other to implement complex modules.
 
 - **well documented:**  Given the goals of SpeechBrain, writing a rich a good documentation is a crucial step. Many existing toolkits are not well documented, and we have to succeed in that to make the difference.
 This aspect will be better described in the following sub-section.
-
