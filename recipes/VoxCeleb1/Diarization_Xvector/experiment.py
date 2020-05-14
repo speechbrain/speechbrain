@@ -23,6 +23,7 @@ sb.core.create_experiment_directory(
 )
 
 
+# Trainer
 class XvectorBrain(sb.core.Brain):
     def forward(self, x, init_params=False):
         id, wavs, lens = x
@@ -60,19 +61,14 @@ class XvectorBrain(sb.core.Brain):
         return summary
 
 
+# Extractor
 class Extractor(Sequential):
     def forward(self, x, model, init_params=False):
-        """
-        Passing through truncated model
-        """
         emb = model(x)
 
         return emb
 
     def extract(self, x, model):
-        """
-        Extract xvectors give model and data
-        """
         id, wavs, lens = x
         feats = params.compute_features(wavs)
         feats = params.mean_var_norm(feats, lens)
@@ -101,6 +97,7 @@ data_prepare = VoxCelebPreparer(
 )
 data_prepare()
 
+
 xvect_brain.fit(
     train_set=params.train_loader(),
     valid_set=params.valid_loader(),
@@ -123,5 +120,6 @@ model_b = nn.Sequential(
 
 ext_brain = Extractor()
 xvectors = ext_brain.extract(next(iter(params.test_loader()[0])), model_b)
+
 # Saving xvectors (Optional)
 torch.save(xvectors, params.save_folder + "/xvectors.pt")
