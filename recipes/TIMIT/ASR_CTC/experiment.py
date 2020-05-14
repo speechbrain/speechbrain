@@ -52,7 +52,7 @@ checkpointer = sb.utils.checkpoints.Checkpointer(
 
 # Define training procedure
 class ASR(sb.core.Brain):
-    def forward(self, x, train_mode=True, init_params=False):
+    def compute_forward(self, x, train_mode=True, init_params=False):
         ids, wavs, wav_lens = x
         wavs, wav_lens = wavs.to(params.device), wav_lens.to(params.device)
         if hasattr(params, "augmentation"):

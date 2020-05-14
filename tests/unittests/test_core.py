@@ -35,10 +35,10 @@ def test_brain():
     model = torch.nn.Linear(in_features=10, out_features=10)
 
     class SimpleBrain(Brain):
-        def forward(self, x, init_params=False):
+        def compute_forward(self, x, train_mode=True, init_params=False):
             return model(x)
 
-        def compute_objectives(self, predictions, targets, train=True):
+        def compute_objectives(self, predictions, targets, train_mode=True):
             return torch.nn.functional.l1_loss(predictions, targets)
 
     inputs = torch.rand(10, 10)
@@ -49,7 +49,9 @@ def test_brain():
     targets = torch.rand(10, 10)
     train_set = ([inputs], [targets])
 
-    start_loss = brain.compute_objectives(brain.forward(inputs), targets)
+    start_output = brain.compute_forward(inputs)
+    start_loss = brain.compute_objectives(start_output, targets)
     brain.fit(epoch_counter=range(10), train_set=train_set)
-    end_loss = brain.compute_objectives(brain.forward(inputs), targets)
+    end_output = brain.compute_forward(inputs)
+    end_loss = brain.compute_objectives(end_output, targets)
     assert end_loss < start_loss
