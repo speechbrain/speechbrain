@@ -43,7 +43,7 @@ def test_brain():
 
     inputs = torch.rand(10, 10)
     brain = SimpleBrain(
-        modules=[model], optimizer=Optimize("sgd", 0.1), first_input=inputs,
+        modules=[model], optimizer=Optimize("sgd", 0.1), first_inputs=[inputs],
     )
 
     targets = torch.rand(10, 10)

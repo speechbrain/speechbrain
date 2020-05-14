@@ -52,7 +52,7 @@ checkpointer = sb.utils.checkpoints.Checkpointer(
 
 # Define training procedure
 class ASR(sb.core.Brain):
-    def forward(self, x, init_params=False):
+    def forward(self, x, train_mode=True, init_params=False):
         ids, wavs, wav_lens = x
         wavs, wav_lens = wavs.to(params.device), wav_lens.to(params.device)
         if hasattr(params, "augmentation"):
@@ -61,13 +61,13 @@ class ASR(sb.core.Brain):
         feats = params.normalize(feats, wav_lens)
         return params.model(feats, init_params), wav_lens
 
-    def compute_objectives(self, predictions, targets, train=True):
+    def compute_objectives(self, predictions, targets, train_mode=True):
         pout, pout_lens = predictions
         ids, phns, phn_lens = targets
         phns, phn_lens = phns.to(params.device), phn_lens.to(params.device)
         loss = params.compute_cost(pout, phns, [pout_lens, phn_lens])
 
-        if not train:
+        if not train_mode:
             ind2lab = params.train_loader.label_dict["phn"]["index2lab"]
             sequence = ctc_greedy_decode(pout, pout_lens, blank_id=-1)
             sequence = convert_index_to_lab(sequence, ind2lab)
@@ -93,6 +93,7 @@ class ASR(sb.core.Brain):
         )
 
 
+# Prepare data
 prepare = TIMITPreparer(
     data_folder=params.data_folder,
     splits=["train", "dev", "test"],
@@ -101,13 +102,16 @@ prepare = TIMITPreparer(
 prepare()
 train_set = params.train_loader()
 valid_set = params.valid_loader()
+first_x, first_y = next(zip(*train_set))
+
+# Modules are passed to optimizer and have train/eval called on them
 modules = [params.model]
 if hasattr(params, "augmentation"):
     modules.append(params.augmentation)
+
+# Create brain object for training
 asr_brain = ASR(
-    modules=modules,
-    optimizer=params.optimizer,
-    first_input=next(iter(train_set[0])),
+    modules=modules, optimizer=params.optimizer, first_inputs=[first_x],
 )
 
 # Load latest checkpoint to resume training

@@ -45,10 +45,11 @@ class SpkIdBrain(sb.core.Brain):
 
 
 train_set = params.train_loader()
+first_x, first_y = next(zip(*train_set))
 spk_id_brain = SpkIdBrain(
     modules=[params.linear1, params.linear2],
     optimizer=params.optimizer,
-    first_input=next(iter(train_set[0])),
+    first_input=[first_x],
 )
 spk_id_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
 test_stats = spk_id_brain.evaluate(params.test_loader())
