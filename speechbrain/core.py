@@ -222,7 +222,7 @@ class Brain:
     the use case. For a simple use case (e.g. training a single model with
     a single dataset) the only methods that need to be overridden are:
 
-    * `forward()`
+    * `compute_forward()`
     * `compute_objectives()`
 
     The example below illustrates how overriding these two methods is done.
@@ -241,14 +241,14 @@ class Brain:
         The class to use for updating the modules' parameters.
     first_inputs : list of torch.Tensor
         An example of the input to the Brain class, for parameter init.
-        Arguments are passed individually to the forward method, for
-        cases where a different signature is desired.
+        Arguments are passed individually to the `compute_forward` method,
+        for cases where a different signature is desired.
 
     Example
     -------
     >>> from speechbrain.nnet.optimizers import Optimize
     >>> class SimpleBrain(Brain):
-    ...     def forward(self, x, init_params=False):
+    ...     def compute_forward(self, x, init_params=False):
     ...         return self.modules[0](x)
     ...     def compute_objectives(self, predictions, targets, train=True):
     ...         return torch.nn.functional.l1_loss(predictions, targets)
@@ -270,12 +270,12 @@ class Brain:
 
         # Initialize parameters
         if first_inputs is not None:
-            self.forward(*first_inputs, init_params=True)
+            self.compute_forward(*first_inputs, init_params=True)
 
             if self.optimizer is not None:
                 self.optimizer.init_params(self.modules)
 
-    def forward(self, x, train_mode=True, init_params=False):
+    def compute_forward(self, x, train_mode=True, init_params=False):
         """Forward pass, to be overridden by sub-classes.
 
         Arguments
@@ -329,7 +329,7 @@ class Brain:
         The default impementation depends on three methods being defined
         with a particular behavior:
 
-        * `forward()`
+        * `compute_forward()`
         * `compute_objectives()`
         * `optimizer()`
 
@@ -340,7 +340,7 @@ class Brain:
             this batch has two elements: inputs and targets.
         """
         inputs, targets = batch
-        predictions = self.forward(inputs)
+        predictions = self.compute_forward(inputs)
         loss = self.compute_objectives(predictions, targets)
         loss.backward()
         self.optimizer(self.modules)
@@ -352,7 +352,7 @@ class Brain:
         The default impementation depends on two methods being defined
         with a particular behavior:
 
-        * `forward()`
+        * `compute_forward()`
         * `compute_objectives()`
 
         Arguments
@@ -362,7 +362,7 @@ class Brain:
             this batch has two elements: inputs and targets.
         """
         inputs, targets = batch
-        out = self.forward(inputs, train_mode=False)
+        out = self.compute_forward(inputs, train_mode=False)
         loss, stats = self.compute_objectives(out, targets, train_mode=False)
         stats["loss"] = loss.detach()
         return stats

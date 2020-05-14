@@ -16,7 +16,7 @@ with open(params_file) as fin:
 
 
 class CTCBrain(sb.core.Brain):
-    def forward(self, x, init_params=False):
+    def compute_forward(self, x, init_params=False):
         id, wavs, lens = x
         feats = params.compute_features(wavs, init_params)
         feats = params.mean_var_norm(feats, lens)
