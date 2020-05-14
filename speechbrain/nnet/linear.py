@@ -63,14 +63,8 @@ class Linear(torch.nn.Module):
             self.init_params(x)
 
         if len(x.shape) == 4:
-            x_or = x.shape
             x = x.reshape(x.shape[0], x.shape[1], x.shape[2] * x.shape[3])
 
-        x = x.transpose(2, -1)
         wx = self.w(x)
-        wx = wx.transpose(2, -1)
-
-        if len(x.shape) == 4:
-            x = x.reshape(x_or[0], x_or[1], x_or[2], x_or[3])
 
         return wx
