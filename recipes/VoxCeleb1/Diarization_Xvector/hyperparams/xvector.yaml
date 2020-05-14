@@ -53,7 +53,7 @@ valid_loader: !speechbrain.data_io.data_io.DataLoaderFactory
 test_loader: !speechbrain.data_io.data_io.DataLoaderFactory
     <<: *loader
     csv_file: !ref <csv_test>
-    batch_size: 1
+    batch_size: 2
 
 mean_var_norm: !speechbrain.processing.features.InputNormalization
     norm_type: global

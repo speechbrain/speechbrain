@@ -1,11 +1,12 @@
 #!/usr/bin/python
 import sys
 import torch
+import torch.nn as nn
 import speechbrain as sb
+from speechbrain.nnet.sequential import Sequential
 
 sys.path.append("..")
 from voxceleb1_prepare import VoxCelebPreparer  # noqa E402
-
 
 # Load hyperparameters file with command-line overrides
 params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
@@ -59,6 +60,27 @@ class XvectorBrain(sb.core.Brain):
         return summary
 
 
+class Extractor(Sequential):
+    def forward(self, x, model, init_params=False):
+        """
+        Passing through truncated model
+        """
+        emb = model(x)
+
+        return emb
+
+    def extract(self, x, model):
+        """
+        Extract xvectors give model and data
+        """
+        id, wavs, lens = x
+        feats = params.compute_features(wavs)
+        feats = params.mean_var_norm(feats, lens)
+        emb = self.forward(feats, model).detach()
+
+        return emb
+
+
 saver = sb.utils.checkpoints.Checkpointer(
     checkpoints_dir=params.save_folder,
     recoverables={
@@ -79,7 +101,6 @@ data_prepare = VoxCelebPreparer(
 )
 data_prepare()
 
-
 xvect_brain.fit(
     train_set=params.train_loader(),
     valid_set=params.valid_loader(),
@@ -87,3 +108,20 @@ xvect_brain.fit(
 )
 
 xvect_brain.evaluate(params.test_loader())
+
+print("Now Running Xvector Extractor")
+
+# Embedding b is expected to be better than embedding a
+model_b = nn.Sequential(
+    xvect_brain.modules[0].layers[0],
+    xvect_brain.modules[0].layers[1],
+    xvect_brain.modules[0].layers[2].layers[0],
+    xvect_brain.modules[0].layers[2].layers[1],
+    xvect_brain.modules[0].layers[2].layers[2],
+    xvect_brain.modules[0].layers[2].layers[3],
+)
+
+ext_brain = Extractor()
+xvectors = ext_brain.extract(next(iter(params.test_loader()[0])), model_b)
+# Saving xvectors (Optional)
+torch.save(xvectors, params.save_folder + "/xvectors.pt")
