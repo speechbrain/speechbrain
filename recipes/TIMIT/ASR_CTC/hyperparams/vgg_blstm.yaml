@@ -1,6 +1,6 @@
 # ################################
 # Model: VGG2 + BLSTM + MLP
-# Author: Mirco Ravanelli 2020
+# Authors: Mirco Ravanelli
 # ################################
 
 data_folder: !PLACEHOLDER  # e.g. /path/to/TIMIT
@@ -46,18 +46,13 @@ lr_annealing: !speechbrain.nnet.lr_scheduling.LRScheduler
     annealing_factor: 0.8
     patient: 0
 
-normalize: !speechbrain.processing.features.mean_var_norm
+normalize: !speechbrain.processing.features.InputNormalization
     norm_type: global
 
 epoch_counter: !speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-compute_features: !speechbrain.lobes.features.Features
-    feature_type: fbank
-    deltas: False
-    context: False
-    requires_grad: False
-    n_mels: !ref <n_mels>
+compute_features: !speechbrain.lobes.features.fbank.Fbank
 
 train_loader: !speechbrain.data_io.data_io.DataLoaderFactory
     &loader
