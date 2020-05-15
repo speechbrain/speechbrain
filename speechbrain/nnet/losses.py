@@ -9,6 +9,7 @@ Mirco Ravanelli 2020
 import torch
 import logging
 import torch.nn as nn
+from speechbrain.nnet.transducer.transducer_loss import TransducerLoss
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,8 @@ class ComputeCost(nn.Module):
         "l1": l1 distance between the prediction and the target.
         "ctc": connectionist temporal classification, this loss sums
             up all the possible alignments between targets and predictions.
+        "transducer": forward-backward loss computation, this loss sums
+            up all the possible alignments within the transducer sequence.
         "error": classification error.
         "wer": word error rate, computed with the edit distance algorithm.
     avoid_pad: bool
@@ -88,6 +91,12 @@ class ComputeCost(nn.Module):
                 self.blank_index = blank_index
                 self.costs.append(nn.CTCLoss(blank=self.blank_index))
                 self.avoid_pad[cost_index] = False
+            if cost == "transducer":
+                if blank_index is None:
+                    raise ValueError("Must pass blank index for Transducer")
+                self.blank_index = blank_index
+                self.costs.append(TransducerLoss(blank=self.blank_index))
+                self.avoid_pad[cost_index] = False
 
     def forward(self, prediction, target, lengths):
         """Returns the cost function given predictions and targets.
@@ -103,7 +112,7 @@ class ComputeCost(nn.Module):
         """
 
         # Check on input and label shapes
-        if "ctc" not in self.cost_type:
+        if "ctc" not in self.cost_type and "transducer" not in self.cost_type:
 
             # Shapes cannot be too different (max 3 time steps)
             diff = abs(prediction.shape[1] - target.shape[1])
@@ -184,8 +193,29 @@ class ComputeCost(nn.Module):
                 prob_curr = prediction
                 lab_curr = target
 
+                # Managing transducer cost computation for seq-2-seq learning with forward-backward algorithm
+                if self.cost_type[i]=="transducer":
+                    # In the case of using CPU training, int type is mondatory.
+                    lab_curr = lab_curr.int()
+                    # reshape output from decoding for cost computation
+                    if len(prob_curr.shape)!=4:
+                        prob_curr = prob_curr.unsqueeze(2).expand(prob_curr.size(0),prob_curr.size(1),lab_curr.size(1)+1,prob_curr.size(2)).contiguous()
+
+                    # Getting the input lengths
+                    input_lengths = torch.round(
+                        lengths[0] * prob_curr.shape[1]
+                    ).int()
+                    # Getting the label lengths
+                    lab_lengths = torch.round(lengths[1] * lab_curr.shape[-1]).int()
+                    # Compute transducer cost
+                    rnnt_loss = cost(
+                        prob_curr,lab_curr,input_lengths,lab_lengths
+                        )
+
+                    out_costs.append(rnnt_loss)
+
                 # Managing ctc cost for sequence-to-sequence learning
-                if self.cost_type[i] == "ctc":
+                elif self.cost_type[i] == "ctc":
 
                     # Cast lab_curr to int32 for using Cudnn computation
                     # In the case of using CPU training, int type is mondatory.
