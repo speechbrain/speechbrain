@@ -6,7 +6,6 @@ Authors: Mirco Ravanelli 2020, Peter Plantinga 2020, Ju-Chieh Chou 2020,
 import os
 import torch  # noqa: F401
 from speechbrain.yaml import load_extended_yaml
-from speechbrain.nnet.linear import Linear
 from speechbrain.nnet.sequential import Sequential
 from speechbrain.nnet.pooling import Pooling
 from speechbrain.utils.data_utils import recursive_update
@@ -49,16 +48,15 @@ class CRDNN(Sequential):
     Example
     -------
     >>> import torch
-    >>> model = CRDNN(output_size=40)
+    >>> model = CRDNN()
     >>> inputs = torch.rand([10, 120, 60])
     >>> outputs = model(inputs, init_params=True)
     >>> outputs.shape
-    torch.Size([10, 116, 40])
+    torch.Size([10, 116, 512])
     """
 
     def __init__(
         self,
-        output_size,
         cnn_blocks=1,
         cnn_overrides={},
         rnn_blocks=1,
@@ -108,7 +106,6 @@ class CRDNN(Sequential):
                     overrides=dnn_overrides,
                 )
             )
-
 
         super().__init__(*blocks)
 
