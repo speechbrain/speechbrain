@@ -42,7 +42,7 @@ checkpointer = sb.utils.checkpoints.Checkpointer(
     checkpoints_dir=params.save_folder,
     recoverables={
         "model": params.model,
-        "head" : params.head,
+        "head": params.head,
         "optimizer": params.optimizer,
         "scheduler": params.lr_annealing,
         "normalizer": params.normalize,
