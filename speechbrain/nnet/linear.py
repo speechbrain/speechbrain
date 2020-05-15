@@ -21,6 +21,8 @@ class Linear(torch.nn.Module):
         output)
     bias : bool
         if True, the additive bias b is adopted.
+    combine_dims : bool
+        if True and the input is 4D, combine 3rd and 4th dimensions of input.
 
     Example
     -------
