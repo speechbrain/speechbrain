@@ -8,7 +8,6 @@ import torch  # noqa: F401
 from speechbrain.yaml import load_extended_yaml
 from speechbrain.nnet.linear import Linear
 from speechbrain.nnet.sequential import Sequential
-from speechbrain.nnet.activations import Softmax
 from speechbrain.nnet.pooling import Pooling
 from speechbrain.utils.data_utils import recursive_update
 
@@ -110,8 +109,6 @@ class CRDNN(Sequential):
                 )
             )
 
-        blocks.append(Linear(output_size, bias=False))
-        blocks.append(Softmax(apply_log=True))
 
         super().__init__(*blocks)
 
