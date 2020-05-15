@@ -5,9 +5,7 @@ Authors: Mirco Ravanelli 2020, Peter Plantinga 2020, Ju-Chieh Chou 2020,
 """
 import os
 import torch  # noqa: F401
-from speechbrain.nnet.linear import Linear
 from speechbrain.nnet.pooling import Pooling
-from speechbrain.nnet.activations import Softmax
 from speechbrain.nnet.containers import Sequential, ReplicateBlock
 
 
@@ -47,16 +45,15 @@ class CRDNN(Sequential):
 
     Example
     -------
-    >>> model = CRDNN(output_size=40)
+    >>> model = CRDNN()
     >>> inputs = torch.rand([10, 120, 60])
     >>> outputs = model(inputs, init_params=True)
     >>> outputs.shape
-    torch.Size([10, 116, 40])
+    torch.Size([10, 116, 512])
     """
 
     def __init__(
         self,
-        output_size,
         cnn_blocks=1,
         cnn_overrides={},
         cnn_shortcuts="",
@@ -109,8 +106,5 @@ class CRDNN(Sequential):
                 shortcuts=dnn_shortcuts,
             )
         )
-
-        blocks.append(Linear(output_size, bias=False))
-        blocks.append(Softmax(apply_log=True))
 
         super().__init__(*blocks)
