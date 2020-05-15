@@ -7,6 +7,7 @@ Author
 import torch
 import logging
 from speechbrain.yaml import load_extended_yaml
+from speechbrain.nnet.linear import Linear
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +63,13 @@ def torch_add_init_ignore(x, y, init_params=False):
     return torch.add(x, y)
 
 
-class Nerve(torch.nn.Module):
+def project_add(x, y, init_params=False):
+    """Project the shortcut before adding"""
+    projection = Linear(y.size(-1))
+    return torch.add(projection(x, init_params), y)
+
+
+class ReplicateBlock(torch.nn.Module):
     """Replicate one block of modules from a yaml file with shortcuts.
 
     Arguments
@@ -99,9 +106,7 @@ class Nerve(torch.nn.Module):
 
             # Override the block_index in the yaml file
             overrides["block_index"] = block_index
-            with open(param_file) as f:
-                params = load_extended_yaml(f, overrides)
-                self.blocks.append(params.block)
+            self.blocks.append(NeuralBlock(param_file, overrides))
 
     def forward(self, inputs, init_params=True):
         """
@@ -110,7 +115,7 @@ class Nerve(torch.nn.Module):
         inputs : torch.Tensor
             The inputs to the nerve
         init_params : bool
-            Whether to initialize the parameters of the blocks
+            Whether to initialize the parameters of the blocks.
         """
         # Don't include first block in shortcut, since it may change
         # the shape in significant ways.
@@ -140,3 +145,26 @@ class Nerve(torch.nn.Module):
             outputs = inputs
 
         return outputs
+
+
+class NeuralBlock(torch.nn.Module):
+    """Construct a block of pytorch modules from a parameter file.
+
+    Arguments
+    ---------
+    param_file : str
+        A parameter file to use for constructing a block. This file
+        is expected to define a parameter called "block" with a single
+        module containing the computation of the block.
+    overrides : dict
+        A set of overrides to use when parsing the parameter file.
+    """
+
+    def __init__(self, param_file, overrides={}):
+        super().__init__()
+        with open(param_file) as f:
+            params = load_extended_yaml(f, overrides)
+        self.block = params.block
+
+    def forward(self, x, init_params=False):
+        return self.block(x, init_params)
