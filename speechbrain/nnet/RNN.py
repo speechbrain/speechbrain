@@ -60,6 +60,7 @@ class RNN(torch.nn.Module):
         bias=True,
         dropout=0.0,
         bidirectional=False,
+        return_hidden=False,
     ):
         super().__init__()
         self.rnn_type = rnn_type
@@ -70,6 +71,7 @@ class RNN(torch.nn.Module):
         self.dropout = dropout
         self.bidirectional = bidirectional
         self.reshape = False
+        self.return_hidden=return_hidden
 
     def init_params(self, first_input):
         """
@@ -132,8 +134,10 @@ class RNN(torch.nn.Module):
                 x = x.reshape(x.shape[0], x.shape[1], x.shape[2] * x.shape[3])
 
         output, hn = self.rnn(x)
-
-        return output
+        if self.return_hidden:
+            return output, hn
+        else:
+            return output
 
 
 class LiGRU(torch.jit.ScriptModule):
