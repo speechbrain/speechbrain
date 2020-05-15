@@ -1,3 +1,2 @@
 ID,duration,wav,wav_format,wav_opts,spk_id,spk_id_format,spk_id_opts
-id10001---1zcIwhmdeo4---00002,8.5600625,../../../samples/voxceleb_samples/id10001/1zcIwhmdeo4/00002.wav,wav, ,id10001,string,
-id10002---xTV-jFAUKcw---00002,4.6000625,../../../samples/voxceleb_samples/id10002/xTV-jFAUKcw/00002.wav,wav, ,id10002,string,
+id10002---xTV-jFAUKcw---00001_0_300,3.0,../../../samples/voxceleb_samples/id10002/xTV-jFAUKcw/00001.wav,wav,start:0 stop:48000,id10002,string,

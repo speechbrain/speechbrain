@@ -70,6 +70,7 @@ class Extractor(Sequential):
 
     def extract(self, x, model):
         id, wavs, lens = x
+
         feats = params.compute_features(wavs)
         feats = params.mean_var_norm(feats, lens)
         emb = self.forward(feats, model).detach()
@@ -92,11 +93,13 @@ xvect_brain = XvectorBrain(
 
 data_prepare = VoxCelebPreparer(
     data_folder=params.data_folder,
-    splits=["train", "dev", "test"],
+    splits=["train", "dev"],
     save_folder=params.data_folder,
+    vad=False,
+    seg_dur=300,
+    rand_seed=params.seed,
 )
 data_prepare()
-
 
 xvect_brain.fit(
     train_set=params.train_loader(),
@@ -104,7 +107,8 @@ xvect_brain.fit(
     number_of_epochs=params.number_of_epochs,
 )
 
-xvect_brain.evaluate(params.test_loader())
+# Not needed in vox1 verification section
+# xvect_brain.evaluate(params.test_loader())
 
 print("Now Running Xvector Extractor")
 
@@ -119,7 +123,7 @@ model_b = nn.Sequential(
 )
 
 ext_brain = Extractor()
-xvectors = ext_brain.extract(next(iter(params.test_loader()[0])), model_b)
+xvectors = ext_brain.extract(next(iter(params.valid_loader()[0])), model_b)
 
 # Saving xvectors (Optional)
 torch.save(xvectors, params.save_folder + "/xvectors.pt")

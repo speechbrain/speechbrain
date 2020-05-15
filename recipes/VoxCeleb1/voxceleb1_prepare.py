@@ -5,7 +5,8 @@ Data preparation (VoxCeleb1).
 import os
 import csv
 import logging
-
+import glob
+import random
 from speechbrain.data_io.data_io import (
     read_wav_soundfile,
     load_pkl,
@@ -53,6 +54,9 @@ class VoxCelebPreparer:
         data_folder,
         splits,
         save_folder,
+        seg_dur=300,
+        rand_seed=1234,
+        vad=False,
         kaldi_ali_tr=None,
         kaldi_ali_dev=None,
         kaldi_ali_test=None,
@@ -61,17 +65,24 @@ class VoxCelebPreparer:
 
         self.data_folder = data_folder
         self.splits = splits
+        self.vad = vad
+        self.seg_dur = seg_dur
+        self.rand_seed = rand_seed
         self.save_folder = save_folder
         self.kaldi_ali_tr = kaldi_ali_tr
         self.kaldi_ali_dev = kaldi_ali_dev
         self.kaldi_ali_test = kaldi_ali_test
         self.kaldi_lab_opts = kaldi_lab_opts
-
         self.samplerate = 16000
+        random.seed(self.rand_seed)
 
+        """
         wav_lst_train, wav_lst_dev, wav_lst_test = self.prepare_wav_list(
             self.data_folder
         )
+        """
+        # Split data into 90% train and 10% validation
+        wav_lst_train, wav_lst_dev = self._get_data_split()
 
         if not os.path.exists(self.save_folder):
             os.makedirs(self.save_folder)
@@ -80,7 +91,9 @@ class VoxCelebPreparer:
         self.save_opt = self.save_folder + "/opt_voxceleb_prepare.pkl"
         self.save_csv_train = self.save_folder + "/train.csv"
         self.save_csv_dev = self.save_folder + "/dev.csv"
-        self.save_csv_test = self.save_folder + "/test.csv"
+        self.save_csv_test = (
+            self.save_folder + "/test.csv"
+        )  # use in case of iden
 
         # Check if this phase is already done (if so, skip it)
         if self.skip():
@@ -114,7 +127,7 @@ class VoxCelebPreparer:
                 kaldi_lab=self.kaldi_ali_dev,
                 kaldi_lab_opts=self.kaldi_lab_opts,
             )
-
+        """
         if "test" in self.splits:
             self.prepare_csv(
                 wav_lst_test,
@@ -122,7 +135,7 @@ class VoxCelebPreparer:
                 kaldi_lab=self.kaldi_ali_tr,
                 kaldi_lab_opts=self.kaldi_lab_opts,
             )
-
+        """
         # Saving options (useful to skip this phase when already done)
         # save_pkl(self.conf, self.save_opt)
 
@@ -130,7 +143,26 @@ class VoxCelebPreparer:
     def __call__(self):
         return
 
-    def prepare_wav_list(self, data_folder):
+    # def _get_all_audio_file(self, data_folder):
+    def _get_data_split(self):
+        """
+        Splits the audio file list into train (90%) and dev(10%)
+        """
+        audio_files_list = [
+            f for f in glob.glob(self.data_folder + "**/*.wav", recursive=True)
+        ]
+        random.shuffle(audio_files_list)
+
+        train_lst = audio_files_list[: int(0.9 * len(audio_files_list))]
+        dev_lst = audio_files_list[int(0.9 * len(audio_files_list)) :]
+
+        return train_lst, dev_lst
+
+    # Future
+    def _prepare_wav_list_from_iden(self, data_folder):
+        """
+        For future to be used for identification splits
+        """
         iden_split_file = os.path.join(data_folder, "iden_split_sample.txt")
         train_wav_lst = []
         dev_wav_lst = []
@@ -181,8 +213,25 @@ class VoxCelebPreparer:
                 skip = True
         return skip
 
+    def _get_chunks(self, audio_id, audio_duration):
+        num_chunks = int(
+            audio_duration * 100 / self.seg_dur
+        )  # all in milliseconds
+        # print(num_chunks)
+        # print (audio_duration, self.seg_dur, num_chunks)
+        chunk_lst = [
+            audio_id
+            + "_"
+            + str(i * self.seg_dur)
+            + "_"
+            + str(i * self.seg_dur + self.seg_dur)
+            for i in range(num_chunks)
+        ]
+        # print (chunk_lst)
+        return chunk_lst
+
     def prepare_csv(
-        self, wav_lst, csv_file, kaldi_lab=None, kaldi_lab_opts=None,
+        self, wav_lst, csv_file, vad=False, kaldi_lab=None, kaldi_lab_opts=None,
     ):
         """
         Creates the csv file given a list of wav files.
@@ -238,6 +287,7 @@ class VoxCelebPreparer:
             if not os.path.exists(lab_out_dir):
                 os.makedirs(lab_out_dir)
         """
+        # example5, 1.000, $data_folder/example5.wav, wav, start:10000 stop:26000, spk05, string,
         csv_lines = [
             [
                 "ID",
@@ -258,40 +308,43 @@ class VoxCelebPreparer:
             csv_lines[0].append("kaldi_lab_opts")
         """
 
+        # ND: update separator
         my_sep = "---"
         # Processing all the wav files in the list
         for wav_file in wav_lst:
 
             # Getting sentence and speaker ids
-            [spk_id, sess_id, utt_id] = wav_file.split("/")[-3:]
-            uniq_utt_id = my_sep.join([spk_id, sess_id, utt_id.split(".")[0]])
-            # spk_id = wav_file.split("/")[-2]
-            # snt_id = wav_file.split("/")[-1].replace(".wav", "")
+            [spk_id, sess_id, utt_id] = wav_file.split("/")[-3:]  # 3 from last
+            audio_id = my_sep.join([spk_id, sess_id, utt_id.split(".")[0]])
 
             # Reading the signal (to retrieve duration in seconds)
             signal = read_wav_soundfile(wav_file)
-            duration = signal.shape[0] / self.samplerate
+            audio_duration = signal.shape[0] / self.samplerate
 
-            # Composition of the csv_line
-            csv_line = [
-                uniq_utt_id,
-                str(duration),
-                wav_file,
-                "wav",
-                " ",
-                spk_id,
-                "string",
-                " ",
-            ]
+            uniq_chunks_list = self._get_chunks(audio_id, audio_duration)
 
-            # Future
-            # if kaldi_lab is not None:
-            #    csv_line.append(snt_lab_path)
-            #    csv_line.append("pkl")
-            #    csv_line.append("")
+            for chunk in uniq_chunks_list:
+                s, e = chunk.split("_")[-2:]
+                start_sample = int(int(s) / 100 * self.samplerate)
+                end_sample = int(int(e) / 100 * self.samplerate)
 
-            # Adding this line to the csv_lines list
-            csv_lines.append(csv_line)
+                start_stop = (
+                    "start:" + str(start_sample) + " stop:" + str(end_sample)
+                )
+
+                # Composition of the csv_line
+                csv_line = [
+                    chunk,
+                    str(self.seg_dur / 100),
+                    wav_file,
+                    "wav",
+                    start_stop,
+                    spk_id,
+                    "string",
+                    " ",
+                ]
+
+                csv_lines.append(csv_line)
 
         # -Writing the csv lines
         with open(csv_file, mode="w") as csv_f:
