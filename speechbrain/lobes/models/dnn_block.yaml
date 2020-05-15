@@ -4,7 +4,7 @@ sequence: [linear, norm, activation, dropout]
 linear: !speechbrain.nnet.linear.Linear
     n_neurons: 512
     bias: True
-    convl_before: False # if True assume the reshape of input from the conv layer (comes from CNN_block) => (4D [B,T,num_chnl,dim_filtre] => [B,T,num_chnl*dim_filter] * [num_chnl*dim_filter, n_neurons] => 3D [B,T,n_neurons]
+    convl_before: False # If True assume that input comes from the conv layer => do reshape and predict 3D tensor
 
 norm: !speechbrain.nnet.normalization.Normalize
     norm_type: batchnorm
