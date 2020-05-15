@@ -35,6 +35,13 @@ model: !speechbrain.lobes.models.CRDNN.CRDNN
     rnn_overrides: {rnn: {rnn_type: ligru}}
     time_pooling: True
 
+head: !speechbrain.nnet.linear.Linear
+    n_neurons: 40
+    bias: True
+
+log_softmax: !speechbrain.nnet.activations.Softmax
+    apply_log: True
+
 optimizer: !speechbrain.nnet.optimizers.Optimize
     optimizer_type: adadelta
     rho: 0.95
