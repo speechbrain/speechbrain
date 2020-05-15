@@ -35,7 +35,7 @@ class Linear(torch.nn.Module):
         super().__init__()
         self.n_neurons = n_neurons
         self.bias = bias
-        self.convl_before= convl_before
+        self.convl_before = convl_before
 
     def init_params(self, first_input):
         """
