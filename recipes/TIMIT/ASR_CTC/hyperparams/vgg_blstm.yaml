@@ -33,6 +33,14 @@ model: !speechbrain.lobes.models.CRDNN.CRDNN
     cnn_blocks: 2
     dnn_blocks: 2
 
+head: !speechbrain.nnet.linear.Linear
+    n_neurons: 40
+    bias: True
+    convl_before: False
+
+log_softmax: !speechbrain.nnet.activations.Softmax
+    apply_log: True
+
 optimizer: !speechbrain.nnet.optimizers.Optimize
     optimizer_type: adadelta
     rho: 0.95

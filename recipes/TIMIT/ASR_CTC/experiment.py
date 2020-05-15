@@ -59,7 +59,10 @@ class ASR(sb.core.Brain):
             wavs = params.augmentation(wavs, wav_lens, init_params)
         feats = params.compute_features(wavs, init_params)
         feats = params.normalize(feats, wav_lens)
-        return params.model(feats, init_params), wav_lens
+        out = params.model(feats, init_params)
+        out = params.head(out,init_params)
+        pout = params.log_softmax(out)
+        return pout, wav_lens
 
     def compute_objectives(self, predictions, targets, train=True):
         pout, pout_lens = predictions
@@ -101,7 +104,7 @@ prepare = TIMITPreparer(
 prepare()
 train_set = params.train_loader()
 valid_set = params.valid_loader()
-modules = [params.model]
+modules = [params.model,params.head]
 if hasattr(params, "augmentation"):
     modules.append(params.augmentation)
 asr_brain = ASR(
