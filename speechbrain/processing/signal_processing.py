@@ -25,15 +25,11 @@ def compute_amplitude(waveforms, lengths):
 
     Example
     -------
-    >>> import soundfile as sf
-    >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
-    >>> signal = torch.tensor(signal, dtype=torch.float32)
-    >>> compute_amplitude(signal, len(signal))
-    tensor([0.0125])
+    >>> signal = torch.sin(torch.arange(16000.0)).unsqueeze(0)
+    >>> compute_amplitude(signal, signal.size(1))
+    tensor([[0.6366]])
     """
-    return (
-        torch.sum(input=torch.abs(waveforms), dim=-1, keepdim=True,) / lengths
-    )
+    return torch.sum(input=torch.abs(waveforms), dim=1, keepdim=True,) / lengths
 
 
 def convolve1d(

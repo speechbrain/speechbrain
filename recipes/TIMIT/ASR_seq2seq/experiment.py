@@ -4,10 +4,13 @@ import sys
 import torch
 import speechbrain as sb
 
-# import speechbrain.data_io.wer as wer_io
-# import speechbrain.utils.edit_distance as edit_distance
-# from speechbrain.data_io.data_io import convert_index_to_lab
-from speechbrain.decoders.seq2seq import RNNGreedySearcher
+import speechbrain.data_io.wer as wer_io
+import speechbrain.utils.edit_distance as edit_distance
+from speechbrain.data_io.data_io import convert_index_to_lab
+
+# from speechbrain.decoders.seq2seq import RNNGreedySearcher
+from speechbrain.decoders.seq2seq import RNNBeamSearcher
+from speechbrain.decoders.decoders import undo_padding
 from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.train_logger import (
     FileTrainLogger,
@@ -77,12 +80,11 @@ sb.core.create_experiment_directory(
 
 train_logger = FileTrainLogger(
     save_file=params.train_log,
-    # summary_fns={"loss": summarize_average, "PER": summarize_error_rate},
     summary_fns={
         "loss": summarize_average,
         "loss_ctc": summarize_average,
         "loss_seq": summarize_average,
-        "per": summarize_error_rate,
+        "PER": summarize_error_rate,
     },
 )
 
@@ -97,12 +99,22 @@ modules = torch.nn.ModuleList(
     [cnn, params.rnn_enc, params.rnn_dec, params.ctc_linear, params.seq_linear]
 )
 
-greedy_searcher = RNNGreedySearcher(
+# searcher = RNNGreedySearcher(
+#    modules=[params.rnn_dec, params.seq_linear],
+#    bos_index=params.bos_index,
+#    eos_index=params.eos_index,
+#    min_decode_ratio=0,
+#    max_decode_ratio=1,
+# )
+searcher = RNNBeamSearcher(
     modules=[params.rnn_dec, params.seq_linear],
     bos_index=params.bos_index,
     eos_index=params.eos_index,
     min_decode_ratio=0,
     max_decode_ratio=1,
+    beam_size=params.beam_size,
+    length_penalty=params.length_penalty,
+    eos_penalty=params.eos_penalty,
 )
 
 checkpointer = sb.utils.checkpoints.Checkpointer(
@@ -120,7 +132,7 @@ checkpointer = sb.utils.checkpoints.Checkpointer(
 # Define training procedure
 class ASR(sb.core.Brain):
     def forward(self, inputs, init_params=False):
-        (_, wavs, wav_lens), (_, ys, y_lens) = inputs
+        (_, wavs, wav_lens), (_, ys, y_lens), train = inputs
 
         wavs, wav_lens = wavs.to(params.device), wav_lens.to(params.device)
         ys, y_lens = ys.to(params.device), y_lens.to(params.device)
@@ -141,42 +153,41 @@ class ASR(sb.core.Brain):
         logits = params.seq_linear(dec, init_params)
         p_seq = params.softmax(logits)
 
-        return x, p_ctc, p_seq, wav_lens
+        if not train:
+            hyps = searcher(x, wav_lens)
+            return p_ctc, p_seq, wav_lens, hyps
+
+        return p_ctc, p_seq, wav_lens
 
     def compute_objectives(self, predictions, targets, train=True):
-        x, p_ctc, p_seq, wav_lens = predictions
+        if train:
+            p_ctc, p_seq, wav_lens = predictions
+        else:
+            p_ctc, p_seq, wav_lens, (hyps, scores) = predictions
+
         ids, phns, phn_lens = targets
         phns, phn_lens = phns.to(params.device), phn_lens.to(params.device)
         loss_ctc = params.ctc_cost(p_ctc, phns, [wav_lens, phn_lens])
         loss_seq = params.seq_cost(p_seq, phns, phn_lens)
         loss = params.ctc_weight * loss_ctc + (1 - params.ctc_weight) * loss_seq
-        # if not train:
-        #    ind2lab = params.train_loader.label_dict["phn"]["index2lab"]
+
+        if not train:
+            ind2lab = params.train_loader.label_dict["phn"]["index2lab"]
+            sequence = convert_index_to_lab(hyps, ind2lab)
+            phns = undo_padding(phns, phn_lens)
+            phns = convert_index_to_lab(phns, ind2lab)
+            stats = edit_distance.wer_details_for_batch(
+                ids, phns, sequence, compute_alignments=True
+            )
+            stats = {"PER": stats}
+            return loss, loss_ctc, loss_seq, stats
 
         return loss, loss_ctc, loss_seq
 
-        # pout, pout_lens = predictions
-        # ids, phns, phn_lens = targets
-        # phns, phn_lens = phns.to(params.device), phn_lens.to(params.device)
-        # loss = params.compute_cost(pout, phns, [pout_lens, phn_lens])
-
-        # if not train:
-        #    ind2lab = params.train_loader.label_dict["phn"]["index2lab"]
-        #    sequence = ctc_greedy_decode(pout, pout_lens, blank_id=-1)
-        #    sequence = convert_index_to_lab(sequence, ind2lab)
-        #    phns = undo_padding(phns, phn_lens)
-        #    phns = convert_index_to_lab(phns, ind2lab)
-        #    stats = edit_distance.wer_details_for_batch(
-        #        ids, phns, sequence, compute_alignments=True
-        #    )
-        #    stats = {"PER": stats}
-        #    return loss, stats
-
-        # return loss
-
     def fit_batch(self, batch):
         inputs, targets = batch
-        predictions = self.forward(batch)
+        train = True
+        predictions = self.forward([inputs, targets, train])
         loss, loss_ctc, loss_seq = self.compute_objectives(predictions, targets)
         loss.backward()
         self.optimizer(self.modules)
@@ -188,36 +199,29 @@ class ASR(sb.core.Brain):
 
     def evaluate_batch(self, batch):
         inputs, targets = batch
-        predictions = self.forward(batch)
-        loss, loss_ctc, loss_seq = self.compute_objectives(predictions, targets)
+        train = False
+        predictions = self.forward([inputs, targets, train])
+        loss, loss_ctc, loss_seq, stats = self.compute_objectives(
+            predictions, targets, train=train
+        )
 
-        return {
+        loss_dict = {
             "loss": loss.item(),
             "loss_ctc": loss_ctc.item(),
             "loss_seq": loss_seq.item(),
         }
 
-    def on_epoch_end(self, epoch, train_stats, valid_stats=None):
-        # per = summarize_error_rate(valid_stats["PER"])
-        # old_lr, new_lr = params.lr_annealing([params.optimizer], epoch, per)
-        # epoch_stats = {"epoch": epoch, "lr": old_lr}
-        # train_logger.log_stats(epoch_stats, train_stats, valid_stats)
+        return {**loss_dict, **stats}
 
-        # checkpointer.save_and_keep_only(
-        #    meta={"PER": per},
-        #    importance_keys=[ckpt_recency, lambda c: -c.meta["PER"]],
-        # )
-        # loss = summarize_error_rate(valid_stats["loss"])
-        val_loss = sum(valid_stats["loss"]) / len(valid_stats["loss"])
-        old_lr, new_lr = params.lr_annealing(
-            [params.optimizer], epoch, val_loss
-        )
+    def on_epoch_end(self, epoch, train_stats, valid_stats=None):
+        per = summarize_error_rate(valid_stats["PER"])
+        old_lr, new_lr = params.lr_annealing([params.optimizer], epoch, per)
         epoch_stats = {"epoch": epoch, "lr": old_lr}
         train_logger.log_stats(epoch_stats, train_stats, valid_stats)
 
         checkpointer.save_and_keep_only(
-            meta={"loss": val_loss},
-            importance_keys=[ckpt_recency, lambda c: -c.meta["loss"]],
+            meta={"PER": per},
+            importance_keys=[ckpt_recency, lambda c: -c.meta["PER"]],
         )
 
 
@@ -236,23 +240,23 @@ first_input = next(iter(train_set[0]))
 asr_brain = ASR(
     modules=modules,
     optimizer=params.optimizer,
-    first_input=(next(iter(train_set[0])), next(iter(train_set[1]))),
+    first_input=(next(iter(train_set[0])), next(iter(train_set[1])), True),
 )
 
 # Load latest checkpoint to resume training
 checkpointer.recover_if_possible()
 asr_brain.fit(params.epoch_counter, train_set, valid_set)
 
-## Load best checkpoint for evaluation
-# checkpointer.recover_if_possible(lambda c: -c.meta["PER"])
-# test_stats = asr_brain.evaluate(params.test_loader())
-# train_logger.log_stats(
-#    stats_meta={"Epoch loaded": params.epoch_counter.current},
-#    test_stats=test_stats,
-# )
-#
-## Write alignments to file
-# per_summary = edit_distance.wer_summary(test_stats["PER"])
-# with open(params.wer_file, "w") as fo:
-#    wer_io.print_wer_summary(per_summary, fo)
-#    wer_io.print_alignments(test_stats["PER"], fo)
+# Load best checkpoint for evaluation
+checkpointer.recover_if_possible(lambda c: -c.meta["PER"])
+test_stats = asr_brain.evaluate(params.test_loader())
+train_logger.log_stats(
+    stats_meta={"Epoch loaded": params.epoch_counter.current},
+    test_stats=test_stats,
+)
+
+# Write alignments to file
+per_summary = edit_distance.wer_summary(test_stats["PER"])
+with open(params.wer_file, "w") as fo:
+    wer_io.print_wer_summary(per_summary, fo)
+    wer_io.print_alignments(test_stats["PER"], fo)

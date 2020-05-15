@@ -14,9 +14,9 @@ csv_valid: !ref <data_folder>/dev.csv
 csv_test: !ref <data_folder>/test.csv
 
 # Neural Parameters
-number_of_epochs: 25
+number_of_epochs: 50
 batch_size: 16
-lr: 0.0005
+lr: 0.001
 weight_decay: 0.0001
 dropout_rate: 0.15
 ctc_weight: 0.2
@@ -33,6 +33,9 @@ bos_index: 39
 eos_index: 39
 min_decode_ratio: 0.0
 max_decode_ratio: 1.0
+beam_size: 16
+length_penalty: 0.2
+eos_penalty: 1.5
 
 device: 'cuda:0'
 
@@ -107,10 +110,11 @@ test_loader: !speechbrain.data_io.data_io.DataLoaderFactory
     batch_size: !ref <batch_size>
 
 ctc_cost: !speechbrain.nnet.losses.ComputeCost
-    cost_type: [ctc]
+    cost_type: ctc
     blank_index: 39
 
 seq_cost: !speechbrain.nnet.losses.ComputeCost
-    cost_type: [seq_nll]
+    cost_type: nll
     eos_index: !ref <eos_index>
+    append_eos: True
     label_smoothing: 0.1
