@@ -31,11 +31,11 @@ class Linear(torch.nn.Module):
     torch.Size([10, 50, 100])
     """
 
-    def __init__(self, n_neurons, bias=True, convl_before=False):
+    def __init__(self, n_neurons, bias=True, combine_dims=False):
         super().__init__()
         self.n_neurons = n_neurons
         self.bias = bias
-        self.convl_before = convl_before
+        self.combine_dims = combine_dims
 
     def init_params(self, first_input):
         """
@@ -45,7 +45,7 @@ class Linear(torch.nn.Module):
             A first input used for initializing the parameters.
         """
         fea_dim = first_input.shape[-1]
-        if len(first_input.shape) == 4 and self.convl_before:
+        if len(first_input.shape) == 4 and self.combine_dims:
             fea_dim = first_input.shape[2] * first_input.shape[3]
 
         self.w = nn.Linear(fea_dim, self.n_neurons, bias=self.bias)
@@ -62,7 +62,7 @@ class Linear(torch.nn.Module):
         if init_params:
             self.init_params(x)
 
-        if len(x.shape) == 4 and self.convl_before:
+        if len(x.shape) == 4 and self.combine_dims:
             x = x.reshape(x.shape[0], x.shape[1], x.shape[2] * x.shape[3])
 
         wx = self.w(x)
