@@ -72,6 +72,9 @@ def project_add(x, y, init_params=False):
 class ReplicateBlock(torch.nn.Module):
     """Replicate one block of modules from a yaml file with shortcuts.
 
+    Note: all shortcuts start from the output of the first block,
+    since the first block may change the shape significantly.
+
     Arguments
     ---------
     param_file : str
@@ -81,11 +84,16 @@ class ReplicateBlock(torch.nn.Module):
     overrides : dict
         A set of overrides to apply to the parameters file.
     copies : int
-        The number of times to replicate the layers listed in the yaml.
+        The number of times to replicate the block listed in the yaml.
     shortcuts : str
-        One of "residual", "dense", or "skip"
+        One of "", "residual", "dense", or "skip"
+        * "residual" - first block output passed to final output
+        * "dense" - input of each block is from all previous blocks
+        * "skip" - output of each block is passed to final output
     combine_fn : function
         A function that takes the shortcut and next input, and combines them.
+        This function is also passed `init_params` in case parameters need to
+        be initialized inside of the function.
     """
 
     def __init__(
