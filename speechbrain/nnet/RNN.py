@@ -118,7 +118,6 @@ class RNN(torch.nn.Module):
             self.rnn = LiGRU(**kwargs)
 
         self.rnn.to(first_input.device)
-        init_rnn_module(self)
 
     def forward(self, x, init_params=False):
         """Returns the output of the RNN.
@@ -299,63 +298,21 @@ class LiGRU_Layer(torch.jit.ScriptModule):
         )
 
         # Initilizing dropout
-        self._init_drop()
+        self.drop = torch.nn.Dropout(p=self.dropout, inplace=False).to(
+            self.device
+        )
 
-        # Initilizing initial state h
-        self._init_h()
+        self.drop_mask_te = torch.tensor([1.0], device=self.device).float()
 
         # Setting the activation function
         self.act = torch.nn.ReLU().to(device)
 
-    def _init_drop(self,):
-        """Initializes the recurrent dropout operation. To speed it up,
-        the dropout masks are sampled in advance.
-        """
-        self.drop = torch.nn.Dropout(p=self.dropout, inplace=False).to(
-            self.device
-        )
-        self.drop_mask_te = torch.tensor([1.0], device=self.device).float()
-        self.N_drop_masks = 1000
-        self.drop_mask_cnt = 0
-
-        if self.bidirectional:
-            self.drop_masks = self.drop(
-                torch.ones(
-                    self.N_drop_masks,
-                    2 * self.batch_size,
-                    self.hidden_size,
-                    device=self.device,
-                )
-            ).data
-
-        else:
-            self.drop_masks = self.drop(
-                torch.ones(
-                    self.N_drop_masks,
-                    self.batch_size,
-                    self.hidden_size,
-                    device=self.device,
-                )
-            ).data
-
-    def _init_h(self,):
+    @torch.jit.script_method
+    def _init_h(self, x):
         """Initializes the initial state h_0 with zeros.
         """
-        if self.bidirectional:
-            self.h_init = torch.zeros(
-                2 * self.batch_size,
-                self.hidden_size,
-                requires_grad=False,
-                device=self.device,
-            )
-
-        else:
-            self.h_init = torch.zeros(
-                self.batch_size,
-                self.hidden_size,
-                requires_grad=False,
-                device=self.device,
-            )
+        h_init = torch.zeros(x.shape[0], self.hidden_size, device=self.device,)
+        return h_init
 
     @torch.jit.script_method
     def forward(self, x):
@@ -397,8 +354,8 @@ class LiGRU_Layer(torch.jit.ScriptModule):
             Linearly transformed input.
         """
         hiddens = []
-        ht = self.h_init
-        drop_mask = self._sample_drop_mask()
+        ht = self._init_h(w)
+        drop_mask = self._sample_drop_mask(w)
 
         # Loop over time axis
         for k in range(w.shape[1]):
@@ -414,40 +371,15 @@ class LiGRU_Layer(torch.jit.ScriptModule):
         return h
 
     @torch.jit.script_method
-    def _sample_drop_mask(self,):
+    def _sample_drop_mask(self, x):
         """Selects one of the pre-defined dropout masks
         """
         if self.training:
-            drop_mask = self.drop_masks[self.drop_mask_cnt]
-            self.drop_mask_cnt = self.drop_mask_cnt + 1
-
-            # Sample new masks when needed
-            if self.drop_mask_cnt >= self.N_drop_masks:
-                self.drop_mask_cnt = 0
-                if self.bidirectional:
-                    self.drop_masks = (
-                        self.drop(
-                            torch.ones(
-                                self.N_drop_masks,
-                                2 * self.batch_size,
-                                self.hidden_size,
-                            )
-                        )
-                        .to(self.device)
-                        .data
-                    )
-                else:
-                    self.drop_masks = (
-                        self.drop(
-                            torch.ones(
-                                self.N_drop_masks,
-                                self.batch_size,
-                                self.hidden_size,
-                            )
-                        )
-                        .to(self.device)
-                        .data
-                    )
+            drop_mask = (
+                self.drop(torch.ones(x.shape[0], self.hidden_size,))
+                .to(self.device)
+                .data
+            )
 
         else:
             drop_mask = self.drop_mask_te
