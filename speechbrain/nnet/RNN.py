@@ -1,9 +1,10 @@
 """Library implementing recurrent neural networks.
 
 Author
-    Mirco Ravanelli 2020
+    Mirco Ravanelli 2020, Ju-Chieh Chou 2020
 """
 
+import math
 import torch
 import logging
 import torch.nn as nn
@@ -60,6 +61,7 @@ class RNN(torch.nn.Module):
         bias=True,
         dropout=0.0,
         bidirectional=False,
+        return_hidden=False,
     ):
         super().__init__()
         self.rnn_type = rnn_type
@@ -70,10 +72,11 @@ class RNN(torch.nn.Module):
         self.dropout = dropout
         self.bidirectional = bidirectional
         self.reshape = False
+        self.return_hidden = return_hidden
 
     def init_params(self, first_input):
         """
-        Initializes the parameters of the convolutional layer.
+        Initializes the parameters of the recurrent layer.
 
         Arguments
         ---------
@@ -115,6 +118,7 @@ class RNN(torch.nn.Module):
             self.rnn = LiGRU(**kwargs)
 
         self.rnn.to(first_input.device)
+        init_rnn_module(self)
 
     def forward(self, x, init_params=False):
         """Returns the output of the RNN.
@@ -131,9 +135,16 @@ class RNN(torch.nn.Module):
             if len(x.shape) == 4:
                 x = x.reshape(x.shape[0], x.shape[1], x.shape[2] * x.shape[3])
 
+        # Needed for multi-gpu
+        if self.rnn_type != "ligru":
+            self.rnn.flatten_parameters()
+
         output, hn = self.rnn(x)
 
-        return output
+        if self.return_hidden:
+            return output, hn
+        else:
+            return output
 
 
 class LiGRU(torch.jit.ScriptModule):
@@ -189,24 +200,26 @@ class LiGRU(torch.jit.ScriptModule):
         super().__init__()
         current_dim = int(input_size)
         self.model = torch.nn.ModuleList([])
+        self.bidirectional = bidirectional
+        self.hidden_size = hidden_size
 
         for i in range(num_layers):
             rnn_lay = LiGRU_Layer(
                 current_dim,
-                hidden_size,
+                self.hidden_size,
                 num_layers,
                 batch_size,
                 dropout=dropout,
-                bidirectional=bidirectional,
+                bidirectional=self.bidirectional,
                 device=device,
             )
 
             self.model.append(rnn_lay)
 
-            if bidirectional:
-                current_dim = hidden_size * 2
+            if self.bidirectional:
+                current_dim = self.hidden_size * 2
             else:
-                current_dim = hidden_size
+                current_dim = self.hidden_size
 
     @torch.jit.script_method
     def forward(self, x):
@@ -216,9 +229,15 @@ class LiGRU(torch.jit.ScriptModule):
         ---------
         x : torch.Tensor
         """
+        h = []
         for ligru_lay in self.model:
             x = ligru_lay(x)
-        return x, 0
+            h.append(x[:, -1, :])
+        h = torch.stack(h, dim=1)
+        if self.bidirectional:
+            h = h.reshape(h.shape[0], h.shape[1] * 2, self.hidden_size)
+
+        return x, (h,)
 
 
 class LiGRU_Layer(torch.jit.ScriptModule):
@@ -434,3 +453,25 @@ class LiGRU_Layer(torch.jit.ScriptModule):
             drop_mask = self.drop_mask_te
 
         return drop_mask
+
+
+def init_rnn_module(module):
+    """
+    This function is used to initialize the RNN weight with orthogonality.
+    Arguments
+    ---------
+    module: torch.nn.Module
+        Reccurent neural network module.
+    Example
+    -------
+    >>> inp_tensor = torch.rand([4, 10, 20])
+    >>> net = RNN(rnn_type='lstm', n_neurons=5)
+    >>> out_tensor = net(inp_tensor, init_params=True)
+    >>> init_rnn_module(net)
+    """
+    for param in module.parameters():
+        if len(param.shape) >= 2:
+            nn.init.orthogonal_(param)
+        else:
+            stdv = 1.0 / math.sqrt(param.shape[0])
+            nn.init.uniform_(param, -stdv, stdv)
