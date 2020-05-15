@@ -264,17 +264,20 @@ class Brain:
     """
 
     def __init__(
-        self, modules, optimizer=None, first_input=None,
+        self, modules, optimizer=None, first_input=None, seq2seq=False,
     ):
         self.modules = torch.nn.ModuleList(modules)
         self.optimizer = optimizer
-
+        self.seq2seq = seq2seq
         # Initialize parameters
         if first_input is not None:
-            self.forward(first_input, init_params=True)
+            if self.seq2seq:
+                self.forward(first_input[0],first_input[1], init_params=True)
+            else:
+                self.forward(first_input, init_params=True)
             self.optimizer.init_params(self.modules)
 
-    def forward(self, x, init_params=False):
+    def forward(self, *args, init_params=False):
         """Forward pass, to be overridden by sub-classes.
 
         Arguments
@@ -336,7 +339,11 @@ class Brain:
             this batch has two elements: inputs and targets.
         """
         inputs, targets = batch
-        predictions = self.forward(inputs)
+        if self.seq2seq:
+            predictions = self.forward(inputs,targets)
+        else:    
+            predictions = self.forward(inputs)
+
         loss = self.compute_objectives(predictions, targets)
         loss.backward()
         self.optimizer(self.modules)

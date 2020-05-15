@@ -1,0 +1,135 @@
+# ################################
+# Model: VGG2 + LiGRU + TimeDomainSpecAugment with time pooling for efficiency
+# Additions: Sequence Transducer Model (Transcription+Prediction+Joint Network) 
+#            with Forward-backward loss computation 
+# Authors: Abdel Heba & Mirco Ravanelli & Peter Plantinga 2020
+# ################################
+
+data_folder: /network/tmp1/abdelwah/TIMIT  # e.g. /path/to/TIMIT
+ckpts_to_keep: 1
+sample_rate: 16000
+seed: 7  # e.g, 1234
+output_folder: !ref results/transducer_seq_augment_vgg_ligru/<seed>
+predictions_file: !ref <output_folder>/predictions.csv
+wer_file: !ref <output_folder>/wer.txt
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+# Data files
+csv_train: !ref <data_folder>/train.csv
+csv_valid: !ref <data_folder>/dev.csv
+csv_test: !ref <data_folder>/test.csv
+
+# Neural Parameters
+number_of_epochs: 30
+batch_size: 8
+lr: 1.0
+dropout_rate: 0.15
+n_mels: 40
+
+blank_id: 39
+
+device: 'cuda:0'
+
+# Functions
+model_TN: !speechbrain.lobes.models.CRDNN.CRDNN
+    output_size: 40  # 39 phonemes + 1 blank symbol
+    cnn_blocks: 2
+    dnn_blocks: 2
+    rnn_overrides: {rnn: {rnn_type: ligru}}
+    time_pooling: True
+
+embedding_PN: !speechbrain.nnet.embedding.Embedding
+    consider_as_one_hot: True
+    blank_id: 39
+    embeddings_dim: 39 # consider blank as zero vect
+
+#model_PN: !speechbrain.lobes.models.CRDNN.CRDNN
+    # output_size: 40  # 39 phonemes + 1 blank symbol
+    # cnn_blocks: 0
+    # dnn_blocks: 1
+    # rnn_blocks: 1
+    # rnn_overrides: {rnn: {num_layers: 1, dropout: 0}}
+
+model_PN: !speechbrain.nnet.RNN.RNN
+    rnn_type: lstm
+    n_neurons: 512
+    nonlinearity: tanh
+    num_layers: 1
+    #dropout: 0.15
+    bidirectional: False
+    return_hidden: True
+
+model_PN_lin: !speechbrain.lobes.models.CRDNN.CRDNN
+    output_size: 40  # 39 phonemes + 1 blank symbol
+    cnn_blocks: 0
+    dnn_blocks: 1
+    rnn_blocks: 0
+
+
+Tjoint: !speechbrain.nnet.transducer.transducer_joint.Transducer_joint
+    joint: sum # sum or concat, in case of concat
+
+model_OUTN: !speechbrain.lobes.models.CRDNN.CRDNN
+    output_size: 40  # 39 phonemes + 1 blank symbol
+    cnn_blocks: 0
+    dnn_blocks: 1
+    dnn_overrides: {linear: {n_neurons: 40}}
+    rnn_blocks: 0
+
+# model_OUTN: !speechbrain.nnet.linear.Linear
+#     n_neurons: 40
+#     bias: True
+#     convl_before: False
+
+head: !speechbrain.nnet.linear.Linear
+    n_neurons: 40
+    bias: True
+    convl_before: False
+
+log_softmax: !speechbrain.nnet.activations.Softmax
+    apply_log: True
+
+
+optimizer: !speechbrain.nnet.optimizers.Optimize
+    optimizer_type: adadelta
+    rho: 0.95
+    learning_rate: !ref <lr>
+
+lr_annealing: !speechbrain.nnet.lr_scheduling.LRScheduler
+    annealing_type: newbob
+    N_epochs: !ref <number_of_epochs>
+    lr_initial: !ref <lr>
+    improvement_threshold: 0.0025
+    annealing_factor: 0.8
+    patient: 0
+
+normalize: !speechbrain.processing.features.InputNormalization
+    norm_type: global
+
+epoch_counter: !speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+augmentation: !speechbrain.lobes.augment.tdsa.TimeDomainSpecAugment
+compute_features: !speechbrain.lobes.features.fbank.Fbank
+
+train_loader: !speechbrain.data_io.data_io.DataLoaderFactory
+    &loader
+    csv_file: !ref <csv_train>
+    batch_size: !ref <batch_size>
+    sentence_sorting: ascending
+    output_folder: !ref <output_folder>
+    csv_read: [wav, phn]
+
+valid_loader: !speechbrain.data_io.data_io.DataLoaderFactory
+    <<: *loader
+    csv_file: !ref <csv_valid>
+
+test_loader: !speechbrain.data_io.data_io.DataLoaderFactory
+    <<: *loader
+    csv_file: !ref <csv_test>
+    batch_size: !ref <batch_size>
+
+compute_cost: !speechbrain.nnet.losses.ComputeCost
+    cost_type: [transducer]
+    blank_index: 39
