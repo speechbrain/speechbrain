@@ -127,15 +127,7 @@ class VoxCelebPreparer:
                 kaldi_lab=self.kaldi_ali_dev,
                 kaldi_lab_opts=self.kaldi_lab_opts,
             )
-        """
-        if "test" in self.splits:
-            self.prepare_csv(
-                wav_lst_test,
-                self.save_csv_test,
-                kaldi_lab=self.kaldi_ali_tr,
-                kaldi_lab_opts=self.kaldi_lab_opts,
-            )
-        """
+
         # Saving options (useful to skip this phase when already done)
         # save_pkl(self.conf, self.save_opt)
 
