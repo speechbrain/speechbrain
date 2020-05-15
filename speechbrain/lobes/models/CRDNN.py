@@ -8,7 +8,7 @@ import torch  # noqa: F401
 from speechbrain.nnet.linear import Linear
 from speechbrain.nnet.pooling import Pooling
 from speechbrain.nnet.activations import Softmax
-from speechbrain.nnet.containers import Sequential, Nerve
+from speechbrain.nnet.containers import Sequential, ReplicateBlock
 
 
 class CRDNN(Sequential):
@@ -74,7 +74,7 @@ class CRDNN(Sequential):
 
         model_dir = os.path.dirname(os.path.abspath(__file__))
         blocks.append(
-            Nerve(
+            ReplicateBlock(
                 param_file=os.path.join(model_dir, "cnn_block.yaml"),
                 overrides=cnn_overrides,
                 copies=cnn_blocks,
@@ -93,7 +93,7 @@ class CRDNN(Sequential):
             )
 
         blocks.append(
-            Nerve(
+            ReplicateBlock(
                 param_file=os.path.join(model_dir, "rnn_block.yaml"),
                 overrides=rnn_overrides,
                 copies=rnn_blocks,
@@ -102,7 +102,7 @@ class CRDNN(Sequential):
         )
 
         blocks.append(
-            Nerve(
+            ReplicateBlock(
                 param_file=os.path.join(model_dir, "dnn_block.yaml"),
                 overrides=dnn_overrides,
                 copies=dnn_blocks,
