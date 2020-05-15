@@ -4,6 +4,7 @@ sequence: [linear, norm, activation, dropout]
 linear: !speechbrain.nnet.linear.Linear
     n_neurons: 512
     bias: True
+    convl_before: False
 
 norm: !speechbrain.nnet.normalization.Normalize
     norm_type: batchnorm
