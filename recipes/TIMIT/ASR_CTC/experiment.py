@@ -42,7 +42,7 @@ checkpointer = sb.utils.checkpoints.Checkpointer(
     checkpoints_dir=params.save_folder,
     recoverables={
         "model": params.model,
-        "head": params.head,
+        "output": params.output,
         "optimizer": params.optimizer,
         "scheduler": params.lr_annealing,
         "normalizer": params.normalize,
@@ -61,7 +61,7 @@ class ASR(sb.core.Brain):
         feats = params.compute_features(wavs, init_params)
         feats = params.normalize(feats, wav_lens)
         out = params.model(feats, init_params)
-        out = params.head(out, init_params)
+        out = params.output(out, init_params)
         pout = params.log_softmax(out)
         return pout, wav_lens
 
@@ -105,7 +105,7 @@ prepare = TIMITPreparer(
 prepare()
 train_set = params.train_loader()
 valid_set = params.valid_loader()
-modules = [params.model, params.head]
+modules = [params.model, params.output]
 if hasattr(params, "augmentation"):
     modules.append(params.augmentation)
 asr_brain = ASR(

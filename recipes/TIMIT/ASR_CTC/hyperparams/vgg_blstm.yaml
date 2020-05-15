@@ -33,7 +33,7 @@ model: !speechbrain.lobes.models.CRDNN.CRDNN
     cnn_blocks: 2
     dnn_blocks: 2
 
-head: !speechbrain.nnet.linear.Linear
+output: !speechbrain.nnet.linear.Linear
     n_neurons: 40
     bias: True
 
