@@ -57,6 +57,11 @@ class Sequential(torch.nn.Module):
         return x
 
 
+def torch_add_init_ignore(x, y, init_params=False):
+    """Torch add, but ignoring the init_params argument"""
+    return torch.add(x, y)
+
+
 class Nerve(torch.nn.Module):
     """Replicate one block of modules from a yaml file with shortcuts.
 
@@ -82,7 +87,7 @@ class Nerve(torch.nn.Module):
         overrides={},
         copies=1,
         shortcuts="",
-        combine_fn=torch.add,
+        combine_fn=torch_add_init_ignore,
     ):
         super().__init__()
         self.blocks = torch.nn.ModuleList()
@@ -107,26 +112,31 @@ class Nerve(torch.nn.Module):
         init_params : bool
             Whether to initialize the parameters of the blocks
         """
+        # Don't include first block in shortcut, since it may change
+        # the shape in significant ways.
+        inputs = self.blocks[0](inputs, init_params)
         shortcut_inputs = inputs
 
-        # For residual and skip connections, the last block has
-        # different inputs than the rest of the blocks.
-        for block in self.blocks[:-1]:
+        for block in self.blocks[1:]:
             outputs = block(inputs, init_params)
 
-            # Compute inputs for next block
             if self.shortcuts in ["dense", "skip"]:
-                shortcut_inputs = self.combine_fn(shortcut_inputs, outputs)
+                shortcut_inputs = self.combine_fn(
+                    shortcut_inputs, outputs, init_params=init_params,
+                )
             if self.shortcuts == "dense":
                 inputs = shortcut_inputs
             else:
                 inputs = outputs
 
-        # Last block gets different input in some cases
         if self.shortcuts == "residual":
-            inputs = self.combine_fn(shortcut_inputs, outputs)
-        elif self.shortcuts == "skip":
-            inputs = shortcut_inputs
+            shortcut_inputs = self.combine_fn(
+                shortcut_inputs, outputs, init_params=init_params,
+            )
 
-        # Return the output of the last block
-        return self.blocks[-1](inputs, init_params)
+        if self.shortcuts in ["residual", "dense", "skip"]:
+            outputs = shortcut_inputs
+        else:
+            outputs = inputs
+
+        return outputs
