@@ -1,17 +1,13 @@
 #!/usr/bin/python
 import speechbrain as sb
 import torch
-import pdb
-from tqdm.contrib import tzip
 
-
-params_file = 'params.yaml'  #"recipes/minimal_examples/neural_networks/nmf_sourcesep/params.yaml"
+params_file = "params.yaml"  # "recipes/minimal_examples/neural_networks/nmf_sourcesep/params.yaml"
 with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(fin)
 
 sb.core.create_experiment_directory(
-    experiment_directory=params.output_folder, 
-    params_to_save=params_file,
+    experiment_directory=params.output_folder, params_to_save=params_file,
 )
 
 
@@ -114,6 +110,8 @@ class NMF_Brain(sb.core.Brain):
         h *= g
         return torch.matmul(w, h), w, h / g
 
+    def add_stats(self, *args):
+        pass
 
     def fit_batch(self, batch):
         """Fit one batch, override to do multiple updates.
@@ -168,7 +166,6 @@ class NMF_Brain(sb.core.Brain):
         """
         return {"loss": float(sum(s["loss"] for s in stats) / len(stats))}
 
-
     def on_epoch_end(self, *args):
         """Gets called at the end of each epoch.
 
@@ -185,60 +182,80 @@ class NMF_Brain(sb.core.Brain):
             A sequence of strings that match keys in the summary. Lowest
             value is the relevant value.
         """
-        print('NMF training has finished')
+        print("NMF training has finished")
 
-    def separate():
 
-        X, W1, W2 = input_lst
+def separate(Whats, mixture_loader):
 
-        # concatenate all the inputs
-        X = X.permute(0, 2, 1)
-        X = X.reshape(-1, X.size(-1)).t()
+    W1, W2 = Whats
+    pdb.set_trace()
+    X = list(mixture_loader[0])[0][1]
+    X = params.compute_features(X, init_params=None)
 
-        m = X.shape[0]
-        n = X.shape[1]
-        eps = 1e-20
+    # concatenate all the inputs
+    X = X.permute(0, 2, 1)
+    X = X.reshape(-1, X.size(-1)).t()
 
-        # Normalize input
-        g = X.sum(dim=0) + eps
-        z = X / g
+    m = X.shape[0]
+    n = X.shape[1]
+    eps = 1e-20
 
-        # initialize
-        w = torch.cat([W1, W2], dim=1)
-        K = w.size(1)
-        K1 = W1.size(1)
-        K2 = W2.size(1)
+    # Normalize input
+    g = X.sum(dim=0) + eps
+    z = X / g
 
-        h = torch.rand(K, n) + 10
-        h /= torch.sum(h, dim=0) + eps
+    # initialize
+    w = torch.cat([W1, W2], dim=1)
+    K = w.size(1)
+    K1 = W1.size(1)
+    K2 = W2.size(1)
 
-        for ep in range(self.EP):
-            v = z / (torch.matmul(w, h) + eps)
+    h = torch.rand(K, n) + 10
+    h /= torch.sum(h, dim=0) + eps
 
-            nh = h * torch.matmul(w.t(), v)
-            h = nh / (torch.sum(nh, dim=0) + eps)
+    for ep in range(100):
+        v = z / (torch.matmul(w, h) + eps)
 
-            # Sparsity
-            # if sp > 0:
-            #    nh = nh + b*nh**(1.+sp)
+        nh = h * torch.matmul(w.t(), v)
+        h = nh / (torch.sum(nh, dim=0) + eps)
 
-            # Get estimate and normalize
+    h *= g
+    Xhat1 = torch.matmul(w[:, :K1], h[:K1, :])
+    Xhat1 = torch.split(Xhat1.unsqueeze(0), Xhat1.size(1) // 4, dim=2)
+    Xhat1 = torch.cat(Xhat1, dim=0)
 
-        h *= g
-        Xhat1 = torch.matmul(w[:, :K1], h[:K1, :])
-        Xhat1 = torch.split(Xhat1.unsqueeze(0), Xhat1.size(1) // 4, dim=2)
-        Xhat1 = torch.cat(Xhat1, dim=0)
+    Xhat2 = torch.matmul(w[:, K2:], h[K2:, :])
+    Xhat2 = torch.split(Xhat2.unsqueeze(0), Xhat2.size(1) // 4, dim=2)
+    Xhat2 = torch.cat(Xhat2, dim=0)
 
-        Xhat2 = torch.matmul(w[:, K2:], h[K2:, :])
-        Xhat2 = torch.split(Xhat2.unsqueeze(0), Xhat2.size(1) // 4, dim=2)
-        Xhat2 = torch.cat(Xhat2, dim=0)
+    return Xhat1, Xhat2
 
-        return Xhat1, Xhat2
 
-        
-    
-    
-NMF = NMF_Brain([], None)
+NMF1 = NMF_Brain([], None)
+print("fitting model 1")
+NMF1.fit(
+    train_set=params.train_loader1(), valid_set=None, epoch_counter=range(1)
+)
+W1hat = NMF1.training_out[1]
 
-NMF.fit(train_set=params.train_loader(), valid_set = None, epoch_counter=range(1))
-#asr_brain.evaluate(params.train_loader())
+NMF2 = NMF_Brain([], None)
+print("fitting model 2")
+NMF2.fit(
+    train_set=params.train_loader2(), valid_set=None, epoch_counter=range(1)
+)
+W2hat = NMF2.training_out[1]
+
+mixture_loader = params.test_loader()
+Xhat1, Xhat2 = separate([W1hat, W2hat], mixture_loader)
+
+# all_shat1s = []
+# all_shat2s = []
+# for i in range(Xhat1.shape[0]):
+#    Xhat1_stft = spectr_mix[i].numpy() * np.exp(np.complex(0,1)*phase_mix[i].numpy())
+#    Xhat2_stft = Xhat2[i].numpy() * np.exp(1j*phase_mix[i]).numpy()
+#
+#    shat1 = torch.from_numpy(lr.core.istft(Xhat1_stft)).unsqueeze(0)
+#    shat2 = torch.from_numpy(lr.core.istft(Xhat2_stft)).unsqueeze(0)
+# pdb.set_trace()
+
+# asr_brain.evaluate(params.train_loader())
