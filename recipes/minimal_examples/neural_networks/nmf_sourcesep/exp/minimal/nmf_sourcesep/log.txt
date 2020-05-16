@@ -1,0 +1,49 @@
+2020-05-15 20:45:52,669 - speechbrain.core - INFO - Beginning experiment!
+2020-05-15 20:45:52,669 - speechbrain.core - INFO - Experiment folder: exp/minimal/nmf_sourcesep
+2020-05-15 20:45:52,677 - speechbrain.core - DEBUG - Commit hash: '3513acf'
+2020-05-15 20:45:52,678 - speechbrain.data_io.data_io - WARNING - generate_data_dict is too complex, please fix!
+2020-05-15 20:45:52,678 - speechbrain.data_io.data_io - DEBUG - Creating dataloader for ../../../../samples/audio_samples/sourcesep_samples/minimal_data/csv_example_sourcesep_source1.csv
+2020-05-15 20:45:52,678 - speechbrain.data_io.data_io - DEBUG - Number of sentences: 2
+2020-05-15 20:45:52,678 - speechbrain.data_io.data_io - DEBUG - Total duration (hours): 0.00
+2020-05-15 20:45:52,678 - speechbrain.data_io.data_io - DEBUG - Average duration (seconds): 3.26
+2020-05-15 20:45:52,679 - speechbrain.data_io.data_io - WARNING - label_dict_creation is too complex, please fix
+2020-05-15 20:45:53,388 - speechbrain.data_io.data_io - WARNING - generate_data_dict is too complex, please fix!
+2020-05-15 20:45:53,388 - speechbrain.data_io.data_io - DEBUG - Creating dataloader for ../../../../samples/audio_samples/sourcesep_samples/minimal_data/csv_example_sourcesep_source2.csv
+2020-05-15 20:45:53,388 - speechbrain.data_io.data_io - DEBUG - Number of sentences: 2
+2020-05-15 20:45:53,388 - speechbrain.data_io.data_io - DEBUG - Total duration (hours): 0.00
+2020-05-15 20:45:53,388 - speechbrain.data_io.data_io - DEBUG - Average duration (seconds): 3.26
+2020-05-15 20:45:53,388 - speechbrain.data_io.data_io - WARNING - label_dict_creation is too complex, please fix
+2020-05-15 20:45:54,018 - speechbrain.data_io.data_io - WARNING - generate_data_dict is too complex, please fix!
+2020-05-15 20:45:54,018 - speechbrain.data_io.data_io - DEBUG - Creating dataloader for ../../../../samples/audio_samples/sourcesep_samples/minimal_data/csv_example_sourcesep_mixture.csv
+2020-05-15 20:45:54,018 - speechbrain.data_io.data_io - DEBUG - Number of sentences: 2
+2020-05-15 20:45:54,019 - speechbrain.data_io.data_io - DEBUG - Total duration (hours): 0.00
+2020-05-15 20:45:54,019 - speechbrain.data_io.data_io - DEBUG - Average duration (seconds): 3.26
+2020-05-15 20:45:54,019 - speechbrain.data_io.data_io - WARNING - label_dict_creation is too complex, please fix
+2020-05-15 20:45:54,022 - speechbrain.core - ERROR - Exception:
+Traceback (most recent call last):
+  File "experiment.py", line 246, in <module>
+    Xhat1, Xhat2 = separate([W1hat, W2hat], mixture_loader)
+  File "experiment.py", line 210, in separate
+    h = torch.rand(K, n) + 10
+NameError: name 'n' is not defined
+2020-05-15 20:46:04,001 - speechbrain.core - INFO - Beginning experiment!
+2020-05-15 20:46:04,001 - speechbrain.core - INFO - Experiment folder: exp/minimal/nmf_sourcesep
+2020-05-15 20:46:04,010 - speechbrain.core - DEBUG - Commit hash: '3513acf'
+2020-05-15 20:46:04,011 - speechbrain.data_io.data_io - WARNING - generate_data_dict is too complex, please fix!
+2020-05-15 20:46:04,011 - speechbrain.data_io.data_io - DEBUG - Creating dataloader for ../../../../samples/audio_samples/sourcesep_samples/minimal_data/csv_example_sourcesep_source1.csv
+2020-05-15 20:46:04,011 - speechbrain.data_io.data_io - DEBUG - Number of sentences: 2
+2020-05-15 20:46:04,011 - speechbrain.data_io.data_io - DEBUG - Total duration (hours): 0.00
+2020-05-15 20:46:04,011 - speechbrain.data_io.data_io - DEBUG - Average duration (seconds): 3.26
+2020-05-15 20:46:04,011 - speechbrain.data_io.data_io - WARNING - label_dict_creation is too complex, please fix
+2020-05-15 20:46:04,644 - speechbrain.data_io.data_io - WARNING - generate_data_dict is too complex, please fix!
+2020-05-15 20:46:04,644 - speechbrain.data_io.data_io - DEBUG - Creating dataloader for ../../../../samples/audio_samples/sourcesep_samples/minimal_data/csv_example_sourcesep_source2.csv
+2020-05-15 20:46:04,645 - speechbrain.data_io.data_io - DEBUG - Number of sentences: 2
+2020-05-15 20:46:04,645 - speechbrain.data_io.data_io - DEBUG - Total duration (hours): 0.00
+2020-05-15 20:46:04,645 - speechbrain.data_io.data_io - DEBUG - Average duration (seconds): 3.26
+2020-05-15 20:46:04,645 - speechbrain.data_io.data_io - WARNING - label_dict_creation is too complex, please fix
+2020-05-15 20:46:05,278 - speechbrain.data_io.data_io - WARNING - generate_data_dict is too complex, please fix!
+2020-05-15 20:46:05,278 - speechbrain.data_io.data_io - DEBUG - Creating dataloader for ../../../../samples/audio_samples/sourcesep_samples/minimal_data/csv_example_sourcesep_mixture.csv
+2020-05-15 20:46:05,278 - speechbrain.data_io.data_io - DEBUG - Number of sentences: 2
+2020-05-15 20:46:05,278 - speechbrain.data_io.data_io - DEBUG - Total duration (hours): 0.00
+2020-05-15 20:46:05,278 - speechbrain.data_io.data_io - DEBUG - Average duration (seconds): 3.26
+2020-05-15 20:46:05,278 - speechbrain.data_io.data_io - WARNING - label_dict_creation is too complex, please fix
