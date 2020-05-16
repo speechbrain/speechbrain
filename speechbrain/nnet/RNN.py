@@ -86,6 +86,13 @@ class RNN(torch.nn.Module):
         if len(first_input.shape) > 3:
             self.reshape = True
 
+        if len(first_input.shape) > 4:
+            err_msg = (
+                "Class RNN doesn't support tensors with more that 4 dimensions. Got %i"
+                % (str(len(first_input.shape)))
+            )
+            raise ValueError(err_msg)
+
         # Computing the feature dimensionality
         self.fea_dim = torch.prod(torch.tensor(first_input.shape[2:]))
 
@@ -298,9 +305,7 @@ class LiGRU_Layer(torch.jit.ScriptModule):
         )
 
         # Initilizing dropout
-        self.drop = torch.nn.Dropout(p=self.dropout, inplace=False).to(
-            self.device
-        )
+        self.drop = torch.nn.Dropout(p=self.dropout, inplace=False).to(device)
 
         self.drop_mask_te = torch.tensor([1.0], device=self.device).float()
 
@@ -375,15 +380,12 @@ class LiGRU_Layer(torch.jit.ScriptModule):
         """Selects one of the pre-defined dropout masks
         """
         if self.training:
-            drop_mask = (
-                self.drop(torch.ones(x.shape[0], self.hidden_size,))
-                .to(self.device)
-                .data
+            drop_mask = self.drop(
+                torch.ones(x.shape[0], self.hidden_size, device=self.device)
             )
 
         else:
             drop_mask = self.drop_mask_te
-
         return drop_mask
 
 
