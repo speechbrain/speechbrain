@@ -11,7 +11,6 @@ from speechbrain.data_io.data_io import (
     read_wav_soundfile,
     load_pkl,
     save_pkl,
-    write_txt_file,
 )
 
 logger = logging.getLogger(__name__)
@@ -42,13 +41,20 @@ class LibriSpeechPreparer:
     """
 
     def __init__(
-        self, data_folder, splits, save_folder, select_n_sentences=None
+        self,
+        data_folder,
+        splits,
+        save_folder,
+        select_n_sentences=None,
+        use_lexicon=False,
     ):
         super().__init__()
         self.data_folder = data_folder
         self.splits = splits
         self.save_folder = save_folder
         self.select_n_sentences = select_n_sentences
+        self.use_lexicon = use_lexicon
+
         # Other variables
         self.samplerate = 16000
         # Saving folder
@@ -56,6 +62,11 @@ class LibriSpeechPreparer:
             os.makedirs(self.save_folder)
 
         self.save_opt = self.save_folder + "/opt_librispeech_prepare.pkl"
+
+        if use_lexicon:
+            self.lexicon_dict = self.read_lexicon(
+                self.data_folder + "/librispeech-lexicon.txt"
+            )
 
         # Check if this phase is already done (if so, skip it)
         if self.skip():
@@ -91,7 +102,31 @@ class LibriSpeechPreparer:
             self.create_csv(wav_lst, text_dict, split, select_n_sentences)
 
         # saving options
-        save_pkl(self.conf, self.save_opt)
+        # save_pkl(self.conf, self.save_opt)
+
+    def read_lexicon(self, lexicon_path):
+        """
+        Read the lexicon into a dictionary.
+        Download link: http://www.openslr.org/resources/11/librispeech-lexicon.txt
+        Arguments
+        ---------
+        lexicon_path : string
+            The path of the lexicon.
+        """
+        if not os.path.exists(lexicon_path):
+            err_msg = (
+                f"Lexicon path {lexicon_path} does not exist."
+                "Link: http://www.openslr.org/resources/11/librispeech-lexicon.txt"
+            )
+            raise OSError(err_msg)
+
+        lexicon_dict = {}
+
+        with open(lexicon_path, "r") as f:
+            for line in f:
+                line_lst = line.split()
+                lexicon_dict[line_lst[0]] = " ".join(line_lst[1:])
+        return lexicon_dict
 
     def __call__(self, inp):
         return
@@ -115,7 +150,6 @@ class LibriSpeechPreparer:
         -------
         None
         """
-
         # Setting path for the csv file
         csv_file = self.save_folder + "/" + split + ".csv"
 
@@ -123,35 +157,71 @@ class LibriSpeechPreparer:
         msg = "\tCreating csv lists in  %s..." % (csv_file)
         logger.debug(msg)
 
-        csv_lines = []
-        snt_cnt = 0
+        csv_lines = [
+            [
+                "ID",
+                "duration",
+                "wav",
+                "wav_format",
+                "wav_opts",
+                "spk_id",
+                "spk_id_format",
+                "spk_id_opts",
+                "wrd",
+                "wrd_format",
+                "wrd_opts",
+                "char",
+                "char_format",
+                "char_opts",
+            ]
+        ]
 
+        # add phn column when there is a lexicon.
+        if self.use_lexicon:
+            csv_lines[0] += ["phn", "phn_format", "phn_opts"]
+
+        snt_cnt = 0
         # Processing all the wav files in wav_lst
         for wav_file in wav_lst:
 
             snt_id = wav_file.split("/")[-1].replace(".flac", "")
             spk_id = "-".join(snt_id.split("-")[0:2])
-            wrd = text_dict[snt_id]
+            wrds = text_dict[snt_id]
 
             signal = read_wav_soundfile(wav_file)
             duration = signal.shape[0] / self.samplerate
 
-            # Composing the csv file
-            csv_line = (
-                "ID="
-                + snt_id
-                + " duration="
-                + str(duration)
-                + " wav=("
-                + wav_file
-                + ",flac)"
-                + " spk_id=("
-                + spk_id
-                + ",string)"
-                + " wrd=("
-                + wrd
-                + ",string)"
-            )
+            # replace space to <space> token
+            chars_lst = [c for c in wrds]
+            chars = " ".join(chars_lst)
+
+            csv_line = [
+                snt_id,
+                str(duration),
+                wav_file,
+                "flac",
+                "",
+                spk_id,
+                "string",
+                "",
+                str(" ".join(wrds.split("_"))),
+                "string",
+                "",
+                str(chars),
+                "string",
+                "",
+            ]
+
+            if self.use_lexicon:
+                # skip words not in the lexicon
+                phns = " ".join(
+                    [
+                        self.lexicon_dict[wrd]
+                        for wrd in wrds.split("_")
+                        if wrd in self.lexicon_dict
+                    ]
+                )
+                csv_line += [str(phns), "string", ""]
 
             #  Appending current file to the csv_lines list
             csv_lines.append(csv_line)
@@ -161,7 +231,13 @@ class LibriSpeechPreparer:
                 break
 
         # Writing the csv_lines
-        write_txt_file(csv_lines, csv_file)
+        with open(csv_file, mode="w") as csv_f:
+            csv_writer = csv.writer(
+                csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
+            )
+
+            for line in csv_lines:
+                csv_writer.writerow(line)
 
         # Final print
         msg = "\t%s sucessfully created!" % (csv_file)
