@@ -1,9 +1,8 @@
 # Basic parameters
-output_folder: results
 sample_rate: 16000
 
 # Data files
-data_folder: ../../../../samples/audio_samples/nn_training_samples/
+data_folder: !PLACEHOLDER
 csv_train: !ref <data_folder>/train.csv
 csv_valid: !ref <data_folder>/dev.csv
 csv_test: !ref <data_folder>/test.csv
@@ -50,10 +49,10 @@ softmax: !speechbrain.nnet.activations.Softmax
     apply_log: True
 
 compute_cost: !speechbrain.nnet.losses.ComputeCost
-    cost_type: [nll]
+    cost_type: nll
 
 compute_error: !speechbrain.nnet.losses.ComputeCost
-    cost_type: [error]
+    cost_type: error
 
 optimizer: !speechbrain.nnet.optimizers.Optimize
     optimizer_type: adam

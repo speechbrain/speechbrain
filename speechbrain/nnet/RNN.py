@@ -206,7 +206,7 @@ class LiGRU(torch.jit.ScriptModule):
             if bidirectional:
                 current_dim = hidden_size * 2
             else:
-                current_dim == hidden_size
+                current_dim = hidden_size
 
     @torch.jit.script_method
     def forward(self, x):

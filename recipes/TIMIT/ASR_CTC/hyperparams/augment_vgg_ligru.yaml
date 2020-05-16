@@ -1,13 +1,14 @@
 # ################################
 # Model: VGG2 + LiGRU with time pooling for efficiency
-# Author: Mirco Ravanelli 2020
+# Additions: TimeDomainSpecAugment
+# Authors: Mirco Ravanelli & Peter Plantinga 2020
 # ################################
 
 data_folder: !PLACEHOLDER  # e.g. /path/to/TIMIT
 ckpts_to_keep: 1
 sample_rate: 16000
 seed: !PLACEHOLDER  # e.g, 1234
-output_folder: !ref results/vgg_ligru/<seed>
+output_folder: !ref results/augment_vgg_ligru/<seed>
 predictions_file: !ref <output_folder>/predictions.csv
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
@@ -19,7 +20,7 @@ csv_valid: !ref <data_folder>/dev.csv
 csv_test: !ref <data_folder>/test.csv
 
 # Neural Parameters
-number_of_epochs: 25
+number_of_epochs: 30
 batch_size: 8
 lr: 1.0
 dropout_rate: 0.15
@@ -60,6 +61,7 @@ normalize: !speechbrain.processing.features.InputNormalization
 epoch_counter: !speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
+augmentation: !speechbrain.lobes.augment.tdsa.TimeDomainSpecAugment
 compute_features: !speechbrain.lobes.features.fbank.Fbank
 
 train_loader: !speechbrain.data_io.data_io.DataLoaderFactory
