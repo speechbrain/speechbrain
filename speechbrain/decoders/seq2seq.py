@@ -35,16 +35,13 @@ class BaseSearcher(torch.nn.Module):
 
     Example
     -------
-        >>> searcher = BaseSearcher()
+        >>> searcher = BaseSearcher(modules=[rnn_dec, linear])
         >>> probs = torch.tensor([[[0.3, 0.7], [0.0, 0.0]],
         ...                       [[0.2, 0.8], [0.9, 0.1]]])
         >>> lens = torch.tensor([0.51, 1.0])
         >>> blank_id = 0
         >>> ctc_greedy_decode(probs, lens, blank_id)
         [[1], [1]]
-
-    Author:
-        Aku Rouhe 2020
     """
 
     def __init__(
@@ -328,6 +325,31 @@ class RNNBeamSearcher(BeamSearcher):
 
 
 def batch_filter_seq2seq_output(prediction, eos_id=-1):
+    """Calling batch_size times of filter_seq2seq_output.
+
+    Parameters
+    ----------
+    prediction : list of torch.Tensor
+        a list containing the output ints predicted by the seq2seq system.
+    eos_id : int, string
+        the id of the eos.
+
+    Returns
+    ------
+    list
+        The output predicted by seq2seq model.
+
+    Example
+    -------
+        >>> predictions = [torch.IntTensor([1,2,3,4]), torch.IntTensor([2,3,4,5,6])]
+        >>> predictions = batch_filter_seq2seq_output(predictions, eos_id='eos')
+        >>> print(predictions)
+        [[1, 2, 3], [2, 3]]
+
+    Author
+    ------
+        Ju-Chieh Chou 2020
+    """
     outputs = []
     for p in prediction:
         res = filter_seq2seq_output(p.tolist(), eos_id=eos_id)
@@ -336,33 +358,30 @@ def batch_filter_seq2seq_output(prediction, eos_id=-1):
 
 
 def filter_seq2seq_output(string_pred, eos_id=-1):
-    """Apply CTC output merge and filter rules.
-
-    Removes the blank symbol and output repetitions.
+    """Filter the output until the first eos occurs (exclusive).
 
     Parameters
     ----------
     string_pred : list
-        a list containing the output strings/ints predicted by the CTC system
-    blank_id : int, string
-        the id of the blank
+        a list containing the output strings/ints predicted by the seq2seq system.
+    eos_id : int, string
+        the id of the eos.
 
     Returns
     ------
     list
-          The output predicted by CTC without the blank symbol and
-          the repetitions
+        The output predicted by seq2seq model.
 
     Example
     -------
-        >>> string_pred = ['a','a','blank','b','b','blank','c']
-        >>> string_out = filter_ctc_output(string_pred, blank_id='blank')
+        >>> string_pred = ['a','b','c','d','eos','e']
+        >>> string_out = filter_ctc_output(string_pred, eos_id='eos')
         >>> print(string_out)
-        ['a', 'b', 'c']
+        ['a', 'b', 'c', 'd']
 
     Author
     ------
-        Mirco Ravanelli 2020
+        Ju-Chieh Chou 2020
     """
     if isinstance(string_pred, list):
         try:

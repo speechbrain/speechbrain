@@ -128,7 +128,7 @@ class LibriSpeechPreparer:
                 lexicon_dict[line_lst[0]] = " ".join(line_lst[1:])
         return lexicon_dict
 
-    def __call__(self, inp):
+    def __call__(self):
         return
 
     def create_csv(self, wav_lst, text_dict, split, select_n_sentences):
