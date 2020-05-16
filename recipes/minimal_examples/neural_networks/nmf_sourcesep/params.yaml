@@ -8,11 +8,9 @@ csv_train: !ref <data_folder>/csv_example_sourcesep_source1.csv
 csv_train2: !ref <data_folder>/csv_example_sourcesep_source2.csv
 csv_test: !ref <data_folder>/csv_example_sourcesep_mixture.csv
 
-#csv_valid: !ref <data_folder>/csv_example_sourcesep.csv
-
 # NMF parameters
 N_epochs: 200
-K: 100 
+K: 100
 N_batch: 100
 
 train_loader1: !speechbrain.data_io.data_io.DataLoaderFactory &loader
@@ -40,42 +38,6 @@ test_loader: !speechbrain.data_io.data_io.DataLoaderFactory &loader
        $data_folder: !ref <data_folder>
 
 
-
-
-#valid_loader: !speechbrain.data_io.data_io.DataLoaderFactory
-#    <<: *loader
-#    csv_file: !ref <csv_valid>
-
-        #test_loader: !speechbrain.data_io.data_io.DataLoaderFactory
-        #<<: *loader
-        #csv_file: !ref <csv_test>
-        #batch_size: 1
-
 compute_features: !speechbrain.lobes.features.fbank.Fbank
     feature_type: spectrogram
 
-#mean_var_norm: !speechbrain.processing.features.mean_var_norm
-    #norm_type: global
-
-    #linear1: !speechbrain.nnet.linear.Linear
-    #n_neurons: 1024
-    #bias: False
-
-    #activation: !torch.nn.LeakyReLU
-
-    #linear2: !speechbrain.nnet.linear.Linear
-    #n_neurons: 43
-    #bias: False
-
-    #softmax: !speechbrain.nnet.activations.Softmax
-    #apply_log: True
-
-    #compute_cost: !speechbrain.nnet.losses.ComputeCost
-    #cost_type: [nll]
-
-    #compute_error: !speechbrain.nnet.losses.ComputeCost
-    #cost_type: [error]
-
-    #optimizer: !speechbrain.nnet.optimizers.Optimize
-    #optimizer_type: adam
-    #learning_rate: !ref <lr>

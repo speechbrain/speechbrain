@@ -1,0 +1,46 @@
+# Generated 2020-05-15 from:
+# /home/user1/Dropbox/speechbrain/recipes/minimal_examples/neural_networks/nmf_sourcesep/params.yaml
+# yamllint disable
+# Basic parameters
+output_folder: exp/minimal/nmf_sourcesep
+sample_rate: 16000
+
+# Data files
+data_folder: ../../../../samples/audio_samples/sourcesep_samples/minimal_data
+csv_train: ../../../../samples/audio_samples/sourcesep_samples/minimal_data/csv_example_sourcesep_source1.csv
+csv_train2: ../../../../samples/audio_samples/sourcesep_samples/minimal_data/csv_example_sourcesep_source2.csv
+csv_test: ../../../../samples/audio_samples/sourcesep_samples/minimal_data/csv_example_sourcesep_mixture.csv
+
+# NMF parameters
+N_epochs: 200
+K: 100
+N_batch: 100
+
+train_loader1: !speechbrain.data_io.data_io.DataLoaderFactory
+  csv_file: ../../../../samples/audio_samples/sourcesep_samples/minimal_data/csv_example_sourcesep_source1.csv
+  batch_size: 100
+  csv_read: [wav]
+  output_folder: exp/minimal/nmf_sourcesep
+  replacements:
+    $data_folder: ../../../../samples/audio_samples/sourcesep_samples/minimal_data
+
+train_loader2: !speechbrain.data_io.data_io.DataLoaderFactory
+  csv_file: ../../../../samples/audio_samples/sourcesep_samples/minimal_data/csv_example_sourcesep_source2.csv
+  batch_size: 100
+  csv_read: [wav]
+  output_folder: exp/minimal/nmf_sourcesep
+  replacements:
+    $data_folder: ../../../../samples/audio_samples/sourcesep_samples/minimal_data
+
+test_loader: !speechbrain.data_io.data_io.DataLoaderFactory
+  csv_file: ../../../../samples/audio_samples/sourcesep_samples/minimal_data/csv_example_sourcesep_mixture.csv
+  batch_size: 100
+  csv_read: [wav]
+  output_folder: exp/minimal/nmf_sourcesep
+  replacements:
+    $data_folder: ../../../../samples/audio_samples/sourcesep_samples/minimal_data
+
+
+compute_features: !speechbrain.lobes.features.fbank.Fbank
+  feature_type: spectrogram
+
