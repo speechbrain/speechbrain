@@ -309,10 +309,7 @@ class LiGRU_Layer(torch.jit.ScriptModule):
 
         # Initial state
         self.h_init = torch.zeros(
-            self.batch_size,
-            self.hidden_size,
-            requires_grad=False,
-            device=self.device,
+            1, self.hidden_size, requires_grad=False, device=self.device,
         )
 
         # Preloading dropout masks (gives some speed improvement)
@@ -389,16 +386,6 @@ class LiGRU_Layer(torch.jit.ScriptModule):
         h = torch.stack(hiddens, dim=1)
         return h
 
-    def _init_h(self, batch_size):
-        """Initializes the initial state h_0 with zeros.
-        """
-        self.h_init = torch.zeros(
-            batch_size,
-            self.hidden_size,
-            requires_grad=False,
-            device=self.device,
-        )
-
     def _init_drop(self, batch_size):
         """Initializes the recurrent dropout operation. To speed it up,
         the dropout masks are sampled in advance.
@@ -408,7 +395,7 @@ class LiGRU_Layer(torch.jit.ScriptModule):
         )
         self.drop_mask_te = torch.tensor([1.0], device=self.device).float()
 
-        self.N_drop_masks = 5
+        self.N_drop_masks = 2000
         self.drop_mask_cnt = 0
 
         self.drop_masks = self.drop(
@@ -460,17 +447,16 @@ class LiGRU_Layer(torch.jit.ScriptModule):
         """
         if self.batch_size != x.shape[0]:
             self.batch_size = x.shape[0]
-            self.h_init = torch.zeros(
-                self.batch_size, self.hidden_size, device=self.device,
-            )
-            self.drop_masks = self.drop(
-                torch.ones(
-                    self.N_drop_masks,
-                    self.batch_size,
-                    self.hidden_size,
-                    device=self.device,
-                )
-            ).data
+
+            if self.training:
+                self.drop_masks = self.drop(
+                    torch.ones(
+                        self.N_drop_masks,
+                        self.batch_size,
+                        self.hidden_size,
+                        device=self.device,
+                    )
+                ).data
 
 
 def init_rnn_module(module):
