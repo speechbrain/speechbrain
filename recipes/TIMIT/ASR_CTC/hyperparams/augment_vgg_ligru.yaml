@@ -30,7 +30,6 @@ device: 'cuda:0'
 
 # Functions
 model: !speechbrain.lobes.models.CRDNN.CRDNN
-    output_size: 40  # 39 phonemes + 1 blank symbol
     cnn_blocks: 2
     dnn_blocks: 2
     rnn_overrides: {rnn: {rnn_type: ligru}}
