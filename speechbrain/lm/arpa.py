@@ -22,7 +22,6 @@ E.G.
     \end\
     ```
 """
-import pathlib
 import collections
 
 ArpaProb = collections.namedtuple("ArpaProb", ["prob", "backoff"])
@@ -31,16 +30,19 @@ An ARPA LM probability, with prob and backoff
 """
 
 
-def read_arpa(filepath):
-    path = pathlib.Path(filepath)
-    with path.open() as fin:
-        find_data_section(fin)
-        num_ngrams = read_num_ngrams(fin)
-        ngrams_by_order = {}
-        for order in num_ngrams:
-            ngrams_by_order[order] = read_ngrams_section(fin, order)
-        read_end(fin)
-    return num_ngrams, ngrams_by_order
+def read_arpa(fin):
+    find_data_section(fin)
+    num_ngrams = read_num_ngrams(fin)
+    ngrams_by_order = {}
+    backoffs_by_order = {}
+    for order in num_ngrams:
+        probs, backoffs = read_ngrams_section(fin, order)
+        ngrams_by_order[order] = probs
+        backoffs_by_order[order] = backoffs
+        # num_grams = sum(len(probs[context]) for context in probs)
+        # assert num_grams == num_ngrams[order]
+    read_end(fin)
+    return num_ngrams, ngrams_by_order, backoffs_by_order
 
 
 def find_data_section(fstream):
@@ -70,22 +72,27 @@ def read_ngrams_section(fstream, order):
     section_header = fstream.readline()
     if not section_header.startswith(f"\\{order}-grams:"):
         raise ValueError("Not a properly formatted ARPA file")
-    ngrams = {}
+    probs = {}
+    backoffs = {}
     for line in fstream:
         if not line.strip():
             break
         parts = line.strip().split()
         prob = float(parts[0])
         if len(parts[1:]) == order + 1:
-            ngram = tuple(parts[1:-1])
+            context = tuple(parts[1:-2])
+            token = parts[-2]
             backoff = float(parts[-1])
         elif len(parts[1:]) == order:
-            ngram = tuple(parts[1:])
+            context = tuple(parts[1:-1])
+            token = parts[-1]
             backoff = 0.0
         else:
             raise ValueError("Not a properly formatted ARPA file")
-        ngrams[ngram] = ArpaProb(prob, backoff)
-    return ngrams
+        backoff_context = context + (token,)
+        probs.setdefault(context, {})[token] = prob
+        backoffs[backoff_context] = backoff
+    return probs, backoffs
 
 
 def read_end(fstream):
