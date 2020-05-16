@@ -1,34 +1,21 @@
-# Basic parameters
-output_folder: results
+data_folder: ../../..//samples/voxceleb_samples/
+ckpts_to_keep: 1
 sample_rate: 16000
-seed: 1234
+seed: 1234 # !PLACEHOLDER  # e.g, 1234
+output_folder: !ref results/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
 
-# Data files
-data_folder: ../../../samples/voxceleb_samples/
+# Data (csv) files
 csv_train: !ref <data_folder>/train.csv
 csv_valid: !ref <data_folder>/dev.csv
 csv_test: !ref <data_folder>/test.csv
-save_folder: !ref <output_folder>
-device: "cpu"
 
 # Neural Parameters
-N_batch: 2
+number_of_epochs: 2
+batch_size_: 2
 lr: 0.1
-number_of_epochs: 1
-
-model: !speechbrain.lobes.models.Xvector.Xvector
-    output_size: 2  # number of speakers
-    tdnn_blocks: 1
-    tdnn_stats_pool_blocks: 1
-    tdnn_lin_blocks: 1
-
-normalize: !speechbrain.processing.features.InputNormalization
-    norm_type: global
-
-#prepare_voxceleb: !speechbrain.data_io.data_preparation.VoxCelebPreparer
-    #data_folder: !ref <data_folder>
-    #splits: [train, dev, test]
-    #save_folder: !ref <data_folder>
+device: "cpu"
 
 compute_features: !speechbrain.lobes.features.mfcc.MFCC
     n_mels: 23
@@ -37,10 +24,29 @@ compute_features: !speechbrain.lobes.features.mfcc.MFCC
     right_frames: 0
     deltas: False
 
+epoch_counter: !speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+model: !speechbrain.lobes.models.Xvector.Xvector
+    output_size: 2  # number of speakers
+    tdnn_blocks: 1
+    tdnn_stats_pool_blocks: 1
+    tdnn_lin_blocks: 1
+
+output: !speechbrain.nnet.linear.Linear
+    n_neurons: 2
+    bias: True
+
+log_softmax: !speechbrain.nnet.activations.Softmax
+    apply_log: True
+
+normalize: !speechbrain.processing.features.InputNormalization
+    norm_type: global
+
 train_loader: !speechbrain.data_io.data_io.DataLoaderFactory
     &loader
     csv_file: !ref <csv_train>
-    batch_size: !ref <N_batch>
+    batch_size: !ref <batch_size_>
     csv_read: [wav, spk_id]
     output_folder: !ref <output_folder>
     replacements:
@@ -71,10 +77,10 @@ softmax: !speechbrain.nnet.activations.Softmax
     apply_log: True
 
 compute_cost: !speechbrain.nnet.losses.ComputeCost
-    cost_type: [nll]
+    cost_type: nll
 
 compute_error: !speechbrain.nnet.losses.ComputeCost
-    cost_type: [error]
+    cost_type: error
 
 optimizer: !speechbrain.nnet.optimizers.Optimize
     optimizer_type: adam
