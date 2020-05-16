@@ -8,6 +8,7 @@ csv_train: !ref <data_folder>/csv_example_sourcesep_source1.csv
 csv_train2: !ref <data_folder>/csv_example_sourcesep_source2.csv
 csv_test: !ref <data_folder>/csv_example_sourcesep_mixture.csv
 
+
 # NMF parameters
 N_epochs: 200
 K: 100
@@ -22,22 +23,20 @@ train_loader1: !speechbrain.data_io.data_io.DataLoaderFactory &loader
      $data_folder: !ref <data_folder>
 
 train_loader2: !speechbrain.data_io.data_io.DataLoaderFactory &loader
-    csv_file: !ref <csv_train2>
-    batch_size: !ref <N_batch>
-    csv_read: [wav]
-    output_folder: !ref <output_folder>
-    replacements:
-     $data_folder: !ref <data_folder>
+ csv_file: !ref <csv_train2>
+ batch_size: !ref <N_batch>
+ csv_read: [wav]
+ output_folder: !ref <output_folder>
+ replacements:
+  $data_folder: !ref <data_folder>
 
 test_loader: !speechbrain.data_io.data_io.DataLoaderFactory &loader
-     csv_file: !ref <csv_test>
-     batch_size: !ref <N_batch>
-     csv_read: [wav]
-     output_folder: !ref <output_folder>
-     replacements:
-       $data_folder: !ref <data_folder>
-
+ csv_file: !ref <csv_test>
+ batch_size: !ref <N_batch>
+ csv_read: [wav]
+ output_folder: !ref <output_folder>
+ replacements:
+  $data_folder: !ref <data_folder>
 
 compute_features: !speechbrain.lobes.features.fbank.Fbank
-    feature_type: spectrogram
-
+ feature_type: spectrogram
