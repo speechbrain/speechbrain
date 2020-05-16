@@ -304,6 +304,20 @@ class LiGRU_Layer(torch.jit.ScriptModule):
             device
         )
 
+        if self.bidirectional:
+            self.batch_size = self.batch_size * 2
+
+        # Initial state
+        self.h_init = torch.zeros(
+            self.batch_size,
+            self.hidden_size,
+            requires_grad=False,
+            device=self.device,
+        )
+
+        # Preloading dropout masks (gives some speed improvement)
+        self._init_drop(self.batch_size)
+
         # Initilizing dropout
         self.drop = torch.nn.Dropout(p=self.dropout, inplace=False).to(device)
 
@@ -311,13 +325,6 @@ class LiGRU_Layer(torch.jit.ScriptModule):
 
         # Setting the activation function
         self.act = torch.nn.ReLU().to(device)
-
-    @torch.jit.script_method
-    def _init_h(self, x):
-        """Initializes the initial state h_0 with zeros.
-        """
-        h_init = torch.zeros(x.shape[0], self.hidden_size, device=self.device,)
-        return h_init
 
     @torch.jit.script_method
     def forward(self, x):
@@ -330,6 +337,9 @@ class LiGRU_Layer(torch.jit.ScriptModule):
         if self.bidirectional:
             x_flip = x.flip(1)
             x = torch.cat([x, x_flip], dim=0)
+
+        # Change batch size if needed
+        self.change_batch_size(x)
 
         # Feed-forward affine transformations (all steps in parallel)
         w = self.w(x)
@@ -359,8 +369,12 @@ class LiGRU_Layer(torch.jit.ScriptModule):
             Linearly transformed input.
         """
         hiddens = []
-        ht = self._init_h(w)
-        drop_mask = self._sample_drop_mask(w)
+
+        # Managing initial state
+        ht = self.h_init
+
+        # Sampling dropout mask
+        drop_mask = self._sample_drop_mask()
 
         # Loop over time axis
         for k in range(w.shape[1]):
@@ -375,18 +389,88 @@ class LiGRU_Layer(torch.jit.ScriptModule):
         h = torch.stack(hiddens, dim=1)
         return h
 
+    def _init_h(self, batch_size):
+        """Initializes the initial state h_0 with zeros.
+        """
+        self.h_init = torch.zeros(
+            batch_size,
+            self.hidden_size,
+            requires_grad=False,
+            device=self.device,
+        )
+
+    def _init_drop(self, batch_size):
+        """Initializes the recurrent dropout operation. To speed it up,
+        the dropout masks are sampled in advance.
+        """
+        self.drop = torch.nn.Dropout(p=self.dropout, inplace=False).to(
+            self.device
+        )
+        self.drop_mask_te = torch.tensor([1.0], device=self.device).float()
+
+        self.N_drop_masks = 5
+        self.drop_mask_cnt = 0
+
+        self.drop_masks = self.drop(
+            torch.ones(
+                self.N_drop_masks,
+                batch_size,
+                self.hidden_size,
+                device=self.device,
+            )
+        ).data
+
     @torch.jit.script_method
-    def _sample_drop_mask(self, x):
+    def _sample_drop_mask(self,):
         """Selects one of the pre-defined dropout masks
         """
         if self.training:
-            drop_mask = self.drop(
-                torch.ones(x.shape[0], self.hidden_size, device=self.device)
-            )
+
+            # Sample new masks when needed
+            if self.drop_mask_cnt >= self.N_drop_masks:
+                self.drop_mask_cnt = 0
+
+                self.drop_masks = (
+                    self.drop(
+                        torch.ones(
+                            self.N_drop_masks,
+                            self.batch_size,
+                            self.hidden_size,
+                        )
+                    )
+                    .to(self.device)
+                    .data
+                )
+
+            # Sampling the mask
+            drop_mask = self.drop_masks[self.drop_mask_cnt]
+            self.drop_mask_cnt = self.drop_mask_cnt + 1
 
         else:
             drop_mask = self.drop_mask_te
+
         return drop_mask
+
+    @torch.jit.script_method
+    def change_batch_size(self, x):
+        """This function changes the batch size when it is different from
+        the one detected in the initialization method. This might happen in
+        the case of multi-gpu or when we have different batch sizes in train
+        and test. We also update the h_int and drop masks.
+        """
+        if self.batch_size != x.shape[0]:
+            self.batch_size = x.shape[0]
+            self.h_init = torch.zeros(
+                self.batch_size, self.hidden_size, device=self.device,
+            )
+            self.drop_masks = self.drop(
+                torch.ones(
+                    self.N_drop_masks,
+                    self.batch_size,
+                    self.hidden_size,
+                    device=self.device,
+                )
+            ).data
 
 
 def init_rnn_module(module):
