@@ -14,10 +14,10 @@ csv_valid: !ref <data_folder>/dev.csv
 csv_test: !ref <data_folder>/test.csv
 
 # Neural Parameters
-number_of_epochs: 50
-batch_size: 16
+number_of_epochs: 30
+batch_size: 8
 lr: 0.001
-weight_decay: 0.0001
+weight_decay: 0.000001
 dropout_rate: 0.15
 ctc_weight: 0.2
 n_mels: 40
@@ -35,7 +35,7 @@ min_decode_ratio: 0.0
 max_decode_ratio: 1.0
 beam_size: 16
 length_penalty: 0.2
-eos_penalty: 1.5
+eos_penalty: 2
 
 device: 'cuda:0'
 

@@ -10,31 +10,32 @@ import numpy as np
 
 class BaseSearcher(torch.nn.Module):
     """
-    Greedy decode a batch of probabilities and apply CTC rules
+    BaseSearcher class to be inherit by other decoding approches for seq2seq model.
 
     Parameters
     ----------
-    probabilities : torch.tensor
-        Output probabilities (or log-probabilities) from network with shape
-        [batch, probabilities, time]
-    seq_lens : torch.tensor
-        Relative true sequence lengths (to deal with padded inputs),
-        longest sequence has length 1.0, others a value betwee zero and one
-        shape [batch, lengths]
-    blank_id : int, string
-        The blank symbol/index. Default: -1. If a negative number is given,
-        it is assumed to mean counting down from the maximum possible index,
-        so that -1 refers to the maximum possible index.
+    modules : torch.nn.Module
+        The modules that are used to perform auto-regressive decoding.
+    bos_index : int
+        The index of beginning-of-sequence token.
+    eos_index : int
+        The index of end-of-sequence token.
+    min_decode_radio : float
+        The ratio of minimum decoding steps to length of encoder states.
+    max_decode_radio : float
+        The ratio of maximum decoding steps to length of encoder states.
 
     Returns
     -------
-    list
+    predictions:
         Outputs as Python list of lists, with "ragged" dimensions; padding
         has been removed.
+    scores:
+        The sum of log probabilities (and possible additional heuristic scores) for each prediction.
 
     Example
     -------
-        >>> import torch
+        >>> searcher = BaseSearcher()
         >>> probs = torch.tensor([[[0.3, 0.7], [0.0, 0.0]],
         ...                       [[0.2, 0.8], [0.9, 0.1]]])
         >>> lens = torch.tensor([0.51, 1.0])

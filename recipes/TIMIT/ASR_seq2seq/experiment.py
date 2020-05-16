@@ -100,11 +100,11 @@ modules = torch.nn.ModuleList(
 )
 
 # searcher = RNNGreedySearcher(
-#    modules=[params.rnn_dec, params.seq_linear],
-#    bos_index=params.bos_index,
-#    eos_index=params.eos_index,
-#    min_decode_ratio=0,
-#    max_decode_ratio=1,
+#   modules=[params.rnn_dec, params.seq_linear],
+#   bos_index=params.bos_index,
+#   eos_index=params.eos_index,
+#   min_decode_ratio=0,
+#   max_decode_ratio=1,
 # )
 searcher = RNNBeamSearcher(
     modules=[params.rnn_dec, params.seq_linear],
@@ -154,7 +154,7 @@ class ASR(sb.core.Brain):
         p_seq = params.softmax(logits)
 
         if not train:
-            hyps = searcher(x, wav_lens)
+            hyps, scores = searcher(x, wav_lens)
             return p_ctc, p_seq, wav_lens, hyps
 
         return p_ctc, p_seq, wav_lens
@@ -163,7 +163,7 @@ class ASR(sb.core.Brain):
         if train:
             p_ctc, p_seq, wav_lens = predictions
         else:
-            p_ctc, p_seq, wav_lens, (hyps, scores) = predictions
+            p_ctc, p_seq, wav_lens, hyps = predictions
 
         ids, phns, phn_lens = targets
         phns, phn_lens = phns.to(params.device), phn_lens.to(params.device)
