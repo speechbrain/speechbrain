@@ -4,7 +4,6 @@ Author
     Mirco Ravanelli 2020, Ju-Chieh Chou 2020
 """
 
-import math
 import torch
 import logging
 import torch.nn as nn
@@ -27,14 +26,23 @@ class RNN(torch.nn.Module):
     n_neurons: int
         Number of output neurons (i.e, the dimensionality of the output).
         values (i.e, time and frequency kernel sizes respectively).
-     nonlinearity: str
-         Type of nonlinearity (tanh, relu).
+    nonlinearity: str
+         Type of nonlinearity (tanh, relu). This option is active for
+         rnn and ligru models only. For lstm and gru tanh is used.
+    normalization: str
+         Type of normalization for the ligru model (batchnorm, layernorm).
+         Every string different from batchnorm and layernorm will result
+         in no normalization.
     num_layers: int
          Number of layers to employ in the RNN architecture.
     bias: bool
         If True, the additive bias b is adopted.
     dropout: float
         It is the dropout factor (must be between 0 and 1).
+    orthogonal_init: bool:
+        It True, orthogonal initialization is used for the recurrent weights.
+    return_hidden: bool:
+        It True, the function returns the last hidden layer.
     bidirectional: bool
          if True, a bidirectioal model that scans the sequence both
          right-to-left and left-to-right is used.
@@ -56,23 +64,27 @@ class RNN(torch.nn.Module):
         self,
         rnn_type,
         n_neurons,
-        nonlinearity="tanh",
+        nonlinearity="relu",
+        normalization="batchnorm",
         num_layers=1,
         bias=True,
         dropout=0.0,
+        orthogonal_init=False,
         bidirectional=False,
         return_hidden=False,
     ):
         super().__init__()
         self.rnn_type = rnn_type
         self.n_neurons = n_neurons
-        self.nonlinearity = (nonlinearity,)
+        self.nonlinearity = nonlinearity
         self.num_layers = num_layers
         self.bias = bias
         self.dropout = dropout
+        self.orthogonal_init = orthogonal_init
         self.bidirectional = bidirectional
         self.reshape = False
         self.return_hidden = return_hidden
+        self.normalization = normalization
 
     def init_params(self, first_input):
         """
@@ -88,8 +100,8 @@ class RNN(torch.nn.Module):
 
         if len(first_input.shape) > 4:
             err_msg = (
-                "Class RNN doesn't support tensors with more that 4 dimensions. Got %i"
-                % (str(len(first_input.shape)))
+                "Class RNN doesn't support tensors with more than",
+                "4 dimensions. Got %i" % (str(len(first_input.shape))),
             )
             raise ValueError(err_msg)
 
@@ -122,11 +134,16 @@ class RNN(torch.nn.Module):
             del kwargs["batch_first"]
             kwargs["batch_size"] = first_input.shape[0]
             kwargs["device"] = first_input.device
+            kwargs["normalization"] = self.normalization
+            kwargs.update({"nonlinearity": self.nonlinearity})
             self.rnn = LiGRU(**kwargs)
+
+        if self.orthogonal_init:
+            rnn_orth_init(self.rnn)
 
         self.rnn.to(first_input.device)
 
-    def forward(self, x, init_params=False):
+    def forward(self, x, hx=None, init_params=False):
         """Returns the output of the RNN.
 
         Arguments
@@ -145,7 +162,11 @@ class RNN(torch.nn.Module):
         if self.rnn_type != "ligru":
             self.rnn.flatten_parameters()
 
-        output, hn = self.rnn(x)
+        # Support custom inital state
+        if hx is not None:
+            output, hn = self.rnn(x, hx=hx)
+        else:
+            output, hn = self.rnn(x)
 
         if self.return_hidden:
             return output, hn
@@ -175,6 +196,12 @@ class LiGRU(torch.jit.ScriptModule):
          Number of output neurons .
     num_layers: int
          Number of layers to employ in the RNN architecture.
+    nonlinearity: str
+         Type of nonlinearity (tanh, relu).
+    normalization: str
+         Type of normalization (batchnorm, layernorm).
+         Every string different from batchnorm and layernorm will result
+         in no normalization.
     dropout: float
         It is the dropout factor (must be between 0 and 1).
     bidirectional: bool
@@ -199,6 +226,8 @@ class LiGRU(torch.jit.ScriptModule):
         num_layers,
         batch_size,
         dropout=0.0,
+        nonlinearity="relu",
+        normalization="batchnorm",
         bidirectional=True,
         device="cuda",
     ):
@@ -216,6 +245,8 @@ class LiGRU(torch.jit.ScriptModule):
                 num_layers,
                 batch_size,
                 dropout=dropout,
+                nonlinearity=nonlinearity,
+                normalization=normalization,
                 bidirectional=self.bidirectional,
                 device=device,
             )
@@ -228,7 +259,8 @@ class LiGRU(torch.jit.ScriptModule):
                 current_dim = self.hidden_size
 
     @torch.jit.script_method
-    def forward(self, x):
+    def forward(self, x, hx=None):
+        # type: (Tensor, Optional[Tensor]) -> Tuple[Tensor, Tensor] # noqa F821
         """Returns the output of the liGRU.
 
         Arguments
@@ -237,13 +269,15 @@ class LiGRU(torch.jit.ScriptModule):
         """
         h = []
         for ligru_lay in self.model:
-            x = ligru_lay(x)
+            x = ligru_lay(x, hx=hx)
             h.append(x[:, -1, :])
         h = torch.stack(h, dim=1)
         if self.bidirectional:
-            h = h.reshape(h.shape[0], h.shape[1] * 2, self.hidden_size)
+            h = h.reshape(h.shape[1] * 2, h.shape[0], self.hidden_size)
+        else:
+            h = h.transpose(0, 1)
 
-        return x, (h,)
+        return x, h
 
 
 class LiGRU_Layer(torch.jit.ScriptModule):
@@ -259,6 +293,12 @@ class LiGRU_Layer(torch.jit.ScriptModule):
          Number of output neurons .
     num_layers: int
          Number of layers to employ in the RNN architecture.
+    nonlinearity: str
+         Type of nonlinearity (tanh, relu).
+    normalization: str
+         Type of normalization (batchnorm, layernorm).
+         Every string different from batchnorm and layernorm will result
+         in no normalization.
     dropout: float
         It is the dropout factor (must be between 0 and 1).
     bidirectional: bool
@@ -276,7 +316,8 @@ class LiGRU_Layer(torch.jit.ScriptModule):
         batch_size,
         dropout=0.0,
         nonlinearity="relu",
-        bidirectional=True,
+        normalization="batchnorm",
+        bidirectional=False,
         device="cuda",
     ):
 
@@ -296,17 +337,21 @@ class LiGRU_Layer(torch.jit.ScriptModule):
             self.hidden_size, 2 * self.hidden_size, bias=False
         ).to(device)
 
-        # Adding orthogonal initialization for recurrent connection
-        nn.init.orthogonal_(self.u.weight)
-
-        # Initializing batch norm
-        self.bn_w = nn.BatchNorm1d(2 * self.hidden_size, momentum=0.05).to(
-            device
-        )
-
         if self.bidirectional:
             self.batch_size = self.batch_size * 2
 
+        # Initializing batch norm
+        self.normalize = False
+
+        if normalization == "batchnorm":
+            self.norm = nn.BatchNorm1d(2 * self.hidden_size, momentum=0.05).to(
+                device
+            )
+            self.normalize = True
+
+        if normalization == "layernorm":
+            self.norm = torch.nn.LayerNorm(2 * self.hidden_size).to(device)
+            self.normalize = True
         # Initial state
         self.h_init = torch.zeros(
             1, self.hidden_size, requires_grad=False, device=self.device,
@@ -321,10 +366,14 @@ class LiGRU_Layer(torch.jit.ScriptModule):
         self.drop_mask_te = torch.tensor([1.0], device=self.device).float()
 
         # Setting the activation function
-        self.act = torch.nn.ReLU().to(device)
+        if nonlinearity == "tanh":
+            self.act = torch.nn.Tanh().to(device)
+        else:
+            self.act = torch.nn.ReLU().to(device)
 
     @torch.jit.script_method
-    def forward(self, x):
+    def forward(self, x, hx=None):
+        # type: (Tensor, Optional[Tensor]) -> Tensor # noqa F821
         """Returns the output of the liGRU layer.
 
         Arguments
@@ -336,18 +385,21 @@ class LiGRU_Layer(torch.jit.ScriptModule):
             x = torch.cat([x, x_flip], dim=0)
 
         # Change batch size if needed
-        self.change_batch_size(x)
+        self._change_batch_size(x)
 
         # Feed-forward affine transformations (all steps in parallel)
         w = self.w(x)
 
         # Apply batch normalization
-        w_bn = self.bn_w(w.reshape(w.shape[0] * w.shape[1], w.shape[2]))
-
-        w = w_bn.reshape(w.shape[0], w.shape[1], w.shape[2])
+        if self.normalize:
+            w_bn = self.norm(w.reshape(w.shape[0] * w.shape[1], w.shape[2]))
+            w = w_bn.reshape(w.shape[0], w.shape[1], w.shape[2])
 
         # Processing time steps
-        h = self._ligru_cell(w)
+        if hx is not None:
+            h = self._ligru_cell(w, hx)
+        else:
+            h = self._ligru_cell(w, self.h_init)
 
         if self.bidirectional:
             h_f, h_b = h.chunk(2, dim=0)
@@ -357,7 +409,7 @@ class LiGRU_Layer(torch.jit.ScriptModule):
         return h
 
     @torch.jit.script_method
-    def _ligru_cell(self, w):
+    def _ligru_cell(self, w, ht):
         """Returns the hidden states for each time step.
 
         Arguments
@@ -366,9 +418,6 @@ class LiGRU_Layer(torch.jit.ScriptModule):
             Linearly transformed input.
         """
         hiddens = []
-
-        # Managing initial state
-        ht = self.h_init
 
         # Sampling dropout mask
         drop_mask = self._sample_drop_mask()
@@ -439,7 +488,7 @@ class LiGRU_Layer(torch.jit.ScriptModule):
         return drop_mask
 
     @torch.jit.script_method
-    def change_batch_size(self, x):
+    def _change_batch_size(self, x):
         """This function changes the batch size when it is different from
         the one detected in the initialization method. This might happen in
         the case of multi-gpu or when we have different batch sizes in train
@@ -459,23 +508,22 @@ class LiGRU_Layer(torch.jit.ScriptModule):
                 ).data
 
 
-def init_rnn_module(module):
+def rnn_orth_init(module):
     """
     This function is used to initialize the RNN weight with orthogonality.
+
     Arguments
     ---------
     module: torch.nn.Module
-        Reccurent neural network module.
+        Recurrent neural network module.
+
     Example
     -------
     >>> inp_tensor = torch.rand([4, 10, 20])
     >>> net = RNN(rnn_type='lstm', n_neurons=5)
     >>> out_tensor = net(inp_tensor, init_params=True)
-    >>> init_rnn_module(net)
+    >>> rnn_orth_init(net)
     """
-    for param in module.parameters():
-        if len(param.shape) >= 2:
+    for name, param in module.named_parameters():
+        if "weight_hh" in name or ".u.weight" in name:
             nn.init.orthogonal_(param)
-        else:
-            stdv = 1.0 / math.sqrt(param.shape[0])
-            nn.init.uniform_(param, -stdv, stdv)
