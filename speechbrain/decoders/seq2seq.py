@@ -10,7 +10,8 @@ import numpy as np
 
 class BaseSearcher(torch.nn.Module):
     """
-    BaseSearcher class to be inherit by other decoding approches for seq2seq model.
+    BaseSearcher class to be inherited by other
+    decoding approches for seq2seq model.
 
     Parameters
     ----------
@@ -31,17 +32,9 @@ class BaseSearcher(torch.nn.Module):
         Outputs as Python list of lists, with "ragged" dimensions; padding
         has been removed.
     scores:
-        The sum of log probabilities (and possible additional heuristic scores) for each prediction.
+        The sum of log probabilities (and possibly
+        additional heuristic scores) for each prediction.
 
-    Example
-    -------
-        >>> searcher = BaseSearcher(modules=[rnn_dec, linear])
-        >>> probs = torch.tensor([[[0.3, 0.7], [0.0, 0.0]],
-        ...                       [[0.2, 0.8], [0.9, 0.1]]])
-        >>> lens = torch.tensor([0.51, 1.0])
-        >>> blank_id = 0
-        >>> ctc_greedy_decode(probs, lens, blank_id)
-        [[1], [1]]
     """
 
     def __init__(
@@ -54,34 +47,87 @@ class BaseSearcher(torch.nn.Module):
         self.min_decode_ratio = min_decode_ratio
         self.max_decode_ratio = max_decode_ratio
 
-    def forward(self):
+    def forward(self, enc_states, wav_len):
+        """This method should implement the forward algorithm of decoding method.
+
+        Arguments
+        ---------
+        enc_states : torch.Tensor
+            The hidden states sequences to be attended.
+        wav_len : torch.Tensor
+            The speechbrain-style relative length.
+
+        """
         raise NotImplementedError
 
-    def forward_step(self):
+    def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
+        """This method should implement one step of
+        forwarding operation in autoregressive model.
+
+        Arguments
+        ---------
+        inp_tokens : torch.Tensor
+            The input tensor of current timestep.
+        memory : No limit
+            The momory variables input for this timestep.
+            (ex. RNN hidden states).
+        enc_states : torch.Tensor
+            The encoder states to be attended.
+        enc_lens : torch.Tensor
+            The actual length of each enc_states sequence.
+
+        Return
+        ------
+        log_probs : torch.Tensor
+            Log-probilities of the current timestep output.
+        memory : No limit
+            The momory variables generated in this timestep.
+            (ex. RNN hidden states).
+        """
         raise NotImplementedError
 
     def reset_mem(self, batch_size, device):
+        """This method should implement the reseting of
+        memory variables in the decoding approaches.
+        Ex. Initializing zero vector as initial hidden states.
+
+        Arguments
+        ---------
+        batch_size : int
+            The size of the batch.
+        device : torch.device
+            The device to put the initial variables.
+
+        Return
+        ------
+        memory : No limit
+            The initial memory variable.
+        """
         raise NotImplementedError
 
 
 class GreedySearcher(BaseSearcher):
     def forward(self, enc_states, wav_len):
-        enc_len = torch.round(enc_states.shape[1] * wav_len).int()
+        """
+        This class implements the general forward-pass of
+        greedy decoding approach.
+        """
+        enc_lens = torch.round(enc_states.shape[1] * wav_len).int()
         device = enc_states.device
         batch_size = enc_states.shape[0]
 
         memory = self.reset_mem(batch_size, device=device)
-        inp_token = enc_states.new_ones(batch_size).long() * self.bos_index
+        inp_tokens = enc_states.new_ones(batch_size).long() * self.bos_index
 
         log_probs_lst = []
         max_decode_steps = enc_states.shape[1] * self.max_decode_ratio
 
         for t in range(max_decode_steps):
             log_probs, memory = self.forward_step(
-                inp_token, memory, enc_states, enc_len
+                inp_tokens, memory, enc_states, enc_lens
             )
             log_probs_lst.append(log_probs)
-            inp_token = log_probs.argmax(dim=-1)
+            inp_tokens = log_probs.argmax(dim=-1)
 
         log_probs = torch.stack(log_probs_lst, dim=1)
         scores, predictions = log_probs.max(dim=-1)
@@ -94,6 +140,16 @@ class GreedySearcher(BaseSearcher):
 
 
 class RNNGreedySearcher(GreedySearcher):
+    """
+    This class implements the greedy decoding
+    for AttentionalRNNDecoder.py (speechbrain/nnet/losses.py).
+
+    Parameters
+    ----------
+    modules : torch.nn.Module
+        Contains the RNN decoder and the linear output layer.
+    """
+
     def __init__(
         self, modules, bos_index, eos_index, min_decode_ratio, max_decode_ratio
     ):
@@ -110,17 +166,34 @@ class RNNGreedySearcher(GreedySearcher):
         c = torch.zeros(batch_size, self.decoder.attn_out_dim).to(device)
         return hs, c
 
-    def forward_step(self, *args):
-        inp_token, memory, enc_states, enc_len = args
+    def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
         hs, c = memory
         dec_out, hs, c, w = self.decoder.forward_step(
-            inp_token, hs, c, enc_states, enc_len
+            inp_tokens, hs, c, enc_states, enc_lens
         )
         log_probs = self.softmax(self.linear(dec_out))
         return log_probs, (hs, c)
 
 
 class BeamSearcher(BaseSearcher):
+    """
+    This class implements the beam-search algorithm for autoregressive model.
+
+    Parameters
+    ----------
+    beam_size : int
+        The width of beam.
+    length_penalty : float
+        The coefficient of length penalty (γ).
+        log P(y|x) + λ log P_LM(y) + γ*len(y
+    eos_threshold : float
+        The threshold coefficient for eos token. See 3.1.2 in
+        reference: https://arxiv.org/abs/1904.02619
+    minus_inf : float
+        The value of minus infinity to block some path
+        of the search (default : -1e20).
+    """
+
     def __init__(
         self,
         modules,
@@ -130,7 +203,7 @@ class BeamSearcher(BaseSearcher):
         max_decode_ratio,
         beam_size,
         length_penalty,
-        eos_penalty,
+        eos_threshold,
         minus_inf=-1e20,
     ):
         super(BeamSearcher, self).__init__(
@@ -138,16 +211,16 @@ class BeamSearcher(BaseSearcher):
         )
         self.beam_size = beam_size
         self.length_penalty = length_penalty
-        self.eos_penalty = eos_penalty
+        self.eos_threshold = eos_threshold
         self.minus_inf = minus_inf
 
     def forward(self, enc_states, wav_len):
-        enc_len = torch.round(enc_states.shape[1] * wav_len).int()
+        enc_lens = torch.round(enc_states.shape[1] * wav_len).int()
         device = enc_states.device
         batch_size = enc_states.shape[0]
 
         enc_states = torch.repeat_interleave(enc_states, self.beam_size, dim=0)
-        enc_len = torch.repeat_interleave(enc_len, self.beam_size, dim=0)
+        enc_lens = torch.repeat_interleave(enc_lens, self.beam_size, dim=0)
 
         memory = self.reset_mem(batch_size * self.beam_size, device=device)
         inp_tokens = (
@@ -155,15 +228,20 @@ class BeamSearcher(BaseSearcher):
             * self.bos_index
         )
 
+        # The first index of each sentence.
         beam_offset = (torch.arange(batch_size) * self.beam_size).to(device)
 
-        # initialize sequence scores variables
+        # initialize sequence scores variables.
         sequence_scores = torch.Tensor(batch_size * self.beam_size).to(device)
         sequence_scores.fill_(-np.inf)
+
+        # keep only the first to make sure no redundancy.
         sequence_scores.index_fill_(0, beam_offset, 0.0)
 
+        # keep the hypothesis that reaches eos as well as their score.
         hyps_and_scores = [[] for _ in range(batch_size)]
 
+        # keep the sequences that still not reaches eos.
         alived_seq = (
             torch.empty(batch_size * self.beam_size, 0).long().to(device)
         )
@@ -173,17 +251,19 @@ class BeamSearcher(BaseSearcher):
 
         for t in range(max_decode_steps):
             log_probs, memory = self.forward_step(
-                inp_tokens, memory, enc_states, enc_len
+                inp_tokens, memory, enc_states, enc_lens
             )
             vocab_size = log_probs.shape[-1]
 
+            # Set eos to zero when less than minimum steps.
             if t < min_decode_steps:
                 log_probs[:, self.eos_index] = self.minus_inf
 
+            # Set the eos prob to minus_inf when it doesn't exceed threshold.
             max_probs, _ = torch.max(log_probs[:, : self.eos_index], dim=-1)
             eos_probs = log_probs[:, self.eos_index]
             log_probs[:, self.eos_index] = torch.where(
-                eos_probs > self.eos_penalty * max_probs,
+                eos_probs > self.eos_threshold * max_probs,
                 eos_probs,
                 torch.Tensor([self.minus_inf]).to(device),
             )
@@ -196,17 +276,22 @@ class BeamSearcher(BaseSearcher):
                 self.beam_size, dim=-1
             )
 
+            # The input for the next step, also the output of current step.
             inp_tokens = (candidates % vocab_size).view(
                 batch_size * self.beam_size
             )
             sequence_scores = scores.view(batch_size * self.beam_size)
 
+            # The index where the current top-K output came from.
             predecessors = (
                 candidates // vocab_size
                 + beam_offset.unsqueeze(1).expand_as(candidates)
             ).view(batch_size * self.beam_size)
+
+            # Permute the memory to synchoronize with the output.
             memory = self.permute_mem(memory, index=predecessors)
 
+            # Update alived_seq
             alived_seq = torch.cat(
                 [
                     torch.index_select(alived_seq, dim=0, index=predecessors),
@@ -217,6 +302,7 @@ class BeamSearcher(BaseSearcher):
             is_eos = inp_tokens.eq(self.eos_index)
             eos_indices = is_eos.nonzero()
 
+            # Keep the hypothesis and their score when reaching eos.
             if eos_indices.shape[0] > 0:
                 for index in eos_indices:
                     # convert to int
@@ -230,12 +316,14 @@ class BeamSearcher(BaseSearcher):
                     ].item() + self.length_penalty * (t + 1)
                     hyps_and_scores[batch_id].append((hyp, final_scores))
 
+                # Block the path that has reaches eos
                 sequence_scores.masked_fill_(is_eos, -np.inf)
 
-        # Check whether there are beam_size hypothesis
+        # Check whether there are number of beam_size hypothesis
         for i in range(batch_size):
             batch_offset = i * self.beam_size
             n_hyps = len(hyps_and_scores[i])
+            # If not, add the top-scored ones.
             if n_hyps < self.beam_size:
                 remains = self.beam_size - n_hyps
                 hyps = alived_seq[batch_offset : batch_offset + remains, :]
@@ -260,6 +348,23 @@ class BeamSearcher(BaseSearcher):
         return predictions, top_scores
 
     def permute_mem(self, memory, index):
+        """
+        This method permutes the memory to synchorize
+        the memory to current output.
+
+        Arguments
+        ---------
+
+        memory : No limit
+            The memory variable to be permuted.
+        index : torch.Tensor
+            The index of the previous path.
+
+        Return
+        ------
+        The variable of the memory being permuted.
+
+        """
         raise NotImplementedError
 
 
@@ -273,7 +378,7 @@ class RNNBeamSearcher(BeamSearcher):
         max_decode_ratio,
         beam_size,
         length_penalty,
-        eos_penalty,
+        eos_threshold,
     ):
         super(RNNBeamSearcher, self).__init__(
             modules,
@@ -283,7 +388,7 @@ class RNNBeamSearcher(BeamSearcher):
             max_decode_ratio,
             beam_size,
             length_penalty,
-            eos_penalty,
+            eos_threshold,
         )
         self.decoder = modules[0]
         self.linear = modules[1]
@@ -295,11 +400,10 @@ class RNNBeamSearcher(BeamSearcher):
         c = torch.zeros(batch_size, self.decoder.attn_out_dim).to(device)
         return hs, c
 
-    def forward_step(self, *args):
-        inp_token, memory, enc_states, enc_len = args
+    def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
         hs, c = memory
         dec_out, hs, c, w = self.decoder.forward_step(
-            inp_token, hs, c, enc_states, enc_len
+            inp_tokens, hs, c, enc_states, enc_lens
         )
         log_probs = self.softmax(self.linear(dec_out))
         return log_probs, (hs, c)
