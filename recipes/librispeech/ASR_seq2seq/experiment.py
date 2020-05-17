@@ -9,8 +9,8 @@ import speechbrain.utils.edit_distance as edit_distance
 from speechbrain.data_io.data_io import convert_index_to_lab
 from speechbrain.data_io.data_preparation import LibriSpeechPreparer
 
-# from speechbrain.decoders.seq2seq import RNNGreedySearcher
-from speechbrain.decoders.seq2seq import RNNBeamSearcher
+from speechbrain.decoders.seq2seq import RNNGreedySearcher
+#from speechbrain.decoders.seq2seq import RNNBeamSearcher
 from speechbrain.decoders.decoders import undo_padding
 from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.train_logger import (
@@ -100,23 +100,23 @@ modules = torch.nn.ModuleList(
     [cnn, params.rnn_enc, params.rnn_dec, params.ctc_linear, params.seq_linear]
 )
 
-# searcher = RNNGreedySearcher(
-#   modules=[params.rnn_dec, params.seq_linear],
-#   bos_index=params.bos_index,
-#   eos_index=params.eos_index,
-#   min_decode_ratio=0,
-#   max_decode_ratio=1,
-# )
-searcher = RNNBeamSearcher(
-    modules=[params.rnn_dec, params.seq_linear],
-    bos_index=params.bos_index,
-    eos_index=params.eos_index,
-    min_decode_ratio=0,
-    max_decode_ratio=1,
-    beam_size=params.beam_size,
-    length_penalty=params.length_penalty,
-    eos_penalty=params.eos_penalty,
+searcher = RNNGreedySearcher(
+  modules=[params.rnn_dec, params.seq_linear],
+  bos_index=params.bos_index,
+  eos_index=params.eos_index,
+  min_decode_ratio=0,
+  max_decode_ratio=1,
 )
+#searcher = RNNBeamSearcher(
+#    modules=[params.rnn_dec, params.seq_linear],
+#    bos_index=params.bos_index,
+#    eos_index=params.eos_index,
+#    min_decode_ratio=0,
+#    max_decode_ratio=1,
+#    beam_size=params.beam_size,
+#    length_penalty=params.length_penalty,
+#    eos_penalty=params.eos_penalty,
+#)
 
 checkpointer = sb.utils.checkpoints.Checkpointer(
     checkpoints_dir=params.save_folder,
@@ -166,19 +166,19 @@ class ASR(sb.core.Brain):
         else:
             p_ctc, p_seq, wav_lens, hyps = predictions
 
-        ids, phns, phn_lens = targets
-        phns, phn_lens = phns.to(params.device), phn_lens.to(params.device)
-        loss_ctc = params.ctc_cost(p_ctc, phns, [wav_lens, phn_lens])
-        loss_seq = params.seq_cost(p_seq, phns, phn_lens)
+        ids, chars, char_lens = targets
+        chars, char_lens = chars.to(params.device), char_lens.to(params.device)
+        loss_ctc = params.ctc_cost(p_ctc, chars, [wav_lens, char_lens])
+        loss_seq = params.seq_cost(p_seq, chars, char_lens)
         loss = params.ctc_weight * loss_ctc + (1 - params.ctc_weight) * loss_seq
 
         if not train:
-            ind2lab = params.train_loader.label_dict["phn"]["index2lab"]
+            ind2lab = params.train_loader.label_dict["char"]["index2lab"]
             sequence = convert_index_to_lab(hyps, ind2lab)
-            phns = undo_padding(phns, phn_lens)
-            phns = convert_index_to_lab(phns, ind2lab)
+            chars = undo_padding(chars, char_lens)
+            chars = convert_index_to_lab(chars, ind2lab)
             stats = edit_distance.wer_details_for_batch(
-                ids, phns, sequence, compute_alignments=True
+                ids, chars, sequence, compute_alignments=True
             )
             stats = {"CER": stats}
             return loss, loss_ctc, loss_seq, stats
