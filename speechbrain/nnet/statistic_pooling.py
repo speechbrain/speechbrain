@@ -1,26 +1,31 @@
+"""Library implementing convolutional neural networks.
+
+Author
+    Nauman Dawlatabad 2020, Dannynis 2020
+"""
+
 import torch
 import torch.nn as nn
 
 
 class StatisticsPooling(nn.Module):
-    """
-    -------------------------------------------------------------------------
+    """This function implements a statistic pooling layer.
 
-    This function implements a statistic pooling layer (example as used in TDNN).
+    This class implements Statistics Pooling layer:
+    It returns the concatenated mean and std of input tensor
 
     Arguments
+    ---------
+    tensor: torch.Tensor
+        It is usually a set of features or the output of neural network layer
+
+    Example
     -------
-    Input (init):
-                   - tensor (type: torch.Tensor, mandatory):
-                       it is usually a set of faetures or the output of neural network layer
-
-
-    Output (call): - concatenated mean and variance (type, torch.Tensor, mandatory):
-                      it is the TDNN output. Time-delayed convolved input and kernel.
-
-    Authors:
-    -------
-    Nauman Dawlatabad 2020, Dannynis 2020
+    >>> inp_tensor = torch.rand([5, 100, 20])
+    >>> sp = StatisticsPooling()
+    >>> out_tensor = sp(inp_tensor)
+    >>> out_tensor.shape
+    torch.Size([5, 1, 40])
     """
 
     def __init__(self):

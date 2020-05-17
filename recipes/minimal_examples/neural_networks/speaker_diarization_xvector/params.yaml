@@ -1,4 +1,4 @@
-data_folder: ../../..//samples/voxceleb_samples/
+data_folder: ../../../../samples/voxceleb_samples/
 ckpts_to_keep: 1
 sample_rate: 16000
 seed: 1234 # !PLACEHOLDER  # e.g, 1234

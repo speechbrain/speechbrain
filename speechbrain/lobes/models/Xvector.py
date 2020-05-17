@@ -67,16 +67,15 @@ class Xvector(Sequential):
                 )
             )
 
-        for i in range(tdnn_stats_pool_blocks):
-            blocks.append(
-                NeuralBlock(
-                    block_index=i + 1,
-                    param_file=os.path.join(
-                        current_dir, "tdnn_stats_pool_block.yaml"
-                    ),
-                    overrides=tdnn_stats_pool_overrides,
-                )
+        blocks.append(
+            NeuralBlock(
+                block_index=1,
+                param_file=os.path.join(
+                    current_dir, "tdnn_stats_pool_block.yaml"
+                ),
+                overrides=tdnn_stats_pool_overrides,
             )
+        )
 
         for i in range(tdnn_lin_blocks):
             blocks.append(

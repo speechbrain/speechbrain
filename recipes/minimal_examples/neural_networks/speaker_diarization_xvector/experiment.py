@@ -1,5 +1,4 @@
 #!/usr/bin/python
-import os
 import sys
 import torch
 import torch.nn as nn
@@ -10,8 +9,6 @@ from speechbrain.utils.train_logger import (
     summarize_average,
 )
 
-current_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(os.path.dirname(current_dir))
 from voxceleb1_prepare import VoxCelebPreparer  # noqa E402
 
 # Load hyperparameters file with command-line overrides
@@ -80,8 +77,7 @@ class XvectorBrain(sb.core.Brain):
         print("Valid error: %.2f" % summarize_average(valid_stats["error"]))
         epoch_stats = {"epoch": epoch, "lr": params.lr}
         train_logger.log_stats(epoch_stats, train_stats)
-
-        checkpointer.save_and_keep_only()
+        # checkpointer.save_and_keep_only()
 
 
 # Extracts xvector given data and truncated model

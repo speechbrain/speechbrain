@@ -1,3 +1,9 @@
+"""Library implementing time delayed neural networks.
+
+Author
+    Nauman Dawalatabad 2020, Dannynis 2020
+"""
+
 import torch
 import logging
 import torch.nn as nn
@@ -8,48 +14,39 @@ logger = logging.getLogger(__name__)
 
 
 class TDNN(nn.Module):
-    """
-    -------------------------------------------------------------------------
+    """This function implements a Time Delayed Neural Network (TDNN).
 
-    This function implements a Time Delayed Neural Network (TDNN).
+    This class implements TDNN layer
 
     Arguments
+    ---------
+    context: list
+        It is the list representing indices of the context for the 1d convolution.
+    input_dim: int
+        It is the dimensionality of the input.
+    output_dim: int
+        it is the output of TDNN layer (Realtes to number of filters used)
+    full_context: bool
+        if True, a full context as per context is used.
+    device: str
+
+    Example
     -------
-    Input (init):
-                   - context (type: list, mandatory):
-                       it is the list representing indices of the context for the 1d convolution.
-
-                   - input_dim (type: int(1,inf), mandatory):
-                       it is the dimensionality of the input.
-
-                   - output_dim (type: int(1,inf), mandatory):
-                       it is the output of TDNN layer (Realtes to number of filters used)
-
-                   - full_context (type: bool, optional, Default:True):
-                       if True, a full context as per context is used.
-
-                   - device (type: str(cpu/cuda), Default:cpu )
-
-
-    Output (call): - out (type, torch.Tensor, mandatory):
-                      it is the TDNN output. Time-delayed convolved input and kernel.
-
-    Credit: This module is adapted from https://github.com/Dannynis/xvector_pytorch
-
-    Authors:
-    -------
-    Nauman Dawalatabad 2020, Dannynis 2020
+    >>> inp_tensor = torch.rand([5, 100, 20])
+    >>> tdnn = TDNN(context=[-2, 2], input_dim=20, output_dim=512)
+    >>> out_tensor = tdnn(inp_tensor)
+    >>> out_tensor.shape
+    torch.Size([5, 96, 512])
     """
 
     def __init__(
         self, context, input_dim, output_dim, full_context=True, device="cpu"
     ):
         super(TDNN, self).__init__()
-        # self.norm = torch.nn.BatchNorm1d(output_dim) # <<-- shifting to params.yaml
         self.input_dim = input_dim
         self.output_dim = output_dim
-        self.check_valid_context(context)
-        self.kernel_width, context = self.get_kernel_width(
+        self._check_valid_context(context)
+        self.kernel_width, context = self._get_kernel_width(
             context, full_context
         )
         self.register_buffer("context", torch.LongTensor(context))
@@ -68,7 +65,7 @@ class TDNN(nn.Module):
     def forward(self, x):
         # x shape is standard [batch, time_steps, features]
         # conv output shape is [batch, filters, conv]
-        conv_out = self.selective_convolution(
+        conv_out = self._selective_convolution(
             x, self.kernel, self.context, self.bias
         )
 
@@ -77,12 +74,12 @@ class TDNN(nn.Module):
 
         return activation
 
-    def selective_convolution(self, x, kernel, context, bias):
+    def _selective_convolution(self, x, kernel, context, bias):
         """
         This function performs the weight multiplication given an arbitrary context.
-        Cannot directly use convolution because in case of only particular frames of context,
-        one needs to select only those frames and perform a convolution across all batch items
-        and all output dimensions of the kernel.
+        Cannot directly use convolution because in case of only particular frames
+        of context,one needs to select only those frames and perform a convolution
+        across all batch items and all output dimensions of the kernel.
         """
         input_size = x.shape
         assert (
@@ -93,7 +90,7 @@ class TDNN(nn.Module):
         x = x.transpose(1, 2).contiguous()
 
         # Allocate memory for output
-        valid_steps = self.get_valid_steps(self.context, input_sequence_length)
+        valid_steps = self._get_valid_steps(self.context, input_sequence_length)
         xs = self.bias.data.new(batch_size, kernel.shape[0], len(valid_steps))
 
         # Perform the convolution with relevant input frames
@@ -107,25 +104,25 @@ class TDNN(nn.Module):
         return xs
 
     @staticmethod
-    def check_valid_context(context):
+    def _check_valid_context(context):
         """
         Check if the context provided is valid
         """
         assert context[0] <= context[-1], "Invalid context"
 
     @staticmethod
-    def get_kernel_width(context, full_context):
+    def _get_kernel_width(context, full_context):
         """
-        Provide the kernel width
+        Returns the kernel width
         """
         if full_context:
             context = range(context[0], context[-1] + 1)
         return len(context), context
 
     @staticmethod
-    def get_valid_steps(context, input_sequence_length):
+    def _get_valid_steps(context, input_sequence_length):
         """
-        Provides the start and end points in the sequence to be considered for convolution
+        Returns the start and end points in the sequence
         """
         start = 0 if context[0] >= 0 else -1 * context[0]
         end = (
