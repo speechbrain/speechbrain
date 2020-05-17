@@ -15,7 +15,7 @@ csv_test: !ref <data_folder>/test-clean.csv
 
 # Neural Parameters
 number_of_epochs: 30
-batch_size: 8
+batch_size: 16
 lr: 0.001
 weight_decay: 0.000001
 dropout_rate: 0.15
@@ -41,8 +41,8 @@ device: 'cuda:0'
 
 # Functions
 rnn_enc: !speechbrain.nnet.RNN.RNN
-    rnn_type: ligru
-    n_neurons: 256
+    rnn_type: gru
+    n_neurons: 512
     nonlinearity: tanh
     num_layers: 4
     dropout: !ref <dropout_rate>
@@ -51,15 +51,16 @@ rnn_enc: !speechbrain.nnet.RNN.RNN
 rnn_dec: !speechbrain.nnet.RNN.AttentionalRNNDecoder
     rnn_type: gru
     attn_type: location
-    n_neurons: 256
-    attn_dim: 256
-    attn_out_dim: 256
+    n_neurons: 512
+    attn_dim: 512
+    attn_out_dim: 512
     vocab_dim: 40 # 39 phonemes + 1 bos
     emb_dim: 128
     num_layers: 1
     scaling: 1.0
     channels: 10
     kernel_size: 100
+    dropout: 0.2
     bos_index: !ref <bos_index>
 
 ctc_linear: !speechbrain.nnet.linear.Linear
@@ -117,4 +118,4 @@ seq_cost: !speechbrain.nnet.losses.ComputeCost
     cost_type: nll
     eos_index: !ref <eos_index>
     append_eos: True
-    label_smoothing: 0.1
+    label_smoothing: 0.05
