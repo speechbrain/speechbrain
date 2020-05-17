@@ -14,7 +14,7 @@ N_epochs: 100
 N_batch: 2
 lr: 0.004
 
-train_loader: !speechbrain.data_io.data_io.DataLoaderFactory
+train_loader: !obj:speechbrain.data_io.data_io.DataLoaderFactory
     &loader
     csv_file: !ref <csv_train>
     batch_size: !ref <N_batch>
@@ -22,34 +22,34 @@ train_loader: !speechbrain.data_io.data_io.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
-valid_loader: !speechbrain.data_io.data_io.DataLoaderFactory
+valid_loader: !obj:speechbrain.data_io.data_io.DataLoaderFactory
     <<: *loader
     csv_file: !ref <csv_valid>
 
-test_loader: !speechbrain.data_io.data_io.DataLoaderFactory
+test_loader: !obj:speechbrain.data_io.data_io.DataLoaderFactory
     <<: *loader
     csv_file: !ref <csv_test>
     batch_size: 1
 
-compute_features: !speechbrain.lobes.features.mfcc.MFCC
+compute_features: !obj:speechbrain.lobes.features.mfcc.MFCC
     context_window: {left_frames: 1, right_frames: 1}
 
-mean_var_norm: !speechbrain.processing.features.InputNormalization
+mean_var_norm: !obj:speechbrain.processing.features.InputNormalization
     norm_type: global
 
-linear1: !speechbrain.nnet.linear.Linear
+linear1: !obj:speechbrain.nnet.linear.Linear
     n_neurons: 128
     bias: False
 
-activation: !torch.nn.LeakyReLU
+activation: !obj:torch.nn.LeakyReLU
 
-linear2: !speechbrain.nnet.linear.Linear
+linear2: !obj:speechbrain.nnet.linear.Linear
     n_neurons: 180
     bias: False
 
-compute_cost: !speechbrain.nnet.losses.ComputeCost
+compute_cost: !obj:speechbrain.nnet.losses.ComputeCost
     cost_type: mse
 
-optimizer: !speechbrain.nnet.optimizers.Optimize
+optimizer: !obj:speechbrain.nnet.optimizers.Optimize
     optimizer_type: adam
     learning_rate: !ref <lr>

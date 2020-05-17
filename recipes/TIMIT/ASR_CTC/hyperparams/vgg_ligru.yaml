@@ -28,25 +28,25 @@ n_mels: 40
 device: 'cuda:0'
 
 # Functions
-model: !speechbrain.lobes.models.CRDNN.CRDNN
+model: !obj:speechbrain.lobes.models.CRDNN.CRDNN
     cnn_blocks: 2
     dnn_blocks: 2
     rnn_overrides: {rnn: {rnn_type: ligru}}
     time_pooling: True
 
-output: !speechbrain.nnet.linear.Linear
+output: !obj:speechbrain.nnet.linear.Linear
     n_neurons: 40
     bias: True
 
-log_softmax: !speechbrain.nnet.activations.Softmax
+log_softmax: !obj:speechbrain.nnet.activations.Softmax
     apply_log: True
 
-optimizer: !speechbrain.nnet.optimizers.Optimize
+optimizer: !obj:speechbrain.nnet.optimizers.Optimize
     optimizer_type: adadelta
     rho: 0.95
     learning_rate: !ref <lr>
 
-lr_annealing: !speechbrain.nnet.lr_scheduling.LRScheduler
+lr_annealing: !obj:speechbrain.nnet.lr_scheduling.LRScheduler
     annealing_type: newbob
     N_epochs: !ref <number_of_epochs>
     lr_initial: !ref <lr>
@@ -54,15 +54,15 @@ lr_annealing: !speechbrain.nnet.lr_scheduling.LRScheduler
     annealing_factor: 0.8
     patient: 0
 
-normalize: !speechbrain.processing.features.InputNormalization
+normalize: !obj:speechbrain.processing.features.InputNormalization
     norm_type: global
 
-epoch_counter: !speechbrain.utils.epoch_loop.EpochCounter
+epoch_counter: !obj:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-compute_features: !speechbrain.lobes.features.fbank.Fbank
+compute_features: !obj:speechbrain.lobes.features.fbank.Fbank
 
-train_loader: !speechbrain.data_io.data_io.DataLoaderFactory
+train_loader: !obj:speechbrain.data_io.data_io.DataLoaderFactory
     &loader
     csv_file: !ref <csv_train>
     batch_size: !ref <batch_size>
@@ -70,15 +70,31 @@ train_loader: !speechbrain.data_io.data_io.DataLoaderFactory
     output_folder: !ref <output_folder>
     csv_read: [wav, phn]
 
-valid_loader: !speechbrain.data_io.data_io.DataLoaderFactory
+valid_loader: !obj:speechbrain.data_io.data_io.DataLoaderFactory
     <<: *loader
     csv_file: !ref <csv_valid>
 
-test_loader: !speechbrain.data_io.data_io.DataLoaderFactory
+test_loader: !obj:speechbrain.data_io.data_io.DataLoaderFactory
     <<: *loader
     csv_file: !ref <csv_test>
     batch_size: !ref <batch_size>
 
-compute_cost: !speechbrain.nnet.losses.ComputeCost
+compute_cost: !obj:speechbrain.nnet.losses.ComputeCost
     cost_type: ctc
     blank_index: 39
+
+train_logger: !obj:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+    summary_fns:
+        loss: !fn:speechbrain.utils.train_logger.summarize_average
+        PER: !fn:speechbrain.utils.train_logger.summarize_error_rate
+
+checkpointer: !obj:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        model: !ref <model>
+        output: !ref <output>
+        optimizer: !ref <optimizer>
+        scheduler: !ref <lr_annealing>
+        normalizer: !ref <normalize>
+        counter: !ref <epoch_counter>

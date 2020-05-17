@@ -4,30 +4,30 @@ channels: 128
 kernel_size: !!python/tuple [3, 3]
 sequence: [conv1, norm1, activation, conv2, norm2, activation, pooling, dropout]
 
-conv1: !speechbrain.nnet.CNN.Conv
-    out_channels: !operator.mul
+conv1: !obj:speechbrain.nnet.CNN.Conv
+    out_channels: !obj:operator.mul
         - !ref <block_index>
         - !ref <channels>
     kernel_size: !ref <kernel_size>
 
-norm1: !speechbrain.nnet.normalization.Normalize
+norm1: !obj:speechbrain.nnet.normalization.Normalize
     norm_type: batchnorm
 
-conv2: !speechbrain.nnet.CNN.Conv
-    out_channels: !operator.mul
+conv2: !obj:speechbrain.nnet.CNN.Conv
+    out_channels: !obj:operator.mul
         - !ref <block_index>
         - !ref <channels>
     kernel_size: !ref <kernel_size>
 
-norm2: !speechbrain.nnet.normalization.Normalize
+norm2: !obj:speechbrain.nnet.normalization.Normalize
     norm_type: batchnorm
 
-activation: !torch.nn.LeakyReLU
+activation: !obj:torch.nn.LeakyReLU
 
-pooling: !speechbrain.nnet.pooling.Pooling
+pooling: !obj:speechbrain.nnet.pooling.Pooling
     pool_type: max
     kernel_size: 2
     stride: 2
 
-dropout: !speechbrain.nnet.dropout.Dropout
+dropout: !obj:speechbrain.nnet.dropout.Dropout
     drop_rate: 0.15

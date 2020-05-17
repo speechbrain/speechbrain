@@ -5,7 +5,9 @@ Authors: Peter Plantinga 2020, Aku Rouhe 2020
 
 import re
 import yaml
+import copy
 import pydoc
+import functools
 import ruamel.yaml
 from io import StringIO
 from types import SimpleNamespace
@@ -18,33 +20,49 @@ def load_extended_yaml(yaml_stream, overrides={}, overrides_must_match=True):
     r'''This function implements the SpeechBrain extended YAML syntax
 
     The purpose for this syntax is a compact, structured hyperparameter and
-    function definition. This function implements two extensions to the yaml
-    syntax, references and and object instantiation.
+    function definition. This function implements a few extensions to the yaml
+    syntax, listed below.
 
-    Reference substitution
-    ----------------------
-    Allows internal references to any scalar node in the file. Any
-    node with tag `!ref` will have `<key>` references replaced with
-    the referenced value, following reference chains.
+    References and copies
+    ---------------------
+    Allows internal references to any scalar node in the file. Any node with
+    tag `!ref` will create an object reference to the yaml object at the
+    `<key.subkey>` location within the yaml itself, following reference chains.
 
-        constants:
-            output_folder: exp/asr
-        alignment_saver: !asr.ali.hmm.save
-            save_dir: !ref <constants.output_folder> # exp/asr
+        output_folder: results/asr
+        alignment_saver: !obj:asr.ali.hmm.save
+            save_dir: !ref <output_folder>  # results/asr
 
     Strings values are handled specially: references are substituted but
     the rest of the string is left in place, allowing filepaths to be
     easily extended:
 
-        constants:
-            output_folder: exp/asr
-        alignment_saver: !asr.ali.hmm.save
-            save_dir: !ref <constants.output_folder>/ali # exp/asr/ali
+        output_folder: results/asr
+        alignment_saver: !obj:asr.ali.hmm.save
+            save_dir: !ref <output_folder>/ali # exp/asr/ali
 
-    Object instantiation
-    --------------------
-    If a '!'-prefixed tag is used, the node is interpreted as the
-    parameters for instantiating the named class. In the previous example,
+    A more complex example for demonstration purposes:
+
+        key1: {a: !obj:object {arg1: 1}}
+        key2: !ref <key1.a>
+
+    Here, "key2" will contain a reference to the "a" object, so changing
+    a.arg1 will also change key2.arg1. If you need a
+    deep copy of the object instead of a shallow reference, you
+    can use a similar syntax with the tag `!copy`. For example:
+
+        key1: {a: !obj:object {arg1: 1}}
+        key2: !copy <key1.a>
+
+    Object and function creation
+    ----------------------------
+    Part of our clean structured hyperparameter interface is being able to
+    specify python objects and functions directly in the yaml. These tags
+    include the full module path as part of the tag, so that the node can be
+    used to pass the arguments to the function. A list is passed as
+    positional arguments and a mapping is passed as keyword arguments.
+
+    In the previous example,
     the alignment_saver will be an instance of the `asr.ali.hmm.save` class,
     with `'exp/asr/ali'` passed to the `__init__()` method as a keyword
     argument. This is equivalent to:
@@ -72,7 +90,7 @@ def load_extended_yaml(yaml_stream, overrides={}, overrides_must_match=True):
     -------
     >>> yaml_string = """
     ... a: 3
-    ... thing: !collections.Counter
+    ... thing: !obj:collections.Counter
     ...     b: !ref <a>
     ... """
     >>> params = load_extended_yaml(yaml_string)
@@ -133,7 +151,7 @@ def resolve_references(yaml_stream, overrides={}, overrides_must_match=False):
 
 
 def _walk_tree_and_resolve(current_node, tree):
-    """A recursive function for resolving `!ref` tags.
+    """A recursive function for resolving `!ref` and `!copy` tags.
 
     Arguments
     ---------
@@ -152,8 +170,17 @@ def _walk_tree_and_resolve(current_node, tree):
     ):
         MSG = "Replace !PLACEHOLDER values in YAML."
         raise ValueError(MSG)
-    elif hasattr(current_node, "tag") and current_node.tag.value == "!ref":
-        current_node = recursive_resolve(current_node.value, [], tree)
+    elif hasattr(current_node, "tag") and current_node.tag.value in [
+        "!ref",
+        "!copy",
+    ]:
+        copy_mode = current_node.tag.value == "!copy"
+        current_node = recursive_resolve(
+            reference=current_node.value,
+            reference_list=[],
+            full_tree=tree,
+            copy_mode=copy_mode,
+        )
     elif isinstance(current_node, list):
         for i, item in enumerate(current_node):
             current_node[i] = _walk_tree_and_resolve(item, tree)
@@ -164,17 +191,18 @@ def _walk_tree_and_resolve(current_node, tree):
     return current_node
 
 
-def object_constructor(loader, callable_string, node):
-    """A constructor method for a '!' tag with a class name.
+def object_constructor(loader, tag, node):
+    """A constructor method for a '!obj:' or '!fn:' prefixed tag.
 
-    The class is instantiated, and the sub-tree is passed as arguments.
+    The sub-tree is passed as arguments, and if '!obj' is the tag prefix,
+    the callable is called before returning (to create the instance).
 
     Arguments
     ---------
     loader : yaml.loader
         The loader used to call this constructor (e.g. `yaml.SafeLoader`).
-    callable_string : str
-        The name of the callables (suffix after the '!' in this case).
+    tag : str
+        The tag_prefix + callable name (e.g. '!obj:speechbrain.xxx').
     node : yaml.Node
         The sub-tree belonging to the tagged node.
 
@@ -183,19 +211,28 @@ def object_constructor(loader, callable_string, node):
     The result of calling the callable.
     """
 
+    try:
+        tag_prefix, callable_string = tag.split(":")
+    except ValueError:
+        raise ValueError(
+            "Expected tag with prefix `!obj:` or `!fn:` but got %s" % tag
+        )
+
+    make_the_call = tag_prefix == "obj"
+
     # Parse arguments from the node
     if isinstance(node, yaml.MappingNode):
         kwargs = loader.construct_mapping(node, deep=True)
-        return call(callable_string, kwargs=kwargs)
+        return construct(callable_string, kwargs=kwargs, call=make_the_call)
     elif isinstance(node, yaml.SequenceNode):
         args = loader.construct_sequence(node, deep=True)
-        return call(callable_string, args=args)
+        return construct(callable_string, args=args, call=make_the_call)
 
-    return call(callable_string)
+    return construct(callable_string, call=make_the_call)
 
 
-def call(callable_string, args=[], kwargs={}):
-    """Use pydoc.locate to create the callable, and then call it.
+def construct(callable_string, args=[], kwargs={}, call=True):
+    """Use pydoc.locate to create the callable.
 
     Arguments
     ---------
@@ -205,11 +242,14 @@ def call(callable_string, args=[], kwargs={}):
         A list of parameters to pass to the callable.
     kwargs : dict
         A dict defining keyword parameters to pass to the callable.
+    call : bool
+        Whether to immediately call the callable (e.g. to construct an object)
+        or to just return the callable (with arguments bound).
 
     Example
     -------
     >>> kwargs = {'in_features': 100, 'out_features': 100}
-    >>> model = call('torch.nn.Linear', kwargs=kwargs)
+    >>> model = construct('torch.nn.Linear', kwargs=kwargs)
     >>> model.__class__.__name__
     'Linear'
 
@@ -222,29 +262,37 @@ def call(callable_string, args=[], kwargs={}):
     if callable_ is None:
         raise ImportError("There is no such callable as %s" % callable_string)
 
-    try:
-        result = callable_(*args, **kwargs)
-    except TypeError as e:
-        err_msg = "Invalid argument to callable %s" % callable_string
-        e.args = (err_msg, *e.args)
-        raise
+    if call:
+        try:
+            result = callable_(*args, **kwargs)
+        except TypeError as e:
+            err_msg = "Invalid argument to callable %s" % callable_string
+            e.args = (err_msg, *e.args)
+            raise
 
-    return result
+        return result
+
+    # Bind the arguments to the callable
+    else:
+        callable_ = functools.partial(callable_, *args, **kwargs)
+        return callable_
 
 
-def deref(ref, preview):
+def deref(ref, full_tree, copy_mode=False):
     """Find the value referred to by a reference in dot-notation
 
     Arguments
     ---------
     ref : str
         The location of the requested value, e.g. 'constants.param'
-    preview : dict
+    full_tree : dict
         The dictionary to use for finding values
+    copy_mode : bool
+        Whether to copy the node before dereferencing.
 
     Returns
     -------
-    The value in the preview dictionary referenced by `ref`.
+    The value in the full_tree dictionary referenced by `ref`.
 
     Example
     -------
@@ -253,21 +301,25 @@ def deref(ref, preview):
     """
 
     # Follow references in dot notation
+    branch = full_tree
     for part in ref[1:-1].split("."):
-        if part not in preview:
+        if part not in branch:
             raise ValueError('The reference "%s" is not valid' % ref)
-        preview = preview[part]
+        branch = branch[part]
 
     # For ruamel.yaml classes, the value is in the tag attribute
     try:
-        preview = preview.value
+        branch = branch.value
     except AttributeError:
         pass
 
-    return preview
+    if copy_mode:
+        return copy.deepcopy(branch)
+    else:
+        return branch
 
 
-def recursive_resolve(reference, reference_list, preview):
+def recursive_resolve(reference, reference_list, full_tree, copy_mode=False):
     """Resolve a reference to a value, following chained references
 
     Arguments
@@ -278,8 +330,11 @@ def recursive_resolve(reference, reference_list, preview):
     reference_list : list
         list of prior references in the chain, in order
         to catch circular references.
-    preview : dict
-        the dictionary that stores all references and their values.
+    full_tree : dict
+        the dictionary in which to find all references and their values.
+    copy_mode : bool
+        Whether to perform a deep copy of the referenced node, rather than
+        a shallow reference to the same object.
 
     Returns
     -------
@@ -287,32 +342,33 @@ def recursive_resolve(reference, reference_list, preview):
 
     Example
     -------
-    >>> preview = {'a': 3, 'b': '<a>', 'c': '<b>/<b>'}
-    >>> recursive_resolve('<c>', [], preview)
+    >>> tree = {'a': 3, 'b': '<a>', 'c': '<b>/<b>'}
+    >>> recursive_resolve('<c>', [], tree)
     '3/3'
     """
     # Non-greedy operator won't work here, because the fullmatch will
     # still match if the first and last things happen to be references
     reference_finder = re.compile(r"<[^>]*>")
-    if len(reference_list) > 1 and reference in reference_list[1:]:
-        raise ValueError("Circular reference detected: ", reference_list)
 
-    # Base case, no '<ref>' present
+    # Base case, no <key> present
     if not reference_finder.search(str(reference)):
         return reference
 
+    if len(reference_list) > 1 and reference in reference_list[1:]:
+        raise ValueError("Circular reference detected: ", reference_list)
+
     # First check for a full match. These replacements preserve type
     if reference_finder.fullmatch(reference):
-        value = deref(reference, preview)
+        value = deref(reference, full_tree, copy_mode)
         reference_list += [reference]
-        return recursive_resolve(value, reference_list, preview)
+        return recursive_resolve(value, reference_list, full_tree, copy_mode)
 
     # Next, do replacements within the string (interpolation)
     matches = reference_finder.findall(reference)
     reference_list += [match[0] for match in matches]
 
-    def replace_fn(x):
-        return str(deref(x[0], preview))
+    def replace_fn(x, tree=full_tree, copy_mode=copy_mode):
+        return str(deref(x[0], full_tree=tree, copy_mode=copy_mode))
 
     sub = reference_finder.sub(replace_fn, reference)
-    return recursive_resolve(sub, reference_list, preview)
+    return recursive_resolve(sub, reference_list, full_tree, copy_mode)
