@@ -29,11 +29,11 @@ class LibriSpeechPreparer:
         'test-others','train-clean-100','train-clean-360','train-other-500']
     save_folder : str
         The directory where to store the csv files.
-        If None, the results will be saved in
-        $output_folder/prepare_librispeech/*.csv.
     select_n_sentences : int
         Default : None
         If not None, only pick this many sentences.
+    use_lexicon : bool
+        When it is true, using lexicon to generate phonemes columns in the csv file.
 
     Author
     ------

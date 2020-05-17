@@ -15,7 +15,7 @@ csv_test: !ref <data_folder>/test.csv
 
 # Neural Parameters
 number_of_epochs: 30
-batch_size: 8
+batch_size: 16
 lr: 0.001
 weight_decay: 0.000001
 dropout_rate: 0.15
@@ -60,6 +60,7 @@ rnn_dec: !speechbrain.nnet.RNN.AttentionalRNNDecoder
     scaling: 1.0
     channels: 10
     kernel_size: 100
+    dropout: 0.5
     bos_index: !ref <bos_index>
 
 ctc_linear: !speechbrain.nnet.linear.Linear

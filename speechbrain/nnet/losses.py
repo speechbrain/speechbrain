@@ -109,7 +109,7 @@ class ComputeCost(nn.Module):
             target = append_eos_token(
                 target, target_len, eos_index=self.eos_index
             )
-            pred_len = target_len = target_len + 1
+            target_len = target_len + 1
 
         if self.cost_type == "ctc":
             target = target.int()
