@@ -102,8 +102,8 @@ class LibriSpeechPreparer:
 
             self.create_csv(wav_lst, text_dict, split, select_n_sentences)
 
-            # saving options
-            save_pkl(self.conf, self.save_opt)
+        # saving options
+        save_pkl(self.conf, self.save_opt)
 
     def read_lexicon(self, lexicon_path):
         """
