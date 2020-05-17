@@ -98,9 +98,6 @@ class ComputeCost(nn.Module):
             tensor containing the relative lengths of each sentence
         """
 
-        # Check on input and label shapes
-        self._check_inp(prediction, target, lengths)
-
         # Computing actual target and prediction lengths
         pred_len, target_len = self._compute_len(prediction, target, lengths)
         target = target.to(prediction.device)
@@ -110,6 +107,9 @@ class ComputeCost(nn.Module):
                 target, target_len, eos_index=self.eos_index
             )
             target_len = target_len + 1
+
+        # Check on input and label shapes
+        self._check_inp(prediction, target, lengths)
 
         if self.cost_type == "ctc":
             target = target.int()
@@ -135,7 +135,7 @@ class ComputeCost(nn.Module):
                 mask = mask.unsqueeze(2).repeat(1, 1, target.shape[2])
 
             loss = self.cost(prediction, target)
-            if self.label_smoothing > 0 and self.cost_type == "nll":
+            if self.label_smoothing > 0:
                 loss_reg = -torch.mean(prediction, dim=-1)
                 loss = (
                     1 - self.label_smoothing
@@ -158,7 +158,7 @@ class ComputeCost(nn.Module):
             tensor containing the relative lengths of each sentence
         """
 
-        if self.cost_type != "ctc" and not self.append_eos:
+        if self.cost_type != "ctc":
 
             # Shapes cannot be too different (max 3 time steps)
             diff = abs(prediction.shape[1] - target.shape[1])
