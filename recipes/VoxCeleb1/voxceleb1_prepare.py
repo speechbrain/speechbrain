@@ -145,8 +145,8 @@ class VoxCelebPreparer:
         ]
         random.shuffle(audio_files_list)
 
-        train_lst = audio_files_list[: int(0.9 * len(audio_files_list))]
-        dev_lst = audio_files_list[int(0.9 * len(audio_files_list)) :]
+        train_lst = audio_files_list[: int(0.75 * len(audio_files_list))]
+        dev_lst = audio_files_list[int(0.75 * len(audio_files_list)) :]
 
         return train_lst, dev_lst
 

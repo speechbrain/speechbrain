@@ -81,6 +81,8 @@ class XvectorBrain(sb.core.Brain):
         epoch_stats = {"epoch": epoch, "lr": params.lr}
         train_logger.log_stats(epoch_stats, train_stats)
 
+        checkpointer.save_and_keep_only()
+
 
 # Extracts xvector given data and truncated model
 class Extractor(Sequential):
