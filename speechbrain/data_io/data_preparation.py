@@ -54,6 +54,7 @@ class LibriSpeechPreparer:
         self.save_folder = save_folder
         self.select_n_sentences = select_n_sentences
         self.use_lexicon = use_lexicon
+        self.conf = (select_n_sentences, use_lexicon)
 
         # Other variables
         self.samplerate = 16000
@@ -100,6 +101,9 @@ class LibriSpeechPreparer:
                 select_n_sentences = len(wav_lst)
 
             self.create_csv(wav_lst, text_dict, split, select_n_sentences)
+
+            # saving options
+            save_pkl(self.conf, self.save_opt)
 
     def read_lexicon(self, lexicon_path):
         """
@@ -256,6 +260,17 @@ class LibriSpeechPreparer:
 
         for split in self.splits:
             if not os.path.isfile(self.save_folder + "/" + split + ".csv"):
+                skip = False
+
+        #  Checking saved options
+        if skip is True:
+            if os.path.isfile(self.save_opt):
+                opts_old = load_pkl(self.save_opt)
+                if opts_old == self.conf:
+                    skip = True
+                else:
+                    skip = False
+            else:
                 skip = False
 
         return skip
