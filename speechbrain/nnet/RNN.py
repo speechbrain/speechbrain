@@ -58,6 +58,14 @@ class RNN(torch.nn.Module):
     >>> out_tensor = net(inp_tensor, init_params=True)
     >>> out_tensor.shape
     torch.Size([4, 10, 5])
+    >>> inp_tensor = torch.rand([4, 10, 20]) 
+    >>> net = RNN(rnn_type='ligru', n_neurons=5,num_layers=2,return_hidden=True,bidirectional=True)
+    >>> out_tensor0, hn = net(inp_tensor, init_params=True)
+    >>> out_tensor1, hn = net(inp_tensor, hn, init_params=True)
+    >>> out_tensor1.shape
+    torch.Size([4, 10, 10])
+    >>> hn.shape
+    torch.Size([4, 4, 5])
     """
 
     def __init__(
@@ -237,13 +245,15 @@ class LiGRU(torch.jit.ScriptModule):
         self.model = torch.nn.ModuleList([])
         self.bidirectional = bidirectional
         self.hidden_size = hidden_size
+        self.num_layers = num_layers
+        self.batch_size = batch_size
 
         for i in range(num_layers):
             rnn_lay = LiGRU_Layer(
                 current_dim,
                 self.hidden_size,
-                num_layers,
-                batch_size,
+                self.num_layers,
+                self.batch_size,
                 dropout=dropout,
                 nonlinearity=nonlinearity,
                 normalization=normalization,
@@ -268,8 +278,15 @@ class LiGRU(torch.jit.ScriptModule):
         x : torch.Tensor
         """
         h = []
-        for ligru_lay in self.model:
-            x = ligru_lay(x, hx=hx)
+        if hx is not None:
+            if self.bidirectional:
+                hx = hx.reshape(self.num_layers, self.batch_size * 2, self.hidden_size)
+                           
+        for i, ligru_lay in enumerate(self.model):
+            if hx is not None:
+                x = ligru_lay(x, hx=hx[i])
+            else:
+                x = ligru_lay(x, hx=None)
             h.append(x[:, -1, :])
         h = torch.stack(h, dim=1)
         if self.bidirectional:
