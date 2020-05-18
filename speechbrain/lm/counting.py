@@ -62,16 +62,20 @@ def ngrams(sequence, n):
     return
 
 
-def ngrams_for_evaluation(sequence, max_n):
+def ngrams_for_evaluation(
+    sequence, max_n, left_pad_symbol="<s>", right_pad_symbol="</s>"
+):
     if max_n <= 0:
         raise ValueError("Max N must be >=1")
     # Handle the unigram case specially:
     if max_n == 1:
         for token in sequence:
             yield (token,), tuple()
+        # Finally yield the right padding and end
+        yield (right_pad_symbol,), tuple()
         return
-    iterator = iter(sequence)
-    history = []
+    iterator = itertools.chain(sequence, (right_pad_symbol,))
+    history = [left_pad_symbol]
     for token in iterator:
         yield token, tuple(history)
         history.append(token)
