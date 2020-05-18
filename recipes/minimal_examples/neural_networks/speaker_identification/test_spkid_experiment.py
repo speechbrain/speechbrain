@@ -54,5 +54,7 @@ spk_id_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
 test_stats = spk_id_brain.evaluate(params.test_loader())
 print("Test error: %.2f" % summarize_average(test_stats["error"]))
 
+
 # If training is successful, we get all test examples correct
-assert summarize_average(test_stats["error"]) == 0.0
+def test_error():
+    assert summarize_average(test_stats["error"]) == 0.0
