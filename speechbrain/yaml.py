@@ -100,7 +100,14 @@ def load_extended_yaml(yaml_stream, overrides={}, overrides_must_match=True):
     yaml_stream = resolve_references(
         yaml_stream, overrides, overrides_must_match
     )
-    yaml.Loader.add_multi_constructor("!", object_constructor)
+    yaml.Loader.add_multi_constructor(
+        tag_prefix="!obj:",
+        multi_constructor=lambda x, y, z: constructor(x, y, z, call=True),
+    )
+    yaml.Loader.add_multi_constructor(
+        tag_prefix="!fn:",
+        multi_constructor=lambda x, y, z: constructor(x, y, z, call=False),
+    )
     return SimpleNamespace(**yaml.load(yaml_stream, Loader=yaml.Loader))
 
 
@@ -191,44 +198,38 @@ def _walk_tree_and_resolve(current_node, tree):
     return current_node
 
 
-def object_constructor(loader, tag, node):
+def constructor(loader, callable_string, node, call=True):
     """A constructor method for a '!obj:' or '!fn:' prefixed tag.
 
-    The sub-tree is passed as arguments, and if '!obj' is the tag prefix,
-    the callable is called before returning (to create the instance).
+    Use the loader to parse the sub-tree, then pass the sub-tree as arguments
+    to the callable string.
 
     Arguments
     ---------
     loader : yaml.loader
         The loader used to call this constructor (e.g. `yaml.SafeLoader`).
-    tag : str
-        The tag_prefix + callable name (e.g. '!obj:speechbrain.xxx').
+    callable_string : str
+        The callable name (e.g. 'speechbrain.xxx').
     node : yaml.Node
         The sub-tree belonging to the tagged node.
+    call : bool
+        Whether the callable should be called upon construction, see
+        `construct()`.
 
     Returns
     -------
-    The result of calling the callable.
+    The callable or the result of calling the callable.
     """
-
-    try:
-        tag_prefix, callable_string = tag.split(":")
-    except ValueError:
-        raise ValueError(
-            "Expected tag with prefix `!obj:` or `!fn:` but got %s" % tag
-        )
-
-    make_the_call = tag_prefix == "obj"
 
     # Parse arguments from the node
     if isinstance(node, yaml.MappingNode):
         kwargs = loader.construct_mapping(node, deep=True)
-        return construct(callable_string, kwargs=kwargs, call=make_the_call)
+        return construct(callable_string, kwargs=kwargs, call=True)
     elif isinstance(node, yaml.SequenceNode):
         args = loader.construct_sequence(node, deep=True)
-        return construct(callable_string, args=args, call=make_the_call)
+        return construct(callable_string, args=args, call=True)
 
-    return construct(callable_string, call=make_the_call)
+    return construct(callable_string, call=True)
 
 
 def construct(callable_string, args=[], kwargs={}, call=True):
