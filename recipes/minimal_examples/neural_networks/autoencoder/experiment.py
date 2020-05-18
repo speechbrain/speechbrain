@@ -17,7 +17,8 @@ if params.use_tensorboard:
 
 
 class AutoBrain(sb.core.Brain):
-    def forward(self, x, init_params=False):
+    def compute_forward(self, x, init_params=False):
+        print(x)
         id, wavs, lens = x
         feats = params.compute_features(wavs, init_params)
         feats = params.mean_var_norm(feats, lens)
@@ -36,7 +37,7 @@ class AutoBrain(sb.core.Brain):
 
     def fit_batch(self, batch):
         inputs = batch[0]
-        predictions = self.forward(inputs)
+        predictions = self.compute_forward(inputs)
         loss = self.compute_objectives(predictions, inputs)
         loss.backward()
         self.optimizer(self.modules)
@@ -44,7 +45,7 @@ class AutoBrain(sb.core.Brain):
 
     def evaluate_batch(self, batch):
         inputs = batch[0]
-        predictions = self.forward(inputs)
+        predictions = self.compute_forward(inputs)
         loss = self.compute_objectives(predictions, inputs, train=False)
         return {"loss": loss.detach()}
 
@@ -57,10 +58,11 @@ class AutoBrain(sb.core.Brain):
 
 
 train_set = params.train_loader()
+first_x = next(iter(train_set[0]))
 auto_brain = AutoBrain(
     modules=[params.linear1, params.linear2],
     optimizer=params.optimizer,
-    first_input=next(iter(train_set[0])),
+    first_inputs=[first_x],
 )
 auto_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
 test_stats = auto_brain.evaluate(params.test_loader())

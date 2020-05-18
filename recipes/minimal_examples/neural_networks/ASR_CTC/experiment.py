@@ -16,7 +16,7 @@ with open(params_file) as fin:
 
 
 class CTCBrain(sb.core.Brain):
-    def forward(self, x, init_params=False):
+    def compute_forward(self, x, init_params=False):
         id, wavs, lens = x
         feats = params.compute_features(wavs, init_params)
         feats = params.mean_var_norm(feats, lens)
@@ -48,10 +48,11 @@ class CTCBrain(sb.core.Brain):
 
 
 train_set = params.train_loader()
+first_x, first_y = next(zip(*train_set))
 ctc_brain = CTCBrain(
     modules=[params.rnn, params.lin],
     optimizer=params.optimizer,
-    first_input=next(iter(train_set[0])),
+    first_input=[first_x],
 )
 ctc_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
 test_stats = ctc_brain.evaluate(params.test_loader())
