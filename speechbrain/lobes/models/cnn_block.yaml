@@ -1,7 +1,7 @@
 # The block index is multiplied with the channels to get out_channels
 block_index: 1
 channels: 128
-kernel_size: !!python/tuple [3, 3]
+kernel_size: (3, 3)
 sequence: [conv1, norm1, activation, conv2, norm2, activation, pooling, dropout]
 
 conv1: !obj:speechbrain.nnet.CNN.Conv

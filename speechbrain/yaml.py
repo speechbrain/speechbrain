@@ -100,6 +100,13 @@ def load_extended_yaml(yaml_stream, overrides={}, overrides_must_match=True):
     yaml_stream = resolve_references(
         yaml_stream, overrides, overrides_must_match
     )
+
+    # Parse flat tuples (no nesting of lists, dicts)
+    yaml.Loader.add_constructor(tag="!tuple", constructor=make_tuple)
+    tuple_pattern = re.compile(r"^\(.*\)$")
+    yaml.Loader.add_implicit_resolver("!tuple", tuple_pattern, first="(")
+
+    # Parse objects and functions
     yaml.Loader.add_multi_constructor(
         tag_prefix="!obj:",
         multi_constructor=lambda x, y, z: constructor(x, y, z, call=True),
@@ -108,6 +115,8 @@ def load_extended_yaml(yaml_stream, overrides={}, overrides_must_match=True):
         tag_prefix="!fn:",
         multi_constructor=lambda x, y, z: constructor(x, y, z, call=False),
     )
+
+    # Return a namespace for clean dot-notation
     return SimpleNamespace(**yaml.load(yaml_stream, Loader=yaml.Loader))
 
 
@@ -198,6 +207,14 @@ def _walk_tree_and_resolve(current_node, tree):
     return current_node
 
 
+def make_tuple(loader, node):
+    """Parse scalar node as a list, convert to tuple"""
+    tuple_string = loader.construct_scalar(node)
+    list_string = "[" + tuple_string[1:-1] + "]"
+    parsed_list = yaml.load(list_string, Loader=yaml.Loader)
+    return tuple(parsed_list)
+
+
 def constructor(loader, callable_string, node, call=True):
     """A constructor method for a '!obj:' or '!fn:' prefixed tag.
 
@@ -224,12 +241,12 @@ def constructor(loader, callable_string, node, call=True):
     # Parse arguments from the node
     if isinstance(node, yaml.MappingNode):
         kwargs = loader.construct_mapping(node, deep=True)
-        return construct(callable_string, kwargs=kwargs, call=True)
+        return construct(callable_string, kwargs=kwargs, call=call)
     elif isinstance(node, yaml.SequenceNode):
         args = loader.construct_sequence(node, deep=True)
-        return construct(callable_string, args=args, call=True)
+        return construct(callable_string, args=args, call=call)
 
-    return construct(callable_string, call=True)
+    return construct(callable_string, call=call)
 
 
 def construct(callable_string, args=[], kwargs={}, call=True):
