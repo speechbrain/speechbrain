@@ -56,7 +56,7 @@ jobs:
                   pytest tests/unittests
             - name: Integration tests with pytest
               run: |
-                  pytest tests/integration
+                  pytest recipes/minimal_examples
             - name: Doctests with pytest
               run: |
                   pytest --doctest-modules speechbrain

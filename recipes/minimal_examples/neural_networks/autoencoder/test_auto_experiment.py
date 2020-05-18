@@ -66,5 +66,7 @@ auto_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
 test_stats = auto_brain.evaluate(params.test_loader())
 print("Test loss: %.3f" % summarize_average(test_stats["loss"]))
 
+
 # If training is successful, reconstruction loss is less than 0.2
-assert summarize_average(test_stats["loss"]) < 0.2
+def test_loss():
+    assert summarize_average(test_stats["loss"]) < 0.2

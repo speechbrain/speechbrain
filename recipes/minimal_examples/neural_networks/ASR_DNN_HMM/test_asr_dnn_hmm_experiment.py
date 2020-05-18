@@ -53,5 +53,7 @@ asr_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
 test_stats = asr_brain.evaluate(params.test_loader())
 print("Test error: %.2f" % summarize_average(test_stats["error"]))
 
+
 # With such a small dataset, we only expect to get 35% correct
-assert summarize_average(test_stats["error"]) < 0.65
+def test_error():
+    assert summarize_average(test_stats["error"]) < 0.65
