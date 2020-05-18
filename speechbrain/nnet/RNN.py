@@ -444,16 +444,11 @@ class LiGRU_Layer(torch.jit.ScriptModule):
         )
         self.drop_mask_te = torch.tensor([1.0], device=self.device).float()
 
-        self.N_drop_masks = 2000
+        self.N_drop_masks = 16000
         self.drop_mask_cnt = 0
 
         self.drop_masks = self.drop(
-            torch.ones(
-                self.N_drop_masks,
-                batch_size,
-                self.hidden_size,
-                device=self.device,
-            )
+            torch.ones(self.N_drop_masks, self.hidden_size, device=self.device,)
         ).data
 
     @torch.jit.script_method
@@ -463,24 +458,19 @@ class LiGRU_Layer(torch.jit.ScriptModule):
         if self.training:
 
             # Sample new masks when needed
-            if self.drop_mask_cnt >= self.N_drop_masks:
+            if self.drop_mask_cnt + self.batch_size > self.N_drop_masks:
                 self.drop_mask_cnt = 0
-
                 self.drop_masks = (
-                    self.drop(
-                        torch.ones(
-                            self.N_drop_masks,
-                            self.batch_size,
-                            self.hidden_size,
-                        )
-                    )
+                    self.drop(torch.ones(self.N_drop_masks, self.hidden_size,))
                     .to(self.device)
                     .data
                 )
 
             # Sampling the mask
-            drop_mask = self.drop_masks[self.drop_mask_cnt]
-            self.drop_mask_cnt = self.drop_mask_cnt + 1
+            drop_mask = self.drop_masks[
+                self.drop_mask_cnt : self.drop_mask_cnt + self.batch_size
+            ]
+            self.drop_mask_cnt = self.drop_mask_cnt + self.batch_size
 
         else:
             drop_mask = self.drop_mask_te
@@ -500,10 +490,7 @@ class LiGRU_Layer(torch.jit.ScriptModule):
             if self.training:
                 self.drop_masks = self.drop(
                     torch.ones(
-                        self.N_drop_masks,
-                        self.batch_size,
-                        self.hidden_size,
-                        device=self.device,
+                        self.N_drop_masks, self.hidden_size, device=self.device,
                     )
                 ).data
 
