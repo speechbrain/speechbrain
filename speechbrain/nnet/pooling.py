@@ -42,7 +42,7 @@ class Pooling(nn.Module):
     >>> pool.init_params(inputs)
     >>> output=pool(inputs)
     >>> output.shape
-    torch.Size([10, 50, 38])
+    torch.Size([10, 50, 13])
     """
 
     def __init__(
