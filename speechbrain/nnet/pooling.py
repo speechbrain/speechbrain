@@ -53,7 +53,7 @@ class Pooling(nn.Module):
         ceil_mode=False,
         padding=0,
         dilation=1,
-        stride=1,
+        stride=None,
     ):
         super().__init__()
         self.pool_type = pool_type
@@ -62,15 +62,19 @@ class Pooling(nn.Module):
         self.ceil_mode = ceil_mode
         self.padding = padding
         self.dilation = dilation
-        self.stride = stride
         self.pool1d = False
         self.pool2d = False
         self.combine_batch_time = False
 
-        if not isinstance(self.kernel_size, list):
-            self.kernel_size = [self.kernel_size]
-        if not isinstance(self.pool_axis, list):
-            self.pool_axis = [self.pool_axis]
+        if isinstance(self.kernel_size, int):
+            self.kernel_size = (self.kernel_size,)
+        if isinstance(self.pool_axis, int):
+            self.pool_axis = (self.pool_axis,)
+
+        if stride is None:
+            self.stride = kernel_size
+        else:
+            self.stride = stride
 
     def init_params(self, first_input):
         """
@@ -183,6 +187,12 @@ class Pooling(nn.Module):
                 x = x.reshape(new_shape[0] * new_shape[1], new_shape[2], -1)
 
         if self.pool2d:
+            # Add extra two dimension at the last two, and then swap the pool_axis to them
+            # Example: pool_axis=[1,2]
+            # [a,b,c,d] => [a,b,c,d,1,1]
+            # [a,b,c,d,1,1] => [a,1,c,d,b,1]
+            # [a,1,c,d,b,1] => [a,1,1,d,b,c]
+            # [a,1,1,d,b,c] => [a,d,b,c]
             x = (
                 x.reshape(*x.shape, 1, 1)
                 .transpose(-2, self.pool_axis[0])
@@ -201,6 +211,13 @@ class Pooling(nn.Module):
             x = x.transpose(-1, self.pool_axis[0])
 
         if self.pool2d:
+            # Swap back the pool_axis from the last two dimension
+            # Example: pool_axis=[1,2]
+            # [a,d,b,c] => [a,1,d,b,c]
+            # [a,1,d,b,c] => [a,1,1,d,b,c]
+            # [a,1,1,d,b,c] => [a,b,1,d,1,c]
+            # [a,b,1,d,1,c] => [a,b,c,d,1,1]
+            # [a,b,c,d,1,1] => [a,b,c,d]
             x = (
                 x.unsqueeze(self.pool_axis[0])
                 .unsqueeze(self.pool_axis[1])
