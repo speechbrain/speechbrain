@@ -23,6 +23,9 @@ E.G.
     ```
 """
 import collections
+import logging
+
+logger = logging.getLogger(__name__)
 
 ArpaProb = collections.namedtuple("ArpaProb", ["prob", "backoff"])
 """
@@ -36,6 +39,7 @@ def read_arpa(fin):
     ngrams_by_order = {}
     backoffs_by_order = {}
     for order in num_ngrams:
+        logger.debug(f"Reading {order}-grams")
         probs, backoffs = read_ngrams_section(fin, order)
         ngrams_by_order[order] = probs
         backoffs_by_order[order] = backoffs
