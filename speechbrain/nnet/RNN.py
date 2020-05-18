@@ -58,8 +58,8 @@ class RNN(torch.nn.Module):
     >>> out_tensor = net(inp_tensor, init_params=True)
     >>> out_tensor.shape
     torch.Size([4, 10, 5])
-    >>> inp_tensor = torch.rand([4, 10, 20]) 
-    >>> net = RNN(rnn_type='ligru', n_neurons=5,num_layers=2,return_hidden=True,bidirectional=True)
+    >>> inp_tensor = torch.rand([4, 10, 20])
+    >>> net = RNN(rnn_type='ligru', n_neurons=5, num_layers=2, return_hidden=True, bidirectional=True)
     >>> out_tensor0, hn = net(inp_tensor, init_params=True)
     >>> out_tensor1, hn = net(inp_tensor, hn, init_params=True)
     >>> out_tensor1.shape
@@ -280,8 +280,10 @@ class LiGRU(torch.jit.ScriptModule):
         h = []
         if hx is not None:
             if self.bidirectional:
-                hx = hx.reshape(self.num_layers, self.batch_size * 2, self.hidden_size)
-                           
+                hx = hx.reshape(
+                    self.num_layers, self.batch_size * 2, self.hidden_size
+                )
+
         for i, ligru_lay in enumerate(self.model):
             if hx is not None:
                 x = ligru_lay(x, hx=hx[i])
