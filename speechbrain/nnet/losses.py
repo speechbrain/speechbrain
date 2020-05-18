@@ -10,6 +10,7 @@ import torch
 import logging
 import torch.nn as nn
 from speechbrain.data_io.data_io import length_to_mask
+from speechbrain.nnet.transducer.transducer_loss import TransducerLoss
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +75,11 @@ class ComputeCost(nn.Module):
                 raise ValueError("Must pass blank index for CTC")
             self.blank_index = blank_index
             self.cost = nn.CTCLoss(blank=self.blank_index)
+        if cost_type == "transducer":
+            if blank_index is None:
+                raise ValueError("Must pass blank index for transducer")
+            self.blank_index = blank_index
+            self.cost = TransducerLoss(blank=self.blank_index)
 
     def forward(self, prediction, target, lengths):
         """Returns the cost function given predictions and targets.
@@ -87,15 +93,17 @@ class ComputeCost(nn.Module):
         lengths : torch.Tensor
             tensor containing the relative lengths of each sentence
         """
-
         # Check on input and label shapes
         self._check_inp(prediction, target, lengths)
 
         # Computing actual target and prediction lengths
         pred_len, target_len = self._compute_len(prediction, target, lengths)
         target = target.to(prediction.device)
+        if self.cost_type == "transducer":
+            target = target.int()
+            loss = self.cost(prediction, target, pred_len, target_len)
 
-        if self.cost_type == "ctc":
+        elif self.cost_type == "ctc":
             target = target.int()
             prediction = prediction.transpose(0, 1)
             loss = self.cost(prediction, target, pred_len, target_len)
@@ -136,7 +144,7 @@ class ComputeCost(nn.Module):
             tensor containing the relative lengths of each sentence
         """
 
-        if self.cost_type != "ctc":
+        if self.cost_type != "ctc" and self.cost_type != "transducer":
 
             # Shapes cannot be too different (max 3 time steps)
             diff = abs(prediction.shape[1] - target.shape[1])
