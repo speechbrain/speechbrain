@@ -40,9 +40,9 @@ repos:
 
     - repo: local
       hooks:
-          - id: integration
-            name: integration
-            entry: pytest recipes/minimal_examples
+          - id: doctests
+            name: doctests
+            entry: pytest --doctest-modules speechbrain
             language: python
             pass_filenames: False
             always_run: True
@@ -50,9 +50,9 @@ repos:
 
     - repo: local
       hooks:
-          - id: doctests
-            name: doctests
-            entry: pytest --doctest-modules speechbrain
+          - id: integration
+            name: integration
+            entry: pytest recipes/minimal_examples
             language: python
             pass_filenames: False
             always_run: True
