@@ -42,6 +42,7 @@ checkpointer = sb.utils.checkpoints.Checkpointer(
     checkpoints_dir=params.save_folder,
     recoverables={
         "model": params.model,
+        "output": params.output,
         "optimizer": params.optimizer,
         "scheduler": params.lr_annealing,
         "normalizer": params.normalize,
@@ -59,7 +60,10 @@ class ASR(sb.core.Brain):
             wavs = params.augmentation(wavs, wav_lens, init_params)
         feats = params.compute_features(wavs, init_params)
         feats = params.normalize(feats, wav_lens)
-        return params.model(feats, init_params), wav_lens
+        out = params.model(feats, init_params)
+        out = params.output(out, init_params)
+        pout = params.log_softmax(out)
+        return pout, wav_lens
 
     def compute_objectives(self, predictions, targets, train_mode=True):
         pout, pout_lens = predictions
@@ -105,7 +109,7 @@ valid_set = params.valid_loader()
 first_x, first_y = next(zip(*train_set))
 
 # Modules are passed to optimizer and have train/eval called on them
-modules = [params.model]
+modules = [params.model, params.output]
 if hasattr(params, "augmentation"):
     modules.append(params.augmentation)
 
