@@ -12,7 +12,7 @@ with open(params_file) as fin:
 
 
 class ASR_Brain(sb.core.Brain):
-    def forward(self, x, init_params=False):
+    def compute_forward(self, x, train_mode=True, init_params=False):
         id, wavs, lens = x
         feats = params.compute_features(wavs, init_params)
         feats = params.mean_var_norm(feats, lens)
@@ -24,12 +24,12 @@ class ASR_Brain(sb.core.Brain):
 
         return outputs, lens
 
-    def compute_objectives(self, predictions, targets, train=True):
+    def compute_objectives(self, predictions, targets, train_mode=True):
         predictions, lens = predictions
         ids, ali, ali_lens = targets
         loss = params.compute_cost(predictions, ali, [lens, ali_lens])
 
-        if not train:
+        if not train_mode:
             err = params.compute_error(predictions, ali, [lens, ali_lens])
             stats = {"error": err}
             return loss, stats
@@ -44,10 +44,11 @@ class ASR_Brain(sb.core.Brain):
 
 
 train_set = params.train_loader()
+first_x, first_y = next(zip(*train_set))
 asr_brain = ASR_Brain(
     modules=[params.linear1, params.linear2],
     optimizer=params.optimizer,
-    first_input=next(iter(train_set[0])),
+    first_inputs=[first_x],
 )
 asr_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
 test_stats = asr_brain.evaluate(params.test_loader())
