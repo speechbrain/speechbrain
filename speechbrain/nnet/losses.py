@@ -10,7 +10,6 @@ import torch
 import logging
 import torch.nn as nn
 from speechbrain.data_io.data_io import length_to_mask
-from speechbrain.nnet.transducer.transducer_loss import TransducerLoss
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +75,10 @@ class ComputeCost(nn.Module):
             self.blank_index = blank_index
             self.cost = nn.CTCLoss(blank=self.blank_index)
         if cost_type == "transducer":
+            from speechbrain.nnet.transducer.transducer_loss import (
+                TransducerLoss,
+            )
+
             if blank_index is None:
                 raise ValueError("Must pass blank index for transducer")
             self.blank_index = blank_index
