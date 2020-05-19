@@ -12,47 +12,50 @@ N_epochs: 4
 N_batch: 2
 lr: 0.0004
 
-train_loader: !speechbrain.data_io.data_io.DataLoaderFactory
-    &loader
+train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>
     batch_size: !ref <N_batch>
     csv_read: [wav, spk_id]
     replacements:
         $data_folder: !ref <data_folder>
 
-valid_loader: !speechbrain.data_io.data_io.DataLoaderFactory
-    <<: *loader
+valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_valid>
+    batch_size: !ref <N_batch>
+    csv_read: [wav, spk_id]
+    replacements:
+        $data_folder: !ref <data_folder>
 
-test_loader: !speechbrain.data_io.data_io.DataLoaderFactory
-    <<: *loader
+test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_test>
-    batch_size: 1
+    csv_read: [wav, spk_id]
+    replacements:
+        $data_folder: !ref <data_folder>
 
-compute_features: !speechbrain.lobes.features.mfcc.MFCC
+compute_features: !new:speechbrain.lobes.features.mfcc.MFCC
 
-mean_var_norm: !speechbrain.processing.features.InputNormalization
+mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
 
-linear1: !speechbrain.nnet.linear.Linear
+linear1: !new:speechbrain.nnet.linear.Linear
     n_neurons: 1024
     bias: False
 
-activation: !torch.nn.LeakyReLU
+activation: !new:torch.nn.LeakyReLU
 
-linear2: !speechbrain.nnet.linear.Linear
+linear2: !new:speechbrain.nnet.linear.Linear
     n_neurons: 2
     bias: False
 
-softmax: !speechbrain.nnet.activations.Softmax
+softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
-compute_cost: !speechbrain.nnet.losses.ComputeCost
+compute_cost: !new:speechbrain.nnet.losses.ComputeCost
     cost_type: nll
 
-compute_error: !speechbrain.nnet.losses.ComputeCost
+compute_error: !new:speechbrain.nnet.losses.ComputeCost
     cost_type: error
 
-optimizer: !speechbrain.nnet.optimizers.Optimize
+optimizer: !new:speechbrain.nnet.optimizers.Optimize
     optimizer_type: adam
     learning_rate: !ref <lr>
