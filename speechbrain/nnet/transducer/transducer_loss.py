@@ -255,8 +255,8 @@ class TransducerLoss(Module):
     Exemple
     -------
     >>> import torch
-    >>> from speechbrain.nnet.transducer.transducer_loss import TransducerLoss, doctest_numba
     >>> doctest_numba()
+    >>> from speechbrain.nnet.transducer.transducer_loss import TransducerLoss, doctest_numba
     >>> loss = TransducerLoss(blank=0)
     >>> acts = torch.randn((1,2,3,5)).cuda().log_softmax(dim=-1).requires_grad_()
     >>> labels = torch.Tensor([[1,2]]).cuda().int()
