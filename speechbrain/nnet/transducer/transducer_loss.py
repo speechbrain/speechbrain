@@ -4,7 +4,6 @@ from torch.nn import Module
 from numba import cuda
 import os
 import math
-import pytest
 
 os.environ["NUMBAPRO_LIBDEVICE"] = "/usr/local/cuda/nvvm/libdevice/"
 os.environ["NUMBAPRO_NVVM"] = "/usr/local/cuda/nvvm/lib64/libnvvm.so.3.3.0"
@@ -237,13 +236,6 @@ class Transducer(Function):
         return ctx.grads.mul_(grad_output), None, None, None, None, None, None
 
 
-def doctest_numba():
-    try:
-        cuda.cuda_paths
-    except Exception:  # noqa: F401
-        pytest.skip("TransducerLoss test fail, install numba")
-
-
 class TransducerLoss(Module):
     """
     This class implements the Transduce loss computation with forward-backward algorithm.
@@ -255,8 +247,11 @@ class TransducerLoss(Module):
     Exemple
     -------
     >>> import torch
-    >>> doctest_numba()
-    >>> from speechbrain.nnet.transducer.transducer_loss import TransducerLoss, doctest_numba
+    >>> try:
+    ...     import numba
+    ... except:
+    ...     pytest.skip('Can only run this test if numba is installed')
+    >>> from speechbrain.nnet.transducer.transducer_loss import TransducerLoss
     >>> loss = TransducerLoss(blank=0)
     >>> acts = torch.randn((1,2,3,5)).cuda().log_softmax(dim=-1).requires_grad_()
     >>> labels = torch.Tensor([[1,2]]).cuda().int()
