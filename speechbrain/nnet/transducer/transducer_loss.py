@@ -247,11 +247,6 @@ class TransducerLoss(Module):
     Exemple
     -------
     >>> import torch
-    >>> try:
-    ...     import numba
-    ... except:
-    ...     pytest.skip('Can only run this test if numba is installed')
-    >>> from speechbrain.nnet.transducer.transducer_loss import TransducerLoss
     >>> loss = TransducerLoss(blank=0)
     >>> acts = torch.randn((1,2,3,5)).cuda().log_softmax(dim=-1).requires_grad_()
     >>> labels = torch.Tensor([[1,2]]).cuda().int()
