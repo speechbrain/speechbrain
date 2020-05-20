@@ -55,13 +55,14 @@ def test_RNN():
     ), "LSTM hidden states mismatch"
 
     # Check LiGRU
-    inputs = torch.randn(4, 2, 7)
+    inputs = torch.randn(1, 2, 2)
     net = RNN(
         rnn_type="ligru",
         n_neurons=5,
         num_layers=2,
         return_hidden=True,
         bidirectional=False,
+        normalization='layernorm'
     )
     output, hn = net(inputs, init_params=True)
     output_l = []
@@ -71,7 +72,13 @@ def test_RNN():
         output_l.append(out_t.squeeze(1))
 
     out_steps = torch.stack(output_l, dim=1)
-    # output missmatch
-    # TODO: layer normalization
-    # assert torch.all(torch.lt(tourch.add(out_steps, -output), 1e-3)), "LiGRU output mismatch"
-    # assert torch.all(torch.lt(hn_t, -hn), 1e-3)), "LiGRU hidden states mismatch"
+
+    assert torch.all(
+        torch.lt(torch.add(out_steps, -output), 1e-3)
+    ), "LiGRU output mismatch"
+    assert torch.all(torch.lt(torch.add(hn_t[0], -hn[0]), 1e-3)) and torch.all(
+        torch.lt(torch.add(hn_t[1], -hn[1]), 1e-3)
+    ), "LiGRU hidden states mismatch"
+
+    
+test_RNN()
