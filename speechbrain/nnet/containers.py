@@ -175,4 +175,4 @@ class NeuralBlock(torch.nn.Module):
         self.block = params.block
 
     def forward(self, x, init_params=False):
-        return self.block(x, init_params)
+        return self.block(x, init_params=init_params)

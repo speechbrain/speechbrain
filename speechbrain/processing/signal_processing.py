@@ -82,13 +82,10 @@ def convolve1d(
     Example
     -------
     >>> import soundfile as sf
-    >>> from speechbrain.data_io.data_io import TensorSaver
     >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
     >>> signal = torch.tensor(signal[None, :, None])
     >>> filter = torch.rand(1, 10, 1, dtype=signal.dtype)
     >>> signal = convolve1d(signal, filter, padding=(9, 0))
-    >>> save_signal = TensorSaver(save_folder='exp/example', save_format='wav')
-    >>> save_signal(signal, ['example_conv'], torch.ones(1))
     """
     if len(waveform.shape) != 3:
         raise ValueError("Convolve1D expects a 3-dimensional tensor")
@@ -196,13 +193,10 @@ def notch_filter(notch_freq, filter_width=101, notch_width=0.05):
     Example
     -------
     >>> import soundfile as sf
-    >>> from speechbrain.data_io.data_io import TensorSaver
     >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
     >>> signal = torch.tensor(signal, dtype=torch.float32)[None, :, None]
     >>> kernel = notch_filter(0.25)
     >>> notched_signal = convolve1d(signal, kernel)
-    >>> save_signal = TensorSaver(save_folder='exp/example', save_format='wav')
-    >>> save_signal(notched_signal, ['freq_drop'], torch.ones(1))
     """
 
     # Check inputs

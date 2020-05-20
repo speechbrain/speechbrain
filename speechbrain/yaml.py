@@ -4,9 +4,14 @@ Authors: Peter Plantinga 2020, Aku Rouhe 2020
 """
 
 import re
+import ast
 import yaml
+import copy
 import pydoc
+import inspect
+import functools
 import ruamel.yaml
+import operator as op
 from io import StringIO
 from types import SimpleNamespace
 from speechbrain.utils.data_utils import recursive_update
@@ -18,39 +23,79 @@ def load_extended_yaml(yaml_stream, overrides={}, overrides_must_match=True):
     r'''This function implements the SpeechBrain extended YAML syntax
 
     The purpose for this syntax is a compact, structured hyperparameter and
-    function definition. This function implements two extensions to the yaml
-    syntax, references and and object instantiation.
+    function definition. This function implements a few extensions to the yaml
+    syntax, listed below.
 
-    Reference substitution
-    ----------------------
-    Allows internal references to any scalar node in the file. Any
-    node with tag `!ref` will have `<key>` references replaced with
-    the referenced value, following reference chains.
+    Pyyaml complex tag shortcuts
+    ----------------------------
+    Part of our clean structured hyperparameter interface is being able to
+    specify python objects easily and cleanly. This is possible with
+    native YAML using the following syntax:
 
-        constants:
-            output_folder: exp/asr
-        alignment_saver: !asr.ali.hmm.save
-            save_dir: !ref <constants.output_folder> # exp/asr
+        alignment_saver: !!python/object/new:speechbrain.data_io.data_io.TensorSaver
+            kwargs: {save_dir: results/asr/ali}
+
+    However, due to the extensive use within speechbrain yaml files, we have
+    added a shortcut for this that has the following syntax:
+
+        alignment_saver: !new:speechbrain.data_io.data_io.TensorSaver
+            save_dir: results/asr/ali
+
+    In this example, the alignment_saver will be an instance of the
+    `TensorSaver` class, with `'exp/asr/ali'` passed to the
+    `__init__()` method as a keyword argument. This is equivalent to:
+
+        import speechbrain.data_io.data_io
+        alignment_saver = speechbrain.data_io.data_io.TensorSaver(
+            save_dir='exp/asr/ali'
+        )
+
+    We have also implemented a few more shortcuts:
+
+        !!python/name: => !name:
+        !!python/module: => !module:
+
+    References and copies
+    ---------------------
+    Allows internal references to any node in the file. Any node with
+    tag `!ref` will create an object reference to the yaml object at the
+    `<key.subkey>` location within the yaml itself, following reference chains.
+
+        output_folder: results/asr
+        alignment_saver: !new:speechbrain.data_io.data_io.TensorSaver
+            save_dir: !ref <output_folder>
 
     Strings values are handled specially: references are substituted but
     the rest of the string is left in place, allowing filepaths to be
     easily extended:
 
-        constants:
-            output_folder: exp/asr
-        alignment_saver: !asr.ali.hmm.save
-            save_dir: !ref <constants.output_folder>/ali # exp/asr/ali
+        output_folder: results/asr
+        alignment_saver: !new:speechbrain.data_io.data_io.TensorSaver
+            save_dir: !ref <output_folder>/ali  # results/asr/ali
 
-    Object instantiation
-    --------------------
-    If a '!'-prefixed tag is used, the node is interpreted as the
-    parameters for instantiating the named class. In the previous example,
-    the alignment_saver will be an instance of the `asr.ali.hmm.save` class,
-    with `'exp/asr/ali'` passed to the `__init__()` method as a keyword
-    argument. This is equivalent to:
+    A more complex example for demonstration purposes:
 
-        import asr.ali.hmm
-        alignment_saver = asr.ali.hmm.save(save_dir='exp/asr/ali')
+        key1: {a: !new:object {arg1: 1}}
+        key2: !ref <key1.a>
+
+    Here, "key2" will contain a reference to the "a" object, so changing
+    a.arg1 will also change key2.arg1. If you need a
+    deep copy of the object instead of a shallow reference, you
+    can use a similar syntax with the tag `!copy`. For example:
+
+        key1: {a: !new:object {arg1: 1}}
+        key2: !copy <key1.a>
+
+    These will also implement very basic arithmetic, so:
+
+        key1: 1
+        key2: !ref <key1> + 3  # this is 4
+
+    Tuples
+    ------
+    One last minor enhancement is an implicit tuple resolver. Passing
+    a string value of `(3, 4)` will be given a tag of `!tuple` which is
+    then interpreted as a tuple.
 
     Arguments
     ---------
@@ -66,13 +111,15 @@ def load_extended_yaml(yaml_stream, overrides={}, overrides_must_match=True):
 
     Returns
     -------
-    A dictionary reflecting the structure of `yaml_stream`.
+    A namespace reflecting the structure of `yaml_stream`. The namespace
+    provides convenient "dot" access to all the first-level items in
+    the yaml file.
 
     Example
     -------
     >>> yaml_string = """
     ... a: 3
-    ... thing: !collections.Counter
+    ... thing: !new:collections.Counter
     ...     b: !ref <a>
     ... """
     >>> params = load_extended_yaml(yaml_string)
@@ -82,7 +129,18 @@ def load_extended_yaml(yaml_stream, overrides={}, overrides_must_match=True):
     yaml_stream = resolve_references(
         yaml_stream, overrides, overrides_must_match
     )
-    yaml.Loader.add_multi_constructor("!", object_constructor)
+
+    # Parse flat tuples (no nesting of lists, dicts)
+    yaml.Loader.add_constructor(tag="!tuple", constructor=_make_tuple)
+    tuple_pattern = re.compile(r"^\(.*\)$")
+    yaml.Loader.add_implicit_resolver("!tuple", tuple_pattern, first="(")
+
+    # Parse shortcuts to `new`, `name`, and `module`
+    yaml.Loader.add_multi_constructor("!new:", _construct_object)
+    yaml.Loader.add_multi_constructor("!name:", _construct_name)
+    yaml.Loader.add_multi_constructor("!module:", _construct_module)
+
+    # Return a namespace for clean dot-notation
     return SimpleNamespace(**yaml.load(yaml_stream, Loader=yaml.Loader))
 
 
@@ -133,7 +191,7 @@ def resolve_references(yaml_stream, overrides={}, overrides_must_match=False):
 
 
 def _walk_tree_and_resolve(current_node, tree):
-    """A recursive function for resolving `!ref` tags.
+    """A recursive function for resolving `!ref` and `!copy` tags.
 
     Arguments
     ---------
@@ -152,8 +210,17 @@ def _walk_tree_and_resolve(current_node, tree):
     ):
         MSG = "Replace !PLACEHOLDER values in YAML."
         raise ValueError(MSG)
-    elif hasattr(current_node, "tag") and current_node.tag.value == "!ref":
-        current_node = recursive_resolve(current_node.value, [], tree)
+    elif hasattr(current_node, "tag") and current_node.tag.value in [
+        "!ref",
+        "!copy",
+    ]:
+        copy_mode = current_node.tag.value == "!copy"
+        current_node = recursive_resolve(
+            reference=current_node.value,
+            reference_list=[],
+            full_tree=tree,
+            copy_mode=copy_mode,
+        )
     elif isinstance(current_node, list):
         for i, item in enumerate(current_node):
             current_node[i] = _walk_tree_and_resolve(item, tree)
@@ -164,87 +231,94 @@ def _walk_tree_and_resolve(current_node, tree):
     return current_node
 
 
-def object_constructor(loader, callable_string, node):
-    """A constructor method for a '!' tag with a class name.
+def _make_tuple(loader, node):
+    """Parse scalar node as a list, convert to tuple"""
+    tuple_string = loader.construct_scalar(node)
+    list_string = "[" + tuple_string[1:-1] + "]"
+    parsed_list = yaml.load(list_string, Loader=yaml.Loader)
+    return tuple(parsed_list)
 
-    The class is instantiated, and the sub-tree is passed as arguments.
 
-    Arguments
-    ---------
-    loader : yaml.loader
-        The loader used to call this constructor (e.g. `yaml.SafeLoader`).
-    callable_string : str
-        The name of the callables (suffix after the '!' in this case).
-    node : yaml.Node
-        The sub-tree belonging to the tagged node.
-
-    Returns
-    -------
-    The result of calling the callable.
-    """
-
-    # Parse arguments from the node
+def _load_node(loader, node):
     if isinstance(node, yaml.MappingNode):
         kwargs = loader.construct_mapping(node, deep=True)
-        return call(callable_string, kwargs=kwargs)
+        return [], kwargs
     elif isinstance(node, yaml.SequenceNode):
         args = loader.construct_sequence(node, deep=True)
-        return call(callable_string, args=args)
+        return args, {}
+    return [], {}
 
-    return call(callable_string)
+
+def _construct_object(loader, callable_string, node):
+    callable_ = pydoc.locate(callable_string)
+    if callable_ is None:
+        raise ImportError("There is no such class as %s" % callable_string)
+
+    if not inspect.isclass(callable_):
+        raise ValueError(
+            f"!new:{callable_string} should be a class, but is {callable_}"
+        )
+
+    try:
+        args, kwargs = _load_node(loader, node)
+        return callable_(*args, **kwargs)
+    except TypeError as e:
+        err_msg = "Invalid argument to class %s" % callable_string
+        e.args = (err_msg, *e.args)
+        raise
 
 
-def call(callable_string, args=[], kwargs={}):
-    """Use pydoc.locate to create the callable, and then call it.
-
-    Arguments
-    ---------
-    callable_string : str
-        The fully-qualified name of a callable.
-    args : list
-        A list of parameters to pass to the callable.
-    kwargs : dict
-        A dict defining keyword parameters to pass to the callable.
-
-    Example
-    -------
-    >>> kwargs = {'in_features': 100, 'out_features': 100}
-    >>> model = call('torch.nn.Linear', kwargs=kwargs)
-    >>> model.__class__.__name__
-    'Linear'
-
-    Raises
-    ------
-    ImportError: An invalid callable string was passed.
-    TypeError: An invalid parameter was passed.
-    """
+def _construct_name(loader, callable_string, node):
     callable_ = pydoc.locate(callable_string)
     if callable_ is None:
         raise ImportError("There is no such callable as %s" % callable_string)
 
+    if not (inspect.isclass(callable_) or inspect.isfunction(callable_)):
+        raise ValueError(
+            f"!name:{callable_string} should be class or function, "
+            f"but is {callable_}"
+        )
+
     try:
-        result = callable_(*args, **kwargs)
+        args, kwargs = _load_node(loader, node)
+        return functools.partial(callable_, *args, **kwargs)
     except TypeError as e:
         err_msg = "Invalid argument to callable %s" % callable_string
         e.args = (err_msg, *e.args)
         raise
 
-    return result
+
+def _construct_module(loader, module_name, node):
+    module = pydoc.locate(module_name)
+    if module is None:
+        raise ImportError("There is no such module as %s" % module_name)
+
+    args, kwargs = _load_node(loader, node)
+    if args != [] or kwargs != {}:
+        raise ValueError("Cannot pass args to module")
+    if not inspect.ismodule(module):
+        raise ValueError(
+            f"!module:{module_name} should be module, but is {module}"
+        )
+
+    return module
 
 
-def deref(ref, preview):
+def deref(ref, full_tree, copy_mode=False):
     """Find the value referred to by a reference in dot-notation
 
     Arguments
     ---------
     ref : str
         The location of the requested value, e.g. 'constants.param'
-    preview : dict
+    full_tree : dict
         The dictionary to use for finding values
+    copy_mode : bool
+        Whether to copy the node before dereferencing.
 
     Returns
     -------
-    The value in the preview dictionary referenced by `ref`.
+    The value in the full_tree dictionary referenced by `ref`.
 
     Example
     -------
@@ -253,21 +327,25 @@ def deref(ref, preview):
     """
 
     # Follow references in dot notation
+    branch = full_tree
     for part in ref[1:-1].split("."):
-        if part not in preview:
+        if part not in branch:
             raise ValueError('The reference "%s" is not valid' % ref)
-        preview = preview[part]
+        branch = branch[part]
 
     # For ruamel.yaml classes, the value is in the tag attribute
     try:
-        preview = preview.value
+        branch = branch.value
     except AttributeError:
         pass
 
-    return preview
+    if copy_mode:
+        return copy.deepcopy(branch)
+    else:
+        return branch
 
 
-def recursive_resolve(reference, reference_list, preview):
+def recursive_resolve(reference, reference_list, full_tree, copy_mode=False):
     """Resolve a reference to a value, following chained references
 
     Arguments
@@ -278,41 +356,95 @@ def recursive_resolve(reference, reference_list, preview):
     reference_list : list
         list of prior references in the chain, in order
         to catch circular references.
-    preview : dict
-        the dictionary that stores all references and their values.
+    full_tree : dict
+        the dictionary in which to find all references and their values.
+    copy_mode : bool
+        Whether to perform a deep copy of the referenced node, rather than
+        a shallow reference to the same object.
 
     Returns
     -------
-    The dereferenced value, with possible string interpolation.
+    The dereferenced value, with possible string interpolation and
+    arithmetic parsing.
 
     Example
     -------
-    >>> preview = {'a': 3, 'b': '<a>', 'c': '<b>/<b>'}
-    >>> recursive_resolve('<c>', [], preview)
-    '3/3'
+    >>> tree = {'a': 3, 'b': 'x', 'c': '<a>', 'd': '<c>/<c>', 'e': '<b>/<b>'}
+    >>> recursive_resolve('<d>', [], tree)
+    1.0
+    >>> recursive_resolve('<e>', [], tree)
+    'x/x'
     """
     # Non-greedy operator won't work here, because the fullmatch will
     # still match if the first and last things happen to be references
     reference_finder = re.compile(r"<[^>]*>")
-    if len(reference_list) > 1 and reference in reference_list[1:]:
-        raise ValueError("Circular reference detected: ", reference_list)
 
-    # Base case, no '<ref>' present
+    # Base case, no <key> present
     if not isinstance(reference, str) or not reference_finder.search(reference):
         return reference
 
-    # First check for a full match. These replacements preserve type
-    if reference_finder.fullmatch(reference):
-        value = deref(reference, preview)
-        reference_list += [reference]
-        return recursive_resolve(value, reference_list, preview)
+    if len(reference_list) > 1 and reference in reference_list[1:]:
+        raise ValueError("Circular reference detected: ", reference_list)
 
-    # Next, do replacements within the string (interpolation)
+    # First check for a full match. These replacements preserve type.
+    if reference_finder.fullmatch(reference):
+        value = deref(reference, full_tree, copy_mode)
+        reference_list += [reference]
+        return recursive_resolve(value, reference_list, full_tree, copy_mode)
+
+    # Make sure reference list gets updated to prevent cycles
     matches = reference_finder.findall(reference)
     reference_list += [match[0] for match in matches]
 
-    def replace_fn(x):
-        return str(deref(x[0], preview))
+    # Do replacements within the string (interpolation)
+    def replace_fn(x, tree=full_tree, copy_mode=copy_mode):
+        return str(deref(x[0], full_tree=tree, copy_mode=copy_mode))
 
     sub = reference_finder.sub(replace_fn, reference)
-    return recursive_resolve(sub, reference_list, preview)
+    reference = recursive_resolve(sub, reference_list, full_tree, copy_mode)
+
+    # Finally check for arithmetic operations.
+    return parse_arithmetic(reference)
+
+
+def parse_arithmetic(reference_string):
+    """Parses simple arithmetic operations in references
+
+    Adapted from https://stackoverflow.com/a/9558001/1761970
+
+    Arguments
+    ---------
+    reference_string : str
+        A string with references and possible arithmetic operations.
+
+    Returns
+    -------
+    result of parsing and applying the arithmetic
+
+    Example
+    -------
+    >>> parse_arithmetic('2 * 6')
+    12
+    """
+    try:
+        return _ast_eval(ast.parse(reference_string, mode="eval").body)
+    except (TypeError, SyntaxError):
+        return reference_string
+
+
+def _ast_eval(node):
+    ops = {
+        ast.Add: op.add,
+        ast.Sub: op.sub,
+        ast.Mult: op.mul,
+        ast.Div: op.truediv,
+        ast.Mod: op.mod,
+    }
+    if isinstance(node, ast.Num):  # <number>
+        return node.n
+    elif isinstance(node, ast.BinOp):  # <left> <operator> <right>
+        return ops[type(node.op)](_ast_eval(node.left), _ast_eval(node.right))
+    elif isinstance(node, ast.UnaryOp):  # <operator> <operand> e.g., -1
+        return ops[type(node.op)](_ast_eval(node.operand))
+    else:
+        raise TypeError(node)
