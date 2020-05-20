@@ -23,8 +23,12 @@ def test_RNN():
         output_l.append(out_t.squeeze(1))
 
     out_steps = torch.stack(output_l, dim=1)
-    assert torch.all(torch.eq(out_steps, output)), "GRU output mismatch"
-    assert torch.all(torch.eq(hn_t, hn)), "GRU hidden states mismatch"
+    assert torch.all(
+        torch.lt(torch.add(out_steps, -output), 1e-3)
+    ), "GRU output mismatch"
+    assert torch.all(
+        torch.lt(torch.add(hn_t, -hn), 1e-3)
+    ), "GRU hidden states mismatch"
 
     # Check LSTM
     inputs = torch.randn(4, 2, 7)
@@ -43,9 +47,11 @@ def test_RNN():
         output_l.append(out_t.squeeze(1))
 
     out_steps = torch.stack(output_l, dim=1)
-    assert torch.all(torch.eq(out_steps, output)), "LSTM output mismatch"
-    assert torch.all(torch.eq(hn_t[0], hn[0])) and torch.all(
-        torch.eq(hn_t[1], hn[1])
+    assert torch.all(
+        torch.lt(torch.add(out_steps, -output), 1e-3)
+    ), "LSTM output mismatch"
+    assert torch.all(torch.lt(torch.add(hn_t[0], -hn[0]), 1e-3)) and torch.all(
+        torch.lt(torch.add(hn_t[1], -hn[1]), 1e-3)
     ), "LSTM hidden states mismatch"
 
     # Check LiGRU
@@ -67,5 +73,5 @@ def test_RNN():
     out_steps = torch.stack(output_l, dim=1)
     # output missmatch
     # TODO: layer normalization
-    # assert torch.all(torch.eq(out_steps,output)), "LiGRU output mismatch"
-    # assert torch.all(torch.eq(hn_t,hn)), "LiGRU hidden states mismatch"
+    # assert torch.all(torch.lt(tourch.add(out_steps, -output), 1e-3)), "LiGRU output mismatch"
+    # assert torch.all(torch.lt(hn_t, -hn), 1e-3)), "LiGRU hidden states mismatch"
