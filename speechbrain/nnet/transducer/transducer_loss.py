@@ -1,12 +1,24 @@
 import torch
 from torch.autograd import Function
 from torch.nn import Module
-from numba import cuda
-import os
-import math
 
-os.environ["NUMBAPRO_LIBDEVICE"] = "/usr/local/cuda/nvvm/libdevice/"
-os.environ["NUMBAPRO_NVVM"] = "/usr/local/cuda/nvvm/lib64/libnvvm.so.3.3.0"
+try:
+    from numba import cuda
+except ImportError:
+    err_msg = "The optional dependency Numba is needed to use this module\n"
+    err_msg += "cannot import numba. To use Transducer loss\n"
+    err_msg += "Please follow the instruction above\n"
+    err_msg += "=============================\n"
+    err_msg += "If you use your localhost:\n"
+    err_msg += "pip install numba\n"
+    err_msg += "export NUMBAPRO_LIBDEVICE='/usr/local/cuda/nvvm/libdevice/' \n"
+    err_msg += "export NUMBAPRO_NVVM='/usr/local/cuda/nvvm/lib64/libnvvm.so' \n"
+    err_msg += "================================ \n"
+    err_msg += "If you use conda:\n"
+    err_msg += "conda install numba cudatoolkit=9.0"
+    raise ImportError(err_msg)
+
+import math
 
 
 @cuda.jit(
