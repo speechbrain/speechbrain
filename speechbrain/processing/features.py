@@ -239,9 +239,7 @@ class ISTFT(torch.nn.Module):
     ...     sample_rate=16000, win_length=25, hop_length=10
     ... )
     >>> inputs = torch.randn([10, 16000])
-    >>> features = compute_STFT(inputs)
-    >>> # Processing features in the frequency domain...
-    >>> outputs = compute_ISTFT(features)
+    >>> outputs = compute_ISTFT(compute_STFT(inputs))
     >>> outputs.shape
     torch.Size([10, 16000])
     """
