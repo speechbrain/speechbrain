@@ -13,7 +13,7 @@ with open(params_file) as fin:
 
 
 class SpkIdBrain(sb.core.Brain):
-    def forward(self, x, init_params=False):
+    def compute_forward(self, x, train_mode=True, init_params=False):
         id, wavs, lens = x
         feats = params.compute_features(wavs, init_params)
         feats = params.mean_var_norm(feats, lens)
@@ -26,12 +26,12 @@ class SpkIdBrain(sb.core.Brain):
 
         return outputs, lens
 
-    def compute_objectives(self, predictions, targets, train=True):
+    def compute_objectives(self, predictions, targets, train_mode=True):
         predictions, lens = predictions
         uttid, spkid, _ = targets
         loss = params.compute_cost(predictions, spkid, lens)
 
-        if not train:
+        if not train_mode:
             stats = {"error": params.compute_error(predictions, spkid, lens)}
             return loss, stats
 
@@ -45,14 +45,17 @@ class SpkIdBrain(sb.core.Brain):
 
 
 train_set = params.train_loader()
+first_x, first_y = next(zip(*train_set))
 spk_id_brain = SpkIdBrain(
     modules=[params.linear1, params.linear2],
     optimizer=params.optimizer,
-    first_input=next(iter(train_set[0])),
+    first_inputs=[first_x],
 )
 spk_id_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
 test_stats = spk_id_brain.evaluate(params.test_loader())
 print("Test error: %.2f" % summarize_average(test_stats["error"]))
 
+
 # If training is successful, we get all test examples correct
-assert summarize_average(test_stats["error"]) == 0.0
+def test_error():
+    assert summarize_average(test_stats["error"]) == 0.0

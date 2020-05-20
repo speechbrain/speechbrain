@@ -7,7 +7,7 @@ def test_load_extended_yaml():
     # Basic functionality
     yaml = """
     a: 1
-    thing: !collections.Counter
+    thing: !new:collections.Counter
     """
     things = load_extended_yaml(yaml)
     assert things.a == 1
@@ -23,7 +23,7 @@ def test_load_extended_yaml():
     yaml = """
     a: abc
     b: !ref <a>
-    thing: !collections.Counter
+    thing: !new:collections.Counter
         a: !ref <a>
     """
     things = load_extended_yaml(yaml)
@@ -50,8 +50,8 @@ def test_load_extended_yaml():
     yaml = """
     constants:
         a: 1
-    thing: !collections.Counter
-        other: !collections.Counter
+    thing: !new:collections.Counter
+        other: !new:collections.Counter
             a: !ref <constants.a>
     """
     things = load_extended_yaml(yaml)
@@ -61,7 +61,7 @@ def test_load_extended_yaml():
     # Positional arguments
     yaml = """
     a: hello
-    thing: !collections.Counter
+    thing: !new:collections.Counter
         - !ref <a>
     """
     things = load_extended_yaml(yaml)
@@ -69,7 +69,7 @@ def test_load_extended_yaml():
 
     # Invalid class
     yaml = """
-    thing: !abcdefg.hij
+    thing: !new:abcdefg.hij
     """
     with pytest.raises(ImportError):
         things = load_extended_yaml(yaml)
@@ -85,10 +85,10 @@ def test_load_extended_yaml():
 
     # Anchors and aliases
     yaml = """
-    thing1: !collections.Counter &thing
+    thing1: !new:collections.Counter &thing
         a: 3
         b: 5
-    thing2: !collections.Counter
+    thing2: !new:collections.Counter
         <<: *thing
         b: 7
     """
@@ -96,21 +96,9 @@ def test_load_extended_yaml():
     assert things.thing1["a"] == things.thing2["a"]
     assert things.thing1["b"] != things.thing2["b"]
 
-    # List of arguments that are objects
+    # Test references point to same object
     yaml = """
-    thing: !os.path.join
-        - !os.path.join
-            - abc
-            - def
-        - !os.path.join
-            - foo
-            - bar
-    """
-    things = load_extended_yaml(yaml)
-    assert things.thing == "abc/def/foo/bar"
-
-    yaml = """
-    thing1: !collections.Counter
+    thing1: !new:collections.Counter
         a: 3
         b: 5
     thing2: !ref <thing1>
@@ -119,3 +107,30 @@ def test_load_extended_yaml():
     assert things.thing2["b"] == things.thing1["b"]
     things.thing2["b"] = 7
     assert things.thing2["b"] == things.thing1["b"]
+
+    # Copy tag
+    yaml = """
+    thing1: !new:collections.Counter
+        a: 3
+        b: 5
+    thing2: !copy <thing1>
+    """
+    things = load_extended_yaml(yaml)
+    assert things.thing2["b"] == things.thing1["b"]
+    things.thing2["b"] = 7
+    assert things.thing2["b"] != things.thing1["b"]
+
+    # Name tag
+    yaml = """
+    Counter: !name:collections.Counter
+    """
+    things = load_extended_yaml(yaml)
+    counter = things.Counter()
+    assert counter.__class__ == Counter
+
+    # Module tag
+    yaml = """
+    mod: !module:collections
+    """
+    things = load_extended_yaml(yaml)
+    assert things.mod.__name__ == "collections"
