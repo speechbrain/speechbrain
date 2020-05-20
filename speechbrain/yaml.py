@@ -57,7 +57,7 @@ def load_extended_yaml(yaml_stream, overrides={}, overrides_must_match=True):
 
     References and copies
     ---------------------
-    Allows internal references to any scalar node in the file. Any node with
+    Allows internal references to any node in the file. Any node with
     tag `!ref` will create an object reference to the yaml object at the
     `<key.subkey>` location within the yaml itself, following reference chains.
 
@@ -86,6 +86,17 @@ def load_extended_yaml(yaml_stream, overrides={}, overrides_must_match=True):
         key1: {a: !new:object {arg1: 1}}
         key2: !copy <key1.a>
 
+    These will also implement very basic arithmetic, so:
+
+        key1: 1
+        key2: !ref <key1> + 3  # this is 4
+
+    Tuples
+    ------
+    One last minor enhancement is an implicit tuple resolver. Passing
+    a string value of `(3, 4)` will be given a tag of `!tuple` which is
+    then interpreted as a tuple.
+
     Arguments
     ---------
     yaml_stream : stream
@@ -100,7 +111,9 @@ def load_extended_yaml(yaml_stream, overrides={}, overrides_must_match=True):
 
     Returns
     -------
-    A dictionary reflecting the structure of `yaml_stream`.
+    A namespace reflecting the structure of `yaml_stream`. The namespace
+    provides convenient "dot" access to all the first-level items in
+    the yaml file.
 
     Example
     -------
