@@ -372,9 +372,11 @@ class LiGRU_Layer(torch.jit.ScriptModule):
             self.norm = torch.nn.LayerNorm(2 * self.hidden_size).to(device)
             self.normalize = True
         else:
+            # Normalization is disabled here. self.norm is only  formally
+            # initialized to avoid jit issues.
             self.norm = torch.nn.LayerNorm(2 * self.hidden_size).to(device)
             self.normalize = True
-            
+
         # Initial state
         self.h_init = torch.zeros(
             1, self.hidden_size, requires_grad=False, device=self.device,
