@@ -9,8 +9,6 @@ from speechbrain.utils.train_logger import (
     summarize_average,
 )
 
-from voxceleb1_prepare import VoxCelebPreparer  # noqa E402
-
 # Load hyperparameters file with command-line overrides
 params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
 if "seed" in overrides:
@@ -35,7 +33,6 @@ checkpointer = sb.utils.checkpoints.Checkpointer(
     checkpoints_dir=params.save_folder,
     recoverables={
         "model": params.model,
-        "output": params.output,
         "optimizer": params.optimizer,
         "normalizer": params.normalize,
         "counter": params.epoch_counter,
@@ -90,30 +87,19 @@ class Extractor(Sequential):
     def extract(self, x, model):
         id, wavs, lens = x
 
-        feats = params.compute_features(wavs)
+        feats = params.compute_features(wavs, init_params=False)
         feats = params.mean_var_norm(feats, lens)
         emb = self.forward(feats, model).detach()
 
         return emb
 
 
-# Data preparation
-data_prepare = VoxCelebPreparer(
-    data_folder=params.data_folder,
-    splits=["train", "dev"],
-    save_folder=params.data_folder,
-    vad=False,
-    seg_dur=300,
-    rand_seed=params.seed,
-)
-data_prepare()
-
 # All data loaders
 train_set = params.train_loader()
 valid_set = params.valid_loader()
 
 # May change the final layer here (if needed)
-modules = [params.model]
+modules = [params.model, params.linear]
 
 # Object initialization for training xvector model
 xvect_brain = XvectorBrain(
@@ -123,7 +109,7 @@ xvect_brain = XvectorBrain(
 )
 
 # Load the latest checkpoint to resume training (if stopped earlier)
-checkpointer.recover_if_possible()
+# checkpointer.recover_if_possible()
 
 # Train the model
 xvect_brain.fit(
