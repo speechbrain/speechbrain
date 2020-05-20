@@ -58,15 +58,15 @@ class Sequential(torch.nn.Module):
         return x
 
 
-def torch_add_init_ignore(x, y, init_params=False):
-    """Torch add, but ignoring the init_params argument"""
-    return torch.add(x, y)
+def ignore_init_params_wrapper(function):
+    """Ignore the init_params argument"""
+    return lambda x, y, init_params=False: function(x, y)
 
 
 def project_add(x, y, init_params=False):
     """Project the shortcut before adding"""
     projection = Linear(y.size(-1))
-    return torch.add(projection(x, init_params), y)
+    return torch.add(projection(x, init_params=init_params), y)
 
 
 class ReplicateBlock(torch.nn.Module):
@@ -102,7 +102,7 @@ class ReplicateBlock(torch.nn.Module):
         overrides={},
         copies=1,
         shortcuts="",
-        combine_fn=torch_add_init_ignore,
+        combine_fn=ignore_init_params_wrapper(torch.add),
     ):
         super().__init__()
         self.blocks = torch.nn.ModuleList()
@@ -127,11 +127,11 @@ class ReplicateBlock(torch.nn.Module):
         """
         # Don't include first block in shortcut, since it may change
         # the shape in significant ways.
-        inputs = self.blocks[0](inputs, init_params)
+        inputs = self.blocks[0](inputs, init_params=init_params)
         shortcut_inputs = inputs
 
         for block in self.blocks[1:]:
-            outputs = block(inputs, init_params)
+            outputs = block(inputs, init_params=init_params)
 
             if self.shortcuts in ["dense", "skip"]:
                 shortcut_inputs = self.combine_fn(
