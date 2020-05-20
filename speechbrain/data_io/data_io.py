@@ -329,15 +329,14 @@ class DataLoaderFactory(torch.nn.Module):
     def label_dict_creation(self, data_dict):  # noqa: C901
         logger.warning("label_dict_creation is too complex, please fix")
 
+        # create label counts and label2index automatically when needed
+        label_dict = {}
         if self.output_folder is not None:
             label_dict_file = self.output_folder + "/label_dict.pkl"
 
             # Read previously stored label_dict
             if os.path.isfile(label_dict_file):
                 label_dict = load_pkl(label_dict_file)
-        else:
-            # create label counts and label2index automatically when needed
-            label_dict = {}
 
         # Update label dict
         for snt in data_dict:
