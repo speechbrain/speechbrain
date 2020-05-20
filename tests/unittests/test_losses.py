@@ -1,4 +1,5 @@
 import torch
+import pytest
 
 
 def test_losses():
@@ -30,6 +31,40 @@ def test_losses():
     out_cost = cost(predictions, targets, lengths)
     assert torch.all(torch.eq(out_cost, 0))
 
-    predictions = torch.zeros(4, 10, 8)
-    out_cost = cost(predictions, targets, lengths)
-    assert torch.all(torch.eq(out_cost, 1))
+
+def test_transducer_loss():
+    # Make this its own test since it can only be run
+    # if numba is installed and a GPU is available
+    from speechbrain.nnet.losses import ComputeCost
+
+    pytest.importorskip("numba")
+    if torch.cuda.device_count() > 0:
+        pytest.skip("This test can only be run if a GPU is available")
+    device = torch.device("cuda")
+    cost = ComputeCost(cost_type="transducer", blank_index=0)
+    log_probs = (
+        torch.Tensor(
+            [
+                [
+                    [
+                        [0.1, 0.6, 0.1, 0.1, 0.1],
+                        [0.1, 0.1, 0.6, 0.1, 0.1],
+                        [0.1, 0.1, 0.2, 0.8, 0.1],
+                    ],
+                    [
+                        [0.1, 0.6, 0.1, 0.1, 0.1],
+                        [0.1, 0.1, 0.2, 0.1, 0.1],
+                        [0.7, 0.1, 0.2, 0.1, 0.1],
+                    ],
+                ]
+            ]
+        )
+        .cuda()
+        .requires_grad_()
+        .log_softmax(dim=-1)
+    )
+    targets = torch.Tensor([[1, 2]]).to(device).int()
+    probs_length = torch.Tensor([1.0]).to(device)
+    target_length = torch.Tensor([1.0]).to(device)
+    out_cost = cost(log_probs, targets, [probs_length, target_length])
+    assert out_cost.item() == 4.49566650390625
