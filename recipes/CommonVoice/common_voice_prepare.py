@@ -22,7 +22,7 @@ class CommonVoicePreparer(torch.nn.Module):
     ---------
     data_folder : str
         Path to the folder where the original Common Voice dataset is stored.
-        This path should include the lang: /home/test/commonvoice/en/
+        This path should include the lang: /datasets/CommonVoice/en/
     save_folder : str
         The directory where to store the csv files.
     path_to_wav : str
@@ -46,13 +46,19 @@ class CommonVoicePreparer(torch.nn.Module):
     -------
     This example requires the Common Voice dataset.
     ```
-    local_folder='/home/mirco/datasets/TIMIT'
-    save_folder='exp/TIMIT_exp'
-    # Definition of the config dictionary
-    data_folder = local_folder
-    splits = ['train', 'test', 'dev']
+    local_folder='/datasets/CommonVoice/en'
+    save_folder='exp/CommonVoice_exp'
+    path_to_wav='/datasets/CommonVoice/en/clips_wav'
+
+    # Definition of the CommonVoice tsv files
+    train_tsv_file='/datasets/CommonVoice/en/train.tsv'
+    dev_tsv_file='/datasets/CommonVoice/en/dev.tsv'
+    test_tsv_file='/datasets/CommonVoice/en/test.tsv'
+
     # Initialization of the class
-    TIMITPreparer(data_folder, splits)
+    prepare = CommonVoicePreparer(data_folder, splits)
+    # Calling the preparation
+    prepare()
     ```
 
     Author
@@ -239,7 +245,6 @@ class CommonVoicePreparer(torch.nn.Module):
                 sig = res(sig)
                 torchaudio.save(new_wav_path, sig, samplerate)
             except ValueError:
-                print("erro")
                 msg = "\tError loading: %s" % (str(len(file_name)))
                 logger.debug(msg)
 
