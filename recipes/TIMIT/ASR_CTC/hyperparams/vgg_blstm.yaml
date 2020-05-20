@@ -28,17 +28,23 @@ n_mels: 40
 device: 'cuda:0'
 
 # Functions
-model: !speechbrain.lobes.models.CRDNN.CRDNN
-    output_size: 40  # 39 phonemes + 1 blank symbol
+model: !new:speechbrain.lobes.models.CRDNN.CRDNN
     cnn_blocks: 2
     dnn_blocks: 2
 
-optimizer: !speechbrain.nnet.optimizers.Optimize
+output: !new:speechbrain.nnet.linear.Linear
+    n_neurons: 40
+    bias: True
+
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+    apply_log: True
+
+optimizer: !new:speechbrain.nnet.optimizers.Optimize
     optimizer_type: adadelta
     rho: 0.95
     learning_rate: !ref <lr>
 
-lr_annealing: !speechbrain.nnet.lr_scheduling.LRScheduler
+lr_annealing: !new:speechbrain.nnet.lr_scheduling.LRScheduler
     annealing_type: newbob
     N_epochs: !ref <number_of_epochs>
     lr_initial: !ref <lr>
@@ -46,31 +52,50 @@ lr_annealing: !speechbrain.nnet.lr_scheduling.LRScheduler
     annealing_factor: 0.8
     patient: 0
 
-normalize: !speechbrain.processing.features.InputNormalization
+normalize: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
 
-epoch_counter: !speechbrain.utils.epoch_loop.EpochCounter
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-compute_features: !speechbrain.lobes.features.fbank.Fbank
+compute_features: !new:speechbrain.lobes.features.fbank.Fbank
 
-train_loader: !speechbrain.data_io.data_io.DataLoaderFactory
-    &loader
+train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
     csv_read: [wav, phn]
 
-valid_loader: !speechbrain.data_io.data_io.DataLoaderFactory
-    <<: *loader
+valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_valid>
+    batch_size: !ref <batch_size>
+    sentence_sorting: ascending
+    output_folder: !ref <output_folder>
+    csv_read: [wav, phn]
 
-test_loader: !speechbrain.data_io.data_io.DataLoaderFactory
-    <<: *loader
+test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_test>
     batch_size: !ref <batch_size>
+    sentence_sorting: ascending
+    output_folder: !ref <output_folder>
+    csv_read: [wav, phn]
 
-compute_cost: !speechbrain.nnet.losses.ComputeCost
+compute_cost: !new:speechbrain.nnet.losses.ComputeCost
     cost_type: ctc
     blank_index: 39
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+    summary_fns:
+        loss: !name:speechbrain.utils.train_logger.summarize_average
+        PER: !name:speechbrain.utils.train_logger.summarize_error_rate
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        model: !ref <model>
+        output: !ref <output>
+        scheduler: !ref <lr_annealing>
+        normalizer: !ref <normalize>
+        counter: !ref <epoch_counter>
