@@ -62,8 +62,9 @@ def test_RNN():
         num_layers=2,
         return_hidden=True,
         bidirectional=False,
-        normalization='layernorm'
+        normalization="layernorm",
     )
+
     output, hn = net(inputs, init_params=True)
     output_l = []
     hn_t = None
@@ -80,5 +81,5 @@ def test_RNN():
         torch.lt(torch.add(hn_t[1], -hn[1]), 1e-3)
     ), "LiGRU hidden states mismatch"
 
-    
+
 test_RNN()
