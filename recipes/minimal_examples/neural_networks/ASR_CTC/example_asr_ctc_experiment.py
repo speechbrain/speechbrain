@@ -20,8 +20,7 @@ class CTCBrain(sb.core.Brain):
         id, wavs, lens = x
         feats = params.compute_features(wavs, init_params)
         feats = params.mean_var_norm(feats, lens)
-
-        x = params.rnn(feats, init_params)
+        x = params.rnn(feats, init_params=init_params)
         x = params.lin(x, init_params)
         outputs = params.softmax(x)
 
