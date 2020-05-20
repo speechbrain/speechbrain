@@ -1,7 +1,7 @@
 data_folder: ../../../../samples/voxceleb_samples/
 ckpts_to_keep: 1
 sample_rate: 16000
-seed: 1234 # !PLACEHOLDER  # e.g, 1234
+seed: 1234
 output_folder: !ref results/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -17,9 +17,8 @@ batch_size_: 2
 lr: 0.1
 device: "cpu"
 
-compute_features: !speechbrain.lobes.features.mfcc.MFCC
-    n_mels: 23
-    n_mfcc: 20
+compute_features: !speechbrain.lobes.features.fbank.Fbank
+    n_mels: 24
     left_frames: 0
     right_frames: 0
     deltas: False
@@ -27,15 +26,10 @@ compute_features: !speechbrain.lobes.features.mfcc.MFCC
 epoch_counter: !speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-model: !speechbrain.lobes.models.Xvector.Xvector
-    output_size: 2  # number of speakers
+model: !speechbrain.lobes.models.Xvector_v1.Xvector_v1
     tdnn_blocks: 1
     tdnn_stats_pool_blocks: 1
     tdnn_lin_blocks: 1
-
-output: !speechbrain.nnet.linear.Linear
-    n_neurons: 2
-    bias: True
 
 log_softmax: !speechbrain.nnet.activations.Softmax
     apply_log: True
@@ -62,16 +56,6 @@ mean_var_norm: !speechbrain.processing.features.InputNormalization
 linear: !speechbrain.nnet.linear.Linear
     n_neurons: 2
     bias: True
-
-linear1: !speechbrain.nnet.linear.Linear
-    n_neurons: 1024
-    bias: False
-
-activation: !torch.nn.LeakyReLU
-
-linear2: !speechbrain.nnet.linear.Linear
-    n_neurons: 2
-    bias: False
 
 softmax: !speechbrain.nnet.activations.Softmax
     apply_log: True
