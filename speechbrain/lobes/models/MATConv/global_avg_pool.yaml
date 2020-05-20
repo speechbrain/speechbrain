@@ -1,0 +1,19 @@
+block_index: 1
+channels: 128
+kernel_size: !!python/tuple [1, ]
+sequence: [pool, conv1, norm1, activation]
+
+pool: !torch.nn.AdaptiveAvgPool1d
+    output_size: 1
+
+conv1: !speechbrain.nnet.CNN.Conv
+    out_channels: !operator.mul
+        - !ref <block_index>
+        - !ref <channels>
+    kernel_size: !ref <kernel_size>
+    bias: false
+
+norm1: !speechbrain.nnet.normalization.Normalize
+    norm_type: batchnorm
+
+activation: !torch.nn.LeakyReLU
