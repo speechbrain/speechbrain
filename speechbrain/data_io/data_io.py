@@ -2017,7 +2017,6 @@ def load_pkl(file):
     with open(file, "rb") as f:
         return pickle.load(f)
 
-
 def put_bos_token(label, bos_index):
     """Create labels with <bos> token at the beginning.
 
