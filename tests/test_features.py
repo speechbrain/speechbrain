@@ -33,10 +33,11 @@ def test_istft():
     from speechbrain.processing.features import ISTFT
 
     fs = 16000
-    inp = torch.rand(2 * fs).unsqueeze(0)
+    inp = torch.randn([10, 16000])
+    inp = torch.stack(3 * [inp], -1)
 
     compute_stft = STFT(sample_rate=fs)
     compute_istft = ISTFT(sample_rate=fs)
     out = compute_istft(compute_stft(inp))
 
-    assert torch.sum(torch.abs(inp - out) < 1e-6) == inp.numel()
+    assert torch.sum(torch.abs(inp - out) < 1e-6) >= inp.numel() - 5

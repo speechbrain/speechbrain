@@ -141,6 +141,7 @@ class STFT(torch.nn.Module):
         # Managing multi-channel stft
         or_shape = x.shape
         if len(or_shape) == 3:
+            x = x.transpose(1, 2)
             x = x.reshape(or_shape[0] * or_shape[2], or_shape[1])
 
         stft = torch.stft(
@@ -159,11 +160,12 @@ class STFT(torch.nn.Module):
         if len(or_shape) == 3:
             stft = stft.reshape(
                 or_shape[0],
-                stft.shape[2],
-                stft.shape[1],
-                stft.shape[3],
                 or_shape[2],
+                stft.shape[1],
+                stft.shape[2],
+                stft.shape[3],
             )
+            stft = stft.permute(0, 3, 2, 4, 1)
         else:
             # (batch, time, channels)
             stft = stft.transpose(2, 1)
@@ -229,6 +231,19 @@ class ISTFT(torch.nn.Module):
 
     Example
     -------
+    >>> import torch
+    >>> compute_STFT = STFT(
+    ...     sample_rate=16000, win_length=25, hop_length=10, n_fft=400
+    ... )
+    >>> compute_STFT = ISTFT(
+    ...     sample_rate=16000, win_length=25, hop_length=10, n_fft=400
+    ... )
+    >>> inputs = torch.randn([10, 16000])
+    >>> features = compute_STFT(inputs)
+    >>> # Processing features in the frequency domain...
+    >>> outputs = compute_ISTFT(features)
+    >>> outputs.shape
+    torch.Size([10, 16000])
     """
 
     def __init__(
@@ -310,9 +325,9 @@ class ISTFT(torch.nn.Module):
             )
 
         elif self.window.shape[0] > n_fft:
-            cropping_size = self.window.shape[0] - n_fft
-            cropping_point = cropping_size // 2
-            self.window = self.window[cropping_point : (cropping_point + n_fft)]
+            crop_size = self.window.shape[0] - n_fft
+            crop_point = crop_size // 2
+            self.window = self.window[crop_point : (crop_point + n_fft)]
 
         q = q * self.window
 
