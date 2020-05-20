@@ -696,8 +696,8 @@ class DataLoaderFactory(torch.nn.Module):
         >>> data_loader=DataLoaderFactory(
         ...     csv_file='samples/audio_samples/csv_example2.csv'
         ... )
-        >>> data_loader.get_supported_formats()['flac']['description']
-        'FLAC (Free Lossless Audio Codec)'
+        >>> 'flac' in data_loader.get_supported_formats()
+        True
         """
 
         # Initializing the supported formats dictionary
