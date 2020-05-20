@@ -1,19 +1,19 @@
 block_index: !PLACEHOLDER
-block: !speechbrain.nnet.containers.Sequential
+block: !new:speechbrain.nnet.containers.Sequential
     - !ref <linear>
     - !ref <norm>
     - !ref <activation>
     - !ref <dropout>
 
-linear: !speechbrain.nnet.linear.Linear
+linear: !new:speechbrain.nnet.linear.Linear
     n_neurons: 512
     bias: True
     combine_dims: False #If True: 4D input will be reshaped
 
-norm: !speechbrain.nnet.normalization.Normalize
+norm: !new:speechbrain.nnet.normalization.Normalize
     norm_type: batchnorm
 
-activation: !torch.nn.LeakyReLU []
+activation: !new:torch.nn.LeakyReLU []
 
-dropout: !speechbrain.nnet.dropout.Dropout
+dropout: !new:speechbrain.nnet.dropout.Dropout
     drop_rate: 0.15
