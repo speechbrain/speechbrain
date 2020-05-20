@@ -31,51 +31,40 @@ def test_losses():
     out_cost = cost(predictions, targets, lengths)
     assert torch.all(torch.eq(out_cost, 0))
 
+
+def test_transducer_loss():
+    # Make this its own test since it can only be run
+    # if numba is installed and a GPU is available
+    from speechbrain.nnet.losses import ComputeCost
+
+    pytest.importorskip("numba")
     if torch.cuda.device_count() > 0:
-        try:
-            pytest.importorskip("numba")
-        except Exception:
-            err_msg = (
-                "The optional dependency Numba is needed to use this module\n"
-            )
-            err_msg += "cannot import numba. To use Transducer loss\n"
-            err_msg += "Please follow the instruction above\n"
-            err_msg += "=============================\n"
-            err_msg += "If you use your localhost:\n"
-            err_msg += "pip install numba\n"
-            err_msg += (
-                "export NUMBAPRO_LIBDEVICE='/usr/local/cuda/nvvm/libdevice/' \n"
-            )
-            err_msg += "export NUMBAPRO_NVVM='/usr/local/cuda/nvvm/lib64/libnvvm.so' \n"
-            err_msg += "================================ \n"
-            err_msg += "If you use conda:\n"
-            err_msg += "conda install numba cudatoolkit=9.0"
-            raise Exception
-        device = torch.device("cuda")
-        cost = ComputeCost(cost_type="transducer", blank_index=0)
-        log_probs = (
-            torch.Tensor(
+        pytest.skip("This test can only be run if a GPU is available")
+    device = torch.device("cuda")
+    cost = ComputeCost(cost_type="transducer", blank_index=0)
+    log_probs = (
+        torch.Tensor(
+            [
                 [
                     [
-                        [
-                            [0.1, 0.6, 0.1, 0.1, 0.1],
-                            [0.1, 0.1, 0.6, 0.1, 0.1],
-                            [0.1, 0.1, 0.2, 0.8, 0.1],
-                        ],
-                        [
-                            [0.1, 0.6, 0.1, 0.1, 0.1],
-                            [0.1, 0.1, 0.2, 0.1, 0.1],
-                            [0.7, 0.1, 0.2, 0.1, 0.1],
-                        ],
-                    ]
+                        [0.1, 0.6, 0.1, 0.1, 0.1],
+                        [0.1, 0.1, 0.6, 0.1, 0.1],
+                        [0.1, 0.1, 0.2, 0.8, 0.1],
+                    ],
+                    [
+                        [0.1, 0.6, 0.1, 0.1, 0.1],
+                        [0.1, 0.1, 0.2, 0.1, 0.1],
+                        [0.7, 0.1, 0.2, 0.1, 0.1],
+                    ],
                 ]
-            )
-            .cuda()
-            .requires_grad_()
-            .log_softmax(dim=-1)
+            ]
         )
-        targets = torch.Tensor([[1, 2]]).to(device).int()
-        probs_length = torch.Tensor([1.0]).to(device)
-        target_length = torch.Tensor([1.0]).to(device)
-        out_cost = cost(log_probs, targets, [probs_length, target_length])
-        assert out_cost.item() == 4.49566650390625
+        .cuda()
+        .requires_grad_()
+        .log_softmax(dim=-1)
+    )
+    targets = torch.Tensor([[1, 2]]).to(device).int()
+    probs_length = torch.Tensor([1.0]).to(device)
+    target_length = torch.Tensor([1.0]).to(device)
+    out_cost = cost(log_probs, targets, [probs_length, target_length])
+    assert out_cost.item() == 4.49566650390625
