@@ -9,11 +9,7 @@ from speechbrain.data_io.data_io import convert_index_to_lab
 from speechbrain.decoders.ctc import ctc_greedy_decode
 from speechbrain.decoders.decoders import undo_padding
 from speechbrain.utils.checkpoints import ckpt_recency
-from speechbrain.utils.train_logger import (
-    FileTrainLogger,
-    summarize_average,
-    summarize_error_rate,
-)
+from speechbrain.utils.train_logger import summarize_error_rate
 
 # This hack needed to import data preparation script from ..
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -32,22 +28,6 @@ sb.core.create_experiment_directory(
     experiment_directory=params.output_folder,
     params_to_save=params_file,
     overrides=overrides,
-)
-
-train_logger = FileTrainLogger(
-    save_file=params.train_log,
-    summary_fns={"loss": summarize_average, "PER": summarize_error_rate},
-)
-checkpointer = sb.utils.checkpoints.Checkpointer(
-    checkpoints_dir=params.save_folder,
-    recoverables={
-        "model": params.model,
-        "output": params.output,
-        "optimizer": params.optimizer,
-        "scheduler": params.lr_annealing,
-        "normalizer": params.normalize,
-        "counter": params.epoch_counter,
-    },
 )
 
 
@@ -89,9 +69,9 @@ class ASR(sb.core.Brain):
         per = summarize_error_rate(valid_stats["PER"])
         old_lr, new_lr = params.lr_annealing([params.optimizer], epoch, per)
         epoch_stats = {"epoch": epoch, "lr": old_lr}
-        train_logger.log_stats(epoch_stats, train_stats, valid_stats)
+        params.train_logger.log_stats(epoch_stats, train_stats, valid_stats)
 
-        checkpointer.save_and_keep_only(
+        params.checkpointer.save_and_keep_only(
             meta={"PER": per},
             importance_keys=[ckpt_recency, lambda c: -c.meta["PER"]],
         )
@@ -119,13 +99,13 @@ asr_brain = ASR(
 )
 
 # Load latest checkpoint to resume training
-checkpointer.recover_if_possible()
+params.checkpointer.recover_if_possible()
 asr_brain.fit(params.epoch_counter, train_set, valid_set)
 
 # Load best checkpoint for evaluation
-checkpointer.recover_if_possible(lambda c: -c.meta["PER"])
+params.checkpointer.recover_if_possible(lambda c: -c.meta["PER"])
 test_stats = asr_brain.evaluate(params.test_loader())
-train_logger.log_stats(
+params.train_logger.log_stats(
     stats_meta={"Epoch loaded": params.epoch_counter.current},
     test_stats=test_stats,
 )
