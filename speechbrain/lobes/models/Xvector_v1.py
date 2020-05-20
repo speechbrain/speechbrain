@@ -9,15 +9,14 @@ import torch  # noqa: F401
 from speechbrain.yaml import load_extended_yaml
 from speechbrain.nnet.sequential import Sequential
 from speechbrain.utils.data_utils import recursive_update
+from speechbrain.nnet.statistic_pooling import StatisticsPooling
 
 
-class Xvector(Sequential):
+class Xvector_v1(Sequential):
     """This is Xvector model similar to David Sydner's paper ICASSP 2018.
 
     Arguments
     ---------
-    output_size : int
-        The length of the output (number of target classes).
     tdnn_blocks : int
         The number of time delay neural (TDNN) blocks to include.
     tdnn_overrides : mapping
@@ -47,7 +46,6 @@ class Xvector(Sequential):
 
     def __init__(
         self,
-        output_size,
         tdnn_blocks=1,
         tdnn_overrides={},
         tdnn_stats_pool_blocks=1,
@@ -62,20 +60,12 @@ class Xvector(Sequential):
             blocks.append(
                 NeuralBlock(
                     block_index=i + 1,
-                    param_file=os.path.join(current_dir, "tdnn_block.yaml"),
+                    param_file=os.path.join(current_dir, "xvector_v1.yaml"),
                     overrides=tdnn_overrides,
                 )
             )
 
-        blocks.append(
-            NeuralBlock(
-                block_index=1,
-                param_file=os.path.join(
-                    current_dir, "tdnn_stats_pool_block.yaml"
-                ),
-                overrides=tdnn_stats_pool_overrides,
-            )
-        )
+        blocks.append(StatisticsPooling())
 
         for i in range(tdnn_lin_blocks):
             blocks.append(

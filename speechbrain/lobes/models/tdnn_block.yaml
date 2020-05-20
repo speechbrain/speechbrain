@@ -4,7 +4,7 @@ sequence: [tdnn1, norm1, tdnn2, norm2, tdnn3, norm3, tdnn4, norm4, tdnn5, norm5]
 
 tdnn1: !speechbrain.nnet.TDNN.TDNN
     context: [-2, 2]
-    input_dim: 20
+    input_dim: 24
     output_dim: 512  # output channels
     full_context: True
 
