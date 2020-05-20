@@ -1,5 +1,9 @@
 """
 Data preparation.
+
+Author
+------
+Mirco Ravanelli, Ju-Chieh Chou 2020
 """
 
 import os
@@ -34,9 +38,6 @@ class LibriSpeechPreparer:
     use_lexicon : bool
         When it is true, using lexicon to generate phonemes columns in the csv file.
 
-    Author
-    ------
-    Mirco Ravanelli 2020
     """
 
     def __init__(
