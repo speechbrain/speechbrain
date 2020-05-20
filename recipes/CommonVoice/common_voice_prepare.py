@@ -56,7 +56,15 @@ class CommonVoicePreparer(torch.nn.Module):
     test_tsv_file='/datasets/CommonVoice/en/test.tsv'
 
     # Initialization of the class
-    prepare = CommonVoicePreparer(data_folder, splits)
+    prepare = CommonVoicePreparer(
+                local_folder,
+                save_folder,
+                path_to_wav,
+                train_tsv_file,
+                dev_tsv_file,
+                test_tsv_file
+                )
+
     # Calling the preparation
     prepare()
     ```
@@ -80,9 +88,22 @@ class CommonVoicePreparer(torch.nn.Module):
         self.data_folder = data_folder
         self.save_folder = save_folder
         self.path_to_wav = path_to_wav
-        self.train_tsv_file = train_tsv_file
-        self.dev_tsv_file = dev_tsv_file
-        self.test_tsv_file = test_tsv_file
+
+        # If not specified point toward standard location
+        if train_tsv_file is None:
+            self.train_tsv_file = self.data_folder + "/train.tsv"
+        else:
+            self.train_tsv_file = train_tsv_file
+
+        if dev_tsv_file is None:
+            self.dev_tsv_file = self.data_folder + "/dev.tsv"
+        else:
+            self.dev_tsv_file = dev_tsv_file
+
+        if test_tsv_file is None:
+            self.test_tsv_file = self.data_folder + "/test.tsv"
+        else:
+            self.test_tsv_file = test_tsv_file
 
         # Test if files have already been converted to wav by checking if
         # path_to_wav exists.
