@@ -1,4 +1,5 @@
 import torch
+import pytest
 
 
 def test_losses():
@@ -31,6 +32,25 @@ def test_losses():
     assert torch.all(torch.eq(out_cost, 0))
 
     if torch.cuda.device_count() > 0:
+        try:
+            pytest.importorskip("numba")
+        except Exception:
+            err_msg = (
+                "The optional dependency Numba is needed to use this module\n"
+            )
+            err_msg += "cannot import numba. To use Transducer loss\n"
+            err_msg += "Please follow the instruction above\n"
+            err_msg += "=============================\n"
+            err_msg += "If you use your localhost:\n"
+            err_msg += "pip install numba\n"
+            err_msg += (
+                "export NUMBAPRO_LIBDEVICE='/usr/local/cuda/nvvm/libdevice/' \n"
+            )
+            err_msg += "export NUMBAPRO_NVVM='/usr/local/cuda/nvvm/lib64/libnvvm.so' \n"
+            err_msg += "================================ \n"
+            err_msg += "If you use conda:\n"
+            err_msg += "conda install numba cudatoolkit=9.0"
+            raise Exception
         device = torch.device("cuda")
         cost = ComputeCost(cost_type="transducer", blank_index=0)
         log_probs = (
