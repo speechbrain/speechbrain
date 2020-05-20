@@ -252,7 +252,12 @@ In addition we have plans for:
 - Code linters are run. This means black and flake8. These are run on everything in speechbrain (the library directory), everything in recipes and everything in tests.
 - Note that black will only error out if it would change a file here, but won’t reformat anything at this stage. You’ll have to run black on your code and push a new commit. The black commit hook helps avoid these errors.
 - All unit-tests and doctests are run. You can check that these pass by running them yourself before pushing, with `pytest tests`  and `pytest --doctest-modules speechbrain`
-- Currently, these are not run: docstring format tests (this should be added once the docstring conversion is done), integration tests/minimal examples (I propose these to be added only to more significant merges, e.g. merges to master branch [assuming we start using a master/develop/feature branch structure]).
+- Integration tests (minimal examples). The minimal examples serve both to
+  illustrate basic tasks and experiment running, but also as integration tests
+  for the toolkit. For this purpose, any file which is prefixed with
+  `example_` gets collected by pytest, and we add a short `test_` function at
+  the end of the minimal examples.
+- Currently, these are not run: docstring format tests (this should be added once the docstring conversion is done).
 - If all tests pass, the whole pipeline takes a couple of minutes.
 
 ## Pull Request review guide
