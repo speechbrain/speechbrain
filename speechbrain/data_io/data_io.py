@@ -2011,3 +2011,37 @@ def load_pkl(file):
     """
     with open(file, "rb") as f:
         return pickle.load(f)
+
+
+def append_eos_token(label, length, eos_index):
+    """Create labels with <eos> token appended.
+
+    Arguments
+    ---------
+    label : torch.IntTensor
+        Containing the original labels. Must be of size: [batch_size, max_length]
+    length : torch.LongTensor
+        Cotaining the original length of each label sequences. Must be 1D.
+    eos_index : int
+        The index for <eos> token.
+
+    Returns
+    -------
+    new_label : The new label with <eos> appended.
+
+    Example:
+    >>> label=torch.IntTensor([[1,0,0], [2,3,0], [4,5,6]])
+    >>> length=torch.LongTensor([1,2,3])
+    >>> new_label=append_eos_token(label, length, eos_index=7)
+    >>> new_label
+    tensor([[1, 7, 0, 0],
+            [2, 3, 7, 0],
+            [4, 5, 6, 7]], dtype=torch.int32)
+    """
+    new_label = label.int().clone()
+    batch_size = label.shape[0]
+
+    pad = new_label.new_zeros(batch_size, 1)
+    new_label = torch.cat([new_label, pad], dim=1)
+    new_label[torch.arange(batch_size), length.long()] = eos_index
+    return new_label
