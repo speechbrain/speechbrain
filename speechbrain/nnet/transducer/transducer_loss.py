@@ -7,7 +7,7 @@ try:
 except ImportError:
     err_msg = "The optional dependency Numba is needed to use this module\n"
     err_msg += "cannot import numba. To use Transducer loss\n"
-    err_msg += "Please follow the instruction above\n"
+    err_msg += "Please follow the instructions below\n"
     err_msg += "=============================\n"
     err_msg += "If you use your localhost:\n"
     err_msg += "pip install numba\n"
