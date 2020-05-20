@@ -7,7 +7,7 @@ def test_RNN():
     from speechbrain.nnet.RNN import RNN
 
     # Check GRU
-    inputs = torch.randn(4, 2, 7).cuda()
+    inputs = torch.randn(4, 2, 7)
     net = RNN(
         rnn_type="gru",
         n_neurons=5,
@@ -27,7 +27,7 @@ def test_RNN():
     assert torch.all(torch.eq(hn_t, hn)), "GRU hidden states mismatch"
 
     # Check LSTM
-    inputs = torch.randn(4, 2, 7).cuda()
+    inputs = torch.randn(4, 2, 7)
     net = RNN(
         rnn_type="lstm",
         n_neurons=5,
@@ -49,7 +49,7 @@ def test_RNN():
     ), "LSTM hidden states mismatch"
 
     # Check LiGRU
-    inputs = torch.randn(4, 2, 7).cuda()
+    inputs = torch.randn(4, 2, 7)
     net = RNN(
         rnn_type="ligru",
         n_neurons=5,
