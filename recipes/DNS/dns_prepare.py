@@ -8,11 +8,7 @@ import torch
 import logging
 from speechbrain.utils.data_utils import get_all_files
 
-from speechbrain.data_io.data_io import (
-    read_wav_soundfile,
-    save_pkl,
-    read_kaldi_lab,
-)
+from speechbrain.data_io.data_io import read_wav_soundfile
 
 logger = logging.getLogger(__name__)
 
@@ -49,19 +45,25 @@ class DNSPreparer(torch.nn.Module):
     """
 
     def __init__(
-        self,
-        data_folder,
-        save_folder,
+        self, data_folder, save_folder,
     ):
         # Expected inputs when calling the class (no inputs in this case)
         super().__init__()
         self.data_folder = data_folder
         self.save_folder = save_folder
 
-        self.train_clean_folder = os.path.join(self.data_folder, "training/clean/")
-        self.train_noise_folder = os.path.join(self.data_folder, "training/noise/")
-        self.train_noisy_folder = os.path.join(self.data_folder, "training/noisy/")
-        self.test_folder = os.path.join(self.data_folder, "datasets/test_set/synthetic/")
+        self.train_clean_folder = os.path.join(
+            self.data_folder, "training/clean/"
+        )
+        self.train_noise_folder = os.path.join(
+            self.data_folder, "training/noise/"
+        )
+        self.train_noisy_folder = os.path.join(
+            self.data_folder, "training/noisy/"
+        )
+        self.test_folder = os.path.join(
+            self.data_folder, "datasets/test_set/synthetic/"
+        )
 
         # Other variables
         self.samplerate = 16000
@@ -74,7 +76,6 @@ class DNSPreparer(torch.nn.Module):
             os.makedirs(self.save_folder)
 
         # Setting ouput files
-        # self.save_opt = self.save_folder + "/opt_timit_prepare.pkl" # Sylar, what is the usage of this?
         self.save_csv_train = self.save_folder + "/train.csv"
         self.save_csv_test = self.save_folder + "/test.csv"
 
@@ -98,26 +99,20 @@ class DNSPreparer(torch.nn.Module):
 
         # Creating csv file for training data
         wav_lst_train = get_all_files(
-            self.train_noisy_folder,
-            match_and=self.extension,
+            self.train_noisy_folder, match_and=self.extension,
         )
 
         self.create_csv(
-            wav_lst_train,
-            self.save_csv_train,
-            is_noise_folder=True,
+            wav_lst_train, self.save_csv_train, is_noise_folder=True,
         )
 
         # Creating csv file for test data
         wav_lst_test = get_all_files(
-            self.test_folder,
-            match_and=self.extension,
-            exclude_or=["/clean/"],
+            self.test_folder, match_and=self.extension, exclude_or=["/clean/"],
         )
 
         self.create_csv(
-            wav_lst_test,
-            self.save_csv_test,
+            wav_lst_test, self.save_csv_test,
         )
 
         return
@@ -149,10 +144,7 @@ class DNSPreparer(torch.nn.Module):
 
     # TODO: Consider making this less complex
     def create_csv(  # noqa: C901
-        self, 
-        wav_lst,
-        csv_file,
-        is_noise_folder=False
+        self, wav_lst, csv_file, is_noise_folder=False
     ):
         """
         Creates the csv file given a list of wav files.
@@ -196,17 +188,20 @@ class DNSPreparer(torch.nn.Module):
             # Example wav_file: /path/training/noisy/book_00000_chp_0009_reader_06709_10_MTzjwt0Sgo0-C3KP2eKC7l0-gcZAba9W5R0_snr38_fileid_35203.wav
             # Getting fileids
             full_file_name = wav_file.split("/")[-1]
-            fileid         = full_file_name.split("_")[-1] # 35203.wav
-            # snr            = full_file_name.split("snr")[-1].split('_')[0] # 38
+            fileid = full_file_name.split("_")[-1]  # 35203.wav
 
-            clean_folder   = os.path.join(os.path.split(os.path.split(wav_file)[0])[0], "clean")
-            clean_wav      = clean_folder + "/clean_fileid_" + fileid
+            clean_folder = os.path.join(
+                os.path.split(os.path.split(wav_file)[0])[0], "clean"
+            )
+            clean_wav = clean_folder + "/clean_fileid_" + fileid
 
             if is_noise_folder:
-                noise_folder = os.path.join(os.path.split(os.path.split(wav_file)[0])[0], "noise")
-                noise_wav    = noise_folder + "/noise_fileid_" + fileid
+                noise_folder = os.path.join(
+                    os.path.split(os.path.split(wav_file)[0])[0], "noise"
+                )
+                noise_wav = noise_folder + "/noise_fileid_" + fileid
             else:
-                noise_wav    = ""
+                noise_wav = ""
 
             # Reading the signal (to retrieve duration in seconds)
             signal = read_wav_soundfile(wav_file)
