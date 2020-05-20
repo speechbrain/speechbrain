@@ -235,7 +235,7 @@ class ISTFT(torch.nn.Module):
     >>> compute_STFT = STFT(
     ...     sample_rate=16000, win_length=25, hop_length=10, n_fft=400
     ... )
-    >>> compute_STFT = ISTFT(
+    >>> compute_ISTFT = ISTFT(
     ...     sample_rate=16000, win_length=25, hop_length=10
     ... )
     >>> inputs = torch.randn([10, 16000])
