@@ -109,7 +109,7 @@ xvect_brain = XvectorBrain(
 )
 
 # Load the latest checkpoint to resume training (if stopped earlier)
-checkpointer.recover_if_possible()
+# checkpointer.recover_if_possible()
 
 # Train the model
 xvect_brain.fit(
