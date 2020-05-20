@@ -16,7 +16,7 @@ with open(params_file) as fin:
 
 
 class CTCBrain(sb.core.Brain):
-    def compute_forward(self, x, init_params=False):
+    def compute_forward(self, x, train_mode=True, init_params=False):
         id, wavs, lens = x
         feats = params.compute_features(wavs, init_params)
         feats = params.mean_var_norm(feats, lens)
@@ -27,12 +27,12 @@ class CTCBrain(sb.core.Brain):
 
         return outputs, lens
 
-    def compute_objectives(self, predictions, targets, train=True):
+    def compute_objectives(self, predictions, targets, train_mode=True):
         predictions, lens = predictions
         ids, phns, phn_lens = targets
         loss = params.compute_cost(predictions, phns, [lens, phn_lens])
 
-        if not train:
+        if not train_mode:
             seq = ctc_greedy_decode(predictions, lens, blank_id=-1)
             phns = undo_padding(phns, phn_lens)
             stats = {"PER": wer_details_for_batch(ids, phns, seq)}
@@ -52,12 +52,14 @@ first_x, first_y = next(zip(*train_set))
 ctc_brain = CTCBrain(
     modules=[params.rnn, params.lin],
     optimizer=params.optimizer,
-    first_input=[first_x],
+    first_inputs=[first_x],
 )
 ctc_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
 test_stats = ctc_brain.evaluate(params.test_loader())
 print("Test PER: %.2f" % summarize_error_rate(test_stats["PER"]))
 
+
 # For such a small dataset, the PER can be unpredictable.
 # Instead, check that at the end of training, the error is acceptable.
-assert summarize_average(test_stats["loss"]) < 2.0
+def test_error():
+    assert summarize_average(test_stats["loss"]) < 15.0

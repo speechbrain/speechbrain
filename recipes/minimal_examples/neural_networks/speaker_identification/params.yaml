@@ -17,7 +17,6 @@ train_loader: !speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>
     batch_size: !ref <N_batch>
     csv_read: [wav, spk_id]
-    output_folder: !ref <output_folder>
     replacements:
         $data_folder: !ref <data_folder>
 
