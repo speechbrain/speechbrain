@@ -28,7 +28,6 @@ def test_context_window():
 
 
 def test_istft():
-
     from speechbrain.processing.features import STFT
     from speechbrain.processing.features import ISTFT
 
