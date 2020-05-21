@@ -30,9 +30,9 @@ device: 'cuda:0'
 
 # Functions
 model: !new:speechbrain.lobes.models.CRDNN.CRDNN
-    cnn_blocks: 2
-    dnn_blocks: 2
-    rnn_overrides: {block: {rnn_type: ligru}}
+    cnn_replicate_kwargs: {replication_count: 2}
+    dnn_replicate_kwargs: {replication_count: 2}
+    rnn_overrides: {rnn: {rnn_type: ligru}}
     time_pooling: True
 
 output: !new:speechbrain.nnet.linear.Linear

@@ -19,7 +19,9 @@ from speechbrain.utils.data_utils import recursive_update
 
 # NOTE: Empty dict as default parameter is fine here since overrides are never
 # modified
-def load_extended_yaml(yaml_stream, overrides={}, overrides_must_match=True):
+def load_extended_yaml(
+    yaml_stream, overrides={}, overrides_must_match=True, return_dict=False
+):
     r'''This function implements the SpeechBrain extended YAML syntax
 
     The purpose for this syntax is a compact, structured hyperparameter and
@@ -108,6 +110,8 @@ def load_extended_yaml(yaml_stream, overrides={}, overrides_must_match=True):
     overrides_must_match : bool
         Whether an error will be thrown when an override does not match
         a corresponding key in the yaml_stream.
+    return_dict : bool
+        Whether to return a dictionary rather than the default namespace.
 
     Returns
     -------
@@ -139,6 +143,10 @@ def load_extended_yaml(yaml_stream, overrides={}, overrides_must_match=True):
     yaml.Loader.add_multi_constructor("!new:", _construct_object)
     yaml.Loader.add_multi_constructor("!name:", _construct_name)
     yaml.Loader.add_multi_constructor("!module:", _construct_module)
+
+    # If requested, return a dictionary as normal yaml (preserves order)
+    if return_dict:
+        return yaml.load(yaml_stream, Loader=yaml.Loader)
 
     # Return a namespace for clean dot-notation
     return SimpleNamespace(**yaml.load(yaml_stream, Loader=yaml.Loader))
