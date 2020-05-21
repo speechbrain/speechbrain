@@ -398,19 +398,18 @@ class AttentionalRNNDecoder(nn.Module):
         cell_out, hs = self.rnn(cell_inp, hs)
         cell_out = cell_out.squeeze(1)
 
-        # flattening the decoder hidden states
+        # The last layer of decoder hidden states
         if isinstance(hs, tuple):
-            dec_flatten = (
-                hs[0]
-                .transpose(0, 1)
-                .reshape(-1, self.n_neurons * self.num_layers)
+            dec = (
+                hs[0][-1]
+                .reshape(-1, self.n_neurons)
             )
         else:
-            dec_flatten = hs.transpose(0, 1).reshape(
-                -1, self.n_neurons * self.num_layers
+            dec = hs[-1].reshape(
+                -1, self.n_neurons
             )
 
-        c, w = self.attn(enc_states, enc_len, dec_flatten)
+        c, w = self.attn(enc_states, enc_len, dec)
         dec_out = torch.cat([c, cell_out], dim=1)
         dec_out = self.proj(dec_out)
 
