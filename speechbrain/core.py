@@ -264,9 +264,12 @@ class Brain:
     ... )
     """
 
-    def __init__(self, modules=None, optimizer=None, first_inputs=None):
+    def __init__(
+        self, modules=None, optimizer=None, first_inputs=None, seq2seq=False
+    ):
         self.modules = torch.nn.ModuleList(modules)
         self.optimizer = optimizer
+        self.seq2seq = seq2seq
 
         # Initialize parameters
         if first_inputs is not None:
@@ -340,7 +343,10 @@ class Brain:
             this batch has two elements: inputs and targets.
         """
         inputs, targets = batch
-        predictions = self.compute_forward(inputs)
+        if self.seq2seq:
+            predictions = self.compute_forward(inputs, targets)
+        else:
+            predictions = self.compute_forward(inputs)
         loss = self.compute_objectives(predictions, targets)
         loss.backward()
         self.optimizer(self.modules)
@@ -362,7 +368,10 @@ class Brain:
             this batch has two elements: inputs and targets.
         """
         inputs, targets = batch
-        out = self.compute_forward(inputs, train_mode=False)
+        if self.seq2seq:
+            out = self.compute_forward(inputs, targets, train_mode=False)
+        else:
+            out = self.compute_forward(inputs, train_mode=False)
         loss, stats = self.compute_objectives(out, targets, train_mode=False)
         stats["loss"] = loss.detach()
         return stats
