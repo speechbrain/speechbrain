@@ -54,15 +54,12 @@ class CRDNN(Sequential):
 
     def __init__(
         self,
-        cnn_blocks=1,
         cnn_overrides={},
-        cnn_shortcuts="",
-        rnn_blocks=1,
+        cnn_replicate_kwargs={},
         rnn_overrides={},
-        rnn_shortcuts="",
-        dnn_blocks=1,
+        rnn_replicate_kwargs={},
         dnn_overrides={},
-        dnn_shortcuts="",
+        dnn_replicate_kwargs={},
         time_pooling=False,
         time_pooling_stride=2,
         time_pooling_size=2,
@@ -73,9 +70,8 @@ class CRDNN(Sequential):
         blocks.append(
             ReplicateBlock(
                 param_file=os.path.join(model_dir, "cnn_block.yaml"),
-                overrides=cnn_overrides,
-                copies=cnn_blocks,
-                shortcuts=cnn_shortcuts,
+                yaml_overrides=cnn_overrides,
+                **cnn_replicate_kwargs,
             )
         )
 
@@ -92,18 +88,16 @@ class CRDNN(Sequential):
         blocks.append(
             ReplicateBlock(
                 param_file=os.path.join(model_dir, "rnn_block.yaml"),
-                overrides=rnn_overrides,
-                copies=rnn_blocks,
-                shortcuts=rnn_shortcuts,
+                yaml_overrides=rnn_overrides,
+                **rnn_replicate_kwargs,
             )
         )
 
         blocks.append(
             ReplicateBlock(
                 param_file=os.path.join(model_dir, "dnn_block.yaml"),
-                overrides=dnn_overrides,
-                copies=dnn_blocks,
-                shortcuts=dnn_shortcuts,
+                yaml_overrides=dnn_overrides,
+                **dnn_replicate_kwargs,
             )
         )
 

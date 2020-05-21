@@ -3,16 +3,7 @@ block_index: !PLACEHOLDER
 channels: 128
 kernel_size: (3, 3)
 
-block: !new:speechbrain.nnet.containers.Sequential
-    - !ref <conv1>
-    - !ref <norm1>
-    - !ref <act1>
-    - !ref <conv2>
-    - !ref <norm2>
-    - !ref <act2>
-    - !ref <pooling>
-    - !ref <dropout>
-
+# These modules are applied in order
 conv1: !new:speechbrain.nnet.CNN.Conv
     out_channels: !ref <block_index> * <channels>
     kernel_size: !ref <kernel_size>

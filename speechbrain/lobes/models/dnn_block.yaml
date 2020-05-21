@@ -1,10 +1,4 @@
 block_index: !PLACEHOLDER
-block: !new:speechbrain.nnet.containers.Sequential
-    - !ref <linear>
-    - !ref <norm>
-    - !ref <activation>
-    - !ref <dropout>
-
 linear: !new:speechbrain.nnet.linear.Linear
     n_neurons: 512
     bias: True
