@@ -56,16 +56,12 @@ class TIMITPreparer(torch.nn.Module):
 
     Example
     -------
-    This example requires the actual TIMIT dataset.
-    ```
-    local_folder='/home/mirco/datasets/TIMIT'
-    save_folder='exp/TIMIT_exp'
-    # Definition of the config dictionary
-    data_folder = local_folder
-    splits = ['train', 'test', 'dev']
-    # Initialization of the class
-    TIMITPreparer(data_folder, splits)
-    ```
+    >>> from recipes.TIMIT.timit_prepare import TIMITPreparer
+    >>> data_folder='datasets/TIMIT'
+    >>> splits=['train', 'dev', 'test']
+    >>> save_folder='TIMIT_prepared'
+    >>> prepare = TIMITPreparer(data_folder,splits,save_folder)
+    >>> prepare()
     """
 
     def __init__(
