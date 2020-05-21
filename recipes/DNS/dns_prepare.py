@@ -15,33 +15,32 @@ logger = logging.getLogger(__name__)
 
 class DNSPreparer(torch.nn.Module):
     """
-    repares the csv files for the TIMIT dataset.
+    prepares the csv files for the DNS challenge dataset.
 
     Arguments
     ---------
     data_folder : str
-        Path to the folder where the original TIMIT dataset is stored.
-    splits : list
-        List of splits to prepare from ['train', 'dev', 'test']
+        Path to the folder where the original DNS dataset is stored.
     save_folder : str
         The directory where to store the csv files.
 
     Example
     -------
-    This example requires the actual TIMIT dataset.
+    This example requires the actual DNS dataset:
+    https://github.com/microsoft/DNS-Challenge
+    The "training" folder is expected after the dataset is downloaded and processed.
     ```
-    local_folder='/home/mirco/datasets/TIMIT'
-    save_folder='exp/TIMIT_exp'
+    local_folder='/path/to/datasets/DNS-Challenge/'
+    save_folder='exp/DNS_exp/'
     # Definition of the config dictionary
     data_folder = local_folder
-    splits = ['train', 'test', 'dev']
     # Initialization of the class
-    TIMITPreparer(data_folder, splits)
+    TIMITPreparer(data_folder, save_folder)
     ```
 
     Author
     ------
-    Mirco Ravanelli
+    Chien-Feng Liao
     """
 
     def __init__(
@@ -91,7 +90,7 @@ class DNSPreparer(torch.nn.Module):
             return
 
     def __call__(self):
-        # Additional checks to make sure the data folder contains TIMIT
+        # Additional checks to make sure the data folder contains DNS
         self.check_DNS_folders()
 
         msg = "\tCreating csv file for the ms_DNS Dataset.."
@@ -119,7 +118,7 @@ class DNSPreparer(torch.nn.Module):
 
     def skip(self):
         """
-        Detects if the timit data_preparation has been already done.
+        Detects if the DNS data_preparation has been already done.
 
         If the preparation has been done, we can skip it.
 
@@ -178,7 +177,6 @@ class DNSPreparer(torch.nn.Module):
                 "noise_wav",
                 "noise_wav_format",
                 "noise_wav_opts",
-                # "SNR",
             ]
         ]
 
