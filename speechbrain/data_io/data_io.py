@@ -2028,14 +2028,14 @@ def put_bos_token(label, bos_index):
     new_label : The new label with <bos> at the beginning.
 
     Example:
-    >>> label=torch.IntTensor([[1,0,0], [2,3,0], [4,5,6]])
+    >>> label=torch.LongTensor([[1,0,0], [2,3,0], [4,5,6]])
     >>> new_label=put_bos_token(label, bos_index=7)
     >>> new_label
     tensor([[7, 1, 0, 0],
             [7, 2, 3, 0],
-            [7, 4, 5, 6]], dtype=torch.int32)
+            [7, 4, 5, 6]])
     """
-    new_label = label.int().clone()
+    new_label = label.long().clone()
     batch_size = label.shape[0]
 
     bos = new_label.new_zeros(batch_size, 1).fill_(bos_index)
