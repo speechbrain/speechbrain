@@ -1,4 +1,5 @@
 #!/usr/bin/python
+import os
 import sys
 import torch
 import torch.nn as nn
@@ -8,6 +9,10 @@ from speechbrain.utils.train_logger import (
     FileTrainLogger,
     summarize_average,
 )
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.dirname(current_dir))
+from voxceleb1_prepare import VoxCelebPreparer  # noqa E402
 
 # Load hyperparameters file with command-line overrides
 params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
@@ -93,6 +98,17 @@ class Extractor(Sequential):
 
         return emb
 
+
+# Data preparation
+data_prepare = VoxCelebPreparer(
+    data_folder=params.data_folder,
+    splits=["train", "dev"],
+    save_folder=params.data_folder,
+    vad=False,
+    seg_dur=300,
+    rand_seed=params.seed,
+)
+data_prepare()
 
 # All data loaders
 train_set = params.train_loader()

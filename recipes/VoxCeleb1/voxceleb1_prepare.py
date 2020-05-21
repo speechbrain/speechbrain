@@ -27,22 +27,6 @@ class VoxCelebPreparer:
         List of splits to prepare from ['train', 'dev', 'test']
     save_folder : str
         The directory where to store the csv files.
-    kaldi_ali_tr : dict, optional
-        Default: 'None'
-        When set, this is the directiory where the kaldi
-        training alignments are stored.  They will be automatically converted
-        into pkl for an easier use within speechbrain.
-    kaldi_ali_dev : str, optional
-        Default: 'None'
-        When set, this is the path to directory where the
-        kaldi dev alignments are stored.
-    kaldi_ali_test : str, optional
-        Default: 'None'
-        When set, this is the path to the directory where the
-        kaldi test alignments are stored.
-    kaldi_lab_opts : str, optional
-        it a string containing the options use to compute
-        the labels.
 
     Author
     ------
@@ -57,10 +41,6 @@ class VoxCelebPreparer:
         seg_dur=300,
         rand_seed=1234,
         vad=False,
-        kaldi_ali_tr=None,
-        kaldi_ali_dev=None,
-        kaldi_ali_test=None,
-        kaldi_lab_opts=None,
     ):
 
         self.data_folder = data_folder
@@ -69,18 +49,9 @@ class VoxCelebPreparer:
         self.seg_dur = seg_dur
         self.rand_seed = rand_seed
         self.save_folder = save_folder
-        self.kaldi_ali_tr = kaldi_ali_tr
-        self.kaldi_ali_dev = kaldi_ali_dev
-        self.kaldi_ali_test = kaldi_ali_test
-        self.kaldi_lab_opts = kaldi_lab_opts
         self.samplerate = 16000
         random.seed(self.rand_seed)
 
-        """
-        wav_lst_train, wav_lst_dev, wav_lst_test = self.prepare_wav_list(
-            self.data_folder
-        )
-        """
         # Split data into 90% train and 10% validation
         wav_lst_train, wav_lst_dev = self._get_data_split()
 
@@ -114,18 +85,12 @@ class VoxCelebPreparer:
         # Creating csv file for training data
         if "train" in self.splits:
             self.prepare_csv(
-                wav_lst_train,
-                self.save_csv_train,
-                kaldi_lab=self.kaldi_ali_tr,
-                kaldi_lab_opts=self.kaldi_lab_opts,
+                wav_lst_train, self.save_csv_train,
             )
 
         if "dev" in self.splits:
             self.prepare_csv(
-                wav_lst_dev,
-                self.save_csv_dev,
-                kaldi_lab=self.kaldi_ali_dev,
-                kaldi_lab_opts=self.kaldi_lab_opts,
+                wav_lst_dev, self.save_csv_dev,
             )
 
         # Saving options (useful to skip this phase when already done)
@@ -150,7 +115,7 @@ class VoxCelebPreparer:
 
         return train_lst, dev_lst
 
-    # Future
+    # Future (useful in case using identification splits)
     def _prepare_wav_list_from_iden(self, data_folder):
         """
         For future to be used for identification splits
@@ -223,7 +188,7 @@ class VoxCelebPreparer:
         return chunk_lst
 
     def prepare_csv(
-        self, wav_lst, csv_file, vad=False, kaldi_lab=None, kaldi_lab_opts=None,
+        self, wav_lst, csv_file, vad=False,
     ):
         """
         Creates the csv file given a list of wav files.
@@ -234,12 +199,8 @@ class VoxCelebPreparer:
             The list of wav files of a given data split.
         csv_file : str
             The path of the output csv file
-        kaldi_lab : str, optional
-            Default: None
-            The path of the kaldi labels (optional).
-        kaldi_lab_opts : str, optional
-            Default: None
-            A string containing the options used to compute the labels.
+        vad : bool
+            Perform VAD. True or False
 
         Returns
         -------
@@ -260,26 +221,7 @@ class VoxCelebPreparer:
         msg = '\t"Creating csv lists in  %s..."' % (csv_file)
         logger.debug(msg)
 
-        # Reading kaldi labels if needed:
-        # FIX: These statements were unused, should they be deleted?
-        # snt_no_lab = 0
-        # missing_lab = False
-        """
-        # Kaldi labs will be added in future
-        if kaldi_lab is not None:
-
-            lab = read_kaldi_lab(
-                kaldi_lab,
-                kaldi_lab_opts,
-                logfile=self.global_config["output_folder"] + "/log.log",
-            )
-
-            lab_out_dir = self.save_folder + "/kaldi_labels"
-
-            if not os.path.exists(lab_out_dir):
-                os.makedirs(lab_out_dir)
-        """
-        # example5, 1.000, $data_folder/example5.wav, wav, start:10000 stop:26000, spk05, string,
+        # Important format: example5, 1.000, $data_folder/example5.wav, wav, start:10000 stop:26000, spk05, string,
         csv_lines = [
             [
                 "ID",
@@ -292,13 +234,6 @@ class VoxCelebPreparer:
                 "spk_id_opts",
             ]
         ]
-
-        """
-        if kaldi_lab is not None:
-            csv_lines[0].append("kaldi_lab")
-            csv_lines[0].append("kaldi_lab_format")
-            csv_lines[0].append("kaldi_lab_opts")
-        """
 
         # ND: update separator
         my_sep = "---"
