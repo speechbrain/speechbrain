@@ -7,6 +7,10 @@ Author
 import torch
 import logging
 import torch.nn as nn
+from speechbrain.nnet.attention import (
+    ContentBasedAttention,
+    LocationAwareAttention,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -39,8 +43,9 @@ class RNN(torch.nn.Module):
         If True, the additive bias b is adopted.
     dropout: float
         It is the dropout factor (must be between 0 and 1).
-    orthogonal_init: bool:
+    re_init: bool:
         It True, orthogonal initialization is used for the recurrent weights.
+        Xavier initialization is used for the input connection weights.
     return_hidden: bool:
         It True, the function returns the last hidden layer.
     bidirectional: bool
@@ -77,7 +82,7 @@ class RNN(torch.nn.Module):
         num_layers=1,
         bias=True,
         dropout=0.0,
-        orthogonal_init=False,
+        re_init=False,
         bidirectional=False,
         return_hidden=False,
     ):
@@ -88,7 +93,7 @@ class RNN(torch.nn.Module):
         self.num_layers = num_layers
         self.bias = bias
         self.dropout = dropout
-        self.orthogonal_init = orthogonal_init
+        self.re_init = re_init
         self.bidirectional = bidirectional
         self.reshape = False
         self.return_hidden = return_hidden
@@ -146,8 +151,11 @@ class RNN(torch.nn.Module):
             kwargs.update({"nonlinearity": self.nonlinearity})
             self.rnn = LiGRU(**kwargs)
 
-        if self.orthogonal_init:
-            rnn_orth_init(self.rnn)
+        if self.re_init:
+            if self.rnn_type in ["gru", "lstm"]:
+                rnn_init(self.rnn, act="tanh")
+            else:
+                rnn_init(self.rnn, act=self.nonlinearity)
 
         self.rnn.to(first_input.device)
 
@@ -180,6 +188,231 @@ class RNN(torch.nn.Module):
             return output, hn
         else:
             return output
+
+
+class AttentionalRNNDecoder(nn.Module):
+    def __init__(
+        self,
+        rnn_type,
+        attn_type,
+        n_neurons,
+        attn_dim,
+        num_layers,
+        nonlinearity="relu",
+        re_init=False,
+        normalization="batchnorm",
+        scaling=1.0,
+        channels=None,
+        kernel_size=None,
+        bias=True,
+        dropout=0.0,
+    ):
+        """This funtion implements RNN decoder model with attention.
+
+        This function implements different RNN models. It accepts in enc_states tensors
+        formatted as (batch, time, fea). In the case of 4d inputs
+        like (batch, time, fea, channel) the tensor is flattened in this way:
+        (batch, time, fea*channel).
+
+        Arguments
+        ---------
+        rnn_type: str
+            Type of recurrent neural network to use (rnn, lstm, gru, ligru).
+        attn_type: str
+            type of attention to use (location, content).
+        n_neurons: int
+            Number of internal and output neurons.
+        attn_dim: int
+            Number of attention module internal and output neurons.
+        num_layers: int
+             Number of layers to employ in the RNN architecture.
+        scaling: float
+            The scaling factor to sharpen or smoothen the attention distribution.
+        channels: int
+            Number of channels for location-aware attention.
+        kernel_size: int
+            Size of the kernel for location-aware attention.
+        bias: bool
+            If True, the additive bias b is adopted.
+        dropout: float
+            It is the dropout factor (must be between 0 and 1).
+
+        Example
+        -------
+        >>> enc_states = torch.rand([4, 10, 20])
+        >>> wav_len = torch.rand([4])
+        >>> inp_tensor = torch.rand([4, 5, 6])
+        >>> net = AttentionalRNNDecoder(
+        ...     rnn_type='lstm',
+        ...     attn_type='content',
+        ...     n_neurons=7,
+        ...     attn_dim=5,
+        ...     num_layers=1)
+        >>> out_tensor, attn = net(inp_tensor, enc_states, wav_len, init_params=True)
+        >>> out_tensor.shape
+        torch.Size([4, 5, 7])
+        """
+        super(AttentionalRNNDecoder, self).__init__()
+
+        self.rnn_type = rnn_type
+        self.attn_type = attn_type
+        self.n_neurons = n_neurons
+        self.attn_dim = attn_dim
+        self.num_layers = num_layers
+        self.scaling = scaling
+        self.bias = bias
+        self.dropout = dropout
+        self.normalization = normalization
+        self.re_init = re_init
+        self.nonlinearity = nonlinearity
+
+        # only for location-aware attention
+        self.channels = channels
+        self.kernel_size = kernel_size
+
+    def _check_dim(self, tensor):
+        """
+        This method will check the input shape and
+        calculate corresponding dimension and reshape flag.
+
+        Arguments
+        ---------
+        tensor : torch.Tensor
+            input tensor to be checked.
+        """
+        reshape = False
+        if len(tensor.shape) > 3:
+            reshape = True
+
+        if len(tensor.shape) > 4:
+            err_msg = (
+                "Calss AttentionalRNNDecoder doesn't support tensors with more than",
+                "4 dimensions. Got %i" % (str(len(tensor.shape))),
+            )
+            raise ValueError(err_msg)
+
+        dim = torch.prod(torch.tensor(tensor.shape[2:]))
+        return dim, reshape
+
+    def init_params(self, first_input):
+        """
+        Initializes the parameters of this module.
+
+        Arguments
+        ---------
+        first_input : list of tensor
+            A first input used for initializing the parameters.
+            The list should contain [inp_tensor, enc_states].
+        """
+        inp_tensor, enc_states = first_input
+        device = inp_tensor.device
+
+        self.enc_dim, self.reshape = self._check_dim(enc_states)
+
+        # Combining the context vector and output of rnn
+        self.proj = nn.Linear(
+            self.n_neurons + self.attn_dim, self.n_neurons
+        ).to(device)
+
+        if self.attn_type == "content":
+            self.attn = ContentBasedAttention(
+                enc_dim=self.enc_dim,
+                dec_dim=self.n_neurons * self.num_layers,
+                attn_dim=self.attn_dim,
+                output_dim=self.attn_dim,
+                scaling=self.scaling,
+            ).to(device)
+
+        elif self.attn_type == "location":
+            self.attn = LocationAwareAttention(
+                enc_dim=self.enc_dim,
+                dec_dim=self.n_neurons * self.num_layers,
+                attn_dim=self.attn_dim,
+                output_dim=self.attn_dim,
+                conv_channels=self.channels,
+                kernel_size=self.kernel_size,
+                scaling=self.scaling,
+            ).to(device)
+
+        else:
+            raise ValueError(f"{self.attn_type} is not implemented.")
+
+        self.drop = nn.Dropout(p=self.dropout).to(device)
+
+        self.rnn = RNN(
+            rnn_type=self.rnn_type,
+            n_neurons=self.n_neurons,
+            nonlinearity=self.nonlinearity,
+            normalization=self.normalization,
+            num_layers=self.num_layers,
+            bias=self.bias,
+            dropout=self.dropout,
+            re_init=self.re_init,
+            bidirectional=False,
+            return_hidden=True,
+        )
+        # The dummy context vector for initialization
+        context = torch.zeros(
+            inp_tensor.shape[0], inp_tensor.shape[1], self.attn_dim
+        )
+        inputs = torch.cat([inp_tensor, context], dim=-1)
+        self.rnn.init_params(inputs)
+
+    def forward_step(self, inp, hs, c, enc_states, enc_len):
+        cell_inp = torch.cat([inp, c], dim=-1).unsqueeze(1)
+        cell_inp = self.drop(cell_inp)
+        cell_out, hs = self.rnn(cell_inp, hs)
+        cell_out = cell_out.squeeze(1)
+
+        # flattening the decoder hidden states
+        if isinstance(hs, tuple):
+            dec_flatten = hs[0].reshape(-1, self.n_neurons * self.num_layers)
+        else:
+            dec_flatten = hs.reshape(-1, self.n_neurons * self.num_layers)
+
+        c, w = self.attn(enc_states, enc_len, dec_flatten)
+        dec_out = torch.cat([c, cell_out], dim=1)
+        dec_out = self.proj(dec_out)
+
+        return dec_out, hs, c, w
+
+    def forward(self, inp_tensor, enc_states, wav_len, init_params=False):
+        if init_params:
+            self.init_params([inp_tensor, enc_states])
+
+        if self.reshape:
+            enc_states = enc_states.reshape(
+                enc_states.shape[0],
+                enc_states.shape[1],
+                enc_states.shape[2] * enc_states.shape[3],
+            )
+
+        # calculating the actual length of enc_states
+        enc_len = torch.round(enc_states.shape[1] * wav_len).long()
+
+        # initialization
+        self.attn.reset()
+        c = torch.zeros(enc_states.shape[0], self.attn_dim).to(
+            enc_states.device
+        )
+        hs = None
+
+        # store predicted tokens
+        outputs_lst, attn_lst = [], []
+        for t in range(inp_tensor.shape[1]):
+            outputs, hs, c, w = self.forward_step(
+                inp_tensor[:, t], hs, c, enc_states, enc_len
+            )
+            outputs_lst.append(outputs)
+            attn_lst.append(w)
+
+        # [B, L_d, n_neurons]
+        outputs = torch.stack(outputs_lst, dim=1)
+
+        # [B, L_d, L_e]
+        attn = torch.stack(attn_lst, dim=1)
+
+        return outputs, attn
 
 
 class LiGRU(torch.jit.ScriptModule):
@@ -520,9 +753,11 @@ class LiGRU_Layer(torch.jit.ScriptModule):
                 ).data
 
 
-def rnn_orth_init(module):
+def rnn_init(module, act="tanh"):
     """
-    This function is used to initialize the RNN weight with orthogonality.
+    This function is used to initialize the RNN weight.
+    Recurrent connection: orthogonal initialization.
+
 
     Arguments
     ---------
@@ -534,8 +769,10 @@ def rnn_orth_init(module):
     >>> inp_tensor = torch.rand([4, 10, 20])
     >>> net = RNN(rnn_type='lstm', n_neurons=5)
     >>> out_tensor = net(inp_tensor, init_params=True)
-    >>> rnn_orth_init(net)
+    >>> rnn_init(net)
     """
     for name, param in module.named_parameters():
         if "weight_hh" in name or ".u.weight" in name:
             nn.init.orthogonal_(param)
+        elif len(param.shape) == 2:
+            nn.init.xavier_uniform_(param, gain=nn.init.calculate_gain(act))
