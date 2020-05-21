@@ -1,5 +1,5 @@
 Introduction
-============
+------------
 
 A crucial element of systems for processing speech, as with any data-analysis
 systems, is laying out all the hyperparameters of that system so they can be
@@ -11,7 +11,7 @@ support a rather expansive idea of what constitutes a hyperparameter.
 This document will first go over a few YAML basics, then our extensions.
 
 YAML basics
-===========
+-----------
 
 YAML is a data-serialization language, similar to JSON, and it supports
 three basic types of nodes: scalar, sequential, and mapping. PyYAML naturally
@@ -77,7 +77,7 @@ we decided to implement some shortcuts for these features, which we are
 internally calling "extended YAML".
 
 Extended YAML
-=============
+-------------
 
 Our first extension is to simplify the structure for specifying an instance,
 module, class, or function.
@@ -114,7 +114,7 @@ seed: 1234
 output_folder: !ref results/blstm/<seed>
 ```
 
-This allows us to override the `seed` and have the output folder automatically
+This allows us to change the `seed` and have the output folder automatically
 change its location accordingly. This tag also supports basic arithmetic:
 
 ```yaml
@@ -136,7 +136,7 @@ cnn2: !new:speechbrain.nnet.CNN.Conv
     kernel_size: (3, 3)
 ```
 
-Finally, you can make references to objects, not just scalars.
+Finally, you can make references to nodes that are not just scalars.
 
 ```yaml
 block_index: 1
@@ -164,13 +164,13 @@ This makes the use of YAML more intuitive for Python users.
 
 
 How to use Extended YAML
-========================
+------------------------
 
 First, we'd like to note that all of the following extensions are available
 by loading yaml using the `speechbrain.yaml.load_extended_yaml` function.
 This function returns a namespace object, so that the top-level items
-are conveniently available using dot-notation. Using the yaml example
-above:
+are conveniently available using dot-notation. Assuming the last yaml
+example above is stored in "hyperparameters.yaml", it can be loaded with:
 
 ```python
 >>> from speechbrain.yaml import load_extended_yaml
@@ -200,7 +200,7 @@ of the CNN layer:
 ```
 
 Conclusion
-==========
+----------
 
 We've defined a number of extensions to the YAML syntax, designed to
 make it easier to use for hyperparameter specification. Feedback is welcome!
