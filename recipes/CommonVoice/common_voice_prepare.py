@@ -1,5 +1,11 @@
 """
 Data preparation.
+
+Download: https://voice.mozilla.org/en/datasets
+
+Author
+------
+Titouan Parcollet
 """
 
 import os
@@ -8,7 +14,7 @@ import torch
 import re
 import logging
 import torchaudio
-
+from tqdm.contrib import tzip
 from speechbrain.data_io.data_io import read_wav_soundfile
 
 logger = logging.getLogger(__name__)
@@ -46,31 +52,27 @@ class CommonVoicePreparer(torch.nn.Module):
     -------
     This example requires the Common Voice dataset.
     ```
-    local_folder='/datasets/CommonVoice/en'
-    save_folder='exp/CommonVoice_exp'
-    path_to_wav='/datasets/CommonVoice/en/clips_wav'
+    >>> from recipes.CommonVoice.common_voice_prepare import \
+    >>> CommonVoicePreparer
+    >>>
+    >>> local_folder='/datasets/CommonVoice/en'
+    >>> save_folder='exp/CommonVoice_exp'
+    >>> path_to_wav='/datasets/CommonVoice/en/clips_wav'
+    >>> train_tsv_file='/datasets/CommonVoice/en/train.tsv'
+    >>> dev_tsv_file='/datasets/CommonVoice/en/dev.tsv'
+    >>> test_tsv_file='/datasets/CommonVoice/en/test.tsv'
 
-    # Definition of the CommonVoice tsv files
-    train_tsv_file='/datasets/CommonVoice/en/train.tsv'
-    dev_tsv_file='/datasets/CommonVoice/en/dev.tsv'
-    test_tsv_file='/datasets/CommonVoice/en/test.tsv'
+    >>> prepare = CommonVoicePreparer(
+    >>>             local_folder,
+    >>>             save_folder,
+    >>>             path_to_wav,
+    >>>             train_tsv_file,
+    >>>             dev_tsv_file,
+    >>>             test_tsv_file
+    >>>             )
+    >>> prepare()
 
-    # Initialization of the class
-    prepare = CommonVoicePreparer(
-                 local_folder,
-                 save_folder,
-                 path_to_wav,
-                 train_tsv_file,
-                 dev_tsv_file,
-                 test_tsv_file
-                 )
-    # Calling the preparation
-    prepare()
     ```
-
-    Author
-    ------
-    Titouan Parcollet
     """
 
     def __init__(
@@ -250,8 +252,8 @@ class CommonVoicePreparer(torch.nn.Module):
         msg = "%s files to convert ..." % (str(nb_samples))
         logger.info(msg)
 
-        for line in loaded_csv:
-
+        for line in tzip(loaded_csv):
+            line = line[0]
             # Path is at indice 1 in Common Voice tsv files. And .mp3 files
             # are located in datasets/lang/clips/
             mp3_path = data_folder + "/clips/" + line.split("\t")[1]
