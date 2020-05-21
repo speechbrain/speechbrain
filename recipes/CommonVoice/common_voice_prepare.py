@@ -56,15 +56,7 @@ class CommonVoicePreparer(torch.nn.Module):
     test_tsv_file='/datasets/CommonVoice/en/test.tsv'
 
     # Initialization of the class
-    prepare = CommonVoicePreparer(
-                local_folder,
-                save_folder,
-                path_to_wav,
-                train_tsv_file,
-                dev_tsv_file,
-                test_tsv_file
-                )
-
+    prepare = CommonVoicePreparer(data_folder, splits)
     # Calling the preparation
     prepare()
     ```
@@ -88,36 +80,23 @@ class CommonVoicePreparer(torch.nn.Module):
         self.data_folder = data_folder
         self.save_folder = save_folder
         self.path_to_wav = path_to_wav
-
-        # If not specified point toward standard location
-        if train_tsv_file is None:
-            self.train_tsv_file = self.data_folder + "/train.tsv"
-        else:
-            self.train_tsv_file = train_tsv_file
-
-        if dev_tsv_file is None:
-            self.dev_tsv_file = self.data_folder + "/dev.tsv"
-        else:
-            self.dev_tsv_file = dev_tsv_file
-
-        if test_tsv_file is None:
-            self.test_tsv_file = self.data_folder + "/test.tsv"
-        else:
-            self.test_tsv_file = test_tsv_file
+        self.train_tsv_file = train_tsv_file
+        self.dev_tsv_file = dev_tsv_file
+        self.test_tsv_file = test_tsv_file
 
         # Test if files have already been converted to wav by checking if
         # path_to_wav exists.
         if os.path.exists(self.path_to_wav):
-            msg = "\t%s already exists, skipping conversion of .mp3 files." % (
+            msg = "%s already exists, skipping conversion of .mp3 files." % (
                 self.path_to_wav
             )
-            logger.debug(msg)
+            logger.info(msg)
             self.convert_to_wav = False
         else:
-            msg = "\t%s doesn't exist, we will convert .mp3 files." % (
+            msg = "%s doesn't exist, we will convert .mp3 files." % (
                 self.path_to_wav
             )
-            logger.debug(msg)
+            logger.info(msg)
             self.convert_to_wav = True
             os.makedirs(self.path_to_wav)
 
@@ -131,40 +110,41 @@ class CommonVoicePreparer(torch.nn.Module):
             os.makedirs(self.save_folder)
 
         # Setting ouput files
-        self.save_opt = self.save_folder + "/opt_commonvoice_prepare.pkl"
         self.save_csv_train = self.save_folder + "/train.csv"
         self.save_csv_dev = self.save_folder + "/dev.csv"
         self.save_csv_test = self.save_folder + "/test.csv"
 
-        # Check if this phase is already done (if so, skip it)
+    def __call__(self):
+
         if self.skip():
 
-            msg = "\t%s sucessfully created!" % (self.save_csv_train)
-            logger.debug(msg)
+            msg = "%s already exists, skipping data preparation!" % (
+                self.save_csv_train
+            )
+            logger.info(msg)
 
-            msg = "\t%s sucessfully created!" % (self.save_csv_dev)
-            logger.debug(msg)
+            msg = "%s already exists, skipping data preparation!" % (
+                self.save_csv_dev
+            )
+            logger.info(msg)
 
-            msg = "\t%s sucessfully created!" % (self.save_csv_test)
-            logger.debug(msg)
+            msg = "%s already exists, skipping data preparation!" % (
+                self.save_csv_test
+            )
+            logger.info(msg)
 
             return
 
-    def __call__(self):
-
         # Additional checks to make sure the data folder contains Common Voice
         self.check_commonvoice_folders()
-
-        msg = "\tCreating csv files for the Common Voice Dataset.."
-        logger.debug(msg)
 
         # Creating csv file for training data
         if self.train_tsv_file is not None:
 
             # Convert .mp3 files if required
             if self.convert_to_wav:
-                msg = "\tConverting train audio files to .wav ..."
-                logger.debug(msg)
+                msg = "Converting train audio files to .wav ..."
+                logger.info(msg)
                 self.convert_mp3_wav(
                     self.data_folder,
                     self.train_tsv_file,
@@ -184,8 +164,8 @@ class CommonVoicePreparer(torch.nn.Module):
 
             # Convert .mp3 files if required
             if self.convert_to_wav:
-                msg = "\tConverting validation audio files to .wav ..."
-                logger.debug(msg)
+                msg = "Converting validation audio files to .wav ..."
+                logger.info(msg)
                 self.convert_mp3_wav(
                     self.data_folder,
                     self.dev_tsv_file,
@@ -196,7 +176,7 @@ class CommonVoicePreparer(torch.nn.Module):
             self.create_csv(
                 self.dev_tsv_file,
                 self.path_to_wav,
-                self.save_csv_train,
+                self.save_csv_dev,
                 self.data_folder,
             )
 
@@ -205,8 +185,8 @@ class CommonVoicePreparer(torch.nn.Module):
 
             # Convert .mp3 files if required
             if self.convert_to_wav:
-                msg = "\tConverting test audio files to .wav ..."
-                logger.debug(msg)
+                msg = "Converting test audio files to .wav ..."
+                logger.info(msg)
                 self.convert_mp3_wav(
                     self.data_folder,
                     self.test_tsv_file,
@@ -217,7 +197,7 @@ class CommonVoicePreparer(torch.nn.Module):
             self.create_csv(
                 self.test_tsv_file,
                 self.path_to_wav,
-                self.save_csv_train,
+                self.save_csv_test,
                 self.data_folder,
             )
 
@@ -236,20 +216,16 @@ class CommonVoicePreparer(torch.nn.Module):
 
         # Check if the given tsv exists
         if not os.path.isfile(tsv_file):
-            msg = "\t%s doesn't exist, verify your dataset!" % (tsv_file)
-            logger.debug(msg)
+            msg = "%s doesn't exist, verify your dataset!" % (tsv_file)
+            logger.error(msg)
             raise FileNotFoundError(msg)
-
-        if os.path.exists(path_to_wav):
-            msg = "\t%s exists, we might override some files!" % (path_to_wav)
-            logger.debug(msg)
 
         # We load and skip the header
         loaded_csv = open(tsv_file, "r").readlines()[1:]
 
         nb_samples = str(len(loaded_csv))
-        msg = "\t%s files to convert ..." % (str(len(nb_samples)))
-        logger.debug(msg)
+        msg = "%s files to convert ..." % (str(nb_samples))
+        logger.info(msg)
 
         for line in loaded_csv:
 
@@ -289,7 +265,6 @@ class CommonVoicePreparer(torch.nn.Module):
             os.path.isfile(self.save_csv_train)
             and os.path.isfile(self.save_csv_dev)
             and os.path.isfile(self.save_csv_test)
-            and os.path.isfile(self.save_opt)
         ):
             skip = True
 
@@ -316,23 +291,23 @@ class CommonVoicePreparer(torch.nn.Module):
         # Check if the given files exists
         if not os.path.isfile(orig_tsv_file):
             msg = "\t%s doesn't exist, verify your dataset!" % (orig_tsv_file)
-            logger.debug(msg)
+            logger.error(msg)
             raise FileNotFoundError(msg)
 
         if not os.path.exists(path_to_wav):
             msg = "\t%s doesn't exists, we need wav files !" % (path_to_wav)
-            logger.debug(msg)
+            logger.error(msg)
             raise FileNotFoundError(msg)
 
         # We load and skip the header
         loaded_csv = open(orig_tsv_file, "r").readlines()[1:]
         nb_samples = str(len(loaded_csv))
 
-        msg = "\t Preparing CSV files for %s samples ..." % (str(nb_samples))
+        msg = "Preparing CSV files for %s samples ..." % (str(nb_samples))
         logger.debug(msg)
 
         # Adding some Prints
-        msg = '\t"Creating csv lists in  %s..."' % (csv_file)
+        msg = "Creating csv lists in %s ..." % (csv_file)
         logger.debug(msg)
 
         csv_lines = [
@@ -412,8 +387,8 @@ class CommonVoicePreparer(torch.nn.Module):
                 csv_writer.writerow(line)
 
         # Final prints
-        msg = "\t%s sucessfully created!" % (csv_file)
-        logger.debug(msg)
+        msg = "%s sucessfully created!" % (csv_file)
+        logger.info(msg)
 
     def check_commonvoice_folders(self):
         """
