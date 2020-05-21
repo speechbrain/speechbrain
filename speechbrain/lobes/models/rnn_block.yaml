@@ -4,7 +4,6 @@ sequence: [rnn]
 rnn: !new:speechbrain.nnet.RNN.RNN
     rnn_type: lstm
     n_neurons: 512
-    nonlinearity: tanh
     num_layers: 4
     dropout: 0.15
     bidirectional: True
