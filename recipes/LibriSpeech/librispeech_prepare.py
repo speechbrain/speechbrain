@@ -21,7 +21,8 @@ logger = logging.getLogger(__name__)
 
 class LibriSpeechPreparer:
     """
-    This class prepares the csv files for the LibriSpeech dataset
+    This class prepares the csv files for the LibriSpeech dataset.
+    Download link: http://www.openslr.org/12
 
     Arguments
     ---------
