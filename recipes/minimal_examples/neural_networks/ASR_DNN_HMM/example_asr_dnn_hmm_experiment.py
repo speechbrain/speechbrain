@@ -1,14 +1,19 @@
 #!/usr/bin/python
 import os
+import torch
 import speechbrain as sb
 from speechbrain.utils.train_logger import summarize_average
 
+torch.manual_seed(1234)
 experiment_dir = os.path.dirname(os.path.abspath(__file__))
 params_file = os.path.join(experiment_dir, "params.yaml")
 data_folder = "../../../../../samples/audio_samples/nn_training_samples"
 data_folder = os.path.abspath(experiment_dir + data_folder)
 with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
+
+# Store train loss for integration test
+train_loss = 1
 
 
 class ASR_Brain(sb.core.Brain):
@@ -38,7 +43,9 @@ class ASR_Brain(sb.core.Brain):
 
     def on_epoch_end(self, epoch, train_stats, valid_stats):
         print("Epoch %d complete" % epoch)
-        print("Train loss: %.2f" % summarize_average(train_stats["loss"]))
+        global train_loss
+        train_loss = summarize_average(train_stats["loss"])
+        print("Train loss: %.2f" % train_loss)
         print("Valid loss: %.2f" % summarize_average(valid_stats["loss"]))
         print("Valid error: %.2f" % summarize_average(valid_stats["error"]))
 
@@ -55,6 +62,6 @@ test_stats = asr_brain.evaluate(params.test_loader())
 print("Test error: %.2f" % summarize_average(test_stats["error"]))
 
 
-# With such a small dataset, we only expect to get 35% correct
+# Define an integration test of overfitting on the train data
 def test_error():
-    assert summarize_average(test_stats["error"]) < 0.65
+    assert train_loss < 0.17

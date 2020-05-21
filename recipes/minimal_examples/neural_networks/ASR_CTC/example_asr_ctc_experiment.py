@@ -1,5 +1,6 @@
 #!/usr/bin/python
 import os
+import torch
 import speechbrain as sb
 from speechbrain.decoders.ctc import ctc_greedy_decode
 from speechbrain.decoders.decoders import undo_padding
@@ -7,12 +8,17 @@ from speechbrain.utils.edit_distance import wer_details_for_batch
 from speechbrain.utils.train_logger import summarize_average
 from speechbrain.utils.train_logger import summarize_error_rate
 
+# Note, the manual seed does not ensure repeatability with CTC
+torch.manual_seed(1234)
 experiment_dir = os.path.dirname(os.path.abspath(__file__))
 params_file = os.path.join(experiment_dir, "params.yaml")
 data_folder = "../../../../../samples/audio_samples/nn_training_samples"
 data_folder = os.path.abspath(experiment_dir + data_folder)
 with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
+
+# Store train loss for integration test
+train_loss = 1
 
 
 class CTCBrain(sb.core.Brain):
@@ -41,7 +47,9 @@ class CTCBrain(sb.core.Brain):
 
     def on_epoch_end(self, epoch, train_stats, valid_stats):
         print("Epoch %d complete" % epoch)
-        print("Train loss: %.2f" % summarize_average(train_stats["loss"]))
+        global train_loss
+        train_loss = summarize_average(train_stats["loss"])
+        print("Train loss: %.2f" % train_loss)
         print("Valid loss: %.2f" % summarize_average(valid_stats["loss"]))
         print("Valid PER: %.2f" % summarize_error_rate(valid_stats["PER"]))
 
@@ -58,7 +66,6 @@ test_stats = ctc_brain.evaluate(params.test_loader())
 print("Test PER: %.2f" % summarize_error_rate(test_stats["PER"]))
 
 
-# For such a small dataset, the PER can be unpredictable.
-# Instead, check that at the end of training, the error is acceptable.
+# Integration test: check that the model overfits the training data
 def test_error():
-    assert summarize_average(test_stats["loss"]) < 15.0
+    assert train_loss < 1.5
