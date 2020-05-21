@@ -42,11 +42,11 @@ def decode_batch(F, decode_network_lst, Tjoint, classif_network_lst, blank_id):
         >>> from speechbrain.nnet.transducer.transducer_joint import Transducer_joint
         >>> from speechbrain.nnet.linear import Linear
         >>> TN = RNN(rnn_type="gru", n_neurons=5, num_layers=1, bidirectional=True)
-        >>> TN_lin = Linear(n_neurons=35, bais=True)
+        >>> TN_lin = Linear(n_neurons=35, bias=True)
         >>> blank_id = 0
         >>> PN_emb = Embedding(embeddings_dim=34 , consider_as_one_hot=True, blank_id=blank_id)
         >>> PN = RNN(rnn_type="gru", n_neurons=5, num_layers=1, bidirectional=False)
-        >>> PN_lin = Linear(n_neurons=35, bais=True)
+        >>> PN_lin = Linear(n_neurons=35, bias=True)
         >>> Tjoint = Transducer_joint(joint="sum")
         >>> Out_lin = Linear(n_neurons=35)
         >>> decode_batch(TN_out, [PN_emb,PN,PN_lin], Tjoint, [Out_lin], blank_id)
