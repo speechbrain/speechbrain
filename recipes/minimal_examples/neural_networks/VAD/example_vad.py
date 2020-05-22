@@ -26,14 +26,14 @@ class VADBrain(sb.core.Brain):
 
     def compute_objectives(self, predictions, targets, train_mode=True):
         predictions, lens = predictions
-        ids, phns, phn_lens = targets
-        loss = params.compute_cost(predictions, phns, [lens, phn_lens])
+        ids, targets, wav_lens = targets
+        loss = params.compute_cost(predictions, targets, [lens, wav_lens])
 
         if not train_mode:
             # compute DER
-            seq = ctc_greedy_decode(predictions, lens, blank_id=-1)
-            phns = undo_padding(phns, phn_lens)
-            stats = {"PER": wer_details_for_batch(ids, phns, seq)}
+            #seq = ctc_greedy_decode(predictions, lens, blank_id=-1)
+            #phns = undo_padding(phns, phn_lens)
+            stats = {"DER": wer_details_for_batch(ids, phns, seq)}
             return loss, stats
 
         return loss
@@ -42,7 +42,7 @@ class VADBrain(sb.core.Brain):
         print("Epoch %d complete" % epoch)
         print("Train loss: %.2f" % summarize_average(train_stats["loss"]))
         print("Valid loss: %.2f" % summarize_average(valid_stats["loss"]))
-        print("Valid DER: %.2f" % summarize_error_rate(valid_stats["PER"])) # detection error rate
+        print("Valid DER: %.2f" % summarize_error_rate(valid_stats["DER"])) # detection error rate
 
 
 train_set = params.train_loader()
