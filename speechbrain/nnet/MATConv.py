@@ -69,15 +69,17 @@ class MATConvModule(Sequential):
         else:
             if not hasattr(self.layers[0], "conv"):
                 return super(MATConvModule, self).forward(x, True)
+
             return super(MATConvModule, self).forward(x, init_params)
 
     def _check_input_size(self, x):
         if isinstance(self.dilation, int):
             return x.shape[1] > self.dilation
         else:
-            return (
-                x.shape[1] > self.dilation[0] and x.shape[2] > self.dilation[1]
-            )
+            for i, dil in enumerate(self.dilation):
+                if dil > x.shape[1 + i]:
+                    return False
+            return True
 
     def _init_weight(self):
         for m in self.layers:

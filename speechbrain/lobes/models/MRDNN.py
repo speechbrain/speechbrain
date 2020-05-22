@@ -46,7 +46,7 @@ class MRDNN(Sequential):
     Example
     -------
     >>> import torch
-    >>> model = CMRDNN()
+    >>> model = MRDNN()
     >>> inputs = torch.rand([10, 120, 60])
     >>> outputs = model(inputs, init_params=True)
     >>> outputs.shape
