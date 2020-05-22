@@ -179,6 +179,9 @@ class RNNGreedySearcher(GreedySearcher):
     ... min_decode_ratio=0,
     ... max_decode_ratio=1)
     >>> hyps, scores = searcher(enc, wav_len)
+=======
+            4. Softmax layer
+>>>>>>> add decoding classes
     """
 
     def __init__(
