@@ -1,0 +1,25 @@
+# The block index is multiplied with the channels to get out_channels
+block_index: 1
+channels: 128
+kernel_size: (3, 3)
+sequence: [conv1, norm1, activation, conv2, norm2, activation, pooling]
+
+conv1: !new:speechbrain.nnet.CNN.Conv
+    out_channels: !ref <block_index> * <channels>
+    kernel_size: !ref <kernel_size>
+
+norm1: !new:speechbrain.nnet.normalization.Normalize
+    norm_type: batchnorm
+
+conv2: !new:speechbrain.nnet.CNN.Conv
+    out_channels: !ref <block_index> * <channels>
+    kernel_size: !ref <kernel_size>
+
+norm2: !new:speechbrain.nnet.normalization.Normalize
+    norm_type: batchnorm
+
+activation: !new:torch.nn.LeakyReLU
+
+pooling: !new:speechbrain.nnet.MATConv.MATConvPool
+    out_channels: !ref <block_index> * <channels>
+    stride: (1,2)
