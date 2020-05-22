@@ -1,0 +1,57 @@
+# Basic parameters
+sample_rate: 16000
+
+# Data files
+data_folder: !PLACEHOLDER
+csv_train: !ref <data_folder>/train.csv
+csv_valid: !ref <data_folder>/dev.csv
+csv_test: !ref <data_folder>/test.csv
+
+# Neural Parameters
+N_epochs: 10
+N_batch: 1
+lr: 0.001
+
+train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_train>
+    batch_size: !ref <N_batch>
+    csv_read: [wav, st, end]
+    replacements:
+        $data_folder: !ref <data_folder>
+
+valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_valid>
+    batch_size: !ref <N_batch>
+    csv_read: [wav, st, end]
+    replacements:
+        $data_folder: !ref <data_folder>
+
+test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_test>
+    csv_read: [wav, st, end]
+    replacements:
+        $data_folder: !ref <data_folder>
+
+compute_features: !new:speechbrain.lobes.features.mfcc.MFCC
+
+mean_var_norm: !new:speechbrain.processing.features.InputNormalization
+    norm_type: global
+
+rnn: !new:speechbrain.nnet.RNN.RNN
+    rnn_type: gru
+    n_neurons: 256
+    nonlinearity: tanh
+    num_layers: 2
+    dropout: 0.15
+    bidirectional: True
+
+lin: !new:speechbrain.nnet.linear.Linear
+    n_neurons: 1
+    bias: False
+
+compute_cost: !new:speechbrain.nnet.losses.ComputeCost
+    cost_type: ctc
+
+optimizer: !new:speechbrain.nnet.optimizers.Optimize
+    optimizer_type: adam
+    learning_rate: !ref <lr>
