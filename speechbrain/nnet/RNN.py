@@ -364,7 +364,7 @@ class AttentionalRNNDecoder(nn.Module):
         # The dummy context vector for initialization
         context = torch.zeros(
             inp_tensor.shape[0], inp_tensor.shape[1], self.attn_dim
-        )
+        ).to(device)
         inputs = torch.cat([inp_tensor, context], dim=-1)
         self.rnn.init_params(inputs)
 

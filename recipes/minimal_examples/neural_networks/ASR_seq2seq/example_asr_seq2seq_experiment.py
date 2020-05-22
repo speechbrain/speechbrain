@@ -12,7 +12,7 @@ with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
 
 
-class CTCBrain(sb.core.Brain):
+class seq2seqBrain(sb.core.Brain):
     def compute_forward(self, x, y, train_mode=True, init_params=False):
         id, wavs, wav_lens = x
         id, phns, phn_lens = y
@@ -56,11 +56,11 @@ class CTCBrain(sb.core.Brain):
 
 train_set = params.train_loader()
 first_x, first_y = next(zip(*train_set))
-ctc_brain = CTCBrain(
+seq2seq_brain = seq2seqBrain(
     modules=[params.rnn, params.emb, params.decoder, params.lin],
     optimizer=params.optimizer,
     first_inputs=[first_x, first_y],
 )
-ctc_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
-test_stats = ctc_brain.evaluate(params.test_loader())
+seq2seq_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
+test_stats = seq2seq_brain.evaluate(params.test_loader())
 print("Test loss: %.2f" % summarize_average(test_stats["loss"]))
