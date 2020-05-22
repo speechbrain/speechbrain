@@ -3,29 +3,8 @@
 # Authors: Mirco Ravanelli
 # ################################
 
-data_folder: !PLACEHOLDER  # e.g. /path/to/TIMIT
-ckpts_to_keep: 1
-sample_rate: 16000
-seed: !PLACEHOLDER  # e.g, 1234
-output_folder: !ref results/vgg_blstm/<seed>
-predictions_file: !ref <output_folder>/predictions.csv
-wer_file: !ref <output_folder>/wer.txt
-save_folder: !ref <output_folder>/save
-train_log: !ref <output_folder>/train_log.txt
-
-# Data files
-csv_train: !ref <data_folder>/train.csv
-csv_valid: !ref <data_folder>/dev.csv
-csv_test: !ref <data_folder>/test.csv
-
-# Neural Parameters
 number_of_epochs: 25
-batch_size: 8
 lr: 1.0
-dropout_rate: 0.15
-n_mels: 40
-
-device: 'cuda:0'
 
 # Functions
 model: !new:speechbrain.lobes.models.CRDNN.CRDNN
@@ -59,43 +38,3 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
 compute_features: !new:speechbrain.lobes.features.fbank.Fbank
-
-train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_train>
-    batch_size: !ref <batch_size>
-    sentence_sorting: ascending
-    output_folder: !ref <output_folder>
-    csv_read: [wav, phn]
-
-valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_valid>
-    batch_size: !ref <batch_size>
-    sentence_sorting: ascending
-    output_folder: !ref <output_folder>
-    csv_read: [wav, phn]
-
-test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_test>
-    batch_size: !ref <batch_size>
-    sentence_sorting: ascending
-    output_folder: !ref <output_folder>
-    csv_read: [wav, phn]
-
-compute_cost: !new:speechbrain.nnet.losses.ComputeCost
-    cost_type: ctc
-    blank_index: 39
-
-train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
-    save_file: !ref <train_log>
-    summary_fns:
-        loss: !name:speechbrain.utils.train_logger.summarize_average
-        PER: !name:speechbrain.utils.train_logger.summarize_error_rate
-
-checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
-    checkpoints_dir: !ref <save_folder>
-    recoverables:
-        model: !ref <model>
-        output: !ref <output>
-        scheduler: !ref <lr_annealing>
-        normalizer: !ref <normalize>
-        counter: !ref <epoch_counter>

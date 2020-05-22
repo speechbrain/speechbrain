@@ -15,7 +15,6 @@ import speechbrain as sb
 from datetime import date
 from tqdm.contrib import tzip
 from speechbrain.utils.logger import setup_logging
-from speechbrain.utils.data_utils import recursive_update
 
 logger = logging.getLogger(__name__)
 DEFAULT_LOG_CONFIG = os.path.dirname(os.path.abspath(__file__))
@@ -108,9 +107,9 @@ def parse_arguments(arg_list):
         "defined by SpeechBrain.",
     )
     parser.add_argument(
-        "--yaml_overrides",
+        "--hyperparams",
         help="A yaml-formatted string representing a dictionary of "
-        "overrides to the parameters in the param file. The keys of "
+        "overrides to the parameters in the param_file. The keys of "
         "the dictionary can use dots to represent levels in the yaml "
         'hierarchy. For example: "{model.param1: value1}" would '
         "override the param1 parameter of the model node.",
@@ -133,6 +132,11 @@ def parse_arguments(arg_list):
         help="A random seed to reproduce experiments on the same machine",
     )
     parser.add_argument(
+        "--experiment_id",
+        help="An id for the experiment, default is the parameter file name, "
+        "without the '.yaml' extension.",
+    )
+    parser.add_argument(
         "--log_config",
         help="A file storing the configuration options for logging",
     )
@@ -143,14 +147,21 @@ def parse_arguments(arg_list):
     param_file = parsed_args["param_file"]
     del parsed_args["param_file"]
 
-    # Convert yaml_overrides to dictionary
-    if parsed_args["yaml_overrides"] is not None:
-        overrides = parse_overrides(parsed_args["yaml_overrides"])
-        del parsed_args["yaml_overrides"]
-        recursive_update(parsed_args, overrides)
+    # Set the experiment_id to a reasonable default
+    if parsed_args["experiment_id"] is None:
+        parsed_args["experiment_id"] = os.path.splitext(
+            os.path.basename(param_file)
+        )[0]
+
+    # Convert hyperparams to dictionary
+    hyperparams = {}
+    if parsed_args["hyperparams"] is not None:
+        hyperparams = parse_overrides(parsed_args["hyperparams"])
+        del parsed_args["hyperparams"]
 
     # Only return non-empty items
-    return param_file, {k: v for k, v in parsed_args.items() if v is not None}
+    overrides = {k: v for k, v in parsed_args.items() if v is not None}
+    return param_file, overrides, hyperparams
 
 
 def parse_overrides(override_string):
