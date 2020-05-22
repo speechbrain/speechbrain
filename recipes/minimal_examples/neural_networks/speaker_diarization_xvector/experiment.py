@@ -51,6 +51,7 @@ class XvectorBrain(sb.core.Brain):
         feats = params.mean_var_norm(feats, lens)
 
         x = params.model(feats, init_params)
+        x = params.linear(x, init_params)
         outputs = params.softmax(x)
 
         return outputs, lens
