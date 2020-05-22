@@ -14,6 +14,7 @@ import torch
 import re
 import logging
 import torchaudio
+import unicodedata
 from tqdm.contrib import tzip
 from speechbrain.data_io.data_io import read_wav_soundfile
 
@@ -47,6 +48,9 @@ class CommonVoicePreparer(torch.nn.Module):
         Path to the Dev Common Voice .tsv file (cs)
     test_tsv_file : str, optional
         Path to the Test Common Voice .tsv file (cs)
+    accented_letters : bool, optional
+        Defines if accented letters will be kept as individual letters or
+        transformed to the closest non-accented letters.
 
     Example
     -------
@@ -61,7 +65,7 @@ class CommonVoicePreparer(torch.nn.Module):
     >>> train_tsv_file='/datasets/CommonVoice/en/train.tsv'
     >>> dev_tsv_file='/datasets/CommonVoice/en/dev.tsv'
     >>> test_tsv_file='/datasets/CommonVoice/en/test.tsv'
-
+    >>> accented_letters=False
     >>> prepare = CommonVoicePreparer(
     >>>             local_folder,
     >>>             save_folder,
@@ -83,6 +87,7 @@ class CommonVoicePreparer(torch.nn.Module):
         train_tsv_file=None,
         dev_tsv_file=None,
         test_tsv_file=None,
+        accented_letters=False,
     ):
         # Expected inputs when calling the class (no inputs in this case)
         super().__init__()
@@ -92,6 +97,7 @@ class CommonVoicePreparer(torch.nn.Module):
         self.train_tsv_file = train_tsv_file
         self.dev_tsv_file = dev_tsv_file
         self.test_tsv_file = test_tsv_file
+        self.accented_letters = accented_letters
 
         # If not specified point toward standard location
         if train_tsv_file is None:
@@ -355,7 +361,7 @@ class CommonVoicePreparer(torch.nn.Module):
         ]
 
         # Start processing lines
-
+        total_duration = 0.0
         for line in loaded_csv:
 
             # Path is at indice 1 in Common Voice tsv files. And .mp3 files
@@ -369,13 +375,20 @@ class CommonVoicePreparer(torch.nn.Module):
             # Reading the signal (to retrieve duration in seconds)
             signal = read_wav_soundfile(wav_path)
             duration = signal.shape[0] / self.samplerate
+            total_duration += duration
 
             # Getting transcript
             words = line.split("\t")[2]
 
             # Do a bit of cleaning on the transcript ...
-            reg = r"\W+"
-            words = re.sub(reg, " ", words).upper()
+            words = re.sub("[^'A-Za-z0-9 ]+", " ", words).upper()
+
+            # Remove accents if specified
+            if not self.accented_letters:
+                nfkd_form = unicodedata.normalize("NFKD", words)
+                words = "".join(
+                    [c for c in nfkd_form if not unicodedata.combining(c)]
+                )
 
             # Getting chars
             chars = words.replace(" ", "_")
@@ -413,6 +426,12 @@ class CommonVoicePreparer(torch.nn.Module):
 
         # Final prints
         msg = "%s sucessfully created!" % (csv_file)
+        logger.info(msg)
+        msg = "Number of samples: %s " % (str(len(loaded_csv)))
+        logger.info(msg)
+        msg = "Total duration: %s Hours" % (
+            str(round(total_duration / 3600, 2))
+        )
         logger.info(msg)
 
     def check_commonvoice_folders(self):
