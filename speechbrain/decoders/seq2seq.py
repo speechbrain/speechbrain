@@ -122,7 +122,7 @@ class GreedySearcher(BaseSearcher):
         )
 
         log_probs_lst = []
-        max_decode_steps = enc_states.shape[1] * self.max_decode_ratio
+        max_decode_steps = int(enc_states.shape[1] * self.max_decode_ratio)
 
         for t in range(max_decode_steps):
             log_probs, memory = self.forward_step(
@@ -255,8 +255,8 @@ class BeamSearcher(BaseSearcher):
             torch.empty(batch_size * self.beam_size, 0).long().to(device)
         )
 
-        min_decode_steps = enc_states.shape[1] * self.min_decode_ratio
-        max_decode_steps = enc_states.shape[1] * self.max_decode_ratio
+        min_decode_steps = int(enc_states.shape[1] * self.min_decode_ratio)
+        max_decode_steps = int(enc_states.shape[1] * self.max_decode_ratio)
 
         for t in range(max_decode_steps):
             log_probs, memory = self.forward_step(
