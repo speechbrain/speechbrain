@@ -8,7 +8,9 @@ from speechbrain.utils.edit_distance import wer_details_for_batch
 from speechbrain.utils.train_logger import summarize_average
 from speechbrain.utils.train_logger import summarize_error_rate
 import torch
+import pytest
 
+pytest.importorskip("numba")
 experiment_dir = os.path.dirname(os.path.abspath(__file__))
 params_file = os.path.join(experiment_dir, "params.yaml")
 data_folder = "../../../../../samples/audio_samples/nn_training_samples"
