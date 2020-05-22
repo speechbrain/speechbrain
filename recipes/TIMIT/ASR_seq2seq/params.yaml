@@ -5,7 +5,7 @@ save_folder: !ref <output_folder>/save
 ckpts_to_keep: 1
 sample_rate: 16000
 seed: !PLACEHOLDER  # e.g, 1234
-output_folder: !ref results/adam/<seed>
+output_folder: !ref results/<seed>
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
@@ -70,7 +70,6 @@ optimizer: !new:speechbrain.nnet.optimizers.Optimize
     optimizer_type: adam
     weight_decay: !ref <wd>
     learning_rate: !ref <lr>
-    rho: 0.95
 
 lr_annealing: !new:speechbrain.nnet.lr_scheduling.LRScheduler
     annealing_type: newbob
