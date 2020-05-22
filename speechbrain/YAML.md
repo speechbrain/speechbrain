@@ -27,14 +27,16 @@ bool: True
 none: null
 ```
 
-Note that we've used a simple mapping to demonstrate the scalar nodes. Mappings
+Note that we've used a simple mapping to demonstrate the scalar nodes. A mapping
+is a set of `key: value` pairs, defined so that the key can be used to easily
+retrieve the corresponding value. In addition to the format above, mappings
 can also be specified in a similar manner as JSON:
 
 ```yaml
 foo: {bar: baz}
 ```
 
-Sequences can also be specified in two ways:
+Sequences, or lists of items, can also be specified in two ways:
 
 ```yaml
 - foo
@@ -96,14 +98,13 @@ pass positional arguments.
 We also simplify the interface for specifying a function or class:
 
 ```yaml
-model: !name:speechbrain.nnet.RNN.RNN
-    layers: 5
-    neurons_per_layer: 512
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    summary_fns:
+        loss: !name:speechbrain.utils.train_logger.summarize_average
 ```
 
-Here, instead of passing the arguments to construct the object, the arguments
-are bound and the result is a sort of factory that can be used to construct
-objects.
+This yaml passes the `summarize_average()` function as a parameter to the
+`train_logger`, which it uses to summarize an epoch's list of losses.
 
 Another main extension is a nicer alias interface, that supports things like
 string interpolation. To do this, we've added a tag written `!ref` that
