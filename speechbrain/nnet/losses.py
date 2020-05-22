@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 class ComputeCost(nn.Module):
     """This function implements different losses for training neural
-        networks. It supports NLL, MSE, L1 and CTC objectives.
+        networks. It supports BCE, BCEWithLogits, NLL, MSE, L1 and CTC objectives.
 
     Arguments
     ---------
@@ -80,6 +80,7 @@ class ComputeCost(nn.Module):
                 raise ValueError("Must pass blank index for CTC")
             self.blank_index = blank_index
             self.cost = nn.CTCLoss(blank=self.blank_index)
+
         if cost_type == "transducer":
             from speechbrain.nnet.transducer.transducer_loss import (
                 TransducerLoss,
