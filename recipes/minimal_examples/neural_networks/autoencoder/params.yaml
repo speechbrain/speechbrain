@@ -18,6 +18,7 @@ train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>
     batch_size: !ref <N_batch>
     csv_read: [wav]
+    sentence_sorting: ascending
     replacements:
         $data_folder: !ref <data_folder>
 
@@ -25,12 +26,14 @@ valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_valid>
     batch_size: !ref <N_batch>
     csv_read: [wav]
+    sentence_sorting: ascending
     replacements:
         $data_folder: !ref <data_folder>
 
 test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_test>
     csv_read: [wav]
+    sentence_sorting: ascending
     replacements:
         $data_folder: !ref <data_folder>
 
