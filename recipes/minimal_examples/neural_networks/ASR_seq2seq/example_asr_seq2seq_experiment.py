@@ -8,6 +8,9 @@ from speechbrain.utils.train_logger import summarize_error_rate
 from speechbrain.decoders.decoders import undo_padding
 from speechbrain.utils.edit_distance import wer_details_for_batch
 from speechbrain.utils.train_logger import summarize_average
+from speechbrain.utils.train_logger import summarize_error_rate
+from speechbrain.decoders.decoders import undo_padding
+from speechbrain.utils.edit_distance import wer_details_for_batch
 
 experiment_dir = os.path.dirname(os.path.abspath(__file__))
 params_file = os.path.join(experiment_dir, "params.yaml")
@@ -61,8 +64,18 @@ class seq2seqBrain(sb.core.Brain):
         return outputs
 
     def compute_objectives(self, predictions, targets, train_mode=True):
+        if train_mode:
+            outputs = predictions
+        else:
+            outputs, seq = predictions
+
         ids, phns, phn_lens = targets
-        loss = params.compute_cost(predictions, phns, [phn_lens, phn_lens])
+        loss = params.compute_cost(outputs, phns, [phn_lens, phn_lens])
+
+        if not train_mode:
+            phns = undo_padding(phns, phn_lens)
+            stats = {"PER": wer_details_for_batch(ids, phns, seq)}
+            return loss, stats
 
         return loss
 
@@ -96,7 +109,7 @@ seq2seq_brain = seq2seqBrain(
 )
 seq2seq_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
 test_stats = seq2seq_brain.evaluate(params.test_loader())
-print("Test loss: %.2f" % summarize_average(test_stats["loss"]))
+print("Test PER: %.2f" % summarize_error_rate(test_stats["PER"]))
 
 
 def test_error():
