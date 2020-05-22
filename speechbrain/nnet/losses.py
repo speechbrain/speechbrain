@@ -57,6 +57,12 @@ class ComputeCost(nn.Module):
         self.allow_lab_diff = allow_lab_diff
         self.cost_type = cost_type
 
+        if cost_type == "bce":
+            self.cost = torch.nn.BCELoss()
+
+        if cost_type == "bce_with_logits":
+            self.cost = torch.nn.BCEWithLogitsLoss()
+
         if cost_type == "nll":
             self.cost = torch.nn.NLLLoss(reduction="none")
 
@@ -115,7 +121,7 @@ class ComputeCost(nn.Module):
             # Mask to avoid zero-padded time steps from  the total loss
             mask = length_to_mask(target_len, max_len=target.shape[1])
 
-            if self.cost_type in ["nll", "error"]:
+            if self.cost_type in ["nll", "error", "bce", "bce_with_logits"]:
                 prediction = prediction[:, 0 : target.shape[1], :]
                 prediction = prediction.reshape(
                     prediction.shape[0] * prediction.shape[1],
