@@ -262,6 +262,7 @@ class Brain:
     ...     epoch_counter=range(1),
     ...     train_set=([torch.rand(10, 10)], [torch.rand(10, 10)]),
     ... )
+    ({'loss': [tensor(...)]}, {})
     """
 
     def __init__(self, modules=None, optimizer=None, first_inputs=None):
@@ -404,7 +405,12 @@ class Brain:
             a list of datasets to use for training, zipped before iterating.
         valid_set : list of Data Loaders
             a list of datasets to use for validation, zipped before iterating.
+
+        Returns
+        -------
+        The train stats and validation stats from the last epoch
         """
+        train_stats, valid_stats = {}, {}
         for epoch in epoch_counter:
             self.modules.train()
             train_stats = {}
@@ -421,6 +427,8 @@ class Brain:
                         self.add_stats(valid_stats, stats)
 
             self.on_epoch_end(epoch, train_stats, valid_stats)
+
+        return train_stats, valid_stats
 
     def evaluate(self, test_set):
         """Iterate test_set and evaluate brain performance.

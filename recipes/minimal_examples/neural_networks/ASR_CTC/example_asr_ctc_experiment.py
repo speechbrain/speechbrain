@@ -17,9 +17,6 @@ data_folder = os.path.abspath(experiment_dir + data_folder)
 with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
 
-# Store train loss for integration test
-train_loss = 1
-
 
 class CTCBrain(sb.core.Brain):
     def compute_forward(self, x, train_mode=True, init_params=False):
@@ -47,9 +44,7 @@ class CTCBrain(sb.core.Brain):
 
     def on_epoch_end(self, epoch, train_stats, valid_stats):
         print("Epoch %d complete" % epoch)
-        global train_loss
-        train_loss = summarize_average(train_stats["loss"])
-        print("Train loss: %.2f" % train_loss)
+        print("Train loss: %.2f" % summarize_average(train_stats["loss"]))
         print("Valid loss: %.2f" % summarize_average(valid_stats["loss"]))
         print("Valid PER: %.2f" % summarize_error_rate(valid_stats["PER"]))
 
@@ -61,11 +56,13 @@ ctc_brain = CTCBrain(
     optimizer=params.optimizer,
     first_inputs=[first_x],
 )
-ctc_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
+train_stats, _ = ctc_brain.fit(
+    range(params.N_epochs), train_set, params.valid_loader()
+)
 test_stats = ctc_brain.evaluate(params.test_loader())
 print("Test PER: %.2f" % summarize_error_rate(test_stats["PER"]))
 
 
 # Integration test: check that the model overfits the training data
 def test_error():
-    assert train_loss < 1.5
+    assert summarize_average(train_stats["loss"]) < 3.0

@@ -12,9 +12,6 @@ data_folder = os.path.abspath(experiment_dir + data_folder)
 with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
 
-# Store train loss for integration test
-train_loss = 1
-
 
 class ASR_Brain(sb.core.Brain):
     def compute_forward(self, x, train_mode=True, init_params=False):
@@ -43,9 +40,7 @@ class ASR_Brain(sb.core.Brain):
 
     def on_epoch_end(self, epoch, train_stats, valid_stats):
         print("Epoch %d complete" % epoch)
-        global train_loss
-        train_loss = summarize_average(train_stats["loss"])
-        print("Train loss: %.2f" % train_loss)
+        print("Train loss: %.2f" % summarize_average(train_stats["loss"]))
         print("Valid loss: %.2f" % summarize_average(valid_stats["loss"]))
         print("Valid error: %.2f" % summarize_average(valid_stats["error"]))
 
@@ -57,11 +52,13 @@ asr_brain = ASR_Brain(
     optimizer=params.optimizer,
     first_inputs=[first_x],
 )
-asr_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
+train_stats, _ = asr_brain.fit(
+    range(params.N_epochs), train_set, params.valid_loader()
+)
 test_stats = asr_brain.evaluate(params.test_loader())
 print("Test error: %.2f" % summarize_average(test_stats["error"]))
 
 
 # Define an integration test of overfitting on the train data
 def test_error():
-    assert train_loss < 0.17
+    assert summarize_average(train_stats["loss"]) < 0.2
