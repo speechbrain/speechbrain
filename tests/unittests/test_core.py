@@ -13,11 +13,12 @@ def test_nest():
 def test_parse_arguments():
     from speechbrain.core import parse_arguments
 
-    filename, args = parse_arguments(
-        ["params.yaml", "--seed", "3", "--data_folder", "TIMIT"]
+    filename, overrides, hyperparams = parse_arguments(
+        ["params.yaml", "--seed", "3", "--hyperparams", "{'abc': 1}"]
     )
     assert filename == "params.yaml"
-    assert args == {"seed": 3, "data_folder": "TIMIT"}
+    assert overrides == {"seed": 3, "experiment_id": "params"}
+    assert hyperparams == {"abc": 1}
 
 
 def test_parse_overrides():

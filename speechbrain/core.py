@@ -92,11 +92,15 @@ def parse_arguments(arg_list):
 
     Example
     -------
-    >>> filename, overrides = parse_arguments(['params.yaml', '--seed', '10'])
+    >>> filename, overrides, hyperparams = parse_arguments(
+    ...     ['params.yaml', '--seed', '10', '--hyperparams', '{"abc": 1}']
+    ... )
     >>> filename
     'params.yaml'
     >>> overrides
-    {'seed': 10}
+    {'seed': 10, 'experiment_id': 'params'}
+    >>> hyperparams
+    {'abc': 1}
     """
     parser = argparse.ArgumentParser(
         description="Run a SpeechBrain experiment",
