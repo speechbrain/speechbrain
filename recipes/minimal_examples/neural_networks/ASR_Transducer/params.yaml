@@ -8,9 +8,9 @@ csv_valid: !ref <data_folder>/dev.csv
 csv_test: !ref <data_folder>/test.csv
 
 # Neural Parameters
-N_epochs: 10
+N_epochs: 40
 N_batch: 1
-lr: 0.004
+lr: 0.06
 blank_id: 42
 device: cuda
 
