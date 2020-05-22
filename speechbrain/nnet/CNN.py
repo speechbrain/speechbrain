@@ -68,17 +68,22 @@ class Conv(nn.Module):
     >>> cnn_1d = Conv(out_channels=25, kernel_size=(11,))
     >>> out_tensor = cnn_1d(inp_tensor, init_params=True)
     >>> out_tensor.shape
-    torch.Size([10, 15990, 25])
+    torch.Size([10, 16000, 25])
+    >>> inp_tensor = torch.rand([10, 16000, 1])
+    >>> cnn_1d = Conv(out_channels=25, kernel_size=11)
+    >>> out_tensor = cnn_1d(inp_tensor, init_params=True)
+    >>> out_tensor.shape
+    torch.Size([10, 16000, 25])
     >>> inp_tensor = torch.rand([10, 100, 40, 128])
     >>> cnn_2d = Conv(out_channels=25, kernel_size=(11,5))
     >>> out_tensor = cnn_2d(inp_tensor, init_params=True)
     >>> out_tensor.shape
-    torch.Size([10, 90, 36, 25])
+    torch.Size([10, 100, 40, 25])
     >>> inp_tensor = torch.rand([10, 4000])
-    >>> sinc_conv = Conv(out_channels=8,kernel_size=(129,),sinc_conv=True)
+    >>> sinc_conv = Conv(out_channels=8, kernel_size=(129,), sinc_conv=True)
     >>> out_tensor = sinc_conv(inp_tensor, init_params=True)
     >>> out_tensor.shape
-    torch.Size([10, 3872, 8])
+    torch.Size([10, 4000, 8])
     """
 
     def __init__(
@@ -87,7 +92,7 @@ class Conv(nn.Module):
         kernel_size,
         stride=(1, 1),
         dilation=(1, 1),
-        padding=False,
+        padding=True,
         groups=1,
         bias=True,
         padding_mode="zeros",
@@ -123,8 +128,8 @@ class Conv(nn.Module):
         self.conv1d = False
         self.conv2d = False
 
-        if not isinstance(self.kernel_size, tuple):
-            self.kernel_size = tuple(self.kernel_size,)
+        if isinstance(self.kernel_size, int):
+            self.kernel_size = (self.kernel_size,)
 
         # Make sure kernel_size is odd (needed for padding)
         for size in self.kernel_size:
