@@ -186,7 +186,6 @@ prepare = LibriSpeechPreparer(
     data_folder=params.data_folder,
     splits=["train-clean-100", "dev-clean", "test-clean"],
     save_folder=params.data_folder,
-    select_n_sentences=[10, 10, 10],
 )
 prepare()
 train_set = params.train_loader()
