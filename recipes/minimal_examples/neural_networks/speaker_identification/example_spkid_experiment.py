@@ -12,9 +12,6 @@ data_folder = os.path.abspath(experiment_dir + data_folder)
 with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
 
-# Store train loss for integration test
-train_loss = 1
-
 
 class SpkIdBrain(sb.core.Brain):
     def compute_forward(self, x, train_mode=True, init_params=False):
@@ -43,9 +40,7 @@ class SpkIdBrain(sb.core.Brain):
 
     def on_epoch_end(self, epoch, train_stats, valid_stats):
         print("Epoch %d complete" % epoch)
-        global train_loss
-        train_loss = summarize_average(train_stats["loss"])
-        print("Train loss: %.2f" % train_loss)
+        print("Train loss: %.2f" % summarize_average(train_stats["loss"]))
         print("Valid loss: %.2f" % summarize_average(valid_stats["loss"]))
         print("Valid error: %.2f" % summarize_average(valid_stats["error"]))
 
@@ -57,11 +52,13 @@ spk_id_brain = SpkIdBrain(
     optimizer=params.optimizer,
     first_inputs=[first_x],
 )
-spk_id_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
+train_stats, _ = spk_id_brain.fit(
+    range(params.N_epochs), train_set, params.valid_loader()
+)
 test_stats = spk_id_brain.evaluate(params.test_loader())
 print("Test error: %.2f" % summarize_average(test_stats["error"]))
 
 
 # Integration test: ensure we overfit the training data
 def test_error():
-    assert train_loss < 0.12
+    assert summarize_average(train_stats["loss"]) < 0.2

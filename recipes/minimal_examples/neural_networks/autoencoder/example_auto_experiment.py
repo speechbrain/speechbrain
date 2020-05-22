@@ -17,9 +17,6 @@ if params.use_tensorboard:
 
     train_logger = TensorboardLogger(params.tensorboard_logs)
 
-# Store train loss for integration test
-train_loss = 1
-
 
 class AutoBrain(sb.core.Brain):
     def compute_forward(self, x, train_mode=True, init_params=False):
@@ -57,9 +54,7 @@ class AutoBrain(sb.core.Brain):
         if params.use_tensorboard:
             train_logger.log_stats({"Epoch": epoch}, train_stats, valid_stats)
         print("Completed epoch %d" % epoch)
-        global train_loss
-        train_loss = summarize_average(train_stats["loss"])
-        print("Train loss: %.3f" % train_loss)
+        print("Train loss: %.3f" % summarize_average(train_stats["loss"]))
         print("Valid loss: %.3f" % summarize_average(valid_stats["loss"]))
 
 
@@ -70,11 +65,13 @@ auto_brain = AutoBrain(
     optimizer=params.optimizer,
     first_inputs=[first_x],
 )
-auto_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
+train_stats, _ = auto_brain.fit(
+    range(params.N_epochs), train_set, params.valid_loader()
+)
 test_stats = auto_brain.evaluate(params.test_loader())
 print("Test loss: %.3f" % summarize_average(test_stats["loss"]))
 
 
 # Integration test: make sure we are overfitting training data
 def test_loss():
-    assert train_loss < 0.075
+    assert summarize_average(train_stats["loss"]) < 0.08
