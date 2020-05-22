@@ -43,7 +43,3 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 
 augmentation: !new:speechbrain.lobes.augment.tdsa.TimeDomainSpecAugment
 compute_features: !new:speechbrain.lobes.features.fbank.Fbank
-
-compute_cost: !new:speechbrain.nnet.losses.ComputeCost
-    cost_type: ctc
-    blank_index: 39

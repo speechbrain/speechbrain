@@ -46,3 +46,7 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     summary_fns:
         loss: !name:speechbrain.utils.train_logger.summarize_average
         PER: !name:speechbrain.utils.train_logger.summarize_error_rate
+
+compute_cost: !new:speechbrain.nnet.losses.ComputeCost
+    cost_type: ctc
+    blank_index: 39
