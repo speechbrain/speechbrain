@@ -6,7 +6,7 @@ Download: https://datashare.is.ed.ac.uk/handle/10283/1942
 
 Author
 ------
-Szu-Wei Fu 2020
+Szu-Wei Fu, 2020
 """
 
 import os
@@ -15,7 +15,7 @@ import torch
 import logging
 from speechbrain.utils.data_utils import get_all_files
 from speechbrain.data_io.data_io import read_wav_soundfile
-    
+
 logger = logging.getLogger(__name__)
 
 
@@ -30,7 +30,7 @@ class VoicebankPreparer(torch.nn.Module):
         List of splits to prepare from ['train', 'dev', 'test']
     save_folder : str
         The directory where to store the csv files.
-    
+
     Example
     -------
     This example requires the actual Voicebank dataset.
@@ -49,9 +49,7 @@ class VoicebankPreparer(torch.nn.Module):
     """
 
     def __init__(
-        self,
-        data_folder,
-        save_folder,
+        self, data_folder, save_folder,
     ):
         # Expected inputs when calling the class (no inputs in this case)
         super().__init__()
@@ -137,18 +135,15 @@ class VoicebankPreparer(torch.nn.Module):
         # Checking folders and save options
         skip = False
 
-        if (
-            os.path.isfile(self.save_csv_train)
-            and os.path.isfile(self.save_csv_test)
+        if os.path.isfile(self.save_csv_train) and os.path.isfile(
+            self.save_csv_test
         ):
             skip = True
 
         return skip
 
     # TODO: Consider making this less complex
-    def create_csv(  # noqa: C901
-        self, wav_lst, csv_file, is_train_folder
-    ):
+    def create_csv(self, wav_lst, csv_file, is_train_folder):  # noqa: C901
         """
         Creates the csv file given a list of wav files.
         Arguments
@@ -166,7 +161,6 @@ class VoicebankPreparer(torch.nn.Module):
         msg = '\t"Creating csv lists in  %s..."' % (csv_file)
         logger.debug(msg)
 
-
         csv_lines = [
             [
                 "ID",
@@ -180,25 +174,22 @@ class VoicebankPreparer(torch.nn.Module):
             ]
         ]
 
-
         # Processing all the wav files in the list
         for wav_file in wav_lst:  # ex:p203_122.wav
 
             # Example wav_file: p232_001.wav
             # Getting fileids
             snt_id = wav_file.split("/")[-1]
-            
-            if is_train_folder:
-                clean_folder=self.train_clean_folder
-            else:
-                clean_folder=self.test_clean_folder            
-            clean_wav = clean_folder + snt_id
 
+            if is_train_folder:
+                clean_folder = self.train_clean_folder
+            else:
+                clean_folder = self.test_clean_folder
+            clean_wav = clean_folder + snt_id
 
             # Reading the signal (to retrieve duration in seconds)
             signal = read_wav_soundfile(wav_file)
             duration = signal.shape[0] / self.samplerate
-
 
             # Composition of the csv_line
             csv_line = [
@@ -211,7 +202,6 @@ class VoicebankPreparer(torch.nn.Module):
                 "wav",
                 "",
             ]
-
 
             # Adding this line to the csv_lines list
             csv_lines.append(csv_line)
