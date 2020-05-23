@@ -115,21 +115,17 @@ print("Running Xvector Extractor")
 
 # Copy the trained model partially to obtain embeddings
 # Embedding b of model is expected to be better than embedding a
-model_b = nn.Sequential(
+model_a = nn.Sequential(
     xvect_brain.modules[0].layers[0],
     xvect_brain.modules[0].layers[1],
     xvect_brain.modules[0].layers[2].layers[0],
-    xvect_brain.modules[0].layers[2].layers[1],
-    xvect_brain.modules[0].layers[2].layers[2],
-    xvect_brain.modules[0].layers[2].layers[3],
-    xvect_brain.modules[0].layers[2].layers[4],
 )
 
 # Instantiate Extract() object
 ext_brain = Extractor()
 
 # Extract xvectors
-xvectors = ext_brain.extract(next(iter(valid_set[0])), model_b)
+xvectors = ext_brain.extract(next(iter(valid_set[0])), model_a)
 
 # Saving xvectors (Optional)
 torch.save(xvectors, params.save_folder + "/xvectors.pt")

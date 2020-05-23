@@ -1,4 +1,4 @@
-"""Library implementing convolutional neural networks.
+"""Library implementing statistics (mean and std) pooling.
 
 Author
     Nauman Dawlatabad 2020
@@ -33,6 +33,13 @@ class StatisticsPooling(nn.Module):
         super(StatisticsPooling, self).__init__()
 
     def _get_gauss_noise(self, shape_of_tensor):
+        """Returns a tensor of epsilon Gaussian noise
+
+        Arguments
+        ---------
+        shap_of_tensor : tensor
+            It represents the size of tensor for making Gaussian noise.
+        """
         gnoise = torch.randn(shape_of_tensor)
         gnoise -= torch.min(gnoise)
         gnoise /= torch.max(gnoise)
@@ -40,11 +47,18 @@ class StatisticsPooling(nn.Module):
 
         return gnoise
 
-    def forward(self, varying_length_tensor_for_a_batch):
-        mean = varying_length_tensor_for_a_batch.mean(dim=1)
+    def forward(self, x):
+        """Calculates mean and std for a batch (input tensor).
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            It represents a tensor for a mini-batch
+        """
+        mean = x.mean(dim=1)
         gnoise = self._get_gauss_noise(mean.size())
         mean += gnoise
-        std = varying_length_tensor_for_a_batch.std(dim=1) + self.eps
+        std = x.std(dim=1) + self.eps
         pooled_stats = torch.cat((mean, std), dim=1)
         pooled_stats = pooled_stats.unsqueeze(1)
 
