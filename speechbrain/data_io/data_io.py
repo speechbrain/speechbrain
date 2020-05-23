@@ -104,7 +104,7 @@ class DataLoaderFactory(torch.nn.Module):
         csv_file,
         batch_size=1,
         csv_read=None,
-        sentence_sorting="original",
+        sentence_sorting="random",
         num_workers=0,
         cache=False,
         cache_ram_percent=75,
