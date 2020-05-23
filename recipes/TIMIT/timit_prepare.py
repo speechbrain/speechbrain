@@ -671,6 +671,8 @@ class TIMITPreparer(torch.nn.Module):
         phonemes = " ".join(phonemes)
         phonemes = phonemes.replace("sil sil", "sil")
 
+        return phonemes
+
     def _write_csv(self, csv_lines, csv_file):
         """
         Writes on the specified csv_file the given csv_files.
