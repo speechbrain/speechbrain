@@ -260,7 +260,7 @@ class Brain:
     ... )
     >>> brain.fit(
     ...     epoch_counter=range(1),
-    ...     train_set=([torch.rand(10, 10)], [torch.rand(10, 10)]),
+    ...     train_set=([torch.rand(10, 10),torch.rand(10, 10)],)
     ... )
     """
 
@@ -405,10 +405,11 @@ class Brain:
         valid_set : list of Data Loaders
             a list of datasets to use for validation, zipped before iterating.
         """
+
         for epoch in epoch_counter:
             self.modules.train()
             train_stats = {}
-            for batch in tzip(*train_set):
+            for (batch,) in tzip(train_set):
                 stats = self.fit_batch(batch)
                 self.add_stats(train_stats, stats)
 
@@ -416,7 +417,7 @@ class Brain:
             if valid_set is not None:
                 self.modules.eval()
                 with torch.no_grad():
-                    for batch in tzip(*valid_set):
+                    for (batch,) in tzip(valid_set):
                         stats = self.evaluate_batch(batch)
                         self.add_stats(valid_stats, stats)
 
@@ -433,7 +434,7 @@ class Brain:
         test_stats = {}
         self.modules.eval()
         with torch.no_grad():
-            for batch in tzip(*test_set):
+            for (batch,) in tzip(test_set):
                 stats = self.evaluate_batch(batch)
                 self.add_stats(test_stats, stats)
 
