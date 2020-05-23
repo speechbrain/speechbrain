@@ -267,12 +267,12 @@ class CommonVoicePreparer(torch.nn.Module):
             new_wav_path = path_to_wav + "/" + file_name + ".wav"
 
             # Convert to wav
-            try:
+            if os.path.isfile(mp3_path):
                 sig, orig_rate = torchaudio.load(mp3_path)
                 res = torchaudio.transforms.Resample(orig_rate, samplerate)
                 sig = res(sig)
                 torchaudio.save(new_wav_path, sig, samplerate)
-            except ValueError:
+            else:
                 msg = "\tError loading: %s" % (str(len(file_name)))
                 logger.debug(msg)
 
@@ -373,7 +373,13 @@ class CommonVoicePreparer(torch.nn.Module):
             snt_id = file_name
 
             # Reading the signal (to retrieve duration in seconds)
-            signal = read_wav_soundfile(wav_path)
+            if os.path.isfile(wav_path):
+                signal = read_wav_soundfile(wav_path)
+            else:
+                msg = "\tError loading: %s" % (str(len(file_name)))
+                logger.debug(msg)
+                continue
+
             duration = signal.shape[0] / self.samplerate
             total_duration += duration
 
