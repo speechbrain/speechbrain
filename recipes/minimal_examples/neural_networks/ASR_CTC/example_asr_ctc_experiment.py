@@ -47,7 +47,7 @@ class CTCBrain(sb.core.Brain):
 
 
 train_set = params.train_loader()
-first_x, first_y = next(zip(*train_set))
+first_x, first_y = next(iter(train_set))
 ctc_brain = CTCBrain(
     modules=[params.rnn, params.lin],
     optimizer=params.optimizer,
