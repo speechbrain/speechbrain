@@ -47,10 +47,10 @@ class MRDNN(Sequential):
     -------
     >>> import torch
     >>> model = MRDNN()
-    >>> inputs = torch.rand([10, 18, 60])
+    >>> inputs = torch.rand([10, 120, 60])
     >>> outputs = model(inputs, init_params=True)
     >>> outputs.shape
-    torch.Size([10, 14, 512])
+    torch.Size([10, 116, 512])
     """
 
     def __init__(
