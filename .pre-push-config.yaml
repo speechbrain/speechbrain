@@ -52,7 +52,7 @@ repos:
       hooks:
           - id: integration
             name: integration
-            entry: pytest recipes/minimal_examples
+            entry: pytest tests/integration
             language: python
             pass_filenames: False
             always_run: True
