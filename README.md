@@ -46,10 +46,9 @@ pytest --doctest-modules speechbrain
 The current version of Speechbrain has the following folder/file organization:
 - **speechbrain**: The core library
 - **recipes**: Experiment scripts and configurations
-- **exp**: Top directory under which to save experiment output (by convention)
 - **samples**: Some toy data for debugging and testing
 - **tools**: Additional, runnable utility script
-- **tests**: Unittests
+- **tests**: Unittests and integration tests
 
 ## How to run an experiment
 In SpeechBrain experiments can be run from anywhere, but the experimental `results/`
