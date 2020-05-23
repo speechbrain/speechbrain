@@ -1,0 +1,20 @@
+block_index: 1
+sequence: [linear1, norm1, activation1, linear2, norm2, activation2]
+
+linear1: !new:speechbrain.nnet.linear.Linear
+    n_neurons: 512
+    bias: True
+
+norm1: !new:speechbrain.nnet.normalization.Normalize
+    norm_type: batchnorm
+
+activation1: !new:torch.nn.LeakyReLU
+
+linear2: !new:speechbrain.nnet.linear.Linear
+    n_neurons: 512
+    bias: True
+
+norm2: !new:speechbrain.nnet.normalization.Normalize
+    norm_type: batchnorm
+
+activation2: !new:torch.nn.LeakyReLU
