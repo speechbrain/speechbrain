@@ -5,6 +5,7 @@ Authors: Nauman Dawalatabad 2020
 """
 
 import os
+import torch  # noqa: F401
 from speechbrain.yaml import load_extended_yaml
 from speechbrain.nnet.sequential import Sequential
 from speechbrain.utils.data_utils import recursive_update
