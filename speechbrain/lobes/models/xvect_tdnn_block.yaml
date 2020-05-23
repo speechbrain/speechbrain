@@ -1,0 +1,46 @@
+# The block index is multiplied with the channels to get out_channels
+block_index: 1
+channels: 512
+sequence: [conv1, norm1, activation, conv2, norm2, activation,
+           conv3, norm3, activation, conv4, norm4, activation,
+           conv5, norm5, activation]
+
+conv1: !new:speechbrain.nnet.CNN.Conv
+    out_channels: !ref <block_index> * <channels>
+    kernel_size: 5
+    dilation: [1]
+
+norm1: !new:speechbrain.nnet.normalization.Normalize
+    norm_type: batchnorm
+
+conv2: !new:speechbrain.nnet.CNN.Conv
+    out_channels: !ref <block_index> * <channels>
+    kernel_size: 3
+    dilation: [2]
+
+norm2: !new:speechbrain.nnet.normalization.Normalize
+    norm_type: batchnorm
+
+conv3: !new:speechbrain.nnet.CNN.Conv
+    out_channels: !ref <block_index> * <channels>
+    kernel_size: 3
+    dilation: [3]
+
+norm3: !new:speechbrain.nnet.normalization.Normalize
+    norm_type: batchnorm
+
+conv4: !new:speechbrain.nnet.CNN.Conv
+    out_channels: !ref <block_index> * <channels>
+    kernel_size: 1
+
+norm4: !new:speechbrain.nnet.normalization.Normalize
+    norm_type: batchnorm
+
+conv5: !new:speechbrain.nnet.CNN.Conv
+    out_channels: !ref <block_index> * 1500
+    kernel_size: 1
+
+norm5: !new:speechbrain.nnet.normalization.Normalize
+    norm_type: batchnorm
+
+activation: !new:torch.nn.LeakyReLU
