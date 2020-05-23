@@ -33,7 +33,7 @@ retrieve the corresponding value. In addition to the format above, mappings
 can also be specified in a similar manner as JSON:
 
 ```yaml
-foo: {bar: baz}
+{foo: 1, bar: 2.5, baz: "abc"}
 ```
 
 Sequences, or lists of items, can also be specified in two ways:
@@ -41,7 +41,13 @@ Sequences, or lists of items, can also be specified in two ways:
 ```yaml
 - foo
 - bar
-- [foo, bar, baz]
+- baz
+```
+
+or
+
+```yaml
+[foo, bar, baz]
 ```
 
 Note that when not using the inline version, YAML uses whitespace to denote
@@ -49,25 +55,28 @@ nested items:
 
 ```yaml
 foo:
-    bar: 1
-    baz: 2
+    a: 1
+    b: 2
+bar:
+    - c
+    - d
 ```
 
 YAML has a few more advanced features (such as
 [aliases](https://pyyaml.org/wiki/PyYAMLDocumentation#aliases) and
-[merge keys](https://yaml.org/type/merge.html)) that you may want to explore,
-on your own. We will briefly discuss one here since it is relevant later:
-[YAML tags](https://pyyaml.org/wiki/PyYAMLDocumentation#tags).
+[merge keys](https://yaml.org/type/merge.html)) that you may want to explore
+on your own. We will briefly discuss one here since it is relevant for our
+extensions: [YAML tags](https://pyyaml.org/wiki/PyYAMLDocumentation#tags).
 
 Tags are added with a `!` prefix, and they specify the type of the node. This
 allows types beyond the simple types listed above to be used. PyYAML supports a
 few additional types, such as:
 
 ```yaml
-!!set
-!!timestamp
-!!python/tuple
-!!python/complex
+!!set                           # set
+!!timestamp                     # datetime.datetime
+!!python/tuple                  # tuple
+!!python/complex                # complex
 !!python/name:module.name       # A class or function
 !!python/module:package.module  # A module
 !!python/object/new:module.cls  # An instance of a class
@@ -76,7 +85,7 @@ few additional types, such as:
 These can all be quite useful, however we found that this system was a bit
 cumbersome, especially with the frequency with which we were using them. So
 we decided to implement some shortcuts for these features, which we are
-internally calling "extended YAML".
+calling "extended YAML".
 
 Extended YAML
 -------------
@@ -106,17 +115,18 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 This yaml passes the `summarize_average()` function as a parameter to the
 `train_logger`, which it uses to summarize an epoch's list of losses.
 
-Another main extension is a nicer alias interface, that supports things like
-string interpolation. To do this, we've added a tag written `!ref` that
-looks for things in angle brackets inside the yaml itself. As an example:
+Another extension is a nicer alias system that supports things like
+string interpolation. We've added a tag written `!ref` that
+takes keys in angle brackets, and searches for them inside the yaml
+file itself. As an example:
 
 ```yaml
 seed: 1234
 output_folder: !ref results/blstm/<seed>
 ```
 
-This allows us to change the `seed` and have the output folder automatically
-change its location accordingly. This tag also supports basic arithmetic:
+This allows us to change the value of `seed` and automatically change the
+output folder location accordingly. This tag also supports basic arithmetic:
 
 ```yaml
 block_index: 1
@@ -137,7 +147,7 @@ cnn2: !new:speechbrain.nnet.CNN.Conv
     kernel_size: (3, 3)
 ```
 
-Finally, you can make references to nodes that are not just scalars.
+Finally, you can make references to nodes that are objects, not just scalars.
 
 ```yaml
 block_index: 1
@@ -167,9 +177,9 @@ This makes the use of YAML more intuitive for Python users.
 How to use Extended YAML
 ------------------------
 
-First, we'd like to note that all of the following extensions are available
-by loading yaml using the `speechbrain.yaml.load_extended_yaml` function.
-This function returns a namespace object, so that the top-level items
+All of the listed extensions are available by loading yaml using the
+[speechbrain.yaml.load_extended_yaml](https://github.com/speechbrain/speechbrain/blob/a800131b3de3915a83393d3aead5670a08907b8d/speechbrain/yaml.py#L22)
+function. This function returns a namespace object, so that the top-level items
 are conveniently available using dot-notation. Assuming the last yaml
 example above is stored in "hyperparameters.yaml", it can be loaded with:
 
