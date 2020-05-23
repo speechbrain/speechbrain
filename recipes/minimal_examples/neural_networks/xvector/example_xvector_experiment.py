@@ -18,10 +18,6 @@ data_folder = os.path.abspath(experiment_dir + data_folder)
 with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
 
-# params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
-# with open(params_file) as fin:
-#    params = sb.yaml.load_extended_yaml(fin, overrides)
-
 # Creating directory for experiments
 sb.core.create_experiment_directory(
     experiment_directory=params.output_folder, params_to_save=params_file,
