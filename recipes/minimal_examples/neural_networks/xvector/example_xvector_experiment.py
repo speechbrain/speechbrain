@@ -1,5 +1,6 @@
 #!/usr/bin/python
-import sys
+import os
+import sys  # noqa F401
 import torch
 import torch.nn as nn
 import speechbrain as sb
@@ -10,9 +11,16 @@ from speechbrain.utils.train_logger import (
 )
 
 # Load params file
-params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
+experiment_dir = os.path.dirname(os.path.abspath(__file__))
+params_file = os.path.join(experiment_dir, "params.yaml")
+data_folder = "../../../../../samples/voxceleb_samples/"
+data_folder = os.path.abspath(experiment_dir + data_folder)
 with open(params_file) as fin:
-    params = sb.yaml.load_extended_yaml(fin, overrides)
+    params = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
+
+# params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
+# with open(params_file) as fin:
+#    params = sb.yaml.load_extended_yaml(fin, overrides)
 
 # Creating directory for experiments
 sb.core.create_experiment_directory(
