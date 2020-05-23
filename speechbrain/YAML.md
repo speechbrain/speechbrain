@@ -30,7 +30,7 @@ none: null
 Note that we've used a simple mapping to demonstrate the scalar nodes. A mapping
 is a set of `key: value` pairs, defined so that the key can be used to easily
 retrieve the corresponding value. In addition to the format above, mappings
-can also be specified in a similar manner as JSON:
+can also be specified in a similar manner to JSON:
 
 ```yaml
 {foo: 1, bar: 2.5, baz: "abc"}
