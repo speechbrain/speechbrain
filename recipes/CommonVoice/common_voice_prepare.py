@@ -118,17 +118,15 @@ class CommonVoicePreparer(torch.nn.Module):
         # Test if files have already been converted to wav by checking if
         # path_to_wav exists.
         if os.path.exists(self.path_to_wav):
-            msg = "%s already exists, skipping conversion of .mp3 files." % (
+            msg = "%s already exists, we will check for missing .wav files." % (
                 self.path_to_wav
             )
             logger.info(msg)
-            self.convert_to_wav = False
         else:
             msg = "%s doesn't exist, we will convert .mp3 files." % (
                 self.path_to_wav
             )
             logger.info(msg)
-            self.convert_to_wav = True
             os.makedirs(self.path_to_wav)
 
         self.samplerate = 16000
@@ -173,15 +171,14 @@ class CommonVoicePreparer(torch.nn.Module):
         if self.train_tsv_file is not None:
 
             # Convert .mp3 files if required
-            if self.convert_to_wav:
-                msg = "Converting train audio files to .wav ..."
-                logger.info(msg)
-                self.convert_mp3_wav(
-                    self.data_folder,
-                    self.train_tsv_file,
-                    self.path_to_wav,
-                    self.samplerate,
-                )
+            msg = "Converting train audio files to .wav if needed ..."
+            logger.info(msg)
+            self.convert_mp3_wav(
+                self.data_folder,
+                self.train_tsv_file,
+                self.path_to_wav,
+                self.samplerate,
+            )
 
             self.create_csv(
                 self.train_tsv_file,
@@ -194,15 +191,14 @@ class CommonVoicePreparer(torch.nn.Module):
         if self.dev_tsv_file is not None:
 
             # Convert .mp3 files if required
-            if self.convert_to_wav:
-                msg = "Converting validation audio files to .wav ..."
-                logger.info(msg)
-                self.convert_mp3_wav(
-                    self.data_folder,
-                    self.dev_tsv_file,
-                    self.path_to_wav,
-                    self.samplerate,
-                )
+            msg = "Converting validation audio files to .wav if needed ..."
+            logger.info(msg)
+            self.convert_mp3_wav(
+                self.data_folder,
+                self.dev_tsv_file,
+                self.path_to_wav,
+                self.samplerate,
+            )
 
             self.create_csv(
                 self.dev_tsv_file,
@@ -215,15 +211,14 @@ class CommonVoicePreparer(torch.nn.Module):
         if self.test_tsv_file is not None:
 
             # Convert .mp3 files if required
-            if self.convert_to_wav:
-                msg = "Converting test audio files to .wav ..."
-                logger.info(msg)
-                self.convert_mp3_wav(
-                    self.data_folder,
-                    self.test_tsv_file,
-                    self.path_to_wav,
-                    self.samplerate,
-                )
+            msg = "Converting test audio files to .wav if needed ..."
+            logger.info(msg)
+            self.convert_mp3_wav(
+                self.data_folder,
+                self.test_tsv_file,
+                self.path_to_wav,
+                self.samplerate,
+            )
 
             self.create_csv(
                 self.test_tsv_file,
@@ -259,6 +254,7 @@ class CommonVoicePreparer(torch.nn.Module):
         logger.info(msg)
 
         for line in tzip(loaded_csv):
+
             line = line[0]
             # Path is at indice 1 in Common Voice tsv files. And .mp3 files
             # are located in datasets/lang/clips/
@@ -266,14 +262,25 @@ class CommonVoicePreparer(torch.nn.Module):
             file_name = mp3_path.split(".")[0].split("/")[-1]
             new_wav_path = path_to_wav + "/" + file_name + ".wav"
 
+            # If corresponding wav file already exists, continue to the next one
+            if os.path.isfile(new_wav_path):
+                continue
+
             # Convert to wav
             if os.path.isfile(mp3_path):
-                sig, orig_rate = torchaudio.load(mp3_path)
+                try:
+                    sig, orig_rate = torchaudio.load(mp3_path)
+                except RuntimeError:
+                    msg = "Error loading: %s" % (str(len(file_name)))
+                    logger.debug(msg)
+                    continue
                 res = torchaudio.transforms.Resample(orig_rate, samplerate)
                 sig = res(sig)
                 torchaudio.save(new_wav_path, sig, samplerate)
             else:
-                msg = "\tError loading: %s" % (str(len(file_name)))
+                msg = "%s doesn't exist! Skipping it ..." % (
+                    str(len(file_name))
+                )
                 logger.debug(msg)
 
     def skip(self):
