@@ -8,7 +8,14 @@ YAML (YAML Ain't Markup Language), a popular human-readable data-serialization
 language. We also add a few useful extensions to the YAML language in order to
 support a rather expansive idea of what constitutes a hyperparameter.
 
-This document will first go over a few YAML basics, then our extensions.
+### Table of Contents
+* [YAML basics](#yaml-basics)
+* [Extended YAML](#extended-yaml)
+    * [Objects](#objects)
+    * [Aliases](#aliases)
+    * [Tuples](#tuples)
+* [How to use Extended YAML](#how-to-use-extended-yaml)
+* [Conclusion](#conclusion)
 
 YAML basics
 -----------
@@ -90,8 +97,13 @@ calling "extended YAML".
 Extended YAML
 -------------
 
+We make several extensions to yaml including easier object creation, nicer
+aliases, and tuples.
+
+### Objects
+
 Our first extension is to simplify the structure for specifying an instance,
-module, class, or function.
+module, class, or function. As an example:
 
 ```yaml
 model: !new:speechbrain.nnet.RNN.RNN
@@ -114,6 +126,9 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 
 This yaml passes the `summarize_average()` function as a parameter to the
 `train_logger`, which it uses to summarize an epoch's list of losses.
+
+
+### Aliases
 
 Another extension is a nicer alias system that supports things like
 string interpolation. We've added a tag written `!ref` that
@@ -168,6 +183,8 @@ cnn1: !new:speechbrain.nnet.CNN.Conv
     kernel_size: (3, 3)
 cnn2: !copy <cnn1>
 ```
+
+### Tuples
 
 One last minor extension to the yaml syntax we've made is to implicitly
 resolve any string starting with `(` and ending with `)` to a tuple.
