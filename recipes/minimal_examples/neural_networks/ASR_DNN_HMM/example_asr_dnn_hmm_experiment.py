@@ -3,10 +3,10 @@ import os
 import speechbrain as sb
 from speechbrain.utils.train_logger import summarize_average
 
-experiment_dir = os.path.dirname(os.path.abspath(__file__))
+experiment_dir = os.path.dirname(os.path.realpath(__file__))
 params_file = os.path.join(experiment_dir, "params.yaml")
-data_folder = "../../../../../samples/audio_samples/nn_training_samples"
-data_folder = os.path.abspath(experiment_dir + data_folder)
+data_folder = "../../../../samples/audio_samples/nn_training_samples"
+data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
 with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
 
@@ -50,11 +50,13 @@ asr_brain = ASR_Brain(
     optimizer=params.optimizer,
     first_inputs=[first_x],
 )
-asr_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
+train_stats, _ = asr_brain.fit(
+    range(params.N_epochs), train_set, params.valid_loader()
+)
 test_stats = asr_brain.evaluate(params.test_loader())
 print("Test error: %.2f" % summarize_average(test_stats["error"]))
 
 
-# With such a small dataset, we only expect to get 35% correct
+# Define an integration test of overfitting on the train data
 def test_error():
-    assert summarize_average(test_stats["error"]) < 0.65
+    assert summarize_average(train_stats["loss"]) < 0.2
