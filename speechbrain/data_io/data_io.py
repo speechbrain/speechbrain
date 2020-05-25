@@ -150,10 +150,7 @@ class DataLoaderFactory(torch.nn.Module):
         # create data dictionary
         data_dict = self.generate_data_dict()
 
-        if self.output_folder:
-            self.label_dict = self.label_dict_creation(data_dict)
-        else:
-            self.label_dict = None
+        self.label_dict = self.label_dict_creation(data_dict)
 
         self.data_len = len(data_dict["data_list"])
 
@@ -332,14 +329,14 @@ class DataLoaderFactory(torch.nn.Module):
     def label_dict_creation(self, data_dict):  # noqa: C901
         logger.warning("label_dict_creation is too complex, please fix")
 
-        label_dict_file = self.output_folder + "/label_dict.pkl"
+        # create label counts and label2index automatically when needed
+        label_dict = {}
+        if self.output_folder is not None:
+            label_dict_file = self.output_folder + "/label_dict.pkl"
 
-        # Read previously stored label_dict
-        if os.path.isfile(label_dict_file):
-            label_dict = load_pkl(label_dict_file)
-        else:
-            # create label counts and label2index automatically when needed
-            label_dict = {}
+            # Read previously stored label_dict
+            if os.path.isfile(label_dict_file):
+                label_dict = load_pkl(label_dict_file)
 
         # Update label dict
         for snt in data_dict:
@@ -412,7 +409,8 @@ class DataLoaderFactory(torch.nn.Module):
                 cnt_id = cnt_id + 1
 
         # saving the label_dict:
-        save_pkl(label_dict, label_dict_file)
+        if self.output_folder is not None:
+            save_pkl(label_dict, label_dict_file)
 
         return label_dict
 
@@ -698,7 +696,7 @@ class DataLoaderFactory(torch.nn.Module):
         ...     csv_file='samples/audio_samples/csv_example2.csv'
         ... )
         >>> data_loader.get_supported_formats()['flac']['description']
-        'FLAC (Free Lossless Audio Codec)'
+        'FLAC...'
         """
 
         # Initializing the supported formats dictionary

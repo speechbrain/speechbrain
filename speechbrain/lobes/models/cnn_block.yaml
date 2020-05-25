@@ -1,33 +1,29 @@
 # The block index is multiplied with the channels to get out_channels
 block_index: 1
 channels: 128
-kernel_size: !!python/tuple [3, 3]
+kernel_size: (3, 3)
 sequence: [conv1, norm1, activation, conv2, norm2, activation, pooling, dropout]
 
-conv1: !speechbrain.nnet.CNN.Conv
-    out_channels: !operator.mul
-        - !ref <block_index>
-        - !ref <channels>
+conv1: !new:speechbrain.nnet.CNN.Conv
+    out_channels: !ref <block_index> * <channels>
     kernel_size: !ref <kernel_size>
 
-norm1: !speechbrain.nnet.normalization.Normalize
+norm1: !new:speechbrain.nnet.normalization.Normalize
     norm_type: batchnorm
 
-conv2: !speechbrain.nnet.CNN.Conv
-    out_channels: !operator.mul
-        - !ref <block_index>
-        - !ref <channels>
+conv2: !new:speechbrain.nnet.CNN.Conv
+    out_channels: !ref <block_index> * <channels>
     kernel_size: !ref <kernel_size>
 
-norm2: !speechbrain.nnet.normalization.Normalize
+norm2: !new:speechbrain.nnet.normalization.Normalize
     norm_type: batchnorm
 
-activation: !torch.nn.LeakyReLU
+activation: !new:torch.nn.LeakyReLU
 
-pooling: !speechbrain.nnet.pooling.Pooling
+pooling: !new:speechbrain.nnet.pooling.Pooling
     pool_type: max
     kernel_size: 2
     stride: 2
 
-dropout: !speechbrain.nnet.dropout.Dropout
+dropout: !new:speechbrain.nnet.dropout.Dropout
     drop_rate: 0.15

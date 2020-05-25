@@ -17,7 +17,8 @@ if params.use_tensorboard:
 
 
 class AutoBrain(sb.core.Brain):
-    def forward(self, x, init_params=False):
+    def compute_forward(self, x, train_mode=True, init_params=False):
+        print(x)
         id, wavs, lens = x
         feats = params.compute_features(wavs, init_params)
         feats = params.mean_var_norm(feats, lens)
@@ -28,7 +29,7 @@ class AutoBrain(sb.core.Brain):
 
         return decoded
 
-    def compute_objectives(self, predictions, targets, train=True):
+    def compute_objectives(self, predictions, targets, train_mode=True):
         id, wavs, lens = targets
         feats = params.compute_features(wavs, init_params=False)
         feats = params.mean_var_norm(feats, lens)
@@ -36,7 +37,7 @@ class AutoBrain(sb.core.Brain):
 
     def fit_batch(self, batch):
         inputs = batch[0]
-        predictions = self.forward(inputs)
+        predictions = self.compute_forward(inputs)
         loss = self.compute_objectives(predictions, inputs)
         loss.backward()
         self.optimizer(self.modules)
@@ -44,8 +45,8 @@ class AutoBrain(sb.core.Brain):
 
     def evaluate_batch(self, batch):
         inputs = batch[0]
-        predictions = self.forward(inputs)
-        loss = self.compute_objectives(predictions, inputs, train=False)
+        predictions = self.compute_forward(inputs)
+        loss = self.compute_objectives(predictions, inputs, train_mode=False)
         return {"loss": loss.detach()}
 
     def on_epoch_end(self, epoch, train_stats, valid_stats):
@@ -57,14 +58,17 @@ class AutoBrain(sb.core.Brain):
 
 
 train_set = params.train_loader()
+first_x = next(iter(train_set[0]))
 auto_brain = AutoBrain(
     modules=[params.linear1, params.linear2],
     optimizer=params.optimizer,
-    first_input=next(iter(train_set[0])),
+    first_inputs=[first_x],
 )
 auto_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
 test_stats = auto_brain.evaluate(params.test_loader())
 print("Test loss: %.3f" % summarize_average(test_stats["loss"]))
 
+
 # If training is successful, reconstruction loss is less than 0.2
-assert summarize_average(test_stats["loss"]) < 0.2
+def test_loss():
+    assert summarize_average(test_stats["loss"]) < 0.2
