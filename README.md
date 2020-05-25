@@ -78,12 +78,12 @@ output_dir: !ref results/vgg_blstm/<seed>
 save_dir: !ref <output_dir>/save
 data_folder: !PLACEHOLDER # e.g. /path/to/TIMIT
 
-model: !speechbrain.lobes.models.CRDNN.CRDNN
+model: !new:speechbrain.lobes.models.CRDNN.CRDNN
     output_size: 40 # 39 phonemes + 1 blank symbol
     cnn_blocks: 2
     dnn_blocks: 2
 ```
-- `!speechbrain.lobes.models.CRDNN.CRDNN` creates a `CRDNN` instance
+- `!new:speechbrain.lobes.models.CRDNN.CRDNN` creates a `CRDNN` instance
   from the module `speechbrain.lobes.models.CRDNN`
 - The indented keywords (`output_size` etc.) after it are passed as keyword
   arguments.
@@ -93,6 +93,7 @@ model: !speechbrain.lobes.models.CRDNN.CRDNN
   every user either by editing the yaml, or with an override (passed to
   `load_extended_yaml`).
 
+For more details on yaml and our extensions, see [speechbrain/YAML.md](speechbrain/YAML.md)
 
 # Tensor format
 All the tensors within SpeechBrain are formatted using the following convention:
