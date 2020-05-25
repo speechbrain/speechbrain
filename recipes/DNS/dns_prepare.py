@@ -1,5 +1,11 @@
 """
 Data preparation.
+
+Download: https://github.com/microsoft/DNS-Challenge
+
+Author
+------
+Chien-Feng Liao 2020
 """
 
 import os
@@ -23,33 +29,28 @@ class DNSPreparer(torch.nn.Module):
         Path to the folder where the original DNS dataset is stored.
     save_folder : str
         The directory where to store the csv files.
+    seg_size : float
+        Split the file into multiple fix length segments (ms).
 
     Example
     -------
     This example requires the actual DNS dataset:
-    https://github.com/microsoft/DNS-Challenge
     The "training" folder is expected after the dataset is downloaded and processed.
-    ```
-    local_folder='/path/to/datasets/DNS-Challenge/'
-    save_folder='exp/DNS_exp/'
-    # Definition of the config dictionary
-    data_folder = local_folder
-    # Initialization of the class
-    TIMITPreparer(data_folder, save_folder)
-    ```
 
-    Author
-    ------
-    Chien-Feng Liao
+    >>> from recipes.DNS.dns_prepare import DNSPreparer
+    >>> data_folder='/path/to/datasets/DNS-Challenge/'
+    >>> save_folder='DNS_prepared'
+    >>> DNSPreparer(data_folder,save_folder)
     """
 
     def __init__(
-        self, data_folder, save_folder,
+        self, data_folder, save_folder, seg_size=10.0,
     ):
         # Expected inputs when calling the class (no inputs in this case)
         super().__init__()
         self.data_folder = data_folder
         self.save_folder = save_folder
+        self.seg_size = seg_size
 
         self.train_clean_folder = os.path.join(
             self.data_folder, "training/clean/"
@@ -78,6 +79,13 @@ class DNSPreparer(torch.nn.Module):
         self.save_csv_train = self.save_folder + "/train.csv"
         self.save_csv_test = self.save_folder + "/test.csv"
 
+    def __call__(self):
+        # Additional checks to make sure the data folder contains DNS
+        self.check_DNS_folders()
+
+        msg = "\tCreating csv file for the ms_DNS Dataset.."
+        logger.debug(msg)
+
         # Check if this phase is already done (if so, skip it)
         if self.skip():
 
@@ -89,20 +97,16 @@ class DNSPreparer(torch.nn.Module):
 
             return
 
-    def __call__(self):
-        # Additional checks to make sure the data folder contains DNS
-        self.check_DNS_folders()
-
-        msg = "\tCreating csv file for the ms_DNS Dataset.."
-        logger.debug(msg)
-
         # Creating csv file for training data
         wav_lst_train = get_all_files(
             self.train_noisy_folder, match_and=self.extension,
         )
 
         self.create_csv(
-            wav_lst_train, self.save_csv_train, is_noise_folder=True,
+            wav_lst_train,
+            self.save_csv_train,
+            is_noise_folder=True,
+            seg_size=self.seg_size,
         )
 
         # Creating csv file for test data
@@ -141,9 +145,8 @@ class DNSPreparer(torch.nn.Module):
 
         return skip
 
-    # TODO: Consider making this less complex
-    def create_csv(  # noqa: C901
-        self, wav_lst, csv_file, is_noise_folder=False
+    def create_csv(
+        self, wav_lst, csv_file, is_noise_folder=False, seg_size=None
     ):
         """
         Creates the csv file given a list of wav files.
@@ -154,6 +157,10 @@ class DNSPreparer(torch.nn.Module):
             The list of wav files of a given data split.
         csv_file : str
             The path of the output csv file
+        is_noise_folder : boolean
+            True if noise files are included
+        seg_size: int
+            Split the file into multiple fix length segments (ms).
 
         Returns
         -------
@@ -183,10 +190,9 @@ class DNSPreparer(torch.nn.Module):
         # Processing all the wav files in the list
         for wav_file in wav_lst:
 
-            # Example wav_file: /path/training/noisy/book_00000_chp_0009_reader_06709_10_MTzjwt0Sgo0-C3KP2eKC7l0-gcZAba9W5R0_snr38_fileid_35203.wav
             # Getting fileids
             full_file_name = wav_file.split("/")[-1]
-            fileid = full_file_name.split("_")[-1]  # 35203.wav
+            fileid = full_file_name.split("_")[-1]
 
             clean_folder = os.path.join(
                 os.path.split(os.path.split(wav_file)[0])[0], "clean"
@@ -206,22 +212,44 @@ class DNSPreparer(torch.nn.Module):
             duration = signal.shape[0] / self.samplerate
 
             # Composition of the csv_line
-            csv_line = [
-                "fileid_" + fileid,
-                str(duration),
-                wav_file,
-                "wav",
-                "",
-                clean_wav,
-                "wav",
-                "",
-                noise_wav,
-                "wav",
-                "",
-            ]
+            if not seg_size:
+                csv_line = [
+                    "fileid_" + fileid,
+                    str(duration),
+                    wav_file,
+                    "wav",
+                    "",
+                    clean_wav,
+                    "wav",
+                    "",
+                    noise_wav,
+                    "wav",
+                    "",
+                ]
 
-            # Adding this line to the csv_lines list
-            csv_lines.append(csv_line)
+                # Adding this line to the csv_lines list
+                csv_lines.append(csv_line)
+
+            else:
+                for idx in range(int(duration // seg_size)):
+                    start = int(idx * seg_size * self.samplerate)
+                    stop = int((idx + 1) * seg_size * self.samplerate)
+                    csv_line = [
+                        "fileid_{}_{}".format(fileid, idx),
+                        str(seg_size),
+                        wav_file,
+                        "wav",
+                        "start:{} stop:{}".format(start, stop),
+                        clean_wav,
+                        "wav",
+                        "start:{} stop:{}".format(start, stop),
+                        noise_wav,
+                        "wav",
+                        "start:{} stop:{}".format(start, stop),
+                    ]
+
+                    # Adding this line to the csv_lines list
+                    csv_lines.append(csv_line)
 
         # Writing the csv lines
         with open(csv_file, mode="w") as csv_f:
