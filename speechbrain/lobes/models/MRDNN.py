@@ -5,8 +5,7 @@ Authors: Mirco Ravanelli 2020, Peter Plantinga 2020, Ju-Chieh Chou 2020
 """
 import os
 import torch  # noqa: F401
-from speechbrain.nnet.sequential import Sequential
-from speechbrain.lobes.models.CRDNN import NeuralBlock
+from speechbrain.nnet.containers import Sequential, ReplicateBlock
 
 
 class MRDNN(Sequential):
@@ -65,31 +64,29 @@ class MRDNN(Sequential):
         blocks = []
 
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        for i in range(cnn_blocks):
-            blocks.append(
-                NeuralBlock(
-                    block_index=i + 1,
-                    param_file=os.path.join(current_dir, "matconv_block.yaml"),
-                    overrides=cnn_overrides,
-                )
-            )
 
-        for i in range(rnn_blocks):
-            blocks.append(
-                NeuralBlock(
-                    block_index=i + 1,
-                    param_file=os.path.join(current_dir, "rnn_block.yaml"),
-                    overrides=rnn_overrides,
-                )
+        blocks.append(
+            ReplicateBlock(
+                replication_count=cnn_blocks,
+                param_file=os.path.join(current_dir, "matconv_block.yaml"),
+                yaml_overrides=cnn_overrides,
             )
+        )
 
-        for i in range(dnn_blocks):
-            blocks.append(
-                NeuralBlock(
-                    block_index=i + 1,
-                    param_file=os.path.join(current_dir, "dnn_block.yaml"),
-                    overrides=dnn_overrides,
-                )
+        blocks.append(
+            ReplicateBlock(
+                replication_count=rnn_blocks,
+                param_file=os.path.join(current_dir, "rnn_block.yaml"),
+                yaml_overrides=rnn_overrides,
             )
+        )
+
+        blocks.append(
+            ReplicateBlock(
+                replication_count=dnn_blocks,
+                param_file=os.path.join(current_dir, "dnn_block.yaml"),
+                yaml_overrides=dnn_overrides,
+            )
+        )
 
         super().__init__(*blocks)

@@ -6,7 +6,7 @@
 import torch  # noqa: F401
 import torch.nn as nn
 import torch.nn.functional as F
-from speechbrain.nnet.sequential import Sequential
+from speechbrain.nnet.containers import Sequential
 from speechbrain.nnet.CNN import Conv
 from speechbrain.nnet.normalization import Normalize
 from speechbrain.nnet.dropout import Dropout
