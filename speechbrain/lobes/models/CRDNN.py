@@ -5,10 +5,8 @@ Authors: Mirco Ravanelli 2020, Peter Plantinga 2020, Ju-Chieh Chou 2020,
 """
 import os
 import torch  # noqa: F401
-from speechbrain.yaml import load_extended_yaml
-from speechbrain.nnet.sequential import Sequential
 from speechbrain.nnet.pooling import Pooling
-from speechbrain.utils.data_utils import recursive_update
+from speechbrain.nnet.containers import Sequential, ReplicateBlock
 
 
 class CRDNN(Sequential):
@@ -47,7 +45,6 @@ class CRDNN(Sequential):
 
     Example
     -------
-    >>> import torch
     >>> model = CRDNN()
     >>> inputs = torch.rand([10, 120, 60])
     >>> outputs = model(inputs, init_params=True)
@@ -69,15 +66,14 @@ class CRDNN(Sequential):
     ):
         blocks = []
 
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        for i in range(cnn_blocks):
-            blocks.append(
-                NeuralBlock(
-                    block_index=i + 1,
-                    param_file=os.path.join(current_dir, "cnn_block.yaml"),
-                    overrides=cnn_overrides,
-                )
+        model_dir = os.path.dirname(os.path.abspath(__file__))
+        blocks.append(
+            ReplicateBlock(
+                param_file=os.path.join(model_dir, "cnn_block.yaml"),
+                yaml_overrides=cnn_overrides,
+                replication_count=cnn_blocks,
             )
+        )
 
         if time_pooling:
             blocks.append(
@@ -89,61 +85,20 @@ class CRDNN(Sequential):
                 )
             )
 
-        for i in range(rnn_blocks):
-            blocks.append(
-                NeuralBlock(
-                    block_index=i + 1,
-                    param_file=os.path.join(current_dir, "rnn_block.yaml"),
-                    overrides=rnn_overrides,
-                )
+        blocks.append(
+            ReplicateBlock(
+                param_file=os.path.join(model_dir, "rnn_block.yaml"),
+                yaml_overrides=rnn_overrides,
+                replication_count=rnn_blocks,
             )
+        )
 
-        for i in range(dnn_blocks):
-            blocks.append(
-                NeuralBlock(
-                    block_index=i + 1,
-                    param_file=os.path.join(current_dir, "dnn_block.yaml"),
-                    overrides=dnn_overrides,
-                )
+        blocks.append(
+            ReplicateBlock(
+                param_file=os.path.join(model_dir, "dnn_block.yaml"),
+                yaml_overrides=dnn_overrides,
+                replication_count=dnn_blocks,
             )
+        )
 
         super().__init__(*blocks)
-
-
-class NeuralBlock(Sequential):
-    """A block of neural network layers.
-
-    This module loads a parameter file and constructs a model based on the
-    stored hyperparameters. Two hyperparameters are treated specially:
-
-    * `constants.block_index`: This module overrides this parameter with
-        the value that is passed to the constructor.
-    * `constants.sequence`: This indicates the order of applying layers.
-        If it doesn't exist, the layers are applied in the order they
-        appear in the file.
-
-    Arguments
-    ---------
-    block_index : int
-        The index of this block in the network (starting from 1).
-    param_file : str
-        The location of the file storing the parameters for this block.
-    overrides : mapping
-        Parameters to change from the defaults listed in yaml.
-
-    Example
-    -------
-    >>> inputs = torch.rand([10, 50, 40])
-    >>> param_file = 'speechbrain/lobes/models/dnn_block.yaml'
-    >>> dnn = NeuralBlock(1, param_file)
-    >>> outputs = dnn(inputs, init_params=True)
-    >>> outputs.shape
-    torch.Size([10, 50, 512])
-    """
-
-    def __init__(self, block_index, param_file, overrides={}):
-        block_override = {"block_index": block_index}
-        recursive_update(overrides, block_override)
-        layers = load_extended_yaml(open(param_file), overrides)
-
-        super().__init__(*[getattr(layers, op) for op in layers.sequence])

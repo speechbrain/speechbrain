@@ -1,15 +1,17 @@
 # The block index is multiplied with the channels to get out_channels
-block_index: 1
+block_index: !PLACEHOLDER
 channels: 128
 kernel_size: (3, 3)
-sequence: [conv1, norm1, activation, conv2, norm2, activation, pooling, dropout]
 
+# These modules are applied in order
 conv1: !new:speechbrain.nnet.CNN.Conv
     out_channels: !ref <block_index> * <channels>
     kernel_size: !ref <kernel_size>
 
 norm1: !new:speechbrain.nnet.normalization.Normalize
     norm_type: batchnorm
+
+act1: !new:torch.nn.LeakyReLU []
 
 conv2: !new:speechbrain.nnet.CNN.Conv
     out_channels: !ref <block_index> * <channels>
@@ -18,7 +20,7 @@ conv2: !new:speechbrain.nnet.CNN.Conv
 norm2: !new:speechbrain.nnet.normalization.Normalize
     norm_type: batchnorm
 
-activation: !new:torch.nn.LeakyReLU
+act2: !new:torch.nn.LeakyReLU []
 
 pooling: !new:speechbrain.nnet.pooling.Pooling
     pool_type: max
