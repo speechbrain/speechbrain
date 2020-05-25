@@ -6,6 +6,7 @@ Author
 
 import torch
 import logging
+import operator
 import functools
 from speechbrain.yaml import load_extended_yaml
 from speechbrain.nnet.linear import Linear
@@ -193,7 +194,8 @@ class ReplicateBlock(torch.nn.Module):
 
         # Initialize projection if necessary
         if init_params and self.shortcut_projection:
-            projection = Linear(x.size(-1), bias=False, combine_dims=True)
+            projection_size = functools.reduce(operator.mul, x.shape[2:], 1)
+            projection = Linear(projection_size, bias=False, combine_dims=True)
 
             # Store and register projection
             self.projections.append(projection)
@@ -201,7 +203,10 @@ class ReplicateBlock(torch.nn.Module):
 
         # Apply projection
         if self.shortcut_projection:
-            shortcut = self.projections[block_index](shortcut)
+            shortcut = self.projections[block_index](
+                shortcut, init_params=init_params
+            )
+            shortcut = shortcut.reshape(x.shape)
 
         return self.shortcut_combine_fn(shortcut, x, init_params=init_params)
 
