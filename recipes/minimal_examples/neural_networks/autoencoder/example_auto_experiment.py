@@ -43,7 +43,7 @@ class AutoBrain(sb.core.Brain):
         self.optimizer(self.modules)
         return {"loss": loss.detach()}
 
-    def evaluate_batch(self, batch):
+    def evaluate_batch(self, batch, test_mode=False):
         inputs = batch[0]
         predictions = self.compute_forward(inputs)
         loss = self.compute_objectives(predictions, inputs, train_mode=False)
