@@ -1,5 +1,6 @@
 # Basic parameters
-sample_rate: 16000
+seed: 1234
+ignored_key: !!python/object/apply:torch.manual_seed [!ref <seed>]
 use_tensorboard: False
 tensorboard_logs: runs
 
