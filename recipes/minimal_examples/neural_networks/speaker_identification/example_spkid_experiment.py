@@ -4,7 +4,6 @@ import torch
 import speechbrain as sb
 from speechbrain.utils.train_logger import summarize_average
 
-torch.manual_seed(1234)
 experiment_dir = os.path.dirname(os.path.realpath(__file__))
 params_file = os.path.join(experiment_dir, "params.yaml")
 data_folder = "../../../../samples/audio_samples/nn_training_samples"

@@ -1,6 +1,5 @@
 #!/usr/bin/python
 import os
-import torch
 import speechbrain as sb
 from speechbrain.decoders.ctc import ctc_greedy_decode
 from speechbrain.decoders.decoders import undo_padding
@@ -8,8 +7,6 @@ from speechbrain.utils.edit_distance import wer_details_for_batch
 from speechbrain.utils.train_logger import summarize_average
 from speechbrain.utils.train_logger import summarize_error_rate
 
-# Note, the manual seed does not ensure repeatability with CTC
-torch.manual_seed(1234)
 experiment_dir = os.path.dirname(os.path.realpath(__file__))
 params_file = os.path.join(experiment_dir, "params.yaml")
 data_folder = "../../../../samples/audio_samples/nn_training_samples"
