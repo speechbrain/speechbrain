@@ -5,7 +5,7 @@ save_folder: !ref <output_folder>/save
 ckpts_to_keep: 1
 sample_rate: 16000
 seed: !PLACEHOLDER  # e.g, 1234
-output_folder: !ref results/<seed>
+output_folder: !ref results/adam/<seed>
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
@@ -38,7 +38,7 @@ device: 'cuda:0'
 enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
     cnn_blocks: 2
     dnn_blocks: 2
-    rnn_overrides: {rnn: {rnn_type: ligru}}
+    rnn_overrides: {rnn: {rnn_type: ligru, re_init: True}}
     time_pooling: True
 
 emb: !new:torch.nn.Embedding
@@ -54,6 +54,7 @@ dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
     scaling: 1.0
     channels: 10
     kernel_size: 100
+    re_init: True
     dropout: 0.5
 
 ctc_lin: !new:speechbrain.nnet.linear.Linear
@@ -69,6 +70,7 @@ optimizer: !new:speechbrain.nnet.optimizers.Optimize
     optimizer_type: adam
     weight_decay: !ref <wd>
     learning_rate: !ref <lr>
+    rho: 0.95
 
 lr_annealing: !new:speechbrain.nnet.lr_scheduling.LRScheduler
     annealing_type: newbob
