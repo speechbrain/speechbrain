@@ -13,7 +13,7 @@ import argparse
 import subprocess
 import speechbrain as sb
 from datetime import date
-from tqdm.contrib import tzip
+from tqdm.contrib import tqdm
 from speechbrain.utils.logger import setup_logging
 from speechbrain.utils.data_utils import recursive_update
 
@@ -260,7 +260,7 @@ class Brain:
     ... )
     >>> brain.fit(
     ...     epoch_counter=range(1),
-    ...     train_set=([torch.rand(10, 10)], [torch.rand(10, 10)]),
+    ...     train_set=([torch.rand(10, 10),torch.rand(10, 10)],)
     ... )
     ({'loss': [tensor(...)]}, {})
     """
@@ -414,7 +414,7 @@ class Brain:
         for epoch in epoch_counter:
             self.modules.train()
             train_stats = {}
-            for batch in tzip(*train_set):
+            for batch in tqdm(train_set):
                 stats = self.fit_batch(batch)
                 self.add_stats(train_stats, stats)
 
@@ -422,7 +422,7 @@ class Brain:
             if valid_set is not None:
                 self.modules.eval()
                 with torch.no_grad():
-                    for batch in tzip(*valid_set):
+                    for batch in tqdm(valid_set):
                         stats = self.evaluate_batch(batch)
                         self.add_stats(valid_stats, stats)
 
@@ -441,7 +441,7 @@ class Brain:
         test_stats = {}
         self.modules.eval()
         with torch.no_grad():
-            for batch in tzip(*test_set):
+            for batch in tqdm(test_set):
                 stats = self.evaluate_batch(batch)
                 self.add_stats(test_stats, stats)
 

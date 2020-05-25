@@ -83,7 +83,7 @@ prepare = TIMITPreparer(
 prepare()
 train_set = params.train_loader()
 valid_set = params.valid_loader()
-first_x, first_y = next(zip(*train_set))
+first_x, first_y = next(iter(train_set))
 
 # Modules are passed to optimizer and have train/eval called on them
 modules = [params.model, params.output]

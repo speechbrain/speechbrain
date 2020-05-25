@@ -57,11 +57,11 @@ class AutoBrain(sb.core.Brain):
 
 
 train_set = params.train_loader()
-first_x = next(iter(train_set[0]))
+first_x = next(iter(train_set))
 auto_brain = AutoBrain(
     modules=[params.linear1, params.linear2],
     optimizer=params.optimizer,
-    first_inputs=[first_x],
+    first_inputs=first_x,
 )
 train_stats, _ = auto_brain.fit(
     range(params.N_epochs), train_set, params.valid_loader()
