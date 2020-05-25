@@ -129,6 +129,7 @@ class ASR(sb.core.Brain):
         loss_ctc = params.ctc_cost(p_ctc, chars, [wav_lens, char_lens])
         loss_seq = params.seq_cost(p_seq, chars, char_lens)
         loss = params.ctc_weight * loss_ctc + (1 - params.ctc_weight) * loss_seq
+        print(loss.item(), loss_ctc.item(), loss_seq.item())
 
         if not train_mode:
             ind2lab = params.train_loader.label_dict["char"]["index2lab"]
