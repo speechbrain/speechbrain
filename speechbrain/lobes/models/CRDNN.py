@@ -52,7 +52,7 @@ class CRDNN(Sequential):
     >>> inputs = torch.rand([10, 120, 60])
     >>> outputs = model(inputs, init_params=True)
     >>> outputs.shape
-    torch.Size([10, 116, 512])
+    torch.Size([10, 120, 512])
     """
 
     def __init__(
