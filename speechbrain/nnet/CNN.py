@@ -95,7 +95,7 @@ class Conv(nn.Module):
         padding=True,
         groups=1,
         bias=True,
-        padding_mode="zeros",
+        padding_mode="reflect",
         sinc_conv=False,
         sample_rate=16000,
         min_low_hz=50,
@@ -210,7 +210,6 @@ class Conv(nn.Module):
             padding=0,
             groups=self.groups,
             bias=self.bias,
-            padding_mode=self.padding_mode,
         ).to(first_input.device)
 
     def _init_conv2d(self, first_input):
@@ -252,7 +251,6 @@ class Conv(nn.Module):
             dilation=self.dilation,
             groups=self.groups,
             bias=self.bias,
-            padding_mode=self.padding_mode,
         ).to(first_input.device)
 
     def _init_sinc_conv(self, first_input):
@@ -378,7 +376,7 @@ class Conv(nn.Module):
             padding = padding + padding_freq
 
         # Applying padding
-        x = nn.functional.pad(input=x, pad=tuple(padding), mode="reflect")
+        x = nn.functional.pad(x, tuple(padding), mode=self.padding_mode)
 
         return x
 
