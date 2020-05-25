@@ -222,7 +222,7 @@ class Brain:
     the use case. For a simple use case (e.g. training a single model with
     a single dataset) the only methods that need to be overridden are:
 
-    * `forward()`
+    * `compute_forward()`
     * `compute_objectives()`
 
     The example below illustrates how overriding these two methods is done.
@@ -239,23 +239,24 @@ class Brain:
         The modules that will be updated using the optimizer.
     optimizer : optimizer
         The class to use for updating the modules' parameters.
-    first_input : torch.Tensor
+    first_inputs : list of torch.Tensor
         An example of the input to the Brain class, for parameter init.
+        Arguments are passed individually to the `compute_forward` method,
+        for cases where a different signature is desired.
 
     Example
     -------
     >>> from speechbrain.nnet.optimizers import Optimize
     >>> class SimpleBrain(Brain):
-    ...     def forward(self, x, init_params=False):
+    ...     def compute_forward(self, x, init_params=False):
     ...         return self.modules[0](x)
     ...     def compute_objectives(self, predictions, targets, train=True):
     ...         return torch.nn.functional.l1_loss(predictions, targets)
-    >>> tmpdir = getfixture('tmpdir')
     >>> model = torch.nn.Linear(in_features=10, out_features=10)
     >>> brain = SimpleBrain(
     ...     modules=[model],
     ...     optimizer=Optimize('sgd', 0.01),
-    ...     first_input=torch.rand(10, 10),
+    ...     first_inputs=[torch.rand(10, 10)],
     ... )
     >>> brain.fit(
     ...     epoch_counter=range(1),
@@ -263,31 +264,34 @@ class Brain:
     ... )
     """
 
-    def __init__(
-        self, modules, optimizer=None, first_input=None,
-    ):
+    def __init__(self, modules=None, optimizer=None, first_inputs=None):
         self.modules = torch.nn.ModuleList(modules)
         self.optimizer = optimizer
 
         # Initialize parameters
-        if first_input is not None:
-            self.forward(first_input, init_params=True)
-            self.optimizer.init_params(self.modules)
+        if first_inputs is not None:
+            self.compute_forward(*first_inputs, init_params=True)
 
-    def forward(self, x, init_params=False):
+            if self.optimizer is not None:
+                self.optimizer.init_params(self.modules)
+
+    def compute_forward(self, x, train_mode=True, init_params=False):
         """Forward pass, to be overridden by sub-classes.
 
         Arguments
         ---------
         x : torch.Tensor or list of tensors
             The input tensor or tensors for processing.
+        train_mode : bool
+            Whether this pass is done in train mode or not. Models such
+            as seq2seq may have different behavior in train and eval.
         init_params : bool
             Whether this pass should initialize parameters rather
             than return the results of the forward pass.
         """
         raise NotImplementedError
 
-    def compute_objectives(self, predictions, targets, train=True):
+    def compute_objectives(self, predictions, targets, train_mode=True):
         """Compute loss, to be overridden by sub-classes.
 
         Arguments
@@ -296,7 +300,7 @@ class Brain:
             The output tensor or tensors to evaluate.
         targets : torch.Tensor or list of tensors
             The gold standard to use for evaluation.
-        train : bool
+        train_mode : bool
             Whether this is computed for training or not. During training,
             sometimes fewer stats will be computed for the sake of efficiency
             (e.g. WER might only be computed for valid and test, not train).
@@ -325,7 +329,7 @@ class Brain:
         The default impementation depends on three methods being defined
         with a particular behavior:
 
-        * `forward()`
+        * `compute_forward()`
         * `compute_objectives()`
         * `optimizer()`
 
@@ -336,7 +340,7 @@ class Brain:
             this batch has two elements: inputs and targets.
         """
         inputs, targets = batch
-        predictions = self.forward(inputs)
+        predictions = self.compute_forward(inputs)
         loss = self.compute_objectives(predictions, targets)
         loss.backward()
         self.optimizer(self.modules)
@@ -348,7 +352,7 @@ class Brain:
         The default impementation depends on two methods being defined
         with a particular behavior:
 
-        * `forward()`
+        * `compute_forward()`
         * `compute_objectives()`
 
         Arguments
@@ -358,8 +362,8 @@ class Brain:
             this batch has two elements: inputs and targets.
         """
         inputs, targets = batch
-        output = self.forward(inputs)
-        loss, stats = self.compute_objectives(output, targets, train=False)
+        out = self.compute_forward(inputs, train_mode=False)
+        loss, stats = self.compute_objectives(out, targets, train_mode=False)
         stats["loss"] = loss.detach()
         return stats
 

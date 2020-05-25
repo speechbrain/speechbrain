@@ -21,6 +21,8 @@ class Linear(torch.nn.Module):
         output)
     bias : bool
         if True, the additive bias b is adopted.
+    combine_dims : bool
+        if True and the input is 4D, combine 3rd and 4th dimensions of input.
 
     Example
     -------
@@ -31,10 +33,11 @@ class Linear(torch.nn.Module):
     torch.Size([10, 50, 100])
     """
 
-    def __init__(self, n_neurons, bias=True):
+    def __init__(self, n_neurons, bias=True, combine_dims=False):
         super().__init__()
         self.n_neurons = n_neurons
         self.bias = bias
+        self.combine_dims = combine_dims
 
     def init_params(self, first_input):
         """
@@ -43,9 +46,8 @@ class Linear(torch.nn.Module):
         first_input : tensor
             A first input used for initializing the parameters.
         """
-        if len(first_input.shape) == 3:
-            fea_dim = first_input.shape[2]
-        if len(first_input.shape) == 4:
+        fea_dim = first_input.shape[-1]
+        if len(first_input.shape) == 4 and self.combine_dims:
             fea_dim = first_input.shape[2] * first_input.shape[3]
 
         self.w = nn.Linear(fea_dim, self.n_neurons, bias=self.bias)
@@ -62,7 +64,7 @@ class Linear(torch.nn.Module):
         if init_params:
             self.init_params(x)
 
-        if len(x.shape) == 4:
+        if len(x.shape) == 4 and self.combine_dims:
             x = x.reshape(x.shape[0], x.shape[1], x.shape[2] * x.shape[3])
 
         wx = self.w(x)
