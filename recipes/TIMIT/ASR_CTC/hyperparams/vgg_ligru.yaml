@@ -98,6 +98,7 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     recoverables:
         model: !ref <model>
         output: !ref <output>
+        optimizer: !ref <optimizer>
         scheduler: !ref <lr_annealing>
         normalizer: !ref <normalize>
         counter: !ref <epoch_counter>
