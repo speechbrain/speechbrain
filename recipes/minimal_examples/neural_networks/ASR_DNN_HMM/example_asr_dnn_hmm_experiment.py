@@ -44,7 +44,7 @@ class ASR_Brain(sb.core.Brain):
 
 
 train_set = params.train_loader()
-first_x, first_y = next(zip(*train_set))
+first_x, first_y = next(iter(train_set))
 asr_brain = ASR_Brain(
     modules=[params.linear1, params.linear2],
     optimizer=params.optimizer,
