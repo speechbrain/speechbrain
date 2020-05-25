@@ -30,8 +30,8 @@ class MATConvModule(Sequential):
     >>> model = MATConvModule(128, (1,), (1,))
     >>> input = torch.rand([10, 120, 60])
     >>> output = model(input, init_params=True)
-    >>> output.shape
-    torch.Size([10, 120, 128])
+    >>> len(output.shape)
+    3
     """
 
     def __init__(
