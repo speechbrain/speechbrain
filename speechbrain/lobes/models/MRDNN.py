@@ -49,8 +49,8 @@ class MRDNN(Sequential):
     >>> model = MRDNN(cnn_overrides={'pooling':{'out_channels':10}})
     >>> inputs = torch.rand([10, 120, 60])
     >>> outputs = model(inputs, init_params=True)
-    >>> outputs.shape
-    torch.Size([10, 116, 512])
+    >>> len(outputs.shape)
+    3
     """
 
     def __init__(

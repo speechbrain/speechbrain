@@ -14,6 +14,7 @@ norm1: !new:speechbrain.nnet.normalization.Normalize
 conv2: !new:speechbrain.nnet.CNN.Conv
     out_channels: !ref <block_index> * <channels>
     kernel_size: !ref <kernel_size>
+    stride: (1,2)
 
 norm2: !new:speechbrain.nnet.normalization.Normalize
     norm_type: batchnorm
@@ -22,4 +23,4 @@ activation: !new:torch.nn.LeakyReLU
 
 pooling: !new:speechbrain.nnet.MATConv.MATConvPool
     out_channels: !ref <block_index> * <channels>
-    stride: (1,2)
+    stride: (1,1)
