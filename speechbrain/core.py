@@ -346,7 +346,7 @@ class Brain:
         self.optimizer(self.modules)
         return {"loss": loss.detach()}
 
-    def evaluate_batch(self, batch):
+    def evaluate_batch(self, batch, test_mode=False):
         """Evaluate one batch, override for different procedure than train.
 
         The default impementation depends on two methods being defined
@@ -360,6 +360,8 @@ class Brain:
         batch : list of torch.Tensors
             batch of data to use for evaluation. Default implementation assumes
             this batch has two elements: inputs and targets.
+        test_mode : bool
+            Whether this batch is run for the test set or not.
         """
         inputs, targets = batch
         out = self.compute_forward(inputs, train_mode=False)
@@ -417,7 +419,7 @@ class Brain:
                 self.modules.eval()
                 with torch.no_grad():
                     for batch in tzip(*valid_set):
-                        stats = self.evaluate_batch(batch)
+                        stats = self.evaluate_batch(batch, test_mode=False)
                         self.add_stats(valid_stats, stats)
 
             self.on_epoch_end(epoch, train_stats, valid_stats)
@@ -434,7 +436,7 @@ class Brain:
         self.modules.eval()
         with torch.no_grad():
             for batch in tzip(*test_set):
-                stats = self.evaluate_batch(batch)
+                stats = self.evaluate_batch(batch, test_mode=True)
                 self.add_stats(test_stats, stats)
 
         return test_stats
