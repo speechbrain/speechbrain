@@ -4,8 +4,9 @@
 # Authors: Mirco Ravanelli & Peter Plantinga 2020
 # ################################
 
+# Seed needs to be set at top of yaml, before objects with parameters are made
 seed: !PLACEHOLDER  # e.g, 1234
-ignored_key: !!python/object/apply:torch.manual_seed [!ref <seed>]
+__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/augment_vgg_ligru/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
