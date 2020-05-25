@@ -74,10 +74,10 @@ class MATConvModule(Sequential):
 
     def _check_input_size(self, x):
         if isinstance(self.dilation, int):
-            return x.shape[1] > self.dilation
+            return x.shape[1] >= self.dilation
         else:
             for i, dil in enumerate(self.dilation):
-                if dil > x.shape[1 + i]:
+                if dil >= x.shape[1 + i]:
                     return False
             return True
 
