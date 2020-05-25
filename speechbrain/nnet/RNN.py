@@ -400,9 +400,15 @@ class AttentionalRNNDecoder(nn.Module):
 
         # flattening the decoder hidden states
         if isinstance(hs, tuple):
-            dec_flatten = hs[0].reshape(-1, self.n_neurons * self.num_layers)
+            dec_flatten = (
+                hs[0]
+                .transpose(0, 1)
+                .reshape(-1, self.n_neurons * self.num_layers)
+            )
         else:
-            dec_flatten = hs.reshape(-1, self.n_neurons * self.num_layers)
+            dec_flatten = hs.transpose(0, 1).reshape(
+                -1, self.n_neurons * self.num_layers
+            )
 
         c, w = self.attn(enc_states, enc_len, dec_flatten)
         dec_out = torch.cat([c, cell_out], dim=1)

@@ -11,7 +11,7 @@ import numpy as np
 class BaseSearcher(torch.nn.Module):
     """
     BaseSearcher class to be inherited by other
-    decoding approches for autoregressive model.
+    decoding approches for seq2seq model.
 
     Parameters
     ----------
@@ -107,11 +107,12 @@ class BaseSearcher(torch.nn.Module):
 
 
 class GreedySearcher(BaseSearcher):
+    """
+    This class implements the general forward-pass of
+    greedy decoding approach. See also BaseSearcher().
+    """
+
     def forward(self, enc_states, wav_len):
-        """
-        This class implements the general forward-pass of
-        greedy decoding approach.
-        """
         enc_lens = torch.round(enc_states.shape[1] * wav_len).int()
         device = enc_states.device
         batch_size = enc_states.shape[0]
@@ -145,6 +146,7 @@ class RNNGreedySearcher(GreedySearcher):
     """
     This class implements the greedy decoding
     for AttentionalRNNDecoder (speechbrain/nnet/RNN.py).
+    See also BaseSearcher() and GreedySearcher().
 
     Parameters
     ----------
@@ -153,7 +155,30 @@ class RNNGreedySearcher(GreedySearcher):
             1. Embedding layer
             2. Attentional RNN decoder
             3. Output layer
-            4. Softmax layer
+            4. LogSoftmax layer
+
+    Example
+    -------
+    >>> import torch
+    >>> import speechbrain as sb
+    >>> emb = torch.nn.Embedding(5, 3)
+    >>> dec = sb.nnet.RNN.AttentionalRNNDecoder("gru", "content", 3, 3, 1)
+    >>> lin = sb.nnet.linear.Linear(5)
+    >>> act = sb.nnet.activations.Softmax(apply_log=True)
+    >>> inp = torch.randint(low=0, high=5, size=(2, 3))
+    >>> enc = torch.rand([2, 6, 7])
+    >>> wav_len = torch.rand([2])
+    >>> e = emb(inp)
+    >>> h, _ = dec(e, enc, wav_len, init_params=True)
+    >>> log_probs = act(lin(h, init_params=True))
+    >>> modules = [emb, dec, lin, act]
+    >>> searcher = RNNGreedySearcher(
+    ... modules,
+    ... bos_index=4,
+    ... eos_index=4,
+    ... min_decode_ratio=0,
+    ... max_decode_ratio=1)
+    >>> hyps, scores = searcher(enc, wav_len)
     """
 
     def __init__(
@@ -185,7 +210,8 @@ class RNNGreedySearcher(GreedySearcher):
 
 class BeamSearcher(BaseSearcher):
     """
-    This class implements the beam-search algorithm for autoregressive model.
+    This class implements the beam-search algorithm for seq2seq model.
+    See also BaseSearcher().
 
     Parameters
     ----------
@@ -360,7 +386,7 @@ class BeamSearcher(BaseSearcher):
     def permute_mem(self, memory, index):
         """
         This method permutes the memory to synchorize
-        the memory to current output.
+        the memory index with the current output.
 
         Arguments
         ---------
@@ -379,6 +405,47 @@ class BeamSearcher(BaseSearcher):
 
 
 class RNNBeamSearcher(BeamSearcher):
+    """
+    This class implements the beam search decoding
+    for AttentionalRNNDecoder (speechbrain/nnet/RNN.py).
+    See also BaseSearcher(), BeamSearcher().
+
+    Parameters
+    ----------
+    modules : list of torch.nn.Module
+        The list should contain four items:
+            1. Embedding layer
+            2. Attentional RNN decoder
+            3. Output layer
+            4. LogSoftmax layer
+
+    Example
+    -------
+    >>> import torch
+    >>> import speechbrain as sb
+    >>> emb = torch.nn.Embedding(5, 3)
+    >>> dec = sb.nnet.RNN.AttentionalRNNDecoder("gru", "content", 3, 3, 1)
+    >>> lin = sb.nnet.linear.Linear(5)
+    >>> act = sb.nnet.activations.Softmax(apply_log=True)
+    >>> inp = torch.randint(low=0, high=5, size=(2, 3))
+    >>> enc = torch.rand([2, 6, 7])
+    >>> wav_len = torch.rand([2])
+    >>> e = emb(inp)
+    >>> h, _ = dec(e, enc, wav_len, init_params=True)
+    >>> log_probs = act(lin(h, init_params=True))
+    >>> modules = [emb, dec, lin, act]
+    >>> searcher = RNNBeamSearcher(
+    ... modules,
+    ... bos_index=4,
+    ... eos_index=4,
+    ... min_decode_ratio=0,
+    ... max_decode_ratio=1,
+    ... beam_size=2,
+    ... length_penalty=0.1,
+    ... eos_threshold=1.5)
+    >>> hyps, scores = searcher(enc, wav_len)
+    """
+
     def __init__(
         self,
         modules,
