@@ -3,7 +3,7 @@
 # Author: Mirco Ravanelli 2020, Jianyuan Zhong 2020
 # ################################
 
-data_folder: /home/genius/Mila/data/TIMIT  # e.g. /path/to/TIMIT
+data_folder: /network/tmp1/jianyuan.zhong/TIMIT/  # e.g. /path/to/TIMIT
 ckpts_to_keep: 1
 sample_rate: 16000
 seed: 1234  # e.g, 1234
@@ -19,7 +19,7 @@ csv_valid: !ref <data_folder>/dev.csv
 csv_test: !ref <data_folder>/test.csv
 
 # Neural Parameters
-number_of_epochs: 25
+number_of_epochs: 50
 batch_size: 8
 lr: 1.0
 dropout_rate: 0.15
@@ -28,7 +28,7 @@ n_mels: 40
 device: 'cuda:0'
 
 # Functions
-model: !new:speechbrain.lobes.models.CMRDNN.CMRDNN
+model: !new:speechbrain.lobes.models.MRDNN.MRDNN
     cnn_blocks: 2
     dnn_blocks: 2
     rnn_overrides: {rnn: {rnn_type: ligru}}
