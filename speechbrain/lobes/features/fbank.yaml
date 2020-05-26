@@ -1,3 +1,4 @@
+sample_rate: 16000
 n_fft: 400
 n_mels: 40
 left_frames: 5
@@ -5,7 +6,7 @@ right_frames: 5
 freeze: True
 
 compute_STFT: !new:speechbrain.processing.features.STFT
-    sample_rate: 16000
+    sample_rate: !ref <sample_rate>
     win_length: 25
     hop_length: 10
     n_fft: !ref <n_fft>
@@ -16,7 +17,7 @@ compute_fbanks: !new:speechbrain.processing.features.Filterbank
     log_mel: True
     filter_shape: triangular
     f_min: 0
-    f_max: 8000
+    f_max: !ref <sample_rate> / 2
     freeze: !ref <freeze>
     n_fft: !ref <n_fft>
 
