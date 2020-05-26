@@ -48,19 +48,19 @@ class ASR(sb.core.Brain):
         phns, phn_lens = phns.to(params.device), phn_lens.to(params.device)
         loss = params.compute_cost(pout, phns, [pout_lens, phn_lens])
 
+        stats = {}
         if not train_mode:
             ind2lab = params.train_loader.label_dict["phn"]["index2lab"]
             sequence = ctc_greedy_decode(pout, pout_lens, blank_id=-1)
             sequence = convert_index_to_lab(sequence, ind2lab)
             phns = undo_padding(phns, phn_lens)
             phns = convert_index_to_lab(phns, ind2lab)
-            stats = edit_distance.wer_details_for_batch(
+            per_stats = edit_distance.wer_details_for_batch(
                 ids, phns, sequence, compute_alignments=True
             )
-            stats = {"PER": stats}
-            return loss, stats
+            stats["PER"] = per_stats
 
-        return loss
+        return loss, stats
 
     def on_epoch_end(self, epoch, train_stats, valid_stats=None):
         per = summarize_error_rate(valid_stats["PER"])

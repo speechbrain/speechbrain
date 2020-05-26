@@ -31,11 +31,11 @@ class SpkIdBrain(sb.core.Brain):
         uttid, spkid, _ = targets
         loss = params.compute_cost(predictions, spkid, lens)
 
+        stats = {}
         if not train_mode:
-            stats = {"error": params.compute_error(predictions, spkid, lens)}
-            return loss, stats
+            stats["error"] = params.compute_error(predictions, spkid, lens)
 
-        return loss
+        return loss, stats
 
     def on_epoch_end(self, epoch, train_stats, valid_stats):
         print("Epoch %d complete" % epoch)

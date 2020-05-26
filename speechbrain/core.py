@@ -251,7 +251,7 @@ class Brain:
     ...     def compute_forward(self, x, init_params=False):
     ...         return self.modules[0](x)
     ...     def compute_objectives(self, predictions, targets, train=True):
-    ...         return torch.nn.functional.l1_loss(predictions, targets)
+    ...         return torch.nn.functional.l1_loss(predictions, targets), {}
     >>> model = torch.nn.Linear(in_features=10, out_features=10)
     >>> brain = SimpleBrain(
     ...     modules=[model],
@@ -342,10 +342,11 @@ class Brain:
         """
         inputs, targets = batch
         predictions = self.compute_forward(inputs)
-        loss = self.compute_objectives(predictions, targets)
+        loss, stats = self.compute_objectives(predictions, targets)
         loss.backward()
         self.optimizer(self.modules)
-        return {"loss": loss.detach()}
+        stats["loss"] = loss.detach()
+        return stats
 
     def evaluate_batch(self, batch):
         """Evaluate one batch, override for different procedure than train.
