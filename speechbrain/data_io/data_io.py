@@ -665,13 +665,8 @@ class DataLoaderFactory(torch.nn.Module):
                 key=lambda k: -float(data_dict[k]["duration"]),
             )
 
-        # Random sorting
-        if sorting == "random":
-            sorted_ids = list(data_dict.keys())
-            random.shuffle(sorted_ids)
-
         # Original order
-        if sorting == "original":
+        if sorting == "original" or sorting == "random":
             sorted_ids = list(data_dict.keys())
 
         # Filling the dictionary
