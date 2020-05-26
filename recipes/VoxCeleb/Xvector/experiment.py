@@ -29,7 +29,8 @@ sb.core.create_experiment_directory(
 
 # Logger during training
 train_logger = FileTrainLogger(
-    save_file=params.train_log, summary_fns={"loss": summarize_average},
+    save_file=params.train_log,
+    summary_fns={"loss": summarize_average, "error": summarize_average},
 )
 
 # Checkpointer
@@ -75,20 +76,26 @@ class XvectorBrain(sb.core.Brain):
         uttid, spkid, _ = targets
 
         loss = params.compute_cost(predictions, spkid, lens)
+        error = params.compute_error(predictions, spkid, lens)
 
         if not train_mode:
             stats = {"error": params.compute_error(predictions, spkid, lens)}
             return loss, stats
 
-        return loss
+        return loss, error
+
+    def fit_batch(self, batch):
+        inputs, targets = batch
+        predictions = self.compute_forward(inputs)
+        loss, error = self.compute_objectives(predictions, targets)
+        loss.backward()
+        self.optimizer(self.modules)
+
+        return {"loss": loss.detach(), "error": error.detach()}
 
     def on_epoch_end(self, epoch, train_stats, valid_stats):
-        print("Epoch %d complete" % epoch)
-        print("Train loss: %.2f" % summarize_average(train_stats["loss"]))
-        print("Valid loss: %.2f" % summarize_average(valid_stats["loss"]))
-        print("Valid error: %.2f" % summarize_average(valid_stats["error"]))
         epoch_stats = {"epoch": epoch, "lr": params.lr}
-        train_logger.log_stats(epoch_stats, train_stats)
+        train_logger.log_stats(epoch_stats, train_stats, valid_stats)
         checkpointer.save_and_keep_only()
 
 
