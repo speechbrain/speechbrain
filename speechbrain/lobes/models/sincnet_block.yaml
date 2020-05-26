@@ -1,7 +1,3 @@
-# The block index is multiplied with the channels to get out_channels
-block_index: !PLACEHOLDER
-
-
 # These modules are applied in order
 conv1: !new:speechbrain.nnet.CNN.Conv
     out_channels: 4
