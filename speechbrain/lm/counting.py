@@ -46,6 +46,7 @@ def pad_ends(
     -------
     >>> for token in pad_ends(["Speech", "Brain"]):
     ...     print(token)
+    <s>
     Speech
     Brain
     </s>
