@@ -190,13 +190,12 @@ def read_ngrams_section(fstream, order):
             context = all_parts[1:-2]
             token = all_parts[-2]
             backoff = float(all_parts[-1])
+            backoff_context = context + (token,)
+            backoffs[backoff_context] = backoff
         else:
             context = all_parts[1:-1]
             token = all_parts[-1]
-            backoff = 0.0
-        backoff_context = context + (token,)
         probs[context][token] = prob
-        backoffs[backoff_context] = backoff
     return dict(probs), backoffs
 
 
