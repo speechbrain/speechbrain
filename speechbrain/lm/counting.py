@@ -6,7 +6,6 @@ Author
 Aku Rouhe 2020
 """
 import itertools
-import collections
 
 
 # The following functions are essentially copying the NLTK ngram counting
@@ -15,7 +14,9 @@ import collections
 # NLTK is licenced under the Apache 2.0 Licence, same as SpeechBrain
 # See https://github.com/nltk/nltk
 # The NLTK implementation is highly focused on getting lazy evaluation.
-def pad_ends(sequence, n, left_pad_symbol="<s>", right_pad_symbol="</s>"):
+def pad_ends(
+    sequence, pad_left=True, left_pad_symbol="<s>", right_pad_symbol="</s>"
+):
     """
     Pad sentence ends with start- and end-of-sentence tokens
 
@@ -24,21 +25,66 @@ def pad_ends(sequence, n, left_pad_symbol="<s>", right_pad_symbol="</s>"):
     is done by adding special tokens (usually <s> and </s>) at the ends of
     each sentence. The <s> token should not be predicted, so some special
     care needs to be taken for unigrams.
+
+    Arguments
+    ---------
+    sequence : iterator
+        The sequence (any iterable type) to pad.
+    pad_left : bool
+        Whether to pad on the left side as well. True by default.
+    left_pad_symbol : any
+        The token to use for left side padding. "<s>" by default.
+    right_pad_symbol : any
+        The token to use for right side padding. "</s>" by deault.
+
+    Returns
+    -------
+    generator
+        A generator which yields the padded sequence.
+
+    Example
+    -------
+    >>> for token in pad_ends(["Speech", "Brain"]):
+    ...     print(token)
+    Speech
+    Brain
+    </s>
+
     """
-    if n == 1:
-        return itertools.chain(tuple(sequence), (right_pad_symbol,))
-    else:
+    if pad_left:
         return itertools.chain(
             (left_pad_symbol,), tuple(sequence), (right_pad_symbol,)
         )
+    else:
+        return itertools.chain(tuple(sequence), (right_pad_symbol,))
 
 
 def ngrams(sequence, n):
     """
-    Produce all Nth order ngrams from the sequence.
+    Produce all Nth order N-grams from the sequence.
 
-    This will generally be used in an
-    ngram counting pipeline.
+    This will generally be used in an N-gram counting pipeline.
+
+    Arguments
+    ---------
+    sequence : iterator
+        The sequence from which to produce N-grams.
+    n : int
+        The order of N-grams to produce
+
+    Yields
+    ------
+    tuple
+        Yields each ngram as a tuple.
+
+    Example
+    -------
+    >>> for ngram in ngrams("Brain", 3):
+    ...     print(ngram)
+    ('B', 'r', 'a')
+    ('r', 'a', 'i')
+    ('a', 'i', 'n')
+
     """
     if n <= 0:
         raise ValueError("N must be >=1")
@@ -62,48 +108,55 @@ def ngrams(sequence, n):
     return
 
 
-def ngrams_for_evaluation(
-    sequence, max_n, left_pad_symbol="<s>", right_pad_symbol="</s>"
-):
+def ngrams_for_evaluation(sequence, max_n, predict_first=False):
+    """
+    Produce each token with the appropriate context.
+
+    The function produces as large N-grams as possible, so growing from
+    unigrams/bigrams to max_n.
+
+    E.G. when your model is a trigram model, you'll still only have one token
+    of context (the start of sentence) for the first token.
+
+    In general this is useful when evaluating an N-gram model.
+
+    Arguments
+    ---------
+    sequence : iterator
+        The sequence to produce tokens and context from.
+    max_n : int
+        The maximum N-gram length to produce.
+    predict_first : bool
+        To produce the first token in the sequence to predict (without
+        context) or not. Essentially this should be False when the start of
+        sentence symbol is the first in the sequence.
+
+    Yields
+    ------
+    Any
+        The token to predict
+    tuple
+        The context to predict conditional on.
+
+    Example
+    -------
+    >>> for token, context in ngrams_for_evaluation("Brain", 3, True):
+    ...     print(f"p( {token} |{' ' if context else ''}{' '.join(context)} )")
+    p( B | )
+    p( r | B )
+    p( a | B r )
+    p( i | r a )
+    p( n | a i )
+    """
     if max_n <= 0:
         raise ValueError("Max N must be >=1")
-    # Handle the unigram case specially:
-    if max_n == 1:
-        for token in sequence:
-            yield (token,), tuple()
-        # Finally yield the right padding and end
-        yield (right_pad_symbol,), tuple()
-        return
-    iterator = itertools.chain(sequence, (right_pad_symbol,))
-    history = [left_pad_symbol]
+    iterator = iter(sequence)
+    history = []
+    if not predict_first:
+        history.append(next(iterator))
     for token in iterator:
-        yield token, tuple(history)
-        history.append(token)
         if len(history) == max_n:
             del history[0]
+        yield token, tuple(history)
+        history.append(token)
     return
-
-
-def ngram_evaluation_details(data, LM):
-    logprob = 0.0
-    num_tokens = 0
-    orders_hit = collections.Counter()
-    for sentence in data:
-        for token, context in ngrams_for_evaluation(
-            sentence, max_n=LM.top_order
-        ):
-            num_tokens += 1
-            order_hit, lp = LM.logprob(token, context)
-            orders_hit[order_hit] += 1
-            logprob += lp
-    return {
-        "logprob": logprob,
-        "num_tokens": num_tokens,
-        "orders_hit": orders_hit,
-    }
-
-
-def ngram_perplexity(eval_details, logbase=10):
-    exponent = -eval_details["logprob"] / eval_details["num_tokens"]
-    perplexity = logbase ** exponent
-    return perplexity
