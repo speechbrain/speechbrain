@@ -1,4 +1,3 @@
-n_fft: 400
 sample_rate: 16000
 
 drop_freq: !new:speechbrain.processing.speech_augmentation.DropFreq

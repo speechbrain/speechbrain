@@ -13,10 +13,6 @@ class TimeDomainSpecAugment(torch.nn.Module):
 
     Arguments
     ---------
-    filterbank : bool
-        Whether to apply a filterbank to the spectral features.
-    log : bool
-        Whether to apply log to the outputs (regardless of type).
     **overrides
         A set of overrides to use for the `spec_augment.yaml` file.
 
@@ -29,10 +25,8 @@ class TimeDomainSpecAugment(torch.nn.Module):
     torch.Size([10, 12800])
     """
 
-    def __init__(self, filterbank=True, log=True, **overrides):
+    def __init__(self, **overrides):
         super().__init__()
-        self.filterbank = filterbank
-        self.log = log
         current_dir = os.path.dirname(os.path.abspath(__file__))
         with open(os.path.join(current_dir, "spec_augment.yaml")) as f:
             self.params = load_extended_yaml(f, overrides)
