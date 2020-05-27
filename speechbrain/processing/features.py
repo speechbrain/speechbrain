@@ -404,7 +404,7 @@ class ISTFT(torch.nn.Module):
         return window
 
 
-def spectral_magnitude(stft, power=1, log=False):
+def spectral_magnitude(stft, power=1, log=False, eps=1e-14):
     """Returns the magnitude of a complex spectrogram.
 
     Arguments
@@ -424,7 +424,7 @@ def spectral_magnitude(stft, power=1, log=False):
     """
     spectr = stft.pow(2).sum(-1).pow(power)
     if log:
-        return torch.log(spectr)
+        return torch.log(spectr + eps)
     return spectr
 
 
