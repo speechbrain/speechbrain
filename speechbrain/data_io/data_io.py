@@ -2016,3 +2016,30 @@ def load_pkl(file):
     """
     with open(file, "rb") as f:
         return pickle.load(f)
+
+
+def put_bos_token(label, bos_index):
+    """Create labels with <bos> token at the beginning.
+    Arguments
+    ---------
+    label : torch.IntTensor
+        Containing the original labels. Must be of size: [batch_size, max_length]
+    bos_index : int
+        The index for <bos> token.
+    Returns
+    -------
+    new_label : The new label with <bos> at the beginning.
+    Example:
+    >>> label=torch.LongTensor([[1,0,0], [2,3,0], [4,5,6]])
+    >>> new_label=put_bos_token(label, bos_index=7)
+    >>> new_label
+    tensor([[7, 1, 0, 0],
+            [7, 2, 3, 0],
+            [7, 4, 5, 6]])
+    """
+    new_label = label.long().clone()
+    batch_size = label.shape[0]
+
+    bos = new_label.new_zeros(batch_size, 1).fill_(bos_index)
+    new_label = torch.cat([bos, new_label], dim=1)
+    return new_label
