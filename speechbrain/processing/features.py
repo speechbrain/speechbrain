@@ -422,10 +422,10 @@ def spectral_magnitude(stft, power=1, log=False):
     -------
 
     """
-    mag = stft.pow(2).sum(-1).pow(power)
+    spectr = stft.pow(2).sum(-1).pow(power)
     if log:
-        return torch.log(mag)
-    return mag
+        return torch.log(spectr)
+    return spectr
 
 
 class Filterbank(torch.nn.Module):
