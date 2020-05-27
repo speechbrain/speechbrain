@@ -11,10 +11,10 @@ import torch
 import pytest
 
 pytest.importorskip("numba")
-experiment_dir = os.path.dirname(os.path.abspath(__file__))
+experiment_dir = os.path.dirname(os.path.realpath(__file__))
 params_file = os.path.join(experiment_dir, "params.yaml")
-data_folder = "../../../../../samples/audio_samples/nn_training_samples"
-data_folder = os.path.abspath(experiment_dir + data_folder)
+data_folder = "../../../../samples/audio_samples/nn_training_samples"
+data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
 with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
 
@@ -108,7 +108,7 @@ class TransducerBrain(sb.core.Brain):
 
 
 train_set = params.train_loader()
-first_x, first_y = next(zip(*train_set))
+first_x, first_y = next(iter(train_set))
 transducer_brain = TransducerBrain(
     modules=[
         params.encoder_rnn,

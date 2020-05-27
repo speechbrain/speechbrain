@@ -12,6 +12,7 @@ N_epochs: 40
 N_batch: 1
 lr: 0.06
 blank_id: 42
+size_output: 43
 device: cuda
 
 train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
@@ -52,9 +53,9 @@ encoder_lin: !new:speechbrain.nnet.linear.Linear
     bias: False
 
 embedding_PN: !new:speechbrain.nnet.embedding.Embedding
+    num_embeddings: !ref <size_output>
     consider_as_one_hot: True # consider blank as zero vect
     blank_id: !ref <blank_id>
-    embeddings_dim: !ref <blank_id>
 
 decoder_rnn: !new:speechbrain.nnet.RNN.RNN
     rnn_type: gru
