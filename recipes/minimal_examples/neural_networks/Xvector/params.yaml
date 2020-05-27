@@ -1,5 +1,5 @@
 # Basic parameters
-data_folder: ../../../../samples/voxceleb_samples/
+data_folder: ../../../../samples/voxceleb_samples/wav/
 sample_rate: 16000
 seed: 1234
 output_folder: !ref results/<seed>
