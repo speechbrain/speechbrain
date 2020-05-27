@@ -47,7 +47,7 @@ def test_brain():
     )
 
     targets = torch.rand(10, 10)
-    train_set = ([inputs], [targets])
+    train_set = ([inputs, targets],)
 
     start_output = brain.compute_forward(inputs)
     start_loss = brain.compute_objectives(start_output, targets)
