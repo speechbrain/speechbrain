@@ -10,10 +10,7 @@ def test_embedding():
     blank_id = 39
     size_dict = 40
     emb = Embedding(
-        size_dict,
-        embeddings_dim=embeddings_dim,
-        consider_as_one_hot=True,
-        blank_id=blank_id,
+        num_embeddings=size_dict, consider_as_one_hot=True, blank_id=blank_id,
     )
     inputs = torch.Tensor([10, 5, 2, 0, 39]).long()
     output = emb(inputs, init_params=True)
