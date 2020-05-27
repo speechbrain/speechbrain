@@ -327,7 +327,7 @@ class AttentionalRNNDecoder(nn.Module):
         if self.attn_type == "content":
             self.attn = ContentBasedAttention(
                 enc_dim=self.enc_dim,
-                dec_dim=self.n_neurons * self.num_layers,
+                dec_dim=self.n_neurons,
                 attn_dim=self.attn_dim,
                 output_dim=self.attn_dim,
                 scaling=self.scaling,
@@ -336,7 +336,7 @@ class AttentionalRNNDecoder(nn.Module):
         elif self.attn_type == "location":
             self.attn = LocationAwareAttention(
                 enc_dim=self.enc_dim,
-                dec_dim=self.n_neurons * self.num_layers,
+                dec_dim=self.n_neurons,
                 attn_dim=self.attn_dim,
                 output_dim=self.attn_dim,
                 conv_channels=self.channels,
@@ -398,16 +398,11 @@ class AttentionalRNNDecoder(nn.Module):
         cell_out, hs = self.rnn(cell_inp, hs)
         cell_out = cell_out.squeeze(1)
 
-        # The last layer of decoder hidden states
+        # the last layer of decoder hidden states
         if isinstance(hs, tuple):
-            dec = (
-                hs[0][-1]
-                .reshape(-1, self.n_neurons)
-            )
+            dec = hs[0][-1].reshape(-1, self.n_neurons)
         else:
-            dec = hs[-1].reshape(
-                -1, self.n_neurons
-            )
+            dec = hs[-1].reshape(-1, self.n_neurons)
 
         c, w = self.attn(enc_states, enc_len, dec)
         dec_out = torch.cat([c, cell_out], dim=1)
