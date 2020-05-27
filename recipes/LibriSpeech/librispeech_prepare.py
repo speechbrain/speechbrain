@@ -1,6 +1,8 @@
 """
 Data preparation.
 
+Download: http://www.openslr.org/12
+
 Author
 ------
 Mirco Ravanelli, Ju-Chieh Chou 2020
@@ -38,6 +40,13 @@ class LibriSpeechPreparer:
     use_lexicon : bool
         When it is true, using lexicon to generate phonemes columns in the csv file.
 
+    Example
+    -------
+    >>> from recipes.LibriSpeech.librispeech_prepare import LibriSpeechPreparer
+    >>> data_folder='datasets/LibriSpeech'
+    >>> splits=['train-clean-100', 'dev-clean', 'test-clean']
+    >>> save_folder='librispeech_prepared'
+    >>> LibriSpeechPreparer(data_folder,splits,save_folder)
     """
 
     def __init__(

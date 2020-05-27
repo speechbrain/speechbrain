@@ -1,5 +1,6 @@
-# Basic parameters
-sample_rate: 16000
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1234
+__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Data files
 data_folder: !PLACEHOLDER
@@ -16,6 +17,7 @@ train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>
     batch_size: !ref <N_batch>
     csv_read: [wav, ali]
+    sentence_sorting: ascending
     replacements:
         $data_folder: !ref <data_folder>
 
@@ -23,12 +25,14 @@ valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_valid>
     batch_size: !ref <N_batch>
     csv_read: [wav, ali]
+    sentence_sorting: ascending
     replacements:
         $data_folder: !ref <data_folder>
 
 test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_test>
     csv_read: [wav, ali]
+    sentence_sorting: ascending
     replacements:
         $data_folder: !ref <data_folder>
 

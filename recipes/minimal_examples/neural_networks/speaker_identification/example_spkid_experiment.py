@@ -4,10 +4,10 @@ import torch
 import speechbrain as sb
 from speechbrain.utils.train_logger import summarize_average
 
-experiment_dir = os.path.dirname(os.path.abspath(__file__))
+experiment_dir = os.path.dirname(os.path.realpath(__file__))
 params_file = os.path.join(experiment_dir, "params.yaml")
-data_folder = "../../../../../samples/audio_samples/nn_training_samples"
-data_folder = os.path.abspath(experiment_dir + data_folder)
+data_folder = "../../../../samples/audio_samples/nn_training_samples"
+data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
 with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
 
@@ -45,17 +45,19 @@ class SpkIdBrain(sb.core.Brain):
 
 
 train_set = params.train_loader()
-first_x, first_y = next(zip(*train_set))
+first_x, first_y = next(iter(train_set))
 spk_id_brain = SpkIdBrain(
     modules=[params.linear1, params.linear2],
     optimizer=params.optimizer,
     first_inputs=[first_x],
 )
-spk_id_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
+train_stats, _ = spk_id_brain.fit(
+    range(params.N_epochs), train_set, params.valid_loader()
+)
 test_stats = spk_id_brain.evaluate(params.test_loader())
 print("Test error: %.2f" % summarize_average(test_stats["error"]))
 
 
-# If training is successful, we get all test examples correct
+# Integration test: ensure we overfit the training data
 def test_error():
-    assert summarize_average(test_stats["error"]) == 0.0
+    assert summarize_average(train_stats["loss"]) < 0.2
