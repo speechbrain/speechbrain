@@ -53,7 +53,7 @@ class Embedding(nn.Module):
     def __init__(
         self,
         num_embeddings,
-        embeddings_dim,
+        embeddings_dim=128,
         consider_as_one_hot=False,
         blank_id=0,
     ):
@@ -66,8 +66,11 @@ class Embedding(nn.Module):
 
         super().__init__()
         self.num_embeddings = num_embeddings
-        self.embeddings_dim = embeddings_dim
         self.consider_as_one_hot = consider_as_one_hot
+        if self.consider_as_one_hot:
+            self.embeddings_dim = self.num_embeddings - 1
+        else:
+            self.embeddings_dim = embeddings_dim
         self.blank_id = blank_id
 
     def init_params(self, first_input):
