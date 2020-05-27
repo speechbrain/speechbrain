@@ -275,23 +275,22 @@ class Brain:
             if self.optimizer is not None:
                 self.optimizer.init_params(self.modules)
 
-    def compute_forward(self, x, train_mode=True, init_params=False):
+    def compute_forward(self, x, stage="train", init_params=False):
         """Forward pass, to be overridden by sub-classes.
 
         Arguments
         ---------
         x : torch.Tensor or list of tensors
             The input tensor or tensors for processing.
-        train_mode : bool
-            Whether this pass is done in train mode or not. Models such
-            as seq2seq may have different behavior in train and eval.
+        stage : str
+            The stage of the training process, one of "train", "valid", "test"
         init_params : bool
             Whether this pass should initialize parameters rather
             than return the results of the forward pass.
         """
         raise NotImplementedError
 
-    def compute_objectives(self, predictions, targets, train_mode=True):
+    def compute_objectives(self, predictions, targets, stage="train"):
         """Compute loss, to be overridden by sub-classes.
 
         Arguments
@@ -300,10 +299,8 @@ class Brain:
             The output tensor or tensors to evaluate.
         targets : torch.Tensor or list of tensors
             The gold standard to use for evaluation.
-        train_mode : bool
-            Whether this is computed for training or not. During training,
-            sometimes fewer stats will be computed for the sake of efficiency
-            (e.g. WER might only be computed for valid and test, not train).
+        stage : str
+            The stage of the training process, one of "train", "valid", "test"
         """
         raise NotImplementedError
 
@@ -364,8 +361,9 @@ class Brain:
             Whether this batch is run for the test set or not.
         """
         inputs, targets = batch
-        out = self.compute_forward(inputs, train_mode=False)
-        loss, stats = self.compute_objectives(out, targets, train_mode=False)
+        stage = "test" if test_mode else "valid"
+        out = self.compute_forward(inputs, stage=stage)
+        loss, stats = self.compute_objectives(out, targets, stage=stage)
         stats["loss"] = loss.detach()
         return stats
 
