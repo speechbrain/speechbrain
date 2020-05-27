@@ -13,7 +13,7 @@ from speechbrain.utils.train_logger import (
 # Load params file
 experiment_dir = os.path.dirname(os.path.abspath(__file__))
 params_file = os.path.join(experiment_dir, "params.yaml")
-data_folder = "../../../../../samples/voxceleb_samples/"
+data_folder = "../../../../../samples/voxceleb_samples/wav/"
 data_folder = os.path.abspath(experiment_dir + data_folder)
 with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
