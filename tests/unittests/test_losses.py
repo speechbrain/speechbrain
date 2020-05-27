@@ -38,7 +38,7 @@ def test_transducer_loss():
     from speechbrain.nnet.losses import ComputeCost
 
     pytest.importorskip("numba")
-    if torch.cuda.device_count() > 0:
+    if not torch.cuda.device_count() > 0:
         pytest.skip("This test can only be run if a GPU is available")
     device = torch.device("cuda")
     cost = ComputeCost(cost_type="transducer", blank_index=0)
