@@ -97,8 +97,6 @@ class DataLoaderFactory(torch.nn.Module):
     >>> data_loader=DataLoaderFactory(csv_file)
     >>> # When called, creates a dataloader for each entry in the csv file
     >>> # The sample has two: wav and spk
-    >>> print(len(data_loader()))
-    2
     """
 
     def __init__(
@@ -106,7 +104,7 @@ class DataLoaderFactory(torch.nn.Module):
         csv_file,
         batch_size=1,
         csv_read=None,
-        sentence_sorting="original",
+        sentence_sorting="random",
         num_workers=0,
         cache=False,
         cache_ram_percent=75,
@@ -157,35 +155,29 @@ class DataLoaderFactory(torch.nn.Module):
         if self.csv_read is None:
             self.csv_read = data_dict["data_entries"]
 
-        self.dataloader = []
+        # Creating a dataloader
+        dataset = DatasetFactory(
+            data_dict,
+            self.label_dict,
+            self.supported_formats,
+            self.csv_read,
+            self.cache,
+            self.cache_ram_percent,
+        )
 
-        # Creating a dataloader for each data entry in the csv file
-        for data_entry in self.csv_read:
-
-            dataset = DatasetFactory(
-                data_dict,
-                self.label_dict,
-                self.supported_formats,
-                data_entry,
-                self.cache,
-                self.cache_ram_percent,
-            )
-
-            self.dataloader.append(
-                DataLoader(
-                    dataset,
-                    batch_size=self.batch_size,
-                    shuffle=self.shuffle,
-                    pin_memory=False,
-                    drop_last=self.drop_last,
-                    num_workers=self.num_workers,
-                    collate_fn=self.batch_creation,
-                )
-            )
+        self.dataloader = DataLoader(
+            dataset,
+            batch_size=self.batch_size,
+            shuffle=self.shuffle,
+            pin_memory=False,
+            drop_last=self.drop_last,
+            num_workers=self.num_workers,
+            collate_fn=self.batch_creation,
+        )
 
         return self.dataloader
 
-    def batch_creation(self, data_list):
+    def batch_creation(self, data_lists):
         """
         Data batching
 
@@ -204,35 +196,45 @@ class DataLoaderFactory(torch.nn.Module):
             [data_id,data,data_len] where zero-padding is
             performed where needed.
         """
+        batch = []
 
-        # The data_list is always compose by [id,data,data_len]
-        data_list = list(map(list, zip(*data_list)))
+        n_data_entries = len(data_lists[0])
 
-        # Convert all to torch tensors
-        self.numpy2torch(data_list)
+        batch_list = [[[] for i in range(3)] for j in range(n_data_entries)]
 
-        # Save sentence IDs
-        snt_ids = data_list[0]
+        for data_entry in data_lists:
+            for i, data in enumerate(data_entry):
+                batch_list[i][0].append(data[0])
+                batch_list[i][1].append(data[1])
+                batch_list[i][2].append(data[2])
 
-        # Save duration
-        sequences = data_list[1]
-        time_steps = torch.tensor(data_list[2])
+        for data_list in batch_list:
 
-        # Check if current element is a tensor
-        if isinstance(sequences[0], torch.Tensor):
+            # Convert all to torch tensors
+            self.numpy2torch(data_list)
 
-            # Padding the sequence of sentences (if needed)
-            batch_data = self.padding(sequences)
+            # Save sentence IDs
+            snt_ids = data_list[0]
 
-            # Return % of time steps without padding (useful for save_batch)
-            time_steps = time_steps / batch_data.shape[1]
+            # Save duration
+            sequences = data_list[1]
+            time_steps = torch.tensor(data_list[2])
 
-        else:
-            # Non-tensor case
-            batch_data = sequences
+            # Check if current element is a tensor
+            if isinstance(sequences[0], torch.Tensor):
 
-        # Batch composition
-        batch = [snt_ids, batch_data, time_steps]
+                # Padding the sequence of sentences (if needed)
+                batch_data = self.padding(sequences)
+
+                # Return % of time steps without padding (useful for save_batch)
+                time_steps = time_steps / batch_data.shape[1]
+
+            else:
+                # Non-tensor case
+                batch_data = sequences
+
+            # Batch composition
+            batch.append([snt_ids, batch_data, time_steps])
 
         return batch
 
@@ -663,13 +665,8 @@ class DataLoaderFactory(torch.nn.Module):
                 key=lambda k: -float(data_dict[k]["duration"]),
             )
 
-        # Random sorting
-        if sorting == "random":
-            sorted_ids = list(data_dict.keys())
-            random.shuffle(sorted_ids)
-
         # Original order
-        if sorting == "original":
+        if sorting == "original" or sorting == "random":
             sorted_ids = list(data_dict.keys())
 
         # Filling the dictionary
@@ -739,7 +736,7 @@ class DatasetFactory(Dataset):
         a dictionary containing all the entries of the csv file.
     supported_formats : dict
         a dictionary contaning the reading supported format
-    data_entry : list
+    data_entries : list
         it is a list containing the data_entries to read from the csv file
     do_cache : bool, optional
         Default:False When set to true, this option stores the input data in a
@@ -763,8 +760,8 @@ class DatasetFactory(Dataset):
     >>> # data_dict creation
     >>> data_dict=data_loader.generate_data_dict()
     >>> formats=data_loader.get_supported_formats()
-    >>> dataset=DatasetFactory(data_dict,{},formats,'wav',False,0)
-    >>> first_example_id, *first_example = dataset[0]
+    >>> dataset=DatasetFactory(data_dict,{},formats,['wav'],False,0)
+    >>> [first_example_id, first_tensor, first_len], = dataset[0]
     >>> print(first_example_id)
     example1
     """
@@ -774,7 +771,7 @@ class DatasetFactory(Dataset):
         data_dict,
         label_dict,
         supported_formats,
-        data_entry,
+        data_entries,
         do_cache,
         cache_ram_percent,
     ):
@@ -783,7 +780,7 @@ class DatasetFactory(Dataset):
         self.data_dict = data_dict
         self.label_dict = label_dict
         self.supported_formats = supported_formats
-        self.data_entry = data_entry
+        self.data_entries = data_entries
         self.do_cache = do_cache
 
         # Creating a shared dictionary for caching
@@ -814,13 +811,14 @@ class DatasetFactory(Dataset):
         >>> # supported formats
         >>> formats=data_loader.get_supported_formats()
         >>> # Initialization of the dataser class
-        >>> dataset=DatasetFactory(data_dict,{},formats,'wav',False,0)
+        >>> dataset=DatasetFactory(data_dict,{},formats,['wav'],False,0)
         >>> # Getting data length
         >>> len(dataset)
         1
         """
         # Reading the data_list in data_dict
         data_len = len(self.data_dict["data_list"])
+
         return data_len
 
     def __getitem__(self, idx):
@@ -832,47 +830,54 @@ class DatasetFactory(Dataset):
         # Getting the sentence id
         snt_id = self.data_dict["data_list"][idx]
 
-        # Reading data from data_dict
-        data_line = self.data_dict[snt_id][self.data_entry]
+        data = []
 
-        # Check if we need to convert labels to indexes
-        if self.label_dict and self.data_entry in self.label_dict:
-            lab2ind = self.label_dict[self.data_entry]["lab2index"]
-        else:
-            lab2ind = None
+        for data_entry in self.data_entries:
 
-        # Managing caching
-        if self.do_cache:
+            # Reading data from data_dict
+            data_line = self.data_dict[snt_id][data_entry]
 
-            if snt_id not in self.cache:
-
-                # Reading data
-                data = self.read_data(data_line, snt_id, lab2ind=lab2ind)
-
-                # Store the in the variable cache if needed
-                if self.cache["do_caching"]:
-
-                    try:
-                        self.cache[snt_id] = data
-                    except Exception:
-                        pass
-
-                    # Check ram occupation periodically
-                    if random.random() < 0.05:
-                        # Store data only if the RAM available is smaller
-                        # than what set in cache_ram_percent.
-                        if (
-                            psutil.virtual_memory().percent
-                            >= self.cache_ram_percent
-                        ):
-
-                            self.cache["do_caching"] = False
+            # Check if we need to convert labels to indexes
+            if self.label_dict and data_entry in self.label_dict:
+                lab2ind = self.label_dict[data_entry]["lab2index"]
             else:
-                # Reading data from the cache directly
-                data = self.cache[snt_id]
-        else:
-            # Read data from the disk
-            data = self.read_data(data_line, snt_id, lab2ind=lab2ind)
+                lab2ind = None
+
+            # Managing caching
+            if self.do_cache:
+
+                if snt_id not in self.cache:
+
+                    # Reading data
+                    new_data = self.read_data(
+                        data_line, snt_id, lab2ind=lab2ind
+                    )
+                    data.append(new_data)
+
+                    # Store the in the variable cache if needed
+                    if self.cache["do_caching"]:
+
+                        try:
+                            self.cache[snt_id] = new_data
+                        except Exception:
+                            pass
+
+                        # Check ram occupation periodically
+                        if random.random() < 0.05:
+                            # Store data only if the RAM available is smaller
+                            # than what set in cache_ram_percent.
+                            if (
+                                psutil.virtual_memory().percent
+                                >= self.cache_ram_percent
+                            ):
+
+                                self.cache["do_caching"] = False
+                else:
+                    # Reading data from the cache directly
+                    data.append(self.cache[snt_id])
+            else:
+                # Read data from the disk
+                data.append(self.read_data(data_line, snt_id, lab2ind=lab2ind))
 
         return data
 
@@ -2011,3 +2016,30 @@ def load_pkl(file):
     """
     with open(file, "rb") as f:
         return pickle.load(f)
+
+
+def put_bos_token(label, bos_index):
+    """Create labels with <bos> token at the beginning.
+    Arguments
+    ---------
+    label : torch.IntTensor
+        Containing the original labels. Must be of size: [batch_size, max_length]
+    bos_index : int
+        The index for <bos> token.
+    Returns
+    -------
+    new_label : The new label with <bos> at the beginning.
+    Example:
+    >>> label=torch.LongTensor([[1,0,0], [2,3,0], [4,5,6]])
+    >>> new_label=put_bos_token(label, bos_index=7)
+    >>> new_label
+    tensor([[7, 1, 0, 0],
+            [7, 2, 3, 0],
+            [7, 4, 5, 6]])
+    """
+    new_label = label.long().clone()
+    batch_size = label.shape[0]
+
+    bos = new_label.new_zeros(batch_size, 1).fill_(bos_index)
+    new_label = torch.cat([bos, new_label], dim=1)
+    return new_label
