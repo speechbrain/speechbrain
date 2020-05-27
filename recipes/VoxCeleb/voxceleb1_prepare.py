@@ -56,7 +56,7 @@ class VoxCelebPreparer:
         rand_seed=1234,
     ):
 
-        self.data_folder = os.path.join(data_folder, "wav")
+        self.data_folder = os.path.join(data_folder, "wav/")
         self.iden_meta_file = os.path.join(data_folder, "meta/iden_split.txt")
         self.splits = splits
         self.vad = vad
@@ -75,10 +75,10 @@ class VoxCelebPreparer:
         }
 
         # Split data into 90% train and 10% validation (verification split)
-        # wav_lst_train, wav_lst_dev = self._get_data_split()
+        wav_lst_train, wav_lst_dev = self._get_data_split()
 
         # Split data according to identification split
-        wav_lst_train, wav_lst_dev = self._get_data_iden_split()
+        # wav_lst_train, wav_lst_dev = self._get_data_iden_split()
 
         if not os.path.exists(self.save_folder):
             os.makedirs(self.save_folder)
@@ -150,23 +150,24 @@ class VoxCelebPreparer:
 
         return train_wav_lst, test_wav_lst
 
-    # Can be used for verification split
+    # Used for verification split
     def _get_data_split(self):
         """
         Splits the audio file list into train (90%) and dev(10%).
-        This function is useful in case using verification split
+        This function is useful when using verification split
         """
         audio_files_list = [
             f for f in glob.glob(self.data_folder + "**/*.wav", recursive=True)
         ]
         random.shuffle(audio_files_list)
-
+        # print ('self.data_folder . .', self.data_folder)
+        # print ('asdasdsadsa ...', audio_files_list)
         train_lst = audio_files_list[: int(0.9 * len(audio_files_list))]
         dev_lst = audio_files_list[int(0.9 * len(audio_files_list)) :]
 
         return train_lst, dev_lst
 
-    # Useful in case using identification splits
+    # When using identification splits
     def _prepare_wav_list_from_iden(self):
         """
         Prepares list of audio files given data_folder
@@ -224,8 +225,7 @@ class VoxCelebPreparer:
         num_chunks = int(
             audio_duration * 100 / self.seg_dur
         )  # all in milliseconds
-        # print(num_chunks)
-        # print (audio_duration, self.seg_dur, num_chunks)
+
         chunk_lst = [
             audio_id
             + "_"
@@ -256,15 +256,6 @@ class VoxCelebPreparer:
         -------
         None
 
-        Example
-        -------
-        # Sample output csv list
-        id10001---1zcIwhmdeo4---00001,8.1200625, \
-              /home/nauman/datasets/VoxCeleb1/id10001/ \
-              1zcIwhmdeo4/00001.wav,wav, ,id10001,string,
-        id10002---xTV-jFAUKcw---00001,5.4400625, \
-              /home/nauman/datasets/VoxCeleb1/id10002/ \
-              xTV-jFAUKcw/00001.wav,wav, ,id10002,string,
         """
 
         # Adding some Prints
