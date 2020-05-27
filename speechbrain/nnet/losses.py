@@ -74,6 +74,13 @@ class ComputeCost(nn.Module):
                 raise ValueError("Must pass blank index for CTC")
             self.blank_index = blank_index
             self.cost = nn.CTCLoss(blank=self.blank_index)
+
+        if cost_type == "ctc_kd":
+            if blank_index is None:
+                raise ValueError("Must pass blank index for CTC")
+            self.blank_index = blank_index
+            self.cost = nn.CTCLoss(blank=self.blank_index)
+
         if cost_type == "transducer":
             from speechbrain.nnet.transducer.transducer_loss import (
                 TransducerLoss,
