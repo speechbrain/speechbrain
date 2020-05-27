@@ -17,16 +17,18 @@ class Embedding(nn.Module):
     Arguments
     ---------
     num_embeddings : int
-        size of the dictionary of embeddings
+        size of the dictionary of embeddings.
     embeddings_dim : int
-        it is the dim of embedding (i.e, the dimensionality of the output)
-    consider_as_one_hot: bool - create non-trainable one-hot vect
+        it is the dim of embedding (i.e, the dimensionality of the output).
+    consider_as_one_hot: bool - create non-trainable one-hot vector.
     blank_id: int
-        if consider_as_one_hot == True: consider the embedding as one_hot and use blank_index as zero one_hot vector
+        if consider_as_one_hot == True: consider the embedding as one_hot
+        and use blank_index as zero one_hot vector.
 
     Example
     -------
     >>> from speechbrain.nnet.embedding import Embedding
+    >>> import torch
     >>> emb = Embedding(num_embeddings=40, embeddings_dim=39, consider_as_one_hot=True, blank_id=39)
     >>> inputs = torch.Tensor([10,5,2,0,39]).long()
     >>> output = emb(inputs, init_params=True)
@@ -48,6 +50,10 @@ class Embedding(nn.Module):
             [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
              0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
              0., 0., 0.]])
+    >>> emb = Embedding(num_embeddings=5, embeddings_dim=3, consider_as_one_hot=False)
+    >>> e = emb(torch.LongTensor([[0, 1, 2], [3, 4, 2]]), init_params=True)
+    >>> e.shape
+    torch.Size([2, 3, 3])
      """
 
     def __init__(
