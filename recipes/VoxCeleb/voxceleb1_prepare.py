@@ -153,6 +153,7 @@ class VoxCelebPreparer:
     # Used for verification split
     def _get_data_split(self):
         """
+        Tot. number of speakers = 1211.
         Splits the audio file list into train (90%) and dev(10%).
         This function is useful when using verification split
         """
@@ -160,14 +161,11 @@ class VoxCelebPreparer:
             f for f in glob.glob(self.data_folder + "**/*.wav", recursive=True)
         ]
         random.shuffle(audio_files_list)
-        # print ('self.data_folder . .', self.data_folder)
-        # print ('asdasdsadsa ...', audio_files_list)
         train_lst = audio_files_list[: int(0.9 * len(audio_files_list))]
         dev_lst = audio_files_list[int(0.9 * len(audio_files_list)) :]
 
         return train_lst, dev_lst
 
-    # When using identification splits
     def _prepare_wav_list_from_iden(self):
         """
         Prepares list of audio files given data_folder

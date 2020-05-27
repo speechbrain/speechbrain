@@ -1,5 +1,5 @@
 # Basic parameters
-data_folder: /Users/nauman/Desktop/Mila/nauman/data_folder/
+data_folder: /network/home/dawalatn/nauman/data_folder/
 sample_rate: 16000
 seed: 1234
 output_folder: !ref results/<seed>
@@ -16,10 +16,10 @@ vad: False
 splits: ["train", "dev"]
 
 # Neural Parameters
-number_of_epochs: 10
-batch_size_: 6
+number_of_epochs: 50
+batch_size_: 256
 lr: 0.002
-device: 'cpu'
+device: 'cuda:0'
 
 # Functions
 compute_features: !new:speechbrain.lobes.features.fbank.Fbank
@@ -53,7 +53,7 @@ mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
 
 linear: !new:speechbrain.nnet.linear.Linear
-    n_neurons: 2
+    n_neurons: 1211
     bias: True
 
 softmax: !new:speechbrain.nnet.activations.Softmax

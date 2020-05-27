@@ -17,10 +17,12 @@ from voxceleb1_prepare import VoxCelebPreparer  # noqa E402
 
 # Load hyperparameters file with command-line overrides
 params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
+
 if "seed" in overrides:
     torch.manual_seed(overrides["seed"])
 with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(fin, overrides)
+
 
 # Creating directory for experiments
 sb.core.create_experiment_directory(
@@ -55,11 +57,14 @@ data_prepare = VoxCelebPreparer(
 )
 data_prepare()
 
+print("Completed Data Preparation....")
+
 
 # Trains xvector model
 class XvectorBrain(sb.core.Brain):
     def compute_forward(self, x, train_mode=True, init_params=False):
         id, wavs, lens = x
+        wavs, lens = wavs.to(params.device), lens.to(params.device)
 
         feats = params.compute_features(wavs, init_params)
         feats = params.mean_var_norm(feats, lens)
@@ -74,26 +79,18 @@ class XvectorBrain(sb.core.Brain):
     def compute_objectives(self, predictions, targets, train_mode=True):
         predictions, lens = predictions
         uttid, spkid, _ = targets
+        spkid, lens = spkid.to(params.device), lens.to(params.device)
 
         loss = params.compute_cost(predictions, spkid, lens)
-        error = params.compute_error(predictions, spkid, lens)
 
         if not train_mode:
             stats = {"error": params.compute_error(predictions, spkid, lens)}
             return loss, stats
 
-        return loss, error
-
-    def fit_batch(self, batch):
-        inputs, targets = batch
-        predictions = self.compute_forward(inputs)
-        loss, error = self.compute_objectives(predictions, targets)
-        loss.backward()
-        self.optimizer(self.modules)
-
-        return {"loss": loss.detach(), "error": error.detach()}
+        return loss
 
     def on_epoch_end(self, epoch, train_stats, valid_stats):
+        print("Epoch %d complete" % epoch)
         epoch_stats = {"epoch": epoch, "lr": params.lr}
         train_logger.log_stats(epoch_stats, train_stats, valid_stats)
         checkpointer.save_and_keep_only()
@@ -108,6 +105,7 @@ class Extractor(Sequential):
 
     def extract(self, x, model):
         id, wavs, lens = x
+        wavs, lens = wavs.to(params.device), lens.to(params.device)
 
         feats = params.compute_features(wavs, init_params=False)
         feats = params.mean_var_norm(feats, lens)
@@ -136,7 +134,7 @@ xvect_brain.fit(
     params.epoch_counter, train_set=train_set, valid_set=valid_set,
 )
 
-print("Running Xvector Extractor")
+print("Running Xvector Extractor for a Sample")
 
 # Copy the trained model partially to obtain embeddings
 model_a = nn.Sequential(
