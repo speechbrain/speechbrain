@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import os
 import sys
-import torch
 import speechbrain as sb
 import speechbrain.data_io.wer as wer_io
 import speechbrain.utils.edit_distance as edit_distance
@@ -14,12 +13,10 @@ from speechbrain.utils.train_logger import summarize_error_rate
 # This hack needed to import data preparation script from ..
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(current_dir))
-from timit_prepare import TIMITPreparer  # noqa E402
+from timit_prepare import prepare_timit  # noqa E402
 
 # Load hyperparameters file with command-line overrides
 params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
-if "seed" in overrides:
-    torch.manual_seed(overrides["seed"])
 with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(fin, overrides)
 
@@ -78,15 +75,14 @@ class ASR(sb.core.Brain):
 
 
 # Prepare data
-prepare = TIMITPreparer(
+prepare_timit(
     data_folder=params.data_folder,
     splits=["train", "dev", "test"],
     save_folder=params.data_folder,
 )
-prepare()
 train_set = params.train_loader()
 valid_set = params.valid_loader()
-first_x, first_y = next(zip(*train_set))
+first_x, first_y = next(iter(train_set))
 
 # Modules are passed to optimizer and have train/eval called on them
 modules = [params.model, params.output]

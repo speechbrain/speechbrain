@@ -1,6 +1,4 @@
-block_index: 1
-sequence: [rnn]
-
+block_index: !PLACEHOLDER
 rnn: !new:speechbrain.nnet.RNN.RNN
     rnn_type: lstm
     n_neurons: 512

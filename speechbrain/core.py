@@ -13,7 +13,7 @@ import argparse
 import subprocess
 import speechbrain as sb
 from datetime import date
-from tqdm.contrib import tzip
+from tqdm.contrib import tqdm
 from speechbrain.utils.logger import setup_logging
 from speechbrain.utils.data_utils import recursive_update
 
@@ -260,8 +260,9 @@ class Brain:
     ... )
     >>> brain.fit(
     ...     epoch_counter=range(1),
-    ...     train_set=([torch.rand(10, 10)], [torch.rand(10, 10)]),
+    ...     train_set=([torch.rand(10, 10),torch.rand(10, 10)],)
     ... )
+    ({'loss': [tensor(...)]}, {})
     """
 
     def __init__(self, modules=None, optimizer=None, first_inputs=None):
@@ -404,11 +405,16 @@ class Brain:
             a list of datasets to use for training, zipped before iterating.
         valid_set : list of Data Loaders
             a list of datasets to use for validation, zipped before iterating.
+
+        Returns
+        -------
+        The train stats and validation stats from the last epoch
         """
+        train_stats, valid_stats = {}, {}
         for epoch in epoch_counter:
             self.modules.train()
             train_stats = {}
-            for batch in tzip(*train_set):
+            for batch in tqdm(train_set):
                 stats = self.fit_batch(batch)
                 self.add_stats(train_stats, stats)
 
@@ -416,11 +422,13 @@ class Brain:
             if valid_set is not None:
                 self.modules.eval()
                 with torch.no_grad():
-                    for batch in tzip(*valid_set):
+                    for batch in tqdm(valid_set):
                         stats = self.evaluate_batch(batch, test_mode=False)
                         self.add_stats(valid_stats, stats)
 
             self.on_epoch_end(epoch, train_stats, valid_stats)
+
+        return train_stats, valid_stats
 
     def evaluate(self, test_set):
         """Iterate test_set and evaluate brain performance.
@@ -433,7 +441,7 @@ class Brain:
         test_stats = {}
         self.modules.eval()
         with torch.no_grad():
-            for batch in tzip(*test_set):
+            for batch in tqdm(test_set):
                 stats = self.evaluate_batch(batch, test_mode=True)
                 self.add_stats(test_stats, stats)
 

@@ -59,4 +59,4 @@ jobs:
                   pytest --doctest-modules speechbrain
             - name: Integration tests with pytest
               run: |
-                  pytest recipes/minimal_examples
+                  pytest tests/integration
