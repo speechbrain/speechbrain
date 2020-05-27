@@ -40,7 +40,8 @@ test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
         $data_folder: !ref <data_folder>
 
 compute_features: !new:speechbrain.lobes.features.mfcc.MFCC
-    context_window: {left_frames: 1, right_frames: 1}
+    left_frames: 1
+    right_frames: 1
 
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: global

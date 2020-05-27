@@ -11,7 +11,9 @@ import logging
 import inspect
 import argparse
 import subprocess
+import ruamel.yaml
 import speechbrain as sb
+from io import StringIO
 from datetime import date
 from tqdm.contrib import tqdm
 from speechbrain.utils.logger import setup_logging
@@ -64,10 +66,8 @@ def create_experiment_directory(
         shutil.copy(callingfile, experiment_directory)
 
     # Log exceptions to output automatically
-    log_filepath = os.path.join(experiment_directory, "log.txt")
-    logger_overrides = parse_overrides(
-        "{handlers.file_handler.filename: %s}" % log_filepath
-    )
+    log_file = os.path.join(experiment_directory, "log.txt")
+    logger_overrides = {"handlers": {"file_handler": {"filename": log_file}}}
     setup_logging(log_config, logger_overrides)
     sys.excepthook = _logging_excepthook
 
@@ -84,7 +84,7 @@ def _logging_excepthook(exc_type, exc_value, exc_traceback):
 
 
 def parse_arguments(arg_list):
-    """Parse command-line arguments to the experiment.
+    r"""Parse command-line arguments to the experiment.
 
     Arguments
     ---------
@@ -97,7 +97,7 @@ def parse_arguments(arg_list):
     >>> filename
     'params.yaml'
     >>> overrides
-    {'seed': 10}
+    'seed: 10\n'
     """
     parser = argparse.ArgumentParser(
         description="Run a SpeechBrain experiment",
@@ -144,70 +144,22 @@ def parse_arguments(arg_list):
     del parsed_args["param_file"]
 
     # Convert yaml_overrides to dictionary
+    yaml_overrides = ""
     if parsed_args["yaml_overrides"] is not None:
-        overrides = parse_overrides(parsed_args["yaml_overrides"])
+        yaml_overrides = parsed_args["yaml_overrides"]
         del parsed_args["yaml_overrides"]
-        recursive_update(parsed_args, overrides)
 
     # Only return non-empty items
-    return param_file, {k: v for k, v in parsed_args.items() if v is not None}
+    items = {k: v for k, v in parsed_args.items() if v is not None}
 
+    # Convert to string and append to overrides
+    ruamel_yaml = ruamel.yaml.YAML()
+    overrides = ruamel_yaml.load(yaml_overrides) or {}
+    recursive_update(overrides, items)
+    yaml_stream = StringIO()
+    ruamel_yaml.dump(overrides, yaml_stream)
 
-def parse_overrides(override_string):
-    """Parse overrides from a yaml string representing paired args and values.
-
-    Arguments
-    ---------
-    override_string: str
-        A yaml-formatted string, where each (key: value) pair
-        overrides the same pair in a loaded file.
-
-    Example
-    -------
-    >>> parse_overrides("{model.arg1: val1, model.arg2.arg3: 3.}")
-    {'model': {'arg1': 'val1', 'arg2': {'arg3': 3.0}}}
-    """
-    preview = {}
-    if override_string:
-        preview = sb.yaml.load_extended_yaml(override_string)
-
-    overrides = {}
-    for arg, val in preview.__dict__.items():
-        if "." in arg:
-            nest(overrides, arg.split("."), val)
-        else:
-            overrides[arg] = val
-
-    return overrides
-
-
-def nest(dictionary, args, val):
-    """Create a nested sequence of dictionaries, based on an arg list.
-
-    Arguments
-    ---------
-    dictionary : dict
-        this object will be updated with the nested arguments.
-    args : list
-        a list of parameters specifying a nested location.
-    val : obj
-        The value to store at the specified nested location.
-
-    Example
-    -------
-    >>> params = {}
-    >>> nest(params, ['arg1', 'arg2', 'arg3'], 'value')
-    >>> params
-    {'arg1': {'arg2': {'arg3': 'value'}}}
-    """
-    if len(args) == 1:
-        dictionary[args[0]] = val
-        return
-
-    if args[0] not in dictionary:
-        dictionary[args[0]] = {}
-
-    nest(dictionary[args[0]], args[1:], val)
+    return param_file, yaml_stream.getvalue()
 
 
 class Brain:
