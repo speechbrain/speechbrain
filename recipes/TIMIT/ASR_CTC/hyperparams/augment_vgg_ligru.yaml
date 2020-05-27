@@ -30,30 +30,40 @@ n_fft: 400
 n_mels: 40
 
 # Model parameters
+activation: !name:torch.nn.LeakyReLU []
 dropout: 0.15
-cnn_channels: 128
+cnn_blocks: 2
+cnn_channels: (128, 256)
+cnn_kernelsize: (3, 3)
+rnn_layers: 4
+rnn_type: ligru
 rnn_neurons: 512
+rnn_bidirectional: True
+dnn_blocks: 2
 dnn_neurons: 512
+
+# Outputs
+output_neurons: 40
+blank_index: !ref <output_neurons> - 1
+
 
 # Functions
 model: !new:speechbrain.lobes.models.CRDNN.CRDNN
-    cnn_blocks: 2
-    cnn_overrides:
-        channels: !ref <cnn_channels>
-        dropout: {drop_rate: !ref <dropout>}
-    rnn_overrides:
-        rnn:
-            rnn_type: ligru
-            n_neurons: !ref <rnn_neurons>
-            dropout: !ref <dropout>
-    dnn_blocks: 2
-    dnn_overrides:
-        linear: {n_neurons: !ref <dnn_neurons>}
-        dropout: {drop_rate: !ref <dropout>}
+    activation: !ref <activation>
+    dropout: !ref <dropout>
+    cnn_blocks: !ref <cnn_blocks>
+    cnn_channels: !ref <cnn_channels>
+    cnn_kernelsize: !ref <cnn_kernelsize>
     time_pooling: True
+    rnn_layers: !ref <rnn_layers>
+    rnn_type: !ref <rnn_type>
+    rnn_neurons: !ref <rnn_neurons>
+    rnn_bidirectional: !ref <rnn_bidirectional>
+    dnn_blocks: !ref <dnn_blocks>
+    dnn_neurons: !ref <dnn_neurons>
 
 output: !new:speechbrain.nnet.linear.Linear
-    n_neurons: 40
+    n_neurons: !ref <output_neurons>
     bias: True
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
@@ -80,6 +90,7 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 
 augmentation: !new:speechbrain.lobes.augment.tdsa.TimeDomainSpecAugment
     sample_rate: !ref <sample_rate>
+    speeds: [95, 100, 105]
 
 compute_features: !new:speechbrain.lobes.features.fbank.Fbank
     sample_rate: !ref <sample_rate>
@@ -109,7 +120,7 @@ test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
 
 compute_cost: !new:speechbrain.nnet.losses.ComputeCost
     cost_type: ctc
-    blank_index: 39
+    blank_index: !ref <blank_index>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
