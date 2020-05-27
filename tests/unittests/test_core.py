@@ -1,30 +1,11 @@
-def test_nest():
-    from speechbrain.core import nest
-
-    params = {"a": {"b": "c"}}
-    nest(params, ["a", "b"], "d")
-    assert params == {"a": {"b": "d"}}
-    nest(params, ["a", "c"], "e")
-    assert params == {"a": {"b": "d", "c": "e"}}
-    nest(params, ["a", "b"], {"d": "f"})
-    assert params == {"a": {"b": {"d": "f"}, "c": "e"}}
-
-
 def test_parse_arguments():
     from speechbrain.core import parse_arguments
 
-    filename, args = parse_arguments(
+    filename, overrides = parse_arguments(
         ["params.yaml", "--seed", "3", "--data_folder", "TIMIT"]
     )
     assert filename == "params.yaml"
-    assert args == {"seed": 3, "data_folder": "TIMIT"}
-
-
-def test_parse_overrides():
-    from speechbrain.core import parse_overrides
-
-    overrides = parse_overrides("{model.arg1: 1, model.arg2: 2}")
-    assert overrides == {"model": {"arg1": 1, "arg2": 2}}
+    assert overrides == "data_folder: TIMIT\nseed: 3\n"
 
 
 def test_brain():
