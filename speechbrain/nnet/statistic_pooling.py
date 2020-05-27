@@ -29,7 +29,7 @@ class StatisticsPooling(nn.Module):
     """
 
     def __init__(self):
-        self.eps = 1e-7
+        self.eps = 1e-5
         super(StatisticsPooling, self).__init__()
 
     def _get_gauss_noise(self, shape_of_tensor):
@@ -57,6 +57,8 @@ class StatisticsPooling(nn.Module):
         """
         mean = x.mean(dim=1)
         gnoise = self._get_gauss_noise(mean.size())
+        if torch.cuda.is_available():
+            gnoise = gnoise.to(device="cuda:0")
         mean += gnoise
         std = x.std(dim=1) + self.eps
         pooled_stats = torch.cat((mean, std), dim=1)
