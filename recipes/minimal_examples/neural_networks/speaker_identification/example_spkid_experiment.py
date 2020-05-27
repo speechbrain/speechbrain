@@ -13,7 +13,7 @@ with open(params_file) as fin:
 
 
 class SpkIdBrain(sb.core.Brain):
-    def compute_forward(self, x, train_mode=True, init_params=False):
+    def compute_forward(self, x, stage="train", init_params=False):
         id, wavs, lens = x
         feats = params.compute_features(wavs, init_params)
         feats = params.mean_var_norm(feats, lens)
@@ -26,12 +26,12 @@ class SpkIdBrain(sb.core.Brain):
 
         return outputs, lens
 
-    def compute_objectives(self, predictions, targets, train_mode=True):
+    def compute_objectives(self, predictions, targets, stage="train"):
         predictions, lens = predictions
         uttid, spkid, _ = targets
         loss = params.compute_cost(predictions, spkid, lens)
 
-        if not train_mode:
+        if stage != "train":
             stats = {"error": params.compute_error(predictions, spkid, lens)}
             return loss, stats
 

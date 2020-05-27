@@ -17,8 +17,7 @@ if params.use_tensorboard:
 
 
 class AutoBrain(sb.core.Brain):
-    def compute_forward(self, x, train_mode=True, init_params=False):
-        print(x)
+    def compute_forward(self, x, init_params=False):
         id, wavs, lens = x
         feats = params.compute_features(wavs, init_params)
         feats = params.mean_var_norm(feats, lens)
@@ -29,7 +28,7 @@ class AutoBrain(sb.core.Brain):
 
         return decoded
 
-    def compute_objectives(self, predictions, targets, train_mode=True):
+    def compute_objectives(self, predictions, targets):
         id, wavs, lens = targets
         feats = params.compute_features(wavs, init_params=False)
         feats = params.mean_var_norm(feats, lens)
@@ -46,7 +45,7 @@ class AutoBrain(sb.core.Brain):
     def evaluate_batch(self, batch, test_mode=False):
         inputs = batch[0]
         predictions = self.compute_forward(inputs)
-        loss = self.compute_objectives(predictions, inputs, train_mode=False)
+        loss = self.compute_objectives(predictions, inputs)
         return {"loss": loss.detach()}
 
     def on_epoch_end(self, epoch, train_stats, valid_stats):
