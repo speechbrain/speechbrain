@@ -5,7 +5,7 @@ Authors: Mirco Ravanelli 2020, Peter Plantinga 2020, Ju-Chieh Chou 2020,
 """
 import torch
 from speechbrain.nnet.RNN import RNN
-from speechbrain.nnet.CNN import Conv
+from speechbrain.nnet.CNN import Conv2d
 from speechbrain.nnet.linear import Linear
 from speechbrain.nnet.pooling import Pooling
 from speechbrain.nnet.dropout import Dropout2d
@@ -80,13 +80,13 @@ class CRDNN(Sequential):
         for block_index in range(cnn_blocks):
             blocks.extend(
                 [
-                    Conv(
+                    Conv2d(
                         out_channels=cnn_channels[block_index],
                         kernel_size=cnn_kernelsize,
                     ),
                     BatchNorm2d(),
                     activation(),
-                    Conv(
+                    Conv2d(
                         out_channels=cnn_channels[block_index],
                         kernel_size=cnn_kernelsize,
                     ),
