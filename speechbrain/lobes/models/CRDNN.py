@@ -187,9 +187,11 @@ class CRDNN(torch.nn.Module):
         x : tensor
             the input tensor to run through the network.
         """
-        for l in range(self.layers):
+        for layer in range(self.layers):
             try:
-                x = getattr(self, "layer" + str(l))(x, init_params=init_params)
+                x = getattr(self, "layer" + str(layer))(
+                    x, init_params=init_params
+                )
             except TypeError:
-                x = getattr(self, "layer" + str(l))(x)
+                x = getattr(self, "layer" + str(layer))(x)
         return x
