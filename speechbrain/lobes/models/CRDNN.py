@@ -1,7 +1,7 @@
 """A popular speech model.
 
 Authors: Mirco Ravanelli 2020, Peter Plantinga 2020, Ju-Chieh Chou 2020,
-    Titouan Parcollet 2020, Abdel 2020
+    Titouan Parcollet 2020, Abdel HEBA 2020
 """
 import torch
 from speechbrain.nnet.RNN import RNN
@@ -9,11 +9,10 @@ from speechbrain.nnet.CNN import Conv
 from speechbrain.nnet.linear import Linear
 from speechbrain.nnet.pooling import Pooling
 from speechbrain.nnet.dropout import Dropout
-from speechbrain.nnet.containers import Sequential
 from speechbrain.nnet.normalization import Normalize
 
 
-class CRDNN(Sequential):
+class CRDNN(torch.nn.Module):
     """This model is a combination of CNNs, RNNs, and DNNs.
 
     The default CNN model is based on VGG.
@@ -75,59 +74,122 @@ class CRDNN(Sequential):
         dnn_blocks=2,
         dnn_neurons=512,
     ):
-        blocks = []
+        super().__init__()
+        self.layers = 0
 
         for block_index in range(cnn_blocks):
-            blocks.extend(
-                [
-                    Conv(
-                        out_channels=cnn_channels[block_index],
-                        kernel_size=cnn_kernelsize,
-                    ),
-                    Normalize(norm_type="batchnorm"),
-                    activation(),
-                    Conv(
-                        out_channels=cnn_channels[block_index],
-                        kernel_size=cnn_kernelsize,
-                    ),
-                    Normalize(norm_type="batchnorm"),
-                    activation(),
-                    Pooling(pool_type="max", kernel_size=2, stride=2),
-                    Dropout(drop_rate=dropout),
-                ]
+            setattr(
+                self,
+                "layer" + str(self.layers),
+                Conv(
+                    out_channels=cnn_channels[block_index],
+                    kernel_size=cnn_kernelsize,
+                ),
             )
+            self.layers += 1
+
+            setattr(
+                self,
+                "layer" + str(self.layers),
+                Normalize(norm_type="batchnorm"),
+            )
+            self.layers += 1
+
+            setattr(self, "layer" + str(self.layers), activation())
+            self.layers += 1
+
+            setattr(
+                self,
+                "layer" + str(self.layers),
+                Conv(
+                    out_channels=cnn_channels[block_index],
+                    kernel_size=cnn_kernelsize,
+                ),
+            )
+            self.layers += 1
+
+            setattr(
+                self,
+                "layer" + str(self.layers),
+                Normalize(norm_type="batchnorm"),
+            )
+            self.layers += 1
+
+            setattr(self, "layer" + str(self.layers), activation())
+            self.layers += 1
+
+            setattr(
+                self,
+                "layer" + str(self.layers),
+                Pooling(pool_type="max", kernel_size=2, stride=2),
+            )
+            self.layers += 1
+
+            setattr(
+                self, "layer" + str(self.layers), Dropout(drop_rate=dropout)
+            )
+            self.layers += 1
 
         if time_pooling:
-            blocks.append(
+            setattr(
+                self,
+                "layer" + str(self.layers),
                 Pooling(
                     pool_type="max",
                     stride=time_pooling_stride,
                     kernel_size=time_pooling_size,
                     pool_axis=1,
-                )
+                ),
             )
+            self.layers += 1
 
         if rnn_layers > 0:
-            blocks.append(
+            setattr(
+                self,
+                "layer" + str(self.layers),
                 RNN(
                     rnn_type=rnn_type,
                     n_neurons=rnn_neurons,
                     num_layers=rnn_layers,
                     dropout=dropout,
                     bidirectional=rnn_bidirectional,
-                )
+                ),
             )
+            self.layers += 1
 
         for block_index in range(dnn_blocks):
-            blocks.extend(
-                [
-                    Linear(
-                        n_neurons=dnn_neurons, bias=True, combine_dims=False,
-                    ),
-                    Normalize(norm_type="batchnorm"),
-                    activation(),
-                    Dropout(drop_rate=dropout),
-                ]
+            setattr(
+                self,
+                "layer" + str(self.layers),
+                Linear(n_neurons=dnn_neurons, bias=True, combine_dims=False,),
             )
+            self.layers += 1
 
-        super().__init__(*blocks)
+            setattr(
+                self,
+                "layer" + str(self.layers),
+                Normalize(norm_type="batchnorm"),
+            )
+            self.layers += 1
+
+            setattr(self, "layer" + str(self.layers), activation())
+            self.layers += 1
+
+            setattr(
+                self, "layer" + str(self.layers), Dropout(drop_rate=dropout)
+            )
+            self.layers += 1
+
+    def forward(self, x, init_params=False):
+        """
+        Arguments
+        ---------
+        x : tensor
+            the input tensor to run through the network.
+        """
+        for l in range(self.layers):
+            try:
+                x = getattr(self, "layer" + str(l))(x, init_params=init_params)
+            except TypeError:
+                x = getattr(self, "layer" + str(l))(x)
+        return x
