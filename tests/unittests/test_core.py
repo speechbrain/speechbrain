@@ -20,7 +20,7 @@ def test_brain():
             return model(x)
 
         def compute_objectives(self, predictions, targets, train_mode=True):
-            return torch.nn.functional.l1_loss(predictions, targets)
+            return torch.nn.functional.l1_loss(predictions, targets), {}
 
     inputs = torch.rand(10, 10)
     brain = SimpleBrain(

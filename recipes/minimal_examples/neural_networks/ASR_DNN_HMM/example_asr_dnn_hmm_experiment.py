@@ -25,16 +25,16 @@ class ASR_Brain(sb.core.Brain):
         return outputs, lens
 
     def compute_objectives(self, predictions, targets, train_mode=True):
-        predictions, lens = predictions
+        outputs, lens = predictions
         ids, ali, ali_lens = targets
-        loss = params.compute_cost(predictions, ali, [lens, ali_lens])
+        lens = [lens, ali_lens]
+        loss = params.compute_cost(outputs, ali, lens)
 
+        stats = {}
         if not train_mode:
-            err = params.compute_error(predictions, ali, [lens, ali_lens])
-            stats = {"error": err}
-            return loss, stats
+            stats["error"] = params.compute_error(outputs, ali, lens)
 
-        return loss
+        return loss, stats
 
     def on_epoch_end(self, epoch, train_stats, valid_stats):
         print("Epoch %d complete" % epoch)

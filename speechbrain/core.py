@@ -203,7 +203,7 @@ class Brain:
     ...     def compute_forward(self, x, init_params=False):
     ...         return self.modules[0](x)
     ...     def compute_objectives(self, predictions, targets, train=True):
-    ...         return torch.nn.functional.l1_loss(predictions, targets)
+    ...         return torch.nn.functional.l1_loss(predictions, targets), {}
     >>> model = torch.nn.Linear(in_features=10, out_features=10)
     >>> brain = SimpleBrain(
     ...     modules=[model],
@@ -241,6 +241,10 @@ class Brain:
         init_params : bool
             Whether this pass should initialize parameters rather
             than return the results of the forward pass.
+
+        Returns
+        -------
+        A tensor representing the outputs after all processing is complete.
         """
         raise NotImplementedError
 
@@ -257,6 +261,12 @@ class Brain:
             Whether this is computed for training or not. During training,
             sometimes fewer stats will be computed for the sake of efficiency
             (e.g. WER might only be computed for valid and test, not train).
+
+        Returns
+        -------
+        * A tensor with the computed loss
+        * A mapping with additional statistics about the batch
+            (e.g. {"accuracy": .9})
         """
         raise NotImplementedError
 
@@ -291,13 +301,20 @@ class Brain:
         batch : list of torch.Tensors
             batch of data to use for training. Default implementation assumes
             this batch has two elements: inputs and targets.
+
+        Returns
+        -------
+        A dictionary of the same format as `evaluate_batch()` where each item
+        includes a statistic about the batch, including the loss.
+        (e.g. {"loss": 0.1, "accuracy": 0.9})
         """
         inputs, targets = batch
         predictions = self.compute_forward(inputs)
-        loss = self.compute_objectives(predictions, targets)
+        loss, stats = self.compute_objectives(predictions, targets)
         loss.backward()
         self.optimizer(self.modules)
-        return {"loss": loss.detach()}
+        stats["loss"] = loss.detach()
+        return stats
 
     def evaluate_batch(self, batch):
         """Evaluate one batch, override for different procedure than train.
@@ -313,6 +330,12 @@ class Brain:
         batch : list of torch.Tensors
             batch of data to use for evaluation. Default implementation assumes
             this batch has two elements: inputs and targets.
+
+        Returns
+        -------
+        A dictionary of the same format as `fit_batch()` where each item
+        includes a statistic about the batch, including the loss.
+        (e.g. {"loss": 0.1, "accuracy": 0.9})
         """
         inputs, targets = batch
         out = self.compute_forward(inputs, train_mode=False)
@@ -360,7 +383,10 @@ class Brain:
 
         Returns
         -------
-        The train stats and validation stats from the last epoch
+        The train stats and validation stats from the last epoch. The stats
+        take the form of dictionaries where each item has a list of all
+        the statistics from the training or validation pass.
+        (e.g. {"loss": [0.1, 0.2, 0.05], "accuracy": [0.8, 0.8, 0.9]})
         """
         train_stats, valid_stats = {}, {}
         for epoch in epoch_counter:
@@ -389,6 +415,12 @@ class Brain:
         ---------
         test_set : list of DataLoaders
             This list will be zipped before iterating.
+
+        Returns
+        -------
+        The test stats, which takes the form of a dictionary where each item
+        has a list of all the statistics from the test pass.
+        (e.g. {"loss": [0.1, 0.2, 0.05], "accuracy": [0.8, 0.8, 0.9]})
         """
         test_stats = {}
         self.modules.eval()
