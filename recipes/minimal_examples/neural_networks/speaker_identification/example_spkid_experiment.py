@@ -51,13 +51,11 @@ spk_id_brain = SpkIdBrain(
     optimizer=params.optimizer,
     first_inputs=[first_x],
 )
-train_stats, _ = spk_id_brain.fit(
-    range(params.N_epochs), train_set, params.valid_loader()
-)
+spk_id_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
 test_stats = spk_id_brain.evaluate(params.test_loader())
 print("Test error: %.2f" % summarize_average(test_stats["error"]))
 
 
 # Integration test: ensure we overfit the training data
 def test_error():
-    assert summarize_average(train_stats["loss"]) < 0.2
+    assert spk_id_brain.avg_loss < 0.2
