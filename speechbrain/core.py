@@ -214,7 +214,6 @@ class Brain:
     ...     epoch_counter=range(1),
     ...     train_set=([torch.rand(10, 10),torch.rand(10, 10)],)
     ... )
-    ({'loss': [tensor(...)]}, {})
     """
 
     def __init__(self, modules=None, optimizer=None, first_inputs=None):
@@ -389,7 +388,6 @@ class Brain:
         the statistics from the training or validation pass.
         (e.g. {"loss": [0.1, 0.2, 0.05], "accuracy": [0.8, 0.8, 0.9]})
         """
-        train_stats, valid_stats = {}, {}
         for epoch in epoch_counter:
             self.modules.train()
             train_stats = {}
@@ -409,8 +407,6 @@ class Brain:
                         self.add_stats(valid_stats, stats)
 
             self.on_epoch_end(epoch, train_stats, valid_stats)
-
-        return train_stats, valid_stats
 
     def evaluate(self, test_set):
         """Iterate test_set and evaluate brain performance.

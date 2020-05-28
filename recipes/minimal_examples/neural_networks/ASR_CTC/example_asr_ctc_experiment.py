@@ -53,13 +53,11 @@ ctc_brain = CTCBrain(
     optimizer=params.optimizer,
     first_inputs=[first_x],
 )
-train_stats, _ = ctc_brain.fit(
-    range(params.N_epochs), train_set, params.valid_loader()
-)
+ctc_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
 test_stats = ctc_brain.evaluate(params.test_loader())
 print("Test PER: %.2f" % summarize_error_rate(test_stats["PER"]))
 
 
 # Integration test: check that the model overfits the training data
 def test_error():
-    assert summarize_average(train_stats["loss"]) < 3.0
+    assert ctc_brain.avg_loss < 3.0
