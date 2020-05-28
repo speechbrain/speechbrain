@@ -31,13 +31,13 @@ class CTCBrain(sb.core.Brain):
         ids, phns, phn_lens = targets
         loss = params.compute_cost(predictions, phns, [lens, phn_lens])
 
+        stats = {}
         if stage != "train":
             seq = ctc_greedy_decode(predictions, lens, blank_id=-1)
             phns = undo_padding(phns, phn_lens)
-            stats = {"PER": wer_details_for_batch(ids, phns, seq)}
-            return loss, stats
+            stats["PER"] = wer_details_for_batch(ids, phns, seq)
 
-        return loss
+        return loss, stats
 
     def on_epoch_end(self, epoch, train_stats, valid_stats):
         print("Epoch %d complete" % epoch)

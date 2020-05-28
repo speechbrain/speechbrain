@@ -11,7 +11,9 @@ import logging
 import inspect
 import argparse
 import subprocess
+import ruamel.yaml
 import speechbrain as sb
+from io import StringIO
 from datetime import date
 from tqdm.contrib import tqdm
 from speechbrain.utils.logger import setup_logging
@@ -64,10 +66,8 @@ def create_experiment_directory(
         shutil.copy(callingfile, experiment_directory)
 
     # Log exceptions to output automatically
-    log_filepath = os.path.join(experiment_directory, "log.txt")
-    logger_overrides = parse_overrides(
-        "{handlers.file_handler.filename: %s}" % log_filepath
-    )
+    log_file = os.path.join(experiment_directory, "log.txt")
+    logger_overrides = {"handlers": {"file_handler": {"filename": log_file}}}
     setup_logging(log_config, logger_overrides)
     sys.excepthook = _logging_excepthook
 
@@ -84,7 +84,7 @@ def _logging_excepthook(exc_type, exc_value, exc_traceback):
 
 
 def parse_arguments(arg_list):
-    """Parse command-line arguments to the experiment.
+    r"""Parse command-line arguments to the experiment.
 
     Arguments
     ---------
@@ -97,7 +97,7 @@ def parse_arguments(arg_list):
     >>> filename
     'params.yaml'
     >>> overrides
-    {'seed': 10}
+    'seed: 10\n'
     """
     parser = argparse.ArgumentParser(
         description="Run a SpeechBrain experiment",
@@ -144,70 +144,22 @@ def parse_arguments(arg_list):
     del parsed_args["param_file"]
 
     # Convert yaml_overrides to dictionary
+    yaml_overrides = ""
     if parsed_args["yaml_overrides"] is not None:
-        overrides = parse_overrides(parsed_args["yaml_overrides"])
+        yaml_overrides = parsed_args["yaml_overrides"]
         del parsed_args["yaml_overrides"]
-        recursive_update(parsed_args, overrides)
 
     # Only return non-empty items
-    return param_file, {k: v for k, v in parsed_args.items() if v is not None}
+    items = {k: v for k, v in parsed_args.items() if v is not None}
 
+    # Convert to string and append to overrides
+    ruamel_yaml = ruamel.yaml.YAML()
+    overrides = ruamel_yaml.load(yaml_overrides) or {}
+    recursive_update(overrides, items)
+    yaml_stream = StringIO()
+    ruamel_yaml.dump(overrides, yaml_stream)
 
-def parse_overrides(override_string):
-    """Parse overrides from a yaml string representing paired args and values.
-
-    Arguments
-    ---------
-    override_string: str
-        A yaml-formatted string, where each (key: value) pair
-        overrides the same pair in a loaded file.
-
-    Example
-    -------
-    >>> parse_overrides("{model.arg1: val1, model.arg2.arg3: 3.}")
-    {'model': {'arg1': 'val1', 'arg2': {'arg3': 3.0}}}
-    """
-    preview = {}
-    if override_string:
-        preview = sb.yaml.load_extended_yaml(override_string)
-
-    overrides = {}
-    for arg, val in preview.__dict__.items():
-        if "." in arg:
-            nest(overrides, arg.split("."), val)
-        else:
-            overrides[arg] = val
-
-    return overrides
-
-
-def nest(dictionary, args, val):
-    """Create a nested sequence of dictionaries, based on an arg list.
-
-    Arguments
-    ---------
-    dictionary : dict
-        this object will be updated with the nested arguments.
-    args : list
-        a list of parameters specifying a nested location.
-    val : obj
-        The value to store at the specified nested location.
-
-    Example
-    -------
-    >>> params = {}
-    >>> nest(params, ['arg1', 'arg2', 'arg3'], 'value')
-    >>> params
-    {'arg1': {'arg2': {'arg3': 'value'}}}
-    """
-    if len(args) == 1:
-        dictionary[args[0]] = val
-        return
-
-    if args[0] not in dictionary:
-        dictionary[args[0]] = {}
-
-    nest(dictionary[args[0]], args[1:], val)
+    return param_file, yaml_stream.getvalue()
 
 
 class Brain:
@@ -251,7 +203,7 @@ class Brain:
     ...     def compute_forward(self, x, init_params=False):
     ...         return self.modules[0](x)
     ...     def compute_objectives(self, predictions, targets, train=True):
-    ...         return torch.nn.functional.l1_loss(predictions, targets)
+    ...         return torch.nn.functional.l1_loss(predictions, targets), {}
     >>> model = torch.nn.Linear(in_features=10, out_features=10)
     >>> brain = SimpleBrain(
     ...     modules=[model],
@@ -288,6 +240,10 @@ class Brain:
         init_params : bool
             Whether this pass should initialize parameters rather
             than return the results of the forward pass.
+
+        Returns
+        -------
+        A tensor representing the outputs after all processing is complete.
         """
         raise NotImplementedError
 
@@ -302,6 +258,12 @@ class Brain:
             The gold standard to use for evaluation.
         stage : str
             The stage of the training process, one of "train", "valid", "test"
+
+        Returns
+        -------
+        * A tensor with the computed loss
+        * A mapping with additional statistics about the batch
+            (e.g. {"accuracy": .9})
         """
         raise NotImplementedError
 
@@ -336,13 +298,20 @@ class Brain:
         batch : list of torch.Tensors
             batch of data to use for training. Default implementation assumes
             this batch has two elements: inputs and targets.
+
+        Returns
+        -------
+        A dictionary of the same format as `evaluate_batch()` where each item
+        includes a statistic about the batch, including the loss.
+        (e.g. {"loss": 0.1, "accuracy": 0.9})
         """
         inputs, targets = batch
         predictions = self.compute_forward(inputs)
-        loss = self.compute_objectives(predictions, targets)
+        loss, stats = self.compute_objectives(predictions, targets)
         loss.backward()
         self.optimizer(self.modules)
-        return {"loss": loss.detach()}
+        stats["loss"] = loss.detach()
+        return stats
 
     def evaluate_batch(self, batch, stage="test"):
         """Evaluate one batch, override for different procedure than train.
@@ -360,6 +329,12 @@ class Brain:
             this batch has two elements: inputs and targets.
         stage : str
             The stage of the training process, one of "valid", "test"
+
+        Returns
+        -------
+        A dictionary of the same format as `fit_batch()` where each item
+        includes a statistic about the batch, including the loss.
+        (e.g. {"loss": 0.1, "accuracy": 0.9})
         """
         inputs, targets = batch
         out = self.compute_forward(inputs, stage=stage)
@@ -407,7 +382,10 @@ class Brain:
 
         Returns
         -------
-        The train stats and validation stats from the last epoch
+        The train stats and validation stats from the last epoch. The stats
+        take the form of dictionaries where each item has a list of all
+        the statistics from the training or validation pass.
+        (e.g. {"loss": [0.1, 0.2, 0.05], "accuracy": [0.8, 0.8, 0.9]})
         """
         train_stats, valid_stats = {}, {}
         for epoch in epoch_counter:
@@ -436,6 +414,12 @@ class Brain:
         ---------
         test_set : list of DataLoaders
             This list will be zipped before iterating.
+
+        Returns
+        -------
+        The test stats, which takes the form of a dictionary where each item
+        has a list of all the statistics from the test pass.
+        (e.g. {"loss": [0.1, 0.2, 0.05], "accuracy": [0.8, 0.8, 0.9]})
         """
         test_stats = {}
         self.modules.eval()
