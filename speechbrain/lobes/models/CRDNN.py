@@ -144,17 +144,19 @@ class CRDNN(torch.nn.Module):
             self.layers += 1
 
         if rnn_layers > 0:
-            setattr(
-                self,
-                "layer" + str(self.layers),
-                RNN(
-                    rnn_type=rnn_type,
-                    n_neurons=rnn_neurons,
-                    num_layers=rnn_layers,
-                    dropout=dropout,
-                    bidirectional=rnn_bidirectional,
-                ),
-            )
+            for i in range(rnn_layers):
+                setattr(
+                    self,
+                    "layer" + str(self.layers),
+                    RNN(
+                        rnn_type=rnn_type,
+                        n_neurons=rnn_neurons,
+                        num_layers=1,
+                        # num_layers=rnn_layers,
+                        dropout=dropout,
+                        bidirectional=rnn_bidirectional,
+                    ),
+                )
             self.layers += 1
 
         for block_index in range(dnn_blocks):
