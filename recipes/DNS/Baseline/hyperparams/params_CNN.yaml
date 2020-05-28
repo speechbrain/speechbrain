@@ -1,0 +1,97 @@
+# Basic parameters
+data_folder: /mnt/md2/Corpora/DNS-Challenge/
+ckpts_to_keep: 1
+sample_rate: 16000
+seed: 1234  # e.g, 1234
+output_folder: !ref results/baseline/<seed>
+train_log: !ref <output_folder>/train_log.txt
+
+use_tensorboard: True
+tensorboard_logs: !ref logs/baseline/<seed>
+
+# Data files
+csv_folder: ../
+csv_train: !ref <csv_folder>/train.csv
+csv_valid: !ref <csv_folder>/test.csv
+# csv_test: !ref <data_folder>/test.csv
+
+# Neural Parameters
+N_epochs: 100
+N_batch: 8
+lr: 0.0002
+device: cuda:0
+
+train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+  csv_file: !ref <csv_train>
+  batch_size: !ref <N_batch>
+  csv_read: [noisy_wav, clean_wav]
+  cache: False
+  num_workers: 1
+
+valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+  csv_file: !ref <csv_valid>
+  batch_size: !ref <N_batch>
+  csv_read: [noisy_wav, clean_wav]
+
+# test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+#     csv_file: !ref <csv_test>
+#     csv_read: [wav]
+#     replacements:
+#         $data_folder: !ref <data_folder>
+
+compute_features: !new:speechbrain.processing.features.STFT
+  sample_rate: 16000
+  win_length: 32
+  hop_length: 16
+  n_fft: 512
+
+mean_var_norm: !new:speechbrain.processing.features.InputNormalization
+  norm_type: global
+
+conv1: !new:speechbrain.nnet.CNN.Conv
+  out_channels: 2048
+  kernel_size: [5]
+  padding: True
+
+conv2: !new:speechbrain.nnet.CNN.Conv
+  out_channels: 1024
+  kernel_size: [5]
+  padding: True
+
+conv3: !new:speechbrain.nnet.CNN.Conv
+  out_channels: 512
+  kernel_size: [5]
+  padding: True
+
+conv4: !new:speechbrain.nnet.CNN.Conv
+  out_channels: 256
+  kernel_size: [5]
+  padding: True
+
+conv5: !new:speechbrain.nnet.CNN.Conv
+  out_channels: 512
+  kernel_size: [5]
+  padding: True
+
+conv6: !new:speechbrain.nnet.CNN.Conv
+  out_channels: 1024
+  kernel_size: [5]
+  padding: True
+
+conv7: !new:speechbrain.nnet.CNN.Conv
+  out_channels: 2048
+  kernel_size: [5]
+  padding: True
+
+linear: !new:speechbrain.nnet.linear.Linear
+  n_neurons: 257
+  bias: False
+
+activation: !new:torch.nn.LeakyReLU
+
+compute_cost: !new:speechbrain.nnet.losses.ComputeCost
+  cost_type: mse
+
+optimizer: !new:speechbrain.nnet.optimizers.Optimize
+  optimizer_type: adam
+  learning_rate: !ref <lr>
