@@ -8,7 +8,7 @@ from speechbrain.nnet.RNN import RNN
 from speechbrain.nnet.CNN import Conv
 from speechbrain.nnet.linear import Linear
 from speechbrain.nnet.pooling import Pooling
-from speechbrain.nnet.dropout import Dropout
+from speechbrain.nnet.dropout import Dropout2d
 from speechbrain.nnet.containers import Sequential
 from speechbrain.nnet.normalization import BatchNorm1d, BatchNorm2d
 
@@ -93,7 +93,7 @@ class CRDNN(Sequential):
                     BatchNorm2d(),
                     activation(),
                     Pooling(pool_type="max", kernel_size=2, stride=2),
-                    Dropout(drop_rate=dropout),
+                    Dropout2d(drop_rate=dropout),
                 ]
             )
 
@@ -126,7 +126,7 @@ class CRDNN(Sequential):
                     ),
                     BatchNorm1d(),
                     activation(),
-                    Dropout(drop_rate=dropout),
+                    torch.nn.Dropout(p=dropout),
                 ]
             )
 
