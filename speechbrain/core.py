@@ -220,6 +220,7 @@ class Brain:
     def __init__(self, modules=None, optimizer=None, first_inputs=None):
         self.modules = torch.nn.ModuleList(modules)
         self.optimizer = optimizer
+        self.avg_loss = 0.0
 
         # Initialize parameters
         if first_inputs is not None:
@@ -392,9 +393,12 @@ class Brain:
         for epoch in epoch_counter:
             self.modules.train()
             train_stats = {}
-            for batch in tqdm(train_set):
-                stats = self.fit_batch(batch)
-                self.add_stats(train_stats, stats)
+            with tqdm(train_set) as t:
+                for i, batch in enumerate(t):
+                    stats = self.fit_batch(batch)
+                    self.add_stats(train_stats, stats)
+                    average = self.update_average(stats, iteration=i + 1)
+                    t.set_postfix(loss=average)
 
             valid_stats = {}
             if valid_set is not None:
@@ -430,3 +434,28 @@ class Brain:
                 self.add_stats(test_stats, stats)
 
         return test_stats
+
+    def update_average(self, stats, iteration):
+        """Update running average of the loss.
+
+        Arguments
+        ---------
+        stats : dict
+            Result of `compute_objectives()`
+        iteration : int
+            The iteration count.
+
+        Returns
+        -------
+        The average loss as a float
+        """
+        if not torch.isfinite(stats["loss"]):
+            raise ValueError(
+                "Loss is not finite. To debug, wrap `fit()` with `debug_anomaly`"
+                ", e.g.\nwith torch.autograd.detect_anomaly():\n\tbrain.fit(...)"
+            )
+
+        # Compute moving average
+        self.avg_loss -= self.avg_loss / iteration
+        self.avg_loss += float(stats["loss"]) / iteration
+        return self.avg_loss
