@@ -214,12 +214,12 @@ class Brain:
     ...     epoch_counter=range(1),
     ...     train_set=([torch.rand(10, 10),torch.rand(10, 10)],)
     ... )
-    ({'loss': [tensor(...)]}, {})
     """
 
     def __init__(self, modules=None, optimizer=None, first_inputs=None):
         self.modules = torch.nn.ModuleList(modules)
         self.optimizer = optimizer
+        self.avg_train_loss = 0.0
 
         # Initialize parameters
         if first_inputs is not None:
@@ -228,16 +228,15 @@ class Brain:
             if self.optimizer is not None:
                 self.optimizer.init_params(self.modules)
 
-    def compute_forward(self, x, train_mode=True, init_params=False):
+    def compute_forward(self, x, stage="train", init_params=False):
         """Forward pass, to be overridden by sub-classes.
 
         Arguments
         ---------
         x : torch.Tensor or list of tensors
             The input tensor or tensors for processing.
-        train_mode : bool
-            Whether this pass is done in train mode or not. Models such
-            as seq2seq may have different behavior in train and eval.
+        stage : str
+            The stage of the training process, one of "train", "valid", "test"
         init_params : bool
             Whether this pass should initialize parameters rather
             than return the results of the forward pass.
@@ -248,7 +247,7 @@ class Brain:
         """
         raise NotImplementedError
 
-    def compute_objectives(self, predictions, targets, train_mode=True):
+    def compute_objectives(self, predictions, targets, stage="train"):
         """Compute loss, to be overridden by sub-classes.
 
         Arguments
@@ -257,10 +256,8 @@ class Brain:
             The output tensor or tensors to evaluate.
         targets : torch.Tensor or list of tensors
             The gold standard to use for evaluation.
-        train_mode : bool
-            Whether this is computed for training or not. During training,
-            sometimes fewer stats will be computed for the sake of efficiency
-            (e.g. WER might only be computed for valid and test, not train).
+        stage : str
+            The stage of the training process, one of "train", "valid", "test"
 
         Returns
         -------
@@ -317,7 +314,7 @@ class Brain:
         stats["loss"] = loss.detach()
         return stats
 
-    def evaluate_batch(self, batch):
+    def evaluate_batch(self, batch, stage="test"):
         """Evaluate one batch, override for different procedure than train.
 
         The default impementation depends on two methods being defined
@@ -331,6 +328,8 @@ class Brain:
         batch : list of torch.Tensors
             batch of data to use for evaluation. Default implementation assumes
             this batch has two elements: inputs and targets.
+        stage : str
+            The stage of the training process, one of "valid", "test"
 
         Returns
         -------
@@ -339,8 +338,8 @@ class Brain:
         (e.g. {"loss": 0.1, "accuracy": 0.9})
         """
         inputs, targets = batch
-        out = self.compute_forward(inputs, train_mode=False)
-        loss, stats = self.compute_objectives(out, targets, train_mode=False)
+        out = self.compute_forward(inputs, stage=stage)
+        loss, stats = self.compute_objectives(out, targets, stage=stage)
         stats["loss"] = loss.detach()
         return stats
 
@@ -389,25 +388,25 @@ class Brain:
         the statistics from the training or validation pass.
         (e.g. {"loss": [0.1, 0.2, 0.05], "accuracy": [0.8, 0.8, 0.9]})
         """
-        train_stats, valid_stats = {}, {}
         for epoch in epoch_counter:
             self.modules.train()
             train_stats = {}
-            for batch in tqdm(train_set):
-                stats = self.fit_batch(batch)
-                self.add_stats(train_stats, stats)
+            with tqdm(train_set) as t:
+                for i, batch in enumerate(t):
+                    stats = self.fit_batch(batch)
+                    self.add_stats(train_stats, stats)
+                    average = self.update_average(stats, iteration=i + 1)
+                    t.set_postfix(train_loss=average)
 
             valid_stats = {}
             if valid_set is not None:
                 self.modules.eval()
                 with torch.no_grad():
                     for batch in tqdm(valid_set):
-                        stats = self.evaluate_batch(batch)
+                        stats = self.evaluate_batch(batch, stage="valid")
                         self.add_stats(valid_stats, stats)
 
             self.on_epoch_end(epoch, train_stats, valid_stats)
-
-        return train_stats, valid_stats
 
     def evaluate(self, test_set):
         """Iterate test_set and evaluate brain performance.
@@ -427,7 +426,32 @@ class Brain:
         self.modules.eval()
         with torch.no_grad():
             for batch in tqdm(test_set):
-                stats = self.evaluate_batch(batch)
+                stats = self.evaluate_batch(batch, stage="test")
                 self.add_stats(test_stats, stats)
 
         return test_stats
+
+    def update_average(self, stats, iteration):
+        """Update running average of the loss.
+
+        Arguments
+        ---------
+        stats : dict
+            Result of `compute_objectives()`
+        iteration : int
+            The iteration count.
+
+        Returns
+        -------
+        The average loss as a float
+        """
+        if not torch.isfinite(stats["loss"]):
+            raise ValueError(
+                "Loss is not finite. To debug, wrap `fit()` with `debug_anomaly`"
+                ", e.g.\nwith torch.autograd.detect_anomaly():\n\tbrain.fit(...)"
+            )
+
+        # Compute moving average
+        self.avg_train_loss -= self.avg_train_loss / iteration
+        self.avg_train_loss += float(stats["loss"]) / iteration
+        return self.avg_train_loss

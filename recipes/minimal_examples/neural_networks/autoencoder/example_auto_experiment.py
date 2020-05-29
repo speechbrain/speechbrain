@@ -17,7 +17,7 @@ if params.use_tensorboard:
 
 
 class AutoBrain(sb.core.Brain):
-    def compute_forward(self, x, train_mode=True, init_params=False):
+    def compute_forward(self, x, init_params=False):
         id, wavs, lens = x
         feats = params.compute_features(wavs, init_params)
         feats = params.mean_var_norm(feats, lens)
@@ -28,7 +28,7 @@ class AutoBrain(sb.core.Brain):
 
         return decoded
 
-    def compute_objectives(self, predictions, targets, train_mode=True):
+    def compute_objectives(self, predictions, targets):
         id, wavs, lens = targets
         feats = params.compute_features(wavs, init_params=False)
         feats = params.mean_var_norm(feats, lens)
@@ -43,10 +43,10 @@ class AutoBrain(sb.core.Brain):
         self.optimizer.zero_grad()
         return {"loss": loss.detach()}
 
-    def evaluate_batch(self, batch):
+    def evaluate_batch(self, batch, stage="test"):
         inputs = batch[0]
         predictions = self.compute_forward(inputs)
-        loss = self.compute_objectives(predictions, inputs, train_mode=False)
+        loss = self.compute_objectives(predictions, inputs)
         return {"loss": loss.detach()}
 
     def on_epoch_end(self, epoch, train_stats, valid_stats):
@@ -64,13 +64,11 @@ auto_brain = AutoBrain(
     optimizer=params.optimizer,
     first_inputs=first_x,
 )
-train_stats, _ = auto_brain.fit(
-    range(params.N_epochs), train_set, params.valid_loader()
-)
+auto_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
 test_stats = auto_brain.evaluate(params.test_loader())
 print("Test loss: %.3f" % summarize_average(test_stats["loss"]))
 
 
 # Integration test: make sure we are overfitting training data
 def test_loss():
-    assert summarize_average(train_stats["loss"]) < 0.08
+    assert auto_brain.avg_train_loss < 0.08
