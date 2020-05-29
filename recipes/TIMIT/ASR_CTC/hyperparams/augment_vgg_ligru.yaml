@@ -36,7 +36,6 @@ cnn_blocks: 2
 cnn_channels: (128, 256)
 cnn_kernelsize: (3, 3)
 rnn_layers: 4
-rnn_type: ligru
 rnn_neurons: 512
 rnn_bidirectional: True
 dnn_blocks: 2
@@ -56,7 +55,6 @@ model: !new:speechbrain.lobes.models.CRDNN.CRDNN
     cnn_kernelsize: !ref <cnn_kernelsize>
     time_pooling: True
     rnn_layers: !ref <rnn_layers>
-    rnn_type: !ref <rnn_type>
     rnn_neurons: !ref <rnn_neurons>
     rnn_bidirectional: !ref <rnn_bidirectional>
     dnn_blocks: !ref <dnn_blocks>
