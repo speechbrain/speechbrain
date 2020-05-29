@@ -58,4 +58,4 @@ print("Test error: %.2f" % summarize_average(test_stats["error"]))
 
 # Integration test: ensure we overfit the training data
 def test_error():
-    assert spk_id_brain.avg_loss < 0.2
+    assert spk_id_brain.avg_train_loss < 0.2
