@@ -113,8 +113,7 @@ test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     output_folder: !ref <output_folder>
     csv_read: [wav, phn]
 
-compute_cost: !new:speechbrain.nnet.losses.ComputeCost
-    cost_type: ctc
+compute_cost: !name:speechbrain.nnet.losses.ctc_loss
     blank_index: !ref <blank_index>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
