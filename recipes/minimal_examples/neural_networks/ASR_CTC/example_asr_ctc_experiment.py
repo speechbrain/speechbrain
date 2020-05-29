@@ -60,4 +60,4 @@ print("Test PER: %.2f" % summarize_error_rate(test_stats["PER"]))
 
 # Integration test: check that the model overfits the training data
 def test_error():
-    assert ctc_brain.avg_loss < 3.0
+    assert ctc_brain.avg_train_loss < 3.0

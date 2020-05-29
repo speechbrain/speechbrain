@@ -57,4 +57,4 @@ print("Test error: %.2f" % summarize_average(test_stats["error"]))
 
 # Define an integration test of overfitting on the train data
 def test_error():
-    assert asr_brain.avg_loss < 0.2
+    assert asr_brain.avg_train_loss < 0.2

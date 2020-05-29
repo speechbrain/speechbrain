@@ -219,7 +219,7 @@ class Brain:
     def __init__(self, modules=None, optimizer=None, first_inputs=None):
         self.modules = torch.nn.ModuleList(modules)
         self.optimizer = optimizer
-        self.avg_loss = 0.0
+        self.avg_train_loss = 0.0
 
         # Initialize parameters
         if first_inputs is not None:
@@ -396,7 +396,7 @@ class Brain:
                     stats = self.fit_batch(batch)
                     self.add_stats(train_stats, stats)
                     average = self.update_average(stats, iteration=i + 1)
-                    t.set_postfix(loss=average)
+                    t.set_postfix(train_loss=average)
 
             valid_stats = {}
             if valid_set is not None:
@@ -452,6 +452,6 @@ class Brain:
             )
 
         # Compute moving average
-        self.avg_loss -= self.avg_loss / iteration
-        self.avg_loss += float(stats["loss"]) / iteration
-        return self.avg_loss
+        self.avg_train_loss -= self.avg_train_loss / iteration
+        self.avg_train_loss += float(stats["loss"]) / iteration
+        return self.avg_train_loss
