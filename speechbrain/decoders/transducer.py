@@ -44,11 +44,12 @@ def decode_batch(F, decode_network_lst, Tjoint, classif_network_lst, blank_id):
         >>> from speechbrain.nnet.linear import Linear
         >>> TN = RNN(rnn_type="gru", n_neurons=5, num_layers=1, bidirectional=True)
         >>> TN_lin = Linear(n_neurons=35, bias=True)
-        >>> blank_id = 35
-        >>> PN_emb = Embedding(embeddings_dim=35, consider_as_one_hot=True, blank_id=blank_id)
+        >>> blank_id = 34
+        >>> PN_emb = Embedding(num_embeddings=35, consider_as_one_hot=True, blank_id=blank_id)
         >>> PN = RNN(rnn_type="gru", n_neurons=5, num_layers=1, bidirectional=False, return_hidden=True)
         >>> PN_lin = Linear(n_neurons=35, bias=True)
-        >>> Tjoint = Transducer_joint(joint="sum")
+        >>> joint_network= Linear(n_neurons=35, bias=True)
+        >>> Tjoint = Transducer_joint(joint_network, joint="sum", nonlinearity="tanh")
         >>> Out_lin = Linear(n_neurons=35)
         >>> log_softmax = Softmax(apply_log=False)
         >>> inputs = torch.randn((3,40,35))
@@ -58,7 +59,7 @@ def decode_batch(F, decode_network_lst, Tjoint, classif_network_lst, blank_id):
         >>> test_emb = PN_emb(torch.Tensor([[1]]).long(), init_params=True)
         >>> test_PN, _ = PN(test_emb, init_params=True)
         >>> test_PN = PN_lin(test_PN, init_params=True)
-        >>> joint_tensor = Tjoint(TN_out, test_PN)
+        >>> joint_tensor = Tjoint(TN_out, test_PN, init_params=True)
         >>> out = Out_lin(joint_tensor, init_params=True)
         >>> out_decode = decode_batch(TN_out, [PN_emb,PN,PN_lin], Tjoint, [Out_lin,log_softmax], blank_id)
 
