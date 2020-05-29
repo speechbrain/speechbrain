@@ -11,7 +11,7 @@ def test_parse_arguments():
 def test_brain():
     import torch
     from speechbrain.core import Brain
-    from speechbrain.nnet.optimizers import Optimize
+    from speechbrain.nnet.optimizers import SGD_Optimizer
 
     model = torch.nn.Linear(in_features=10, out_features=10)
 
@@ -24,7 +24,7 @@ def test_brain():
 
     inputs = torch.rand(10, 10)
     brain = SimpleBrain(
-        modules=[model], optimizer=Optimize("sgd", 0.1), first_inputs=[inputs],
+        modules=[model], optimizer=SGD_Optimizer(0.1), first_inputs=[inputs],
     )
 
     targets = torch.rand(10, 10)
