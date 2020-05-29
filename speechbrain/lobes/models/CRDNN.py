@@ -4,7 +4,7 @@ Authors: Mirco Ravanelli 2020, Peter Plantinga 2020, Ju-Chieh Chou 2020,
     Titouan Parcollet 2020, Abdel 2020
 """
 import torch
-from speechbrain.nnet.RNN import RNN
+from speechbrain.nnet.RNN import LiGRU
 from speechbrain.nnet.CNN import Conv2d
 from speechbrain.nnet.linear import Linear
 from speechbrain.nnet.pooling import Pooling1d
@@ -39,9 +39,9 @@ class CRDNN(Sequential):
     rnn_layers : int
         The number of recurrent neural layers to include.
     rnn_type : string
-        See `speechbrain.nnet.RNN.RNN` for a list of options.
+        See `speechbrain.nnet.RNN.LiGRU` for a list of options.
     rnn_neurons : int
-        Number of neurons in each layer of the RNN.
+        Number of neurons in each layer of the LiGRU.
     rnn_bidirectional : bool
         Whether this model will process just forward or both directions.
     dnn_blocks : int
@@ -69,7 +69,6 @@ class CRDNN(Sequential):
         time_pooling_size=2,
         freq_pooling_size=2,
         rnn_layers=4,
-        rnn_type="lstm",
         rnn_neurons=512,
         rnn_bidirectional=True,
         dnn_blocks=2,
@@ -111,9 +110,8 @@ class CRDNN(Sequential):
 
         if rnn_layers > 0:
             blocks.append(
-                RNN(
-                    rnn_type=rnn_type,
-                    n_neurons=rnn_neurons,
+                LiGRU(
+                    hidden_size=rnn_neurons,
                     num_layers=rnn_layers,
                     dropout=dropout,
                     bidirectional=rnn_bidirectional,
