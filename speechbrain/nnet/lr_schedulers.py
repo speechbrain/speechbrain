@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 @checkpoints.register_checkpoint_hooks
-class NewBobLRScheduler(torch.nn.Module):
+class NewBobLRScheduler:
     """Learning rate scheduler with new-bob technique.
 
      The learning rate is annealed based on the validation peformance.
@@ -35,13 +35,13 @@ class NewBobLRScheduler(torch.nn.Module):
 
     Example
     -------
-    >>> from speechbrain.nnet.optimizers import Optimize
+    >>> from speechbrain.nnet.optimizers import SGD_Optimizer
     >>> from speechbrain.nnet.linear import Linear
     >>> inp_tensor = torch.rand([1,660,3])
     >>> model = Linear(n_neurons=4)
-    >>> optim = Optimize(optimizer_type='sgd', learning_rate=1.0)
+    >>> optim = SGD_Optimizer(learning_rate=1.0)
     >>> output = model(inp_tensor, init_params=True)
-    >>> optim([model], init_params=True)
+    >>> optim.init_params([model])
     >>> scheduler = NewBobLRScheduler()
     >>> curr_lr,next_lr=scheduler([optim],current_epoch=1, current_loss=10.0)
     >>> optim.optim.param_groups[0]["lr"]
@@ -57,14 +57,13 @@ class NewBobLRScheduler(torch.nn.Module):
     def __init__(
         self, annealing_factor=0.5, improvement_threshold=0.0025, patient=0,
     ):
-        super().__init__()
         self.annealing_factor = annealing_factor
         self.improvement_threshold = improvement_threshold
         self.patient = patient
         self.losses = []
         self.current_patient = self.patient
 
-    def forward(self, optim_list, current_epoch, current_loss):
+    def __call__(self, optim_list, current_epoch, current_loss):
         """
         Arguments
         ---------
@@ -145,7 +144,7 @@ class NewBobLRScheduler(torch.nn.Module):
 
 
 @checkpoints.register_checkpoint_hooks
-class StepLRScheduler(torch.nn.Module):
+class StepLRScheduler:
     """Learning rate scheduler with step annealing technique.
 
      The leatning rate decays over the epochs with the selected epoch_decay
@@ -163,13 +162,13 @@ class StepLRScheduler(torch.nn.Module):
 
     Example
     -------
-    >>> from speechbrain.nnet.optimizers import Optimize
+    >>> from speechbrain.nnet.optimizers import SGD_Optimizer
     >>> from speechbrain.nnet.linear import Linear
     >>> inp_tensor = torch.rand([1,660,3])
     >>> model = Linear(n_neurons=4)
-    >>> optim = Optimize(optimizer_type='sgd', learning_rate=1.0)
+    >>> optim = SGD_Optimizer(learning_rate=1.0)
     >>> output = model(inp_tensor, init_params=True)
-    >>> optim([model], init_params=True)
+    >>> optim.init_params([model])
     >>> scheduler =StepLRScheduler(optim.optim.param_groups[0]["lr"])
     >>> curr_lr,next_lr=scheduler([optim],current_epoch=1, current_loss=10.0)
     >>> optim.optim.param_groups[0]["lr"]
@@ -185,13 +184,12 @@ class StepLRScheduler(torch.nn.Module):
     def __init__(
         self, lr_initial, epoch_decay=0.5, epoch_drop=2,
     ):
-        super().__init__()
         self.lr_initial = lr_initial
         self.epoch_decay = epoch_decay
         self.epoch_drop = epoch_drop
         self.losses = []
 
-    def forward(self, optim_list, current_epoch, current_loss):
+    def __call__(self, optim_list, current_epoch, current_loss):
         """
         Arguments
         ---------
@@ -241,7 +239,7 @@ class StepLRScheduler(torch.nn.Module):
 
 
 @checkpoints.register_checkpoint_hooks
-class CustomLRScheduler(torch.nn.Module):
+class CustomLRScheduler:
     """Custom Learning rate scheduler.
 
      The leatning rate is changed according to a list given by the user.
@@ -254,13 +252,13 @@ class CustomLRScheduler(torch.nn.Module):
 
     Example
     -------
-    >>> from speechbrain.nnet.optimizers import Optimize
+    >>> from speechbrain.nnet.optimizers import SGD_Optimizer
     >>> from speechbrain.nnet.linear import Linear
     >>> inp_tensor = torch.rand([1,660,3])
     >>> model = Linear(n_neurons=4)
-    >>> optim = Optimize(optimizer_type='sgd', learning_rate=1.0)
+    >>> optim = SGD_Optimizer(learning_rate=1.0)
     >>> output = model(inp_tensor, init_params=True)
-    >>> optim([model], init_params=True)
+    >>> optim.init_params([model])
     >>> scheduler = CustomLRScheduler(lr_at_epoch=[1.0,0.8,0.6,0.5])
     >>> curr_lr,next_lr=scheduler([optim],current_epoch=1, current_loss=10.0)
     >>> optim.optim.param_groups[0]["lr"]
@@ -274,11 +272,10 @@ class CustomLRScheduler(torch.nn.Module):
     """
 
     def __init__(self, lr_at_epoch):
-        super().__init__()
         self.lr_at_epoch = lr_at_epoch
         self.losses = []
 
-    def forward(self, optim_list, current_epoch, current_loss):
+    def __call__(self, optim_list, current_epoch, current_loss):
         """
         Arguments
         ---------
