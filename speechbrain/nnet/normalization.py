@@ -22,9 +22,8 @@ class BatchNorm1d(nn.Module):
     track_running_stats : bool
         When set to True, this module tracks the running mean and variance,
         and when set to False, this module does not track such statistics.
-    combine_dims : bool
-        When true, it combines the all the dimensions and applies the
-        normalization over a 2d tensor.
+    combine_batch_time : bool
+        When true, it combines batch an time axis.
 
 
     Example
@@ -42,14 +41,14 @@ class BatchNorm1d(nn.Module):
         momentum=0.1,
         affine=True,
         track_running_stats=True,
-        combine_dims=False,
+        combine_batch_time=False,
     ):
         super().__init__()
         self.eps = eps
         self.momentum = momentum
         self.affine = affine
         self.track_running_stats = track_running_stats
-        self.combine_dims = combine_dims
+        self.combine_batch_time = combine_batch_time
 
     def init_params(self, first_input):
         """
@@ -58,10 +57,7 @@ class BatchNorm1d(nn.Module):
         first_input : tensor
             A first input used for initializing the parameters.
         """
-        if self.combine_dims:
-            fea_dim = int(torch.prod(torch.tensor(first_input.shape[1:])))
-        else:
-            fea_dim = first_input.shape[-1]
+        fea_dim = first_input.shape[-1]
 
         self.norm = nn.BatchNorm1d(
             fea_dim,
@@ -83,15 +79,21 @@ class BatchNorm1d(nn.Module):
         if init_params:
             self.init_params(x)
 
-        if self.combine_dims:
+        if self.combine_batch_time:
             shape_or = x.shape
-            x = x.reshape(shape_or[0], -1)
+            if len(x.shape) == 3:
+                x = x.reshape(shape_or[0] * shape_or[1], shape_or[2])
+            else:
+                x = x.reshape(
+                    shape_or[0] * shape_or[1], shape_or[3], shape_or[2]
+                )
+
         else:
             x = x.transpose(-1, 1)
 
         x_n = self.norm(x)
 
-        if self.combine_dims:
+        if self.combine_batch_time:
             x_n = x_n.reshape(shape_or)
         else:
             x_n = x_n.transpose(1, -1)
