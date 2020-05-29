@@ -29,7 +29,7 @@ def test_BatchNorm1d():
 
     # Test with combined dimensions
     input = torch.randn(100, 10, 20) + 2.0
-    norm = BatchNorm1d(combine_dims=True)
+    norm = BatchNorm1d(combine_batch_time=True)
     output = norm(input, init_params=True)
     assert input.shape == output.shape
 
@@ -40,7 +40,7 @@ def test_BatchNorm1d():
     assert torch.abs(1.0 - current_std) < 0.01
 
     input = torch.randn(100, 10, 20, 4) + 2.0
-    norm = BatchNorm1d(combine_dims=True)
+    norm = BatchNorm1d(combine_batch_time=True)
     output = norm(input, init_params=True)
     assert input.shape == output.shape
 
