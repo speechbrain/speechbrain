@@ -42,10 +42,8 @@ compute_features: !new:speechbrain.lobes.features.mfcc.MFCC
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
 
-rnn: !new:speechbrain.nnet.RNN.RNN
-    rnn_type: gru
-    n_neurons: 256
-    nonlinearity: tanh
+rnn: !new:speechbrain.nnet.RNN.GRU
+    hidden_size: 256
     num_layers: 2
     dropout: 0.15
     bidirectional: True
