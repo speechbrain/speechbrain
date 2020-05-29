@@ -17,6 +17,6 @@ sb.core.create_experiment_directory(
     overrides=overrides,
 )
 
-for ((id, wav, wav_len),) in zip(*params.sample_data()):
+for ((id, wav, wav_len),) in params.sample_data():
     wav_noise = params.add_noise(wav, wav_len)
     params.save(wav_noise, id, wav_len)
