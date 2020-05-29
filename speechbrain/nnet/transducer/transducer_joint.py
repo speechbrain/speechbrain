@@ -22,22 +22,36 @@ class Transducer_joint(nn.Module):
     Example
     -------
     >>> from speechbrain.nnet.transducer.transducer_joint import Transducer_joint
-    >>> TJoint = Transducer_joint(joint="concat")
+    >>> from speechbrain.nnet.linear import Linear
+    >>> joint_network = Linear(80)
+    >>> TJoint = Transducer_joint(joint_network, joint="concat", nonlinearity="tanh")
     >>> input_TN = torch.randn((8, 200, 1, 40))
     >>> input_PN = torch.randn((8, 1, 12, 40))
-    >>> output = TJoint(input_TN, input_PN)
+    >>> output = TJoint(input_TN, input_PN, init_params=True)
     >>> output.shape
     torch.Size([8, 200, 12, 80])
     """
 
-    def __init__(self, joint="sum"):
+    def __init__(self, joint_network, joint="sum", nonlinearity="tanh"):
         assert (
             joint == "sum" or joint == "concat"
         ), "fusion must be one of ('sum','concat')"
+        assert nonlinearity == "tanh" or nonlinearity == "tanh"
         super().__init__()
+        self.joint_network = joint_network
         self.joint = joint
+        self.nonlinearity = nonlinearity
 
-    def forward(self, input_TN, input_PN):
+    def init_params(self, first_input):
+        """
+        Arguments
+        ---------
+        first_input : tensor
+            A first input used for initializing the parameters.
+        """
+        self.joint_network(first_input, init_params=True)
+
+    def forward(self, input_TN, input_PN, init_params=False):
         """Returns the fusion of inputs tensors.
 
         Arguments
@@ -52,7 +66,7 @@ class Transducer_joint(nn.Module):
         assert input_PN.shape != 4, "Arg 2 must be a 4 dim tensor"
 
         if self.joint == "sum":
-            return torch.tanh(input_TN + input_PN)
+            joint = input_TN + input_PN
 
         if self.joint == "concat":
             if len(input_TN.shape) == 4:
@@ -65,4 +79,11 @@ class Transducer_joint(nn.Module):
                 xs = xs.expand(torch.Size(sz + [xs.shape[-1]]))
                 ymat = ymat.expand(torch.Size(sz + [ymat.shape[-1]]))
                 joint = torch.cat((xs, ymat), dim=dim)
-                return torch.tanh(joint)
+
+        if init_params:
+            self.init_params(joint)
+
+        joint = self.joint_network(joint)
+
+        if self.nonlinearity == "tanh":
+            return torch.tanh(joint)
