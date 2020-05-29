@@ -51,7 +51,7 @@ class TransducerBrain(sb.core.Brain):
             PN_output = params.decoder_lin(PN_output, init_params)
             # Joint the networks
             joint = params.Tjoint(
-                TN_output.unsqueeze(2), PN_output.unsqueeze(1)
+                TN_output.unsqueeze(2), PN_output.unsqueeze(1), init_params
             )
             # Output network
             outputs = params.output(joint, init_params)
@@ -115,6 +115,7 @@ transducer_brain = TransducerBrain(
         params.encoder_lin,
         params.decoder_rnn,
         params.decoder_lin,
+        params.joint_lin,
         params.output,
     ],
     optimizer=params.optimizer,
