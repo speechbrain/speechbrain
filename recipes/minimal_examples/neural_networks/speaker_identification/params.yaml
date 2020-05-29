@@ -58,6 +58,5 @@ compute_cost: !name:speechbrain.nnet.losses.nll_loss
 
 compute_error: !name:speechbrain.nnet.losses.classification_error
 
-optimizer: !new:speechbrain.nnet.optimizers.Optimize
-    optimizer_type: adam
+optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
     learning_rate: !ref <lr>

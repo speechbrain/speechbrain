@@ -68,8 +68,7 @@ output: !new:speechbrain.nnet.linear.Linear
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
-optimizer: !new:speechbrain.nnet.optimizers.Optimize
-    optimizer_type: adadelta
+optimizer: !new:speechbrain.nnet.optimizers.Adadelta_Optimizer
     rho: 0.95
     learning_rate: !ref <lr>
 

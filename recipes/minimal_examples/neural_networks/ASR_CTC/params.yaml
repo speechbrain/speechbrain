@@ -60,6 +60,5 @@ softmax: !new:speechbrain.nnet.activations.Softmax
 compute_cost: !name:speechbrain.nnet.losses.ctc_loss
     blank_index: 42
 
-optimizer: !new:speechbrain.nnet.optimizers.Optimize
-    optimizer_type: adam
+optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
     learning_rate: !ref <lr>
