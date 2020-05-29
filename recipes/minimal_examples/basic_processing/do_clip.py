@@ -17,6 +17,6 @@ sb.core.create_experiment_directory(
     overrides=overrides,
 )
 
-for ((id, wav, wav_len),) in zip(*params.sample_data()):
+for ((id, wav, wav_len),) in params.sample_data():
     wav_clip = params.do_clip(wav)
     params.save(wav_clip, id, wav_len)
