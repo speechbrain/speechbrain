@@ -50,13 +50,11 @@ asr_brain = ASR_Brain(
     optimizer=params.optimizer,
     first_inputs=[first_x],
 )
-train_stats, _ = asr_brain.fit(
-    range(params.N_epochs), train_set, params.valid_loader()
-)
+asr_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
 test_stats = asr_brain.evaluate(params.test_loader())
 print("Test error: %.2f" % summarize_average(test_stats["error"]))
 
 
 # Define an integration test of overfitting on the train data
 def test_error():
-    assert summarize_average(train_stats["loss"]) < 0.2
+    assert asr_brain.avg_train_loss < 0.2

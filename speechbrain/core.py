@@ -214,12 +214,12 @@ class Brain:
     ...     epoch_counter=range(1),
     ...     train_set=([torch.rand(10, 10),torch.rand(10, 10)],)
     ... )
-    ({'loss': [tensor(...)]}, {})
     """
 
     def __init__(self, modules=None, optimizer=None, first_inputs=None):
         self.modules = torch.nn.ModuleList(modules)
         self.optimizer = optimizer
+        self.avg_train_loss = 0.0
 
         # Initialize parameters
         if first_inputs is not None:
@@ -387,13 +387,15 @@ class Brain:
         the statistics from the training or validation pass.
         (e.g. {"loss": [0.1, 0.2, 0.05], "accuracy": [0.8, 0.8, 0.9]})
         """
-        train_stats, valid_stats = {}, {}
         for epoch in epoch_counter:
             self.modules.train()
             train_stats = {}
-            for batch in tqdm(train_set):
-                stats = self.fit_batch(batch)
-                self.add_stats(train_stats, stats)
+            with tqdm(train_set) as t:
+                for i, batch in enumerate(t):
+                    stats = self.fit_batch(batch)
+                    self.add_stats(train_stats, stats)
+                    average = self.update_average(stats, iteration=i + 1)
+                    t.set_postfix(train_loss=average)
 
             valid_stats = {}
             if valid_set is not None:
@@ -404,8 +406,6 @@ class Brain:
                         self.add_stats(valid_stats, stats)
 
             self.on_epoch_end(epoch, train_stats, valid_stats)
-
-        return train_stats, valid_stats
 
     def evaluate(self, test_set):
         """Iterate test_set and evaluate brain performance.
@@ -429,3 +429,28 @@ class Brain:
                 self.add_stats(test_stats, stats)
 
         return test_stats
+
+    def update_average(self, stats, iteration):
+        """Update running average of the loss.
+
+        Arguments
+        ---------
+        stats : dict
+            Result of `compute_objectives()`
+        iteration : int
+            The iteration count.
+
+        Returns
+        -------
+        The average loss as a float
+        """
+        if not torch.isfinite(stats["loss"]):
+            raise ValueError(
+                "Loss is not finite. To debug, wrap `fit()` with `debug_anomaly`"
+                ", e.g.\nwith torch.autograd.detect_anomaly():\n\tbrain.fit(...)"
+            )
+
+        # Compute moving average
+        self.avg_train_loss -= self.avg_train_loss / iteration
+        self.avg_train_loss += float(stats["loss"]) / iteration
+        return self.avg_train_loss
