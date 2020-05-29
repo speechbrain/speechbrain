@@ -1,12 +1,13 @@
 # ################################
-# Model: VGG2 + BLSTM + MLP
+# Model: VGG2 + LiGRU with time pooling for efficiency
+# Additions: TimeDomainSpecAugment
 # Authors: Mirco Ravanelli & Peter Plantinga 2020
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: !PLACEHOLDER  # e.g, 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/augment_vgg_ligru/<seed>
+output_folder: !ref results/augment_CRDNN/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -35,7 +36,6 @@ cnn_blocks: 2
 cnn_channels: (128, 256)
 cnn_kernelsize: (3, 3)
 rnn_layers: 4
-rnn_type: lstm
 rnn_neurons: 512
 rnn_bidirectional: True
 dnn_blocks: 2
@@ -53,8 +53,8 @@ model: !new:speechbrain.lobes.models.CRDNN.CRDNN
     cnn_blocks: !ref <cnn_blocks>
     cnn_channels: !ref <cnn_channels>
     cnn_kernelsize: !ref <cnn_kernelsize>
+    time_pooling: True
     rnn_layers: !ref <rnn_layers>
-    rnn_type: !ref <rnn_type>
     rnn_neurons: !ref <rnn_neurons>
     rnn_bidirectional: !ref <rnn_bidirectional>
     dnn_blocks: !ref <dnn_blocks>
@@ -71,10 +71,7 @@ optimizer: !new:speechbrain.nnet.optimizers.Adadelta_Optimizer
     rho: 0.95
     learning_rate: !ref <lr>
 
-lr_annealing: !new:speechbrain.nnet.lr_scheduling.LRScheduler
-    annealing_type: newbob
-    N_epochs: !ref <number_of_epochs>
-    lr_initial: !ref <lr>
+lr_annealing: !new:speechbrain.nnet.lr_schedulers.NewBobLRScheduler
     improvement_threshold: 0.0025
     annealing_factor: 0.8
     patient: 0
@@ -84,6 +81,10 @@ normalize: !new:speechbrain.processing.features.InputNormalization
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
+
+augmentation: !new:speechbrain.lobes.augment.tdsa.TimeDomainSpecAugment
+    sample_rate: !ref <sample_rate>
+    speeds: [95, 100, 105]
 
 compute_features: !new:speechbrain.lobes.features.fbank.Fbank
     sample_rate: !ref <sample_rate>
