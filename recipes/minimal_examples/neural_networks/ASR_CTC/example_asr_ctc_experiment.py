@@ -29,7 +29,7 @@ class CTCBrain(sb.core.Brain):
     def compute_objectives(self, predictions, targets, train_mode=True):
         predictions, lens = predictions
         ids, phns, phn_lens = targets
-        loss = params.compute_cost(predictions, phns, [lens, phn_lens])
+        loss = params.compute_cost(predictions, phns, lens, phn_lens)
 
         stats = {}
         if not train_mode:

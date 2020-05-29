@@ -33,7 +33,7 @@ class SpkIdBrain(sb.core.Brain):
 
         stats = {}
         if not train_mode:
-            stats["error"] = params.compute_error(predictions, spkid, lens)
+            stats["error"] = params.compute_error(predictions, spkid)
 
         return loss, stats
 
