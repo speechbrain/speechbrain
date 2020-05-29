@@ -51,12 +51,11 @@ def test_transducer_loss():
     # Make this its own test since it can only be run
     # if numba is installed and a GPU is available
     pytest.importorskip("numba")
-    from speechbrain.nnet.transducer.transducer_loss import TransducerLoss
+    from speechbrain.nnet.losses import transducer_loss
 
     if torch.cuda.device_count() > 0:
         pytest.skip("This test can only be run if a GPU is available")
     device = torch.device("cuda")
-    cost = TransducerLoss(blank_index=0)
     log_probs = (
         torch.Tensor(
             [
@@ -81,5 +80,7 @@ def test_transducer_loss():
     targets = torch.Tensor([[1, 2]]).to(device).int()
     probs_length = torch.Tensor([1.0]).to(device)
     target_length = torch.Tensor([1.0]).to(device)
-    out_cost = cost(log_probs, targets, [probs_length, target_length])
+    out_cost = transducer_loss(
+        log_probs, targets, probs_length, target_length, blank_index=0
+    )
     assert out_cost.item() == 4.49566650390625

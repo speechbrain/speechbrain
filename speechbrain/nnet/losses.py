@@ -14,6 +14,36 @@ from speechbrain.data_io.data_io import length_to_mask
 logger = logging.getLogger(__name__)
 
 
+def transducer_loss(log_probs, targets, input_lens, target_lens, blank_index):
+    """Transducer loss, see `speechbrain/nnet/transducer/transducer_loss.py`
+
+    Arguments
+    ---------
+    predictions : torch.Tensor
+        Predicted tensor, of shape [batch, time, chars].
+    targets : torch.Tensor
+        Target tensor, without any blanks, of shape [batch, target_len]
+    input_lens : torch.Tensor
+        Length of each utterance.
+    target_lens : torch.Tensor
+        Length of each target sequence.
+    blank_index : int
+        The location of the blank symbol among the character indexes.
+    """
+    from speechbrain.nnet.transducer.transducer_loss import Transducer
+
+    input_lens = (input_lens * log_probs.shape[1]).int()
+    target_lens = (target_lens * targets.shape[1]).int()
+    return Transducer.apply(
+        log_probs,
+        targets,
+        input_lens,
+        target_lens,
+        blank_index,
+        reduction="mean",
+    )
+
+
 def ctc_loss(log_probs, targets, input_lens, target_lens, blank_index):
     """CTC loss
 
@@ -51,6 +81,12 @@ def l1_loss(predictions, targets, length=None, allowed_len_diff=3):
         Length of each utterance for computing true error with a mask.
     allowed_len_diff : int
         Length difference that will be tolerated before raising an exception.
+
+    Example
+    -------
+    >>> probs = torch.tensor([[0.9, 0.1, 0.1, 0.9]])
+    >>> l1_loss(probs, torch.tensor([[1., 0., 0., 1.]]))
+    tensor(0.1000)
     """
     predictions, targets = truncate(predictions, targets, allowed_len_diff)
     loss = functools.partial(torch.nn.functional.l1_loss, reduction="none")
@@ -70,6 +106,12 @@ def mse_loss(predictions, targets, length=None, allowed_len_diff=3):
         Length of each utterance for computing true error with a mask.
     allowed_len_diff : int
         Length difference that will be tolerated before raising an exception.
+
+    Example
+    -------
+    >>> probs = torch.tensor([[0.9, 0.1, 0.1, 0.9]])
+    >>> mse_loss(probs, torch.tensor([[1., 0., 0., 1.]]))
+    tensor(0.0100)
     """
     predictions, targets = truncate(predictions, targets, allowed_len_diff)
     loss = functools.partial(torch.nn.functional.mse_loss, reduction="none")
