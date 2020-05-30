@@ -1,6 +1,7 @@
 #!/usr/bin/python
 import os
 import speechbrain as sb
+from speechbrain.alignment.aligner import ViterbiAligner
 from speechbrain.decoders.ctc import ctc_greedy_decode
 from speechbrain.decoders.decoders import undo_padding
 from speechbrain.utils.edit_distance import wer_details_for_batch
@@ -14,30 +15,36 @@ data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
 with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
 
+viterbi_aligner = ViterbiAligner(output_folder = '')
 
-class CTCBrain(sb.core.Brain):
-    def compute_forward(self, x, stage="train", init_params=False):
+class AlignBrain(sb.core.Brain):
+    def compute_forward(self, x, train_mode=True, init_params=False):
         id, wavs, lens = x
         feats = params.compute_features(wavs, init_params)
         feats = params.mean_var_norm(feats, lens)
-        x = params.model(feats, init_params=init_params)
+        x = params.rnn(feats, init_params=init_params)
         x = params.lin(x, init_params)
         outputs = params.softmax(x)
-
+        viterbi_aligner.update_from_forward(outputs, lens)
+        
         return outputs, lens
 
-    def compute_objectives(self, predictions, targets, stage="train"):
+    def compute_objectives(self, predictions, targets, train_mode=True):
         predictions, lens = predictions
         ids, phns, phn_lens = targets
-        loss = params.compute_cost(predictions, phns, lens, phn_lens)
+        loss = params.compute_cost(predictions, phns, [lens, phn_lens])
+        
+        if train_mode: 
+            alignments = viterbi_aligner.calc_viterbi_alignments(phns, phn_lens)
+            print(alignments)
 
-        stats = {}
-        if stage != "train":
+        if not train_mode:
             seq = ctc_greedy_decode(predictions, lens, blank_id=-1)
             phns = undo_padding(phns, phn_lens)
-            stats["PER"] = wer_details_for_batch(ids, phns, seq)
+            stats = {"PER": wer_details_for_batch(ids, phns, seq)}
+            return loss, stats
 
-        return loss, stats
+        return loss
 
     def on_epoch_end(self, epoch, train_stats, valid_stats):
         print("Epoch %d complete" % epoch)
@@ -48,16 +55,18 @@ class CTCBrain(sb.core.Brain):
 
 train_set = params.train_loader()
 first_x, first_y = next(iter(train_set))
-ctc_brain = CTCBrain(
-    modules=[params.model, params.lin],
+ctc_brain = AlignBrain(
+    modules=[params.rnn, params.lin],
     optimizer=params.optimizer,
     first_inputs=[first_x],
 )
-ctc_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
+train_stats, _ = ctc_brain.fit(
+    range(params.N_epochs), train_set, params.valid_loader()
+)
 test_stats = ctc_brain.evaluate(params.test_loader())
 print("Test PER: %.2f" % summarize_error_rate(test_stats["PER"]))
 
 
 # Integration test: check that the model overfits the training data
 def test_error():
-    assert ctc_brain.avg_train_loss < 3.0
+    assert summarize_average(train_stats["loss"]) < 3.0
