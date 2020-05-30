@@ -1,5 +1,5 @@
 block_index: 1
-sequence: [linear1, norm1, activation1, linear2, norm2, activation2]
+sequence: [linear1, activation1, norm1, linear2, activation2, norm2]
 
 linear1: !new:speechbrain.nnet.linear.Linear
     n_neurons: 512
