@@ -55,7 +55,7 @@ class AlignBrain(sb.core.Brain):
 
 train_set = params.train_loader()
 first_x, first_y = next(iter(train_set))
-ctc_brain = CTCBrain(
+ctc_brain = AlignBrain(
     modules=[params.model, params.lin],
     optimizer=params.optimizer,
     first_inputs=[first_x],
