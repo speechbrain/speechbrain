@@ -3,10 +3,10 @@ import os
 import speechbrain as sb
 from speechbrain.utils.train_logger import summarize_average
 
-experiment_dir = os.path.dirname(os.path.abspath(__file__))
+experiment_dir = os.path.dirname(os.path.realpath(__file__))
 params_file = os.path.join(experiment_dir, "params.yaml")
-data_folder = "../../../../../samples/audio_samples/nn_training_samples"
-data_folder = os.path.abspath(experiment_dir + data_folder)
+data_folder = "../../../../samples/audio_samples/nn_training_samples"
+data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
 with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
 
@@ -17,8 +17,7 @@ if params.use_tensorboard:
 
 
 class AutoBrain(sb.core.Brain):
-    def compute_forward(self, x, train_mode=True, init_params=False):
-        print(x)
+    def compute_forward(self, x, init_params=False):
         id, wavs, lens = x
         feats = params.compute_features(wavs, init_params)
         feats = params.mean_var_norm(feats, lens)
@@ -29,7 +28,7 @@ class AutoBrain(sb.core.Brain):
 
         return decoded
 
-    def compute_objectives(self, predictions, targets, train_mode=True):
+    def compute_objectives(self, predictions, targets):
         id, wavs, lens = targets
         feats = params.compute_features(wavs, init_params=False)
         feats = params.mean_var_norm(feats, lens)
@@ -40,13 +39,14 @@ class AutoBrain(sb.core.Brain):
         predictions = self.compute_forward(inputs)
         loss = self.compute_objectives(predictions, inputs)
         loss.backward()
-        self.optimizer(self.modules)
+        self.optimizer.step()
+        self.optimizer.zero_grad()
         return {"loss": loss.detach()}
 
-    def evaluate_batch(self, batch):
+    def evaluate_batch(self, batch, stage="test"):
         inputs = batch[0]
         predictions = self.compute_forward(inputs)
-        loss = self.compute_objectives(predictions, inputs, train_mode=False)
+        loss = self.compute_objectives(predictions, inputs)
         return {"loss": loss.detach()}
 
     def on_epoch_end(self, epoch, train_stats, valid_stats):
@@ -58,17 +58,17 @@ class AutoBrain(sb.core.Brain):
 
 
 train_set = params.train_loader()
-first_x = next(iter(train_set[0]))
+first_x = next(iter(train_set))
 auto_brain = AutoBrain(
     modules=[params.linear1, params.linear2],
     optimizer=params.optimizer,
-    first_inputs=[first_x],
+    first_inputs=first_x,
 )
 auto_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
 test_stats = auto_brain.evaluate(params.test_loader())
 print("Test loss: %.3f" % summarize_average(test_stats["loss"]))
 
 
-# If training is successful, reconstruction loss is less than 0.2
+# Integration test: make sure we are overfitting training data
 def test_loss():
-    assert summarize_average(test_stats["loss"]) < 0.2
+    assert auto_brain.avg_train_loss < 0.08
