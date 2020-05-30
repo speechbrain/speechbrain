@@ -14,7 +14,7 @@ from speechbrain.nnet.normalization import BatchNorm1d, BatchNorm2d
 
 
 class CRDNN(Sequential):
-    """This model is a combination of CNNs, RNNs, and DNNs.
+    """This model is a combination of CNNs, LiGRU, and DNNs.
 
     The default CNN model is based on VGG.
 
@@ -31,13 +31,13 @@ class CRDNN(Sequential):
     cnn_kernelsize : tuple of ints
         The size of the convolutional kernels.
     time_pooling : bool
-        Whether to pool the utterance on the time axis before the RNN.
+        Whether to pool the utterance on the time axis before the LiGRU.
     time_pooling_size : int
         The number of elements to pool on the time axis.
     time_pooling_stride : int
         The number of elements to increment by when iterating the time axis.
     rnn_layers : int
-        The number of recurrent neural layers to include.
+        The number of recurrent LiGRU layers to include.
     rnn_neurons : int
         Number of neurons in each layer of the LiGRU.
     rnn_bidirectional : bool
