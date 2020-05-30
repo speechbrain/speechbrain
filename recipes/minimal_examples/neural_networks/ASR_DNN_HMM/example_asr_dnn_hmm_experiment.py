@@ -27,7 +27,6 @@ class ASR_Brain(sb.core.Brain):
     def compute_objectives(self, predictions, targets, stage="train"):
         outputs, lens = predictions
         ids, ali, ali_lens = targets
-        lens = [lens, ali_lens]
         loss = params.compute_cost(outputs, ali, lens)
 
         stats = {}
