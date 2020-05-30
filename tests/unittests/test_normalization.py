@@ -94,7 +94,7 @@ def test_LayerNorm():
     assert torch.abs(1.0 - current_std) < 0.01
 
 
-def InstanceNorm1d():
+def test_InstanceNorm1d():
 
     from speechbrain.nnet.normalization import InstanceNorm1d
 
