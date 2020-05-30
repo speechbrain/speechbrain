@@ -36,7 +36,7 @@ def test_l1():
     assert torch.all(torch.eq(out_cost, 0))
 
 
-def test_error():
+def test_classification_error():
     from speechbrain.nnet.losses import classification_error
 
     predictions = torch.zeros(4, 10, 8)
