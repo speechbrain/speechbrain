@@ -83,6 +83,8 @@ class BaseSearcher(torch.nn.Module):
         memory : No limit
             The momory variables generated in this timestep.
             (ex. RNN hidden states).
+        attn : torch.Tensor
+            The attention weight for doing penalty.
         """
         raise NotImplementedError
 
@@ -126,7 +128,7 @@ class GreedySearcher(BaseSearcher):
         max_decode_steps = int(enc_states.shape[1] * self.max_decode_ratio)
 
         for t in range(max_decode_steps):
-            log_probs, memory = self.forward_step(
+            log_probs, memory, _ = self.forward_step(
                 inp_tokens, memory, enc_states, enc_lens
             )
             log_probs_lst.append(log_probs)
@@ -208,7 +210,7 @@ class RNNGreedySearcher(GreedySearcher):
             e, hs, c, enc_states, enc_lens
         )
         log_probs = self.softmax(self.lin(dec_out))
-        return log_probs, (hs, c)
+        return log_probs, (hs, c), w
 
 
 class BeamSearcher(BaseSearcher):
@@ -241,6 +243,7 @@ class BeamSearcher(BaseSearcher):
         beam_size,
         length_penalty,
         eos_threshold,
+        max_attn_shift,
         minus_inf=-1e20,
     ):
         super(BeamSearcher, self).__init__(
@@ -249,6 +252,7 @@ class BeamSearcher(BaseSearcher):
         self.beam_size = beam_size
         self.length_penalty = length_penalty
         self.eos_threshold = eos_threshold
+        self.max_attn_shift = max_attn_shift
         self.minus_inf = minus_inf
 
     def forward(self, enc_states, wav_len):
@@ -286,12 +290,24 @@ class BeamSearcher(BaseSearcher):
 
         min_decode_steps = int(enc_states.shape[1] * self.min_decode_ratio)
         max_decode_steps = int(enc_states.shape[1] * self.max_decode_ratio)
+        prev_attn_peak = torch.zeros(batch_size * self.beam_size).to(device)
 
         for t in range(max_decode_steps):
-            log_probs, memory = self.forward_step(
+            log_probs, memory, attn = self.forward_step(
                 inp_tokens, memory, enc_states, enc_lens
             )
             vocab_size = log_probs.shape[-1]
+
+            # Block the candidates that exceed the max shift
+            _, attn_peak = torch.max(attn, dim=1)
+            condition = (
+                (attn_peak < (prev_attn_peak + self.max_attn_shift))
+                .unsqueeze(1)
+                .expand(-1, vocab_size)
+            )
+            log_probs = torch.where(
+                condition, log_probs, torch.Tensor([self.minus_inf]).to(device)
+            )
 
             # Set eos to minus_inf when less than minimum steps.
             if t < min_decode_steps:
@@ -488,7 +504,7 @@ class RNNBeamSearcher(BeamSearcher):
             e, hs, c, enc_states, enc_lens
         )
         log_probs = self.softmax(self.lin(dec_out))
-        return log_probs, (hs, c)
+        return log_probs, (hs, c), w
 
     def permute_mem(self, memory, index):
         hs, c = memory
