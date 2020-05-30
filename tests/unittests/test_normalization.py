@@ -110,7 +110,7 @@ def test_InstanceNorm1d():
     assert torch.abs(1.0 - current_std) < 0.01
 
 
-def InstanceNorm2d():
+def test_InstanceNorm2d():
 
     from speechbrain.nnet.normalization import InstanceNorm2d
 
