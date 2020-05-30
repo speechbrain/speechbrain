@@ -1,9 +1,10 @@
 # The block index is multiplied with the channels to get out_channels
 block_index: 1
 channels: 512
-sequence: [conv1, norm1, activation, conv2, norm2, activation,
-           conv3, norm3, activation, conv4, norm4, activation,
-           conv5, norm5, activation]
+
+sequence: [conv1, activation, norm1, conv2, activation, norm2,
+           conv3, activation, norm3, conv4, activation, norm4,
+           conv5, activation, norm5]
 
 conv1: !new:speechbrain.nnet.CNN.Conv
     out_channels: !ref <block_index> * <channels>

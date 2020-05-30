@@ -2,7 +2,7 @@
 data_folder: /network/home/dawalatn/nauman/data_folder/
 sample_rate: 16000
 seed: 1234
-output_folder: !ref results/<seed>
+output_folder: !ref results/norm_batch  #<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
@@ -16,7 +16,7 @@ vad: False
 splits: ["train", "dev"]
 
 # Neural Parameters
-number_of_epochs: 50
+number_of_epochs: 100
 batch_size_: 256
 lr: 0.002
 device: 'cuda:0'
