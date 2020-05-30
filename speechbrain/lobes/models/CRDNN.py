@@ -38,8 +38,6 @@ class CRDNN(Sequential):
         The number of elements to increment by when iterating the time axis.
     rnn_layers : int
         The number of recurrent neural layers to include.
-    rnn_type : string
-        See `speechbrain.nnet.RNN.LiGRU` for a list of options.
     rnn_neurons : int
         Number of neurons in each layer of the LiGRU.
     rnn_bidirectional : bool
