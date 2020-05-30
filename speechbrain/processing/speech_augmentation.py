@@ -162,12 +162,12 @@ class AddNoise(torch.nn.Module):
                     cache=self.do_cache,
                     replacements=self.replacements,
                 )
-                self.noise_data = zip(*self.data_loader())
+                self.noise_data = iter(self.data_loader())
 
         try:
             wav_id, noise_batch, noise_len = next(self.noise_data)[0]
         except StopIteration:
-            self.noise_data = zip(*self.data_loader())
+            self.noise_data = iter(self.data_loader())
             wav_id, noise_batch, noise_len = next(self.noise_data)[0]
 
         noise_batch = noise_batch.to(lengths.device)
@@ -258,7 +258,7 @@ class AddReverb(torch.nn.Module):
             cache=self.do_cache,
             replacements=self.replacements,
         )
-        self.rir_data = zip(*self.data_loader())
+        self.rir_data = iter(self.data_loader())
 
     def forward(self, waveforms, lengths):
         """
@@ -317,7 +317,7 @@ class AddReverb(torch.nn.Module):
         try:
             wav_id, rir_waveform, length = next(self.rir_data)[0]
         except StopIteration:
-            self.rir_data = zip(*self.data_loader())
+            self.rir_data = iter(self.data_loader())
             wav_id, rir_waveform, length = next(self.rir_data)[0]
 
         # Make sure RIR has correct channels
@@ -733,7 +733,7 @@ class AddBabble(torch.nn.Module):
     ...     csv_file='samples/audio_samples/csv_example3.csv',
     ...     batch_size=5,
     ... )
-    >>> loader = zip(*dataloader())
+    >>> loader = iter(dataloader())
     >>> ids, batch, lengths = next(loader)[0]
     >>> noisy = babbler(batch, lengths)
     """
