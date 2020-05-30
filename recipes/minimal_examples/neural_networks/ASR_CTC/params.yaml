@@ -14,6 +14,18 @@ N_epochs: 10
 N_batch: 1
 lr: 0.004
 
+# Model parameters
+activation: !name:torch.nn.LeakyReLU []
+dropout: 0.15
+cnn_blocks: 1
+cnn_channels: (16,)
+cnn_kernelsize: (3, 3)
+rnn_layers: 1
+rnn_neurons: 128
+rnn_bidirectional: True
+dnn_blocks: 1
+dnn_neurons: 128
+
 train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>
     batch_size: !ref <N_batch>
@@ -42,13 +54,18 @@ compute_features: !new:speechbrain.lobes.features.mfcc.MFCC
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
 
-rnn: !new:speechbrain.nnet.RNN.RNN
-    rnn_type: gru
-    n_neurons: 256
-    nonlinearity: tanh
-    num_layers: 2
-    dropout: 0.15
-    bidirectional: True
+model: !new:speechbrain.lobes.models.CRDNN.CRDNN
+    activation: !ref <activation>
+    dropout: !ref <dropout>
+    cnn_blocks: !ref <cnn_blocks>
+    cnn_channels: !ref <cnn_channels>
+    cnn_kernelsize: !ref <cnn_kernelsize>
+    time_pooling: True
+    rnn_layers: !ref <rnn_layers>
+    rnn_neurons: !ref <rnn_neurons>
+    rnn_bidirectional: !ref <rnn_bidirectional>
+    dnn_blocks: !ref <dnn_blocks>
+    dnn_neurons: !ref <dnn_neurons>
 
 lin: !new:speechbrain.nnet.linear.Linear
     n_neurons: 43  # 42 phonemes + 1 blank
@@ -57,10 +74,8 @@ lin: !new:speechbrain.nnet.linear.Linear
 softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
-compute_cost: !new:speechbrain.nnet.losses.ComputeCost
-    cost_type: ctc
+compute_cost: !name:speechbrain.nnet.losses.ctc_loss
     blank_index: 42
 
-optimizer: !new:speechbrain.nnet.optimizers.Optimize
-    optimizer_type: adam
+optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
     learning_rate: !ref <lr>
