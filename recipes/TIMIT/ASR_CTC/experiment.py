@@ -46,7 +46,7 @@ class ASR(sb.core.Brain):
         pout, pout_lens = predictions
         ids, phns, phn_lens = targets
         phns, phn_lens = phns.to(params.device), phn_lens.to(params.device)
-        loss = params.compute_cost(pout, phns, [pout_lens, phn_lens])
+        loss = params.compute_cost(pout, phns, pout_lens, phn_lens)
 
         stats = {}
         if stage != "train":

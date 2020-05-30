@@ -198,7 +198,7 @@ class Brain:
 
     Example
     -------
-    >>> from speechbrain.nnet.optimizers import Optimize
+    >>> from speechbrain.nnet.optimizers import SGD_Optimizer
     >>> class SimpleBrain(Brain):
     ...     def compute_forward(self, x, init_params=False):
     ...         return self.modules[0](x)
@@ -207,7 +207,7 @@ class Brain:
     >>> model = torch.nn.Linear(in_features=10, out_features=10)
     >>> brain = SimpleBrain(
     ...     modules=[model],
-    ...     optimizer=Optimize('sgd', 0.01),
+    ...     optimizer=SGD_Optimizer(0.01),
     ...     first_inputs=[torch.rand(10, 10)],
     ... )
     >>> brain.fit(
@@ -309,7 +309,8 @@ class Brain:
         predictions = self.compute_forward(inputs)
         loss, stats = self.compute_objectives(predictions, targets)
         loss.backward()
-        self.optimizer(self.modules)
+        self.optimizer.step()
+        self.optimizer.zero_grad()
         stats["loss"] = loss.detach()
         return stats
 

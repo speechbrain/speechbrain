@@ -32,6 +32,7 @@ class SpkIdBrain(sb.core.Brain):
         loss = params.compute_cost(predictions, spkid, lens)
 
         stats = {}
+
         if stage != "train":
             stats["error"] = params.compute_error(predictions, spkid, lens)
 
