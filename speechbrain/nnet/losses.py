@@ -8,219 +8,231 @@ Mirco Ravanelli 2020
 
 import torch
 import logging
-import torch.nn as nn
+import functools
 from speechbrain.data_io.data_io import length_to_mask
 
 logger = logging.getLogger(__name__)
 
 
-class ComputeCost(nn.Module):
-    """This function implements different losses for training neural
-        networks. It supports NLL, MSE, L1 and CTC objectives.
+def transducer_loss(log_probs, targets, input_lens, target_lens, blank_index):
+    """Transducer loss, see `speechbrain/nnet/transducer/transducer_loss.py`
 
     Arguments
     ---------
-    cost_type: one of the following options.
-        "nll": negative log-likelihood cost.
-        "mse": mean squared error between the prediction and the target.
-        "l1": l1 distance between the prediction and the target.
-        "ctc": connectionist temporal classification, this loss sums
-            up all the possible alignments between targets and predictions.
-        "error": classification error.
-        "wer": word error rate, computed with the edit distance algorithm.
-    allow_lab_diff: int
-        the number of tolerated differences between the label
-        and prediction lengths. Minimal differences can be tolerated and
-        could be due to different way of processing the signal. Big
-        differences are likely due to an error.
+    predictions : torch.Tensor
+        Predicted tensor, of shape [batch, time, chars].
+    targets : torch.Tensor
+        Target tensor, without any blanks, of shape [batch, target_len]
+    input_lens : torch.Tensor
+        Length of each utterance.
+    target_lens : torch.Tensor
+        Length of each target sequence.
+    blank_index : int
+        The location of the blank symbol among the character indexes.
+    """
+    from speechbrain.nnet.transducer.transducer_loss import Transducer
+
+    input_lens = (input_lens * log_probs.shape[1]).int()
+    target_lens = (target_lens * targets.shape[1]).int()
+    return Transducer.apply(
+        log_probs,
+        targets,
+        input_lens,
+        target_lens,
+        blank_index,
+        reduction="mean",
+    )
+
+
+def ctc_loss(log_probs, targets, input_lens, target_lens, blank_index):
+    """CTC loss
+
+    Arguments
+    ---------
+    predictions : torch.Tensor
+        Predicted tensor, of shape [batch, time, chars].
+    targets : torch.Tensor
+        Target tensor, without any blanks, of shape [batch, target_len]
+    input_lens : torch.Tensor
+        Length of each utterance.
+    target_lens : torch.Tensor
+        Length of each target sequence.
+    blank_index : int
+        The location of the blank symbol among the character indexes.
+    """
+    input_lens = (input_lens * log_probs.shape[1]).int()
+    target_lens = (target_lens * targets.shape[1]).int()
+    log_probs = log_probs.transpose(0, 1)
+    return torch.nn.functional.ctc_loss(
+        log_probs, targets, input_lens, target_lens, blank_index
+    )
+
+
+def l1_loss(predictions, targets, length=None, allowed_len_diff=3):
+    """Compute the true l1 loss, accounting for length differences.
+
+    Arguments
+    ---------
+    predictions : torch.Tensor
+        Predicted tensor, of shape [batch, time, *].
+    targets : torch.Tensor
+        Target tensor, same size as predicted tensor.
+    length : torch.Tensor
+        Length of each utterance for computing true error with a mask.
+    allowed_len_diff : int
+        Length difference that will be tolerated before raising an exception.
 
     Example
     -------
-    >>> import torch
-    >>> from speechbrain.nnet.linear import Linear
-    >>> from speechbrain.nnet.activations import Softmax
-    >>> mock_input = torch.rand([1, 660, 3])
-    >>> model = Linear(n_neurons=4)
-    >>> softmax = Softmax(apply_log=True)
-    >>> cost = ComputeCost(cost_type='nll')
-    >>> pred = softmax(model(mock_input, init_params=True))
-    >>> label = torch.FloatTensor([0,1,3]).unsqueeze(0)
-    >>> lengths = torch.Tensor([1.0])
-    >>> out_cost = cost(pred, label, lengths)
-    >>> out_cost.backward()
+    >>> probs = torch.tensor([[0.9, 0.1, 0.1, 0.9]])
+    >>> l1_loss(probs, torch.tensor([[1., 0., 0., 1.]]))
+    tensor(0.1000)
     """
+    predictions, targets = truncate(predictions, targets, allowed_len_diff)
+    loss = functools.partial(torch.nn.functional.l1_loss, reduction="none")
+    return compute_masked_loss(loss, predictions, targets, length)
 
-    def __init__(
-        self, cost_type, allow_lab_diff=3, blank_index=None,
-    ):
-        super().__init__()
-        self.allow_lab_diff = allow_lab_diff
-        self.cost_type = cost_type
 
-        if cost_type == "nll":
-            self.cost = torch.nn.NLLLoss(reduction="none")
+def mse_loss(predictions, targets, length=None, allowed_len_diff=3):
+    """Compute the true mean squared error, accounting for length differences.
 
-        if cost_type == "error":
-            self.cost = self._compute_error
+    Arguments
+    ---------
+    predictions : torch.Tensor
+        Predicted tensor, of shape [batch, time, *].
+    targets : torch.Tensor
+        Target tensor, same size as predicted tensor.
+    length : torch.Tensor
+        Length of each utterance for computing true error with a mask.
+    allowed_len_diff : int
+        Length difference that will be tolerated before raising an exception.
 
-        if cost_type == "mse":
-            self.cost = nn.MSELoss(reduction="none")
+    Example
+    -------
+    >>> probs = torch.tensor([[0.9, 0.1, 0.1, 0.9]])
+    >>> mse_loss(probs, torch.tensor([[1., 0., 0., 1.]]))
+    tensor(0.0100)
+    """
+    predictions, targets = truncate(predictions, targets, allowed_len_diff)
+    loss = functools.partial(torch.nn.functional.mse_loss, reduction="none")
+    return compute_masked_loss(loss, predictions, targets, length)
 
-        if cost_type == "l1":
-            self.cost = nn.L1Loss(reduction="none")
 
-        if cost_type == "ctc":
-            if blank_index is None:
-                raise ValueError("Must pass blank index for CTC")
-            self.blank_index = blank_index
-            self.cost = nn.CTCLoss(blank=self.blank_index)
-        if cost_type == "transducer":
-            from speechbrain.nnet.transducer.transducer_loss import (
-                TransducerLoss,
-            )
+def classification_error(
+    probabilities, targets, length=None, allowed_len_diff=3
+):
+    """Computes the classification error at frame or batch level.
 
-            if blank_index is None:
-                raise ValueError("Must pass blank index for transducer")
-            self.blank_index = blank_index
-            self.cost = TransducerLoss(blank=self.blank_index)
+    Arguments
+    ---------
+    probabilities : torch.Tensor
+        The posterior probabilities of shape
+        [batch, prob] or [batch, frames, prob]
+    targets : torch.Tensor
+        The targets, of shape [batch] or [batch, frames]
+    length : torch.Tensor
+        Length of each utterance, if frame-level loss is desired.
+    allowed_len_diff : int
+        Length difference that will be tolerated before raising an exception.
 
-    def forward(self, prediction, target, lengths):
-        """Returns the cost function given predictions and targets.
+    Example
+    -------
+    >>> probs = torch.tensor([[[0.9, 0.1], [0.1, 0.9]]])
+    >>> classification_error(probs, torch.tensor([1, 1]))
+    tensor(0.5000)
+    """
+    if len(probabilities.shape) == 3 and len(targets.shape) == 2:
+        probabilities, targets = truncate(
+            probabilities, targets, allowed_len_diff
+        )
 
-        Arguments
-        ---------
-        prediction : torch.Tensor
-            tensor containing the posterior probabilities
-        target : torch.Tensor
-            tensor containing the targets
-        lengths : torch.Tensor
-            tensor containing the relative lengths of each sentence
-        """
-        # Check on input and label shapes
-        self._check_inp(prediction, target, lengths)
+    def error(predictions, targets):
+        predictions = torch.argmax(probabilities, dim=-1)
+        return (predictions != targets).float()
 
-        # Computing actual target and prediction lengths
-        pred_len, target_len = self._compute_len(prediction, target, lengths)
-        target = target.to(prediction.device)
-        if self.cost_type == "transducer":
-            target = target.int()
-            loss = self.cost(prediction, target, pred_len, target_len)
+    return compute_masked_loss(error, probabilities, targets.long(), length)
 
-        elif self.cost_type == "ctc":
-            target = target.int()
-            prediction = prediction.transpose(0, 1)
-            loss = self.cost(prediction, target, pred_len, target_len)
 
-        else:
-            # Mask to avoid zero-padded time steps from  the total loss
-            mask = length_to_mask(target_len, max_len=target.shape[1])
+def nll_loss(log_probabilities, targets, length=None, allowed_len_diff=3):
+    """Computes negative log likelihood loss.
 
-            if self.cost_type in ["nll", "error"]:
-                prediction = prediction[:, 0 : target.shape[1], :]
-                prediction = prediction.reshape(
-                    prediction.shape[0] * prediction.shape[1],
-                    prediction.shape[2],
-                )
-                target = target.reshape(
-                    target.shape[0] * target.shape[1]
-                ).long()
-                mask = mask.reshape(mask.shape[0] * mask.shape[1])
+    Arguments
+    ---------
+    log_probabilities : torch.Tensor
+        The probabilities after log has been applied.
+        Format is [batch, log_p] or [batch, frames, log_p]
+    targets : torch.Tensor
+        The targets, of shape [batch] or [batch, frames]
+    length : torch.Tensor
+        Length of each utterance, if frame-level loss is desired.
+    allowed_len_diff : int
+        Length difference that will be tolerated before raising an exception.
 
-            if self.cost_type in ["mse", "l1"]:
-                mask = mask.unsqueeze(2).repeat(1, 1, target.shape[2])
+    Example
+    -------
+    >>> probs = torch.tensor([[0.9, 0.1], [0.1, 0.9]])
+    >>> nll_loss(torch.log(probs), torch.tensor([1, 1]))
+    tensor(1.2040)
+    """
+    if len(log_probabilities.shape) == 3:
+        log_probabilities, targets = truncate(
+            log_probabilities, targets, allowed_len_diff
+        )
+        log_probabilities = log_probabilities.transpose(1, -1)
 
-            loss = self.cost(prediction, target) * mask
-            loss = torch.sum(loss * mask) / torch.sum(mask)
+    # Pass the loss function but apply reduction="none" first
+    loss = functools.partial(torch.nn.functional.nll_loss, reduction="none")
+    return compute_masked_loss(loss, log_probabilities, targets.long(), length)
 
-        return loss
 
-    def _check_inp(self, prediction, target, lengths):
-        """Peforms some check on prediction, targets and lengths.
+def truncate(predictions, targets, allowed_len_diff=3):
+    """Ensure that predictions and targets are the same length.
 
-        Arguments
-        ---------
-        prediction : torch.Tensor
-            tensor containing the posterior probabilities
-        target : torch.Tensor
-            tensor containing the targets
-        lengths : torch.Tensor
-            tensor containing the relative lengths of each sentence
-        """
+    Arguments
+    ---------
+    predictions : torch.Tensor
+        First tensor for checking length.
+    targets : torch.Tensor
+        Second tensor for checking length.
+    allowed_len_diff : int
+        Length difference that will be tolerated before raising an exception.
+    """
+    len_diff = predictions.shape[1] - targets.shape[1]
+    if len_diff == 0:
+        return predictions, targets
+    elif abs(len_diff) > allowed_len_diff:
+        raise ValueError(
+            "Predictions and targets should be same length, but got %s and "
+            "%s respectively." % (predictions.shape[1], targets.shape[1])
+        )
+    elif len_diff < 0:
+        return predictions, targets[:, : predictions.shape[1]]
+    else:
+        return predictions[:, : targets.shape[1]], targets
 
-        if self.cost_type != "ctc" and self.cost_type != "transducer":
 
-            # Shapes cannot be too different (max 3 time steps)
-            diff = abs(prediction.shape[1] - target.shape[1])
-            if diff > self.allow_lab_diff:
-                err_msg = (
-                    "The length of labels differs from the length of the "
-                    "output probabilities. (Got %i vs %i)"
-                    % (target.shape[1], prediction.shape[1])
-                )
+def compute_masked_loss(loss_fn, predictions, targets, length=None):
+    """Compute the true average loss of a set of waveforms of unequal length.
 
-                logger.error(err_msg, exc_info=True)
-            prediction = prediction[:, 0 : target.shape[1], :]
+    Arguments
+    ---------
+    loss_fn : function
+        A function for computing the loss taking just predictions and targets.
+        Should return all the losses, not a reduction (e.g. reduction="none")
+    predictions : torch.Tensor
+        First argument to loss function.
+    targets : torch.Tensor
+        Second argument to loss function.
+    length : torch.Tensor
+        Length of each utterance to compute mask. If None, global average is
+        computed and returned.
+    """
+    mask = torch.ones_like(targets)
+    if length is not None:
+        mask = length_to_mask(
+            length * targets.shape[1], max_len=targets.shape[1],
+        )
+        if len(targets.shape) == 3:
+            mask = mask.unsqueeze(2).repeat(1, 1, targets.shape[2])
 
-        else:
-
-            if not isinstance(lengths, list):
-                err_msg = (
-                    "The third input to the compute_cost function must "
-                    "be a list [wav_len, lab_len] when ctc is the cost. "
-                )
-
-                logger.error(err_msg, exc_info=True)
-
-            # Regression case (no reshape)
-            self.reshape = True
-            if len(prediction.shape) == len(target.shape):
-                self.reshape = False
-
-    def _compute_len(self, prediction, target, lengths):
-        """Compute the actual length of prediction and targets given
-        the relative length tensor.
-
-        Arguments
-        ---------
-        prediction : torch.Tensor
-            tensor containing the posterior probabilities
-        target : torch.Tensor
-            tensor containing the targets
-        lengths : torch.Tensor
-            tensor containing the relative lengths of each sentence
-
-        Returns
-        -------
-        pred_len : torch.Tensor
-            tensor contaning the length of each sentence in the batch
-        target_len : torch.Tensor
-            tensor contaning the length of each target in the batch
-        """
-
-        if isinstance(lengths, list) and len(lengths) == 2:
-            pred_len, target_len = lengths
-        else:
-            pred_len = target_len = lengths
-
-        pred_len = torch.round(pred_len * prediction.shape[1]).int()
-        target_len = torch.round(target_len * target.shape[1]).int()
-
-        return pred_len, target_len
-
-    def _compute_error(self, prob, lab):
-        """Computes the classification error at frame level.
-
-        Arguments
-        ---------
-        prob : torch.Tensor
-            It is the tensor containing the posterior probabilities
-            as [batch,prob]
-        lab : torch.Tensor
-            tensor containing the targets ([batch])
-
-        """
-
-        predictions = torch.max(prob, dim=-1)[1]
-        error = torch.mean((predictions != lab).float())
-
-        return error
+    return torch.sum(loss_fn(predictions, targets) * mask) / torch.sum(mask)
