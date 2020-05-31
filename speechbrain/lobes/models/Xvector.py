@@ -4,12 +4,17 @@ Authors: Nauman Dawalatabad 2020
 
 """
 
-import os
+# import os
 import torch  # noqa: F401
-from speechbrain.yaml import load_extended_yaml
-from speechbrain.nnet.sequential import Sequential
-from speechbrain.utils.data_utils import recursive_update
+
+# from speechbrain.yaml import load_extended_yaml
+from speechbrain.nnet.containers import Sequential
+
+# from speechbrain.utils.data_utils import recursive_update
 from speechbrain.nnet.statistic_pooling import StatisticsPooling
+from speechbrain.nnet.CNN import Conv1d
+from speechbrain.nnet.linear import Linear
+from speechbrain.nnet.normalization import BatchNorm1d
 
 
 class Xvector(Sequential):
@@ -37,72 +42,43 @@ class Xvector(Sequential):
     """
 
     def __init__(
-        self, tdnn_blocks=1, tdnn_overrides={}, lin_blocks=1, lin_overrides={},
+        self,
+        activation=torch.nn.LeakyReLU,
+        tdnn_blocks=5,
+        tdnn_channels=512,
+        tdnn_kernel_sizes=[5, 3, 3, 1, 1],
+        tdnn_dialations=[1, 2, 3, 1, 1],
+        tdnn_fin_channels=1500,
+        lin_blocks=2,
+        lin_neurons=512,
     ):
+
         blocks = []
 
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        for i in range(tdnn_blocks):
-            blocks.append(
-                NeuralBlock(
-                    block_index=i + 1,
-                    param_file=os.path.join(
-                        current_dir, "xvect_tdnn_block.yaml"
+        for block_index in range(tdnn_blocks):
+            blocks.extend(
+                [
+                    Conv1d(
+                        out_channels=tdnn_channels,
+                        kernel_size=tdnn_kernel_sizes[block_index],
+                        dilation=tdnn_dialations[block_index],
                     ),
-                    overrides=tdnn_overrides,
-                )
+                    activation(),
+                    BatchNorm1d(),
+                ]
             )
 
         blocks.append(StatisticsPooling())
 
-        for i in range(lin_blocks):
-            blocks.append(
-                NeuralBlock(
-                    block_index=i + 1,
-                    param_file=os.path.join(
-                        current_dir, "xvect_lin_block.yaml"
+        for block_index in range(lin_blocks):
+            blocks.extend(
+                [
+                    Linear(
+                        n_neurons=lin_neurons, bias=True, combine_dims=False,
                     ),
-                    overrides=lin_overrides,
-                )
+                    activation(),
+                    BatchNorm1d(),
+                ]
             )
 
         super().__init__(*blocks)
-
-
-class NeuralBlock(Sequential):
-    """A block of neural network layers.
-
-    This module loads a parameter file and constructs a model based on the
-    stored hyperparameters. Two hyperparameters are treated specially:
-
-    * `constants.block_index`: This module overrides this parameter with
-        the value that is passed to the constructor.
-    * `constants.sequence`: This indicates the order of applying layers.
-        If it doesn't exist, the layers are applied in the order they
-        appear in the file.
-
-    Arguments
-    ---------
-    block_index : int
-        The index of this block in the network (starting from 1).
-    param_file : str
-        The location of the file storing the parameters for this block.
-    overrides : mapping
-        Parameters to change from the defaults listed in yaml.
-
-    Example
-    -------
-    >>> inputs = torch.rand([10, 50, 40])
-    >>> param_file = 'speechbrain/lobes/models/dnn_block.yaml'
-    >>> dnn = NeuralBlock(1, param_file)
-    >>> outputs = dnn(inputs, init_params=True)
-    >>> outputs.shape
-    torch.Size([10, 50, 512])
-    """
-
-    def __init__(self, block_index, param_file, overrides={}):
-        block_override = {"block_index": block_index}
-        recursive_update(overrides, block_override)
-        layers = load_extended_yaml(open(param_file), overrides)
-
-        super().__init__(*[getattr(layers, op) for op in layers.sequence])
