@@ -46,9 +46,10 @@ def cu_kernel_forward(log_probs, labels, alpha, log_p, T, U, blank, lock):
     if u <= U[b]:
         while t < T[b]:
             if u == 0:
-                if t == 0:
-                    alpha[b, 0, 0] = 0
-                else:
+                # if t == 0:
+                #     alpha[b, 0, 0] = 0
+                # else:
+                if t > 0:
                     alpha[b, t, 0] = (
                         alpha[b, t - 1, 0] + log_probs[b, t - 1, 0, blank]
                     )
@@ -76,7 +77,7 @@ def cu_kernel_forward(log_probs, labels, alpha, log_p, T, U, blank, lock):
                         cuda.atomic.add(lock, (b, u + 1), -1)
                     cuda.atomic.add(lock, (b, u), 1)
                     t += 1
-        if u == 0:
+        if u == U[b]:
             log_p[b] = (
                 alpha[b, T[b] - 1, U[b]] + log_probs[b, T[b] - 1, U[b], blank]
             )
