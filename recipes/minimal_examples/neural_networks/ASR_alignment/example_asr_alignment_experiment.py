@@ -2,7 +2,6 @@
 import os
 import speechbrain as sb
 from speechbrain.alignment.aligner import ViterbiAligner
-from speechbrain.decoders.ctc import ctc_greedy_decode
 from speechbrain.decoders.decoders import undo_padding
 from speechbrain.utils.edit_distance import wer_details_for_batch
 from speechbrain.utils.train_logger import summarize_average
@@ -15,9 +14,15 @@ data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
 with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
 
-viterbi_aligner = ViterbiAligner(output_folder = '')
+viterbi_aligner = ViterbiAligner(output_folder="")
+
 
 class AlignBrain(sb.core.Brain):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.flat_start_training = True
+        print("starting with flat start training")
+
     def compute_forward(self, x, stage="train", init_params=False):
         id, wavs, lens = x
         feats = params.compute_features(wavs, init_params)
@@ -25,24 +30,36 @@ class AlignBrain(sb.core.Brain):
         x = params.model(feats, init_params=init_params)
         x = params.lin(x, init_params)
         outputs = params.softmax(x)
-        viterbi_aligner.update_from_forward(outputs, lens)
+        viterbi_aligner.update_from_forward(id, outputs, lens)
 
         return outputs, lens
 
     def compute_objectives(self, predictions, targets, stage="train"):
         predictions, lens = predictions
         ids, phns, phn_lens = targets
-        loss = params.compute_cost(predictions, phns, lens, phn_lens)
 
-        if stage == "train":
-            alignments = viterbi_aligner.calc_viterbi_alignments(phns, phn_lens)
-            print(alignments)
+        if (
+            self.flat_start_training or stage == "test"
+        ):  # TODO: unsure about stage == 'test'
+            (
+                flat_start_batch,
+                flat_start_lens,
+            ) = viterbi_aligner.get_flat_start_batch(phns, phn_lens, lens)
+            loss = params.compute_cost(
+                predictions, flat_start_batch, flat_start_lens
+            )
+
+        else:
+            viterbi_batch = viterbi_aligner.get_viterbi_batch(lens)
+            loss = params.compute_cost(predictions, viterbi_batch, lens)
+
+        alignments = viterbi_aligner.calc_viterbi_alignments(phns, phn_lens)
 
         stats = {}
         if stage != "train":
-            seq = ctc_greedy_decode(predictions, lens, blank_id=-1)
+            # seq = ctc_greedy_decode(predictions, lens, blank_id=-1)
             phns = undo_padding(phns, phn_lens)
-            stats["PER"] = wer_details_for_batch(ids, phns, seq)
+            stats["PER"] = wer_details_for_batch(ids, phns, alignments)
 
         return loss, stats
 
@@ -51,6 +68,16 @@ class AlignBrain(sb.core.Brain):
         print("Train loss: %.2f" % summarize_average(train_stats["loss"]))
         print("Valid loss: %.2f" % summarize_average(valid_stats["loss"]))
         print("Valid PER: %.2f" % summarize_error_rate(valid_stats["PER"]))
+
+        print(
+            "alignment for spk1snt1:", viterbi_aligner.align_dict["spk1_snt1"]
+        )
+        print(
+            "alignment for spk1snt2:", viterbi_aligner.align_dict["spk1_snt2"]
+        )
+        if epoch == 0:
+            print("switching from flat start to Viterbi training")
+            self.flat_start_training = False
 
 
 train_set = params.train_loader()
