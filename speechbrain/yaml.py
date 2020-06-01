@@ -440,7 +440,7 @@ def parse_arithmetic(reference_string):
     """
     try:
         return _ast_eval(ast.parse(reference_string, mode="eval").body)
-    except (TypeError, SyntaxError):
+    except (TypeError, SyntaxError, KeyError):
         return reference_string
 
 
