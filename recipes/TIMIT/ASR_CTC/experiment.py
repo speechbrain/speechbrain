@@ -30,7 +30,7 @@ sb.core.create_experiment_directory(
 
 # Define training procedure
 class ASR(sb.core.Brain):
-    def compute_forward(self, x, train_mode=True, init_params=False):
+    def compute_forward(self, x, stage="train", init_params=False):
         ids, wavs, wav_lens = x
         wavs, wav_lens = wavs.to(params.device), wav_lens.to(params.device)
         if hasattr(params, "augmentation"):
@@ -42,25 +42,25 @@ class ASR(sb.core.Brain):
         pout = params.log_softmax(out)
         return pout, wav_lens
 
-    def compute_objectives(self, predictions, targets, train_mode=True):
+    def compute_objectives(self, predictions, targets, stage="train"):
         pout, pout_lens = predictions
         ids, phns, phn_lens = targets
         phns, phn_lens = phns.to(params.device), phn_lens.to(params.device)
-        loss = params.compute_cost(pout, phns, [pout_lens, phn_lens])
+        loss = params.compute_cost(pout, phns, pout_lens, phn_lens)
 
-        if not train_mode:
+        stats = {}
+        if stage != "train":
             ind2lab = params.train_loader.label_dict["phn"]["index2lab"]
             sequence = ctc_greedy_decode(pout, pout_lens, blank_id=-1)
             sequence = convert_index_to_lab(sequence, ind2lab)
             phns = undo_padding(phns, phn_lens)
             phns = convert_index_to_lab(phns, ind2lab)
-            stats = edit_distance.wer_details_for_batch(
+            per_stats = edit_distance.wer_details_for_batch(
                 ids, phns, sequence, compute_alignments=True
             )
-            stats = {"PER": stats}
-            return loss, stats
+            stats["PER"] = per_stats
 
-        return loss
+        return loss, stats
 
     def on_epoch_end(self, epoch, train_stats, valid_stats=None):
         per = summarize_error_rate(valid_stats["PER"])
