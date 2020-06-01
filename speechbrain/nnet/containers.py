@@ -8,7 +8,6 @@ import torch
 import logging
 import operator
 import functools
-from speechbrain.yaml import load_extended_yaml
 from speechbrain.nnet.linear import Linear
 
 logger = logging.getLogger(__name__)
@@ -65,8 +64,8 @@ def ignore_init(function):
     return lambda x, y, init_params=False: function(x, y)
 
 
-class ReplicateBlock(torch.nn.Module):
-    """Replicate one block of modules from a yaml file with shortcuts.
+class ConnectBlocks(torch.nn.Module):
+    """Connect a sequence of blocks with shortcut connections.
 
     Note: all shortcuts start from the output of the first block,
     since the first block may change the shape significantly.
@@ -95,25 +94,35 @@ class ReplicateBlock(torch.nn.Module):
         "avg", "cat") or a user-defined function that takes the shortcut
         and next input, and combines them, as well as `init_params`
         in case parameters need to be initialized inside of the function.
+
+    Example
+    -------
+    >>> block1 = Linear(n_neurons=10)
+    >>> block2 = Linear(n_neurons=10)
+    >>> block3 = Linear(n_neurons=10)
+    >>> inputs = torch.rand(10, 100, 20)
+    >>> model = ConnectBlocks([block1, block2, block3])
+    >>> outputs = model(inputs, init_params=True)
+    >>> outputs.shape
+    torch.Size([10, 100, 10])
     """
 
     def __init__(
         self,
-        param_file,
-        yaml_overrides={},
-        replication_count=1,
-        shortcut_type=None,
+        blocks,
+        shortcut_type="residual",
         shortcut_projection=False,
         shortcut_combine_fn="add",
     ):
         super().__init__()
-        self.layers = torch.nn.ModuleList()
+        self.blocks = torch.nn.ModuleList(blocks)
         if shortcut_type not in [None, "residual", "dense", "skip"]:
             raise ValueError(
                 "'shortcuts' must be one of 'residual', 'dense', or 'skip'"
             )
         self.shortcut_type = shortcut_type
         self.shortcut_projection = shortcut_projection
+        self.projections = []
 
         # Define combination options
         combine_functions = {
@@ -136,23 +145,6 @@ class ReplicateBlock(torch.nn.Module):
         else:
             self.shortcut_combine_fn = shortcut_combine_fn
 
-        # Initialize containers
-        self.layers = torch.nn.ModuleList()
-        self.blocks = []
-        self.projections = []
-
-        # One-based indexing for blocks, so it can be used as a multiplier
-        for block_index in range(1, replication_count + 1):
-
-            # Override the block_index in the yaml file
-            yaml_overrides["block_index"] = block_index
-            layers = load_yaml_modules(param_file, yaml_overrides)
-
-            # Store the layers as blocks for easy access, and
-            # register as layers for a flatter structure
-            self.blocks.append(layers)
-            self.layers.extend(layers)
-
     def forward(self, x, init_params=True):
         """
         Arguments
@@ -164,13 +156,11 @@ class ReplicateBlock(torch.nn.Module):
         """
         # Don't include first block in shortcut, since it may change
         # the shape in significant ways.
-        for layer in self.blocks[0]:
-            x = self._apply_layer(layer, x, init_params)
+        x = _apply_block(self.blocks[0], x, init_params)
         shortcut = x
 
         for i, block in enumerate(self.blocks[1:]):
-            for layer in block:
-                x = self._apply_layer(layer, x, init_params)
+            x = _apply_block(block, x, init_params)
 
             # Record outputs and combine with current shortcut
             if self.shortcut_type in ["dense", "skip"]:
@@ -210,30 +200,10 @@ class ReplicateBlock(torch.nn.Module):
 
         return self.shortcut_combine_fn(shortcut, x, init_params=init_params)
 
-    def _apply_layer(self, layer, x, init_params):
-        """Apply a function handling cases with no init_params"""
-        try:
-            return layer(x, init_params=init_params)
-        except TypeError:
-            return layer(x)
 
-
-def load_yaml_modules(param_file, overrides={}):
-    """Construct a block of pytorch modules from a parameter file.
-
-    Arguments
-    ---------
-    param_file : str
-        A parameter file to use for constructing a block.
-    overrides : dict
-        A set of overrides to use when parsing the parameter file.
-
-    Returns
-    -------
-    A list of all top-level torch.nn.Modules.
-    """
-
-    with open(param_file) as f:
-        params = load_extended_yaml(f, overrides, return_dict=True)
-
-    return [v for v in params.values() if isinstance(v, torch.nn.Module)]
+def _apply_block(block, x, init_params):
+    """Apply a function handling cases with no init_params"""
+    try:
+        return block(x, init_params=init_params)
+    except TypeError:
+        return block(x)

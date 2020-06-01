@@ -7,7 +7,7 @@ def test_load_extended_yaml():
     # Basic functionality
     yaml = """
     a: 1
-    thing: !new:collections.Counter
+    thing: !new:collections.Counter {}
     """
     things = load_extended_yaml(yaml)
     assert things.a == 1
@@ -18,6 +18,12 @@ def test_load_extended_yaml():
     overrides = {"a": 2}
     things = load_extended_yaml(yaml, overrides=overrides)
     assert things.a == 2
+    overrides = "{a: 2}"
+    things = load_extended_yaml(yaml, overrides=overrides)
+    assert things.a == 2
+    overrides = "{thing: !new:collections.Counter {b: 3}}"
+    things = load_extended_yaml(yaml, overrides=overrides)
+    assert things.thing["b"] == 3
 
     # String replacement
     yaml = """
