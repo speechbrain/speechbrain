@@ -232,6 +232,61 @@ def notch_filter(notch_freq, filter_width=101, notch_width=0.05):
 
 
 # WORK IN PROGRESS
+def cov(x, average=True):
+    """ Computes the covariance matrices of the signals.
+
+    Arguments:
+    ----------
+    x : tensor
+        A batch of audio signals in the frequency domain.
+
+    average : boolean
+        Informs the method if it should return an average
+        (computed on the time dimension) of the covariance
+        matrices. Default value is True.
+
+    Returns
+    -------
+    The covariance matrices. The tensors has the following
+    format: (batch, time_step, n_fft, 2 n_pairs)
+
+    Example
+    -------
+    TODO: Add an example
+    """
+
+    # Formating the real and imaginary parts
+    xs_re = x[..., 0, :].unsqueeze(4)
+    xs_im = x[..., 1, :].unsqueeze(4)
+
+    # Computing the covariance
+    rxx_re = torch.matmul(xs_re, xs_re.transpose(3, 4)) + torch.matmul(
+        xs_im, xs_im.transpose(3, 4)
+    )
+
+    rxx_im = torch.matmul(xs_im, xs_re.transpose(3, 4)) - torch.matmul(
+        xs_re, xs_im.transpose(3, 4)
+    )
+
+    # Selecting the upper triangular part of the covariance matrices
+    n_channels = x.shape[4]
+    indices = torch.triu_indices(n_channels, n_channels)
+
+    rxx_re = rxx_re[..., indices[0], indices[1]]
+    rxx_im = rxx_im[..., indices[0], indices[1]]
+
+    rxx = torch.stack((rxx_re, rxx_im), 3)
+
+    # Computing the average if desired
+    if average is True:
+        n_time_frames = x.shape[1]
+        rxx = torch.mean(rxx, 1, keepdim=True)
+        rxx = rxx.repeat(1, n_time_frames, 1, 1, 1)
+
+    return rxx
+
+
+# WORK IN PROGRESS
 class GCCPHAT(torch.nn.Module):
     """ Generalized Cross-Correlation with Phase Transform (GCC-PHAT)
 
@@ -242,7 +297,7 @@ class GCCPHAT(torch.nn.Module):
     Arguments
     ---------
     epsilon : float
-        TODO: Add a description
+        A small value to avoid divisions by 0 with the phase transform
 
     Example
     -------
@@ -253,25 +308,21 @@ class GCCPHAT(torch.nn.Module):
         super().__init__()
         self.epsilon = epsilon
 
-    def forward(self, x):
-        """ Returns the pseudo-spectrum of the beamformer.
+    def forward(self, rxx):
+        """ Returns the cross-correlation values for each timestamp.
 
         Arguments
         ---------
         x : tensor
-            A batch of audio signals in the frequency domain.
+            The covariance matrices of the input signal.
         """
-
-        # Computing the covariance matrices for the signals
-        rxx = self.cov(x)
-
         # Extracting the tensors needed for the operations
         rxx_values, rxx_indices = torch.unique(rxx, return_inverse=True, dim=1)
 
         rxx_re = rxx_values[..., 0, :]
         rxx_im = rxx_values[..., 1, :]
 
-        # Applying the phase transform
+        # Phase transform
         rxx_abs = torch.sqrt(rxx_re ** 2 + rxx_im ** 2) + self.epsilon
 
         rxx_re_phat = rxx_re / rxx_abs
@@ -279,44 +330,16 @@ class GCCPHAT(torch.nn.Module):
 
         rxx_phat = torch.stack((rxx_re_phat, rxx_im_phat), 4)
 
-        # TODO: Complete method and return right variable
+        # Returning in the temporal domain
+        rxx_phat = rxx_phat.transpose(2, 3)
+        n_samples = int((rxx.shape[2] - 1) * 2)
+
+        rxx_phat = torch.irfft(
+            rxx_phat, signal_ndim=1, signal_sizes=[n_samples]
+        )
+        rxx_phat = rxx_phat[:, rxx_indices, ...]
+
+        # Formatting the output
+        rxx_phat = rxx_phat.transpose(2, 3)
+
         return rxx_phat
-
-    # TODO: Convert it to an indepedent fucntion
-    def cov(self, x):
-        """ Computes the coariance matrices of the signals.
-
-        Arguments:
-        ----------
-        x : tensor
-            A batch of audio signals in the frequency domain.
-        """
-
-        # Formating the real and imaginary parts
-        xs_re = x[..., 0, :].unsqueeze(4)
-        xs_im = x[..., 1, :].unsqueeze(4)
-
-        # Computing the covariance
-        rxx_re = torch.matmul(xs_re, xs_re.transpose(3, 4)) + torch.matmul(
-            xs_im, xs_im.transpose(3, 4)
-        )
-
-        rxx_im = torch.matmul(xs_im, xs_re.transpose(3, 4)) - torch.matmul(
-            xs_re, xs_im.transpose(3, 4)
-        )
-
-        # Selecting the upper triangular part of the covariance matrices
-        n_channels = x.shape[4]
-        indices = torch.triu_indices(n_channels, n_channels)
-
-        rxx_re = rxx_re[..., indices[0], indices[1]]
-        rxx_im = rxx_im[..., indices[0], indices[1]]
-
-        rxx = torch.stack((rxx_re, rxx_im), 3)
-
-        # Computing the average
-        n_time_frames = x.shape[1]
-        rxx = torch.mean(rxx, 1, keepdim=True)
-        rxx = rxx.repeat(1, n_time_frames, 1, 1, 1)
-
-        return rxx
