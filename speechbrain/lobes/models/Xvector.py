@@ -6,12 +6,8 @@ Authors: Nauman Dawalatabad 2020
 
 # import os
 import torch  # noqa: F401
-
-# from speechbrain.yaml import load_extended_yaml
 from speechbrain.nnet.containers import Sequential
-
-# from speechbrain.utils.data_utils import recursive_update
-from speechbrain.nnet.statistic_pooling import StatisticsPooling
+from speechbrain.nnet.pooling import StatisticsPooling
 from speechbrain.nnet.CNN import Conv1d
 from speechbrain.nnet.linear import Linear
 from speechbrain.nnet.normalization import BatchNorm1d
@@ -31,23 +27,24 @@ class Xvector(Sequential):
     lin_overrides : mapping
         Additional parameters overriding the linear parameters.
 
-    TDNN Block Parameters
-    --------------------
-        .. include:: tdnn_block.yaml
-
-    LINEAR Block Parameters
-    --------------------
-        .. include:: lin_block.yaml
-
+    Example
+    -------
+    >>> from Xvector import Xvector
+    >>> xvect_model = Xvector('cpu')
+    >>> input_feats = torch.rand([5, 10, 24])
+    >>> outputs = xvect_model(input_feats, init_params=True)
+    >>> outputs.shape
+    torch.Size([5, 1, 512])
     """
 
     def __init__(
         self,
+        device="cpu",
         activation=torch.nn.LeakyReLU,
         tdnn_blocks=5,
         tdnn_channels=512,
         tdnn_kernel_sizes=[5, 3, 3, 1, 1],
-        tdnn_dialations=[1, 2, 3, 1, 1],
+        tdnn_dilations=[1, 2, 3, 1, 1],
         tdnn_fin_channels=1500,
         lin_blocks=2,
         lin_neurons=512,
@@ -55,20 +52,32 @@ class Xvector(Sequential):
 
         blocks = []
 
-        for block_index in range(tdnn_blocks):
+        for block_index in range(tdnn_blocks - 1):
             blocks.extend(
                 [
                     Conv1d(
                         out_channels=tdnn_channels,
                         kernel_size=tdnn_kernel_sizes[block_index],
-                        dilation=tdnn_dialations[block_index],
+                        dilation=tdnn_dilations[block_index],
                     ),
                     activation(),
                     BatchNorm1d(),
                 ]
             )
 
-        blocks.append(StatisticsPooling())
+        blocks.extend(
+            [
+                Conv1d(
+                    out_channels=tdnn_fin_channels,
+                    kernel_size=tdnn_kernel_sizes[-1],
+                    dilation=tdnn_dilations[-1],
+                ),
+                activation(),
+                BatchNorm1d(),
+            ]
+        )
+
+        blocks.append(StatisticsPooling(device))
 
         for block_index in range(lin_blocks):
             blocks.extend(
