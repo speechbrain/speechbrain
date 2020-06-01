@@ -37,6 +37,6 @@ def test_istft():
 
     compute_stft = STFT(sample_rate=fs)
     compute_istft = ISTFT(sample_rate=fs)
-    out = compute_istft(compute_stft(inp))
+    out = compute_istft(compute_stft(inp), sig_length=16000)
 
     assert torch.sum(torch.abs(inp - out) < 1e-6) >= inp.numel() - 5

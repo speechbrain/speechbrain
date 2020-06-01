@@ -208,9 +208,6 @@ class ISTFT(torch.nn.Module):
     hop_length : float
         Length (in ms) of the hope of the sliding window used when computing
         the STFT.
-    sig_length : int
-        The length of the output signal in number of samples. If not specified
-        will be equal to: (time_step - 1) * hop_length + n_fft
     window_type : str
         Window function used to compute the STFT ('bartlett','blackman',
         'hamming', 'hann', default: hamming).
@@ -249,7 +246,6 @@ class ISTFT(torch.nn.Module):
         sample_rate,
         win_length=25,
         hop_length=10,
-        sig_length=None,
         window_type="hamming",
         normalized_stft=False,
         center=True,
@@ -260,7 +256,6 @@ class ISTFT(torch.nn.Module):
         self.sample_rate = sample_rate
         self.win_length = win_length
         self.hop_length = hop_length
-        self.sig_length = sig_length
         self.window_type = window_type
         self.normalized_stft = normalized_stft
         self.center = center
@@ -277,13 +272,17 @@ class ISTFT(torch.nn.Module):
 
         self.window = self._create_window()
 
-    def forward(self, x):
+    def forward(self, x, sig_length=None):
         """ Returns the ISTFT generated from the input signal.
 
         Arguments
         ---------
         x : tensor
             A batch of audio signals in the frequency domain to transform.
+
+        sig_length : int
+            The length of the output signal in number of samples. If not
+            specified will be equal to: (time_step - 1) * hop_length + n_fft
         """
 
         or_shape = x.shape
@@ -356,28 +355,28 @@ class ISTFT(torch.nn.Module):
             estimated_length -= n_fft
 
         # Adjusting the size of the output signal if needed
-        if self.sig_length is not None:
+        if sig_length is not None:
 
-            if self.sig_length > estimated_length:
+            if sig_length > estimated_length:
 
                 if len(or_shape) == 5:
                     padding = torch.zeros(
                         (
                             or_shape[0],
                             or_shape[4],
-                            self.sig_length - estimated_length,
+                            sig_length - estimated_length,
                         )
                     )
 
                 else:
                     padding = torch.zeros(
-                        (or_shape[0], self.sig_length - estimated_length)
+                        (or_shape[0], sig_length - estimated_length)
                     )
 
                 istft = torch.cat((istft, padding), -1)
 
-            elif self.sig_length < estimated_length:
-                istft = istft[..., 0 : self.sig_length]
+            elif sig_length < estimated_length:
+                istft = istft[..., 0:sig_length]
 
         if len(or_shape) == 5:
             istft = istft.transpose(1, 2)
