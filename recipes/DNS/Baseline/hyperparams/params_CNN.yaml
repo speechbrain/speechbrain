@@ -52,40 +52,33 @@ compute_istft: !new:speechbrain.processing.features.ISTFT
   win_length: 32
   hop_length: 16
 
-conv1: !new:speechbrain.nnet.CNN.Conv
+conv1: !new:speechbrain.nnet.CNN.Conv1d
   out_channels: 2048
-  kernel_size: [7]
-  padding: True
+  kernel_size: 7
 
-conv2: !new:speechbrain.nnet.CNN.Conv
+conv2: !new:speechbrain.nnet.CNN.Conv1d
   out_channels: 1024
-  kernel_size: [7]
-  padding: True
+  kernel_size: 7
 
-conv3: !new:speechbrain.nnet.CNN.Conv
+conv3: !new:speechbrain.nnet.CNN.Conv1d
   out_channels: 512
-  kernel_size: [7]
-  padding: True
+  kernel_size: 7
 
-conv4: !new:speechbrain.nnet.CNN.Conv
+conv4: !new:speechbrain.nnet.CNN.Conv1d
   out_channels: 256
-  kernel_size: [7]
-  padding: True
+  kernel_size: 7
 
-conv5: !new:speechbrain.nnet.CNN.Conv
+conv5: !new:speechbrain.nnet.CNN.Conv1d
   out_channels: 128
-  kernel_size: [7]
-  padding: True
+  kernel_size: 7
 
-conv6: !new:speechbrain.nnet.CNN.Conv
+conv6: !new:speechbrain.nnet.CNN.Conv1d
   out_channels: 256
-  kernel_size: [7]
-  padding: True
+  kernel_size: 7
 
-conv7: !new:speechbrain.nnet.CNN.Conv
+conv7: !new:speechbrain.nnet.CNN.Conv1d
   out_channels: 512
-  kernel_size: [7]
-  padding: True
+  kernel_size: 7
 
 linear: !new:speechbrain.nnet.linear.Linear
   n_neurons: 257
@@ -94,11 +87,9 @@ linear: !new:speechbrain.nnet.linear.Linear
 activation: !new:torch.nn.LeakyReLU
 output_activation: !new:torch.nn.ReLU
 
-compute_cost: !new:speechbrain.nnet.losses.ComputeCost
-  cost_type: mse
+compute_cost: !name:speechbrain.nnet.losses.mse_loss
 
-optimizer: !new:speechbrain.nnet.optimizers.Optimize
-  optimizer_type: adam
+optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
   learning_rate: !ref <lr>
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer

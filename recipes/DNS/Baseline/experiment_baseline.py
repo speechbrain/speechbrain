@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 import os
 import sys
 import torch
@@ -12,7 +12,7 @@ from speechbrain.nnet.containers import Sequential
 # This hack needed to import data preparation script from ..
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(current_dir))
-from dns_prepare import prepare_dns
+from dns_prepare import prepare_dns  # noqa E402
 
 # Load hyperparameters file with command-line overrides
 params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
@@ -54,8 +54,9 @@ model = Sequential(
     params.output_activation,
 )
 
+
 class SEBrain(sb.core.Brain):
-    def compute_forward(self, x, train_mode=True, init_params=False):
+    def compute_forward(self, x, stage="train", init_params=False):
         ids, wavs, lens = x
         wavs, lens = wavs.to(params.device), lens.to(params.device)
         feats = params.compute_stft(wavs)
@@ -66,26 +67,20 @@ class SEBrain(sb.core.Brain):
 
         return output
 
-    def compute_objectives(self, predictions, targets, train_mode=True):
+    def compute_objectives(self, predictions, targets, stage="train"):
         ids, wavs, lens = targets
         wavs, lens = wavs.to(params.device), lens.to(params.device)
         feats = params.compute_stft(wavs)
         feats = spectral_magnitude(feats, power=0.5)
         feats = torch.log1p(feats)
 
-        return params.compute_cost(predictions, feats, lens)
+        loss = params.compute_cost(predictions, feats, lens)
 
-    def fit_batch(self, batch):
-        inputs, targets = batch
-        predictions = self.compute_forward(inputs)
-        loss = self.compute_objectives(predictions, targets)
-        loss.backward()
-        self.optimizer(self.modules)
-        return {"loss": loss.detach()}
+        return loss, {}
 
-    def evaluate_batch(self, epoch, batch):
+    def evaluate_batch(self, epoch, batch, stage="valid"):
         inputs, targets = batch
-        predictions = self.compute_forward(inputs, train_mode=False)
+        predictions = self.compute_forward(inputs, stage=stage)
 
         # Create the folder to save enhanced files
         if not os.path.exists(os.path.join(params.enhanced_folder, str(epoch))):
@@ -94,8 +89,10 @@ class SEBrain(sb.core.Brain):
         # Write batch enhanced files to directory
         self.write_wavs(torch.expm1(predictions), targets, epoch)
 
-        loss = self.compute_objectives(predictions, targets, train_mode=False)
-        return {"loss": loss.detach()}
+        loss, stats = self.compute_objectives(predictions, targets, stage=stage)
+        stats["loss"] = loss.detach()
+
+        return stats
 
     def on_epoch_end(self, epoch, train_stats, valid_stats):
         if params.use_tensorboard:
@@ -108,50 +105,53 @@ class SEBrain(sb.core.Brain):
         print("Valid loss: %.3f" % summarize_average(valid_stats["loss"]))
 
     def fit(self, epoch_counter, train_set, valid_set=None):
-        train_stats, valid_stats = {}, {}
         for epoch in epoch_counter:
             self.modules.train()
             train_stats = {}
-            for batch in tqdm(train_set):
-                stats = self.fit_batch(batch)
-                self.add_stats(train_stats, stats)
+            with tqdm(train_set) as t:
+                for i, batch in enumerate(t):
+                    stats = self.fit_batch(batch)
+                    self.add_stats(train_stats, stats)
+                    average = self.update_average(stats, iteration=i + 1)
+                    t.set_postfix(train_loss=average)
 
             valid_stats = {}
             if valid_set is not None:
                 self.modules.eval()
                 with torch.no_grad():
                     for batch in tqdm(valid_set):
-                        stats = self.evaluate_batch(epoch, batch)
+                        stats = self.evaluate_batch(epoch, batch, stage="valid")
                         self.add_stats(valid_stats, stats)
 
             self.on_epoch_end(epoch, train_stats, valid_stats)
-
-        return train_stats, valid_stats
 
     def write_wavs(self, predictions, inputs, epoch):
         ids, wavs, lens = inputs
         predictions = predictions.cpu()
 
         feats = params.compute_stft(wavs)
-        phase = torch.atan2(feats[:,:,:,1], feats[:,:,:,0])
+        phase = torch.atan2(feats[:, :, :, 1], feats[:, :, :, 0])
         complex_predictions = torch.mul(
-            torch.unsqueeze(predictions, -1), 
+            torch.unsqueeze(predictions, -1),
             torch.cat(
                 (
-                    torch.unsqueeze(torch.cos(phase), -1), 
+                    torch.unsqueeze(torch.cos(phase), -1),
                     torch.unsqueeze(torch.sin(phase), -1),
                 ),
                 -1,
-            )
+            ),
         )
         pred_wavs = params.compute_istft(complex_predictions)
 
         for name, pred_wav in zip(ids, pred_wavs):
-            enhance_path = os.path.join(params.enhanced_folder, str(epoch), name)
+            enhance_path = os.path.join(
+                params.enhanced_folder, str(epoch), name
+            )
             torchaudio.save(enhance_path, pred_wav, 16000)
 
+
 prepare_dns(
-    data_folder=params.data_folder, 
+    data_folder=params.data_folder,
     save_folder=params.data_folder,
     seg_size=10.0,
 )
@@ -179,4 +179,3 @@ se_brain = SEBrain(
 params.checkpointer.add_recoverable("model", model)
 params.checkpointer.recover_if_possible()
 se_brain.fit(params.epoch_counter, train_set, valid_set)
-
