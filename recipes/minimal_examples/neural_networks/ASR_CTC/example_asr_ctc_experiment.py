@@ -14,6 +14,7 @@ data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
 with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
 
+
 class CTCBrain(sb.core.Brain):
     def compute_forward(self, x, stage="train", init_params=False):
         id, wavs, lens = x
