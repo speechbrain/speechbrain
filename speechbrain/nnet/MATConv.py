@@ -105,7 +105,7 @@ class MATConvPool(nn.Module):
     Examples
     --------
     >>> import torch
-    >>> model = MATConvPool(128, (1,))
+    >>> model = MATConvPool(128, (1,), pool_axis=(1,))
     >>> input = torch.rand([10, 120, 60])
     >>> output = model(input, init_params=True)
     >>> output.shape
