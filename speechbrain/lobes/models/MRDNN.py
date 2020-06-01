@@ -5,6 +5,8 @@ Authors: Mirco Ravanelli 2020, Peter Plantinga 2020, Ju-Chieh Chou 2020
 """
 import os
 import torch  # noqa: F401
+from speechbrain.nnet.CNN import Conv
+from speechbrain.nnet.linear import Linear
 from speechbrain.nnet.containers import Sequential, ReplicateBlock
 
 
@@ -60,6 +62,7 @@ class MRDNN(Sequential):
         rnn_overrides={},
         dnn_blocks=1,
         dnn_overrides={},
+        matconv_overrides={},
     ):
         blocks = []
 
@@ -70,6 +73,16 @@ class MRDNN(Sequential):
                 replication_count=cnn_blocks,
                 param_file=os.path.join(current_dir, "matconv_block.yaml"),
                 yaml_overrides=cnn_overrides,
+            )
+        )
+
+        blocks.append(
+            ReplicateBlock(
+                replication_count=1,
+                param_file=os.path.join(
+                    current_dir, "matconv_time_pooling.yaml"
+                ),
+                yaml_overrides=matconv_overrides,
             )
         )
 
@@ -90,3 +103,20 @@ class MRDNN(Sequential):
         )
 
         super().__init__(*blocks)
+
+    def forward(self, x, init_params=False):
+        if init_params:
+            output = super(MRDNN, self).forward(x, init_params)
+            self._init_weight()
+            return output
+        else:
+            return super(MRDNN, self).forward(x, init_params)
+
+    def _init_weight(self):
+        for block in self.layers:
+            if hasattr(block, "layers"):
+                for layer in block.layers:
+                    if isinstance(layer, Conv):
+                        torch.nn.init.kaiming_normal_(layer.conv.weight)
+                    if isinstance(layer, Linear):
+                        torch.nn.init.xavier_normal_(layer.w.weight)

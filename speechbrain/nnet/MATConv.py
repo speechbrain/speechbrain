@@ -38,6 +38,7 @@ class MATConvModule(Sequential):
         self, out_channels, kernel_size, dilation=(1, 1),
     ):
         self.dilation = dilation
+        self.out_channels = out_channels
         layers = (
             Conv(
                 out_channels=out_channels,
@@ -68,7 +69,9 @@ class MATConvModule(Sequential):
             return output
         else:
             if not hasattr(self.layers[0], "conv"):
-                return super(MATConvModule, self).forward(x, True)
+                output = super(MATConvModule, self).forward(x, True)
+                self._init_weight()
+                return output
 
             return super(MATConvModule, self).forward(x, init_params)
 
@@ -109,18 +112,31 @@ class MATConvPool(nn.Module):
     torch.Size([10, 120, 128])
     """
 
-    def __init__(self, out_channels, stride, dilations=[1, 6, 12, 18]):
+    def __init__(
+        self,
+        out_channels,
+        stride,
+        matconv_channels=256,
+        pool_axis=(1, 2),
+        dilations=[1, 6, 12, 18],
+        droupout=0.15,
+    ):
         super().__init__()
 
-        self.matConv1d = self._check_dimentinality(stride)
+        if isinstance(stride, int):
+            stride = (stride,)
+        if isinstance(pool_axis, int):
+            pool_axis = (pool_axis,)
 
+        self.pool_axis = pool_axis
+        self.matConv1d = self._check_dimentinality(stride)
         self.matConvs = nn.ModuleList()
 
         for (i, dilation) in enumerate(dilations):
             if i == 0:
                 self.matConvs.append(
                     MATConvModule(
-                        out_channels=out_channels,
+                        out_channels=matconv_channels,
                         kernel_size=self._make_params(1),
                         dilation=self._make_params(dilation),
                     )
@@ -128,7 +144,7 @@ class MATConvPool(nn.Module):
             else:
                 self.matConvs.append(
                     MATConvModule(
-                        out_channels=out_channels,
+                        out_channels=matconv_channels,
                         kernel_size=self._make_params(3),
                         dilation=self._make_params(dilation),
                     )
@@ -154,7 +170,7 @@ class MATConvPool(nn.Module):
             ),
             Normalize("batchnorm"),
             nn.LeakyReLU(),
-            Dropout(0.5),
+            Dropout(droupout),
         )
 
     def forward(self, x, init_params=True):
@@ -165,8 +181,15 @@ class MATConvPool(nn.Module):
             the input tensor to run through the network.
         """
 
-        if len(x.shape) == 4 and self.matConv1d:
-            x = x.reshape(x.shape[0], x.shape[1] * x.shape[2], x.shape[3])
+        if init_params:
+            self._check_params(x)
+
+        if self.combine_batch_time:
+            x = x.transpose(-1, self.pool_axis[0])
+            new_shape = x.shape
+            x = x.reshape(
+                new_shape[0] * new_shape[1], new_shape[2], -1
+            ).transpose(1, -1)
 
         xs = [conv(x, init_params) for conv in self.matConvs]
         x_avg = self.global_avg_pool(x, init_params)
@@ -189,10 +212,57 @@ class MATConvPool(nn.Module):
         x = torch.cat((*xs, x_avg), dim=-1)
         x = self.conv(x, init_params)
 
+        if self.combine_batch_time:
+            x = x.permute(0, 2, 1)
+            x = x.reshape(new_shape[0], new_shape[1], x.shape[1], -1)
+            x = x.transpose(-1, self.pool_axis[0])
+
         if init_params:
             self._init_weight()
 
+        # print(x.shape, 'MATConv output size')
+
         return x
+
+    def _check_params(self, x):
+        self.combine_batch_time = False
+        if self.matConv1d:
+            if len(x.shape) == 4:
+                self.combine_batch_time = True
+
+            if len(self.pool_axis) != 1:
+                err_msg = (
+                    "pool_axes must corresponds to the pooling dimension. "
+                    "The pooling dimension is 1 and %s axes are specified."
+                    % (str(len(self.pool_axis)))
+                )
+                raise ValueError(err_msg)
+
+            if self.pool_axis[0] >= len(x.shape):
+                err_msg = (
+                    "pool_axes is greater than the number of dimensions. "
+                    "The tensor dimension is %s and the specified pooling "
+                    "axis is %s." % (str(len(x.shape)), str(self.pool_axis))
+                )
+                raise ValueError(err_msg)
+
+        else:
+            if len(self.pool_axis) != 2:
+                err_msg = (
+                    "pool_axes must corresponds to the pooling dimension. "
+                    "The pooling dimension is 2 and %s axes are specified."
+                    % (str(len(self.pool_axis)))
+                )
+                raise ValueError(err_msg)
+
+            dims = len(x.shape)
+            if self.pool_axis[0] >= dims or self.pool_axis[1] >= dims:
+                err_msg = (
+                    "pool_axes is greater than the number of dimensions. "
+                    "The tensor dimension is %s and the specified pooling "
+                    "axis are %s." % (str(len(x.shape)), str(self.pool_axis))
+                )
+                raise ValueError(err_msg)
 
     def _check_dimentinality(self, stride):
         return len(stride) == 1
@@ -227,6 +297,9 @@ class AdaptivePool(nn.Module):
 
     def __init__(self, output_size):
         super().__init__()
+
+        if len(output_size) == 1:
+            output_size = output_size[0]
 
         if isinstance(output_size, int):
             self.pool = nn.AdaptiveAvgPool1d(output_size)
