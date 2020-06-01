@@ -7,100 +7,48 @@ import torch
 import torch.nn as nn
 
 
-class Normalize(nn.Module):
-    """Normalizes the input tensors accoding to the specified normalization
-    technique.
+class BatchNorm1d(nn.Module):
+    """Applies 1d batch normalization to the input tensor.
 
     Arguments
     ---------
-    norm_type : str
-         It is the type of normalization used.
-
-         "batchnorm": it applies the standard batch normalization by
-         normalizing mean and std of the input tensor over the  batch axis.
-
-         "layernorm": it applies the standard layer normalization by
-         normalizing mean and std of the input tensor over the neuron axis.
-
-         "groupnorm": it applies group normalization over a mini-batch of
-         inputs. See torch.nn documentation for more info.
-
-         "instancenorm": it applies instance norm over a mini-batch of inputs.
-         It is similar to layernorm, but different statistic for each channel
-         are computed.
-
-        "localresponsenorm": it applies local response normalization over an
-        input signal composed of several input planes.See torch.nn
-        documentation for more info.
-
     eps : float
         This value is added to std deviation estimationto improve the numerical
         stability.
     momentum : float
         It is a value used for the running_mean and running_var computation.
-    alpha : float
-        Alpha factor for localresponsenorm.
-    beta : float
-        Beta factor for localresponsenorm.
-    k : float
-        It is the k factor for localresponsenorm.
-    neigh_ch : int
-        It is amount of neighbouring channels used for localresponse
-        normalization.
     affine : bool
         When set to True, the affine parameters are learned.
-    elementwise_affine : bool
-        it is used for the layer normalization. If True, this module has
-        learnable per-element affine parameters initialized to ones
-        (for weights) and zeros (for biases).
     track_running_stats : bool
         When set to True, this module tracks the running mean and variance,
         and when set to False, this module does not track such statistics.
-        Set it to True for batch normalization and to False for instancenorm.
-    num_groups : bool
-        It is number of groups to separate the channels into for the group
-        normalization.
+    combine_batch_time : bool
+        When true, it combines batch an time axis.
 
 
     Example
     -------
-    >>> normalize = Normalize('batchnorm')
-    >>> inputs = torch.rand(10, 50, 40)
-    >>> normalize.init_params(inputs)
-    >>> output=normalize(inputs)
+    >>> input = torch.randn(100, 10)
+    >>> norm = BatchNorm1d()
+    >>> output = norm(input, init_params=True)
     >>> output.shape
-    torch.Size([10, 50, 40])
+    torch.Size([100, 10])
     """
 
     def __init__(
         self,
-        norm_type,
         eps=1e-05,
         momentum=0.1,
-        alpha=0.0001,
-        beta=0.75,
-        k=1.0,
         affine=True,
-        elementwise_affine=True,
         track_running_stats=True,
-        num_groups=1,
-        neigh_ch=2,
-        output_folder=None,
+        combine_batch_time=False,
     ):
         super().__init__()
-        self.norm_type = norm_type
         self.eps = eps
         self.momentum = momentum
-        self.alpha = alpha
-        self.beta = beta
-        self.k = k
         self.affine = affine
-        self.elementwise_affine = elementwise_affine
         self.track_running_stats = track_running_stats
-        self.num_groups = num_groups
-        self.neigh_ch = neigh_ch
-        self.output_folder = output_folder
-        self.reshape = False
+        self.combine_batch_time = combine_batch_time
 
     def init_params(self, first_input):
         """
@@ -109,111 +57,303 @@ class Normalize(nn.Module):
         first_input : tensor
             A first input used for initializing the parameters.
         """
-        if self.norm_type == "batchnorm":
-            self.norm = self._batchnorm(first_input)
+        fea_dim = first_input.shape[-1]
 
-        if self.norm_type == "groupnorm":
-            n_ch = first_input.shape[1]
-            self.norm = torch.nn.GroupNorm(
-                self.num_groups, n_ch, eps=self.eps, affine=self.affine
-            )
-
-        if self.norm_type == "instancenorm":
-            self.norm = self._instancenorm(first_input)
-
-        if self.norm_type == "layernorm":
-            self.norm = torch.nn.LayerNorm(
-                first_input.size()[1:-1],
-                eps=self.eps,
-                elementwise_affine=self.elementwise_affine,
-            )
-
-            self.reshape = True
-
-        if self.norm_type == "localresponsenorm":
-            self.norm = torch.nn.LocalResponseNorm(
-                self.neigh_ch, alpha=self.alpha, beta=self.beta, k=self.k
-            )
+        self.norm = nn.BatchNorm1d(
+            fea_dim,
+            eps=self.eps,
+            momentum=self.momentum,
+            affine=self.affine,
+            track_running_stats=self.track_running_stats,
+        ).to(first_input.device)
 
     def forward(self, x, init_params=False):
         """Returns the normalized input tensor.
 
         Arguments
         ---------
-        x : torch.Tensor
-            input to transform linearly.
+        x : torch.Tensor (batch, time, [channels])
+            input to normalize. 2d or 3d tensors are expected in input
+            4d tensors can be used when combine_dims=True.
         """
+        if init_params:
+            self.init_params(x)
 
+        if self.combine_batch_time:
+            shape_or = x.shape
+            if len(x.shape) == 3:
+                x = x.reshape(shape_or[0] * shape_or[1], shape_or[2])
+            else:
+                x = x.reshape(
+                    shape_or[0] * shape_or[1], shape_or[3], shape_or[2]
+                )
+
+        else:
+            x = x.transpose(-1, 1)
+
+        x_n = self.norm(x)
+
+        if self.combine_batch_time:
+            x_n = x_n.reshape(shape_or)
+        else:
+            x_n = x_n.transpose(1, -1)
+
+        return x_n
+
+
+class BatchNorm2d(nn.Module):
+    """Applies 2d batch normalization to the input tensor.
+
+    Arguments
+    ---------
+    eps : float
+        This value is added to std deviation estimationto improve the numerical
+        stability.
+    momentum : float
+        It is a value used for the running_mean and running_var computation.
+    affine : bool
+        When set to True, the affine parameters are learned.
+    track_running_stats : bool
+        When set to True, this module tracks the running mean and variance,
+        and when set to False, this module does not track such statistics.
+
+    Example
+    -------
+    >>> input = torch.randn(100, 10, 5, 20)
+    >>> norm = BatchNorm2d()
+    >>> output = norm(input, init_params=True)
+    >>> output.shape
+    torch.Size([100, 10, 5, 20])
+    """
+
+    def __init__(
+        self, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True,
+    ):
+        super().__init__()
+        self.eps = eps
+        self.momentum = momentum
+        self.affine = affine
+        self.track_running_stats = track_running_stats
+
+    def init_params(self, first_input):
+        """
+        Arguments
+        ---------
+        first_input : tensor
+            A first input used for initializing the parameters.
+        """
+        fea_dim = first_input.shape[-1]
+
+        self.norm = nn.BatchNorm2d(
+            fea_dim,
+            eps=self.eps,
+            momentum=self.momentum,
+            affine=self.affine,
+            track_running_stats=self.track_running_stats,
+        ).to(first_input.device)
+
+    def forward(self, x, init_params=False):
+        """Returns the normalized input tensor.
+
+        Arguments
+        ---------
+        x : torch.Tensor (batch, time, channel1, channel2)
+            input to normalize. 4d tensors are expected.
+        """
         if init_params:
             self.init_params(x)
 
         x = x.transpose(-1, 1)
+
         x_n = self.norm(x)
+
         x_n = x_n.transpose(1, -1)
 
         return x_n
 
-    def _batchnorm(self, first_input):
-        """Initializes batch normalization. BatchNorm1d is used for 2d or 3d
-        input vectors, while nn.BatchNorm2d is used for 4d inputs.
 
+class LayerNorm(nn.Module):
+    """Applies layer normalization to the input tensor.
+
+    Arguments
+    ---------
+    eps : float
+        This value is added to std deviation estimationto improve the numerical
+        stability.
+    elementwise_affine : bool
+        If True, this module has learnable per-element affine parameters
+        initialized to ones (for weights) and zeros (for biases).
+
+    Example
+    -------
+    >>> input = torch.randn(100, 101, 128)
+    >>> norm = LayerNorm()
+    >>> output = norm(input, init_params=True)
+    >>> output.shape
+    torch.Size([100, 101, 128])
+    """
+
+    def __init__(self, eps=1e-05, elementwise_affine=True):
+        super().__init__()
+        self.eps = eps
+        self.elementwise_affine = elementwise_affine
+
+    def init_params(self, first_input):
+        """
         Arguments
         ---------
         first_input : tensor
             A first input used for initializing the parameters.
         """
+        self.norm = torch.nn.LayerNorm(
+            first_input.size()[2:],
+            eps=self.eps,
+            elementwise_affine=self.elementwise_affine,
+        ).to(first_input.device)
 
+    def forward(self, x, init_params=False):
+        """Returns the normalized input tensor.
+
+        Arguments
+        ---------
+        x : torch.Tensor (batch, time, channels)
+            input to normalize. 3d or 4d tensors are expected.
+        """
+        if init_params:
+            self.init_params(x)
+        x_n = self.norm(x)
+        return x_n
+
+
+class InstanceNorm1d(nn.Module):
+    """Applies 1d instance normalization to the input tensor.
+
+    Arguments
+    ---------
+    eps : float
+        This value is added to std deviation estimationto improve the numerical
+        stability.
+    momentum : float
+        It is a value used for the running_mean and running_var computation.
+    track_running_stats : bool
+        When set to True, this module tracks the running mean and variance,
+        and when set to False, this module does not track such statistics.
+
+    Example
+    -------
+    >>> input = torch.randn(100, 10, 20)
+    >>> norm = InstanceNorm1d()
+    >>> output = norm(input, init_params=True)
+    >>> output.shape
+    torch.Size([100, 10, 20])
+    """
+
+    def __init__(
+        self, eps=1e-05, momentum=0.1, track_running_stats=True,
+    ):
+        super().__init__()
+        self.eps = eps
+        self.momentum = momentum
+        self.track_running_stats = track_running_stats
+
+    def init_params(self, first_input):
+        """
+        Arguments
+        ---------
+        first_input : tensor
+            A first input used for initializing the parameters.
+        """
         fea_dim = first_input.shape[-1]
 
-        # Based on the shape of the input tensor I can use 1D or 2D batchn
-        if len(first_input.shape) <= 3:
-            norm = nn.BatchNorm1d(
-                fea_dim,
-                eps=self.eps,
-                momentum=self.momentum,
-                affine=self.affine,
-                track_running_stats=self.track_running_stats,
-            )
+        self.norm = nn.InstanceNorm1d(
+            fea_dim,
+            eps=self.eps,
+            momentum=self.momentum,
+            track_running_stats=self.track_running_stats,
+        ).to(first_input.device)
 
-        if len(first_input.shape) == 4:
-            norm = nn.BatchNorm2d(
-                fea_dim,
-                eps=self.eps,
-                momentum=self.momentum,
-                affine=self.affine,
-                track_running_stats=self.track_running_stats,
-            )
+    def forward(self, x, init_params=False):
+        """Returns the normalized input tensor.
 
-        return norm.to(first_input.device)
+        Arguments
+        ---------
+        x : torch.Tensor (batch, time, channels)
+            input to normalize. 3d tensors are expected.
+        """
+        if init_params:
+            self.init_params(x)
 
-    def _instancenorm(self, first_input):
-        """Initializes instance normalization. InstanceNorm1d is used for 2d
-        or or 3d input vectors, while InstanceNorm2d is used for 4d inputs.
+        x = x.transpose(-1, 1)
 
+        x_n = self.norm(x)
+
+        x_n = x_n.transpose(1, -1)
+
+        return x_n
+
+
+class InstanceNorm2d(nn.Module):
+    """Applies 2d instance normalization to the input tensor.
+
+    Arguments
+    ---------
+    eps : float
+        This value is added to std deviation estimationto improve the numerical
+        stability.
+    momentum : float
+        It is a value used for the running_mean and running_var computation.
+    track_running_stats : bool
+        When set to True, this module tracks the running mean and variance,
+        and when set to False, this module does not track such statistics.
+
+    Example
+    -------
+    >>> input = torch.randn(100, 10, 20, 2)
+    >>> norm = InstanceNorm2d()
+    >>> output = norm(input, init_params=True)
+    >>> output.shape
+    torch.Size([100, 10, 20, 2])
+    """
+
+    def __init__(
+        self, eps=1e-05, momentum=0.1, track_running_stats=True,
+    ):
+        super().__init__()
+        self.eps = eps
+        self.momentum = momentum
+        self.track_running_stats = track_running_stats
+
+    def init_params(self, first_input):
+        """
         Arguments
         ---------
         first_input : tensor
             A first input used for initializing the parameters.
         """
+        fea_dim = first_input.shape[-1]
 
-        fea_dim = first_input.shape[1]
+        self.norm = nn.InstanceNorm2d(
+            fea_dim,
+            eps=self.eps,
+            momentum=self.momentum,
+            track_running_stats=self.track_running_stats,
+        ).to(first_input.device)
 
-        # Use 1D or 2D based in input dimensionality
-        if len(first_input.shape) == 3:
-            norm = nn.InstanceNorm1d(
-                fea_dim,
-                eps=self.eps,
-                momentum=self.momentum,
-                track_running_stats=self.track_running_stats,
-            )
+    def forward(self, x, init_params=False):
+        """Returns the normalized input tensor.
 
-        if len(first_input.shape) == 4:
-            norm = nn.InstanceNorm2d(
-                fea_dim,
-                eps=self.eps,
-                momentum=self.momentum,
-                affine=self.affine,
-                track_running_stats=self.track_running_stats,
-            )
+        Arguments
+        ---------
+        x : torch.Tensor (batch, time, channel1, channel2)
+            input to normalize. 4d tensors are expected.
+        """
+        if init_params:
+            self.init_params(x)
 
-        return norm
+        x = x.transpose(-1, 1)
+
+        x_n = self.norm(x)
+
+        x_n = x_n.transpose(1, -1)
+
+        return x_n
