@@ -47,7 +47,7 @@ class MRDNN(Sequential):
     Example
     -------
     >>> import torch
-    >>> model = MRDNN(cnn_overrides={'pooling':{'out_channels':10}})
+    >>> model = MRDNN(matconv_overrides={'pooling':{'out_channels':10}})
     >>> inputs = torch.rand([10, 120, 60])
     >>> outputs = model(inputs, init_params=True)
     >>> len(outputs.shape)
