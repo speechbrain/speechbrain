@@ -10,7 +10,7 @@ csv_valid: !ref <data_folder>/dev.csv
 csv_test: !ref <data_folder>/test.csv
 
 # Neural Parameters
-N_epochs: 3
+N_epochs: 10
 N_batch: 1
 lr: 0.004
 
@@ -74,8 +74,10 @@ lin: !new:speechbrain.nnet.linear.Linear
 softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
-compute_cost: !name:speechbrain.nnet.losses.ctc_loss
-    blank_index: 42
+#compute_cost: !name:speechbrain.nnet.losses.ctc_loss
+#    blank_index: 42
+
+compute_cost: !name:speechbrain.nnet.losses.nll_loss
 
 optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
     learning_rate: !ref <lr>
