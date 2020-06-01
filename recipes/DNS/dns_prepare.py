@@ -10,16 +10,20 @@ Chien-Feng Liao 2020
 
 import os
 import csv
-import torch
 import logging
 from speechbrain.utils.data_utils import get_all_files
-
 from speechbrain.data_io.data_io import read_wav_soundfile
 
 logger = logging.getLogger(__name__)
+TRAIN_CSV = "train.csv"
+TEST_CSV = "test.csv"
+SAMPLERATE = 16000
 
-
-class DNSPreparer(torch.nn.Module):
+def prepare_dns(
+    data_folder,
+    save_folder,
+    seg_size=10.0,
+):
     """
     prepares the csv files for the DNS challenge dataset.
 
@@ -37,280 +41,269 @@ class DNSPreparer(torch.nn.Module):
     This example requires the actual DNS dataset:
     The "training" folder is expected after the dataset is downloaded and processed.
 
-    >>> from recipes.DNS.dns_prepare import DNSPreparer
-    >>> data_folder='/path/to/datasets/DNS-Challenge/'
+    >>> from recipes.DNS.dns_prepare import prepare_dns
+    >>> data_folder='datasets/DNS-Challenge'
     >>> save_folder='DNS_prepared'
-    >>> DNSPreparer(data_folder,save_folder)
+    >>> prepare_dns(data_folder,save_folder)
     """
 
-    def __init__(
-        self, data_folder, save_folder, seg_size=10.0,
-    ):
-        # Expected inputs when calling the class (no inputs in this case)
-        super().__init__()
-        self.data_folder = data_folder
-        self.save_folder = save_folder
-        self.seg_size = seg_size
+    train_noisy_folder = os.path.join(data_folder, "training/noisy")
+    test_folder        = os.path.join(data_folder, "datasets/test_set/synthetic/no_reverb")
 
-        self.train_clean_folder = os.path.join(
-            self.data_folder, "training/clean/"
-        )
-        self.train_noise_folder = os.path.join(
-            self.data_folder, "training/noise/"
-        )
-        self.train_noisy_folder = os.path.join(
-            self.data_folder, "training/noisy/"
-        )
-        self.test_folder = os.path.join(
-            self.data_folder, "datasets/test_set/synthetic/"
-        )
+    # Setting file extension.
+    extension = [".wav"]
 
-        # Other variables
-        self.samplerate = 16000
+    # Setting the save folder
+    if not os.path.exists(save_folder):
+        os.makedirs(save_folder)
 
-        # Setting file extension.
-        self.extension = [".wav"]
+    # Setting ouput files
+    save_csv_train = os.path.join(save_folder, TRAIN_CSV)
+    save_csv_test = os.path.join(save_folder, TEST_CSV)
 
-        # Setting the save folder
-        if not os.path.exists(self.save_folder):
-            os.makedirs(self.save_folder)
+    # Additional checks to make sure the data folder contains DNS
+    _check_DNS_folders(data_folder)
 
-        # Setting ouput files
-        self.save_csv_train = self.save_folder + "/train.csv"
-        self.save_csv_test = self.save_folder + "/test.csv"
+    msg = "\tCreating csv file for the ms_DNS Dataset.."
+    logger.debug(msg)
 
-    def __call__(self):
-        # Additional checks to make sure the data folder contains DNS
-        self.check_DNS_folders()
+    # Check if this phase is already done (if so, skip it)
+    if skip(save_folder):
 
-        msg = "\tCreating csv file for the ms_DNS Dataset.."
+        msg = "\t%s sucessfully created!" % (save_csv_train)
         logger.debug(msg)
 
-        # Check if this phase is already done (if so, skip it)
-        if self.skip():
-
-            msg = "\t%s sucessfully created!" % (self.save_csv_train)
-            logger.debug(msg)
-
-            msg = "\t%s sucessfully created!" % (self.save_csv_test)
-            logger.debug(msg)
-
-            return
-
-        # Creating csv file for training data
-        wav_lst_train = get_all_files(
-            self.train_noisy_folder, match_and=self.extension,
-        )
-
-        self.create_csv(
-            wav_lst_train,
-            self.save_csv_train,
-            is_noise_folder=True,
-            seg_size=self.seg_size,
-        )
-
-        # Creating csv file for test data
-        wav_lst_test = get_all_files(
-            self.test_folder, match_and=self.extension, exclude_or=["/clean/"],
-        )
-
-        self.create_csv(
-            wav_lst_test, self.save_csv_test,
-        )
+        msg = "\t%s sucessfully created!" % (save_csv_test)
+        logger.debug(msg)
 
         return
 
-    def skip(self):
-        """
-        Detects if the DNS data_preparation has been already done.
+    # Creating csv file for training data
+    wav_lst_train = get_all_files(
+        train_noisy_folder, match_and=extension,
+    )
 
-        If the preparation has been done, we can skip it.
+    create_csv(
+        wav_lst_train,
+        save_csv_train,
+        is_noise_folder=True,
+        seg_size=seg_size,
+    )
 
-        Returns
-        -------
-        bool
-            if True, the preparation phase can be skipped.
-            if False, it must be done.
-        """
+    # Creating csv file for test data
+    wav_lst_test = get_all_files(
+        test_folder, match_and=extension, exclude_or=["/clean/"],
+    )
 
-        # Checking folders and save options
-        skip = False
+    create_csv(
+        wav_lst_test, 
+        save_csv_test,
+    )
 
-        if (
-            os.path.isfile(self.save_csv_train)
-            and os.path.isfile(self.save_csv_test)
-            # and os.path.isfile(self.save_opt)
-        ):
-            skip = True
+    return
 
-        return skip
+def skip(save_folder):
+    """
+    Detects if the DNS data_preparation has been already done.
 
-    def create_csv(
-        self, wav_lst, csv_file, is_noise_folder=False, seg_size=None
-    ):
-        """
-        Creates the csv file given a list of wav files.
+    If the preparation has been done, we can skip it.
 
-        Arguments
-        ---------
-        wav_lst : list
-            The list of wav files of a given data split.
-        csv_file : str
-            The path of the output csv file
-        is_noise_folder : boolean
-            True if noise files are included
-        seg_size: int
-            Split the file into multiple fix length segments (ms).
+    Returns
+    -------
+    bool
+        if True, the preparation phase can be skipped.
+        if False, it must be done.
+    """
 
-        Returns
-        -------
-        None
-        """
+    # Checking folders and save options
+    skip = True
 
-        # Adding some Prints
-        msg = '\t"Creating csv lists in  %s..."' % (csv_file)
-        logger.debug(msg)
+    split_files = [TRAIN_CSV, TEST_CSV]
+    for split in split_files:
+        if not os.path.isfile(os.path.join(save_folder, split)):
+            skip = False
 
-        csv_lines = [
-            [
-                "ID",
-                "duration",
-                "noisy_wav",
-                "noisy_wav_format",
-                "noisy_wav_opts",
-                "clean_wav",
-                "clean_wav_format",
-                "clean_wav_opts",
-                "noise_wav",
-                "noise_wav_format",
-                "noise_wav_opts",
-            ]
+    return skip
+
+def create_csv(
+    wav_lst, 
+    csv_file, 
+    is_noise_folder=False, 
+    seg_size=None
+):
+    """
+    Creates the csv file given a list of wav files.
+
+    Arguments
+    ---------
+    wav_lst : list
+        The list of wav files of a given data split.
+    csv_file : str
+        The path of the output csv file
+    is_noise_folder : boolean
+        True if noise files are included
+    seg_size: int
+        Split the file into multiple fix length segments (ms).
+
+    Returns
+    -------
+    None
+    """
+
+    # Adding some Prints
+    msg = '\t"Creating csv lists in  %s..."' % (csv_file)
+    logger.debug(msg)
+
+    csv_lines = [
+        [
+            "ID",
+            "duration",
+            "noisy_wav",
+            "noisy_wav_format",
+            "noisy_wav_opts",
+            "clean_wav",
+            "clean_wav_format",
+            "clean_wav_opts",
+            "noise_wav",
+            "noise_wav_format",
+            "noise_wav_opts",
         ]
+    ]
 
-        # Processing all the wav files in the list
-        for wav_file in wav_lst:
+    # Processing all the wav files in the list
+    for wav_file in wav_lst:
 
-            # Getting fileids
-            full_file_name = wav_file.split("/")[-1]
-            fileid = full_file_name.split("_")[-1]
+        # Getting fileids
+        full_file_name = wav_file.split("/")[-1]
+        fileid = full_file_name.split("_")[-1]
 
-            clean_folder = os.path.join(
-                os.path.split(os.path.split(wav_file)[0])[0], "clean"
+        clean_folder = os.path.join(
+            os.path.split(os.path.split(wav_file)[0])[0], "clean"
+        )
+        clean_wav = clean_folder + "/clean_fileid_" + fileid
+
+        if is_noise_folder:
+            noise_folder = os.path.join(
+                os.path.split(os.path.split(wav_file)[0])[0], "noise"
             )
-            clean_wav = clean_folder + "/clean_fileid_" + fileid
+            noise_wav = noise_folder + "/noise_fileid_" + fileid
+        else:
+            noise_wav = ""
 
-            if is_noise_folder:
-                noise_folder = os.path.join(
-                    os.path.split(os.path.split(wav_file)[0])[0], "noise"
-                )
-                noise_wav = noise_folder + "/noise_fileid_" + fileid
-            else:
-                noise_wav = ""
+        # Reading the signal (to retrieve duration in seconds)
+        signal = read_wav_soundfile(wav_file)
+        duration = signal.shape[0] / SAMPLERATE
 
-            # Reading the signal (to retrieve duration in seconds)
-            signal = read_wav_soundfile(wav_file)
-            duration = signal.shape[0] / self.samplerate
+        # Composition of the csv_line
+        if not seg_size:
+            csv_line = [
+                "fileid_" + fileid,
+                str(duration),
+                wav_file,
+                "wav",
+                "",
+                clean_wav,
+                "wav",
+                "",
+                noise_wav,
+                "wav",
+                "",
+            ]
 
-            # Composition of the csv_line
-            if not seg_size:
+            # Adding this line to the csv_lines list
+            csv_lines.append(csv_line)
+
+        else:
+            for idx in range(int(duration // seg_size)):
+                start = int(idx * seg_size * SAMPLERATE)
+                stop = int((idx + 1) * seg_size * SAMPLERATE)
                 csv_line = [
-                    "fileid_" + fileid,
-                    str(duration),
+                    "fileid_{}_{}".format(idx, fileid),
+                    str(seg_size),
                     wav_file,
                     "wav",
-                    "",
+                    "start:{} stop:{}".format(start, stop),
                     clean_wav,
                     "wav",
-                    "",
+                    "start:{} stop:{}".format(start, stop),
                     noise_wav,
                     "wav",
-                    "",
+                    "start:{} stop:{}".format(start, stop),
                 ]
 
                 # Adding this line to the csv_lines list
                 csv_lines.append(csv_line)
 
-            else:
-                for idx in range(int(duration // seg_size)):
-                    start = int(idx * seg_size * self.samplerate)
-                    stop = int((idx + 1) * seg_size * self.samplerate)
-                    csv_line = [
-                        "fileid_{}_{}".format(fileid, idx),
-                        str(seg_size),
-                        wav_file,
-                        "wav",
-                        "start:{} stop:{}".format(start, stop),
-                        clean_wav,
-                        "wav",
-                        "start:{} stop:{}".format(start, stop),
-                        noise_wav,
-                        "wav",
-                        "start:{} stop:{}".format(start, stop),
-                    ]
+    # Writing the csv lines
+    _write_csv(csv_lines, csv_file)
+    # Final prints
+    msg = "\t%s sucessfully created!" % (csv_file)
+    logger.debug(msg)
 
-                    # Adding this line to the csv_lines list
-                    csv_lines.append(csv_line)
+def _write_csv(csv_lines, csv_file):
+    """
+    Writes on the specified csv_file the given csv_files.
+    """
+    with open(csv_file, mode="w") as csv_f:
+        csv_writer = csv.writer(
+            csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
+        )
 
-        # Writing the csv lines
-        with open(csv_file, mode="w") as csv_f:
-            csv_writer = csv.writer(
-                csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
-            )
+        for line in csv_lines:
+            csv_writer.writerow(line)
 
-            for line in csv_lines:
-                csv_writer.writerow(line)
+def _check_DNS_folders(data_folder):
+    """
+    Check if the data folder actually contains the DNS training dataset.
 
-        # Final prints
-        msg = "\t%s sucessfully created!" % (csv_file)
-        logger.debug(msg)
+    If not, raises an error.
 
-    def check_DNS_folders(self):
-        """
-        Check if the data folder actually contains the DNS training dataset.
+    Returns
+    -------
+    None
 
-        If not, raises an error.
+    Raises
+    ------
+    FileNotFoundError
+        If data folder doesn't contain DNS dataset (training and testset included).
+    """
+    train_clean_folder = os.path.join(data_folder, "training/clean")
+    train_noise_folder = os.path.join(data_folder, "training/noise")
+    train_noisy_folder = os.path.join(data_folder, "training/noisy")
+    test_folder        = os.path.join(data_folder, "datasets/test_set/synthetic/no_reverb")
 
-        Returns
-        -------
-        None
+    # Checking clean folder
+    if not os.path.exists(train_clean_folder):
 
-        Raises
-        ------
-        FileNotFoundError
-            If data folder doesn't contain DNS dataset (training and testset included).
-        """
-        # Checking clean folder
-        if not os.path.exists(self.train_clean_folder):
+        err_msg = (
+            "the folder %s does not exist (it is expected in "
+            "the DNS dataset)" % (train_clean_folder)
+        )
+        raise FileNotFoundError(err_msg)
 
-            err_msg = (
-                "the folder %s does not exist (it is expected in "
-                "the DNS dataset)" % (self.train_clean_folder)
-            )
-            raise FileNotFoundError(err_msg)
+    # Checking noise folder
+    if not os.path.exists(train_noise_folder):
 
-        # Checking noise folder
-        if not os.path.exists(self.train_noise_folder):
+        err_msg = (
+            "the folder %s does not exist (it is expected in "
+            "the DNS dataset)" % (train_noise_folder)
+        )
+        raise FileNotFoundError(err_msg)
 
-            err_msg = (
-                "the folder %s does not exist (it is expected in "
-                "the DNS dataset)" % (self.train_noise_folder)
-            )
-            raise FileNotFoundError(err_msg)
+    # Checking noisy folder
+    if not os.path.exists(train_noisy_folder):
 
-        # Checking noisy folder
-        if not os.path.exists(self.train_noisy_folder):
+        err_msg = (
+            "the folder %s does not exist (it is expected in "
+            "the DNS dataset)" % (train_noisy_folder)
+        )
+        raise FileNotFoundError(err_msg)
 
-            err_msg = (
-                "the folder %s does not exist (it is expected in "
-                "the DNS dataset)" % (self.train_noisy_folder)
-            )
-            raise FileNotFoundError(err_msg)
+    # Checking testset folder
+    if not os.path.exists(test_folder):
 
-        # Checking testset folder
-        if not os.path.exists(self.test_folder):
-
-            err_msg = (
-                "the folder %s does not exist (it is expected in "
-                "the DNS dataset)" % (self.test_folder)
-            )
-            raise FileNotFoundError(err_msg)
+        err_msg = (
+            "the folder %s does not exist (it is expected in "
+            "the DNS dataset)" % (test_folder)
+        )
+        raise FileNotFoundError(err_msg)
