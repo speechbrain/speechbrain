@@ -19,11 +19,8 @@ TRAIN_CSV = "train.csv"
 TEST_CSV = "test.csv"
 SAMPLERATE = 16000
 
-def prepare_dns(
-    data_folder,
-    save_folder,
-    seg_size=10.0,
-):
+
+def prepare_dns(data_folder, save_folder, seg_size=10.0):
     """
     prepares the csv files for the DNS challenge dataset.
 
@@ -48,7 +45,9 @@ def prepare_dns(
     """
 
     train_noisy_folder = os.path.join(data_folder, "training/noisy")
-    test_folder        = os.path.join(data_folder, "datasets/test_set/synthetic/no_reverb")
+    test_folder = os.path.join(
+        data_folder, "datasets/test_set/synthetic/no_reverb"
+    )
 
     # Setting file extension.
     extension = [".wav"]
@@ -79,15 +78,10 @@ def prepare_dns(
         return
 
     # Creating csv file for training data
-    wav_lst_train = get_all_files(
-        train_noisy_folder, match_and=extension,
-    )
+    wav_lst_train = get_all_files(train_noisy_folder, match_and=extension,)
 
     create_csv(
-        wav_lst_train,
-        save_csv_train,
-        is_noise_folder=True,
-        seg_size=seg_size,
+        wav_lst_train, save_csv_train, is_noise_folder=True, seg_size=seg_size,
     )
 
     # Creating csv file for test data
@@ -96,11 +90,11 @@ def prepare_dns(
     )
 
     create_csv(
-        wav_lst_test, 
-        save_csv_test,
+        wav_lst_test, save_csv_test,
     )
 
     return
+
 
 def skip(save_folder):
     """
@@ -125,12 +119,8 @@ def skip(save_folder):
 
     return skip
 
-def create_csv(
-    wav_lst, 
-    csv_file, 
-    is_noise_folder=False, 
-    seg_size=None
-):
+
+def create_csv(wav_lst, csv_file, is_noise_folder=False, seg_size=None):
     """
     Creates the csv file given a list of wav files.
 
@@ -240,6 +230,7 @@ def create_csv(
     msg = "\t%s sucessfully created!" % (csv_file)
     logger.debug(msg)
 
+
 def _write_csv(csv_lines, csv_file):
     """
     Writes on the specified csv_file the given csv_files.
@@ -251,6 +242,7 @@ def _write_csv(csv_lines, csv_file):
 
         for line in csv_lines:
             csv_writer.writerow(line)
+
 
 def _check_DNS_folders(data_folder):
     """
@@ -270,7 +262,9 @@ def _check_DNS_folders(data_folder):
     train_clean_folder = os.path.join(data_folder, "training/clean")
     train_noise_folder = os.path.join(data_folder, "training/noise")
     train_noisy_folder = os.path.join(data_folder, "training/noisy")
-    test_folder        = os.path.join(data_folder, "datasets/test_set/synthetic/no_reverb")
+    test_folder = os.path.join(
+        data_folder, "datasets/test_set/synthetic/no_reverb"
+    )
 
     # Checking clean folder
     if not os.path.exists(train_clean_folder):
