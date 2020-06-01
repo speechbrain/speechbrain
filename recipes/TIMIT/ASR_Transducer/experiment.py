@@ -19,8 +19,6 @@ from timit_prepare import TIMITPreparer  # noqa E402
 
 # Load hyperparameters file with command-line overrides
 params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
-if "seed" in overrides:
-    torch.manual_seed(overrides["seed"])
 with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(fin, overrides)
 
@@ -62,12 +60,14 @@ class TransducerBrain(sb.core.Brain):
             PN_output, _ = params.decoder_model(
                 PN_output, init_params=init_params
             )
+            # PN_output = params.decoder_model1(PN_output, init_params=init_params)
             PN_output = params.decoder_output(PN_output, init_params)
             # Joint the networks
             joint = params.Tjoint(
-                TN_output.unsqueeze(2), PN_output.unsqueeze(1)
+                TN_output.unsqueeze(2), PN_output.unsqueeze(1), init_params
             )
             # Output network
+            # outputs = params.output_model(joint, init_params)
             outputs = params.output(joint, init_params)
         else:
             outputs = decode_batch(
@@ -75,10 +75,11 @@ class TransducerBrain(sb.core.Brain):
                 [
                     params.decoder_embedding,
                     params.decoder_model,
+                    # params.decoder_model1,
                     params.decoder_output,
                 ],
                 params.Tjoint,
-                [params.output, params.log_softmax],
+                [params.output, params.log_softmax],  # params.output_model,
                 params.blank_id,
             )
 
@@ -113,7 +114,7 @@ class TransducerBrain(sb.core.Brain):
 
         return loss
 
-    def on_epoch_end(self, epoch, train_stats, valid_stats):
+    def on_epoch_end(self, epoch, train_stats, valid_stats=None):
         per = summarize_error_rate(valid_stats["PER"])
         old_lr, new_lr = params.lr_annealing([params.optimizer], epoch, per)
         epoch_stats = {"epoch": epoch, "lr": old_lr}
@@ -141,26 +142,31 @@ class TransducerBrain(sb.core.Brain):
 
 
 # Prepare data
-# prepare = TIMITPreparer(
-#     data_folder=params.data_folder,
-#     splits=["train", "dev", "test"],
-#     save_folder=params.data_folder,
-# )
-# prepare()
+prepare = TIMITPreparer(
+    data_folder=params.data_folder,
+    splits=["train", "dev", "test"],
+    save_folder=params.data_folder,
+)
+prepare()
 train_set = params.train_loader()
 valid_set = params.valid_loader()
-first_x, first_y = next(zip(*train_set))
+first_x, first_y = next(iter(train_set))
 
+# Modules are passed to optimizer and have train/eval called on them
 modules = [
     params.encoder_model,
     params.encoder_output,
     params.decoder_model,
+    # params.decoder_model1,
     params.decoder_output,
+    params.joint_model,
+    # params.output_model,
     params.output,
 ]
 if hasattr(params, "augmentation"):
     modules.append(params.augmentation)
 
+# Create brain object for training
 asr_brain = TransducerBrain(
     modules=modules,
     optimizer=params.optimizer,

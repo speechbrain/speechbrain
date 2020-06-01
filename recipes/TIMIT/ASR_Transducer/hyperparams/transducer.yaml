@@ -14,7 +14,7 @@ ckpts_to_keep: 1
 sample_rate: 16000
 #seed: !PLACEHOLDER  # e.g, 1234
 seed: 1234
-output_folder: !ref results/augment_vgg_ligru/<seed>
+output_folder: !ref results/transducer_augment_vgg_ligru/<seed>
 predictions_file: !ref <output_folder>/predictions.csv
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
@@ -34,7 +34,6 @@ n_mels: 40
 
 device: 'cuda:0'
 blank_id: 39
-size_output: 40
 
 # Functions
 encoder_model: !new:speechbrain.lobes.models.CRDNN.CRDNN
@@ -48,34 +47,38 @@ encoder_output: !new:speechbrain.nnet.linear.Linear
     bias: True
 
 decoder_embedding: !new:speechbrain.nnet.embedding.Embedding
-    num_embeddings: !ref <size_output>
     consider_as_one_hot: True # consider blank as zero vect
     blank_id: !ref <blank_id>
+    embeddings_dim: !ref <blank_id>
 
 decoder_model: !new:speechbrain.nnet.RNN.RNN
-    rnn_type: gru
+    rnn_type: ligru
     n_neurons: 128
-    nonlinearity: tanh
     num_layers: 1
     dropout: 0.15
+    normalization: layernorm
     bidirectional: False
     return_hidden: True
+
+# decoder_model1: !new:speechbrain.lobes.models.CRDNN.CRDNN
+#     cnn_blocks: 0
+#     dnn_blocks: 1
+#     rnn_blocks: 0
 
 decoder_output: !new:speechbrain.nnet.linear.Linear
     n_neurons: 40
     bias: True
 
-joint_model: !new:speechbrain.lobes.models.CRDNN.CRDNN
-    cnn_blocks: 0
-    dnn_blocks: 1
-    rnn_blocks: 0
 Tjoint: !new:speechbrain.nnet.transducer.transducer_joint.Transducer_joint
-    joint_network: !ref <joint_model>
     joint: sum # joint: [sum|concat]
-    nonlinearity: tanh
+
+# output_model: !new:speechbrain.lobes.models.CRDNN.CRDNN
+#     cnn_blocks: 0
+#     dnn_blocks: 1
+#     rnn_blocks: 0
 
 output: !new:speechbrain.nnet.linear.Linear
-    n_neurons: 40  # 42 phonemes + 1 blank
+    n_neurons: 40
     bias: False
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
@@ -140,7 +143,9 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         encoder_model: !ref <encoder_model>
         encoder_output: !ref <encoder_output>
         decoder_model: !ref <decoder_model>
+        #decoder_model1: !ref <decoder_model1>
         decoder_output: !ref <decoder_output>
+        #output_model: !ref <output_model>
         output: !ref <output>
         scheduler: !ref <lr_annealing>
         normalizer: !ref <normalize>
