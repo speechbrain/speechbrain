@@ -1,19 +1,24 @@
+# ################################
+# Model: Baseline 1-D CNN model with log1p mapping
+# Authors: Chien-Feng Liao
+# ################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: !PLACEHOLDER  # e.g, 1234
+__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+
 # Basic parameters
-data_folder: /mnt/md2/Corpora/DNS-Challenge/
-ckpts_to_keep: 1
-sample_rate: 16000
-seed: 1234  # e.g, 1234
-output_folder: !ref results/baseline/<seed>
+data_folder: !PLACEHOLDER
+output_folder: !ref results/baseline_log1p/<seed>
 train_log: !ref <output_folder>/train_log.txt
+enhanced_folder: !ref <output_folder>/enhanced/
 
 use_tensorboard: True
-tensorboard_logs: !ref logs/baseline/<seed>
+tensorboard_logs: !ref logs/baseline_log1p/<seed>
 
 # Data files
-csv_folder: ../
-csv_train: !ref <csv_folder>/train.csv
-csv_valid: !ref <csv_folder>/test.csv
-# csv_test: !ref <data_folder>/test.csv
+csv_train: !ref <data_folder>/train.csv
+csv_valid: !ref <data_folder>/test.csv
 
 # Neural Parameters
 N_epochs: 100
@@ -33,54 +38,53 @@ valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
   batch_size: !ref <N_batch>
   csv_read: [noisy_wav, clean_wav]
 
-# test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-#     csv_file: !ref <csv_test>
-#     csv_read: [wav]
-#     replacements:
-#         $data_folder: !ref <data_folder>
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+  limit: !ref <N_epochs>
 
-compute_features: !new:speechbrain.processing.features.STFT
+compute_stft: !new:speechbrain.processing.features.STFT
   sample_rate: 16000
   win_length: 32
   hop_length: 16
   n_fft: 512
 
-mean_var_norm: !new:speechbrain.processing.features.InputNormalization
-  norm_type: global
+compute_istft: !new:speechbrain.processing.features.ISTFT
+  sample_rate: 16000
+  win_length: 32
+  hop_length: 16
 
 conv1: !new:speechbrain.nnet.CNN.Conv
   out_channels: 2048
-  kernel_size: [5]
+  kernel_size: [7]
   padding: True
 
 conv2: !new:speechbrain.nnet.CNN.Conv
   out_channels: 1024
-  kernel_size: [5]
+  kernel_size: [7]
   padding: True
 
 conv3: !new:speechbrain.nnet.CNN.Conv
   out_channels: 512
-  kernel_size: [5]
+  kernel_size: [7]
   padding: True
 
 conv4: !new:speechbrain.nnet.CNN.Conv
   out_channels: 256
-  kernel_size: [5]
+  kernel_size: [7]
   padding: True
 
 conv5: !new:speechbrain.nnet.CNN.Conv
-  out_channels: 512
-  kernel_size: [5]
+  out_channels: 128
+  kernel_size: [7]
   padding: True
 
 conv6: !new:speechbrain.nnet.CNN.Conv
-  out_channels: 1024
-  kernel_size: [5]
+  out_channels: 256
+  kernel_size: [7]
   padding: True
 
 conv7: !new:speechbrain.nnet.CNN.Conv
-  out_channels: 2048
-  kernel_size: [5]
+  out_channels: 512
+  kernel_size: [7]
   padding: True
 
 linear: !new:speechbrain.nnet.linear.Linear
@@ -88,6 +92,7 @@ linear: !new:speechbrain.nnet.linear.Linear
   bias: False
 
 activation: !new:torch.nn.LeakyReLU
+output_activation: !new:torch.nn.ReLU
 
 compute_cost: !new:speechbrain.nnet.losses.ComputeCost
   cost_type: mse
@@ -95,3 +100,9 @@ compute_cost: !new:speechbrain.nnet.losses.ComputeCost
 optimizer: !new:speechbrain.nnet.optimizers.Optimize
   optimizer_type: adam
   learning_rate: !ref <lr>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+  checkpoints_dir: !ref <output_folder>/save
+  recoverables:
+    optimizer: !ref <optimizer>
+    counter: !ref <epoch_counter>
