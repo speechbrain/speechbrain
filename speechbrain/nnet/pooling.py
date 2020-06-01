@@ -212,7 +212,7 @@ class Pooling2d(nn.Module):
 
 
 class StatisticsPooling(nn.Module):
-    """This function implements a statistic pooling layer.
+    """This class implements a statistic pooling layer.
 
     This class implements Statistics Pooling layer:
     It returns the concatenated mean and std of input tensor
