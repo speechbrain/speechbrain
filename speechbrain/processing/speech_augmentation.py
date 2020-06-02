@@ -53,6 +53,9 @@ class AddNoise(torch.nn.Module):
     mix_prob : float
         The probability that a batch of signals will be mixed
         with a noise signal. By default, every batch is mixed with noise.
+    start_index : int
+        The index in the noise waveforms to start from. By default, chooses
+        a random index in [0, len(noise) - len(waveforms)].
     replacements : dict
         A set of string replacements to carry out in the
         csv file. Each time a key is found in the text, it will be replaced
@@ -76,6 +79,7 @@ class AddNoise(torch.nn.Module):
         snr_high=0,
         pad_noise=False,
         mix_prob=1.0,
+        start_index=None,
         replacements={},
     ):
         super().__init__()
@@ -88,6 +92,7 @@ class AddNoise(torch.nn.Module):
         self.snr_high = snr_high
         self.pad_noise = pad_noise
         self.mix_prob = mix_prob
+        self.start_index = start_index
         self.replacements = replacements
 
     def forward(self, waveforms, lengths):
@@ -162,12 +167,12 @@ class AddNoise(torch.nn.Module):
                     cache=self.do_cache,
                     replacements=self.replacements,
                 )
-                self.noise_data = zip(*self.data_loader())
+                self.noise_data = iter(self.data_loader())
 
         try:
             wav_id, noise_batch, noise_len = next(self.noise_data)[0]
         except StopIteration:
-            self.noise_data = zip(*self.data_loader())
+            self.noise_data = iter(self.data_loader())
             wav_id, noise_batch, noise_len = next(self.noise_data)[0]
 
         noise_batch = noise_batch.to(lengths.device)
@@ -196,9 +201,11 @@ class AddNoise(torch.nn.Module):
             noise_batch = torch.nn.functional.pad(noise_batch, padding)
 
         # Select a random starting location in the waveform
-        start_index = 0
-        max_chop = (noise_len - lengths).min().clamp(min=1)
-        start_index = torch.randint(high=max_chop, size=(1,))
+        start_index = self.start_index
+        if self.start_index is None:
+            start_index = 0
+            max_chop = (noise_len - lengths).min().clamp(min=1)
+            start_index = torch.randint(high=max_chop, size=(1,))
 
         # Truncate noise_batch to max_length
         noise_batch = noise_batch[:, start_index : start_index + max_length]
@@ -258,7 +265,7 @@ class AddReverb(torch.nn.Module):
             cache=self.do_cache,
             replacements=self.replacements,
         )
-        self.rir_data = zip(*self.data_loader())
+        self.rir_data = iter(self.data_loader())
 
     def forward(self, waveforms, lengths):
         """
@@ -317,7 +324,7 @@ class AddReverb(torch.nn.Module):
         try:
             wav_id, rir_waveform, length = next(self.rir_data)[0]
         except StopIteration:
-            self.rir_data = zip(*self.data_loader())
+            self.rir_data = iter(self.data_loader())
             wav_id, rir_waveform, length = next(self.rir_data)[0]
 
         # Make sure RIR has correct channels
@@ -733,7 +740,7 @@ class AddBabble(torch.nn.Module):
     ...     csv_file='samples/audio_samples/csv_example3.csv',
     ...     batch_size=5,
     ... )
-    >>> loader = zip(*dataloader())
+    >>> loader = iter(dataloader())
     >>> ids, batch, lengths = next(loader)[0]
     >>> noisy = babbler(batch, lengths)
     """
