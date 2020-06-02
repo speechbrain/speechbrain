@@ -31,20 +31,20 @@ Example
 ...         return x * self.param
 >>> model = Recoverable(1.)
 >>>
->>> with tempfile.TemporaryDirectory() as tempdir:
-...     # In simple cases, the module aims to have a terse syntax,
-...     # consisting of three steps.
-...     # 1. Specifying where to save checkpoints and what is included in a
-...     # checkpoint:
-...     checkpointer = Checkpointer(tempdir, {"network": model})
-...     # 2. Recover from the latest checkpoint, if one is found:
-...     checkpointer.recover_if_possible()
-...     # Run your experiment:
-...     data = [(0.1, 0.9), (0.3, 0.8)]
-...     for example, target in data:
-...         loss = (model(example) - target)**2
-...         # 3. Save checkpoints, and keep by default just one, the newest:
-...         ckpt = checkpointer.save_and_keep_only()
+>>> tempdir = getfixture('tmpdir')
+>>> # In simple cases, the module aims to have a terse syntax,
+>>> # consisting of three steps.
+>>> # 1. Specifying where to save checkpoints and what is included in a
+>>> # checkpoint:
+>>> checkpointer = Checkpointer(tempdir, {"network": model})
+>>> # 2. Recover from the latest checkpoint, if one is found:
+>>> checkpointer.recover_if_possible()
+>>> # Run your experiment:
+>>> data = [(0.1, 0.9), (0.3, 0.8)]
+>>> for example, target in data:
+...     loss = (model(example) - target)**2
+...     # 3. Save checkpoints, and keep by default just one, the newest:
+...     ckpt = checkpointer.save_and_keep_only()
 
 Author
 ------
@@ -518,7 +518,7 @@ class Checkpointer:
                 default_hook(obj, savepath)
                 continue
             # If we got here, no custom hook or registered default hook
-            MSG = f"Don't know how to load {type(obj)}. Register default hook \
+            MSG = f"Don't know how to save {type(obj)}. Register default hook \
                     or add custom hook for this object."
             raise RuntimeError(MSG)
         logger.info(f"Saved a checkpoint in {ckpt_dir}")
