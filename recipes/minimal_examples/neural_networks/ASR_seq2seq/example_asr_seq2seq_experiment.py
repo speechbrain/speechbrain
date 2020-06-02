@@ -2,21 +2,23 @@
 import os
 import speechbrain as sb
 from speechbrain.data_io.data_io import put_bos_token
+from speechbrain.data_io.data_io import append_eos_token
+from speechbrain.decoders.decoders import undo_padding
 from speechbrain.decoders.seq2seq import RNNGreedySearcher
 from speechbrain.utils.edit_distance import wer_details_for_batch
 from speechbrain.utils.train_logger import summarize_average
 from speechbrain.utils.train_logger import summarize_error_rate
-from speechbrain.decoders.decoders import undo_padding
+import torch
 
-experiment_dir = os.path.dirname(os.path.abspath(__file__))
+experiment_dir = os.path.dirname(os.path.realpath(__file__))
 params_file = os.path.join(experiment_dir, "params.yaml")
-data_folder = "../../../../../samples/audio_samples/nn_training_samples"
-data_folder = os.path.abspath(experiment_dir + data_folder)
+data_folder = "../../../../samples/audio_samples/nn_training_samples"
+data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
 with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
 
 searcher = RNNGreedySearcher(
-    modules=[params.emb, params.decoder, params.lin, params.softmax],
+    modules=[params.emb, params.dec, params.lin, params.softmax],
     bos_index=params.bos,
     eos_index=params.eos,
     min_decode_ratio=0,
@@ -25,53 +27,59 @@ searcher = RNNGreedySearcher(
 
 
 class seq2seqBrain(sb.core.Brain):
-    def compute_forward(self, x, y, train_mode=True, init_params=False):
+    def compute_forward(self, x, y, stage="train", init_params=False):
         id, wavs, wav_lens = x
         id, phns, phn_lens = y
         feats = params.compute_features(wavs, init_params)
         feats = params.mean_var_norm(feats, wav_lens)
-        x = params.rnn(feats, init_params=init_params)
+        x = params.enc(feats, init_params=init_params)
 
         y_in = put_bos_token(phns, bos_index=params.bos)
-        e_in = params.emb(y_in)
-        h, w = params.decoder(e_in, x, wav_lens, init_params=init_params)
+        e_in = params.emb(y_in, init_params=init_params)
+        h, w = params.dec(e_in, x, wav_lens, init_params=init_params)
         logits = params.lin(h, init_params=init_params)
         outputs = params.softmax(logits)
 
-        if not train_mode:
+        if stage != "train":
             seq, _ = searcher(x, wav_lens)
             return outputs, seq
 
         return outputs
 
-    def compute_objectives(self, predictions, targets, train_mode=True):
-        if train_mode:
+    def compute_objectives(self, predictions, targets, stage="train"):
+        if stage == "train":
             outputs = predictions
         else:
             outputs, seq = predictions
 
         ids, phns, phn_lens = targets
-        loss = params.compute_cost(outputs, phns, [phn_lens, phn_lens])
 
-        if not train_mode:
+        # add one for eos
+        abs_length = torch.round(phn_lens * phns.shape[1])
+        phns = append_eos_token(phns, length=abs_length, eos_index=params.eos)
+        rel_length = (abs_length + 1) / phns.shape[1]
+        loss = params.compute_cost(outputs, phns, length=rel_length)
+
+        stats = {}
+        if stage != "train":
             phns = undo_padding(phns, phn_lens)
-            stats = {"PER": wer_details_for_batch(ids, phns, seq)}
-            return loss, stats
-
-        return loss
+            stats["PER"] = wer_details_for_batch(ids, phns, seq)
+        return loss, stats
 
     def fit_batch(self, batch):
         inputs, targets = batch
         predictions = self.compute_forward(inputs, targets)
-        loss = self.compute_objectives(predictions, targets)
+        loss, stats = self.compute_objectives(predictions, targets)
         loss.backward()
-        self.optimizer(self.modules)
-        return {"loss": loss.detach()}
+        self.optimizer.step()
+        self.optimizer.zero_grad()
+        stats["loss"] = loss.detach()
+        return stats
 
-    def evaluate_batch(self, batch):
+    def evaluate_batch(self, batch, stage="test"):
         inputs, targets = batch
-        out = self.compute_forward(inputs, targets, train_mode=False)
-        loss, stats = self.compute_objectives(out, targets, train_mode=False)
+        out = self.compute_forward(inputs, targets, stage="test")
+        loss, stats = self.compute_objectives(out, targets, stage="test")
         stats["loss"] = loss.detach()
         return stats
 
@@ -83,9 +91,9 @@ class seq2seqBrain(sb.core.Brain):
 
 
 train_set = params.train_loader()
-first_x, first_y = next(zip(*train_set))
+first_x, first_y = next(iter(train_set))
 seq2seq_brain = seq2seqBrain(
-    modules=[params.rnn, params.emb, params.decoder, params.lin],
+    modules=[params.enc, params.emb, params.dec, params.lin],
     optimizer=params.optimizer,
     first_inputs=[first_x, first_y],
 )
@@ -95,4 +103,4 @@ print("Test PER: %.2f" % summarize_error_rate(test_stats["PER"]))
 
 
 def test_error():
-    assert summarize_average(test_stats["loss"]) < 15.0
+    assert seq2seq_brain.avg_train_loss < 3.0
