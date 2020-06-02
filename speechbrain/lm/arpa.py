@@ -22,6 +22,42 @@ E.G.
     \end\
     ```
 
+
+Example
+-------
+>>> # This example loads an ARPA model and queries it with BackoffNgramLM
+>>> import io
+>>> from speechbrain.lm.ngram import BackoffNgramLM
+>>> # First we'll put an ARPA format model in TextIO and load it:
+>>> with io.StringIO() as f:
+...     print("Anything can be here", file=f)
+...     print("", file=f)
+...     print("\\data\\", file=f)
+...     print("ngram 1=2", file=f)
+...     print("ngram 2=3", file=f)
+...     print("", file=f)  # Ends data section
+...     print("\\1-grams:", file=f)
+...     print("-0.6931 a", file=f)
+...     print("-0.6931 b 0.", file=f)
+...     print("", file=f)  # Ends unigram section
+...     print("\\2-grams:", file=f)
+...     print("-0.6931 a a", file=f)
+...     print("-0.6931 a b", file=f)
+...     print("-0.6931 b a", file=f)
+...     print("", file=f)  # Ends bigram section
+...     print("\\end\\", file=f)  # Ends whole file
+...     _ = f.seek(0)
+...     num_grams, ngrams, backoffs = read_arpa(f)
+>>> # The output of read arpa is already formatted right for the query class:
+>>> lm = BackoffNgramLM(ngrams, backoffs)
+>>> lm.logprob("a", context = tuple())
+-0.6931
+>>> lm.logprob("b", context = ("a",))
+-0.6931
+>>> # Query that requires a backoff:
+>>> lm.logprob("b", context = ("b",))
+-0.6931
+
 Author
 ------
 Aku Rouhe 2020
