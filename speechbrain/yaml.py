@@ -343,18 +343,29 @@ def deref(ref, full_tree, copy_mode=False):
     for part in ref[1:-1].split("."):
         if part not in branch:
             raise ValueError('The reference "%s" is not valid' % ref)
+        reference = branch
         branch = branch[part]
 
-    # For ruamel.yaml classes, the value is in the tag attribute
-    try:
-        branch = branch.value
-    except AttributeError:
-        pass
+    # If the tag is "new" or "name" and there is no argument list, we still
+    # need to ensure that a reference is created by using an empty list.
+    if (
+        hasattr(branch, "value")
+        and branch.value == ""
+        and hasattr(branch, "tag")
+        and (
+            branch.tag.value.startswith("!new:")
+            or branch.tag.value.startswith("!name:")
+        )
+    ):
+        tag = branch.tag.value
+        reference[part] = ruamel.yaml.comments.CommentedSeq()
+        reference[part].yaml_set_tag(tag)
+        branch = reference[part]
 
     if copy_mode:
         return copy.deepcopy(branch)
-    else:
-        return branch
+
+    return branch
 
 
 def recursive_resolve(reference, reference_list, full_tree, copy_mode=False):
