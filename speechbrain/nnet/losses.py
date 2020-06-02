@@ -10,6 +10,8 @@ import torch
 import logging
 import torch.nn as nn
 from speechbrain.data_io.data_io import length_to_mask
+from speechbrain.data_io.data_io import append_eos_token
+
 
 logger = logging.getLogger(__name__)
 
@@ -51,11 +53,20 @@ class ComputeCost(nn.Module):
     """
 
     def __init__(
-        self, cost_type, allow_lab_diff=3, blank_index=None,
+        self,
+        cost_type,
+        allow_lab_diff=3,
+        blank_index=None,
+        eos_index=None,
+        append_eos=False,
+        label_smoothing=0.0,
     ):
         super().__init__()
         self.allow_lab_diff = allow_lab_diff
         self.cost_type = cost_type
+        self.append_eos = append_eos
+        self.label_smoothing = label_smoothing
+        self.eos_index = eos_index
 
         if cost_type == "nll":
             self.cost = torch.nn.NLLLoss(reduction="none")
@@ -73,7 +84,7 @@ class ComputeCost(nn.Module):
             if blank_index is None:
                 raise ValueError("Must pass blank index for CTC")
             self.blank_index = blank_index
-            self.cost = nn.CTCLoss(blank=self.blank_index)
+            self.cost = nn.CTCLoss(blank=self.blank_index, zero_infinity=True)
 
         if cost_type == "transducer":
             from speechbrain.nnet.transducer.transducer_loss import (
@@ -97,12 +108,19 @@ class ComputeCost(nn.Module):
         lengths : torch.Tensor
             tensor containing the relative lengths of each sentence
         """
-        # Check on input and label shapes
-        self._check_inp(prediction, target, lengths)
-
         # Computing actual target and prediction lengths
         pred_len, target_len = self._compute_len(prediction, target, lengths)
         target = target.to(prediction.device)
+
+        if self.append_eos:
+            target = append_eos_token(
+                target, target_len, eos_index=self.eos_index
+            )
+            target_len = target_len + 1
+
+        # Check on input and label shapes
+        self._check_inp(prediction, target, lengths)
+
         if self.cost_type == "transducer":
             target = target.int()
             loss = self.cost(prediction, target, pred_len, target_len)
@@ -130,7 +148,15 @@ class ComputeCost(nn.Module):
             if self.cost_type in ["mse", "l1"]:
                 mask = mask.unsqueeze(2).repeat(1, 1, target.shape[2])
 
-            loss = self.cost(prediction, target) * mask
+            loss = self.cost(prediction, target)
+            if self.label_smoothing > 0:
+                if self.cost_type != "nll":
+                    raise ValueError("label smoothing > 0 is for NLL loss.")
+                loss_reg = -torch.mean(prediction, dim=-1)
+                loss = (
+                    1 - self.label_smoothing
+                ) * loss + self.label_smoothing * loss_reg
+
             loss = torch.sum(loss * mask) / torch.sum(mask)
 
         return loss
