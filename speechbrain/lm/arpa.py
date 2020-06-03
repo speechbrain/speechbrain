@@ -68,7 +68,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def read_arpa(fin):
+def read_arpa(fstream):
     r"""
     Reads an ARPA format N-gram language model from a stream
 
@@ -117,23 +117,80 @@ def read_arpa(fin):
     ValueError
         If no LM is found or the file is badly formatted.
     """
-    find_data_section(fin)
-    num_ngrams = read_num_ngrams(fin)
+    # Developer's note:
+    # This is a long function.
+    # It is because we support cases where a new section starts suddenly without
+    # an empty line in between.
+    #
+    # \data\ section:
+    _find_data_section(fstream)
+    num_ngrams = {}
+    for line in fstream:
+        line = line.strip()
+        if line[:5] == "ngram":
+            lhs, rhs = line.split("=")
+            order = int(lhs.split()[1])
+            num_grams = int(rhs)
+            num_ngrams[order] = num_grams
+        elif not line:  # Normal case, empty line ends section
+            ended, order = _next_section_or_end(fstream)
+            break  # Good, proceed to next section
+        elif _starts_ngrams_section(line):  # No empty line between sections
+            ended = False
+            order = _parse_order(line)
+            break  # Good, proceed to next section
+        else:
+            raise ValueError("Not a properly formatted line")
+    # At this point:
+    # ended == False
+    # type(order) == int
+    #
+    # \N-grams: sections
+    # NOTE: This is the section that most time is spent on, so it's been written
+    # with processing speed in mind.
     ngrams_by_order = {}
     backoffs_by_order = {}
-    for order in num_ngrams:
-        logger.debug(f"Reading {order}-grams")
+    while not ended:
+        probs = collections.defaultdict(dict)
+        backoffs = {}
+        backoff_line_length = order + 2
+        # Use try-except because it is faster than always checking
         try:
-            probs, backoffs = read_ngrams_section(fin, order)
-        except IndexError:
-            raise ValueError("Not a properly formatted ARPA file")
-        ngrams_by_order[order] = probs
-        backoffs_by_order[order] = backoffs
-    read_end(fin)
+            for line in fstream:
+                line = line.strip()
+                all_parts = tuple(line.split())
+                prob = float(all_parts[0])
+                if len(all_parts) == backoff_line_length:
+                    context = all_parts[1:-2]
+                    token = all_parts[-2]
+                    backoff = float(all_parts[-1])
+                    backoff_context = context + (token,)
+                    backoffs[backoff_context] = backoff
+                else:
+                    context = all_parts[1:-1]
+                    token = all_parts[-1]
+                probs[context][token] = prob
+        except (IndexError, ValueError):
+            ngrams_by_order[order] = probs
+            backoffs_by_order[order] = backoffs
+            if not line:  # Normal case, empty line ends section
+                ended, order = _next_section_or_end(fstream)
+            elif _starts_ngrams_section(line):  # No empty line between sections
+                ended = False
+                order = _parse_order(line)
+            elif _ends_arpa(line):  # No empty line before End of file
+                ended = True
+                order = None
+            else:
+                raise ValueError("Not a properly formatted ARPA file")
+    # Got to the \end\. Still have to check whether all promised sections were
+    # delivered.
+    if not num_ngrams.keys() == ngrams_by_order.keys():
+        raise ValueError("Not a properly formatted ARPA file")
     return num_ngrams, ngrams_by_order, backoffs_by_order
 
 
-def find_data_section(fstream):
+def _find_data_section(fstream):
     r"""
     Reads (lines) from the stream until the \data\ header is found.
     """
@@ -144,103 +201,34 @@ def find_data_section(fstream):
     raise ValueError("Not a properly formatted ARPA file")
 
 
-def read_num_ngrams(fstream):
-    r"""
-    Reads the ARPA \data\ section from the stream.
-
-    Assumes stream is at \data\ section.
-
-    Arguments
-    ---------
-    fin : TextIO
-        Text file stream (as commonly returned by open()) to read the model
-        from.
-
+def _next_section_or_end(fstream):
+    """
     Returns
     -------
-    num_ngrams : dict
-        Maps N-gram orders to the number ngrams of that order. Essentially the
-        \data\ section of an ARPA format file.
+    bool
+        Whether end was found.
+    int
+        The order of section that starts
     """
-    num_ngrams = {}
-    for line in fstream:
-        if line[:5] == "ngram":
-            lhs, rhs = line.strip().split("=")
-            order = int(lhs.split()[1])
-            num_grams = int(rhs)
-            num_ngrams[order] = num_grams
-        else:
-            break
-    if not num_ngrams:
-        raise ValueError("Empty ARPA file")
-    return num_ngrams
-
-
-def read_ngrams_section(fstream, order):
-    r"""
-    Reads one ARPA \N-grams: section (of order N)
-
-    Assumes fstream is at section header.
-
-    Arguments
-    ---------
-    fin : TextIO
-        Text file stream (as commonly returned by open()) to read the model
-        from.
-    order : int
-        The N
-
-    Returns
-    -------
-    dict
-        The log probabilities (first column) in the section.
-        This is a doubly nested dict.
-        The first layer is indexed by the context (tuple of tokens).
-        The second layer is indexed by tokens, and maps to the log prob.
-    dict
-        The log backoff weights (last column) in the section.
-        The dict is ndexed by the backoff history (tuple of tokens)
-        i.e. the context on which the probability distribution is conditioned
-        on. This maps to the log weights.
-
-    NOTE
-    ----
-    This function is somewhat optimized in Python. Numerous experiments with
-    attempts to parallelize reading yielded no improvement. The reading doesn't
-    seem to be IO bound (at least on an SSD), and the Python reading code is
-    still relatively slow.
-    """
-    section_header = fstream.readline()
-    if not section_header.startswith(f"\\{order}-grams:"):
-        raise ValueError("Not a properly formatted ARPA file")
-    probs = collections.defaultdict(dict)
-    backoffs = {}
-    backoff_line_length = order + 2
     for line in fstream:
         line = line.strip()
-        if not line:
-            break
-        all_parts = tuple(line.split())
-        prob = float(all_parts[0])
-        if len(all_parts) == backoff_line_length:
-            context = all_parts[1:-2]
-            token = all_parts[-2]
-            backoff = float(all_parts[-1])
-            backoff_context = context + (token,)
-            backoffs[backoff_context] = backoff
-        else:
-            context = all_parts[1:-1]
-            token = all_parts[-1]
-        probs[context][token] = prob
-    return dict(probs), backoffs
-
-
-def read_end(fstream):
-    r"""
-    Reads (lines) from the stream until the \end\ tag is found.
-    """
-    for line in fstream:
-        if line[:5] == "\\end\\":
-            return
-    # If we get here, no end tag found.
+        if _starts_ngrams_section(line):
+            order = _parse_order(line)
+            return False, order
+        if _ends_arpa(line):
+            return True, None
+    # If we got here, it's not a properly formatted file
     raise ValueError("Not a properly formatted ARPA file")
+
+
+def _starts_ngrams_section(line):
+    return line.strip().endswith("-grams:")
+
+
+def _parse_order(line):
+    order = int(line[1:].split("-")[0])
+    return order
+
+
+def _ends_arpa(line):
+    return line == "\\end\\"
