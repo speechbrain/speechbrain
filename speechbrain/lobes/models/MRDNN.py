@@ -50,7 +50,7 @@ class MRDNN(Sequential):
     Example
     -------
     >>> import torch
-    >>> model = MRDNN(matconv_overrides={'pooling':{'out_channels':10}})
+    >>> model = MRDNN()
     >>> inputs = torch.rand([10, 120, 60])
     >>> outputs = model(inputs, init_params=True)
     >>> len(outputs.shape)
@@ -64,12 +64,12 @@ class MRDNN(Sequential):
         dnn_norm=BatchNorm1d,
         dropout=0.15,
         cnn_blocks=2,
-        cnn_channels=[(128, 256)],
+        cnn_channels=[128, 256],
         cnn_kernelsize=(3, 3),
         frequency_striding=True,
         time_striding=True,
         matconv_outchannels=256,
-        matpool_channels=None,
+        matpool_channels=256,
         matconv_kernelsize=(1, 1),
         matconv_dilations=[1, 3, 6, 9],
         rnn_layers=4,

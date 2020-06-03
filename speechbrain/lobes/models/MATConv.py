@@ -31,7 +31,7 @@ class MATConvModule1d(Sequential):
     Example
     -------
     >>> import torch
-    >>> model = MATConvModule1d(128, (1,), (1,))
+    >>> model = MATConvModule1d(128, 1)
     >>> input = torch.rand([10, 120, 60])
     >>> output = model(input, init_params=True)
     >>> len(output.shape)
@@ -122,11 +122,11 @@ class MATConvModule2d(Sequential):
     Example
     -------
     >>> import torch
-    >>> model = MATConvModule2d(128, (1,1), (1,))
+    >>> model = MATConvModule2d(128, 1)
     >>> input = torch.rand([10, 120, 60])
     >>> output = model(input, init_params=True)
     >>> len(output.shape)
-    3
+    4
     """
 
     def __init__(
@@ -224,7 +224,7 @@ class MATConvPool1d(nn.Module):
     Examples
     --------
     >>> import torch
-    >>> model = MATConvPool(128, (1,), pool_axis=(1,))
+    >>> model = MATConvPool1d(128, 1, pool_axis=(1,))
     >>> input = torch.rand([10, 120, 60])
     >>> output = model(input, init_params=True)
     >>> output.shape
@@ -244,8 +244,6 @@ class MATConvPool1d(nn.Module):
     ):
         super().__init__()
 
-        if isinstance(stride, int):
-            stride = (stride,)
         if matpool_channels is None:
             matpool_channels = out_channels
 
@@ -273,7 +271,7 @@ class MATConvPool1d(nn.Module):
                 )
 
         self.global_avg_pool = Sequential(
-            AdaptivePool(1),
+            AdaptivePool((1,)),
             Conv1d(out_channels=out_channels, kernel_size=1, bias=False,),
             norm(),
             activation(),
@@ -397,11 +395,11 @@ class MATConvPool2d(nn.Module):
     Examples
     --------
     >>> import torch
-    >>> model = MATConvPool(128, (1,), pool_axis=(1,))
-    >>> input = torch.rand([10, 120, 60])
+    >>> model = MATConvPool2d(128)
+    >>> input = torch.rand([10, 120, 20, 60])
     >>> output = model(input, init_params=True)
     >>> output.shape
-    torch.Size([10, 120, 128])
+    torch.Size([10, 120, 20, 128])
     """
 
     def __init__(
