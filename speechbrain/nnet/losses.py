@@ -259,6 +259,6 @@ def compute_masked_loss(
         return loss
     else:
         loss_reg = -torch.sum(
-            torch.mean(predictions, dim=-1) * mask
+            torch.mean(predictions, dim=1) * mask
         ) / torch.sum(mask)
         return label_smoothing * loss_reg + (1 - label_smoothing) * loss
