@@ -256,7 +256,7 @@ class TransducerLoss(Module):
     The TranducerLoss(nn.Module) use Transducer(autograd.Function)
     to compute the forward-backward loss and gradients.
 
-    Exemple
+    Example
     -------
     >>> import torch
     >>> loss = TransducerLoss(blank=0)
