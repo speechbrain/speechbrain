@@ -69,11 +69,9 @@ def read_arpa(fstream):
     r"""
     Reads an ARPA format N-gram language model from a stream
 
-    Note that this returns a tuple of three dictno end tag found.
-
     Arguments
     ---------
-    fin : TextIO
+    fstream : TextIO
         Text file stream (as commonly returned by open()) to read the model
         from.
 
