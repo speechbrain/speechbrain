@@ -477,7 +477,7 @@ class RNNBeamSearcher(BeamSearcher):
         beam_size,
         length_penalty,
         eos_threshold,
-        max_attn_shift,
+        max_attn_shift=1e20,
     ):
         super(RNNBeamSearcher, self).__init__(
             modules,
