@@ -47,8 +47,7 @@ Example
 ...     ckpt = checkpointer.save_and_keep_only()
 
 Author
-------
-Aku Rouhe 2020
+    Aku Rouhe 2020
 """
 import torch
 import collections
@@ -88,10 +87,6 @@ def torch_recovery(obj, path, end_of_epoch):
     -------
     None
         Given object is modified in place
-
-    Author
-    ------
-    Aku Rouhe 2020
     """
     del end_of_epoch  # Unused
     obj.load_state_dict(torch.load(path), strict=True)

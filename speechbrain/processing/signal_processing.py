@@ -2,8 +2,7 @@
 Low level signal processing utilities
 
 Author
-------
-Peter Plantinga 2020
+    Peter Plantinga 2020
 """
 import torch
 

@@ -2,8 +2,7 @@
 Losses for training neural networks.
 
 Author
-------
-Mirco Ravanelli 2020
+    Mirco Ravanelli 2020
 """
 
 import torch
