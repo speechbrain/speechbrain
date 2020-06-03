@@ -60,7 +60,7 @@ model: !new:speechbrain.lobes.models.CRDNN.CRDNN
     cnn_blocks: !ref <cnn_blocks>
     cnn_channels: !ref <cnn_channels>
     cnn_kernelsize: !ref <cnn_kernelsize>
-    time_pooling: True
+    time_pooling: False
     rnn_layers: !ref <rnn_layers>
     rnn_neurons: !ref <rnn_neurons>
     rnn_bidirectional: !ref <rnn_bidirectional>
@@ -68,14 +68,11 @@ model: !new:speechbrain.lobes.models.CRDNN.CRDNN
     dnn_neurons: !ref <dnn_neurons>
 
 lin: !new:speechbrain.nnet.linear.Linear
-    n_neurons: 43  # 42 phonemes + 1 blank
+    n_neurons: 42  # 42 phonemes, no blank
     bias: False
 
 softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
-
-#compute_cost: !name:speechbrain.nnet.losses.ctc_loss
-#    blank_index: 42
 
 compute_cost: !name:speechbrain.nnet.losses.nll_loss
 
