@@ -55,6 +55,7 @@ Example
 >>> # Query that requires a backoff:
 >>> lm.logprob("b", context = ("b",))
 -0.6931
+
 Author
     Aku Rouhe 2020
 """
