@@ -23,8 +23,8 @@ def filter_ctc_output(string_pred, blank_id=-1):
     Returns
     ------
     list
-          The output predicted by CTC without the blank symbol and
-          the repetitions
+        The output predicted by CTC without the blank symbol and
+        the repetitions
 
     Example
     -------
@@ -32,10 +32,6 @@ def filter_ctc_output(string_pred, blank_id=-1):
         >>> string_out = filter_ctc_output(string_pred, blank_id='blank')
         >>> print(string_out)
         ['a', 'b', 'c']
-
-    Author
-    ------
-        Mirco Ravanelli 2020
     """
 
     if isinstance(string_pred, list):
