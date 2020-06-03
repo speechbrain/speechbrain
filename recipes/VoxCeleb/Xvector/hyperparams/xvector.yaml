@@ -1,70 +1,78 @@
 # Basic parameters
-data_folder: /network/home/dawalatn/nauman/data_folder/
-sample_rate: 16000
-seed: 1234
-output_folder: !ref results/norm_batch  #<seed>
-save_folder: !ref <output_folder>/save
-train_log: !ref <output_folder>/train_log.txt
+seed: 1234  # e.g, 1234
+__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Data (csv) files
+data_folder: ../../../../../data_folder/
+output_folder: results/
+save_folder: !ref <output_folder>/save/
 csv_train: !ref <save_folder>/train.csv
 csv_valid: !ref <save_folder>/dev.csv
+csv_test: !ref <save_folder>/test.csv
 
-# Xvector Data_prep Parameters
-seg_dur: 300 # in msec
-vad: False
-splits: ["train", "dev"]
-
-# Neural Parameters
-number_of_epochs: 100
-batch_size_: 256
+# Training hyperparameters
+number_of_epochs: 10
+batch_size: 9
 lr: 0.002
-device: 'cuda:0'
+device: 'cpu'
+
+# Feature parameters
+n_mels: 24
+left_frames: 0
+right_frames: 0
+deltas: False
+
+# Number of speakers
+out_n_neurons: 2
 
 # Functions
 compute_features: !new:speechbrain.lobes.features.fbank.Fbank
-    n_mels: 24
-    left_frames: 0
-    right_frames: 0
-    deltas: False
-
-epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
-    limit: !ref <number_of_epochs>
+    n_mels: !ref <n_mels>
+    left_frames: !ref <left_frames>
+    right_frames: !ref <right_frames>
+    deltas: !ref <deltas>
 
 model: !new:speechbrain.lobes.models.Xvector.Xvector
-    tdnn_blocks: 1
-    lin_blocks: 1
+    activation: !name:torch.nn.LeakyReLU
+    device: !ref <device>
+    tdnn_blocks: 5
+    tdnn_channels: 512
+    tdnn_kernel_sizes: [5, 3, 3, 1, 1]
+    tdnn_dilations: [1, 2, 3, 1, 1]
+    tdnn_fin_channels: 1500
+    lin_blocks: 2
+    lin_neurons: 512
+
 
 train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    &loader
     csv_file: !ref <csv_train>
-    batch_size: !ref <batch_size_>
+    batch_size: !ref <batch_size>
     csv_read: [wav, spk_id]
-    sentence_sorting: original
-    output_folder: !ref <output_folder>
+    sentence_sorting: ascending
     replacements:
         $data_folder: !ref <data_folder>
 
 valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    <<: *loader
     csv_file: !ref <csv_valid>
+    batch_size: !ref <batch_size>
+    csv_read: [wav, spk_id]
+    sentence_sorting: ascending
+    replacements:
+        $data_folder: !ref <data_folder>
 
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
 
-linear: !new:speechbrain.nnet.linear.Linear
-    n_neurons: 1211
+out_linear: !new:speechbrain.nnet.linear.Linear
+    n_neurons: !ref <out_n_neurons>
     bias: True
 
 softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
-compute_cost: !new:speechbrain.nnet.losses.ComputeCost
-    cost_type: nll
+compute_cost: !name:speechbrain.nnet.losses.nll_loss
 
-compute_error: !new:speechbrain.nnet.losses.ComputeCost
-    cost_type: error
+compute_error: !name:speechbrain.nnet.losses.classification_error
 
-optimizer: !new:speechbrain.nnet.optimizers.Optimize
-    optimizer_type: adam
+optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
     learning_rate: !ref <lr>

@@ -14,7 +14,6 @@ import logging
 import glob
 import random
 
-from speechbrain.utils.data_utils import get_all_files  # noqa F401
 from speechbrain.data_io.data_io import (
     read_wav_soundfile,
     load_pkl,
@@ -33,11 +32,13 @@ def prepare_voxceleb1(
     data_folder,
     save_folder,
     splits=["train", "dev"],
-    split_ratio=[9, 1],
+    split_ratio=[90, 10],
     seg_dur=300,
     vad=False,
     rand_seed=1234,
 ):
+
+    data_folder = os.path.join(data_folder, "wav/")
 
     # Create configuration for easily skipping data_preparation stage
     conf = {
@@ -49,12 +50,6 @@ def prepare_voxceleb1(
         "seg_dur": seg_dur,
     }
 
-    # Checks on splits and split ratio
-    # if len(splits) != len(split_ratio):
-    #    msg = "Number of splits ("+ str(splits) +") and number of split ratio ("+ str(split_ratio) +") must match."
-    #    logger.debug(msg)
-    #    return
-
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
 
@@ -62,7 +57,6 @@ def prepare_voxceleb1(
     save_opt = os.path.join(save_folder, OPT_FILE)
     save_csv_train = os.path.join(save_folder, TRAIN_CSV)
     save_csv_dev = os.path.join(save_folder, DEV_CSV)
-    # save_csv_test = os.path.join(save_folder, TEST_CSV)
 
     # Check if this phase is already done (if so, skip it)
     if skip(splits, save_folder, conf):
@@ -76,12 +70,7 @@ def prepare_voxceleb1(
     logger.debug(msg)
 
     # Split data into 90% train and 10% validation (verification split)
-    wav_lst_train, wav_lst_dev = _get_utt_split_lists(
-        data_folder, splits, split_ratio
-    )
-
-    # Split data according to identification split
-    # wav_lst_train, wav_lst_dev = _get_data_iden_split()
+    wav_lst_train, wav_lst_dev = _get_utt_split_lists(data_folder, split_ratio)
 
     # Creating csv file for training data
     if "train" in splits:
@@ -169,7 +158,6 @@ def _get_utt_split_lists(data_folder, split_ratio):
         f for f in glob.glob(data_folder + "**/*.wav", recursive=True)
     ]  # doesn't take much time
 
-    # Not needed if doing chunk-level shuffling
     # random.shuffle(audio_files_list)
     train_lst = audio_files_list[
         : int(0.01 * split_ratio[0] * len(audio_files_list))
