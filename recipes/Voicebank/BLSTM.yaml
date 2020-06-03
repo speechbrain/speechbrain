@@ -93,12 +93,12 @@ linear2: !new:speechbrain.nnet.linear.Linear
     bias: True
 
 activation_lrelu: !new:torch.nn.LeakyReLU
-       negative_slope: 0.01
+    negative_slope: 0.01
 
 activation1: !name:torch.nn.ReLU
 
 model: !new:speechbrain.nnet.containers.Sequential
-       [!ref <lstm>, !ref <linear1>,  !ref <activation_lrelu>, !ref <linear2>]
+    [!ref <lstm>, !ref <linear1>, !ref <activation_lrelu>, !ref <linear2>]
 
 compute_cost: !name:speechbrain.nnet.losses.mse_loss
 
@@ -108,6 +108,6 @@ optimizer: !new:speechbrain.nnet.optimizers.RMSprop_Optimizer
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
-                model: !ref <model>
-                optimizer: !ref <optimizer>
-                counter: !ref <epoch_counter>
+        model: !ref <model>
+        optimizer: !ref <optimizer>
+        counter: !ref <epoch_counter>
