@@ -225,6 +225,10 @@ class BeamSearcher(BaseSearcher):
     eos_threshold : float
         The threshold coefficient for eos token. See 3.1.2 in
         reference: https://arxiv.org/abs/1904.02619
+    max_attn_shift: int
+        Beam search will block the beams that attention shift more
+        than max_attn_shift.
+        Reference: https://arxiv.org/abs/1904.02619
     minus_inf : float
         The value of minus infinity to block some path
         of the search (default : -1e20).
@@ -240,7 +244,7 @@ class BeamSearcher(BaseSearcher):
         beam_size,
         length_penalty,
         eos_threshold,
-        max_attn_shift,
+        max_attn_shift=1e20,
         minus_inf=-1e20,
     ):
         super(BeamSearcher, self).__init__(
@@ -305,6 +309,7 @@ class BeamSearcher(BaseSearcher):
             log_probs = torch.where(
                 condition, log_probs, torch.Tensor([self.minus_inf]).to(device)
             )
+            prev_attn_peak = attn_peak
 
             # Set eos to minus_inf when less than minimum steps.
             if t < min_decode_steps:
@@ -472,6 +477,7 @@ class RNNBeamSearcher(BeamSearcher):
         beam_size,
         length_penalty,
         eos_threshold,
+        max_attn_shift,
     ):
         super(RNNBeamSearcher, self).__init__(
             modules,
@@ -482,6 +488,7 @@ class RNNBeamSearcher(BeamSearcher):
             beam_size,
             length_penalty,
             eos_threshold,
+            max_attn_shift,
         )
         self.emb = modules[0]
         self.dec = modules[1]
