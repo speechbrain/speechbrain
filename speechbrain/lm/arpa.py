@@ -52,15 +52,11 @@ Example
 >>> lm = BackoffNgramLM(ngrams, backoffs)
 >>> lm.logprob("a", context = tuple())
 -0.6931
->>> lm.logprob("b", context = ("a",))
--0.6931
 >>> # Query that requires a backoff:
 >>> lm.logprob("b", context = ("b",))
 -0.6931
-
 Author
-------
-Aku Rouhe 2020
+    Aku Rouhe 2020
 """
 import collections
 import logging
