@@ -74,7 +74,7 @@ def test_transducer_loss():
                 ]
             ]
         )
-        .cuda()
+        .to(device)
         .requires_grad_()
         .log_softmax(dim=-1)
     )
@@ -84,4 +84,5 @@ def test_transducer_loss():
     out_cost = transducer_loss(
         log_probs, targets, probs_length, target_length, blank_index=0
     )
+    out_cost.backward()
     assert out_cost.item() == 4.49566650390625
