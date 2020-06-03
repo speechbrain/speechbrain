@@ -7,7 +7,7 @@ import torch
 from speechbrain.nnet.RNN import LiGRU
 from speechbrain.nnet.CNN import Conv2d
 from speechbrain.nnet.linear import Linear
-from speechbrain.nnet.pooling import Pooling1d
+from speechbrain.nnet.pooling import Pooling1d, Pooling2d
 from speechbrain.nnet.dropout import Dropout2d
 from speechbrain.nnet.containers import Sequential
 from speechbrain.nnet.normalization import BatchNorm1d, BatchNorm2d
@@ -65,7 +65,8 @@ class CRDNN(Sequential):
         cnn_kernelsize=(3, 3),
         time_pooling=False,
         time_pooling_size=2,
-        freq_pooling_size=2,
+        inter_layer_pooling_size=2,
+        using_2d_pooling=False,
         rnn_layers=4,
         rnn_neurons=512,
         rnn_bidirectional=True,
@@ -75,6 +76,22 @@ class CRDNN(Sequential):
         blocks = []
 
         for block_index in range(cnn_blocks):
+            if not using_2d_pooling:
+                pooling = Pooling1d(
+                    pool_type="max",
+                    kernel_size=inter_layer_pooling_size,
+                    pool_axis=2,
+                )
+            else:
+                pooling = Pooling2d(
+                    pool_type="max",
+                    kernel_size=(
+                        inter_layer_pooling_size,
+                        inter_layer_pooling_size,
+                    ),
+                    pool_axis=(1, 2),
+                )
+
             blocks.extend(
                 [
                     Conv2d(
@@ -89,12 +106,8 @@ class CRDNN(Sequential):
                     ),
                     BatchNorm2d(),
                     activation(),
-                    # Frequency Pooling
-                    Pooling1d(
-                        pool_type="max",
-                        kernel_size=freq_pooling_size,
-                        pool_axis=2,
-                    ),
+                    # Inter-layer Pooling
+                    pooling,
                     Dropout2d(drop_rate=dropout),
                 ]
             )
