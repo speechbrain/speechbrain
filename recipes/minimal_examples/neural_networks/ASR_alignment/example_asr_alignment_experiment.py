@@ -18,11 +18,6 @@ viterbi_aligner = ViterbiAligner(output_folder="")
 
 
 class AlignBrain(sb.core.Brain):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.flat_start_training = True
-        print("starting with flat start training")
-
     def compute_forward(self, x, stage="train", init_params=False):
         id, wavs, lens = x
         feats = params.compute_features(wavs, init_params)
@@ -30,7 +25,6 @@ class AlignBrain(sb.core.Brain):
         x = params.model(feats, init_params=init_params)
         x = params.lin(x, init_params)
         outputs = params.softmax(x)
-        viterbi_aligner.update_from_forward(id, outputs, lens)
 
         return outputs, lens
 
@@ -38,26 +32,17 @@ class AlignBrain(sb.core.Brain):
         predictions, lens = predictions
         ids, phns, phn_lens = targets
 
-        if (
-            self.flat_start_training or stage == "test"
-        ):  # TODO: unsure about stage == 'test'
-            (
-                flat_start_batch,
-                flat_start_lens,
-            ) = viterbi_aligner.get_flat_start_batch(phns, phn_lens, lens)
-            loss = params.compute_cost(
-                predictions, flat_start_batch, flat_start_lens
-            )
+        prev_alignments = viterbi_aligner.get_prev_alignments(
+            ids, predictions, lens, phns, phn_lens
+        )
 
-        else:
-            viterbi_batch = viterbi_aligner.get_viterbi_batch(lens)
-            loss = params.compute_cost(predictions, viterbi_batch, lens)
-
-        alignments = viterbi_aligner.calc_viterbi_alignments(phns, phn_lens)
+        loss = params.compute_cost(predictions, prev_alignments)
 
         stats = {}
         if stage != "train":
-            # seq = ctc_greedy_decode(predictions, lens, blank_id=-1)
+            alignments, viterbi_scores = viterbi_aligner(
+                ids, predictions, lens, phns, phn_lens
+            )
             phns = undo_padding(phns, phn_lens)
             stats["PER"] = wer_details_for_batch(ids, phns, alignments)
 
@@ -69,29 +54,22 @@ class AlignBrain(sb.core.Brain):
         print("Valid loss: %.2f" % summarize_average(valid_stats["loss"]))
         print("Valid PER: %.2f" % summarize_error_rate(valid_stats["PER"]))
 
-        print(
-            "alignment for spk1snt1:", viterbi_aligner.align_dict["spk1_snt1"]
-        )
-        print(
-            "alignment for spk1snt2:", viterbi_aligner.align_dict["spk1_snt2"]
-        )
-        if epoch == 0:
-            print("switching from flat start to Viterbi training")
-            self.flat_start_training = False
+        print("Recalculating and recording alignments...")
+        self.evaluate(train_set)
 
 
 train_set = params.train_loader()
 first_x, first_y = next(iter(train_set))
-ctc_brain = AlignBrain(
+align_brain = AlignBrain(
     modules=[params.model, params.lin],
     optimizer=params.optimizer,
     first_inputs=[first_x],
 )
-ctc_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
-test_stats = ctc_brain.evaluate(params.test_loader())
+align_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
+test_stats = align_brain.evaluate(params.test_loader())
 print("Test PER: %.2f" % summarize_error_rate(test_stats["PER"]))
 
 
 # Integration test: check that the model overfits the training data
 def test_error():
-    assert ctc_brain.avg_train_loss < 3.0
+    assert align_brain.avg_train_loss < 3.0
