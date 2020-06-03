@@ -17,17 +17,21 @@ class MATConvModule1d(Sequential):
 
     Arguments
     ---------
-    overrides : mapping
-        Additional parameters overriding the MATConv block parameters.
-
-    MATConv Block Parameters
-    ------------------------
-        ..include:: MATConv_block1.yaml
+    out_channels : int
+        number of channels for the output feature
+    kernel_size : int
+        the kernel size of the dilated convolution layer
+    activation : torch class
+        activation function is going to be used in this block
+    norm : torch class
+        regulariztion method for this nueral block
+    dilation : int
+        size of dilation
 
     Example
     -------
     >>> import torch
-    >>> model = MATConvModule1d(128, 1)
+    >>> model = MATConvModule1d(128, (1,), (1,))
     >>> input = torch.rand([10, 120, 60])
     >>> output = model(input, init_params=True)
     >>> len(output.shape)
@@ -35,7 +39,12 @@ class MATConvModule1d(Sequential):
     """
 
     def __init__(
-        self, out_channels, kernel_size, activation=nn.LeakyReLU, dilation=1,
+        self,
+        out_channels,
+        kernel_size,
+        activation=nn.LeakyReLU,
+        norm=BatchNorm1d,
+        dilation=1,
     ):
         self.dilation = dilation
         self.out_channels = out_channels
@@ -47,7 +56,7 @@ class MATConvModule1d(Sequential):
                 padding=dilation,
                 bias=False,
             ),
-            BatchNorm1d(),
+            norm(),
             activation(),
         )
 
@@ -95,8 +104,16 @@ class MATConvModule2d(Sequential):
 
     Arguments
     ---------
-    overrides : mapping
-        Additional parameters overriding the MATConv block parameters.
+    out_channels : int
+        number of channels for the output feature
+    kernel_size : int or tuple
+        the kernel size of the dilated convolution layer
+    activation : torch class
+        activation function is going to be used in this block
+    norm : torch class
+        regulariztion method for this nueral block
+    dilation : int
+        size of dilation
 
     MATConv Block Parameters
     ------------------------
@@ -105,11 +122,11 @@ class MATConvModule2d(Sequential):
     Example
     -------
     >>> import torch
-    >>> model = MATConvModule2d(128, 1)
-    >>> input = torch.rand([10, 120, 40, 60])
+    >>> model = MATConvModule2d(128, (1,1), (1,))
+    >>> input = torch.rand([10, 120, 60])
     >>> output = model(input, init_params=True)
     >>> len(output.shape)
-    4
+    3
     """
 
     def __init__(
@@ -117,6 +134,7 @@ class MATConvModule2d(Sequential):
         out_channels,
         kernel_size,
         activation=nn.LeakyReLU,
+        norm=BatchNorm2d,
         dilation=(1, 1),
     ):
 
@@ -135,7 +153,7 @@ class MATConvModule2d(Sequential):
                 padding=dilation,
                 bias=False,
             ),
-            BatchNorm2d(),
+            norm(),
             activation(),
         )
 
@@ -187,13 +205,26 @@ class MATConvPool1d(nn.Module):
 
     Arguments
     ---------
+    out_channels: int
+        number of channels for the output feature
+    matpool_channels : int
+        number of channels for each dilated convolution layers
+    stride : int
+        convolution stride (recommoned value is one)
+    activation : torch class
+        activation function is going to be used in this block
+    norm : torch class
+        regulariztion method for this nueral block
+    pool_axis: int or tuple
+        the axis of the input tensor that the pooling will be performed on
     delations : list
         Delation delation rates to be used in MATConv modules
+    dropuout : int
 
     Examples
     --------
     >>> import torch
-    >>> model = MATConvPool1d(128, 1, pool_axis=(1,))
+    >>> model = MATConvPool(128, (1,), pool_axis=(1,))
     >>> input = torch.rand([10, 120, 60])
     >>> output = model(input, init_params=True)
     >>> output.shape
@@ -206,12 +237,15 @@ class MATConvPool1d(nn.Module):
         matpool_channels=None,
         stride=1,
         activation=nn.LeakyReLU,
+        norm=BatchNorm1d,
         pool_axis=1,
         dilations=[1, 6, 12, 18],
         droupout=0.15,
     ):
         super().__init__()
 
+        if isinstance(stride, int):
+            stride = (stride,)
         if matpool_channels is None:
             matpool_channels = out_channels
 
@@ -239,9 +273,9 @@ class MATConvPool1d(nn.Module):
                 )
 
         self.global_avg_pool = Sequential(
-            AdaptivePool((1,)),
+            AdaptivePool(1),
             Conv1d(out_channels=out_channels, kernel_size=1, bias=False,),
-            BatchNorm1d(),
+            norm(),
             activation(),
         )
 
@@ -252,7 +286,7 @@ class MATConvPool1d(nn.Module):
                 stride=stride,
                 bias=False,
             ),
-            BatchNorm1d(),
+            norm(),
             activation(),
             Dropout2d(droupout),
         )
@@ -344,23 +378,37 @@ class MATConvPool2d(nn.Module):
 
     Arguments
     ---------
+    out_channels: int
+        number of channels for the output feature
+    matpool_channels : int
+        number of channels for each dilated convolution layers
+    stride : int
+        convolution stride (recommoned value is one)
+    activation : torch class
+        activation function is going to be used in this block
+    norm : torch class
+        regulariztion method for this nueral block
+    pool_axis: int or tuple
+        the axis of the input tensor that the pooling will be performed on
     delations : list
         Delation delation rates to be used in MATConv modules
+    dropuout : int
 
     Examples
     --------
     >>> import torch
-    >>> model = MATConvPool2d(128)
-    >>> input = torch.rand([10, 120, 40, 60])
+    >>> model = MATConvPool(128, (1,), pool_axis=(1,))
+    >>> input = torch.rand([10, 120, 60])
     >>> output = model(input, init_params=True)
     >>> output.shape
-    torch.Size([10, 120, 40, 128])
+    torch.Size([10, 120, 128])
     """
 
     def __init__(
         self,
         out_channels,
         activation=nn.LeakyReLU,
+        norm=BatchNorm2d,
         stride=(1, 1),
         matpool_channels=256,
         pool_axis=(1, 2),
@@ -398,7 +446,7 @@ class MATConvPool2d(nn.Module):
         self.global_avg_pool = Sequential(
             AdaptivePool((1, 1)),
             Conv2d(out_channels=out_channels, kernel_size=(1, 1), bias=False,),
-            BatchNorm2d(),
+            norm(),
             activation(),
         )
 
@@ -409,7 +457,7 @@ class MATConvPool2d(nn.Module):
                 stride=stride,
                 bias=False,
             ),
-            BatchNorm2d(),
+            norm(),
             activation(),
             torch.nn.Dropout(droupout),
         )
@@ -429,11 +477,11 @@ class MATConvPool2d(nn.Module):
         x_avg = self.global_avg_pool(x, init_params)
 
         x_avg = F.interpolate(
-            x_avg.permute(0, 3, 2, 1),
-            xs[-1].permute(0, 3, 2, 1).size()[2:],
+            x_avg.permute(0, 3, 1, 2),
+            xs[-1].permute(0, 3, 1, 2).size()[2:],
             mode="bilinear",
             align_corners=True,
-        ).permute(0, 3, 2, 1)
+        ).permute(0, 2, 3, 1)
 
         x = torch.cat((*xs, x_avg), dim=-1)
         x = self.conv(x, init_params)
@@ -505,4 +553,4 @@ class AdaptivePool(nn.Module):
             return self.pool(x.permute(0, 2, 1)).permute(0, 2, 1)
 
         if len(x.shape) == 4:
-            return self.pool(x.permute(0, 3, 2, 1)).permute(0, 3, 2, 1)
+            return self.pool(x.permute(0, 3, 1, 2)).permute(0, 2, 3, 1)

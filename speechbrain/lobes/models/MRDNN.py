@@ -50,7 +50,7 @@ class MRDNN(Sequential):
     Example
     -------
     >>> import torch
-    >>> model = MRDNN()
+    >>> model = MRDNN(matconv_overrides={'pooling':{'out_channels':10}})
     >>> inputs = torch.rand([10, 120, 60])
     >>> outputs = model(inputs, init_params=True)
     >>> len(outputs.shape)
@@ -60,14 +60,16 @@ class MRDNN(Sequential):
     def __init__(
         self,
         activation=torch.nn.LeakyReLU,
+        cnn_norm=BatchNorm2d,
+        dnn_norm=BatchNorm1d,
         dropout=0.15,
         cnn_blocks=2,
-        cnn_channels=[128, 256],
+        cnn_channels=[(128, 256)],
         cnn_kernelsize=(3, 3),
         frequency_striding=True,
         time_striding=True,
         matconv_outchannels=256,
-        matpool_channels=256,
+        matpool_channels=None,
         matconv_kernelsize=(1, 1),
         matconv_dilations=[1, 3, 6, 9],
         rnn_layers=4,
@@ -78,9 +80,9 @@ class MRDNN(Sequential):
         debug=False,
     ):
         # flag to debug the model
-        # when being set to true it will print out the model after
-        # initializing parameters
+        # when being set to true it will print out the model after initializing parameters
         self.debug = debug
+
         cnn_stride = (1, 1)
         matconv_stride = (1, 1)
         if frequency_striding:
@@ -105,7 +107,7 @@ class MRDNN(Sequential):
                         kernel_size=cnn_kernelsize,
                         stride=stride_applied,
                     ),
-                    BatchNorm2d(),
+                    cnn_norm(),
                     activation(),
                 ]
             )
@@ -118,7 +120,7 @@ class MRDNN(Sequential):
                 kernel_size=matconv_kernelsize,
                 stride=matconv_stride,
             ),
-            BatchNorm2d(),
+            cnn_norm(),
             activation(),
             MATConvPool2d(
                 out_channels=matconv_outchannels,
@@ -127,6 +129,7 @@ class MRDNN(Sequential):
                 activation=activation,
                 dilations=matconv_dilations,
                 droupout=dropout,
+                norm=cnn_norm,
             ),
         ]
         blocks.extend(self.matpool_block)
@@ -150,7 +153,7 @@ class MRDNN(Sequential):
                     Linear(
                         n_neurons=dnn_neurons, bias=True, combine_dims=False,
                     ),
-                    BatchNorm1d(),
+                    dnn_norm(),
                     activation(),
                     torch.nn.Dropout(p=dropout),
                 ]
