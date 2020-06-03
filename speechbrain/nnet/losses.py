@@ -65,7 +65,12 @@ def ctc_loss(log_probs, targets, input_lens, target_lens, blank_index):
     target_lens = (target_lens * targets.shape[1]).int()
     log_probs = log_probs.transpose(0, 1)
     return torch.nn.functional.ctc_loss(
-        log_probs, targets, input_lens, target_lens, blank_index
+        log_probs,
+        targets,
+        input_lens,
+        target_lens,
+        blank_index,
+        zero_infinity=True,
     )
 
 
