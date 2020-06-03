@@ -1,5 +1,9 @@
 """
 Managing the logger.
+
+Author
+    Fang-Pen Lin 2012 and Peter Plantinga 2020
+    https://fangpenlin.com/posts/2012/08/26/good-logging-practice-in-python/
 """
 
 import os
@@ -23,11 +27,6 @@ def setup_logging(
     overrides : dict
         a dictionary of the same structure as the config dict
         with any updated values that need to be applied
-
-    Author
-    ------
-    Fang-Pen Lin 2012 and Peter Plantinga 2020
-    https://fangpenlin.com/posts/2012/08/26/good-logging-practice-in-python/
     """
     if os.path.exists(config_path):
         with open(config_path, "rt") as f:

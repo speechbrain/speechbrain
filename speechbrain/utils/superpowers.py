@@ -5,8 +5,7 @@ for running shell commands. Remember, with great power comes great
 responsibility.
 
 Author
-------
-Mirco Ravanelli 2020
+    Mirco Ravanelli 2020
 """
 
 import logging
