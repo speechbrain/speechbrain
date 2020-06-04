@@ -533,13 +533,15 @@ class AttentionalRNNDecoder(nn.Module):
 
         self.drop = nn.Dropout(p=self.dropout).to(device)
 
+        # set dropout to 0 when only one layer
+        dropout = 0 if self.num_layers == 1 else self.dropout
         if self.rnn_type == "rnn":
             self.rnn = RNN(
                 hidden_size=self.hidden_size,
                 nonlinearity=self.nonlinearity,
                 num_layers=self.num_layers,
                 bias=self.bias,
-                dropout=self.dropout,
+                dropout=dropout,
                 re_init=self.re_init,
                 bidirectional=False,
                 return_hidden=True,
@@ -549,7 +551,7 @@ class AttentionalRNNDecoder(nn.Module):
                 hidden_size=self.hidden_size,
                 num_layers=self.num_layers,
                 bias=self.bias,
-                dropout=self.dropout,
+                dropout=dropout,
                 re_init=self.re_init,
                 bidirectional=False,
                 return_hidden=True,
@@ -559,7 +561,7 @@ class AttentionalRNNDecoder(nn.Module):
                 hidden_size=self.hidden_size,
                 num_layers=self.num_layers,
                 bias=self.bias,
-                dropout=self.dropout,
+                dropout=dropout,
                 re_init=self.re_init,
                 bidirectional=False,
                 return_hidden=True,
@@ -571,7 +573,7 @@ class AttentionalRNNDecoder(nn.Module):
                 normalization=self.normalization,
                 num_layers=self.num_layers,
                 bias=self.bias,
-                dropout=self.dropout,
+                dropout=dropout,
                 re_init=self.re_init,
                 bidirectional=False,
                 return_hidden=True,

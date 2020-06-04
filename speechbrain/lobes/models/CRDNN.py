@@ -70,6 +70,7 @@ class CRDNN(Sequential):
         rnn_layers=4,
         rnn_neurons=512,
         rnn_bidirectional=True,
+        rnn_re_init=False,
         dnn_blocks=2,
         dnn_neurons=512,
     ):
@@ -126,6 +127,7 @@ class CRDNN(Sequential):
                     num_layers=rnn_layers,
                     dropout=dropout,
                     bidirectional=rnn_bidirectional,
+                    re_init=rnn_re_init,
                 )
             )
 
