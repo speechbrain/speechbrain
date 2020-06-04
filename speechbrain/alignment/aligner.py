@@ -51,6 +51,7 @@ class ViterbiAligner(torch.nn.Module):
     >>> phns = torch.tensor([[0, 1, 2],
     ...                      [0, 1, 0]])
     >>> phn_lens = torch.tensor([1., 0.66])
+    >>> viterbi_aligner = ViterbiAligner()
     >>> alignments, viterbi_scores = viterbi_aligner(
     ...        log_posteriors, lens, phns, phn_lens
     ... )
