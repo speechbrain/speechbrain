@@ -84,8 +84,8 @@ linear: !new:speechbrain.nnet.linear.Linear
   n_neurons: 257
   bias: False
 
-activation: !new:torch.nn.LeakyReLU []
-output_activation: !new:torch.nn.ReLU []
+activation: !new:torch.nn.LeakyReLU
+output_activation: !new:torch.nn.ReLU
 
 model: !new:speechbrain.nnet.containers.Sequential
   [
