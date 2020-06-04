@@ -16,6 +16,7 @@ csv_test: !ref <data_folder>/test.csv
 number_of_epochs: 30
 batch_size: 8
 lr: 0.001
+wd: 0.0001
 device: 'cuda:0'
 
 # Feature parameters
@@ -24,7 +25,7 @@ n_fft: 400
 n_mels: 40
 
 # Model parameters
-activation: !name:torch.nn.LeakyReLU []
+activation: !name:torch.nn.LeakyReLU
 dropout: 0.15
 cnn_blocks: 2
 cnn_channels: (128, 256)
@@ -91,6 +92,7 @@ log_softmax: !new:speechbrain.nnet.activations.Softmax
 
 optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
     learning_rate: !ref <lr>
+    weight_decay: !ref <wd>
 
 lr_annealing: !new:speechbrain.nnet.lr_schedulers.NewBobLRScheduler
     improvement_threshold: 0.0025

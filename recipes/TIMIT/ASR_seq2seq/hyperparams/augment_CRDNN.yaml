@@ -24,7 +24,7 @@ n_fft: 400
 n_mels: 40
 
 # Model parameters
-activation: !name:torch.nn.LeakyReLU []
+activation: !name:torch.nn.LeakyReLU
 dropout: 0.15
 cnn_blocks: 2
 cnn_channels: (128, 256)
