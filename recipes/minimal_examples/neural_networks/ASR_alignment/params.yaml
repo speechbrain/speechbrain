@@ -15,7 +15,7 @@ N_batch: 1
 lr: 0.004
 
 # Model parameters
-activation: !name:torch.nn.LeakyReLU []
+activation: !name:torch.nn.LeakyReLU
 dropout: 0.15
 cnn_blocks: 1
 cnn_channels: (16,)

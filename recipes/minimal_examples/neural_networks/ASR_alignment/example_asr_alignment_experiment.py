@@ -14,7 +14,7 @@ data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
 with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
 
-viterbi_aligner = ViterbiAligner(output_folder="")
+viterbi_aligner = ViterbiAligner()
 
 
 class AlignBrain(sb.core.Brain):
@@ -39,6 +39,7 @@ class AlignBrain(sb.core.Brain):
         loss = params.compute_cost(predictions, prev_alignments)
 
         stats = {}
+
         if stage != "train":
             alignments, viterbi_scores = viterbi_aligner(
                 predictions, lens, phns, phn_lens
