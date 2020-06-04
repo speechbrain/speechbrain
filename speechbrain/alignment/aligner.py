@@ -12,6 +12,7 @@ import torch
 def log_matrix_multiply_max(A, b):
     """
     accounts for the fact that the first dimension is batch_size
+    Proper docstring to be added
     """
     b = b.unsqueeze(1)
     x, argmax = torch.max(A + b, dim=2)
@@ -19,18 +20,70 @@ def log_matrix_multiply_max(A, b):
 
 
 class ViterbiAligner(torch.nn.Module):
-    def __init__(self, output_folder):
+    """
+    This class calculates Viterbi alignments in the forward method.
+    It also records alignments and creates batches of them for use
+    in Viterbi training.
+
+    Arguments
+    ---------
+    output_folder: str
+        It is the folder that the alignments will be stored in when
+        saved to disk. Not yet implemented.
+    neg_inf: float
+        The float used to represent a negative infinite log probability.
+        Using `-float("Inf")` tends to give numerical instability.
+        A number more negative than -1e5 also sometimes gave errors when
+        the `genbmm` library was used (currently not in use).
+        Default: -1e5
+
+
+    Example
+    -------
+    >>> log_posteriors = torch.tensor([[[ -1., -10., -10.],
+    ...                                 [-10.,  -1., -10.],
+    ...                                 [-10., -10.,  -1.]],
+    ...
+    ...                                [[ -1., -10., -10.],
+    ...                                 [-10.,  -1., -10.],
+    ...                                 [-10., -10., -10.]]])
+    >>> lens = torch.tensor([1., 0.66])
+    >>> phns = torch.tensor([[0, 1, 2],
+    ...                      [0, 1, 0]])
+    >>> phn_lens = torch.tensor([1., 0.66])
+    >>> alignments, viterbi_scores = viterbi_aligner(
+    ...        log_posteriors, lens, phns, phn_lens
+    ... )
+    >>> alignments
+    [[0, 1, 2], [0, 1]]
+    >>> viterbi_scores.shape
+    torch.Size([2])
+    """
+
+    def __init__(self, output_folder="", neg_inf=-1e5):
         super().__init__()
         self.output_folder = output_folder
-        self.neg_inf = -1e5
+        self.neg_inf = neg_inf
         self.align_dict = {}
 
     def _make_pi_prob(self, phn_lens_abs):
         """
-        create tensor of initial probabilities
+        Creates tensor of initial (log) probabilities (known as 'pi').
+        Assigns all probability mass to first phoneme in the sequence.
+
+        Arguments
+        ---------
+        phn_lens_abs: torch.Tensor (batch)
+            The absolute length of each phoneme sequence in the batch.
+
+        Returns
+        -------
+        pi_prob: torch.Tensor (batch, phn)
         """
+        # TODO: can add example to docstring
+
         batch_size = len(phn_lens_abs)
-        U_max = int(phn_lens_abs.max().item())
+        U_max = int(phn_lens_abs.max())
 
         pi_prob = self.neg_inf * torch.ones([batch_size, U_max])
         pi_prob[:, 0] = 0
@@ -39,13 +92,24 @@ class ViterbiAligner(torch.nn.Module):
 
     def _make_trans_prob(self, phn_lens_abs):
         """
-        create tensor of transition probabilities
-        possible transitions: to same state or next state in phn sequence
-        dimensions: [batcch_size, from, to]
+        Creates tensor of transition (log) probabilities.
+        Allows transitions to the same phoneme (self-loop) or the next
+        phoneme in the phn sequence
+
+        Arguments
+        ---------
+        phn_lens_abs: torch.Tensor (batch)
+            The absolute length of each phoneme sequence in the batch.
+
+
+        Returns
+        -------
+        trans_prob: torch.Tensor (batch, from, to)
+
         """
-        # useful values for later
-        U_max = int(phn_lens_abs.max().item())
+        # Extract useful values for later
         batch_size = len(phn_lens_abs)
+        U_max = int(phn_lens_abs.max())
         device = phn_lens_abs.device
 
         ## trans_prob matrix consists of 2 diagonals:
@@ -95,8 +159,26 @@ class ViterbiAligner(torch.nn.Module):
         self, emission_pred, lens_abs, phn_lens_abs, phns
     ):
         """
-        creates a 'useful' form of the posterior probabilities, rearranged into order of phoneme appearance
+        Creates a 'useful' form of the posterior probabilities, rearranged
+        into order of phoneme appearance in phns.
+
+        Arguments
+        ---------
+        emission_pred: torch.Tensor (batch, time, phoneme in vocabulary)
+            posterior probabilities from our acoustic model
+        lens_abs: torch.Tensor (batch)
+            The absolute length of each input to the acoustic model,
+            i.e. the number of frames
+        phn_lens_abs: torch.Tensor (batch)
+            The absolute length of each phoneme sequence in the batch.
+        phns: torch.Tensor (batch, phoneme in phn sequence)
+            The phonemes that are known/thought to be to be in each utterance
+
+        Returns
+        -------
+        emiss_pred_useful: torch.Tensor (batch, phoneme in phn sequence, time)
         """
+        # Extract useful values for later
         U_max = int(phn_lens_abs.max().item())
         fb_max_length = int(lens_abs.max().item())
         device = emission_pred.device
@@ -105,6 +187,7 @@ class ViterbiAligner(torch.nn.Module):
         mask_lens = (
             torch.arange(fb_max_length).to(device)[None, :] < lens_abs[:, None]
         )
+
         emiss_pred_acc_lens = torch.where(
             mask_lens[:, :, None],
             emission_pred,
@@ -139,6 +222,33 @@ class ViterbiAligner(torch.nn.Module):
         phn_lens_abs,
         phns,
     ):
+        """
+        Calculates Viterbi alignment using dynamic programming
+
+        Arguments
+        ---------
+        pi_prob: torch.Tensor (batch, phn)
+            Tensor containing initial (log) probabilities
+
+        trans_prob: torch.Tensor (batch, from, to)
+            Tensor containing transition (log) probabilities.
+
+        emiss_pred_useful: torch.Tensor (batch, phoneme in phn sequence, time)
+            A 'useful' form of the posterior probabilities, rearranged
+            into order of phoneme appearance in phns.
+
+        lens_abs: torch.Tensor (batch)
+            The absolute length of each input to the acoustic model,
+            i.e. the number of frames
+
+        phn_lens_abs: torch.Tensor (batch)
+            The absolute length of each phoneme sequence in the batch.
+
+        phns: torch.Tensor (batch, phoneme in phn sequence)
+            The phonemes that are known/thought to be to be in each utterance.
+
+        """
+
         # useful values
         batch_size = len(phn_lens_abs)
         U_max = phn_lens_abs.max()
@@ -215,6 +325,22 @@ class ViterbiAligner(torch.nn.Module):
         return z_stars, z_stars_loc, viterbi_scores
 
     def forward(self, emission_pred, lens, phns, phn_lens):
+        """
+        Prepares relevant (log) probability tensors and calculates Viterbi
+        alignments for utterances in the batch.
+
+        Arguments
+        ---------
+        emission_pred: torch.Tensor (batch, time, phoneme in vocabulary)
+            posterior probabilities from our acoustic model
+        lens: torch.Tensor (batch)
+            The relative duration of each utterance sound file.
+        phns: torch.Tensor (batch, phoneme in phn sequence)
+            The phonemes that are known/thought to be to be in each utterance
+        phn_lens: torch.Tensor (batch)
+            The relative length of each phoneme sequence in the batch.
+        """
+
         lens_abs = torch.round(emission_pred.shape[1] * lens).long()
         phn_lens_abs = torch.round(phns.shape[1] * phn_lens).long()
         phns = phns.long()
@@ -232,11 +358,47 @@ class ViterbiAligner(torch.nn.Module):
         return alignments, viterbi_scores
 
     def store_alignments(self, ids, alignments):
+        """
+        Records alignments in `self.align_dict`.
+
+        Arguments
+        ---------
+        ids: list of str
+            IDs of the files in the batch
+        alignments: list of lists of int
+            Viterbi alignments for the files in the batch.
+            Without padding.
+
+        Example
+        -------
+        To be added.
+
+        """
+
         for i, id in enumerate(ids):
             alignment_i = alignments[i]
             self.align_dict[id] = alignment_i
 
-    def _get_flat_start_batch(self, lens_abs, phns, phn_lens_abs):
+    def _get_flat_start_batch(self, lens_abs, phn_lens_abs, phns):
+        """
+        Prepares flat start alignments (with zero padding) for every utterance
+        in the batch.
+        Every phoneme will have equal duration, except for the final phoneme
+        potentially. E.g. if 104 frames and 10 phonemes, 9 phonemes will have
+        duration of 10 frames, and one phoneme will have duration of 14 frames.
+
+        Arguments
+        ---------
+        lens_abs: torch.Tensor (batch)
+            The absolute length of each input to the acoustic model,
+            i.e. the number of frames
+
+        phn_lens_abs: torch.Tensor (batch)
+            The absolute length of each phoneme sequence in the batch.
+
+        phns: torch.Tensor (batch, phoneme in phn sequence)
+            The phonemes that are known/thought to be to be in each utterance.
+        """
         phns = phns.long()
 
         batch_size = len(lens_abs)
@@ -262,7 +424,20 @@ class ViterbiAligner(torch.nn.Module):
 
         return flat_start_batch
 
-    def _get_viterbi_batch(self, ids, lens_abs, phns, phn_lens_abs):
+    def _get_viterbi_batch(self, ids, lens_abs):
+        """
+        Retrieves Viterbi alignments stored in `self.align_dict` and
+        creates batch of them, with zero padding.
+
+        Arguments
+        ---------
+        ids: list of str
+            IDs of the files in the batch
+        lens_abs: torch.Tensor (batch)
+            The absolute length of each input to the acoustic model,
+            i.e. the number of frames
+
+        """
         batch_size = len(lens_abs)
         fb_max_length = torch.max(lens_abs)
 
@@ -279,10 +454,40 @@ class ViterbiAligner(torch.nn.Module):
         return viterbi_batch
 
     def get_prev_alignments(self, ids, emission_pred, lens, phns, phn_lens):
+        """
+        Fetches previously recorded Viterbi alignments if they are available.
+        If not, fetches flat start alignments.
+        Currently, assumes that if a Viterbi alignment is not availble for the
+        first utterance in the batch, it will not be available for the rest of
+        the utterances.
+
+        Arguments
+        ---------
+        ids: list of str
+            IDs of the files in the batch
+        emission_pred: torch.Tensor (batch, time, phoneme in vocabulary)
+            posterior probabilities from our acoustic model
+        lens: torch.Tensor (batch)
+            The relative duration of each utterance sound file.
+        phns: torch.Tensor (batch, phoneme in phn sequence)
+            The phonemes that are known/thought to be to be in each utterance
+        phn_lens: torch.Tensor (batch)
+            The relative length of each phoneme sequence in the batch.
+
+        Output
+        ------
+        torch.Tensor (batch, time)
+            Zero-padded alignments
+
+        Example
+        -------
+        To be added
+        """
+
         lens_abs = torch.round(emission_pred.shape[1] * lens).long()
         phn_lens_abs = torch.round(phns.shape[1] * phn_lens).long()
 
         if ids[0] in self.align_dict:
-            return self._get_viterbi_batch(ids, lens_abs, phns, phn_lens_abs)
+            return self._get_viterbi_batch(ids, lens_abs)
         else:
-            return self._get_flat_start_batch(lens_abs, phns, phn_lens_abs)
+            return self._get_flat_start_batch(lens_abs, phn_lens_abs, phns)
