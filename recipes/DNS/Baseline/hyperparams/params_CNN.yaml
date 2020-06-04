@@ -84,8 +84,28 @@ linear: !new:speechbrain.nnet.linear.Linear
   n_neurons: 257
   bias: False
 
-activation: !new:torch.nn.LeakyReLU
-output_activation: !new:torch.nn.ReLU
+activation: !new:torch.nn.LeakyReLU []
+output_activation: !new:torch.nn.ReLU []
+
+model: !new:speechbrain.nnet.containers.Sequential
+  [
+    !ref <conv1>,
+    !ref <activation>,
+    !ref <conv2>,
+    !ref <activation>,
+    !ref <conv3>,
+    !ref <activation>,
+    !ref <conv4>,
+    !ref <activation>,
+    !ref <conv5>,
+    !ref <activation>,
+    !ref <conv6>,
+    !ref <activation>,
+    !ref <conv7>,
+    !ref <activation>,
+    !ref <linear>,
+    !ref <output_activation>
+  ]
 
 compute_cost: !name:speechbrain.nnet.losses.mse_loss
 
@@ -97,3 +117,4 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
   recoverables:
     optimizer: !ref <optimizer>
     counter: !ref <epoch_counter>
+    model: !ref <model>

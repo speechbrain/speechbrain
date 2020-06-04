@@ -4,10 +4,8 @@ import sys
 import torch
 import speechbrain as sb
 import torchaudio
-from tqdm.contrib import tqdm
 from speechbrain.utils.train_logger import summarize_average
 from speechbrain.processing.features import spectral_magnitude
-from speechbrain.nnet.containers import Sequential
 
 # This hack needed to import data preparation script from ..
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -35,25 +33,6 @@ if params.use_tensorboard:
 if not os.path.exists(params.enhanced_folder):
     os.mkdir(params.enhanced_folder)
 
-model = Sequential(
-    params.conv1,
-    params.activation,
-    params.conv2,
-    params.activation,
-    params.conv3,
-    params.activation,
-    params.conv4,
-    params.activation,
-    params.conv5,
-    params.activation,
-    params.conv6,
-    params.activation,
-    params.conv7,
-    params.activation,
-    params.linear,
-    params.output_activation,
-)
-
 
 class SEBrain(sb.core.Brain):
     def compute_forward(self, x, stage="train", init_params=False):
@@ -63,7 +42,7 @@ class SEBrain(sb.core.Brain):
         feats = spectral_magnitude(feats, power=0.5)
         feats = torch.log1p(feats)
 
-        output = model(feats, init_params)
+        output = params.model(feats, init_params)
 
         return output
 
@@ -78,9 +57,10 @@ class SEBrain(sb.core.Brain):
 
         return loss, {}
 
-    def evaluate_batch(self, epoch, batch, stage="valid"):
+    def evaluate_batch(self, batch, stage="valid"):
         inputs, targets = batch
         predictions = self.compute_forward(inputs, stage=stage)
+        epoch = params.epoch_counter.current
 
         # Create the folder to save enhanced files
         if not os.path.exists(os.path.join(params.enhanced_folder, str(epoch))):
@@ -103,27 +83,6 @@ class SEBrain(sb.core.Brain):
         print("Completed epoch %d" % epoch)
         print("Train loss: %.3f" % summarize_average(train_stats["loss"]))
         print("Valid loss: %.3f" % summarize_average(valid_stats["loss"]))
-
-    def fit(self, epoch_counter, train_set, valid_set=None):
-        for epoch in epoch_counter:
-            self.modules.train()
-            train_stats = {}
-            with tqdm(train_set) as t:
-                for i, batch in enumerate(t):
-                    stats = self.fit_batch(batch)
-                    self.add_stats(train_stats, stats)
-                    average = self.update_average(stats, iteration=i + 1)
-                    t.set_postfix(train_loss=average)
-
-            valid_stats = {}
-            if valid_set is not None:
-                self.modules.eval()
-                with torch.no_grad():
-                    for batch in tqdm(valid_set):
-                        stats = self.evaluate_batch(epoch, batch, stage="valid")
-                        self.add_stats(valid_stats, stats)
-
-            self.on_epoch_end(epoch, train_stats, valid_stats)
 
     def write_wavs(self, predictions, inputs, epoch):
         ids, wavs, lens = inputs
@@ -161,21 +120,9 @@ valid_set = params.valid_loader()
 first_x, first_y = next(iter(train_set))
 
 se_brain = SEBrain(
-    modules=[
-        params.conv1,
-        params.conv2,
-        params.conv3,
-        params.conv4,
-        params.conv5,
-        params.conv6,
-        params.conv7,
-        params.linear,
-    ],
-    optimizer=params.optimizer,
-    first_inputs=[first_x],
+    modules=[params.model], optimizer=params.optimizer, first_inputs=[first_x],
 )
 
 # Load latest checkpoint to resume training
-params.checkpointer.add_recoverable("model", model)
 params.checkpointer.recover_if_possible()
 se_brain.fit(params.epoch_counter, train_set, valid_set)
