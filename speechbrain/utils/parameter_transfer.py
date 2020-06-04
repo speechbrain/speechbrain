@@ -6,10 +6,7 @@ and the path to the parameter file.
 Example
 -------
 >>> from speechbrain.utils.checkpoints import Checkpointer
->>> from speechbrain.utils.parameter_transfer \
-        import torch_lazy_parameter_transfer
 >>> import torch
->>> import tempfile
 >>> # SETUP THE EXAMPLE:
 >>> class Recoverable(torch.nn.Module):
 ...     def __init__(self, param):
@@ -28,7 +25,7 @@ Example
 >>> checkpoint_finder = Checkpointer(tempdir)
 >>> checkpoint_to_load = checkpoint_finder.find_checkpoint()
 >>> paramfile = checkpoint_to_load.paramfiles["recoverable"]
->>> torch_lazy_parameter_transfer(new_recoverable, paramfile)
+>>> torch_parameter_transfer(new_recoverable, paramfile)
 >>> assert new_recoverable(5.) == 5.
 """
 import torch
