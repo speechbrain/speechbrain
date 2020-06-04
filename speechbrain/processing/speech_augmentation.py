@@ -53,6 +53,9 @@ class AddNoise(torch.nn.Module):
     mix_prob : float
         The probability that a batch of signals will be mixed
         with a noise signal. By default, every batch is mixed with noise.
+    start_index : int
+        The index in the noise waveforms to start from. By default, chooses
+        a random index in [0, len(noise) - len(waveforms)].
     replacements : dict
         A set of string replacements to carry out in the
         csv file. Each time a key is found in the text, it will be replaced
@@ -76,6 +79,7 @@ class AddNoise(torch.nn.Module):
         snr_high=0,
         pad_noise=False,
         mix_prob=1.0,
+        start_index=None,
         replacements={},
     ):
         super().__init__()
@@ -88,6 +92,7 @@ class AddNoise(torch.nn.Module):
         self.snr_high = snr_high
         self.pad_noise = pad_noise
         self.mix_prob = mix_prob
+        self.start_index = start_index
         self.replacements = replacements
 
     def forward(self, waveforms, lengths):
@@ -196,9 +201,11 @@ class AddNoise(torch.nn.Module):
             noise_batch = torch.nn.functional.pad(noise_batch, padding)
 
         # Select a random starting location in the waveform
-        start_index = 0
-        max_chop = (noise_len - lengths).min().clamp(min=1)
-        start_index = torch.randint(high=max_chop, size=(1,))
+        start_index = self.start_index
+        if self.start_index is None:
+            start_index = 0
+            max_chop = (noise_len - lengths).min().clamp(min=1)
+            start_index = torch.randint(high=max_chop, size=(1,))
 
         # Truncate noise_batch to max_length
         noise_batch = noise_batch[:, start_index : start_index + max_length]

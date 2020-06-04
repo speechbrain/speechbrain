@@ -15,6 +15,8 @@ logger = logging.getLogger(__name__)
 
 class ContentBasedAttention(nn.Module):
     """ This class implements content-based attention module for seq2seq learning.
+    Ref: NEURAL MACHINE TRANSLATION BY JOINTLY LEARNING TO ALIGN AND TRANSLATE, Bahdanau et.al.
+    https://arxiv.org/pdf/1409.0473.pdf
 
     Arguments
     ---------
@@ -98,6 +100,8 @@ class ContentBasedAttention(nn.Module):
 
 class LocationAwareAttention(nn.Module):
     """ This class implements location-aware attention module for seq2seq learning.
+    Ref: Attention-Based Models for Speech Recognition, Chorowski et.al.
+    https://arxiv.org/pdf/1506.07503.pdf
 
     Arguments
     ---------

@@ -1,60 +1,62 @@
 output_folder: !PLACEHOLDER
-data_folder: ../../../samples
+data_folder: !PLACEHOLDER
 csv_file: !ref <data_folder>/audio_samples/csv_example.csv
 sample_rate: 16000
 batch_size: 2
 
-sample_data: !speechbrain.data_io.data_io.DataLoaderFactory
+sample_data: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_file>
     batch_size: !ref <batch_size>
+    sentence_sorting: descending
     csv_read: [wav]
     replacements:
         $data_folder: !ref <data_folder>/audio_samples
 
-add_babble: !speechbrain.processing.speech_augmentation.AddBabble
+add_babble: !new:speechbrain.processing.speech_augmentation.AddBabble
     speaker_count: 4  # Must set batch size to 5 or more
-    snr_low: 10
-    snr_high: 10
+    snr_low: 0
+    snr_high: 0
 
-add_reverb: !speechbrain.processing.speech_augmentation.AddReverb
+add_reverb: !new:speechbrain.processing.speech_augmentation.AddReverb
     csv_file: !ref <data_folder>/rir_samples/rirs_rel.csv
-    order: random
+    order: descending
     replacements:
         $rir_folder: !ref <data_folder>/rir_samples
 
-add_noise: !speechbrain.processing.speech_augmentation.AddNoise
+add_noise: !new:speechbrain.processing.speech_augmentation.AddNoise
     csv_file: !ref <data_folder>/noise_samples/noise_rel.csv
-    order: random
-    snr_low: 10
-    snr_high: 10
+    order: descending
+    snr_low: 0
+    snr_high: 0
     pad_noise: False
+    start_index: 0
     replacements:
         $noise_folder: !ref <data_folder>/noise_samples
 
-drop_freq: !speechbrain.processing.speech_augmentation.DropFreq
-    drop_freq_low: 0.1
-    drop_freq_high: 0.9
+drop_freq: !new:speechbrain.processing.speech_augmentation.DropFreq
+    drop_freq_low: 0.5
+    drop_freq_high: 0.5
     drop_count_low: 1
-    drop_count_high: 3
+    drop_count_high: 1
     drop_width: 0.05
 
-drop_chunk: !speechbrain.processing.speech_augmentation.DropChunk
+drop_chunk: !new:speechbrain.processing.speech_augmentation.DropChunk
     drop_length_low: 1000
-    drop_length_high: 2000
-    drop_count_low: 3
-    drop_count_high: 5
-    drop_start: 0
-    drop_end: null
+    drop_length_high: 1000
+    drop_count_low: 1
+    drop_count_high: 1
+    drop_start: 1000
+    drop_end: 2000
 
-do_clip: !speechbrain.processing.speech_augmentation.DoClip
-    clip_low: 0.1
-    clip_high: 0.2
+do_clip: !new:speechbrain.processing.speech_augmentation.DoClip
+    clip_low: 0.01
+    clip_high: 0.01
 
-speed_perturb: !speechbrain.processing.speech_augmentation.SpeedPerturb
+speed_perturb: !new:speechbrain.processing.speech_augmentation.SpeedPerturb
     orig_freq: !ref <sample_rate>
-    speeds: [90, 110]
+    speeds: [90]
 
-save: !speechbrain.data_io.data_io.TensorSaver
+save: !new:speechbrain.data_io.data_io.TensorSaver
     sampling_rate: !ref <sample_rate>
     save_format: flac
     parallel_write: True

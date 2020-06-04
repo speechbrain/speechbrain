@@ -8,14 +8,14 @@ import torch
 import numpy as np
 
 
-class BaseSearcher(torch.nn.Module):
+class S2SBaseSearcher(torch.nn.Module):
     """
-    BaseSearcher class to be inherited by other
+    S2SBaseSearcher class to be inherited by other
     decoding approches for seq2seq model.
 
     Parameters
     ----------
-    modules : No limit
+    modules : ModuleList or Module
         The modules user uses to perform search algorithm.
     bos_index : int
         The index of beginning-of-sequence token.
@@ -40,7 +40,7 @@ class BaseSearcher(torch.nn.Module):
     def __init__(
         self, modules, bos_index, eos_index, min_decode_ratio, max_decode_ratio
     ):
-        super(BaseSearcher, self).__init__()
+        super(S2SBaseSearcher, self).__init__()
         self.modules = modules
         self.bos_index = bos_index
         self.eos_index = eos_index
@@ -83,6 +83,8 @@ class BaseSearcher(torch.nn.Module):
         memory : No limit
             The momory variables generated in this timestep.
             (ex. RNN hidden states).
+        attn : torch.Tensor
+            The attention weight for doing penalty.
         """
         raise NotImplementedError
 
@@ -106,10 +108,10 @@ class BaseSearcher(torch.nn.Module):
         raise NotImplementedError
 
 
-class GreedySearcher(BaseSearcher):
+class S2SGreedySearcher(S2SBaseSearcher):
     """
     This class implements the general forward-pass of
-    greedy decoding approach. See also BaseSearcher().
+    greedy decoding approach. See also S2SBaseSearcher().
     """
 
     def forward(self, enc_states, wav_len):
@@ -126,7 +128,7 @@ class GreedySearcher(BaseSearcher):
         max_decode_steps = int(enc_states.shape[1] * self.max_decode_ratio)
 
         for t in range(max_decode_steps):
-            log_probs, memory = self.forward_step(
+            log_probs, memory, _ = self.forward_step(
                 inp_tokens, memory, enc_states, enc_lens
             )
             log_probs_lst.append(log_probs)
@@ -142,11 +144,11 @@ class GreedySearcher(BaseSearcher):
         return predictions, scores
 
 
-class RNNGreedySearcher(GreedySearcher):
+class S2SRNNGreedySearcher(S2SGreedySearcher):
     """
     This class implements the greedy decoding
     for AttentionalRNNDecoder (speechbrain/nnet/RNN.py).
-    See also BaseSearcher() and GreedySearcher().
+    See also S2SBaseSearcher() and S2SGreedySearcher().
 
     Parameters
     ----------
@@ -172,7 +174,7 @@ class RNNGreedySearcher(GreedySearcher):
     >>> h, _ = dec(e, enc, wav_len, init_params=True)
     >>> log_probs = act(lin(h, init_params=True))
     >>> modules = [emb, dec, lin, act]
-    >>> searcher = RNNGreedySearcher(
+    >>> searcher = S2SRNNGreedySearcher(
     ... modules,
     ... bos_index=4,
     ... eos_index=4,
@@ -184,7 +186,7 @@ class RNNGreedySearcher(GreedySearcher):
     def __init__(
         self, modules, bos_index, eos_index, min_decode_ratio, max_decode_ratio,
     ):
-        super(RNNGreedySearcher, self).__init__(
+        super(S2SRNNGreedySearcher, self).__init__(
             modules, bos_index, eos_index, min_decode_ratio, max_decode_ratio
         )
         self.emb = modules[0]
@@ -205,13 +207,13 @@ class RNNGreedySearcher(GreedySearcher):
             e, hs, c, enc_states, enc_lens
         )
         log_probs = self.softmax(self.lin(dec_out))
-        return log_probs, (hs, c)
+        return log_probs, (hs, c), w
 
 
-class BeamSearcher(BaseSearcher):
+class S2SBeamSearcher(S2SBaseSearcher):
     """
     This class implements the beam-search algorithm for seq2seq model.
-    See also BaseSearcher().
+    See also S2SBaseSearcher().
 
     Parameters
     ----------
@@ -223,6 +225,10 @@ class BeamSearcher(BaseSearcher):
     eos_threshold : float
         The threshold coefficient for eos token. See 3.1.2 in
         reference: https://arxiv.org/abs/1904.02619
+    max_attn_shift: int
+        Beam search will block the beams that attention shift more
+        than max_attn_shift.
+        Reference: https://arxiv.org/abs/1904.02619
     minus_inf : float
         The value of minus infinity to block some path
         of the search (default : -1e20).
@@ -238,14 +244,16 @@ class BeamSearcher(BaseSearcher):
         beam_size,
         length_penalty,
         eos_threshold,
+        max_attn_shift=1e20,
         minus_inf=-1e20,
     ):
-        super(BeamSearcher, self).__init__(
+        super(S2SBeamSearcher, self).__init__(
             modules, bos_index, eos_index, min_decode_ratio, max_decode_ratio
         )
         self.beam_size = beam_size
         self.length_penalty = length_penalty
         self.eos_threshold = eos_threshold
+        self.max_attn_shift = max_attn_shift
         self.minus_inf = minus_inf
 
     def forward(self, enc_states, wav_len):
@@ -283,12 +291,25 @@ class BeamSearcher(BaseSearcher):
 
         min_decode_steps = int(enc_states.shape[1] * self.min_decode_ratio)
         max_decode_steps = int(enc_states.shape[1] * self.max_decode_ratio)
+        prev_attn_peak = torch.zeros(batch_size * self.beam_size).to(device)
 
         for t in range(max_decode_steps):
-            log_probs, memory = self.forward_step(
+            log_probs, memory, attn = self.forward_step(
                 inp_tokens, memory, enc_states, enc_lens
             )
             vocab_size = log_probs.shape[-1]
+
+            # Block the candidates that exceed the max shift
+            _, attn_peak = torch.max(attn, dim=1)
+            condition = (
+                (attn_peak < (prev_attn_peak + self.max_attn_shift))
+                .unsqueeze(1)
+                .expand(-1, vocab_size)
+            )
+            log_probs = torch.where(
+                condition, log_probs, torch.Tensor([self.minus_inf]).to(device)
+            )
+            prev_attn_peak = attn_peak
 
             # Set eos to minus_inf when less than minimum steps.
             if t < min_decode_steps:
@@ -404,11 +425,11 @@ class BeamSearcher(BaseSearcher):
         raise NotImplementedError
 
 
-class RNNBeamSearcher(BeamSearcher):
+class S2SRNNBeamSearcher(S2SBeamSearcher):
     """
     This class implements the beam search decoding
     for AttentionalRNNDecoder (speechbrain/nnet/RNN.py).
-    See also BaseSearcher(), BeamSearcher().
+    See also S2SBaseSearcher(), S2SBeamSearcher().
 
     Parameters
     ----------
@@ -434,7 +455,7 @@ class RNNBeamSearcher(BeamSearcher):
     >>> h, _ = dec(e, enc, wav_len, init_params=True)
     >>> log_probs = act(lin(h, init_params=True))
     >>> modules = [emb, dec, lin, act]
-    >>> searcher = RNNBeamSearcher(
+    >>> searcher = S2SRNNBeamSearcher(
     ... modules,
     ... bos_index=4,
     ... eos_index=4,
@@ -456,8 +477,9 @@ class RNNBeamSearcher(BeamSearcher):
         beam_size,
         length_penalty,
         eos_threshold,
+        max_attn_shift=1e20,
     ):
-        super(RNNBeamSearcher, self).__init__(
+        super(S2SRNNBeamSearcher, self).__init__(
             modules,
             bos_index,
             eos_index,
@@ -466,6 +488,7 @@ class RNNBeamSearcher(BeamSearcher):
             beam_size,
             length_penalty,
             eos_threshold,
+            max_attn_shift,
         )
         self.emb = modules[0]
         self.dec = modules[1]
@@ -485,7 +508,7 @@ class RNNBeamSearcher(BeamSearcher):
             e, hs, c, enc_states, enc_lens
         )
         log_probs = self.softmax(self.lin(dec_out))
-        return log_probs, (hs, c)
+        return log_probs, (hs, c), w
 
     def permute_mem(self, memory, index):
         hs, c = memory
