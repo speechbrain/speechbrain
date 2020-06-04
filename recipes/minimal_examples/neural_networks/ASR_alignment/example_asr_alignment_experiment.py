@@ -41,8 +41,11 @@ class AlignBrain(sb.core.Brain):
         stats = {}
         if stage != "train":
             alignments, viterbi_scores = viterbi_aligner(
-                ids, predictions, lens, phns, phn_lens
+                predictions, lens, phns, phn_lens
             )
+
+            viterbi_aligner.store_alignments(ids, alignments)
+
             phns = undo_padding(phns, phn_lens)
             stats["PER"] = wer_details_for_batch(ids, phns, alignments)
 
@@ -72,4 +75,4 @@ print("Test PER: %.2f" % summarize_error_rate(test_stats["PER"]))
 
 # Integration test: check that the model overfits the training data
 def test_error():
-    assert align_brain.avg_train_loss < 3.0
+    assert align_brain.avg_train_loss < 2.0
