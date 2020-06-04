@@ -7,11 +7,11 @@ import speechbrain as sb
 import speechbrain.data_io.wer as wer_io
 import speechbrain.utils.edit_distance as edit_distance
 from speechbrain.data_io.data_io import convert_index_to_lab
-from speechbrain.data_io.data_io import put_bos_token
+from speechbrain.data_io.data_io import prepend_bos_token
 from speechbrain.data_io.data_io import append_eos_token
 
-from speechbrain.decoders.seq2seq import RNNGreedySearcher
-from speechbrain.decoders.seq2seq import RNNBeamSearcher
+from speechbrain.decoders.seq2seq import S2SRNNGreedySearcher
+from speechbrain.decoders.seq2seq import S2SRNNBeamSearcher
 from speechbrain.decoders.decoders import undo_padding
 from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.train_logger import summarize_error_rate
@@ -36,14 +36,14 @@ sb.core.create_experiment_directory(
 modules = torch.nn.ModuleList(
     [params.enc, params.emb, params.dec, params.ctc_lin, params.seq_lin]
 )
-greedy_searcher = RNNGreedySearcher(
+greedy_searcher = S2SRNNGreedySearcher(
     modules=[params.emb, params.dec, params.seq_lin, params.log_softmax],
     bos_index=params.bos_index,
     eos_index=params.eos_index,
     min_decode_ratio=0,
     max_decode_ratio=1,
 )
-beam_searcher = RNNBeamSearcher(
+beam_searcher = S2SRNNBeamSearcher(
     modules=[params.emb, params.dec, params.seq_lin, params.log_softmax],
     bos_index=params.bos_index,
     eos_index=params.eos_index,
@@ -84,7 +84,7 @@ class ASR(sb.core.Brain):
         logits = params.ctc_lin(x, init_params)
         p_ctc = params.log_softmax(logits)
 
-        y_in = put_bos_token(phns, bos_index=params.bos_index)
+        y_in = prepend_bos_token(phns, bos_index=params.bos_index)
         e_in = params.emb(y_in, init_params=init_params)
         h, _ = params.dec(e_in, x, wav_lens, init_params)
         logits = params.seq_lin(h, init_params)

@@ -13,7 +13,7 @@ csv_valid: !ref <data_folder>/dev.csv
 csv_test: !ref <data_folder>/test.csv
 
 # Training parameters
-number_of_epochs: 30
+number_of_epochs: 50
 batch_size: 8
 lr: 0.001
 wd: 0.0001

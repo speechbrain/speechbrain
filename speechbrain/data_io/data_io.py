@@ -2018,7 +2018,7 @@ def load_pkl(file):
         return pickle.load(f)
 
 
-def put_bos_token(label, bos_index):
+def prepend_bos_token(label, bos_index):
     """Create labels with <bos> token at the beginning.
 
     Arguments
@@ -2034,7 +2034,7 @@ def put_bos_token(label, bos_index):
 
     Example:
     >>> label=torch.LongTensor([[1,0,0], [2,3,0], [4,5,6]])
-    >>> new_label=put_bos_token(label, bos_index=7)
+    >>> new_label=prepend_bos_token(label, bos_index=7)
     >>> new_label
     tensor([[7, 1, 0, 0],
             [7, 2, 3, 0],

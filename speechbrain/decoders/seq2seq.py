@@ -8,14 +8,14 @@ import torch
 import numpy as np
 
 
-class BaseSearcher(torch.nn.Module):
+class S2SBaseSearcher(torch.nn.Module):
     """
-    BaseSearcher class to be inherited by other
+    S2SBaseSearcher class to be inherited by other
     decoding approches for seq2seq model.
 
     Parameters
     ----------
-    modules : No limit
+    modules : ModuleList or Module
         The modules user uses to perform search algorithm.
     bos_index : int
         The index of beginning-of-sequence token.
@@ -40,7 +40,7 @@ class BaseSearcher(torch.nn.Module):
     def __init__(
         self, modules, bos_index, eos_index, min_decode_ratio, max_decode_ratio
     ):
-        super(BaseSearcher, self).__init__()
+        super(S2SBaseSearcher, self).__init__()
         self.modules = modules
         self.bos_index = bos_index
         self.eos_index = eos_index
@@ -108,10 +108,10 @@ class BaseSearcher(torch.nn.Module):
         raise NotImplementedError
 
 
-class GreedySearcher(BaseSearcher):
+class S2SGreedySearcher(S2SBaseSearcher):
     """
     This class implements the general forward-pass of
-    greedy decoding approach. See also BaseSearcher().
+    greedy decoding approach. See also S2SBaseSearcher().
     """
 
     def forward(self, enc_states, wav_len):
@@ -144,11 +144,11 @@ class GreedySearcher(BaseSearcher):
         return predictions, scores
 
 
-class RNNGreedySearcher(GreedySearcher):
+class S2SRNNGreedySearcher(S2SGreedySearcher):
     """
     This class implements the greedy decoding
     for AttentionalRNNDecoder (speechbrain/nnet/RNN.py).
-    See also BaseSearcher() and GreedySearcher().
+    See also S2SBaseSearcher() and S2SGreedySearcher().
 
     Parameters
     ----------
@@ -174,7 +174,7 @@ class RNNGreedySearcher(GreedySearcher):
     >>> h, _ = dec(e, enc, wav_len, init_params=True)
     >>> log_probs = act(lin(h, init_params=True))
     >>> modules = [emb, dec, lin, act]
-    >>> searcher = RNNGreedySearcher(
+    >>> searcher = S2SRNNGreedySearcher(
     ... modules,
     ... bos_index=4,
     ... eos_index=4,
@@ -186,7 +186,7 @@ class RNNGreedySearcher(GreedySearcher):
     def __init__(
         self, modules, bos_index, eos_index, min_decode_ratio, max_decode_ratio,
     ):
-        super(RNNGreedySearcher, self).__init__(
+        super(S2SRNNGreedySearcher, self).__init__(
             modules, bos_index, eos_index, min_decode_ratio, max_decode_ratio
         )
         self.emb = modules[0]
@@ -210,10 +210,10 @@ class RNNGreedySearcher(GreedySearcher):
         return log_probs, (hs, c), w
 
 
-class BeamSearcher(BaseSearcher):
+class S2SBeamSearcher(S2SBaseSearcher):
     """
     This class implements the beam-search algorithm for seq2seq model.
-    See also BaseSearcher().
+    See also S2SBaseSearcher().
 
     Parameters
     ----------
@@ -247,7 +247,7 @@ class BeamSearcher(BaseSearcher):
         max_attn_shift=1e20,
         minus_inf=-1e20,
     ):
-        super(BeamSearcher, self).__init__(
+        super(S2SBeamSearcher, self).__init__(
             modules, bos_index, eos_index, min_decode_ratio, max_decode_ratio
         )
         self.beam_size = beam_size
@@ -425,11 +425,11 @@ class BeamSearcher(BaseSearcher):
         raise NotImplementedError
 
 
-class RNNBeamSearcher(BeamSearcher):
+class S2SRNNBeamSearcher(S2SBeamSearcher):
     """
     This class implements the beam search decoding
     for AttentionalRNNDecoder (speechbrain/nnet/RNN.py).
-    See also BaseSearcher(), BeamSearcher().
+    See also S2SBaseSearcher(), S2SBeamSearcher().
 
     Parameters
     ----------
@@ -455,7 +455,7 @@ class RNNBeamSearcher(BeamSearcher):
     >>> h, _ = dec(e, enc, wav_len, init_params=True)
     >>> log_probs = act(lin(h, init_params=True))
     >>> modules = [emb, dec, lin, act]
-    >>> searcher = RNNBeamSearcher(
+    >>> searcher = S2SRNNBeamSearcher(
     ... modules,
     ... bos_index=4,
     ... eos_index=4,
@@ -479,7 +479,7 @@ class RNNBeamSearcher(BeamSearcher):
         eos_threshold,
         max_attn_shift=1e20,
     ):
-        super(RNNBeamSearcher, self).__init__(
+        super(S2SRNNBeamSearcher, self).__init__(
             modules,
             bos_index,
             eos_index,

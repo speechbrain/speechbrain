@@ -1,10 +1,10 @@
 #!/usr/bin/python
 import os
 import speechbrain as sb
-from speechbrain.data_io.data_io import put_bos_token
+from speechbrain.data_io.data_io import prepend_bos_token
 from speechbrain.data_io.data_io import append_eos_token
 from speechbrain.decoders.decoders import undo_padding
-from speechbrain.decoders.seq2seq import RNNGreedySearcher
+from speechbrain.decoders.seq2seq import S2SRNNGreedySearcher
 from speechbrain.utils.edit_distance import wer_details_for_batch
 from speechbrain.utils.train_logger import summarize_average
 from speechbrain.utils.train_logger import summarize_error_rate
@@ -17,7 +17,7 @@ data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
 with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
 
-searcher = RNNGreedySearcher(
+searcher = S2SRNNGreedySearcher(
     modules=[params.emb, params.dec, params.lin, params.softmax],
     bos_index=params.bos,
     eos_index=params.eos,
@@ -34,7 +34,7 @@ class seq2seqBrain(sb.core.Brain):
         feats = params.mean_var_norm(feats, wav_lens)
         x = params.enc(feats, init_params=init_params)
 
-        y_in = put_bos_token(phns, bos_index=params.bos)
+        y_in = prepend_bos_token(phns, bos_index=params.bos)
         e_in = params.emb(y_in, init_params=init_params)
         h, w = params.dec(e_in, x, wav_lens, init_params=init_params)
         logits = params.lin(h, init_params=init_params)
@@ -103,4 +103,4 @@ print("Test PER: %.2f" % summarize_error_rate(test_stats["PER"]))
 
 
 def test_error():
-    assert seq2seq_brain.avg_train_loss < 3.0
+    assert seq2seq_brain.avg_train_loss < 0.3
