@@ -22,13 +22,8 @@ class ViterbiAligner(torch.nn.Module):
     def __init__(self, output_folder):
         super().__init__()
         self.output_folder = output_folder
-        self.neg_inf = -1e-5
+        self.neg_inf = -1e5
         self.align_dict = {}
-
-    #    def update_from_forward(self, id, emission_pred, lens):
-    #        self.id = id
-    #        self.emission_pred = emission_pred
-    #        self.lens = lens
 
     def _make_pi_prob(self, phn_lens_abs):
         """
@@ -90,9 +85,9 @@ class ViterbiAligner(torch.nn.Module):
         trans_prob = torch.nn.functional.log_softmax(trans_prob, dim=2)
 
         ## set nans to v neg numbers
-        trans_prob[trans_prob != trans_prob] = -1e5
+        trans_prob[trans_prob != trans_prob] = self.neg_inf
         ## set -infs to v neg numbers
-        trans_prob[trans_prob == -float("Inf")] = -1e5
+        trans_prob[trans_prob == -float("Inf")] = self.neg_inf
 
         return trans_prob
 
@@ -113,14 +108,12 @@ class ViterbiAligner(torch.nn.Module):
         emiss_pred_acc_lens = torch.where(
             mask_lens[:, :, None],
             emission_pred,
-            torch.tensor([-1e-38]).to(device),
+            torch.tensor([self.neg_inf]).to(device),
         )
 
         # manipulate phn tensor, and then 'torch.gather'
         phns = phns.to(device)
-        phns_copied = phns.unsqueeze(1).expand(
-            -1, fb_max_length, -1
-        )  # .to(device)
+        phns_copied = phns.unsqueeze(1).expand(-1, fb_max_length, -1)
         emiss_pred_useful = torch.gather(emiss_pred_acc_lens, 2, phns_copied)
 
         # apply mask based on phn_lens_abs
@@ -130,7 +123,7 @@ class ViterbiAligner(torch.nn.Module):
         emiss_pred_useful = torch.where(
             mask_phn_lens[:, None, :],
             emiss_pred_useful,
-            torch.tensor([1e-38]).to(device),
+            torch.tensor([self.neg_inf]).to(device),
         )
 
         emiss_pred_useful = emiss_pred_useful.permute(0, 2, 1)
@@ -175,7 +168,7 @@ class ViterbiAligner(torch.nn.Module):
             v_matrix = torch.where(
                 phn_len_mask[:, :, None],
                 v_matrix,
-                torch.tensor(-99999.0).to(device),
+                torch.tensor(self.neg_inf).to(device),
             )
 
             backpointers[:, :, t - 1] = argmax.type(torch.FloatTensor)
@@ -221,38 +214,32 @@ class ViterbiAligner(torch.nn.Module):
 
         return z_stars, z_stars_loc, viterbi_scores
 
-    def forward(self, ids, emission_pred, lens, phns, phn_lens):
-        self.ids = ids
-        self.emission_pred = emission_pred
-        self.lens = lens
-
-        lens_abs = torch.round(self.emission_pred.shape[1] * self.lens).long()
+    def forward(self, emission_pred, lens, phns, phn_lens):
+        lens_abs = torch.round(emission_pred.shape[1] * lens).long()
         phn_lens_abs = torch.round(phns.shape[1] * phn_lens).long()
         phns = phns.long()
 
         pi_prob = self._make_pi_prob(phn_lens_abs)
         trans_prob = self._make_trans_prob(phn_lens_abs)
         emiss_pred_useful = self._make_emiss_pred_useful(
-            self.emission_pred, lens_abs, phn_lens_abs, phns
+            emission_pred, lens_abs, phn_lens_abs, phns
         )
 
         alignments, _, viterbi_scores = self._calc_viterbi_alignments(
             pi_prob, trans_prob, emiss_pred_useful, lens_abs, phn_lens_abs, phns
         )
 
-        ## record alignments in dict
-        for i, id in enumerate(self.ids):
+        return alignments, viterbi_scores
+
+    def store_alignments(self, ids, alignments):
+        for i, id in enumerate(ids):
             alignment_i = alignments[i]
             self.align_dict[id] = alignment_i
 
-        return alignments, viterbi_scores
+    def _get_flat_start_batch(self, lens_abs, phns, phn_lens_abs):
+        phns = phns.long()
 
-    def _get_flat_start_batch(self):
-        lens_abs = torch.round(self.emission_pred.shape[1] * self.lens).long()
-        phn_lens_abs = torch.round(self.phns.shape[1] * self.phn_lens).long()
-        phns = self.phns.long()
-
-        batch_size = len(self.emission_pred)
+        batch_size = len(lens_abs)
         fb_max_length = torch.max(lens_abs)
 
         flat_start_batch = torch.zeros(batch_size, fb_max_length).long()
@@ -267,23 +254,21 @@ class ViterbiAligner(torch.nn.Module):
             # pad out with final phoneme to make lengths equal
             utter_phns = torch.nn.functional.pad(
                 utter_phns,
-                (0, int(self.lens[i]) - len(utter_phns)),
+                (0, int(lens_abs[i]) - len(utter_phns)),
                 value=utter_phns[-1],
             )
 
             flat_start_batch[i, : len(utter_phns)] = utter_phns
 
-        return flat_start_batch  # , flat_start_lens
+        return flat_start_batch
 
-    def _get_viterbi_batch(self):
-        lens_abs = torch.round(self.emission_pred.shape[1] * self.lens).long()
-
-        batch_size = len(self.emission_pred)
+    def _get_viterbi_batch(self, ids, lens_abs, phns, phn_lens_abs):
+        batch_size = len(lens_abs)
         fb_max_length = torch.max(lens_abs)
 
         viterbi_batch = torch.zeros(batch_size, fb_max_length).long()
         for i in range(batch_size):
-            viterbi_preds = self.align_dict[self.ids[i]]
+            viterbi_preds = self.align_dict[ids[i]]
             viterbi_preds = torch.tensor(viterbi_preds)
             viterbi_preds = torch.nn.functional.pad(
                 viterbi_preds, (0, fb_max_length - len(viterbi_preds))
@@ -294,13 +279,10 @@ class ViterbiAligner(torch.nn.Module):
         return viterbi_batch
 
     def get_prev_alignments(self, ids, emission_pred, lens, phns, phn_lens):
-        self.ids = ids
-        self.emission_pred = emission_pred
-        self.lens = lens
-        self.phns = phns
-        self.phn_lens = phn_lens
+        lens_abs = torch.round(emission_pred.shape[1] * lens).long()
+        phn_lens_abs = torch.round(phns.shape[1] * phn_lens).long()
 
         if ids[0] in self.align_dict:
-            return self._get_viterbi_batch()
+            return self._get_viterbi_batch(ids, lens_abs, phns, phn_lens_abs)
         else:
-            return self._get_flat_start_batch()
+            return self._get_flat_start_batch(lens_abs, phns, phn_lens_abs)
