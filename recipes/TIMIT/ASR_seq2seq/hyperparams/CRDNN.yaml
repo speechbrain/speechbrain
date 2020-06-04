@@ -16,7 +16,7 @@ csv_test: !ref <data_folder>/test.csv
 number_of_epochs: 50
 batch_size: 8
 lr: 0.001
-wd: 0.0001
+wd: 0.000001
 device: 'cuda:0'
 
 # Feature parameters
@@ -62,6 +62,7 @@ enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
     rnn_layers: !ref <rnn_layers>
     rnn_neurons: !ref <rnn_neurons>
     rnn_bidirectional: !ref <rnn_bidirectional>
+    rnn_re_init: True
     dnn_blocks: !ref <dnn_blocks>
     dnn_neurons: !ref <dnn_neurons>
 
