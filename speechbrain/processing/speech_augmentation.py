@@ -166,6 +166,7 @@ class AddNoise(torch.nn.Module):
                     batch_size=batch_size,
                     cache=self.do_cache,
                     replacements=self.replacements,
+                    drop_last=True,  # Avoids dimension mismatch
                 )
                 self.noise_data = iter(self.data_loader())
 
