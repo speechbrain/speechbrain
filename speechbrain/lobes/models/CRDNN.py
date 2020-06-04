@@ -10,7 +10,7 @@ from speechbrain.nnet.linear import Linear
 from speechbrain.nnet.pooling import Pooling1d, Pooling2d
 from speechbrain.nnet.dropout import Dropout2d
 from speechbrain.nnet.containers import Sequential
-from speechbrain.nnet.normalization import BatchNorm1d, BatchNorm2d
+from speechbrain.nnet.normalization import BatchNorm1d, LayerNorm
 
 
 class CRDNN(Sequential):
@@ -98,13 +98,13 @@ class CRDNN(Sequential):
                         out_channels=cnn_channels[block_index],
                         kernel_size=cnn_kernelsize,
                     ),
-                    BatchNorm2d(),
+                    LayerNorm(),
                     activation(),
                     Conv2d(
                         out_channels=cnn_channels[block_index],
                         kernel_size=cnn_kernelsize,
                     ),
-                    BatchNorm2d(),
+                    LayerNorm(),
                     activation(),
                     # Inter-layer Pooling
                     pooling,
