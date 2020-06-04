@@ -2,10 +2,6 @@
 Data preparation.
 
 Download: http://www.robots.ox.ac.uk/~vgg/data/voxceleb/
-
-Author
-------
-Nauman Dawalatabad 2020
 """
 
 import os
@@ -24,7 +20,6 @@ logger = logging.getLogger(__name__)
 OPT_FILE = "opt_voxceleb1_prepare.pkl"
 TRAIN_CSV = "train.csv"
 DEV_CSV = "dev.csv"
-# TEST_CSV = "test.csv"
 SAMPLERATE = 16000
 
 
@@ -37,6 +32,36 @@ def prepare_voxceleb1(
     vad=False,
     rand_seed=1234,
 ):
+    """
+    Prepares the csv files for the Voxceleb1 dataset.
+
+    Arguments
+    ---------
+    data_folder : str
+        Path to the folder where the original VoxCeleb dataset is stored.
+    save_folder : str
+        The directory where to store the csv files.
+
+    splits : list
+        List of splits to prepare from ['train', 'dev']
+    split_ratio : list
+        List if int for train and validation splits
+    seg_dur : int
+        Segment duration of a chunk in milliseconds
+    vad : bool
+        To perform VAD or not
+    rand_seed : int
+        random seed
+
+    Example
+    -------
+    >>> from recipes.VoxCeleb.voxceleb1_prepare import prepare_voxceleb1
+    >>> data_folder = 'data/VoxCeleb1/'
+    >>> save_folder = 'VoxData/'
+    >>> splits = ['train', 'dev']
+    >>> split_ratio = [90, 10]
+    >>> prepare_voxceleb1(data_folder, save_folder, splits, split_ratio)
+    """
 
     data_folder = os.path.join(data_folder, "wav/")
 
@@ -126,18 +151,18 @@ def skip(splits, save_folder, conf):
 
 def _check_voxceleb1_folders(data_folder):
     """
-        Check if the data folder actually contains the Voxceleb1 dataset.
+    Check if the data folder actually contains the Voxceleb1 dataset.
 
-        If it does not, raise an error.
+    If it does not, raise an error.
 
-        Returns
-        -------
-        None
+    Returns
+    -------
+    None
 
-        Raises
-        ------
-        FileNotFoundError
-        """
+    Raises
+    ------
+    FileNotFoundError
+    """
     # Checking
     if not os.path.exists(data_folder + "/id10001"):
         err_msg = (
@@ -158,7 +183,7 @@ def _get_utt_split_lists(data_folder, split_ratio):
         f for f in glob.glob(data_folder + "**/*.wav", recursive=True)
     ]  # doesn't take much time
 
-    # random.shuffle(audio_files_list)
+    random.shuffle(audio_files_list)
     train_lst = audio_files_list[
         : int(0.01 * split_ratio[0] * len(audio_files_list))
     ]
@@ -170,13 +195,16 @@ def _get_utt_split_lists(data_folder, split_ratio):
 
 
 def _get_chunks(seg_dur, audio_id, audio_duration):
+    """
+    Returns list of chunks
+    """
     num_chunks = int(audio_duration * 100 / seg_dur)  # all in milliseconds
 
     chunk_lst = [
         audio_id + "_" + str(i * seg_dur) + "_" + str(i * seg_dur + seg_dur)
         for i in range(num_chunks)
     ]
-    # print (chunk_lst)
+
     return chunk_lst
 
 
@@ -198,14 +226,12 @@ def prepare_csv(
     Returns
     -------
     None
-
     """
 
-    # Adding some Prints
     msg = '\t"Creating csv lists in  %s..."' % (csv_file)
     logger.debug(msg)
 
-    # Important format: example5, 1.000, $data_folder/example5.wav, wav, start:10000 stop:26000, spk05, string,
+    # Format used: example5, 1.000, $data_folder/example5.wav, wav, start:10000 stop:26000, spk05, string,
     csv_output = [
         [
             "ID",

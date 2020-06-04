@@ -2,10 +2,6 @@
 import os
 import sys
 import speechbrain as sb
-from speechbrain.nnet.containers import Sequential
-
-# from speechbrain.utils.train_logger import summarize_average
-# from speechbrain.utils.checkpoints import ckpt_recency
 
 # This hack needed to import data preparation script from ..
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -29,7 +25,7 @@ prepare_voxceleb1(
     data_folder=params.data_folder,
     save_folder=params.save_folder,
     splits=["train", "dev"],
-    split_ratio=[70, 30],
+    split_ratio=[90, 10],
     seg_dur=300,
     vad=False,
     rand_seed=1234,
@@ -40,6 +36,8 @@ prepare_voxceleb1(
 class XvectorBrain(sb.core.Brain):
     def compute_forward(self, x, stage="train", init_params=False):
         id, wavs, lens = x
+
+        wavs, lens = wavs.to(params.device), lens.to(params.device)
 
         feats = params.compute_features(wavs, init_params)
         feats = params.mean_var_norm(feats, lens)
@@ -55,11 +53,11 @@ class XvectorBrain(sb.core.Brain):
         predictions, lens = predictions
         uttid, spkid, _ = targets
 
+        spkid, lens = spkid.to(params.device), lens.to(params.device)
+
         loss = params.compute_cost(predictions, spkid, lens)
 
         stats = {}
-
-        # if stage != "train":
         stats["error"] = params.compute_error(predictions, spkid, lens)
 
         return loss, stats
@@ -68,30 +66,6 @@ class XvectorBrain(sb.core.Brain):
         epoch_stats = {"epoch": epoch}
         params.train_logger.log_stats(epoch_stats, train_stats, valid_stats)
         params.checkpointer.save_and_keep_only()
-
-
-# Extracts xvector given data and truncated model
-class Extractor(Sequential):
-    def __init__(self, model):
-        super().__init__()
-        self.model = model
-
-    def get_emb(self, feats):
-
-        emb = self.model(feats)
-
-        return emb
-
-    def extract(self, x):
-        id, wavs, lens = x
-
-        feats = params.compute_features(wavs, init_params=False)
-        feats = params.mean_var_norm(feats, lens)
-
-        emb = self.get_emb(feats)
-        emb = emb.detach()
-
-        return emb
 
 
 # Data loaders
@@ -115,18 +89,3 @@ xvect_brain.fit(
     params.epoch_counter, train_set=train_set, valid_set=valid_set,
 )
 print("Xvector model training completed!")
-
-# Truncate model and keep till layer emb a
-model_a = Sequential(*xvect_brain.modules[0].layers[0:17],)
-print("Model has been truncated!")
-
-# Instantiate extractor obj
-ext_brain = Extractor(model=model_a)
-
-# Extract xvectors from a validation sample
-valid_x, valid_y = next(iter(valid_set))
-print(
-    "Extracting Xvector from a sample validation batch using truncated model!"
-)
-xvectors = ext_brain.extract(valid_x)
-print("Extracted Xvector.Shape: ", xvectors.shape)
