@@ -37,16 +37,16 @@ def decode_batch(F, decode_network_lst, Tjoint, classif_network_lst, blank_id):
     -------
         >>> import torch
         >>> from speechbrain.decoders.transducer import decode_batch
-        >>> from speechbrain.nnet.RNN import RNN
+        >>> from speechbrain.nnet.RNN import GRU
         >>> from speechbrain.nnet.activations import Softmax
         >>> from speechbrain.nnet.embedding import Embedding
         >>> from speechbrain.nnet.transducer.transducer_joint import Transducer_joint
         >>> from speechbrain.nnet.linear import Linear
-        >>> TN = RNN(rnn_type="gru", n_neurons=5, num_layers=1, bidirectional=True)
+        >>> TN = GRU(hidden_size=5, num_layers=1, bidirectional=True)
         >>> TN_lin = Linear(n_neurons=35, bias=True)
         >>> blank_id = 34
         >>> PN_emb = Embedding(num_embeddings=35, consider_as_one_hot=True, blank_id=blank_id)
-        >>> PN = RNN(rnn_type="gru", n_neurons=5, num_layers=1, bidirectional=False, return_hidden=True)
+        >>> PN = GRU(hidden_size=5, num_layers=1, bidirectional=False, return_hidden=True)
         >>> PN_lin = Linear(n_neurons=35, bias=True)
         >>> joint_network= Linear(n_neurons=35, bias=True)
         >>> Tjoint = Transducer_joint(joint_network, joint="sum", nonlinearity="tanh")
@@ -77,13 +77,16 @@ def decode_batch(F, decode_network_lst, Tjoint, classif_network_lst, blank_id):
     # First forward on PN
     hidden = None
     for layer in decode_network_lst:
-        if layer.__class__.__name__ == "RNN":
-            out_PN, hidden = layer(out_PN, init_params=False)
+        if layer.__class__.__name__ in [
+            "RNN",
+            "LSTM",
+            "GRU",
+            "LiGRU",
+            "LiGRU_Layer",
+        ]:
+            out_PN, hidden = layer(out_PN)
         else:
-            if layer.__class__.__name__ == "Embedding":
-                out_PN = layer(out_PN, init_params=False)
-            else:
-                out_PN = layer(out_PN, init_params=False)
+            out_PN = layer(out_PN)
     # For each time step
     for t_step in range(F.size(1)):
         # Join predictions (TN & PN)
@@ -91,23 +94,14 @@ def decode_batch(F, decode_network_lst, Tjoint, classif_network_lst, blank_id):
             F[:, t_step, :].unsqueeze(1).unsqueeze(1), out_PN.unsqueeze(1)
         )
         # forward the output layers + activation + save logits
-        activation = False
         for layer in classif_network_lst:
             out = layer(out)
-            if layer.__class__.__name__ == "Softmax":
-                activation = True
-                list_outs.append(out)
-                out = layer(out)
-        # Sort outputs at time T
-        if activation:
-            prob_targets, positions = torch.max(
-                out.squeeze(1).squeeze(1), dim=1
-            )
-        else:
-            prob_targets, positions = torch.max(
-                out.log_softmax(dim=-1).squeeze(1).squeeze(1), dim=1
-            )
 
+        list_outs.append(out)
+        # Sort outputs at time
+        prob_targets, positions = torch.max(
+            out.log_softmax(dim=-1).squeeze(1).squeeze(1), dim=1
+        )
         # Batch hidden update
         have_update_hyp = []
         for i in range(positions.size(0)):
@@ -128,7 +122,13 @@ def decode_batch(F, decode_network_lst, Tjoint, classif_network_lst, blank_id):
                 hidden_update_hyp = hidden[:, have_update_hyp, :]
 
             for layer in decode_network_lst:
-                if layer.__class__.__name__ == "RNN":
+                if layer.__class__.__name__ in [
+                    "RNN",
+                    "LSTM",
+                    "GRU",
+                    "LiGRU",
+                    "LiGRU_Layer",
+                ]:
                     out_update_hyp, hidden_update_hyp = layer(
                         out_update_hyp, hidden_update_hyp, init_params=False
                     )
