@@ -1,7 +1,6 @@
 #!/usr/bin/python
 import os
 import speechbrain as sb
-from speechbrain.alignment.aligner import ViterbiAligner
 from speechbrain.decoders.decoders import undo_padding
 from speechbrain.utils.edit_distance import wer_details_for_batch
 from speechbrain.utils.train_logger import summarize_average
@@ -13,8 +12,6 @@ data_folder = "../../../../samples/audio_samples/nn_training_samples"
 data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
 with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
-
-viterbi_aligner = ViterbiAligner()
 
 
 class AlignBrain(sb.core.Brain):
@@ -32,7 +29,7 @@ class AlignBrain(sb.core.Brain):
         predictions, lens = predictions
         ids, phns, phn_lens = targets
 
-        prev_alignments = viterbi_aligner.get_prev_alignments(
+        prev_alignments = params.viterbi_aligner.get_prev_alignments(
             ids, predictions, lens, phns, phn_lens
         )
 
@@ -41,11 +38,11 @@ class AlignBrain(sb.core.Brain):
         stats = {}
 
         if stage != "train":
-            alignments, viterbi_scores = viterbi_aligner(
+            alignments, viterbi_scores = params.viterbi_aligner(
                 predictions, lens, phns, phn_lens
             )
 
-            viterbi_aligner.store_alignments(ids, alignments)
+            params.viterbi_aligner.store_alignments(ids, alignments)
 
             phns = undo_padding(phns, phn_lens)
             stats["PER"] = wer_details_for_batch(ids, phns, alignments)
