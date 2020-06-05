@@ -7,7 +7,7 @@ import speechbrain.utils.edit_distance as edit_distance
 from speechbrain.data_io.data_io import convert_index_to_lab
 from speechbrain.decoders.ctc import ctc_greedy_decode
 from speechbrain.decoders.transducer import decode_batch
-from speechbrain.data_io.data_io import put_bos_token
+from speechbrain.data_io.data_io import prepend_bos_token
 from speechbrain.decoders.decoders import undo_padding
 from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.train_logger import summarize_error_rate
@@ -47,7 +47,9 @@ class ASR(sb.core.Brain):
             targets = targets.to(params.device)
             # Prediction network: output-output dependency
             # Generate input seq for PN
-            decoder_input = put_bos_token(targets, bos_index=params.blank_index)
+            decoder_input = prepend_bos_token(
+                targets, bos_index=params.blank_index
+            )
             PN_output = params.decoder_embedding(decoder_input, init_params)
             PN_output, _ = params.decoder_gru(
                 PN_output, init_params=init_params
