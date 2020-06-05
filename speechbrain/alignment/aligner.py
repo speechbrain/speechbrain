@@ -372,12 +372,19 @@ class ViterbiAligner(torch.nn.Module):
 
         Example
         -------
-        To be added.
-
+        >>> viterbi_aligner = ViterbiAligner()
+        >>> ids = ['id1', 'id2']
+        >>> alignments = [[0, 2, 4], [1, 2, 3, 4]]
+        >>> viterbi_aligner.store_alignments(ids, alignments)
+        >>> viterbi_aligner.align_dict.keys()
+        dict_keys(['id1', 'id2'])
+        >>> viterbi_aligner.align_dict['id1']
+        tensor([0, 2, 4], dtype=torch.int16)
         """
 
         for i, id in enumerate(ids):
             alignment_i = alignments[i]
+            alignment_i = torch.tensor(alignment_i, dtype=torch.int16).cpu()
             self.align_dict[id] = alignment_i
 
     def _get_flat_start_batch(self, lens_abs, phn_lens_abs, phns):
@@ -399,6 +406,12 @@ class ViterbiAligner(torch.nn.Module):
 
         phns: torch.Tensor (batch, phoneme in phn sequence)
             The phonemes that are known/thought to be to be in each utterance.
+
+        Returns
+        -------
+        flat_start_batch: torch.Tensor (batch, time)
+            Flat start alignments for utterances in the batch, with zero padding.
+
         """
         phns = phns.long()
 
@@ -409,7 +422,7 @@ class ViterbiAligner(torch.nn.Module):
         for i in range(batch_size):
             utter_phns = phns[i]
             utter_phns = utter_phns[: phn_lens_abs[i]]  # crop out zero padding
-            repeat_amt = int(lens_abs[i] / len(utter_phns))
+            repeat_amt = int(lens_abs[i].item() / len(utter_phns))
 
             utter_phns = utter_phns.repeat_interleave(repeat_amt)
 
@@ -438,6 +451,12 @@ class ViterbiAligner(torch.nn.Module):
             The absolute length of each input to the acoustic model,
             i.e. the number of frames
 
+        Returns
+        -------
+        viterbi_batch: torch.Tensor (batch, time)
+            The previously-recorded Viterbi alignments for the utterances
+            in the batch
+
         """
         batch_size = len(lens_abs)
         fb_max_length = torch.max(lens_abs)
@@ -445,7 +464,6 @@ class ViterbiAligner(torch.nn.Module):
         viterbi_batch = torch.zeros(batch_size, fb_max_length).long()
         for i in range(batch_size):
             viterbi_preds = self.align_dict[ids[i]]
-            viterbi_preds = torch.tensor(viterbi_preds)
             viterbi_preds = torch.nn.functional.pad(
                 viterbi_preds, (0, fb_max_length - len(viterbi_preds))
             )
@@ -467,7 +485,8 @@ class ViterbiAligner(torch.nn.Module):
         ids: list of str
             IDs of the files in the batch
         emission_pred: torch.Tensor (batch, time, phoneme in vocabulary)
-            posterior probabilities from our acoustic model
+            Posterior probabilities from our acoustic model. Used to infer the
+            duration of the longest utterance in the batch.
         lens: torch.Tensor (batch)
             The relative duration of each utterance sound file.
         phns: torch.Tensor (batch, phoneme in phn sequence)
@@ -475,14 +494,32 @@ class ViterbiAligner(torch.nn.Module):
         phn_lens: torch.Tensor (batch)
             The relative length of each phoneme sequence in the batch.
 
-        Output
-        ------
+        Returns
+        -------
         torch.Tensor (batch, time)
             Zero-padded alignments
 
         Example
         -------
-        To be added
+        >>> ids = ['id1', 'id2']
+        >>> emission_pred = torch.tensor([[[ -1., -10., -10.],
+        ...                                [-10.,  -1., -10.],
+        ...                                [-10., -10.,  -1.]],
+        ...
+        ...                               [[ -1., -10., -10.],
+        ...                                [-10.,  -1., -10.],
+        ...                                [-10., -10., -10.]]])
+        >>> lens = torch.tensor([1., 0.66])
+        >>> phns = torch.tensor([[0, 1, 2],
+        ...                      [0, 1, 0]])
+        >>> phn_lens = torch.tensor([1., 0.66])
+        >>> viterbi_aligner = ViterbiAligner()
+        >>> alignment_batch = viterbi_aligner.get_prev_alignments(
+        ...        ids, emission_pred, lens, phns, phn_lens
+        ... )
+        >>> alignment_batch
+        tensor([[0, 1, 2],
+                [0, 1, 0]])
         """
 
         lens_abs = torch.round(emission_pred.shape[1] * lens).long()
