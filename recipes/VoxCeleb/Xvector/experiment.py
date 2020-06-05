@@ -20,7 +20,7 @@ sb.core.create_experiment_directory(
     overrides=overrides,
 )
 
-# Prepare data
+# Prepare data from dev of Voxceleb1
 prepare_voxceleb1(
     data_folder=params.data_folder,
     save_folder=params.save_folder,
