@@ -6,7 +6,7 @@ def test_embedding():
     from speechbrain.nnet.embedding import Embedding
 
     # create one hot vector and consider blank as zero vector
-    embeddings_dim = 39
+    embedding_dim = 39
     blank_id = 39
     size_dict = 40
     emb = Embedding(
@@ -17,8 +17,8 @@ def test_embedding():
     assert output.shape == (5, 39)
 
     # use standard embedding layer
-    embeddings_dim = 128
-    emb = Embedding(num_embeddings=size_dict, embeddings_dim=embeddings_dim)
+    embedding_dim = 128
+    emb = Embedding(num_embeddings=size_dict, embedding_dim=embedding_dim)
     inputs = torch.randint(0, 40, (5, 10))
     output = emb(inputs, init_params=True)
     assert output.shape == (5, 10, 128)
