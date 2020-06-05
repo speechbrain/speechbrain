@@ -70,15 +70,16 @@ class QRNNLayer(torch.jit.ScriptModule):
             Linearly transformed input.
         """
         result = []
-        forgets = f.split(1, dim=0)
-        h_tm1 = hidden
+        htm1 = hidden
+        hh = f * x
 
-        for i, h_t in enumerate((f * x).split(1, dim=0)):
-            if h_tm1 is not None:
-                h_t = h_t + (1 - forgets[i]) * h_tm1
-            h_t = h_t.view(h_t.size()[1:])
+        for i in range(hh.shape[0]):
+            h_t = hh[i, :, :]
+            ft = f[i, :, :]
+            if htm1 is not None:
+                h_t = h_t + (1 - ft) * htm1
             result.append(h_t)
-            h_tm1 = h_t
+            htm1 = h_t
 
         return torch.stack(result)
 
@@ -128,7 +129,7 @@ class QRNNLayer(torch.jit.ScriptModule):
                     torch.zeros(f.shape)
                     .bernoulli_(1 - self.zoneout)
                     .to(f.get_device())
-                )
+                ).detach()
                 f = f * mask
             else:
                 f = f * (1 - self.zoneout)
@@ -212,7 +213,10 @@ class QRNN(nn.Module):
                 )
             )
 
-        self.qrnn = Sequential(*layers)
+        self.qrnn = Sequential(*layers).to(first_input.get_device())
+
+        if self.dropout:
+            self.dropout = torch.nn.Dropout(self.dropout)
 
     def forward(self, x, hidden=None, init_params=False):
         if init_params:
@@ -225,11 +229,14 @@ class QRNN(nn.Module):
 
             next_hidden.append(h)
 
-            if self.dropout and i < len(self.layers) - 1:
+            if self.dropout and i < len(self.qrnn.layers) - 1:
                 x = self.dropout(x)
 
         next_hidden = torch.cat(next_hidden, 0).view(
             self.num_layers, *next_hidden[0].shape[-2:]
         )
 
-        return x, next_hidden if self.return_hidden else x
+        if self.return_hidden:
+            return x, next_hidden
+        else:
+            return x
