@@ -13,7 +13,6 @@ Authors: Jianyuan Zhong 2020
 import torch  # noqa: F401
 import torch.nn as nn
 
-# from speechbrain.nnet.linear import Linear
 from speechbrain.nnet.containers import Sequential
 
 
@@ -186,7 +185,7 @@ class QRNN(nn.Module):
 
     Example
     -------
-    >>> a = torch.rand([8, 120, 40])
+    >>> a = torch.rand([8, 120, 40]).cuda()
     >>> model = QRNN(256, 4, bidirectional=True)
     >>> b = model(a, init_params=True)
     >>> print(b.shape)
