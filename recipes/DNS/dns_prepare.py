@@ -15,12 +15,13 @@ from speechbrain.utils.data_utils import get_all_files
 from speechbrain.data_io.data_io import read_wav_soundfile
 
 logger = logging.getLogger(__name__)
-TRAIN_CSV = "train.csv"
+NOISE_CSV = "tr_noise.csv"
+CLEAN_CSV = "tr_clean.csv"
 TEST_CSV = "test.csv"
 SAMPLERATE = 16000
 
 
-def prepare_dns(data_folder, save_folder, seg_size=10.0):
+def prepare_dns(data_folder, save_folder, seg_size=10.0, mode="dynamic"):
     """
     prepares the csv files for the DNS challenge dataset.
 
@@ -32,6 +33,9 @@ def prepare_dns(data_folder, save_folder, seg_size=10.0):
         The directory where to store the csv files.
     seg_size : float
         Split the file into multiple fix length segments (ms).
+    mode : str
+        'dynamic' or 'static' for dynamically mixing clean and noise data
+        during training or statically mixing before training.
 
     Example
     -------
@@ -44,7 +48,10 @@ def prepare_dns(data_folder, save_folder, seg_size=10.0):
     >>> prepare_dns(data_folder,save_folder)
     """
 
-    train_noisy_folder = os.path.join(data_folder, "training/noisy")
+    # Additional checks to make sure the data folder contains DNS
+    _check_DNS_folders(data_folder, mode)
+
+    train_folder = os.path.join(data_folder, "datasets")
     test_folder = os.path.join(
         data_folder, "datasets/test_set/synthetic/no_reverb"
     )
@@ -57,11 +64,9 @@ def prepare_dns(data_folder, save_folder, seg_size=10.0):
         os.makedirs(save_folder)
 
     # Setting ouput files
-    save_csv_train = os.path.join(save_folder, TRAIN_CSV)
+    save_csv_noise = os.path.join(save_folder, NOISE_CSV)
+    save_csv_clean = os.path.join(save_folder, CLEAN_CSV)
     save_csv_test = os.path.join(save_folder, TEST_CSV)
-
-    # Additional checks to make sure the data folder contains DNS
-    _check_DNS_folders(data_folder)
 
     msg = "\tCreating csv file for the ms_DNS Dataset.."
     logger.debug(msg)
@@ -69,7 +74,10 @@ def prepare_dns(data_folder, save_folder, seg_size=10.0):
     # Check if this phase is already done (if so, skip it)
     if skip(save_folder):
 
-        msg = "\t%s sucessfully created!" % (save_csv_train)
+        msg = "\t%s sucessfully created!" % (save_csv_noise)
+        logger.debug(msg)
+
+        msg = "\t%s sucessfully created!" % (save_csv_clean)
         logger.debug(msg)
 
         msg = "\t%s sucessfully created!" % (save_csv_test)
@@ -78,10 +86,18 @@ def prepare_dns(data_folder, save_folder, seg_size=10.0):
         return
 
     # Creating csv file for training data
-    wav_lst_train = get_all_files(train_noisy_folder, match_and=extension,)
+    wav_lst_noise = get_all_files(
+        os.path.join(train_folder, "noise"), match_and=extension
+    )
+    wav_lst_clean = get_all_files(
+        os.path.join(train_folder, "clean"), match_and=extension
+    )
 
     create_csv(
-        wav_lst_train, save_csv_train, is_noise_folder=True, seg_size=seg_size,
+        wav_lst_noise, save_csv_noise,
+    )
+    create_csv(
+        wav_lst_clean, save_csv_clean, seg_size=seg_size,
     )
 
     # Creating csv file for test data
@@ -90,7 +106,7 @@ def prepare_dns(data_folder, save_folder, seg_size=10.0):
     )
 
     create_csv(
-        wav_lst_test, save_csv_test,
+        wav_lst_test, save_csv_test, has_target=True,
     )
 
     return
@@ -112,7 +128,7 @@ def skip(save_folder):
     # Checking folders and save options
     skip = True
 
-    split_files = [TRAIN_CSV, TEST_CSV]
+    split_files = [NOISE_CSV, CLEAN_CSV, TEST_CSV]
     for split in split_files:
         if not os.path.isfile(os.path.join(save_folder, split)):
             skip = False
@@ -120,7 +136,7 @@ def skip(save_folder):
     return skip
 
 
-def create_csv(wav_lst, csv_file, is_noise_folder=False, seg_size=None):
+def create_csv(wav_lst, csv_file, seg_size=None, has_target=False):
     """
     Creates the csv file given a list of wav files.
 
@@ -148,37 +164,30 @@ def create_csv(wav_lst, csv_file, is_noise_folder=False, seg_size=None):
         [
             "ID",
             "duration",
-            "noisy_wav",
-            "noisy_wav_format",
-            "noisy_wav_opts",
-            "clean_wav",
-            "clean_wav_format",
-            "clean_wav_opts",
-            "noise_wav",
-            "noise_wav_format",
-            "noise_wav_opts",
+            "wav",
+            "wav_format",
+            "wav_opts",
+            "target",
+            "target_format",
+            "target_opts",
         ]
     ]
 
     # Processing all the wav files in the list
+    fileid = 0
     for wav_file in wav_lst:
-
         # Getting fileids
         full_file_name = wav_file.split("/")[-1]
-        fileid = full_file_name.split("_")[-1]
 
-        clean_folder = os.path.join(
-            os.path.split(os.path.split(wav_file)[0])[0], "clean"
-        )
-        clean_wav = clean_folder + "/clean_fileid_" + fileid
+        if has_target:
+            fileid = full_file_name.split("_")[-1]
 
-        if is_noise_folder:
-            noise_folder = os.path.join(
-                os.path.split(os.path.split(wav_file)[0])[0], "noise"
+            target_folder = os.path.join(
+                os.path.split(os.path.split(wav_file)[0])[0], "clean"
             )
-            noise_wav = noise_folder + "/noise_fileid_" + fileid
+            target_file = target_folder + "/clean_fileid_" + fileid
         else:
-            noise_wav = ""
+            target_file = ""
 
         # Reading the signal (to retrieve duration in seconds)
         signal = read_wav_soundfile(wav_file)
@@ -187,15 +196,12 @@ def create_csv(wav_lst, csv_file, is_noise_folder=False, seg_size=None):
         # Composition of the csv_line
         if not seg_size:
             csv_line = [
-                "fileid_" + fileid,
+                full_file_name,
                 str(duration),
                 wav_file,
                 "wav",
                 "",
-                clean_wav,
-                "wav",
-                "",
-                noise_wav,
+                target_file,
                 "wav",
                 "",
             ]
@@ -208,15 +214,12 @@ def create_csv(wav_lst, csv_file, is_noise_folder=False, seg_size=None):
                 start = int(idx * seg_size * SAMPLERATE)
                 stop = int((idx + 1) * seg_size * SAMPLERATE)
                 csv_line = [
-                    "fileid_{}_{}".format(idx, fileid),
+                    full_file_name + str(idx),
                     str(seg_size),
                     wav_file,
                     "wav",
                     "start:{} stop:{}".format(start, stop),
-                    clean_wav,
-                    "wav",
-                    "start:{} stop:{}".format(start, stop),
-                    noise_wav,
+                    target_file,
                     "wav",
                     "start:{} stop:{}".format(start, stop),
                 ]
@@ -244,7 +247,7 @@ def _write_csv(csv_lines, csv_file):
             csv_writer.writerow(line)
 
 
-def _check_DNS_folders(data_folder):
+def _check_DNS_folders(data_folder, mode):
     """
     Check if the data folder actually contains the DNS training dataset.
 
@@ -259,39 +262,9 @@ def _check_DNS_folders(data_folder):
     FileNotFoundError
         If data folder doesn't contain DNS dataset (training and testset included).
     """
-    train_clean_folder = os.path.join(data_folder, "training/clean")
-    train_noise_folder = os.path.join(data_folder, "training/noise")
-    train_noisy_folder = os.path.join(data_folder, "training/noisy")
     test_folder = os.path.join(
         data_folder, "datasets/test_set/synthetic/no_reverb"
     )
-
-    # Checking clean folder
-    if not os.path.exists(train_clean_folder):
-
-        err_msg = (
-            "the folder %s does not exist (it is expected in "
-            "the DNS dataset)" % (train_clean_folder)
-        )
-        raise FileNotFoundError(err_msg)
-
-    # Checking noise folder
-    if not os.path.exists(train_noise_folder):
-
-        err_msg = (
-            "the folder %s does not exist (it is expected in "
-            "the DNS dataset)" % (train_noise_folder)
-        )
-        raise FileNotFoundError(err_msg)
-
-    # Checking noisy folder
-    if not os.path.exists(train_noisy_folder):
-
-        err_msg = (
-            "the folder %s does not exist (it is expected in "
-            "the DNS dataset)" % (train_noisy_folder)
-        )
-        raise FileNotFoundError(err_msg)
 
     # Checking testset folder
     if not os.path.exists(test_folder):
@@ -301,3 +274,57 @@ def _check_DNS_folders(data_folder):
             "the DNS dataset)" % (test_folder)
         )
         raise FileNotFoundError(err_msg)
+
+    if mode == "static":
+        train_clean_folder = os.path.join(data_folder, "training/clean")
+        train_noise_folder = os.path.join(data_folder, "training/noise")
+        train_noisy_folder = os.path.join(data_folder, "training/noisy")
+
+        # Checking clean folder
+        if not os.path.exists(train_clean_folder):
+
+            err_msg = (
+                "the folder %s does not exist (it is expected in "
+                "the DNS dataset)" % (train_clean_folder)
+            )
+            raise FileNotFoundError(err_msg)
+
+        # Checking noise folder
+        if not os.path.exists(train_noise_folder):
+
+            err_msg = (
+                "the folder %s does not exist (it is expected in "
+                "the DNS dataset)" % (train_noise_folder)
+            )
+            raise FileNotFoundError(err_msg)
+
+        # Checking noisy folder
+        if not os.path.exists(train_noisy_folder):
+
+            err_msg = (
+                "the folder %s does not exist (it is expected in "
+                "the DNS dataset)" % (train_noisy_folder)
+            )
+            raise FileNotFoundError(err_msg)
+
+    elif mode == "dynamic":
+        train_clean_folder = os.path.join(data_folder, "datasets/clean")
+        train_noise_folder = os.path.join(data_folder, "datasets/noise")
+
+        # Checking clean folder
+        if not os.path.exists(train_clean_folder):
+
+            err_msg = (
+                "the folder %s does not exist (it is expected in "
+                "the DNS dataset)" % (train_clean_folder)
+            )
+            raise FileNotFoundError(err_msg)
+
+        # Checking noise folder
+        if not os.path.exists(train_noise_folder):
+
+            err_msg = (
+                "the folder %s does not exist (it is expected in "
+                "the DNS dataset)" % (train_noise_folder)
+            )
+            raise FileNotFoundError(err_msg)
