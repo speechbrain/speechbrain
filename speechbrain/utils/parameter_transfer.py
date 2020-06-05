@@ -6,10 +6,7 @@ and the path to the parameter file.
 Example
 -------
 >>> from speechbrain.utils.checkpoints import Checkpointer
->>> from speechbrain.utils.parameter_transfer \
-        import torch_lazy_parameter_transfer
 >>> import torch
->>> import tempfile
 >>> # SETUP THE EXAMPLE:
 >>> class Recoverable(torch.nn.Module):
 ...     def __init__(self, param):
@@ -28,11 +25,10 @@ Example
 >>> checkpoint_finder = Checkpointer(tempdir)
 >>> checkpoint_to_load = checkpoint_finder.find_checkpoint()
 >>> paramfile = checkpoint_to_load.paramfiles["recoverable"]
->>> torch_lazy_parameter_transfer(new_recoverable, paramfile)
+>>> torch_parameter_transfer(new_recoverable, paramfile)
 >>> assert new_recoverable(5.) == 5.
 """
 import torch
-import functools
 import logging
 
 logger = logging.getLogger(__name__)
@@ -71,70 +67,3 @@ def torch_parameter_transfer(obj, path):
             + f"{path}, the object could not use the parameters loaded"
             + f"with the key: {unexpected_key}"
         )
-
-
-def torch_lazy_parameter_transfer(
-    obj, path, load_method=torch_parameter_transfer
-):
-    """Init Torch object from path at first forward() call
-
-    Loads a torch.nn.Module state_dict from the given path.
-    The load is added as a lazy hook: the file is loaded and the parameters
-    transferred the next time the Module is called.
-    This is especially useful for the model initialization style widely
-    used in SpeechBrain, where a model is initialized based on the input,
-    as that initialization also happens at the first call.
-
-    See the module docstring for example.
-
-    Arguments
-    ---------
-    obj : torch.nn.Module
-        Instance for which to load the parameters
-    path : str
-        Path where to load from
-    load_method : callable, optional
-        Callable with signature (instance, path) [e.g. def load(self, path)],
-        which actually performs the parameter transfer from the given path.
-        Defaults to `torch_parameter_transfer` which works for most torch
-        modules
-
-    Returns
-    -------
-    None
-        Given object is modified in place
-
-    Note
-    ----
-    The hook is added as _speechbrain_lazy_recovery_hook[_X] where X
-    is an integer specifying a unique hook number. You can add multiple
-    parameter transfer hooks. (Not thread-safe)
-    """
-    if hasattr(obj, "_speechbrain_lazy_recovery_hook"):
-        MSG = "Recovery hook present before parameter transfer. The recovered \
-                parameters would be overwritten. Call parameter transfer before\
-                recovery"
-        raise RuntimeError(MSG)
-
-    # Use this hook with functools.partial to save objpath and hook name properly
-    # Otherwise, objpath is searched for dynamically (and has probably changed)
-    def _lazy_transfer_hook(path, hookname, self, input, output):
-        load_method(self, path)
-        getattr(self, hookname).remove()
-        logger.debug(
-            f"Transferred parameters to {self} with lazy hook, "
-            "rerunning forward."
-        )
-        return self.forward(*input)
-
-    # Make a unique hook attribute name
-    hookbase = "_speechbrain_lazy_transfer_hook"
-    hook_x = 0
-    while hasattr(obj, f"{hookbase}_{hook_x}"):
-        hook_x += 1
-    hook = functools.partial(_lazy_transfer_hook, path, f"{hookbase}_{hook_x}")
-    setattr(obj, f"{hookbase}_{hook_x}", obj.register_forward_hook(hook))
-    logger.debug(
-        f"Added lazy parameter transfer hook to {obj}, loaded on "
-        "first forward call."
-    )
