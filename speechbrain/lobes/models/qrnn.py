@@ -232,7 +232,7 @@ class QRNN(nn.Module):
                     **self.kwargs,
                 )
             )
-        self.qrnn = Sequential(*layers).to(first_input.get_device())
+        self.qrnn = Sequential(*layers)
 
         # for some reason, jit module cannot handle .to("cpu")...
         device = first_input.get_device()
