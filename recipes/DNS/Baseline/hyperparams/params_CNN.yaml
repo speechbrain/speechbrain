@@ -9,15 +9,16 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Basic parameters
 data_folder: !PLACEHOLDER
-output_folder: !ref results/baseline_log1p/<seed>
+output_folder: !ref results/baseline_log1p_dynamic/<seed>
 train_log: !ref <output_folder>/train_log.txt
 enhanced_folder: !ref <output_folder>/enhanced/
 
 use_tensorboard: True
-tensorboard_logs: !ref logs/baseline_log1p/<seed>
+tensorboard_logs: !ref logs/baseline_log1p_dynamic/<seed>
 
 # Data files
-csv_train: !ref <data_folder>/train.csv
+csv_noise: !ref <data_folder>/tr_noise.csv
+csv_clean: !ref <data_folder>/tr_clean.csv
 csv_valid: !ref <data_folder>/test.csv
 
 # Neural Parameters
@@ -26,17 +27,25 @@ N_batch: 8
 lr: 0.0002
 device: cuda:0
 
+add_noise: !new:speechbrain.processing.speech_augmentation.AddNoise
+  csv_file: !ref <csv_noise>
+  snr_low: 0
+  snr_high: 40
+  pad_noise: False
+  start_index: 0
+  csv_read: [wav]
+
 train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-  csv_file: !ref <csv_train>
+  csv_file: !ref <csv_clean>
   batch_size: !ref <N_batch>
-  csv_read: [noisy_wav, clean_wav]
+  csv_read: [wav]
   cache: False
   num_workers: 1
 
 valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
   csv_file: !ref <csv_valid>
   batch_size: !ref <N_batch>
-  csv_read: [noisy_wav, clean_wav]
+  csv_read: [wav, target]
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
   limit: !ref <N_epochs>

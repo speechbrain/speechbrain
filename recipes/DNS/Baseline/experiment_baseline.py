@@ -38,11 +38,17 @@ class SEBrain(sb.core.Brain):
     def compute_forward(self, x, stage="train", init_params=False):
         ids, wavs, lens = x
         wavs, lens = wavs.to(params.device), lens.to(params.device)
+        # print(torch.mean(wavs[0]))
+        if stage == "train":
+            wavs = params.add_noise(wavs, lens)
+
         feats = params.compute_stft(wavs)
         feats = spectral_magnitude(feats, power=0.5)
         feats = torch.log1p(feats)
 
         output = params.model(feats, init_params)
+        # print(torch.mean(wavs[0]), torch.isnan(feats[0]))
+        # self.write_wavs(torch.expm1(output), x, "01")
 
         return output
 
@@ -56,6 +62,17 @@ class SEBrain(sb.core.Brain):
         loss = params.compute_cost(predictions, feats, lens)
 
         return loss, {}
+
+    def fit_batch(self, batch):
+        inputs = batch[0]
+        predictions = self.compute_forward(inputs)
+        loss, stats = self.compute_objectives(predictions, inputs)
+        loss.backward()
+        self.optimizer.step()
+        self.optimizer.zero_grad()
+        stats["loss"] = loss.detach()
+
+        return stats
 
     def evaluate_batch(self, batch, stage="valid"):
         inputs, targets = batch
@@ -106,7 +123,7 @@ class SEBrain(sb.core.Brain):
             enhance_path = os.path.join(
                 params.enhanced_folder, str(epoch), name
             )
-            torchaudio.save(enhance_path, pred_wav, 16000)
+            torchaudio.save(enhance_path + ".wav", pred_wav, 16000)
 
 
 prepare_dns(
@@ -117,12 +134,13 @@ prepare_dns(
 
 train_set = params.train_loader()
 valid_set = params.valid_loader()
-first_x, first_y = next(iter(train_set))
+first_x = next(iter(train_set))
 
 se_brain = SEBrain(
-    modules=[params.model], optimizer=params.optimizer, first_inputs=[first_x],
+    modules=[params.model], optimizer=params.optimizer, first_inputs=first_x,
 )
 
 # Load latest checkpoint to resume training
 params.checkpointer.recover_if_possible()
+# with torch.autograd.detect_anomaly():
 se_brain.fit(params.epoch_counter, train_set, valid_set)
