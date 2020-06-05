@@ -85,4 +85,4 @@ def test_transducer_loss():
         log_probs, targets, probs_length, target_length, blank_index=0
     )
     out_cost.backward()
-    assert out_cost.item() == 4.49566650390625
+    assert out_cost.item() == 2.247833251953125
