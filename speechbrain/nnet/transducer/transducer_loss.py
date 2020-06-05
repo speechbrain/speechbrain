@@ -46,9 +46,6 @@ def cu_kernel_forward(log_probs, labels, alpha, log_p, T, U, blank, lock):
     if u <= U[b]:
         while t < T[b]:
             if u == 0:
-                # if t == 0:
-                #     alpha[b, 0, 0] = 0
-                # else:
                 if t > 0:
                     alpha[b, t, 0] = (
                         alpha[b, t - 1, 0] + log_probs[b, t - 1, 0, blank]
@@ -168,7 +165,6 @@ def cu_kernel_compute_grad(log_probs, labels, alpha, beta, grads, T, U, blank):
                 - beta[b, 0, 0]
             )
 
-        # #if u < U[b] and t < T[b]-1:
         if t < T[b] - 1:
             for u in range(U[b] + 1):
                 grads[b, t, u, blank] = alpha[b, t, u] + beta[b, t + 1, u]
@@ -177,8 +173,7 @@ def cu_kernel_compute_grad(log_probs, labels, alpha, beta, grads, T, U, blank):
                     + log_probs[b, t, u, blank]
                     - beta[b, 0, 0]
                 )
-        # # if k != blank
-        # if t < T[b]:
+        # if k != blank
         for u, l in enumerate(labels[b]):
             if u < U[b]:
                 grads[b, t, u, l] = alpha[b, t, u] + beta[b, t, u + 1]
@@ -232,7 +227,6 @@ class Transducer(Function):
         cu_kernel_compute_grad[B, maxT](
             log_probs.detach(), labels, alpha, beta, grads, T, U, blank
         )
-
         ctx.grads = grads
         if reduction == "mean":
             return (-(log_p_alpha + log_p_beta) / 2).mean()
