@@ -2,13 +2,14 @@
 import os
 import speechbrain as sb
 from speechbrain.decoders.ctc import ctc_greedy_decode
-from speechbrain.decoders.decoders import undo_padding
 from speechbrain.decoders.transducer import decode_batch
+from speechbrain.data_io.data_io import put_bos_token
+from speechbrain.decoders.decoders import undo_padding
 from speechbrain.utils.edit_distance import wer_details_for_batch
 from speechbrain.utils.train_logger import summarize_average
 from speechbrain.utils.train_logger import summarize_error_rate
-import torch
 import pytest
+import torch
 
 pytest.importorskip("numba")
 experiment_dir = os.path.dirname(os.path.realpath(__file__))
@@ -20,70 +21,69 @@ with open(params_file) as fin:
 
 
 class TransducerBrain(sb.core.Brain):
-    def compute_forward(self, x, y, train_mode=True, init_params=False):
-        ids, wavs, lens = x
+    def compute_forward(self, x, y, stage="train", init_params=False):
+        id, wavs, lens = x
         wavs, lens = wavs.to(params.device), lens.to(params.device)
-        if train_mode:
-            _, targets, _ = y
-            targets = targets.to(params.device)
-
         feats = params.compute_features(wavs, init_params)
         feats = params.mean_var_norm(feats, lens)
-        # Transcription Network: input-output dependency
-        TN_output = params.encoder_rnn(feats, init_params=init_params)
+        # Transcription network: input-output dependency
+        TN_output = params.encoder_crdnn(feats, init_params=init_params)
         TN_output = params.encoder_lin(TN_output, init_params)
-        if train_mode:
-            # Generate input seq for PN
-            blank_vect = (
-                torch.ones(
-                    (targets.size(0), 1),
-                    device=params.device,
-                    dtype=torch.int64,
-                )
-                * params.blank_id
+        if stage == "train":
+            _, targets, _ = y
+            targets = targets.to(params.device)
+            # Prediction network: output-output dependency
+            decoder_input = put_bos_token(targets, bos_index=params.blank_id)
+            PN_output = params.decoder_embedding(
+                decoder_input, init_params=init_params
             )
-            prediction_seq = torch.cat((blank_vect, targets.long()), dim=1)
-            # Prediction Network: output-output dependency
-            PN_output = params.embedding_PN(prediction_seq, init_params)
-            PN_output, _ = params.decoder_rnn(
+            PN_output, _ = params.decoder_gru(
                 PN_output, init_params=init_params
             )
-            PN_output = params.decoder_lin(PN_output, init_params)
+            PN_output = params.decoder_lin(PN_output, init_params=init_params)
             # Joint the networks
             joint = params.Tjoint(
-                TN_output.unsqueeze(2), PN_output.unsqueeze(1), init_params
+                TN_output.unsqueeze(2),
+                PN_output.unsqueeze(1),
+                init_params=init_params,
             )
-            # Output network
-            outputs = params.output(joint, init_params)
+            # projection layer
+            outputs = params.output(joint, init_params=init_params)
         else:
             outputs = decode_batch(
                 TN_output,
-                [params.embedding_PN, params.decoder_rnn, params.decoder_lin],
+                [
+                    params.decoder_embedding,
+                    params.decoder_gru,
+                    params.decoder_lin,
+                ],
                 params.Tjoint,
-                [params.output, params.log_softmax],
+                [params.output],
                 params.blank_id,
             )
-
         outputs = params.log_softmax(outputs)
         return outputs, lens
 
-    def compute_objectives(self, predictions, targets, train_mode=True):
+    def compute_objectives(self, predictions, targets, stage="train"):
         predictions, lens = predictions
         ids, phns, phn_lens = targets
-        if not train_mode:
-            # transducer tensor
-            predictions = predictions.expand(-1, -1, 2, -1)
-        loss = params.compute_cost(
-            predictions, phns, [lens.cuda(), phn_lens.cuda()]
-        )
+        if stage == "train":
+            loss = params.compute_cost(
+                predictions,
+                phns.to(params.device).long(),
+                lens.to(params.device),
+                phn_lens.to(params.device),
+            )
 
-        if not train_mode:
-            seq = ctc_greedy_decode(predictions, lens, blank_id=-1)
+        stats = {}
+        if stage != "train":
+            predictions = predictions.squeeze(2)
+            loss = -predictions.squeeze(2).max(dim=-1)[0].sum(dim=-1).mean()
+            seq = ctc_greedy_decode(predictions, lens, blank_id=params.blank_id)
             phns = undo_padding(phns, phn_lens)
-            stats = {"PER": wer_details_for_batch(ids, phns, seq)}
-            return loss, stats
+            stats["PER"] = wer_details_for_batch(ids, phns, seq)
 
-        return loss
+        return loss, stats
 
     def on_epoch_end(self, epoch, train_stats, valid_stats):
         print("Epoch %d complete" % epoch)
@@ -93,16 +93,19 @@ class TransducerBrain(sb.core.Brain):
 
     def fit_batch(self, batch):
         inputs, targets = batch
-        predictions = self.compute_forward(inputs, targets)
-        loss = self.compute_objectives(predictions, targets)
+        with torch.autograd.detect_anomaly():
+            predictions = self.compute_forward(inputs, targets)
+            loss, stats = self.compute_objectives(predictions, targets)
         loss.backward()
-        self.optimizer(self.modules)
-        return {"loss": loss.detach()}
+        self.optimizer.step()
+        self.optimizer.zero_grad()
+        stats["loss"] = loss.detach()
+        return stats
 
-    def evaluate_batch(self, batch):
+    def evaluate_batch(self, batch, stage="test"):
         inputs, targets = batch
-        out = self.compute_forward(inputs, None, train_mode=False)
-        loss, stats = self.compute_objectives(out, targets, train_mode=False)
+        out = self.compute_forward(inputs, None, stage=stage)
+        loss, stats = self.compute_objectives(out, targets, stage=stage)
         stats["loss"] = loss.detach()
         return stats
 
@@ -111,9 +114,9 @@ train_set = params.train_loader()
 first_x, first_y = next(iter(train_set))
 transducer_brain = TransducerBrain(
     modules=[
-        params.encoder_rnn,
+        params.encoder_crdnn,
         params.encoder_lin,
-        params.decoder_rnn,
+        params.decoder_gru,
         params.decoder_lin,
         params.joint_lin,
         params.output,
@@ -126,7 +129,6 @@ test_stats = transducer_brain.evaluate(params.test_loader())
 print("Test PER: %.2f" % summarize_error_rate(test_stats["PER"]))
 
 
-# For such a small dataset, the PER can be unpredictable.
-# Instead, check that at the end of training, the error is acceptable.
+# Integration test: check that the model overfits the training data
 def test_error():
-    assert summarize_average(test_stats["loss"]) < 15.0
+    assert transducer_brain.avg_train_loss < 100.0
