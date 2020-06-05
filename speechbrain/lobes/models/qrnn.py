@@ -33,21 +33,27 @@ class QRNNLayer(torch.jit.ScriptModule):
     Example
     -------
     >>> import torch
-    >>> model = QRNNLayer(60, 256)
+    >>> model = QRNNLayer(60, 256, bidirectional=True)
     >>> a = torch.rand([10, 120, 60])
     >>> b = model(a)
     >>> print(b[0].shape)
-    torch.Size([10, 120, 256])
+    torch.Size([10, 120, 512])
     """
 
     def __init__(
-        self, input_size, hidden_size, zoneout=0.0, output_gate=True,
+        self,
+        input_size,
+        hidden_size,
+        bidirectional,
+        zoneout=0.0,
+        output_gate=True,
     ):
         super().__init__()
 
         self.hidden_size = hidden_size
         self.zoneout = zoneout
         self.output_gate = output_gate
+        self.bidirectional = bidirectional
 
         stacked_hidden = (
             3 * self.hidden_size if self.output_gate else 2 * self.hidden_size
@@ -110,6 +116,9 @@ class QRNNLayer(torch.jit.ScriptModule):
 
         # give a tensor of shape (time, batch, channel)
         x = x.permute(1, 0, 2)
+        if self.bidirectional:
+            x_flipped = x.flip(0)
+            x = torch.cat([x, x_flipped], dim=1)
 
         # note: this is equivalent to doing 1x1 convolution on the input
         y = self.w(x)
@@ -126,7 +135,7 @@ class QRNNLayer(torch.jit.ScriptModule):
         if self.zoneout:
             if self.training:
                 mask = (
-                    torch.zeros(f.shape)
+                    torch.empty(f.shape)
                     .bernoulli_(1 - self.zoneout)
                     .to(f.get_device())
                 ).detach()
@@ -150,6 +159,15 @@ class QRNNLayer(torch.jit.ScriptModule):
         c = c.permute(1, 0, 2)
         h = h.permute(1, 0, 2)
 
+        if self.bidirectional:
+            h_fwd, h_bwd = h.chunk(2, dim=0)
+            h_bwd = h_bwd.flip(1)
+            h = torch.cat([h_fwd, h_bwd], dim=2)
+
+            c_fwd, c_bwd = c.chunk(2, dim=0)
+            c_bwd = c_bwd.flip(1)
+            c = torch.cat([c_fwd, c_bwd], dim=2)
+
         return h, c[-1, :, :]
 
 
@@ -169,10 +187,10 @@ class QRNN(nn.Module):
     Example
     -------
     >>> a = torch.rand([8, 120, 40])
-    >>> model = QRNN(256, 4)
+    >>> model = QRNN(256, 4, bidirectional=True)
     >>> b = model(a, init_params=True)
-    >>> print(b[0].shape)
-    torch.Size([8, 120, 256])
+    >>> print(b.shape)
+    torch.Size([8, 120, 512])
     """
 
     def __init__(
@@ -186,8 +204,6 @@ class QRNN(nn.Module):
         return_hidden=False,
         **kwargs,
     ):
-        assert bidirectional is False, "Bidirectional QRNN is not yet supported"
-        assert batch_first is False, "Batch first mode is not yet supported"
         assert bias is True, "Removing underlying bias is not yet supported"
         super().__init__()
 
@@ -207,12 +223,16 @@ class QRNN(nn.Module):
         for layer in range(self.num_layers):
             layers.append(
                 QRNNLayer(
-                    input_size if layer == 0 else self.hidden_size,
+                    input_size
+                    if layer == 0
+                    else self.hidden_size * 2
+                    if self.bidirectional
+                    else self.hidden_size,
                     self.hidden_size,
+                    self.bidirectional,
                     **self.kwargs,
                 )
             )
-
         self.qrnn = Sequential(*layers).to(first_input.get_device())
 
         if self.dropout:
