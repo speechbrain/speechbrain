@@ -31,7 +31,8 @@ def prepare_librispeech(
     use_lexicon=False,
 ):
     """
-    This class prepares the csv files for the LibriSpeech dataset
+    This class prepares the csv files for the LibriSpeech dataset.
+    Download link: http://www.openslr.org/12
 
     Arguments
     ---------
@@ -76,6 +77,8 @@ def prepare_librispeech(
         lexicon_dict = read_lexicon(
             os.path.join(data_folder, "librispeech-lexicon.txt")
         )
+    else:
+        lexicon_dict = {}
 
     # Check if this phase is already done (if so, skip it)
     if skip(splits, save_folder, conf):
@@ -83,7 +86,7 @@ def prepare_librispeech(
         return
 
     # Additional checks to make sure the data folder contains Librispeech
-    check_librispeech_folders()
+    check_librispeech_folders(data_folder, splits)
 
     # create csv files for each split
     for split_index in range(len(splits)):
@@ -101,9 +104,9 @@ def prepare_librispeech(
         text_dict = text_to_dict(text_lst)
 
         if select_n_sentences is not None:
-            select_n_sentences = select_n_sentences[split_index]
+            n_sentences = select_n_sentences[split_index]
         else:
-            select_n_sentences = len(wav_lst)
+            n_sentences = len(wav_lst)
 
         create_csv(
             save_folder,
@@ -112,7 +115,7 @@ def prepare_librispeech(
             split,
             use_lexicon,
             lexicon_dict,
-            select_n_sentences,
+            n_sentences,
         )
 
     # saving options
