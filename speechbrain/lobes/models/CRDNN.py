@@ -58,6 +58,7 @@ class CRDNN(Sequential):
 
     def __init__(
         self,
+        rnn=LiGRU,
         activation=torch.nn.LeakyReLU,
         dropout=0.15,
         cnn_blocks=2,
@@ -108,7 +109,7 @@ class CRDNN(Sequential):
 
         if rnn_layers > 0:
             blocks.append(
-                LiGRU(
+                rnn(
                     hidden_size=rnn_neurons,
                     num_layers=rnn_layers,
                     dropout=dropout,
