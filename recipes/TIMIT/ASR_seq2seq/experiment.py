@@ -81,12 +81,16 @@ class ASR(sb.core.Brain):
         feats = params.normalize(feats, wav_lens)
         x = params.enc(feats, init_params=init_params)
 
+        # output layer for ctc log-probabilities
         logits = params.ctc_lin(x, init_params)
         p_ctc = params.log_softmax(logits)
 
+        # Prepend bos token at the beginning
         y_in = prepend_bos_token(phns, bos_index=params.bos_index)
         e_in = params.emb(y_in, init_params=init_params)
         h, _ = params.dec(e_in, x, wav_lens, init_params)
+
+        # output layer for seq2seq log-probabilities
         logits = params.seq_lin(h, init_params)
         p_seq = params.log_softmax(logits)
 
@@ -108,11 +112,16 @@ class ASR(sb.core.Brain):
 
         ids, phns, phn_lens = targets
         phns, phn_lens = phns.to(params.device), phn_lens.to(params.device)
-        # add one for eos
+
+        # Add phn_lens by one for eos token
         abs_length = torch.round(phn_lens * phns.shape[1])
+
+        # Append eos token at the end of the label sequences
         phns_with_eos = append_eos_token(
             phns, length=abs_length, eos_index=params.eos_index
         )
+
+        # convert to speechbrain-style relative length
         rel_length = (abs_length + 1) / phns.shape[1]
 
         loss_ctc = params.ctc_cost(p_ctc, phns, wav_lens, phn_lens)

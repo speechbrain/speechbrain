@@ -1114,3 +1114,6 @@ def rnn_init(module, act="tanh"):
             nn.init.orthogonal_(param)
         elif len(param.shape) == 2:
             nn.init.xavier_uniform_(param, gain=nn.init.calculate_gain(act))
+        # do not initialize norm params
+        elif "norm" not in name:
+            param.data.fill_(0.0)

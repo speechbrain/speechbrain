@@ -34,6 +34,7 @@ class seq2seqBrain(sb.core.Brain):
         feats = params.mean_var_norm(feats, wav_lens)
         x = params.enc(feats, init_params=init_params)
 
+        # Prepend bos token at the beginning
         y_in = prepend_bos_token(phns, bos_index=params.bos)
         e_in = params.emb(y_in, init_params=init_params)
         h, w = params.dec(e_in, x, wav_lens, init_params=init_params)
@@ -54,9 +55,13 @@ class seq2seqBrain(sb.core.Brain):
 
         ids, phns, phn_lens = targets
 
-        # add one for eos
+        # Add phn_lens by one for eos token
         abs_length = torch.round(phn_lens * phns.shape[1])
+
+        # Append eos token at the end of the label sequences
         phns = append_eos_token(phns, length=abs_length, eos_index=params.eos)
+
+        # convert to speechbrain-style relative length
         rel_length = (abs_length + 1) / phns.shape[1]
         loss = params.compute_cost(outputs, phns, length=rel_length)
 

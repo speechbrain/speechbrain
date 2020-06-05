@@ -16,7 +16,7 @@ csv_test: !ref <data_folder>/test.csv
 number_of_epochs: 50
 batch_size: 8
 lr: 0.001
-wd: 0.000001
+ctc_weight: 0.2
 device: 'cuda:0'
 
 # Feature parameters
@@ -36,7 +36,6 @@ rnn_bidirectional: True
 dnn_blocks: 2
 dnn_neurons: 512
 emb_size: 128
-ctc_weight: 0.2
 
 # Outputs
 output_neurons: 40
@@ -93,7 +92,6 @@ log_softmax: !new:speechbrain.nnet.activations.Softmax
 
 optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
     learning_rate: !ref <lr>
-    weight_decay: !ref <wd>
 
 lr_annealing: !new:speechbrain.nnet.lr_schedulers.NewBobLRScheduler
     improvement_threshold: 0.0025
