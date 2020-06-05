@@ -3,7 +3,7 @@ import os
 import speechbrain as sb
 from speechbrain.decoders.ctc import ctc_greedy_decode
 from speechbrain.decoders.transducer import decode_batch
-from speechbrain.data_io.data_io import put_bos_token
+from speechbrain.data_io.data_io import prepend_bos_token
 from speechbrain.decoders.decoders import undo_padding
 from speechbrain.utils.edit_distance import wer_details_for_batch
 from speechbrain.utils.train_logger import summarize_average
@@ -33,7 +33,9 @@ class TransducerBrain(sb.core.Brain):
             _, targets, _ = y
             targets = targets.to(params.device)
             # Prediction network: output-output dependency
-            decoder_input = put_bos_token(targets, bos_index=params.blank_id)
+            decoder_input = prepend_bos_token(
+                targets, bos_index=params.blank_id
+            )
             PN_output = params.decoder_embedding(
                 decoder_input, init_params=init_params
             )
@@ -78,7 +80,7 @@ class TransducerBrain(sb.core.Brain):
         stats = {}
         if stage != "train":
             predictions = predictions.squeeze(2)
-            loss = -predictions.squeeze(2).max(dim=-1)[0].sum(dim=-1).mean()
+            loss = -predictions.max(dim=-1)[0].sum(dim=-1).mean()
             seq = ctc_greedy_decode(predictions, lens, blank_id=params.blank_id)
             phns = undo_padding(phns, phn_lens)
             stats["PER"] = wer_details_for_batch(ids, phns, seq)
