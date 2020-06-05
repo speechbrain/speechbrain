@@ -185,7 +185,7 @@ class QRNN(nn.Module):
 
     Example
     -------
-    >>> a = torch.rand([8, 120, 40]).cuda()
+    >>> a = torch.rand([8, 120, 40])
     >>> model = QRNN(256, 4, bidirectional=True)
     >>> b = model(a, init_params=True)
     >>> print(b.shape)
@@ -233,6 +233,11 @@ class QRNN(nn.Module):
                 )
             )
         self.qrnn = Sequential(*layers).to(first_input.get_device())
+
+        # for some reason, jit module cannot handle .to("cpu")...
+        device = first_input.get_device()
+        if device >= 0:
+            self.qrnn = self.qrnn.to(device)
 
         if self.dropout:
             self.dropout = torch.nn.Dropout(self.dropout)
