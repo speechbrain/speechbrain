@@ -35,11 +35,6 @@ class AddNoise(torch.nn.Module):
     order : str
         The order to iterate the csv file, from one of the
         following options: random, original, ascending, and descending.
-    batch_size : int
-        If an csv_file is passed, this controls the number of
-        samples that are loaded at the same time, should be the same as
-        or less than the size of the clean batch. If `None` is passed,
-        the size of the first clean batch will be used.
     do_cache : bool
         Whether or not to store noise files in the cache.
     snr_low : int
@@ -53,6 +48,9 @@ class AddNoise(torch.nn.Module):
     mix_prob : float
         The probability that a batch of signals will be mixed
         with a noise signal. By default, every batch is mixed with noise.
+    start_index : int
+        The index in the noise waveforms to start from. By default, chooses
+        a random index in [0, len(noise) - len(waveforms)].
     replacements : dict
         A set of string replacements to carry out in the
         csv file. Each time a key is found in the text, it will be replaced
@@ -70,24 +68,24 @@ class AddNoise(torch.nn.Module):
         self,
         csv_file=None,
         order="random",
-        batch_size=None,
         do_cache=False,
         snr_low=0,
         snr_high=0,
         pad_noise=False,
         mix_prob=1.0,
+        start_index=None,
         replacements={},
     ):
         super().__init__()
 
         self.csv_file = csv_file
         self.order = order
-        self.batch_size = batch_size
         self.do_cache = do_cache
         self.snr_low = snr_low
         self.snr_high = snr_high
         self.pad_noise = pad_noise
         self.mix_prob = mix_prob
+        self.start_index = start_index
         self.replacements = replacements
 
     def forward(self, waveforms, lengths):
@@ -107,11 +105,6 @@ class AddNoise(torch.nn.Module):
         noisy_waveform = waveforms.clone()
         lengths = (lengths * waveforms.shape[1]).unsqueeze(1)
 
-        # current batch size is min of stored size and clean size
-        batch_size = self.batch_size
-        if batch_size is None or batch_size > len(waveforms):
-            batch_size = len(waveforms)
-
         # Don't add noise (return early) 1-`mix_prob` portion of the batches
         if torch.rand(1) > self.mix_prob:
             return noisy_waveform
@@ -120,13 +113,13 @@ class AddNoise(torch.nn.Module):
         clean_amplitude = compute_amplitude(waveforms, lengths)
 
         # Pick an SNR and use it to compute the mixture amplitude factors
-        SNR = torch.rand(batch_size, 1, device=waveforms.device)
+        SNR = torch.rand(len(waveforms), 1, device=waveforms.device)
         SNR = SNR * (self.snr_high - self.snr_low) + self.snr_low
         noise_amplitude_factor = 1 / (dB_to_amplitude(SNR) + 1)
         new_noise_amplitude = noise_amplitude_factor * clean_amplitude
 
         # Scale clean signal appropriately
-        noisy_waveform[:batch_size] *= 1 - noise_amplitude_factor
+        noisy_waveform *= 1 - noise_amplitude_factor
 
         # Loop through clean samples and create mixture
         if self.csv_file is None:
@@ -135,18 +128,19 @@ class AddNoise(torch.nn.Module):
         else:
             tensor_length = waveforms.shape[1]
             noise_waveform, noise_length = self._load_noise(
-                lengths, tensor_length, batch_size,
+                lengths, tensor_length,
             )
 
             # Rescale and add
             noise_amplitude = compute_amplitude(noise_waveform, noise_length)
             noise_waveform *= new_noise_amplitude / noise_amplitude
-            noisy_waveform[:batch_size] += noise_waveform
+            noisy_waveform += noise_waveform
 
         return noisy_waveform
 
-    def _load_noise(self, lengths, max_length, batch_size):
+    def _load_noise(self, lengths, max_length):
         lengths = lengths.long().squeeze(1)
+        batch_size = len(lengths)
 
         # Load a noise batch
         if not hasattr(self, "data_loader"):
@@ -164,16 +158,17 @@ class AddNoise(torch.nn.Module):
                 )
                 self.noise_data = iter(self.data_loader())
 
-        try:
-            wav_id, noise_batch, noise_len = next(self.noise_data)[0]
-        except StopIteration:
-            self.noise_data = iter(self.data_loader())
-            wav_id, noise_batch, noise_len = next(self.noise_data)[0]
+        # Ensure loaded noise batch has enough noises
+        noise_batch, noise_len = self._load_noise_batch()
+        while len(noise_batch) < batch_size:
+            added_noises, added_lens = self._load_noise_batch()
+            noise_batch = noise_batch.cat(added_noises)
+            noise_len = noise_len.cat(added_lens)
 
         noise_batch = noise_batch.to(lengths.device)
         noise_len = noise_len.to(lengths.device)
 
-        # Chop to correct size
+        # Chop or expand to correct size
         if len(noise_batch) > batch_size:
             noise_batch = noise_batch[:batch_size]
             noise_len = noise_len[:batch_size]
@@ -196,13 +191,23 @@ class AddNoise(torch.nn.Module):
             noise_batch = torch.nn.functional.pad(noise_batch, padding)
 
         # Select a random starting location in the waveform
-        start_index = 0
-        max_chop = (noise_len - lengths).min().clamp(min=1)
-        start_index = torch.randint(high=max_chop, size=(1,))
+        start_index = self.start_index
+        if self.start_index is None:
+            start_index = 0
+            max_chop = (noise_len - lengths).min().clamp(min=1)
+            start_index = torch.randint(high=max_chop, size=(1,))
 
         # Truncate noise_batch to max_length
         noise_batch = noise_batch[:, start_index : start_index + max_length]
         noise_len = (noise_len - start_index).clamp(max=max_length).unsqueeze(1)
+        return noise_batch, noise_len
+
+    def _load_noise_batch(self):
+        try:
+            wav_id, noise_batch, noise_len = next(self.noise_data)[0]
+        except StopIteration:
+            self.noise_data = iter(self.data_loader())
+            wav_id, noise_batch, noise_len = next(self.noise_data)[0]
         return noise_batch, noise_len
 
 
