@@ -18,14 +18,24 @@ class Xvector(Sequential):
 
     Arguments
     ---------
+    device : str
+        Device used e.g. "cpu" or "cuda"
+    activation : torch class
+        A class for constructing the activation layers.
     tdnn_blocks : int
-        The number of time delay neural (TDNN) blocks to include (using Conv1D).
-    tdnn_overrides : mapping
-        Additional parameters overriding the TDNN parameters.
+        Number of time delay neural (TDNN) layers.
+    tdnn_channels : int
+        Output channels for TDNN layer.
+    tdnn_kernel_sizes : list of ints
+        List of kernel sizes for each TDNN layer.
+    tdnn_dilations : list of ints
+        List of dialations for kernels in each TDNN layer.
+    tdnn_fin_channels : int
+        The output channel size of final TDNN layer.
     lin_blocks : int
-        The number of linear neural blocks to include.
-    lin_overrides : mapping
-        Additional parameters overriding the linear parameters.
+        Number of linear layers.
+    lin_neurons : int
+        Number of neurons in linear layers.
 
     Example
     -------

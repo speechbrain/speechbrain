@@ -219,10 +219,9 @@ class StatisticsPooling(nn.Module):
 
     Arguments
     ---------
-    tensor: torch.Tensor
-        It is usually a set of features or the output of neural network layer
-    device: str
+    device : str
         To keep tensors on cpu or cuda
+
     Example
     -------
     >>> inp_tensor = torch.rand([5, 100, 50])
@@ -270,7 +269,7 @@ class StatisticsPooling(nn.Module):
 
         Arguments
         ---------
-        shap_of_tensor : tensor
+        shape_of_tensor : tensor
             It represents the size of tensor for making Gaussian noise.
         """
         gnoise = torch.randn(shape_of_tensor)
