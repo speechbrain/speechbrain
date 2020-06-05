@@ -16,6 +16,7 @@ csv_test: !ref <data_folder>/test-clean.csv
 number_of_epochs: 30
 batch_size: 8
 lr: 1.0
+ctc_weight: 0.5
 device: 'cuda:0'
 
 # Feature parameters
@@ -35,7 +36,6 @@ rnn_bidirectional: True
 dnn_blocks: 2
 dnn_neurons: 512
 emb_size: 128
-ctc_weight: 0.5
 
 # Outputs
 output_neurons: 29 # 28 chars + 1 blank/eos/bos
