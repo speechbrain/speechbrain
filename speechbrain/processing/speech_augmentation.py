@@ -35,11 +35,6 @@ class AddNoise(torch.nn.Module):
     order : str
         The order to iterate the csv file, from one of the
         following options: random, original, ascending, and descending.
-    batch_size : int
-        If an csv_file is passed, this controls the number of
-        samples that are loaded at the same time, should be the same as
-        or less than the size of the clean batch. If `None` is passed,
-        the size of the first clean batch will be used.
     do_cache : bool
         Whether or not to store noise files in the cache.
     snr_low : int
@@ -160,13 +155,12 @@ class AddNoise(torch.nn.Module):
                     batch_size=batch_size,
                     cache=self.do_cache,
                     replacements=self.replacements,
-                    drop_last=True,  # Avoids dimension mismatch
                 )
                 self.noise_data = iter(self.data_loader())
 
         # Ensure loaded noise batch has enough noises
         noise_batch, noise_len = self._load_noise_batch()
-        if len(noise_batch) < batch_size:
+        while len(noise_batch) < batch_size:
             added_noises, added_lens = self._load_noise_batch()
             noise_batch = noise_batch.cat(added_noises)
             noise_len = noise_len.cat(added_lens)
