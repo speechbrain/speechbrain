@@ -81,21 +81,22 @@ class ASR(sb.core.Brain):
     def compute_objectives(self, predictions, targets, stage="train"):
         predictions, lens = predictions
         ids, phns, phn_lens = targets
-        if stage == "train":
-            loss = params.compute_cost(
-                predictions,
-                phns.to(params.device).long(),
-                lens.to(params.device),
-                phn_lens.to(params.device),
-            )
+        if stage != "train":
+            pout = predictions.squeeze(2)
+            predictions = predictions.expand(-1, -1, phns.shape[1] + 1, -1)
+
+        loss = params.compute_cost(
+            predictions,
+            phns.to(params.device).long(),
+            lens.to(params.device),
+            phn_lens.to(params.device),
+        )
 
         stats = {}
         if stage != "train":
-            predictions = predictions.squeeze(2)
-            loss = -predictions.max(dim=-1)[0].sum(dim=-1).mean()
             ind2lab = params.train_loader.label_dict["phn"]["index2lab"]
             sequence = ctc_greedy_decode(
-                predictions, lens, blank_id=params.blank_index
+                pout, lens, blank_id=params.blank_index
             )
             sequence = convert_index_to_lab(sequence, ind2lab)
             phns = undo_padding(phns, phn_lens)

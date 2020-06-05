@@ -69,19 +69,20 @@ class TransducerBrain(sb.core.Brain):
     def compute_objectives(self, predictions, targets, stage="train"):
         predictions, lens = predictions
         ids, phns, phn_lens = targets
-        if stage == "train":
-            loss = params.compute_cost(
-                predictions,
-                phns.to(params.device).long(),
-                lens.to(params.device),
-                phn_lens.to(params.device),
-            )
+        if stage != "train":
+            pout = predictions.squeeze(2)
+            predictions = predictions.expand(-1, -1, phns.shape[1] + 1, -1)
+
+        loss = params.compute_cost(
+            predictions,
+            phns.to(params.device).long(),
+            lens.to(params.device),
+            phn_lens.to(params.device),
+        )
 
         stats = {}
         if stage != "train":
-            predictions = predictions.squeeze(2)
-            loss = -predictions.max(dim=-1)[0].sum(dim=-1).mean()
-            seq = ctc_greedy_decode(predictions, lens, blank_id=params.blank_id)
+            seq = ctc_greedy_decode(pout, lens, blank_id=params.blank_id)
             phns = undo_padding(phns, phn_lens)
             stats["PER"] = wer_details_for_batch(ids, phns, seq)
 

@@ -77,7 +77,7 @@ def cu_kernel_forward(log_probs, labels, alpha, log_p, T, U, blank, lock):
         if u == U[b]:
             log_p[b] = (
                 alpha[b, T[b] - 1, U[b]] + log_probs[b, T[b] - 1, U[b], blank]
-            )
+            ) / T[b]
 
 
 @cuda.jit(
@@ -132,7 +132,7 @@ def cu_kernel_backward(log_probs, labels, beta, log_p, T, U, blank, lock):
                     cuda.atomic.add(lock, (b, u), 1)
                     t -= 1
     if u == 0:
-        log_p[b] = beta[b, 0, 0]
+        log_p[b] = beta[b, 0, 0] / T[b]
 
 
 @cuda.jit(
