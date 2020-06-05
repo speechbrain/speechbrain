@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 import os
 import sys
-import torch
 import speechbrain as sb
 import speechbrain.data_io.wer as wer_io
 import speechbrain.utils.edit_distance as edit_distance
 from speechbrain.data_io.data_io import convert_index_to_lab
 from speechbrain.decoders.ctc import ctc_greedy_decode
 from speechbrain.decoders.transducer import decode_batch
+from speechbrain.data_io.data_io import put_bos_token
 from speechbrain.decoders.decoders import undo_padding
 from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.train_logger import summarize_error_rate
@@ -15,7 +15,7 @@ from speechbrain.utils.train_logger import summarize_error_rate
 # This hack needed to import data preparation script from ..
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(current_dir))
-from timit_prepare import TIMITPreparer  # noqa E402
+from timit_prepare import prepare_timit  # noqa E402
 
 # Load hyperparameters file with command-line overrides
 params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
@@ -31,88 +31,79 @@ sb.core.create_experiment_directory(
 
 
 # Define training procedure
-class TransducerBrain(sb.core.Brain):
-    def compute_forward(self, x, y, train_mode=True, init_params=False):
-        ids, wavs, lens = x
+class ASR(sb.core.Brain):
+    def compute_forward(self, x, y, stage="train", init_params=False):
+        id, wavs, lens = x
         wavs, lens = wavs.to(params.device), lens.to(params.device)
-        if train_mode:
-            _, targets, _ = y
-            targets = targets.to(params.device)
-
+        if hasattr(params, "augmentation") and stage == "train":
+            wavs = params.augmentation(wavs, lens, init_params)
         feats = params.compute_features(wavs, init_params)
         feats = params.normalize(feats, lens)
-        # Transcription Network: input-output dependency
-        TN_output = params.encoder_model(feats, init_params=init_params)
-        TN_output = params.encoder_output(TN_output, init_params)
-        if train_mode:
+        # Transcription network: input-output dependency
+        TN_output = params.encoder_crdnn(feats, init_params=init_params)
+        TN_output = params.encoder_lin(TN_output, init_params)
+        if stage == "train":
+            _, targets, _ = y
+            targets = targets.to(params.device)
+            # Prediction network: output-output dependency
             # Generate input seq for PN
-            blank_vect = (
-                torch.ones(
-                    (targets.size(0), 1),
-                    device=params.device,
-                    dtype=torch.int64,
-                )
-                * params.blank_id
-            )
-            prediction_seq = torch.cat((blank_vect, targets.long()), dim=1)
-            # Prediction Network: output-output dependency
-            PN_output = params.decoder_embedding(prediction_seq, init_params)
-            PN_output, _ = params.decoder_model(
+            decoder_input = put_bos_token(targets, bos_index=params.blank_index)
+            PN_output = params.decoder_embedding(decoder_input, init_params)
+            PN_output, _ = params.decoder_gru(
                 PN_output, init_params=init_params
             )
-            # PN_output = params.decoder_model1(PN_output, init_params=init_params)
-            PN_output = params.decoder_output(PN_output, init_params)
+            PN_output = params.decoder_lin(PN_output, init_params)
             # Joint the networks
             joint = params.Tjoint(
-                TN_output.unsqueeze(2), PN_output.unsqueeze(1), init_params
+                TN_output.unsqueeze(2),
+                PN_output.unsqueeze(1),
+                init_params=init_params,
             )
-            # Output network
-            # outputs = params.output_model(joint, init_params)
+            # projection layer
             outputs = params.output(joint, init_params)
         else:
             outputs = decode_batch(
                 TN_output,
                 [
                     params.decoder_embedding,
-                    params.decoder_model,
-                    # params.decoder_model1,
-                    params.decoder_output,
+                    params.decoder_gru,
+                    params.decoder_lin,
                 ],
                 params.Tjoint,
-                [params.output, params.log_softmax],  # params.output_model,
-                params.blank_id,
+                [params.output],
+                params.blank_index,
             )
-
         outputs = params.log_softmax(outputs)
         return outputs, lens
 
-    def compute_objectives(self, predictions, targets, train_mode=True):
+    def compute_objectives(self, predictions, targets, stage="train"):
         predictions, lens = predictions
         ids, phns, phn_lens = targets
-        if not train_mode:
-            # transducer tensor
-            pout = predictions.squeeze(2)
-            predictions = predictions.expand(-1, -1, phns.shape[1] + 1, -1)
+        if stage == "train":
+            loss = params.compute_cost(
+                predictions,
+                phns.to(params.device).long(),
+                lens.to(params.device),
+                phn_lens.to(params.device),
+            )
 
-        loss = params.compute_cost(
-            predictions,
-            phns,
-            [lens.to(predictions.device), phn_lens.to(predictions.device)],
-        )
-
-        if not train_mode:
+        stats = {}
+        if stage != "train":
+            predictions = predictions.squeeze(2)
+            loss = -predictions.max(dim=-1)[0].sum(dim=-1).mean()
             ind2lab = params.train_loader.label_dict["phn"]["index2lab"]
-            sequence = ctc_greedy_decode(pout, lens, blank_id=-1)
+            sequence = ctc_greedy_decode(
+                predictions, lens, blank_id=params.blank_index
+            )
             sequence = convert_index_to_lab(sequence, ind2lab)
             phns = undo_padding(phns, phn_lens)
             phns = convert_index_to_lab(phns, ind2lab)
-            stats = edit_distance.wer_details_for_batch(
+            per_stats = edit_distance.wer_details_for_batch(
                 ids, phns, sequence, compute_alignments=True
             )
-            stats = {"PER": stats}
-            return loss, stats
+            stats["PER"] = per_stats
 
-        return loss
+        return loss, stats
 
     def on_epoch_end(self, epoch, train_stats, valid_stats=None):
         per = summarize_error_rate(valid_stats["PER"])
@@ -128,46 +119,45 @@ class TransducerBrain(sb.core.Brain):
     def fit_batch(self, batch):
         inputs, targets = batch
         predictions = self.compute_forward(inputs, targets)
-        loss = self.compute_objectives(predictions, targets)
+        loss, stats = self.compute_objectives(predictions, targets)
         loss.backward()
-        self.optimizer(self.modules)
-        return {"loss": loss.detach()}
+        self.optimizer.step()
+        self.optimizer.zero_grad()
+        stats["loss"] = loss.detach()
+        return stats
 
-    def evaluate_batch(self, batch):
+    def evaluate_batch(self, batch, stage="test"):
         inputs, targets = batch
-        out = self.compute_forward(inputs, None, train_mode=False)
-        loss, stats = self.compute_objectives(out, targets, train_mode=False)
+        out = self.compute_forward(inputs, None, stage=stage)
+        loss, stats = self.compute_objectives(out, targets, stage=stage)
         stats["loss"] = loss.detach()
         return stats
 
 
 # Prepare data
-prepare = TIMITPreparer(
+prepare_timit(
     data_folder=params.data_folder,
     splits=["train", "dev", "test"],
     save_folder=params.data_folder,
 )
-prepare()
 train_set = params.train_loader()
 valid_set = params.valid_loader()
 first_x, first_y = next(iter(train_set))
 
 # Modules are passed to optimizer and have train/eval called on them
 modules = [
-    params.encoder_model,
-    params.encoder_output,
-    params.decoder_model,
-    # params.decoder_model1,
-    params.decoder_output,
-    params.joint_model,
-    # params.output_model,
+    params.encoder_crdnn,
+    params.encoder_lin,
+    params.decoder_gru,
+    params.decoder_lin,
+    params.joint_lin,
     params.output,
 ]
 if hasattr(params, "augmentation"):
     modules.append(params.augmentation)
 
 # Create brain object for training
-asr_brain = TransducerBrain(
+asr_brain = ASR(
     modules=modules,
     optimizer=params.optimizer,
     first_inputs=[first_x, first_y],
