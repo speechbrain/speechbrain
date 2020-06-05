@@ -58,7 +58,8 @@ class XvectorBrain(sb.core.Brain):
         loss = params.compute_cost(predictions, spkid, lens)
 
         stats = {}
-        stats["error"] = params.compute_error(predictions, spkid, lens)
+        if stage != "train":
+            stats["error"] = params.compute_error(predictions, spkid, lens)
 
         return loss, stats
 
@@ -75,6 +76,7 @@ valid_set = params.valid_loader()
 # Xvector Model
 modules = [params.model, params.output_linear]
 first_x, first_y = next(iter(train_set))
+
 
 # Object initialization for training xvector model
 xvect_brain = XvectorBrain(
