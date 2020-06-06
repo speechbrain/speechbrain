@@ -11,6 +11,7 @@ from speechbrain.nnet.pooling import Pooling1d
 from speechbrain.nnet.dropout import Dropout2d
 from speechbrain.nnet.containers import Sequential
 from speechbrain.nnet.normalization import BatchNorm1d, LayerNorm
+from speechbrain.lobes.models.qrnn import QRNN
 
 
 class CRDNN(Sequential):
@@ -58,7 +59,7 @@ class CRDNN(Sequential):
 
     def __init__(
         self,
-        rnn=LiGRU,
+        rnn=[QRNN, LiGRU],
         activation=torch.nn.LeakyReLU,
         dropout=0.15,
         cnn_blocks=2,
@@ -108,14 +109,27 @@ class CRDNN(Sequential):
             )
 
         if rnn_layers > 0:
-            blocks.append(
-                rnn(
-                    hidden_size=rnn_neurons,
-                    num_layers=rnn_layers,
-                    dropout=dropout,
-                    bidirectional=rnn_bidirectional,
-                )
-            )
+            if isinstance(rnn, list) or isinstance(rnn, tuple):
+                rnn_block = [
+                    r(
+                        hidden_size=rnn_neurons,
+                        num_layers=rnn_layers,
+                        dropout=dropout,
+                        bidirectional=rnn_bidirectional,
+                    )
+                    for r in rnn
+                ]
+            else:
+                rnn_block = [
+                    rnn(
+                        hidden_size=rnn_neurons,
+                        num_layers=rnn_layers,
+                        dropout=dropout,
+                        bidirectional=rnn_bidirectional,
+                    )
+                ]
+
+            blocks.extend(rnn_block)
 
         for block_index in range(dnn_blocks):
             blocks.extend(
