@@ -391,7 +391,7 @@ class Brain:
         for epoch in epoch_counter:
             self.modules.train()
             train_stats = {}
-            with tqdm(train_set) as t:
+            with tqdm(train_set, dynamic_ncols=True) as t:
                 for i, batch in enumerate(t):
                     stats = self.fit_batch(batch)
                     self.add_stats(train_stats, stats)
@@ -402,7 +402,7 @@ class Brain:
             if valid_set is not None:
                 self.modules.eval()
                 with torch.no_grad():
-                    for batch in tqdm(valid_set):
+                    for batch in tqdm(valid_set, dynamic_ncols=True):
                         stats = self.evaluate_batch(batch, stage="valid")
                         self.add_stats(valid_stats, stats)
 
@@ -425,7 +425,7 @@ class Brain:
         test_stats = {}
         self.modules.eval()
         with torch.no_grad():
-            for batch in tqdm(test_set):
+            for batch in tqdm(test_set, dynamic_ncols=True):
                 stats = self.evaluate_batch(batch, stage="test")
                 self.add_stats(test_stats, stats)
 
