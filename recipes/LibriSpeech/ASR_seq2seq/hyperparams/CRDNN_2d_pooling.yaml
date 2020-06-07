@@ -14,7 +14,6 @@ csv_test: !ref <data_folder>/test-clean.csv
 
 # Training parameters
 number_of_epochs: 30
-number_of_ctc_epochs: 10
 batch_size: 8
 lr: 1.0
 ctc_weight: 0.5
@@ -144,4 +143,3 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     summary_fns:
         loss: !name:speechbrain.utils.train_logger.summarize_average
         CER: !name:speechbrain.utils.train_logger.summarize_error_rate
-        WER: !name:speechbrain.utils.train_logger.summarize_error_rate
