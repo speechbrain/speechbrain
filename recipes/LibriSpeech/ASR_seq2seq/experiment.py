@@ -9,6 +9,7 @@ import speechbrain.utils.edit_distance as edit_distance
 from speechbrain.data_io.data_io import convert_index_to_lab
 from speechbrain.data_io.data_io import prepend_bos_token
 from speechbrain.data_io.data_io import append_eos_token
+from speechbrain.data_io.data_io import merge_char
 
 from speechbrain.decoders.seq2seq import S2SRNNGreedySearcher
 from speechbrain.decoders.seq2seq import S2SRNNBeamSearcher
@@ -81,10 +82,6 @@ class ASR(sb.core.Brain):
         feats = params.normalize(feats, wav_lens)
         x = params.enc(feats, init_params=init_params)
 
-        # output layer for ctc log-probabilities
-        logits = params.ctc_lin(x, init_params)
-        p_ctc = params.log_softmax(logits)
-
         # Prepend bos token at the beginning
         y_in = prepend_bos_token(chars, bos_index=params.bos_index)
         e_in = params.emb(y_in, init_params=init_params)
@@ -94,21 +91,33 @@ class ASR(sb.core.Brain):
         logits = params.seq_lin(h, init_params)
         p_seq = params.log_softmax(logits)
 
-        if stage == "valid":
+        if (
+            stage == "train"
+            and params.epoch_counter.current <= params.number_of_ctc_epochs
+        ):
+            # output layer for ctc log-probabilities
+            logits = params.ctc_lin(x, init_params)
+            p_ctc = params.log_softmax(logits)
+            return p_ctc, p_seq, wav_lens
+        elif stage == "train":
+            return p_seq, wav_lens
+        elif stage == "valid":
             hyps, scores = greedy_searcher(x, wav_lens)
-            return p_ctc, p_seq, wav_lens, hyps
-
+            return p_seq, wav_lens, hyps
         elif stage == "test":
             hyps, scores = beam_searcher(x, wav_lens)
-            return p_ctc, p_seq, wav_lens, hyps
-
-        return p_ctc, p_seq, wav_lens
+            return p_seq, wav_lens, hyps
 
     def compute_objectives(self, predictions, targets, stage="train"):
-        if stage == "train":
+        if (
+            stage == "train"
+            and params.epoch_counter.current <= params.number_of_ctc_epochs
+        ):
             p_ctc, p_seq, wav_lens = predictions
+        elif stage == "train":
+            p_seq, wav_lens = predictions
         else:
-            p_ctc, p_seq, wav_lens, hyps = predictions
+            p_seq, wav_lens, hyps = predictions
 
         ids, chars, char_lens = targets
         chars, char_lens = chars.to(params.device), char_lens.to(params.device)
@@ -123,21 +132,36 @@ class ASR(sb.core.Brain):
 
         # convert to speechbrain-style relative length
         rel_length = (abs_length + 1) / chars.shape[1]
-
-        loss_ctc = params.ctc_cost(p_ctc, chars, wav_lens, char_lens)
         loss_seq = params.seq_cost(p_seq, chars_with_eos, length=rel_length)
-        loss = params.ctc_weight * loss_ctc + (1 - params.ctc_weight) * loss_seq
+
+        if (
+            stage == "train"
+            and params.epoch_counter.current <= params.number_of_ctc_epochs
+        ):
+            loss_ctc = params.ctc_cost(p_ctc, chars, wav_lens, char_lens)
+            loss = (
+                params.ctc_weight * loss_ctc
+                + (1 - params.ctc_weight) * loss_seq
+            )
+        else:
+            loss = loss_seq
 
         stats = {}
         if stage != "train":
             ind2lab = params.train_loader.label_dict["char"]["index2lab"]
-            sequence = convert_index_to_lab(hyps, ind2lab)
+            char_seq = convert_index_to_lab(hyps, ind2lab)
+            word_seq = merge_char(char_seq)
             chars = undo_padding(chars, char_lens)
             chars = convert_index_to_lab(chars, ind2lab)
+            words = merge_char(chars)
             cer_stats = edit_distance.wer_details_for_batch(
-                ids, chars, sequence, compute_alignments=True
+                ids, chars, char_seq, compute_alignments=True
+            )
+            wer_stats = edit_distance.wer_details_for_batch(
+                ids, words, word_seq, compute_alignments=True
             )
             stats["CER"] = cer_stats
+            stats["WER"] = wer_stats
         return loss, stats
 
     def fit_batch(self, batch):
@@ -158,14 +182,14 @@ class ASR(sb.core.Brain):
         return stats
 
     def on_epoch_end(self, epoch, train_stats, valid_stats=None):
-        cer = summarize_error_rate(valid_stats["CER"])
-        old_lr, new_lr = params.lr_annealing([params.optimizer], epoch, cer)
+        wer = summarize_error_rate(valid_stats["WER"])
+        old_lr, new_lr = params.lr_annealing([params.optimizer], epoch, wer)
         epoch_stats = {"epoch": epoch, "lr": old_lr}
         params.train_logger.log_stats(epoch_stats, train_stats, valid_stats)
 
         checkpointer.save_and_keep_only(
-            meta={"CER": cer},
-            importance_keys=[ckpt_recency, lambda c: -c.meta["CER"]],
+            meta={"WER": wer},
+            importance_keys=[ckpt_recency, lambda c: -c.meta["WER"]],
         )
 
 
@@ -193,7 +217,7 @@ checkpointer.recover_if_possible()
 asr_brain.fit(params.epoch_counter, train_set, valid_set)
 
 # Load best checkpoint for evaluation
-checkpointer.recover_if_possible(lambda c: -c.meta["CER"])
+checkpointer.recover_if_possible(lambda c: -c.meta["WER"])
 test_stats = asr_brain.evaluate(params.test_loader())
 params.train_logger.log_stats(
     stats_meta={"Epoch loaded": params.epoch_counter.current},
@@ -201,7 +225,7 @@ params.train_logger.log_stats(
 )
 
 # Write alignments to file
-cer_summary = edit_distance.wer_summary(test_stats["CER"])
+wer_summary = edit_distance.wer_summary(test_stats["WER"])
 with open(params.wer_file, "w") as fo:
-    wer_io.print_wer_summary(cer_summary, fo)
-    wer_io.print_alignments(test_stats["CER"], fo)
+    wer_io.print_wer_summary(wer_summary, fo)
+    wer_io.print_alignments(test_stats["WER"], fo)
