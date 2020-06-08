@@ -139,6 +139,7 @@ class AddNoise(torch.nn.Module):
         return noisy_waveform
 
     def _load_noise(self, lengths, max_length):
+        """Load a batch of noises"""
         lengths = lengths.long().squeeze(1)
         batch_size = len(lengths)
 
@@ -158,20 +159,10 @@ class AddNoise(torch.nn.Module):
                 )
                 self.noise_data = iter(self.data_loader())
 
-        # Ensure loaded noise batch has enough noises
-        noise_batch, noise_len = self._load_noise_batch()
-        while len(noise_batch) < batch_size:
-            added_noises, added_lens = self._load_noise_batch()
-            noise_batch = noise_batch.cat(added_noises)
-            noise_len = noise_len.cat(added_lens)
-
+        # Load noise to correct device
+        noise_batch, noise_len = self._load_noise_batch_of_size(batch_size)
         noise_batch = noise_batch.to(lengths.device)
         noise_len = noise_len.to(lengths.device)
-
-        # Chop or expand to correct size
-        if len(noise_batch) > batch_size:
-            noise_batch = noise_batch[:batch_size]
-            noise_len = noise_len[:batch_size]
 
         # Convert relative length to an index
         noise_len = (noise_len * noise_batch.shape[1]).long()
@@ -202,7 +193,43 @@ class AddNoise(torch.nn.Module):
         noise_len = (noise_len - start_index).clamp(max=max_length).unsqueeze(1)
         return noise_batch, noise_len
 
+    def _load_noise_batch_of_size(self, batch_size):
+        """Concatenate noise batches, then chop to correct size"""
+        noise_batch, noise_lens = self._load_noise_batch()
+
+        # Expand
+        while len(noise_batch) < batch_size:
+            added_noise, added_lens = self._load_noise_batch()
+            noise_batch, noise_lens = self._concat_batch(
+                noise_batch, noise_lens, added_noise, added_lens
+            )
+
+        # Contract
+        if len(noise_batch) > batch_size:
+            noise_batch = noise_batch[:batch_size]
+            noise_lens = noise_lens[:batch_size]
+
+        return noise_batch, noise_lens
+
+    def _concat_batch(self, noise_batch, noise_lens, added_noise, added_lens):
+        """Concatenate two noise batches of potentially different lengths"""
+
+        # pad shorter batch to correct length
+        pad = (0, abs(len(noise_batch) - len(added_noise)))
+        if len(noise_batch) > len(added_noise):
+            added_noise = torch.nn.functional.pad(added_noise, pad)
+            added_lens *= len(added_noise) / len(noise_batch)
+        else:
+            noise_batch = torch.nn.functional.pad(noise_batch, pad)
+            noise_lens *= len(noise_batch) / len(added_noise)
+
+        noise_batch = noise_batch.cat(added_noise)
+        noise_lens = noise_lens.cat(added_lens)
+
+        return noise_batch, noise_lens
+
     def _load_noise_batch(self):
+        """Load a batch of noises, restarting iteration if necessary."""
         try:
             wav_id, noise_batch, noise_len = next(self.noise_data)[0]
         except StopIteration:
