@@ -38,7 +38,6 @@ class SEBrain(sb.core.Brain):
     def compute_forward(self, x, stage="train", init_params=False):
         ids, wavs, lens = x
         wavs, lens = wavs.to(params.device), lens.to(params.device)
-        # print(torch.mean(wavs[0]))
         if stage == "train":
             wavs = params.add_noise(wavs, lens)
 
@@ -47,8 +46,6 @@ class SEBrain(sb.core.Brain):
         feats = torch.log1p(feats)
 
         output = params.model(feats, init_params)
-        # print(torch.mean(wavs[0]), torch.isnan(feats[0]))
-        # self.write_wavs(torch.expm1(output), x, "01")
 
         return output
 
@@ -123,7 +120,7 @@ class SEBrain(sb.core.Brain):
             enhance_path = os.path.join(
                 params.enhanced_folder, str(epoch), name
             )
-            torchaudio.save(enhance_path + ".wav", pred_wav, 16000)
+            torchaudio.save(enhance_path, pred_wav, 16000)
 
 
 prepare_dns(

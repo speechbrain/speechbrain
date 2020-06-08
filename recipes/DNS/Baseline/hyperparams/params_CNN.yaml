@@ -14,7 +14,7 @@ train_log: !ref <output_folder>/train_log.txt
 enhanced_folder: !ref <output_folder>/enhanced/
 
 use_tensorboard: True
-tensorboard_logs: !ref logs/baseline_log1p_dynamic/<seed>
+tensorboard_logs: !ref results/logs/baseline_log1p_dynamic/<seed>
 
 # Data files
 csv_noise: !ref <data_folder>/tr_noise.csv
