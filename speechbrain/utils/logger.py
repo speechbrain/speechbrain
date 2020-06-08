@@ -14,49 +14,47 @@ import logging.config
 import math
 from speechbrain.utils.data_utils import recursive_update
 
-# fmt: off
-ORDERS_ABBREV = {  # noqa
-    -24 : "y",
-    -21 : "z",
-    -18 : "a",
-    -15 : "f",
-    -12 : "p",
-    -9  : "n",
-    -6  : "µ",
-    -3  : "m",
-     0  : "",
-     3  : "k",
-     6  : "M",
-     9  : "G",
-     12 : "T",
-     15 : "P",
-     18 : "E",
-     21 : "Z",
-     24 : "Y",
+ORDERS_ABBREV = {
+    -24: "y",
+    -21: "z",
+    -18: "a",
+    -15: "f",
+    -12: "p",
+    -9: "n",
+    -6: "µ",
+    -3: "m",
+    0: "",
+    3: "k",
+    6: "M",
+    9: "G",
+    12: "T",
+    15: "P",
+    18: "E",
+    21: "Z",
+    24: "Y",
 }
 
 # Short scale
 # Negative powers of ten in lowercase, positive in uppercase
-ORDERS_WORDS = {  # noqa
-    -24 : "septillionth",
-    -21 : "sextillionth",
-    -18 : "quintillionth",
-    -15 : "quadrillionth",
-    -12 : "trillionth",
-    -9  : "billionth",
-    -6  : "millionth",
-    -3  : "thousdanth",
-     0  : "",
-     3  : "Thousand",
-     6  : "Million",
-     9  : "Billion",
-     12 : "Trillion",
-     15 : "Quadrillion",
-     18 : "Quintillion",
-     21 : "Sextillion",
-     24 : "Septillion",
+ORDERS_WORDS = {
+    -24: "septillionth",
+    -21: "sextillionth",
+    -18: "quintillionth",
+    -15: "quadrillionth",
+    -12: "trillionth",
+    -9: "billionth",
+    -6: "millionth",
+    -3: "thousdanth",
+    0: "",
+    3: "Thousand",
+    6: "Million",
+    9: "Billion",
+    12: "Trillion",
+    15: "Quadrillion",
+    18: "Quintillion",
+    21: "Sextillion",
+    24: "Septillion",
 }
-# fmt: on
 
 
 def setup_logging(
