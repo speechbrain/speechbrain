@@ -1091,7 +1091,7 @@ class LiGRU_Layer(torch.jit.ScriptModule):
                 ).data
 
 
-class QRNNLayer(torch.jit.ScriptModule):
+class QuasiRNNLayer(torch.jit.ScriptModule):
     """Applies a single layer Quasi-Recurrent Neural Network (QRNN) to an input sequence.
     Arguments
     ---------
@@ -1107,7 +1107,7 @@ class QRNNLayer(torch.jit.ScriptModule):
     Example
     -------
     >>> import torch
-    >>> model = QRNNLayer(60, 256, bidirectional=True)
+    >>> model = QuasiRNNLayer(60, 256, bidirectional=True)
     >>> a = torch.rand([10, 120, 60])
     >>> b = model(a)
     >>> print(b[0].shape)
@@ -1245,7 +1245,7 @@ class QRNNLayer(torch.jit.ScriptModule):
         return h, c[-1, :, :]
 
 
-class QRNN(nn.Module):
+class QuasiRNN(nn.Module):
     """This is a implementation for the Quasi-RNN
 
     https://arxiv.org/pdf/1611.01576.pdf
@@ -1268,7 +1268,7 @@ class QRNN(nn.Module):
     Example
     -------
     >>> a = torch.rand([8, 120, 40])
-    >>> model = QRNN(256, 4, bidirectional=True)
+    >>> model = QuasiRNN(256, 4, bidirectional=True)
     >>> b = model(a, init_params=True)
     >>> print(b.shape)
     torch.Size([8, 120, 512])
@@ -1303,7 +1303,7 @@ class QRNN(nn.Module):
         layers = []
         for layer in range(self.num_layers):
             layers.append(
-                QRNNLayer(
+                QuasiRNNLayer(
                     input_size
                     if layer == 0
                     else self.hidden_size * 2

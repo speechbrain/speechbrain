@@ -4,7 +4,7 @@ import torch.nn
 
 def test_RNN():
 
-    from speechbrain.nnet.RNN import RNN, GRU, LSTM, LiGRU, QRNN
+    from speechbrain.nnet.RNN import RNN, GRU, LSTM, LiGRU, QuasiRNN
 
     # Check GRU
     inputs = torch.randn(4, 2, 7)
@@ -92,9 +92,9 @@ def test_RNN():
         torch.lt(torch.add(hn_t[1], -hn[1]), 1e-3)
     ), "LiGRU hidden states mismatch"
 
-    # Check QRNN
+    # Check QuasiRNN
     inputs = torch.randn(1, 2, 2)
-    net = QRNN(
+    net = QuasiRNN(
         hidden_size=5, num_layers=2, return_hidden=True, bidirectional=False,
     )
 
@@ -109,12 +109,12 @@ def test_RNN():
 
     assert torch.all(
         torch.lt(torch.add(out_steps, -output), 1e-3)
-    ), "QRNN output mismatch"
+    ), "QuasiRNN output mismatch"
     assert torch.all(
         torch.lt(torch.add(hn_t[0], -hn[0][1]), 1e-3)
     ) and torch.all(
         torch.lt(torch.add(hn_t[1], -hn[1][1]), 1e-3)
-    ), "QRNN hidden states mismatch"
+    ), "QuasiRNN hidden states mismatch"
 
 
 test_RNN()
