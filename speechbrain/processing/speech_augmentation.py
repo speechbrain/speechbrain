@@ -200,7 +200,7 @@ class AddNoise(torch.nn.Module):
         # Expand
         while len(noise_batch) < batch_size:
             added_noise, added_lens = self._load_noise_batch()
-            noise_batch, noise_lens = self._concat_batch(
+            noise_batch, noise_lens = AddNoise._concat_batch(
                 noise_batch, noise_lens, added_noise, added_lens
             )
 
@@ -211,20 +211,23 @@ class AddNoise(torch.nn.Module):
 
         return noise_batch, noise_lens
 
-    def _concat_batch(self, noise_batch, noise_lens, added_noise, added_lens):
+    @staticmethod
+    def _concat_batch(noise_batch, noise_lens, added_noise, added_lens):
         """Concatenate two noise batches of potentially different lengths"""
 
         # pad shorter batch to correct length
-        pad = (0, abs(len(noise_batch) - len(added_noise)))
-        if len(noise_batch) > len(added_noise):
+        noise_tensor_len = noise_batch.shape[1]
+        added_tensor_len = added_noise.shape[1]
+        pad = (0, abs(noise_tensor_len - added_tensor_len))
+        if noise_tensor_len > added_tensor_len:
             added_noise = torch.nn.functional.pad(added_noise, pad)
-            added_lens *= len(added_noise) / len(noise_batch)
+            added_lens = added_lens * added_tensor_len / noise_tensor_len
         else:
             noise_batch = torch.nn.functional.pad(noise_batch, pad)
-            noise_lens *= len(noise_batch) / len(added_noise)
+            noise_lens = noise_lens * noise_tensor_len / added_tensor_len
 
-        noise_batch = noise_batch.cat(added_noise)
-        noise_lens = noise_lens.cat(added_lens)
+        noise_batch = torch.cat((noise_batch, added_noise))
+        noise_lens = torch.cat((noise_lens, added_lens))
 
         return noise_batch, noise_lens
 
