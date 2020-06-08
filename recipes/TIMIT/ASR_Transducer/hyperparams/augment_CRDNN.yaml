@@ -9,7 +9,7 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234  # e.g, 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/augment_CRDNN/<seed>
+output_folder: !ref results_run1/augment_CRDNN/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -21,7 +21,7 @@ csv_valid: !ref <data_folder>/dev.csv
 csv_test: !ref <data_folder>/test.csv
 
 # Training parameters
-number_of_epochs: 50
+number_of_epochs: 40
 batch_size: 8
 lr: 1.0
 device: 'cuda:0'
@@ -72,8 +72,8 @@ decoder_embedding: !new:speechbrain.nnet.embedding.Embedding
     blank_id: !ref <blank_index>
 
 decoder_gru: !new:speechbrain.nnet.RNN.LiGRU
-    hidden_size: 512
-    num_layers: 1
+    hidden_size: 128
+    num_layers: 2
     dropout: 0.15
     normalization: layernorm
     bidirectional: False
