@@ -16,8 +16,10 @@ class Transducer_joint(nn.Module):
 
     Arguments
     ---------
-    fusion : oneof("sum","concat") fusion option
-        it is the dim of embedding (i.e, the dimensionality of the output)
+    joint_network: Neural Modules applied after the joint
+    joint : joint the two tensors by ("sum",or "concat") option
+    nonlinearity: str
+         Type of nonlinearity (tanh, relu)
 
     Example
     -------
