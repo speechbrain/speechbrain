@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import os
 import sys
-import torch
 import speechbrain as sb
 import speechbrain.data_io.wer as wer_io
 import speechbrain.utils.edit_distance as edit_distance
@@ -9,21 +8,15 @@ from speechbrain.data_io.data_io import convert_index_to_lab
 from speechbrain.decoders.ctc import ctc_greedy_decode
 from speechbrain.decoders.decoders import undo_padding
 from speechbrain.utils.checkpoints import ckpt_recency
-from speechbrain.utils.train_logger import (
-    FileTrainLogger,
-    summarize_average,
-    summarize_error_rate,
-)
+from speechbrain.utils.train_logger import summarize_error_rate
 
 # This hack needed to import data preparation script from ..
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(current_dir))
-from timit_prepare import TIMITPreparer  # noqa E402
+from timit_prepare import prepare_timit  # noqa E402
 
 # Load hyperparameters file with command-line overrides
 params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
-if "seed" in overrides:
-    torch.manual_seed(overrides["seed"])
 with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(fin, overrides)
 
@@ -34,26 +27,10 @@ sb.core.create_experiment_directory(
     overrides=overrides,
 )
 
-train_logger = FileTrainLogger(
-    save_file=params.train_log,
-    summary_fns={"loss": summarize_average, "PER": summarize_error_rate},
-)
-checkpointer = sb.utils.checkpoints.Checkpointer(
-    checkpoints_dir=params.save_folder,
-    recoverables={
-        "model": params.model,
-        "output": params.output,
-        "optimizer": params.optimizer,
-        "scheduler": params.lr_annealing,
-        "normalizer": params.normalize,
-        "counter": params.epoch_counter,
-    },
-)
-
 
 # Define training procedure
 class ASR(sb.core.Brain):
-    def compute_forward(self, x, train_mode=True, init_params=False):
+    def compute_forward(self, x, stage="train", init_params=False):
         ids, wavs, wav_lens = x
         wavs, wav_lens = wavs.to(params.device), wav_lens.to(params.device)
         if hasattr(params, "augmentation"):
@@ -65,48 +42,47 @@ class ASR(sb.core.Brain):
         pout = params.log_softmax(out)
         return pout, wav_lens
 
-    def compute_objectives(self, predictions, targets, train_mode=True):
+    def compute_objectives(self, predictions, targets, stage="train"):
         pout, pout_lens = predictions
         ids, phns, phn_lens = targets
         phns, phn_lens = phns.to(params.device), phn_lens.to(params.device)
-        loss = params.compute_cost(pout, phns, [pout_lens, phn_lens])
+        loss = params.compute_cost(pout, phns, pout_lens, phn_lens)
 
-        if not train_mode:
+        stats = {}
+        if stage != "train":
             ind2lab = params.train_loader.label_dict["phn"]["index2lab"]
             sequence = ctc_greedy_decode(pout, pout_lens, blank_id=-1)
             sequence = convert_index_to_lab(sequence, ind2lab)
             phns = undo_padding(phns, phn_lens)
             phns = convert_index_to_lab(phns, ind2lab)
-            stats = edit_distance.wer_details_for_batch(
+            per_stats = edit_distance.wer_details_for_batch(
                 ids, phns, sequence, compute_alignments=True
             )
-            stats = {"PER": stats}
-            return loss, stats
+            stats["PER"] = per_stats
 
-        return loss
+        return loss, stats
 
     def on_epoch_end(self, epoch, train_stats, valid_stats=None):
         per = summarize_error_rate(valid_stats["PER"])
         old_lr, new_lr = params.lr_annealing([params.optimizer], epoch, per)
         epoch_stats = {"epoch": epoch, "lr": old_lr}
-        train_logger.log_stats(epoch_stats, train_stats, valid_stats)
+        params.train_logger.log_stats(epoch_stats, train_stats, valid_stats)
 
-        checkpointer.save_and_keep_only(
+        params.checkpointer.save_and_keep_only(
             meta={"PER": per},
             importance_keys=[ckpt_recency, lambda c: -c.meta["PER"]],
         )
 
 
 # Prepare data
-prepare = TIMITPreparer(
+prepare_timit(
     data_folder=params.data_folder,
     splits=["train", "dev", "test"],
     save_folder=params.data_folder,
 )
-prepare()
 train_set = params.train_loader()
 valid_set = params.valid_loader()
-first_x, first_y = next(zip(*train_set))
+first_x, first_y = next(iter(train_set))
 
 # Modules are passed to optimizer and have train/eval called on them
 modules = [params.model, params.output]
@@ -119,13 +95,13 @@ asr_brain = ASR(
 )
 
 # Load latest checkpoint to resume training
-checkpointer.recover_if_possible()
+params.checkpointer.recover_if_possible()
 asr_brain.fit(params.epoch_counter, train_set, valid_set)
 
 # Load best checkpoint for evaluation
-checkpointer.recover_if_possible(lambda c: -c.meta["PER"])
+params.checkpointer.recover_if_possible(lambda c: -c.meta["PER"])
 test_stats = asr_brain.evaluate(params.test_loader())
-train_logger.log_stats(
+params.train_logger.log_stats(
     stats_meta={"Epoch loaded": params.epoch_counter.current},
     test_stats=test_stats,
 )
