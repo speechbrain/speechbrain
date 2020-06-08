@@ -17,6 +17,7 @@ from io import StringIO
 from datetime import date
 from tqdm.contrib import tqdm
 from speechbrain.utils.logger import setup_logging
+from speechbrain.utils.logger import format_order_of_magnitude
 from speechbrain.utils.data_utils import recursive_update
 
 logger = logging.getLogger(__name__)
@@ -231,7 +232,11 @@ class Brain:
         total_params = sum(
             p.numel() for p in self.modules.parameters() if p.requires_grad
         )
-        logger.info("Number of parameters: %3.2f M" % (total_params / 10 ** 6))
+        clsname = self.__class__.__name__
+        fmt_num, mag = format_order_of_magnitude(total_params)
+        logger.info(
+            f"Initialized {fmt_num+mag} trainable parameters in {clsname}"
+        )
 
     def compute_forward(self, x, stage="train", init_params=False):
         """Forward pass, to be overridden by sub-classes.
