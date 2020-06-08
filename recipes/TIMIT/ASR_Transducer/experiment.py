@@ -56,6 +56,8 @@ class ASR(sb.core.Brain):
             )
             PN_output = params.decoder_lin(PN_output, init_params)
             # Joint the networks
+            # add labelseq_dim to TN tensor: [B,T,H_t] => [B,T,1,H_t]
+            # add timeseq_dim to PN tensor: [B,U,H_u] => [B,1,U,H_u]
             joint = params.Tjoint(
                 TN_output.unsqueeze(2),
                 PN_output.unsqueeze(1),
