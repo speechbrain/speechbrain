@@ -9,17 +9,77 @@ Elena Rastorgueva 2020
 import torch
 
 
-def log_matrix_multiply_max(A, b):
+def batch_log_matvecmul(A, b):
     """
-    accounts for the fact that the first dimension is batch_size
-    Proper docstring to be added
+    For each 'matrix' and 'vector' pair in the batch, do matrix-vector
+    multiplication in the log domain, i.e. logsumexp instead of add,
+    add instead of multiply
+
+    Arguments
+    ---------
+    A: torch.Tensor (batch, dim1, dim2)
+    b: torch.Tensor (batch, dim1)
+
+    Outputs
+    -------
+    x: torch.Tensor (batch, dim1)
+
+    Example
+    -------
+    >>> A = torch.tensor([[[   0., 0.],
+    ...                    [ -1e5, 0.]]])
+    >>> b = torch.tensor([[0., 0.,]])
+    >>> x = batch_log_matvecmul(A, b)
+    >>> x
+    tensor([[0.6931, 0.0000]])
+    >>>
+    >>> # non-log domain equivalent without batching funcionality
+    >>> A_ = torch.tensor([[1., 1.],
+    ...                    [0., 1.]])
+    >>> b_ = torch.tensor([1., 1.,])
+    >>> x_ = torch.matmul(A_, b_)
+    >>> x_
+    tensor([2., 1.])
+    """
+    b = b.unsqueeze(1)
+    x = torch.logsumexp(A + b, dim=2)
+
+    return x
+
+
+def batch_log_maxvecmul(A, b):
+    """
+    Similar to batch_log_matvecmul, but takes a maximum instead of
+    logsumexp. Returns both the max and the argmax.
+
+    Arguments
+    ---------
+    A: torch.Tensor (batch, dim1, dim2)
+    b: torch.Tensor (batch, dim1)
+
+    Outputs
+    -------
+    x: torch.Tensor (batch, dim1)
+    argmax: torch.Tensor (batch, dim1)
+
+    Example
+    -------
+    >>> A = torch.tensor([[[   0., -1.],
+    ...                    [ -1e5,  0.]]])
+    >>> b = torch.tensor([[0., 0.,]])
+    >>> x, argmax = batch_log_maxvecmul(A, b)
+    >>> x
+    tensor([[0., 0.]])
+    >>> argmax
+    tensor([[0, 1]])
     """
     b = b.unsqueeze(1)
     x, argmax = torch.max(A + b, dim=2)
+
     return x, argmax
 
 
-class ViterbiAligner(torch.nn.Module):
+class HMMAligner(torch.nn.Module):
     """
     This class calculates Viterbi alignments in the forward method.
     It also records alignments and creates batches of them for use
@@ -51,9 +111,9 @@ class ViterbiAligner(torch.nn.Module):
     >>> phns = torch.tensor([[0, 1, 2],
     ...                      [0, 1, 0]])
     >>> phn_lens = torch.tensor([1., 0.66])
-    >>> viterbi_aligner = ViterbiAligner()
-    >>> alignments, viterbi_scores = viterbi_aligner(
-    ...        log_posteriors, lens, phns, phn_lens
+    >>> aligner = HMMAligner()
+    >>> viterbi_scores, alignments = aligner(
+    ...        log_posteriors, lens, phns, phn_lens, 'viterbi'
     ... )
     >>> alignments
     [[0, 1, 2], [0, 1]]
@@ -81,8 +141,6 @@ class ViterbiAligner(torch.nn.Module):
         -------
         pi_prob: torch.Tensor (batch, phn)
         """
-        # TODO: can add example to docstring
-
         batch_size = len(phn_lens_abs)
         U_max = int(phn_lens_abs.max())
 
@@ -106,7 +164,6 @@ class ViterbiAligner(torch.nn.Module):
         Returns
         -------
         trans_prob: torch.Tensor (batch, from, to)
-
         """
         # Extract useful values for later
         batch_size = len(phn_lens_abs)
@@ -214,7 +271,7 @@ class ViterbiAligner(torch.nn.Module):
 
         return emiss_pred_useful
 
-    def _calc_viterbi_alignments(
+    def _dp_forward(
         self,
         pi_prob,
         trans_prob,
@@ -224,7 +281,7 @@ class ViterbiAligner(torch.nn.Module):
         phns,
     ):
         """
-        Calculates Viterbi alignment using dynamic programming
+        Does forward dynamic programming algorithm.
 
         Arguments
         ---------
@@ -248,6 +305,95 @@ class ViterbiAligner(torch.nn.Module):
         phns: torch.Tensor (batch, phoneme in phn sequence)
             The phonemes that are known/thought to be to be in each utterance.
 
+        Returns
+        -------
+        sum_alpha_T: torch.Tensor (batch)
+            The (log) likelihood of each utterance in the batch.
+        """
+        # useful values
+        batch_size = len(phn_lens_abs)
+        U_max = phn_lens_abs.max()
+        fb_max_length = lens_abs.max()
+        device = emiss_pred_useful.device
+
+        alpha_matrix = self.neg_inf * torch.ones(
+            [batch_size, U_max, fb_max_length]
+        ).to(device)
+
+        # for cropping alpha_matrix later
+        phn_len_mask = torch.arange(U_max)[None, :].to(device) < phn_lens_abs[
+            :, None
+        ].to(device)
+
+        # initialise
+        alpha_matrix[:, :, 0] = pi_prob + emiss_pred_useful[:, :, 0]
+
+        for t in range(1, fb_max_length):
+            alpha_times_trans = batch_log_matvecmul(
+                trans_prob.permute(0, 2, 1), alpha_matrix[:, :, t - 1]
+            )
+            alpha_matrix[:, :, t] = (
+                alpha_times_trans + emiss_pred_useful[:, :, t]
+            )
+
+            # crop alpha_matrix
+            alpha_matrix = torch.where(
+                phn_len_mask[:, :, None],
+                alpha_matrix,
+                torch.tensor(self.neg_inf).to(device),
+            )
+
+        sum_alpha_T = torch.logsumexp(
+            alpha_matrix[torch.arange(batch_size), :, -1], dim=1
+        )
+
+        return sum_alpha_T
+
+    def _dp_viterbi(
+        self,
+        pi_prob,
+        trans_prob,
+        emiss_pred_useful,
+        lens_abs,
+        phn_lens_abs,
+        phns,
+    ):
+        """
+        Calculates Viterbi alignment using dynamic programming.
+
+        Arguments
+        ---------
+        pi_prob: torch.Tensor (batch, phn)
+            Tensor containing initial (log) probabilities
+
+        trans_prob: torch.Tensor (batch, from, to)
+            Tensor containing transition (log) probabilities.
+
+        emiss_pred_useful: torch.Tensor (batch, phoneme in phn sequence, time)
+            A 'useful' form of the posterior probabilities, rearranged
+            into order of phoneme appearance in phns.
+
+        lens_abs: torch.Tensor (batch)
+            The absolute length of each input to the acoustic model,
+            i.e. the number of frames
+
+        phn_lens_abs: torch.Tensor (batch)
+            The absolute length of each phoneme sequence in the batch.
+
+        phns: torch.Tensor (batch, phoneme in phn sequence)
+            The phonemes that are known/thought to be to be in each utterance.
+
+        Returns
+        -------
+        z_stars: list of lists of int
+            Viterbi alignments for the files in the batch.
+        z_stars_loc: list of lists of int
+            The locations of the Viterbi alignments for the files in the batch.
+            e.g. for a batch with a single utterance with 5 phonemes,
+            z_stars_loc will look like:
+            [[0, 0, 0, 1, 1, 2, 3, 3, 3, 4, 4]]
+        viterbi_scores: torch.Tensor (batch)
+            The (log) likelihood of the Viterbi path for each utterance.
         """
 
         # useful values
@@ -270,7 +416,7 @@ class ViterbiAligner(torch.nn.Module):
         v_matrix[:, :, 0] = pi_prob + emiss_pred_useful[:, :, 0]
 
         for t in range(2, fb_max_length + 1):  # note: t here is 1+ indexing
-            x, argmax = log_matrix_multiply_max(
+            x, argmax = batch_log_maxvecmul(
                 trans_prob.permute(0, 2, 1), v_matrix[:, :, t - 2]
             )
             v_matrix[:, :, t - 1] = x + emiss_pred_useful[:, :, t - 1]
@@ -325,10 +471,10 @@ class ViterbiAligner(torch.nn.Module):
 
         return z_stars, z_stars_loc, viterbi_scores
 
-    def forward(self, emission_pred, lens, phns, phn_lens):
+    def forward(self, emission_pred, lens, phns, phn_lens, dp_algorithm):
         """
-        Prepares relevant (log) probability tensors and calculates Viterbi
-        alignments for utterances in the batch.
+        Prepares relevant (log) probability tensors and does dynamic
+        programming: either the forward or the Viterbi algorithm.
 
         Arguments
         ---------
@@ -340,6 +486,25 @@ class ViterbiAligner(torch.nn.Module):
             The phonemes that are known/thought to be to be in each utterance
         phn_lens: torch.Tensor (batch)
             The relative length of each phoneme sequence in the batch.
+        algorithm: string
+            Either "forward" or "viterbi"
+
+        Returns
+        -------
+        Either
+        (1) if dp_algorithm == "forward"
+
+        forward_scores: torch.Tensor (batch)
+            The (log) likelihood of each utterance in the batch.
+
+        or
+
+        (2) if dp_algorithm == "viterbi"
+
+        viterbi_scores: torch.Tensor (batch)
+            The (log) likelihood of the Viterbi path for each utterance.
+        alignments: list of lists of int
+            Viterbi alignments for the files in the batch.
         """
 
         lens_abs = torch.round(emission_pred.shape[1] * lens).long()
@@ -352,15 +517,39 @@ class ViterbiAligner(torch.nn.Module):
             emission_pred, lens_abs, phn_lens_abs, phns
         )
 
-        alignments, _, viterbi_scores = self._calc_viterbi_alignments(
-            pi_prob, trans_prob, emiss_pred_useful, lens_abs, phn_lens_abs, phns
-        )
+        if dp_algorithm == "forward":
+            # do forward training
+            forward_scores = self._dp_forward(
+                pi_prob,
+                trans_prob,
+                emiss_pred_useful,
+                lens_abs,
+                phn_lens_abs,
+                phns,
+            )
 
-        return alignments, viterbi_scores
+            return forward_scores
+
+        elif dp_algorithm == "viterbi":
+            alignments, _, viterbi_scores = self._dp_viterbi(
+                pi_prob,
+                trans_prob,
+                emiss_pred_useful,
+                lens_abs,
+                phn_lens_abs,
+                phns,
+            )
+
+            return viterbi_scores, alignments
+
+        else:
+            raise ValueError(
+                "dp_algorithm input must be either 'forward' or 'viterbi'"
+            )
 
     def store_alignments(self, ids, alignments):
         """
-        Records alignments in `self.align_dict`.
+        Records Viterbi alignments in `self.align_dict`.
 
         Arguments
         ---------
@@ -372,13 +561,13 @@ class ViterbiAligner(torch.nn.Module):
 
         Example
         -------
-        >>> viterbi_aligner = ViterbiAligner()
+        >>> aligner = HMMAligner()
         >>> ids = ['id1', 'id2']
         >>> alignments = [[0, 2, 4], [1, 2, 3, 4]]
-        >>> viterbi_aligner.store_alignments(ids, alignments)
-        >>> viterbi_aligner.align_dict.keys()
+        >>> aligner.store_alignments(ids, alignments)
+        >>> aligner.align_dict.keys()
         dict_keys(['id1', 'id2'])
-        >>> viterbi_aligner.align_dict['id1']
+        >>> aligner.align_dict['id1']
         tensor([0, 2, 4], dtype=torch.int16)
         """
 
@@ -411,7 +600,6 @@ class ViterbiAligner(torch.nn.Module):
         -------
         flat_start_batch: torch.Tensor (batch, time)
             Flat start alignments for utterances in the batch, with zero padding.
-
         """
         phns = phns.long()
 
@@ -513,8 +701,8 @@ class ViterbiAligner(torch.nn.Module):
         >>> phns = torch.tensor([[0, 1, 2],
         ...                      [0, 1, 0]])
         >>> phn_lens = torch.tensor([1., 0.66])
-        >>> viterbi_aligner = ViterbiAligner()
-        >>> alignment_batch = viterbi_aligner.get_prev_alignments(
+        >>> aligner = HMMAligner()
+        >>> alignment_batch = aligner.get_prev_alignments(
         ...        ids, emission_pred, lens, phns, phn_lens
         ... )
         >>> alignment_batch

@@ -74,7 +74,7 @@ lin: !new:speechbrain.nnet.linear.Linear
 softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
-viterbi_aligner: !new:speechbrain.alignment.aligner.ViterbiAligner
+aligner: !new:speechbrain.alignment.aligner.HMMAligner
 
 compute_cost: !name:speechbrain.nnet.losses.nll_loss
 
