@@ -29,7 +29,7 @@ class AlignBrain(sb.core.Brain):
         predictions, lens = predictions
         ids, phns, phn_lens = targets
 
-        prev_alignments = params.viterbi_aligner.get_prev_alignments(
+        prev_alignments = params.aligner.get_prev_alignments(
             ids, predictions, lens, phns, phn_lens
         )
 
@@ -38,11 +38,11 @@ class AlignBrain(sb.core.Brain):
         stats = {}
 
         if stage != "train":
-            alignments, viterbi_scores = params.viterbi_aligner(
-                predictions, lens, phns, phn_lens
+            viterbi_scores, alignments = params.aligner(
+                predictions, lens, phns, phn_lens, "viterbi"
             )
 
-            params.viterbi_aligner.store_alignments(ids, alignments)
+            params.aligner.store_alignments(ids, alignments)
 
             phns = undo_padding(phns, phn_lens)
             stats["PER"] = wer_details_for_batch(ids, phns, alignments)
