@@ -106,13 +106,17 @@ def format_order_of_magnitude(number, style=ORDERS_ABBREV):
     >>> print(num+mag)
     123.5k
     """
+    precision = "{num:3.1f}"
     order = 3 * math.floor(math.log(math.fabs(number), 1000))
     # Fallback for very large numbers:
     while order not in ORDERS_ABBREV and order != 0:
         order = order - math.copysign(3, order)  # Bring 3 units towards 0
     order_token = ORDERS_ABBREV[order]
     if order != 0:
-        formatted_number = "{num:3.1f}".format(num=number / 10 ** order)
+        formatted_number = precision.format(num=number / 10 ** order)
     else:
-        formatted_number = str(number)
+        if isinstance(number, int):
+            formatted_number = str(number)
+        else:
+            formatted_number = precision.format(num=number)
     return formatted_number, order_token
