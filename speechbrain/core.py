@@ -228,6 +228,11 @@ class Brain:
             if self.optimizer is not None:
                 self.optimizer.init_params(self.modules)
 
+        total_params = sum(
+            p.numel() for p in self.modules.parameters() if p.requires_grad
+        )
+        logger.info("Number of parameters: %3.2f M" % (total_params / 10 ** 6))
+
     def compute_forward(self, x, stage="train", init_params=False):
         """Forward pass, to be overridden by sub-classes.
 
