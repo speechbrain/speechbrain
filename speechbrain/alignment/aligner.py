@@ -112,6 +112,11 @@ class HMMAligner(torch.nn.Module):
     ...                      [0, 1, 0]])
     >>> phn_lens = torch.tensor([1., 0.66])
     >>> aligner = HMMAligner()
+    >>> forward_scores = aligner(
+    ...        log_posteriors, lens, phns, phn_lens, 'forward'
+    ... )
+    >>> forward_scores.shape
+    torch.Size([2])
     >>> viterbi_scores, alignments = aligner(
     ...        log_posteriors, lens, phns, phn_lens, 'viterbi'
     ... )
