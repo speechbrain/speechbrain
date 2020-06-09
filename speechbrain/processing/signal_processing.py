@@ -232,13 +232,15 @@ def notch_filter(notch_freq, filter_width=101, notch_width=0.05):
 
 
 # WORK IN PROGRESS
-def cov(x, average=True):
+def cov(xs, average=True):
     """ Computes the covariance matrices of the signals.
 
     Arguments:
     ----------
-    x : tensor
+    xs : tensor
         A batch of audio signals in the frequency domain.
+        The tensor must have the following format:
+        (batch, time_step, n_fft, 2, n_pairs)
 
     average : boolean
         Informs the method if it should return an average
@@ -256,8 +258,8 @@ def cov(x, average=True):
     """
 
     # Formating the real and imaginary parts
-    xs_re = x[..., 0, :].unsqueeze(4)
-    xs_im = x[..., 1, :].unsqueeze(4)
+    xs_re = xs[..., 0, :].unsqueeze(4)
+    xs_im = xs[..., 1, :].unsqueeze(4)
 
     # Computing the covariance
     rxx_re = torch.matmul(xs_re, xs_re.transpose(3, 4)) + torch.matmul(
@@ -269,7 +271,7 @@ def cov(x, average=True):
     )
 
     # Selecting the upper triangular part of the covariance matrices
-    n_channels = x.shape[4]
+    n_channels = xs.shape[4]
     indices = torch.triu_indices(n_channels, n_channels)
 
     rxx_re = rxx_re[..., indices[0], indices[1]]
@@ -277,9 +279,8 @@ def cov(x, average=True):
 
     rxx = torch.stack((rxx_re, rxx_im), 3)
 
-    # Computing the average if desired
     if average is True:
-        n_time_frames = x.shape[1]
+        n_time_frames = rxx.shape[1]
         rxx = torch.mean(rxx, 1, keepdim=True)
         rxx = rxx.repeat(1, n_time_frames, 1, 1, 1)
 
@@ -313,16 +314,17 @@ class GCCPHAT(torch.nn.Module):
 
         Arguments
         ---------
-        x : tensor
+        rxx : tensor
             The covariance matrices of the input signal.
         """
-        # Extracting the tensors needed for the operations
+
+        # Extracting the tensors needed
         rxx_values, rxx_indices = torch.unique(rxx, return_inverse=True, dim=1)
 
         rxx_re = rxx_values[..., 0, :]
         rxx_im = rxx_values[..., 1, :]
 
-        # Phase transform
+        # Applying the phase transform
         rxx_abs = torch.sqrt(rxx_re ** 2 + rxx_im ** 2) + self.epsilon
 
         rxx_re_phat = rxx_re / rxx_abs
@@ -334,12 +336,10 @@ class GCCPHAT(torch.nn.Module):
         rxx_phat = rxx_phat.transpose(2, 3)
         n_samples = int((rxx.shape[2] - 1) * 2)
 
-        rxx_phat = torch.irfft(
-            rxx_phat, signal_ndim=1, signal_sizes=[n_samples]
-        )
-        rxx_phat = rxx_phat[:, rxx_indices, ...]
+        xxs = torch.irfft(rxx_phat, signal_ndim=1, signal_sizes=[n_samples])
+        xxs = xxs[:, rxx_indices]
 
         # Formatting the output
-        rxx_phat = rxx_phat.transpose(2, 3)
+        xxs = xxs.transpose(2, 3)
 
-        return rxx_phat
+        return xxs
