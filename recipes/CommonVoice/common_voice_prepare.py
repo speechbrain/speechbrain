@@ -68,7 +68,7 @@ def prepare_common_voice(
 
     Example
     -------
-    >>> from recipes.TIMIT.timit_prepare import prepare_timit
+    >>> from recipes.CommonVoice.common_voice_prepare import prepare_common_voice
     >>>
     >>> data_folder = '/datasets/CommonVoice/en'
     >>> save_folder = 'exp/CommonVoice_exp'
