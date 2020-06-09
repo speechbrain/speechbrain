@@ -1,6 +1,7 @@
 #!/usr/bin/python
 import os
 import speechbrain as sb
+from speechbrain.decoders.ctc import filter_ctc_output
 from speechbrain.decoders.decoders import undo_padding
 from speechbrain.utils.edit_distance import wer_details_for_batch
 from speechbrain.utils.train_logger import summarize_average
@@ -43,7 +44,8 @@ class AlignBrain(sb.core.Brain):
             )
 
             phns = undo_padding(phns, phn_lens)
-            stats["PER"] = wer_details_for_batch(ids, phns, alignments)
+            alignments_filtered = [filter_ctc_output(x) for x in alignments]
+            stats["PER"] = wer_details_for_batch(ids, phns, alignments_filtered)
 
         return loss, stats
 
