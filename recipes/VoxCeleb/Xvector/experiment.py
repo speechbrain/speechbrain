@@ -39,6 +39,9 @@ class XvectorBrain(sb.core.Brain):
 
         wavs, lens = wavs.to(params.device), lens.to(params.device)
 
+        if stage == "train":
+            wavs = params.augmentation(wavs, lens, init_params)
+
         feats = params.compute_features(wavs, init_params)
         feats = params.mean_var_norm(feats, lens)
 
@@ -64,7 +67,10 @@ class XvectorBrain(sb.core.Brain):
         return loss, stats
 
     def on_epoch_end(self, epoch, train_stats, valid_stats):
-        epoch_stats = {"epoch": epoch}
+        old_lr, new_lr = params.lr_annealing(
+            [params.optimizer], epoch, valid_stats["error"]
+        )
+        epoch_stats = {"epoch": epoch, "lr": old_lr}
         params.train_logger.log_stats(epoch_stats, train_stats, valid_stats)
         params.checkpointer.save_and_keep_only()
 
