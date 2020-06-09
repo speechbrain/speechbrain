@@ -18,6 +18,7 @@ from speechbrain.data_io.data_io import read_wav_soundfile
 logger = logging.getLogger(__name__)
 TRAIN_CSV = "train.csv"
 TEST_CSV = "test.csv"
+VALID_CSV = "valid.csv"
 SAMPLERATE = 16000
 
 
@@ -61,14 +62,18 @@ def prepare_voicebank(data_folder, save_folder):
     # Setting ouput files
     save_csv_train = os.path.join(save_folder, TRAIN_CSV)
     save_csv_test = os.path.join(save_folder, TEST_CSV)
+    save_csv_valid = os.path.join(save_folder, VALID_CSV)
 
     # Check if this phase is already done (if so, skip it)
-    if skip(save_csv_train, save_csv_test):
+    if skip(save_csv_train, save_csv_test, save_csv_valid):
 
         msg = "\t%s sucessfully created!" % (save_csv_train)
         logger.debug(msg)
 
         msg = "\t%s sucessfully created!" % (save_csv_test)
+        logger.debug(msg)
+
+        msg = "\t%s sucessfully created!" % (save_csv_valid)
         logger.debug(msg)
 
         return
@@ -85,11 +90,31 @@ def prepare_voicebank(data_folder, save_folder):
     logger.debug(msg)
 
     # Creating csv file for training data
-    wav_lst_train = get_all_files(train_noisy_folder, match_and=extension,)
+    wav_lst_train = get_all_files(
+        train_noisy_folder,
+        match_and=extension,
+        exclude_or=[
+            "p226",
+            "p287",
+        ],  # These two speakers are used for validation set
+    )
 
     create_csv(
         wav_lst_train,
         save_csv_train,
+        train_clean_folder,
+        test_clean_folder,
+        is_train_folder=True,
+    )
+
+    # Creating csv file for validation data
+    wav_lst_valid = get_all_files(
+        train_noisy_folder, match_and=extension, match_or=["p226", "p287"],
+    )
+
+    create_csv(
+        wav_lst_valid,
+        save_csv_valid,
         train_clean_folder,
         test_clean_folder,
         is_train_folder=True,
@@ -107,7 +132,7 @@ def prepare_voicebank(data_folder, save_folder):
     )
 
 
-def skip(save_csv_train, save_csv_test):
+def skip(save_csv_train, save_csv_test, save_csv_valid):
     """
     Detects if the Voicebank data_preparation has been already done.
     If the preparation has been done, we can skip it.
@@ -121,7 +146,11 @@ def skip(save_csv_train, save_csv_test):
     # Checking folders and save options
     skip = False
 
-    if os.path.isfile(save_csv_train) and os.path.isfile(save_csv_test):
+    if (
+        os.path.isfile(save_csv_train)
+        and os.path.isfile(save_csv_test)
+        and os.path.isfile(save_csv_valid)
+    ):
         skip = True
 
     return skip
