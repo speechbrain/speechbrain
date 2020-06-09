@@ -306,16 +306,13 @@ class S2SBeamSearcher(S2SBaseSearcher):
             if self.using_max_attn_shift:
                 # Block the candidates that exceed the max shift
                 _, attn_peak = torch.max(attn, dim=1)
+                lt_cond = attn_peak <= (prev_attn_peak + self.max_attn_shift)
+                mt_cond = attn_peak > (prev_attn_peak - self.max_attn_shift)
 
-                condition = (
-                    (attn_peak <= (prev_attn_peak + self.max_attn_shift))
-                    .unsqueeze(1)
-                    .expand(-1, vocab_size)
-                )
+                # multiplication equals to element-wise and
+                cond = (lt_cond * mt_cond).unsqueeze(1).expand(-1, vocab_size)
                 log_probs = torch.where(
-                    condition,
-                    log_probs,
-                    torch.Tensor([self.minus_inf]).to(device),
+                    cond, log_probs, torch.Tensor([self.minus_inf]).to(device),
                 )
                 prev_attn_peak = attn_peak
 
