@@ -225,6 +225,8 @@ class S2SBeamSearcher(S2SBaseSearcher):
     eos_threshold : float
         The threshold coefficient for eos token. See 3.1.2 in
         reference: https://arxiv.org/abs/1904.02619
+    using_max_attn_shift: bool
+        Whether using the max_attn_shift constaint. Default: False
     max_attn_shift: int
         Beam search will block the beams that attention shift more
         than max_attn_shift.
@@ -244,7 +246,8 @@ class S2SBeamSearcher(S2SBaseSearcher):
         beam_size,
         length_penalty,
         eos_threshold,
-        max_attn_shift=1e20,
+        using_max_attn_shift=False,
+        max_attn_shift=30,
         minus_inf=-1e20,
     ):
         super(S2SBeamSearcher, self).__init__(
@@ -253,6 +256,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         self.beam_size = beam_size
         self.length_penalty = length_penalty
         self.eos_threshold = eos_threshold
+        self.using_max_attn_shift = using_max_attn_shift
         self.max_attn_shift = max_attn_shift
         self.minus_inf = minus_inf
 
@@ -299,17 +303,18 @@ class S2SBeamSearcher(S2SBaseSearcher):
             )
             vocab_size = log_probs.shape[-1]
 
-            # Block the candidates that exceed the max shift
-            _, attn_peak = torch.max(attn, dim=1)
-            condition = (
-                (attn_peak < (prev_attn_peak + self.max_attn_shift))
-                .unsqueeze(1)
-                .expand(-1, vocab_size)
-            )
-            log_probs = torch.where(
-                condition, log_probs, torch.Tensor([self.minus_inf]).to(device)
-            )
-            prev_attn_peak = attn_peak
+            if self.using_max_attn_shift:
+                # Block the candidates that exceed the max shift
+                _, attn_peak = torch.max(attn, dim=1)
+                lt_cond = attn_peak <= (prev_attn_peak + self.max_attn_shift)
+                mt_cond = attn_peak > (prev_attn_peak - self.max_attn_shift)
+
+                # multiplication equals to element-wise and
+                cond = (lt_cond * mt_cond).unsqueeze(1).expand(-1, vocab_size)
+                log_probs = torch.where(
+                    cond, log_probs, torch.Tensor([self.minus_inf]).to(device),
+                )
+                prev_attn_peak = attn_peak
 
             # Set eos to minus_inf when less than minimum steps.
             if t < min_decode_steps:
@@ -367,9 +372,9 @@ class S2SBeamSearcher(S2SBaseSearcher):
                     if len(hyps_and_scores[batch_id]) == self.beam_size:
                         continue
                     hyp = alived_seq[index, :]
-                    final_scores = sequence_scores[
-                        index
-                    ].item() + self.length_penalty * (t + 1)
+                    final_scores = (
+                        sequence_scores[index].item() + self.length_penalty * t
+                    )
                     hyps_and_scores[batch_id].append((hyp, final_scores))
 
                 # Block the path that has reaches eos
@@ -477,7 +482,8 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
         beam_size,
         length_penalty,
         eos_threshold,
-        max_attn_shift=1e20,
+        using_max_attn_shift=False,
+        max_attn_shift=30,
     ):
         super(S2SRNNBeamSearcher, self).__init__(
             modules,
@@ -488,6 +494,7 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
             beam_size,
             length_penalty,
             eos_threshold,
+            using_max_attn_shift,
             max_attn_shift,
         )
         self.emb = modules[0]
