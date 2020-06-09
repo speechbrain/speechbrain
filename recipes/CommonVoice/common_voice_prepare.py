@@ -159,6 +159,7 @@ def prepare_common_voice(
             path_to_wav,
             save_csv_train,
             data_folder,
+            accented_letters,
             duration_threshold,
         )
 
@@ -177,6 +178,7 @@ def prepare_common_voice(
             path_to_wav,
             save_csv_dev,
             data_folder,
+            accented_letters,
             duration_threshold,
         )
 
@@ -195,6 +197,7 @@ def prepare_common_voice(
             path_to_wav,
             save_csv_test,
             data_folder,
+            accented_letters,
             duration_threshold,
         )
 
@@ -383,8 +386,8 @@ def create_csv(
         # Getting transcript
         words = line.split("\t")[2]
 
-        # Do a bit of cleaning on the transcript ...
-        words = re.sub("[^'A-Za-z0-9 ]+", " ", words).upper()
+        # Do a bit of cleaning on the transcript ... But keep accents
+        words = re.sub("[^'A-Za-z0-9À-ÖØ-öø-ÿЀ-ӿ]+", " ", words).upper()
 
         # Remove accents if specified
         if not accented_letters:
@@ -398,7 +401,7 @@ def create_csv(
 
         # Getting chars
         chars = words.replace(" ", "_")
-        chars = " ".join([char for char in chars][:-1])
+        chars = " ".join([char for char in chars][:])
 
         # Remove too short sentences (or empty):
         if len(words) < 3:
@@ -426,7 +429,7 @@ def create_csv(
         csv_lines.append(csv_line)
 
     # Writing the csv lines
-    with open(csv_file, mode="w") as csv_f:
+    with open(csv_file, mode="w", encoding="utf-8") as csv_f:
         csv_writer = csv.writer(
             csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
         )
