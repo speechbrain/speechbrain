@@ -120,6 +120,9 @@ class SEBrain(sb.core.Brain):
             enhance_path = os.path.join(
                 params.enhanced_folder, str(epoch), name
             )
+
+            # Normalize the waveform
+            pred_wav = pred_wav / torch.max(torch.abs(pred_wav)) * 0.99
             torchaudio.save(enhance_path, pred_wav, 16000)
 
 
