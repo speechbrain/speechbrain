@@ -37,14 +37,14 @@ ORDERS_ABBREV = {
 # Short scale
 # Negative powers of ten in lowercase, positive in uppercase
 ORDERS_WORDS = {
-    -24: "septillionth",
-    -21: "sextillionth",
-    -18: "quintillionth",
-    -15: "quadrillionth",
-    -12: "trillionth",
-    -9: "billionth",
-    -6: "millionth",
-    -3: "thousdanth",
+    -24: "septillionths",
+    -21: "sextillionths",
+    -18: "quintillionths",
+    -15: "quadrillionths",
+    -12: "trillionths",
+    -9: "billionths",
+    -6: "millionths",
+    -3: "thousandths",
     0: "",
     3: "Thousand",
     6: "Million",
