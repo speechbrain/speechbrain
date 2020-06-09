@@ -113,11 +113,13 @@ class SEBrain(sb.core.Brain):
         ids, wavs, lens = x
         wavs, lens = wavs.to(params.device), lens.to(params.device)
         feats = params.compute_STFT(wavs)
-        feats = spectral_magnitude(feats, power=0.5, log=True, eps=1)
+        feats = spectral_magnitude(
+            feats, power=0.5, log=True, eps=1
+        )  # eps=1 equals to log1p
         # feats = params.mean_var_norm(feats, lens)
 
         mask = params.model(feats, init_params=init_params)
-        out = torch.mul(mask, feats)
+        out = torch.mul(mask, feats)  # IRM with "signal approximation (SA)"
 
         return out
 
