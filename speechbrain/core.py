@@ -17,6 +17,7 @@ from io import StringIO
 from datetime import date
 from tqdm.contrib import tqdm
 from speechbrain.utils.logger import setup_logging
+from speechbrain.utils.logger import format_order_of_magnitude
 from speechbrain.utils.data_utils import recursive_update
 
 logger = logging.getLogger(__name__)
@@ -228,6 +229,13 @@ class Brain:
             if self.optimizer is not None:
                 self.optimizer.init_params(self.modules)
 
+        total_params = sum(
+            p.numel() for p in self.modules.parameters() if p.requires_grad
+        )
+        clsname = self.__class__.__name__
+        fmt_num = format_order_of_magnitude(total_params)
+        logger.info(f"Initialized {fmt_num} trainable parameters in {clsname}")
+
     def compute_forward(self, x, stage="train", init_params=False):
         """Forward pass, to be overridden by sub-classes.
 
@@ -391,7 +399,7 @@ class Brain:
         for epoch in epoch_counter:
             self.modules.train()
             train_stats = {}
-            with tqdm(train_set) as t:
+            with tqdm(train_set, dynamic_ncols=True) as t:
                 for i, batch in enumerate(t):
                     stats = self.fit_batch(batch)
                     self.add_stats(train_stats, stats)
@@ -402,7 +410,7 @@ class Brain:
             if valid_set is not None:
                 self.modules.eval()
                 with torch.no_grad():
-                    for batch in tqdm(valid_set):
+                    for batch in tqdm(valid_set, dynamic_ncols=True):
                         stats = self.evaluate_batch(batch, stage="valid")
                         self.add_stats(valid_stats, stats)
 
@@ -425,7 +433,7 @@ class Brain:
         test_stats = {}
         self.modules.eval()
         with torch.no_grad():
-            for batch in tqdm(test_set):
+            for batch in tqdm(test_set, dynamic_ncols=True):
                 stats = self.evaluate_batch(batch, stage="test")
                 self.add_stats(test_stats, stats)
 
