@@ -1,11 +1,7 @@
 #!/usr/bin/python
 import os
 import speechbrain as sb
-from speechbrain.decoders.ctc import filter_ctc_output
-from speechbrain.decoders.decoders import undo_padding
-from speechbrain.utils.edit_distance import wer_details_for_batch
 from speechbrain.utils.train_logger import summarize_average
-from speechbrain.utils.train_logger import summarize_error_rate
 
 experiment_dir = os.path.dirname(os.path.realpath(__file__))
 params_file = os.path.join(experiment_dir, "params.yaml")
@@ -45,17 +41,12 @@ class AlignBrain(sb.core.Brain):
 
             params.aligner.store_alignments(ids, alignments)
 
-            phns = undo_padding(phns, phn_lens)
-            alignments_filtered = [filter_ctc_output(x) for x in alignments]
-            stats["PER"] = wer_details_for_batch(ids, phns, alignments_filtered)
-
         return loss, stats
 
     def on_epoch_end(self, epoch, train_stats, valid_stats):
         print("Epoch %d complete" % epoch)
         print("Train loss: %.2f" % summarize_average(train_stats["loss"]))
         print("Valid loss: %.2f" % summarize_average(valid_stats["loss"]))
-        print("Valid PER: %.2f" % summarize_error_rate(valid_stats["PER"]))
 
         print("Recalculating and recording alignments...")
         self.evaluate(train_set)
@@ -70,7 +61,6 @@ align_brain = AlignBrain(
 )
 align_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
 test_stats = align_brain.evaluate(params.test_loader())
-print("Test PER: %.2f" % summarize_error_rate(test_stats["PER"]))
 
 
 # Integration test: check that the model overfits the training data
