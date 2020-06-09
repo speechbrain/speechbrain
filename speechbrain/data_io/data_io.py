@@ -3,7 +3,7 @@ Data i/o operations.
 
 Author
 ------
-Mirco Ravanelli, Aku Rouhe 2020
+Mirco Ravanelli, Aku Rouhe, Ju-Chieh Chou 2020
 """
 
 import os
