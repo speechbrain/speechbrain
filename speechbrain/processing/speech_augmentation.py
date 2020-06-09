@@ -32,6 +32,9 @@ class AddNoise(torch.nn.Module):
     csv_file : str
         The name of a csv file containing the location of the
         noise audio files. If none is provided, white noise will be used.
+    csv_read : list, None, optional
+        Default: None . One data entry for the noise data should be specified.
+        If None, the csv file is expected to have only one data entry.
     order : str
         The order to iterate the csv file, from one of the
         following options: random, original, ascending, and descending.
@@ -67,6 +70,7 @@ class AddNoise(torch.nn.Module):
     def __init__(
         self,
         csv_file=None,
+        csv_read=None,
         order="random",
         do_cache=False,
         snr_low=0,
@@ -79,6 +83,7 @@ class AddNoise(torch.nn.Module):
         super().__init__()
 
         self.csv_file = csv_file
+        self.csv_read = csv_read
         self.order = order
         self.do_cache = do_cache
         self.snr_low = snr_low
@@ -133,7 +138,7 @@ class AddNoise(torch.nn.Module):
 
             # Rescale and add
             noise_amplitude = compute_amplitude(noise_waveform, noise_length)
-            noise_waveform *= new_noise_amplitude / noise_amplitude
+            noise_waveform *= new_noise_amplitude / (noise_amplitude + 1e-14)
             noisy_waveform += noise_waveform
 
         return noisy_waveform
@@ -152,6 +157,7 @@ class AddNoise(torch.nn.Module):
             if self.csv_file is not None:
                 self.data_loader = DataLoaderFactory(
                     csv_file=self.csv_file,
+                    csv_read=self.csv_read,
                     sentence_sorting=self.order,
                     batch_size=batch_size,
                     cache=self.do_cache,
