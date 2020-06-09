@@ -81,7 +81,7 @@ def setup_logging(
         logging.basicConfig(level=default_level)
 
 
-def format_order_of_magnitude(number, style=ORDERS_ABBREV):
+def format_order_of_magnitude(number, abbreviate=True):
     """
     Formats number to appropriate order of magnitude for printing
 
@@ -89,16 +89,15 @@ def format_order_of_magnitude(number, style=ORDERS_ABBREV):
     ---------
     number : int, float
         The number to format
-    style : dict
-        A mapping from order of magnitude (power of 3) to name / abbreviation.
-        By default, SI prefixes.
+    abbreviate : bool
+        Whether to use abbreviations (k,M,G) or words (Thousand, Million,
+        Billion). Numbers will be either like: "123.5k" or "123.5 Thousand"
 
     Returns
     -------
     str
-        The reformatted number
-    str
-        The order of magnitude name / abbreviation
+        The formatted number. Note that the order of magnitude token is part
+        of the string.
 
     Example
     -------
@@ -106,6 +105,7 @@ def format_order_of_magnitude(number, style=ORDERS_ABBREV):
     >>> print(num+mag)
     123.5k
     """
+    style = ORDERS_ABBREV if abbreviate else ORDERS_WORDS
     precision = "{num:3.1f}"
     order = 3 * math.floor(math.log(math.fabs(number), 1000))
     # Fallback for very large numbers:
@@ -119,4 +119,7 @@ def format_order_of_magnitude(number, style=ORDERS_ABBREV):
             formatted_number = str(number)
         else:
             formatted_number = precision.format(num=number)
-    return formatted_number, order_token
+    if abbreviate:
+        return formatted_number + order_token
+    else:
+        return formatted_number + " " + order_token

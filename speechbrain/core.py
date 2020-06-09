@@ -233,10 +233,8 @@ class Brain:
             p.numel() for p in self.modules.parameters() if p.requires_grad
         )
         clsname = self.__class__.__name__
-        fmt_num, mag = format_order_of_magnitude(total_params)
-        logger.info(
-            f"Initialized {fmt_num+mag} trainable parameters in {clsname}"
-        )
+        fmt_num = format_order_of_magnitude(total_params)
+        logger.info(f"Initialized {fmt_num} trainable parameters in {clsname}")
 
     def compute_forward(self, x, stage="train", init_params=False):
         """Forward pass, to be overridden by sub-classes.
