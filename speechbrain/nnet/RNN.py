@@ -1093,6 +1093,7 @@ class LiGRU_Layer(torch.jit.ScriptModule):
 
 class QuasiRNNLayer(torch.jit.ScriptModule):
     """Applies a single layer Quasi-Recurrent Neural Network (QRNN) to an input sequence.
+
     Arguments
     ---------
     input_size : int
