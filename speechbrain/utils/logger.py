@@ -101,9 +101,12 @@ def format_order_of_magnitude(number, abbreviate=True):
 
     Example
     -------
-    >>> num, mag = format_order_of_magnitude(123456.7)
-    >>> print(num+mag)
+    >>> print(format_order_of_magnitude(123456))
     123.5k
+    >>> print(format_order_of_magnitude(0.00000123, abbreviate=False))
+    1.2 millionths
+    >>> print(format_order_of_magnitude(5, abbreviate=False))
+    5
     """
     style = ORDERS_ABBREV if abbreviate else ORDERS_WORDS
     precision = "{num:3.1f}"
@@ -119,7 +122,7 @@ def format_order_of_magnitude(number, abbreviate=True):
             formatted_number = str(number)
         else:
             formatted_number = precision.format(num=number)
-    if abbreviate:
+    if abbreviate or not order_token:
         return formatted_number + order_token
     else:
         return formatted_number + " " + order_token
