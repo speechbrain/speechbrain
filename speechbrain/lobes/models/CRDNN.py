@@ -36,7 +36,7 @@ class CRDNN(Sequential):
         The number of elements to pool on the time axis.
     time_pooling_stride : int
         The number of elements to increment by when iterating the time axis.
-    rnn_type : str
+    rnn_class : torch class
         The type of rnn to use in CRDNN network (LiGRU, LSTM, GRU, RNN)
     rnn_layers : int
         The number of recurrent LiGRU layers to include.
