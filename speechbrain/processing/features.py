@@ -419,9 +419,17 @@ def spectral_magnitude(stft, power=1, log=False, eps=1e-14):
 
     Example
     -------
-
+    >>> a = torch.Tensor([[3, 4]])
+    >>> spectral_magnitude(a, power=0.5)
+    tensor([5.])
     """
-    spectr = stft.pow(2).sum(-1).pow(power)
+    spectr = stft.pow(2).sum(-1)
+
+    # Add eps avoids NaN when spectr is zero
+    if power < 1:
+        spectr = spectr + eps
+    spectr = spectr.pow(power)
+
     if log:
         return torch.log(spectr + eps)
     return spectr
