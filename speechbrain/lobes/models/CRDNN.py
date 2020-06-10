@@ -4,7 +4,7 @@ Authors: Mirco Ravanelli 2020, Peter Plantinga 2020, Ju-Chieh Chou 2020,
     Titouan Parcollet 2020, Abdel 2020
 """
 import torch
-from speechbrain.nnet.RNN import LiGRU
+import speechbrain as sb
 from speechbrain.nnet.CNN import Conv2d
 from speechbrain.nnet.linear import Linear
 from speechbrain.nnet.pooling import Pooling1d
@@ -36,6 +36,8 @@ class CRDNN(Sequential):
         The number of elements to pool on the time axis.
     time_pooling_stride : int
         The number of elements to increment by when iterating the time axis.
+    rnn_type : str
+        The type of rnn to use in CRDNN network (LiGRU, LSTM, GRU, RNN)
     rnn_layers : int
         The number of recurrent LiGRU layers to include.
     rnn_neurons : int
@@ -66,12 +68,22 @@ class CRDNN(Sequential):
         time_pooling=False,
         time_pooling_size=2,
         freq_pooling_size=2,
+        rnn_type="LiGRU",
         rnn_layers=4,
         rnn_neurons=512,
         rnn_bidirectional=True,
         dnn_blocks=2,
         dnn_neurons=512,
     ):
+
+        assert rnn_type in (
+            "LiGRU",
+            "LSTM",
+            "GRU",
+            "RNN",
+        ), "RNN type must be one of LiGRU, LSTM, GRU, RNN"
+        rnn = getattr(sb.nnet.RNN, rnn_type)
+
         blocks = []
 
         for block_index in range(cnn_blocks):
@@ -108,7 +120,7 @@ class CRDNN(Sequential):
 
         if rnn_layers > 0:
             blocks.append(
-                LiGRU(
+                rnn(
                     hidden_size=rnn_neurons,
                     num_layers=rnn_layers,
                     dropout=dropout,
