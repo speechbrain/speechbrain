@@ -1,6 +1,7 @@
 """Core SpeechBrain code for running experiments.
 
-Author(s): Peter Plantinga 2020
+Authors
+ * Peter Plantinga 2020
 """
 
 import os

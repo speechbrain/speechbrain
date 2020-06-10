@@ -1,8 +1,8 @@
 """
 Edit distance and WER computation
 
-Author
-    Aku Rouhe 2020
+Authors
+ * Aku Rouhe 2020
 """
 import collections
 

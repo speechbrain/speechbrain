@@ -46,8 +46,8 @@ Example
 ...     # 3. Save checkpoints, and keep by default just one, the newest:
 ...     ckpt = checkpointer.save_and_keep_only()
 
-Author
-    Aku Rouhe 2020
+Authors
+ * Aku Rouhe 2020
 """
 import torch
 import collections

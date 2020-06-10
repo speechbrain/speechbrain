@@ -4,6 +4,9 @@ The functions here are used to print the computed statistics
 with human readable formatting.
 They have a file argument, but you can also just use
 contextlib.redirect_stdout, which may give a nicer syntax
+
+Authors
+ * Aku Rouhe 2020
 """
 import sys
 import speechbrain.utils.edit_distance as edit_distance

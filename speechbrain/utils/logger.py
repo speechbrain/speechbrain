@@ -1,10 +1,10 @@
 """
-Managing the logger.
+Managing the logger, utilities
 
 Author
-    Fang-Pen Lin 2012 and Peter Plantinga 2020
-    https://fangpenlin.com/posts/2012/08/26/good-logging-practice-in-python/
-    Aku Rouhe
+ * Fang-Pen Lin 2012 https://fangpenlin.com/posts/2012/08/26/good-logging-practice-in-python/
+ * Peter Plantinga 2020
+ * Aku Rouhe 2020
 """
 
 import os

@@ -1,6 +1,8 @@
 """This library gathers utilities for extended yaml loading
 
-Authors: Peter Plantinga 2020, Aku Rouhe 2020
+Authors
+ * Peter Plantinga 2020
+ * Aku Rouhe 2020
 """
 
 import re

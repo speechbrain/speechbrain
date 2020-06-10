@@ -1,7 +1,9 @@
 """Library implementing pooling.
 
-Author
-    Titouan Parcollet 2020, Mirco Ravanelli 2020, Nauman Dawalatabad 2020
+Authors
+ * Titouan Parcollet 2020
+ * Mirco Ravanelli 2020
+ * Nauman Dawalatabad 2020
 """
 
 import torch

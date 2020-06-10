@@ -1,3 +1,9 @@
+"""
+Transducer loss implementation (depends on numba)
+
+Authors
+ * Abdelwahab Heba 2020
+"""
 import torch
 from torch.autograd import Function
 from torch.nn import Module
