@@ -399,6 +399,9 @@ def create_csv(
         # Remove multiple spaces
         words = re.sub(" +", " ", words)
 
+        # Remove spaces at the beginning and the end of the sentence
+        words = words.lstrip().rstrip()
+
         # Getting chars
         chars = words.replace(" ", "_")
         chars = " ".join([char for char in chars][:])
