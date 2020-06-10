@@ -1,7 +1,7 @@
 """Library for implementing cascade (sequences) of different neural modules.
 
-Author
-    Peter Plantinga 2020
+Authors
+ * Peter Plantinga 2020
 """
 
 import torch

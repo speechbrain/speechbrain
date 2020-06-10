@@ -1,9 +1,8 @@
 """
 Losses for training neural networks.
 
-Author
-------
-Mirco Ravanelli 2020
+Authors
+ * Mirco Ravanelli 2020
 """
 
 import torch
@@ -80,7 +79,7 @@ def l1_loss(predictions, targets, length=None, allowed_len_diff=3):
     Arguments
     ---------
     predictions : torch.Tensor
-        Predicted tensor, of shape [batch, time, *].
+        Predicted tensor, of shape ``[batch, time, *]``.
     targets : torch.Tensor
         Target tensor, same size as predicted tensor.
     length : torch.Tensor
@@ -105,7 +104,7 @@ def mse_loss(predictions, targets, length=None, allowed_len_diff=3):
     Arguments
     ---------
     predictions : torch.Tensor
-        Predicted tensor, of shape [batch, time, *].
+        Predicted tensor, of shape ``[batch, time, *]``.
     targets : torch.Tensor
         Target tensor, same size as predicted tensor.
     length : torch.Tensor

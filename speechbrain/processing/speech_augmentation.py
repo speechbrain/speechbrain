@@ -8,7 +8,8 @@ possibility to have end-to-end differentiability and
 backpropagate the gradient through them. In addition, all operations
 are expected to be performed on the GPU (where available) for efficiency.
 
-Author: Peter Plantinga 2020
+Authors
+ * Peter Plantinga 2020
 """
 
 # Importing libraries

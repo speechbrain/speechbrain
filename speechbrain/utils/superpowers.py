@@ -4,9 +4,8 @@ This library contains functions for importing python classes and
 for running shell commands. Remember, with great power comes great
 responsibility.
 
-Author
-------
-Mirco Ravanelli 2020
+Authors
+ * Mirco Ravanelli 2020
 """
 
 import logging

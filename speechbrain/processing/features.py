@@ -30,8 +30,8 @@ Example
 >>> norm = InputNormalization()
 >>> features = norm(features, torch.tensor([1]).float())
 
-Author
-    Mirco Ravanelli 2020
+Authors
+ * Mirco Ravanelli 2020
 """
 import math
 import torch

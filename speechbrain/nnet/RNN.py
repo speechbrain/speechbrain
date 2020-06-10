@@ -1,7 +1,9 @@
 """Library implementing recurrent neural networks.
 
-Author
-    Mirco Ravanelli 2020, Ju-Chieh Chou 2020, Jianyuan Zhong 2020
+Authors
+ * Mirco Ravanelli 2020
+ * Ju-Chieh Chou 2020
+ * Jianyuan Zhong 2020
 """
 
 import torch
@@ -28,9 +30,9 @@ class RNN(torch.nn.Module):
         Number of output neurons (i.e, the dimensionality of the output).
         values (i.e, time and frequency kernel sizes respectively).
     nonlinearity: str
-         Type of nonlinearity (tanh, relu).
+        Type of nonlinearity (tanh, relu).
     num_layers: int
-         Number of layers to employ in the RNN architecture.
+        Number of layers to employ in the RNN architecture.
     bias: bool
         If True, the additive bias b is adopted.
     dropout: float
@@ -41,9 +43,9 @@ class RNN(torch.nn.Module):
     return_hidden: bool:
         It True, the function returns the last hidden layer.
     bidirectional: bool
-         if True, a bidirectioal model that scans the sequence both
-         right-to-left and left-to-right is used.
-.
+        If True, a bidirectioal model that scans the sequence both
+        right-to-left and left-to-right is used.
+
     Example
     -------
     >>> inp_tensor = torch.rand([4, 10, 20])
@@ -151,7 +153,7 @@ class LSTM(torch.nn.Module):
         Number of output neurons (i.e, the dimensionality of the output).
         values (i.e, time and frequency kernel sizes respectively).
     num_layers: int
-         Number of layers to employ in the RNN architecture.
+        Number of layers to employ in the RNN architecture.
     bias: bool
         If True, the additive bias b is adopted.
     dropout: float
@@ -162,9 +164,9 @@ class LSTM(torch.nn.Module):
     return_hidden: bool:
         It True, the function returns the last hidden layer.
     bidirectional: bool
-         if True, a bidirectioal model that scans the sequence both
-         right-to-left and left-to-right is used.
-.
+        if True, a bidirectioal model that scans the sequence both
+        right-to-left and left-to-right is used.
+
     Example
     -------
     >>> inp_tensor = torch.rand([4, 10, 20])
@@ -269,7 +271,7 @@ class GRU(torch.nn.Module):
         Number of output neurons (i.e, the dimensionality of the output).
         values (i.e, time and frequency kernel sizes respectively).
     num_layers: int
-         Number of layers to employ in the RNN architecture.
+        Number of layers to employ in the RNN architecture.
     bias: bool
         If True, the additive bias b is adopted.
     dropout: float
@@ -280,9 +282,9 @@ class GRU(torch.nn.Module):
     return_hidden: bool:
         It True, the function returns the last hidden layer.
     bidirectional: bool
-         if True, a bidirectioal model that scans the sequence both
-         right-to-left and left-to-right is used.
-.
+        if True, a bidirectioal model that scans the sequence both
+        right-to-left and left-to-right is used.
+
     Example
     -------
     >>> inp_tensor = torch.rand([4, 10, 20])
@@ -729,7 +731,7 @@ class LiGRU(torch.nn.Module):
     bidirectional: bool
          if True, a bidirectioal model that scans the sequence both
          right-to-left and left-to-right is used.
-.
+
     Example
     -------
     >>> inp_tensor = torch.rand([4, 10, 20])
@@ -880,22 +882,22 @@ class LiGRU_Layer(torch.jit.ScriptModule):
     batch_size: int
         Batch size of the input tensors.
     hidden_size: int
-         Number of output neurons .
+        Number of output neurons.
     num_layers: int
-         Number of layers to employ in the RNN architecture.
+        Number of layers to employ in the RNN architecture.
     nonlinearity: str
-         Type of nonlinearity (tanh, relu).
+        Type of nonlinearity (tanh, relu).
     normalization: str
-         Type of normalization (batchnorm, layernorm).
-         Every string different from batchnorm and layernorm will result
-         in no normalization.
+        Type of normalization (batchnorm, layernorm).
+        Every string different from batchnorm and layernorm will result
+        in no normalization.
     dropout: float
         It is the dropout factor (must be between 0 and 1).
     bidirectional: bool
-         if True, a bidirectioal model that scans the sequence both
-         right-to-left and left-to-right is used.
+        if True, a bidirectioal model that scans the sequence both
+        right-to-left and left-to-right is used.
     device: str
-         Device used for running the computations (e.g, 'cpu', 'cuda').
+        Device used for running the computations (e.g, 'cpu', 'cuda').
     """
 
     def __init__(

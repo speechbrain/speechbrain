@@ -1,8 +1,9 @@
 """
 Decoders and output normalization for CTC
 
-Author:
-    Mirco Ravanelli, Aku Rouhe 2020
+Authors
+ * Mirco Ravanelli 2020
+ * Aku Rouhe 2020
 """
 import torch
 from itertools import groupby
@@ -23,8 +24,8 @@ def filter_ctc_output(string_pred, blank_id=-1):
     Returns
     ------
     list
-          The output predicted by CTC without the blank symbol and
-          the repetitions
+        The output predicted by CTC without the blank symbol and
+        the repetitions
 
     Example
     -------
@@ -32,10 +33,6 @@ def filter_ctc_output(string_pred, blank_id=-1):
         >>> string_out = filter_ctc_output(string_pred, blank_id='blank')
         >>> print(string_out)
         ['a', 'b', 'c']
-
-    Author
-    ------
-        Mirco Ravanelli 2020
     """
 
     if isinstance(string_pred, list):
@@ -89,9 +86,6 @@ def ctc_greedy_decode(probabilities, seq_lens, blank_id=-1):
         >>> blank_id = 0
         >>> ctc_greedy_decode(probs, lens, blank_id)
         [[1], [1]]
-
-    Author:
-        Aku Rouhe 2020
     """
     if isinstance(blank_id, int) and blank_id < 0:
         blank_id = probabilities.shape[-1] + blank_id
