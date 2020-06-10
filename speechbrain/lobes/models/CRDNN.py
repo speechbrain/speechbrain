@@ -4,7 +4,7 @@ Authors: Mirco Ravanelli 2020, Peter Plantinga 2020, Ju-Chieh Chou 2020,
     Titouan Parcollet 2020, Abdel 2020
 """
 import torch
-import speechbrain as sb
+import speechbrain.nnet.RNN as RNN
 from speechbrain.nnet.CNN import Conv2d
 from speechbrain.nnet.linear import Linear
 from speechbrain.nnet.pooling import Pooling1d
@@ -82,7 +82,7 @@ class CRDNN(Sequential):
             "GRU",
             "RNN",
         ), "RNN type must be one of LiGRU, LSTM, GRU, RNN"
-        rnn = getattr(sb.nnet.RNN, rnn_type)
+        rnn = getattr(RNN, rnn_type)
 
         blocks = []
 
