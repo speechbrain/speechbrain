@@ -367,16 +367,10 @@ def deref(ref, full_tree, copy_mode=False):
             raise ValueError('The reference "%s" is not valid' % ref)
         branch = branch[part]
 
-    # For ruamel.yaml classes, the value is in the tag attribute
-    try:
-        branch = branch.value
-    except AttributeError:
-        pass
-
     if copy_mode:
         return copy.deepcopy(branch)
-    else:
-        return branch
+
+    return branch
 
 
 def recursive_resolve(reference, reference_list, full_tree, copy_mode=False):
