@@ -7,7 +7,7 @@ def test_SincConv():
     from speechbrain.nnet.CNN import SincConv
 
     input = torch.rand([4, 16000])
-    convolve = SincConv(out_channels=8, kernel_size=65, padding=True)
+    convolve = SincConv(out_channels=8, kernel_size=65, padding="same")
     output = convolve(input, init_params=True)
     assert output.shape[-1] == 8
 
@@ -34,7 +34,7 @@ def test_Conv2d():
     from speechbrain.nnet.CNN import Conv2d
 
     input = torch.rand([4, 11, 32, 1])
-    convolve = Conv2d(out_channels=1, kernel_size=(1, 1), padding=True)
+    convolve = Conv2d(out_channels=1, kernel_size=(1, 1), padding="same")
     output = convolve(input, init_params=True)
     assert output.shape[-1] == 1
 
