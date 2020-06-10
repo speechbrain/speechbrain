@@ -321,6 +321,9 @@ class HMMAligner(torch.nn.Module):
         fb_max_length = lens_abs.max()
         device = emiss_pred_useful.device
 
+        pi_prob = pi_prob.to(device)
+        trans_prob = trans_prob.to(device)
+
         alpha_matrix = self.neg_inf * torch.ones(
             [batch_size, U_max, fb_max_length]
         ).to(device)
@@ -406,6 +409,9 @@ class HMMAligner(torch.nn.Module):
         U_max = phn_lens_abs.max()
         fb_max_length = lens_abs.max()
         device = emiss_pred_useful.device
+
+        pi_prob = pi_prob.to(device)
+        trans_prob = trans_prob.to(device)
 
         v_matrix = self.neg_inf * torch.ones(
             [batch_size, U_max, fb_max_length]
