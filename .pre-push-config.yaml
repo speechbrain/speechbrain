@@ -47,13 +47,3 @@ repos:
             pass_filenames: False
             always_run: True
             require_serial: False
-
-    - repo: local
-      hooks:
-          - id: integration
-            name: integration
-            entry: pytest tests/integration
-            language: python
-            pass_filenames: False
-            always_run: True
-            require_serial: False
