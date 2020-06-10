@@ -1,9 +1,8 @@
 """
 N-gram counting, discounting, interpolation, and backoff
 
-
-Author
-    Aku Rouhe 2020
+Authors
+ * Aku Rouhe 2020
 """
 import itertools
 

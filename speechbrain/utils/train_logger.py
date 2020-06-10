@@ -1,3 +1,9 @@
+"""
+Loggers for experiment monitoring
+
+Authors
+ * Peter Plantinga 2020
+"""
 import logging
 from speechbrain.utils.edit_distance import wer_summary
 
