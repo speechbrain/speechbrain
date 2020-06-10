@@ -31,8 +31,9 @@ class SincConv(nn.Module):
         a decimation in time is performed.
     dilation: int
         Dilation factor of the convolutional filters.
-    padding: bool
-        if True, zero-padding is performed.
+    padding: str
+        (same, valid, causal). If "valid", no padding is performed.
+        "causal" results in causal (dilated) convolutions.
     padding_mode: str
         This flag specifies the type of padding. See torch.nn documentation
         for more information.
@@ -64,7 +65,7 @@ class SincConv(nn.Module):
         kernel_size,
         stride=1,
         dilation=1,
-        padding=True,
+        padding="same",
         groups=1,
         bias=True,
         padding_mode="reflect",
@@ -119,9 +120,22 @@ class SincConv(nn.Module):
         if self.unsqueeze:
             x = x.unsqueeze(1)
 
-        if self.padding:
+        if self.padding == "same":
             x = self._manage_padding(
                 x, self.kernel_size, self.dilation, self.stride
+            )
+
+        elif self.padding == "causal":
+            num_pad = (self.kernel_size - 1) * self.dilation
+            x = F.pad(x, (num_pad, 0))
+
+        elif self.padding == "valid":
+            pass
+
+        else:
+            raise ValueError(
+                "Padding must be 'same', 'valid' or 'causal'. Got %s."
+                % (self.padding)
             )
 
         sinc_filters = self._get_sinc_filters()
@@ -470,8 +484,9 @@ class Conv2d(nn.Module):
     dilation: int
         Dilation factor of the 2d convolutional filters over time and
         frequency axis.
-    padding: bool
-        if True, zero-padding is performed.
+    padding: str
+        (same, valid, causal). If "valid", no padding is performed.
+        "causal" results in causal (dilated) convolutions.
     padding_mode: str
         This flag specifies the type of padding. See torch.nn documentation
         for more information.
@@ -496,7 +511,7 @@ class Conv2d(nn.Module):
         kernel_size,
         stride=(1, 1),
         dilation=(1, 1),
-        padding=True,
+        padding="same",
         groups=1,
         bias=True,
         padding_mode="reflect",
@@ -552,9 +567,22 @@ class Conv2d(nn.Module):
         if self.unsqueeze:
             x = x.unsqueeze(1)
 
-        if self.padding:
+        if self.padding == "same":
             x = self._manage_padding(
                 x, self.kernel_size, self.dilation, self.stride
+            )
+
+        elif self.padding == "causal":
+            num_pad = (self.kernel_size - 1) * self.dilation
+            x = F.pad(x, (num_pad, 0))
+
+        elif self.padding == "valid":
+            pass
+
+        else:
+            raise ValueError(
+                "Padding must be 'same', 'valid' or 'causal'. Got %s."
+                % (self.padding)
             )
 
         wx = self.conv(x)
