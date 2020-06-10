@@ -7,7 +7,7 @@ import torch
 import speechbrain.nnet.RNN as RNN
 from speechbrain.nnet.CNN import Conv2d
 from speechbrain.nnet.linear import Linear
-from speechbrain.nnet.pooling import Pooling1d
+from speechbrain.nnet.pooling import Pooling1d, Pooling2d
 from speechbrain.nnet.dropout import Dropout2d
 from speechbrain.nnet.containers import Sequential
 from speechbrain.nnet.normalization import BatchNorm1d, LayerNorm
@@ -69,9 +69,12 @@ class CRDNN(Sequential):
         time_pooling_size=2,
         freq_pooling_size=2,
         rnn_type="LiGRU",
+        inter_layer_pooling_size=2,
+        using_2d_pooling=False,
         rnn_layers=4,
         rnn_neurons=512,
         rnn_bidirectional=True,
+        rnn_re_init=False,
         dnn_blocks=2,
         dnn_neurons=512,
     ):
@@ -87,6 +90,22 @@ class CRDNN(Sequential):
         blocks = []
 
         for block_index in range(cnn_blocks):
+            if not using_2d_pooling:
+                pooling = Pooling1d(
+                    pool_type="max",
+                    kernel_size=inter_layer_pooling_size,
+                    pool_axis=2,
+                )
+            else:
+                pooling = Pooling2d(
+                    pool_type="max",
+                    kernel_size=(
+                        inter_layer_pooling_size,
+                        inter_layer_pooling_size,
+                    ),
+                    pool_axis=(1, 2),
+                )
+
             blocks.extend(
                 [
                     Conv2d(
@@ -101,12 +120,8 @@ class CRDNN(Sequential):
                     ),
                     LayerNorm(),
                     activation(),
-                    # Frequency Pooling
-                    Pooling1d(
-                        pool_type="max",
-                        kernel_size=freq_pooling_size,
-                        pool_axis=2,
-                    ),
+                    # Inter-layer Pooling
+                    pooling,
                     Dropout2d(drop_rate=dropout),
                 ]
             )
@@ -125,6 +140,7 @@ class CRDNN(Sequential):
                     num_layers=rnn_layers,
                     dropout=dropout,
                     bidirectional=rnn_bidirectional,
+                    re_init=rnn_re_init,
                 )
             )
 
