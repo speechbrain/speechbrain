@@ -17,7 +17,7 @@ def test_Conv1d():
     from speechbrain.nnet.CNN import Conv1d
 
     input = torch.tensor([-1, -1, -1, -1]).unsqueeze(0).unsqueeze(2).float()
-    convolve = Conv1d(out_channels=1, kernel_size=1, padding=True)
+    convolve = Conv1d(out_channels=1, kernel_size=1, padding="same")
     output = convolve(input, init_params=True)
     assert input.shape == output.shape
 
