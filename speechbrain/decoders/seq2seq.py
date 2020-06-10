@@ -1,8 +1,8 @@
 """
 Decoding methods for seq2seq autoregressive model.
 
-Author:
-    Ju-Chieh Chou 2020
+Authors
+ * Ju-Chieh Chou 2020
 """
 import torch
 import numpy as np

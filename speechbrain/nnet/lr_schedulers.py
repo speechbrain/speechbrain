@@ -1,8 +1,8 @@
 """
 Learning rate schedulers.
 
-Author
-    Mirco Ravanelli 2020
+Authors
+ * Mirco Ravanelli 2020
 """
 
 import math

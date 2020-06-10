@@ -1,7 +1,8 @@
 """Library implementing recurrent neural networks.
 
-Author
-    Mirco Ravanelli 2020, Ju-Chieh Chou 2020
+Authors
+ * Mirco Ravanelli 2020
+ * Ju-Chieh Chou 2020
 """
 
 import torch
