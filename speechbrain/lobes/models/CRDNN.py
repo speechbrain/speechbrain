@@ -14,7 +14,7 @@ from speechbrain.nnet.normalization import BatchNorm1d, LayerNorm
 
 
 class CRDNN(Sequential):
-    """This model is a combination of CNNs, LiGRU, and DNNs.
+    """This model is a combination of CNNs, RNNs, and DNNs.
 
     The default CNN model is based on VGG.
 
