@@ -30,6 +30,7 @@ def prepare_common_voice(
     test_tsv_file=None,
     accented_letters=False,
     duration_threshold=10,
+    language="en",
 ):
     """
     Prepares the csv files for the Mozilla Common Voice dataset.
@@ -65,11 +66,12 @@ def prepare_common_voice(
         Max duration (in seconds) to use as a threshold to filter sentences.
         The CommonVoice dataset contains very long utterance mostly containing
         noise due to open microphones.
+    language: str
+        Specify the language for text normalization.
 
     Example
     -------
     >>> from recipes.CommonVoice.common_voice_prepare import prepare_common_voice
-    >>>
     >>> data_folder = '/datasets/CommonVoice/en'
     >>> save_folder = 'exp/CommonVoice_exp'
     >>> path_to_wav = '/datasets/CommonVoice/en/clips_wav_total'
@@ -86,7 +88,8 @@ def prepare_common_voice(
                  dev_tsv_file, \
                  test_tsv_file, \
                  accented_letters, \
-                 duration_threshold \
+                 duration_threshold, \
+                 language="en" \
                  )
     """
 
@@ -161,6 +164,7 @@ def prepare_common_voice(
             data_folder,
             accented_letters,
             duration_threshold,
+            language,
         )
 
     # Creating csv file for dev data
@@ -180,6 +184,7 @@ def prepare_common_voice(
             data_folder,
             accented_letters,
             duration_threshold,
+            language,
         )
 
     # Creating csv file for test data
@@ -199,6 +204,7 @@ def prepare_common_voice(
             data_folder,
             accented_letters,
             duration_threshold,
+            language,
         )
 
 
@@ -290,6 +296,7 @@ def create_csv(
     data_folder,
     accented_letters=False,
     duration_threshold=10,
+    language="en",
 ):
     """
     Creates the csv file given a list of wav files.
@@ -387,7 +394,21 @@ def create_csv(
         words = line.split("\t")[2]
 
         # Do a bit of cleaning on the transcript ... But keep accents
-        words = re.sub("[^'A-Za-z0-9À-ÖØ-öø-ÿЀ-ӿ]+", " ", words).upper()
+        # Important: People who use different languages like [Cheneese, Russian, Hindu, Kabyle..]
+        # Are welcome to specify the text normalization for their language.
+        if language in ["en", "fr", "ti"]:
+            words = re.sub("[^'A-Za-z0-9À-ÖØ-öø-ÿЀ-ӿ]+", " ", words).upper()
+        elif language == "ar":
+            HAMZA = "\u0621"
+            ALEF_MADDA = "\u0622"
+            ALEF_HAMZA_ABOVE = "\u0623"
+            letters = (
+                "ابتةثجحخدذرزسشصضطظعغفقكلمنهويءآأؤإئ"
+                + HAMZA
+                + ALEF_MADDA
+                + ALEF_HAMZA_ABOVE
+            )
+            words = re.sub("[^" + letters + "]+", " ", words).upper()
 
         # Remove accents if specified
         if not accented_letters:
