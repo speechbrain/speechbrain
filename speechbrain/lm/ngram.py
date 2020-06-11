@@ -1,8 +1,8 @@
 """
 N-gram language model query interface
 
-Author
-    Aku Rouhe 2020
+Authors
+ * Aku Rouhe 2020
 """
 import collections
 

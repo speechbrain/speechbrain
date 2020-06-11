@@ -1,6 +1,8 @@
 """This library gathers utilities for data io operation.
 
-Authors: Mirco Ravanelli 2020, Aku Rouhe 2020
+Authors
+ * Mirco Ravanelli 2020
+ * Aku Rouhe 2020
 """
 
 import os

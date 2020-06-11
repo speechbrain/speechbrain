@@ -56,8 +56,8 @@ Example
 >>> lm.logprob("b", context = ("b",))
 -0.6931
 
-Author
-    Aku Rouhe 2020
+Authors
+ * Aku Rouhe 2020
 """
 import collections
 import logging

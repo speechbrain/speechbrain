@@ -1,9 +1,10 @@
 """
 Data i/o operations.
 
-Author
-------
-Mirco Ravanelli, Aku Rouhe, Ju-Chieh Chou 2020
+Authors
+ * Mirco Ravanelli 2020
+ * Aku Rouhe 2020
+ * Ju-Chieh Chou 2020
 """
 
 import os

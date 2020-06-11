@@ -1,9 +1,8 @@
 """
 Edit distance and WER computation
 
-Author
-------
-Aku Rouhe 2020
+Authors
+ * Aku Rouhe 2020
 """
 import collections
 
@@ -30,7 +29,7 @@ def accumulatable_wer_stats(refs, hyps, stats=collections.Counter()):
     ----------
     ref : iterable
         Batch of reference sequences
-    hyp: : iterable
+    hyp : iterable
         Batch of hypothesis sequences
     stats : collections.Counter
         The running statistics.
@@ -42,13 +41,13 @@ def accumulatable_wer_stats(refs, hyps, stats=collections.Counter()):
     Returns
     -------
     collections.Counter
-        The updated running
-        statistics, with keys:
-            "WER" - word error rate
-            "insertions" - number of insertions
-            "deletions" - number of deletions
-            "substitutions" - number of substitutions
-            "num_ref_tokens" - number of reference tokens
+        The updated running statistics, with keys:
+
+        * "WER" - word error rate
+        * "insertions" - number of insertions
+        * "deletions" - number of deletions
+        * "substitutions" - number of substitutions
+        * "num_ref_tokens" - number of reference tokens
 
     Example
     -------
@@ -96,10 +95,11 @@ def _batch_stats(refs, hyps):
     -------
     collections.Counter
         Edit statistics over the batch, with keys:
-            "insertions" - number of insertions
-            "deletions" - number of deletions
-            "substitutions" - number of substitutions
-            "num_ref_tokens" - number of reference tokens
+
+        * "insertions" - number of insertions
+        * "deletions" - number of deletions
+        * "substitutions" - number of substitutions
+        * "num_ref_tokens" - number of reference tokens
 
     Example
     -------
@@ -124,22 +124,24 @@ def _batch_stats(refs, hyps):
 
 def op_table(a, b):
     """
-    Table of edit operations between a and b
+    Table of edit operations between a and b.
 
     Solves for the table of edit operations, which is mainly used to
-    compute word error rate. The table is of size [|a|+1, |b|+1],
-    and each point (i, j) in the table has an edit operation. The
+    compute word error rate. The table is of size ``[|a|+1, |b|+1]``,
+    and each point ``(i, j)`` in the table has an edit operation. The
     edit operations can be deterministically followed backwards to
-    find the shortest edit path to from a[:i-1] to b[:j-1]. Indexes
-    of zero (i=0 or j=0) correspond to an empty sequence.
+    find the shortest edit path to from ``a[:i-1] to b[:j-1]``. Indexes
+    of zero (``i=0`` or ``j=0``) correspond to an empty sequence.
 
     The algorithm itself is well known, see
-        https://en.wikipedia.org/wiki/Levenshtein_distance
+
+    `Levenshtein distance <https://en.wikipedia.org/wiki/Levenshtein_distance>`_
+
     Note that in some cases there are multiple valid edit operation
     paths which lead to the same edit distance minimum.
 
     Arguments
-    ----------
+    ---------
     a : iterable
         Sequence for which the edit operations are solved.
     b : iterable
@@ -213,10 +215,9 @@ def op_table(a, b):
 
 def alignment(table):
     """
-    Get the edit distance alignment from an edit op table
+    Get the edit distance alignment from an edit op table.
 
-    Walks back an edit operations table, produced by calling
-        table(a, b),
+    Walks back an edit operations table, produced by calling ``table(a, b)``,
     and collects the edit distance alignment of a to b. The alignment
     shows which token in a corresponds to which token in b. Note that the
     alignment is monotonic, one-to-zero-or-one.
@@ -224,16 +225,16 @@ def alignment(table):
     Arguments
     ----------
     table : list
-        Edit operations table from op_table(a, b)
+        Edit operations table from ``op_table(a, b)``
 
     Returns
     -------
     list
-        Schema: [(str <edit-op>, int-or-None <i>, int-or-None <j>),]
+        Schema: ``[(str <edit-op>, int-or-None <i>, int-or-None <j>),]``
         List of edit operations, and the corresponding indices to a and b.
         See the EDIT_SYMBOLS dict for the edit-ops.
         i indexes a, j indexes b, and the indices can be None, which means
-        aligning to nothing
+        aligning to nothing.
 
     Example
     -------
@@ -288,17 +289,19 @@ def count_ops(table):
     Arguments
     ----------
     table : list
-        Edit operations table from op_table(a, b)
+        Edit operations table from ``op_table(a, b)``
 
     Returns
     -------
     collections.Counter
         The counts of the edit operations, with keys:
-            "insertions"
-            "deletions"
-            "substitutions"
+
+        * "insertions"
+        * "deletions"
+        * "substitutions"
+
         NOTE: not all of the keys might appear explicitly in the output,
-            but for the missing keys collections.Counter will return 0
+        but for the missing keys collections.Counter will return 0
 
 
     Example
@@ -342,9 +345,9 @@ def _batch_to_dict_format(ids, seqs):
 
 
 def wer_details_for_batch(ids, refs, hyps, compute_alignments=False):
-    """Convenient batch interface for wer_details_by_utterance
+    """Convenient batch interface for ``wer_details_by_utterance``
 
-    `wer_details_by_utterance` can handle missing hypotheses, but
+    ``wer_details_by_utterance`` can handle missing hypotheses, but
     sometimes (e.g. CTC training with greedy decoding) they are not needed,
     and this is a convenient interface in that case.
 
@@ -364,7 +367,7 @@ def wer_details_for_batch(ids, refs, hyps, compute_alignments=False):
     Returns
     -------
     list
-        See `wer_details_by_utterance`
+        See ``wer_details_by_utterance``
 
     Example
     -------
@@ -407,34 +410,36 @@ def wer_details_by_utterance(
         required for printing the alignments.
     scoring_mode : {'strict', 'all', 'present'}
         How to deal with missing hypotheses (reference utterance id
-            not found in hyp_dict)
-        'strict': raise error for missing hypotheses
-        'all': score missing hypotheses as empty
-        'present': only score existing hypotheses
+        not found in hyp_dict)
+
+        * 'strict': raise error for missing hypotheses
+        * 'all': score missing hypotheses as empty
+        * 'present': only score existing hypotheses
 
     Returns
     -------
     list
         A list with one entry for every reference utterance. Each entry is a
         dict with keys:
-            "key": utterance id
-            "scored": bool, whether utterance was scored
-            "hyp_absent": bool, true if a hypothesis was NOT found
-            "hyp_empty": bool, true if hypothesis was considered empty
-                (either because it was empty, or not found and mode 'all')
-            "num_edits": int, number of edits in total
-            "num_ref_tokens": int, number of tokens in the reference
-            "WER": float, word error rate of the utterance
-            "insertions": int, number of insertions
-            "deletions": int, number of deletions
-            "substitutions": int, number of substitutions
-            "alignment": if compute_alignments is True, alignment as list,
-                see speechbrain.utils.edit_distance.alignment
-                if compute_alignments is False, this is None
-            "ref_tokens": iterable, the reference tokens,
-                only saved if alignments were computed, else None
-            "hyp_tokens": iterable, the hypothesis tokens,
-                only saved if alignments were computed, else None
+
+        * "key": utterance id
+        * "scored": bool, whether utterance was scored
+        * "hyp_absent": bool, true if a hypothesis was NOT found
+        * "hyp_empty": bool, true if hypothesis was considered empty
+          (either because it was empty, or not found and mode 'all')
+        * "num_edits": int, number of edits in total
+        * "num_ref_tokens": int, number of tokens in the reference
+        * "WER": float, word error rate of the utterance
+        * "insertions": int, number of insertions
+        * "deletions": int, number of deletions
+        * "substitutions": int, number of substitutions
+        * "alignment": if compute_alignments is True, alignment as list,
+          see ``speechbrain.utils.edit_distance.alignment``
+          if compute_alignments is False, this is None
+        * "ref_tokens": iterable, the reference tokens,
+          only saved if alignments were computed, else None
+        * "hyp_tokens": iterable, the hypothesis tokens,
+          only saved if alignments were computed, else None
 
     Raises
     ------
@@ -517,25 +522,27 @@ def wer_summary(details_by_utterance):
     -------
     dict
         Dictionary with keys:
-            "WER": float, word error rate
-            "SER": float, sentence error rate (percentage of utterances
-                which had at least one error)
-            "num_edits": int, total number of edits
-            "num_scored_tokens": int, total number of tokens in scored
-                reference utterances (a missing hypothesis might still
-                    have been scored with 'all' scoring mode)
-            "num_erraneous_sents": int, total number of utterances
-                which had at least one error
-            "num_scored_sents": int, total number of utterances
-                which were scored
-            "num_absent_sents": int, hypotheses which were not found
-            "num_ref_sents": int, number of all reference utterances
-            "insertions": int, total number of insertions
-            "deletions": int, total number of deletions
-            "substitutions": int, total number of substitutions
+
+        * "WER": float, word error rate
+        * "SER": float, sentence error rate (percentage of utterances
+          which had at least one error)
+        * "num_edits": int, total number of edits
+        * "num_scored_tokens": int, total number of tokens in scored
+          reference utterances (a missing hypothesis might still
+          have been scored with 'all' scoring mode)
+        * "num_erraneous_sents": int, total number of utterances
+          which had at least one error
+        * "num_scored_sents": int, total number of utterances
+          which were scored
+        * "num_absent_sents": int, hypotheses which were not found
+        * "num_ref_sents": int, number of all reference utterances
+        * "insertions": int, total number of insertions
+        * "deletions": int, total number of deletions
+        * "substitutions": int, total number of substitutions
+
         NOTE: Some cases lead to ambiguity over number of
-            insertions, deletions and substitutions. We
-            aim to replicate Kaldi compute_wer numbers.
+        insertions, deletions and substitutions. We
+        aim to replicate Kaldi compute_wer numbers.
     """
     # Build the summary details:
     ins = dels = subs = 0
@@ -587,22 +594,23 @@ def wer_details_by_speaker(details_by_utterance, utt2spk):
     -------
     dict
         Maps speaker id to a dictionary of the statistics, with keys:
-            "speaker": speaker id,
-            "num_edits": int, number of edits in total by this speaker
-            "insertions": int, number insertions by this speaker
-            "dels": int, number of deletions by this speaker
-            "subs": int, number of substitutions by this speaker
-            "num_scored_tokens": int, number of scored reference
-                tokens by this speaker (a missing hypothesis might still
-                    have been scored with 'all' scoring mode)
-            "num_scored_sents": int, number of scored utterances
-                by this speaker
-            "num_erraneous_sents": int, number of utterance with at least
-                one error, by this speaker
-            "num_absent_sents": int, number of utterances for which no
-                hypothesis was found, by this speaker
-            "num_ref_sents": int, number of utterances by this speaker
-                in total
+
+        * "speaker": speaker id,
+        * "num_edits": int, number of edits in total by this speaker
+        * "insertions": int, number insertions by this speaker
+        * "dels": int, number of deletions by this speaker
+        * "subs": int, number of substitutions by this speaker
+        * "num_scored_tokens": int, number of scored reference
+          tokens by this speaker (a missing hypothesis might still
+          have been scored with 'all' scoring mode)
+        * "num_scored_sents": int, number of scored utterances
+          by this speaker
+        * "num_erraneous_sents": int, number of utterance with at least
+          one error, by this speaker
+        * "num_absent_sents": int, number of utterances for which no
+          hypothesis was found, by this speaker
+        * "num_ref_sents": int, number of utterances by this speaker
+          in total
     """
     # Build the speakerwise details:
     details_by_speaker = {}
