@@ -1,7 +1,7 @@
 """A popular speaker recognition and diarization model.
 
-Authors: Nauman Dawalatabad 2020
-
+Authors
+ * Nauman Dawalatabad 2020
 """
 
 # import os
