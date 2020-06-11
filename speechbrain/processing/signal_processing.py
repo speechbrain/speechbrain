@@ -231,7 +231,6 @@ def notch_filter(notch_freq, filter_width=101, notch_width=0.05):
     return (hlpf + hhpf).view(1, -1, 1)
 
 
-# WORK IN PROGRESS
 def cov(xs, average=True):
     """ Computes the covariance matrices of the signals.
 
@@ -249,12 +248,18 @@ def cov(xs, average=True):
 
     Returns
     -------
-    The covariance matrices. The tensors has the following
+    The covariance matrices. The tensor has the following
     format: (batch, time_step, n_fft, 2 n_pairs)
 
     Example
     -------
-    TODO: Add an example
+    >>> import soundfile as sf
+    >>> from speechbrain.processing.features import STFT
+    >>> signal, fs = sf.read('samples/audio_samples/example_multichannel.wav')
+    >>> signal = torch.tensor(signal).unsqueeze(0)
+    >>> compute_stft = STFT(sample_rate=fs)
+    >>> xs = compute_stft(signal)
+    >>> rxx = cov(xs)
     """
 
     # Formating the real and imaginary parts
@@ -287,7 +292,6 @@ def cov(xs, average=True):
     return rxx
 
 
-# WORK IN PROGRESS
 class GCCPHAT(torch.nn.Module):
     """ Generalized Cross-Correlation with Phase Transform (GCC-PHAT)
 
@@ -302,7 +306,16 @@ class GCCPHAT(torch.nn.Module):
 
     Example
     -------
-        TODO: Add an example
+    >>> import soundfile as sf
+    >>> from speechbrain.processing.features import STFT
+    >>> signal, fs = sf.read('samples/audio_samples/example_multichannel.wav')
+    >>> signal = torch.tensor(signal).unsqueeze(0)
+    >>> compute_stft = STFT(sample_rate=fs)
+    >>> xs = compute_stft(signal)
+    >>> rxx = cov(xs)
+    >>> compute_gccphat = GCCPHAT()
+    >>> xxs = compute_gccphat(rxx)
+    >>> _, gccphat_delays = torch.max(xxs[0, :, :, 1], 1)
     """
 
     def __init__(self, epsilon=1e-20):
@@ -318,13 +331,13 @@ class GCCPHAT(torch.nn.Module):
             The covariance matrices of the input signal.
         """
 
-        # Extracting the tensors needed
+        # Extracting the tensors for the operations
         rxx_values, rxx_indices = torch.unique(rxx, return_inverse=True, dim=1)
 
         rxx_re = rxx_values[..., 0, :]
         rxx_im = rxx_values[..., 1, :]
 
-        # Applying the phase transform
+        # Phase transform
         rxx_abs = torch.sqrt(rxx_re ** 2 + rxx_im ** 2) + self.epsilon
 
         rxx_re_phat = rxx_re / rxx_abs
@@ -339,7 +352,7 @@ class GCCPHAT(torch.nn.Module):
         xxs = torch.irfft(rxx_phat, signal_ndim=1, signal_sizes=[n_samples])
         xxs = xxs[:, rxx_indices]
 
-        # Formatting the output
+        # Formating the output
         xxs = xxs.transpose(2, 3)
 
         return xxs
