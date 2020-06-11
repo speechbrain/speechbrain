@@ -393,10 +393,11 @@ def create_csv(
         # Getting transcript
         words = line.split("\t")[2]
 
-        # Do a bit of cleaning on the transcript ... But keep accents
-        # Important: People who use different languages like [Cheneese, Russian, Hindu, Kabyle..]
-        # Are welcome to specify the text normalization for their language.
-        if language in ["en", "fr", "ti"]:
+        # !! Language specific cleaning !!
+        # Important: feel free to specify the text normalization 
+        # corresponding to your alphabet.
+
+        if language in ["en", "fr", "it"]:
             words = re.sub("[^'A-Za-z0-9À-ÖØ-öø-ÿЀ-ӿ]+", " ", words).upper()
         elif language == "ar":
             HAMZA = "\u0621"
