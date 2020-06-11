@@ -16,9 +16,9 @@ from speechbrain.decoders.decoders import undo_padding
 from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.train_logger import summarize_error_rate
 
-# This hack needed to import data preparation script from ..
+# This hack needed to import data preparation script from ../..
 current_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(os.path.dirname(current_dir))
+sys.path.append(os.path.dirname(os.path.dirname(current_dir)))
 from timit_prepare import prepare_timit  # noqa E402
 
 # Load hyperparameters file with command-line overrides
@@ -173,7 +173,7 @@ class ASR(sb.core.Brain):
 prepare_timit(
     data_folder=params.data_folder,
     splits=["train", "dev", "test"],
-    save_folder=params.data_folder,
+    save_folder=params.prepare_folder,
 )
 train_set = params.train_loader()
 valid_set = params.valid_loader()
