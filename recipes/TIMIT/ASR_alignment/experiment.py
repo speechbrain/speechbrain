@@ -47,13 +47,11 @@ class ASR(sb.core.Brain):
         ids, phns, phn_lens = targets
         phns, phn_lens = phns.to(params.device), phn_lens.to(params.device)
 
-        # sum_alpha_T = params.aligner(
-        #        pout, pout_lens, phns, phn_lens, "forward"
-        # )
+        sum_alpha_T = params.aligner(pout, pout_lens, phns, phn_lens, "forward")
 
-        # loss = -sum_alpha_T.sum()
+        loss = -sum_alpha_T.sum()
 
-        loss = params.compute_cost(pout, phns, pout_lens, phn_lens)
+        # loss = params.compute_cost(pout, phns, pout_lens, phn_lens)
 
         stats = {}
         if stage != "train":

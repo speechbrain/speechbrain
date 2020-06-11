@@ -5,7 +5,7 @@
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: !PLACEHOLDER  # e.g, 1234
+seed: 1234  # e.g, 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/augment_CRDNN/<seed>
 wer_file: !ref <output_folder>/wer.txt
@@ -13,14 +13,14 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: !PLACEHOLDER  # e.g. /path/to/TIMIT
-csv_train: !ref <data_folder>/train.csv
+data_folder: /network/home/rastorge/TIMIT  # e.g. /path/to/TIMIT
+csv_train: !ref <data_folder>/train_shortest_400.csv
 csv_valid: !ref <data_folder>/dev.csv
 csv_test: !ref <data_folder>/test.csv
 
 # Training parameters
 number_of_epochs: 30
-batch_size: 80
+batch_size: 512
 lr: 1
 device: 'cuda:0'
 
@@ -47,16 +47,20 @@ blank_index: !ref <output_neurons> - 1
 
 
 # Functions
-model: !new:speechbrain.lobes.models.CRDNN.CRDNN
-    activation: !ref <activation>
-    dropout: !ref <dropout>
-    cnn_blocks: !ref <cnn_blocks>
-    cnn_channels: !ref <cnn_channels>
-    cnn_kernelsize: !ref <cnn_kernelsize>
-    time_pooling: False
-    rnn_layers: !ref <rnn_layers>
-    rnn_neurons: !ref <rnn_neurons>
-    rnn_bidirectional: !ref <rnn_bidirectional>
+#model: !new:speechbrain.lobes.models.CRDNN.CRDNN
+#    activation: !ref <activation>
+#    dropout: !ref <dropout>
+#    cnn_blocks: !ref <cnn_blocks>
+#    cnn_channels: !ref <cnn_channels>
+#    cnn_kernelsize: !ref <cnn_kernelsize>
+#    time_pooling: False
+#    rnn_layers: !ref <rnn_layers>
+#    rnn_neurons: !ref <rnn_neurons>
+#    rnn_bidirectional: !ref <rnn_bidirectional>
+#    dnn_blocks: !ref <dnn_blocks>
+#    dnn_neurons: !ref <dnn_neurons>
+#
+model: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
     dnn_blocks: !ref <dnn_blocks>
     dnn_neurons: !ref <dnn_neurons>
 
@@ -87,6 +91,9 @@ augmentation: !new:speechbrain.lobes.augment.tdsa.TimeDomainSpecAugment
     speeds: [95, 100, 105]
 
 compute_features: !new:speechbrain.lobes.features.fbank.Fbank
+    context: True
+    left_frames: 3
+    right_frames: 3
     sample_rate: !ref <sample_rate>
     n_fft: !ref <n_fft>
     n_mels: !ref <n_mels>
