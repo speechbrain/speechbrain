@@ -119,7 +119,7 @@ class SEBrain(sb.core.Brain):
         # feats = params.mean_var_norm(feats, lens)
 
         mask = params.model(feats, init_params=init_params)
-        out = torch.mul(mask, feats)  # IRM with "signal approximation (SA)"
+        out = torch.mul(mask, feats)  # mask with "signal approximation (SA)"
 
         return out
 
