@@ -239,7 +239,7 @@ def cov(xs, average=True):
     xs : tensor
         A batch of audio signals in the frequency domain.
         The tensor must have the following format:
-        (batch, time_step, n_fft, 2, n_pairs)
+        (batch, time_step, n_fft, 2, n_mics)
 
     average : boolean
         Informs the method if it should return an average
@@ -249,12 +249,14 @@ def cov(xs, average=True):
     Returns
     -------
     The covariance matrices. The tensor has the following
-    format: (batch, time_step, n_fft, 2 n_pairs)
+    format: (batch, time_step, n_fft, n_mics + n_pairs)
 
     Example
     -------
     >>> import soundfile as sf
+    >>> import torch
     >>> from speechbrain.processing.features import STFT
+    >>> from speechbrain.processing.signal_processing import cov
     >>> signal, fs = sf.read('samples/audio_samples/example_multichannel.wav')
     >>> signal = torch.tensor(signal).unsqueeze(0)
     >>> compute_stft = STFT(sample_rate=fs)
@@ -312,12 +314,14 @@ def gccphat(rxx, eps=1e-20):
     Returns
     -------
     The cross-correlation values for each timestamp. The tensor has the
-    following format (batch, time_steps, n_fft, n_pairs)
+    following format (batch, time_steps, n_fft, n_mics + n_pairs)
 
     Example
     -------
     >>> import soundfile as sf
+    >>> import torch
     >>> from speechbrain.processing.features import STFT
+    >>> from speechbrain.processing.signal_processing import cov, gccphat
     >>> signal, fs = sf.read('samples/audio_samples/example_multichannel.wav')
     >>> signal = torch.tensor(signal).unsqueeze(0)
     >>> compute_stft = STFT(sample_rate=fs)
