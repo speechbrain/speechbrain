@@ -9,14 +9,12 @@ def test_gccphat():
     # Creating the test signal
     fs = 16000
 
-    padding = 120
-    n_fft = 400
-    delay = n_fft - padding
+    delay = 120
 
     sig = torch.randn([10, fs])
-    sig_delayed = torch.cat((torch.zeros([10, padding]), sig[:, 0:-padding]), 1)
+    sig_delayed = torch.cat((torch.zeros([10, delay]), sig[:, 0:-delay]), 1)
 
-    xs = torch.stack((sig, sig_delayed), -1)
+    xs = torch.stack((sig_delayed, sig), -1)
 
     compute_stft = STFT(sample_rate=fs)
     xs = compute_stft(xs)
