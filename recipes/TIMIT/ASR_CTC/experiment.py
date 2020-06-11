@@ -33,6 +33,8 @@ class ASR(sb.core.Brain):
     def compute_forward(self, x, stage="train", init_params=False):
         ids, wavs, wav_lens = x
         wavs, wav_lens = wavs.to(params.device), wav_lens.to(params.device)
+        if hasattr(params, "env_corrupt"):
+            wavs = params.env_corrupt(wavs, wav_lens, init_params)
         if hasattr(params, "augmentation"):
             wavs = params.augmentation(wavs, wav_lens, init_params)
         feats = params.compute_features(wavs, init_params)

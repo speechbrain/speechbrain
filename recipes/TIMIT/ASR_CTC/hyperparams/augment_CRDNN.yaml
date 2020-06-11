@@ -82,6 +82,14 @@ normalize: !new:speechbrain.processing.features.InputNormalization
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
+env_corrupt: !new:speechbrain.lobes.augment.env_corrupt.EnvCorrupt
+    openrir_folder: !ref <data_folder>
+    babble_speaker_count: 7
+    babble_snr_low: 10
+    babble_snr_high: 10
+    noise_snr_low: 10
+    noise_snr_high: 10
+
 augmentation: !new:speechbrain.lobes.augment.tdsa.TimeDomainSpecAugment
     sample_rate: !ref <sample_rate>
     speeds: [95, 100, 105]

@@ -193,7 +193,9 @@ class AddNoise(torch.nn.Module):
         if self.start_index is None:
             start_index = 0
             max_chop = (noise_len - lengths).min().clamp(min=1)
-            start_index = torch.randint(high=max_chop, size=(1,))
+            start_index = torch.randint(
+                high=max_chop, size=(1,), device=lengths.device
+            )
 
         # Truncate noise_batch to max_length
         noise_batch = noise_batch[:, start_index : start_index + max_length]
