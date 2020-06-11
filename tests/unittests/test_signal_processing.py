@@ -22,8 +22,7 @@ def test_gccphat():
     # Computing the covariance matrix for GCC-PHAT
     rxx = sp.cov(xs)
 
-    compute_gccphat = sp.GCCPHAT()
-    xxs = compute_gccphat(rxx)
+    xxs = sp.gccphat(rxx)
 
     # Extracting every delay found by GCC-PHAT
     _, gccphat_delays = torch.max(xxs[3, :, :, 1], 1)

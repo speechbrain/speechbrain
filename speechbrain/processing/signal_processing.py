@@ -292,17 +292,27 @@ def cov(xs, average=True):
     return rxx
 
 
-class GCCPHAT(torch.nn.Module):
+def gccphat(rxx, eps=1e-20):
     """ Generalized Cross-Correlation with Phase Transform (GCC-PHAT)
 
-    This class locates the source of a signal by doing a cross-correlation
+    This function locates the source of a signal by doing a cross-correlation
     and a phase transform between each pair of microphone. It is assumed
     that the argument "onesided" of the STFT was set to True.
 
     Arguments
     ---------
-    epsilon : float
-        A small value to avoid divisions by 0 with the phase transform
+    rxx : tensor
+        The covariance matrices of the input signal. The tensor must
+        have the following format (batch, time_steps, n_fft/2, 2, n_pairs)
+
+    eps : float
+        A small value to avoid divisions by 0 with the phase transform. The
+        default value is 1e-20.
+
+    Returns
+    -------
+    The cross-correlation values for each timestamp. The tensor has the
+    following format (batch, time_steps, n_fft, n_pairs)
 
     Example
     -------
@@ -313,46 +323,32 @@ class GCCPHAT(torch.nn.Module):
     >>> compute_stft = STFT(sample_rate=fs)
     >>> xs = compute_stft(signal)
     >>> rxx = cov(xs)
-    >>> compute_gccphat = GCCPHAT()
-    >>> xxs = compute_gccphat(rxx)
+    >>> xxs = gccphat(rxx)
     >>> _, gccphat_delays = torch.max(xxs[0, :, :, 1], 1)
     """
 
-    def __init__(self, epsilon=1e-20):
-        super().__init__()
-        self.epsilon = epsilon
+    # Extracting the tensors for the operations
+    rxx_values, rxx_indices = torch.unique(rxx, return_inverse=True, dim=1)
 
-    def forward(self, rxx):
-        """ Returns the cross-correlation values for each timestamp.
+    rxx_re = rxx_values[..., 0, :]
+    rxx_im = rxx_values[..., 1, :]
 
-        Arguments
-        ---------
-        rxx : tensor
-            The covariance matrices of the input signal.
-        """
+    # Phase transform
+    rxx_abs = torch.sqrt(rxx_re ** 2 + rxx_im ** 2) + eps
 
-        # Extracting the tensors for the operations
-        rxx_values, rxx_indices = torch.unique(rxx, return_inverse=True, dim=1)
+    rxx_re_phat = rxx_re / rxx_abs
+    rxx_im_phat = rxx_im / rxx_abs
 
-        rxx_re = rxx_values[..., 0, :]
-        rxx_im = rxx_values[..., 1, :]
+    rxx_phat = torch.stack((rxx_re_phat, rxx_im_phat), 4)
 
-        # Phase transform
-        rxx_abs = torch.sqrt(rxx_re ** 2 + rxx_im ** 2) + self.epsilon
+    # Returning in the temporal domain
+    rxx_phat = rxx_phat.transpose(2, 3)
+    n_samples = int((rxx.shape[2] - 1) * 2)
 
-        rxx_re_phat = rxx_re / rxx_abs
-        rxx_im_phat = rxx_im / rxx_abs
+    xxs = torch.irfft(rxx_phat, signal_ndim=1, signal_sizes=[n_samples])
+    xxs = xxs[:, rxx_indices]
 
-        rxx_phat = torch.stack((rxx_re_phat, rxx_im_phat), 4)
+    # Formating the output
+    xxs = xxs.transpose(2, 3)
 
-        # Returning in the temporal domain
-        rxx_phat = rxx_phat.transpose(2, 3)
-        n_samples = int((rxx.shape[2] - 1) * 2)
-
-        xxs = torch.irfft(rxx_phat, signal_ndim=1, signal_sizes=[n_samples])
-        xxs = xxs[:, rxx_indices]
-
-        # Formating the output
-        xxs = xxs.transpose(2, 3)
-
-        return xxs
+    return xxs
