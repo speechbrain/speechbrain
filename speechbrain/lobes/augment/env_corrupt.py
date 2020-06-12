@@ -84,10 +84,13 @@ class EnvCorrupt(torch.nn.Module):
 
         # Initialize corrupters
         if reverb_csv is not None:
-            self.add_reverb = AddReverb(csv_file=reverb_csv)
+            self.add_reverb = AddReverb(
+                reverb_prob=reverb_prob, csv_file=reverb_csv
+            )
 
         if babble_speaker_count > 0:
             self.add_babble = AddBabble(
+                mix_prob=babble_prob,
                 speaker_count=babble_speaker_count,
                 snr_low=babble_snr_low,
                 snr_high=babble_snr_high,
@@ -95,6 +98,7 @@ class EnvCorrupt(torch.nn.Module):
 
         if noise_csv is not None:
             self.add_noise = AddNoise(
+                mix_prob=noise_prob,
                 csv_file=noise_csv,
                 snr_low=noise_snr_low,
                 snr_high=noise_snr_high,
