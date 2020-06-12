@@ -1,0 +1,43 @@
+# Basic parameters
+output_folder: exp/minimal/nmf_sourcesep
+sample_rate: 16000
+
+# Data files
+data_folder: ../../../../samples/audio_samples/sourcesep_samples/minimal_data
+csv_train: !ref <data_folder>/csv_example_sourcesep_source1.csv
+csv_train2: !ref <data_folder>/csv_example_sourcesep_source2.csv
+csv_test: !ref <data_folder>/csv_example_sourcesep_mixture.csv
+
+# NMF parameters
+N_epochs: 400
+K: 100
+N_batch: 100
+m: 513  # length of stft vectors
+
+train_loader1: !speechbrain.data_io.data_io.DataLoaderFactory &loader
+               csv_file: !ref <csv_train>
+               batch_size: !ref <N_batch>
+               csv_read: [wav]
+               output_folder: !ref <output_folder>
+               replacements:
+                 $data_folder: !ref <data_folder>
+
+train_loader2: !speechbrain.data_io.data_io.DataLoaderFactory &loader
+               csv_file: !ref <csv_train2>
+               batch_size: !ref <N_batch>
+               csv_read: [wav]
+               output_folder: !ref <output_folder>
+               replacements:
+                 $data_folder: !ref <data_folder>
+
+test_loader: !speechbrain.data_io.data_io.DataLoaderFactory &loader
+             csv_file: !ref <csv_test>
+             batch_size: !ref <N_batch>
+             csv_read: [wav]
+             output_folder: !ref <output_folder>
+             replacements:
+               $data_folder: !ref <data_folder>
+
+compute_features: !speechbrain.processing.features.STFT
+  sample_rate: 16000
+  n_fft: 1024
