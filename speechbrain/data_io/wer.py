@@ -4,6 +4,9 @@ The functions here are used to print the computed statistics
 with human readable formatting.
 They have a file argument, but you can also just use
 contextlib.redirect_stdout, which may give a nicer syntax
+
+Authors
+ * Aku Rouhe 2020
 """
 import sys
 import speechbrain.utils.edit_distance as edit_distance
@@ -14,15 +17,14 @@ def print_wer_summary(wer_details, file=sys.stdout):
 
     This function essentially mirrors the Kaldi compute-wer output format
 
-    Arguments:
-        wer_details (dict): Dict of wer summary details,
-            see `speechbrain.utils.edit_distance.wer_summary`
-            for format.
-        file (stream, optional): Where to write. By default: sys.stdout
-
-    Author:
-        Aku Rouhe 2020
-
+    Arguments
+    ---------
+    wer_details : dict
+        Dict of wer summary details,
+        see ``speechbrain.utils.edit_distance.wer_summary``
+        for format.
+    file : stream
+        Where to write. By default: sys.stdout
     """
     print(
         "%WER {WER:.2f} [ {num_edits} / {num_scored_tokens}, {insertions} ins, {deletions} del, {substitutions} sub ]".format(  # noqa
@@ -54,14 +56,14 @@ def print_wer_summary(wer_details, file=sys.stdout):
 def print_alignments(details_by_utterance, file=sys.stdout):
     """Print WER summary and alignments
 
-    Arguments:
-        details_by_utterance (list): List of wer details by utterance,
-            see `speechbrain.utils.edit_distance.wer_details_by_utterance`
-            for format. Has to have alignments included.
-        file (stream, optional): Where to write. By default: sys.stdout
-
-    Author:
-        Aku Rouhe 2020
+    Arguments
+    ---------
+    details_by_utterance : list
+        List of wer details by utterance,
+        see ``speechbrain.utils.edit_distance.wer_details_by_utterance``
+        for format. Has to have alignments included.
+    file : stream
+        Where to write. By default: sys.stdout
     """
     _print_alignments_global_header(file=file)
     for dets in details_by_utterance:
