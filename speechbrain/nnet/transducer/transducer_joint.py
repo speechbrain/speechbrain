@@ -16,7 +16,8 @@ class Transducer_joint(nn.Module):
 
     Arguments
     ---------
-    joint_network: Neural Modules applied after the joint
+    joint_network: if joint == "concat" Neural Modules applied after the joint
+                   else None (not used if joint=="sum")
     joint : joint the two tensors by ("sum",or "concat") option
     nonlinearity: str
          Type of nonlinearity (tanh, relu)
@@ -34,15 +35,16 @@ class Transducer_joint(nn.Module):
     torch.Size([8, 200, 12, 80])
     """
 
-    def __init__(self, joint_network, joint="sum", nonlinearity="tanh"):
-        assert (
-            joint == "sum" or joint == "concat"
-        ), "fusion must be one of ('sum','concat')"
-        assert nonlinearity == "tanh" or nonlinearity == "tanh"
+    def __init__(self, joint_network=None, joint="sum", nonlinearity="tanh"):
         super().__init__()
         self.joint_network = joint_network
         self.joint = joint
-        self.nonlinearity = nonlinearity
+        if nonlinearity == "tanh":
+            self.nonlinearity = torch.tanh
+        elif nonlinearity == "relu":
+            self.nonlinearity = torch.nn.ReLU()
+        elif nonlinearity == "leakyrelu":
+            self.nonlinearity = torch.nn.LeakyReLU()
 
     def init_params(self, first_input):
         """
@@ -82,10 +84,10 @@ class Transducer_joint(nn.Module):
                 ymat = ymat.expand(torch.Size(sz + [ymat.shape[-1]]))
                 joint = torch.cat((xs, ymat), dim=dim)
 
-        if init_params:
-            self.init_params(joint)
+            # use a joint_network it we do a concat
+            if init_params:
+                self.init_params(joint)
 
-        joint = self.joint_network(joint)
+            joint = self.joint_network(joint)
 
-        if self.nonlinearity == "tanh":
-            return torch.tanh(joint)
+        return self.nonlinearity(joint)
