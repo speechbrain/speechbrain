@@ -485,8 +485,7 @@ class Conv2d(nn.Module):
         Dilation factor of the 2d convolutional filters over time and
         frequency axis.
     padding: str
-        (same, valid, causal). If "valid", no padding is performed.
-        "causal" results in causal (dilated) convolutions.
+        (same, valid). If "valid", no padding is performed.
     padding_mode: str
         This flag specifies the type of padding. See torch.nn documentation
         for more information.
@@ -572,17 +571,12 @@ class Conv2d(nn.Module):
                 x, self.kernel_size, self.dilation, self.stride
             )
 
-        elif self.padding == "causal":
-            num_pad = (self.kernel_size - 1) * self.dilation
-            x = F.pad(x, (num_pad, 0))
-
         elif self.padding == "valid":
             pass
 
         else:
             raise ValueError(
-                "Padding must be 'same', 'valid' or 'causal'. Got %s."
-                % (self.padding)
+                "Padding must be 'same' or 'valid'. Got %s." % (self.padding)
             )
 
         wx = self.conv(x)
