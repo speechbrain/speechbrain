@@ -31,3 +31,9 @@ def test_ASR_DNN_HMM():
     path = "recipes/minimal_examples/neural_networks/ASR_DNN_HMM/"
     sys.path.append(os.path.abspath(path))
     import experiment  # noqa F401
+
+
+def test_nmf_sourcesep():
+    path = "recipes/minimal_examples/signal_processing/nmf_sourcesep/"
+    sys.path.append(os.path.abspath(path))
+    import experiment  # noqa F401
