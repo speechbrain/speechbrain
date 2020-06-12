@@ -22,9 +22,10 @@ def test_gccphat():
     # Computing the covariance matrix for GCC-PHAT
     rxx = sp.cov(xs)
 
-    xxs = sp.gccphat(rxx)
+    gccphat = sp.GCCPHAT()
+    xxs = gccphat(rxx)
 
     # Extracting every delay found by GCC-PHAT
-    _, gccphat_delays = torch.max(xxs[3, :, :, 1], 1)
+    gccphat_delays = gccphat.find_tdoa(xxs)
 
-    assert torch.sum(gccphat_delays == delay) == xs.shape[1]
+    assert torch.sum(gccphat_delays[3, :, 1] == delay) == xs.shape[1]
