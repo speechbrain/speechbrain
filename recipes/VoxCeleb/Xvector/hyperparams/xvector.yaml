@@ -7,8 +7,8 @@ seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Folders and train_log file
-data_folder: !PLACEHOLDER  # /path/to/voxceleb1
-output_folder: results/
+data_folder: /localscratch/voxceleb1
+output_folder: results/exp_new_aug
 save_folder: !ref <output_folder>/save/
 train_log: !ref <output_folder>/train_log.txt
 
@@ -56,7 +56,7 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 
 augmentation: !new:speechbrain.lobes.augment.tdsa.TimeDomainSpecAugment
     sample_rate: 16000
-    speeds: [99, 100, 101]  # Tiny speed change helps regularization
+    speeds: [100]
 
 train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>
