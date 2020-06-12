@@ -1,9 +1,11 @@
 """
 Low level signal processing utilities
 
-Author
-------
+Authors
+-------
 Peter Plantinga 2020
+Francois Grondin 2020
+William Aris 2020
 """
 import torch
 
@@ -239,7 +241,7 @@ def cov(xs, average=True):
     xs : tensor
         A batch of audio signals in the frequency domain.
         The tensor must have the following format:
-        (batch, time_step, n_fft, 2, n_pairs)
+        (batch, time_step, n_fft, 2, n_mics)
 
     average : boolean
         Informs the method if it should return an average
@@ -249,12 +251,14 @@ def cov(xs, average=True):
     Returns
     -------
     The covariance matrices. The tensor has the following
-    format: (batch, time_step, n_fft, 2 n_pairs)
+    format: (batch, time_step, n_fft, n_mics + n_pairs)
 
     Example
     -------
     >>> import soundfile as sf
+    >>> import torch
     >>> from speechbrain.processing.features import STFT
+    >>> from speechbrain.processing.signal_processing import cov
     >>> signal, fs = sf.read('samples/audio_samples/example_multichannel.wav')
     >>> signal = torch.tensor(signal).unsqueeze(0)
     >>> compute_stft = STFT(sample_rate=fs)
@@ -292,63 +296,108 @@ def cov(xs, average=True):
     return rxx
 
 
-def gccphat(rxx, eps=1e-20):
+class GCCPHAT(torch.nn.Module):
     """ Generalized Cross-Correlation with Phase Transform (GCC-PHAT)
 
-    This function locates the source of a signal by doing a cross-correlation
+    This class locates the source of a signal by doing a cross-correlation
     and a phase transform between each pair of microphone. It is assumed
     that the argument "onesided" of the STFT was set to True.
-
-    Arguments
-    ---------
-    rxx : tensor
-        The covariance matrices of the input signal. The tensor must
-        have the following format (batch, time_steps, n_fft/2, 2, n_pairs)
-
-    eps : float
-        A small value to avoid divisions by 0 with the phase transform. The
-        default value is 1e-20.
-
-    Returns
-    -------
-    The cross-correlation values for each timestamp. The tensor has the
-    following format (batch, time_steps, n_fft, n_pairs)
 
     Example
     -------
     >>> import soundfile as sf
+    >>> import torch
     >>> from speechbrain.processing.features import STFT
+    >>> from speechbrain.processing.signal_processing import cov, GCCPHAT
     >>> signal, fs = sf.read('samples/audio_samples/example_multichannel.wav')
     >>> signal = torch.tensor(signal).unsqueeze(0)
     >>> compute_stft = STFT(sample_rate=fs)
     >>> xs = compute_stft(signal)
     >>> rxx = cov(xs)
+    >>> gccphat = GCCPHAT()
     >>> xxs = gccphat(rxx)
-    >>> _, gccphat_delays = torch.max(xxs[0, :, :, 1], 1)
+    >>> delays = gccphat.find_tdoa(xxs)
     """
 
-    # Extracting the tensors for the operations
-    rxx_values, rxx_indices = torch.unique(rxx, return_inverse=True, dim=1)
+    def __init__(self):
+        super().__init__()
 
-    rxx_re = rxx_values[..., 0, :]
-    rxx_im = rxx_values[..., 1, :]
+    def forward(self, rxx, eps=1e-20):
+        """ Returns the cross-correlation values for each timestamp.
+        The result has the following format:
+        (batch, time_steps, n_fft, n_mics + n_pairs)
 
-    # Phase transform
-    rxx_abs = torch.sqrt(rxx_re ** 2 + rxx_im ** 2) + eps
+        Arguments
+        ---------
+        rxx : tensor
+            The covariance matrices of the input signal. The tensor must
+            have the following format (batch, time_steps, n_fft/2, 2, n_pairs)
 
-    rxx_re_phat = rxx_re / rxx_abs
-    rxx_im_phat = rxx_im / rxx_abs
+        eps : float
+            A small value to avoid divisions by 0 with the phase transform. The
+            default value is 1e-20.
+        """
 
-    rxx_phat = torch.stack((rxx_re_phat, rxx_im_phat), 4)
+        # Extracting the tensors for the operations
+        rxx_values, rxx_indices = torch.unique(rxx, return_inverse=True, dim=1)
 
-    # Returning in the temporal domain
-    rxx_phat = rxx_phat.transpose(2, 3)
-    n_samples = int((rxx.shape[2] - 1) * 2)
+        rxx_re = rxx_values[..., 0, :]
+        rxx_im = rxx_values[..., 1, :]
 
-    xxs = torch.irfft(rxx_phat, signal_ndim=1, signal_sizes=[n_samples])
-    xxs = xxs[:, rxx_indices]
+        # Phase transform
+        rxx_abs = torch.sqrt(rxx_re ** 2 + rxx_im ** 2) + eps
 
-    # Formating the output
-    xxs = xxs.transpose(2, 3)
+        rxx_re_phat = rxx_re / rxx_abs
+        rxx_im_phat = rxx_im / rxx_abs
 
-    return xxs
+        rxx_phat = torch.stack((rxx_re_phat, rxx_im_phat), 4)
+
+        # Returning in the temporal domain
+        rxx_phat = rxx_phat.transpose(2, 3)
+        n_samples = int((rxx.shape[2] - 1) * 2)
+
+        xxs = torch.irfft(rxx_phat, signal_ndim=1, signal_sizes=[n_samples])
+        xxs = xxs[:, rxx_indices]
+
+        # Formating the output
+        xxs = xxs.transpose(2, 3)
+
+        return xxs
+
+    def find_tdoa(self, xxs, tdoa_max=None):
+        """ Returns the time difference of arrival (TDOA) for each
+        timestamp. The result has the following format:
+        (batch, time_steps, n_mics + n_pairs)
+
+        Arguments
+        ---------
+        xxs : tensor
+            The cross-correlation values for each timestamp. The input
+            has the following format: (batch, time_steps, n_fft, n_pairs)
+
+        tdoa_max : int
+            The maximum delay allowed between two signals. If a delay
+            found by GCC-PHAT is bigger than this value, this delay is
+            replaced by tdoa_max. tdoa_max is optional, if it is not specified,
+            the delays found by GCC-PHAT are returned without any change.
+            tdoa_max must be a positive integer between 0 and (n_fft / 2)
+        """
+
+        # Extracting the delays
+        _, delays = torch.max(xxs, 2)
+
+        # Fixing the delays that are not in the range
+        if tdoa_max is not None:
+            n_fft = xxs.shape[2]
+
+            idx_cond1 = delays > tdoa_max
+            idx_cond2 = delays <= (n_fft / 2)
+            idx = idx_cond1 == idx_cond2
+            delays[idx] = tdoa_max
+
+            idx_cond1 = delays > (n_fft / 2)
+            idx_cond2 = delays < (n_fft - tdoa_max)
+            idx = idx_cond1 == idx_cond2
+            delays[idx] = n_fft - tdoa_max
+
+        return delays
