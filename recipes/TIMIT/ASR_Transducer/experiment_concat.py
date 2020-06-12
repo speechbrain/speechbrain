@@ -157,6 +157,7 @@ modules = [
     params.encoder_lin,
     params.decoder_ligru,
     params.decoder_lin,
+    params.joint_lin,
     params.output,
 ]
 if hasattr(params, "augmentation"):
