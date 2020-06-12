@@ -295,7 +295,9 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         min_decode_steps = int(enc_states.shape[1] * self.min_decode_ratio)
         max_decode_steps = int(enc_states.shape[1] * self.max_decode_ratio)
-        prev_attn_peak = torch.zeros(batch_size * self.beam_size).to(device)
+        self.prev_attn_peak = torch.zeros(batch_size * self.beam_size).to(
+            device
+        )
 
         for t in range(max_decode_steps):
             log_probs, memory, attn = self.forward_step(
@@ -306,15 +308,19 @@ class S2SBeamSearcher(S2SBaseSearcher):
             if self.using_max_attn_shift:
                 # Block the candidates that exceed the max shift
                 _, attn_peak = torch.max(attn, dim=1)
-                lt_cond = attn_peak <= (prev_attn_peak + self.max_attn_shift)
-                mt_cond = attn_peak > (prev_attn_peak - self.max_attn_shift)
+                lt_cond = attn_peak <= (
+                    self.prev_attn_peak + self.max_attn_shift
+                )
+                mt_cond = attn_peak > (
+                    self.prev_attn_peak - self.max_attn_shift
+                )
 
                 # multiplication equals to element-wise and
                 cond = (lt_cond * mt_cond).unsqueeze(1).expand(-1, vocab_size)
                 log_probs = torch.where(
                     cond, log_probs, torch.Tensor([self.minus_inf]).to(device),
                 )
-                prev_attn_peak = attn_peak
+                self.prev_attn_peak = attn_peak
 
             # Set eos to minus_inf when less than minimum steps.
             if t < min_decode_steps:
@@ -351,6 +357,11 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
             # Permute the memory to synchoronize with the output.
             memory = self.permute_mem(memory, index=predecessors)
+
+            if self.using_max_attn_shift:
+                self.prev_attn_peak = torch.index_select(
+                    self.prev_attn_peak, dim=0, index=predecessors
+                )
 
             # Update alived_seq
             alived_seq = torch.cat(
