@@ -7,7 +7,6 @@ Authors
 import os
 import torch
 import shutil
-import logging
 import torchaudio
 import urllib.request
 from speechbrain.processing.speech_augmentation import (
@@ -16,8 +15,7 @@ from speechbrain.processing.speech_augmentation import (
     AddReverb,
 )
 
-logger = logging.getLogger(__name__)
-OPENRIR_URL = ("http://www.openslr.org/resources/28/rirs_noises.zip",)
+OPENRIR_URL = "http://www.openslr.org/resources/28/rirs_noises.zip"
 
 
 class EnvCorrupt(torch.nn.Module):
@@ -138,14 +136,16 @@ def _prepare_openrir(folder, reverb_csv, noise_csv):
     # Download if necessary
     filepath = os.path.join(folder, "rirs_noises.zip")
     if not os.path.isfile(filepath):
-        logger.info(f"Downloading {OPENRIR_URL} to {filepath}")
+
+        # Logging is not set up yet, so can't use it here.
+        print(f"Downloading {OPENRIR_URL} to {filepath}")
         with urllib.request.urlopen(OPENRIR_URL) as response:
             with open(filepath, "wb") as w:
                 shutil.copyfileobj(response, w)
 
     # Unpack if necessary
     if not os.path.isdir(os.path.join(folder, "RIRS_NOISES")):
-        logger.info(f"Extracting {filepath}")
+        print(f"Extracting {filepath}")
         shutil.unpack_archive(filepath, folder)
 
     # Prepare reverb csv if necessary
