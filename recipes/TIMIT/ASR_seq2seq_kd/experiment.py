@@ -8,7 +8,6 @@ import speechbrain.data_io.wer as wer_io
 import speechbrain.utils.edit_distance as edit_distance
 from speechbrain.data_io.data_io import convert_index_to_lab
 from speechbrain.data_io.data_io import prepend_bos_token
-from speechbrain.data_io.data_io import append_eos_token
 
 from speechbrain.decoders.seq2seq import S2SRNNGreedySearcher
 from speechbrain.decoders.seq2seq import S2SRNNBeamSearcher
@@ -38,11 +37,23 @@ modules = torch.nn.ModuleList(
 )
 
 tea0_modules = torch.nn.ModuleList(
-    [params.tea0_enc, params.tea0_emb, params.tea0_dec, params.tea0_ctc_lin, params.tea0_seq_lin]
+    [
+        params.tea0_enc,
+        params.tea0_emb,
+        params.tea0_dec,
+        params.tea0_ctc_lin,
+        params.tea0_seq_lin,
+    ]
 )
 
 tea1_modules = torch.nn.ModuleList(
-    [params.tea1_enc, params.tea1_emb, params.tea1_dec, params.tea1_ctc_lin, params.tea1_seq_lin]
+    [
+        params.tea1_enc,
+        params.tea1_emb,
+        params.tea1_dec,
+        params.tea1_ctc_lin,
+        params.tea1_seq_lin,
+    ]
 )
 
 greedy_searcher = S2SRNNGreedySearcher(
@@ -77,7 +88,14 @@ checkpointer = sb.utils.checkpoints.Checkpointer(
 
 # Define training procedure
 class ASR_kd(sb.core.Brain):
-    def __init__(self, modules=None, tea0_modules=None, tea1_modules=None, optimizer=None, first_inputs=None):
+    def __init__(
+        self,
+        modules=None,
+        tea0_modules=None,
+        tea1_modules=None,
+        optimizer=None,
+        first_inputs=None,
+    ):
 
         # Initialize teacher parameters
         self.tea0_modules = torch.nn.ModuleList(tea0_modules)
@@ -86,7 +104,9 @@ class ASR_kd(sb.core.Brain):
             self.compute_forward_tea0(*first_inputs, init_params=True)
             self.compute_forward_tea1(*first_inputs, init_params=True)
 
-        super(ASR_kd, self).__init__(modules=modules, optimizer=optimizer, first_inputs=first_inputs)
+        super(ASR_kd, self).__init__(
+            modules=modules, optimizer=optimizer, first_inputs=first_inputs
+        )
 
     def compute_forward_tea0(self, x, y, stage="train", init_params=False):
         ids, wavs, wav_lens = x
@@ -108,14 +128,21 @@ class ASR_kd(sb.core.Brain):
 
             y_in_tea0 = prepend_bos_token(phns, bos_index=params.bos_index)
             e_in_tea0 = params.tea0_emb(y_in_tea0, init_params=init_params)
-            h_tea0, _ = params.tea0_dec(e_in_tea0, x_tea0, wav_lens, init_params)
+            h_tea0, _ = params.tea0_dec(
+                e_in_tea0, x_tea0, wav_lens, init_params
+            )
             seq_logits_tea0 = params.tea0_seq_lin(h_tea0, init_params)
             m = torch.nn.Softmax(dim=-1)
             p_seq_tea0 = m(seq_logits_tea0)
 
-            wer_ctc_tea0 = params.compute_wer_list_ctc(p_ctc_tea0, phns, wav_lens, phn_lens)
+            wer_ctc_tea0 = params.compute_wer_list_ctc(
+                p_ctc_tea0, phns, wav_lens, phn_lens
+            )
             wer_tea0 = params.compute_wer_list(p_seq_tea0, phns, phn_lens)
-            wer_ctc_tea0, wer_tea0 = wer_ctc_tea0.to(params.device), wer_tea0.to(params.device)
+            wer_ctc_tea0, wer_tea0 = (
+                wer_ctc_tea0.to(params.device),
+                wer_tea0.to(params.device),
+            )
 
         return p_ctc_tea0, p_seq_tea0, wer_ctc_tea0, wer_tea0
 
@@ -139,17 +166,23 @@ class ASR_kd(sb.core.Brain):
 
             y_in_tea1 = prepend_bos_token(phns, bos_index=params.bos_index)
             e_in_tea1 = params.tea1_emb(y_in_tea1, init_params=init_params)
-            h_tea1, _ = params.tea1_dec(e_in_tea1, x_tea1, wav_lens, init_params)
+            h_tea1, _ = params.tea1_dec(
+                e_in_tea1, x_tea1, wav_lens, init_params
+            )
             seq_logits_tea1 = params.tea1_seq_lin(h_tea1, init_params)
             m = torch.nn.Softmax(dim=-1)
             p_seq_tea1 = m(seq_logits_tea1)
 
-            wer_ctc_tea1 = params.compute_wer_list_ctc(p_ctc_tea1, phns, wav_lens, phn_lens)
+            wer_ctc_tea1 = params.compute_wer_list_ctc(
+                p_ctc_tea1, phns, wav_lens, phn_lens
+            )
             wer_tea1 = params.compute_wer_list(p_seq_tea1, phns, phn_lens)
-            wer_ctc_tea1, wer_tea1 = wer_ctc_tea1.to(params.device), wer_tea1.to(params.device)
+            wer_ctc_tea1, wer_tea1 = (
+                wer_ctc_tea1.to(params.device),
+                wer_tea1.to(params.device),
+            )
 
         return p_ctc_tea1, p_seq_tea1, wer_ctc_tea1, wer_tea1
-
 
     def compute_forward(self, x, y, stage="train", init_params=False):
         ids, wavs, wav_lens = x
@@ -184,7 +217,9 @@ class ASR_kd(sb.core.Brain):
 
         return p_ctc, p_seq, wav_lens
 
-    def compute_objectives(self, predictions, tea0_output, tea1_output, targets, stage="train"):
+    def compute_objectives(
+        self, predictions, tea0_output, tea1_output, targets, stage="train"
+    ):
         if stage == "train":
             p_ctc, p_seq, wav_lens = predictions
         else:
@@ -197,12 +232,10 @@ class ASR_kd(sb.core.Brain):
         phns, phn_lens = phns.to(params.device), phn_lens.to(params.device)
         # add one for eos
         abs_length = torch.round(phn_lens * phns.shape[1])
-        phns_with_eos = append_eos_token(
-            phns, length=abs_length, eos_index=params.eos_index
-        )
+
         rel_length = (abs_length + 1) / phns.shape[1]
 
-        #wer
+        # wer
         tea_wer = torch.cat([wer_tea0, wer_tea1], 0)
         tea_wer_ctc = torch.cat([wer_ctc_tea0, wer_ctc_tea1], 0)
 
@@ -257,7 +290,9 @@ class ASR_kd(sb.core.Brain):
         predictions = self.compute_forward(inputs, targets)
         tea0_output = self.compute_forward_tea0(inputs, targets)
         tea1_output = self.compute_forward_tea1(inputs, targets)
-        loss, stats = self.compute_objectives(predictions, tea0_output, tea1_output, targets)
+        loss, stats = self.compute_objectives(
+            predictions, tea0_output, tea1_output, targets
+        )
         loss.backward()
         self.optimizer.step()
         self.optimizer.zero_grad()
@@ -269,7 +304,9 @@ class ASR_kd(sb.core.Brain):
         predictions = self.compute_forward(inputs, targets, stage=stage)
         tea0_output = self.compute_forward_tea0(inputs, targets)
         tea1_output = self.compute_forward_tea1(inputs, targets)
-        loss, stats = self.compute_objectives(predictions, tea0_output, tea1_output, targets, stage=stage)
+        loss, stats = self.compute_objectives(
+            predictions, tea0_output, tea1_output, targets, stage=stage
+        )
         stats["loss"] = loss.detach()
         return stats
 
@@ -306,10 +343,10 @@ asr_brain = ASR_kd(
 )
 
 # load teacher models
-tea0_path = '/nfs-share/yan/speechbrain_newArch/recipes/TIMIT/ASR_seq2seq/results/CRDNN/1234/save/CKPT+2020-06-04+19-41-48+00/model.ckpt'
+tea0_path = "/nfs-share/yan/speechbrain_newArch/recipes/TIMIT/ASR_seq2seq/results/CRDNN/1234/save/CKPT+2020-06-04+19-41-48+00/model.ckpt"
 tea0_modules.load_state_dict(torch.load(tea0_path))
 
-tea1_path = '/nfs-share/yan/speechbrain_newArch/recipes/TIMIT/ASR_seq2seq_tea2/results/CRDNN/1234/save/CKPT+2020-06-09+14-59-28+00/model.ckpt'
+tea1_path = "/nfs-share/yan/speechbrain_newArch/recipes/TIMIT/ASR_seq2seq_tea2/results/CRDNN/1234/save/CKPT+2020-06-09+14-59-28+00/model.ckpt"
 tea1_modules.load_state_dict(torch.load(tea1_path))
 
 # Load latest checkpoint to resume training
