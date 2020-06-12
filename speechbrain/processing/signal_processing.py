@@ -229,3 +229,126 @@ def notch_filter(notch_freq, filter_width=101, notch_width=0.05):
 
     # Adding filters creates notch filter
     return (hlpf + hhpf).view(1, -1, 1)
+
+
+# WORK IN PROGRESS
+class EigenH(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, a, b=None):
+        """
+        Input: (B, 1, K, 2, C+P)
+        Output: (B, K, C, C)
+        """
+
+        """# Extracting data
+        batch = a.shape[0]
+        n_fft = a.shape[2]
+        p = a.shape[4]
+        n_channels = int(round(((1 + 8 * p) ** 0.5 - 1) / 2))
+
+        # Converting the input matrices to block matrices
+        ash = f(a)
+
+        if b is None:
+            identity = torch.eye(n_channels)
+            bsh = 1.0
+        else:
+            bsh = f(b)
+
+        return a"""
+        pass
+
+    def f(self, ws):
+        """
+        Input: (B, 1, K, 2, C+P)
+        Output: (B, K, 2C, 2C)
+        """
+
+        # Formating the input matrix
+        ws = ws.transpose(3, 4).squeeze(1)
+
+        # Extracting data
+        batch = ws.shape[0]
+        n_fft = ws.shape[1]
+        p = ws.shape[2]
+        n_channels = int(round(((1 + 8 * p) ** 0.5 - 1) / 2))
+
+        # Creating the output matrix
+        wsh = torch.zeros(
+            (batch, n_fft, 2 * n_channels, 2 * n_channels),
+            dtype=ws.dtype,
+            device=ws.device,
+        )
+
+        # Filling in the output matrix
+        indices = torch.triu_indices(n_channels, n_channels)
+
+        wsh[..., indices[1] * 2, indices[0] * 2] = ws[..., 0]
+        wsh[..., indices[0] * 2, indices[1] * 2] = ws[..., 0]
+        wsh[..., indices[1] * 2 + 1, indices[0] * 2 + 1] = ws[..., 0]
+        wsh[..., indices[0] * 2 + 1, indices[1] * 2 + 1] = ws[..., 0]
+
+        wsh[..., indices[0] * 2, indices[1] * 2 + 1] = -1 * ws[..., 1]
+        wsh[..., indices[1] * 2 + 1, indices[0] * 2] = -1 * ws[..., 1]
+        wsh[..., indices[0] * 2 + 1, indices[1] * 2] = ws[..., 1]
+        wsh[..., indices[1] * 2, indices[0] * 2 + 1] = ws[..., 1]
+
+        return wsh
+
+    def finv(self, wsh):
+        pass
+
+    def g(self, ws):
+        pass
+
+    def ginv(self, wsh):
+        """
+        Input: (B, K, 2C, 2C)
+        Output: (B, K, C, C, 2)
+        """
+
+        # Extracting data
+        batch = wsh.shape[0]
+        n_fft = wsh.shape[1]
+        n_channels = int(wsh.shape[2] / 2)
+
+        # Creating the output matrix
+        ws = torch.zeros(
+            (batch, n_fft, n_channels, n_channels, 2),
+            dtype=wsh.dtype,
+            device=wsh.device,
+        )
+
+        # Filling the output matrix
+        # ws[..., 0] = wsh[..., slice(0, 2*n_channels, 2),
+        # slice(0, 2*n_channels, 2)]
+        # ws[..., 1] = wsh[..., slice(1, 2*n_channels, 2),
+        # slice(0, 2*n_channels, 2)]
+
+        return ws
+
+    def pos_def(self, ws, alpha=0.001, eps=1e-20):
+        """
+        Input: (B, 1, K, 2, C+P)
+        Output: (B, 1, K, 2, C+P)
+        """
+
+        # Extracting data
+        p = ws.shape[4]
+        n_channels = int(round(((1 + 8 * p) ** 0.5 - 1) / 2))
+
+        # Finding the indices of the diagonal
+        indices_triu = torch.triu_indices(n_channels, n_channels)
+        indices_diag = torch.eq(indices_triu[0, :], indices_triu[1, :])
+
+        # Computing the trace
+        trace = torch.sum(ws[..., 0, indices_diag], 4)
+        trace = trace.unsqueeze(3).repeat(1, 1, 1, n_channels)
+
+        # Adding the trace multiplied by alpha to the diagonal
+        ws_pf = ws.clone()
+        ws_pf[..., 0, indices_diag] += alpha * trace + eps
+
+        return ws_pf
