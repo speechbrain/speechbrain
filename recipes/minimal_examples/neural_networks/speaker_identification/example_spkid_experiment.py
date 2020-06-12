@@ -13,7 +13,7 @@ with open(params_file) as fin:
 
 
 class SpkIdBrain(sb.core.Brain):
-    def compute_forward(self, x, train_mode=True, init_params=False):
+    def compute_forward(self, x, stage="train", init_params=False):
         id, wavs, lens = x
         feats = params.compute_features(wavs, init_params)
         feats = params.mean_var_norm(feats, lens)
@@ -26,13 +26,14 @@ class SpkIdBrain(sb.core.Brain):
 
         return outputs, lens
 
-    def compute_objectives(self, predictions, targets, train_mode=True):
+    def compute_objectives(self, predictions, targets, stage="train"):
         predictions, lens = predictions
         uttid, spkid, _ = targets
         loss = params.compute_cost(predictions, spkid, lens)
 
         stats = {}
-        if not train_mode:
+
+        if stage != "train":
             stats["error"] = params.compute_error(predictions, spkid, lens)
 
         return loss, stats
@@ -51,13 +52,11 @@ spk_id_brain = SpkIdBrain(
     optimizer=params.optimizer,
     first_inputs=[first_x],
 )
-train_stats, _ = spk_id_brain.fit(
-    range(params.N_epochs), train_set, params.valid_loader()
-)
+spk_id_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
 test_stats = spk_id_brain.evaluate(params.test_loader())
 print("Test error: %.2f" % summarize_average(test_stats["error"]))
 
 
 # Integration test: ensure we overfit the training data
 def test_error():
-    assert summarize_average(train_stats["loss"]) < 0.2
+    assert spk_id_brain.avg_train_loss < 0.2

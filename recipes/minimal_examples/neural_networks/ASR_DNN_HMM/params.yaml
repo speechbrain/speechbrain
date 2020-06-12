@@ -54,12 +54,9 @@ linear2: !new:speechbrain.nnet.linear.Linear
 softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
-compute_cost: !new:speechbrain.nnet.losses.ComputeCost
-    cost_type: nll
+compute_cost: !name:speechbrain.nnet.losses.nll_loss
 
-compute_error: !new:speechbrain.nnet.losses.ComputeCost
-    cost_type: error
+compute_error: !name:speechbrain.nnet.losses.classification_error
 
-optimizer: !new:speechbrain.nnet.optimizers.Optimize
-    optimizer_type: adam
+optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
     learning_rate: !ref <lr>

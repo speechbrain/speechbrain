@@ -12,7 +12,7 @@ with open(params_file) as fin:
 
 
 class ASR_Brain(sb.core.Brain):
-    def compute_forward(self, x, train_mode=True, init_params=False):
+    def compute_forward(self, x, stage="train", init_params=False):
         id, wavs, lens = x
         feats = params.compute_features(wavs, init_params)
         feats = params.mean_var_norm(feats, lens)
@@ -24,14 +24,13 @@ class ASR_Brain(sb.core.Brain):
 
         return outputs, lens
 
-    def compute_objectives(self, predictions, targets, train_mode=True):
+    def compute_objectives(self, predictions, targets, stage="train"):
         outputs, lens = predictions
         ids, ali, ali_lens = targets
-        lens = [lens, ali_lens]
         loss = params.compute_cost(outputs, ali, lens)
 
         stats = {}
-        if not train_mode:
+        if stage != "train":
             stats["error"] = params.compute_error(outputs, ali, lens)
 
         return loss, stats
@@ -50,13 +49,11 @@ asr_brain = ASR_Brain(
     optimizer=params.optimizer,
     first_inputs=[first_x],
 )
-train_stats, _ = asr_brain.fit(
-    range(params.N_epochs), train_set, params.valid_loader()
-)
+asr_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
 test_stats = asr_brain.evaluate(params.test_loader())
 print("Test error: %.2f" % summarize_average(test_stats["error"]))
 
 
 # Define an integration test of overfitting on the train data
 def test_error():
-    assert summarize_average(train_stats["loss"]) < 0.2
+    assert asr_brain.avg_train_loss < 0.2
