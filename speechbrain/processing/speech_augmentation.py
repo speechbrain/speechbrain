@@ -342,7 +342,7 @@ class AddReverb(torch.nn.Module):
         orig_amplitude = compute_amplitude(waveforms, lengths)
 
         # Load and prepare RIR
-        rir_waveform = self._load_rir(waveforms).abs()
+        rir_waveform = self._load_rir(waveforms)
 
         # Compress or dilate RIR
         if self.rir_scale_factor != 1:
@@ -355,7 +355,12 @@ class AddReverb(torch.nn.Module):
             rir_waveform = rir_waveform.transpose(1, -1)
 
         # Compute index of the direct signal, so we can preserve alignment
-        direct_index = rir_waveform.argmax(axis=1).median()
+        value_max, direct_index = rir_waveform.abs().max(axis=1)
+
+        # Making sure the max is always positive (if not, flip)
+        # This is useful for speeech enhancment
+        if rir_waveform[0, direct_index, 0] < 0:
+            rir_waveform = -rir_waveform
 
         # Use FFT to compute convolution, because of long reverberation filter
         reverbed_waveform = convolve1d(
