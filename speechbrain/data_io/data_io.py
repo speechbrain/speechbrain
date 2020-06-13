@@ -930,12 +930,13 @@ class DatasetFactory(Dataset):
             data_source, data_options=data_options, lab2ind=lab2ind,
         )
 
-        # Convert numpy array to float32
+        # Get data_shape as float32 numpy array
         if isinstance(data, np.ndarray):
             data_shape = np.asarray(data.shape[-1]).astype("float32")
         elif isinstance(data, torch.Tensor):
             data_shape = np.asarray(data.shape[-1]).astype("float32")
-
+        elif isinstance(data, list):
+            data_shape = np.asarray(len(data)).astype("float32")
         else:
             data_shape = np.asarray(1).astype("float32")
 

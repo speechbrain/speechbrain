@@ -727,3 +727,56 @@ class HMMAligner(torch.nn.Module):
             return self._get_viterbi_batch(ids, lens_abs)
         else:
             return self._get_flat_start_batch(lens_abs, phn_lens_abs, phns)
+
+    def _calc_accuracy_sent(self, alignments_, ends_, phns_):
+        """
+        docstring to be added
+        phns_ is unpadded
+        """
+        # Create array containing the true alignment at each sample
+        ends_ = [0] + [int(end) for end in ends_]
+        true_durations = [ends_[i] - ends_[i - 1] for i in range(1, len(ends_))]
+        true_alignments = []
+        for i in range(len(phns_)):
+            true_alignments += [phns_[i]] * (true_durations[i])
+        true_alignments = torch.tensor(true_alignments)
+
+        # Upsample the predicted alignment array
+        # and make sure length matches that of `true_alignment`
+        upsample_factor = int(
+            torch.round(torch.tensor(len(true_alignments) / len(alignments_)))
+        )
+
+        alignments_upsampled = []
+        for i in range(len(alignments_)):
+            alignments_upsampled += [alignments_[i]] * upsample_factor
+
+        alignments_upsampled = alignments_upsampled[: len(true_alignments)]
+        alignments_upsampled = torch.tensor(alignments_upsampled)
+
+        if len(true_alignments) > len(alignments_upsampled):
+            alignments_upsampled = torch.nn.functional.pad(
+                alignments_upsampled,
+                (0, len(true_alignments) - len(alignments_upsampled)),
+            )
+
+        # Measure sample-wise accuracy
+        accuracy = (
+            alignments_upsampled == true_alignments
+        ).float().mean().item() * 100
+
+        return accuracy
+
+    def calc_accuracy(self, alignments, ends, phns):
+        """
+        docstring to be added
+        """
+        acc_hist = []
+        for alignments_, ends_, phns_ in zip(alignments, ends, phns):
+            acc = self._calc_accuracy_sent(alignments_, ends_, phns_)
+            acc_hist.append(acc)
+
+        acc_hist = torch.tensor(acc_hist)
+        mean_acc = acc_hist.mean().item()
+
+        return mean_acc
