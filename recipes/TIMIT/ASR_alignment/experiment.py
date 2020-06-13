@@ -44,26 +44,31 @@ class ASR(sb.core.Brain):
 
     def compute_objectives(self, predictions, targets, stage="train"):
         pout, pout_lens = predictions
-        ids, phns, phn_lens = targets
+        ids, phns, phn_lens = targets[0]
+        _, ends, end_lens = targets[1]
         phns, phn_lens = phns.to(params.device), phn_lens.to(params.device)
 
-        sum_alpha_T = params.aligner(pout, pout_lens, phns, phn_lens, "forward")
+        prev_alignments = params.aligner.get_prev_alignments(
+            ids, pout, pout_lens, phns, phn_lens
+        )
+        prev_alignments = prev_alignments.to(params.device)
 
-        loss = -sum_alpha_T.sum()
-
-        # loss = params.compute_cost(pout, phns, pout_lens, phn_lens)
+        loss = params.compute_cost(pout, prev_alignments)
 
         stats = {}
         if stage != "train":
             viterbi_scores, alignments = params.aligner(
                 pout, pout_lens, phns, phn_lens, "viterbi"
             )
-            print(alignments[-1])
+            params.aligner.store_alignments(ids, alignments)
 
             ind2lab = params.train_loader.label_dict["phn"]["index2lab"]
             sequence = ctc_greedy_decode(pout, pout_lens, blank_id=-1)
             sequence = convert_index_to_lab(sequence, ind2lab)
             phns = undo_padding(phns, phn_lens)
+            acc = params.aligner.calc_accuracy(alignments, ends, phns)
+            stats["accuracy"] = acc
+
             phns = convert_index_to_lab(phns, ind2lab)
             per_stats = edit_distance.wer_details_for_batch(
                 ids, phns, sequence, compute_alignments=True
@@ -82,6 +87,34 @@ class ASR(sb.core.Brain):
             meta={"PER": per},
             importance_keys=[ckpt_recency, lambda c: -c.meta["PER"]],
         )
+        self.evaluate(train_set)
+
+    def fit_batch(self, batch):
+        """
+        Modify slightly from original version as batch returns ends as well.
+        Only first 2 lines are modified
+        """
+        inputs, phns, ends = batch
+        targets = phns, ends
+        predictions = self.compute_forward(inputs)
+        loss, stats = self.compute_objectives(predictions, targets)
+        loss.backward()
+        self.optimizer.step()
+        self.optimizer.zero_grad()
+        stats["loss"] = loss.detach()
+        return stats
+
+    def evaluate_batch(self, batch, stage="test"):
+        """
+        Modify slightly from original version as batch returns ends as well.
+        Only first 2 lines are modified.
+        """
+        inputs, phns, ends = batch
+        targets = phns, ends
+        out = self.compute_forward(inputs, stage=stage)
+        loss, stats = self.compute_objectives(out, targets, stage=stage)
+        stats["loss"] = loss.detach()
+        return stats
 
 
 # Prepare data
@@ -92,7 +125,7 @@ prepare_timit(
 )
 train_set = params.train_loader()
 valid_set = params.valid_loader()
-first_x, first_y = next(iter(train_set))
+first_x, first_phns, first_ends = next(iter(train_set))
 
 # Modules are passed to optimizer and have train/eval called on them
 modules = [params.model, params.output]

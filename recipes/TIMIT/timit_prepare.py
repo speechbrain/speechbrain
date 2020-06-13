@@ -2,6 +2,10 @@
 Data preparation.
 
 Download: https://catalog.ldc.upenn.edu/LDC93S1
+
+Authors
+* Others
+* Elena Rastorgueva 2020
 """
 
 import os
@@ -530,6 +534,9 @@ def create_csv(
             "wrd",
             "wrd_format",
             "wrd_opts",
+            "ground_truth_phn_ends",
+            "ground_truth_phn_ends_format",
+            "ground_truth_phn_ends_opts",
         ]
     ]
 
@@ -598,8 +605,8 @@ def create_csv(
             err_msg = "the wrd file %s does not exists!" % (phn_file)
             raise FileNotFoundError(err_msg)
 
-        # Getting the phoneme list from the phn files
-        phonemes = get_phoneme_list(phn_file, phn_set)
+        # Getting the phoneme and ground truth ends lists from the phn files
+        phonemes, ends = get_phoneme_lists(phn_file, phn_set)
 
         # Composition of the csv_line
         csv_line = [
@@ -617,6 +624,9 @@ def create_csv(
             str(words),
             "string",
             "",
+            str(ends),
+            "string",
+            "label:False",
         ]
 
         if kaldi_lab is not None:
@@ -633,31 +643,69 @@ def create_csv(
     logger.debug(msg)
 
 
-def get_phoneme_list(phn_file, phn_set):
+def get_phoneme_lists(phn_file, phn_set):
     """
-    Reads the phn and gets the phoneme list.
+    Reads the phn file and gets the phoneme list & ground truth ends list.
     """
 
     phonemes = []
-    for line in open(phn_file):
-        phoneme = line.rstrip("\n").replace("h#", "sil").split(" ")[2]
+    ends = []
 
-        # Gettting dictionaries for phoneme conversion
+    for line in open(phn_file):
+        end, phoneme = line.rstrip("\n").replace("h#", "sil").split(" ")[1:]
+
+        # Getting dictionaries for phoneme conversion
         from_60_to_48_phn, from_60_to_39_phn = _get_phonemes()
 
+        # Removing end corresponding to q if phn set is not 61
+        if phn_set != "61":
+            if phoneme == "q":
+                end = ""
+
+        # Converting phns if necessary
         if phn_set == "48":
             phoneme = from_60_to_48_phn[phoneme]
         if phn_set == "39":
             phoneme = from_60_to_39_phn[phoneme]
 
+        # Appending arrays
         if len(phoneme) > 0:
             phonemes.append(phoneme)
+        if len(end) > 0:
+            ends.append(end)
 
-    # Filtering consecutive silences
+    # Filtering out consecutive silences by applying a mask with `True` marking
+    # which sils to remove
+    # e.g.
+    # phonemes          [  "a", "sil", "sil",  "sil",   "b"]
+    # ends              [   1 ,    2 ,    3 ,     4 ,    5 ]
+    # ---
+    # create:
+    # remove_sil_mask   [False,  True,  True,  False,  False]
+    # ---
+    # so end result is:
+    # phonemes ["a", "sil", "b"]
+    # ends     [  1,     4,   5]
+
+    remove_sil_mask = [True if x == "sil" else False for x in phonemes]
+
+    for i, val in enumerate(remove_sil_mask):
+        if val is True:
+            if i == len(remove_sil_mask) - 1:
+                remove_sil_mask[i] = False
+            elif remove_sil_mask[i + 1] is False:
+                remove_sil_mask[i] = False
+
+    phonemes = [
+        phon for i, phon in enumerate(phonemes) if not remove_sil_mask[i]
+    ]
+    ends = [end for i, end in enumerate(ends) if not remove_sil_mask[i]]
+
+    # Convert to e.g. "a sil b", "1 4 5"
     phonemes = " ".join(phonemes)
-    phonemes = phonemes.replace("sil sil", "sil")
+    ends = " ".join(ends)
 
-    return phonemes
+    return phonemes, ends
 
 
 def _write_csv(csv_lines, csv_file):
