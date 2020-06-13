@@ -47,7 +47,11 @@ class EnvCorrupt(torch.nn.Module):
         Lowest generated SNR of babbled signal to noise.
     noise_snr_high : int
         Highest generated SNR of babbled signal to noise.
-
+    scale_factor: float
+        It compresses or dilates the given impuse response.
+        If 0 < scale_factor < 1, the impulse response is compressed
+        (less reverb), while if scale_factor > 1 it is dilated
+        (more reverb).
 
     Example
     -------
@@ -69,6 +73,7 @@ class EnvCorrupt(torch.nn.Module):
         babble_snr_high=0,
         noise_snr_low=0,
         noise_snr_high=0,
+        rir_scale_factor=1.0,
     ):
         super().__init__()
 
@@ -85,7 +90,9 @@ class EnvCorrupt(torch.nn.Module):
         # Initialize corrupters
         if reverb_csv is not None:
             self.add_reverb = AddReverb(
-                reverb_prob=reverb_prob, csv_file=reverb_csv
+                reverb_prob=reverb_prob,
+                csv_file=reverb_csv,
+                rir_scale_factor=rir_scale_factor,
             )
 
         if babble_speaker_count > 0:
