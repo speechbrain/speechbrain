@@ -140,6 +140,58 @@ class StatObject_SB:
         return sts_per_model, session_per_model
 
 
+def fa_model_loop(
+    batch_start,
+    mini_batch_indices,
+    factor_analyser,
+    stat0,
+    stat1,
+    e_h,
+    e_hh,
+    num_thread=1,
+):
+    """
+    Methods that is called for PLDA estimation for parallelization on classes
+
+    :param batch_start: index to start at in the list
+    :param mini_batch_indices: indices of the elements in the list (should start at zero)
+    :param factor_analyser: FactorAnalyser object
+    :param stat0: matrix of zero order statistics
+    :param stat1: matrix of first order statistics
+    :param e_h: accumulator
+    :param e_hh: accumulator
+    :param num_thread: number of parallel process to run
+    """
+    rank = factor_analyser.F.shape[1]
+    if factor_analyser.Sigma.ndim == 2:
+        A = factor_analyser.F.T.dot(factor_analyser.F)
+        inv_lambda_unique = dict()
+        for sess in numpy.unique(stat0[:, 0]):
+            inv_lambda_unique[sess] = numpy.linalg.inv(
+                sess * A + numpy.eye(A.shape[0])
+            )
+
+    tmp = numpy.zeros(
+        (factor_analyser.F.shape[1], factor_analyser.F.shape[1]),
+        dtype=STAT_TYPE,
+    )
+
+    for idx in mini_batch_indices:
+        if factor_analyser.Sigma.ndim == 1:
+            inv_lambda = numpy.linalg.inv(
+                numpy.eye(rank)
+                + (factor_analyser.F.T * stat0[idx + batch_start, :]).dot(
+                    factor_analyser.F
+                )
+            )
+        else:
+            inv_lambda = inv_lambda_unique[stat0[idx + batch_start, 0]]
+
+        aux = factor_analyser.F.T.dot(stat1[idx + batch_start, :])
+        numpy.dot(aux, inv_lambda, out=e_h[idx])
+        e_hh[idx] = inv_lambda + numpy.outer(e_h[idx], e_h[idx], tmp)
+
+
 class PLDA:
     """
     inputs: Any seg representation vectors (xvect, ivect, dvect etc)
