@@ -272,9 +272,11 @@ def compute_masked_loss(
         return label_smoothing * loss_reg + (1 - label_smoothing) * loss
 
 
-'''
+"""
 The Functions below are For KD.
-'''
+"""
+
+
 def ctc_loss_kd(log_probs, targets, input_lens, blank_index, device):
     """CTC loss
 
@@ -301,7 +303,9 @@ def ctc_loss_kd(log_probs, targets, input_lens, blank_index, device):
 
         actual_size = (input_lens[j] * log_probs.shape[1]).int()
         current_pred = current_pred[0:actual_size]
-        current_pred = filter_ctc_output(list(current_pred.cpu().numpy()), blank_id=blank_index)
+        current_pred = filter_ctc_output(
+            list(current_pred.cpu().numpy()), blank_id=blank_index
+        )
         current_pred_len = len(current_pred)
         pred_list.append(current_pred)
         pred_len_list.append(current_pred_len)
@@ -329,13 +333,13 @@ def ctc_loss_kd(log_probs, targets, input_lens, blank_index, device):
         zero_infinity=True,
     )
 
+
 def ce_kd(inp, target):
-    return (- target * inp).sum(1)
+    return (-target * inp).sum(1)
+
 
 def nll_loss_kd(
-    probabilities,
-    targets,
-    rel_lab_lengths,
+    probabilities, targets, rel_lab_lengths,
 ):
     """Computes negative log likelihood loss.
 
@@ -370,10 +374,9 @@ def nll_loss_kd(
     prob_curr = probabilities.reshape(N_snt * max_len, probabilities.shape[-1])
 
     # Generating mask
-    mask = length_to_mask(lab_lengths,
-                          max_len=max_len,
-                          dtype=torch.float,
-                          device=prob_curr.device)
+    mask = length_to_mask(
+        lab_lengths, max_len=max_len, dtype=torch.float, device=prob_curr.device
+    )
 
     # Reshape to [batch_size * length, feature]
     lab_curr = targets.reshape(N_snt * max_len, targets.shape[-1])
@@ -382,6 +385,7 @@ def nll_loss_kd(
     # Loss averaging
     loss = torch.sum(loss.reshape(N_snt, max_len) * mask) / torch.sum(mask)
     return loss
+
 
 def compute_wer_list(prob, lab, lab_length, eos_index):
     # Getting the number of sentences in the minibatch
@@ -403,9 +407,7 @@ def compute_wer_list(prob, lab, lab_length, eos_index):
         #    torch.round(lengths[0][j] * prob_curr.shape[-1])
         # )
 
-        actual_size_lab = int(
-            torch.round(lab_length[j] * lab_curr.shape[0])
-        )
+        actual_size_lab = int(torch.round(lab_length[j] * lab_curr.shape[0]))
 
         # prob_curr = prob_curr.narrow(-1, 0, actual_size_prob)
         lab_curr = lab_curr.narrow(-1, 0, actual_size_lab)
@@ -417,6 +419,7 @@ def compute_wer_list(prob, lab, lab_length, eos_index):
     wer_list = torch.tensor(wer_list)
     wer_list = torch.unsqueeze(wer_list, 0)
     return wer_list
+
 
 def compute_wer_list_ctc(prob, lab, prob_length, lab_length, blank_index):
     # Getting the number of sentences in the minibatch
@@ -438,15 +441,19 @@ def compute_wer_list_ctc(prob, lab, prob_length, lab_length, blank_index):
         #    torch.round(lengths[0][j] * prob_curr.shape[-1])
         # )
 
-        actual_size_lab = int(
-            torch.round(lab_length[j] * lab_curr.shape[0])
-        )
+        actual_size_lab = int(torch.round(lab_length[j] * lab_curr.shape[0]))
 
         # prob_curr = prob_curr.narrow(-1, 0, actual_size_prob)
         lab_curr = lab_curr.narrow(-1, 0, actual_size_lab)
 
         # Computing the wer
-        wer = compute_wer(prob_curr, lab_curr, prob_length[j], ctc_label=True, blank_index=blank_index)
+        wer = compute_wer(
+            prob_curr,
+            lab_curr,
+            prob_length[j],
+            ctc_label=True,
+            blank_index=blank_index,
+        )
         wer_list.append(wer)
 
     wer_list = torch.tensor(wer_list)
@@ -454,23 +461,21 @@ def compute_wer_list_ctc(prob, lab, prob_length, lab_length, blank_index):
     return wer_list
 
 
-def compute_wer(prob, lab, length=None, ctc_label=False, blank_index=None, eos_index=None):
+def compute_wer(
+    prob, lab, length=None, ctc_label=False, blank_index=None, eos_index=None
+):
 
     if ctc_label:
         scores, predictions = torch.max(prob, dim=-1)
 
-        actual_size = int(
-            torch.round(length * predictions.shape[-1])
-        )
+        actual_size = int(torch.round(length * predictions.shape[-1]))
         predictions = predictions[0:actual_size]
 
         # Converting labels and prediction to lists (faster)
         lab = lab.tolist()
         predictions = predictions.tolist()
 
-        predictions = filter_ctc_output(
-            predictions, blank_id=blank_index
-        )
+        predictions = filter_ctc_output(predictions, blank_id=blank_index)
 
         # Computing the word error rate
         stats = accumulatable_wer_stats([lab], [predictions])
@@ -495,11 +500,9 @@ def compute_wer(prob, lab, length=None, ctc_label=False, blank_index=None, eos_i
         lab = lab.tolist()
         predictions = predictions.tolist()
 
-        #elif "seq_nll" in self.cost_type:
+        # elif "seq_nll" in self.cost_type:
         # NOTE: temporary
-        predictions = filter_seq2seq_output(
-            predictions, eos_id=eos_index
-        )
+        predictions = filter_seq2seq_output(predictions, eos_id=eos_index)
 
         # Computing the word error rate
         stats = accumulatable_wer_stats([lab], [predictions])
@@ -516,11 +519,14 @@ def compute_wer(prob, lab, length=None, ctc_label=False, blank_index=None, eos_i
 
         return wer
 
+
 def filter_seq2seq_output(string_pred, eos_id=-1, logger=None):
     if isinstance(string_pred, list):
         # Finding the first eos token
         try:
-            eos_index = next(i for i, v in enumerate(string_pred) if v == eos_id)
+            eos_index = next(
+                i for i, v in enumerate(string_pred) if v == eos_id
+            )
         except StopIteration:
             eos_index = len(string_pred)
         string_out = string_pred[:eos_index]
