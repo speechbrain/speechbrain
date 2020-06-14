@@ -139,6 +139,79 @@ class StatObject_SB:
             session_per_model[idx] += self.get_model_stat1(model).shape[0]
         return sts_per_model, session_per_model
 
+    def center_stat1(self, mu):
+        """Center first order statistics.
+
+        :param mu: array to center on.
+        """
+        dim = self.stat1.shape[1] / self.stat0.shape[1]
+        index_map = numpy.repeat(numpy.arange(self.stat0.shape[1]), dim)
+        self.stat1 = self.stat1 - (
+            self.stat0[:, index_map] * mu.astype(STAT_TYPE)
+        )
+
+    def rotate_stat1(self, R):
+        """Rotate first-order statistics by a right-product.
+
+        :param R: ndarray, matrix to use for right product on the first order
+            statistics.
+        """
+        self.stat1 = numpy.dot(self.stat1, R)
+
+    def whiten_stat1(self, mu, sigma, isSqrInvSigma=False):
+        """Whiten first-order statistics
+        If sigma.ndim == 1, case of a diagonal covariance
+        If sigma.ndim == 2, case of a single Gaussian with full covariance
+        If sigma.ndim == 3, case of a full covariance UBM
+
+        :param mu: array, mean vector to be subtracted from the statistics
+        :param sigma: narray, co-variance matrix or covariance super-vector
+        :param isSqrInvSigma: boolean, True if the input Sigma matrix is the inverse of the square root of a covariance
+         matrix
+        """
+        if sigma.ndim == 1:
+            self.center_stat1(mu)
+            self.stat1 = self.stat1 / numpy.sqrt(sigma.astype(STAT_TYPE))
+
+        elif sigma.ndim == 2:
+            print("sigma.ndim == 2")
+            # Compute the inverse square root of the co-variance matrix Sigma
+            sqr_inv_sigma = sigma
+
+            if not isSqrInvSigma:
+                eigen_values, eigen_vectors = numpy.linalg.eigh(sigma)
+                ind = eigen_values.real.argsort()[::-1]
+                eigen_values = eigen_values.real[ind]
+                eigen_vectors = eigen_vectors.real[:, ind]
+
+                sqr_inv_eval_sigma = 1 / numpy.sqrt(eigen_values.real)
+                sqr_inv_sigma = numpy.dot(
+                    eigen_vectors, numpy.diag(sqr_inv_eval_sigma)
+                )
+            else:
+                pass
+
+            # Whitening of the first-order statistics
+            self.center_stat1(mu)  # CENTERING
+            self.rotate_stat1(sqr_inv_sigma)
+
+        elif sigma.ndim == 3:
+            # we assume that sigma is a 3D ndarray of size D x n x n
+            # where D is the number of distributions and n is the dimension of a single distibution
+            n = self.stat1.shape[1] // self.stat0.shape[1]
+            sess_nb = self.stat0.shape[0]
+            self.center_stat1(mu)
+            self.stat1 = (
+                numpy.einsum(
+                    "ikj,ikl->ilj", self.stat1.T.reshape(-1, n, sess_nb), sigma
+                )
+                .reshape(-1, sess_nb)
+                .T
+            )
+
+        else:
+            raise Exception("Wrong dimension of Sigma, must be 1 or 2")
+
 
 def fa_model_loop(
     batch_start,
@@ -259,6 +332,22 @@ class PLDA:
         idx = numpy.argsort(evals)[::-1]
         evecs = evecs.real[:, idx[:rank_f]]
         self.F = evecs[:, :rank_f]
+
+        # Estimate PLDA model by iterating the EM algorithm
+        for it in range(nb_iter):
+            print(f"Estimate between class covariance, it {it+1} / {nb_iter}")
+
+            # E-step
+            print("E_step")
+
+            # Copy stats as they will be whitened with a different Sigma for each iteration
+            local_stat = copy.deepcopy(model_shifted_stat)
+
+            # Whiten statistics (with the new mean and Sigma)
+            local_stat.whiten_stat1(self.mean, self.Sigma)
+
+            # Whiten the EigenVoice matrix
+            eigen_values, eigen_vectors = numpy.linalg.eigh(self.Sigma)
 
 
 if __name__ == "__main__":
