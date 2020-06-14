@@ -242,23 +242,57 @@ class EigenH(torch.nn.Module):
         Output: (B, K, C, C)
         """
 
-        """# Extracting data
+        # Extracting data
         batch = a.shape[0]
         n_fft = a.shape[2]
         p = a.shape[4]
         n_channels = int(round(((1 + 8 * p) ** 0.5 - 1) / 2))
 
         # Converting the input matrices to block matrices
-        ash = f(a)
+        ash = self.f(a)
 
         if b is None:
-            identity = torch.eye(n_channels)
-            bsh = 1.0
-        else:
-            bsh = f(b)
+            b = torch.stack(
+                (torch.eye(n_channels), torch.zeros((n_channels, n_channels))),
+                -1,
+            )
 
-        return a"""
-        pass
+            b = torch.stack(n_fft * [b], 0)
+            b = torch.stack(batch * [b], 0)
+
+            bsh = self.g(b)
+
+        else:
+            bsh = self.f(b)
+
+        # Performing the Cholesky decomposition
+        lsh = torch.cholesky(bsh)
+        lsh_inv = torch.inverse(lsh)
+        lsh_inv_T = torch.transpose(lsh_inv, 2, 3)
+
+        # Computing the matrix C
+        csh = torch.matmul(lsh_inv, torch.matmul(ash, lsh_inv_T))
+
+        # Performing the eigenvalue decomposition
+        es, ysh = torch.symeig(csh, eigenvectors=True)
+
+        # Collecting the eigenvalues
+        dsh = torch.zeros(
+            (batch, n_fft, 2 * n_channels, 2 * n_channels),
+            dtype=es.dtype,
+            device=es.device,
+        )
+
+        dsh[..., range(0, 2 * n_channels), range(0, 2 * n_channels)] = es
+
+        # Collecting the eigenvectors
+        vsh = torch.matmul(lsh_inv_T, torch.transpose(ysh, 2, 3))
+
+        # Converting the block matrices to full complex matrices
+        vs = self.ginv(vsh)
+        ds = self.ginv(dsh)
+
+        return vs, ds
 
     def f(self, ws):
         """
@@ -298,10 +332,55 @@ class EigenH(torch.nn.Module):
         return wsh
 
     def finv(self, wsh):
-        pass
+        """
+        Input: (B, K, 2C, 2C)
+        Output: (B, 1, K, 2, C+P)
+        """
+
+        # Extracting data
+        batch = wsh.shape[0]
+        n_fft = wsh.shape[1]
+        n_channels = int(wsh.shape[2] / 2)
+        p = int(n_channels * (n_channels + 1) / 2)
+
+        # Output matrix
+        ws = torch.zeros(
+            (batch, 1, n_fft, 2, p), dtype=wsh.dtype, device=wsh.device
+        )
+
+        indices = torch.triu_indices(n_channels, n_channels)
+
+        ws[..., 0, :] = wsh[..., indices[0] * 2, indices[1] * 2]
+        ws[..., 1, :] = -1 * wsh[..., indices[0] * 2, indices[1] * 2 + 1]
+
+        return ws
 
     def g(self, ws):
-        pass
+        """
+        Input: (B, K, C, C, 2)
+        Output: (B, K, 2C, 2C)
+        """
+
+        # Extracting data
+        batch = ws.shape[0]
+        n_fft = ws.shape[1]
+        n_chan = ws.shape[2]
+
+        # The output matrix
+        wsh = torch.zeros(
+            (batch, n_fft, 2 * n_chan, 2 * n_chan),
+            dtype=ws.dtype,
+            device=ws.device,
+        )
+
+        wsh[..., slice(0, 2 * n_chan, 2), slice(0, 2 * n_chan, 2)] = ws[..., 0]
+        wsh[..., slice(1, 2 * n_chan, 2), slice(1, 2 * n_chan, 2)] = ws[..., 0]
+        wsh[..., slice(0, 2 * n_chan, 2), slice(1, 2 * n_chan, 2)] = (
+            -1 * ws[..., 1]
+        )
+        wsh[..., slice(1, 2 * n_chan, 2), slice(0, 2 * n_chan, 2)] = ws[..., 1]
+
+        return wsh
 
     def ginv(self, wsh):
         """
@@ -312,20 +391,18 @@ class EigenH(torch.nn.Module):
         # Extracting data
         batch = wsh.shape[0]
         n_fft = wsh.shape[1]
-        n_channels = int(wsh.shape[2] / 2)
+        n_chan = int(wsh.shape[2] / 2)
 
         # Creating the output matrix
         ws = torch.zeros(
-            (batch, n_fft, n_channels, n_channels, 2),
+            (batch, n_fft, n_chan, n_chan, 2),
             dtype=wsh.dtype,
             device=wsh.device,
         )
 
-        # Filling the output matrix
-        # ws[..., 0] = wsh[..., slice(0, 2*n_channels, 2),
-        # slice(0, 2*n_channels, 2)]
-        # ws[..., 1] = wsh[..., slice(1, 2*n_channels, 2),
-        # slice(0, 2*n_channels, 2)]
+        # Output matrix
+        ws[..., 0] = wsh[..., slice(0, 2 * n_chan, 2), slice(0, 2 * n_chan, 2)]
+        ws[..., 1] = wsh[..., slice(1, 2 * n_chan, 2), slice(0, 2 * n_chan, 2)]
 
         return ws
 
