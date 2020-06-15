@@ -21,7 +21,7 @@ TEST_CSV = "test.csv"
 SAMPLERATE = 16000
 
 
-def prepare_dns(data_folder, save_folder, seg_size=10.0, mode="dynamic"):
+def prepare_dns(data_folder, save_folder, seg_size=10.0):
     """
     prepares the csv files for the DNS challenge dataset.
 
@@ -33,9 +33,6 @@ def prepare_dns(data_folder, save_folder, seg_size=10.0, mode="dynamic"):
         The directory where to store the csv files.
     seg_size : float
         Split the file into multiple fix length segments (ms).
-    mode : str
-        'dynamic' or 'static' for dynamically mixing clean and noise data
-        during training or statically mixing before training.
 
     Example
     -------
@@ -49,7 +46,7 @@ def prepare_dns(data_folder, save_folder, seg_size=10.0, mode="dynamic"):
     """
 
     # Additional checks to make sure the data folder contains DNS
-    _check_DNS_folders(data_folder, mode)
+    _check_DNS_folders(data_folder)
 
     train_folder = os.path.join(data_folder, "datasets")
     test_folder = os.path.join(
@@ -247,7 +244,7 @@ def _write_csv(csv_lines, csv_file):
             csv_writer.writerow(line)
 
 
-def _check_DNS_folders(data_folder, mode):
+def _check_DNS_folders(data_folder):
     """
     Check if the data folder actually contains the DNS training dataset.
 
@@ -275,56 +272,23 @@ def _check_DNS_folders(data_folder, mode):
         )
         raise FileNotFoundError(err_msg)
 
-    if mode == "static":
-        train_clean_folder = os.path.join(data_folder, "training/clean")
-        train_noise_folder = os.path.join(data_folder, "training/noise")
-        train_noisy_folder = os.path.join(data_folder, "training/noisy")
+    train_clean_folder = os.path.join(data_folder, "datasets/clean")
+    train_noise_folder = os.path.join(data_folder, "datasets/noise")
 
-        # Checking clean folder
-        if not os.path.exists(train_clean_folder):
+    # Checking clean folder
+    if not os.path.exists(train_clean_folder):
 
-            err_msg = (
-                "the folder %s does not exist (it is expected in "
-                "the DNS dataset)" % (train_clean_folder)
-            )
-            raise FileNotFoundError(err_msg)
+        err_msg = (
+            "the folder %s does not exist (it is expected in "
+            "the DNS dataset)" % (train_clean_folder)
+        )
+        raise FileNotFoundError(err_msg)
 
-        # Checking noise folder
-        if not os.path.exists(train_noise_folder):
+    # Checking noise folder
+    if not os.path.exists(train_noise_folder):
 
-            err_msg = (
-                "the folder %s does not exist (it is expected in "
-                "the DNS dataset)" % (train_noise_folder)
-            )
-            raise FileNotFoundError(err_msg)
-
-        # Checking noisy folder
-        if not os.path.exists(train_noisy_folder):
-
-            err_msg = (
-                "the folder %s does not exist (it is expected in "
-                "the DNS dataset)" % (train_noisy_folder)
-            )
-            raise FileNotFoundError(err_msg)
-
-    elif mode == "dynamic":
-        train_clean_folder = os.path.join(data_folder, "datasets/clean")
-        train_noise_folder = os.path.join(data_folder, "datasets/noise")
-
-        # Checking clean folder
-        if not os.path.exists(train_clean_folder):
-
-            err_msg = (
-                "the folder %s does not exist (it is expected in "
-                "the DNS dataset)" % (train_clean_folder)
-            )
-            raise FileNotFoundError(err_msg)
-
-        # Checking noise folder
-        if not os.path.exists(train_noise_folder):
-
-            err_msg = (
-                "the folder %s does not exist (it is expected in "
-                "the DNS dataset)" % (train_noise_folder)
-            )
-            raise FileNotFoundError(err_msg)
+        err_msg = (
+            "the folder %s does not exist (it is expected in "
+            "the DNS dataset)" % (train_noise_folder)
+        )
+        raise FileNotFoundError(err_msg)
