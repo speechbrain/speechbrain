@@ -115,7 +115,7 @@ class DataLoaderFactory(torch.nn.Module):
         cache=False,
         cache_ram_percent=75,
         select_n_sentences=None,
-        avoid_if_longer_than=3600,
+        avoid_if_longer_than=36000,
         avoid_if_shorter_than=0,
         drop_last=False,
         padding_value=0,
@@ -569,13 +569,12 @@ class DataLoaderFactory(torch.nn.Module):
         return data_dict
 
     def _avoid_short_long_sentences(self, snt, row_id):
-        """Excludes long and short sentences for the dataset"""
+        """Excludes long and short sentences from the dataset"""
         if float(snt[row_id]["duration"]) > self.avoid_if_longer_than:
             del snt[row_id]
 
-        else:
-            if float(snt[row_id]["duration"]) < self.avoid_if_shorter_than:
-                del snt[row_id]
+        elif float(snt[row_id]["duration"]) < self.avoid_if_shorter_than:
+            del snt[row_id]
 
     def _check_first_row(self, row):
         # Make sure ID field exists
