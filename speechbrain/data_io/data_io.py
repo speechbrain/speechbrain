@@ -80,10 +80,12 @@ class DataLoaderFactory(torch.nn.Module):
         read from the disk directly.
     select_n_setences : int, optional
         Default: None . It selects the first N sentences of the CSV file.
-    avoid_if_longer_than : int, optional
-        Default: 3600 . It excudes sentences longer than the specified value.
-    avoid_if_shorter_than : int, optional
-        Default: 3600 . It excudes sentences shorted than the specified value.
+    avoid_if_longer_than : float, optional
+        Default: 36000 . It excludes sentences longer than the specified value
+        in seconds.
+    avoid_if_shorter_than : float, optional
+        Default: 0 . It excludes sentences shorter than the specified value in
+        seconds.
     drop_last : bool, optional
         Default: False . This is an option directly passed to the pytorch
         dataloader (see the related documentation for more details). When True,
