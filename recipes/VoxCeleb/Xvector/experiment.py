@@ -37,7 +37,6 @@ prepare_voxceleb1(
 class XvectorBrain(sb.core.Brain):
     def compute_forward(self, x, stage="train", init_params=False):
         id, wavs, lens = x
-
         wavs, lens = wavs.to(params.device), lens.to(params.device)
 
         if stage == "train":

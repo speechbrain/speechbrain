@@ -7,8 +7,8 @@ seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Folders and train_log file
-data_folder: /localscratch/voxceleb1
-output_folder: results/exp_new_aug
+data_folder: !PLACEHOLDER
+output_folder: results/Xvectors<seed>
 save_folder: !ref <output_folder>/save/
 train_log: !ref <output_folder>/train_log.txt
 
