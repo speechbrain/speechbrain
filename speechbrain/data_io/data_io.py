@@ -78,6 +78,12 @@ class DataLoaderFactory(torch.nn.Module):
         threshold (by default 75%). In practice, if a lot of RAM is available
         several data will be stored in memory, otherwise, most of them will be
         read from the disk directly.
+    select_n_setences : int, optional
+        Default: None . It selects the first N sentences of the CSV file.
+    avoid_if_longer_than : int, optional
+        Default: 3600 . It excudes sentences longer than the specified value.
+    avoid_if_shorter_than : int, optional
+        Default: 3600 . It excudes sentences shorted than the specified value.
     drop_last : bool, optional
         Default: False . This is an option directly passed to the pytorch
         dataloader (see the related documentation for more details). When True,
@@ -456,7 +462,7 @@ class DataLoaderFactory(torch.nn.Module):
         # Tracking the total number of sentences and their duration
         total_duration = 0
         total_sentences = 0
-        
+
         for row in reader:
 
             # Skipping empty lines
@@ -465,14 +471,12 @@ class DataLoaderFactory(torch.nn.Module):
 
             # remove left/right spaces
             row = [elem.strip(" ") for elem in row]
-            
-            
+
             # update sentence counter
-            total_sentences =  total_sentences + 1
+            total_sentences = total_sentences + 1
             if self.select_n_sentences is not None:
                 if total_sentences > self.select_n_sentences:
                     break
-            
 
             # Check and get field list from first row
             if first_row:
@@ -541,13 +545,7 @@ class DataLoaderFactory(torch.nn.Module):
                     )
 
             # Avoiding sentence that are too long or too short
-            if  float(data_dict[row_id]['duration']) > self.avoid_if_longer_than:
-                del data_dict[row_id]
-            
-            else:
-                if float(data_dict[row_id]['duration']) < self.avoid_if_shorter_than:
-                        del data_dict[row_id] 
-                
+            self._avoid_short_long_sentences(data_dict, row_id)
 
         data_dict = self.sort_sentences(data_dict, self.sentence_sorting)
 
@@ -569,6 +567,15 @@ class DataLoaderFactory(torch.nn.Module):
         data_dict["data_entries"] = data_entries
 
         return data_dict
+
+    def _avoid_short_long_sentences(self, snt, row_id):
+        """Excludes long and short sentences for the dataset"""
+        if float(snt[row_id]["duration"]) > self.avoid_if_longer_than:
+            del snt[row_id]
+
+        else:
+            if float(snt[row_id]["duration"]) < self.avoid_if_shorter_than:
+                del snt[row_id]
 
     def _check_first_row(self, row):
         # Make sure ID field exists
