@@ -46,10 +46,9 @@ pytest --doctest-modules speechbrain
 The current version of Speechbrain has the following folder/file organization:
 - **speechbrain**: The core library
 - **recipes**: Experiment scripts and configurations
-- **exp**: Top directory under which to save experiment output (by convention)
 - **samples**: Some toy data for debugging and testing
 - **tools**: Additional, runnable utility script
-- **tests**: Unittests
+- **tests**: Unittests and integration tests
 
 ## How to run an experiment
 In SpeechBrain experiments can be run from anywhere, but the experimental `results/`
@@ -79,12 +78,12 @@ output_dir: !ref results/vgg_blstm/<seed>
 save_dir: !ref <output_dir>/save
 data_folder: !PLACEHOLDER # e.g. /path/to/TIMIT
 
-model: !speechbrain.lobes.models.CRDNN.CRDNN
+model: !new:speechbrain.lobes.models.CRDNN.CRDNN
     output_size: 40 # 39 phonemes + 1 blank symbol
     cnn_blocks: 2
     dnn_blocks: 2
 ```
-- `!speechbrain.lobes.models.CRDNN.CRDNN` creates a `CRDNN` instance
+- `!new:speechbrain.lobes.models.CRDNN.CRDNN` creates a `CRDNN` instance
   from the module `speechbrain.lobes.models.CRDNN`
 - The indented keywords (`output_size` etc.) after it are passed as keyword
   arguments.
@@ -94,6 +93,7 @@ model: !speechbrain.lobes.models.CRDNN.CRDNN
   every user either by editing the yaml, or with an override (passed to
   `load_extended_yaml`).
 
+For more details on yaml and our extensions, see [speechbrain/YAML.md](speechbrain/YAML.md)
 
 # Tensor format
 All the tensors within SpeechBrain are formatted using the following convention:
@@ -252,7 +252,12 @@ In addition we have plans for:
 - Code linters are run. This means black and flake8. These are run on everything in speechbrain (the library directory), everything in recipes and everything in tests.
 - Note that black will only error out if it would change a file here, but won’t reformat anything at this stage. You’ll have to run black on your code and push a new commit. The black commit hook helps avoid these errors.
 - All unit-tests and doctests are run. You can check that these pass by running them yourself before pushing, with `pytest tests`  and `pytest --doctest-modules speechbrain`
-- Currently, these are not run: docstring format tests (this should be added once the docstring conversion is done), integration tests/minimal examples (I propose these to be added only to more significant merges, e.g. merges to master branch [assuming we start using a master/develop/feature branch structure]).
+- Integration tests (minimal examples). The minimal examples serve both to
+  illustrate basic tasks and experiment running, but also as integration tests
+  for the toolkit. For this purpose, any file which is prefixed with
+  `example_` gets collected by pytest, and we add a short `test_` function at
+  the end of the minimal examples.
+- Currently, these are not run: docstring format tests (this should be added once the docstring conversion is done).
 - If all tests pass, the whole pipeline takes a couple of minutes.
 
 ## Pull Request review guide
