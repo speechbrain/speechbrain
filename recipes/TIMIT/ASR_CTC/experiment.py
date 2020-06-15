@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 import sys
+import torch
 import speechbrain as sb
 import speechbrain.data_io.wer as wer_io
 import speechbrain.utils.edit_distance as edit_distance
@@ -33,6 +34,11 @@ class ASR(sb.core.Brain):
     def compute_forward(self, x, stage="train", init_params=False):
         ids, wavs, wav_lens = x
         wavs, wav_lens = wavs.to(params.device), wav_lens.to(params.device)
+        if hasattr(params, "env_corrupt"):
+            wavs_noise = params.env_corrupt(wavs, wav_lens, init_params)
+            wavs = torch.cat([wavs, wavs_noise], dim=0)
+            wav_lens = torch.cat([wav_lens, wav_lens])
+
         if hasattr(params, "augmentation"):
             wavs = params.augmentation(wavs, wav_lens, init_params)
         feats = params.compute_features(wavs, init_params)
@@ -46,6 +52,9 @@ class ASR(sb.core.Brain):
         pout, pout_lens = predictions
         ids, phns, phn_lens = targets
         phns, phn_lens = phns.to(params.device), phn_lens.to(params.device)
+        if hasattr(params, "env_corrupt"):
+            phns = torch.cat([phns, phns], dim=0)
+            phn_lens = torch.cat([phn_lens, phn_lens], dim=0)
         loss = params.compute_cost(pout, phns, pout_lens, phn_lens)
 
         stats = {}
