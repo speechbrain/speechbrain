@@ -1,7 +1,6 @@
 #!/usr/bin/python
 import os
 import sys
-import torch
 import speechbrain as sb
 
 # This hack needed to import data preparation script from ..
@@ -39,13 +38,6 @@ class XvectorBrain(sb.core.Brain):
         id, wavs, lens = x
         wavs, lens = wavs.to(params.device), lens.to(params.device)
 
-        if stage == "train":
-            wavs_aug = params.augmentation(wavs, lens, init_params)
-
-            # Concatenate noisy and clean batches
-            wavs = torch.cat([wavs, wavs_aug], dim=0)
-            lens = torch.cat([lens, lens], dim=0)
-
         feats = params.compute_features(wavs, init_params)
         feats = params.mean_var_norm(feats, lens)
 
@@ -62,10 +54,6 @@ class XvectorBrain(sb.core.Brain):
 
         spkid, lens = spkid.to(params.device), lens.to(params.device)
 
-        # Concatenate labels
-        if stage == "train":
-            spkid = torch.cat([spkid, spkid], dim=0)
-
         loss = params.compute_cost(predictions, spkid, lens)
 
         stats = {}
@@ -75,10 +63,7 @@ class XvectorBrain(sb.core.Brain):
         return loss, stats
 
     def on_epoch_end(self, epoch, train_stats, valid_stats):
-        old_lr, new_lr = params.lr_annealing(
-            [params.optimizer], epoch, valid_stats["error"]
-        )
-        epoch_stats = {"epoch": epoch, "lr": old_lr}
+        epoch_stats = {"epoch": epoch}
         params.train_logger.log_stats(epoch_stats, train_stats, valid_stats)
         params.checkpointer.save_and_keep_only()
 

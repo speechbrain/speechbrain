@@ -1,9 +1,8 @@
 """
 Low level signal processing utilities
 
-Author
-------
-Peter Plantinga 2020
+Authors
+ * Peter Plantinga 2020
 """
 import torch
 
@@ -112,7 +111,9 @@ def convolve1d(
             zero_length = 0
 
         # Perform rotation to ensure alignment
-        zeros = torch.zeros(kernel.size(0), kernel.size(1), zero_length)
+        zeros = torch.zeros(
+            kernel.size(0), kernel.size(1), zero_length, device=kernel.device
+        )
         after_index = kernel[..., rotation_index:]
         before_index = kernel[..., :rotation_index]
         kernel = torch.cat((after_index, zeros, before_index), dim=-1)
