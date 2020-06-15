@@ -348,6 +348,54 @@ class PLDA:
 
             # Whiten the EigenVoice matrix
             eigen_values, eigen_vectors = numpy.linalg.eigh(self.Sigma)
+            ind = eigen_values.real.argsort()[::-1]
+            eigen_values = eigen_values.real[ind]
+            eigen_vectors = eigen_vectors.real[:, ind]
+            sqr_inv_eval_sigma = 1 / numpy.sqrt(eigen_values.real)
+            sqr_inv_sigma = numpy.dot(
+                eigen_vectors, numpy.diag(sqr_inv_eval_sigma)
+            )
+            self.F = sqr_inv_sigma.T.dot(self.F)
+
+            # Replicate self.stat0
+            index_map = numpy.zeros(vect_size, dtype=int)
+            _stat0 = local_stat.stat0[:, index_map]
+
+            # ND: Initialize matrices
+            e_h = numpy.zeros((class_nb, rank_f))
+            e_hh = numpy.zeros((class_nb, rank_f, rank_f))
+
+            # loop on model id's
+            fa_model_loop(
+                batch_start=0,
+                mini_batch_indices=numpy.arange(class_nb),
+                factor_analyser=self,
+                stat0=_stat0,
+                stat1=local_stat.stat1,
+                e_h=e_h,
+                e_hh=e_hh,
+                num_thread=1,
+            )
+
+            # Accumulate for minimum divergence step
+            _R = numpy.sum(e_hh, axis=0) / session_per_model.shape[0]
+
+            _C = e_h.T.dot(local_stat.stat1).dot(
+                numpy.linalg.inv(sqr_inv_sigma)
+            )
+            _A = numpy.einsum("ijk,i->jk", e_hh, local_stat.stat0.squeeze())
+
+            # M-step
+            print("M-step")
+            self.F = numpy.linalg.solve(_A, _C).T
+
+            # Update the residual covariance
+            self.Sigma = sigma_obs - self.F.dot(_C) / session_per_model.sum()
+
+            # Minimum Divergence step
+            self.F = self.F.dot(numpy.linalg.cholesky(_R))
+
+            print("F: ", self.F)
 
 
 if __name__ == "__main__":
