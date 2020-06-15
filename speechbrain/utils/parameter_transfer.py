@@ -27,6 +27,9 @@ Example
 >>> paramfile = checkpoint_to_load.paramfiles["recoverable"]
 >>> torch_parameter_transfer(new_recoverable, paramfile)
 >>> assert new_recoverable(5.) == 5.
+
+Authors
+ * Aku Rouhe 2020
 """
 import torch
 import logging

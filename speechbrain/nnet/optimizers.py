@@ -1,11 +1,10 @@
 """
 Optimizers for neural network training.
 
-Author
-------
-Mirco Ravanelli 2020
-Aku Rouhe 2020
-Abdel Heba 2020
+Authors
+ * Mirco Ravanelli 2020
+ * Aku Rouhe 2020
+ * Abdel Heba 2020
 """
 
 import torch

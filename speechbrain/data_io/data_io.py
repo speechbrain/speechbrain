@@ -1,9 +1,10 @@
 """
 Data i/o operations.
 
-Author
-------
-Mirco Ravanelli, Aku Rouhe 2020
+Authors
+ * Mirco Ravanelli 2020
+ * Aku Rouhe 2020
+ * Ju-Chieh Chou 2020
 """
 
 import os
@@ -2080,3 +2081,30 @@ def append_eos_token(label, length, eos_index):
     new_label = torch.cat([new_label, pad], dim=1)
     new_label[torch.arange(batch_size), length.long()] = eos_index
     return new_label
+
+
+def merge_char(sequences, space="_"):
+    """Merge characters sequences into word sequences.
+
+    Arguments
+    ---------
+    sequences : list
+        Each item contains a list, and this list contains character sequence.
+    space : string
+        The token represents space. Default: _
+
+    Returns
+    -------
+    The list contain word sequences for each sentence.
+
+    Example:
+    >>> sequences = [["a", "b", "_", "c", "_", "d", "e"], ["e", "f", "g", "_", "h", "i"]]
+    >>> results = merge_char(sequences)
+    >>> results
+    [['ab', 'c', 'de'], ['efg', 'hi']]
+    """
+    results = []
+    for seq in sequences:
+        words = "".join(seq).split("_")
+        results.append(words)
+    return results
