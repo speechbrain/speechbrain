@@ -46,9 +46,8 @@ Example
 ...     # 3. Save checkpoints, and keep by default just one, the newest:
 ...     ckpt = checkpointer.save_and_keep_only()
 
-Author
-------
-Aku Rouhe 2020
+Authors
+ * Aku Rouhe 2020
 """
 import torch
 import collections
@@ -87,10 +86,6 @@ def torch_recovery(obj, path, end_of_epoch):
     -------
     None
         Given object is modified in place
-
-    Author
-    ------
-    Aku Rouhe 2020
     """
     del end_of_epoch  # Unused
     obj.load_state_dict(torch.load(path), strict=True)
@@ -476,8 +471,8 @@ class Checkpointer:
     ):
         """Saves a checkpoint, then deletes the least important checkpoints
 
-        Essentially this combines save_checkpoint() and delete_checkpoints()
-        in one call, only provided for very short syntax in simple cases.
+        Essentially this combines ``save_checkpoint()`` and
+        ``delete_checkpoints()`` in one call, providing short syntax.
 
         Arguments
         ---------
@@ -635,7 +630,8 @@ class Checkpointer:
         important). For each of these orders, num_to_keep checkpoints are kept.
         However if there is overlap between each orders' preserved checkpoints,
         the additional checkpoints are not preserved, so the total number of
-        preserved checkpoints can be less than
+        preserved checkpoints can be less than::
+
             num_to_keep * len(importance_keys)
 
         Arguments
