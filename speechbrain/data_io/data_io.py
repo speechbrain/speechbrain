@@ -109,6 +109,8 @@ class DataLoaderFactory(torch.nn.Module):
         cache=False,
         cache_ram_percent=75,
         select_n_sentences=None,
+        avoid_if_longer_than=3600,
+        avoid_if_shorter_than=0,
         drop_last=False,
         padding_value=0,
         replacements={},
@@ -125,6 +127,8 @@ class DataLoaderFactory(torch.nn.Module):
         self.cache = cache
         self.cache_ram_percent = cache_ram_percent
         self.select_n_sentences = select_n_sentences
+        self.avoid_if_longer_than = avoid_if_longer_than
+        self.avoid_if_shorter_than = avoid_if_shorter_than
         self.drop_last = drop_last
         self.padding_value = padding_value
         self.replacements = replacements
@@ -449,9 +453,10 @@ class DataLoaderFactory(torch.nn.Module):
 
         first_row = True
 
-        # Tracking the total sentence duration
+        # Tracking the total number of sentences and their duration
         total_duration = 0
-
+        total_sentences = 0
+        
         for row in reader:
 
             # Skipping empty lines
@@ -460,6 +465,14 @@ class DataLoaderFactory(torch.nn.Module):
 
             # remove left/right spaces
             row = [elem.strip(" ") for elem in row]
+            
+            
+            # update sentence counter
+            total_sentences =  total_sentences + 1
+            if self.select_n_sentences is not None:
+                if total_sentences > self.select_n_sentences:
+                    break
+            
 
             # Check and get field list from first row
             if first_row:
@@ -526,6 +539,15 @@ class DataLoaderFactory(torch.nn.Module):
                     data_dict[row_id][field]["options"] = self._parse_opts(
                         row[i]
                     )
+
+            # Avoiding sentence that are too long or too short
+            if  float(data_dict[row_id]['duration']) > self.avoid_if_longer_than:
+                del data_dict[row_id]
+            
+            else:
+                if float(data_dict[row_id]['duration']) < self.avoid_if_shorter_than:
+                        del data_dict[row_id] 
+                
 
         data_dict = self.sort_sentences(data_dict, self.sentence_sorting)
 
