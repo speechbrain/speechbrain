@@ -54,9 +54,9 @@ jobs:
             - name: Unittests with pytest
               run: |
                   pytest tests/unittests
-            - name: Integration tests with pytest
-              run: |
-                  pytest tests/integration
             - name: Doctests with pytest
               run: |
                   pytest --doctest-modules speechbrain
+            - name: Integration tests with pytest
+              run: |
+                  pytest tests/integration

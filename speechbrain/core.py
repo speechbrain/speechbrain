@@ -1,6 +1,7 @@
 """Core SpeechBrain code for running experiments.
 
-Author(s): Peter Plantinga 2020
+Authors
+ * Peter Plantinga 2020
 """
 
 import os
@@ -11,10 +12,13 @@ import logging
 import inspect
 import argparse
 import subprocess
+import ruamel.yaml
 import speechbrain as sb
+from io import StringIO
 from datetime import date
-from tqdm.contrib import tzip
+from tqdm.contrib import tqdm
 from speechbrain.utils.logger import setup_logging
+from speechbrain.utils.logger import format_order_of_magnitude
 from speechbrain.utils.data_utils import recursive_update
 
 logger = logging.getLogger(__name__)
@@ -64,10 +68,8 @@ def create_experiment_directory(
         shutil.copy(callingfile, experiment_directory)
 
     # Log exceptions to output automatically
-    log_filepath = os.path.join(experiment_directory, "log.txt")
-    logger_overrides = parse_overrides(
-        "{handlers.file_handler.filename: %s}" % log_filepath
-    )
+    log_file = os.path.join(experiment_directory, "log.txt")
+    logger_overrides = {"handlers": {"file_handler": {"filename": log_file}}}
     setup_logging(log_config, logger_overrides)
     sys.excepthook = _logging_excepthook
 
@@ -84,12 +86,19 @@ def _logging_excepthook(exc_type, exc_value, exc_traceback):
 
 
 def parse_arguments(arg_list):
-    """Parse command-line arguments to the experiment.
+    r"""Parse command-line arguments to the experiment.
 
     Arguments
     ---------
     arg_list: list
         a list of arguments to parse, most often from `sys.argv[1:]`
+
+    Returns
+    -------
+    param_file : str
+        The location of the parameters file.
+    overrides : str
+        The yaml-formatted overrides, to pass to ``load_extended_yaml``.
 
     Example
     -------
@@ -97,7 +106,7 @@ def parse_arguments(arg_list):
     >>> filename
     'params.yaml'
     >>> overrides
-    {'seed': 10}
+    'seed: 10\n'
     """
     parser = argparse.ArgumentParser(
         description="Run a SpeechBrain experiment",
@@ -144,94 +153,46 @@ def parse_arguments(arg_list):
     del parsed_args["param_file"]
 
     # Convert yaml_overrides to dictionary
+    yaml_overrides = ""
     if parsed_args["yaml_overrides"] is not None:
-        overrides = parse_overrides(parsed_args["yaml_overrides"])
+        yaml_overrides = parsed_args["yaml_overrides"]
         del parsed_args["yaml_overrides"]
-        recursive_update(parsed_args, overrides)
 
     # Only return non-empty items
-    return param_file, {k: v for k, v in parsed_args.items() if v is not None}
+    items = {k: v for k, v in parsed_args.items() if v is not None}
 
+    # Convert to string and append to overrides
+    ruamel_yaml = ruamel.yaml.YAML()
+    overrides = ruamel_yaml.load(yaml_overrides) or {}
+    recursive_update(overrides, items)
+    yaml_stream = StringIO()
+    ruamel_yaml.dump(overrides, yaml_stream)
 
-def parse_overrides(override_string):
-    """Parse overrides from a yaml string representing paired args and values.
-
-    Arguments
-    ---------
-    override_string: str
-        A yaml-formatted string, where each (key: value) pair
-        overrides the same pair in a loaded file.
-
-    Example
-    -------
-    >>> parse_overrides("{model.arg1: val1, model.arg2.arg3: 3.}")
-    {'model': {'arg1': 'val1', 'arg2': {'arg3': 3.0}}}
-    """
-    preview = {}
-    if override_string:
-        preview = sb.yaml.load_extended_yaml(override_string)
-
-    overrides = {}
-    for arg, val in preview.__dict__.items():
-        if "." in arg:
-            nest(overrides, arg.split("."), val)
-        else:
-            overrides[arg] = val
-
-    return overrides
-
-
-def nest(dictionary, args, val):
-    """Create a nested sequence of dictionaries, based on an arg list.
-
-    Arguments
-    ---------
-    dictionary : dict
-        this object will be updated with the nested arguments.
-    args : list
-        a list of parameters specifying a nested location.
-    val : obj
-        The value to store at the specified nested location.
-
-    Example
-    -------
-    >>> params = {}
-    >>> nest(params, ['arg1', 'arg2', 'arg3'], 'value')
-    >>> params
-    {'arg1': {'arg2': {'arg3': 'value'}}}
-    """
-    if len(args) == 1:
-        dictionary[args[0]] = val
-        return
-
-    if args[0] not in dictionary:
-        dictionary[args[0]] = {}
-
-    nest(dictionary[args[0]], args[1:], val)
+    return param_file, yaml_stream.getvalue()
 
 
 class Brain:
     r"""Brain class abstracts away the details of data loops.
 
     The primary purpose of the `Brain` class is the implementation of
-    the `fit()` method, which iterates epochs and datasets for the
+    the ``fit()`` method, which iterates epochs and datasets for the
     purpose of "fitting" a set of modules to a set of data.
 
-    In order to use the `fit()` method, one should sub-class the `Brain` class
-    and override any methods for which the default behavior does not match
-    the use case. For a simple use case (e.g. training a single model with
-    a single dataset) the only methods that need to be overridden are:
+    In order to use the ``fit()`` method, one should sub-class the ``Brain``
+    class and override any methods for which the default behavior does not
+    match the use case. For a simple use case (e.g. training a single model
+    with a single dataset) the only methods that need to be overridden are:
 
-    * `forward()`
-    * `compute_objectives()`
+    * ``compute_forward()``
+    * ``compute_objectives()``
 
     The example below illustrates how overriding these two methods is done.
 
     For more complicated use cases, such as multiple modules that need to
     be updated, the following methods can be overridden:
 
-    * `fit_batch()`
-    * `evaluate_batch()`
+    * ``fit_batch()``
+    * ``evaluate_batch()``
 
     Arguments
     ---------
@@ -239,55 +200,71 @@ class Brain:
         The modules that will be updated using the optimizer.
     optimizer : optimizer
         The class to use for updating the modules' parameters.
-    first_input : torch.Tensor
+    first_inputs : list of torch.Tensor
         An example of the input to the Brain class, for parameter init.
+        Arguments are passed individually to the ``compute_forward`` method,
+        for cases where a different signature is desired.
 
     Example
     -------
-    >>> from speechbrain.nnet.optimizers import Optimize
+    >>> from speechbrain.nnet.optimizers import SGD_Optimizer
     >>> class SimpleBrain(Brain):
-    ...     def forward(self, x, init_params=False):
+    ...     def compute_forward(self, x, init_params=False):
     ...         return self.modules[0](x)
     ...     def compute_objectives(self, predictions, targets, train=True):
-    ...         return torch.nn.functional.l1_loss(predictions, targets)
-    >>> tmpdir = getfixture('tmpdir')
+    ...         return torch.nn.functional.l1_loss(predictions, targets), {}
     >>> model = torch.nn.Linear(in_features=10, out_features=10)
     >>> brain = SimpleBrain(
     ...     modules=[model],
-    ...     optimizer=Optimize('sgd', 0.01),
-    ...     first_input=torch.rand(10, 10),
+    ...     optimizer=SGD_Optimizer(0.01),
+    ...     first_inputs=[torch.rand(10, 10)],
     ... )
     >>> brain.fit(
     ...     epoch_counter=range(1),
-    ...     train_set=([torch.rand(10, 10)], [torch.rand(10, 10)]),
+    ...     train_set=([torch.rand(10, 10),torch.rand(10, 10)],)
     ... )
     """
 
-    def __init__(
-        self, modules, optimizer=None, first_input=None,
-    ):
+    def __init__(self, modules=None, optimizer=None, first_inputs=None):
         self.modules = torch.nn.ModuleList(modules)
         self.optimizer = optimizer
+        self.avg_train_loss = 0.0
 
         # Initialize parameters
-        if first_input is not None:
-            self.forward(first_input, init_params=True)
-            self.optimizer.init_params(self.modules)
+        if first_inputs is not None:
+            self.compute_forward(*first_inputs, init_params=True)
 
-    def forward(self, x, init_params=False):
+            if self.optimizer is not None:
+                self.optimizer.init_params(self.modules)
+
+        total_params = sum(
+            p.numel() for p in self.modules.parameters() if p.requires_grad
+        )
+        clsname = self.__class__.__name__
+        fmt_num = format_order_of_magnitude(total_params)
+        logger.info(f"Initialized {fmt_num} trainable parameters in {clsname}")
+
+    def compute_forward(self, x, stage="train", init_params=False):
         """Forward pass, to be overridden by sub-classes.
 
         Arguments
         ---------
         x : torch.Tensor or list of tensors
             The input tensor or tensors for processing.
+        stage : str
+            The stage of the training process, one of "train", "valid", "test"
         init_params : bool
             Whether this pass should initialize parameters rather
             than return the results of the forward pass.
+
+        Returns
+        -------
+        torch.Tensor
+            A tensor representing the outputs after all processing is complete.
         """
         raise NotImplementedError
 
-    def compute_objectives(self, predictions, targets, train=True):
+    def compute_objectives(self, predictions, targets, stage="train"):
         """Compute loss, to be overridden by sub-classes.
 
         Arguments
@@ -296,10 +273,16 @@ class Brain:
             The output tensor or tensors to evaluate.
         targets : torch.Tensor or list of tensors
             The gold standard to use for evaluation.
-        train : bool
-            Whether this is computed for training or not. During training,
-            sometimes fewer stats will be computed for the sake of efficiency
-            (e.g. WER might only be computed for valid and test, not train).
+        stage : str
+            The stage of the training process, one of "train", "valid", "test"
+
+        Returns
+        -------
+        loss : torch.Tensor
+            A tensor with the computed loss
+        stats : dict
+            A mapping with additional statistics about the batch
+            (e.g. ``{"accuracy": .9}``)
         """
         raise NotImplementedError
 
@@ -325,41 +308,59 @@ class Brain:
         The default impementation depends on three methods being defined
         with a particular behavior:
 
-        * `forward()`
-        * `compute_objectives()`
-        * `optimizer()`
+        * ``compute_forward()``
+        * ``compute_objectives()``
+        * ``optimizer()``
 
         Arguments
         ---------
         batch : list of torch.Tensors
             batch of data to use for training. Default implementation assumes
             this batch has two elements: inputs and targets.
+
+        Returns
+        -------
+        dict
+            A dictionary of the same format as `evaluate_batch()` where each
+            item includes a statistic about the batch, including the loss.
+            (e.g. ``{"loss": 0.1, "accuracy": 0.9}``)
         """
         inputs, targets = batch
-        predictions = self.forward(inputs)
-        loss = self.compute_objectives(predictions, targets)
+        predictions = self.compute_forward(inputs)
+        loss, stats = self.compute_objectives(predictions, targets)
         loss.backward()
-        self.optimizer(self.modules)
-        return {"loss": loss.detach()}
+        self.optimizer.step()
+        self.optimizer.zero_grad()
+        stats["loss"] = loss.detach()
+        return stats
 
-    def evaluate_batch(self, batch):
+    def evaluate_batch(self, batch, stage="test"):
         """Evaluate one batch, override for different procedure than train.
 
         The default impementation depends on two methods being defined
         with a particular behavior:
 
-        * `forward()`
-        * `compute_objectives()`
+        * ``compute_forward()``
+        * ``compute_objectives()``
 
         Arguments
         ---------
         batch : list of torch.Tensors
             batch of data to use for evaluation. Default implementation assumes
             this batch has two elements: inputs and targets.
+        stage : str
+            The stage of the training process, one of "valid", "test"
+
+        Returns
+        -------
+        dict
+            A dictionary of the same format as ``fit_batch()`` where each item
+            includes a statistic about the batch, including the loss.
+            (e.g. ``{"loss": 0.1, "accuracy": 0.9}``)
         """
         inputs, targets = batch
-        output = self.forward(inputs)
-        loss, stats = self.compute_objectives(output, targets, train=False)
+        out = self.compute_forward(inputs, stage=stage)
+        loss, stats = self.compute_objectives(out, targets, stage=stage)
         stats["loss"] = loss.detach()
         return stats
 
@@ -388,9 +389,9 @@ class Brain:
         overridden. The following functions are used and expected to have a
         certain behavior:
 
-        * `fit_batch()`
-        * `evaluate_batch()`
-        * `add_stats()`
+        * ``fit_batch()``
+        * ``evaluate_batch()``
+        * ``add_stats()``
 
         Arguments
         ---------
@@ -404,16 +405,19 @@ class Brain:
         for epoch in epoch_counter:
             self.modules.train()
             train_stats = {}
-            for batch in tzip(*train_set):
-                stats = self.fit_batch(batch)
-                self.add_stats(train_stats, stats)
+            with tqdm(train_set, dynamic_ncols=True) as t:
+                for i, batch in enumerate(t):
+                    stats = self.fit_batch(batch)
+                    self.add_stats(train_stats, stats)
+                    average = self.update_average(stats, iteration=i + 1)
+                    t.set_postfix(train_loss=average)
 
             valid_stats = {}
             if valid_set is not None:
                 self.modules.eval()
                 with torch.no_grad():
-                    for batch in tzip(*valid_set):
-                        stats = self.evaluate_batch(batch)
+                    for batch in tqdm(valid_set, dynamic_ncols=True):
+                        stats = self.evaluate_batch(batch, stage="valid")
                         self.add_stats(valid_stats, stats)
 
             self.on_epoch_end(epoch, train_stats, valid_stats)
@@ -425,12 +429,45 @@ class Brain:
         ---------
         test_set : list of DataLoaders
             This list will be zipped before iterating.
+
+        Returns
+        -------
+        dict
+            The test stats, where each item
+            has a list of all the statistics from the test pass.
+            (e.g. ``{"loss": [0.1, 0.2, 0.05], "accuracy": [0.8, 0.8, 0.9]}``)
         """
         test_stats = {}
         self.modules.eval()
         with torch.no_grad():
-            for batch in tzip(*test_set):
-                stats = self.evaluate_batch(batch)
+            for batch in tqdm(test_set, dynamic_ncols=True):
+                stats = self.evaluate_batch(batch, stage="test")
                 self.add_stats(test_stats, stats)
 
         return test_stats
+
+    def update_average(self, stats, iteration):
+        """Update running average of the loss.
+
+        Arguments
+        ---------
+        stats : dict
+            Result of `compute_objectives()`
+        iteration : int
+            The iteration count.
+
+        Returns
+        -------
+        float
+            The average loss
+        """
+        if not torch.isfinite(stats["loss"]):
+            raise ValueError(
+                "Loss is not finite. To debug, wrap `fit()` with `debug_anomaly`"
+                ", e.g.\nwith torch.autograd.detect_anomaly():\n\tbrain.fit(...)"
+            )
+
+        # Compute moving average
+        self.avg_train_loss -= self.avg_train_loss / iteration
+        self.avg_train_loss += float(stats["loss"]) / iteration
+        return self.avg_train_loss

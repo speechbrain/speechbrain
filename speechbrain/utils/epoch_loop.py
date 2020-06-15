@@ -1,9 +1,8 @@
 """
 Implements a checkpointable epoch counter (loop)
 
-Author
-------
-Aku Rouhe 2020
+Authors
+ * Aku Rouhe 2020
 """
 from .checkpoints import register_checkpoint_hooks
 from .checkpoints import mark_as_saver
