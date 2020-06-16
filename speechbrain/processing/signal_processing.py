@@ -364,9 +364,12 @@ class GCCPHAT(torch.nn.Module):
 
         return xxs
 
-    def find_tdoa(self, xxs, tdoa_max=None):
+    def find_tdoa(self, xxs, tdoa_max=None, center=False):
         """ Returns the time difference of arrival (TDOA) for each
-        timestamp. The result has the following format:
+        timestamp. Since GCC-PHAT uses the covariance matrices to work,
+        find_tdoa() will return delays for every possible pair of microphone
+        (including each microphone compared to itself giving delays of 0).
+        The result will have the following format:
         (batch, time_steps, n_mics + n_pairs)
 
         Arguments
@@ -376,28 +379,42 @@ class GCCPHAT(torch.nn.Module):
             has the following format: (batch, time_steps, n_fft, n_pairs)
 
         tdoa_max : int
-            The maximum delay allowed between two signals. If a delay
-            found by GCC-PHAT is bigger than this value, this delay is
-            replaced by tdoa_max. tdoa_max is optional, if it is not specified,
-            the delays found by GCC-PHAT are returned without any change.
-            tdoa_max must be a positive integer between 0 and (n_fft / 2)
+            Specifies a range to search for delays. For example, if
+            tdoa_max = 10, the method will restrict its search for delays
+            between -10 and 10 samples. This parameter is optional and its
+            default value is None. When tdoa_max is None, the method will
+            search for delays between -n_fft/2 and n_fft/2 (full range).
+
+        center : bool
+            Specifies if the method should center the delays around 0. For
+            example, if n_fft=400 and that a delay of 390 is found, find_tdoa()
+            will return a delay of -10 rather than 390. This parameter is
+            optional and its default value is set to False.
         """
 
-        # Extracting the delays
-        _, delays = torch.max(xxs, 2)
+        # Setting things up
+        n_fft = xxs.shape[2]
 
-        # Fixing the delays that are not in the range
-        if tdoa_max is not None:
-            n_fft = xxs.shape[2]
+        if tdoa_max is None:
+            tdoa_max = n_fft // 2
 
-            idx_cond1 = delays > tdoa_max
-            idx_cond2 = delays <= (n_fft / 2)
-            idx = idx_cond1 == idx_cond2
-            delays[idx] = tdoa_max
+        # Splitting the GCC-PHAT values to search in the range
+        slice_1 = xxs[..., 0:tdoa_max, :]
+        slice_2 = xxs[..., -tdoa_max:, :]
 
-            idx_cond1 = delays > (n_fft / 2)
-            idx_cond2 = delays < (n_fft - tdoa_max)
-            idx = idx_cond1 == idx_cond2
-            delays[idx] = n_fft - tdoa_max
+        xxs_sliced = torch.cat((slice_1, slice_2), 2)
+
+        # Extracting the delays in the range
+        _, delays = torch.max(xxs_sliced, 2)
+
+        # Adjusting the delays that were affected by the slicing
+        offset = n_fft - xxs_sliced.shape[2]
+
+        idx = delays >= slice_1.shape[2]
+        delays[idx] += offset
+
+        # Centering the delays around 0 if desired
+        if center:
+            delays[idx] -= n_fft
 
         return delays
