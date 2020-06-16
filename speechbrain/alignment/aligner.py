@@ -6,6 +6,7 @@ Authors
 """
 
 import torch
+from speechbrain.decoders.decoders import undo_padding
 
 
 def batch_log_matvecmul(A, b):
@@ -86,6 +87,8 @@ class HMMAligner(torch.nn.Module):
 
     Arguments
     ---------
+    states_per_phoneme: int
+        Number of hidden states to use per phoneme
     output_folder: str
         It is the folder that the alignments will be stored in when
         saved to disk. Not yet implemented.
@@ -125,8 +128,9 @@ class HMMAligner(torch.nn.Module):
     torch.Size([2])
     """
 
-    def __init__(self, output_folder="", neg_inf=-1e5):
+    def __init__(self, states_per_phoneme=1, output_folder="", neg_inf=-1e5):
         super().__init__()
+        self.states_per_phoneme = states_per_phoneme
         self.output_folder = output_folder
         self.neg_inf = neg_inf
         self.align_dict = {}
@@ -253,7 +257,7 @@ class HMMAligner(torch.nn.Module):
         emiss_pred_acc_lens = torch.where(
             mask_lens[:, :, None],
             emission_pred,
-            torch.tensor([self.neg_inf]).to(device),
+            torch.tensor([-1e-38]).to(device),
         )
 
         # manipulate phn tensor, and then 'torch.gather'
@@ -315,17 +319,17 @@ class HMMAligner(torch.nn.Module):
             The (log) likelihood of each utterance in the batch.
         """
         # useful values
-        batch_size = len(phn_lens_abs)
+        # batch_size = len(phn_lens_abs)
         U_max = phn_lens_abs.max()
-        fb_max_length = lens_abs.max()
+        # fb_max_length = lens_abs.max()
         device = emiss_pred_useful.device
 
         pi_prob = pi_prob.to(device)
         trans_prob = trans_prob.to(device)
 
-        alpha_matrix = self.neg_inf * torch.ones(
-            [batch_size, U_max, fb_max_length]
-        ).to(device)
+        # alpha_matrix = self.neg_inf * torch.ones(
+        #    [batch_size, U_max, fb_max_length]
+        # ).to(device)
 
         # for cropping alpha_matrix later
         phn_len_mask = torch.arange(U_max)[None, :].to(device) < phn_lens_abs[
@@ -333,26 +337,39 @@ class HMMAligner(torch.nn.Module):
         ].to(device)
 
         # initialise
-        alpha_matrix[:, :, 0] = pi_prob + emiss_pred_useful[:, :, 0]
+        alpha_prev = pi_prob + emiss_pred_useful[:, :, 0]
 
-        for t in range(1, fb_max_length):
+        emiss_pred_useful_unbound = torch.unbind(emiss_pred_useful, dim=-1)
+
+        for emiss_pred_j in emiss_pred_useful_unbound:
             alpha_times_trans = batch_log_matvecmul(
-                trans_prob.permute(0, 2, 1), alpha_matrix[:, :, t - 1]
+                trans_prob.permute(0, 2, 1), alpha_prev
             )
-            alpha_matrix[:, :, t] = (
-                alpha_times_trans + emiss_pred_useful[:, :, t]
-            )
-
-            # crop alpha_matrix
-            alpha_matrix = torch.where(
-                phn_len_mask[:, :, None],
-                alpha_matrix,
-                torch.tensor(self.neg_inf).to(device),
+            alpha_prev = alpha_times_trans + emiss_pred_j
+            alpha_prev = torch.where(
+                phn_len_mask, alpha_prev, torch.tensor([-1e38]).to(device)
             )
 
-        sum_alpha_T = torch.logsumexp(
-            alpha_matrix[torch.arange(batch_size), :, -1], dim=1
-        )
+        #        for t in range(1, fb_max_length):
+        #            alpha_times_trans = batch_log_matvecmul(
+        #                trans_prob.permute(0, 2, 1), alpha_matrix[:, :, t - 1]
+        #            )
+        #            alpha_matrix[:, :, t] = (
+        #                alpha_times_trans + emiss_pred_useful[:, :, t]
+        #            )
+        #
+        #            # crop alpha_matrix
+        #            alpha_matrix = torch.where(
+        #                phn_len_mask[:, :, None],
+        #                alpha_matrix,
+        #                torch.tensor(self.neg_inf).to(device),
+        #            )
+        #
+        #        sum_alpha_T = torch.logsumexp(
+        #            alpha_matrix[torch.arange(batch_size), :, -1], dim=1
+        #        )
+
+        sum_alpha_T = torch.logsumexp(alpha_prev, dim=-1)
 
         return sum_alpha_T
 
@@ -435,7 +452,7 @@ class HMMAligner(torch.nn.Module):
             v_matrix = torch.where(
                 phn_len_mask[:, :, None],
                 v_matrix,
-                torch.tensor(self.neg_inf).to(device),
+                torch.tensor(-999999.0).to(device),
             )
 
             backpointers[:, :, t - 1] = argmax.type(torch.FloatTensor)
@@ -468,11 +485,15 @@ class HMMAligner(torch.nn.Module):
             z_stars.append(z_star_i)
             z_stars_loc.append(z_star_i_loc)
 
-        #            print("batch alignment statistics:")
-        #            print("phn_lens_abs:", phn_lens_abs)
-        #            print("lens_abs:", lens_abs)
-        #            print("z_stars_loc:", z_stars_loc)
-        #            print("z_stars:", z_stars)
+        #        print("batch alignment statistics:")
+        #        print("phn_lens_abs:", phn_lens_abs[-1])
+        #        print("lens_abs:", lens_abs[-1])
+        #        print("z_stars_loc:", z_stars_loc[-1])
+        #        print("z_stars:", z_stars[-1])
+
+        torch.set_printoptions(precision=3, threshold=1e5, linewidth=160)
+
+        #        print('v matrix', v_matrix[-1, U-3:U:, len_abs-3:len_abs])
 
         # picking out viterbi_scores
         viterbi_scores = v_matrix[
@@ -556,6 +577,27 @@ class HMMAligner(torch.nn.Module):
             raise ValueError(
                 "dp_algorithm input must be either 'forward' or 'viterbi'"
             )
+
+    def expand_phns_by_states_per_phoneme(self, phns, phn_lens):
+        # Initialise expanded_phns
+        expanded_phns = torch.zeros(
+            phns.shape[0], phns.shape[1] * self.states_per_phoneme
+        )
+        expanded_phns = expanded_phns.to(phns.device)
+
+        phns = undo_padding(phns, phn_lens)
+        for i, phns_utt in enumerate(phns):
+            expanded_phns_utt = []
+            for phoneme_index in phns_utt:
+                expanded_phns_utt += [
+                    self.states_per_phoneme * phoneme_index + i_
+                    for i_ in range(self.states_per_phoneme)
+                ]
+
+            expanded_phns[i, : len(expanded_phns_utt)] = torch.tensor(
+                expanded_phns_utt
+            )
+        return expanded_phns
 
     def store_alignments(self, ids, alignments):
         """
@@ -759,6 +801,9 @@ class HMMAligner(torch.nn.Module):
                 alignments_upsampled,
                 (0, len(true_alignments) - len(alignments_upsampled)),
             )
+
+        # Do conversion in case states_per_phoneme > 1
+        alignments_upsampled = alignments_upsampled // 3
 
         # Measure sample-wise accuracy
         accuracy = (

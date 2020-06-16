@@ -36,9 +36,10 @@ class ASR(sb.core.Brain):
         if hasattr(params, "augmentation"):
             wavs = params.augmentation(wavs, wav_lens, init_params)
         feats = params.compute_features(wavs, init_params)
-        feats = params.normalize(feats, wav_lens)
+        # feats = params.normalize(feats, wav_lens)
         out = params.model(feats, init_params)
         out = params.output(out, init_params)
+        out = out - out.mean(1).unsqueeze(1)
         pout = params.log_softmax(out)
         return pout, wav_lens
 
@@ -48,28 +49,30 @@ class ASR(sb.core.Brain):
         _, ends, end_lens = targets[1]
         phns, phn_lens = phns.to(params.device), phn_lens.to(params.device)
 
-        prev_alignments = params.aligner.get_prev_alignments(
-            ids, pout, pout_lens, phns, phn_lens
-        )
-        prev_alignments = prev_alignments.to(params.device)
+        phns_orig = undo_padding(phns, phn_lens)
+        phns = params.aligner.expand_phns_by_states_per_phoneme(phns, phn_lens)
 
-        loss = params.compute_cost(pout, prev_alignments)
+        sum_alpha_T = params.aligner(pout, pout_lens, phns, phn_lens, "forward")
+
+        loss = -sum_alpha_T.sum()
 
         stats = {}
+
+        viterbi_scores, alignments = params.aligner(
+            pout, pout_lens, phns, phn_lens, "viterbi"
+        )
+
+        acc = params.aligner.calc_accuracy(alignments, ends, phns_orig)
+        stats["accuracy"] = acc
         if stage != "train":
-            viterbi_scores, alignments = params.aligner(
-                pout, pout_lens, phns, phn_lens, "viterbi"
-            )
-            params.aligner.store_alignments(ids, alignments)
 
             ind2lab = params.train_loader.label_dict["phn"]["index2lab"]
             sequence = ctc_greedy_decode(pout, pout_lens, blank_id=-1)
+            # convert sequence back to 1 state per phoneme style
+            sequence = [[x // 3 for x in utt] for utt in sequence]
             sequence = convert_index_to_lab(sequence, ind2lab)
-            phns = undo_padding(phns, phn_lens)
-            acc = params.aligner.calc_accuracy(alignments, ends, phns)
-            stats["accuracy"] = acc
 
-            phns = convert_index_to_lab(phns, ind2lab)
+            phns = convert_index_to_lab(phns_orig, ind2lab)
             per_stats = edit_distance.wer_details_for_batch(
                 ids, phns, sequence, compute_alignments=True
             )
@@ -87,7 +90,6 @@ class ASR(sb.core.Brain):
             meta={"PER": per},
             importance_keys=[ckpt_recency, lambda c: -c.meta["PER"]],
         )
-        self.evaluate(train_set)
 
     def fit_batch(self, batch):
         """
@@ -122,6 +124,7 @@ prepare_timit(
     data_folder=params.data_folder,
     splits=["train", "dev", "test"],
     save_folder=params.data_folder,
+    phn_set="60",
 )
 train_set = params.train_loader()
 valid_set = params.valid_loader()

@@ -658,7 +658,7 @@ def get_phoneme_lists(phn_file, phn_set):
         from_60_to_48_phn, from_60_to_39_phn = _get_phonemes()
 
         # Removing end corresponding to q if phn set is not 61
-        if phn_set != "61":
+        if phn_set != "60":
             if phoneme == "q":
                 end = ""
 
@@ -674,32 +674,33 @@ def get_phoneme_lists(phn_file, phn_set):
         if len(end) > 0:
             ends.append(end)
 
-    # Filtering out consecutive silences by applying a mask with `True` marking
-    # which sils to remove
-    # e.g.
-    # phonemes          [  "a", "sil", "sil",  "sil",   "b"]
-    # ends              [   1 ,    2 ,    3 ,     4 ,    5 ]
-    # ---
-    # create:
-    # remove_sil_mask   [False,  True,  True,  False,  False]
-    # ---
-    # so end result is:
-    # phonemes ["a", "sil", "b"]
-    # ends     [  1,     4,   5]
+    if phn_set != "60":
+        # Filtering out consecutive silences by applying a mask with `True` marking
+        # which sils to remove
+        # e.g.
+        # phonemes          [  "a", "sil", "sil",  "sil",   "b"]
+        # ends              [   1 ,    2 ,    3 ,     4 ,    5 ]
+        # ---
+        # create:
+        # remove_sil_mask   [False,  True,  True,  False,  False]
+        # ---
+        # so end result is:
+        # phonemes ["a", "sil", "b"]
+        # ends     [  1,     4,   5]
 
-    remove_sil_mask = [True if x == "sil" else False for x in phonemes]
+        remove_sil_mask = [True if x == "sil" else False for x in phonemes]
 
-    for i, val in enumerate(remove_sil_mask):
-        if val is True:
-            if i == len(remove_sil_mask) - 1:
-                remove_sil_mask[i] = False
-            elif remove_sil_mask[i + 1] is False:
-                remove_sil_mask[i] = False
+        for i, val in enumerate(remove_sil_mask):
+            if val is True:
+                if i == len(remove_sil_mask) - 1:
+                    remove_sil_mask[i] = False
+                elif remove_sil_mask[i + 1] is False:
+                    remove_sil_mask[i] = False
 
-    phonemes = [
-        phon for i, phon in enumerate(phonemes) if not remove_sil_mask[i]
-    ]
-    ends = [end for i, end in enumerate(ends) if not remove_sil_mask[i]]
+        phonemes = [
+            phon for i, phon in enumerate(phonemes) if not remove_sil_mask[i]
+        ]
+        ends = [end for i, end in enumerate(ends) if not remove_sil_mask[i]]
 
     # Convert to e.g. "a sil b", "1 4 5"
     phonemes = " ".join(phonemes)
