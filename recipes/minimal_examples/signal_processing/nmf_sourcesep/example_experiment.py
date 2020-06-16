@@ -3,7 +3,8 @@ import speechbrain as sb
 import torch
 from speechbrain.processing.features import spectral_magnitude
 from speechbrain.data_io.data_io import write_wav_soundfile
-import matplotlib.pyplot as plt
+
+# import matplotlib.pyplot as plt
 
 import os
 
@@ -151,32 +152,32 @@ def separate(Whats, mixture_loader):
     return Xhat1, Xhat2
 
 
-def visualize_results(mixture_loader, X1hat, X2hat):
-
-    X = list(mixture_loader)[0]
-
-    X = params.compute_features(X[0][1])
-    X = spectral_magnitude(X, power=2)
-
-    X = X.reshape(-1, X.size(-1)).t().numpy()
-    power = 0.5
-
-    plt.subplot(311)
-    plt.imshow(X ** power)
-    plt.gca().invert_yaxis()
-    plt.title("mixture")
-
-    plt.subplot(312)
-    X1hat = X1hat.permute(1, 0, 2).reshape(params.m, -1).numpy()
-    plt.imshow(X1hat ** power)
-    plt.gca().invert_yaxis()
-    plt.title("estimated source1")
-
-    plt.subplot(313)
-    X2hat = X2hat.permute(1, 0, 2).reshape(params.m, -1).numpy()
-    plt.imshow(X2hat ** power)
-    plt.gca().invert_yaxis()
-    plt.title("estimated source2")
+# def visualize_results(mixture_loader, X1hat, X2hat):
+#
+#    X = list(mixture_loader)[0]
+#
+#    X = params.compute_features(X[0][1])
+#    X = spectral_magnitude(X, power=2)
+#
+#    X = X.reshape(-1, X.size(-1)).t().numpy()
+#    power = 0.5
+#
+#    plt.subplot(311)
+#    plt.imshow(X ** power)
+#    plt.gca().invert_yaxis()
+#    plt.title("mixture")
+#
+#    plt.subplot(312)
+#    X1hat = X1hat.permute(1, 0, 2).reshape(params.m, -1).numpy()
+#    plt.imshow(X1hat ** power)
+#    plt.gca().invert_yaxis()
+#    plt.title("estimated source1")
+#
+#    plt.subplot(313)
+#    X2hat = X2hat.permute(1, 0, 2).reshape(params.m, -1).numpy()
+#    plt.imshow(X2hat ** power)
+#    plt.gca().invert_yaxis()
+#    plt.title("estimated source2")
 
 
 def spectral_phase(stft, power=2, log=False):
@@ -273,7 +274,7 @@ W2hat = NMF2.training_out[1]
 mixture_loader = params.test_loader()
 X1hat, X2hat = separate([W1hat, W2hat], mixture_loader)
 
-visualize_results(mixture_loader, X1hat, X2hat)
+# visualize_results(mixture_loader, X1hat, X2hat)
 reconstruct_results(mixture_loader, X1hat, X2hat)
 
-plt.show()
+# plt.show()
