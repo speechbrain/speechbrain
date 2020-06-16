@@ -491,10 +491,6 @@ class HMMAligner(torch.nn.Module):
         #        print("z_stars_loc:", z_stars_loc[-1])
         #        print("z_stars:", z_stars[-1])
 
-        torch.set_printoptions(precision=3, threshold=1e5, linewidth=160)
-
-        #        print('v matrix', v_matrix[-1, U-3:U:, len_abs-3:len_abs])
-
         # picking out viterbi_scores
         viterbi_scores = v_matrix[
             torch.arange(batch_size), phn_lens_abs - 1, lens_abs - 1
