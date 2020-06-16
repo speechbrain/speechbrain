@@ -8,7 +8,9 @@ from speechbrain.data_io.data_io import write_wav_soundfile
 
 import os
 
-params_file = "params.yaml"  # "recipes/minimal_examples/neural_networks/nmf_sourcesep/params.yaml"
+params_file = (
+    "recipes/minimal_examples/signal_processing/nmf_sourcesep/params.yaml"
+)
 with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(fin)
 
