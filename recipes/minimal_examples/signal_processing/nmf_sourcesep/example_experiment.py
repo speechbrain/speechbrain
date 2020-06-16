@@ -2,10 +2,8 @@
 import speechbrain as sb
 import torch
 from speechbrain.processing.features import spectral_magnitude
+from speechbrain.data_io.data_io import write_wav_soundfile
 import matplotlib.pyplot as plt
-import librosa.display as lrd
-import librosa as lr
-import numpy as np
 
 import os
 
@@ -19,59 +17,11 @@ sb.core.create_experiment_directory(
 
 
 class NMF_Brain(sb.core.Brain):
-
-    r"""Brain class abstracts away the details of data loops.
-
-    The primary purpose of the `Brain` class is the implementation of
-    the `fit()` method, which iterates epochs and datasets for the
-    purpose of "fitting" a set of modules to a set of data.
-
-    In order to use the `fit()` method, one should sub-class the `Brain` class
-    and override any methods for which the default behavior does not match
-    the use case. For a simple use case (e.g. training a single model with
-    a single dataset) the only methods that need to be overridden are:
-
-    * `forward()`
-    * `cmpute_objectives()`
-
-    The example below illustrates how overriding these two methods is done.
-
-    For more complicated use cases, such as multiple modules that need to
-    be updated, the following methods can be overridden:
-
-    * `fit_batch()`
-    * `evaluate_batch()`
-
-    If there is more than one objective (either for training or evaluation),
-    the method for summarizing the losses (e.g. averaging) can be specified
-    by overriding the `summarize()` method.
-
-    Arguments
-    ---------
-    modules : list of torch.Tensors
-        The modules that will be updated using the optimizer.
-    optimizer : optimizer
-        The class to use for updating the modules' parameters.
-    scheduler : scheduler
-        An object that changes the learning rate based on performance.
-    saver : Checkpointer
-        This is called by default at the end of each epoch to save progress.
-
-    Example
-    -------
-    >>> from speechbrain.nnet.optimizers import Optimize
-    >>> class SimpleBrain(Brain):
-    ...     def forward(self, x, init_params=False):
-    ...         return self.modules[0](x)
-    ...     def compute_objectives(self, predictions, targets, train=True):
-    ...         return torch.nn.functional.l1_loss(predictions, targets)
-    >>> tmpdir = getfixture('tmpdir')
-    >>> model = torch.nn.Linear(in_features=10, out_features=10)
-    >>> brain = SimpleBrain([model], Optimize('sgd', 0.01))
-    >>> brain.fit(
-    ...     train_set=([torch.rand(10, 10)], [torch.rand(10, 10)]),
-    ... )
-    """
+    def __init__(self, loader):
+        # over riding the init of Brain class, as we don't deal with neural nets here.
+        self.init_matrices(loader)
+        self.modules = torch.nn.ModuleList([])
+        self.avg_train_loss = 0.0
 
     def init_matrices(self, train_loader):
         """
@@ -81,8 +31,7 @@ class NMF_Brain(sb.core.Brain):
         # ideally I shouldn't be doing this.
         # Is it possible to directly fetch spectrogram columns to the loader?
         X = list(train_loader)[0]
-        X = iter(X).next()
-        X = params.compute_features(X[1])
+        X = params.compute_features(X[0][1])
         X = spectral_magnitude(X, power=2)
         n = X.shape[0] * X.shape[1]
 
@@ -108,6 +57,7 @@ class NMF_Brain(sb.core.Brain):
 
         # ideally I wouldn't want to be doing this.
         # instead, would it be possible directly fetch spectra in the data loader?
+
         X = params.compute_features(X[0][1])
         X = spectral_magnitude(X, power=2)
 
@@ -133,46 +83,13 @@ class NMF_Brain(sb.core.Brain):
 
         return torch.matmul(self.w, self.h), self.w, self.h / g, deviation
 
-    # def add_stats(self, *args):
-
-    #    pass
-
     def fit_batch(self, batch):
-        """Fit one batch, override to do multiple updates.
-
-        The default impementation depends on three methods being defined
-        with a particular behavior:
-
-        * `forward()`
-        * `compute_objectives()`
-        * `optimizer()`
-
-        Arguments
-        ---------
-        batch : list of torch.Tensors
-            batch of data to use for training. Default implementation assumes
-            this batch has two elements: inputs and targets.
-        """
         inputs = batch
         predictions = self.forward(inputs)
         self.training_out = predictions
-        return {"loss": predictions[-1]}
+        return {"loss": torch.tensor(predictions[-1])}
 
     def evaluate_batch(self, batch):
-        """Evaluate one batch, override for different procedure than train.
-
-        The default impementation depends on two methods being defined
-        with a particular behavior:
-
-        * `forward()`
-        * `compute_objectives()`
-
-        Arguments
-        ---------
-        batch : list of torch.Tensors
-            batch of data to use for evaluation. Default implementation assumes
-            this batch has two elements: inputs and targets.
-        """
         inputs, targets = batch
         output = self.forward(inputs)
         loss, stats = self.compute_objectives(output, targets, train=False)
@@ -180,42 +97,17 @@ class NMF_Brain(sb.core.Brain):
         return stats
 
     def summarize(self, stats, write=False):
-        """Take a list of stats from a pass through data and summarize it.
-
-        By default, averages the loss and returns the average.
-
-        Arguments
-        ---------
-        stats : list of dicts
-            A list of stats to summarize.
-        """
         return {"loss": float(sum(s["loss"] for s in stats) / len(stats))}
 
     def on_epoch_end(self, *args):
-        """Gets called at the end of each epoch.
-
-        Arguments
-        ---------
-        summary : mapping
-            This dict defines summary info about the validation pass, if
-            the validation data was passed, otherwise training pass. The
-            output of the `summarize` method is directly passed.
-        max_keys : list of str
-            A sequence of strings that match keys in the summary. Highest
-            value is the relevant value.
-        min_keys : list of str
-            A sequence of strings that match keys in the summary. Lowest
-            value is the relevant value.
-        """
         print("The loss is {}".format(args[1]["loss"]))
-        # print("NMF training has finished")
 
 
 def separate(Whats, mixture_loader):
 
     W1, W2 = Whats
 
-    X = list(mixture_loader[0])
+    X = list(mixture_loader)[0]
 
     X = params.compute_features(X[0][1])
     X = spectral_magnitude(X, power=2)
@@ -241,7 +133,7 @@ def separate(Whats, mixture_loader):
     h = torch.rand(K, n) + 10
     h /= torch.sum(h, dim=0) + eps
 
-    for ep in range(100):
+    for ep in range(200):
         v = z / (torch.matmul(w, h) + eps)
 
         nh = h * torch.matmul(w.t(), v)
@@ -261,25 +153,29 @@ def separate(Whats, mixture_loader):
 
 def visualize_results(mixture_loader, X1hat, X2hat):
 
-    X = list(mixture_loader[0])
+    X = list(mixture_loader)[0]
 
     X = params.compute_features(X[0][1])
     X = spectral_magnitude(X, power=2)
 
     X = X.reshape(-1, X.size(-1)).t().numpy()
+    power = 0.5
 
     plt.subplot(311)
-    lrd.specshow(X, y_axis="log")
+    plt.imshow(X ** power)
+    plt.gca().invert_yaxis()
     plt.title("mixture")
 
     plt.subplot(312)
     X1hat = X1hat.permute(1, 0, 2).reshape(params.m, -1).numpy()
-    lrd.specshow(X1hat, y_axis="log")
+    plt.imshow(X1hat ** power)
+    plt.gca().invert_yaxis()
     plt.title("estimated source1")
 
     plt.subplot(313)
     X2hat = X2hat.permute(1, 0, 2).reshape(params.m, -1).numpy()
-    lrd.specshow(X2hat, y_axis="log")
+    plt.imshow(X2hat ** power)
+    plt.gca().invert_yaxis()
     plt.title("estimated source2")
 
 
@@ -295,7 +191,7 @@ def spectral_phase(stft, power=2, log=False):
     -------
 
     """
-    phase = torch.atan2(stft[:, :, :, 0], stft[:, :, :, 1])
+    phase = torch.atan2(stft[:, :, :, 1], stft[:, :, :, 0])
 
     return phase
 
@@ -306,44 +202,55 @@ def reconstruct_results(mixture_loader, Xhat1, Xhat2):
     if not os.path.exists(savepath):
         os.mkdir(savepath)
 
-    X = list(mixture_loader[0])
+    X = list(mixture_loader)[0]
 
-    X = params.compute_features(X[0][1])
-    phase_mix = spectral_phase(X).permute(0, 2, 1)
-    mag_mix = spectral_magnitude(X, power=2).permute(0, 2, 1)
+    X_stft = params.compute_features(X[0][1])
+    phase_mix = spectral_phase(X_stft).permute(0, 2, 1)
+    mag_mix = spectral_magnitude(X_stft, power=2).permute(0, 2, 1)
 
-    eps = 1e-20
+    eps = 1e-25
     for i in range(Xhat1.shape[0]):
         Xhat1_stft = (
-            (Xhat1[i].numpy() / (eps + Xhat1[i].numpy() + Xhat2[i].numpy()))
-            * mag_mix[i].numpy()
-            * np.exp(np.complex(0, 1) * phase_mix[i].numpy())
+            (Xhat1[i] / (eps + Xhat1[i] + Xhat2[i])).unsqueeze(-1)
+            * mag_mix[i].unsqueeze(-1)
+            * torch.cat(
+                [
+                    torch.cos(phase_mix[i].unsqueeze(-1)),
+                    torch.sin(phase_mix[i].unsqueeze(-1)),
+                ],
+                dim=-1,
+            )
         )
+
         Xhat2_stft = (
-            (Xhat2[i].numpy() / (eps + Xhat1[i].numpy() + Xhat2[i].numpy()))
-            * mag_mix[i].numpy()
-            * np.exp(np.complex(0, 1) * phase_mix[i]).numpy()
+            (Xhat2[i] / (eps + Xhat1[i] + Xhat2[i])).unsqueeze(-1)
+            * mag_mix[i].unsqueeze(-1)
+            * torch.cat(
+                [
+                    torch.cos(phase_mix[i].unsqueeze(-1)),
+                    torch.sin(phase_mix[i].unsqueeze(-1)),
+                ],
+                dim=-1,
+            )
         )
 
-        shat1 = lr.core.istft(Xhat1_stft)
-        shat2 = lr.core.istft(Xhat2_stft)
+        shat1 = params.istft(Xhat1_stft.unsqueeze(0).permute(0, 2, 1, 3))
 
-        lr.output.write_wav(
+        shat2 = params.istft(Xhat2_stft.unsqueeze(0).permute(0, 2, 1, 3))
+
+        write_wav_soundfile(
+            shat1 / (3 * shat1.std()),
             savepath + "s1hat_{}".format(i) + ".wav",
-            shat1,
-            sr=22050,
-            norm=True,
+            16000,
         )
-        lr.output.write_wav(
+        write_wav_soundfile(
+            shat2 / (3 * shat2.std()),
             savepath + "s2hat_{}".format(i) + ".wav",
-            shat2,
-            sr=22050,
-            norm=True,
+            16000,
         )
 
 
-NMF1 = NMF_Brain([], None)
-NMF1.init_matrices(params.train_loader1())
+NMF1 = NMF_Brain(params.train_loader1())
 
 print("fitting model 1")
 NMF1.fit(
@@ -353,8 +260,7 @@ NMF1.fit(
 )
 W1hat = NMF1.training_out[1]
 
-NMF2 = NMF_Brain([], None)
-NMF2.init_matrices(params.train_loader2())
+NMF2 = NMF_Brain(params.train_loader2())
 
 print("fitting model 2")
 NMF2.fit(
