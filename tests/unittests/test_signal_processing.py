@@ -26,6 +26,6 @@ def test_gccphat():
     xxs = gccphat(rxx)
 
     # Extracting every delay found by GCC-PHAT
-    gccphat_delays = gccphat.find_tdoa(xxs)
+    gccphat_delays = gccphat.find_tdoa(xxs, tdoa_max=125)
 
     assert torch.sum(gccphat_delays[3, :, 1] == delay) == xs.shape[1]
