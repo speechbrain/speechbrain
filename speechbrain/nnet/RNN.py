@@ -14,6 +14,9 @@ from speechbrain.nnet.attention import (
     LocationAwareAttention,
 )
 
+# Temporany fix for the jit speed issue
+torch._C._jit_set_profiling_executor(False)
+
 logger = logging.getLogger(__name__)
 
 
