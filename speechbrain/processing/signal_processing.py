@@ -364,7 +364,7 @@ class GCCPHAT(torch.nn.Module):
 
         return xxs
 
-    def find_tdoa(self, xxs, tdoa_max=None, center=False):
+    def find_tdoa(self, xxs, tdoa_max=None, center=True):
         """ Returns the time difference of arrival (TDOA) for each
         timestamp. Since GCC-PHAT uses the covariance matrices to work,
         find_tdoa() will return delays for every possible pair of microphone
@@ -389,7 +389,7 @@ class GCCPHAT(torch.nn.Module):
             Specifies if the method should center the delays around 0. For
             example, if n_fft=400 and that a delay of 390 is found, find_tdoa()
             will return a delay of -10 rather than 390. This parameter is
-            optional and its default value is set to False.
+            optional and its default value is set to True.
         """
 
         # Setting things up
