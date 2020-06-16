@@ -6,9 +6,11 @@ Authors
 """
 
 import torch
+from torch import nn
 import logging
 import functools
 from speechbrain.data_io.data_io import length_to_mask
+from itertools import permutations
 
 
 logger = logging.getLogger(__name__)
@@ -201,6 +203,53 @@ def nll_loss(
         label_smoothing=label_smoothing,
     )
 
+class PitWrapper(nn.Module):
+
+    """
+    Basic module for permutation invariant loss computation
+    """
+
+    def __init__(self, base_loss, hungarian=False):
+        super(PitWrapper, self).__init__()
+        self.base_loss = base_loss
+        if hungarian:
+            raise NotImplementedError
+        else:
+            self.hungarian = None
+
+    def _opt_perm_loss(self, pred, target):
+        # pred is ..., N_CLASSES
+        n_sources = pred.size(-1)
+        pred = pred.unsqueeze(-1).repeat(1, *[1 for x in range(len(pred.shape)-1)], n_sources)
+        target = target.unsqueeze(-2).repeat(1, *[1 for x in range(len(pred.shape)-2)], n_sources, 1)
+
+        loss_mat = self.base_loss(pred, target)
+        mean_over = [x for x in range(len(loss_mat.shape))]
+        loss_mat = loss_mat.mean(dim=mean_over[:-2])
+
+        if self.hungarian:
+            raise NotImplementedError
+        else:
+             # fast pit --> trades speed for memory here.... might as well also do the opposite
+             loss = None
+             assigned_perm = None
+             for p in permutations(range(n_sources)):
+                 c_loss = loss_mat[range(n_sources), p].mean()
+                 if loss is None or loss > c_loss:
+                     loss = c_loss
+                     assigned_perm = p
+             return loss, assigned_perm
+
+    def forward(self, preds, targets):
+        losses = []
+        perms = []
+        for pred, label in zip(preds, targets):
+            loss, p = self._opt_perm_loss(pred, label)
+            perms.append(p)
+            losses.append(loss)
+
+        loss = torch.stack(losses)  # over sources
+        return loss, perms
 
 def truncate(predictions, targets, allowed_len_diff=3):
     """Ensure that predictions and targets are the same length.
