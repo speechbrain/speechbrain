@@ -1,7 +1,8 @@
 """
 An approximation of the SpecAugment algorithm, carried out in the time domain.
 
-Author: Peter Plantinga 2020
+Authors
+ * Peter Plantinga 2020
 """
 import torch
 from speechbrain.processing.speech_augmentation import (
