@@ -1,9 +1,10 @@
 """
 Data i/o operations.
 
-Author
-------
-Mirco Ravanelli, Aku Rouhe 2020
+Authors
+ * Mirco Ravanelli 2020
+ * Aku Rouhe 2020
+ * Ju-Chieh Chou 2020
 """
 
 import os
@@ -78,6 +79,14 @@ class DataLoaderFactory(torch.nn.Module):
         threshold (by default 75%). In practice, if a lot of RAM is available
         several data will be stored in memory, otherwise, most of them will be
         read from the disk directly.
+    select_n_setences : int, optional
+        Default: None . It selects the first N sentences of the CSV file.
+    avoid_if_longer_than : float, optional
+        Default: 36000 . It excludes sentences longer than the specified value
+        in seconds.
+    avoid_if_shorter_than : float, optional
+        Default: 0 . It excludes sentences shorter than the specified value in
+        seconds.
     drop_last : bool, optional
         Default: False . This is an option directly passed to the pytorch
         dataloader (see the related documentation for more details). When True,
@@ -97,8 +106,6 @@ class DataLoaderFactory(torch.nn.Module):
     >>> data_loader=DataLoaderFactory(csv_file)
     >>> # When called, creates a dataloader for each entry in the csv file
     >>> # The sample has two: wav and spk
-    >>> print(len(data_loader()))
-    2
     """
 
     def __init__(
@@ -106,11 +113,13 @@ class DataLoaderFactory(torch.nn.Module):
         csv_file,
         batch_size=1,
         csv_read=None,
-        sentence_sorting="original",
+        sentence_sorting="random",
         num_workers=0,
         cache=False,
         cache_ram_percent=75,
         select_n_sentences=None,
+        avoid_if_longer_than=36000,
+        avoid_if_shorter_than=0,
         drop_last=False,
         padding_value=0,
         replacements={},
@@ -127,6 +136,8 @@ class DataLoaderFactory(torch.nn.Module):
         self.cache = cache
         self.cache_ram_percent = cache_ram_percent
         self.select_n_sentences = select_n_sentences
+        self.avoid_if_longer_than = avoid_if_longer_than
+        self.avoid_if_shorter_than = avoid_if_shorter_than
         self.drop_last = drop_last
         self.padding_value = padding_value
         self.replacements = replacements
@@ -157,35 +168,29 @@ class DataLoaderFactory(torch.nn.Module):
         if self.csv_read is None:
             self.csv_read = data_dict["data_entries"]
 
-        self.dataloader = []
+        # Creating a dataloader
+        dataset = DatasetFactory(
+            data_dict,
+            self.label_dict,
+            self.supported_formats,
+            self.csv_read,
+            self.cache,
+            self.cache_ram_percent,
+        )
 
-        # Creating a dataloader for each data entry in the csv file
-        for data_entry in self.csv_read:
-
-            dataset = DatasetFactory(
-                data_dict,
-                self.label_dict,
-                self.supported_formats,
-                data_entry,
-                self.cache,
-                self.cache_ram_percent,
-            )
-
-            self.dataloader.append(
-                DataLoader(
-                    dataset,
-                    batch_size=self.batch_size,
-                    shuffle=self.shuffle,
-                    pin_memory=False,
-                    drop_last=self.drop_last,
-                    num_workers=self.num_workers,
-                    collate_fn=self.batch_creation,
-                )
-            )
+        self.dataloader = DataLoader(
+            dataset,
+            batch_size=self.batch_size,
+            shuffle=self.shuffle,
+            pin_memory=False,
+            drop_last=self.drop_last,
+            num_workers=self.num_workers,
+            collate_fn=self.batch_creation,
+        )
 
         return self.dataloader
 
-    def batch_creation(self, data_list):
+    def batch_creation(self, data_lists):
         """
         Data batching
 
@@ -204,35 +209,45 @@ class DataLoaderFactory(torch.nn.Module):
             [data_id,data,data_len] where zero-padding is
             performed where needed.
         """
+        batch = []
 
-        # The data_list is always compose by [id,data,data_len]
-        data_list = list(map(list, zip(*data_list)))
+        n_data_entries = len(data_lists[0])
 
-        # Convert all to torch tensors
-        self.numpy2torch(data_list)
+        batch_list = [[[] for i in range(3)] for j in range(n_data_entries)]
 
-        # Save sentence IDs
-        snt_ids = data_list[0]
+        for data_entry in data_lists:
+            for i, data in enumerate(data_entry):
+                batch_list[i][0].append(data[0])
+                batch_list[i][1].append(data[1])
+                batch_list[i][2].append(data[2])
 
-        # Save duration
-        sequences = data_list[1]
-        time_steps = torch.tensor(data_list[2])
+        for data_list in batch_list:
 
-        # Check if current element is a tensor
-        if isinstance(sequences[0], torch.Tensor):
+            # Convert all to torch tensors
+            self.numpy2torch(data_list)
 
-            # Padding the sequence of sentences (if needed)
-            batch_data = self.padding(sequences)
+            # Save sentence IDs
+            snt_ids = data_list[0]
 
-            # Return % of time steps without padding (useful for save_batch)
-            time_steps = time_steps / batch_data.shape[1]
+            # Save duration
+            sequences = data_list[1]
+            time_steps = torch.tensor(data_list[2])
 
-        else:
-            # Non-tensor case
-            batch_data = sequences
+            # Check if current element is a tensor
+            if isinstance(sequences[0], torch.Tensor):
 
-        # Batch composition
-        batch = [snt_ids, batch_data, time_steps]
+                # Padding the sequence of sentences (if needed)
+                batch_data = self.padding(sequences)
+
+                # Return % of time steps without padding (useful for save_batch)
+                time_steps = time_steps / batch_data.shape[1]
+
+            else:
+                # Non-tensor case
+                batch_data = sequences
+
+            # Batch composition
+            batch.append([snt_ids, batch_data, time_steps])
 
         return batch
 
@@ -325,10 +340,7 @@ class DataLoaderFactory(torch.nn.Module):
                 if isinstance(data_list[i][j], np.ndarray):
                     data_list[i][j] = torch.from_numpy(data_list[i][j])
 
-    # FIX: Too complex! When fixed, remove the "# noqa: C901"
-    def label_dict_creation(self, data_dict):  # noqa: C901
-        logger.warning("label_dict_creation is too complex, please fix")
-
+    def label_dict_creation(self, data_dict):
         # create label counts and label2index automatically when needed
         label_dict = {}
         if self.output_folder is not None:
@@ -340,61 +352,27 @@ class DataLoaderFactory(torch.nn.Module):
 
         # Update label dict
         for snt in data_dict:
-            if isinstance(data_dict[snt], dict):
-                for elem in data_dict[snt]:
+            if not isinstance(data_dict[snt], dict):
+                continue
 
-                    if "format" in data_dict[snt][elem]:
+            for elem in data_dict[snt]:
+                if "format" not in data_dict[snt][elem]:
+                    continue
 
-                        count_lab = False
-                        opts = data_dict[snt][elem]["options"]
+                count_lab, labels = self._should_count(data_dict[snt][elem])
 
-                        if data_dict[snt][elem]["format"] == "string" and (
-                            "label" not in opts or opts["label"] == "True"
-                        ):
+                if not count_lab:
+                    continue
 
-                            if len(data_dict[snt][elem]["data"].split(" ")) > 1:
-                                # Processing list of string labels
-                                labels = data_dict[snt][elem]["data"].split(" ")
-                                count_lab = True
+                if elem not in label_dict:
+                    label_dict[elem] = {}
+                    label_dict[elem]["counts"] = {}
 
-                            else:
-                                # Processing a single label
-                                labels = [data_dict[snt][elem]["data"]]
-                                count_lab = True
-
-                        if data_dict[snt][elem]["format"] == "pkl":
-
-                            labels = load_pkl(data_dict[snt][elem]["data"])
-
-                            # Create counts if tensor is a list of integers
-                            if isinstance(labels, list):
-                                if isinstance(labels[0], int):
-                                    count_lab = True
-
-                            if isinstance(labels, np.ndarray):
-                                if "numpy.int" in str(type(labels[0])):
-                                    count_lab = True
-
-                            # Create counts if tensor is a list of integers
-                            if isinstance(labels, torch.Tensor):
-
-                                if labels.type() == "torch.LongTensor":
-                                    count_lab = True
-                                if labels.type() == "torch.IntTensor":
-                                    count_lab = True
-
-                        if count_lab:
-                            if elem not in label_dict:
-                                label_dict[elem] = {}
-                                label_dict[elem]["counts"] = {}
-
-                            for lab in labels:
-                                if lab not in label_dict[elem]["counts"]:
-                                    label_dict[elem]["counts"][lab] = 1
-                                else:
-                                    label_dict[elem]["counts"][lab] = (
-                                        label_dict[elem]["counts"][lab] + 1
-                                    )
+                for lab in labels:
+                    if lab not in label_dict[elem]["counts"]:
+                        label_dict[elem]["counts"][lab] = 1
+                    else:
+                        label_dict[elem]["counts"][lab] += 1
 
         # create label2index:
         for lab in label_dict:
@@ -414,8 +392,50 @@ class DataLoaderFactory(torch.nn.Module):
 
         return label_dict
 
-    # FIX: Too complex! When fixed, remove the "# noqa: C901"
-    def generate_data_dict(self,):  # noqa: C901
+    def _should_count(self, data_dict_elem):
+        """Compute whether this label should be counted or not"""
+        count_lab = False
+        labels = []
+        opts = data_dict_elem["options"]
+
+        if data_dict_elem["format"] == "string" and (
+            "label" not in opts or opts["label"] == "True"
+        ):
+
+            if len(data_dict_elem["data"].split(" ")) > 1:
+                # Processing list of string labels
+                labels = data_dict_elem["data"].split(" ")
+                count_lab = True
+
+            else:
+                # Processing a single label
+                labels = [data_dict_elem["data"]]
+                count_lab = True
+
+        if data_dict_elem["format"] == "pkl":
+
+            labels = load_pkl(data_dict_elem["data"])
+
+            # Create counts if tensor is a list of integers
+            if isinstance(labels, list):
+                if isinstance(labels[0], int):
+                    count_lab = True
+
+            if isinstance(labels, np.ndarray):
+                if "numpy.int" in str(type(labels[0])):
+                    count_lab = True
+
+            # Create counts if tensor is a list of integers
+            if isinstance(labels, torch.Tensor):
+
+                if labels.type() == "torch.LongTensor":
+                    count_lab = True
+                if labels.type() == "torch.IntTensor":
+                    count_lab = True
+
+        return count_lab, labels
+
+    def generate_data_dict(self):
         """
         Create a dictionary from the csv file
 
@@ -431,8 +451,6 @@ class DataLoaderFactory(torch.nn.Module):
         >>> data_loader.generate_data_dict().keys()
         dict_keys(['example1', 'data_list', 'data_entries'])
         """
-        logger.warning("generate_data_dict is too complex, please fix!")
-
         # Initial prints
         logger.debug("Creating dataloader for %s" % (self.csv_file))
 
@@ -444,8 +462,9 @@ class DataLoaderFactory(torch.nn.Module):
 
         first_row = True
 
-        # Tracking the total sentence duration
+        # Tracking the total number of sentences and their duration
         total_duration = 0
+        total_sentences = 0
 
         for row in reader:
 
@@ -456,139 +475,80 @@ class DataLoaderFactory(torch.nn.Module):
             # remove left/right spaces
             row = [elem.strip(" ") for elem in row]
 
+            # update sentence counter
+            total_sentences = total_sentences + 1
+            if self.select_n_sentences is not None:
+                if total_sentences > self.select_n_sentences:
+                    break
+
+            # Check and get field list from first row
             if first_row:
-
-                # Make sure ID field exists
-                if "ID" not in row:
-                    err_msg = (
-                        "The mandatory field ID (i.e, the field that contains "
-                        "a unique  id for each sentence is not present in the "
-                        "csv file  %s" % (self.csv_file)
-                    )
-                    raise ValueError(err_msg)
-
-                # Make sure the duration field exists
-                if "duration" not in row:
-                    err_msg = (
-                        "The mandatory field duration (i.e, the field that "
-                        "contains the  duration of each sentence is not "
-                        "present in the csv  file %s" % (self.csv_file)
-                    )
-                    raise ValueError(err_msg)
-
-                if len(row) == 2:
-                    err_msg = (
-                        "The cvs file %s does not contain features entries! "
-                        "The features are specified with the following fields:"
-                        "feaname, feaname_format, feaname_opts"
-                        % (self.csv_file)
-                    )
-                    raise ValueError(err_msg)
-
-                # Make sure the features are expressed in the following way:
-                # feaname, feaname_format, feaname_opts
-                feats = row[2:]
-                feat_names = feats[0::3]
-
-                for feat_name in feat_names:
-
-                    if feat_name + "_format" not in row:
-                        err_msg = (
-                            "The feature %s in the cvs file %s does not "
-                            "contain the field %s to specified its format."
-                            % (feat_name, self.csv_file, feat_name + "_format")
-                        )
-                        raise ValueError(err_msg)
-
-                    if feat_name + "_opts" not in row:
-                        err_msg = (
-                            "The feature %s in the cvs file %s does not "
-                            "contain the field %s to specified the reader "
-                            "options. "
-                            % (feat_name, self.csv_file, feat_name + "_opts")
-                        )
-                        raise ValueError(err_msg)
-
-                # Store the field list
+                self._check_first_row(row)
                 field_lst = row
-
                 first_row = False
+                continue
 
-            else:
-
-                # replace local variables with global ones
-                variable_finder = re.compile(r"\$[\w.]+")
-                for i, item in enumerate(row):
-                    try:
-                        row[i] = variable_finder.sub(
-                            lambda x: self.replacements[x[0]], item,
-                        )
-                    except KeyError as e:
-                        e.args = (
-                            *e.args,
-                            "The item '%s' contains variables "
-                            "not included in 'replacements'" % item,
-                        )
-                        raise
-
-                # Make sure that the current row contains all the fields
-                if len(row) != len(field_lst):
-                    err_msg = (
-                        'The row "%s" of the cvs file %s does not '
-                        "contain the right number fields (they must be %i "
-                        "%s"
-                        ")" % (row, self.csv_file, len(field_lst), field_lst)
+            # replace local variables with global ones
+            variable_finder = re.compile(r"\$[\w.]+")
+            for i, item in enumerate(row):
+                try:
+                    row[i] = variable_finder.sub(
+                        lambda x: self.replacements[x[0]], item,
                     )
-                    raise ValueError(err_msg)
+                except KeyError as e:
+                    e.args = (
+                        *e.args,
+                        "The item '%s' contains variables "
+                        "not included in 'replacements'" % item,
+                    )
+                    raise
 
-                # Filling the data dictionary
-                for i, field in enumerate(field_lst):
+            # Make sure that the current row contains all the fields
+            if len(row) != len(field_lst):
+                err_msg = (
+                    'The row "%s" of the cvs file %s does not '
+                    "contain the right number fields (they must be %i "
+                    "%s"
+                    ")" % (row, self.csv_file, len(field_lst), field_lst)
+                )
+                raise ValueError(err_msg)
 
-                    field_name = row[i]
+            # Filling the data dictionary
+            for i, field in enumerate(field_lst):
+                if i == 0:
+                    row_id = row[i]
+                    data_dict[row_id] = {}
+                    continue
 
-                    if i == 0:
-                        id_field = field_name
-                        data_dict[id_field] = {}
-                    else:
+                elif field == "duration":
+                    data_dict[row_id][field] = row[i]
+                    total_duration = total_duration + float(row[i])
+                    continue
 
-                        if field == "duration":
-                            data_dict[id_field][field] = {}
-                            duration = float(row[i])
-                            data_dict[id_field][field] = row[i]
-                            total_duration = total_duration + duration
-                        else:
+                format_field = field.endswith("_format")
+                opts_field = field.endswith("_opts")
+                field = field.replace("_format", "").replace("_opts", "")
 
-                            field_or = field
-                            field = field.replace("_format", "").replace(
-                                "_opts", ""
-                            )
+                if field not in data_dict[row_id]:
+                    data_dict[row_id][field] = {
+                        "data": {},
+                        "format": {},
+                        "options": {},
+                    }
 
-                            if field not in data_dict[id_field]:
-                                data_dict[id_field][field] = {}
-                                data_dict[id_field][field]["data"] = {}
-                                data_dict[id_field][field]["format"] = {}
-                                data_dict[id_field][field]["options"] = {}
+                if not format_field and not opts_field:
+                    data_dict[row_id][field]["data"] = row[i]
 
-                            if "_format" in field_or:
-                                data_dict[id_field][field]["format"] = row[i]
+                elif format_field:
+                    data_dict[row_id][field]["format"] = row[i]
 
-                            elif "_opts" in field_or:
-                                data_dict[id_field][field]["options"] = {}
-                                if len(row[i]) > 0:
-                                    lst_opt = row[i].split(" ")
-                                    for opt in lst_opt:
-                                        opt_name = opt.split(":")[0]
-                                        opt_val = opt.split(":")[1]
+                elif opts_field:
+                    data_dict[row_id][field]["options"] = self._parse_opts(
+                        row[i]
+                    )
 
-                                        data_dict[id_field][field]["options"][
-                                            opt_name
-                                        ] = {}
-                                        data_dict[id_field][field]["options"][
-                                            opt_name
-                                        ] = opt_val
-
-                            else:
-                                data_dict[id_field][field]["data"] = row[i]
+            # Avoiding sentence that are too long or too short
+            self._avoid_short_long_sentences(data_dict, row_id)
 
         data_dict = self.sort_sentences(data_dict, self.sentence_sorting)
 
@@ -610,6 +570,77 @@ class DataLoaderFactory(torch.nn.Module):
         data_dict["data_entries"] = data_entries
 
         return data_dict
+
+    def _avoid_short_long_sentences(self, snt, row_id):
+        """Excludes long and short sentences from the dataset"""
+        if float(snt[row_id]["duration"]) > self.avoid_if_longer_than:
+            del snt[row_id]
+
+        elif float(snt[row_id]["duration"]) < self.avoid_if_shorter_than:
+            del snt[row_id]
+
+    def _check_first_row(self, row):
+        # Make sure ID field exists
+        if "ID" not in row:
+            err_msg = (
+                "The mandatory field ID (i.e, the field that contains "
+                "a unique  id for each sentence is not present in the "
+                "csv file  %s" % (self.csv_file)
+            )
+            raise ValueError(err_msg)
+
+        # Make sure the duration field exists
+        if "duration" not in row:
+            err_msg = (
+                "The mandatory field duration (i.e, the field that "
+                "contains the  duration of each sentence is not "
+                "present in the csv  file %s" % (self.csv_file)
+            )
+            raise ValueError(err_msg)
+
+        if len(row) == 2:
+            err_msg = (
+                "The cvs file %s does not contain features entries! "
+                "The features are specified with the following fields:"
+                "feaname, feaname_format, feaname_opts" % (self.csv_file)
+            )
+            raise ValueError(err_msg)
+
+        # Make sure the features are expressed in the following way:
+        # feaname, feaname_format, feaname_opts
+        feats = row[2:]
+        feat_names = feats[0::3]
+
+        for feat_name in feat_names:
+
+            if feat_name + "_format" not in row:
+                err_msg = (
+                    "The feature %s in the cvs file %s does not "
+                    "contain the field %s to specified its format."
+                    % (feat_name, self.csv_file, feat_name + "_format")
+                )
+                raise ValueError(err_msg)
+
+            if feat_name + "_opts" not in row:
+                err_msg = (
+                    "The feature %s in the cvs file %s does not "
+                    "contain the field %s to specified the reader "
+                    "options. "
+                    % (feat_name, self.csv_file, feat_name + "_opts")
+                )
+                raise ValueError(err_msg)
+
+    def _parse_opts(self, entry):
+        """Parse options from a list of options"""
+        if len(entry) == 0:
+            return {}
+
+        opts = {}
+        for opt in entry.split(" "):
+            opt_name, opt_val = opt.split(":")
+            opts[opt_name] = opt_val
+
+        return opts
 
     @staticmethod
     def sort_sentences(data_dict, sorting):
@@ -663,13 +694,8 @@ class DataLoaderFactory(torch.nn.Module):
                 key=lambda k: -float(data_dict[k]["duration"]),
             )
 
-        # Random sorting
-        if sorting == "random":
-            sorted_ids = list(data_dict.keys())
-            random.shuffle(sorted_ids)
-
         # Original order
-        if sorting == "original":
+        if sorting == "original" or sorting == "random":
             sorted_ids = list(data_dict.keys())
 
         # Filling the dictionary
@@ -739,7 +765,7 @@ class DatasetFactory(Dataset):
         a dictionary containing all the entries of the csv file.
     supported_formats : dict
         a dictionary contaning the reading supported format
-    data_entry : list
+    data_entries : list
         it is a list containing the data_entries to read from the csv file
     do_cache : bool, optional
         Default:False When set to true, this option stores the input data in a
@@ -763,8 +789,8 @@ class DatasetFactory(Dataset):
     >>> # data_dict creation
     >>> data_dict=data_loader.generate_data_dict()
     >>> formats=data_loader.get_supported_formats()
-    >>> dataset=DatasetFactory(data_dict,{},formats,'wav',False,0)
-    >>> first_example_id, *first_example = dataset[0]
+    >>> dataset=DatasetFactory(data_dict,{},formats,['wav'],False,0)
+    >>> [first_example_id, first_tensor, first_len], = dataset[0]
     >>> print(first_example_id)
     example1
     """
@@ -774,7 +800,7 @@ class DatasetFactory(Dataset):
         data_dict,
         label_dict,
         supported_formats,
-        data_entry,
+        data_entries,
         do_cache,
         cache_ram_percent,
     ):
@@ -783,7 +809,7 @@ class DatasetFactory(Dataset):
         self.data_dict = data_dict
         self.label_dict = label_dict
         self.supported_formats = supported_formats
-        self.data_entry = data_entry
+        self.data_entries = data_entries
         self.do_cache = do_cache
 
         # Creating a shared dictionary for caching
@@ -814,13 +840,14 @@ class DatasetFactory(Dataset):
         >>> # supported formats
         >>> formats=data_loader.get_supported_formats()
         >>> # Initialization of the dataser class
-        >>> dataset=DatasetFactory(data_dict,{},formats,'wav',False,0)
+        >>> dataset=DatasetFactory(data_dict,{},formats,['wav'],False,0)
         >>> # Getting data length
         >>> len(dataset)
         1
         """
         # Reading the data_list in data_dict
         data_len = len(self.data_dict["data_list"])
+
         return data_len
 
     def __getitem__(self, idx):
@@ -832,47 +859,54 @@ class DatasetFactory(Dataset):
         # Getting the sentence id
         snt_id = self.data_dict["data_list"][idx]
 
-        # Reading data from data_dict
-        data_line = self.data_dict[snt_id][self.data_entry]
+        data = []
 
-        # Check if we need to convert labels to indexes
-        if self.label_dict and self.data_entry in self.label_dict:
-            lab2ind = self.label_dict[self.data_entry]["lab2index"]
-        else:
-            lab2ind = None
+        for data_entry in self.data_entries:
 
-        # Managing caching
-        if self.do_cache:
+            # Reading data from data_dict
+            data_line = self.data_dict[snt_id][data_entry]
 
-            if snt_id not in self.cache:
-
-                # Reading data
-                data = self.read_data(data_line, snt_id, lab2ind=lab2ind)
-
-                # Store the in the variable cache if needed
-                if self.cache["do_caching"]:
-
-                    try:
-                        self.cache[snt_id] = data
-                    except Exception:
-                        pass
-
-                    # Check ram occupation periodically
-                    if random.random() < 0.05:
-                        # Store data only if the RAM available is smaller
-                        # than what set in cache_ram_percent.
-                        if (
-                            psutil.virtual_memory().percent
-                            >= self.cache_ram_percent
-                        ):
-
-                            self.cache["do_caching"] = False
+            # Check if we need to convert labels to indexes
+            if self.label_dict and data_entry in self.label_dict:
+                lab2ind = self.label_dict[data_entry]["lab2index"]
             else:
-                # Reading data from the cache directly
-                data = self.cache[snt_id]
-        else:
-            # Read data from the disk
-            data = self.read_data(data_line, snt_id, lab2ind=lab2ind)
+                lab2ind = None
+
+            # Managing caching
+            if self.do_cache:
+
+                if snt_id not in self.cache:
+
+                    # Reading data
+                    new_data = self.read_data(
+                        data_line, snt_id, lab2ind=lab2ind
+                    )
+                    data.append(new_data)
+
+                    # Store the in the variable cache if needed
+                    if self.cache["do_caching"]:
+
+                        try:
+                            self.cache[snt_id] = new_data
+                        except Exception:
+                            pass
+
+                        # Check ram occupation periodically
+                        if random.random() < 0.05:
+                            # Store data only if the RAM available is smaller
+                            # than what set in cache_ram_percent.
+                            if (
+                                psutil.virtual_memory().percent
+                                >= self.cache_ram_percent
+                            ):
+
+                                self.cache["do_caching"] = False
+                else:
+                    # Reading data from the cache directly
+                    data.append(self.cache[snt_id])
+            else:
+                # Read data from the disk
+                data.append(self.read_data(data_line, snt_id, lab2ind=lab2ind))
 
         return data
 
@@ -2011,3 +2045,94 @@ def load_pkl(file):
     """
     with open(file, "rb") as f:
         return pickle.load(f)
+
+
+def prepend_bos_token(label, bos_index):
+    """Create labels with <bos> token at the beginning.
+
+    Arguments
+    ---------
+    label : torch.IntTensor
+        Containing the original labels. Must be of size: [batch_size, max_length]
+    bos_index : int
+        The index for <bos> token.
+
+    Returns
+    -------
+    new_label : The new label with <bos> at the beginning.
+
+    Example:
+    >>> label=torch.LongTensor([[1,0,0], [2,3,0], [4,5,6]])
+    >>> new_label=prepend_bos_token(label, bos_index=7)
+    >>> new_label
+    tensor([[7, 1, 0, 0],
+            [7, 2, 3, 0],
+            [7, 4, 5, 6]])
+    """
+    new_label = label.long().clone()
+    batch_size = label.shape[0]
+
+    bos = new_label.new_zeros(batch_size, 1).fill_(bos_index)
+    new_label = torch.cat([bos, new_label], dim=1)
+    return new_label
+
+
+def append_eos_token(label, length, eos_index):
+    """Create labels with <eos> token appended.
+
+    Arguments
+    ---------
+    label : torch.IntTensor
+        Containing the original labels. Must be of size: [batch_size, max_length]
+    length : torch.LongTensor
+        Cotaining the original length of each label sequences. Must be 1D.
+    eos_index : int
+        The index for <eos> token.
+
+    Returns
+    -------
+    new_label : The new label with <eos> appended.
+
+    Example:
+    >>> label=torch.IntTensor([[1,0,0], [2,3,0], [4,5,6]])
+    >>> length=torch.LongTensor([1,2,3])
+    >>> new_label=append_eos_token(label, length, eos_index=7)
+    >>> new_label
+    tensor([[1, 7, 0, 0],
+            [2, 3, 7, 0],
+            [4, 5, 6, 7]], dtype=torch.int32)
+    """
+    new_label = label.int().clone()
+    batch_size = label.shape[0]
+
+    pad = new_label.new_zeros(batch_size, 1)
+    new_label = torch.cat([new_label, pad], dim=1)
+    new_label[torch.arange(batch_size), length.long()] = eos_index
+    return new_label
+
+
+def merge_char(sequences, space="_"):
+    """Merge characters sequences into word sequences.
+
+    Arguments
+    ---------
+    sequences : list
+        Each item contains a list, and this list contains character sequence.
+    space : string
+        The token represents space. Default: _
+
+    Returns
+    -------
+    The list contain word sequences for each sentence.
+
+    Example:
+    >>> sequences = [["a", "b", "_", "c", "_", "d", "e"], ["e", "f", "g", "_", "h", "i"]]
+    >>> results = merge_char(sequences)
+    >>> results
+    [['ab', 'c', 'de'], ['efg', 'hi']]
+    """
+    results = []
+    for seq in sequences:
+        words = "".join(seq).split("_")
+        results.append(words)
+    return results

@@ -14,12 +14,10 @@ from speechbrain.utils.train_logger import summarize_error_rate
 # This hack needed to import data preparation script from ..
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(current_dir))
-from timit_prepare import TIMITPreparer  # noqa E402
+from timit_prepare import prepare_timit  # noqa E402
 
 # Load hyperparameters file with command-line overrides
 params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
-if "seed" in overrides:
-    torch.manual_seed(overrides["seed"])
 with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(fin, overrides)
 
@@ -33,9 +31,14 @@ sb.core.create_experiment_directory(
 
 # Define training procedure
 class ASR(sb.core.Brain):
-    def compute_forward(self, x, train_mode=True, init_params=False):
+    def compute_forward(self, x, stage="train", init_params=False):
         ids, wavs, wav_lens = x
         wavs, wav_lens = wavs.to(params.device), wav_lens.to(params.device)
+        if hasattr(params, "env_corrupt"):
+            wavs_noise = params.env_corrupt(wavs, wav_lens, init_params)
+            wavs = torch.cat([wavs, wavs_noise], dim=0)
+            wav_lens = torch.cat([wav_lens, wav_lens])
+
         if hasattr(params, "augmentation"):
             wavs = params.augmentation(wavs, wav_lens, init_params)
         feats = params.compute_features(wavs, init_params)
@@ -45,25 +48,28 @@ class ASR(sb.core.Brain):
         pout = params.log_softmax(out)
         return pout, wav_lens
 
-    def compute_objectives(self, predictions, targets, train_mode=True):
+    def compute_objectives(self, predictions, targets, stage="train"):
         pout, pout_lens = predictions
         ids, phns, phn_lens = targets
         phns, phn_lens = phns.to(params.device), phn_lens.to(params.device)
-        loss = params.compute_cost(pout, phns, [pout_lens, phn_lens])
+        if hasattr(params, "env_corrupt"):
+            phns = torch.cat([phns, phns], dim=0)
+            phn_lens = torch.cat([phn_lens, phn_lens], dim=0)
+        loss = params.compute_cost(pout, phns, pout_lens, phn_lens)
 
-        if not train_mode:
+        stats = {}
+        if stage != "train":
             ind2lab = params.train_loader.label_dict["phn"]["index2lab"]
             sequence = ctc_greedy_decode(pout, pout_lens, blank_id=-1)
             sequence = convert_index_to_lab(sequence, ind2lab)
             phns = undo_padding(phns, phn_lens)
             phns = convert_index_to_lab(phns, ind2lab)
-            stats = edit_distance.wer_details_for_batch(
+            per_stats = edit_distance.wer_details_for_batch(
                 ids, phns, sequence, compute_alignments=True
             )
-            stats = {"PER": stats}
-            return loss, stats
+            stats["PER"] = per_stats
 
-        return loss
+        return loss, stats
 
     def on_epoch_end(self, epoch, train_stats, valid_stats=None):
         per = summarize_error_rate(valid_stats["PER"])
@@ -78,15 +84,14 @@ class ASR(sb.core.Brain):
 
 
 # Prepare data
-prepare = TIMITPreparer(
+prepare_timit(
     data_folder=params.data_folder,
     splits=["train", "dev", "test"],
     save_folder=params.data_folder,
 )
-prepare()
 train_set = params.train_loader()
 valid_set = params.valid_loader()
-first_x, first_y = next(zip(*train_set))
+first_x, first_y = next(iter(train_set))
 
 # Modules are passed to optimizer and have train/eval called on them
 modules = [params.model, params.output]
