@@ -470,6 +470,8 @@ def _ast_eval(node):
         ast.Sub: op.sub,
         ast.Mult: op.mul,
         ast.Div: op.truediv,
+        ast.FloorDiv: op.floordiv,
+        ast.Pow: op.pow,
         ast.Mod: op.mod,
     }
     if isinstance(node, ast.Num):  # <number>

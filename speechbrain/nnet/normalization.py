@@ -238,6 +238,10 @@ class InstanceNorm1d(nn.Module):
     track_running_stats : bool
         When set to True, this module tracks the running mean and variance,
         and when set to False, this module does not track such statistics.
+    affine : bool
+        A boolean value that when set to True, this module has learnable
+        affine parameters, initialized the same way as done for
+        batch normalization. Default: False.
 
     Example
     -------
@@ -249,12 +253,13 @@ class InstanceNorm1d(nn.Module):
     """
 
     def __init__(
-        self, eps=1e-05, momentum=0.1, track_running_stats=True,
+        self, eps=1e-05, momentum=0.1, track_running_stats=True, affine=False
     ):
         super().__init__()
         self.eps = eps
         self.momentum = momentum
         self.track_running_stats = track_running_stats
+        self.affine = affine
 
     def init_params(self, first_input):
         """
@@ -270,6 +275,7 @@ class InstanceNorm1d(nn.Module):
             eps=self.eps,
             momentum=self.momentum,
             track_running_stats=self.track_running_stats,
+            affine=self.affine,
         ).to(first_input.device)
 
     def forward(self, x, init_params=False):
@@ -305,6 +311,10 @@ class InstanceNorm2d(nn.Module):
     track_running_stats : bool
         When set to True, this module tracks the running mean and variance,
         and when set to False, this module does not track such statistics.
+    affine : bool
+        A boolean value that when set to True, this module has learnable
+        affine parameters, initialized the same way as done for
+        batch normalization. Default: False.
 
     Example
     -------
@@ -316,12 +326,13 @@ class InstanceNorm2d(nn.Module):
     """
 
     def __init__(
-        self, eps=1e-05, momentum=0.1, track_running_stats=True,
+        self, eps=1e-05, momentum=0.1, track_running_stats=True, affine=False
     ):
         super().__init__()
         self.eps = eps
         self.momentum = momentum
         self.track_running_stats = track_running_stats
+        self.affine = affine
 
     def init_params(self, first_input):
         """
@@ -337,6 +348,7 @@ class InstanceNorm2d(nn.Module):
             eps=self.eps,
             momentum=self.momentum,
             track_running_stats=self.track_running_stats,
+            affine=self.affine,
         ).to(first_input.device)
 
     def forward(self, x, init_params=False):
