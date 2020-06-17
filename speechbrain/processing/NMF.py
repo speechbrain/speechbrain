@@ -38,9 +38,13 @@ def separate(params, Whats, mixture_loader):
     mixture_loader : data_loader
         This loader contains the mixture signals to be separated.
 
-    Example
+    Outputs
     -------
-    >>> X1hat, X2hat = separate(params, [W1hat, W2hat], mixture_loader)
+    X1hat: Separated spectrum for source1
+        Size = [BS x (nfft/2 +1) x T] where,
+        BS = batch size, nfft = fft size, T = length of the spectra.
+    X2hat: Seperated Spectrum for source2
+        The size definitions are same as above.
     """
 
     W1, W2 = Whats
@@ -101,14 +105,14 @@ def reconstruct_results(params, mixture_loader, Xhat1, Xhat2):
     mixture_loader : data_loader
         This loader contains the mixture signals to be separated.
     Xhat1 : torch_tensor
-        The separated spectrum for source 1 of size [BS, nfft/2 + 1, T].
+        The separated spectrum for source 1 of size [BS, nfft/2 + 1, T],
+        where,  BS = batch size, nfft = fft size, T = length of the spectra.
+
     Xhat2 : torch_tensor
         The separated spectrum for source 2 of size [BS, nfft/2 + 1, T].
+        The size definitions are same as Xhat1.
 
-
-    Example
-    -------
-    >>> reconstruct_results(params, mixture_loader, X1hat, X2hat)
+    This function doesn't return.
     """
 
     savepath = "output_folder/save/"
