@@ -2,6 +2,7 @@
 import os
 import sys
 import torch
+import torch.nn.functional as F
 import speechbrain as sb
 
 import speechbrain.data_io.wer as wer_io
@@ -37,14 +38,44 @@ sb.core.create_experiment_directory(
 modules = torch.nn.ModuleList(
     [params.enc, params.emb, params.dec, params.ctc_lin, params.seq_lin]
 )
-greedy_searcher = S2SRNNGreedySearcher(
-    modules=[params.emb, params.dec, params.seq_lin, params.log_softmax],
-    bos_index=params.bos_index,
-    eos_index=params.eos_index,
-    min_decode_ratio=0,
-    max_decode_ratio=1,
+lm_modules = torch.nn.ModuleList(
+    [params.lm_emb, params.lm_drop, params.lm_rnn, params.lm_dnn, params.lm_lin]
 )
-beam_searcher = S2SRNNBeamSearcher(
+
+
+def init_lm_params():
+    dummy_input = torch.zeros(params.batch_size, 100).long().to(params.device)
+    out = params.lm_emb(dummy_input, init_params=True)
+    out, _ = params.lm_rnn(out, init_params=True)
+    out = params.lm_dnn(out, init_params=True)
+    out = params.lm_lin(out, init_params=True)
+
+
+class MyBeamSearcher(S2SRNNBeamSearcher):
+    def lm_forward_step(self, inp_tokens, memory):
+        hs = memory
+        emb, rnn, dnn, lin, softmax = self.lm_modules
+        e = emb(inp_tokens)
+        h_rnn, hs = rnn(e.unsqueeze(1), hs)
+        h_dnn = F.relu(dnn(h_rnn.squeeze(1)))
+        logits = lin(h_dnn)
+        log_probs = softmax(logits)
+        return log_probs, hs
+
+    def permute_lm_mem(self, memory, index):
+        if isinstance(memory, tuple):
+            memory_0 = torch.index_select(memory[0], dim=1, index=index)
+            memory_1 = torch.index_select(memory[1], dim=1, index=index)
+            memory = (memory_0, memory_1)
+        else:
+            memory = torch.index_select(memory, dim=1, index=index)
+        return memory
+
+    def reset_lm_mem(self, batch_size, device):
+        return None
+
+
+beam_searcher = MyBeamSearcher(
     modules=[params.emb, params.dec, params.seq_lin, params.log_softmax],
     bos_index=params.bos_index,
     eos_index=params.eos_index,
@@ -55,6 +86,22 @@ beam_searcher = S2SRNNBeamSearcher(
     eos_threshold=params.eos_threshold,
     using_max_attn_shift=params.using_max_attn_shift,
     max_attn_shift=params.max_attn_shift,
+    lm_weight=params.lm_weight,
+    lm_modules=[
+        params.lm_emb,
+        params.lm_rnn,
+        params.lm_dnn,
+        params.lm_lin,
+        params.log_softmax,
+    ],
+)
+
+greedy_searcher = S2SRNNGreedySearcher(
+    modules=[params.emb, params.dec, params.seq_lin, params.log_softmax],
+    bos_index=params.bos_index,
+    eos_index=params.eos_index,
+    min_decode_ratio=0,
+    max_decode_ratio=1,
 )
 
 checkpointer = sb.utils.checkpoints.Checkpointer(
@@ -66,6 +113,9 @@ checkpointer = sb.utils.checkpoints.Checkpointer(
         "normalizer": params.normalize,
         "counter": params.epoch_counter,
     },
+)
+lm_checkpointer = sb.utils.checkpoints.Checkpointer(
+    checkpoints_dir=params.lm_save_folder, recoverables={"model": lm_modules}
 )
 
 
@@ -200,6 +250,7 @@ prepare_librispeech(
     data_folder=params.data_folder,
     splits=["train-clean-100", "dev-clean", "test-clean"],
     save_folder=params.data_folder,
+    # select_n_sentences=[100, 100, 100],
 )
 train_set = params.train_loader()
 valid_set = params.valid_loader()
@@ -207,11 +258,15 @@ first_x, first_y = next(iter(train_set))
 
 if hasattr(params, "augmentation"):
     modules.append(params.augmentation)
+
 asr_brain = ASR(
     modules=modules,
     optimizer=params.optimizer,
     first_inputs=[first_x, first_y],
 )
+
+init_lm_params()
+lm_modules.eval()
 
 # Load latest checkpoint to resume training
 checkpointer.recover_if_possible()
@@ -219,6 +274,7 @@ asr_brain.fit(params.epoch_counter, train_set, valid_set)
 
 # Load best checkpoint for evaluation
 checkpointer.recover_if_possible(lambda c: -c.meta["WER"])
+lm_checkpointer.recover_if_possible(lambda c: -c.meta["loss"])
 test_stats = asr_brain.evaluate(params.test_loader())
 params.train_logger.log_stats(
     stats_meta={"Epoch loaded": params.epoch_counter.current},

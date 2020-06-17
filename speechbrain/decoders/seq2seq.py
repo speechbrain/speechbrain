@@ -349,13 +349,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 inp_tokens, memory, enc_states, enc_lens
             )
 
-            # adding LM scores if lm_weight > 0
-            if self.lm_weight > 0:
-                lm_log_probs, lm_memory = self.lm_forward_step(
-                    inp_tokens, lm_memory
-                )
-                log_probs = log_probs + self.lm_weight * lm_log_probs
-
             vocab_size = log_probs.shape[-1]
 
             if self.using_max_attn_shift:
@@ -387,6 +380,13 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 eos_probs,
                 torch.Tensor([self.minus_inf]).to(device),
             )
+
+            # adding LM scores if lm_weight > 0
+            if self.lm_weight > 0:
+                lm_log_probs, lm_memory = self.lm_forward_step(
+                    inp_tokens, lm_memory
+                )
+                log_probs = log_probs + self.lm_weight * lm_log_probs
 
             scores = sequence_scores.unsqueeze(1).expand(-1, vocab_size)
             scores = scores + log_probs

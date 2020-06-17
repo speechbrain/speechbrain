@@ -14,6 +14,9 @@ from speechbrain.utils.train_logger import summarize_average
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(current_dir))
 from librispeech_prepare import prepare_librispeech  # noqa E402
+from librispeech_lm_corpus_prepare import (
+    prepare_librispeech_lm_corpus,
+)  # noqa E402
 
 # Load hyperparameters file with command-line overrides
 params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
@@ -38,7 +41,6 @@ checkpointer = sb.utils.checkpoints.Checkpointer(
         "model": modules,
         "optimizer": params.optimizer,
         "scheduler": params.lr_annealing,
-        "normalizer": params.normalize,
         "counter": params.epoch_counter,
     },
 )
@@ -115,6 +117,13 @@ prepare_librispeech(
     splits=["train-clean-100", "dev-clean", "dev-clean"],
     save_folder=params.data_folder,
 )
+prepare_librispeech_lm_corpus(
+    data_folder=params.data_folder,
+    save_folder=params.data_folder,
+    csv_filename="lm_corpus.csv",
+)
+
+pair_set = params.pair_loader()
 train_set = params.train_loader()
 valid_set = params.valid_loader()
 first_y = next(iter(train_set))
@@ -129,7 +138,7 @@ lm_brain.fit(params.epoch_counter, train_set, valid_set)
 
 # Load best checkpoint for evaluation
 checkpointer.recover_if_possible(lambda c: -c.meta["loss"])
-test_stats = lm_brain.evaluate(params.test_loader())
+test_stats = lm_brain.evaluate(params.valid_loader())
 params.train_logger.log_stats(
     stats_meta={"Epoch loaded": params.epoch_counter.current},
     test_stats=test_stats,
