@@ -23,7 +23,10 @@ number_of_epochs: 5 #10
 batch_size: 16 # 16
 lr: 0.0003 # 0.0003
 device: 'cuda:0'
-training_type: 'ctc' # 'forward' or 'viterbi' or 'ctc'
+init_training_type: 'ctc' # 'forward' or 'viterbi' or 'ctc'
+
+switch_training_type: 'forward'
+switch_training_epoch: 2
 
 # Feature parameters
 sample_rate: 16000
