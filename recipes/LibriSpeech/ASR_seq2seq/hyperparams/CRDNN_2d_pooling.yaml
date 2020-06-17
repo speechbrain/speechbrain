@@ -1,5 +1,5 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 666  # e.g, 1234
+seed: $PLACEHOLDER  # e.g, 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/CRDNN_2d_pooling/<seed>
 wer_file: !ref <output_folder>/wer.txt
@@ -7,7 +7,7 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: /datasets/librispeech/LibriSpeech  # e.g. /path/to/librispeech
+data_folder: $PLACEHOLDER  # e.g. /path/to/librispeech
 csv_train: !ref <data_folder>/train-clean-100.csv
 csv_valid: !ref <data_folder>/dev-clean.csv
 csv_test: !ref <data_folder>/test-clean.csv
