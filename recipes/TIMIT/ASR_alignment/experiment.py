@@ -30,6 +30,11 @@ sb.core.create_experiment_directory(
 
 # Define training procedure
 class ASR(sb.core.Brain):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.training_type = params.init_training_type
+        print("Starting training type:", self.training_type)
+
     def compute_forward(self, x, stage="train", init_params=False):
         ids, wavs, wav_lens = x
         wavs, wav_lens = wavs.to(params.device), wav_lens.to(params.device)
@@ -52,15 +57,15 @@ class ASR(sb.core.Brain):
         phns_orig = undo_padding(phns, phn_lens)
         phns = params.aligner.expand_phns_by_states_per_phoneme(phns, phn_lens)
 
-        if params.training_type == "forward":
+        if self.training_type == "forward":
             sum_alpha_T = params.aligner(
                 pout, pout_lens, phns, phn_lens, "forward"
             )
             loss = -sum_alpha_T.sum()
 
-        elif params.training_type == "ctc":
+        elif self.training_type == "ctc":
             loss = params.compute_cost_ctc(pout, phns, pout_lens, phn_lens)
-        elif params.training_type == "viterbi":
+        elif self.training_type == "viterbi":
             prev_alignments = params.aligner.get_prev_alignments(
                 ids, pout, pout_lens, phns, phn_lens
             )
@@ -71,7 +76,7 @@ class ASR(sb.core.Brain):
             pout, pout_lens, phns, phn_lens, "viterbi"
         )
 
-        if params.training_type == "viterbi":
+        if self.training_type == "viterbi":
             params.aligner.store_alignments(ids, alignments)
 
         stats = {}
@@ -103,8 +108,17 @@ class ASR(sb.core.Brain):
             importance_keys=[ckpt_recency, lambda c: -c.meta["PER"]],
         )
 
-        if params.training_type == "viterbi":
+        if self.training_type == "viterbi":
             self.evaluate(train_set)
+
+        if hasattr(params, "switch_training_type"):
+            if not hasattr(params, "switch_training_epoch"):
+                raise ValueError(
+                    "Please specify `switch_training_epoch` in `params`"
+                )
+            if epoch + 1 == params.switch_training_epoch:
+                self.training_type = params.switch_training_type
+                print("Switching to training type", self.training_type)
 
     def fit_batch(self, batch):
         """
