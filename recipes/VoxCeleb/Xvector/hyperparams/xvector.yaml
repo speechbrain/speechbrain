@@ -89,9 +89,6 @@ optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
-    summary_fns:
-        loss: !name:speechbrain.utils.train_logger.summarize_average
-        error: !name:speechbrain.utils.train_logger.summarize_average
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
