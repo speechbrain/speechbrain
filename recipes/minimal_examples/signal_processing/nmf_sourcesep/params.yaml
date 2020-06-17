@@ -3,7 +3,7 @@ output_folder: exp/minimal/nmf_sourcesep
 sample_rate: 16000
 
 # Data files
-data_folder: samples/audio_samples/sourcesep_samples/minimal_data
+data_folder: ../../../../samples/audio_samples/sourcesep_samples
 csv_train: !ref <data_folder>/csv_example_sourcesep_source1.csv
 csv_train2: !ref <data_folder>/csv_example_sourcesep_source2.csv
 csv_test: !ref <data_folder>/csv_example_sourcesep_mixture.csv
