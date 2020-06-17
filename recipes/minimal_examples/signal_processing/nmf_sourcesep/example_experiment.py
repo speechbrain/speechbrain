@@ -7,8 +7,10 @@ import os
 
 experiment_dir = os.path.dirname(os.path.realpath(__file__))
 params_file = os.path.join(experiment_dir, "params.yaml")
+data_folder = "../../../../samples/audio_samples/sourcesep_samples"
+data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
 with open(params_file) as fin:
-    params = sb.yaml.load_extended_yaml(fin)
+    params = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
 
 sb.core.create_experiment_directory(
     experiment_directory=params.output_folder, params_to_save=params_file,
