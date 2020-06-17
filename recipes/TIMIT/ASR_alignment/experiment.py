@@ -5,7 +5,7 @@ import speechbrain as sb
 import speechbrain.data_io.wer as wer_io
 import speechbrain.utils.edit_distance as edit_distance
 from speechbrain.data_io.data_io import convert_index_to_lab
-from speechbrain.decoders.ctc import ctc_greedy_decode
+from speechbrain.decoders.ctc import filter_ctc_output
 from speechbrain.decoders.decoders import undo_padding
 from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.train_logger import summarize_error_rate
@@ -52,24 +52,37 @@ class ASR(sb.core.Brain):
         phns_orig = undo_padding(phns, phn_lens)
         phns = params.aligner.expand_phns_by_states_per_phoneme(phns, phn_lens)
 
-        sum_alpha_T = params.aligner(pout, pout_lens, phns, phn_lens, "forward")
+        if params.training_type == "forward":
+            sum_alpha_T = params.aligner(
+                pout, pout_lens, phns, phn_lens, "forward"
+            )
+            loss = -sum_alpha_T.sum()
 
-        loss = -sum_alpha_T.sum()
-
-        stats = {}
+        elif params.training_type == "ctc":
+            loss = params.compute_cost_ctc(pout, phns, pout_lens, phn_lens)
+        elif params.training_type == "viterbi":
+            prev_alignments = params.aligner.get_prev_alignments(
+                ids, pout, pout_lens, phns, phn_lens
+            )
+            prev_alignments = prev_alignments.to(params.device)
+            loss = params.compute_cost_nll(pout, prev_alignments)
 
         viterbi_scores, alignments = params.aligner(
             pout, pout_lens, phns, phn_lens, "viterbi"
         )
 
+        if params.training_type == "viterbi":
+            params.aligner.store_alignments(ids, alignments)
+
+        stats = {}
         acc = params.aligner.calc_accuracy(alignments, ends, phns_orig)
         stats["accuracy"] = acc
-        if stage != "train":
 
+        if stage != "train":
             ind2lab = params.train_loader.label_dict["phn"]["index2lab"]
-            sequence = ctc_greedy_decode(pout, pout_lens, blank_id=-1)
-            # convert sequence back to 1 state per phoneme style
-            sequence = [[x // 3 for x in utt] for utt in sequence]
+            # convert alignments back to 1 state per phoneme style
+            sequence = [[x // 3 for x in utt] for utt in alignments]
+            sequence = [filter_ctc_output(x) for x in sequence]
             sequence = convert_index_to_lab(sequence, ind2lab)
 
             phns = convert_index_to_lab(phns_orig, ind2lab)
@@ -77,7 +90,6 @@ class ASR(sb.core.Brain):
                 ids, phns, sequence, compute_alignments=True
             )
             stats["PER"] = per_stats
-
         return loss, stats
 
     def on_epoch_end(self, epoch, train_stats, valid_stats=None):
@@ -90,6 +102,9 @@ class ASR(sb.core.Brain):
             meta={"PER": per},
             importance_keys=[ckpt_recency, lambda c: -c.meta["PER"]],
         )
+
+        if params.training_type == "viterbi":
+            self.evaluate(train_set)
 
     def fit_batch(self, batch):
         """
@@ -124,7 +139,6 @@ prepare_timit(
     data_folder=params.data_folder,
     splits=["train", "dev", "test"],
     save_folder=params.data_folder,
-    phn_set="60",
 )
 train_set = params.train_loader()
 valid_set = params.valid_loader()

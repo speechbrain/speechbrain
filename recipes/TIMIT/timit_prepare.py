@@ -259,7 +259,7 @@ def _get_phonemes():
     from_60_to_48_phn["p"] = "p"
     from_60_to_48_phn["pau"] = "sil"
     from_60_to_48_phn["pcl"] = "cl"
-    from_60_to_48_phn["q"] = "k"
+    from_60_to_48_phn["q"] = ""
     from_60_to_48_phn["r"] = "r"
     from_60_to_48_phn["s"] = "s"
     from_60_to_48_phn["sh"] = "sh"

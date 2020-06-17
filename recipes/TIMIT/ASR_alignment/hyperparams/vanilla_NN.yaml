@@ -7,7 +7,7 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234  # e.g, 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/augment_CRDNN/<seed>
+output_folder: !ref results/vanilla_NN/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -23,6 +23,7 @@ number_of_epochs: 5 #10
 batch_size: 16 # 16
 lr: 0.0003 # 0.0003
 device: 'cuda:0'
+training_type: 'ctc' # 'forward' or 'viterbi' or 'ctc'
 
 # Feature parameters
 sample_rate: 16000
@@ -38,7 +39,7 @@ dnn_neurons: 2000
 states_per_phoneme: 3
 
 # Outputs
-output_neurons: 183 # !ref <states_per_phoneme>
+output_neurons: 118 # phoneme set * <states_per_phoneme> + 1
 blank_index: !ref <output_neurons> - 1
 
 
@@ -79,7 +80,7 @@ compute_features: !new:speechbrain.lobes.features.fbank.Fbank
 train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>
     batch_size: !ref <batch_size>
-    sentence_sorting: random
+    sentence_sorting: ascending
     output_folder: !ref <output_folder>
     csv_read: [wav, phn, ground_truth_phn_ends]
 
