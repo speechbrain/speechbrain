@@ -1,5 +1,5 @@
 # Basic parameters
-output_folder: exp/minimal/nmf_sourcesep
+output_folder: results/minimal/nmf_sourcesep
 sample_rate: 16000
 
 # Data files
