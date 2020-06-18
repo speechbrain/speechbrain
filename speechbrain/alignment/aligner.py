@@ -785,12 +785,9 @@ class HMMAligner(torch.nn.Module):
             torch.round(torch.tensor(len(true_alignments) / len(alignments_)))
         )
 
-        alignments_upsampled = []
-        for i in range(len(alignments_)):
-            alignments_upsampled += [alignments_[i]] * upsample_factor
-
+        alignments_ = torch.tensor(alignments_)
+        alignments_upsampled = alignments_.repeat_interleave(upsample_factor)
         alignments_upsampled = alignments_upsampled[: len(true_alignments)]
-        alignments_upsampled = torch.tensor(alignments_upsampled)
 
         if len(true_alignments) > len(alignments_upsampled):
             alignments_upsampled = torch.nn.functional.pad(
