@@ -23,7 +23,7 @@ number_of_epochs: 5 #10
 batch_size: 16 # 16
 lr: 0.0003 # 0.0003
 device: 'cuda:0'
-init_training_type: 'ctc' # 'forward' or 'viterbi' or 'ctc'
+init_training_type: 'forward' # 'forward' or 'viterbi' or 'ctc'
 
 switch_training_type: 'forward'
 switch_training_epoch: 2
@@ -45,6 +45,10 @@ states_per_phoneme: 3
 output_neurons: 118 # phoneme set * <states_per_phoneme> + 1
 blank_index: !ref <output_neurons> - 1
 
+# Loss reduction parameters
+batch_reduction: 'mean'
+input_len_norm: True
+target_len_norm: False
 
 # Functions
 model: !new:speechbrain.lobes.models.VanillaNN.VanillaNN

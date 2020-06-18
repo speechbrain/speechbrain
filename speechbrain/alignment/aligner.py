@@ -486,6 +486,7 @@ class HMMAligner(torch.nn.Module):
             z_stars_loc.append(z_star_i_loc)
 
         #        print("batch alignment statistics:")
+
         #        print("phn_lens_abs:", phn_lens_abs[-1])
         #        print("lens_abs:", lens_abs[-1])
         #        print("z_stars_loc:", z_stars_loc[-1])
@@ -498,10 +499,62 @@ class HMMAligner(torch.nn.Module):
 
         return z_stars, z_stars_loc, viterbi_scores
 
-    def forward(self, emission_pred, lens, phns, phn_lens, dp_algorithm):
+    def _loss_reduction(self, loss, input_lens, target_lens, params):
+        """
+        Applies reduction to loss as specified in params (if provided, else
+        defaults to no changes)
+
+        Arguments
+        ---------
+        loss: torch.Tensor (batch)
+            The loss tensor to be reduced.
+        input_lens: torch.Tensor (batch)
+            The absolute durations of the inputs.
+        target_lens: torch.Tensor (batch)
+            The absolute durations of the targets.
+        params: SimpleNamespace
+            The parameters specified in the YAML file which will be used to
+            determine the reduction to apply.
+
+        Returns
+        -------
+        loss: torch.Tensor (batch, or scalar)
+            The loss with reduction applied if it is specified.
+
+        """
+        if params is None:
+            return loss
+
+        if hasattr(params, "input_len_norm"):
+            if params.input_len_norm is True:
+                loss = torch.div(loss, input_lens)
+
+        if hasattr(params, "target_len_norm"):
+            if params.target_len_norm is True:
+                loss = torch.div(loss, target_lens)
+
+        if not hasattr(params, "batch_reduction"):
+            pass
+        elif params.batch_reduction == "none":
+            pass
+        elif params.batch_reduction == "sum":
+            loss = loss.sum()
+        elif params.batch_reduction == "mean":
+            loss = loss.mean()
+        else:
+            raise ValueError(
+                "`batch_reduction` parameter must be one of 'forward' or 'viterbi'"
+            )
+
+        return loss
+
+    def forward(
+        self, emission_pred, lens, phns, phn_lens, dp_algorithm, params=None
+    ):
         """
         Prepares relevant (log) probability tensors and does dynamic
-        programming: either the forward or the Viterbi algorithm.
+        programming: either the forward or the Viterbi algorithm. Applies
+        reduction if specified in `params`.
 
         Arguments
         ---------
@@ -513,7 +566,7 @@ class HMMAligner(torch.nn.Module):
             The phonemes that are known/thought to be to be in each utterance
         phn_lens: torch.Tensor (batch)
             The relative length of each phoneme sequence in the batch.
-        algorithm: string
+        dp_algorithm: string
             Either "forward" or "viterbi"
 
         Returns
@@ -521,15 +574,17 @@ class HMMAligner(torch.nn.Module):
         Either
         (1) if dp_algorithm == "forward"
 
-        forward_scores: torch.Tensor (batch)
-            The (log) likelihood of each utterance in the batch.
+        forward_scores: torch.Tensor (batch, or scalar)
+            The (log) likelihood of each utterance in the batch, with reduction
+            applied if specified.
 
         or
 
         (2) if dp_algorithm == "viterbi"
 
-        viterbi_scores: torch.Tensor (batch)
-            The (log) likelihood of the Viterbi path for each utterance.
+        viterbi_scores: torch.Tensor (batch, or scalar)
+            The (log) likelihood of the Viterbi path for each utterance, with
+            reduction applied if specified.
         alignments: list of lists of int
             Viterbi alignments for the files in the batch.
         """
@@ -555,6 +610,10 @@ class HMMAligner(torch.nn.Module):
                 phns,
             )
 
+            forward_scores = self._loss_reduction(
+                forward_scores, lens_abs, phn_lens_abs, params
+            )
+
             return forward_scores
 
         elif dp_algorithm == "viterbi":
@@ -565,6 +624,10 @@ class HMMAligner(torch.nn.Module):
                 lens_abs,
                 phn_lens_abs,
                 phns,
+            )
+
+            viterbi_scores = self._loss_reduction(
+                viterbi_scores, lens_abs, phn_lens_abs, params
             )
 
             return viterbi_scores, alignments
