@@ -638,6 +638,34 @@ class HMMAligner(torch.nn.Module):
             )
 
     def expand_phns_by_states_per_phoneme(self, phns, phn_lens):
+        """
+        Expands each phoneme in the phn sequence by the number of hidden
+        states per phoneme defined in the HMM.
+
+        Arguments
+        ---------
+        phns: torch.Tensor (batch, phoneme in phn sequence)
+            The phonemes that are known/thought to be to be in each utterance
+        phn_lens: torch.Tensor (batch)
+            The relative length of each phoneme sequence in the batch.
+
+        Returns
+        -------
+        expanded_phns: torch.Tensor (batch, phoneme in expanded phn sequence)
+
+        Example
+        -------
+        >>> phns = torch.tensor([[0., 3., 5., 0.],
+        ...                      [0., 2., 0., 0.]])
+        >>> phn_lens = torch.tensor([1., 0.75])
+        >>> aligner = HMMAligner(states_per_phoneme = 3)
+        >>> expanded_phns = aligner.expand_phns_by_states_per_phoneme(
+        ...         phns, phn_lens
+        ... )
+        >>> expanded_phns
+        tensor([[ 0.,  1.,  2.,  9., 10., 11., 15., 16., 17.,  0.,  1.,  2.],
+                [ 0.,  1.,  2.,  6.,  7.,  8.,  0.,  1.,  2.,  0.,  0.,  0.]])
+        """
         # Initialise expanded_phns
         expanded_phns = torch.zeros(
             phns.shape[0], phns.shape[1] * self.states_per_phoneme
