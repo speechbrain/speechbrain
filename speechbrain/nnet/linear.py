@@ -51,7 +51,6 @@ class Linear(torch.nn.Module):
             fea_dim = first_input.shape[2] * first_input.shape[3]
 
         self.w = nn.Linear(fea_dim, self.n_neurons, bias=self.bias)
-        torch.nn.init.normal_(self.w.weight, std=0.05)
         self.w.to(first_input.device)
 
     def forward(self, x, init_params=False):
