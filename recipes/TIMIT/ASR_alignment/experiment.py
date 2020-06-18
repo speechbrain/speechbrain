@@ -58,10 +58,10 @@ class ASR(sb.core.Brain):
         phns = params.aligner.expand_phns_by_states_per_phoneme(phns, phn_lens)
 
         if self.training_type == "forward":
-            sum_alpha_T = params.aligner(
-                pout, pout_lens, phns, phn_lens, "forward"
+            forward_scores = params.aligner(
+                pout, pout_lens, phns, phn_lens, "forward", params
             )
-            loss = -sum_alpha_T.sum() / params.batch_size
+            loss = -forward_scores
 
         elif self.training_type == "ctc":
             loss = params.compute_cost_ctc(pout, phns, pout_lens, phn_lens)
@@ -73,7 +73,7 @@ class ASR(sb.core.Brain):
             loss = params.compute_cost_nll(pout, prev_alignments)
 
         viterbi_scores, alignments = params.aligner(
-            pout, pout_lens, phns, phn_lens, "viterbi"
+            pout, pout_lens, phns, phn_lens, "viterbi", params
         )
 
         if self.training_type == "viterbi":
