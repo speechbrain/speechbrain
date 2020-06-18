@@ -15,7 +15,7 @@ csv_test: !ref <data_folder>/test-clean.csv
 # Training parameters
 number_of_epochs: 30
 number_of_ctc_epochs: 10
-batch_size: 12
+batch_size: 16
 lr: 1.0
 ctc_weight: 0.5
 device: 'cuda'
