@@ -799,7 +799,7 @@ class HMMAligner(torch.nn.Module):
             )
 
         # Do conversion in case states_per_phoneme > 1
-        alignments_upsampled = alignments_upsampled // 3
+        alignments_upsampled = alignments_upsampled // self.states_per_phoneme
 
         # Measure sample-wise accuracy
         accuracy = (
