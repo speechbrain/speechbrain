@@ -61,7 +61,7 @@ class ASR(sb.core.Brain):
             sum_alpha_T = params.aligner(
                 pout, pout_lens, phns, phn_lens, "forward"
             )
-            loss = -sum_alpha_T.sum()
+            loss = -sum_alpha_T.sum() / params.batch_size
 
         elif self.training_type == "ctc":
             loss = params.compute_cost_ctc(pout, phns, pout_lens, phn_lens)
