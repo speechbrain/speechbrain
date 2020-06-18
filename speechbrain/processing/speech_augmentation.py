@@ -16,6 +16,7 @@ Authors
 import math
 import torch
 import soundfile as sf  # noqa
+import torch.nn.functional as F
 from speechbrain.data_io.data_io import DataLoaderFactory
 from speechbrain.processing.signal_processing import (
     compute_amplitude,
@@ -193,7 +194,9 @@ class AddNoise(torch.nn.Module):
         if self.start_index is None:
             start_index = 0
             max_chop = (noise_len - lengths).min().clamp(min=1)
-            start_index = torch.randint(high=max_chop, size=(1,))
+            start_index = torch.randint(
+                high=max_chop, size=(1,), device=lengths.device
+            )
 
         # Truncate noise_batch to max_length
         noise_batch = noise_batch[:, start_index : start_index + max_length]
@@ -265,6 +268,11 @@ class AddReverb(torch.nn.Module):
     reverb_prob : float
         The chance that the audio signal will be reverbed.
         By default, every batch is reverbed.
+    rir_scale_factor: float
+        It compresses or dilates the given impuse response.
+        If 0 < scale_factor < 1, the impulse response is compressed
+        (less reverb), while if scale_factor > 1 it is dilated
+        (more reverb).
     replacements : dict
         A set of string replacements to carry out in the
         csv file. Each time a key is found in the text, it will be replaced
@@ -284,6 +292,7 @@ class AddReverb(torch.nn.Module):
         order="random",
         do_cache=False,
         reverb_prob=1.0,
+        rir_scale_factor=1.0,
         replacements={},
     ):
         super().__init__()
@@ -292,6 +301,7 @@ class AddReverb(torch.nn.Module):
         self.do_cache = do_cache
         self.reverb_prob = reverb_prob
         self.replacements = replacements
+        self.rir_scale_factor = rir_scale_factor
 
         # Create a data loader for the RIR waveforms
         self.data_loader = DataLoaderFactory(
@@ -332,10 +342,25 @@ class AddReverb(torch.nn.Module):
         orig_amplitude = compute_amplitude(waveforms, lengths)
 
         # Load and prepare RIR
-        rir_waveform = self._load_rir(waveforms).abs()
+        rir_waveform = self._load_rir(waveforms)
+
+        # Compress or dilate RIR
+        if self.rir_scale_factor != 1:
+            rir_waveform = F.interpolate(
+                rir_waveform.transpose(1, -1),
+                scale_factor=self.rir_scale_factor,
+                mode="linear",
+                align_corners=False,
+            )
+            rir_waveform = rir_waveform.transpose(1, -1)
 
         # Compute index of the direct signal, so we can preserve alignment
-        direct_index = rir_waveform.argmax(axis=1).median()
+        value_max, direct_index = rir_waveform.abs().max(axis=1)
+
+        # Making sure the max is always positive (if not, flip)
+        # This is useful for speeech enhancment
+        if rir_waveform[0, direct_index, 0] < 0:
+            rir_waveform = -rir_waveform
 
         # Use FFT to compute convolution, because of long reverberation filter
         reverbed_waveform = convolve1d(
