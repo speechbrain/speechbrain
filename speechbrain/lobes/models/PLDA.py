@@ -1,7 +1,7 @@
 import torch  # noqa F401
 import numpy
 import pickle
-import sys
+import sys  # noqa F401
 import copy
 from PLDA_StatServer import StatObject_SB  # noqa F401
 
@@ -57,6 +57,139 @@ def fa_model_loop(
         aux = factor_analyser.F.T.dot(stat1[idx + batch_start, :])
         numpy.dot(aux, inv_lambda, out=e_h[idx])
         e_hh[idx] = inv_lambda + numpy.outer(e_h[idx], e_h[idx], tmp)
+
+
+def _check_missing_model(enroll, test, ndx):
+    # Remove missing models and test segments
+    clean_ndx = ndx.filter(enroll.modelset, test.segset, True)
+
+    # Align StatServers to match the clean_ndx
+    enroll.align_models(clean_ndx.modelset)
+    test.align_segments(clean_ndx.segset)
+
+    return clean_ndx
+
+
+def fast_PLDA_scoring(
+    enroll,
+    test,
+    ndx,
+    mu,
+    F,
+    Sigma,
+    test_uncertainty=None,
+    Vtrans=None,
+    p_known=0.0,
+    scaling_factor=1.0,
+    check_missing=True,
+):
+    """Compute the PLDA scores between to sets of vectors. The list of
+    trials to perform is given in an Ndx object. PLDA matrices have to be
+    pre-computed. i-vectors are supposed to be whitened before.
+
+    Arguments
+    ---------
+    enroll: StatServer object
+        a StatServer in which stat1 are xvectors
+    test: StatServer object
+        a StatServer in which stat1 are xvectors
+    ndx: Ndx object
+        an Ndx object defining the list of trials to perform
+    mu: 1d tensor
+        the mean vector of the PLDA gaussian
+    F: tensor
+        the between-class co-variance matrix of the PLDA
+    Sigma: tensor
+        the residual covariance matrix
+    p_known: float
+        probability of having a known speaker for open-set
+        identification case (=1 for the verification task and =0 for the
+        closed-set case)
+    check_missing: bool
+        if True, check that all models and segments exist
+    """
+
+    enroll_ctr = copy.deepcopy(enroll)
+    test_ctr = copy.deepcopy(test)
+
+    # If models are not unique, compute the mean per model, display a warning
+    if not numpy.unique(enroll_ctr.modelset).shape == enroll_ctr.modelset.shape:
+        # logging.warning("Enrollment models are not unique, average i-vectors")
+        enroll_ctr = enroll_ctr.mean_stat_per_model()
+
+    # Remove missing models and test segments
+    if check_missing:
+        clean_ndx = _check_missing_model(enroll_ctr, test_ctr, ndx)
+    else:
+        clean_ndx = ndx
+
+    # Center the i-vectors around the PLDA mean
+    enroll_ctr.center_stat1(mu)
+    test_ctr.center_stat1(mu)
+
+    # If models are not unique, compute the mean per model, display a warning
+    if not numpy.unique(enroll_ctr.modelset).shape == enroll_ctr.modelset.shape:
+        # logging.warning("Enrollment models are not unique, average i-vectors")
+        enroll_ctr = enroll_ctr.mean_stat_per_model()
+
+    # Compute constant component of the PLDA distribution
+    invSigma = numpy.linalg.inv(Sigma)
+    I_spk = numpy.eye(F.shape[1], dtype="float")
+
+    K = F.T.dot(invSigma * scaling_factor).dot(F)
+    K1 = numpy.linalg.inv(K + I_spk)
+    K2 = numpy.linalg.inv(2 * K + I_spk)
+
+    # Compute the Gaussian distribution constant
+    alpha1 = numpy.linalg.slogdet(K1)[1]
+    alpha2 = numpy.linalg.slogdet(K2)[1]
+    plda_cst = alpha2 / 2.0 - alpha1
+
+    # Compute intermediate matrices
+    Sigma_ac = numpy.dot(F, F.T)
+    Sigma_tot = Sigma_ac + Sigma
+    Sigma_tot_inv = numpy.linalg.inv(Sigma_tot)
+
+    Tmp = numpy.linalg.inv(
+        Sigma_tot - Sigma_ac.dot(Sigma_tot_inv).dot(Sigma_ac)
+    )
+    Phi = Sigma_tot_inv - Tmp
+    Psi = Sigma_tot_inv.dot(Sigma_ac).dot(Tmp)
+
+    # Compute the different parts of PLDA score
+    model_part = 0.5 * numpy.einsum(
+        "ij, ji->i", enroll_ctr.stat1.dot(Phi), enroll_ctr.stat1.T
+    )
+    seg_part = 0.5 * numpy.einsum(
+        "ij, ji->i", test_ctr.stat1.dot(Phi), test_ctr.stat1.T
+    )
+
+    # Compute verification scores
+    score = Scores()  # noqa F821
+    score.modelset = clean_ndx.modelset
+    score.segset = clean_ndx.segset
+    score.scoremask = clean_ndx.trialmask
+
+    score.scoremat = model_part[:, numpy.newaxis] + seg_part + plda_cst
+    score.scoremat += enroll_ctr.stat1.dot(Psi).dot(test_ctr.stat1.T)
+    score.scoremat *= scaling_factor
+
+    # Case of open-set identification, we compute the log-likelihood
+    # by taking into account the probability of having a known impostor
+    # or an out-of set class
+    if p_known != 0:
+        N = score.scoremat.shape[0]
+        open_set_scores = numpy.empty(score.scoremat.shape)
+        tmp = numpy.exp(score.scoremat)
+        for ii in range(N):
+            # open-set term
+            open_set_scores[ii, :] = score.scoremat[ii, :] - numpy.log(
+                p_known * tmp[~(numpy.arange(N) == ii)].sum(axis=0) / (N - 1)
+                + (1 - p_known)
+            )
+        score.scoremat = open_set_scores
+
+    return score
 
 
 class PLDA:
@@ -242,8 +375,6 @@ if __name__ == "__main__":
     plda = PLDA()
     plda.plda(train_obj)
 
-    sys.exit()
-
     """
     # Scoring
     enrol_file = data_dir + "VoxCeleb1_enrol_rvectors.pkl"
@@ -253,6 +384,10 @@ if __name__ == "__main__":
     with open(test_file, "rb") as xvectors:
         test_obj = pickle.load(xvectors)
 
-    plda.plda(enrol_obj)
-    plda.plda(test_obj)
+    # Update bosaris:- Ndx and Score class
+    scores_plda = fast_PLDA_scoring(enrol_obj, test_obj, ndx, plda.mean, plda.F, plda.Sigma)
+
+    print(f"Scores with speechbrain: \n")
+    print (scores_plda.scoremat.shape)
+    print(scores_plda.scoremat[:3,:3])
     """
