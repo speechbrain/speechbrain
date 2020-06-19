@@ -9,17 +9,24 @@ from PLDA_StatServer import StatObject_SB  # noqa F401
 def fa_model_loop(
     batch_start, mini_batch_indices, factor_analyser, stat0, stat1, e_h, e_hh,
 ):
-    """
-    May not need parallelization
-    Methods that is called for PLDA estimation for parallelization on classes
+    """A function that is called for PLDA estimation
 
-    :param batch_start: index to start at in the list
-    :param mini_batch_indices: indices of the elements in the list (should start at zero)
-    :param factor_analyser: FactorAnalyser object
-    :param stat0: matrix of zero order statistics
-    :param stat1: matrix of first order statistics
-    :param e_h: accumulator
-    :param e_hh: accumulator
+    Arguments
+    ---------
+    batch_start: int
+        index to start at in the list
+    mini_batch_indices: list
+        indices of the elements in the list (should start at zero)
+    factor_analyser: instance of PLDA class
+        PLDA class object
+    stat0: tensor
+        matrix of zero order statistics
+    stat1: tensor
+        matrix of first order statistics
+    e_h: tensor
+        accumulator
+    e_hh: tensor (3-dim)
+        accumulator
     """
     rank = factor_analyser.F.shape[1]
     if factor_analyser.Sigma.ndim == 2:
@@ -53,21 +60,62 @@ def fa_model_loop(
 
 
 class PLDA:
-    """
-    inputs: Any seg representation vectors (xvect, ivect, dvect etc)
-    returns the PLDA model
-    ToDo:
-    > Define standard object structure
-    > Get rid of dependencies
-    > Add Object definer class
-    > Add trainer
-    > Add Utils for eig value, Chol decom
-    > Add scoring module
+    """A class to train PLDA model from ivectors/xvector
+
+    Arguments
+    ---------
+    input_file_name: str
+        file to read model from
+    mean: 1d tensor
+        mean of the vectors
+    F: tensor
+        Eigenvoice matrix
+    Sigma: tensor
+        Residual Matrix
+
+    Example
+    -------
+    >>> from PLDA import *
+    >>> data_dir = "/Users/nauman/Desktop/Mila/nauman/Data/xvect-sdk/sb-format/"
+    >>> train_file = data_dir + "VoxCeleb1_training_rvectors.pkl"
+    >>> with open(train_file, "rb") as xvectors:
+    ...         train_obj = pickle.load(xvectors)
+    >>> plda = PLDA()
+    >>> plda.plda(train_obj)
+    >>> plda.F
+    array([[-0.15477624,  0.12481283, -0.11323124, ...,  0.01819566,
+         0.00498689, -0.00215435],
+       [ 0.0886069 ,  0.00111409,  0.08430482, ..., -0.00495019,
+        -0.00952988,  0.0214457 ],
+       [-0.06895772,  0.02911249,  0.23145705, ...,  0.01127238,
+        -0.01799833, -0.01383415],
+       ...,
+       [-0.37370813,  0.11708417,  0.07775562, ...,  0.00396989,
+         0.01001941, -0.0046404 ],
+       [-0.0189982 , -0.83235048,  0.31378434, ...,  0.02885494,
+         0.01114018,  0.01956349],
+       [ 0.26698912, -0.03049991, -0.09061876, ...,  0.02371388,
+         0.01258056,  0.01813147]])
+    >>> plda.Sigma
+    array([[ 0.7913822 , -0.09602436, -0.11224721, ...,  0.09969463,
+        -0.10152465,  0.04684615],
+       [-0.09602436,  0.77100682, -0.14149264, ...,  0.00922131,
+         0.11627067, -0.08430017],
+       [-0.11224721, -0.14149264,  1.20611489, ..., -0.03506288,
+         0.265772  , -0.04872182],
+       ...,
+       [ 0.09969463,  0.00922131, -0.03506288, ...,  0.88060853,
+         0.0897313 ,  0.01685596],
+       [-0.10152465,  0.11627067,  0.265772  , ...,  0.0897313 ,
+         6.49686837,  0.05217187],
+       [ 0.04684615, -0.08430017, -0.04872182, ...,  0.01685596,
+         0.05217187,  0.78122243]])
     """
 
     def __init__(self, input_file_name=None, mean=None, F=None, Sigma=None):
 
         if input_file_name is not None:
+            # future
             pass
         else:
             self.mean = None
@@ -181,8 +229,8 @@ class PLDA:
             # Minimum Divergence step
             self.F = self.F.dot(numpy.linalg.cholesky(_R))
 
-            print("F: ", self.F)
-            print("S: ", self.Sigma)
+        print("F: ", self.F)
+        print("S: ", self.Sigma)
 
 
 if __name__ == "__main__":
@@ -199,6 +247,7 @@ if __name__ == "__main__":
 
     sys.exit()
 
+    """
     # Scoring
     enrol_file = data_dir + "VoxCeleb1_enrol_rvectors.pkl"
     test_file = data_dir + "VoxCeleb1_test_rvectors.pkl"
@@ -209,3 +258,4 @@ if __name__ == "__main__":
 
     plda.plda(enrol_obj)
     plda.plda(test_obj)
+    """

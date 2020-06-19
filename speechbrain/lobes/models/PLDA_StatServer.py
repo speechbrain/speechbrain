@@ -1,17 +1,29 @@
-import numpy  # noqa F401
-
-# import pickle
-# import sys
+import numpy
 import copy
 
 STAT_TYPE = numpy.float64
 
 
 class StatObject_SB:
-    """
-    class for stat0 and stat1
-    defining object structure
-    NDToDo: Make this more generic and readable
+    """A util class for PLDA class used for statistics calculations
+
+    Arguments
+    ---------
+    modelset: list
+        list of model IDs for each session as an array of strings
+    segset: list
+        the list of session IDs as an array of strings
+    start: int
+        index of the first frame of the segment
+    stop: int
+        index of the last frame of the segment
+    stat0: tensor
+        a ndarray of float64. Each line contains 0-order statistics
+        from the corresponding session
+    stat1: tensor
+        a ndarray of float64. Each line contains 1-order statistics
+        from the corresponding session
+
     """
 
     def __init__(
@@ -50,21 +62,8 @@ class StatObject_SB:
         ch += "-" * 30 + "\n"
         return ch
 
-    def print_serverstat_shapes(self, stat_obj):
-        """
-        ndf: remove this
-        """
-        print("MODLESET : ", stat_obj.modelset.shape)
-        print("SEG-SET : ", stat_obj.segset.shape)
-        print("START: ", stat_obj.start.shape)
-        print("STOP: ", stat_obj.stop.shape)
-        print("STAT0: ", stat_obj.stat0.shape)
-        print("STAT1: ", stat_obj.stat1.shape)
-
     def get_mean_stat1(self):
         """Return the mean of first order statistics
-
-        return: the mean array of the first order statistics.
         """
         mu = numpy.mean(self.stat1, axis=0)
         return mu
@@ -72,9 +71,6 @@ class StatObject_SB:
     def get_total_covariance_stat1(self):
         """Compute and return the total covariance matrix of the first-order
             statistics.
-
-        :return: the total co-variance matrix of the first-order statistics
-                as a ndarray.
         """
         C = self.stat1 - self.stat1.mean(axis=0)
         return numpy.dot(C.transpose(), C) / self.stat1.shape[0]
@@ -82,9 +78,10 @@ class StatObject_SB:
     def get_model_stat0(self, mod_id):
         """Return zero-order statistics of a given model
 
-        param mod_id: ID of the model which stat0 will be returned
-
-        return: a matrix of zero-order statistics as a ndarray
+        Arguments
+        ---------
+        mod_id: str
+            ID of the model which stat0 will be returned
         """
         S = self.stat0[self.modelset == mod_id, :]
         return S
@@ -92,18 +89,18 @@ class StatObject_SB:
     def get_model_stat1(self, mod_id):
         """Return first-order statistics of a given model
 
-        param mod_id: string, ID of the model which stat1 will be returned
-
-        return: a matrix of first-order statistics as a ndarray
+        Arguments
+        ---------
+        mod_id: str
+            ID of the model which stat1 will be returned
         """
         return self.stat1[self.modelset == mod_id, :]
 
     def sum_stat_per_model(self):
         """Sum the zero- and first-order statistics per model and store them
         in a new StatServer.
-
-        return: a StatServer with the statistics summed per model
-            AND numpy array with session_per_model (ND)
+        Returns a StatServer object with the statistics summed per model
+            and a numpy array with session_per_model
         """
         # sts_per_model = sidekit.StatServer()
         sts_per_model = StatObject_SB()
@@ -128,9 +125,7 @@ class StatObject_SB:
 
         session_per_model = numpy.zeros(numpy.unique(self.modelset).shape[0])
 
-        # nd: For each model sum the stats
-
-        # nd: For each model sum the stats
+        # For each model sum the stats
         for idx, model in enumerate(sts_per_model.modelset):
             sts_per_model.stat0[idx, :] = self.get_model_stat0(model).sum(
                 axis=0
