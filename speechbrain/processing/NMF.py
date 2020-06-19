@@ -46,7 +46,7 @@ def separate(params, Whats, mixture_loader):
 
     Example usage
     --------
-    Please see `recipes/minimal_examples/signal_processing/nmf_sourcesep`
+    Please see `recipes/minimal_examples/signal_processing/nmf_sourcesep/example_experiment.py`
     for example usage.
     """
 
@@ -117,7 +117,7 @@ def reconstruct_results(params, mixture_loader, Xhat1, Xhat2):
 
     Example Usage
     ---------
-    Please see `recipes/minimal_examples/signal_processing/nmf_sourcesep`
+    Please see `recipes/minimal_examples/signal_processing/nmf_sourcesep/example_experiment.py`
     for example usage.
 
     """
