@@ -55,8 +55,6 @@ def separate(params, Whats, mixture_loader):
     X = spectral_magnitude(X, power=2)
 
     # concatenate all the inputs
-    # X = X.permute(0, 2, 1)
-
     X = X.reshape(-1, X.size(-1)).t()
 
     n = X.shape[1]

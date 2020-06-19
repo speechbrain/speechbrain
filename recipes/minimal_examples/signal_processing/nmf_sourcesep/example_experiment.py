@@ -19,7 +19,7 @@ sb.core.create_experiment_directory(
 
 class NMF_Brain(sb.core.Brain):
     def __init__(self, loader):
-        # over riding the init of Brain class, as we don't deal with neural nets here.
+        # over riding the init of Brain class, as we don't deal with neural nets in NMF.
         self.init_matrices(loader)
         self.modules = torch.nn.ModuleList([])
         self.avg_train_loss = 0.0
@@ -29,8 +29,6 @@ class NMF_Brain(sb.core.Brain):
         This function is used to initialize the parameter matrices
         """
 
-        # ideally I shouldn't be doing this.
-        # Is it possible to directly fetch spectrogram columns to the loader?
         X = list(train_loader)[0]
         X = params.compute_features(X[0][1])
         X = spectral_magnitude(X, power=2)
@@ -56,14 +54,10 @@ class NMF_Brain(sb.core.Brain):
             than return the results of the forward pass.
         """
 
-        # ideally I wouldn't want to be doing this.
-        # instead, would it be possible directly fetch spectra in the data loader?
-
         X = params.compute_features(X[0][1])
         X = spectral_magnitude(X, power=2)
 
         # concatenate all the inputs
-        # X = X.permute(0, 2, 1)
         X = X.reshape(-1, X.size(-1)).t()
 
         eps = 1e-20
@@ -127,5 +121,4 @@ W2hat = NMF2.training_out[1]
 mixture_loader = params.test_loader()
 X1hat, X2hat = sb_nmf.separate(params, [W1hat, W2hat], mixture_loader)
 
-# visualize_results(mixture_loader, X1hat, X2hat)
 sb_nmf.reconstruct_results(params, mixture_loader, X1hat, X2hat)
