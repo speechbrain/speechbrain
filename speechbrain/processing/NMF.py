@@ -3,8 +3,6 @@ import torch
 from speechbrain.data_io.data_io import write_wav_soundfile
 from speechbrain.processing.features import spectral_magnitude
 
-# import matplotlib.pyplot as plt
-
 
 def spectral_phase(stft, power=2, log=False):
     """Returns the phase of a complex spectrogram.
@@ -45,6 +43,11 @@ def separate(params, Whats, mixture_loader):
         BS = batch size, nfft = fft size, T = length of the spectra.
     X2hat: Seperated Spectrum for source2
         The size definitions are same as above.
+
+    Example usage
+    --------
+    Please see `recipes/minimal_examples/signal_processing/nmf_sourcesep`
+    for example usage.
     """
 
     W1, W2 = Whats
@@ -111,6 +114,12 @@ def reconstruct_results(params, mixture_loader, Xhat1, Xhat2):
         The size definitions are same as Xhat1.
 
     This function doesn't return.
+
+    Example Usage
+    ---------
+    Please see `recipes/minimal_examples/signal_processing/nmf_sourcesep`
+    for example usage.
+
     """
 
     savepath = "output_folder/save/"
