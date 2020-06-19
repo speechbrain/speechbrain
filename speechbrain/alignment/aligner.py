@@ -859,8 +859,24 @@ class HMMAligner(torch.nn.Module):
 
     def _calc_accuracy_sent(self, alignments_, ends_, phns_):
         """
-        docstring to be added
-        phns_ is unpadded
+        Calculates the accuracy between predicted alignments and ground truth
+        alignments for a single sentence/utterance.
+
+        Arguments
+        ---------
+        alignments_: list of ints
+            The predicted alignments for the utterance.
+        ends_: list of ints
+            A list of the sample indices where each ground truth phoneme
+            ends, according to the transcription.
+        phns_: list of ints
+            The unpadded list of ground truth phonemes in the utterance.
+
+        Returns
+        -------
+        mean_acc: float
+            The mean percentage of times that the upsampled predicted alignment
+            matches the ground truth alignment.
         """
         # Create array containing the true alignment at each sample
         ends_ = [0] + [int(end) for end in ends_]
@@ -898,7 +914,38 @@ class HMMAligner(torch.nn.Module):
 
     def calc_accuracy(self, alignments, ends, phns):
         """
-        docstring to be added
+        Calculates mean accuracy between predicted alignments and ground truth
+        alignments. Ground truth alignments are derived from ground truth phns
+        and their ends in the audio sample.
+
+        Arguments
+        ---------
+        alignments: list of lists of ints/floats
+            The predicted alignments for each utterance in the batch.
+        ends: list of lists of ints
+            A list of lists of sample indices where each ground truth phoneme
+            ends, according to the transcription.
+            Note: current implementation assumes that 'ends' mark the index
+            where the next phoneme begins.
+
+        phns: list of lists of ints/floats
+            The unpadded list of lists of ground truth phonemes in the batch.
+
+        Returns
+        -------
+        mean_acc: float
+            The mean percentage of times that the upsampled predicted alignment
+            matches the ground truth alignment.
+
+        Example
+        -------
+        >>> aligner = HMMAligner()
+        >>> alignments = [[0., 0., 0., 1.]]
+        >>> phns = [[0., 1.]]
+        >>> ends = [[2, 4]]
+        >>> mean_acc = aligner.calc_accuracy(alignments, ends, phns)
+        >>> mean_acc
+        75.0
         """
         acc_hist = []
         for alignments_, ends_, phns_ in zip(alignments, ends, phns):
