@@ -41,6 +41,8 @@ class EnvCorrupt(torch.nn.Module):
         A prepared csv file for loading room impulse responses.
     noise_csv : str
         A prepared csv file for loading noise data.
+    noise_cache : bool
+        Whether to cache noises.
     babble_speaker_count : int
         Number of speakers to use for babble. Must be less than batch size.
     babble_snr_low : int
@@ -73,6 +75,7 @@ class EnvCorrupt(torch.nn.Module):
         openrir_max_noise_len=None,
         reverb_csv=None,
         noise_csv=None,
+        noise_cache=False,
         babble_speaker_count=0,
         babble_snr_low=0,
         babble_snr_high=0,
@@ -117,6 +120,7 @@ class EnvCorrupt(torch.nn.Module):
             self.add_noise = AddNoise(
                 mix_prob=noise_prob,
                 csv_file=noise_csv,
+                do_cache=noise_cache,
                 snr_low=noise_snr_low,
                 snr_high=noise_snr_high,
             )
@@ -229,7 +233,7 @@ def _prepare_csv(folder, filelist, csv_file, max_length=None):
                     torchaudio.save(new_filename, signal[:, start:stop], rate)
                     csv_row = (
                         f"{ID}_{i}",
-                        str(stop - start),
+                        str((stop - start) / rate),
                         new_filename,
                         ext,
                         "\n",

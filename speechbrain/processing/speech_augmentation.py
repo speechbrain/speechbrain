@@ -157,7 +157,7 @@ class AddNoise(torch.nn.Module):
 
             # Create a data loader for the noise wavforms
             if self.csv_file is not None:
-                self.data_loader = DataLoaderFactory(
+                data_loader = DataLoaderFactory(
                     csv_file=self.csv_file,
                     csv_read=self.csv_read,
                     sentence_sorting=self.order,
@@ -165,7 +165,8 @@ class AddNoise(torch.nn.Module):
                     cache=self.do_cache,
                     replacements=self.replacements,
                 )
-                self.noise_data = iter(self.data_loader())
+                self.data_loader = data_loader()
+                self.noise_data = iter(self.data_loader)
 
         # Load noise to correct device
         noise_batch, noise_len = self._load_noise_batch_of_size(batch_size)
@@ -246,7 +247,7 @@ class AddNoise(torch.nn.Module):
         try:
             wav_id, noise_batch, noise_len = next(self.noise_data)[0]
         except StopIteration:
-            self.noise_data = iter(self.data_loader())
+            self.noise_data = iter(self.data_loader)
             wav_id, noise_batch, noise_len = next(self.noise_data)[0]
         return noise_batch, noise_len
 
