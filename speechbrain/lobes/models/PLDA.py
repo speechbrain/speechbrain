@@ -1,5 +1,5 @@
 import torch  # noqa F401
-import numpy  # noqa F401
+import numpy
 import pickle
 import sys
 import copy
@@ -153,7 +153,6 @@ class PLDA:
 
         model_shifted_stat, session_per_model = stat_server.sum_stat_per_model()
         class_nb = model_shifted_stat.modelset.shape[0]  # noqa F841
-        model_shifted_stat.print_serverstat_shapes(model_shifted_stat)
 
         # Multiply statistics by scaling_factor
         model_shifted_stat.stat0 *= scaling_factor
@@ -161,9 +160,7 @@ class PLDA:
         session_per_model *= scaling_factor
 
         sigma_obs = stat_server.get_total_covariance_stat1()
-        evals, evecs = numpy.linalg.eigh(
-            sigma_obs
-        )  # evals/evect are slightly different
+        evals, evecs = numpy.linalg.eigh(sigma_obs)
         idx = numpy.argsort(evals)[::-1]
         evecs = evecs.real[:, idx[:rank_f]]
         self.F = evecs[:, :rank_f]
