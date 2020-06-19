@@ -5,7 +5,6 @@ import speechbrain as sb
 import speechbrain.data_io.wer as wer_io
 import speechbrain.utils.edit_distance as edit_distance
 from speechbrain.data_io.data_io import convert_index_to_lab
-from speechbrain.decoders.ctc import filter_ctc_output
 from speechbrain.decoders.decoders import undo_padding
 from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.train_logger import summarize_error_rate
@@ -86,8 +85,10 @@ class ASR(sb.core.Brain):
         if stage != "train":
             ind2lab = params.train_loader.label_dict["phn"]["index2lab"]
             # convert alignments back to 1 state per phoneme style
-            sequence = [[x // 3 for x in utt] for utt in alignments]
-            sequence = [filter_ctc_output(x) for x in sequence]
+            sequence = [
+                params.aligner.collapse_alignments(x) for x in alignments
+            ]
+
             sequence = convert_index_to_lab(sequence, ind2lab)
 
             phns = convert_index_to_lab(phns_orig, ind2lab)

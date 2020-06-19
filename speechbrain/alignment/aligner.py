@@ -909,3 +909,41 @@ class HMMAligner(torch.nn.Module):
         mean_acc = acc_hist.mean().item()
 
         return mean_acc
+
+    def collapse_alignments(self, alignments):
+        """
+        Converts alignments to 1 state per phoneme style.
+
+        Arguments
+        ---------
+        alignments: list of ints
+            Predicted alignments for a single utterance.
+
+        Returns
+        -------
+        sequence: list of ints
+            The predicted alignments converted to a 1 state per phoneme style.
+
+        Example
+        -------
+        >>> aligner = HMMAligner(states_per_phoneme = 3)
+        >>> alignments = [0, 1, 2, 3, 4, 5, 3, 4, 5, 0, 1, 2]
+        >>> sequence = aligner.collapse_alignments(alignments)
+        >>> sequence
+        [0, 1, 1, 0]
+        """
+
+        # Filter the repetitions
+        sequence = [
+            v
+            for i, v in enumerate(alignments)
+            if i == 0 or v != alignments[i - 1]
+        ]
+
+        # Pick out only multiples of self.states_per_phoneme
+        sequence = [v for v in sequence if v % self.states_per_phoneme == 0]
+
+        # Divide by self.states_per_phoneme
+        sequence = [v // self.states_per_phoneme for v in sequence]
+
+        return sequence
