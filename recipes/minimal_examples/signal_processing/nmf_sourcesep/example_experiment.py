@@ -18,6 +18,18 @@ sb.core.create_experiment_directory(
 
 
 class NMF_Brain(sb.core.Brain):
+    """
+    This class implements Non-Negative Matrix Factorization for source
+    separation as described in
+    https://web.stanford.edu/class/stats253/IEEE_SPM.pdf
+
+    Note that this method does not utilize SGD, but rather multiplicative
+    update rules to optimize the model parameters as described in the
+    article above.
+
+    Author: Cem Subakan; Mila, Quebec AI Institute
+    """
+
     def __init__(self, loader):
         # over riding the init of Brain class, as we don't deal with neural nets in NMF.
         self.init_matrices(loader)
@@ -36,10 +48,10 @@ class NMF_Brain(sb.core.Brain):
 
         # initialize
         eps = 1e-20
-        w = torch.rand(params.m, params.K) + 10
+        w = 0.1 * torch.rand(params.m, params.K) + 1
         self.w = w / torch.sum(w, dim=0) + eps
 
-        h = torch.rand(params.K, n) + 10
+        h = 0.1 * torch.rand(params.K, n) + 1
         self.h = h / torch.sum(h, dim=0) + eps
 
     def forward(self, X, init_params=False):
@@ -118,7 +130,20 @@ NMF2.fit(
 )
 W2hat = NMF2.training_out[1]
 
+# separate
 mixture_loader = params.test_loader()
-X1hat, X2hat = sb_nmf.separate(params, [W1hat, W2hat], mixture_loader)
+Xmix = list(mixture_loader)[0]
 
-sb_nmf.reconstruct_results(params, mixture_loader, X1hat, X2hat)
+Xmix = params.compute_features(Xmix[0][1])
+Xmix_mag = spectral_magnitude(Xmix, power=2)
+
+X1hat, X2hat = sb_nmf.NMF_separate_spectra([W1hat, W2hat], Xmix_mag)
+
+sb_nmf.reconstruct_results(
+    X1hat,
+    X2hat,
+    Xmix.permute(0, 2, 1, 3),
+    params.sample_rate,
+    params.win_length,
+    params.hop_length,
+)
