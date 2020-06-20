@@ -2,6 +2,7 @@ import os
 import torch
 from speechbrain.data_io.data_io import write_wav_soundfile
 from speechbrain.processing.features import spectral_magnitude
+import speechbrain.processing.features as spf
 
 
 def spectral_phase(stft, power=2, log=False):
@@ -14,7 +15,9 @@ def spectral_phase(stft, power=2, log=False):
 
     Example
     -------
-    phase_mix = spectral_phase(X_stft).permute(0, 2, 1)
+    >>> BS, nfft, T = 10, 20, 300
+    >>> X_stft = torch.randn(BS, nfft//2 + 1, T, 2)
+    >>> phase_mix = spectral_phase(X_stft)
 
     """
     phase = torch.atan2(stft[:, :, :, 1], stft[:, :, :, 0])
@@ -22,58 +25,57 @@ def spectral_phase(stft, power=2, log=False):
     return phase
 
 
-def separate(params, Whats, mixture_loader):
+def NMF_separate_spectra(Whats, Xmix):
     """This function separates the mixture signals, given NMF template matrices
 
     Arguments
     ---------
-    params : dict
-        This is the experiment dictionary that comes from the experiment
-        yaml file.
     Whats : list
         This list contains the list [W1, W2], where W1 W2 are respectively
         the NMF template matrices that correspond to source1 and source2.
-    mixture_loader : data_loader
-        This loader contains the mixture signals to be separated.
+        W1, W2 are of size [nfft/2 + 1, K], where nfft is the fft size for STFT,
+        and K is the number of vectors (templates) in W.
+    Xmix: torch.tensor
+        This is the magnitude spectra for the mixtures.
+        The size is [BS x T x nfft//2 + 1] where,
+        BS = batch size, nfft = fft size, T = number of time steps in the spectra.
 
     Outputs
     -------
     X1hat: Separated spectrum for source1
         Size = [BS x (nfft/2 +1) x T] where,
-        BS = batch size, nfft = fft size, T = length of the spectra.
+        BS = batch size, nfft = fft size, T = number of time steps in the spectra.
     X2hat: Seperated Spectrum for source2
         The size definitions are same as above.
 
     Example usage
     --------
-    Please see `recipes/minimal_examples/signal_processing/nmf_sourcesep/example_experiment.py`
-    for example usage.
-    """
+    >>> BS, nfft, T = 4, 20, 400
+    >>> K1, K2 = 10, 10
+    >>> W1hat = torch.randn(nfft//2 + 1, K1)
+    >>> W2hat = torch.randn(nfft//2 + 1, K2)
+    >>> Whats = [W1hat, W2hat]
+    >>> Xmix = torch.randn(BS, T, nfft//2 + 1)
+    >>> X1hat, X2hat = NMF_separate_spectra(Whats, Xmix)
 
+    """
     W1, W2 = Whats
 
-    X = list(mixture_loader)[0]
-
-    X = params.compute_features(X[0][1])
-    X = spectral_magnitude(X, power=2)
-
-    # concatenate all the inputs
-    X = X.reshape(-1, X.size(-1)).t()
-
-    n = X.shape[1]
+    nmixtures = Xmix.shape[0]
+    Xmix = Xmix.permute(0, 2, 1).reshape(-1, Xmix.size(-1)).t()
+    n = Xmix.shape[1]
     eps = 1e-20
 
     # Normalize input
-    g = X.sum(dim=0) + eps
-    z = X / g
+    g = Xmix.sum(dim=0) + eps
+    z = Xmix / g
 
     # initialize
     w = torch.cat([W1, W2], dim=1)
     K = w.size(1)
     K1 = W1.size(1)
-    K2 = W2.size(1)
 
-    h = torch.rand(K, n) + 10
+    h = 0.1 * torch.rand(K, n)
     h /= torch.sum(h, dim=0) + eps
 
     for ep in range(200):
@@ -84,43 +86,63 @@ def separate(params, Whats, mixture_loader):
 
     h *= g
     Xhat1 = torch.matmul(w[:, :K1], h[:K1, :])
-    Xhat1 = torch.split(Xhat1.unsqueeze(0), Xhat1.size(1) // 2, dim=2)
+    Xhat1 = torch.split(Xhat1.unsqueeze(0), Xhat1.size(1) // nmixtures, dim=2)
     Xhat1 = torch.cat(Xhat1, dim=0)
 
-    Xhat2 = torch.matmul(w[:, K2:], h[K2:, :])
-    Xhat2 = torch.split(Xhat2.unsqueeze(0), Xhat2.size(1) // 2, dim=2)
+    Xhat2 = torch.matmul(w[:, K1:], h[K1:, :])
+    Xhat2 = torch.split(Xhat2.unsqueeze(0), Xhat2.size(1) // nmixtures, dim=2)
     Xhat2 = torch.cat(Xhat2, dim=0)
 
     return Xhat1, Xhat2
 
 
-def reconstruct_results(params, mixture_loader, Xhat1, Xhat2):
+def reconstruct_results(
+    X1hat, X2hat, X_stft, sample_rate, win_length, hop_length
+):
 
     """This function reconstructs the separated spectra into waveforms.
 
     Arguments
     ---------
-    params : dict
-        This is the experiment dictionary that comes from the experiment
-        yaml file.
-    mixture_loader : data_loader
-        This loader contains the mixture signals to be separated.
-    Xhat1 : torch_tensor
+    Xhat1 : torch.tensor
         The separated spectrum for source 1 of size [BS, nfft/2 + 1, T],
         where,  BS = batch size, nfft = fft size, T = length of the spectra.
 
-    Xhat2 : torch_tensor
+    Xhat2 : torch.tensor
         The separated spectrum for source 2 of size [BS, nfft/2 + 1, T].
         The size definitions are same as Xhat1.
+
+    X_stft : torch.tensor
+        This is the magnitude spectra for the mixtures.
+        The size is [BS x T x nfft//2 + 1, 2] where,
+        BS = batch size, nfft = fft size, T = number of time steps in the spectra.
+        The last dimension is to represent complex numbers.
+
+    sample_rate : int (Hz)
+        The sampling rate in which we would like to save the results.
+
+    win_length : int (ms)
+        the length of stft windows (ms)
+
+    hop_length : int (ms)
+        the length with which we shift the STFT windows.
 
     This function doesn't return.
 
     Example Usage
     ---------
-    Please see `recipes/minimal_examples/signal_processing/nmf_sourcesep/example_experiment.py`
-    for example usage.
+    >>> BS, nfft, T = 10, 20, 300
+    >>> sample_rate, win_length, hop_length = 10, 4, 1
+    >>> X1hat = torch.randn(BS, nfft//2 + 1, T)
+    >>> X2hat = torch.randn(BS, nfft//2 + 1, T)
+    >>> X_stft = torch.randn(BS, nfft//2 + 1, T, 2)
+    >>> reconstruct_results(X1hat, X2hat, X_stft, sample_rate, win_length, hop_length)
 
     """
+
+    ISTFT = spf.ISTFT(
+        sample_rate=sample_rate, win_length=win_length, hop_length=hop_length
+    )
 
     savepath = "output_folder/save/"
     if not os.path.exists("output_folder"):
@@ -129,16 +151,13 @@ def reconstruct_results(params, mixture_loader, Xhat1, Xhat2):
     if not os.path.exists(savepath):
         os.mkdir(savepath)
 
-    X = list(mixture_loader)[0]
-
-    X_stft = params.compute_features(X[0][1])
-    phase_mix = spectral_phase(X_stft).permute(0, 2, 1)
-    mag_mix = spectral_magnitude(X_stft, power=2).permute(0, 2, 1)
+    phase_mix = spectral_phase(X_stft)
+    mag_mix = spectral_magnitude(X_stft, power=2)
 
     eps = 1e-25
-    for i in range(Xhat1.shape[0]):
-        Xhat1_stft = (
-            (Xhat1[i] / (eps + Xhat1[i] + Xhat2[i])).unsqueeze(-1)
+    for i in range(X1hat.shape[0]):
+        X1hat_stft = (
+            (X1hat[i] / (eps + X1hat[i] + X2hat[i])).unsqueeze(-1)
             * mag_mix[i].unsqueeze(-1)
             * torch.cat(
                 [
@@ -149,8 +168,8 @@ def reconstruct_results(params, mixture_loader, Xhat1, Xhat2):
             )
         )
 
-        Xhat2_stft = (
-            (Xhat2[i] / (eps + Xhat1[i] + Xhat2[i])).unsqueeze(-1)
+        X2hat_stft = (
+            (X2hat[i] / (eps + X1hat[i] + X2hat[i])).unsqueeze(-1)
             * mag_mix[i].unsqueeze(-1)
             * torch.cat(
                 [
@@ -160,10 +179,8 @@ def reconstruct_results(params, mixture_loader, Xhat1, Xhat2):
                 dim=-1,
             )
         )
-
-        shat1 = params.istft(Xhat1_stft.unsqueeze(0).permute(0, 2, 1, 3))
-
-        shat2 = params.istft(Xhat2_stft.unsqueeze(0).permute(0, 2, 1, 3))
+        shat1 = ISTFT(X1hat_stft.unsqueeze(0).permute(0, 2, 1, 3))
+        shat2 = ISTFT(X2hat_stft.unsqueeze(0).permute(0, 2, 1, 3))
 
         write_wav_soundfile(
             shat1 / (3 * shat1.std()),
