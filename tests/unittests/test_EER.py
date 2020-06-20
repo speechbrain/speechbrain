@@ -1,4 +1,5 @@
 import torch
+import torch.nn
 
 
 def test_EER():
@@ -14,7 +15,15 @@ def test_EER():
     eer = EER(positive_scores, negative_scores)
     assert eer == 0.0
 
-    positive_scores = torch.tensor([0.0, 1.0])
-    negative_scores = torch.tensor([0.0, 1.0])
+    cos = torch.nn.CosineSimilarity(dim=1, eps=1e-6)
+    input1 = torch.randn(1000, 64)
+    input2 = torch.randn(1000, 64)
+    positive_scores = cos(input1, input2)
+
+    input1 = torch.randn(1000, 64)
+    input2 = torch.randn(1000, 64)
+    negative_scores = cos(input1, input2)
+
     eer = EER(positive_scores, negative_scores)
-    assert eer == 0.5
+
+    assert eer < 0.53 and eer > 0.47
