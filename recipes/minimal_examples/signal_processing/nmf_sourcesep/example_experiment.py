@@ -82,6 +82,9 @@ class NMF_Brain(sb.core.Brain):
         self.w = nw / (torch.sum(nw, dim=0) + eps)
 
         nh = self.h * torch.matmul(self.w.t(), v)
+        # sparsity
+        nh = nh + 0.1 * nh ** (1.0 + 0.1)
+
         self.h = nh / (torch.sum(nh, dim=0) + eps)
 
         self.h *= g
@@ -146,4 +149,7 @@ sb_nmf.reconstruct_results(
     params.sample_rate,
     params.win_length,
     params.hop_length,
+    use_absolute_path=False,
+    copy_original_files=True,
+    datapath="samples/audio_samples/sourcesep_samples/",
 )

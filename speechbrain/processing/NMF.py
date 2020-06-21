@@ -78,7 +78,7 @@ def NMF_separate_spectra(Whats, Xmix):
     h = 0.1 * torch.rand(K, n)
     h /= torch.sum(h, dim=0) + eps
 
-    for ep in range(200):
+    for ep in range(1000):
         v = z / (torch.matmul(w, h) + eps)
 
         nh = h * torch.matmul(w.t(), v)
@@ -97,7 +97,15 @@ def NMF_separate_spectra(Whats, Xmix):
 
 
 def reconstruct_results(
-    X1hat, X2hat, X_stft, sample_rate, win_length, hop_length
+    X1hat,
+    X2hat,
+    X_stft,
+    sample_rate,
+    win_length,
+    hop_length,
+    copy_original_files=True,
+    use_absolute_path=False,
+    datapath="samples/audio_samples/sourcesep_samples",
 ):
 
     """This function reconstructs the separated spectra into waveforms.
@@ -127,6 +135,15 @@ def reconstruct_results(
     hop_length : int (ms)
         the length with which we shift the STFT windows.
 
+    copy_original_files : (bool)
+        If this is true, then this function copies the original files for inspecting the quality of the results.
+
+    use_absolute_path : (bool)
+        If this is true, the variable datapath is used to copy the original files as an absolute path.
+
+    datapath : (str)
+        This sets the
+
     This function doesn't return.
 
     Example Usage
@@ -144,9 +161,9 @@ def reconstruct_results(
         sample_rate=sample_rate, win_length=win_length, hop_length=hop_length
     )
 
-    savepath = "output_folder/save/"
-    if not os.path.exists("output_folder"):
-        os.mkdir("output_folder")
+    savepath = "results/save/"
+    if not os.path.exists("results"):
+        os.mkdir("results")
 
     if not os.path.exists(savepath):
         os.mkdir(savepath)
@@ -184,11 +201,32 @@ def reconstruct_results(
 
         write_wav_soundfile(
             shat1 / (3 * shat1.std()),
-            savepath + "s1hat_{}".format(i) + ".wav",
+            savepath + "separated_source1_{}".format(i) + ".wav",
             16000,
         )
         write_wav_soundfile(
             shat2 / (3 * shat2.std()),
-            savepath + "s2hat_{}".format(i) + ".wav",
+            savepath + "separated_source2_{}".format(i) + ".wav",
             16000,
         )
+
+        if copy_original_files:
+
+            if not use_absolute_path:
+                filedir = os.path.dirname(os.path.realpath(__file__))
+                speechbrain_path = os.path.abspath(
+                    os.path.join(filedir, "../..")
+                )
+                copypath = os.path.realpath(
+                    os.path.join(speechbrain_path, datapath)
+                )
+            else:
+                copypath = datapath
+
+            all_files = os.listdir(copypath)
+            wav_files = [fl for fl in all_files if ".wav" in fl]
+
+            for wav_file in wav_files:
+                os.system(
+                    "cp {} {}".format(copypath + "/" + wav_file, savepath)
+                )
