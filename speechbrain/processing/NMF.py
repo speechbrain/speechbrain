@@ -48,7 +48,7 @@ def NMF_separate_spectra(Whats, Xmix):
     X2hat: Seperated Spectrum for source2
         The size definitions are same as above.
 
-    Example usage
+    Example
     --------
     >>> BS, nfft, T = 4, 20, 400
     >>> K1, K2 = 10, 10
@@ -146,7 +146,7 @@ def reconstruct_results(
 
     This function doesn't return.
 
-    Example Usage
+    Example
     ---------
     >>> BS, nfft, T = 10, 20, 300
     >>> sample_rate, win_length, hop_length = 10, 4, 1
