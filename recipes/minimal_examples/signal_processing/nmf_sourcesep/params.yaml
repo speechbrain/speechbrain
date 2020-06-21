@@ -10,7 +10,7 @@ csv_test: !ref <data_folder>/csv_example_sourcesep_mixture.csv
 
 # NMF parameters
 N_epochs: 400
-K: 40
+K: 20 # this specifies the number of template vectors to use in NMF.
 N_batch: 200
 m: 513  # length of stft vectors
 win_length: 40  # window length (in ms) for stft
