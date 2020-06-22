@@ -63,7 +63,7 @@ def test_pitwrapper():
     predictions = pit.reorder_tensor(predictions, opt_p)
     assert torch.all(torch.eq(base_loss(predictions, targets), 0))
 
-    predictions = torch.rand((3, 32, 32, 32, 5))  # batch, frames, sources
+    predictions = torch.rand((3, 32, 32, 32, 5))  # batch, ..., sources
     p = (3, 0, 2, 1, 4)
     targets = predictions[
         ..., p
