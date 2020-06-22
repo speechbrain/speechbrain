@@ -7,7 +7,7 @@ import speechbrain as sb
 # This hack needed to import data preparation script from ..
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(current_dir))
-from voxceleb1_prepare import prepare_voxceleb1  # noqa E402
+from voxceleb_prepare import prepare_voxceleb  # noqa E402
 
 # Load hyperparameters file with command-line overrides
 params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
@@ -22,10 +22,10 @@ sb.core.create_experiment_directory(
 )
 
 # Prepare data from dev of Voxceleb1
-prepare_voxceleb1(
+prepare_voxceleb(
     data_folder=params.data_folder,
     save_folder=params.save_folder,
-    splits=["train", "dev"],
+    splits=["train", "dev", "test"],
     split_ratio=[90, 10],
     seg_dur=300,
     vad=False,
