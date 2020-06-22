@@ -49,21 +49,24 @@ def transducer_loss(log_probs, targets, input_lens, target_lens, blank_index):
 
 class PitWrapper(nn.Module):
     """
-    Permutation Invariant Wrapper module to allow Permutation Invariant Training (PIT) with existing losses.
-    Permutation invariance is calculated over sources/classes axis which is assumed to be the rightmost dimension:
-    predictions and targets tensors are assumed to have shape [batch, ..., channels, sources].
+    Permutation Invariant Wrapper to allow Permutation Invariant Training
+    (PIT) with existing losses.
+    Permutation invariance is calculated over sources/classes axis which is
+    assumed to be the rightmost dimension: predictions and targets tensors are
+    assumed to have shape [batch, ..., channels, sources].
 
     Arguments
     ---------
     base_loss : function
-        base loss function, e.g. torch.nn.MSELoss. It is assumed that it takes two arguments:
+        base loss function, e.g. torch.nn.MSELoss. It is assumed that it takes
+        two arguments:
         predictions and targets and no reduction is performed.
         (if a pytorch loss is used, the user must specify reduction="none").
 
     Returns
     ---------
     pit_loss : torch.nn.Module
-        torch module supporting forward method that supports PIT.
+        torch module supporting forward method for PIT.
 
     Example
     -------
@@ -71,7 +74,9 @@ class PitWrapper(nn.Module):
     >>> targets = torch.rand((2, 32, 4))
     >>> p = (3, 0, 2, 1)
     >>> predictions = targets[..., p]
-    >>> loss, opt_p = pit_mse(predictions, targets) # loss should be zero
+    >>> loss, opt_p = pit_mse(predictions, targets)
+    >>> loss
+    tensor([0., 0.])
     """
 
     def __init__(self, base_loss):
@@ -83,14 +88,17 @@ class PitWrapper(nn.Module):
         Arguments
         ----------
         loss_mat: torch.Tensor
-            tensor of shape [sources, source] containing loss value for each possible permutation of predictions.
+            tensor of shape [sources, source] containing loss values for each
+            possible permutation of predictions.
+
         Returns
         -------
         loss: torch.Tensor
             permutation invariant loss for current batch, tensor of shape [1]
 
         assigned_perm: tuple
-            indexes for optimal permutation of the input over sources which minimizes the loss.
+            indexes for optimal permutation of the input over sources which
+            minimizes the loss.
         """
 
         loss = None
@@ -108,7 +116,8 @@ class PitWrapper(nn.Module):
         Parameters
         ----------
         pred: torch.Tensor
-            network prediction for current example, tensor of shape [..., sources].
+            network prediction for current example, tensor of
+            shape [..., sources].
         target: torch.Tensor
             target for current example, tensor of shape [..., sources].
 
@@ -118,7 +127,8 @@ class PitWrapper(nn.Module):
             permutation invariant loss for current example, tensor of shape [1]
 
         assigned_perm: tuple
-            indexes for optimal permutation of the input over sources which minimizes the loss.
+            indexes for optimal permutation of the input over sources which
+            minimizes the loss.
 
         """
 
@@ -144,9 +154,11 @@ class PitWrapper(nn.Module):
             Arguments
             ---------
             tensor : torch.Tensor
-                tensor to reorder given the optimal permutation, of shape [batch, ..., sources].
+                tensor to reorder given the optimal permutation, of shape
+                [batch, ..., sources].
             p : list of tuples
-                list of optimal permutations, e.g. for batch=2 and n_sources=3 [(0, 1, 2), (0, 2, 1].
+                list of optimal permutations, e.g. for batch=2 and n_sources=3
+                [(0, 1, 2), (0, 2, 1].
 
             Returns
             -------
@@ -164,19 +176,23 @@ class PitWrapper(nn.Module):
             Arguments
             ---------
             preds : torch.Tensor
-                Network predictions tensor, of shape [batch, channels, ..., sources].
+                Network predictions tensor, of shape
+                [batch, channels, ..., sources].
             targets : torch.Tensor
                 Target tensor, of shape [batch, channels, ..., sources].
 
             Returns
             -------
             loss: torch.Tensor
-                permutation invariant loss for current examples, tensor of shape [batch]
+                permutation invariant loss for current examples, tensor of
+                shape [batch]
 
             perms: list
-                list of indexes for optimal permutation of the inputs over sources.
-                e.g. [(0, 1, 2), (2, 1, 0)] for three sources and 2 examples per batch.
-            """
+                list of indexes for optimal permutation of the inputs over
+                sources.
+                e.g. [(0, 1, 2), (2, 1, 0)] for three sources and 2 examples
+                per batch.
+        """
         losses = []
         perms = []
         for pred, label in zip(preds, targets):
