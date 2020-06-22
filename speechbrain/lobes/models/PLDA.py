@@ -362,6 +362,6 @@ if __name__ == "__main__":
     )
     print("Scoring module runtime = ", time.time() - b)
 
-    print(f"Scores with SpeechBrain: \n")
+    print("Scores with SpeechBrain: \n")
     # print(scores_plda.scoremat.shape)
     print(scores_plda.scoremat[:3, :3])
