@@ -208,3 +208,162 @@ class StatObject_SB:
 
         else:
             raise Exception("Wrong dimension of Sigma, must be 1 or 2")
+
+    def align_models(self, model_list):
+        """Align models of the current StatServer to match a list of models
+            provided as input parameter. The size of the StatServer might be
+            reduced to match the input list of models.
+
+        :param model_list: ndarray of strings, list of models to match
+        """
+        indx = numpy.array(
+            [numpy.argwhere(self.modelset == v)[0][0] for v in model_list]
+        )
+        self.segset = self.segset[indx]
+        self.modelset = self.modelset[indx]
+        self.start = self.start[indx]
+        self.stop = self.stop[indx]
+        self.stat0 = self.stat0[indx, :]
+        self.stat1 = self.stat1[indx, :]
+
+    def align_segments(self, segment_list):
+        """Align segments of the current StatServer to match a list of segment
+            provided as input parameter. The size of the StatServer might be
+            reduced to match the input list of segments.
+
+        :param segment_list: ndarray of strings, list of segments to match
+        """
+        indx = numpy.array(
+            [numpy.argwhere(self.segset == v)[0][0] for v in segment_list]
+        )
+        self.segset = self.segset[indx]
+        self.modelset = self.modelset[indx]
+        self.start = self.start[indx]
+        self.stop = self.stop[indx]
+        self.stat0 = self.stat0[indx, :]
+        self.stat1 = self.stat1[indx, :]
+
+
+def diff(list1, list2):
+    c = [item for item in list1 if item not in list2]
+    c.sort()
+    return c
+
+
+def ismember(list1, list2):
+    c = [item in list2 for item in list1]
+    return c
+
+
+class Ndx:
+    """A class that encodes trial index information.  It has a list of
+    model names and a list of test segment names and a matrix
+    indicating which combinations of model and test segment are
+    trials of interest.
+
+    :attr modelset: list of unique models in a ndarray
+    :attr segset:  list of unique test segments in a ndarray
+    :attr trialmask: 2D ndarray of boolean. Rows correspond to the models
+            and columns to the test segments. True if the trial is of interest.
+    """
+
+    def __init__(
+        self, ndx_file_name="", models=numpy.array([]), testsegs=numpy.array([])
+    ):
+        """Initialize a Ndx object by loading information from a file
+        in HDF5 or text format.
+
+        :param ndx_file_name: name of the file to load
+        """
+        self.modelset = numpy.empty(0, dtype="|O")
+        self.segset = numpy.empty(0, dtype="|O")
+        self.trialmask = numpy.array([], dtype="bool")
+
+        if ndx_file_name == "":
+            modelset = numpy.unique(models)
+            segset = numpy.unique(testsegs)
+
+            trialmask = numpy.zeros(
+                (modelset.shape[0], segset.shape[0]), dtype="bool"
+            )
+            for m in range(modelset.shape[0]):
+                segs = testsegs[numpy.array(ismember(models, modelset[m]))]
+                trialmask[m,] = ismember(segset, segs)  # noqa E231
+
+            self.modelset = modelset
+            self.segset = segset
+            self.trialmask = trialmask
+            assert self.validate(), "Wrong Ndx format"
+
+        else:
+            ndx = Ndx.read(ndx_file_name)
+            self.modelset = ndx.modelset
+            self.segset = ndx.segset
+            self.trialmask = ndx.trialmask
+
+    def filter(self, modlist, seglist, keep):
+        """Removes some of the information in an Ndx. Useful for creating a
+        gender specific Ndx from a pooled gender Ndx.  Depending on the
+        value of \'keep\', the two input lists indicate the strings to
+        retain or the strings to discard.
+
+        :param modlist: a cell array of strings which will be compared with
+                the modelset of 'inndx'.
+        :param seglist: a cell array of strings which will be compared with
+                the segset of 'inndx'.
+        :param keep: a boolean indicating whether modlist and seglist are the
+                models to keep or discard.
+
+        :return: a filtered version of the current Ndx object.
+        """
+        if keep:
+            keepmods = modlist
+            keepsegs = seglist
+        else:
+            keepmods = diff(self.modelset, modlist)
+            keepsegs = diff(self.segset, seglist)
+
+        keepmodidx = numpy.array(ismember(self.modelset, keepmods))
+        keepsegidx = numpy.array(ismember(self.segset, keepsegs))
+
+        outndx = Ndx()
+        outndx.modelset = self.modelset[keepmodidx]
+        outndx.segset = self.segset[keepsegidx]
+        tmp = self.trialmask[numpy.array(keepmodidx), :]
+        outndx.trialmask = tmp[:, numpy.array(keepsegidx)]
+
+        assert outndx.validate, "Wrong Ndx format"
+
+        if self.modelset.shape[0] > outndx.modelset.shape[0]:
+            print(
+                "Number of models reduced from %d to %d"
+                % self.modelset.shape[0],
+                outndx.modelset.shape[0],
+            )
+        if self.segset.shape[0] > outndx.segset.shape[0]:
+            print(
+                "Number of test segments reduced from %d to %d",
+                self.segset.shape[0],
+                outndx.segset.shape[0],
+            )
+        return outndx
+
+    def validate(self):
+        """Checks that an object of type Ndx obeys certain rules that
+        must always be true.
+
+        :return: a boolean value indicating whether the object is valid
+        """
+        ok = isinstance(self.modelset, numpy.ndarray)
+        ok &= isinstance(self.segset, numpy.ndarray)
+        ok &= isinstance(self.trialmask, numpy.ndarray)
+
+        ok &= self.modelset.ndim == 1
+        ok &= self.segset.ndim == 1
+        ok &= self.trialmask.ndim == 2
+
+        ok &= self.trialmask.shape == (
+            self.modelset.shape[0],
+            self.segset.shape[0],
+        )
+        return ok
