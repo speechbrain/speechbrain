@@ -46,6 +46,29 @@ def test_classification_error():
     out_cost = classification_error(predictions, targets, lengths)
     assert torch.all(torch.eq(out_cost, 0))
 
+def test_pitwrapper():
+    from speechbrain.nnet.losses import PitWrapper
+    import torch
+    from torch import nn
+
+    base_loss = nn.MSELoss(reduction="none")
+    pit = PitWrapper(base_loss)
+    predictions = torch.rand((2, 32, 4))  # batch, frames, sources
+    p = (3, 0, 2, 1)
+    targets = predictions[..., p]  # same but we invert the ordering to check if permutation invariant
+    loss, opt_p = pit(predictions, targets)
+    assert [x == p for x in opt_p] == [True for i in range(len(opt_p))]
+    predictions = pit.reorder_tensor(predictions, opt_p)
+    assert torch.all(torch.eq(base_loss(predictions, targets), 0))
+
+    predictions = torch.rand((3, 32, 32, 32, 5))  # batch, frames, sources
+    p = (3, 0, 2, 1, 4)
+    targets = predictions[..., p]  # same but we invert the ordering to check if permutation invariant
+    loss, opt_p = pit(predictions, targets)
+    assert [x == p for x in opt_p] == [True for i in range(len(opt_p))]
+    predictions = pit.reorder_tensor(predictions, opt_p)
+    assert torch.all(torch.eq(base_loss(predictions, targets), 0))
+
 
 def test_transducer_loss():
     # Make this its own test since it can only be run
