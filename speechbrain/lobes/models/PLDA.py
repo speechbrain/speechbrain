@@ -3,7 +3,9 @@ import numpy
 import pickle
 import sys  # noqa F401
 import copy
-from PLDA_StatServer import StatObject_SB  # noqa F401
+
+# from PLDA_StatServer import StatObject_SB  # noqa F401
+from PLDA_utils import *  # StatObject_SB  # noqa F401
 
 
 def fa_model_loop(
@@ -338,19 +340,23 @@ if __name__ == "__main__":
     plda = PLDA()
     plda.plda(train_obj)
 
-    """
     # Scoring
     enrol_file = data_dir + "VoxCeleb1_enrol_rvectors.pkl"
     test_file = data_dir + "VoxCeleb1_test_rvectors.pkl"
+    ndx_file = data_dir + "ndx.pkl"
     with open(enrol_file, "rb") as xvectors:
         enrol_obj = pickle.load(xvectors)
     with open(test_file, "rb") as xvectors:
         test_obj = pickle.load(xvectors)
+    with open(ndx_file, "rb") as ndxes:
+        ndx_obj = pickle.load(ndxes)
 
+    print("Started PLDA scoring...")
     # Update bosaris:- Ndx and Score class
-    scores_plda = fast_PLDA_scoring(enrol_obj, test_obj, ndx, plda.mean, plda.F, plda.Sigma)
+    scores_plda = fast_PLDA_scoring(
+        enrol_obj, test_obj, ndx_obj, plda.mean, plda.F, plda.Sigma
+    )
 
     print(f"Scores with speechbrain: \n")
-    print (scores_plda.scoremat.shape)
-    print(scores_plda.scoremat[:3,:3])
-    """
+    print(scores_plda.scoremat.shape)
+    print(scores_plda.scoremat[:3, :3])
