@@ -24,7 +24,7 @@ TEST_CSV = "test.csv"
 SAMPLERATE = 16000
 
 
-def prepare_voxceleb1(
+def prepare_voxceleb(
     data_folder,
     save_folder,
     splits=["train", "dev", "test"],
@@ -56,12 +56,12 @@ def prepare_voxceleb1(
 
     Example
     -------
-    >>> from recipes.VoxCeleb.voxceleb1_prepare import prepare_voxceleb1
+    >>> from recipes.VoxCeleb.voxceleb1_prepare import prepare_voxceleb
     >>> data_folder = 'data/VoxCeleb1/'
     >>> save_folder = 'VoxData/'
     >>> splits = ['train', 'dev']
     >>> split_ratio = [90, 10]
-    >>> prepare_voxceleb1(data_folder, save_folder, splits, split_ratio)
+    >>> prepare_voxceleb(data_folder, save_folder, splits, split_ratio)
     """
 
     # Create configuration for easily skipping data_preparation stage
@@ -89,6 +89,11 @@ def prepare_voxceleb1(
         return
 
     # Additional checks to make sure the data folder contains VoxCeleb data
+    if "," in data_folder:
+        data_folder = data_folder.replace(" ", "").split(",")
+    else:
+        data_folder = [data_folder]
+
     _check_voxceleb1_folders(data_folder)
 
     msg = "\tCreating csv file for the VoxCeleb1 Dataset.."
@@ -107,10 +112,10 @@ def prepare_voxceleb1(
         prepare_csv(
             SAMPLERATE, seg_dur, wav_lst_dev, save_csv_dev,
         )
-      
-    # Test can be used for verification    
+
+    # Test can be used for verification
     if "test" in splits:
-        prepare_csv_test(data_folder,save_csv_test)
+        prepare_csv_test(data_folder, save_csv_test)
 
     # Saving options (useful to skip this phase when already done)
     save_pkl(conf, save_opt)
@@ -154,7 +159,7 @@ def skip(splits, save_folder, conf):
     return skip
 
 
-def _check_voxceleb1_folders(data_folder):
+def _check_voxceleb1_folders(data_folders):
     """
     Check if the data folder actually contains the Voxceleb1 dataset.
 
@@ -168,50 +173,62 @@ def _check_voxceleb1_folders(data_folder):
     ------
     FileNotFoundError
     """
-    # Checking # Remove comment
-    if not os.path.exists(data_folder + "wav/id10001"):
-        err_msg = (
-            "the folder %s does not exist (as it is expected in "
-            "the Voxceleb dataset)" % (data_folder + "/id*")
-        )
-        raise FileNotFoundError(err_msg)
+    for data_folder in data_folders:
 
-    if not os.path.exists(data_folder + "/meta"):
-        err_msg = (
-            "the folder %s does not exist (as it is expected in "
-            "the Voxceleb dataset)" % ('../'+data_folder + "/meta")
-        )
-        raise FileNotFoundError(err_msg)
-        
+        # Checking # Remove comment
+        if not os.path.exists(data_folder + "wav/id10001"):
+            err_msg = (
+                "the folder %s does not exist (as it is expected in "
+                "the Voxceleb dataset)" % (data_folder + "/id*")
+            )
+            raise FileNotFoundError(err_msg)
+
+        if not os.path.exists(data_folder + "/meta"):
+            err_msg = (
+                "the folder %s does not exist (as it is expected in "
+                "the Voxceleb dataset)" % (data_folder + "/meta")
+            )
+            raise FileNotFoundError(err_msg)
+
+
 # Used for verification split
-def _get_utt_split_lists(data_folder, split_ratio):
+def _get_utt_split_lists(data_folders, split_ratio):
     """
     Tot. number of speakers = 1211.
     Splits the audio file list into train and dev.
     This function is useful when using verification split
     """
-    
-    # Get test sentences (useful for verification)
-    test_lst_file = data_folder + '/meta/veri_test.txt'
-    test_lst = [line.rstrip('\n').split(' ')[1] for line in open(test_lst_file)]
-    test_lst = set(sorted(test_lst))
-    
-    test_spks = [snt.split('/')[0] for snt in test_lst]
-    
-    # avoid test speakers for train and dev splits
-    audio_files_list =  []
-    for f in glob.glob(data_folder + "/wav/**/*.wav", recursive=True):
-        spk_id = f.split('/wav/')[1].split('/')[0]       
-        if spk_id not in test_spks:
-            audio_files_list.append(f)    
+    train_lst = []
+    dev_lst = []
 
-    random.shuffle(audio_files_list)
-    train_lst = audio_files_list[
-        : int(0.01 * split_ratio[0] * len(audio_files_list))
-    ]
-    dev_lst = audio_files_list[
-        int(0.01 * split_ratio[0] * len(audio_files_list)) :
-    ]
+    for data_folder in data_folders:
+
+        # Get test sentences (useful for verification)
+        test_lst_file = data_folder + "/meta/veri_test.txt"
+        test_lst = [
+            line.rstrip("\n").split(" ")[1] for line in open(test_lst_file)
+        ]
+        test_lst = set(sorted(test_lst))
+
+        test_spks = [snt.split("/")[0] for snt in test_lst]
+
+        # avoid test speakers for train and dev splits
+        audio_files_list = []
+        for f in glob.glob(data_folder + "/wav/**/*.wav", recursive=True):
+            spk_id = f.split("/wav/")[1].split("/")[0]
+            if spk_id not in test_spks:
+                audio_files_list.append(f)
+
+        random.shuffle(audio_files_list)
+        train_snts = audio_files_list[
+            : int(0.01 * split_ratio[0] * len(audio_files_list))
+        ]
+        dev_snts = audio_files_list[
+            int(0.01 * split_ratio[0] * len(audio_files_list)) :
+        ]
+
+        train_lst.extend(train_snts)
+        dev_lst.extend(dev_snts)
 
     return train_lst, dev_lst
 
@@ -292,15 +309,11 @@ def prepare_csv(
                 "start:" + str(start_sample) + " stop:" + str(end_sample)
             )
 
-            audio_file_sb = (
-                "$data_folder/wav/" + spk_id + "/" + sess_id + "/" + utt_id
-            )
-
             # Composition of the csv_line
             csv_line = [
                 chunk,
                 str(seg_dur / 100),
-                audio_file_sb,
+                wav_file,
                 "wav",
                 start_stop,
                 spk_id,
@@ -328,15 +341,14 @@ def prepare_csv(
     logger.debug(msg)
 
 
-
-def prepare_csv_test(data_folder, csv_file):
+def prepare_csv_test(data_folders, csv_file):
     """
     Creates the csv file for test data (useful for verification)
 
     Arguments
     ---------
     data_folder : str
-        Path of the data folder
+        Path of the data folders
     csv_file : str
         The path of the output csv file
 
@@ -344,12 +356,10 @@ def prepare_csv_test(data_folder, csv_file):
     -------
     None
     """
-    
+
     msg = '\t"Creating csv lists in  %s..."' % (csv_file)
     logger.debug(msg)
-    
-    test_lst_file = data_folder + '/meta/veri_test.txt'
-   
+
     csv_output = [
         [
             "ID",
@@ -366,36 +376,40 @@ def prepare_csv_test(data_folder, csv_file):
         ]
     ]
 
- 
-    entry=[]
-    for i, line in enumerate(open(test_lst_file)):
-        test_id = 'test_' + str(i)
-        
-        lab_verification = line.split(' ')[0]
-        test_1_wav = data_folder+'/wav/'+line.split(' ')[1].rstrip()
-        test_2_wav = data_folder+'/wav/'+line.split(' ')[2].rstrip()
-        
-        # Reading the signal (to retrieve duration in seconds)
-        signal = read_wav_soundfile(test_1_wav)
-        audio_duration = signal.shape[0] / SAMPLERATE
-        
-        # Composition of the csv_line
-        csv_line = [
-            test_id,
-            audio_duration,
-            test_1_wav,
-            "wav",
-            "",
-            test_2_wav,
-            "wav",
-            "",
-            lab_verification,
-            "string",
-            "",
-        ]
+    entry = []
+    cnt = 0
+    for data_folder in data_folders:
+        test_lst_file = data_folder + "/meta/veri_test.txt"
 
-        entry.append(csv_line)       
-    
+        for line in open(test_lst_file):
+            cnt = cnt + 1
+            test_id = "test_" + str(cnt)
+
+            lab_verification = line.split(" ")[0]
+            test_1_wav = data_folder + "/wav/" + line.split(" ")[1].rstrip()
+            test_2_wav = data_folder + "/wav/" + line.split(" ")[2].rstrip()
+
+            # Reading the signal (to retrieve duration in seconds)
+            signal = read_wav_soundfile(test_1_wav)
+            audio_duration = signal.shape[0] / SAMPLERATE
+
+            # Composition of the csv_line
+            csv_line = [
+                test_id,
+                audio_duration,
+                test_1_wav,
+                "wav",
+                "",
+                test_2_wav,
+                "wav",
+                "",
+                lab_verification,
+                "string",
+                "",
+            ]
+
+            entry.append(csv_line)
+
     csv_output = csv_output + entry
 
     # Writing the csv lines
@@ -405,4 +419,3 @@ def prepare_csv_test(data_folder, csv_file):
         )
         for line in csv_output:
             csv_writer.writerow(line)
-    
