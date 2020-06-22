@@ -22,7 +22,7 @@ csv_clean: !ref <data_folder>/tr_clean.csv
 csv_valid: !ref <data_folder>/test.csv
 
 # Neural Parameters
-N_epochs: 100
+N_epochs: 50
 N_batch: 8
 lr: 0.0002
 device: cuda:0
