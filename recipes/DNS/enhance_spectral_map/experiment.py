@@ -4,8 +4,19 @@ import sys
 import torch
 import speechbrain as sb
 import torchaudio
+import multiprocessing
 from speechbrain.utils.train_logger import summarize_average
 from speechbrain.processing.features import spectral_magnitude
+
+try:
+    from pesq import pesq
+except ImportError:
+    print("Please install PESQ from https://pypi.org/project/pesq/")
+try:
+    from pystoi import stoi
+except ImportError:
+    print("Please install STOI from https://pypi.org/project/pystoi/")
+
 
 # This hack needed to import data preparation script from ..
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -34,6 +45,32 @@ if not os.path.exists(params.enhanced_folder):
     os.mkdir(params.enhanced_folder)
 
 
+def evaluation(clean, enhanced):
+    pesq_score = pesq(params.SAMPLERATE, clean, enhanced, "wb",)
+    stoi_score = stoi(clean, enhanced, params.SAMPLERATE, extended=False)
+
+    return pesq_score, stoi_score
+
+
+def multiprocess_evaluation(pred_wavs, target_wavs, num_cores):
+    processes = []
+
+    pool = multiprocessing.Pool(processes=num_cores)
+
+    for clean, enhanced in zip(pred_wavs, target_wavs):
+        processes.append(pool.apply_async(evaluation, args=(clean, enhanced)))
+
+    pool.close()
+
+    pesq_scores, stoi_scores = [], []
+    for process in processes:
+        pesq_score, stoi_score = process.get()
+        pesq_scores.append(pesq_score)
+        stoi_scores.append(stoi_score)
+
+    return pesq_scores, stoi_scores
+
+
 class SEBrain(sb.core.Brain):
     def compute_forward(self, x, stage="train", init_params=False):
         ids, wavs, lens = x
@@ -52,6 +89,7 @@ class SEBrain(sb.core.Brain):
     def compute_objectives(self, predictions, targets, stage="train"):
         ids, wavs, lens = targets
         wavs, lens = wavs.to(params.device), lens.to(params.device)
+
         feats = params.compute_stft(wavs)
         feats = spectral_magnitude(feats, power=0.5)
         feats = torch.log1p(feats)
@@ -81,10 +119,18 @@ class SEBrain(sb.core.Brain):
             os.mkdir(os.path.join(params.enhanced_folder, str(epoch)))
 
         # Write batch enhanced files to directory
-        self.write_wavs(torch.expm1(predictions), targets, epoch)
+        pred_wavs = self.write_wavs(torch.expm1(predictions), targets, epoch)
+
+        # Evaluating PESQ and STOI
+        target_wavs = targets[1]
+        pesq_scores, stoi_scores = multiprocess_evaluation(
+            pred_wavs.numpy(), target_wavs.numpy(), multiprocessing.cpu_count()
+        )
 
         loss, stats = self.compute_objectives(predictions, targets, stage=stage)
         stats["loss"] = loss.detach()
+        stats["pesq"] = pesq_scores
+        stats["stoi"] = stoi_scores
 
         return stats
 
@@ -97,11 +143,15 @@ class SEBrain(sb.core.Brain):
         print("Completed epoch %d" % epoch)
         print("Train loss: %.3f" % summarize_average(train_stats["loss"]))
         print("Valid loss: %.3f" % summarize_average(valid_stats["loss"]))
+        print("Valid PESQ: %.3f" % summarize_average(valid_stats["pesq"]))
+        print("Valid STOI: %.3f" % summarize_average(valid_stats["stoi"]))
+        print(len(valid_stats["pesq"]))
 
     def write_wavs(self, predictions, inputs, epoch):
         ids, wavs, lens = inputs
         predictions = predictions.cpu()
 
+        # Extract noisy phase
         feats = params.compute_stft(wavs)
         phase = torch.atan2(feats[:, :, :, 1], feats[:, :, :, 0])
         complex_predictions = torch.mul(
@@ -114,16 +164,21 @@ class SEBrain(sb.core.Brain):
                 -1,
             ),
         )
+
+        # Get the predicted waveform
         pred_wavs = params.compute_istft(complex_predictions)
+
+        # Normalize the waveform
+        abs_max, _ = torch.max(torch.abs(pred_wavs), dim=1, keepdim=True)
+        pred_wavs = pred_wavs / abs_max * 0.99
 
         for name, pred_wav in zip(ids, pred_wavs):
             enhance_path = os.path.join(
                 params.enhanced_folder, str(epoch), name
             )
-
-            # Normalize the waveform
-            pred_wav = pred_wav / torch.max(torch.abs(pred_wav)) * 0.99
             torchaudio.save(enhance_path, pred_wav, 16000)
+
+        return pred_wavs
 
 
 prepare_dns(
