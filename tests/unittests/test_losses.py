@@ -56,9 +56,8 @@ def test_pitwrapper():
     pit = PitWrapper(base_loss)
     predictions = torch.rand((2, 32, 4))  # batch, frames, sources
     p = (3, 0, 2, 1)
-    targets = predictions[
-        ..., p
-    ]  # same but we invert the ordering to check if permutation invariant
+    # same but we invert the ordering to check if permutation invariant
+    targets = predictions[..., p]
     loss, opt_p = pit(predictions, targets)
     assert [x == p for x in opt_p] == [True for i in range(len(opt_p))]
     predictions = pit.reorder_tensor(predictions, opt_p)
