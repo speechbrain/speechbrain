@@ -54,9 +54,9 @@ class FileTrainLogger(TrainLogger):
         from a training/validation pass and summarize it to a single scalar.
     """
 
-    def __init__(self, save_file, summary_fns):
+    def __init__(self, save_file, summary_fns=None):
         self.save_file = save_file
-        self.summary_fns = summary_fns
+        self.summary_fns = summary_fns or {}
 
     def _item_to_string(self, key, value, dataset=None):
         """Convert one item to string, handling floats"""
@@ -93,7 +93,10 @@ class FileTrainLogger(TrainLogger):
                 continue
             summary = {}
             for stat, value_list in stats.items():
-                summary[stat] = self.summary_fns[stat](value_list)
+                if stat in self.summary_fns:
+                    summary[stat] = self.summary_fns[stat](value_list)
+                else:
+                    summary[stat] = summarize_average(value_list)
             string_summary += " - " + self._stats_to_string(summary, dataset)
 
         with open(self.save_file, "a") as fout:
