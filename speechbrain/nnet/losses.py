@@ -84,11 +84,17 @@ class PitWrapper(nn.Module):
     def _opt_perm_loss(self, pred, target):
 
         n_sources = pred.size(-1)
-        pred = pred.unsqueeze(-2).repeat(*[1 for x in range(len(pred.shape)-1)], n_sources, 1)
-        target = target.unsqueeze(-1).repeat(1, *[1 for x in range(len(target.shape)-1)], n_sources)
+        pred = pred.unsqueeze(-2).repeat(
+            *[1 for x in range(len(pred.shape) - 1)], n_sources, 1
+        )
+        target = target.unsqueeze(-1).repeat(
+            1, *[1 for x in range(len(target.shape) - 1)], n_sources
+        )
 
         loss_mat = self.base_loss(pred, target)
-        assert len(loss_mat.shape) >= 2, "Base loss should not perform any reduction operation"
+        assert (
+            len(loss_mat.shape) >= 2
+        ), "Base loss should not perform any reduction operation"
         mean_over = [x for x in range(len(loss_mat.shape))]
         loss_mat = loss_mat.mean(dim=mean_over[:-2])
 
@@ -284,7 +290,6 @@ def nll_loss(
         length,
         label_smoothing=label_smoothing,
     )
-
 
 
 def truncate(predictions, targets, allowed_len_diff=3):
