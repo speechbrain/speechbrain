@@ -3,6 +3,7 @@ import numpy
 import pickle
 import sys  # noqa F401
 import copy
+import time  # noqa F401
 
 # from PLDA_StatServer import StatObject_SB  # noqa F401
 from PLDA_utils import *  # StatObject_SB  # noqa F401
@@ -324,9 +325,6 @@ class PLDA:
             # Minimum Divergence step
             self.F = self.F.dot(numpy.linalg.cholesky(_R))
 
-        print("F: ", self.F)
-        print("S: ", self.Sigma)
-
 
 if __name__ == "__main__":
     data_dir = "/Users/nauman/Desktop/Mila/nauman/Data/xvect-sdk/sb-format/"
@@ -338,7 +336,12 @@ if __name__ == "__main__":
 
     # Train the model
     plda = PLDA()
+    a = time.time()
     plda.plda(train_obj)
+    print("Model training runtime = ", time.time() - a)
+    print("sb_M: ", plda.mean[:20])
+    print("sb_F: ", plda.F)
+    print("sb_S: ", plda.Sigma)
 
     # Scoring
     enrol_file = data_dir + "VoxCeleb1_enrol_rvectors.pkl"
@@ -353,10 +356,12 @@ if __name__ == "__main__":
 
     print("Started PLDA scoring...")
     # Update bosaris:- Ndx and Score class
+    b = time.time()
     scores_plda = fast_PLDA_scoring(
         enrol_obj, test_obj, ndx_obj, plda.mean, plda.F, plda.Sigma
     )
+    print("Scoring module runtime = ", time.time() - b)
 
-    print(f"Scores with speechbrain: \n")
-    print(scores_plda.scoremat.shape)
+    print(f"Scores with SpeechBrain: \n")
+    # print(scores_plda.scoremat.shape)
     print(scores_plda.scoremat[:3, :3])
