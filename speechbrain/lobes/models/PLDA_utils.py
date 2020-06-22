@@ -367,3 +367,46 @@ class Ndx:
             self.segset.shape[0],
         )
         return ok
+
+
+class Scores:
+    """A class for storing scores for trials.  The modelset and segset
+    fields are lists of model and test segment names respectively.
+    The element i,j of scoremat and scoremask corresponds to the
+    trial involving model i and test segment j.
+
+    :attr modelset: list of unique models in a ndarray
+    :attr segset: list of unique test segments in a ndarray
+    :attr scoremask: 2D ndarray of boolean which indicates the trials of interest
+            i.e. the entry i,j in scoremat should be ignored if scoremask[i,j] is False
+    :attr scoremat: 2D ndarray of scores
+    """
+
+    def __init__(self, scores_file_name=""):
+        """ Initialize a Scores object by loading information from a file HDF5 format.
+
+        :param scores_file_name: name of the file to load
+        """
+        self.modelset = numpy.empty(0, dtype="|O")
+        self.segset = numpy.empty(0, dtype="|O")
+        self.scoremask = numpy.array([], dtype="bool")
+        self.scoremat = numpy.array([])
+
+        if scores_file_name == "":
+            pass
+        else:
+            tmp = Scores.read(scores_file_name)
+            self.modelset = tmp.modelset
+            self.segset = tmp.segset
+            self.scoremask = tmp.scoremask
+            self.scoremat = tmp.scoremat
+
+    def __repr__(self):
+        ch = "modelset:\n"
+        ch += self.modelset + "\n"
+        ch += "segset:\n"
+        ch += self.segset + "\n"
+        ch += "scoremask:\n"
+        ch += self.scoremask.__repr__() + "\n"
+        ch += "scoremat:\n"
+        ch += self.scoremat.__repr__() + "\n"
