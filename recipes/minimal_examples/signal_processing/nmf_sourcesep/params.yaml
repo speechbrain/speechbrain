@@ -9,7 +9,7 @@ csv_train2: !ref <data_folder>/csv_example_sourcesep_source2.csv
 csv_test: !ref <data_folder>/csv_example_sourcesep_mixture.csv
 
 # NMF parameters
-N_epochs: 400
+N_epochs: 500
 K: 20 # this specifies the number of template vectors to use in NMF.
 N_batch: 200
 m: 513  # length of stft vectors

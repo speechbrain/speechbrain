@@ -199,13 +199,14 @@ def reconstruct_results(
         shat1 = ISTFT(X1hat_stft.unsqueeze(0).permute(0, 2, 1, 3))
         shat2 = ISTFT(X2hat_stft.unsqueeze(0).permute(0, 2, 1, 3))
 
+        div_factor = 10
         write_wav_soundfile(
-            shat1 / (3 * shat1.std()),
+            shat1 / (div_factor * shat1.std()),
             savepath + "separated_source1_{}".format(i) + ".wav",
             16000,
         )
         write_wav_soundfile(
-            shat2 / (3 * shat2.std()),
+            shat2 / (div_factor * shat2.std()),
             savepath + "separated_source2_{}".format(i) + ".wav",
             16000,
         )

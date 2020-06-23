@@ -15,6 +15,7 @@ with open(params_file) as fin:
 sb.core.create_experiment_directory(
     experiment_directory=params.output_folder, params_to_save=params_file,
 )
+torch.manual_seed(0)
 
 
 class NMF_Brain(sb.core.Brain):
@@ -83,7 +84,7 @@ class NMF_Brain(sb.core.Brain):
 
         nh = self.h * torch.matmul(self.w.t(), v)
         # sparsity
-        nh = nh + 0.1 * nh ** (1.0 + 0.1)
+        nh = nh + 0.02 * nh ** (1.0 + 0.1)
 
         self.h = nh / (torch.sum(nh, dim=0) + eps)
 
