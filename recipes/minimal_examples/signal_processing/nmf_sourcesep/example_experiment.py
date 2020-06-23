@@ -55,7 +55,7 @@ class NMF_Brain(sb.core.Brain):
         h = 0.1 * torch.rand(params.K, n) + 1
         self.h = h / torch.sum(h, dim=0) + eps
 
-    def forward(self, X, init_params=False):
+    def compute_forward(self, X, init_params=False):
         """Forward pass, to be overridden by sub-classes.
 
         Arguments
@@ -96,13 +96,13 @@ class NMF_Brain(sb.core.Brain):
 
     def fit_batch(self, batch):
         inputs = batch
-        predictions = self.forward(inputs)
+        predictions = self.compute_forward(inputs)
         self.training_out = predictions
         return {"loss": torch.tensor(predictions[-1])}
 
     def evaluate_batch(self, batch):
         inputs, targets = batch
-        output = self.forward(inputs)
+        output = self.compute_forward(inputs)
         loss, stats = self.compute_objectives(output, targets, train=False)
         stats["loss"] = loss.detach()
         return stats
