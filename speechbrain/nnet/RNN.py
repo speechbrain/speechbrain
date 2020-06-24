@@ -48,6 +48,9 @@ class RNN(torch.nn.Module):
     bidirectional: bool
         If True, a bidirectioal model that scans the sequence both
         right-to-left and left-to-right is used.
+    pretrain_file: path
+        When specified, it pre-trains the model parameters with the ones in
+        the given path.
 
     Example
     -------
@@ -68,6 +71,7 @@ class RNN(torch.nn.Module):
         re_init=False,
         bidirectional=False,
         return_hidden=False,
+        pretrain_file=None,
     ):
         super().__init__()
         self.hidden_size = hidden_size
@@ -79,6 +83,7 @@ class RNN(torch.nn.Module):
         self.bidirectional = bidirectional
         self.reshape = False
         self.return_hidden = return_hidden
+        self.pretrain_file = pretrain_file
 
     def init_params(self, first_input):
         """
@@ -110,6 +115,10 @@ class RNN(torch.nn.Module):
 
         if self.re_init:
             rnn_init(self.rnn)
+
+        # Manage pre-training
+        if self.pretrain_file is not None:
+            self.load_state_dict(torch.load(self.pretrain_file))
 
         self.rnn.to(first_input.device)
 
@@ -169,6 +178,9 @@ class LSTM(torch.nn.Module):
     bidirectional: bool
         if True, a bidirectioal model that scans the sequence both
         right-to-left and left-to-right is used.
+    pretrain_file: path
+        When specified, it pre-trains the model parameters with the ones in
+        the given path.
 
     Example
     -------
@@ -188,6 +200,7 @@ class LSTM(torch.nn.Module):
         re_init=False,
         bidirectional=False,
         return_hidden=False,
+        pretrain_file=None,
     ):
         super().__init__()
         self.hidden_size = hidden_size
@@ -198,6 +211,7 @@ class LSTM(torch.nn.Module):
         self.bidirectional = bidirectional
         self.reshape = False
         self.return_hidden = return_hidden
+        self.pretrain_file = pretrain_file
 
     def init_params(self, first_input):
         """
@@ -228,6 +242,10 @@ class LSTM(torch.nn.Module):
 
         if self.re_init:
             rnn_init(self.rnn)
+
+        # Manage pre-training
+        if self.pretrain_file is not None:
+            self.load_state_dict(torch.load(self.pretrain_file))
 
         self.rnn.to(first_input.device)
 
@@ -287,6 +305,9 @@ class GRU(torch.nn.Module):
     bidirectional: bool
         if True, a bidirectioal model that scans the sequence both
         right-to-left and left-to-right is used.
+    pretrain_file: path
+        When specified, it pre-trains the model parameters with the ones in
+        the given path.
 
     Example
     -------
@@ -306,6 +327,7 @@ class GRU(torch.nn.Module):
         re_init=False,
         bidirectional=False,
         return_hidden=False,
+        pretrain_file=None,
     ):
         super().__init__()
         self.hidden_size = hidden_size
@@ -316,6 +338,7 @@ class GRU(torch.nn.Module):
         self.bidirectional = bidirectional
         self.reshape = False
         self.return_hidden = return_hidden
+        self.pretrain_file = pretrain_file
 
     def init_params(self, first_input):
         """
@@ -346,6 +369,9 @@ class GRU(torch.nn.Module):
 
         if self.re_init:
             rnn_init(self.rnn, act="tanh")
+        # Manage pre-training
+        if self.pretrain_file is not None:
+            self.load_state_dict(torch.load(self.pretrain_file))
 
         self.rnn.to(first_input.device)
 
@@ -380,6 +406,64 @@ class GRU(torch.nn.Module):
 
 
 class AttentionalRNNDecoder(nn.Module):
+    """This funtion implements RNN decoder model with attention.
+
+    This function implements different RNN models. It accepts in enc_states tensors
+    formatted as (batch, time, fea). In the case of 4d inputs
+    like (batch, time, fea, channel) the tensor is flattened in this way:
+    (batch, time, fea*channel).
+
+    Arguments
+    ---------
+    rnn_type: str
+        Type of recurrent neural network to use (rnn, lstm, gru, ligru).
+    attn_type: str
+        type of attention to use (location, content).
+    hidden_size: int
+        Number of the neurons.
+    attn_dim: int
+        Number of attention module internal and output neurons.
+    num_layers: int
+         Number of layers to employ in the RNN architecture.
+    nonlinearity: str
+         Type of nonlinearity (tanh, relu). This option is active for
+         rnn and ligru models only. For lstm and gru tanh is used.
+    re_init: bool:
+        It True, orthogonal initialization is used for the recurrent weights.
+        Xavier initialization is used for the input connection weights.
+    normalization: str
+         Type of normalization for the ligru model (batchnorm, layernorm).
+         Every string different from batchnorm and layernorm will result
+         in no normalization.
+    scaling: float
+        The scaling factor to sharpen or smoothen the attention distribution.
+    channels: int
+        Number of channels for location-aware attention.
+    kernel_size: int
+        Size of the kernel for location-aware attention.
+    bias: bool
+        If True, the additive bias b is adopted.
+    dropout: float
+        It is the dropout factor (must be between 0 and 1).
+    pretrain_file: path
+        When specified, it pre-trains the model parameters with the ones in
+        the given path.
+    Example
+    -------
+    >>> enc_states = torch.rand([4, 10, 20])
+    >>> wav_len = torch.rand([4])
+    >>> inp_tensor = torch.rand([4, 5, 6])
+    >>> net = AttentionalRNNDecoder(
+    ...     rnn_type='lstm',
+    ...     attn_type='content',
+    ...     hidden_size=7,
+    ...     attn_dim=5,
+    ...     num_layers=1)
+    >>> out_tensor, attn = net(inp_tensor, enc_states, wav_len, init_params=True)
+    >>> out_tensor.shape
+    torch.Size([4, 5, 7])
+    """
+
     def __init__(
         self,
         rnn_type,
@@ -395,62 +479,8 @@ class AttentionalRNNDecoder(nn.Module):
         kernel_size=None,
         bias=True,
         dropout=0.0,
+        pretrain_file=None,
     ):
-        """This funtion implements RNN decoder model with attention.
-
-        This function implements different RNN models. It accepts in enc_states tensors
-        formatted as (batch, time, fea). In the case of 4d inputs
-        like (batch, time, fea, channel) the tensor is flattened in this way:
-        (batch, time, fea*channel).
-
-        Arguments
-        ---------
-        rnn_type: str
-            Type of recurrent neural network to use (rnn, lstm, gru, ligru).
-        attn_type: str
-            type of attention to use (location, content).
-        hidden_size: int
-            Number of the neurons.
-        attn_dim: int
-            Number of attention module internal and output neurons.
-        num_layers: int
-             Number of layers to employ in the RNN architecture.
-        nonlinearity: str
-             Type of nonlinearity (tanh, relu). This option is active for
-             rnn and ligru models only. For lstm and gru tanh is used.
-        re_init: bool:
-            It True, orthogonal initialization is used for the recurrent weights.
-            Xavier initialization is used for the input connection weights.
-        normalization: str
-             Type of normalization for the ligru model (batchnorm, layernorm).
-             Every string different from batchnorm and layernorm will result
-             in no normalization.
-        scaling: float
-            The scaling factor to sharpen or smoothen the attention distribution.
-        channels: int
-            Number of channels for location-aware attention.
-        kernel_size: int
-            Size of the kernel for location-aware attention.
-        bias: bool
-            If True, the additive bias b is adopted.
-        dropout: float
-            It is the dropout factor (must be between 0 and 1).
-
-        Example
-        -------
-        >>> enc_states = torch.rand([4, 10, 20])
-        >>> wav_len = torch.rand([4])
-        >>> inp_tensor = torch.rand([4, 5, 6])
-        >>> net = AttentionalRNNDecoder(
-        ...     rnn_type='lstm',
-        ...     attn_type='content',
-        ...     hidden_size=7,
-        ...     attn_dim=5,
-        ...     num_layers=1)
-        >>> out_tensor, attn = net(inp_tensor, enc_states, wav_len, init_params=True)
-        >>> out_tensor.shape
-        torch.Size([4, 5, 7])
-        """
         super(AttentionalRNNDecoder, self).__init__()
 
         self.rnn_type = rnn_type.lower()
@@ -464,6 +494,7 @@ class AttentionalRNNDecoder(nn.Module):
         self.normalization = normalization
         self.re_init = re_init
         self.nonlinearity = nonlinearity
+        self.pretrain_file = pretrain_file
 
         # only for location-aware attention
         self.channels = channels
@@ -591,7 +622,12 @@ class AttentionalRNNDecoder(nn.Module):
             inp_tensor.shape[0], inp_tensor.shape[1], self.attn_dim
         ).to(device)
         inputs = torch.cat([inp_tensor, context], dim=-1)
+
         self.rnn.init_params(inputs)
+
+        # Manage pre-training
+        if self.pretrain_file is not None:
+            self.load_state_dict(torch.load(self.pretrain_file))
 
     def forward_step(self, inp, hs, c, enc_states, enc_len):
         """
@@ -734,6 +770,9 @@ class LiGRU(torch.nn.Module):
     bidirectional: bool
          if True, a bidirectioal model that scans the sequence both
          right-to-left and left-to-right is used.
+    pretrain_file: path
+        When specified, it pre-trains the model parameters with the ones in
+        the given path.
 
     Example
     -------
@@ -755,6 +794,7 @@ class LiGRU(torch.nn.Module):
         re_init=False,
         bidirectional=False,
         return_hidden=False,
+        pretrain_file=None,
     ):
         super().__init__()
         self.hidden_size = hidden_size
@@ -767,6 +807,7 @@ class LiGRU(torch.nn.Module):
         self.bidirectional = bidirectional
         self.reshape = False
         self.return_hidden = return_hidden
+        self.pretrain_file = pretrain_file
 
     def init_params(self, first_input):
         """
@@ -789,6 +830,10 @@ class LiGRU(torch.nn.Module):
 
         if self.re_init:
             rnn_init(self.rnn, act=self.nonlinearity)
+
+        # Manage pre-training
+        if self.pretrain_file is not None:
+            self.load_state_dict(torch.load(self.pretrain_file))
 
     def _init_layers(self,):
         """
@@ -900,7 +945,7 @@ class LiGRU_Layer(torch.jit.ScriptModule):
         if True, a bidirectioal model that scans the sequence both
         right-to-left and left-to-right is used.
     device: str
-        Device used for running the computations (e.g, 'cpu', 'cuda').
+        Device used for running the computations (e.g, 'cpu', 'cuda')..
     """
 
     def __init__(
@@ -1097,18 +1142,22 @@ class LiGRU_Layer(torch.jit.ScriptModule):
 
 
 class QuasiRNNLayer(torch.jit.ScriptModule):
-    """Applies a single layer Quasi-Recurrent Neural Network (QRNN) to an input sequence.
+    """Applies a single layer Quasi-Recurrent Neural Network (QRNN) to an input
+    sequence.
 
     Arguments
     ---------
     input_size : int
         The number of expected features in the input x.
     hidden_size : int
-        The number of features in the hidden state h. If not specified, the input size is used.
+        The number of features in the hidden state h. If not specified, the input
+        size is used.
     zoneout : float
-        Whether to apply zoneout (i.e. failing to update elements in the hidden state) to the hidden state updates. Default: 0.
+        Whether to apply zoneout (i.e. failing to update elements in the
+        hidden state) to the hidden state updates. Default: 0.
     output_gate : bool
-        If True, performs QRNN-fo (applying an output gate to the output). If False, performs QRNN-f. Default: True.
+        If True, performs QRNN-fo (applying an output gate to the output).
+        If False, performs QRNN-f. Default: True.
 
     Example
     -------
@@ -1270,6 +1319,9 @@ class QuasiRNN(nn.Module):
         Whether to apply zoneout (i.e. failing to update elements in the hidden state) to the hidden state updates. Default: 0.
     output_gate :
         If True, performs QRNN-fo (applying an output gate to the output). If False, performs QRNN-f. Default: True.
+    pretrain_file: path
+        When specified, it pre-trains the model parameters with the ones in
+        the given path.
 
     Example
     -------
@@ -1289,6 +1341,7 @@ class QuasiRNN(nn.Module):
         dropout=0,
         bidirectional=False,
         return_hidden=False,
+        pretrain_file=None,
         **kwargs,
     ):
         assert bias is True, "Removing underlying bias is not yet supported"
@@ -1298,6 +1351,7 @@ class QuasiRNN(nn.Module):
         self.num_layers = num_layers
         self.return_hidden = return_hidden
         self.bidirectional = bidirectional
+        self.pretrain_file = pretrain_file
         self.dropout = dropout if dropout > 0 else None
         self.kwargs = kwargs
 
@@ -1329,6 +1383,10 @@ class QuasiRNN(nn.Module):
 
         if self.dropout:
             self.dropout = torch.nn.Dropout(self.dropout)
+
+        # Manage pre-training
+        if self.pretrain_file is not None:
+            self.load_state_dict(torch.load(self.pretrain_file))
 
     def forward(self, x, hidden=None, init_params=False):
         if init_params:

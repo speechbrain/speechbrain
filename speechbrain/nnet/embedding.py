@@ -62,6 +62,7 @@ class Embedding(nn.Module):
         embedding_dim=128,
         consider_as_one_hot=False,
         blank_id=0,
+        pretrain_file=None,
     ):
         if not isinstance(num_embeddings, int):
             raise ValueError("num_embeddings must be integer.")
@@ -80,10 +81,10 @@ class Embedding(nn.Module):
         else:
             self.embedding_dim = embedding_dim
         self.blank_id = blank_id
+        self.pretrain_file = pretrain_file
 
     def init_params(self, first_input):
         """
-
         Arguments
         ---------
         first_input : tensor
@@ -111,6 +112,9 @@ class Embedding(nn.Module):
             self.Embedding = nn.Embedding(
                 self.num_embeddings, self.embedding_dim
             ).to(first_input.device)
+        # Manage pre-training
+        if self.pretrain_file is not None:
+            self.load_state_dict(torch.load(self.pretrain_file))
 
     def forward(self, x, init_params=False):
         """Returns the embedding of input tensor.

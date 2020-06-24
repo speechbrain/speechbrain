@@ -50,6 +50,9 @@ class SincConv(nn.Module):
         sinc_conv.
     min_low_hz: float
         Lowest possible value (in Hz) for a filter bandwidth.
+    pretrain_file: path
+        When specified, it pre-trains the model parameters with the ones in
+        the given path.
 
     Example
     -------
@@ -73,6 +76,7 @@ class SincConv(nn.Module):
         sample_rate=16000,
         min_low_hz=50,
         min_band_hz=50,
+        pretrain_file=None,
     ):
         super().__init__()
         self.out_channels = out_channels
@@ -87,6 +91,7 @@ class SincConv(nn.Module):
         self.sample_rate = sample_rate
         self.min_low_hz = min_low_hz
         self.min_band_hz = min_band_hz
+        self.pretrain_file = pretrain_file
 
     def init_params(self, first_input):
         """
@@ -103,6 +108,10 @@ class SincConv(nn.Module):
 
         # Initialize Sinc filters
         self._init_sinc_conv(first_input)
+
+        # Manage pre-training
+        if self.pretrain_file is not None:
+            self.load_state_dict(torch.load(self.pretrain_file))
 
     def forward(self, x, init_params=False):
         """Returns the output of the convolution.
@@ -327,6 +336,9 @@ class Conv1d(nn.Module):
         documentation for more information.
     bias: bool
         If True, the additive bias b is adopted.
+    pretrain_file: path
+        When specified, it pre-trains the model parameters with the ones in
+        the given path.
 
     Example
     -------
@@ -347,6 +359,7 @@ class Conv1d(nn.Module):
         groups=1,
         bias=True,
         padding_mode="reflect",
+        pretrain_file=None,
     ):
         super().__init__()
         self.out_channels = out_channels
@@ -358,6 +371,7 @@ class Conv1d(nn.Module):
         self.bias = bias
         self.padding_mode = padding_mode
         self.unsqueeze = False
+        self.pretrain_file = pretrain_file
 
     def init_params(self, first_input):
         """
@@ -381,6 +395,10 @@ class Conv1d(nn.Module):
             groups=self.groups,
             bias=self.bias,
         ).to(first_input.device)
+
+        # Manage pre-training
+        if self.pretrain_file is not None:
+            self.load_state_dict(torch.load(self.pretrain_file))
 
     def forward(self, x, init_params=False):
         """Returns the output of the convolution.
@@ -497,6 +515,9 @@ class Conv2d(nn.Module):
         documentation for more information.
     bias: bool
         If True, the additive bias b is adopted.
+    pretrain_file: path
+        When specified, it pre-trains the model parameters with the ones in
+        the given path.
 
     Example
     -------
@@ -517,6 +538,7 @@ class Conv2d(nn.Module):
         groups=1,
         bias=True,
         padding_mode="reflect",
+        pretrain_file=None,
     ):
         super().__init__()
         self.out_channels = out_channels
@@ -528,6 +550,7 @@ class Conv2d(nn.Module):
         self.bias = bias
         self.padding_mode = padding_mode
         self.unsqueeze = False
+        self.pretrain_file = pretrain_file
 
     def init_params(self, first_input):
         """
@@ -551,6 +574,10 @@ class Conv2d(nn.Module):
             groups=self.groups,
             bias=self.bias,
         ).to(first_input.device)
+
+        # Manage pre-training
+        if self.pretrain_file is not None:
+            self.load_state_dict(torch.load(self.pretrain_file))
 
     def forward(self, x, init_params=False):
         """Returns the output of the convolution.

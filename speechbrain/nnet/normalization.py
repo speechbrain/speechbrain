@@ -24,7 +24,9 @@ class BatchNorm1d(nn.Module):
         and when set to False, this module does not track such statistics.
     combine_batch_time : bool
         When true, it combines batch an time axis.
-
+    pretrain_file: path
+        When specified, it pre-trains the model parameters with the ones in
+        the given path.
 
     Example
     -------
@@ -42,6 +44,7 @@ class BatchNorm1d(nn.Module):
         affine=True,
         track_running_stats=True,
         combine_batch_time=False,
+        pretrain_file=None,
     ):
         super().__init__()
         self.eps = eps
@@ -49,6 +52,7 @@ class BatchNorm1d(nn.Module):
         self.affine = affine
         self.track_running_stats = track_running_stats
         self.combine_batch_time = combine_batch_time
+        self.pretrain_file = pretrain_file
 
     def init_params(self, first_input):
         """
@@ -66,6 +70,10 @@ class BatchNorm1d(nn.Module):
             affine=self.affine,
             track_running_stats=self.track_running_stats,
         ).to(first_input.device)
+
+        # Manage pre-training
+        if self.pretrain_file is not None:
+            self.load_state_dict(torch.load(self.pretrain_file))
 
     def forward(self, x, init_params=False):
         """Returns the normalized input tensor.
@@ -116,6 +124,9 @@ class BatchNorm2d(nn.Module):
     track_running_stats : bool
         When set to True, this module tracks the running mean and variance,
         and when set to False, this module does not track such statistics.
+    pretrain_file: path
+        When specified, it pre-trains the model parameters with the ones in
+        the given path.
 
     Example
     -------
@@ -127,13 +138,19 @@ class BatchNorm2d(nn.Module):
     """
 
     def __init__(
-        self, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True,
+        self,
+        eps=1e-05,
+        momentum=0.1,
+        affine=True,
+        track_running_stats=True,
+        pretrain_file=None,
     ):
         super().__init__()
         self.eps = eps
         self.momentum = momentum
         self.affine = affine
         self.track_running_stats = track_running_stats
+        self.pretrain_file = pretrain_file
 
     def init_params(self, first_input):
         """
@@ -151,6 +168,10 @@ class BatchNorm2d(nn.Module):
             affine=self.affine,
             track_running_stats=self.track_running_stats,
         ).to(first_input.device)
+
+        # Manage pre-training
+        if self.pretrain_file is not None:
+            self.load_state_dict(torch.load(self.pretrain_file))
 
     def forward(self, x, init_params=False):
         """Returns the normalized input tensor.
@@ -183,6 +204,9 @@ class LayerNorm(nn.Module):
     elementwise_affine : bool
         If True, this module has learnable per-element affine parameters
         initialized to ones (for weights) and zeros (for biases).
+    pretrain_file: path
+        When specified, it pre-trains the model parameters with the ones in
+        the given path.
 
     Example
     -------
@@ -193,10 +217,11 @@ class LayerNorm(nn.Module):
     torch.Size([100, 101, 128])
     """
 
-    def __init__(self, eps=1e-05, elementwise_affine=True):
+    def __init__(self, eps=1e-05, elementwise_affine=True, pretrain_file=None):
         super().__init__()
         self.eps = eps
         self.elementwise_affine = elementwise_affine
+        self.pretrain_file = pretrain_file
 
     def init_params(self, first_input):
         """
@@ -210,6 +235,10 @@ class LayerNorm(nn.Module):
             eps=self.eps,
             elementwise_affine=self.elementwise_affine,
         ).to(first_input.device)
+
+        # Manage pre-training
+        if self.pretrain_file is not None:
+            self.load_state_dict(torch.load(self.pretrain_file))
 
     def forward(self, x, init_params=False):
         """Returns the normalized input tensor.
@@ -242,6 +271,9 @@ class InstanceNorm1d(nn.Module):
         A boolean value that when set to True, this module has learnable
         affine parameters, initialized the same way as done for
         batch normalization. Default: False.
+    pretrain_file: path
+        When specified, it pre-trains the model parameters with the ones in
+        the given path.
 
     Example
     -------
@@ -253,13 +285,19 @@ class InstanceNorm1d(nn.Module):
     """
 
     def __init__(
-        self, eps=1e-05, momentum=0.1, track_running_stats=True, affine=False
+        self,
+        eps=1e-05,
+        momentum=0.1,
+        track_running_stats=True,
+        affine=False,
+        pretrain_file=None,
     ):
         super().__init__()
         self.eps = eps
         self.momentum = momentum
         self.track_running_stats = track_running_stats
         self.affine = affine
+        self.pretrain_file = pretrain_file
 
     def init_params(self, first_input):
         """
@@ -278,6 +316,10 @@ class InstanceNorm1d(nn.Module):
             affine=self.affine,
         ).to(first_input.device)
 
+        # Manage pre-training
+        if self.pretrain_file is not None:
+            self.load_state_dict(torch.load(self.pretrain_file))
+
     def forward(self, x, init_params=False):
         """Returns the normalized input tensor.
 
@@ -290,9 +332,7 @@ class InstanceNorm1d(nn.Module):
             self.init_params(x)
 
         x = x.transpose(-1, 1)
-
         x_n = self.norm(x)
-
         x_n = x_n.transpose(1, -1)
 
         return x_n
@@ -315,6 +355,9 @@ class InstanceNorm2d(nn.Module):
         A boolean value that when set to True, this module has learnable
         affine parameters, initialized the same way as done for
         batch normalization. Default: False.
+    pretrain_file: path
+        When specified, it pre-trains the model parameters with the ones in
+        the given path.
 
     Example
     -------
@@ -326,13 +369,19 @@ class InstanceNorm2d(nn.Module):
     """
 
     def __init__(
-        self, eps=1e-05, momentum=0.1, track_running_stats=True, affine=False
+        self,
+        eps=1e-05,
+        momentum=0.1,
+        track_running_stats=True,
+        affine=False,
+        pretrain_file=None,
     ):
         super().__init__()
         self.eps = eps
         self.momentum = momentum
         self.track_running_stats = track_running_stats
         self.affine = affine
+        self.pretrain_file = pretrain_file
 
     def init_params(self, first_input):
         """
@@ -351,6 +400,10 @@ class InstanceNorm2d(nn.Module):
             affine=self.affine,
         ).to(first_input.device)
 
+        # Manage pre-training
+        if self.pretrain_file is not None:
+            self.load_state_dict(torch.load(self.pretrain_file))
+
     def forward(self, x, init_params=False):
         """Returns the normalized input tensor.
 
@@ -363,9 +416,7 @@ class InstanceNorm2d(nn.Module):
             self.init_params(x)
 
         x = x.transpose(-1, 1)
-
         x_n = self.norm(x)
-
         x_n = x_n.transpose(1, -1)
 
         return x_n

@@ -23,6 +23,9 @@ class Linear(torch.nn.Module):
         if True, the additive bias b is adopted.
     combine_dims : bool
         if True and the input is 4D, combine 3rd and 4th dimensions of input.
+    pretrain_file: path
+        When specified, it pre-trains the model parameters with the ones in
+        the given path.
 
     Example
     -------
@@ -33,11 +36,14 @@ class Linear(torch.nn.Module):
     torch.Size([10, 50, 100])
     """
 
-    def __init__(self, n_neurons, bias=True, combine_dims=False):
+    def __init__(
+        self, n_neurons, bias=True, combine_dims=False, pretrain_file=None
+    ):
         super().__init__()
         self.n_neurons = n_neurons
         self.bias = bias
         self.combine_dims = combine_dims
+        self.pretrain_file = pretrain_file
 
     def init_params(self, first_input):
         """
@@ -52,6 +58,10 @@ class Linear(torch.nn.Module):
 
         self.w = nn.Linear(fea_dim, self.n_neurons, bias=self.bias)
         self.w.to(first_input.device)
+
+        # Manage pre-training
+        if self.pretrain_file is not None:
+            self.load_state_dict(torch.load(self.pretrain_file))
 
     def forward(self, x, init_params=False):
         """Returns the linear transformation of input tensor.
