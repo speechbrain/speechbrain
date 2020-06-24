@@ -323,7 +323,7 @@ def count_ops(table):
             j -= 1
         elif j == 0:
             edits["deletions"] += 1
-            j -= 1
+            i -= 1
         else:
             if table[i][j] == EDIT_SYMBOLS["ins"]:
                 edits["insertions"] += 1
