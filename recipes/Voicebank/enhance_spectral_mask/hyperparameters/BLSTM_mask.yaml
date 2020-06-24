@@ -3,19 +3,17 @@
 # Authors: Szu-Wei, Fu 2020
 # ################################
 
-
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: !PLACEHOLDER  # e.g, 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
-enhanced_folder: ./BLSTM_enhanced
 data_folder: !PLACEHOLDER
 test_clean_folder: !ref <data_folder>/clean_testset_wav_16k/
 
 output_folder: !ref ./results/BLSTM/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
-
+enhanced_folder: !ref <output_folder>/BLSTM_enhanced
 
 # Basic parameters
 use_tensorboard: True
@@ -26,6 +24,7 @@ Sample_rate: 16000
 Win_length: 32
 Hop_length: 16
 N_fft: 512
+window_type: hamming
 
 # Data files
 csv_train: !ref <data_folder>/train.csv
@@ -72,13 +71,13 @@ compute_STFT: !new:speechbrain.processing.features.STFT
     win_length: !ref <Win_length>
     hop_length: !ref <Hop_length>
     n_fft: !ref <N_fft>
-    window_type: hamming
+    window_type: !ref <window_type>
 
 compute_ISTFT: !new:speechbrain.processing.features.ISTFT
     sample_rate: !ref <Sample_rate>
     win_length: !ref <Win_length>
     hop_length: !ref <Hop_length>
-    window_type: hamming
+    window_type: !ref <window_type>
 
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: sentence
@@ -95,22 +94,20 @@ linear1: !new:speechbrain.nnet.linear.Linear
     bias: True
 
 linear2: !new:speechbrain.nnet.linear.Linear
-    n_neurons: 257
+    n_neurons: !ref <N_fft> // 2 + 1
     bias: True
 
 activation_lrelu: !new:torch.nn.LeakyReLU
     negative_slope: 0.01
 
-activation_sigmoid: !new:torch.nn.Sigmoid []
+activation_sigmoid: !new:torch.nn.Sigmoid
 
 model: !new:speechbrain.nnet.containers.Sequential
-    [
-        !ref <lstm>,
-        !ref <linear1>,
-        !ref <activation_lrelu>,
-        !ref <linear2>,
-        !ref <activation_sigmoid>
-    ]
+    - !ref <lstm>
+    - !ref <linear1>
+    - !ref <activation_lrelu>
+    - !ref <linear2>
+    - !ref <activation_sigmoid>
 
 compute_cost: !name:speechbrain.nnet.losses.mse_loss
 
