@@ -2,7 +2,9 @@ import glob
 import soundfile as sf
 import numpy as np
 from pathlib import Path
+import yaml
 import json
+import os
 from tqdm import tqdm
 
 
@@ -15,6 +17,7 @@ def create_metadata(
     background_noises_list=None,
 ):
 
+    dataset_metadata = {}
     for n_sess in tqdm(range(configs["n_sessions"])):
         # we sample randomly n_speakers ids
         c_speakers = np.random.choice(
@@ -40,6 +43,10 @@ def create_metadata(
             cursor = 0
             for j, wait in enumerate(intervals):
                 meta = sf.SoundFile(spk_utts[j])
+                if meta.channels > 1:
+                    channel = np.random.randint(0, meta.channels - 1)
+                else:
+                    channel = 0
                 assert (
                     meta.samplerate == configs["samplerate"]
                 ), "file samplerate is different from the one specified"
@@ -58,16 +65,23 @@ def create_metadata(
                     configs["speech_lvl_max"],
                 )
                 min_spk_lvl = min(lvl, min_spk_lvl)
-
+                # we save to metadata only relative paths
                 activity[c_spk].append(
                     {
                         "start": cursor,
                         "stop": cursor + length,
                         "words": words_dict[id_utt],
-                        "rir": c_rir,
+                        "rir": str(
+                            Path(c_rir).relative_to(configs["rirs_root"])
+                        ),
                         "utt_id": id_utt,
-                        "file": spk_utts[j],
+                        "file": str(
+                            Path(spk_utts[j]).relative_to(
+                                configs["librispeech_root"]
+                            )
+                        ),
                         "lvl": lvl,
+                        "channel": channel,
                     }
                 )
                 tot_length = max(cursor + length, tot_length)
@@ -84,6 +98,10 @@ def create_metadata(
                 # we sample with replacement an impulsive noise.
                 c_noise = np.random.choice(impulsive_noises_list, 1)[0]
                 meta = sf.SoundFile(c_noise)
+                if meta.channels > 1:
+                    channel = np.random.randint(0, meta.channels - 1)
+                else:
+                    channel = 0
                 c_rir = np.random.choice(rir_list, 1)[0]
                 # we reverberate it.
                 assert (
@@ -103,9 +121,16 @@ def create_metadata(
                     {
                         "start": cursor,
                         "stop": cursor + length,
-                        "rir": c_rir,
-                        "file": c_noise,
+                        "rir": str(
+                            Path(c_rir).relative_to(configs["rirs_root"])
+                        ),
+                        "file": str(
+                            Path(c_noise).relative_to(
+                                configs["impulsive_noises_root"]
+                            )
+                        ),
                         "lvl": lvl,
+                        "channel": channel,
                     }
                 )
                 tot_length = max(tot_length, cursor + length)
@@ -119,6 +144,10 @@ def create_metadata(
             # we scale the level but do not reverberate.
             background = np.random.choice(background_noises_list, 1)[0]
             meta = sf.SoundFile(background)
+            if meta.channels > 1:
+                channel = np.random.randint(0, meta.channels - 1)
+            else:
+                channel = 0
             assert (
                 meta.samplerate == configs["samplerate"]
             ), "file samplerate is different from the one specified"
@@ -136,27 +165,40 @@ def create_metadata(
             activity["background"] = {
                 "start": 0,
                 "stop": tot_length,
-                "file": background,
+                "file": str(
+                    Path(background).relative_to(configs["backgrounds_root"])
+                ),
                 "lvl": lvl,
                 "orig_start": offset,
                 "orig_stop": offset
                 + int(configs["max_length"] * configs["samplerate"]),
+                "channel": channel,
+            }
+        else:
+            # we use as background gaussian noise
+            lvl = np.random.randint(
+                configs["background_lvl_min"],
+                min(min_spk_lvl + configs["background_lvl_rel_max"], 0),
+            )
+            activity["background"] = {
+                "start": 0,
+                "stop": tot_length,
+                "file": None,
+                "lvl": lvl,
+                "orig_start": None,
+                "orig_stop": None,
+                "channel": None,
             }
 
-        sess_dir = os.path.join(
-            configs["out_path"], "session_{}".format(n_sess)
-        )
-        os.makedirs(sess_dir, exist_ok=True)
+        dataset_metadata["session_{}".format(n_sess)] = activity
 
-        with open(os.path.join(sess_dir, "metadata.json"), "w") as f:
-            json.dump(activity, f, indent=4)
+    with open(os.path.join(configs["out_path"], "metadata.json"), "w") as f:
+        json.dump(dataset_metadata, f, indent=4)
 
 
 if __name__ == "__main__":
-    import os
     import sys
     import speechbrain as sb
-    import yaml
 
     # This hack needed to import data preparation script from ..
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -169,6 +211,8 @@ if __name__ == "__main__":
     # we load parameters
     with open(params_file, "r") as f:
         params = yaml.load(f)
+
+    os.makedirs(params["out_path"], exist_ok=True)
 
     # 1 we construct a dictionary with speakers ids
     utterances = []
@@ -202,19 +246,24 @@ if __name__ == "__main__":
 
     # we now parse rirs, noises and backgrounds
     rirs_list = []
-    for rir_folder in params["rirs_folders"]:
-        rirs_list.extend(glob.glob(os.path.join(rir_folder), recursive=True))
+    if params["rirs_folders"]:
+        for rir_folder in params["rirs_folders"]:
+            rirs_list.extend(
+                glob.glob(os.path.join(rir_folder), recursive=True)
+            )
 
     # we parse impulsive noises
     impulsive_noises = []
-    for imp_folder in params["impulsive_noises_folders"]:
-        impulsive_noises.extend(
-            glob.glob(os.path.join(imp_folder), recursive=True)
-        )
+    if params["impulsive_noises_folders"]:
+        for imp_folder in params["impulsive_noises_folders"]:
+            impulsive_noises.extend(
+                glob.glob(os.path.join(imp_folder), recursive=True)
+            )
 
     backgrounds = []
-    for back in params["background_noises_folders"]:
-        backgrounds.extend(glob.glob(os.path.join(back), recursive=True))
+    if params["background_noises_folders"]:
+        for back in params["background_noises_folders"]:
+            backgrounds.extend(glob.glob(os.path.join(back), recursive=True))
 
     create_metadata(
         params,
