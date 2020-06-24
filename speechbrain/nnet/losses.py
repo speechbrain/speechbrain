@@ -1,15 +1,15 @@
 """
 Losses for training neural networks.
 
-Author
-------
-Mirco Ravanelli 2020
+Authors
+ * Mirco Ravanelli 2020
 """
 
 import torch
 import logging
 import functools
 from speechbrain.data_io.data_io import length_to_mask
+
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +64,12 @@ def ctc_loss(log_probs, targets, input_lens, target_lens, blank_index):
     target_lens = (target_lens * targets.shape[1]).int()
     log_probs = log_probs.transpose(0, 1)
     return torch.nn.functional.ctc_loss(
-        log_probs, targets, input_lens, target_lens, blank_index
+        log_probs,
+        targets,
+        input_lens,
+        target_lens,
+        blank_index,
+        zero_infinity=True,
     )
 
 
@@ -74,7 +79,7 @@ def l1_loss(predictions, targets, length=None, allowed_len_diff=3):
     Arguments
     ---------
     predictions : torch.Tensor
-        Predicted tensor, of shape [batch, time, *].
+        Predicted tensor, of shape ``[batch, time, *]``.
     targets : torch.Tensor
         Target tensor, same size as predicted tensor.
     length : torch.Tensor
@@ -99,7 +104,7 @@ def mse_loss(predictions, targets, length=None, allowed_len_diff=3):
     Arguments
     ---------
     predictions : torch.Tensor
-        Predicted tensor, of shape [batch, time, *].
+        Predicted tensor, of shape ``[batch, time, *]``.
     targets : torch.Tensor
         Target tensor, same size as predicted tensor.
     length : torch.Tensor
@@ -153,7 +158,13 @@ def classification_error(
     return compute_masked_loss(error, probabilities, targets.long(), length)
 
 
-def nll_loss(log_probabilities, targets, length=None, allowed_len_diff=3):
+def nll_loss(
+    log_probabilities,
+    targets,
+    length=None,
+    label_smoothing=0.0,
+    allowed_len_diff=3,
+):
     """Computes negative log likelihood loss.
 
     Arguments
@@ -182,7 +193,13 @@ def nll_loss(log_probabilities, targets, length=None, allowed_len_diff=3):
 
     # Pass the loss function but apply reduction="none" first
     loss = functools.partial(torch.nn.functional.nll_loss, reduction="none")
-    return compute_masked_loss(loss, log_probabilities, targets.long(), length)
+    return compute_masked_loss(
+        loss,
+        log_probabilities,
+        targets.long(),
+        length,
+        label_smoothing=label_smoothing,
+    )
 
 
 def truncate(predictions, targets, allowed_len_diff=3):
@@ -211,7 +228,9 @@ def truncate(predictions, targets, allowed_len_diff=3):
         return predictions[:, : targets.shape[1]], targets
 
 
-def compute_masked_loss(loss_fn, predictions, targets, length=None):
+def compute_masked_loss(
+    loss_fn, predictions, targets, length=None, label_smoothing=0.0
+):
     """Compute the true average loss of a set of waveforms of unequal length.
 
     Arguments
@@ -226,6 +245,10 @@ def compute_masked_loss(loss_fn, predictions, targets, length=None):
     length : torch.Tensor
         Length of each utterance to compute mask. If None, global average is
         computed and returned.
+    label_smoothing: float
+        The proportion of label smoothing. Should only be used for NLL loss.
+        Ref: Regularizing Neural Networks by Penalizing Confident Output Distributions.
+        https://arxiv.org/abs/1701.06548
     """
     mask = torch.ones_like(targets)
     if length is not None:
@@ -235,4 +258,11 @@ def compute_masked_loss(loss_fn, predictions, targets, length=None):
         if len(targets.shape) == 3:
             mask = mask.unsqueeze(2).repeat(1, 1, targets.shape[2])
 
-    return torch.sum(loss_fn(predictions, targets) * mask) / torch.sum(mask)
+    loss = torch.sum(loss_fn(predictions, targets) * mask) / torch.sum(mask)
+    if label_smoothing == 0:
+        return loss
+    else:
+        loss_reg = -torch.sum(
+            torch.mean(predictions, dim=1) * mask
+        ) / torch.sum(mask)
+        return label_smoothing * loss_reg + (1 - label_smoothing) * loss
