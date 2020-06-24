@@ -43,6 +43,8 @@ class EnvCorrupt(torch.nn.Module):
         A prepared csv file for loading noise data.
     noise_cache : bool
         Whether to cache noises.
+    noise_num_workers : int
+        Number of workers to use for loading noises.
     babble_speaker_count : int
         Number of speakers to use for babble. Must be less than batch size.
     babble_snr_low : int
@@ -76,6 +78,7 @@ class EnvCorrupt(torch.nn.Module):
         reverb_csv=None,
         noise_csv=None,
         noise_cache=False,
+        noise_num_workers=0,
         babble_speaker_count=0,
         babble_snr_low=0,
         babble_snr_high=0,
@@ -121,6 +124,7 @@ class EnvCorrupt(torch.nn.Module):
                 mix_prob=noise_prob,
                 csv_file=noise_csv,
                 do_cache=noise_cache,
+                num_workers=noise_num_workers,
                 snr_low=noise_snr_low,
                 snr_high=noise_snr_high,
             )
