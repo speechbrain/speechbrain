@@ -175,18 +175,19 @@ def _check_voxceleb1_folders(data_folders):
     """
     for data_folder in data_folders:
 
-        # Checking # Remove comment
-        if not os.path.exists(data_folder + "wav/id10001"):
+        folder = os.path.join(data_folder, "wav", "id10001")
+        if not os.path.exists(folder):
             err_msg = (
                 "the folder %s does not exist (as it is expected in "
-                "the Voxceleb dataset)" % (data_folder + "/id*")
+                "the Voxceleb dataset)" % folder
             )
             raise FileNotFoundError(err_msg)
 
-        if not os.path.exists(data_folder + "/meta"):
+        folder = os.path.join(data_folder, "meta")
+        if not os.path.exists(folder):
             err_msg = (
                 "the folder %s does not exist (as it is expected in "
-                "the Voxceleb dataset)" % (data_folder + "/meta")
+                "the Voxceleb dataset)" % folder
             )
             raise FileNotFoundError(err_msg)
 
@@ -204,7 +205,7 @@ def _get_utt_split_lists(data_folders, split_ratio):
     for data_folder in data_folders:
 
         # Get test sentences (useful for verification)
-        test_lst_file = data_folder + "/meta/veri_test.txt"
+        test_lst_file = os.path.join(data_folder, "meta", "veri_test.txt")
         test_lst = [
             line.rstrip("\n").split(" ")[1] for line in open(test_lst_file)
         ]
@@ -214,18 +215,16 @@ def _get_utt_split_lists(data_folders, split_ratio):
 
         # avoid test speakers for train and dev splits
         audio_files_list = []
-        for f in glob.glob(data_folder + "/wav/**/*.wav", recursive=True):
+        path = os.path.join(data_folder, "wav", "**", "*.wav")
+        for f in glob.glob(path, recursive=True):
             spk_id = f.split("/wav/")[1].split("/")[0]
             if spk_id not in test_spks:
                 audio_files_list.append(f)
 
         random.shuffle(audio_files_list)
-        train_snts = audio_files_list[
-            : int(0.01 * split_ratio[0] * len(audio_files_list))
-        ]
-        dev_snts = audio_files_list[
-            int(0.01 * split_ratio[0] * len(audio_files_list)) :
-        ]
+        split = int(0.01 * split_ratio[0] * len(audio_files_list))
+        train_snts = audio_files_list[:split]
+        dev_snts = audio_files_list[split:]
 
         train_lst.extend(train_snts)
         dev_lst.extend(dev_snts)
@@ -270,7 +269,6 @@ def prepare_csv(
     msg = '\t"Creating csv lists in  %s..."' % (csv_file)
     logger.debug(msg)
 
-    # Format used: example5, 1.000, $data_folder/example5.wav, wav, start:10000 stop:26000, spk05, string,
     csv_output = [
         [
             "ID",
@@ -379,7 +377,7 @@ def prepare_csv_test(data_folders, csv_file):
     entry = []
     cnt = 0
     for data_folder in data_folders:
-        test_lst_file = data_folder + "/meta/veri_test.txt"
+        test_lst_file = os.path.join(data_folder, "meta", "veri_test.txt")
 
         for line in open(test_lst_file):
             cnt = cnt + 1
