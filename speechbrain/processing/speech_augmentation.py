@@ -8,13 +8,15 @@ possibility to have end-to-end differentiability and
 backpropagate the gradient through them. In addition, all operations
 are expected to be performed on the GPU (where available) for efficiency.
 
-Author: Peter Plantinga 2020
+Authors
+ * Peter Plantinga 2020
 """
 
 # Importing libraries
 import math
 import torch
 import soundfile as sf  # noqa
+import torch.nn.functional as F
 from speechbrain.data_io.data_io import DataLoaderFactory
 from speechbrain.processing.signal_processing import (
     compute_amplitude,
@@ -32,14 +34,12 @@ class AddNoise(torch.nn.Module):
     csv_file : str
         The name of a csv file containing the location of the
         noise audio files. If none is provided, white noise will be used.
+    csv_read : list, None, optional
+        Default: None . One data entry for the noise data should be specified.
+        If None, the csv file is expected to have only one data entry.
     order : str
         The order to iterate the csv file, from one of the
         following options: random, original, ascending, and descending.
-    batch_size : int
-        If an csv_file is passed, this controls the number of
-        samples that are loaded at the same time, should be the same as
-        or less than the size of the clean batch. If `None` is passed,
-        the size of the first clean batch will be used.
     do_cache : bool
         Whether or not to store noise files in the cache.
     snr_low : int
@@ -72,8 +72,8 @@ class AddNoise(torch.nn.Module):
     def __init__(
         self,
         csv_file=None,
+        csv_read=None,
         order="random",
-        batch_size=None,
         do_cache=False,
         snr_low=0,
         snr_high=0,
@@ -85,8 +85,8 @@ class AddNoise(torch.nn.Module):
         super().__init__()
 
         self.csv_file = csv_file
+        self.csv_read = csv_read
         self.order = order
-        self.batch_size = batch_size
         self.do_cache = do_cache
         self.snr_low = snr_low
         self.snr_high = snr_high
@@ -112,11 +112,6 @@ class AddNoise(torch.nn.Module):
         noisy_waveform = waveforms.clone()
         lengths = (lengths * waveforms.shape[1]).unsqueeze(1)
 
-        # current batch size is min of stored size and clean size
-        batch_size = self.batch_size
-        if batch_size is None or batch_size > len(waveforms):
-            batch_size = len(waveforms)
-
         # Don't add noise (return early) 1-`mix_prob` portion of the batches
         if torch.rand(1) > self.mix_prob:
             return noisy_waveform
@@ -125,13 +120,13 @@ class AddNoise(torch.nn.Module):
         clean_amplitude = compute_amplitude(waveforms, lengths)
 
         # Pick an SNR and use it to compute the mixture amplitude factors
-        SNR = torch.rand(batch_size, 1, device=waveforms.device)
+        SNR = torch.rand(len(waveforms), 1, device=waveforms.device)
         SNR = SNR * (self.snr_high - self.snr_low) + self.snr_low
         noise_amplitude_factor = 1 / (dB_to_amplitude(SNR) + 1)
         new_noise_amplitude = noise_amplitude_factor * clean_amplitude
 
         # Scale clean signal appropriately
-        noisy_waveform[:batch_size] *= 1 - noise_amplitude_factor
+        noisy_waveform *= 1 - noise_amplitude_factor
 
         # Loop through clean samples and create mixture
         if self.csv_file is None:
@@ -140,18 +135,20 @@ class AddNoise(torch.nn.Module):
         else:
             tensor_length = waveforms.shape[1]
             noise_waveform, noise_length = self._load_noise(
-                lengths, tensor_length, batch_size,
+                lengths, tensor_length,
             )
 
             # Rescale and add
             noise_amplitude = compute_amplitude(noise_waveform, noise_length)
-            noise_waveform *= new_noise_amplitude / noise_amplitude
-            noisy_waveform[:batch_size] += noise_waveform
+            noise_waveform *= new_noise_amplitude / (noise_amplitude + 1e-14)
+            noisy_waveform += noise_waveform
 
         return noisy_waveform
 
-    def _load_noise(self, lengths, max_length, batch_size):
+    def _load_noise(self, lengths, max_length):
+        """Load a batch of noises"""
         lengths = lengths.long().squeeze(1)
+        batch_size = len(lengths)
 
         # Load a noise batch
         if not hasattr(self, "data_loader"):
@@ -162,6 +159,7 @@ class AddNoise(torch.nn.Module):
             if self.csv_file is not None:
                 self.data_loader = DataLoaderFactory(
                     csv_file=self.csv_file,
+                    csv_read=self.csv_read,
                     sentence_sorting=self.order,
                     batch_size=batch_size,
                     cache=self.do_cache,
@@ -169,19 +167,10 @@ class AddNoise(torch.nn.Module):
                 )
                 self.noise_data = iter(self.data_loader())
 
-        try:
-            wav_id, noise_batch, noise_len = next(self.noise_data)[0]
-        except StopIteration:
-            self.noise_data = iter(self.data_loader())
-            wav_id, noise_batch, noise_len = next(self.noise_data)[0]
-
+        # Load noise to correct device
+        noise_batch, noise_len = self._load_noise_batch_of_size(batch_size)
         noise_batch = noise_batch.to(lengths.device)
         noise_len = noise_len.to(lengths.device)
-
-        # Chop to correct size
-        if len(noise_batch) > batch_size:
-            noise_batch = noise_batch[:batch_size]
-            noise_len = noise_len[:batch_size]
 
         # Convert relative length to an index
         noise_len = (noise_len * noise_batch.shape[1]).long()
@@ -205,11 +194,60 @@ class AddNoise(torch.nn.Module):
         if self.start_index is None:
             start_index = 0
             max_chop = (noise_len - lengths).min().clamp(min=1)
-            start_index = torch.randint(high=max_chop, size=(1,))
+            start_index = torch.randint(
+                high=max_chop, size=(1,), device=lengths.device
+            )
 
         # Truncate noise_batch to max_length
         noise_batch = noise_batch[:, start_index : start_index + max_length]
         noise_len = (noise_len - start_index).clamp(max=max_length).unsqueeze(1)
+        return noise_batch, noise_len
+
+    def _load_noise_batch_of_size(self, batch_size):
+        """Concatenate noise batches, then chop to correct size"""
+        noise_batch, noise_lens = self._load_noise_batch()
+
+        # Expand
+        while len(noise_batch) < batch_size:
+            added_noise, added_lens = self._load_noise_batch()
+            noise_batch, noise_lens = AddNoise._concat_batch(
+                noise_batch, noise_lens, added_noise, added_lens
+            )
+
+        # Contract
+        if len(noise_batch) > batch_size:
+            noise_batch = noise_batch[:batch_size]
+            noise_lens = noise_lens[:batch_size]
+
+        return noise_batch, noise_lens
+
+    @staticmethod
+    def _concat_batch(noise_batch, noise_lens, added_noise, added_lens):
+        """Concatenate two noise batches of potentially different lengths"""
+
+        # pad shorter batch to correct length
+        noise_tensor_len = noise_batch.shape[1]
+        added_tensor_len = added_noise.shape[1]
+        pad = (0, abs(noise_tensor_len - added_tensor_len))
+        if noise_tensor_len > added_tensor_len:
+            added_noise = torch.nn.functional.pad(added_noise, pad)
+            added_lens = added_lens * added_tensor_len / noise_tensor_len
+        else:
+            noise_batch = torch.nn.functional.pad(noise_batch, pad)
+            noise_lens = noise_lens * noise_tensor_len / added_tensor_len
+
+        noise_batch = torch.cat((noise_batch, added_noise))
+        noise_lens = torch.cat((noise_lens, added_lens))
+
+        return noise_batch, noise_lens
+
+    def _load_noise_batch(self):
+        """Load a batch of noises, restarting iteration if necessary."""
+        try:
+            wav_id, noise_batch, noise_len = next(self.noise_data)[0]
+        except StopIteration:
+            self.noise_data = iter(self.data_loader())
+            wav_id, noise_batch, noise_len = next(self.noise_data)[0]
         return noise_batch, noise_len
 
 
@@ -230,6 +268,11 @@ class AddReverb(torch.nn.Module):
     reverb_prob : float
         The chance that the audio signal will be reverbed.
         By default, every batch is reverbed.
+    rir_scale_factor: float
+        It compresses or dilates the given impuse response.
+        If 0 < scale_factor < 1, the impulse response is compressed
+        (less reverb), while if scale_factor > 1 it is dilated
+        (more reverb).
     replacements : dict
         A set of string replacements to carry out in the
         csv file. Each time a key is found in the text, it will be replaced
@@ -249,6 +292,7 @@ class AddReverb(torch.nn.Module):
         order="random",
         do_cache=False,
         reverb_prob=1.0,
+        rir_scale_factor=1.0,
         replacements={},
     ):
         super().__init__()
@@ -257,6 +301,7 @@ class AddReverb(torch.nn.Module):
         self.do_cache = do_cache
         self.reverb_prob = reverb_prob
         self.replacements = replacements
+        self.rir_scale_factor = rir_scale_factor
 
         # Create a data loader for the RIR waveforms
         self.data_loader = DataLoaderFactory(
@@ -297,10 +342,25 @@ class AddReverb(torch.nn.Module):
         orig_amplitude = compute_amplitude(waveforms, lengths)
 
         # Load and prepare RIR
-        rir_waveform = self._load_rir(waveforms).abs()
+        rir_waveform = self._load_rir(waveforms)
+
+        # Compress or dilate RIR
+        if self.rir_scale_factor != 1:
+            rir_waveform = F.interpolate(
+                rir_waveform.transpose(1, -1),
+                scale_factor=self.rir_scale_factor,
+                mode="linear",
+                align_corners=False,
+            )
+            rir_waveform = rir_waveform.transpose(1, -1)
 
         # Compute index of the direct signal, so we can preserve alignment
-        direct_index = rir_waveform.argmax(axis=1).median()
+        value_max, direct_index = rir_waveform.abs().max(axis=1)
+
+        # Making sure the max is always positive (if not, flip)
+        # This is useful for speeech enhancment
+        if rir_waveform[0, direct_index, 0] < 0:
+            rir_waveform = -rir_waveform
 
         # Use FFT to compute convolution, because of long reverberation filter
         reverbed_waveform = convolve1d(
