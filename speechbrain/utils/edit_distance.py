@@ -321,7 +321,7 @@ def count_ops(table):
         if i == 0:
             edits["insertions"] += 1
             j -= 1
-        elif i == 0:
+        elif j == 0:
             edits["deletions"] += 1
             j -= 1
         else:
