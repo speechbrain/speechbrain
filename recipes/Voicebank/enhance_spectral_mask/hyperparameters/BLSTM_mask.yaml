@@ -87,7 +87,6 @@ lstm: !new:speechbrain.nnet.RNN.LSTM
     num_layers: 2
     dropout: 0
     bidirectional: True
-    orthogonal_init: False
 
 linear1: !new:speechbrain.nnet.linear.Linear
     n_neurons: 300
