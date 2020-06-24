@@ -1,7 +1,7 @@
 """Library implementing dropout.
 
-Author
-    Mirco Ravanelli 2020
+Authors
+ * Mirco Ravanelli 2020
 """
 import torch  # noqa: F401
 import logging

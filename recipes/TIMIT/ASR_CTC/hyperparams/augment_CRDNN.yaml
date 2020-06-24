@@ -30,7 +30,7 @@ n_fft: 400
 n_mels: 40
 
 # Model parameters
-activation: !name:torch.nn.LeakyReLU []
+activation: !name:torch.nn.LeakyReLU
 dropout: 0.15
 cnn_blocks: 2
 cnn_channels: (128, 256)
@@ -118,7 +118,6 @@ compute_cost: !name:speechbrain.nnet.losses.ctc_loss
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
     summary_fns:
-        loss: !name:speechbrain.utils.train_logger.summarize_average
         PER: !name:speechbrain.utils.train_logger.summarize_error_rate
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer

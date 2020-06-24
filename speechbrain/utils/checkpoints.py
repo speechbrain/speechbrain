@@ -46,9 +46,8 @@ Example
 ...     # 3. Save checkpoints, and keep by default just one, the newest:
 ...     ckpt = checkpointer.save_and_keep_only()
 
-Author
-------
-Aku Rouhe 2020
+Authors
+ * Aku Rouhe 2020
 """
 import torch
 import collections
@@ -58,7 +57,6 @@ import time
 import yaml
 import pathlib
 import inspect
-import functools
 import shutil
 import logging
 
@@ -88,71 +86,9 @@ def torch_recovery(obj, path, end_of_epoch):
     -------
     None
         Given object is modified in place
-
-    Author
-    ------
-    Aku Rouhe 2020
     """
     del end_of_epoch  # Unused
     obj.load_state_dict(torch.load(path), strict=True)
-
-
-def torch_lazy_recovery(obj, path, end_of_epoch, load_method=torch_recovery):
-    """Recovers the obj's checkpoint from path at first forward() call.
-
-    This is the default load hook for torch.nn.Modules.
-
-    Loads a torch.nn.Module state_dict from the given path.
-    The load is added as a lazy hook: the file is loaded and the parameters
-    transferred the next time the Module is called.
-
-    This is especially useful for the model initialization style widely
-    used in SpeechBrain, where a model is initialized based on the input,
-    as that initialization also happens at the first call.
-
-    Arguments
-    ---------
-    obj : torch.nn.Module
-        Instance for which to load the parameters
-    path : str, pathlib.Path
-        Path where to load from
-    end_of_epoch : bool
-        Whether the recovery comes from an end of epoch checkpoint.
-    load_method : callable
-        Callable with signature (instance, path)
-        [e.g. def load(self, path)], which actually performs the
-        recovery from the given path.
-
-    Returns
-    -------
-    None
-        Given object is modified in place
-
-    Note
-    ----
-    The hook is added as the _speechbrain_lazy_recovery_hook attribute,
-    which could theoretically conflict with other attributes
-    """
-    # Removing a previous hook should be fine: the new hook is anyway expected
-    # to overwrite the previous recovered parameters.
-    if hasattr(obj, "_speechbrain_lazy_recovery_hook"):
-        obj._speechbrain_lazy_recovery_hook.remove()
-
-    # Use this hook with functools.partial to save objpath properly
-    # Otherwise, objpath is searched for dynamically (and has probably changed)
-    def _lazy_recovery_hook(path, end_of_epoch, self, input, output):
-        load_method(self, path, end_of_epoch)
-        self._speechbrain_lazy_recovery_hook.remove()
-
-        # Re-do forward now that the parameters are loaded
-        logger.debug(
-            f"Loaded parameters to {self} with lazy hook, " "rerunning forward."
-        )
-        return self.forward(*input)
-
-    hook = functools.partial(_lazy_recovery_hook, path, end_of_epoch)
-    obj._speechbrain_lazy_recovery_hook = obj.register_forward_hook(hook)
-    logger.debug(f"Added lazy recovery hook to {obj}, loaded on forward call.")
 
 
 def torch_save(obj, path):
@@ -535,8 +471,8 @@ class Checkpointer:
     ):
         """Saves a checkpoint, then deletes the least important checkpoints
 
-        Essentially this combines save_checkpoint() and delete_checkpoints()
-        in one call, only provided for very short syntax in simple cases.
+        Essentially this combines ``save_checkpoint()`` and
+        ``delete_checkpoints()`` in one call, providing short syntax.
 
         Arguments
         ---------
@@ -694,7 +630,8 @@ class Checkpointer:
         important). For each of these orders, num_to_keep checkpoints are kept.
         However if there is overlap between each orders' preserved checkpoints,
         the additional checkpoints are not preserved, so the total number of
-        preserved checkpoints can be less than
+        preserved checkpoints can be less than::
+
             num_to_keep * len(importance_keys)
 
         Arguments
