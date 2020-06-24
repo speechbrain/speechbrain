@@ -7,6 +7,7 @@ import torchaudio
 import multiprocessing
 from speechbrain.utils.train_logger import summarize_average
 from speechbrain.processing.features import spectral_magnitude
+from speechbrain.utils.checkpoints import ckpt_recency
 
 try:
     from pesq import pesq
@@ -57,7 +58,7 @@ def multiprocess_evaluation(pred_wavs, target_wavs, num_cores):
 
     pool = multiprocessing.Pool(processes=num_cores)
 
-    for clean, enhanced in zip(pred_wavs, target_wavs):
+    for clean, enhanced in zip(target_wavs, pred_wavs):
         processes.append(pool.apply_async(evaluation, args=(clean, enhanced)))
 
     pool.close()
@@ -135,17 +136,30 @@ class SEBrain(sb.core.Brain):
         return stats
 
     def on_epoch_end(self, epoch, train_stats, valid_stats):
-        if params.use_tensorboard:
-            train_logger.log_stats({"Epoch": epoch}, train_stats, valid_stats)
+        epoch_pesq = summarize_average(valid_stats["pesq"])
+        epoch_stoi = summarize_average(valid_stats["stoi"])
 
-        params.checkpointer.save_checkpoint()
+        if params.use_tensorboard:
+            train_logger.log_stats(
+                {
+                    "Epoch": epoch,
+                    "Valid PESQ": epoch_pesq,
+                    "Valid STOI": epoch_stoi,
+                },
+                train_stats,
+                valid_stats,
+            )
+
+        params.checkpointer.save_and_keep_only(
+            meta={"PESQ": epoch_pesq},
+            importance_keys=[ckpt_recency, lambda c: c.meta["PESQ"]],
+        )
 
         print("Completed epoch %d" % epoch)
         print("Train loss: %.3f" % summarize_average(train_stats["loss"]))
         print("Valid loss: %.3f" % summarize_average(valid_stats["loss"]))
-        print("Valid PESQ: %.3f" % summarize_average(valid_stats["pesq"]))
-        print("Valid STOI: %.3f" % summarize_average(valid_stats["stoi"]))
-        print(len(valid_stats["pesq"]))
+        print("Valid PESQ: %.3f" % epoch_pesq)
+        print("Valid STOI: %.3f" % epoch_stoi)
 
     def write_wavs(self, predictions, inputs, epoch):
         ids, wavs, lens = inputs
