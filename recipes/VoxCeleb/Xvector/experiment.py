@@ -51,10 +51,8 @@ class XvectorBrain(sb.core.Brain):
         feats = params.compute_features(wavs, init_params)
         feats = params.mean_var_norm(feats, lens)
 
-        x = params.model(feats, init_params)
-        x = params.output_linear(x, init_params)
-
-        outputs = params.softmax(x)
+        x_vect = params.xvector_model(feats, init_params)
+        outputs = params.classifier(x_vect, init_params)
 
         return outputs, lens
 
@@ -90,7 +88,7 @@ train_set = params.train_loader()
 valid_set = params.valid_loader()
 
 # Xvector Model
-modules = [params.model, params.output_linear]
+modules = [params.xvector_model, params.classifier]
 first_x, first_y = next(iter(train_set))
 
 

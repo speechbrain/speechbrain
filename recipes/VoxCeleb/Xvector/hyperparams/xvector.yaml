@@ -7,7 +7,7 @@ seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Folders and train_log file
-data_folder: /localscratch/voxceleb1
+data_folder: /localscratch/VoxCeleb1
 output_folder: results/xvector
 save_folder: !ref <output_folder>/save/
 train_log: !ref <output_folder>/train_log.txt
@@ -39,16 +39,21 @@ compute_features: !new:speechbrain.lobes.features.fbank.Fbank
     right_frames: !ref <right_frames>
     deltas: !ref <deltas>
 
-model: !new:speechbrain.lobes.models.Xvector.Xvector
+xvector_model: !new:speechbrain.lobes.models.Xvector.Xvectors
     activation: !name:torch.nn.LeakyReLU
     device: !ref <device>
     tdnn_blocks: 5
-    tdnn_channels: 512
+    tdnn_channels: [512, 512, 512, 512, 1500]
     tdnn_kernel_sizes: [5, 3, 3, 1, 1]
     tdnn_dilations: [1, 2, 3, 1, 1]
-    tdnn_fin_channels: 1500
-    lin_blocks: 2
     lin_neurons: 512
+
+classifier: !new:speechbrain.lobes.models.Xvector.Classifier
+    activation: !name:torch.nn.LeakyReLU
+    device: !ref <device>
+    lin_blocks: 1
+    lin_neurons: 512
+    out_neurons: !ref <out_n_neurons>
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
@@ -91,13 +96,6 @@ valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
 
-output_linear: !new:speechbrain.nnet.linear.Linear
-    n_neurons: !ref <out_n_neurons>
-    bias: True
-
-softmax: !new:speechbrain.nnet.activations.Softmax
-    apply_log: True
-
 compute_cost: !name:speechbrain.nnet.losses.nll_loss
 
 compute_error: !name:speechbrain.nnet.losses.classification_error
@@ -119,8 +117,8 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
-        model: !ref <model>
-        output: !ref <output_linear>
+        xvector_model: !ref <xvector_model>
+        classifier: !ref <classifier>
         optimizer: !ref <optimizer>
         normalizer: !ref <mean_var_norm>
         counter: !ref <epoch_counter>
