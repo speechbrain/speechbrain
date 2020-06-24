@@ -41,7 +41,8 @@ class XvectorBrain(sb.core.Brain):
         wavs, lens = wavs.to(params.device), lens.to(params.device)
 
         if stage == "train":
-            wavs_aug = params.augmentation(wavs, lens, init_params)
+            wavs_aug = params.env_corrupt(wavs, lens, init_params)
+            wavs_aug = params.augmentation(wavs_aug, lens, init_params)
 
             # Concatenate noisy and clean batches
             wavs = torch.cat([wavs, wavs_aug], dim=0)
