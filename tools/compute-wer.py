@@ -1,24 +1,16 @@
 #!/usr/bin/env python3
+"""
+This script computes Word Error Rate and other related information.
+Just given a reference and a hypothesis, the script closely matches
+Kaldi's compute_wer binary.
+Additionally, the script can produce human readable edit distance
+alignments, and find the top WER utterances and speakers.
+
+Authors:
+ * Aku Rouhe 2020
+"""
 import speechbrain.utils.edit_distance as edit_distance
 import speechbrain.data_io.wer as wer_io
-
-"""
-Description:
-    This script computes Word Error Rate and other related information.
-    Just given a reference and a hypothesis, the script closely matches
-    Kaldi's compute_wer binary.
-    Additionally, the script can produce human readable edit distance
-    alignments, and find the top WER utterances and speakers.
-
-    The functionality of the script can also be used as an imported module.
-    See the if __name__ == "__main__": block at the bottom for usage examples.
-    Also see speechbrain.utils.edit_distance, particularly
-    accumulatable_wer_stats, which may be nicer to integrate into a training
-    routine.
-
-Author:
-    Aku Rouhe 2020
-"""
 
 
 # These internal utilities read Kaldi-style text/utt2spk files:
@@ -104,7 +96,7 @@ if __name__ == "__main__":
         ),
     )
     parser.add_argument(
-        "--align_empty",
+        "--align-empty",
         default="<eps>",
         help="When printing alignments, empty spaces are filled with this.",
     )
@@ -121,10 +113,12 @@ if __name__ == "__main__":
         scoring_mode=args.mode,
     )
     summary_details = edit_distance.wer_summary(details_by_utterance)
-    wer_io._print_wer_summary(summary_details)
+    wer_io.print_wer_summary(summary_details)
     if args.print_top_wer:
-        top_non_empty = edit_distance.top_wer_utts(details_by_utterance)
-        wer_io._print_top_wer_utts(top_non_empty)
+        top_non_empty, top_empty = edit_distance.top_wer_utts(
+            details_by_utterance
+        )
+        wer_io._print_top_wer_utts(top_non_empty, top_empty)
     if args.utt2spk:
         utt2spk = _utt2spk_keydict(args.utt2spk)
         details_by_speaker = edit_distance.wer_details_by_speaker(
@@ -133,15 +127,8 @@ if __name__ == "__main__":
         top_spks = edit_distance.top_wer_spks(details_by_speaker)
         wer_io._print_top_wer_spks(top_spks)
     if args.print_alignments:
-        wer_io._print_alignments_global_header(
-            separator=args.align_separator, empty_symbol=args.align_empty
+        wer_io.print_alignments(
+            details_by_utterance,
+            empty_symbol=args.align_empty,
+            separator=args.align_separator,
         )
-        for dets in details_by_utterance:
-            if dets["scored"]:
-                wer_io._print_alignment_header(dets)
-                wer_io._print_alignment(
-                    dets["alignment"],
-                    dets["ref_tokens"],
-                    dets["hyp_tokens"],
-                    separator=args.align_separator,
-                )
