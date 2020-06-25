@@ -99,6 +99,7 @@ def create_mixture(session_n, output_dir, params, metadata):
             assert fs == params["samplerate"]
             if len(c_audio.shape) > 1:  # multichannel
                 c_audio = c_audio[utt["channel"], :]
+                c_audio = c_audio - torch.mean(c_audio)
             c_audio = peakGaindB(c_audio, utt["lvl"])
             # we save it in dry
             dry_start = int(utt["start"] * params["samplerate"])
@@ -166,16 +167,55 @@ def create_mixture(session_n, output_dir, params, metadata):
     ) as f:
         json.dump(session_meta, f, indent=4)
 
+    # add impulsive noises
+    for noise_event in metadata["noises"]:
+
+        c_audio, fs = torchaudio.load(
+            os.path.join(params["impulsive_noises_root"], noise_event["file"])
+        )
+        assert fs == params["samplerate"]
+        if len(c_audio.shape) > 1:  # multichannel
+            c_audio = c_audio[noise_event["channel"], :]
+            c_audio = c_audio - torch.mean(c_audio)
+        c_audio = peakGaindB(c_audio, noise_event["lvl"])
+        # we save it in dry
+        dry_start = int(noise_event["start"] * params["samplerate"])
+        dry_stop = dry_start + c_audio.shape[-1]
+        # we add now reverb and put it in wet
+        c_rir, fs = torchaudio.load(
+            os.path.join(params["rirs_root"], noise_event["rir"])
+        )
+        assert fs == params["samplerate"]
+        c_rir = c_rir[noise_event["rir_channel"], :]
+        # early_rev_samples = get_early_rev_samples(c_rir) NOT SURE ABOUT THIS
+
+        c_audio = reverberate(c_audio, c_rir).squeeze(0)
+        wet_start = dry_start  # tof is not accounted because in reverberate we shift by it
+        wet_stop = dry_stop  # + early_rev_samples
+        mixture[wet_start : wet_start + len(c_audio)] += c_audio
+
     # add background
     if metadata["background"]["file"]:
-        pass
+        c_audio, fs = torchaudio.load(
+            os.path.join(
+                params["backgrounds_root"], metadata["background"]["file"]
+            ),
+            offset=metadata["background"]["orig_start"],
+            num_frames=mixture.shape[-1],
+        )
+        assert fs == params["samplerate"]
+        if len(c_audio.shape) > 1:  # multichannel
+            c_audio = c_audio[metadata["background"]["channel"], :]
+            c_audio = c_audio - torch.mean(c_audio)
+        c_audio = peakGaindB(c_audio, metadata["background"]["lvl"])
+        mixture += c_audio
+
     else:
         # add gaussian noise
         mixture += peakGaindB(
             torch.normal(0, 1, mixture.shape), metadata["background"]["lvl"]
         )
 
-    # TODO noise & background
     # save total mixture
     mixture = torch.clamp(mixture, min=-1, max=1)
     torchaudio.save(
