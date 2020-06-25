@@ -38,7 +38,7 @@ def create_metadata(
             np.random.shuffle(spk_utts)  # random shuffle
             intervals = np.random.exponential(
                 configs["interval_factor_speech"], len(spk_utts)
-            )
+            )  # we use same technique as in EEND repo for intervals distribution
 
             cursor = 0
             for j, wait in enumerate(intervals):
@@ -51,6 +51,16 @@ def create_metadata(
                     meta.samplerate == configs["samplerate"]
                 ), "file samplerate is different from the one specified"
                 c_rir = np.random.choice(rir_list, 1)[0]
+                # check if the rir is monaural
+                meta_rir = sf.SoundFile(c_rir)
+                assert (
+                    meta_rir.samplerate == configs["samplerate"]
+                ), "file samplerate is different from the one specified"
+                if meta_rir.channels > 1:
+                    rir_channel = np.random.randint(0, meta_rir.channels - 1)
+                else:
+                    rir_channel = 0
+
                 length = len(meta) / meta.samplerate
                 id_utt = Path(spk_utts[j]).stem
                 cursor += wait
@@ -82,6 +92,7 @@ def create_metadata(
                         ),
                         "lvl": lvl,
                         "channel": channel,
+                        "rir_channel": rir_channel,
                     }
                 )
                 tot_length = max(cursor + length, tot_length)
@@ -104,6 +115,15 @@ def create_metadata(
                     channel = 0
                 c_rir = np.random.choice(rir_list, 1)[0]
                 # we reverberate it.
+                meta_rir = sf.SoundFile(c_rir)
+                assert (
+                    meta_rir.samplerate == configs["samplerate"]
+                ), "file samplerate is different from the one specified"
+                if meta_rir.channels > 1:
+                    rir_channel = np.random.randint(0, meta_rir.channels - 1)
+                else:
+                    rir_channel = 0
+
                 assert (
                     meta.samplerate == configs["samplerate"]
                 ), "file samplerate is different from the one specified"
@@ -131,6 +151,7 @@ def create_metadata(
                         ),
                         "lvl": lvl,
                         "channel": channel,
+                        "rir_channel": rir_channel,
                     }
                 )
                 tot_length = max(tot_length, cursor + length)
