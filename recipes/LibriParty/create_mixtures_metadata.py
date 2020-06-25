@@ -130,6 +130,8 @@ def create_metadata(
                 ), "file samplerate is different from the one specified"
                 length = len(meta) / meta.samplerate
                 cursor += wait
+                if cursor + length > configs["max_length"]:
+                    break
                 lvl = np.clip(
                     np.random.normal(
                         configs["imp_lvl_mean"], configs["imp_lvl_var"]
@@ -193,8 +195,7 @@ def create_metadata(
                 ),
                 "lvl": lvl,
                 "orig_start": offset,
-                "orig_stop": offset
-                + int(configs["max_length"] * configs["samplerate"]),
+                "orig_stop": offset + int(tot_length * configs["samplerate"]),
                 "channel": channel,
             }
         else:
