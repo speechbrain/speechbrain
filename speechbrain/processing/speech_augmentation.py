@@ -358,7 +358,7 @@ class AddReverb(torch.nn.Module):
         value_max, direct_index = rir_waveform.abs().max(axis=1)
 
         # Making sure the max is always positive (if not, flip)
-        # This is useful for speeech enhancment
+        # This is useful for speech enhancement
         if rir_waveform[0, direct_index, 0] < 0:
             rir_waveform = -rir_waveform
 
