@@ -96,6 +96,7 @@ def create_metadata(
                     }
                 )
                 tot_length = max(cursor + length, tot_length)
+                cursor = cursor + length
 
         # we add also impulsive noises as it were a speaker
         if impulsive_noises_list:
@@ -155,6 +156,7 @@ def create_metadata(
                     }
                 )
                 tot_length = max(tot_length, cursor + length)
+                cursor += length
 
         if background_noises_list:
             # we add also background noise.
@@ -284,7 +286,7 @@ if __name__ == "__main__":
     backgrounds = []
     if params["background_noises_folders"]:
         for back in params["background_noises_folders"]:
-            backgrounds.extend(glob.glob(os.path.join(back), recursive=True))
+            backgrounds.extend(glob.glob(back, recursive=True))
 
     create_metadata(
         params,
