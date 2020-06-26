@@ -1,0 +1,71 @@
+# Basic parameters
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1234
+__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+
+# Data files
+data_folder: !PLACEHOLDER
+csv_train: !ref <data_folder>/train.csv
+csv_valid: !ref <data_folder>/dev.csv
+csv_test: !ref <data_folder>/test.csv
+
+# Save folder for saving checkpoints, including the pretrained model
+save_folder: !PLACEHOLDER
+
+# Neural Parameters
+N_epochs: 100
+N_batch: 2
+lr: 0.004
+
+train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_train>
+    batch_size: !ref <N_batch>
+    csv_read: [wav]
+    sentence_sorting: random
+    replacements:
+        $data_folder: !ref <data_folder>
+
+valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_valid>
+    batch_size: !ref <N_batch>
+    csv_read: [wav]
+    sentence_sorting: ascending
+    replacements:
+        $data_folder: !ref <data_folder>
+
+test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_test>
+    csv_read: [wav]
+    sentence_sorting: ascending
+    replacements:
+        $data_folder: !ref <data_folder>
+
+compute_features: !new:speechbrain.lobes.features.mfcc.MFCC
+    left_frames: 1
+    right_frames: 1
+
+mean_var_norm: !new:speechbrain.processing.features.InputNormalization
+    norm_type: global
+
+linear1: !new:speechbrain.nnet.linear.Linear
+    n_neurons: 128
+    bias: False
+
+activation: !new:torch.nn.LeakyReLU
+
+linear2: !new:speechbrain.nnet.linear.Linear
+    n_neurons: 180
+    bias: False
+
+compute_cost: !name:speechbrain.nnet.losses.mse_loss
+
+optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
+    learning_rate: !ref <lr>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        encoder: !ref <linear1>
+        decoder: !ref <linear2>
+        optimizer: !ref <optimizer>
+        mean_var_norm: !ref <mean_var_norm>

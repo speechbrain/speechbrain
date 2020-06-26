@@ -1,0 +1,38 @@
+# Basic parameters
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1234
+__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+
+# Data files
+data_folder: !PLACEHOLDER
+pretrained_checkpoint: !PLACEHOLDER
+csv_train: !ref <data_folder>/train.csv
+N_batch: 2
+
+train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_train>
+    batch_size: !ref <N_batch>
+    csv_read: [wav]
+    sentence_sorting: random
+    replacements:
+        $data_folder: !ref <data_folder>
+
+compute_features: !new:speechbrain.lobes.features.mfcc.MFCC
+    left_frames: 1
+    right_frames: 1
+
+mean_var_norm: !new:speechbrain.utils.pretraining.load_after_init
+    model: !new:speechbrain.processing.features.InputNormalization
+        norm_type: global
+    path: !ref <pretrained_checkpoint>/mean_var_norm.ckpt
+    loader: !name:speechbrain.utils.parameter_transfer.default_parameter_transfer # yamllint disable-line
+
+linear1: !new:speechbrain.utils.pretraining.load_after_init
+    model: !new:speechbrain.nnet.linear.Linear
+        n_neurons: 128
+        bias: False
+    path: !ref <pretrained_checkpoint>/encoder.ckpt
+
+activation: !new:torch.nn.LeakyReLU
+
+compute_cost: !name:speechbrain.nnet.losses.mse_loss
