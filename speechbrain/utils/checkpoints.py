@@ -422,7 +422,8 @@ class Checkpointer:
             Whether the checkpoint is at the end of an epoch. True by default.
             May affect loading.
         name : str, optional
-            Specify a custom name for your checkpoint. If no name is given,
+            Specify a custom name for your checkpoint.
+            The name will still have a prefix added. If no name is given,
             a name is created from a timestamp and a random unique id.
 
         Returns
@@ -763,7 +764,7 @@ class Checkpointer:
         # This internal method creates a checkpoint name based on a given
         # custom name and returns a path to that directory (but does not
         # create the directory!)
-        return self.checkpoints_dir / name
+        return self.checkpoints_dir / f"{CKPT_PREFIX}+{name}"
 
     def _save_checkpoint_metafile(
         self, fpath, meta_to_include={}, end_of_epoch=True

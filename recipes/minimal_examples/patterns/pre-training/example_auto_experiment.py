@@ -69,7 +69,7 @@ auto_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
 
 # Save the pretrained parameters:
 try:
-    params.checkpointer.save_checkpoint(name="CKPT_final")
+    params.checkpointer.save_checkpoint(name="final")
 except FileExistsError:
     pass  # The pretrained model already existed, let's just pass.
 
@@ -89,7 +89,7 @@ data_folder = "../../../../samples/audio_samples/nn_training_samples"
 data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
 
 pretrained_checkpoint = os.path.realpath(
-    os.path.join(experiment_dir, "checkpoints/CKPT_final")
+    os.path.join(experiment_dir, "checkpoints/CKPT+final")
 )
 with open(params_file) as fin:
     pt_params = sb.yaml.load_extended_yaml(
