@@ -287,18 +287,20 @@ def _load_node(loader, node):
 def _construct_object(loader, callable_string, node):
     callable_ = pydoc.locate(callable_string)
     if callable_ is None:
-        raise ImportError("There is no such class as %s" % callable_string)
+        raise ImportError("There is no such callable as %s" % callable_string)
 
-    if not inspect.isclass(callable_):
+    try:
+        inspect.signature(callable_)
+    except TypeError:
         raise ValueError(
-            f"!new:{callable_string} should be a class, but is {callable_}"
+            f"!new:{callable_string} should be a callable, but is {callable_}"
         )
 
     try:
         args, kwargs = _load_node(loader, node)
         return callable_(*args, **kwargs)
     except TypeError as e:
-        err_msg = "Invalid argument to class %s" % callable_string
+        err_msg = "Invalid argument to callable %s" % callable_string
         e.args = (err_msg, *e.args)
         raise
 

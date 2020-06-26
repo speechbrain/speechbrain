@@ -33,6 +33,7 @@ Authors
 """
 import torch
 import logging
+from speechbrain.utils.checkpoints import get_default_hook, DEFAULT_LOAD_HOOKS
 
 logger = logging.getLogger(__name__)
 
@@ -70,3 +71,22 @@ def torch_parameter_transfer(obj, path):
             + f"{path}, the object could not use the parameters loaded"
             + f"with the key: {unexpected_key}"
         )
+
+
+def default_parameter_transfer(obj, path):
+    """Use default loader for parameter transfer
+
+    Arguments
+    ---------
+    obj : torch.nn.Module
+        Instance for which to load the parameters
+    path : str
+        Path where to load from
+
+    Returns
+    -------
+    None
+        The object is modified in place
+    """
+    loader = get_default_hook(obj, DEFAULT_LOAD_HOOKS)
+    loader(obj, path, end_of_epoch=True)

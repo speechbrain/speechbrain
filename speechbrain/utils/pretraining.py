@@ -1,29 +1,39 @@
-""" Libriries implementing pre-training utilities.
+"""Pre-training utilities.
 
 Authors
  * Mirco Ravanelli 2020
+ * Aku Rouhe 2020
 """
-import torch
+import functools
+from speechbrain.utils.parameter_transfer import torch_parameter_transfer
 
 
 # I think it has to be a class because we have to call the method
 # only after initializing the brain class (that performs the model init)
-def PreTrainer(models, files):
-    """Perform pre-training using the specified models and files.
+def load_after_init(model, path, loader=torch_parameter_transfer):
+    """Load parameters from the specified file.
 
     Arguments
     ---------
-    models : list
-        List of neural model objects.
-    files : list
-        List of files to use for pre-training the given models.
+    model : object
+        The model to load parameters for
+    path : path
+        Path to file containing the pretrained parameters to load
+    loader : function
+        Function that takes an object and a path to a parameter file and loads
+        the parameters from that file.
     """
 
-    def __init__(self, models, files):
-        super().__init__()
-        self.models = models
-        self.files = files
+    @functools.wraps(model.forward)
+    def patched_forward(self, *args, **kwargs):
+        out = self._saved_forward(*args, **kwargs)
+        loader(self, path)
+        if "init_params" in kwargs:
+            kwargs["init_params"] = False
+        out = self._saved_forward(*args, **kwargs)
+        self.forward = self._saved_forward
+        return out
 
-    def __call__(self):
-        for model, file in zip(self.models, self.files):
-            model.load_state_dict(torch.load(file), strict=True)
+    model._saved_forward = model.forward
+    model.forward = patched_forward.__get__(model)
+    return model
