@@ -380,7 +380,7 @@ class HMMAligner(torch.nn.Module):
         ...                     "b": {0: "b", 1: "c"}
         ...                   }
         >>> words = [["a", "b"]]
-        >>> phn_set = 60
+        >>> phn_set = 61
         >>> phn_lab2index = {
         ...                   "sil": 0,
         ...                   "a":  1,
