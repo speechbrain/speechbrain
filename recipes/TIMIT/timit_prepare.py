@@ -623,7 +623,7 @@ def create_csv(
             "",
             str(words),
             "string",
-            "",
+            "label:False",
             str(ends),
             "string",
             "label:False",
@@ -658,7 +658,7 @@ def get_phoneme_lists(phn_file, phn_set):
         from_60_to_48_phn, from_60_to_39_phn = _get_phonemes()
 
         # Removing end corresponding to q if phn set is not 61
-        if phn_set != "60":
+        if phn_set != "61":
             if phoneme == "q":
                 end = ""
 
@@ -674,7 +674,7 @@ def get_phoneme_lists(phn_file, phn_set):
         if len(end) > 0:
             ends.append(end)
 
-    if phn_set != "60":
+    if phn_set != "61":
         # Filtering out consecutive silences by applying a mask with `True` marking
         # which sils to remove
         # e.g.

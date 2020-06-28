@@ -3,9 +3,10 @@ Alignment code
 
 Authors
  * Elena Rastorgueva 2020
+ * Loren Lugosch 2020
 """
-
 import torch
+import random
 from speechbrain.decoders.decoders import undo_padding
 
 
@@ -128,12 +129,384 @@ class HMMAligner(torch.nn.Module):
     torch.Size([2])
     """
 
-    def __init__(self, states_per_phoneme=1, output_folder="", neg_inf=-1e5):
+    def __init__(
+        self,
+        states_per_phoneme=1,
+        output_folder="",
+        neg_inf=-1e5,
+        lexicon_path=None,
+    ):
         super().__init__()
         self.states_per_phoneme = states_per_phoneme
         self.output_folder = output_folder
         self.neg_inf = neg_inf
         self.align_dict = {}
+        self.lexicon_path = lexicon_path
+
+        if self.lexicon_path is not None:
+            with open(self.lexicon_path, "r") as f:
+                lines = f.readlines()
+
+            for i, line in enumerate(lines):
+                if line[0] != ";":
+                    start_index = i
+                    break
+
+            lexicon = {}  # {"read": {0: "r eh d", 1: "r iy d"}}
+            for i in range(start_index, len(lines)):
+                line = lines[i]
+                word = line.split()[0]
+                phones = line.split("/")[1]
+                phones = "".join([p for p in phones if not p.isdigit()])
+                if "~" in word:
+                    word = word.split("~")[0]
+                if word in lexicon:
+                    number_of_existing_pronunciations = len(lexicon[word])
+                    lexicon[word][number_of_existing_pronunciations] = phones
+                else:
+                    lexicon[word] = {0: phones}
+            self.lexicon = lexicon
+
+    def _use_lexicon(self, words, phn_lab2ind, interword_sils, sample_pron):
+        """
+        Do processing using the lexicon to return a sequence of the possible
+        phonemes, the transition/pi probabilities and the possible final states
+        Inputs correspond to a single utterance, not a whole batch
+
+        Arguments
+        ---------
+        words: list
+            list of the words in the transcript
+        phn_lab2ind: dict
+            The mapping from phn label to index.
+        interword_sils: bool
+            If True: optional silences will be inserted between every word.
+            If False: optional silences will only be placed at the beginning
+            and end of each utterance.
+        sample_pron: bool
+            If True: will sample a single possible sequence of phonemes.
+            If False: will return statistics for all possible sequences of
+            phonemes.
+
+        Returns
+        -------
+        poss_phns: torch.Tensor (phoneme)
+            The phonemes that are thought to be in each utterance.
+        log_transition_matric: torch.Tensor (batch, from, to)
+            Tensor containing transition (log) probabilities.
+        start_states: list of ints
+            A list of the possible starting states in each utterance.
+        final_states: list of ints
+            A list of the possible final states for each utterance.
+        """
+
+        number_of_states = 0
+        words_prime = (
+            []
+        )  # This will contain one "word" for each optional silence and pronunciation.
+        # structure of each "word_prime":
+        # [word index, [[state sequence 1], [state sequence 2]], <is this an optional silence?>]
+        word_index = 0
+        phoneme_indices = []
+        for word in words:
+            if word_index == 0 or interword_sils is True:
+                # optional silence
+                word_prime = [
+                    word_index,
+                    [
+                        [
+                            number_of_states + i
+                            for i in range(self.states_per_phoneme)
+                        ]
+                    ],
+                    True,
+                ]
+                words_prime.append(word_prime)
+                phoneme_indices += [
+                    self.silence_index * self.states_per_phoneme + i
+                    for i in range(self.states_per_phoneme)
+                ]
+                number_of_states += self.states_per_phoneme
+                word_index += 1
+
+            # word
+            word_prime = [word_index, [], False]
+            if sample_pron and len(self.lexicon[word]) > 1:
+                random.shuffle(self.lexicon[word])
+            for pron_idx in range(len(self.lexicon[word])):
+                pronunciation = self.lexicon[word][pron_idx]
+                phonemes = pronunciation.split()
+                word_prime[1].append([])
+                for p in phonemes:
+                    phoneme_indices += [
+                        phn_lab2ind[p] * self.states_per_phoneme + i
+                        for i in range(self.states_per_phoneme)
+                    ]
+                    word_prime[1][pron_idx] += [
+                        number_of_states + i
+                        for i in range(self.states_per_phoneme)
+                    ]
+                    number_of_states += self.states_per_phoneme
+                if sample_pron:
+                    break
+
+            words_prime.append(word_prime)
+            word_index += 1
+        # optional final silence
+        word_prime = [
+            word_index,
+            [[number_of_states + i for i in range(self.states_per_phoneme)]],
+            True,
+        ]
+        words_prime.append(word_prime)
+        phoneme_indices += [
+            self.silence_index * self.states_per_phoneme + i
+            for i in range(self.states_per_phoneme)
+        ]
+        number_of_states += self.states_per_phoneme
+        word_index += 1
+
+        transition_matrix = 1.0 * torch.eye(
+            number_of_states
+        )  # diagonal = all states have a self-loop
+        final_states = []
+        for word_prime in words_prime:
+            word_idx = word_prime[0]
+            is_optional_silence = word_prime[-1]
+            next_word_exists = word_idx < len(words_prime) - 2
+            this_word_last_states = [
+                word_prime[1][i][-1] for i in range(len(word_prime[1]))
+            ]
+
+            # create transitions to next state from previous state within each pronunciation
+            for pronunciation in word_prime[1]:
+                for state_idx in range(len(pronunciation) - 1):
+                    state = pronunciation[state_idx]
+                    next_state = pronunciation[state_idx + 1]
+                    transition_matrix[state, next_state] = 1.0
+
+            # create transitions to next word's starting states
+            if next_word_exists:
+                if is_optional_silence or not interword_sils:
+                    next_word_idx = word_idx + 1
+                else:
+                    next_word_idx = word_idx + 2
+                next_word_starting_states = [
+                    words_prime[next_word_idx][1][i][0]
+                    for i in range(len(words_prime[next_word_idx][1]))
+                ]
+
+                for this_word_last_state in this_word_last_states:
+                    for next_word_starting_state in next_word_starting_states:
+                        transition_matrix[
+                            this_word_last_state, next_word_starting_state
+                        ] = 1.0
+
+            else:
+                final_states += this_word_last_states
+
+            if not is_optional_silence:
+                next_silence_idx = word_idx + 1
+                next_silence_starting_state = words_prime[next_silence_idx][1][
+                    0
+                ][0]
+                for this_word_last_state in this_word_last_states:
+                    transition_matrix[
+                        this_word_last_state, next_silence_starting_state
+                    ] = 1.0
+
+        log_transition_matrix = transition_matrix.log().log_softmax(1)
+
+        start_states = [words_prime[0][1][0][0]]
+        start_states += [
+            words_prime[1][1][i][0] for i in range(len(words_prime[1][1]))
+        ]
+
+        poss_phns = torch.tensor(phoneme_indices)
+
+        return poss_phns, log_transition_matrix, start_states, final_states
+
+    def use_lexicon(
+        self,
+        words,
+        phn_set,
+        phn_lab2ind,
+        interword_sils=True,
+        sample_pron=False,
+    ):
+        """
+        Do processing using the lexicon to return a sequence of the possible
+        phonemes, the transition/pi probabilities and the possible final
+        states.
+        Does processing on an utterance-by-utterance basis. Each utterance
+        in the batch is processed by a helper method `_use_lexicon`.
+
+        Arguments
+        ---------
+        words: list
+            list of the words in the transcript
+        phn_set: int
+            The phoneme set in use.
+            Note: currently only processing for 61 phoneme set is implemented.
+        phn_lab2ind: dict
+            The mapping from phn label to index.
+        interword_sils: bool
+            If True: optional silences will be inserted between every word.
+            If False: optional silences will only be placed at the beginning
+            and end of each utterance.
+        sample_pron: bool
+            If True: will sample a single possible sequence of phonemes.
+            If False: will return statistics for all possible sequences of
+            phonemes.
+
+        Returns
+        -------
+        poss_phns: torch.Tensor (batch, phoneme in possible phn sequence)
+            The phonemes that are thought to be in each utterance.
+        poss_phn_lens: torch.Tensor (batch)
+            The relative length of each possible phoneme sequence in the batch.
+        trans_prob: torch.Tensor (batch, from, to)
+            Tensor containing transition (log) probabilities.
+        pi_prob: torch.Tensor (batch, state)
+            Tensor containing initial (log) probabilities.
+        final_state: list of lists of ints
+            A list of lists of possible final states for each utterance.
+
+        Example
+        -------
+        >>> aligner = HMMAligner()
+        >>> aligner.lexicon = {
+        ...                     "a": {0: "a"},
+        ...                     "b": {0: "b", 1: "c"}
+        ...                   }
+        >>> words = [["a", "b"]]
+        >>> phn_set = 60
+        >>> phn_lab2index = {
+        ...                   "sil": 0,
+        ...                   "a":  1,
+        ...                   "b":  2,
+        ...                   "c":  3,
+        ...                 }
+        >>> poss_phns, poss_phn_lens, trans_prob, pi_prob, final_states = aligner.use_lexicon(
+        ...     words,
+        ...     phn_set,
+        ...     phn_lab2index,
+        ...     interword_sils = True
+        ... )
+        >>> poss_phns
+        tensor([[0, 1, 0, 2, 3, 0]])
+        >>> poss_phn_lens
+        tensor([1.])
+        >>> trans_prob
+        tensor([[[-6.9315e-01, -6.9315e-01, -1.0000e+10, -1.0000e+10, -1.0000e+10,
+                  -1.0000e+10],
+                 [-1.0000e+10, -1.3863e+00, -1.3863e+00, -1.3863e+00, -1.3863e+00,
+                  -1.0000e+10],
+                 [-1.0000e+10, -1.0000e+10, -1.0986e+00, -1.0986e+00, -1.0986e+00,
+                  -1.0000e+10],
+                 [-1.0000e+10, -1.0000e+10, -1.0000e+10, -6.9315e-01, -1.0000e+10,
+                  -6.9315e-01],
+                 [-1.0000e+10, -1.0000e+10, -1.0000e+10, -1.0000e+10, -6.9315e-01,
+                  -6.9315e-01],
+                 [-1.0000e+10, -1.0000e+10, -1.0000e+10, -1.0000e+10, -1.0000e+10,
+                   0.0000e+00]]])
+        >>> pi_prob
+        tensor([[-1.0000e+00, -1.0000e+00, -1.0000e+05, -1.0000e+05, -1.0000e+05,
+                 -1.0000e+05]])
+        >>> final_states
+        [[3, 4, 5]]
+        >>> # With no optional silences between words
+        >>> poss_phns_, _, trans_prob_, pi_prob_, final_states_ = aligner.use_lexicon(
+        ...     words,
+        ...     phn_set,
+        ...     phn_lab2index,
+        ...     interword_sils = False
+        ... )
+        >>> poss_phns_
+        tensor([[0, 1, 2, 3, 0]])
+        >>> trans_prob_
+        tensor([[[-6.9315e-01, -6.9315e-01, -1.0000e+10, -1.0000e+10, -1.0000e+10],
+                 [-1.0000e+10, -1.0986e+00, -1.0986e+00, -1.0986e+00, -1.0000e+10],
+                 [-1.0000e+10, -1.0000e+10, -6.9315e-01, -1.0000e+10, -6.9315e-01],
+                 [-1.0000e+10, -1.0000e+10, -1.0000e+10, -6.9315e-01, -6.9315e-01],
+                 [-1.0000e+10, -1.0000e+10, -1.0000e+10, -1.0000e+10,  0.0000e+00]]])
+        >>> pi_prob_
+        tensor([[-1.0000e+00, -1.0000e+00, -1.0000e+05, -1.0000e+05, -1.0000e+05]])
+        >>> final_states_
+        [[2, 3, 4]]
+        >>> # With sampling of a single possible pronunciation
+        >>> import random
+        >>> random.seed(0)
+        >>> poss_phns_, _, trans_prob_, pi_prob_, final_states_ = aligner.use_lexicon(
+        ...     words,
+        ...     phn_set,
+        ...     phn_lab2index,
+        ...     sample_pron = True
+        ... )
+        >>> poss_phns_
+        tensor([[0, 1, 0, 2, 0]])
+        >>> trans_prob_
+        tensor([[[-6.9315e-01, -6.9315e-01, -1.0000e+10, -1.0000e+10, -1.0000e+10],
+                 [-1.0000e+10, -1.0986e+00, -1.0986e+00, -1.0986e+00, -1.0000e+10],
+                 [-1.0000e+10, -1.0000e+10, -6.9315e-01, -6.9315e-01, -1.0000e+10],
+                 [-1.0000e+10, -1.0000e+10, -1.0000e+10, -6.9315e-01, -6.9315e-01],
+                 [-1.0000e+10, -1.0000e+10, -1.0000e+10, -1.0000e+10,  0.0000e+00]]])
+        """
+
+        if phn_set != 61:
+            raise NotImplementedError
+
+        self.silence_index = 0  # TODO: fix this hack
+
+        poss_phns = []
+        trans_prob = []
+        start_states = []
+        final_states = []
+
+        for words_ in words:
+            (
+                poss_phns_,
+                trans_prob_,
+                start_states_,
+                final_states_,
+            ) = self._use_lexicon(
+                words_, phn_lab2ind, interword_sils, sample_pron
+            )
+            poss_phns.append(poss_phns_)
+            trans_prob.append(trans_prob_)
+            start_states.append(start_states_)
+            final_states.append(final_states_)
+
+        # pad poss_phns, trans_prob with 0 to have same length
+        poss_phn_lens = [len(poss_phns_) for poss_phns_ in poss_phns]
+        U_max = max(poss_phn_lens)
+
+        batch_size = len(poss_phns)
+        for index in range(batch_size):
+            phn_pad_length = U_max - len(poss_phns[index])
+            poss_phns[index] = torch.nn.functional.pad(
+                poss_phns[index], (0, phn_pad_length), value=0
+            )
+            trans_prob[index] = torch.nn.functional.pad(
+                trans_prob[index],
+                (0, phn_pad_length, 0, phn_pad_length),
+                value=-1e10,
+            )
+
+        # Stack into single tensor
+        poss_phns = torch.stack(poss_phns)
+        trans_prob = torch.stack(trans_prob)
+        trans_prob[trans_prob == -float("Inf")] = -1e10
+
+        # make pi prob
+        # TODO: fix hack
+        pi_prob = self.neg_inf * torch.ones([batch_size, U_max])
+        for start_state in start_states:
+            pi_prob[:, start_state] = -1
+
+        # Convert poss_phn_lens from absolute to relative lengths
+        poss_phn_lens = torch.tensor(poss_phn_lens).float() / U_max
+        return poss_phns, poss_phn_lens, trans_prob, pi_prob, final_states
 
     def _make_pi_prob(self, phn_lens_abs):
         """
@@ -160,7 +533,7 @@ class HMMAligner(torch.nn.Module):
     def _make_trans_prob(self, phn_lens_abs):
         """
         Creates tensor of transition (log) probabilities.
-        Allows transitions to the same phoneme (self-loop) or the next
+        Only allows transitions to the same phoneme (self-loop) or the next
         phoneme in the phn sequence
 
         Arguments
@@ -381,6 +754,7 @@ class HMMAligner(torch.nn.Module):
         lens_abs,
         phn_lens_abs,
         phns,
+        final_states,
     ):
         """
         Calculates Viterbi alignment using dynamic programming.
@@ -462,7 +836,19 @@ class HMMAligner(torch.nn.Module):
 
         for utterance_in_batch in range(batch_size):
             len_abs = lens_abs[utterance_in_batch]
-            U = phn_lens_abs[utterance_in_batch].long().item()
+
+            if final_states is not None:
+                final_states_utter = final_states[utterance_in_batch]
+                # Pick most probable of the final states
+                viterbi_finals = v_matrix[
+                    utterance_in_batch, final_states_utter, len_abs - 1
+                ]
+                final_state_chosen = torch.argmax(viterbi_finals).item()
+                U = (
+                    final_states_utter[final_state_chosen] + 1
+                )  # necessary because will be subtracted later. TODO: fix this hack
+            else:
+                U = phn_lens_abs[utterance_in_batch].long().item()
 
             z_star_i_loc = [U - 1]
             z_star_i = [phns[utterance_in_batch, z_star_i_loc[0]].item()]
@@ -486,12 +872,13 @@ class HMMAligner(torch.nn.Module):
             z_stars_loc.append(z_star_i_loc)
 
         #        print("batch alignment statistics:")
-
+        #
+        #        print('phns:', phns[-1])
         #        print("phn_lens_abs:", phn_lens_abs[-1])
         #        print("lens_abs:", lens_abs[-1])
         #        print("z_stars_loc:", z_stars_loc[-1])
         #        print("z_stars:", z_stars[-1])
-
+        #
         # picking out viterbi_scores
         viterbi_scores = v_matrix[
             torch.arange(batch_size), phn_lens_abs - 1, lens_abs - 1
@@ -549,7 +936,14 @@ class HMMAligner(torch.nn.Module):
         return loss
 
     def forward(
-        self, emission_pred, lens, phns, phn_lens, dp_algorithm, params=None
+        self,
+        emission_pred,
+        lens,
+        phns,
+        phn_lens,
+        dp_algorithm,
+        params=None,
+        final_states=None,
     ):
         """
         Prepares relevant (log) probability tensors and does dynamic
@@ -624,6 +1018,7 @@ class HMMAligner(torch.nn.Module):
                 lens_abs,
                 phn_lens_abs,
                 phns,
+                final_states,
             )
 
             viterbi_scores = self._loss_reduction(
@@ -882,6 +1277,7 @@ class HMMAligner(torch.nn.Module):
         ends_ = [0] + [int(end) for end in ends_]
         true_durations = [ends_[i] - ends_[i - 1] for i in range(1, len(ends_))]
         true_alignments = []
+
         for i in range(len(phns_)):
             true_alignments += [phns_[i]] * (true_durations[i])
         true_alignments = torch.tensor(true_alignments)
