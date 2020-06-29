@@ -350,8 +350,8 @@ class EigenH(torch.nn.Module):
 
         indices = torch.triu_indices(n_channels, n_channels)
 
-        ws[..., 0, :] = wsh[..., indices[0] * 2, indices[1] * 2]
-        ws[..., 1, :] = -1 * wsh[..., indices[0] * 2, indices[1] * 2 + 1]
+        ws[:, 0, :, 0, :] = wsh[..., indices[0] * 2, indices[1] * 2]
+        ws[:, 0, :, 1, :] = -1 * wsh[..., indices[0] * 2, indices[1] * 2 + 1]
 
         return ws
 
@@ -421,7 +421,7 @@ class EigenH(torch.nn.Module):
         indices_diag = torch.eq(indices_triu[0, :], indices_triu[1, :])
 
         # Computing the trace
-        trace = torch.sum(ws[..., 0, indices_diag], 4)
+        trace = torch.sum(ws[..., 0, indices_diag], 3)
         trace = trace.unsqueeze(3).repeat(1, 1, 1, n_channels)
 
         # Adding the trace multiplied by alpha to the diagonal
