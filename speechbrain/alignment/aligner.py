@@ -411,7 +411,7 @@ class HMMAligner(torch.nn.Module):
                  [-1.0000e+10, -1.0000e+10, -1.0000e+10, -1.0000e+10, -1.0000e+10,
                    0.0000e+00]]])
         >>> pi_prob
-        tensor([[-1.0000e+00, -1.0000e+00, -1.0000e+05, -1.0000e+05, -1.0000e+05,
+        tensor([[-6.9315e-01, -6.9315e-01, -1.0000e+05, -1.0000e+05, -1.0000e+05,
                  -1.0000e+05]])
         >>> final_states
         [[3, 4, 5]]
@@ -431,7 +431,7 @@ class HMMAligner(torch.nn.Module):
                  [-1.0000e+10, -1.0000e+10, -1.0000e+10, -6.9315e-01, -6.9315e-01],
                  [-1.0000e+10, -1.0000e+10, -1.0000e+10, -1.0000e+10,  0.0000e+00]]])
         >>> pi_prob_
-        tensor([[-1.0000e+00, -1.0000e+00, -1.0000e+05, -1.0000e+05, -1.0000e+05]])
+        tensor([[-6.9315e-01, -6.9315e-01, -1.0000e+05, -1.0000e+05, -1.0000e+05]])
         >>> final_states_
         [[2, 3, 4]]
         >>> # With sampling of a single possible pronunciation
@@ -456,7 +456,7 @@ class HMMAligner(torch.nn.Module):
         if phn_set != 61:
             raise NotImplementedError
 
-        self.silence_index = 0  # TODO: fix this hack
+        self.silence_index = phn_lab2ind["sil"]
 
         poss_phns = []
         trans_prob = []
@@ -499,10 +499,11 @@ class HMMAligner(torch.nn.Module):
         trans_prob[trans_prob == -float("Inf")] = -1e10
 
         # make pi prob
-        # TODO: fix hack
         pi_prob = self.neg_inf * torch.ones([batch_size, U_max])
         for start_state in start_states:
-            pi_prob[:, start_state] = -1
+            pi_prob[:, start_state] = 1
+
+        pi_prob = torch.nn.functional.log_softmax(pi_prob, dim=1)
 
         # Convert poss_phn_lens from absolute to relative lengths
         poss_phn_lens = torch.tensor(poss_phn_lens).float() / U_max
@@ -844,13 +845,11 @@ class HMMAligner(torch.nn.Module):
                     utterance_in_batch, final_states_utter, len_abs - 1
                 ]
                 final_state_chosen = torch.argmax(viterbi_finals).item()
-                U = (
-                    final_states_utter[final_state_chosen] + 1
-                )  # necessary because will be subtracted later. TODO: fix this hack
+                U = final_states_utter[final_state_chosen]
             else:
-                U = phn_lens_abs[utterance_in_batch].long().item()
+                U = phn_lens_abs[utterance_in_batch].long().item() - 1
 
-            z_star_i_loc = [U - 1]
+            z_star_i_loc = [U]
             z_star_i = [phns[utterance_in_batch, z_star_i_loc[0]].item()]
             for time_step in range(len_abs, 1, -1):
                 current_best_loc = z_star_i_loc[0]
@@ -930,7 +929,7 @@ class HMMAligner(torch.nn.Module):
             loss = loss.mean()
         else:
             raise ValueError(
-                "`batch_reduction` parameter must be one of 'forward' or 'viterbi'"
+                "`batch_reduction` parameter must be one of 'none', 'sum' or 'mean'"
             )
 
         return loss
@@ -943,7 +942,7 @@ class HMMAligner(torch.nn.Module):
         phn_lens,
         dp_algorithm,
         params=None,
-        final_states=None,
+        prob_matrices=None,
     ):
         """
         Prepares relevant (log) probability tensors and does dynamic
@@ -962,6 +961,15 @@ class HMMAligner(torch.nn.Module):
             The relative length of each phoneme sequence in the batch.
         dp_algorithm: string
             Either "forward" or "viterbi"
+        params: SimpleNamespace
+            Optional.
+            The parameters specified in the YAML file which will be used to
+            determine the reduction to apply.
+        prob_matrices: dict
+            Optional.
+            Must contain keys 'trans_prob', 'pi_prob' and 'final_states'.
+            Used to override the default forward and viterbi operations which
+            force traversal over all of the states in the `phns` sequence.
 
         Returns
         -------
@@ -987,8 +995,25 @@ class HMMAligner(torch.nn.Module):
         phn_lens_abs = torch.round(phns.shape[1] * phn_lens).long()
         phns = phns.long()
 
-        pi_prob = self._make_pi_prob(phn_lens_abs)
-        trans_prob = self._make_trans_prob(phn_lens_abs)
+        if prob_matrices is None:
+            pi_prob = self._make_pi_prob(phn_lens_abs)
+            trans_prob = self._make_trans_prob(phn_lens_abs)
+            final_states = None
+        else:
+            if (
+                ("pi_prob" in prob_matrices)
+                and ("trans_prob" in prob_matrices)
+                and ("final_states" in prob_matrices)
+            ):
+                pi_prob = prob_matrices["pi_prob"]
+                trans_prob = prob_matrices["trans_prob"]
+                final_states = prob_matrices["final_states"]
+            else:
+                ValueError(
+                    """`prob_matrices` must contain the keys
+                `pi_prob`, `trans_prob` and `final_states`"""
+                )
+
         emiss_pred_useful = self._make_emiss_pred_useful(
             emission_pred, lens_abs, phn_lens_abs, phns
         )

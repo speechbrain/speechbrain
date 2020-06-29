@@ -69,6 +69,13 @@ class ASR(sb.core.Brain):
 
         poss_phns = poss_phns.to(params.device)
         poss_phn_lens = poss_phn_lens.to(params.device)
+        trans_prob = trans_prob.to(params.device)
+        pi_prob = pi_prob.to(params.device)
+        prob_matrices = {
+            "trans_prob": trans_prob,
+            "pi_prob": pi_prob,
+            "final_states": final_states,
+        }
 
         phns, phn_lens = phns.to(params.device), phn_lens.to(params.device)
 
@@ -76,7 +83,13 @@ class ASR(sb.core.Brain):
 
         if self.training_type == "forward":
             forward_scores = params.aligner(
-                pout, pout_lens, poss_phns, poss_phn_lens, "forward", params
+                pout,
+                pout_lens,
+                poss_phns,
+                poss_phn_lens,
+                "forward",
+                params,
+                prob_matrices,
             )
             loss = -forward_scores
 
@@ -98,7 +111,7 @@ class ASR(sb.core.Brain):
             poss_phn_lens,
             "viterbi",
             params,
-            final_states,
+            prob_matrices,
         )
 
         if self.training_type == "viterbi":
