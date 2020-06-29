@@ -1,0 +1,60 @@
+# Basic parameters
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1234
+__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+use_tensorboard: False
+tensorboard_logs: runs
+
+# Neural Parameters
+N_epochs: 1
+N_batch: 2
+lr: 0.004
+
+data_folder1: '../../../../samples/audio_samples/WSJ_mini_partitioned'
+data_folder2: '../../../../samples/audio_samples/ESC50_mini_partitioned'
+
+tr_dataset: !new:speechbrain.data_io.data_io.Augmented_SourceSeparation_Dataset
+    input_dataset_p: [!ref <data_folder1>/train, !ref <data_folder2>/train]
+    datasets_priors: [0.5, 0.5]
+    batch_size: 4
+    n_jobs: 4
+    n_samples: 200
+    return_items: ['wav']
+    fs: 8000.
+    selected_timelength: 4.
+    n_sources: 2
+    max_abs_snr: 2.5
+    fixed_seed: 0
+
+val_dataset: !new:speechbrain.data_io.data_io.Augmented_SourceSeparation_Dataset
+    input_dataset_p: [!ref <data_folder1>/val, !ref <data_folder2>/val]
+    datasets_priors: [0.5, 0.5]
+    batch_size: 4
+    n_jobs: 4
+    n_samples: 200
+    return_items: ['wav']
+    fs: 8000.
+    selected_timelength: 4.
+    n_sources: 2
+    max_abs_snr: 2.5
+    fixed_seed: 0
+
+conv_tasnet: !new:speechbrain.nnet.conv_tasnet.ConvTasNet
+    N: 256
+    L: 20
+    B: 256
+    H: 512
+    P: 3
+    X: 8
+    R: 4
+    C: 2
+    norm_type: 'gLN'
+    causal: 0
+    mask_nonlinear: 'relu'
+
+sisdr_loss: !new:speechbrain.nnet.conv_tasnet.PermInvariantSISDR
+    batch_size: 1
+    n_sources: 2
+
+optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
+    learning_rate: !ref <lr>
