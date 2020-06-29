@@ -380,7 +380,7 @@ class GRU(torch.nn.Module):
 
 
 class RNNCell(nn.Module):
-    """ This function implements a basic RNN Cell.
+    """ This function implements a basic RNN Cell for a timestep of input.
 
     It accepts in input tensors formatted as (batch, fea).
 
@@ -490,7 +490,7 @@ class RNNCell(nn.Module):
 
 
 class GRUCell(nn.Module):
-    """ This function implements a basic GRU Cell.
+    """ This function implements a basic GRU Cell for a timestep of input.
 
     It accepts in input tensors formatted as (batch, fea).
 
@@ -592,7 +592,7 @@ class GRUCell(nn.Module):
 
 
 class LSTMCell(nn.Module):
-    """ This function implements a basic LSTM Cell.
+    """ This function implements a basic LSTM Cell for a timestep of input.
 
     It accepts in input tensors formatted as (batch, fea).
 
@@ -726,7 +726,7 @@ class AttentionalRNNDecoder(nn.Module):
         Arguments
         ---------
         rnn_type: str
-            Type of recurrent neural network to use (rnn, lstm, gru, ligru).
+            Type of recurrent neural network to use (rnn, lstm, gru).
         attn_type: str
             type of attention to use (location, content).
         hidden_size: int
@@ -860,6 +860,8 @@ class AttentionalRNNDecoder(nn.Module):
 
         # set dropout to 0 when only one layer
         dropout = 0 if self.num_layers == 1 else self.dropout
+
+        # using cell implementation to reduce the usage of memory
         if self.rnn_type == "rnn":
             self.rnn = RNNCell(
                 hidden_size=self.hidden_size,
