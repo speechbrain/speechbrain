@@ -56,10 +56,12 @@ train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
 
 valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
   csv_file: !ref <csv_valid>
+  batch_size: !ref <N_batch>
   csv_read: [wav, target]
 
 test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
   csv_file: !ref <csv_test>
+  batch_size: !ref <N_batch>
   csv_read: [wav, target]
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
