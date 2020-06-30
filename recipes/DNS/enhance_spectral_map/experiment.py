@@ -3,7 +3,7 @@ import os
 import sys
 import torch
 import speechbrain as sb
-import torchaudio
+
 import multiprocessing
 from speechbrain.utils.train_logger import summarize_average
 from speechbrain.processing.features import spectral_magnitude
@@ -62,6 +62,7 @@ def multiprocess_evaluation(pred_wavs, target_wavs, num_cores):
         processes.append(pool.apply_async(evaluation, args=(clean, enhanced)))
 
     pool.close()
+    pool.join()
 
     pesq_scores, stoi_scores = [], []
     for process in processes:
@@ -184,18 +185,13 @@ class SEBrain(sb.core.Brain):
         abs_max, _ = torch.max(torch.abs(pred_wavs), dim=1, keepdim=True)
         pred_wavs = pred_wavs / abs_max * 0.99
 
-        for name, pred_wav in zip(ids, pred_wavs):
-            enhance_path = os.path.join(
-                params.enhanced_folder, str(epoch), name
-            )
-            torchaudio.save(enhance_path, pred_wav, 16000)
-
         return pred_wavs
 
 
 prepare_dns(
     data_folder=params.data_folder,
     save_folder=params.data_folder,
+    valid_folder=os.path.join(params.data_folder, "valid"),
     seg_size=10.0,
 )
 
@@ -210,3 +206,5 @@ se_brain = SEBrain(
 # Load latest checkpoint to resume training
 params.checkpointer.recover_if_possible()
 se_brain.fit(params.epoch_counter, train_set, valid_set)
+
+se_brain.evaluate(params.test_loader())

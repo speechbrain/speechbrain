@@ -10,20 +10,32 @@ Chien-Feng Liao 2020
 
 import os
 import csv
+import torch
 import logging
+import torchaudio
 from speechbrain.utils.data_utils import get_all_files
 from speechbrain.data_io.data_io import read_wav_soundfile
+from speechbrain.processing.speech_augmentation import AddNoise
 
 logger = logging.getLogger(__name__)
 NOISE_CSV = "tr_noise.csv"
 CLEAN_CSV = "tr_clean.csv"
+VALID_CSV = "valid.csv"
 TEST_CSV = "test.csv"
 SAMPLERATE = 16000
 
 
-def prepare_dns(data_folder, save_folder, seg_size=10.0):
+def prepare_dns(
+    data_folder,
+    save_folder,
+    seg_size=10.0,
+    valid_folder=None,
+    valid_ratio=0.002,
+    valid_snr_low=0,
+    valid_snr_high=40,
+):
     """
-    prepares the csv files for the DNS challenge dataset.
+    Prepares the csv files for the DNS challenge dataset.
 
     Arguments
     ---------
@@ -33,24 +45,32 @@ def prepare_dns(data_folder, save_folder, seg_size=10.0):
         The directory where to store the csv files.
     seg_size : float
         Split the file into multiple fix length segments (ms).
+    valid_ratio : float
+        Use this fraction of the training data as a validation set.
+    valid_folder : str
+        Location for storing mixed validation samples.
+    valid_snr_low : float
+        Lowest SNR to use when mixing the validation set.
+    valid_snr_high : float
+        Highest SNR to use when mixing the validiation set.
 
     Example
     -------
-    This example requires the actual DNS dataset:
-    The "training" folder is expected after the dataset is downloaded and processed.
-
-    >>> from recipes.DNS.dns_prepare import prepare_dns
-    >>> data_folder='datasets/DNS-Challenge'
-    >>> save_folder='DNS_prepared'
-    >>> prepare_dns(data_folder,save_folder)
+    >>> # This example requires the actual DNS dataset:
+    >>> data_folder = 'datasets/DNS-Challenge'
+    >>> save_folder = 'DNS_prepared'
+    >>> prepare_dns(data_folder, save_folder)
     """
+
+    if valid_ratio > 0 and valid_folder is None:
+        raise ValueError("Must provide folder for storing validation data")
 
     # Additional checks to make sure the data folder contains DNS
     _check_DNS_folders(data_folder)
 
     train_folder = os.path.join(data_folder, "datasets")
     test_folder = os.path.join(
-        data_folder, "datasets/test_set/synthetic/no_reverb"
+        data_folder, "datasets", "test_set", "synthetic", "no_reverb"
     )
 
     # Setting file extension.
@@ -60,29 +80,20 @@ def prepare_dns(data_folder, save_folder, seg_size=10.0):
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
 
+    # Check if this phase is already done (if so, skip it)
+    if skip(save_folder):
+        logger.debug("Preparation completed in previous run.")
+        return
+
+    logger.info("Creating csv files for the DNS Dataset...")
+
     # Setting ouput files
     save_csv_noise = os.path.join(save_folder, NOISE_CSV)
     save_csv_clean = os.path.join(save_folder, CLEAN_CSV)
+    save_csv_valid = os.path.join(save_folder, VALID_CSV)
     save_csv_test = os.path.join(save_folder, TEST_CSV)
 
-    msg = "\tCreating csv file for the ms_DNS Dataset.."
-    logger.debug(msg)
-
-    # Check if this phase is already done (if so, skip it)
-    if skip(save_folder):
-
-        msg = "\t%s sucessfully created!" % (save_csv_noise)
-        logger.debug(msg)
-
-        msg = "\t%s sucessfully created!" % (save_csv_clean)
-        logger.debug(msg)
-
-        msg = "\t%s sucessfully created!" % (save_csv_test)
-        logger.debug(msg)
-
-        return
-
-    # Creating csv file for training data
+    # Get the list of files
     wav_lst_noise = get_all_files(
         os.path.join(train_folder, "noise"), match_and=extension
     )
@@ -90,23 +101,37 @@ def prepare_dns(data_folder, save_folder, seg_size=10.0):
         os.path.join(train_folder, "clean"), match_and=extension
     )
 
-    create_csv(
-        wav_lst_noise, save_csv_noise,
-    )
-    create_csv(
-        wav_lst_clean, save_csv_clean, seg_size=seg_size,
-    )
-
-    # Creating csv file for test data
+    # Clean is excluded here, but will be picked up by `create_csv`
     wav_lst_test = get_all_files(
         test_folder, match_and=extension, exclude_or=["/clean/"],
     )
 
-    create_csv(
-        wav_lst_test, save_csv_test, has_target=True,
-    )
+    # Split training into validation and training
+    if valid_ratio > 0:
+        valid_count = int(valid_ratio * len(wav_lst_clean))
+        valid_lst_noise = wav_lst_noise[:valid_count]
+        valid_lst_clean = wav_lst_clean[:valid_count]
+        wav_lst_noise = wav_lst_noise[valid_count:]
+        wav_lst_clean = wav_lst_clean[valid_count:]
 
-    return
+        # Create noise csv to use when adding noise to validation samples.
+        save_valid_noise = os.path.join(save_folder, "valid_noise.csv")
+        create_csv(save_valid_noise, valid_lst_noise)
+        create_csv(
+            save_csv_valid,
+            valid_lst_clean,
+            seg_size=seg_size,
+            noise_csv=save_valid_noise,
+            noisy_folder=valid_folder,
+            noise_snr_low=valid_snr_low,
+            noise_snr_high=valid_snr_high,
+        )
+
+    create_csv(save_csv_test, wav_lst_test, has_target=True)
+
+    # Create tr_clean.csv and tr_noise.csv for dynamic mixing the training data
+    create_csv(save_csv_noise, wav_lst_noise)
+    create_csv(save_csv_clean, wav_lst_clean, seg_size=seg_size)
 
 
 def skip(save_folder):
@@ -125,7 +150,7 @@ def skip(save_folder):
     # Checking folders and save options
     skip = True
 
-    split_files = [NOISE_CSV, CLEAN_CSV, TEST_CSV]
+    split_files = [NOISE_CSV, CLEAN_CSV, VALID_CSV, TEST_CSV]
     for split in split_files:
         if not os.path.isfile(os.path.join(save_folder, split)):
             skip = False
@@ -133,77 +158,85 @@ def skip(save_folder):
     return skip
 
 
-def create_csv(wav_lst, csv_file, seg_size=None, has_target=False):
+def create_csv(
+    csv_file,
+    wav_lst,
+    seg_size=None,
+    has_target=False,
+    noise_csv=None,
+    noisy_folder=None,
+    noise_snr_low=0,
+    noise_snr_high=0,
+):
     """
     Creates the csv file given a list of wav files.
 
     Arguments
     ---------
-    wav_lst : list
-        The list of wav files of a given data split.
     csv_file : str
         The path of the output csv file
-    is_noise_folder : boolean
-        True if noise files are included
-    seg_size: int
+    wav_lst : list
+        The list of wav files of a given data split.
+    seg_size : int
         Split the file into multiple fix length segments (ms).
-
-    Returns
-    -------
-    None
+    has_target : bool
+        Whether clean utterances are present in a similar directory.
+    noise_csv : str
+        A set of noise files to mix with the signals in `wav_lst`.
+    noisy_folder : str
+        A location for storing the mixed samples, if `noise_csv` is provided.
+    noise_snr_low : float
+        The lowest amplitude ratio to use when mixing `noise_csv`.
+    noise_snr_high : float
+        The highest amplitude ratio to use when mixing `noise_csv`.
     """
 
-    # Adding some Prints
-    msg = '\t"Creating csv lists in  %s..."' % (csv_file)
-    logger.debug(msg)
+    if noise_csv and has_target:
+        raise ValueError("Expected only one of `noise_csv` and `has_target`")
 
-    csv_lines = [
-        [
-            "ID",
-            "duration",
-            "wav",
-            "wav_format",
-            "wav_opts",
-            "target",
-            "target_format",
-            "target_opts",
-        ]
-    ]
+    logger.debug("Creating csv list: %s" % csv_file)
+
+    csv_lines = [["ID", "duration", "wav", "wav_format", "wav_opts"]]
+    if noise_csv or has_target:
+        csv_lines[0].extend(["target", "target_format", "target_opts"])
+
+    if noise_csv:
+        if not os.path.exists(noisy_folder):
+            os.makedirs(noisy_folder)
+
+        noise_adder = AddNoise(
+            csv_file=noise_csv, snr_low=noise_snr_low, snr_high=noise_snr_high,
+        )
 
     # Processing all the wav files in the list
     fileid = 0
     for wav_file in wav_lst:
-        # Getting fileids
-        full_file_name = wav_file.split("/")[-1]
+        full_file_name = os.path.basename(wav_file)
 
         if has_target:
             fileid = full_file_name.split("_")[-1]
-
             target_folder = os.path.join(
                 os.path.split(os.path.split(wav_file)[0])[0], "clean"
             )
-            target_file = target_folder + "/clean_fileid_" + fileid
-        else:
-            target_file = ""
+            target_file = os.path.join(target_folder, "clean_fileid_" + fileid)
 
         # Reading the signal (to retrieve duration in seconds)
         signal = read_wav_soundfile(wav_file)
         duration = signal.shape[0] / SAMPLERATE
 
-        # Composition of the csv_line
-        if not seg_size:
-            csv_line = [
-                full_file_name,
-                str(duration),
-                wav_file,
-                "wav",
-                "",
-                target_file,
-                "wav",
-                "",
-            ]
+        if noise_csv:
+            target = torch.Tensor(signal).unsqueeze(0)
+            signal = noise_adder(target, torch.ones(1))
+            filepath = os.path.join(noisy_folder, full_file_name)
+            torchaudio.save(filepath, signal, SAMPLERATE)
+            target_file = wav_file
+            wav_file = filepath
 
-            # Adding this line to the csv_lines list
+        # Composition of the csv_line
+        if not seg_size or duration < seg_size:
+            csv_line = [full_file_name, str(duration), wav_file, "wav", ""]
+            if noise_csv or has_target:
+                csv_line.extend([target_file, "wav", ""])
             csv_lines.append(csv_line)
 
         else:
@@ -216,19 +249,22 @@ def create_csv(wav_lst, csv_file, seg_size=None, has_target=False):
                     wav_file,
                     "wav",
                     "start:{} stop:{}".format(start, stop),
-                    target_file,
-                    "wav",
-                    "start:{} stop:{}".format(start, stop),
                 ]
+                if noise_csv or has_target:
+                    csv_line.extend(
+                        [
+                            target_file,
+                            "wav",
+                            "start:{} stop:{}".format(start, stop),
+                        ]
+                    )
 
                 # Adding this line to the csv_lines list
                 csv_lines.append(csv_line)
 
     # Writing the csv lines
     _write_csv(csv_lines, csv_file)
-    # Final prints
-    msg = "\t%s sucessfully created!" % (csv_file)
-    logger.debug(msg)
+    logger.debug("%s successfully created!" % csv_file)
 
 
 def _write_csv(csv_lines, csv_file):
@@ -260,7 +296,7 @@ def _check_DNS_folders(data_folder):
         If data folder doesn't contain DNS dataset (training and testset included).
     """
     test_folder = os.path.join(
-        data_folder, "datasets/test_set/synthetic/no_reverb"
+        data_folder, "datasets", "test_set", "synthetic", "no_reverb"
     )
 
     # Checking testset folder
