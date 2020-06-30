@@ -61,7 +61,6 @@ class ASR(sb.core.Brain):
             final_states,
         ) = params.aligner.use_lexicon(
             words,
-            params.phn_set,
             params.train_loader.label_dict["phn"]["lab2index"],
             interword_sils=False,
             sample_pron=True,
