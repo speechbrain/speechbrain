@@ -135,7 +135,7 @@ class ContextNetBlock(torch.nn.Module):
     >>> inp = torch.randn([8, 120, 40])
     >>> out = block(inp, True)
     >>> print(out.shape)
-    torch.Size([8, 60, 250])
+    torch.Size([8, 60, 256])
     """
 
     def __init__(
