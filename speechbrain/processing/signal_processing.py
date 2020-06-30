@@ -233,13 +233,46 @@ def notch_filter(notch_freq, filter_width=101, notch_width=0.05):
 
 # WORK IN PROGRESS
 class EigenH(torch.nn.Module):
+    """ Generalized Eigen decomposition for complex Hermitian matrices
+
+    This class contains differents methods to adjust the format of
+    complex Hermitian matrices and to find their eigenvectors and
+    eigenvalues.
+
+    Example
+    -------
+    TODO: Add an example
+    """
+
     def __init__(self):
         super().__init__()
 
     def forward(self, a, b=None):
-        """
-        Input: (B, 1, K, 2, C+P)
-        Output: (B, K, C, C)
+        """ This method computes the eigenvectors and the eigenvalues
+        of complex Hermitian matrices. The method finds a solution to
+        the problem AV = BVD where V are the eigenvectors and D are
+        the eigenvalues.
+
+        The eigenvectors returned by the method (vs) are stored in a tensor
+        with the following format (batch, n_fft, n_channels, n_channels, 2).
+
+        The eigenvalues returned by the method (ds) are stored in a tensor
+        with the following format (batch, n_fft, n_channels, n_channels, 2).
+
+        Arguments
+        ---------
+        a : tensor
+            A first input matrix. It is equivalent to the matrix A in the
+            equation in the description above. The tensor must have the
+            following format: (batch, 1, n_fft, 2, n_channels + n_pairs).
+
+        b : tensor
+            A second input matrix. It is equivalent tot the matrix B in the
+            equation in the description above. The tensor must have the
+            following format: (batch, 1, n_fft, 2, n_channels + n_pairs).
+            This argument is optional and its default value is None. If
+            b == None, then b is remplaced by the identity matrix in the
+            computations.
         """
 
         # Extracting data
@@ -295,9 +328,19 @@ class EigenH(torch.nn.Module):
         return vs, ds
 
     def f(self, ws):
-        """
-        Input: (B, 1, K, 2, C+P)
-        Output: (B, K, 2C, 2C)
+        """ Transform 1
+
+        This method takes a complex Hermitian matrix represented by its
+        upper triangular part and converts it to a block matrix
+        representing the full original matrix with real numbers.
+        The output tensor will have the following format:
+        (batch, n_fft, 2*n_channels, 2*n_channels)
+
+        Arguments
+        ---------
+        ws : tensor
+            An input matrix. The tensor must have the following format:
+            (batch, 1 n_fft, 2, n_channels + n_pairs)
         """
 
         # Formating the input matrix
@@ -332,9 +375,18 @@ class EigenH(torch.nn.Module):
         return wsh
 
     def finv(self, wsh):
-        """
-        Input: (B, K, 2C, 2C)
-        Output: (B, 1, K, 2, C+P)
+        """ Inverse transform 1
+
+        This method takes a block matrix representing a complex Hermitian
+        matrix and converts it to a complex matrix represented by its
+        upper triangular part. The result will have the following format:
+        (batch, 1, n_fft, 2, n_channels + n_pairs)
+
+        Arguments
+        ---------
+        wsh : tensor
+            An input matrix. The tensor must have the following format:
+            (batch, n_fft, 2*n_channels, 2*n_channels)
         """
 
         # Extracting data
@@ -356,9 +408,17 @@ class EigenH(torch.nn.Module):
         return ws
 
     def g(self, ws):
-        """
-        Input: (B, K, C, C, 2)
-        Output: (B, K, 2C, 2C)
+        """ Transform 2
+
+        This method takes a full complex matrix and converts it to a block
+        matrix. The result will have the following format:
+        (batch, n_fft, 2*n_channels, 2*n_channels).
+
+        Arguments
+        ---------
+        ws : tensor
+            An input matrix. The tensor must have the following format:
+            (batch, n_fft, n_channels, n_channels, 2)
         """
 
         # Extracting data
@@ -383,9 +443,18 @@ class EigenH(torch.nn.Module):
         return wsh
 
     def ginv(self, wsh):
-        """
-        Input: (B, K, 2C, 2C)
-        Output: (B, K, C, C, 2)
+        """ Inverse transform 2
+
+        This method takes a complex Hermitian matrix represented by a block
+        matrix and converts it to a full complex complex matrix. The
+        result will have the following format:
+        (batch, n_fft, n_channels, n_channels, 2)
+
+        Arguments
+        ---------
+        wsh : tensor
+            An input matrix. The tensor must have the following format:
+            (batch, n_fft, 2*n_channels, 2*n_channels)
         """
 
         # Extracting data
@@ -407,9 +476,25 @@ class EigenH(torch.nn.Module):
         return ws
 
     def pos_def(self, ws, alpha=0.001, eps=1e-20):
-        """
-        Input: (B, 1, K, 2, C+P)
-        Output: (B, 1, K, 2, C+P)
+        """ Diagonal modification
+
+        This method takes a complex Hermitian matrix represented by its upper
+        triangular part and adds the value of its trace multiplied by alpha
+        to the real part of its diagonal. The output will have the format:
+        (batch, 1, n_fft, 2, n_channels + n_pairs)
+
+        Arguments
+        ---------
+        ws : tensor
+            An input matrix. The tensor must have the following format:
+            (batch, 1, n_fft, 2, n_channels + n_pairs)
+
+        alpha : float
+            A coefficient to multiply the trace. The default value is 0.001.
+
+        eps : float
+            A small value to increase the real part of the diagonal. The
+            default value is 1e-20.
         """
 
         # Extracting data
