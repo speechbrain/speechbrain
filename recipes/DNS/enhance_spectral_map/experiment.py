@@ -3,7 +3,6 @@ import os
 import sys
 import torch
 import speechbrain as sb
-
 import multiprocessing
 from speechbrain.utils.train_logger import summarize_average
 from speechbrain.processing.features import spectral_magnitude
@@ -207,4 +206,10 @@ se_brain = SEBrain(
 params.checkpointer.recover_if_possible()
 se_brain.fit(params.epoch_counter, train_set, valid_set)
 
-se_brain.evaluate(params.test_loader())
+# Load best checkpoint for evaluation
+params.checkpointer.recover_if_possible(lambda c: c.meta["PESQ"])
+test_stats = se_brain.evaluate(params.test_loader())
+params.train_logger.log_stats(
+    stats_meta={"Epoch loaded": params.epoch_counter.current},
+    test_stats=test_stats,
+)
