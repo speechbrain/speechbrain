@@ -295,6 +295,7 @@ class AdaptivePool(nn.Module):
     >>> inp = torch.randn([8, 120, 40])
     >>> output = pool(inp)
     >>> print(output.shape)
+    torch.Size([8, 1, 40])
     """
 
     def __init__(self, output_size):

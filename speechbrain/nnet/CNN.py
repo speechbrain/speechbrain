@@ -677,7 +677,7 @@ class DepthwiseSeparableConv1d(nn.Module):
     >>> inp = torch.randn([8, 120, 40])
     >>> out = conv(inp, True)
     >>> print(out.shape)
-    torch.Size([8, 120, 40])
+    torch.Size([8, 120, 256])
     """
 
     def __init__(
