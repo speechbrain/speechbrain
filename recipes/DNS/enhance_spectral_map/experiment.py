@@ -4,6 +4,7 @@ import sys
 import torch
 import speechbrain as sb
 import multiprocessing
+import torchaudio
 from speechbrain.utils.train_logger import summarize_average
 from speechbrain.processing.features import spectral_magnitude
 from speechbrain.utils.checkpoints import ckpt_recency
@@ -45,20 +46,24 @@ if not os.path.exists(params.enhanced_folder):
     os.mkdir(params.enhanced_folder)
 
 
-def evaluation(clean, enhanced):
+def evaluation(clean, enhanced, length):
+    clean = clean[:length]
+    enhanced = enhanced[:length]
     pesq_score = pesq(params.samplerate, clean, enhanced, "wb",)
     stoi_score = stoi(clean, enhanced, params.samplerate, extended=False)
 
     return pesq_score, stoi_score
 
 
-def multiprocess_evaluation(pred_wavs, target_wavs, num_cores):
+def multiprocess_evaluation(pred_wavs, target_wavs, lens, num_cores):
     processes = []
 
     pool = multiprocessing.Pool(processes=num_cores)
 
-    for clean, enhanced in zip(target_wavs, pred_wavs):
-        processes.append(pool.apply_async(evaluation, args=(clean, enhanced)))
+    for clean, enhanced, length in zip(target_wavs, pred_wavs, lens):
+        processes.append(
+            pool.apply_async(evaluation, args=(clean, enhanced, int(length)))
+        )
 
     pool.close()
     pool.join()
@@ -115,17 +120,20 @@ class SEBrain(sb.core.Brain):
         predictions = self.compute_forward(inputs, stage=stage)
         epoch = params.epoch_counter.current
 
-        # Create the folder to save enhanced files
-        if not os.path.exists(os.path.join(params.enhanced_folder, str(epoch))):
-            os.mkdir(os.path.join(params.enhanced_folder, str(epoch)))
-
         # Write batch enhanced files to directory
-        pred_wavs = self.write_wavs(torch.expm1(predictions), targets, epoch)
+        pred_wavs = self.write_wavs(
+            torch.expm1(predictions), targets, epoch, stage
+        )
 
         # Evaluating PESQ and STOI
-        target_wavs = targets[1]
+        _, target_wavs, lens = targets
+
+        lens = lens * target_wavs.shape[1]
         pesq_scores, stoi_scores = multiprocess_evaluation(
-            pred_wavs.numpy(), target_wavs.numpy(), multiprocessing.cpu_count()
+            pred_wavs.numpy(),
+            target_wavs.numpy(),
+            lens.numpy(),
+            multiprocessing.cpu_count(),
         )
 
         loss, stats = self.compute_objectives(predictions, targets, stage=stage)
@@ -159,8 +167,9 @@ class SEBrain(sb.core.Brain):
             importance_keys=[ckpt_recency, lambda c: c.meta["PESQ"]],
         )
 
-    def write_wavs(self, predictions, inputs, epoch):
+    def write_wavs(self, predictions, inputs, epoch, stage):
         ids, wavs, lens = inputs
+        lens = lens * wavs.shape[1]
         predictions = predictions.cpu()
 
         # Extract noisy phase
@@ -183,6 +192,11 @@ class SEBrain(sb.core.Brain):
         # Normalize the waveform
         abs_max, _ = torch.max(torch.abs(pred_wavs), dim=1, keepdim=True)
         pred_wavs = pred_wavs / abs_max * 0.99
+
+        if stage == "test":
+            for name, pred_wav, length in zip(ids, pred_wavs, lens):
+                enhance_path = os.path.join(params.enhanced_folder, name)
+                torchaudio.save(enhance_path, pred_wav[: int(length)], 16000)
 
         return pred_wavs
 
@@ -208,6 +222,11 @@ se_brain.fit(params.epoch_counter, train_set, valid_set)
 
 # Load best checkpoint for evaluation
 params.checkpointer.recover_if_possible(lambda c: c.meta["PESQ"])
+
+# Create the folder to save enhanced files
+if not os.path.exists(params.enhanced_folder):
+    os.mkdir(params.enhanced_folder)
+
 test_stats = se_brain.evaluate(params.test_loader())
 params.train_logger.log_stats(
     stats_meta={"Epoch loaded": params.epoch_counter.current},
