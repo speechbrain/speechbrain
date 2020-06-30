@@ -10,15 +10,15 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 # Basic parameters
 data_folder: !PLACEHOLDER
 output_folder: !ref results/causalCNN_log1p_dynamic/<seed>
-train_log: !ref <output_folder>/train_log.txt
 enhanced_folder: !ref <output_folder>/enhanced/
 
 use_tensorboard: True
 tensorboard_logs: !ref results/logs/causalCNN_log1p_dynamic/<seed>
+train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-csv_noise: !ref <data_folder>/tr_noise.csv
-csv_clean: !ref <data_folder>/tr_clean.csv
+csv_noise: !ref <data_folder>/tr_noise_small.csv
+csv_clean: !ref <data_folder>/tr_clean_small.csv
 csv_valid: !ref <data_folder>/test.csv
 
 # Training Parameters
@@ -33,7 +33,7 @@ base_channels: 2048
 padding_type: causal
 
 # FFT Parameters
-SAMPLERATE: 16000
+samplerate: 16000
 n_fft: 512
 win_length: 32
 hop_length: 16
@@ -62,13 +62,13 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
   limit: !ref <N_epochs>
 
 compute_stft: !new:speechbrain.processing.features.STFT
-  sample_rate: !ref <SAMPLERATE>
+  sample_rate: !ref <samplerate>
   win_length: !ref <win_length>
   hop_length: !ref <hop_length>
   n_fft: !ref <n_fft>
 
 compute_istft: !new:speechbrain.processing.features.ISTFT
-  sample_rate: !ref <SAMPLERATE>
+  sample_rate: !ref <samplerate>
   win_length: !ref <win_length>
   hop_length: !ref <hop_length>
 
@@ -143,3 +143,9 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     optimizer: !ref <optimizer>
     counter: !ref <epoch_counter>
     model: !ref <model>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+  save_file: !ref <train_log>
+  summary_fns:
+    PESQ: !name:speechbrain.utils.train_logger.summarize_average
+    STOI: !name:speechbrain.utils.train_logger.summarize_average

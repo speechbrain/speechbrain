@@ -39,7 +39,7 @@ sb.core.create_experiment_directory(
 if params.use_tensorboard:
     from speechbrain.utils.train_logger import TensorboardLogger
 
-    train_logger = TensorboardLogger(params.tensorboard_logs)
+    tensorboard_logger = TensorboardLogger(params.tensorboard_logs)
 
 # Create the folder to save enhanced files
 if not os.path.exists(params.enhanced_folder):
@@ -47,8 +47,8 @@ if not os.path.exists(params.enhanced_folder):
 
 
 def evaluation(clean, enhanced):
-    pesq_score = pesq(params.SAMPLERATE, clean, enhanced, "wb",)
-    stoi_score = stoi(clean, enhanced, params.SAMPLERATE, extended=False)
+    pesq_score = pesq(params.samplerate, clean, enhanced, "wb",)
+    stoi_score = stoi(clean, enhanced, params.samplerate, extended=False)
 
     return pesq_score, stoi_score
 
@@ -140,7 +140,7 @@ class SEBrain(sb.core.Brain):
         epoch_stoi = summarize_average(valid_stats["stoi"])
 
         if params.use_tensorboard:
-            train_logger.log_stats(
+            tensorboard_logger.log_stats(
                 {
                     "Epoch": epoch,
                     "Valid PESQ": epoch_pesq,
@@ -150,16 +150,14 @@ class SEBrain(sb.core.Brain):
                 valid_stats,
             )
 
+        params.train_logger.log_stats(
+            {"Epoch": epoch}, train_stats, valid_stats
+        )
+
         params.checkpointer.save_and_keep_only(
             meta={"PESQ": epoch_pesq},
             importance_keys=[ckpt_recency, lambda c: c.meta["PESQ"]],
         )
-
-        print("Completed epoch %d" % epoch)
-        print("Train loss: %.3f" % summarize_average(train_stats["loss"]))
-        print("Valid loss: %.3f" % summarize_average(valid_stats["loss"]))
-        print("Valid PESQ: %.3f" % epoch_pesq)
-        print("Valid STOI: %.3f" % epoch_stoi)
 
     def write_wavs(self, predictions, inputs, epoch):
         ids, wavs, lens = inputs
@@ -211,5 +209,4 @@ se_brain = SEBrain(
 
 # Load latest checkpoint to resume training
 params.checkpointer.recover_if_possible()
-# with torch.autograd.detect_anomaly():
 se_brain.fit(params.epoch_counter, train_set, valid_set)
