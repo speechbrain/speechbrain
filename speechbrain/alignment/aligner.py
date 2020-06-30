@@ -327,12 +327,7 @@ class HMMAligner(torch.nn.Module):
         return poss_phns, log_transition_matrix, start_states, final_states
 
     def use_lexicon(
-        self,
-        words,
-        phn_set,
-        phn_lab2ind,
-        interword_sils=True,
-        sample_pron=False,
+        self, words, phn_lab2ind, interword_sils=True, sample_pron=False,
     ):
         """
         Do processing using the lexicon to return a sequence of the possible
@@ -345,9 +340,6 @@ class HMMAligner(torch.nn.Module):
         ---------
         words: list
             list of the words in the transcript
-        phn_set: int
-            The phoneme set in use.
-            Note: currently only processing for 61 phoneme set is implemented.
         phn_lab2ind: dict
             The mapping from phn label to index.
         interword_sils: bool
@@ -380,7 +372,6 @@ class HMMAligner(torch.nn.Module):
         ...                     "b": {0: "b", 1: "c"}
         ...                   }
         >>> words = [["a", "b"]]
-        >>> phn_set = 61
         >>> phn_lab2index = {
         ...                   "sil": 0,
         ...                   "a":  1,
@@ -389,7 +380,6 @@ class HMMAligner(torch.nn.Module):
         ...                 }
         >>> poss_phns, poss_phn_lens, trans_prob, pi_prob, final_states = aligner.use_lexicon(
         ...     words,
-        ...     phn_set,
         ...     phn_lab2index,
         ...     interword_sils = True
         ... )
@@ -418,7 +408,6 @@ class HMMAligner(torch.nn.Module):
         >>> # With no optional silences between words
         >>> poss_phns_, _, trans_prob_, pi_prob_, final_states_ = aligner.use_lexicon(
         ...     words,
-        ...     phn_set,
         ...     phn_lab2index,
         ...     interword_sils = False
         ... )
@@ -439,7 +428,6 @@ class HMMAligner(torch.nn.Module):
         >>> random.seed(0)
         >>> poss_phns_, _, trans_prob_, pi_prob_, final_states_ = aligner.use_lexicon(
         ...     words,
-        ...     phn_set,
         ...     phn_lab2index,
         ...     sample_pron = True
         ... )
@@ -452,10 +440,6 @@ class HMMAligner(torch.nn.Module):
                  [-1.0000e+10, -1.0000e+10, -1.0000e+10, -6.9315e-01, -6.9315e-01],
                  [-1.0000e+10, -1.0000e+10, -1.0000e+10, -1.0000e+10,  0.0000e+00]]])
         """
-
-        if phn_set != 61:
-            raise NotImplementedError
-
         self.silence_index = phn_lab2ind["sil"]
 
         poss_phns = []
