@@ -280,3 +280,47 @@ class StatisticsPooling(nn.Module):
         gnoise = self.eps * ((1 - 9) * gnoise + 9)
 
         return gnoise
+
+
+class AdaptivePool(nn.Module):
+    """This class implements the adaptive average pooling
+    Arguments
+    ---------
+    delations : output_size
+        the size of the output
+
+    example
+    -------
+    >>> pool = AdaptivePool(1)
+    >>> inp = torch.randn([8, 120, 40])
+    >>> output = pool(inp)
+    >>> print(output.shape)
+    """
+
+    def __init__(self, output_size):
+        super().__init__()
+
+        condition = (
+            isinstance(output_size, int)
+            or isinstance(output_size, tuple)
+            or isinstance(output_size, list)
+        )
+        assert condition, "output size must be int or tuple"
+
+        if isinstance(output_size, tuple) or isinstance(output_size, list):
+            assert (
+                len(output_size) == 2
+            ), "len of output size must not be greater than 2"
+
+        if isinstance(output_size, int):
+            self.pool = nn.AdaptiveAvgPool1d(output_size)
+        else:
+            self.pool = nn.AdaptiveAvgPool2d(output_size)
+
+    def forward(self, x):
+
+        if len(x.shape) == 3:
+            return self.pool(x.permute(0, 2, 1)).permute(0, 2, 1)
+
+        if len(x.shape) == 4:
+            return self.pool(x.permute(0, 3, 1, 2)).permute(0, 2, 3, 1)
