@@ -480,9 +480,9 @@ class RNNCell(nn.Module):
 
         h = self.rnn_cells[0](x, hx[0])
         hidden_lst = [h]
-        for l in range(1, self.num_layers):
-            drop_h = self.dropout_layers[l - 1](h)
-            h = self.rnn_cells[l](drop_h, hx[l])
+        for i in range(1, self.num_layers):
+            drop_h = self.dropout_layers[i - 1](h)
+            h = self.rnn_cells[i](drop_h, hx[i])
             hidden_lst.append(h)
 
         hidden = torch.stack(hidden_lst, dim=0)
@@ -582,9 +582,9 @@ class GRUCell(nn.Module):
 
         h = self.rnn_cells[0](x, hx[0])
         hidden_lst = [h]
-        for l in range(1, self.num_layers):
-            drop_h = self.dropout_layers[l - 1](h)
-            h = self.rnn_cells[l](drop_h, hx[l])
+        for i in range(1, self.num_layers):
+            drop_h = self.dropout_layers[i - 1](h)
+            h = self.rnn_cells[i](drop_h, hx[i])
             hidden_lst.append(h)
 
         hidden = torch.stack(hidden_lst, dim=0)
@@ -688,9 +688,9 @@ class LSTMCell(nn.Module):
         h, c = self.rnn_cells[0](x, (hx[0][0], hx[1][0]))
         hidden_lst = [h]
         cell_lst = [c]
-        for l in range(1, self.num_layers):
-            drop_h = self.dropout_layers[l - 1](h)
-            h, c = self.rnn_cells[l](drop_h, (hx[0][l], hx[1][l]))
+        for i in range(1, self.num_layers):
+            drop_h = self.dropout_layers[i - 1](h)
+            h, c = self.rnn_cells[i](drop_h, (hx[0][i], hx[1][i]))
             hidden_lst.append(h)
             cell_lst.append(c)
 
