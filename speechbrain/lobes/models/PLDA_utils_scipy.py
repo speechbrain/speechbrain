@@ -1,5 +1,6 @@
 import numpy
 import copy
+import scipy
 
 STAT_TYPE = numpy.float64
 
@@ -176,7 +177,7 @@ class StatObject_SB:
             sqr_inv_sigma = sigma
 
             if not isSqrInvSigma:
-                eigen_values, eigen_vectors = numpy.linalg.eigh(sigma)
+                eigen_values, eigen_vectors = scipy.linalg.eigh(sigma)
                 ind = eigen_values.real.argsort()[::-1]
                 eigen_values = eigen_values.real[ind]
                 eigen_vectors = eigen_vectors.real[:, ind]
@@ -261,9 +262,9 @@ class Ndx:
     indicating which combinations of model and test segment are
     trials of interest.
 
-    modelset: list of unique models in a ndarray
-    segset:  list of unique test segments in a ndarray
-    trialmask: 2D ndarray of boolean. Rows correspond to the models
+    :attr modelset: list of unique models in a ndarray
+    :attr segset:  list of unique test segments in a ndarray
+    :attr trialmask: 2D ndarray of boolean. Rows correspond to the models
             and columns to the test segments. True if the trial is of interest.
     """
 
@@ -352,7 +353,7 @@ class Ndx:
         """Checks that an object of type Ndx obeys certain rules that
         must always be true.
 
-        return: a boolean value indicating whether the object is valid
+        :return: a boolean value indicating whether the object is valid
         """
         ok = isinstance(self.modelset, numpy.ndarray)
         ok &= isinstance(self.segset, numpy.ndarray)
