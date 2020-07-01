@@ -44,7 +44,7 @@ dnn_neurons: 2000
 states_per_phoneme: 3
 
 # Outputs
-phn_set: 61
+phn_set: 39
 output_neurons: 184 # phn set * <states_per_phoneme>
 blank_index: !ref <output_neurons> - 1
 

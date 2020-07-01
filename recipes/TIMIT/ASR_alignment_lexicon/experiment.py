@@ -60,10 +60,7 @@ class ASR(sb.core.Brain):
             pi_prob,
             final_states,
         ) = params.aligner.use_lexicon(
-            words,
-            params.train_loader.label_dict["phn"]["lab2index"],
-            interword_sils=False,
-            sample_pron=True,
+            words, interword_sils=False, sample_pron=True,
         )
 
         poss_phns = poss_phns.to(params.device)
@@ -117,19 +114,27 @@ class ASR(sb.core.Brain):
             params.aligner.store_alignments(ids, alignments)
 
         stats = {}
-        acc = params.aligner.calc_accuracy(alignments, ends, phns_true)
+
+        phn_ind2lab = params.train_loader.label_dict["phn"]["index2lab"]
+        acc = params.aligner.calc_accuracy(
+            alignments,
+            ends,
+            phns_true,
+            (params.aligner.lex_ind2lab, phn_ind2lab),
+        )
         stats["accuracy"] = acc
 
         if stage != "train":
-            ind2lab = params.train_loader.label_dict["phn"]["index2lab"]
             # convert alignments back to 1 state per phoneme style
             sequence = [
                 params.aligner.collapse_alignments(x) for x in alignments
             ]
 
-            sequence = convert_index_to_lab(sequence, ind2lab)
+            sequence = convert_index_to_lab(
+                sequence, params.aligner.lex_ind2lab
+            )
 
-            phns_true_lab = convert_index_to_lab(phns_true, ind2lab)
+            phns_true_lab = convert_index_to_lab(phns_true, phn_ind2lab)
             per_stats = edit_distance.wer_details_for_batch(
                 ids, phns_true_lab, sequence, compute_alignments=True
             )
