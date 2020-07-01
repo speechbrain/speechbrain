@@ -380,7 +380,12 @@ class GRU(torch.nn.Module):
 
 
 class RNNCell(nn.Module):
-    """ This function implements a basic RNN Cell for a timestep of input.
+    """ This class implements a basic RNN Cell for a timestep of input,
+    while RNN() takes the whole sequence as input.
+    It is designed for autoregressive decoder (ex. attentional decoder),
+    which takes one input at a time.
+    Using torch.nn.RNNCell() instead of torch.nn.RNN() to reduce VRAM
+    consumption.
 
     It accepts in input tensors formatted as (batch, fea).
 
@@ -490,7 +495,12 @@ class RNNCell(nn.Module):
 
 
 class GRUCell(nn.Module):
-    """ This function implements a basic GRU Cell for a timestep of input.
+    """ This class implements a basic GRU Cell for a timestep of input,
+    while GRU() takes the whole sequence as input.
+    It is designed for autoregressive decoder (ex. attentional decoder),
+    which takes one input at a time.
+    Using torch.nn.GRUCell() instead of torch.nn.GRU() to reduce VRAM
+    consumption.
 
     It accepts in input tensors formatted as (batch, fea).
 
@@ -592,7 +602,12 @@ class GRUCell(nn.Module):
 
 
 class LSTMCell(nn.Module):
-    """ This function implements a basic LSTM Cell for a timestep of input.
+    """ This class implements a basic LSTM Cell for a timestep of input,
+    while LSTM() takes the whole sequence as input.
+    It is designed for autoregressive decoder (ex. attentional decoder),
+    which takes one input at a time.
+    Using torch.nn.LSTMCell() instead of torch.nn.LSTM() to reduce VRAM
+    consumption.
 
     It accepts in input tensors formatted as (batch, fea).
 
