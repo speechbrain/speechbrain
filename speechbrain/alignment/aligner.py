@@ -10,6 +10,82 @@ import random
 from speechbrain.decoders.decoders import undo_padding
 
 
+def map_inds_to_intersect(lists1, lists2, ind2labs):
+    """
+    Converts 2 lists containing indices for phonemes from different
+    phoneme sets to a single phoneme so that comparing the equality
+    of the indices of the resulting lists will yield the correct
+    accuracy.
+
+    Arguments
+    ---------
+    lists1: list of lists of ints
+        Contains the indices of the first sequence of phonemes.
+    lists2: list of lists of ints
+        Contains the indices of the second sequence of phonemes.
+    ind2labs: tuple (dict, dict)
+        Contains the original index-to-label dicts for the first and second
+        sequence of phonemes.
+
+    Returns
+    -------
+    lists1_new: list of lists of ints
+        Contains the indices of the first sequence of phonemes, mapped
+        to the new phoneme set.
+    lists2_new: list of lists of ints
+        Contains the indices of the second sequence of phonemes, mapped
+        to the new phoneme set.
+
+    Example
+    -------
+    >>> lists1 = [[0, 1, 2]]
+    >>> lists2 = [[0, 1]]
+    >>> ind2lab1 = {
+    ...        0: "a",
+    ...        1: "b",
+    ...        2: "c",
+    ...        }
+    >>> ind2lab2 = {
+    ...        0: "a",
+    ...        1: "d",
+    ...        }
+    >>> ind2labs = (ind2lab1, ind2lab2)
+    >>> out1, out2 = map_inds_to_intersect(lists1, lists2, ind2labs)
+    >>> out1
+    [[0, 1, 2]]
+    >>> out2
+    [[0, 3]]
+    """
+    ind2lab1, ind2lab2 = ind2labs
+
+    # Form 3 sets:
+    # (1) labs in both mappings
+    # (2) labs in only 1st mapping
+    # (3) labs in only 2nd mapping
+    set1, set2 = set(ind2lab1.values()), set(ind2lab2.values())
+
+    intersect = set1.intersection(set2)
+    set1_only = set1.difference(set2)
+    set2_only = set2.difference(set1)
+
+    new_lab2ind = {lab: i for i, lab in enumerate(intersect)}
+    new_lab2ind.update(
+        {lab: len(new_lab2ind) + i for i, lab in enumerate(set1_only)}
+    )
+    new_lab2ind.update(
+        {lab: len(new_lab2ind) + i for i, lab in enumerate(set2_only)}
+    )
+
+    # Map lists to labels and apply new_lab2ind
+    lists1_lab = [[ind2lab1[ind] for ind in utt] for utt in lists1]
+    lists2_lab = [[ind2lab2[ind] for ind in utt] for utt in lists2]
+
+    lists1_new = [[new_lab2ind[lab] for lab in utt] for utt in lists1_lab]
+    lists2_new = [[new_lab2ind[lab] for lab in utt] for utt in lists2_lab]
+
+    return lists1_new, lists2_new
+
+
 def batch_log_matvecmul(A, b):
     """
     For each 'matrix' and 'vector' pair in the batch, do matrix-vector
@@ -153,11 +229,17 @@ class HMMAligner(torch.nn.Module):
                     break
 
             lexicon = {}  # {"read": {0: "r eh d", 1: "r iy d"}}
+            lexicon_phones = set()
             for i in range(start_index, len(lines)):
                 line = lines[i]
                 word = line.split()[0]
                 phones = line.split("/")[1]
+
                 phones = "".join([p for p in phones if not p.isdigit()])
+
+                for p in phones.split(" "):
+                    lexicon_phones.add(p)
+
                 if "~" in word:
                     word = word.split("~")[0]
                 if word in lexicon:
@@ -167,7 +249,17 @@ class HMMAligner(torch.nn.Module):
                     lexicon[word] = {0: phones}
             self.lexicon = lexicon
 
-    def _use_lexicon(self, words, phn_lab2ind, interword_sils, sample_pron):
+            lexicon_phones = list(lexicon_phones)
+            lexicon_phones.sort()
+
+            self.lex_lab2ind = {p: i + 1 for i, p in enumerate(lexicon_phones)}
+            self.lex_ind2lab = {i + 1: p for i, p in enumerate(lexicon_phones)}
+
+            # add sil, which is not in the lexicon
+            self.lex_lab2ind["sil"] = 0
+            self.lex_ind2lab[0] = "sil"
+
+    def _use_lexicon(self, words, interword_sils, sample_pron):
         """
         Do processing using the lexicon to return a sequence of the possible
         phonemes, the transition/pi probabilities and the possible final states
@@ -177,8 +269,6 @@ class HMMAligner(torch.nn.Module):
         ---------
         words: list
             list of the words in the transcript
-        phn_lab2ind: dict
-            The mapping from phn label to index.
         interword_sils: bool
             If True: optional silences will be inserted between every word.
             If False: optional silences will only be placed at the beginning
@@ -239,7 +329,7 @@ class HMMAligner(torch.nn.Module):
                 word_prime[1].append([])
                 for p in phonemes:
                     phoneme_indices += [
-                        phn_lab2ind[p] * self.states_per_phoneme + i
+                        self.lex_lab2ind[p] * self.states_per_phoneme + i
                         for i in range(self.states_per_phoneme)
                     ]
                     word_prime[1][pron_idx] += [
@@ -327,7 +417,7 @@ class HMMAligner(torch.nn.Module):
         return poss_phns, log_transition_matrix, start_states, final_states
 
     def use_lexicon(
-        self, words, phn_lab2ind, interword_sils=True, sample_pron=False,
+        self, words, interword_sils=True, sample_pron=False,
     ):
         """
         Do processing using the lexicon to return a sequence of the possible
@@ -340,8 +430,6 @@ class HMMAligner(torch.nn.Module):
         ---------
         words: list
             list of the words in the transcript
-        phn_lab2ind: dict
-            The mapping from phn label to index.
         interword_sils: bool
             If True: optional silences will be inserted between every word.
             If False: optional silences will only be placed at the beginning
@@ -372,7 +460,7 @@ class HMMAligner(torch.nn.Module):
         ...                     "b": {0: "b", 1: "c"}
         ...                   }
         >>> words = [["a", "b"]]
-        >>> phn_lab2index = {
+        >>> aligner.lex_lab2ind = {
         ...                   "sil": 0,
         ...                   "a":  1,
         ...                   "b":  2,
@@ -380,7 +468,6 @@ class HMMAligner(torch.nn.Module):
         ...                 }
         >>> poss_phns, poss_phn_lens, trans_prob, pi_prob, final_states = aligner.use_lexicon(
         ...     words,
-        ...     phn_lab2index,
         ...     interword_sils = True
         ... )
         >>> poss_phns
@@ -408,7 +495,6 @@ class HMMAligner(torch.nn.Module):
         >>> # With no optional silences between words
         >>> poss_phns_, _, trans_prob_, pi_prob_, final_states_ = aligner.use_lexicon(
         ...     words,
-        ...     phn_lab2index,
         ...     interword_sils = False
         ... )
         >>> poss_phns_
@@ -428,7 +514,6 @@ class HMMAligner(torch.nn.Module):
         >>> random.seed(0)
         >>> poss_phns_, _, trans_prob_, pi_prob_, final_states_ = aligner.use_lexicon(
         ...     words,
-        ...     phn_lab2index,
         ...     sample_pron = True
         ... )
         >>> poss_phns_
@@ -440,7 +525,7 @@ class HMMAligner(torch.nn.Module):
                  [-1.0000e+10, -1.0000e+10, -1.0000e+10, -6.9315e-01, -6.9315e-01],
                  [-1.0000e+10, -1.0000e+10, -1.0000e+10, -1.0000e+10,  0.0000e+00]]])
         """
-        self.silence_index = phn_lab2ind["sil"]
+        self.silence_index = self.lex_lab2ind["sil"]
 
         poss_phns = []
         trans_prob = []
@@ -453,9 +538,7 @@ class HMMAligner(torch.nn.Module):
                 trans_prob_,
                 start_states_,
                 final_states_,
-            ) = self._use_lexicon(
-                words_, phn_lab2ind, interword_sils, sample_pron
-            )
+            ) = self._use_lexicon(words_, interword_sils, sample_pron)
             poss_phns.append(poss_phns_)
             trans_prob.append(trans_prob_)
             start_states.append(start_states_)
@@ -1307,9 +1390,6 @@ class HMMAligner(torch.nn.Module):
                 (0, len(true_alignments) - len(alignments_upsampled)),
             )
 
-        # Do conversion in case states_per_phoneme > 1
-        alignments_upsampled = alignments_upsampled // self.states_per_phoneme
-
         # Measure sample-wise accuracy
         accuracy = (
             alignments_upsampled == true_alignments
@@ -1317,7 +1397,7 @@ class HMMAligner(torch.nn.Module):
 
         return accuracy
 
-    def calc_accuracy(self, alignments, ends, phns):
+    def calc_accuracy(self, alignments, ends, phns, ind2labs=None):
         """
         Calculates mean accuracy between predicted alignments and ground truth
         alignments. Ground truth alignments are derived from ground truth phns
@@ -1336,6 +1416,11 @@ class HMMAligner(torch.nn.Module):
         phns: list of lists of ints/floats
             The unpadded list of lists of ground truth phonemes in the batch.
 
+        ind2labs: tuple
+            Optional
+            Contains the original index-to-label dicts for the first and second
+            sequence of phonemes.
+
         Returns
         -------
         mean_acc: float
@@ -1353,6 +1438,18 @@ class HMMAligner(torch.nn.Module):
         75.0
         """
         acc_hist = []
+
+        # Do conversion if states_per_phoneme > 1
+        if self.states_per_phoneme > 1:
+            alignments = [
+                [i // self.states_per_phoneme for i in utt]
+                for utt in alignments
+            ]
+
+        # convert to common alphabet if need be
+        if ind2labs is not None:
+            alignments, phns = map_inds_to_intersect(alignments, phns, ind2labs)
+
         for alignments_, ends_, phns_ in zip(alignments, ends, phns):
             acc = self._calc_accuracy_sent(alignments_, ends_, phns_)
             acc_hist.append(acc)
