@@ -108,6 +108,12 @@ def prepare_dns(
 
     # Split training into validation and training
     if valid_ratio > 0:
+
+        # Sort to ensure same validation set for each run.
+        wav_lst_noise.sort()
+        wav_lst_clean.sort()
+
+        # Split
         valid_count = int(valid_ratio * len(wav_lst_clean))
         valid_lst_noise = wav_lst_noise[:valid_count]
         valid_lst_clean = wav_lst_clean[:valid_count]
@@ -127,6 +133,7 @@ def prepare_dns(
             noise_snr_high=valid_snr_high,
         )
 
+    # Test set has target in parallel "clean" directory
     create_csv(save_csv_test, wav_lst_test, has_target=True)
 
     # Create tr_clean.csv and tr_noise.csv for dynamic mixing the training data
