@@ -137,9 +137,6 @@ def create_csv(
     header = [
         "ID",
         "duration",
-        "wrd",
-        "wrd_format",
-        "wrd_opts",
         "char",
         "char_format",
         "char_opts",
@@ -166,9 +163,6 @@ def create_csv(
             csv_line = [
                 snt_id,
                 len(chars),
-                str(" ".join(wrds.split("_"))),
-                "string",
-                "",
                 str(chars),
                 "string",
                 "",
@@ -178,6 +172,8 @@ def create_csv(
 
             if snt_cnt == select_n_sentences:
                 break
+            if snt_cnt % 10000 == 0:
+                print(snt_cnt)
 
     # Final print
     msg = "\t%s sucessfully created!" % (csv_file)
