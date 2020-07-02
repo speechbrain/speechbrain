@@ -1,6 +1,9 @@
 import numpy
 import copy
-import scipy
+
+from scipy import linalg
+
+# from numpy import linalg
 
 STAT_TYPE = numpy.float64
 
@@ -178,7 +181,8 @@ class StatObject_SB:
             sqr_inv_sigma = sigma
 
             if not isSqrInvSigma:
-                eigen_values, eigen_vectors = scipy.linalg.eigh(sigma)
+                # eigen_values, eigen_vectors = scipy.linalg.eigh(sigma)
+                eigen_values, eigen_vectors = linalg.eigh(sigma)
                 ind = eigen_values.real.argsort()[::-1]
                 eigen_values = eigen_values.real[ind]
                 eigen_vectors = eigen_vectors.real[:, ind]
