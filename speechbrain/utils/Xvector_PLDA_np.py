@@ -6,6 +6,8 @@ STAT_TYPE = numpy.float64
 
 class StatObject_SB:
     """A util class for PLDA class used for statistics calculations
+    This is also used after Xvector extractor to pack xvectors and
+    meta information as decribed below.
 
     Arguments
     ---------
@@ -23,7 +25,6 @@ class StatObject_SB:
     stat1: tensor
         a ndarray of float64. Each line contains 1-order statistics
         from the corresponding session
-
     """
 
     def __init__(
