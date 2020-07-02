@@ -103,18 +103,15 @@ class StatObject_SB:
 
     def sum_stat_per_model(self):
         """Sum the zero- and first-order statistics per model and store them
-        in a new StatServer.
-        Returns a StatServer object with the statistics summed per model
+        in a new StatObject_SB.
+        Returns a StatObject_SB object with the statistics summed per model
             and a numpy array with session_per_model
         """
-        # sts_per_model = sidekit.StatServer()
         sts_per_model = StatObject_SB()
         sts_per_model.modelset = numpy.unique(
             self.modelset
         )  # nd: get uniq spkr ids
-        sts_per_model.segset = copy.deepcopy(
-            sts_per_model.modelset
-        )  # same as uniq spkr ids ^^
+        sts_per_model.segset = copy.deepcopy(sts_per_model.modelset)
         sts_per_model.stat0 = numpy.zeros(
             (sts_per_model.modelset.shape[0], self.stat0.shape[1]),
             dtype=STAT_TYPE,
@@ -123,10 +120,12 @@ class StatObject_SB:
             (sts_per_model.modelset.shape[0], self.stat1.shape[1]),
             dtype=STAT_TYPE,
         )
-        sts_per_model.start = numpy.empty(
-            sts_per_model.segset.shape, "|O"
-        )  # ndf: restruture this
-        sts_per_model.stop = numpy.empty(sts_per_model.segset.shape, "|O")
+
+        # Keep this. may need this in future (Nauman)
+        # sts_per_model.start = numpy.empty(
+        #    sts_per_model.segset.shape, "|O"
+        # )  # ndf: restruture this
+        # sts_per_model.stop = numpy.empty(sts_per_model.segset.shape, "|O")
 
         session_per_model = numpy.zeros(numpy.unique(self.modelset).shape[0])
 
