@@ -22,10 +22,7 @@ Credits
 """
 
 import numpy
-import pickle
-import sys  # noqa F401
 import copy
-import time  # noqa F401
 
 # from numpy import linalg
 from scipy import linalg
@@ -232,6 +229,35 @@ class PLDA:
         Eigenvoice matrix
     Sigma: tensor
         Residual matrix
+
+    Example
+    -------
+    >>> from speechbrain.utils.Xvector_PLDA_sp import StatObject_SB, Ndx, Scores
+    >>> from PLDA_sp import *
+    >>> data_dir = "/Users/nauman/Desktop/Mila/nauman/Data/xvect-sdk/sb-format/"
+    >>> train_file = data_dir + "VoxCeleb1_training_rvectors.pkl"
+    >>> with open(train_file, "rb") as xvectors:
+    ...     train_obj = pickle.load(xvectors)
+    ...
+    >>> plda = PLDA()
+    >>> plda.plda(train_obj)
+    >>> enrol_file = data_dir + "VoxCeleb1_enrol_rvectors.pkl"
+    >>> test_file = data_dir + "VoxCeleb1_test_rvectors.pkl"
+    >>> ndx_file = data_dir + "ndx.pkl"
+    >>> with open(enrol_file, "rb") as xvectors:
+    ...     enrol_obj = pickle.load(xvectors)
+    ...
+    >>> with open(test_file, "rb") as xvectors:
+    ...     test_obj = pickle.load(xvectors)
+    ...
+    >>> with open(ndx_file, "rb") as ndxes:
+    ...     ndx_obj = pickle.load(ndxes)
+    ...
+    >>> scores_plda = fast_PLDA_scoring(enrol_obj, test_obj, ndx_obj, plda.mean, plda.F, plda.Sigma)
+    >>> scores_plda.scoremat[:3, :3]
+    array([[-2.98146610e+07,  7.81558818e+07, -5.62018466e+07],
+       [ 1.80313207e+08, -4.90753877e+08,  3.39299061e+08],
+       [ 1.54824606e+08, -4.21029694e+08,  2.89427688e+08]])
     """
 
     def __init__(self, mean=None, F=None, Sigma=None):
@@ -365,47 +391,3 @@ class PLDA:
 
             # Minimum Divergence step
             self.F = self.F.dot(linalg.cholesky(_R))
-
-
-if __name__ == "__main__":
-    data_dir = "/Users/nauman/Desktop/Mila/nauman/Data/xvect-sdk/sb-format/"
-    train_file = data_dir + "VoxCeleb1_training_rvectors.pkl"
-
-    # read extracted vectors (xvect, ivect, dvect, etc.)
-    t1 = time.time()
-    # print ("pkl: loading Xvector Voxceleb-1 train file")
-    with open(train_file, "rb") as xvectors:
-        train_obj = pickle.load(xvectors)
-    print("pkl: loading Xvector Voxceleb-1 train file: ", time.time() - t1)
-    print("Now PLDA training model..")
-    # Train the model
-    plda = PLDA()
-    a = time.time()
-    plda.plda(train_obj)
-    print("Model training runtime = ", time.time() - a)
-    print("sb_M: ", plda.mean[:20])
-    print("sb_F: ", plda.F)
-    print("sb_S: ", plda.Sigma)
-
-    # Scoring
-    enrol_file = data_dir + "VoxCeleb1_enrol_rvectors.pkl"
-    test_file = data_dir + "VoxCeleb1_test_rvectors.pkl"
-    ndx_file = data_dir + "ndx.pkl"
-    with open(enrol_file, "rb") as xvectors:
-        enrol_obj = pickle.load(xvectors)
-    with open(test_file, "rb") as xvectors:
-        test_obj = pickle.load(xvectors)
-    with open(ndx_file, "rb") as ndxes:
-        ndx_obj = pickle.load(ndxes)
-
-    print("Started PLDA scoring...")
-    # Update bosaris:- Ndx and Score class
-    b = time.time()
-    scores_plda = fast_PLDA_scoring(
-        enrol_obj, test_obj, ndx_obj, plda.mean, plda.F, plda.Sigma
-    )
-    print("Scoring module runtime = ", time.time() - b)
-
-    print("Scores with SpeechBrain: \n")
-    # print(scores_plda.scoremat.shape)
-    print(scores_plda.scoremat[:3, :3])
