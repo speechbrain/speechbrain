@@ -1,13 +1,10 @@
-import torch  # noqa F401
 import numpy
 import pickle
 import sys  # noqa F401
 import copy
 import time  # noqa F401
-from scipy import linalg
 
-# from PLDA_StatServer import StatObject_SB  # noqa F401
-from PLDA_utils_scipy import *  # StatObject_SB  # noqa F401
+from speechbrain.utils.Xvector_PLDA_sp import *  # noqa F403
 
 
 def fa_model_loop(
@@ -37,7 +34,7 @@ def fa_model_loop(
         A = factor_analyser.F.T.dot(factor_analyser.F)
         inv_lambda_unique = dict()
         for sess in numpy.unique(stat0[:, 0]):
-            inv_lambda_unique[sess] = linalg.inv(
+            inv_lambda_unique[sess] = numpy.linalg.inv(
                 sess * A + numpy.eye(A.shape[0])
             )
 
@@ -49,7 +46,7 @@ def fa_model_loop(
 
     for idx in mini_batch_indices:
         if factor_analyser.Sigma.ndim == 1:
-            inv_lambda = linalg.inv(
+            inv_lambda = numpy.linalg.inv(
                 numpy.eye(rank)
                 + (factor_analyser.F.T * stat0[idx + batch_start, :]).dot(
                     factor_analyser.F
@@ -137,12 +134,12 @@ def fast_PLDA_scoring(
         enroll_ctr = enroll_ctr.mean_stat_per_model()
 
     # Compute constant component of the PLDA distribution
-    invSigma = linalg.inv(Sigma)
+    invSigma = numpy.linalg.inv(Sigma)
     I_spk = numpy.eye(F.shape[1], dtype="float")
 
     K = F.T.dot(invSigma * scaling_factor).dot(F)
-    K1 = linalg.inv(K + I_spk)
-    K2 = linalg.inv(2 * K + I_spk)
+    K1 = numpy.linalg.inv(K + I_spk)
+    K2 = numpy.linalg.inv(2 * K + I_spk)
 
     # Compute the Gaussian distribution constant
     alpha1 = numpy.linalg.slogdet(K1)[1]
@@ -152,9 +149,11 @@ def fast_PLDA_scoring(
     # Compute intermediate matrices
     Sigma_ac = numpy.dot(F, F.T)
     Sigma_tot = Sigma_ac + Sigma
-    Sigma_tot_inv = linalg.inv(Sigma_tot)
+    Sigma_tot_inv = numpy.linalg.inv(Sigma_tot)
 
-    Tmp = linalg.inv(Sigma_tot - Sigma_ac.dot(Sigma_tot_inv).dot(Sigma_ac))
+    Tmp = numpy.linalg.inv(
+        Sigma_tot - Sigma_ac.dot(Sigma_tot_inv).dot(Sigma_ac)
+    )
     Phi = Sigma_tot_inv - Tmp
     Psi = Sigma_tot_inv.dot(Sigma_ac).dot(Tmp)
 
@@ -196,6 +195,8 @@ def fast_PLDA_scoring(
 
 class PLDA:
     """A class to train PLDA model from ivectors/xvector
+
+    Ye Jiang et. al., 2015
 
     Arguments
     ---------
@@ -258,8 +259,7 @@ class PLDA:
         session_per_model *= scaling_factor
 
         sigma_obs = stat_server.get_total_covariance_stat1()
-        evals, evecs = linalg.eigh(sigma_obs)
-        # evals, evecs = linalg.eigh(sigma_obs)
+        evals, evecs = numpy.linalg.eigh(sigma_obs)
         idx = numpy.argsort(evals)[::-1]
         evecs = evecs.real[:, idx[:rank_f]]
         self.F = evecs[:, :rank_f]
@@ -278,7 +278,7 @@ class PLDA:
             local_stat.whiten_stat1(self.mean, self.Sigma)
 
             # Whiten the EigenVoice matrix
-            eigen_values, eigen_vectors = linalg.eigh(self.Sigma)
+            eigen_values, eigen_vectors = numpy.linalg.eigh(self.Sigma)
             ind = eigen_values.real.argsort()[::-1]
             eigen_values = eigen_values.real[ind]
             eigen_vectors = eigen_vectors.real[:, ind]
@@ -310,18 +310,20 @@ class PLDA:
             # Accumulate for minimum divergence step
             _R = numpy.sum(e_hh, axis=0) / session_per_model.shape[0]
 
-            _C = e_h.T.dot(local_stat.stat1).dot(linalg.inv(sqr_inv_sigma))
+            _C = e_h.T.dot(local_stat.stat1).dot(
+                numpy.linalg.inv(sqr_inv_sigma)
+            )
             _A = numpy.einsum("ijk,i->jk", e_hh, local_stat.stat0.squeeze())
 
             # M-step
             print("M-step")
-            self.F = linalg.solve(_A, _C).T
+            self.F = numpy.linalg.solve(_A, _C).T
 
             # Update the residual covariance
             self.Sigma = sigma_obs - self.F.dot(_C) / session_per_model.sum()
 
             # Minimum Divergence step
-            self.F = self.F.dot(linalg.cholesky(_R))
+            self.F = self.F.dot(numpy.linalg.cholesky(_R))
 
 
 if __name__ == "__main__":
@@ -329,12 +331,9 @@ if __name__ == "__main__":
     train_file = data_dir + "VoxCeleb1_training_rvectors.pkl"
 
     # read extracted vectors (xvect, ivect, dvect, etc.)
-    t1 = time.time()
-    # print ("pkl: loading Xvector Voxceleb-1 train file")
     with open(train_file, "rb") as xvectors:
         train_obj = pickle.load(xvectors)
-    print("pkl: loading Xvector Voxceleb-1 train file: ", time.time() - t1)
-    print("Now PLDA training model..")
+
     # Train the model
     plda = PLDA()
     a = time.time()
