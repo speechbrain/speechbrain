@@ -143,7 +143,10 @@ class StatObject_SB:
     def center_stat1(self, mu):
         """Center first order statistics.
 
-        :param mu: array to center on.
+        Arguments
+        ---------
+        mu: array
+            array to center on.
         """
         dim = self.stat1.shape[1] / self.stat0.shape[1]
         index_map = numpy.repeat(numpy.arange(self.stat0.shape[1]), dim)
@@ -154,8 +157,10 @@ class StatObject_SB:
     def rotate_stat1(self, R):
         """Rotate first-order statistics by a right-product.
 
-        :param R: ndarray, matrix to use for right product on the first order
-            statistics.
+        Arguments
+        ---------
+        R: ndarray,
+            matrix to use for right product on the first order statistics.
         """
         self.stat1 = numpy.dot(self.stat1, R)
 
@@ -165,10 +170,14 @@ class StatObject_SB:
         If sigma.ndim == 2, case of a single Gaussian with full covariance
         If sigma.ndim == 3, case of a full covariance UBM
 
-        :param mu: array, mean vector to be subtracted from the statistics
-        :param sigma: narray, co-variance matrix or covariance super-vector
-        :param isSqrInvSigma: boolean, True if the input Sigma matrix is the inverse of the square root of a covariance
-         matrix
+        Arguments
+        ---------
+        mu: array
+            mean vector to be subtracted from the statistics
+        sigma: narray
+            co-variance matrix or covariance super-vector
+        isSqrInvSigma: boolean
+            True if the input Sigma matrix is the inverse of the square root of a covariance matrix
         """
 
         if sigma.ndim == 1:
@@ -219,7 +228,10 @@ class StatObject_SB:
             provided as input parameter. The size of the StatServer might be
             reduced to match the input list of models.
 
-        :param model_list: ndarray of strings, list of models to match
+        Arguments
+        ---------
+        model_list: ndarray of strings
+            list of models to match
         """
         indx = numpy.array(
             [numpy.argwhere(self.modelset == v)[0][0] for v in model_list]
@@ -236,7 +248,10 @@ class StatObject_SB:
             provided as input parameter. The size of the StatServer might be
             reduced to match the input list of segments.
 
-        :param segment_list: ndarray of strings, list of segments to match
+        Arguments
+        ---------
+        segment_list: ndarray of strings
+            list of segments to match
         """
         indx = numpy.array(
             [numpy.argwhere(self.segset == v)[0][0] for v in segment_list]
@@ -266,19 +281,25 @@ class Ndx:
     indicating which combinations of model and test segment are
     trials of interest.
 
-    :attr modelset: list of unique models in a ndarray
-    :attr segset:  list of unique test segments in a ndarray
-    :attr trialmask: 2D ndarray of boolean. Rows correspond to the models
-            and columns to the test segments. True if the trial is of interest.
+    Arguments
+    ---------
+    modelset: list
+        list of unique models in a ndarray
+    segset: list
+        list of unique test segments in a ndarray
+    trialmask: 2D ndarray of boolean.
+        Rows correspond to the models and columns to the test segments. True if the trial is of interest.
     """
 
     def __init__(
         self, ndx_file_name="", models=numpy.array([]), testsegs=numpy.array([])
     ):
-        """Initialize a Ndx object by loading information from a file
-        in HDF5 or text format.
+        """Initialize a Ndx object by loading information from a file.
 
-        :param ndx_file_name: name of the file to load
+        Arguments
+        ---------
+        ndx_file_name: str
+            name of the file to load
         """
         self.modelset = numpy.empty(0, dtype="|O")
         self.segset = numpy.empty(0, dtype="|O")
@@ -312,14 +333,14 @@ class Ndx:
         value of \'keep\', the two input lists indicate the strings to
         retain or the strings to discard.
 
-        :param modlist: a cell array of strings which will be compared with
-                the modelset of 'inndx'.
-        :param seglist: a cell array of strings which will be compared with
-                the segset of 'inndx'.
-        :param keep: a boolean indicating whether modlist and seglist are the
-                models to keep or discard.
-
-        :return: a filtered version of the current Ndx object.
+        Arguments
+        ---------
+        modlist: array
+            a cell array of strings which will be compared with the modelset of 'inndx'.
+        seglist: array
+            a cell array of strings which will be compared with the segset of 'inndx'.
+        keep: bool
+            indicating whether modlist and seglist are the models to keep or discard.
         """
         if keep:
             keepmods = modlist
@@ -355,9 +376,7 @@ class Ndx:
 
     def validate(self):
         """Checks that an object of type Ndx obeys certain rules that
-        must always be true.
-
-        :return: a boolean value indicating whether the object is valid
+        must always be true. Returns a boolean value indicating whether the object is valid
         """
         ok = isinstance(self.modelset, numpy.ndarray)
         ok &= isinstance(self.segset, numpy.ndarray)
@@ -380,17 +399,25 @@ class Scores:
     The element i,j of scoremat and scoremask corresponds to the
     trial involving model i and test segment j.
 
-    :attr modelset: list of unique models in a ndarray
-    :attr segset: list of unique test segments in a ndarray
-    :attr scoremask: 2D ndarray of boolean which indicates the trials of interest
-            i.e. the entry i,j in scoremat should be ignored if scoremask[i,j] is False
-    :attr scoremat: 2D ndarray of scores
+    Arguments
+    ---------
+    modelset: list
+        list of unique models in a ndarray
+    segset: list
+        list of unique test segments in a ndarray
+    scoremask: 2D ndarray of boolean
+        indicates the trials of interest i.e. the entry i,j in scoremat should be ignored if scoremask[i,j] is False
+    scoremat: 2D ndarray
+        scores
     """
 
     def __init__(self, scores_file_name=""):
         """ Initialize a Scores object by loading information from a file HDF5 format.
 
-        :param scores_file_name: name of the file to load
+        Arguments
+        ---------
+        scores_file_name: str
+            name of the file to load
         """
         self.modelset = numpy.empty(0, dtype="|O")
         self.segset = numpy.empty(0, dtype="|O")
