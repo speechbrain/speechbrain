@@ -5,15 +5,16 @@ Authors
  * Anthony Larcher 2020
 
 References
- - This implemenatation is based of following references.
+ - This implemenatation is based of following papers.
 
  - PLDA model Training
-    * Ye Jiang et. al, "PLDA Modeling in I-Vector and Supervector Space for Speaker Verification", Interspeech, 2012.
-    * Patrick Kenny et. al, "PLDA for speaker verification with utterances of arbitrary duration," ICASSP, 2013.
+    * Ye Jiang et. al, "PLDA Modeling in I-Vector and Supervector Space for Speaker Verification," in Interspeech, 2012.
+    * Patrick Kenny et. al, "PLDA for speaker verification with utterances of arbitrary duration," in ICASSP, 2013.
 
  - PLDA scoring (fast scoring)
-    * Kong Aik Lee et. al, "Multi-session PLDA Scoring of I-vector for Partially Open-Set Speaker Detection", Interspeech 2013.
-    * Weiwei-LIN et. al, "Fast Scoring for PLDA with Uncertainty Propagation", Odyssey, 2016.
+    * Daniel Garcia-Romero et. al, “Analysis of i-vector length normalization in speaker recognition systems,” in Interspeech, 2011.
+    * Weiwei-LIN et. al, "Fast Scoring for PLDA with Uncertainty Propagation," in Odyssey, 2016.
+    * Kong Aik Lee et. al, "Multi-session PLDA Scoring of I-vector for Partially Open-Set Speaker Detection," in Interspeech 2013.
 
 Credits
     Most parts of this code is directly adapted from:
@@ -26,9 +27,8 @@ import sys  # noqa F401
 import copy
 import time  # noqa F401
 
-from scipy import linalg
-
 # from numpy import linalg
+from scipy import linalg
 from speechbrain.utils.Xvector_PLDA_sp import StatObject_SB  # noqa F401
 from speechbrain.utils.Xvector_PLDA_sp import Ndx  # noqa F401
 from speechbrain.utils.Xvector_PLDA_sp import Scores  # noqa F401
@@ -53,7 +53,7 @@ def fa_model_loop(
         matrix of first order statistics
     e_h: tensor
         accumulator
-    e_hh: tensor (3-dim)
+    e_hh: tensor
         accumulator
     """
     rank = factor_analyser.F.shape[1]
@@ -65,10 +65,9 @@ def fa_model_loop(
                 sess * A + numpy.eye(A.shape[0])
             )
 
-    STAT_TYPE = numpy.float64
     tmp = numpy.zeros(
         (factor_analyser.F.shape[1], factor_analyser.F.shape[1]),
-        dtype=STAT_TYPE,
+        dtype=numpy.float64,
     )
 
     for idx in mini_batch_indices:
@@ -117,13 +116,13 @@ def fast_PLDA_scoring(
 
     Arguments
     ---------
-    enroll: StatServer object
+    enroll: speechbrain.utils.Xvector_PLDA_sp.StatObject_SB
         a StatServer in which stat1 are xvectors
-    test: StatServer object
+    test: speechbrain.utils.Xvector_PLDA_sp.StatObject_SB
         a StatServer in which stat1 are xvectors
-    ndx: Ndx object
+    ndx: speechbrain.utils.Xvector_PLDA_sp.Ndx
         an Ndx object defining the list of trials to perform
-    mu: 1d tensor
+    mu: double
         the mean vector of the PLDA gaussian
     F: tensor
         the between-class co-variance matrix of the PLDA
@@ -279,34 +278,40 @@ class PLDA:
             save_partial: boolean, if True, save PLDA model after each iteration
         """
 
-        # dimension of the vector
+        # Dimension of the vector (x-vectors stored in stat1)
         vect_size = stat_server.stat1.shape[1]  # noqa F841
 
         # Initialize mean and residual covariance from the training data
         self.mean = stat_server.get_mean_stat1()
         self.Sigma = stat_server.get_total_covariance_stat1()
 
+        # Sum stat0 and stat1 for each speaker model
         model_shifted_stat, session_per_model = stat_server.sum_stat_per_model()
-        class_nb = model_shifted_stat.modelset.shape[0]  # noqa F841
+
+        # Number of speakers (classes) in training set
+        class_nb = model_shifted_stat.modelset.shape[0]
 
         # Multiply statistics by scaling_factor
         model_shifted_stat.stat0 *= scaling_factor
         model_shifted_stat.stat1 *= scaling_factor
         session_per_model *= scaling_factor
 
+        # Covariance for stat1
         sigma_obs = stat_server.get_total_covariance_stat1()
         evals, evecs = linalg.eigh(sigma_obs)
 
+        # Initial F (eigen voice matrix) from rank
         idx = numpy.argsort(evals)[::-1]
         evecs = evecs.real[:, idx[:rank_f]]
         self.F = evecs[:, :rank_f]
 
         # Estimate PLDA model by iterating the EM algorithm
         for it in range(nb_iter):
-            print(f"Estimate between class covariance, it {it+1} / {nb_iter}")
 
             # E-step
-            print("E_step")
+            print(
+                f"\nE-step: Estimate between class covariance, it {it+1} / {nb_iter}"
+            )
 
             # Copy stats as they will be whitened with a different Sigma for each iteration
             local_stat = copy.deepcopy(model_shifted_stat)
@@ -326,10 +331,11 @@ class PLDA:
             self.F = sqr_inv_sigma.T.dot(self.F)
 
             # Replicate self.stat0
+            # index_map = numpy.zeros(vect_size, dtype=int)
+            # _stat0 = local_stat.stat0[:, index_map]
             index_map = numpy.zeros(vect_size, dtype=int)
             _stat0 = local_stat.stat0[:, index_map]
 
-            # Initialize for accumulation
             e_h = numpy.zeros((class_nb, rank_f))
             e_hh = numpy.zeros((class_nb, rank_f, rank_f))
 
@@ -351,7 +357,7 @@ class PLDA:
             _A = numpy.einsum("ijk,i->jk", e_hh, local_stat.stat0.squeeze())
 
             # M-step
-            print("M-step")
+            print("M-step: Updating F and Sigma")
             self.F = linalg.solve(_A, _C).T
 
             # Update the residual covariance
