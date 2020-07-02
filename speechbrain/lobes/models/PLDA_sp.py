@@ -1,11 +1,37 @@
+"""A popular speaker recognition/diarization model.
+
+Authors
+ * Nauman Dawalatabad 2020
+ * Anthony Larcher 2020
+
+References
+ - This implemenatation is based of following references.
+
+ - PLDA model Training
+    * Ye Jiang et. al, "PLDA Modeling in I-Vector and Supervector Space for Speaker Verification", Interspeech, 2012.
+    * Patrick Kenny et. al, "PLDA for speaker verification with utterances of arbitrary duration," ICASSP, 2013.
+
+ - PLDA scoring (fast scoring)
+    * Kong Aik Lee et. al, "Multi-session PLDA Scoring of I-vector for Partially Open-Set Speaker Detection", Interspeech 2013.
+    * Weiwei-LIN et. al, "Fast Scoring for PLDA with Uncertainty Propagation", Odyssey, 2016.
+
+Credits
+    Most parts of this code is directly adapted from:
+    https://git-lium.univ-lemans.fr/Larcher/sidekit
+"""
+
 import numpy
 import pickle
 import sys  # noqa F401
 import copy
 import time  # noqa F401
+
 from scipy import linalg
 
-from speechbrain.utils.Xvector_PLDA_sp import *  # noqa F403
+# from numpy import linalg
+from speechbrain.utils.Xvector_PLDA_sp import StatObject_SB  # noqa F401
+from speechbrain.utils.Xvector_PLDA_sp import Ndx  # noqa F401
+from speechbrain.utils.Xvector_PLDA_sp import Scores  # noqa F401
 
 
 def fa_model_loop(
@@ -87,7 +113,7 @@ def fast_PLDA_scoring(
 ):
     """Compute the PLDA scores between to sets of vectors. The list of
     trials to perform is given in an Ndx object. PLDA matrices have to be
-    pre-computed. i-vectors are supposed to be whitened before.
+    pre-computed. i-vectors/x-vectors are supposed to be whitened before.
 
     Arguments
     ---------
@@ -194,6 +220,8 @@ def fast_PLDA_scoring(
 
 class PLDA:
     """A class to train PLDA model from ivectors/xvector
+    The input is in speechbrain.utils.StatObject_SB format.
+    Trains a simplified PLDA model no within class covariance matrix but full residual covariance matrix.
 
     Arguments
     ---------
@@ -204,19 +232,13 @@ class PLDA:
     F: tensor
         Eigenvoice matrix
     Sigma: tensor
-        Residual Matrix
-
+        Residual matrix
     """
 
-    def __init__(self, input_file_name=None, mean=None, F=None, Sigma=None):
-
-        if input_file_name is not None:
-            # future
-            pass
-        else:
-            self.mean = None
-            self.F = None
-            self.Sigma = None
+    def __init__(self, mean=None, F=None, Sigma=None):
+        self.mean = None
+        self.F = None
+        self.Sigma = None
 
         if mean is not None:
             self.mean = mean
@@ -226,6 +248,7 @@ class PLDA:
             self.Sigma = Sigma
 
     def _save_plda_model():
+        # Just incase someone wants to save it.
         # should have a common object structure
         pass
 
@@ -240,12 +263,28 @@ class PLDA:
         scaling_factor=1.0,
         output_file_name=None,
     ):
-        # can remove scaling factor (without uncertainity propagation)
+        """Trains PLDA model with no within class covariance matrix but full residual covariance matrix.
+
+        Arguments
+        ---------
+        stat_server:
+            object of speechbrain.utils.Xvector_PLDA_sp.StatObject_SB
+        rank_f:
+            rank of the between class covariance matrix
+        nb_iter:
+            number of iterations to run
+        scaling_factor:
+            scaling factor to downscale statistics (value bewteen 0 and 1)
+        output_file_name: name of the output file where to store PLDA model
+            save_partial: boolean, if True, save PLDA model after each iteration
+        """
+
+        # dimension of the vector
         vect_size = stat_server.stat1.shape[1]  # noqa F841
 
         # Initialize mean and residual covariance from the training data
         self.mean = stat_server.get_mean_stat1()
-        self.Sigma = stat_server.get_total_covariance_stat1()  # global
+        self.Sigma = stat_server.get_total_covariance_stat1()
 
         model_shifted_stat, session_per_model = stat_server.sum_stat_per_model()
         class_nb = model_shifted_stat.modelset.shape[0]  # noqa F841
@@ -257,7 +296,7 @@ class PLDA:
 
         sigma_obs = stat_server.get_total_covariance_stat1()
         evals, evecs = linalg.eigh(sigma_obs)
-        # evals, evecs = linalg.eigh(sigma_obs)
+
         idx = numpy.argsort(evals)[::-1]
         evecs = evecs.real[:, idx[:rank_f]]
         self.F = evecs[:, :rank_f]
@@ -290,7 +329,7 @@ class PLDA:
             index_map = numpy.zeros(vect_size, dtype=int)
             _stat0 = local_stat.stat0[:, index_map]
 
-            # ND: Initialize matrices
+            # Initialize for accumulation
             e_h = numpy.zeros((class_nb, rank_f))
             e_hh = numpy.zeros((class_nb, rank_f, rank_f))
 
