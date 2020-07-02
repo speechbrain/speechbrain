@@ -38,23 +38,22 @@ def map_inds_to_intersect(lists1, lists2, ind2labs):
 
     Example
     -------
-    >>> lists1 = [[0, 1, 2]]
+    >>> lists1 = [[0, 1]]
     >>> lists2 = [[0, 1]]
     >>> ind2lab1 = {
     ...        0: "a",
     ...        1: "b",
-    ...        2: "c",
     ...        }
     >>> ind2lab2 = {
     ...        0: "a",
-    ...        1: "d",
+    ...        1: "c",
     ...        }
     >>> ind2labs = (ind2lab1, ind2lab2)
     >>> out1, out2 = map_inds_to_intersect(lists1, lists2, ind2labs)
     >>> out1
-    [[0, 1, 2]]
+    [[0, 1]]
     >>> out2
-    [[0, 3]]
+    [[0, 2]]
     """
     ind2lab1, ind2lab2 = ind2labs
 
