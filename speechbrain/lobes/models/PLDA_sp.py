@@ -233,7 +233,7 @@ class PLDA:
     Example
     -------
     >>> from speechbrain.utils.Xvector_PLDA_sp import StatObject_SB, Ndx, Scores
-    >>> from PLDA_sp import *
+    >>> from PLDA_sp import PLDA
     >>> data_dir = "/Users/nauman/Desktop/Mila/nauman/Data/xvect-sdk/sb-format/"
     >>> train_file = data_dir + "VoxCeleb1_training_rvectors.pkl"
     >>> with open(train_file, "rb") as xvectors:
