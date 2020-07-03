@@ -21,8 +21,7 @@ class XvectorBrain(sb.core.Brain):
 
         feats = params.compute_features(wavs, init_params)
         feats = params.mean_var_norm(feats, lens)
-
-        x_vect = params.xvector_model(feats, init_params)
+        x_vect = params.xvector_model(feats, lens, init_params=init_params)
         outputs = params.classifier(x_vect, init_params)
 
         return outputs, lens
@@ -53,9 +52,9 @@ class Extractor(Sequential):
         super().__init__()
         self.model = model
 
-    def get_emb(self, feats):
+    def get_emb(self, feats, lens):
 
-        emb = self.model(feats)
+        emb = self.model(feats, lens)
 
         return emb
 
@@ -65,7 +64,7 @@ class Extractor(Sequential):
         feats = params.compute_features(wavs, init_params=False)
         feats = params.mean_var_norm(feats, lens)
 
-        emb = self.get_emb(feats)
+        emb = self.get_emb(feats, lens)
         emb = emb.detach()
 
         return emb

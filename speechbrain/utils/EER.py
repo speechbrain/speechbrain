@@ -30,6 +30,8 @@ def EER(positive_scores, negative_scores):
     """
 
     # Computing candidate thresholds
+    positive_scores = positive_scores.float()
+    negative_scores = negative_scores.float()
     thresholds, _ = torch.sort(torch.cat([positive_scores, negative_scores]))
     thresholds = torch.unique(thresholds)
 
@@ -37,19 +39,19 @@ def EER(positive_scores, negative_scores):
     interm_thresholds = (thresholds[0:-1] + thresholds[1:]) / 2
     thresholds, _ = torch.sort(torch.cat([thresholds, interm_thresholds]))
 
-    # Computing False Acceptance Rate
+    # Computing False Rejection Rate
     positive_scores = torch.cat(
         len(thresholds) * [positive_scores.unsqueeze(0)]
     )
-    positive_scores_threshold = positive_scores.transpose(0, 1) < thresholds
-    FAR = (positive_scores_threshold.sum(0)).float() / positive_scores.shape[1]
+    positive_scores_threshold = positive_scores.transpose(0, 1) <= thresholds
+    FRR = (positive_scores_threshold.sum(0)).float() / positive_scores.shape[1]
 
-    # Computing False Rejection Rate
+    # Computing False Aceptance Rate
     negative_scores = torch.cat(
         len(thresholds) * [negative_scores.unsqueeze(0)]
     )
     negative_scores_threshold = negative_scores.transpose(0, 1) > thresholds
-    FRR = (negative_scores_threshold.sum(0)).float() / negative_scores.shape[1]
+    FAR = (negative_scores_threshold.sum(0)).float() / negative_scores.shape[1]
 
     # Finding the threshold for EER
     min_index = (FAR - FRR).abs().argmin()
