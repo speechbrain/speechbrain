@@ -94,7 +94,7 @@ def prepare_voxceleb(
     else:
         data_folder = [data_folder]
 
-    _check_voxceleb1_folders(data_folder)
+    _check_voxceleb1_folders(data_folder, splits)
 
     msg = "\tCreating csv file for the VoxCeleb1 Dataset.."
     logger.debug(msg)
@@ -159,7 +159,7 @@ def skip(splits, save_folder, conf):
     return skip
 
 
-def _check_voxceleb1_folders(data_folders):
+def _check_voxceleb1_folders(data_folders, splits):
     """
     Check if the data folder actually contains the Voxceleb1 dataset.
 
@@ -175,13 +175,23 @@ def _check_voxceleb1_folders(data_folders):
     """
     for data_folder in data_folders:
 
-        folder = os.path.join(data_folder, "wav", "id10001")
-        if not os.path.exists(folder):
-            err_msg = (
-                "the folder %s does not exist (as it is expected in "
-                "the Voxceleb dataset)" % folder
-            )
-            raise FileNotFoundError(err_msg)
+        if "train" in splits:
+            folder = os.path.join(data_folder, "wav", "id10001")
+            if not os.path.exists(folder):
+                err_msg = (
+                    "the folder %s does not exist (as it is expected in "
+                    "the Voxceleb dataset)" % folder
+                )
+                raise FileNotFoundError(err_msg)
+
+        if "test" in splits:
+            folder = os.path.join(data_folder, "wav", "id10270")
+            if not os.path.exists(folder):
+                err_msg = (
+                    "the folder %s does not exist (as it is expected in "
+                    "the Voxceleb dataset)" % folder
+                )
+                raise FileNotFoundError(err_msg)
 
         folder = os.path.join(data_folder, "meta")
         if not os.path.exists(folder):

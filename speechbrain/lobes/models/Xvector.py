@@ -14,6 +14,14 @@ from speechbrain.nnet.linear import Linear
 from speechbrain.nnet.normalization import BatchNorm1d
 from speechbrain.nnet.activations import Softmax
 
+# URL of the pre-trained models
+XVECTOR_URL = (
+    "https://www.dropbox.com/s/skfz2sme5nw7jji/xvector_model.ckpt?dl=1"
+)
+CLASSIFIER_URL = (
+    "https://www.dropbox.com/s/ure85nam6ok0au7/classifier.ckpt?dl=1"
+)
+
 
 class Xvectors(torch.nn.Module):
     """This model extracts XVectors for speaker recognition and diarization.
@@ -42,7 +50,8 @@ class Xvectors(torch.nn.Module):
     -------
     >>> compute_xvect = Xvectors('cpu')
     >>> input_feats = torch.rand([5, 10, 24])
-    >>> outputs = compute_xvect(input_feats, init_params=True)
+    >>> lens = torch.tensor([0.7,0.7,0.8,0.9,1.0])
+    >>> outputs = compute_xvect(input_feats, lens, init_params=True)
     >>> outputs.shape
     torch.Size([5, 1, 512])
     """
@@ -56,12 +65,14 @@ class Xvectors(torch.nn.Module):
         tdnn_kernel_sizes=[5, 3, 3, 1, 1],
         tdnn_dilations=[1, 2, 3, 1, 1],
         lin_neurons=512,
+        save_web_model=None,
         pretrain_file=None,
     ):
 
         super().__init__()
         self.pretrain_file = pretrain_file
         self.blocks = nn.ModuleList()
+        self.save_web_model = save_web_model
 
         # TDNN layers
         for block_index in range(tdnn_blocks):
@@ -100,10 +111,7 @@ class Xvectors(torch.nn.Module):
             except TypeError:
                 x = layer(x)
 
-        if self.pretrain_file is not None:
-            self.load_state_dict(torch.load(self.pretrain_file))
-
-    def forward(self, x, init_params=False):
+    def forward(self, x, lens, init_params=False):
         """Returns the x vectors.
 
         Arguments
@@ -115,9 +123,10 @@ class Xvectors(torch.nn.Module):
 
         for layer in self.blocks:
             try:
-                x = layer(x, init_params=init_params)
+                x = layer(x, lengths=lens)
             except TypeError:
                 x = layer(x)
+
         return x
 
 
@@ -143,7 +152,8 @@ class Classifier(torch.nn.Module):
     >>> compute_xvect = Xvectors('cpu')
     >>> classify = Classifier('cpu')
     >>> input_feats = torch.rand([5, 10, 24])
-    >>> xvects = compute_xvect(input_feats, init_params=True)
+    >>> lens = torch.tensor([0.7,0.7,0.8,0.9,1.0])
+    >>> xvects = compute_xvect(input_feats, lens, init_params=True)
     >>> output = classify(xvects, init_params=True)
     >>> output.shape
     torch.Size([5, 1, 1211])

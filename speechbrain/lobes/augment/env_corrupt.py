@@ -6,9 +6,8 @@ Authors
 """
 import os
 import torch
-import shutil
 import torchaudio
-import urllib.request
+from speechbrain.utils.data_utils import download_file
 from speechbrain.processing.speech_augmentation import (
     AddBabble,
     AddNoise,
@@ -165,20 +164,13 @@ def _prepare_openrir(folder, reverb_csv, noise_csv, max_noise_len):
         than this will be cut into pieces.
     """
 
-    # Download if necessary
+    # Download and unpack if necessary
     filepath = os.path.join(folder, "rirs_noises.zip")
-    if not os.path.isfile(filepath):
 
-        # Logging is not set up yet, so can't use it here.
-        print(f"Downloading {OPENRIR_URL} to {filepath}")
-        with urllib.request.urlopen(OPENRIR_URL) as response:
-            with open(filepath, "wb") as w:
-                shutil.copyfileobj(response, w)
-
-    # Unpack if necessary
     if not os.path.isdir(os.path.join(folder, "RIRS_NOISES")):
-        print(f"Extracting {filepath}")
-        shutil.unpack_archive(filepath, folder)
+        download_file(OPENRIR_URL, filepath, unpack=True)
+    else:
+        download_file(OPENRIR_URL, filepath)
 
     # Prepare reverb csv if necessary
     if not os.path.isfile(reverb_csv):
