@@ -117,17 +117,18 @@ prepare_librispeech(
     splits=["train-clean-100", "dev-clean", "dev-clean"],
     save_folder=params.data_folder,
 )
-prepare_librispeech_lm_corpus(
-    data_folder=params.data_folder,
-    save_folder=params.data_folder,
-    csv_filename="lm_corpus.csv",
-)
 
 pair_set = params.pair_loader()
 train_set = params.train_loader()
 valid_set = params.valid_loader()
 first_y = next(iter(train_set))
 
+prepare_librispeech_lm_corpus(
+    data_folder=params.data_folder,
+    save_folder=params.data_folder,
+    hdf5_filename="lm_corpus.h5",
+    label_dict=pair_set.label_dict["char"]["lab2index"],
+)
 lm_brain = LM(
     modules=modules, optimizer=params.optimizer, first_inputs=first_y,
 )

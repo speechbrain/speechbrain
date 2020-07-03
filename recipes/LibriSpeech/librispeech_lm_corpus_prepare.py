@@ -7,22 +7,23 @@ Ju-Chieh Chou 2020
 """
 
 import os
-import csv
 import logging
 from speechbrain.data_io.data_io import (
     load_pkl,
     save_pkl,
 )
+import h5py
+import numpy as np
 
 logger = logging.getLogger(__name__)
 OPT_FILE = "opt_librispeech_lm_corpus_prepare.pkl"
 
 
 def prepare_librispeech_lm_corpus(
-    data_folder, save_folder, csv_filename, select_n_sentences=None
+    data_folder, save_folder, hdf5_filename, label_dict, select_n_sentences=None
 ):
     """
-    This function prepares the csv file for the LibriSpeech LM corpus.
+    This function prepares the hdf5 file for the LibriSpeech LM corpus.
     Download link: http://www.openslr.org/11/
 
     Arguments:
@@ -30,8 +31,10 @@ def prepare_librispeech_lm_corpus(
         Path to the folder of LM (normalized) corpus.
     save_folder : str
         folder to store the csv file.
-    csv_filename : str
-        The filename of csv file.
+    hdf5_filename : str
+        The filename of hdf5 file.
+    label_dict : dict
+        The dictionary for label2ind.
     select_n_sentences : int
         Default : None
         If not None, only pick this many sentences.
@@ -40,7 +43,7 @@ def prepare_librispeech_lm_corpus(
     -------
     >>> data_folder = 'dataset/LibriSpeech'
     >>> save_folder = 'librispeech_lm'
-    >>> prepare_librispeech(data_folder, save_folder)
+    >>> prepare_librispeech(data_folder, save_folder, 'lm.h5')
     """
     conf = {
         "select_n_sentences": select_n_sentences,
@@ -51,30 +54,30 @@ def prepare_librispeech_lm_corpus(
     save_opt = os.path.join(save_folder, OPT_FILE)
 
     # Check if this phase is already done (if so, skip it)
-    if skip(save_folder, csv_filename, conf):
+    if skip(save_folder, hdf5_filename, conf):
         logger.debug("Skipping preparation, completed in previous run.")
         return
 
     data_path = os.path.join(data_folder, "librispeech-lm-norm.txt")
 
-    create_csv(
-        data_path, save_folder, csv_filename, select_n_sentences,
+    dump_hdf5(
+        data_path, save_folder, hdf5_filename, label_dict, select_n_sentences,
     )
 
     # saving options
     save_pkl(conf, save_opt)
 
 
-def skip(save_folder, csv_filename, conf):
+def skip(save_folder, hdf5_filename, conf):
     """
-    Detect when the librispeech data prep can be skipped.
+    Detect when the librispeech lm corpus data prep can be skipped.
 
     Arguments
     ---------
     save_folder : str
         The location of the seave directory
-    csv_filename : str
-        The filename of the csv file.
+    hdf5_filename : str
+        The filename of the hdf5 file.
     conf : dict
         The configuration options to ensure they haven't changed.
 
@@ -88,7 +91,7 @@ def skip(save_folder, csv_filename, conf):
     # Checking csv files
     skip = True
 
-    if not os.path.isfile(os.path.join(save_folder, csv_filename + ".csv")):
+    if not os.path.isfile(os.path.join(save_folder, hdf5_filename)):
         skip = False
 
     #  Checking saved options
@@ -106,11 +109,11 @@ def skip(save_folder, csv_filename, conf):
     return skip
 
 
-def create_csv(
-    data_path, save_folder, csv_filename, select_n_sentences,
+def dump_hdf5(
+    data_path, save_folder, hdf5_filename, label_dict, select_n_sentences,
 ):
     """
-    Create the csv file.
+    dump the hdf5 file.
 
     Arguments
     ---------
@@ -118,8 +121,10 @@ def create_csv(
         The path of LM corpus txt file.
     save_folder : str
         Location of the folder for storing the csv.
-    csv_filename : str
-        The filename of csv file.
+    hdf5_filename : str
+        The filename of hdf5 file.
+    label_dict : dict
+        The dictionary for label2ind.
     select_n_sentences : int, optional
         The number of sentences to select.
 
@@ -128,26 +133,14 @@ def create_csv(
     None
     """
     # Setting path for the csv file
-    csv_file = os.path.join(save_folder, csv_filename)
+    hdf5_file = os.path.join(save_folder, hdf5_filename)
 
     # Preliminary prints
-    msg = "\tCreating csv in  %s..." % (csv_file)
+    msg = "Dump hdf5 in  %s..." % (hdf5_file)
     logger.debug(msg)
 
-    header = [
-        "ID",
-        "duration",
-        "char",
-        "char_format",
-        "char_opts",
-    ]
-
-    snt_cnt = 0
-    with open(data_path, "r") as f_in, open(csv_file, mode="w") as csv_f:
-        csv_writer = csv.writer(
-            csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
-        )
-        csv_writer.writerow(header)
+    snt_cnt, res = 0, []
+    with open(data_path, "r") as f_in, h5py.File(hdf5_file, "w") as f_h5:
         for snt_id, line in enumerate(f_in):
             wrds = "_".join(line.strip().split(" "))
 
@@ -155,26 +148,16 @@ def create_csv(
             if len(wrds) == 0:
                 continue
 
-            # replace space to <space> token
-            chars_lst = [c for c in wrds]
-            chars = " ".join(chars_lst)
-
-            # TODO: duration set to char len temporarily
-            csv_line = [
-                snt_id,
-                len(chars),
-                str(chars),
-                "string",
-                "",
-            ]
-            csv_writer.writerow(csv_line)
+            char_lst = np.array([label_dict[c] for c in wrds], dtype=np.int32)
+            res.append(char_lst)
             snt_cnt = snt_cnt + 1
 
             if snt_cnt == select_n_sentences:
                 break
-            if snt_cnt % 10000 == 0:
-                print(snt_cnt)
+        f_h5.create_dataset(
+            "data", data=res, dtype=h5py.special_dtype(vlen=np.int32)
+        )
 
     # Final print
-    msg = "\t%s sucessfully created!" % (csv_file)
+    msg = "\t%s sucessfully created!" % (hdf5_file)
     logger.debug(msg)
