@@ -796,7 +796,7 @@ class PLDA:
 
 if __name__ == "__main__":
     """
-    Example (fix it for doctest)
+    Example (shift this to PLDA)
     -------
     >>> from speechbrain.processing.PLDA import *
     >>> data_dir = "/Users/nauman/Desktop/Mila/nauman/Data/xvect-sdk/sb-format/"
