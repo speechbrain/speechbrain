@@ -30,7 +30,7 @@ compute_features: !new:speechbrain.lobes.features.fbank.Fbank
     right_frames: !ref <right_frames>
     deltas: !ref <deltas>
 
-xvector_model: !new:speechbrain.lobes.models.Xvector.Xvectors
+xvector_model: !new:speechbrain.lobes.models.Xvector.Xvector
     activation: !name:torch.nn.LeakyReLU
     device: !ref <device>
     tdnn_blocks: 5

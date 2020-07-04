@@ -41,7 +41,7 @@ mean_var_norm_xvect: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
     std_norm: False
 
-xvector_model: !new:speechbrain.lobes.models.Xvector.Xvectors
+xvector_model: !new:speechbrain.lobes.models.Xvector.Xvector
     device: !ref <device>
 
 classifier: !new:speechbrain.lobes.models.Xvector.Classifier
