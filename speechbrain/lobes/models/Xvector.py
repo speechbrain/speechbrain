@@ -15,7 +15,7 @@ from speechbrain.nnet.normalization import BatchNorm1d
 from speechbrain.nnet.activations import Softmax
 
 
-class Xvectors(torch.nn.Module):
+class Xvector(torch.nn.Module):
     """This model extracts XVectors for speaker recognition and diarization.
 
     Arguments
@@ -37,7 +37,7 @@ class Xvectors(torch.nn.Module):
 
     Example
     -------
-    >>> compute_xvect = Xvectors('cpu')
+    >>> compute_xvect = Xvector('cpu')
     >>> input_feats = torch.rand([5, 10, 24])
     >>> outputs = compute_xvect(input_feats, init_params=True)
     >>> outputs.shape
@@ -130,7 +130,7 @@ class Classifier(torch.nn.Module):
 
     Example
     -------
-    >>> compute_xvect = Xvectors('cpu')
+    >>> compute_xvect = Xvector('cpu')
     >>> classify = Classifier('cpu')
     >>> input_feats = torch.rand([5, 10, 24])
     >>> xvects = compute_xvect(input_feats, init_params=True)
