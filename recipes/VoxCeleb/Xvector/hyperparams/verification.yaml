@@ -7,13 +7,13 @@ seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Folders and train_log file
-data_folder: /home/mirco/datasets/VoxCeleb1
+data_folder: /localscratch/voxceleb1
 output_folder: results/speaker_verification
 save_folder: !ref <output_folder>/save/
 device: 'cuda:0'
 
 # Pretrain from web (as an alternative specify a file)
-pretrain_file: https://www.dropbox.com/s/skfz2sme5nw7jji/xvector_model.ckpt?dl=1
+xvector_file: https://www.dropbox.com/s/skfz2sme5nw7jji/xvector_model.ckpt?dl=1
 normalizer_file: https://www.dropbox.com/s/4qh5lt49lau0nx2/normalizer.ckpt?dl=1
 classifier_file: https://www.dropbox.com/s/ure85nam6ok0au7/classifier.ckpt?dl=1
 
@@ -43,11 +43,10 @@ mean_var_norm_xvect: !new:speechbrain.processing.features.InputNormalization
 
 xvector_model: !new:speechbrain.lobes.models.Xvector.Xvectors
     device: !ref <device>
-    save_web_model: !ref <output_folder>/save/xvector.ckpt
 
 classifier: !new:speechbrain.lobes.models.Xvector.Classifier
     activation: !name:torch.nn.LeakyReLU
-    device: cuda:0
+    device: !ref <device>
     lin_blocks: 1
     lin_neurons: 512
     out_neurons: 1211

@@ -25,7 +25,7 @@ sb.core.create_experiment_directory(
 prepare_voxceleb(
     data_folder=params.data_folder,
     save_folder=params.save_folder,
-    splits=["train", "dev", "test"],
+    splits=["train", "dev"],
     split_ratio=[90, 10],
     seg_dur=300,
     vad=False,
@@ -51,7 +51,7 @@ class XvectorBrain(sb.core.Brain):
         feats = params.compute_features(wavs, init_params)
         feats = params.mean_var_norm(feats, lens)
 
-        x_vect = params.xvector_model(feats, lens, init_params=init_params)
+        x_vect = params.xvector_model(feats, init_params=init_params)
         outputs = params.classifier(x_vect, init_params)
 
         return outputs, lens

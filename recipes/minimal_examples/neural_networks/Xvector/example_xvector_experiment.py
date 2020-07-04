@@ -21,7 +21,7 @@ class XvectorBrain(sb.core.Brain):
 
         feats = params.compute_features(wavs, init_params)
         feats = params.mean_var_norm(feats, lens)
-        x_vect = params.xvector_model(feats, lens, init_params=init_params)
+        x_vect = params.xvector_model(feats, init_params=init_params)
         outputs = params.classifier(x_vect, init_params)
 
         return outputs, lens
