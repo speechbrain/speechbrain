@@ -49,7 +49,7 @@ def compute_x_vectors(wavs, lens, init_params=False):
         wavs = wavs.to(params.device)
         feats = params.compute_features(wavs, init_params=init_params)
         feats = params.mean_var_norm(feats, lens)
-        x_vect = params.xvector_model(feats, lens, init_params=init_params)
+        x_vect = params.xvector_model(feats, lens=lens, init_params=init_params)
         x_vect = params.mean_var_norm_xvect(
             x_vect, torch.ones(x_vect.shape[0]).to("cuda:0")
         )
@@ -59,14 +59,14 @@ def compute_x_vectors(wavs, lens, init_params=False):
 # Function for pre-trained model downloads
 def download_and_pretrain():
     save_model_path = params.output_folder + "/save/xvect.ckpt"
-    download_file(params.pretrain_file, save_model_path)
+    download_file(params.xvector_file, save_model_path)
     params.xvector_model.load_state_dict(
         torch.load(save_model_path), strict=True
     )
 
-    save_model_path = params.output_folder + "/save/normalizer.ckpt"
-    download_file(params.normalizer_file, save_model_path)
-    params.mean_var_norm._load_statistics_dict(torch.load(save_model_path))
+    # save_model_path = params.output_folder + "/save/normalizer.ckpt"
+    # download_file(params.normalizer_file, save_model_path)
+    # params.mean_var_norm._load_statistics_dict(torch.load(save_model_path))
 
     # save_model_path = params.output_folder+'/save/classifier.ckpt'
     # download_file(params.classifier_file, save_model_path)
@@ -94,11 +94,11 @@ with tqdm(test_set, dynamic_ncols=True) as t:
             params.mean_var_norm_xvect.count = 0
 
             # Download models from the web if needed
-            if "https://" in params.pretrain_file:
+            if "https://" in params.xvector_file:
                 download_and_pretrain()
             else:
                 params.xvector_model.load_state_dict(
-                    torch.load(params.pretrain_file), strict=True
+                    torch.load(params.xvector_file), strict=True
                 )
 
             init_params = False
@@ -124,6 +124,6 @@ with tqdm(test_set, dynamic_ncols=True) as t:
             else:
                 negative_scores.append(score[i])
 
-        # Compute the EER
-        eer = EER(torch.tensor(positive_scores), torch.tensor(negative_scores))
-        logger.info("EER=%f", eer)
+    # Compute the EER
+    eer = EER(torch.tensor(positive_scores), torch.tensor(negative_scores))
+    logger.info("EER=%f", eer)
