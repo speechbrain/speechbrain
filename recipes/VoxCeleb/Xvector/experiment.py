@@ -29,7 +29,7 @@ prepare_voxceleb(
     split_ratio=[90, 10],
     seg_dur=300,
     vad=False,
-    rand_seed=1234,
+    rand_seed=params.seed,
 )
 
 
@@ -41,16 +41,21 @@ class XvectorBrain(sb.core.Brain):
         wavs, lens = wavs.to(params.device), lens.to(params.device)
 
         if stage == "train":
+            # Addding noise and reverberation
             wavs_aug = params.env_corrupt(wavs, lens, init_params)
+
+            # Adding time-domain augmentation
             wavs_aug = params.augmentation(wavs_aug, lens, init_params)
 
             # Concatenate noisy and clean batches
             wavs = torch.cat([wavs, wavs_aug], dim=0)
             lens = torch.cat([lens, lens], dim=0)
 
+        # Feature extraction and normalization
         feats = params.compute_features(wavs, init_params)
         feats = params.mean_var_norm(feats, lens)
 
+        # Xvector + speaker classifier
         x_vect = params.xvector_model(feats, init_params=init_params)
         outputs = params.classifier(x_vect, init_params)
 
