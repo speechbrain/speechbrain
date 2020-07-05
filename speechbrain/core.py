@@ -1,5 +1,4 @@
 """Core SpeechBrain code for running experiments.
-
 Authors
  * Peter Plantinga 2020
 """
@@ -33,7 +32,6 @@ def create_experiment_directory(
     log_config=DEFAULT_LOG_CONFIG,
 ):
     """Create the output folder and relevant experimental files.
-
     Arguments
     ---------
     experiment_directory : str
@@ -87,19 +85,16 @@ def _logging_excepthook(exc_type, exc_value, exc_traceback):
 
 def parse_arguments(arg_list):
     r"""Parse command-line arguments to the experiment.
-
     Arguments
     ---------
     arg_list: list
         a list of arguments to parse, most often from `sys.argv[1:]`
-
     Returns
     -------
     param_file : str
         The location of the parameters file.
     overrides : str
         The yaml-formatted overrides, to pass to ``load_extended_yaml``.
-
     Example
     -------
     >>> filename, overrides = parse_arguments(['params.yaml', '--seed', '10'])
@@ -173,27 +168,20 @@ def parse_arguments(arg_list):
 
 class Brain:
     r"""Brain class abstracts away the details of data loops.
-
     The primary purpose of the `Brain` class is the implementation of
     the ``fit()`` method, which iterates epochs and datasets for the
     purpose of "fitting" a set of modules to a set of data.
-
     In order to use the ``fit()`` method, one should sub-class the ``Brain``
     class and override any methods for which the default behavior does not
     match the use case. For a simple use case (e.g. training a single model
     with a single dataset) the only methods that need to be overridden are:
-
     * ``compute_forward()``
     * ``compute_objectives()``
-
     The example below illustrates how overriding these two methods is done.
-
     For more complicated use cases, such as multiple modules that need to
     be updated, the following methods can be overridden:
-
     * ``fit_batch()``
     * ``evaluate_batch()``
-
     Arguments
     ---------
     modules : list of torch.Tensors
@@ -204,7 +192,6 @@ class Brain:
         An example of the input to the Brain class, for parameter init.
         Arguments are passed individually to the ``compute_forward`` method,
         for cases where a different signature is desired.
-
     Example
     -------
     >>> from speechbrain.nnet.optimizers import SGD_Optimizer
@@ -225,10 +212,13 @@ class Brain:
     ... )
     """
 
-    def __init__(self, modules=None, optimizer=None, first_inputs=None):
+    def __init__(
+        self, modules=None, optimizer=None, first_inputs=None, params=None
+    ):
         self.modules = torch.nn.ModuleList(modules)
         self.optimizer = optimizer
         self.avg_train_loss = 0.0
+        self.params = params
 
         # Initialize parameters
         if first_inputs is not None:
@@ -246,7 +236,6 @@ class Brain:
 
     def compute_forward(self, x, stage="train", init_params=False):
         """Forward pass, to be overridden by sub-classes.
-
         Arguments
         ---------
         x : torch.Tensor or list of tensors
@@ -256,7 +245,6 @@ class Brain:
         init_params : bool
             Whether this pass should initialize parameters rather
             than return the results of the forward pass.
-
         Returns
         -------
         torch.Tensor
@@ -266,7 +254,6 @@ class Brain:
 
     def compute_objectives(self, predictions, targets, stage="train"):
         """Compute loss, to be overridden by sub-classes.
-
         Arguments
         ---------
         predictions : torch.Tensor or list of tensors
@@ -275,7 +262,6 @@ class Brain:
             The gold standard to use for evaluation.
         stage : str
             The stage of the training process, one of "train", "valid", "test"
-
         Returns
         -------
         loss : torch.Tensor
@@ -288,7 +274,6 @@ class Brain:
 
     def on_epoch_end(self, epoch, train_stats, valid_stats=None):
         """Gets called at the end of each epoch.
-
         Arguments
         ---------
         epoch : int
@@ -304,20 +289,16 @@ class Brain:
 
     def fit_batch(self, batch):
         """Fit one batch, override to do multiple updates.
-
         The default impementation depends on three methods being defined
         with a particular behavior:
-
         * ``compute_forward()``
         * ``compute_objectives()``
         * ``optimizer()``
-
         Arguments
         ---------
         batch : list of torch.Tensors
             batch of data to use for training. Default implementation assumes
             this batch has two elements: inputs and targets.
-
         Returns
         -------
         dict
@@ -336,13 +317,10 @@ class Brain:
 
     def evaluate_batch(self, batch, stage="test"):
         """Evaluate one batch, override for different procedure than train.
-
         The default impementation depends on two methods being defined
         with a particular behavior:
-
         * ``compute_forward()``
         * ``compute_objectives()``
-
         Arguments
         ---------
         batch : list of torch.Tensors
@@ -350,7 +328,6 @@ class Brain:
             this batch has two elements: inputs and targets.
         stage : str
             The stage of the training process, one of "valid", "test"
-
         Returns
         -------
         dict
@@ -366,7 +343,6 @@ class Brain:
 
     def add_stats(self, dataset_stats, batch_stats):
         """Add the stats for a batch to the set of stats for a dataset.
-
         Arguments
         ---------
         dataset_stats : dict
@@ -384,15 +360,12 @@ class Brain:
 
     def fit(self, epoch_counter, train_set, valid_set=None):
         """Iterate epochs and datasets to improve objective.
-
         Relies on the existence of mulitple functions that can (or should) be
         overridden. The following functions are used and expected to have a
         certain behavior:
-
         * ``fit_batch()``
         * ``evaluate_batch()``
         * ``add_stats()``
-
         Arguments
         ---------
         epoch_counter : iterable
@@ -424,12 +397,10 @@ class Brain:
 
     def evaluate(self, test_set):
         """Iterate test_set and evaluate brain performance.
-
         Arguments
         ---------
         test_set : list of DataLoaders
             This list will be zipped before iterating.
-
         Returns
         -------
         dict
@@ -448,14 +419,12 @@ class Brain:
 
     def update_average(self, stats, iteration):
         """Update running average of the loss.
-
         Arguments
         ---------
         stats : dict
             Result of `compute_objectives()`
         iteration : int
             The iteration count.
-
         Returns
         -------
         float

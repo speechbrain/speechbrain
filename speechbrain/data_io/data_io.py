@@ -10,6 +10,7 @@ Authors
 import os
 import re
 import csv
+import time
 import torch
 import psutil
 import random
@@ -98,6 +99,23 @@ class DataLoaderFactory(torch.nn.Module):
         String replacements to perform in this method
     output_folder : str, optional
         A folder for storing the label dict
+    distributed_training : bool, optional
+        Default: False . When set to True, the global experiment is expected to
+        run with DistributedDataParallel. This will create a distributed
+        sampler.
+    nb_nodes : int, optional
+        Default: 1. Number of nodes for the distributed training.
+        An example is: 2 nodes of 8 gpus.
+    nb_gpus : int, optional
+        Default: 1. Number of GPU per node for distributed training.
+    gpu_id : int, optional
+        Default: 0. CUDA ID of the GPU corresponding to this instance. This is
+        is coupled with distributed training. gpu_id should be set dynamically
+        to correspond to the right gpu in a specific node.
+    rank_wrt_node: int, optional
+        Default: 0. This is the rank ID of this particular process with respect
+        to the total number of node. If we have 3 nodes, rank_wrt_node can be
+        0, 1 or 2. This is only relevant with distributed training.
 
     Example
     -------
@@ -124,6 +142,11 @@ class DataLoaderFactory(torch.nn.Module):
         padding_value=0,
         replacements={},
         output_folder=None,
+        distributed_training=False,
+        nb_nodes=1,
+        nb_gpus=1,
+        gpu_id=0,
+        rank_wrt_node=0,
     ):
         super().__init__()
 
@@ -142,6 +165,14 @@ class DataLoaderFactory(torch.nn.Module):
         self.padding_value = padding_value
         self.replacements = replacements
         self.output_folder = output_folder
+        self.distributed_training = distributed_training
+        self.nb_nodes = nb_nodes
+        self.nb_gpus = nb_gpus
+
+        # Rank within the pool of distributed training (unique ID of this job).
+        # (considering all the nodes)
+        self.rank = rank_wrt_node * self.nb_gpus + gpu_id
+        self.world_size = self.nb_nodes * self.nb_gpus
 
         # Other variables
         self.supported_formats = self.get_supported_formats()
@@ -178,15 +209,30 @@ class DataLoaderFactory(torch.nn.Module):
             self.cache_ram_percent,
         )
 
-        self.dataloader = DataLoader(
-            dataset,
-            batch_size=self.batch_size,
-            shuffle=self.shuffle,
-            pin_memory=False,
-            drop_last=self.drop_last,
-            num_workers=self.num_workers,
-            collate_fn=self.batch_creation,
-        )
+        if self.distributed_training:
+            dist_sampler = torch.utils.data.distributed.DistributedSampler(
+                dataset, num_replicas=self.world_size, rank=self.rank
+            )
+            self.dataloader = DataLoader(
+                dataset,
+                batch_size=self.batch_size,
+                shuffle=self.shuffle,
+                pin_memory=True,
+                drop_last=self.drop_last,
+                num_workers=self.num_workers,
+                collate_fn=self.batch_creation,
+                sampler=dist_sampler,
+            )
+        else:
+            self.dataloader = DataLoader(
+                dataset,
+                batch_size=self.batch_size,
+                shuffle=self.shuffle,
+                pin_memory=True,
+                drop_last=self.drop_last,
+                num_workers=self.num_workers,
+                collate_fn=self.batch_creation,
+            )
 
         return self.dataloader
 
@@ -348,7 +394,13 @@ class DataLoaderFactory(torch.nn.Module):
 
             # Read previously stored label_dict
             if os.path.isfile(label_dict_file):
-                label_dict = load_pkl(label_dict_file)
+                while True:
+                    try:
+                        label_dict = load_pkl(label_dict_file)
+                        break
+                    except Exception:
+                        time.sleep(1)
+                        pass
 
         # Update label dict
         for snt in data_dict:
@@ -2043,8 +2095,8 @@ def load_pkl(file):
     -------
     The loaded object
     """
-    with open(file, "rb") as f:
-        return pickle.load(f)
+    # with open(file, "rb") as f:
+    return pickle.load(open(file, "rb"))
 
 
 def prepend_bos_token(label, bos_index):
