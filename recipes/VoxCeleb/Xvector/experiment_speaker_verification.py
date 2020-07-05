@@ -32,7 +32,7 @@ prepare_voxceleb(
     data_folder=params.data_folder,
     save_folder=params.save_folder,
     splits=["test"],
-    rand_seed=1234,
+    rand_seed=params.seed,
 )
 
 # Cosine similarity initialization
@@ -63,14 +63,6 @@ def download_and_pretrain():
     params.xvector_model.load_state_dict(
         torch.load(save_model_path), strict=True
     )
-
-    # save_model_path = params.output_folder + "/save/normalizer.ckpt"
-    # download_file(params.normalizer_file, save_model_path)
-    # params.mean_var_norm._load_statistics_dict(torch.load(save_model_path))
-
-    # save_model_path = params.output_folder+'/save/classifier.ckpt'
-    # download_file(params.classifier_file, save_model_path)
-    # params.classifier.load_state_dict(torch.load(save_model_path), strict=True)
 
 
 # Loop over all test sentences
