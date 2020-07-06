@@ -9,9 +9,9 @@ csv_valid: !ref <data_folder>/dev.csv
 csv_test: !ref <data_folder>/test.csv
 
 # Training parameters
-number_of_epochs: 20
-batch_size: 1
-lr: 0.001
+number_of_epochs: 30
+batch_size: 8
+lr: 0.01
 
 # Model parameters
 rnn_layers: 1
