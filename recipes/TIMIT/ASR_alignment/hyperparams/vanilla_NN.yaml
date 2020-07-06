@@ -1,8 +1,10 @@
-# ################################
-# Model: VGG2 + LiGRU with time pooling for efficiency
-# Additions: TimeDomainSpecAugment
-# Authors: Mirco Ravanelli & Peter Plantinga 2020
-# ################################
+# ###############################
+# Model: Vanilla NN
+# Authors:
+# * Mirco Ravanelli 2020
+# * Peter Plantinga 2020
+# * Elena Rastorgueva 2020
+# ###############################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234  # e.g, 1234
@@ -64,9 +66,6 @@ lr_annealing: !new:speechbrain.nnet.lr_schedulers.NewBobLRScheduler
     improvement_threshold: 5
     annealing_factor: 1.0 # 0.9
     patient: 0
-
-normalize: !new:speechbrain.processing.features.InputNormalization
-    norm_type: global
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
