@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 import torch
+import math
 import speechbrain as sb
 
 from speechbrain.data_io.data_io import prepend_bos_token
@@ -63,7 +64,10 @@ class LMBrain(sb.core.Brain):
     def on_epoch_end(self, epoch, train_stats, valid_stats=None):
         print("Epoch %d complete" % epoch)
         print("Train loss: %.2f" % summarize_average(train_stats["loss"]))
-        print("Valid loss: %.2f" % summarize_average(valid_stats["loss"]))
+        val_loss = summarize_average(valid_stats["loss"])
+        print("Valid loss: %.2f" % val_loss)
+        perplexity = 2 ** (val_loss / math.log(2))
+        print("Valid perplexity: %.2f" % perplexity)
 
 
 train_set = params.train_loader()
