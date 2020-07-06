@@ -65,31 +65,31 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 
 
 conv1: !new:speechbrain.nnet.CNN.Conv1d
-    out_channels: 30
+    out_channels: 80
     kernel_size: 55
 
 conv2: !new:speechbrain.nnet.CNN.Conv1d
-    out_channels: 30
+    out_channels: 80
     kernel_size: 55
 
 conv3: !new:speechbrain.nnet.CNN.Conv1d
-    out_channels: 30
+    out_channels: 80
     kernel_size: 55
 
 conv4: !new:speechbrain.nnet.CNN.Conv1d
-    out_channels: 30
+    out_channels: 80
     kernel_size: 55
 
 conv5: !new:speechbrain.nnet.CNN.Conv1d
-    out_channels: 30
+    out_channels: 80
     kernel_size: 55
 
 conv6: !new:speechbrain.nnet.CNN.Conv1d
-    out_channels: 30
+    out_channels: 80
     kernel_size: 55
 
 conv7: !new:speechbrain.nnet.CNN.Conv1d
-    out_channels: 30
+    out_channels: 80
     kernel_size: 55
 
 conv_out: !new:speechbrain.nnet.CNN.Conv1d
