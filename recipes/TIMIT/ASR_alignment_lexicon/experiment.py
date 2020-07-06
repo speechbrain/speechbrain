@@ -41,7 +41,8 @@ class ASR(sb.core.Brain):
         if hasattr(params, "augmentation"):
             wavs = params.augmentation(wavs, wav_lens, init_params)
         feats = params.compute_features(wavs, init_params)
-        # feats = params.normalize(feats, wav_lens)
+        if hasattr(params, "normalize"):
+            feats = params.normalize(feats, wav_lens)
         out = params.model(feats, init_params)
         out = params.output(out, init_params)
         out = out - out.mean(1).unsqueeze(1)
