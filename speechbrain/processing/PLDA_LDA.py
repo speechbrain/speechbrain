@@ -334,47 +334,6 @@ class StatObject_SB:
         L = eigen_vectors[:, idx]
         return L
 
-    def get_within_covariance_stat1(self):
-        """Compute and return the within-class covariance matrix of the
-            first-order statistics.
-
-        :return: the within-class co-variance matrix of the first-order statistics
-              as a ndarray.
-        """
-        vect_size = self.stat1.shape[1]
-        unique_speaker = numpy.unique(self.modelset)
-        W = numpy.zeros((vect_size, vect_size))
-
-        for speakerID in unique_speaker:
-            spk_ctr_vec = self.get_model_stat1(speakerID) - numpy.mean(
-                self.get_model_stat1(speakerID), axis=0
-            )
-            W += numpy.dot(spk_ctr_vec.transpose(), spk_ctr_vec)
-        W /= self.stat1.shape[0]
-        return W
-
-    def get_between_covariance_stat1(self):
-        """Compute and return the between-class covariance matrix of the
-            first-order statistics.
-
-        :return: the between-class co-variance matrix of the first-order
-            statistics as a ndarray.
-        """
-        vect_size = self.stat1.shape[1]
-        unique_speaker = numpy.unique(self.modelset)
-        B = numpy.zeros((vect_size, vect_size))
-
-        # Compute overall mean first-order statistics
-        mu = self.get_mean_stat1()
-
-        # Compute and accumulate mean first-order statistics for each class
-        for speaker_id in unique_speaker:
-            spk_sessions = self.get_model_stat1(speaker_id)
-            tmp = numpy.mean(spk_sessions, axis=0) - mu
-            B += spk_sessions.shape[0] * numpy.outer(tmp, tmp)
-        B /= self.stat1.shape[0]
-        return B
-
 
 def diff(list1, list2):
     c = [item for item in list1 if item not in list2]
@@ -942,10 +901,13 @@ if __name__ == "__main__":
     print("sb_F: ", plda.F)
     print("sb_S: ", plda.Sigma)
 
+    a = time.time()
     trans_mat = train_obj.get_lda_matrix_stat1(100)
-
     print("trans-mat: ", trans_mat.shape)
     print("trans-mat: ", trans_mat)
+    print("time : ", time.time() - a)
+
+    sys.exit()
 
     # Scoring
     enrol_file = data_dir + "VoxCeleb1_enrol_rvectors.pkl"
