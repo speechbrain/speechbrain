@@ -9,7 +9,7 @@ from tqdm.contrib import tqdm
 from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.train_logger import summarize_average
 from joblib import Parallel, delayed
-from pystoi.stoi import stoi
+from stoi.stoi import stoi
 from pesq import pesq
 
 # This hack needed to import data preparation script from ..
@@ -62,10 +62,7 @@ def read_STOI(clean_folder, enhanced_file):
     enhanced_wav, _ = torchaudio.load(enhanced_file)
 
     stoi_score = stoi(
-        np.squeeze(clean_wav.numpy()),
-        np.squeeze(enhanced_wav.numpy()),
-        16000,
-        extended=False,
+        np.squeeze(clean_wav.numpy()), np.squeeze(enhanced_wav.numpy()), 16000,
     )
     return stoi_score
 
@@ -80,9 +77,7 @@ def read_batch_STOI(clean_folder, enhanced_list):
 
 def multiprocess_evaluation(pred_wavs, target_wavs, lengths):
     stoi_scores = Parallel(n_jobs=30)(
-        delayed(stoi)(
-            clean[0 : int(lens)], enhanced[0 : int(lens)], 16000, extended=False
-        )
+        delayed(stoi)(clean[0 : int(lens)], enhanced[0 : int(lens)], 16000)
         for enhanced, clean, lens in zip(pred_wavs, target_wavs, lengths)
     )
     pesq_scores = Parallel(n_jobs=30)(

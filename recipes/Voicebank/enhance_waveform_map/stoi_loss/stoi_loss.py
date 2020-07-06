@@ -1,3 +1,10 @@
+# ################################
+# From paper: "End-to-End Waveform Utterance Enhancement for Direct Evaluation
+# Metrics Optimization by Fully Convolutional Neural Networks", TASLP, 2018
+# Authors: Szu-Wei, Fu 2020
+# ################################
+
+
 import torch
 import torchaudio
 from OBM import OBM
