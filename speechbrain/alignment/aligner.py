@@ -174,7 +174,18 @@ class HMMAligner(torch.nn.Module):
         A number more negative than -1e5 also sometimes gave errors when
         the `genbmm` library was used (currently not in use).
         Default: -1e5
-    docstring add params
+    batch_reduction: string
+        One of "none", "sum" or "mean"
+        What kind of batch-level reduction to apply to the loss calculated
+        in the forward method
+    input_len_norm: bool
+        Whether to normalise the loss in the forward method by the length of
+        the inputs.
+    target_len_norm: bool
+        Whether to normalise the loss in the forward method by the length of
+        the targets.
+    lexicon_path: string
+        The location of the lexicon.
 
     Example
     -------
