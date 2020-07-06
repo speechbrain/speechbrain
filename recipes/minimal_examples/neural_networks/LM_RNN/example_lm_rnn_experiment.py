@@ -88,4 +88,4 @@ print("Test loss: %.2f" % summarize_average(test_stats["loss"]))
 
 # Integration test: check that the model overfits the training data
 def test_error():
-    assert lm_brain.avg_train_loss < 0.3
+    assert lm_brain.avg_train_loss < 0.15
