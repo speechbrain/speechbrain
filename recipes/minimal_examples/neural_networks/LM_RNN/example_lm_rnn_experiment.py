@@ -66,7 +66,7 @@ class LMBrain(sb.core.Brain):
         print("Train loss: %.2f" % summarize_average(train_stats["loss"]))
         val_loss = summarize_average(valid_stats["loss"])
         print("Valid loss: %.2f" % val_loss)
-        perplexity = 2 ** (val_loss / math.log(2))
+        perplexity = math.e ** val_loss
         print("Valid perplexity: %.2f" % perplexity)
 
 
