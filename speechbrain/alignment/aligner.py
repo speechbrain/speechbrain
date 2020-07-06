@@ -778,17 +778,11 @@ class HMMAligner(torch.nn.Module):
             The (log) likelihood of each utterance in the batch.
         """
         # useful values
-        # batch_size = len(phn_lens_abs)
         U_max = phn_lens_abs.max()
-        # fb_max_length = lens_abs.max()
         device = emiss_pred_useful.device
 
         pi_prob = pi_prob.to(device)
         trans_prob = trans_prob.to(device)
-
-        # alpha_matrix = self.neg_inf * torch.ones(
-        #    [batch_size, U_max, fb_max_length]
-        # ).to(device)
 
         # for cropping alpha_matrix later
         phn_len_mask = torch.arange(U_max)[None, :].to(device) < phn_lens_abs[
@@ -808,25 +802,6 @@ class HMMAligner(torch.nn.Module):
             alpha_prev = torch.where(
                 phn_len_mask, alpha_prev, torch.tensor([-1e38]).to(device)
             )
-
-        #        for t in range(1, fb_max_length):
-        #            alpha_times_trans = batch_log_matvecmul(
-        #                trans_prob.permute(0, 2, 1), alpha_matrix[:, :, t - 1]
-        #            )
-        #            alpha_matrix[:, :, t] = (
-        #                alpha_times_trans + emiss_pred_useful[:, :, t]
-        #            )
-        #
-        #            # crop alpha_matrix
-        #            alpha_matrix = torch.where(
-        #                phn_len_mask[:, :, None],
-        #                alpha_matrix,
-        #                torch.tensor(self.neg_inf).to(device),
-        #            )
-        #
-        #        sum_alpha_T = torch.logsumexp(
-        #            alpha_matrix[torch.arange(batch_size), :, -1], dim=1
-        #        )
 
         sum_alpha_T = torch.logsumexp(alpha_prev, dim=-1)
 
@@ -955,14 +930,6 @@ class HMMAligner(torch.nn.Module):
             z_stars.append(z_star_i)
             z_stars_loc.append(z_star_i_loc)
 
-        #        print("batch alignment statistics:")
-        #
-        #        print('phns:', phns[-1])
-        #        print("phn_lens_abs:", phn_lens_abs[-1])
-        #        print("lens_abs:", lens_abs[-1])
-        #        print("z_stars_loc:", z_stars_loc[-1])
-        #        print("z_stars:", z_stars[-1])
-        #
         # picking out viterbi_scores
         viterbi_scores = v_matrix[
             torch.arange(batch_size), phn_lens_abs - 1, lens_abs - 1
