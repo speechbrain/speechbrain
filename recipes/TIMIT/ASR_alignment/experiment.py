@@ -114,6 +114,7 @@ class ASR(sb.core.Brain):
         )
 
         if self.training_type == "viterbi":
+            # recompute alignments over the full training set
             self.evaluate(train_set)
 
         if hasattr(params, "switch_training_type"):
