@@ -13,15 +13,15 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: /network/home/rastorge/TIMIT  # e.g. /path/to/TIMIT
+data_folder: /home/mila/r/rastorge/TIMIT  # e.g. /path/to/TIMIT
 csv_train: !ref <data_folder>/train.csv
 csv_valid: !ref <data_folder>/dev.csv
 csv_test: !ref <data_folder>/test.csv
 
 # Training parameters
-number_of_epochs: 5 #10
-batch_size: 16 # 16
-lr: 0.0003 # 0.0003
+number_of_epochs: 5
+batch_size: 16
+lr: 0.0003
 device: 'cuda:0'
 init_training_type: 'forward' # 'forward' or 'viterbi' or 'ctc'
 
@@ -42,13 +42,8 @@ dnn_neurons: 2000
 states_per_phoneme: 3
 
 # Outputs
-output_neurons: 118 # phoneme set * <states_per_phoneme> + 1
+output_neurons: 184 # phoneme set * <states_per_phoneme> + 1
 blank_index: !ref <output_neurons> - 1
-
-# Loss reduction parameters
-batch_reduction: 'mean'
-input_len_norm: True
-target_len_norm: False
 
 # Functions
 model: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
@@ -107,6 +102,10 @@ test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
 
 aligner: !new:speechbrain.alignment.aligner.HMMAligner
     states_per_phoneme: !ref <states_per_phoneme>
+    # Loss reduction parameters
+    batch_reduction: 'mean'
+    input_len_norm: True
+    target_len_norm: False
 
 compute_cost_ctc: !name:speechbrain.nnet.losses.ctc_loss
     blank_index: !ref <blank_index>
