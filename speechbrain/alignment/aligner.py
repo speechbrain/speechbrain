@@ -209,7 +209,7 @@ class HMMAligner(torch.nn.Module):
         states_per_phoneme=1,
         output_folder="",
         neg_inf=-1e5,
-        batch_reduction="sum",
+        batch_reduction="none",
         input_len_norm=False,
         target_len_norm=False,
         lexicon_path=None,
