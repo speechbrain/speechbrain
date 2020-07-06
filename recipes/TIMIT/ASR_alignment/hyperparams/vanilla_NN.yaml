@@ -125,5 +125,4 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         output: !ref <output>
         optimizer: !ref <optimizer>
         scheduler: !ref <lr_annealing>
-        normalizer: !ref <normalize>
         counter: !ref <epoch_counter>

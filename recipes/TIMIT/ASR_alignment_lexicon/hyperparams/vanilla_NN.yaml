@@ -112,7 +112,7 @@ aligner: !new:speechbrain.alignment.aligner.HMMAligner
     lexicon_path: !ref <lexicon_path>
     # loss reduction parameters
     batch_reduction: 'sum'
-    input_len_norm: False
+    input_len_norm: True
     target_len_norm: False
 
 compute_cost_ctc: !name:speechbrain.nnet.losses.ctc_loss
@@ -134,5 +134,4 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         output: !ref <output>
         optimizer: !ref <optimizer>
         scheduler: !ref <lr_annealing>
-        normalizer: !ref <normalize>
         counter: !ref <epoch_counter>
