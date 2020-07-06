@@ -85,7 +85,6 @@ class ASR(sb.core.Brain):
                 poss_phns,
                 poss_phn_lens,
                 "forward",
-                params,
                 prob_matrices,
             )
             loss = -forward_scores
@@ -101,13 +100,7 @@ class ASR(sb.core.Brain):
             loss = params.compute_cost_nll(pout, prev_alignments)
 
         viterbi_scores, alignments = params.aligner(
-            pout,
-            pout_lens,
-            poss_phns,
-            poss_phn_lens,
-            "viterbi",
-            params,
-            prob_matrices,
+            pout, pout_lens, poss_phns, poss_phn_lens, "viterbi", prob_matrices,
         )
         if self.training_type == "viterbi":
             params.aligner.store_alignments(ids, alignments)

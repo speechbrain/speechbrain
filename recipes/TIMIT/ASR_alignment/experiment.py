@@ -5,6 +5,7 @@ import speechbrain as sb
 import speechbrain.data_io.wer as wer_io
 import speechbrain.utils.edit_distance as edit_distance
 from speechbrain.data_io.data_io import convert_index_to_lab
+from speechbrain.decoders.ctc import ctc_greedy_decode
 from speechbrain.decoders.decoders import undo_padding
 from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.train_logger import summarize_error_rate
@@ -58,7 +59,7 @@ class ASR(sb.core.Brain):
 
         if self.training_type == "forward":
             forward_scores = params.aligner(
-                pout, pout_lens, phns, phn_lens, "forward", params
+                pout, pout_lens, phns, phn_lens, "forward"
             )
             loss = -forward_scores
 
@@ -72,7 +73,7 @@ class ASR(sb.core.Brain):
             loss = params.compute_cost_nll(pout, prev_alignments)
 
         viterbi_scores, alignments = params.aligner(
-            pout, pout_lens, phns, phn_lens, "viterbi", params
+            pout, pout_lens, phns, phn_lens, "viterbi"
         )
 
         if self.training_type == "viterbi":
@@ -84,10 +85,12 @@ class ASR(sb.core.Brain):
 
         if stage != "train":
             ind2lab = params.train_loader.label_dict["phn"]["index2lab"]
-            # convert alignments back to 1 state per phoneme style
-            sequence = [
-                params.aligner.collapse_alignments(x) for x in alignments
-            ]
+            sequence = ctc_greedy_decode(
+                pout, pout_lens, blank_id=params.blank_index
+            )
+
+            # convert sequence back to 1 state per phoneme style
+            sequence = [params.aligner.collapse_alignments(x) for x in sequence]
 
             sequence = convert_index_to_lab(sequence, ind2lab)
 
