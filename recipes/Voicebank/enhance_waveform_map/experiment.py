@@ -78,6 +78,22 @@ def read_batch_STOI(clean_folder, enhanced_list):
     return stoi_score
 
 
+def multiprocess_evaluation(pred_wavs, target_wavs, lengths):
+    stoi_scores = Parallel(n_jobs=30)(
+        delayed(stoi)(
+            clean[0 : int(lens)], enhanced[0 : int(lens)], 16000, extended=False
+        )
+        for enhanced, clean, lens in zip(pred_wavs, target_wavs, lengths)
+    )
+    pesq_scores = Parallel(n_jobs=30)(
+        delayed(pesq)(
+            16000, clean[0 : int(lens)], enhanced[0 : int(lens)], "wb"
+        )
+        for enhanced, clean, lens in zip(pred_wavs, target_wavs, lengths)
+    )
+    return pesq_scores, stoi_scores
+
+
 def get_filepaths(directory):
     """
     This function will generate the file names in a directory
@@ -124,6 +140,27 @@ class SEBrain(sb.core.Brain):
 
         return loss, stats
 
+    def evaluate_batch(self, batch, stage="valid"):
+        inputs, targets = batch
+        predict_wavs = self.compute_forward(inputs, stage=stage)
+
+        # Evaluating PESQ and STOI
+        _, target_wavs, lens = targets
+        lens = lens * target_wavs.shape[1]
+
+        pesq_scores, stoi_scores = multiprocess_evaluation(
+            predict_wavs.cpu().numpy(), target_wavs.cpu().numpy(), lens.numpy()
+        )
+
+        loss, stats = self.compute_objectives(
+            predict_wavs, targets, stage=stage
+        )
+        stats["loss"] = loss.detach()
+        stats["pesq"] = pesq_scores
+        stats["stoi"] = stoi_scores
+
+        return stats
+
     def on_epoch_end(self, epoch, train_stats, valid_stats):
         if params.use_tensorboard:
             tensorboard_train_logger.log_stats(
@@ -134,10 +171,10 @@ class SEBrain(sb.core.Brain):
             {"Epoch": epoch}, train_stats, valid_stats
         )
 
-        loss = summarize_average(valid_stats["loss"])
+        pesq_score = summarize_average(valid_stats["pesq"])
         params.checkpointer.save_and_keep_only(
-            meta={"loss": loss},
-            importance_keys=[ckpt_recency, lambda c: -c.meta["loss"]],
+            meta={"pesq_score": pesq_score},
+            importance_keys=[ckpt_recency, lambda c: c.meta["pesq_score"]],
         )
 
     def generate_enhanced_waveform(self, data_set):
@@ -147,6 +184,9 @@ class SEBrain(sb.core.Brain):
                 enhanced_wave = self.compute_forward(inputs)
                 ids, noisy_wavs, lens = inputs
 
+                enhanced_wave = (
+                    enhanced_wave / torch.max(torch.abs(enhanced_wave)) * 0.95
+                )
                 torchaudio.save(
                     os.path.join(params.enhanced_folder, ids[0] + ".wav"),
                     enhanced_wave.to("cpu").detach(),
@@ -172,8 +212,8 @@ params.checkpointer.recover_if_possible()
 se_brain.fit(params.epoch_counter, train_set, valid_set)
 
 # Load best checkpoint for evaluation
-params.checkpointer.recover_if_possible(lambda c: -c.meta["loss"])
-test_stats = se_brain.evaluate(params.test_loader())
+params.checkpointer.recover_if_possible(lambda c: c.meta["pesq_score"])
+test_stats = se_brain.evaluate(test_set)
 params.train_logger.log_stats(
     stats_meta={"Epoch loaded": params.epoch_counter.current},
     test_stats=test_stats,

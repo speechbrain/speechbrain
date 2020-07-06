@@ -28,7 +28,7 @@ csv_valid: !ref <data_folder>/valid.csv
 csv_test: !ref <data_folder>/test.csv
 
 # Training Parameters
-number_of_epochs: 150
+number_of_epochs: 15
 N_batch: 1
 lr: 0.001
 device: 'cuda:0'
@@ -152,7 +152,7 @@ model: !new:speechbrain.nnet.containers.Sequential
     - !ref <activation>
     - !ref <conv_out>
 
-compute_cost: !name:speechbrain.nnet.losses.mse_loss
+compute_cost: !name:stoi_loss.stoi_loss
 
 optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
     learning_rate: !ref <lr>
