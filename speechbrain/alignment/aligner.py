@@ -10,151 +10,6 @@ import random
 from speechbrain.decoders.decoders import undo_padding
 
 
-def map_inds_to_intersect(lists1, lists2, ind2labs):
-    """
-    Converts 2 lists containing indices for phonemes from different
-    phoneme sets to a single phoneme so that comparing the equality
-    of the indices of the resulting lists will yield the correct
-    accuracy.
-
-    Arguments
-    ---------
-    lists1: list of lists of ints
-        Contains the indices of the first sequence of phonemes.
-    lists2: list of lists of ints
-        Contains the indices of the second sequence of phonemes.
-    ind2labs: tuple (dict, dict)
-        Contains the original index-to-label dicts for the first and second
-        sequence of phonemes.
-
-    Returns
-    -------
-    lists1_new: list of lists of ints
-        Contains the indices of the first sequence of phonemes, mapped
-        to the new phoneme set.
-    lists2_new: list of lists of ints
-        Contains the indices of the second sequence of phonemes, mapped
-        to the new phoneme set.
-
-    Example
-    -------
-    >>> lists1 = [[0, 1]]
-    >>> lists2 = [[0, 1]]
-    >>> ind2lab1 = {
-    ...        0: "a",
-    ...        1: "b",
-    ...        }
-    >>> ind2lab2 = {
-    ...        0: "a",
-    ...        1: "c",
-    ...        }
-    >>> ind2labs = (ind2lab1, ind2lab2)
-    >>> out1, out2 = map_inds_to_intersect(lists1, lists2, ind2labs)
-    >>> out1
-    [[0, 1]]
-    >>> out2
-    [[0, 2]]
-    """
-    ind2lab1, ind2lab2 = ind2labs
-
-    # Form 3 sets:
-    # (1) labs in both mappings
-    # (2) labs in only 1st mapping
-    # (3) labs in only 2nd mapping
-    set1, set2 = set(ind2lab1.values()), set(ind2lab2.values())
-
-    intersect = set1.intersection(set2)
-    set1_only = set1.difference(set2)
-    set2_only = set2.difference(set1)
-
-    new_lab2ind = {lab: i for i, lab in enumerate(intersect)}
-    new_lab2ind.update(
-        {lab: len(new_lab2ind) + i for i, lab in enumerate(set1_only)}
-    )
-    new_lab2ind.update(
-        {lab: len(new_lab2ind) + i for i, lab in enumerate(set2_only)}
-    )
-
-    # Map lists to labels and apply new_lab2ind
-    lists1_lab = [[ind2lab1[ind] for ind in utt] for utt in lists1]
-    lists2_lab = [[ind2lab2[ind] for ind in utt] for utt in lists2]
-
-    lists1_new = [[new_lab2ind[lab] for lab in utt] for utt in lists1_lab]
-    lists2_new = [[new_lab2ind[lab] for lab in utt] for utt in lists2_lab]
-
-    return lists1_new, lists2_new
-
-
-def batch_log_matvecmul(A, b):
-    """
-    For each 'matrix' and 'vector' pair in the batch, do matrix-vector
-    multiplication in the log domain, i.e. logsumexp instead of add,
-    add instead of multiply
-
-    Arguments
-    ---------
-    A: torch.Tensor (batch, dim1, dim2)
-    b: torch.Tensor (batch, dim1)
-
-    Outputs
-    -------
-    x: torch.Tensor (batch, dim1)
-
-    Example
-    -------
-    >>> A = torch.tensor([[[   0., 0.],
-    ...                    [ -1e5, 0.]]])
-    >>> b = torch.tensor([[0., 0.,]])
-    >>> x = batch_log_matvecmul(A, b)
-    >>> x
-    tensor([[0.6931, 0.0000]])
-    >>>
-    >>> # non-log domain equivalent without batching funcionality
-    >>> A_ = torch.tensor([[1., 1.],
-    ...                    [0., 1.]])
-    >>> b_ = torch.tensor([1., 1.,])
-    >>> x_ = torch.matmul(A_, b_)
-    >>> x_
-    tensor([2., 1.])
-    """
-    b = b.unsqueeze(1)
-    x = torch.logsumexp(A + b, dim=2)
-
-    return x
-
-
-def batch_log_maxvecmul(A, b):
-    """
-    Similar to batch_log_matvecmul, but takes a maximum instead of
-    logsumexp. Returns both the max and the argmax.
-
-    Arguments
-    ---------
-    A: torch.Tensor (batch, dim1, dim2)
-    b: torch.Tensor (batch, dim1)
-
-    Outputs
-    -------
-    x: torch.Tensor (batch, dim1)
-    argmax: torch.Tensor (batch, dim1)
-
-    Example
-    -------
-    >>> A = torch.tensor([[[   0., -1.],
-    ...                    [ -1e5,  0.]]])
-    >>> b = torch.tensor([[0., 0.,]])
-    >>> x, argmax = batch_log_maxvecmul(A, b)
-    >>> x
-    tensor([[0., 0.]])
-    >>> argmax
-    tensor([[0, 1]])
-    """
-    b = b.unsqueeze(1)
-    x, argmax = torch.max(A + b, dim=2)
-
-    return x, argmax
-
-
 class HMMAligner(torch.nn.Module):
     """
     This class calculates Viterbi alignments in the forward method.
@@ -1465,3 +1320,148 @@ class HMMAligner(torch.nn.Module):
         sequence = [v // self.states_per_phoneme for v in sequence]
 
         return sequence
+
+
+def map_inds_to_intersect(lists1, lists2, ind2labs):
+    """
+    Converts 2 lists containing indices for phonemes from different
+    phoneme sets to a single phoneme so that comparing the equality
+    of the indices of the resulting lists will yield the correct
+    accuracy.
+
+    Arguments
+    ---------
+    lists1: list of lists of ints
+        Contains the indices of the first sequence of phonemes.
+    lists2: list of lists of ints
+        Contains the indices of the second sequence of phonemes.
+    ind2labs: tuple (dict, dict)
+        Contains the original index-to-label dicts for the first and second
+        sequence of phonemes.
+
+    Returns
+    -------
+    lists1_new: list of lists of ints
+        Contains the indices of the first sequence of phonemes, mapped
+        to the new phoneme set.
+    lists2_new: list of lists of ints
+        Contains the indices of the second sequence of phonemes, mapped
+        to the new phoneme set.
+
+    Example
+    -------
+    >>> lists1 = [[0, 1]]
+    >>> lists2 = [[0, 1]]
+    >>> ind2lab1 = {
+    ...        0: "a",
+    ...        1: "b",
+    ...        }
+    >>> ind2lab2 = {
+    ...        0: "a",
+    ...        1: "c",
+    ...        }
+    >>> ind2labs = (ind2lab1, ind2lab2)
+    >>> out1, out2 = map_inds_to_intersect(lists1, lists2, ind2labs)
+    >>> out1
+    [[0, 1]]
+    >>> out2
+    [[0, 2]]
+    """
+    ind2lab1, ind2lab2 = ind2labs
+
+    # Form 3 sets:
+    # (1) labs in both mappings
+    # (2) labs in only 1st mapping
+    # (3) labs in only 2nd mapping
+    set1, set2 = set(ind2lab1.values()), set(ind2lab2.values())
+
+    intersect = set1.intersection(set2)
+    set1_only = set1.difference(set2)
+    set2_only = set2.difference(set1)
+
+    new_lab2ind = {lab: i for i, lab in enumerate(intersect)}
+    new_lab2ind.update(
+        {lab: len(new_lab2ind) + i for i, lab in enumerate(set1_only)}
+    )
+    new_lab2ind.update(
+        {lab: len(new_lab2ind) + i for i, lab in enumerate(set2_only)}
+    )
+
+    # Map lists to labels and apply new_lab2ind
+    lists1_lab = [[ind2lab1[ind] for ind in utt] for utt in lists1]
+    lists2_lab = [[ind2lab2[ind] for ind in utt] for utt in lists2]
+
+    lists1_new = [[new_lab2ind[lab] for lab in utt] for utt in lists1_lab]
+    lists2_new = [[new_lab2ind[lab] for lab in utt] for utt in lists2_lab]
+
+    return lists1_new, lists2_new
+
+
+def batch_log_matvecmul(A, b):
+    """
+    For each 'matrix' and 'vector' pair in the batch, do matrix-vector
+    multiplication in the log domain, i.e. logsumexp instead of add,
+    add instead of multiply
+
+    Arguments
+    ---------
+    A: torch.Tensor (batch, dim1, dim2)
+    b: torch.Tensor (batch, dim1)
+
+    Outputs
+    -------
+    x: torch.Tensor (batch, dim1)
+
+    Example
+    -------
+    >>> A = torch.tensor([[[   0., 0.],
+    ...                    [ -1e5, 0.]]])
+    >>> b = torch.tensor([[0., 0.,]])
+    >>> x = batch_log_matvecmul(A, b)
+    >>> x
+    tensor([[0.6931, 0.0000]])
+    >>>
+    >>> # non-log domain equivalent without batching funcionality
+    >>> A_ = torch.tensor([[1., 1.],
+    ...                    [0., 1.]])
+    >>> b_ = torch.tensor([1., 1.,])
+    >>> x_ = torch.matmul(A_, b_)
+    >>> x_
+    tensor([2., 1.])
+    """
+    b = b.unsqueeze(1)
+    x = torch.logsumexp(A + b, dim=2)
+
+    return x
+
+
+def batch_log_maxvecmul(A, b):
+    """
+    Similar to batch_log_matvecmul, but takes a maximum instead of
+    logsumexp. Returns both the max and the argmax.
+
+    Arguments
+    ---------
+    A: torch.Tensor (batch, dim1, dim2)
+    b: torch.Tensor (batch, dim1)
+
+    Outputs
+    -------
+    x: torch.Tensor (batch, dim1)
+    argmax: torch.Tensor (batch, dim1)
+
+    Example
+    -------
+    >>> A = torch.tensor([[[   0., -1.],
+    ...                    [ -1e5,  0.]]])
+    >>> b = torch.tensor([[0., 0.,]])
+    >>> x, argmax = batch_log_maxvecmul(A, b)
+    >>> x
+    tensor([[0., 0.]])
+    >>> argmax
+    tensor([[0, 1]])
+    """
+    b = b.unsqueeze(1)
+    x, argmax = torch.max(A + b, dim=2)
+
+    return x, argmax
