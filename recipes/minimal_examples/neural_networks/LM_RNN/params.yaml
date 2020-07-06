@@ -1,0 +1,76 @@
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1234
+__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+
+# Data files
+data_folder: !PLACEHOLDER
+csv_train: !ref <data_folder>/train.csv
+csv_valid: !ref <data_folder>/dev.csv
+csv_test: !ref <data_folder>/test.csv
+
+# Training parameters
+number_of_epochs: 20
+batch_size: 1
+lr: 0.001
+
+# Model parameters
+rnn_layers: 1
+rnn_neurons: 256
+emb_size: 128
+dropout: 0.0
+
+# Outputs
+output_neurons: 42
+bos_index: !ref <output_neurons> - 1
+eos_index: !ref <output_neurons> - 1
+
+# Functions
+rnn: !new:speechbrain.nnet.RNN.LSTM
+    hidden_size: !ref <rnn_neurons>
+    num_layers: !ref <rnn_layers>
+    dropout: !ref <dropout>
+    bidirectional: False
+    re_init: True
+    return_hidden: False
+
+emb: !new:speechbrain.nnet.embedding.Embedding
+    num_embeddings: !ref <output_neurons>
+    embedding_dim: !ref <emb_size>
+
+lin: !new:speechbrain.nnet.linear.Linear
+    n_neurons: !ref <output_neurons>
+
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+    apply_log: True
+
+optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
+    learning_rate: !ref <lr>
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_train>
+    batch_size: !ref <batch_size>
+    sentence_sorting: random
+    csv_read: [phn]
+    replacements:
+        $data_folder: !ref <data_folder>
+
+valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_valid>
+    batch_size: !ref <batch_size>
+    sentence_sorting: random
+    csv_read: [phn]
+    replacements:
+        $data_folder: !ref <data_folder>
+
+test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_test>
+    batch_size: !ref <batch_size>
+    sentence_sorting: random
+    csv_read: [phn]
+    replacements:
+        $data_folder: !ref <data_folder>
+
+compute_cost: !name:speechbrain.nnet.losses.nll_loss
