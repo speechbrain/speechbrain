@@ -285,6 +285,53 @@ class StatObject_SB:
         self.stat0 = self.stat0[indx, :]
         self.stat1 = self.stat1[indx, :]
 
+    def get_lda_matrix_stat1(self, rank):
+        """Compute and return the Linear Discriminant Analysis matrix
+            on the first-order statistics. Columns of the LDA matrix are ordered
+            according to the corresponding eigenvalues in descending order.
+
+        rank: intger, rank of the LDA matrix to return
+
+        return: the LDA matrix of rank "rank" as a ndarray
+        """
+        vect_size = self.stat1.shape[1]
+        unique_speaker = numpy.unique(self.modelset)
+
+        mu = self.get_mean_stat1()
+
+        class_means = numpy.zeros((unique_speaker.shape[0], vect_size))
+        Sw = numpy.zeros((vect_size, vect_size))
+
+        spk_idx = 0
+        for speaker_id in unique_speaker:
+            spk_sessions = self.get_model_stat1(speaker_id) - numpy.mean(
+                self.get_model_stat1(speaker_id), axis=0
+            )
+            Sw += (
+                numpy.dot(spk_sessions.transpose(), spk_sessions)
+                / spk_sessions.shape[0]
+            )
+            class_means[spk_idx, :] = numpy.mean(
+                self.get_model_stat1(speaker_id), axis=0
+            )
+            spk_idx += 1
+
+        # Compute Between-class scatter matrix
+        class_means = class_means - mu
+        Sb = numpy.dot(class_means.transpose(), class_means)
+
+        # Compute the Eigenvectors & eigenvalues of the discrimination matrix
+        DiscriminationMatrix = numpy.dot(Sb, linalg.inv(Sw)).transpose()
+        eigen_values, eigen_vectors = linalg.eigh(DiscriminationMatrix)
+        eigen_values = eigen_values.real
+        eigen_vectors = eigen_vectors.real
+
+        # Rearrange the eigenvectors according to decreasing eigenvalues
+        # get indexes of the rank top eigen values
+        idx = eigen_values.real.argsort()[-rank:][::-1]
+        L = eigen_vectors[:, idx]
+        return L
+
 
 def diff(list1, list2):
     c = [item for item in list1 if item not in list2]
@@ -840,6 +887,10 @@ if __name__ == "__main__":
     print("sb_M: ", plda.mean[:20])
     print("sb_F: ", plda.F)
     print("sb_S: ", plda.Sigma)
+
+    trans_mat = train_obj.get_lda_matrix_stat1(100)
+    print("trans-mat: ", trans_mat.shape)
+    print("trans-mat: ", trans_mat)
 
     # Scoring
     enrol_file = data_dir + "VoxCeleb1_enrol_rvectors.pkl"
