@@ -113,10 +113,8 @@ class SEBrain(sb.core.Brain):
         ids, wavs, lens = x
         wavs, lens = wavs.to(params.device), lens.to(params.device)
         feats = params.compute_STFT(wavs)
-        feats = spectral_magnitude(
-            feats, power=0.5, log=True, eps=1
-        )  # eps=1 equals to log1p
-        # feats = params.mean_var_norm(feats, lens)
+        feats = spectral_magnitude(feats, power=0.5)
+        feats = torch.log1p(feats)
 
         mask = params.model(feats, init_params=init_params)
         out = torch.mul(mask, feats)  # mask with "signal approximation (SA)"
@@ -127,7 +125,8 @@ class SEBrain(sb.core.Brain):
         ids, wavs, lens = targets
         wavs, lens = wavs.to(params.device), lens.to(params.device)
         feats = params.compute_STFT(wavs)
-        feats = spectral_magnitude(feats, power=0.5, log=True, eps=1)
+        feats = spectral_magnitude(feats, power=0.5)
+        feats = torch.log1p(feats)
 
         loss = params.compute_cost(predictions, feats, lens)
 
