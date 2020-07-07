@@ -5,7 +5,7 @@ Authors
  * Anthony Larcher 2020
 
 Relevant Papers
- - This implementation is based of following papers.
+ - This implementation of PLDA is based of following papers.
 
  - PLDA model Training
     * Ye Jiang et. al, "PLDA Modeling in I-Vector and Supervector Space for Speaker Verification," in Interspeech, 2012.
@@ -292,10 +292,12 @@ class StatObject_SB:
             on the first-order statistics. Columns of the LDA matrix are ordered
             according to the corresponding eigenvalues in descending order.
 
-        rank: intger, rank of the LDA matrix to return
-
-        return: the LDA matrix of rank "rank" as a ndarray
+        Arguments
+        ---------
+        rank: int
+            rank of the LDA matrix to return
         """
+
         vect_size = self.stat1.shape[1]
         unique_speaker = numpy.unique(self.modelset)
 
@@ -515,7 +517,7 @@ class Scores:
         ch += self.scoremat.__repr__() + "\n"
 
 
-## PLDA functionalities starts here
+## PLDA and LDA functionalities starts here
 
 
 def fa_model_loop(
@@ -702,19 +704,35 @@ def fast_PLDA_scoring(
 
 
 class LDA:
+    """A class to perform Linear Discriminant Analysis
+    It returns the low dimensional representation.
+
+    Arguments
+    ---------
+    reduced_dim: int
+        The dimesion of the output representation.
+    """
+
     def __init__(self, reduced_dim=1):
         self.transform_mat = None
         self.reduced_dim = 1
 
     def do_lda(self, stat_server=None, reduced_dim=2):
-        """Returns reduced dimension vectors.
+        """Performs LDA and projects the vectors onto lower dimension space.
+
+        Arguments
+        ---------
+        stat_server: object of speechbrain.processing.PLDA_LDA.StatObject_SB.
+            Contains vectors and meta-information to perform LDA.
+        reduced_dim: int
+            Dimension of the reduces space.
         """
 
         # Get transformation matrix and project
         self.transform_mat = stat_server.get_lda_matrix_stat1(reduced_dim)
 
         # Projection
-        new_train_obj = copy.deepcopy(train_obj)
+        new_train_obj = copy.deepcopy(stat_server)
         new_train_obj.rotate_stat1(self.transform_mat)
 
         return new_train_obj
@@ -727,8 +745,6 @@ class PLDA:
 
     Arguments
     ---------
-    input_file_name: str
-        file to read model from
     mean: 1d tensor
         mean of the vectors
     F: tensor
@@ -761,16 +777,16 @@ class PLDA:
 
         Arguments
         ---------
-        stat_server:
-            object of speechbrain.utils.Xvector_PLDA_sp.StatObject_SB
-        rank_f:
+        stat_server: object of speechbrain.processing.PLDA_LDA.StatObject_SB
+            contains vectors and meta-information to perform PLDA
+        rank_f: int
             rank of the between class covariance matrix
-        nb_iter:
+        nb_iter: int
             number of iterations to run
-        scaling_factor:
+        scaling_factor: float
             scaling factor to downscale statistics (value bewteen 0 and 1)
-        output_file_name: name of the output file where to store PLDA model
-            save_partial: boolean, if True, save PLDA model after each iteration
+        output_file_name:
+            name of the output file where to store PLDA model
         """
 
         # Dimension of the vector (x-vectors stored in stat1)
@@ -872,6 +888,10 @@ if __name__ == "__main__":
     >>> with open(train_file, "rb") as xvectors:
     ...     train_obj = pickle.load(xvectors)
     ...
+    >>> lda = LDA()
+    >>> reduced_stat = lda.do_lda(train_obj, 100)
+    >>> print (reduced_stat.stat1.shape)
+    (148808, 100)
     >>> plda = PLDA()
     >>> plda.plda(train_obj)
     >>> print ("Training Completed. Started scoring...")
@@ -897,27 +917,23 @@ if __name__ == "__main__":
     data_dir = "/Users/nauman/Desktop/Mila/nauman/Data/xvect-sdk/sb-format/"
     train_file = data_dir + "VoxCeleb1_training_rvectors.pkl"
 
-    # read extracted vectors (xvect, ivect, dvect, etc.)
+    # read extracted vectors (xvect, ivect, dvect, rvect etc.)
     with open(train_file, "rb") as xvectors:
         train_obj = pickle.load(xvectors)
     print("Training started..")
 
-    # Train the model
+    # Perform LDA on train x-vectors
+    # lda = LDA(100)
+    # reduced_stat_train = lda.do_lda(train_obj, 150)
+
+    # Train PLDA model
     plda = PLDA()
-    # plda.plda(train_obj)
+    plda.plda(train_obj)
     # print("sb_M: ", plda.mean[:20])
     # print("sb_F: ", plda.F)
     # print("sb_S: ", plda.Sigma)
 
-    lda = LDA(100)
-    a = time.time()
-    reduced_stat = lda.do_lda(train_obj, 100)
-    print("time - ", time.time() - a)
-    print(reduced_stat)
-    print(reduced_stat.stat1.shape)
-    sys.exit()
-
-    # Scoring
+    # PLDA Scoring starts here
     enrol_file = data_dir + "VoxCeleb1_enrol_rvectors.pkl"
     test_file = data_dir + "VoxCeleb1_test_rvectors.pkl"
     ndx_file = data_dir + "ndx.pkl"
@@ -932,6 +948,5 @@ if __name__ == "__main__":
     scores_plda = fast_PLDA_scoring(
         enrol_obj, test_obj, ndx_obj, plda.mean, plda.F, plda.Sigma
     )
-
     print("\nScores with SpeechBrain:")
     print(scores_plda.scoremat[:3, :3])
