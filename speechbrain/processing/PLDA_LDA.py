@@ -1,10 +1,10 @@
-"""A popular speaker recognition/diarization model.
+"""A popular speaker recognition/diarization model (LDA and PLDA).
 
 Authors
  * Nauman Dawalatabad 2020
  * Anthony Larcher 2020
 
-References
+Relevant Papers
  - This implementation is based of following papers.
 
  - PLDA model Training
@@ -17,7 +17,7 @@ References
     * Kong Aik Lee et. al, "Multi-session PLDA Scoring of I-vector for Partially Open-Set Speaker Detection," in Interspeech 2013.
 
 Credits
-    Most parts of this code is directly adapted from: https://git-lium.univ-lemans.fr/Larcher/sidekit
+    This code is adapted from: https://git-lium.univ-lemans.fr/Larcher/sidekit
 """
 
 import numpy
@@ -702,14 +702,22 @@ def fast_PLDA_scoring(
 
 
 class LDA:
-    def __init__(self):
+    def __init__(self, reduced_dim=1):
         self.transform_mat = None
         self.reduced_dim = 1
 
     def do_lda(self, stat_server=None, reduced_dim=2):
         """Returns reduced dimension vectors.
         """
+
+        # Get transformation matrix and project
         self.transform_mat = stat_server.get_lda_matrix_stat1(reduced_dim)
+
+        # Projection
+        new_train_obj = copy.deepcopy(train_obj)
+        new_train_obj.rotate_stat1(self.transform_mat)
+
+        return new_train_obj
 
 
 class PLDA:
@@ -896,17 +904,17 @@ if __name__ == "__main__":
 
     # Train the model
     plda = PLDA()
-    plda.plda(train_obj)
-    print("sb_M: ", plda.mean[:20])
-    print("sb_F: ", plda.F)
-    print("sb_S: ", plda.Sigma)
+    # plda.plda(train_obj)
+    # print("sb_M: ", plda.mean[:20])
+    # print("sb_F: ", plda.F)
+    # print("sb_S: ", plda.Sigma)
 
+    lda = LDA(100)
     a = time.time()
-    trans_mat = train_obj.get_lda_matrix_stat1(100)
-    print("trans-mat: ", trans_mat.shape)
-    print("trans-mat: ", trans_mat)
-    print("time : ", time.time() - a)
-
+    reduced_stat = lda.do_lda(train_obj, 100)
+    print("time - ", time.time() - a)
+    print(reduced_stat)
+    print(reduced_stat.stat1.shape)
     sys.exit()
 
     # Scoring
