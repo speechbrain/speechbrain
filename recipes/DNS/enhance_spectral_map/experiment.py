@@ -55,12 +55,12 @@ def evaluation(clean, enhanced, length):
     return pesq_score, stoi_score
 
 
-def multiprocess_evaluation(pred_wavs, target_wavs, lens, num_cores):
+def multiprocess_evaluation(pred_wavs, clean_wavs, lens, num_cores):
     processes = []
 
     pool = multiprocessing.Pool(processes=num_cores)
 
-    for clean, enhanced, length in zip(target_wavs, pred_wavs, lens):
+    for clean, enhanced, length in zip(clean_wavs, pred_wavs, lens):
         processes.append(
             pool.apply_async(evaluation, args=(clean, enhanced, int(length)))
         )
@@ -92,8 +92,8 @@ class SEBrain(sb.core.Brain):
 
         return output
 
-    def compute_objectives(self, predictions, targets, stage="train"):
-        ids, wavs, lens = targets
+    def compute_objectives(self, predictions, cleans, stage="train"):
+        ids, wavs, lens = cleans
         wavs, lens = wavs.to(params.device), lens.to(params.device)
 
         feats = params.compute_stft(wavs)
@@ -105,9 +105,9 @@ class SEBrain(sb.core.Brain):
         return loss, {}
 
     def fit_batch(self, batch):
-        inputs = batch[0]
-        predictions = self.compute_forward(inputs)
-        loss, stats = self.compute_objectives(predictions, inputs)
+        cleans = batch[0]
+        predictions = self.compute_forward(cleans)
+        loss, stats = self.compute_objectives(predictions, cleans)
         loss.backward()
         self.optimizer.step()
         self.optimizer.zero_grad()
@@ -116,27 +116,24 @@ class SEBrain(sb.core.Brain):
         return stats
 
     def evaluate_batch(self, batch, stage="valid"):
-        inputs, targets = batch
-        predictions = self.compute_forward(inputs, stage=stage)
-        epoch = params.epoch_counter.current
+        noisys, cleans = batch
+        predictions = self.compute_forward(noisys, stage=stage)
 
         # Write batch enhanced files to directory
-        pred_wavs = self.write_wavs(
-            torch.expm1(predictions), targets, epoch, stage
-        )
+        pred_wavs = self.write_wavs(torch.expm1(predictions), noisys, stage)
 
         # Evaluating PESQ and STOI
-        _, target_wavs, lens = targets
+        _, clean_wavs, lens = cleans
 
-        lens = lens * target_wavs.shape[1]
+        lens = lens * clean_wavs.shape[1]
         pesq_scores, stoi_scores = multiprocess_evaluation(
             pred_wavs.numpy(),
-            target_wavs.numpy(),
+            clean_wavs.numpy(),
             lens.numpy(),
             multiprocessing.cpu_count(),
         )
 
-        loss, stats = self.compute_objectives(predictions, targets, stage=stage)
+        loss, stats = self.compute_objectives(predictions, cleans, stage=stage)
         stats["loss"] = loss.detach()
         stats["pesq"] = pesq_scores
         stats["stoi"] = stoi_scores
@@ -167,8 +164,8 @@ class SEBrain(sb.core.Brain):
             importance_keys=[ckpt_recency, lambda c: c.meta["PESQ"]],
         )
 
-    def write_wavs(self, predictions, inputs, epoch, stage):
-        ids, wavs, lens = inputs
+    def write_wavs(self, predictions, noisys, stage):
+        ids, wavs, lens = noisys
         lens = lens * wavs.shape[1]
         predictions = predictions.cpu()
 
