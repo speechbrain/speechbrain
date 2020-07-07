@@ -1,15 +1,13 @@
 #!/usr/bin/python
 import os
 import sys
-import speechbrain as sb
 import torch
 import torchaudio
-import numpy as np
-from tqdm.contrib import tqdm
+import multiprocessing
+import speechbrain as sb
 from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.train_logger import summarize_average
 from speechbrain.processing.features import spectral_magnitude
-from joblib import Parallel, delayed
 from pystoi.stoi import stoi
 from pesq import pesq
 
@@ -30,74 +28,6 @@ sb.core.create_experiment_directory(
     overrides=overrides,
 )
 
-
-def read_pesq(clean_folder, enhanced_file, sr):
-    wave_name = enhanced_file.split("/")[-1]
-    clean_file = clean_folder + wave_name
-
-    clean_wav, _ = torchaudio.load(clean_file)
-    enhanced_wav, _ = torchaudio.load(enhanced_file)
-
-    pesq_score = pesq(
-        sr,
-        np.squeeze(clean_wav.numpy()),
-        np.squeeze(enhanced_wav.numpy()),
-        "wb",
-    )
-    return pesq_score
-
-
-# Parallel computing for accelerating
-def read_batch_PESQ(clean_folder, enhanced_list):
-    pesq_score = Parallel(n_jobs=30)(
-        delayed(read_pesq)(clean_folder, en, 16000) for en in enhanced_list
-    )
-    return pesq_score
-
-
-def read_STOI(clean_folder, enhanced_file):
-    wave_name = enhanced_file.split("/")[-1]
-    clean_file = clean_folder + wave_name
-
-    clean_wav, _ = torchaudio.load(clean_file)
-    enhanced_wav, _ = torchaudio.load(enhanced_file)
-
-    stoi_score = stoi(
-        np.squeeze(clean_wav.numpy()),
-        np.squeeze(enhanced_wav.numpy()),
-        16000,
-        extended=False,
-    )
-    return stoi_score
-
-
-# Parallel computing for accelerating
-def read_batch_STOI(clean_folder, enhanced_list):
-    stoi_score = Parallel(n_jobs=30)(
-        delayed(read_STOI)(clean_folder, en) for en in enhanced_list
-    )
-    return stoi_score
-
-
-def get_filepaths(directory):
-    """
-    This function will generate the file names in a directory
-    tree by walking the tree either top-down or bottom-up. For each
-    directory in the tree rooted at directory top (including top itself),
-    it yields a 3-tuple (dirpath, dirnames, filenames).
-    """
-    file_paths = []  # List which will store all of the full filepaths.
-
-    # Walk the tree.
-    for root, directories, files in os.walk(directory):
-        for filename in files:
-            # Join the two strings in order to form the full filepath.
-            filepath = os.path.join(root, filename)
-            file_paths.append(filepath)  # Add it to the list.
-
-    return file_paths  # Self-explanatory.
-
-
 if params.use_tensorboard:
     from speechbrain.utils.train_logger import TensorboardLogger
 
@@ -106,6 +36,35 @@ if params.use_tensorboard:
 # Create the folder to save enhanced files
 if not os.path.exists(params.enhanced_folder):
     os.mkdir(params.enhanced_folder)
+
+
+def evaluation(clean, enhanced, length):
+    clean = clean[:length]
+    enhanced = enhanced[:length]
+    pesq_score = pesq(params.Sample_rate, clean, enhanced, "wb",)
+    stoi_score = stoi(clean, enhanced, params.Sample_rate, extended=False)
+    return pesq_score, stoi_score
+
+
+def multiprocess_evaluation(pred_wavs, target_wavs, lens, num_cores):
+    processes = []
+    pool = multiprocessing.Pool(processes=num_cores)
+
+    for clean, enhanced, length in zip(target_wavs, pred_wavs, lens):
+        processes.append(
+            pool.apply_async(evaluation, args=(clean, enhanced, int(length)))
+        )
+
+    pool.close()
+    pool.join()
+
+    pesq_scores, stoi_scores = [], []
+    for process in processes:
+        pesq_score, stoi_score = process.get()
+        pesq_scores.append(pesq_score)
+        stoi_scores.append(stoi_score)
+
+    return pesq_scores, stoi_scores
 
 
 class SEBrain(sb.core.Brain):
@@ -134,6 +93,37 @@ class SEBrain(sb.core.Brain):
 
         return loss, stats
 
+    def evaluate_batch(self, batch, stage="valid"):
+        inputs, targets = batch
+        predictions = self.compute_forward(inputs, stage=stage)
+        pred_wavs = self.resynthesize(torch.expm1(predictions), inputs)
+        ids, target_wavs, lens = targets
+        loss, stats = self.compute_objectives(predictions, targets, stage=stage)
+        stats["loss"] = loss.detach()
+
+        # Comprehensive but slow evaluation for test
+        if stage == "test":
+            lens = lens * target_wavs.shape[1]
+
+            # Evaluate PESQ and STOI
+            pesq_scores, stoi_scores = multiprocess_evaluation(
+                pred_wavs.numpy(),
+                target_wavs.numpy(),
+                lens.numpy(),
+                multiprocessing.cpu_count(),
+            )
+
+            # Write wavs to file
+            for name, pred_wav, length in zip(ids, pred_wavs, lens):
+                name += ".wav"
+                enhance_path = os.path.join(params.enhanced_folder, name)
+                torchaudio.save(enhance_path, pred_wav[: int(length)], 16000)
+
+            stats["pesq"] = pesq_scores
+            stats["stoi"] = stoi_scores
+
+        return stats
+
     def on_epoch_end(self, epoch, train_stats, valid_stats):
         if params.use_tensorboard:
             tensorboard_train_logger.log_stats(
@@ -150,38 +140,33 @@ class SEBrain(sb.core.Brain):
             importance_keys=[ckpt_recency, lambda c: -c.meta["loss"]],
         )
 
-    def generate_enhanced_waveform(self, data_set):
-        with tqdm(data_set) as t:
-            for i, batch in enumerate(t):
-                inputs, _ = batch
-                predict_mag = torch.exp(self.compute_forward(inputs)) - 1
-                ids, noisy_wavs, lens = inputs
-                noisy_wavs, lens = (
-                    noisy_wavs.to(params.device),
-                    lens.to(params.device),
-                )
-                noisy_stft = params.compute_STFT(noisy_wavs)
-                noisy_phase = torch.atan2(
-                    noisy_stft[:, :, :, 1], noisy_stft[:, :, :, 0]
-                )
+    def resynthesize(self, predictions, inputs):
+        ids, wavs, lens = inputs
+        lens = lens * wavs.shape[1]
+        predictions = predictions.cpu()
 
-                real, imag = torch.cos(noisy_phase), torch.sin(noisy_phase)
-                enhanced_stft = torch.mul(
-                    torch.unsqueeze(predict_mag, -1),
-                    torch.cat(
-                        (torch.unsqueeze(real, -1), torch.unsqueeze(imag, -1)),
-                        -1,
-                    ),
-                )
-                enhanced_wave = params.compute_ISTFT(
-                    enhanced_stft.to("cpu"), noisy_wavs.shape[1]
-                )
+        # Extract noisy phase
+        feats = params.compute_STFT(wavs)
+        phase = torch.atan2(feats[:, :, :, 1], feats[:, :, :, 0])
+        complex_predictions = torch.mul(
+            torch.unsqueeze(predictions, -1),
+            torch.cat(
+                (
+                    torch.unsqueeze(torch.cos(phase), -1),
+                    torch.unsqueeze(torch.sin(phase), -1),
+                ),
+                -1,
+            ),
+        )
 
-                torchaudio.save(
-                    os.path.join(params.enhanced_folder, ids[0] + ".wav"),
-                    enhanced_wave.to("cpu").detach(),
-                    16000,
-                )
+        # Get the predicted waveform
+        pred_wavs = params.compute_ISTFT(complex_predictions)
+
+        # Normalize the waveform
+        abs_max, _ = torch.max(torch.abs(pred_wavs), dim=1, keepdim=True)
+        pred_wavs = pred_wavs / abs_max * 0.99
+        padding = (0, wavs.shape[1] - pred_wavs.shape[1])
+        return torch.nn.functional.pad(pred_wavs, padding)
 
 
 # Prepare data
@@ -208,18 +193,3 @@ params.train_logger.log_stats(
     stats_meta={"Epoch loaded": params.epoch_counter.current},
     test_stats=test_stats,
 )
-
-
-# Generate enhanced waveform on the test set
-se_brain.generate_enhanced_waveform(test_set)
-
-# evaluate the PESQ and STOI scores of the enhanced speech
-STOI_scores = read_batch_STOI(
-    params.test_clean_folder, get_filepaths(params.enhanced_folder)
-)
-print("STOI score: %.5f" % np.mean(STOI_scores))
-
-PESQ_scores = read_batch_PESQ(
-    params.test_clean_folder, get_filepaths(params.enhanced_folder)
-)
-print("PESQ score: %.5f" % np.mean(PESQ_scores))

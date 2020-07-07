@@ -32,6 +32,8 @@ number_of_epochs: 150
 N_batch: 1
 lr: 0.001
 device: 'cuda:0'
+Sample_rate: 16000
+max_length: !ref <Sample_rate> * 10
 
 train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>
