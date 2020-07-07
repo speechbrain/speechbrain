@@ -4,18 +4,44 @@
 # Authors: Szu-Wei, Fu 2020
 # ################################
 
-
 import torch
 import torchaudio
-from OBM import OBM
-from hanning_window import hanning
+import numpy as np
 
 
-octave_band = torch.from_numpy(OBM).to("cuda")
-w = torch.from_numpy(hanning).to("cuda")
+def thirdoct(fs, nfft, num_bands, min_freq):
+    """ Returns the 1/3 octave band matrix
+    # Arguments :
+        fs : sampling rate
+        nfft : FFT size
+        num_bands : number of 1/3 octave bands
+        min_freq : center frequency of the lowest 1/3 octave band
+    # Returns :
+        obm : Octave Band Matrix
+    """
+    f = torch.linspace(0, fs, nfft + 1)
+    f = f[: int(nfft / 2) + 1]
+    k = torch.from_numpy(np.array(range(num_bands)).astype(float))
+    cf = torch.pow(2.0 ** (1.0 / 3), k) * min_freq
+    freq_low = min_freq * torch.pow(2.0, (2 * k - 1) / 6)
+    freq_high = min_freq * torch.pow(2.0, (2 * k + 1) / 6)
+    obm = torch.zeros((num_bands, len(f)))  # a verifier
+
+    for i in range(len(cf)):
+        # Match 1/3 oct band freq with fft frequency bin
+        f_bin = torch.argmin(torch.square(f - freq_low[i]))
+        freq_low[i] = f[f_bin]
+        fl_ii = f_bin
+        f_bin = torch.argmin(torch.square(f - freq_high[i]))
+        freq_high[i] = f[f_bin]
+        fh_ii = f_bin
+        # Assign to the octave band matrix
+        obm[i, fl_ii:fh_ii] = 1
+    return obm
 
 
 def removeSilentFrames(x, y, dyn_range=40, N=256, K=128):
+    w = torch.from_numpy(np.hanning(257))
     frames = range(0, x.shape[0] - N, K)
     energy = []
     for frame in frames:
@@ -31,8 +57,8 @@ def removeSilentFrames(x, y, dyn_range=40, N=256, K=128):
             msk[i] = 1
         i = i + 1
 
-    x_sil = torch.zeros(x.shape).to("cuda")
-    y_sil = torch.zeros(y.shape).to("cuda")
+    x_sil = torch.zeros(x.shape)
+    y_sil = torch.zeros(y.shape)
     count = 0
     for j in range(len(frames)):
         if msk[j] == 1:
@@ -50,8 +76,8 @@ def removeSilentFrames(x, y, dyn_range=40, N=256, K=128):
 
 
 def stoi_loss(y_pred_batch, y_true_batch, lens):
-    y_pred_batch = torch.squeeze(y_pred_batch, dim=-1).to("cuda")
-    y_true_batch = torch.squeeze(y_true_batch, dim=-1).to("cuda")
+    y_pred_batch = torch.squeeze(y_pred_batch, dim=-1)
+    y_true_batch = torch.squeeze(y_true_batch, dim=-1)
 
     y_pred_batch_shape = y_pred_batch.shape
 
@@ -62,6 +88,7 @@ def stoi_loss(y_pred_batch, y_true_batch, lens):
     J = 15.0  # Number of one-third octave bands
     smallVal = 0.0000000001  # To avoid divide by zero
 
+    octave_band = thirdoct(fs=10000, nfft=512, num_bands=15, min_freq=150)
     c = 5.62341325  # 10^(-Beta/20) with Beta = -15
     D = 0
     for i in range(0, batch_size):  # Run over mini-batches

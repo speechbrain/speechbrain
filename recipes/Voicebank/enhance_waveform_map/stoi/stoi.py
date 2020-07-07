@@ -5,11 +5,6 @@
 import numpy as np
 from resampy import resample
 from scipy import signal
-from . import OBM
-from . import hanning_window
-
-octave_band = OBM.OBM
-w = hanning_window.hanning
 
 N = 30  # length of temporal envelope vectors
 J = 15.0  # Number of one-third octave bands
@@ -18,7 +13,37 @@ smallVal = np.finfo("float").eps  # To avoid divide by zero
 c = 5.62341325  # 10^(-Beta/20) with Beta = -15
 
 
+def thirdoct(fs, N_fft, numBands, mn):
+    """ returns 1/3 octave band matrix
+    inputs :
+        FS:         samplerate
+        N_fft:      FFT size
+        numBands:   number of bands
+        mn:         center frequency of first 1/3 octave band
+    outputs :
+        A : Octave Band Matrix
+    """
+    f = np.linspace(0, fs, N_fft + 1)
+    f = f[: int(N_fft / 2) + 1]
+    k = np.array(range(numBands)).astype(float)
+    cf = np.power(2.0 ** (1.0 / 3), k) * mn
+    freq_low = mn * np.power(2.0, (2 * k - 1) / 6)
+    freq_high = mn * np.power(2.0, (2 * k + 1) / 6)
+    A = np.zeros((numBands, len(f)))
+
+    for i in range(len(cf)):
+        f_bin = np.argmin(np.square(f - freq_low[i]))
+        freq_low[i] = f[f_bin]
+        fl_ii = f_bin
+        f_bin = np.argmin(np.square(f - freq_high[i]))
+        freq_high[i] = f[f_bin]
+        fh_ii = f_bin
+        A[i, fl_ii:fh_ii] = 1
+    return A
+
+
 def removeSilentFrames(x, y, dyn_range=40, N=256, K=128):
+    w = np.hanning(257)
     frames = range(0, x.shape[0] - N, K)
     energy = []
     for frame in frames:
@@ -53,6 +78,7 @@ def removeSilentFrames(x, y, dyn_range=40, N=256, K=128):
 
 
 def stoi(y_true, y_pred, fs):
+    octave_band = thirdoct(fs=10000, N_fft=512, numBands=15, mn=150)
 
     y_true = resample(y_true, fs, 10000)
     y_pred = resample(y_pred, fs, 10000)
