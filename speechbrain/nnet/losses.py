@@ -1,15 +1,17 @@
 """
 Losses for training neural networks.
 
-Author
-------
-Mirco Ravanelli 2020
+Authors
+ * Mirco Ravanelli 2020
+ * Samuele Cornell 2020
 """
 
 import torch
+from torch import nn
 import logging
 import functools
 from speechbrain.data_io.data_io import length_to_mask
+from itertools import permutations
 
 
 logger = logging.getLogger(__name__)
@@ -38,6 +40,162 @@ def transducer_loss(log_probs, targets, input_lens, target_lens, blank_index):
     return Transducer.apply(
         log_probs, targets, input_lens, target_lens, blank_index, "mean"
     )
+
+
+class PitWrapper(nn.Module):
+    """
+    Permutation Invariant Wrapper to allow Permutation Invariant Training
+    (PIT) with existing losses.
+    Permutation invariance is calculated over sources/classes axis which is
+    assumed to be the rightmost dimension: predictions and targets tensors are
+    assumed to have shape [batch, ..., channels, sources].
+
+    Arguments
+    ---------
+    base_loss : function
+        base loss function, e.g. torch.nn.MSELoss. It is assumed that it takes
+        two arguments:
+        predictions and targets and no reduction is performed.
+        (if a pytorch loss is used, the user must specify reduction="none").
+
+    Returns
+    ---------
+    pit_loss : torch.nn.Module
+        torch module supporting forward method for PIT.
+
+    Example
+    -------
+    >>> pit_mse = PitWrapper(nn.MSELoss(reduction="none"))
+    >>> targets = torch.rand((2, 32, 4))
+    >>> p = (3, 0, 2, 1)
+    >>> predictions = targets[..., p]
+    >>> loss, opt_p = pit_mse(predictions, targets)
+    >>> loss
+    tensor([0., 0.])
+    """
+
+    def __init__(self, base_loss):
+        super(PitWrapper, self).__init__()
+        self.base_loss = base_loss
+
+    def _fast_pit(self, loss_mat):
+        """
+        Arguments
+        ----------
+        loss_mat: torch.Tensor
+            tensor of shape [sources, source] containing loss values for each
+            possible permutation of predictions.
+
+        Returns
+        -------
+        loss: torch.Tensor
+            permutation invariant loss for current batch, tensor of shape [1]
+
+        assigned_perm: tuple
+            indexes for optimal permutation of the input over sources which
+            minimizes the loss.
+        """
+
+        loss = None
+        assigned_perm = None
+        for p in permutations(range(loss_mat.shape[0])):
+            c_loss = loss_mat[range(loss_mat.shape[0]), p].mean()
+            if loss is None or loss > c_loss:
+                loss = c_loss
+                assigned_perm = p
+        return loss, assigned_perm
+
+    def _opt_perm_loss(self, pred, target):
+        """
+
+        Parameters
+        ----------
+        pred: torch.Tensor
+            network prediction for current example, tensor of
+            shape [..., sources].
+        target: torch.Tensor
+            target for current example, tensor of shape [..., sources].
+
+        Returns
+        -------
+        loss: torch.Tensor
+            permutation invariant loss for current example, tensor of shape [1]
+
+        assigned_perm: tuple
+            indexes for optimal permutation of the input over sources which
+            minimizes the loss.
+
+        """
+
+        n_sources = pred.size(-1)
+        pred = pred.unsqueeze(-2).repeat(
+            *[1 for x in range(len(pred.shape) - 1)], n_sources, 1
+        )
+        target = target.unsqueeze(-1).repeat(
+            1, *[1 for x in range(len(target.shape) - 1)], n_sources
+        )
+
+        loss_mat = self.base_loss(pred, target)
+        assert (
+            len(loss_mat.shape) >= 2
+        ), "Base loss should not perform any reduction operation"
+        mean_over = [x for x in range(len(loss_mat.shape))]
+        loss_mat = loss_mat.mean(dim=mean_over[:-2])
+
+        return self._fast_pit(loss_mat)
+
+    def reorder_tensor(self, tensor, p):
+        """
+            Arguments
+            ---------
+            tensor : torch.Tensor
+                tensor to reorder given the optimal permutation, of shape
+                [batch, ..., sources].
+            p : list of tuples
+                list of optimal permutations, e.g. for batch=2 and n_sources=3
+                [(0, 1, 2), (0, 2, 1].
+
+            Returns
+            -------
+            reordered: torch.Tensor
+                reordered tensor given permutation p.
+        """
+
+        reordered = torch.zeros_like(tensor).to(tensor.device)
+        for b in range(tensor.shape[0]):
+            reordered[b] = tensor[b][..., p[b]].clone()
+        return reordered
+
+    def forward(self, preds, targets):
+        """
+            Arguments
+            ---------
+            preds : torch.Tensor
+                Network predictions tensor, of shape
+                [batch, channels, ..., sources].
+            targets : torch.Tensor
+                Target tensor, of shape [batch, channels, ..., sources].
+
+            Returns
+            -------
+            loss: torch.Tensor
+                permutation invariant loss for current examples, tensor of
+                shape [batch]
+
+            perms: list
+                list of indexes for optimal permutation of the inputs over
+                sources.
+                e.g. [(0, 1, 2), (2, 1, 0)] for three sources and 2 examples
+                per batch.
+        """
+        losses = []
+        perms = []
+        for pred, label in zip(preds, targets):
+            loss, p = self._opt_perm_loss(pred, label)
+            perms.append(p)
+            losses.append(loss)
+        loss = torch.stack(losses)
+        return loss, perms
 
 
 def ctc_loss(log_probs, targets, input_lens, target_lens, blank_index):
@@ -75,7 +233,7 @@ def l1_loss(predictions, targets, length=None, allowed_len_diff=3):
     Arguments
     ---------
     predictions : torch.Tensor
-        Predicted tensor, of shape [batch, time, *].
+        Predicted tensor, of shape ``[batch, time, *]``.
     targets : torch.Tensor
         Target tensor, same size as predicted tensor.
     length : torch.Tensor
@@ -100,7 +258,7 @@ def mse_loss(predictions, targets, length=None, allowed_len_diff=3):
     Arguments
     ---------
     predictions : torch.Tensor
-        Predicted tensor, of shape [batch, time, *].
+        Predicted tensor, of shape ``[batch, time, *]``.
     targets : torch.Tensor
         Target tensor, same size as predicted tensor.
     length : torch.Tensor

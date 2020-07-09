@@ -1,7 +1,7 @@
 """Library implementing embedding.
 
-Author
-    Abdelwahab HEBA 2020
+Authors
+ * Abdelwahab Heba 2020
 """
 
 import torch

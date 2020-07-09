@@ -1,7 +1,7 @@
 """Library implementing attention modules.
 
-Author
-    Ju-Chieh Chou 2020
+Authors
+ * Ju-Chieh Chou 2020
 """
 
 import torch
