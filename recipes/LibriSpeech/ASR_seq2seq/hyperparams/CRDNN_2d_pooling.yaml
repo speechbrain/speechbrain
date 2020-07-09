@@ -14,6 +14,7 @@ csv_test: !ref <data_folder>/test-clean.csv
 
 # Training parameters
 number_of_epochs: 30
+number_of_ctc_epochs: 10
 batch_size: 8
 lr: 1.0
 ctc_weight: 0.5
@@ -46,9 +47,11 @@ bos_index: !ref <output_neurons> - 1
 eos_index: !ref <output_neurons> - 1
 min_decode_ratio: 0.0
 max_decode_ratio: 1.0
-beam_size: 64
+beam_size: 80
 length_penalty: 0.1
 eos_threshold: 1.5
+using_max_attn_shift: True
+max_attn_shift: 60
 
 # Functions
 enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
@@ -141,5 +144,5 @@ seq_cost: !name:speechbrain.nnet.losses.nll_loss
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
     summary_fns:
-        loss: !name:speechbrain.utils.train_logger.summarize_average
         CER: !name:speechbrain.utils.train_logger.summarize_error_rate
+        WER: !name:speechbrain.utils.train_logger.summarize_error_rate

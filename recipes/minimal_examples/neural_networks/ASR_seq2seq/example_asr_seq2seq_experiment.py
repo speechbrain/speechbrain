@@ -108,4 +108,4 @@ print("Test PER: %.2f" % summarize_error_rate(test_stats["PER"]))
 
 
 def test_error():
-    assert seq2seq_brain.avg_train_loss < 0.3
+    assert seq2seq_brain.avg_train_loss < 1.0

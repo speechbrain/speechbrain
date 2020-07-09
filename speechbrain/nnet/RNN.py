@@ -1,7 +1,9 @@
 """Library implementing recurrent neural networks.
 
-Author
-    Mirco Ravanelli 2020, Ju-Chieh Chou 2020
+Authors
+ * Mirco Ravanelli 2020
+ * Ju-Chieh Chou 2020
+ * Jianyuan Zhong 2020
 """
 
 import torch
@@ -11,6 +13,9 @@ from speechbrain.nnet.attention import (
     ContentBasedAttention,
     LocationAwareAttention,
 )
+
+# Temporany fix for the jit speed issue
+torch._C._jit_set_profiling_executor(False)
 
 logger = logging.getLogger(__name__)
 
@@ -28,9 +33,9 @@ class RNN(torch.nn.Module):
         Number of output neurons (i.e, the dimensionality of the output).
         values (i.e, time and frequency kernel sizes respectively).
     nonlinearity: str
-         Type of nonlinearity (tanh, relu).
+        Type of nonlinearity (tanh, relu).
     num_layers: int
-         Number of layers to employ in the RNN architecture.
+        Number of layers to employ in the RNN architecture.
     bias: bool
         If True, the additive bias b is adopted.
     dropout: float
@@ -41,9 +46,9 @@ class RNN(torch.nn.Module):
     return_hidden: bool:
         It True, the function returns the last hidden layer.
     bidirectional: bool
-         if True, a bidirectioal model that scans the sequence both
-         right-to-left and left-to-right is used.
-.
+        If True, a bidirectioal model that scans the sequence both
+        right-to-left and left-to-right is used.
+
     Example
     -------
     >>> inp_tensor = torch.rand([4, 10, 20])
@@ -151,7 +156,7 @@ class LSTM(torch.nn.Module):
         Number of output neurons (i.e, the dimensionality of the output).
         values (i.e, time and frequency kernel sizes respectively).
     num_layers: int
-         Number of layers to employ in the RNN architecture.
+        Number of layers to employ in the RNN architecture.
     bias: bool
         If True, the additive bias b is adopted.
     dropout: float
@@ -162,9 +167,9 @@ class LSTM(torch.nn.Module):
     return_hidden: bool:
         It True, the function returns the last hidden layer.
     bidirectional: bool
-         if True, a bidirectioal model that scans the sequence both
-         right-to-left and left-to-right is used.
-.
+        if True, a bidirectioal model that scans the sequence both
+        right-to-left and left-to-right is used.
+
     Example
     -------
     >>> inp_tensor = torch.rand([4, 10, 20])
@@ -269,7 +274,7 @@ class GRU(torch.nn.Module):
         Number of output neurons (i.e, the dimensionality of the output).
         values (i.e, time and frequency kernel sizes respectively).
     num_layers: int
-         Number of layers to employ in the RNN architecture.
+        Number of layers to employ in the RNN architecture.
     bias: bool
         If True, the additive bias b is adopted.
     dropout: float
@@ -280,9 +285,9 @@ class GRU(torch.nn.Module):
     return_hidden: bool:
         It True, the function returns the last hidden layer.
     bidirectional: bool
-         if True, a bidirectioal model that scans the sequence both
-         right-to-left and left-to-right is used.
-.
+        if True, a bidirectioal model that scans the sequence both
+        right-to-left and left-to-right is used.
+
     Example
     -------
     >>> inp_tensor = torch.rand([4, 10, 20])
@@ -374,6 +379,341 @@ class GRU(torch.nn.Module):
             return output
 
 
+class RNNCell(nn.Module):
+    """ This class implements a basic RNN Cell for a timestep of input,
+    while RNN() takes the whole sequence as input.
+    It is designed for autoregressive decoder (ex. attentional decoder),
+    which takes one input at a time.
+    Using torch.nn.RNNCell() instead of torch.nn.RNN() to reduce VRAM
+    consumption.
+
+    It accepts in input tensors formatted as (batch, fea).
+
+    Arguments
+    ---------
+    hidden_size: int
+        Number of output neurons (i.e, the dimensionality of the output).
+    num_layers: int
+        Number of layers to employ in the RNN architecture.
+    bias: bool
+        If True, the additive bias b is adopted.
+    dropout: float
+        It is the dropout factor (must be between 0 and 1).
+    re_init: bool:
+        It True, orthogonal initialization is used for the recurrent weights.
+        Xavier initialization is used for the input connection weights.
+
+    Example
+    -------
+    >>> inp_tensor = torch.rand([4, 20])
+    >>> net = RNNCell(hidden_size=5)
+    >>> out_tensor, _ = net(inp_tensor, init_params=True)
+    >>> out_tensor.shape
+    torch.Size([4, 5])
+    """
+
+    def __init__(
+        self,
+        hidden_size,
+        num_layers=1,
+        bias=True,
+        dropout=0.0,
+        re_init=False,
+        nonlinearity="tanh",
+    ):
+        super(RNNCell, self).__init__()
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
+        self.bias = bias
+        self.dropout = dropout
+        self.nonlinearity = nonlinearity
+        self.re_init = re_init
+
+    def init_params(self, first_input):
+        """
+        Initializes the parameters of the RNNCell.
+
+        Arguments
+        ---------
+        first_input : tensor
+            A first input used for initializing the parameters.
+        """
+        # Computing the feature dimensionality
+        self.fea_dim = torch.prod(torch.tensor(first_input.shape[1:]))
+
+        kwargs = {
+            "input_size": self.fea_dim,
+            "hidden_size": self.hidden_size,
+            "bias": self.bias,
+            "nonlinearity": self.nonlinearity,
+        }
+
+        self.rnn_cells = nn.ModuleList([torch.nn.RNNCell(**kwargs)])
+        kwargs["input_size"] = self.hidden_size
+
+        for i in range(self.num_layers - 1):
+            self.rnn_cells.append(torch.nn.RNNCell(**kwargs))
+
+        self.dropout_layers = nn.ModuleList(
+            [
+                torch.nn.Dropout(p=self.dropout)
+                for _ in range(self.num_layers - 1)
+            ]
+        )
+
+        if self.re_init:
+            rnn_init(self.rnn_cells)
+
+        self.rnn_cells.to(first_input.device)
+
+    def forward(self, x, hx=None, init_params=False):
+        """Returns the output of the RNNCell.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            The input of RNNCell.
+        hx : torch.Tensor
+            The hidden states of RNNCell.
+        """
+        if init_params:
+            self.init_params(x)
+
+        # if not provided, initialized with zeros
+        if hx is None:
+            hx = x.new_zeros(self.num_layers, x.shape[0], self.hidden_size)
+
+        h = self.rnn_cells[0](x, hx[0])
+        hidden_lst = [h]
+        for i in range(1, self.num_layers):
+            drop_h = self.dropout_layers[i - 1](h)
+            h = self.rnn_cells[i](drop_h, hx[i])
+            hidden_lst.append(h)
+
+        hidden = torch.stack(hidden_lst, dim=0)
+        return h, hidden
+
+
+class GRUCell(nn.Module):
+    """ This class implements a basic GRU Cell for a timestep of input,
+    while GRU() takes the whole sequence as input.
+    It is designed for autoregressive decoder (ex. attentional decoder),
+    which takes one input at a time.
+    Using torch.nn.GRUCell() instead of torch.nn.GRU() to reduce VRAM
+    consumption.
+
+    It accepts in input tensors formatted as (batch, fea).
+
+    Arguments
+    ---------
+    hidden_size: int
+        Number of output neurons (i.e, the dimensionality of the output).
+    num_layers: int
+        Number of layers to employ in the GRU architecture.
+    bias: bool
+        If True, the additive bias b is adopted.
+    dropout: float
+        It is the dropout factor (must be between 0 and 1).
+    re_init: bool:
+        It True, orthogonal initialization is used for the recurrent weights.
+        Xavier initialization is used for the input connection weights.
+
+    Example
+    -------
+    >>> inp_tensor = torch.rand([4, 20])
+    >>> net = GRUCell(hidden_size=5)
+    >>> out_tensor, _ = net(inp_tensor, init_params=True)
+    >>> out_tensor.shape
+    torch.Size([4, 5])
+    """
+
+    def __init__(
+        self, hidden_size, num_layers=1, bias=True, dropout=0.0, re_init=False
+    ):
+        super(GRUCell, self).__init__()
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
+        self.bias = bias
+        self.dropout = dropout
+        self.re_init = re_init
+
+    def init_params(self, first_input):
+        """
+        Initializes the parameters of the GRUCell.
+
+        Arguments
+        ---------
+        first_input : tensor
+            A first input used for initializing the parameters.
+        """
+        # Computing the feature dimensionality
+        self.fea_dim = torch.prod(torch.tensor(first_input.shape[1:]))
+
+        kwargs = {
+            "input_size": self.fea_dim,
+            "hidden_size": self.hidden_size,
+            "bias": self.bias,
+        }
+
+        self.rnn_cells = nn.ModuleList([torch.nn.GRUCell(**kwargs)])
+        kwargs["input_size"] = self.hidden_size
+
+        for i in range(self.num_layers - 1):
+            self.rnn_cells.append(torch.nn.GRUCell(**kwargs))
+
+        self.dropout_layers = nn.ModuleList(
+            [
+                torch.nn.Dropout(p=self.dropout)
+                for _ in range(self.num_layers - 1)
+            ]
+        )
+
+        if self.re_init:
+            rnn_init(self.rnn_cells)
+
+        self.rnn_cells.to(first_input.device)
+
+    def forward(self, x, hx=None, init_params=False):
+        """Returns the output of the GRUCell.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            The input of GRUCell.
+        hx : torch.Tensor
+            The hidden states of GRUCell.
+        """
+        if init_params:
+            self.init_params(x)
+
+        # if not provided, initialized with zeros
+        if hx is None:
+            hx = x.new_zeros(self.num_layers, x.shape[0], self.hidden_size)
+
+        h = self.rnn_cells[0](x, hx[0])
+        hidden_lst = [h]
+        for i in range(1, self.num_layers):
+            drop_h = self.dropout_layers[i - 1](h)
+            h = self.rnn_cells[i](drop_h, hx[i])
+            hidden_lst.append(h)
+
+        hidden = torch.stack(hidden_lst, dim=0)
+        return h, hidden
+
+
+class LSTMCell(nn.Module):
+    """ This class implements a basic LSTM Cell for a timestep of input,
+    while LSTM() takes the whole sequence as input.
+    It is designed for autoregressive decoder (ex. attentional decoder),
+    which takes one input at a time.
+    Using torch.nn.LSTMCell() instead of torch.nn.LSTM() to reduce VRAM
+    consumption.
+
+    It accepts in input tensors formatted as (batch, fea).
+
+    Arguments
+    ---------
+    hidden_size: int
+        Number of output neurons (i.e, the dimensionality of the output).
+    num_layers: int
+        Number of layers to employ in the LSTM architecture.
+    bias: bool
+        If True, the additive bias b is adopted.
+    dropout: float
+        It is the dropout factor (must be between 0 and 1).
+    re_init: bool:
+        It True, orthogonal initialization is used for the recurrent weights.
+        Xavier initialization is used for the input connection weights.
+
+    Example
+    -------
+    >>> inp_tensor = torch.rand([4, 20])
+    >>> net = LSTMCell(hidden_size=5)
+    >>> out_tensor, _ = net(inp_tensor, init_params=True)
+    >>> out_tensor.shape
+    torch.Size([4, 5])
+    """
+
+    def __init__(
+        self, hidden_size, num_layers=1, bias=True, dropout=0.0, re_init=False
+    ):
+        super(LSTMCell, self).__init__()
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
+        self.bias = bias
+        self.dropout = dropout
+        self.re_init = re_init
+
+    def init_params(self, first_input):
+        """
+        Initializes the parameters of the LSTM.
+
+        Arguments
+        ---------
+        first_input : tensor
+            A first input used for initializing the parameters.
+        """
+        # Computing the feature dimensionality
+        self.fea_dim = torch.prod(torch.tensor(first_input.shape[1:]))
+
+        kwargs = {
+            "input_size": self.fea_dim,
+            "hidden_size": self.hidden_size,
+            "bias": self.bias,
+        }
+
+        self.rnn_cells = nn.ModuleList([torch.nn.LSTMCell(**kwargs)])
+        kwargs["input_size"] = self.hidden_size
+
+        for i in range(self.num_layers - 1):
+            self.rnn_cells.append(torch.nn.LSTMCell(**kwargs))
+
+        self.dropout_layers = nn.ModuleList(
+            [
+                torch.nn.Dropout(p=self.dropout)
+                for _ in range(self.num_layers - 1)
+            ]
+        )
+
+        if self.re_init:
+            rnn_init(self.rnn_cells)
+
+        self.rnn_cells.to(first_input.device)
+
+    def forward(self, x, hx=None, init_params=False):
+        """Returns the output of the LSTMCell.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            The input of LSTMCell.
+        hx : torch.Tensor
+            The hidden states of LSTMCell.
+        """
+        if init_params:
+            self.init_params(x)
+
+        # if not provided, initialized with zeros
+        if hx is None:
+            hx = (
+                x.new_zeros(self.num_layers, x.shape[0], self.hidden_size),
+                x.new_zeros(self.num_layers, x.shape[0], self.hidden_size),
+            )
+
+        h, c = self.rnn_cells[0](x, (hx[0][0], hx[1][0]))
+        hidden_lst = [h]
+        cell_lst = [c]
+        for i in range(1, self.num_layers):
+            drop_h = self.dropout_layers[i - 1](h)
+            h, c = self.rnn_cells[i](drop_h, (hx[0][i], hx[1][i]))
+            hidden_lst.append(h)
+            cell_lst.append(c)
+
+        hidden = torch.stack(hidden_lst, dim=0)
+        cell = torch.stack(cell_lst, dim=0)
+        return h, (hidden, cell)
+
+
 class AttentionalRNNDecoder(nn.Module):
     def __init__(
         self,
@@ -401,7 +741,7 @@ class AttentionalRNNDecoder(nn.Module):
         Arguments
         ---------
         rnn_type: str
-            Type of recurrent neural network to use (rnn, lstm, gru, ligru).
+            Type of recurrent neural network to use (rnn, lstm, gru).
         attn_type: str
             type of attention to use (location, content).
         hidden_size: int
@@ -449,7 +789,7 @@ class AttentionalRNNDecoder(nn.Module):
         super(AttentionalRNNDecoder, self).__init__()
 
         self.rnn_type = rnn_type.lower()
-        self.attn_type = attn_type
+        self.attn_type = attn_type.lower()
         self.hidden_size = hidden_size
         self.attn_dim = attn_dim
         self.num_layers = num_layers
@@ -535,57 +875,39 @@ class AttentionalRNNDecoder(nn.Module):
 
         # set dropout to 0 when only one layer
         dropout = 0 if self.num_layers == 1 else self.dropout
+
+        # using cell implementation to reduce the usage of memory
         if self.rnn_type == "rnn":
-            self.rnn = RNN(
+            self.rnn = RNNCell(
                 hidden_size=self.hidden_size,
                 nonlinearity=self.nonlinearity,
                 num_layers=self.num_layers,
                 bias=self.bias,
                 dropout=dropout,
                 re_init=self.re_init,
-                bidirectional=False,
-                return_hidden=True,
             )
         elif self.rnn_type == "gru":
-            self.rnn = GRU(
+            self.rnn = GRUCell(
                 hidden_size=self.hidden_size,
                 num_layers=self.num_layers,
                 bias=self.bias,
                 dropout=dropout,
                 re_init=self.re_init,
-                bidirectional=False,
-                return_hidden=True,
             )
         elif self.rnn_type == "lstm":
-            self.rnn = LSTM(
+            self.rnn = LSTMCell(
                 hidden_size=self.hidden_size,
                 num_layers=self.num_layers,
                 bias=self.bias,
                 dropout=dropout,
                 re_init=self.re_init,
-                bidirectional=False,
-                return_hidden=True,
-            )
-        elif self.rnn_type == "ligru":
-            self.rnn = LiGRU(
-                hidden_size=self.hidden_size,
-                nonlinearity=self.nonlinearity,
-                normalization=self.normalization,
-                num_layers=self.num_layers,
-                bias=self.bias,
-                dropout=dropout,
-                re_init=self.re_init,
-                bidirectional=False,
-                return_hidden=True,
             )
         else:
             raise ValueError(f"{self.rnn_type} not implemented.")
 
         # The dummy context vector for initialization
-        context = torch.zeros(
-            inp_tensor.shape[0], inp_tensor.shape[1], self.attn_dim
-        ).to(device)
-        inputs = torch.cat([inp_tensor, context], dim=-1)
+        context = torch.zeros(inp_tensor.shape[0], self.attn_dim).to(device)
+        inputs = torch.cat([inp_tensor[:, 0], context], dim=-1)
         self.rnn.init_params(inputs)
 
     def forward_step(self, inp, hs, c, enc_states, enc_len):
@@ -613,18 +935,11 @@ class AttentionalRNNDecoder(nn.Module):
         w : torch.Tensor
             The weight of attention.
         """
-        cell_inp = torch.cat([inp, c], dim=-1).unsqueeze(1)
+        cell_inp = torch.cat([inp, c], dim=-1)
         cell_inp = self.drop(cell_inp)
         cell_out, hs = self.rnn(cell_inp, hs)
-        cell_out = cell_out.squeeze(1)
 
-        # the last layer of decoder hidden states
-        if isinstance(hs, tuple):
-            dec = hs[0][-1].reshape(-1, self.hidden_size)
-        else:
-            dec = hs[-1].reshape(-1, self.hidden_size)
-
-        c, w = self.attn(enc_states, enc_len, dec)
+        c, w = self.attn(enc_states, enc_len, cell_out)
         dec_out = torch.cat([c, cell_out], dim=1)
         dec_out = self.proj(dec_out)
 
@@ -729,7 +1044,7 @@ class LiGRU(torch.nn.Module):
     bidirectional: bool
          if True, a bidirectioal model that scans the sequence both
          right-to-left and left-to-right is used.
-.
+
     Example
     -------
     >>> inp_tensor = torch.rand([4, 10, 20])
@@ -880,22 +1195,22 @@ class LiGRU_Layer(torch.jit.ScriptModule):
     batch_size: int
         Batch size of the input tensors.
     hidden_size: int
-         Number of output neurons .
+        Number of output neurons.
     num_layers: int
-         Number of layers to employ in the RNN architecture.
+        Number of layers to employ in the RNN architecture.
     nonlinearity: str
-         Type of nonlinearity (tanh, relu).
+        Type of nonlinearity (tanh, relu).
     normalization: str
-         Type of normalization (batchnorm, layernorm).
-         Every string different from batchnorm and layernorm will result
-         in no normalization.
+        Type of normalization (batchnorm, layernorm).
+        Every string different from batchnorm and layernorm will result
+        in no normalization.
     dropout: float
         It is the dropout factor (must be between 0 and 1).
     bidirectional: bool
-         if True, a bidirectioal model that scans the sequence both
-         right-to-left and left-to-right is used.
+        if True, a bidirectioal model that scans the sequence both
+        right-to-left and left-to-right is used.
     device: str
-         Device used for running the computations (e.g, 'cpu', 'cuda').
+        Device used for running the computations (e.g, 'cpu', 'cuda').
     """
 
     def __init__(
@@ -1089,6 +1404,264 @@ class LiGRU_Layer(torch.jit.ScriptModule):
                         self.N_drop_masks, self.hidden_size, device=self.device,
                     )
                 ).data
+
+
+class QuasiRNNLayer(torch.jit.ScriptModule):
+    """Applies a single layer Quasi-Recurrent Neural Network (QRNN) to an input sequence.
+
+    Arguments
+    ---------
+    input_size : int
+        The number of expected features in the input x.
+    hidden_size : int
+        The number of features in the hidden state h. If not specified, the input size is used.
+    zoneout : float
+        Whether to apply zoneout (i.e. failing to update elements in the hidden state) to the hidden state updates. Default: 0.
+    output_gate : bool
+        If True, performs QRNN-fo (applying an output gate to the output). If False, performs QRNN-f. Default: True.
+
+    Example
+    -------
+    >>> import torch
+    >>> model = QuasiRNNLayer(60, 256, bidirectional=True)
+    >>> a = torch.rand([10, 120, 60])
+    >>> b = model(a)
+    >>> print(b[0].shape)
+    torch.Size([10, 120, 512])
+    """
+
+    def __init__(
+        self,
+        input_size,
+        hidden_size,
+        bidirectional,
+        zoneout=0.0,
+        output_gate=True,
+    ):
+        super().__init__()
+
+        self.hidden_size = hidden_size
+        self.zoneout = zoneout
+        self.output_gate = output_gate
+        self.bidirectional = bidirectional
+
+        stacked_hidden = (
+            3 * self.hidden_size if self.output_gate else 2 * self.hidden_size
+        )
+        self.w = torch.nn.Linear(input_size, stacked_hidden, True)
+
+        self.z_gate = nn.Tanh()
+        self.f_gate = nn.Sigmoid()
+        if self.output_gate:
+            self.o_gate = nn.Sigmoid()
+
+    @torch.jit.script_method
+    def forgetMult(self, f, x, hidden):
+        # type: (Tensor, Tensor, Optional[Tensor]) -> Tensor # noqa F821
+        """Returns the hidden states for each time step.
+
+        Arguments
+        ---------
+        wx : torch.Tensor
+            Linearly transformed input.
+        """
+        result = []
+        htm1 = hidden
+        hh = f * x
+
+        for i in range(hh.shape[0]):
+            h_t = hh[i, :, :]
+            ft = f[i, :, :]
+            if htm1 is not None:
+                h_t = h_t + (1 - ft) * htm1
+            result.append(h_t)
+            htm1 = h_t
+
+        return torch.stack(result)
+
+    @torch.jit.script_method
+    def split_gate_inputs(self, y):
+        # type: (Tensor) -> Tuple[Tensor, Tensor, Optional[Tensor]] # noqa F821
+        if self.output_gate:
+            z, f, o = y.chunk(3, dim=-1)
+        else:
+            z, f = y.chunk(2, dim=-1)
+            o = None
+        return z, f, o
+
+    @torch.jit.script_method
+    def forward(self, x, hidden=None):
+        # type: (Tensor, Optional[Tensor]) -> Tuple[Tensor, Tensor] # noqa F821
+        """Returns the output of the QRNN layer.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            input to transform linearly.
+        """
+        if len(x.shape) == 4:
+            # if input is a 4d tensor (batch, time, channel1, channel2)
+            # reshape input to (batch, time, channel)
+            x = x.reshape(x.shape[0], x.shape[1], x.shape[2] * x.shape[3])
+
+        # give a tensor of shape (time, batch, channel)
+        x = x.permute(1, 0, 2)
+        if self.bidirectional:
+            x_flipped = x.flip(0)
+            x = torch.cat([x, x_flipped], dim=1)
+
+        # note: this is equivalent to doing 1x1 convolution on the input
+        y = self.w(x)
+
+        z, f, o = self.split_gate_inputs(y)
+
+        z = self.z_gate(z)
+        f = self.f_gate(f)
+        if o is not None:
+            o = self.o_gate(o)
+
+        # If zoneout is specified, we perform dropout on the forget gates in F
+        # If an element of F is zero, that means the corresponding neuron keeps the old value
+        if self.zoneout:
+            if self.training:
+                mask = (
+                    torch.empty(f.shape)
+                    .bernoulli_(1 - self.zoneout)
+                    .to(f.get_device())
+                ).detach()
+                f = f * mask
+            else:
+                f = f * (1 - self.zoneout)
+
+        z = z.contiguous()
+        f = f.contiguous()
+
+        # Forget Mult
+        c = self.forgetMult(f, z, hidden)
+
+        # Apply output gate
+        if o is not None:
+            h = o * c
+        else:
+            h = c
+
+        # recover shape (batch, time, channel)
+        c = c.permute(1, 0, 2)
+        h = h.permute(1, 0, 2)
+
+        if self.bidirectional:
+            h_fwd, h_bwd = h.chunk(2, dim=0)
+            h_bwd = h_bwd.flip(1)
+            h = torch.cat([h_fwd, h_bwd], dim=2)
+
+            c_fwd, c_bwd = c.chunk(2, dim=0)
+            c_bwd = c_bwd.flip(1)
+            c = torch.cat([c_fwd, c_bwd], dim=2)
+
+        return h, c[-1, :, :]
+
+
+class QuasiRNN(nn.Module):
+    """This is a implementation for the Quasi-RNN
+
+    https://arxiv.org/pdf/1611.01576.pdf
+
+    Part of the code is adapted from:
+
+    https://github.com/salesforce/pytorch-qrnn
+
+    Arguments
+    ---------
+    hidden_size :
+        The number of features in the hidden state h. If not specified, the input size is used.
+    num_layers :
+        The number of QRNN layers to produce.
+    zoneout :
+        Whether to apply zoneout (i.e. failing to update elements in the hidden state) to the hidden state updates. Default: 0.
+    output_gate :
+        If True, performs QRNN-fo (applying an output gate to the output). If False, performs QRNN-f. Default: True.
+
+    Example
+    -------
+    >>> a = torch.rand([8, 120, 40])
+    >>> model = QuasiRNN(256, 4, bidirectional=True)
+    >>> b = model(a, init_params=True)
+    >>> print(b.shape)
+    torch.Size([8, 120, 512])
+    """
+
+    def __init__(
+        self,
+        hidden_size,
+        num_layers=1,
+        bias=True,
+        batch_first=False,
+        dropout=0,
+        bidirectional=False,
+        return_hidden=False,
+        **kwargs,
+    ):
+        assert bias is True, "Removing underlying bias is not yet supported"
+        super().__init__()
+
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
+        self.return_hidden = return_hidden
+        self.bidirectional = bidirectional
+        self.dropout = dropout if dropout > 0 else None
+        self.kwargs = kwargs
+
+    def init_params(self, first_input):
+        input_size = first_input.shape[-1]
+        if len(first_input.shape) == 4:
+            input_size = first_input.shape[-1] * first_input.shape[-2]
+
+        layers = []
+        for layer in range(self.num_layers):
+            layers.append(
+                QuasiRNNLayer(
+                    input_size
+                    if layer == 0
+                    else self.hidden_size * 2
+                    if self.bidirectional
+                    else self.hidden_size,
+                    self.hidden_size,
+                    self.bidirectional,
+                    **self.kwargs,
+                )
+            )
+        self.qrnn = torch.nn.ModuleList(layers)
+
+        # for some reason, jit module cannot handle .to("cpu")...
+        device = first_input.get_device()
+        if device >= 0:
+            self.qrnn = self.qrnn.to(device)
+
+        if self.dropout:
+            self.dropout = torch.nn.Dropout(self.dropout)
+
+    def forward(self, x, hidden=None, init_params=False):
+        if init_params:
+            self.init_params(x)
+
+        next_hidden = []
+
+        for i, layer in enumerate(self.qrnn):
+            x, h = layer(x, None if hidden is None else hidden[i])
+
+            next_hidden.append(h)
+
+            if self.dropout and i < len(self.qrnn) - 1:
+                x = self.dropout(x)
+
+        next_hidden = torch.cat(next_hidden, 0).view(
+            self.num_layers, *next_hidden[0].shape[-2:]
+        )
+
+        if self.return_hidden:
+            return x, next_hidden
+        else:
+            return x
 
 
 def rnn_init(module, act="tanh"):

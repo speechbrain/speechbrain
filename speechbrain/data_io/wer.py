@@ -4,6 +4,9 @@ The functions here are used to print the computed statistics
 with human readable formatting.
 They have a file argument, but you can also just use
 contextlib.redirect_stdout, which may give a nicer syntax
+
+Authors
+ * Aku Rouhe 2020
 """
 import sys
 import speechbrain.utils.edit_distance as edit_distance
@@ -14,15 +17,14 @@ def print_wer_summary(wer_details, file=sys.stdout):
 
     This function essentially mirrors the Kaldi compute-wer output format
 
-    Arguments:
-        wer_details (dict): Dict of wer summary details,
-            see `speechbrain.utils.edit_distance.wer_summary`
-            for format.
-        file (stream, optional): Where to write. By default: sys.stdout
-
-    Author:
-        Aku Rouhe 2020
-
+    Arguments
+    ---------
+    wer_details : dict
+        Dict of wer summary details,
+        see ``speechbrain.utils.edit_distance.wer_summary``
+        for format.
+    file : stream
+        Where to write. By default: sys.stdout
     """
     print(
         "%WER {WER:.2f} [ {num_edits} / {num_scored_tokens}, {insertions} ins, {deletions} del, {substitutions} sub ]".format(  # noqa
@@ -51,19 +53,28 @@ def print_wer_summary(wer_details, file=sys.stdout):
     )
 
 
-def print_alignments(details_by_utterance, file=sys.stdout):
+def print_alignments(
+    details_by_utterance, file=sys.stdout, empty_symbol="<eps>", separator=" ; "
+):
     """Print WER summary and alignments
 
-    Arguments:
-        details_by_utterance (list): List of wer details by utterance,
-            see `speechbrain.utils.edit_distance.wer_details_by_utterance`
-            for format. Has to have alignments included.
-        file (stream, optional): Where to write. By default: sys.stdout
-
-    Author:
-        Aku Rouhe 2020
+    Arguments
+    ---------
+    details_by_utterance : list
+        List of wer details by utterance,
+        see ``speechbrain.utils.edit_distance.wer_details_by_utterance``
+        for format. Has to have alignments included.
+    file : stream
+        Where to write. By default: sys.stdout
+    empty_symbol : str
+        Symbol to use when aligning to nothing
+    separator : str
+        String that separates each token in the output. Note the spaces in the
+        default.
     """
-    _print_alignments_global_header(file=file)
+    _print_alignments_global_header(
+        file=file, empty_symbol=empty_symbol, separator=separator
+    )
     for dets in details_by_utterance:
         if dets["scored"]:
             _print_alignment_header(dets, file=file)
@@ -72,6 +83,8 @@ def print_alignments(details_by_utterance, file=sys.stdout):
                 dets["ref_tokens"],
                 dets["hyp_tokens"],
                 file=file,
+                empty_symbol=empty_symbol,
+                separator=separator,
             )
 
 
@@ -153,7 +166,14 @@ def _print_alignments_global_header(
         (edit_distance.EDIT_SYMBOLS["sub"], 3, 4),
         (edit_distance.EDIT_SYMBOLS["del"], 4, None),
     ]
-    _print_alignment(alignment, a, b, file=file)
+    _print_alignment(
+        alignment,
+        a,
+        b,
+        file=file,
+        empty_symbol=empty_symbol,
+        separator=separator,
+    )
 
 
 def _print_alignment_header(wer_details, file=sys.stdout):
