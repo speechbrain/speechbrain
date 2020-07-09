@@ -155,8 +155,8 @@ def cu_kernel_compute_grad(log_probs, labels, alpha, beta, grads, T, U, blank):
     lock: 2D Tensor of (batch x LabelLength) containing bool(1-0) lock for parallel computation
     """
 
-    b = cuda.blockIdx.x
-    t = cuda.threadIdx.x
+    t = cuda.blockIdx.x
+    b = cuda.threadIdx.x
     if t < T[b]:
         if t == 0:
             grads[b, T[b] - 1, U[b], blank] = -math.exp(
@@ -197,43 +197,37 @@ class Transducer(Function):
 
     @staticmethod
     def forward(ctx, log_probs, labels, T, U, blank, reduction):
+        log_probs = log_probs.detach()
         B, maxT, maxU, A = log_probs.shape
         grads = torch.zeros(
             (B, maxT, maxU, A), dtype=torch.float32, device=log_probs.device
         )
         alpha = torch.zeros((B, maxT, maxU), device=log_probs.device)
         beta = torch.zeros((B, maxT, maxU), device=log_probs.device)
-        lock_alpha = torch.zeros(
-            (B, maxU), dtype=torch.int32, device=log_probs.device
-        )
-        lock_beta = torch.zeros(
+        lock = torch.zeros(
             (B, maxU), dtype=torch.int32, device=log_probs.device
         )
         log_p_alpha = torch.zeros((B,), device=log_probs.device)
         log_p_beta = torch.zeros((B,), device=log_probs.device)
         cu_kernel_forward[B, maxU](
-            log_probs.detach(),
-            labels,
-            alpha,
-            log_p_alpha,
-            T,
-            U,
-            blank,
-            lock_alpha,
+            log_probs, labels, alpha, log_p_alpha, T, U, blank, lock,
         )
+        lock = lock * 0
         cu_kernel_backward[B, maxU](
-            log_probs.detach(), labels, beta, log_p_beta, T, U, blank, lock_beta
+            log_probs, labels, beta, log_p_beta, T, U, blank, lock
         )
-        cu_kernel_compute_grad[B, maxT](
-            log_probs.detach(), labels, alpha, beta, grads, T, U, blank
+        cu_kernel_compute_grad[maxT, B](
+            log_probs, labels, alpha, beta, grads, T, U, blank
         )
         ctx.grads = grads
+        del alpha, beta, lock, log_p_beta, T, U, log_probs, labels
+        torch.cuda.empty_cache()
         if reduction == "mean":
-            return (-(log_p_alpha + log_p_beta) / 2).mean()
+            return -log_p_alpha.mean()
         elif reduction == "sum":
-            return sum(-(log_p_alpha + log_p_beta) / 2)
+            return sum(-log_p_alpha)
         elif reduction == "none":
-            return -(log_p_alpha + log_p_beta) / 2
+            return -log_p_alpha
         else:
             raise Exception("Unexpected reduction {}".format(reduction))
 
