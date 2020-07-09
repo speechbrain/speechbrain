@@ -31,12 +31,13 @@ def transducer_loss(log_probs, targets, input_lens, target_lens, blank_index):
     blank_index : int
         The location of the blank symbol among the character indexes.
     """
-    from speechbrain.nnet.transducer.transducer_loss import TransducerLoss
+    from speechbrain.nnet.transducer.transducer_loss import Transducer
 
     input_lens = (input_lens * log_probs.shape[1]).int()
     target_lens = (target_lens * targets.shape[1]).int()
-    loss = TransducerLoss(blank=blank_index)
-    return loss(log_probs, targets, input_lens, target_lens)
+    return Transducer.apply(
+        log_probs, targets, input_lens, target_lens, blank_index, "mean"
+    )
 
 
 def ctc_loss(log_probs, targets, input_lens, target_lens, blank_index):
