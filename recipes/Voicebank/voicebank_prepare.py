@@ -2,15 +2,18 @@
 """
 Data preparation.
 
-Download: https://datashare.is.ed.ac.uk/handle/10283/2791
+Download and resample, use ``download_vctk`` below.
+https://datashare.is.ed.ac.uk/handle/10283/2791
 
-Author
-------
-Szu-Wei Fu, 2020
+Authors:
+ * Szu-Wei Fu, 2020
+ * Peter Plantinga, 2020
 """
 
 import os
+import re
 import csv
+import string
 import urllib
 import shutil
 import logging
@@ -25,44 +28,60 @@ TRAIN_CSV = "train.csv"
 TEST_CSV = "test.csv"
 VALID_CSV = "valid.csv"
 SAMPLERATE = 16000
+TRAIN_SPEAKERS = [
+    "p226",
+    "p287",
+    "p227",
+    "p228",
+    "p230",
+    "p231",
+    "p233",
+    "p236",
+    "p239",
+    "p243",
+    "p244",
+    "p250",
+    "p254",
+    "p256",
+    "p258",
+    "p259",
+    "p267",
+    "p268",
+    "p269",
+    "p270",
+    "p273",
+    "p274",
+    "p276",
+    "p277",
+    "p278",
+    "p279",
+    "p282",
+    "p286",
+]
 
 
-def prepare_voicebank(data_folder, save_folder):
+def prepare_voicebank(data_folder, save_folder, valid_speaker_count=2):
     """
     Prepares the csv files for the Voicebank dataset.
+
+    Expects the data folder to be the same format as the output of
+    ``download_vctk()`` below.
+
     Arguments
     ---------
     data_folder : str
         Path to the folder where the original Voicebank dataset is stored.
     save_folder : str
         The directory where to store the csv files.
+    valid_speaker_count : int
+        The number of validation speakers to use (out of 28 in train set).
 
     Example
     -------
-    This example requires the actual Voicebank dataset.
-    The noisy_vctk_prepare.py can be used to download the dataset.
-    ```
-    data_folder = '/path/to/datasets/Voicebank'
-    save_folder = 'exp/Voicebank_exp'
-    VoicebankPreparer(data_folder, save_folder)
-    ```
+    >>> data_folder = '/path/to/datasets/Voicebank'
+    >>> save_folder = 'exp/Voicebank_exp'
+    >>> prepare_voicebank(data_folder, save_folder)
     """
-
-    train_clean_folder = os.path.join(
-        data_folder, "clean_trainset_28spk_wav_16k/"
-    )
-    train_noisy_folder = os.path.join(
-        data_folder, "noisy_trainset_28spk_wav_16k/"
-    )
-    test_clean_folder = os.path.join(data_folder, "clean_testset_wav_16k/")
-    test_noisy_folder = os.path.join(data_folder, "noisy_testset_wav_16k/")
-
-    # Setting file extension.
-    extension = [".wav"]
-
-    # Setting the save folder
-    if not os.path.exists(save_folder):
-        os.makedirs(save_folder)
 
     # Setting ouput files
     save_csv_train = os.path.join(save_folder, TRAIN_CSV)
@@ -71,156 +90,120 @@ def prepare_voicebank(data_folder, save_folder):
 
     # Check if this phase is already done (if so, skip it)
     if skip(save_csv_train, save_csv_test, save_csv_valid):
-
-        msg = "\t%s sucessfully created!" % (save_csv_train)
-        logger.debug(msg)
-
-        msg = "\t%s sucessfully created!" % (save_csv_test)
-        logger.debug(msg)
-
-        msg = "\t%s sucessfully created!" % (save_csv_valid)
-        logger.debug(msg)
-
+        logger.debug("Preparation completed in previous run, skipping.")
         return
 
+    train_clean_folder = os.path.join(
+        data_folder, "clean_trainset_28spk_wav_16k"
+    )
+    train_noisy_folder = os.path.join(
+        data_folder, "noisy_trainset_28spk_wav_16k"
+    )
+    train_txts = os.path.join(data_folder, "trainset_28spk_txt")
+    test_clean_folder = os.path.join(data_folder, "clean_testset_wav_16k")
+    test_noisy_folder = os.path.join(data_folder, "noisy_testset_wav_16k")
+    test_txts = os.path.join(data_folder, "testset_txt")
+
+    # Setting the save folder
+    if not os.path.exists(save_folder):
+        os.makedirs(save_folder)
+
     # Additional checks to make sure the data folder contains Voicebank
-    check_Voicebank_folders(
+    check_voicebank_folders(
         train_clean_folder,
         train_noisy_folder,
+        train_txts,
         test_clean_folder,
         test_noisy_folder,
+        test_txts,
     )
 
-    msg = "\tCreating csv file for the Voicebank Dataset.."
-    logger.debug(msg)
+    logger.debug("Creating csv files for noisy VoiceBank...")
 
     # Creating csv file for training data
+    extension = [".wav"]
+    valid_speakers = TRAIN_SPEAKERS[:valid_speaker_count]
     wav_lst_train = get_all_files(
-        train_noisy_folder,
-        match_and=extension,
-        exclude_or=[
-            "p226",
-            "p287",
-        ],  # These two speakers are used for validation set
+        train_noisy_folder, match_and=extension, exclude_or=valid_speakers,
     )
-
-    create_csv(
-        wav_lst_train,
-        save_csv_train,
-        train_clean_folder,
-        test_clean_folder,
-        is_train_folder=True,
-    )
+    create_csv(wav_lst_train, save_csv_train, train_clean_folder, train_txts)
 
     # Creating csv file for validation data
     wav_lst_valid = get_all_files(
-        train_noisy_folder, match_and=extension, match_or=["p226", "p287"],
+        train_noisy_folder, match_and=extension, match_or=valid_speakers,
     )
-
-    create_csv(
-        wav_lst_valid,
-        save_csv_valid,
-        train_clean_folder,
-        test_clean_folder,
-        is_train_folder=True,
-    )
+    create_csv(wav_lst_valid, save_csv_valid, train_clean_folder, train_txts)
 
     # Creating csv file for testing data
-    wav_lst_test = get_all_files(test_noisy_folder, match_and=extension,)
-
-    create_csv(
-        wav_lst_test,
-        save_csv_test,
-        train_clean_folder,
-        test_clean_folder,
-        is_train_folder=False,
-    )
+    wav_lst_test = get_all_files(test_noisy_folder, match_and=extension)
+    create_csv(wav_lst_test, save_csv_test, test_clean_folder, test_txts)
 
 
-def skip(save_csv_train, save_csv_test, save_csv_valid):
+def skip(*filenames):
     """
     Detects if the Voicebank data_preparation has been already done.
     If the preparation has been done, we can skip it.
+
     Returns
     -------
     bool
         if True, the preparation phase can be skipped.
         if False, it must be done.
     """
-
-    # Checking folders and save options
-    skip = False
-
-    if (
-        os.path.isfile(save_csv_train)
-        and os.path.isfile(save_csv_test)
-        and os.path.isfile(save_csv_valid)
-    ):
-        skip = True
-
-    return skip
+    for filename in filenames:
+        if not os.path.isfile(filename):
+            return False
+    return True
 
 
-def create_csv(
-    wav_lst, csv_file, train_clean_folder, test_clean_folder, is_train_folder
-):
+def create_csv(wav_lst, csv_file, clean_folder, txt_folder):
     """
     Creates the csv file given a list of wav files.
+
     Arguments
     ---------
     wav_lst : list
         The list of wav files.
     csv_file : str
         The path of the output csv file
-    Returns
-    -------
-    None
+    clean_folder : str
+        The location of parallel clean samples.
+    txt_folder : str
+        The location of the transcript files.
     """
+    logger.debug(f"Creating csv lists in {csv_file}")
 
-    # Adding some Prints
-    msg = '\t"Creating csv lists in  %s..."' % (csv_file)
-    logger.debug(msg)
-
-    csv_lines = [
-        [
-            "ID",
-            "duration",
-            "noisy_wav",
-            "noisy_wav_format",
-            "noisy_wav_opts",
-            "clean_wav",
-            "clean_wav_format",
-            "clean_wav_opts",
-        ]
-    ]
+    csv_lines = [["ID", "duration"]]
+    csv_lines[0].extend(["noisy_wav", "noisy_wav_format", "noisy_wav_opts"])
+    csv_lines[0].extend(["clean_wav", "clean_wav_format", "clean_wav_opts"])
+    csv_lines[0].extend(["char", "char_format", "char_opts"])
 
     # Processing all the wav files in the list
     for wav_file in wav_lst:  # ex:p203_122.wav
 
         # Example wav_file: p232_001.wav
-        snt_id = wav_file.split("/")[-1]
-
-        if is_train_folder:
-            clean_folder = train_clean_folder
-        else:
-            clean_folder = test_clean_folder
-        clean_wav = clean_folder + snt_id
+        snt_id = os.path.basename(wav_file).replace(".wav", "")
+        clean_wav = os.path.join(clean_folder, snt_id + ".wav")
 
         # Reading the signal (to retrieve duration in seconds)
         signal = read_wav_soundfile(wav_file)
         duration = signal.shape[0] / SAMPLERATE
 
+        # Reading the transcript
+        with open(os.path.join(txt_folder, snt_id + ".txt")) as f:
+            words = f.read()
+
+        # Strip punctuation and add spaces (excluding repeats).
+        words = words.translate(str.maketrans("", "", string.punctuation))
+        chars = " ".join(words.upper())
+        chars = chars.replace("   ", " <SP> ").replace("\n", "")
+        chars = re.sub(r"(.) \1", r"\1\1", chars)
+
         # Composition of the csv_line
-        csv_line = [
-            snt_id.replace(".wav", ""),
-            str(duration),
-            wav_file,
-            "wav",
-            "",
-            clean_wav,
-            "wav",
-            "",
-        ]
+        csv_line = [snt_id, str(duration)]
+        csv_line.extend([wav_file, "wav", ""])
+        csv_line.extend([clean_wav, "wav", ""])
+        csv_line.extend([chars, "string", ""])
 
         # Adding this line to the csv_lines list
         csv_lines.append(csv_line)
@@ -234,61 +217,17 @@ def create_csv(
         for line in csv_lines:
             csv_writer.writerow(line)
 
-    # Final prints
-    msg = "\t%s sucessfully created!" % (csv_file)
-    logger.debug(msg)
+    logger.debug(f"{csv_file} successfully created!")
 
 
-def check_Voicebank_folders(
-    train_clean_folder, train_noisy_folder, test_clean_folder, test_noisy_folder
-):
-    """
-    Check if the data folder actually contains the Voicebank dataset.
-    If not, raises an error.
-    Returns
-    -------
-    None
-    Raises
-    ------
-    FileNotFoundError
-        If data folder doesn't contain Voicebank dataset.
-    """
-
-    # Checking train_clean folder
-    if not os.path.exists(train_clean_folder):
-
-        err_msg = (
-            "the folder %s does not exist (it is expected in "
-            "the Voicebank dataset)" % (train_clean_folder)
-        )
-        raise FileNotFoundError(err_msg)
-
-    # Checking train_noisy folder
-    if not os.path.exists(train_noisy_folder):
-
-        err_msg = (
-            "the folder %s does not exist (it is expected in "
-            "the Voicebank dataset)" % (train_noisy_folder)
-        )
-        raise FileNotFoundError(err_msg)
-
-    # Checking test_clean folder
-    if not os.path.exists(test_clean_folder):
-
-        err_msg = (
-            "the folder %s does not exist (it is expected in "
-            "the Voicebank dataset)" % (test_clean_folder)
-        )
-        raise FileNotFoundError(err_msg)
-
-    # Checking test_noisy folder
-    if not os.path.exists(test_noisy_folder):
-
-        err_msg = (
-            "the folder %s does not exist (it is expected in "
-            "the Voicebank dataset)" % (test_noisy_folder)
-        )
-        raise FileNotFoundError(err_msg)
+def check_voicebank_folders(*folders):
+    """Raises FileNotFoundError if any passed folder does not exist."""
+    for folder in folders:
+        if not os.path.exists(folder):
+            raise FileNotFoundError(
+                f"the folder {folder} does not exist (it is expected in "
+                "the Voicebank dataset)"
+            )
 
 
 def download_vctk(destination, tmp_dir=None, device="cpu"):
@@ -314,19 +253,14 @@ def download_vctk(destination, tmp_dir=None, device="cpu"):
     if not os.path.isdir(final_dir):
         os.mkdir(final_dir)
 
+    prefix = "https://datashare.is.ed.ac.uk/bitstream/handle/10283/2791/"
     noisy_vctk_urls = [
-        "https://datashare.is.ed.ac.uk/bitstream/handle/10283/2791/"
-        "clean_testset_wav.zip",
-        "https://datashare.is.ed.ac.uk/bitstream/handle/10283/2791/"
-        "noisy_testset_wav.zip",
-        "https://datashare.is.ed.ac.uk/bitstream/handle/10283/2791/"
-        "testset_txt.zip",
-        "https://datashare.is.ed.ac.uk/bitstream/handle/10283/2791/"
-        "clean_trainset_28spk_wav.zip",
-        "https://datashare.is.ed.ac.uk/bitstream/handle/10283/2791/"
-        "noisy_trainset_28spk_wav.zip",
-        "https://datashare.is.ed.ac.uk/bitstream/handle/10283/2791/"
-        "trainset_28spk_txt.zip",
+        prefix + "clean_testset_wav.zip",
+        prefix + "noisy_testset_wav.zip",
+        prefix + "testset_txt.zip",
+        prefix + "clean_trainset_28spk_wav.zip",
+        prefix + "noisy_trainset_28spk_wav.zip",
+        prefix + "trainset_28spk_txt.zip",
     ]
 
     zip_files = []
