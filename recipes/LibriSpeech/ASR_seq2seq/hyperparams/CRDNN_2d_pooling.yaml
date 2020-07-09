@@ -18,7 +18,8 @@ number_of_ctc_epochs: 10
 batch_size: 8
 lr: 1.0
 ctc_weight: 0.5
-device: 'cuda:0'
+device: 'cuda'
+multigpu: False
 
 # Feature parameters
 sample_rate: 16000

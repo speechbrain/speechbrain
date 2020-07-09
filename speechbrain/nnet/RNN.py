@@ -1331,7 +1331,7 @@ class LiGRU_Layer(torch.jit.ScriptModule):
         hiddens = []
 
         # Sampling dropout mask
-        drop_mask = self._sample_drop_mask()
+        drop_mask = self._sample_drop_mask().to(w.device)
 
         # Loop over time axis
         for k in range(w.shape[1]):
@@ -1371,11 +1371,9 @@ class LiGRU_Layer(torch.jit.ScriptModule):
             # Sample new masks when needed
             if self.drop_mask_cnt + self.batch_size > self.N_drop_masks:
                 self.drop_mask_cnt = 0
-                self.drop_masks = (
-                    self.drop(torch.ones(self.N_drop_masks, self.hidden_size,))
-                    .to(self.device)
-                    .data
-                )
+                self.drop_masks = self.drop(
+                    torch.ones(self.N_drop_masks, self.hidden_size,)
+                ).data
 
             # Sampling the mask
             drop_mask = self.drop_masks[
