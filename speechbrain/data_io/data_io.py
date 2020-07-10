@@ -377,14 +377,21 @@ class DataLoaderFactory(torch.nn.Module):
         # create label2index:
         for lab in label_dict:
             # sorted_ids = sorted(label_dict[lab]["counts"].keys())
-            cnt_id = 0
+            cnt_id = -1
 
             label_dict[lab]["lab2index"] = {}
             label_dict[lab]["index2lab"] = {}
+
+            # append <pad> token to label_dict
+            label_dict[lab]["lab2index"]["<pad>"] = self.padding_value
+            label_dict[lab]["index2lab"][self.padding_value] = "<pad>"
             for lab_id in label_dict[lab]["counts"]:
+                if cnt_id == int(self.padding_value) - 1:
+                    cnt_id = cnt_id + 2
+                else:
+                    cnt_id = cnt_id + 1
                 label_dict[lab]["lab2index"][lab_id] = cnt_id
                 label_dict[lab]["index2lab"][cnt_id] = lab_id
-                cnt_id = cnt_id + 1
 
         # saving the label_dict:
         if self.output_folder is not None:
