@@ -2,6 +2,8 @@
 Data preparation.
 
 Download: http://groups.inf.ed.ac.uk/ami/download/
+
+Prepares csv from manual annotations "segments/" using RTTM format
 """
 
 import os
@@ -23,6 +25,8 @@ DEV_CSV = "dev.csv"
 TEST_CSV = "test.csv"
 SAMPLERATE = 16000
 
+# have to update
+
 
 def prepare_ami(
     data_folder,
@@ -34,7 +38,7 @@ def prepare_ami(
     rand_seed=1234,
 ):
     """
-    Prepares the csv files for the Voxceleb1 dataset.
+    Prepares the csv files for the AMI dataset.
 
     Arguments
     ---------
