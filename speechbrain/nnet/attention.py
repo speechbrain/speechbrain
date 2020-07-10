@@ -2,6 +2,7 @@
 
 Authors
  * Ju-Chieh Chou 2020
+ * Jianyuan Zhong 2020
 """
 
 import torch
@@ -221,3 +222,138 @@ class LocationAwareAttention(nn.Module):
         context = self.mlp_out(context)
 
         return context, attn
+
+
+class MultiheadAttention(nn.Module):
+    """ The class is a wrapper of MultiHead Attention for torch.nn.MultiHeadAttention.
+    ref: https://pytorch.org/docs/stable/nn.html
+
+    Arguements
+    ----------
+    num_heads :
+        parallel attention heads.
+    dropout :
+        a Dropout layer on attn_output_weights. Default: 0.0.
+    bias :
+        add bias as module parameter. Default: True.
+    add_bias_kv :
+        add bias to the key and value sequences at dim=0.
+    add_zero_attn :
+        add a new batch of zeros to the key and value sequences at dim=1.
+    kdim :
+        total number of features in key. Default: None.
+    vdim :
+        total number of features in key. Default: None.
+    """
+
+    def __init__(
+        self,
+        nhead,
+        dropout=0.0,
+        bias=True,
+        add_bias_kv=False,
+        add_zero_attn=False,
+        kdim=None,
+        vdim=None,
+    ):
+        super().__init__()
+        self.nhead = nhead
+        self.dropout = dropout
+        self.bias = bias
+        self.add_bias_kv = add_bias_kv
+        self.add_zero_attn = add_zero_attn
+        self.kdim = kdim
+        self.vdim = vdim
+
+    def init_params(self, first_input):
+        if len(first_input.shape) == 4:
+            first_input = first_input.reshape(
+                first_input.shape[0],
+                first_input.shape[1],
+                first_input.shape[2] * first_input.shape[3],
+            )
+
+        self.embed_dim = first_input.shape[-1]
+
+        self.att = nn.MultiheadAttention(
+            embed_dim=self.embed_dim,
+            num_heads=self.nhead,
+            dropout=self.dropout,
+            bias=self.bias,
+            add_bias_kv=self.add_bias_kv,
+            add_zero_attn=self.add_zero_attn,
+            kdim=self.kdim,
+            vdim=self.vdim,
+        ).to(first_input.device)
+
+    def forward(
+        self,
+        query,
+        key,
+        value,
+        attn_mask=None,
+        key_padding_mask=None,
+        init_params=False,
+    ):
+        if init_params:
+            self.init_params(key)
+
+        # give tensors of shape (time, batch, fea)
+        query = query.transpose(0, 1)
+        key = key.transpose(0, 1)
+        value = value.transpose(0, 1)
+
+        output, attention = self.att(
+            query,
+            key,
+            value,
+            attn_mask=attn_mask,
+            key_padding_mask=key_padding_mask,
+        )
+
+        # reshape the output back to (batch, time, fea)
+        output = output.transpose(0, 1)
+
+        return output, attention
+
+
+class PositionalwiseFeedForward(nn.Module):
+    def __init__(self, d_ffn, dropout=0.1, activation=nn.ReLU):
+
+        super().__init__()
+        self.d_ffn = d_ffn
+        self.dropout = dropout
+        self.activation = activation
+
+    def init_params(self, first_input):
+        self.input_size = first_input.shape[-1]
+
+        self.ffn = nn.Sequential(
+            nn.Linear(self.input_size, self.d_ffn),
+            self.activation(),
+            nn.Linear(self.d_ffn, self.input_size),
+            nn.LayerNorm(self.input_size, eps=1e-6),
+        ).to(first_input.device)
+
+        self.norm = nn.LayerNorm(self.input_size, eps=1e-6).to(
+            first_input.device
+        )
+
+        self.dropout = nn.Dropout(self.dropout)
+
+    def forward(self, x, init_params=False):
+        if init_params:
+            self.init_params(x)
+
+        # give a tensor of shap (time, batch, fea)
+        x = x.transpose(0, 1)
+
+        residule = x
+        x = self.ffn(x)
+        x = self.norm(x + residule)
+        x = self.dropout(x)
+
+        # reshape the output back to (batch, time, fea)
+        x = x.transpose(0, 1)
+
+        return x
