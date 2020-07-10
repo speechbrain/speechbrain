@@ -24,12 +24,12 @@ lexicon_path: ../timitdic_prime.txt
 
 # Training parameters
 number_of_epochs: 5
-batch_size: 32
+batch_size: 256
 lr: 0.0003
 device: 'cuda:0'
-init_training_type: 'forward' # 'forward' or 'viterbi' or 'ctc'
+init_training_type: 'viterbi' # 'forward' or 'viterbi' or 'ctc'
 
-switch_training_type: 'forward'
+switch_training_type: 'viterbi'
 switch_training_epoch: 2
 
 # Feature parameters
@@ -43,12 +43,13 @@ dnn_blocks: 1
 dnn_neurons: 2000
 
 # hidden states per phoneme
-states_per_phoneme: 3
+states_per_phoneme: 5
 
 # Outputs
-phn_set: 39 # for ground truth phonemes
-output_neurons: 138 # lexicon phn set size * <states_per_phoneme> = 46 * 3
-blank_index: !ref <output_neurons> - 1
+ground_truth_phn_set: 61 # {61, 48, 39}
+lexicon_phn_set: 46
+output_neurons: !ref <lexicon_phn_set> * <states_per_phoneme> + 1
+blank_index: !ref <lexicon_phn_set> * <states_per_phoneme>
 
 # Functions
 model: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
