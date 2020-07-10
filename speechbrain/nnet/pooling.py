@@ -273,6 +273,7 @@ class StatisticsPooling(nn.Module):
         gnoise = self._get_gauss_noise(mean.size())
         gnoise = gnoise.to(self.device)
         mean += gnoise
+        std = std + self.eps
 
         # Append mean and std of the batch
         pooled_stats = torch.cat((mean, std), dim=1)
