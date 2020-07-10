@@ -633,24 +633,41 @@ class HMMAligner(torch.nn.Module):
             The (log) likelihood of each utterance in the batch.
         """
         # useful values
-        # U_max = phn_lens_abs.max()
+        batch_size = len(phn_lens_abs)
+        U_max = phn_lens_abs.max()
+        fb_max_length = lens_abs.max()
         device = emiss_pred_useful.device
 
         pi_prob = pi_prob.to(device)
         trans_prob = trans_prob.to(device)
 
         # initialise
-        alpha_prev = pi_prob + emiss_pred_useful[:, :, 0]
+        alpha_matrix = self.neg_inf * torch.ones(
+            [batch_size, U_max, fb_max_length]
+        ).to(device)
+        alpha_matrix[:, :, 0] = pi_prob + emiss_pred_useful[:, :, 0]
 
-        emiss_pred_useful_unbound = torch.unbind(emiss_pred_useful, dim=-1)
+        for t in range(1, fb_max_length):
+            utt_lens_passed = lens_abs < t
 
-        for emiss_pred_j in emiss_pred_useful_unbound:
+            if True in utt_lens_passed:
+                n_passed = utt_lens_passed.sum()
+                I_tensor = self.neg_inf * torch.ones(n_passed, U_max, U_max)
+                I_tensor[:, torch.arange(U_max), torch.arange(U_max)] = 0.0
+                I_tensor = I_tensor.to(device)
+
+                trans_prob[utt_lens_passed] = I_tensor
+
             alpha_times_trans = batch_log_matvecmul(
-                trans_prob.permute(0, 2, 1), alpha_prev
+                trans_prob.permute(0, 2, 1), alpha_matrix[:, :, t - 1]
             )
-            alpha_prev = alpha_times_trans + emiss_pred_j
+            alpha_matrix[:, :, t] = (
+                alpha_times_trans + emiss_pred_useful[:, :, t]
+            )
 
-        sum_alpha_T = torch.logsumexp(alpha_prev, dim=-1)
+        sum_alpha_T = torch.logsumexp(
+            alpha_matrix[torch.arange(batch_size), :, -1], dim=1
+        )
 
         return sum_alpha_T
 
