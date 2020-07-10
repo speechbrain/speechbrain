@@ -193,7 +193,7 @@ prepare_timit(
     data_folder=params.data_folder,
     splits=["train", "dev", "test"],
     save_folder=params.data_folder,
-    phn_set=str(params.phn_set),
+    phn_set=str(params.ground_truth_phn_set),
 )
 train_set = params.train_loader()
 valid_set = params.valid_loader()
