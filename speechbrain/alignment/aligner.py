@@ -1042,14 +1042,21 @@ class HMMAligner(torch.nn.Module):
             utter_phns = utter_phns[: phn_lens_abs[i]]  # crop out zero padding
             repeat_amt = int(lens_abs[i].item() / len(utter_phns))
 
+            # make sure repeat_amt is at least 1. (the code above
+            # may make repeat_amt==0 if self.states_per_phoneme is too large).
+            if repeat_amt == 0:
+                repeat_amt = 1
+
+            # repeat each phoneme in utter_phns by repeat_amt
             utter_phns = utter_phns.repeat_interleave(repeat_amt)
 
-            # len(utter_phns) now may not equal lens[i]
-            # pad out with final phoneme to make lengths equal
+            # len(utter_phns) may be <, == or > lens_abs[i], so
+            # make sure len(utter_phns) == lens_abs[i]
+            utter_phns = utter_phns[: lens_abs[i]]
             utter_phns = torch.nn.functional.pad(
                 utter_phns,
                 (0, int(lens_abs[i]) - len(utter_phns)),
-                value=utter_phns[-1],
+                value=utter_phns[-1],  # pad out with final phoneme
             )
 
             flat_start_batch[i, : len(utter_phns)] = utter_phns
