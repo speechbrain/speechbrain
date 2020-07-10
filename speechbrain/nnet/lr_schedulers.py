@@ -334,6 +334,77 @@ class StepLRScheduler:
 
 
 @checkpoints.register_checkpoint_hooks
+class NoamScheduler:
+    """
+    Arguments
+    ---------
+    lr_initial : float
+        Initial learning rate (i.e. the lr used at epoch 0).
+    n_warmup_steps : int
+        numer of warm up steps
+    """
+
+    def __init__(self, lr_initial, n_warmup_steps):
+        self.lr_initial = lr_initial
+        self.n_warmup_steps = n_warmup_steps
+        self.losses = []
+        self.current_lr = lr_initial
+
+        self.n_steps = 0
+        self.normalize = 1 / (n_warmup_steps * n_warmup_steps ** -1.5)
+
+    def __call__(self, optim_list, current_epoch, current_loss):
+        """
+        Arguments
+        ---------
+        optim_list : list of optimizers
+            The optimizers to update using this scheduler.
+        current_epoch : int
+            Number of times the dataset has been iterated.
+        current_loss : int
+            A number for determining whether to change the learning rate.
+        Returns
+        -------
+        float
+            The learning rate before the update.
+        float
+            The learning rate after the update.
+        """
+        self.n_steps += 1
+
+        for opt in optim_list:
+            current_lr = opt.optim.param_groups[0]["lr"]
+
+            lr = self.lr_initial * self._get_lr_scale()
+
+            # Changing the learning rate within the optimizer
+            for param_group in opt.optim.param_groups:
+                param_group["lr"] = lr
+
+        self.losses.append(current_loss)
+        self.current_lr = current_lr
+        return current_lr, lr
+
+    def _get_lr_scale(self):
+        n_steps, n_warmup_steps = self.n_steps, self.n_warmup_steps
+        return self.normalize * min(
+            n_steps ** (-0.5), n_steps * n_warmup_steps ** (-1.5)
+        )
+
+    @checkpoints.mark_as_saver
+    def save(self, path):
+        data = {"losses": self.losses, "n_steps": self.n_steps}
+        torch.save(data, path)
+
+    @checkpoints.mark_as_loader
+    def load(self, path, end_of_epoch):
+        del end_of_epoch  # Unused in this class
+        data = torch.load(path)
+        self.losses = data["losses"]
+        self.n_steps = data["n_steps"]
+
+
+@checkpoints.register_checkpoint_hooks
 class CustomLRScheduler:
     """Custom Learning rate scheduler.
 
