@@ -42,7 +42,7 @@ dnn_blocks: 2
 dnn_neurons: 512
 
 # Outputs
-output_neurons: 46
+output_neurons: 44
 blank_index: !ref <output_neurons> - 1
 
 
@@ -62,7 +62,7 @@ model: !new:speechbrain.lobes.models.CRDNN.CRDNN
 
 output: !new:speechbrain.nnet.linear.Linear
     n_neurons: !ref <output_neurons>
-    bias: True
+    bias: False
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True

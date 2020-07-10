@@ -42,7 +42,7 @@ dnn_blocks: 2
 dnn_neurons: 512
 
 # Outputs
-output_neurons: 46
+output_neurons: 44
 blank_index: !ref <output_neurons> - 1
 
 
