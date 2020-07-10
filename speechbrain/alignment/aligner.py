@@ -430,13 +430,13 @@ class HMMAligner(torch.nn.Module):
             trans_prob[index] = torch.nn.functional.pad(
                 trans_prob[index],
                 (0, phn_pad_length, 0, phn_pad_length),
-                value=-1e10,
+                value=self.neg_inf,
             )
 
         # Stack into single tensor
         poss_phns = torch.stack(poss_phns)
         trans_prob = torch.stack(trans_prob)
-        trans_prob[trans_prob == -float("Inf")] = -1e10
+        trans_prob[trans_prob == -float("Inf")] = self.neg_inf
 
         # make pi prob
         pi_prob = self.neg_inf * torch.ones([batch_size, U_max])
@@ -571,7 +571,7 @@ class HMMAligner(torch.nn.Module):
         emiss_pred_acc_lens = torch.where(
             mask_lens[:, :, None],
             emission_pred,
-            torch.tensor([-1e-38]).to(device),
+            torch.tensor([0.0]).to(device),
         )
 
         # manipulate phn tensor, and then 'torch.gather'
@@ -633,16 +633,11 @@ class HMMAligner(torch.nn.Module):
             The (log) likelihood of each utterance in the batch.
         """
         # useful values
-        U_max = phn_lens_abs.max()
+        # U_max = phn_lens_abs.max()
         device = emiss_pred_useful.device
 
         pi_prob = pi_prob.to(device)
         trans_prob = trans_prob.to(device)
-
-        # for cropping alpha_matrix later
-        phn_len_mask = torch.arange(U_max)[None, :].to(device) < phn_lens_abs[
-            :, None
-        ].to(device)
 
         # initialise
         alpha_prev = pi_prob + emiss_pred_useful[:, :, 0]
@@ -654,9 +649,6 @@ class HMMAligner(torch.nn.Module):
                 trans_prob.permute(0, 2, 1), alpha_prev
             )
             alpha_prev = alpha_times_trans + emiss_pred_j
-            alpha_prev = torch.where(
-                phn_len_mask, alpha_prev, torch.tensor([-1e38]).to(device)
-            )
 
         sum_alpha_T = torch.logsumexp(alpha_prev, dim=-1)
 
@@ -724,28 +716,16 @@ class HMMAligner(torch.nn.Module):
         ).to(device)
         backpointers = -99 * torch.ones([batch_size, U_max, fb_max_length])
 
-        # for cropping v_matrix later
-        phn_len_mask = torch.arange(U_max)[None, :].to(device) < phn_lens_abs[
-            :, None
-        ].to(device)
-
         # initialise
         v_matrix[:, :, 0] = pi_prob + emiss_pred_useful[:, :, 0]
 
-        for t in range(2, fb_max_length + 1):  # note: t here is 1+ indexing
+        for t in range(1, fb_max_length):
             x, argmax = batch_log_maxvecmul(
-                trans_prob.permute(0, 2, 1), v_matrix[:, :, t - 2]
+                trans_prob.permute(0, 2, 1), v_matrix[:, :, t - 1]
             )
-            v_matrix[:, :, t - 1] = x + emiss_pred_useful[:, :, t - 1]
+            v_matrix[:, :, t] = x + emiss_pred_useful[:, :, t]
 
-            # crop v_matrix
-            v_matrix = torch.where(
-                phn_len_mask[:, :, None],
-                v_matrix,
-                torch.tensor(-999999.0).to(device),
-            )
-
-            backpointers[:, :, t - 1] = argmax.type(torch.FloatTensor)
+            backpointers[:, :, t] = argmax.type(torch.FloatTensor)
 
         z_stars = []
         z_stars_loc = []
