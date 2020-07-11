@@ -12,7 +12,6 @@ def compute_dBpeak_amplitude(waveform):
         min=-120,
     )
 
-
 def peakGaindB(
     tensor, target_peak_dB
 ):  # this can actually be included into signal_processing
@@ -61,17 +60,6 @@ def reverberate(waveforms, rir_waveform):
     waveforms = waveforms.squeeze(0)
 
     return waveforms
-
-
-def get_early_rev_samples(rir, th=100):
-    # we find max value
-    assert (
-        len(rir.shape) == 1
-    ), "multidimensional tensors not supported currently"
-    max, max_indx = torch.max(torch.abs(rir), dim=0)
-    first_min = torch.where(torch.abs(rir[max_indx:]) <= max / th)[-1][0]
-
-    return first_min.item() + max_indx.item()  # add back max_indx
 
 
 def create_mixture(session_n, output_dir, params, metadata):
