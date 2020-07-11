@@ -8,6 +8,19 @@ import os
 from tqdm import tqdm
 
 
+def _read_metadata(file_path, configs):
+    meta = sf.SoundFile(file_path)
+    if meta.channels > 1:
+        channel = np.random.randint(0, meta.channels - 1)
+    else:
+        channel = 0
+    assert (
+            meta.samplerate == configs["samplerate"]
+    ), "file samplerate is different from the one specified"
+
+    return meta, channel
+
+
 def create_metadata(
     configs,
     utterances_dict,
@@ -42,25 +55,10 @@ def create_metadata(
 
             cursor = 0
             for j, wait in enumerate(intervals):
-                meta = sf.SoundFile(spk_utts[j])
-                if meta.channels > 1:
-                    channel = np.random.randint(0, meta.channels - 1)
-                else:
-                    channel = 0
-                assert (
-                    meta.samplerate == configs["samplerate"]
-                ), "file samplerate is different from the one specified"
+                meta, channel = _read_metadata(spk_utts[j], configs)
                 c_rir = np.random.choice(rir_list, 1)[0]
                 # check if the rir is monaural
-                meta_rir = sf.SoundFile(c_rir)
-                assert (
-                    meta_rir.samplerate == configs["samplerate"]
-                ), "file samplerate is different from the one specified"
-                if meta_rir.channels > 1:
-                    rir_channel = np.random.randint(0, meta_rir.channels - 1)
-                else:
-                    rir_channel = 0
-
+                meta_rir, rir_channel = _read_metadata(c_rir, configs)
                 length = len(meta) / meta.samplerate
                 id_utt = Path(spk_utts[j]).stem
                 cursor += wait
@@ -109,25 +107,10 @@ def create_metadata(
             for j, wait in enumerate(intervals):
                 # we sample with replacement an impulsive noise.
                 c_noise = np.random.choice(impulsive_noises_list, 1)[0]
-                meta = sf.SoundFile(c_noise)
-                if meta.channels > 1:
-                    channel = np.random.randint(0, meta.channels - 1)
-                else:
-                    channel = 0
+                meta, channel = _read_metadata(c_noise, configs)
                 c_rir = np.random.choice(rir_list, 1)[0]
                 # we reverberate it.
-                meta_rir = sf.SoundFile(c_rir)
-                assert (
-                    meta_rir.samplerate == configs["samplerate"]
-                ), "file samplerate is different from the one specified"
-                if meta_rir.channels > 1:
-                    rir_channel = np.random.randint(0, meta_rir.channels - 1)
-                else:
-                    rir_channel = 0
-
-                assert (
-                    meta.samplerate == configs["samplerate"]
-                ), "file samplerate is different from the one specified"
+                meta_rir, rir_channel = _read_metadata(c_rir, configs)
                 length = len(meta) / meta.samplerate
                 cursor += wait
                 if cursor + length > configs["max_length"]:
@@ -168,14 +151,7 @@ def create_metadata(
             )
             # we scale the level but do not reverberate.
             background = np.random.choice(background_noises_list, 1)[0]
-            meta = sf.SoundFile(background)
-            if meta.channels > 1:
-                channel = np.random.randint(0, meta.channels - 1)
-            else:
-                channel = 0
-            assert (
-                meta.samplerate == configs["samplerate"]
-            ), "file samplerate is different from the one specified"
+            meta, channel = _read_metadata(background, configs)
             assert (
                 len(meta) >= configs["max_length"] * configs["samplerate"]
             ), "background noise files should be >= max_length in duration"
@@ -237,8 +213,8 @@ if __name__ == "__main__":
         params = yaml.load(f)
 
     os.makedirs(params["out_path"], exist_ok=True)
-
-    # 1 we construct a dictionary with speakers ids
+    # parsing librispeech
+    # step 1:  we construct a dictionary with speakers ids
     utterances = []
     txt_files = []
     for libri_dir in params["librispeech_folders"]:
@@ -249,7 +225,7 @@ if __name__ == "__main__":
             glob.glob(os.path.join(libri_dir, "**/*trans.txt"), recursive=True)
         )
 
-    # we then build an hashtable for words for each utterance
+    # step 2: we then build an hashtable for words for each utterance
     words_dict = {}
     for trans in txt_files:
         with open(trans, "r") as f:
@@ -259,7 +235,7 @@ if __name__ == "__main__":
                 words = " ".join(splitted[1:])
                 words_dict[utt_id] = words.strip("\n")
 
-    # we build an hashtable for also speakers
+    # step 3: we build an hashtable for also speakers
     speakers = {}
     for u in utterances:
         spk_id = Path(u).parent.parent.stem
@@ -267,7 +243,7 @@ if __name__ == "__main__":
             speakers[spk_id] = [u]
         else:
             speakers[spk_id].append(u)
-
+    ### done parsing librispeech ####
     # we now parse rirs, noises and backgrounds
     rirs_list = []
     if params["rirs_folders"]:
@@ -283,7 +259,7 @@ if __name__ == "__main__":
             impulsive_noises.extend(
                 glob.glob(os.path.join(imp_folder), recursive=True)
             )
-
+    # we parse background noise
     backgrounds = []
     if params["background_noises_folders"]:
         for back in params["background_noises_folders"]:
