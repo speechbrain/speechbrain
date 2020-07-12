@@ -1279,6 +1279,8 @@ class LiGRU_Layer(torch.jit.ScriptModule):
         # Setting the activation function
         if nonlinearity == "tanh":
             self.act = torch.nn.Tanh().to(device)
+        elif nonlinearity == "sin":
+            self.act = torch.sin.to(device)
         else:
             self.act = torch.nn.ReLU().to(device)
 

@@ -13,13 +13,13 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: !PLACEHOLDER  # e.g. /path/to/
+data_folder: !PLACEHOLDER  # e.g, /localscratch/noisy-vctk-16k/
 csv_train: !ref <data_folder>/train.csv
 csv_valid: !ref <data_folder>/valid.csv
 csv_test: !ref <data_folder>/test.csv
 
 # Training parameters
-number_of_epochs: 30
+number_of_epochs: 50
 batch_size: 8
 lr: 1.0
 device: 'cuda:0'
