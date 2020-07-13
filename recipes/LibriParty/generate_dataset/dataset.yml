@@ -3,6 +3,7 @@
 ######################
 
 out_folder: /tmp/LibriParty # folder where created dataset will be stored.
+metadata_file: /tmp/metadata.json
 samplerate: 16000 # dataset samplerate (should be <=16000)
 
 save_wet_sources: False
@@ -18,34 +19,36 @@ save_dry_sources: False
 librispeech_root: /media/sam/bx500/LibriSpeech
 # root path to librispeech: download from https://openslr.org/12/
 
-librispeech_train_folders: # folders one wants to use for the train dataset.
-  - /media/sam/bx500/LibriSpeech/train-clean-100/ # e.g. clean-100 etc.
-librispeech_dev_folders:
-  - /media/sam/bx500/LibriSpeech/dev-clean-100/
-librispeech_test_folders:
-  - /media/sam/bx500/LibriSpeech/test-clean-100/
+librispeech_folders: # folders one wants to use for the train dataset.
+  train:
+    - /media/sam/bx500/LibriSpeech/train-clean-100/ # e.g. clean-100 etc.
+  dev:
+    - /media/sam/bx500/LibriSpeech/dev-clean/
+  eval:
+    - /media/sam/bx500/LibriSpeech/test-clean/
 rirs_root: /media/sam/bx500/RIRS_NOISES
-rirs_folders:
-  - /media/sam/bx500/RIRS_NOISES/simulated_rirs/**/*.wav # glob expression
-impulsive_noises_root: /media/sam/bx500/RIRS_NOISES
-impulsive_noises_folders:
-  - /media/sam/bx500/RIRS_NOISES/pointsource_noises/**/*.wav
-
+noises_root: /media/sam/bx500/RIRS_NOISES/pointsource_noises/
+backgrounds_root: /media/sam/bx500/QUT-NOISE/QUT-NOISE_16k
 # optional background noise from QUT (required for "official" dataset)
 # One can use also other background noises.
-backgrounds_root: /media/sam/bx500/QUT-NOISE/QUT-NOISE_16k
-background_noises_folders:
-  - /media/sam/bx500/QUT-NOISE/QUT-NOISE_16k/**/*.wav
+
 
 #########################################################################
 # Metadata creation parameters (Used only for custom dataset generation).
 #########################################################################
 
 seed: 777  # e.g, 1234
-split_factor: [0.2, 0.15]
+split_factors:
+  - 0.7
+  - 0.2
+  - 0.1
 # split factor used to split RIRs, backgrounds and noises.
+# for speech one can use librispeech official splits
 
-n_sessions: 100 # number of synthetic scenes
+n_sessions: # number of synthetic scenes
+  train: 10
+  dev: 5
+  eval: 2
 n_speakers: 2 # max number of speakers in each session
 interval_factor_speech: 15
 # this parameter controls amount of silence and
