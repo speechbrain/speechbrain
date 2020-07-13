@@ -3,7 +3,7 @@
 Authors
  * Titouan Parcollet 2020
 """
-
+import torch
 import torch.nn as nn
 import logging
 import torch.nn.functional as F
@@ -16,7 +16,7 @@ from speechbrain.nnet.complex_networks.complex_ops import (
 logger = logging.getLogger(__name__)
 
 
-class ComplexConv1d(nn.Module):
+class ComplexConv1d(torch.nn.Module):
     """This function implements complex-valued 1d convolution.
 
     Arguments
