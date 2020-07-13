@@ -8,13 +8,15 @@ possibility to have end-to-end differentiability and
 backpropagate the gradient through them. In addition, all operations
 are expected to be performed on the GPU (where available) for efficiency.
 
-Author: Peter Plantinga 2020
+Authors
+ * Peter Plantinga 2020
 """
 
 # Importing libraries
 import math
 import torch
 import soundfile as sf  # noqa
+import torch.nn.functional as F
 from speechbrain.data_io.data_io import DataLoaderFactory
 from speechbrain.processing.signal_processing import (
     compute_amplitude,
@@ -73,6 +75,7 @@ class AddNoise(torch.nn.Module):
         csv_read=None,
         order="random",
         do_cache=False,
+        num_workers=0,
         snr_low=0,
         snr_high=0,
         pad_noise=False,
@@ -86,6 +89,7 @@ class AddNoise(torch.nn.Module):
         self.csv_read = csv_read
         self.order = order
         self.do_cache = do_cache
+        self.num_workers = num_workers
         self.snr_low = snr_low
         self.snr_high = snr_high
         self.pad_noise = pad_noise
@@ -155,15 +159,17 @@ class AddNoise(torch.nn.Module):
 
             # Create a data loader for the noise wavforms
             if self.csv_file is not None:
-                self.data_loader = DataLoaderFactory(
+                data_loader = DataLoaderFactory(
                     csv_file=self.csv_file,
                     csv_read=self.csv_read,
                     sentence_sorting=self.order,
                     batch_size=batch_size,
                     cache=self.do_cache,
                     replacements=self.replacements,
+                    num_workers=self.num_workers,
                 )
-                self.noise_data = iter(self.data_loader())
+                self.data_loader = data_loader()
+                self.noise_data = iter(self.data_loader)
 
         # Load noise to correct device
         noise_batch, noise_len = self._load_noise_batch_of_size(batch_size)
@@ -192,7 +198,9 @@ class AddNoise(torch.nn.Module):
         if self.start_index is None:
             start_index = 0
             max_chop = (noise_len - lengths).min().clamp(min=1)
-            start_index = torch.randint(high=max_chop, size=(1,))
+            start_index = torch.randint(
+                high=max_chop, size=(1,), device=lengths.device
+            )
 
         # Truncate noise_batch to max_length
         noise_batch = noise_batch[:, start_index : start_index + max_length]
@@ -242,7 +250,7 @@ class AddNoise(torch.nn.Module):
         try:
             wav_id, noise_batch, noise_len = next(self.noise_data)[0]
         except StopIteration:
-            self.noise_data = iter(self.data_loader())
+            self.noise_data = iter(self.data_loader)
             wav_id, noise_batch, noise_len = next(self.noise_data)[0]
         return noise_batch, noise_len
 
@@ -264,6 +272,11 @@ class AddReverb(torch.nn.Module):
     reverb_prob : float
         The chance that the audio signal will be reverbed.
         By default, every batch is reverbed.
+    rir_scale_factor: float
+        It compresses or dilates the given impuse response.
+        If 0 < scale_factor < 1, the impulse response is compressed
+        (less reverb), while if scale_factor > 1 it is dilated
+        (more reverb).
     replacements : dict
         A set of string replacements to carry out in the
         csv file. Each time a key is found in the text, it will be replaced
@@ -283,6 +296,7 @@ class AddReverb(torch.nn.Module):
         order="random",
         do_cache=False,
         reverb_prob=1.0,
+        rir_scale_factor=1.0,
         replacements={},
     ):
         super().__init__()
@@ -291,6 +305,7 @@ class AddReverb(torch.nn.Module):
         self.do_cache = do_cache
         self.reverb_prob = reverb_prob
         self.replacements = replacements
+        self.rir_scale_factor = rir_scale_factor
 
         # Create a data loader for the RIR waveforms
         self.data_loader = DataLoaderFactory(
@@ -331,10 +346,25 @@ class AddReverb(torch.nn.Module):
         orig_amplitude = compute_amplitude(waveforms, lengths)
 
         # Load and prepare RIR
-        rir_waveform = self._load_rir(waveforms).abs()
+        rir_waveform = self._load_rir(waveforms)
+
+        # Compress or dilate RIR
+        if self.rir_scale_factor != 1:
+            rir_waveform = F.interpolate(
+                rir_waveform.transpose(1, -1),
+                scale_factor=self.rir_scale_factor,
+                mode="linear",
+                align_corners=False,
+            )
+            rir_waveform = rir_waveform.transpose(1, -1)
 
         # Compute index of the direct signal, so we can preserve alignment
-        direct_index = rir_waveform.argmax(axis=1).median()
+        value_max, direct_index = rir_waveform.abs().max(axis=1)
+
+        # Making sure the max is always positive (if not, flip)
+        # This is useful for speeech enhancment
+        if rir_waveform[0, direct_index, 0] < 0:
+            rir_waveform = -rir_waveform
 
         # Use FFT to compute convolution, because of long reverberation filter
         reverbed_waveform = convolve1d(

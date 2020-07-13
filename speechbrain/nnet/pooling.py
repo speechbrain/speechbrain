@@ -1,7 +1,9 @@
 """Library implementing pooling.
 
-Author
-    Titouan Parcollet 2020, Mirco Ravanelli 2020, Nauman Dawalatabad 2020
+Authors
+ * Titouan Parcollet 2020
+ * Mirco Ravanelli 2020
+ * Nauman Dawalatabad 2020
 """
 
 import torch
@@ -238,7 +240,7 @@ class StatisticsPooling(nn.Module):
         self.eps = 1e-5
         self.device = device
 
-    def forward(self, x):
+    def forward(self, x, lengths=None):
         """Calculates mean and std for a batch (input tensor).
 
         Arguments
@@ -246,17 +248,31 @@ class StatisticsPooling(nn.Module):
         x : torch.Tensor
             It represents a tensor for a mini-batch
         """
-        mean = x.mean(dim=1)
+        if lengths is None:
+            mean = x.mean(dim=1)
+            std = x.std(dim=1)
+        else:
+            mean = []
+            std = []
+            for snt_id in range(x.shape[0]):
+                # Avoiding padded time steps
+                actual_size = int(torch.round(lengths[snt_id] * x.shape[1]))
 
-        # Generate epsilon Gaussian noise tensor
+                # computing statistics
+                mean.append(
+                    torch.mean(x[snt_id, 1 : actual_size - 1, ...], dim=0)
+                )
+                std.append(
+                    torch.std(x[snt_id, 1 : actual_size - 1, ...], dim=0)
+                )
+
+            mean = torch.stack(mean)
+            std = torch.stack(std)
+
         gnoise = self._get_gauss_noise(mean.size())
         gnoise = gnoise.to(self.device)
-
-        # Adding noise tensor to mean
         mean += gnoise
-
-        # Adding small noise to std
-        std = x.std(dim=1) + self.eps
+        std = std + self.eps
 
         # Append mean and std of the batch
         pooled_stats = torch.cat((mean, std), dim=1)

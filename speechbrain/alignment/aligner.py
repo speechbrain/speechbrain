@@ -1,9 +1,8 @@
 """
 Alignment code
 
-Author
-------
-Elena Rastorgueva 2020
+Authors
+ * Elena Rastorgueva 2020
 """
 
 import torch
