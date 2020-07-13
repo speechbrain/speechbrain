@@ -1,9 +1,10 @@
 """
 Data i/o operations.
 
-Author
-------
-Mirco Ravanelli, Aku Rouhe 2020
+Authors
+ * Mirco Ravanelli 2020
+ * Aku Rouhe 2020
+ * Ju-Chieh Chou 2020
 """
 
 import os
@@ -78,6 +79,14 @@ class DataLoaderFactory(torch.nn.Module):
         threshold (by default 75%). In practice, if a lot of RAM is available
         several data will be stored in memory, otherwise, most of them will be
         read from the disk directly.
+    select_n_setences : int, optional
+        Default: None . It selects the first N sentences of the CSV file.
+    avoid_if_longer_than : float, optional
+        Default: 36000 . It excludes sentences longer than the specified value
+        in seconds.
+    avoid_if_shorter_than : float, optional
+        Default: 0 . It excludes sentences shorter than the specified value in
+        seconds.
     drop_last : bool, optional
         Default: False . This is an option directly passed to the pytorch
         dataloader (see the related documentation for more details). When True,
@@ -109,6 +118,8 @@ class DataLoaderFactory(torch.nn.Module):
         cache=False,
         cache_ram_percent=75,
         select_n_sentences=None,
+        avoid_if_longer_than=36000,
+        avoid_if_shorter_than=0,
         drop_last=False,
         padding_value=0,
         replacements={},
@@ -125,6 +136,8 @@ class DataLoaderFactory(torch.nn.Module):
         self.cache = cache
         self.cache_ram_percent = cache_ram_percent
         self.select_n_sentences = select_n_sentences
+        self.avoid_if_longer_than = avoid_if_longer_than
+        self.avoid_if_shorter_than = avoid_if_shorter_than
         self.drop_last = drop_last
         self.padding_value = padding_value
         self.replacements = replacements
@@ -327,10 +340,7 @@ class DataLoaderFactory(torch.nn.Module):
                 if isinstance(data_list[i][j], np.ndarray):
                     data_list[i][j] = torch.from_numpy(data_list[i][j])
 
-    # FIX: Too complex! When fixed, remove the "# noqa: C901"
-    def label_dict_creation(self, data_dict):  # noqa: C901
-        logger.warning("label_dict_creation is too complex, please fix")
-
+    def label_dict_creation(self, data_dict):
         # create label counts and label2index automatically when needed
         label_dict = {}
         if self.output_folder is not None:
@@ -342,61 +352,27 @@ class DataLoaderFactory(torch.nn.Module):
 
         # Update label dict
         for snt in data_dict:
-            if isinstance(data_dict[snt], dict):
-                for elem in data_dict[snt]:
+            if not isinstance(data_dict[snt], dict):
+                continue
 
-                    if "format" in data_dict[snt][elem]:
+            for elem in data_dict[snt]:
+                if "format" not in data_dict[snt][elem]:
+                    continue
 
-                        count_lab = False
-                        opts = data_dict[snt][elem]["options"]
+                count_lab, labels = self._should_count(data_dict[snt][elem])
 
-                        if data_dict[snt][elem]["format"] == "string" and (
-                            "label" not in opts or opts["label"] == "True"
-                        ):
+                if not count_lab:
+                    continue
 
-                            if len(data_dict[snt][elem]["data"].split(" ")) > 1:
-                                # Processing list of string labels
-                                labels = data_dict[snt][elem]["data"].split(" ")
-                                count_lab = True
+                if elem not in label_dict:
+                    label_dict[elem] = {}
+                    label_dict[elem]["counts"] = {}
 
-                            else:
-                                # Processing a single label
-                                labels = [data_dict[snt][elem]["data"]]
-                                count_lab = True
-
-                        if data_dict[snt][elem]["format"] == "pkl":
-
-                            labels = load_pkl(data_dict[snt][elem]["data"])
-
-                            # Create counts if tensor is a list of integers
-                            if isinstance(labels, list):
-                                if isinstance(labels[0], int):
-                                    count_lab = True
-
-                            if isinstance(labels, np.ndarray):
-                                if "numpy.int" in str(type(labels[0])):
-                                    count_lab = True
-
-                            # Create counts if tensor is a list of integers
-                            if isinstance(labels, torch.Tensor):
-
-                                if labels.type() == "torch.LongTensor":
-                                    count_lab = True
-                                if labels.type() == "torch.IntTensor":
-                                    count_lab = True
-
-                        if count_lab:
-                            if elem not in label_dict:
-                                label_dict[elem] = {}
-                                label_dict[elem]["counts"] = {}
-
-                            for lab in labels:
-                                if lab not in label_dict[elem]["counts"]:
-                                    label_dict[elem]["counts"][lab] = 1
-                                else:
-                                    label_dict[elem]["counts"][lab] = (
-                                        label_dict[elem]["counts"][lab] + 1
-                                    )
+                for lab in labels:
+                    if lab not in label_dict[elem]["counts"]:
+                        label_dict[elem]["counts"][lab] = 1
+                    else:
+                        label_dict[elem]["counts"][lab] += 1
 
         # create label2index:
         for lab in label_dict:
@@ -416,8 +392,50 @@ class DataLoaderFactory(torch.nn.Module):
 
         return label_dict
 
-    # FIX: Too complex! When fixed, remove the "# noqa: C901"
-    def generate_data_dict(self,):  # noqa: C901
+    def _should_count(self, data_dict_elem):
+        """Compute whether this label should be counted or not"""
+        count_lab = False
+        labels = []
+        opts = data_dict_elem["options"]
+
+        if data_dict_elem["format"] == "string" and (
+            "label" not in opts or opts["label"] == "True"
+        ):
+
+            if len(data_dict_elem["data"].split(" ")) > 1:
+                # Processing list of string labels
+                labels = data_dict_elem["data"].split(" ")
+                count_lab = True
+
+            else:
+                # Processing a single label
+                labels = [data_dict_elem["data"]]
+                count_lab = True
+
+        if data_dict_elem["format"] == "pkl":
+
+            labels = load_pkl(data_dict_elem["data"])
+
+            # Create counts if tensor is a list of integers
+            if isinstance(labels, list):
+                if isinstance(labels[0], int):
+                    count_lab = True
+
+            if isinstance(labels, np.ndarray):
+                if "numpy.int" in str(type(labels[0])):
+                    count_lab = True
+
+            # Create counts if tensor is a list of integers
+            if isinstance(labels, torch.Tensor):
+
+                if labels.type() == "torch.LongTensor":
+                    count_lab = True
+                if labels.type() == "torch.IntTensor":
+                    count_lab = True
+
+        return count_lab, labels
+
+    def generate_data_dict(self):
         """
         Create a dictionary from the csv file
 
@@ -433,8 +451,6 @@ class DataLoaderFactory(torch.nn.Module):
         >>> data_loader.generate_data_dict().keys()
         dict_keys(['example1', 'data_list', 'data_entries'])
         """
-        logger.warning("generate_data_dict is too complex, please fix!")
-
         # Initial prints
         logger.debug("Creating dataloader for %s" % (self.csv_file))
 
@@ -446,8 +462,9 @@ class DataLoaderFactory(torch.nn.Module):
 
         first_row = True
 
-        # Tracking the total sentence duration
+        # Tracking the total number of sentences and their duration
         total_duration = 0
+        total_sentences = 0
 
         for row in reader:
 
@@ -458,139 +475,80 @@ class DataLoaderFactory(torch.nn.Module):
             # remove left/right spaces
             row = [elem.strip(" ") for elem in row]
 
+            # update sentence counter
+            total_sentences = total_sentences + 1
+            if self.select_n_sentences is not None:
+                if total_sentences > self.select_n_sentences:
+                    break
+
+            # Check and get field list from first row
             if first_row:
-
-                # Make sure ID field exists
-                if "ID" not in row:
-                    err_msg = (
-                        "The mandatory field ID (i.e, the field that contains "
-                        "a unique  id for each sentence is not present in the "
-                        "csv file  %s" % (self.csv_file)
-                    )
-                    raise ValueError(err_msg)
-
-                # Make sure the duration field exists
-                if "duration" not in row:
-                    err_msg = (
-                        "The mandatory field duration (i.e, the field that "
-                        "contains the  duration of each sentence is not "
-                        "present in the csv  file %s" % (self.csv_file)
-                    )
-                    raise ValueError(err_msg)
-
-                if len(row) == 2:
-                    err_msg = (
-                        "The cvs file %s does not contain features entries! "
-                        "The features are specified with the following fields:"
-                        "feaname, feaname_format, feaname_opts"
-                        % (self.csv_file)
-                    )
-                    raise ValueError(err_msg)
-
-                # Make sure the features are expressed in the following way:
-                # feaname, feaname_format, feaname_opts
-                feats = row[2:]
-                feat_names = feats[0::3]
-
-                for feat_name in feat_names:
-
-                    if feat_name + "_format" not in row:
-                        err_msg = (
-                            "The feature %s in the cvs file %s does not "
-                            "contain the field %s to specified its format."
-                            % (feat_name, self.csv_file, feat_name + "_format")
-                        )
-                        raise ValueError(err_msg)
-
-                    if feat_name + "_opts" not in row:
-                        err_msg = (
-                            "The feature %s in the cvs file %s does not "
-                            "contain the field %s to specified the reader "
-                            "options. "
-                            % (feat_name, self.csv_file, feat_name + "_opts")
-                        )
-                        raise ValueError(err_msg)
-
-                # Store the field list
+                self._check_first_row(row)
                 field_lst = row
-
                 first_row = False
+                continue
 
-            else:
-
-                # replace local variables with global ones
-                variable_finder = re.compile(r"\$[\w.]+")
-                for i, item in enumerate(row):
-                    try:
-                        row[i] = variable_finder.sub(
-                            lambda x: self.replacements[x[0]], item,
-                        )
-                    except KeyError as e:
-                        e.args = (
-                            *e.args,
-                            "The item '%s' contains variables "
-                            "not included in 'replacements'" % item,
-                        )
-                        raise
-
-                # Make sure that the current row contains all the fields
-                if len(row) != len(field_lst):
-                    err_msg = (
-                        'The row "%s" of the cvs file %s does not '
-                        "contain the right number fields (they must be %i "
-                        "%s"
-                        ")" % (row, self.csv_file, len(field_lst), field_lst)
+            # replace local variables with global ones
+            variable_finder = re.compile(r"\$[\w.]+")
+            for i, item in enumerate(row):
+                try:
+                    row[i] = variable_finder.sub(
+                        lambda x: self.replacements[x[0]], item,
                     )
-                    raise ValueError(err_msg)
+                except KeyError as e:
+                    e.args = (
+                        *e.args,
+                        "The item '%s' contains variables "
+                        "not included in 'replacements'" % item,
+                    )
+                    raise
 
-                # Filling the data dictionary
-                for i, field in enumerate(field_lst):
+            # Make sure that the current row contains all the fields
+            if len(row) != len(field_lst):
+                err_msg = (
+                    'The row "%s" of the cvs file %s does not '
+                    "contain the right number fields (they must be %i "
+                    "%s"
+                    ")" % (row, self.csv_file, len(field_lst), field_lst)
+                )
+                raise ValueError(err_msg)
 
-                    field_name = row[i]
+            # Filling the data dictionary
+            for i, field in enumerate(field_lst):
+                if i == 0:
+                    row_id = row[i]
+                    data_dict[row_id] = {}
+                    continue
 
-                    if i == 0:
-                        id_field = field_name
-                        data_dict[id_field] = {}
-                    else:
+                elif field == "duration":
+                    data_dict[row_id][field] = row[i]
+                    total_duration = total_duration + float(row[i])
+                    continue
 
-                        if field == "duration":
-                            data_dict[id_field][field] = {}
-                            duration = float(row[i])
-                            data_dict[id_field][field] = row[i]
-                            total_duration = total_duration + duration
-                        else:
+                format_field = field.endswith("_format")
+                opts_field = field.endswith("_opts")
+                field = field.replace("_format", "").replace("_opts", "")
 
-                            field_or = field
-                            field = field.replace("_format", "").replace(
-                                "_opts", ""
-                            )
+                if field not in data_dict[row_id]:
+                    data_dict[row_id][field] = {
+                        "data": {},
+                        "format": {},
+                        "options": {},
+                    }
 
-                            if field not in data_dict[id_field]:
-                                data_dict[id_field][field] = {}
-                                data_dict[id_field][field]["data"] = {}
-                                data_dict[id_field][field]["format"] = {}
-                                data_dict[id_field][field]["options"] = {}
+                if not format_field and not opts_field:
+                    data_dict[row_id][field]["data"] = row[i]
 
-                            if "_format" in field_or:
-                                data_dict[id_field][field]["format"] = row[i]
+                elif format_field:
+                    data_dict[row_id][field]["format"] = row[i]
 
-                            elif "_opts" in field_or:
-                                data_dict[id_field][field]["options"] = {}
-                                if len(row[i]) > 0:
-                                    lst_opt = row[i].split(" ")
-                                    for opt in lst_opt:
-                                        opt_name = opt.split(":")[0]
-                                        opt_val = opt.split(":")[1]
+                elif opts_field:
+                    data_dict[row_id][field]["options"] = self._parse_opts(
+                        row[i]
+                    )
 
-                                        data_dict[id_field][field]["options"][
-                                            opt_name
-                                        ] = {}
-                                        data_dict[id_field][field]["options"][
-                                            opt_name
-                                        ] = opt_val
-
-                            else:
-                                data_dict[id_field][field]["data"] = row[i]
+            # Avoiding sentence that are too long or too short
+            self._avoid_short_long_sentences(data_dict, row_id)
 
         data_dict = self.sort_sentences(data_dict, self.sentence_sorting)
 
@@ -612,6 +570,77 @@ class DataLoaderFactory(torch.nn.Module):
         data_dict["data_entries"] = data_entries
 
         return data_dict
+
+    def _avoid_short_long_sentences(self, snt, row_id):
+        """Excludes long and short sentences from the dataset"""
+        if float(snt[row_id]["duration"]) > self.avoid_if_longer_than:
+            del snt[row_id]
+
+        elif float(snt[row_id]["duration"]) < self.avoid_if_shorter_than:
+            del snt[row_id]
+
+    def _check_first_row(self, row):
+        # Make sure ID field exists
+        if "ID" not in row:
+            err_msg = (
+                "The mandatory field ID (i.e, the field that contains "
+                "a unique  id for each sentence is not present in the "
+                "csv file  %s" % (self.csv_file)
+            )
+            raise ValueError(err_msg)
+
+        # Make sure the duration field exists
+        if "duration" not in row:
+            err_msg = (
+                "The mandatory field duration (i.e, the field that "
+                "contains the  duration of each sentence is not "
+                "present in the csv  file %s" % (self.csv_file)
+            )
+            raise ValueError(err_msg)
+
+        if len(row) == 2:
+            err_msg = (
+                "The cvs file %s does not contain features entries! "
+                "The features are specified with the following fields:"
+                "feaname, feaname_format, feaname_opts" % (self.csv_file)
+            )
+            raise ValueError(err_msg)
+
+        # Make sure the features are expressed in the following way:
+        # feaname, feaname_format, feaname_opts
+        feats = row[2:]
+        feat_names = feats[0::3]
+
+        for feat_name in feat_names:
+
+            if feat_name + "_format" not in row:
+                err_msg = (
+                    "The feature %s in the cvs file %s does not "
+                    "contain the field %s to specified its format."
+                    % (feat_name, self.csv_file, feat_name + "_format")
+                )
+                raise ValueError(err_msg)
+
+            if feat_name + "_opts" not in row:
+                err_msg = (
+                    "The feature %s in the cvs file %s does not "
+                    "contain the field %s to specified the reader "
+                    "options. "
+                    % (feat_name, self.csv_file, feat_name + "_opts")
+                )
+                raise ValueError(err_msg)
+
+    def _parse_opts(self, entry):
+        """Parse options from a list of options"""
+        if len(entry) == 0:
+            return {}
+
+        opts = {}
+        for opt in entry.split(" "):
+            opt_name, opt_val = opt.split(":")
+            opts[opt_name] = opt_val
+
+        return opts
 
     @staticmethod
     def sort_sentences(data_dict, sorting):
@@ -2016,3 +2045,94 @@ def load_pkl(file):
     """
     with open(file, "rb") as f:
         return pickle.load(f)
+
+
+def prepend_bos_token(label, bos_index):
+    """Create labels with <bos> token at the beginning.
+
+    Arguments
+    ---------
+    label : torch.IntTensor
+        Containing the original labels. Must be of size: [batch_size, max_length]
+    bos_index : int
+        The index for <bos> token.
+
+    Returns
+    -------
+    new_label : The new label with <bos> at the beginning.
+
+    Example:
+    >>> label=torch.LongTensor([[1,0,0], [2,3,0], [4,5,6]])
+    >>> new_label=prepend_bos_token(label, bos_index=7)
+    >>> new_label
+    tensor([[7, 1, 0, 0],
+            [7, 2, 3, 0],
+            [7, 4, 5, 6]])
+    """
+    new_label = label.long().clone()
+    batch_size = label.shape[0]
+
+    bos = new_label.new_zeros(batch_size, 1).fill_(bos_index)
+    new_label = torch.cat([bos, new_label], dim=1)
+    return new_label
+
+
+def append_eos_token(label, length, eos_index):
+    """Create labels with <eos> token appended.
+
+    Arguments
+    ---------
+    label : torch.IntTensor
+        Containing the original labels. Must be of size: [batch_size, max_length]
+    length : torch.LongTensor
+        Cotaining the original length of each label sequences. Must be 1D.
+    eos_index : int
+        The index for <eos> token.
+
+    Returns
+    -------
+    new_label : The new label with <eos> appended.
+
+    Example:
+    >>> label=torch.IntTensor([[1,0,0], [2,3,0], [4,5,6]])
+    >>> length=torch.LongTensor([1,2,3])
+    >>> new_label=append_eos_token(label, length, eos_index=7)
+    >>> new_label
+    tensor([[1, 7, 0, 0],
+            [2, 3, 7, 0],
+            [4, 5, 6, 7]], dtype=torch.int32)
+    """
+    new_label = label.int().clone()
+    batch_size = label.shape[0]
+
+    pad = new_label.new_zeros(batch_size, 1)
+    new_label = torch.cat([new_label, pad], dim=1)
+    new_label[torch.arange(batch_size), length.long()] = eos_index
+    return new_label
+
+
+def merge_char(sequences, space="_"):
+    """Merge characters sequences into word sequences.
+
+    Arguments
+    ---------
+    sequences : list
+        Each item contains a list, and this list contains character sequence.
+    space : string
+        The token represents space. Default: _
+
+    Returns
+    -------
+    The list contain word sequences for each sentence.
+
+    Example:
+    >>> sequences = [["a", "b", "_", "c", "_", "d", "e"], ["e", "f", "g", "_", "h", "i"]]
+    >>> results = merge_char(sequences)
+    >>> results
+    [['ab', 'c', 'de'], ['efg', 'hi']]
+    """
+    results = []
+    for seq in sequences:
+        words = "".join(seq).split("_")
+        results.append(words)
+    return results

@@ -56,9 +56,7 @@ linear2: !new:speechbrain.nnet.linear.Linear
     n_neurons: 180
     bias: False
 
-compute_cost: !new:speechbrain.nnet.losses.ComputeCost
-    cost_type: mse
+compute_cost: !name:speechbrain.nnet.losses.mse_loss
 
-optimizer: !new:speechbrain.nnet.optimizers.Optimize
-    optimizer_type: adam
+optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
     learning_rate: !ref <lr>

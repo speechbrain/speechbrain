@@ -1,9 +1,11 @@
 """
 Low level signal processing utilities
 
-Author
-------
-Peter Plantinga 2020
+Authors
+-------
+ * Peter Plantinga 2020
+ * Francois Grondin 2020
+ * William Aris 2020
 """
 import torch
 
@@ -112,7 +114,9 @@ def convolve1d(
             zero_length = 0
 
         # Perform rotation to ensure alignment
-        zeros = torch.zeros(kernel.size(0), kernel.size(1), zero_length)
+        zeros = torch.zeros(
+            kernel.size(0), kernel.size(1), zero_length, device=kernel.device
+        )
         after_index = kernel[..., rotation_index:]
         before_index = kernel[..., :rotation_index]
         kernel = torch.cat((after_index, zeros, before_index), dim=-1)
@@ -231,286 +235,188 @@ def notch_filter(notch_freq, filter_width=101, notch_width=0.05):
     return (hlpf + hhpf).view(1, -1, 1)
 
 
-# WORK IN PROGRESS
-class EigenH(torch.nn.Module):
-    """ Generalized Eigen decomposition for complex Hermitian matrices
+def cov(xs, average=True):
+    """ Computes the covariance matrices of the signals.
 
-    This class contains differents methods to adjust the format of
-    complex Hermitian matrices and to find their eigenvectors and
-    eigenvalues.
+    Arguments:
+    ----------
+    xs : tensor
+        A batch of audio signals in the frequency domain.
+        The tensor must have the following format:
+        (batch, time_step, n_fft, 2, n_mics)
+
+    average : boolean
+        Informs the method if it should return an average
+        (computed on the time dimension) of the covariance
+        matrices. Default value is True.
+
+    Returns
+    -------
+    The covariance matrices. The tensor has the following
+    format: (batch, time_step, n_fft, n_mics + n_pairs)
 
     Example
     -------
-    TODO: Add an example
+    >>> import soundfile as sf
+    >>> import torch
+    >>> from speechbrain.processing.features import STFT
+    >>> from speechbrain.processing.signal_processing import cov
+    >>> signal, fs = sf.read('samples/audio_samples/example_multichannel.wav')
+    >>> signal = torch.tensor(signal).unsqueeze(0)
+    >>> compute_stft = STFT(sample_rate=fs)
+    >>> xs = compute_stft(signal)
+    >>> rxx = cov(xs)
+    """
+
+    # Formating the real and imaginary parts
+    xs_re = xs[..., 0, :].unsqueeze(4)
+    xs_im = xs[..., 1, :].unsqueeze(4)
+
+    # Computing the covariance
+    rxx_re = torch.matmul(xs_re, xs_re.transpose(3, 4)) + torch.matmul(
+        xs_im, xs_im.transpose(3, 4)
+    )
+
+    rxx_im = torch.matmul(xs_im, xs_re.transpose(3, 4)) - torch.matmul(
+        xs_re, xs_im.transpose(3, 4)
+    )
+
+    # Selecting the upper triangular part of the covariance matrices
+    n_channels = xs.shape[4]
+    indices = torch.triu_indices(n_channels, n_channels)
+
+    rxx_re = rxx_re[..., indices[0], indices[1]]
+    rxx_im = rxx_im[..., indices[0], indices[1]]
+
+    rxx = torch.stack((rxx_re, rxx_im), 3)
+
+    if average is True:
+        n_time_frames = rxx.shape[1]
+        rxx = torch.mean(rxx, 1, keepdim=True)
+        rxx = rxx.repeat(1, n_time_frames, 1, 1, 1)
+
+    return rxx
+
+
+class GCCPHAT(torch.nn.Module):
+    """ Generalized Cross-Correlation with Phase Transform (GCC-PHAT)
+
+    This class locates the source of a signal by doing a cross-correlation
+    and a phase transform between each pair of microphone. It is assumed
+    that the argument "onesided" of the STFT was set to True.
+
+    Example
+    -------
+    >>> import soundfile as sf
+    >>> import torch
+    >>> from speechbrain.processing.features import STFT
+    >>> from speechbrain.processing.signal_processing import cov, GCCPHAT
+    >>> signal, fs = sf.read('samples/audio_samples/example_multichannel.wav')
+    >>> signal = torch.tensor(signal).unsqueeze(0)
+    >>> compute_stft = STFT(sample_rate=fs)
+    >>> xs = compute_stft(signal)
+    >>> rxx = cov(xs)
+    >>> gccphat = GCCPHAT()
+    >>> xxs = gccphat(rxx)
+    >>> delays = gccphat.find_tdoa(xxs)
     """
 
     def __init__(self):
         super().__init__()
 
-    def forward(self, a, b=None):
-        """ This method computes the eigenvectors and the eigenvalues
-        of complex Hermitian matrices. The method finds a solution to
-        the problem AV = BVD where V are the eigenvectors and D are
-        the eigenvalues.
-
-        The eigenvectors returned by the method (vs) are stored in a tensor
-        with the following format (batch, n_fft, n_channels, n_channels, 2).
-
-        The eigenvalues returned by the method (ds) are stored in a tensor
-        with the following format (batch, n_fft, n_channels, n_channels, 2).
+    def forward(self, rxx, eps=1e-20):
+        """ Returns the cross-correlation values for each timestamp.
+        The result has the following format:
+        (batch, time_steps, n_fft, n_mics + n_pairs)
 
         Arguments
         ---------
-        a : tensor
-            A first input matrix. It is equivalent to the matrix A in the
-            equation in the description above. The tensor must have the
-            following format: (batch, 1, n_fft, 2, n_channels + n_pairs).
-
-        b : tensor
-            A second input matrix. It is equivalent tot the matrix B in the
-            equation in the description above. The tensor must have the
-            following format: (batch, 1, n_fft, 2, n_channels + n_pairs).
-            This argument is optional and its default value is None. If
-            b == None, then b is remplaced by the identity matrix in the
-            computations.
-        """
-
-        # Extracting data
-        batch = a.shape[0]
-        n_fft = a.shape[2]
-        p = a.shape[4]
-        n_channels = int(round(((1 + 8 * p) ** 0.5 - 1) / 2))
-
-        # Converting the input matrices to block matrices
-        ash = self.f(a)
-
-        if b is None:
-            b = torch.stack(
-                (torch.eye(n_channels), torch.zeros((n_channels, n_channels))),
-                -1,
-            )
-
-            b = torch.stack(n_fft * [b], 0)
-            b = torch.stack(batch * [b], 0)
-
-            bsh = self.g(b)
-
-        else:
-            bsh = self.f(b)
-
-        # Performing the Cholesky decomposition
-        lsh = torch.cholesky(bsh)
-        lsh_inv = torch.inverse(lsh)
-        lsh_inv_T = torch.transpose(lsh_inv, 2, 3)
-
-        # Computing the matrix C
-        csh = torch.matmul(lsh_inv, torch.matmul(ash, lsh_inv_T))
-
-        # Performing the eigenvalue decomposition
-        es, ysh = torch.symeig(csh, eigenvectors=True)
-
-        # Collecting the eigenvalues
-        dsh = torch.zeros(
-            (batch, n_fft, 2 * n_channels, 2 * n_channels),
-            dtype=es.dtype,
-            device=es.device,
-        )
-
-        dsh[..., range(0, 2 * n_channels), range(0, 2 * n_channels)] = es
-
-        # Collecting the eigenvectors
-        vsh = torch.matmul(lsh_inv_T, torch.transpose(ysh, 2, 3))
-
-        # Converting the block matrices to full complex matrices
-        vs = self.ginv(vsh)
-        ds = self.ginv(dsh)
-
-        return vs, ds
-
-    def f(self, ws):
-        """ Transform 1
-
-        This method takes a complex Hermitian matrix represented by its
-        upper triangular part and converts it to a block matrix
-        representing the full original matrix with real numbers.
-        The output tensor will have the following format:
-        (batch, n_fft, 2*n_channels, 2*n_channels)
-
-        Arguments
-        ---------
-        ws : tensor
-            An input matrix. The tensor must have the following format:
-            (batch, 1 n_fft, 2, n_channels + n_pairs)
-        """
-
-        # Formating the input matrix
-        ws = ws.transpose(3, 4).squeeze(1)
-
-        # Extracting data
-        batch = ws.shape[0]
-        n_fft = ws.shape[1]
-        p = ws.shape[2]
-        n_channels = int(round(((1 + 8 * p) ** 0.5 - 1) / 2))
-
-        # Creating the output matrix
-        wsh = torch.zeros(
-            (batch, n_fft, 2 * n_channels, 2 * n_channels),
-            dtype=ws.dtype,
-            device=ws.device,
-        )
-
-        # Filling in the output matrix
-        indices = torch.triu_indices(n_channels, n_channels)
-
-        wsh[..., indices[1] * 2, indices[0] * 2] = ws[..., 0]
-        wsh[..., indices[0] * 2, indices[1] * 2] = ws[..., 0]
-        wsh[..., indices[1] * 2 + 1, indices[0] * 2 + 1] = ws[..., 0]
-        wsh[..., indices[0] * 2 + 1, indices[1] * 2 + 1] = ws[..., 0]
-
-        wsh[..., indices[0] * 2, indices[1] * 2 + 1] = -1 * ws[..., 1]
-        wsh[..., indices[1] * 2 + 1, indices[0] * 2] = -1 * ws[..., 1]
-        wsh[..., indices[0] * 2 + 1, indices[1] * 2] = ws[..., 1]
-        wsh[..., indices[1] * 2, indices[0] * 2 + 1] = ws[..., 1]
-
-        return wsh
-
-    def finv(self, wsh):
-        """ Inverse transform 1
-
-        This method takes a block matrix representing a complex Hermitian
-        matrix and converts it to a complex matrix represented by its
-        upper triangular part. The result will have the following format:
-        (batch, 1, n_fft, 2, n_channels + n_pairs)
-
-        Arguments
-        ---------
-        wsh : tensor
-            An input matrix. The tensor must have the following format:
-            (batch, n_fft, 2*n_channels, 2*n_channels)
-        """
-
-        # Extracting data
-        batch = wsh.shape[0]
-        n_fft = wsh.shape[1]
-        n_channels = int(wsh.shape[2] / 2)
-        p = int(n_channels * (n_channels + 1) / 2)
-
-        # Output matrix
-        ws = torch.zeros(
-            (batch, 1, n_fft, 2, p), dtype=wsh.dtype, device=wsh.device
-        )
-
-        indices = torch.triu_indices(n_channels, n_channels)
-
-        ws[:, 0, :, 0, :] = wsh[..., indices[0] * 2, indices[1] * 2]
-        ws[:, 0, :, 1, :] = -1 * wsh[..., indices[0] * 2, indices[1] * 2 + 1]
-
-        return ws
-
-    def g(self, ws):
-        """ Transform 2
-
-        This method takes a full complex matrix and converts it to a block
-        matrix. The result will have the following format:
-        (batch, n_fft, 2*n_channels, 2*n_channels).
-
-        Arguments
-        ---------
-        ws : tensor
-            An input matrix. The tensor must have the following format:
-            (batch, n_fft, n_channels, n_channels, 2)
-        """
-
-        # Extracting data
-        batch = ws.shape[0]
-        n_fft = ws.shape[1]
-        n_chan = ws.shape[2]
-
-        # The output matrix
-        wsh = torch.zeros(
-            (batch, n_fft, 2 * n_chan, 2 * n_chan),
-            dtype=ws.dtype,
-            device=ws.device,
-        )
-
-        wsh[..., slice(0, 2 * n_chan, 2), slice(0, 2 * n_chan, 2)] = ws[..., 0]
-        wsh[..., slice(1, 2 * n_chan, 2), slice(1, 2 * n_chan, 2)] = ws[..., 0]
-        wsh[..., slice(0, 2 * n_chan, 2), slice(1, 2 * n_chan, 2)] = (
-            -1 * ws[..., 1]
-        )
-        wsh[..., slice(1, 2 * n_chan, 2), slice(0, 2 * n_chan, 2)] = ws[..., 1]
-
-        return wsh
-
-    def ginv(self, wsh):
-        """ Inverse transform 2
-
-        This method takes a complex Hermitian matrix represented by a block
-        matrix and converts it to a full complex complex matrix. The
-        result will have the following format:
-        (batch, n_fft, n_channels, n_channels, 2)
-
-        Arguments
-        ---------
-        wsh : tensor
-            An input matrix. The tensor must have the following format:
-            (batch, n_fft, 2*n_channels, 2*n_channels)
-        """
-
-        # Extracting data
-        batch = wsh.shape[0]
-        n_fft = wsh.shape[1]
-        n_chan = int(wsh.shape[2] / 2)
-
-        # Creating the output matrix
-        ws = torch.zeros(
-            (batch, n_fft, n_chan, n_chan, 2),
-            dtype=wsh.dtype,
-            device=wsh.device,
-        )
-
-        # Output matrix
-        ws[..., 0] = wsh[..., slice(0, 2 * n_chan, 2), slice(0, 2 * n_chan, 2)]
-        ws[..., 1] = wsh[..., slice(1, 2 * n_chan, 2), slice(0, 2 * n_chan, 2)]
-
-        return ws
-
-    def pos_def(self, ws, alpha=0.001, eps=1e-20):
-        """ Diagonal modification
-
-        This method takes a complex Hermitian matrix represented by its upper
-        triangular part and adds the value of its trace multiplied by alpha
-        to the real part of its diagonal. The output will have the format:
-        (batch, 1, n_fft, 2, n_channels + n_pairs)
-
-        Arguments
-        ---------
-        ws : tensor
-            An input matrix. The tensor must have the following format:
-            (batch, 1, n_fft, 2, n_channels + n_pairs)
-
-        alpha : float
-            A coefficient to multiply the trace. The default value is 0.001.
+        rxx : tensor
+            The covariance matrices of the input signal. The tensor must
+            have the following format (batch, time_steps, n_fft/2, 2, n_pairs)
 
         eps : float
-            A small value to increase the real part of the diagonal. The
+            A small value to avoid divisions by 0 with the phase transform. The
             default value is 1e-20.
         """
 
-        # Extracting data
-        p = ws.shape[4]
-        n_channels = int(round(((1 + 8 * p) ** 0.5 - 1) / 2))
+        # Extracting the tensors for the operations
+        rxx_values, rxx_indices = torch.unique(rxx, return_inverse=True, dim=1)
 
-        # Finding the indices of the diagonal
-        indices_triu = torch.triu_indices(n_channels, n_channels)
-        indices_diag = torch.eq(indices_triu[0, :], indices_triu[1, :])
+        rxx_re = rxx_values[..., 0, :]
+        rxx_im = rxx_values[..., 1, :]
 
-        # Computing the trace
-        trace = torch.sum(ws[..., 0, indices_diag], 3)
-        trace = trace.unsqueeze(3).repeat(1, 1, 1, n_channels)
+        # Phase transform
+        rxx_abs = torch.sqrt(rxx_re ** 2 + rxx_im ** 2) + eps
 
-        # Adding the trace multiplied by alpha to the diagonal
-        ws_pf = ws.clone()
-        ws_pf[..., 0, indices_diag] += alpha * trace + eps
+        rxx_re_phat = rxx_re / rxx_abs
+        rxx_im_phat = rxx_im / rxx_abs
 
-        return ws_pf
+        rxx_phat = torch.stack((rxx_re_phat, rxx_im_phat), 4)
+
+        # Returning in the temporal domain
+        rxx_phat = rxx_phat.transpose(2, 3)
+        n_samples = int((rxx.shape[2] - 1) * 2)
+
+        xxs = torch.irfft(rxx_phat, signal_ndim=1, signal_sizes=[n_samples])
+        xxs = xxs[:, rxx_indices]
+
+        # Formating the output
+        xxs = xxs.transpose(2, 3)
+
+        return xxs
+
+    def find_tdoa(self, xxs, tdoa_max=None, center=True):
+        """ Returns the time difference of arrival (TDOA) for each
+        timestamp. Since GCC-PHAT uses the covariance matrices to work,
+        find_tdoa() will return delays for every possible pair of microphone
+        (including each microphone compared to itself giving delays of 0).
+        The result will have the following format:
+        (batch, time_steps, n_mics + n_pairs)
+
+        Arguments
+        ---------
+        xxs : tensor
+            The cross-correlation values for each timestamp. The input
+            has the following format: (batch, time_steps, n_fft, n_pairs)
+
+        tdoa_max : int
+            Specifies a range to search for delays. For example, if
+            tdoa_max = 10, the method will restrict its search for delays
+            between -10 and 10 samples. This parameter is optional and its
+            default value is None. When tdoa_max is None, the method will
+            search for delays between -n_fft/2 and n_fft/2 (full range).
+
+        center : bool
+            Specifies if the method should center the delays around 0. For
+            example, if n_fft=400 and that a delay of 390 is found, find_tdoa()
+            will return a delay of -10 rather than 390. This parameter is
+            optional and its default value is set to True.
+        """
+
+        # Setting things up
+        n_fft = xxs.shape[2]
+
+        if tdoa_max is None:
+            tdoa_max = n_fft // 2
+
+        # Splitting the GCC-PHAT values to search in the range
+        slice_1 = xxs[..., 0:tdoa_max, :]
+        slice_2 = xxs[..., -tdoa_max:, :]
+
+        xxs_sliced = torch.cat((slice_1, slice_2), 2)
+
+        # Extracting the delays in the range
+        _, delays = torch.max(xxs_sliced, 2)
+
+        # Adjusting the delays that were affected by the slicing
+        offset = n_fft - xxs_sliced.shape[2]
+
+        idx = delays >= slice_1.shape[2]
+        delays[idx] += offset
+
+        # Centering the delays around 0 if desired
+        if center:
+            delays[idx] -= n_fft
+
+        return delays
