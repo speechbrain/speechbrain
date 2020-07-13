@@ -6,6 +6,20 @@ import soundfile as sf
 def test_add_noise(tmpdir):
     from speechbrain.processing.speech_augmentation import AddNoise
 
+    # Test concatenation of batches
+    wav_a = torch.sin(torch.arange(8000.0)).unsqueeze(0)
+    a_len = torch.ones(1)
+    wav_b = torch.cos(torch.arange(10000.0)).unsqueeze(0).repeat(2, 1)
+    b_len = torch.ones(2)
+    concat, lens = AddNoise._concat_batch(wav_a, a_len, wav_b, b_len)
+    assert concat.shape == (3, 10000)
+    assert lens.allclose(torch.Tensor([0.8, 1, 1]))
+    print(a_len)
+    print(b_len)
+    concat, lens = AddNoise._concat_batch(wav_b, b_len, wav_a, a_len)
+    assert concat.shape == (3, 10000)
+    assert lens.allclose(torch.Tensor([1, 1, 0.8]))
+
     test_waveform = torch.sin(torch.arange(16000.0)).unsqueeze(0)
     test_noise = torch.cos(torch.arange(16000.0)).unsqueeze(0)
     wav_lens = torch.ones(1)

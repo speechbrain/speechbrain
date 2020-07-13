@@ -1,3 +1,9 @@
+"""
+Miscellaneous decoders and decoder utility
+
+Authors
+ * Mirco Ravanelli 2020
+"""
 import os
 import torch
 import logging
@@ -10,7 +16,8 @@ logger = logging.getLogger(__name__)
 
 
 def undo_padding(batch, lengths):
-    # Produces Python lists
+    """Produces Python lists with ragged edges
+    """
     batch_max_len = batch.shape[1]
     as_list = []
     for seq, seq_length in zip(batch, lengths):
