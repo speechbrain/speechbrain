@@ -94,6 +94,8 @@ class DataLoaderFactory(torch.nn.Module):
         other ones.
     padding_value : int, optional
         Default: 0. Value to use for padding.
+    add_padding_label : bool, optional
+        Default: False. If set to True, the padding value will be add to the label dict as an additional label
     replacements : dict, optional
         String replacements to perform in this method
     output_folder : str, optional
@@ -122,6 +124,7 @@ class DataLoaderFactory(torch.nn.Module):
         avoid_if_shorter_than=0,
         drop_last=False,
         padding_value=0,
+        add_padding_label=False,
         replacements={},
         output_folder=None,
     ):
@@ -142,6 +145,7 @@ class DataLoaderFactory(torch.nn.Module):
         self.padding_value = padding_value
         self.replacements = replacements
         self.output_folder = output_folder
+        self.add_padding_lab = add_padding_label
 
         # Other variables
         self.supported_formats = self.get_supported_formats()
@@ -383,10 +387,15 @@ class DataLoaderFactory(torch.nn.Module):
             label_dict[lab]["index2lab"] = {}
 
             # append <pad> token to label_dict
-            label_dict[lab]["lab2index"]["<pad>"] = self.padding_value
-            label_dict[lab]["index2lab"][self.padding_value] = "<pad>"
+            if self.add_padding_lab:
+                label_dict[lab]["lab2index"]["<pad>"] = self.padding_value
+                label_dict[lab]["index2lab"][self.padding_value] = "<pad>"
+
             for lab_id in label_dict[lab]["counts"]:
-                if cnt_id == int(self.padding_value) - 1:
+                if (
+                    cnt_id == int(self.padding_value) - 1
+                    and self.add_padding_lab
+                ):
                     cnt_id = cnt_id + 2
                 else:
                     cnt_id = cnt_id + 1
