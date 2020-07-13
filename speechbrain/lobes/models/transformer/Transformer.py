@@ -54,12 +54,16 @@ class TransformerInterface(nn.Module):
         custom_src_module=None,
         custom_tgt_module=None,
         return_attention=False,
+        positional_encoding=True,
     ):
         super().__init__()
 
         assert (
             num_encoder_layers + num_decoder_layers > 0
         ), "number of encoder layers and number of decoder layers cannot both be 0!"
+
+        if positional_encoding:
+            self.positional_encoding = PositionalEncoding()
 
         # initialize the encoder
         if num_encoder_layers > 0:
@@ -115,10 +119,9 @@ class PositionalEncoding(nn.Module):
     torch.Size([1, 120, 512])
     """
 
-    def __init__(self, dropout=0.1, max_len=2500):
+    def __init__(self, max_len=2500):
         super().__init__()
         self.max_len = max_len
-        self.dropout = dropout
 
     def init_params(self, first_input):
         model_dim = first_input.shape[-1]
@@ -188,7 +191,11 @@ class TransformerEncoderLayer(nn.Module):
         self.pos_ffn = PositionalwiseFeedForward(
             d_ffn=d_ffn, dropout=dropout, activation=activation
         )
-        # self.norm = LayerNorm(eps=1e-6)
+
+        self.norm1 = LayerNorm(eps=1e-6)
+        self.norm2 = LayerNorm(eps=1e-6)
+        self.dropout1 = torch.nn.Dropout(dropout)
+        self.dropout2 = torch.nn.Dropout(dropout)
 
     def forward(
         self, src, src_mask=None, src_key_padding_mask=None, init_params=False
@@ -201,8 +208,16 @@ class TransformerEncoderLayer(nn.Module):
             key_padding_mask=src_key_padding_mask,
             init_params=init_params,
         )
-        # output = self.norm(src + output, init_params)
-        output = self.pos_ffn(output, init_params)
+
+        # add & norm
+        src = src + self.dropout1(output)
+        src = self.norm1(src, init_params)
+
+        output = self.pos_ffn(src, init_params)
+
+        # add & norm
+        output = src + self.dropout2(output)
+        output = self.norm2(output, init_params)
 
         return output, self_attn
 
@@ -261,7 +276,6 @@ class TransformerEncoder(nn.Module):
             ]
         )
         self.norm = LayerNorm(eps=1e-6)
-        self.drop = nn.Dropout(dropout)
         self.return_attention = return_attention
 
     def forward(
@@ -309,8 +323,12 @@ class TransformerDecoderLayer(nn.Module):
         )
 
         # normalization layers
-        # self.norm1 = LayerNorm(eps=1e-6)
-        # self.norm2 = LayerNorm(eps=1e-6)
+        self.norm1 = LayerNorm(eps=1e-6)
+        self.norm2 = LayerNorm(eps=1e-6)
+        self.norm3 = LayerNorm(eps=1e-6)
+        self.dropout1 = torch.nn.Dropout(dropout)
+        self.dropout2 = torch.nn.Dropout(dropout)
+        self.dropout3 = torch.nn.Dropout(dropout)
 
     def forward(
         self,
@@ -330,7 +348,10 @@ class TransformerDecoderLayer(nn.Module):
             key_padding_mask=tgt_key_padding_mask,
             init_params=init_params,
         )
-        # tgt = self.norm1(tgt + tgt2, init_params)
+
+        # add & norm
+        tgt = tgt + self.dropout1(tgt2)
+        tgt = self.norm1(tgt, init_params)
 
         tgt2, multihead_attention = self.mutihead_attn(
             tgt,
@@ -340,9 +361,17 @@ class TransformerDecoderLayer(nn.Module):
             key_padding_mask=memory_key_padding_mask,
             init_params=init_params,
         )
-        # tgt = self.norm2(tgt + tgt2, init_params)
+
+        # add & norm
+        tgt = tgt + self.dropout2(tgt2)
+        tgt = self.norm2(tgt, init_params)
 
         tgt = self.pos_ffn(tgt, init_params)
+
+        # add & norm
+        tgt = tgt + self.dropout2(tgt2)
+        tgt = self.norm2(tgt, init_params)
+
         return tgt, self_attn, multihead_attention
 
 
@@ -391,7 +420,6 @@ class TransformerDecoder(nn.Module):
             ]
         )
         self.norm = LayerNorm(eps=1e-6)
-        # self.drop = nn.Dropout(dropout)
         self.return_attention = return_attention
 
     def forward(
@@ -474,7 +502,7 @@ def get_lookahead_mask(padded_input):
             [0., 0., -inf],
             [0., 0., 0.]])
     """
-    batch_size, seq_len = padded_input.shape
+    seq_len = padded_input.shape[1]
     mask = (torch.triu(torch.ones(seq_len, seq_len)) == 1).transpose(0, 1)
     mask = (
         mask.float()

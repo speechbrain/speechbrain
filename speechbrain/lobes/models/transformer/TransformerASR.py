@@ -15,9 +15,7 @@ from speechbrain.nnet.embedding import Embedding
 from speechbrain.lobes.models.transformer.Transformer import (
     TransformerInterface,
     get_lookahead_mask,
-    PositionalEncoding,
 )
-from torch.nn import Transformer
 
 
 class TransformerASR(TransformerInterface):
@@ -65,6 +63,7 @@ class TransformerASR(TransformerInterface):
         dropout=0.1,
         activation=nn.ReLU,
         return_attention=False,
+        positional_encoding=True,
     ):
         super().__init__(
             d_model=d_model,
@@ -74,31 +73,17 @@ class TransformerASR(TransformerInterface):
             d_ffn=d_ffn,
             dropout=dropout,
             activation=activation,
-            return_attention=False,
+            return_attention=return_attention,
+            positional_encoding=positional_encoding,
         )
-
-        positional_encoding = PositionalEncoding(dropout)
-        transformer = Transformer(
-            d_model,
-            nhead,
-            num_encoder_layers,
-            num_decoder_layers,
-            d_ffn,
-            dropout,
-            "gelu",
-        )
-        self.encoder = Encoder(positional_encoding, transformer.encoder)
-        self.decoder = Decoder(positional_encoding, transformer.decoder)
 
         self.custom_src_module = Sequential(
             Linear(d_model, bias=True, combine_dims=False),
             LayerNorm(),
-            # positional_encoding,
-            # torch.nn.Dropout(dropout),
+            torch.nn.Dropout(dropout),
         )
         self.custom_tgt_module = Sequential(
             NormalizedEmbedding(d_model, tgt_vocab),
-            # positional_encoding
         )
 
     def forward(
@@ -116,6 +101,7 @@ class TransformerASR(TransformerInterface):
             src = src.reshape(bz, t, ch1 * ch2)
 
         src = self.custom_src_module(src, init_params)
+        src = src + self.positional_encoding(src, init_params)
         encoder_out = self.encoder(
             src=src,
             src_mask=src_mask,
@@ -124,6 +110,7 @@ class TransformerASR(TransformerInterface):
         )
 
         tgt = self.custom_tgt_module(tgt, init_params)
+        tgt = tgt + self.positional_encoding(tgt, init_params)
         decoder_out = self.decoder(
             tgt=tgt,
             memory=encoder_out,
@@ -137,68 +124,9 @@ class TransformerASR(TransformerInterface):
     def decode(self, tgt, encoder_out):
         tgt_mask = get_lookahead_mask(tgt)
         tgt = self.custom_tgt_module(tgt)
+        tgt = tgt + self.positional_encoding(tgt)
         prediction = self.decoder(tgt, encoder_out, tgt_mask=tgt_mask)
         return prediction
-
-
-class Encoder(nn.Module):
-    def __init__(self, positional_encoding, encoder):
-        super().__init__()
-        self.posisitonal_encoding = positional_encoding
-        self.encoder = encoder
-
-    def init_params(self, x):
-        self.posisitonal_encoding = self.posisitonal_encoding.to(x.device)
-        self.encoder = self.encoder.to(x.device)
-
-    def forward(
-        self, src, src_mask=None, src_key_padding_mask=None, init_params=False
-    ):
-
-        if init_params:
-            self.init_params(src)
-
-        src = src + self.posisitonal_encoding(src, init_params)
-        src = src.permute(1, 0, 2)
-        src = self.encoder(
-            src=src, mask=src_mask, src_key_padding_mask=src_key_padding_mask,
-        )
-        return src.permute(1, 0, 2)
-
-
-class Decoder(nn.Module):
-    def __init__(self, positional_encoding, decoder):
-        super().__init__()
-        self.posisitonal_encoding = positional_encoding
-        self.decoder = decoder
-
-    def init_params(self, x):
-        self.posisitonal_encoding = self.posisitonal_encoding.to(x.device)
-        self.decoder = self.decoder.to(x.device)
-
-    def forward(
-        self,
-        tgt,
-        memory,
-        tgt_mask=None,
-        tgt_key_padding_mask=None,
-        init_params=False,
-    ):
-
-        if init_params:
-            self.init_params(tgt)
-
-        tgt = tgt + self.posisitonal_encoding(tgt, init_params)
-        tgt = tgt.permute(1, 0, 2)
-        memory = memory.permute(1, 0, 2)
-
-        output = self.decoder(
-            tgt=tgt,
-            memory=memory,
-            tgt_mask=tgt_mask,
-            tgt_key_padding_mask=tgt_key_padding_mask,
-        )
-        return output.permute(1, 0, 2)
 
 
 class NormalizedEmbedding(nn.Module):
