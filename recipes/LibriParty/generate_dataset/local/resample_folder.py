@@ -7,7 +7,7 @@ import torch
 from speechbrain.utils.data_utils import get_all_files
 
 parser = argparse.ArgumentParser(
-    "utility for resampling all audio files in a folder recursively. "
+    "Utility for resampling all audio files in a folder recursively. "
     "It --input_folder to --output_folder and "
     "resamples all audio files with specified format to --fs."
 )
