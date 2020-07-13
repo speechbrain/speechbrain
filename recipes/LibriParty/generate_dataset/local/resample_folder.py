@@ -1,10 +1,10 @@
 import os
 import argparse
-import glob
 from pathlib import Path
 import tqdm
 import torchaudio
 import torch
+from speechbrain.utils.data_utils import get_all_files
 
 parser = argparse.ArgumentParser(
     "utility for resampling all audio files in a folder recursively. "
@@ -16,31 +16,42 @@ parser.add_argument("--output_folder", type=str, required=True)
 parser.add_argument("--fs", type=str, default=16000)
 parser.add_argument("--regex", type=str, default="*.wav")
 
-args = parser.parse_args()
-files = glob.glob(
-    os.path.join(args.input_folder, "**/*{}".format(args.regex)), recursive=True
-)
 
+def resample_folder(input_folder, output_folder, fs, regex):
 
-for f in tqdm.tqdm(files):
-    audio, orig_fs = torchaudio.load(f)
-    resampler = torchaudio.transforms.Resample(orig_fs, args.fs)
-    audio = resampler(audio)
-    audio = (
-        audio / torch.max(torch.abs(audio), dim=-1, keepdim=True)[0]
-    )  # scale back otherwise you get empty .wav file
-    os.makedirs(
-        Path(
+    files = get_all_files(input_folder, match_and=[regex])
+    torchaudio.initialize_sox()
+    for f in tqdm.tqdm(files):
+
+        # we use sox because torchaudio.Resample uses too much RAM.
+        resample = torchaudio.sox_effects.SoxEffectsChain()
+        resample.append_effect_to_chain("rate", [fs])
+        resample.set_input_file(f)
+
+        audio, fs = resample.sox_build_flow_effects()
+
+        audio = (
+            audio / torch.max(torch.abs(audio), dim=-1, keepdim=True)[0]
+        )  # scale back otherwise you get empty .wav file
+        os.makedirs(
+            Path(
+                os.path.join(
+                    output_folder, Path(f).relative_to(Path(input_folder))
+                )
+            ).parent,
+            exist_ok=True,
+        )
+        torchaudio.save(
             os.path.join(
-                args.output_folder, Path(f).relative_to(Path(args.input_folder))
-            )
-        ).parent,
-        exist_ok=True,
-    )
-    torchaudio.save(
-        os.path.join(
-            args.output_folder, Path(f).relative_to(Path(args.input_folder))
-        ),
-        audio,
-        args.fs,
-    )
+                output_folder, Path(f).relative_to(Path(input_folder))
+            ),
+            audio,
+            fs,
+        )
+    torchaudio.shutdown_sox()
+
+
+if __name__ == "__main__":
+
+    args = parser.parse_args()
+    resample_folder(args.input_folder, args.output_folder, args.fs, args.regex)
