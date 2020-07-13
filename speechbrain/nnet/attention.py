@@ -286,9 +286,6 @@ class MultiheadAttention(nn.Module):
             vdim=self.vdim,
         ).to(first_input.device)
 
-        self.norm = torch.nn.LayerNorm(self.embed_dim).to(first_input.device)
-        self.drop = torch.nn.Dropout(self.dropout)
-
     def forward(
         self,
         query,
@@ -314,9 +311,6 @@ class MultiheadAttention(nn.Module):
             key_padding_mask=key_padding_mask,
         )
 
-        output = query + self.drop(output)
-        output = self.norm(output)
-
         # reshape the output back to (batch, time, fea)
         output = output.permute(1, 0, 2)
 
@@ -341,10 +335,6 @@ class PositionalwiseFeedForward(nn.Module):
             nn.Linear(self.d_ffn, self.input_size),
         ).to(first_input.device)
 
-        self.norm = nn.LayerNorm(self.input_size).to(first_input.device)
-
-        self.dropout = nn.Dropout(self.dropout)
-
     def forward(self, x, init_params=False):
         if init_params:
             self.init_params(x)
@@ -352,10 +342,7 @@ class PositionalwiseFeedForward(nn.Module):
         # give a tensor of shap (time, batch, fea)
         x = x.permute(1, 0, 2)
 
-        residule = x
         x = self.ffn(x)
-        x = self.norm(self.dropout(x) + residule)
-        # x = self.dropout(x)
 
         # reshape the output back to (batch, time, fea)
         x = x.permute(1, 0, 2)
