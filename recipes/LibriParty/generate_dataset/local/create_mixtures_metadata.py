@@ -15,7 +15,7 @@ def _read_metadata(file_path, configs):
     else:
         channel = 0
     assert (
-            meta.samplerate == configs["samplerate"]
+        meta.samplerate == configs["samplerate"]
     ), "file samplerate is different from the one specified"
 
     return meta, channel
