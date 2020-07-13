@@ -134,4 +134,4 @@ print("Test PER: %.2f" % summarize_error_rate(test_stats["PER"]))
 
 # Integration test: check that the model overfits the training data
 def test_error():
-    assert transducer_brain.avg_train_loss < 100.0
+    assert transducer_brain.avg_train_loss <= 70.0
