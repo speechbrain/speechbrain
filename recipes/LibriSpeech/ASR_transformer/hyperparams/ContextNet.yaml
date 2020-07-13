@@ -8,15 +8,15 @@ train_log: !ref <output_folder>/train_log.txt
 
 # Data files
 data_folder: !PLACEHOLDER  # e.g. /path/to/librispeech
-train_set: train-clean-100
-csv_train: !ref <data_folder>/train-clean-100.csv
+train_set: train-clean-960
+csv_train: !ref <data_folder>/train-clean-960.csv
 csv_valid: !ref <data_folder>/dev-clean.csv
 csv_test: !ref <data_folder>/test-clean.csv
 
 # Training parameters
 number_of_epochs: 120
 batch_size: 64
-lr: 0.00025
+lr: 0.0001
 ctc_weight: 0.4
 device: 'cuda'
 multigpu: True
@@ -50,16 +50,19 @@ eos_threshold: 1.5
 tokenizer: !new:speechbrain.tokenizers.BPE.BPE
     model_dir: !ref <output_folder>
     vocab_size: !ref <output_neurons>  # 5000 unigram tokens
-    text_file: !ref <data_folder>/transcript-100.txt
+    text_file: !ref <data_folder>/transcript-960.txt
     model_type: unigram
 
 CNN: !new:speechbrain.lobes.models.ContextNet.ContextNet
     alpha: !ref <alpha>
     dropout: !ref <dropout>
     norm: !name:speechbrain.nnet.normalization.LayerNorm
+    # se_activation: !name:torch.nn.LeakyReLU
     num_blocks: 9
     conv_channels: (256, 256, 256, 256, 512, 512, 512, 512, 512)
     strides: (1, 2, 1, 1, 2, 1, 1, 2, 1)
+    # conv_channels: (256, 512, 512)
+    # strides: (2, 2, 2)
 
 Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.TransformerASR # yamllint disable-line rule:line-length
     tgt_vocab: !ref <output_neurons>
@@ -129,7 +132,7 @@ test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
 ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
     blank_index: !ref <blank_index>
 
-seq_cost: !name:speechbrain.nnet.losses.kldiv_loss
+seq_cost: !name:speechbrain.nnet.losses.nll_loss
     label_smoothing: !ref <label_smoothing>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger

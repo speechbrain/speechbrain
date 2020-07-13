@@ -71,8 +71,9 @@ class ContextNet(Sequential):
             residuals = [True] * num_blocks
 
         blocks = [
-            DepthwiseSeparableConv1d(conv_channels[-1], kernel_size,),
+            DepthwiseSeparableConv1d(conv_channels[0], kernel_size,),
             norm(),
+            activation(beta) if isinstance(activation, Swish) else activation(),
         ]
 
         for i in range(num_blocks):
@@ -86,15 +87,21 @@ class ContextNet(Sequential):
                     stride=strides[i],
                     beta=beta,
                     dropout=dropout,
-                    se_activation=se_activation,
                     activation=activation,
+                    se_activation=se_activation,
                     norm=norm,
                     residual=residuals[i],
                 )
             )
 
         blocks.extend(
-            [DepthwiseSeparableConv1d(out_channels, kernel_size,), norm()]
+            [
+                DepthwiseSeparableConv1d(out_channels, kernel_size,),
+                norm(),
+                activation(beta)
+                if isinstance(activation, Swish)
+                else activation(),
+            ]
         )
         super().__init__(*blocks)
 
@@ -104,21 +111,19 @@ class SEmodule(torch.nn.Module):
     """
 
     def __init__(
-        self, inner_dim, activation=torch.nn.Sigmoid, norm=BatchNorm1d
+        self, inner_dim, activation=torch.nn.Sigmoid, norm=BatchNorm1d,
     ):
         super().__init__()
         self.inner_dim = inner_dim
-        self.activation = activation
         self.norm = norm
+        self.activation = activation
 
     def init_params(self, first_input):
         bz, t, chn = first_input.shape
         self.conv = Sequential(
-            Conv1d(chn, 1, 1), self.norm(), self.activation(),
+            DepthwiseSeparableConv1d(chn, 1, 1), self.norm(), self.activation()
         )
-
         self.avg_pool = AdaptivePool(1)
-
         self.bottleneck = Sequential(
             Linear(n_neurons=self.inner_dim),
             self.activation(),
@@ -132,10 +137,10 @@ class SEmodule(torch.nn.Module):
 
         bz, t, chn = x.shape
 
+        x = self.conv(x, init_params)
         avg = self.avg_pool(x)
         avg = self.bottleneck(avg, init_params)
         context = avg.repeat(1, t, 1)
-
         return x * context
 
 
@@ -183,20 +188,23 @@ class ContextNetBlock(torch.nn.Module):
             )
 
         self.Convs = Sequential(*blocks)
-        self.SE = SEmodule(inner_dim, se_activation, norm)
-
+        self.SE = SEmodule(inner_dim, activation=se_activation, norm=norm)
+        self.drop = Dropout(dropout)
         self.reduced_cov = None
         if residual:
             self.reduced_cov = Sequential(
-                Conv1d(out_channels, kernel_size=1, stride=stride), norm()
+                Conv1d(out_channels, kernel_size=3, stride=stride), norm()
             )
 
-        self.norm = norm()
-        self.drop = Dropout(dropout)
+        if isinstance(activation, Swish):
+            self.activation = activation(beta)
+        else:
+            self.activation = activation()
 
     def forward(self, x, init_params=False):
         out = self.Convs(x, init_params)
         out = self.SE(out, init_params)
         if self.reduced_cov:
-            out = self.norm(out + self.reduced_cov(x, init_params), init_params)
+            out = out + self.reduced_cov(x, init_params)
+        out = self.activation(out)
         return self.drop(out)
