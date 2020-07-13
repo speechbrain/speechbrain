@@ -23,7 +23,7 @@ args = parser.parse_args()
 
 # output folder will be:
 # LibriSpeech/
-# QUT-TIMIT/
+# QUT-NOISE/
 # rirs_noises/
 
 if args.stage <= 0:
@@ -43,13 +43,9 @@ if args.stage <= 2:
     print("Stage 2: Downloading QUT-TIMIT background noises")
     for url in QUT_TIMIT_URLS:
         name = url.split("/")[-1]
-        os.makedirs(
-            os.path.join(args.output_folder, "QUT_NOISE"), exist_ok=True
-        )
+        os.makedirs(os.path.join(args.output_folder, name), exist_ok=True)
         download_file(
-            url,
-            os.path.join(args.output_folder, "QUT_NOISE", name),
-            unpack=True,
+            url, os.path.join(args.output_folder, name, name), unpack=True,
         )
 
 if args.stage <= 3:
