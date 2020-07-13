@@ -1,9 +1,13 @@
 """This library gathers utilities for data io operation.
 
-Authors: Mirco Ravanelli 2020, Aku Rouhe 2020
+Authors
+ * Mirco Ravanelli 2020
+ * Aku Rouhe 2020
 """
 
 import os
+import shutil
+import urllib.request
 import collections.abc
 
 
@@ -215,3 +219,19 @@ def recursive_update(d, u, must_match=False):
             )
         else:
             d[k] = v
+
+
+def download_file(source, dest, unpack=False, dest_unpack=None):
+
+    if not os.path.isfile(dest):
+        print(f"Downloading {source} to {dest}")
+        with urllib.request.urlopen(source) as response:
+            with open(dest, "wb") as w:
+                shutil.copyfileobj(response, w)
+
+    # Unpack if necessary
+    if unpack:
+        if dest_unpack is None:
+            dest_unpack = os.path.dirname(dest)
+        print(f"Extracting {dest} to {dest_unpack}")
+        shutil.unpack_archive(dest, dest_unpack)

@@ -1,7 +1,7 @@
 """Library implementing linear transformation.
 
-Author
-    Mirco Ravanelli 2020
+Authors
+ * Mirco Ravanelli 2020
 """
 
 import torch

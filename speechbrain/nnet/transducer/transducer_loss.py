@@ -1,3 +1,9 @@
+"""
+Transducer loss implementation (depends on numba)
+
+Authors
+ * Abdelwahab Heba 2020
+"""
 import torch
 from torch.autograd import Function
 from torch.nn import Module
@@ -245,7 +251,7 @@ class TransducerLoss(Module):
     The TranducerLoss(nn.Module) use Transducer(autograd.Function)
     to compute the forward-backward loss and gradients.
 
-    Exemple
+    Example
     -------
     >>> import torch
     >>> loss = TransducerLoss(blank=0)
