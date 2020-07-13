@@ -12,6 +12,7 @@ from speechbrain.data_io.data_io import prepend_bos_token
 from speechbrain.decoders.decoders import undo_padding
 from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.train_logger import summarize_error_rate
+import torch
 
 # This hack needed to import data preparation script from ..
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -77,6 +78,9 @@ class ASR(sb.core.Brain):
         predictions, lens = predictions
         ids, chars, char_lens = targets
         if stage != "train":
+            # if not train, the predictions will be a tensor of [B, T, 1, char_dim]
+            # So expand the 3rd dimension to compute the loss on the valid set
+            # the expected new tensor will have a dimension of [B, T, U, char_dim]
             pout = predictions.squeeze(2)
             predictions = predictions.expand(-1, -1, chars.shape[1] + 1, -1)
 
@@ -171,6 +175,7 @@ first_y[1], first_y[2] = (
 modules = [
     params.encoder_crdnn,
     params.encoder_lin,
+    params.decoder_embedding,
     params.decoder,
     params.decoder_lin,
     params.output,
@@ -184,6 +189,16 @@ asr_brain = ASR(
     optimizer=params.optimizer,
     first_inputs=[first_x, first_y],
 )
+
+# Check if the model should be trained on multiple GPUs.
+# Important: DataParallel MUST be called after the ASR (Brain) class init.
+if params.multigpu:
+    params.encoder_crdnn = torch.nn.DataParallel(params.encoder_crdnn)
+    params.encoder_lin = torch.nn.DataParallel(params.encoder_lin)
+    params.decoder_embedding = torch.nn.DataParallel(params.decoder_embedding)
+    params.decoder = torch.nn.DataParallel(params.decoder)
+    params.decoder_lin = torch.nn.DataParallel(params.decoder_lin)
+    params.output = torch.nn.DataParallel(params.output)
 
 # Load latest checkpoint to resume training
 params.checkpointer.recover_if_possible()
