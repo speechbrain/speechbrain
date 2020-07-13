@@ -19,7 +19,7 @@ output_neurons: 43
 blank_id: !ref <output_neurons> -1
 
 # Model parameters
-activation: !name:torch.nn.LeakyReLU []
+activation: !name:torch.nn.LeakyReLU
 dropout: 0.15
 cnn_blocks: 1
 cnn_channels: (16,)
@@ -98,7 +98,7 @@ joint_lin: !new:speechbrain.nnet.linear.Linear
 Tjoint: !new:speechbrain.nnet.transducer.transducer_joint.Transducer_joint
     joint_network: !ref <joint_lin>
     joint: sum # joint: [sum|concat]
-    nonlinearity: tanh
+    nonlinearity: leakyrelu
 
 output: !new:speechbrain.nnet.linear.Linear
     n_neurons: !ref <output_neurons>  # 42 phonemes + 1 blank

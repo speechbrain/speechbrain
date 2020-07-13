@@ -45,6 +45,7 @@ class ASR(sb.core.Brain):
         TN_output = params.encoder_lin(TN_output, init_params)
         if stage == "train":
             # Prediction network: output-output dependency
+            # y contains a tuple of tensors (id, chars, chars_lens)
             targets = y[1]
             decoder_input = prepend_bos_token(
                 targets, bos_index=params.blank_index
@@ -151,7 +152,7 @@ class ASR(sb.core.Brain):
 # Prepare data
 prepare_librispeech(
     data_folder=params.data_folder,
-    splits=["test-100-clean", "dev-clean", "test-clean"],
+    splits=["train-100-clean", "dev-clean", "test-clean"],
     save_folder=params.data_folder,
 )
 train_set = params.train_loader()
