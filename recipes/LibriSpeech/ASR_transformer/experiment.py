@@ -171,9 +171,9 @@ class ASR(sb.core.Brain):
 
         # share weight betwenn embedding layer and linear projection layer
         if init_params:
-            params.seq_lin.w.weight = (
-                params.Transformer.custom_tgt_module.emb.Embedding.weight
-            )
+            params.seq_lin.w.weight = params.Transformer.custom_tgt_module.layers[
+                0
+            ].emb.Embedding.weight
 
         if (
             stage == "valid"
@@ -269,7 +269,11 @@ class ASR(sb.core.Brain):
 
     def on_epoch_end(self, epoch, train_stats, valid_stats):
         old_lr = params.lr_annealing.current_lr
-        epoch_stats = {"epoch": epoch, "lr": old_lr}
+        epoch_stats = {
+            "epoch": epoch,
+            "lr": old_lr,
+            "steps": params.lr_annealing.n_steps,
+        }
         params.train_logger.log_stats(epoch_stats, train_stats, valid_stats)
         checkpointer.save_and_keep_only(
             meta={"loss": valid_stats["loss"][-1].cpu().item()},
@@ -279,7 +283,7 @@ class ASR(sb.core.Brain):
     def _reset_params(self):
         for p in params.Transformer.parameters():
             if p.dim() > 1:
-                torch.nn.init.xavier_normal_(p)
+                torch.nn.init.xavier_uniform_(p)
 
 
 # Prepare data

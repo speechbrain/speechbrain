@@ -10,9 +10,9 @@ from librispeech_prepare import prepare_librispeech  # noqa E402
 data_folder = os.path.abspath(sys.argv[-1])
 
 csv_list = [
-    # 'train-clean-960',
+    "train-clean-960",
     # 'train-clean-360'
-    "train-clean-100",
+    # "train-clean-100",
     # 'train-other-500'
 ]
 
@@ -36,5 +36,5 @@ print("found {} sentences..".format(len(sentenc_list)))
 
 print("writing sentences to data folder...")
 
-with open(os.path.join(data_folder, "transcript-100.txt"), "w") as f:
+with open(os.path.join(data_folder, "transcript-960.txt"), "w") as f:
     f.writelines("%s\n" % sent for sent in sentenc_list)

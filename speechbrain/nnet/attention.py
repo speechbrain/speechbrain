@@ -286,6 +286,9 @@ class MultiheadAttention(nn.Module):
             vdim=self.vdim,
         ).to(first_input.device)
 
+        self.norm = torch.nn.LayerNorm(self.embed_dim).to(first_input.device)
+        self.drop = torch.nn.Dropout(self.dropout)
+
     def forward(
         self,
         query,
@@ -299,9 +302,9 @@ class MultiheadAttention(nn.Module):
             self.init_params(key)
 
         # give tensors of shape (time, batch, fea)
-        query = query.transpose(0, 1)
-        key = key.transpose(0, 1)
-        value = value.transpose(0, 1)
+        query = query.permute(1, 0, 2)
+        key = key.permute(1, 0, 2)
+        value = value.permute(1, 0, 2)
 
         output, attention = self.att(
             query,
@@ -311,8 +314,11 @@ class MultiheadAttention(nn.Module):
             key_padding_mask=key_padding_mask,
         )
 
+        output = query + self.drop(output)
+        output = self.norm(output)
+
         # reshape the output back to (batch, time, fea)
-        output = output.transpose(0, 1)
+        output = output.permute(1, 0, 2)
 
         return output, attention
 
@@ -331,13 +337,11 @@ class PositionalwiseFeedForward(nn.Module):
         self.ffn = nn.Sequential(
             nn.Linear(self.input_size, self.d_ffn),
             self.activation(),
+            nn.Dropout(self.dropout),
             nn.Linear(self.d_ffn, self.input_size),
-            nn.LayerNorm(self.input_size, eps=1e-6),
         ).to(first_input.device)
 
-        self.norm = nn.LayerNorm(self.input_size, eps=1e-6).to(
-            first_input.device
-        )
+        self.norm = nn.LayerNorm(self.input_size).to(first_input.device)
 
         self.dropout = nn.Dropout(self.dropout)
 
@@ -346,14 +350,14 @@ class PositionalwiseFeedForward(nn.Module):
             self.init_params(x)
 
         # give a tensor of shap (time, batch, fea)
-        x = x.transpose(0, 1)
+        x = x.permute(1, 0, 2)
 
         residule = x
         x = self.ffn(x)
-        x = self.norm(x + residule)
-        x = self.dropout(x)
+        x = self.norm(self.dropout(x) + residule)
+        # x = self.dropout(x)
 
         # reshape the output back to (batch, time, fea)
-        x = x.transpose(0, 1)
+        x = x.permute(1, 0, 2)
 
         return x

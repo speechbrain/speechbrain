@@ -115,13 +115,13 @@ class PositionalEncoding(nn.Module):
     torch.Size([1, 120, 512])
     """
 
-    def __init__(self, max_len=5000):
+    def __init__(self, dropout=0.1, max_len=2500):
         super().__init__()
         self.max_len = max_len
+        self.dropout = dropout
 
     def init_params(self, first_input):
         model_dim = first_input.shape[-1]
-
         pe = torch.zeros(self.max_len, model_dim, requires_grad=False)
         positions = torch.arange(0, self.max_len).unsqueeze(1).float()
         denominator = torch.exp(
@@ -188,7 +188,7 @@ class TransformerEncoderLayer(nn.Module):
         self.pos_ffn = PositionalwiseFeedForward(
             d_ffn=d_ffn, dropout=dropout, activation=activation
         )
-        self.norm = LayerNorm(eps=1e-6)
+        # self.norm = LayerNorm(eps=1e-6)
 
     def forward(
         self, src, src_mask=None, src_key_padding_mask=None, init_params=False
@@ -201,7 +201,7 @@ class TransformerEncoderLayer(nn.Module):
             key_padding_mask=src_key_padding_mask,
             init_params=init_params,
         )
-        output = self.norm(src + output, init_params)
+        # output = self.norm(src + output, init_params)
         output = self.pos_ffn(output, init_params)
 
         return output, self_attn
@@ -247,7 +247,6 @@ class TransformerEncoder(nn.Module):
         return_attention=False,
     ):
         super().__init__()
-        self.positional_encoding = PositionalEncoding()
         self.layers = torch.nn.ModuleList(
             [
                 TransformerEncoderLayer(
@@ -268,8 +267,7 @@ class TransformerEncoder(nn.Module):
     def forward(
         self, src, src_mask=None, src_key_padding_mask=None, init_params=False
     ):
-        output = self.drop(src + self.positional_encoding(src, init_params))
-
+        output = src
         attention_lst = []
         for enc_layer in self.layers:
             output, attention = enc_layer(
@@ -311,8 +309,8 @@ class TransformerDecoderLayer(nn.Module):
         )
 
         # normalization layers
-        self.norm1 = LayerNorm(eps=1e-6)
-        self.norm2 = LayerNorm(eps=1e-6)
+        # self.norm1 = LayerNorm(eps=1e-6)
+        # self.norm2 = LayerNorm(eps=1e-6)
 
     def forward(
         self,
@@ -332,7 +330,7 @@ class TransformerDecoderLayer(nn.Module):
             key_padding_mask=tgt_key_padding_mask,
             init_params=init_params,
         )
-        tgt = self.norm1(tgt + tgt2, init_params)
+        # tgt = self.norm1(tgt + tgt2, init_params)
 
         tgt2, multihead_attention = self.mutihead_attn(
             tgt,
@@ -342,7 +340,7 @@ class TransformerDecoderLayer(nn.Module):
             key_padding_mask=memory_key_padding_mask,
             init_params=init_params,
         )
-        tgt = self.norm2(tgt + tgt2, init_params)
+        # tgt = self.norm2(tgt + tgt2, init_params)
 
         tgt = self.pos_ffn(tgt, init_params)
         return tgt, self_attn, multihead_attention
@@ -379,7 +377,6 @@ class TransformerDecoder(nn.Module):
         return_attention=False,
     ):
         super().__init__()
-        self.positional_encoding = PositionalEncoding()
         self.layers = torch.nn.ModuleList(
             [
                 TransformerDecoderLayer(
@@ -394,7 +391,7 @@ class TransformerDecoder(nn.Module):
             ]
         )
         self.norm = LayerNorm(eps=1e-6)
-        self.drop = nn.Dropout(dropout)
+        # self.drop = nn.Dropout(dropout)
         self.return_attention = return_attention
 
     def forward(
@@ -407,12 +404,11 @@ class TransformerDecoder(nn.Module):
         memory_key_padding_mask=None,
         init_params=False,
     ):
-        output = self.drop(tgt + self.positional_encoding(tgt, init_params))
-
+        output = tgt
         self_attns, multihead_attns = [], []
         for dec_layer in self.layers:
             output, self_attn, multihead_attn = dec_layer(
-                tgt,
+                output,
                 memory,
                 tgt_mask=tgt_mask,
                 memory_mask=memory_mask,
