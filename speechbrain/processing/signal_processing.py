@@ -93,10 +93,9 @@ def normalize(waveforms, lengths, amp_type="avg"):
         waveforms = waveforms.unsqueeze(0)
 
     den = compute_amplitude(waveforms, lengths, amp_type)
-    if not batch_added:
-        return waveforms / den
-    else:
-        return waveforms.squeeze(0) / den
+    if batch_added:
+        waveforms = waveforms.squeeze(0)
+    return waveforms / den
 
 
 def rescale(waveforms, lengths, target_lvl, amp_type="avg", scale="linear"):
@@ -143,10 +142,10 @@ def rescale(waveforms, lengths, target_lvl, amp_type="avg", scale="linear"):
     else:
         raise NotImplementedError("Invalid scale, choose between dB and linear")
 
-    if not batch_added:
-        return out
-    else:
-        return out.squeeze(0)
+    if batch_added:
+        out = out.squeeze(0)
+
+    return out
 
 
 def convolve1d(
@@ -201,8 +200,8 @@ def convolve1d(
     >>> import soundfile as sf
     >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
     >>> signal = torch.tensor(signal[None, :, None])
-    >>> filter = torch.rand(1, 10, 1, dtype=signal.dtype)
-    >>> signal = convolve1d(signal, filter, padding=(9, 0))
+    >>> kernel = torch.rand(1, 10, 1, dtype=signal.dtype)
+    >>> signal = convolve1d(signal, kernel, padding=(9, 0))
     """
     if len(waveform.shape) != 3:
         raise ValueError("Convolve1D expects a 3-dimensional tensor")
@@ -260,7 +259,7 @@ def convolve1d(
         if convolved.size(-1) > waveform.size(-1):
             convolved = convolved[..., : waveform.size(-1)]
 
-    # Use the implemenation given by torch, which should be efficient on GPU
+    # Use the implementation given by torch, which should be efficient on GPU
     else:
         convolved = torch.nn.functional.conv1d(
             input=waveform,
@@ -299,13 +298,14 @@ def reverberate(waveforms, rir_waveform, rescale_amp="avg"):
         Reverberated signal.
 
     """
+    orig_shape = waveforms.shape
 
     if len(waveforms.shape) > 3 or len(rir_waveform.shape) > 3:
         raise NotImplementedError
 
     # if inputs are mono tensors we reshape to 1, samples
     if len(waveforms.shape) == 1:
-        waveforms = waveforms.unsqueeze(0)
+        waveforms = waveforms.unsqueeze(0).unsqueeze(-1)
 
     if len(rir_waveform.shape) < 2:  # convolve1d expects a 3d tensor !
         rir_waveform = rir_waveform.unsqueeze(0)
@@ -324,7 +324,7 @@ def reverberate(waveforms, rir_waveform, rescale_amp="avg"):
 
     # Use FFT to compute convolution, because of long reverberation filter
     waveforms = convolve1d(
-        waveform=waveforms.unsqueeze(-1),
+        waveform=waveforms,
         kernel=rir_waveform.unsqueeze(-1),
         use_fft=True,
         rotation_index=direct_index,
@@ -334,6 +334,11 @@ def reverberate(waveforms, rir_waveform, rescale_amp="avg"):
     waveforms = rescale(
         waveforms, waveforms.size(1), orig_amplitude, rescale_amp
     )
+
+    if len(orig_shape) == 1:
+        waveforms = waveforms.squeeze(0).squeeze(-1)
+    if len(orig_shape) == 2:
+        waveforms = waveforms.squeeze(-1)
 
     return waveforms
 
