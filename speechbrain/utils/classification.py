@@ -3,6 +3,7 @@ Utilities for computing common sequence classification/labeling metrics.
 e.g. Precision, Recall et cetera.
 
 """
+import torch  # noqa
 
 
 class BinaryMetrics(object):
