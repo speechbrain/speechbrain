@@ -58,11 +58,11 @@ CNN: !new:speechbrain.lobes.models.ContextNet.ContextNet
     dropout: !ref <dropout>
     norm: !name:speechbrain.nnet.normalization.LayerNorm
     # se_activation: !name:torch.nn.LeakyReLU
-    num_blocks: 9
-    conv_channels: (256, 256, 256, 256, 512, 512, 512, 512, 512)
-    strides: (1, 2, 1, 1, 2, 1, 1, 2, 1)
-    # conv_channels: (256, 512, 512)
-    # strides: (2, 2, 2)
+    num_blocks: 3
+    # conv_channels: (256, 256, 256, 256, 512, 512, 512, 512, 512)
+    # strides: (1, 2, 1, 1, 2, 1, 1, 2, 1)
+    conv_channels: (256, 512, 512)
+    strides: (2, 2, 2)
 
 Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.TransformerASR # yamllint disable-line rule:line-length
     tgt_vocab: !ref <output_neurons>
@@ -114,6 +114,7 @@ train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     sentence_sorting: random
     output_folder: !ref <output_folder>
     csv_read: [wav, wrd]
+    add_padding_label: True
 
 valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_valid>
@@ -121,6 +122,7 @@ valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
     csv_read: [wav, wrd]
+    add_padding_label: True
 
 test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_test>
@@ -128,6 +130,7 @@ test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
     csv_read: [wav, wrd]
+    add_padding_label: True
 
 ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
     blank_index: !ref <blank_index>
