@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 import sys
+import torch
 import speechbrain as sb
 import speechbrain.data_io.wer as wer_io
 import speechbrain.utils.edit_distance as edit_distance
@@ -62,6 +63,23 @@ class ASR(sb.core.Brain):
 
         return loss, stats
 
+    def fit_batch(self, batch):
+        if len(batch) == 3:
+            (ids, clean, lens), (_, noisy, _), (_, chars, char_lens) = batch
+            joint_batch = torch.cat((clean, noisy))
+            inputs = (ids + ids, joint_batch, torch.cat((lens, lens)))
+            joint_targets = torch.cat((chars, chars))
+            targets = (ids, joint_targets, torch.cat((char_lens, char_lens)))
+        else:
+            inputs, targets = batch
+        predictions = self.compute_forward(inputs)
+        loss, stats = self.compute_objectives(predictions, targets)
+        loss.backward()
+        self.optimizer.step()
+        self.optimizer.zero_grad()
+        stats["loss"] = loss.detach()
+        return stats
+
     def on_epoch_end(self, epoch, train_stats, valid_stats=None):
         cer = summarize_error_rate(valid_stats["CER"])
         old_lr, new_lr = params.lr_annealing([params.optimizer], epoch, cer)
@@ -80,7 +98,12 @@ prepare_voicebank(
 )
 train_set = params.train_loader()
 valid_set = params.valid_loader()
-first_x, first_y = next(iter(train_set))
+batch = next(iter(train_set))
+if len(batch) == 3:
+    (ids, clean, lens), (_, noisy, lens), first_y = batch
+    first_x = (ids + ids, torch.cat((clean, noisy)), torch.cat((lens, lens)))
+else:
+    first_x, first_y = batch
 
 # Modules are passed to optimizer and have train/eval called on them
 modules = [params.model, params.output]
