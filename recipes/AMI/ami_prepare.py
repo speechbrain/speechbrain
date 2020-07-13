@@ -3,7 +3,7 @@ Data preparation.
 
 Download: http://groups.inf.ed.ac.uk/ami/download/
 
-Prepares csv from manual annotations "segments/" using RTTM format
+Prepares csv from manual annotations "segments/" using RTTM format.
 """
 
 import os
@@ -25,16 +25,21 @@ DEV_CSV = "dev.csv"
 TEST_CSV = "test.csv"
 SAMPLERATE = 16000
 
-# have to update
+
+# Code Flow:   segments.xml -> NIST.rttm -> CSV
+# Code Design: loader_xml(), read_write_rttm(), prune_overlaps(), create_labs()
+
+# split can be either of these: scenario-only, full-corpus, full-corpus-asr
+# mic_types : hm, ihm, sdm, array1, array2
+# vad_type : system / oracle
 
 
 def prepare_ami(
     data_folder,
     save_folder,
-    splits=["train", "dev", "test"],
-    split_ratio=[90, 10],
-    seg_dur=300,
-    vad=False,
+    split_type="full-corpus",
+    mic_type="hm",
+    vad_type="oracle",
     rand_seed=1234,
 ):
     """
@@ -59,14 +64,15 @@ def prepare_ami(
         random seed
     """
 
+    splits, seg_dur = None, 200
+
     # Create configuration for easily skipping data_preparation stage
     conf = {
         "data_folder": data_folder,
-        "splits": splits,
-        "split_ratio": split_ratio,
+        "split_type": split_type,
+        "mic_type": mic_type,
         "save_folder": save_folder,
-        "vad": vad,
-        "seg_dur": seg_dur,
+        "vad": vad_type,
     }
 
     if not os.path.exists(save_folder):
@@ -95,7 +101,10 @@ def prepare_ami(
     logger.debug(msg)
 
     # Split data into 90% train and 10% validation (verification split)
-    wav_lst_train, wav_lst_dev = _get_utt_split_lists(data_folder, split_ratio)
+    # wav_lst_train, wav_lst_dev = _get_utt_split_lists(data_folder, split_ratio)
+
+    if split_type == "full-corpus":
+        wav_lst_train, wav_lst_dev, test_list = _get_meetings_full_corpus()
 
     # Creating csv file for training data
     if "train" in splits:
@@ -114,6 +123,81 @@ def prepare_ami(
 
     # Saving options (useful to skip this phase when already done)
     save_pkl(conf, save_opt)
+
+
+def _get_meetings_full_corpus():
+
+    # List of train meetings
+    train_meet = [
+        "ES2002",
+        "ES2005",
+        "ES2006",
+        "ES2007",
+        "ES2008",
+        "ES2009",
+        "ES2010",
+        "ES2012",
+        "ES2013",
+        "ES2015",
+        "ES2016",
+        "IS1000",
+        "IS1001",
+        "IS1002",
+        "IS1003",
+        "IS1004",
+        "IS1005",
+        "IS1006",
+        "IS1007",
+        "TS3005",
+        "TS3008",
+        "TS3009",
+        "TS3010",
+        "TS3011",
+        "TS3012",
+        "EN2001",
+        "EN2003",
+        "EN2004a",
+        "EN2005a",
+        "EN2006",
+        "EN2009",
+        "IN1001",
+        "IN1002",
+        "IN1005",
+        "IN1007",
+        "IN1008",
+        "IN1009",
+        "IN1012",
+        "IN1013",
+        "IN1014",
+        "IN1016",
+    ]
+
+    # List of dev meetings
+    dev_meet = [
+        "ES2003",
+        "ES2011",
+        "IS1008",
+        "TS3004",
+        "TS3006",
+        "IB4001",
+        "IB4002",
+        "IB4003",
+        "IB4004",
+        "IB4010",
+        "IB4011",
+    ]
+
+    # List of test meetings
+    test_meet = [
+        "ES2004",
+        "ES2014",
+        "IS1009",
+        "TS3003",
+        "TS3007",
+        "EN2002",
+    ]
+
+    return train_meet, dev_meet, test_meet
 
 
 def skip(splits, save_folder, conf):
