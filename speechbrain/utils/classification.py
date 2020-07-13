@@ -27,6 +27,7 @@ class BinaryMetrics(object):
     >>> predictions = torch.rand((4, 200, 10))
     >>> metrics.update(predictions, targets) # update the metric computation
     >>> metrics.get_precision() # get current precision score
+    tensor(0.)
     """
 
     def __init__(self, threshold=0.5, eps=1e-8):
