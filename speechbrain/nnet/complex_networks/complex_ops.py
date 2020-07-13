@@ -49,6 +49,9 @@ class complex_linear(nn.Module):
         weights following the init_criterion and the complex polar form.
         "unitary" will normalize the weights to lie on the unit circle.
         More details in: "Deep Complex Networks", Trabelsi C. et al.
+    device: str, optional
+        Defines in the pytorch style the device that should be used for
+        computations.
 
     Example
     -------
@@ -66,6 +69,7 @@ class complex_linear(nn.Module):
         bias,
         init_criterion="glorot",
         weight_init="complex",
+        device="cpu",
     ):
         super(complex_linear, self).__init__()
 
@@ -75,6 +79,7 @@ class complex_linear(nn.Module):
         self.bias = bias
         self.init_criterion = init_criterion
         self.weight_init = weight_init
+        self.device = device
 
         # Two weight matrices are created for the real and imaginary parts of
         # the weights. This will also allow an easier complex product.
@@ -95,8 +100,13 @@ class complex_linear(nn.Module):
             self.real_weight, self.imag_weight, self.winit, init_criterion
         )
 
-        if self.bias is not None:
+        if self.b is not None:
             self.b.data.zero_()
+            self.b.to(self.device)
+
+        # send to device
+        self.real_weight.to(self.device)
+        self.imag_weight.to(self.device)
 
     def forward(self, x):
         """Returns the output of the linear operation.
@@ -126,8 +136,8 @@ class complex_convolution(Module):
         in_channels: int
             Number of input channels. Please note
             that these are complex-valued neurons. If 256
-            channels are specified, the output dimension
-            will be 512.
+            channels are specified, the real input dimension
+            is 512.
         out_channels: int
             Number of output channels. Please note
             that these are complex-valued neurons. If 256
@@ -171,11 +181,11 @@ class complex_convolution(Module):
 
      Example
      -------
-     >>> model =c omplex_convolution(8, 64, conv1d=True, kernel_size=(3))
-     >>> inp_tensor = torch.rand([10, 40, 16])
-     >>> out_tensor = model(inp_tensor)
+     >>> conv2 = complex_convolution(8, 64, conv1d=False, kernel_size=[3,3])
+     >>> inp_tensor = torch.rand([10, 16, 64, 64])
+     >>> out_tensor = conv2(inp_tensor)
      >>> out_tensor.shape
-     torch.Size([10, 40, 64])
+     torch.Size([10, 128, 62, 62])
      """
 
     def __init__(
@@ -393,7 +403,7 @@ def get_conjugate(input, input_type="linear", channels_axis=1):
         return torch.cat([input_real, -input_imag], dim=channels_axis)
 
 
-def complex_linear_op(input, real_weight, imag_weight, bias=None):
+def complex_linear_op(input, real_weight, imag_weight, bias):
     """
     Applies a complex linear transformation to the incoming data.
 
@@ -418,7 +428,10 @@ def complex_linear_op(input, real_weight, imag_weight, bias=None):
         else:
             return torch.addmm(bias, input, cat_complex)
     else:
-        return input.mm(cat_complex)
+        if input.dim() == 3:
+            return input.matmul(cat_complex)
+        else:
+            return input.mm(cat_complex)
 
 
 def complex_conv_op(
@@ -436,7 +449,6 @@ def complex_conv_op(
     padding: int
     dilation: int
     """
-
     cat_real = torch.cat([real_weight, -imag_weight], dim=1)
     cat_imag = torch.cat([imag_weight, real_weight], dim=1)
     cat_complex = torch.cat([cat_real, cat_imag], dim=0)
@@ -445,10 +457,10 @@ def complex_conv_op(
         convfunc = F.conv1d
     else:
         convfunc = F.conv2d
+
     return convfunc(input, cat_complex, bias, stride, padding, dilation)
 
 
-# TO BE TESTED (SHAPE)
 def unitary_init(
     in_features, out_features, kernel_size=None, criterion="glorot"
 ):
@@ -486,7 +498,6 @@ def unitary_init(
     return (v_r, v_i)
 
 
-# TO BE TESTED SHAPE
 def complex_init(
     in_features, out_features, kernel_size=None, criterion="glorot"
 ):
