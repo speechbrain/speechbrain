@@ -2,64 +2,10 @@ import torch
 import json
 import numpy as np
 import torchaudio
-from speechbrain.processing.signal_processing import convolve1d
-
-
-def compute_dBpeak_amplitude(waveform):
-    return torch.clamp(
-        20
-        * torch.log10(torch.max(torch.abs(waveform), dim=-1, keepdim=True)[0]),
-        min=-120,
-    )
-
-def peakGaindB(
-    tensor, target_peak_dB
-):  # this can actually be included into signal_processing
-    # also, Peter might want to check this, i normalize the peak, i am not sure if it makes sense to normalize the mean
-    # amplitude.....
-    target_peak_dB = 10 ** (target_peak_dB / 20)
-    return (tensor * target_peak_dB) / torch.max(torch.abs(tensor))
-
-
-# this is same function as speech_augmentation AddReverb but it does not take a csv file.
-# we might want to do a more general function into processing which is re--used by addReverb.
-def reverberate(waveforms, rir_waveform):
-
-    if len(waveforms.shape) > 3 or len(rir_waveform.shape) > 3:
-        raise NotImplementedError
-
-    # if inputs are mono tensors we reshape to 1, samples
-    if len(waveforms.shape) == 1:
-        waveforms = waveforms.unsqueeze(0)
-
-    if len(rir_waveform.shape) < 2:  # convolve1d expects a 3d tensor !
-        rir_waveform = rir_waveform.unsqueeze(0)
-
-    # Compute the average amplitude of the clean
-    orig_amplitude = compute_dBpeak_amplitude(waveforms)
-
-    # Compute index of the direct signal, so we can preserve alignment
-    value_max, direct_index = rir_waveform.abs().max(axis=1)
-
-    # Making sure the max is always positive (if not, flip)
-    # This is useful for speech enhancement ?
-    mask = (rir_waveform[:, direct_index] < 0).squeeze(-1)
-    rir_waveform[mask] = -rir_waveform[mask]
-
-    # Use FFT to compute convolution, because of long reverberation filter
-    waveforms = convolve1d(
-        waveform=waveforms.unsqueeze(-1),
-        kernel=rir_waveform.unsqueeze(-1),
-        use_fft=True,
-        rotation_index=direct_index,
-    ).squeeze(-1)
-
-    # Rescale to the peak amplitude of the clean waveform
-    waveforms = peakGaindB(waveforms, orig_amplitude)
-
-    waveforms = waveforms.squeeze(0)
-
-    return waveforms
+from speechbrain.processing.signal_processing import (
+    reverberate,
+    rescale,
+)
 
 
 def create_mixture(session_n, output_dir, params, metadata):
@@ -88,7 +34,7 @@ def create_mixture(session_n, output_dir, params, metadata):
             if len(c_audio.shape) > 1:  # multichannel
                 c_audio = c_audio[utt["channel"], :]
                 c_audio = c_audio - torch.mean(c_audio)
-            c_audio = peakGaindB(c_audio, utt["lvl"])
+            c_audio = rescale(c_audio, utt["lvl"], scale="dB")
             # we save it in dry
             dry_start = int(utt["start"] * params["samplerate"])
             dry_stop = dry_start + c_audio.shape[-1]
@@ -100,10 +46,10 @@ def create_mixture(session_n, output_dir, params, metadata):
             )
             assert fs == params["samplerate"]
             c_rir = c_rir[utt["rir_channel"], :]
-            # early_rev_samples = get_early_rev_samples(c_rir) NOT SURE ABOUT THIS
 
             c_audio = reverberate(c_audio, c_rir).squeeze(0)
-            wet_start = dry_start  # tof is not accounted because in reverberate we shift by it
+            # tof is not accounted because in reverberate we shift by it
+            wet_start = dry_start
             wet_stop = dry_stop  # + early_rev_samples
             wet[wet_start : wet_start + len(c_audio)] += c_audio
 
@@ -122,9 +68,7 @@ def create_mixture(session_n, output_dir, params, metadata):
             # we add to mixture
             mixture += wet
 
-        # how to handle clipping ? we either rescale everything to avoid it or we make it happen.
-        # clipping occurs on real world data so we make it happen also here.
-        # also issue with torchaudio when it clips the saved wav is zero everywhere
+        # we allow for clipping as it occurs also in real recordings.
 
         # save per speaker clean sources
         if params["save_dry_sources"]:
@@ -165,7 +109,7 @@ def create_mixture(session_n, output_dir, params, metadata):
         if len(c_audio.shape) > 1:  # multichannel
             c_audio = c_audio[noise_event["channel"], :]
             c_audio = c_audio - torch.mean(c_audio)
-        c_audio = peakGaindB(c_audio, noise_event["lvl"])
+        c_audio = rescale(c_audio, noise_event["lvl"], scale="dB")
         # we save it in dry
         dry_start = int(noise_event["start"] * params["samplerate"])
         dry_stop = dry_start + c_audio.shape[-1]
@@ -178,8 +122,9 @@ def create_mixture(session_n, output_dir, params, metadata):
         # early_rev_samples = get_early_rev_samples(c_rir) NOT SURE ABOUT THIS
 
         c_audio = reverberate(c_audio, c_rir).squeeze(0)
-        wet_start = dry_start  # tof is not accounted because in reverberate we shift by it
-        wet_stop = dry_stop  # + early_rev_samples
+        # tof is not accounted because in reverberate we shift by it
+        wet_start = dry_start
+        wet_stop = dry_stop
         mixture[wet_start : wet_start + len(c_audio)] += c_audio
 
     # add background
@@ -195,13 +140,15 @@ def create_mixture(session_n, output_dir, params, metadata):
         if len(c_audio.shape) > 1:  # multichannel
             c_audio = c_audio[metadata["background"]["channel"], :]
             c_audio = c_audio - torch.mean(c_audio)
-        c_audio = peakGaindB(c_audio, metadata["background"]["lvl"])
+        c_audio = rescale(c_audio, metadata["background"]["lvl"], scale="dB")
         mixture += c_audio
 
     else:
         # add gaussian noise
-        mixture += peakGaindB(
-            torch.normal(0, 1, mixture.shape), metadata["background"]["lvl"]
+        mixture += rescale(
+            torch.normal(0, 1, mixture.shape),
+            metadata["background"]["lvl"],
+            scale="dB",
         )
 
     # save total mixture
@@ -242,6 +189,5 @@ if __name__ == "__main__":
         metadata = json.load(f)
 
     for session in tqdm(metadata.keys()):
-
         create_mixture(session, args.output_dir, params, metadata[session])
         # open metadata and create session
