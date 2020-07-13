@@ -21,14 +21,14 @@ random.seed(params.seed)
 # we parse the yaml, and create mixtures for every train, dev and eval split.
 
 
-def split_list(l, split_factors):
+def split_list(array, split_factors):
     assert round(sum(split_factors), 6) == 1, "split_factors should sum to one"
-    np.random.shuffle(l)
-    pivots = [int(len(l) * x) for x in split_factors]
+    np.random.shuffle(array)
+    pivots = [int(len(array) * x) for x in split_factors]
     out = []
     indx = 0
     for i in pivots:
-        out.append(l[indx : i + indx])
+        out.append(array[indx : i + indx])
         indx = i
     return out
 
