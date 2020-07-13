@@ -6,7 +6,7 @@ out_folder: /tmp/LibriParty # folder where created dataset will be stored.
 metadata_file: /tmp/metadata.json
 samplerate: 16000 # dataset samplerate (should be <=16000)
 
-save_wet_sources: False
+save_wet_sources: True
 # whether to save oracle reverberated clean-speech sources.
 
 save_dry_sources: False
@@ -46,16 +46,16 @@ split_factors:
 # for speech one can use librispeech official splits
 
 n_sessions: # number of synthetic scenes
-  train: 10
-  dev: 5
+  train: 2
+  dev: 2
   eval: 2
 n_speakers: 2 # max number of speakers in each session
-interval_factor_speech: 15
+interval_factor_speech: 5
 # this parameter controls amount of silence and
 # probability of overlapped speech.
-# the higher the more silence and less overlapped speech.
+# the higher the less silence and more overlapped speech.
 
-interval_factor_noises: 20
+interval_factor_noises: 10
 # same parameter but for impulsive noises.
 # It controls the interval between two impulsive noises.
 
@@ -64,8 +64,8 @@ max_length: 300 # max length in seconds for each session.
 # we use gaussian distribution for speech and noise levels.
 speech_lvl_min: -45 # (dB) absolute minimum level for speech.
 speech_lvl_max: 0 # (dB) absolute maximum level for speech.
-speech_lvl_mean: -22 # (dB) mean for speech level.
-speech_lvl_var: 3 # (dB) variance for speech level.
+speech_lvl_mean: -32 # (dB) mean for speech level.
+speech_lvl_var: 2 # (dB) variance for speech level.
 
 imp_lvl_min: -15 # (dB) absolute minimum level for noises.
 imp_lvl_rel_max: 20
@@ -74,7 +74,7 @@ imp_lvl_rel_max: 20
 imp_lvl_mean: -4 # (dB) mean for speech level
 imp_lvl_var: 5 # (dB) variance for speech level
 
-background_lvl_min: -30 # (dB) absolute minimum level for background.
-background_lvl_rel_max: 12
+background_lvl_min: -40 # (dB) absolute minimum level for background.
+background_lvl_rel_max: 3
 # (dB) absolute maximum for background relative
 # to minumum speech level in the whole session.

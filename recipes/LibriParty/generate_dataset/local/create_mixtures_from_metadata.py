@@ -3,10 +3,7 @@ import torch
 import json
 import numpy as np
 import torchaudio
-from speechbrain.processing.signal_processing import (
-    reverberate,
-    rescale,
-)
+from speechbrain.processing.signal_processing import rescale, reverberate
 
 
 def create_mixture(session_n, output_dir, params, metadata):
@@ -35,7 +32,13 @@ def create_mixture(session_n, output_dir, params, metadata):
             if len(c_audio.shape) > 1:  # multichannel
                 c_audio = c_audio[utt["channel"], :]
                 c_audio = c_audio - torch.mean(c_audio)
-            c_audio = rescale(c_audio, utt["lvl"], scale="dB")
+            c_audio = rescale(
+                c_audio,
+                c_audio.size(0),
+                utt["lvl"],
+                scale="dB",
+                amp_type="peak",
+            )
             # we save it in dry
             dry_start = int(utt["start"] * params.samplerate)
             dry_stop = dry_start + c_audio.shape[-1]
@@ -48,7 +51,7 @@ def create_mixture(session_n, output_dir, params, metadata):
             assert fs == params.samplerate
             c_rir = c_rir[utt["rir_channel"], :]
 
-            c_audio = reverberate(c_audio, c_rir).squeeze(0)
+            c_audio = reverberate(c_audio, c_rir, "peak")
             # tof is not accounted because in reverberate we shift by it
             wet_start = dry_start
             wet_stop = dry_stop  # + early_rev_samples
@@ -92,7 +95,6 @@ def create_mixture(session_n, output_dir, params, metadata):
                 ),
                 torch.clamp(wet, min=-1, max=1),
                 params.samplerate,
-                precision=32,
             )
 
     with open(
@@ -110,7 +112,13 @@ def create_mixture(session_n, output_dir, params, metadata):
         if len(c_audio.shape) > 1:  # multichannel
             c_audio = c_audio[noise_event["channel"], :]
             c_audio = c_audio - torch.mean(c_audio)
-        c_audio = rescale(c_audio, noise_event["lvl"], scale="dB")
+        c_audio = rescale(
+            c_audio,
+            c_audio.size(0),
+            noise_event["lvl"],
+            scale="dB",
+            amp_type="peak",
+        )
         # we save it in dry
         dry_start = int(noise_event["start"] * params.samplerate)
         dry_stop = dry_start + c_audio.shape[-1]
@@ -120,12 +128,10 @@ def create_mixture(session_n, output_dir, params, metadata):
         )
         assert fs == params.samplerate
         c_rir = c_rir[noise_event["rir_channel"], :]
-        # early_rev_samples = get_early_rev_samples(c_rir) NOT SURE ABOUT THIS
 
-        c_audio = reverberate(c_audio, c_rir).squeeze(0)
+        c_audio = reverberate(c_audio, c_rir, "peak")
         # tof is not accounted because in reverberate we shift by it
         wet_start = dry_start
-        wet_stop = dry_stop
         mixture[wet_start : wet_start + len(c_audio)] += c_audio
 
     # add background
@@ -141,15 +147,23 @@ def create_mixture(session_n, output_dir, params, metadata):
         if len(c_audio.shape) > 1:  # multichannel
             c_audio = c_audio[metadata["background"]["channel"], :]
             c_audio = c_audio - torch.mean(c_audio)
-        c_audio = rescale(c_audio, metadata["background"]["lvl"], scale="dB")
+        c_audio = rescale(
+            c_audio,
+            c_audio.size(0),
+            metadata["background"]["lvl"],
+            scale="dB",
+            amp_type="avg",
+        )
         mixture += c_audio
 
     else:
         # add gaussian noise
         mixture += rescale(
             torch.normal(0, 1, mixture.shape),
+            mixture.size(0),
             metadata["background"]["lvl"],
             scale="dB",
+            amp_type="peak",
         )
 
     # save total mixture

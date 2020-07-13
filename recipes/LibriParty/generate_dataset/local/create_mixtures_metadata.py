@@ -32,6 +32,9 @@ def create_metadata(
 
     dataset_metadata = {}
     for n_sess in tqdm(range(n_sessions)):
+        # we sample minimum possible level and maximum possible level
+        # for whole recording
+
         # we sample randomly n_speakers ids
         c_speakers = np.random.choice(
             list(utterances_dict.keys()), configs.n_speakers
