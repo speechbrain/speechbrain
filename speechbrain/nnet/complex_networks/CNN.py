@@ -110,7 +110,7 @@ class ComplexConv1d(torch.nn.Module):
             A first input used for initializing the parameters.
         """
 
-        check_conv_input(first_input)
+        check_conv_input(first_input, channels_axis=-1)
         self.in_channels = self._check_input(first_input) // 2
 
         self.conv = complex_convolution(
@@ -142,10 +142,6 @@ class ComplexConv1d(torch.nn.Module):
         # (batch, channel, time)
         x = x.transpose(1, -1)
 
-        # If (batch,time) -> (batch, 1, time)
-        if self.unsqueeze:
-            x = x.unsqueeze(1)
-
         if self.padding == "same":
             x = self._manage_padding(
                 x, self.kernel_size, self.dilation, self.stride
@@ -165,9 +161,6 @@ class ComplexConv1d(torch.nn.Module):
             )
 
         wx = self.conv(x)
-
-        if self.unsqueeze:
-            wx = wx.squeeze(1)
 
         wx = wx.transpose(1, -1)
 
@@ -201,13 +194,10 @@ class ComplexConv1d(torch.nn.Module):
         Checks the input and returns the number of input channels.
         """
 
-        if len(x.shape) == 2:
-            self.unsqueeze = True
-            in_channels = 1
-        elif len(x.shape) == 3:
+        if len(x.shape) == 3:
             in_channels = x.shape[2]
         else:
-            raise ValueError("conv1d expects 2d, 3d inputs. Got " + len(x))
+            raise ValueError("conv1d expects 3d inputs. Got " + len(x))
         # Kernel size must be odd
         if self.kernel_size % 2 == 0:
             raise ValueError(
