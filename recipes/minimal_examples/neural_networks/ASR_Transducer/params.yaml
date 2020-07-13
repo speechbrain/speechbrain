@@ -12,7 +12,7 @@ csv_test: !ref <data_folder>/test.csv
 device: cuda
 
 # Neural Parameters
-N_epochs: 40
+N_epochs: 100
 N_batch: 1
 lr: 0.003
 output_neurons: 43
