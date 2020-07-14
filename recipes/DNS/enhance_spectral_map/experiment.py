@@ -55,12 +55,12 @@ def evaluation(clean, enhanced, length):
     return pesq_score, stoi_score
 
 
-def multiprocess_evaluation(pred_wavs, target_wavs, lens, num_cores):
+def multiprocess_evaluation(pred_wavs, clean_wavs, lens, num_cores):
     processes = []
 
     pool = multiprocessing.Pool(processes=num_cores)
 
-    for clean, enhanced, length in zip(target_wavs, pred_wavs, lens):
+    for clean, enhanced, length in zip(clean_wavs, pred_wavs, lens):
         processes.append(
             pool.apply_async(evaluation, args=(clean, enhanced, int(length)))
         )
@@ -81,8 +81,6 @@ class SEBrain(sb.core.Brain):
     def compute_forward(self, x, stage="train", init_params=False):
         ids, wavs, lens = x
         wavs, lens = wavs.to(params.device), lens.to(params.device)
-        if stage == "train":
-            wavs = params.add_noise(wavs, lens)
 
         feats = params.compute_stft(wavs)
         feats = spectral_magnitude(feats, power=0.5)
@@ -92,8 +90,8 @@ class SEBrain(sb.core.Brain):
 
         return output
 
-    def compute_objectives(self, predictions, targets, stage="train"):
-        ids, wavs, lens = targets
+    def compute_objectives(self, predictions, cleans, stage="train"):
+        ids, wavs, lens = cleans
         wavs, lens = wavs.to(params.device), lens.to(params.device)
 
         feats = params.compute_stft(wavs)
@@ -105,9 +103,14 @@ class SEBrain(sb.core.Brain):
         return loss, {}
 
     def fit_batch(self, batch):
-        inputs = batch[0]
-        predictions = self.compute_forward(inputs)
-        loss, stats = self.compute_objectives(predictions, inputs)
+        cleans = batch[0]
+        ids, clean_wavs, lens = cleans
+
+        # Dynamically mix noises
+        noisy_wavs = params.add_noise(clean_wavs, lens)
+
+        predictions = self.compute_forward([ids, noisy_wavs, lens])
+        loss, stats = self.compute_objectives(predictions, cleans)
         loss.backward()
         self.optimizer.step()
         self.optimizer.zero_grad()
@@ -116,30 +119,32 @@ class SEBrain(sb.core.Brain):
         return stats
 
     def evaluate_batch(self, batch, stage="valid"):
-        inputs, targets = batch
-        predictions = self.compute_forward(inputs, stage=stage)
-        epoch = params.epoch_counter.current
+        noisys, cleans = batch
+        predictions = self.compute_forward(noisys, stage=stage)
 
         # Write batch enhanced files to directory
-        pred_wavs = self.write_wavs(
-            torch.expm1(predictions), targets, epoch, stage
-        )
+        pred_wavs = self.resynthesize(torch.expm1(predictions), noisys)
 
         # Evaluating PESQ and STOI
-        _, target_wavs, lens = targets
+        _, clean_wavs, lens = cleans
 
-        lens = lens * target_wavs.shape[1]
+        lens = lens * clean_wavs.shape[1]
         pesq_scores, stoi_scores = multiprocess_evaluation(
             pred_wavs.numpy(),
-            target_wavs.numpy(),
+            clean_wavs.numpy(),
             lens.numpy(),
             multiprocessing.cpu_count(),
         )
 
-        loss, stats = self.compute_objectives(predictions, targets, stage=stage)
+        loss, stats = self.compute_objectives(predictions, cleans, stage=stage)
         stats["loss"] = loss.detach()
         stats["pesq"] = pesq_scores
         stats["stoi"] = stoi_scores
+
+        if stage == "test":
+            for name, pred_wav, length in zip(noisys[0], pred_wavs, lens):
+                enhance_path = os.path.join(params.enhanced_folder, name)
+                torchaudio.save(enhance_path, pred_wav[: int(length)], 16000)
 
         return stats
 
@@ -167,8 +172,8 @@ class SEBrain(sb.core.Brain):
             importance_keys=[ckpt_recency, lambda c: c.meta["PESQ"]],
         )
 
-    def write_wavs(self, predictions, inputs, epoch, stage):
-        ids, wavs, lens = inputs
+    def resynthesize(self, predictions, noisys):
+        ids, wavs, lens = noisys
         lens = lens * wavs.shape[1]
         predictions = predictions.cpu()
 
@@ -193,12 +198,8 @@ class SEBrain(sb.core.Brain):
         abs_max, _ = torch.max(torch.abs(pred_wavs), dim=1, keepdim=True)
         pred_wavs = pred_wavs / abs_max * 0.99
 
-        if stage == "test":
-            for name, pred_wav, length in zip(ids, pred_wavs, lens):
-                enhance_path = os.path.join(params.enhanced_folder, name)
-                torchaudio.save(enhance_path, pred_wav[: int(length)], 16000)
-
-        return pred_wavs
+        padding = (0, wavs.shape[1] - pred_wavs.shape[1])
+        return torch.nn.functional.pad(pred_wavs, padding)
 
 
 prepare_dns(
@@ -222,10 +223,6 @@ se_brain.fit(params.epoch_counter, train_set, valid_set)
 
 # Load best checkpoint for evaluation
 params.checkpointer.recover_if_possible(lambda c: c.meta["PESQ"])
-
-# Create the folder to save enhanced files
-if not os.path.exists(params.enhanced_folder):
-    os.mkdir(params.enhanced_folder)
 
 test_stats = se_brain.evaluate(params.test_loader())
 params.train_logger.log_stats(
