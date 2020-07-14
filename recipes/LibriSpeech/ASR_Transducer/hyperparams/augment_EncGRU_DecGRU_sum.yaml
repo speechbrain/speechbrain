@@ -8,9 +8,9 @@
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-#seed: !PLACEHOLDER # e.g, 1234
+seed: !PLACEHOLDER #e.g, 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/augment_CRDNN_sum_exp_Enc_GRU_Dec_GRU/<seed>
+output_folder: !ref results/augment_CRDNN_sum_exp_GRU_2D_GRU_emb/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -23,9 +23,10 @@ csv_test: !ref <data_folder>/test-clean.csv
 
 # Training parameters
 number_of_epochs: 50
-batch_size: 8
+batch_size: 32
 lr: 1.0
-device: 'cuda:0'
+device: 'cuda'
+multigpu: False
 
 # Feature parameters
 sample_rate: 16000
@@ -43,10 +44,11 @@ rnn_neurons: 1024
 rnn_bidirectional: True
 dnn_blocks: 2
 dnn_neurons: 512
+emb_size: 128
 
 # Outputs
 output_neurons: 29
-joint_dim: 128
+joint_dim: 512
 blank_index: !ref <output_neurons> - 1
 
 
@@ -57,7 +59,8 @@ encoder_crdnn: !new:speechbrain.lobes.models.CRDNN.CRDNN
     cnn_blocks: !ref <cnn_blocks>
     cnn_channels: !ref <cnn_channels>
     cnn_kernelsize: !ref <cnn_kernelsize>
-    time_pooling: True
+    time_pooling: False
+    using_2d_pooling: True
     rnn_class: !name:speechbrain.nnet.RNN.GRU
     rnn_layers: !ref <rnn_layers>
     rnn_neurons: !ref <rnn_neurons>
@@ -71,11 +74,15 @@ encoder_lin: !new:speechbrain.nnet.linear.Linear
 
 decoder_embedding: !new:speechbrain.nnet.embedding.Embedding
     num_embeddings: !ref <output_neurons>
-    consider_as_one_hot: True # consider blank as zero vect
-    blank_id: !ref <blank_index>
+    embedding_dim: !ref <emb_size>
+
+# decoder_embedding: !new:speechbrain.nnet.embedding.Embedding
+#     num_embeddings: !ref <output_neurons>
+#     consider_as_one_hot: True # consider blank as zero vect
+#     blank_id: !ref <blank_index>
 
 decoder: !new:speechbrain.nnet.RNN.GRU
-    hidden_size: 512
+    hidden_size: 1024
     num_layers: 1
     dropout: 0.15
     bidirectional: False
