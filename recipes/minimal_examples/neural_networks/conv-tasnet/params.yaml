@@ -2,42 +2,38 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-use_tensorboard: False
-tensorboard_logs: runs
+use_tensorboard: True
+tensorboard_logs: runs/4-checkpointing
+output_folder: !ref results/conv_tasnet/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
 
 # Neural Parameters
-N_epochs: 1
-N_batch: 2
-lr: 0.004
+N_epochs: 100
+N_batch: 1
+lr: 0.0002
+train_onthefly: False
+loss_fn: 'sisnr'
+progressbar: True
 
-data_folder1: '../../../../samples/audio_samples/WSJ_mini_partitioned'
-data_folder2: '../../../../samples/audio_samples/ESC50_mini_partitioned'
+train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref wsj_tr.csv
+    batch_size: !ref <N_batch>
+    sentence_sorting: random
+    csv_read: [mix_wav, s1_wav, s2_wav]
 
-tr_dataset: !new:speechbrain.data_io.data_io.Augmented_SourceSeparation_Dataset
-    input_dataset_p: [!ref <data_folder1>/train, !ref <data_folder2>/train]
-    datasets_priors: [0.5, 0.5]
-    batch_size: 4
-    n_jobs: 4
-    n_samples: 200
-    return_items: ['wav']
-    fs: 8000.
-    selected_timelength: 4.
-    n_sources: 2
-    max_abs_snr: 2.5
-    fixed_seed: 0
+val_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref wsj_cv.csv
+    batch_size: !ref <N_batch>
+    sentence_sorting: random
+    csv_read: [mix_wav, s1_wav, s2_wav]
 
-val_dataset: !new:speechbrain.data_io.data_io.Augmented_SourceSeparation_Dataset
-    input_dataset_p: [!ref <data_folder1>/val, !ref <data_folder2>/val]
-    datasets_priors: [0.5, 0.5]
-    batch_size: 4
-    n_jobs: 4
-    n_samples: 200
-    return_items: ['wav']
-    fs: 8000.
-    selected_timelength: 4.
-    n_sources: 2
-    max_abs_snr: 2.5
-    fixed_seed: 0
+test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref wsj_tt.csv
+    batch_size: !ref <N_batch>
+    sentence_sorting: random
+    csv_read: [mix_wav, s1_wav, s2_wav]
+
 
 conv_tasnet: !new:speechbrain.nnet.conv_tasnet.ConvTasNet
     N: 256
@@ -49,12 +45,23 @@ conv_tasnet: !new:speechbrain.nnet.conv_tasnet.ConvTasNet
     R: 4
     C: 2
     norm_type: 'gLN'
-    causal: 0
+    causal: False
     mask_nonlinear: 'relu'
-
-sisdr_loss: !new:speechbrain.nnet.conv_tasnet.PermInvariantSISDR
-    batch_size: 1
-    n_sources: 2
 
 optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
     learning_rate: !ref <lr>
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <N_epochs>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        model: !ref <conv_tasnet>
+        optimizer: !ref <optimizer>
+        counter: !ref <epoch_counter>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+    summary_fns:
+        PER: !name:speechbrain.utils.train_logger.summarize_error_rate
