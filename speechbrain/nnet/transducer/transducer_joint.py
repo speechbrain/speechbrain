@@ -66,8 +66,10 @@ class Transducer_joint(nn.Module):
         input_PN: torch.Tensor
            input from Prediction Network.
         """
-        assert input_TN.shape != 4, "Arg 1 must be a 4 dim tensor"
-        assert input_PN.shape != 4, "Arg 2 must be a 4 dim tensor"
+        if input_TN.shape != 4:
+            raise ValueError("Arg 1 must be a 4 dim tensor")
+        if input_PN.shape != 4:
+            raise ValueError("Arg 2 must be a 4 dim tensor")
 
         if self.joint == "sum":
             joint = input_TN + input_PN
