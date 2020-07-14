@@ -71,7 +71,7 @@ class ComplexRNN(torch.nn.Module):
     def __init__(
         self,
         hidden_size,
-        nonlinearity="relu",
+        nonlinearity="tanh",
         num_layers=1,
         bias=True,
         dropout=0.0,
@@ -283,7 +283,7 @@ class ComplexRNN_Layer(torch.jit.ScriptModule):
             bias=True,
             weight_init=self.weight_init,
             init_criterion=self.init_criterion,
-        )
+        ).to(device)
 
         if self.bidirectional:
             self.batch_size = self.batch_size * 2
