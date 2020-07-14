@@ -156,7 +156,7 @@ class ASR(sb.core.Brain):
 # Prepare data
 prepare_librispeech(
     data_folder=params.data_folder,
-    splits=["train-100-clean", "dev-clean", "test-clean"],
+    splits=["train-clean-100", "dev-clean", "test-clean"],
     save_folder=params.data_folder,
 )
 train_set = params.train_loader()
