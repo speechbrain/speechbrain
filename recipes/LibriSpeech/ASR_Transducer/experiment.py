@@ -36,6 +36,7 @@ sb.core.create_experiment_directory(
 class ASR(sb.core.Brain):
     def compute_forward(self, x, y, stage="train", init_params=False):
         id, wavs, lens = x
+        wavs, lens = wavs.to(params.device), lens.to(params.device)
         if hasattr(params, "augmentation") and stage == "train":
             wavs = params.augmentation(wavs, lens, init_params)
 
@@ -47,7 +48,8 @@ class ASR(sb.core.Brain):
         if stage == "train":
             # Prediction network: output-output dependency
             # y contains a tuple of tensors (id, chars, chars_lens)
-            targets = y[1]
+            _, targets, _ = y
+            targets = targets.to(params.device)
             decoder_input = prepend_bos_token(
                 targets, bos_index=params.blank_index
             )
@@ -84,7 +86,12 @@ class ASR(sb.core.Brain):
             pout = predictions.squeeze(2)
             predictions = predictions.expand(-1, -1, chars.shape[1] + 1, -1)
 
-        loss = params.compute_cost(predictions, chars.long(), lens, char_lens,)
+        loss = params.compute_cost(
+            predictions,
+            chars.to(params.device).long(),
+            lens.to(params.device),
+            char_lens.to(params.device),
+        )
 
         stats = {}
         if stage != "train":
@@ -121,14 +128,6 @@ class ASR(sb.core.Brain):
 
     def fit_batch(self, batch):
         inputs, targets = batch
-        inputs[1], inputs[2] = (
-            inputs[1].to(params.device),
-            inputs[2].to(params.device),
-        )
-        targets[1], targets[2] = (
-            targets[1].to(params.device),
-            targets[2].to(params.device),
-        )
         predictions = self.compute_forward(inputs, targets)
         loss, stats = self.compute_objectives(predictions, targets)
         loss.backward()
@@ -139,14 +138,6 @@ class ASR(sb.core.Brain):
 
     def evaluate_batch(self, batch, stage="test"):
         inputs, targets = batch
-        inputs[1], inputs[2] = (
-            inputs[1].to(params.device),
-            inputs[2].to(params.device),
-        )
-        targets[1], targets[2] = (
-            targets[1].to(params.device),
-            targets[2].to(params.device),
-        )
         out = self.compute_forward(inputs, None, stage=stage)
         loss, stats = self.compute_objectives(out, targets, stage=stage)
         stats["loss"] = loss.detach()
@@ -162,15 +153,7 @@ prepare_librispeech(
 train_set = params.train_loader()
 valid_set = params.valid_loader()
 first_x, first_y = next(iter(train_set))
-# move to GPU
-first_x[1], first_x[2] = (
-    first_x[1].to(params.device),
-    first_x[2].to(params.device),
-)
-first_y[1], first_y[2] = (
-    first_y[1].to(params.device),
-    first_y[2].to(params.device),
-)
+
 # Modules are passed to optimizer and have train/eval called on them
 modules = [
     params.encoder_crdnn,
