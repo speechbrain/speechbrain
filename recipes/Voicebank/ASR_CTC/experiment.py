@@ -114,6 +114,8 @@ if hasattr(params, "augmentation"):
 asr_brain = ASR(
     modules=modules, optimizer=params.optimizer, first_inputs=[first_x],
 )
+if hasattr(params, "pretrained"):
+    params.model.load_state_dict(torch.load(params.pretrained))
 
 # Load latest checkpoint to resume training
 params.checkpointer.recover_if_possible()

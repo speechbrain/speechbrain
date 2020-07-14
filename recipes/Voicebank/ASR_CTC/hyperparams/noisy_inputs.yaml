@@ -18,6 +18,12 @@ csv_train: !ref <data_folder>/train.csv
 csv_valid: !ref <data_folder>/valid.csv
 csv_test: !ref <data_folder>/test.csv
 
+# The robust ASR model (noisy inputs) will not converge without
+# pretraining the model on clean inputs for at least a few epochs
+# (just 4-5 should be enough). Specify the path
+# to the pre-trained model here, e.g. "model.ckpt"
+pretrained: !PLACEHOLDER
+
 # Training parameters
 number_of_epochs: 30
 batch_size: 4
@@ -91,12 +97,14 @@ compute_features: !new:speechbrain.lobes.features.fbank.Fbank
     n_fft: !ref <n_fft>
     n_mels: !ref <n_mels>
 
+# If `csv_read: [clean_wav, noisy_wav, char]` is passed, mixed batches
+# are used. For just noisy batches, use `csv_read: [noisy_wav, char]`
 train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
-    csv_read: [noisy_wav, char]
+    csv_read: [clean_wav, noisy_wav, char]
     avoid_if_longer_than: 10
 
 valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
