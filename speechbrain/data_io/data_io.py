@@ -94,6 +94,8 @@ class DataLoaderFactory(torch.nn.Module):
         other ones.
     padding_value : int, optional
         Default: 0. Value to use for padding.
+    add_padding_label : bool, optional
+        Default: False. If set to True, the padding value will be add to the label dict as an additional label
     replacements : dict, optional
         String replacements to perform in this method
     output_folder : str, optional
@@ -122,6 +124,7 @@ class DataLoaderFactory(torch.nn.Module):
         avoid_if_shorter_than=0,
         drop_last=False,
         padding_value=0,
+        add_padding_label=False,
         replacements={},
         output_folder=None,
     ):
@@ -142,6 +145,7 @@ class DataLoaderFactory(torch.nn.Module):
         self.padding_value = padding_value
         self.replacements = replacements
         self.output_folder = output_folder
+        self.add_padding_lab = add_padding_label
 
         # Other variables
         self.supported_formats = self.get_supported_formats()
@@ -377,14 +381,26 @@ class DataLoaderFactory(torch.nn.Module):
         # create label2index:
         for lab in label_dict:
             # sorted_ids = sorted(label_dict[lab]["counts"].keys())
-            cnt_id = 0
+            cnt_id = -1
 
             label_dict[lab]["lab2index"] = {}
             label_dict[lab]["index2lab"] = {}
+
+            # append <pad> token to label_dict
+            if self.add_padding_lab:
+                label_dict[lab]["lab2index"]["<pad>"] = self.padding_value
+                label_dict[lab]["index2lab"][self.padding_value] = "<pad>"
+
             for lab_id in label_dict[lab]["counts"]:
+                if (
+                    cnt_id == int(self.padding_value) - 1
+                    and self.add_padding_lab
+                ):
+                    cnt_id = cnt_id + 2
+                else:
+                    cnt_id = cnt_id + 1
                 label_dict[lab]["lab2index"][lab_id] = cnt_id
                 label_dict[lab]["index2lab"][cnt_id] = lab_id
-                cnt_id = cnt_id + 1
 
         # saving the label_dict:
         if self.output_folder is not None:
