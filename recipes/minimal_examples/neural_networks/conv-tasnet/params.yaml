@@ -16,26 +16,30 @@ train_onthefly: False
 loss_fn: 'sisnr'
 progressbar: True
 
+tr_csv: 'wsj_tr.csv'
+cv_csv: 'wsj_cv.csv'
+tt_csv: 'wsj_tt.csv'
+
 train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref wsj_tr.csv
+    csv_file: !ref <tr_csv>
     batch_size: !ref <N_batch>
     sentence_sorting: random
     csv_read: [mix_wav, s1_wav, s2_wav]
 
 val_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref wsj_cv.csv
+    csv_file: !ref <cv_csv>
     batch_size: !ref <N_batch>
     sentence_sorting: random
     csv_read: [mix_wav, s1_wav, s2_wav]
 
 test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref wsj_tt.csv
+    csv_file: !ref <tt_csv>
     batch_size: !ref <N_batch>
     sentence_sorting: random
     csv_read: [mix_wav, s1_wav, s2_wav]
 
 
-conv_tasnet: !new:speechbrain.nnet.conv_tasnet.ConvTasNet
+conv_tasnet: !new:speechbrain.lobes.models.conv_tasnet.ConvTasNet
     N: 256
     L: 20
     B: 256

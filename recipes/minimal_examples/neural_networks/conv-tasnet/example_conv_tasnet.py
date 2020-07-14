@@ -4,14 +4,19 @@ import speechbrain as sb
 from speechbrain.utils.train_logger import summarize_average
 import torch
 from speechbrain.utils.checkpoints import ckpt_recency
-from speechbrain.nnet.conv_tasnet import cal_loss
+from speechbrain.lobes.models.conv_tasnet import cal_loss
 
 experiment_dir = os.path.dirname(os.path.realpath(__file__))
 params_file = os.path.join(experiment_dir, "params.yaml")
 
+tr_csv = os.path.realpath(os.path.join(experiment_dir, "wsj_tr.csv"))
+cv_csv = os.path.realpath(os.path.join(experiment_dir, "wsj_cv.csv"))
+tt_csv = os.path.realpath(os.path.join(experiment_dir, "wsj_tt.csv"))
 
 with open(params_file) as fin:
-    params = sb.yaml.load_extended_yaml(fin)
+    params = sb.yaml.load_extended_yaml(
+        fin, {"tr_csv": tr_csv, "cv_csv": cv_csv, "tt_csv": tt_csv}
+    )
 print(params)
 
 
