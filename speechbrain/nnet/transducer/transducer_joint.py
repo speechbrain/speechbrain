@@ -16,8 +16,9 @@ class Transducer_joint(nn.Module):
 
     Arguments
     ---------
-    joint_network: if joint == "concat" Neural Modules applied after the joint
-                   else None (not used if joint=="sum")
+    joint_network: torch.class (neural network modules)
+        if joint == "concat", we call this network after the concatenation of TN and PN
+        if None, we don't use this network
     joint : joint the two tensors by ("sum",or "concat") option
     nonlinearity: torch class
         Activation function used after the joint between TN and PN
