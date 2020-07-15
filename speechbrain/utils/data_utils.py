@@ -16,7 +16,7 @@ import tqdm
 def get_all_files(
     dirName, match_and=None, match_or=None, exclude_and=None, exclude_or=None
 ):
-    """Returns a list of files within found within a folder.
+    """Returns a list of files found within a folder.
 
     Different options can be used to restrict the search to some specific
     patterns.
@@ -224,7 +224,7 @@ def recursive_update(d, u, must_match=False):
 
 
 def download_file(source, dest, unpack=False, dest_unpack=None):
-    class DownloadProgressBar(tqdm):
+    class DownloadProgressBar(tqdm.tqdm):
         def update_to(self, b=1, bsize=1, tsize=None):
             if tsize is not None:
                 self.total = tsize
