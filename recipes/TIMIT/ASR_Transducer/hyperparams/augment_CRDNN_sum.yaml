@@ -87,7 +87,7 @@ decoder_lin: !new:speechbrain.nnet.linear.Linear
 
 Tjoint: !new:speechbrain.nnet.transducer.transducer_joint.Transducer_joint
     joint: sum # joint [sum | concat]
-    nonlinearity: leakyrelu
+    nonlinearity: !ref <activation>
 
 output: !new:speechbrain.nnet.linear.Linear
     n_neurons: !ref <output_neurons>  # 42 phonemes + 1 blank
