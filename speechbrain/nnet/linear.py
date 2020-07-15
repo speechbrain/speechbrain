@@ -67,7 +67,8 @@ class Linear(torch.nn.Module):
             self.w.weight.data,
             gain=nn.init.calculate_gain(self.act_fct_for_init),
         )
-        self.w.bias.data.fill_(0)
+        if self.bias:
+            self.w.bias.data.fill_(0)
         self.w.to(first_input.device)
 
     def forward(self, x, init_params=False):

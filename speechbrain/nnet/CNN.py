@@ -393,7 +393,8 @@ class Conv1d(nn.Module):
             self.conv.weight.data,
             gain=nn.init.calculate_gain(self.act_fct_for_init),
         )
-        self.conv.bias.data.fill_(0)
+        if self.bias:
+            self.conv.bias.data.fill_(0)
 
     def forward(self, x, init_params=False):
         """Returns the output of the convolution.
@@ -576,7 +577,8 @@ class Conv2d(nn.Module):
             self.conv.weight.data,
             gain=nn.init.calculate_gain(self.act_fct_for_init),
         )
-        self.conv.bias.data.fill_(0)
+        if self.bias:
+            self.conv.bias.data.fill_(0)
 
     def forward(self, x, init_params=False):
         """Returns the output of the convolution.
