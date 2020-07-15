@@ -46,10 +46,15 @@ def cu_kernel_forward(log_probs, labels, alpha, log_p, T, U, blank, lock):
     blank: blank indice
     lock: 2D Tensor of (batch x LabelLength) containing bool(1-0) lock for parallel computation
     """
+    # paralalize the forward algorithm over batch and target length dim
     b = cuda.blockIdx.x
     u = cuda.threadIdx.x
     t = 0
     if u <= U[b]:
+        # for each (B,U) Thread
+        # wait the unlock of the previous computation of Alpha[b,U-1,:]
+        # Do the computation over the whole Time sequence on alpha[B,U,:]
+        # and then unlock the target U+1 for computation
         while t < T[b]:
             if u == 0:
                 if t > 0:
@@ -66,13 +71,16 @@ def cu_kernel_forward(log_probs, labels, alpha, log_p, T, U, blank, lock):
                             + log_probs[b, 0, u - 1, labels[b, u - 1]]
                         )
                     else:
+                        # compute emission prob
                         emit = (
                             alpha[b, t, u - 1]
                             + log_probs[b, t, u - 1, labels[b, u - 1]]
                         )
+                        # compute no_emission prob
                         no_emit = (
                             alpha[b, t - 1, u] + log_probs[b, t - 1, u, blank]
                         )
+                        # do logsumexp between log_emit and log_no_emit
                         alpha[b, t, u] = max(no_emit, emit) + math.log1p(
                             math.exp(-abs(no_emit - emit))
                         )
@@ -81,6 +89,8 @@ def cu_kernel_forward(log_probs, labels, alpha, log_p, T, U, blank, lock):
                     cuda.atomic.add(lock, (b, u), 1)
                     t += 1
         if u == U[b]:
+            # for each thread b (utterance)
+            # normalize the loss over time
             log_p[b] = (
                 alpha[b, T[b] - 1, U[b]] + log_probs[b, T[b] - 1, U[b], blank]
             ) / T[b]
@@ -105,10 +115,15 @@ def cu_kernel_backward(log_probs, labels, beta, log_p, T, U, blank, lock):
     blank: blank indice
     lock: 2D Tensor of (batch x LabelLength) containing bool(1-0) lock for parallel computation
     """
+    # paralalize the forward algorithm over batch and target length dim
     b = cuda.blockIdx.x
     u = cuda.threadIdx.x
     t = T[b] - 1
     if u <= U[b]:
+        # for each (B,U) Thread
+        # wait the unlock of the next computation of beta[b,U+1,:]
+        # Do the computation over the whole Time sequence on beta[B,U,:]
+        # and then unlock the target U-1 for computation
         while t >= 0:
             if u == U[b]:
                 if t == T[b] - 1:
@@ -122,14 +137,18 @@ def cu_kernel_backward(log_probs, labels, beta, log_p, T, U, blank, lock):
             else:
                 if cuda.atomic.add(lock, (b, u), 0) < 0:
                     if t == T[b] - 1:
+                        # do logsumexp between log_emit and log_no_emit
                         beta[b, t, u] = (
                             beta[b, t, u + 1] + log_probs[b, t, u, labels[b, u]]
                         )
                     else:
+                        # compute emission prob
                         emit = (
                             beta[b, t, u + 1] + log_probs[b, t, u, labels[b, u]]
                         )
+                        # compute no_emission prob
                         no_emit = beta[b, t + 1, u] + log_probs[b, t, u, blank]
+                        # do logsumexp between log_emit and log_no_emit
                         beta[b, t, u] = max(no_emit, emit) + math.log1p(
                             math.exp(-abs(no_emit - emit))
                         )
@@ -138,6 +157,8 @@ def cu_kernel_backward(log_probs, labels, beta, log_p, T, U, blank, lock):
                     cuda.atomic.add(lock, (b, u), 1)
                     t -= 1
     if u == 0:
+        # for each thread b (utterance)
+        # normalize the loss over time
         log_p[b] = beta[b, 0, 0] / T[b]
 
 
@@ -160,10 +181,11 @@ def cu_kernel_compute_grad(log_probs, labels, alpha, beta, grads, T, U, blank):
     blank: blank indice
     lock: 2D Tensor of (batch x LabelLength) containing bool(1-0) lock for parallel computation
     """
-
+    # paralalize the gradient computation over batch and timeseq length dim
     t = cuda.blockIdx.x
     b = cuda.threadIdx.x
     if t < T[b]:
+        # compute the gradient for no_emit prob
         if t == 0:
             grads[b, T[b] - 1, U[b], blank] = -math.exp(
                 alpha[b, T[b] - 1, U[b]]
@@ -179,7 +201,7 @@ def cu_kernel_compute_grad(log_probs, labels, alpha, beta, grads, T, U, blank):
                     + log_probs[b, t, u, blank]
                     - beta[b, 0, 0]
                 )
-        # if k != blank
+        # compute the gradient for emit prob
         for u, l in enumerate(labels[b]):
             if u < U[b]:
                 grads[b, t, u, l] = alpha[b, t, u] + beta[b, t, u + 1]
