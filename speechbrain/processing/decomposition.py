@@ -13,6 +13,7 @@ Francois Grondin 2020
 
 import torch
 
+
 def gevd(a, b=None):
     """ This method computes the eigenvectors and the eigenvalues
     of complex Hermitian matrices. The method finds a solution to
@@ -52,30 +53,6 @@ def gevd(a, b=None):
 
     >>> a = torch.FloatTensor([[52,34,16,125,41,62],[0,37,28,0,3,0]])
     >>> vs, ds = gevd(a)
-    >>> vs
-    tensor([[[ 8.5976e-02, -8.5184e-01],
-             [-1.6006e-01,  2.0244e-01],
-             [-4.3990e-01,  8.2884e-02]],
-
-            [[-2.4620e-01,  1.2244e-01],
-             [ 3.7084e-01,  4.0173e-01],
-             [-3.6724e-01, -7.0045e-01]],
-
-            [[-2.4868e-01, -3.5991e-01],
-             [-7.9175e-01, -8.7312e-02],
-             [-4.1728e-01, -9.1244e-08]]])
-    >>> ds
-    tensor([[[ 20.9513,   0.0000],
-         [  0.0000,   0.0000],
-         [  0.0000,   0.0000]],
-
-        [[  0.0000,   0.0000],
-         [ 43.9420,   0.0000],
-         [  0.0000,   0.0000]],
-
-        [[  0.0000,   0.0000],
-         [  0.0000,   0.0000],
-         [174.1067,   0.0000]]])
 
     This corresponds to:
 
@@ -95,8 +72,8 @@ def gevd(a, b=None):
 
     # Dimensions
     D = a.dim()
-    P = a.shape[D-1]
-    C = int(round(((1+8*P)**0.5-1)/2))
+    P = a.shape[D - 1]
+    C = int(round(((1 + 8 * P) ** 0.5 - 1) / 2))
 
     # Converting the input matrices to block matrices
     ash = f(a)
@@ -105,14 +82,14 @@ def gevd(a, b=None):
 
         b = torch.zeros(a.shape, dtype=a.dtype, device=a.device)
         ids = torch.triu_indices(C, C)
-        b[..., 0, ids[0]==ids[1]] = 1.0
+        b[..., 0, ids[0] == ids[1]] = 1.0
 
     bsh = f(b)
 
     # Performing the Cholesky decomposition
     lsh = torch.cholesky(bsh)
     lsh_inv = torch.inverse(lsh)
-    lsh_inv_T = torch.transpose(lsh_inv, D-2, D-1)
+    lsh_inv_T = torch.transpose(lsh_inv, D - 2, D - 1)
 
     # Computing the matrix C
     csh = torch.matmul(lsh_inv, torch.matmul(ash, lsh_inv_T))
@@ -121,17 +98,22 @@ def gevd(a, b=None):
     es, ysh = torch.symeig(csh, eigenvectors=True)
 
     # Collecting the eigenvalues
-    dsh = torch.zeros(a.shape[slice(0,D-2)] + (2*C,2*C), dtype=a.dtype, device=a.device)
-    dsh[..., range(0, 2*C), range(0, 2*C)] = es
+    dsh = torch.zeros(
+        a.shape[slice(0, D - 2)] + (2 * C, 2 * C),
+        dtype=a.dtype,
+        device=a.device,
+    )
+    dsh[..., range(0, 2 * C), range(0, 2 * C)] = es
 
     # Collecting the eigenvectors
-    vsh = torch.matmul(lsh_inv_T, torch.transpose(ysh, D-2, D-1))
+    vsh = torch.matmul(lsh_inv_T, torch.transpose(ysh, D - 2, D - 1))
 
     # Converting the block matrices to full complex matrices
     vs = ginv(vsh)
     ds = ginv(dsh)
 
     return vs, ds
+
 
 def f(ws):
     """ Transform 1
@@ -151,12 +133,16 @@ def f(ws):
 
     # Dimensions
     D = ws.dim()
-    ws = ws.transpose(D-2, D-1)
-    P = ws.shape[D-2]
-    C = int(round(((1+8*P)**0.5-1)/2))
+    ws = ws.transpose(D - 2, D - 1)
+    P = ws.shape[D - 2]
+    C = int(round(((1 + 8 * P) ** 0.5 - 1) / 2))
 
     # Output matrix
-    wsh = torch.zeros(ws.shape[0:(D-2)] + (2*C, 2*C), dtype=ws.dtype, device=ws.device)
+    wsh = torch.zeros(
+        ws.shape[0 : (D - 2)] + (2 * C, 2 * C),
+        dtype=ws.dtype,
+        device=ws.device,
+    )
     ids = torch.triu_indices(C, C)
     wsh[..., ids[1] * 2, ids[0] * 2] = ws[..., 0]
     wsh[..., ids[0] * 2, ids[1] * 2] = ws[..., 0]
@@ -168,6 +154,7 @@ def f(ws):
     wsh[..., ids[1] * 2, ids[0] * 2 + 1] = ws[..., 1]
 
     return wsh
+
 
 def finv(wsh):
     """ Inverse transform 1
@@ -186,16 +173,19 @@ def finv(wsh):
 
     # Dimensions
     D = wsh.dim()
-    C = int(wsh.shape[D-1]/2)
-    P = int(C*(C+1)/2)
+    C = int(wsh.shape[D - 1] / 2)
+    P = int(C * (C + 1) / 2)
 
     # Output matrix
-    ws = torch.zeros(wsh.shape[0:(D-2)] + (2,P), dtype=wsh.dtype, device=wsh.device)
-    ids = torch.triu_indices(C,C)
+    ws = torch.zeros(
+        wsh.shape[0 : (D - 2)] + (2, P), dtype=wsh.dtype, device=wsh.device
+    )
+    ids = torch.triu_indices(C, C)
     ws[..., 0, :] = wsh[..., ids[0] * 2, ids[1] * 2]
     ws[..., 1, :] = -1 * wsh[..., ids[0] * 2, ids[1] * 2 + 1]
 
     return ws
+
 
 def g(ws):
     """ Transform 2
@@ -213,16 +203,21 @@ def g(ws):
 
     # Dimensions
     D = ws.dim()
-    C = ws.shape[D-2]
+    C = ws.shape[D - 2]
 
     # Output matrix
-    wsh = torch.zeros(ws.shape[0:(D-3)] + (2*C,2*C), dtype=ws.dtype, device=ws.device)
-    wsh[..., slice(0, 2*C, 2), slice(0, 2*C, 2)] = ws[..., 0]
-    wsh[..., slice(1, 2*C, 2), slice(1, 2*C, 2)] = ws[..., 0]
-    wsh[..., slice(0, 2*C, 2), slice(1, 2*C, 2)] = -1 * ws[..., 1]
-    wsh[..., slice(1, 2*C, 2), slice(0, 2*C, 2)] = ws[..., 1]
+    wsh = torch.zeros(
+        ws.shape[0 : (D - 3)] + (2 * C, 2 * C),
+        dtype=ws.dtype,
+        device=ws.device,
+    )
+    wsh[..., slice(0, 2 * C, 2), slice(0, 2 * C, 2)] = ws[..., 0]
+    wsh[..., slice(1, 2 * C, 2), slice(1, 2 * C, 2)] = ws[..., 0]
+    wsh[..., slice(0, 2 * C, 2), slice(1, 2 * C, 2)] = -1 * ws[..., 1]
+    wsh[..., slice(1, 2 * C, 2), slice(0, 2 * C, 2)] = ws[..., 1]
 
     return wsh
+
 
 def ginv(wsh):
     """ Inverse transform 2
@@ -241,14 +236,17 @@ def ginv(wsh):
 
     # Extracting data
     D = wsh.dim()
-    C = int(wsh.shape[D-1] / 2)
+    C = int(wsh.shape[D - 1] / 2)
 
     # Output matrix
-    ws = torch.zeros(wsh.shape[0:(D-2)] + (C,C,2), dtype=wsh.dtype, device=wsh.device)
-    ws[..., 0] = wsh[..., slice(0, 2*C, 2), slice(0, 2*C, 2)]
-    ws[..., 1] = wsh[..., slice(1, 2*C, 2), slice(0, 2*C, 2)]
+    ws = torch.zeros(
+        wsh.shape[0 : (D - 2)] + (C, C, 2), dtype=wsh.dtype, device=wsh.device
+    )
+    ws[..., 0] = wsh[..., slice(0, 2 * C, 2), slice(0, 2 * C, 2)]
+    ws[..., 1] = wsh[..., slice(1, 2 * C, 2), slice(0, 2 * C, 2)]
 
     return ws
+
 
 def pos_def(ws, alpha=0.001, eps=1e-20):
     """ Diagonal modification
@@ -274,17 +272,17 @@ def pos_def(ws, alpha=0.001, eps=1e-20):
 
     # Extracting data
     D = ws.dim()
-    P = ws.shape[D-1]
-    C = int(round(((1+8*P)**0.5-1)/2))
+    P = ws.shape[D - 1]
+    C = int(round(((1 + 8 * P) ** 0.5 - 1) / 2))
 
     # Finding the indices of the diagonal
-    ids_triu = torch.triu_indices(C,C)
+    ids_triu = torch.triu_indices(C, C)
     ids_diag = torch.eq(ids_triu[0, :], ids_triu[1, :])
 
     # Computing the trace
-    trace = torch.sum(ws[..., 0, ids_diag], D-2)
+    trace = torch.sum(ws[..., 0, ids_diag], D - 2)
     trace = trace.view(trace.shape + (1,))
-    trace = trace.repeat((1,) * (D-2) + (C,))
+    trace = trace.repeat((1,) * (D - 2) + (C,))
 
     # Adding the trace multiplied by alpha to the diagonal
     ws_pf = ws.clone()
