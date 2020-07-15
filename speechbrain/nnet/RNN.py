@@ -65,7 +65,7 @@ class RNN(torch.nn.Module):
         num_layers=1,
         bias=True,
         dropout=0.0,
-        re_init=False,
+        re_init=True,
         bidirectional=False,
         return_hidden=False,
     ):
@@ -185,7 +185,7 @@ class LSTM(torch.nn.Module):
         num_layers=1,
         bias=True,
         dropout=0.0,
-        re_init=False,
+        re_init=True,
         bidirectional=False,
         return_hidden=False,
     ):
@@ -303,7 +303,7 @@ class GRU(torch.nn.Module):
         num_layers=1,
         bias=True,
         dropout=0.0,
-        re_init=False,
+        re_init=True,
         bidirectional=False,
         return_hidden=False,
     ):
@@ -418,7 +418,7 @@ class RNNCell(nn.Module):
         num_layers=1,
         bias=True,
         dropout=0.0,
-        re_init=False,
+        re_init=True,
         nonlinearity="tanh",
     ):
         super(RNNCell, self).__init__()
@@ -528,7 +528,7 @@ class GRUCell(nn.Module):
     """
 
     def __init__(
-        self, hidden_size, num_layers=1, bias=True, dropout=0.0, re_init=False
+        self, hidden_size, num_layers=1, bias=True, dropout=0.0, re_init=True
     ):
         super(GRUCell, self).__init__()
         self.hidden_size = hidden_size
@@ -635,7 +635,7 @@ class LSTMCell(nn.Module):
     """
 
     def __init__(
-        self, hidden_size, num_layers=1, bias=True, dropout=0.0, re_init=False
+        self, hidden_size, num_layers=1, bias=True, dropout=0.0, re_init=True
     ):
         super(LSTMCell, self).__init__()
         self.hidden_size = hidden_size
@@ -723,7 +723,7 @@ class AttentionalRNNDecoder(nn.Module):
         attn_dim,
         num_layers,
         nonlinearity="relu",
-        re_init=False,
+        re_init=True,
         normalization="batchnorm",
         scaling=1.0,
         channels=None,
@@ -1062,7 +1062,7 @@ class LiGRU(torch.nn.Module):
         num_layers=1,
         bias=True,
         dropout=0.0,
-        re_init=False,
+        re_init=True,
         bidirectional=False,
         return_hidden=False,
     ):
