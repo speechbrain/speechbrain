@@ -316,9 +316,9 @@ def reverberate(waveforms, rir_waveform, rescale_amp="avg"):
         rir_waveform = rir_waveform.unsqueeze(-1)
 
     # Compute the average amplitude of the clean
-    # orig_amplitude = compute_amplitude(
-    #   waveforms, waveforms.size(1), rescale_amp
-    # )
+    orig_amplitude = compute_amplitude(
+        waveforms, waveforms.size(1), rescale_amp
+    )
 
     # Compute index of the direct signal, so we can preserve alignment
     value_max, direct_index = rir_waveform.abs().max(axis=1, keepdim=True)
@@ -336,9 +336,9 @@ def reverberate(waveforms, rir_waveform, rescale_amp="avg"):
     )
 
     # Rescale to the peak amplitude of the clean waveform
-    # waveforms = rescale(
-    #   waveforms, waveforms.size(1), orig_amplitude, rescale_amp
-    # )
+    waveforms = rescale(
+        waveforms, waveforms.size(1), orig_amplitude, rescale_amp
+    )
 
     if len(orig_shape) == 1:
         waveforms = waveforms.squeeze(0).squeeze(-1)
