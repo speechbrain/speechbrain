@@ -77,7 +77,7 @@ class CRDNN(Sequential):
         using_2d_pooling=False,
         rnn_layers=4,
         rnn_neurons=512,
-        rnn_bidirectional=True,
+        rnn_bidirectional=False,
         rnn_re_init=True,
         dnn_blocks=2,
         dnn_neurons=512,
@@ -137,6 +137,7 @@ class CRDNN(Sequential):
                     dropout=dropout,
                     bidirectional=rnn_bidirectional,
                     re_init=rnn_re_init,
+                    nonlinearity="leaky_relu",
                 )
             )
 

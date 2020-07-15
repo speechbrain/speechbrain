@@ -561,6 +561,7 @@ class Conv2d(nn.Module):
 
         self.in_channels = self._check_input(first_input)
 
+        # Weights are initialized following pytorch approach
         self.conv = nn.Conv2d(
             self.in_channels,
             self.out_channels,
@@ -571,14 +572,6 @@ class Conv2d(nn.Module):
             groups=self.groups,
             bias=self.bias,
         ).to(first_input.device)
-
-        # Init parameters
-        nn.init.xavier_uniform_(
-            self.conv.weight.data,
-            gain=nn.init.calculate_gain(self.act_fct_for_init),
-        )
-        if self.bias:
-            self.conv.bias.data.fill_(0)
 
     def forward(self, x, init_params=False):
         """Returns the output of the convolution.

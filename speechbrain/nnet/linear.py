@@ -61,14 +61,9 @@ class Linear(torch.nn.Module):
         if len(first_input.shape) == 4 and self.combine_dims:
             fea_dim = first_input.shape[2] * first_input.shape[3]
 
+        # Weights are initialized following pytorch approach
         self.w = nn.Linear(fea_dim, self.n_neurons, bias=self.bias)
-        # Initialize weights and biases
-        nn.init.xavier_uniform_(
-            self.w.weight.data,
-            gain=nn.init.calculate_gain(self.act_fct_for_init),
-        )
-        if self.bias:
-            self.w.bias.data.fill_(0)
+
         self.w.to(first_input.device)
 
     def forward(self, x, init_params=False):
