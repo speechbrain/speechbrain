@@ -11,6 +11,7 @@ from speechbrain.data_io.data_io import prepend_bos_token
 from speechbrain.decoders.decoders import undo_padding
 from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.train_logger import summarize_error_rate
+import torch
 
 # This hack needed to import data preparation script from ..
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -35,17 +36,24 @@ class ASR(sb.core.Brain):
     def compute_forward(self, x, y, stage="train", init_params=False):
         id, wavs, lens = x
         wavs, lens = wavs.to(params.device), lens.to(params.device)
+        if hasattr(params, "env_corrupt"):
+            wavs_noise = params.env_corrupt(wavs, lens, init_params)
+            wavs = torch.cat([wavs, wavs_noise], dim=0)
+            lens = torch.cat([lens, lens])
+
         if hasattr(params, "augmentation") and stage == "train":
             wavs = params.augmentation(wavs, lens, init_params)
         feats = params.compute_features(wavs, init_params)
         feats = params.normalize(feats, lens)
-        # Transcription network: input-output dependency
+        # Transcription network (TN): input-output dependency
         TN_output = params.encoder_crdnn(feats, init_params=init_params)
         TN_output = params.encoder_lin(TN_output, init_params)
         if stage == "train":
             _, targets, _ = y
+            if hasattr(params, "env_corrupt"):
+                targets = torch.cat([targets, targets], dim=0)
             targets = targets.to(params.device)
-            # Prediction network: output-output dependency
+            # Prediction network (PN): output-output dependency
             # Generate input seq for PN
             decoder_input = prepend_bos_token(
                 targets, bos_index=params.blank_index
@@ -85,6 +93,9 @@ class ASR(sb.core.Brain):
     def compute_objectives(self, predictions, targets, stage="train"):
         predictions, lens = predictions
         ids, phns, phn_lens = targets
+        if hasattr(params, "env_corrupt"):
+            phns = torch.cat([phns, phns], dim=0)
+            phn_lens = torch.cat([phn_lens, phn_lens], dim=0)
         if stage != "train":
             pout = predictions.squeeze(2)
             predictions = predictions.expand(-1, -1, phns.shape[1] + 1, -1)
