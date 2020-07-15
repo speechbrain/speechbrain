@@ -49,7 +49,7 @@ def decode_batch(F, decode_network_lst, Tjoint, classif_network_lst, blank_id):
         >>> PN = GRU(hidden_size=5, num_layers=1, bidirectional=False, return_hidden=True)
         >>> PN_lin = Linear(n_neurons=35, bias=True)
         >>> joint_network= Linear(n_neurons=35, bias=True)
-        >>> Tjoint = Transducer_joint(joint_network, joint="sum", nonlinearity="tanh")
+        >>> Tjoint = Transducer_joint(joint_network, joint="sum")
         >>> Out_lin = Linear(n_neurons=35)
         >>> log_softmax = Softmax(apply_log=False)
         >>> inputs = torch.randn((3,40,35))
