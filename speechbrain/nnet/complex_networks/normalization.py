@@ -21,7 +21,8 @@ class ComplexBatchNorm(torch.nn.Module):
         It is the number of complex neurons to normalize.
     dim: int, optional
         Default: -1
-        It defines the axis that should be normalized.
+        It defines the axis that should be normalized. It usually correspond to
+        the channel dimension.
     eps: float, optional
         Default: 1e-4
         Term used to stabilize operation.
@@ -341,7 +342,7 @@ class ComplexBatchNorm(torch.nn.Module):
         if x.shape[self.dim] % 2 == 0:
             return x.shape[self.dim] // 2
         else:
-            msg = "ComplexBatchNorm dim must be dividble by 2 ! Got " + str(
+            msg = "ComplexBatchNorm dim must be dividible by 2 ! Got " + str(
                 x.shape[self.dim]
             )
             raise ValueError(msg)
@@ -359,7 +360,8 @@ class ComplexLayerNorm(torch.nn.Module):
         It is the number of complex neurons to normalize.
     dim: int, optional
         Default: -1
-        It defines the axis that should be normalized.
+        It defines the axis that should be normalized. It usually correspond to
+        the channel dimension.
     eps: float, optional
         Default: 1e-4
         Term used to stabilize operation.
