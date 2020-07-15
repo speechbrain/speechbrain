@@ -497,7 +497,7 @@ class DataLoaderFactory(torch.nn.Module):
                     if feat_name + "_format" not in row:
                         err_msg = (
                             "The feature %s in the cvs file %s does not "
-                            "contain the field %s to specified its format."
+                            "contain the field %s to specify its format."
                             % (feat_name, self.csv_file, feat_name + "_format")
                         )
                         raise ValueError(err_msg)
@@ -505,7 +505,7 @@ class DataLoaderFactory(torch.nn.Module):
                     if feat_name + "_opts" not in row:
                         err_msg = (
                             "The feature %s in the cvs file %s does not "
-                            "contain the field %s to specified the reader "
+                            "contain the field %s to specify the reader "
                             "options. "
                             % (feat_name, self.csv_file, feat_name + "_opts")
                         )
