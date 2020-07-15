@@ -22,10 +22,12 @@ class CTCBrain(sb.core.Brain):
         feats = params.mean_var_norm(feats, lens)
 
         x = params.conv1(feats, init_params=init_params)
+        x = params.cln1(x, init_params=init_params)
         x = params.activation()(x)
         x = params.pooling(x)
 
         x = params.conv2(feats, init_params=init_params)
+        x = params.cln2(x, init_params=init_params)
         x = params.activation()(x)
         x = params.pooling(x)
 

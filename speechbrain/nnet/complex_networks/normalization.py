@@ -45,7 +45,7 @@ class ComplexBatchNorm(torch.nn.Module):
     Example
     -------
     >>> inp_tensor = torch.rand([10, 16, 30])
-    >>> CBN = ComplexBatchNorm(15)
+    >>> CBN = ComplexBatchNorm()
     >>> out_tensor = CBN(inp_tensor, init_params=True)
     >>> out_tensor.shape
     torch.Size([10, 16, 30])
@@ -54,7 +54,6 @@ class ComplexBatchNorm(torch.nn.Module):
 
     def __init__(
         self,
-        num_complex_features,
         dim=-1,
         eps=1e-4,
         momentum=0.1,
@@ -64,7 +63,6 @@ class ComplexBatchNorm(torch.nn.Module):
     ):
         super().__init__()
 
-        self.num_complex_features = num_complex_features
         self.dim = dim
         self.eps = eps
         self.momentum = momentum
@@ -81,6 +79,7 @@ class ComplexBatchNorm(torch.nn.Module):
         """
 
         self.device = first_input.device
+        self.num_complex_features = self._check_input(first_input)
 
         if self.scale:
             self.gamma_rr = Parameter(
@@ -334,6 +333,19 @@ class ComplexBatchNorm(torch.nn.Module):
 
         return tensor_real, tensor_imag
 
+    def _check_input(self, x):
+        """
+        Checks the input and returns the number of complex values.
+        """
+
+        if x.shape[self.dim] % 2 == 0:
+            return x.shape[self.dim] // 2
+        else:
+            msg = "ComplexBatchNorm dim must be dividble by 2 ! Got " + str(
+                x.shape[self.dim]
+            )
+            raise ValueError(msg)
+
 
 class ComplexLayerNorm(torch.nn.Module):
     """ This class is used to instanciate the complex
@@ -363,18 +375,15 @@ class ComplexLayerNorm(torch.nn.Module):
     Example
     -------
     >>> inp_tensor = torch.rand([10, 16, 30])
-    >>> CBN = ComplexLayerNorm(15)
+    >>> CBN = ComplexLayerNorm()
     >>> out_tensor = CBN(inp_tensor, init_params=True)
     >>> out_tensor.shape
     torch.Size([10, 16, 30])
     """
 
-    def __init__(
-        self, num_complex_features, dim=-1, eps=1e-4, scale=True, center=True
-    ):
+    def __init__(self, dim=-1, eps=1e-4, scale=True, center=True):
 
         super().__init__()
-        self.num_complex_features = num_complex_features
         self.dim = dim
         self.eps = eps
         self.scale = scale
@@ -383,6 +392,7 @@ class ComplexLayerNorm(torch.nn.Module):
     def init_params(self, first_input):
 
         self.device = first_input.device
+        self.num_complex_features = self._check_input(first_input)
 
         if self.scale:
             self.gamma_rr = Parameter(
@@ -495,6 +505,19 @@ class ComplexLayerNorm(torch.nn.Module):
             dim=self.dim,
             layernorm=True,
         )
+
+    def _check_input(self, x):
+        """
+        Checks the input and returns the number of complex values.
+        """
+
+        if x.shape[self.dim] % 2 == 0:
+            return x.shape[self.dim] // 2
+        else:
+            msg = "ComplexBatchNorm dim must be dividble by 2 ! Got " + str(
+                x.shape[self.dim]
+            )
+            raise ValueError(msg)
 
 
 def complex_norm(
