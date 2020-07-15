@@ -65,15 +65,16 @@ class Transducer_joint(nn.Module):
         input_PN: torch.Tensor
            input from Prediction Network.
         """
-        if len(input_TN.shape) != 4:
-            raise ValueError("Arg 1 must be a 4 dim tensor")
-        if len(input_PN.shape) != 4:
-            raise ValueError("Arg 2 must be a 4 dim tensor")
+        if len(input_TN.shape) != len(input_PN.shape):
+            raise ValueError("Arg 1 and 2 must be have same size")
+        if not (len(input_TN.shape) != 4 or len(input_TN.shape) != 1):
+            raise ValueError("Tensors 1 and 2 must have dim=1 or dim=4")
 
         if self.joint == "sum":
             joint = input_TN + input_PN
 
         if self.joint == "concat":
+            # For training
             if len(input_TN.shape) == 4:
                 dim = len(input_TN.shape) - 1
                 xs = input_TN
@@ -84,11 +85,15 @@ class Transducer_joint(nn.Module):
                 xs = xs.expand(torch.Size(sz + [xs.shape[-1]]))
                 ymat = ymat.expand(torch.Size(sz + [ymat.shape[-1]]))
                 joint = torch.cat((xs, ymat), dim=dim)
+            # For evaluation
+            elif len(input_TN.shape) == 1:
+                joint = torch.cat((input_TN, input_PN), dim=0)
 
             # use a joint_network it we do a concat
-            if init_params:
+            if init_params and self.joint_network is not None:
                 self.init_params(joint)
 
-            joint = self.joint_network(joint)
+            if self.joint_network is not None:
+                joint = self.joint_network(joint)
 
         return self.nonlinearity(joint)
