@@ -50,7 +50,7 @@ def compute_amplitude(waveforms, lengths, amp_type="avg", scale="linear"):
             torch.sum(input=torch.abs(waveforms), dim=1, keepdim=True) / lengths
         )
     elif amp_type == "peak":
-        out = torch.max(torch.abs(waveforms), dim=-1, keepdim=True)[0]
+        out = torch.max(torch.abs(waveforms), dim=1, keepdim=True)[0]
     else:
         raise NotImplementedError
 
@@ -139,6 +139,7 @@ def rescale(waveforms, lengths, target_lvl, amp_type="avg", scale="linear"):
         out = target_lvl * waveforms
     elif scale == "dB":
         out = dB_to_amplitude(target_lvl) * waveforms
+
     else:
         raise NotImplementedError("Invalid scale, choose between dB and linear")
 
@@ -306,34 +307,38 @@ def reverberate(waveforms, rir_waveform, rescale_amp="avg"):
     # if inputs are mono tensors we reshape to 1, samples
     if len(waveforms.shape) == 1:
         waveforms = waveforms.unsqueeze(0).unsqueeze(-1)
+    elif len(waveforms.shape) == 2:
+        waveforms = waveforms.unsqueeze(-1)
 
-    if len(rir_waveform.shape) < 2:  # convolve1d expects a 3d tensor !
-        rir_waveform = rir_waveform.unsqueeze(0)
+    if len(rir_waveform.shape) == 1:  # convolve1d expects a 3d tensor !
+        rir_waveform = rir_waveform.unsqueeze(0).unsqueeze(-1)
+    elif len(rir_waveform.shape) == 2:
+        rir_waveform = rir_waveform.unsqueeze(-1)
 
     # Compute the average amplitude of the clean
-    orig_amplitude = compute_amplitude(
-        waveforms, waveforms.size(1), rescale_amp
-    )
+    # orig_amplitude = compute_amplitude(
+    #   waveforms, waveforms.size(1), rescale_amp
+    # )
 
     # Compute index of the direct signal, so we can preserve alignment
-    value_max, direct_index = rir_waveform.abs().max(axis=1)
+    value_max, direct_index = rir_waveform.abs().max(axis=1, keepdim=True)
 
     # Making sure the max is always positive (if not, flip)
-    mask = (rir_waveform[:, direct_index] < 0).squeeze(-1)
-    rir_waveform[mask] = -rir_waveform[mask]
+    # mask = torch.logical_and(rir_waveform == value_max,  rir_waveform < 0)
+    # rir_waveform[mask] = -rir_waveform[mask]
 
     # Use FFT to compute convolution, because of long reverberation filter
     waveforms = convolve1d(
         waveform=waveforms,
-        kernel=rir_waveform.unsqueeze(-1),
+        kernel=rir_waveform,
         use_fft=True,
         rotation_index=direct_index,
     )
 
     # Rescale to the peak amplitude of the clean waveform
-    waveforms = rescale(
-        waveforms, waveforms.size(1), orig_amplitude, rescale_amp
-    )
+    # waveforms = rescale(
+    #   waveforms, waveforms.size(1), orig_amplitude, rescale_amp
+    # )
 
     if len(orig_shape) == 1:
         waveforms = waveforms.squeeze(0).squeeze(-1)
