@@ -59,7 +59,8 @@ def decode_batch(F, decode_network_lst, Tjoint, classif_network_lst, blank_id):
         >>> test_emb = PN_emb(torch.Tensor([[1]]).long(), init_params=True)
         >>> test_PN, _ = PN(test_emb, init_params=True)
         >>> test_PN = PN_lin(test_PN, init_params=True)
-        >>> joint_tensor = Tjoint(TN_out, test_PN, init_params=True)
+        >>> # init Tjoint
+        >>> joint_tensor = Tjoint(TN_out.unsqueze(1), test_PN.unsqueeze(2), init_params=True)
         >>> out = Out_lin(joint_tensor, init_params=True)
         >>> out_decode = decode_batch(TN_out, [PN_emb,PN,PN_lin], Tjoint, [Out_lin], blank_id)
 
