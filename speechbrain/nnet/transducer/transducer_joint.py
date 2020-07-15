@@ -12,14 +12,15 @@ logger = logging.getLogger(__name__)
 
 
 class Transducer_joint(nn.Module):
-    """Computes joint tensor between Transcription network & Prediction network
+    """Computes joint tensor between Transcription network (TN) & Prediction network (PN)
 
     Arguments
     ---------
     joint_network: if joint == "concat" Neural Modules applied after the joint
                    else None (not used if joint=="sum")
     joint : joint the two tensors by ("sum",or "concat") option
-    nonlinearity: str
+    nonlinearity: torch class
+        Activation function used after the joint between TN and PN
          Type of nonlinearity (tanh, relu)
 
     Example
@@ -27,7 +28,7 @@ class Transducer_joint(nn.Module):
     >>> from speechbrain.nnet.transducer.transducer_joint import Transducer_joint
     >>> from speechbrain.nnet.linear import Linear
     >>> joint_network = Linear(80)
-    >>> TJoint = Transducer_joint(joint_network, joint="concat", nonlinearity="tanh")
+    >>> TJoint = Transducer_joint(joint_network, joint="concat")
     >>> input_TN = torch.randn((8, 200, 1, 40))
     >>> input_PN = torch.randn((8, 1, 12, 40))
     >>> output = TJoint(input_TN, input_PN, init_params=True)
@@ -35,16 +36,13 @@ class Transducer_joint(nn.Module):
     torch.Size([8, 200, 12, 80])
     """
 
-    def __init__(self, joint_network=None, joint="sum", nonlinearity="tanh"):
+    def __init__(
+        self, joint_network=None, joint="sum", nonlinearity=torch.nn.LeakyReLU
+    ):
         super().__init__()
         self.joint_network = joint_network
         self.joint = joint
-        if nonlinearity == "tanh":
-            self.nonlinearity = torch.tanh
-        elif nonlinearity == "relu":
-            self.nonlinearity = torch.nn.ReLU()
-        elif nonlinearity == "leakyrelu":
-            self.nonlinearity = torch.nn.LeakyReLU()
+        self.nonlinearity = nonlinearity()
 
     def init_params(self, first_input):
         """
@@ -66,9 +64,9 @@ class Transducer_joint(nn.Module):
         input_PN: torch.Tensor
            input from Prediction Network.
         """
-        if input_TN.shape != 4:
+        if len(input_TN.shape) != 4:
             raise ValueError("Arg 1 must be a 4 dim tensor")
-        if input_PN.shape != 4:
+        if len(input_PN.shape) != 4:
             raise ValueError("Arg 2 must be a 4 dim tensor")
 
         if self.joint == "sum":
