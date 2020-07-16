@@ -7,7 +7,7 @@ import speechbrain as sb
 from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.train_logger import summarize_average
 from joblib import Parallel, delayed
-from pystoi.stoi import stoi
+from stoi.stoi import stoi
 from pesq import pesq
 
 # This hack needed to import data preparation script from ..
