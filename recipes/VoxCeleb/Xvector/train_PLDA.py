@@ -97,7 +97,9 @@ with tqdm(test_set, dynamic_ncols=True) as t:
 
             init_params = False
             params.xvector_model.eval()
-            params.classifier.eval()
+
+            # Classifier is not needed ????
+            # params.classifier.eval()
 
         # Enrolment and test xvectors
         xvect1 = compute_x_vectors(wav1, lens1)
@@ -118,6 +120,9 @@ with tqdm(test_set, dynamic_ncols=True) as t:
             else:
                 negative_scores.append(score[i])
 
+    print("Completed extraction and score computations...")
+
     # Compute the EER
+    print("Computing EER... ")
     eer = EER(torch.tensor(positive_scores), torch.tensor(negative_scores))
     logger.info("EER=%f", eer)
