@@ -23,10 +23,6 @@ class Linear(torch.nn.Module):
         if True, the additive bias b is adopted.
     combine_dims : bool
         if True and the input is 4D, combine 3rd and 4th dimensions of input.
-    act_fct_for_init : str, optional
-        Default: leaky_relu
-        This parameter is used to compute gain for the weight Initialization.
-        See the official pytorch documentation on initialization.
 
     Example
     -------
