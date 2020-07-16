@@ -7,7 +7,7 @@ seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Folders and train_log file
-data_folder: /localscratch/voxceleb1
+data_folder: /network/tmp1/dawalatn/dataset_tmp1/Vox/
 output_folder: results/speaker_verification
 save_folder: !ref <output_folder>/save/
 device: 'cuda:0'
