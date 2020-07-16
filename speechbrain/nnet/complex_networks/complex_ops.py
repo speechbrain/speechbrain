@@ -588,11 +588,8 @@ def get_kernel_and_weight_shape(conv1d, in_channels, out_channels, kernel_size):
         ks = kernel_size
         w_shape = (out_channels, in_channels) + tuple((ks,))
     else:  # in case it is 2d
-        print(kernel_size)
         ks = (kernel_size[0], kernel_size[1])
-        print(ks)
         w_shape = (out_channels, in_channels) + (*ks,)
-        print(w_shape)
     return ks, w_shape
 
 
