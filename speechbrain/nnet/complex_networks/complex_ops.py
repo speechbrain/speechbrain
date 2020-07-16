@@ -127,8 +127,7 @@ class complex_convolution(Module):
         y = w*x + b. y, W, x and b are thus complex numbers.
         A complex number is written as: r + xi. A tensor of
         complex numbers x = [batch, 32] can be understood as
-        [batch, 0:15] = R and [batch, 16:31] = Xi. Thus the features
-        dimension is cut in half (must be dividible by 2).
+        [batch, 0:15] = R and [batch, 16:31] = Xi.
 
         Arguments
         ---------
@@ -223,13 +222,8 @@ class complex_convolution(Module):
             self.weight_init
         ]
 
-        if not isinstance(self.kernel_size, int):
-            uni_kernel_size = self.kernel_size[0]
-        else:
-            uni_kernel_size = kernel_size
-
         (self.k_shape, self.w_shape) = get_kernel_and_weight_shape(
-            self.conv1d, self.in_channels, self.out_channels, uni_kernel_size
+            self.conv1d, self.in_channels, self.out_channels, self.kernel_size
         )
 
         self.real_weight = Parameter(torch.Tensor(*self.w_shape))
@@ -580,7 +574,6 @@ def affect_conv_init(
     imag_weight.data = b.type_as(imag_weight.data)
 
 
-# TO BE TESTED, KERNEL SIZE ARE FORCED TO BE RECTANGULAR !
 def get_kernel_and_weight_shape(conv1d, in_channels, out_channels, kernel_size):
     """ Returns the kernel size and weight shape for convolutional layers.
 
@@ -595,8 +588,11 @@ def get_kernel_and_weight_shape(conv1d, in_channels, out_channels, kernel_size):
         ks = kernel_size
         w_shape = (out_channels, in_channels) + tuple((ks,))
     else:  # in case it is 2d
-        ks = (kernel_size, kernel_size)
+        print(kernel_size)
+        ks = (kernel_size[0], kernel_size[1])
+        print(ks)
         w_shape = (out_channels, in_channels) + (*ks,)
+        print(w_shape)
     return ks, w_shape
 
 
