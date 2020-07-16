@@ -22,7 +22,8 @@ def create_mixture(session_n, output_dir, params, metadata):
         # we create mixture for each speaker and we optionally save it.
         if params.save_dry_sources:
             dry = torch.zeros(tot_length)
-        wet = torch.zeros(tot_length)
+        if params.save_wet_sources:
+            wet = torch.zeros(tot_length)
 
         for utt in metadata[spk]:
             c_audio, fs = torchaudio.load(
@@ -46,7 +47,7 @@ def create_mixture(session_n, output_dir, params, metadata):
                 dry[dry_start:dry_stop] += c_audio
             # we add now reverb and put it in wet
             c_rir, fs = torchaudio.load(
-                os.path.join(params.rirs_root, utt["rir"])
+                os.path.join(params.rirs_noises_root, utt["rir"])
             )
             assert fs == params.samplerate
             c_rir = c_rir[utt["rir_channel"], :]
@@ -55,7 +56,8 @@ def create_mixture(session_n, output_dir, params, metadata):
             # tof is not accounted because in reverberate we shift by it
             wet_start = dry_start
             wet_stop = dry_stop  # + early_rev_samples
-            wet[wet_start : wet_start + len(c_audio)] += c_audio
+            if params.save_wet_sources:
+                wet[wet_start : wet_start + len(c_audio)] += c_audio
 
             session_meta[spk].append(
                 {
@@ -70,7 +72,7 @@ def create_mixture(session_n, output_dir, params, metadata):
                 }
             )
             # we add to mixture
-            mixture += wet
+            mixture[wet_start : wet_start + len(c_audio)] += c_audio
 
         # we allow for clipping as it occurs also in real recordings.
 
@@ -106,7 +108,7 @@ def create_mixture(session_n, output_dir, params, metadata):
     for noise_event in metadata["noises"]:
 
         c_audio, fs = torchaudio.load(
-            os.path.join(params.noises_root, noise_event["file"])
+            os.path.join(params.rirs_noises_root, noise_event["file"])
         )
         assert fs == params.samplerate
         if len(c_audio.shape) > 1:  # multichannel
@@ -119,17 +121,19 @@ def create_mixture(session_n, output_dir, params, metadata):
             scale="dB",
             amp_type="peak",
         )
+
         # we save it in dry
         dry_start = int(noise_event["start"] * params.samplerate)
         dry_stop = dry_start + c_audio.shape[-1]
         # we add now reverb and put it in wet
         c_rir, fs = torchaudio.load(
-            os.path.join(params.rirs_root, noise_event["rir"])
+            os.path.join(params.rirs_noises_root, noise_event["rir"])
         )
         assert fs == params.samplerate
         c_rir = c_rir[noise_event["rir_channel"], :]
 
         c_audio = reverberate(c_audio, c_rir, "peak")
+
         # tof is not accounted because in reverberate we shift by it
         wet_start = dry_start
         mixture[wet_start : wet_start + len(c_audio)] += c_audio

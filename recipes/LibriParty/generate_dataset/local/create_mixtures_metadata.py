@@ -32,8 +32,6 @@ def create_metadata(
 
     dataset_metadata = {}
     for n_sess in tqdm(range(n_sessions)):
-        # we sample minimum possible level and maximum possible level
-        # for whole recording
 
         # we sample randomly n_speakers ids
         c_speakers = np.random.choice(
@@ -82,7 +80,9 @@ def create_metadata(
                         "start": cursor,
                         "stop": cursor + length,
                         "words": words_dict[id_utt],
-                        "rir": str(Path(c_rir).relative_to(configs.rirs_root)),
+                        "rir": str(
+                            Path(c_rir).relative_to(configs.rirs_noises_root)
+                        ),
                         "utt_id": id_utt,
                         "file": str(
                             Path(spk_utts[j]).relative_to(
@@ -126,9 +126,11 @@ def create_metadata(
                     {
                         "start": cursor,
                         "stop": cursor + length,
-                        "rir": str(Path(c_rir).relative_to(configs.rirs_root)),
+                        "rir": str(
+                            Path(c_rir).relative_to(configs.rirs_noises_root)
+                        ),
                         "file": str(
-                            Path(c_noise).relative_to(configs.noises_root)
+                            Path(c_noise).relative_to(configs.rirs_noises_root)
                         ),
                         "lvl": lvl,
                         "channel": channel,

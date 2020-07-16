@@ -3,7 +3,11 @@ import os
 from speechbrain.utils.data_utils import download_file
 from local.resample_folder import resample_folder
 
-LIBRISPEECH_URLS = ["http://www.openslr.org/resources/12/test-clean.tar.gz"]
+LIBRISPEECH_URLS = [
+    "http://www.openslr.org/resources/12/test-clean.tar.gz",
+    "http://www.openslr.org/resources/12/dev-clean.tar.gz",
+    "http://www.openslr.org/resources/12/train-clean-100.tar.gz",
+]
 
 OPENRIR_URL = "http://www.openslr.org/resources/28/rirs_noises.zip"
 QUT_TIMIT_URLS = [
