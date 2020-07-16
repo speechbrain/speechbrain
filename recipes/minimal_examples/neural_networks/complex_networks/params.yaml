@@ -64,7 +64,6 @@ pooling: !new:speechbrain.nnet.pooling.Pooling1d
 rnn: !new:speechbrain.nnet.complex_networks.RNN.ComplexLiGRU
     hidden_size: 64
     bidirectional: True
-    normalization: layernorm
 
 lin: !new:speechbrain.nnet.linear.Linear
     n_neurons: 43  # 42 phonemes + 1 blank
