@@ -43,12 +43,15 @@ def thirdoct(fs, N_fft, numBands, mn):
 
 
 def removeSilentFrames(x, y, dyn_range=40, N=256, K=128):
-    w = np.hanning(257)
+    w = np.hanning(256)
     frames = range(0, x.shape[0] - N, K)
     energy = []
     for frame in frames:
         energy.append(
-            20 * np.log10(np.linalg.norm(w * x[frame : (frame + N)]) / 16.0)
+            20
+            * np.log10(
+                np.linalg.norm(w * x[frame : (frame + N)]) / 16.0 + smallVal
+            )
         )
 
     msk = np.zeros(len(frames))
