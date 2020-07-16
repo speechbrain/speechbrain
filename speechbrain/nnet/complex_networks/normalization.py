@@ -17,8 +17,6 @@ class ComplexBatchNorm(torch.nn.Module):
     Arguments
     ---------
 
-    num_complex_features: int
-        It is the number of complex neurons to normalize.
     dim: int, optional
         Default: -1
         It defines the axis that should be normalized. It usually correspond to

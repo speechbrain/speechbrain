@@ -89,7 +89,7 @@ class complex_linear(nn.Module):
         if self.bias:
             self.b = Parameter(torch.Tensor(2 * n_neurons))
         else:
-            self.b = None
+            self.b = torch.tensor(2 * n_neurons, requires_grad=False)
 
         # Managing the weight initialization and bias
         self.winit = {"complex": complex_init, "unitary": unitary_init}[
@@ -100,7 +100,7 @@ class complex_linear(nn.Module):
             self.real_weight, self.imag_weight, self.winit, init_criterion
         )
 
-        if self.b is not None:
+        if self.b.requires_grad:
             self.b.data.zero_()
             self.b.to(self.device)
 
@@ -232,7 +232,7 @@ class complex_convolution(Module):
         if self.bias:
             self.b = Parameter(torch.Tensor(2 * self.out_channels))
         else:
-            self.b = None
+            self.b = torch.Tensor(2 * self.out_channels, requires_grad=False)
 
         affect_conv_init(
             self.real_weight,
@@ -242,7 +242,7 @@ class complex_convolution(Module):
             self.init_criterion,
         )
 
-        if self.b is not None:
+        if self.b.requires_grad:
             self.b.data.zero_()
 
     def forward(self, x):
@@ -412,7 +412,7 @@ def complex_linear_op(input, real_weight, imag_weight, bias):
     cat_real = torch.cat([real_weight, -imag_weight], dim=0)
     cat_imag = torch.cat([imag_weight, real_weight], dim=0)
     cat_complex = torch.cat([cat_real, cat_imag], dim=1)
-    if bias is not None:
+    if bias.requires_grad:
         if input.dim() == 3:
             if input.size(0) == 1:
                 input = input.squeeze(0)
