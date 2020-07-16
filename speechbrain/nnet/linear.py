@@ -37,18 +37,11 @@ class Linear(torch.nn.Module):
     torch.Size([10, 50, 100])
     """
 
-    def __init__(
-        self,
-        n_neurons,
-        bias=True,
-        combine_dims=False,
-        act_fct_for_init="leaky_relu",
-    ):
+    def __init__(self, n_neurons, bias=True, combine_dims=False):
         super().__init__()
         self.n_neurons = n_neurons
         self.bias = bias
         self.combine_dims = combine_dims
-        self.act_fct_for_init = act_fct_for_init
 
     def init_params(self, first_input):
         """

@@ -345,7 +345,7 @@ class GRU(torch.nn.Module):
         self.rnn = torch.nn.GRU(**kwargs)
 
         if self.re_init:
-            rnn_init(self.rnn, act="tanh")
+            rnn_init(self.rnn)
 
         self.rnn.to(first_input.device)
 
@@ -1098,7 +1098,7 @@ class LiGRU(torch.nn.Module):
         self.rnn = self._init_layers()
 
         if self.re_init:
-            rnn_init(self.rnn, act=self.nonlinearity)
+            rnn_init(self.rnn)
 
     def _init_layers(self,):
         """
@@ -1664,11 +1664,10 @@ class QuasiRNN(nn.Module):
             return x
 
 
-def rnn_init(module, act="tanh"):
+def rnn_init(module):
     """
     This function is used to initialize the RNN weight.
     Recurrent connection: orthogonal initialization.
-
 
     Arguments
     ---------
