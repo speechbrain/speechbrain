@@ -31,7 +31,9 @@ csv_test: !ref <data_folder>/test.csv
 number_of_epochs: 15
 N_batch: 1
 lr: 0.001
-device: 'cuda:0'
+device: 'cuda'
+Sample_rate: 16000
+max_length: !ref <Sample_rate> * 10
 
 train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>
@@ -152,7 +154,8 @@ model: !new:speechbrain.nnet.containers.Sequential
     - !ref <activation>
     - !ref <conv_out>
 
-compute_cost: !name:stoi_loss.stoi_loss
+
+compute_cost: !name:speechbrain.nnet.losses.stoi_loss.stoi_loss
 
 optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
     learning_rate: !ref <lr>

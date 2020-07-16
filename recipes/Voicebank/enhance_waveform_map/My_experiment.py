@@ -3,10 +3,10 @@ import os
 import sys
 import torch
 import torchaudio
-import multiprocessing
 import speechbrain as sb
 from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.train_logger import summarize_average
+from joblib import Parallel, delayed
 from pystoi.stoi import stoi
 from pesq import pesq
 
@@ -44,32 +44,17 @@ def truncate(wavs, lengths, max_length):
     return wavs, lengths
 
 
-def evaluation(clean, enhanced, length):
-    clean = clean[:length]
-    enhanced = enhanced[:length]
-    pesq_score = pesq(params.Sample_rate, clean, enhanced, "wb")
-    stoi_score = stoi(clean, enhanced, params.Sample_rate)
-    return pesq_score, stoi_score
-
-
-def multiprocess_evaluation(pred_wavs, target_wavs, lens, num_cores):
-    processes = []
-    pool = multiprocessing.Pool(processes=num_cores)
-
-    for clean, enhanced, length in zip(target_wavs, pred_wavs, lens):
-        processes.append(
-            pool.apply_async(evaluation, args=(clean, enhanced, int(length)))
+def multiprocess_evaluation(pred_wavs, target_wavs, lengths):
+    stoi_scores = Parallel(n_jobs=30)(
+        delayed(stoi)(clean[0 : int(lens)], enhanced[0 : int(lens)], 16000)
+        for enhanced, clean, lens in zip(pred_wavs, target_wavs, lengths)
+    )
+    pesq_scores = Parallel(n_jobs=30)(
+        delayed(pesq)(
+            16000, clean[0 : int(lens)], enhanced[0 : int(lens)], "wb"
         )
-
-    pool.close()
-    pool.join()
-
-    pesq_scores, stoi_scores = [], []
-    for process in processes:
-        pesq_score, stoi_score = process.get()
-        pesq_scores.append(pesq_score)
-        stoi_scores.append(stoi_score)
-
+        for enhanced, clean, lens in zip(pred_wavs, target_wavs, lengths)
+    )
     return pesq_scores, stoi_scores
 
 
@@ -106,7 +91,6 @@ class SEBrain(sb.core.Brain):
             predict_wavs.cpu().numpy(),
             target_wavs.cpu().numpy(),
             lens.cpu().numpy(),
-            multiprocessing.cpu_count(),
         )
         stats["pesq"] = pesq_scores
         stats["stoi"] = stoi_scores
