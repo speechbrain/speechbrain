@@ -30,6 +30,8 @@ args = parser.parse_args()
 # QUT-NOISE/
 # rirs_noises/
 
+os.makedirs(args.output_folder, exist_ok=True)
+
 if args.stage <= 0:
     print("Stage 0: Downloading LibriSpeech")
     for url in LIBRISPEECH_URLS:
