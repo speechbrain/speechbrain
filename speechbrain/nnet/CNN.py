@@ -327,10 +327,6 @@ class Conv1d(nn.Module):
         documentation for more information.
     bias: bool
         If True, the additive bias b is adopted.
-    act_fct_for_init : str, optional
-        Default: leaky_relu
-        This parameter is used to compute gain for the weight Initialization.
-        See the official pytorch documentation on initialization.
 
     Example
     -------
@@ -501,10 +497,6 @@ class Conv2d(nn.Module):
         documentation for more information.
     bias: bool
         If True, the additive bias b is adopted.
-    act_fct_for_init : str, optional
-        Default: leaky_relu
-        This parameter is used to compute gain for the weight Initialization.
-        See the official pytorch documentation on initialization.
 
     Example
     -------
