@@ -435,7 +435,7 @@ class Brain:
         test_set : list of DataLoaders
             This list will be zipped before iterating.
         progressbar : bool
-            Whether to display the progress of each epoch in a progressbar.
+            Whether to display the progress in a progressbar.
 
         Returns
         -------
