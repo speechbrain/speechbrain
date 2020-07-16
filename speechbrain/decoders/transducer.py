@@ -7,21 +7,29 @@ Author:
 import torch
 
 
-def decode_batch(F, decode_network_lst, Tjoint, classif_network_lst, blank_id):
+def decode_batch(
+    tn_output, decode_network_lst, tjoint, classifier_network, blank_id
+):
     """
-    Batch greedy decoder of the probabilities and apply Transducer rules
+    Batch greedy decoder is a greedy decoder over batch which apply Transducer rules:
+        1- for each time stemps in the Transcription Network (TN) output:
+            -> Update the ith utterance only if
+                the previous target != the new one (we save the hiddens and the target)
+            -> otherwise:
+            ---> keep the previous target prediction from the decoder
 
     Arguments
     ----------
-    F : torch.tensor
+    tn_output : torch.tensor
         output from transcription network with shape
         [batch, time_len, hiddens]
     decode_network_lst: list
-        list of prediction layers
-    Tjoint: transducer_joint module
+        list of prediction netowrk (PN) layers
+    tjoint: transducer_joint module
         this module perform the joint between TN and PN
-    classif_network_lst: list
+    classifier_network: list
         list of output layers (after performing joint between TN and PN)
+        exp: (TN,PN) => joint => classifier_network_list [DNN bloc, Linear..] => chars prob
     blank_id : int, string
         The blank symbol/index. Default: -1. If a negative number is given,
         it is assumed to mean counting down from the maximum possible index,
@@ -29,9 +37,9 @@ def decode_batch(F, decode_network_lst, Tjoint, classif_network_lst, blank_id):
 
     Returns
     -------
-    list
-        Outputs as Python list of lists, with "ragged" dimensions; padding
-        has been removed.
+    torch.tensor
+        Outputs a logits tensor [B,T,1,Output_Dim]; padding
+        has not been removed.
 
     Example
     -------
@@ -49,7 +57,7 @@ def decode_batch(F, decode_network_lst, Tjoint, classif_network_lst, blank_id):
         >>> PN = GRU(hidden_size=5, num_layers=1, bidirectional=False, return_hidden=True)
         >>> PN_lin = Linear(n_neurons=35, bias=True)
         >>> joint_network= Linear(n_neurons=35, bias=True)
-        >>> Tjoint = Transducer_joint(joint_network, joint="sum")
+        >>> tjoint = Transducer_joint(joint_network, joint="sum")
         >>> Out_lin = Linear(n_neurons=35)
         >>> log_softmax = Softmax(apply_log=False)
         >>> inputs = torch.randn((3,40,35))
@@ -59,23 +67,26 @@ def decode_batch(F, decode_network_lst, Tjoint, classif_network_lst, blank_id):
         >>> test_emb = PN_emb(torch.Tensor([[1]]).long(), init_params=True)
         >>> test_PN, _ = PN(test_emb, init_params=True)
         >>> test_PN = PN_lin(test_PN, init_params=True)
-        >>> # init Tjoint
-        >>> joint_tensor = Tjoint(TN_out.unsqueeze(1), test_PN.unsqueeze(2), init_params=True)
+        >>> # init tjoint
+        >>> joint_tensor = tjoint(TN_out.unsqueeze(1), test_PN.unsqueeze(2), init_params=True)
         >>> out = Out_lin(joint_tensor, init_params=True)
-        >>> out_decode = decode_batch(TN_out, [PN_emb,PN,PN_lin], Tjoint, [Out_lin], blank_id)
+        >>> out_decode = decode_batch(TN_out, [PN_emb,PN,PN_lin], tjoint, [Out_lin], blank_id)
 
     Author:
         Abdelwahab HEBA 2020
     """
+    # prepare BOS= Blank for the Prediction Network (PN)
     hidden = None
     list_outs = []
     # Prepare Blank prediction
     input_PN = (
-        torch.ones((F.size(0), 1), device=F.device, dtype=torch.int64)
+        torch.ones(
+            (tn_output.size(0), 1), device=tn_output.device, dtype=torch.int64
+        )
         * blank_id
     )
     out_PN = input_PN
-    # First forward on PN
+    # First forward-pass on PN
     hidden = None
     for layer in decode_network_lst:
         if layer.__class__.__name__ in [
@@ -89,13 +100,17 @@ def decode_batch(F, decode_network_lst, Tjoint, classif_network_lst, blank_id):
         else:
             out_PN = layer(out_PN)
     # For each time step
-    for t_step in range(F.size(1)):
+    for t_step in range(tn_output.size(1)):
         # Join predictions (TN & PN)
-        out = Tjoint(
-            F[:, t_step, :].unsqueeze(1).unsqueeze(1), out_PN.unsqueeze(1)
+        # tjoint must be have a 4 dim [B,T,U,Hidden]
+        # so do unsqueeze over
+        # the output would be a tensor of [B,T,U, oneof[sum,concat](Hidden_TN,Hidden_PN)]
+        out = tjoint(
+            tn_output[:, t_step, :].unsqueeze(1).unsqueeze(1),
+            out_PN.unsqueeze(1),
         )
         # forward the output layers + activation + save logits
-        for layer in classif_network_lst:
+        for layer in classifier_network:
             out = layer(out)
 
         list_outs.append(out)
