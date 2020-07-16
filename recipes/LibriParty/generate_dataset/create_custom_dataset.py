@@ -66,8 +66,12 @@ def parse_libri_folder(libri_folders):
 # split
 split_f = params.split_factors
 # we get all noises and rirs
-noises = get_all_files(params.noises_root, match_and=[".wav"])
-rirs = get_all_files(params.rirs_root, match_and=[".wav"])
+noises = []
+for f in params.noises_folders:
+    noises.extend(get_all_files(f, match_and=[".wav"]))
+rirs = []
+for f in params.rirs_folders:
+    rirs.extend(get_all_files(f, match_and=[".wav"]))
 # we split them in training, dev and eval
 noises = split_list(noises, split_f)
 rirs = split_list(rirs, split_f)

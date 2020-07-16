@@ -20,27 +20,35 @@ It is suitable for a wide range of tasks including:
 This recipe offers **"custom" dataset creation** or **"official" dataset creation**, by downloading pre-created,
 **"official" metadata files** from [temp-onedrive-link](todo) and creating the dataset from this metadata.
 
-#### from official metadata:
+#### From official metadata:
 "Official" dataset uses LibriSpeech train-clean-100 for training, dev-clean for development and test-clean for test.
-It also requires background TIMIT-QUT noises.
+It also requires background QUT-TIMIT noises.
 
 - Step 1, **manual download**:
     - download LibriSpeech train-clean-100, dev-clean and test-clean from [https://openslr.org/12/](https://openslr.org/12/).
-    - download noises and impulse responses from [here]().
-    - download from [here]().
-    - resample QUT-TIMIT noise sources to 16 kHz using *local/resample_folder.py*.
-    - download "official" metadata from [temp-onedrive-link]().
+    - download noises and impulse responses from [here](https://openslr.org/28/).
+    - download background QUT noise from [here](https://github.com/qutsaivt/QUT-NOISE).
+    - resample QUT noise sources to 16 kHz using *local/resample_folder.py*.
+    - download "official" metadata from [temp-onedrive-link](todo).
 
-- Step 1, **use provided script** for downloading and resampling sources:
+- Step 1 (Alternative), **use provided script** for downloading and resampling sources:
     - run *download_required_data.py* to download all required data automatically.
-
-- step 2: change the paths accordingly in *dataset.yml*
+- step 2: change the paths accordingly in *dataset.yaml*
 - step 3: run *create_dataset_from_metadata.py*
 
-#### custom
+#### Custom:
 
-TODO
+- Step 1, **manual download**:
+    - download LibriSpeech train-clean-100, dev-clean and test-clean from [https://openslr.org/12/](https://openslr.org/12/).
+    - download noises and impulse responses from [here](https://openslr.org/28/).
+    - download background QUT noise from [here](https://github.com/qutsaivt/QUT-NOISE).
+    - resample QUT noise sources to 16 kHz using *local/resample_folder.py*.
 
+- Step 1 (Alternative), **use provided script** for downloading and resampling sources:
+    - run *download_required_data.py* to download all required data automatically.
+
+- step 2: change the paths accordingly in *dataset.yaml*
+- step 3: run *create_custom_dataset.py*
 
 ---
 References:
