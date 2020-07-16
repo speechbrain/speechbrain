@@ -31,6 +31,8 @@ class CTCBrain(sb.core.Brain):
         x = params.activation()(x)
         x = params.pooling(x)
 
+        x = params.rnn(x, init_params=init_params)
+
         x = params.lin(x, init_params)
         outputs = params.softmax(x)
 

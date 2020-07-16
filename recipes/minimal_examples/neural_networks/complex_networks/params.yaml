@@ -12,7 +12,7 @@ csv_test: !ref <data_folder>/test.csv
 # Neural Parameters
 N_epochs: 30
 N_batch: 1
-lr: 0.5
+lr: 0.008
 
 # Model parameters
 activation: !name:torch.nn.LeakyReLU []
@@ -58,12 +58,13 @@ conv2: !new:speechbrain.nnet.complex_networks.CNN.ComplexConv1d
 cln2: !new:speechbrain.nnet.complex_networks.normalization.ComplexLayerNorm
 
 pooling: !new:speechbrain.nnet.pooling.Pooling1d
-    pool_type: "max"
+    pool_type: "avg"
     kernel_size: 3
 
-rnn: !new:speechbrain.nnet.complex_networks.RNN.ComplexRNN
+rnn: !new:speechbrain.nnet.complex_networks.RNN.ComplexLiGRU
     hidden_size: 64
     bidirectional: True
+    normalization: layernorm
 
 lin: !new:speechbrain.nnet.linear.Linear
     n_neurons: 43  # 42 phonemes + 1 blank
