@@ -351,7 +351,6 @@ class Conv1d(nn.Module):
         groups=1,
         bias=True,
         padding_mode="reflect",
-        act_fct_for_init="leaky_relu",
     ):
         super().__init__()
         self.out_channels = out_channels
@@ -363,7 +362,6 @@ class Conv1d(nn.Module):
         self.bias = bias
         self.padding_mode = padding_mode
         self.unsqueeze = False
-        self.act_fct_for_init = act_fct_for_init
 
     def init_params(self, first_input):
         """
@@ -387,14 +385,6 @@ class Conv1d(nn.Module):
             groups=self.groups,
             bias=self.bias,
         ).to(first_input.device)
-
-        # Init parameters
-        nn.init.xavier_uniform_(
-            self.conv.weight.data,
-            gain=nn.init.calculate_gain(self.act_fct_for_init),
-        )
-        if self.bias:
-            self.conv.bias.data.fill_(0)
 
     def forward(self, x, init_params=False):
         """Returns the output of the convolution.
@@ -535,7 +525,6 @@ class Conv2d(nn.Module):
         groups=1,
         bias=True,
         padding_mode="reflect",
-        act_fct_for_init="leaky_relu",
     ):
         super().__init__()
         self.out_channels = out_channels
@@ -547,7 +536,6 @@ class Conv2d(nn.Module):
         self.bias = bias
         self.padding_mode = padding_mode
         self.unsqueeze = False
-        self.act_fct_for_init = act_fct_for_init
 
     def init_params(self, first_input):
         """
