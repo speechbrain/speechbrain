@@ -11,7 +11,12 @@ Szu-Wei Fu, 2020
 
 import os
 import csv
+import urllib
+import shutil
 import logging
+import tempfile
+import torchaudio
+from torchaudio.transforms import Resample
 from speechbrain.utils.data_utils import get_all_files
 from speechbrain.data_io.data_io import read_wav_soundfile
 
@@ -284,3 +289,112 @@ def check_Voicebank_folders(
             "the Voicebank dataset)" % (test_noisy_folder)
         )
         raise FileNotFoundError(err_msg)
+
+
+def download_vctk(destination, tmp_dir=None, device="cpu"):
+    """Download dataset and perform resample to 16000 Hz.
+
+    Arguments
+    ---------
+    destination : str
+        Place to put final zipped dataset.
+    tmp_dir : str
+        Location to store temporary files. Will use `tempfile` if not provided.
+    device : str
+        Passed directly to pytorch's ``.to()`` method. Used for resampling.
+    """
+    dataset_name = "noisy-vctk-16k"
+    if tmp_dir is None:
+        tmp_dir = tempfile.gettempdir()
+    final_dir = os.path.join(tmp_dir, dataset_name)
+
+    if not os.path.isdir(tmp_dir):
+        os.mkdir(tmp_dir)
+
+    if not os.path.isdir(final_dir):
+        os.mkdir(final_dir)
+
+    noisy_vctk_urls = [
+        "https://datashare.is.ed.ac.uk/bitstream/handle/10283/2791/"
+        "clean_testset_wav.zip",
+        "https://datashare.is.ed.ac.uk/bitstream/handle/10283/2791/"
+        "noisy_testset_wav.zip",
+        "https://datashare.is.ed.ac.uk/bitstream/handle/10283/2791/"
+        "testset_txt.zip",
+        "https://datashare.is.ed.ac.uk/bitstream/handle/10283/2791/"
+        "clean_trainset_28spk_wav.zip",
+        "https://datashare.is.ed.ac.uk/bitstream/handle/10283/2791/"
+        "noisy_trainset_28spk_wav.zip",
+        "https://datashare.is.ed.ac.uk/bitstream/handle/10283/2791/"
+        "trainset_28spk_txt.zip",
+    ]
+
+    zip_files = []
+    for url in noisy_vctk_urls:
+        filename = os.path.join(tmp_dir, url.split("/")[-1])
+        zip_files.append(filename)
+        if not os.path.isfile(filename):
+            print("Downloading " + url)
+            with urllib.request.urlopen(url) as response:
+                with open(filename, "wb") as tmp_file:
+                    print("... to " + tmp_file.name)
+                    shutil.copyfileobj(response, tmp_file)
+
+    # Unzip
+    for zip_file in zip_files:
+        print("Unzipping " + zip_file)
+        shutil.unpack_archive(zip_file, tmp_dir, "zip")
+        os.remove(zip_file)
+
+    # Move transcripts to final dir
+    shutil.move(os.path.join(tmp_dir, "testset_txt"), final_dir)
+    shutil.move(os.path.join(tmp_dir, "trainset_28spk_txt"), final_dir)
+
+    # Downsample
+    dirs = [
+        "noisy_testset_wav",
+        "clean_testset_wav",
+        "noisy_trainset_28spk_wav",
+        "clean_trainset_28spk_wav",
+    ]
+
+    downsampler = Resample(orig_freq=48000, new_freq=16000)
+
+    for directory in dirs:
+        print("Resampling " + directory)
+        dirname = os.path.join(tmp_dir, directory)
+
+        # Make directory to store downsampled files
+        dirname_16k = os.path.join(final_dir, directory + "_16k")
+        if not os.path.isdir(dirname_16k):
+            os.mkdir(dirname_16k)
+
+        # Load files and downsample
+        for filename in get_all_files(dirname, match_and=[".wav"]):
+            signal, rate = torchaudio.load(filename)
+            downsampled_signal = downsampler(signal.view(1, -1).to(device))
+
+            # Save downsampled file
+            torchaudio.save(
+                os.path.join(dirname_16k, filename[-12:]),
+                downsampled_signal[0].cpu(),
+                sample_rate=16000,
+                channels_first=False,
+            )
+
+            # Remove old file
+            os.remove(filename)
+
+        # Remove old directory
+        os.rmdir(dirname)
+
+    print("Zipping " + final_dir)
+    final_zip = shutil.make_archive(
+        base_name=final_dir,
+        format="zip",
+        root_dir=os.path.dirname(final_dir),
+        base_dir=os.path.basename(final_dir),
+    )
+
+    print(f"Moving {final_zip} to {destination}")
+    shutil.move(final_zip, os.path.join(destination, dataset_name + ".zip"))

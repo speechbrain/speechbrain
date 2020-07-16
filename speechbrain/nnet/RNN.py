@@ -379,6 +379,341 @@ class GRU(torch.nn.Module):
             return output
 
 
+class RNNCell(nn.Module):
+    """ This class implements a basic RNN Cell for a timestep of input,
+    while RNN() takes the whole sequence as input.
+    It is designed for autoregressive decoder (ex. attentional decoder),
+    which takes one input at a time.
+    Using torch.nn.RNNCell() instead of torch.nn.RNN() to reduce VRAM
+    consumption.
+
+    It accepts in input tensors formatted as (batch, fea).
+
+    Arguments
+    ---------
+    hidden_size: int
+        Number of output neurons (i.e, the dimensionality of the output).
+    num_layers: int
+        Number of layers to employ in the RNN architecture.
+    bias: bool
+        If True, the additive bias b is adopted.
+    dropout: float
+        It is the dropout factor (must be between 0 and 1).
+    re_init: bool:
+        It True, orthogonal initialization is used for the recurrent weights.
+        Xavier initialization is used for the input connection weights.
+
+    Example
+    -------
+    >>> inp_tensor = torch.rand([4, 20])
+    >>> net = RNNCell(hidden_size=5)
+    >>> out_tensor, _ = net(inp_tensor, init_params=True)
+    >>> out_tensor.shape
+    torch.Size([4, 5])
+    """
+
+    def __init__(
+        self,
+        hidden_size,
+        num_layers=1,
+        bias=True,
+        dropout=0.0,
+        re_init=False,
+        nonlinearity="tanh",
+    ):
+        super(RNNCell, self).__init__()
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
+        self.bias = bias
+        self.dropout = dropout
+        self.nonlinearity = nonlinearity
+        self.re_init = re_init
+
+    def init_params(self, first_input):
+        """
+        Initializes the parameters of the RNNCell.
+
+        Arguments
+        ---------
+        first_input : tensor
+            A first input used for initializing the parameters.
+        """
+        # Computing the feature dimensionality
+        self.fea_dim = torch.prod(torch.tensor(first_input.shape[1:]))
+
+        kwargs = {
+            "input_size": self.fea_dim,
+            "hidden_size": self.hidden_size,
+            "bias": self.bias,
+            "nonlinearity": self.nonlinearity,
+        }
+
+        self.rnn_cells = nn.ModuleList([torch.nn.RNNCell(**kwargs)])
+        kwargs["input_size"] = self.hidden_size
+
+        for i in range(self.num_layers - 1):
+            self.rnn_cells.append(torch.nn.RNNCell(**kwargs))
+
+        self.dropout_layers = nn.ModuleList(
+            [
+                torch.nn.Dropout(p=self.dropout)
+                for _ in range(self.num_layers - 1)
+            ]
+        )
+
+        if self.re_init:
+            rnn_init(self.rnn_cells)
+
+        self.rnn_cells.to(first_input.device)
+
+    def forward(self, x, hx=None, init_params=False):
+        """Returns the output of the RNNCell.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            The input of RNNCell.
+        hx : torch.Tensor
+            The hidden states of RNNCell.
+        """
+        if init_params:
+            self.init_params(x)
+
+        # if not provided, initialized with zeros
+        if hx is None:
+            hx = x.new_zeros(self.num_layers, x.shape[0], self.hidden_size)
+
+        h = self.rnn_cells[0](x, hx[0])
+        hidden_lst = [h]
+        for i in range(1, self.num_layers):
+            drop_h = self.dropout_layers[i - 1](h)
+            h = self.rnn_cells[i](drop_h, hx[i])
+            hidden_lst.append(h)
+
+        hidden = torch.stack(hidden_lst, dim=0)
+        return h, hidden
+
+
+class GRUCell(nn.Module):
+    """ This class implements a basic GRU Cell for a timestep of input,
+    while GRU() takes the whole sequence as input.
+    It is designed for autoregressive decoder (ex. attentional decoder),
+    which takes one input at a time.
+    Using torch.nn.GRUCell() instead of torch.nn.GRU() to reduce VRAM
+    consumption.
+
+    It accepts in input tensors formatted as (batch, fea).
+
+    Arguments
+    ---------
+    hidden_size: int
+        Number of output neurons (i.e, the dimensionality of the output).
+    num_layers: int
+        Number of layers to employ in the GRU architecture.
+    bias: bool
+        If True, the additive bias b is adopted.
+    dropout: float
+        It is the dropout factor (must be between 0 and 1).
+    re_init: bool:
+        It True, orthogonal initialization is used for the recurrent weights.
+        Xavier initialization is used for the input connection weights.
+
+    Example
+    -------
+    >>> inp_tensor = torch.rand([4, 20])
+    >>> net = GRUCell(hidden_size=5)
+    >>> out_tensor, _ = net(inp_tensor, init_params=True)
+    >>> out_tensor.shape
+    torch.Size([4, 5])
+    """
+
+    def __init__(
+        self, hidden_size, num_layers=1, bias=True, dropout=0.0, re_init=False
+    ):
+        super(GRUCell, self).__init__()
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
+        self.bias = bias
+        self.dropout = dropout
+        self.re_init = re_init
+
+    def init_params(self, first_input):
+        """
+        Initializes the parameters of the GRUCell.
+
+        Arguments
+        ---------
+        first_input : tensor
+            A first input used for initializing the parameters.
+        """
+        # Computing the feature dimensionality
+        self.fea_dim = torch.prod(torch.tensor(first_input.shape[1:]))
+
+        kwargs = {
+            "input_size": self.fea_dim,
+            "hidden_size": self.hidden_size,
+            "bias": self.bias,
+        }
+
+        self.rnn_cells = nn.ModuleList([torch.nn.GRUCell(**kwargs)])
+        kwargs["input_size"] = self.hidden_size
+
+        for i in range(self.num_layers - 1):
+            self.rnn_cells.append(torch.nn.GRUCell(**kwargs))
+
+        self.dropout_layers = nn.ModuleList(
+            [
+                torch.nn.Dropout(p=self.dropout)
+                for _ in range(self.num_layers - 1)
+            ]
+        )
+
+        if self.re_init:
+            rnn_init(self.rnn_cells)
+
+        self.rnn_cells.to(first_input.device)
+
+    def forward(self, x, hx=None, init_params=False):
+        """Returns the output of the GRUCell.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            The input of GRUCell.
+        hx : torch.Tensor
+            The hidden states of GRUCell.
+        """
+        if init_params:
+            self.init_params(x)
+
+        # if not provided, initialized with zeros
+        if hx is None:
+            hx = x.new_zeros(self.num_layers, x.shape[0], self.hidden_size)
+
+        h = self.rnn_cells[0](x, hx[0])
+        hidden_lst = [h]
+        for i in range(1, self.num_layers):
+            drop_h = self.dropout_layers[i - 1](h)
+            h = self.rnn_cells[i](drop_h, hx[i])
+            hidden_lst.append(h)
+
+        hidden = torch.stack(hidden_lst, dim=0)
+        return h, hidden
+
+
+class LSTMCell(nn.Module):
+    """ This class implements a basic LSTM Cell for a timestep of input,
+    while LSTM() takes the whole sequence as input.
+    It is designed for autoregressive decoder (ex. attentional decoder),
+    which takes one input at a time.
+    Using torch.nn.LSTMCell() instead of torch.nn.LSTM() to reduce VRAM
+    consumption.
+
+    It accepts in input tensors formatted as (batch, fea).
+
+    Arguments
+    ---------
+    hidden_size: int
+        Number of output neurons (i.e, the dimensionality of the output).
+    num_layers: int
+        Number of layers to employ in the LSTM architecture.
+    bias: bool
+        If True, the additive bias b is adopted.
+    dropout: float
+        It is the dropout factor (must be between 0 and 1).
+    re_init: bool:
+        It True, orthogonal initialization is used for the recurrent weights.
+        Xavier initialization is used for the input connection weights.
+
+    Example
+    -------
+    >>> inp_tensor = torch.rand([4, 20])
+    >>> net = LSTMCell(hidden_size=5)
+    >>> out_tensor, _ = net(inp_tensor, init_params=True)
+    >>> out_tensor.shape
+    torch.Size([4, 5])
+    """
+
+    def __init__(
+        self, hidden_size, num_layers=1, bias=True, dropout=0.0, re_init=False
+    ):
+        super(LSTMCell, self).__init__()
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
+        self.bias = bias
+        self.dropout = dropout
+        self.re_init = re_init
+
+    def init_params(self, first_input):
+        """
+        Initializes the parameters of the LSTM.
+
+        Arguments
+        ---------
+        first_input : tensor
+            A first input used for initializing the parameters.
+        """
+        # Computing the feature dimensionality
+        self.fea_dim = torch.prod(torch.tensor(first_input.shape[1:]))
+
+        kwargs = {
+            "input_size": self.fea_dim,
+            "hidden_size": self.hidden_size,
+            "bias": self.bias,
+        }
+
+        self.rnn_cells = nn.ModuleList([torch.nn.LSTMCell(**kwargs)])
+        kwargs["input_size"] = self.hidden_size
+
+        for i in range(self.num_layers - 1):
+            self.rnn_cells.append(torch.nn.LSTMCell(**kwargs))
+
+        self.dropout_layers = nn.ModuleList(
+            [
+                torch.nn.Dropout(p=self.dropout)
+                for _ in range(self.num_layers - 1)
+            ]
+        )
+
+        if self.re_init:
+            rnn_init(self.rnn_cells)
+
+        self.rnn_cells.to(first_input.device)
+
+    def forward(self, x, hx=None, init_params=False):
+        """Returns the output of the LSTMCell.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            The input of LSTMCell.
+        hx : torch.Tensor
+            The hidden states of LSTMCell.
+        """
+        if init_params:
+            self.init_params(x)
+
+        # if not provided, initialized with zeros
+        if hx is None:
+            hx = (
+                x.new_zeros(self.num_layers, x.shape[0], self.hidden_size),
+                x.new_zeros(self.num_layers, x.shape[0], self.hidden_size),
+            )
+
+        h, c = self.rnn_cells[0](x, (hx[0][0], hx[1][0]))
+        hidden_lst = [h]
+        cell_lst = [c]
+        for i in range(1, self.num_layers):
+            drop_h = self.dropout_layers[i - 1](h)
+            h, c = self.rnn_cells[i](drop_h, (hx[0][i], hx[1][i]))
+            hidden_lst.append(h)
+            cell_lst.append(c)
+
+        hidden = torch.stack(hidden_lst, dim=0)
+        cell = torch.stack(cell_lst, dim=0)
+        return h, (hidden, cell)
+
+
 class AttentionalRNNDecoder(nn.Module):
     def __init__(
         self,
@@ -406,7 +741,7 @@ class AttentionalRNNDecoder(nn.Module):
         Arguments
         ---------
         rnn_type: str
-            Type of recurrent neural network to use (rnn, lstm, gru, ligru).
+            Type of recurrent neural network to use (rnn, lstm, gru).
         attn_type: str
             type of attention to use (location, content).
         hidden_size: int
@@ -454,7 +789,7 @@ class AttentionalRNNDecoder(nn.Module):
         super(AttentionalRNNDecoder, self).__init__()
 
         self.rnn_type = rnn_type.lower()
-        self.attn_type = attn_type
+        self.attn_type = attn_type.lower()
         self.hidden_size = hidden_size
         self.attn_dim = attn_dim
         self.num_layers = num_layers
@@ -540,57 +875,39 @@ class AttentionalRNNDecoder(nn.Module):
 
         # set dropout to 0 when only one layer
         dropout = 0 if self.num_layers == 1 else self.dropout
+
+        # using cell implementation to reduce the usage of memory
         if self.rnn_type == "rnn":
-            self.rnn = RNN(
+            self.rnn = RNNCell(
                 hidden_size=self.hidden_size,
                 nonlinearity=self.nonlinearity,
                 num_layers=self.num_layers,
                 bias=self.bias,
                 dropout=dropout,
                 re_init=self.re_init,
-                bidirectional=False,
-                return_hidden=True,
             )
         elif self.rnn_type == "gru":
-            self.rnn = GRU(
+            self.rnn = GRUCell(
                 hidden_size=self.hidden_size,
                 num_layers=self.num_layers,
                 bias=self.bias,
                 dropout=dropout,
                 re_init=self.re_init,
-                bidirectional=False,
-                return_hidden=True,
             )
         elif self.rnn_type == "lstm":
-            self.rnn = LSTM(
+            self.rnn = LSTMCell(
                 hidden_size=self.hidden_size,
                 num_layers=self.num_layers,
                 bias=self.bias,
                 dropout=dropout,
                 re_init=self.re_init,
-                bidirectional=False,
-                return_hidden=True,
-            )
-        elif self.rnn_type == "ligru":
-            self.rnn = LiGRU(
-                hidden_size=self.hidden_size,
-                nonlinearity=self.nonlinearity,
-                normalization=self.normalization,
-                num_layers=self.num_layers,
-                bias=self.bias,
-                dropout=dropout,
-                re_init=self.re_init,
-                bidirectional=False,
-                return_hidden=True,
             )
         else:
             raise ValueError(f"{self.rnn_type} not implemented.")
 
         # The dummy context vector for initialization
-        context = torch.zeros(
-            inp_tensor.shape[0], inp_tensor.shape[1], self.attn_dim
-        ).to(device)
-        inputs = torch.cat([inp_tensor, context], dim=-1)
+        context = torch.zeros(inp_tensor.shape[0], self.attn_dim).to(device)
+        inputs = torch.cat([inp_tensor[:, 0], context], dim=-1)
         self.rnn.init_params(inputs)
 
     def forward_step(self, inp, hs, c, enc_states, enc_len):
@@ -618,18 +935,11 @@ class AttentionalRNNDecoder(nn.Module):
         w : torch.Tensor
             The weight of attention.
         """
-        cell_inp = torch.cat([inp, c], dim=-1).unsqueeze(1)
+        cell_inp = torch.cat([inp, c], dim=-1)
         cell_inp = self.drop(cell_inp)
         cell_out, hs = self.rnn(cell_inp, hs)
-        cell_out = cell_out.squeeze(1)
 
-        # the last layer of decoder hidden states
-        if isinstance(hs, tuple):
-            dec = hs[0][-1].reshape(-1, self.hidden_size)
-        else:
-            dec = hs[-1].reshape(-1, self.hidden_size)
-
-        c, w = self.attn(enc_states, enc_len, dec)
+        c, w = self.attn(enc_states, enc_len, cell_out)
         dec_out = torch.cat([c, cell_out], dim=1)
         dec_out = self.proj(dec_out)
 

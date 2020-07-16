@@ -6,9 +6,8 @@ Authors
 """
 import os
 import torch
-import shutil
 import torchaudio
-import urllib.request
+from speechbrain.utils.data_utils import download_file
 from speechbrain.processing.speech_augmentation import (
     AddBabble,
     AddNoise,
@@ -33,10 +32,18 @@ class EnvCorrupt(torch.nn.Module):
         If provided, download and prepare openrir to this location. The
         reverberation csv and noise csv will come from here unless overridden
         by the ``reverb_csv`` or ``noise_csv`` arguments.
+    openrir_max_noise_len : float
+        The maximum length in seconds for a noise segment from openrir. Only
+        takes effect if ``openrir_folder`` is used for noises. Cuts longer
+        noises into segments equal to or less than this length.
     reverb_csv : str
         A prepared csv file for loading room impulse responses.
     noise_csv : str
         A prepared csv file for loading noise data.
+    noise_cache : bool
+        Whether to cache noises.
+    noise_num_workers : int
+        Number of workers to use for loading noises.
     babble_speaker_count : int
         Number of speakers to use for babble. Must be less than batch size.
     babble_snr_low : int
@@ -47,10 +54,10 @@ class EnvCorrupt(torch.nn.Module):
         Lowest generated SNR of babbled signal to noise.
     noise_snr_high : int
         Highest generated SNR of babbled signal to noise.
-    scale_factor: float
+    rir_scale_factor: float
         It compresses or dilates the given impuse response.
-        If 0 < scale_factor < 1, the impulse response is compressed
-        (less reverb), while if scale_factor > 1 it is dilated
+        If ``0 < rir_scale_factor < 1``, the impulse response is compressed
+        (less reverb), while if ``rir_scale_factor > 1`` it is dilated
         (more reverb).
 
     Example
@@ -66,8 +73,11 @@ class EnvCorrupt(torch.nn.Module):
         babble_prob=1.0,
         noise_prob=1.0,
         openrir_folder=None,
+        openrir_max_noise_len=None,
         reverb_csv=None,
         noise_csv=None,
+        noise_cache=False,
+        noise_num_workers=0,
         babble_speaker_count=0,
         babble_snr_low=0,
         babble_snr_high=0,
@@ -81,7 +91,12 @@ class EnvCorrupt(torch.nn.Module):
         if openrir_folder and (not reverb_csv or not noise_csv):
             open_reverb_csv = os.path.join(openrir_folder, "reverb.csv")
             open_noise_csv = os.path.join(openrir_folder, "noise.csv")
-            _prepare_openrir(openrir_folder, open_reverb_csv, open_noise_csv)
+            _prepare_openrir(
+                openrir_folder,
+                open_reverb_csv,
+                open_noise_csv,
+                openrir_max_noise_len,
+            )
 
             # Override if they aren't specified
             reverb_csv = reverb_csv or open_reverb_csv
@@ -107,6 +122,8 @@ class EnvCorrupt(torch.nn.Module):
             self.add_noise = AddNoise(
                 mix_prob=noise_prob,
                 csv_file=noise_csv,
+                do_cache=noise_cache,
+                num_workers=noise_num_workers,
                 snr_low=noise_snr_low,
                 snr_high=noise_snr_high,
             )
@@ -131,7 +148,7 @@ class EnvCorrupt(torch.nn.Module):
         return waveforms
 
 
-def _prepare_openrir(folder, reverb_csv, noise_csv):
+def _prepare_openrir(folder, reverb_csv, noise_csv, max_noise_len):
     """Prepare the openrir dataset for adding reverb and noises.
 
     Arguments
@@ -142,22 +159,18 @@ def _prepare_openrir(folder, reverb_csv, noise_csv):
         Filename for storing the prepared reverb csv.
     noise_csv : str
         Filename for storing the prepared noise csv.
+    max_noise_len : float
+        The maximum noise length in seconds. Noises longer
+        than this will be cut into pieces.
     """
 
-    # Download if necessary
+    # Download and unpack if necessary
     filepath = os.path.join(folder, "rirs_noises.zip")
-    if not os.path.isfile(filepath):
 
-        # Logging is not set up yet, so can't use it here.
-        print(f"Downloading {OPENRIR_URL} to {filepath}")
-        with urllib.request.urlopen(OPENRIR_URL) as response:
-            with open(filepath, "wb") as w:
-                shutil.copyfileobj(response, w)
-
-    # Unpack if necessary
     if not os.path.isdir(os.path.join(folder, "RIRS_NOISES")):
-        print(f"Extracting {filepath}")
-        shutil.unpack_archive(filepath, folder)
+        download_file(OPENRIR_URL, filepath, unpack=True)
+    else:
+        download_file(OPENRIR_URL, filepath)
 
     # Prepare reverb csv if necessary
     if not os.path.isfile(reverb_csv):
@@ -171,10 +184,10 @@ def _prepare_openrir(folder, reverb_csv, noise_csv):
         noise_filelist = os.path.join(
             folder, "RIRS_NOISES", "pointsource_noises", "noise_list"
         )
-        _prepare_csv(folder, noise_filelist, noise_csv)
+        _prepare_csv(folder, noise_filelist, noise_csv, max_noise_len)
 
 
-def _prepare_csv(folder, filelist, csv_file):
+def _prepare_csv(folder, filelist, csv_file, max_length=None):
     """Iterate a set of wavs and write the corresponding csv file.
 
     Arguments
@@ -185,6 +198,9 @@ def _prepare_csv(folder, filelist, csv_file):
         The location of a file listing the files to be used.
     csvfile : str
         The location to use for writing the csv file.
+    max_length : float
+        The maximum length in seconds. Waveforms longer
+        than this will be cut into pieces.
     """
     with open(csv_file, "w") as w:
         w.write("ID,duration,wav,wav_format,wav_opts\n\n")
@@ -196,9 +212,28 @@ def _prepare_csv(folder, filelist, csv_file):
 
             # Ensure only one channel
             if signal.shape[0] > 1:
-                torchaudio.save(filename, signal[0], rate)
+                signal = signal[0]
+                torchaudio.save(filename, signal, rate)
 
-            # Write CSV line
-            ID = os.path.splitext(os.path.basename(filename))[0]
-            duration = str(len(signal) / rate)
-            w.write(",".join((ID, duration, filename, "wav", "\n")))
+            ID, ext = os.path.basename(filename).split(".")
+            duration = signal.shape[1] / rate
+
+            # Handle long waveforms
+            if max_length is not None and duration > max_length:
+                # Delete old file
+                os.remove(filename)
+                for i in range(int(duration / max_length)):
+                    start = int(max_length * i * rate)
+                    stop = int(min(max_length * (i + 1), duration) * rate)
+                    new_filename = filename[: -len(f".{ext}")] + f"_{i}.{ext}"
+                    torchaudio.save(new_filename, signal[:, start:stop], rate)
+                    csv_row = (
+                        f"{ID}_{i}",
+                        str((stop - start) / rate),
+                        new_filename,
+                        ext,
+                        "\n",
+                    )
+                    w.write(",".join(csv_row))
+            else:
+                w.write(",".join((ID, str(duration), filename, ext, "\n")))

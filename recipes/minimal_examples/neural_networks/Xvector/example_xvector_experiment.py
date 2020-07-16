@@ -21,11 +21,8 @@ class XvectorBrain(sb.core.Brain):
 
         feats = params.compute_features(wavs, init_params)
         feats = params.mean_var_norm(feats, lens)
-
-        x = params.model(feats, init_params)
-        x = params.out_linear(x, init_params)
-
-        outputs = params.softmax(x)
+        x_vect = params.xvector_model(feats, init_params=init_params)
+        outputs = params.classifier(x_vect, init_params)
 
         return outputs, lens
 
@@ -55,9 +52,9 @@ class Extractor(Sequential):
         super().__init__()
         self.model = model
 
-    def get_emb(self, feats):
+    def get_emb(self, feats, lens):
 
-        emb = self.model(feats)
+        emb = self.model(feats, lens)
 
         return emb
 
@@ -67,7 +64,7 @@ class Extractor(Sequential):
         feats = params.compute_features(wavs, init_params=False)
         feats = params.mean_var_norm(feats, lens)
 
-        emb = self.get_emb(feats)
+        emb = self.get_emb(feats, lens)
         emb = emb.detach()
 
         return emb
@@ -78,7 +75,7 @@ train_set = params.train_loader()
 valid_set = params.valid_loader()
 
 # Xvector Model
-modules = [params.model, params.out_linear]
+modules = [params.xvector_model, params.classifier]
 first_x, first_y = next(iter(train_set))
 
 # Object initialization for training xvector model
@@ -92,18 +89,13 @@ xvect_brain.fit(
 )
 print("Xvector model training completed!")
 
-# Truncate model and keep till layer emb a
-model_a = Sequential(*xvect_brain.modules[0].layers[0:17],)
-print("Model has been truncated!")
 
 # Instantiate extractor obj
-ext_brain = Extractor(model=model_a)
+ext_brain = Extractor(model=params.xvector_model)
 
 # Extract xvectors from a validation sample
 valid_x, valid_y = next(iter(valid_set))
-print(
-    "Extracting Xvector from a sample validation batch using truncated model!"
-)
+print("Extracting Xvector from a sample validation batch!")
 xvectors = ext_brain.extract(valid_x)
 print("Extracted Xvector.Shape: ", xvectors.shape)
 
