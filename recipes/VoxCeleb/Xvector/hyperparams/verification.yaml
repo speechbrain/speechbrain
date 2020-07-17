@@ -19,7 +19,7 @@ device: 'cuda:0'
 xvector_file: https://www.dropbox.com/s/skfz2sme5nw7jji/xvector_model.ckpt?dl=1
 
 # csv files
-csv_train: !ref <save_folder>/train.csv
+csv_train: !ref <save_folder>/sample_train.csv
 csv_valid: !ref <save_folder>/valid.csv
 csv_test: !ref <save_folder>/test.csv
 batch_size: 4
