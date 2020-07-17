@@ -7,7 +7,10 @@ seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Folders and train_log file
-data_folder: /network/tmp1/dawalatn/dataset_tmp1/Vox/
+# /network/tmp1/dawalatn/dataset_tmp1/VoxCeleb/voxceleb1/audio_files/vox1_dev_full_data/
+# /network/tmp1/dawalatn/dataset_tmp1/VoxCeleb/voxceleb1/audio_files/vox1_test_wav_all/
+train_data_folder: /network/tmp1/dawalatn/dataset_tmp1/Vox
+test_data_folder: /network/tmp1/dawalatn/dataset_tmp1/Vox
 output_folder: results/speaker_verification
 save_folder: !ref <output_folder>/save/
 device: 'cuda:0'
@@ -16,6 +19,8 @@ device: 'cuda:0'
 xvector_file: https://www.dropbox.com/s/skfz2sme5nw7jji/xvector_model.ckpt?dl=1
 
 # csv files
+csv_train: !ref <save_folder>/train.csv
+csv_valid: !ref <save_folder>/valid.csv
 csv_test: !ref <save_folder>/test.csv
 batch_size: 4
 
@@ -42,11 +47,29 @@ mean_var_norm_xvect: !new:speechbrain.processing.features.InputNormalization
 xvector_model: !new:speechbrain.lobes.models.Xvector.Xvector
     device: !ref <device>
 
+train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_train>
+    batch_size: !ref <batch_size>
+    csv_read: [wav, spk_id]
+    sentence_sorting: original
+    replacements:
+        $data_folder: !ref  <train_data_folder>
+    output_folder: !ref <output_folder>/save/
+
+valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_valid>
+    batch_size: !ref <batch_size>
+    csv_read: [wav, spk_id]
+    sentence_sorting: original
+    replacements:
+        $data_folder: !ref <train_data_folder>
+    output_folder: !ref <output_folder>/save/
+
 test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_test>
     batch_size: !ref <batch_size>
     csv_read: [wav1, wav2, lab_verification]
     sentence_sorting: random
     replacements:
-        $data_folder: !ref <data_folder>
+        $data_folder: !ref <test_data_folder>
     output_folder: !ref <output_folder>/save/

@@ -8,7 +8,16 @@ from tqdm.contrib import tqdm
 from speechbrain.utils.EER import EER
 from speechbrain.utils.data_utils import download_file
 
-# We should add the code here (now it is just a copy of the verification one)
+
+"""
+Design:
+- prepare csv for train and valid
+- train + valid --> A.csv (subsample? optional)
+- csv in SB_Object
+- train PLDA
+- get PLDA scores for each pair of test
+- get EER
+"""
 
 
 # Logger setup
@@ -30,8 +39,24 @@ sb.core.create_experiment_directory(
 )
 
 # Prepare data from dev of Voxceleb1
+"""
+# Code for train-valid split not working
+# Check this later
 prepare_voxceleb(
-    data_folder=params.data_folder,
+    data_folder=params.train_data_folder,
+    save_folder=params.save_folder,
+    splits=["train", "dev"],
+    split_ratio=[90, 10],
+    seg_dur=300,
+    vad=False,
+    rand_seed=params.seed,
+)
+"""
+
+
+# Prepare data from test Voxceleb1
+prepare_voxceleb(
+    data_folder=params.test_data_folder,
     save_folder=params.save_folder,
     splits=["test"],
     rand_seed=params.seed,
@@ -67,6 +92,35 @@ def download_and_pretrain():
     )
 
 
+train_set = params.train_loader()
+
+# Get Xvectors for train data (or subset)
+with tqdm(train_set, dynamic_ncols=True) as t:
+    init_params = True
+    for audio in t:
+        id, wav, lens = audio
+
+        if init_params:
+            xvect = compute_x_vectors(wav, lens, init_params=True)
+            params.mean_var_norm_xvect.glob_mean = torch.zeros_like(
+                xvect[0, 0, :]
+            )
+            params.mean_var_norm_xvect.count = 0
+
+            # Download models from the web if needed
+            if "https://" in params.xvector_file:
+                download_and_pretrain()
+            else:
+                params.xvector_model.load_state_dict(
+                    torch.load(params.xvector_file), strict=True
+                )
+
+            init_params = False
+            params.xvector_model.eval()
+            params.classifier.eval()
+        xvect = compute_x_vectors(wav, lens)
+
+
 # Loop over all test sentences
 with tqdm(test_set, dynamic_ncols=True) as t:
 
@@ -97,9 +151,7 @@ with tqdm(test_set, dynamic_ncols=True) as t:
 
             init_params = False
             params.xvector_model.eval()
-
-            # Classifier is not needed ????
-            # params.classifier.eval()
+            params.classifier.eval()
 
         # Enrolment and test xvectors
         xvect1 = compute_x_vectors(wav1, lens1)
