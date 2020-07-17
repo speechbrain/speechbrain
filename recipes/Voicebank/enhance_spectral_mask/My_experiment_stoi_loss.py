@@ -6,6 +6,7 @@ import torchaudio
 import speechbrain as sb
 from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.train_logger import summarize_average
+from speechbrain.processing.features import spectral_magnitude
 from joblib import Parallel, delayed
 from stoi.stoi import stoi
 from pesq import pesq
@@ -37,13 +38,6 @@ if not os.path.exists(params.enhanced_folder):
     os.mkdir(params.enhanced_folder)
 
 
-def truncate(wavs, lengths, max_length):
-    lengths *= max_length / wavs.shape[1]
-    lengths = lengths.clamp(max=1)
-    wavs = wavs[:, :max_length]
-    return wavs, lengths
-
-
 def multiprocess_evaluation(pred_wavs, target_wavs, lengths):
     stoi_scores = Parallel(n_jobs=30)(
         delayed(stoi)(clean[0 : int(lens)], enhanced[0 : int(lens)], 16000)
@@ -61,43 +55,61 @@ def multiprocess_evaluation(pred_wavs, target_wavs, lengths):
 class SEBrain(sb.core.Brain):
     def compute_forward(self, x, stage="train", init_params=False):
         ids, wavs, lens = x
-        wavs, lens = truncate(wavs, lens, params.max_length)
-        wavs = torch.unsqueeze(wavs, -1)
         wavs, lens = wavs.to(params.device), lens.to(params.device)
-        out = params.model(wavs, init_params=init_params)[:, :, 0]
+        feats = params.compute_STFT(wavs)
+        feats = spectral_magnitude(feats, power=0.5)
+        feats = torch.log1p(feats)
+
+        mask = torch.squeeze(params.model(feats, init_params=init_params))
+        out = torch.mul(mask, feats)  # mask with "signal approximation (SA)"
+
         return out
 
-    def compute_objectives(self, predictions, targets, stage="train"):
+    def compute_objectives(self, pred_wavs, targets, stage="train"):
         ids, wavs, lens = targets
-        wavs, lens = truncate(wavs, lens, params.max_length)
         wavs, lens = wavs.to(params.device), lens.to(params.device)
-        loss = params.compute_cost(predictions, wavs, lens)
-        return loss, {}
+
+        loss = params.compute_cost(pred_wavs, wavs, lens)
+
+        stats = {}
+
+        return loss, stats
+
+    def fit_batch(self, batch):
+        inputs, targets = batch
+        predictions = self.compute_forward(inputs)
+        pred_wavs = self.resynthesize(torch.expm1(predictions), inputs)
+
+        loss, stats = self.compute_objectives(pred_wavs, targets)
+        loss.backward()
+        self.optimizer.step()
+        self.optimizer.zero_grad()
+        stats["loss"] = loss.detach()
+
+        return stats
 
     def evaluate_batch(self, batch, stage="valid"):
         inputs, targets = batch
-        predict_wavs = self.compute_forward(inputs, stage=stage)
+        predictions = self.compute_forward(inputs, stage=stage)
+        pred_wavs = self.resynthesize(torch.expm1(predictions), inputs)
 
         ids, target_wavs, lens = targets
-        target_wavs, lens = truncate(target_wavs, lens, params.max_length)
         lens = lens * target_wavs.shape[1]
 
-        loss, stats = self.compute_objectives(
-            predict_wavs, targets, stage=stage
-        )
+        loss, stats = self.compute_objectives(pred_wavs, targets, stage=stage)
         stats["loss"] = loss.detach()
 
+        # Evaluate PESQ and STOI
         pesq_scores, stoi_scores = multiprocess_evaluation(
-            predict_wavs.cpu().numpy(),
-            target_wavs.cpu().numpy(),
-            lens.cpu().numpy(),
+            pred_wavs.numpy(), target_wavs.numpy(), lens.numpy(),
         )
         stats["pesq"] = pesq_scores
         stats["stoi"] = stoi_scores
 
+        # Comprehensive but slow evaluation for test
         if stage == "test":
             # Write wavs to file
-            for name, pred_wav, length in zip(ids, predict_wavs, lens):
+            for name, pred_wav, length in zip(ids, pred_wavs, lens):
                 name += ".wav"
                 enhance_path = os.path.join(params.enhanced_folder, name)
                 pred_wav = pred_wav / torch.max(torch.abs(pred_wav)) * 0.99
@@ -117,11 +129,36 @@ class SEBrain(sb.core.Brain):
             {"Epoch": epoch}, train_stats, valid_stats
         )
 
-        pesq_score = summarize_average(valid_stats["pesq"])
+        stoi_score = summarize_average(valid_stats["stoi"])
         params.checkpointer.save_and_keep_only(
-            meta={"pesq_score": pesq_score},
-            importance_keys=[ckpt_recency, lambda c: c.meta["pesq_score"]],
+            meta={"stoi_score": stoi_score},
+            importance_keys=[ckpt_recency, lambda c: c.meta["stoi_score"]],
         )
+
+    def resynthesize(self, predictions, inputs):
+        ids, wavs, lens = inputs
+        lens = lens * wavs.shape[1]
+        predictions = predictions.cpu()
+
+        # Extract noisy phase
+        feats = params.compute_STFT(wavs)
+        phase = torch.atan2(feats[:, :, :, 1], feats[:, :, :, 0])
+        complex_predictions = torch.mul(
+            torch.unsqueeze(predictions, -1),
+            torch.cat(
+                (
+                    torch.unsqueeze(torch.cos(phase), -1),
+                    torch.unsqueeze(torch.sin(phase), -1),
+                ),
+                -1,
+            ),
+        )
+
+        # Get the predicted waveform
+        pred_wavs = params.compute_ISTFT(complex_predictions)
+
+        padding = (0, wavs.shape[1] - pred_wavs.shape[1])
+        return torch.nn.functional.pad(pred_wavs, padding)
 
 
 # Prepare data
@@ -142,7 +179,7 @@ params.checkpointer.recover_if_possible()
 se_brain.fit(params.epoch_counter, train_set, valid_set)
 
 # Load best checkpoint for evaluation
-params.checkpointer.recover_if_possible(lambda c: c.meta["pesq_score"])
+params.checkpointer.recover_if_possible(lambda c: c.meta["stoi_score"])
 test_stats = se_brain.evaluate(test_set)
 params.train_logger.log_stats(
     stats_meta={"Epoch loaded": params.epoch_counter.current},
