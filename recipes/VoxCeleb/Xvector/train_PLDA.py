@@ -12,7 +12,7 @@ from speechbrain.utils.data_utils import download_file
 """
 Design:
 - prepare csv for train and valid
-- train + valid --> A.csv (subsample? optional)
+- train + valid --> A.csv (128k subsample? optional)
 - csv in SB_Object
 - train PLDA
 - get PLDA scores for each pair of test
@@ -40,7 +40,7 @@ sb.core.create_experiment_directory(
 
 # Prepare data from dev of Voxceleb1
 """
-# Code for train-valid split not working
+# Code for train-valid split needs update
 # Check this later
 prepare_voxceleb(
     data_folder=params.train_data_folder,
