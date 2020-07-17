@@ -33,7 +33,7 @@ csv_test: !ref <data_folder>/test.csv
 
 # Training Parameters
 number_of_epochs: 50
-N_batch: 8
+N_batch: 1
 lr: 0.001
 device: 'cuda:0'
 
@@ -46,8 +46,9 @@ train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
 
 valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_valid>
-    batch_size: 1
+    batch_size: 4
     csv_read: [noisy_wav, clean_wav]
+    sentence_sorting: ascending
     replacements:
         $data_folder: !ref <data_folder>
 

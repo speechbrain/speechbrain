@@ -155,7 +155,7 @@ model: !new:speechbrain.nnet.containers.Sequential
     - !ref <conv_out>
 
 
-compute_cost: !name:speechbrain.nnet.losses.stoi_loss.stoi_loss
+compute_cost: !name:speechbrain.nnet.loss.stoi_loss.stoi_loss
 
 optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
     learning_rate: !ref <lr>
