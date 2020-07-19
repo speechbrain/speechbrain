@@ -8,8 +8,6 @@ from tqdm.contrib import tqdm
 from speechbrain.utils.EER import EER
 from speechbrain.utils.data_utils import download_file
 
-# We should add the code here (now it is just a copy of the verification one)
-
 
 # Logger setup
 logger = logging.getLogger(__name__)
@@ -97,7 +95,6 @@ with tqdm(test_set, dynamic_ncols=True) as t:
 
             init_params = False
             params.xvector_model.eval()
-            params.classifier.eval()
 
         # Enrolment and test xvectors
         xvect1 = compute_x_vectors(wav1, lens1)
@@ -118,6 +115,7 @@ with tqdm(test_set, dynamic_ncols=True) as t:
             else:
                 negative_scores.append(score[i])
 
-    # Compute the EER
-    eer = EER(torch.tensor(positive_scores), torch.tensor(negative_scores))
+        # Compute the EER
+        eer = EER(torch.tensor(positive_scores), torch.tensor(negative_scores))
+        print(eer)
     logger.info("EER=%f", eer)
