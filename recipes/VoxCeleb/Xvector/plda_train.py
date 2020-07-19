@@ -4,10 +4,13 @@ import sys
 import torch
 import logging
 import speechbrain as sb
+import numpy
+
 from tqdm.contrib import tqdm
 from speechbrain.utils.EER import EER
 from speechbrain.utils.data_utils import download_file
 from speechbrain.data_io.data_io import convert_index_to_lab
+from speechbrain.processing.PLDA import StatObject_SB  # noqa F401
 
 """
 Design:
@@ -55,12 +58,14 @@ prepare_voxceleb(
 
 
 # Prepare data from test Voxceleb1
+"""
 prepare_voxceleb(
     data_folder=params.test_data_folder,
     save_folder=params.save_folder,
     splits=["test"],
     rand_seed=params.seed,
 )
+"""
 
 # Cosine similarity initialization
 similarity = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
@@ -92,6 +97,11 @@ def download_and_pretrain():
     )
 
 
+# PLDA inputs
+modelset = []
+segset = []
+
+# Train set
 train_set = params.train_loader()
 
 # Get Xvectors for train data (or subset)
@@ -105,8 +115,14 @@ with tqdm(train_set, dynamic_ncols=True) as t:
         ind2lab = params.train_loader.label_dict["spk_id"]["index2lab"]
         spk_id_str = convert_index_to_lab(spk_id, ind2lab)
 
+        # Flattening speaker ids
+        spk_ids = [sid[0] for sid in spk_id_str]
+        modelset = modelset + spk_ids
+
         # For segset
-        ses_id_str = id
+        # ses_id_str = id
+        segset = segset + id
+        # print ("id: " ,id)
 
         if init_params:
             xvect = compute_x_vectors(wav, lens, init_params=True)
@@ -128,6 +144,8 @@ with tqdm(train_set, dynamic_ncols=True) as t:
             params.classifier.eval()
         xvect = compute_x_vectors(wav, lens)
 
+modelset = numpy.array(modelset, dtype="|O")
+segset = numpy.array(segset, dtype="|O")
 
 print("Testing...")
 with tqdm(test_set, dynamic_ncols=True) as t:
