@@ -7,8 +7,8 @@ seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Folders and train_log file
-data_folder: /home/mirco/datasets/VoxCeleb1
-output_folder: results/speaker_verification
+data_folder: /localscratch/voxceleb/voxceleb1/
+output_folder: results/speaker_verification_PLDA
 save_folder: !ref <output_folder>/save/
 device: 'cuda:0'
 
@@ -16,7 +16,7 @@ device: 'cuda:0'
 xvector_file: https://www.dropbox.com/s/skfz2sme5nw7jji/xvector_model.ckpt?dl=1
 
 # csv files
-csv_train: !ref <save_folder>/dev.csv
+csv_train: !ref <save_folder>/train.csv
 csv_test: !ref <save_folder>/test.csv
 batch_size: 4
 

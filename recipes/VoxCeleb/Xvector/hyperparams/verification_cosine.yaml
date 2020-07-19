@@ -8,7 +8,7 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Folders and train_log file
 data_folder: /home/mirco/datasets/VoxCeleb1
-output_folder: results/speaker_verification
+output_folder: results/speaker_verification_cosine
 save_folder: !ref <output_folder>/save/
 device: 'cuda:0'
 

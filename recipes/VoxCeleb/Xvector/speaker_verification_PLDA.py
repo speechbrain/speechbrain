@@ -34,7 +34,7 @@ sb.core.create_experiment_directory(
 prepare_voxceleb(
     data_folder=params.data_folder,
     save_folder=params.save_folder,
-    splits=["dev", "test"],
+    splits=["train", "test"],
     rand_seed=params.seed,
 )
 
@@ -85,7 +85,7 @@ with tqdm(train_set, dynamic_ncols=True) as t:
 
     # Initialize the model and perform pre-training
     if init_params:
-        xvect = compute_x_vectors(wav, lens, init_params=True)
+        xvect = compute_x_vectors(wav, lens=None, init_params=True)
         # Download models from the web if needed
         if "https://" in params.xvector_file:
             download_and_pretrain()
@@ -98,7 +98,7 @@ with tqdm(train_set, dynamic_ncols=True) as t:
         params.xvector_model.eval()
 
     # computing xvector
-    xvect = compute_x_vectors(wav, lens)
+    xvect = compute_x_vectors(wav, lens=None)
 
     # Add xvectors and snt_id in a lst
     tr_xvectors.append(xvect)
