@@ -152,13 +152,12 @@ plda = PLDA()
 
 # Training Gaussina PLDA model
 plda.plda(xvectors_meta)
-print("sb_M: ", plda.mean[:20])
-print("sb_F: ", plda.F)
-print("sb_S: ", plda.Sigma)
-
-sys.exit()
 
 print("Testing...")
+# Some PLDA inputs
+modelset, segset = [], []
+xvectors = numpy.empty(shape=[0, 512], dtype=numpy.float64)
+
 with tqdm(test_set, dynamic_ncols=True) as t:
 
     positive_scores = []
