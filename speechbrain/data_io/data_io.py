@@ -2156,7 +2156,7 @@ def split_word(sequences, space="_"):
     >>> sequences = [['ab', 'c', 'de'], ['efg', 'hi']]
     >>> results = split_word(sequences)
     >>> results
-    [["a", "b", "_", "c", "_", "d", "e"], ["e", "f", "g", "_", "h", "i"]]
+    [['a', 'b', '_', 'c', '_', 'd', 'e'], ['e', 'f', 'g', '_', 'h', 'i']]
     """
     results = []
     for seq in sequences:

@@ -34,13 +34,7 @@ class BPE:
     >>> bpe = BPE(model_dir,2000, csv_train, csv_read, model_type)
     >>> batch_seq = torch.Tensor([[1, 2, 2, 1],[1, 2, 1, 0]])
     >>> batch_lens = torch.Tensor([1.0,0.75])
-    >>> encoded_seq_ids, encoded_seq_pieces = bpe(
-    >>>    batch_seq,
-    >>>    batch_lens,
-    >>>    dict_int2lab,
-    >>>    task="encode",
-    >>>    init_params=True)
-
+    >>> encoded_seq_ids, encoded_seq_pieces = bpe(batch_seq, batch_lens, dict_int2lab, task="encode", init_params=True)
     """
 
     def __init__(
