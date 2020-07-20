@@ -9,7 +9,7 @@ def test_tokenizer():
     bpe = BPE(
         "tokenizer_data/",
         2000,
-        csv_train="tokenizer_data/dev-clean.csv",
+        csv_train="tests/unittests/tokenizer_data/dev-clean.csv",
         csv_read="wrd",
         model_type="bpe",
     )
