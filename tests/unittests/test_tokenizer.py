@@ -1,20 +1,30 @@
-
+import torch
 
 
 def test_tokenizer():
     from speechbrain.tokenizers.BPE import BPE
-    def int2lab(sequence):
-        dict_int2lab={1:"hello", 2:"morning", 3:" "}
-        output=""
-        for id_lab in sequence:
-            output+=dict_int2lab[id_lab]
-        return output
-    bpe=BPE("tokenizer_data/", 2000, text_file="tokenizer_data/botchan.txt", model_type="bpe")
-    encoded_seq_ids, encoded_seq_pieces = bpe([[1, 3, 2, 3, 1, 3, 2],[2, 3, 2, 3, 2]], int2lab, task="encode", init_params=True)
-    print(encoded_seq_ids)
-    print(encoded_seq_pieces)
-    decode_sequence = bpe(encoded_seq_ids, task="decode")
-    print(decode_sequence)
 
+    dict_int2lab = {1: "HELLO", 2: "MORNING"}
 
-test_tokenizer()
+    bpe = BPE(
+        "tokenizer_data/",
+        2000,
+        csv_train="tokenizer_data/dev-clean.csv",
+        csv_read="wrd",
+        model_type="bpe",
+    )
+    encoded_seq_ids, encoded_seq_pieces = bpe(
+        torch.Tensor([[1, 2, 2, 1], [1, 2, 1, 0]]),
+        torch.Tensor([1.0, 0.75]),
+        dict_int2lab,
+        task="encode",
+        init_params=True,
+    )
+    # decode from torch tensors (batch, batch_lens)
+    bpe(encoded_seq_ids, encoded_seq_pieces, task="decode")
+    # decode from a list of bpe sequence (without padding)
+    hyps_list = [
+        encoded_seq_ids[0].int().tolist(),
+        encoded_seq_ids[1][:-1].int().tolist(),
+    ]
+    bpe(hyps_list, task="decode_from_list")
