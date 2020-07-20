@@ -10,17 +10,8 @@ from tqdm.contrib import tqdm
 from speechbrain.utils.EER import EER
 from speechbrain.utils.data_utils import download_file
 from speechbrain.data_io.data_io import convert_index_to_lab
-from speechbrain.processing.PLDA import StatObject_SB  # noqa F401
-
-"""
-Design:
-- prepare csv for train and valid
-- train + valid --> A.csv (128k subsample? optional)
-- csv in SB_Object
-- train PLDA
-- get PLDA scores for each pair of test
-- get EER
-"""
+from speechbrain.processing.PLDA import StatObject_SB
+from speechbrain.processing.PLDA import PLDA
 
 
 # Logger setup
@@ -97,14 +88,14 @@ def download_and_pretrain():
     )
 
 
-# PLDA inputs
-modelset = []
-segset = []
+# Some PLDA inputs
+modelset, segset = [], []
+xvectors = numpy.empty(shape=[0, 512], dtype=numpy.float64)
 
 # Train set
 train_set = params.train_loader()
 
-# Get Xvectors for train data (or subset)
+# Get Xvectors for train data (or 128k subset)
 with tqdm(train_set, dynamic_ncols=True) as t:
     init_params = True
     for wav, spk_id in t:
@@ -120,9 +111,7 @@ with tqdm(train_set, dynamic_ncols=True) as t:
         modelset = modelset + spk_ids
 
         # For segset
-        # ses_id_str = id
         segset = segset + id
-        # print ("id: " ,id)
 
         if init_params:
             xvect = compute_x_vectors(wav, lens, init_params=True)
@@ -144,8 +133,30 @@ with tqdm(train_set, dynamic_ncols=True) as t:
             params.classifier.eval()
         xvect = compute_x_vectors(wav, lens)
 
+        xv = xvect.squeeze().cpu().numpy()
+        xvectors = numpy.concatenate((xvectors, xv), axis=0)
+
+# Speaker IDs and utterance IDs
 modelset = numpy.array(modelset, dtype="|O")
 segset = numpy.array(segset, dtype="|O")
+
+# intialize variables for start, stop and stat0
+s = numpy.array([None] * xvectors.shape[0])
+b = numpy.array([[1.0]] * xvectors.shape[0])
+
+xvectors_meta = StatObject_SB(
+    modelset=modelset, segset=segset, start=s, stop=s, stat0=b, stat1=xvectors
+)
+
+plda = PLDA()
+
+# Training Gaussina PLDA model
+plda.plda(xvectors_meta)
+print("sb_M: ", plda.mean[:20])
+print("sb_F: ", plda.F)
+print("sb_S: ", plda.Sigma)
+
+sys.exit()
 
 print("Testing...")
 with tqdm(test_set, dynamic_ncols=True) as t:
