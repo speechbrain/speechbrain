@@ -145,6 +145,10 @@ class AddNoise(torch.nn.Module):
             noise_waveform *= new_noise_amplitude / (noise_amplitude + 1e-14)
             noisy_waveform += noise_waveform
 
+        # Normalization to prevent clipping
+        abs_max, _ = torch.max(torch.abs(noisy_waveform), dim=1, keepdim=True)
+        noisy_waveform = noisy_waveform / abs_max * 0.99
+
         return noisy_waveform
 
     def _load_noise(self, lengths, max_length):
