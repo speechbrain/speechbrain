@@ -68,10 +68,10 @@ class ComplexConv1d(torch.nn.Module):
     Example
     -------
     >>> inp_tensor = torch.rand([10, 16, 30])
-    >>> cnn_1d = ComplexConv1d(out_channels=8, kernel_size=5)
+    >>> cnn_1d = ComplexConv1d(out_channels=12, kernel_size=5)
     >>> out_tensor = cnn_1d(inp_tensor, init_params=True)
     >>> out_tensor.shape
-    torch.Size([10, 16, 16])
+    torch.Size([10, 24, 16])
     """
 
     def __init__(
@@ -259,10 +259,10 @@ class ComplexConv2d(nn.Module):
     Example
     -------
     >>> inp_tensor = torch.rand([10, 16, 30, 30])
-    >>> cnn_2d = ComplexConv2d(out_channels=8, kernel_size=5)
+    >>> cnn_2d = ComplexConv2d(out_channels=12, kernel_size=5)
     >>> out_tensor = cnn_2d(inp_tensor, init_params=True)
     >>> out_tensor.shape
-    torch.Size([10, 16, 30, 16])
+    torch.Size([10, 24, 30, 16])
     """
 
     def __init__(
