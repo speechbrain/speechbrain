@@ -12,7 +12,8 @@ from speechbrain.utils.data_utils import download_file
 from speechbrain.data_io.data_io import convert_index_to_lab
 from speechbrain.processing.PLDA_LDA import StatObject_SB
 from speechbrain.processing.PLDA_LDA import PLDA
-
+from speechbrain.processing.PLDA_LDA import Ndx
+from speechbrain.processing.PLDA_LDA import fast_PLDA_scoring
 
 # Logger setup
 logger = logging.getLogger(__name__)
@@ -88,6 +89,14 @@ def download_and_pretrain():
     )
 
 
+# Function to get mod and seg
+def get_utt_ids_for_test(ids, data_dict):
+    mod = [data_dict[x]["wav1"]["data"] for x in ids]
+    seg = [data_dict[x]["wav2"]["data"] for x in ids]
+
+    return mod, seg
+
+
 # Some PLDA inputs
 modelset, segset = [], []
 xvectors = numpy.empty(shape=[0, 512], dtype=numpy.float64)
@@ -95,6 +104,7 @@ xvectors = numpy.empty(shape=[0, 512], dtype=numpy.float64)
 # Train set
 train_set = params.train_loader()
 ind2lab = params.train_loader.label_dict["spk_id"]["index2lab"]
+
 
 # Get Xvectors for train data (or 128k subset)
 with tqdm(train_set, dynamic_ncols=True) as t:
@@ -158,6 +168,65 @@ print("Testing...")
 modelset, segset = [], []
 xvectors = numpy.empty(shape=[0, 512], dtype=numpy.float64)
 
+"""
+# loading from data_dict
+import pickle
+test_set = params.test_loader()
+data_dict_file = open("results/speaker_verification/save/data_dict.pkl","rb")
+print ("lodaing...")
+data_dict = pickle.load(data_dict_file)
+
+print ("label_dict: ",params.train_loader.label_dict)
+print ("label_dict--->>> ")
+#pprint.pprint (params.train_loader.label_dict)
+"""
+
+
+def prepare_ndx(mod, seg, ver_lab):
+    pass
+
+
+def plda_similarity(mod, seg, xvect1, xvect2, veri_labs):
+    scores = []
+    for i in range(len(veri_labs)):
+        x1 = xvect1[i]
+        x2 = xvect2[i]
+        m, s = [mod[i]], [seg[i]]
+
+        enrol_obj = StatObject_SB(
+            modelset=m,
+            segset=s,
+            start=[None],
+            stop=[None],
+            stat0=[[1.0]],
+            stat1=x1,
+        )
+
+        test_obj = StatObject_SB(
+            modelset=m,
+            segset=s,
+            start=[None],
+            stop=[None],
+            stat0=[[1.0]],
+            stat1=x2,
+        )
+
+        # if veri_labs[i] == 1:
+        #    flag = True
+        # else:
+        #    flag = False
+
+        # ndx_obj = Ndx(models=mod, testsegs=seg, trialmask=[flag])
+        ndx_obj = Ndx(models=m, testsegs=s)
+
+        score_plda = fast_PLDA_scoring(
+            enrol_obj, test_obj, ndx_obj, plda.mean, plda.F, plda.Sigma
+        )
+        scores.append(score_plda)
+
+    print("scores... ", scores)
+
+
 with tqdm(test_set, dynamic_ncols=True) as t:
 
     positive_scores = []
@@ -169,6 +238,12 @@ with tqdm(test_set, dynamic_ncols=True) as t:
         id, wav2, lens2 = wav2
         id, label_verification, _ = label_verification
 
+        # mod, seg = get_utt_ids_for_test(id, data_dict)
+        # print ("mod: ",mod)
+        mod = [x + "_m" for x in id]
+        seg = [x + "_s" for x in id]
+
+        # prepare_ndx(mod, seg, label_verification)
         # Initialize the model and perform pre-training
         if init_params:
             xvect1 = compute_x_vectors(wav1, lens1, init_params=True)
@@ -194,8 +269,10 @@ with tqdm(test_set, dynamic_ncols=True) as t:
         xvect2 = compute_x_vectors(wav2, lens2)
 
         # Computing similarity
-        score = similarity(xvect1, xvect2)
+        # score = similarity(xvect1, xvect2)
+        score = plda_similarity(mod, seg, xvect1, xvect2, label_verification)
 
+        sys.exit()
         # Adding score to positive or negative lists
         for i in range(len(label_verification)):
 
