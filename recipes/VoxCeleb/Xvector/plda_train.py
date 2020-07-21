@@ -10,8 +10,8 @@ from tqdm.contrib import tqdm
 from speechbrain.utils.EER import EER
 from speechbrain.utils.data_utils import download_file
 from speechbrain.data_io.data_io import convert_index_to_lab
-from speechbrain.processing.PLDA import StatObject_SB
-from speechbrain.processing.PLDA import PLDA
+from speechbrain.processing.PLDA_LDA import StatObject_SB
+from speechbrain.processing.PLDA_LDA import PLDA
 
 
 # Logger setup
@@ -94,6 +94,7 @@ xvectors = numpy.empty(shape=[0, 512], dtype=numpy.float64)
 
 # Train set
 train_set = params.train_loader()
+ind2lab = params.train_loader.label_dict["spk_id"]["index2lab"]
 
 # Get Xvectors for train data (or 128k subset)
 with tqdm(train_set, dynamic_ncols=True) as t:
@@ -103,7 +104,6 @@ with tqdm(train_set, dynamic_ncols=True) as t:
         id, spk_id, lens = spk_id
 
         # For modelset
-        ind2lab = params.train_loader.label_dict["spk_id"]["index2lab"]
         spk_id_str = convert_index_to_lab(spk_id, ind2lab)
 
         # Flattening speaker ids
