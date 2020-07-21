@@ -146,6 +146,8 @@ with tqdm(train_set, dynamic_ncols=True) as t:
         xv = xvect.squeeze().cpu().numpy()
         xvectors = numpy.concatenate((xvectors, xv), axis=0)
 
+# Save TRAINING Xvectors in StatObject_SB object and load them during PLDA scoring
+
 # Speaker IDs and utterance IDs
 modelset = numpy.array(modelset, dtype="|O")
 segset = numpy.array(segset, dtype="|O")
@@ -163,10 +165,17 @@ plda = PLDA()
 # Training Gaussina PLDA model
 plda.plda(xvectors_meta)
 
+
+# save plda model (optional)
+
 print("Testing...")
 # Some PLDA inputs
-modelset, segset = [], []
-xvectors = numpy.empty(shape=[0, 512], dtype=numpy.float64)
+modelset_enrol, segset_enrol = [], []
+xvect_enrol = numpy.empty(shape=[0, 512], dtype=numpy.float64)
+modelset_test, segset_test = [], []
+xvect_test = numpy.empty(shape=[0, 512], dtype=numpy.float64)
+verification_truth = []
+
 
 """
 # loading from data_dict
@@ -180,10 +189,6 @@ print ("label_dict: ",params.train_loader.label_dict)
 print ("label_dict--->>> ")
 #pprint.pprint (params.train_loader.label_dict)
 """
-
-
-def prepare_ndx(mod, seg, ver_lab):
-    pass
 
 
 def plda_similarity(mod, seg, xvect1, xvect2, veri_labs):
@@ -211,11 +216,6 @@ def plda_similarity(mod, seg, xvect1, xvect2, veri_labs):
             stat1=x2,
         )
 
-        # if veri_labs[i] == 1:
-        #    flag = True
-        # else:
-        #    flag = False
-
         # ndx_obj = Ndx(models=mod, testsegs=seg, trialmask=[flag])
         ndx_obj = Ndx(models=m, testsegs=s)
 
@@ -238,10 +238,23 @@ with tqdm(test_set, dynamic_ncols=True) as t:
         id, wav2, lens2 = wav2
         id, label_verification, _ = label_verification
 
+        vv = [v[0].item() for v in label_verification]
+        verification_truth = verification_truth + vv
+
         # mod, seg = get_utt_ids_for_test(id, data_dict)
         # print ("mod: ",mod)
-        mod = [x + "_m" for x in id]
-        seg = [x + "_s" for x in id]
+
+        # Keep same modelset and segset for enrol_obj
+        mod_enrol = [x + "_enrol" for x in id]
+        seg_enrol = [x + "_enrol" for x in id]
+        modelset_enrol = modelset_enrol + mod_enrol
+        segset_enrol = segset_enrol + seg_enrol
+
+        # Keep same modelset and segset for test_obj
+        mod_test = [x + "_test" for x in id]
+        seg_test = [x + "_test" for x in id]
+        modelset_test = modelset_test + mod_test
+        segset_test = segset_test + seg_test
 
         # prepare_ndx(mod, seg, label_verification)
         # Initialize the model and perform pre-training
@@ -263,29 +276,69 @@ with tqdm(test_set, dynamic_ncols=True) as t:
             init_params = False
             params.xvector_model.eval()
             params.classifier.eval()
-
         # Enrolment and test xvectors
         xvect1 = compute_x_vectors(wav1, lens1)
         xvect2 = compute_x_vectors(wav2, lens2)
 
+        xv_enrol = xvect1.squeeze().cpu().numpy()
+        xv_test = xvect2.squeeze().cpu().numpy()
+        xvect_enrol = numpy.concatenate((xvect_enrol, xv_enrol), axis=0)
+        xvect_test = numpy.concatenate((xvect_enrol, xv_test), axis=0)
+
         # Computing similarity
         # score = similarity(xvect1, xvect2)
-        score = plda_similarity(mod, seg, xvect1, xvect2, label_verification)
+        # score = plda_similarity(mod, seg, xvect1, xvect2, label_verification)
 
-        sys.exit()
         # Adding score to positive or negative lists
-        for i in range(len(label_verification)):
+        # for i in range(len(label_verification)):
 
-            logger.debug(
-                "%s score=%f label=%s"
-                % (id[i], score[i], index2label[int(label_verification[i])])
-            )
-            if index2label[int(label_verification[i])] == "1":
-                positive_scores.append(score[i])
-            else:
-                negative_scores.append(score[i])
+        #   logger.debug(
+        #        "%s score=%f label=%s"
+        #        % (id[i], score[i], index2label[int(label_verification[i])])
+        #    )
+        #    if index2label[int(label_verification[i])] == "1":
+        #        positive_scores.append(score[i])
+        #    else:
+        #        negative_scores.append(score[i])
 
     print("Completed extraction and score computations...")
+
+    modelset_enrol = numpy.array(modelset_enrol, dtype="|O")
+    segset_enrol = numpy.array(segset_enrol, dtype="|O")
+
+    modelset_test = numpy.array(modelset_test, dtype="|O")
+    segset_test = numpy.array(segset_test, dtype="|O")
+
+    # intialize variables for start, stop and stat0
+    s = numpy.array([None] * xvect_enrol.shape[0])
+    b = numpy.array([[1.0]] * xvect_enrol.shape[0])
+    enrol_obj = StatObject_SB(
+        modelset=modelset_enrol,
+        segset=segset_enrol,
+        start=s,
+        stop=s,
+        stat0=b,
+        stat1=xvect_enrol,
+    )
+
+    test_obj = StatObject_SB(
+        modelset=modelset_test,
+        segset=segset_test,
+        start=s,
+        stop=s,
+        stat0=b,
+        stat1=xvect_test,
+    )
+
+    ndx_obj = Ndx(models=modelset_enrol, testsegs=modelset_test)
+
+    scores_plda = fast_PLDA_scoring(
+        enrol_obj, test_obj, ndx_obj, plda.mean, plda.F, plda.Sigma
+    )
+
+    print("score : \n", scores_plda.scoremat)
+
+    sys.exit()
 
     # Compute the EER
     print("Computing EER... ")
