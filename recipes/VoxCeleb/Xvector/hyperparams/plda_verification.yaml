@@ -21,7 +21,7 @@ xvector_file: https://www.dropbox.com/s/skfz2sme5nw7jji/xvector_model.ckpt?dl=1
 # csv files
 csv_train: !ref <save_folder>/sample_train.csv
 csv_valid: !ref <save_folder>/valid.csv
-csv_test: !ref <save_folder>/sample_test.csv
+csv_test: !ref <save_folder>/sample_test_100.csv
 batch_size: 256
 
 # Feature parameters
