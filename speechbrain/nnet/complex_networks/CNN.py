@@ -141,7 +141,6 @@ class ComplexConv1d(torch.nn.Module):
 
         # (batch, channel, time)
         x = x.transpose(1, -1)
-        print(x.shape)
         if self.padding == "same":
             x = self._manage_padding(
                 x, self.kernel_size, self.dilation, self.stride
@@ -162,9 +161,7 @@ class ComplexConv1d(torch.nn.Module):
 
         wx = self.conv(x)
 
-        print(wx.shape)
         wx = wx.transpose(1, -1)
-        print("end")
         return wx
 
     def _manage_padding(self, x, kernel_size, dilation, stride):
