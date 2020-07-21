@@ -420,3 +420,49 @@ class GCCPHAT(torch.nn.Module):
             delays[idx] -= n_fft
 
         return delays
+
+
+def delay_sum(xs, steer):
+    """ Delay and Sum Beamforming
+
+    This function performs spatial filtering by delaying the
+    input signals with a steering vector and summing them.
+
+    Argument
+    --------
+    xs : tensor
+        The input signals to work with. The tensor must have
+        the following format: (batch, time_step, n_fft, 2, n_mics).
+
+    steer : tensor
+        The steering vector used to delay the input signals. The
+        tensor must have the following format:
+        (batch, time_step, n_fft, 2, n_mics)
+
+    Returns
+    -------
+    The signal resulting from the beamformer. The output tensor
+    will have the following format: (batch, time_step, n_fft, 2, 1)
+
+    Example
+    -------
+        TODO: Add an example
+    """
+
+    # Extracting data
+    n_channels = xs.shape[4]
+
+    ws_re = steer[..., 0, :] / n_channels
+    ws_im = -1.0 * steer[..., 1, :] / n_channels
+
+    xs_re = xs[..., 0, :]
+    xs_im = xs[..., 1, :]
+
+    # Applying delay and sum
+    ys_re = torch.sum((ws_re * xs_re - ws_im * xs_im), dim=-1, keepdim=True)
+    ys_im = torch.sum((ws_re * xs_im + ws_im * xs_re), dim=-1, keepdim=True)
+
+    # Assembling the result
+    ys = torch.stack((ys_re, ys_im), 3)
+
+    return ys
