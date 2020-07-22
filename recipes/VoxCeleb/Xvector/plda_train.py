@@ -113,7 +113,7 @@ xv_file = os.path.join(
 )
 # skip exatraction if already extracted
 if not os.path.exists(xv_file):
-    print("Extrating xvectors from Training set..")
+    print("Extracting xvectors from Training set..")
     with tqdm(train_set, dynamic_ncols=True) as t:
         init_params = True
         for wav, spk_id in t:
@@ -173,7 +173,7 @@ if not os.path.exists(xv_file):
     xvectors_stat.save_stat_object(xv_file)
 else:
     # Load the saved stat object for train xvector
-    print("Skipping Xvector Extraction")
+    print("Skipping Xvector Extraction for training set")
     print("Loading previously saved stat_object for train xvectors..")
     with open(xv_file, "rb") as input:
         xvectors_stat = pickle.load(input)
@@ -183,8 +183,8 @@ plda = PLDA()
 # Training Gaussina PLDA model
 plda.plda(xvectors_stat)
 
-
 print("\nTesting...")
+
 # Some PLDA inputs
 modelset_enrol, segset_enrol = [], []
 xvect_enrol = numpy.empty(shape=[0, 512], dtype=numpy.float64)
@@ -192,18 +192,7 @@ modelset_test, segset_test = [], []
 xvect_test = numpy.empty(shape=[0, 512], dtype=numpy.float64)
 verification_truth = []
 
-
-"""
-import pickle
-test_set = params.test_loader()
-data_dict_file = open("results/speaker_verification/save/data_dict.pkl","rb")
-print ("lodaing...")
-data_dict = pickle.load(data_dict_file)
-
-print ("label_dict: ",params.train_loader.label_dict)
-print ("label_dict--->>> ")
-#pprint.pprint (params.train_loader.label_dict)
-"""
+# Enroll and Test xvector
 with tqdm(test_set, dynamic_ncols=True) as t:
 
     positive_scores = []
@@ -218,9 +207,6 @@ with tqdm(test_set, dynamic_ncols=True) as t:
         vv = [v[0].item() for v in label_verification]
         verification_truth = verification_truth + vv
 
-        # mod, seg = get_utt_ids_for_test(id, data_dict)
-        # print ("mod: ",mod)
-
         # Keep same modelset and segset for enrol_obj
         mod_enrol = [x + "_enrol" for x in id]
         seg_enrol = [x + "_enrol" for x in id]
@@ -233,7 +219,6 @@ with tqdm(test_set, dynamic_ncols=True) as t:
         modelset_test = modelset_test + mod_test
         segset_test = segset_test + seg_test
 
-        # prepare_ndx(mod, seg, label_verification)
         # Initialize the model and perform pre-training
         if init_params:
             xvect1 = compute_x_vectors(wav1, lens1, init_params=True)
@@ -253,10 +238,10 @@ with tqdm(test_set, dynamic_ncols=True) as t:
             init_params = False
             params.xvector_model.eval()
             params.classifier.eval()
+
         # Enrolment and test xvectors
         xvect1 = compute_x_vectors(wav1, lens1)
         xvect2 = compute_x_vectors(wav2, lens2)
-
         xv_enrol = xvect1.squeeze().cpu().numpy()
         xv_test = xvect2.squeeze().cpu().numpy()
         xvect_enrol = numpy.concatenate((xvect_enrol, xv_enrol), axis=0)
@@ -264,44 +249,63 @@ with tqdm(test_set, dynamic_ncols=True) as t:
 
     print("Completed test xvector extraction...")
 
-    modelset_enrol = numpy.array(modelset_enrol, dtype="|O")
-    segset_enrol = numpy.array(segset_enrol, dtype="|O")
+modelset_enrol = numpy.array(modelset_enrol, dtype="|O")
+segset_enrol = numpy.array(segset_enrol, dtype="|O")
 
-    modelset_test = numpy.array(modelset_test, dtype="|O")
-    segset_test = numpy.array(segset_test, dtype="|O")
+modelset_test = numpy.array(modelset_test, dtype="|O")
+segset_test = numpy.array(segset_test, dtype="|O")
 
-    # intialize variables for start, stop and stat0
-    s = numpy.array([None] * xvect_enrol.shape[0])
-    b = numpy.array([[1.0]] * xvect_enrol.shape[0])
-    enrol_obj = StatObject_SB(
-        modelset=modelset_enrol,
-        segset=segset_enrol,
-        start=s,
-        stop=s,
-        stat0=b,
-        stat1=xvect_enrol,
-    )
+# intialize variables for start, stop and stat0
+s = numpy.array([None] * xvect_enrol.shape[0])
+b = numpy.array([[1.0]] * xvect_enrol.shape[0])
 
-    test_obj = StatObject_SB(
-        modelset=modelset_test,
-        segset=segset_test,
-        start=s,
-        stop=s,
-        stat0=b,
-        stat1=xvect_test,
-    )
+enrol_obj = StatObject_SB(
+    modelset=modelset_enrol,
+    segset=segset_enrol,
+    start=s,
+    stop=s,
+    stat0=b,
+    stat1=xvect_enrol,
+)
 
-    ndx_obj = Ndx(models=modelset_enrol, testsegs=modelset_test)
+test_obj = StatObject_SB(
+    modelset=modelset_test,
+    segset=segset_test,
+    start=s,
+    stop=s,
+    stat0=b,
+    stat1=xvect_test,
+)
 
-    scores_plda = fast_PLDA_scoring(
-        enrol_obj, test_obj, ndx_obj, plda.mean, plda.F, plda.Sigma
-    )
+ndx_obj = Ndx(models=modelset_enrol, testsegs=modelset_test)
 
-    print("score : \n", scores_plda.scoremat)
+scores_plda = fast_PLDA_scoring(
+    enrol_obj, test_obj, ndx_obj, plda.mean, plda.F, plda.Sigma
+)
 
-    sys.exit()
+# assuming same number of enrol and test (as it is in voxceleb verification split)
+scores = scores_plda.scoremat.diagonal()
 
-    # Compute the EER
-    print("Computing EER... ")
-    eer = EER(torch.tensor(positive_scores), torch.tensor(negative_scores))
-    logger.info("EER=%f", eer)
+positive_scores = []
+negative_scores = []
+
+# Adding score to positive or negative lists
+for i in range(len(label_verification)):
+    if int(label_verification[i]) == 1:
+        positive_scores.append(scores[i])
+    else:
+        negative_scores.append(scores[i])
+
+# Normalize scores
+pmin = min(positive_scores)
+pmax = max(negative_scores)
+nmin = min(negative_scores)
+nmax = max(negative_scores)
+
+positive_scores = (positive_scores - pmin) / (pmax - pmin)
+negative_scores = (negative_scores - nmin) / (nmax - nmin)
+
+# Compute the EER
+print("Computing EER... ")
+eer = EER(torch.tensor(positive_scores), torch.tensor(negative_scores))
+logger.info("EER=%f", eer)
