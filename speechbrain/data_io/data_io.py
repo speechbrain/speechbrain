@@ -226,7 +226,6 @@ class DataLoaderFactory(torch.nn.Module):
                 batch_list[i][2].append(data[2])
 
         for data_list in batch_list:
-
             # Convert all to torch tensors
             self.numpy2torch(data_list)
 
@@ -874,7 +873,6 @@ class DatasetFactory(Dataset):
 
         # Getting the sentence id
         snt_id = self.data_dict["data_list"][idx]
-
         data = []
 
         for data_entry in self.data_entries:
@@ -1693,7 +1691,7 @@ class TensorSaver(torch.nn.Module):
 
     Example:
     >>> tmpdir = getfixture('tmpdir')
-    >>> save_signal = TensorSaver(save_folder=tmpdir, save_format='wav')
+    >>> save_signal = TensorSaver(save=tmpdir, save_format='wav')
     >>> signal = 0.1 * torch.rand([1, 16000])
     >>> save_signal(signal, ['example_random'], torch.ones(1))
     """
@@ -1775,9 +1773,9 @@ class TensorSaver(torch.nn.Module):
 
         Example
         -------
-        >>> save_folder = getfixture('tmpdir')
+        >>> save = getfixture('tmpdir')
         >>> save_format = 'wav'
-        >>> save_signal=TensorSaver(save_folder, save_format)
+        >>> save_signal=TensorSaver(save, save_format)
         >>> # random signal
         >>> signal=0.1*torch.rand([1,16000])
         >>> # saving
@@ -1872,10 +1870,10 @@ class TensorSaver(torch.nn.Module):
 
         Example
         -------
-        >>> save_folder = getfixture('tmpdir')
+        >>> save = getfixture('tmpdir')
         >>> save_format = 'wav'
         >>> # class initialization
-        >>> saver = TensorSaver(save_folder, save_format)
+        >>> saver = TensorSaver(save, save_format)
         >>> saver.get_supported_formats()['wav']
         {'writer': <function ...>, 'description': ...}
         """
