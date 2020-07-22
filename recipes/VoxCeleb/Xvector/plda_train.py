@@ -181,6 +181,7 @@ else:
 plda = PLDA()
 
 # Training Gaussina PLDA model
+print("Training PLDA model")
 plda.plda(xvectors_stat)
 
 print("\nTesting...")
@@ -279,17 +280,20 @@ test_obj = StatObject_SB(
 
 ndx_obj = Ndx(models=modelset_enrol, testsegs=modelset_test)
 
+print("Started PLDA scoring...")
 scores_plda = fast_PLDA_scoring(
     enrol_obj, test_obj, ndx_obj, plda.mean, plda.F, plda.Sigma
 )
+print("Completed PLDA scoring...")
 
-# assuming same number of enrol and test (as it is in voxceleb verification split)
+# Assuming same number of enrol and test (as it is in voxceleb verification split)
 scores = scores_plda.scoremat.diagonal()
 
 positive_scores = []
 negative_scores = []
 
 # Adding score to positive or negative lists
+print("Preparing positive and negative scores")
 for i in range(len(label_verification)):
     if int(label_verification[i]) == 1:
         positive_scores.append(scores[i])
@@ -297,6 +301,7 @@ for i in range(len(label_verification)):
         negative_scores.append(scores[i])
 
 # Normalize scores
+print("Normalizing PLDA scores")
 pmin = min(positive_scores)
 pmax = max(negative_scores)
 nmin = min(negative_scores)
