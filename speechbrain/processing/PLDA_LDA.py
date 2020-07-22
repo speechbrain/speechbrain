@@ -91,6 +91,10 @@ class StatObject_SB:
         ch += "-" * 30 + "\n"
         return ch
 
+    def save_stat_object(self, filename):
+        with open(filename, "wb") as output:
+            pickle.dump(self, output, pickle.HIGHEST_PROTOCOL)
+
     def get_mean_stat1(self):
         """Return the mean of first order statistics
         """
@@ -399,6 +403,10 @@ class Ndx:
             self.modelset = ndx.modelset
             self.segset = ndx.segset
             self.trialmask = ndx.trialmask
+
+    def save_ndx_object(self, output_file_name):
+        with open(output_file_name, "wb") as output:
+            pickle.dump(self, output, pickle.HIGHEST_PROTOCOL)
 
     def filter(self, modlist, seglist, keep):
         """Removes some of the information in an Ndx. Useful for creating a
