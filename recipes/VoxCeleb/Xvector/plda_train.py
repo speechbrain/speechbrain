@@ -5,6 +5,7 @@ import torch
 import logging
 import speechbrain as sb
 import numpy
+import pickle
 
 from tqdm.contrib import tqdm
 from speechbrain.utils.EER import EER
@@ -106,69 +107,84 @@ train_set = params.train_loader()
 ind2lab = params.train_loader.label_dict["spk_id"]["index2lab"]
 
 
-# Get Xvectors for train data (or 128k subset)
-with tqdm(train_set, dynamic_ncols=True) as t:
-    init_params = True
-    for wav, spk_id in t:
-        _, wav, lens = wav
-        id, spk_id, lens = spk_id
-
-        # For modelset
-        spk_id_str = convert_index_to_lab(spk_id, ind2lab)
-
-        # Flattening speaker ids
-        spk_ids = [sid[0] for sid in spk_id_str]
-        modelset = modelset + spk_ids
-
-        # For segset
-        segset = segset + id
-
-        if init_params:
-            xvect = compute_x_vectors(wav, lens, init_params=True)
-            params.mean_var_norm_xvect.glob_mean = torch.zeros_like(
-                xvect[0, 0, :]
-            )
-            params.mean_var_norm_xvect.count = 0
-
-            # Download models from the web if needed
-            if "https://" in params.xvector_file:
-                download_and_pretrain()
-            else:
-                params.xvector_model.load_state_dict(
-                    torch.load(params.xvector_file), strict=True
-                )
-
-            init_params = False
-            params.xvector_model.eval()
-            params.classifier.eval()
-        xvect = compute_x_vectors(wav, lens)
-
-        xv = xvect.squeeze().cpu().numpy()
-        xvectors = numpy.concatenate((xvectors, xv), axis=0)
-
-# Save TRAINING Xvectors in StatObject_SB object and load them during PLDA scoring
-
-# Speaker IDs and utterance IDs
-modelset = numpy.array(modelset, dtype="|O")
-segset = numpy.array(segset, dtype="|O")
-
-# intialize variables for start, stop and stat0
-s = numpy.array([None] * xvectors.shape[0])
-b = numpy.array([[1.0]] * xvectors.shape[0])
-
-xvectors_meta = StatObject_SB(
-    modelset=modelset, segset=segset, start=s, stop=s, stat0=b, stat1=xvectors
+# Get Xvectors for train data
+xv_file = os.path.join(
+    params.save_folder, "VoxCeleb1_train_xvectors_stat_obj.pkl"
 )
+# skip exatraction if already extracted
+if not os.path.exists(xv_file):
+    print("Extrating xvectors from Training set..")
+    with tqdm(train_set, dynamic_ncols=True) as t:
+        init_params = True
+        for wav, spk_id in t:
+            _, wav, lens = wav
+            id, spk_id, lens = spk_id
+
+            # For modelset
+            spk_id_str = convert_index_to_lab(spk_id, ind2lab)
+
+            # Flattening speaker ids
+            spk_ids = [sid[0] for sid in spk_id_str]
+            modelset = modelset + spk_ids
+
+            # For segset
+            segset = segset + id
+
+            if init_params:
+                xvect = compute_x_vectors(wav, lens, init_params=True)
+                params.mean_var_norm_xvect.glob_mean = torch.zeros_like(
+                    xvect[0, 0, :]
+                )
+                params.mean_var_norm_xvect.count = 0
+
+                # Download models from the web if needed
+                if "https://" in params.xvector_file:
+                    download_and_pretrain()
+                else:
+                    params.xvector_model.load_state_dict(
+                        torch.load(params.xvector_file), strict=True
+                    )
+
+                init_params = False
+                params.xvector_model.eval()
+                params.classifier.eval()
+            xvect = compute_x_vectors(wav, lens)
+
+            xv = xvect.squeeze().cpu().numpy()
+            xvectors = numpy.concatenate((xvectors, xv), axis=0)
+
+    # Speaker IDs and utterance IDs
+    modelset = numpy.array(modelset, dtype="|O")
+    segset = numpy.array(segset, dtype="|O")
+
+    # intialize variables for start, stop and stat0
+    s = numpy.array([None] * xvectors.shape[0])
+    b = numpy.array([[1.0]] * xvectors.shape[0])
+
+    xvectors_stat = StatObject_SB(
+        modelset=modelset,
+        segset=segset,
+        start=s,
+        stop=s,
+        stat0=b,
+        stat1=xvectors,
+    )
+    # Save TRAINING Xvectors in StatObject_SB object and load them during PLDA scoring
+    xvectors_stat.save_stat_object(xv_file)
+else:
+    # Load the saved stat object for train xvector
+    print("Skipping Xvector Extraction")
+    print("Loading previously saved stat_object for train xvectors..")
+    with open(xv_file, "rb") as input:
+        xvectors_stat = pickle.load(input)
 
 plda = PLDA()
 
 # Training Gaussina PLDA model
-plda.plda(xvectors_meta)
+plda.plda(xvectors_stat)
 
 
-# save plda model (optional)
-
-print("Testing...")
+print("\nTesting...")
 # Some PLDA inputs
 modelset_enrol, segset_enrol = [], []
 xvect_enrol = numpy.empty(shape=[0, 512], dtype=numpy.float64)
@@ -178,7 +194,6 @@ verification_truth = []
 
 
 """
-# loading from data_dict
 import pickle
 test_set = params.test_loader()
 data_dict_file = open("results/speaker_verification/save/data_dict.pkl","rb")
@@ -189,44 +204,6 @@ print ("label_dict: ",params.train_loader.label_dict)
 print ("label_dict--->>> ")
 #pprint.pprint (params.train_loader.label_dict)
 """
-
-
-def plda_similarity(mod, seg, xvect1, xvect2, veri_labs):
-    scores = []
-    for i in range(len(veri_labs)):
-        x1 = xvect1[i]
-        x2 = xvect2[i]
-        m, s = [mod[i]], [seg[i]]
-
-        enrol_obj = StatObject_SB(
-            modelset=m,
-            segset=s,
-            start=[None],
-            stop=[None],
-            stat0=[[1.0]],
-            stat1=x1,
-        )
-
-        test_obj = StatObject_SB(
-            modelset=m,
-            segset=s,
-            start=[None],
-            stop=[None],
-            stat0=[[1.0]],
-            stat1=x2,
-        )
-
-        # ndx_obj = Ndx(models=mod, testsegs=seg, trialmask=[flag])
-        ndx_obj = Ndx(models=m, testsegs=s)
-
-        score_plda = fast_PLDA_scoring(
-            enrol_obj, test_obj, ndx_obj, plda.mean, plda.F, plda.Sigma
-        )
-        scores.append(score_plda)
-
-    print("scores... ", scores)
-
-
 with tqdm(test_set, dynamic_ncols=True) as t:
 
     positive_scores = []
@@ -285,23 +262,7 @@ with tqdm(test_set, dynamic_ncols=True) as t:
         xvect_enrol = numpy.concatenate((xvect_enrol, xv_enrol), axis=0)
         xvect_test = numpy.concatenate((xvect_enrol, xv_test), axis=0)
 
-        # Computing similarity
-        # score = similarity(xvect1, xvect2)
-        # score = plda_similarity(mod, seg, xvect1, xvect2, label_verification)
-
-        # Adding score to positive or negative lists
-        # for i in range(len(label_verification)):
-
-        #   logger.debug(
-        #        "%s score=%f label=%s"
-        #        % (id[i], score[i], index2label[int(label_verification[i])])
-        #    )
-        #    if index2label[int(label_verification[i])] == "1":
-        #        positive_scores.append(score[i])
-        #    else:
-        #        negative_scores.append(score[i])
-
-    print("Completed extraction and score computations...")
+    print("Completed test xvector extraction...")
 
     modelset_enrol = numpy.array(modelset_enrol, dtype="|O")
     segset_enrol = numpy.array(segset_enrol, dtype="|O")
