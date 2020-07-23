@@ -16,7 +16,7 @@ csv_test: !ref <data_folder>/test-clean.csv
 number_of_epochs: 30
 number_of_ctc_epochs: 10
 batch_size: 8
-lr: 0.8
+lr: 1.0
 ctc_weight: 0.5
 device: 'cuda:0'
 
@@ -28,8 +28,9 @@ n_mels: 40
 # Model parameters
 activation: !name:torch.nn.LeakyReLU
 dropout: 0.15
-cnn_blocks: 2
-cnn_channels: (128, 128)
+cnn_blocks: 3
+cnn_channels: (64, 128, 256)
+inter_layer_pooling_size: (4, 2, 2)
 cnn_kernelsize: (3, 3)
 rnn_layers: 4
 rnn_neurons: 1024
@@ -42,6 +43,7 @@ emb_size: 128
 output_neurons: 1000 # index(blank/eos/bos) = 0
 blank_index: 0
 # Decoding parameters
+# Be sure that the bos and eos index match with the BPEs ones
 bos_index: 0
 eos_index: 0
 min_decode_ratio: 0.0
@@ -53,12 +55,16 @@ using_max_attn_shift: True
 max_attn_shift: 60
 
 # BPE
-bpe_tokenizer: !new:speechbrain.tokenizers.BPE.BPE
+bpe_tokenizer: !new:speechbrain.tokenizers.SentencePiece.SentencePiece
     model_dir: !ref <save_folder>
     vocab_size: !ref <output_neurons>
     csv_train: !ref <csv_train>
     csv_read: wrd
-    model_type: "bpe" # ["unigram", "bpe", "char", "word"]
+    model_type: "unigram" # ["unigram", "bpe", "char"]
+    character_coverage: 1.0 # for language with large set of chars use 0.9995
+    bos_id: -1 # assume that bos = unk = 0
+    eos_id: -1 # assume that eos = unk = 0
+
 # Functions
 enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
     activation: !ref <activation>
@@ -66,6 +72,7 @@ enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
     cnn_blocks: !ref <cnn_blocks>
     cnn_channels: !ref <cnn_channels>
     cnn_kernelsize: !ref <cnn_kernelsize>
+    inter_layer_pooling_size: !ref <inter_layer_pooling_size>
     time_pooling: False
     using_2d_pooling: True
     rnn_layers: !ref <rnn_layers>
