@@ -56,6 +56,9 @@ class AddNoise(torch.nn.Module):
     start_index : int
         The index in the noise waveforms to start from. By default, chooses
         a random index in [0, len(noise) - len(waveforms)].
+    normalize : bool
+        If True, output noisy signals that exceed [-1,1] will be
+        normalized to [-1,1].
     replacements : dict
         A set of string replacements to carry out in the
         csv file. Each time a key is found in the text, it will be replaced
@@ -81,6 +84,7 @@ class AddNoise(torch.nn.Module):
         pad_noise=False,
         mix_prob=1.0,
         start_index=None,
+        normalize=False,
         replacements={},
     ):
         super().__init__()
@@ -95,6 +99,7 @@ class AddNoise(torch.nn.Module):
         self.pad_noise = pad_noise
         self.mix_prob = mix_prob
         self.start_index = start_index
+        self.normalize = normalize
         self.replacements = replacements
 
     def forward(self, waveforms, lengths):
@@ -145,9 +150,12 @@ class AddNoise(torch.nn.Module):
             noise_waveform *= new_noise_amplitude / (noise_amplitude + 1e-14)
             noisy_waveform += noise_waveform
 
-        # Normalization to prevent clipping
-        abs_max, _ = torch.max(torch.abs(noisy_waveform), dim=1, keepdim=True)
-        noisy_waveform = noisy_waveform / abs_max.clamp(min=1.0)
+        # Normalizing to prevent clipping
+        if self.normalize:
+            abs_max, _ = torch.max(
+                torch.abs(noisy_waveform), dim=1, keepdim=True
+            )
+            noisy_waveform = noisy_waveform / abs_max.clamp(min=1.0)
 
         return noisy_waveform
 
