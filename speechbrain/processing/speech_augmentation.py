@@ -147,7 +147,7 @@ class AddNoise(torch.nn.Module):
 
         # Normalization to prevent clipping
         abs_max, _ = torch.max(torch.abs(noisy_waveform), dim=1, keepdim=True)
-        noisy_waveform = noisy_waveform / abs_max * 0.99
+        noisy_waveform = noisy_waveform / abs_max.clamp(min=1.0)
 
         return noisy_waveform
 
