@@ -14,10 +14,11 @@ csv_valid: !ref <data_folder>/dev-clean.csv
 csv_test: !ref <data_folder>/test-clean.csv
 
 # Training parameters
-number_of_epochs: 120
+number_of_epochs: 60
 batch_size: 64
-lr: 0.0001
+lr: 0.00025
 ctc_weight: 0.4
+ctc_epoch: 50
 device: 'cuda'
 multigpu: True
 
@@ -29,6 +30,7 @@ n_mels: 80
 # Model parameters
 alpha: 0.5
 dropout: 0.1
+src_masking: True
 
 # Outputs
 output_neurons: 5000
@@ -49,7 +51,7 @@ eos_threshold: 1.5
 # Functions
 tokenizer: !new:speechbrain.tokenizers.BPE.BPE
     model_dir: !ref <output_folder>
-    vocab_size: !ref <output_neurons>  # 5000 unigram tokens
+    vocab_size: !ref <output_neurons> # 5000 unigram tokens
     text_file: !ref <data_folder>/transcript-960.txt
     model_type: unigram
 
@@ -58,11 +60,11 @@ CNN: !new:speechbrain.lobes.models.ContextNet.ContextNet
     dropout: !ref <dropout>
     norm: !name:speechbrain.nnet.normalization.LayerNorm
     # se_activation: !name:torch.nn.LeakyReLU
-    num_blocks: 3
-    # conv_channels: (256, 256, 256, 256, 512, 512, 512, 512, 512)
-    # strides: (1, 2, 1, 1, 2, 1, 1, 2, 1)
-    conv_channels: (256, 512, 512)
-    strides: (2, 2, 2)
+    num_blocks: 9
+    conv_channels: (256, 256, 256, 256, 512, 512, 512, 512, 512)
+    strides: (1, 2, 1, 1, 2, 1, 1, 2, 1)
+    # conv_channels: (256, 512, 512)
+    # strides: (2, 2, 2)
 
 Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.TransformerASR # yamllint disable-line rule:line-length
     tgt_vocab: !ref <output_neurons>
