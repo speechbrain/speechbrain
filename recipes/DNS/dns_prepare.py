@@ -212,7 +212,10 @@ def create_csv(
             os.makedirs(noisy_folder)
 
         noise_adder = AddNoise(
-            csv_file=noise_csv, snr_low=noise_snr_low, snr_high=noise_snr_high,
+            csv_file=noise_csv,
+            snr_low=noise_snr_low,
+            snr_high=noise_snr_high,
+            pad_noise=True,
         )
 
     # Processing all the wav files in the list
