@@ -1,3 +1,12 @@
+"""
+Custom LibriParty creation script with user specified parameters.
+
+Author
+------
+Samuele Cornell, 2020
+"""
+
+
 import os
 import sys
 import json

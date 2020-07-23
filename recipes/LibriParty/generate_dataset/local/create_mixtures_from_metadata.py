@@ -1,3 +1,13 @@
+"""
+This file contains functions to create mixtures given json metadata.
+The mixtures simulate a multi-party conversation in a noisy scenario.
+
+Author
+------
+Samuele Cornell, 2020
+"""
+
+
 import os
 import torch
 import json

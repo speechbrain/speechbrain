@@ -1,3 +1,14 @@
+"""
+This script allows to resample a folder which contains audio files.
+The files are parsed recursively. An exact copy of the folder is created,
+with same structure but contained resampled audio files.
+Resampling is performed by using sox through torchaudio.
+
+Author
+------
+Samuele Cornell, 2020
+"""
+
 import os
 import argparse
 from pathlib import Path

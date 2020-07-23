@@ -1,3 +1,13 @@
+"""
+This file contains functions to create json metadata used to create
+mixtures which simulate a multi-party conversation in a noisy scenario.
+
+Author
+------
+Samuele Cornell, 2020
+"""
+
+
 import soundfile as sf
 import numpy as np
 from pathlib import Path
