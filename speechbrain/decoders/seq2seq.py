@@ -327,7 +327,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 log_probs[:, self.eos_index] = self.minus_inf
 
             # Set the eos prob to minus_inf when it doesn't exceed threshold.
-            max_probs, _ = torch.max(log_probs[:, : self.eos_index], dim=-1)
+            max_probs, _ = torch.max(log_probs[:, :], dim=-1)
             eos_probs = log_probs[:, self.eos_index]
             log_probs[:, self.eos_index] = torch.where(
                 eos_probs > self.eos_threshold * max_probs,

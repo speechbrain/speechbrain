@@ -73,7 +73,7 @@ class CRDNN(Sequential):
         time_pooling_size=2,
         freq_pooling_size=2,
         rnn_class=LiGRU,
-        inter_layer_pooling_size=2,
+        inter_layer_pooling_size=[2, 2],
         using_2d_pooling=False,
         rnn_layers=4,
         rnn_neurons=512,
@@ -89,15 +89,15 @@ class CRDNN(Sequential):
             if not using_2d_pooling:
                 pooling = Pooling1d(
                     pool_type="max",
-                    kernel_size=inter_layer_pooling_size,
+                    kernel_size=inter_layer_pooling_size[block_index],
                     pool_axis=2,
                 )
             else:
                 pooling = Pooling2d(
                     pool_type="max",
                     kernel_size=(
-                        inter_layer_pooling_size,
-                        inter_layer_pooling_size,
+                        inter_layer_pooling_size[block_index],
+                        inter_layer_pooling_size[block_index],
                     ),
                     pool_axis=(1, 2),
                 )
