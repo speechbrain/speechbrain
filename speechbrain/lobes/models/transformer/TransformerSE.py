@@ -3,7 +3,7 @@
 Authors
 * Chien-Feng Liao 2020
 """
-
+import torch  # noqa E402
 from torch import nn
 from speechbrain.nnet.linear import Linear
 from speechbrain.nnet.CNN import Conv1d
@@ -20,31 +20,33 @@ class CNNTransformerSE(TransformerInterface):
 
     Arguements
     ----------
-    d_model: int
-        the number of expected features in the encoder/decoder inputs (default=512).
+    output_size: int
+        the number of expected neurons in the output layer.
+    output_activation: torch class
+        the activation function of output layer, (default=ReLU).
     nhead: int
         the number of heads in the multiheadattention models (default=8).
-    num_encoder_layers: int
-        the number of sub-encoder-layers in the encoder (default=6).
-    num_decoder_layers: int
-        the number of sub-decoder-layers in the decoder (default=6).
-    dim_ffn: int
-        the dimension of the feedforward network model (default=2048).
+    num_layers: int
+        the number of sub-layers in the transformer (default=8).
+    d_ffn: int
+        the number of expected features in the encoder layers (default=512).
     dropout: int
         the dropout value (default=0.1).
     activation: torch class
-        the activation function of encoder/decoder intermediate layer, relu or gelu (default=relu)
-
+        the activation function of intermediate layers (default=LeakyReLU).
+    causal: bool
+        True for causal setting, the model is forbidden to see future frames. (default=True)
+    cnn_channels: list
+        A list for the number of channels in the CNN encoder.
+    cnn_kernelsize: list
+        A list for the kernel sizes in the CNN encoder.
     Example
     -------
     >>> src = torch.rand([8, 120, 60])
-    >>> tgt = torch.randint(0, 720, [8, 120])
-    >>> net = CNNTransformerSE(720, 512, 8, 1, 1, 1024, activation=torch.nn.GELU)
-    >>> enc_out, dec_out = net.forward(src, tgt, init_params=True)
-    >>> print(enc_out.shape)
-    torch.Size([8, 120, 512])
-    >>> print(dec_out.shape)
-    torch.Size([8, 120, 512])
+    >>> net = CNNTransformerSE(257)
+    >>> out = net.forward(src, init_params=True)
+    >>> print(out.shape)
+    torch.Size([8, 120, 257])
     """
 
     def __init__(
@@ -56,7 +58,6 @@ class CNNTransformerSE(TransformerInterface):
         d_ffn=512,
         dropout=0.1,
         activation=nn.LeakyReLU,
-        return_attention=False,
         causal=True,
         cnn_channels=[1024, 512, 128, 256],
         cnn_kernelsize=[3, 3, 3, 3],
