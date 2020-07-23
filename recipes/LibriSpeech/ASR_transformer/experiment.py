@@ -136,6 +136,9 @@ class ASR(sb.core.Brain):
 
         # generate attn mask and padding mask for transformer
         src_key_padding_mask = None
+        if params.src_masking:
+            src_key_padding_mask = get_key_padding_mask(src, pad_idx=0)
+
         trg_key_padding_mask = get_key_padding_mask(
             chars, pad_idx=params.pad_id
         )
@@ -158,7 +161,7 @@ class ASR(sb.core.Brain):
         )
 
         # output layer for ctc log-probabilities
-        logits = params.ctc_lin(src, init_params)
+        logits = params.ctc_lin(enc_out, init_params)
         p_ctc = params.log_softmax(logits)
 
         # output layer for seq2seq log-probabilities
@@ -217,9 +220,16 @@ class ASR(sb.core.Brain):
         rel_length = (abs_length + 1) / chars.shape[1]
         char_lens = char_lens / chars.shape[1]
 
-        loss_ctc = params.ctc_cost(p_ctc, chars, wav_lens, char_lens)
         loss_seq = params.seq_cost(p_seq, phns_with_eos, rel_length)
-        loss = params.ctc_weight * loss_ctc + (1 - params.ctc_weight) * loss_seq
+
+        if params.epoch_counter.current <= params.ctc_epoch:
+            loss_ctc = params.ctc_cost(p_ctc, chars, wav_lens, char_lens)
+            loss = (
+                params.ctc_weight * loss_ctc
+                + (1 - params.ctc_weight) * loss_seq
+            )
+        else:
+            loss = loss_seq
 
         stats = {}
         if (
@@ -229,8 +239,11 @@ class ASR(sb.core.Brain):
         ) or stage == "test":
             ind2lab = params.train_loader.label_dict["wrd"]["index2lab"]
             char_seq = params.tokenizer(hyps, task="decode")
-            print("hypes_idx", hyps)
-            print("hyps", char_seq)
+            try:
+                print("hypes_idx", hyps)
+                print("hyps", char_seq)
+            except UnicodeEncodeError:
+                pass
 
             chars = undo_padding(target_chars, target_lens)
             chars = convert_index_to_lab(chars, ind2lab)
@@ -249,7 +262,7 @@ class ASR(sb.core.Brain):
         loss.backward()
 
         # gradient clipping
-        torch.nn.utils.clip_grad_norm_(self.modules.parameters(), 1.0)
+        torch.nn.utils.clip_grad_norm_(self.modules.parameters(), 5.0)
 
         self.optimizer.step()
         self.optimizer.zero_grad()
@@ -283,7 +296,7 @@ class ASR(sb.core.Brain):
     def _reset_params(self):
         for p in params.Transformer.parameters():
             if p.dim() > 1:
-                torch.nn.init.xavier_uniform_(p)
+                torch.nn.init.xavier_normal_(p)
 
 
 # Prepare data
