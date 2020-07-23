@@ -13,7 +13,7 @@ import sentencepiece as spm
 logger = logging.getLogger(__name__)
 
 
-class BPE:
+class SentencePiece:
     """
     BPE class call the SentencePiece unsupervised text tokenizer from Google.
     Ref: https://github.com/google/sentencepiece
@@ -22,6 +22,33 @@ class BPE:
     It implements subword units like Byte-pair-encoding (BPE),
     Unigram language model and char/word tokenizer.
 
+    Arguments
+    ---------
+    model_dir: str
+        The directory where the model is saved.
+    vocab_size: int, None, optional
+        Vocab size for the choosen tokenizer type (BPE, Unigram, word).
+        The vocab_size is optional for char, word and unigram tokenization.
+    csv_train: str
+        Path of the csv file which is used for learn of create the tokenizer.
+    csv_read: str
+        The data entrie which contain the word sequence in the csv file.
+    model_type: str
+        (bpe, char, unigram).
+        If "bpe", train unsupervised tokenization of piece of words. see:
+        https://www.aclweb.org/anthology/P16-1162/
+        If "word" take the vocabulary from the input text.
+        If "unigram" do piece of word tokenization using unigram language model, see:
+        https://arxiv.org/abs/1804.10959
+    character_coverage: int
+        Default: 1.0,
+        Amount of characters covered by the model,
+        good defaults are: 0.9995 for languages with rich character set like Japanse or Chinese
+        and 1.0 for other languages with small character set.
+    bos_id: int
+        Default: -1, if -1 the bos_id = unk_id = 0. otherwize, bos_id = int.
+    eos_id: int
+        Default: -1, if -1 the bos_id = unk_id = 0. otherwize, bos_id = int.
 
     Example
     -------
@@ -31,9 +58,9 @@ class BPE:
     >>> csv_train = "tests/unittests/tokenizer_data/dev-clean.csv"
     >>> csv_read = "wrd"
     >>> model_type = "bpe"
-    >>> bpe = BPE(model_dir,2000, csv_train, csv_read, model_type)
+    >>> bpe = SentencePiece(model_dir,2000, csv_train, csv_read, model_type)
     >>> batch_seq = torch.Tensor([[1, 2, 2, 1],[1, 2, 1, 0]])
-    >>> batch_lens = torch.Tensor([1.0,0.75])
+    >>> batch_lens = torch.Tensor([1.0, 0.75])
     >>> encoded_seq_ids, encoded_seq_pieces = bpe(batch_seq, batch_lens, dict_int2lab, task="encode", init_params=True)
     """
 
@@ -44,11 +71,12 @@ class BPE:
         csv_train=None,
         csv_read=None,
         model_type="unigram",
+        character_coverage=1.0,
+        bos_id=-1,
+        eos_id=-1,
     ):
-        if model_type not in ["unigram", "bpe", "char", "word"]:
-            raise ValueError(
-                "model_type must be one of : [unigram, bpe, char, word]"
-            )
+        if model_type not in ["unigram", "bpe", "char"]:
+            raise ValueError("model_type must be one of : [unigram, bpe, char]")
         if not os.path.isfile(os.path.abspath(csv_train)):
             if os.path.isfile(
                 os.path.join(
@@ -84,10 +112,18 @@ class BPE:
         self.prefix_model_file = os.path.join(
             model_dir, str(vocab_size) + "_" + model_type
         )
-        self.vocab_size = vocab_size
+        self.vocab_size = str(vocab_size)
         self.model_type = model_type
+        self.character_coverage = str(character_coverage)
+        self.bos_id = str(bos_id)
+        self.eos_id = str(eos_id)
 
     def _csv2text(self):
+        """
+        Read CSV file and convert specific data entries into text file.
+
+        """
+
         logger.info(
             "Extract " + self.csv_read + " sequences from:" + self.csv_train
         )
@@ -105,17 +141,30 @@ class BPE:
         logger.info("Text file created at: " + self.text_file)
 
     def _train_BPE(self):
-        spm.SentencePieceTrainer.train(
+        """
+        Train tokenizer with unsupervised techniques (BPE, Unigram) using SentencePiece Library.
+        If you use "char" mode, the SentencePiece create a char dict so the vocab_size attribute is not needed.
+
+        """
+        query = (
             "--input="
             + self.text_file
             + " --model_prefix="
             + self.prefix_model_file
-            + " --vocab_size="
-            + str(self.vocab_size)
             + " --model_type="
             + self.model_type
-            + " --bos_id=-1 --eos_id=-1"
+            + " --bos_id="
+            + self.bos_id
+            + " --eos_id="
+            + self.eos_id
+            + " --character_coverage="
+            + self.character_coverage
         )
+        if self.model_type not in ["char"]:
+            # include vocab_size
+            query += " --vocab_size=" + str(self.vocab_size)
+        # Train tokenizer
+        spm.SentencePieceTrainer.train(query)
 
     def init_params(self):
         if not os.path.isfile(self.prefix_model_file + ".model"):
