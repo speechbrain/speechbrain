@@ -171,6 +171,13 @@ class SentencePiece:
         spm.SentencePieceTrainer.train(query)
 
     def init_params(self):
+        """
+        The SentencePiece init_params check if the model is already generated.
+        Otherwise it call the train of the tokenizer.
+
+        This function report the information about the tokenizer used in the experiment.
+
+        """
         if not os.path.isfile(self.prefix_model_file + ".model"):
             logger.info("Train tokenizer with type:" + self.model_type)
             if not os.path.isfile(self.text_file):
@@ -193,6 +200,26 @@ class SentencePiece:
         task="encode",
         init_params=False,
     ):
+        """
+        This __call__ function implements the tokenizer encoder and decoder (restoring the string of word)
+        for BPE, Regularized BPE (with unigram), and char (speechbrain/nnet/RNN.py).
+
+        Arguments
+        ----------
+        batch : tensor.IntTensor or list if ( batch_lens = None and task = "decode_from_list")
+            Containing the original labels. Must be of size: [batch_size, max_length]
+        batch_lens : tensor.LongTensor
+            Default: None,
+            Cotaining the relative length of each label sequences. Must be 1D tensor of [batch_size].
+        ind2lab : dict
+            Dictionnary which map the index from label sequences (batch tensor) to string label.
+        task: str
+            ("encode", "decode", "decode_from_list)
+            "encode": convert the batch tensor into sequence of tokens.
+                the output contain a list of (tokens_seq, tokens_lens)
+            "decode": convert a tensor of tokens to a list of word sequences.
+            "decode_from_list": convert a list of token sequences to a list of word sequences.
+        """
         if init_params:
             self.init_params()
         if task == "encode" and ind2lab is None:
