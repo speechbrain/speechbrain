@@ -1,3 +1,11 @@
+"""
+Source datasets downloading script for LibriParty.
+
+Author
+------
+Samuele Cornell, 2020
+"""
+
 import argparse
 import os
 from speechbrain.utils.data_utils import download_file
@@ -48,21 +56,26 @@ if args.stage <= 1:
 if args.stage <= 2:
     print("Stage 2: Downloading QUT-TIMIT background noises")
     for url in QUT_TIMIT_URLS:
-        name = url.split("/")[-1]
+        name = "QUT_NOISE"
         os.makedirs(os.path.join(args.output_folder, name), exist_ok=True)
         download_file(
-            url, os.path.join(args.output_folder, name, name), unpack=True,
+            url,
+            os.path.join(args.output_folder, name, url.split("/")[-1]),
+            unpack=True,
         )
 
 if args.stage <= 3:
     print("Stage 3: Resampling QUT noise background noises")
-    resample_folder(
-        os.path.join(args.output_folder, "QUT_NOISE"),
-        os.path.join(args.output_folder, "QUT_NOISE_16kHz"),
-        16000,
-        ".wav",
-    )
-    print(
-        "Resampling done. Original QUT noise files can be deleted "
-        "as they will not be used."
-    )
+    if os.path.exists(os.path.join(args.output_folder, "QUT_NOISE_16kHz")):
+        print("Output folder already exists, skipping resampling.")
+    else:
+        resample_folder(
+            os.path.join(args.output_folder, "QUT_NOISE"),
+            os.path.join(args.output_folder, "QUT_NOISE_16kHz"),
+            16000,
+            ".wav",
+        )
+        print(
+            "Resampling done. Original QUT noise files can be deleted "
+            "as they will not be used."
+        )

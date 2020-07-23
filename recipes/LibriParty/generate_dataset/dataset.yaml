@@ -2,14 +2,15 @@
 # User defined Paths #
 ######################
 
-out_folder: /tmp/LibriParty # folder where created dataset will be stored.
-metadata_file: /tmp/metadata.json
+# folder where created dataset will be stored.
+out_folder: /media/sam/LibriParty/dataset
+metadata_folder: /media/sam/bx500/LibriParty/dataset/metadata
 samplerate: 16000 # dataset samplerate (should be <=16000)
 
-save_wet_sources: True
+save_wet_sources: False
 # whether to save oracle reverberated clean-speech sources.
 
-save_dry_sources: True
+save_dry_sources: False
 # whether to save oracle dry, non-reverberated clean-speech sources.
 
 #########################
@@ -21,11 +22,11 @@ librispeech_root: /media/sam/bx500/LibriSpeech
 
 librispeech_folders: # folders one wants to use for the train dataset.
   train:
-    - /media/sam/bx500/LibriSpeech/train-clean-100/ # e.g. clean-100 etc.
+    - !ref <librispeech_root>/train-clean-100/ # e.g. clean-100 etc.
   dev:
-    - /media/sam/bx500/LibriSpeech/dev-clean/
+    - !ref <librispeech_root>/dev-clean/
   eval:
-    - /media/sam/bx500/LibriSpeech/test-clean/
+    - !ref <librispeech_root>/test-clean/
 
 rirs_noises_root: /media/sam/bx500/RIRS_NOISES/
 rirs_folders:
@@ -33,7 +34,7 @@ rirs_folders:
   - !ref <rirs_noises_root>/real_rirs_isotropic_noises
 noises_folders:
   - !ref <rirs_noises_root>/pointsource_noises/
-backgrounds_root: /media/sam/bx500/QUT-NOISE/QUT-NOISE_16k
+backgrounds_root: /media/sam/bx500/LibriParty/QUT_NOISE_16kHz/
 # optional background noise from QUT (required for "official" dataset)
 # One can use also other background noises.
 
@@ -51,9 +52,9 @@ split_factors:
 # for speech one can use librispeech official splits
 
 n_sessions: # number of synthetic scenes
-  train: 10
-  dev: 2
-  eval: 2
+  train: 250
+  dev: 50
+  eval: 50
 n_speakers: 2 # max number of speakers in each session
 interval_factor_speech: 20
 # this parameter controls amount of silence and
