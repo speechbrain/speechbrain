@@ -148,8 +148,8 @@ def reconstruct_results(
 
     Example
     ---------
-    >>> BS, nfft, T = 10, 20, 300
-    >>> sample_rate, win_length, hop_length = 10, 4, 1
+    >>> BS, nfft, T = 10, 512, 16000
+    >>> sample_rate, win_length, hop_length = 16000, 25, 10
     >>> X1hat = torch.randn(BS, nfft//2 + 1, T)
     >>> X2hat = torch.randn(BS, nfft//2 + 1, T)
     >>> X_stft = torch.randn(BS, nfft//2 + 1, T, 2)
@@ -173,7 +173,6 @@ def reconstruct_results(
 
     eps = 1e-25
     for i in range(X1hat.shape[0]):
-        print(X1hat.shape)
         X1hat_stft = (
             (X1hat[i] / (eps + X1hat[i] + X2hat[i])).unsqueeze(-1)
             * mag_mix[i].unsqueeze(-1)
@@ -197,8 +196,8 @@ def reconstruct_results(
                 dim=-1,
             )
         )
-        shat1 = ISTFT(X1hat_stft.unsqueeze(0))
-        shat2 = ISTFT(X2hat_stft.unsqueeze(0))
+        shat1 = ISTFT(X1hat_stft.unsqueeze(0).permute(0, 2, 1, 3))
+        shat2 = ISTFT(X2hat_stft.unsqueeze(0).permute(0, 2, 1, 3))
 
         div_factor = 10
         write_wav_soundfile(
