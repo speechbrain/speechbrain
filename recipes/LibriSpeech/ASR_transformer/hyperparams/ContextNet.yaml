@@ -30,7 +30,7 @@ n_mels: 80
 # Model parameters
 alpha: 0.5
 dropout: 0.1
-src_masking: True
+src_masking: False
 
 # Outputs
 output_neurons: 5000
@@ -39,6 +39,7 @@ label_smoothing: 0.1
 pad_id: 0
 bos_index: 1
 eos_index: 2
+unk_id: 3
 
 # Decoding parameters
 min_decode_ratio: 0.0
@@ -49,11 +50,17 @@ length_penalty: 0.3
 eos_threshold: 1.5
 
 # Functions
-tokenizer: !new:speechbrain.tokenizers.BPE.BPE
-    model_dir: !ref <output_folder>
-    vocab_size: !ref <output_neurons> # 5000 unigram tokens
-    text_file: !ref <data_folder>/transcript-960.txt
-    model_type: unigram
+tokenizer: !new:speechbrain.tokenizers.SentencePiece.SentencePiece
+    model_dir: !ref <save_folder>
+    vocab_size: !ref <output_neurons>
+    csv_train: !ref <csv_train>
+    csv_read: wrd
+    model_type: "unigram" # ["unigram", "bpe", "char"]
+    character_coverage: 0.9995 # for language with large set of chars use 0.9995
+    pad_id: !ref <pad_id>
+    bos_id: !ref <bos_index>
+    eos_id: !ref <eos_index>
+    unk_id: !ref <unk_id>
 
 CNN: !new:speechbrain.lobes.models.ContextNet.ContextNet
     alpha: !ref <alpha>

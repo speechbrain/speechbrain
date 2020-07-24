@@ -75,6 +75,7 @@ class SentencePiece:
         bos_id=-1,
         eos_id=-1,
         pad_id=-1,
+        unk_id=-1,
     ):
         if model_type not in ["unigram", "bpe", "char"]:
             raise ValueError("model_type must be one of : [unigram, bpe, char]")
@@ -119,6 +120,7 @@ class SentencePiece:
         self.bos_id = str(bos_id)
         self.eos_id = str(eos_id)
         self.pad_id = str(pad_id)
+        self.unk_id = str(unk_id)
 
     def _csv2text(self):
         """
@@ -161,6 +163,8 @@ class SentencePiece:
             + self.eos_id
             + " --pad_id="
             + self.pad_id
+            + " --unk_id="
+            + self.unk_id
             + " --character_coverage="
             + self.character_coverage
         )
