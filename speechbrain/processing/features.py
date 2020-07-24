@@ -57,7 +57,7 @@ class STFT(torch.nn.Module):
     sample_rate : int
         Sample rate of the input audio signal (e.g 16000).
     win_length : float
-         Length (in ms) of the sliding window used to compute the STFT.
+        Length (in ms) of the sliding window used to compute the STFT.
     hop_length : float
         Length (in ms) of the hope of the sliding window used to compute
         the STFT.
@@ -268,11 +268,10 @@ class ISTFT(torch.nn.Module):
         """
 
         or_shape = x.shape
-        print(x.shape)
 
-        # Changing the format for (batch, time_step, n_channels, n_fft, 2)
+        # Changing the format for (batch, time_step, n_fft, 2, n_channels)
         if len(or_shape) == 5:
-            x = x.permute(0, 2, 3, 1, 4)
+            x = x.permute(0, 4, 2, 1, 3)
         elif len(or_shape) == 4:
             x = x.permute(0, 2, 1, 3)
 
