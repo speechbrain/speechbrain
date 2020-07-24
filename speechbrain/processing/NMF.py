@@ -173,6 +173,7 @@ def reconstruct_results(
 
     eps = 1e-25
     for i in range(X1hat.shape[0]):
+        print(X1hat.shape)
         X1hat_stft = (
             (X1hat[i] / (eps + X1hat[i] + X2hat[i])).unsqueeze(-1)
             * mag_mix[i].unsqueeze(-1)
@@ -196,8 +197,8 @@ def reconstruct_results(
                 dim=-1,
             )
         )
-        shat1 = ISTFT(X1hat_stft.unsqueeze(0).permute(0, 2, 1, 3))
-        shat2 = ISTFT(X2hat_stft.unsqueeze(0).permute(0, 2, 1, 3))
+        shat1 = ISTFT(X1hat_stft.unsqueeze(0))
+        shat2 = ISTFT(X2hat_stft.unsqueeze(0))
 
         div_factor = 10
         write_wav_soundfile(

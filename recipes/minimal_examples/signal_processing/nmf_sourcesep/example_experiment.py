@@ -111,7 +111,8 @@ class NMF_Brain(sb.core.Brain):
         return {"loss": float(sum(s["loss"] for s in stats) / len(stats))}
 
     def on_epoch_end(self, *args):
-        print("The loss is {}".format(args[1]["loss"]))
+        # print("The loss is {}".format(args[1]["loss"]))
+        pass
 
 
 NMF1 = NMF_Brain(params.train_loader1())
@@ -121,6 +122,7 @@ NMF1.fit(
     train_set=params.train_loader1(),
     valid_set=None,
     epoch_counter=range(params.N_epochs),
+    progressbar=False,
 )
 W1hat = NMF1.training_out[1]
 
@@ -131,6 +133,7 @@ NMF2.fit(
     train_set=params.train_loader2(),
     valid_set=None,
     epoch_counter=range(params.N_epochs),
+    progressbar=False,
 )
 W2hat = NMF2.training_out[1]
 
