@@ -361,7 +361,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         for t in range(max_decode_steps):
             # terminate condition
-            hyps_len = [len(l) for l in hyps_and_scores]
+            hyps_len = [len(lst) for lst in hyps_and_scores]
             beam_size = [self.beam_size for _ in range(batch_size)]
             if hyps_len == beam_size:
                 break
