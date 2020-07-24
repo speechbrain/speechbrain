@@ -36,6 +36,7 @@ Authors
 import math
 import torch
 import logging
+import torchaudio
 from speechbrain.utils.checkpoints import (
     mark_as_saver,
     mark_as_loader,
@@ -63,9 +64,9 @@ class STFT(torch.nn.Module):
     n_fft : int
         Number of fft point of the STFT. It defines the frequency resolution
         (n_fft should be <= than win_len).
-    window_type : str
-        Window function used to compute the STFT ('bartlett','blackman',
-        'hamming', 'hann', default: hamming).
+    window_fn : function
+        A function that takes an integer (number of samples) and outputs a
+        tensor to be multiplied with each window before fft.
     normalized_stft : bool
         If True, the function returns the  normalized STFT results,
         i.e., multiplied by win_length^-0.5 (default is False).
@@ -102,7 +103,7 @@ class STFT(torch.nn.Module):
         win_length=25,
         hop_length=10,
         n_fft=400,
-        window_type="hamming",
+        window_fn=torch.hamming_window,
         normalized_stft=False,
         center=True,
         pad_mode="constant",
@@ -113,7 +114,6 @@ class STFT(torch.nn.Module):
         self.win_length = win_length
         self.hop_length = hop_length
         self.n_fft = n_fft
-        self.window_type = window_type
         self.normalized_stft = normalized_stft
         self.center = center
         self.pad_mode = pad_mode
@@ -127,7 +127,7 @@ class STFT(torch.nn.Module):
             round((self.sample_rate / 1000.0) * self.hop_length)
         )
 
-        self.window = self._create_window()
+        self.window = window_fn(self.win_length)
 
     def forward(self, x):
         """Returns the STFT generated from the input waveforms.
@@ -172,25 +172,6 @@ class STFT(torch.nn.Module):
 
         return stft
 
-    def _create_window(self):
-        """Returns the window used for STFT computation.
-        """
-        if self.window_type == "bartlett":
-            wind_cmd = torch.bartlett_window
-
-        if self.window_type == "blackman":
-            wind_cmd = torch.blackman_window
-
-        if self.window_type == "hamming":
-            wind_cmd = torch.hamming_window
-
-        if self.window_type == "hann":
-            wind_cmd = torch.hann_window
-
-        window = wind_cmd(self.win_length)
-
-        return window
-
 
 class ISTFT(torch.nn.Module):
     """ Computes the Inverse Short-Term Fourier Transform (ISTFT)
@@ -208,9 +189,9 @@ class ISTFT(torch.nn.Module):
     hop_length : float
         Length (in ms) of the hope of the sliding window used when computing
         the STFT.
-    window_type : str
-        Window function used to compute the STFT ('bartlett','blackman',
-        'hamming', 'hann', default: hamming).
+    window_fn : function
+        A function that takes an integer (number of samples) and outputs a
+        tensor to be used as a window for ifft.
     normalized_stft : bool
         If True, the function assumes that it's working with the normalized
         STFT results. (default is False)
@@ -244,9 +225,10 @@ class ISTFT(torch.nn.Module):
     def __init__(
         self,
         sample_rate,
+        n_fft=400,
         win_length=25,
         hop_length=10,
-        window_type="hamming",
+        window_fn=torch.hamming_window,
         normalized_stft=False,
         center=True,
         onesided=True,
@@ -254,9 +236,9 @@ class ISTFT(torch.nn.Module):
     ):
         super().__init__()
         self.sample_rate = sample_rate
+        self.n_fft = n_fft
         self.win_length = win_length
         self.hop_length = hop_length
-        self.window_type = window_type
         self.normalized_stft = normalized_stft
         self.center = center
         self.onesided = onesided
@@ -270,7 +252,8 @@ class ISTFT(torch.nn.Module):
             round((self.sample_rate / 1000.0) * self.hop_length)
         )
 
-        self.window = self._create_window()
+        # Create window using provided function
+        self.window = window_fn(self.win_length)
 
     def forward(self, x, sig_length=None):
         """ Returns the ISTFT generated from the input signal.
@@ -279,128 +262,35 @@ class ISTFT(torch.nn.Module):
         ---------
         x : tensor
             A batch of audio signals in the frequency domain to transform.
-
         sig_length : int
             The length of the output signal in number of samples. If not
             specified will be equal to: (time_step - 1) * hop_length + n_fft
         """
 
         or_shape = x.shape
+        print(x.shape)
 
         # Changing the format for (batch, time_step, n_channels, n_fft, 2)
         if len(or_shape) == 5:
-            x = x.permute(0, 1, 4, 2, 3)
+            x = x.permute(0, 2, 3, 1, 4)
+        elif len(or_shape) == 4:
+            x = x.permute(0, 2, 1, 3)
 
-        # Computing the n_fft according to value of self.onesided
-        if self.onesided:
-            n_fft = 2 * (or_shape[2] - 1)
-
-        else:
-            n_fft = or_shape[2]
-
-        # Applying an IFFT on the input frames
-        q = torch.irfft(
-            x, 1, self.normalized_stft, self.onesided, signal_sizes=[n_fft]
+        istft = torchaudio.functional.istft(
+            stft_matrix=x,
+            n_fft=self.n_fft,
+            hop_length=self.hop_length,
+            win_length=self.win_length,
+            window=self.window.to(x.device),
+            center=self.center,
+            onesided=self.onesided,
+            length=sig_length,
         )
-
-        # Computing the estimated signal length
-        estimated_length = (or_shape[1] - 1) * self.hop_length + n_fft
-
-        # Working with the given window
-        if self.window.shape[0] < n_fft:
-            padding_size = n_fft - self.window.shape[0]
-            beginning_pad = padding_size // 2
-            ending_pad = padding_size - beginning_pad
-
-            self.window = torch.cat(
-                (
-                    torch.zeros(beginning_pad),
-                    self.window,
-                    torch.zeros(ending_pad),
-                ),
-                -1,
-            )
-
-        elif self.window.shape[0] > n_fft:
-            crop_size = self.window.shape[0] - n_fft
-            crop_point = crop_size // 2
-            self.window = self.window[crop_point : (crop_point + n_fft)]
-
-        q = q * self.window
-
-        # Intializing variables for the upcoming normalization
-        sum_squared_wn = torch.zeros(estimated_length)
-        squared_wn = self.window * self.window
-
-        # Reconstructing the signal from the frames
-        if len(or_shape) == 5:
-            istft = torch.zeros((or_shape[0], or_shape[4], estimated_length))
-
-        else:
-            istft = torch.zeros((or_shape[0], estimated_length))
-
-        for frame_index in range(or_shape[1]):
-            time_point = frame_index * self.hop_length
-
-            istft[..., time_point : (time_point + n_fft)] += q[:, frame_index]
-            sum_squared_wn[time_point : (time_point + n_fft)] += squared_wn
-
-        # Normalizing the signal by the sum of the squared window
-        non_zero_indices = sum_squared_wn > self.epsilon
-        istft[..., non_zero_indices] /= sum_squared_wn[non_zero_indices]
-
-        # Cropping the signal to remove the padding if center is True
-        if self.center:
-            istft = istft[..., (n_fft // 2) : -(n_fft // 2)]
-            estimated_length -= n_fft
-
-        # Adjusting the size of the output signal if needed
-        if sig_length is not None:
-
-            if sig_length > estimated_length:
-
-                if len(or_shape) == 5:
-                    padding = torch.zeros(
-                        (
-                            or_shape[0],
-                            or_shape[4],
-                            sig_length - estimated_length,
-                        )
-                    )
-
-                else:
-                    padding = torch.zeros(
-                        (or_shape[0], sig_length - estimated_length)
-                    )
-
-                istft = torch.cat((istft, padding), -1)
-
-            elif sig_length < estimated_length:
-                istft = istft[..., 0:sig_length]
 
         if len(or_shape) == 5:
             istft = istft.transpose(1, 2)
 
         return istft
-
-    def _create_window(self):
-        """ Returns the window used for the ISTFT computation.
-        """
-        if self.window_type == "bartlett":
-            wind_cmd = torch.bartlett_window
-
-        if self.window_type == "blackman":
-            wind_cmd = torch.blackman_window
-
-        if self.window_type == "hamming":
-            wind_cmd = torch.hamming_window
-
-        if self.window_type == "hann":
-            wind_cmd = torch.hann_window
-
-        window = wind_cmd(self.win_length)
-
-        return window
 
 
 def spectral_magnitude(stft, power=1, log=False, eps=1e-14):
