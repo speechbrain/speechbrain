@@ -122,7 +122,7 @@ def reconstruct_results(
 
     X_stft : torch.tensor
         This is the magnitude spectra for the mixtures.
-        The size is [BS x T x nfft//2 + 1, 2] where,
+        The size is [BS x nfft//2 + 1 x T x 2] where,
         BS = batch size, nfft = fft size, T = number of time steps in the spectra.
         The last dimension is to represent complex numbers.
 
