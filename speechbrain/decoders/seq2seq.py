@@ -585,7 +585,6 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
     ... min_decode_ratio=0,
     ... max_decode_ratio=1,
     ... beam_size=2,
-    ... length_penalty=0.1,
     ... eos_threshold=1.5)
     >>> hyps, scores = searcher(enc, wav_len)
     """
