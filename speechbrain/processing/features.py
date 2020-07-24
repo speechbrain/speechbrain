@@ -225,7 +225,7 @@ class ISTFT(torch.nn.Module):
     def __init__(
         self,
         sample_rate,
-        n_fft=400,
+        n_fft=None,
         win_length=25,
         hop_length=10,
         window_fn=torch.hamming_window,
@@ -269,6 +269,14 @@ class ISTFT(torch.nn.Module):
 
         or_shape = x.shape
 
+        # Infer n_fft if not provided
+        if self.n_fft is None and self.onesided:
+            n_fft = (x.shape[2] - 1) * 2
+        elif self.n_fft is None and not self.onesided:
+            n_fft = x.shape[2]
+        else:
+            n_fft = self.n_fft
+
         # Changing the format for (batch, time_step, n_fft, 2, n_channels)
         if len(or_shape) == 5:
             x = x.permute(0, 4, 2, 1, 3)
@@ -277,7 +285,7 @@ class ISTFT(torch.nn.Module):
 
         istft = torchaudio.functional.istft(
             stft_matrix=x,
-            n_fft=self.n_fft,
+            n_fft=n_fft,
             hop_length=self.hop_length,
             win_length=self.win_length,
             window=self.window.to(x.device),

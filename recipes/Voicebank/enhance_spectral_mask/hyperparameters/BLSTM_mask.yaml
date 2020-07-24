@@ -77,7 +77,6 @@ compute_ISTFT: !new:speechbrain.processing.features.ISTFT
     sample_rate: !ref <Sample_rate>
     win_length: !ref <Win_length>
     hop_length: !ref <Hop_length>
-    n_fft: !ref <N_fft>
     window_fn: !ref <window_fn>
 
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
