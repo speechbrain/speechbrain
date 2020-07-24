@@ -8,7 +8,7 @@ import speechbrain as sb
 from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.train_logger import summarize_average
 from speechbrain.processing.features import spectral_magnitude
-from pystoi.stoi import stoi
+from speechbrain.nnet.loss.stoi_loss import stoi_loss
 from pesq import pesq
 
 # This hack needed to import data preparation script from ..
@@ -30,7 +30,6 @@ sb.core.create_experiment_directory(
 
 if params.use_tensorboard:
     from speechbrain.utils.train_logger import TensorboardLogger
-
     tensorboard_train_logger = TensorboardLogger(params.tensorboard_logs)
 
 # Create the folder to save enhanced files
@@ -42,8 +41,7 @@ def evaluation(clean, enhanced, length):
     clean = clean[:length]
     enhanced = enhanced[:length]
     pesq_score = pesq(params.Sample_rate, clean, enhanced, "wb",)
-    stoi_score = stoi(clean, enhanced, params.Sample_rate, extended=False)
-    return pesq_score, stoi_score
+    return pesq_score
 
 
 def multiprocess_evaluation(pred_wavs, target_wavs, lens, num_cores):
@@ -58,13 +56,12 @@ def multiprocess_evaluation(pred_wavs, target_wavs, lens, num_cores):
     pool.close()
     pool.join()
 
-    pesq_scores, stoi_scores = [], []
+    pesq_scores = []
     for process in processes:
-        pesq_score, stoi_score = process.get()
+        pesq_score = process.get()
         pesq_scores.append(pesq_score)
-        stoi_scores.append(stoi_score)
 
-    return pesq_scores, stoi_scores
+    return pesq_scores
 
 
 class SEBrain(sb.core.Brain):
@@ -89,9 +86,7 @@ class SEBrain(sb.core.Brain):
 
         loss = params.compute_cost(predictions, feats, lens)
 
-        stats = {}
-
-        return loss, stats
+        return loss, {}
 
     def evaluate_batch(self, batch, stage="valid"):
         inputs, targets = batch
@@ -100,16 +95,17 @@ class SEBrain(sb.core.Brain):
         ids, target_wavs, lens = targets
         loss, stats = self.compute_objectives(predictions, targets, stage=stage)
         stats["loss"] = loss.detach()
+        stats["stoi"] = -stoi_loss(pred_wavs, target_wavs, lens)
 
         # Comprehensive but slow evaluation for test
         if stage == "test":
             lens = lens * target_wavs.shape[1]
 
             # Evaluate PESQ and STOI
-            pesq_scores, stoi_scores = multiprocess_evaluation(
-                pred_wavs.numpy(),
-                target_wavs.numpy(),
-                lens.numpy(),
+            pesq_scores = multiprocess_evaluation(
+                pred_wavs.cpu().numpy(),
+                target_wavs.cpu().numpy(),
+                lens.cpu().numpy(),
                 multiprocessing.cpu_count(),
             )
 
@@ -117,10 +113,9 @@ class SEBrain(sb.core.Brain):
             for name, pred_wav, length in zip(ids, pred_wavs, lens):
                 name += ".wav"
                 enhance_path = os.path.join(params.enhanced_folder, name)
-                torchaudio.save(enhance_path, pred_wav[: int(length)], 16000)
+                torchaudio.save(enhance_path, pred_wav[: int(length)].cpu(), 16000)
 
             stats["pesq"] = pesq_scores
-            stats["stoi"] = stoi_scores
 
         return stats
 
@@ -137,13 +132,12 @@ class SEBrain(sb.core.Brain):
         loss = summarize_average(valid_stats["loss"])
         params.checkpointer.save_and_keep_only(
             meta={"loss": loss},
-            importance_keys=[ckpt_recency, lambda c: -c.meta["loss"]],
+            importance_keys=[ckpt_recency, lambda c: c.meta["stoi"]],
         )
 
     def resynthesize(self, predictions, inputs):
         ids, wavs, lens = inputs
         lens = lens * wavs.shape[1]
-        predictions = predictions.cpu()
 
         # Extract noisy phase
         feats = params.compute_STFT(wavs)
@@ -187,7 +181,7 @@ params.checkpointer.recover_if_possible()
 se_brain.fit(params.epoch_counter, train_set, valid_set)
 
 # Load best checkpoint for evaluation
-params.checkpointer.recover_if_possible(lambda c: -c.meta["loss"])
+params.checkpointer.recover_if_possible(lambda c: c.meta["stoi"])
 test_stats = se_brain.evaluate(params.test_loader())
 params.train_logger.log_stats(
     stats_meta={"Epoch loaded": params.epoch_counter.current},
