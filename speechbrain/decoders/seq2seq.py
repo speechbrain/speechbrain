@@ -90,7 +90,48 @@ class S2SBaseSearcher(torch.nn.Module):
 
     def reset_mem(self, batch_size, device):
         """This method should implement the reseting of
-        memory variables in the decoding approaches.
+        memory variables for the seq2seq model.
+        Ex. Initializing zero vector as initial hidden states.
+
+        Arguments
+        ---------
+        batch_size : int
+            The size of the batch.
+        device : torch.device
+            The device to put the initial variables.
+
+        Return
+        ------
+        memory : No limit
+            The initial memory variable.
+        """
+        raise NotImplementedError
+
+    def lm_forward_step(self, inp_tokens, memory):
+        """This method should implement one step of
+        forwarding operation for language model.
+
+        Arguments
+        ---------
+        inp_tokens : torch.Tensor
+            The input tensor of current timestep.
+        memory : No limit
+            The momory variables input for this timestep.
+            (ex. RNN hidden states).
+
+        Return
+        ------
+        log_probs : torch.Tensor
+            Log-probilities of the current timestep output.
+        memory : No limit
+            The momory variables generated in this timestep.
+            (ex. RNN hidden states).
+        """
+        raise NotImplementedError
+
+    def reset_lm_mem(self, batch_size, device):
+        """This method should implement the reseting of
+        memory variables in language model.
         Ex. Initializing zero vector as initial hidden states.
 
         Arguments
@@ -189,24 +230,20 @@ class S2SRNNGreedySearcher(S2SGreedySearcher):
         super(S2SRNNGreedySearcher, self).__init__(
             modules, bos_index, eos_index, min_decode_ratio, max_decode_ratio
         )
-        self.emb = modules[0]
-        self.dec = modules[1]
-        self.lin = modules[2]
-        self.softmax = modules[3]
 
     def reset_mem(self, batch_size, device):
         hs = None
-        self.dec.attn.reset()
-        c = torch.zeros(batch_size, self.dec.attn_dim).to(device)
+        emb, dec, lin, softmax = self.modules
+        dec.attn.reset()
+        c = torch.zeros(batch_size, dec.attn_dim).to(device)
         return hs, c
 
     def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
         hs, c = memory
-        e = self.emb(inp_tokens)
-        dec_out, hs, c, w = self.dec.forward_step(
-            e, hs, c, enc_states, enc_lens
-        )
-        log_probs = self.softmax(self.lin(dec_out))
+        emb, dec, lin, softmax = self.modules
+        e = emb(inp_tokens)
+        dec_out, hs, c, w = dec.forward_step(e, hs, c, enc_states, enc_lens)
+        log_probs = softmax(lin(dec_out))
         return log_probs, (hs, c), w
 
 
@@ -219,12 +256,16 @@ class S2SBeamSearcher(S2SBaseSearcher):
     ----------
     beam_size : int
         The width of beam.
-    length_penalty : float
-        The coefficient of length penalty (γ).
-        log P(y|x) + λ log P_LM(y) + γ*len(y
     eos_threshold : float
         The threshold coefficient for eos token. See 3.1.2 in
         reference: https://arxiv.org/abs/1904.02619
+    length_normlization : bool
+        Default : True
+        Whether to divide the scores by the length.
+    length_rewarding : float
+        Default : 0.0
+        The coefficient of length rewarding (γ).
+        log P(y|x) + λ log P_LM(y) + γ*len(y
     using_max_attn_shift: bool
         Whether using the max_attn_shift constaint. Default: False
     max_attn_shift: int
@@ -244,20 +285,35 @@ class S2SBeamSearcher(S2SBaseSearcher):
         min_decode_ratio,
         max_decode_ratio,
         beam_size,
-        length_penalty,
         eos_threshold,
+        length_normalization=True,
+        length_rewarding=0,
+        lm_weight=0.0,
+        lm_modules=None,
         using_max_attn_shift=False,
-        max_attn_shift=30,
+        max_attn_shift=60,
         minus_inf=-1e20,
     ):
         super(S2SBeamSearcher, self).__init__(
             modules, bos_index, eos_index, min_decode_ratio, max_decode_ratio
         )
         self.beam_size = beam_size
-        self.length_penalty = length_penalty
+        self.length_normalization = length_normalization
+        self.length_rewarding = length_rewarding
+
+        if self.length_normalization and self.length_rewarding > 0:
+            raise ValueError(
+                "length normalization is not compartiable with length rewarding."
+            )
+
         self.eos_threshold = eos_threshold
         self.using_max_attn_shift = using_max_attn_shift
         self.max_attn_shift = max_attn_shift
+        self.lm_weight = lm_weight
+        self.lm_modules = lm_modules
+
+        # to initialize the params of LM modules
+        self.init_lm_params = True
         self.minus_inf = minus_inf
 
     def forward(self, enc_states, wav_len):
@@ -269,6 +325,10 @@ class S2SBeamSearcher(S2SBaseSearcher):
         enc_lens = torch.repeat_interleave(enc_lens, self.beam_size, dim=0)
 
         memory = self.reset_mem(batch_size * self.beam_size, device=device)
+
+        if self.lm_weight > 0:
+            lm_memory = self.reset_lm_mem(batch_size * self.beam_size, device)
+
         inp_tokens = (
             enc_states.new_zeros(batch_size * self.beam_size)
             .fill_(self.bos_index)
@@ -300,9 +360,16 @@ class S2SBeamSearcher(S2SBaseSearcher):
         )
 
         for t in range(max_decode_steps):
+            # terminate condition
+            hyps_len = [len(l) for l in hyps_and_scores]
+            beam_size = [self.beam_size for _ in range(batch_size)]
+            if hyps_len == beam_size:
+                break
+
             log_probs, memory, attn = self.forward_step(
                 inp_tokens, memory, enc_states, enc_lens
             )
+
             vocab_size = log_probs.shape[-1]
 
             if self.using_max_attn_shift:
@@ -327,7 +394,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 log_probs[:, self.eos_index] = self.minus_inf
 
             # Set the eos prob to minus_inf when it doesn't exceed threshold.
-            max_probs, _ = torch.max(log_probs[:, : self.eos_index], dim=-1)
+            max_probs, _ = torch.max(log_probs, dim=-1)
             eos_probs = log_probs[:, self.eos_index]
             log_probs[:, self.eos_index] = torch.where(
                 eos_probs > self.eos_threshold * max_probs,
@@ -335,8 +402,19 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 torch.Tensor([self.minus_inf]).to(device),
             )
 
+            # adding LM scores if lm_weight > 0
+            if self.lm_weight > 0:
+                lm_log_probs, lm_memory = self.lm_forward_step(
+                    inp_tokens, lm_memory
+                )
+                log_probs = log_probs + self.lm_weight * lm_log_probs
+
             scores = sequence_scores.unsqueeze(1).expand(-1, vocab_size)
             scores = scores + log_probs
+
+            # length normalization
+            if self.length_normalization:
+                scores = scores / (t + 1)
 
             # keep topk beams
             scores, candidates = scores.view(batch_size, -1).topk(
@@ -347,7 +425,13 @@ class S2SBeamSearcher(S2SBaseSearcher):
             inp_tokens = (candidates % vocab_size).view(
                 batch_size * self.beam_size
             )
-            sequence_scores = scores.view(batch_size * self.beam_size)
+
+            scores = scores.view(batch_size * self.beam_size)
+            sequence_scores = scores
+
+            # recover the length normalization
+            if self.length_normalization:
+                sequence_scores = sequence_scores * (t + 1)
 
             # The index where the current top-K output came from (t-1).
             predecessors = (
@@ -357,6 +441,9 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
             # Permute the memory to synchoronize with the output.
             memory = self.permute_mem(memory, index=predecessors)
+
+            if self.lm_weight > 0:
+                lm_memory = self.permute_lm_mem(lm_memory, index=predecessors)
 
             if self.using_max_attn_shift:
                 self.prev_attn_peak = torch.index_select(
@@ -383,9 +470,9 @@ class S2SBeamSearcher(S2SBaseSearcher):
                     if len(hyps_and_scores[batch_id]) == self.beam_size:
                         continue
                     hyp = alived_seq[index, :]
-                    final_scores = (
-                        sequence_scores[index].item() + self.length_penalty * t
-                    )
+                    final_scores = scores[
+                        index
+                    ].item() + self.length_rewarding * (t + 1)
                     hyps_and_scores[batch_id].append((hyp, final_scores))
 
                 # Block the path that has reaches eos
@@ -402,7 +489,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 hyps = alived_seq[batch_offset : batch_offset + remains, :]
                 scores = (
                     sequence_scores[batch_offset : batch_offset + remains]
-                    + self.length_penalty * max_decode_steps
+                    + self.length_rewarding * max_decode_steps
                 ).tolist()
                 hyps_and_scores[i] += list(zip(hyps, scores))
 
@@ -422,8 +509,28 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
     def permute_mem(self, memory, index):
         """
-        This method permutes the memory to synchorize
-        the memory index with the current output.
+        This method permutes the seq2seq model memory
+        to synchorize the memory index with the current output.
+
+        Arguments
+        ---------
+
+        memory : No limit
+            The memory variable to be permuted.
+        index : torch.Tensor
+            The index of the previous path.
+
+        Return
+        ------
+        The variable of the memory being permuted.
+
+        """
+        raise NotImplementedError
+
+    def permute_lm_mem(self, memory, index):
+        """
+        This method permutes the language model memory
+        to synchorize the memory index with the current output.
 
         Arguments
         ---------
@@ -491,8 +598,11 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
         min_decode_ratio,
         max_decode_ratio,
         beam_size,
-        length_penalty,
         eos_threshold,
+        length_normalization=True,
+        length_rewarding=0.0,
+        lm_weight=0.0,
+        lm_modules=None,
         using_max_attn_shift=False,
         max_attn_shift=30,
     ):
@@ -503,32 +613,32 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
             min_decode_ratio,
             max_decode_ratio,
             beam_size,
-            length_penalty,
             eos_threshold,
+            length_normalization,
+            length_rewarding,
+            lm_weight,
+            lm_modules,
             using_max_attn_shift,
             max_attn_shift,
         )
-        self.emb = modules[0]
-        self.dec = modules[1]
-        self.lin = modules[2]
-        self.softmax = modules[3]
 
     def reset_mem(self, batch_size, device):
         hs = None
-        self.dec.attn.reset()
-        c = torch.zeros(batch_size, self.dec.attn_dim).to(device)
+        emb, dec, lin, softmax = self.modules
+        dec.attn.reset()
+        c = torch.zeros(batch_size, dec.attn_dim).to(device)
         return hs, c
 
     def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
         hs, c = memory
-        e = self.emb(inp_tokens)
-        dec_out, hs, c, w = self.dec.forward_step(
-            e, hs, c, enc_states, enc_lens
-        )
-        log_probs = self.softmax(self.lin(dec_out))
+        emb, dec, lin, softmax = self.modules
+        e = emb(inp_tokens)
+        dec_out, hs, c, w = dec.forward_step(e, hs, c, enc_states, enc_lens)
+        log_probs = softmax(lin(dec_out))
         return log_probs, (hs, c), w
 
     def permute_mem(self, memory, index):
+        emb, dec, lin, softmax = self.modules
         hs, c = memory
 
         # shape of hs: [num_layers, batch_size, n_neurons]
@@ -540,9 +650,9 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
             hs = torch.index_select(hs, dim=1, index=index)
 
         c = torch.index_select(c, dim=0, index=index)
-        if self.dec.attn_type == "location":
-            self.dec.attn.prev_attn = torch.index_select(
-                self.dec.attn.prev_attn, dim=0, index=index
+        if dec.attn_type == "location":
+            dec.attn.prev_attn = torch.index_select(
+                dec.attn.prev_attn, dim=0, index=index
             )
         return (hs, c)
 

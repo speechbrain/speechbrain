@@ -4,6 +4,7 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/CRDNN/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
+lm_save_folder: !PLACEHOLDER # e.g. /path/to/LM/results/<seed>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
@@ -17,12 +18,39 @@ number_of_epochs: 50
 batch_size: 8
 lr: 0.001
 ctc_weight: 0.2
+lm_weight: 0.2
 device: 'cuda:0'
 
 # Feature parameters
 sample_rate: 16000
 n_fft: 400
 n_mels: 40
+
+# LM Model parameters
+lm_rnn_layers: 1
+lm_rnn_neurons: 1024
+lm_dnn_neurons: 512
+lm_emb_size: 128
+
+# Functions
+lm_rnn: !new:speechbrain.nnet.RNN.LSTM
+    hidden_size: !ref <lm_rnn_neurons>
+    num_layers: !ref <lm_rnn_layers>
+    bidirectional: False
+    return_hidden: True
+
+lm_emb: !new:speechbrain.nnet.embedding.Embedding
+    num_embeddings: !ref <output_neurons>
+    embedding_dim: !ref <lm_emb_size>
+
+lm_drop: !new:torch.nn.Dropout
+    p: 0.0
+
+lm_dnn: !new:speechbrain.nnet.linear.Linear
+    n_neurons: !ref <lm_dnn_neurons>
+
+lm_lin: !new:speechbrain.nnet.linear.Linear
+    n_neurons: !ref <output_neurons> # 28 char + 1 eos
 
 # Model parameters
 activation: !name:torch.nn.LeakyReLU
