@@ -1,6 +1,13 @@
+# ################################
+# Model: VGG2 + LiGRU with time pooling for efficiency
+# Augmentation: TimeDomainSpecAugment
+# Additions: 2D pooling
+# Authors: Mirco Ravanelli, Peter Plantinga, Ju-Chieh Chou, Abdel HEBA 2020
+# ################################
+
+
 # Seed needs to be set at top of yaml, before objects with parameters are made
-#seed: !PLACEHOLDER  # e.g, 1234
-seed: 7
+seed: !PLACEHOLDER  # e.g, 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/CRDNN_2d_pooling_BPE/<seed>
 wer_file: !ref <output_folder>/wer.txt
@@ -8,18 +15,15 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-#data_folder: !PLACEHOLDER  # e.g. /path/to/librispeech
-data_folder: /network/tmp1/abdelwah/librispeech/LibriSpeech
+data_folder: !PLACEHOLDER  # e.g. /path/to/librispeech
 csv_train: !ref <data_folder>/train-clean-100.csv
 csv_valid: !ref <data_folder>/dev-clean.csv
 csv_test: !ref <data_folder>/test-clean.csv
 
 # Training parameters
 number_of_epochs: 30
-number_of_ctc_epochs: 10
 batch_size: 8
 lr: 1.0
-ctc_weight: 0.5
 device: 'cuda:0'
 
 # Feature parameters
@@ -32,31 +36,18 @@ activation: !name:torch.nn.LeakyReLU
 dropout: 0.15
 cnn_blocks: 3
 cnn_channels: (64, 128, 256)
-inter_layer_pooling_size: (2, 2, 2)
+inter_layer_pooling_size: (4, 2, 2)
 cnn_kernelsize: (3, 3)
 rnn_layers: 4
 rnn_neurons: 1024
 rnn_bidirectional: True
 dnn_blocks: 2
 dnn_neurons: 512
-emb_size: 128
 
 # Outputs
 output_neurons: 1000 # index(blank/eos/bos) = 0
 blank_index: 0
-# Decoding parameters
-# Be sure that the bos and eos index match with the BPEs ones
-bos_index: 0
-eos_index: 0
-min_decode_ratio: 0.0
-max_decode_ratio: 1.0
-beam_size: 80
-length_penalty: 0.1
-eos_threshold: 1.5
-using_max_attn_shift: True
-max_attn_shift: 60
 
-# BPE
 bpe_tokenizer: !new:speechbrain.tokenizers.SentencePiece.SentencePiece
     model_dir: !ref <save_folder>
     vocab_size: !ref <output_neurons>
@@ -68,7 +59,6 @@ bpe_tokenizer: !new:speechbrain.tokenizers.SentencePiece.SentencePiece
     eos_id: -1 # assume that eos = unk = 0
     pad_id: -1 # assume that pad = unk = 0
 
-# Functions
 enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
     activation: !ref <activation>
     dropout: !ref <dropout>
@@ -85,27 +75,8 @@ enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
     dnn_blocks: !ref <dnn_blocks>
     dnn_neurons: !ref <dnn_neurons>
 
-emb: !new:speechbrain.nnet.embedding.Embedding
-    num_embeddings: !ref <output_neurons>
-    embedding_dim: !ref <emb_size>
-
-dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
-    rnn_type: gru
-    attn_type: location
-    hidden_size: 1024
-    attn_dim: 1024
-    num_layers: 1
-    scaling: 1.0
-    channels: 10
-    kernel_size: 100
-    re_init: True
-    dropout: !ref <dropout>
-
-ctc_lin: !new:speechbrain.nnet.linear.Linear
+output: !new:speechbrain.nnet.linear.Linear
     n_neurons: !ref <output_neurons> # 28 char + 1 blank
-
-seq_lin: !new:speechbrain.nnet.linear.Linear
-    n_neurons: !ref <output_neurons> # 28 char + 1 eos
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
@@ -124,6 +95,10 @@ normalize: !new:speechbrain.processing.features.InputNormalization
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
+
+augmentation: !new:speechbrain.lobes.augment.tdsa.TimeDomainSpecAugment
+    sample_rate: !ref <sample_rate>
+    speeds: [95, 100, 105]
 
 compute_features: !new:speechbrain.lobes.features.fbank.Fbank
     sample_rate: !ref <sample_rate>
@@ -153,9 +128,6 @@ test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
 
 ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
     blank_index: !ref <blank_index>
-
-seq_cost: !name:speechbrain.nnet.losses.nll_loss
-    label_smoothing: 0.1
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
