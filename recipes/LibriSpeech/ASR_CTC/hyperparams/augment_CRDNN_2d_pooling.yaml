@@ -1,15 +1,14 @@
 # ################################
-# Model: VGG2 + LiGRU with time pooling for efficiency
+# Model: VGG2(2D pooling) + LiGRU with time pooling for efficiency
 # Augmentation: TimeDomainSpecAugment
-# Additions: 2D pooling
+# Additions: BPE
 # Authors: Mirco Ravanelli, Peter Plantinga, Ju-Chieh Chou, Abdel HEBA 2020
 # ################################
-
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: !PLACEHOLDER  # e.g, 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/CRDNN_2d_pooling_BPE/<seed>
+output_folder: !ref results/augment_CRDNN_2D_pooling_with_noise/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -34,9 +33,8 @@ n_mels: 40
 # Model parameters
 activation: !name:torch.nn.LeakyReLU
 dropout: 0.15
-cnn_blocks: 3
-cnn_channels: (64, 128, 256)
-inter_layer_pooling_size: (4, 2, 2)
+cnn_blocks: 2
+cnn_channels: (128, 128)
 cnn_kernelsize: (3, 3)
 rnn_layers: 4
 rnn_neurons: 1024
@@ -45,27 +43,16 @@ dnn_blocks: 2
 dnn_neurons: 512
 
 # Outputs
-output_neurons: 1000 # index(blank/eos/bos) = 0
-blank_index: 0
+output_neurons: 29 # 28 chars + 1 blank/eos/bos
+blank_index: !ref <output_neurons> - 1
 
-bpe_tokenizer: !new:speechbrain.tokenizers.SentencePiece.SentencePiece
-    model_dir: !ref <save_folder>
-    vocab_size: !ref <output_neurons>
-    csv_train: !ref <csv_train>
-    csv_read: wrd
-    model_type: "unigram" # ["unigram", "bpe", "char"]
-    character_coverage: 1.0 # for language with large set of chars use 0.9995
-    bos_id: -1 # assume that bos = unk = 0
-    eos_id: -1 # assume that eos = unk = 0
-    pad_id: -1 # assume that pad = unk = 0
-
+# Functions
 enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
     activation: !ref <activation>
     dropout: !ref <dropout>
     cnn_blocks: !ref <cnn_blocks>
     cnn_channels: !ref <cnn_channels>
     cnn_kernelsize: !ref <cnn_kernelsize>
-    inter_layer_pooling_size: !ref <inter_layer_pooling_size>
     time_pooling: False
     using_2d_pooling: True
     rnn_layers: !ref <rnn_layers>
@@ -110,21 +97,21 @@ train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
-    csv_read: [wav, wrd]
+    csv_read: [wav, char]
 
 valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_valid>
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
-    csv_read: [wav, wrd]
+    csv_read: [wav, char]
 
 test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_test>
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
-    csv_read: [wav, wrd]
+    csv_read: [wav, char]
 
 ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
     blank_index: !ref <blank_index>
