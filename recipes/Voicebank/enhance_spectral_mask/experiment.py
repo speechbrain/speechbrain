@@ -30,6 +30,7 @@ sb.core.create_experiment_directory(
 
 if params.use_tensorboard:
     from speechbrain.utils.train_logger import TensorboardLogger
+
     tensorboard_train_logger = TensorboardLogger(params.tensorboard_logs)
 
 # Create the folder to save enhanced files
@@ -113,7 +114,9 @@ class SEBrain(sb.core.Brain):
             for name, pred_wav, length in zip(ids, pred_wavs, lens):
                 name += ".wav"
                 enhance_path = os.path.join(params.enhanced_folder, name)
-                torchaudio.save(enhance_path, pred_wav[: int(length)].cpu(), 16000)
+                torchaudio.save(
+                    enhance_path, pred_wav[: int(length)].cpu(), 16000
+                )
 
             stats["pesq"] = pesq_scores
 
