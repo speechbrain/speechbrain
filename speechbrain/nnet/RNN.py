@@ -65,7 +65,7 @@ class RNN(torch.nn.Module):
         num_layers=1,
         bias=True,
         dropout=0.0,
-        re_init=False,
+        re_init=True,
         bidirectional=False,
         return_hidden=False,
     ):
@@ -185,7 +185,7 @@ class LSTM(torch.nn.Module):
         num_layers=1,
         bias=True,
         dropout=0.0,
-        re_init=False,
+        re_init=True,
         bidirectional=False,
         return_hidden=False,
     ):
@@ -303,7 +303,7 @@ class GRU(torch.nn.Module):
         num_layers=1,
         bias=True,
         dropout=0.0,
-        re_init=False,
+        re_init=True,
         bidirectional=False,
         return_hidden=False,
     ):
@@ -345,7 +345,7 @@ class GRU(torch.nn.Module):
         self.rnn = torch.nn.GRU(**kwargs)
 
         if self.re_init:
-            rnn_init(self.rnn, act="tanh")
+            rnn_init(self.rnn)
 
         self.rnn.to(first_input.device)
 
@@ -418,7 +418,7 @@ class RNNCell(nn.Module):
         num_layers=1,
         bias=True,
         dropout=0.0,
-        re_init=False,
+        re_init=True,
         nonlinearity="tanh",
     ):
         super(RNNCell, self).__init__()
@@ -528,7 +528,7 @@ class GRUCell(nn.Module):
     """
 
     def __init__(
-        self, hidden_size, num_layers=1, bias=True, dropout=0.0, re_init=False
+        self, hidden_size, num_layers=1, bias=True, dropout=0.0, re_init=True
     ):
         super(GRUCell, self).__init__()
         self.hidden_size = hidden_size
@@ -635,7 +635,7 @@ class LSTMCell(nn.Module):
     """
 
     def __init__(
-        self, hidden_size, num_layers=1, bias=True, dropout=0.0, re_init=False
+        self, hidden_size, num_layers=1, bias=True, dropout=0.0, re_init=True
     ):
         super(LSTMCell, self).__init__()
         self.hidden_size = hidden_size
@@ -723,7 +723,7 @@ class AttentionalRNNDecoder(nn.Module):
         attn_dim,
         num_layers,
         nonlinearity="relu",
-        re_init=False,
+        re_init=True,
         normalization="batchnorm",
         scaling=1.0,
         channels=None,
@@ -1062,7 +1062,7 @@ class LiGRU(torch.nn.Module):
         num_layers=1,
         bias=True,
         dropout=0.0,
-        re_init=False,
+        re_init=True,
         bidirectional=False,
         return_hidden=False,
     ):
@@ -1098,7 +1098,7 @@ class LiGRU(torch.nn.Module):
         self.rnn = self._init_layers()
 
         if self.re_init:
-            rnn_init(self.rnn, act=self.nonlinearity)
+            rnn_init(self.rnn)
 
     def _init_layers(self,):
         """
@@ -1279,6 +1279,8 @@ class LiGRU_Layer(torch.jit.ScriptModule):
         # Setting the activation function
         if nonlinearity == "tanh":
             self.act = torch.nn.Tanh().to(device)
+        elif nonlinearity == "sin":
+            self.act = torch.sin.to(device)
         else:
             self.act = torch.nn.ReLU().to(device)
 
@@ -1331,7 +1333,7 @@ class LiGRU_Layer(torch.jit.ScriptModule):
         hiddens = []
 
         # Sampling dropout mask
-        drop_mask = self._sample_drop_mask()
+        drop_mask = self._sample_drop_mask().to(w.device)
 
         # Loop over time axis
         for k in range(w.shape[1]):
@@ -1371,11 +1373,9 @@ class LiGRU_Layer(torch.jit.ScriptModule):
             # Sample new masks when needed
             if self.drop_mask_cnt + self.batch_size > self.N_drop_masks:
                 self.drop_mask_cnt = 0
-                self.drop_masks = (
-                    self.drop(torch.ones(self.N_drop_masks, self.hidden_size,))
-                    .to(self.device)
-                    .data
-                )
+                self.drop_masks = self.drop(
+                    torch.ones(self.N_drop_masks, self.hidden_size,)
+                ).data
 
             # Sampling the mask
             drop_mask = self.drop_masks[
@@ -1664,11 +1664,10 @@ class QuasiRNN(nn.Module):
             return x
 
 
-def rnn_init(module, act="tanh"):
+def rnn_init(module):
     """
     This function is used to initialize the RNN weight.
     Recurrent connection: orthogonal initialization.
-
 
     Arguments
     ---------
@@ -1685,8 +1684,3 @@ def rnn_init(module, act="tanh"):
     for name, param in module.named_parameters():
         if "weight_hh" in name or ".u.weight" in name:
             nn.init.orthogonal_(param)
-        elif len(param.shape) == 2:
-            nn.init.xavier_uniform_(param, gain=nn.init.calculate_gain(act))
-        # do not initialize norm params
-        elif "norm" not in name:
-            param.data.fill_(0.0)

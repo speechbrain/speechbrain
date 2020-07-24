@@ -541,6 +541,7 @@ class Conv2d(nn.Module):
 
         self.in_channels = self._check_input(first_input)
 
+        # Weights are initialized following pytorch approach
         self.conv = nn.Conv2d(
             self.in_channels,
             self.out_channels,

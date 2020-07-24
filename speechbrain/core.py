@@ -382,7 +382,7 @@ class Brain:
             else:
                 dataset_stats[key].append(batch_stats[key])
 
-    def fit(self, epoch_counter, train_set, valid_set=None):
+    def fit(self, epoch_counter, train_set, valid_set=None, progressbar=True):
         """Iterate epochs and datasets to improve objective.
 
         Relies on the existence of mulitple functions that can (or should) be
@@ -401,11 +401,14 @@ class Brain:
             a list of datasets to use for training, zipped before iterating.
         valid_set : list of Data Loaders
             a list of datasets to use for validation, zipped before iterating.
+        progressbar : bool
+            Whether to display the progress of each epoch in a progressbar.
         """
         for epoch in epoch_counter:
             self.modules.train()
             train_stats = {}
-            with tqdm(train_set, dynamic_ncols=True) as t:
+            disable = not progressbar
+            with tqdm(train_set, dynamic_ncols=True, disable=disable) as t:
                 for i, batch in enumerate(t):
                     stats = self.fit_batch(batch)
                     self.add_stats(train_stats, stats)
@@ -416,19 +419,23 @@ class Brain:
             if valid_set is not None:
                 self.modules.eval()
                 with torch.no_grad():
-                    for batch in tqdm(valid_set, dynamic_ncols=True):
+                    for batch in tqdm(
+                        valid_set, dynamic_ncols=True, disable=disable
+                    ):
                         stats = self.evaluate_batch(batch, stage="valid")
                         self.add_stats(valid_stats, stats)
 
             self.on_epoch_end(epoch, train_stats, valid_stats)
 
-    def evaluate(self, test_set):
+    def evaluate(self, test_set, progressbar=True):
         """Iterate test_set and evaluate brain performance.
 
         Arguments
         ---------
         test_set : list of DataLoaders
             This list will be zipped before iterating.
+        progressbar : bool
+            Whether to display the progress in a progressbar.
 
         Returns
         -------
@@ -439,8 +446,9 @@ class Brain:
         """
         test_stats = {}
         self.modules.eval()
+        disable = not progressbar
         with torch.no_grad():
-            for batch in tqdm(test_set, dynamic_ncols=True):
+            for batch in tqdm(test_set, dynamic_ncols=True, disable=disable):
                 stats = self.evaluate_batch(batch, stage="test")
                 self.add_stats(test_stats, stats)
 
