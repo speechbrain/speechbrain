@@ -348,7 +348,7 @@ class DataLoaderFactory(torch.nn.Module):
         # create label counts and label2index automatically when needed
         label_dict = {}
         if self.output_folder is not None:
-            label_dict_file = self.output_folder + "/label_dict.pkl"
+            label_dict_file = os.path.join(self.output_folder, "label_dict.pkl")
 
             # Read previously stored label_dict
             if os.path.isfile(label_dict_file):
@@ -1507,8 +1507,8 @@ def write_wav_soundfile(data, filename, sampling_rate):
     -------
     >>> tmpdir = getfixture('tmpdir')
     >>> signal = 0.1*torch.rand([16000])
-    >>> write_wav_soundfile(signal, tmpdir + '/wav_example.wav',
-    ...                     sampling_rate=16000)
+    >>> tmpfile = os.path.join(tmpdir, 'wav_example.wav')
+    >>> write_wav_soundfile(signal, tmpfile, sampling_rate=16000)
     """
     if len(data.shape) > 2:
         err_msg = (
@@ -1547,7 +1547,7 @@ def write_txt_file(data, filename, sampling_rate=None):
     -------
     >>> tmpdir = getfixture('tmpdir')
     >>> signal=torch.tensor([1,2,3,4])
-    >>> write_txt_file(signal, tmpdir + '/example.txt')
+    >>> write_txt_file(signal, os.path.join(tmpdir, 'example.txt'))
     """
     del sampling_rate  # Not used.
     # Check if the path of filename exists
@@ -1737,7 +1737,7 @@ class TensorSaver(torch.nn.Module):
 
         # Create the csv file (if specified)
         if self.save_csv:
-            self.save_csv_path = self.save_folder + "/csv.csv"
+            self.save_csv_path = os.path.join(self.save_folder, "csv.csv")
             open(self.save_csv_path, "w").close()
             self.first_line_csv = True
 
@@ -1820,8 +1820,8 @@ class TensorSaver(torch.nn.Module):
             writer = self.supported_formats[self.save_format]["writer"]
 
             # Output file
-            data_file = (
-                self.save_folder + "/" + data_id[j] + "." + self.save_format
+            data_file = os.path.join(
+                self.save_folder, data_id[j] + "." + self.save_format
             )
 
             # Writing all the batches in parallel (if paralle_write=True)
@@ -2008,9 +2008,9 @@ def save_md5(files, out_file):
     None
 
     Example:
-    >>> files=['samples/audio_samples/example1.wav']
-    >>> out_file=getfixture('tmpdir') + "/md5.pkl"
-    >>> save_md5(files, out_file)
+    >>> files = ['samples/audio_samples/example1.wav']
+    >>> tmpdir = getfixture('tmpdir')
+    >>> save_md5(files, os.path.join(tmpdir, "md5.pkl"))
     """
     # Initialization of the dictionary
     md5_dict = {}
@@ -2035,7 +2035,7 @@ def save_pkl(obj, file):
         Sampling rate of the audio file, TODO: this is not used?
 
     Example:
-    >>> tmpfile = getfixture('tmp_path') / "example.pkl"
+    >>> tmpfile = os.path.join(getfixture('tmpdir'), "example.pkl")
     >>> save_pkl([1, 2, 3, 4, 5], tmpfile)
     >>> load_pkl(tmpfile)
     [1, 2, 3, 4, 5]
