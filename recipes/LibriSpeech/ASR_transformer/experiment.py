@@ -3,7 +3,6 @@ import os
 import sys
 import torch
 import speechbrain as sb
-from functools import partial
 
 import speechbrain.data_io.wer as wer_io
 import speechbrain.utils.edit_distance as edit_distance
@@ -73,43 +72,17 @@ test_search = BeamSearch(
 )
 
 
-def int2lab(batch, ind2lab):
-    batch = batch.tolist()
-    batch = [[x for x in batch if x != params.pad_id]]
-    batch = convert_index_to_lab(batch, ind2lab)
-    return " ".join(batch[-1])
-
-
-def count_and_pad_bpe_outputs(batch, pad_id):
-    # get the lengh and maximum length for every input in the batch
-    max_len = 0
-    seq_lengths = []
-    for seq in batch:
-        max_len = max(max_len, seq.shape[-1])
-        seq_lengths.append(seq.shape[-1])
-    seq_lengths = torch.tensor(seq_lengths).float()
-
-    # batching
-    padded_batch = []
-    for seq in batch:
-        seq = seq.long()
-
-        num_padding_elem = max_len - seq.shape[-1]
-        paddings = torch.tensor([pad_id] * num_padding_elem).long()
-
-        seq = torch.cat([seq, paddings], dim=-1)
-        padded_batch.append(seq.unsqueeze(0))
-    return (
-        torch.cat(padded_batch, dim=0).to(params.device),
-        seq_lengths.to(params.device),
-    )
-
-
 # Define training procedure
 class ASR(sb.core.Brain):
     def compute_forward(self, x, y, stage="train", init_params=False):
         ids, wavs, wav_lens = x
         ids, chars, phn_lens = y
+        if stage == "train":
+            index2lab = params.train_loader.label_dict["wrd"]["index2lab"]
+        elif stage == "valid":
+            index2lab = params.valid_loader.label_dict["wrd"]["index2lab"]
+        elif stage == "test":
+            index2lab = params.test_loader.label_dict["wrd"]["index2lab"]
 
         wavs, wav_lens = wavs.to(params.device), wav_lens.to(params.device)
         chars, phn_lens = chars.to(params.device), phn_lens.to(params.device)
@@ -120,14 +93,13 @@ class ASR(sb.core.Brain):
         feats = params.normalize(feats, wav_lens)
 
         # convert words to bpe
-        ind2lab = params.train_loader.label_dict["wrd"]["index2lab"]
-        chars, _ = params.tokenizer(
-            chars,
-            int2lab=partial(int2lab, ind2lab=ind2lab),
-            task="encode",
-            init_params=init_params,
+        chars, seq_lengths = params.tokenizer(
+            chars, phn_lens, index2lab, task="encode", init_params=init_params,
         )
-        chars, seq_lengths = count_and_pad_bpe_outputs(chars, params.pad_id)
+        chars, seq_lengths = (
+            chars.to(params.device),
+            seq_lengths.to(params.device),
+        )
 
         # foward the model
         target_chars = chars
@@ -209,7 +181,7 @@ class ASR(sb.core.Brain):
         )
 
         # Add char_lens by one for eos token
-        abs_length = char_lens.float()
+        abs_length = char_lens.float() * chars.shape[1]
 
         # Append eos token at the end of the label sequences
         phns_with_eos = append_eos_token(
@@ -218,7 +190,7 @@ class ASR(sb.core.Brain):
 
         # convert to speechbrain-style relative length
         rel_length = (abs_length + 1) / chars.shape[1]
-        char_lens = char_lens / chars.shape[1]
+        # char_lens = char_lens / chars.shape[1]
 
         loss_seq = params.seq_cost(p_seq, phns_with_eos, rel_length)
 
@@ -238,7 +210,7 @@ class ASR(sb.core.Brain):
             == 0
         ) or stage == "test":
             ind2lab = params.train_loader.label_dict["wrd"]["index2lab"]
-            char_seq = params.tokenizer(hyps, task="decode")
+            char_seq = params.tokenizer(hyps, task="decode_from_list")
             try:
                 print("hypes_idx", hyps)
                 print("hyps", char_seq)
