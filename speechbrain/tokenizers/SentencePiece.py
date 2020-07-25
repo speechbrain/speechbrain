@@ -45,6 +45,9 @@ class SentencePiece:
         Amount of characters covered by the model,
         good defaults are: 0.9995 for languages with rich character set like Japanse or Chinese
         and 1.0 for other languages with small character set.
+    max_sentencepiece_length: int
+        Deault: 10,
+        Maximum number of characters for the tokens.
     bos_id: int
         Default: -1, if -1 the bos_id = unk_id = 0. otherwize, bos_id = int.
     eos_id: int
@@ -72,6 +75,7 @@ class SentencePiece:
         csv_read=None,
         model_type="unigram",
         character_coverage=1.0,
+        max_sentencepiece_length=10,
         bos_id=-1,
         eos_id=-1,
         pad_id=-1,
@@ -116,6 +120,7 @@ class SentencePiece:
         self.vocab_size = str(vocab_size)
         self.model_type = model_type
         self.character_coverage = str(character_coverage)
+        self.max_sentencepiece_length = str(max_sentencepiece_length)
         self.bos_id = str(bos_id)
         self.eos_id = str(eos_id)
         self.pad_id = str(pad_id)
@@ -161,6 +166,8 @@ class SentencePiece:
             + self.eos_id
             + " --pad_id="
             + self.pad_id
+            + " --max_sentencepiece_length="
+            + self.max_sentencepiece_length
             + " --character_coverage="
             + self.character_coverage
         )
