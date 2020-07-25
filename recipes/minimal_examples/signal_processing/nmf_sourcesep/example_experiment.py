@@ -111,8 +111,7 @@ class NMF_Brain(sb.core.Brain):
         return {"loss": float(sum(s["loss"] for s in stats) / len(stats))}
 
     def on_epoch_end(self, *args):
-        # print("The loss is {}".format(args[1]["loss"]))
-        pass
+        print("The loss is {}".format(args[1]["loss"]))
 
 
 NMF1 = NMF_Brain(params.train_loader1())
