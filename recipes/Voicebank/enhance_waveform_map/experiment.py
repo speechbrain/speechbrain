@@ -7,7 +7,7 @@ import multiprocessing
 import speechbrain as sb
 from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.train_logger import summarize_average
-from pystoi.stoi import stoi
+from speechbrain.nnet.loss.stoi_loss import stoi_loss
 from pesq import pesq
 
 # This hack needed to import data preparation script from ..
@@ -48,8 +48,7 @@ def evaluation(clean, enhanced, length):
     clean = clean[:length]
     enhanced = enhanced[:length]
     pesq_score = pesq(params.Sample_rate, clean, enhanced, "wb")
-    stoi_score = stoi(clean, enhanced, params.Sample_rate)
-    return pesq_score, stoi_score
+    return pesq_score
 
 
 def multiprocess_evaluation(pred_wavs, target_wavs, lens, num_cores):
@@ -64,13 +63,12 @@ def multiprocess_evaluation(pred_wavs, target_wavs, lens, num_cores):
     pool.close()
     pool.join()
 
-    pesq_scores, stoi_scores = [], []
+    pesq_scores = []
     for process in processes:
-        pesq_score, stoi_score = process.get()
+        pesq_score = process.get()
         pesq_scores.append(pesq_score)
-        stoi_scores.append(stoi_score)
 
-    return pesq_scores, stoi_scores
+    return pesq_scores
 
 
 class SEBrain(sb.core.Brain):
@@ -102,14 +100,14 @@ class SEBrain(sb.core.Brain):
         )
         stats["loss"] = loss.detach()
 
-        pesq_scores, stoi_scores = multiprocess_evaluation(
+        pesq_scores = multiprocess_evaluation(
             predict_wavs.cpu().numpy(),
             target_wavs.cpu().numpy(),
             lens.cpu().numpy(),
             multiprocessing.cpu_count(),
         )
         stats["pesq"] = pesq_scores
-        stats["stoi"] = stoi_scores
+        stats["stoi"] = -stoi_loss(predict_wavs, target_wavs, lens)
 
         if stage == "test":
             # Write wavs to file
