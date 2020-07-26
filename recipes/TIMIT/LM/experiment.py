@@ -35,7 +35,9 @@ modules = torch.nn.ModuleList(
 checkpointer = sb.utils.checkpoints.Checkpointer(
     checkpoints_dir=params.save_folder,
     recoverables={
-        "model": modules,
+        "model": torch.nn.ModuleList(
+            [params.emb, params.rnn, params.dnn, params.lin]
+        ),
         "optimizer": params.optimizer,
         "scheduler": params.lr_annealing,
         "counter": params.epoch_counter,
