@@ -510,7 +510,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
     def permute_mem(self, memory, index):
         """
         This method permutes the seq2seq model memory
-        to synchorize the memory index with the current output.
+        to synchronize the memory index with the current output.
 
         Arguments
         ---------
@@ -530,7 +530,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
     def permute_lm_mem(self, memory, index):
         """
         This method permutes the language model memory
-        to synchorize the memory index with the current output.
+        to synchronize the memory index with the current output.
 
         Arguments
         ---------

@@ -11,19 +11,20 @@ csv_train: !ref <data_folder>/train.csv
 csv_valid: !ref <data_folder>/dev.csv
 
 # Training parameters
-number_of_epochs: 20
+number_of_epochs: 3
 batch_size: 16
 lr: 0.001
-accu_steps: 8
 device: 'cuda'
-multigpu: True
+multigpu: False
 
 # Model parameters
+emb_size: 128
+activation: !name:torch.nn.LeakyReLU
+dropout: 0.5
 rnn_layers: 1
 rnn_neurons: 1024
+dnn_blocks: 1
 dnn_neurons: 512
-emb_size: 128
-dropout: 0.5
 
 # Outputs
 output_neurons: 40
@@ -31,23 +32,15 @@ bos_index: !ref <output_neurons> - 1
 eos_index: !ref <output_neurons> - 1
 
 # Functions
-rnn: !new:speechbrain.nnet.RNN.LSTM
-    hidden_size: !ref <rnn_neurons>
-    num_layers: !ref <rnn_layers>
-    dropout: !ref <dropout>
-    bidirectional: False
-    re_init: True
-    return_hidden: False
-
-emb: !new:speechbrain.nnet.embedding.Embedding
+model: !new:speechbrain.lobes.models.RNNLM.RNNLM
     num_embeddings: !ref <output_neurons>
     embedding_dim: !ref <emb_size>
-
-drop: !new:torch.nn.Dropout
-    p: !ref <dropout>
-
-dnn: !new:speechbrain.nnet.linear.Linear
-    n_neurons: !ref <dnn_neurons>
+    activation: !ref <activation>
+    dropout: !ref <dropout>
+    rnn_layers: !ref <rnn_layers>
+    rnn_neurons: !ref <rnn_neurons>
+    dnn_blocks: !ref <dnn_blocks>
+    dnn_neurons: !ref <dnn_neurons>
 
 lin: !new:speechbrain.nnet.linear.Linear
     n_neurons: !ref <output_neurons> # 39 phonemes + 1 eos
