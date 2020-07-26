@@ -38,7 +38,7 @@ modules = torch.nn.ModuleList(
     [params.enc, params.emb, params.dec, params.ctc_lin, params.seq_lin]
 )
 lm_modules = torch.nn.ModuleList(
-    [params.lm_emb, params.lm_drop, params.lm_rnn, params.lm_dnn, params.lm_lin]
+    [params.lm_emb, params.lm_rnn, params.lm_dnn, params.lm_lin]
 )
 
 
