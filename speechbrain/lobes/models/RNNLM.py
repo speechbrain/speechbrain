@@ -22,6 +22,11 @@ class RNNLM(nn.Module):
 
     Arguments
     ---------
+    num_embeddings : int
+        Number of entries in embedding table.
+    embedding_dim : int
+        Default : 128
+        Size of embedding vectors.
     activation : torch class
         A class used for constructing the activation layers. For dnn.
     dropout : float
@@ -32,9 +37,11 @@ class RNNLM(nn.Module):
         The number of recurrent LiGRU layers to include.
     rnn_neurons : int
         Number of neurons in each layer of the RNN.
+    rnn_re_init : bool
+        Whether to initialize rnn with orthogonal initialization.
     rnn_return_hidden : bool
         Default : True
-        Whether to return hidden
+        Whether to return hidden states.
     dnn_blocks : int
         The number of linear neural blocks to include.
     dnn_neurons : int
@@ -42,11 +49,11 @@ class RNNLM(nn.Module):
 
     Example
     -------
-    >>> model = CRDNN()
-    >>> inputs = torch.rand([10, 120, 60])
+    >>> model = RNNLM(num_embeddings=5)
+    >>> inputs = torch.Tensor([[1, 2, 3]])
     >>> outputs = model(inputs, init_params=True)
     >>> outputs.shape
-    torch.Size([10, 120, 512])
+    torch.Size([1, 3, 512])
     """
 
     def __init__(
@@ -59,7 +66,7 @@ class RNNLM(nn.Module):
         rnn_layers=2,
         rnn_neurons=1024,
         rnn_re_init=False,
-        rnn_return_hidden=False,
+        return_hidden=False,
         dnn_blocks=1,
         dnn_neurons=512,
     ):
@@ -75,7 +82,7 @@ class RNNLM(nn.Module):
             re_init=rnn_re_init,
             return_hidden=True,
         )
-        self.return_hidden = rnn_return_hidden
+        self.return_hidden = return_hidden
         self.reshape = False
 
         dnn_blocks_lst = []

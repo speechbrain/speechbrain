@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
+# This recipe is to include a LM when evaluation.
+# Users have to train a LM by the recipe in <dataset>/LM/experiment.py before this ASR model.
+# And the path for the LM checkpoint has to be specify with lm_save_folder (in the yaml file).
+
 import os
 import sys
 import torch
-import torch.nn.functional as F
 import speechbrain as sb
 
 import speechbrain.data_io.wer as wer_io
@@ -37,22 +40,18 @@ sb.core.create_experiment_directory(
 modules = torch.nn.ModuleList(
     [params.enc, params.emb, params.dec, params.ctc_lin, params.seq_lin]
 )
-lm_modules = torch.nn.ModuleList(
-    [params.lm_emb, params.lm_rnn, params.lm_dnn, params.lm_lin]
-)
+lm_modules = torch.nn.ModuleList([params.lm_model, params.lm_lin])
+# LM only used for evaluation
+lm_modules.eval()
 
 
 class MyBeamSearcher(S2SRNNBeamSearcher):
     def lm_forward_step(self, inp_tokens, memory):
         hs = memory
-        emb, rnn, dnn, lin, softmax = self.lm_modules
-        e = emb(inp_tokens, init_params=self.init_lm_params)
-        # add time-axis
-        h_rnn, hs = rnn(e.unsqueeze(1), hs, init_params=self.init_lm_params)
-        # remove time-axis
-        h_dnn = F.relu(dnn(h_rnn.squeeze(1), init_params=self.init_lm_params))
-        logits = lin(h_dnn, init_params=self.init_lm_params)
-        log_probs = softmax(logits)
+        model, lin = self.lm_modules
+        out, hs = model(inp_tokens, hx=hs, init_params=self.init_lm_params)
+        logits = lin(out, init_params=self.init_lm_params)
+        log_probs = params.log_softmax(logits)
 
         # set it to false after initialization
         if self.init_lm_params:
@@ -60,6 +59,9 @@ class MyBeamSearcher(S2SRNNBeamSearcher):
         return log_probs, hs
 
     def permute_lm_mem(self, memory, index):
+        # This is to permute lm memory to synchronize with current index.
+        # Further details please refer to speechbrain/decoder/seq2seq.py.
+
         if isinstance(memory, tuple):
             memory_0 = torch.index_select(memory[0], dim=1, index=index)
             memory_1 = torch.index_select(memory[1], dim=1, index=index)
@@ -81,13 +83,7 @@ beam_searcher = MyBeamSearcher(
     beam_size=params.beam_size,
     eos_threshold=params.eos_threshold,
     lm_weight=params.lm_weight,
-    lm_modules=[
-        params.lm_emb,
-        params.lm_rnn,
-        params.lm_dnn,
-        params.lm_lin,
-        params.log_softmax,
-    ],
+    lm_modules=lm_modules,
 )
 
 greedy_searcher = S2SRNNGreedySearcher(

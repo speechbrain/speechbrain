@@ -2,7 +2,6 @@
 import os
 import sys
 import torch
-import torch.nn.functional as F
 import speechbrain as sb
 
 from speechbrain.data_io.data_io import prepend_bos_token
@@ -27,17 +26,12 @@ sb.core.create_experiment_directory(
     overrides=overrides,
 )
 
-modules = torch.nn.ModuleList(
-    [params.emb, params.drop, params.rnn, params.dnn, params.lin]
-)
-
+modules = torch.nn.ModuleList([params.model, params.lin])
 
 checkpointer = sb.utils.checkpoints.Checkpointer(
     checkpoints_dir=params.save_folder,
     recoverables={
-        "model": torch.nn.ModuleList(
-            [params.emb, params.rnn, params.dnn, params.lin]
-        ),
+        "model": modules,
         "optimizer": params.optimizer,
         "scheduler": params.lr_annealing,
         "counter": params.epoch_counter,
@@ -54,11 +48,8 @@ class LM(sb.core.Brain):
 
         # Prepend bos token at the beginning
         y_in = prepend_bos_token(phns, bos_index=params.bos_index)
-        e_in = params.emb(y_in, init_params=init_params)
-        e_in = params.drop(e_in)
-        h_rnn = params.rnn(e_in, init_params=init_params)
-        h_dnn = F.relu(params.dnn(h_rnn, init_params=init_params))
-        logits = params.lin(h_dnn, init_params)
+        enc = params.model(y_in, init_params=init_params)
+        logits = params.lin(enc, init_params)
         pout = params.log_softmax(logits)
         return pout
 
@@ -126,10 +117,7 @@ lm_brain = LM(
     modules=modules, optimizer=params.optimizer, first_inputs=first_y,
 )
 if params.multigpu:
-    params.emb = torch.nn.DataParallel(params.emb)
-    params.drop = torch.nn.DataParallel(params.drop)
-    params.rnn = torch.nn.DataParallel(params.rnn)
-    params.dnn = torch.nn.DataParallel(params.dnn)
+    params.model = torch.nn.DataParallel(params.model)
     params.lin = torch.nn.DataParallel(params.lin)
 # Load latest checkpoint to resume training
 checkpointer.recover_if_possible()
