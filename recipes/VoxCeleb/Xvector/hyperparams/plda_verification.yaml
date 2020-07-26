@@ -7,11 +7,9 @@ seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Folders and train_log file
-# /network/tmp1/dawalatn/dataset_tmp1/VoxCeleb/voxceleb1/audio_files/vox1_dev_full_data/
-# /network/tmp1/dawalatn/dataset_tmp1/VoxCeleb/voxceleb1/audio_files/vox1_test_wav_all/
-train_data_folder: /network/tmp1/dawalatn/dataset_tmp1/VoxCeleb/
-test_data_folder: /network/tmp1/dawalatn/dataset_tmp1/VoxCeleb/
-output_folder: results/speaker_verification
+#/voxceleb1/audio_files/vox1_all/
+data_folder: /network/tmp1/dawalatn/dataset_tmp1/VoxCeleb/vox1/
+output_folder: results/speaker_verification_v1/
 save_folder: !ref <output_folder>/save/
 device: 'cuda:0'
 
@@ -19,9 +17,9 @@ device: 'cuda:0'
 xvector_file: https://www.dropbox.com/s/skfz2sme5nw7jji/xvector_model.ckpt?dl=1
 
 # csv files
-csv_train: !ref <save_folder>/sample_train_100000.csv
+csv_train: !ref <save_folder>/train.csv
 csv_valid: !ref <save_folder>/valid.csv
-# csv_test: !ref <save_folder>/sample_test_200.csv
+csv_enrol: !ref <save_folder>/enrol.csv
 csv_test: !ref <save_folder>/test.csv
 batch_size: 128
 
@@ -61,9 +59,9 @@ train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>
     batch_size: !ref <batch_size>
     csv_read: [wav, spk_id]
-    sentence_sorting: original
+    sentence_sorting: random
     replacements:
-        $data_folder: !ref  <train_data_folder>
+        $data_folder: !ref  <data_folder>
     output_folder: !ref <output_folder>/save/
 
 valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
@@ -72,14 +70,23 @@ valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_read: [wav, spk_id]
     sentence_sorting: original
     replacements:
-        $data_folder: !ref <train_data_folder>
+        $data_folder: !ref <data_folder>
+    output_folder: !ref <output_folder>/save/
+
+enrol_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_enrol>
+    batch_size: !ref <batch_size>
+    csv_read: [wav]
+    sentence_sorting: original
+    replacements:
+        $data_folder: !ref <data_folder>
     output_folder: !ref <output_folder>/save/
 
 test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_test>
     batch_size: !ref <batch_size>
-    csv_read: [wav1, wav2, lab_verification]
+    csv_read: [wav]
     sentence_sorting: original
     replacements:
-        $data_folder: !ref <test_data_folder>
+        $data_folder: !ref <data_folder>
     output_folder: !ref <output_folder>/save/
