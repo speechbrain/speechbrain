@@ -211,6 +211,15 @@ asr_brain = ASR(
     first_inputs=[first_x, first_y],
 )
 
+# Check if the model should be trained on multiple GPUs.
+# Important: DataParallel MUST be called after the ASR (Brain) class init.
+if params.multigpu:
+    params.enc = torch.nn.DataParallel(params.enc)
+    params.emb = torch.nn.DataParallel(params.emb)
+    params.dec = torch.nn.DataParallel(params.dec)
+    params.ctc_lin = torch.nn.DataParallel(params.ctc_lin)
+    params.seq_lin = torch.nn.DataParallel(params.seq_lin)
+
 # Load latest checkpoint to resume training
 checkpointer.recover_if_possible()
 asr_brain.fit(params.epoch_counter, train_set, valid_set)
