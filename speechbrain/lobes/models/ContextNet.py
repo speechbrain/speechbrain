@@ -1,5 +1,8 @@
 """The SpeechBrain implementation of ContextNet by
 https://arxiv.org/pdf/2005.03191.pdf
+
+Authors
+ * Jianyuan Zhong 2020
 """
 import torch
 from torch.nn import Dropout

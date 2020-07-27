@@ -9,6 +9,7 @@ import speechbrain.utils.edit_distance as edit_distance
 from speechbrain.data_io.data_io import convert_index_to_lab
 from speechbrain.data_io.data_io import prepend_bos_token
 from speechbrain.data_io.data_io import append_eos_token
+from speechbrain.utils.train_logger import summarize_error_rate
 
 from searchs import GreedySearch, BeamSearch
 from speechbrain.decoders.decoders import undo_padding
@@ -260,9 +261,11 @@ class ASR(sb.core.Brain):
             "steps": params.lr_annealing.n_steps,
         }
         params.train_logger.log_stats(epoch_stats, train_stats, valid_stats)
+
+        wer = summarize_error_rate(valid_stats["WER"])
         checkpointer.save_and_keep_only(
-            meta={"loss": valid_stats["loss"][-1].cpu().item()},
-            importance_keys=[ckpt_recency, lambda c: -c.meta["loss"]],
+            meta={"WER": wer},
+            importance_keys=[ckpt_recency, lambda c: -c.meta["WER"]],
         )
 
     def _reset_params(self):
@@ -303,7 +306,7 @@ checkpointer.recover_if_possible()
 asr_brain.fit(params.epoch_counter, train_set, valid_set)
 
 # Load best checkpoint for evaluation
-checkpointer.recover_if_possible(lambda c: -c.meta["loss"])
+checkpointer.recover_if_possible(lambda c: -c.meta["WER"])
 test_stats = asr_brain.evaluate(params.test_loader())
 params.train_logger.log_stats(
     stats_meta={"Epoch loaded": params.epoch_counter.current},

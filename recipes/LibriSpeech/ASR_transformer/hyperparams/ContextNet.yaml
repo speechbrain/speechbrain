@@ -14,11 +14,11 @@ csv_valid: !ref <data_folder>/dev-clean.csv
 csv_test: !ref <data_folder>/test-clean.csv
 
 # Training parameters
-number_of_epochs: 60
+number_of_epochs: 100
 batch_size: 64
 lr: 0.00025
 ctc_weight: 0.4
-ctc_epoch: 50
+ctc_epoch: 100
 device: 'cuda'
 multigpu: True
 
@@ -70,8 +70,7 @@ CNN: !new:speechbrain.lobes.models.ContextNet.ContextNet
     num_blocks: 9
     conv_channels: (256, 256, 256, 256, 512, 512, 512, 512, 512)
     strides: (1, 2, 1, 1, 2, 1, 1, 2, 1)
-    # conv_channels: (256, 512, 512)
-    # strides: (2, 2, 2)
+
 
 Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.TransformerASR # yamllint disable-line rule:line-length
     tgt_vocab: !ref <output_neurons>
@@ -124,6 +123,7 @@ train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     output_folder: !ref <output_folder>
     csv_read: [wav, wrd]
     add_padding_label: True
+    num_workers: 4
 
 valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_valid>
@@ -132,6 +132,7 @@ valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     output_folder: !ref <output_folder>
     csv_read: [wav, wrd]
     add_padding_label: True
+    num_workers: 4
 
 test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_test>
@@ -140,6 +141,7 @@ test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     output_folder: !ref <output_folder>
     csv_read: [wav, wrd]
     add_padding_label: True
+    num_workers: 4
 
 ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
     blank_index: !ref <blank_index>
