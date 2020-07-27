@@ -75,7 +75,7 @@ class SentencePiece:
         bos_id=-1,
         eos_id=-1,
         pad_id=-1,
-        unk_id=-1,
+        unk_id=0,
     ):
         if model_type not in ["unigram", "bpe", "char"]:
             raise ValueError("model_type must be one of : [unigram, bpe, char]")
