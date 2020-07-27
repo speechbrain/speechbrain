@@ -164,8 +164,6 @@ _ = params.bpe_tokenizer(
     init_params=True,
 )
 
-if hasattr(params, "augmentation"):
-    modules.append(params.augmentation)
 asr_brain = ASR(
     modules=modules, optimizer=params.optimizer, first_inputs=[first_x],
 )
