@@ -107,7 +107,6 @@ class SentencePiece:
     def _csv2text(self):
         """
         Read CSV file and convert specific data entries into text file.
-
         """
         if not os.path.isfile(os.path.abspath(self.csv_train)):
             raise ValueError(
@@ -134,7 +133,6 @@ class SentencePiece:
         """
         Train tokenizer with unsupervised techniques (BPE, Unigram) using SentencePiece Library.
         If you use "char" mode, the SentencePiece create a char dict so the vocab_size attribute is not needed.
-
         """
         query = (
             "--input="
@@ -166,7 +164,6 @@ class SentencePiece:
         Otherwise it call the train of the tokenizer.
 
         This function report the information about the tokenizer used in the experiment.
-
         """
         if not os.path.isfile(self.prefix_model_file + ".model"):
             logger.info("Train tokenizer with type:" + self.model_type)
