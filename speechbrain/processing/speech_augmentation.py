@@ -56,6 +56,9 @@ class AddNoise(torch.nn.Module):
     start_index : int
         The index in the noise waveforms to start from. By default, chooses
         a random index in [0, len(noise) - len(waveforms)].
+    normalize : bool
+        If True, output noisy signals that exceed [-1,1] will be
+        normalized to [-1,1].
     replacements : dict
         A set of string replacements to carry out in the
         csv file. Each time a key is found in the text, it will be replaced
@@ -75,11 +78,13 @@ class AddNoise(torch.nn.Module):
         csv_read=None,
         order="random",
         do_cache=False,
+        num_workers=0,
         snr_low=0,
         snr_high=0,
         pad_noise=False,
         mix_prob=1.0,
         start_index=None,
+        normalize=False,
         replacements={},
     ):
         super().__init__()
@@ -88,11 +93,13 @@ class AddNoise(torch.nn.Module):
         self.csv_read = csv_read
         self.order = order
         self.do_cache = do_cache
+        self.num_workers = num_workers
         self.snr_low = snr_low
         self.snr_high = snr_high
         self.pad_noise = pad_noise
         self.mix_prob = mix_prob
         self.start_index = start_index
+        self.normalize = normalize
         self.replacements = replacements
 
     def forward(self, waveforms, lengths):
@@ -143,6 +150,13 @@ class AddNoise(torch.nn.Module):
             noise_waveform *= new_noise_amplitude / (noise_amplitude + 1e-14)
             noisy_waveform += noise_waveform
 
+        # Normalizing to prevent clipping
+        if self.normalize:
+            abs_max, _ = torch.max(
+                torch.abs(noisy_waveform), dim=1, keepdim=True
+            )
+            noisy_waveform = noisy_waveform / abs_max.clamp(min=1.0)
+
         return noisy_waveform
 
     def _load_noise(self, lengths, max_length):
@@ -157,15 +171,17 @@ class AddNoise(torch.nn.Module):
 
             # Create a data loader for the noise wavforms
             if self.csv_file is not None:
-                self.data_loader = DataLoaderFactory(
+                data_loader = DataLoaderFactory(
                     csv_file=self.csv_file,
                     csv_read=self.csv_read,
                     sentence_sorting=self.order,
                     batch_size=batch_size,
                     cache=self.do_cache,
                     replacements=self.replacements,
+                    num_workers=self.num_workers,
                 )
-                self.noise_data = iter(self.data_loader())
+                self.data_loader = data_loader()
+                self.noise_data = iter(self.data_loader)
 
         # Load noise to correct device
         noise_batch, noise_len = self._load_noise_batch_of_size(batch_size)
@@ -246,7 +262,7 @@ class AddNoise(torch.nn.Module):
         try:
             wav_id, noise_batch, noise_len = next(self.noise_data)[0]
         except StopIteration:
-            self.noise_data = iter(self.data_loader())
+            self.noise_data = iter(self.data_loader)
             wav_id, noise_batch, noise_len = next(self.noise_data)[0]
         return noise_batch, noise_len
 
