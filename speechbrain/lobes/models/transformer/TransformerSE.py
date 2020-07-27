@@ -6,9 +6,6 @@ Authors
 import torch  # noqa E402
 from torch import nn
 from speechbrain.nnet.linear import Linear
-from speechbrain.nnet.CNN import Conv1d
-from speechbrain.nnet.normalization import LayerNorm
-from speechbrain.nnet.containers import Sequential
 from speechbrain.lobes.models.transformer.Transformer import (
     TransformerInterface,
     get_lookahead_mask,
@@ -36,10 +33,8 @@ class CNNTransformerSE(TransformerInterface):
         the activation function of intermediate layers (default=LeakyReLU).
     causal: bool
         True for causal setting, the model is forbidden to see future frames. (default=True)
-    cnn_channels: list
-        A list for the number of channels in the CNN encoder.
-    cnn_kernelsize: list
-        A list for the kernel sizes in the CNN encoder.
+    custom_emb_module: torch class
+        module that process the input features before the transformer model.
     Example
     -------
     >>> src = torch.rand([8, 120, 60])
@@ -59,8 +54,7 @@ class CNNTransformerSE(TransformerInterface):
         dropout=0.1,
         activation=nn.LeakyReLU,
         causal=True,
-        cnn_channels=[1024, 512, 128, 256],
-        cnn_kernelsize=[3, 3, 3, 3],
+        custom_emb_module=None,
     ):
         super().__init__(
             nhead=nhead,
@@ -73,13 +67,7 @@ class CNNTransformerSE(TransformerInterface):
             positional_encoding=False,
         )
 
-        self.custom_src_module = CNNencoder(
-            activation=activation,
-            cnn_channels=cnn_channels,
-            cnn_kernelsize=cnn_kernelsize,
-            causal=causal,
-        )
-
+        self.custom_emb_module = custom_emb_module
         self.causal = causal
         self.output_layer = Linear(output_size, bias=False)
         self.output_activation = output_activation()
@@ -90,9 +78,11 @@ class CNNTransformerSE(TransformerInterface):
         else:
             self.attn_mask = None
 
-        src = self.custom_src_module(x, init_params)
+        if self.custom_emb_module is not None:
+            x = self.custom_emb_module(x, init_params)
+
         encoder_output = self.encoder(
-            src=src,
+            src=x,
             src_mask=self.attn_mask,
             src_key_padding_mask=None,
             init_params=init_params,
@@ -102,30 +92,3 @@ class CNNTransformerSE(TransformerInterface):
         output = self.output_activation(output)
 
         return output
-
-
-class CNNencoder(Sequential):
-    def __init__(
-        self,
-        activation=nn.LeakyReLU,
-        cnn_channels=[1024, 512, 128, 256],
-        cnn_kernelsize=[3, 3, 3, 3],
-        causal=True,
-    ):
-        if causal:
-            pad = "causal"
-        else:
-            pad = "same"
-
-        blocks = []
-
-        for c, k in zip(cnn_channels, cnn_kernelsize):
-            blocks.extend(
-                [
-                    Conv1d(out_channels=c, kernel_size=k, padding=pad),
-                    LayerNorm(),
-                    activation(),
-                ]
-            )
-
-        super().__init__(*blocks)
