@@ -81,7 +81,7 @@ enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
     dnn_neurons: !ref <dnn_neurons>
 
 output: !new:speechbrain.nnet.linear.Linear
-    n_neurons: !ref <output_neurons> # 28 char + 1 blank
+    n_neurons: !ref <output_neurons>
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
