@@ -32,7 +32,7 @@ class SentencePiece:
     csv_train: str
         Path of the csv file which is used for learn of create the tokenizer.
     csv_read: str
-        The data entrie which contain the word sequence in the csv file.
+        The data entry which contain the word sequence in the csv file.
     model_type: str
         (bpe, char, unigram).
         If "bpe", train unsupervised tokenization of piece of words. see:
