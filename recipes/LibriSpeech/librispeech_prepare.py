@@ -82,7 +82,7 @@ def prepare_librispeech(
 
     # Check if this phase is already done (if so, skip it)
     if skip(splits, save_folder, conf):
-        logger.debug("Skipping preparation, completed in previous run.")
+        logger.info("Skipping preparation, completed in previous run.")
         return
 
     # Additional checks to make sure the data folder contains Librispeech
@@ -184,8 +184,8 @@ def create_csv(
     csv_file = os.path.join(save_folder, split + ".csv")
 
     # Preliminary prints
-    msg = "\tCreating csv lists in  %s..." % (csv_file)
-    logger.debug(msg)
+    msg = "Creating csv lists in  %s..." % (csv_file)
+    logger.info(msg)
 
     csv_lines = [
         [
@@ -270,8 +270,8 @@ def create_csv(
             csv_writer.writerow(line)
 
     # Final print
-    msg = "\t%s sucessfully created!" % (csv_file)
-    logger.debug(msg)
+    msg = "%s sucessfully created!" % (csv_file)
+    logger.info(msg)
 
 
 def skip(splits, save_folder, conf):
