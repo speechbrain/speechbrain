@@ -27,12 +27,12 @@ class SentencePiece:
     model_dir: str
         The directory where the model is saved.
     vocab_size: int, None, optional
-        Vocab size for the choosen tokenizer type (BPE, Unigram, word).
-        The vocab_size is optional for char, word and unigram tokenization.
+        Vocab size for the choosen tokenizer type (BPE, Unigram).
+        The vocab_size is optional for char, and mandatory for BPE & unigram tokenization.
     csv_train: str
         Path of the csv file which is used for learn of create the tokenizer.
     csv_read: str
-        The data entrie which contain the word sequence in the csv file.
+        The data entry which contain the word sequence in the csv file.
     model_type: str
         (bpe, char, unigram).
         If "bpe", train unsupervised tokenization of piece of words. see:
@@ -45,6 +45,9 @@ class SentencePiece:
         Amount of characters covered by the model,
         good defaults are: 0.9995 for languages with rich character set like Japanse or Chinese
         and 1.0 for other languages with small character set.
+    max_sentencepiece_length: int
+        Deault: 10,
+        Maximum number of characters for the tokens.
     bos_id: int
         Default: -1, if -1 the bos_id = unk_id = 0. otherwize, bos_id = int.
     eos_id: int
@@ -72,6 +75,7 @@ class SentencePiece:
         csv_read=None,
         model_type="unigram",
         character_coverage=1.0,
+        max_sentencepiece_length=10,
         bos_id=-1,
         eos_id=-1,
         pad_id=-1,
@@ -79,31 +83,10 @@ class SentencePiece:
     ):
         if model_type not in ["unigram", "bpe", "char"]:
             raise ValueError("model_type must be one of : [unigram, bpe, char]")
-        if not os.path.isfile(os.path.abspath(csv_train)):
-            if os.path.isfile(
-                os.path.join(
-                    model_dir, str(vocab_size) + "_" + model_type + ".model"
-                )
-            ):
-                logger.info(
-                    "Tokenizer is already trained. Training file is no needed"
-                )
-            else:
-                raise ValueError(
-                    csv_train
-                    + " is not a file. please provide text file for training."
-                )
         if not os.path.isdir(model_dir):
             os.makedirs(model_dir)
         if not isinstance(vocab_size, int):
             raise ValueError("vocab_size must be integer.")
-        if not os.path.isdir(model_dir):
-            raise ValueError(
-                model_dir
-                + "must be a directory.\n"
-                + "The model files should be: "
-                + os.path.join(model_dir, str(vocab_size) + ".{model,vocab}")
-            )
 
         self.csv_train = csv_train
         self.csv_read = csv_read
@@ -117,6 +100,7 @@ class SentencePiece:
         self.vocab_size = str(vocab_size)
         self.model_type = model_type
         self.character_coverage = str(character_coverage)
+        self.max_sentencepiece_length = str(max_sentencepiece_length)
         self.bos_id = str(bos_id)
         self.eos_id = str(eos_id)
         self.pad_id = str(pad_id)
@@ -125,9 +109,12 @@ class SentencePiece:
     def _csv2text(self):
         """
         Read CSV file and convert specific data entries into text file.
-
         """
-
+        if not os.path.isfile(os.path.abspath(self.csv_train)):
+            raise ValueError(
+                self.csv_train
+                + " is not a file. please provide csv file for training."
+            )
         logger.info(
             "Extract " + self.csv_read + " sequences from:" + self.csv_train
         )
@@ -148,7 +135,6 @@ class SentencePiece:
         """
         Train tokenizer with unsupervised techniques (BPE, Unigram) using SentencePiece Library.
         If you use "char" mode, the SentencePiece create a char dict so the vocab_size attribute is not needed.
-
         """
         query = (
             "--input="
@@ -165,6 +151,8 @@ class SentencePiece:
             + self.pad_id
             + " --unk_id="
             + self.unk_id
+            + " --max_sentencepiece_length="
+            + self.max_sentencepiece_length
             + " --character_coverage="
             + self.character_coverage
         )
@@ -180,7 +168,6 @@ class SentencePiece:
         Otherwise it call the train of the tokenizer.
 
         This function report the information about the tokenizer used in the experiment.
-
         """
         if not os.path.isfile(self.prefix_model_file + ".model"):
             logger.info("Train tokenizer with type:" + self.model_type)
