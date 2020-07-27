@@ -40,6 +40,10 @@ class CRDNN(Sequential):
         The number of elements to pool on the time axis.
     time_pooling_stride : int
         The number of elements to increment by when iterating the time axis.
+    using_2d_pooling: bool
+        Whether using a 2D or 1D pooling after each cnn block.
+    inter_layer_pooling_size : list of ints
+        A list of the number of pooling for each cnn block.
     rnn_class : torch class
         The type of rnn to use in CRDNN network (LiGRU, LSTM, GRU, RNN)
     rnn_layers : int

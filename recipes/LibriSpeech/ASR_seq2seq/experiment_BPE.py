@@ -81,10 +81,14 @@ class ASR(sb.core.Brain):
         elif stage == "test":
             index2lab = params.test_loader.label_dict["wrd"]["index2lab"]
 
+        wavs, wav_lens = wavs.to(params.device), wav_lens.to(params.device)
+        if hasattr(params, "env_corrupt"):
+            wavs_noise = params.env_corrupt(wavs, wav_lens, init_params)
+            wavs = torch.cat([wavs, wavs_noise], dim=0)
+            wav_lens = torch.cat([wav_lens, wav_lens])
         bpe, _ = params.bpe_tokenizer(
             words, word_lens, index2lab, task="encode", init_params=init_params
         )
-        wavs, wav_lens = wavs.to(params.device), wav_lens.to(params.device)
         bpe = bpe.to(params.device)
 
         if hasattr(params, "augmentation"):
@@ -141,6 +145,9 @@ class ASR(sb.core.Brain):
             words, word_lens, index2lab, task="encode"
         )
         bpe, bpe_lens = bpe.to(params.device), bpe_lens.to(params.device)
+        if hasattr(params, "env_corrupt"):
+            bpe = torch.cat([bpe, bpe], dim=0)
+            bpe_lens = torch.cat([bpe_lens, bpe_lens], dim=0)
 
         # Add char_lens by one for eos token
         abs_length = torch.round(bpe_lens * bpe.shape[1])
@@ -224,8 +231,6 @@ train_set = params.train_loader()
 valid_set = params.valid_loader()
 first_x, first_y = next(iter(train_set))
 
-if hasattr(params, "augmentation"):
-    modules.append(params.augmentation)
 asr_brain = ASR(
     modules=modules,
     optimizer=params.optimizer,

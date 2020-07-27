@@ -89,10 +89,12 @@ class ASR(sb.core.Brain):
         stats = {}
         if stage != "train":
             # Prediction
-            sequence = ctc_greedy_decode(
+            output_sequence = ctc_greedy_decode(
                 pout, pout_lens, blank_id=params.blank_index
             )
-            word_seq = params.bpe_tokenizer(sequence, task="decode_from_list")
+            word_seq = params.bpe_tokenizer(
+                output_sequence, task="decode_from_list"
+            )
             char_seq = split_word(word_seq)
             # Truth
             words = undo_padding(words, word_lens)
@@ -104,6 +106,13 @@ class ASR(sb.core.Brain):
             wer_stats = edit_distance.wer_details_for_batch(
                 ids, words, word_seq, compute_alignments=True
             )
+            # If needed, compute token error rate
+            if params.ter_eval:
+                bpe = undo_padding(bpe, bpe_lens)
+                ter_stats = edit_distance.wer_details_for_batch(
+                    ids, bpe, output_sequence, compute_alignments=True
+                )
+                stats["TER"] = ter_stats
             stats["CER"] = cer_stats
             stats["WER"] = wer_stats
         return loss, stats
@@ -155,8 +164,6 @@ _ = params.bpe_tokenizer(
     init_params=True,
 )
 
-if hasattr(params, "augmentation"):
-    modules.append(params.augmentation)
 asr_brain = ASR(
     modules=modules, optimizer=params.optimizer, first_inputs=[first_x],
 )

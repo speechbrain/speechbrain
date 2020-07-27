@@ -102,10 +102,10 @@ dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
     dropout: !ref <dropout>
 
 ctc_lin: !new:speechbrain.nnet.linear.Linear
-    n_neurons: !ref <output_neurons> # 28 char + 1 blank
+    n_neurons: !ref <output_neurons>
 
 seq_lin: !new:speechbrain.nnet.linear.Linear
-    n_neurons: !ref <output_neurons> # 28 char + 1 eos
+    n_neurons: !ref <output_neurons>
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
