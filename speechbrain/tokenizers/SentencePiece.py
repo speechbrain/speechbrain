@@ -27,8 +27,8 @@ class SentencePiece:
     model_dir: str
         The directory where the model is saved.
     vocab_size: int, None, optional
-        Vocab size for the choosen tokenizer type (BPE, Unigram, word).
-        The vocab_size is optional for char, word and unigram tokenization.
+        Vocab size for the choosen tokenizer type (BPE, Unigram).
+        The vocab_size is optional for char, and mandatory for BPE & unigram tokenization.
     csv_train: str
         Path of the csv file which is used for learn of create the tokenizer.
     csv_read: str
