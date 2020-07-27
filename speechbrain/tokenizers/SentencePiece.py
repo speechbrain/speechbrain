@@ -82,31 +82,10 @@ class SentencePiece:
     ):
         if model_type not in ["unigram", "bpe", "char"]:
             raise ValueError("model_type must be one of : [unigram, bpe, char]")
-        if not os.path.isfile(os.path.abspath(csv_train)):
-            if os.path.isfile(
-                os.path.join(
-                    model_dir, str(vocab_size) + "_" + model_type + ".model"
-                )
-            ):
-                logger.info(
-                    "Tokenizer is already trained. Training file is no needed"
-                )
-            else:
-                raise ValueError(
-                    csv_train
-                    + " is not a file. please provide text file for training."
-                )
         if not os.path.isdir(model_dir):
             os.makedirs(model_dir)
         if not isinstance(vocab_size, int):
             raise ValueError("vocab_size must be integer.")
-        if not os.path.isdir(model_dir):
-            raise ValueError(
-                model_dir
-                + "must be a directory.\n"
-                + "The model files should be: "
-                + os.path.join(model_dir, str(vocab_size) + ".{model,vocab}")
-            )
 
         self.csv_train = csv_train
         self.csv_read = csv_read
@@ -130,7 +109,11 @@ class SentencePiece:
         Read CSV file and convert specific data entries into text file.
 
         """
-
+        if not os.path.isfile(os.path.abspath(self.csv_train)):
+            raise ValueError(
+                self.csv_train
+                + " is not a file. please provide csv file for training."
+            )
         logger.info(
             "Extract " + self.csv_read + " sequences from:" + self.csv_train
         )
