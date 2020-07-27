@@ -7,7 +7,7 @@
 
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 222
+seed: !PLACEHOLDER
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/CRDNN_2d_pooling_BPE/<seed>
 wer_file: !ref <output_folder>/wer.txt
@@ -15,7 +15,7 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: /localscratch/LibriSpeech
+data_folder: !PLACEHOLDER
 csv_train: !ref <data_folder>/train-clean-100.csv
 csv_valid: !ref <data_folder>/dev-clean.csv
 csv_test: !ref <data_folder>/test-clean.csv
@@ -47,6 +47,10 @@ dnn_neurons: 512
 # Outputs
 output_neurons: 1000 # index(blank/eos/bos) = 0
 blank_index: 0
+
+# Decode params
+# allow token error rate computation
+ter_eval: True
 
 bpe_tokenizer: !new:speechbrain.tokenizers.SentencePiece.SentencePiece
     model_dir: !ref <save_folder>
@@ -133,5 +137,6 @@ ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
     summary_fns:
+        TER: !name:speechbrain.utils.train_logger.summarize_error_rate
         CER: !name:speechbrain.utils.train_logger.summarize_error_rate
         WER: !name:speechbrain.utils.train_logger.summarize_error_rate
