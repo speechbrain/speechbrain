@@ -205,8 +205,6 @@ train_set = params.train_loader()
 valid_set = params.valid_loader()
 first_x, first_y = next(iter(train_set))
 
-if hasattr(params, "augmentation"):
-    modules.append(params.augmentation)
 asr_brain = ASR(
     modules=modules,
     optimizer=params.optimizer,
