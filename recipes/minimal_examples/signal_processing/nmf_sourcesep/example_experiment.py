@@ -121,6 +121,7 @@ NMF1.fit(
     train_set=params.train_loader1(),
     valid_set=None,
     epoch_counter=range(params.N_epochs),
+    progressbar=False,
 )
 W1hat = NMF1.training_out[1]
 
@@ -131,6 +132,7 @@ NMF2.fit(
     train_set=params.train_loader2(),
     valid_set=None,
     epoch_counter=range(params.N_epochs),
+    progressbar=False,
 )
 W2hat = NMF2.training_out[1]
 
