@@ -133,7 +133,7 @@ test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
 ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
     blank_index: !ref <blank_index>
 
-seq_cost: !name:speechbrain.nnet.losses.nll_loss
+seq_cost: !name:speechbrain.nnet.losses.masked_nll_loss
     label_smoothing: 0.1
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger

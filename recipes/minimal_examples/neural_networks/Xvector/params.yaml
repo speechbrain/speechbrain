@@ -65,9 +65,9 @@ valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
 
-compute_cost: !name:speechbrain.nnet.losses.nll_loss
+compute_cost: !name:speechbrain.nnet.losses.masked_nll_loss
 
-compute_error: !name:speechbrain.nnet.losses.classification_error
+compute_error: !name:speechbrain.nnet.losses.masked_classification_error
 
 optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
     learning_rate: !ref <lr>

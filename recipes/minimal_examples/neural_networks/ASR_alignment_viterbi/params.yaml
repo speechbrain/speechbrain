@@ -76,7 +76,7 @@ softmax: !new:speechbrain.nnet.activations.Softmax
 
 aligner: !new:speechbrain.alignment.aligner.HMMAligner
 
-compute_cost: !name:speechbrain.nnet.losses.nll_loss
+compute_cost: !name:speechbrain.nnet.losses.masked_nll_loss
 
 optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
     learning_rate: !ref <lr>

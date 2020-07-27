@@ -232,7 +232,7 @@ def ctc_loss(log_probs, targets, input_lens, target_lens, blank_index):
     )
 
 
-def l1_loss(predictions, targets, length=None, allowed_len_diff=3):
+def masked_l1_loss(predictions, targets, length=None, allowed_len_diff=3):
     """Compute the true l1 loss, accounting for length differences.
 
     Arguments
@@ -248,8 +248,10 @@ def l1_loss(predictions, targets, length=None, allowed_len_diff=3):
 
     Example
     -------
-    >>> probs = torch.tensor([[0.9, 0.1, 0.1, 0.9]])
-    >>> l1_loss(probs, torch.tensor([[1., 0., 0., 1.]]))
+    >>> probs = torch.tensor([[0.9, 0.1], [0.1, 0.0]])
+    >>> targets = torch.tensor([[1., 0.], [0., 0.]])
+    >>> lengths = torch.tensor([1., 0.5])
+    >>> masked_l1_loss(probs, targets, lengths)
     tensor(0.1000)
     """
     predictions, targets = truncate(predictions, targets, allowed_len_diff)
@@ -257,7 +259,7 @@ def l1_loss(predictions, targets, length=None, allowed_len_diff=3):
     return compute_masked_loss(loss, predictions, targets, length)
 
 
-def mse_loss(predictions, targets, length=None, allowed_len_diff=3):
+def masked_mse_loss(predictions, targets, length=None, allowed_len_diff=3):
     """Compute the true mean squared error, accounting for length differences.
 
     Arguments
@@ -273,8 +275,10 @@ def mse_loss(predictions, targets, length=None, allowed_len_diff=3):
 
     Example
     -------
-    >>> probs = torch.tensor([[0.9, 0.1, 0.1, 0.9]])
-    >>> mse_loss(probs, torch.tensor([[1., 0., 0., 1.]]))
+    >>> probs = torch.tensor([[0.9, 0.1], [0.1, 0.0]])
+    >>> targets = torch.tensor([[1., 0.], [0., 0.]])
+    >>> lengths = torch.tensor([1., 0.5])
+    >>> masked_mse_loss(probs, targets, lengths)
     tensor(0.0100)
     """
     predictions, targets = truncate(predictions, targets, allowed_len_diff)
@@ -282,7 +286,7 @@ def mse_loss(predictions, targets, length=None, allowed_len_diff=3):
     return compute_masked_loss(loss, predictions, targets, length)
 
 
-def classification_error(
+def masked_classification_error(
     probabilities, targets, length=None, allowed_len_diff=3
 ):
     """Computes the classification error at frame or batch level.
@@ -301,9 +305,13 @@ def classification_error(
 
     Example
     -------
-    >>> probs = torch.tensor([[[0.9, 0.1], [0.1, 0.9]]])
-    >>> classification_error(probs, torch.tensor([1, 1]))
-    tensor(0.5000)
+    >>> probs = torch.tensor(
+    ...     [[[0.9, 0.1], [0.1, 0.9]], [[0.1, 0.9], [0.0, 0.0]]]
+    ... )
+    >>> targets = torch.tensor([[1, 1], [1, 0]])
+    >>> lengths = torch.tensor([1.0, 0.5])
+    >>> masked_classification_error(probs, targets, lengths)
+    tensor(0.3333)
     """
     if len(probabilities.shape) == 3 and len(targets.shape) == 2:
         probabilities, targets = truncate(
@@ -317,7 +325,7 @@ def classification_error(
     return compute_masked_loss(error, probabilities, targets.long(), length)
 
 
-def nll_loss(
+def masked_nll_loss(
     log_probabilities,
     targets,
     length=None,
@@ -340,9 +348,13 @@ def nll_loss(
 
     Example
     -------
-    >>> probs = torch.tensor([[0.9, 0.1], [0.1, 0.9]])
-    >>> nll_loss(torch.log(probs), torch.tensor([1, 1]))
-    tensor(1.2040)
+    >>> probs = torch.tensor(
+    ...     [[[0.9, 0.1], [0.1, 0.9]], [[0.1, 0.9], [0.0, 0.0]]]
+    ... )
+    >>> targets = torch.tensor([[1, 1], [1, 0]])
+    >>> lengths = torch.tensor([1.0, 0.5])
+    >>> masked_nll_loss(probs, targets, lengths)
+    tensor(-0.6333)
     """
     if len(log_probabilities.shape) == 3:
         log_probabilities, targets = truncate(

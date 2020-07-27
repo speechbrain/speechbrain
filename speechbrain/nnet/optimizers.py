@@ -40,7 +40,7 @@ class RMSprop_Optimizer:
     Example
     -------
     >>> from speechbrain.nnet.linear import Linear
-    >>> from speechbrain.nnet.losses import nll_loss
+    >>> from speechbrain.nnet.losses import masked_nll_loss
     >>> inp_tensor = torch.rand([1,660,3])
     >>> model = Linear(n_neurons=4)
     >>> optim = RMSprop_Optimizer(learning_rate=0.01)
@@ -49,7 +49,7 @@ class RMSprop_Optimizer:
     >>> prediction = torch.nn.functional.log_softmax(output, dim=2)
     >>> label = torch.randint(3, (1, 660))
     >>> lengths = torch.Tensor([1.0])
-    >>> out_cost = nll_loss(prediction, label, lengths)
+    >>> out_cost = masked_nll_loss(prediction, label, lengths)
     >>> out_cost.backward()
     >>> optim.step()
     >>> optim.zero_grad()
@@ -151,7 +151,7 @@ class Adam_Optimizer:
     Example
     -------
     >>> from speechbrain.nnet.linear import Linear
-    >>> from speechbrain.nnet.losses import nll_loss
+    >>> from speechbrain.nnet.losses import masked_nll_loss
     >>> inp_tensor = torch.rand([1,660,3])
     >>> model = Linear(n_neurons=4)
     >>> optim = Adam_Optimizer(learning_rate=0.01)
@@ -160,7 +160,7 @@ class Adam_Optimizer:
     >>> prediction = torch.nn.functional.log_softmax(output, dim=2)
     >>> label = torch.randint(3, (1, 660))
     >>> lengths = torch.Tensor([1.0])
-    >>> out_cost = nll_loss(prediction, label, lengths)
+    >>> out_cost = masked_nll_loss(prediction, label, lengths)
     >>> out_cost.backward()
     >>> optim.step()
     >>> optim.zero_grad()
@@ -257,7 +257,7 @@ class Adadelta_Optimizer:
     Example
     -------
     >>> from speechbrain.nnet.linear import Linear
-    >>> from speechbrain.nnet.losses import nll_loss
+    >>> from speechbrain.nnet.losses import masked_nll_loss
     >>> inp_tensor = torch.rand([1,660,3])
     >>> model = Linear(n_neurons=4)
     >>> optim = Adadelta_Optimizer(learning_rate=0.01)
@@ -266,7 +266,7 @@ class Adadelta_Optimizer:
     >>> prediction = torch.nn.functional.log_softmax(output, dim=2)
     >>> label = torch.randint(3, (1, 660))
     >>> lengths = torch.Tensor([1.0])
-    >>> out_cost = nll_loss(prediction, label, lengths)
+    >>> out_cost = masked_nll_loss(prediction, label, lengths)
     >>> out_cost.backward()
     >>> optim.step()
     >>> optim.zero_grad()
@@ -357,7 +357,7 @@ class SGD_Optimizer:
     Example
     -------
     >>> from speechbrain.nnet.linear import Linear
-    >>> from speechbrain.nnet.losses import nll_loss
+    >>> from speechbrain.nnet.losses import masked_nll_loss
     >>> inp_tensor = torch.rand([1,660,3])
     >>> model = Linear(n_neurons=4)
     >>> optim = SGD_Optimizer(learning_rate=0.01)
@@ -366,7 +366,7 @@ class SGD_Optimizer:
     >>> prediction = torch.nn.functional.log_softmax(output, dim=2)
     >>> label = torch.randint(3, (1, 660))
     >>> lengths = torch.Tensor([1.0])
-    >>> out_cost = nll_loss(prediction, label, lengths)
+    >>> out_cost = masked_nll_loss(prediction, label, lengths)
     >>> out_cost.backward()
     >>> optim.step()
     >>> optim.zero_grad()
@@ -460,7 +460,7 @@ class Rprop_Optimizer:
     Example
     -------
     >>> from speechbrain.nnet.linear import Linear
-    >>> from speechbrain.nnet.losses import nll_loss
+    >>> from speechbrain.nnet.losses import masked_nll_loss
     >>> inp_tensor = torch.rand([1,660,3])
     >>> model = Linear(n_neurons=4)
     >>> optim = Rprop_Optimizer(learning_rate=0.01)
@@ -469,7 +469,7 @@ class Rprop_Optimizer:
     >>> prediction = torch.nn.functional.log_softmax(output, dim=2)
     >>> label = torch.randint(3, (1, 660))
     >>> lengths = torch.Tensor([1.0])
-    >>> out_cost = nll_loss(prediction, label, lengths)
+    >>> out_cost = masked_nll_loss(prediction, label, lengths)
     >>> out_cost.backward()
     >>> optim.step()
     >>> optim.zero_grad()

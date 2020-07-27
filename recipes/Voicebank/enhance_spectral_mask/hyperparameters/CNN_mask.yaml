@@ -163,7 +163,7 @@ model: !new:speechbrain.nnet.containers.Sequential
     - !ref <linear>
     - !ref <activation_sigmoid>
 
-compute_cost: !name:speechbrain.nnet.losses.mse_loss
+compute_cost: !name:speechbrain.nnet.losses.masked_mse_loss
 
 optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
     learning_rate: !ref <lr>

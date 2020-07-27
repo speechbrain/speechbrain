@@ -89,7 +89,7 @@ dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
 softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
-compute_cost: !name:speechbrain.nnet.losses.nll_loss
+compute_cost: !name:speechbrain.nnet.losses.masked_nll_loss
 
 optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
     learning_rate: !ref <lr>

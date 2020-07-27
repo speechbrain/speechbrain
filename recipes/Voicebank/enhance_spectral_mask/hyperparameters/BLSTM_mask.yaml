@@ -108,7 +108,7 @@ model: !new:speechbrain.nnet.containers.Sequential
     - !ref <linear2>
     - !ref <activation_sigmoid>
 
-compute_cost: !name:speechbrain.nnet.losses.mse_loss
+compute_cost: !name:speechbrain.nnet.losses.masked_mse_loss
 
 optimizer: !new:speechbrain.nnet.optimizers.RMSprop_Optimizer
     learning_rate: !ref <lr>

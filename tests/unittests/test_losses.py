@@ -3,47 +3,47 @@ import pytest
 
 
 def test_nll():
-    from speechbrain.nnet.losses import nll_loss
+    from speechbrain.nnet.losses import masked_nll_loss
 
     predictions = torch.zeros(4, 10, 8)
     targets = torch.zeros(4, 10)
     lengths = torch.ones(4)
-    out_cost = nll_loss(predictions, targets, lengths)
+    out_cost = masked_nll_loss(predictions, targets, lengths)
     assert torch.all(torch.eq(out_cost, 0))
 
 
 def test_mse():
-    from speechbrain.nnet.losses import mse_loss
+    from speechbrain.nnet.losses import masked_mse_loss
 
     predictions = torch.ones(4, 10, 8)
     targets = torch.ones(4, 10, 8)
     lengths = torch.ones(4)
-    out_cost = mse_loss(predictions, targets, lengths)
+    out_cost = masked_mse_loss(predictions, targets, lengths)
     assert torch.all(torch.eq(out_cost, 0))
 
     predictions = torch.zeros(4, 10, 8)
-    out_cost = mse_loss(predictions, targets, lengths)
+    out_cost = masked_mse_loss(predictions, targets, lengths)
     assert torch.all(torch.eq(out_cost, 1))
 
 
 def test_l1():
-    from speechbrain.nnet.losses import l1_loss
+    from speechbrain.nnet.losses import masked_l1_loss
 
     predictions = torch.ones(4, 10, 8)
     targets = torch.ones(4, 10, 8)
     lengths = torch.ones(4)
-    out_cost = l1_loss(predictions, targets, lengths)
+    out_cost = masked_l1_loss(predictions, targets, lengths)
     assert torch.all(torch.eq(out_cost, 0))
 
 
 def test_classification_error():
-    from speechbrain.nnet.losses import classification_error
+    from speechbrain.nnet.losses import masked_classification_error
 
     predictions = torch.zeros(4, 10, 8)
     predictions[:, :, 0] += 1.0
     targets = torch.zeros(4, 10)
     lengths = torch.ones(4)
-    out_cost = classification_error(predictions, targets, lengths)
+    out_cost = masked_classification_error(predictions, targets, lengths)
     assert torch.all(torch.eq(out_cost, 0))
 
 

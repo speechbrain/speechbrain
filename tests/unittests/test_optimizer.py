@@ -1,7 +1,7 @@
 def test_optimizers():
     import torch
     from speechbrain.nnet.linear import Linear
-    from speechbrain.nnet.losses import nll_loss
+    from speechbrain.nnet.losses import masked_nll_loss
 
     inp_tensor = torch.rand([1, 660, 3])
     model = Linear(n_neurons=4)
@@ -14,7 +14,7 @@ def test_optimizers():
     prediction = torch.nn.functional.log_softmax(output, dim=2)
     label = torch.randint(3, (1, 660))
     lengths = torch.Tensor([1.0])
-    out_cost = nll_loss(prediction, label, lengths)
+    out_cost = masked_nll_loss(prediction, label, lengths)
     out_cost.backward()
     optim.step()
     optim.zero_grad()
@@ -27,7 +27,7 @@ def test_optimizers():
     prediction = torch.nn.functional.log_softmax(output, dim=2)
     label = torch.randint(3, (1, 660))
     lengths = torch.Tensor([1.0])
-    out_cost = nll_loss(prediction, label, lengths)
+    out_cost = masked_nll_loss(prediction, label, lengths)
     out_cost.backward()
     optim.step()
     optim.zero_grad()
@@ -40,7 +40,7 @@ def test_optimizers():
     prediction = torch.nn.functional.log_softmax(output, dim=2)
     label = torch.randint(3, (1, 660))
     lengths = torch.Tensor([1.0])
-    out_cost = nll_loss(prediction, label, lengths)
+    out_cost = masked_nll_loss(prediction, label, lengths)
     out_cost.backward()
     optim.step()
     optim.zero_grad()
@@ -53,7 +53,7 @@ def test_optimizers():
     prediction = torch.nn.functional.log_softmax(output, dim=2)
     label = torch.randint(3, (1, 660))
     lengths = torch.Tensor([1.0])
-    out_cost = nll_loss(prediction, label, lengths)
+    out_cost = masked_nll_loss(prediction, label, lengths)
     out_cost.backward()
     optim.step()
     optim.zero_grad()
@@ -66,7 +66,7 @@ def test_optimizers():
     prediction = torch.nn.functional.log_softmax(output, dim=2)
     label = torch.randint(3, (1, 660))
     lengths = torch.Tensor([1.0])
-    out_cost = nll_loss(prediction, label, lengths)
+    out_cost = masked_nll_loss(prediction, label, lengths)
     out_cost.backward()
     optim.step()
     optim.zero_grad()
