@@ -37,7 +37,7 @@ class CNNTransformerSE(TransformerInterface):
         module that process the input features before the transformer model.
     Example
     -------
-    >>> src = torch.rand([8, 120, 60])
+    >>> src = torch.rand([8, 120, 256])
     >>> net = CNNTransformerSE(257)
     >>> out = net.forward(src, init_params=True)
     >>> print(out.shape)
@@ -72,7 +72,7 @@ class CNNTransformerSE(TransformerInterface):
         self.output_layer = Linear(output_size, bias=False)
         self.output_activation = output_activation()
 
-    def forward(self, x, init_params=False):
+    def forward(self, x, src_key_padding_mask=None, init_params=False):
         if self.causal:
             self.attn_mask = get_lookahead_mask(x)
         else:
@@ -84,7 +84,7 @@ class CNNTransformerSE(TransformerInterface):
         encoder_output = self.encoder(
             src=x,
             src_mask=self.attn_mask,
-            src_key_padding_mask=None,
+            src_key_padding_mask=src_key_padding_mask,
             init_params=init_params,
         )
 
