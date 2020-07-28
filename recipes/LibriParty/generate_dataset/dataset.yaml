@@ -52,9 +52,9 @@ split_factors:
 # for speech one can use librispeech official splits
 
 n_sessions: # number of synthetic scenes
-  train: 2
-  dev: 1
-  eval: 2
+  train: 250
+  dev: 50
+  eval: 50
 n_speakers: 2 # max number of speakers in each session
 interval_factor_speech: 20
 # this parameter controls amount of silence and
@@ -65,7 +65,7 @@ interval_factor_noises: 10
 # same parameter but for impulsive noises.
 # It controls the interval between two impulsive noises.
 
-max_length: 60 # max length in seconds for each session.
+max_length: 300 # max length in seconds for each session.
 
 # we use gaussian distribution for speech and noise levels.
 speech_lvl_min: -35 # (dB) absolute minimum level for speech.
