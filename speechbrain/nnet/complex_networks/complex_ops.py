@@ -83,8 +83,16 @@ class complex_linear(nn.Module):
 
         # Two weight matrices are created for the real and imaginary parts of
         # the weights. This will also allow an easier complex product.
-        self.real_weight = Parameter(torch.Tensor(inp_size, n_neurons))
-        self.imag_weight = Parameter(torch.Tensor(inp_size, n_neurons))
+        self.real_weight = Parameter(
+            torch.empty(
+                [inp_size, n_neurons], dtype=torch.float, device=self.device
+            )
+        )
+        self.imag_weight = Parameter(
+            torch.empty(
+                [inp_size, n_neurons], dtype=torch.float, device=self.device
+            )
+        )
 
         if self.bias:
             self.b = Parameter(torch.Tensor(2 * n_neurons))
@@ -105,8 +113,8 @@ class complex_linear(nn.Module):
             self.b.to(self.device)
 
         # send to device
-        self.real_weight.to(self.device)
-        self.imag_weight.to(self.device)
+        # self.real_weight.to(self.device)
+        # self.imag_weight.to(self.device)
 
     def forward(self, x):
         """Returns the output of the linear operation.

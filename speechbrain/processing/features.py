@@ -326,18 +326,21 @@ class ISTFT(torch.nn.Module):
             crop_point = crop_size // 2
             self.window = self.window[crop_point : (crop_point + n_fft)]
 
+        self.window = self.window.to(x.device)
         q = q * self.window
 
         # Intializing variables for the upcoming normalization
-        sum_squared_wn = torch.zeros(estimated_length)
+        sum_squared_wn = torch.zeros(estimated_length).to(x.device)
         squared_wn = self.window * self.window
 
         # Reconstructing the signal from the frames
         if len(or_shape) == 5:
-            istft = torch.zeros((or_shape[0], or_shape[4], estimated_length))
+            istft = torch.zeros(
+                (or_shape[0], or_shape[4], estimated_length)
+            ).to(x.device)
 
         else:
-            istft = torch.zeros((or_shape[0], estimated_length))
+            istft = torch.zeros((or_shape[0], estimated_length)).to(x.device)
 
         for frame_index in range(or_shape[1]):
             time_point = frame_index * self.hop_length
@@ -366,12 +369,12 @@ class ISTFT(torch.nn.Module):
                             or_shape[4],
                             sig_length - estimated_length,
                         )
-                    )
+                    ).to(x.device)
 
                 else:
                     padding = torch.zeros(
                         (or_shape[0], sig_length - estimated_length)
-                    )
+                    ).to(x.device)
 
                 istft = torch.cat((istft, padding), -1)
 
