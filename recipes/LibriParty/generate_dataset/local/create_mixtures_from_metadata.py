@@ -26,6 +26,7 @@ def create_mixture(session_n, output_dir, params, metadata):
         np.ceil(metadata["background"]["stop"] * params.samplerate)
     )
     mixture = torch.zeros(tot_length)  # total mixture file
+    assert len(mixture) > 0, "Mixture has length 0, please raise max_length."
     # step 1
     for spk in speakers:
         session_meta[spk] = []

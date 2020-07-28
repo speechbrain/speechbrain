@@ -85,8 +85,11 @@ for f in params.rirs_folders:
 noises = split_list(noises, split_f)
 rirs = split_list(rirs, split_f)
 # do the same for background noises
-backgrounds = get_all_files(params.backgrounds_root, match_and=[".wav"])
-backgrounds = split_list(backgrounds, split_f)
+if params.backgrounds_root:
+    backgrounds = get_all_files(params.backgrounds_root, match_and=[".wav"])
+    backgrounds = split_list(backgrounds, split_f)
+else:
+    backgrounds = [None] * 3
 
 os.makedirs(os.path.join(params.out_folder, "metadata"), exist_ok=True)
 
