@@ -96,6 +96,24 @@ class TransformerASR(TransformerInterface):
         tgt_key_padding_mask=None,
         init_params=False,
     ):
+        """
+        Arguements
+        ----------
+        src: tensor
+            the sequence to the encoder (required).
+        tgt: tensor
+            the sequence to the decoder (required).
+        src_mask: tensor
+            the additive mask for the src sequence (optional).
+        tgt_mask: tensor
+            the additive mask for the tgt sequence (optional).
+        src_key_padding_mask: tensor
+            the ByteTensor mask for src keys per batch (optional).
+        tgt_key_padding_mask: tensor
+            the ByteTensor mask for tgt keys per batch (optional).
+        memory_key_padding_mask: tensor
+            the ByteTensor mask for memory keys per batch (optional).
+        """
         if src.dim() == 4:
             bz, t, ch1, ch2 = src.shape
             src = src.reshape(bz, t, ch1 * ch2)
@@ -141,6 +159,12 @@ class NormalizedEmbedding(nn.Module):
         the number of expected features in the encoder/decoder inputs (default=512).
     vocab: int
         the vocab size
+
+    Example
+    -------
+    >>> emb = NormalizedEmbedding(512, 1000)
+    >>> trg = torch.randint(0, 999, (8, 50))
+    >>> emb_fea = emb(trg, True)
     """
 
     def __init__(self, d_model, vocab):

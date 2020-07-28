@@ -11,9 +11,12 @@ from speechbrain.data_io.data_io import prepend_bos_token
 from speechbrain.data_io.data_io import append_eos_token
 from speechbrain.utils.train_logger import summarize_error_rate
 
-from searchs import GreedySearch, BeamSearch
 from speechbrain.decoders.decoders import undo_padding
 from speechbrain.utils.checkpoints import ckpt_recency
+from speechbrain.decoders.seq2seq import (
+    S2STransformerBeamSearch,
+    S2STransformerGreedySearch,
+)
 from speechbrain.lobes.models.transformer.Transformer import (
     get_key_padding_mask,
     get_lookahead_mask,
@@ -53,7 +56,7 @@ checkpointer = sb.utils.checkpoints.Checkpointer(
 
 
 # Define a beam search according to this recipe
-valid_search = GreedySearch(
+valid_search = S2STransformerGreedySearch(
     modules=[params.Transformer, params.seq_lin],
     bos_index=params.bos_index,
     eos_index=params.eos_index,
@@ -61,7 +64,7 @@ valid_search = GreedySearch(
     max_decode_ratio=1,
 )
 
-test_search = BeamSearch(
+test_search = S2STransformerBeamSearch(
     modules=[params.Transformer, params.seq_lin],
     bos_index=params.bos_index,
     eos_index=params.eos_index,
@@ -88,11 +91,6 @@ class ASR(sb.core.Brain):
         wavs, wav_lens = wavs.to(params.device), wav_lens.to(params.device)
         chars, phn_lens = chars.to(params.device), phn_lens.to(params.device)
 
-        if hasattr(params, "augmentation"):
-            wavs = params.augmentation(wavs, wav_lens, init_params)
-        feats = params.compute_features(wavs, init_params)
-        feats = params.normalize(feats, wav_lens)
-
         # convert words to bpe
         chars, seq_lengths = params.tokenizer(
             chars, phn_lens, index2lab, task="encode", init_params=init_params,
@@ -101,6 +99,19 @@ class ASR(sb.core.Brain):
             chars.to(params.device),
             seq_lengths.to(params.device),
         )
+
+        if hasattr(params, "env_corrupt"):
+            wavs_noise = params.env_corrupt(wavs, wav_lens, init_params)
+            wavs = torch.cat([wavs, wavs_noise], dim=0)
+            wav_lens = torch.cat([wav_lens, wav_lens])
+            chars = torch.cat([chars, chars], dim=0)
+            seq_lengths = torch.cat([seq_lengths, seq_lengths], dim=0)
+
+        if hasattr(params, "augmentation"):
+            wavs = params.augmentation(wavs, wav_lens, init_params)
+
+        feats = params.compute_features(wavs, init_params)
+        feats = params.normalize(feats, wav_lens)
 
         # foward the model
         target_chars = chars
@@ -145,17 +156,12 @@ class ASR(sb.core.Brain):
         if init_params:
             self._reset_params()
 
-        # share weight betwenn embedding layer and linear projection layer
-        if init_params:
+            # share weight betwenn embedding layer and linear projection layer
             params.seq_lin.w.weight = params.Transformer.custom_tgt_module.layers[
                 0
             ].emb.Embedding.weight
 
-        if (
-            stage == "valid"
-            and params.epoch_counter.current % params.num_epoch_to_valid_search
-            == 0
-        ):
+        if stage == "valid":
             hyps, _ = valid_search(enc_out, wav_lens)
             return p_ctc, p_seq, wav_lens, hyps, target_chars, seq_lengths
 
@@ -191,36 +197,18 @@ class ASR(sb.core.Brain):
 
         # convert to speechbrain-style relative length
         rel_length = (abs_length + 1) / chars.shape[1]
-        # char_lens = char_lens / chars.shape[1]
 
         loss_seq = params.seq_cost(p_seq, phns_with_eos, rel_length)
-
-        if params.epoch_counter.current <= params.ctc_epoch:
-            loss_ctc = params.ctc_cost(p_ctc, chars, wav_lens, char_lens)
-            loss = (
-                params.ctc_weight * loss_ctc
-                + (1 - params.ctc_weight) * loss_seq
-            )
-        else:
-            loss = loss_seq
+        loss_ctc = params.ctc_cost(p_ctc, chars, wav_lens, char_lens)
+        loss = params.ctc_weight * loss_ctc + (1 - params.ctc_weight) * loss_seq
 
         stats = {}
-        if (
-            stage == "valid"
-            and params.epoch_counter.current % params.num_epoch_to_valid_search
-            == 0
-        ) or stage == "test":
+        if stage != "train":
             ind2lab = params.train_loader.label_dict["wrd"]["index2lab"]
             char_seq = params.tokenizer(hyps, task="decode_from_list")
-            try:
-                print("hypes_idx", hyps)
-                print("hyps", char_seq)
-            except UnicodeEncodeError:
-                pass
 
             chars = undo_padding(target_chars, target_lens)
             chars = convert_index_to_lab(chars, ind2lab)
-            print("targe", chars)
 
             wer_stats = edit_distance.wer_details_for_batch(
                 ids, chars, char_seq, compute_alignments=True

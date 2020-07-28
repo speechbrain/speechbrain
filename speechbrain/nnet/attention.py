@@ -186,7 +186,6 @@ class LocationAwareAttention(nn.Module):
             The real length (without padding) of enc_states for each sentence.
         dec_states : torch.Tensor
             The query tensor.
-
         """
         if self.precomputed_enc_h is None:
 
@@ -230,20 +229,20 @@ class MultiheadAttention(nn.Module):
 
     Arguements
     ----------
-    num_heads :
+    num_heads : int
         parallel attention heads.
-    dropout :
+    dropout : float
         a Dropout layer on attn_output_weights. Default: 0.0.
-    bias :
+    bias : bool
         add bias as module parameter. Default: True.
-    add_bias_kv :
+    add_bias_kv : bool
         add bias to the key and value sequences at dim=0.
-    add_zero_attn :
+    add_zero_attn : bool
         add a new batch of zeros to the key and value sequences at dim=1.
-    kdim :
+    kdim : int
         total number of features in key. Default: None.
-    vdim :
-        total number of features in key. Default: None.
+    vdim : int
+        total number of features in value. Default: None.
     """
 
     def __init__(
@@ -295,6 +294,27 @@ class MultiheadAttention(nn.Module):
         key_padding_mask=None,
         init_params=False,
     ):
+        """
+        Arguements
+        ----------
+        query: tensor
+            (L, N, E)(L,N,E) where L is the target sequence length, N is the batch size, E is the embedding dimension.
+        key: tensor
+            (S, N, E)(S,N,E) , where S is the source sequence length, N is the batch size, E is the embedding dimension.
+        value: tensor
+            (S, N, E)(S,N,E) where S is the source sequence length, N is the batch size, E is the embedding dimension.
+        key_padding_mask: tensor
+            (N, S)(N,S) where N is the batch size, S is the source sequence length. If a ByteTensor is provided, the non-zero positions will be ignored while the position with the zero positions will be unchanged. If a BoolTensor is provided, the positions with the value of True will be ignored while the position with the value of False will be unchanged.
+        attn_mask: tensor
+            2D mask (L, S)(L,S) where L is the target sequence length, S is the source sequence length. 3D mask (N*num_heads, L, S)(N∗num_heads,L,S) where N is the batch size, L is the target sequence length, S is the source sequence length. attn_mask ensure that position i is allowed to attend the unmasked positions. If a ByteTensor is provided, the non-zero positions are not allowed to attend while the zero positions will be unchanged. If a BoolTensor is provided, positions with True is not allowed to attend while False values will be unchanged. If a FloatTensor is provided, it will be added to the attention weight.
+
+        Outputs
+        -------
+        attn_output: tensor
+            (L, N, E)(L,N,E) where L is the target sequence length, N is the batch size, E is the embedding dimension.
+        attn_output_weights: tensor
+            (N, L, S)(N,L,S) where N is the batch size, L is the target sequence length, S is the source sequence length.
+        """
         if init_params:
             self.init_params(key)
 
@@ -319,7 +339,17 @@ class MultiheadAttention(nn.Module):
 
 class PositionalwiseFeedForward(nn.Module):
     def __init__(self, d_ffn, dropout=0.1, activation=nn.ReLU):
+        """The class implements the positional-wise feadd forward module in “Attention Is All You Need”
 
+        Arguements
+        ----------
+        d_ffn: int
+            dimention of representation space of this positional-wise feadd forward module
+        dropout: float
+            dropout
+        activation: torch class
+            activation functions to be applied (Recommandation: ReLU, GELU)
+        """
         super().__init__()
         self.d_ffn = d_ffn
         self.dropout = dropout

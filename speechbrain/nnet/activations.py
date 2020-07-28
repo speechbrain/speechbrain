@@ -68,6 +68,25 @@ class Softmax(torch.nn.Module):
 
 
 class gumbel_softmax(torch.nn.Module):
+    """Samples from the Gumbel-Softmax distribution and optionally discretizes.
+    reference: https://arxiv.org/abs/1611.00712, https://arxiv.org/abs/1611.01144
+
+    Arguements
+    ----------
+    tau: float
+        non-negative scalar temperature
+    hard: bool
+        if True, the returned samples will be discretized as one-hot vectors, but will be differentiated as if it is the soft sample in autograd
+    dim: int
+        A dimension along which softmax will be computed. Default: -1.
+
+    Example
+    -------
+    >>> x = torch.randn((8, 40, 120))
+    >>> act = gumbel_softmax(0.8, True)
+    >>> x = act(x)
+    """
+
     def __init__(self, tau, hard=False, apply_log=False):
         super().__init__()
         self.tau = tau
@@ -89,6 +108,12 @@ class Swish(torch.nn.Module):
     Arguments
     ---------
     beta: float
+
+    Example
+    -------
+    >>> x = torch.randn((8, 40, 120))
+    >>> act = Swish()
+    >>> x = act(x)
     """
 
     def __init__(self, beta=1):
