@@ -18,7 +18,6 @@ number_of_epochs: 100
 batch_size: 64
 lr: 0.00025
 ctc_weight: 0.4
-ctc_epoch: 100
 device: 'cuda'
 multigpu: True
 
