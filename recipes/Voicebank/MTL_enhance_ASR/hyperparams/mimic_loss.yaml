@@ -1,0 +1,171 @@
+# ################################
+# Model: basic BLSTM enhancement with CRDNN ASR mimic
+# Additions: TimeDomainSpecAugment
+# Authors: Peter Plantinga 2020
+# ################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: !PLACEHOLDER  # e.g, 1234
+__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+output_folder: !ref results/noisy_inputs/<seed>
+wer_file: !ref <output_folder>/wer.txt
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+# Data files
+data_folder: !PLACEHOLDER  # e.g. /path/to/voicebank
+csv_train: !ref <data_folder>/train.csv
+csv_valid: !ref <data_folder>/valid.csv
+csv_test: !ref <data_folder>/test.csv
+
+# An ASR model pretrained on clean speech, e.g. model.ckpt
+clean_asr_model: !PLACEHOLDER
+
+# Training parameters
+number_of_epochs: 30
+batch_size: 1
+lr: 0.5
+device: 'cuda:0'
+
+# Feature parameters
+sample_rate: 16000
+n_fft: 512
+n_mels: 40
+win_length: 32
+hop_length: 16
+
+# enhance model parameters
+enhance_rnn_layers: 2
+enhance_rnn_hidden_size: 200
+enhance_dnn_hidden_size: 300
+
+# ASR model parameters
+activation: !name:torch.nn.LeakyReLU
+dropout: 0.15
+cnn_blocks: 2
+cnn_channels: (128, 256)
+cnn_kernelsize: (3, 3)
+rnn_layers: 4
+rnn_neurons: 512
+rnn_bidirectional: True
+dnn_blocks: 2
+dnn_neurons: 512
+
+# Outputs
+output_neurons: 44
+blank_index: !ref <output_neurons> - 1
+
+# Loss weights, set to 0 to disable
+enhance_loss:
+    mse: 1.0
+    mimic: 0.01
+    ctc: 0.0
+
+asr_loss:
+    ctc: 0.0
+
+# Functions
+enhance_model: !new:speechbrain.nnet.containers.Sequential
+    - !new:speechbrain.nnet.RNN.LSTM
+      hidden_size: !ref <enhance_rnn_hidden_size>
+      num_layers: !ref <enhance_rnn_layers>
+      bidirectional: True
+    - !new:speechbrain.nnet.linear.Linear
+      n_neurons: !ref <enhance_dnn_hidden_size>
+      bias: True
+    - !new:torch.nn.LeakyReLU
+    - !new:speechbrain.nnet.linear.Linear
+      n_neurons: !ref <n_fft> // 2 + 1
+      bias: False
+    - !new:torch.nn.Sigmoid
+
+asr_model: !new:speechbrain.lobes.models.CRDNN.CRDNN
+    activation: !ref <activation>
+    dropout: !ref <dropout>
+    cnn_blocks: !ref <cnn_blocks>
+    cnn_channels: !ref <cnn_channels>
+    cnn_kernelsize: !ref <cnn_kernelsize>
+    time_pooling: True
+    rnn_layers: !ref <rnn_layers>
+    rnn_neurons: !ref <rnn_neurons>
+    rnn_bidirectional: !ref <rnn_bidirectional>
+    dnn_blocks: !ref <dnn_blocks>
+    dnn_neurons: !ref <dnn_neurons>
+
+asr_output: !new:speechbrain.nnet.linear.Linear
+    n_neurons: !ref <output_neurons>
+    bias: False
+
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+    apply_log: True
+
+optimizer: !new:speechbrain.nnet.optimizers.Adadelta_Optimizer
+    rho: 0.95
+    learning_rate: !ref <lr>
+
+lr_annealing: !new:speechbrain.nnet.lr_schedulers.NewBobLRScheduler
+    improvement_threshold: 0.0025
+    annealing_factor: 0.8
+    patient: 0
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+compute_stft: !new:speechbrain.processing.features.STFT
+    sample_rate: !ref <sample_rate>
+    win_length: !ref <win_length>
+    hop_length: !ref <hop_length>
+    n_fft: !ref <n_fft>
+
+compute_istft: !new:speechbrain.processing.features.ISTFT
+    sample_rate: !ref <sample_rate>
+    win_length: !ref <win_length>
+    hop_length: !ref <hop_length>
+
+filterbank: !new:speechbrain.processing.features.Filterbank
+    n_mels: !ref <n_mels>
+    n_fft: !ref <n_fft>
+    sample_rate: !ref <sample_rate>
+
+# compute_features: !new:speechbrain.lobes.features.fbank.Fbank
+#     sample_rate: !ref <sample_rate>
+#     n_fft: !ref <n_fft>
+#     n_mels: !ref <n_mels>
+
+train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_train>
+    batch_size: !ref <batch_size>
+    sentence_sorting: ascending
+    output_folder: !ref <output_folder>
+    csv_read: [clean_wav, noisy_wav, char]
+    avoid_if_longer_than: 10
+
+valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_valid>
+    batch_size: !ref <batch_size>
+    sentence_sorting: ascending
+    output_folder: !ref <output_folder>
+    csv_read: [clean_wav, noisy_wav, char]
+
+test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_test>
+    batch_size: !ref <batch_size>
+    sentence_sorting: ascending
+    output_folder: !ref <output_folder>
+    csv_read: [clean_wav, noisy_wav, char]
+
+ctc_loss: !name:speechbrain.nnet.losses.ctc_loss
+    blank_index: !ref <blank_index>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+    summary_fns:
+        CER: !name:speechbrain.utils.train_logger.summarize_error_rate
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        enhance_model: !ref <enhance_model>
+        optimizer: !ref <optimizer>
+        scheduler: !ref <lr_annealing>
+        counter: !ref <epoch_counter>
