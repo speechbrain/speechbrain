@@ -20,7 +20,7 @@ with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(fin, overrides)
 
 metadata_folder = params.metadata_folder
-for data_split in ["train", "dev", "test"]:
+for data_split in ["train", "dev", "eval"]:
     with open(os.path.join(metadata_folder, data_split + ".json"), "r") as f:
         metadata = json.load(f)
     print("Creating data for {} set".format(data_split))
