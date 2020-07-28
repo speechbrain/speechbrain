@@ -1,4 +1,4 @@
-"""A popular speech model.
+"""This is an extenstion of the popular speech model with consist of CNN -> Transformer-Encoder -> RNN -> DNN
 
 Authors
  * Mirco Ravanelli 2020
@@ -6,7 +6,7 @@ Authors
  * Ju-Chieh Chou 2020
  * Titouan Parcollet 2020
  * Abdel 2020
- * Jianyuan 2020
+ * Jianyuan Zhong 2020
 """
 import torch
 from speechbrain.nnet.RNN import LiGRU
@@ -157,7 +157,7 @@ class CRDNN(Sequential):
                 TransformerEncoder(
                     num_layers=self_attention_layers,
                     nhead=self_attention_num_heads,
-                    d_ffn=self_attention_num_heads,
+                    d_ffn=self_attention_hidden_dim,
                 ),
             )
 

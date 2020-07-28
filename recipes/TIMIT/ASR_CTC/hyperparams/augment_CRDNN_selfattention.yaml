@@ -89,11 +89,6 @@ lr_annealing: !new:speechbrain.nnet.lr_schedulers.NewBobLRScheduler
     annealing_factor: 0.8
     patient: 0
 
-# lr_annealing: !new:speechbrain.nnet.lr_schedulers.SelfAttentionScheduler
-#     lr_initial: !ref <lr>
-#     d_model: !ref <self_attention_model_dim>
-#     n_warmup_steps: 1000000000000
-
 normalize: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
 
