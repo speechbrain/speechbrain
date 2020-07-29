@@ -36,7 +36,6 @@ Authors
 import math
 import torch
 import logging
-import torchaudio
 from speechbrain.utils.checkpoints import (
     mark_as_saver,
     mark_as_loader,
@@ -280,11 +279,15 @@ class ISTFT(torch.nn.Module):
         # Changing the format for (batch, time_step, n_fft, 2, n_channels)
         if len(or_shape) == 5:
             x = x.permute(0, 4, 2, 1, 3)
+
+            # Lumping batch and channel dimension, because torch.istft
+            # doesn't support batching.
+            x = x.reshape(-1, x.shape[2], x.shape[3], x.shape[4])
         elif len(or_shape) == 4:
             x = x.permute(0, 2, 1, 3)
 
-        istft = torchaudio.functional.istft(
-            stft_matrix=x,
+        istft = torch.istft(
+            input=x,
             n_fft=n_fft,
             hop_length=self.hop_length,
             win_length=self.win_length,
@@ -294,7 +297,9 @@ class ISTFT(torch.nn.Module):
             length=sig_length,
         )
 
+        # Convert back to (time, time_step, n_channels)
         if len(or_shape) == 5:
+            istft = istft.reshape(or_shape[0], or_shape[4], -1)
             istft = istft.transpose(1, 2)
 
         return istft
