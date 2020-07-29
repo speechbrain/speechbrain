@@ -471,7 +471,7 @@ class Filterbank(torch.nn.Module):
         If freeze=False, this parameter affects the speed at which the filter
         parameters (i.e., central_freqs and bands) can be changed.  When high
         (e.g., param_change_factor=1) the filters change a lot during training.
-        When low (e.g. param_change_factor=1) the filter parameters are more
+        When low (e.g. param_change_factor=0.1) the filter parameters are more
         stable during training
      param_rand_factor: float
         This parameter can be used to randomly change the filter parameters
@@ -596,11 +596,12 @@ class Filterbank(torch.nn.Module):
             0, 1
         )
 
-        # Print filter parameters
+        # Uncomment to print filter parameters
         # print(self.f_central*self.sample_rate * self.param_change_factor)
         # print(self.band*self.sample_rate* self.param_change_factor)
 
-        # Creation of the multiplication matrix
+        # Creation of the multiplication matrix. It is used to create
+        # the filters that average the computed spectrogram.
         if not self.freeze:
             f_central_mat = f_central_mat * (
                 self.sample_rate
