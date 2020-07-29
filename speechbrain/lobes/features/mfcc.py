@@ -44,7 +44,7 @@ class MFCC(torch.nn.Module):
         If freeze=False, this parameter affects the speed at which the filter
         parameters (i.e., central_freqs and bands) can be changed.  When high
         (e.g., param_change_factor=1) the filters change a lot during training.
-        When low (e.g. param_change_factor=1) the filter parameters are more
+        When low (e.g. param_change_factor=0.1) the filter parameters are more
         stable during training
     param_rand_factor: float
         This parameter can be used to randomly change the filter parameters
