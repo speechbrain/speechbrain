@@ -28,7 +28,7 @@ DEFAULT_LOG_CONFIG = os.path.join(DEFAULT_LOG_CONFIG, "log-config.yaml")
 
 def create_experiment_directory(
     experiment_directory,
-    params_to_save=None,
+    hyperparams_to_save=None,
     overrides={},
     log_config=DEFAULT_LOG_CONFIG,
 ):
@@ -38,10 +38,10 @@ def create_experiment_directory(
     ---------
     experiment_directory : str
         The place where the experiment directory should be created.
-    params_to_save : str
+    hyperparams_to_save : str
         A filename of a yaml file representing the parameters for this
-        experiment. If passed, references are resolved and the result
-        is written to a file in the experiment directory called "params.yaml"
+        experiment. If passed, references are resolved and the result is
+        written to a file in the experiment directory called "hyperparams.yaml"
     overrides : dict
         A mapping of replacements made in the yaml file, to save in yaml.
     log_config : str
@@ -51,13 +51,15 @@ def create_experiment_directory(
         os.makedirs(experiment_directory)
 
     # Write the parameters file
-    if params_to_save is not None:
-        params_filename = os.path.join(experiment_directory, "params.yaml")
-        with open(params_to_save) as f:
+    if hyperparams_to_save is not None:
+        hyperparams_filename = os.path.join(
+            experiment_directory, "hyperparams.yaml"
+        )
+        with open(hyperparams_to_save) as f:
             resolved_yaml = sb.yaml.resolve_references(f, overrides)
-        with open(params_filename, "w") as w:
+        with open(hyperparams_filename, "w") as w:
             print("# Generated %s from:" % date.today(), file=w)
-            print("# %s" % os.path.abspath(params_to_save), file=w)
+            print("# %s" % os.path.abspath(hyperparams_to_save), file=w)
             print("# yamllint disable", file=w)
             shutil.copyfileobj(resolved_yaml, w)
 
@@ -102,9 +104,9 @@ def parse_arguments(arg_list):
 
     Example
     -------
-    >>> filename, overrides = parse_arguments(['params.yaml', '--seed', '10'])
+    >>> filename, overrides = parse_arguments(['hyperparams.yaml', '--seed', '10'])
     >>> filename
-    'params.yaml'
+    'hyperparams.yaml'
     >>> overrides
     'seed: 10\n'
     """
