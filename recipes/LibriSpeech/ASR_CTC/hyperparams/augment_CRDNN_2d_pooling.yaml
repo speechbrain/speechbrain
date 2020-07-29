@@ -23,7 +23,8 @@ csv_test: !ref <data_folder>/test-clean.csv
 number_of_epochs: 30
 batch_size: 8
 lr: 1.0
-device: 'cuda:0'
+device: 'cuda'
+multigpu: False
 
 # Feature parameters
 sample_rate: 16000
