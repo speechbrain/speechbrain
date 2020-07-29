@@ -9,7 +9,7 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: !PLACEHOLDER
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/CRDNN_2d_pooling_BPE/<seed>
+output_folder: !ref results/CRDNN_2d_pooling_BPE_test/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -24,7 +24,8 @@ csv_test: !ref <data_folder>/test-clean.csv
 number_of_epochs: 30
 batch_size: 8
 lr: 1.0
-device: 'cuda:0'
+device: 'cuda'
+multigpu: True
 
 # Feature parameters
 sample_rate: 16000
