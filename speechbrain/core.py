@@ -206,6 +206,8 @@ class Brain:
         An example of the input to the Brain class, for parameter init.
         Arguments are passed individually to the ``compute_forward`` method,
         for cases where a different signature is desired.
+    auto_mix_prec: bool
+        If True, automatic mixed-precision is used. Activate it only with cuda.
 
     Example
     -------
@@ -227,10 +229,17 @@ class Brain:
     ... )
     """
 
-    def __init__(self, modules=None, optimizer=None, first_inputs=None):
+    def __init__(
+        self,
+        modules=None,
+        optimizer=None,
+        first_inputs=None,
+        auto_mix_prec=False,
+    ):
         self.modules = torch.nn.ModuleList(modules)
         self.optimizer = optimizer
         self.avg_train_loss = 0.0
+        self.auto_mix_prec = auto_mix_prec
 
         # Initialize parameters
         if first_inputs is not None:
@@ -238,6 +247,9 @@ class Brain:
 
             if self.optimizer is not None:
                 self.optimizer.init_params(self.modules)
+
+        # Automatic mixed precision init
+        self.scaler = torch.cuda.amp.GradScaler()
 
         total_params = sum(
             p.numel() for p in self.modules.parameters() if p.requires_grad
@@ -328,11 +340,23 @@ class Brain:
             (e.g. ``{"loss": 0.1, "accuracy": 0.9}``)
         """
         inputs, targets = batch
-        predictions = self.compute_forward(inputs)
-        loss, stats = self.compute_objectives(predictions, targets)
-        loss.backward()
-        self.optimizer.step()
-        self.optimizer.zero_grad()
+
+        # Managing automatic mixed precision
+        if self.auto_mix_prec:
+            with torch.cuda.amp.autocast():
+                predictions = self.compute_forward(inputs)
+                loss, stats = self.compute_objectives(predictions, targets)
+                self.scaler.scale(loss).backward()
+                self.scaler.step(self.optimizer.optim)
+                self.optimizer.zero_grad()
+                self.scaler.update()
+        else:
+            predictions = self.compute_forward(inputs)
+            loss, stats = self.compute_objectives(predictions, targets)
+            loss.backward()
+            self.optimizer.step()
+            self.optimizer.zero_grad()
+
         stats["loss"] = loss.detach()
         return stats
 
