@@ -579,7 +579,12 @@ class S2SBeamSearcher(S2SBaseSearcher):
             sequence_scores.masked_fill_(is_eos, -np.inf)
 
         # Using all eos to fill-up the hyps.
-        eos = torch.zeros(batch_size).to(device).fill_(self.eos_index).long()
+        eos = (
+            torch.zeros(batch_size * self.beam_size)
+            .to(device)
+            .fill_(self.eos_index)
+            .long()
+        )
         _ = self._update_hyp_and_scores(
             eos, alived_seq, hyps_and_scores, scores, timesteps=max_decode_steps
         )
