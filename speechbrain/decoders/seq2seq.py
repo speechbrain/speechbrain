@@ -273,6 +273,8 @@ class S2SBeamSearcher(S2SBaseSearcher):
         The ratio of maximum decoding steps to length of encoder states.
     beam_size : int
         The width of beam.
+    using_eos_threshold : bool
+        Whether to use eos threshold.
     eos_threshold : float
         The threshold coefficient for eos token. See 3.1.2 in
         reference: https://arxiv.org/abs/1904.02619
@@ -654,6 +656,37 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
             3. Output layer
             4. LogSoftmax layer
 
+    bos_index : int
+        The index of beginning-of-sequence token.
+    eos_index : int
+        The index of end-of-sequence token.
+    min_decode_radio : float
+        The ratio of minimum decoding steps to length of encoder states.
+    max_decode_radio : float
+        The ratio of maximum decoding steps to length of encoder states.
+    beam_size : int
+        The width of beam.
+    using_eos_threshold : bool
+        Whether to use eos threshold.
+    eos_threshold : float
+        The threshold coefficient for eos token. See 3.1.2 in
+        reference: https://arxiv.org/abs/1904.02619
+    length_normlization : bool
+        Default : True
+        Whether to divide the scores by the length.
+    length_rewarding : float
+        Default : 0.0
+        The coefficient of length rewarding (γ).
+        log P(y|x) + λ log P_LM(y) + γ*len(y
+    using_max_attn_shift: bool
+        Whether using the max_attn_shift constaint. Default: False
+    max_attn_shift: int
+        Beam search will block the beams that attention shift more
+        than max_attn_shift.
+        Reference: https://arxiv.org/abs/1904.02619
+    minus_inf : float
+        The value of minus infinity to block some path
+        of the search (default : -1e20).
     Example
     -------
     >>> import torch
