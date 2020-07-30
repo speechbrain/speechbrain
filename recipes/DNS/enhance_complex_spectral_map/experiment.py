@@ -6,6 +6,7 @@ import speechbrain as sb
 import multiprocessing
 import torchaudio
 from speechbrain.utils.train_logger import summarize_average
+from speechbrain.processing.features import spectral_magnitude
 from speechbrain.utils.checkpoints import ckpt_recency
 
 try:
@@ -83,8 +84,6 @@ class SEBrain(sb.core.Brain):
 
         feats = params.compute_stft(wavs)
         feats = torch.squeeze(torch.cat(torch.split(feats, 1, dim=-1), dim=2))
-        # feats = spectral_magnitude(feats, power=0.5)
-        # feats = torch.log1p(feats)
 
         output = params.model(feats, init_params)
         output = torch.cat(
@@ -93,21 +92,24 @@ class SEBrain(sb.core.Brain):
             ),
             dim=-1,
         )
-        output = params.compute_istft(output)
-
         return output
 
     def compute_objectives(self, predictions, cleans, stage="train"):
         ids, wavs, lens = cleans
         wavs, lens = wavs.to(params.device), lens.to(params.device)
 
-        # feats = params.compute_stft(wavs)
-        # feats = spectral_magnitude(feats, power=0.5)
-        # feats = torch.log1p(feats)
+        com_clean = params.compute_stft(wavs)
+        mag_clean = spectral_magnitude(com_clean, power=0.5)
+        mag_pred = spectral_magnitude(predictions, power=0.5)
 
-        loss = params.compute_cost(predictions, wavs, lens)
+        com_loss = params.compute_cost(
+            torch.flatten(predictions, start_dim=2),
+            torch.flatten(com_clean, start_dim=2),
+            lens,
+        )
+        mag_loss = params.compute_cost(mag_pred, mag_clean, lens)
 
-        return loss, {}
+        return 0.5 * com_loss + 0.5 * mag_loss, {}
 
     def fit_batch(self, batch):
         cleans = batch[0]
@@ -129,15 +131,18 @@ class SEBrain(sb.core.Brain):
         noisys, cleans = batch
         predictions = self.compute_forward(noisys, stage=stage)
 
-        # Write batch enhanced files to directory
-        # pred_wavs = self.resynthesize(torch.expm1(predictions), noisys)
+        pred_wavs = params.compute_istft(predictions)
+
+        # Normalize the waveform
+        abs_max, _ = torch.max(torch.abs(pred_wavs), dim=1, keepdim=True)
+        pred_wavs = pred_wavs / abs_max * 0.99
 
         # Evaluating PESQ and STOI
         _, clean_wavs, lens = cleans
 
         lens = lens * clean_wavs.shape[1]
         pesq_scores, stoi_scores = multiprocess_evaluation(
-            predictions.cpu().numpy(),
+            pred_wavs.cpu().numpy(),
             clean_wavs.numpy(),
             lens.numpy(),
             multiprocessing.cpu_count(),
@@ -149,8 +154,9 @@ class SEBrain(sb.core.Brain):
         stats["stoi"] = stoi_scores
 
         if stage == "test":
-            for name, pred_wav, length in zip(noisys[0], predictions, lens):
+            for name, pred_wav, length in zip(noisys[0], pred_wavs, lens):
                 enhance_path = os.path.join(params.enhanced_folder, name)
+                pred_wav = pred_wav.cpu()
                 torchaudio.save(enhance_path, pred_wav[: int(length)], 16000)
 
         return stats

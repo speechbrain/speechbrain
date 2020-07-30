@@ -82,14 +82,26 @@ class ComplexBatchNorm(torch.nn.Module):
 
         if self.scale:
             self.gamma_rr = Parameter(
-                torch.Tensor(self.num_complex_features)
-            ).to(self.device)
+                torch.empty(
+                    self.num_complex_features,
+                    dtype=torch.float,
+                    device=self.device,
+                )
+            )
             self.gamma_ii = Parameter(
-                torch.Tensor(self.num_complex_features)
-            ).to(self.device)
+                torch.empty(
+                    self.num_complex_features,
+                    dtype=torch.float,
+                    device=self.device,
+                )
+            )
             self.gamma_ri = Parameter(
-                torch.Tensor(self.num_complex_features)
-            ).to(self.device)
+                torch.empty(
+                    self.num_complex_features,
+                    dtype=torch.float,
+                    device=self.device,
+                )
+            )
         else:
             self.register_parameter("gamma_rr", None)
             self.register_parameter("gamma_ii", None)
@@ -97,8 +109,12 @@ class ComplexBatchNorm(torch.nn.Module):
 
         if self.center:
             self.beta = Parameter(
-                torch.Tensor(self.num_complex_features * 2)
-            ).to(self.device)
+                torch.empty(
+                    self.num_complex_features * 2,
+                    dtype=torch.float,
+                    device=self.device,
+                )
+            )
         else:
             self.register_parameter("beta", None)
 
@@ -147,23 +163,33 @@ class ComplexBatchNorm(torch.nn.Module):
         # "Deep Complex Networks" Trabelsi C. et al.
         if self.track_running_stats:
             if self.center:
-                self.moving_mean.zero_().to(self.device)
+                self.moving_mean = self.moving_mean.zero_().to(self.device)
             if self.scale:
-                self.moving_Vrr.fill_(1 / np.sqrt(2)).to(self.device)
-                self.moving_Vii.fill_(1 / np.sqrt(2)).to(self.device)
-                self.moving_Vri.zero_().to(self.device)
-            self.num_batches_tracked.zero_().to(self.device)
+                self.moving_Vrr = self.moving_Vrr.fill_(1 / np.sqrt(2)).to(
+                    self.device
+                )
+                self.moving_Vii = self.moving_Vii.fill_(1 / np.sqrt(2)).to(
+                    self.device
+                )
+                self.moving_Vri = self.moving_Vri.zero_().to(self.device)
+            self.num_batches_tracked = self.num_batches_tracked.zero_().to(
+                self.device
+            )
 
     def reset_parameters(self):
         # Simply reset all the parameters.
         # "Deep Complex Networks" Trabelsi C. et al.
         self.reset_running_stats()
         if self.scale:
-            self.gamma_rr.data.fill_(1 / np.sqrt(2)).to(self.device)
-            self.gamma_ii.data.fill_(1 / np.sqrt(2)).to(self.device)
-            self.gamma_ri.data.zero_().to(self.device)
+            self.gamma_rr = self.gamma_rr.data.fill_(1 / np.sqrt(2)).to(
+                self.device
+            )
+            self.gamma_ii = self.gamma_ii.data.fill_(1 / np.sqrt(2)).to(
+                self.device
+            )
+            self.gamma_ri = self.gamma_ri.data.zero_().to(self.device)
         if self.center:
-            self.beta.data.zero_().to(self.device)
+            self.beta = self.beta.data.zero_().to(self.device)
 
     def forward(self, input, init_params=False):
         """Returns the normalized input tensor.
@@ -396,14 +422,26 @@ class ComplexLayerNorm(torch.nn.Module):
 
         if self.scale:
             self.gamma_rr = Parameter(
-                torch.Tensor(self.num_complex_features)
-            ).to(self.device)
+                torch.empty(
+                    self.num_complex_features,
+                    dtype=torch.float,
+                    device=self.device,
+                )
+            )
             self.gamma_ii = Parameter(
-                torch.Tensor(self.num_complex_features)
-            ).to(self.device)
+                torch.empty(
+                    self.num_complex_features,
+                    dtype=torch.float,
+                    device=self.device,
+                )
+            )
             self.gamma_ri = Parameter(
-                torch.Tensor(self.num_complex_features)
-            ).to(self.device)
+                torch.empty(
+                    self.num_complex_features,
+                    dtype=torch.float,
+                    device=self.device,
+                )
+            )
         else:
             self.register_parameter("gamma_rr", None)
             self.register_parameter("gamma_ii", None)
@@ -411,8 +449,12 @@ class ComplexLayerNorm(torch.nn.Module):
 
         if self.center:
             self.beta = Parameter(
-                torch.Tensor(self.num_complex_features * 2)
-            ).to(self.device)
+                torch.empty(
+                    self.num_complex_features * 2,
+                    dtype=torch.float,
+                    device=self.device,
+                )
+            )
         else:
             self.register_parameter("beta", None)
         self.reset_parameters()
@@ -421,11 +463,15 @@ class ComplexLayerNorm(torch.nn.Module):
         # Simply reset all the parameters.
         # "Deep Complex Networks" Trabelsi C. et al.
         if self.scale:
-            self.gamma_rr.data.fill_(1 / np.sqrt(2)).to(self.device)
-            self.gamma_ii.data.fill_(1 / np.sqrt(2)).to(self.device)
-            self.gamma_ri.data.zero_().to(self.device)
+            self.gamma_rr = self.gamma_rr.data.fill_(1 / np.sqrt(2)).to(
+                self.device
+            )
+            self.gamma_ii = self.gamma_ii.data.fill_(1 / np.sqrt(2)).to(
+                self.device
+            )
+            self.gamma_ri = self.gamma_ri.data.zero_().to(self.device)
         if self.center:
-            self.beta.data.zero_().to(self.device)
+            self.beta = self.beta.data.zero_().to(self.device)
 
     def forward(self, input, init_params=False):
 

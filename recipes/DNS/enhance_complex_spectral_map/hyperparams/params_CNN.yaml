@@ -9,11 +9,11 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Basic parameters
 data_folder: !PLACEHOLDER
-output_folder: !ref results/causalcomplexCNN_log1p_dynamic/<seed>
+output_folder: !ref results/complexCNN_log1p_dynamic/<seed>
 enhanced_folder: !ref <output_folder>/enhanced/
 
-use_tensorboard: True
-tensorboard_logs: !ref results/logs/causalcomplexCNN_log1p_dynamic/<seed>
+use_tensorboard: False
+tensorboard_logs: !ref results/logs/complexCNN_log1p_dynamic/<seed>
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
@@ -23,15 +23,15 @@ csv_valid: !ref <data_folder>/valid.csv
 csv_test: !ref <data_folder>/test.csv
 
 # Training Parameters
-N_epochs: 50
+N_epochs: 20
 N_batch: 8
 lr: 0.0002
 device: cuda:0
 
 # Model Parameters
 kernel_size: 7
-base_channels: 512
-padding_type: causal
+base_channels: 1024
+padding_type: same
 
 # FFT Parameters
 samplerate: 16000
@@ -117,16 +117,15 @@ linear: !new:speechbrain.nnet.complex_networks.linear.ComplexLinear
   n_neurons: !ref <n_fft> // 2 + 1
   bias: False
 
-norm1: !new:speechbrain.nnet.complex_networks.normalization.ComplexLayerNorm
-norm2: !new:speechbrain.nnet.complex_networks.normalization.ComplexLayerNorm
-norm3: !new:speechbrain.nnet.complex_networks.normalization.ComplexLayerNorm
-norm4: !new:speechbrain.nnet.complex_networks.normalization.ComplexLayerNorm
-norm5: !new:speechbrain.nnet.complex_networks.normalization.ComplexLayerNorm
-norm6: !new:speechbrain.nnet.complex_networks.normalization.ComplexLayerNorm
-norm7: !new:speechbrain.nnet.complex_networks.normalization.ComplexLayerNorm
+norm1: !new:speechbrain.nnet.complex_networks.normalization.ComplexBatchNorm
+norm2: !new:speechbrain.nnet.complex_networks.normalization.ComplexBatchNorm
+norm3: !new:speechbrain.nnet.complex_networks.normalization.ComplexBatchNorm
+norm4: !new:speechbrain.nnet.complex_networks.normalization.ComplexBatchNorm
+norm5: !new:speechbrain.nnet.complex_networks.normalization.ComplexBatchNorm
+norm6: !new:speechbrain.nnet.complex_networks.normalization.ComplexBatchNorm
+norm7: !new:speechbrain.nnet.complex_networks.normalization.ComplexBatchNorm
 
 activation: !new:torch.nn.LeakyReLU
-output_activation: !new:torch.nn.ReLU
 
 model: !new:speechbrain.nnet.containers.Sequential
   - !ref <conv1>
@@ -141,17 +140,7 @@ model: !new:speechbrain.nnet.containers.Sequential
   - !ref <conv4>
   - !ref <norm4>
   - !ref <activation>
-  - !ref <conv5>
-  - !ref <norm5>
-  - !ref <activation>
-  - !ref <conv6>
-  - !ref <norm6>
-  - !ref <activation>
-  - !ref <conv7>
-  - !ref <norm7>
-  - !ref <activation>
   - !ref <linear>
-  - !ref <output_activation>
 
 compute_cost: !name:speechbrain.nnet.losses.mse_loss
 
