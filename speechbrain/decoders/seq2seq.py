@@ -391,7 +391,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
     def _check_eos_threshold(self, log_probs):
         """
-        This method checks eos log-probabilities exceed threshold.
+        This method checks whether eos log-probabilities exceed threshold.
 
         Parameters
         ----------
@@ -405,12 +405,25 @@ class S2SBeamSearcher(S2SBaseSearcher):
         """
         max_probs, _ = torch.max(log_probs, dim=-1)
         eos_probs = log_probs[:, self.eos_index]
-        cond = eos_probs > self.eos_threshold * max_probs
+        cond = eos_probs > (self.eos_threshold * max_probs)
         return cond
 
     def _update_hyp_and_scores(
         self, inp_tokens, alived_seq, hyps_and_scores, scores, timesteps
     ):
+        """
+        This method will update hyps and scores if inp_tokens are eos.
+
+        Parameters
+        ----------
+        log_probs : torch.Tensor
+            The log-probabilities.
+
+        Return
+        ------
+        is_eos : torch.BoolTensor
+            Each element represents whether the token is eos.
+        """
         is_eos = inp_tokens.eq(self.eos_index)
         (eos_indices,) = torch.nonzero(is_eos, as_tuple=True)
 
@@ -580,16 +593,21 @@ class S2SBeamSearcher(S2SBaseSearcher):
             # Block the pathes that have reached eos.
             sequence_scores.masked_fill_(is_eos, -np.inf)
 
-        # Using all eos to fill-up the hyps.
-        eos = (
-            torch.zeros(batch_size * self.beam_size)
-            .to(device)
-            .fill_(self.eos_index)
-            .long()
-        )
-        _ = self._update_hyp_and_scores(
-            eos, alived_seq, hyps_and_scores, scores, timesteps=max_decode_steps
-        )
+        if not self._check_full_beams(hyps_and_scores, self.beam_size):
+            # Using all eos to fill-up the hyps.
+            eos = (
+                torch.zeros(batch_size * self.beam_size)
+                .to(device)
+                .fill_(self.eos_index)
+                .long()
+            )
+            _ = self._update_hyp_and_scores(
+                eos,
+                alived_seq,
+                hyps_and_scores,
+                scores,
+                timesteps=max_decode_steps,
+            )
 
         predictions, top_scores = self._get_top_score_prediction(
             hyps_and_scores
