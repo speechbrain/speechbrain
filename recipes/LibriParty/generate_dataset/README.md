@@ -18,7 +18,7 @@ It is suitable for a wide range of tasks including:
 ---
 ### Instructions:
 This recipe offers **"custom" dataset creation** or **"official" dataset creation**, by downloading pre-created,
-**"official" metadata files** from [link](https://www.dropbox.com/s/uwnr62jo8d8urqc/LibriParty.zip) and creating the dataset from this metadata.
+**"official" metadata files** from [link](https://www.dropbox.com/s/0u6x6ndyedb4rl7/LibriParty_metadata.zip?dl=1) and creating the dataset from this metadata.
 
 #### From official metadata:
 "Official" dataset uses LibriSpeech train-clean-100 for training, dev-clean for development and test-clean for test.
@@ -29,7 +29,7 @@ It also requires background QUT-TIMIT noises.
     - download noises and impulse responses from [link](https://openslr.org/28/).
     - download background QUT noise from [link](https://github.com/qutsaivt/QUT-NOISE).
     - resample QUT noise sources to 16 kHz using *local/resample_folder.py*.
-    - download "official" metadata from [link](https://www.dropbox.com/s/uwnr62jo8d8urqc/LibriParty.zip).
+    - download "official" metadata from [link](https://www.dropbox.com/s/0u6x6ndyedb4rl7/LibriParty_metadata.zip?dl=1).
 
 - Step 1 (Alternative), **use provided script** for downloading and resampling sources:
     - run *download_required_data.py* to download all required data automatically.
