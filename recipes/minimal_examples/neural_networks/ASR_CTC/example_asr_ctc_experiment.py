@@ -8,28 +8,28 @@ from speechbrain.utils.train_logger import summarize_average
 from speechbrain.utils.train_logger import summarize_error_rate
 
 experiment_dir = os.path.dirname(os.path.realpath(__file__))
-params_file = os.path.join(experiment_dir, "params.yaml")
+hyperparams_file = os.path.join(experiment_dir, "hyperparams.yaml")
 data_folder = "../../../../samples/audio_samples/nn_training_samples"
 data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
-with open(params_file) as fin:
-    params = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
+with open(hyperparams_file) as fin:
+    hyperparams = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
 
 
 class CTCBrain(sb.core.Brain):
     def compute_forward(self, x, stage="train", init_params=False):
         id, wavs, lens = x
-        feats = params.compute_features(wavs, init_params)
-        feats = params.mean_var_norm(feats, lens)
-        x = params.model(feats, init_params=init_params)
-        x = params.lin(x, init_params)
-        outputs = params.softmax(x)
+        feats = hyperparams.compute_features(wavs, init_params)
+        feats = hyperparams.mean_var_norm(feats, lens)
+        x = hyperparams.model(feats, init_params=init_params)
+        x = hyperparams.lin(x, init_params)
+        outputs = hyperparams.softmax(x)
 
         return outputs, lens
 
     def compute_objectives(self, predictions, targets, stage="train"):
         predictions, lens = predictions
         ids, phns, phn_lens = targets
-        loss = params.compute_cost(predictions, phns, lens, phn_lens)
+        loss = hyperparams.compute_cost(predictions, phns, lens, phn_lens)
 
         stats = {}
         if stage != "train":
@@ -46,15 +46,17 @@ class CTCBrain(sb.core.Brain):
         print("Valid PER: %.2f" % summarize_error_rate(valid_stats["PER"]))
 
 
-train_set = params.train_loader()
+train_set = hyperparams.train_loader()
 first_x, first_y = next(iter(train_set))
 ctc_brain = CTCBrain(
-    modules=[params.model, params.lin],
-    optimizer=params.optimizer,
+    modules=[hyperparams.model, hyperparams.lin],
+    optimizer=hyperparams.optimizer,
     first_inputs=[first_x],
 )
-ctc_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
-test_stats = ctc_brain.evaluate(params.test_loader())
+ctc_brain.fit(
+    range(hyperparams.N_epochs), train_set, hyperparams.valid_loader()
+)
+test_stats = ctc_brain.evaluate(hyperparams.test_loader())
 print("Test PER: %.2f" % summarize_error_rate(test_stats["PER"]))
 
 
