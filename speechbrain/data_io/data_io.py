@@ -2152,3 +2152,46 @@ def merge_char(sequences, space="_"):
         words = "".join(seq).split("_")
         results.append(words)
     return results
+
+
+def merge_csvs(data_folder, csv_lst, merged_csv):
+    """Merging several csv files into one file.
+
+    Arguments
+    ---------
+    data_folder : string
+        The folder to store csv files to be merged and after merging.
+    csv_lst : list
+        filenames of csv file to be merged.
+    merged_csv : string
+        The filename to write the merged csv file.
+
+
+    Example:
+    >>> merge_csvs("samples/audio_samples/",
+    ... ["csv_example.csv", "csv_example2.csv"],
+    ... "test_csv_merge.csv")
+    """
+    write_path = os.path.join(data_folder, merged_csv)
+    if os.path.isfile(write_path):
+        logger.info(f"Skipping merging. Completed in previous run.")
+
+    with open(os.path.join(data_folder, csv_lst[0])) as f:
+        header = f.readline()
+    lines = []
+    for csv_file in csv_lst:
+        with open(os.path.join(data_folder, csv_file)) as f:
+            for i, line in enumerate(f):
+                if i == 0:
+                    # Checking header
+                    if line != header:
+                        raise ValueError(
+                            "Different header for " f"{csv_lst[0]} and {csv}."
+                        )
+                    continue
+                lines.append(line)
+    with open(write_path, "w") as f:
+        f.write(header)
+        for line in lines:
+            f.write(line)
+    logger.info(f"{write_path} is created.")
