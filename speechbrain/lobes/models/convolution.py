@@ -99,7 +99,7 @@ class ConvBlock(torch.nn.Module):
     -------
     >>> conv = ConvBlock(2, 128)
     >>> x = torch.rand((8, 120, 40))
-    >>> out = conv(x, True
+    >>> out = conv(x, True)
     """
 
     def __init__(
