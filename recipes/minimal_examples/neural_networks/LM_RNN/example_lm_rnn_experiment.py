@@ -9,20 +9,20 @@ from speechbrain.data_io.data_io import append_eos_token
 from speechbrain.utils.train_logger import summarize_average
 
 experiment_dir = os.path.dirname(os.path.realpath(__file__))
-params_file = os.path.join(experiment_dir, "params.yaml")
+hyperparams_file = os.path.join(experiment_dir, "hyperparams.yaml")
 data_folder = "../../../../samples/audio_samples/nn_training_samples"
 data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
-with open(params_file) as fin:
-    params = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
+with open(hyperparams_file) as fin:
+    hyperparams = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
 
 
 # Define training procedure
 class LMBrain(sb.core.Brain):
     def compute_forward(self, y, stage="train", init_params=False):
         ids, phns, phn_lens = y
-        y_in = prepend_bos_token(phns, bos_index=params.bos_index)
-        logits = params.model(y_in, init_params=init_params)
-        pout = params.log_softmax(logits)
+        y_in = prepend_bos_token(phns, bos_index=hyperparams.bos_index)
+        logits = hyperparams.model(y_in, init_params=init_params)
+        pout = hyperparams.log_softmax(logits)
         return pout
 
     def compute_objectives(self, predictions, targets, stage="train"):
@@ -33,12 +33,12 @@ class LMBrain(sb.core.Brain):
 
         # Append eos token at the end of the label sequences
         phns_with_eos = append_eos_token(
-            phns, length=abs_length, eos_index=params.eos_index
+            phns, length=abs_length, eos_index=hyperparams.eos_index
         )
 
         # convert to speechbrain-style relative length
         rel_length = (abs_length + 1) / phns.shape[1]
-        loss = params.compute_cost(pout, phns_with_eos, length=rel_length)
+        loss = hyperparams.compute_cost(pout, phns_with_eos, length=rel_length)
 
         return loss, {}
 
@@ -68,17 +68,19 @@ class LMBrain(sb.core.Brain):
         print("Valid perplexity: %.2f" % perplexity)
 
 
-train_set = params.train_loader()
-valid_set = params.valid_loader()
+train_set = hyperparams.train_loader()
+valid_set = hyperparams.valid_loader()
 first_y = next(iter(train_set))
 
 lm_brain = LMBrain(
-    modules=[params.model], optimizer=params.optimizer, first_inputs=first_y,
+    modules=[hyperparams.model],
+    optimizer=hyperparams.optimizer,
+    first_inputs=first_y,
 )
 
-lm_brain.fit(params.epoch_counter, train_set, valid_set)
+lm_brain.fit(hyperparams.epoch_counter, train_set, valid_set)
 
-test_stats = lm_brain.evaluate(params.test_loader())
+test_stats = lm_brain.evaluate(hyperparams.test_loader())
 print("Test loss: %.2f" % summarize_average(test_stats["loss"]))
 
 
