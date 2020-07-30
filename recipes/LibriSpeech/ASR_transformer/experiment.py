@@ -35,7 +35,7 @@ with open(params_file) as fin:
 # Create experiment directory
 sb.core.create_experiment_directory(
     experiment_directory=params.output_folder,
-    params_to_save=params_file,
+    hyperparams_to_save=params_file,
     overrides=overrides,
 )
 
@@ -305,6 +305,12 @@ train_set = params.train_loader()
 valid_set = params.valid_loader()
 first_x, first_y = next(iter(valid_set))
 
+ids, wavs, wav_lens = first_x
+ids, chars, phn_lens = first_y
+
+first_x = ids[:2], wavs[:2], wav_lens[:2]
+first_y = ids[:2], chars[:2], phn_lens[:2]
+
 if hasattr(params, "augmentation"):
     modules.append(params.augmentation)
 asr_brain = ASR(
@@ -313,6 +319,7 @@ asr_brain = ASR(
     first_inputs=[first_x, first_y],
     auto_mix_prec=True,
 )
+
 
 if params.multigpu:
     params.CNN = torch.nn.DataParallel(params.CNN)
