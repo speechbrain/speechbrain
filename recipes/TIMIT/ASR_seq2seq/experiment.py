@@ -29,7 +29,7 @@ with open(params_file) as fin:
 # Create experiment directory
 sb.core.create_experiment_directory(
     experiment_directory=params.output_folder,
-    params_to_save=params_file,
+    hyperparams_to_save=params_file,
     overrides=overrides,
 )
 
@@ -50,7 +50,6 @@ beam_searcher = S2SRNNBeamSearcher(
     min_decode_ratio=0,
     max_decode_ratio=1,
     beam_size=params.beam_size,
-    eos_threshold=params.eos_threshold,
 )
 
 checkpointer = sb.utils.checkpoints.Checkpointer(
