@@ -7,12 +7,15 @@ Author
  * Aku Rouhe 2020
 """
 
+import sys
 import os
 import yaml
 import logging
 import logging.config
 import math
+import torch
 from speechbrain.utils.data_utils import recursive_update
+from speechbrain.utils.superpowers import run_shell
 
 ORDERS_ABBREV = {
     -24: "y",
@@ -126,3 +129,46 @@ def format_order_of_magnitude(number, abbreviate=True):
         return formatted_number + order_token
     else:
         return formatted_number + " " + order_token
+
+
+def get_environment_description():
+    """
+    Returns a string describing the current Python / SpeechBrain environment.
+
+    Useful for making experiments as replicable as possible.
+
+    Returns
+    -------
+    str
+        Formatted so that it is ready to be written to a file.
+
+    Example
+    >>> get_environment_description().splitlines()[0]
+    'SpeechBrain system description'
+    """
+    python_version_str = "Python version:\n" + sys.version + "\n"
+    try:
+        freezed, _, _ = run_shell("pip freeze")
+        python_packages_str = "Installed Python packages:\n"
+        python_packages_str += freezed.decode()
+    except OSError:
+        python_packages_str = "Could not list python packages with pip freeze"
+    try:
+        git_hash, _, _ = run_shell("git rev-parse --short HEAD")
+        git_str = "Git revision:\n" + git_hash.decode()
+    except OSError:
+        git_str = "Could not get git revision"    
+    if torch.cuda.is_available():
+        cuda_str = "Cuda version:\n" + torch.version.cuda
+    else:
+        cuda_str = "CUDA not available"
+    result = "SpeechBrain system description\n"
+    result += "==============================\n"
+    result += python_version_str
+    result += "==============================\n"
+    result += python_packages_str 
+    result += "==============================\n"
+    result += git_str
+    result += "==============================\n"
+    result += cuda_str
+    return result
