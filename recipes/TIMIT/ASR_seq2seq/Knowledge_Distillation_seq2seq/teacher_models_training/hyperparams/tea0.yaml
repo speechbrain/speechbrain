@@ -16,6 +16,7 @@ csv_test: !ref <data_folder>/test.csv
 number_of_epochs: 50
 batch_size: 8
 lr: 0.001
+ctc_weight: 0.2
 device: 'cuda:0'
 
 # Feature parameters
@@ -35,7 +36,6 @@ rnn_bidirectional: True
 dnn_blocks: 2
 dnn_neurons: 512
 emb_size: 128
-ctc_weight: 0.2
 
 # Outputs
 output_neurons: 40
@@ -46,7 +46,7 @@ bos_index: !ref <output_neurons> - 1
 eos_index: !ref <output_neurons> - 1
 min_decode_ratio: 0.0
 max_decode_ratio: 1.0
-beam_size: 64
+beam_size: 16
 length_penalty: 0.1
 eos_threshold: 1.5
 
@@ -81,10 +81,10 @@ dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
     dropout: 0.5
 
 ctc_lin: !new:speechbrain.nnet.linear.Linear
-    n_neurons: !ref <output_neurons> # 39 phonemes + 1 blank
+    n_neurons: !ref <output_neurons>  # 39 phonemes + 1 blank
 
 seq_lin: !new:speechbrain.nnet.linear.Linear
-    n_neurons: !ref <output_neurons> # 39 phonemes + 1 eos
+    n_neurons: !ref <output_neurons>  # 39 phonemes + 1 eos
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
@@ -142,5 +142,4 @@ seq_cost: !name:speechbrain.nnet.losses.nll_loss
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
     summary_fns:
-        loss: !name:speechbrain.utils.train_logger.summarize_average
         PER: !name:speechbrain.utils.train_logger.summarize_error_rate

@@ -14,9 +14,9 @@ csv_test: !ref <data_folder>/test.csv
 
 # Training parameters
 number_of_epochs: 50
-batch_size: 8
+batch_size: 16
 lr: 0.001
-wd: 0.000001
+ctc_weight: 0.2
 device: 'cuda:0'
 
 # Feature parameters
@@ -26,17 +26,17 @@ n_mels: 40
 
 # Model parameters
 activation: !name:torch.nn.LeakyReLU
-dropout: 0.15
+dropout: 0.3
 cnn_blocks: 2
 cnn_channels: (128, 256)
 cnn_kernelsize: (3, 3)
 rnn_layers: 4
-rnn_neurons: 640
+rnn_neurons: 512
 rnn_bidirectional: True
 dnn_blocks: 2
 dnn_neurons: 512
 emb_size: 128
-ctc_weight: 0.2
+# rnn_class: !name:speechbrain.nnet.RNN.LSTM
 
 # Outputs
 output_neurons: 40
@@ -47,7 +47,7 @@ bos_index: !ref <output_neurons> - 1
 eos_index: !ref <output_neurons> - 1
 min_decode_ratio: 0.0
 max_decode_ratio: 1.0
-beam_size: 64
+beam_size: 16
 length_penalty: 0.1
 eos_threshold: 1.5
 
@@ -65,6 +65,7 @@ enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
     rnn_re_init: True
     dnn_blocks: !ref <dnn_blocks>
     dnn_neurons: !ref <dnn_neurons>
+    # rnn_class: !ref <rnn_class>
 
 emb: !new:speechbrain.nnet.embedding.Embedding
     num_embeddings: !ref <output_neurons>
@@ -83,17 +84,16 @@ dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
     dropout: 0.5
 
 ctc_lin: !new:speechbrain.nnet.linear.Linear
-    n_neurons: !ref <output_neurons> # 39 phonemes + 1 blank
+    n_neurons: !ref <output_neurons>  # 39 phonemes + 1 blank
 
 seq_lin: !new:speechbrain.nnet.linear.Linear
-    n_neurons: !ref <output_neurons> # 39 phonemes + 1 eos
+    n_neurons: !ref <output_neurons>  # 39 phonemes + 1 eos
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
 optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
     learning_rate: !ref <lr>
-    weight_decay: !ref <wd>
 
 lr_annealing: !new:speechbrain.nnet.lr_schedulers.NewBobLRScheduler
     improvement_threshold: 0.0025
@@ -141,5 +141,4 @@ seq_cost: !name:speechbrain.nnet.losses.nll_loss
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
     summary_fns:
-        loss: !name:speechbrain.utils.train_logger.summarize_average
         PER: !name:speechbrain.utils.train_logger.summarize_error_rate
