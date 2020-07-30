@@ -218,23 +218,46 @@ class ASR(sb.core.Brain):
 
     def fit_batch(self, batch):
         inputs, targets = batch
-        predictions = self.compute_forward(inputs, targets)
-        loss, stats = self.compute_objectives(predictions, targets)
-
-        # normalize the loss by gradient_accumulation step
-        loss = loss / params.gradient_accumulation
-        loss.backward()
-
-        # gradient accumulation
         if not hasattr(self, "step"):
             self.step = 0
-        self.step = self.step + 1
-        if self.step % params.gradient_accumulation == 0:
-            # gradient clipping
-            torch.nn.utils.clip_grad_norm_(self.modules.parameters(), 5.0)
 
-            self.optimizer.step()
-            self.optimizer.zero_grad()
+        if self.auto_mix_prec:
+            predictions = self.compute_forward(inputs, targets)
+            loss, stats = self.compute_objectives(predictions, targets)
+
+            # normalize the loss by gradient_accumulation step
+            loss = loss / params.gradient_accumulation
+            self.scaler.scale(loss).backward()
+
+            # gradient accumulation
+            if not hasattr(self, "step"):
+                self.step = 0
+            self.step = self.step + 1
+            if self.step % params.gradient_accumulation == 0:
+                # gradient clipping
+                torch.nn.utils.clip_grad_norm_(self.modules.parameters(), 5.0)
+
+                self.scaler.step(self.optimizer.optim)
+                self.optimizer.zero_grad()
+                self.scaler.update()
+        else:
+            predictions = self.compute_forward(inputs, targets)
+            loss, stats = self.compute_objectives(predictions, targets)
+
+            # normalize the loss by gradient_accumulation step
+            loss = loss / params.gradient_accumulation
+            loss.backward()
+
+            # gradient accumulation
+            if not hasattr(self, "step"):
+                self.step = 0
+            self.step = self.step + 1
+            if self.step % params.gradient_accumulation == 0:
+                # gradient clipping
+                torch.nn.utils.clip_grad_norm_(self.modules.parameters(), 5.0)
+
+                self.optimizer.step()
+                self.optimizer.zero_grad()
 
             # anneal lr every update
             old_lr, new_lr = params.lr_annealing([params.optimizer], None, None)
@@ -282,15 +305,13 @@ train_set = params.train_loader()
 valid_set = params.valid_loader()
 first_x, first_y = next(iter(valid_set))
 
-# add padding token to index2lab
-params.train_loader.label_dict["wrd"]["index2lab"][params.pad_id] = "<pad>"
-
 if hasattr(params, "augmentation"):
     modules.append(params.augmentation)
 asr_brain = ASR(
     modules=modules,
     optimizer=params.optimizer,
     first_inputs=[first_x, first_y],
+    auto_mix_prec=True,
 )
 
 if params.multigpu:
