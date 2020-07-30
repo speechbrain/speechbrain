@@ -10,7 +10,7 @@ Authors
 import torch
 from torch import nn
 from speechbrain.nnet.embedding import Embedding
-from speechbrain.nnet.RNN import LSTM
+from speechbrain.nnet.RNN import LiGRU, LSTM, GRU, RNN  # noqa E401
 from speechbrain.nnet.linear import Linear
 from speechbrain.nnet.containers import Sequential
 from speechbrain.nnet.normalization import LayerNorm
@@ -22,8 +22,8 @@ class RNNLM(nn.Module):
 
     Arguments
     ---------
-    num_embeddings : int
-        Number of entries in embedding table.
+    output_neurons : int
+        Number of entries in embedding table, also the number of neurons in output layer.
     embedding_dim : int
         Default : 128
         Size of embedding vectors.
@@ -32,9 +32,9 @@ class RNNLM(nn.Module):
     dropout : float
         Neuron dropout rate, applied to embedding, rnn, and dnn.
     rnn_class : torch class
-        The type of rnn to use in CRDNN network (LiGRU, LSTM, GRU, RNN)
+        The type of rnn to use in RNNLM network (LiGRU, LSTM, GRU, RNN)
     rnn_layers : int
-        The number of recurrent LiGRU layers to include.
+        The number of recurrent layers to include.
     rnn_neurons : int
         Number of neurons in each layer of the RNN.
     rnn_re_init : bool
@@ -49,16 +49,16 @@ class RNNLM(nn.Module):
 
     Example
     -------
-    >>> model = RNNLM(num_embeddings=5)
+    >>> model = RNNLM(output_neurons=5)
     >>> inputs = torch.Tensor([[1, 2, 3]])
     >>> outputs = model(inputs, init_params=True)
     >>> outputs.shape
-    torch.Size([1, 3, 512])
+    torch.Size([1, 3, 5])
     """
 
     def __init__(
         self,
-        num_embeddings,
+        output_neurons,
         embedding_dim=128,
         activation=torch.nn.LeakyReLU,
         dropout=0.15,
@@ -72,7 +72,7 @@ class RNNLM(nn.Module):
     ):
         super().__init__()
         self.embedding = Embedding(
-            num_embeddings=num_embeddings, embedding_dim=embedding_dim
+            num_embeddings=output_neurons, embedding_dim=embedding_dim
         )
         self.dropout = nn.Dropout(p=dropout)
         self.rnn = rnn_class(
@@ -99,6 +99,7 @@ class RNNLM(nn.Module):
             )
 
         self.dnn = Sequential(*dnn_blocks_lst)
+        self.out = Linear(n_neurons=output_neurons)
 
     def forward(self, x, hx=None, init_params=False):
 
@@ -106,18 +107,19 @@ class RNNLM(nn.Module):
         x = self.dropout(x)
 
         # If 2d tensor, add a time-axis
-        # this is used for inference situation
+        # This is used for inference time
         if len(x.shape) == 2:
             x = x.unsqueeze(dim=1)
             self.reshape = True
 
         x, h = self.rnn(x, hx, init_params=init_params)
         x = self.dnn(x, init_params=init_params)
+        out = self.out(x, init_params=init_params)
 
         if self.reshape:
-            x = x.squeeze(dim=1)
+            out = out.squeeze(dim=1)
 
         if self.return_hidden:
-            return x, h
+            return out, h
         else:
-            return x
+            return out
