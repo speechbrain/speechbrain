@@ -34,7 +34,7 @@ def run_shell(cmd):
     Raises
     ------
     OSError
-        If returncode is not 0
+        If returncode is not 0, i.e. command failed
 
     Example
     -------

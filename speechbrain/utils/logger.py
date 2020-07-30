@@ -140,7 +140,7 @@ def get_environment_description():
     Returns
     -------
     str
-        Formatted so that it is ready to be written to a file.
+        The string is formatted ready to be written to a file.
 
     Example
     >>> get_environment_description().splitlines()[0]
@@ -157,7 +157,7 @@ def get_environment_description():
         git_hash, _, _ = run_shell("git rev-parse --short HEAD")
         git_str = "Git revision:\n" + git_hash.decode()
     except OSError:
-        git_str = "Could not get git revision"    
+        git_str = "Could not get git revision"
     if torch.cuda.is_available():
         cuda_str = "Cuda version:\n" + torch.version.cuda
     else:
@@ -166,7 +166,7 @@ def get_environment_description():
     result += "==============================\n"
     result += python_version_str
     result += "==============================\n"
-    result += python_packages_str 
+    result += python_packages_str
     result += "==============================\n"
     result += git_str
     result += "==============================\n"

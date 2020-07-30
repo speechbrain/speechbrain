@@ -19,7 +19,7 @@ from datetime import date
 from tqdm.contrib import tqdm
 from speechbrain.utils.logger import setup_logging
 from speechbrain.utils.logger import format_order_of_magnitude
-from speechbrain.utils.logger import get_environment_description 
+from speechbrain.utils.logger import get_environment_description
 from speechbrain.utils.data_utils import recursive_update
 
 logger = logging.getLogger(__name__)
@@ -50,7 +50,7 @@ def create_experiment_directory(
         A yaml filename containing configuration options for the logger.
     save_env_desc : bool
         If True, a basic environment state description is saved to the experiment
-        directory, in a file called env.log
+        directory, in a file called env.log in the experiment directory
     """
     if not os.path.isdir(experiment_directory):
         os.makedirs(experiment_directory)
