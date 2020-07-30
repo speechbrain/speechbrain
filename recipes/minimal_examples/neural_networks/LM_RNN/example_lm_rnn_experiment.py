@@ -21,9 +21,7 @@ class LMBrain(sb.core.Brain):
     def compute_forward(self, y, stage="train", init_params=False):
         ids, phns, phn_lens = y
         y_in = prepend_bos_token(phns, bos_index=params.bos_index)
-        e_in = params.emb(y_in, init_params=init_params)
-        h_rnn = params.rnn(e_in, init_params=init_params)
-        logits = params.lin(h_rnn, init_params)
+        logits = params.model(y_in, init_params=init_params)
         pout = params.log_softmax(logits)
         return pout
 
@@ -75,9 +73,7 @@ valid_set = params.valid_loader()
 first_y = next(iter(train_set))
 
 lm_brain = LMBrain(
-    modules=[params.rnn, params.emb, params.lin],
-    optimizer=params.optimizer,
-    first_inputs=first_y,
+    modules=[params.model], optimizer=params.optimizer, first_inputs=first_y,
 )
 
 lm_brain.fit(params.epoch_counter, train_set, valid_set)
