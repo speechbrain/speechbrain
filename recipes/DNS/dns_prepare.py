@@ -216,6 +216,7 @@ def create_csv(
             snr_low=noise_snr_low,
             snr_high=noise_snr_high,
             pad_noise=True,
+            normalize=True,
         )
 
     # Processing all the wav files in the list

@@ -304,7 +304,7 @@ class AdaptivePool(nn.Module):
     delations : output_size
         the size of the output
 
-    example
+    Example
     -------
     >>> pool = AdaptivePool(1)
     >>> inp = torch.randn([8, 120, 40])

@@ -154,16 +154,16 @@ class TransformerEncoderLayer(nn.Module):
 
     Arguements
     ----------
-    d_ffn :
+    d_ffn : int
         Hidden size of self-attention Feed Forward layer
-    nhead :
+    nhead : int
         number of attention heads
-    kdim :
-        dimension for key
-    vdim :
-        dimension for value
-    dropout :
-        dropout for the encoder
+    kdim : int
+        dimension for key (Optional)
+    vdim : int
+        dimension for value (Optional)
+    dropout : int
+        dropout for the encoder (Optional)
 
     Example
     -------
@@ -200,6 +200,16 @@ class TransformerEncoderLayer(nn.Module):
     def forward(
         self, src, src_mask=None, src_key_padding_mask=None, init_params=False
     ):
+        """
+        Arguements
+        ----------
+        src: tensor
+            the sequence to the encoder layer (required).
+        src_mask: tensor
+            the mask for the src sequence (optional).
+        src_key_padding_mask: tensor
+            the mask for the src keys per batch (optional).
+        """
         output, self_attn = self.self_att(
             src,
             src,
@@ -227,18 +237,18 @@ class TransformerEncoder(nn.Module):
 
     Arguements
     ----------
-    d_ffn :
+    d_ffn : int
         Hidden size of self-attention Feed Forward layer
-    nhead :
+    nhead : int
         number of attention heads
-    kdim :
-        dimension for key
-    vdim :
-        dimension for value
-    dropout :
-        dropout for the encoder
+    kdim : int
+        dimension for key (Optional)
+    vdim : int
+        dimension for value (Optional)
+    dropout : float
+        dropout for the encoder (Optional)
     input_module: torch class
-        the module to process the source input feature to expected feature dimension
+        the module to process the source input feature to expected feature dimension (Optional)
 
     Example
     -------
@@ -281,6 +291,16 @@ class TransformerEncoder(nn.Module):
     def forward(
         self, src, src_mask=None, src_key_padding_mask=None, init_params=False
     ):
+        """
+        Arguements
+        ----------
+        src: tensor
+            the sequence to the encoder layer (required).
+        src_mask: tensor
+            the mask for the src sequence (optional).
+        src_key_padding_mask: tensor
+            the mask for the src keys per batch (optional).
+        """
         output = src
         attention_lst = []
         for enc_layer in self.layers:
@@ -300,6 +320,26 @@ class TransformerEncoder(nn.Module):
 
 class TransformerDecoderLayer(nn.Module):
     """This class implements the self-attention decoder layer
+
+    Arguements
+    ----------
+    d_ffn : int
+        Hidden size of self-attention Feed Forward layer
+    nhead : int
+        number of attention heads
+    kdim : int
+        dimension for key (optional)
+    vdim : int
+        dimension for value (optional)
+    dropout : float
+        dropout for the decoder (optional)
+
+    Example
+    -------
+    >>> src = torch.rand((8, 60, 512))
+    >>> tgt = torch.rand((8, 60, 512))
+    >>> net = TransformerDecoderLayer(1024, 8)
+    >>> output = net(src, tgt, init_params=True)
     """
 
     def __init__(
@@ -340,10 +380,27 @@ class TransformerDecoderLayer(nn.Module):
         memory_key_padding_mask=None,
         init_params=False,
     ):
+        """
+        Arguements
+        ----------
+        tgt: tensor
+            the sequence to the decoder layer (required).
+        memory: tensor
+            the sequence from the last layer of the encoder (required).
+        tgt_mask: tensor
+            the mask for the tgt sequence (optional).
+        memory_mask: tensor
+            the mask for the memory sequence (optional).
+        tgt_key_padding_mask: tensor
+            the mask for the tgt keys per batch (optional).
+        memory_key_padding_mask: tensor
+            the mask for the memory keys per batch (optional).
+        """
+        # self-attention over the target sequence
         tgt2, self_attn = self.self_attn(
-            tgt,
-            tgt,
-            tgt,
+            query=tgt,
+            key=tgt,
+            value=tgt,
             attn_mask=tgt_mask,
             key_padding_mask=tgt_key_padding_mask,
             init_params=init_params,
@@ -353,10 +410,11 @@ class TransformerDecoderLayer(nn.Module):
         tgt = tgt + self.dropout1(tgt2)
         tgt = self.norm1(tgt, init_params)
 
+        # multi-head attention over the target sequence and encoder states
         tgt2, multihead_attention = self.mutihead_attn(
-            tgt,
-            memory,
-            memory,
+            query=tgt,
+            key=memory,
+            value=memory,
             attn_mask=memory_mask,
             key_padding_mask=memory_key_padding_mask,
             init_params=init_params,
@@ -380,18 +438,23 @@ class TransformerDecoder(nn.Module):
 
     Arguements
     ----------
-    d_model:
-        the number of expected features in the encoder inputs
-    d_ffn :
+    d_ffn : int
         Hidden size of self-attention Feed Forward layer
-    nhead :
+    nhead : int
         number of attention heads
-    kdim :
-        dimension for key
-    vdim :
-        dimension for value
-    dropout :
-        dropout for the decoder
+    kdim : int
+        dimension for key (Optional)
+    vdim : int
+        dimension for value (Optional)
+    dropout : float
+        dropout for the decoder (Optional)
+
+    Example
+    -------
+    >>> src = torch.rand((8, 60, 512))
+    >>> tgt = torch.rand((8, 60, 512))
+    >>> net = TransformerDecoder(1, 8, 1024)
+    >>> output = net(src, tgt, init_params=True)
     """
 
     def __init__(
@@ -432,6 +495,22 @@ class TransformerDecoder(nn.Module):
         memory_key_padding_mask=None,
         init_params=False,
     ):
+        """
+        Arguements
+        ----------
+        tgt: tensor
+            the sequence to the decoder layer (required).
+        memory: tensor
+            the sequence from the last layer of the encoder (required).
+        tgt_mask: tensor
+            the mask for the tgt sequence (optional).
+        memory_mask: tensor
+            the mask for the memory sequence (optional).
+        tgt_key_padding_mask: tensor
+            the mask for the tgt keys per batch (optional).
+        memory_key_padding_mask: tensor
+            the mask for the memory keys per batch (optional).
+        """
         output = tgt
         self_attns, multihead_attns = [], []
         for dec_layer in self.layers:
