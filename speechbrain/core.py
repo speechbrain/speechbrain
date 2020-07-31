@@ -19,6 +19,7 @@ from datetime import date
 from tqdm.contrib import tqdm
 from speechbrain.utils.logger import setup_logging
 from speechbrain.utils.logger import format_order_of_magnitude
+from speechbrain.utils.logger import get_environment_description
 from speechbrain.utils.data_utils import recursive_update
 
 logger = logging.getLogger(__name__)
@@ -31,6 +32,7 @@ def create_experiment_directory(
     hyperparams_to_save=None,
     overrides={},
     log_config=DEFAULT_LOG_CONFIG,
+    save_env_desc=True,
 ):
     """Create the output folder and relevant experimental files.
 
@@ -46,6 +48,9 @@ def create_experiment_directory(
         A mapping of replacements made in the yaml file, to save in yaml.
     log_config : str
         A yaml filename containing configuration options for the logger.
+    save_env_desc : bool
+        If True, a basic environment state description is saved to the experiment
+        directory, in a file called env.log in the experiment directory
     """
     if not os.path.isdir(experiment_directory):
         os.makedirs(experiment_directory)
@@ -80,6 +85,12 @@ def create_experiment_directory(
     logger.info(f"Experiment folder: {experiment_directory}")
     commit_hash = subprocess.check_output(["git", "describe", "--always"])
     logger.debug("Commit hash: '%s'" % commit_hash.decode("utf-8").strip())
+
+    # Save system description:
+    if save_env_desc:
+        description_str = get_environment_description()
+        with open(os.path.join(experiment_directory, "env.log"), "w") as fo:
+            fo.write(description_str)
 
 
 def _logging_excepthook(exc_type, exc_value, exc_traceback):
