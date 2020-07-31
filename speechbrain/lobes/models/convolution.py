@@ -146,4 +146,13 @@ class ConvBlock(torch.nn.Module):
         if self.reduce_conv:
             out = out + self.reduce_conv(x, init_params)
             out = self.drop(x)
+
+        if init_params:
+            self._reset_params()
+
         return out
+
+    def _reset_params(self):
+        for p in self.parameters():
+            if p.dim() > 1:
+                torch.nn.init.kaiming_normal_(p)

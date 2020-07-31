@@ -162,11 +162,13 @@ class ASR(sb.core.Brain):
             ].emb.Embedding.weight
 
         if stage == "valid":
-            hyps, _ = valid_search(enc_out, wav_lens)
+            torch.cuda.empty_cache()
+            hyps, _ = valid_search(enc_out.detach(), wav_lens)
             return p_ctc, p_seq, wav_lens, hyps, target_chars, seq_lengths
 
         elif stage == "test":
-            hyps, _ = test_search(enc_out, wav_lens)
+            torch.cuda.empty_cache()
+            hyps, _ = test_search(enc_out.detach(), wav_lens)
             return p_ctc, p_seq, wav_lens, hyps, target_chars, seq_lengths
 
         return p_ctc, p_seq, wav_lens, target_chars, seq_lengths
@@ -287,6 +289,7 @@ class ASR(sb.core.Brain):
         checkpointer.save_and_keep_only(
             meta={"WER": wer},
             importance_keys=[ckpt_recency, lambda c: -c.meta["WER"]],
+            num_to_keep=10,
         )
 
     def _reset_params(self):
@@ -317,7 +320,7 @@ asr_brain = ASR(
     modules=modules,
     optimizer=params.optimizer,
     first_inputs=[first_x, first_y],
-    auto_mix_prec=True,
+    auto_mix_prec=params.auto_precision_mix,
 )
 
 
@@ -326,6 +329,8 @@ if params.multigpu:
     params.Transformer = torch.nn.DataParallel(params.Transformer)
     params.ctc_lin = torch.nn.DataParallel(params.ctc_lin)
     params.seq_lin = torch.nn.DataParallel(params.seq_lin)
+    # valid_search = torch.nn.DataParallel(valid_search)
+    # test_search = torch.nn.DataParallel(test_search)
 
 # Load latest checkpoint to resume training
 checkpointer.recover_if_possible()
