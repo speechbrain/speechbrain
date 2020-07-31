@@ -3,17 +3,20 @@ import os
 import sys
 import torch
 import speechbrain as sb
-from functools import partial
 
 import speechbrain.data_io.wer as wer_io
 import speechbrain.utils.edit_distance as edit_distance
 from speechbrain.data_io.data_io import convert_index_to_lab
 from speechbrain.data_io.data_io import prepend_bos_token
 from speechbrain.data_io.data_io import append_eos_token
+from speechbrain.utils.train_logger import summarize_error_rate
 
-from searchs import GreedySearch, BeamSearch
 from speechbrain.decoders.decoders import undo_padding
 from speechbrain.utils.checkpoints import ckpt_recency
+from speechbrain.decoders.seq2seq import (
+    S2STransformerBeamSearch,
+    S2STransformerGreedySearch,
+)
 from speechbrain.lobes.models.transformer.Transformer import (
     get_key_padding_mask,
     get_lookahead_mask,
@@ -32,7 +35,7 @@ with open(params_file) as fin:
 # Create experiment directory
 sb.core.create_experiment_directory(
     experiment_directory=params.output_folder,
-    params_to_save=params_file,
+    hyperparams_to_save=params_file,
     overrides=overrides,
 )
 
@@ -53,7 +56,7 @@ checkpointer = sb.utils.checkpoints.Checkpointer(
 
 
 # Define a beam search according to this recipe
-valid_search = GreedySearch(
+valid_search = S2STransformerGreedySearch(
     modules=[params.Transformer, params.seq_lin],
     bos_index=params.bos_index,
     eos_index=params.eos_index,
@@ -61,7 +64,7 @@ valid_search = GreedySearch(
     max_decode_ratio=1,
 )
 
-test_search = BeamSearch(
+test_search = S2STransformerBeamSearch(
     modules=[params.Transformer, params.seq_lin],
     bos_index=params.bos_index,
     eos_index=params.eos_index,
@@ -73,61 +76,42 @@ test_search = BeamSearch(
 )
 
 
-def int2lab(batch, ind2lab):
-    batch = batch.tolist()
-    batch = [[x for x in batch if x != params.pad_id]]
-    batch = convert_index_to_lab(batch, ind2lab)
-    return " ".join(batch[-1])
-
-
-def count_and_pad_bpe_outputs(batch, pad_id):
-    # get the lengh and maximum length for every input in the batch
-    max_len = 0
-    seq_lengths = []
-    for seq in batch:
-        max_len = max(max_len, seq.shape[-1])
-        seq_lengths.append(seq.shape[-1])
-    seq_lengths = torch.tensor(seq_lengths).float()
-
-    # batching
-    padded_batch = []
-    for seq in batch:
-        seq = seq.long()
-
-        num_padding_elem = max_len - seq.shape[-1]
-        paddings = torch.tensor([pad_id] * num_padding_elem).long()
-
-        seq = torch.cat([seq, paddings], dim=-1)
-        padded_batch.append(seq.unsqueeze(0))
-    return (
-        torch.cat(padded_batch, dim=0).to(params.device),
-        seq_lengths.to(params.device),
-    )
-
-
 # Define training procedure
 class ASR(sb.core.Brain):
     def compute_forward(self, x, y, stage="train", init_params=False):
         ids, wavs, wav_lens = x
         ids, chars, phn_lens = y
+        if stage == "train":
+            index2lab = params.train_loader.label_dict["wrd"]["index2lab"]
+        elif stage == "valid":
+            index2lab = params.valid_loader.label_dict["wrd"]["index2lab"]
+        elif stage == "test":
+            index2lab = params.test_loader.label_dict["wrd"]["index2lab"]
 
         wavs, wav_lens = wavs.to(params.device), wav_lens.to(params.device)
         chars, phn_lens = chars.to(params.device), phn_lens.to(params.device)
 
+        # convert words to bpe
+        chars, seq_lengths = params.tokenizer(
+            chars, phn_lens, index2lab, task="encode", init_params=init_params,
+        )
+        chars, seq_lengths = (
+            chars.to(params.device),
+            seq_lengths.to(params.device),
+        )
+
+        if hasattr(params, "env_corrupt"):
+            wavs_noise = params.env_corrupt(wavs, wav_lens, init_params)
+            wavs = torch.cat([wavs, wavs_noise], dim=0)
+            wav_lens = torch.cat([wav_lens, wav_lens])
+            chars = torch.cat([chars, chars], dim=0)
+            seq_lengths = torch.cat([seq_lengths, seq_lengths], dim=0)
+
         if hasattr(params, "augmentation"):
             wavs = params.augmentation(wavs, wav_lens, init_params)
+
         feats = params.compute_features(wavs, init_params)
         feats = params.normalize(feats, wav_lens)
-
-        # convert words to bpe
-        ind2lab = params.train_loader.label_dict["wrd"]["index2lab"]
-        chars, _ = params.tokenizer(
-            chars,
-            int2lab=partial(int2lab, ind2lab=ind2lab),
-            task="encode",
-            init_params=init_params,
-        )
-        chars, seq_lengths = count_and_pad_bpe_outputs(chars, params.pad_id)
 
         # foward the model
         target_chars = chars
@@ -136,6 +120,9 @@ class ASR(sb.core.Brain):
 
         # generate attn mask and padding mask for transformer
         src_key_padding_mask = None
+        if params.src_masking:
+            src_key_padding_mask = get_key_padding_mask(src, pad_idx=0)
+
         trg_key_padding_mask = get_key_padding_mask(
             chars, pad_idx=params.pad_id
         )
@@ -158,7 +145,7 @@ class ASR(sb.core.Brain):
         )
 
         # output layer for ctc log-probabilities
-        logits = params.ctc_lin(src, init_params)
+        logits = params.ctc_lin(enc_out, init_params)
         p_ctc = params.log_softmax(logits)
 
         # output layer for seq2seq log-probabilities
@@ -169,22 +156,19 @@ class ASR(sb.core.Brain):
         if init_params:
             self._reset_params()
 
-        # share weight betwenn embedding layer and linear projection layer
-        if init_params:
+            # share weight betwenn embedding layer and linear projection layer
             params.seq_lin.w.weight = params.Transformer.custom_tgt_module.layers[
                 0
             ].emb.Embedding.weight
 
-        if (
-            stage == "valid"
-            and params.epoch_counter.current % params.num_epoch_to_valid_search
-            == 0
-        ):
-            hyps, _ = valid_search(enc_out, wav_lens)
+        if stage == "valid":
+            torch.cuda.empty_cache()
+            hyps, _ = valid_search(enc_out.detach(), wav_lens)
             return p_ctc, p_seq, wav_lens, hyps, target_chars, seq_lengths
 
         elif stage == "test":
-            hyps, _ = test_search(enc_out, wav_lens)
+            torch.cuda.empty_cache()
+            hyps, _ = test_search(enc_out.detach(), wav_lens)
             return p_ctc, p_seq, wav_lens, hyps, target_chars, seq_lengths
 
         return p_ctc, p_seq, wav_lens, target_chars, seq_lengths
@@ -206,7 +190,7 @@ class ASR(sb.core.Brain):
         )
 
         # Add char_lens by one for eos token
-        abs_length = char_lens.float()
+        abs_length = char_lens.float() * chars.shape[1]
 
         # Append eos token at the end of the label sequences
         phns_with_eos = append_eos_token(
@@ -215,26 +199,18 @@ class ASR(sb.core.Brain):
 
         # convert to speechbrain-style relative length
         rel_length = (abs_length + 1) / chars.shape[1]
-        char_lens = char_lens / chars.shape[1]
 
-        loss_ctc = params.ctc_cost(p_ctc, chars, wav_lens, char_lens)
         loss_seq = params.seq_cost(p_seq, phns_with_eos, rel_length)
+        loss_ctc = params.ctc_cost(p_ctc, chars, wav_lens, char_lens)
         loss = params.ctc_weight * loss_ctc + (1 - params.ctc_weight) * loss_seq
 
         stats = {}
-        if (
-            stage == "valid"
-            and params.epoch_counter.current % params.num_epoch_to_valid_search
-            == 0
-        ) or stage == "test":
+        if stage != "train":
             ind2lab = params.train_loader.label_dict["wrd"]["index2lab"]
-            char_seq = params.tokenizer(hyps, task="decode")
-            print("hypes_idx", hyps)
-            print("hyps", char_seq)
+            char_seq = params.tokenizer(hyps, task="decode_from_list")
 
             chars = undo_padding(target_chars, target_lens)
             chars = convert_index_to_lab(chars, ind2lab)
-            print("targe", chars)
 
             wer_stats = edit_distance.wer_details_for_batch(
                 ids, chars, char_seq, compute_alignments=True
@@ -244,19 +220,52 @@ class ASR(sb.core.Brain):
 
     def fit_batch(self, batch):
         inputs, targets = batch
-        predictions = self.compute_forward(inputs, targets)
-        loss, stats = self.compute_objectives(predictions, targets)
-        loss.backward()
+        if not hasattr(self, "step"):
+            self.step = 0
 
-        # gradient clipping
-        torch.nn.utils.clip_grad_norm_(self.modules.parameters(), 1.0)
+        if self.auto_mix_prec:
+            predictions = self.compute_forward(inputs, targets)
+            loss, stats = self.compute_objectives(predictions, targets)
 
-        self.optimizer.step()
-        self.optimizer.zero_grad()
-        stats["loss"] = loss.detach()
+            # normalize the loss by gradient_accumulation step
+            loss = loss / params.gradient_accumulation
+            self.scaler.scale(loss).backward()
 
-        # anneal lr every step
-        old_lr, new_lr = params.lr_annealing([params.optimizer], None, None)
+            # gradient accumulation
+            if not hasattr(self, "step"):
+                self.step = 0
+            self.step = self.step + 1
+            if self.step % params.gradient_accumulation == 0:
+                # gradient clipping
+                torch.nn.utils.clip_grad_norm_(self.modules.parameters(), 5.0)
+
+                self.scaler.step(self.optimizer.optim)
+                self.optimizer.zero_grad()
+                self.scaler.update()
+        else:
+            predictions = self.compute_forward(inputs, targets)
+            loss, stats = self.compute_objectives(predictions, targets)
+
+            # normalize the loss by gradient_accumulation step
+            loss = loss / params.gradient_accumulation
+            loss.backward()
+
+            # gradient accumulation
+            if not hasattr(self, "step"):
+                self.step = 0
+            self.step = self.step + 1
+            if self.step % params.gradient_accumulation == 0:
+                # gradient clipping
+                torch.nn.utils.clip_grad_norm_(self.modules.parameters(), 5.0)
+
+                self.optimizer.step()
+                self.optimizer.zero_grad()
+
+            # anneal lr every update
+            old_lr, new_lr = params.lr_annealing([params.optimizer], None, None)
+
+        # report the actual loss
+        stats["loss"] = loss.detach() * params.gradient_accumulation
 
         return stats
 
@@ -275,15 +284,18 @@ class ASR(sb.core.Brain):
             "steps": params.lr_annealing.n_steps,
         }
         params.train_logger.log_stats(epoch_stats, train_stats, valid_stats)
+
+        wer = summarize_error_rate(valid_stats["WER"])
         checkpointer.save_and_keep_only(
-            meta={"loss": valid_stats["loss"][-1].cpu().item()},
-            importance_keys=[ckpt_recency, lambda c: -c.meta["loss"]],
+            meta={"WER": wer},
+            importance_keys=[ckpt_recency, lambda c: -c.meta["WER"]],
+            num_to_keep=10,
         )
 
     def _reset_params(self):
         for p in params.Transformer.parameters():
             if p.dim() > 1:
-                torch.nn.init.xavier_uniform_(p)
+                torch.nn.init.xavier_normal_(p)
 
 
 # Prepare data
@@ -294,10 +306,13 @@ prepare_librispeech(
 )
 train_set = params.train_loader()
 valid_set = params.valid_loader()
-first_x, first_y = next(iter(train_set))
+first_x, first_y = next(iter(valid_set))
 
-# add padding token to index2lab
-params.train_loader.label_dict["wrd"]["index2lab"][params.pad_id] = "<pad>"
+ids, wavs, wav_lens = first_x
+ids, chars, phn_lens = first_y
+
+first_x = ids[:2], wavs[:2], wav_lens[:2]
+first_y = ids[:2], chars[:2], phn_lens[:2]
 
 if hasattr(params, "augmentation"):
     modules.append(params.augmentation)
@@ -305,20 +320,24 @@ asr_brain = ASR(
     modules=modules,
     optimizer=params.optimizer,
     first_inputs=[first_x, first_y],
+    auto_mix_prec=params.auto_precision_mix,
 )
+
 
 if params.multigpu:
     params.CNN = torch.nn.DataParallel(params.CNN)
     params.Transformer = torch.nn.DataParallel(params.Transformer)
     params.ctc_lin = torch.nn.DataParallel(params.ctc_lin)
     params.seq_lin = torch.nn.DataParallel(params.seq_lin)
+    # valid_search = torch.nn.DataParallel(valid_search)
+    # test_search = torch.nn.DataParallel(test_search)
 
 # Load latest checkpoint to resume training
 checkpointer.recover_if_possible()
 asr_brain.fit(params.epoch_counter, train_set, valid_set)
 
 # Load best checkpoint for evaluation
-checkpointer.recover_if_possible(lambda c: -c.meta["loss"])
+checkpointer.recover_if_possible(lambda c: -c.meta["WER"])
 test_stats = asr_brain.evaluate(params.test_loader())
 params.train_logger.log_stats(
     stats_meta={"Epoch loaded": params.epoch_counter.current},

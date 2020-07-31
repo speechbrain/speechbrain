@@ -383,9 +383,20 @@ def kldiv_loss(
         Length of each utterance, if frame-level loss is desired.
     allowed_len_diff : int
         Length difference that will be tolerated before raising an exception.
+
+    Example
+    -------
+    >>> probs = torch.tensor([[0.9, 0.1], [0.1, 0.9]])
+    >>> kldiv_loss(torch.log(probs), torch.tensor([1, 1]))
+    tensor(1.2040)
     """
+    # if the input shape is 2m unsqueeze
+    if log_probabilities.dim() == 2:
+        log_probabilities = log_probabilities.unsqueeze(1)
+
     bz, time, n_class = log_probabilities.shape
     targets = targets.long().detach()
+
     if label_smoothing > 0:
         confidence = 1 - label_smoothing
 
@@ -405,6 +416,7 @@ def kldiv_loss(
         )
     else:
         log_probabilities = log_probabilities.view(bz, n_class, time)
+        targets = targets.view(bz, time)
         loss = functools.partial(
             torch.nn.functional.nll_loss, ignore_index=pad_idx, reduction="none"
         )

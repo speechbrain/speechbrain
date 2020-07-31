@@ -335,13 +335,35 @@ class StepLRScheduler:
 
 @checkpoints.register_checkpoint_hooks
 class NoamScheduler:
-    """
+    """The is an implementation of the transformer's learning rate scheduler with warmup.
+    Reference: https://arxiv.org/abs/1706.03762
+
     Arguments
     ---------
     lr_initial : float
         Initial learning rate (i.e. the lr used at epoch 0).
     n_warmup_steps : int
         numer of warm up steps
+
+    Example
+    -------
+    >>> from speechbrain.nnet.optimizers import SGD_Optimizer
+    >>> from speechbrain.nnet.linear import Linear
+    >>> inp_tensor = torch.rand([1,660,3])
+    >>> model = Linear(n_neurons=4)
+    >>> optim = SGD_Optimizer(learning_rate=1.0)
+    >>> output = model(inp_tensor, init_params=True)
+    >>> optim.init_params([model])
+    >>> scheduler =NoamScheduler(optim.optim.param_groups[0]["lr"], 3)
+    >>> curr_lr,next_lr=scheduler([optim],current_epoch=1, current_loss=10.0)
+    >>> optim.optim.param_groups[0]["lr"]
+    0.33333333333333337
+    >>> curr_lr,next_lr=scheduler([optim],current_epoch=2, current_loss=2.0)
+    >>> optim.optim.param_groups[0]["lr"]
+    0.6666666666666667
+    >>> curr_lr,next_lr=scheduler([optim],current_epoch=3, current_loss=2.5)
+    >>> optim.optim.param_groups[0]["lr"]
+    1.0
     """
 
     def __init__(self, lr_initial, n_warmup_steps):
