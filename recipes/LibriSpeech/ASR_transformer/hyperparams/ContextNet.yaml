@@ -21,6 +21,7 @@ ctc_weight: 0.4
 gradient_accumulation: 4
 device: 'cuda'
 multigpu: True
+auto_mix_precision: True
 
 # Feature parameters
 sample_rate: 16000
@@ -69,7 +70,7 @@ CNN: !new:speechbrain.lobes.models.ContextNet.ContextNet
     norm: !name:speechbrain.nnet.normalization.LayerNorm
     num_blocks: 9
     conv_channels: (256, 256, 256, 256, 512, 512, 512, 512, 512)
-    strides: (1, 2, 1, 1, 1, 1, 2, 1, 1)
+    strides: (1, 2, 1, 1, 2, 1, 1, 2, 1)
 
 Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.TransformerASR # yamllint disable-line rule:line-length
     tgt_vocab: !ref <output_neurons>
