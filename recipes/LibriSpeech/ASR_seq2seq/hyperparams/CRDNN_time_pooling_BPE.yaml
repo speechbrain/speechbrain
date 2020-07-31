@@ -1,20 +1,20 @@
 # ################################
-# Model: VGG2 + LiGRU with 2D pooling
+# Model: VGG2 + LSTM + time pooling
 # Augmentation: TimeDomainSpecAugment
 # Additions: 2D pooling
 # Authors: Mirco Ravanelli, Peter Plantinga, Ju-Chieh Chou, Abdel HEBA 2020
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: !PLACEHOLDER  # e.g, 1234
+seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/CRDNN_2d_pooling_BPE/<seed>
+output_folder: !ref results/CRDNN_time_pooling_BPE/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: !PLACEHOLDER  # e.g. /path/to/librispeech
+data_folder: !PLACEHOLDER # e.g., /localscratch/LibriSpeech
 csv_train: !ref <data_folder>/train-clean-100.csv
 csv_valid: !ref <data_folder>/dev-clean.csv
 csv_test: !ref <data_folder>/test-clean.csv
@@ -40,6 +40,8 @@ cnn_blocks: 3
 cnn_channels: (64, 128, 256)
 inter_layer_pooling_size: (2, 2, 2)
 cnn_kernelsize: (3, 3)
+time_pooling_size: 4
+rnn_class: !name:speechbrain.nnet.RNN.LSTM
 rnn_layers: 4
 rnn_neurons: 1024
 rnn_bidirectional: True
@@ -82,8 +84,10 @@ enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
     cnn_channels: !ref <cnn_channels>
     cnn_kernelsize: !ref <cnn_kernelsize>
     inter_layer_pooling_size: !ref <inter_layer_pooling_size>
-    time_pooling: False
-    using_2d_pooling: True
+    time_pooling: True
+    using_2d_pooling: False
+    time_pooling_size: !ref <time_pooling_size>
+    rnn_class: !ref <rnn_class>
     rnn_layers: !ref <rnn_layers>
     rnn_neurons: !ref <rnn_neurons>
     rnn_bidirectional: !ref <rnn_bidirectional>
