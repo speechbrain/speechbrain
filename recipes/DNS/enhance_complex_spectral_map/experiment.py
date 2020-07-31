@@ -82,8 +82,10 @@ class SEBrain(sb.core.Brain):
         ids, wavs, lens = x
         wavs, lens = wavs.to(params.device), lens.to(params.device)
 
-        feats = params.compute_stft(wavs)
-        feats = torch.squeeze(torch.cat(torch.split(feats, 1, dim=-1), dim=2))
+        feats = params.compute_stft(wavs)  # [N, T, F, 2]
+        feats = torch.squeeze(
+            torch.cat(torch.split(feats, 1, dim=-1), dim=2)
+        )  # [N, T, 2*F]
 
         output = params.model(feats, init_params)
         output = torch.cat(
@@ -91,7 +93,7 @@ class SEBrain(sb.core.Brain):
                 torch.unsqueeze(output, dim=-1), params.n_fft // 2 + 1, dim=2
             ),
             dim=-1,
-        )
+        )  # [N, T, F, 2]
         return output
 
     def compute_objectives(self, predictions, cleans, stage="train"):
@@ -184,35 +186,6 @@ class SEBrain(sb.core.Brain):
             meta={"PESQ": epoch_pesq},
             importance_keys=[ckpt_recency, lambda c: c.meta["PESQ"]],
         )
-
-    def resynthesize(self, predictions, noisys):
-        ids, wavs, lens = noisys
-        lens = lens * wavs.shape[1]
-        predictions = predictions.cpu()
-
-        # Extract noisy phase
-        feats = params.compute_stft(wavs)
-        phase = torch.atan2(feats[:, :, :, 1], feats[:, :, :, 0])
-        complex_predictions = torch.mul(
-            torch.unsqueeze(predictions, -1),
-            torch.cat(
-                (
-                    torch.unsqueeze(torch.cos(phase), -1),
-                    torch.unsqueeze(torch.sin(phase), -1),
-                ),
-                -1,
-            ),
-        )
-
-        # Get the predicted waveform
-        pred_wavs = params.compute_istft(complex_predictions)
-
-        # Normalize the waveform
-        abs_max, _ = torch.max(torch.abs(pred_wavs), dim=1, keepdim=True)
-        pred_wavs = pred_wavs / abs_max * 0.99
-
-        padding = (0, wavs.shape[1] - pred_wavs.shape[1])
-        return torch.nn.functional.pad(pred_wavs, padding)
 
 
 prepare_dns(

@@ -23,9 +23,9 @@ csv_valid: !ref <data_folder>/valid.csv
 csv_test: !ref <data_folder>/test.csv
 
 # Training Parameters
-N_epochs: 20
+N_epochs: 50
 N_batch: 8
-lr: 0.0002
+lr: 0.002
 device: cuda:0
 
 # Model Parameters
@@ -117,29 +117,29 @@ linear: !new:speechbrain.nnet.complex_networks.linear.ComplexLinear
   n_neurons: !ref <n_fft> // 2 + 1
   bias: False
 
-norm1: !new:speechbrain.nnet.complex_networks.normalization.ComplexBatchNorm
-norm2: !new:speechbrain.nnet.complex_networks.normalization.ComplexBatchNorm
-norm3: !new:speechbrain.nnet.complex_networks.normalization.ComplexBatchNorm
-norm4: !new:speechbrain.nnet.complex_networks.normalization.ComplexBatchNorm
-norm5: !new:speechbrain.nnet.complex_networks.normalization.ComplexBatchNorm
-norm6: !new:speechbrain.nnet.complex_networks.normalization.ComplexBatchNorm
-norm7: !new:speechbrain.nnet.complex_networks.normalization.ComplexBatchNorm
+norm1: !new:speechbrain.nnet.complex_networks.normalization.ComplexLayerNorm
+norm2: !new:speechbrain.nnet.complex_networks.normalization.ComplexLayerNorm
+norm3: !new:speechbrain.nnet.complex_networks.normalization.ComplexLayerNorm
+norm4: !new:speechbrain.nnet.complex_networks.normalization.ComplexLayerNorm
+norm5: !new:speechbrain.nnet.complex_networks.normalization.ComplexLayerNorm
+norm6: !new:speechbrain.nnet.complex_networks.normalization.ComplexLayerNorm
+norm7: !new:speechbrain.nnet.complex_networks.normalization.ComplexLayerNorm
 
 activation: !new:torch.nn.LeakyReLU
 
 model: !new:speechbrain.nnet.containers.Sequential
   - !ref <conv1>
+  - !ref <activation>
   - !ref <norm1>
-  - !ref <activation>
   - !ref <conv2>
+  - !ref <activation>
   - !ref <norm2>
-  - !ref <activation>
   - !ref <conv3>
+  - !ref <activation>
   - !ref <norm3>
-  - !ref <activation>
   - !ref <conv4>
-  - !ref <norm4>
   - !ref <activation>
+  - !ref <norm4>
   - !ref <linear>
 
 compute_cost: !name:speechbrain.nnet.losses.mse_loss
