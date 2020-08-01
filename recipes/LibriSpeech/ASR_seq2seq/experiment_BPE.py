@@ -98,6 +98,9 @@ class ASR(sb.core.Brain):
         x = params.enc(feats, init_params=init_params)
 
         # Prepend bos token at the beginning
+        if hasattr(params, "env_corrupt"):
+            bpe = torch.cat([bpe, bpe], dim=0)
+
         y_in = prepend_bos_token(bpe, bos_index=params.bos_index)
         e_in = params.emb(y_in, init_params=init_params)
         h, _ = params.dec(e_in, x, wav_lens, init_params)
