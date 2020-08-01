@@ -284,7 +284,13 @@ class S2SBeamSearcher(S2SBaseSearcher):
     length_rewarding : float
         Default : 0.0
         The coefficient of length rewarding (γ).
-        log P(y|x) + λ log P_LM(y) + γ*len(y
+        log P(y|x) + λ log P_LM(y) + γ*len(y)
+    lm_weight : float
+        Default : 0.0
+        The weight of LM when performing beam search (λ).
+        log P(y|x) + λ log P_LM(y)
+    lm_modules : torch.nn.ModuleList
+        neural networks modules for LM.
     using_max_attn_shift: bool
         Whether using the max_attn_shift constaint. Default: False
     max_attn_shift: int

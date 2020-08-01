@@ -58,7 +58,8 @@ class MyBeamSearcher(S2SRNNBeamSearcher):
         return log_probs, hs
 
     def permute_lm_mem(self, memory, index):
-        # This is to permute lm memory to synchronize with current index.
+        # This is to permute lm memory to synchronize with current index during beam search.
+        # The order of beams will be shuffled by scores every timestep to allow batched beam search.
         # Further details please refer to speechbrain/decoder/seq2seq.py.
 
         if isinstance(memory, tuple):
@@ -70,6 +71,7 @@ class MyBeamSearcher(S2SRNNBeamSearcher):
         return memory
 
     def reset_lm_mem(self, batch_size, device):
+        # set hidden_state=None, pytorch RNN will automatically set it to zero vectors.
         return None
 
 
