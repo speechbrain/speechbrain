@@ -33,13 +33,17 @@ class ASR(sb.core.Brain):
     def compute_forward(self, x, stage="train", init_params=False):
         ids, wavs, wav_lens = x
         wavs, wav_lens = wavs.to(params.device), wav_lens.to(params.device)
-        if hasattr(params, "env_corrupt"):
+
+        # Adding environmental corruption if specified (i.e., noise+rev)
+        if hasattr(params, "env_corrupt") and stage == "train":
             wavs_noise = params.env_corrupt(wavs, wav_lens, init_params)
             wavs = torch.cat([wavs, wavs_noise], dim=0)
             wav_lens = torch.cat([wav_lens, wav_lens])
 
+        # Adding time-domain SpecAugment if specified
         if hasattr(params, "augmentation"):
             wavs = params.augmentation(wavs, wav_lens, init_params)
+
         feats = params.compute_features(wavs, init_params)
         feats = params.normalize(feats, wav_lens)
         out = params.model(feats, init_params)
@@ -51,13 +55,15 @@ class ASR(sb.core.Brain):
         pout, pout_lens = predictions
         ids, phns, phn_lens = targets
         phns, phn_lens = phns.to(params.device), phn_lens.to(params.device)
-        if hasattr(params, "env_corrupt"):
-            phns = torch.cat([phns, phns], dim=0)
-            phn_lens = torch.cat([phn_lens, phn_lens], dim=0)
-        loss = params.compute_cost(pout, phns, pout_lens, phn_lens)
-
         stats = {}
-        if stage != "train":
+
+        if stage == "train":
+            if hasattr(params, "env_corrupt"):
+                phns = torch.cat([phns, phns], dim=0)
+                phn_lens = torch.cat([phn_lens, phn_lens], dim=0)
+            loss = params.compute_cost(pout, phns, pout_lens, phn_lens)
+        else:
+            loss = params.compute_cost(pout, phns, pout_lens, phn_lens)
             ind2lab = params.train_loader.label_dict["phn"]["index2lab"]
             sequence = ctc_greedy_decode(pout, pout_lens, blank_id=-1)
             sequence = convert_index_to_lab(sequence, ind2lab)
@@ -67,7 +73,6 @@ class ASR(sb.core.Brain):
                 ids, phns, sequence, compute_alignments=True
             )
             stats["PER"] = per_stats
-
         return loss, stats
 
     def on_epoch_end(self, epoch, train_stats, valid_stats=None):
@@ -93,6 +98,9 @@ first_x, first_y = next(iter(train_set))
 
 # Modules are passed to optimizer and have train/eval called on them
 modules = [params.model, params.output]
+
+# We need to pass the augmentation module too.
+# This way we do augment only in traning mode.
 if hasattr(params, "augmentation"):
     modules.append(params.augmentation)
 
