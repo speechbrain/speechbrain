@@ -1,4 +1,4 @@
-"""A popular speech model.
+"""This is an extenstion of the popular speech model with consist of CNN -> Transformer-Encoder -> RNN -> DNN
 
 Authors
  * Mirco Ravanelli 2020
@@ -6,6 +6,7 @@ Authors
  * Ju-Chieh Chou 2020
  * Titouan Parcollet 2020
  * Abdel 2020
+ * Jianyuan Zhong 2020
 """
 import torch
 from speechbrain.nnet.RNN import LiGRU
@@ -15,6 +16,8 @@ from speechbrain.nnet.pooling import Pooling1d, Pooling2d
 from speechbrain.nnet.dropout import Dropout2d
 from speechbrain.nnet.containers import Sequential
 from speechbrain.nnet.normalization import BatchNorm1d, LayerNorm
+from speechbrain.lobes.models.transformer.Transformer import TransformerEncoder
+from speechbrain.nnet.attention import PositionalwiseFeedForward
 
 
 class CRDNN(Sequential):
@@ -40,10 +43,16 @@ class CRDNN(Sequential):
         The number of elements to pool on the time axis.
     time_pooling_stride : int
         The number of elements to increment by when iterating the time axis.
-    using_2d_pooling: bool
-        Whether using a 2D or 1D pooling after each cnn block.
-    inter_layer_pooling_size : list of ints
-        A list of the number of pooling for each cnn block.
+    self_attention : bool
+        if set to true, self-attention layers will be placed in front of rnns
+    self_attention_layers : int
+        number of self-attention layers
+    self_attention_num_heads : int
+        number of self-attention heads
+    self_attention_model_dim : int
+        dimension self-attention output
+    self_attention_hidden_dim : int
+        hidden dimension for positionalwise feedforward
     rnn_class : torch class
         The type of rnn to use in CRDNN network (LiGRU, LSTM, GRU, RNN)
     rnn_layers : int
@@ -76,13 +85,19 @@ class CRDNN(Sequential):
         time_pooling=False,
         time_pooling_size=2,
         freq_pooling_size=2,
-        rnn_class=LiGRU,
-        inter_layer_pooling_size=[2, 2],
+        inter_layer_pooling_size=2,
         using_2d_pooling=False,
+        self_attention=False,
+        self_attention_layers=1,
+        self_attention_num_heads=32,
+        self_attention_model_dim=512,
+        self_attention_hidden_dim=512,
+        rnn_class=LiGRU,
         rnn_layers=4,
         rnn_neurons=512,
         rnn_bidirectional=True,
         rnn_re_init=False,
+        dnn_postionalwise=False,
         dnn_blocks=2,
         dnn_neurons=512,
     ):
@@ -93,15 +108,15 @@ class CRDNN(Sequential):
             if not using_2d_pooling:
                 pooling = Pooling1d(
                     pool_type="max",
-                    kernel_size=inter_layer_pooling_size[block_index],
+                    kernel_size=inter_layer_pooling_size,
                     pool_axis=2,
                 )
             else:
                 pooling = Pooling2d(
                     pool_type="max",
                     kernel_size=(
-                        inter_layer_pooling_size[block_index],
-                        inter_layer_pooling_size[block_index],
+                        inter_layer_pooling_size,
+                        inter_layer_pooling_size,
                     ),
                     pool_axis=(1, 2),
                 )
@@ -127,33 +142,62 @@ class CRDNN(Sequential):
             )
 
         if time_pooling:
+            blocks.extend(
+                [
+                    Pooling1d(
+                        pool_type="max",
+                        kernel_size=time_pooling_size,
+                        pool_axis=1,
+                    ),
+                ]
+            )
+
+        if self_attention:
             blocks.append(
-                Pooling1d(
-                    pool_type="max", kernel_size=time_pooling_size, pool_axis=1,
-                )
+                TransformerEncoder(
+                    num_layers=self_attention_layers,
+                    nhead=self_attention_num_heads,
+                    d_ffn=self_attention_hidden_dim,
+                ),
             )
 
         if rnn_layers > 0:
-            blocks.append(
-                rnn_class(
-                    hidden_size=rnn_neurons,
-                    num_layers=rnn_layers,
-                    dropout=dropout,
-                    bidirectional=rnn_bidirectional,
-                    re_init=rnn_re_init,
-                )
+            blocks.extend(
+                [
+                    rnn_class(
+                        hidden_size=rnn_neurons,
+                        num_layers=rnn_layers,
+                        dropout=dropout,
+                        bidirectional=rnn_bidirectional,
+                        re_init=rnn_re_init,
+                    ),
+                ]
             )
 
         for block_index in range(dnn_blocks):
-            blocks.extend(
-                [
-                    Linear(
-                        n_neurons=dnn_neurons, bias=True, combine_dims=False,
-                    ),
-                    BatchNorm1d(),
-                    activation(),
-                    torch.nn.Dropout(p=dropout),
-                ]
-            )
+            if dnn_postionalwise:
+                blocks.extend(
+                    [
+                        PositionalwiseFeedForward(
+                            hidden_size=dnn_neurons, dropout=dropout
+                        ),
+                        LayerNorm(),
+                        activation(),
+                        torch.nn.Dropout(p=dropout),
+                    ]
+                )
+            else:
+                blocks.extend(
+                    [
+                        Linear(
+                            n_neurons=dnn_neurons,
+                            bias=True,
+                            combine_dims=False,
+                        ),
+                        BatchNorm1d(),
+                        torch.nn.LeakyReLU(),
+                        torch.nn.Dropout(p=dropout),
+                    ]
+                )
 
         super().__init__(*blocks)
