@@ -100,7 +100,7 @@ class ASR(sb.core.Brain):
             seq_lengths.to(params.device),
         )
 
-        if hasattr(params, "env_corrupt"):
+        if hasattr(params, "env_corrupt") and stage == "train":
             wavs_noise = params.env_corrupt(wavs, wav_lens, init_params)
             wavs = torch.cat([wavs, wavs_noise], dim=0)
             wav_lens = torch.cat([wav_lens, wav_lens])
@@ -320,7 +320,7 @@ asr_brain = ASR(
     modules=modules,
     optimizer=params.optimizer,
     first_inputs=[first_x, first_y],
-    auto_mix_prec=params.auto_precision_mix,
+    auto_mix_prec=params.auto_mix_precision,
 )
 
 
