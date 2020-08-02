@@ -13,7 +13,6 @@ from speechbrain.data_io.data_io import append_eos_token
 from speechbrain.decoders.seq2seq import S2SRNNGreedySearcher
 from speechbrain.decoders.seq2seq import S2SRNNBeamSearcher
 from speechbrain.decoders.decoders import undo_padding
-from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.train_logger import summarize_error_rate
 
 # This hack needed to import data preparation script from ..
@@ -163,10 +162,7 @@ class ASR(sb.core.Brain):
         epoch_stats = {"epoch": epoch, "lr": old_lr}
         params.train_logger.log_stats(epoch_stats, train_stats, valid_stats)
 
-        checkpointer.save_and_keep_only(
-            meta={"PER": per},
-            importance_keys=[ckpt_recency, lambda c: -c.meta["PER"]],
-        )
+        checkpointer.save_and_keep_only(meta={"PER": per}, min_keys=["PER"])
 
 
 # Prepare data
@@ -192,7 +188,7 @@ checkpointer.recover_if_possible()
 asr_brain.fit(params.epoch_counter, train_set, valid_set)
 
 # Load best checkpoint for evaluation
-checkpointer.recover_if_possible(lambda c: -c.meta["PER"])
+checkpointer.recover_if_possible(min_key="PER")
 test_stats = asr_brain.evaluate(params.test_loader())
 params.train_logger.log_stats(
     stats_meta={"Epoch loaded": params.epoch_counter.current},

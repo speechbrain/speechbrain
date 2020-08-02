@@ -5,7 +5,6 @@ import torch
 import torchaudio
 import multiprocessing
 import speechbrain as sb
-from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.train_logger import summarize_average
 from speechbrain.processing.features import spectral_magnitude
 from pystoi.stoi import stoi
@@ -136,8 +135,7 @@ class SEBrain(sb.core.Brain):
 
         loss = summarize_average(valid_stats["loss"])
         params.checkpointer.save_and_keep_only(
-            meta={"loss": loss},
-            importance_keys=[ckpt_recency, lambda c: -c.meta["loss"]],
+            meta={"loss": loss}, min_keys=["loss"],
         )
 
     def resynthesize(self, predictions, inputs):
@@ -187,7 +185,7 @@ params.checkpointer.recover_if_possible()
 se_brain.fit(params.epoch_counter, train_set, valid_set)
 
 # Load best checkpoint for evaluation
-params.checkpointer.recover_if_possible(lambda c: -c.meta["loss"])
+params.checkpointer.recover_if_possible(min_key="loss")
 test_stats = se_brain.evaluate(params.test_loader())
 params.train_logger.log_stats(
     stats_meta={"Epoch loaded": params.epoch_counter.current},
