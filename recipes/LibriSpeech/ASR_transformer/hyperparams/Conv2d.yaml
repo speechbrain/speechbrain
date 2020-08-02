@@ -21,6 +21,7 @@ ctc_weight: 0.3
 gradient_accumulation: 4
 device: 'cuda'
 multigpu: True
+auto_precision_mix: False
 
 # Feature parameters
 sample_rate: 16000
@@ -68,7 +69,7 @@ CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
     norm: !name:speechbrain.nnet.normalization.LayerNorm
     num_blocks: 3
     num_layers_per_block: 1
-    out_channels: (128, 256, 512)
+    out_channels: (128, 128, 256)
     strides: (1, 2, 2)
     residuals: (False, False, False)
     activation: !name:torch.nn.ReLU
@@ -81,7 +82,7 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.Transforme
     num_decoder_layers: 6
     d_ffn: 2048
     dropout: 0.0
-    activation: !name:torch.nn.ReLU
+    activation: !name:torch.nn.GELU
 
 ctc_lin: !new:speechbrain.nnet.linear.Linear
     n_neurons: !ref <output_neurons>
@@ -125,24 +126,27 @@ train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_read: [wav, wrd]
     add_padding_label: True
     num_workers: 4
+    drop_last: True
 
 valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_valid>
-    batch_size: 8
+    batch_size: 4
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
     csv_read: [wav, wrd]
     add_padding_label: True
     num_workers: 4
+    drop_last: True
 
 test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_test>
-    batch_size: 8
+    batch_size: 4
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
     csv_read: [wav, wrd]
     add_padding_label: True
     num_workers: 4
+    drop_last: True
 
 ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
     blank_index: !ref <blank_index>
