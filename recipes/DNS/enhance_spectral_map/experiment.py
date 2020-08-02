@@ -85,7 +85,7 @@ class SEBrain(sb.core.Brain):
         feats = spectral_magnitude(feats, power=0.5)
         feats = torch.log1p(feats)
 
-        output = params.model(feats, init_params)
+        output = params.model(feats, init_params=init_params)
 
         return output
 
