@@ -15,7 +15,7 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: !PLACEHOLDER # e.g., /localscratch/LibriSpeech
+data_folder: /localscratch/LibriSpeech
 csv_train: !ref <data_folder>/train-clean-100.csv
 csv_valid: !ref <data_folder>/dev-clean.csv
 csv_test: !ref <data_folder>/test-clean.csv
@@ -25,7 +25,8 @@ number_of_epochs: 45
 batch_size: 8
 lr: 1.0
 device: 'cuda:0'
-multigpu: True
+multigpu: False
+ter_eval: False
 
 # Feature parameters
 sample_rate: 16000
@@ -39,7 +40,7 @@ cnn_blocks: 3
 cnn_channels: (64, 128, 256)
 inter_layer_pooling_size: (2, 2, 2)
 cnn_kernelsize: (3, 3)
-time_pooling_size: 8
+time_pooling_size: 4
 rnn_class: !name:speechbrain.nnet.RNN.LSTM
 rnn_layers: 4
 rnn_neurons: 1024
@@ -51,10 +52,7 @@ dnn_neurons: 512
 output_neurons: 1000 # index(blank/eos/bos) = 0
 blank_index: 0
 
-# Decode params
-# allow token error rate computation
-ter_eval: True
-
+# BPE tokenizer
 bpe_tokenizer: !new:speechbrain.tokenizers.SentencePiece.SentencePiece
     model_dir: !ref <save_folder>
     vocab_size: !ref <output_neurons>

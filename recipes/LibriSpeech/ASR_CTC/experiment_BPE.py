@@ -50,13 +50,14 @@ class ASR(sb.core.Brain):
     def compute_forward(self, x, stage="train", init_params=False):
         ids, wavs, wav_lens = x
         wavs, wav_lens = wavs.to(params.device), wav_lens.to(params.device)
-        if hasattr(params, "env_corrupt"):
+        if hasattr(params, "env_corrupt") and stage == "train":
             wavs_noise = params.env_corrupt(wavs, wav_lens, init_params)
             wavs = torch.cat([wavs, wavs_noise], dim=0)
             wav_lens = torch.cat([wav_lens, wav_lens])
 
         if hasattr(params, "augmentation"):
             wavs = params.augmentation(wavs, wav_lens, init_params)
+
         feats = params.compute_features(wavs, init_params)
         feats = params.normalize(feats, wav_lens)
         out = params.enc(feats, init_params=init_params)
@@ -81,7 +82,7 @@ class ASR(sb.core.Brain):
         )
         bpe, bpe_lens = bpe.to(params.device), bpe_lens.to(params.device)
 
-        if hasattr(params, "env_corrupt"):
+        if hasattr(params, "env_corrupt") and stage == "train":
             bpe = torch.cat([bpe, bpe], dim=0)
             bpe_lens = torch.cat([bpe_lens, bpe_lens], dim=0)
         loss = params.ctc_cost(pout, bpe, pout_lens, bpe_lens)
