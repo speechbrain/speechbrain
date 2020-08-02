@@ -1,13 +1,15 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: !PLACEHOLDER  # e.g, 1234
+#seed: !PLACEHOLDER  # e.g, 1234
+seed: 7
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/augment_CRDNN_time_pooling/<seed>
+output_folder: !ref results/CRDNN_2d_pooling_BPE/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: !PLACEHOLDER  # e.g. /path/to/librispeech
+#data_folder: !PLACEHOLDER  # e.g. /path/to/librispeech
+data_folder: /network/tmp1/abdelwah/librispeech/LibriSpeech
 csv_train: !ref <data_folder>/train-clean-100.csv
 csv_valid: !ref <data_folder>/dev-clean.csv
 csv_test: !ref <data_folder>/test-clean.csv
@@ -18,8 +20,7 @@ number_of_ctc_epochs: 10
 batch_size: 8
 lr: 1.0
 ctc_weight: 0.5
-device: 'cuda'
-multigpu: False
+device: 'cuda:0'
 
 # Feature parameters
 sample_rate: 16000
@@ -29,8 +30,9 @@ n_mels: 40
 # Model parameters
 activation: !name:torch.nn.LeakyReLU
 dropout: 0.15
-cnn_blocks: 2
-cnn_channels: (128, 128)
+cnn_blocks: 3
+cnn_channels: (64, 128, 256)
+inter_layer_pooling_size: (2, 2, 2)
 cnn_kernelsize: (3, 3)
 rnn_layers: 4
 rnn_neurons: 1024
@@ -40,12 +42,12 @@ dnn_neurons: 512
 emb_size: 128
 
 # Outputs
-output_neurons: 29 # 28 chars + 1 blank/eos/bos
-blank_index: !ref <output_neurons> - 1
-
+output_neurons: 1000 # index(blank/eos/bos) = 0
+blank_index: 0
 # Decoding parameters
-bos_index: !ref <output_neurons> - 1
-eos_index: !ref <output_neurons> - 1
+# Be sure that the bos and eos index match with the BPEs ones
+bos_index: 0
+eos_index: 0
 min_decode_ratio: 0.0
 max_decode_ratio: 1.0
 beam_size: 80
@@ -54,6 +56,18 @@ eos_threshold: 1.5
 using_max_attn_shift: True
 max_attn_shift: 60
 
+# BPE
+bpe_tokenizer: !new:speechbrain.tokenizers.SentencePiece.SentencePiece
+    model_dir: !ref <save_folder>
+    vocab_size: !ref <output_neurons>
+    csv_train: !ref <csv_train>
+    csv_read: wrd
+    model_type: "unigram" # ["unigram", "bpe", "char"]
+    character_coverage: 1.0 # for language with large set of chars use 0.9995
+    bos_id: -1 # assume that bos = unk = 0
+    eos_id: -1 # assume that eos = unk = 0
+    pad_id: -1 # assume that pad = unk = 0
+
 # Functions
 enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
     activation: !ref <activation>
@@ -61,8 +75,9 @@ enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
     cnn_blocks: !ref <cnn_blocks>
     cnn_channels: !ref <cnn_channels>
     cnn_kernelsize: !ref <cnn_kernelsize>
-    time_pooling: True
-    using_2d_pooling: False
+    inter_layer_pooling_size: !ref <inter_layer_pooling_size>
+    time_pooling: False
+    using_2d_pooling: True
     rnn_layers: !ref <rnn_layers>
     rnn_neurons: !ref <rnn_neurons>
     rnn_bidirectional: !ref <rnn_bidirectional>
@@ -87,10 +102,10 @@ dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
     dropout: !ref <dropout>
 
 ctc_lin: !new:speechbrain.nnet.linear.Linear
-    n_neurons: !ref <output_neurons> # 28 char + 1 blank
+    n_neurons: !ref <output_neurons>
 
 seq_lin: !new:speechbrain.nnet.linear.Linear
-    n_neurons: !ref <output_neurons> # 28 char + 1 eos
+    n_neurons: !ref <output_neurons>
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
@@ -120,21 +135,21 @@ train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
-    csv_read: [wav, char]
+    csv_read: [wav, wrd]
 
 valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_valid>
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
-    csv_read: [wav, char]
+    csv_read: [wav, wrd]
 
 test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_test>
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
-    csv_read: [wav, char]
+    csv_read: [wav, wrd]
 
 ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
     blank_index: !ref <blank_index>
