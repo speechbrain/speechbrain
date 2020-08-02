@@ -6,6 +6,9 @@ Authors
 """
 
 import torch
+from speechbrain.utils.checkpoints import register_checkpoint_hooks
+from speechbrain.utils.checkpoints import mark_as_saver
+from speechbrain.utils.checkpoints import mark_as_loader
 
 
 def batch_log_matvecmul(A, b):
@@ -78,6 +81,7 @@ def batch_log_maxvecmul(A, b):
     return x, argmax
 
 
+@register_checkpoint_hooks
 class HMMAligner(torch.nn.Module):
     """
     This class calculates Viterbi alignments in the forward method.
@@ -721,3 +725,12 @@ class HMMAligner(torch.nn.Module):
             return self._get_viterbi_batch(ids, lens_abs)
         else:
             return self._get_flat_start_batch(lens_abs, phn_lens_abs, phns)
+
+    @mark_as_saver
+    def _save(self, path):
+        torch.save(self.align_dict, path)
+
+    @mark_as_loader
+    def _load(self, path, end_of_epoch):
+        del end_of_epoch  # Not used here.
+        self.align_dict = torch.load(path)
