@@ -256,7 +256,7 @@ asr_brain = ASR(
 if params.multigpu:
     params.enc = torch.nn.DataParallel(params.enc)
     params.ctc_lin = torch.nn.DataParallel(params.ctc_lin)
-    params.emb = torch.nn.DataParallel(params.decoder_embedding)
+    params.emb = torch.nn.DataParallel(params.emb)
     params.dec = torch.nn.DataParallel(params.dec)
     params.seq_lin = torch.nn.DataParallel(params.seq_lin)
 

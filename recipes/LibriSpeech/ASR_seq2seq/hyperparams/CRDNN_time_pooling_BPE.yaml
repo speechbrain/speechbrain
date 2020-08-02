@@ -6,7 +6,7 @@
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 1234
+seed: 123
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/CRDNN_2d_pooling_BPE_4x/<seed>
 wer_file: !ref <output_folder>/wer.txt
@@ -14,19 +14,20 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: !PLACEHOLDER #e.g. /localscratch/LibriSpeech
+data_folder: /localscratch/LibriSpeech
 csv_train: !ref <data_folder>/train-clean-100.csv
 csv_valid: !ref <data_folder>/dev-clean.csv
 csv_test: !ref <data_folder>/test-clean.csv
 
 # Training parameters
 number_of_epochs: 30
-number_of_ctc_epochs: 10
+number_of_ctc_epochs: 30
 batch_size: 8
 lr: 1.0
 ctc_weight: 0.5
 device: 'cuda'
 multigpu: False
+ter_eval: False
 
 # Feature parameters
 sample_rate: 16000
@@ -63,6 +64,7 @@ length_penalty: 0.3
 eos_threshold: 1.5
 using_max_attn_shift: False
 max_attn_shift: 60
+
 # BPE
 bpe_tokenizer: !new:speechbrain.tokenizers.SentencePiece.SentencePiece
     model_dir: !ref <save_folder>
@@ -74,6 +76,11 @@ bpe_tokenizer: !new:speechbrain.tokenizers.SentencePiece.SentencePiece
     bos_id: -1 # assume that bos = unk = 0
     eos_id: -1 # assume that eos = unk = 0
     pad_id: -1 # assume that pad = unk = 0
+
+# SpecAugment
+augmentation: !new:speechbrain.lobes.augment.tdsa.TimeDomainSpecAugment
+    sample_rate: !ref <sample_rate>
+    speeds: [95, 100, 105]
 
 # Functions
 enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
