@@ -23,6 +23,7 @@ from speechbrain.processing.signal_processing import (
     dB_to_amplitude,
     convolve1d,
     notch_filter,
+    reverberate,
 )
 
 
@@ -352,10 +353,7 @@ class AddReverb(torch.nn.Module):
             channel_added = True
 
         # Convert length from ratio to number of indices
-        lengths = (lengths * waveforms.shape[1])[:, None, None]
-
-        # Compute the average amplitude of the clean
-        orig_amplitude = compute_amplitude(waveforms, lengths)
+        # lengths = (lengths * waveforms.shape[1])[:, None, None]
 
         # Load and prepare RIR
         rir_waveform = self._load_rir(waveforms)
@@ -370,31 +368,13 @@ class AddReverb(torch.nn.Module):
             )
             rir_waveform = rir_waveform.transpose(1, -1)
 
-        # Compute index of the direct signal, so we can preserve alignment
-        value_max, direct_index = rir_waveform.abs().max(axis=1)
-
-        # Making sure the max is always positive (if not, flip)
-        # This is useful for speeech enhancment
-        if rir_waveform[0, direct_index, 0] < 0:
-            rir_waveform = -rir_waveform
-
-        # Use FFT to compute convolution, because of long reverberation filter
-        reverbed_waveform = convolve1d(
-            waveform=waveforms,
-            kernel=rir_waveform,
-            use_fft=True,
-            rotation_index=direct_index,
-        )
-
-        # Rescale to the average amplitude of the clean waveform
-        reverbed_amplitude = compute_amplitude(reverbed_waveform, lengths)
-        reverbed_waveform *= orig_amplitude / reverbed_amplitude
+        rev_waveform = reverberate(waveforms, rir_waveform, rescale_amp="avg")
 
         # Remove channels dimension if added
         if channel_added:
-            return reverbed_waveform.squeeze(-1)
+            return rev_waveform.squeeze(-1)
 
-        return reverbed_waveform
+        return rev_waveform
 
     def _load_rir(self, waveforms):
         try:
