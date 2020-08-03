@@ -95,7 +95,8 @@ valid_set = params.valid_loader()
 # Xvector Model
 modules = [params.xvector_model, params.classifier]
 first_x, first_y = next(iter(train_set))
-
+if hasattr(params, "augmentation"):
+    modules.append(params.augmentation)
 
 # Object initialization for training xvector model
 xvect_brain = XvectorBrain(
