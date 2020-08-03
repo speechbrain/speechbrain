@@ -100,7 +100,7 @@ class ASR(sb.core.Brain):
             seq_lengths.to(params.device),
         )
 
-        if hasattr(params, "env_corrupt") and stage == "train":
+        if hasattr(params, "env_corrupt"):
             wavs_noise = params.env_corrupt(wavs, wav_lens, init_params)
             wavs = torch.cat([wavs, wavs_noise], dim=0)
             wav_lens = torch.cat([wav_lens, wav_lens])
@@ -232,8 +232,6 @@ class ASR(sb.core.Brain):
             self.scaler.scale(loss).backward()
 
             # gradient accumulation
-            if not hasattr(self, "step"):
-                self.step = 0
             self.step = self.step + 1
             if self.step % params.gradient_accumulation == 0:
                 # gradient clipping
@@ -242,6 +240,11 @@ class ASR(sb.core.Brain):
                 self.scaler.step(self.optimizer.optim)
                 self.optimizer.zero_grad()
                 self.scaler.update()
+
+                # anneal lr every update
+                old_lr, new_lr = params.lr_annealing(
+                    [params.optimizer], None, None
+                )
         else:
             predictions = self.compute_forward(inputs, targets)
             loss, stats = self.compute_objectives(predictions, targets)
@@ -251,8 +254,6 @@ class ASR(sb.core.Brain):
             loss.backward()
 
             # gradient accumulation
-            if not hasattr(self, "step"):
-                self.step = 0
             self.step = self.step + 1
             if self.step % params.gradient_accumulation == 0:
                 # gradient clipping
@@ -261,8 +262,10 @@ class ASR(sb.core.Brain):
                 self.optimizer.step()
                 self.optimizer.zero_grad()
 
-            # anneal lr every update
-            old_lr, new_lr = params.lr_annealing([params.optimizer], None, None)
+                # anneal lr every update
+                old_lr, new_lr = params.lr_annealing(
+                    [params.optimizer], None, None
+                )
 
         # report the actual loss
         stats["loss"] = loss.detach() * params.gradient_accumulation

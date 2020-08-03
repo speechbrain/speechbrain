@@ -49,8 +49,6 @@ beam_searcher = S2SRNNBeamSearcher(
     min_decode_ratio=0,
     max_decode_ratio=1,
     beam_size=params.beam_size,
-    length_penalty=params.length_penalty,
-    eos_threshold=params.eos_threshold,
 )
 
 checkpointer = sb.utils.checkpoints.Checkpointer(
