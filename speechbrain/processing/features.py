@@ -366,9 +366,22 @@ class Filterbank(torch.nn.Module):
      top_db : float
          Top dB valu used for log-mels.
      freeze : bool
-         if False, it the central frequency and the band of each filter are
+         If False, it the central frequency and the band of each filter are
          added into nn.parameters. If True, the standard frozen features
          are computed.
+     param_change_factor: bool
+        If freeze=False, this parameter affects the speed at which the filter
+        parameters (i.e., central_freqs and bands) can be changed.  When high
+        (e.g., param_change_factor=1) the filters change a lot during training.
+        When low (e.g. param_change_factor=0.1) the filter parameters are more
+        stable during training
+     param_rand_factor: float
+        This parameter can be used to randomly change the filter parameters
+        (i.e, central frequencies and bands) during training.  It is thus a
+        sort of regularization. param_rand_factor=0 does not affect, while
+        param_rand_factor=0.15 allows random variations within +-15% of the
+        standard values of the filter parameters (e.g., if the central freq
+        is 100 Hz, we can randomly change it from 85 Hz to 115 Hz).
 
     Example
     -------
@@ -393,6 +406,8 @@ class Filterbank(torch.nn.Module):
         amin=1e-10,
         ref_value=1.0,
         top_db=80.0,
+        param_change_factor=1.0,
+        param_rand_factor=0.0,
         freeze=True,
     ):
         super().__init__()
@@ -411,6 +426,8 @@ class Filterbank(torch.nn.Module):
         self.n_stft = self.n_fft // 2 + 1
         self.db_multiplier = math.log10(max(self.amin, self.ref_value))
         self.device_inp = torch.device("cpu")
+        self.param_change_factor = param_change_factor
+        self.param_rand_factor = param_rand_factor
 
         if self.power_spectrogram == 2:
             self.multiplier = 10
@@ -438,8 +455,12 @@ class Filterbank(torch.nn.Module):
 
         # Adding the central frequency and the band to the list of nn param
         if not self.freeze:
-            self.f_central = torch.nn.Parameter(self.f_central)
-            self.band = torch.nn.Parameter(self.band)
+            self.f_central = torch.nn.Parameter(
+                self.f_central / (self.sample_rate * self.param_change_factor)
+            )
+            self.band = torch.nn.Parameter(
+                self.band / (self.sample_rate * self.param_change_factor)
+            )
 
         # Frequency axis
         all_freqs = torch.linspace(0, self.sample_rate // 2, self.n_stft)
@@ -477,7 +498,34 @@ class Filterbank(torch.nn.Module):
             0, 1
         )
 
-        # Creation of the multiplication matrix
+        # Uncomment to print filter parameters
+        # print(self.f_central*self.sample_rate * self.param_change_factor)
+        # print(self.band*self.sample_rate* self.param_change_factor)
+
+        # Creation of the multiplication matrix. It is used to create
+        # the filters that average the computed spectrogram.
+        if not self.freeze:
+            f_central_mat = f_central_mat * (
+                self.sample_rate
+                * self.param_change_factor
+                * self.param_change_factor
+            )
+            band_mat = band_mat * (
+                self.sample_rate
+                * self.param_change_factor
+                * self.param_change_factor
+            )
+
+        # Regularization with random changes of filter central frequnecy and band
+        elif self.param_rand_factor != 0 and self.training:
+            rand_change = (
+                1.0
+                + torch.rand(2) * 2 * self.param_rand_factor
+                - self.param_rand_factor
+            )
+            f_central_mat = f_central_mat * rand_change[0]
+            band_mat = band_mat * rand_change[1]
+
         fbank_matrix = self._create_fbank_matrix(f_central_mat, band_mat).to(
             spectrogram.device
         )

@@ -8,7 +8,6 @@ import speechbrain.utils.edit_distance as edit_distance
 from speechbrain.data_io.data_io import convert_index_to_lab
 from speechbrain.decoders.ctc import ctc_greedy_decode
 from speechbrain.decoders.decoders import undo_padding
-from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.train_logger import summarize_error_rate
 
 # This hack needed to import data preparation script from ..
@@ -24,7 +23,7 @@ with open(params_file) as fin:
 # Create experiment directory
 sb.core.create_experiment_directory(
     experiment_directory=params.output_folder,
-    params_to_save=params_file,
+    hyperparams_to_save=params_file,
     overrides=overrides,
 )
 
@@ -78,8 +77,7 @@ class ASR(sb.core.Brain):
         params.train_logger.log_stats(epoch_stats, train_stats, valid_stats)
 
         params.checkpointer.save_and_keep_only(
-            meta={"PER": per},
-            importance_keys=[ckpt_recency, lambda c: -c.meta["PER"]],
+            meta={"PER": per}, min_keys=["PER"],
         )
 
 
@@ -108,7 +106,7 @@ params.checkpointer.recover_if_possible()
 asr_brain.fit(params.epoch_counter, train_set, valid_set)
 
 # Load best checkpoint for evaluation
-params.checkpointer.recover_if_possible(lambda c: -c.meta["PER"])
+params.checkpointer.recover_if_possible(min_key="PER")
 test_stats = asr_brain.evaluate(params.test_loader())
 params.train_logger.log_stats(
     stats_meta={"Epoch loaded": params.epoch_counter.current},
