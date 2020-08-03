@@ -1,7 +1,7 @@
 # ################################
 # Model: VGG2 + LSTM + time pooling
-# Augmentation: TimeDomainSpecAugment
-# Additions: 2D pooling
+# Augmentation: TimeDomainSpecAugment + noise
+# Additions: BPE
 # Authors: Mirco Ravanelli, Peter Plantinga, Ju-Chieh Chou, Abdel HEBA 2020
 # ################################
 
