@@ -69,8 +69,9 @@ CNN: !new:speechbrain.lobes.models.ContextNet.ContextNet
     dropout: !ref <dropout>
     norm: !name:speechbrain.nnet.normalization.LayerNorm
     num_blocks: 9
-    conv_channels: (256, 256, 256, 256, 512, 512, 512, 512, 512)
-    strides: (1, 2, 1, 1, 2, 1, 1, 2, 1)
+    conv_channels: (256, 256, 256, 256, 512, 512, 512, 1024, 1024)
+    out_channels: 1024
+    strides: (1, 2, 1, 1, 1, 1, 1, 2, 1)
 
 Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.TransformerASR # yamllint disable-line rule:line-length
     tgt_vocab: !ref <output_neurons>
@@ -107,9 +108,9 @@ normalize: !new:speechbrain.processing.features.InputNormalization
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-augmentation: !new:speechbrain.lobes.augment.tdsa.TimeDomainSpecAugment
-    sample_rate: !ref <sample_rate>
-    speeds: [95, 100, 105]
+# augmentation: !new:speechbrain.lobes.augment.tdsa.TimeDomainSpecAugment
+#     sample_rate: !ref <sample_rate>
+#     speeds: [95, 100, 105]
 
 compute_features: !new:speechbrain.lobes.features.fbank.Fbank
     sample_rate: !ref <sample_rate>
@@ -127,7 +128,7 @@ train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
 
 valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_valid>
-    batch_size: 8
+    batch_size: 4
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
     csv_read: [wav, wrd]
