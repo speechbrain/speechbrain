@@ -217,7 +217,7 @@ class S2SRNNGreedySearcher(S2SGreedySearcher):
     >>> e = emb(inp)
     >>> h, _ = dec(e, enc, wav_len, init_params=True)
     >>> log_probs = act(lin(h, init_params=True))
-    >>> modules = [emb, dec, lin, act]
+    >>> modules = [emb, dec, lin]
     >>> searcher = S2SRNNGreedySearcher(
     ... modules,
     ... bos_index=4,
@@ -233,6 +233,10 @@ class S2SRNNGreedySearcher(S2SGreedySearcher):
         super(S2SRNNGreedySearcher, self).__init__(
             modules, bos_index, eos_index, min_decode_ratio, max_decode_ratio
         )
+        self.emb = self.modules[0]
+        self.dec = self.modules[1]
+        self.fc = self.modules[2]
+        self.softmax = torch.nn.LogSoftmax(dim=-1)
 
     def reset_mem(self, batch_size, device):
         """
@@ -240,17 +244,17 @@ class S2SRNNGreedySearcher(S2SGreedySearcher):
         as memory.
         """
         hs = None
-        emb, dec, lin, softmax = self.modules
-        dec.attn.reset()
-        c = torch.zeros(batch_size, dec.attn_dim).to(device)
+        self.dec.attn.reset()
+        c = torch.zeros(batch_size, self.dec.attn_dim).to(device)
         return hs, c
 
     def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
         hs, c = memory
-        emb, dec, lin, softmax = self.modules
-        e = emb(inp_tokens)
-        dec_out, hs, c, w = dec.forward_step(e, hs, c, enc_states, enc_lens)
-        log_probs = softmax(lin(dec_out))
+        e = self.emb(inp_tokens)
+        dec_out, hs, c, w = self.dec.forward_step(
+            e, hs, c, enc_states, enc_lens
+        )
+        log_probs = self.softmax(self.fc(dec_out))
         return log_probs, (hs, c), w
 
 
@@ -674,11 +678,10 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
     Parameters
     ----------
     modules : list of torch.nn.Module
-        The list should contain four items:
+        The list should contain three items:
             1. Embedding layer
             2. Attentional RNN decoder
             3. Output layer
-            4. LogSoftmax layer
 
     bos_index : int
         The index of beginning-of-sequence token.
@@ -725,7 +728,7 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
     >>> e = emb(inp)
     >>> h, _ = dec(e, enc, wav_len, init_params=True)
     >>> log_probs = act(lin(h, init_params=True))
-    >>> modules = [emb, dec, lin, act]
+    >>> modules = [emb, dec, lin]
     >>> searcher = S2SRNNBeamSearcher(
     ... modules,
     ... bos_index=4,
@@ -770,24 +773,27 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
             using_max_attn_shift,
             max_attn_shift,
         )
+        self.emb = self.modules[0]
+        self.dec = self.modules[1]
+        self.fc = self.modules[2]
+        self.softmax = torch.nn.LogSoftmax(dim=-1)
 
     def reset_mem(self, batch_size, device):
         hs = None
-        emb, dec, lin, softmax = self.modules
-        dec.attn.reset()
-        c = torch.zeros(batch_size, dec.attn_dim).to(device)
+        self.dec.attn.reset()
+        c = torch.zeros(batch_size, self.dec.attn_dim).to(device)
         return hs, c
 
     def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
         hs, c = memory
-        emb, dec, lin, softmax = self.modules
-        e = emb(inp_tokens)
-        dec_out, hs, c, w = dec.forward_step(e, hs, c, enc_states, enc_lens)
-        log_probs = softmax(lin(dec_out))
+        e = self.emb(inp_tokens)
+        dec_out, hs, c, w = self.dec.forward_step(
+            e, hs, c, enc_states, enc_lens
+        )
+        log_probs = self.softmax(self.fc(dec_out))
         return log_probs, (hs, c), w
 
     def permute_mem(self, memory, index):
-        emb, dec, lin, softmax = self.modules
         hs, c = memory
 
         # shape of hs: [num_layers, batch_size, n_neurons]
@@ -799,9 +805,9 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
             hs = torch.index_select(hs, dim=1, index=index)
 
         c = torch.index_select(c, dim=0, index=index)
-        if dec.attn_type == "location":
-            dec.attn.prev_attn = torch.index_select(
-                dec.attn.prev_attn, dim=0, index=index
+        if self.dec.attn_type == "location":
+            self.dec.attn.prev_attn = torch.index_select(
+                self.dec.attn.prev_attn, dim=0, index=index
             )
         return (hs, c)
 
@@ -868,6 +874,153 @@ def mask_by_condition(tensor, cond, fill_value):
         cond, tensor, torch.Tensor([fill_value]).to(tensor.device)
     )
     return tensor
+
+
+def _update_mem(inp_tokens, memory):
+    """This function is for updating the memory for transformer searches.
+    it is code at each decode step. When being called, it appends the predicted token of the previous step to existing memory.
+
+    Arguements:
+    -----------
+    inp_tokens: tensor
+        predicted token of the previous decoding step
+    memory: tensor
+        Contains all the predicted tokens
+    """
+    if memory is None:
+        return inp_tokens.unsqueeze(1)
+    return torch.cat([memory, inp_tokens.unsqueeze(1)], dim=-1)
+
+
+def _model_decode(model, softmax, fc, inp_tokens, memory, enc_states):
+    """This function implements 1 decode step for the transformer searches
+
+    Arguements:
+    -----------
+    model: torch class
+        Transformer model
+    softmax: torch class
+        softmax fuction
+    fc: torch class
+        output linear layer
+    inp_token: tensor
+        predicted token from t-1 step
+    memory: tensor
+        contains all predicted tokens
+    enc_states: tensor
+        encoder states
+    """
+    memory = _update_mem(inp_tokens, memory)
+    pred = model.decode(memory, enc_states)
+    prob_dist = softmax(fc(pred))
+    return prob_dist, memory
+
+
+class S2STransformerBeamSearch(S2SBeamSearcher):
+    """This class implements the beam search decoding
+    for Transformer.
+    See also S2SBaseSearcher(), S2SBeamSearcher().
+
+    Parameters
+    ----------
+    modules : list of torch.nn.Module
+        The list should contain two items:
+            1. Transformer model
+            2. Output layer
+
+    Example:
+    --------
+    >>> # see recipes/LibriSpeech/ASR_transformer/experiment.py
+    """
+
+    def __init__(
+        self,
+        modules,
+        bos_index,
+        eos_index,
+        min_decode_ratio,
+        max_decode_ratio,
+        beam_size,
+        using_eos_threshold=True,
+        eos_threshold=1.5,
+        length_normalization=True,
+        length_rewarding=0,
+        lm_weight=0.0,
+        lm_modules=None,
+        using_max_attn_shift=False,
+        max_attn_shift=60,
+        minus_inf=-1e20,
+    ):
+        super(S2STransformerBeamSearch, self).__init__(
+            modules,
+            bos_index,
+            eos_index,
+            min_decode_ratio,
+            max_decode_ratio,
+            beam_size,
+            using_eos_threshold,
+            eos_threshold,
+            length_normalization,
+            length_rewarding,
+            lm_weight,
+            lm_modules,
+            using_max_attn_shift,
+            max_attn_shift,
+        )
+
+        self.model = modules[0]
+        self.fc = modules[1]
+        self.softmax = torch.nn.LogSoftmax(dim=-1)
+
+    def reset_mem(self, batch_size, device):
+        return None
+
+    def permute_mem(self, memory, index):
+        memory = torch.index_select(memory, dim=0, index=index)
+        return memory
+
+    def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
+        prob_dist, memory = _model_decode(
+            self.model, self.softmax, self.fc, inp_tokens, memory, enc_states
+        )
+        return prob_dist[:, -1, :], memory, None
+
+
+class S2STransformerGreedySearch(S2SGreedySearcher):
+    """This class implements the greedy decoding
+    for AttentionalRNNDecoder (speechbrain/nnet/RNN.py).
+    See also S2SBaseSearcher() and S2SGreedySearcher().
+
+    Parameters
+    ----------
+    modules : list of torch.nn.Module
+        The list should contain two items:
+            1. Transformer model
+            2. Output layer
+
+    Example:
+    --------
+    >>> # see recipes/LibriSpeech/ASR_transformer/experiment.py
+    """
+
+    def __init__(
+        self, modules, bos_index, eos_index, min_decode_ratio, max_decode_ratio,
+    ):
+        super().__init__(
+            modules, bos_index, eos_index, min_decode_ratio, max_decode_ratio,
+        )
+        self.model = modules[0]
+        self.fc = modules[1]
+        self.softmax = torch.nn.LogSoftmax(dim=-1)
+
+    def reset_mem(self, batch_size, device):
+        return None
+
+    def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
+        prob_dist, memory = _model_decode(
+            self.model, self.softmax, self.fc, inp_tokens, memory, enc_states
+        )
+        return prob_dist[:, -1, :], memory, None
 
 
 def batch_filter_seq2seq_output(prediction, eos_id=-1):
