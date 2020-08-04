@@ -99,7 +99,7 @@ conv_out: !new:speechbrain.nnet.CNN.Conv1d
     kernel_size: 55
 
 activation: !new:torch.nn.LeakyReLU
-    negative_slope: 0.01
+    negative_slope: 0.3
 
 activation_tanh: !new:torch.nn.Tanh
 
