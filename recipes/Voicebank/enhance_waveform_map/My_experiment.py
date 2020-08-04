@@ -8,7 +8,11 @@ from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.train_logger import summarize_average
 from joblib import Parallel, delayed
 from stoi.stoi import stoi
-from pesq import pesq
+
+try:
+    from pesq import pesq
+except ImportError:
+    print("Please install PESQ from https://pypi.org/project/pesq/")
 
 # This hack needed to import data preparation script from ..
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -23,7 +27,7 @@ with open(params_file) as fin:
 # Create experiment directory
 sb.core.create_experiment_directory(
     experiment_directory=params.output_folder,
-    params_to_save=params_file,
+    hyperparams_to_save=params_file,
     overrides=overrides,
 )
 

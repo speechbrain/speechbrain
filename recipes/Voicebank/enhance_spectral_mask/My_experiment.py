@@ -9,7 +9,11 @@ from speechbrain.utils.train_logger import summarize_average
 from speechbrain.processing.features import spectral_magnitude
 from joblib import Parallel, delayed
 from stoi.stoi import stoi
-from pesq import pesq
+
+try:
+    from pesq import pesq
+except ImportError:
+    print("Please install PESQ from https://pypi.org/project/pesq/")
 
 # This hack needed to import data preparation script from ..
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -24,7 +28,7 @@ with open(params_file) as fin:
 # Create experiment directory
 sb.core.create_experiment_directory(
     experiment_directory=params.output_folder,
-    params_to_save=params_file,
+    hyperparams_to_save=params_file,
     overrides=overrides,
 )
 
@@ -57,7 +61,7 @@ class SEBrain(sb.core.Brain):
         ids, wavs, lens = x
         wavs, lens = wavs.to(params.device), lens.to(params.device)
         feats = params.compute_STFT(wavs)
-        feats = spectral_magnitude(feats, power=0.5)
+        feats = spectral_magnitude(feats, power=0.5, eps=0)
         feats = torch.log1p(feats)
 
         mask = torch.squeeze(params.model(feats, init_params=init_params))
@@ -69,7 +73,7 @@ class SEBrain(sb.core.Brain):
         ids, wavs, lens = targets
         wavs, lens = wavs.to(params.device), lens.to(params.device)
         feats = params.compute_STFT(wavs)
-        feats = spectral_magnitude(feats, power=0.5)
+        feats = spectral_magnitude(feats, power=0.5, eps=0)
         feats = torch.log1p(feats)
 
         loss = params.compute_cost(predictions, feats, lens)
