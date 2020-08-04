@@ -10,11 +10,11 @@ train_log: !ref <output_folder>/train_log.txt
 
 # Neural Parameters
 N_epochs: 100
-N_batch: 3
+N_batch: 2
 lr: 0.0002
 train_onthefly: False
 loss_fn: 'sisnr'
-progressbar: True
+progressbar: False
 
 tr_csv: 'wsj_tr.csv'
 cv_csv: 'wsj_cv.csv'
@@ -23,25 +23,40 @@ tt_csv: 'wsj_tt.csv'
 train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <tr_csv>
     batch_size: !ref <N_batch>
-    sentence_sorting: random
+    sentence_sorting: descending
     csv_read: [mix_wav, s1_wav, s2_wav]
 
 val_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <cv_csv>
     batch_size: !ref <N_batch>
-    sentence_sorting: random
+    sentence_sorting: descending
     csv_read: [mix_wav, s1_wav, s2_wav]
 
 test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <tt_csv>
     batch_size: !ref <N_batch>
-    sentence_sorting: random
+    sentence_sorting: descending
     csv_read: [mix_wav, s1_wav, s2_wav]
 
+augmentation: !new:speechbrain.lobes.augment.tdsa.TimeDomainSpecAugment
+    sample_rate: 8000
+    speeds: [95, 100, 105]
 
-conv_tasnet: !new:speechbrain.lobes.models.conv_tasnet.ConvTasNet
+# conv_tasnet: !new:speechbrain.lobes.models.conv_tasnet.ConvTasNet
+#    N: 256
+#    L: 20
+#    B: 256
+#    H: 512
+#    P: 3
+#    X: 8
+#    R: 4
+#    C: 2
+#    norm_type: 'gLN'
+#    causal: False
+#    mask_nonlinear: 'relu'
+
+MaskNet: !new:speechbrain.lobes.models.conv_tasnet.MaskNet
     N: 256
-    L: 20
     B: 256
     H: 512
     P: 3
@@ -52,6 +67,19 @@ conv_tasnet: !new:speechbrain.lobes.models.conv_tasnet.ConvTasNet
     causal: False
     mask_nonlinear: 'relu'
 
+Encoder: !new:speechbrain.lobes.models.conv_tasnet.Encoder
+    L: 21
+    N: 256
+
+Decoder: !new:speechbrain.lobes.models.conv_tasnet.Decoder
+    # N: 256
+    L: 20
+
+   #conv_tasnet: !new:speechbrain.lobes.models.conv_tasnet
+   #    - !ref <Encoder>
+   #    - !ref <MaskNet>
+   #    - !ref <Decoder>
+
 optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
     learning_rate: !ref <lr>
 
@@ -61,7 +89,9 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
-        model: !ref <conv_tasnet>
+        encoder: !ref <Encoder>
+        decoder: !ref <Decoder>
+        masknet: !ref <MaskNet>
         optimizer: !ref <optimizer>
         counter: !ref <epoch_counter>
 

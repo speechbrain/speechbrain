@@ -1,54 +1,15 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import math
-import itertools
+
+# import math
+# import itertools
+from speechbrain.processing.signal_processing import overlap_and_add
+from speechbrain.nnet.CNN import Conv1d
+from speechbrain.nnet.linear import Linear
+from speechbrain.nnet.containers import Sequential
 
 EPS = 1e-8
-
-
-def overlap_and_add(signal, frame_step):
-    """
-    Taken from https://github.com/kaituoxu/Conv-TasNet/blob/master/src/utils.py
-
-    Reconstructs a signal from a framed representation.
-    Adds potentially overlapping frames of a signal with shape
-    `[..., frames, frame_length]`, offsetting subsequent frames by `frame_step`.
-    The resulting tensor has shape `[..., output_size]` where
-        output_size = (frames - 1) * frame_step + frame_length
-    Args:
-        signal: A [..., frames, frame_length] Tensor. All dimensions may be unknown, and rank must be at least 2.
-        frame_step: An integer denoting overlap offsets. Must be less than or equal to frame_length.
-    Returns:
-        A Tensor with shape [..., output_size] containing the overlap-added frames of signal's inner-most two dimensions.
-        output_size = (frames - 1) * frame_step + frame_length
-    Based on https://github.com/tensorflow/tensorflow/blob/r1.12/tensorflow/contrib/signal/python/ops/reconstruction_ops.py
-    """
-    outer_dimensions = signal.size()[:-2]
-    frames, frame_length = signal.size()[-2:]
-
-    subframe_length = math.gcd(
-        frame_length, frame_step
-    )  # gcd=Greatest Common Divisor
-    subframe_step = frame_step // subframe_length
-    subframes_per_frame = frame_length // subframe_length
-    output_size = frame_step * (frames - 1) + frame_length
-    output_subframes = output_size // subframe_length
-
-    subframe_signal = signal.view(*outer_dimensions, -1, subframe_length)
-
-    frame = torch.arange(0, output_subframes).unfold(
-        0, subframes_per_frame, subframe_step
-    )
-    frame = signal.new_tensor(frame).long()  # signal may in GPU or CPU
-    frame = frame.contiguous().view(-1)
-
-    result = signal.new_zeros(
-        *outer_dimensions, output_subframes, subframe_length
-    )
-    result.index_add_(-2, frame, subframe_signal)
-    result = result.view(*outer_dimensions, -1)
-    return result
 
 
 class Encoder(nn.Module):
@@ -61,48 +22,59 @@ class Encoder(nn.Module):
         self.L, self.N = L, N
         # Components
         # 50% overlap
-        self.conv1d_U = nn.Conv1d(
-            1, N, kernel_size=L, stride=L // 2, bias=False
-        )
+        self.conv1d_U = Conv1d(N, kernel_size=L, stride=L // 2, bias=False)
+        # super().__init__(*conv1d_U)
 
-    def forward(self, mixture):
+    def forward(self, mixture, init_params=True):
         """
         Args:
             mixture: [M, T], M is batch size, T is #samples
         Returns:
             mixture_w: [M, N, K], where K = (T-L)/(L/2)+1 = 2T/L-1
         """
-        mixture = torch.unsqueeze(mixture, 1)  # [M, 1, T]
-        mixture_w = F.relu(self.conv1d_U(mixture))  # [M, N, K]
+        mixture = torch.unsqueeze(mixture, -1)  # [M, T, 1]
+
+        if init_params:
+            self.conv1d_U(mixture, init_params=True)
+
+        conv_out = self.conv1d_U(mixture)
+        mixture_w = F.relu(conv_out)  # [M, K, N]
         return mixture_w
 
 
 class Decoder(nn.Module):
-    def __init__(self, N, L):
+    def __init__(self, L):
         super(Decoder, self).__init__()
         # Hyper-parameter
-        self.N, self.L = N, L
+        self.L = L
         # Components
-        self.basis_signals = nn.Linear(N, L, bias=False)
+        self.basis_signals = Linear(L, bias=False)
 
-    def forward(self, mixture_w, est_mask):
+    def forward(self, mixture_w, est_mask, init_params=True):
         """
         Args:
-            mixture_w: [M, N, K]
-            est_mask: [M, C, N, K]
+            mixture_w: [M, K, N]
+            est_mask: [M, K, C, N]
         Returns:
-            est_source: [M, C, T]
+            est_source: [M, T, C]
         """
+
+        if init_params:
+            source_w = torch.unsqueeze(mixture_w, 2) * est_mask  # [M, K, C, N]
+            source_w = source_w.permute(0, 2, 1, 3)  # [M, C, K, N]
+
+            self.basis_signals(source_w, init_params=True)
+
         # D = W * M
-        source_w = torch.unsqueeze(mixture_w, 1) * est_mask  # [M, C, N, K]
-        source_w = torch.transpose(source_w, 2, 3)  # [M, C, K, N]
+        source_w = torch.unsqueeze(mixture_w, 2) * est_mask  # [M, K, C, N]
+        source_w = source_w.permute(0, 2, 1, 3)  # [M, C, K, N]
         # S = DV
         est_source = self.basis_signals(source_w)  # [M, C, K, L]
         est_source = overlap_and_add(est_source, self.L // 2)  # M x C x T
         return est_source
 
 
-class ConvTasNet(nn.Module):
+class ConvTasNet(Sequential):
     def __init__(
         self,
         N,
@@ -157,7 +129,9 @@ class ConvTasNet(nn.Module):
             if p.dim() > 1:
                 nn.init.xavier_normal_(p)
 
-    def forward(self, mixture):
+    def forward(
+        self, mixture,
+    ):
         """
         Args:
             mixture: [M, T], M is batch size, T is #samples
@@ -176,7 +150,34 @@ class ConvTasNet(nn.Module):
         return est_source
 
 
-class MaskNet(nn.Module):
+class TemporalBlocksSequential(Sequential):
+    def __init__(self, B, H, P, R, X, norm_type, causal):
+        repeats = []
+        for r in range(R):
+            blocks = []
+            for x in range(X):
+                dilation = 2 ** x
+                # padding = (
+                #    (P - 1) * dilation if causal else (P - 1) * dilation // 2
+                # )
+                blocks += [
+                    TemporalBlock(
+                        B,
+                        H,
+                        P,
+                        stride=1,
+                        padding="same",
+                        dilation=dilation,
+                        norm_type=norm_type,
+                        causal=causal,
+                    )
+                ]
+            repeats.extend(blocks)
+
+        super().__init__(*repeats)
+
+
+class MaskNet(Sequential):
     def __init__(
         self,
         N,
@@ -208,41 +209,23 @@ class MaskNet(nn.Module):
         self.C = C
         self.mask_nonlinear = mask_nonlinear
         # Components
-        # [M, N, K] -> [M, N, K]
-        layer_norm = ChannelwiseLayerNorm(N)
-        # [M, N, K] -> [M, B, K]
-        bottleneck_conv1x1 = nn.Conv1d(N, B, 1, bias=False)
+        # [M, K, N] -> [M, K, N]
+        self.layer_norm = ChannelwiseLayerNorm(N)
+        # [M, K, N] -> [M, K, B]
+        self.bottleneck_conv1x1 = Conv1d(B, 1, bias=False)
         # [M, B, K] -> [M, B, K]
-        repeats = []
-        for r in range(R):
-            blocks = []
-            for x in range(X):
-                dilation = 2 ** x
-                padding = (
-                    (P - 1) * dilation if causal else (P - 1) * dilation // 2
-                )
-                blocks += [
-                    TemporalBlock(
-                        B,
-                        H,
-                        P,
-                        stride=1,
-                        padding=padding,
-                        dilation=dilation,
-                        norm_type=norm_type,
-                        causal=causal,
-                    )
-                ]
-            repeats += [nn.Sequential(*blocks)]
-        temporal_conv_net = nn.Sequential(*repeats)
-        # [M, B, K] -> [M, C*N, K]
-        mask_conv1x1 = nn.Conv1d(B, C * N, 1, bias=False)
-        # Put together
-        self.network = nn.Sequential(
-            layer_norm, bottleneck_conv1x1, temporal_conv_net, mask_conv1x1
-        )
 
-    def forward(self, mixture_w):
+        self.temporal_conv_net = TemporalBlocksSequential(
+            B, H, P, R, X, norm_type, causal
+        )
+        # [M, B, K] -> [M, C*N, K]
+        self.mask_conv1x1 = Conv1d(C * N, 1, bias=False)
+        # Put together
+        # self.network = nn.Sequential(
+        #    layer_norm , bottleneck_conv1x1, #temporal_conv_net, mask_conv1x1
+        # )
+
+    def forward(self, mixture_w, init_params=True):
         """
         Keep this API same with TasNet
         Args:
@@ -250,11 +233,24 @@ class MaskNet(nn.Module):
         returns:
             est_mask: [M, C, N, K]
         """
-        M, N, K = mixture_w.size()
-        score = self.network(mixture_w)  # [M, N, K] -> [M, C*N, K]
-        score = score.view(M, self.C, N, K)  # [M, C*N, K] -> [M, C, N, K]
+
+        if init_params:
+            y = self.layer_norm(mixture_w)
+            y = self.bottleneck_conv1x1(y, init_params=True)
+
+            y = self.temporal_conv_net(y, init_params=True)
+            y = self.mask_conv1x1(y, init_params=True)
+
+        M, K, N = mixture_w.size()
+        y = self.layer_norm(mixture_w)
+        y = self.bottleneck_conv1x1(y)
+        y = self.temporal_conv_net(y)
+        score = self.mask_conv1x1(y)
+
+        # score = self.network(mixture_w)  # [M, K, N] -> [M, C*N, K]
+        score = score.reshape(M, K, self.C, N)  # [M, C*N, K] -> [M, C, N, K]
         if self.mask_nonlinear == "softmax":
-            est_mask = F.softmax(score, dim=1)
+            est_mask = F.softmax(score, dim=2)
         elif self.mask_nonlinear == "relu":
             est_mask = F.relu(score)
         else:
@@ -262,7 +258,7 @@ class MaskNet(nn.Module):
         return est_mask
 
 
-class TemporalBlock(nn.Module):
+class TemporalBlock(Sequential):
     def __init__(
         self,
         in_channels,
@@ -274,9 +270,9 @@ class TemporalBlock(nn.Module):
         norm_type="gLN",
         causal=False,
     ):
-        super(TemporalBlock, self).__init__()
+        # super(TemporalBlock, self).__init__()
         # [M, B, K] -> [M, H, K]
-        conv1x1 = nn.Conv1d(in_channels, out_channels, 1, bias=False)
+        conv1x1 = Conv1d(out_channels, 1, bias=False)
         prelu = nn.PReLU()
         norm = chose_norm(norm_type, out_channels)
         # [M, H, K] -> [M, B, K]
@@ -291,23 +287,39 @@ class TemporalBlock(nn.Module):
             causal,
         )
         # Put together
-        self.net = nn.Sequential(conv1x1, prelu, norm, dsconv)
+        net = [conv1x1, prelu, norm, dsconv]
+        super().__init__(*net)
 
-    def forward(self, x):
+    def forward(self, x, init_params=False):
         """
-        Args:
-            x: [M, B, K]
-        Returns:
-            [M, B, K]
+        Arguments
+        ---------
+        x : tensor
+            the input tensor to run through the network.
         """
         residual = x
-        out = self.net(x)
-        # TODO: when P = 3 here works fine, but when P = 2 maybe need to pad?
-        return out + residual  # look like w/o F.relu is better than w/ F.relu
-        # return F.relu(out + residual)
+        for layer in self.layers:
+            try:
+                x = layer(x, init_params=init_params)
+            except TypeError:
+                x = layer(x)
+        return x + residual
+
+    # def forward(self, x):
+    #    """
+    #    Args:
+    #        x: [M, B, K]
+    #    Returns:
+    #        [M, B, K]
+    #    """
+    #    residual = x
+    #    out = self(x)
+    #    # TODO: when P = 3 here works fine, but when P = 2 maybe need to pad?
+    #    return out + residual  # look like w/o F.relu is better than w/ F.relu
+    #    # return F.relu(out + residual)
 
 
-class DepthwiseSeparableConv(nn.Module):
+class DepthwiseSeparableConv(Sequential):
     def __init__(
         self,
         in_channels,
@@ -319,11 +331,10 @@ class DepthwiseSeparableConv(nn.Module):
         norm_type="gLN",
         causal=False,
     ):
-        super(DepthwiseSeparableConv, self).__init__()
+        # super(DepthwiseSeparableConv, self).__init__()
         # Use `groups` option to implement depthwise convolution
         # [M, H, K] -> [M, H, K]
-        depthwise_conv = nn.Conv1d(
-            in_channels,
+        depthwise_conv = Conv1d(
             in_channels,
             kernel_size,
             stride=stride,
@@ -337,25 +348,13 @@ class DepthwiseSeparableConv(nn.Module):
         prelu = nn.PReLU()
         norm = chose_norm(norm_type, in_channels)
         # [M, H, K] -> [M, B, K]
-        pointwise_conv = nn.Conv1d(in_channels, out_channels, 1, bias=False)
+        pointwise_conv = Conv1d(out_channels, 1, bias=False)
         # Put together
         if causal:
-            self.net = nn.Sequential(
-                depthwise_conv, chomp, prelu, norm, pointwise_conv
-            )
+            net = [depthwise_conv, chomp, prelu, norm, pointwise_conv]
         else:
-            self.net = nn.Sequential(
-                depthwise_conv, prelu, norm, pointwise_conv
-            )
-
-    def forward(self, x):
-        """
-        Args:
-            x: [M, H, K]
-        Returns:
-            result: [M, B, K]
-        """
-        return self.net(x)
+            net = [depthwise_conv, prelu, norm, pointwise_conv]
+        super().__init__(*net)
 
 
 class Chomp1d(nn.Module):
@@ -396,8 +395,8 @@ class ChannelwiseLayerNorm(nn.Module):
 
     def __init__(self, channel_size):
         super(ChannelwiseLayerNorm, self).__init__()
-        self.gamma = nn.Parameter(torch.Tensor(1, channel_size, 1))  # [1, N, 1]
-        self.beta = nn.Parameter(torch.Tensor(1, channel_size, 1))  # [1, N, 1]
+        self.gamma = nn.Parameter(torch.Tensor(1, 1, channel_size))  # [1, N, 1]
+        self.beta = nn.Parameter(torch.Tensor(1, 1, channel_size))  # [1, N, 1]
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -411,8 +410,8 @@ class ChannelwiseLayerNorm(nn.Module):
         Returns:
             cLN_y: [M, N, K]
         """
-        mean = torch.mean(y, dim=1, keepdim=True)  # [M, 1, K]
-        var = torch.var(y, dim=1, keepdim=True, unbiased=False)  # [M, 1, K]
+        mean = torch.mean(y, dim=2, keepdim=True)  # [M, 1, K]
+        var = torch.var(y, dim=2, keepdim=True, unbiased=False)  # [M, 1, K]
         cLN_y = self.gamma * (y - mean) / torch.pow(var + EPS, 0.5) + self.beta
         return cLN_y
 
@@ -422,8 +421,8 @@ class GlobalLayerNorm(nn.Module):
 
     def __init__(self, channel_size):
         super(GlobalLayerNorm, self).__init__()
-        self.gamma = nn.Parameter(torch.Tensor(1, channel_size, 1))  # [1, N, 1]
-        self.beta = nn.Parameter(torch.Tensor(1, channel_size, 1))  # [1, N, 1]
+        self.gamma = nn.Parameter(torch.Tensor(1, 1, channel_size))  # [1, N, 1]
+        self.beta = nn.Parameter(torch.Tensor(1, 1, channel_size))  # [1, N, 1]
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -448,119 +447,3 @@ class GlobalLayerNorm(nn.Module):
         )
         gLN_y = self.gamma * (y - mean) / torch.pow(var + EPS, 0.5) + self.beta
         return gLN_y
-
-
-def cal_loss(source, estimate_source, source_lengths):
-    """
-    Args:
-        source: [B, C, T], B is batch size
-        estimate_source: [B, C, T]
-        source_lengths: [B]
-    """
-    max_snr, perms, max_snr_idx = cal_si_snr_with_pit(
-        source, estimate_source, source_lengths
-    )
-    loss = 0 - torch.mean(max_snr)
-    reorder_estimate_source = reorder_source(
-        estimate_source, perms, max_snr_idx
-    )
-    return loss, max_snr, estimate_source, reorder_estimate_source
-
-
-def cal_si_snr_with_pit(source, estimate_source, source_lengths):
-    """Calculate SI-SNR with PIT training.
-    Args:
-        source: [B, C, T], B is batch size
-        estimate_source: [B, C, T]
-        source_lengths: [B], each item is between [0, T]
-    """
-    assert source.size() == estimate_source.size()
-    B, C, T = source.size()
-    # mask padding position along T
-    mask = get_mask(source, source_lengths)
-    estimate_source *= mask
-
-    # Step 1. Zero-mean norm
-    num_samples = source_lengths.view(-1, 1, 1).float()  # [B, 1, 1]
-    mean_target = torch.sum(source, dim=2, keepdim=True) / num_samples
-    mean_estimate = (
-        torch.sum(estimate_source, dim=2, keepdim=True) / num_samples
-    )
-    zero_mean_target = source - mean_target
-    zero_mean_estimate = estimate_source - mean_estimate
-    # mask padding position along T
-    zero_mean_target *= mask
-    zero_mean_estimate *= mask
-
-    # Step 2. SI-SNR with PIT
-    # reshape to use broadcast
-    s_target = torch.unsqueeze(zero_mean_target, dim=1)  # [B, 1, C, T]
-    s_estimate = torch.unsqueeze(zero_mean_estimate, dim=2)  # [B, C, 1, T]
-    # s_target = <s', s>s / ||s||^2
-    pair_wise_dot = torch.sum(
-        s_estimate * s_target, dim=3, keepdim=True
-    )  # [B, C, C, 1]
-    s_target_energy = (
-        torch.sum(s_target ** 2, dim=3, keepdim=True) + EPS
-    )  # [B, 1, C, 1]
-    pair_wise_proj = pair_wise_dot * s_target / s_target_energy  # [B, C, C, T]
-    # e_noise = s' - s_target
-    e_noise = s_estimate - pair_wise_proj  # [B, C, C, T]
-    # SI-SNR = 10 * log_10(||s_target||^2 / ||e_noise||^2)
-    pair_wise_si_snr = torch.sum(pair_wise_proj ** 2, dim=3) / (
-        torch.sum(e_noise ** 2, dim=3) + EPS
-    )
-    pair_wise_si_snr = 10 * torch.log10(pair_wise_si_snr + EPS)  # [B, C, C]
-
-    # Get max_snr of each utterance
-    # permutations, [C!, C]
-    perms = source.new_tensor(
-        list(itertools.permutations(range(C))), dtype=torch.long
-    )
-    # one-hot, [C!, C, C]
-    index = torch.unsqueeze(perms, 2)
-    perms_one_hot = source.new_zeros((*perms.size(), C)).scatter_(2, index, 1)
-    # [B, C!] <- [B, C, C] einsum [C!, C, C], SI-SNR sum of each permutation
-    snr_set = torch.einsum("bij,pij->bp", [pair_wise_si_snr, perms_one_hot])
-    max_snr_idx = torch.argmax(snr_set, dim=1)  # [B]
-    # max_snr = torch.gather(snr_set, 1, max_snr_idx.view(-1, 1))  # [B, 1]
-    max_snr, _ = torch.max(snr_set, dim=1, keepdim=True)
-    max_snr /= C
-    return max_snr, perms, max_snr_idx
-
-
-def reorder_source(source, perms, max_snr_idx):
-    """
-    Args:
-        source: [B, C, T]
-        perms: [C!, C], permutations
-        max_snr_idx: [B], each item is between [0, C!)
-    Returns:
-        reorder_source: [B, C, T]
-    """
-    B, C, *_ = source.size()
-    # [B, C], permutation whose SI-SNR is max of each utterance
-    # for each utterance, reorder estimate source according this permutation
-    max_snr_perm = torch.index_select(perms, dim=0, index=max_snr_idx)
-    # print('max_snr_perm', max_snr_perm)
-    # maybe use torch.gather()/index_select()/scatter() to impl this?
-    reorder_source = torch.zeros_like(source)
-    for b in range(B):
-        for c in range(C):
-            reorder_source[b, c] = source[b, max_snr_perm[b][c]]
-    return reorder_source
-
-
-def get_mask(source, source_lengths):
-    """
-    Args:
-        source: [B, C, T]
-        source_lengths: [B]
-    Returns:
-        mask: [B, 1, T]
-    """
-    B, _, T = source.size()
-    mask = source.new_ones((B, 1, T))
-    for i in range(B):
-        mask[i, :, source_lengths[i] :] = 0
-    return mask

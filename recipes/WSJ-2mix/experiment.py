@@ -4,10 +4,55 @@ import speechbrain as sb
 from speechbrain.utils.train_logger import summarize_average
 import torch
 from speechbrain.utils.checkpoints import ckpt_recency
-from speechbrain.lobes.models.conv_tasnet import cal_loss
+from speechbrain.nnet.losses import get_si_snr
+import pandas as pd
+import torch.nn.functional as F
 
 experiment_dir = os.path.dirname(os.path.realpath(__file__))
 params_file = os.path.join(experiment_dir, "params.yaml")
+
+
+# this points to the folder which holds the wsj0-mix dataset folder
+datapath = "/home/cem/datasets/"
+
+# load or create the csv files for the data
+if not (
+    os.path.exists("wsj_tr.csv")
+    and os.path.exists("wsj_cv.csv")
+    and os.path.exists("wsj_tt.csv")
+):
+    for set_type in ["tr", "cv", "tt"]:
+        mix_path = (
+            datapath + "wsj0-mix/2speakers/wav8k/min/" + set_type + "/mix/"
+        )
+        s1_path = datapath + "wsj0-mix/2speakers/wav8k/min/" + set_type + "/s1/"
+        s2_path = datapath + "wsj0-mix/2speakers/wav8k/min/" + set_type + "/s2/"
+
+        files = os.listdir(mix_path)
+
+        mix_file_paths = [mix_path + fl for fl in files]
+        s1_file_paths = [s1_path + fl for fl in files]
+        s2_file_paths = [s2_path + fl for fl in files]
+
+        df = pd.DataFrame(
+            {
+                "ID": list(range(len(mix_file_paths))),
+                "duration": [1.0] * len(mix_file_paths),
+                "mix_wav": mix_file_paths,
+                "mix_wav_format": ["wav"] * len(mix_file_paths),
+                "mix_wav_opts": [None] * len(mix_file_paths),
+                "s1_wav": s1_file_paths,
+                "s1_wav_format": ["wav"] * len(mix_file_paths),
+                "s1_wav_opts": [None] * len(mix_file_paths),
+                "s2_wav": s2_file_paths,
+                "s2_wav_format": ["wav"] * len(mix_file_paths),
+                "s2_wav_opts": [None] * len(mix_file_paths),
+            }
+        )
+
+        df.to_csv(
+            "wsj_" + set_type + ".csv", index=False, index_label="index",
+        )
 
 tr_csv = os.path.realpath(os.path.join(experiment_dir, "wsj_tr.csv"))
 cv_csv = os.path.realpath(os.path.join(experiment_dir, "wsj_cv.csv"))
@@ -30,21 +75,41 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 
 
 class CTN_Brain(sb.core.Brain):
-    def compute_forward(self, mixture, init_params=False):
-        est_sources = params.conv_tasnet(mixture)
-        return est_sources
+    def compute_forward(self, mixture, stage="train", init_params=False):
+
+        if hasattr(params, "env_corrupt"):
+            if stage == "train":
+                wav_lens = torch.tensor(
+                    [mixture.shape[-1]] * mixture.shape[0]
+                ).to(device)
+                mixture = params.augmentation(mixture, wav_lens, init_params)
+
+        mixture_w = params.Encoder(mixture, init_params)
+        est_mask = params.MaskNet(mixture_w, init_params)
+        est_source = params.Decoder(mixture_w, est_mask, init_params)
+
+        # T changed after conv1d in encoder, fix it here
+        T_origin = mixture.size(-1)
+        T_conv = est_source.size(-1)
+        if T_origin > T_conv:
+            est_source = F.pad(est_source, (0, T_origin - T_conv))
+        else:
+            est_source = est_source[:, :, :T_origin]
+
+        return est_source
 
     def compute_objectives(self, predictions, targets):
         if params.loss_fn == "sisnr":
             lengths = torch.tensor(
                 [predictions.shape[-1]] * predictions.shape[0]
             ).to(device)
-            loss = cal_loss(targets, predictions, lengths)[0]
+            loss = get_si_snr(targets, predictions, lengths)[0]
             return loss
         else:
             raise ValueError("Not Correct Loss Function Type")
 
     def fit_batch(self, batch):
+        # train_onthefly option enables data augmentation, by creating random mixtures within the batch
         if params.train_onthefly:
             bs = batch[0][1].shape[0]
             perm = torch.randperm(bs)
@@ -82,7 +147,7 @@ class CTN_Brain(sb.core.Brain):
             [batch[1][1].unsqueeze(1), batch[2][1].unsqueeze(1)], dim=1
         ).to(device)
 
-        predictions = self.compute_forward(inputs)
+        predictions = self.compute_forward(inputs, stage="test")
         loss = self.compute_objectives(predictions, targets)
         return {"loss": loss.detach()}
 
@@ -106,12 +171,16 @@ val_loader = params.val_loader()
 test_loader = params.test_loader()
 
 ctn = CTN_Brain(
-    modules=[params.conv_tasnet.to(device)],
+    modules=[
+        params.Encoder.to(device),
+        params.MaskNet.to(device),
+        params.Decoder.to(device),
+    ],
     optimizer=params.optimizer,
-    first_inputs=[next(iter(test_loader))[0][1].to(device)],
+    first_inputs=[next(iter(train_loader))[0][1].to(device)],
 )
 
-params.checkpointer.recover_if_possible(lambda c: -c.meta["av_loss"])
+# params.checkpointer.recover_if_possible(lambda c: -c.meta["av_loss"])
 
 # with torch.autograd.detect_anomaly():
 ctn.fit(
