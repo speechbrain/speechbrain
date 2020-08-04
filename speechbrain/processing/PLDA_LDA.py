@@ -383,6 +383,16 @@ class Ndx:
         self.trialmask = numpy.array([], dtype="bool")
 
         if ndx_file_name == "":
+            # This is needed to make size same
+            d = models.shape[0] - testsegs.shape[0]
+            if d != 0:
+                if d > 0:
+                    pad = testsegs[-d:]
+                    testsegs = numpy.concatenate((testsegs, pad), axis=0)
+                else:
+                    pad = models[-d:]
+                    models = numpy.concatenate((models, pad), axis=0)
+
             modelset = numpy.unique(models)
             segset = numpy.unique(testsegs)
 
@@ -759,6 +769,50 @@ class PLDA:
         Eigenvoice matrix
     Sigma: tensor
         Residual matrix
+
+    Example
+    -------
+    >>> from speechbrain.processing.PLDA_LDA import *
+    >>> import random, numpy
+    >>> dim, N = 10, 100
+    >>> n_spkrs = 10
+    >>> train_xv = numpy.random.rand(N, dim)
+    >>> md = ['md'+str(random.randrange(1,n_spkrs,1)) for i in range(N)]
+    >>> modelset = numpy.array(md, dtype="|O")
+    >>> sg = ['sg'+str(i) for i in range(N)]
+    >>> segset = numpy.array(sg, dtype="|O")
+    >>> s = numpy.array([None] * N)
+    >>> stat0 = numpy.array([[1.0]]* N)
+    >>> xvectors_stat = StatObject_SB(modelset=modelset, segset=segset, start=s, stop=s, stat0=stat0, stat1=train_xv)
+    >>> # Training PLDA model: M ~ (mean, F, Sigma)
+    >>> plda = PLDA()
+    >>> plda.plda(xvectors_stat, rank_f=5)
+    >>> print (plda.mean.shape)
+    (10,)
+    >>> print (plda.F.shape)
+    (10, 5)
+    >>> print (plda.Sigma.shape)
+    (10, 10)
+    >>> # Enrolment (20 utts), Test (30 utts)
+    >>> en_N = 20
+    >>> en_xv = numpy.random.rand(en_N, dim)
+    >>> en_sgs = ['en'+str(i) for i in range(en_N)]
+    >>> en_sets = numpy.array(en_sgs, dtype="|O")
+    >>> en_s = numpy.array([None] * en_N)
+    >>> en_stat0 = numpy.array([[1.0]]* en_N)
+    >>> en_stat = StatObject_SB(modelset=en_sets, segset=en_sets, start=en_s, stop=en_s, stat0=en_stat0, stat1=en_xv)
+    >>> te_N = 30
+    >>> te_xv = numpy.random.rand(te_N, dim)
+    >>> te_sgs = ['te'+str(i) for i in range(te_N)]
+    >>> te_sets = numpy.array(te_sgs, dtype="|O")
+    >>> te_s = numpy.array([None] * te_N)
+    >>> te_stat0 = numpy.array([[1.0]]* te_N)
+    >>> te_stat = StatObject_SB(modelset=te_sets, segset=te_sets, start=te_s, stop=te_s, stat0=te_stat0, stat1=te_xv)
+    >>> ndx = Ndx(models=en_sets, testsegs=te_sets)
+    >>> # PLDA Scoring
+    >>> scores_plda = fast_PLDA_scoring(en_stat, te_stat, ndx, plda.mean, plda.F, plda.Sigma)
+    >>> print (scores_plda.scoremat.shape)
+    (20, 30)
     """
 
     def __init__(self, mean=None, F=None, Sigma=None):
@@ -828,9 +882,9 @@ class PLDA:
         for it in range(nb_iter):
 
             # E-step
-            print(
-                f"\nE-step: Estimate between class covariance, it {it+1} / {nb_iter}"
-            )
+            # print(
+            #    f"E-step: Estimate between class covariance, it {it+1} / {nb_iter}"
+            # )
 
             # Copy stats as they will be whitened with a different Sigma for each iteration
             local_stat = copy.deepcopy(model_shifted_stat)
@@ -876,7 +930,7 @@ class PLDA:
             _A = numpy.einsum("ijk,i->jk", e_hh, local_stat.stat0.squeeze())
 
             # M-step
-            print("M-step: Updating F and Sigma")
+            # print("M-step")
             self.F = linalg.solve(_A, _C).T
 
             # Update the residual covariance
@@ -884,77 +938,3 @@ class PLDA:
 
             # Minimum Divergence step
             self.F = self.F.dot(linalg.cholesky(_R))
-
-
-if __name__ == "__main__":
-    """
-    Example (shift this to PLDA)
-    -------
-    >>> from speechbrain.processing.PLDA import *
-    >>> data_dir = "/Users/nauman/Desktop/Mila/nauman/Data/xvect-sdk/sb-format/"
-    >>> train_file = data_dir + "VoxCeleb1_training_rvectors.pkl"
-    >>> with open(train_file, "rb") as xvectors:
-    ...     train_obj = pickle.load(xvectors)
-    ...
-    >>> lda = LDA()
-    >>> reduced_stat = lda.do_lda(train_obj, 100)
-    >>> print (reduced_stat.stat1.shape)
-    (148808, 100)
-    >>> plda = PLDA()
-    >>> plda.plda(train_obj)
-    >>> print ("Training Completed. Started scoring...")
-    >>> enrol_file = data_dir + "VoxCeleb1_enrol_rvectors.pkl"
-    >>> test_file = data_dir + "VoxCeleb1_test_rvectors.pkl"
-    >>> ndx_file = data_dir + "ndx.pkl"
-    >>> with open(enrol_file, "rb") as xvectors:
-    ...     enrol_obj = pickle.load(xvectors)
-    ...
-    >>> with open(test_file, "rb") as xvectors:
-    ...     test_obj = pickle.load(xvectors)
-    ...
-    >>> with open(ndx_file, "rb") as ndxes:
-    ...     ndx_obj = pickle.load(ndxes)
-    ...
-    >>> scores_plda = fast_PLDA_scoring(enrol_obj, test_obj, ndx_obj, plda.mean, plda.F, plda.Sigma)
-    >>> scores_plda.scoremat[:3, :3]
-    array([[-2.98146610e+07,  7.81558818e+07, -5.62018466e+07],
-       [ 1.80313207e+08, -4.90753877e+08,  3.39299061e+08],
-       [ 1.54824606e+08, -4.21029694e+08,  2.89427688e+08]])
-    """
-
-    data_dir = "/Users/nauman/Desktop/Mila/nauman/Data/xvect-sdk/sb-format/"
-    train_file = data_dir + "VoxCeleb1_training_rvectors.pkl"
-
-    # read extracted vectors (xvect, ivect, dvect, rvect etc.)
-    with open(train_file, "rb") as xvectors:
-        train_obj = pickle.load(xvectors)
-    print("Training started..")
-
-    # Perform LDA on train x-vectors
-    # lda = LDA(100)
-    # reduced_stat_train = lda.do_lda(train_obj, 150)
-
-    # Train PLDA model
-    plda = PLDA()
-    plda.plda(train_obj)
-    # print("sb_M: ", plda.mean[:20])
-    # print("sb_F: ", plda.F)
-    # print("sb_S: ", plda.Sigma)
-
-    # PLDA Scoring starts here
-    enrol_file = data_dir + "VoxCeleb1_enrol_rvectors.pkl"
-    test_file = data_dir + "VoxCeleb1_test_rvectors.pkl"
-    ndx_file = data_dir + "ndx.pkl"
-    with open(enrol_file, "rb") as xvectors:
-        enrol_obj = pickle.load(xvectors)
-    with open(test_file, "rb") as xvectors:
-        test_obj = pickle.load(xvectors)
-    with open(ndx_file, "rb") as ndxes:
-        ndx_obj = pickle.load(ndxes)
-
-    print("Started PLDA scoring...")
-    scores_plda = fast_PLDA_scoring(
-        enrol_obj, test_obj, ndx_obj, plda.mean, plda.F, plda.Sigma
-    )
-    print("\nScores with SpeechBrain:")
-    print(scores_plda.scoremat[:3, :3])
