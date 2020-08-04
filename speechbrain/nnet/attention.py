@@ -175,7 +175,7 @@ class LocationAwareAttention(nn.Module):
         self.mask = None
         self.prev_attn = None
 
-    def forward(self, enc_states, enc_len, dec_states, init_params=False):
+    def forward(self, enc_states, enc_len, dec_states):
         """Returns the output of the attention module.
 
         Arguments

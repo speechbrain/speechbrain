@@ -1,9 +1,10 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: !PLACEHOLDER  # e.g, 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/augment_CRDNN_time_pooling/<seed>
+output_folder: !ref results/CRDNN_2d_pooling/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
+lm_save_folder: !PLACEHOLDER # e.g. /path/to/LM/results/<seed>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
@@ -52,16 +53,37 @@ beam_size: 80
 eos_threshold: 1.5
 using_max_attn_shift: True
 max_attn_shift: 60
+lm_weight: 0.05
+
+# LM Model parameters
+lm_emb_size: 128
+lm_activation: !name:torch.nn.LeakyReLU
+lm_dropout: 0.0
+lm_rnn_layers: 2
+lm_rnn_neurons: 1024
+lm_dnn_blocks: 1
+lm_dnn_neurons: 512
 
 # Functions
+lm_model: !new:speechbrain.lobes.models.RNNLM.RNNLM
+    output_neurons: !ref <output_neurons>
+    embedding_dim: !ref <emb_size>
+    activation: !ref <lm_activation>
+    dropout: !ref <lm_dropout>
+    rnn_layers: !ref <lm_rnn_layers>
+    rnn_neurons: !ref <lm_rnn_neurons>
+    dnn_blocks: !ref <lm_dnn_blocks>
+    dnn_neurons: !ref <lm_dnn_neurons>
+    return_hidden: True # For inference
+
 enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
     activation: !ref <activation>
     dropout: !ref <dropout>
     cnn_blocks: !ref <cnn_blocks>
     cnn_channels: !ref <cnn_channels>
     cnn_kernelsize: !ref <cnn_kernelsize>
-    time_pooling: True
-    using_2d_pooling: False
+    time_pooling: False
+    using_2d_pooling: True
     rnn_layers: !ref <rnn_layers>
     rnn_neurons: !ref <rnn_neurons>
     rnn_bidirectional: !ref <rnn_bidirectional>
@@ -144,5 +166,6 @@ seq_cost: !name:speechbrain.nnet.losses.nll_loss
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
     summary_fns:
+        loss: !name:speechbrain.utils.train_logger.summarize_average
         CER: !name:speechbrain.utils.train_logger.summarize_error_rate
         WER: !name:speechbrain.utils.train_logger.summarize_error_rate
