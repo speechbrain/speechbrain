@@ -14,7 +14,6 @@ from speechbrain.data_io.data_io import merge_char
 from speechbrain.decoders.seq2seq import S2SRNNGreedySearcher
 from speechbrain.decoders.seq2seq import S2SRNNBeamSearcher
 from speechbrain.decoders.decoders import undo_padding
-from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.train_logger import summarize_error_rate
 
 # This hack needed to import data preparation script from ..
@@ -30,7 +29,7 @@ with open(params_file) as fin:
 # Create experiment directory
 sb.core.create_experiment_directory(
     experiment_directory=params.output_folder,
-    params_to_save=params_file,
+    hyperparams_to_save=params_file,
     overrides=overrides,
 )
 
@@ -189,10 +188,7 @@ class ASR(sb.core.Brain):
         epoch_stats = {"epoch": epoch, "lr": old_lr}
         params.train_logger.log_stats(epoch_stats, train_stats, valid_stats)
 
-        checkpointer.save_and_keep_only(
-            meta={"WER": wer},
-            importance_keys=[ckpt_recency, lambda c: -c.meta["WER"]],
-        )
+        checkpointer.save_and_keep_only(meta={"WER": wer}, min_keys=["WER"])
 
 
 # Prepare data
@@ -205,20 +201,27 @@ train_set = params.train_loader()
 valid_set = params.valid_loader()
 first_x, first_y = next(iter(train_set))
 
-if hasattr(params, "augmentation"):
-    modules.append(params.augmentation)
 asr_brain = ASR(
     modules=modules,
     optimizer=params.optimizer,
     first_inputs=[first_x, first_y],
 )
 
+# Check if the model should be trained on multiple GPUs.
+# Important: DataParallel MUST be called after the ASR (Brain) class init.
+if params.multigpu:
+    params.enc = torch.nn.DataParallel(params.enc)
+    params.emb = torch.nn.DataParallel(params.emb)
+    params.dec = torch.nn.DataParallel(params.dec)
+    params.ctc_lin = torch.nn.DataParallel(params.ctc_lin)
+    params.seq_lin = torch.nn.DataParallel(params.seq_lin)
+
 # Load latest checkpoint to resume training
 checkpointer.recover_if_possible()
 asr_brain.fit(params.epoch_counter, train_set, valid_set)
 
 # Load best checkpoint for evaluation
-checkpointer.recover_if_possible(lambda c: -c.meta["WER"])
+checkpointer.recover_if_possible(min_key="WER")
 test_stats = asr_brain.evaluate(params.test_loader())
 params.train_logger.log_stats(
     stats_meta={"Epoch loaded": params.epoch_counter.current},
