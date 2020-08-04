@@ -15,7 +15,7 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: /home/mila/r/rastorge/TIMIT  # e.g. /path/to/TIMIT
+data_folder: !PLACEHOLDER  # e.g. /path/to/TIMIT
 csv_train: !ref <data_folder>/train.csv
 csv_valid: !ref <data_folder>/dev.csv
 csv_test: !ref <data_folder>/test.csv
@@ -24,7 +24,7 @@ lexicon_path: ../timitdic_prime.txt
 
 # Training parameters
 number_of_epochs: 5
-batch_size: 256
+batch_size: 4
 lr: 0.0003
 device: 'cuda:0'
 init_training_type: 'viterbi' # 'forward' or 'viterbi' or 'ctc'
@@ -131,3 +131,4 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         optimizer: !ref <optimizer>
         scheduler: !ref <lr_annealing>
         counter: !ref <epoch_counter>
+        aligner: !ref <aligner>

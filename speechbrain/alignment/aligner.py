@@ -7,9 +7,13 @@ Authors
 """
 import torch
 import random
+from speechbrain.utils.checkpoints import register_checkpoint_hooks
+from speechbrain.utils.checkpoints import mark_as_saver
+from speechbrain.utils.checkpoints import mark_as_loader
 from speechbrain.decoders.decoders import undo_padding
 
 
+@register_checkpoint_hooks
 class HMMAligner(torch.nn.Module):
     """
     This class calculates Viterbi alignments in the forward method.
@@ -1324,6 +1328,15 @@ class HMMAligner(torch.nn.Module):
         sequence = [v // self.states_per_phoneme for v in sequence]
 
         return sequence
+
+    @mark_as_saver
+    def _save(self, path):
+        torch.save(self.align_dict, path)
+
+    @mark_as_loader
+    def _load(self, path, end_of_epoch):
+        del end_of_epoch  # Not used here.
+        self.align_dict = torch.load(path)
 
 
 def map_inds_to_intersect(lists1, lists2, ind2labs):
