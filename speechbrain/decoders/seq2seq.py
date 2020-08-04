@@ -277,9 +277,17 @@ class S2SBeamSearcher(S2SBaseSearcher):
         The ratio of maximum decoding steps to length of encoder states.
     beam_size : int
         The width of beam.
+    topk : int
+        Default : 1
+        The number of hypothesis to return.
+    return_log_probs : bool
+        Default : False
+        Whether to return log-probabilities.
     using_eos_threshold : bool
+        Default : True
         Whether to use eos threshold.
     eos_threshold : float
+        Default : 1.5
         The threshold coefficient for eos token. See 3.1.2 in
         reference: https://arxiv.org/abs/1904.02619
     length_normlization : bool
@@ -314,6 +322,8 @@ class S2SBeamSearcher(S2SBaseSearcher):
         min_decode_ratio,
         max_decode_ratio,
         beam_size,
+        topk=1,
+        return_log_probs=False,
         using_eos_threshold=True,
         eos_threshold=1.5,
         length_normalization=True,
@@ -328,6 +338,8 @@ class S2SBeamSearcher(S2SBaseSearcher):
             modules, bos_index, eos_index, min_decode_ratio, max_decode_ratio
         )
         self.beam_size = beam_size
+        self.topk = topk
+        self.return_log_probs = return_log_probs
         self.length_normalization = length_normalization
         self.length_rewarding = length_rewarding
 
@@ -419,15 +431,31 @@ class S2SBeamSearcher(S2SBaseSearcher):
         return cond
 
     def _update_hyp_and_scores(
-        self, inp_tokens, alived_seq, hyps_and_scores, scores, timesteps
+        self,
+        inp_tokens,
+        alived_seq,
+        alived_log_probs,
+        hyps_and_scores,
+        scores,
+        timesteps,
     ):
         """
         This method will update hyps and scores if inp_tokens are eos.
 
         Parameters
         ----------
-        log_probs : torch.Tensor
-            The log-probabilities.
+        inp_tokens : torch.Tensor
+            The current output.
+        alived_seq : torch.Tensor
+            The tensor to store the alived_seq.
+        alived_log_probs : torch.Tensor
+            The tensor to store the alived_log_probs.
+        hyps_and_scores : list
+            To store generated hypothesis and scores.
+        scores : torch.Tensor
+            The final scores of beam search.
+        timesteps : float
+            The current timesteps. This is for length rewarding.
 
         Return
         ------
@@ -446,21 +474,51 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 if len(hyps_and_scores[batch_id]) == self.beam_size:
                     continue
                 hyp = alived_seq[index, :]
+                log_probs = alived_log_probs[index, :]
                 final_scores = scores[index].item() + self.length_rewarding * (
                     timesteps + 1
                 )
-                hyps_and_scores[batch_id].append((hyp, final_scores))
+                hyps_and_scores[batch_id].append((hyp, log_probs, final_scores))
         return is_eos
 
-    def _get_top_score_prediction(self, hyps_and_scores):
-        predictions, top_scores = [], []
+    def _get_top_score_prediction(self, hyps_and_scores, topk):
+        """
+        This method sort the scores and return corresponding hypothesis and log probs.
+
+        Parameters
+        ----------
+        hyps_and_scores : list
+            To store generated hypothesis and scores.
+        topk : int
+            Number of hypothesis to return.
+
+        Return
+        ------
+        predictions : list
+            This list contains the predicted hypothesis.
+            The order will be the following:
+            h_i_j, i is utterance id, and j is hypothesis id.
+            When topk=2, and 3 sentences:
+            [h_0_0, h_0_1,h_1_0, h_1_1, h_2_0, h_2_1]
+
+        top_scores : list
+            This list contains the final scores of hypothesis.
+            The order is the same as predictions.
+
+        top_log_probs : list
+            This list contains the log probabilities of each hypothesis.
+            The order is the same as predictions.
+        """
+        predictions, top_log_probs, top_scores = [], [], []
         for i in range(len(hyps_and_scores)):
-            top_hyp, top_score = max(
-                hyps_and_scores[i], key=lambda pair: pair[1]
-            )
-            predictions.append(top_hyp)
-            top_scores.append(top_score)
-        return predictions, top_scores
+            hyps, log_probs, scores = zip(*hyps_and_scores[i])
+
+            # get topk indices and reverse it to make it descending
+            indices = np.argsort(np.array(scores))[::-1][:topk]
+            predictions += [hyps[index] for index in indices]
+            top_scores += [scores[index] for index in indices]
+            top_log_probs += [log_probs[index] for index in indices]
+        return predictions, top_scores, top_log_probs
 
     def forward(self, enc_states, wav_len):
         enc_lens = torch.round(enc_states.shape[1] * wav_len).int()
@@ -494,12 +552,17 @@ class S2SBeamSearcher(S2SBaseSearcher):
         # keep only the first to make sure no redundancy.
         sequence_scores.index_fill_(0, beam_offset, 0.0)
 
-        # keep the hypothesis that reaches eos and their corresponding score.
+        # keep the hypothesis that reaches eos and their corresponding score and log_probs.
         hyps_and_scores = [[] for _ in range(batch_size)]
 
         # keep the sequences that still not reaches eos.
         alived_seq = (
             torch.empty(batch_size * self.beam_size, 0).long().to(device)
+        )
+
+        # Keep the log-probabilities of alived sequences.
+        alived_log_probs = torch.empty(batch_size * self.beam_size, 0).to(
+            device
         )
 
         min_decode_steps = int(enc_states.shape[1] * self.min_decode_ratio)
@@ -517,6 +580,9 @@ class S2SBeamSearcher(S2SBaseSearcher):
             log_probs, memory, attn = self.forward_step(
                 inp_tokens, memory, enc_states, enc_lens
             )
+
+            # Keep the original value
+            log_probs_clone = log_probs.clone().reshape(batch_size, -1)
             vocab_size = log_probs.shape[-1]
 
             if self.using_max_attn_shift:
@@ -596,8 +662,28 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 ],
                 dim=-1,
             )
+
+            # Takes the log-probabilities
+            beam_log_probs = log_probs_clone[
+                torch.arange(batch_size).unsqueeze(1), candidates
+            ].reshape(batch_size * self.beam_size)
+            alived_log_probs = torch.cat(
+                [
+                    torch.index_select(
+                        alived_log_probs, dim=0, index=predecessors
+                    ),
+                    beam_log_probs.unsqueeze(1),
+                ],
+                dim=-1,
+            )
+
             is_eos = self._update_hyp_and_scores(
-                inp_tokens, alived_seq, hyps_and_scores, scores, timesteps=t
+                inp_tokens,
+                alived_seq,
+                alived_log_probs,
+                hyps_and_scores,
+                scores,
+                timesteps=t,
             )
 
             # Block the pathes that have reached eos.
@@ -614,19 +700,23 @@ class S2SBeamSearcher(S2SBaseSearcher):
             _ = self._update_hyp_and_scores(
                 eos,
                 alived_seq,
+                alived_log_probs,
                 hyps_and_scores,
                 scores,
                 timesteps=max_decode_steps,
             )
 
-        predictions, top_scores = self._get_top_score_prediction(
-            hyps_and_scores
+        predictions, top_scores, log_probs = self._get_top_score_prediction(
+            hyps_and_scores, topk=self.topk,
         )
         predictions = batch_filter_seq2seq_output(
             predictions, eos_id=self.eos_index
         )
 
-        return predictions, top_scores
+        if self.return_log_probs:
+            return predictions, top_scores, log_probs
+        else:
+            return predictions, top_scores
 
     def permute_mem(self, memory, index):
         """
@@ -693,6 +783,12 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
         The ratio of maximum decoding steps to length of encoder states.
     beam_size : int
         The width of beam.
+    topk : int
+        Default : 1
+        The number of hypothesis to return.
+    return_log_probs : bool
+        Default : False
+        Whether to return log-probabilities.
     using_eos_threshold : bool
         Whether to use eos threshold.
     eos_threshold : float
@@ -747,6 +843,8 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
         min_decode_ratio,
         max_decode_ratio,
         beam_size,
+        topk=1,
+        return_log_probs=False,
         using_eos_threshold=True,
         eos_threshold=1.5,
         length_normalization=True,
@@ -764,6 +862,8 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
             min_decode_ratio,
             max_decode_ratio,
             beam_size,
+            topk,
+            return_log_probs,
             using_eos_threshold,
             eos_threshold,
             length_normalization,
@@ -941,6 +1041,8 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
         min_decode_ratio,
         max_decode_ratio,
         beam_size,
+        topk=1,
+        return_log_probs=False,
         using_eos_threshold=True,
         eos_threshold=1.5,
         length_normalization=True,
@@ -958,6 +1060,8 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
             min_decode_ratio,
             max_decode_ratio,
             beam_size,
+            topk,
+            return_log_probs,
             using_eos_threshold,
             eos_threshold,
             length_normalization,
