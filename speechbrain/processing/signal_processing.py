@@ -446,7 +446,34 @@ def delay_sum(xs, steer):
 
     Example
     -------
-        TODO: Add an example
+    >>> import soundfile as sf
+    >>> from speechbrain.processing.features import STFT
+    >>> import speechbrain.processing.processing_utils as pu
+    >>> from speechbrain.processing.signal_processing import delay_sum
+    >>> mics_pos = torch.tensor([
+            [-0.05, -0.05, 0.00],
+            [-0.05, 0.05, 0.00],
+            [0.05, -0.05, 0.00],
+            [0.05, 0.05, 0.00]
+        ])
+    >>> signal_pos = torch.tensor([-0.82918, 0.55279, -0.082918])
+    >>> signal, fs = sf.read(
+            'samples/audio_samples/multi_mic/speech_-0.82918_0.55279_-0.082918.flac'
+        )
+    >>> noise, _ = sf.read(
+            'samples/audio_samples/multi_mic/noise_0.70225_-0.70225_0.11704.flac'
+        )
+    >>> signal = torch.tensor(signal).unsqueeze(0)
+    >>> noise = torch.tensor(noise).unsqueeze(0)
+    >>> signal_with_noise = signal + noise
+    >>> compute_stft = STFT(sample_rate=fs)
+    >>> xs = compute_stft(signal_with_noise)
+    >>> n_time_frames = xs.shape[1]
+    >>> doas = pu.direction(signal_pos, n_time_frames)
+    >>> tdoas = pu.freefield(doas, mics_pos, fs)
+    >>> steer_vec = pu.steering(tdoas, xs.shape[2])
+    >>> steer_vec = steer_vec.unsqueeze(0)
+    >>> ys = delay_sum(xs, steer_vec)
     """
 
     # Extracting data
