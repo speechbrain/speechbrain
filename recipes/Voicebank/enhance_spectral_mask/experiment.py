@@ -3,7 +3,7 @@ import os
 import sys
 import torch
 import torchaudio
-import multiprocessing
+import torch.multiprocessing as multiprocessing
 import speechbrain as sb
 from speechbrain.utils.train_logger import summarize_average
 from speechbrain.processing.features import spectral_magnitude
@@ -73,53 +73,55 @@ class SEBrain(sb.core.Brain):
         feats = torch.log1p(feats)
 
         mask = params.model(feats, init_params=init_params)
-        out = torch.mul(mask, feats)  # mask with "signal approximation (SA)"
+        predict_spec = torch.mul(
+            mask, feats
+        )  # mask with "signal approximation (SA)"
 
-        return out
+        # Also return predicted wav
+        predict_wav = self.resynthesize(torch.expm1(predict_spec), x)
+
+        return predict_spec, predict_wav
 
     def compute_objectives(self, predictions, targets, stage="train"):
-        ids, wavs, lens = targets
-        wavs, lens = wavs.to(params.device), lens.to(params.device)
-        feats = params.compute_STFT(wavs)
-        feats = spectral_magnitude(feats, power=0.5)
-        feats = torch.log1p(feats)
+        predict_spec, predict_wav = predictions
+        ids, target_wav, lens = targets
+        target_wav, lens = target_wav.to(params.device), lens.to(params.device)
 
-        loss = params.compute_cost(predictions, feats, lens)
+        if hasattr(params, "waveform_target") and params.waveform_target:
+            loss = params.compute_cost(predict_wav, target_wav, lens)
+        else:
+            targets = params.compute_STFT(target_wav)
+            targets = spectral_magnitude(targets, power=0.5)
+            targets = torch.log1p(targets)
+            loss = params.compute_cost(predict_spec, targets, lens)
 
-        return loss, {}
+        stats = {}
+        if stage != "train":
+            stats["stoi"] = -stoi_loss(predict_wav, target_wav, lens)
 
-    def evaluate_batch(self, batch, stage="valid"):
-        inputs, targets = batch
-        predictions = self.compute_forward(inputs, stage=stage)
-        pred_wavs = self.resynthesize(torch.expm1(predictions), inputs)
-        ids, target_wavs, lens = targets
-        loss, stats = self.compute_objectives(predictions, targets, stage=stage)
-        stats["loss"] = loss.detach()
-        stats["stoi"] = -stoi_loss(pred_wavs, target_wavs, lens)
-
-        # Comprehensive but slow evaluation for test
-        if stage == "test":
-            lens = lens * target_wavs.shape[1]
+            # Comprehensive but slow evaluation for test
+            lens = lens * target_wav.shape[1]
 
             # Evaluate PESQ and STOI
             pesq_scores = multiprocess_evaluation(
-                pred_wavs.cpu().numpy(),
-                target_wavs.cpu().numpy(),
+                predict_wav.cpu().numpy(),
+                target_wav.cpu().numpy(),
                 lens.cpu().numpy(),
                 multiprocessing.cpu_count(),
             )
 
             # Write wavs to file
-            for name, pred_wav, length in zip(ids, pred_wavs, lens):
-                name += ".wav"
-                enhance_path = os.path.join(params.enhanced_folder, name)
-                torchaudio.save(
-                    enhance_path, pred_wav[: int(length)].cpu(), 16000
-                )
+            if stage == "test":
+                for name, pred_wav, length in zip(ids, predict_wav, lens):
+                    name += ".wav"
+                    enhance_path = os.path.join(params.enhanced_folder, name)
+                    torchaudio.save(
+                        enhance_path, predict_wav[: int(length)].cpu(), 16000
+                    )
 
             stats["pesq"] = pesq_scores
 
-        return stats
+        return loss, stats
 
     def on_epoch_end(self, epoch, train_stats, valid_stats):
         if params.use_tensorboard:
@@ -139,6 +141,7 @@ class SEBrain(sb.core.Brain):
     def resynthesize(self, predictions, inputs):
         ids, wavs, lens = inputs
         lens = lens * wavs.shape[1]
+        wavs = wavs.to(params.device)
 
         # Extract noisy phase
         feats = params.compute_STFT(wavs)
