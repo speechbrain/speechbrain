@@ -60,7 +60,6 @@ eos_index: 0
 min_decode_ratio: 0.0
 max_decode_ratio: 1.0
 beam_size: 40
-length_penalty: 0.3
 eos_threshold: 1.5
 using_max_attn_shift: False
 max_attn_shift: 60
