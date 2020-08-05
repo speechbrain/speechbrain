@@ -32,7 +32,7 @@ with open(params_file) as fin:
 # Create experiment directory
 sb.core.create_experiment_directory(
     experiment_directory=params.output_folder,
-    params_to_save=params_file,
+    hyperparams_to_save=params_file,
     overrides=overrides,
 )
 
@@ -83,9 +83,10 @@ class SEBrain(sb.core.Brain):
         wavs, lens = wavs.to(params.device), lens.to(params.device)
 
         feats = params.compute_stft(wavs)  # [N, T, F, 2]
-        feats = torch.squeeze(
-            torch.cat(torch.split(feats, 1, dim=-1), dim=2)
-        )  # [N, T, 2*F]
+        real, imag = torch.split(feats, 1, dim=-1)
+        real = params.input_norm_real(real, lens)
+        imag = params.input_norm_imag(imag, lens)
+        feats = torch.squeeze(torch.cat([real, imag], dim=2))  # [N, T, 2*F]
 
         output = params.model(feats, init_params)
         output = torch.cat(

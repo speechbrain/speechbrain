@@ -9,11 +9,11 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Basic parameters
 data_folder: !PLACEHOLDER
-output_folder: !ref results/complexCNN_log1p_dynamic/<seed>
+output_folder: !ref results/complexCNN_log1p_dynamic_inputnorm/<seed>
 enhanced_folder: !ref <output_folder>/enhanced/
 
 use_tensorboard: False
-tensorboard_logs: !ref results/logs/complexCNN_log1p_dynamic/<seed>
+tensorboard_logs: !ref results/logs/complexCNN_log1p_dynamic_inputnorm/<seed>
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
@@ -24,8 +24,8 @@ csv_test: !ref <data_folder>/test.csv
 
 # Training Parameters
 N_epochs: 50
-N_batch: 8
-lr: 0.002
+N_batch: 32
+lr: 0.0002
 device: cuda:0
 
 # Model Parameters
@@ -77,6 +77,9 @@ compute_istft: !new:speechbrain.processing.features.ISTFT
   sample_rate: !ref <samplerate>
   win_length: !ref <win_length>
   hop_length: !ref <hop_length>
+
+input_norm_real: !new:speechbrain.processing.features.InputNormalization
+input_norm_imag: !new:speechbrain.processing.features.InputNormalization
 
 conv1: !new:speechbrain.nnet.complex_networks.CNN.ComplexConv1d
   out_channels: !ref <base_channels>
@@ -130,16 +133,18 @@ activation: !new:torch.nn.LeakyReLU
 model: !new:speechbrain.nnet.containers.Sequential
   - !ref <conv1>
   - !ref <activation>
-  - !ref <norm1>
   - !ref <conv2>
   - !ref <activation>
-  - !ref <norm2>
   - !ref <conv3>
   - !ref <activation>
-  - !ref <norm3>
   - !ref <conv4>
   - !ref <activation>
-  - !ref <norm4>
+  - !ref <conv5>
+  - !ref <activation>
+  - !ref <conv6>
+  - !ref <activation>
+  - !ref <conv7>
+  - !ref <activation>
   - !ref <linear>
 
 compute_cost: !name:speechbrain.nnet.losses.mse_loss
