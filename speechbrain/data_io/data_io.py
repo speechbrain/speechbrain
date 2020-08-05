@@ -179,18 +179,16 @@ class DataLoaderFactory(torch.nn.Module):
         """
 
         # create data dictionary
-        data_dict = self.generate_data_dict()
+        self.data_dict = self.generate_data_dict()
 
-        self.label_dict = self.label_dict_creation(data_dict)
-
-        self.data_len = len(data_dict["data_list"])
+        self.label_dict = self.label_dict_creation(self.data_dict)
 
         if self.csv_read is None:
-            self.csv_read = data_dict["data_entries"]
+            self.csv_read = self.data_dict["data_entries"]
 
         # Creating a dataloader
-        dataset = DatasetFactory(
-            data_dict,
+        self.dataset = DatasetFactory(
+            self.data_dict,
             self.label_dict,
             self.supported_formats,
             self.csv_read,
@@ -199,7 +197,7 @@ class DataLoaderFactory(torch.nn.Module):
         )
 
         self.dataloader = DataLoader(
-            dataset,
+            self.dataset,
             batch_size=self.batch_size,
             shuffle=self.shuffle,
             pin_memory=False,
@@ -209,6 +207,21 @@ class DataLoaderFactory(torch.nn.Module):
         )
 
         return self.dataloader
+
+    def resample(self):
+        """
+        Regenerate data_list for shuffling
+        """
+        if self.sentence_sorting != "groupwise":
+            err_msg = "resampling is only for groupwise sampling"
+            raise ValueError(err_msg)
+        data_dict = {
+            k: v
+            for k, v in self.data_dict.items()
+            if k not in ("data_list", "data_entries",)
+        }
+        data_list = self._sample_sentences(data_dict, self.sentence_sorting)
+        self.data_dict["data_list"] = data_list
 
     def batch_creation(self, data_lists):
         """

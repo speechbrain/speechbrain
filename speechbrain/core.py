@@ -464,6 +464,61 @@ class Brain:
 
             self.on_epoch_end(epoch, train_stats, valid_stats)
 
+    def fit_resample(
+        self, epoch_counter, train_loader, valid_loader=None, progressbar=True
+    ):
+        """Iterate epochs and datasets to improve objective.
+
+        Relies on the existence of mulitple functions that can (or should) be
+        overridden. The following functions are used and expected to have a
+        certain behavior:
+
+        * ``fit_batch()``
+        * ``evaluate_batch()``
+        * ``add_stats()``
+
+        Also control the data sampling using DataLoaderFactory.resample method.
+        Resampling is required for groupwise sampling. Without resample, each
+        epoch iterates same batches.
+
+        Arguments
+        ---------
+        epoch_counter : iterable
+            each call should return an integer indicating the epoch count.
+        train_loader : list of DataLoaders
+            a list of datasets to use for training, zipped before iterating.
+        valid_loader : list of Data Loaders
+            a list of datasets to use for validation, zipped before iterating.
+        progressbar : bool
+            Whether to display the progress of each epoch in a progressbar.
+        """
+        train_set = train_loader()
+        valid_set = valid_loader()
+        for epoch in epoch_counter:
+            self.modules.train()
+            train_stats = {}
+            disable = not progressbar
+            with tqdm(train_set, dynamic_ncols=True, disable=disable) as t:
+                for i, batch in enumerate(t):
+                    stats = self.fit_batch(batch)
+                    self.add_stats(train_stats, stats)
+                    average = self.update_average(stats, iteration=i + 1)
+                    t.set_postfix(train_loss=average)
+
+            train_loader.resample()
+            valid_stats = {}
+            if valid_set is not None:
+                self.modules.eval()
+                with torch.no_grad():
+                    for batch in tqdm(
+                        valid_set, dynamic_ncols=True, disable=disable
+                    ):
+                        stats = self.evaluate_batch(batch, stage="valid")
+                        self.add_stats(valid_stats, stats)
+
+            self.on_epoch_end(epoch, train_stats, valid_stats)
+            valid_loader.resample()
+
     def evaluate(self, test_set, progressbar=True):
         """Iterate test_set and evaluate brain performance.
 
