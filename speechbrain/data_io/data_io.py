@@ -33,8 +33,6 @@ class DataLoaderFactory(torch.nn.Module):
     ---------
     csv : str
         the csv file that itemizes the data
-    key : str
-        the key entry for grouping sentenc ids
     batch_size : int, optional
         Default: 1 .  The data itemized in the csv file are automatically
         organized in batches. In the case of variable size tensors, zero
@@ -44,6 +42,10 @@ class DataLoaderFactory(torch.nn.Module):
         Default: None .  A list of data entries may be specified.  If
         specified, only those data entries are read from the csv file. If None,
         read all the data entries.
+    key_entry : str
+        Default: None . The key entry for grouping sentences, e.g. spk_id
+    group_size : int, optional
+        Default: 1 .  The number of sentences per each group in a batch
     sentence_sorting : {'groupwise', 'ascending', 'descending', 'random', 'original'}
         Default: 'original'. This parameter specifies how to sort the data
         before the batch creation. Ascending and descending values sort the
@@ -593,10 +595,10 @@ class DataLoaderFactory(torch.nn.Module):
 
         data_dict = self._initialize_data_dict()
 
-        data_dict = self._sample_sentences(data_dict, self.sentence_sorting)
+        data_list = self._sample_sentences(data_dict, self.sentence_sorting)
 
         # Adding sorted list of sentences
-        data_dict["data_list"] = list(data_dict.keys())
+        data_dict["data_list"] = data_list
 
         snt_ex = data_dict["data_list"][0]
 
@@ -707,13 +709,9 @@ class DataLoaderFactory(torch.nn.Module):
 
         Returns
         -------
-        dict
-            dictionary with the sorted data
+        list
+            list of the sampled sentences
         """
-        # Initialization of the dictionary
-        # Note: in Python 3.7 the order of the keys added in the dictionary is
-        # preserved
-        sorted_dictionary = {}
 
         # Groupwise sampling
         # sorted_ids consists of speaker id groups, where each group contains
@@ -728,9 +726,9 @@ class DataLoaderFactory(torch.nn.Module):
             sorted_ids = []
 
             group_ids = list(data_group.keys())
-            n_spk_per_group = self.batch_size // self.group_size
+            n_groups = self.batch_size // self.group_size
             for i in range(0, len(data_dict), self.batch_size):
-                for group_id in random.sample(group_ids, n_spk_per_group):
+                for group_id in random.sample(group_ids, n_groups):
                     sids = random.sample(data_group[group_id], self.group_size)
                     sorted_ids.extend(sids)
 
@@ -752,11 +750,7 @@ class DataLoaderFactory(torch.nn.Module):
         if sorting == "original" or sorting == "random":
             sorted_ids = list(data_dict.keys())
 
-        # Filling the dictionary
-        for snt_id in sorted_ids:
-            sorted_dictionary[snt_id] = data_dict[snt_id]
-
-        return sorted_dictionary
+        return sorted_ids
 
     @staticmethod
     def get_supported_formats():
