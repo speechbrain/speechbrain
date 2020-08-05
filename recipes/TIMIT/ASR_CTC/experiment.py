@@ -8,7 +8,6 @@ import speechbrain.utils.edit_distance as edit_distance
 from speechbrain.data_io.data_io import convert_index_to_lab
 from speechbrain.decoders.ctc import ctc_greedy_decode
 from speechbrain.decoders.decoders import undo_padding
-from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.train_logger import summarize_error_rate
 
 # This hack needed to import data preparation script from ..
@@ -34,13 +33,17 @@ class ASR(sb.core.Brain):
     def compute_forward(self, x, stage="train", init_params=False):
         ids, wavs, wav_lens = x
         wavs, wav_lens = wavs.to(params.device), wav_lens.to(params.device)
-        if hasattr(params, "env_corrupt"):
+
+        # Adding environmental corruption if specified (i.e., noise+rev)
+        if hasattr(params, "env_corrupt") and stage == "train":
             wavs_noise = params.env_corrupt(wavs, wav_lens, init_params)
             wavs = torch.cat([wavs, wavs_noise], dim=0)
             wav_lens = torch.cat([wav_lens, wav_lens])
 
+        # Adding time-domain SpecAugment if specified
         if hasattr(params, "augmentation"):
             wavs = params.augmentation(wavs, wav_lens, init_params)
+
         feats = params.compute_features(wavs, init_params)
         feats = params.normalize(feats, wav_lens)
         out = params.model(feats, init_params)
@@ -52,13 +55,15 @@ class ASR(sb.core.Brain):
         pout, pout_lens = predictions
         ids, phns, phn_lens = targets
         phns, phn_lens = phns.to(params.device), phn_lens.to(params.device)
-        if hasattr(params, "env_corrupt"):
-            phns = torch.cat([phns, phns], dim=0)
-            phn_lens = torch.cat([phn_lens, phn_lens], dim=0)
-        loss = params.compute_cost(pout, phns, pout_lens, phn_lens)
-
         stats = {}
-        if stage != "train":
+
+        if stage == "train":
+            if hasattr(params, "env_corrupt"):
+                phns = torch.cat([phns, phns], dim=0)
+                phn_lens = torch.cat([phn_lens, phn_lens], dim=0)
+            loss = params.compute_cost(pout, phns, pout_lens, phn_lens)
+        else:
+            loss = params.compute_cost(pout, phns, pout_lens, phn_lens)
             ind2lab = params.train_loader.label_dict["phn"]["index2lab"]
             sequence = ctc_greedy_decode(pout, pout_lens, blank_id=-1)
             sequence = convert_index_to_lab(sequence, ind2lab)
@@ -68,7 +73,6 @@ class ASR(sb.core.Brain):
                 ids, phns, sequence, compute_alignments=True
             )
             stats["PER"] = per_stats
-
         return loss, stats
 
     def on_epoch_end(self, epoch, train_stats, valid_stats=None):
@@ -78,8 +82,7 @@ class ASR(sb.core.Brain):
         params.train_logger.log_stats(epoch_stats, train_stats, valid_stats)
 
         params.checkpointer.save_and_keep_only(
-            meta={"PER": per},
-            importance_keys=[ckpt_recency, lambda c: -c.meta["PER"]],
+            meta={"PER": per}, min_keys=["PER"],
         )
 
 
@@ -95,6 +98,9 @@ first_x, first_y = next(iter(train_set))
 
 # Modules are passed to optimizer and have train/eval called on them
 modules = [params.model, params.output]
+
+# We need to pass the augmentation module too.
+# This way we do augment only in traning mode.
 if hasattr(params, "augmentation"):
     modules.append(params.augmentation)
 
@@ -108,7 +114,7 @@ params.checkpointer.recover_if_possible()
 asr_brain.fit(params.epoch_counter, train_set, valid_set)
 
 # Load best checkpoint for evaluation
-params.checkpointer.recover_if_possible(lambda c: -c.meta["PER"])
+params.checkpointer.recover_if_possible(min_key="PER")
 test_stats = asr_brain.evaluate(params.test_loader())
 params.train_logger.log_stats(
     stats_meta={"Epoch loaded": params.epoch_counter.current},
