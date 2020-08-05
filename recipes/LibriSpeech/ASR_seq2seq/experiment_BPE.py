@@ -38,20 +38,19 @@ modules = torch.nn.ModuleList(
     [params.enc, params.emb, params.dec, params.ctc_lin, params.seq_lin]
 )
 greedy_searcher = S2SRNNGreedySearcher(
-    modules=[params.emb, params.dec, params.seq_lin, params.log_softmax],
+    modules=[params.emb, params.dec, params.seq_lin],
     bos_index=params.bos_index,
     eos_index=params.eos_index,
     min_decode_ratio=0,
     max_decode_ratio=1,
 )
 beam_searcher = S2SRNNBeamSearcher(
-    modules=[params.emb, params.dec, params.seq_lin, params.log_softmax],
+    modules=[params.emb, params.dec, params.seq_lin],
     bos_index=params.bos_index,
     eos_index=params.eos_index,
     min_decode_ratio=0,
     max_decode_ratio=1,
     beam_size=params.beam_size,
-    length_penalty=params.length_penalty,
     eos_threshold=params.eos_threshold,
     using_max_attn_shift=params.using_max_attn_shift,
     max_attn_shift=params.max_attn_shift,
