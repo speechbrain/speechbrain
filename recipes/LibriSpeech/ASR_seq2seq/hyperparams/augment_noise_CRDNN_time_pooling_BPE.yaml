@@ -60,8 +60,8 @@ output_neurons: 1000 # index(blank/eos/bos) = 0
 blank_index: 0
 # Decoding parameters
 # Be sure that the bos and eos index match with the BPEs ones
-bos_index: 0
-eos_index: 0
+bos_index: !ref <blank_index>
+eos_index: !ref <eos_index>
 min_decode_ratio: 0.0
 max_decode_ratio: 1.0
 beam_size: 40
@@ -71,6 +71,7 @@ max_attn_shift: 60
 
 
 # BPE
+# Specify the bos_id/eos_id if different with blank_id
 bpe_tokenizer: !new:speechbrain.tokenizers.SentencePiece.SentencePiece
     model_dir: !ref <save_folder>
     vocab_size: !ref <output_neurons>
@@ -78,9 +79,6 @@ bpe_tokenizer: !new:speechbrain.tokenizers.SentencePiece.SentencePiece
     csv_read: wrd
     model_type: "unigram" # ["unigram", "bpe", "char"]
     character_coverage: 1.0 # for language with large set of chars use 0.9995
-    bos_id: -1 # assume that bos = unk = 0
-    eos_id: -1 # assume that eos = unk = 0
-    pad_id: -1 # assume that pad = unk = 0
 
 # Functions
 enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
