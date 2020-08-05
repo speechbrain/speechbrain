@@ -446,6 +446,7 @@ def delay_sum(xs, steer):
 
     Example
     -------
+    >>> import torch
     >>> import soundfile as sf
     >>> from speechbrain.processing.features import STFT
     >>> import speechbrain.processing.processing_utils as pu
