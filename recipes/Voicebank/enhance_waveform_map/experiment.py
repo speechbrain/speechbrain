@@ -5,7 +5,6 @@ import torch
 import torchaudio
 import multiprocessing
 import speechbrain as sb
-from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.train_logger import summarize_average
 from speechbrain.nnet.loss.stoi_loss import stoi_loss
 from pesq import pesq
@@ -23,7 +22,7 @@ with open(params_file) as fin:
 # Create experiment directory
 sb.core.create_experiment_directory(
     experiment_directory=params.output_folder,
-    params_to_save=params_file,
+    hyperparams_to_save=params_file,
     overrides=overrides,
 )
 
@@ -132,8 +131,7 @@ class SEBrain(sb.core.Brain):
 
         pesq_score = summarize_average(valid_stats["pesq"])
         params.checkpointer.save_and_keep_only(
-            meta={"pesq_score": pesq_score},
-            importance_keys=[ckpt_recency, lambda c: c.meta["pesq_score"]],
+            meta={"pesq_score": pesq_score}, max_keys="pesq_score",
         )
 
 
@@ -155,7 +153,7 @@ params.checkpointer.recover_if_possible()
 se_brain.fit(params.epoch_counter, train_set, valid_set)
 
 # Load best checkpoint for evaluation
-params.checkpointer.recover_if_possible(lambda c: c.meta["pesq_score"])
+params.checkpointer.recover_if_possible(max_key="pesq_score")
 test_stats = se_brain.evaluate(test_set)
 params.train_logger.log_stats(
     stats_meta={"Epoch loaded": params.epoch_counter.current},

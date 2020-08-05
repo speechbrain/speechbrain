@@ -3,23 +3,23 @@ import speechbrain as sb
 
 output_folder = os.path.join("results", "drop_chunk")
 experiment_dir = os.path.dirname(os.path.abspath(__file__))
-params_file = os.path.join(experiment_dir, "params.yaml")
+hyperparams_file = os.path.join(experiment_dir, "hyperparams.yaml")
 overrides = {
     "output_folder": output_folder,
     "data_folder": os.path.join(experiment_dir, "..", "..", "..", "samples"),
 }
-with open(params_file) as fin:
-    params = sb.yaml.load_extended_yaml(fin, overrides)
+with open(hyperparams_file) as fin:
+    hyperparams = sb.yaml.load_extended_yaml(fin, overrides)
 
 sb.core.create_experiment_directory(
     experiment_directory=output_folder,
-    params_to_save=params_file,
+    hyperparams_to_save=hyperparams_file,
     overrides=overrides,
 )
 
-for ((id, wav, wav_len),) in params.sample_data():
-    wav_drop = params.drop_chunk(wav, wav_len)
-    params.save(wav_drop, id, wav_len)
+for ((id, wav, wav_len),) in hyperparams.sample_data():
+    wav_drop = hyperparams.drop_chunk(wav, wav_len)
+    hyperparams.save(wav_drop, id, wav_len)
 
 
 def test_drop_chunk():
