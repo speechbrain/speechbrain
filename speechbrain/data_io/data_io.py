@@ -33,6 +33,8 @@ class DataLoaderFactory(torch.nn.Module):
     ---------
     csv : str
         the csv file that itemizes the data
+    key : str
+        the key entry for grouping sentenc ids
     batch_size : int, optional
         Default: 1 .  The data itemized in the csv file are automatically
         organized in batches. In the case of variable size tensors, zero
@@ -42,7 +44,7 @@ class DataLoaderFactory(torch.nn.Module):
         Default: None .  A list of data entries may be specified.  If
         specified, only those data entries are read from the csv file. If None,
         read all the data entries.
-    sentence_sorting : {'ascending', 'descending', 'random', 'original'}
+    sentence_sorting : {'groupwise', 'ascending', 'descending', 'random', 'original'}
         Default: 'original'. This parameter specifies how to sort the data
         before the batch creation. Ascending and descending values sort the
         data using the "duration" field in the csv files. Random sort the data
@@ -118,6 +120,8 @@ class DataLoaderFactory(torch.nn.Module):
         sentence_sorting="random",
         num_workers=0,
         cache=False,
+        key_entry=None,
+        group_size=1,
         cache_ram_percent=75,
         select_n_sentences=None,
         avoid_if_longer_than=36000,
@@ -134,6 +138,8 @@ class DataLoaderFactory(torch.nn.Module):
         self.csv_file = csv_file
         self.batch_size = batch_size
         self.csv_read = csv_read
+        self.key_entry = key_entry
+        self.group_size = group_size
         self.sentence_sorting = sentence_sorting
         self.num_workers = num_workers
         self.cache = cache
@@ -155,6 +161,14 @@ class DataLoaderFactory(torch.nn.Module):
             self.shuffle = True
         else:
             self.shuffle = False
+
+        if self.sentence_sorting == "groupwise" and not self.key_entry:
+            err_msg = "specify the key entry for groupwise sampling"
+            raise ValueError(err_msg)
+        # For brevity
+        if self.batch_size % self.group_size != 0:
+            err_msg = "batch_size should be divided by group_size "
+            raise ValueError(err_msg)
 
     def forward(self):
         """
@@ -451,26 +465,11 @@ class DataLoaderFactory(torch.nn.Module):
 
         return count_lab, labels
 
-    def generate_data_dict(self):
-        """
-        Create a dictionary from the csv file
-
-        Returns
-        -------
-        dict
-            Dictionary with the data itemized in the csv file
-
-        Example
-        -------
-        >>> csv_file = 'samples/audio_samples/csv_example2.csv'
-        >>> data_loader=DataLoaderFactory(csv_file)
-        >>> data_loader.generate_data_dict().keys()
-        dict_keys(['example1', 'data_list', 'data_entries'])
-        """
+    def _initialize_data_dict(self):
+        """Initialization of the data_dict"""
         # Initial prints
         logger.debug("Creating dataloader for %s" % (self.csv_file))
 
-        # Initialization of the data_dict
         data_dict = {}
 
         # CSV file reader
@@ -566,14 +565,35 @@ class DataLoaderFactory(torch.nn.Module):
             # Avoiding sentence that are too long or too short
             self._avoid_short_long_sentences(data_dict, row_id)
 
-        data_dict = self.sort_sentences(data_dict, self.sentence_sorting)
-
         logger.debug("Number of sentences: %i" % (len(data_dict.keys())))
         logger.debug("Total duration (hours): %1.2f" % (total_duration / 3600))
         logger.debug(
             "Average duration (seconds): %1.2f"
             % (total_duration / len(data_dict.keys()))
         )
+
+        return data_dict
+
+    def generate_data_dict(self):
+        """
+        Create a dictionary from the csv file
+
+        Returns
+        -------
+        dict
+            Dictionary with the data itemized in the csv file
+
+        Example
+        -------
+        >>> csv_file = 'samples/audio_samples/csv_example2.csv'
+        >>> data_loader=DataLoaderFactory(csv_file)
+        >>> data_loader.generate_data_dict().keys()
+        dict_keys(['example1', 'data_list', 'data_entries'])
+        """
+
+        data_dict = self._initialize_data_dict()
+
+        data_dict = self._sample_sentences(data_dict, self.sentence_sorting)
 
         # Adding sorted list of sentences
         data_dict["data_list"] = list(data_dict.keys())
@@ -658,8 +678,7 @@ class DataLoaderFactory(torch.nn.Module):
 
         return opts
 
-    @staticmethod
-    def sort_sentences(data_dict, sorting):
+    def _sample_sentences(self, data_dict, sorting):
         """
         Sort the data dictionary
 
@@ -667,7 +686,7 @@ class DataLoaderFactory(torch.nn.Module):
         ---------
         data_dict : dict
             Dictionary with the data itemized in the csv file
-        sorting : {'ascending', 'descending', 'random', 'original'}
+        sorting : {'groupwise', 'ascending', 'descending', 'random', 'original'}
             Default: 'original'. This parameter specifies how to sort the data
             before the batch creation. Ascending and descending values sort the
             data using the "duration" field in the csv files. Random sort the data
@@ -695,6 +714,25 @@ class DataLoaderFactory(torch.nn.Module):
         # Note: in Python 3.7 the order of the keys added in the dictionary is
         # preserved
         sorted_dictionary = {}
+
+        # Groupwise sampling
+        # sorted_ids consists of speaker id groups, where each group contains
+        # sentence(s) from different entries, e.g. speakers. For brevity, a
+        # sentence may belong to more than one batch.
+        if sorting == "groupwise":
+            data_group = {}
+            for speaker_id, entries in data_dict.items():
+                group_id = entries[self.key_entry]["data"]
+                data_group.setdefault(group_id, []).append(speaker_id)
+
+            sorted_ids = []
+
+            group_ids = list(data_group.keys())
+            n_spk_per_group = self.batch_size // self.group_size
+            for i in range(0, len(data_dict), self.batch_size):
+                for group_id in random.sample(group_ids, n_spk_per_group):
+                    sids = random.sample(data_group[group_id], self.group_size)
+                    sorted_ids.extend(sids)
 
         # Ascending sorting
         if sorting == "ascending":
