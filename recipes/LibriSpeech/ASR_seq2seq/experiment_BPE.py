@@ -158,7 +158,7 @@ class ASR(sb.core.Brain):
         )
 
         # convert to speechbrain-style relative length
-        rel_length = (abs_length + 1) / bpe.shape[1]
+        rel_length = (abs_length + 1) / bpe_with_eos.shape[1]
         loss_seq = params.seq_cost(p_seq, bpe_with_eos, length=rel_length)
 
         if (
