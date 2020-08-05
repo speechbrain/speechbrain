@@ -35,8 +35,8 @@ def direction(doa, n_time_frames):
     >>> from speechbrain.processing.features import STFT
     >>> import speechbrain.processing.processing_utils as pu
     >>> signal, fs = sf.read(
-            'samples/audio_samples/multi_mic/speech_-0.98894_0_0.14834.flac'
-        )
+    ...     'samples/audio_samples/multi_mic/speech_-0.98894_0_0.14834.flac'
+    ... )
     >>> signal = torch.tensor(signal).unsqueeze(0)
     >>> compute_stft = STFT(sample_rate=fs)
     >>> xs = compute_stft(signal)
@@ -86,17 +86,17 @@ def freefield(doas, mics, fs, c=343.0):
     >>> from speechbrain.processing.features import STFT
     >>> import speechbrain.processing.processing_utils as pu
     >>> signal, fs = sf.read(
-            'samples/audio_samples/multi_mic/speech_-0.98894_0_0.14834.flac'
-        )
+    ...     'samples/audio_samples/multi_mic/speech_-0.98894_0_0.14834.flac'
+    ... )
     >>> signal = torch.tensor(signal).unsqueeze(0)
     >>> compute_stft = STFT(sample_rate=fs)
     >>> xs = compute_stft(signal)
     >>> mics_pos = torch.tensor([
-            [-0.05, -0.05, 0.00],
-            [-0.05, 0.05, 0.00],
-            [0.05, -0.05, 0.00],
-            [0.05, 0.05, 0.00]
-        ])
+    ...     [-0.05, -0.05, 0.00],
+    ...     [-0.05, 0.05, 0.00],
+    ...     [0.05, -0.05, 0.00],
+    ...     [0.05, 0.05, 0.00]
+    ... ])
     >>> signal_pos = torch.tensor([-0.98894, 0., 0.14834])
     >>> n_time_frames = xs.shape[1]
     >>> doas = pu.direction(signal_pos, n_time_frames)
@@ -137,17 +137,17 @@ def steering(tdoas, n_fft):
     >>> from speechbrain.processing.features import STFT
     >>> import speechbrain.processing.processing_utils as sp
     >>> signal, fs = sf.read(
-            'samples/audio_samples/multi_mic/speech_-0.98894_0_0.14834.flac'
-        )
+    ...     'samples/audio_samples/multi_mic/speech_-0.98894_0_0.14834.flac'
+    ... )
     >>> signal = torch.tensor(signal).unsqueeze(0)
     >>> compute_stft = STFT(sample_rate=fs)
     >>> xs = compute_stft(signal)
     >>> mics_pos = torch.tensor([
-            [-0.05, -0.05, 0.00],
-            [-0.05, 0.05, 0.00],
-            [0.05, -0.05, 0.00],
-            [0.05, 0.05, 0.00]
-        ])
+    ...     [-0.05, -0.05, 0.00],
+    ...     [-0.05, 0.05, 0.00],
+    ...     [0.05, -0.05, 0.00],
+    ...     [0.05, 0.05, 0.00]
+    ... ])
     >>> signal_pos = torch.tensor([-0.98894, 0., 0.14834])
     >>> n_time_frames = xs.shape[1]
     >>> doas = pu.direction(signal_pos, n_time_frames)
