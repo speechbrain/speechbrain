@@ -9,13 +9,14 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/CRDNN_BPE_augment/<seed>
+output_folder: !ref results/CRDNN_BPE_augment_noise/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: !PLACEHOLDER # e.g, /localscratch/LibriSpeech
+data_folder: !PLACEHOLDER # e.g., /localscratch/LibriSpeech
+data_folder_rirs: !ref <data_folder>
 csv_train: !ref <data_folder>/train-clean-100.csv
 csv_valid: !ref <data_folder>/dev-clean.csv
 csv_test: !ref <data_folder>/test-clean.csv
@@ -103,6 +104,18 @@ normalize: !new:speechbrain.processing.features.InputNormalization
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
+
+env_corrupt: !new:speechbrain.lobes.augment.env_corrupt.EnvCorrupt
+    openrir_folder: !ref <data_folder_rirs>
+    babble_prob: 0.0
+    reverb_prob: 0.0
+    noise_prob: 1.0
+    babble_speaker_count: 7
+    babble_snr_low: 10
+    babble_snr_high: 10
+    noise_snr_low: 0
+    noise_snr_high: 15
+    rir_scale_factor: 1.0
 
 augmentation: !new:speechbrain.lobes.augment.tdsa.TimeDomainSpecAugment
     sample_rate: !ref <sample_rate>
