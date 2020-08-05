@@ -417,11 +417,16 @@ class Ndx:
             d = models.shape[0] - testsegs.shape[0]
             if d != 0:
                 if d > 0:
-                    pad = testsegs[-d:]
-                    testsegs = numpy.concatenate((testsegs, pad), axis=0)
+                    last = str(testsegs[-1])
+                    pad = numpy.array([last] * d)
+                    testsegs = numpy.hstack((testsegs, pad))
+                    # pad = testsegs[-d:]
+                    # testsegs = numpy.concatenate((testsegs, pad), axis=1)
                 else:
-                    pad = models[-d:]
-                    models = numpy.concatenate((models, pad), axis=0)
+                    d = abs(d)
+                    last = str(models[-1])
+                    pad = numpy.array([last] * d)
+                    models = numpy.hstack((models, pad))
 
             modelset = numpy.unique(models)
             segset = numpy.unique(testsegs)
