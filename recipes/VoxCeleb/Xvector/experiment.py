@@ -17,7 +17,7 @@ with open(params_file) as fin:
 # Create experiment directory
 sb.core.create_experiment_directory(
     experiment_directory=params.output_folder,
-    params_to_save=params_file,
+    hyperparams_to_save=params_file,
     overrides=overrides,
 )
 
@@ -95,7 +95,8 @@ valid_set = params.valid_loader()
 # Xvector Model
 modules = [params.xvector_model, params.classifier]
 first_x, first_y = next(iter(train_set))
-
+if hasattr(params, "augmentation"):
+    modules.append(params.augmentation)
 
 # Object initialization for training xvector model
 xvect_brain = XvectorBrain(

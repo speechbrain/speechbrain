@@ -13,7 +13,6 @@ from speechbrain.data_io.data_io import append_eos_token
 from speechbrain.decoders.seq2seq import S2SRNNGreedySearcher
 from speechbrain.decoders.seq2seq import S2SRNNBeamSearcher
 from speechbrain.decoders.decoders import undo_padding
-from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.train_logger import summarize_error_rate
 
 # This hack needed to import data preparation script from ..
@@ -29,7 +28,7 @@ with open(params_file) as fin:
 # Create experiment directory
 sb.core.create_experiment_directory(
     experiment_directory=params.output_folder,
-    params_to_save=params_file,
+    hyperparams_to_save=params_file,
     overrides=overrides,
 )
 
@@ -37,21 +36,19 @@ modules = torch.nn.ModuleList(
     [params.enc, params.emb, params.dec, params.ctc_lin, params.seq_lin]
 )
 greedy_searcher = S2SRNNGreedySearcher(
-    modules=[params.emb, params.dec, params.seq_lin, params.log_softmax],
+    modules=[params.emb, params.dec, params.seq_lin],
     bos_index=params.bos_index,
     eos_index=params.eos_index,
     min_decode_ratio=0,
     max_decode_ratio=1,
 )
 beam_searcher = S2SRNNBeamSearcher(
-    modules=[params.emb, params.dec, params.seq_lin, params.log_softmax],
+    modules=[params.emb, params.dec, params.seq_lin],
     bos_index=params.bos_index,
     eos_index=params.eos_index,
     min_decode_ratio=0,
     max_decode_ratio=1,
     beam_size=params.beam_size,
-    length_penalty=params.length_penalty,
-    eos_threshold=params.eos_threshold,
 )
 
 checkpointer = sb.utils.checkpoints.Checkpointer(
@@ -74,6 +71,12 @@ class ASR(sb.core.Brain):
 
         wavs, wav_lens = wavs.to(params.device), wav_lens.to(params.device)
         phns, phn_lens = phns.to(params.device), phn_lens.to(params.device)
+
+        if hasattr(params, "env_corrupt") and stage == "train":
+            wavs_noise = params.env_corrupt(wavs, wav_lens, init_params)
+            wavs = torch.cat([wavs, wavs_noise], dim=0)
+            wav_lens = torch.cat([wav_lens, wav_lens])
+            phns = torch.cat([phns, phns])
 
         if hasattr(params, "augmentation"):
             wavs = params.augmentation(wavs, wav_lens, init_params)
@@ -112,6 +115,10 @@ class ASR(sb.core.Brain):
 
         ids, phns, phn_lens = targets
         phns, phn_lens = phns.to(params.device), phn_lens.to(params.device)
+
+        if hasattr(params, "env_corrupt") and stage == "train":
+            phns = torch.cat([phns, phns], dim=0)
+            phn_lens = torch.cat([phn_lens, phn_lens], dim=0)
 
         # Add phn_lens by one for eos token
         abs_length = torch.round(phn_lens * phns.shape[1])
@@ -163,10 +170,7 @@ class ASR(sb.core.Brain):
         epoch_stats = {"epoch": epoch, "lr": old_lr}
         params.train_logger.log_stats(epoch_stats, train_stats, valid_stats)
 
-        checkpointer.save_and_keep_only(
-            meta={"PER": per},
-            importance_keys=[ckpt_recency, lambda c: -c.meta["PER"]],
-        )
+        checkpointer.save_and_keep_only(meta={"PER": per}, min_keys=["PER"])
 
 
 # Prepare data
@@ -192,7 +196,7 @@ checkpointer.recover_if_possible()
 asr_brain.fit(params.epoch_counter, train_set, valid_set)
 
 # Load best checkpoint for evaluation
-checkpointer.recover_if_possible(lambda c: -c.meta["PER"])
+checkpointer.recover_if_possible(min_key="PER")
 test_stats = asr_brain.evaluate(params.test_loader())
 params.train_logger.log_stats(
     stats_meta={"Epoch loaded": params.epoch_counter.current},
