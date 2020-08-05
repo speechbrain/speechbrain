@@ -1,11 +1,13 @@
 """Library implementing activation functions.
 
-Author
-    Mirco Ravanelli 2020
+Authors
+ * Mirco Ravanelli 2020
+ * Jianyuan Zhong 2020
 """
 
 import torch
 import logging
+import torch.nn.functional as F
 
 logger = logging.getLogger(__name__)
 
@@ -63,3 +65,67 @@ class Softmax(torch.nn.Module):
             x_act = x_act.reshape(dims[0], dims[1], dims[2], dims[3])
 
         return x_act
+
+
+class gumbel_softmax(torch.nn.Module):
+    """Samples from the Gumbel-Softmax distribution and optionally discretizes.
+    reference: https://arxiv.org/abs/1611.00712, https://arxiv.org/abs/1611.01144
+
+    Arguements
+    ----------
+    tau: float
+        non-negative scalar temperature
+    hard: bool
+        if True, the returned samples will be discretized as one-hot vectors, but will be differentiated as if it is the soft sample in autograd
+    dim: int
+        A dimension along which softmax will be computed. Default: -1.
+
+    Example
+    -------
+    >>> x = torch.randn((8, 40, 120))
+    >>> act = gumbel_softmax(0.8, True)
+    >>> x = act(x)
+    """
+
+    def __init__(self, tau, hard=False, apply_log=False):
+        super().__init__()
+        self.tau = tau
+        self.hard = hard
+        self.apply_log = apply_log
+
+    def forward(self, x):
+        if self.apply_log:
+            return torch.log(F.gumbel_softmax(x, tau=self.tau, hard=self.hard))
+        return F.gumbel_softmax(x, tau=self.tau, hard=self.hard)
+
+
+class Swish(torch.nn.Module):
+    """ The class implements the Swish activation function from
+    https://arxiv.org/pdf/2005.03191.pdf
+
+    given input x. Swish(x) = x / (1 + exp(beta * x))
+
+    Arguments
+    ---------
+    beta: float
+
+    Example
+    -------
+    >>> x = torch.randn((8, 40, 120))
+    >>> act = Swish()
+    >>> x = act(x)
+    """
+
+    def __init__(self, beta=1):
+        super().__init__()
+        self.beta = beta
+        self.sigmoid = torch.nn.Sigmoid()
+
+    def forward(self, x):
+        """Returns the Swished input tensor.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+        """
+        return x * self.sigmoid(self.beta * x)

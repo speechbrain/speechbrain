@@ -1,7 +1,7 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: !PLACEHOLDER  # e.g, 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/CRDNN_2d_pooling/<seed>
+output_folder: !ref results/augment_CRDNN_time_pooling/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -14,10 +14,12 @@ csv_test: !ref <data_folder>/test-clean.csv
 
 # Training parameters
 number_of_epochs: 30
+number_of_ctc_epochs: 10
 batch_size: 8
 lr: 1.0
 ctc_weight: 0.5
-device: 'cuda:0'
+device: 'cuda'
+multigpu: False
 
 # Feature parameters
 sample_rate: 16000
@@ -46,9 +48,10 @@ bos_index: !ref <output_neurons> - 1
 eos_index: !ref <output_neurons> - 1
 min_decode_ratio: 0.0
 max_decode_ratio: 1.0
-beam_size: 64
-length_penalty: 0.1
+beam_size: 80
 eos_threshold: 1.5
+using_max_attn_shift: True
+max_attn_shift: 60
 
 # Functions
 enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
@@ -57,8 +60,8 @@ enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
     cnn_blocks: !ref <cnn_blocks>
     cnn_channels: !ref <cnn_channels>
     cnn_kernelsize: !ref <cnn_kernelsize>
-    time_pooling: False
-    using_2d_pooling: True
+    time_pooling: True
+    using_2d_pooling: False
     rnn_layers: !ref <rnn_layers>
     rnn_neurons: !ref <rnn_neurons>
     rnn_bidirectional: !ref <rnn_bidirectional>
@@ -141,5 +144,5 @@ seq_cost: !name:speechbrain.nnet.losses.nll_loss
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
     summary_fns:
-        loss: !name:speechbrain.utils.train_logger.summarize_average
         CER: !name:speechbrain.utils.train_logger.summarize_error_rate
+        WER: !name:speechbrain.utils.train_logger.summarize_error_rate

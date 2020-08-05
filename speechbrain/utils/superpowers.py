@@ -4,9 +4,8 @@ This library contains functions for importing python classes and
 for running shell commands. Remember, with great power comes great
 responsibility.
 
-Author
-------
-Mirco Ravanelli 2020
+Authors
+ * Mirco Ravanelli 2020
 """
 
 import logging
@@ -31,6 +30,11 @@ def run_shell(cmd):
         the captured standard error
     int
         the returncode
+
+    Raises
+    ------
+    OSError
+        If returncode is not 0, i.e. command failed
 
     Example
     -------

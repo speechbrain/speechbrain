@@ -1,11 +1,10 @@
 """
 Optimizers for neural network training.
 
-Author
-------
-Mirco Ravanelli 2020
-Aku Rouhe 2020
-Abdel Heba 2020
+Authors
+ * Mirco Ravanelli 2020
+ * Aku Rouhe 2020
+ * Abdel Heba 2020
 """
 
 import torch
@@ -507,6 +506,114 @@ class Rprop_Optimizer:
             lr=self.learning_rate,
             etas=tuple(self.etas),
             step_sizes=tuple(self.step_sizes),
+        )
+
+    def step(self):
+        # Parameter update
+        self.optim.step()
+
+    def zero_grad(self):
+        # Zeroing gradient buffers
+        self.optim.zero_grad()
+
+    @checkpoints.mark_as_loader
+    def _recovery(self, path, end_of_epoch):
+        """Lazy recovery of self.optim
+
+        Need special recovery because here the forward() should not and
+        need not be run before recovery of optimize; so we use forward_pre_hook
+
+        (In many cases the forward does need to be run so that submodules
+        get initialized first, using forward_hook and rerunning forward())
+        """
+        del end_of_epoch  # Unused here.
+        self.optim.load_state_dict(torch.load(path))
+
+    @checkpoints.mark_as_saver
+    def _save(self, path):
+        torch.save(self.optim.state_dict(), path)
+
+
+@checkpoints.register_checkpoint_hooks
+class AdamW_Optimizer:
+    """This class supports AdamW optimizer.
+
+    The function takes in input some neural networks and updates
+    their parameters according to the Adam optimization algorithm.
+
+    Arguments
+    ---------
+    learning_rate: float
+        the learning rate used to update the parameters.
+    betas: float
+        coefficients used for computing running averages of gradient
+        and its square in adam optimizer and its variations.
+    eps: float
+        the numerical stability factor.
+    weight_decay: float
+        weight decay (L2 penalty) factor used as as additionally loss.
+    amsgrad: bool
+        if True it uses the AMSGrad variant of the adam optimizer.
+
+    Example
+    -------
+    >>> from speechbrain.nnet.linear import Linear
+    >>> from speechbrain.nnet.losses import nll_loss
+    >>> inp_tensor = torch.rand([1,660,3])
+    >>> model = Linear(n_neurons=4)
+    >>> optim = Adam_Optimizer(learning_rate=0.01)
+    >>> output = model(inp_tensor, init_params=True)
+    >>> optim.init_params([model])
+    >>> prediction = torch.nn.functional.log_softmax(output, dim=2)
+    >>> label = torch.randint(3, (1, 660))
+    >>> lengths = torch.Tensor([1.0])
+    >>> out_cost = nll_loss(prediction, label, lengths)
+    >>> out_cost.backward()
+    >>> optim.step()
+    >>> optim.zero_grad()
+    """
+
+    def __init__(
+        self,
+        learning_rate,
+        betas=[0.9, 0.999],
+        eps=1e-8,
+        weight_decay=0.001,
+        amsgrad=False,
+    ):
+
+        self.learning_rate = learning_rate
+        self.betas = betas
+        self.eps = eps
+        self.weight_decay = weight_decay
+        self.amsgrad = amsgrad
+
+        # Dummy input for jitability
+        self.optim = torch.Tensor([])
+
+    def init_params(self, modules):
+        # Making sure the input is class with parameters to optimize
+        param_lst = []
+
+        # Storing all the parameters to updated in the param_lst
+        for module in modules:
+            try:
+                param_lst = param_lst + list(module.parameters())
+            except AttributeError:
+                err_msg = (
+                    "The class optimize expected in input a list of"
+                    "neural classes (nn.Module), but %s has no parameters"
+                    % (module)
+                )
+                raise ValueError(err_msg)
+
+        self.optim = torch.optim.AdamW(
+            param_lst,
+            lr=self.learning_rate,
+            betas=tuple(self.betas),
+            eps=self.eps,
+            weight_decay=self.weight_decay,
+            amsgrad=self.amsgrad,
         )
 
     def step(self):
