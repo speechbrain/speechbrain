@@ -4,8 +4,8 @@ seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Data files
-output_folder: /home/lugosch/data/mini-librispeech
-data_folder: /home/lugosch/data/mini-librispeech
+output_folder: !ref results/g2p/<seed>
+data_folder: /localscratch/
 
 input_lexicon: !ref <data_folder>/lexicon.csv
 output_lexicon: !ref <data_folder>/lexicon_augmented.csv
@@ -16,8 +16,8 @@ csv_valid: !ref <data_folder>/dev.csv
 csv_test: !ref <data_folder>/test.csv
 
 # Training hyperparameters
-N_epochs: 2
-N_batch: 1024
+N_epochs: 100
+N_batch: 32
 lr: 0.002
 
 # token infomation
@@ -27,28 +27,28 @@ eos: 39
 train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>
     batch_size: !ref <N_batch>
-    csv_read: [graphemes,phonemes]
-    sentence_sorting: random
+    csv_read: [graphemes, phonemes]
+    sentence_sorting: ascending
     replacements:
         $data_folder: !ref <data_folder>
 
 valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_train>
+    csv_file: !ref <csv_valid>
     batch_size: !ref <N_batch>
-    csv_read: [graphemes,phonemes]
+    csv_read: [graphemes, phonemes]
     sentence_sorting: ascending
     replacements:
         $data_folder: !ref <data_folder>
 
 test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_test>
-    csv_read: [graphemes,phonemes]
+    csv_read: [graphemes, phonemes]
     sentence_sorting: ascending
     replacements:
         $data_folder: !ref <data_folder>
 
 encoder_embed: !new:speechbrain.nnet.embedding.Embedding
-    num_embeddings: 27 # 27 graphemes
+    num_embeddings: 27  # 27 graphemes
     embedding_dim: 256
 
 encoder_net: !new:speechbrain.lobes.models.CRDNN.CRDNN
@@ -65,7 +65,7 @@ encoder_net: !new:speechbrain.lobes.models.CRDNN.CRDNN
     dnn_neurons: 0
 
 decoder_embed: !new:speechbrain.nnet.embedding.Embedding
-    num_embeddings: 40 # 39 phonemes + 1 bos
+    num_embeddings: 40  # 39 phonemes + 1 bos
     embedding_dim: 256
 
 decoder_net: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder

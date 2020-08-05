@@ -1,5 +1,7 @@
 # adapted from https://github.com/speechbrain/speechbrain/blob/master/recipes/minimal_examples/neural_networks/ASR_seq2seq/example_asr_seq2seq_experiment.py
 import os
+import pandas as pd
+from sklearn.model_selection import train_test_split
 import speechbrain as sb
 from speechbrain.data_io.data_io import prepend_bos_token
 from speechbrain.data_io.data_io import append_eos_token
@@ -19,7 +21,7 @@ with open(params_file) as fin:
     hparams = sb.yaml.load_extended_yaml(fin, overrides)
 
 sb.core.create_experiment_directory(
-    experiment_directory=output_folder, params_to_save=params_file,
+    experiment_directory=output_folder, hyperparams_to_save=params_file,
 )
 
 searcher = S2SRNNGreedySearcher(
@@ -32,13 +34,10 @@ searcher = S2SRNNGreedySearcher(
     bos_index=hparams.bos,
     eos_index=hparams.eos,
     min_decode_ratio=0,
-    max_decode_ratio=10.0,
+    max_decode_ratio=1.0,
 )
 
 # Create train.csv, dev.csv, test.csv from lexicon.csv
-
-import pandas as pd
-from sklearn.model_selection import train_test_split
 
 lexicon = pd.read_csv(hparams.input_lexicon)
 train_lexicon, other = train_test_split(
@@ -72,9 +71,10 @@ class G2P(sb.core.Brain):
         if stage != "train":
             seq, _ = searcher(encoder_out, graphemes_lens)
             ######
-            print(graphemes[0])
-            print(seq[0])
-            print(phonemes[0])
+            # print(graphemes[0])
+            # print(seq[0])
+            # print(outputs.argmax(2)[0])
+            # print(phonemes[0])
             ######
             return outputs, seq
 
@@ -90,12 +90,14 @@ class G2P(sb.core.Brain):
 
         # Add 1 to lengths for eos token
         abs_length = torch.round(phonemes_lens * phonemes.shape[1])
-        phonemes = append_eos_token(
+        phonemes_with_eos = append_eos_token(
             phonemes, length=abs_length, eos_index=hparams.eos
         )
         rel_length = (abs_length + 1) / phonemes.shape[1]
 
-        loss = hparams.compute_cost(outputs, phonemes, length=rel_length)
+        loss = hparams.compute_cost(
+            outputs, phonemes_with_eos, length=rel_length
+        )
 
         stats = {}
         if stage != "train":
