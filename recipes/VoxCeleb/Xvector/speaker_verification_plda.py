@@ -36,6 +36,7 @@ sb.core.create_experiment_directory(
 )
 
 # Prepare data from dev of Voxceleb1
+"""
 print("Data prep for train...")
 prepare_voxceleb(
     data_folder=params.data_folder,
@@ -55,6 +56,7 @@ prepare_voxceleb(
     splits=["test"],
     rand_seed=params.seed,
 )
+"""
 
 
 # Definition of the steps for xvector computation from the waveforms
@@ -168,12 +170,14 @@ else:
     with open(xv_file, "rb") as input:
         xvectors_stat = pickle.load(input)
 
+
 plda = PLDA()
 
 # Training Gaussina PLDA model
 print("Training PLDA model")
 plda.plda(xvectors_stat)
 print("\nTesting...")
+
 
 # Some PLDA inputs
 modelset_test, segset_test = [], []
@@ -331,14 +335,14 @@ if not os.path.isfile(ndx_file):
 
     # Current numpy version is strict with boolean dimension mismatch
     # This is needed to make it compatible with latest numpy
-    d = models.shape[0] - testsegs.shape[0]
-    if d != 0:
-        if d > 0:
-            pad = testsegs[-d:]
-            testsegs = numpy.concatenate((testsegs, pad), axis=0)
-        else:
-            pad = models[-d:]
-            models = numpy.concatenate((models, pad), axis=0)
+    # d = models.shape[0] - testsegs.shape[0]
+    # if d != 0:
+    #    if d > 0:
+    #        pad = testsegs[-d:]
+    #        testsegs = numpy.concatenate((testsegs, pad), axis=0)
+    #    else:
+    #        pad = models[-d:]
+    #        models = numpy.concatenate((models, pad), axis=0)
 
     ndx_obj = Ndx(models=models, testsegs=testsegs)
     print("Saving ndx obj...")

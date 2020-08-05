@@ -8,7 +8,7 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Folders and train_log file
 #/voxceleb1/audio_files/vox1_all/
-data_folder: /network/tmp1/dawalatn/dataset_tmp1/VoxCeleb/vox1/
+data_folder: /network/tmp1/dawalatn/dataset_tmp1/VoxCeleb/voxceleb1/
 output_folder: results/speaker_verification_v1/
 save_folder: !ref <output_folder>/save/
 device: 'cuda:0'
