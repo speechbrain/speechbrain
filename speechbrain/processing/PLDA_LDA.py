@@ -95,6 +95,36 @@ class StatObject_SB:
         with open(filename, "wb") as output:
             pickle.dump(self, output, pickle.HIGHEST_PROTOCOL)
 
+    def get_model_segsets(self, mod_id):
+        """Return segments of a given model
+
+        Arguments
+        ---------
+        mod_id: str
+            ID of the model which segments will be returned
+        """
+        return self.segset[self.modelset == mod_id]
+
+    def get_model_start(self, mod_id):
+        """Return start of segment of a given model
+
+        Arguments
+        ---------
+        mod_id: str
+            ID of the model which segments will be returned
+        """
+        return self.start[self.modelset == mod_id]
+
+    def get_model_stop(self, mod_id):
+        """Return stop of segment of a given model
+
+        Arguments
+        ---------
+        mod_id: str
+            ID of the model which segments will be returned
+        """
+        return self.stop[self.modelset == mod_id]
+
     def get_mean_stat1(self):
         """Return the mean of first order statistics
         """
@@ -383,7 +413,7 @@ class Ndx:
         self.trialmask = numpy.array([], dtype="bool")
 
         if ndx_file_name == "":
-            # This is needed to make size same
+            # This is needed to make sizes same
             d = models.shape[0] - testsegs.shape[0]
             if d != 0:
                 if d > 0:
