@@ -46,9 +46,8 @@ Example
 ...     # 3. Save checkpoints, and keep by default just one, the newest:
 ...     ckpt = checkpointer.save_and_keep_only()
 
-Author
-------
-Aku Rouhe 2020
+Authors
+ * Aku Rouhe 2020
 """
 import torch
 import collections
@@ -87,10 +86,6 @@ def torch_recovery(obj, path, end_of_epoch):
     -------
     None
         Given object is modified in place
-
-    Author
-    ------
-    Aku Rouhe 2020
     """
     del end_of_epoch  # Unused
     obj.load_state_dict(torch.load(path), strict=True)
@@ -471,13 +466,16 @@ class Checkpointer:
         end_of_epoch=True,
         name=None,
         num_to_keep=1,
-        importance_keys=[ckpt_recency],
+        keep_recent=True,
+        importance_keys=[],
+        max_keys=[],
+        min_keys=[],
         ckpt_predicate=None,
     ):
         """Saves a checkpoint, then deletes the least important checkpoints
 
-        Essentially this combines save_checkpoint() and delete_checkpoints()
-        in one call, only provided for very short syntax in simple cases.
+        Essentially this combines ``save_checkpoint()`` and
+        ``delete_checkpoints()`` in one call, providing short syntax.
 
         Arguments
         ---------
@@ -492,17 +490,19 @@ class Checkpointer:
             The name will still have a prefix added. If no name is given,
             a name is created from a timestamp and a random unique id.
         num_to_keep : int, optional
-            Number of checkpoints to keep.
-            Defaults to 10. You choose to keep 0. This deletes all
+            Number of checkpoints to keep. Defaults to 1. This deletes all
             checkpoints remaining after filtering. Must be >=0
+        keep_recent : bool, optional
+            Whether to keep the most recent ``num_to_keep`` checkpoints.
         importance_keys : list, optional
             A list of key functions used in sorting (see the sorted built-in).
             Each callable defines a sort order and num_to_keep checkpoints are
-            kept for  callable. To be clear, those with the highest key are
-            kept.
-            The functions are called with Checkpoint namedtuples
-            (see above). See also the default (ckpt_recency,
-            above). The default deletes all but the latest checkpoint.
+            kept for callable. The checkpoint with the highest keys are kept.
+            The functions are passed Checkpoint namedtuples (see above).
+        max_keys : list, optional
+            A list of keys for which the *highest* value will be kept.
+        min_keys : list, optional
+            A list of keys for which the *lowest* value will be kept.
         ckpt_predicate : callable, optional
             Use this to exclude some checkpoints from deletion. Before any
             sorting, the list of checkpoints is filtered with this predicate.
@@ -518,6 +518,13 @@ class Checkpointer:
             deletion.
         """
         self.save_checkpoint(meta=meta, end_of_epoch=end_of_epoch, name=name)
+
+        if keep_recent:
+            importance_keys.append(ckpt_recency)
+        for key in max_keys:
+            importance_keys.append(lambda ckpt, key=key: ckpt.meta[key])
+        for key in min_keys:
+            importance_keys.append(lambda ckpt, key=key: -ckpt.meta[key])
         self.delete_checkpoints(
             num_to_keep=num_to_keep,
             importance_keys=importance_keys,
@@ -525,19 +532,30 @@ class Checkpointer:
         )
 
     def find_checkpoint(
-        self, importance_key=ckpt_recency, ckpt_predicate=None,
+        self,
+        importance_key=None,
+        max_key=None,
+        min_key=None,
+        ckpt_predicate=None,
     ):
         """Picks a particular checkpoint from all available checkpoints.
+
+        If none of ``importance_key``, ``max_key``, and ``min_key`` is
+        used, then most recent checkpoint will be returned. No more than
+        one of them may be used.
 
         Arguments
         ---------
         importance_key : callable, optional
-            The key function used in sorting (see the max built-in).
-            The checkpoint with the highest key value is picked. By default,
-            the key value is unixtime. The higher the unixtime,
-            the newer -> the latest checkpoint is picked.
-            The function is called with Checkpoint namedtuples (see above).
-            See also the default (ckpt_recency, above).
+            The key function used in sorting.
+            The checkpoint with the highest returned value is picked.
+            The function is called with Checkpoint namedtuples.
+        max_key : str, optional
+            The checkpoint with the highest value for this key will
+            be returned.
+        min_key : str, optional
+            The checkpoint with the lowest value for this key will
+            be returned.
         ckpt_predicate : callable, optional
             Before sorting, the list of
             checkpoints is filtered with this predicate.
@@ -552,6 +570,25 @@ class Checkpointer:
         None
             if no Checkpoints exist/remain after filtering
         """
+        if importance_key is None and min_key is None and max_key is None:
+            importance_key = ckpt_recency
+
+        if max_key and not importance_key:
+
+            def importance_key(ckpt):
+                return ckpt.meta[max_key]
+
+        elif min_key and not importance_key:
+
+            def importance_key(ckpt):
+                return -ckpt.meta[min_key]
+
+        elif min_key or max_key:
+            raise ValueError(
+                "Must specify only one of 'importance_key', 'max_key', "
+                "and 'min_key'."
+            )
+
         ckpts = self.list_checkpoints()
         ckpts = list(filter(ckpt_predicate, ckpts))
         if ckpts:
@@ -561,21 +598,30 @@ class Checkpointer:
             return None  # Be explicit :)
 
     def recover_if_possible(
-        self, importance_key=ckpt_recency, ckpt_predicate=None,
+        self,
+        importance_key=None,
+        max_key=None,
+        min_key=None,
+        ckpt_predicate=None,
     ):
         """Picks a checkpoint and recovers from that, if one is found.
 
         If a checkpoint is not found, no recovery is run.
 
+        If none of ``importance_key``, ``max_key``, and ``min_key`` is
+        used, then most recent checkpoint will be returned. No more than
+        one of them may be used.
+
         Arguments
         ---------
         importance_key : callable, optional
-            The key function used in sorting (see the max built-in).
-            The checkpoint with the highest key value is picked. By default,
-            the key value is unixtime. The higher the unixtime,
-            the newer -> the latest checkpoint is picked.
-            The function is called with Checkpoint namedtuples (see above).
-            See also the default (ckpt_recency, above).
+            The key function used in sorting.
+            The checkpoint with the highest returned value is loaded.
+            The function is called with Checkpoint namedtuples.
+        max_key : str, optional
+            The checkpoint with the highest value for this key will be loaded.
+        min_key : str, optional
+            The checkpoint with the lowest value for this key will be loaded.
         ckpt_predicate : callable, optional
             Before sorting, the list of
             checkpoints is filtered with this predicate.
@@ -591,7 +637,9 @@ class Checkpointer:
         None
             if no Checkpoints exist/remain after filtering
         """
-        chosen_ckpt = self.find_checkpoint(importance_key, ckpt_predicate)
+        chosen_ckpt = self.find_checkpoint(
+            importance_key, max_key, min_key, ckpt_predicate
+        )
         if chosen_ckpt is not None:
             self.load_checkpoint(chosen_ckpt)
         else:
@@ -635,7 +683,8 @@ class Checkpointer:
         important). For each of these orders, num_to_keep checkpoints are kept.
         However if there is overlap between each orders' preserved checkpoints,
         the additional checkpoints are not preserved, so the total number of
-        preserved checkpoints can be less than
+        preserved checkpoints can be less than::
+
             num_to_keep * len(importance_keys)
 
         Arguments

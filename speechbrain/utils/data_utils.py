@@ -1,16 +1,22 @@
 """This library gathers utilities for data io operation.
 
-Authors: Mirco Ravanelli 2020, Aku Rouhe 2020
+Authors
+ * Mirco Ravanelli 2020
+ * Aku Rouhe 2020
+ * Samuele Cornell 2020
 """
 
 import os
+import shutil
+import urllib.request
 import collections.abc
+import tqdm
 
 
 def get_all_files(
     dirName, match_and=None, match_or=None, exclude_and=None, exclude_or=None
 ):
-    """Returns a list of files within found within a folder.
+    """Returns a list of files found within a folder.
 
     Different options can be used to restrict the search to some specific
     patterns.
@@ -215,3 +221,29 @@ def recursive_update(d, u, must_match=False):
             )
         else:
             d[k] = v
+
+
+def download_file(source, dest, unpack=False, dest_unpack=None):
+    class DownloadProgressBar(tqdm.tqdm):
+        def update_to(self, b=1, bsize=1, tsize=None):
+            if tsize is not None:
+                self.total = tsize
+            self.update(b * bsize - self.n)
+
+    if not os.path.isfile(dest):
+        print(f"Downloading {source} to {dest}")
+        with DownloadProgressBar(
+            unit="B", unit_scale=True, miniters=1, desc=source.split("/")[-1]
+        ) as t:
+            urllib.request.urlretrieve(
+                source, filename=dest, reporthook=t.update_to
+            )
+    else:
+        print("Destination path is not empty. Skipping download")
+
+    # Unpack if necessary
+    if unpack:
+        if dest_unpack is None:
+            dest_unpack = os.path.dirname(dest)
+        print(f"Extracting {dest} to {dest_unpack}")
+        shutil.unpack_archive(dest, dest_unpack)

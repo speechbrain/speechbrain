@@ -1,7 +1,11 @@
 """A popular speech model.
 
-Authors: Mirco Ravanelli 2020, Peter Plantinga 2020, Ju-Chieh Chou 2020,
-    Titouan Parcollet 2020, Abdel 2020
+Authors
+ * Mirco Ravanelli 2020
+ * Peter Plantinga 2020
+ * Ju-Chieh Chou 2020
+ * Titouan Parcollet 2020
+ * Abdel 2020
 """
 import torch
 from speechbrain.nnet.RNN import LiGRU
@@ -14,7 +18,7 @@ from speechbrain.nnet.normalization import BatchNorm1d, LayerNorm
 
 
 class CRDNN(Sequential):
-    """This model is a combination of CNNs, LiGRU, and DNNs.
+    """This model is a combination of CNNs, RNNs, and DNNs.
 
     The default CNN model is based on VGG.
 
@@ -36,6 +40,12 @@ class CRDNN(Sequential):
         The number of elements to pool on the time axis.
     time_pooling_stride : int
         The number of elements to increment by when iterating the time axis.
+    using_2d_pooling: bool
+        Whether using a 2D or 1D pooling after each cnn block.
+    inter_layer_pooling_size : list of ints
+        A list of the number of pooling for each cnn block.
+    rnn_class : torch class
+        The type of rnn to use in CRDNN network (LiGRU, LSTM, GRU, RNN)
     rnn_layers : int
         The number of recurrent LiGRU layers to include.
     rnn_neurons : int
@@ -65,7 +75,9 @@ class CRDNN(Sequential):
         cnn_kernelsize=(3, 3),
         time_pooling=False,
         time_pooling_size=2,
-        inter_layer_pooling_size=2,
+        freq_pooling_size=2,
+        rnn_class=LiGRU,
+        inter_layer_pooling_size=[2, 2],
         using_2d_pooling=False,
         rnn_layers=4,
         rnn_neurons=512,
@@ -74,21 +86,22 @@ class CRDNN(Sequential):
         dnn_blocks=2,
         dnn_neurons=512,
     ):
+
         blocks = []
 
         for block_index in range(cnn_blocks):
             if not using_2d_pooling:
                 pooling = Pooling1d(
                     pool_type="max",
-                    kernel_size=inter_layer_pooling_size,
+                    kernel_size=inter_layer_pooling_size[block_index],
                     pool_axis=2,
                 )
             else:
                 pooling = Pooling2d(
                     pool_type="max",
                     kernel_size=(
-                        inter_layer_pooling_size,
-                        inter_layer_pooling_size,
+                        inter_layer_pooling_size[block_index],
+                        inter_layer_pooling_size[block_index],
                     ),
                     pool_axis=(1, 2),
                 )
@@ -122,7 +135,7 @@ class CRDNN(Sequential):
 
         if rnn_layers > 0:
             blocks.append(
-                LiGRU(
+                rnn_class(
                     hidden_size=rnn_neurons,
                     num_layers=rnn_layers,
                     dropout=dropout,

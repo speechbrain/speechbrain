@@ -30,8 +30,8 @@ Example
 >>> norm = InputNormalization()
 >>> features = norm(features, torch.tensor([1]).float())
 
-Author
-    Mirco Ravanelli 2020
+Authors
+ * Mirco Ravanelli 2020
 """
 import math
 import torch
@@ -56,16 +56,16 @@ class STFT(torch.nn.Module):
     sample_rate : int
         Sample rate of the input audio signal (e.g 16000).
     win_length : float
-         Length (in ms) of the sliding window used to compute the STFT.
+        Length (in ms) of the sliding window used to compute the STFT.
     hop_length : float
         Length (in ms) of the hope of the sliding window used to compute
         the STFT.
     n_fft : int
         Number of fft point of the STFT. It defines the frequency resolution
         (n_fft should be <= than win_len).
-    window_type : str
-        Window function used to compute the STFT ('bartlett','blackman',
-        'hamming', 'hann', default: hamming).
+    window_fn : function
+        A function that takes an integer (number of samples) and outputs a
+        tensor to be multiplied with each window before fft.
     normalized_stft : bool
         If True, the function returns the  normalized STFT results,
         i.e., multiplied by win_length^-0.5 (default is False).
@@ -102,7 +102,7 @@ class STFT(torch.nn.Module):
         win_length=25,
         hop_length=10,
         n_fft=400,
-        window_type="hamming",
+        window_fn=torch.hamming_window,
         normalized_stft=False,
         center=True,
         pad_mode="constant",
@@ -113,7 +113,6 @@ class STFT(torch.nn.Module):
         self.win_length = win_length
         self.hop_length = hop_length
         self.n_fft = n_fft
-        self.window_type = window_type
         self.normalized_stft = normalized_stft
         self.center = center
         self.pad_mode = pad_mode
@@ -127,7 +126,7 @@ class STFT(torch.nn.Module):
             round((self.sample_rate / 1000.0) * self.hop_length)
         )
 
-        self.window = self._create_window()
+        self.window = window_fn(self.win_length)
 
     def forward(self, x):
         """Returns the STFT generated from the input waveforms.
@@ -172,25 +171,6 @@ class STFT(torch.nn.Module):
 
         return stft
 
-    def _create_window(self):
-        """Returns the window used for STFT computation.
-        """
-        if self.window_type == "bartlett":
-            wind_cmd = torch.bartlett_window
-
-        if self.window_type == "blackman":
-            wind_cmd = torch.blackman_window
-
-        if self.window_type == "hamming":
-            wind_cmd = torch.hamming_window
-
-        if self.window_type == "hann":
-            wind_cmd = torch.hann_window
-
-        window = wind_cmd(self.win_length)
-
-        return window
-
 
 class ISTFT(torch.nn.Module):
     """ Computes the Inverse Short-Term Fourier Transform (ISTFT)
@@ -208,9 +188,9 @@ class ISTFT(torch.nn.Module):
     hop_length : float
         Length (in ms) of the hope of the sliding window used when computing
         the STFT.
-    window_type : str
-        Window function used to compute the STFT ('bartlett','blackman',
-        'hamming', 'hann', default: hamming).
+    window_fn : function
+        A function that takes an integer (number of samples) and outputs a
+        tensor to be used as a window for ifft.
     normalized_stft : bool
         If True, the function assumes that it's working with the normalized
         STFT results. (default is False)
@@ -244,9 +224,10 @@ class ISTFT(torch.nn.Module):
     def __init__(
         self,
         sample_rate,
+        n_fft=None,
         win_length=25,
         hop_length=10,
-        window_type="hamming",
+        window_fn=torch.hamming_window,
         normalized_stft=False,
         center=True,
         onesided=True,
@@ -254,9 +235,9 @@ class ISTFT(torch.nn.Module):
     ):
         super().__init__()
         self.sample_rate = sample_rate
+        self.n_fft = n_fft
         self.win_length = win_length
         self.hop_length = hop_length
-        self.window_type = window_type
         self.normalized_stft = normalized_stft
         self.center = center
         self.onesided = onesided
@@ -270,7 +251,8 @@ class ISTFT(torch.nn.Module):
             round((self.sample_rate / 1000.0) * self.hop_length)
         )
 
-        self.window = self._create_window()
+        # Create window using provided function
+        self.window = window_fn(self.win_length)
 
     def forward(self, x, sig_length=None):
         """ Returns the ISTFT generated from the input signal.
@@ -279,7 +261,6 @@ class ISTFT(torch.nn.Module):
         ---------
         x : tensor
             A batch of audio signals in the frequency domain to transform.
-
         sig_length : int
             The length of the output signal in number of samples. If not
             specified will be equal to: (time_step - 1) * hop_length + n_fft
@@ -287,120 +268,41 @@ class ISTFT(torch.nn.Module):
 
         or_shape = x.shape
 
-        # Changing the format for (batch, time_step, n_channels, n_fft, 2)
-        if len(or_shape) == 5:
-            x = x.permute(0, 1, 4, 2, 3)
-
-        # Computing the n_fft according to value of self.onesided
-        if self.onesided:
-            n_fft = 2 * (or_shape[2] - 1)
-
+        # Infer n_fft if not provided
+        if self.n_fft is None and self.onesided:
+            n_fft = (x.shape[2] - 1) * 2
+        elif self.n_fft is None and not self.onesided:
+            n_fft = x.shape[2]
         else:
-            n_fft = or_shape[2]
+            n_fft = self.n_fft
 
-        # Applying an IFFT on the input frames
-        q = torch.irfft(
-            x, 1, self.normalized_stft, self.onesided, signal_sizes=[n_fft]
+        # Changing the format for (batch, time_step, n_fft, 2, n_channels)
+        if len(or_shape) == 5:
+            x = x.permute(0, 4, 2, 1, 3)
+
+            # Lumping batch and channel dimension, because torch.istft
+            # doesn't support batching.
+            x = x.reshape(-1, x.shape[2], x.shape[3], x.shape[4])
+        elif len(or_shape) == 4:
+            x = x.permute(0, 2, 1, 3)
+
+        istft = torch.istft(
+            input=x,
+            n_fft=n_fft,
+            hop_length=self.hop_length,
+            win_length=self.win_length,
+            window=self.window.to(x.device),
+            center=self.center,
+            onesided=self.onesided,
+            length=sig_length,
         )
 
-        # Computing the estimated signal length
-        estimated_length = (or_shape[1] - 1) * self.hop_length + n_fft
-
-        # Working with the given window
-        if self.window.shape[0] < n_fft:
-            padding_size = n_fft - self.window.shape[0]
-            beginning_pad = padding_size // 2
-            ending_pad = padding_size - beginning_pad
-
-            self.window = torch.cat(
-                (
-                    torch.zeros(beginning_pad),
-                    self.window,
-                    torch.zeros(ending_pad),
-                ),
-                -1,
-            )
-
-        elif self.window.shape[0] > n_fft:
-            crop_size = self.window.shape[0] - n_fft
-            crop_point = crop_size // 2
-            self.window = self.window[crop_point : (crop_point + n_fft)]
-
-        q = q * self.window
-
-        # Intializing variables for the upcoming normalization
-        sum_squared_wn = torch.zeros(estimated_length)
-        squared_wn = self.window * self.window
-
-        # Reconstructing the signal from the frames
+        # Convert back to (time, time_step, n_channels)
         if len(or_shape) == 5:
-            istft = torch.zeros((or_shape[0], or_shape[4], estimated_length))
-
-        else:
-            istft = torch.zeros((or_shape[0], estimated_length))
-
-        for frame_index in range(or_shape[1]):
-            time_point = frame_index * self.hop_length
-
-            istft[..., time_point : (time_point + n_fft)] += q[:, frame_index]
-            sum_squared_wn[time_point : (time_point + n_fft)] += squared_wn
-
-        # Normalizing the signal by the sum of the squared window
-        non_zero_indices = sum_squared_wn > self.epsilon
-        istft[..., non_zero_indices] /= sum_squared_wn[non_zero_indices]
-
-        # Cropping the signal to remove the padding if center is True
-        if self.center:
-            istft = istft[..., (n_fft // 2) : -(n_fft // 2)]
-            estimated_length -= n_fft
-
-        # Adjusting the size of the output signal if needed
-        if sig_length is not None:
-
-            if sig_length > estimated_length:
-
-                if len(or_shape) == 5:
-                    padding = torch.zeros(
-                        (
-                            or_shape[0],
-                            or_shape[4],
-                            sig_length - estimated_length,
-                        )
-                    )
-
-                else:
-                    padding = torch.zeros(
-                        (or_shape[0], sig_length - estimated_length)
-                    )
-
-                istft = torch.cat((istft, padding), -1)
-
-            elif sig_length < estimated_length:
-                istft = istft[..., 0:sig_length]
-
-        if len(or_shape) == 5:
+            istft = istft.reshape(or_shape[0], or_shape[4], -1)
             istft = istft.transpose(1, 2)
 
         return istft
-
-    def _create_window(self):
-        """ Returns the window used for the ISTFT computation.
-        """
-        if self.window_type == "bartlett":
-            wind_cmd = torch.bartlett_window
-
-        if self.window_type == "blackman":
-            wind_cmd = torch.blackman_window
-
-        if self.window_type == "hamming":
-            wind_cmd = torch.hamming_window
-
-        if self.window_type == "hann":
-            wind_cmd = torch.hann_window
-
-        window = wind_cmd(self.win_length)
-
-        return window
 
 
 def spectral_magnitude(stft, power=1, log=False, eps=1e-14):
@@ -419,9 +321,17 @@ def spectral_magnitude(stft, power=1, log=False, eps=1e-14):
 
     Example
     -------
-
+    >>> a = torch.Tensor([[3, 4]])
+    >>> spectral_magnitude(a, power=0.5)
+    tensor([5.])
     """
-    spectr = stft.pow(2).sum(-1).pow(power)
+    spectr = stft.pow(2).sum(-1)
+
+    # Add eps avoids NaN when spectr is zero
+    if power < 1:
+        spectr = spectr + eps
+    spectr = spectr.pow(power)
+
     if log:
         return torch.log(spectr + eps)
     return spectr
@@ -456,9 +366,22 @@ class Filterbank(torch.nn.Module):
      top_db : float
          Top dB valu used for log-mels.
      freeze : bool
-         if False, it the central frequency and the band of each filter are
+         If False, it the central frequency and the band of each filter are
          added into nn.parameters. If True, the standard frozen features
          are computed.
+     param_change_factor: bool
+        If freeze=False, this parameter affects the speed at which the filter
+        parameters (i.e., central_freqs and bands) can be changed.  When high
+        (e.g., param_change_factor=1) the filters change a lot during training.
+        When low (e.g. param_change_factor=0.1) the filter parameters are more
+        stable during training
+     param_rand_factor: float
+        This parameter can be used to randomly change the filter parameters
+        (i.e, central frequencies and bands) during training.  It is thus a
+        sort of regularization. param_rand_factor=0 does not affect, while
+        param_rand_factor=0.15 allows random variations within +-15% of the
+        standard values of the filter parameters (e.g., if the central freq
+        is 100 Hz, we can randomly change it from 85 Hz to 115 Hz).
 
     Example
     -------
@@ -483,6 +406,8 @@ class Filterbank(torch.nn.Module):
         amin=1e-10,
         ref_value=1.0,
         top_db=80.0,
+        param_change_factor=1.0,
+        param_rand_factor=0.0,
         freeze=True,
     ):
         super().__init__()
@@ -501,6 +426,8 @@ class Filterbank(torch.nn.Module):
         self.n_stft = self.n_fft // 2 + 1
         self.db_multiplier = math.log10(max(self.amin, self.ref_value))
         self.device_inp = torch.device("cpu")
+        self.param_change_factor = param_change_factor
+        self.param_rand_factor = param_rand_factor
 
         if self.power_spectrogram == 2:
             self.multiplier = 10
@@ -528,8 +455,12 @@ class Filterbank(torch.nn.Module):
 
         # Adding the central frequency and the band to the list of nn param
         if not self.freeze:
-            self.f_central = torch.nn.Parameter(self.f_central)
-            self.band = torch.nn.Parameter(self.band)
+            self.f_central = torch.nn.Parameter(
+                self.f_central / (self.sample_rate * self.param_change_factor)
+            )
+            self.band = torch.nn.Parameter(
+                self.band / (self.sample_rate * self.param_change_factor)
+            )
 
         # Frequency axis
         all_freqs = torch.linspace(0, self.sample_rate // 2, self.n_stft)
@@ -567,7 +498,34 @@ class Filterbank(torch.nn.Module):
             0, 1
         )
 
-        # Creation of the multiplication matrix
+        # Uncomment to print filter parameters
+        # print(self.f_central*self.sample_rate * self.param_change_factor)
+        # print(self.band*self.sample_rate* self.param_change_factor)
+
+        # Creation of the multiplication matrix. It is used to create
+        # the filters that average the computed spectrogram.
+        if not self.freeze:
+            f_central_mat = f_central_mat * (
+                self.sample_rate
+                * self.param_change_factor
+                * self.param_change_factor
+            )
+            band_mat = band_mat * (
+                self.sample_rate
+                * self.param_change_factor
+                * self.param_change_factor
+            )
+
+        # Regularization with random changes of filter central frequnecy and band
+        elif self.param_rand_factor != 0 and self.training:
+            rand_change = (
+                1.0
+                + torch.rand(2) * 2 * self.param_rand_factor
+                - self.param_rand_factor
+            )
+            f_central_mat = f_central_mat * rand_change[0]
+            band_mat = band_mat * rand_change[1]
+
         fbank_matrix = self._create_fbank_matrix(f_central_mat, band_mat).to(
             spectrogram.device
         )
