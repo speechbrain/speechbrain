@@ -135,7 +135,7 @@ def steering(tdoas, n_fft):
     >>> import torch
     >>> import soundfile as sf
     >>> from speechbrain.processing.features import STFT
-    >>> import speechbrain.processing.processing_utils as sp
+    >>> import speechbrain.processing.processing_utils as pu
     >>> signal, fs = sf.read(
     ...     'samples/audio_samples/multi_mic/speech_-0.98894_0_0.14834.flac'
     ... )
