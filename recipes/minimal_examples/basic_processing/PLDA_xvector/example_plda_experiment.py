@@ -45,13 +45,15 @@ ndx_obj = Ndx(models=models, testsegs=testsegs)
 scores_plda = fast_PLDA_scoring(
     enrol_obj, test_obj, ndx_obj, plda.mean, plda.F, plda.Sigma
 )
-print("PLDA score matrix (Rows: Enrol, Columns: Test)")
+print("PLDA score matrix: (Rows: Enrol, Columns: Test)")
 print(scores_plda.scoremat)
 
-# Ensuring the scores are proper (for integration test)
 with open(scores_file, "rb") as input:
     expected_score_matrix = pickle.load(input)
 
+print("Expected scores:\n", expected_score_matrix)
+
+# Ensuring the scores are proper (for integration test)
 dif = numpy.subtract(expected_score_matrix, scores_plda.scoremat)
 f_norm = LA.norm(dif, ord="fro")
 
