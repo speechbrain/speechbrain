@@ -3,7 +3,7 @@ import os
 import sys
 import torch
 import torchaudio
-import multiprocessing
+import torch.multiprocessing as multiprocessing
 import speechbrain as sb
 from speechbrain.utils.train_logger import summarize_average
 from speechbrain.nnet.loss.stoi_loss import stoi_loss
@@ -80,44 +80,34 @@ class SEBrain(sb.core.Brain):
         return out
 
     def compute_objectives(self, predictions, targets, stage="train"):
-        ids, wavs, lens = targets
-        wavs, lens = truncate(wavs, lens, params.max_length)
-        wavs, lens = wavs.to(params.device), lens.to(params.device)
-        loss = params.compute_cost(predictions, wavs, lens)
-        return loss, {}
-
-    def evaluate_batch(self, batch, stage="valid"):
-        inputs, targets = batch
-        predict_wavs = self.compute_forward(inputs, stage=stage)
-
         ids, target_wavs, lens = targets
         target_wavs, lens = truncate(target_wavs, lens, params.max_length)
-        lens = lens * target_wavs.shape[1]
+        target_wavs = target_wavs.to(params.device)
+        lens = lens.to(params.device)
+        loss = params.compute_cost(predictions, target_wavs, lens)
 
-        loss, stats = self.compute_objectives(
-            predict_wavs, targets, stage=stage
-        )
-        stats["loss"] = loss.detach()
+        stats = {}
+        if stage != "train":
+            lens = lens * target_wavs.shape[1]
+            pesq_scores = multiprocess_evaluation(
+                predictions.cpu().numpy(),
+                target_wavs.cpu().numpy(),
+                lens.cpu().numpy(),
+                multiprocessing.cpu_count(),
+            )
+            stats["pesq"] = pesq_scores
+            stats["stoi"] = -stoi_loss(predictions, target_wavs, lens)
 
-        pesq_scores = multiprocess_evaluation(
-            predict_wavs.cpu().numpy(),
-            target_wavs.cpu().numpy(),
-            lens.cpu().numpy(),
-            multiprocessing.cpu_count(),
-        )
-        stats["pesq"] = pesq_scores
-        stats["stoi"] = -stoi_loss(predict_wavs, target_wavs, lens)
+            if stage == "test":
+                # Write wavs to file
+                for name, pred_wav, length in zip(ids, predictions, lens):
+                    name += ".wav"
+                    enhance_path = os.path.join(params.enhanced_folder, name)
+                    torchaudio.save(
+                        enhance_path, pred_wav[: int(length)].to("cpu"), 16000
+                    )
 
-        if stage == "test":
-            # Write wavs to file
-            for name, pred_wav, length in zip(ids, predict_wavs, lens):
-                name += ".wav"
-                enhance_path = os.path.join(params.enhanced_folder, name)
-                torchaudio.save(
-                    enhance_path, pred_wav[: int(length)].to("cpu"), 16000
-                )
-
-        return stats
+        return loss, stats
 
     def on_epoch_end(self, epoch, train_stats, valid_stats):
         if params.use_tensorboard:
@@ -131,7 +121,7 @@ class SEBrain(sb.core.Brain):
 
         pesq_score = summarize_average(valid_stats["pesq"])
         params.checkpointer.save_and_keep_only(
-            meta={"pesq_score": pesq_score}, max_keys="pesq_score",
+            meta={"pesq_score": pesq_score}, max_keys=["pesq_score"],
         )
 
 
