@@ -1,5 +1,6 @@
 # adapted from https://github.com/speechbrain/speechbrain/blob/master/recipes/minimal_examples/neural_networks/ASR_seq2seq/example_asr_seq2seq_experiment.py
 import os
+import sys
 import pandas as pd
 from sklearn.model_selection import train_test_split
 import speechbrain as sb
@@ -12,17 +13,27 @@ from speechbrain.utils.train_logger import summarize_average
 from speechbrain.utils.train_logger import summarize_error_rate
 import torch
 
-output_folder = os.path.join("results", "g2p")
-experiment_dir = os.path.dirname(os.path.abspath(__file__))
-params_file = os.path.join(experiment_dir, "hparams.yaml")
-overrides = {}
-
+# output_folder = os.path.join("results", "g2p")
+# experiment_dir = os.path.dirname(os.path.abspath(__file__))
+# params_file = os.path.join(experiment_dir, "hparams.yaml")
+# overrides = {}
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.dirname(current_dir))
+params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
 with open(params_file) as fin:
     hparams = sb.yaml.load_extended_yaml(fin, overrides)
 
+# sb.core.create_experiment_directory(
+#    experiment_directory=output_folder, hyperparams_to_save=params_file,
+# )
+
+# Create experiment directory
 sb.core.create_experiment_directory(
-    experiment_directory=output_folder, hyperparams_to_save=params_file,
+    experiment_directory=hparams.output_folder,
+    hyperparams_to_save=params_file,
+    overrides=overrides,
 )
+
 
 searcher = S2SRNNGreedySearcher(
     modules=[
@@ -60,8 +71,8 @@ class G2P(sb.core.Brain):
         x_embedded = hparams.encoder_embed(
             graphemes.long(), init_params=init_params
         )
-        #print(graphemes_lens)
-        #print(phonemes_lens)
+        # print(graphemes_lens)
+        # print(phonemes_lens)
         y_embedded = hparams.decoder_embed(phonemes, init_params=init_params)
         encoder_out = hparams.encoder_net(x_embedded, init_params=init_params)
         h, w = hparams.decoder_net(
