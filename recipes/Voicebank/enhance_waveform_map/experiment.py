@@ -3,10 +3,10 @@ import os
 import sys
 import torch
 import torchaudio
-import torch.multiprocessing as multiprocessing
 import speechbrain as sb
 from speechbrain.utils.train_logger import summarize_average
 from speechbrain.nnet.loss.stoi_loss import stoi_loss
+from joblib import Parallel, delayed
 from pesq import pesq
 
 # This hack needed to import data preparation script from ..
@@ -43,30 +43,16 @@ def truncate(wavs, lengths, max_length):
     return wavs, lengths
 
 
-def evaluation(clean, enhanced, length):
-    clean = clean[:length]
-    enhanced = enhanced[:length]
-    pesq_score = pesq(params.Sample_rate, clean, enhanced, "wb")
-    return pesq_score
-
-
-def multiprocess_evaluation(pred_wavs, target_wavs, lens, num_cores):
-    processes = []
-    pool = multiprocessing.Pool(processes=num_cores)
-
-    for clean, enhanced, length in zip(target_wavs, pred_wavs, lens):
-        processes.append(
-            pool.apply_async(evaluation, args=(clean, enhanced, int(length)))
+def multiprocess_evaluation(pred_wavs, target_wavs, lengths):
+    pesq_scores = Parallel(n_jobs=30)(
+        delayed(pesq)(
+            fs=params.Sample_rate,
+            ref=clean[: int(length)],
+            deg=enhanced[: int(length)],
+            mode="wb",
         )
-
-    pool.close()
-    pool.join()
-
-    pesq_scores = []
-    for process in processes:
-        pesq_score = process.get()
-        pesq_scores.append(pesq_score)
-
+        for enhanced, clean, length in zip(pred_wavs, target_wavs, lengths)
+    )
     return pesq_scores
 
 
@@ -93,7 +79,6 @@ class SEBrain(sb.core.Brain):
                 predictions.cpu().numpy(),
                 target_wavs.cpu().numpy(),
                 lens.cpu().numpy(),
-                multiprocessing.cpu_count(),
             )
             stats["pesq"] = pesq_scores
             stats["stoi"] = -stoi_loss(predictions, target_wavs, lens)
