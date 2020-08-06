@@ -200,6 +200,12 @@ train_set = params.train_loader()
 valid_set = params.valid_loader()
 first_x, first_y = next(iter(train_set))
 
+# if augmentation option is activate
+# add it as a module and allow the .eval() mode
+# to skip the perturbation during dev and test
+if hasattr(params, "augmentation"):
+    modules.append(params.augmentation)
+
 asr_brain = ASR(
     modules=modules,
     optimizer=params.optimizer,
