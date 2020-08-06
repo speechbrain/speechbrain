@@ -892,7 +892,7 @@ class DropFreq(torch.nn.Module):
 
     def __init__(
         self,
-        drop_freq_low=0,
+        drop_freq_low=1e-14,
         drop_freq_high=1,
         drop_count_low=1,
         drop_count_high=2,
