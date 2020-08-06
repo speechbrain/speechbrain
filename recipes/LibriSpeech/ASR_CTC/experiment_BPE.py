@@ -27,7 +27,7 @@ with open(params_file) as fin:
 # Create experiment directory
 sb.core.create_experiment_directory(
     experiment_directory=params.output_folder,
-    params_to_save=params_file,
+    hyperparams_to_save=params_file,
     overrides=overrides,
 )
 
@@ -50,13 +50,14 @@ class ASR(sb.core.Brain):
     def compute_forward(self, x, stage="train", init_params=False):
         ids, wavs, wav_lens = x
         wavs, wav_lens = wavs.to(params.device), wav_lens.to(params.device)
-        if hasattr(params, "env_corrupt"):
+        if hasattr(params, "env_corrupt") and stage == "train":
             wavs_noise = params.env_corrupt(wavs, wav_lens, init_params)
             wavs = torch.cat([wavs, wavs_noise], dim=0)
             wav_lens = torch.cat([wav_lens, wav_lens])
 
         if hasattr(params, "augmentation"):
             wavs = params.augmentation(wavs, wav_lens, init_params)
+
         feats = params.compute_features(wavs, init_params)
         feats = params.normalize(feats, wav_lens)
         out = params.enc(feats, init_params=init_params)
@@ -81,14 +82,15 @@ class ASR(sb.core.Brain):
         )
         bpe, bpe_lens = bpe.to(params.device), bpe_lens.to(params.device)
 
-        if hasattr(params, "env_corrupt"):
-            bpe = torch.cat([bpe, bpe], dim=0)
-            bpe_lens = torch.cat([bpe_lens, bpe_lens], dim=0)
-        loss = params.ctc_cost(pout, bpe, pout_lens, bpe_lens)
-
         stats = {}
-        if stage != "train":
-            # Prediction
+        if stage == "train":
+            if hasattr(params, "env_corrupt"):
+                bpe = torch.cat([bpe, bpe], dim=0)
+                bpe_lens = torch.cat([bpe_lens, bpe_lens], dim=0)
+            loss = params.ctc_cost(pout, bpe, pout_lens, bpe_lens)
+
+        else:
+            loss = params.ctc_cost(pout, bpe, pout_lens, bpe_lens)
             output_sequence = ctc_greedy_decode(
                 pout, pout_lens, blank_id=params.blank_index
             )
@@ -116,16 +118,6 @@ class ASR(sb.core.Brain):
             stats["CER"] = cer_stats
             stats["WER"] = wer_stats
         return loss, stats
-
-    def fit_batch(self, batch):
-        inputs, targets = batch
-        predictions = self.compute_forward(inputs, targets)
-        loss, stats = self.compute_objectives(predictions, targets)
-        loss.backward()
-        self.optimizer.step()
-        self.optimizer.zero_grad()
-        stats["loss"] = loss.detach()
-        return stats
 
     def evaluate_batch(self, batch, stage="valid"):
         inputs, targets = batch
@@ -164,9 +156,21 @@ _ = params.bpe_tokenizer(
     init_params=True,
 )
 
+# if augmentation option is activate
+# add it as a module and allow the .eval() mode
+# to skip the perturbation during dev and test
+if hasattr(params, "augmentation"):
+    modules.append(params.augmentation)
+
 asr_brain = ASR(
     modules=modules, optimizer=params.optimizer, first_inputs=[first_x],
 )
+
+# Check if the model should be trained on multiple GPUs.
+# Important: DataParallel MUST be called after the ASR (Brain) class init.
+if params.multigpu:
+    params.enc = torch.nn.DataParallel(params.enc)
+    params.output = torch.nn.DataParallel(params.output)
 
 # Load latest checkpoint to resume training
 checkpointer.recover_if_possible()
