@@ -37,7 +37,7 @@ class LMBrain(sb.core.Brain):
         )
 
         # convert to speechbrain-style relative length
-        rel_length = (abs_length + 1) / phns.shape[1]
+        rel_length = (abs_length + 1) / phns_with_eos.shape[1]
         loss = hyperparams.compute_cost(pout, phns_with_eos, length=rel_length)
 
         return loss, {}
