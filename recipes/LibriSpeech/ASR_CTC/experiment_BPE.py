@@ -82,14 +82,15 @@ class ASR(sb.core.Brain):
         )
         bpe, bpe_lens = bpe.to(params.device), bpe_lens.to(params.device)
 
-        if hasattr(params, "env_corrupt") and stage == "train":
-            bpe = torch.cat([bpe, bpe], dim=0)
-            bpe_lens = torch.cat([bpe_lens, bpe_lens], dim=0)
-        loss = params.ctc_cost(pout, bpe, pout_lens, bpe_lens)
-
         stats = {}
-        if stage != "train":
-            # Prediction
+        if stage == "train":
+            if hasattr(params, "env_corrupt"):
+                bpe = torch.cat([bpe, bpe], dim=0)
+                bpe_lens = torch.cat([bpe_lens, bpe_lens], dim=0)
+            loss = params.ctc_cost(pout, bpe, pout_lens, bpe_lens)
+
+        else:
+            loss = params.ctc_cost(pout, bpe, pout_lens, bpe_lens)
             output_sequence = ctc_greedy_decode(
                 pout, pout_lens, blank_id=params.blank_index
             )
@@ -117,16 +118,6 @@ class ASR(sb.core.Brain):
             stats["CER"] = cer_stats
             stats["WER"] = wer_stats
         return loss, stats
-
-    def fit_batch(self, batch):
-        inputs, targets = batch
-        predictions = self.compute_forward(inputs, targets)
-        loss, stats = self.compute_objectives(predictions, targets)
-        loss.backward()
-        self.optimizer.step()
-        self.optimizer.zero_grad()
-        stats["loss"] = loss.detach()
-        return stats
 
     def evaluate_batch(self, batch, stage="valid"):
         inputs, targets = batch
