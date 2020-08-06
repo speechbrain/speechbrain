@@ -5,6 +5,7 @@ Authors
  * Mirco Ravanelli 2020
  * Aku Rouhe 2020
  * Ju-Chieh Chou 2020
+ * Hwidong Na 2020
 """
 
 import os
@@ -742,7 +743,15 @@ class DataLoaderFactory(torch.nn.Module):
             n_groups = self.batch_size // self.group_size
             for i in range(0, len(data_dict), self.batch_size):
                 for group_id in random.sample(group_ids, n_groups):
-                    sids = random.sample(data_group[group_id], self.group_size)
+                    if len(data_group[group_id]) < self.group_size:
+                        # depreciated
+                        sids = random.choices(
+                            data_group[group_id], k=self.group_size
+                        )
+                    else:
+                        sids = random.sample(
+                            data_group[group_id], self.group_size
+                        )
                     sorted_ids.extend(sids)
 
         # Ascending sorting

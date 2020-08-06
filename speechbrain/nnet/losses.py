@@ -4,10 +4,12 @@ Losses for training neural networks.
 Authors
  * Mirco Ravanelli 2020
  * Samuele Cornell 2020
+ * Hwidong Na 2020
 """
 
 import torch
 from torch import nn
+import torch.nn.functional as F
 import logging
 import functools
 from speechbrain.data_io.data_io import length_to_mask
@@ -489,3 +491,113 @@ def compute_masked_loss(
             torch.mean(predictions, dim=1) * mask
         ) / torch.sum(mask)
         return label_smoothing * loss_reg + (1 - label_smoothing) * loss
+
+
+class ProtoNetWrapper(nn.Module):
+    """
+    N-way K-shot learning with with meta learning losses. For each group, K support
+    samples are followed by Q queries, i.e. N = (K+Q)*G where G is the number
+    of groups. The target tensors are assumed to have one-hot vectors of shape
+    [G, G, ...].
+
+    Arguments
+    ---------
+    meta_loss : function
+        base loss function, e.g. torch.nn.CosineSimilarity. It is assumed that
+        it takes two arguments:
+        predictions and targets and no reduction is performed.
+
+    support_size : int
+        The number of support samples in a group
+
+    query_size : int
+        The number of query samples in a group
+
+    weight : int
+        The weight of loss function: -1 for distance, 1 for simiality
+
+    Returns
+    ---------
+    loss : torch.Tensor
+        Meta learning loss
+
+    predictions : torch.Tensor
+        Log probabilities of query samples of shape [Q*G, G]
+
+    Example
+    -------
+    >>> mlw_mse = MetaLearningWrapper(torch.nn.CosineSimilarity())
+    >>> targets = torch.tensor([[1, 0], [0, 1]))
+    >>> outputs = torch.tensor([ 0, -1,   1, 2)) # 0 and 1 are support samples
+    >>> loss, predictions = mlw_mse(outputs, targets)
+    >>> loss
+    tensor([0.])
+    """
+
+    def __init__(self, meta_loss, support_size=1, query_size=1, weight=1):
+        super(ProtoNetWrapper, self).__init__()
+        self.meta_loss = meta_loss
+        self.support_size = support_size
+        self.query_size = query_size
+        self.weight = weight
+        self.criterion = torch.nn.KLDivLoss(reduction="sum")
+
+    def forward(self, outputs, targets):
+        """
+            Arguments
+            ---------
+            outputs : torch.Tensor
+                Network output tensor, of shape
+                [batch, 1, outdim, ...].
+            targets : torch.Tensor
+                Target tensor, of shape [group, group, ...].
+
+            Returns
+            -------
+            loss: torch.Tensor
+                meta learning loss for current examples, tensor of
+                shape [group*num_queires]
+
+        """
+        s = list(outputs.shape)
+        group_size = self.support_size + self.query_size
+        num_groups = s[0] // group_size
+        outputs = outputs.reshape([num_groups, group_size] + s[2:])
+        supports = outputs[:, : self.support_size].mean(dim=1)
+        queries = outputs[:, self.support_size :]
+
+        loss_size = num_groups * self.query_size
+        supports = supports.unsqueeze(2).repeat(
+            [1, 1, loss_size] + [1] * len(s[3:])
+        )
+        queries = queries.reshape([loss_size] + s[2:])
+        queries = queries.unsqueeze(2).repeat(
+            [1, 1, num_groups] + [1] * len(s[3:])
+        )
+
+        distance = self.meta_loss(supports.transpose(0, 2), queries)
+        predictions = F.log_softmax(self.weight * distance, dim=1)
+        targets = targets.repeat_interleave(self.query_size, dim=0)
+
+        loss = self.criterion(predictions, targets) / loss_size
+        return loss, predictions
+
+
+class ScaledCosineSimiarity(nn.Module):
+    def __init__(self, device="cpu", init_w=10.0, init_b=-5.0):
+        super(ScaledCosineSimiarity, self).__init__()
+        self.w = nn.Parameter(torch.tensor(init_w))
+        self.b = nn.Parameter(torch.tensor(init_b))
+        self.to(device)
+
+    def similarity(self, x, y):
+        cos_sim_matrix = F.cosine_similarity(x, y)
+        torch.clamp(self.w, 1e-6)
+        return cos_sim_matrix * self.w + self.b
+
+    def forward(self, anchor, positive):
+        if self.training:
+            sim = self.similarity(anchor, positive)
+        else:  # without scale/bias
+            sim = F.cosine_similarity(anchor, positive)
+        return sim
