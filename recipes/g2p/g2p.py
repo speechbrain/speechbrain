@@ -93,7 +93,7 @@ class G2P(sb.core.Brain):
         phonemes_with_eos = append_eos_token(
             phonemes, length=abs_length, eos_index=hparams.eos
         )
-        rel_length = (abs_length + 1) / phonemes.shape[1]
+        rel_length = (abs_length + 1) / phonemes_with_eos.shape[1]
 
         loss = hparams.compute_cost(
             outputs, phonemes_with_eos, length=rel_length
