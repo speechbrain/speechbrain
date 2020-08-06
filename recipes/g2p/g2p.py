@@ -60,6 +60,8 @@ class G2P(sb.core.Brain):
         x_embedded = hparams.encoder_embed(
             graphemes.long(), init_params=init_params
         )
+        #print(graphemes_lens)
+        #print(phonemes_lens)
         y_embedded = hparams.decoder_embed(phonemes, init_params=init_params)
         encoder_out = hparams.encoder_net(x_embedded, init_params=init_params)
         h, w = hparams.decoder_net(
@@ -115,10 +117,10 @@ class G2P(sb.core.Brain):
         stats["loss"] = loss.detach()
         return stats
 
-    def evaluate_batch(self, batch, stage="test"):
+    def evaluate_batch(self, batch, stage="valid"):
         inputs, targets = batch
-        out = self.compute_forward(inputs, targets, stage="test")
-        loss, stats = self.compute_objectives(out, targets, stage="test")
+        out = self.compute_forward(inputs, targets, stage=stage)
+        loss, stats = self.compute_objectives(out, targets, stage=stage)
         stats["loss"] = loss.detach()
         return stats
 
@@ -130,6 +132,7 @@ class G2P(sb.core.Brain):
 
 
 train_set = hparams.train_loader()
+valid_set = hparams.valid_loader()
 first_x, first_y = next(iter(train_set))
 # print(len(hparams.train_loader.label_dict["graphemes"]["counts"])) --> 27
 # print(len(hparams.train_loader.label_dict["phonemes"]["counts"])) --> 39
@@ -147,6 +150,6 @@ model = G2P(
     first_inputs=[first_x, first_y],
 )
 
-model.fit(range(hparams.N_epochs), train_set, hparams.valid_loader())
+model.fit(range(hparams.N_epochs), train_set, valid_set)
 test_stats = model.evaluate(hparams.test_loader())
 print("Test PER: %.2f" % summarize_error_rate(test_stats["PER"]))
