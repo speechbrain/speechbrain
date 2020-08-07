@@ -31,6 +31,7 @@ prepare_voxceleb(
     seg_dur=300,
     vad=False,
     rand_seed=params.seed,
+    split_speaker=True,
 )
 
 

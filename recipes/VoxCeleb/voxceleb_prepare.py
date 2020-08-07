@@ -9,6 +9,7 @@ import csv
 import logging
 import glob
 import random
+import shutil
 
 from speechbrain.data_io.data_io import (
     read_wav_soundfile,
@@ -23,6 +24,10 @@ DEV_CSV = "dev.csv"
 TEST_CSV = "test.csv"
 SAMPLERATE = 16000
 
+DEV_WAV = "vox1_dev_wav.zip"
+TEST_WAV = "vox1_test_wav.zip"
+META = "meta"
+
 
 def prepare_voxceleb(
     data_folder,
@@ -32,6 +37,8 @@ def prepare_voxceleb(
     seg_dur=300,
     vad=False,
     rand_seed=1234,
+    source=None,
+    split_speaker=False,
 ):
     """
     Prepares the csv files for the Voxceleb1 dataset.
@@ -53,6 +60,10 @@ def prepare_voxceleb(
         To perform VAD or not
     rand_seed : int
         random seed
+    source : str
+        Path to the folder where the VoxCeleb dataset source is stored.
+    split_speaker : bool
+        Speaker-wise split
 
     Example
     -------
@@ -72,6 +83,7 @@ def prepare_voxceleb(
         "save_folder": save_folder,
         "vad": vad,
         "seg_dur": seg_dur,
+        "split_speaker": split_speaker,
     }
 
     if not os.path.exists(save_folder):
@@ -82,6 +94,20 @@ def prepare_voxceleb(
     save_csv_train = os.path.join(save_folder, TRAIN_CSV)
     save_csv_dev = os.path.join(save_folder, DEV_CSV)
     save_csv_test = os.path.join(save_folder, TEST_CSV)
+
+    # Create the data folder contains VoxCeleb data from the source
+    if source is not None:
+        if not os.path.exists(os.path.join(data_folder, "wav", "id10001")):
+            print(f"Extracting {source}/{DEV_WAV} to {data_folder}")
+            shutil.unpack_archive(os.path.join(source, DEV_WAV), data_folder)
+        if not os.path.exists(os.path.join(data_folder, "wav", "id10270")):
+            print(f"Extracting {source}/{TEST_WAV} to {data_folder}")
+            shutil.unpack_archive(os.path.join(source, TEST_WAV), data_folder)
+        if not os.path.exists(os.path.join(data_folder, "meta")):
+            print(f"Copying {source}/meta to {data_folder}")
+            shutil.copytree(
+                os.path.join(source, "meta"), os.path.join(data_folder, "meta")
+            )
 
     # Check if this phase is already done (if so, skip it)
     if skip(splits, save_folder, conf):
@@ -100,7 +126,9 @@ def prepare_voxceleb(
     logger.debug(msg)
 
     # Split data into 90% train and 10% validation (verification split)
-    wav_lst_train, wav_lst_dev = _get_utt_split_lists(data_folder, split_ratio)
+    wav_lst_train, wav_lst_dev = _get_utt_split_lists(
+        data_folder, split_ratio, split_speaker
+    )
 
     # Creating csv file for training data
     if "train" in splits:
@@ -123,7 +151,7 @@ def prepare_voxceleb(
 
 def skip(splits, save_folder, conf):
     """
-    Detects if the timit data_preparation has been already done.
+    Detects if the voxceleb data_preparation has been already done.
     If the preparation has been done, we can skip it.
 
     Returns
@@ -143,7 +171,6 @@ def skip(splits, save_folder, conf):
     for split in splits:
         if not os.path.isfile(os.path.join(save_folder, split_files[split])):
             skip = False
-
     #  Checking saved options
     save_opt = os.path.join(save_folder, OPT_FILE)
     if skip is True:
@@ -203,7 +230,7 @@ def _check_voxceleb1_folders(data_folders, splits):
 
 
 # Used for verification split
-def _get_utt_split_lists(data_folders, split_ratio):
+def _get_utt_split_lists(data_folders, split_ratio, split_speaker=False):
     """
     Tot. number of speakers = 1211.
     Splits the audio file list into train and dev.
@@ -223,21 +250,38 @@ def _get_utt_split_lists(data_folders, split_ratio):
 
         test_spks = [snt.split("/")[0] for snt in test_lst]
 
-        # avoid test speakers for train and dev splits
-        audio_files_list = []
         path = os.path.join(data_folder, "wav", "**", "*.wav")
-        for f in glob.glob(path, recursive=True):
-            spk_id = f.split("/wav/")[1].split("/")[0]
-            if spk_id not in test_spks:
-                audio_files_list.append(f)
+        if split_speaker:
+            # avoid test speakers for train and dev splits
+            audio_files_dict = {}
+            for f in glob.glob(path, recursive=True):
+                spk_id = f.split("/wav/")[1].split("/")[0]
+                if spk_id not in test_spks:
+                    audio_files_dict.setdefault(spk_id, []).append(f)
 
-        random.shuffle(audio_files_list)
-        split = int(0.01 * split_ratio[0] * len(audio_files_list))
-        train_snts = audio_files_list[:split]
-        dev_snts = audio_files_list[split:]
+            spk_id_list = list(audio_files_dict.keys())
+            random.shuffle(spk_id_list)
+            split = int(0.01 * split_ratio[0] * len(spk_id_list))
+            for spk_id in spk_id_list[:split]:
+                train_lst.extend(audio_files_dict[spk_id])
 
-        train_lst.extend(train_snts)
-        dev_lst.extend(dev_snts)
+            for spk_id in spk_id_list[split:]:
+                dev_lst.extend(audio_files_dict[spk_id])
+        else:
+            # avoid test speakers for train and dev splits
+            audio_files_list = []
+            for f in glob.glob(path, recursive=True):
+                spk_id = f.split("/wav/")[1].split("/")[0]
+                if spk_id not in test_spks:
+                    audio_files_list.append(f)
+
+            random.shuffle(audio_files_list)
+            split = int(0.01 * split_ratio[0] * len(audio_files_list))
+            train_snts = audio_files_list[:split]
+            dev_snts = audio_files_list[split:]
+
+            train_lst.extend(train_snts)
+            dev_lst.extend(dev_snts)
 
     return train_lst, dev_lst
 

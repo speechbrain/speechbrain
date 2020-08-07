@@ -18,7 +18,7 @@ csv_valid: !ref <save_folder>/dev.csv
 
 # Training hyperparameters
 number_of_epochs: 100
-batch_size: 1024
+batch_size: 1024 # 256-way
 query_size: 3
 group_size: 4 # support_size + query_size
 lr: 0.001
@@ -26,7 +26,7 @@ lr_final: 0.0001
 device: 'cuda:0'
 
 # Evaluation hyperparameters
-eval_batch_size: 512
+eval_batch_size: 128 # 64-way
 eval_query_size: 1
 eval_group_size: 2
 
