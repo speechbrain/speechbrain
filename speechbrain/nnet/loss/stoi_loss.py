@@ -124,8 +124,8 @@ def stoi_loss(y_pred_batch, y_true_batch, lens):
             n_fft=512, win_length=256, hop_length=128, power=2
         )(y_sil_pred)
 
-        OCT_true = torch.sqrt(torch.matmul(octave_band, stft_true) + 1e-14)
-        OCT_pred = torch.sqrt(torch.matmul(octave_band, stft_pred) + 1e-14)
+        OCT_true = torch.sqrt(torch.matmul(octave_band, stft_true) + smallVal)
+        OCT_pred = torch.sqrt(torch.matmul(octave_band, stft_pred) + smallVal)
 
         M = int(
             stft_pred.shape[-1] - (N - 1)
