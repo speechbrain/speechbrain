@@ -41,6 +41,28 @@ class XvectorBrain(sb.core.Brain):
 
         wavs, lens = wavs.to(params.device), lens.to(params.device)
 
+        if stage == "train" and hasattr(params, "num_corrupts"):
+            G = params.batch_size // params.group_size
+            s = list(wavs.shape)
+            wavs_aug_list = []
+            for i in range(params.num_corrupts):
+                # Addding noise and reverberation
+                wavs_aug = params.env_corrupt(wavs, lens, init_params)
+
+                # Adding time-domain augmentation
+                wavs_aug = params.augmentation(wavs_aug, lens, init_params)
+
+                wavs_aug = wavs_aug.reshape([G, params.group_size] + s[1:])
+                wavs_aug_list.append(wavs_aug)
+            wavs_aug = torch.cat(wavs_aug_list, dim=1)
+            # Concatenate corrupted batches as addtional query samples
+            wavs = wavs.reshape([G, params.group_size] + s[1:])
+            wavs = torch.cat([wavs, wavs_aug], dim=1)
+            wavs = wavs.reshape(
+                [params.batch_size * (1 + params.num_corrupts)] + s[1:]
+            )
+            lens = lens.repeat_interleave(1 + params.num_corrupts)
+
         # Feature extraction and normalization
         feats = params.compute_features(wavs, init_params)
         feats = params.mean_var_norm(feats, lens)
@@ -54,17 +76,25 @@ class XvectorBrain(sb.core.Brain):
         outputs, _ = outputs
         uttid, _, _ = targets
 
-        num_groups = params.batch_size // params.group_size
-        # speaker id is not absolute
-        spkid = torch.arange(num_groups).repeat_interleave(params.query_size)
-        spkid = spkid.to(params.device)
+        if stage == "train":
+            G = params.batch_size // params.group_size
+            K = params.group_size - params.query_size
+            Q = params.query_size
+            if hasattr(params, "num_corrupts"):
+                Q += params.group_size * params.num_corrupts
+        else:
+            G = params.eval_batch_size // params.eval_group_size
+            K = params.eval_group_size - params.eval_query_size
+            Q = params.eval_query_size
         # target is one-hot for brevity
-        targets = F.one_hot(torch.arange(num_groups)).to(params.device)
-
-        loss, predictions = params.meta_wrapper(outputs, targets.float())
+        targets = F.one_hot(torch.arange(G)).to(params.device)
+        loss, predictions = params.meta_wrapper(outputs, targets.float(), K, Q)
 
         stats = {}
         if stage != "train":
+            # speaker id is not absolute
+            spkid = torch.arange(G).repeat_interleave(params.eval_query_size)
+            spkid = spkid.to(params.device)
             stats["error"] = params.compute_error(predictions, spkid)
 
         return loss, stats

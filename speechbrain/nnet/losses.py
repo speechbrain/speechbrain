@@ -507,12 +507,6 @@ class ProtoNetWrapper(nn.Module):
         it takes two arguments:
         predictions and targets and no reduction is performed.
 
-    support_size : int
-        The number of support samples in a group
-
-    query_size : int
-        The number of query samples in a group
-
     weight : int
         The weight of loss function: -1 for distance, 1 for simiality
 
@@ -534,15 +528,13 @@ class ProtoNetWrapper(nn.Module):
     tensor([0.])
     """
 
-    def __init__(self, meta_loss, support_size=1, query_size=1, weight=1):
+    def __init__(self, meta_loss, weight=1):
         super(ProtoNetWrapper, self).__init__()
         self.meta_loss = meta_loss
-        self.support_size = support_size
-        self.query_size = query_size
         self.weight = weight
         self.criterion = torch.nn.KLDivLoss(reduction="sum")
 
-    def forward(self, outputs, targets):
+    def forward(self, outputs, targets, support_size=1, query_size=1):
         """
             Arguments
             ---------
@@ -550,23 +542,29 @@ class ProtoNetWrapper(nn.Module):
                 Network output tensor, of shape
                 [batch, 1, outdim, ...].
             targets : torch.Tensor
-                Target tensor, of shape [group, group, ...].
+                Target tensor, of shape [G, G, ...].
+
+            support_size : int
+                The number of support samples in a group
+
+            query_size : int
+                The number of query samples in a group
 
             Returns
             -------
             loss: torch.Tensor
                 meta learning loss for current examples, tensor of
-                shape [group*num_queires]
+                shape [G*Q]
 
         """
         s = list(outputs.shape)
-        group_size = self.support_size + self.query_size
+        group_size = support_size + query_size
         num_groups = s[0] // group_size
         outputs = outputs.reshape([num_groups, group_size] + s[2:])
-        supports = outputs[:, : self.support_size].mean(dim=1)
-        queries = outputs[:, self.support_size :]
+        supports = outputs[:, :support_size].mean(dim=1)
+        queries = outputs[:, support_size:]
 
-        loss_size = num_groups * self.query_size
+        loss_size = num_groups * query_size
         supports = supports.unsqueeze(2).repeat(
             [1, 1, loss_size] + [1] * len(s[3:])
         )
@@ -577,7 +575,7 @@ class ProtoNetWrapper(nn.Module):
 
         distance = self.meta_loss(supports.transpose(0, 2), queries)
         predictions = F.log_softmax(self.weight * distance, dim=1)
-        targets = targets.repeat_interleave(self.query_size, dim=0)
+        targets = targets.repeat_interleave(query_size, dim=0)
 
         loss = self.criterion(predictions, targets) / loss_size
         return loss, predictions
