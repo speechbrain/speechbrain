@@ -86,9 +86,10 @@ class SEBrain(sb.core.Brain):
         real, imag = torch.split(feats, 1, dim=-1)
         real = params.input_norm_real(real, lens)
         imag = params.input_norm_imag(imag, lens)
-        feats = torch.squeeze(torch.cat([real, imag], dim=2))  # [N, T, 2*F]
 
-        output = params.model(feats, init_params)
+        feat = torch.squeeze(torch.cat([real, imag], dim=2))  # [N, T, 2*F]
+        output = params.model(feat, init_params)
+
         output = torch.cat(
             torch.split(
                 torch.unsqueeze(output, dim=-1), params.n_fft // 2 + 1, dim=2
@@ -105,14 +106,21 @@ class SEBrain(sb.core.Brain):
         mag_clean = spectral_magnitude(com_clean, power=0.5)
         mag_pred = spectral_magnitude(predictions, power=0.5)
 
+        real, imag = torch.split(com_clean, 1, dim=-1)
+        real = params.output_norm_real(real, lens)
+        imag = params.output_norm_imag(imag, lens)
+        com_clean = torch.squeeze(torch.cat([real, imag], dim=2))  # [N, T, 2*F]
+
         com_loss = params.compute_cost(
-            torch.flatten(predictions, start_dim=2),
-            torch.flatten(com_clean, start_dim=2),
+            torch.squeeze(
+                torch.cat(torch.split(predictions, 1, dim=-1), dim=2)
+            ),
+            com_clean,
             lens,
         )
         mag_loss = params.compute_cost(mag_pred, mag_clean, lens)
 
-        return 0.5 * com_loss + 0.5 * mag_loss, {}
+        return 0.5 * mag_loss + 0.5 * com_loss, {}
 
     def fit_batch(self, batch):
         cleans = batch[0]

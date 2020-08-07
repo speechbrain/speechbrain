@@ -80,6 +80,8 @@ compute_istft: !new:speechbrain.processing.features.ISTFT
 
 input_norm_real: !new:speechbrain.processing.features.InputNormalization
 input_norm_imag: !new:speechbrain.processing.features.InputNormalization
+output_norm_real: !new:speechbrain.processing.features.InputNormalization
+output_norm_imag: !new:speechbrain.processing.features.InputNormalization
 
 conv1: !new:speechbrain.nnet.complex_networks.CNN.ComplexConv1d
   out_channels: !ref <base_channels>
