@@ -6,7 +6,6 @@ import logging
 import speechbrain as sb
 import numpy
 import pickle
-import time  # noqa F401
 
 from tqdm.contrib import tqdm
 from speechbrain.utils.EER import EER
@@ -37,7 +36,6 @@ sb.core.create_experiment_directory(
 
 # Prepare data from dev of Voxceleb1
 logger.debug("Data preparation")
-a = time.time()
 prepare_voxceleb(
     data_folder=params.data_folder,
     save_folder=params.save_folder,
