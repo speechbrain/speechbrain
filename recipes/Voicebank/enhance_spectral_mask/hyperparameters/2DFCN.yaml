@@ -5,16 +5,16 @@
 
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: !PLACEHOLDER  # e.g, 1234
+seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 data_folder: !PLACEHOLDER
 test_clean_folder: !ref <data_folder>/clean_testset_wav_16k/
 
-output_folder: !ref ./results/FCN/<seed>
+output_folder: !ref ./results/2DFCN/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
-enhanced_folder: !ref <output_folder>/FCN_enhanced
+enhanced_folder: !ref <output_folder>/2DFCN_enhanced
 
 # Basic parameters
 use_tensorboard: True
@@ -25,7 +25,7 @@ Sample_rate: 16000
 Win_length: 32
 Hop_length: 16
 N_fft: 512
-window_type: hamming
+window_fn: !name:torch.hamming_window
 
 # Data files
 csv_train: !ref <data_folder>/train.csv
@@ -76,11 +76,13 @@ compute_STFT: !new:speechbrain.processing.features.STFT
     win_length: !ref <Win_length>
     hop_length: !ref <Hop_length>
     n_fft: !ref <N_fft>
+    window_fn: !ref <window_fn>
 
 compute_ISTFT: !new:speechbrain.processing.features.ISTFT
     sample_rate: !ref <Sample_rate>
     win_length: !ref <Win_length>
     hop_length: !ref <Hop_length>
+    window_fn: !ref <window_fn>
 
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: sentence

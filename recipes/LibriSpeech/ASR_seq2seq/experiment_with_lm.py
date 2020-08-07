@@ -1,4 +1,7 @@
-#!/usr/bin/env python3
+# This recipes integrated a RNN LM to the Seq2Seq ASR model when evaluating.
+# Users have to train a LM with the recipe in <dataset>/LM/experiment.py before training this ASR model.
+# And the path for the LM checkpoint has to be specify with lm_save_folder (in the yaml file).
+
 import os
 import sys
 import torch
@@ -14,6 +17,7 @@ from speechbrain.data_io.data_io import merge_char
 from speechbrain.decoders.seq2seq import S2SRNNGreedySearcher
 from speechbrain.decoders.seq2seq import S2SRNNBeamSearcher
 from speechbrain.decoders.decoders import undo_padding
+from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.train_logger import summarize_error_rate
 
 # This hack needed to import data preparation script from ..
@@ -36,14 +40,42 @@ sb.core.create_experiment_directory(
 modules = torch.nn.ModuleList(
     [params.enc, params.emb, params.dec, params.ctc_lin, params.seq_lin]
 )
-greedy_searcher = S2SRNNGreedySearcher(
-    modules=[params.emb, params.dec, params.seq_lin],
-    bos_index=params.bos_index,
-    eos_index=params.eos_index,
-    min_decode_ratio=0,
-    max_decode_ratio=1,
-)
-beam_searcher = S2SRNNBeamSearcher(
+# LM only used for evaluation
+lm_modules = torch.nn.ModuleList([params.lm_model])
+lm_modules.eval()
+
+
+class MyBeamSearcher(S2SRNNBeamSearcher):
+    def lm_forward_step(self, inp_tokens, memory):
+        hs = memory
+        (model,) = self.lm_modules
+        logits, hs = model(inp_tokens, hx=hs, init_params=self.init_lm_params)
+        log_probs = params.log_softmax(logits)
+
+        # set it to false after initialization
+        if self.init_lm_params:
+            self.init_lm_params = False
+        return log_probs, hs
+
+    def permute_lm_mem(self, memory, index):
+        # This is to permute lm memory to synchronize with current index during beam search.
+        # The order of beams will be shuffled by scores every timestep to allow batched beam search.
+        # Further details please refer to speechbrain/decoder/seq2seq.py.
+
+        if isinstance(memory, tuple):
+            memory_0 = torch.index_select(memory[0], dim=1, index=index)
+            memory_1 = torch.index_select(memory[1], dim=1, index=index)
+            memory = (memory_0, memory_1)
+        else:
+            memory = torch.index_select(memory, dim=1, index=index)
+        return memory
+
+    def reset_lm_mem(self, batch_size, device):
+        # set hidden_state=None, pytorch RNN will automatically set it to zero vectors.
+        return None
+
+
+beam_searcher = MyBeamSearcher(
     modules=[params.emb, params.dec, params.seq_lin],
     bos_index=params.bos_index,
     eos_index=params.eos_index,
@@ -53,6 +85,16 @@ beam_searcher = S2SRNNBeamSearcher(
     eos_threshold=params.eos_threshold,
     using_max_attn_shift=params.using_max_attn_shift,
     max_attn_shift=params.max_attn_shift,
+    lm_weight=params.lm_weight,
+    lm_modules=lm_modules,
+)
+
+greedy_searcher = S2SRNNGreedySearcher(
+    modules=[params.emb, params.dec, params.seq_lin],
+    bos_index=params.bos_index,
+    eos_index=params.eos_index,
+    min_decode_ratio=0,
+    max_decode_ratio=1,
 )
 
 checkpointer = sb.utils.checkpoints.Checkpointer(
@@ -64,6 +106,9 @@ checkpointer = sb.utils.checkpoints.Checkpointer(
         "normalizer": params.normalize,
         "counter": params.epoch_counter,
     },
+)
+lm_checkpointer = sb.utils.checkpoints.Checkpointer(
+    checkpoints_dir=params.lm_save_folder, recoverables={"model": lm_modules}
 )
 
 
@@ -187,7 +232,10 @@ class ASR(sb.core.Brain):
         epoch_stats = {"epoch": epoch, "lr": old_lr}
         params.train_logger.log_stats(epoch_stats, train_stats, valid_stats)
 
-        checkpointer.save_and_keep_only(meta={"WER": wer}, min_keys=["WER"])
+        checkpointer.save_and_keep_only(
+            meta={"WER": wer},
+            importance_keys=[ckpt_recency, lambda c: -c.meta["WER"]],
+        )
 
 
 # Prepare data
@@ -200,9 +248,6 @@ train_set = params.train_loader()
 valid_set = params.valid_loader()
 first_x, first_y = next(iter(train_set))
 
-# if augmentation option is activate
-# add it as a module and allow the .eval() mode
-# to skip the perturbation during dev and test
 if hasattr(params, "augmentation"):
     modules.append(params.augmentation)
 
@@ -226,7 +271,15 @@ checkpointer.recover_if_possible()
 asr_brain.fit(params.epoch_counter, train_set, valid_set)
 
 # Load best checkpoint for evaluation
-checkpointer.recover_if_possible(min_key="WER")
+checkpointer.recover_if_possible(lambda c: -c.meta["WER"])
+
+# initialize with the first input
+ids, chars, char_lens = first_y
+chars = chars.to(params.device)
+# Only needs one timestep of input to initialize the weight
+# Initialization has to be done before loading a heckpoint
+beam_searcher.lm_forward_step(chars[:, 0], memory=None)
+lm_checkpointer.recover_if_possible(lambda c: -c.meta["loss"])
 test_stats = asr_brain.evaluate(params.test_loader())
 params.train_logger.log_stats(
     stats_meta={"Epoch loaded": params.epoch_counter.current},

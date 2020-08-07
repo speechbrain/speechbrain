@@ -99,9 +99,7 @@ def stoi_loss(y_pred_batch, y_true_batch, lens):
     y_pred_batch = torch.squeeze(y_pred_batch, dim=-1)
     y_true_batch = torch.squeeze(y_true_batch, dim=-1)
 
-    y_pred_batch_shape = y_pred_batch.shape
-
-    batch_size = y_pred_batch_shape[0]
+    batch_size = y_pred_batch.shape[0]
 
     fs = 16000  # Sampling rate
     N = 30  # length of temporal envelope vectors
@@ -110,12 +108,12 @@ def stoi_loss(y_pred_batch, y_true_batch, lens):
     octave_band = thirdoct(fs=10000, nfft=512, num_bands=15, min_freq=150)
     c = 5.62341325  # 10^(-Beta/20) with Beta = -15
     D = 0
+    resampler = torchaudio.transforms.Resample(fs, 10000)
     for i in range(0, batch_size):  # Run over mini-batches
-        y_true = y_true_batch[i, 0 : int(lens[i] * y_pred_batch_shape[1])]
-        y_pred = y_pred_batch[i, 0 : int(lens[i] * y_pred_batch_shape[1])]
+        y_true = y_true_batch[i, 0 : int(lens[i] * y_pred_batch.shape[1])]
+        y_pred = y_pred_batch[i, 0 : int(lens[i] * y_pred_batch.shape[1])]
 
-        y_true = torchaudio.transforms.Resample(fs, 10000)(y_true)
-        y_pred = torchaudio.transforms.Resample(fs, 10000)(y_pred)
+        y_true, y_pred = resampler(y_true), resampler(y_pred)
 
         [y_sil_true, y_sil_pred] = removeSilentFrames(y_true, y_pred)
 
@@ -126,8 +124,8 @@ def stoi_loss(y_pred_batch, y_true_batch, lens):
             n_fft=512, win_length=256, hop_length=128, power=2
         )(y_sil_pred)
 
-        OCT_true = torch.sqrt(torch.matmul(octave_band, stft_true))
-        OCT_pred = torch.sqrt(torch.matmul(octave_band, stft_pred))
+        OCT_true = torch.sqrt(torch.matmul(octave_band, stft_true) + 1e-14)
+        OCT_pred = torch.sqrt(torch.matmul(octave_band, stft_pred) + 1e-14)
 
         M = int(
             stft_pred.shape[-1] - (N - 1)

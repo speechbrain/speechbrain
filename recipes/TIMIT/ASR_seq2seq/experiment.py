@@ -36,21 +36,19 @@ modules = torch.nn.ModuleList(
     [params.enc, params.emb, params.dec, params.ctc_lin, params.seq_lin]
 )
 greedy_searcher = S2SRNNGreedySearcher(
-    modules=[params.emb, params.dec, params.seq_lin, params.log_softmax],
+    modules=[params.emb, params.dec, params.seq_lin],
     bos_index=params.bos_index,
     eos_index=params.eos_index,
     min_decode_ratio=0,
     max_decode_ratio=1,
 )
 beam_searcher = S2SRNNBeamSearcher(
-    modules=[params.emb, params.dec, params.seq_lin, params.log_softmax],
+    modules=[params.emb, params.dec, params.seq_lin],
     bos_index=params.bos_index,
     eos_index=params.eos_index,
     min_decode_ratio=0,
     max_decode_ratio=1,
     beam_size=params.beam_size,
-    length_penalty=params.length_penalty,
-    eos_threshold=params.eos_threshold,
 )
 
 checkpointer = sb.utils.checkpoints.Checkpointer(
@@ -131,7 +129,7 @@ class ASR(sb.core.Brain):
         )
 
         # convert to speechbrain-style relative length
-        rel_length = (abs_length + 1) / phns.shape[1]
+        rel_length = (abs_length + 1) / phns_with_eos.shape[1]
 
         loss_ctc = params.ctc_cost(p_ctc, phns, wav_lens, phn_lens)
         loss_seq = params.seq_cost(p_seq, phns_with_eos, length=rel_length)

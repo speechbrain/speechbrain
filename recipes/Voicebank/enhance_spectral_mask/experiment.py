@@ -3,12 +3,16 @@ import os
 import sys
 import torch
 import torchaudio
-import multiprocessing
 import speechbrain as sb
 from speechbrain.utils.train_logger import summarize_average
 from speechbrain.processing.features import spectral_magnitude
-from pystoi.stoi import stoi
-from pesq import pesq
+from speechbrain.nnet.loss.stoi_loss import stoi_loss
+from joblib import Parallel, delayed
+
+try:
+    from pesq import pesq
+except ImportError:
+    print("Please install PESQ from https://pypi.org/project/pesq/")
 
 # This hack needed to import data preparation script from ..
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -37,33 +41,17 @@ if not os.path.exists(params.enhanced_folder):
     os.mkdir(params.enhanced_folder)
 
 
-def evaluation(clean, enhanced, length):
-    clean = clean[:length]
-    enhanced = enhanced[:length]
-    pesq_score = pesq(params.Sample_rate, clean, enhanced, "wb",)
-    stoi_score = stoi(clean, enhanced, params.Sample_rate, extended=False)
-    return pesq_score, stoi_score
-
-
-def multiprocess_evaluation(pred_wavs, target_wavs, lens, num_cores):
-    processes = []
-    pool = multiprocessing.Pool(processes=num_cores)
-
-    for clean, enhanced, length in zip(target_wavs, pred_wavs, lens):
-        processes.append(
-            pool.apply_async(evaluation, args=(clean, enhanced, int(length)))
+def multiprocess_evaluation(pred_wavs, target_wavs, lengths):
+    pesq_scores = Parallel(n_jobs=30)(
+        delayed(pesq)(
+            fs=params.Sample_rate,
+            ref=clean[: int(length)],
+            deg=enhanced[: int(length)],
+            mode="wb",
         )
-
-    pool.close()
-    pool.join()
-
-    pesq_scores, stoi_scores = [], []
-    for process in processes:
-        pesq_score, stoi_score = process.get()
-        pesq_scores.append(pesq_score)
-        stoi_scores.append(stoi_score)
-
-    return pesq_scores, stoi_scores
+        for enhanced, clean, length in zip(pred_wavs, target_wavs, lengths)
+    )
+    return pesq_scores
 
 
 class SEBrain(sb.core.Brain):
@@ -75,53 +63,54 @@ class SEBrain(sb.core.Brain):
         feats = torch.log1p(feats)
 
         mask = params.model(feats, init_params=init_params)
-        out = torch.mul(mask, feats)  # mask with "signal approximation (SA)"
+        predict_spec = torch.mul(
+            mask, feats
+        )  # mask with "signal approximation (SA)"
 
-        return out
+        # Also return predicted wav
+        predict_wav = self.resynthesize(torch.expm1(predict_spec), x)
+
+        return predict_spec, predict_wav
 
     def compute_objectives(self, predictions, targets, stage="train"):
-        ids, wavs, lens = targets
-        wavs, lens = wavs.to(params.device), lens.to(params.device)
-        feats = params.compute_STFT(wavs)
-        feats = spectral_magnitude(feats, power=0.5)
-        feats = torch.log1p(feats)
+        predict_spec, predict_wav = predictions
+        ids, target_wav, lens = targets
+        target_wav, lens = target_wav.to(params.device), lens.to(params.device)
 
-        loss = params.compute_cost(predictions, feats, lens)
+        if hasattr(params, "waveform_target") and params.waveform_target:
+            loss = params.compute_cost(predict_wav, target_wav, lens)
+        else:
+            targets = params.compute_STFT(target_wav)
+            targets = spectral_magnitude(targets, power=0.5)
+            targets = torch.log1p(targets)
+            loss = params.compute_cost(predict_spec, targets, lens)
 
         stats = {}
+        if stage != "train":
+            stats["stoi"] = -stoi_loss(predict_wav, target_wav, lens)
 
-        return loss, stats
+            # Comprehensive but slow evaluation for test
+            lens = lens * target_wav.shape[1]
 
-    def evaluate_batch(self, batch, stage="valid"):
-        inputs, targets = batch
-        predictions = self.compute_forward(inputs, stage=stage)
-        pred_wavs = self.resynthesize(torch.expm1(predictions), inputs)
-        ids, target_wavs, lens = targets
-        loss, stats = self.compute_objectives(predictions, targets, stage=stage)
-        stats["loss"] = loss.detach()
-
-        # Comprehensive but slow evaluation for test
-        if stage == "test":
-            lens = lens * target_wavs.shape[1]
-
-            # Evaluate PESQ and STOI
-            pesq_scores, stoi_scores = multiprocess_evaluation(
-                pred_wavs.numpy(),
-                target_wavs.numpy(),
-                lens.numpy(),
-                multiprocessing.cpu_count(),
+            # Evaluate PESQ
+            pesq_scores = multiprocess_evaluation(
+                predict_wav.cpu().numpy(),
+                target_wav.cpu().numpy(),
+                lens.cpu().numpy(),
             )
 
             # Write wavs to file
-            for name, pred_wav, length in zip(ids, pred_wavs, lens):
-                name += ".wav"
-                enhance_path = os.path.join(params.enhanced_folder, name)
-                torchaudio.save(enhance_path, pred_wav[: int(length)], 16000)
+            if stage == "test":
+                for name, pred_wav, length in zip(ids, predict_wav, lens):
+                    name += ".wav"
+                    enhance_path = os.path.join(params.enhanced_folder, name)
+                    torchaudio.save(
+                        enhance_path, predict_wav[: int(length)].cpu(), 16000
+                    )
 
             stats["pesq"] = pesq_scores
-            stats["stoi"] = stoi_scores
 
-        return stats
+        return loss, stats
 
     def on_epoch_end(self, epoch, train_stats, valid_stats):
         if params.use_tensorboard:
@@ -141,7 +130,7 @@ class SEBrain(sb.core.Brain):
     def resynthesize(self, predictions, inputs):
         ids, wavs, lens = inputs
         lens = lens * wavs.shape[1]
-        predictions = predictions.cpu()
+        wavs = wavs.to(params.device)
 
         # Extract noisy phase
         feats = params.compute_STFT(wavs)

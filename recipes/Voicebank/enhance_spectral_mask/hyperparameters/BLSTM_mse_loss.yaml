@@ -4,7 +4,7 @@
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: !PLACEHOLDER  # e.g, 1234
+seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 data_folder: !PLACEHOLDER
@@ -72,11 +72,13 @@ compute_STFT: !new:speechbrain.processing.features.STFT
     win_length: !ref <Win_length>
     hop_length: !ref <Hop_length>
     n_fft: !ref <N_fft>
+    window_fn: !ref <window_fn>
 
 compute_ISTFT: !new:speechbrain.processing.features.ISTFT
     sample_rate: !ref <Sample_rate>
     win_length: !ref <Win_length>
     hop_length: !ref <Hop_length>
+    window_fn: !ref <window_fn>
 
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: sentence
@@ -109,7 +111,7 @@ model: !new:speechbrain.nnet.containers.Sequential
 
 compute_cost: !name:speechbrain.nnet.losses.mse_loss
 
-optimizer: !new:speechbrain.nnet.optimizers.RMSprop_Optimizer
+optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
     learning_rate: !ref <lr>
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer

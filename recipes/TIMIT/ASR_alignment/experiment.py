@@ -77,7 +77,7 @@ class ASR(sb.core.Brain):
             pout, pout_lens, phns, phn_lens, "viterbi"
         )
 
-        if self.training_type == "viterbi":
+        if self.training_type in ["viterbi", "forward"]:
             params.aligner.store_alignments(ids, alignments)
 
         stats = {}

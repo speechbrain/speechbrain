@@ -21,9 +21,7 @@ class LMBrain(sb.core.Brain):
     def compute_forward(self, y, stage="train", init_params=False):
         ids, phns, phn_lens = y
         y_in = prepend_bos_token(phns, bos_index=hyperparams.bos_index)
-        e_in = hyperparams.emb(y_in, init_params=init_params)
-        h_rnn = hyperparams.rnn(e_in, init_params=init_params)
-        logits = hyperparams.lin(h_rnn, init_params)
+        logits = hyperparams.model(y_in, init_params=init_params)
         pout = hyperparams.log_softmax(logits)
         return pout
 
@@ -39,7 +37,7 @@ class LMBrain(sb.core.Brain):
         )
 
         # convert to speechbrain-style relative length
-        rel_length = (abs_length + 1) / phns.shape[1]
+        rel_length = (abs_length + 1) / phns_with_eos.shape[1]
         loss = hyperparams.compute_cost(pout, phns_with_eos, length=rel_length)
 
         return loss, {}
@@ -75,7 +73,7 @@ valid_set = hyperparams.valid_loader()
 first_y = next(iter(train_set))
 
 lm_brain = LMBrain(
-    modules=[hyperparams.rnn, hyperparams.emb, hyperparams.lin],
+    modules=[hyperparams.model],
     optimizer=hyperparams.optimizer,
     first_inputs=first_y,
 )
