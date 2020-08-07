@@ -36,27 +36,17 @@ sb.core.create_experiment_directory(
 )
 
 # Prepare data from dev of Voxceleb1
-"""
-print("Data prep for train...")
+logger.debug("Data preparation")
+a = time.time()
 prepare_voxceleb(
     data_folder=params.data_folder,
     save_folder=params.save_folder,
-    splits=["train", "dev"],
+    splits=["train", "dev", "test"],
     split_ratio=[90, 10],
     seg_dur=300,
     vad=False,
     rand_seed=params.seed,
 )
-
-print("data prep for test and enrol")
-# Prepare data from test Voxceleb1
-prepare_voxceleb(
-    data_folder=params.data_folder,
-    save_folder=params.save_folder,
-    splits=["test"],
-    rand_seed=params.seed,
-)
-"""
 
 
 # Definition of the steps for xvector computation from the waveforms
@@ -89,7 +79,7 @@ def get_utt_ids_for_test(ids, data_dict):
     return mod, seg
 
 
-# Some PLDA inputs
+# PLDA inputs for Train data
 modelset, segset = [], []
 xvectors = numpy.empty(shape=[0, 512], dtype=numpy.float64)
 
@@ -97,14 +87,14 @@ xvectors = numpy.empty(shape=[0, 512], dtype=numpy.float64)
 train_set = params.train_loader()
 ind2lab = params.train_loader.label_dict["spk_id"]["index2lab"]
 
-
-# Get Xvectors for train data
+# Xvector file for train data
 xv_file = os.path.join(
     params.save_folder, "VoxCeleb1_train_xvectors_stat_obj.pkl"
 )
-# skip extraction if already extracted
+
+# Skip extraction of train if already extracted
 if not os.path.exists(xv_file):
-    print("Extracting xvectors from Training set..")
+    logger.debug("Extracting xvectors from Training set..")
     with tqdm(train_set, dynamic_ncols=True) as t:
         init_params = True
         for wav, spk_id in t:
@@ -165,8 +155,8 @@ if not os.path.exists(xv_file):
     xvectors_stat.save_stat_object(xv_file)
 else:
     # Load the saved stat object for train xvector
-    print("Skipping Xvector Extraction for training set")
-    print("Loading previously saved stat_object for train xvectors..")
+    logger.debug("Skipping Xvector Extraction for training set")
+    logger.debug("Loading previously saved stat_object for train xvectors..")
     with open(xv_file, "rb") as input:
         xvectors_stat = pickle.load(input)
 
@@ -174,187 +164,111 @@ else:
 plda = PLDA()
 
 # Training Gaussina PLDA model
-print("Training PLDA model")
+logger.debug("Training PLDA model")
 plda.plda(xvectors_stat)
-print("\nTesting...")
-
-
-# Some PLDA inputs
-modelset_test, segset_test = [], []
-xvect_test = numpy.empty(shape=[0, 512], dtype=numpy.float64)
+logger.debug("PLDA training completed")
 
 # Enroll and Test xvector
 enrol_stat_file = os.path.join(params.save_folder, "stat_enrol.pkl")
 test_stat_file = os.path.join(params.save_folder, "stat_test.pkl")
 ndx_file = os.path.join(params.save_folder, "ndx.pkl")
 
+# Data loader
+enrol_set_loader = params.enrol_loader()
+test_set_loader = params.test_loader()
 
-# ENROL
-enrol_set = params.enrol_loader()
-xvect_enrol = numpy.empty(shape=[0, 512], dtype=numpy.float64)
-modelset_enrol = []
-segset_enrol = []
-# Extract xvectors for Enrolment set
-if not os.path.isfile(enrol_stat_file):
-    init_params = True
 
-    with tqdm(enrol_set, dynamic_ncols=True) as t:
+def xvect_computation_loop(split, set_loader, stat_file):
 
-        for wav in t:
-            ids, wavs, lens = wav[0]
-            mod = [x for x in ids]
-            seg = [x for x in ids]
-            modelset_enrol = modelset_enrol + mod
-            segset_enrol = segset_enrol + seg
-            # Initialize the model and perform pre-training
-            if init_params:
-                xvects = compute_x_vectors(wavs, lens, init_params=True)
-                params.mean_var_norm_xvect.glob_mean = torch.zeros_like(
-                    xvects[0, 0, :]
-                )
-                params.mean_var_norm_xvect.count = 0
+    # Extract xvectors (skip if already done)
+    if not os.path.isfile(stat_file):
+        init_params = True
 
-                # Download models from the web if needed
-                if "https://" in params.xvector_file:
-                    download_and_pretrain()
-                else:
-                    params.xvector_model.load_state_dict(
-                        torch.load(params.xvector_file), strict=True
+        xvectors = numpy.empty(shape=[0, 512], dtype=numpy.float64)
+        modelset = []
+        segset = []
+        with tqdm(set_loader, dynamic_ncols=True) as t:
+
+            for wav in t:
+                ids, wavs, lens = wav[0]
+                mod = [x for x in ids]
+                seg = [x for x in ids]
+                modelset = modelset + mod
+                segset = segset + seg
+
+                # Initialize the model and perform pre-training
+                if init_params:
+                    xvects = compute_x_vectors(wavs, lens, init_params=True)
+                    params.mean_var_norm_xvect.glob_mean = torch.zeros_like(
+                        xvects[0, 0, :]
                     )
+                    params.mean_var_norm_xvect.count = 0
 
-                init_params = False
-                params.xvector_model.eval()
-                params.classifier.eval()
+                    # Download models from the web if needed
+                    if "https://" in params.xvector_file:
+                        download_and_pretrain()
+                    else:
+                        params.xvector_model.load_state_dict(
+                            torch.load(params.xvector_file), strict=True
+                        )
 
-            # Enrolment and test xvectors
-            xvects = compute_x_vectors(wavs, lens)
-            xv_enrol = xvects.squeeze().cpu().numpy()
-            xvect_enrol = numpy.concatenate((xvect_enrol, xv_enrol), axis=0)
+                    init_params = False
+                    params.xvector_model.eval()
+                    params.classifier.eval()
 
-    modelset_enrol = numpy.array(modelset_enrol, dtype="|O")
-    segset_enrol = numpy.array(segset_enrol, dtype="|O")
+                # Enrolment and test xvectors
+                xvects = compute_x_vectors(wavs, lens)
+                xv = xvects.squeeze().cpu().numpy()
+                xvectors = numpy.concatenate((xvectors, xv), axis=0)
 
-    # intialize variables for start, stop and stat0
-    s = numpy.array([None] * xvect_enrol.shape[0])
-    b = numpy.array([[1.0]] * xvect_enrol.shape[0])
+        modelset = numpy.array(modelset, dtype="|O")
+        segset = numpy.array(segset, dtype="|O")
 
-    enrol_obj = StatObject_SB(
-        modelset=modelset_enrol,
-        segset=segset_enrol,
-        start=s,
-        stop=s,
-        stat0=b,
-        stat1=xvect_enrol,
-    )
-    print("Saving enrol xvectors...")
-    enrol_obj.save_stat_object(enrol_stat_file)
+        # Intialize variables for start, stop and stat0
+        s = numpy.array([None] * xvectors.shape[0])
+        b = numpy.array([[1.0]] * xvectors.shape[0])
 
-else:
-    print("Skipping Xvector Extraction for enrol set")
-    print("Loading previously saved stat_object for enrol xvectors..")
+        stat_obj = StatObject_SB(
+            modelset=modelset,
+            segset=segset,
+            start=s,
+            stop=s,
+            stat0=b,
+            stat1=xvectors,
+        )
+        logger.debug(f"Saving stat obj for {split}")
+        stat_obj.save_stat_object(stat_file)
 
-    with open(enrol_stat_file, "rb") as input:
-        enrol_obj = pickle.load(input)
+    else:
+        logger.debug(f"Skipping Xvector Extraction for {split}")
+        logger.debug(f"Loading previously saved stat_object for {split}")
+
+        with open(stat_file, "rb") as input:
+            stat_obj = pickle.load(input)
+
+    return stat_obj
 
 
-# TEST
-test_set = params.test_loader()
-xvect_test = numpy.empty(shape=[0, 512], dtype=numpy.float64)
-modelset_test = []
-segset_test = []
-
-# Extract xvectors for Enrolment set
-if not os.path.isfile(test_stat_file):
-    init_params = True
-    print("Extracting xvectors for test set")
-
-    with tqdm(test_set, dynamic_ncols=True) as t:
-
-        for wav in t:
-            ids, wavs, lens = wav[0]
-            mod = [x for x in ids]
-            seg = [x for x in ids]
-            modelset_test = modelset_test + mod
-            segset_test = segset_test + seg
-
-            # Initialize the model and perform pre-training
-            if init_params:
-                xvects = compute_x_vectors(wavs, lens, init_params=True)
-                params.mean_var_norm_xvect.glob_mean = torch.zeros_like(
-                    xvects[0, 0, :]
-                )
-                params.mean_var_norm_xvect.count = 0
-
-                # Download models from the web if needed
-                if "https://" in params.xvector_file:
-                    download_and_pretrain()
-                else:
-                    params.xvector_model.load_state_dict(
-                        torch.load(params.xvector_file), strict=True
-                    )
-
-                init_params = False
-                params.xvector_model.eval()
-                params.classifier.eval()
-
-            # Enrolment and test xvectors
-            xvects = compute_x_vectors(wavs, lens)
-            xv_test = xvects.squeeze().cpu().numpy()
-            xvect_test = numpy.concatenate((xvect_test, xv_test), axis=0)
-
-    modelset_test = numpy.array(modelset_test, dtype="|O")
-    segset_test = numpy.array(segset_test, dtype="|O")
-
-    # intialize variables for start, stop and stat0
-    s = numpy.array([None] * xvect_test.shape[0])
-    b = numpy.array([[1.0]] * xvect_test.shape[0])
-
-    test_obj = StatObject_SB(
-        modelset=modelset_test,
-        segset=segset_test,
-        start=s,
-        stop=s,
-        stat0=b,
-        stat1=xvect_test,
-    )
-    print("Saving test stat obj xvectors...")
-    test_obj.save_stat_object(test_stat_file)
-
-else:
-    print("Skipping Xvector Extraction for test set")
-    print("Loading previously saved stat_object for test xvectors..")
-
-    with open(test_stat_file, "rb") as input:
-        test_obj = pickle.load(input)
-
+enrol_obj = xvect_computation_loop("enrol", enrol_set_loader, enrol_stat_file)
+test_obj = xvect_computation_loop("test", test_set_loader, test_stat_file)
 
 # Prepare Ndx Object
 if not os.path.isfile(ndx_file):
     models = enrol_obj.modelset
     testsegs = test_obj.modelset
 
-    # Current numpy version is strict with boolean dimension mismatch
-    # This is needed to make it compatible with latest numpy
-    # d = models.shape[0] - testsegs.shape[0]
-    # if d != 0:
-    #    if d > 0:
-    #        pad = testsegs[-d:]
-    #        testsegs = numpy.concatenate((testsegs, pad), axis=0)
-    #    else:
-    #        pad = models[-d:]
-    #        models = numpy.concatenate((models, pad), axis=0)
-
+    logger.debug("Preparing Ndx")
     ndx_obj = Ndx(models=models, testsegs=testsegs)
-    print("Saving ndx obj...")
+    logger.debug("Saving ndx obj...")
     ndx_obj.save_ndx_object(ndx_file)
 else:
-    print("Skipping Ndx preparation")
-    print("Loading Ndx from disk")
+    logger.debug("Skipping Ndx preparation")
+    logger.debug("Loading Ndx from disk")
     with open(ndx_file, "rb") as input:
         ndx_obj = pickle.load(input)
 
 
-print("PLDA scoring...")
+logger.debug("PLDA scoring...")
 scores_plda = fast_PLDA_scoring(
     enrol_obj, test_obj, ndx_obj, plda.mean, plda.F, plda.Sigma
 )
@@ -382,6 +296,7 @@ for line in open(gt_file):
         negative_scores.append(s)
 
 
-print("\n\nComputing EER... ")
+logger.debug("Computing EER... ")
 eer = EER(torch.tensor(positive_scores), torch.tensor(negative_scores))
 logger.info("EER=%f", eer)
+print("EER=%f", eer)
