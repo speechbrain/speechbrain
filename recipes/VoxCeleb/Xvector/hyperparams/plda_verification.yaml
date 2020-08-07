@@ -9,7 +9,7 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 # Folders and train_log file
 #/voxceleb1/audio_files/vox1_all/
 data_folder: /network/tmp1/dawalatn/dataset_tmp1/VoxCeleb/voxceleb1/
-output_folder: results/speaker_verification_v1/
+output_folder: results/speaker_verification/
 save_folder: !ref <output_folder>/save/
 device: 'cuda:0'
 
@@ -68,7 +68,7 @@ valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_valid>
     batch_size: !ref <batch_size>
     csv_read: [wav, spk_id]
-    sentence_sorting: original
+    sentence_sorting: random
     replacements:
         $data_folder: !ref <data_folder>
     output_folder: !ref <output_folder>/save/

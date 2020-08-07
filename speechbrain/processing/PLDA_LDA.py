@@ -427,6 +427,8 @@ class Ndx:
                     last = str(models[-1])
                     pad = numpy.array([last] * d)
                     models = numpy.hstack((models, pad))
+                    # pad = models[-d:]
+                    # models = numpy.concatenate((models, pad), axis=1)
 
             modelset = numpy.unique(models)
             segset = numpy.unique(testsegs)

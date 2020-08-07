@@ -23,8 +23,8 @@ OPT_FILE = "opt_voxceleb1_prepare.pkl"
 TRAIN_CSV = "train.csv"
 DEV_CSV = "dev.csv"
 TEST_CSV = "test.csv"
-
 SAMPLERATE = 16000
+random.seed(1234)
 
 
 def prepare_voxceleb(
@@ -380,17 +380,13 @@ def prepare_csv_enrol_test(data_folders, save_folder):
         ["ID", "duration", "wav", "wav_format", "wav_opts"]
     ]  # noqa E231
 
-    # cnt = 0
-    print("data \n ", data_folders)
-    # redundant for loop (remove this)
     for data_folder in data_folders:
 
         test_lst_file = os.path.join(data_folder, "meta", "veri_test.txt")
 
         enrol_ids, test_ids = [], []
 
-        # Get unique ids
-        print("Get unique enrol and test utterances")
+        # Get unique ids (enrol and test utterances)
         for line in open(test_lst_file):
             e_id = line.split(" ")[1].rstrip().split(".")[0].strip()
             t_id = line.split(" ")[2].rstrip().split(".")[0].strip()
@@ -401,7 +397,7 @@ def prepare_csv_enrol_test(data_folders, save_folder):
         test_ids = list(np.unique(np.array(test_ids)))
 
         # Prepare enrol csv
-        print("preparing enrol csv")
+        logger.debug("preparing enrol csv")
         enrol_csv = []
         for id in enrol_ids:
             wav = data_folder + "/wav/" + id + ".wav"
@@ -432,7 +428,7 @@ def prepare_csv_enrol_test(data_folders, save_folder):
                 csv_writer.writerow(line)
 
         # Prepare test csv
-        print("preparing test csv")
+        logger.debug("preparing test csv")
         test_csv = []
         for id in test_ids:
             wav = data_folder + "/wav/" + id + ".wav"
