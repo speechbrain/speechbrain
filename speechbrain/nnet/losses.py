@@ -282,6 +282,36 @@ def mse_loss(predictions, targets, length=None, allowed_len_diff=3):
     return compute_masked_loss(loss, predictions, targets, length)
 
 
+def weighted_mse_loss(predictions, targets, weights=1, exclude_zero=True):
+    """Compute the mean squared error, allowing for some terms to be weighted differently and the exclusion of zero terms.
+
+    Arguments
+    ---------
+    predictions : torch.Tensor
+        Predicted tensor, of shape ``[batch, time, *]``.
+    targets : torch.Tensor
+        Target tensor, same size as predicted tensor.
+    weights : torch.Tensor
+        Weight each term should have in the loss computation.
+    exclude_zero : bool
+        Allows for only non-zero terms to be included in the loss
+
+    """
+    weighted_difference = torch.mm(
+        ((predictions - targets) ** 2).view(-1, predictions.shape[-1]),
+        (torch.diag(weights.float().view(-1))),
+    )
+    if exclude_zero:
+        num_non_zero = torch.sum(weighted_difference[:, 0] != 0).float()
+        return (
+            torch.mean(weighted_difference)
+            * weights.nelement()
+            * weighted_difference.shape[0]
+            / num_non_zero
+        )
+    return torch.mean(weighted_difference)
+
+
 def classification_error(
     probabilities, targets, length=None, allowed_len_diff=3
 ):
