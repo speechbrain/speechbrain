@@ -1691,7 +1691,7 @@ class TensorSaver(torch.nn.Module):
 
     Example:
     >>> tmpdir = getfixture('tmpdir')
-    >>> save_signal = TensorSaver(save=tmpdir, save_format='wav')
+    >>> save_signal = TensorSaver(save_folder=tmpdir, save_format='wav')
     >>> signal = 0.1 * torch.rand([1, 16000])
     >>> save_signal(signal, ['example_random'], torch.ones(1))
     """
