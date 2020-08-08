@@ -244,6 +244,10 @@ class Brain:
         fmt_num = format_order_of_magnitude(total_params)
         logger.info(f"Initialized {fmt_num} trainable parameters in {clsname}")
 
+    def on_training_start(self, *args, **kwargs):
+
+        pass
+
     def compute_forward(self, x, stage="train", init_params=False):
         """Forward pass, to be overridden by sub-classes.
 
@@ -328,10 +332,16 @@ class Brain:
         inputs, targets = batch
         predictions = self.compute_forward(inputs)
         loss, stats = self.compute_objectives(predictions, targets)
+
+        return loss, stats
+
+    def on_backwards_and_step(self, loss, stats):
+
         loss.backward()
         self.optimizer.step()
         self.optimizer.zero_grad()
         stats["loss"] = loss.detach()
+
         return stats
 
     def evaluate_batch(self, batch, stage="test"):
@@ -404,13 +414,15 @@ class Brain:
         progressbar : bool
             Whether to display the progress of each epoch in a progressbar.
         """
+        self.on_training_start()
         for epoch in epoch_counter:
             self.modules.train()
             train_stats = {}
             disable = not progressbar
             with tqdm(train_set, dynamic_ncols=True, disable=disable) as t:
                 for i, batch in enumerate(t):
-                    stats = self.fit_batch(batch)
+                    loss, stats = self.fit_batch(batch)
+                    stats = self.on_backwards_and_step(loss, stats)
                     self.add_stats(train_stats, stats)
                     average = self.update_average(stats, iteration=i + 1)
                     t.set_postfix(train_loss=average)
