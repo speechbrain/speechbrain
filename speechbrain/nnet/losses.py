@@ -356,6 +356,70 @@ def nll_loss(
     )
 
 
+def kldiv_loss(
+    log_probabilities,
+    targets,
+    length=None,
+    label_smoothing=0.0,
+    allowed_len_diff=3,
+    pad_idx=0,
+):
+    """Computes the KL-divergence error at batch level.
+    This loss applies label smoothing directly on the targets
+
+    Arguments
+    ---------
+    probabilities : torch.Tensor
+        The posterior probabilities of shape
+        [batch, prob] or [batch, frames, prob]
+    targets : torch.Tensor
+        The targets, of shape [batch] or [batch, frames]
+    length : torch.Tensor
+        Length of each utterance, if frame-level loss is desired.
+    allowed_len_diff : int
+        Length difference that will be tolerated before raising an exception.
+
+    Example
+    -------
+    >>> probs = torch.tensor([[0.9, 0.1], [0.1, 0.9]])
+    >>> kldiv_loss(torch.log(probs), torch.tensor([1, 1]))
+    tensor(1.2040)
+    """
+    # if the input shape is 2m unsqueeze
+    if log_probabilities.dim() == 2:
+        log_probabilities = log_probabilities.unsqueeze(1)
+
+    bz, time, n_class = log_probabilities.shape
+    targets = targets.long().detach()
+
+    if label_smoothing > 0:
+        confidence = 1 - label_smoothing
+
+        true_distribution = torch.nn.functional.one_hot(
+            targets, n_class
+        ).float()
+        true_distribution = true_distribution * confidence + (
+            1 - true_distribution
+        ) / (n_class - 2)
+
+        # discourage predition of <pad> by setting its corresponding dimention in true dristribution with 0
+        true_distribution[:, :, pad_idx] = 0
+
+        loss = functools.partial(torch.nn.functional.kl_div, reduction="none")
+        return compute_masked_loss(
+            loss, log_probabilities, true_distribution, length
+        )
+    else:
+        log_probabilities = log_probabilities.view(bz, n_class, time)
+        targets = targets.view(bz, time)
+        loss = functools.partial(
+            torch.nn.functional.nll_loss, ignore_index=pad_idx, reduction="none"
+        )
+        return compute_masked_loss(
+            loss, log_probabilities, targets.long(), length
+        )
+
+
 def truncate(predictions, targets, allowed_len_diff=3):
     """Ensure that predictions and targets are the same length.
 

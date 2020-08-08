@@ -115,4 +115,5 @@ class Embedding(nn.Module):
         if init_params:
             self.init_params(x)
 
-        return self.Embedding(x)
+        # pytorch embedding layer only accept long dtype
+        return self.Embedding(x.long())

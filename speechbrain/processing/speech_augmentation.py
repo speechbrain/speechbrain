@@ -23,6 +23,7 @@ from speechbrain.processing.signal_processing import (
     dB_to_amplitude,
     convolve1d,
     notch_filter,
+    reverberate,
 )
 
 
@@ -56,6 +57,9 @@ class AddNoise(torch.nn.Module):
     start_index : int
         The index in the noise waveforms to start from. By default, chooses
         a random index in [0, len(noise) - len(waveforms)].
+    normalize : bool
+        If True, output noisy signals that exceed [-1,1] will be
+        normalized to [-1,1].
     replacements : dict
         A set of string replacements to carry out in the
         csv file. Each time a key is found in the text, it will be replaced
@@ -81,6 +85,7 @@ class AddNoise(torch.nn.Module):
         pad_noise=False,
         mix_prob=1.0,
         start_index=None,
+        normalize=False,
         replacements={},
     ):
         super().__init__()
@@ -95,6 +100,7 @@ class AddNoise(torch.nn.Module):
         self.pad_noise = pad_noise
         self.mix_prob = mix_prob
         self.start_index = start_index
+        self.normalize = normalize
         self.replacements = replacements
 
     def forward(self, waveforms, lengths):
@@ -144,6 +150,13 @@ class AddNoise(torch.nn.Module):
             noise_amplitude = compute_amplitude(noise_waveform, noise_length)
             noise_waveform *= new_noise_amplitude / (noise_amplitude + 1e-14)
             noisy_waveform += noise_waveform
+
+        # Normalizing to prevent clipping
+        if self.normalize:
+            abs_max, _ = torch.max(
+                torch.abs(noisy_waveform), dim=1, keepdim=True
+            )
+            noisy_waveform = noisy_waveform / abs_max.clamp(min=1.0)
 
         return noisy_waveform
 
@@ -340,10 +353,7 @@ class AddReverb(torch.nn.Module):
             channel_added = True
 
         # Convert length from ratio to number of indices
-        lengths = (lengths * waveforms.shape[1])[:, None, None]
-
-        # Compute the average amplitude of the clean
-        orig_amplitude = compute_amplitude(waveforms, lengths)
+        # lengths = (lengths * waveforms.shape[1])[:, None, None]
 
         # Load and prepare RIR
         rir_waveform = self._load_rir(waveforms)
@@ -358,31 +368,13 @@ class AddReverb(torch.nn.Module):
             )
             rir_waveform = rir_waveform.transpose(1, -1)
 
-        # Compute index of the direct signal, so we can preserve alignment
-        value_max, direct_index = rir_waveform.abs().max(axis=1)
-
-        # Making sure the max is always positive (if not, flip)
-        # This is useful for speeech enhancment
-        if rir_waveform[0, direct_index, 0] < 0:
-            rir_waveform = -rir_waveform
-
-        # Use FFT to compute convolution, because of long reverberation filter
-        reverbed_waveform = convolve1d(
-            waveform=waveforms,
-            kernel=rir_waveform,
-            use_fft=True,
-            rotation_index=direct_index,
-        )
-
-        # Rescale to the average amplitude of the clean waveform
-        reverbed_amplitude = compute_amplitude(reverbed_waveform, lengths)
-        reverbed_waveform *= orig_amplitude / reverbed_amplitude
+        rev_waveform = reverberate(waveforms, rir_waveform, rescale_amp="avg")
 
         # Remove channels dimension if added
         if channel_added:
-            return reverbed_waveform.squeeze(-1)
+            return rev_waveform.squeeze(-1)
 
-        return reverbed_waveform
+        return rev_waveform
 
     def _load_rir(self, waveforms):
         try:
@@ -900,7 +892,7 @@ class DropFreq(torch.nn.Module):
 
     def __init__(
         self,
-        drop_freq_low=0,
+        drop_freq_low=1e-14,
         drop_freq_high=1,
         drop_count_low=1,
         drop_count_high=2,
