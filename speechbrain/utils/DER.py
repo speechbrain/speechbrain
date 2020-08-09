@@ -11,6 +11,7 @@ Authors
  * dscore: https://github.com/nryant/dscore
 """
 
+import os
 import re
 import subprocess
 import numpy as np
@@ -23,6 +24,9 @@ ERROR_SPEAKER_TIME = re.compile(r"(?<=SPEAKER ERROR TIME =)[\d.]+")
 
 
 def rectify(arr):
+    """
+    Corrects boundary cases and converts scores into percentage.
+    """
     arr[np.isnan(arr)] = 0
     arr[np.isinf(arr)] = 1
     arr *= 100.0
@@ -47,7 +51,7 @@ def DER(
     sys_rttm : str
         The path of system generated RTTM file.
     individual_file : bool
-        If True, retuns results for each file in order.
+        If True, retuns scores for each file in order.
     collar : float
         Forgiveness collar.
     ignore_overlap : bool
@@ -72,9 +76,8 @@ def DER(
     (array([0., 0.]), array([0., 0.]), array([38.15814376, 38.15814376]), array([38.15814376, 38.15814376]))
     """
 
-    mdEval = (
-        "/home/mila/d/dawalatn/nauman/sb/speechbrain/tools/der_eval/md-eval.pl"
-    )
+    curr = os.path.abspath(os.path.dirname(__file__))
+    mdEval = os.path.join(curr, "../../tools/der_eval/md-eval.pl")
 
     cmd = [
         mdEval,
@@ -135,13 +138,3 @@ def DER(
         return miss_speaker, fa_speaker, sers, ders
     else:
         return miss_speaker[-1], fa_speaker[-1], sers[-1], ders[-1]
-
-
-if __name__ == "__main__":
-    ref_rttm = "/home/mila/d/dawalatn/nauman/sb/speechbrain/samples/rttm_samples/ref_rttm/IS1000a.rttm"
-    sys_rttm = "/home/mila/d/dawalatn/nauman/sb/speechbrain/samples/rttm_samples/sys_rttm/IS1000a.rttm"
-
-    miss_speaker, fa_speaker, sers, ders = DER(
-        ref_rttm, sys_rttm, individual_file_scores=True
-    )
-    print(miss_speaker, fa_speaker, sers, ders)
