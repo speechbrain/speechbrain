@@ -1,3 +1,16 @@
+"""
+Calculates Diarization Error Rate (DER) which is sum of Missed Speaker (MS),
+False Alarm (FA), and Speaker Error Rate (SER) using md-eval-22.pl of NIST RT Evaluation.
+
+Authors
+ * Nauman Dawalatabad 2020
+
+ References
+ * NIST. (2009). The 2009 (RT-09) Rich Transcription Meeting Recognition Evaluation Plan.
+   https://web.archive.org/web/20100606041157if_/http://www.itl.nist.gov/iad/mig/tests/rt/2009/docs/rt09-meeting-eval-plan-v2.pdf
+ * dscore: https://github.com/nryant/dscore
+"""
+
 import re
 import subprocess
 import numpy as np
@@ -24,6 +37,41 @@ def DER(
     collar=0.25,
     individual_file_scores=False,
 ):
+    """Computes Missed Speaker percentage (MS), False Alarm (FA),
+    Speaker Error Rate (SER), and Diarization Error Rate (DER).
+
+    Arguments
+    ---------
+    ref_rttm : str
+        The path of reference/groundtruth RTTM file.
+    sys_rttm : str
+        The path of system generated RTTM file.
+    individual_file : bool
+        If True, retuns results for each file in order.
+    collar : float
+        Forgiveness collar.
+    ignore_overlap : bool
+        If True, ignores overlapping speech during evaluation.
+
+    Outputs
+    -------
+    MS : float array
+    FA : float array
+    SER : float array
+    DER : float array
+
+    Example
+    -------
+    >>> ref_rttm = "../../samples/rttm_samples/ref_rttm/IS1000a.rttm"
+    >>> sys_rttm = "../../samples/rttm_samples/sys_rttm/IS1000a.rttm"
+    >>> ignore_overlap = True
+    >>> collar = 0.25
+    >>> individual_file_scores = True
+    >>> Scores = DER(ref_rttm, sys_rttm, ignore_overlap, collar, individual_file_scores)
+    >>> print(Scores)
+    (array([0., 0.]), array([0., 0.]), array([38.15814376, 38.15814376]), array([38.15814376, 38.15814376]))
+    """
+
     mdEval = (
         "/home/mila/d/dawalatn/nauman/sb/speechbrain/tools/der_eval/md-eval.pl"
     )
@@ -83,11 +131,6 @@ def DER(
     sers = rectify(sers_frac)
     ders = rectify(ders_frac)
 
-    print(miss_speaker)
-    print(fa_speaker)
-    print(sers)
-    print(ders)
-
     if individual_file_scores:
         return miss_speaker, fa_speaker, sers, ders
     else:
@@ -95,15 +138,10 @@ def DER(
 
 
 if __name__ == "__main__":
-    print("hello")
     ref_rttm = "/home/mila/d/dawalatn/nauman/sb/speechbrain/samples/rttm_samples/ref_rttm/IS1000a.rttm"
     sys_rttm = "/home/mila/d/dawalatn/nauman/sb/speechbrain/samples/rttm_samples/sys_rttm/IS1000a.rttm"
 
     miss_speaker, fa_speaker, sers, ders = DER(
-        ref_rttm, sys_rttm, individual_files=True
+        ref_rttm, sys_rttm, individual_file_scores=True
     )
-    print("MAIN")
-    print(miss_speaker)
-    print(fa_speaker)
-    print(sers)
-    print(ders)
+    print(miss_speaker, fa_speaker, sers, ders)
