@@ -26,6 +26,11 @@ TEST_CSV = "test.csv"
 SAMPLERATE = 16000
 
 
+### STEPS:
+# Get Split and verify directory
+# Convert all XMLs to RTTM (easier to parse)
+
+
 # Code Flow:   segments.xml -> NIST.rttm -> CSV
 # Code Design: loader_xml(), read_write_rttm(), prune_overlaps(), create_labs()
 
@@ -37,7 +42,7 @@ SAMPLERATE = 16000
 def prepare_ami(
     data_folder,
     save_folder,
-    split_type="full-corpus",
+    split_type="full_corpus",
     mic_type="hm",
     vad_type="oracle",
     rand_seed=1234,
@@ -126,8 +131,8 @@ def prepare_ami(
 
 
 def _get_meetings_full_corpus():
-
-    # List of train meetings
+    # List of train: SA (TRAINING PART OF SEEN DATA)
+    # Note: IS1002 (no a), IS1005 (no d)
     train_meet = [
         "ES2002",
         "ES2005",
@@ -172,7 +177,7 @@ def _get_meetings_full_corpus():
         "IN1016",
     ]
 
-    # List of dev meetings
+    # List of dev: SB (DEV PART OF SEEN DATA)
     dev_meet = [
         "ES2003",
         "ES2011",
@@ -187,7 +192,8 @@ def _get_meetings_full_corpus():
         "IB4011",
     ]
 
-    # List of test meetings
+    # List of test: SC (UNSEEN DATA FOR EVALUATION)
+    # Note that IB4005 does not appear because it has speakers in common with two sets of data.
     test_meet = [
         "ES2004",
         "ES2014",
