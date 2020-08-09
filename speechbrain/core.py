@@ -255,6 +255,10 @@ class Brain:
         # Initialize parameters
         if first_inputs is not None:
             self.compute_forward(*first_inputs, init_params=True)
+            # Trying the eval mode as well
+            with torch.no_grad():
+                self.modules.eval()
+                self.compute_forward(*first_inputs, stage='valid')
 
             if self.optimizer is not None:
                 self.optimizer.init_params(self.modules)
