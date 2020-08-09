@@ -3,11 +3,10 @@ import os
 import sys
 import torch
 import torchaudio
-import multiprocessing
 import speechbrain as sb
-from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.train_logger import summarize_average
-from pystoi.stoi import stoi
+from speechbrain.nnet.loss.stoi_loss import stoi_loss
+from joblib import Parallel, delayed
 from pesq import pesq
 
 # This hack needed to import data preparation script from ..
@@ -23,7 +22,7 @@ with open(params_file) as fin:
 # Create experiment directory
 sb.core.create_experiment_directory(
     experiment_directory=params.output_folder,
-    params_to_save=params_file,
+    hyperparams_to_save=params_file,
     overrides=overrides,
 )
 
@@ -44,33 +43,17 @@ def truncate(wavs, lengths, max_length):
     return wavs, lengths
 
 
-def evaluation(clean, enhanced, length):
-    clean = clean[:length]
-    enhanced = enhanced[:length]
-    pesq_score = pesq(params.Sample_rate, clean, enhanced, "wb")
-    stoi_score = stoi(clean, enhanced, params.Sample_rate)
-    return pesq_score, stoi_score
-
-
-def multiprocess_evaluation(pred_wavs, target_wavs, lens, num_cores):
-    processes = []
-    pool = multiprocessing.Pool(processes=num_cores)
-
-    for clean, enhanced, length in zip(target_wavs, pred_wavs, lens):
-        processes.append(
-            pool.apply_async(evaluation, args=(clean, enhanced, int(length)))
+def multiprocess_evaluation(pred_wavs, target_wavs, lengths):
+    pesq_scores = Parallel(n_jobs=30)(
+        delayed(pesq)(
+            fs=params.Sample_rate,
+            ref=clean[: int(length)],
+            deg=enhanced[: int(length)],
+            mode="wb",
         )
-
-    pool.close()
-    pool.join()
-
-    pesq_scores, stoi_scores = [], []
-    for process in processes:
-        pesq_score, stoi_score = process.get()
-        pesq_scores.append(pesq_score)
-        stoi_scores.append(stoi_score)
-
-    return pesq_scores, stoi_scores
+        for enhanced, clean, length in zip(pred_wavs, target_wavs, lengths)
+    )
+    return pesq_scores
 
 
 class SEBrain(sb.core.Brain):
@@ -83,42 +66,33 @@ class SEBrain(sb.core.Brain):
         return out
 
     def compute_objectives(self, predictions, targets, stage="train"):
-        ids, wavs, lens = targets
-        wavs, lens = truncate(wavs, lens, params.max_length)
-        wavs, lens = wavs.to(params.device), lens.to(params.device)
-        loss = params.compute_cost(predictions, wavs, lens)
-        return loss, {}
-
-    def evaluate_batch(self, batch, stage="valid"):
-        inputs, targets = batch
-        predict_wavs = self.compute_forward(inputs, stage=stage)
-
         ids, target_wavs, lens = targets
         target_wavs, lens = truncate(target_wavs, lens, params.max_length)
-        lens = lens * target_wavs.shape[1]
+        target_wavs = target_wavs.to(params.device)
+        lens = lens.to(params.device)
+        loss = params.compute_cost(predictions, target_wavs, lens)
 
-        loss, stats = self.compute_objectives(
-            predict_wavs, targets, stage=stage
-        )
-        stats["loss"] = loss.detach()
+        stats = {}
+        if stage != "train":
+            lens = lens * target_wavs.shape[1]
+            pesq_scores = multiprocess_evaluation(
+                predictions.cpu().numpy(),
+                target_wavs.cpu().numpy(),
+                lens.cpu().numpy(),
+            )
+            stats["pesq"] = pesq_scores
+            stats["stoi"] = -stoi_loss(predictions, target_wavs, lens)
 
-        pesq_scores, stoi_scores = multiprocess_evaluation(
-            predict_wavs.cpu().numpy(),
-            target_wavs.cpu().numpy(),
-            lens.cpu().numpy(),
-            multiprocessing.cpu_count(),
-        )
-        stats["pesq"] = pesq_scores
-        stats["stoi"] = stoi_scores
+            if stage == "test":
+                # Write wavs to file
+                for name, pred_wav, length in zip(ids, predictions, lens):
+                    name += ".wav"
+                    enhance_path = os.path.join(params.enhanced_folder, name)
+                    torchaudio.save(
+                        enhance_path, pred_wav[: int(length)].to("cpu"), 16000
+                    )
 
-        if stage == "test":
-            # Write wavs to file
-            for name, pred_wav, length in zip(ids, predict_wavs, lens):
-                name += ".wav"
-                enhance_path = os.path.join(params.enhanced_folder, name)
-                torchaudio.save(enhance_path, pred_wav[: int(length)], 16000)
-
-        return stats
+        return loss, stats
 
     def on_epoch_end(self, epoch, train_stats, valid_stats):
         if params.use_tensorboard:
@@ -132,8 +106,7 @@ class SEBrain(sb.core.Brain):
 
         pesq_score = summarize_average(valid_stats["pesq"])
         params.checkpointer.save_and_keep_only(
-            meta={"pesq_score": pesq_score},
-            importance_keys=[ckpt_recency, lambda c: c.meta["pesq_score"]],
+            meta={"pesq_score": pesq_score}, max_keys=["pesq_score"],
         )
 
 
@@ -155,7 +128,7 @@ params.checkpointer.recover_if_possible()
 se_brain.fit(params.epoch_counter, train_set, valid_set)
 
 # Load best checkpoint for evaluation
-params.checkpointer.recover_if_possible(lambda c: c.meta["pesq_score"])
+params.checkpointer.recover_if_possible(max_key="pesq_score")
 test_stats = se_brain.evaluate(test_set)
 params.train_logger.log_stats(
     stats_meta={"Epoch loaded": params.epoch_counter.current},

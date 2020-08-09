@@ -10,21 +10,22 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 data_folder: !PLACEHOLDER
 test_clean_folder: !ref <data_folder>/clean_testset_wav_16k/
 
-output_folder: !ref ./results/BLSTM/<seed>
+output_folder: !ref ./results/BLSTM_stoi/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 enhanced_folder: !ref <output_folder>/BLSTM_enhanced
 
 # Basic parameters
 use_tensorboard: True
-tensorboard_logs: !ref ./results/BLSTM/<seed>/logs/
+tensorboard_logs: !ref <output_folder>/logs/
+waveform_target: True
 
 # FFT paremeters
 Sample_rate: 16000
 Win_length: 32
 Hop_length: 16
 N_fft: 512
-window_type: hamming
+window_fn: !name:torch.hamming_window
 
 # Data files
 csv_train: !ref <data_folder>/train.csv
@@ -32,8 +33,8 @@ csv_valid: !ref <data_folder>/valid.csv
 csv_test: !ref <data_folder>/test.csv
 
 # Training Parameters
-number_of_epochs: 50
-N_batch: 8
+number_of_epochs: 15
+N_batch: 1
 lr: 0.001
 device: 'cuda:0'
 
@@ -46,8 +47,9 @@ train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
 
 valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_valid>
-    batch_size: 1
+    batch_size: 4
     csv_read: [noisy_wav, clean_wav]
+    sentence_sorting: ascending
     replacements:
         $data_folder: !ref <data_folder>
 
@@ -71,13 +73,13 @@ compute_STFT: !new:speechbrain.processing.features.STFT
     win_length: !ref <Win_length>
     hop_length: !ref <Hop_length>
     n_fft: !ref <N_fft>
-    window_type: !ref <window_type>
+    window_fn: !ref <window_fn>
 
 compute_ISTFT: !new:speechbrain.processing.features.ISTFT
     sample_rate: !ref <Sample_rate>
     win_length: !ref <Win_length>
     hop_length: !ref <Hop_length>
-    window_type: !ref <window_type>
+    window_fn: !ref <window_fn>
 
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: sentence
@@ -108,7 +110,7 @@ model: !new:speechbrain.nnet.containers.Sequential
     - !ref <linear2>
     - !ref <activation_sigmoid>
 
-compute_cost: !name:speechbrain.nnet.losses.mse_loss
+compute_cost: !name:speechbrain.nnet.loss.stoi_loss.stoi_loss
 
 optimizer: !new:speechbrain.nnet.optimizers.RMSprop_Optimizer
     learning_rate: !ref <lr>
