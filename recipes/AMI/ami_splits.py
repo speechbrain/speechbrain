@@ -205,9 +205,3 @@ def get_AMI_split(split_option):
         ]
 
     return train_set, dev_set, test_set
-
-
-if __name__ == "__main__":
-    split_option = "full_corpus_asr"
-    A = get_AMI_split(split_option)
-    print(A)
