@@ -183,11 +183,9 @@ class SEBrain(sb.core.Brain):
         noisys, cleans = batch
         predictions = self.compute_forward(noisys, stage=stage)
 
-        pred_wavs = params.compute_istft(predictions)
-
         # Normalize the waveform
-        abs_max, _ = torch.max(torch.abs(pred_wavs), dim=1, keepdim=True)
-        pred_wavs = pred_wavs / abs_max * 0.99
+        abs_max, _ = torch.max(torch.abs(predictions), dim=1, keepdim=True)
+        pred_wavs = predictions / abs_max * 0.99
 
         # Evaluating PESQ and STOI
         _, clean_wavs, lens = cleans
