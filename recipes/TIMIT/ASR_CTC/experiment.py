@@ -3,12 +3,7 @@ import os
 import sys
 import torch
 import speechbrain as sb
-import speechbrain.data_io.wer as wer_io
-import speechbrain.utils.edit_distance as edit_distance
-from speechbrain.data_io.data_io import convert_index_to_lab
 from speechbrain.decoders.ctc import ctc_greedy_decode
-from speechbrain.decoders.decoders import undo_padding
-from speechbrain.utils.train_logger import summarize_error_rate
 
 # This hack needed to import data preparation script from ..
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -55,7 +50,6 @@ class ASR(sb.core.Brain):
         pout, pout_lens = predictions
         ids, phns, phn_lens = targets
         phns, phn_lens = phns.to(params.device), phn_lens.to(params.device)
-        stats = {}
 
         if stage == "train":
             if hasattr(params, "env_corrupt"):
@@ -66,24 +60,38 @@ class ASR(sb.core.Brain):
             loss = params.compute_cost(pout, phns, pout_lens, phn_lens)
             ind2lab = params.train_loader.label_dict["phn"]["index2lab"]
             sequence = ctc_greedy_decode(pout, pout_lens, blank_id=-1)
-            sequence = convert_index_to_lab(sequence, ind2lab)
-            phns = undo_padding(phns, phn_lens)
-            phns = convert_index_to_lab(phns, ind2lab)
-            per_stats = edit_distance.wer_details_for_batch(
-                ids, phns, sequence, compute_alignments=True
+            self.stats[stage]["PER"].append(
+                ids, sequence, phns, target_len=phn_lens, ind2lab=ind2lab
             )
-            stats["PER"] = per_stats
-        return loss, stats
 
-    def on_epoch_end(self, epoch, train_stats, valid_stats=None):
-        per = summarize_error_rate(valid_stats["PER"])
+        self.stats[stage]["loss"].append(ids, pout, phns, pout_lens, phn_lens)
+        return loss
+
+    def on_epoch_start(self, epoch):
+        self.stats = {
+            "train": {"loss": params.ctc_stats()},
+            "valid": {"loss": params.ctc_stats(), "PER": params.per_stats()},
+        }
+
+    def on_epoch_end(self, epoch, train_loss, valid_loss=None):
+        per = self.stats["valid"]["PER"].summarize()
         old_lr, new_lr = params.lr_annealing([params.optimizer], epoch, per)
-        epoch_stats = {"epoch": epoch, "lr": old_lr}
-        params.train_logger.log_stats(epoch_stats, train_stats, valid_stats)
-
+        params.train_logger.log_stats(
+            stats_meta={"epoch": epoch, "lr": old_lr},
+            train_stats={"loss": train_loss},
+            valid_stats={"loss": valid_loss, "PER": per},
+        )
         params.checkpointer.save_and_keep_only(
             meta={"PER": per}, min_keys=["PER"],
         )
+
+    def on_eval_start(self):
+        self.stats = {
+            "test": {"loss": params.ctc_stats(), "PER": params.per_stats()}
+        }
+
+    def on_eval_end(self, test_loss):
+        print(test_loss)
 
 
 # Prepare data
@@ -115,14 +123,13 @@ asr_brain.fit(params.epoch_counter, train_set, valid_set)
 
 # Load best checkpoint for evaluation
 params.checkpointer.recover_if_possible(min_key="PER")
-test_stats = asr_brain.evaluate(params.test_loader())
+test_stats = asr_brain.evaluate(
+    test_set=params.test_loader(), test_stats={"loss": params.ctc_stats()},
+)
 params.train_logger.log_stats(
     stats_meta={"Epoch loaded": params.epoch_counter.current},
     test_stats=test_stats,
 )
 
 # Write alignments to file
-per_summary = edit_distance.wer_summary(test_stats["PER"])
-with open(params.wer_file, "w") as fo:
-    wer_io.print_wer_summary(per_summary, fo)
-    wer_io.print_alignments(test_stats["PER"], fo)
+asr_brain.stats["test"]["PER"].write_stats(params.wer_file)

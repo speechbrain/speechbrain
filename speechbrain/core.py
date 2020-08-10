@@ -217,18 +217,21 @@ class Brain:
         An example of the input to the Brain class, for parameter init.
         Arguments are passed individually to the ``compute_forward`` method,
         for cases where a different signature is desired.
+    train_stats : dict of str:list or str:TrainStats pairs
+        This object will be used to store the errors generated during
+        training, and can be used to generate relevant statistics.
     auto_mix_prec: bool
         If True, automatic mixed-precision is used. Activate it only with cuda.
 
     Example
     -------
     >>> from speechbrain.nnet.optimizers import SGD_Optimizer
-    >>> class SimpleBrain(Brain):
-    ...     def compute_forward(self, x, init_params=False):
-    ...         return self.modules[0](x)
-    ...     def compute_objectives(self, predictions, targets, train=True):
-    ...         return torch.nn.functional.l1_loss(predictions, targets), {}
     >>> model = torch.nn.Linear(in_features=10, out_features=10)
+    >>> class SimpleBrain(Brain):
+    ...     def compute_forward(self, x, init_params=False, stage="train"):
+    ...         return model(x)
+    ...     def compute_objectives(self, predictions, targets, stage="train"):
+    ...         return torch.nn.functional.l1_loss(predictions, targets)
     >>> brain = SimpleBrain(
     ...     modules=[model],
     ...     optimizer=SGD_Optimizer(0.01),
@@ -249,7 +252,6 @@ class Brain:
     ):
         self.modules = torch.nn.ModuleList(modules)
         self.optimizer = optimizer
-        self.avg_train_loss = 0.0
         self.auto_mix_prec = auto_mix_prec
 
         # Initialize parameters
@@ -305,26 +307,39 @@ class Brain:
         -------
         loss : torch.Tensor
             A tensor with the computed loss
-        stats : dict
-            A mapping with additional statistics about the batch
-            (e.g. ``{"accuracy": .9}``)
         """
         raise NotImplementedError
 
-    def on_epoch_end(self, epoch, train_stats, valid_stats=None):
+    def on_epoch_start(self, epoch):
+        """Gets called when an epoch starts.
+
+        Useful for defining class variables.
+
+        Arguments
+        ---------
+        epoch : int
+            The current epoch count.
+        """
+        pass
+
+    def on_epoch_end(self, epoch, train_loss, valid_loss=None):
         """Gets called at the end of each epoch.
 
         Arguments
         ---------
         epoch : int
             The current epoch count.
-        train_stats : dict of str:list pairs
-            Each key refers to a statstic, and the list contains the values
-            for this statistic, generated in a training pass.
-        valid_stats : dict of str:list pairs
-            Each key refers to a statstic, and the list contains the values
-            for this statistic, generated in a training pass.
+        train_loss : float
+            Average training loss for the epoch
+        valid_loss : float
+            Average validation loss for the epoch
         """
+        pass
+
+    def on_eval_start(self):
+        pass
+
+    def on_eval_end(self, test_loss):
         pass
 
     def fit_batch(self, batch):
@@ -345,10 +360,7 @@ class Brain:
 
         Returns
         -------
-        dict
-            A dictionary of the same format as `evaluate_batch()` where each
-            item includes a statistic about the batch, including the loss.
-            (e.g. ``{"loss": 0.1, "accuracy": 0.9}``)
+        detached loss
         """
         inputs, targets = batch
 
@@ -356,20 +368,19 @@ class Brain:
         if self.auto_mix_prec:
             with torch.cuda.amp.autocast():
                 predictions = self.compute_forward(inputs)
-                loss, stats = self.compute_objectives(predictions, targets)
+                loss = self.compute_objectives(predictions, targets)
                 self.scaler.scale(loss).backward()
                 self.scaler.step(self.optimizer.optim)
                 self.optimizer.zero_grad()
                 self.scaler.update()
         else:
             predictions = self.compute_forward(inputs)
-            loss, stats = self.compute_objectives(predictions, targets)
+            loss = self.compute_objectives(predictions, targets)
             loss.backward()
             self.optimizer.step()
             self.optimizer.zero_grad()
 
-        stats["loss"] = loss.detach()
-        return stats
+        return loss.detach().cpu()
 
     def evaluate_batch(self, batch, stage="test"):
         """Evaluate one batch, override for different procedure than train.
@@ -390,45 +401,23 @@ class Brain:
 
         Returns
         -------
-        dict
-            A dictionary of the same format as ``fit_batch()`` where each item
-            includes a statistic about the batch, including the loss.
-            (e.g. ``{"loss": 0.1, "accuracy": 0.9}``)
+        detached loss
         """
         inputs, targets = batch
         out = self.compute_forward(inputs, stage=stage)
-        loss, stats = self.compute_objectives(out, targets, stage=stage)
-        stats["loss"] = loss.detach()
-        return stats
-
-    def add_stats(self, dataset_stats, batch_stats):
-        """Add the stats for a batch to the set of stats for a dataset.
-
-        Arguments
-        ---------
-        dataset_stats : dict
-            A mapping of stat name to a list of the stats in the dataset.
-        batch_stats : dict
-            A mapping of stat name to the value for that stat in a batch.
-        """
-        for key in batch_stats:
-            if key not in dataset_stats:
-                dataset_stats[key] = []
-            if isinstance(batch_stats[key], list):
-                dataset_stats[key].extend(batch_stats[key])
-            else:
-                dataset_stats[key].append(batch_stats[key])
+        loss = self.compute_objectives(out, targets, stage=stage)
+        return loss.detach().cpu()
 
     def fit(self, epoch_counter, train_set, valid_set=None, progressbar=True):
         """Iterate epochs and datasets to improve objective.
 
         Relies on the existence of mulitple functions that can (or should) be
-        overridden. The following functions are used and expected to have a
+        overridden. The following methods are used and expected to have a
         certain behavior:
 
         * ``fit_batch()``
         * ``evaluate_batch()``
-        * ``add_stats()``
+        * ``update_average()``
 
         Arguments
         ---------
@@ -442,27 +431,32 @@ class Brain:
             Whether to display the progress of each epoch in a progressbar.
         """
         for epoch in epoch_counter:
+            self.on_epoch_start(epoch)
             self.modules.train()
-            train_stats = {}
+            avg_train_loss = 0.0
             disable = not progressbar
             with tqdm(train_set, dynamic_ncols=True, disable=disable) as t:
                 for i, batch in enumerate(t):
-                    stats = self.fit_batch(batch)
-                    self.add_stats(train_stats, stats)
-                    average = self.update_average(stats, iteration=i + 1)
-                    t.set_postfix(train_loss=average)
+                    loss = self.fit_batch(batch)
+                    avg_train_loss = self.update_average(
+                        loss, avg_train_loss, iteration=i + 1
+                    )
+                    t.set_postfix(train_loss=avg_train_loss)
 
-            valid_stats = {}
+            avg_valid_loss = None
             if valid_set is not None:
                 self.modules.eval()
+                avg_valid_loss = 0.0
                 with torch.no_grad():
-                    for batch in tqdm(
-                        valid_set, dynamic_ncols=True, disable=disable
+                    for i, batch in enumerate(
+                        tqdm(valid_set, dynamic_ncols=True, disable=disable)
                     ):
-                        stats = self.evaluate_batch(batch, stage="valid")
-                        self.add_stats(valid_stats, stats)
+                        loss = self.evaluate_batch(batch, stage="valid")
+                        avg_valid_loss = self.update_average(
+                            loss, avg_valid_loss, iteration=i + 1
+                        )
 
-            self.on_epoch_end(epoch, train_stats, valid_stats)
+            self.on_epoch_end(epoch, avg_train_loss, avg_valid_loss)
 
     def evaluate(self, test_set, progressbar=True):
         """Iterate test_set and evaluate brain performance.
@@ -471,33 +465,40 @@ class Brain:
         ---------
         test_set : list of DataLoaders
             This list will be zipped before iterating.
+        test_stats : dict of str:list or str:TrainStats pairs
+            An object for collecting the relevant statistics for test data.
         progressbar : bool
             Whether to display the progress in a progressbar.
 
         Returns
         -------
-        dict
-            The test stats, where each item
-            has a list of all the statistics from the test pass.
-            (e.g. ``{"loss": [0.1, 0.2, 0.05], "accuracy": [0.8, 0.8, 0.9]}``)
+        average test loss
         """
-        test_stats = {}
+        self.on_eval_start()
         self.modules.eval()
+        avg_test_loss = 0.0
         disable = not progressbar
         with torch.no_grad():
-            for batch in tqdm(test_set, dynamic_ncols=True, disable=disable):
-                stats = self.evaluate_batch(batch, stage="test")
-                self.add_stats(test_stats, stats)
+            for i, batch in enumerate(
+                tqdm(test_set, dynamic_ncols=True, disable=disable)
+            ):
+                loss = self.evaluate_batch(batch, stage="test")
+                avg_test_loss = self.update_average(
+                    loss, avg_test_loss, iteration=i + 1
+                )
+        self.on_eval_end(avg_test_loss)
 
-        return test_stats
+        return avg_test_loss
 
-    def update_average(self, stats, iteration):
+    def update_average(self, loss, avg_loss, iteration):
         """Update running average of the loss.
 
         Arguments
         ---------
-        stats : dict
-            Result of `compute_objectives()`
+        loss : torch.tensor
+            detached loss, a single float value.
+        avg_loss : float
+            current running average.
         iteration : int
             The iteration count.
 
@@ -506,13 +507,14 @@ class Brain:
         float
             The average loss
         """
-        if not torch.isfinite(stats["loss"]):
+        if not torch.isfinite(loss):
             raise ValueError(
-                "Loss is not finite. To debug, wrap `fit()` with `debug_anomaly`"
-                ", e.g.\nwith torch.autograd.detect_anomaly():\n\tbrain.fit(...)"
+                "Loss is not finite. To debug, wrap `fit()` with autograd's "
+                "`detect_anomaly()`, e.g.\n\nwith "
+                "torch.autograd.detect_anomaly():\n\tbrain.fit(...)"
             )
 
         # Compute moving average
-        self.avg_train_loss -= self.avg_train_loss / iteration
-        self.avg_train_loss += float(stats["loss"]) / iteration
-        return self.avg_train_loss
+        avg_loss -= avg_loss / iteration
+        avg_loss += float(loss) / iteration
+        return avg_loss

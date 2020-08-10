@@ -115,10 +115,17 @@ test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
 compute_cost: !name:speechbrain.nnet.losses.ctc_loss
     blank_index: !ref <blank_index>
 
+ctc_stats: !name:speechbrain.utils.train_stats.TrainStats
+    summary_fn: average
+    error_fn: !name:speechbrain.nnet.losses.ctc_loss
+        blank_index: !ref <blank_index>
+        reduction: batch
+
+per_stats: !name:speechbrain.utils.train_stats.TrainStats
+    summary_fn: error_rate
+
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
-    summary_fns:
-        PER: !name:speechbrain.utils.train_logger.summarize_error_rate
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
