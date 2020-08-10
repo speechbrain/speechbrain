@@ -76,8 +76,6 @@ def DER(
     >>> collar = 0.25
     >>> individual_file_scores = True
     >>> Scores = DER(ref_rttm, sys_rttm, ignore_overlap, collar, individual_file_scores)
-    >>> print(Scores)
-    (array([0., 0.]), array([0., 0.]), array([38.15814376, 38.15814376]), array([38.15814376, 38.15814376]))
     """
 
     curr = os.path.abspath(os.path.dirname(__file__))
@@ -98,50 +96,52 @@ def DER(
 
     try:
         stdout = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
-    except subprocess.CalledProcessError as e:
-        stdout = e.output
 
-    stdout = stdout.decode("utf-8")
+    except subprocess.CalledProcessError as ex:
+        stdout = ex.output
 
-    # Get all recording IDs
-    file_ids = [m.strip() for m in FILE_IDS.findall(stdout)]
-    file_ids = [
-        file_id[2:] if file_id.startswith("f=") else file_id
-        for file_id in file_ids
-    ]
-
-    scored_speaker_times = np.array(
-        [float(m) for m in SCORED_SPEAKER_TIME.findall(stdout)]
-    )
-
-    miss_speaker_times = np.array(
-        [float(m) for m in MISS_SPEAKER_TIME.findall(stdout)]
-    )
-
-    fa_speaker_times = np.array(
-        [float(m) for m in FA_SPEAKER_TIME.findall(stdout)]
-    )
-
-    error_speaker_times = np.array(
-        [float(m) for m in ERROR_SPEAKER_TIME.findall(stdout)]
-    )
-
-    with np.errstate(invalid="ignore", divide="ignore"):
-        tot_error_times = (
-            miss_speaker_times + fa_speaker_times + error_speaker_times
-        )
-        miss_speaker_frac = miss_speaker_times / scored_speaker_times
-        fa_speaker_frac = fa_speaker_times / scored_speaker_times
-        sers_frac = error_speaker_times / scored_speaker_times
-        ders_frac = tot_error_times / scored_speaker_times
-
-    # Values in percentage of scored_speaker_time
-    miss_speaker = rectify(miss_speaker_frac)
-    fa_speaker = rectify(fa_speaker_frac)
-    sers = rectify(sers_frac)
-    ders = rectify(ders_frac)
-
-    if individual_file_scores:
-        return miss_speaker, fa_speaker, sers, ders
     else:
-        return miss_speaker[-1], fa_speaker[-1], sers[-1], ders[-1]
+        stdout = stdout.decode("utf-8")
+
+        # Get all recording IDs
+        file_ids = [m.strip() for m in FILE_IDS.findall(stdout)]
+        file_ids = [
+            file_id[2:] if file_id.startswith("f=") else file_id
+            for file_id in file_ids
+        ]
+
+        scored_speaker_times = np.array(
+            [float(m) for m in SCORED_SPEAKER_TIME.findall(stdout)]
+        )
+
+        miss_speaker_times = np.array(
+            [float(m) for m in MISS_SPEAKER_TIME.findall(stdout)]
+        )
+
+        fa_speaker_times = np.array(
+            [float(m) for m in FA_SPEAKER_TIME.findall(stdout)]
+        )
+
+        error_speaker_times = np.array(
+            [float(m) for m in ERROR_SPEAKER_TIME.findall(stdout)]
+        )
+
+        with np.errstate(invalid="ignore", divide="ignore"):
+            tot_error_times = (
+                miss_speaker_times + fa_speaker_times + error_speaker_times
+            )
+            miss_speaker_frac = miss_speaker_times / scored_speaker_times
+            fa_speaker_frac = fa_speaker_times / scored_speaker_times
+            sers_frac = error_speaker_times / scored_speaker_times
+            ders_frac = tot_error_times / scored_speaker_times
+
+        # Values in percentage of scored_speaker_time
+        miss_speaker = rectify(miss_speaker_frac)
+        fa_speaker = rectify(fa_speaker_frac)
+        sers = rectify(sers_frac)
+        ders = rectify(ders_frac)
+
+        if individual_file_scores:
+            return miss_speaker, fa_speaker, sers, ders
+        else:
+            return miss_speaker[-1], fa_speaker[-1], sers[-1], ders[-1]
