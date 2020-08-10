@@ -25,9 +25,13 @@ ERROR_SPEAKER_TIME = re.compile(r"(?<=SPEAKER ERROR TIME =)[\d.]+")
 
 def rectify(arr):
     """
-    Corrects boundary cases and converts scores into percentage.
+    Corrects corner cases and converts scores into percentage.
     """
+
+    # Numerator and denominator both 0.
     arr[np.isnan(arr)] = 0
+
+    # Numerator > 0, but denominator = 0.
     arr[np.isinf(arr)] = 1
     arr *= 100.0
 
@@ -92,8 +96,11 @@ def DER(
     if ignore_overlap:
         cmd.append("-1")
 
-    # Parse md-eval output to extract by-file and total scores.
-    stdout = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+    try:
+        stdout = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError as e:
+        stdout = e.output
+
     stdout = stdout.decode("utf-8")
 
     # Get all recording IDs
