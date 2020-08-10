@@ -503,7 +503,7 @@ class ProtoNetWrapper(nn.Module):
     Arguments
     ---------
     meta_loss : function
-        base loss function, e.g. torch.nn.CosineSimilarity. It is assumed that
+        base loss function, e.g. torch.nn.PairwiseDistance. It is assumed that
         it takes two arguments:
         predictions and targets and no reduction is performed.
 
@@ -520,12 +520,12 @@ class ProtoNetWrapper(nn.Module):
 
     Example
     -------
-    >>> mlw_mse = MetaLearningWrapper(torch.nn.CosineSimilarity())
-    >>> targets = torch.tensor([[1, 0], [0, 1]))
-    >>> outputs = torch.tensor([ 0, -1,   1, 2)) # 0 and 1 are support samples
-    >>> loss, predictions = mlw_mse(outputs, targets)
+    >>> proto_l2 = ProtoNetWrapper(torch.nn.PairwiseDistance(), weight=-1)
+    >>> targets = torch.tensor([[1., 0.], [0., 1.]])
+    >>> outputs = torch.tensor([ [[0.]], [[-1.]], [[1.]], [[2.]]])
+    >>> loss, predictions = proto_l2(outputs, targets)
     >>> loss
-    tensor([0.])
+    tensor(0.3133)
     """
 
     def __init__(self, meta_loss, weight=1):
