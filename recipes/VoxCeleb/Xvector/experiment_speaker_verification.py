@@ -95,7 +95,6 @@ with tqdm(test_set, dynamic_ncols=True) as t:
 
             init_params = False
             params.xvector_model.eval()
-            params.classifier.eval()
 
         # Enrolment and test xvectors
         xvect1 = compute_x_vectors(wav1, lens1)

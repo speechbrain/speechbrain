@@ -1,0 +1,52 @@
+# ################################
+# Model: Speaker Verification Baseline
+# Authors: Mirco Ravanelli 2020
+# ################################
+
+seed: 1234
+__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+
+# Folders and train_log file
+data_folder: /localscratch/voxceleb1
+output_folder: results/speaker_verification
+save_folder: !ref <output_folder>/save/
+device: 'cuda:0'
+
+# Pretrain from web (as an alternative specify a file)
+xvector_file: https://www.dropbox.com/s/0quaczf0s21qu9p/xvector_model.ckpt?dl=1
+
+# csv files
+csv_test: !ref <save_folder>/test.csv
+batch_size: 4
+
+# Feature parameters
+n_mels: 24
+left_frames: 0
+right_frames: 0
+deltas: False
+
+# Functions
+compute_features: !new:speechbrain.lobes.features.fbank.Fbank
+    n_mels: !ref <n_mels>
+    left_frames: !ref <left_frames>
+    right_frames: !ref <right_frames>
+    deltas: !ref <deltas>
+
+mean_var_norm: !new:speechbrain.processing.features.InputNormalization
+    norm_type: global
+
+mean_var_norm_xvect: !new:speechbrain.processing.features.InputNormalization
+    norm_type: global
+    std_norm: False
+
+xvector_model: !new:speechbrain.lobes.models.Xvector.Xvector
+    device: !ref <device>
+
+test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_test>
+    batch_size: !ref <batch_size>
+    csv_read: [wav1, wav2, lab_verification]
+    sentence_sorting: random
+    replacements:
+        $data_folder: !ref <data_folder>
+    output_folder: !ref <output_folder>/save/
