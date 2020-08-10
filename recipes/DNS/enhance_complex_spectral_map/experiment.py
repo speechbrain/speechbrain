@@ -45,6 +45,8 @@ if params.use_tensorboard:
 if not os.path.exists(params.enhanced_folder):
     os.mkdir(params.enhanced_folder)
 
+EPS = 1e-8
+
 
 def evaluation(clean, enhanced, length):
     clean = clean[:length]
@@ -83,44 +85,83 @@ class SEBrain(sb.core.Brain):
         wavs, lens = wavs.to(params.device), lens.to(params.device)
 
         feats = params.compute_stft(wavs)  # [N, T, F, 2]
-        real, imag = torch.split(feats, 1, dim=-1)
-        real = params.input_norm_real(real, lens)
-        imag = params.input_norm_imag(imag, lens)
+        output = params.model(feats, init_params)
 
-        feat = torch.squeeze(torch.cat([real, imag], dim=2))  # [N, T, 2*F]
-        output = params.model(feat, init_params)
+        # Extract magnitude
+        noisy_mag = spectral_magnitude(feats, power=0.5)
+        output_mag = spectral_magnitude(output, power=0.5)
 
-        output = torch.cat(
-            torch.split(
-                torch.unsqueeze(output, dim=-1), params.n_fft // 2 + 1, dim=2
+        # Extract phase
+        noisy_phase = torch.atan2(feats[:, :, :, 1], feats[:, :, :, 0])
+        output_phase = torch.atan2(output[:, :, :, 1], output[:, :, :, 0])
+
+        # enhanced = |X||M| * e^(X_phase + M_phase)
+        enhanced_spec = torch.mul(
+            torch.unsqueeze(noisy_mag * output_mag, -1),
+            torch.cat(
+                (
+                    torch.unsqueeze(torch.cos(noisy_phase + output_phase), -1),
+                    torch.unsqueeze(torch.sin(noisy_phase + output_phase), -1),
+                ),
+                -1,
             ),
-            dim=-1,
-        )  # [N, T, F, 2]
-        return output
+        )
+
+        enhanced_wavs = params.compute_istft(enhanced_spec)
+        # print(feats.shape, output.shape, enhanced_spec.shape, enhanced_wavs.shape)
+
+        return enhanced_wavs
+
+    def compute_sisnr(self, est_target, target, lens):
+        assert target.size() == est_target.size()
+
+        # Step 1. Zero-mean norm
+        mean_source = torch.mean(target, dim=1, keepdim=True)
+        mean_estimate = torch.mean(est_target, dim=1, keepdim=True)
+        target = target - mean_source
+        est_target = est_target - mean_estimate
+
+        # Step 2. Pair-wise SI-SDR.
+        # [batch, 1]
+        dot = torch.sum(est_target * target, dim=1, keepdim=True)
+        # [batch, 1]
+        s_target_energy = torch.sum(target ** 2, dim=1, keepdim=True) + EPS
+        # [batch, time]
+        scaled_target = dot * target / s_target_energy
+
+        e_noise = scaled_target - est_target
+        # [batch]
+        losses = torch.sum(scaled_target ** 2, dim=1) / (
+            torch.sum(e_noise ** 2, dim=1) + EPS
+        )
+        # take log
+        losses = 10 * torch.log10(losses + EPS)
+
+        return -torch.mean(losses)
 
     def compute_objectives(self, predictions, cleans, stage="train"):
         ids, wavs, lens = cleans
         wavs, lens = wavs.to(params.device), lens.to(params.device)
 
-        com_clean = params.compute_stft(wavs)
-        mag_clean = spectral_magnitude(com_clean, power=0.5)
-        mag_pred = spectral_magnitude(predictions, power=0.5)
+        # com_clean = params.compute_stft(wavs)
+        # mag_clean = spectral_magnitude(com_clean, power=0.5)
+        # mag_pred = spectral_magnitude(predictions, power=0.5)
 
-        real, imag = torch.split(com_clean, 1, dim=-1)
-        real = params.output_norm_real(real, lens)
-        imag = params.output_norm_imag(imag, lens)
-        com_clean = torch.squeeze(torch.cat([real, imag], dim=2))  # [N, T, 2*F]
+        # real, imag = torch.split(com_clean, 1, dim=-1)
+        # # real = params.output_norm_real(real, lens)
+        # # imag = params.output_norm_imag(imag, lens)
+        # com_clean = torch.squeeze(torch.cat([real, imag], dim=2))  # [N, T, 2*F]
 
-        com_loss = params.compute_cost(
-            torch.squeeze(
-                torch.cat(torch.split(predictions, 1, dim=-1), dim=2)
-            ),
-            com_clean,
-            lens,
-        )
-        mag_loss = params.compute_cost(mag_pred, mag_clean, lens)
+        # com_loss = params.compute_cost(
+        #     torch.squeeze(
+        #         torch.cat(torch.split(predictions, 1, dim=-1), dim=2)
+        #     ),
+        #     com_clean,
+        #     lens,
+        # )
+        loss = self.compute_sisnr(predictions, wavs, lens)
 
-        return 0.5 * mag_loss + 0.5 * com_loss, {}
+        return loss, {}
 
     def fit_batch(self, batch):
         cleans = batch[0]
