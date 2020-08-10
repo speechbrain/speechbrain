@@ -2155,33 +2155,6 @@ def merge_char(sequences, space="_"):
     return results
 
 
-def split_word(sequences, space="_"):
-    """Split word sequences into character sequences.
-
-    Arguments
-    ---------
-    sequences : list
-        Each item contains a list, and this list contains words sequence.
-    space : string
-        The token represents space. Default: _
-
-    Returns
-    -------
-    The list contain word sequences for each sentence.
-
-    Example:
-    >>> sequences = [['ab', 'c', 'de'], ['efg', 'hi']]
-    >>> results = split_word(sequences)
-    >>> results
-    [['a', 'b', '_', 'c', '_', 'd', 'e'], ['e', 'f', 'g', '_', 'h', 'i']]
-    """
-    results = []
-    for seq in sequences:
-        chars = list("_".join(seq))
-        results.append(chars)
-    return results
-
-
 def merge_csvs(data_folder, csv_lst, merged_csv):
     """Merging several csv files into one file.
 
@@ -2223,3 +2196,30 @@ def merge_csvs(data_folder, csv_lst, merged_csv):
         for line in lines:
             f.write(line)
     logger.info(f"{write_path} is created.")
+
+
+def split_word(sequences, space="_"):
+    """Split word sequences into character sequences.
+
+    Arguments
+    ---------
+    sequences : list
+        Each item contains a list, and this list contains words sequence.
+    space : string
+        The token represents space. Default: _
+
+    Returns
+    -------
+    The list contain word sequences for each sentence.
+
+    Example:
+    >>> sequences = [['ab', 'c', 'de'], ['efg', 'hi']]
+    >>> results = split_word(sequences)
+    >>> results
+    [['a', 'b', '_', 'c', '_', 'd', 'e'], ['e', 'f', 'g', '_', 'h', 'i']]
+    """
+    results = []
+    for seq in sequences:
+        chars = list("_".join(seq))
+        results.append(chars)
+    return results

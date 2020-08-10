@@ -37,14 +37,14 @@ modules = torch.nn.ModuleList(
     [params.enc, params.emb, params.dec, params.ctc_lin, params.seq_lin]
 )
 greedy_searcher = S2SRNNGreedySearcher(
-    modules=[params.emb, params.dec, params.seq_lin, params.log_softmax],
+    modules=[params.emb, params.dec, params.seq_lin],
     bos_index=params.bos_index,
     eos_index=params.eos_index,
     min_decode_ratio=0,
     max_decode_ratio=1,
 )
 beam_searcher = S2SRNNBeamSearcher(
-    modules=[params.emb, params.dec, params.seq_lin, params.log_softmax],
+    modules=[params.emb, params.dec, params.seq_lin],
     bos_index=params.bos_index,
     eos_index=params.eos_index,
     min_decode_ratio=0,
@@ -131,7 +131,7 @@ class ASR(sb.core.Brain):
         )
 
         # convert to speechbrain-style relative length
-        rel_length = (abs_length + 1) / chars.shape[1]
+        rel_length = (abs_length + 1) / chars_with_eos.shape[1]
         loss_seq = params.seq_cost(p_seq, chars_with_eos, length=rel_length)
 
         if (
@@ -199,6 +199,12 @@ prepare_librispeech(
 train_set = params.train_loader()
 valid_set = params.valid_loader()
 first_x, first_y = next(iter(train_set))
+
+# if augmentation option is activate
+# add it as a module and allow the .eval() mode
+# to skip the perturbation during dev and test
+if hasattr(params, "augmentation"):
+    modules.append(params.augmentation)
 
 asr_brain = ASR(
     modules=modules,

@@ -30,7 +30,7 @@ with open(params_file) as fin:
 # Create experiment directory
 sb.core.create_experiment_directory(
     experiment_directory=params.output_folder,
-    params_to_save=params_file,
+    hyperparams_to_save=params_file,
     overrides=overrides,
 )
 
@@ -38,20 +38,19 @@ modules = torch.nn.ModuleList(
     [params.enc, params.emb, params.dec, params.ctc_lin, params.seq_lin]
 )
 greedy_searcher = S2SRNNGreedySearcher(
-    modules=[params.emb, params.dec, params.seq_lin, params.log_softmax],
+    modules=[params.emb, params.dec, params.seq_lin],
     bos_index=params.bos_index,
     eos_index=params.eos_index,
     min_decode_ratio=0,
     max_decode_ratio=1,
 )
 beam_searcher = S2SRNNBeamSearcher(
-    modules=[params.emb, params.dec, params.seq_lin, params.log_softmax],
+    modules=[params.emb, params.dec, params.seq_lin],
     bos_index=params.bos_index,
     eos_index=params.eos_index,
     min_decode_ratio=0,
     max_decode_ratio=1,
     beam_size=params.beam_size,
-    length_penalty=params.length_penalty,
     eos_threshold=params.eos_threshold,
     using_max_attn_shift=params.using_max_attn_shift,
     max_attn_shift=params.max_attn_shift,
@@ -74,18 +73,19 @@ class ASR(sb.core.Brain):
     def compute_forward(self, x, y, stage="train", init_params=False):
         ids, wavs, wav_lens = x
         ids, words, word_lens = y
+        wavs, wav_lens = wavs.to(params.device), wav_lens.to(params.device)
         if stage == "train":
+            if hasattr(params, "env_corrupt"):
+                wavs_noise = params.env_corrupt(wavs, wav_lens, init_params)
+                wavs = torch.cat([wavs, wavs_noise], dim=0)
+                wav_lens = torch.cat([wav_lens, wav_lens])
+                words = torch.cat([words, words], dim=0)
+                word_lens = torch.cat([word_lens, word_lens])
             index2lab = params.train_loader.label_dict["wrd"]["index2lab"]
         elif stage == "valid":
             index2lab = params.valid_loader.label_dict["wrd"]["index2lab"]
         elif stage == "test":
             index2lab = params.test_loader.label_dict["wrd"]["index2lab"]
-
-        wavs, wav_lens = wavs.to(params.device), wav_lens.to(params.device)
-        if hasattr(params, "env_corrupt"):
-            wavs_noise = params.env_corrupt(wavs, wav_lens, init_params)
-            wavs = torch.cat([wavs, wavs_noise], dim=0)
-            wav_lens = torch.cat([wav_lens, wav_lens])
         bpe, _ = params.bpe_tokenizer(
             words, word_lens, index2lab, task="encode", init_params=init_params
         )
@@ -145,7 +145,7 @@ class ASR(sb.core.Brain):
             words, word_lens, index2lab, task="encode"
         )
         bpe, bpe_lens = bpe.to(params.device), bpe_lens.to(params.device)
-        if hasattr(params, "env_corrupt"):
+        if hasattr(params, "env_corrupt") and stage == "train":
             bpe = torch.cat([bpe, bpe], dim=0)
             bpe_lens = torch.cat([bpe_lens, bpe_lens], dim=0)
 
@@ -158,7 +158,7 @@ class ASR(sb.core.Brain):
         )
 
         # convert to speechbrain-style relative length
-        rel_length = (abs_length + 1) / bpe.shape[1]
+        rel_length = (abs_length + 1) / bpe_with_eos.shape[1]
         loss_seq = params.seq_cost(p_seq, bpe_with_eos, length=rel_length)
 
         if (
@@ -188,6 +188,13 @@ class ASR(sb.core.Brain):
             wer_stats = edit_distance.wer_details_for_batch(
                 ids, words, word_seq, compute_alignments=True
             )
+            # If needed, compute token error rate
+            if params.ter_eval:
+                bpe = undo_padding(bpe, bpe_lens)
+                ter_stats = edit_distance.wer_details_for_batch(
+                    ids, bpe, hyps, compute_alignments=True
+                )
+                stats["TER"] = ter_stats
             stats["CER"] = cer_stats
             stats["WER"] = wer_stats
         return loss, stats
@@ -231,11 +238,26 @@ train_set = params.train_loader()
 valid_set = params.valid_loader()
 first_x, first_y = next(iter(train_set))
 
+# if augmentation option is activate
+# add it as a module and allow the .eval() mode
+# to skip the perturbation during dev and test
+if hasattr(params, "augmentation"):
+    modules.append(params.augmentation)
+
 asr_brain = ASR(
     modules=modules,
     optimizer=params.optimizer,
     first_inputs=[first_x, first_y],
 )
+
+# Check if the model should be trained on multiple GPUs.
+# Important: DataParallel MUST be called after the ASR (Brain) class init.
+if params.multigpu:
+    params.enc = torch.nn.DataParallel(params.enc)
+    params.ctc_lin = torch.nn.DataParallel(params.ctc_lin)
+    params.emb = torch.nn.DataParallel(params.emb)
+    params.dec = torch.nn.DataParallel(params.dec)
+    params.seq_lin = torch.nn.DataParallel(params.seq_lin)
 
 # Load latest checkpoint to resume training
 checkpointer.recover_if_possible()

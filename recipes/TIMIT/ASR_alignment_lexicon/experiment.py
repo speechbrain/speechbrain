@@ -103,7 +103,7 @@ class ASR(sb.core.Brain):
         viterbi_scores, alignments = params.aligner(
             pout, pout_lens, poss_phns, poss_phn_lens, "viterbi", prob_matrices,
         )
-        if self.training_type == "viterbi":
+        if self.training_type in ["viterbi", "forward"]:
             params.aligner.store_alignments(ids, alignments)
 
         stats = {}

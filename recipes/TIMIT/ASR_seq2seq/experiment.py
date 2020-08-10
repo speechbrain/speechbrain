@@ -36,14 +36,14 @@ modules = torch.nn.ModuleList(
     [params.enc, params.emb, params.dec, params.ctc_lin, params.seq_lin]
 )
 greedy_searcher = S2SRNNGreedySearcher(
-    modules=[params.emb, params.dec, params.seq_lin, params.log_softmax],
+    modules=[params.emb, params.dec, params.seq_lin],
     bos_index=params.bos_index,
     eos_index=params.eos_index,
     min_decode_ratio=0,
     max_decode_ratio=1,
 )
 beam_searcher = S2SRNNBeamSearcher(
-    modules=[params.emb, params.dec, params.seq_lin, params.log_softmax],
+    modules=[params.emb, params.dec, params.seq_lin],
     bos_index=params.bos_index,
     eos_index=params.eos_index,
     min_decode_ratio=0,
@@ -71,6 +71,12 @@ class ASR(sb.core.Brain):
 
         wavs, wav_lens = wavs.to(params.device), wav_lens.to(params.device)
         phns, phn_lens = phns.to(params.device), phn_lens.to(params.device)
+
+        if hasattr(params, "env_corrupt") and stage == "train":
+            wavs_noise = params.env_corrupt(wavs, wav_lens, init_params)
+            wavs = torch.cat([wavs, wavs_noise], dim=0)
+            wav_lens = torch.cat([wav_lens, wav_lens])
+            phns = torch.cat([phns, phns])
 
         if hasattr(params, "augmentation"):
             wavs = params.augmentation(wavs, wav_lens, init_params)
@@ -110,6 +116,10 @@ class ASR(sb.core.Brain):
         ids, phns, phn_lens = targets
         phns, phn_lens = phns.to(params.device), phn_lens.to(params.device)
 
+        if hasattr(params, "env_corrupt") and stage == "train":
+            phns = torch.cat([phns, phns], dim=0)
+            phn_lens = torch.cat([phn_lens, phn_lens], dim=0)
+
         # Add phn_lens by one for eos token
         abs_length = torch.round(phn_lens * phns.shape[1])
 
@@ -119,7 +129,7 @@ class ASR(sb.core.Brain):
         )
 
         # convert to speechbrain-style relative length
-        rel_length = (abs_length + 1) / phns.shape[1]
+        rel_length = (abs_length + 1) / phns_with_eos.shape[1]
 
         loss_ctc = params.ctc_cost(p_ctc, phns, wav_lens, phn_lens)
         loss_seq = params.seq_cost(p_seq, phns_with_eos, length=rel_length)
