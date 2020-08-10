@@ -83,6 +83,7 @@ class SentencePiece:
         eos_id=-1,
         pad_id=-1,
         unk_id=0,
+        split_by_whitespace="true",
         minloglevel=1,
     ):
         if model_type not in ["unigram", "bpe", "char"]:
@@ -110,6 +111,7 @@ class SentencePiece:
         self.pad_id = str(pad_id)
         self.unk_id = str(unk_id)
         self.minloglevel = str(minloglevel)
+        self.split_by_whitespace = str(split_by_whitespace)
 
     def _csv2text(self):
         """
@@ -162,6 +164,8 @@ class SentencePiece:
             + self.character_coverage
             + " --minloglevel="
             + self.minloglevel
+            + " --split_by_whitespace="
+            + self.split_by_whitespace
         )
         if self.model_type not in ["char"]:
             # include vocab_size
