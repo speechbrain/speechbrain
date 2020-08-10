@@ -72,7 +72,7 @@ test_search = S2STransformerBeamSearch(
     min_decode_ratio=0,
     max_decode_ratio=1,
     beam_size=params.test_beam_size,
-    length_penalty=params.length_penalty,
+    length_normalization=params.length_normalization,
 )
 
 
@@ -100,7 +100,7 @@ class ASR(sb.core.Brain):
             seq_lengths.to(params.device),
         )
 
-        if hasattr(params, "env_corrupt"):
+        if hasattr(params, "env_corrupt") and stage == "train":
             wavs_noise = params.env_corrupt(wavs, wav_lens, init_params)
             wavs = torch.cat([wavs, wavs_noise], dim=0)
             wav_lens = torch.cat([wav_lens, wav_lens])
@@ -198,7 +198,7 @@ class ASR(sb.core.Brain):
         )
 
         # convert to speechbrain-style relative length
-        rel_length = (abs_length + 1) / chars.shape[1]
+        rel_length = (abs_length + 1) / phns_with_eos.shape[1]
 
         loss_seq = params.seq_cost(p_seq, phns_with_eos, rel_length)
         loss_ctc = params.ctc_cost(p_ctc, chars, wav_lens, char_lens)

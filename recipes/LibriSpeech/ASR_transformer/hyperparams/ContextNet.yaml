@@ -17,11 +17,11 @@ csv_test: !ref <data_folder>/test-clean.csv
 number_of_epochs: 100
 batch_size: 64
 lr: 0.0001
-ctc_weight: 0.4
-gradient_accumulation: 4
+ctc_weight: 0.3
+gradient_accumulation: 2
 device: 'cuda'
 multigpu: True
-auto_mix_precision: True
+auto_mix_precision: False
 
 # Feature parameters
 sample_rate: 16000
@@ -34,8 +34,8 @@ dropout: 0.1
 src_masking: False
 
 # Outputs
-output_neurons: 2000
-blank_index: 0
+output_neurons: 5000
+blank_index: 3
 label_smoothing: 0.1
 pad_id: 0
 bos_index: 1
@@ -47,8 +47,8 @@ min_decode_ratio: 0.0
 max_decode_ratio: 3
 num_epoch_to_valid_search: 1
 test_beam_size: 80
-length_penalty: 0.3
 eos_threshold: 1.5
+length_normalization: False
 
 # Functions
 tokenizer: !new:speechbrain.tokenizers.SentencePiece.SentencePiece
@@ -69,8 +69,8 @@ CNN: !new:speechbrain.lobes.models.ContextNet.ContextNet
     dropout: !ref <dropout>
     norm: !name:speechbrain.nnet.normalization.LayerNorm
     num_blocks: 9
-    conv_channels: (256, 256, 256, 256, 512, 512, 512, 1024, 1024)
-    out_channels: 1024
+    conv_channels: (256, 256, 256, 256, 512, 512, 512, 512, 512)
+    out_channels: 512
     strides: (1, 2, 1, 1, 1, 1, 1, 2, 1)
 
 Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.TransformerASR # yamllint disable-line rule:line-length
@@ -93,7 +93,7 @@ seq_lin: !new:speechbrain.nnet.linear.Linear
 log_softmax: !new:torch.nn.LogSoftmax
     dim: -1
 
-optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
+optimizer: !new:speechbrain.nnet.optimizers.AdamW_Optimizer
     learning_rate: !ref <lr>
     betas: (0.9, 0.98)
     weight_decay: 0.000001
@@ -108,9 +108,21 @@ normalize: !new:speechbrain.processing.features.InputNormalization
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-# augmentation: !new:speechbrain.lobes.augment.tdsa.TimeDomainSpecAugment
-#     sample_rate: !ref <sample_rate>
-#     speeds: [95, 100, 105]
+augmentation: !new:speechbrain.lobes.augment.tdsa.TimeDomainSpecAugment
+    sample_rate: !ref <sample_rate>
+    speeds: [95, 100, 105]
+
+# env_corrupt: !new:speechbrain.lobes.augment.env_corrupt.EnvCorrupt
+#     openrir_folder: !ref <data_folder>
+#     babble_prob: 0.0
+#     reverb_prob: 0.0
+#     noise_prob: 1.0
+#     babble_speaker_count: 7
+#     babble_snr_low: 10
+#     babble_snr_high: 10
+#     noise_snr_low: 0
+#     noise_snr_high: 15
+#     rir_scale_factor: 1.0
 
 compute_features: !new:speechbrain.lobes.features.fbank.Fbank
     sample_rate: !ref <sample_rate>
@@ -125,24 +137,28 @@ train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_read: [wav, wrd]
     add_padding_label: True
     num_workers: 4
+    drop_last: True
 
 valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_valid>
-    batch_size: 8
+    batch_size: 4
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
     csv_read: [wav, wrd]
     add_padding_label: True
     num_workers: 4
+    drop_last: True
+    avoid_if_longer_than: 20000
 
 test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_test>
-    batch_size: 8
+    batch_size: 4
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
     csv_read: [wav, wrd]
     add_padding_label: True
     num_workers: 4
+    drop_last: True
 
 ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
     blank_index: !ref <blank_index>
