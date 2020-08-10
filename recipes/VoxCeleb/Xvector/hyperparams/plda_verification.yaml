@@ -1,6 +1,6 @@
 # ################################
 # Model: Speaker Verification Baseline using PLDA
-# Authors: Mirco Ravanelli & Nauman Dawalatabad 2020
+# Authors: Nauman Dawalatabad & Mirco Ravanelli 2020
 # ################################
 
 seed: 1234
@@ -8,7 +8,7 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Folders and train_log file
 #/voxceleb1/audio_files/vox1_all/
-data_folder: /network/tmp1/dawalatn/dataset_tmp1/VoxCeleb/voxceleb1/
+data_folder: !PLACEHOLDER #e.g., /localscratch/voxceleb1/
 output_folder: results/speaker_verification/
 save_folder: !ref <output_folder>/save/
 device: 'cuda:0'
@@ -28,8 +28,7 @@ n_mels: 24
 left_frames: 0
 right_frames: 0
 deltas: False
-
-out_n_neurons: 1211
+xvect_dim: 512
 
 # Functions
 compute_features: !new:speechbrain.lobes.features.fbank.Fbank
@@ -48,12 +47,6 @@ mean_var_norm_xvect: !new:speechbrain.processing.features.InputNormalization
 xvector_model: !new:speechbrain.lobes.models.Xvector.Xvector
     device: !ref <device>
 
-classifier: !new:speechbrain.lobes.models.Xvector.Classifier
-    activation: !name:torch.nn.LeakyReLU
-    device: !ref <device>
-    lin_blocks: 1
-    lin_neurons: 512
-    out_neurons: !ref <out_n_neurons>
 
 train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>
