@@ -12,7 +12,6 @@ from speechbrain.utils.EER import EER
 from speechbrain.utils.data_utils import download_file
 from speechbrain.data_io.data_io import convert_index_to_lab
 from speechbrain.processing.PLDA_LDA import StatObject_SB
-from speechbrain.processing.PLDA_LDA import PLDA
 from speechbrain.processing.PLDA_LDA import Ndx
 from speechbrain.processing.PLDA_LDA import fast_PLDA_scoring
 
@@ -160,11 +159,9 @@ else:
         xvectors_stat = pickle.load(input)
 
 
-plda = PLDA()
-
 # Training Gaussina PLDA model
 logger.info("Training PLDA model")
-plda.plda(xvectors_stat)
+params.compute_plda.plda(xvectors_stat)
 logger.info("PLDA training completed")
 
 # Enroll and Test xvector
@@ -268,7 +265,12 @@ else:
 
 logger.info("PLDA scoring...")
 scores_plda = fast_PLDA_scoring(
-    enrol_obj, test_obj, ndx_obj, plda.mean, plda.F, plda.Sigma
+    enrol_obj,
+    test_obj,
+    ndx_obj,
+    params.compute_plda.mean,
+    params.compute_plda.F,
+    params.compute_plda.Sigma,
 )
 
 # Positive and Negative scores
