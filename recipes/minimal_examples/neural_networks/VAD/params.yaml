@@ -3,6 +3,7 @@
 seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 sample_rate: 16000
+example_length: 2
 
 # Data files
 data_folder: /media/sam/bx500/speechbrain_minimalVAD/speechbrain/samples/speech_labelling
@@ -48,6 +49,7 @@ test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
 
 
 compute_features: !new:speechbrain.lobes.features.mfcc.MFCC
+
 
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: global

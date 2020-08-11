@@ -408,6 +408,7 @@ class Brain:
         progressbar : bool
             Whether to display the progress of each epoch in a progressbar.
         """
+        self.on_training_start()
         for epoch in epoch_counter:
             self.modules.train()
             train_stats = {}
