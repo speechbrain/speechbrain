@@ -193,14 +193,14 @@ class ASR(sb.core.Brain):
         abs_length = char_lens.float() * chars.shape[1]
 
         # Append eos token at the end of the label sequences
-        phns_with_eos = append_eos_token(
+        chars_with_eos = append_eos_token(
             chars, length=abs_length, eos_index=params.eos_index
         )
 
         # convert to speechbrain-style relative length
-        rel_length = (abs_length + 1) / chars.shape[1]
+        rel_length = (abs_length + 1) / chars_with_eos.shape[1]
 
-        loss_seq = params.seq_cost(p_seq, phns_with_eos, rel_length)
+        loss_seq = params.seq_cost(p_seq, chars_with_eos, rel_length)
         loss_ctc = params.ctc_cost(p_ctc, chars, wav_lens, char_lens)
         loss = params.ctc_weight * loss_ctc + (1 - params.ctc_weight) * loss_seq
 
