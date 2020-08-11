@@ -828,7 +828,7 @@ class DatasetFactory(Dataset):
         data_entries,
         do_cache,
         cache_ram_percent,
-        label_parsing_func,
+        label_parsing_func=None,
     ):
 
         # Setting the variables
