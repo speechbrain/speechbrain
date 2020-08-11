@@ -116,13 +116,13 @@ class ASR(sb.core.Brain):
                 )
                 # WER from output layer of CTC
                 exec(
-                    "wer_ctc_tea{} = params.compute_wer_list_ctc(p_ctc_tea{}, phns, wav_lens, phn_lens)".format(
+                    "wer_ctc_tea{} = params.wer_ctc(p_ctc_tea{}, phns, wav_lens, phn_lens)".format(
                         num, num
                     )
                 )
                 # WER from output layer of CE
                 exec(
-                    "wer_tea{} = params.compute_wer_list(p_seq_tea{}, phns, phn_lens)".format(
+                    "wer_tea{} = params.wer_ce(p_seq_tea{}, phns, phn_lens)".format(
                         num, num
                     )
                 )
