@@ -13,7 +13,7 @@ csv_valid: !ref <data_folder>/dev.csv
 csv_test: !ref <data_folder>/test.csv
 
 # Training parameters
-number_of_epochs: 100
+number_of_epochs: 50
 batch_size: 8
 lr: 0.00025
 ctc_weight: 0.1
@@ -28,11 +28,11 @@ n_mels: 40
 num_tea: 10
 
 # distillation parameters
-retrain: True
-strategy: s2  # [baseline, s1, s2, s3]
+pretrain: True
+strategy: weighted  # [average, best, weighted]
 
-# Temperature
-T: 1
+# Temperature : smooth the distribution of output probability
+Temperature: 1
 # distillation weight alpha
 alpha: 1
 

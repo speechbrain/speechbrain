@@ -28,7 +28,7 @@ for i in range(params.num_tea):
         "tea{}_modules = torch.nn.ModuleList([params.tea{}_enc, params.tea{}_emb, params.tea{}_dec, params.tea{}_ctc_lin, params.tea{}_seq_lin])".format(
             i, i, i, i, i, i
         )
-    )
+    )  # i denotes the index of teacher models
 
 tea_modules_list = []
 for i in range(params.num_tea):
@@ -65,6 +65,7 @@ class ASR(sb.core.Brain):
         m = torch.nn.Softmax(dim=-1)
         print(m)
 
+        # run inference to each teacher model
         tea_dict_list = []
         for num in range(params.num_tea):
             tea_dict = {}
@@ -80,12 +81,13 @@ class ASR(sb.core.Brain):
                         num, num, num
                     )
                 )
+                # output layer for ctc log-probabilities
                 exec(
                     "p_ctc_tea{} = params.log_softmax(ctc_logits_tea{} / params.T)".format(
                         num, num
                     )
                 )
-
+                # Prepend bos token at the beginning
                 exec(
                     "y_in_tea{} = prepend_bos_token(phns, bos_index=params.bos_index)".format(
                         num
@@ -101,6 +103,7 @@ class ASR(sb.core.Brain):
                         num, num, num, num
                     )
                 )
+                # output layer for seq2seq log-probabilities
                 exec(
                     "seq_logits_tea{} = params.tea{}_seq_lin(h_tea{}, init_params)".format(
                         num, num, num
@@ -111,11 +114,13 @@ class ASR(sb.core.Brain):
                         num, num
                     )
                 )
+                # WER from output layer of CTC
                 exec(
                     "wer_ctc_tea{} = params.compute_wer_list_ctc(p_ctc_tea{}, phns, wav_lens, phn_lens)".format(
                         num, num
                     )
                 )
+                # WER from output layer of CE
                 exec(
                     "wer_tea{} = params.compute_wer_list(p_seq_tea{}, phns, phn_lens)".format(
                         num, num
@@ -129,6 +134,7 @@ class ASR(sb.core.Brain):
                 )
                 exec("wer_tea{} = wer_tea{}.to(params.device)".format(num, num))
 
+            # save the variables into dict
             exec(
                 "tea_dict['p_ctc_tea'] = p_ctc_tea{}.cpu().numpy()".format(num)
             )
@@ -149,9 +155,11 @@ class ASR(sb.core.Brain):
         data_sets = [train_set, valid_set, test_set]
         save_dict_list = []
         for epoch in epoch_counter:
+            # loop for each data set [train_set, valid_set, test_set]
             for data_set in data_sets:
                 save_dict = {}
                 with tqdm(data_set, dynamic_ncols=True) as t:
+                    # loop for each mini-batch
                     for i, batch in enumerate(t):
                         inputs, targets = batch
                         tea_dict_list = self.compute_forward_tea(
@@ -159,8 +167,10 @@ class ASR(sb.core.Brain):
                         )
                         ids, _, _ = inputs
                         batch_len = len(ids)
+                        # loop for each sentence
                         for b_num in range(batch_len):
                             temp_dict_list = []
+                            # loop for each teacher
                             for tea_num in range(params.num_tea):
                                 temp_dict = {}
                                 temp_dict["p_ctc_tea"] = tea_dict_list[tea_num][
@@ -184,7 +194,7 @@ class ASR(sb.core.Brain):
             f_name = "/tea_infer_{}batch.npz".format(params.batch_size)
         else:
             f_name = "/tea_infer_noAug_{}batch.npz".format(params.batch_size)
-
+        # save on disk
         np.savez(
             current_dir + f_name,
             train_dict=save_dict_list[0],

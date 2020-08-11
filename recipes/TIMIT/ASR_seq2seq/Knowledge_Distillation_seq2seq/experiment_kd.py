@@ -70,6 +70,10 @@ checkpointer = sb.utils.checkpoints.Checkpointer(
 
 
 def load_teachers():
+    """
+    Load results of inference of teacher models stored on disk.
+    Note: Run experiment_save_teachers.py beforehand to generate .npz files.
+    """
     if hasattr(params, "augmentation"):
         path = current_dir + "/tea_infer_{}batch.npz".format(params.batch_size)
     else:
@@ -84,6 +88,48 @@ def load_teachers():
 
 
 # Define training procedure
+def re_format_teacher(ids, data_dict):
+    """
+    This function reformat teacher inference results from dict[sentence_ids] to
+    dict[teacher_ids].
+
+    There are 4 keys in the sub-dict: ["p_ctc_tea", "p_seq_tea", "wer_ctc_tea", "wer_tea"].
+    """
+    tea_list = [None, None, None, None]
+    for b_num in range(len(ids)):
+        id = ids[b_num]
+        tea_infer = data_dict[id]
+        item_tea_list = [None, None, None, None]
+        for tea_num in range(params.num_tea):
+            tea_dict = tea_infer[tea_num]
+            for i in range(4):
+
+                item_tea = tea_dict[tea_keys[i]]
+                # WER format: [num_teacher, WER]
+                if tea_keys[i].startswith("wer"):
+                    item_tea = torch.tensor(item_tea)
+                # Probability ("p_ctc_tea", "p_seq_tea") format: [num_teacher, frame, channel]
+                else:
+                    item_tea = torch.from_numpy(item_tea)
+
+                item_tea = item_tea.to(params.device)
+                item_tea = torch.unsqueeze(item_tea, 0)
+                if tea_num == 0:
+                    item_tea_list[i] = item_tea
+                else:
+                    item_tea_list[i] = torch.cat(
+                        [item_tea_list[i], item_tea], 0
+                    )
+        for j in range(4):
+            item_tea_list[j] = torch.unsqueeze(item_tea_list[j], 1)
+
+            if b_num == 0:
+                tea_list[j] = item_tea_list[j]
+            else:
+                tea_list[j] = torch.cat([tea_list[j], item_tea_list[j]], 1)
+    return tea_list
+
+
 class ASR(sb.core.Brain):
     def compute_forward(self, x, y, stage="train", init_params=False):
         ids, wavs, wav_lens = x
@@ -100,7 +146,7 @@ class ASR(sb.core.Brain):
 
         # output layer for ctc log-probabilities
         logits = params.ctc_lin(x, init_params)
-        p_ctc = params.log_softmax(logits / params.T)
+        p_ctc = params.log_softmax(logits / params.Temperature)
 
         # Prepend bos token at the beginning
         y_in = prepend_bos_token(phns, bos_index=params.bos_index)
@@ -109,7 +155,7 @@ class ASR(sb.core.Brain):
 
         # output layer for seq2seq log-probabilities
         logits = params.seq_lin(h, init_params)
-        p_seq = params.log_softmax(logits / params.T)
+        p_seq = params.log_softmax(logits / params.Temperature)
 
         if stage == "valid":
             hyps, scores = greedy_searcher(x, wav_lens)
@@ -120,39 +166,6 @@ class ASR(sb.core.Brain):
             return p_ctc, p_seq, wav_lens, hyps
 
         return p_ctc, p_seq, wav_lens
-
-    def load_teacher(self, ids, data_dict):
-        tea_list = [None, None, None, None]
-        for b_num in range(len(ids)):
-            id = ids[b_num]
-            tea_infer = data_dict[id]
-            item_tea_list = [None, None, None, None]
-            for tea_num in range(params.num_tea):
-                tea_dict = tea_infer[tea_num]
-                for i in range(4):
-
-                    item_tea = tea_dict[tea_keys[i]]
-                    if tea_keys[i].startswith("wer"):
-                        item_tea = torch.tensor(item_tea)
-                    else:
-                        item_tea = torch.from_numpy(item_tea)
-
-                    item_tea = item_tea.to(params.device)
-                    item_tea = torch.unsqueeze(item_tea, 0)
-                    if tea_num == 0:
-                        item_tea_list[i] = item_tea
-                    else:
-                        item_tea_list[i] = torch.cat(
-                            [item_tea_list[i], item_tea], 0
-                        )
-            for j in range(4):
-                item_tea_list[j] = torch.unsqueeze(item_tea_list[j], 1)
-
-                if b_num == 0:
-                    tea_list[j] = item_tea_list[j]
-                else:
-                    tea_list[j] = torch.cat([tea_list[j], item_tea_list[j]], 1)
-        return tea_list
 
     def compute_objectives(
         self, predictions, targets, data_dict, stage="train"
@@ -180,18 +193,22 @@ class ASR(sb.core.Brain):
         loss_ctc_nor = params.ctc_cost(p_ctc, phns, wav_lens, phn_lens)
         loss_seq_nor = params.seq_cost(p_seq, phns_with_eos, length=rel_length)
 
-        # load teacher inference results
-        tea_list = self.load_teacher(ids, data_dict)
+        # load teacher inference results and re-format.
+        tea_list = re_format_teacher(ids, data_dict)
         p_ctc_tea = tea_list[0]
         p_seq_tea = tea_list[1]
         wer_ctc_tea = tea_list[2]
         wer_tea = tea_list[3]
 
-        if params.strategy == "s1":
+        # Stategy "average": average losses of teachers when doing distillation.
+        # Stategy "best": choosing the best teacher based on WER.
+        # Stategy "weighted": assigning weights to teachers based on WER.
+        if params.strategy == "best":
             # tea_ce for kd
             wer_scores, indx = torch.min(wer_tea, dim=0)
             indx = list(indx.cpu().numpy())
 
+            # select the best teacher for each sentence
             tea_seq2seq_pout = None
             for stn_indx, tea_indx in enumerate(indx):
                 s2s_one = p_seq_tea[tea_indx][stn_indx]
@@ -201,18 +218,22 @@ class ASR(sb.core.Brain):
                 else:
                     tea_seq2seq_pout = torch.cat([tea_seq2seq_pout, s2s_one], 0)
 
-        if params.strategy == "s1" or "s2":
+        if params.strategy == "best" or "weighted":
             # mean wer for ctc
             tea_wer_ctc_mean = wer_ctc_tea.mean(1)
             tea_acc_main = 100 - tea_wer_ctc_mean
-            m0 = torch.nn.Softmax(dim=0)
-            tea_acc_softmax = m0(tea_acc_main)
 
-        if params.strategy == "s2":
+            # normalise weights via Softmax function
+            apply_softmax = torch.nn.Softmax(dim=0)
+            tea_acc_softmax = apply_softmax(tea_acc_main)
+
+        if params.strategy == "weighted":
             # mean wer for ce
             tea_wer_mean = wer_tea.mean(1)
             tea_acc_ce_main = 100 - tea_wer_mean
-            tea_acc_ce_softmax = m0(tea_acc_ce_main)
+
+            # normalise weights via Softmax function
+            tea_acc_ce_softmax = apply_softmax(tea_acc_ce_main)
 
         # kd loss
         ctc_loss_list = None
@@ -220,6 +241,7 @@ class ASR(sb.core.Brain):
         for tea_num in range(params.num_tea):
             # ctc
             p_ctc_tea_one = p_ctc_tea[tea_num]
+            # calculate CTC distillation loss of one teacher
             loss_ctc_one = params.ctc_cost_kd(p_ctc, p_ctc_tea_one, wav_lens)
             loss_ctc_one = torch.unsqueeze(loss_ctc_one, 0)
             if tea_num == 0:
@@ -229,6 +251,7 @@ class ASR(sb.core.Brain):
 
             # ce
             p_seq_tea_one = p_seq_tea[tea_num]
+            # calculate CE distillation loss of one teacher
             loss_seq_one = params.seq_cost_kd(p_seq, p_seq_tea_one, rel_length)
             loss_seq_one = torch.unsqueeze(loss_seq_one, 0)
             if tea_num == 0:
@@ -237,25 +260,33 @@ class ASR(sb.core.Brain):
                 ce_loss_list = torch.cat([ce_loss_list, loss_seq_one])
 
         # kd loss
-        if params.strategy == "baseline":
+        if params.strategy == "average":
+            # get average value of losses from all teachers (CTC and CE loss)
             ctc_loss_kd = ctc_loss_list.mean(0)
             seq2seq_loss_kd = ce_loss_list.mean(0)
         else:
+            # assign weights to different teachers (CTC loss)
             ctc_loss_kd = (tea_acc_softmax * ctc_loss_list).sum(0)
-            if params.strategy == "s1":
+            if params.strategy == "best":
+                # only use the best teacher to compute CE loss
                 seq2seq_loss_kd = params.seq_cost_kd(
                     p_seq, tea_seq2seq_pout, rel_length
                 )
-            if params.strategy == "s2":
+            if params.strategy == "weighted":
+                # assign weights to different teachers (CE loss)
                 seq2seq_loss_kd = (tea_acc_ce_softmax * ce_loss_list).sum(0)
 
         # total loss
+        # combine normal supervised training
         loss_ctc = (
-            params.T * params.T * params.alpha * ctc_loss_kd
+            params.Temperature * params.Temperature * params.alpha * ctc_loss_kd
             + (1 - params.alpha) * loss_ctc_nor
         )
         loss_seq = (
-            params.T * params.T * params.alpha * seq2seq_loss_kd
+            params.Temperature
+            * params.Temperature
+            * params.alpha
+            * seq2seq_loss_kd
             + (1 - params.alpha) * loss_seq_nor
         )
 
@@ -361,7 +392,7 @@ save_dict, test_dict = load_teachers()
 tea_keys = ["p_ctc_tea", "p_seq_tea", "wer_ctc_tea", "wer_tea"]
 
 # initialization strategy
-if params.retrain:
+if params.pretrain:
     # load pre-trained student model except last layer
     if params.epoch_counter.current == 0:
         save_dir = (

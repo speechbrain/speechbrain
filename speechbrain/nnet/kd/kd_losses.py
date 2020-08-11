@@ -5,9 +5,6 @@ Authors
  * Yan Gao 2020
  * Titouan Parcollet 2020
 
-Reference
-    Distilling Knowledge from Ensembles of Acoustic Models for Joint CTC-Attention End-to-End Speech Recognition.
-    https://arxiv.org/abs/2005.09310
 """
 
 import torch
@@ -19,6 +16,11 @@ from speechbrain.utils.edit_distance import accumulatable_wer_stats
 
 def ctc_loss_kd(log_probs, targets, input_lens, blank_index, device):
     """Knowledge distillation for CTC loss
+
+    Reference
+    ---------
+    Distilling Knowledge from Ensembles of Acoustic Models for Joint CTC-Attention End-to-End Speech Recognition.
+    https://arxiv.org/abs/2005.09310
 
     Arguments
     ---------
@@ -32,6 +34,13 @@ def ctc_loss_kd(log_probs, targets, input_lens, blank_index, device):
         The location of the blank symbol among the character indexes.
     device : str
         device for computing.
+
+    Example
+    -------
+    >>> probabilities = torch.tensor([[[0.8, 0.2], [0.2, 0.8]]])
+    >>> targets = torch.tensor([[[0.9, 0.1], [0.1, 0.9]]])
+    >>> input_lens = torch.tensor([2])
+    >>> nll_loss_kd(torch.log(probabilities), targets, input_lens, blank_index=0, device='cuda:0')
     """
     scores, predictions = torch.max(targets, dim=-1)
 
@@ -93,6 +102,11 @@ def nll_loss_kd(
 ):
     """Knowledge distillation for negative log likelihood loss.
 
+    Reference
+    ---------
+    Distilling Knowledge from Ensembles of Acoustic Models for Joint CTC-Attention End-to-End Speech Recognition.
+    https://arxiv.org/abs/2005.09310
+
     Arguments
     ---------
     probabilities : torch.Tensor
@@ -103,6 +117,13 @@ def nll_loss_kd(
         Format is [batch, frames, p]
     rel_lab_lengths : torch.Tensor
         Length of each utterance, if frame-level loss is desired.
+
+    Example
+    -------
+    >>> probabilities = torch.tensor([[[0.8, 0.2], [0.2, 0.8]]])
+    >>> targets = torch.tensor([[[0.9, 0.1], [0.1, 0.9]]])
+    >>> rel_lab_lengths = torch.tensor([1])
+    >>> nll_loss_kd(probabilities, targets, rel_lab_lengths)
     """
     # Getting the number of sentences in the minibatch
     N_snt = probabilities.shape[0]
@@ -132,6 +153,11 @@ def nll_loss_kd(
 
 def compute_wer_list(prob, lab, lab_length, eos_index):
     """Compute word (or character) error rate based on output of decoder (CE loss).
+
+    Reference
+    ---------
+    Distilling Knowledge from Ensembles of Acoustic Models for Joint CTC-Attention End-to-End Speech Recognition.
+    https://arxiv.org/abs/2005.09310
 
     Arguments
     ---------
@@ -175,6 +201,11 @@ def compute_wer_list(prob, lab, lab_length, eos_index):
 def compute_wer_list_ctc(prob, lab, prob_length, lab_length, blank_index):
     """Compute word (or character) error rate based on output of encoder (CTC loss).
 
+    Reference
+    ---------
+    Distilling Knowledge from Ensembles of Acoustic Models for Joint CTC-Attention End-to-End Speech Recognition.
+    https://arxiv.org/abs/2005.09310
+
     Arguments
     ---------
     prob : torch.Tensor
@@ -188,6 +219,14 @@ def compute_wer_list_ctc(prob, lab, prob_length, lab_length, blank_index):
         Length of each target label sequence.
     blank_index : int
         The location of the blank symbol among the character indexes.
+
+    Example
+    -------
+    >>> prob = torch.tensor([[[0.9, 0.1], [0.1, 0.9]]])
+    >>> lab = torch.tensor([[1, 1]])
+    >>> lab_length = torch.tensor([1])
+    >>> blank_index = 0
+    >>> compute_wer_list_ctc(prob, lab, lab_length, blank_index)
     """
     # Getting the number of sentences in the minibatch
     N_snt = prob.shape[0]
@@ -201,12 +240,6 @@ def compute_wer_list_ctc(prob, lab, prob_length, lab_length, blank_index):
         # getting the current probabilities and labels
         prob_curr = prob[j]
         lab_curr = lab[j]
-
-        # NOTE temporary
-        ## Avoiding padded time steps
-        # actual_size_prob = int(
-        #    torch.round(lengths[0][j] * prob_curr.shape[-1])
-        # )
 
         actual_size_lab = int(torch.round(lab_length[j] * lab_curr.shape[0]))
 
@@ -248,6 +281,13 @@ def compute_wer(
         The location of the blank symbol among the character indexes.
     eos_index : int
         The location of the eos symbol among the character indexes.
+
+    Example
+    -------
+    >>> prob = torch.tensor([[[0.9, 0.1], [0.1, 0.9]]])
+    >>> lab = torch.tensor([[1, 1]])
+    >>> length = torch.tensor([1])
+    >>> compute_wer_list_ctc(prob, lab, length, eos_index=0)
     """
 
     if ctc_label:
