@@ -12,7 +12,6 @@ from speechbrain.utils.EER import EER
 from speechbrain.utils.data_utils import download_file
 from speechbrain.data_io.data_io import convert_index_to_lab
 from speechbrain.processing.PLDA_LDA import StatObject_SB
-from speechbrain.processing.PLDA_LDA import PLDA
 from speechbrain.processing.PLDA_LDA import Ndx
 from speechbrain.processing.PLDA_LDA import fast_PLDA_scoring
 
@@ -35,7 +34,7 @@ sb.core.create_experiment_directory(
 )
 
 # Prepare data from dev of Voxceleb1
-logger.debug("Data preparation")
+logger.info("Data preparation")
 prepare_voxceleb(
     data_folder=params.data_folder,
     save_folder=params.save_folder,
@@ -79,7 +78,7 @@ def get_utt_ids_for_test(ids, data_dict):
 
 # PLDA inputs for Train data
 modelset, segset = [], []
-xvectors = numpy.empty(shape=[0, 512], dtype=numpy.float64)
+xvectors = numpy.empty(shape=[0, params.xvect_dim], dtype=numpy.float64)
 
 # Train set
 train_set = params.train_loader()
@@ -92,7 +91,7 @@ xv_file = os.path.join(
 
 # Skip extraction of train if already extracted
 if not os.path.exists(xv_file):
-    logger.debug("Extracting xvectors from Training set..")
+    logger.info("Extracting xvectors from Training set..")
     with tqdm(train_set, dynamic_ncols=True) as t:
         init_params = True
         for wav, spk_id in t:
@@ -126,7 +125,6 @@ if not os.path.exists(xv_file):
 
                 init_params = False
                 params.xvector_model.eval()
-                params.classifier.eval()
             xvect = compute_x_vectors(wav, lens)
 
             xv = xvect.squeeze().cpu().numpy()
@@ -149,22 +147,22 @@ if not os.path.exists(xv_file):
         stat1=xvectors,
     )
 
+    del xvectors
+
     # Save TRAINING Xvectors in StatObject_SB object
     xvectors_stat.save_stat_object(xv_file)
 else:
     # Load the saved stat object for train xvector
-    logger.debug("Skipping Xvector Extraction for training set")
-    logger.debug("Loading previously saved stat_object for train xvectors..")
+    logger.info("Skipping Xvector Extraction for training set")
+    logger.info("Loading previously saved stat_object for train xvectors..")
     with open(xv_file, "rb") as input:
         xvectors_stat = pickle.load(input)
 
 
-plda = PLDA()
-
 # Training Gaussina PLDA model
-logger.debug("Training PLDA model")
-plda.plda(xvectors_stat)
-logger.debug("PLDA training completed")
+logger.info("Training PLDA model")
+params.compute_plda.plda(xvectors_stat)
+logger.info("PLDA training completed")
 
 # Enroll and Test xvector
 enrol_stat_file = os.path.join(params.save_folder, "stat_enrol.pkl")
@@ -182,7 +180,7 @@ def xvect_computation_loop(split, set_loader, stat_file):
     if not os.path.isfile(stat_file):
         init_params = True
 
-        xvectors = numpy.empty(shape=[0, 512], dtype=numpy.float64)
+        xvectors = numpy.empty(shape=[0, params.xvect_dim], dtype=numpy.float64)
         modelset = []
         segset = []
         with tqdm(set_loader, dynamic_ncols=True) as t:
@@ -212,7 +210,6 @@ def xvect_computation_loop(split, set_loader, stat_file):
 
                     init_params = False
                     params.xvector_model.eval()
-                    params.classifier.eval()
 
                 # Enrolment and test xvectors
                 xvects = compute_x_vectors(wavs, lens)
@@ -234,12 +231,12 @@ def xvect_computation_loop(split, set_loader, stat_file):
             stat0=b,
             stat1=xvectors,
         )
-        logger.debug(f"Saving stat obj for {split}")
+        logger.info(f"Saving stat obj for {split}")
         stat_obj.save_stat_object(stat_file)
 
     else:
-        logger.debug(f"Skipping Xvector Extraction for {split}")
-        logger.debug(f"Loading previously saved stat_object for {split}")
+        logger.info(f"Skipping Xvector Extraction for {split}")
+        logger.info(f"Loading previously saved stat_object for {split}")
 
         with open(stat_file, "rb") as input:
             stat_obj = pickle.load(input)
@@ -255,20 +252,25 @@ if not os.path.isfile(ndx_file):
     models = enrol_obj.modelset
     testsegs = test_obj.modelset
 
-    logger.debug("Preparing Ndx")
+    logger.info("Preparing Ndx")
     ndx_obj = Ndx(models=models, testsegs=testsegs)
-    logger.debug("Saving ndx obj...")
+    logger.info("Saving ndx obj...")
     ndx_obj.save_ndx_object(ndx_file)
 else:
-    logger.debug("Skipping Ndx preparation")
-    logger.debug("Loading Ndx from disk")
+    logger.info("Skipping Ndx preparation")
+    logger.info("Loading Ndx from disk")
     with open(ndx_file, "rb") as input:
         ndx_obj = pickle.load(input)
 
 
-logger.debug("PLDA scoring...")
+logger.info("PLDA scoring...")
 scores_plda = fast_PLDA_scoring(
-    enrol_obj, test_obj, ndx_obj, plda.mean, plda.F, plda.Sigma
+    enrol_obj,
+    test_obj,
+    ndx_obj,
+    params.compute_plda.mean,
+    params.compute_plda.F,
+    params.compute_plda.Sigma,
 )
 
 # Positive and Negative scores
@@ -294,7 +296,10 @@ for line in open(gt_file):
         negative_scores.append(s)
 
 
-logger.debug("Computing EER... ")
+logger.info("Computing EER... ")
+del scores_plda
+del xvectors_stat
+del enrol_obj
+del test_obj
 eer = EER(torch.tensor(positive_scores), torch.tensor(negative_scores))
 logger.info("EER=%f", eer)
-print("EER=%f", eer)
