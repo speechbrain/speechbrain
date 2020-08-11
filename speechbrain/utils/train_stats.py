@@ -75,7 +75,7 @@ class TrainStats:
         elif self.summary_fn == "error_rate":
             predict_lab = convert_index_to_lab(predict, ind2lab)
             target_lab = undo_padding(target, target_len)
-            target_lab = convert_index_to_lab(target, ind2lab)
+            target_lab = convert_index_to_lab(target_lab, ind2lab)
             errors = edit_distance.wer_details_for_batch(
                 ids, target_lab, predict_lab, compute_alignments=True
             )
@@ -105,9 +105,9 @@ class TrainStats:
             Whether to also print the stats to stdout.
         """
         message = ""
-        min_index = torch.argmin(self.errors)
-        max_index = torch.argmax(self.errors)
         if self.summary_fn == "average":
+            min_index = torch.argmin(torch.tensor(self.errors))
+            max_index = torch.argmax(torch.tensor(self.errors))
             message += f"Average error: {self.summarize()}\n"
             message += f"Min error: {self.errors[min_index]} "
             message += f"id: {self.ids[min_index]}\n"

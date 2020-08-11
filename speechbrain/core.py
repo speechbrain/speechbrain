@@ -217,9 +217,6 @@ class Brain:
         An example of the input to the Brain class, for parameter init.
         Arguments are passed individually to the ``compute_forward`` method,
         for cases where a different signature is desired.
-    train_stats : dict of str:list or str:TrainStats pairs
-        This object will be used to store the errors generated during
-        training, and can be used to generate relevant statistics.
     auto_mix_prec: bool
         If True, automatic mixed-precision is used. Activate it only with cuda.
 
@@ -337,20 +334,29 @@ class Brain:
         pass
 
     def on_eval_start(self):
+        """Gets called when evaluation starts."""
         pass
 
     def on_eval_end(self, test_loss):
+        """Gets called when evaluation ends.
+
+        Arguments
+        ---------
+        test_loss : float
+            Average loss over the full test set.
+        """
         pass
 
     def fit_batch(self, batch):
         """Fit one batch, override to do multiple updates.
 
-        The default impementation depends on three methods being defined
+        The default impementation depends on a few methods being defined
         with a particular behavior:
 
         * ``compute_forward()``
         * ``compute_objectives()``
-        * ``optimizer()``
+
+        As well as having a torch-style optimizer passed at initialization.
 
         Arguments
         ---------
@@ -423,10 +429,10 @@ class Brain:
         ---------
         epoch_counter : iterable
             each call should return an integer indicating the epoch count.
-        train_set : list of DataLoaders
-            a list of datasets to use for training, zipped before iterating.
-        valid_set : list of Data Loaders
-            a list of datasets to use for validation, zipped before iterating.
+        train_set : DataLoader
+            A set of data to use for training.
+        valid_set : DataLoader
+            A set of data to use for validation.
         progressbar : bool
             Whether to display the progress of each epoch in a progressbar.
         """
@@ -465,8 +471,6 @@ class Brain:
         ---------
         test_set : list of DataLoaders
             This list will be zipped before iterating.
-        test_stats : dict of str:list or str:TrainStats pairs
-            An object for collecting the relevant statistics for test data.
         progressbar : bool
             Whether to display the progress in a progressbar.
 
