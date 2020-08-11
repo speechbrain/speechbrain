@@ -39,6 +39,6 @@ python experiment_kd.py hyperparams/augment_CRDNN.yaml --data_folder /path-to/da
 ### Distillation strategies
 There are three strategies in current version setting by the option `strategy` in `hyperparams/augment_CRDNN.yaml`.
 
-- **baseline**: average losses of teachers when doing distillation.
-- **S1**: choosing the best teacher based on WER.
-- **S2**: assigning weights to teachers based on WER.
+- **average**: average losses of teachers when doing distillation.
+- **best**: choosing the best teacher based on WER.
+- **weighted**: assigning weights to teachers based on WER.
