@@ -40,7 +40,7 @@ def ctc_loss_kd(log_probs, targets, input_lens, blank_index, device):
     >>> probabilities = torch.tensor([[[0.8, 0.2], [0.2, 0.8]]])
     >>> targets = torch.tensor([[[0.9, 0.1], [0.1, 0.9]]])
     >>> input_lens = torch.tensor([2])
-    >>> ctc_loss_kd(torch.log(probabilities), targets, input_lens, blank_index=0, device='cuda:0')
+    >>> ctc_loss_kd(torch.log(probabilities), targets, input_lens, blank_index=0, device='cpu')
     """
     scores, predictions = torch.max(targets, dim=-1)
 
@@ -235,7 +235,7 @@ def compute_wer_list_ctc(prob, lab, prob_length, lab_length, blank_index):
     >>> prob_length = torch.tensor([1])
     >>> lab_length = torch.tensor([1])
     >>> blank_index = 0
-    >>> compute_wer_list_ctc(prob, lab, lab_length, blank_index)
+    >>> compute_wer_list_ctc(prob, lab, prob_length, lab_length, blank_index)
     """
     # Getting the number of sentences in the minibatch
     N_snt = prob.shape[0]
@@ -297,6 +297,7 @@ def compute_wer(
     >>> lab = torch.tensor([[1, 1]])
     >>> length = torch.tensor([1])
     >>> compute_wer(prob, lab, length, eos_index=0)
+    tensor([100.])
     """
 
     if ctc_label:
