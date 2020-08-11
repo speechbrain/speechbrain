@@ -34,13 +34,6 @@ def ctc_loss_kd(log_probs, targets, input_lens, blank_index, device):
         The location of the blank symbol among the character indexes.
     device : str
         device for computing.
-
-    Example
-    -------
-    >>> probabilities = torch.tensor([[[0.8, 0.2], [0.2, 0.8]]])
-    >>> targets = torch.tensor([[[0.9, 0.1], [0.1, 0.9]]])
-    >>> input_lens = torch.tensor([2])
-    >>> ctc_loss_kd(torch.log(probabilities), targets, input_lens, blank_index=0, device='cpu')
     """
     scores, predictions = torch.max(targets, dim=-1)
 
@@ -122,7 +115,7 @@ def nll_loss_kd(
     -------
     >>> probabilities = torch.tensor([[[0.8, 0.2], [0.2, 0.8]]])
     >>> targets = torch.tensor([[[0.9, 0.1], [0.1, 0.9]]])
-    >>> rel_lab_lengths = torch.tensor([1])
+    >>> rel_lab_lengths = torch.tensor([1.])
     >>> nll_loss_kd(probabilities, targets, rel_lab_lengths)
     """
     # Getting the number of sentences in the minibatch
@@ -175,7 +168,7 @@ def compute_wer_list(prob, lab, lab_length, eos_index):
     -------
     >>> prob = torch.tensor([[[0.9, 0.1], [0.1, 0.9]]])
     >>> lab = torch.tensor([[1, 1]])
-    >>> lab_length = torch.tensor([1])
+    >>> lab_length = torch.tensor([1.])
     >>> eos_index = 0
     >>> compute_wer_list(prob, lab, lab_length, eos_index)
     """
@@ -232,8 +225,8 @@ def compute_wer_list_ctc(prob, lab, prob_length, lab_length, blank_index):
     -------
     >>> prob = torch.tensor([[[0.9, 0.1], [0.1, 0.9]]])
     >>> lab = torch.tensor([[1, 1]])
-    >>> prob_length = torch.tensor([1])
-    >>> lab_length = torch.tensor([1])
+    >>> prob_length = torch.tensor([1.])
+    >>> lab_length = torch.tensor([1.])
     >>> blank_index = 0
     >>> compute_wer_list_ctc(prob, lab, prob_length, lab_length, blank_index)
     """
