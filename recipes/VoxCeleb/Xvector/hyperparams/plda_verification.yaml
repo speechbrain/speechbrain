@@ -1,14 +1,14 @@
 # ################################
-# Model: Speaker Verification Baseline
-# Authors: Mirco Ravanelli 2020
+# Model: Speaker Verification Baseline using PLDA
+# Authors: Nauman Dawalatabad & Mirco Ravanelli 2020
 # ################################
 
 seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Folders and train_log file
-data_folder: /localscratch/voxceleb1
-output_folder: results/speaker_verification
+data_folder: !PLACEHOLDER # e.g., /localscratch/voxceleb1/
+output_folder: results/speaker_verification/
 save_folder: !ref <output_folder>/save/
 device: 'cuda:0'
 
@@ -16,14 +16,22 @@ device: 'cuda:0'
 xvector_file: https://www.dropbox.com/s/skfz2sme5nw7jji/xvector_model.ckpt?dl=1
 
 # csv files
+csv_train: !ref <save_folder>/train.csv
+csv_enrol: !ref <save_folder>/enrol.csv
 csv_test: !ref <save_folder>/test.csv
-batch_size: 4
+batch_size: 128
 
 # Feature parameters
 n_mels: 24
 left_frames: 0
 right_frames: 0
 deltas: False
+xvect_dim: 512
+
+compute_plda: !new:speechbrain.processing.PLDA_LDA.PLDA
+    rank_f: 100
+    nb_iter: 3
+    scaling_factor: 0.05
 
 # Functions
 compute_features: !new:speechbrain.lobes.features.fbank.Fbank
@@ -42,11 +50,29 @@ mean_var_norm_xvect: !new:speechbrain.processing.features.InputNormalization
 xvector_model: !new:speechbrain.lobes.models.Xvector.Xvector
     device: !ref <device>
 
+train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_train>
+    batch_size: !ref <batch_size>
+    csv_read: [wav, spk_id]
+    sentence_sorting: ascending
+    replacements:
+        $data_folder: !ref  <data_folder>
+    output_folder: !ref <output_folder>/save/
+
+enrol_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_enrol>
+    batch_size: !ref <batch_size>
+    csv_read: [wav]
+    sentence_sorting: ascending
+    replacements:
+        $data_folder: !ref <data_folder>
+    output_folder: !ref <output_folder>/save/
+
 test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_test>
     batch_size: !ref <batch_size>
-    csv_read: [wav1, wav2, lab_verification]
-    sentence_sorting: random
+    csv_read: [wav]
+    sentence_sorting: original
     replacements:
         $data_folder: !ref <data_folder>
     output_folder: !ref <output_folder>/save/
