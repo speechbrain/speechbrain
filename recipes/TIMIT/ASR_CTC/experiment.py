@@ -67,31 +67,38 @@ class ASR(sb.core.Brain):
         self.stats[stage]["loss"].append(ids, pout, phns, pout_lens, phn_lens)
         return loss
 
-    def on_epoch_start(self, epoch):
-        self.stats = {
-            "train": {"loss": params.ctc_stats()},
-            "valid": {"loss": params.ctc_stats(), "PER": params.per_stats()},
-        }
+    def on_stage_start(self, stage, epoch=None):
+        self.stats = {stage: {"loss": params.ctc_stats()}}
 
-    def on_epoch_end(self, epoch, train_loss, valid_loss=None):
-        per = self.stats["valid"]["PER"].summarize()
-        old_lr, new_lr = params.lr_annealing([params.optimizer], epoch, per)
-        params.train_logger.log_stats(
-            stats_meta={"epoch": epoch, "lr": old_lr},
-            train_stats={"loss": train_loss},
-            valid_stats={"loss": valid_loss, "PER": per},
-        )
-        params.checkpointer.save_and_keep_only(
-            meta={"PER": per}, min_keys=["PER"],
-        )
+        if stage != "train":
+            self.stats[stage]["PER"] = params.per_stats()
 
-    def on_eval_start(self):
-        self.stats = {
-            "test": {"loss": params.ctc_stats(), "PER": params.per_stats()}
-        }
+    def on_stage_end(self, stage, stage_loss, epoch=None):
 
-    def on_eval_end(self, test_loss):
-        print(test_loss)
+        if stage == "train":
+            self.train_loss = stage_loss
+        elif stage == "valid":
+            per = self.stats["valid"]["PER"].summarize()
+            old_lr, new_lr = params.lr_annealing([params.optimizer], epoch, per)
+            params.train_logger.log_stats(
+                stats_meta={"epoch": epoch, "lr": old_lr},
+                train_stats={"loss": self.train_loss},
+                valid_stats={"loss": stage_loss, "PER": per},
+            )
+            params.checkpointer.save_and_keep_only(
+                meta={"PER": per}, min_keys=["PER"],
+            )
+        elif stage == "test":
+            test_per = self.stage["test"]["PER"].summarize()
+            params.train_logger.log_stats(
+                stats_meta={"Epoch loaded": params.epoch_counter.current},
+                test_stats={"loss": stage_loss, "PER": test_per},
+            )
+            with open(params.wer_file, "w") as w:
+                w.write("CTC loss stats:\n")
+                asr_brain.stats["test"]["loss"].write_stats(w)
+                w.wrtie("\nPER stats:\n")
+                asr_brain.stats["test"]["PER"].write_stats(w)
 
 
 # Prepare data
@@ -124,12 +131,3 @@ asr_brain.fit(params.epoch_counter, train_set, valid_set)
 # Load best checkpoint for evaluation
 params.checkpointer.recover_if_possible(min_key="PER")
 test_loss = asr_brain.evaluate(params.test_loader())
-test_per = asr_brain.stats["test"]["PER"].summarize()
-params.train_logger.log_stats(
-    stats_meta={"Epoch loaded": params.epoch_counter.current},
-    test_stats={"loss": test_loss, "PER": test_per},
-)
-
-# Write alignments to file
-asr_brain.stats["test"]["loss"].write_stats("test.txt")
-asr_brain.stats["test"]["PER"].write_stats(params.wer_file)
