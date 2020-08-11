@@ -289,11 +289,19 @@ class ASR(sb.core.Brain):
         params.train_logger.log_stats(epoch_stats, train_stats, valid_stats)
 
         wer = summarize_error_rate(valid_stats["WER"])
-        checkpointer.save_and_keep_only(
-            meta={"WER": wer},
-            importance_keys=[ckpt_recency, lambda c: -c.meta["WER"]],
-            num_to_keep=10,
-        )
+
+        if params.ckpt_avg:
+            checkpointer.save_and_keep_only(
+                meta={"epoch": epoch},
+                importance_keys=[ckpt_recency, lambda c: c.meta["epoch"]],
+                num_to_keep=params.num_ckpt_to_avg,
+            )
+        else:
+            checkpointer.save_and_keep_only(
+                meta={"WER": wer},
+                importance_keys=[ckpt_recency, lambda c: -c.meta["WER"]],
+                num_to_keep=1,
+            )
 
     def _reset_params(self):
         for p in params.Transformer.parameters():
@@ -341,15 +349,20 @@ if params.multigpu:
     params.Transformer = torch.nn.DataParallel(params.Transformer)
     params.ctc_lin = torch.nn.DataParallel(params.ctc_lin)
     params.seq_lin = torch.nn.DataParallel(params.seq_lin)
-    # valid_search = torch.nn.DataParallel(valid_search)
-    # test_search = torch.nn.DataParallel(test_search)
 
 # Load latest checkpoint to resume training
 checkpointer.recover_if_possible()
 asr_brain.fit(params.epoch_counter, train_set, valid_set)
 
-# Load best checkpoint for evaluation
-checkpointer.recover_if_possible(lambda c: -c.meta["WER"])
+# process ckpt and do test stage
+if params.ckpt_avg:
+    # if ckpt_avg set to true, average the last N ckpts for evaluation
+    checkpointer.recover_if_possible(
+        lambda c: c.meta["epoch"], get_average=True
+    )
+else:
+    # otherwise Load best checkpoint for evaluation
+    checkpointer.recover_if_possible(lambda c: -c.meta["WER"])
 test_stats = asr_brain.evaluate(params.test_loader())
 params.train_logger.log_stats(
     stats_meta={"Epoch loaded": params.epoch_counter.current},
