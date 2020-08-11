@@ -1,0 +1,92 @@
+# ################################
+# Model: Speaker Verification Baseline using PLDA
+# Authors: Mirco Ravanelli & Nauman Dawalatabad 2020
+# ################################
+
+seed: 1234
+__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+
+# Folders and train_log file
+#/voxceleb1/audio_files/vox1_all/
+data_folder: /network/tmp1/dawalatn/dataset_tmp1/VoxCeleb/voxceleb1/
+output_folder: results/speaker_verification/
+save_folder: !ref <output_folder>/save/
+device: 'cuda:0'
+
+# Pretrain from web (as an alternative specify a file)
+xvector_file: https://www.dropbox.com/s/skfz2sme5nw7jji/xvector_model.ckpt?dl=1
+
+# csv files
+csv_train: !ref <save_folder>/train.csv
+csv_valid: !ref <save_folder>/valid.csv
+csv_enrol: !ref <save_folder>/enrol.csv
+csv_test: !ref <save_folder>/test.csv
+batch_size: 128
+
+# Feature parameters
+n_mels: 24
+left_frames: 0
+right_frames: 0
+deltas: False
+
+out_n_neurons: 1211
+
+# Functions
+compute_features: !new:speechbrain.lobes.features.fbank.Fbank
+    n_mels: !ref <n_mels>
+    left_frames: !ref <left_frames>
+    right_frames: !ref <right_frames>
+    deltas: !ref <deltas>
+
+mean_var_norm: !new:speechbrain.processing.features.InputNormalization
+    norm_type: global
+
+mean_var_norm_xvect: !new:speechbrain.processing.features.InputNormalization
+    norm_type: global
+    std_norm: False
+
+xvector_model: !new:speechbrain.lobes.models.Xvector.Xvector
+    device: !ref <device>
+
+classifier: !new:speechbrain.lobes.models.Xvector.Classifier
+    activation: !name:torch.nn.LeakyReLU
+    device: !ref <device>
+    lin_blocks: 1
+    lin_neurons: 512
+    out_neurons: !ref <out_n_neurons>
+
+train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_train>
+    batch_size: !ref <batch_size>
+    csv_read: [wav, spk_id]
+    sentence_sorting: random
+    replacements:
+        $data_folder: !ref  <data_folder>
+    output_folder: !ref <output_folder>/save/
+
+valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_valid>
+    batch_size: !ref <batch_size>
+    csv_read: [wav, spk_id]
+    sentence_sorting: random
+    replacements:
+        $data_folder: !ref <data_folder>
+    output_folder: !ref <output_folder>/save/
+
+enrol_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_enrol>
+    batch_size: !ref <batch_size>
+    csv_read: [wav]
+    sentence_sorting: original
+    replacements:
+        $data_folder: !ref <data_folder>
+    output_folder: !ref <output_folder>/save/
+
+test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_test>
+    batch_size: !ref <batch_size>
+    csv_read: [wav]
+    sentence_sorting: original
+    replacements:
+        $data_folder: !ref <data_folder>
+    output_folder: !ref <output_folder>/save/

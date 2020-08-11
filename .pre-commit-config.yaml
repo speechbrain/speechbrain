@@ -11,7 +11,7 @@ repos:
         types: [python]
         args: [--fix=no]
       - id: check-added-large-files
-        args: [--maxkb=1024]
+        args: [--maxkb=5120]
 
   - repo: https://github.com/psf/black
     rev: 19.10b0
