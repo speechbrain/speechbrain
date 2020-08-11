@@ -95,7 +95,11 @@ class complex_linear(nn.Module):
         )
 
         if self.bias:
-            self.b = Parameter(torch.Tensor(2 * n_neurons))
+            self.b = Parameter(
+                torch.empty(
+                    2 * n_neurons, dtype=torch.float, device=self.device
+                )
+            )
         else:
             self.b = torch.tensor(2 * n_neurons, requires_grad=False)
 
@@ -110,7 +114,7 @@ class complex_linear(nn.Module):
 
         if self.b.requires_grad:
             self.b.data.zero_()
-            self.b.to(self.device)
+            # self.b.to(self.device)
 
         # send to device
         # self.real_weight.to(self.device)

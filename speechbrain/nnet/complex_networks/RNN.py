@@ -556,6 +556,9 @@ class ComplexLiGRU(torch.nn.Module):
         current_dim = self.fea_dim
 
         x = first_input
+        if self.reshape:
+            if len(x.shape) == 4:
+                x = x.reshape(x.shape[0], x.shape[1], x.shape[2] * x.shape[3])
 
         for i in range(self.num_layers):
             rnn_lay = ComplexLiGRU_Layer(

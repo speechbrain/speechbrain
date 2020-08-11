@@ -9,11 +9,11 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Basic parameters
 data_folder: !PLACEHOLDER
-output_folder: !ref results/complex2DCNN_log1p_dynamic/<seed>
+output_folder: !ref results/complexDCCRN_dynamic/<seed>
 enhanced_folder: !ref <output_folder>/enhanced/
 
 use_tensorboard: False
-tensorboard_logs: !ref results/logs/complex2DCNN_log1p_dynamic/<seed>
+tensorboard_logs: !ref results/logs/complexDCCRN_dynamic/<seed>
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
@@ -24,15 +24,17 @@ csv_test: !ref <data_folder>/test.csv
 
 # Training Parameters
 N_epochs: 50
-N_batch: 1
+N_batch: 2
 lr: 0.001
 device: cuda:0
 
 # Model Parameters
+conv_channels: [32, 64, 128, 128, 256]
 kernel_size: [3, 5]
-base_channels: 128
 padding_type: same
-stride: 1
+strides: [2, 1]
+rnn_size: 128
+rnn_layers: 2
 
 # FFT Parameters
 samplerate: 16000
@@ -79,81 +81,68 @@ compute_istft: !new:speechbrain.processing.features.ISTFT
   win_length: !ref <win_length>
   hop_length: !ref <hop_length>
 
-conv1: !new:speechbrain.nnet.complex_networks.CNN.ComplexConv2d
-  out_channels: !ref <base_channels>
-  kernel_size: !ref <kernel_size>
-  padding: !ref <padding_type>
-  stride: !ref <stride>
+# conv1: !new:speechbrain.nnet.complex_networks.CNN.ComplexConv2d
+#   out_channels: !ref <base_channels>
+#   kernel_size: !ref <kernel_size>
+#   padding: !ref <padding_type>
+#   stride: !ref <stride>
 
-conv2: !new:speechbrain.nnet.complex_networks.CNN.ComplexConv2d
-  out_channels: !ref <base_channels> // 2
-  kernel_size: !ref <kernel_size>
-  padding: !ref <padding_type>
-  stride: !ref <stride>
+# conv2: !new:speechbrain.nnet.complex_networks.CNN.ComplexConv2d
+#   out_channels: !ref <base_channels> // 2
+#   kernel_size: !ref <kernel_size>
+#   padding: !ref <padding_type>
+#   stride: !ref <stride>
 
-conv3: !new:speechbrain.nnet.complex_networks.CNN.ComplexConv2d
-  out_channels: !ref <base_channels> // 4
-  kernel_size: !ref <kernel_size>
-  padding: !ref <padding_type>
-  stride: !ref <stride>
+# conv3: !new:speechbrain.nnet.complex_networks.CNN.ComplexConv2d
+#   out_channels: !ref <base_channels> // 4
+#   kernel_size: !ref <kernel_size>
+#   padding: !ref <padding_type>
+#   stride: !ref <stride>
 
-conv4: !new:speechbrain.nnet.complex_networks.CNN.ComplexConv2d
-  out_channels: !ref <base_channels> // 8
-  kernel_size: !ref <kernel_size>
-  padding: !ref <padding_type>
-  stride: !ref <stride>
+# conv4: !new:speechbrain.nnet.complex_networks.CNN.ComplexConv2d
+#   out_channels: !ref <base_channels> // 8
+#   kernel_size: !ref <kernel_size>
+#   padding: !ref <padding_type>
+#   stride: !ref <stride>
 
-conv5: !new:speechbrain.nnet.complex_networks.CNN.ComplexConv2d
-  out_channels: !ref <base_channels> // 4
-  kernel_size: !ref <kernel_size>
-  padding: !ref <padding_type>
-  stride: !ref <stride>
+# conv5: !new:speechbrain.nnet.complex_networks.CNN.ComplexConv2d
+#   out_channels: !ref <base_channels> // 4
+#   kernel_size: !ref <kernel_size>
+#   padding: !ref <padding_type>
+#   stride: !ref <stride>
 
-conv6: !new:speechbrain.nnet.complex_networks.CNN.ComplexConv2d
-  out_channels: !ref <base_channels> // 2
-  kernel_size: !ref <kernel_size>
-  padding: !ref <padding_type>
-  stride: !ref <stride>
+# conv6: !new:speechbrain.nnet.complex_networks.CNN.ComplexConv2d
+#   out_channels: !ref <base_channels> // 2
+#   kernel_size: !ref <kernel_size>
+#   padding: !ref <padding_type>
+#   stride: !ref <stride>
 
-conv7: !new:speechbrain.nnet.complex_networks.CNN.ComplexConv2d
-  out_channels: 1
-  kernel_size: !ref <kernel_size>
-  padding: !ref <padding_type>
-  stride: !ref <stride>
+# conv7: !new:speechbrain.nnet.complex_networks.CNN.ComplexConv2d
+#   out_channels: 1
+#   kernel_size: !ref <kernel_size>
+#   padding: !ref <padding_type>
+#   stride: !ref <stride>
 
-linear: !new:speechbrain.nnet.complex_networks.linear.ComplexLinear
-  n_neurons: !ref <n_fft> // 2 + 1
-  bias: True
+# linear: !new:speechbrain.nnet.complex_networks.linear.ComplexLinear
+#   n_neurons: !ref <n_fft> // 2 + 1
+#   bias: True
 
-norm1: !new:speechbrain.nnet.complex_networks.normalization.ComplexBatchNorm
-norm2: !new:speechbrain.nnet.complex_networks.normalization.ComplexBatchNorm
-norm3: !new:speechbrain.nnet.complex_networks.normalization.ComplexBatchNorm
-norm4: !new:speechbrain.nnet.complex_networks.normalization.ComplexBatchNorm
-norm5: !new:speechbrain.nnet.complex_networks.normalization.ComplexBatchNorm
-norm6: !new:speechbrain.nnet.complex_networks.normalization.ComplexBatchNorm
+# norm1: !new:speechbrain.nnet.complex_networks.normalization.ComplexBatchNorm
+# norm2: !new:speechbrain.nnet.complex_networks.normalization.ComplexBatchNorm
+# norm3: !new:speechbrain.nnet.complex_networks.normalization.ComplexBatchNorm
+# norm4: !new:speechbrain.nnet.complex_networks.normalization.ComplexBatchNorm
+# norm5: !new:speechbrain.nnet.complex_networks.normalization.ComplexBatchNorm
+# norm6: !new:speechbrain.nnet.complex_networks.normalization.ComplexBatchNorm
 
 activation: !new:torch.nn.LeakyReLU
 
-model: !new:speechbrain.nnet.containers.Sequential
-  - !ref <conv1>
-  - !ref <norm1>
-  - !ref <activation>
-  - !ref <conv2>
-  - !ref <norm2>
-  - !ref <activation>
-  - !ref <conv3>
-  - !ref <norm3>
-  - !ref <activation>
-  - !ref <conv4>
-  - !ref <norm4>
-  - !ref <activation>
-  - !ref <conv5>
-  - !ref <norm5>
-  - !ref <activation>
-  - !ref <conv6>
-  - !ref <norm6>
-  - !ref <activation>
-  - !ref <conv7>
+model: !new:speechbrain.lobes.models.DCCRN.DCCRN
+  conv_channels: !ref <conv_channels>
+  kernel_size: !ref <kernel_size>
+  strides: !ref <strides>
+  rnn_size: !ref <rnn_size>
+  rnn_layers: !ref <rnn_layers>
+  padding: !ref <padding_type>
 
 compute_cost: !name:speechbrain.nnet.losses.mse_loss
 
