@@ -93,7 +93,7 @@ class ASR(sb.core.Brain):
 
         # convert words to bpe
         chars, seq_lengths = params.tokenizer(
-            chars, phn_lens, index2lab, task="encode", init_params=init_params,
+            chars, phn_lens, index2lab, task="encode"
         )
         chars, seq_lengths = (
             chars.to(params.device),
@@ -190,7 +190,7 @@ class ASR(sb.core.Brain):
         )
 
         # Add char_lens by one for eos token
-        abs_length = char_lens.float() * chars.shape[1]
+        abs_length = char_lens * chars.shape[1]
 
         # Append eos token at the end of the label sequences
         chars_with_eos = append_eos_token(
@@ -311,11 +311,21 @@ train_set = params.train_loader()
 valid_set = params.valid_loader()
 first_x, first_y = next(iter(valid_set))
 
+# init the model with a small batch
 ids, wavs, wav_lens = first_x
 ids, chars, phn_lens = first_y
 
 first_x = ids[:2], wavs[:2], wav_lens[:2]
 first_y = ids[:2], chars[:2], phn_lens[:2]
+
+# init tokenizer
+_ = params.tokenizer(
+    first_y[1],
+    first_y[2],
+    params.train_loader.label_dict["wrd"]["index2lab"],
+    task="encode",
+    init_params=True,
+)
 
 if hasattr(params, "augmentation"):
     modules.append(params.augmentation)
@@ -325,7 +335,6 @@ asr_brain = ASR(
     first_inputs=[first_x, first_y],
     auto_mix_prec=params.auto_mix_precision,
 )
-
 
 if params.multigpu:
     params.CNN = torch.nn.DataParallel(params.CNN)

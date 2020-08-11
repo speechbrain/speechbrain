@@ -1,5 +1,5 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 1234
+seed: !PLACEHOLDER  # e.g, 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/Contextnet_Transformer/<seed>
 wer_file: !ref <output_folder>/wer.txt
@@ -97,7 +97,7 @@ seq_lin: !new:speechbrain.nnet.linear.Linear
 log_softmax: !new:torch.nn.LogSoftmax
     dim: -1
 
-optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
+optimizer: !new:speechbrain.nnet.optimizers.AdamW_Optimizer
     learning_rate: !ref <lr>
     betas: (0.9, 0.98)
     weight_decay: 0.000001
@@ -152,7 +152,7 @@ valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     add_padding_label: True
     num_workers: 4
     drop_last: True
-    avoid_if_longer_than: 20000
+    avoid_if_longer_than: 17000
 
 test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_test>
@@ -167,7 +167,7 @@ test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
 ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
     blank_index: !ref <blank_index>
 
-seq_cost: !name:speechbrain.nnet.losses.nll_loss
+seq_cost: !name:speechbrain.nnet.losses.kldiv_loss
     label_smoothing: !ref <label_smoothing>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger

@@ -67,10 +67,10 @@ tokenizer: !new:speechbrain.tokenizers.SentencePiece.SentencePiece
 CNN: !new:speechbrain.lobes.models.ContextNet.ContextNet
     alpha: !ref <alpha>
     dropout: !ref <dropout>
-    norm: !name:speechbrain.nnet.normalization.LayerNorm
+    # norm: !name:speechbrain.nnet.normalization.LayerNorm
     num_blocks: 9
     conv_channels: (256, 256, 256, 256, 512, 512, 512, 512, 512)
-    out_channels: 512
+    # out_channels: 512
     strides: (1, 2, 1, 1, 1, 1, 1, 2, 1)
 
 Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.TransformerASR # yamllint disable-line rule:line-length
@@ -141,14 +141,14 @@ train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
 
 valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_valid>
-    batch_size: 4
+    batch_size: 2
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
     csv_read: [wav, wrd]
     add_padding_label: True
     num_workers: 4
     drop_last: True
-    avoid_if_longer_than: 20000
+    avoid_if_longer_than: 10000
 
 test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_test>
