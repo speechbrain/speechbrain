@@ -117,6 +117,7 @@ def nll_loss_kd(
     >>> targets = torch.tensor([[[0.9, 0.1], [0.1, 0.9]]])
     >>> rel_lab_lengths = torch.tensor([1.])
     >>> nll_loss_kd(probabilities, targets, rel_lab_lengths)
+    tensor(-0.7400)
     """
     # Getting the number of sentences in the minibatch
     N_snt = probabilities.shape[0]
@@ -171,6 +172,7 @@ def compute_wer_list(prob, lab, lab_length, eos_index):
     >>> lab_length = torch.tensor([1.])
     >>> eos_index = 0
     >>> compute_wer_list(prob, lab, lab_length, eos_index)
+    tensor([[100.]])
     """
     # Getting the number of sentences in the minibatch
     N_snt = prob.shape[0]
@@ -229,6 +231,7 @@ def compute_wer_list_ctc(prob, lab, prob_length, lab_length, blank_index):
     >>> lab_length = torch.tensor([1.])
     >>> blank_index = 0
     >>> compute_wer_list_ctc(prob, lab, prob_length, lab_length, blank_index)
+    tensor([[50.]])
     """
     # Getting the number of sentences in the minibatch
     N_snt = prob.shape[0]
