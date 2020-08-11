@@ -145,7 +145,7 @@ def nll_loss_kd(
     return loss
 
 
-def compute_wer_list(prob, lab, lab_length, eos_index):
+def wer_ce(prob, lab, lab_length, eos_index):
     """Compute word (or character) error rate based on output of decoder (CE loss).
 
     Reference
@@ -171,7 +171,7 @@ def compute_wer_list(prob, lab, lab_length, eos_index):
     >>> lab = torch.tensor([[1, 1]])
     >>> lab_length = torch.tensor([1.])
     >>> eos_index = 0
-    >>> compute_wer_list(prob, lab, lab_length, eos_index)
+    >>> wer_ce(prob, lab, lab_length, eos_index)
     tensor([[100.]])
     """
     # Getting the number of sentences in the minibatch
@@ -201,7 +201,7 @@ def compute_wer_list(prob, lab, lab_length, eos_index):
     return wer_list
 
 
-def compute_wer_list_ctc(prob, lab, prob_length, lab_length, blank_index):
+def wer_ctc(prob, lab, prob_length, lab_length, blank_index):
     """Compute word (or character) error rate based on output of encoder (CTC loss).
 
     Reference
@@ -230,7 +230,7 @@ def compute_wer_list_ctc(prob, lab, prob_length, lab_length, blank_index):
     >>> prob_length = torch.tensor([1.])
     >>> lab_length = torch.tensor([1.])
     >>> blank_index = 0
-    >>> compute_wer_list_ctc(prob, lab, prob_length, lab_length, blank_index)
+    >>> wer_ctc(prob, lab, prob_length, lab_length, blank_index)
     tensor([[50.]])
     """
     # Getting the number of sentences in the minibatch
