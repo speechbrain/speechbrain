@@ -289,7 +289,7 @@ def mse_loss(
         Length difference that will be tolerated before raising an exception.
     reduction: str
         Specifies the reduction to apply to the output: 'mean' | 'sum'.
-        
+
     Example
     -------
     >>> probs = torch.tensor([[0.9, 0.1, 0.1, 0.9]])
@@ -361,7 +361,7 @@ def nll_loss(
         Length difference that will be tolerated before raising an exception.
     reduction: str
         Specifies the reduction to apply to the output: 'mean' | 'sum'.
-        
+
     Example
     -------
     >>> probs = torch.tensor([[0.9, 0.1], [0.1, 0.9]])
@@ -408,11 +408,11 @@ def BCE_loss(
         The targets, of shape [batch] or [batch, frames]
     length : torch.Tensor
         Length of each utterance, if frame-level loss is desired.
-    weight: torch.Tensor  
-        a manual rescaling weight if provided it’s repeated to match input 
+    weight: torch.Tensor
+        a manual rescaling weight if provided it’s repeated to match input
         tensor shape.
     pos_weight : torch.Tensor
-        a weight of positive examples. Must be a vector with length equal to 
+        a weight of positive examples. Must be a vector with length equal to
         the number of classes.
     allowed_len_diff : int
         Length difference that will be tolerated before raising an exception.
@@ -472,7 +472,7 @@ def kldiv_loss(
         Length difference that will be tolerated before raising an exception.
     reduction: str
         Specifies the reduction to apply to the output: 'mean' | 'sum'.
-        
+
     Example
     -------
     >>> probs = torch.tensor([[0.9, 0.1], [0.1, 0.9]])
@@ -568,7 +568,7 @@ def compute_masked_loss(
         https://arxiv.org/abs/1701.06548
     reduction: str
         Specifies the reduction to apply to the output loss: 'mean' | 'sum'.
-        
+
     """
     mask = torch.ones_like(targets)
     if length is not None:
