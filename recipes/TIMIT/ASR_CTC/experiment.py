@@ -123,13 +123,13 @@ asr_brain.fit(params.epoch_counter, train_set, valid_set)
 
 # Load best checkpoint for evaluation
 params.checkpointer.recover_if_possible(min_key="PER")
-test_stats = asr_brain.evaluate(
-    test_set=params.test_loader(), test_stats={"loss": params.ctc_stats()},
-)
+test_loss = asr_brain.evaluate(params.test_loader())
+test_per = asr_brain.stats["test"]["PER"].summarize()
 params.train_logger.log_stats(
     stats_meta={"Epoch loaded": params.epoch_counter.current},
-    test_stats=test_stats,
+    test_stats={"loss": test_loss, "PER": test_per},
 )
 
 # Write alignments to file
+asr_brain.stats["test"]["loss"].write_stats("test.txt")
 asr_brain.stats["test"]["PER"].write_stats(params.wer_file)
