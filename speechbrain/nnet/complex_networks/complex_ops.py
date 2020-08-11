@@ -616,3 +616,22 @@ def multi_mean(input, axes, keepdim=False):
     for axis in reversed(axes):
         m = m.mean(axis, keepdim)
     return m
+
+
+def complex_concat(input, input_type="linear", channels_axis=1):
+    """
+    Applies complex concatenation on the channel axis.
+
+    Arguments
+    ---------
+    input : torch.Tensor (batch, time, channel)
+    input_type: str, (linear, convolution)
+    channels_axis : int, index of the channel axis.
+    """
+    real_part = [get_real(x, input_type, channels_axis) for x in input]
+    imag_part = [get_imag(x, input_type, channels_axis) for x in input]
+
+    cat_real = torch.cat(real_part, dim=channels_axis)
+    cat_imag = torch.cat(imag_part, dim=channels_axis)
+
+    return torch.cat([cat_real, cat_imag], dim=channels_axis)

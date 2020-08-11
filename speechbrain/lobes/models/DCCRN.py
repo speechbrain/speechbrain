@@ -10,6 +10,7 @@ from speechbrain.nnet.complex_networks.CNN import ComplexConv2d
 from speechbrain.nnet.complex_networks.linear import ComplexLinear
 from speechbrain.nnet.complex_networks.normalization import ComplexBatchNorm
 from speechbrain.nnet.complex_networks.RNN import ComplexLiGRU
+from speechbrain.nnet.complex_networks.complex_ops import complex_concat
 from speechbrain.nnet.containers import Sequential
 
 
@@ -42,34 +43,50 @@ class DCCRN(nn.Module):
             )
             for c in self.conv_channels
         ]
-        self.decoder_convs = [
-            Decoder_layer(c, self.kernel_size, padding=self.padding)
-            for c in self.conv_channels[:-1][::-1]
-        ]
-        self.decoder_convs += [
-            Decoder_layer(
-                1, self.kernel_size, padding=self.padding, use_norm_act=False
-            )
-        ]
+
+        # Get the output size of each encoder layers
+        self.encoder_size = []
+        x = first_input
+        for conv in self.encoder_convs:
+            x = conv(x, init_params=True)
+            self.encoder_size.append(x.shape[2])
+
         self.rnn = ComplexLiGRU(
             self.rnn_size,
             num_layers=self.rnn_layers,
             normalization="batchnorm",
         )
 
-        encoder = Sequential(*self.encoder_convs)
-        encoder_out = encoder(first_input, init_params=True)
-        self.linear_dim = encoder_out.shape[2] * encoder_out.shape[3] // 2
+        # Linear layer to transform rnn output back to 4-D
+        self.linear_dim = x.shape[2] * x.shape[3] // 2
         self.linear_trans = ComplexLinear(self.linear_dim)
+
+        self.decoder_convs = [
+            Decoder_layer(
+                c, self.kernel_size, output_size=[T, u], padding=self.padding
+            )
+            for c, u in zip(
+                self.conv_channels[:-1][::-1], self.encoder_size[:-1][::-1]
+            )
+        ]
+        self.decoder_convs += [
+            Decoder_layer(
+                1,
+                self.kernel_size,
+                output_size=[T, F],
+                padding=self.padding,
+                use_norm_act=False,
+            )
+        ]
 
     def forward(self, x, init_params=False):
         if init_params:
             self.init_params(x)
 
-        self.encoder_outputs.append(x)
+        encoder_outputs = [x]
         for conv in self.encoder_convs:
             x = conv(x, init_params=False)
-            self.encoder_outputs.append(x)
+            encoder_outputs.append(x)
 
         # Apply RNN and linear transform back to 4-D
         rnn_out = self.rnn(x, init_params=init_params)
@@ -88,13 +105,11 @@ class DCCRN(nn.Module):
         decoder_out = rnn_out
         for i, conv in enumerate(self.decoder_convs):
             # TODO: change to concat
-            decoder_out += self.encoder_outputs[-(i + 1)]
-            upsample_size = self.encoder_outputs[-(i + 2)].shape[2]
-            decoder_out = conv(
-                decoder_out,
-                [decoder_out.shape[1], upsample_size],
-                init_params=init_params,
+            skip_ = encoder_outputs[-(i + 1)]
+            decoder_out = complex_concat(
+                [skip_, decoder_out], input_type="convolution", channels_axis=3
             )
+            decoder_out = conv(decoder_out, init_params=init_params)
 
         return decoder_out
 
@@ -122,6 +137,7 @@ class Decoder_layer(nn.Module):
         self,
         channels,
         kernel_size,
+        output_size,
         activation=nn.LeakyReLU,
         norm=ComplexBatchNorm,
         padding="same",
@@ -130,17 +146,17 @@ class Decoder_layer(nn.Module):
         super().__init__()
         self.use_norm_act = use_norm_act
         self.conv = ComplexConv2d(channels, kernel_size, padding=padding)
+        self.up = nn.Upsample(
+            size=output_size, mode="bilinear", align_corners=True
+        )
         if self.use_norm_act:
             self.activation = activation()
             self.norm = ComplexBatchNorm()
 
-    def forward(self, x, upsample_size, init_params=False):
+    def forward(self, x, init_params=False):
         # Upsample to the expected size
         x = x.permute([0, 3, 1, 2])
-        up = nn.Upsample(
-            size=upsample_size, mode="bilinear", align_corners=True
-        )
-        x = up(x)
+        x = self.up(x)
         x = x.permute([0, 2, 3, 1])
 
         x = self.conv(x, init_params=init_params)

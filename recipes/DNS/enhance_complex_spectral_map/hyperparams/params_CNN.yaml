@@ -24,12 +24,12 @@ csv_test: !ref <data_folder>/test.csv
 
 # Training Parameters
 N_epochs: 50
-N_batch: 2
+N_batch: 1
 lr: 0.001
 device: cuda:0
 
 # Model Parameters
-conv_channels: [32, 64, 128, 128, 256]
+conv_channels: [32, 64, 128, 128, 256, 256]
 kernel_size: [3, 5]
 padding_type: same
 strides: [2, 1]
