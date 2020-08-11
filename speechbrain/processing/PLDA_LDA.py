@@ -768,11 +768,10 @@ class LDA:
         The dimesion of the output representation.
     """
 
-    def __init__(self, reduced_dim=1):
+    def __init__(self,):
         self.transform_mat = None
-        self.reduced_dim = 1
 
-    def do_lda(self, stat_server=None, reduced_dim=2):
+    def do_lda(self, stat_server=None, reduced_dim=2, transform_mat=None):
         """Performs LDA and projects the vectors onto lower dimension space.
 
         Arguments
@@ -784,7 +783,10 @@ class LDA:
         """
 
         # Get transformation matrix and project
-        self.transform_mat = stat_server.get_lda_matrix_stat1(reduced_dim)
+        if transform_mat is None:
+            self.transform_mat = stat_server.get_lda_matrix_stat1(reduced_dim)
+        else:
+            self.transform_mat = transform_mat
 
         # Projection
         new_train_obj = copy.deepcopy(stat_server)
@@ -852,10 +854,21 @@ class PLDA:
     (20, 30)
     """
 
-    def __init__(self, mean=None, F=None, Sigma=None):
+    def __init__(
+        self,
+        mean=None,
+        F=None,
+        Sigma=None,
+        rank_f=100,
+        nb_iter=10,
+        scaling_factor=1.0,
+    ):
         self.mean = None
         self.F = None
         self.Sigma = None
+        self.rank_f = rank_f
+        self.nb_iter = nb_iter
+        self.scaling_factor = scaling_factor
 
         if mean is not None:
             self.mean = mean
@@ -865,12 +878,7 @@ class PLDA:
             self.Sigma = Sigma
 
     def plda(
-        self,
-        stat_server=None,
-        rank_f=100,
-        nb_iter=10,
-        scaling_factor=1.0,
-        output_file_name=None,
+        self, stat_server=None, output_file_name=None,
     ):
         """Trains PLDA model with no within class covariance matrix but full residual covariance matrix.
 
@@ -902,9 +910,9 @@ class PLDA:
         class_nb = model_shifted_stat.modelset.shape[0]
 
         # Multiply statistics by scaling_factor
-        model_shifted_stat.stat0 *= scaling_factor
-        model_shifted_stat.stat1 *= scaling_factor
-        session_per_model *= scaling_factor
+        model_shifted_stat.stat0 *= self.scaling_factor
+        model_shifted_stat.stat1 *= self.scaling_factor
+        session_per_model *= self.scaling_factor
 
         # Covariance for stat1
         sigma_obs = stat_server.get_total_covariance_stat1()
@@ -912,11 +920,11 @@ class PLDA:
 
         # Initial F (eigen voice matrix) from rank
         idx = numpy.argsort(evals)[::-1]
-        evecs = evecs.real[:, idx[:rank_f]]
-        self.F = evecs[:, :rank_f]
+        evecs = evecs.real[:, idx[: self.rank_f]]
+        self.F = evecs[:, : self.rank_f]
 
         # Estimate PLDA model by iterating the EM algorithm
-        for it in range(nb_iter):
+        for it in range(self.nb_iter):
 
             # E-step
             # print(
@@ -946,8 +954,8 @@ class PLDA:
             index_map = numpy.zeros(vect_size, dtype=int)
             _stat0 = local_stat.stat0[:, index_map]
 
-            e_h = numpy.zeros((class_nb, rank_f))
-            e_hh = numpy.zeros((class_nb, rank_f, rank_f))
+            e_h = numpy.zeros((class_nb, self.rank_f))
+            e_hh = numpy.zeros((class_nb, self.rank_f, self.rank_f))
 
             # loop on model id's
             fa_model_loop(
