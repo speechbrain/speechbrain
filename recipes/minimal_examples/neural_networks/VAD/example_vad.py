@@ -19,7 +19,9 @@ with open(params_file) as fin:
 
 class VADBrain(sb.core.Brain):
     def on_training_start(self):
-        self.metrics = BinaryMetrics()
+        self.metrics_train = BinaryMetrics()
+        self.metrics_valid = BinaryMetrics()
+
 
     def compute_forward(self, x, train_mode=True, init_params=False, stage=None):
         id, wavs, lens = x
@@ -37,7 +39,10 @@ class VADBrain(sb.core.Brain):
         predictions = predictions[:, :targets.shape[-1], 0]
         loss = params.compute_cost(torch.nn.BCEWithLogitsLoss(reduction="none"), predictions, targets, lens)
 
-        self.metrics.update(torch.sigmoid(predictions), targets)
+        if stage != "valid":
+            self.metrics_train.update(torch.sigmoid(predictions), targets)
+        else:
+            self.metrics_valid.update(torch.sigmoid(predictions), targets)
         # compute DER
         stats = {"loss": loss} # dummy for now
         return loss, stats
@@ -45,8 +50,10 @@ class VADBrain(sb.core.Brain):
     def on_epoch_end(self, epoch, train_stats, valid_stats):
         print("Epoch %d complete" % epoch)
         print("Train loss: %.4f" % summarize_average(train_stats["loss"]))
-        print("Precision: %.2f" % self.metrics.get_precision())
-        print("Recall: %.2f" % self.metrics.get_recall())
+        print("Train Precision: %.2f" % self.metrics_train.get_precision())
+        print("Train Recall: %.2f" % self.metrics_train.get_recall())
+        self.metrics_train.reset()
+        self.metrics_valid.reset()
 
 
 def parsing_func(params, string):
