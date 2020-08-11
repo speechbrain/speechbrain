@@ -307,43 +307,31 @@ class Brain:
         """
         raise NotImplementedError
 
-    def on_epoch_start(self, epoch):
-        """Gets called when an epoch starts.
+    def on_stage_start(self, stage, epoch=None):
+        """Gets called when a stage starts.
 
-        Useful for defining class variables.
+        Useful for defining class variables used during the stage.
 
         Arguments
         ---------
+        stage : str
+            One of "train", "valid" or "test".
         epoch : int
             The current epoch count.
         """
         pass
 
-    def on_epoch_end(self, epoch, train_loss, valid_loss=None):
-        """Gets called at the end of each epoch.
+    def on_stage_end(self, stage, stage_loss, epoch=None):
+        """Gets called at the end of a stage.
 
         Arguments
         ---------
+        stage : str
+            One of "train", "valid" or "test".
+        stage_loss : float
+            The average loss over the completed stage.
         epoch : int
             The current epoch count.
-        train_loss : float
-            Average training loss for the epoch
-        valid_loss : float
-            Average validation loss for the epoch
-        """
-        pass
-
-    def on_eval_start(self):
-        """Gets called when evaluation starts."""
-        pass
-
-    def on_eval_end(self, test_loss):
-        """Gets called when evaluation ends.
-
-        Arguments
-        ---------
-        test_loss : float
-            Average loss over the full test set.
         """
         pass
 
@@ -437,7 +425,9 @@ class Brain:
             Whether to display the progress of each epoch in a progressbar.
         """
         for epoch in epoch_counter:
-            self.on_epoch_start(epoch)
+
+            # Training stage
+            self.on_stage_start("train", epoch)
             self.modules.train()
             avg_train_loss = 0.0
             disable = not progressbar
@@ -448,9 +438,12 @@ class Brain:
                         loss, avg_train_loss, iteration=i + 1
                     )
                     t.set_postfix(train_loss=avg_train_loss)
+            self.on_stage_end("train", avg_train_loss, epoch)
 
+            # Validation stage
             avg_valid_loss = None
             if valid_set is not None:
+                self.on_stage_start("valid", epoch)
                 self.modules.eval()
                 avg_valid_loss = 0.0
                 with torch.no_grad():
@@ -461,8 +454,7 @@ class Brain:
                         avg_valid_loss = self.update_average(
                             loss, avg_valid_loss, iteration=i + 1
                         )
-
-            self.on_epoch_end(epoch, avg_train_loss, avg_valid_loss)
+                self.on_stage_end("valid", avg_valid_loss, epoch)
 
     def evaluate(self, test_set, progressbar=True):
         """Iterate test_set and evaluate brain performance.
@@ -478,7 +470,7 @@ class Brain:
         -------
         average test loss
         """
-        self.on_eval_start()
+        self.on_stage_start("test")
         self.modules.eval()
         avg_test_loss = 0.0
         disable = not progressbar
@@ -490,7 +482,7 @@ class Brain:
                 avg_test_loss = self.update_average(
                     loss, avg_test_loss, iteration=i + 1
                 )
-        self.on_eval_end(avg_test_loss)
+        self.on_stage_end("eval", avg_test_loss)
 
         return avg_test_loss
 
