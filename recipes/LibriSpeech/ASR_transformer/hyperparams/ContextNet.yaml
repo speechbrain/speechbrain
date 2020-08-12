@@ -8,20 +8,23 @@ train_log: !ref <output_folder>/train_log.txt
 
 # Data files
 data_folder: !PLACEHOLDER  # e.g. /path/to/librispeech
-train_set: train-clean-960
-csv_train: !ref <data_folder>/train-clean-960.csv
+train_set: train-960
+csv_train: !ref <data_folder>/train-960.csv
 csv_valid: !ref <data_folder>/dev-clean.csv
 csv_test: !ref <data_folder>/test-clean.csv
 
 # Training parameters
 number_of_epochs: 100
-batch_size: 64
-lr: 0.0001
+batch_size: 16
+lr: 10
 ctc_weight: 0.3
-gradient_accumulation: 2
-device: 'cuda'
+gradient_accumulation: 1
+device: 'cuda:0'
 multigpu: True
 auto_mix_precision: False
+ckpt_avg: True
+num_ckpt_to_avg: 10
+loss_reduction: 'sum'
 
 # Feature parameters
 sample_rate: 16000
@@ -57,7 +60,7 @@ tokenizer: !new:speechbrain.tokenizers.SentencePiece.SentencePiece
     csv_train: !ref <csv_train>
     csv_read: wrd
     model_type: "unigram" # ["unigram", "bpe", "char"]
-    max_sentencepiece_length: 5
+    max_sentencepiece_length: 10
     character_coverage: 0.9995 # for language with large set of chars use 0.9995
     pad_id: !ref <pad_id>
     bos_id: !ref <bos_index>
@@ -93,7 +96,7 @@ seq_lin: !new:speechbrain.nnet.linear.Linear
 log_softmax: !new:torch.nn.LogSoftmax
     dim: -1
 
-optimizer: !new:speechbrain.nnet.optimizers.AdamW_Optimizer
+optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
     learning_rate: !ref <lr>
     betas: (0.9, 0.98)
     weight_decay: 0.000001
@@ -141,7 +144,7 @@ train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
 
 valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_valid>
-    batch_size: 2
+    batch_size: 4
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
     csv_read: [wav, wrd]
@@ -162,9 +165,11 @@ test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
 
 ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
     blank_index: !ref <blank_index>
+    reduction: !ref <loss_reduction>
 
-seq_cost: !name:speechbrain.nnet.losses.nll_loss
+seq_cost: !name:speechbrain.nnet.losses.kldiv_loss
     label_smoothing: !ref <label_smoothing>
+    reduction: !ref <loss_reduction>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
