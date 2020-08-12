@@ -14,16 +14,45 @@ from speechbrain.utils.edit_distance import wer_summary
 
 
 class MetricStats:
-    """A abstract class for storing and summarizing metrics from an experiment.
+    """A default class for storing and summarizing arbitrary metrics.
+
+    More complex metrics can be created by sub-classing this class.
+
+    Arguments
+    ---------
+    metric : function
+        The function to use to compute the relevant metric. Should take
+        at least two arguments (predictions and targets) and can
+        optionally take the relative lengths of either or both arguments.
+        Not usually used in sub-classes.
+
+    Example
+    -------
+    >>> from speechbrain.nnet.losses import l1_loss
+    >>> loss_stats = MetricStats(
+    ...      metric=lambda x, y: l1_loss(x, y, reduction='batch')
+    ... )
+    >>> loss_stats.append(
+    ...      ids=['utterance1', 'utterance2'],
+    ...      predict=torch.tensor([[0.1, 0.2], [0.2, 0.3]]),
+    ...      target=torch.tensor([[0.1, 0.2], [0.1, 0.2]]),
+    ... )
+    >>> loss_stats.summarize(full_summary=True)
+    tensor(0.0500)
     """
+
+    def __init__(self, metric):
+        self.metric = metric
+        self.clear()
 
     def clear(self):
         """Creates empty container for storage, removing existing stats."""
         self.scores = []
         self.ids = []
+        self.summary = {}
 
     def append(self, ids, predict, target, pred_len=None, target_len=None):
-        """Add stats to the relevant containers.
+        """Store a particular set of metric scores.
 
         Arguments
         ---------
@@ -38,14 +67,48 @@ class MetricStats:
         target_len : torch.tensor
             The target outputs' relative lengths.
         """
-        raise NotImplementedError
+        self.ids.extend(ids)
 
-    def summarize(self):
-        """Summarize the statistic according to selected summary type."""
-        raise NotImplementedError
+        args = [predict, target]
+        if pred_len is not None:
+            args.append(pred_len)
+        if target_len is not None:
+            args.append(target_len)
+        scores = self.metric(*args).detach()
+
+        self.scores.extend(scores)
+
+    def summarize(self, just_avg=True):
+        """Summarize the metric scores, returning relevant stats.
+
+        Arguments
+        ---------
+        just_avg : bool
+            Whether to return just the average, or all stats in a dict
+
+        Returns
+        -------
+        stats : float if just_avg, else dict
+            Returns a float if just_avg option is True, otherwise
+            returns a dictionary containing all computed stats.
+        """
+        min_index = torch.argmin(torch.tensor(self.scores))
+        max_index = torch.argmax(torch.tensor(self.scores))
+        self.summary = {
+            "avg": sum(self.scores) / len(self.scores),
+            "min_score": self.scores[min_index],
+            "min_id": self.ids[min_index],
+            "max_score": self.scores[max_index],
+            "max_id": self.ids[max_index],
+        }
+
+        if just_avg:
+            return self.summary["avg"]
+        else:
+            return self.summary
 
     def write_stats(self, filestream, verbose=False):
-        """Write all relevant info (e.g. error rate alignments) to file.
+        """Write all relevant statistics to file.
 
         Arguments
         ---------
@@ -54,74 +117,14 @@ class MetricStats:
         verbose : bool
             Whether to also print the stats to stdout.
         """
-        raise NotImplementedError
+        if not self.summary:
+            self.summarize()
 
-
-class AverageStats(MetricStats):
-    """Class for summarizing a metric by averaging.
-
-    Arguments
-    ---------
-    metric : function
-        The function to use to compute the relevant metric. Should take
-        at least two arguments (predictions and targets) and can
-        optionally take the relative lengths of either or both arguments.
-
-    Example
-    -------
-    >>> from speechbrain.nnet.losses import l1_loss
-    >>> loss_stats = AverageStats(
-    ...      metric=lambda x, y: l1_loss(x, y, reduction='batch')
-    ... )
-    >>> loss_stats.append(
-    ...      ids=['utterance1', 'utterance2'],
-    ...      predict=torch.tensor([[0.1, 0.2], [0.2, 0.3]]),
-    ...      target=torch.tensor([[0.1, 0.2], [0.1, 0.2]]),
-    ... )
-    >>> loss_stats.summarize()
-    tensor(0.0500)
-    """
-
-    def __init__(self, metric):
-        self.metric = metric
-        self.clear()
-
-    def append(self, ids, predict, target, pred_len=None, target_len=None):
-        """Add stats to the relevant containers.
-
-        * See MetricStats.append()
-        """
-        self.ids.extend(ids)
-
-        args = [predict, target]
-        if pred_len is not None:
-            args.append(pred_len)
-        if target_len is not None:
-            args.append(target_len)
-        score = self.metric(*args).detach()
-
-        self.scores.append(score)
-
-    def summarize(self):
-        """Average the appended metric scores
-
-        * See MetricStats.summarize()
-        """
-        return sum(self.scores) / len(self.scores)
-
-    def write_stats(self, filestream, verbose=True):
-        """Write all relevant info (e.g. error rate alignments) to file.
-
-        * See MetricStats.write_stats()
-        """
-        min_index = torch.argmin(torch.tensor(self.scores))
-        max_index = torch.argmax(torch.tensor(self.scores))
-
-        message = f"Average error: {self.summarize()}\n"
-        message += f"Min error: {self.scores[min_index]} "
-        message += f"id: {self.ids[min_index]}\n"
-        message += f"Max error: {self.scores[max_index]} "
-        message += f"id: {self.ids[max_index]}\n"
+        message = f"Average score: {self.summary['avg']}\n"
+        message += f"Min error: {self.summary['min_score']} "
+        message += f"id: {self.summary['min_id']}\n"
+        message += f"Max error: {self.summary['max_score']} "
+        message += f"id: {self.summary['max_id']}\n"
 
         filestream.write(message)
         if verbose:
@@ -170,28 +173,25 @@ class ErrorRateStats(MetricStats):
 
         self.scores.extend(scores)
 
-    def summarize(self, full_summary=False):
+    def summarize(self, just_avg=True):
         """Summarize the error_rate and return relevant statistics.
 
         * See MetricStats.summarize()
-
-        Arguments
-        ---------
-        full_summary : bool
-            Whether to return all the error rate stats, or just the error rate.
         """
-        summary = wer_summary(self.scores)
+        self.summary = wer_summary(self.scores)
 
-        if full_summary:
-            return summary
+        if just_avg:
+            return self.summary["WER"]
         else:
-            return summary["WER"]
+            return self.summary
 
     def write_stats(self, filestream):
         """Write all relevant info (e.g. error rate alignments) to file.
 
         * See MetricStats.write_stats()
         """
-        summary = wer_summary(self.scores)
-        wer_io.print_wer_summary(summary, filestream)
+        if not self.summary:
+            self.summarize()
+
+        wer_io.print_wer_summary(self.summary, filestream)
         wer_io.print_alignments(self.scores, filestream)

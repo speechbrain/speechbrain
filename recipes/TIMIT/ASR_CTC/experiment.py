@@ -89,7 +89,7 @@ class ASR(sb.core.Brain):
                 meta={"PER": per}, min_keys=["PER"],
             )
         elif stage == "test":
-            test_per = self.stage["test"]["PER"].summarize()
+            test_per = self.stats["test"]["PER"].summarize()
             params.train_logger.log_stats(
                 stats_meta={"Epoch loaded": params.epoch_counter.current},
                 test_stats={"loss": stage_loss, "PER": test_per},
@@ -97,8 +97,9 @@ class ASR(sb.core.Brain):
             with open(params.wer_file, "w") as w:
                 w.write("CTC loss stats:\n")
                 asr_brain.stats["test"]["loss"].write_stats(w)
-                w.wrtie("\nPER stats:\n")
+                w.write("\nPER stats:\n")
                 asr_brain.stats["test"]["PER"].write_stats(w)
+                print("CTC and PER stats written to file ", params.wer_file)
 
 
 # Prepare data
