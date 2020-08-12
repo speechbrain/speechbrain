@@ -115,7 +115,7 @@ test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
 compute_cost: !name:speechbrain.nnet.losses.ctc_loss
     blank_index: !ref <blank_index>
 
-ctc_stats: !name:speechbrain.utils.metric_stats.AverageStats
+ctc_stats: !name:speechbrain.utils.metric_stats.MetricStats
     metric: !name:speechbrain.nnet.losses.ctc_loss
         blank_index: !ref <blank_index>
         reduction: batch

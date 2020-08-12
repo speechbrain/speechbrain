@@ -482,7 +482,7 @@ class Brain:
                 avg_test_loss = self.update_average(
                     loss, avg_test_loss, iteration=i + 1
                 )
-        self.on_stage_end("eval", avg_test_loss)
+        self.on_stage_end("test", avg_test_loss)
 
         return avg_test_loss
 
