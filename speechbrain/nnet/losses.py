@@ -17,7 +17,9 @@ from itertools import permutations
 logger = logging.getLogger(__name__)
 
 
-def transducer_loss(log_probs, targets, input_lens, target_lens, blank_index):
+def transducer_loss(
+    log_probs, targets, input_lens, target_lens, blank_index, reduction="mean"
+):
     """Transducer loss, see `speechbrain/nnet/transducer/transducer_loss.py`
 
     Arguments
@@ -32,6 +34,8 @@ def transducer_loss(log_probs, targets, input_lens, target_lens, blank_index):
         Length of each target sequence.
     blank_index : int
         The location of the blank symbol among the character indexes.
+    reduction: str
+        Specifies the reduction to apply to the output: 'mean' | 'sum'.
     """
     from speechbrain.nnet.transducer.transducer_loss import Transducer
 
@@ -43,7 +47,7 @@ def transducer_loss(log_probs, targets, input_lens, target_lens, blank_index):
         input_lens,
         target_lens,
         blank_index,
-        reduction="mean",
+        reduction=reduction,
     )
 
 
@@ -203,7 +207,9 @@ class PitWrapper(nn.Module):
         return loss, perms
 
 
-def ctc_loss(log_probs, targets, input_lens, target_lens, blank_index):
+def ctc_loss(
+    log_probs, targets, input_lens, target_lens, blank_index, reduction="mean"
+):
     """CTC loss
 
     Arguments
@@ -218,6 +224,8 @@ def ctc_loss(log_probs, targets, input_lens, target_lens, blank_index):
         Length of each target sequence.
     blank_index : int
         The location of the blank symbol among the character indexes.
+    reduction: str
+        Specifies the reduction to apply to the output: 'none' | 'mean' | 'sum'.
     """
     input_lens = (input_lens * log_probs.shape[1]).int()
     target_lens = (target_lens * targets.shape[1]).int()
@@ -229,10 +237,13 @@ def ctc_loss(log_probs, targets, input_lens, target_lens, blank_index):
         target_lens,
         blank_index,
         zero_infinity=True,
+        reduction=reduction,
     )
 
 
-def l1_loss(predictions, targets, length=None, allowed_len_diff=3):
+def l1_loss(
+    predictions, targets, length=None, allowed_len_diff=3, reduction="mean"
+):
     """Compute the true l1 loss, accounting for length differences.
 
     Arguments
@@ -245,6 +256,8 @@ def l1_loss(predictions, targets, length=None, allowed_len_diff=3):
         Length of each utterance for computing true error with a mask.
     allowed_len_diff : int
         Length difference that will be tolerated before raising an exception.
+    reduction: str
+        Specifies the reduction to apply to the output: 'mean' | 'sum'.
 
     Example
     -------
@@ -254,10 +267,14 @@ def l1_loss(predictions, targets, length=None, allowed_len_diff=3):
     """
     predictions, targets = truncate(predictions, targets, allowed_len_diff)
     loss = functools.partial(torch.nn.functional.l1_loss, reduction="none")
-    return compute_masked_loss(loss, predictions, targets, length)
+    return compute_masked_loss(
+        loss, predictions, targets, length, reduction=reduction
+    )
 
 
-def mse_loss(predictions, targets, length=None, allowed_len_diff=3):
+def mse_loss(
+    predictions, targets, length=None, allowed_len_diff=3, reduction="mean"
+):
     """Compute the true mean squared error, accounting for length differences.
 
     Arguments
@@ -270,6 +287,8 @@ def mse_loss(predictions, targets, length=None, allowed_len_diff=3):
         Length of each utterance for computing true error with a mask.
     allowed_len_diff : int
         Length difference that will be tolerated before raising an exception.
+    reduction: str
+        Specifies the reduction to apply to the output: 'mean' | 'sum'.
 
     Example
     -------
@@ -279,7 +298,9 @@ def mse_loss(predictions, targets, length=None, allowed_len_diff=3):
     """
     predictions, targets = truncate(predictions, targets, allowed_len_diff)
     loss = functools.partial(torch.nn.functional.mse_loss, reduction="none")
-    return compute_masked_loss(loss, predictions, targets, length)
+    return compute_masked_loss(
+        loss, predictions, targets, length, reduction=reduction
+    )
 
 
 def classification_error(
@@ -323,6 +344,7 @@ def nll_loss(
     length=None,
     label_smoothing=0.0,
     allowed_len_diff=3,
+    reduction="mean",
 ):
     """Computes negative log likelihood loss.
 
@@ -337,6 +359,8 @@ def nll_loss(
         Length of each utterance, if frame-level loss is desired.
     allowed_len_diff : int
         Length difference that will be tolerated before raising an exception.
+    reduction: str
+        Specifies the reduction to apply to the output: 'mean' | 'sum'.
 
     Example
     -------
@@ -358,6 +382,68 @@ def nll_loss(
         targets.long(),
         length,
         label_smoothing=label_smoothing,
+        reduction=reduction,
+    )
+
+
+def BCE_loss(
+    inputs,
+    targets,
+    length=None,
+    weight=None,
+    pos_weight=None,
+    reduction="mean",
+    allowed_len_diff=3,
+    label_smoothing=0.0,
+):
+    """Computes binary cross-entropy (BCE) loss. It also applies the sigmoid
+    function directly (this improves the numerical stability).
+
+    Arguments
+    ---------
+    inputs : torch.Tensor
+        The output before applying the final softmax
+        Format is [batch, 1] or [batch, frames, 1]
+    targets : torch.Tensor
+        The targets, of shape [batch] or [batch, frames]
+    length : torch.Tensor
+        Length of each utterance, if frame-level loss is desired.
+    weight: torch.Tensor
+        a manual rescaling weight if provided it’s repeated to match input
+        tensor shape.
+    pos_weight : torch.Tensor
+        a weight of positive examples. Must be a vector with length equal to
+        the number of classes.
+    allowed_len_diff : int
+        Length difference that will be tolerated before raising an exception.
+    reduction: str
+        Specifies the reduction to apply to the output: 'mean' | 'sum'.
+
+    Example
+    -------
+    >>> inputs = torch.tensor([10.0, -6.0])
+    >>> targets = torch.tensor([1, 0])
+    >>> BCE_loss(inputs, targets)
+    tensor(0.0013)
+    """
+    if len(inputs.shape) == 3:
+        inputs, targets = truncate(inputs, targets, allowed_len_diff)
+        inputs = inputs.transpose(1, -1)
+
+    # Pass the loss function but apply reduction="none" first
+    loss = functools.partial(
+        torch.nn.functional.binary_cross_entropy_with_logits,
+        weight=weight,
+        pos_weight=pos_weight,
+        reduction="none",
+    )
+    return compute_masked_loss(
+        loss,
+        inputs,
+        targets.float(),
+        length,
+        label_smoothing=label_smoothing,
+        reduction=reduction,
     )
 
 
@@ -368,6 +454,7 @@ def kldiv_loss(
     label_smoothing=0.0,
     allowed_len_diff=3,
     pad_idx=0,
+    reduction="mean",
 ):
     """Computes the KL-divergence error at batch level.
     This loss applies label smoothing directly on the targets
@@ -383,6 +470,8 @@ def kldiv_loss(
         Length of each utterance, if frame-level loss is desired.
     allowed_len_diff : int
         Length difference that will be tolerated before raising an exception.
+    reduction: str
+        Specifies the reduction to apply to the output: 'mean' | 'sum'.
 
     Example
     -------
@@ -421,7 +510,7 @@ def kldiv_loss(
             torch.nn.functional.nll_loss, ignore_index=pad_idx, reduction="none"
         )
         return compute_masked_loss(
-            loss, log_probabilities, targets.long(), length
+            loss, log_probabilities, targets.long(), length, reduction=reduction
         )
 
 
@@ -452,7 +541,12 @@ def truncate(predictions, targets, allowed_len_diff=3):
 
 
 def compute_masked_loss(
-    loss_fn, predictions, targets, length=None, label_smoothing=0.0
+    loss_fn,
+    predictions,
+    targets,
+    length=None,
+    label_smoothing=0.0,
+    reduction="mean",
 ):
     """Compute the true average loss of a set of waveforms of unequal length.
 
@@ -472,6 +566,9 @@ def compute_masked_loss(
         The proportion of label smoothing. Should only be used for NLL loss.
         Ref: Regularizing Neural Networks by Penalizing Confident Output Distributions.
         https://arxiv.org/abs/1701.06548
+    reduction: str
+        Specifies the reduction to apply to the output loss: 'mean' | 'sum'.
+
     """
     mask = torch.ones_like(targets)
     if length is not None:
@@ -481,11 +578,15 @@ def compute_masked_loss(
         if len(targets.shape) == 3:
             mask = mask.unsqueeze(2).repeat(1, 1, targets.shape[2])
 
-    loss = torch.sum(loss_fn(predictions, targets) * mask) / torch.sum(mask)
+    loss = torch.sum(loss_fn(predictions, targets) * mask)
+    if reduction == "mean":
+        loss = loss / torch.sum(mask)
+
     if label_smoothing == 0:
         return loss
     else:
-        loss_reg = -torch.sum(
-            torch.mean(predictions, dim=1) * mask
-        ) / torch.sum(mask)
+        loss_reg = -torch.sum(torch.mean(predictions, dim=1) * mask)
+        if reduction == "mean":
+            loss_reg = loss_reg / torch.sum(mask)
+
         return label_smoothing * loss_reg + (1 - label_smoothing) * loss
