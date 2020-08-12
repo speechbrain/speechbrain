@@ -2,20 +2,27 @@
 This script returns the train, dev and test split for AMI corpus
 """
 
+# TODO: Remove sample b4 merge
+ALLOWED_OPTIONS = ["scenario_only", "full_corpus", "full_corpus_asr", "sample"]
+
 
 def get_AMI_split(split_option):
     """Returns train, dev, and test sets for given split_option
     Note: IS1002 (no a), IS1005 (no d)
     """
 
-    allowed_types = ["scenario_only", "full_corpus", "full_corpus_asr"]
-
-    if split_option not in allowed_types:
+    if split_option not in ALLOWED_OPTIONS:
         print(
             f'Invalid split "{split_option}" requested!\nValid split_options are: ',
-            allowed_types,
+            ALLOWED_OPTIONS,
         )
         return
+
+    # TODO: Remove this before merge
+    if split_option == "sample":
+        train_set = ["IS1000"]
+        dev_set = ["IS1001"]
+        test_set = ["IS1002"]
 
     if split_option == "scenario_only":
 
