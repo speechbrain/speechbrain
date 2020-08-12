@@ -900,11 +900,9 @@ class DatasetFactory(Dataset):
             # Check if we need to convert labels to indexes
             if self.label_dict and data_entry in self.label_dict:
                 lab2ind = self.label_dict[data_entry]["lab2index"]
-            else:
-                lab2ind = None
 
             # Check if we need to convert labels with label func
-            if (
+            elif (
                 self.label_parsing_func
                 and "label_func" in data_line["options"]
                 and (data_line["options"]["label_func"] == "True")
@@ -912,7 +910,6 @@ class DatasetFactory(Dataset):
                 lab2ind = self.label_parsing_func
             else:
                 lab2ind = None
-
             # Managing caching
             if self.do_cache:
 
