@@ -1,49 +1,26 @@
 repos:
     - repo: local
       hooks:
-          - id: flake8-lint
-            name: flake8-lint
-            entry: flake8 . --count --show-source --statistics
-            language: python
+          - id: linters
+            name: linters
+            entry: ./.run-linters.sh
+            language: script
             pass_filenames: False
             always_run: True
             require_serial: False
 
-    - repo: local
-      hooks:
-          - id: black-lint
-            name: black-lint
-            entry: black --check --diff .
-            language: python
-            pass_filenames: False
-            always_run: True
-            require_serial: False
-
-    - repo: https://github.com/adrienverge/yamllint
-      rev: v1.23.0
-      hooks:
-          - id: yamllint
-            entry: yamllint .
-            pass_filenames: False
-            always_run: True
-            require_serial: False
-
-    - repo: local
-      hooks:
           - id: unittests
             name: unittests
-            entry: pytest tests/unittests
-            language: python
+            entry: ./.run-unittests.sh
+            language: script
             pass_filenames: False
             always_run: True
             require_serial: False
 
-    - repo: local
-      hooks:
           - id: doctests
             name: doctests
-            entry: pytest --doctest-modules speechbrain
-            language: python
+            entry: ./.run-doctests.sh
+            language: script
             pass_filenames: False
             always_run: True
             require_serial: False
