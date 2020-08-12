@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e -u -o pipefail
 
 echo "===Black==="
 git ls-files | grep -E "\.py$" | grep -v "^tools/kaldi_decoder/" | xargs black --check --diff
