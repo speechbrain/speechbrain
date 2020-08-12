@@ -6,7 +6,7 @@ sample_rate: 16000
 example_length: 2
 
 # Data files
-data_folder: /media/sam/bx500/speechbrain_minimalVAD/speechbrain/samples/speech_labelling
+data_folder: ../../../../samples/speech_labelling
 csv_train: !ref <data_folder>/train.csv
 csv_valid: !ref <data_folder>/train.csv
 csv_test: !ref <data_folder>/train.csv
@@ -24,29 +24,6 @@ dropout: 0.0
 
 # Outputs
 output_neurons: 1
-
-train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_train>
-    batch_size: !ref <N_batch>
-    csv_read: [wav, speech]
-    replacements:
-        $data_folder: !ref <data_folder>
-
-
-valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_valid>
-    batch_size: !ref <N_batch>
-    csv_read: [wav, speech]
-    replacements:
-        $data_folder: !ref <data_folder>
-
-
-test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_test>
-    csv_read: [wav, speech]
-    replacements:
-        $data_folder: !ref <data_folder>
-
 
 compute_features: !new:speechbrain.lobes.features.mfcc.MFCC
 
