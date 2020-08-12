@@ -209,14 +209,18 @@ class Brain:
 
     Arguments
     ---------
-    modules : list of torch.Tensors
-        The modules that will be updated using the optimizer.
-    optimizer : optimizer
-        The class to use for updating the modules' parameters.
+    models : list of (str, dict, optimizer or None) tuples
+        The first element of each tuple describes the name of the model.
+        An attribute of this class will be set using this name.
+        The dict contains a set of torch.nn.Modules that can be used
+        in the compute_forward method, the parameters of which will be
+        updated with the optimizer, if provided.
     first_inputs : list of torch.Tensor
         An example of the input to the Brain class, for parameter init.
         Arguments are passed individually to the ``compute_forward`` method,
         for cases where a different signature is desired.
+    device : str
+        The location for performing computations.
     auto_mix_prec: bool
         If True, automatic mixed-precision is used. Activate it only with cuda.
 
@@ -225,39 +229,53 @@ class Brain:
     >>> from speechbrain.nnet.optimizers import SGD_Optimizer
     >>> class SimpleBrain(Brain):
     ...     def compute_forward(self, x, init_params=False):
-    ...         return self.modules[0](x)
+    ...         return self.model['model'](x)
     ...     def compute_objectives(self, predictions, targets, train=True):
     ...         return torch.nn.functional.l1_loss(predictions, targets), {}
     >>> model = torch.nn.Linear(in_features=10, out_features=10)
     >>> brain = SimpleBrain(
-    ...     modules=[model],
-    ...     optimizer=SGD_Optimizer(0.01),
+    ...     models=[('model', {'model': model}, SGD_Optimizer(0.01))],
+    ...     device='cpu',
     ...     first_inputs=[torch.rand(10, 10)],
     ... )
     >>> brain.fit(
     ...     epoch_counter=range(1),
-    ...     train_set=([torch.rand(10, 10),torch.rand(10, 10)],)
+    ...     train_set=([torch.rand(10, 10), torch.rand(10, 10)],)
     ... )
     """
 
     def __init__(
-        self,
-        modules=None,
-        optimizer=None,
-        first_inputs=None,
-        auto_mix_prec=False,
+        self, models, first_inputs=None, device="cuda:0", auto_mix_prec=False,
     ):
-        self.modules = torch.nn.ModuleList(modules)
-        self.optimizer = optimizer
-        self.avg_train_loss = 0.0
-        self.auto_mix_prec = auto_mix_prec
+        self.device = device
+
+        # Set model attribute, so compute_forward can access model
+        for name, model, optimizer in models:
+            setattr(self, name, model)
 
         # Initialize parameters
         if first_inputs is not None:
             self.compute_forward(*first_inputs, init_params=True)
 
-            if self.optimizer is not None:
-                self.optimizer.init_params(self.modules)
+        # Initialize optimizers
+        modulelist = []
+        self.optimizers = []
+        for name, model, optimizer in models:
+            model_modules = [
+                m for m in model.values() if isinstance(m, torch.nn.Module)
+            ]
+            modulelist.extend(model_modules)
+
+            # Initialize optimizer with correct parameters.
+            if optimizer is not None:
+                setattr(self, name + "_optimizer", optimizer)
+                optimizer.init_params(model_modules)
+                self.optimizers.append(optimizer)
+
+        # Store modules, primarily for calling train()/eval()
+        self.modules = torch.nn.ModuleList(modulelist)
+        self.avg_train_loss = 0.0
+        self.auto_mix_prec = auto_mix_prec
 
         # Automatic mixed precision init
         self.scaler = torch.cuda.amp.GradScaler()
@@ -335,7 +353,6 @@ class Brain:
 
         * ``compute_forward()``
         * ``compute_objectives()``
-        * ``optimizer()``
 
         Arguments
         ---------
@@ -352,21 +369,23 @@ class Brain:
         """
         inputs, targets = batch
 
-        # Managing automatic mixed precision
-        if self.auto_mix_prec:
-            with torch.cuda.amp.autocast():
+        for optimizer in self.optimizers:
+
+            # Managing automatic mixed precision
+            if self.auto_mix_prec:
+                with torch.cuda.amp.autocast():
+                    predictions = self.compute_forward(inputs)
+                    loss, stats = self.compute_objectives(predictions, targets)
+                    self.scaler.scale(loss).backward()
+                    self.scaler.step(optimizer.optim)
+                    optimizer.zero_grad()
+                    self.scaler.update()
+            else:
                 predictions = self.compute_forward(inputs)
                 loss, stats = self.compute_objectives(predictions, targets)
-                self.scaler.scale(loss).backward()
-                self.scaler.step(self.optimizer.optim)
-                self.optimizer.zero_grad()
-                self.scaler.update()
-        else:
-            predictions = self.compute_forward(inputs)
-            loss, stats = self.compute_objectives(predictions, targets)
-            loss.backward()
-            self.optimizer.step()
-            self.optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+                optimizer.zero_grad()
 
         stats["loss"] = loss.detach()
         return stats
