@@ -127,7 +127,7 @@ class DataLoaderFactory(torch.nn.Module):
         add_padding_label=False,
         replacements={},
         output_folder=None,
-        label_parsing_func=None
+        label_parsing_func=None,
     ):
         super().__init__()
 
@@ -182,7 +182,7 @@ class DataLoaderFactory(torch.nn.Module):
             self.csv_read,
             self.cache,
             self.cache_ram_percent,
-            self.label_parsing_func
+            self.label_parsing_func,
         )
 
         self.dataloader = DataLoader(
@@ -417,15 +417,19 @@ class DataLoaderFactory(torch.nn.Module):
         labels = []
         opts = data_dict_elem["options"]
 
-        if "label_func" in opts and opts["label_func"] == 'True':
-            assert self.label_parsing_func, \
-                "A parsing function must be defined for the labels and passed to DataLoadFactory"
+        if "label_func" in opts and opts["label_func"] == "True":
+            assert self.label_parsing_func, (
+                "A parsing function must be defined for "
+                "the labels and passed to DataLoadFactory"
+            )
             labels = self.label_parsing_func(data_dict_elem["data"])
             count_lab = False
 
-        if data_dict_elem["format"] == "string" and (
-            "label" not in opts or opts["label"] == "True") and (not ("label_func" in opts and opts["label_func"] == 'True')):
-
+        if (
+            data_dict_elem["format"] == "string"
+            and ("label" not in opts or opts["label"] == "True")
+            and (not ("label_func" in opts and opts["label_func"] == "True"))
+        ):
 
             if len(data_dict_elem["data"].split(" ")) > 1:
                 # Processing list of string labels
@@ -900,12 +904,14 @@ class DatasetFactory(Dataset):
                 lab2ind = None
 
             # Check if we need to convert labels with label func
-            if self.label_parsing_func and "label_func" in data_line["options"] \
-                    and (data_line["options"]["label_func"] == 'True'):
+            if (
+                self.label_parsing_func
+                and "label_func" in data_line["options"]
+                and (data_line["options"]["label_func"] == "True")
+            ):
                 lab2ind = self.label_parsing_func
             else:
                 lab2ind = None
-
 
             # Managing caching
             if self.do_cache:
