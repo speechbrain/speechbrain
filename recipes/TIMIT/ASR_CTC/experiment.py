@@ -32,33 +32,36 @@ sb.core.create_experiment_directory(
 class ASR(sb.core.Brain):
     def compute_forward(self, x, stage="train", init_params=False):
         ids, wavs, wav_lens = x
-        wavs, wav_lens = wavs.to(params.device), wav_lens.to(params.device)
+        wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
 
         # Adding environmental corruption if specified (i.e., noise+rev)
-        if hasattr(params, "env_corrupt") and stage == "train":
-            wavs_noise = params.env_corrupt(wavs, wav_lens, init_params)
+        if "env_corrupt" in self.features and stage == "train":
+            wavs_noise = self.features["env_corrupt"](
+                wavs, wav_lens, init_params
+            )
             wavs = torch.cat([wavs, wavs_noise], dim=0)
             wav_lens = torch.cat([wav_lens, wav_lens])
 
         # Adding time-domain SpecAugment if specified
-        if hasattr(params, "augmentation"):
-            wavs = params.augmentation(wavs, wav_lens, init_params)
+        if "augmentation" in self.features:
+            wavs = self.features["augmentation"](wavs, wav_lens, init_params)
 
-        feats = params.compute_features(wavs, init_params)
-        feats = params.normalize(feats, wav_lens)
-        out = params.model(feats, init_params)
-        out = params.output(out, init_params)
-        pout = params.log_softmax(out)
+        feats = self.features["compute_features"](wavs, init_params)
+        feats = self.features["normalize"](feats, wav_lens)
+        out = self.model["model"](feats, init_params)
+        out = self.model["output"](out, init_params)
+        pout = self.model["log_softmax"](out)
+
         return pout, wav_lens
 
     def compute_objectives(self, predictions, targets, stage="train"):
         pout, pout_lens = predictions
         ids, phns, phn_lens = targets
-        phns, phn_lens = phns.to(params.device), phn_lens.to(params.device)
+        phns, phn_lens = phns.to(self.device), phn_lens.to(self.device)
         stats = {}
 
         if stage == "train":
-            if hasattr(params, "env_corrupt"):
+            if "env_corrupt" in self.features:
                 phns = torch.cat([phns, phns], dim=0)
                 phn_lens = torch.cat([phn_lens, phn_lens], dim=0)
             loss = params.compute_cost(pout, phns, pout_lens, phn_lens)
@@ -77,7 +80,7 @@ class ASR(sb.core.Brain):
 
     def on_epoch_end(self, epoch, train_stats, valid_stats=None):
         per = summarize_error_rate(valid_stats["PER"])
-        old_lr, new_lr = params.lr_annealing([params.optimizer], epoch, per)
+        old_lr, new_lr = params.lr_annealing(self.optimizers, epoch, per)
         epoch_stats = {"epoch": epoch, "lr": old_lr}
         params.train_logger.log_stats(epoch_stats, train_stats, valid_stats)
 
@@ -96,18 +99,13 @@ train_set = params.train_loader()
 valid_set = params.valid_loader()
 first_x, first_y = next(iter(train_set))
 
-# Modules are passed to optimizer and have train/eval called on them
-modules = [params.model, params.output]
-
-# We need to pass the augmentation module too.
-# This way we do augment only in traning mode.
-if hasattr(params, "augmentation"):
-    modules.append(params.augmentation)
+models = [
+    ("features", params.features, None),
+    ("model", params.model, params.optimizer),
+]
 
 # Create brain object for training
-asr_brain = ASR(
-    modules=modules, optimizer=params.optimizer, first_inputs=[first_x],
-)
+asr_brain = ASR(models=models, device=params.device, first_inputs=[first_x])
 
 # Load latest checkpoint to resume training
 params.checkpointer.recover_if_possible()
