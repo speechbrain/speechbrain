@@ -262,12 +262,18 @@ class ComplexBatchNorm(torch.nn.Module):
         if self.training:
             if self.track_running_stats:
                 if self.center:
+                    self.moving_mean = self.moving_mean.to(input.device)
+
                     self.moving_mean = (
                         1 - exponential_average_factor
                     ) * self.moving_mean + exponential_average_factor * mu.view(
                         self.moving_mean.size()
                     )
                 if self.scale:
+                    self.moving_Vrr = self.moving_Vrr.to(input.device)
+                    self.moving_Vii = self.moving_Vii.to(input.device)
+                    self.moving_Vri = self.moving_Vri.to(input.device)
+
                     self.moving_Vrr = (
                         1 - exponential_average_factor
                     ) * self.moving_Vrr + exponential_average_factor * Vrr.view(
@@ -288,13 +294,13 @@ class ComplexBatchNorm(torch.nn.Module):
             input_inferred = input_centred if self.center else input
             return complex_norm(
                 input_inferred,
-                Vrr,
-                Vii,
-                Vri,
-                self.beta,
-                self.gamma_rr,
-                self.gamma_ri,
-                self.gamma_ii,
+                Vrr.to(input_inferred.device),
+                Vii.to(input_inferred.device),
+                Vri.to(input_inferred.device),
+                self.beta.to(input_inferred.device),
+                self.gamma_rr.to(input_inferred.device),
+                self.gamma_ri.to(input_inferred.device),
+                self.gamma_ii.to(input_inferred.device),
                 self.scale,
                 self.center,
                 layernorm=False,
@@ -307,13 +313,13 @@ class ComplexBatchNorm(torch.nn.Module):
                 input_inferred = input
             return complex_norm(
                 input_inferred,
-                self.moving_Vrr,
-                self.moving_Vii,
-                self.moving_Vri,
-                self.beta,
-                self.gamma_rr,
-                self.gamma_ri,
-                self.gamma_ii,
+                self.moving_Vrr.to(input_inferred.device),
+                self.moving_Vii.to(input_inferred.device),
+                self.moving_Vri.to(input_inferred.device),
+                self.beta.to(input_inferred.device),
+                self.gamma_rr.to(input_inferred.device),
+                self.gamma_ri.to(input_inferred.device),
+                self.gamma_ii.to(input_inferred.device),
                 self.scale,
                 self.center,
                 layernorm=False,

@@ -108,9 +108,9 @@ class SEBrain(sb.core.Brain):
         )
 
         enhanced_wavs = params.compute_istft(enhanced_spec)
-        # print(feats.shape, output.shape, enhanced_spec.shape, enhanced_wavs.shape)
 
-        return enhanced_wavs
+        padding = (0, wavs.shape[1] - enhanced_wavs.shape[1])
+        return torch.nn.functional.pad(enhanced_wavs, padding)
 
     def compute_sisnr(self, est_target, target, lens):
         assert target.size() == est_target.size()
@@ -121,7 +121,7 @@ class SEBrain(sb.core.Brain):
         target = target - mean_source
         est_target = est_target - mean_estimate
 
-        # Step 2. Pair-wise SI-SDR.
+        # Step 2. Pair-wise SI-SNR.
         # [batch, 1]
         dot = torch.sum(est_target * target, dim=1, keepdim=True)
         # [batch, 1]
@@ -143,22 +143,6 @@ class SEBrain(sb.core.Brain):
         ids, wavs, lens = cleans
         wavs, lens = wavs.to(params.device), lens.to(params.device)
 
-        # com_clean = params.compute_stft(wavs)
-        # mag_clean = spectral_magnitude(com_clean, power=0.5)
-        # mag_pred = spectral_magnitude(predictions, power=0.5)
-
-        # real, imag = torch.split(com_clean, 1, dim=-1)
-        # # real = params.output_norm_real(real, lens)
-        # # imag = params.output_norm_imag(imag, lens)
-        # com_clean = torch.squeeze(torch.cat([real, imag], dim=2))  # [N, T, 2*F]
-
-        # com_loss = params.compute_cost(
-        #     torch.squeeze(
-        #         torch.cat(torch.split(predictions, 1, dim=-1), dim=2)
-        #     ),
-        #     com_clean,
-        #     lens,
-        # )
         loss = self.compute_sisnr(predictions, wavs, lens)
 
         return loss, {}
@@ -250,6 +234,10 @@ first_x = next(iter(train_set))
 se_brain = SEBrain(
     modules=[params.model], optimizer=params.optimizer, first_inputs=first_x,
 )
+
+if params.use_multigpu:
+    print("Use %i GPUs" % torch.cuda.device_count())
+    params.model = torch.nn.DataParallel(params.model)
 
 # Load latest checkpoint to resume training
 params.checkpointer.recover_if_possible()

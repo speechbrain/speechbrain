@@ -115,7 +115,7 @@ class ComplexRNN(torch.nn.Module):
 
         self.rnn = self._init_layers()
 
-        self.rnn.to(first_input.device)
+        self.rnn = self.rnn.to(first_input.device)
 
     def _init_layers(self,):
         """
@@ -879,6 +879,8 @@ class ComplexLiGRU_Layer(torch.nn.Module):
             if self.training:
                 self.drop_masks = self.drop(
                     torch.ones(
-                        self.N_drop_masks, self.hidden_size, device=self.device,
+                        self.N_drop_masks,
+                        self.hidden_size * 2,
+                        device=self.device,
                     )
                 ).data

@@ -269,9 +269,9 @@ class complex_convolution(Module):
         wx = complex_conv_op(
             x,
             self.conv1d,
-            self.real_weight,
-            self.imag_weight,
-            self.b,
+            self.real_weight.to(x.device),
+            self.imag_weight.to(x.device),
+            self.b.to(x.device),
             self.stride,
             0,
             self.dilation,
