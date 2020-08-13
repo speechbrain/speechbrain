@@ -87,8 +87,6 @@ class SEBrain(sb.core.Brain):
 
         stats = {}
         if stage != "train":
-            stats["stoi"] = -stoi_loss(predict_wav, target_wav, lens)
-
             # Comprehensive but slow evaluation for test
             lens = lens * target_wav.shape[1]
 
@@ -99,6 +97,10 @@ class SEBrain(sb.core.Brain):
                 lens.cpu().numpy(),
             )
 
+            stats["loss"] = loss.detach()
+            stats["pesq"] = pesq_scores
+            stats["stoi"] = -stoi_loss(predict_wav, target_wav, lens)
+
             # Write wavs to file
             if stage == "test":
                 for name, pred_wav, length in zip(ids, predict_wav, lens):
@@ -107,9 +109,6 @@ class SEBrain(sb.core.Brain):
                     torchaudio.save(
                         enhance_path, predict_wav[: int(length)].cpu(), 16000
                     )
-
-            stats["pesq"] = pesq_scores
-
         return loss, stats
 
     def on_epoch_end(self, epoch, train_stats, valid_stats):
@@ -122,9 +121,9 @@ class SEBrain(sb.core.Brain):
             {"Epoch": epoch}, train_stats, valid_stats
         )
 
-        loss = summarize_average(valid_stats["loss"])
+        pesq_score = summarize_average(valid_stats["pesq"])
         params.checkpointer.save_and_keep_only(
-            meta={"loss": loss}, min_keys=["loss"],
+            meta={"pesq_score": pesq_score}, max_keys=["pesq_score"],
         )
 
     def resynthesize(self, predictions, inputs):
@@ -174,7 +173,7 @@ params.checkpointer.recover_if_possible()
 se_brain.fit(params.epoch_counter, train_set, valid_set)
 
 # Load best checkpoint for evaluation
-params.checkpointer.recover_if_possible(min_key="loss")
+params.checkpointer.recover_if_possible(max_key="pesq_score")
 test_stats = se_brain.evaluate(params.test_loader())
 params.train_logger.log_stats(
     stats_meta={"Epoch loaded": params.epoch_counter.current},

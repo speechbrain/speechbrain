@@ -7,13 +7,13 @@
 
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 1234
+seed: 2234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 data_folder: !PLACEHOLDER
 test_clean_folder: !ref <data_folder>/clean_testset_wav_16k/
 
-output_folder: !ref ./results/FCN_stoi/<seed>
+output_folder: !ref ./results/FCN/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 enhanced_folder: !ref <output_folder>/FCN_enhanced
@@ -28,10 +28,10 @@ csv_valid: !ref <data_folder>/valid.csv
 csv_test: !ref <data_folder>/test.csv
 
 # Training Parameters
-number_of_epochs: 20
+number_of_epochs: 120
 N_batch: 1
 lr: 0.001
-device: 'cuda'
+device: 'cuda:0'
 Sample_rate: 16000
 max_length: !ref <Sample_rate> * 10
 
@@ -66,7 +66,7 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
 
-conv1: !new:speechbrain.nnet.CNN.Conv1d
+conv1: !new:speechbrain.nnet.CNN.SincConv
     out_channels: 30
     kernel_size: 55
 
@@ -154,8 +154,7 @@ model: !new:speechbrain.nnet.containers.Sequential
     - !ref <activation>
     - !ref <conv_out>
 
-
-compute_cost: !name:speechbrain.nnet.loss.stoi_loss.stoi_loss
+compute_cost: !name:speechbrain.nnet.losses.mse_loss
 
 optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
     learning_rate: !ref <lr>
