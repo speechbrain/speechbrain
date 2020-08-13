@@ -4,12 +4,12 @@ https://arxiv.org/pdf/2008.00264.pdf
 Authors
  * Chien-Feng Liao 2020
 """
-import torch
+import torch  # noqa F4001
 import torch.nn as nn
 from speechbrain.nnet.complex_networks.CNN import ComplexConv2d
-from speechbrain.nnet.complex_networks.linear import ComplexLinear
+from speechbrain.nnet.linear import Linear
 from speechbrain.nnet.complex_networks.normalization import ComplexBatchNorm
-from speechbrain.nnet.complex_networks.RNN import ComplexLiGRU
+from speechbrain.nnet.RNN import LSTM
 from speechbrain.nnet.complex_networks.complex_ops import complex_concat
 from speechbrain.nnet.containers import Sequential
 
@@ -46,22 +46,22 @@ class DCCRN(nn.Module):
             ]
         )
 
+        x = first_input
         # Get the output size of each encoder layers
-        self.encoder_size = [129, 65, 33, 17, 9, 5]
-        # x = first_input
-        # for conv in self.encoder_convs:
-        #     x = conv(x, init_params=True)
-        #     self.encoder_size.append(x.shape[2])
-        # print(self.encoder_size)
-        self.rnn = ComplexLiGRU(
+        self.encoder_size = []
+        for conv in self.encoder_convs:
+            x = conv(x, init_params=True)
+            self.encoder_size.append(x.shape[2])
+
+        self.rnn = LSTM(
             self.rnn_size,
             num_layers=self.rnn_layers,
-            normalization="batchnorm",
+            # normalization="batchnorm",
         )
 
         # Linear layer to transform rnn output back to 4-D
-        self.linear_dim = self.encoder_size[-1] * self.conv_channels[-1]
-        self.linear_trans = ComplexLinear(self.linear_dim)
+        self.linear_dim = self.encoder_size[-1] * self.conv_channels[-1] * 2
+        self.linear_trans = Linear(self.linear_dim)
 
         self.decoder_convs = nn.ModuleList(
             [
@@ -99,19 +99,25 @@ class DCCRN(nn.Module):
         rnn_out = self.rnn(x, init_params=init_params)
         rnn_out = self.linear_trans(rnn_out, init_params=init_params)
 
-        # Split then reshape is needed instead of directly reshape
-        rnn_out_r, rnn_out_i = torch.split(rnn_out, self.linear_dim, -1)
-        rnn_out_r = rnn_out_r.reshape(
-            x.shape[0], x.shape[1], x.shape[2], x.shape[3] // 2
+        # If use complex RNN + complex Linear:
+        # split then reshape is needed instead of directly reshape
+        # rnn_out_r, rnn_out_i = torch.split(rnn_out, self.linear_dim, -1)
+        # rnn_out_r = rnn_out_r.reshape(
+        #     x.shape[0], x.shape[1], x.shape[2], x.shape[3] // 2
+        # )
+        # rnn_out_i = rnn_out_i.reshape(
+        #     x.shape[0], x.shape[1], x.shape[2], x.shape[3] // 2
+        # )
+        # rnn_out = torch.cat([rnn_out_r, rnn_out_i], dim=3)
+
+        # Directly reshape
+        rnn_out = rnn_out.reshape(
+            x.shape[0], x.shape[1], x.shape[2], x.shape[3]
         )
-        rnn_out_i = rnn_out_i.reshape(
-            x.shape[0], x.shape[1], x.shape[2], x.shape[3] // 2
-        )
-        rnn_out = torch.cat([rnn_out_r, rnn_out_i], dim=3)
 
         decoder_out = rnn_out
         for i, conv in enumerate(self.decoder_convs):
-            # TODO: change to concat
+            # Concat last layer output with encoder output
             skip_ = encoder_outputs[-(i + 1)]
             decoder_out = complex_concat(
                 [skip_, decoder_out], input_type="convolution", channels_axis=3

@@ -31,12 +31,12 @@ lr: 0.001
 device: cuda:0
 
 # Model Parameters
-conv_channels: [32, 64, 128, 128, 256, 256]
+conv_channels: [32, 64, 128, 128, 128, 256]
 kernel_size: [3, 5]
 padding_type: same
 strides: [2, 1]
-rnn_size: 128
-rnn_layers: 1
+rnn_size: 256
+rnn_layers: 2
 
 # FFT Parameters
 samplerate: 16000
