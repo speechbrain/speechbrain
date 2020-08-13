@@ -3,6 +3,7 @@ import speechbrain as sb
 import torch
 import speechbrain.processing.NMF as sb_nmf
 from speechbrain.processing.features import spectral_magnitude
+from speechbrain.data_io.data_io import write_wav_soundfile
 import os
 
 experiment_dir = os.path.dirname(os.path.realpath(__file__))
@@ -146,14 +147,24 @@ Xmix_mag = spectral_magnitude(Xmix, power=2)
 
 X1hat, X2hat = sb_nmf.NMF_separate_spectra([W1hat, W2hat], Xmix_mag)
 
-sb_nmf.reconstruct_results(
+x1, x2 = sb_nmf.reconstruct_results(
     X1hat,
     X2hat,
     Xmix.permute(0, 2, 1, 3),
     hyperparams.sample_rate,
     hyperparams.win_length,
     hyperparams.hop_length,
-    use_absolute_path=False,
-    copy_original_files=True,
-    datapath="samples/audio_samples/sourcesep_samples/",
 )
+
+if hyperparams.save_reconstructed:
+    write_wav_soundfile(
+        x1, os.path.join(hyperparams.output_folder, "x1.wav"), 16000
+    )
+    write_wav_soundfile(
+        x2, os.path.join(hyperparams.output_folder, "x2.wav"), 16000
+    )
+
+
+def test_NMF():
+    # Fill in some check here, comparing x1 and x2 to some expected result
+    pass
