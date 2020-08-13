@@ -292,7 +292,7 @@ class ASR(sb.core.Brain):
         epoch_stats = {
             "epoch": epoch,
             "lr": old_lr,
-            "steps": params.lr_annealing.n_steps,
+            "steps": params.cosine_annealing.n_steps,
         }
         params.train_logger.log_stats(epoch_stats, train_stats, valid_stats)
 
