@@ -1,14 +1,13 @@
 """
-Calculates Diarization Error Rate (DER) which is sum of Missed Speaker (MS),
-False Alarm (FA), and Speaker Error Rate (SER) using md-eval-22.pl of NIST RT Evaluation.
+Calculates Diarization Error Rate (DER) which is the sum of Missed Speaker (MS),
+False Alarm (FA), and Speaker Error Rate (SER) using md-eval-22.pl from NIST RT Evaluation.
 
 Authors
+ * Neville Ryant 2018
  * Nauman Dawalatabad 2020
 
- References
- * NIST. (2009). The 2009 (RT-09) Rich Transcription Meeting Recognition Evaluation Plan.
-   https://web.archive.org/web/20100606041157if_/http://www.itl.nist.gov/iad/mig/tests/rt/2009/docs/rt09-meeting-eval-plan-v2.pdf
- * dscore: https://github.com/nryant/dscore
+Credits
+ This code is adapted from https://github.com/nryant/dscore
 """
 
 import os
