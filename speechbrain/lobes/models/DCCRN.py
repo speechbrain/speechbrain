@@ -37,12 +37,14 @@ class DCCRN(nn.Module):
         N, T, F, C = first_input.shape
         self.device = first_input.device
 
-        self.encoder_convs = [
-            Encoder_layer(
-                c, self.kernel_size, self.strides, padding=self.padding
-            )
-            for c in self.conv_channels
-        ]
+        self.encoder_convs = nn.ModuleList(
+            [
+                Encoder_layer(
+                    c, self.kernel_size, self.strides, padding=self.padding
+                )
+                for c in self.conv_channels
+            ]
+        )
 
         # Get the output size of each encoder layers
         self.encoder_size = [129, 65, 33, 17, 9, 5]
@@ -61,15 +63,20 @@ class DCCRN(nn.Module):
         self.linear_dim = self.encoder_size[-1] * self.conv_channels[-1]
         self.linear_trans = ComplexLinear(self.linear_dim)
 
-        self.decoder_convs = [
-            Decoder_layer(
-                c, self.kernel_size, output_size=[T, u], padding=self.padding
-            )
-            for c, u in zip(
-                self.conv_channels[:-1][::-1], self.encoder_size[:-1][::-1]
-            )
-        ]
-        self.decoder_convs += [
+        self.decoder_convs = nn.ModuleList(
+            [
+                Decoder_layer(
+                    c,
+                    self.kernel_size,
+                    output_size=[T, u],
+                    padding=self.padding,
+                )
+                for c, u in zip(
+                    self.conv_channels[:-1][::-1], self.encoder_size[:-1][::-1]
+                )
+            ]
+        )
+        self.decoder_convs.append(
             Decoder_layer(
                 1,
                 self.kernel_size,
@@ -77,17 +84,17 @@ class DCCRN(nn.Module):
                 padding=self.padding,
                 use_norm_act=False,
             )
-        ]
+        )
 
     def forward(self, x, init_params=False):
         if init_params:
             self.init_params(x)
-        print("Encoder")
+
         encoder_outputs = [x]
         for conv in self.encoder_convs:
             x = conv(x, init_params=init_params)
             encoder_outputs.append(x)
-        print("RNN")
+
         # Apply RNN and linear transform back to 4-D
         rnn_out = self.rnn(x, init_params=init_params)
         rnn_out = self.linear_trans(rnn_out, init_params=init_params)
@@ -101,7 +108,7 @@ class DCCRN(nn.Module):
             x.shape[0], x.shape[1], x.shape[2], x.shape[3] // 2
         )
         rnn_out = torch.cat([rnn_out_r, rnn_out_i], dim=3)
-        print("Decoder")
+
         decoder_out = rnn_out
         for i, conv in enumerate(self.decoder_convs):
             # TODO: change to concat

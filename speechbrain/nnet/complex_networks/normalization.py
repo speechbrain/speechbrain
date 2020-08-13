@@ -262,18 +262,12 @@ class ComplexBatchNorm(torch.nn.Module):
         if self.training:
             if self.track_running_stats:
                 if self.center:
-                    self.moving_mean = self.moving_mean.to(input.device)
-
                     self.moving_mean = (
                         1 - exponential_average_factor
                     ) * self.moving_mean + exponential_average_factor * mu.view(
                         self.moving_mean.size()
                     )
                 if self.scale:
-                    self.moving_Vrr = self.moving_Vrr.to(input.device)
-                    self.moving_Vii = self.moving_Vii.to(input.device)
-                    self.moving_Vri = self.moving_Vri.to(input.device)
-
                     self.moving_Vrr = (
                         1 - exponential_average_factor
                     ) * self.moving_Vrr + exponential_average_factor * Vrr.view(
@@ -509,13 +503,13 @@ class ComplexLayerNorm(torch.nn.Module):
 
         return complex_norm(
             input_centred,
-            Vrr,
-            Vii,
-            Vri,
-            self.beta,
-            self.gamma_rr,
-            self.gamma_ri,
-            self.gamma_ii,
+            Vrr.to(input_centred.device),
+            Vii.to(input_centred.device),
+            Vri.to(input_centred.device),
+            self.beta.to(input_centred.device),
+            self.gamma_rr.to(input_centred.device),
+            self.gamma_ri.to(input_centred.device),
+            self.gamma_ii.to(input_centred.device),
             self.scale,
             self.center,
             dim=self.dim,

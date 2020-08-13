@@ -91,7 +91,7 @@ class ComplexLinear(torch.nn.Module):
             self.init_criterion,
             self.weight_init,
             first_input.device,
-        )
+        ).to(first_input.device)
 
     def forward(self, x, init_params=False):
         """Returns the linear transformation of input tensor.

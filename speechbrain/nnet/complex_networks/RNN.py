@@ -708,11 +708,11 @@ class ComplexLiGRU_Layer(torch.nn.Module):
 
         self.w = complex_linear(
             self.input_size, 2 * self.hidden_size, bias=False
-        ).to(self.device)
+        )
 
         self.u = complex_linear(
             self.hidden_size, 2 * self.hidden_size, bias=False
-        ).to(self.device)
+        )
 
         if self.bidirectional:
             self.batch_size = self.batch_size * 2
@@ -762,13 +762,15 @@ class ComplexLiGRU_Layer(torch.nn.Module):
         ---------
         x : torch.Tensor
         """
-
+        self.device = x.device
         if self.bidirectional:
             x_flip = x.flip(1)
             x = torch.cat([x, x_flip], dim=0)
 
         # Change batch size if needed
         self._change_batch_size(x)
+        self.u = self.u.to(self.device)
+        self.w = self.w.to(self.device)
 
         # Feed-forward affine transformations (all steps in parallel)
         w = self.w(x)
@@ -783,9 +785,9 @@ class ComplexLiGRU_Layer(torch.nn.Module):
 
         # Processing time steps
         if hx is not None:
-            h = self._complex_ligru_cell(w, hx)
+            h = self._complex_ligru_cell(w, hx.to(w.device))
         else:
-            h = self._complex_ligru_cell(w, self.h_init)
+            h = self._complex_ligru_cell(w, self.h_init.to(w.device))
 
         if self.bidirectional:
             h_f, h_b = h.chunk(2, dim=0)
@@ -803,7 +805,6 @@ class ComplexLiGRU_Layer(torch.nn.Module):
             Linearly transformed input.
         """
         hiddens = []
-
         # Sampling dropout mask
         drop_mask = self._sample_drop_mask()
 

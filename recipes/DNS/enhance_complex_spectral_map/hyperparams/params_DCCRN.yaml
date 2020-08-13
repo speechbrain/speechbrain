@@ -36,7 +36,7 @@ kernel_size: [3, 5]
 padding_type: same
 strides: [2, 1]
 rnn_size: 128
-rnn_layers: 2
+rnn_layers: 1
 
 # FFT Parameters
 samplerate: 16000

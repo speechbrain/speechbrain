@@ -83,23 +83,11 @@ class complex_linear(nn.Module):
 
         # Two weight matrices are created for the real and imaginary parts of
         # the weights. This will also allow an easier complex product.
-        self.real_weight = Parameter(
-            torch.empty(
-                [inp_size, n_neurons], dtype=torch.float, device=self.device
-            )
-        )
-        self.imag_weight = Parameter(
-            torch.empty(
-                [inp_size, n_neurons], dtype=torch.float, device=self.device
-            )
-        )
+        self.real_weight = Parameter(torch.Tensor(inp_size, n_neurons))
+        self.imag_weight = Parameter(torch.Tensor(inp_size, n_neurons))
 
         if self.bias:
-            self.b = Parameter(
-                torch.empty(
-                    2 * n_neurons, dtype=torch.float, device=self.device
-                )
-            )
+            self.b = Parameter(torch.Tensor(2 * n_neurons))
         else:
             self.b = torch.tensor(2 * n_neurons, requires_grad=False)
 
@@ -114,11 +102,6 @@ class complex_linear(nn.Module):
 
         if self.b.requires_grad:
             self.b.data.zero_()
-            # self.b.to(self.device)
-
-        # send to device
-        # self.real_weight.to(self.device)
-        # self.imag_weight.to(self.device)
 
     def forward(self, x):
         """Returns the output of the linear operation.
@@ -269,9 +252,9 @@ class complex_convolution(Module):
         wx = complex_conv_op(
             x,
             self.conv1d,
-            self.real_weight.to(x.device),
-            self.imag_weight.to(x.device),
-            self.b.to(x.device),
+            self.real_weight,
+            self.imag_weight,
+            self.b,
             self.stride,
             0,
             self.dilation,
