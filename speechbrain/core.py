@@ -209,12 +209,14 @@ class Brain:
 
     Arguments
     ---------
-    models : list of (str, dict, optimizer or None) tuples
-        The first element of each tuple describes the name of the model.
-        An attribute of this class will be set using this name.
-        The dict contains a set of torch.nn.Modules that can be used
-        in the compute_forward method, the parameters of which will be
-        updated with the optimizer, if provided.
+    modules : dict
+        Each element should consist of a string key for indicating which
+        modules need to be passed to an optimizer, as well as a module
+        to be used by the Brain class (is not required to be a torch module).
+    optimizers : dict
+        Pairs where the key is a string referring to a specific module, or a
+        tuple referring to several modules, and the value is an optimizer.
+        The optimizer will be used to update the listed modules.
     first_inputs : list of torch.Tensor
         An example of the input to the Brain class, for parameter init.
         Arguments are passed individually to the ``compute_forward`` method,
@@ -229,12 +231,13 @@ class Brain:
     >>> from speechbrain.nnet.optimizers import SGD_Optimizer
     >>> class SimpleBrain(Brain):
     ...     def compute_forward(self, x, init_params=False):
-    ...         return self.model['model'](x)
+    ...         return self.model(x)
     ...     def compute_objectives(self, predictions, targets, train=True):
     ...         return torch.nn.functional.l1_loss(predictions, targets), {}
     >>> model = torch.nn.Linear(in_features=10, out_features=10)
     >>> brain = SimpleBrain(
-    ...     models=[('model', {'model': model}, SGD_Optimizer(0.01))],
+    ...     modules={'model': model},
+    ...     optimizers={'model': SGD_Optimizer(0.01)},
     ...     device='cpu',
     ...     first_inputs=[torch.rand(10, 10)],
     ... )
@@ -245,34 +248,35 @@ class Brain:
     """
 
     def __init__(
-        self, models, first_inputs=None, device="cuda:0", auto_mix_prec=False,
+        self,
+        modules,
+        optimizers,
+        first_inputs=None,
+        device="cuda:0",
+        auto_mix_prec=False,
     ):
         self.device = device
+        self.optimizers = optimizers
 
-        # Set model attribute, so compute_forward can access model
-        for name, model, optimizer in models:
-            setattr(self, name, model)
+        # Set module attributes, so compute_forward can access modules
+        modulelist = []
+        for name, module in modules.items():
+            setattr(self, name, module)
+            if isinstance(module, torch.nn.Module):
+                modulelist.append(module)
 
         # Initialize parameters
         if first_inputs is not None:
             self.compute_forward(*first_inputs, init_params=True)
 
         # Initialize optimizers
-        modulelist = []
-        self.optimizers = []
-        for name, model, optimizer in models:
-            model_modules = [
-                m for m in model.values() if isinstance(m, torch.nn.Module)
-            ]
-            modulelist.extend(model_modules)
+        for module_list, optimizer in optimizers.items():
+            if isinstance(module_list, str):
+                optimizer.init_params([modules[module_list]])
+            else:
+                optimizer.init_params([modules[k] for k in module_list])
 
-            # Initialize optimizer with correct parameters.
-            if optimizer is not None:
-                setattr(self, name + "_optimizer", optimizer)
-                optimizer.init_params(model_modules)
-                self.optimizers.append(optimizer)
-
-        # Store modules, primarily for calling train()/eval()
+        # Store modules as ModuleList, primarily for calling train()/eval()
         self.modules = torch.nn.ModuleList(modulelist)
         self.avg_train_loss = 0.0
         self.auto_mix_prec = auto_mix_prec
@@ -369,7 +373,7 @@ class Brain:
         """
         inputs, targets = batch
 
-        for optimizer in self.optimizers:
+        for optimizer in self.optimizers.values():
 
             # Managing automatic mixed precision
             if self.auto_mix_prec:
