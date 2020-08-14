@@ -30,6 +30,6 @@ test_stats = auto_brain.evaluate(hyperparams.test_loader())
 print("Test loss: %.3f" % summarize_average(test_stats["loss"]))
 
 
-# Integration test: make sure we are improving validation
+# Integration test: use eval loss cuz test loss is GAN loss.
 def test_loss():
-    assert auto_brain.avg_valid_loss < 0.002
+    assert summarize_average(test_stats["loss"]) < 0.002

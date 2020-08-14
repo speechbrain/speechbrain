@@ -39,24 +39,21 @@ test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
-compute_features: !new:speechbrain.lobes.features.mfcc.MFCC
-    left_frames: 1
-    right_frames: 1
-
-mean_var_norm: !new:speechbrain.processing.features.InputNormalization
-    norm_type: global
-
-linear1: !new:speechbrain.nnet.linear.Linear
-    n_neurons: 128
-    bias: False
-
-activation: !new:torch.nn.LeakyReLU
-
-linear2: !new:speechbrain.nnet.linear.Linear
-    n_neurons: 180
-    bias: False
-
-compute_cost: !name:speechbrain.nnet.losses.mse_loss
-
 optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
     learning_rate: !ref <lr>
+
+modules:
+    use_tensorboard: !ref <use_tensorboard>
+    compute_features: !new:speechbrain.lobes.features.mfcc.MFCC
+        left_frames: 1
+        right_frames: 1
+    mean_var_norm: !new:speechbrain.processing.features.InputNormalization
+        norm_type: global
+    linear1: !new:speechbrain.nnet.linear.Linear
+        n_neurons: 128
+        bias: False
+    activation: !new:torch.nn.LeakyReLU
+    linear2: !new:speechbrain.nnet.linear.Linear
+        n_neurons: 180
+        bias: False
+    compute_cost: !name:speechbrain.nnet.losses.mse_loss
