@@ -1,8 +1,8 @@
 #!/usr/bin/python
 import os
 import speechbrain as sb
-from ctc_brain import CTCBrain
-from speechbrain.utils.train_logger import summarize_error_rate
+from speechbrain.utils.train_logger import summarize_average
+from gan_brain import EnhanceGanBrain
 
 experiment_dir = os.path.dirname(os.path.realpath(__file__))
 hyperparams_file = os.path.join(experiment_dir, "hyperparams.yaml")
@@ -11,21 +11,25 @@ data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
 with open(hyperparams_file) as fin:
     hyperparams = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
 
+
 train_set = hyperparams.train_loader()
-first_x, first_y = next(iter(train_set))
-ctc_brain = CTCBrain(
+first_x = next(iter(train_set))
+auto_brain = EnhanceGanBrain(
     modules=hyperparams.modules,
-    optimizers={("model", "lin"): hyperparams.optimizer},
+    optimizers={
+        "generator": hyperparams.g_optimizer,
+        "discriminator": hyperparams.d_optimizer,
+    },
     device="cpu",
-    first_inputs=[first_x],
+    first_inputs=first_x,
 )
-ctc_brain.fit(
+auto_brain.fit(
     range(hyperparams.N_epochs), train_set, hyperparams.valid_loader()
 )
-test_stats = ctc_brain.evaluate(hyperparams.test_loader())
-print("Test PER: %.2f" % summarize_error_rate(test_stats["PER"]))
+test_stats = auto_brain.evaluate(hyperparams.test_loader())
+print("Test loss: %.3f" % summarize_average(test_stats["loss"]))
 
 
-# Integration test: check that the model overfits the training data
-def test_error():
-    assert ctc_brain.avg_train_loss < 3.0
+# Integration test: make sure we are improving validation
+def test_loss():
+    assert auto_brain.avg_valid_loss < 0.002
