@@ -16,7 +16,9 @@ class EnhanceGanBrain(sb.core.Brain):
 
         return enhanced
 
-    def compute_objectives(self, predictions, targets, stage="train"):
+    def compute_objectives(
+        self, predictions, targets, optimizer_modules=[], stage="train"
+    ):
         id, clean_wavs, lens = targets
         batch_size = clean_wavs.size(0)
 
@@ -30,11 +32,11 @@ class EnhanceGanBrain(sb.core.Brain):
         map_cost = self.compute_cost(predictions, clean_wavs, lens)
 
         # One is real, zero is fake
-        if stage == "generator":
+        if "generator" in optimizer_modules:
             simu_target = torch.ones(batch_size, 1)
             simu_cost = self.compute_cost(simu_result, simu_target)
             real_cost = 0.0
-        elif stage == "discriminator":
+        elif "discriminator" in optimizer_modules:
             real_target = torch.ones(batch_size, 1)
             simu_target = torch.zeros(batch_size, 1)
             real_cost = self.compute_cost(real_result, real_target)
@@ -46,9 +48,9 @@ class EnhanceGanBrain(sb.core.Brain):
         inputs = batch[0]
 
         # Iterate optimizers and update
-        for stage, optimizer in self.optimizers.items():
+        for modules, optimizer in self.optimizers.items():
             predictions = self.compute_forward(inputs)
-            loss = self.compute_objectives(predictions, inputs, stage=stage)
+            loss = self.compute_objectives(predictions, inputs, modules)
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
@@ -58,7 +60,7 @@ class EnhanceGanBrain(sb.core.Brain):
     def evaluate_batch(self, batch, stage="test"):
         inputs = batch[0]
         predictions = self.compute_forward(inputs)
-        loss = self.compute_objectives(predictions, inputs)
+        loss = self.compute_objectives(predictions, inputs, stage=stage)
         return {"loss": loss.detach()}
 
     def on_epoch_end(self, epoch, train_stats, valid_stats):
