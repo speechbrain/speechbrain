@@ -1,11 +1,7 @@
 #!/usr/bin/env python3
 import torch
 import speechbrain as sb
-import speechbrain.utils.edit_distance as edit_distance
-from speechbrain.data_io.data_io import convert_index_to_lab
 from speechbrain.decoders.ctc import ctc_greedy_decode
-from speechbrain.decoders.decoders import undo_padding
-from speechbrain.utils.train_logger import summarize_error_rate
 
 
 # Define training procedure
@@ -36,31 +32,53 @@ class ASR_Brain(sb.core.Brain):
         pout, pout_lens = predictions
         ids, phns, phn_lens = targets
         phns, phn_lens = phns.to(self.device), phn_lens.to(self.device)
-        stats = {}
 
-        if stage == "train":
-            if hasattr(self, "env_corrupt"):
-                phns = torch.cat([phns, phns], dim=0)
-                phn_lens = torch.cat([phn_lens, phn_lens], dim=0)
-            loss = self.compute_cost(pout, phns, pout_lens, phn_lens)
-        else:
-            loss = self.compute_cost(pout, phns, pout_lens, phn_lens)
+        if stage == "train" and hasattr(self, "env_corrupt"):
+            phns = torch.cat([phns, phns], dim=0)
+            phn_lens = torch.cat([phn_lens, phn_lens], dim=0)
+
+        loss = self.compute_cost(pout, phns, pout_lens, phn_lens)
+        self.stats[stage]["loss"].append(ids, pout, phns, pout_lens, phn_lens)
+
+        if stage != "train":
             sequence = ctc_greedy_decode(pout, pout_lens, blank_id=-1)
-            sequence = convert_index_to_lab(sequence, self.ind2lab)
-            phns = undo_padding(phns, phn_lens)
-            phns = convert_index_to_lab(phns, self.ind2lab)
-            per_stats = edit_distance.wer_details_for_batch(
-                ids, phns, sequence, compute_alignments=True
+            self.stats[stage]["PER"].append(
+                ids, sequence, phns, phn_lens, self.ind2lab
             )
-            stats["PER"] = per_stats
-        return loss, stats
 
-    def on_epoch_end(self, epoch, train_stats, valid_stats=None):
-        per = summarize_error_rate(valid_stats["PER"])
-        old_lr, new_lr = self.lr_annealing(self.optimizers.values(), epoch, per)
-        epoch_stats = {"epoch": epoch, "lr": old_lr}
-        self.train_logger.log_stats(epoch_stats, train_stats, valid_stats)
+        return loss
 
-        self.checkpointer.save_and_keep_only(
-            meta={"PER": per}, min_keys=["PER"],
-        )
+    def on_stage_start(self, stage, epoch=None):
+        self.stats = {stage: {"loss": self.ctc_stats()}}
+
+        if stage != "train":
+            self.stats[stage]["PER"] = self.per_stats()
+
+    def on_stage_end(self, stage, stage_loss, epoch=None):
+        if stage == "train":
+            self.train_loss = stage_loss
+        elif stage == "valid":
+            per = self.stats["valid"]["PER"].summarize()
+            old_lr, new_lr = self.lr_annealing(
+                self.optimizers.values(), epoch, per
+            )
+            self.train_logger.log_stats(
+                stats_meta={"epoch": epoch, "lr": old_lr},
+                train_stats={"loss": self.train_loss},
+                valid_stats={"loss": stage_loss, "PER": per},
+            )
+            self.checkpointer.save_and_keep_only(
+                meta={"PER": per}, min_keys=["PER"],
+            )
+        elif stage == "test":
+            test_per = self.stats["test"]["PER"].summarize()
+            self.train_logger.log_stats(
+                stats_meta={"Epoch loaded": self.epoch_counter.current},
+                test_stats={"loss": stage_loss, "PER": test_per},
+            )
+            with open(self.wer_file, "w") as w:
+                w.write("CTC loss stats:\n")
+                self.stats["test"]["loss"].write_stats(w)
+                w.write("\nPER stats:\n")
+                self.stats["test"]["PER"].write_stats(w)
+                print("CTC and PER stats written to file ", self.wer_file)

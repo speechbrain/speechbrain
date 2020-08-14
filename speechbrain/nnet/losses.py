@@ -203,7 +203,9 @@ class PitWrapper(nn.Module):
         return loss, perms
 
 
-def ctc_loss(log_probs, targets, input_lens, target_lens, blank_index):
+def ctc_loss(
+    log_probs, targets, input_lens, target_lens, blank_index, reduction="mean"
+):
     """CTC loss
 
     Arguments
@@ -218,21 +220,42 @@ def ctc_loss(log_probs, targets, input_lens, target_lens, blank_index):
         Length of each target sequence.
     blank_index : int
         The location of the blank symbol among the character indexes.
+    reduction : str
+        What reduction to apply to the output. 'mean', 'sum', 'batch', 'none'.
+        See pytorch for 'mean', 'sum', 'none'. The 'batch' option returns
+        one loss per item in the batch.
     """
     input_lens = (input_lens * log_probs.shape[1]).int()
     target_lens = (target_lens * targets.shape[1]).int()
     log_probs = log_probs.transpose(0, 1)
-    return torch.nn.functional.ctc_loss(
-        log_probs,
-        targets,
-        input_lens,
-        target_lens,
-        blank_index,
-        zero_infinity=True,
-    )
+
+    if reduction == "batch":
+        loss = torch.nn.functional.ctc_loss(
+            log_probs,
+            targets,
+            input_lens,
+            target_lens,
+            blank_index,
+            zero_infinity=True,
+            reduction="none",
+        )
+        N = loss.size(0)
+        return loss.view(N, -1).sum(1) / target_lens.view(N, -1).sum(1)
+    else:
+        return torch.nn.functional.ctc_loss(
+            log_probs,
+            targets,
+            input_lens,
+            target_lens,
+            blank_index,
+            zero_infinity=True,
+            reduction=reduction,
+        )
 
 
-def l1_loss(predictions, targets, length=None, allowed_len_diff=3):
+def l1_loss(
+    predictions, targets, length=None, allowed_len_diff=3, reduction="mean"
+):
     """Compute the true l1 loss, accounting for length differences.
 
     Arguments
@@ -245,6 +268,9 @@ def l1_loss(predictions, targets, length=None, allowed_len_diff=3):
         Length of each utterance for computing true error with a mask.
     allowed_len_diff : int
         Length difference that will be tolerated before raising an exception.
+    reduction : str
+        Two options are 'mean' and 'batch', where 'mean' returns a single
+        value, and 'batch' returns one per item.
 
     Example
     -------
@@ -254,7 +280,9 @@ def l1_loss(predictions, targets, length=None, allowed_len_diff=3):
     """
     predictions, targets = truncate(predictions, targets, allowed_len_diff)
     loss = functools.partial(torch.nn.functional.l1_loss, reduction="none")
-    return compute_masked_loss(loss, predictions, targets, length)
+    return compute_masked_loss(
+        loss, predictions, targets, length, reduction=reduction
+    )
 
 
 def mse_loss(predictions, targets, length=None, allowed_len_diff=3):
@@ -452,7 +480,12 @@ def truncate(predictions, targets, allowed_len_diff=3):
 
 
 def compute_masked_loss(
-    loss_fn, predictions, targets, length=None, label_smoothing=0.0
+    loss_fn,
+    predictions,
+    targets,
+    length=None,
+    label_smoothing=0.0,
+    reduction="mean",
 ):
     """Compute the true average loss of a set of waveforms of unequal length.
 
@@ -470,8 +503,11 @@ def compute_masked_loss(
         computed and returned.
     label_smoothing: float
         The proportion of label smoothing. Should only be used for NLL loss.
-        Ref: Regularizing Neural Networks by Penalizing Confident Output Distributions.
-        https://arxiv.org/abs/1701.06548
+        Ref: Regularizing Neural Networks by Penalizing Confident Output
+        Distributions. https://arxiv.org/abs/1701.06548
+    reduction : str
+        One of 'mean' or 'batch' or 'none' where 'mean' returns a single value
+        and 'batch' returns one per item in the batch and 'none' returns all.
     """
     mask = torch.ones_like(targets)
     if length is not None:
@@ -481,7 +517,14 @@ def compute_masked_loss(
         if len(targets.shape) == 3:
             mask = mask.unsqueeze(2).repeat(1, 1, targets.shape[2])
 
-    loss = torch.sum(loss_fn(predictions, targets) * mask) / torch.sum(mask)
+    # Compute, then reduce loss
+    loss = loss_fn(predictions, targets) * mask
+    if reduction == "mean":
+        loss = torch.sum(loss) / torch.sum(mask)
+    elif reduction == "batch":
+        N = loss.size(0)
+        loss = loss.view(N, -1).sum(1) / mask.view(N, -1).sum(1)
+
     if label_smoothing == 0:
         return loss
     else:
