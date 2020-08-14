@@ -537,7 +537,7 @@ class ResNetEncoder(torch.nn.Module):
 
 class ResNet(torch.nn.Module):
     """This model extracts embedding for speaker recognition and diarization.
-    After the ResNet model defined by blocks_size, depths and block, AvgPool9x1
+    After the ResNet model defined by blocks_size, depths and block, AvgPool1x1
     is followed by a linear transformation for later stage.
 
     Arguments
@@ -600,3 +600,114 @@ class ResNet(torch.nn.Module):
         for p in self.parameters():
             if p.dim() > 1:
                 torch.nn.init.kaiming_normal_(p)
+
+
+# Helper classes for popular architectures
+class ResNet18(ResNet):
+    def __init__(self, device="cpu", in_channels=1, lin_neurons=512):
+        super().__init__(
+            device,
+            in_channels,
+            lin_neurons,
+            block=ResNetBasicBlock,
+            deepths=[2, 2, 2, 2],
+        )
+
+
+class ResNet34(ResNet):
+    def __init__(self, device="cpu", in_channels=1, lin_neurons=512):
+        super().__init__(
+            device,
+            in_channels,
+            lin_neurons,
+            block=ResNetBasicBlock,
+            deepths=[3, 4, 6, 3],
+        )
+
+
+class ResNet50(ResNet):
+    def __init__(self, device="cpu", in_channels=1, lin_neurons=512):
+        super().__init__(
+            device,
+            in_channels,
+            lin_neurons,
+            block=ResNetBottleNeckBlock,
+            deepths=[3, 4, 6, 3],
+        )
+
+
+class ResNet101(ResNet):
+    def __init__(self, device="cpu", in_channels=1, lin_neurons=512):
+        super().__init__(
+            device,
+            in_channels,
+            lin_neurons,
+            block=ResNetBottleNeckBlock,
+            deepths=[3, 4, 23, 3],
+        )
+
+
+class ResNet152(ResNet):
+    def __init__(self, device="cpu", in_channels=1, lin_neurons=512):
+        super().__init__(
+            device,
+            in_channels,
+            lin_neurons,
+            block=ResNetBottleNeckBlock,
+            deepths=[3, 8, 36, 3],
+        )
+
+
+class PreAct18(ResNet):
+    def __init__(self, device="cpu", in_channels=1, lin_neurons=512):
+        super().__init__(
+            device,
+            in_channels,
+            lin_neurons,
+            block=PreActResNetBasicBlock,
+            deepths=[2, 2, 2, 2],
+        )
+
+
+class PreAct34(ResNet):
+    def __init__(self, device="cpu", in_channels=1, lin_neurons=512):
+        super().__init__(
+            device,
+            in_channels,
+            lin_neurons,
+            block=PreActResNetBasicBlock,
+            deepths=[3, 4, 6, 3],
+        )
+
+
+class PreAct50(ResNet):
+    def __init__(self, device="cpu", in_channels=1, lin_neurons=512):
+        super().__init__(
+            device,
+            in_channels,
+            lin_neurons,
+            block=PreActResNetBottleNeckBlock,
+            deepths=[3, 4, 6, 3],
+        )
+
+
+class PreAct101(ResNet):
+    def __init__(self, device="cpu", in_channels=1, lin_neurons=512):
+        super().__init__(
+            device,
+            in_channels,
+            lin_neurons,
+            block=PreActResNetBottleNeckBlock,
+            deepths=[3, 4, 23, 3],
+        )
+
+
+class PreAct152(ResNet):
+    def __init__(self, device="cpu", in_channels=1, lin_neurons=512):
+        super().__init__(
+            device,
+            in_channels,
+            lin_neurons,
+            block=PreActResNetBottleNeckBlock,
+            deepths=[3, 8, 36, 3],
+        )

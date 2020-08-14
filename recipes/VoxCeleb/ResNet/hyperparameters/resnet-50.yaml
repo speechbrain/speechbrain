@@ -40,12 +40,9 @@ compute_features: !new:speechbrain.lobes.features.fbank.Fbank
     right_frames: !ref <right_frames>
     deltas: !ref <deltas>
 
-resnet_model: !new:speechbrain.lobes.models.ResNet.ResNet
+resnet_model: !new:speechbrain.lobes.models.ResNet.ResNet50
     device: !ref <device>
     in_channels: 1
-    block: !name:speechbrain.lobes.models.ResNet.ResNetBottleNeckBlock
-    blocks_sizes: [64, 128, 256, 512]
-    depths: [3, 4, 6, 3]
     lin_neurons: 512
 
 classifier: !new:speechbrain.lobes.models.Xvector.Classifier
