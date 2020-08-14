@@ -236,7 +236,6 @@ se_brain = SEBrain(
 )
 
 if params.use_multigpu:
-    print("Use %i GPUs" % torch.cuda.device_count())
     params.model = torch.nn.DataParallel(params.model)
 
 # Load latest checkpoint to resume training

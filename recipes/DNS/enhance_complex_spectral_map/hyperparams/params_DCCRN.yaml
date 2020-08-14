@@ -1,5 +1,5 @@
 # ################################
-# Model: Baseline 1-D CNN model with log1p mapping
+# Model: DCCRN model with complex signal approximation
 # Authors: Chien-Feng Liao
 # ################################
 

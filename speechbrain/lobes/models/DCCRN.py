@@ -92,7 +92,7 @@ class DCCRN(nn.Module):
 
         encoder_outputs = [x]
         for conv in self.encoder_convs:
-            x = conv(x, init_params=init_params)
+            x = conv(x, init_params=False)
             encoder_outputs.append(x)
 
         # Apply RNN and linear transform back to 4-D
