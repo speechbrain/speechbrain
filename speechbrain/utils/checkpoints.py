@@ -59,7 +59,6 @@ import pathlib
 import inspect
 import shutil
 import logging
-import copy
 
 logger = logging.getLogger(__name__)
 
@@ -262,7 +261,7 @@ Checkpoints are first filtered and sorted based on this namedtuple.
 Checkpointers put pathlib.Path in path and a dict in meta.
 You can essentially add any info you want to meta when saving a checkpoint.
 The only default key in meta is "unixtime".
-Checkpoint.parameters is a dict from recoverable name to parameter filepath.
+Checkpoint.paramfiles is a dict from recoverable name to parameter filepath.
 """
 
 
@@ -538,7 +537,6 @@ class Checkpointer:
         max_key=None,
         min_key=None,
         ckpt_predicate=None,
-        get_all=False,
     ):
         """Picks a particular checkpoint from all available checkpoints.
 
@@ -564,8 +562,6 @@ class Checkpointer:
             See the filter builtin.
             The function is called with Checkpoint namedtuples (see above).
             By default, all checkpoints are considered.
-        get_all: bool, optional
-            If True, returns all the checkpoints found
 
         Returns
         -------
@@ -596,11 +592,88 @@ class Checkpointer:
         ckpts = self.list_checkpoints()
         ckpts = list(filter(ckpt_predicate, ckpts))
 
-        if get_all:
-            return ckpts
         if ckpts:
             chosen_ckpt = max(ckpts, key=importance_key)
             return chosen_ckpt
+        else:
+            return None  # Be explicit :)
+
+    def find_checkpoints(
+        self,
+        importance_key=None,
+        max_key=None,
+        min_key=None,
+        ckpt_predicate=None,
+        max_num_checkpoints=None,
+    ):
+        """Picks multiple checkpoints.
+
+        If none of ``importance_key``, ``max_key``, and ``min_key`` is
+        used, then the most recent checkpoints will be returned. No more than
+        one of these may be used.
+
+        Arguments
+        ---------
+        importance_key : callable, optional
+            The key function used in sorting.
+            The checkpoint with the highest returned value is picked.
+            The function is called with Checkpoint namedtuples.
+        max_key : str, optional
+            The checkpoint with the highest value for this key will
+            be returned.
+        min_key : str, optional
+            The checkpoint with the lowest value for this key will
+            be returned.
+        ckpt_predicate : callable, optional
+            Before sorting, the list of
+            checkpoints is filtered with this predicate.
+            See the filter builtin.
+            The function is called with Checkpoint namedtuples (see above).
+            By default, all checkpoints are considered.
+        max_num_checkpoints : int, None
+            The maximum number of checkpoints to return, or None to return all
+            found checkpoints.
+
+        Returns
+        -------
+        list
+            List containing at most the max specified number of Checkpoints
+        None
+            if no Checkpoints exist/remain after filtering
+
+        """
+        if importance_key is None and min_key is None and max_key is None:
+            importance_key = ckpt_recency
+
+        if max_key and not importance_key:
+
+            def importance_key(ckpt):
+                return ckpt.meta[max_key]
+
+        elif min_key and not importance_key:
+
+            def importance_key(ckpt):
+                return -ckpt.meta[min_key]
+
+        elif min_key or max_key:
+            raise ValueError(
+                "Must specify only one of 'importance_key', 'max_key', "
+                "and 'min_key'."
+            )
+
+        ckpts = self.list_checkpoints()
+        ckpts = list(filter(ckpt_predicate, ckpts))
+
+        if ckpts:
+            ranked_ckpts = sorted(ckpts, key=importance_key)
+            # NOTE: apparently, you can also slice [:None],
+            # and this is the same as [:], so the following if-else is not
+            # strictly speaking needed. However, this feature does not seem to
+            # be documented Python so I don't want to trust it.
+            if max_num_checkpoints is not None:
+                return ranked_ckpts[:max_num_checkpoints]
+            else:
+                return ranked_ckpts
         else:
             return None  # Be explicit :)
 
@@ -610,7 +683,6 @@ class Checkpointer:
         max_key=None,
         min_key=None,
         ckpt_predicate=None,
-        get_average=False,
     ):
         """Picks a checkpoint and recovers from that, if one is found.
 
@@ -636,10 +708,6 @@ class Checkpointer:
             See the filter builtin.
             The function is called with Checkpoint namedtuples (see above).
             By default, all checkpoints are considered.
-        get_average : bool, optional
-            If True loads a model whose parameters are computed by averaging
-            all the founded checkpoints.
-
 
         Returns
         -------
@@ -649,22 +717,15 @@ class Checkpointer:
             if no Checkpoints exist/remain after filtering
         """
         chosen_ckpt = self.find_checkpoint(
-            importance_key,
-            max_key,
-            min_key,
-            ckpt_predicate,
-            get_all=get_average,
+            importance_key, max_key, min_key, ckpt_predicate,
         )
         if chosen_ckpt is not None:
-            if get_average:
-                self.average_checkpoints(chosen_ckpt, self.recoverables)
-            else:
-                self.load_checkpoint(chosen_ckpt, self.recoverables)
+            self.load_checkpoint(chosen_ckpt)
         else:
             logger.info("Would load a checkpoint here, but none found yet.")
         return chosen_ckpt
 
-    def load_checkpoint(self, checkpoint, recoverables):
+    def load_checkpoint(self, checkpoint):
         """Loads the specified checkpoint.
 
         Arguments
@@ -672,7 +733,7 @@ class Checkpointer:
         checkpoint : Checkpoint
             Checkpoint to load
         """
-        self._call_load_hooks(checkpoint, recoverables)
+        self._call_load_hooks(checkpoint)
 
     def list_checkpoints(self):
         """List all checkpoints in the checkpoints directory.
@@ -683,71 +744,6 @@ class Checkpointer:
             list of Checkpoint namedtuple (see above)
         """
         return self._load_checkpoint_extra_data(self._list_checkpoint_dirs())
-
-    def average_checkpoints(self, ckpt_lst, recoverables):
-        """Loads a checkpoint whose parameters are the average of all the
-        models found in the checkpoint directory.
-
-        Arguments
-        ---------
-        ckpt_lst : Checkpoint
-            List of checkpoints found in the checkpoint directory.
-        recoverables : mapping, optional
-            Objects to to recover
-        """
-        # Set all the parameters to zero
-        self._weight_params_checkpoint(recoverables, weight=0)
-
-        # Deep copy of the recoverable objects is used to store
-        # temporarily the weighted parameters
-        weighed_recoverables = copy.deepcopy(recoverables)
-
-        for ckpt in ckpt_lst:
-            self.load_checkpoint(ckpt, weighed_recoverables)
-            self._weight_params_checkpoint(
-                weighed_recoverables, weight=1 / len(ckpt_lst)
-            )
-            self._sum_params_checkpoint(recoverables, weighed_recoverables)
-
-    def _weight_params_checkpoint(self, recoverables, weight=1.0):
-        """Multiplies the parameters by the given weight factor.
-
-        Arguments
-        ---------
-        recoverables : mapping, optional
-             Objects to to recover
-        weight: float
-            Model parameters are scaled by the given weight.
-        """
-        for name, obj in recoverables.items():
-            if hasattr(obj, "state_dict"):
-                with torch.no_grad():
-                    for pname, param in obj.state_dict().items():
-                        param.copy_(param.data * weight)
-
-    def _sum_params_checkpoint(self, recoverables, recoverables_sum):
-        """Sums the parameters of the two recoverable objects in input.
-
-        Arguments
-        ---------
-        recoverables : mapping, optional
-             Objects where the summed parameters are stored
-        recoverables_sum : mapping, optional
-             Objects to sum
-        """
-        objs = zip(recoverables.items(), recoverables_sum.items())
-        for obj, obj_sum in objs:
-            name, obj = obj
-            name, obj_sum = obj_sum
-            if hasattr(obj, "state_dict"):
-                with torch.no_grad():
-                    params = zip(
-                        obj.state_dict().items(), obj_sum.state_dict().items()
-                    )
-                    for param, param_sum in params:
-                        pname, param = param
-                        pname, param_sum = param_sum
-                        param.copy_(param.data + param_sum.data)
 
     # NOTE: * in arglist -> keyword only arguments
     def delete_checkpoints(
@@ -817,12 +813,12 @@ class Checkpointer:
         shutil.rmtree(checkpoint.path)
         logger.info(f"Deleted checkpoint in {checkpoint.path}")
 
-    def _call_load_hooks(self, checkpoint, recoverables):
+    def _call_load_hooks(self, checkpoint):
         # This internal function finds the correct hook to call for every
         # recoverable, and calls it.
         logger.info(f"Loading a checkpoint from {checkpoint.path}")
         end_of_epoch = checkpoint.meta["end-of-epoch"]
-        for name, obj in recoverables.items():
+        for name, obj in self.recoverables.items():
             # NOTE: We want the checkpoint namedtuple to have the paramfile
             # paths for each recoverable.
             # In some rare case, the user can e.g. add a path there manually.
@@ -912,3 +908,87 @@ class Checkpointer:
             fo.write("# yamllint disable\n")
             fo.write(yaml.dump(meta))
         return meta
+
+
+def average_state_dicts(state_dicts):
+    """
+    Produces an average state_dict from an iterator over state_dicts.
+
+    Note that at one time, this keeps two of the state_dicts in memory, which
+    is the minimum memory requirement.
+
+    Arguments
+    ---------
+    state_dicts : iterator, list
+        The state_dicts to average.
+
+    Returns
+    -------
+    state_dict
+        The averaged state_dict
+    """
+    iterator = iter(state_dicts)
+    try:
+        running_sum = next(iterator)
+    except StopIteration:
+        raise ValueError("No state dicts to average.")
+    num_dicts = 1
+    with torch.no_grad():
+        # First sum all state_dicts together:
+        for state_dict in iterator:
+            for pname, param in state_dict.items():
+                running_sum[pname] += param.data
+            num_dicts += 1
+        # Finally, divide by number of dicts:
+        for pname, param in running_sum.items():
+            running_sum[pname] = param.data / num_dicts
+    return running_sum
+
+
+def average_checkpoints(
+    checkpoint_list,
+    recoverable_name,
+    parameter_loader=torch.load,
+    averager=average_state_dicts,
+):
+    """
+    Average parameters from multiple checkpoints.
+
+    Use Checkpointer.find_checkpoints() to get the list of checkpoints to
+    average over.
+    Averaging parameters from some of the last checkpoints in training has been
+    shown to sometimes improve performance.
+
+    The default loader and averager work for standard PyTorch modules.
+
+    Arguments
+    ---------
+    checkpoint_list : list
+        List of checkpoints to average.
+    recoverable_name : str
+        The name of the recoverable, the parameters of which are loaded and
+        averaged.
+    parameter_loader : function
+        A function which takes a single argument, the path to a parameter file,
+        and loads the parameters from that file. By default, torch.load,
+        which produces state_dict dictionaries.
+    averager : function
+        A function which takes an iterator over the parameters from each
+        checkpoint, as loaded by parameter_loader, and produces their average.
+        Note that the function is called with an iterator, so the length is
+        initially unknown; the implementation should simply count the number of
+        different parameter sets as they are yielded. See average_state_dicts
+        above for an example. It is the default averager, and averages
+        state_dicts.
+
+    Returns
+    -------
+    Any
+        The output of the averager function.
+    """
+
+    parameter_iterator = (
+        parameter_loader(ckpt.paramfiles[recoverable_name])
+        for ckpt in checkpoint_list
+    )
+    return averager(parameter_iterator)
