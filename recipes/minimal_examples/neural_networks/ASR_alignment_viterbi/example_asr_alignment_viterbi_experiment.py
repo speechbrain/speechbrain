@@ -1,7 +1,7 @@
 #!/usr/bin/python
 import os
 import speechbrain as sb
-from align_brain import AlignBrain
+from align_brain_viterbi import AlignBrain
 
 experiment_dir = os.path.dirname(os.path.realpath(__file__))
 hyperparams_file = os.path.join(experiment_dir, "hyperparams.yaml")
