@@ -38,7 +38,7 @@ logger.info("Data preparation")
 prepare_voxceleb(
     data_folder=params.data_folder,
     save_folder=params.save_folder,
-    splits=["train", "dev", "test"],
+    splits=["train", "dev", "enrol"],
     split_ratio=[90, 10],
     seg_dur=300,
     vad=False,
