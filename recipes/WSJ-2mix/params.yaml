@@ -3,7 +3,7 @@
 seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 use_tensorboard: True
-tensorboard_logs: runs/4-checkpointing
+tensorboard_logs: runs/5-devtest
 output_folder: !ref results/conv_tasnet/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -14,7 +14,7 @@ N_batch: 2
 lr: 0.0002
 train_onthefly: False
 loss_fn: 'sisnr'
-progressbar: False
+progressbar: True
 
 tr_csv: 'wsj_tr.csv'
 cv_csv: 'wsj_cv.csv'
