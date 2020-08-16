@@ -2,7 +2,6 @@
 import os
 import speechbrain as sb
 from auto_brain import AutoBrain
-from speechbrain.utils.train_logger import summarize_average
 
 experiment_dir = os.path.dirname(os.path.realpath(__file__))
 hyperparams_file = os.path.join(experiment_dir, "hyperparams.yaml")
@@ -28,9 +27,8 @@ auto_brain.fit(
     range(hyperparams.N_epochs), train_set, hyperparams.valid_loader()
 )
 test_stats = auto_brain.evaluate(hyperparams.test_loader())
-print("Test loss: %.3f" % summarize_average(test_stats["loss"]))
 
 
 # Integration test: make sure we are overfitting training data
 def test_loss():
-    assert auto_brain.avg_train_loss < 0.08
+    assert auto_brain.train_loss < 0.08

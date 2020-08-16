@@ -71,3 +71,4 @@ modules:
           apply_log: True
     compute_cost: !name:speechbrain.nnet.losses.ctc_loss
         blank_index: 42
+    per_stats: !name:speechbrain.utils.metric_stats.ErrorRateStats

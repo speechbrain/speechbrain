@@ -2,7 +2,6 @@
 import os
 import speechbrain as sb
 from ctc_brain import CTCBrain
-from speechbrain.utils.train_logger import summarize_error_rate
 
 experiment_dir = os.path.dirname(os.path.realpath(__file__))
 hyperparams_file = os.path.join(experiment_dir, "hyperparams.yaml")
@@ -23,9 +22,8 @@ ctc_brain.fit(
     range(hyperparams.N_epochs), train_set, hyperparams.valid_loader()
 )
 test_stats = ctc_brain.evaluate(hyperparams.test_loader())
-print("Test PER: %.2f" % summarize_error_rate(test_stats["PER"]))
 
 
 # Integration test: check that the model overfits the training data
 def test_error():
-    assert ctc_brain.avg_train_loss < 3.0
+    assert ctc_brain.train_loss < 3.0

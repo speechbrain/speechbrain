@@ -2,7 +2,6 @@
 import os
 import speechbrain as sb
 from seq2seq_brain import seq2seqBrain
-from speechbrain.utils.train_logger import summarize_error_rate
 
 experiment_dir = os.path.dirname(os.path.realpath(__file__))
 hyperparams_file = os.path.join(experiment_dir, "hyperparams.yaml")
@@ -23,8 +22,7 @@ seq2seq_brain.fit(
     range(hyperparams.N_epochs), train_set, hyperparams.valid_loader()
 )
 test_stats = seq2seq_brain.evaluate(hyperparams.test_loader())
-print("Test PER: %.2f" % summarize_error_rate(test_stats["PER"]))
 
 
 def test_error():
-    assert seq2seq_brain.avg_train_loss < 1.0
+    assert seq2seq_brain.train_loss < 1.0

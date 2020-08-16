@@ -51,4 +51,4 @@ print("Extracted Xvector.Shape: ", xvectors.shape)
 
 # Integration test: Ensure we overfit the training data
 def test_error():
-    assert xvect_brain.avg_train_loss < 0.1
+    assert xvect_brain.train_loss < 0.1

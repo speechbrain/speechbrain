@@ -1,12 +1,8 @@
 #!/usr/bin/python
+import torch
 import speechbrain as sb
 from speechbrain.data_io.data_io import prepend_bos_token
 from speechbrain.data_io.data_io import append_eos_token
-from speechbrain.decoders.decoders import undo_padding
-from speechbrain.utils.edit_distance import wer_details_for_batch
-from speechbrain.utils.train_logger import summarize_average
-from speechbrain.utils.train_logger import summarize_error_rate
-import torch
 
 
 class seq2seqBrain(sb.core.Brain):
@@ -48,32 +44,37 @@ class seq2seqBrain(sb.core.Brain):
         rel_length = (abs_length + 1) / phns.shape[1]
         loss = self.compute_cost(outputs, phns, length=rel_length)
 
-        stats = {}
         if stage != "train":
-            phns = undo_padding(phns, phn_lens)
-            stats["PER"] = wer_details_for_batch(ids, phns, seq)
-        return loss, stats
+            self.per_metrics.append(ids, seq, phns, phn_lens)
+
+        return loss
 
     def fit_batch(self, batch):
         for optimizer in self.optimizers.values():
             inputs, targets = batch
             predictions = self.compute_forward(inputs, targets)
-            loss, stats = self.compute_objectives(predictions, targets)
+            loss = self.compute_objectives(predictions, targets)
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
-            stats["loss"] = loss.detach()
-        return stats
+        return loss.detach()
 
     def evaluate_batch(self, batch, stage="test"):
         inputs, targets = batch
-        out = self.compute_forward(inputs, targets, stage="test")
-        loss, stats = self.compute_objectives(out, targets, stage="test")
-        stats["loss"] = loss.detach()
-        return stats
+        out = self.compute_forward(inputs, targets, stage)
+        loss = self.compute_objectives(out, targets, stage)
+        return loss.detach()
 
-    def on_epoch_end(self, epoch, train_stats, valid_stats):
-        print("Epoch %d complete" % epoch)
-        print("Train loss: %.2f" % summarize_average(train_stats["loss"]))
-        print("Valid loss: %.2f" % summarize_average(valid_stats["loss"]))
-        print("Valid PER: %.2f" % summarize_error_rate(valid_stats["PER"]))
+    def on_stage_start(self, stage, epoch=None):
+        if stage != "train":
+            self.per_metrics = self.per_stats()
+
+    def on_stage_end(self, stage, stage_loss, epoch=None):
+        if stage == "train":
+            self.train_loss = stage_loss
+        if stage == "valid" and epoch is not None:
+            print("Epoch %d complete" % epoch)
+            print("Train loss: %.2f" % self.train_loss)
+        if stage != "train":
+            print(stage, "loss: %.2f" % stage_loss)
+            print(stage, "PER: %.2f" % self.per_metrics.summarize())

@@ -99,3 +99,4 @@ modules:
         min_decode_ratio: 0
         max_decode_ratio: 0.1
     compute_cost: !name:speechbrain.nnet.losses.nll_loss
+    per_stats: !name:speechbrain.utils.metric_stats.ErrorRateStats

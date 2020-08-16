@@ -2,7 +2,6 @@
 import os
 import speechbrain as sb
 from asr_brain import ASR_Brain
-from speechbrain.utils.train_logger import summarize_average
 
 experiment_dir = os.path.dirname(os.path.realpath(__file__))
 hyperparams_file = os.path.join(experiment_dir, "hyperparams.yaml")
@@ -23,9 +22,8 @@ asr_brain.fit(
     range(hyperparams.N_epochs), train_set, hyperparams.valid_loader()
 )
 test_stats = asr_brain.evaluate(hyperparams.test_loader())
-print("Test error: %.2f" % summarize_average(test_stats["error"]))
 
 
 # Define an integration test of overfitting on the train data
 def test_error():
-    assert asr_brain.avg_train_loss < 0.2
+    assert asr_brain.train_loss < 0.2

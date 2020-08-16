@@ -2,7 +2,6 @@
 import os
 import speechbrain as sb
 from spk_id_brain import SpkIdBrain
-from speechbrain.utils.train_logger import summarize_average
 
 experiment_dir = os.path.dirname(os.path.realpath(__file__))
 hyperparams_file = os.path.join(experiment_dir, "hyperparams.yaml")
@@ -23,9 +22,8 @@ spk_id_brain.fit(
     range(hyperparams.N_epochs), train_set, hyperparams.valid_loader()
 )
 test_stats = spk_id_brain.evaluate(hyperparams.test_loader())
-print("Test error: %.2f" % summarize_average(test_stats["error"]))
 
 
 # Integration test: ensure we overfit the training data
 def test_error():
-    assert spk_id_brain.avg_train_loss < 0.2
+    assert spk_id_brain.train_loss < 0.2

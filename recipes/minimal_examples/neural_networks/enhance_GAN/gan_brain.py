@@ -1,7 +1,6 @@
 #!/usr/bin/python
 import torch
 import speechbrain as sb
-from speechbrain.utils.train_logger import summarize_average
 
 
 class EnhanceGanBrain(sb.core.Brain):
@@ -36,11 +35,13 @@ class EnhanceGanBrain(sb.core.Brain):
             simu_target = torch.ones(batch_size, 1)
             simu_cost = self.compute_cost(simu_result, simu_target)
             real_cost = 0.0
+            self.metrics["G"].append(simu_cost.detach())
         elif "discriminator" in optimizer_modules:
             real_target = torch.ones(batch_size, 1)
             simu_target = torch.zeros(batch_size, 1)
             real_cost = self.compute_cost(real_result, real_target)
             simu_cost = self.compute_cost(simu_result, simu_target)
+            self.metrics["D"].append((real_cost + simu_cost).detach())
 
         return real_cost + simu_cost + map_cost
 
@@ -55,15 +56,25 @@ class EnhanceGanBrain(sb.core.Brain):
             optimizer.step()
             optimizer.zero_grad()
 
-        return {"loss": loss.detach()}
+        return loss.detach()
 
     def evaluate_batch(self, batch, stage="test"):
         inputs = batch[0]
         predictions = self.compute_forward(inputs)
         loss = self.compute_objectives(predictions, inputs, stage=stage)
-        return {"loss": loss.detach()}
+        return loss.detach()
 
-    def on_epoch_end(self, epoch, train_stats, valid_stats):
-        print("Completed epoch %d" % epoch)
-        print("Train loss: %.3f" % summarize_average(train_stats["loss"]))
-        print("Valid loss: %.3f" % summarize_average(valid_stats["loss"]))
+    def on_stage_start(self, stage, epoch=None):
+        if stage == "train":
+            self.metrics = {"G": [], "D": []}
+
+    def on_stage_end(self, stage, stage_loss, epoch=None):
+        if stage == "train":
+            g_loss = torch.tensor(self.metrics["G"])
+            d_loss = torch.tensor(self.metrics["D"])
+            print("Avg G loss: %.2f" % torch.mean(g_loss))
+            print("Avg D loss: %.2f" % torch.mean(d_loss))
+            print("train loss: ", stage_loss)
+        if stage == "valid":
+            print("Completed epoch %d" % epoch)
+            print("Valid loss: %.3f" % stage_loss)

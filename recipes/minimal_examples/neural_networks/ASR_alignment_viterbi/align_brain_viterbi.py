@@ -1,6 +1,5 @@
 #!/usr/bin/python
 import speechbrain as sb
-from speechbrain.utils.train_logger import summarize_average
 
 
 class AlignBrain(sb.core.Brain):
@@ -21,24 +20,22 @@ class AlignBrain(sb.core.Brain):
         prev_alignments = self.aligner.get_prev_alignments(
             ids, predictions, lens, phns, phn_lens
         )
-
         loss = self.compute_cost(predictions, prev_alignments)
-
-        stats = {}
 
         if stage != "train":
             viterbi_scores, alignments = self.aligner(
                 predictions, lens, phns, phn_lens, "viterbi"
             )
-
             self.aligner.store_alignments(ids, alignments)
 
-        return loss, stats
+        return loss
 
-    def on_epoch_end(self, epoch, train_stats, valid_stats):
-        print("Epoch %d complete" % epoch)
-        print("Train loss: %.2f" % summarize_average(train_stats["loss"]))
-        print("Valid loss: %.2f" % summarize_average(valid_stats["loss"]))
-
-        print("Recalculating and recording alignments...")
-        self.evaluate(self.train_set)
+    def on_stage_end(self, stage, stage_loss, epoch=None):
+        if stage == "train":
+            self.train_loss = stage_loss
+        if stage == "valid":
+            print("Epoch %d complete" % epoch)
+            print("Train loss: %.2f" % self.train_loss)
+            print("Valid loss: %.2f" % stage_loss)
+            print("Recalculating and recording alignments...")
+            self.evaluate(self.train_set)

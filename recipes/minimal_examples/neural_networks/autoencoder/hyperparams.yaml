@@ -57,3 +57,6 @@ modules:
         n_neurons: 180
         bias: False
     compute_cost: !name:speechbrain.nnet.losses.mse_loss
+    loss_tracker: !name:speechbrain.utils.metric_stats.MetricStats
+        metric: !name:speechbrain.nnet.losses.mse_loss
+            reduction: batch

@@ -1,7 +1,6 @@
 #!/usr/bin/python
 import os
 import speechbrain as sb
-from speechbrain.utils.train_logger import summarize_average
 from gan_brain import EnhanceGanBrain
 
 experiment_dir = os.path.dirname(os.path.realpath(__file__))
@@ -27,9 +26,8 @@ auto_brain.fit(
     range(hyperparams.N_epochs), train_set, hyperparams.valid_loader()
 )
 test_stats = auto_brain.evaluate(hyperparams.test_loader())
-print("Test loss: %.3f" % summarize_average(test_stats["loss"]))
 
 
 # Integration test: use eval loss cuz test loss is GAN loss.
 def test_loss():
-    assert summarize_average(test_stats["loss"]) < 0.002
+    assert test_stats < 0.002
