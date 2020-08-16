@@ -23,14 +23,13 @@ class Encoder(nn.Module):
         # Components
         # 50% overlap
         self.conv1d_U = Conv1d(N, kernel_size=L, stride=L // 2, bias=False)
-        # super().__init__(*conv1d_U)
 
     def forward(self, mixture, init_params=True):
         """
         Args:
             mixture: [M, T], M is batch size, T is #samples
         Returns:
-            mixture_w: [M, N, K], where K = (T-L)/(L/2)+1 = 2T/L-1
+            mixture_w: [M, K, N], where K = (T-L)/(L/2)+1 = 2T/L-1
         """
         mixture = torch.unsqueeze(mixture, -1)  # [M, T, 1]
 
@@ -71,7 +70,8 @@ class Decoder(nn.Module):
         # S = DV
         est_source = self.basis_signals(source_w)  # [M, C, K, L]
         est_source = overlap_and_add(est_source, self.L // 2)  # M x C x T
-        return est_source
+
+        return est_source.permute(0, 2, 1)  # M x T x C
 
 
 class ConvTasNet(Sequential):
@@ -213,12 +213,12 @@ class MaskNet(Sequential):
         self.layer_norm = ChannelwiseLayerNorm(N)
         # [M, K, N] -> [M, K, B]
         self.bottleneck_conv1x1 = Conv1d(B, 1, bias=False)
-        # [M, B, K] -> [M, B, K]
+        # [M, K, B] -> [M, K, B]
 
         self.temporal_conv_net = TemporalBlocksSequential(
             B, H, P, R, X, norm_type, causal
         )
-        # [M, B, K] -> [M, C*N, K]
+        # [M, K, B] -> [M, K, C*N]
         self.mask_conv1x1 = Conv1d(C * N, 1, bias=False)
         # Put together
         # self.network = nn.Sequential(
@@ -229,9 +229,9 @@ class MaskNet(Sequential):
         """
         Keep this API same with TasNet
         Args:
-            mixture_w: [M, N, K], M is batch size
+            mixture_w: [M, K, N], M is batch size
         returns:
-            est_mask: [M, C, N, K]
+            est_mask: [M, K, C, N]
         """
 
         if init_params:
@@ -247,8 +247,8 @@ class MaskNet(Sequential):
         y = self.temporal_conv_net(y)
         score = self.mask_conv1x1(y)
 
-        # score = self.network(mixture_w)  # [M, K, N] -> [M, C*N, K]
-        score = score.reshape(M, K, self.C, N)  # [M, C*N, K] -> [M, C, N, K]
+        # score = self.network(mixture_w)  # [M, K, N] -> [M, K, C*N]
+        score = score.reshape(M, K, self.C, N)  # [M, K, C*N] -> [M, K, C, N]
         if self.mask_nonlinear == "softmax":
             est_mask = F.softmax(score, dim=2)
         elif self.mask_nonlinear == "relu":
@@ -308,9 +308,9 @@ class TemporalBlock(Sequential):
     # def forward(self, x):
     #    """
     #    Args:
-    #        x: [M, B, K]
+    #        x: [M, K, B]
     #    Returns:
-    #        [M, B, K]
+    #        [M, K, B]
     #    """
     #    residual = x
     #    out = self(x)
@@ -333,7 +333,7 @@ class DepthwiseSeparableConv(Sequential):
     ):
         # super(DepthwiseSeparableConv, self).__init__()
         # Use `groups` option to implement depthwise convolution
-        # [M, H, K] -> [M, H, K]
+        # [M, K, H] -> [M, K, H]
         depthwise_conv = Conv1d(
             in_channels,
             kernel_size,
@@ -347,7 +347,7 @@ class DepthwiseSeparableConv(Sequential):
             chomp = Chomp1d(padding)
         prelu = nn.PReLU()
         norm = chose_norm(norm_type, in_channels)
-        # [M, H, K] -> [M, B, K]
+        # [M, K, H] -> [M, K, B]
         pointwise_conv = Conv1d(out_channels, 1, bias=False)
         # Put together
         if causal:
@@ -368,15 +368,15 @@ class Chomp1d(nn.Module):
     def forward(self, x):
         """
         Args:
-            x: [M, H, Kpad]
+            x: [M, Kpad, H ]
         Returns:
-            [M, H, K]
+            [M, K, H]
         """
-        return x[:, :, : -self.chomp_size].contiguous()
+        return x[:, : -self.chomp_size, :].contiguous()
 
 
 def chose_norm(norm_type, channel_size):
-    """The input of normlization will be (M, C, K), where M is batch size,
+    """The input of normlization will be (M, K, C), where M is batch size,
        C is channel size and K is sequence length.
     """
     if norm_type == "gLN":
@@ -384,7 +384,7 @@ def chose_norm(norm_type, channel_size):
     elif norm_type == "cLN":
         return ChannelwiseLayerNorm(channel_size)
     else:  # norm_type == "BN":
-        # Given input (M, C, K), nn.BatchNorm1d(C) will accumulate statics
+        # Given input (M, K, C), nn.BatchNorm1d(C) will accumulate statics
         # along M and K, so this BN usage is right.
         return nn.BatchNorm1d(channel_size)
 
@@ -395,8 +395,8 @@ class ChannelwiseLayerNorm(nn.Module):
 
     def __init__(self, channel_size):
         super(ChannelwiseLayerNorm, self).__init__()
-        self.gamma = nn.Parameter(torch.Tensor(1, 1, channel_size))  # [1, N, 1]
-        self.beta = nn.Parameter(torch.Tensor(1, 1, channel_size))  # [1, N, 1]
+        self.gamma = nn.Parameter(torch.Tensor(1, 1, channel_size))  # [1, 1, N]
+        self.beta = nn.Parameter(torch.Tensor(1, 1, channel_size))  # [1, 1, N]
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -406,12 +406,12 @@ class ChannelwiseLayerNorm(nn.Module):
     def forward(self, y):
         """
         Args:
-            y: [M, N, K], M is batch size, N is channel size, K is length
+            y: [M, K, N], M is batch size, N is channel size, K is length
         Returns:
-            cLN_y: [M, N, K]
+            cLN_y: [M, K, N]
         """
-        mean = torch.mean(y, dim=2, keepdim=True)  # [M, 1, K]
-        var = torch.var(y, dim=2, keepdim=True, unbiased=False)  # [M, 1, K]
+        mean = torch.mean(y, dim=2, keepdim=True)  # [M, K, 1]
+        var = torch.var(y, dim=2, keepdim=True, unbiased=False)  # [M, K, 1]
         cLN_y = self.gamma * (y - mean) / torch.pow(var + EPS, 0.5) + self.beta
         return cLN_y
 
@@ -421,8 +421,8 @@ class GlobalLayerNorm(nn.Module):
 
     def __init__(self, channel_size):
         super(GlobalLayerNorm, self).__init__()
-        self.gamma = nn.Parameter(torch.Tensor(1, 1, channel_size))  # [1, N, 1]
-        self.beta = nn.Parameter(torch.Tensor(1, 1, channel_size))  # [1, N, 1]
+        self.gamma = nn.Parameter(torch.Tensor(1, 1, channel_size))  # [1, 1, N]
+        self.beta = nn.Parameter(torch.Tensor(1, 1, channel_size))  # [1, 1, N]
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -432,9 +432,9 @@ class GlobalLayerNorm(nn.Module):
     def forward(self, y):
         """
         Args:
-            y: [M, N, K], M is batch size, N is channel size, K is length
+            y: [M, K, N], M is batch size, N is channel size, K is length
         Returns:
-            gLN_y: [M, N, K]
+            gLN_y: [M, K. N]
         """
         # TODO: in torch 1.0, torch.mean() support dim list
         mean = y.mean(dim=1, keepdim=True).mean(

@@ -5,8 +5,10 @@ from speechbrain.utils.train_logger import summarize_average
 import torch
 from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.nnet.losses import get_si_snr
-import pandas as pd
+from speechbrain.nnet.losses import get_si_snr_with_pitwrapper
+
 import torch.nn.functional as F
+import csv
 
 experiment_dir = os.path.dirname(os.path.realpath(__file__))
 params_file = os.path.join(experiment_dir, "params.yaml")
@@ -14,6 +16,7 @@ params_file = os.path.join(experiment_dir, "params.yaml")
 
 # this points to the folder which holds the wsj0-mix dataset folder
 datapath = "/home/cem/datasets/"
+# datapath = '/network/tmp1/subakany/'
 
 # load or create the csv files for the data
 if not (
@@ -30,29 +33,46 @@ if not (
 
         files = os.listdir(mix_path)
 
-        mix_file_paths = [mix_path + fl for fl in files]
-        s1_file_paths = [s1_path + fl for fl in files]
-        s2_file_paths = [s2_path + fl for fl in files]
+        mix_fl_paths = [mix_path + fl for fl in files]
+        s1_fl_paths = [s1_path + fl for fl in files]
+        s2_fl_paths = [s2_path + fl for fl in files]
 
-        df = pd.DataFrame(
-            {
-                "ID": list(range(len(mix_file_paths))),
-                "duration": [1.0] * len(mix_file_paths),
-                "mix_wav": mix_file_paths,
-                "mix_wav_format": ["wav"] * len(mix_file_paths),
-                "mix_wav_opts": [None] * len(mix_file_paths),
-                "s1_wav": s1_file_paths,
-                "s1_wav_format": ["wav"] * len(mix_file_paths),
-                "s1_wav_opts": [None] * len(mix_file_paths),
-                "s2_wav": s2_file_paths,
-                "s2_wav_format": ["wav"] * len(mix_file_paths),
-                "s2_wav_opts": [None] * len(mix_file_paths),
-            }
-        )
+        csv_columns = [
+            "ID",
+            "duration",
+            "mix_wav",
+            "mix_wav_format",
+            "mix_wav_opts",
+            "s1_wav",
+            "s1_wav_format",
+            "s1_wav_opts",
+            "s2_wav",
+            "s2_wav_format",
+            "s2_wav_opts",
+        ]
 
-        df.to_csv(
-            "wsj_" + set_type + ".csv", index=False, index_label="index",
-        )
+        with open("wsj_" + set_type + ".csv", "w") as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
+            writer.writeheader()
+            for i, (mix_path, s1_path, s2_path) in enumerate(
+                zip(mix_fl_paths, s1_fl_paths, s2_fl_paths)
+            ):
+
+                row = {
+                    "ID": i,
+                    "duration": 1.0,
+                    "mix_wav": mix_path,
+                    "mix_wav_format": "wav",
+                    "mix_wav_opts": None,
+                    "s1_wav": s1_path,
+                    "s1_wav_format": "wav",
+                    "s1_wav_opts": None,
+                    "s2_wav": s2_path,
+                    "s2_wav_format": "wav",
+                    "s2_wav_opts": None,
+                }
+                writer.writerow(row)
+
 
 tr_csv = os.path.realpath(os.path.join(experiment_dir, "wsj_tr.csv"))
 cv_csv = os.path.realpath(os.path.join(experiment_dir, "wsj_cv.csv"))
@@ -89,21 +109,34 @@ class CTN_Brain(sb.core.Brain):
         est_source = params.Decoder(mixture_w, est_mask, init_params)
 
         # T changed after conv1d in encoder, fix it here
-        T_origin = mixture.size(-1)
-        T_conv = est_source.size(-1)
+        T_origin = mixture.size(1)
+        T_conv = est_source.size(1)
         if T_origin > T_conv:
-            est_source = F.pad(est_source, (0, T_origin - T_conv))
+            est_source = F.pad(est_source, (0, 0, 0, T_origin - T_conv))
         else:
-            est_source = est_source[:, :, :T_origin]
+            est_source = est_source[:, :T_origin, :]
 
         return est_source
 
     def compute_objectives(self, predictions, targets):
         if params.loss_fn == "sisnr":
+            # targets = torch.randn(20, 100, 2).to(device)
+            # predictions = targets[:, :, (1, 0)]
+
             lengths = torch.tensor(
-                [predictions.shape[-1]] * predictions.shape[0]
+                [predictions.shape[1]] * predictions.shape[0]
             ).to(device)
-            loss = get_si_snr(targets, predictions, lengths)[0]
+
+            loss_old = get_si_snr(targets, predictions, lengths)[0]
+
+            # runs out of memory
+            loss = get_si_snr_with_pitwrapper(targets, predictions)
+
+            print(
+                "loss {}, loss_old {}, difference {}".format(
+                    loss.item(), loss_old.item(), (loss - loss_old).item()
+                )
+            )
             return loss
         else:
             raise ValueError("Not Correct Loss Function Type")
@@ -130,7 +163,7 @@ class CTN_Brain(sb.core.Brain):
         else:
             inputs = batch[0][1].to(device)
             targets = torch.cat(
-                [batch[1][1].unsqueeze(1), batch[2][1].unsqueeze(1)], dim=1
+                [batch[1][1].unsqueeze(-1), batch[2][1].unsqueeze(-1)], dim=-1
             ).to(device)
 
         predictions = self.compute_forward(inputs)
@@ -144,7 +177,7 @@ class CTN_Brain(sb.core.Brain):
     def evaluate_batch(self, batch, stage="test"):
         inputs = batch[0][1].to(device)
         targets = torch.cat(
-            [batch[1][1].unsqueeze(1), batch[2][1].unsqueeze(1)], dim=1
+            [batch[1][1].unsqueeze(-1), batch[2][1].unsqueeze(-1)], dim=-1
         ).to(device)
 
         predictions = self.compute_forward(inputs, stage="test")
