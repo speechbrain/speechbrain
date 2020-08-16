@@ -34,10 +34,6 @@ class SentencePiece:
         Path of the csv file which is used for learn of create the tokenizer.
     csv_read: str
         The data entry which contain the word sequence in the csv file.
-    char_format_input : bool
-        Default : False
-        Whether the csv_read entry contains characters format input.
-        (ex. a p p l e _ i s _ g o o d)
     model_type: str
         (bpe, char, unigram).
         If "bpe", train unsupervised tokenization of piece of words. see:
@@ -45,6 +41,10 @@ class SentencePiece:
         If "word" take the vocabulary from the input text.
         If "unigram" do piece of word tokenization using unigram language model, see:
         https://arxiv.org/abs/1804.10959
+    char_format_input : bool
+        Default : False
+        Whether the csv_read entry contains characters format input.
+        (ex. a p p l e _ i s _ g o o d)
     character_coverage: int
         Default: 1.0,
         Amount of characters covered by the model,
@@ -81,8 +81,8 @@ class SentencePiece:
         vocab_size,
         csv_train=None,
         csv_read=None,
-        char_format_input=False,
         model_type="unigram",
+        char_format_input=False,
         character_coverage=1.0,
         max_sentencepiece_length=10,
         bos_id=-1,
