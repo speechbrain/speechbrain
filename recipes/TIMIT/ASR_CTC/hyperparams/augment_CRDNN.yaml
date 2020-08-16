@@ -19,7 +19,7 @@ csv_valid: !ref <data_folder>/dev.csv
 csv_test: !ref <data_folder>/test.csv
 
 # Training parameters
-number_of_epochs: 1
+number_of_epochs: 30
 batch_size: 8
 lr: 1.0
 device: 'cuda:0'
