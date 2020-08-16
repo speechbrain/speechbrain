@@ -141,6 +141,7 @@ class SentencePiece:
             sent = row[index_label]
             if self.char_format_input:
                 (sent,) = merge_char([sent.split()])
+                sent = " ".join(sent)
             text_file.write(sent + "\n")
         text_file.close()
         csv_file.close()
