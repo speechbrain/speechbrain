@@ -53,4 +53,6 @@ modules:
     softmax: !new:speechbrain.nnet.activations.Softmax
         apply_log: True
     compute_cost: !name:speechbrain.nnet.losses.nll_loss
-    compute_error: !name:speechbrain.nnet.losses.classification_error
+    error_stats: !name:speechbrain.utils.metric_stats.MetricStats
+        metric: !name:speechbrain.nnet.losses.classification_error
+            reduction: batch

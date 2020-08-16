@@ -285,7 +285,9 @@ def l1_loss(
     )
 
 
-def mse_loss(predictions, targets, length=None, allowed_len_diff=3):
+def mse_loss(
+    predictions, targets, length=None, allowed_len_diff=3, reduction="mean"
+):
     """Compute the true mean squared error, accounting for length differences.
 
     Arguments
@@ -298,6 +300,9 @@ def mse_loss(predictions, targets, length=None, allowed_len_diff=3):
         Length of each utterance for computing true error with a mask.
     allowed_len_diff : int
         Length difference that will be tolerated before raising an exception.
+    reduction : str
+        Two options are 'mean' and 'batch', where 'mean' returns a single
+        value, and 'batch' returns one per item.
 
     Example
     -------
@@ -307,11 +312,13 @@ def mse_loss(predictions, targets, length=None, allowed_len_diff=3):
     """
     predictions, targets = truncate(predictions, targets, allowed_len_diff)
     loss = functools.partial(torch.nn.functional.mse_loss, reduction="none")
-    return compute_masked_loss(loss, predictions, targets, length)
+    return compute_masked_loss(
+        loss, predictions, targets, length, reduction=reduction
+    )
 
 
 def classification_error(
-    probabilities, targets, length=None, allowed_len_diff=3
+    probabilities, targets, length=None, allowed_len_diff=3, reduction="mean"
 ):
     """Computes the classification error at frame or batch level.
 
@@ -326,6 +333,9 @@ def classification_error(
         Length of each utterance, if frame-level loss is desired.
     allowed_len_diff : int
         Length difference that will be tolerated before raising an exception.
+    reduction : str
+        Two options are 'mean' and 'batch', where 'mean' returns a single
+        value, and 'batch' returns one per item.
 
     Example
     -------
@@ -342,7 +352,9 @@ def classification_error(
         predictions = torch.argmax(probabilities, dim=-1)
         return (predictions != targets).float()
 
-    return compute_masked_loss(error, probabilities, targets.long(), length)
+    return compute_masked_loss(
+        error, probabilities, targets.long(), length, reduction=reduction
+    )
 
 
 def nll_loss(

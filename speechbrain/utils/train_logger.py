@@ -5,7 +5,6 @@ Authors
  * Peter Plantinga 2020
 """
 import logging
-from speechbrain.utils.edit_distance import wer_summary
 
 logger = logging.getLogger(__name__)
 
@@ -117,7 +116,7 @@ class TensorboardLogger(TrainLogger):
         from torch.utils.tensorboard import SummaryWriter
 
         self.writer = SummaryWriter(self.save_dir)
-        self.global_step = {"train": {}, "valid": {}, "meta": 0}
+        self.global_step = {"train": {}, "valid": {}, "test": {}, "meta": 0}
 
     def log_stats(
         self,
@@ -147,12 +146,3 @@ class TensorboardLogger(TrainLogger):
                     new_global_step = self.global_step[dataset][stat] + 1
                     self.writer.add_scalar(tag, value, new_global_step)
                     self.global_step[dataset][stat] = new_global_step
-
-
-def summarize_average(stat_list):
-    return float(sum(stat_list) / len(stat_list))
-
-
-def summarize_error_rate(stat_list):
-    summary = wer_summary(stat_list)
-    return summary["WER"]

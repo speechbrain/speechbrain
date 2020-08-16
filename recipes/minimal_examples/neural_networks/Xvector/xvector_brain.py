@@ -1,7 +1,6 @@
 #!/usr/bin/python
 import speechbrain as sb
 from speechbrain.nnet.containers import Sequential
-from speechbrain.utils.train_logger import summarize_average
 
 
 # Trains xvector model
@@ -22,18 +21,24 @@ class XvectorBrain(sb.core.Brain):
 
         loss = self.compute_cost(predictions, spkid, lens)
 
-        stats = {}
-
         if stage != "train":
-            stats["error"] = self.compute_error(predictions, spkid, lens)
+            self.error_metrics.append(uttid, predictions, spkid, lens)
 
-        return loss, stats
+        return loss
 
-    def on_epoch_end(self, epoch, train_stats, valid_stats):
-        print("Epoch %d complete" % epoch)
-        print("Train loss: %.2f" % summarize_average(train_stats["loss"]))
-        print("Valid loss: %.2f" % summarize_average(valid_stats["loss"]))
-        print("Valid error: %.2f" % summarize_average(valid_stats["error"]))
+    def on_stage_start(self, stage, epoch=None):
+        if stage != "train":
+            self.error_metrics = self.error_stats()
+
+    def on_stage_end(self, stage, stage_loss, epoch=None):
+        if stage == "train":
+            self.train_loss = stage_loss
+        if stage == "valid":
+            print("Epoch %d complete" % epoch)
+            print("Train loss: %.2f" % self.train_loss)
+        if stage != "train":
+            print(stage, "loss: %.2f" % stage_loss)
+            print(stage, "error: %.2f" % self.error_metrics.summarize())
 
 
 # Extracts xvector given data and truncated model

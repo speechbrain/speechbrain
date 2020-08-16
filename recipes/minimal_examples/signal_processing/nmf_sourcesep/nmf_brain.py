@@ -85,17 +85,13 @@ class NMF_Brain(sb.core.Brain):
         inputs = batch
         predictions = self.compute_forward(inputs)
         self.training_out = predictions
-        return {"loss": torch.tensor(predictions[-1])}
+        return torch.tensor(predictions[-1])
 
     def evaluate_batch(self, batch):
         inputs, targets = batch
         output = self.compute_forward(inputs)
-        loss, stats = self.compute_objectives(output, targets, train=False)
-        stats["loss"] = loss.detach()
-        return stats
+        loss = self.compute_objectives(output, targets, train=False)
+        return loss.detach()
 
-    def summarize(self, stats, write=False):
-        return {"loss": float(sum(s["loss"] for s in stats) / len(stats))}
-
-    def on_epoch_end(self, *args):
-        print("The loss is {}".format(args[1]["loss"]))
+    def on_stage_end(self, stage, stage_loss, epoch=None):
+        print("The loss is {}".format(stage_loss))

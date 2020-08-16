@@ -278,7 +278,6 @@ class Brain:
 
         # Store modules as ModuleList, primarily for calling train()/eval()
         self.modules = torch.nn.ModuleList(modulelist)
-        self.avg_train_loss = 0.0
         self.auto_mix_prec = auto_mix_prec
 
         # Automatic mixed precision init

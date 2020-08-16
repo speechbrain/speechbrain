@@ -1,10 +1,6 @@
 #!/usr/bin/python
 import speechbrain as sb
 from speechbrain.decoders.ctc import ctc_greedy_decode
-from speechbrain.decoders.decoders import undo_padding
-from speechbrain.utils.edit_distance import wer_details_for_batch
-from speechbrain.utils.train_logger import summarize_average
-from speechbrain.utils.train_logger import summarize_error_rate
 
 
 class CTCBrain(sb.core.Brain):
@@ -23,16 +19,24 @@ class CTCBrain(sb.core.Brain):
         ids, phns, phn_lens = targets
         loss = self.compute_cost(predictions, phns, lens, phn_lens)
 
-        stats = {}
         if stage != "train":
             seq = ctc_greedy_decode(predictions, lens, blank_id=-1)
-            phns = undo_padding(phns, phn_lens)
-            stats["PER"] = wer_details_for_batch(ids, phns, seq)
+            self.per_metrics.append(ids, seq, phns, phn_lens)
 
-        return loss, stats
+        return loss
 
-    def on_epoch_end(self, epoch, train_stats, valid_stats):
-        print("Epoch %d complete" % epoch)
-        print("Train loss: %.2f" % summarize_average(train_stats["loss"]))
-        print("Valid loss: %.2f" % summarize_average(valid_stats["loss"]))
-        print("Valid PER: %.2f" % summarize_error_rate(valid_stats["PER"]))
+    def on_stage_start(self, stage, epoch=None):
+        if stage != "train":
+            self.per_metrics = self.per_stats()
+
+    def on_stage_end(self, stage, stage_loss, epoch=None):
+        if stage == "train":
+            self.train_loss = stage_loss
+
+        if stage == "valid" and epoch is not None:
+            print("Epoch %d complete" % epoch)
+            print("Train loss: %.2f" % self.train_loss)
+
+        if stage != "train":
+            print(stage, "loss: %.2f" % stage_loss)
+            print(stage, "PER: %.2f" % self.per_metrics.summarize())

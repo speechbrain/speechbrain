@@ -46,7 +46,9 @@ modules:
     mean_var_norm: !new:speechbrain.processing.features.InputNormalization
         norm_type: global
     compute_cost: !name:speechbrain.nnet.losses.nll_loss
-    compute_error: !name:speechbrain.nnet.losses.classification_error
+    error_stats: !name:speechbrain.utils.metric_stats.MetricStats
+        metric: !name:speechbrain.nnet.losses.classification_error
+            reduction: batch
 
 train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>

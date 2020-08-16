@@ -3,7 +3,6 @@ import os
 import speechbrain as sb
 
 from lm_brain import LMBrain
-from speechbrain.utils.train_logger import summarize_average
 
 experiment_dir = os.path.dirname(os.path.realpath(__file__))
 hyperparams_file = os.path.join(experiment_dir, "hyperparams.yaml")
@@ -26,9 +25,8 @@ lm_brain = LMBrain(
 lm_brain.fit(hyperparams.epoch_counter, train_set, valid_set)
 
 test_stats = lm_brain.evaluate(hyperparams.test_loader())
-print("Test loss: %.2f" % summarize_average(test_stats["loss"]))
 
 
 # Integration test: check that the model overfits the training data
 def test_error():
-    assert lm_brain.avg_train_loss < 0.15
+    assert lm_brain.train_loss < 0.15

@@ -1,6 +1,5 @@
 #!/usr/bin/python
 import speechbrain as sb
-from speechbrain.utils.train_logger import summarize_average
 
 
 class ASR_Brain(sb.core.Brain):
@@ -21,14 +20,23 @@ class ASR_Brain(sb.core.Brain):
         ids, ali, ali_lens = targets
         loss = self.compute_cost(outputs, ali, lens)
 
-        stats = {}
         if stage != "train":
-            stats["error"] = self.compute_error(outputs, ali, lens)
+            self.err_metrics.append(ids, outputs, ali, lens)
 
-        return loss, stats
+        return loss
 
-    def on_epoch_end(self, epoch, train_stats, valid_stats):
-        print("Epoch %d complete" % epoch)
-        print("Train loss: %.2f" % summarize_average(train_stats["loss"]))
-        print("Valid loss: %.2f" % summarize_average(valid_stats["loss"]))
-        print("Valid error: %.2f" % summarize_average(valid_stats["error"]))
+    def on_stage_start(self, stage, epoch=None):
+        if stage != "train":
+            self.err_metrics = self.error_stats()
+
+    def on_stage_end(self, stage, stage_loss, epoch=None):
+        if stage == "train":
+            self.train_loss = stage_loss
+
+        if stage == "valid" and epoch is not None:
+            print("Epoch %d complete" % epoch)
+            print("Train loss: %.2f" % self.train_loss)
+
+        if stage != "train":
+            print(stage, "loss: %.2f" % stage_loss)
+            print(stage, "error: %.2f" % self.err_metrics.summarize())

@@ -27,4 +27,4 @@ test_stats = align_brain.evaluate(hyperparams.test_loader())
 
 # Integration test: check that the model overfits the training data
 def test_error():
-    assert align_brain.avg_train_loss < 2.0
+    assert align_brain.train_loss < 2.0

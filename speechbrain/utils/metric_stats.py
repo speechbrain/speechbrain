@@ -37,8 +37,13 @@ class MetricStats:
     ...      predict=torch.tensor([[0.1, 0.2], [0.2, 0.3]]),
     ...      target=torch.tensor([[0.1, 0.2], [0.1, 0.2]]),
     ... )
-    >>> loss_stats.summarize(full_summary=True)
+    >>> stats = loss_stats.summarize(just_avg=False)
+    >>> stats['avg']
     tensor(0.0500)
+    >>> stats['max_score']
+    tensor(0.1000)
+    >>> stats['max_id']
+    'utterance2'
     """
 
     def __init__(self, metric):
@@ -136,15 +141,29 @@ class ErrorRateStats(MetricStats):
 
     Example
     -------
-    >>> ind2lab = {0: 'a', 1: 'b'}
     >>> cer_stats = ErrorRateStats()
     >>> cer_stats.append(
+    ...     ids=['utterance1'],
+    ...     predict=torch.tensor([[0, 1, 1]]),
+    ...     target=torch.tensor([[0, 1, 0]]),
+    ...     target_len=torch.ones(1),
+    ...     ind2lab={0: 'a', 1: 'b'},
+    ... )
+    >>> stats = cer_stats.summarize(just_avg=False)
+    >>> stats['WER']
+    33.33...
+    >>> stats['insertions']
+    0
+    >>> stats['deletions']
+    0
+    >>> stats['substitutions']
+    1
     """
 
     def __init__(self):
         self.clear()
 
-    def append(self, ids, predict, target, target_len, ind2lab):
+    def append(self, ids, predict, target, target_len, ind2lab=None):
         """Add stats to the relevant containers.
 
         * See MetricStats.append()
@@ -163,12 +182,14 @@ class ErrorRateStats(MetricStats):
             Mapping from indices to labels, for writing alignments.
         """
         self.ids.extend(ids)
-
-        predict_lab = convert_index_to_lab(predict, ind2lab)
         target_lab = undo_padding(target, target_len)
-        target_lab = convert_index_to_lab(target_lab, ind2lab)
+
+        if ind2lab is not None:
+            predict = convert_index_to_lab(predict, ind2lab)
+            target_lab = convert_index_to_lab(target_lab, ind2lab)
+
         scores = edit_distance.wer_details_for_batch(
-            ids, target_lab, predict_lab, compute_alignments=True
+            ids, target_lab, predict, compute_alignments=ind2lab is not None
         )
 
         self.scores.extend(scores)
