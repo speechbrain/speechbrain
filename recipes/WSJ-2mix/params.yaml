@@ -64,11 +64,6 @@ Decoder: !new:speechbrain.lobes.models.conv_tasnet.Decoder
     # N: 256
     L: 20
 
-   #conv_tasnet: !new:speechbrain.lobes.models.conv_tasnet
-   #    - !ref <Encoder>
-   #    - !ref <MaskNet>
-   #    - !ref <Decoder>
-
 optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
     learning_rate: !ref <lr>
 
