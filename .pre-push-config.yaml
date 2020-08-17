@@ -3,7 +3,7 @@ repos:
       hooks:
           - id: linters
             name: linters
-            entry: ./.run-linters.sh
+            entry: tests/.run-linters.sh
             language: script
             pass_filenames: False
             always_run: True
@@ -11,7 +11,7 @@ repos:
 
           - id: unittests
             name: unittests
-            entry: ./.run-unittests.sh
+            entry: tests/.run-unittests.sh
             language: script
             pass_filenames: False
             always_run: True
@@ -19,7 +19,7 @@ repos:
 
           - id: doctests
             name: doctests
-            entry: ./.run-doctests.sh
+            entry: tests/.run-doctests.sh
             language: script
             pass_filenames: False
             always_run: True
