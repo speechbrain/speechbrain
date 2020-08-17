@@ -15,6 +15,7 @@ lr: 0.0002
 train_onthefly: False
 loss_fn: 'sisnr'
 progressbar: True
+datapath: '/home/cem/datasets/'
 
 tr_csv: 'wsj_tr.csv'
 cv_csv: 'wsj_cv.csv'
@@ -42,18 +43,6 @@ augmentation: !new:speechbrain.lobes.augment.tdsa.TimeDomainSpecAugment
     sample_rate: 8000
     speeds: [95, 100, 105]
 
-# conv_tasnet: !new:speechbrain.lobes.models.conv_tasnet.ConvTasNet
-#    N: 256
-#    L: 20
-#    B: 256
-#    H: 512
-#    P: 3
-#    X: 8
-#    R: 4
-#    C: 2
-#    norm_type: 'gLN'
-#    causal: False
-#    mask_nonlinear: 'relu'
 
 MaskNet: !new:speechbrain.lobes.models.conv_tasnet.MaskNet
     N: 256
