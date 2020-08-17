@@ -9,9 +9,22 @@ Authors:
 import torch
 import speechbrain.data_io.wer as wer_io
 import speechbrain.utils.edit_distance as edit_distance
+from joblib import Parallel, delayed
 from speechbrain.data_io.data_io import convert_index_to_lab
 from speechbrain.decoders.decoders import undo_padding
 from speechbrain.utils.edit_distance import wer_summary
+
+
+def multiprocess_evaluation(metric, predict, target, lengths=None, n_jobs=30):
+    if lengths is not None:
+        lengths = (lengths * predict.size(1)).int().cpu()
+        predict = [p[:length].cpu() for p, length in zip(predict, lengths)]
+        target = [t[:length].cpu() for t, length in zip(target, lengths)]
+
+    scores = Parallel(n_jobs=n_jobs)(
+        delayed(metric)(p, t) for p, t in zip(predict, target)
+    )
+    return scores
 
 
 class MetricStats:
@@ -26,29 +39,33 @@ class MetricStats:
         at least two arguments (predictions and targets) and can
         optionally take the relative lengths of either or both arguments.
         Not usually used in sub-classes.
+    n_jobs : int
+        The number of jobs to use for computing the metric. If this is
+        more than one, every sample is processed individually, otherwise
+        the whole batch is passed at once.
 
     Example
     -------
     >>> from speechbrain.nnet.losses import l1_loss
-    >>> loss_stats = MetricStats(
-    ...      metric=lambda x, y: l1_loss(x, y, reduction='batch')
-    ... )
+    >>> loss_stats = MetricStats(metric=l1_loss)
     >>> loss_stats.append(
-    ...      ids=['utterance1', 'utterance2'],
-    ...      predict=torch.tensor([[0.1, 0.2], [0.2, 0.3]]),
-    ...      target=torch.tensor([[0.1, 0.2], [0.1, 0.2]]),
+    ...      ids=["utterance1", "utterance2"],
+    ...      predictions=torch.tensor([[0.1, 0.2], [0.2, 0.3]]),
+    ...      targets=torch.tensor([[0.1, 0.2], [0.1, 0.2]]),
+    ...      reduction="batch",
     ... )
     >>> stats = loss_stats.summarize()
     >>> stats['average']
-    tensor(0.0500)
+    0.050...
     >>> stats['max_score']
-    tensor(0.1000)
+    0.100...
     >>> stats['max_id']
     'utterance2'
     """
 
-    def __init__(self, metric):
+    def __init__(self, metric, n_jobs=1):
         self.metric = metric
+        self.n_jobs = n_jobs
         self.clear()
 
     def clear(self):
@@ -57,30 +74,29 @@ class MetricStats:
         self.ids = []
         self.summary = {}
 
-    def append(self, ids, predict, target, pred_len=None, target_len=None):
+    def append(self, ids, *args, **kwargs):
         """Store a particular set of metric scores.
 
         Arguments
         ---------
         ids : list
             List of ids corresponding to utterances.
-        predict : torch.tensor
-            A predicted output, for comparison with the target output
-        target : torch.tensor
-            The correct reference output, for comparison with the prediction.
-        pred_len : torch.tensor
-            The predicted outputs' relative lengths.
-        target_len : torch.tensor
-            The target outputs' relative lengths.
+        *args, **kwargs
+            Arguments to pass to the metric function
         """
         self.ids.extend(ids)
 
-        args = [predict, target]
-        if pred_len is not None:
-            args.append(pred_len)
-        if target_len is not None:
-            args.append(target_len)
-        scores = self.metric(*args).detach()
+        # Compute metric, in parallel if requested.
+        if self.n_jobs > 1:
+            if "predict" not in kwargs or "target" not in kwargs:
+                raise ValueError(
+                    "Must pass 'predict' and 'target' as kwargs if n_jobs > 1"
+                )
+            scores = multiprocess_evaluation(
+                metric=self.metric, n_jobs=self.n_jobs, **kwargs
+            )
+        else:
+            scores = self.metric(*args, **kwargs).detach()
 
         self.scores.extend(scores)
 
@@ -102,10 +118,10 @@ class MetricStats:
         min_index = torch.argmin(torch.tensor(self.scores))
         max_index = torch.argmax(torch.tensor(self.scores))
         self.summary = {
-            "average": sum(self.scores) / len(self.scores),
-            "min_score": self.scores[min_index],
+            "average": float(sum(self.scores) / len(self.scores)),
+            "min_score": float(self.scores[min_index]),
             "min_id": self.ids[min_index],
-            "max_score": self.scores[max_index],
+            "max_score": float(self.scores[max_index]),
             "max_id": self.ids[max_index],
         }
 

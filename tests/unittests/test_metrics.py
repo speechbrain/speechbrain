@@ -1,26 +1,25 @@
 import torch
 import torch.nn
+import math
 
 
 def test_metric_stats():
     from speechbrain.utils.metric_stats import MetricStats
     from speechbrain.nnet.losses import l1_loss
 
-    def batch_l1_loss(pred, target, length):
-        return l1_loss(pred, target, length, reduction="batch")
-
-    l1_stats = MetricStats(metric=batch_l1_loss)
+    l1_stats = MetricStats(metric=l1_loss)
     l1_stats.append(
         ids=["utterance1", "utterance2"],
-        predict=torch.tensor([[0.1, 0.2], [0.1, 0.2]]),
-        target=torch.tensor([[0.1, 0.3], [0.2, 0.3]]),
-        pred_len=torch.ones(2),
+        predictions=torch.tensor([[0.1, 0.2], [0.1, 0.2]]),
+        targets=torch.tensor([[0.1, 0.3], [0.2, 0.3]]),
+        length=torch.ones(2),
+        reduction="batch",
     )
     summary = l1_stats.summarize()
-    assert summary["average"].isclose(torch.Tensor([0.075]))
-    assert summary["min_score"].isclose(torch.Tensor([0.05]))
+    assert math.isclose(summary["average"], 0.075, rel_tol=1e-5)
+    assert math.isclose(summary["min_score"], 0.05, rel_tol=1e-5)
     assert summary["min_id"] == "utterance1"
-    assert summary["max_score"].isclose(torch.Tensor([0.1]))
+    assert math.isclose(summary["max_score"], 0.1, rel_tol=1e-5)
     assert summary["max_id"] == "utterance2"
 
 
@@ -90,4 +89,4 @@ def test_EER_threshold():
         negative_scores < threshold
     ).nonzero(as_tuple=False).size(0)
 
-    assert correct > 950 and correct < 1050
+    assert correct > 900 and correct < 1100
