@@ -19,23 +19,11 @@ class Conv2dAuto(torch.nn.Conv2d):
         )  # dynamic add padding based on the kernel_size
 
 
-def conv_bn(in_channels, out_channels, *args, **kwargs):
-    return torch.nn.Sequential(
-        OrderedDict(
-            {
-                "conv": Conv2dAuto(in_channels, out_channels, *args, **kwargs),
-                "bn": torch.nn.BatchNorm2d(out_channels),
-            }
-        )
-    )
-
-
-class ResNetBlock(torch.nn.Module):
-    """An abstract implementation of ResNet block
+class PreActResNetBlock(torch.nn.Module):
+    """An abstract implementation of pre-activation ResNet block
     Let x be input, y be output
     y = x + block(x) if x.shape == y.shape
     y = shorcut(x) + block(x) otherwise
-
 
     Arguements
     ----------
@@ -58,13 +46,13 @@ class ResNetBlock(torch.nn.Module):
         *args,
         **kwargs,
     ):
-        super(ResNetBlock, self).__init__()
+        super(PreActResNetBlock, self).__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.expansion = expansion
         self.downsampling = downsampling
         self.shortcut = (
-            conv_bn(
+            Conv2dAuto(
                 self.in_channels,
                 self.expanded_channels,
                 kernel_size=1,
@@ -80,6 +68,7 @@ class ResNetBlock(torch.nn.Module):
         if self.should_apply_shortcut:
             residual = self.shortcut(x)
         x = self.blocks(x)
+        # x = self.gating(x)
         x += residual
         return x
 
@@ -90,6 +79,70 @@ class ResNetBlock(torch.nn.Module):
     @property
     def should_apply_shortcut(self):
         return self.in_channels != self.expanded_channels
+
+
+def conv_bn(in_channels, out_channels, *args, **kwargs):
+    return torch.nn.Sequential(
+        OrderedDict(
+            {
+                "conv": Conv2dAuto(in_channels, out_channels, *args, **kwargs),
+                "bn": torch.nn.BatchNorm2d(out_channels),
+            }
+        )
+    )
+
+
+class ResNetBlock(PreActResNetBlock):
+    """An abstract implementation of ResNet block
+    Let x be input, y be output
+    y = relu(x + block(x)) if x.shape == y.shape
+    y = relu(shorcut(x) + block(x)) otherwise
+
+    Arguements
+    ----------
+    in_channels: int
+        number of input channels of this model
+    out_channels: int
+        number of output channels of this model
+    expansion: int
+        number of expansion of output channels
+    downsampling: int
+        stride for convolutions
+    """
+
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        expansion=1,
+        downsampling=1,
+        *args,
+        **kwargs,
+    ):
+        super(ResNetBlock, self).__init__(
+            in_channels, out_channels, expansion, downsampling, *args, **kwargs
+        )
+        self.shortcut = (
+            conv_bn(
+                self.in_channels,
+                self.expanded_channels,
+                kernel_size=1,
+                stride=self.downsampling,
+                bias=False,
+            )
+            if self.should_apply_shortcut
+            else None
+        )
+        self.relu = torch.nn.ReLU(inplace=True)
+
+    def forward(self, x):
+        residual = x
+        if self.should_apply_shortcut:
+            residual = self.shortcut(x)
+        x = self.blocks(x)
+        x += residual
+        x = self.relu(x)
+        return x
 
 
 class ResNetBasicBlock(ResNetBlock):
@@ -211,7 +264,7 @@ def pre_act(in_channels, out_channels, activation, *args, **kwargs):
     )
 
 
-class PreActResNetBasicBlock(ResNetBlock):
+class PreActResNetBasicBlock(PreActResNetBlock):
     """An implementation of pre-activation ResNet basic block without
     expansion, i.e.  BN-ReLU-Conv3x3-BN-ReLU-Conv3x3.
 
@@ -269,7 +322,7 @@ class PreActResNetBasicBlock(ResNetBlock):
         )
 
 
-class PreActResNetBottleNeckBlock(ResNetBlock):
+class PreActResNetBottleNeckBlock(PreActResNetBlock):
     """An implementation of pre-activation ResNet basic block with expansion,
     i.e.  BN-ReLU-Conv1x1-BN-ReLU-Conv3x3-BN-ReLU-Conv1x1(x4).
     Shortcut is a Conv1x1 from input channels to expanded channels
