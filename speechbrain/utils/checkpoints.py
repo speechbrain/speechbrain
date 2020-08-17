@@ -21,8 +21,7 @@ instance or a for a class.
 
 Example
 -------
->>> from speechbrain.utils.checkpoints import Checkpointer
->>> import tempfile
+>>> # Toy example Module:
 >>> class Recoverable(torch.nn.Module):
 ...     def __init__(self, param):
 ...         super().__init__()
@@ -30,7 +29,6 @@ Example
 ...     def forward(self, x):
 ...         return x * self.param
 >>> model = Recoverable(1.)
->>>
 >>> tempdir = getfixture('tmpdir')
 >>> # In simple cases, the module aims to have a terse syntax,
 >>> # consisting of three steps.
@@ -665,7 +663,7 @@ class Checkpointer:
         ckpts = list(filter(ckpt_predicate, ckpts))
 
         if ckpts:
-            ranked_ckpts = sorted(ckpts, key=importance_key)
+            ranked_ckpts = sorted(ckpts, key=importance_key, reverse=True)
             # NOTE: apparently, you can also slice [:None],
             # and this is the same as [:], so the following if-else is not
             # strictly speaking needed. However, this feature does not seem to
@@ -941,7 +939,7 @@ def average_state_dicts(state_dicts):
             num_dicts += 1
         # Finally, divide by number of dicts:
         for pname, param in running_sum.items():
-            running_sum[pname] = param.data / num_dicts
+            running_sum[pname] = param.data / float(num_dicts)
     return running_sum
 
 
@@ -985,6 +983,31 @@ def average_checkpoints(
     -------
     Any
         The output of the averager function.
+
+    Example
+    -------
+    >>> # Consider this toy Module again:
+    >>> class Recoverable(torch.nn.Module):
+    ...     def __init__(self, param):
+    ...         super().__init__()
+    ...         self.param = torch.nn.Parameter(torch.tensor([param]))
+    ...     def forward(self, x):
+    ...         return x * self.param
+    >>> # Now let's make some checkpoints:
+    >>> model = Recoverable(1.)
+    >>> tempdir = getfixture('tmpdir')
+    >>> checkpointer = Checkpointer(tempdir, {"model": model})
+    >>> for new_param in range(10):
+    ...     model.param.data = torch.tensor([float(new_param)])
+    ...     _ = checkpointer.save_checkpoint()  # Suppress output with assignment
+    >>> # Let's average the 3 latest checkpoints 
+    >>> # (parameter values 7, 8, 9 -> avg=8)
+    >>> ckpt_list = checkpointer.find_checkpoints(max_num_checkpoints = 3)
+    >>> averaged_state = average_checkpoints(ckpt_list, "model")
+    >>> # Now load that state in the normal way:
+    >>> _ = model.load_state_dict(averaged_state)  # Suppress output
+    >>> model.param.data
+    tensor([8.])
     """
 
     parameter_iterator = (
