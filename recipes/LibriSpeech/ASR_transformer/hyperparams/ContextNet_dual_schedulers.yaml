@@ -24,7 +24,7 @@ multigpu: True
 auto_mix_precision: False
 ckpt_avg: True
 num_ckpt_to_avg: 10
-loss_reduction: 'sum'
+loss_reduction: 'batchmean'
 
 # Feature parameters
 sample_rate: 16000

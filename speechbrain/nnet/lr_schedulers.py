@@ -366,7 +366,7 @@ class NoamScheduler:
     1.0
     """
 
-    def __init__(self, lr_initial, n_warmup_steps):
+    def __init__(self, lr_initial, n_warmup_steps, model_size=None):
         self.lr_initial = lr_initial
         self.n_warmup_steps = n_warmup_steps
         self.losses = []
@@ -374,6 +374,8 @@ class NoamScheduler:
 
         self.n_steps = 0
         self.normalize = 1 / (n_warmup_steps * n_warmup_steps ** -1.5)
+        if model_size is not None:
+            self.normalize = model_size ** (-0.5)
 
     def __call__(self, optim_list, current_epoch, current_loss):
         """

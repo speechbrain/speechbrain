@@ -260,7 +260,9 @@ class Brain:
             if "stage" in inspect.signature(self.compute_forward).parameters:
                 with torch.no_grad():
                     self.modules.eval()
-                    self.compute_forward(*first_inputs, stage="valid")
+                    self.compute_forward(
+                        *first_inputs, stage="valid", init_params=True
+                    )
 
             if self.optimizer is not None:
                 self.optimizer.init_params(self.modules)

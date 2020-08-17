@@ -288,11 +288,11 @@ class ASR(sb.core.Brain):
         return stats
 
     def on_epoch_end(self, epoch, train_stats, valid_stats):
-        old_lr = params.cosine_annealing.current_lr
+        old_lr = params.noam_annealing.current_lr
         epoch_stats = {
             "epoch": epoch,
             "lr": old_lr,
-            "steps": params.cosine_annealing.n_steps,
+            "steps": params.noam_annealing.n_steps,
         }
         params.train_logger.log_stats(epoch_stats, train_stats, valid_stats)
 
