@@ -77,4 +77,4 @@ class seq2seqBrain(sb.core.Brain):
             print("Train loss: %.2f" % self.train_loss)
         if stage != "train":
             print(stage, "loss: %.2f" % stage_loss)
-            print(stage, "PER: %.2f" % self.per_metrics.summarize())
+            print(stage, "PER: %.2f" % self.per_metrics.summarize("error_rate"))

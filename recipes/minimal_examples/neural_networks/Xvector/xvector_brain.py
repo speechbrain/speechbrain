@@ -38,7 +38,9 @@ class XvectorBrain(sb.core.Brain):
             print("Train loss: %.2f" % self.train_loss)
         if stage != "train":
             print(stage, "loss: %.2f" % stage_loss)
-            print(stage, "error: %.2f" % self.error_metrics.summarize())
+            print(
+                stage, "error: %.2f" % self.error_metrics.summarize("average")
+            )
 
 
 # Extracts xvector given data and truncated model
