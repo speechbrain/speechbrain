@@ -39,4 +39,4 @@ class ASR_Brain(sb.core.Brain):
 
         if stage != "train":
             print(stage, "loss: %.2f" % stage_loss)
-            print(stage, "error: %.2f" % self.err_metrics.summarize())
+            print(stage, "error: %.2f" % self.err_metrics.summarize("average"))
