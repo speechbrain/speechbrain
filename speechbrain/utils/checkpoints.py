@@ -1000,7 +1000,7 @@ def average_checkpoints(
     >>> for new_param in range(10):
     ...     model.param.data = torch.tensor([float(new_param)])
     ...     _ = checkpointer.save_checkpoint()  # Suppress output with assignment
-    >>> # Let's average the 3 latest checkpoints 
+    >>> # Let's average the 3 latest checkpoints
     >>> # (parameter values 7, 8, 9 -> avg=8)
     >>> ckpt_list = checkpointer.find_checkpoints(max_num_checkpoints = 3)
     >>> averaged_state = average_checkpoints(ckpt_list, "model")
