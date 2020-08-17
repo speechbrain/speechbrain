@@ -31,7 +31,7 @@ class AutoBrain(sb.core.Brain):
             optimizer.zero_grad()
         return loss.detach()
 
-    def evaluate_batch(self, batch, stage="test"):
+    def evaluate_batch(self, batch, stage=sb.core.Stage.TEST):
         inputs = batch[0]
         predictions = self.compute_forward(inputs)
         loss = self.compute_objectives(predictions, inputs)
@@ -42,26 +42,26 @@ class AutoBrain(sb.core.Brain):
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
         if self.use_tensorboard:
-            if stage == "train":
+            if stage == sb.core.Stage.TRAIN:
                 self.train_logger.log_stats(
                     {"Epoch": epoch},
                     train_stats={"loss": self.mse_metric.scores},
                 )
-            elif stage == "valid":
+            elif stage == sb.core.Stage.VALID:
                 self.train_logger.log_stats(
                     {"Epoch": epoch},
                     valid_stats={"loss": self.mse_metric.scores},
                 )
-            if stage == "test":
+            if stage == sb.core.Stage.TEST:
                 self.train_logger.log_stats(
                     {}, test_stats={"loss": self.mse_metric.scores}
                 )
 
-        if stage == "train":
+        if stage == sb.core.Stage.TRAIN:
             self.train_loss = stage_loss
-        if stage == "valid":
+        if stage == sb.core.Stage.VALID:
             print("Completed epoch %d" % epoch)
             print("Train loss: %.3f" % self.train_loss)
             print("Valid loss: %.3f" % stage_loss)
-        if stage == "test":
+        if stage == sb.core.Stage.TEST:
             print("Test loss: %.3f" % stage_loss)

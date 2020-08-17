@@ -6,7 +6,9 @@ from speechbrain.data_io.data_io import append_eos_token
 
 
 class seq2seqBrain(sb.core.Brain):
-    def compute_forward(self, x, y, stage="train", init_params=False):
+    def compute_forward(
+        self, x, y, stage=sb.core.Stage.TRAIN, init_params=False
+    ):
         id, wavs, wav_lens = x
         id, phns, phn_lens = y
         feats = self.compute_features(wavs, init_params)
@@ -20,14 +22,16 @@ class seq2seqBrain(sb.core.Brain):
         logits = self.lin(h, init_params=init_params)
         outputs = self.softmax(logits)
 
-        if stage != "train":
+        if stage != sb.core.Stage.TRAIN:
             seq, _ = self.searcher(x, wav_lens)
             return outputs, seq
 
         return outputs
 
-    def compute_objectives(self, predictions, targets, stage="train"):
-        if stage == "train":
+    def compute_objectives(
+        self, predictions, targets, stage=sb.core.Stage.TRAIN
+    ):
+        if stage == sb.core.Stage.TRAIN:
             outputs = predictions
         else:
             outputs, seq = predictions
@@ -44,7 +48,7 @@ class seq2seqBrain(sb.core.Brain):
         rel_length = (abs_length + 1) / phns.shape[1]
         loss = self.compute_cost(outputs, phns, length=rel_length)
 
-        if stage != "train":
+        if stage != sb.core.Stage.TRAIN:
             self.per_metrics.append(ids, seq, phns, phn_lens)
 
         return loss
@@ -59,22 +63,22 @@ class seq2seqBrain(sb.core.Brain):
             optimizer.zero_grad()
         return loss.detach()
 
-    def evaluate_batch(self, batch, stage="test"):
+    def evaluate_batch(self, batch, stage=sb.core.Stage.TEST):
         inputs, targets = batch
         out = self.compute_forward(inputs, targets, stage)
         loss = self.compute_objectives(out, targets, stage)
         return loss.detach()
 
     def on_stage_start(self, stage, epoch=None):
-        if stage != "train":
+        if stage != sb.core.Stage.TRAIN:
             self.per_metrics = self.per_stats()
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
-        if stage == "train":
+        if stage == sb.core.Stage.TRAIN:
             self.train_loss = stage_loss
-        if stage == "valid" and epoch is not None:
+        if stage == sb.core.Stage.VALID and epoch is not None:
             print("Epoch %d complete" % epoch)
             print("Train loss: %.2f" % self.train_loss)
-        if stage != "train":
+        if stage != sb.core.Stage.TRAIN:
             print(stage, "loss: %.2f" % stage_loss)
             print(stage, "PER: %.2f" % self.per_metrics.summarize("error_rate"))

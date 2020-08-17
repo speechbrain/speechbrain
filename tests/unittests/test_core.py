@@ -10,16 +10,16 @@ def test_parse_arguments():
 
 def test_brain():
     import torch
-    from speechbrain.core import Brain
+    from speechbrain.core import Brain, Stage
     from speechbrain.nnet.optimizers import SGD_Optimizer
 
     model = torch.nn.Linear(in_features=10, out_features=10)
 
     class SimpleBrain(Brain):
-        def compute_forward(self, x, stage="train", init_params=False):
+        def compute_forward(self, x, stage=Stage.TRAIN, init_params=False):
             return self.model(x)
 
-        def compute_objectives(self, predictions, targets, stage="train"):
+        def compute_objectives(self, predictions, targets, stage=Stage.TRAIN):
             return torch.nn.functional.l1_loss(predictions, targets)
 
     inputs = torch.rand(10, 10)
