@@ -308,7 +308,7 @@ def _construct_name(loader, callable_string, node):
     if callable_ is None:
         raise ImportError("There is no such callable as %s" % callable_string)
 
-    if not (inspect.isclass(callable_) or inspect.isfunction(callable_)):
+    if not (inspect.isclass(callable_) or inspect.isroutine(callable_)):
         raise ValueError(
             f"!name:{callable_string} should be class or function, "
             f"but is {callable_}"

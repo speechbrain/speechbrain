@@ -6,22 +6,30 @@ Authors
  * Peter Plantinga 2020
  * Francois Grondin 2020
  * William Aris 2020
+ * Samuele Cornell 2020
 """
 import torch
 import math
 
 
-def compute_amplitude(waveforms, lengths):
-    """Compute the average amplitude of a batch of waveforms.
+def compute_amplitude(waveforms, lengths, amp_type="avg", scale="linear"):
+    """Compute amplitude of a batch of waveforms.
 
     Arguments
     ---------
     waveform : tensor
         The waveforms used for computing amplitude.
+        Shape should be `[time]` or `[batch, time]` or
+        `[batch, time, channels]`.
     lengths : tensor
-        The lengths of the waveforms excluding the padding
-        added to put all waveforms in the same tensor.
-
+        The lengths of the waveforms excluding the padding.
+        Shape should be a single dimension, `[batch]`.
+    amp_type: str
+        Whether to compute "avg" average or "peak" amplitude.
+        Choose between ["avg", "peak"].
+    scale: str
+        Whether to compute amplitude in "dB" or "linear" scale.
+        Choose between ["linear", "dB"].
     Returns
     -------
     The average amplitude of the waveforms.
@@ -32,7 +40,114 @@ def compute_amplitude(waveforms, lengths):
     >>> compute_amplitude(signal, signal.size(1))
     tensor([[0.6366]])
     """
-    return torch.sum(input=torch.abs(waveforms), dim=1, keepdim=True,) / lengths
+    if len(waveforms.shape) == 1:
+        waveforms = waveforms.unsqueeze(0)
+
+    assert amp_type in ["avg", "peak"]
+    assert scale in ["linear", "dB"]
+
+    if amp_type == "avg":
+        out = (
+            torch.sum(input=torch.abs(waveforms), dim=1, keepdim=True) / lengths
+        )
+    elif amp_type == "peak":
+        out = torch.max(torch.abs(waveforms), dim=1, keepdim=True)[0]
+    else:
+        raise NotImplementedError
+
+    if scale == "linear":
+        return out
+    elif scale == "dB":
+        return torch.clamp(20 * torch.log10(out), min=-80)  # clamp zeros
+    else:
+        raise NotImplementedError
+
+
+def normalize(waveforms, lengths, amp_type="avg"):
+    """
+    This function normalizes a signal to unitary average or peak amplitude.
+
+    Parameters
+    ----------
+    waveforms: tensor
+        The waveforms to normalize.
+        Shape should be `[batch, time]` or `[batch, time, channels]`.
+    lengths: tensor
+        The lengths of the waveforms excluding the padding.
+        Shape should be a single dimension, `[batch]`.
+    amp_type: str
+        Whether one wants to normalize with respect to "avg" or "peak"
+        amplitude. Choose between ["avg", "peak"]. Note: for "avg" clipping
+        is not prevented and can occur.
+
+    Returns
+    -------
+    waveforms: tensor
+        Normalized level waveform.
+    """
+
+    assert amp_type in ["avg", "peak"]
+
+    batch_added = False
+    if len(waveforms.shape) == 1:
+        batch_added = True
+        waveforms = waveforms.unsqueeze(0)
+
+    den = compute_amplitude(waveforms, lengths, amp_type)
+    if batch_added:
+        waveforms = waveforms.squeeze(0)
+    return waveforms / den
+
+
+def rescale(waveforms, lengths, target_lvl, amp_type="avg", scale="linear"):
+    """
+    This functions performs signal rescaling to a target level.
+
+    Parameters
+    ----------
+    waveforms: tensor
+        The waveforms to normalize.
+        Shape should be `[batch, time]` or `[batch, time, channels]`.
+    lengths: tensor
+        The lengths of the waveforms excluding the padding.
+        Shape should be a single dimension, `[batch]`.
+    target_lvl: float
+        Target lvl in dB or linear scale.
+    amp_type: str
+        Whether one wants to rescale with respect to "avg" or "peak" amplitude.
+        Choose between ["avg", "peak"].
+    scale:
+        whether target_lvl belongs to linear or dB scale.
+        Choose between ["linear", "dB"].
+
+    Returns
+    -------
+    waveforms: tensor
+        Rescaled waveforms.
+    """
+
+    assert amp_type in ["peak", "avg"]
+    assert scale in ["linear", "dB"]
+
+    batch_added = False
+    if len(waveforms.shape) == 1:
+        batch_added = True
+        waveforms = waveforms.unsqueeze(0)
+
+    waveforms = normalize(waveforms, lengths, amp_type)
+
+    if scale == "linear":
+        out = target_lvl * waveforms
+    elif scale == "dB":
+        out = dB_to_amplitude(target_lvl) * waveforms
+
+    else:
+        raise NotImplementedError("Invalid scale, choose between dB and linear")
+
+    if batch_added:
+        out = out.squeeze(0)
+
+    return out
 
 
 def convolve1d(
@@ -87,8 +202,8 @@ def convolve1d(
     >>> import soundfile as sf
     >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
     >>> signal = torch.tensor(signal[None, :, None])
-    >>> filter = torch.rand(1, 10, 1, dtype=signal.dtype)
-    >>> signal = convolve1d(signal, filter, padding=(9, 0))
+    >>> kernel = torch.rand(1, 10, 1, dtype=signal.dtype)
+    >>> signal = convolve1d(signal, kernel, padding=(9, 0))
     """
     if len(waveform.shape) != 3:
         raise ValueError("Convolve1D expects a 3-dimensional tensor")
@@ -146,7 +261,7 @@ def convolve1d(
         if convolved.size(-1) > waveform.size(-1):
             convolved = convolved[..., : waveform.size(-1)]
 
-    # Use the implemenation given by torch, which should be efficient on GPU
+    # Use the implementation given by torch, which should be efficient on GPU
     else:
         convolved = torch.nn.functional.conv1d(
             input=waveform,
@@ -158,6 +273,80 @@ def convolve1d(
 
     # Return time dimension to the second dimension.
     return convolved.transpose(2, 1)
+
+
+def reverberate(waveforms, rir_waveform, rescale_amp="avg"):
+    """
+    General function to contaminate a given signal with reverberation given a
+    Room Impulse Response (RIR).
+    It performs convolution between RIR and signal, but without changing
+    original amplitude of the signal.
+
+    Parameters
+    ----------
+    waveforms: tensor
+        The waveforms to normalize.
+        Shape should be `[batch, time]` or `[batch, time, channels]`.
+    rir_waveform: tensor
+        RIR tensor, shape should be [time, channels].
+    rescale_amp: str
+        Whether reverberated signal is rescaled (None) and with respect either
+        to original signal "peak" amplitude or "avg" average amplitude.
+        Choose between [None, "avg", "peak"].
+
+    Returns
+    -------
+    waveforms: tensor
+        Reverberated signal.
+
+    """
+    orig_shape = waveforms.shape
+
+    if len(waveforms.shape) > 3 or len(rir_waveform.shape) > 3:
+        raise NotImplementedError
+
+    # if inputs are mono tensors we reshape to 1, samples
+    if len(waveforms.shape) == 1:
+        waveforms = waveforms.unsqueeze(0).unsqueeze(-1)
+    elif len(waveforms.shape) == 2:
+        waveforms = waveforms.unsqueeze(-1)
+
+    if len(rir_waveform.shape) == 1:  # convolve1d expects a 3d tensor !
+        rir_waveform = rir_waveform.unsqueeze(0).unsqueeze(-1)
+    elif len(rir_waveform.shape) == 2:
+        rir_waveform = rir_waveform.unsqueeze(-1)
+
+    # Compute the average amplitude of the clean
+    orig_amplitude = compute_amplitude(
+        waveforms, waveforms.size(1), rescale_amp
+    )
+
+    # Compute index of the direct signal, so we can preserve alignment
+    value_max, direct_index = rir_waveform.abs().max(axis=1, keepdim=True)
+
+    # Making sure the max is always positive (if not, flip)
+    # mask = torch.logical_and(rir_waveform == value_max,  rir_waveform < 0)
+    # rir_waveform[mask] = -rir_waveform[mask]
+
+    # Use FFT to compute convolution, because of long reverberation filter
+    waveforms = convolve1d(
+        waveform=waveforms,
+        kernel=rir_waveform,
+        use_fft=True,
+        rotation_index=direct_index,
+    )
+
+    # Rescale to the peak amplitude of the clean waveform
+    waveforms = rescale(
+        waveforms, waveforms.size(1), orig_amplitude, rescale_amp
+    )
+
+    if len(orig_shape) == 1:
+        waveforms = waveforms.squeeze(0).squeeze(-1)
+    if len(orig_shape) == 2:
+        waveforms = waveforms.squeeze(-1)
+
+    return waveforms
 
 
 def dB_to_amplitude(SNR):
