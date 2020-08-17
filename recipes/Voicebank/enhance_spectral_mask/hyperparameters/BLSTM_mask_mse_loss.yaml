@@ -59,30 +59,9 @@ test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
-train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
-    save_file: !ref <train_log>
-    summary_fns:
-        loss: !name:speechbrain.utils.train_logger.summarize_average
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
-
-compute_STFT: !new:speechbrain.processing.features.STFT
-    sample_rate: !ref <Sample_rate>
-    win_length: !ref <Win_length>
-    hop_length: !ref <Hop_length>
-    n_fft: !ref <N_fft>
-    window_fn: !ref <window_fn>
-
-compute_ISTFT: !new:speechbrain.processing.features.ISTFT
-    sample_rate: !ref <Sample_rate>
-    win_length: !ref <Win_length>
-    hop_length: !ref <Hop_length>
-    window_fn: !ref <window_fn>
-
-mean_var_norm: !new:speechbrain.processing.features.InputNormalization
-    norm_type: sentence
-
 lstm: !new:speechbrain.nnet.RNN.LSTM
     hidden_size: 200
     num_layers: 2
@@ -102,21 +81,36 @@ activation_lrelu: !new:torch.nn.LeakyReLU
 
 activation_sigmoid: !new:torch.nn.Sigmoid
 
-model: !new:speechbrain.nnet.containers.Sequential
-    - !ref <lstm>
-    - !ref <linear1>
-    - !ref <activation_lrelu>
-    - !ref <linear2>
-    - !ref <activation_sigmoid>
-
-compute_cost: !name:speechbrain.nnet.losses.mse_loss
-
 optimizer: !new:speechbrain.nnet.optimizers.RMSprop_Optimizer
     learning_rate: !ref <lr>
 
-checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
-    checkpoints_dir: !ref <save_folder>
-    recoverables:
-        model: !ref <model>
-        optimizer: !ref <optimizer>
-        counter: !ref <epoch_counter>
+modules:
+    use_tensorboard: !ref <use_tensorboard>
+    train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+        save_file: !ref <train_log>
+    compute_STFT: !new:speechbrain.processing.features.STFT
+        sample_rate: !ref <Sample_rate>
+        win_length: !ref <Win_length>
+        hop_length: !ref <Hop_length>
+        n_fft: !ref <N_fft>
+        window_fn: !ref <window_fn>
+    compute_ISTFT: !new:speechbrain.processing.features.ISTFT
+        sample_rate: !ref <Sample_rate>
+        win_length: !ref <Win_length>
+        hop_length: !ref <Hop_length>
+        window_fn: !ref <window_fn>
+    mean_var_norm: !new:speechbrain.processing.features.InputNormalization
+        norm_type: sentence
+    model: !new:speechbrain.nnet.containers.Sequential
+        - !ref <lstm>
+        - !ref <linear1>
+        - !ref <activation_lrelu>
+        - !ref <linear2>
+        - !ref <activation_sigmoid>
+    compute_cost: !name:speechbrain.nnet.losses.mse_loss
+    checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+        checkpoints_dir: !ref <save_folder>
+        recoverables:
+            model: !ref <modules.model>
+            optimizer: !ref <optimizer>
+            counter: !ref <epoch_counter>
