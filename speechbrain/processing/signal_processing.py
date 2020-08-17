@@ -439,6 +439,13 @@ def overlap_and_add(signal, frame_step):
         A Tensor with shape [..., output_size] containing the overlap-added frames of signal's inner-most two dimensions.
         output_size = (frames - 1) * frame_step + frame_length
     Based on https://github.com/tensorflow/tensorflow/blob/r1.12/tensorflow/contrib/signal/python/ops/reconstruction_ops.py
+
+    example:
+    --------
+    >>> signal = torch.randn(5, 20)
+    >>> overlapped = overlap_and_add(signal, 20)
+    >>> overlapped.shape
+    torch.Size([100])
     """
     outer_dimensions = signal.size()[:-2]
     frames, frame_length = signal.size()[-2:]
@@ -456,7 +463,10 @@ def overlap_and_add(signal, frame_step):
     frame = torch.arange(0, output_subframes).unfold(
         0, subframes_per_frame, subframe_step
     )
-    frame = signal.new_tensor(frame).long()  # signal may in GPU or CPU
+
+    # frame_old = signal.new_tensor(frame).long()  # signal may in GPU or CPU
+    frame = frame.clone().detach().to(signal.device.type)
+    # print((frame - frame_old).sum())
     frame = frame.contiguous().view(-1)
 
     result = signal.new_zeros(

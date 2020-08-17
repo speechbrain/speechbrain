@@ -4,7 +4,6 @@ import speechbrain as sb
 from speechbrain.utils.train_logger import summarize_average
 import torch
 from speechbrain.utils.checkpoints import ckpt_recency
-from speechbrain.nnet.losses import get_si_snr
 from speechbrain.nnet.losses import get_si_snr_with_pitwrapper
 
 import torch.nn.functional as F
@@ -13,10 +12,12 @@ import csv
 experiment_dir = os.path.dirname(os.path.realpath(__file__))
 params_file = os.path.join(experiment_dir, "params.yaml")
 
+with open(params_file) as fin:
+    params = sb.yaml.load_extended_yaml(fin)
 
 # this points to the folder which holds the wsj0-mix dataset folder
-datapath = "/home/cem/datasets/"
-# datapath = '/network/tmp1/subakany/'
+datapath = params.datapath
+
 
 # load or create the csv files for the data
 if not (
@@ -82,7 +83,7 @@ with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(
         fin, {"tr_csv": tr_csv, "cv_csv": cv_csv, "tt_csv": tt_csv}
     )
-print(params)
+# print(params)  # if needed this line can be uncommented for logging
 
 
 if params.use_tensorboard:
@@ -120,23 +121,7 @@ class CTN_Brain(sb.core.Brain):
 
     def compute_objectives(self, predictions, targets):
         if params.loss_fn == "sisnr":
-            # targets = torch.randn(20, 100, 2).to(device)
-            # predictions = targets[:, :, (1, 0)]
-
-            lengths = torch.tensor(
-                [predictions.shape[1]] * predictions.shape[0]
-            ).to(device)
-
-            loss_old = get_si_snr(targets, predictions, lengths)[0]
-
-            # runs out of memory
             loss = get_si_snr_with_pitwrapper(targets, predictions)
-
-            print(
-                "loss {}, loss_old {}, difference {}".format(
-                    loss.item(), loss_old.item(), (loss - loss_old).item()
-                )
-            )
             return loss
         else:
             raise ValueError("Not Correct Loss Function Type")
@@ -190,8 +175,8 @@ class CTN_Brain(sb.core.Brain):
         if params.use_tensorboard:
             train_logger.log_stats({"Epoch": epoch}, train_stats, valid_stats)
         print("Completed epoch %d" % epoch)
-        print("Train loss: %.3f" % summarize_average(train_stats["loss"]))
-        print("Valid loss: %.3f" % summarize_average(valid_stats["loss"]))
+        print("Train SI-SNR: %.3f" % -summarize_average(train_stats["loss"]))
+        print("Valid SI-SNR: %.3f" % -summarize_average(valid_stats["loss"]))
 
         params.checkpointer.save_and_keep_only(
             meta={"av_loss": av_loss},
