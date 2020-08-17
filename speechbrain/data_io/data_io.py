@@ -21,6 +21,7 @@ import soundfile as sf
 import multiprocessing as mp
 from multiprocessing import Manager
 from torch.utils.data import Dataset, DataLoader
+import h5py
 
 logger = logging.getLogger(__name__)
 
@@ -992,14 +993,14 @@ class DatasetFactory(Dataset):
 
 class HDF5DataLoaderFactory(torch.nn.Module):
     """
-    Creates data loaders for a hdf5 file.
+    Creates data loaders for a hdf5 file (text-only).
 
     Arguments
     ---------
     hdf5 : str
         the hdf5 file that stores the data
     batch_size : int, optional
-        Default: 1 .  The data itemized in the csv file are automatically
+        Default: 1 .  The data itemized in the hdf5 file are automatically
         organized in batches. In the case of variable size tensors, zero
         padding is performed. When batch_size=1, the data are simply processed
         one by one without the creation of batches.
@@ -1008,12 +1009,12 @@ class HDF5DataLoaderFactory(torch.nn.Module):
         specified, only those data entries are read from the hdf5 file. If None,
         read all the data entries.
     sentence_sorting : {'ascending', 'descending', 'random', 'original'}
-        Default: 'original'. This parameter specifies how to sort the data
+        Default: 'random'. This parameter specifies how to sort the data
         before the batch creation. Ascending and descending values sort the
-        data using the "duration" field in the csv files. Random sort the data
-        randomly, while original (the default option) keeps the original
-        sequence of data defined in the csv file. Note that this option affects
-        the batch creation. If the data are sorted in ascending or descending
+        data using the length of tokens specified in the "sort_by" option.
+        Random sort the data randomly, while original (the default option) keeps
+        the original sequence of data defined in the hdf5 file. Note that this option
+        affect the batch creation. If the data are sorted in ascending or descending
         order the batches will approximately have the same size and the need
         for zero padding is minimized. Instead, if sentence_sorting is set to
         random, the batches might be composed of both short and long sequences
@@ -1060,7 +1061,7 @@ class HDF5DataLoaderFactory(torch.nn.Module):
         self,
         hdf5_file,
         label_dict_file,
-        sort_by,
+        sort_by="wrd",
         batch_size=1,
         data_entries=None,
         sentence_sorting="random",
@@ -1081,14 +1082,12 @@ class HDF5DataLoaderFactory(torch.nn.Module):
         self.label_dict_file = label_dict_file
         self.sort_by = sort_by
         self.batch_size = batch_size
+        if data_entries is None:
+            raise ValueError("data entries must be specified.")
         self.data_entries = data_entries
         self.sentence_sorting = sentence_sorting
         self.num_workers = num_workers
         self.select_n_sentences = select_n_sentences
-        self.avoid_if_longer_than = avoid_if_longer_than
-        self.avoid_if_shorter_than = avoid_if_shorter_than
-        self.local_random = local_random
-        self.chunk_size = chunk_size
         self.drop_last = drop_last
         self.padding_value = padding_value
         self.output_folder = output_folder
@@ -1111,10 +1110,8 @@ class HDF5DataLoaderFactory(torch.nn.Module):
             self.hdf5_file,
             self.label_dict,
             self.data_entries,
-            self.sort_by,
+            sort_by=self.sort_by,
             sentence_sorting=self.sentence_sorting,
-            avoid_if_longer_than=self.avoid_if_longer_than,
-            avoid_if_shorter_than=self.avoid_if_shorter_than,
         )
         self.dataloader = DataLoader(
             dataset,
@@ -1295,45 +1292,48 @@ class HDF5DatasetFactory(Dataset):
 
     Arguments
     ---------
+    hdf5 : string
+        The path of hdf5 file.
+    label_dict : python dict
+        The label dictionary used for string to index conversion.
+        It has to contain a "lab2index" entry.
     data_entries : list
-        it is a list containing the data_entries to read from the csv file
-
+        it is a list containing the data_entries to read from the hdf5 file.
+    sentence_sorting : string
+        One of (ascending/descending/random/original).
+    sort_by : string
+        The entry that the sentence_sorting option is based on.
 
     Example
     -------
-    >>> csv_file = 'samples/audio_samples/csv_example2.csv'
-    >>> data_loader=DataLoaderFactory(csv_file)
-    >>> # data_dict creation
-    >>> data_dict=data_loader.generate_data_dict()
-    >>> formats=data_loader.get_supported_formats()
-    >>> dataset=DatasetFactory(data_dict,{},formats,['wav'],False,0)
-    >>> [first_example_id, first_tensor, first_len], = dataset[0]
-    >>> print(first_example_id)
-    example1
+    >>> import pickle
+    >>> h5_file = 'samples/text_samples/hdf5_example.h5'
+    >>> label_dict = pickle.load(open("samples/text_samples/label_dict.pkl", "rb"))
+    >>> dataset = HDF5DatasetFactory(h5_file, label_dict, ["wrd"], "random")
+    >>> data = dataset[0]
+    >>> data[0][1]
+    tensor([1, 2])
     """
 
     def __init__(
-        self,
-        hdf5_path,
-        label_dict,
-        data_entries,
-        sentence_sorting,
-        avoid_if_longer_than=36000,
-        avoid_if_shorter_than=0,
+        self, hdf5, label_dict, data_entries, sentence_sorting, sort_by="wrd",
     ):
 
         # Setting the variables
-        self.f_h5 = h5py.File(hdf5_path, "r")
+        self.f_h5 = h5py.File(hdf5, "r")
         self.label_dict = label_dict
         self.data_entries = data_entries
-        self.sort_by = sort_by
         self.sentence_sorting = sentence_sorting
-        self.avoid_if_longer_than = avoid_if_longer_than
-        self.avoid_if_shorter_than = avoid_if_shorter_than
         self.data_len = len(self.f_h5[self.data_entries[0]])
-        self.indices = self.generate_indices()
 
-    def generate_indices(self):
+        # Only useful for ascending/descending order
+        self.sort_by = sort_by
+        self.indices = self._generate_indices()
+
+    def _generate_indices(self):
+        """
+        Generate the indices to load the sentences.
+        """
         indices = [i for i in range(self.data_len)]
 
         def sort_key(i):
@@ -1345,16 +1345,6 @@ class HDF5DatasetFactory(Dataset):
             indices = sorted(indices, key=sort_key, reverse=True)
         return indices
 
-    def _shorter_or_longer(self, string):
-        length = len(string.split())
-        if (
-            length > self.avoid_if_longer_than
-            or length < self.avoid_if_shorter_than
-        ):
-            return True
-        else:
-            return False
-
     def __len__(self):
         """
         This (mandatory) function returns the number of sentences.
@@ -1363,21 +1353,6 @@ class HDF5DatasetFactory(Dataset):
         -------
         int
             the number of data that can be read.
-
-        Example
-        -------
-        >>> csv_file = 'samples/audio_samples/csv_example2.csv'
-        >>> # Initialization of the data_loader class
-        >>> data_loader=DataLoaderFactory(csv_file)
-        >>> # data_dict creation
-        >>> data_dict=data_loader.generate_data_dict()
-        >>> # supported formats
-        >>> formats=data_loader.get_supported_formats()
-        >>> # Initialization of the dataser class
-        >>> dataset=DatasetFactory(data_dict,{},formats,['wav'],False,0)
-        >>> # Getting data length
-        >>> len(dataset)
-        1
         """
         return self.data_len
 
@@ -1408,9 +1383,8 @@ class HDF5DatasetFactory(Dataset):
 
         Arguments
         ---------
-        data_line : dict
-            One of entries extreacted from the data_dict. It contains
-            all the needed information to read the data from the disk.
+        data_source : string
+            The sentence to be encoded.
         snt_id : str
             Sentence identifier
 
@@ -1418,27 +1392,7 @@ class HDF5DatasetFactory(Dataset):
         -------
         list
             List contaning the read data. The list is formatted in the following
-            way: [data_id,data_data_len]
-
-        Example
-        -------
-        >>> csv_file = 'samples/audio_samples/csv_example2.csv'
-        >>> # Initialization of the data_loader class
-        >>> data_loader=DataLoaderFactory(csv_file)
-        >>> # data_dict creation
-        >>> data_dict=data_loader.generate_data_dict()
-        >>> # supported formats
-        >>> formats=data_loader.get_supported_formats()
-        >>> # Initialization of the dataser class
-        >>> dataset=DatasetFactory(data_dict,{},formats,'wav',False,0)
-        >>> # data line example
-        >>> data_line={'data': 'samples/audio_samples/example5.wav',
-        ...           'format': 'wav',
-        ...           'options': {'start': '10000', 'stop': '26000'}}
-        >>> snt_id='example5'
-        >>> # Reading data from disk
-        >>> print(dataset.read_data(data_line, snt_id))
-        ['example5', array(...)]
+            way: [data_id,data,data_len]
         """
 
         # Read the data from disk
