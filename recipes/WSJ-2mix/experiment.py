@@ -198,7 +198,7 @@ ctn = CTN_Brain(
     first_inputs=[next(iter(train_loader))[0][1].to(device)],
 )
 
-# params.checkpointer.recover_if_possible(lambda c: -c.meta["av_loss"])
+params.checkpointer.recover_if_possible(lambda c: -c.meta["av_loss"])
 
 # with torch.autograd.detect_anomaly():
 ctn.fit(
@@ -209,4 +209,4 @@ ctn.fit(
 )
 
 test_stats = ctn.evaluate(test_loader)
-print("Test loss: %.3f" % summarize_average(test_stats["loss"]))
+print("Test SI-SNR: %.3f" % -summarize_average(test_stats["loss"]))
