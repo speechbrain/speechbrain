@@ -484,14 +484,13 @@ def kldiv_loss(
     >>> kldiv_loss(torch.log(probs), torch.tensor([1, 1]))
     tensor(1.2040)
     """
-    # if the input shape is 2m unsqueeze
-    if log_probabilities.dim() == 2:
-        log_probabilities = log_probabilities.unsqueeze(1)
-
-    bz, time, n_class = log_probabilities.shape
-    targets = targets.long().detach()
-
     if label_smoothing > 0:
+        if log_probabilities.dim() == 2:
+            log_probabilities = log_probabilities.unsqueeze(1)
+
+        bz, time, n_class = log_probabilities.shape
+        targets = targets.long().detach()
+
         confidence = 1 - label_smoothing
 
         log_probabilities = log_probabilities.view(-1, n_class)

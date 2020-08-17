@@ -454,13 +454,13 @@ class CyclicCosineScheduler:
     >>> scheduler =CyclicCosineScheduler(optim.optim.param_groups[0]["lr"], 3)
     >>> curr_lr,next_lr=scheduler([optim],current_epoch=1, current_loss=10.0)
     >>> optim.optim.param_groups[0]["lr"]
-    0.33333333333333337
+    1.0
     >>> curr_lr,next_lr=scheduler([optim],current_epoch=2, current_loss=2.0)
     >>> optim.optim.param_groups[0]["lr"]
-    0.6666666666666667
+    0.75
     >>> curr_lr,next_lr=scheduler([optim],current_epoch=3, current_loss=2.5)
     >>> optim.optim.param_groups[0]["lr"]
-    1.0
+    0.18750000000000008
     """
 
     def __init__(self, n_warmup_steps, total_steps=100000):
