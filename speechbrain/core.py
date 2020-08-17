@@ -16,6 +16,7 @@ import ruamel.yaml
 import speechbrain as sb
 from io import StringIO
 from datetime import date
+from enum import Enum, auto
 from tqdm.contrib import tqdm
 from speechbrain.utils.logger import setup_logging
 from speechbrain.utils.logger import format_order_of_magnitude
@@ -184,6 +185,14 @@ def parse_arguments(arg_list):
     return param_file, yaml_stream.getvalue()
 
 
+class Stage(Enum):
+    """Simple enum to track stage of experiments."""
+
+    TRAIN = auto()
+    VALID = auto()
+    TEST = auto()
+
+
 class Brain:
     r"""Brain class abstracts away the details of data loops.
 
@@ -232,7 +241,7 @@ class Brain:
     >>> class SimpleBrain(Brain):
     ...     def compute_forward(self, x, init_params=False):
     ...         return self.model(x)
-    ...     def compute_objectives(self, predictions, targets, train=True):
+    ...     def compute_objectives(self, predictions, targets):
     ...         return torch.nn.functional.l1_loss(predictions, targets)
     >>> model = torch.nn.Linear(in_features=10, out_features=10)
     >>> brain = SimpleBrain(
@@ -290,15 +299,15 @@ class Brain:
         fmt_num = format_order_of_magnitude(total_params)
         logger.info(f"Initialized {fmt_num} trainable parameters in {clsname}")
 
-    def compute_forward(self, x, stage="train", init_params=False):
+    def compute_forward(self, x, stage=Stage.TRAIN, init_params=False):
         """Forward pass, to be overridden by sub-classes.
 
         Arguments
         ---------
         x : torch.Tensor or list of tensors
             The input tensor or tensors for processing.
-        stage : str
-            The stage of the training process, one of "train", "valid", "test"
+        stage : Stage
+            The stage of the experiment: Stage.TRAIN, Stage.VALID, Stage.TEST
         init_params : bool
             Whether this pass should initialize parameters rather
             than return the results of the forward pass.
@@ -310,7 +319,7 @@ class Brain:
         """
         raise NotImplementedError
 
-    def compute_objectives(self, predictions, targets, stage="train"):
+    def compute_objectives(self, predictions, targets, stage=Stage.TRAIN):
         """Compute loss, to be overridden by sub-classes.
 
         Arguments
@@ -319,8 +328,8 @@ class Brain:
             The output tensor or tensors to evaluate.
         targets : torch.Tensor or list of tensors
             The gold standard to use for evaluation.
-        stage : str
-            The stage of the training process, one of "train", "valid", "test"
+        stage : Stage
+            The stage of the experiment: Stage.TRAIN, Stage.VALID, Stage.TEST
 
         Returns
         -------
@@ -336,8 +345,8 @@ class Brain:
 
         Arguments
         ---------
-        stage : str
-            One of "train", "valid" or "test".
+        stage : Stage
+            The stage of the experiment: Stage.TRAIN, Stage.VALID, Stage.TEST
         epoch : int
             The current epoch count.
         """
@@ -348,8 +357,8 @@ class Brain:
 
         Arguments
         ---------
-        stage : str
-            One of "train", "valid" or "test".
+        stage : Stage
+            The stage of the experiment: Stage.TRAIN, Stage.VALID, Stage.TEST
         stage_loss : float
             The average loss over the completed stage.
         epoch : int
@@ -414,8 +423,8 @@ class Brain:
         batch : list of torch.Tensors
             batch of data to use for evaluation. Default implementation assumes
             this batch has two elements: inputs and targets.
-        stage : str
-            The stage of the training process, one of "valid", "test"
+        stage : Stage
+            The stage of the experiment: Stage.VALID, Stage.TEST
 
         Returns
         -------
@@ -451,7 +460,7 @@ class Brain:
         for epoch in epoch_counter:
 
             # Training stage
-            self.on_stage_start("train", epoch)
+            self.on_stage_start(Stage.TRAIN, epoch)
             self.modules.train()
             avg_train_loss = 0.0
             disable = not progressbar
@@ -462,23 +471,23 @@ class Brain:
                         loss, avg_train_loss, iteration=i + 1
                     )
                     t.set_postfix(train_loss=avg_train_loss)
-            self.on_stage_end("train", avg_train_loss, epoch)
+            self.on_stage_end(Stage.TRAIN, avg_train_loss, epoch)
 
             # Validation stage
             avg_valid_loss = None
             if valid_set is not None:
-                self.on_stage_start("valid", epoch)
+                self.on_stage_start(Stage.VALID, epoch)
                 self.modules.eval()
                 avg_valid_loss = 0.0
                 with torch.no_grad():
                     for i, batch in enumerate(
                         tqdm(valid_set, dynamic_ncols=True, disable=disable)
                     ):
-                        loss = self.evaluate_batch(batch, stage="valid")
+                        loss = self.evaluate_batch(batch, stage=Stage.VALID)
                         avg_valid_loss = self.update_average(
                             loss, avg_valid_loss, iteration=i + 1
                         )
-                self.on_stage_end("valid", avg_valid_loss, epoch)
+                self.on_stage_end(Stage.VALID, avg_valid_loss, epoch)
 
     def evaluate(self, test_set, progressbar=True):
         """Iterate test_set and evaluate brain performance.
@@ -494,7 +503,7 @@ class Brain:
         -------
         average test loss
         """
-        self.on_stage_start("test")
+        self.on_stage_start(Stage.TEST)
         self.modules.eval()
         avg_test_loss = 0.0
         disable = not progressbar
@@ -502,11 +511,11 @@ class Brain:
             for i, batch in enumerate(
                 tqdm(test_set, dynamic_ncols=True, disable=disable)
             ):
-                loss = self.evaluate_batch(batch, stage="test")
+                loss = self.evaluate_batch(batch, stage=Stage.TEST)
                 avg_test_loss = self.update_average(
                     loss, avg_test_loss, iteration=i + 1
                 )
-        self.on_stage_end("test", avg_test_loss)
+        self.on_stage_end(Stage.TEST, avg_test_loss)
 
         return avg_test_loss
 

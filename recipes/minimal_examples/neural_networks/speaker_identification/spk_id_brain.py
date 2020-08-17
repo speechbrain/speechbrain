@@ -4,7 +4,7 @@ import speechbrain as sb
 
 
 class SpkIdBrain(sb.core.Brain):
-    def compute_forward(self, x, stage="train", init_params=False):
+    def compute_forward(self, x, stage=sb.core.Stage.TRAIN, init_params=False):
         id, wavs, lens = x
         feats = self.compute_features(wavs, init_params)
         feats = self.mean_var_norm(feats, lens)
@@ -17,27 +17,29 @@ class SpkIdBrain(sb.core.Brain):
 
         return outputs, lens
 
-    def compute_objectives(self, predictions, targets, stage="train"):
+    def compute_objectives(
+        self, predictions, targets, stage=sb.core.Stage.TRAIN
+    ):
         predictions, lens = predictions
         uttid, spkid, _ = targets
         loss = self.compute_cost(predictions, spkid, lens)
 
-        if stage != "train":
+        if stage != sb.core.Stage.TRAIN:
             self.error_metrics.append(uttid, predictions, spkid, lens)
 
         return loss
 
     def on_stage_start(self, stage, epoch=None):
-        if stage != "train":
+        if stage != sb.core.Stage.TRAIN:
             self.error_metrics = self.error_stats()
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
-        if stage == "train":
+        if stage == sb.core.Stage.TRAIN:
             self.train_loss = stage_loss
-        if stage == "valid":
+        if stage == sb.core.Stage.VALID:
             print("Epoch %d complete" % epoch)
             print("Train loss: %.2f" % self.train_loss)
-        if stage != "train":
+        if stage != sb.core.Stage.TRAIN:
             print(stage, "loss: %.2f" % stage_loss)
             print(
                 stage, "error: %.2f" % self.error_metrics.summarize("average")

@@ -16,7 +16,11 @@ class EnhanceGanBrain(sb.core.Brain):
         return enhanced
 
     def compute_objectives(
-        self, predictions, targets, optimizer_modules=[], stage="train"
+        self,
+        predictions,
+        targets,
+        optimizer_modules=[],
+        stage=sb.core.Stage.TRAIN,
     ):
         id, clean_wavs, lens = targets
         batch_size = clean_wavs.size(0)
@@ -58,23 +62,23 @@ class EnhanceGanBrain(sb.core.Brain):
 
         return loss.detach()
 
-    def evaluate_batch(self, batch, stage="test"):
+    def evaluate_batch(self, batch, stage=sb.core.Stage.TEST):
         inputs = batch[0]
         predictions = self.compute_forward(inputs)
         loss = self.compute_objectives(predictions, inputs, stage=stage)
         return loss.detach()
 
     def on_stage_start(self, stage, epoch=None):
-        if stage == "train":
+        if stage == sb.core.Stage.TRAIN:
             self.metrics = {"G": [], "D": []}
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
-        if stage == "train":
+        if stage == sb.core.Stage.TRAIN:
             g_loss = torch.tensor(self.metrics["G"])
             d_loss = torch.tensor(self.metrics["D"])
             print("Avg G loss: %.2f" % torch.mean(g_loss))
             print("Avg D loss: %.2f" % torch.mean(d_loss))
             print("train loss: ", stage_loss)
-        if stage == "valid":
+        if stage == sb.core.Stage.VALID:
             print("Completed epoch %d" % epoch)
             print("Valid loss: %.3f" % stage_loss)
