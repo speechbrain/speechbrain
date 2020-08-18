@@ -36,18 +36,16 @@ sb.core.create_experiment_directory(
 )
 
 # Prepare data from dev of Voxceleb1
-"""
 logger.info("Vox: Data preparation")
 prepare_voxceleb(
-    data_folder= params.data_folder_vox,
-    save_folder= params.save_folder,
-    splits=["train"],
-    split_ratio= [90, 10],
-    seg_dur= 300,
-    vad= False,
-    rand_seed= params.seed,
+    data_folder=params.data_folder_vox,
+    save_folder=params.save_folder,
+    splits=["train", "test"],
+    split_ratio=[90, 10],
+    seg_dur=300,
+    vad=False,
+    rand_seed=params.seed,
 )
-"""
 
 # Prepare data for AMI
 logger.info("AMI: Data preparation")
@@ -61,7 +59,7 @@ prepare_ami(
     overlap=params.overlap,
 )
 
-sys.exit()
+# sys.exit()
 
 
 # Definition of the steps for xvector computation from the waveforms
@@ -181,6 +179,10 @@ else:
 logger.info("Training PLDA model")
 params.compute_plda.plda(xvectors_stat)
 logger.info("PLDA training completed")
+
+
+sys.exit()
+
 
 # Enroll and Test xvector
 enrol_stat_file = os.path.join(params.save_folder, "stat_enrol.pkl")
