@@ -7,7 +7,8 @@ seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Folders and train_log file
-data_folder: /network/datasets/ami/amicorpus/
+data_folder_vox: /network/datasets/restricted/voxceleb_users/voxceleb/voxceleb1/
+data_folder_ami: /network/datasets/ami/amicorpus/
 output_folder: results/
 save_folder: !ref <output_folder>/save/
 device: 'cuda:0'
@@ -20,12 +21,19 @@ csv_train: !ref <save_folder>/train.csv
 csv_diary: !ref <save_folder>/eval.subsegments.csv
 batch_size: 128
 
-# Feature parameters
+# Spectral feature parameters
 n_mels: 24
 left_frames: 0
 right_frames: 0
 deltas: False
 xvect_dim: 512
+
+# Diarization parameters
+split_type: 'sample'
+mic_type: 'hm'
+vad_type: 'oracle'
+max_subseg_dur: 3.0
+overlap: 1.5
 
 compute_plda: !new:speechbrain.processing.PLDA_LDA.PLDA
     rank_f: 100
@@ -55,7 +63,7 @@ train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_read: [wav, spk_id]
     sentence_sorting: ascending
     replacements:
-        $data_folder: !ref  <data_folder>
+        $data_folder: !ref  <data_folder_vox>
     output_folder: !ref <output_folder>/save/
 
 diary_loader:
@@ -64,5 +72,5 @@ diary_loader:
     csv_read: [wav]
     sentence_sorting: original
     replacements:
-        $data_folder: !ref <data_folder>
+        $data_folder: !ref <data_folder_ami>
     output_folder: !ref <output_folder>/save/
