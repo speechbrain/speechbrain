@@ -8,7 +8,7 @@ import numpy
 import pickle
 
 from tqdm.contrib import tqdm
-from speechbrain.utils.EER import EER
+from speechbrain.utils.EER import EER  # noqa F401
 from speechbrain.utils.data_utils import download_file
 from speechbrain.data_io.data_io import convert_index_to_lab
 from speechbrain.processing.PLDA_LDA import StatObject_SB
@@ -36,9 +36,10 @@ sb.core.create_experiment_directory(
 )
 
 # Prepare data from dev of Voxceleb1
+"""
 logger.info("Vox: Data preparation")
 prepare_voxceleb(
-    data_folder=params.data_folder_vox,
+    data_folder=params.data_folder,
     save_folder=params.save_folder,
     splits=["train", "test"],
     split_ratio=[90, 10],
@@ -46,6 +47,7 @@ prepare_voxceleb(
     vad=False,
     rand_seed=params.seed,
 )
+"""
 
 # Prepare data for AMI
 logger.info("AMI: Data preparation")
@@ -181,19 +183,6 @@ params.compute_plda.plda(xvectors_stat)
 logger.info("PLDA training completed")
 
 
-sys.exit()
-
-
-# Enroll and Test xvector
-enrol_stat_file = os.path.join(params.save_folder, "stat_enrol.pkl")
-test_stat_file = os.path.join(params.save_folder, "stat_test.pkl")
-ndx_file = os.path.join(params.save_folder, "ndx.pkl")
-
-# Data loader
-enrol_set_loader = params.enrol_loader()
-test_set_loader = params.test_loader()
-
-
 def xvect_computation_loop(split, set_loader, stat_file):
 
     # Extract xvectors (skip if already done)
@@ -264,62 +253,52 @@ def xvect_computation_loop(split, set_loader, stat_file):
     return stat_obj
 
 
-enrol_obj = xvect_computation_loop("enrol", enrol_set_loader, enrol_stat_file)
-test_obj = xvect_computation_loop("test", test_set_loader, test_stat_file)
+# Enroll and Test xvector
+diary_stat_file = os.path.join(params.save_folder, "diary_stat_enrol.pkl")
+diary_ndx_file = os.path.join(params.save_folder, "diary_ndx.pkl")
+
+# Data loader
+diary_set_loader = params.diary_loader()
+
+# Compute Xvectors
+diary_obj = xvect_computation_loop("diary", diary_set_loader, diary_stat_file)
+
+
+# Loop for PLDA scoring per meeting
+all_rec_ids = set(diary_obj.modelset)
+# for rec in all_rec_ids:
+#    # get index of all ids starts with rec_id
+#    print (rec)
+
+
+# sys.exit()
 
 # Prepare Ndx Object
-if not os.path.isfile(ndx_file):
-    models = enrol_obj.modelset
-    testsegs = test_obj.modelset
+if not os.path.isfile(diary_ndx_file):
+    models = diary_obj.modelset
+    testsegs = diary_obj.modelset  # test_obj.modelset
 
     logger.info("Preparing Ndx")
     ndx_obj = Ndx(models=models, testsegs=testsegs)
     logger.info("Saving ndx obj...")
-    ndx_obj.save_ndx_object(ndx_file)
+    ndx_obj.save_ndx_object(diary_ndx_file)
 else:
     logger.info("Skipping Ndx preparation")
     logger.info("Loading Ndx from disk")
-    with open(ndx_file, "rb") as input:
+    with open(diary_ndx_file, "rb") as input:
         ndx_obj = pickle.load(input)
 
 
 logger.info("PLDA scoring...")
 scores_plda = fast_PLDA_scoring(
-    enrol_obj,
-    test_obj,
+    diary_obj,
+    diary_obj,
     ndx_obj,
     params.compute_plda.mean,
     params.compute_plda.F,
     params.compute_plda.Sigma,
 )
 
-# Positive and Negative scores
-positive_scores = []
-negative_scores = []
 
-gt_file = os.path.join(params.data_folder, "meta", "veri_test.txt")
-
-for line in open(gt_file):
-    lab = int(line.split(" ")[0].rstrip().split(".")[0].strip())
-    enrol_id = line.split(" ")[1].rstrip().split(".")[0].strip()
-    test_id = line.split(" ")[2].rstrip().split(".")[0].strip()
-
-    # Assuming enrol_id and test_id are unique
-    i = int(numpy.where(scores_plda.modelset == enrol_id)[0][0])
-    j = int(numpy.where(scores_plda.segset == test_id)[0][0])
-
-    s = float(scores_plda.scoremat[i, j])
-
-    if lab == 1:
-        positive_scores.append(s)
-    else:
-        negative_scores.append(s)
-
-
-logger.info("Computing EER... ")
-del scores_plda
-del xvectors_stat
-del enrol_obj
-del test_obj
-eer = EER(torch.tensor(positive_scores), torch.tensor(negative_scores))
-logger.info("EER=%f", eer)
+print("PLDA scoring completed...")
+print(scores_plda.scoremat)
