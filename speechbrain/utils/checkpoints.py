@@ -591,6 +591,9 @@ class Checkpointer:
 
         ckpts = self.list_checkpoints()
         ckpts = list(filter(ckpt_predicate, ckpts))
+        # First sort by recency, so that importance being equal,
+        # the most recent one is returned
+        ckpts = sorted(ckpts, key=ckpt_recency, reverse=True)
         if ckpts:
             chosen_ckpt = max(ckpts, key=importance_key)
             return chosen_ckpt
@@ -717,6 +720,9 @@ class Checkpointer:
             raise ValueError("Number of checkpoints to keep must be positive.")
         ckpts = self.list_checkpoints()
         ckpts = list(filter(ckpt_predicate, ckpts))
+        # First sort by recency, so that importance being equal,
+        # the most recent ones are kept
+        ckpts = sorted(ckpts, key=ckpt_recency, reverse=True)
         protected_checkpoints = []
         for importance_key in importance_keys:
             to_keep = sorted(ckpts, key=importance_key, reverse=True)[
