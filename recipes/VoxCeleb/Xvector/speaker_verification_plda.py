@@ -29,7 +29,7 @@ from voxceleb_prepare import prepare_voxceleb  # noqa E402
 # Create experiment directory
 sb.core.create_experiment_directory(
     experiment_directory=params.output_folder,
-    hyperparams_to_save=params_file,
+    params_to_save=params_file,
     overrides=overrides,
 )
 
@@ -38,7 +38,7 @@ logger.info("Data preparation")
 prepare_voxceleb(
     data_folder=params.data_folder,
     save_folder=params.save_folder,
-    splits=["train", "dev", "test"],
+    splits=["train", "test"],
     split_ratio=[90, 10],
     seg_dur=300,
     vad=False,
