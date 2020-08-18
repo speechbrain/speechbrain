@@ -45,13 +45,18 @@ def EER(positive_scores, negative_scores):
     )
     positive_scores_threshold = positive_scores.transpose(0, 1) <= thresholds
     FRR = (positive_scores_threshold.sum(0)).float() / positive_scores.shape[1]
+    del positive_scores
+    del positive_scores_threshold
 
     # Computing False Aceptance Rate
     negative_scores = torch.cat(
         len(thresholds) * [negative_scores.unsqueeze(0)]
     )
     negative_scores_threshold = negative_scores.transpose(0, 1) > thresholds
+
     FAR = (negative_scores_threshold.sum(0)).float() / negative_scores.shape[1]
+    del negative_scores
+    del negative_scores_threshold
 
     # Finding the threshold for EER
     min_index = (FAR - FRR).abs().argmin()
