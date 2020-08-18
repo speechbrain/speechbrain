@@ -6,7 +6,6 @@ import speechbrain as sb
 
 from speechbrain.data_io.data_io import prepend_bos_token
 from speechbrain.data_io.data_io import append_eos_token
-from speechbrain.data_io.data_io import merge_csvs
 from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.train_logger import summarize_average
 
@@ -14,6 +13,7 @@ from speechbrain.utils.train_logger import summarize_average
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(current_dir))
 from librispeech_prepare import prepare_librispeech  # noqa E402
+from lm_corpus_prepare import prepare_librispeech_lm_corpus  # noqa E402
 
 # Load hyperparameters file with command-line overrides
 params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
@@ -103,24 +103,15 @@ class LM(sb.core.Brain):
 # Prepare data
 prepare_librispeech(
     data_folder=params.data_folder,
-    splits=[
-        "train-clean-100",
-        "train-clean-360",
-        "train-other-500",
-        "dev-clean",
-    ],
+    splits=["train-clean-100", "dev-clean"],
     save_folder=params.data_folder,
 )
-merge_csvs(
-    data_folder=params.data_folder,
-    csv_lst=[
-        "train-clean-100.csv",
-        "train-clean-360.csv",
-        "train-other-500.csv",
-    ],
-    merged_csv="train-960.csv",
-)
 
+prepare_librispeech_lm_corpus(
+    data_folder=params.data_folder,
+    save_folder=params.data_folder,
+    filename=params.filename,
+)
 # Using train-clean-100 to generate the same label_dict as ASR model
 # Temporary solution
 _ = params.label_loader()
