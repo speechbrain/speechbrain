@@ -7,11 +7,11 @@ Prepares csv from manual annotations "segments/" using RTTM format (Oracle VAD).
 """
 
 import os
-import sys
+import sys  # noqa F401
 import logging
 import xml.etree.ElementTree as et
 import glob
-import copy
+import csv
 from ami_splits import get_AMI_split
 
 
@@ -59,6 +59,8 @@ def get_RTTM_per_rec(segs, spkrs_list, rec_id):
 
 
 def prepare_segs_for_RTTM(list_ids, out_rttm_file):
+
+    # TODO: take this as parameter
     annot_dir = "/home/mila/d/dawalatn/AMI_MANUAL/"
 
     RTTM = []  # All RTTMs clubbed together for a given dataset
@@ -147,39 +149,47 @@ def merge_rttm_intervals(rttm_segs):
 def get_subsegments(merged_segs, max_subseg_dur=3.0, overlap=1.5):
     shift = max_subseg_dur - overlap
     subsegments = []
+    # These rows are in RTTM format
     for row in merged_segs:
-        dur = float(row[4])
-        if dur > max_subseg_dur:
-            # Divide
-            num_subsegs = int(dur / max_subseg_dur)
+        seg_dur = float(row[4])
+        rec_id = row[1]
+        if seg_dur > max_subseg_dur:
+            num_subsegs = int(seg_dur / shift)
             # Usually, frame shift is 10ms
             # So assuming 0.01 sec as discrete step
-            st = float(row[3])
-            new_row = copy.deepcopy(row)
+            seg_start = float(row[3])
+            seg_end = seg_start + seg_dur
+            # Now divide this segment (new_row) in smaller subsegments
             for i in range(num_subsegs):
-                # new_row[3] = str(st +  i*max_subseg_dur)
-                new_row[3] = str(st + i * shift)
-                new_row[4] = str(
-                    max_subseg_dur - 0.01
-                )  # removing 1 frame to have non-overlapping
-                # strt_point = str(st +  i* shift)
-                # end_point  = str(shift - 0.01) # removing 1 frame to have non-overlapping
+                subseg_start = seg_start + i * shift
+                subseg_end = min(subseg_start + max_subseg_dur - 0.01, seg_end)
+                subseg_dur = subseg_end - subseg_start
+
+                new_row = [
+                    "SPEAKER",
+                    rec_id,
+                    "0",
+                    str(round(float(subseg_start), 4)),
+                    str(round(float(subseg_dur), 4)),
+                    "<NA>",
+                    "<NA>",
+                    row[7],
+                    "<NA>",
+                    "<NA>",
+                ]
+
                 subsegments.append(new_row)
-            # for the last subsegment
-            new_row[3] = str(st + num_subsegs * shift)
-            new_row[4] = str(max_subseg_dur - 0.01)
-            subsegments.append(new_row)
+
+                # Break if exceeding the boundary
+                if subseg_end >= seg_end:
+                    break
         else:
             subsegments.append(row)
 
     return subsegments
 
 
-def get_csv():
-    pass
-
-
-def prepare_csv(rttm_file, save_dir):
+def prepare_csv(rttm_file, save_dir, data_dir):
     # Read RTTM, get unique meeting_IDs (from headers)
     # For each MeetingID.. select only that meetID -> merge -> subsegment -> csv -> append
 
@@ -193,7 +203,6 @@ def prepare_csv(rttm_file, save_dir):
     spkr_info = filter(lambda x: x.startswith("SPKR-INFO"), RTTM)
     rec_ids = list(set([row.split(" ")[1] for row in spkr_info]))
     rec_ids.sort()  # sorting just to make CSV look in proper sequence
-    print(rec_ids)
 
     # for each recoding merge segments and then perform subsegmentation
     MERGED_SEGMENTS = []
@@ -209,17 +218,17 @@ def prepare_csv(rttm_file, save_dir):
             gt_rttm_segs
         )  # We lose speaker_ID after merging
         MERGED_SEGMENTS = MERGED_SEGMENTS + merged_segs
-        # sys.exit()
+
+        # TODO: Xvector hyperparams from hyperparams
         max_subseg_dur = 3
         overlap = 1.5
         subsegs = get_subsegments(merged_segs, max_subseg_dur, overlap)
         SUBSEGMENTS = SUBSEGMENTS + subsegs
 
-    # Create CSV from subsegments
-    # Write segment and sub-segments (in RTTM / CSV? format)
+    # Write segment and sub-segments (in RTTM format)
+    # Usefull for verifing correctness of sub-segmentor module
     segs_file = save_dir + "/eval.segments.rttm"
     subsegment_file = save_dir + "/eval.subsegments.rttm"
-
     with open(segs_file, "w") as f:
         for row in MERGED_SEGMENTS:
             line_str = " ".join(row)
@@ -230,16 +239,48 @@ def prepare_csv(rttm_file, save_dir):
             line_str = " ".join(row)
             f.write("%s\n" % line_str)
 
-    sys.exit()
+    # Create CSV from subsegments
+    csv_output_head = [
+        ["ID", "duration", "wav", "wav_format", "wav_opts"]
+    ]  # noqa E231
 
-    # Get back to CSV header
-    # CSV = []
-    # csv_for_rec = get_csv (subsegs)
-    # CSV = CSV + csv_for_rec
+    entry = []
+    for row in SUBSEGMENTS:
+        rec_id = row[1]
+        strt = str(round(float(row[3]), 4))
+        end = str(round((float(row[3]) + float(row[4])), 4))
 
-    # sys.exit()
+        subsegment_ID = rec_id + "_" + strt + "_" + end
+        dur = row[4]
+        wav_file_path = (
+            data_dir + "/" + rec_id + "/audio/" + rec_id + ".Mix-Headset.wav"
+        )
 
-    # Save ONE single CSV file
+        start_stop = "start:" + strt + " stop:" + end
+
+        # Composition of the csv_line
+        csv_line = [
+            subsegment_ID,
+            dur,
+            wav_file_path,
+            "wav",
+            start_stop,
+        ]
+
+        entry.append(csv_line)
+
+    csv_output = csv_output_head + entry
+
+    csv_file = save_dir + "eval.subsegments.csv"
+    with open(csv_file, mode="w") as csv_f:
+        csv_writer = csv.writer(
+            csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
+        )
+        for line in csv_output:
+            csv_writer.writerow(line)
+
+    msg = "%s csv prepared" % (csv_file)
+    logger.debug(msg)
 
 
 def prepare_ami(
@@ -313,9 +354,9 @@ def prepare_ami(
     # dev_segs = merge_intervals (dev_rttm)
     # eval_segs = merge_intervals_and_subsegment(eval_rttm)
     # ONE csv file for whole Eval dataset
-    prepare_csv(rttm_file, save_folder)
+    prepare_csv(rttm_file, save_folder, data_folder)
 
-    sys.exit()
+    # sys.exit()
 
     # Perform subsegmentation on large segments
     # Inp: largesegments, max_subseg_size, overlap (1sec)
