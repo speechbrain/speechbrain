@@ -61,13 +61,15 @@ def get_RTTM_per_rec(segs, spkrs_list, rec_id):
 def prepare_segs_for_RTTM(list_ids, out_rttm_file):
 
     # TODO: take this as parameter
-    annot_dir = "/home/mila/d/dawalatn/AMI_MANUAL/"
+    # annot_dir = "/home/mila/d/dawalatn/AMI_MANUAL/"
+    annot_dir = "/network/tmp1/dawalatn/AMI_MANUAL/"
 
     RTTM = []  # All RTTMs clubbed together for a given dataset
     for main_meet_id in list_ids:
 
         # different recordings
-        for sess in ["a", "b", "c", "d"]:
+        # for sess in ["a", "b", "c", "d"]:
+        for sess in ["a"]:
             rec_id = main_meet_id + sess
             path = annot_dir + "/segments/" + rec_id
             f = path + ".*.segments.xml"
@@ -256,7 +258,13 @@ def prepare_csv(rttm_file, save_dir, data_dir):
             data_dir + "/" + rec_id + "/audio/" + rec_id + ".Mix-Headset.wav"
         )
 
-        start_stop = "start:" + strt + " stop:" + end
+        start_sample = int(float(strt) * SAMPLERATE)
+        end_sample = int(float(end) * SAMPLERATE)
+        # print ("HEY, " , start_sample, end_sample)
+
+        start_stop = "start:" + str(start_sample) + " stop:" + str(end_sample)
+
+        # start_stop = "start:" + strt + " stop:" + end
 
         # Composition of the csv_line
         csv_line = [
