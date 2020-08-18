@@ -31,7 +31,7 @@ from ami_prepare import prepare_ami  # noqa E402
 # Create experiment directory
 sb.core.create_experiment_directory(
     experiment_directory=params.output_folder,
-    params_to_save=params_file,
+    hyperparams_to_save=params_file,
     overrides=overrides,
 )
 
