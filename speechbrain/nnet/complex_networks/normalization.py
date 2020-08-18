@@ -542,7 +542,7 @@ class ComplexLayerNorm(torch.nn.Module):
             Vrr,
             Vii,
             Vri,
-            self.beta.to(input_centred.device),
+            self.beta,
             self.gamma_rr,
             self.gamma_ri,
             self.gamma_ii,

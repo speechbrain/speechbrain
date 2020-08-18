@@ -875,7 +875,7 @@ class ComplexLiGRU_Layer(torch.nn.Module):
             self.drop_mask_cnt = self.drop_mask_cnt + self.batch_size
 
         else:
-            drop_mask = self.drop_mask_te
+            drop_mask = self.drop_mask_te.to(self.device)
 
         return drop_mask
 
