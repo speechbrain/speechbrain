@@ -220,7 +220,7 @@ def xvect_computation_loop(split, set_loader, stat_file):
                     init_params = False
                     params.xvector_model.eval()
 
-                # Enrolment and test xvectors
+                # xvector computation
                 xvects = compute_x_vectors(wavs, lens)
                 xv = xvects.squeeze().cpu().numpy()
                 xvectors = numpy.concatenate((xvectors, xv), axis=0)
@@ -253,7 +253,7 @@ def xvect_computation_loop(split, set_loader, stat_file):
     return stat_obj
 
 
-# Enroll and Test xvector
+# xvector files
 diary_stat_file = os.path.join(params.save_folder, "diary_stat_enrol.pkl")
 diary_ndx_file = os.path.join(params.save_folder, "diary_ndx.pkl")
 
