@@ -24,19 +24,41 @@ sys.path.append(os.path.dirname(current_dir))
 params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
 with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(fin, overrides)
+
+from voxceleb_prepare import prepare_voxceleb  # noqa E402
 from ami_prepare import prepare_ami  # noqa E402
 
 # Create experiment directory
 sb.core.create_experiment_directory(
     experiment_directory=params.output_folder,
-    hyperparams_to_save=params_file,
+    params_to_save=params_file,
     overrides=overrides,
 )
 
 # Prepare data from dev of Voxceleb1
-logger.info("Data preparation")
+"""
+logger.info("Vox: Data preparation")
+prepare_voxceleb(
+    data_folder= params.data_folder_vox,
+    save_folder= params.save_folder,
+    splits=["train"],
+    split_ratio= [90, 10],
+    seg_dur= 300,
+    vad= False,
+    rand_seed= params.seed,
+)
+"""
+
+# Prepare data for AMI
+logger.info("AMI: Data preparation")
 prepare_ami(
-    data_folder=params.data_folder, save_folder=params.save_folder,
+    data_folder=params.data_folder_ami,
+    save_folder=params.save_folder,
+    split_type=params.split_type,
+    mic_type=params.mic_type,
+    vad_type=params.vad_type,
+    max_subseg_dur=params.max_subseg_dur,
+    overlap=params.overlap,
 )
 
 sys.exit()
@@ -159,8 +181,6 @@ else:
 logger.info("Training PLDA model")
 params.compute_plda.plda(xvectors_stat)
 logger.info("PLDA training completed")
-
-sys.exit()
 
 # Enroll and Test xvector
 enrol_stat_file = os.path.join(params.save_folder, "stat_enrol.pkl")
