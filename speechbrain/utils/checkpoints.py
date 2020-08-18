@@ -663,7 +663,9 @@ class Checkpointer:
 
         ckpts = self.list_checkpoints()
         ckpts = list(filter(ckpt_predicate, ckpts))
-
+        # First sort by recency, so that importance being equal,
+        # the most checkpoints are returned
+        ckpts = sorted(ckpts, key=ckpt_recency, reverse=True)
         if ckpts:
             ranked_ckpts = sorted(ckpts, key=importance_key, reverse=True)
             # NOTE: apparently, you can also slice [:None],
