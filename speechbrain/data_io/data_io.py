@@ -1004,7 +1004,7 @@ class HDF5DataLoaderFactory(torch.nn.Module):
         organized in batches. In the case of variable size tensors, zero
         padding is performed. When batch_size=1, the data are simply processed
         one by one without the creation of batches.
-    entries : list, None, optional
+    data_entries : list, None, optional
         Default: None .  A list of data entries may be specified.  If
         specified, only those data entries are read from the hdf5 file. If None,
         read all the data entries.
@@ -1032,12 +1032,6 @@ class HDF5DataLoaderFactory(torch.nn.Module):
         data loader for more details.
     select_n_setences : int, optional
         Default: None . It selects the first N sentences of the CSV file.
-    avoid_if_longer_than : float, optional
-        Default: 36000 . It excludes sentences longer than the specified value
-        in seconds.
-    avoid_if_shorter_than : float, optional
-        Default: 0 . It excludes sentences shorter than the specified value in
-        seconds.
     drop_last : bool, optional
         Default: False . This is an option directly passed to the pytorch
         dataloader (see the related documentation for more details). When True,
@@ -1050,11 +1044,9 @@ class HDF5DataLoaderFactory(torch.nn.Module):
 
     Example
     -------
-    >>> csv_file = 'samples/audio_samples/csv_example2.csv'
-    >>> # Initialization of the class
-    >>> data_loader=DataLoaderFactory(csv_file)
-    >>> # When called, creates a dataloader for each entry in the csv file
-    >>> # The sample has two: wav and spk
+    >>> h5_file = 'samples/text_samples/hdf5_example.h5'
+    >>> label_dict_file = 'samples/text_samples/label_dict.pkl'
+    >>> data_loader=DataLoaderFactory(h5_file, label_dict_file)
     """
 
     def __init__(
@@ -1069,8 +1061,6 @@ class HDF5DataLoaderFactory(torch.nn.Module):
         select_n_sentences=None,
         avoid_if_longer_than=36000,
         avoid_if_shorter_than=0,
-        local_random=False,
-        chunk_size=2048,
         drop_last=False,
         padding_value=0,
         output_folder=None,
