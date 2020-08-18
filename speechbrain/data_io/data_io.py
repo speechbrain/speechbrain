@@ -1059,8 +1059,6 @@ class HDF5DataLoaderFactory(torch.nn.Module):
         sentence_sorting="random",
         num_workers=0,
         select_n_sentences=None,
-        avoid_if_longer_than=36000,
-        avoid_if_shorter_than=0,
         drop_last=False,
         padding_value=0,
         output_folder=None,
@@ -1400,6 +1398,53 @@ class HDF5DatasetFactory(Dataset):
         data_read = [snt_id, data, data_shape]
 
         return data_read
+
+
+class LocalRandomSampler:
+    def __init__(self, chunk_size, batch_size, data_len, drop_last):
+        self.chunk_size = chunk_size
+        self.batch_size = batch_size
+        self.data_len = data_len
+        self.drop_last = drop_last
+
+        self.chunks = [
+            list(range(i * chunk_size, i * chunk_size + chunk_size))
+            for i in range(data_len // chunk_size)
+        ]
+        if not drop_last and data_len % chunk_size != 0:
+            self.chunks.append(
+                list(range(data_len - (data_len % chunk_size), data_len))
+            )
+        self.shuffle()
+        self.batches = self.generate_batches()
+
+    def __getitem__(self, idx):
+        if idx >= len(self.batches):
+            self.shuffle()
+            self.batches = self.generate_batches()
+            raise IndexError
+        return self.batches[idx]
+
+    def __len__(self):
+        return len(self.batches)
+
+    def shuffle(self):
+        for i in range(len(self.chunks)):
+            random.shuffle(self.chunks[i])
+        return
+
+    def generate_batches(self):
+        batches = []
+        for chunk in self.chunks:
+            batches += [
+                chunk[
+                    i * self.batch_size : i * self.batch_size + self.batch_size
+                ]
+                for i in range(math.ceil(len(chunk) / self.batch_size))
+            ]
+        random.shuffle(batches)
+        return batches
+
 
 
 def convert_index_to_lab(batch, ind2lab):
