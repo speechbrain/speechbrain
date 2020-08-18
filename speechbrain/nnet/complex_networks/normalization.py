@@ -82,14 +82,29 @@ class ComplexBatchNorm(torch.nn.Module):
 
         if self.scale:
             self.gamma_rr = Parameter(
-                torch.Tensor(self.num_complex_features)
-            ).to(self.device)
+                torch.empty(
+                    self.num_complex_features,
+                    dtype=torch.float32,
+                    device=self.device,
+                    requires_grad=True,
+                )
+            )
             self.gamma_ii = Parameter(
-                torch.Tensor(self.num_complex_features)
-            ).to(self.device)
+                torch.empty(
+                    self.num_complex_features,
+                    dtype=torch.float32,
+                    device=self.device,
+                    requires_grad=True,
+                )
+            )
             self.gamma_ri = Parameter(
-                torch.Tensor(self.num_complex_features)
-            ).to(self.device)
+                torch.empty(
+                    self.num_complex_features,
+                    dtype=torch.float32,
+                    device=self.device,
+                    requires_grad=True,
+                )
+            )
         else:
             self.register_parameter("gamma_rr", None)
             self.register_parameter("gamma_ii", None)
@@ -97,8 +112,13 @@ class ComplexBatchNorm(torch.nn.Module):
 
         if self.center:
             self.beta = Parameter(
-                torch.Tensor(self.num_complex_features * 2)
-            ).to(self.device)
+                torch.empty(
+                    self.num_complex_features * 2,
+                    dtype=torch.float32,
+                    device=self.device,
+                    requires_grad=True,
+                )
+            )  # .to(self.device)
         else:
             self.register_parameter("beta", None)
 
@@ -165,15 +185,11 @@ class ComplexBatchNorm(torch.nn.Module):
         # "Deep Complex Networks" Trabelsi C. et al.
         self.reset_running_stats()
         if self.scale:
-            self.gamma_rr = self.gamma_rr.data.fill_(1 / np.sqrt(2)).to(
-                self.device
-            )
-            self.gamma_ii = self.gamma_ii.data.fill_(1 / np.sqrt(2)).to(
-                self.device
-            )
-            self.gamma_ri = self.gamma_ri.data.zero_().to(self.device)
+            self.gamma_rr.data.fill_(1 / np.sqrt(2))
+            self.gamma_ii.data.fill_(1 / np.sqrt(2))
+            self.gamma_ri.data.zero_()
         if self.center:
-            self.beta = self.beta.data.zero_().to(self.device)
+            self.beta.data.zero_()
 
     def forward(self, input, init_params=False):
         """Returns the normalized input tensor.
@@ -288,13 +304,13 @@ class ComplexBatchNorm(torch.nn.Module):
             input_inferred = input_centred if self.center else input
             return complex_norm(
                 input_inferred,
-                Vrr.to(input_inferred.device),
-                Vii.to(input_inferred.device),
-                Vri.to(input_inferred.device),
-                self.beta.to(input_inferred.device),
-                self.gamma_rr.to(input_inferred.device),
-                self.gamma_ri.to(input_inferred.device),
-                self.gamma_ii.to(input_inferred.device),
+                Vrr,
+                Vii,
+                Vri,
+                self.beta,
+                self.gamma_rr,
+                self.gamma_ri,
+                self.gamma_ii,
                 self.scale,
                 self.center,
                 layernorm=False,
@@ -307,13 +323,13 @@ class ComplexBatchNorm(torch.nn.Module):
                 input_inferred = input
             return complex_norm(
                 input_inferred,
-                self.moving_Vrr.to(input_inferred.device),
-                self.moving_Vii.to(input_inferred.device),
-                self.moving_Vri.to(input_inferred.device),
-                self.beta.to(input_inferred.device),
-                self.gamma_rr.to(input_inferred.device),
-                self.gamma_ri.to(input_inferred.device),
-                self.gamma_ii.to(input_inferred.device),
+                self.moving_Vrr,
+                self.moving_Vii,
+                self.moving_Vri,
+                self.beta,
+                self.gamma_rr,
+                self.gamma_ri,
+                self.gamma_ii,
                 self.scale,
                 self.center,
                 layernorm=False,
@@ -406,14 +422,29 @@ class ComplexLayerNorm(torch.nn.Module):
 
         if self.scale:
             self.gamma_rr = Parameter(
-                torch.Tensor(self.num_complex_features)
-            ).to(self.device)
+                torch.empty(
+                    self.num_complex_features,
+                    dtype=torch.float32,
+                    device=self.device,
+                    requires_grad=True,
+                )
+            )
             self.gamma_ii = Parameter(
-                torch.Tensor(self.num_complex_features)
-            ).to(self.device)
+                torch.empty(
+                    self.num_complex_features,
+                    dtype=torch.float32,
+                    device=self.device,
+                    requires_grad=True,
+                )
+            )
             self.gamma_ri = Parameter(
-                torch.Tensor(self.num_complex_features)
-            ).to(self.device)
+                torch.empty(
+                    self.num_complex_features,
+                    dtype=torch.float32,
+                    device=self.device,
+                    requires_grad=True,
+                )
+            )
         else:
             self.register_parameter("gamma_rr", None)
             self.register_parameter("gamma_ii", None)
@@ -421,8 +452,13 @@ class ComplexLayerNorm(torch.nn.Module):
 
         if self.center:
             self.beta = Parameter(
-                torch.Tensor(self.num_complex_features * 2)
-            ).to(self.device)
+                torch.empty(
+                    self.num_complex_features * 2,
+                    dtype=torch.float32,
+                    device=self.device,
+                    requires_grad=True,
+                )
+            )
         else:
             self.register_parameter("beta", None)
         self.reset_parameters()
@@ -431,11 +467,11 @@ class ComplexLayerNorm(torch.nn.Module):
         # Simply reset all the parameters.
         # "Deep Complex Networks" Trabelsi C. et al.
         if self.scale:
-            self.gamma_rr.data.fill_(1 / np.sqrt(2)).to(self.device)
-            self.gamma_ii.data.fill_(1 / np.sqrt(2)).to(self.device)
-            self.gamma_ri.data.zero_().to(self.device)
+            self.gamma_rr.data.fill_(1 / np.sqrt(2))
+            self.gamma_ii.data.fill_(1 / np.sqrt(2))
+            self.gamma_ri.data.zero_()
         if self.center:
-            self.beta.data.zero_().to(self.device)
+            self.beta.data.zero_()
 
     def forward(self, input, init_params=False):
 
@@ -503,13 +539,13 @@ class ComplexLayerNorm(torch.nn.Module):
 
         return complex_norm(
             input_centred,
-            Vrr.to(input_centred.device),
-            Vii.to(input_centred.device),
-            Vri.to(input_centred.device),
+            Vrr,
+            Vii,
+            Vri,
             self.beta.to(input_centred.device),
-            self.gamma_rr.to(input_centred.device),
-            self.gamma_ri.to(input_centred.device),
-            self.gamma_ii.to(input_centred.device),
+            self.gamma_rr,
+            self.gamma_ri,
+            self.gamma_ii,
             self.scale,
             self.center,
             dim=self.dim,

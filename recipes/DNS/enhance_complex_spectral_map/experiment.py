@@ -97,7 +97,7 @@ class SEBrain(sb.core.Brain):
 
         # enhanced = |X||M| * e^(X_phase + M_phase)
         enhanced_spec = torch.mul(
-            torch.unsqueeze(noisy_mag * output_mag, -1),
+            torch.unsqueeze(noisy_mag * params.mask_activation(output_mag), -1),
             torch.cat(
                 (
                     torch.unsqueeze(torch.cos(noisy_phase + output_phase), -1),

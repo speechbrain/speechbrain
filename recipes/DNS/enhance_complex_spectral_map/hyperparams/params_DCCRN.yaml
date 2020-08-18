@@ -16,7 +16,7 @@ use_tensorboard: False
 tensorboard_logs: !ref results/logs/complexDCCRN_dynamic/<seed>
 train_log: !ref <output_folder>/train_log.txt
 
-use_multigpu: False
+use_multigpu: True
 
 # Data files
 csv_noise: !ref <data_folder>/tr_noise.csv
@@ -26,9 +26,9 @@ csv_test: !ref <data_folder>/test.csv
 
 # Training Parameters
 N_epochs: 50
-N_batch: 2
+N_batch: 8
 lr: 0.001
-device: cuda:0
+device: cuda
 
 # Model Parameters
 conv_channels: [32, 64, 128, 128, 128, 256]
@@ -37,6 +37,8 @@ padding_type: same
 strides: [2, 1]
 rnn_size: 256
 rnn_layers: 2
+
+mask_activation: !new:torch.nn.Sigmoid
 
 # FFT Parameters
 samplerate: 16000

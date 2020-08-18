@@ -7,11 +7,10 @@ Authors
 import torch  # noqa F4001
 import torch.nn as nn
 from speechbrain.nnet.complex_networks.CNN import ComplexConv2d
-from speechbrain.nnet.linear import Linear
+from speechbrain.nnet.complex_networks.linear import ComplexLinear
 from speechbrain.nnet.complex_networks.normalization import ComplexBatchNorm
-from speechbrain.nnet.RNN import LSTM
+from speechbrain.nnet.complex_networks.RNN import ComplexLiGRU
 from speechbrain.nnet.complex_networks.complex_ops import complex_concat
-from speechbrain.nnet.containers import Sequential
 
 
 class DCCRN(nn.Module):
@@ -53,15 +52,15 @@ class DCCRN(nn.Module):
             x = conv(x, init_params=True)
             self.encoder_size.append(x.shape[2])
 
-        self.rnn = LSTM(
+        self.rnn = ComplexLiGRU(
             self.rnn_size,
             num_layers=self.rnn_layers,
-            # normalization="batchnorm",
+            normalization="batchnorm",
         )
 
         # Linear layer to transform rnn output back to 4-D
-        self.linear_dim = self.encoder_size[-1] * self.conv_channels[-1] * 2
-        self.linear_trans = Linear(self.linear_dim)
+        self.linear_dim = self.encoder_size[-1] * self.conv_channels[-1]
+        self.linear_trans = ComplexLinear(self.linear_dim)
 
         self.decoder_convs = nn.ModuleList(
             [
@@ -101,19 +100,19 @@ class DCCRN(nn.Module):
 
         # If use complex RNN + complex Linear:
         # split then reshape is needed instead of directly reshape
-        # rnn_out_r, rnn_out_i = torch.split(rnn_out, self.linear_dim, -1)
-        # rnn_out_r = rnn_out_r.reshape(
-        #     x.shape[0], x.shape[1], x.shape[2], x.shape[3] // 2
-        # )
-        # rnn_out_i = rnn_out_i.reshape(
-        #     x.shape[0], x.shape[1], x.shape[2], x.shape[3] // 2
-        # )
-        # rnn_out = torch.cat([rnn_out_r, rnn_out_i], dim=3)
+        rnn_out_r, rnn_out_i = torch.split(rnn_out, self.linear_dim, -1)
+        rnn_out_r = rnn_out_r.reshape(
+            x.shape[0], x.shape[1], x.shape[2], x.shape[3] // 2
+        )
+        rnn_out_i = rnn_out_i.reshape(
+            x.shape[0], x.shape[1], x.shape[2], x.shape[3] // 2
+        )
+        rnn_out = torch.cat([rnn_out_r, rnn_out_i], dim=3)
 
         # Directly reshape
-        rnn_out = rnn_out.reshape(
-            x.shape[0], x.shape[1], x.shape[2], x.shape[3]
-        )
+        # rnn_out = rnn_out.reshape(
+        #     x.shape[0], x.shape[1], x.shape[2], x.shape[3]
+        # )
 
         decoder_out = rnn_out
         for i, conv in enumerate(self.decoder_convs):
@@ -127,7 +126,7 @@ class DCCRN(nn.Module):
         return decoder_out
 
 
-class Encoder_layer(Sequential):
+class Encoder_layer(nn.Module):
     def __init__(
         self,
         channels,
@@ -137,12 +136,31 @@ class Encoder_layer(Sequential):
         norm=ComplexBatchNorm,
         padding="same",
     ):
-        blocks = [
-            ComplexConv2d(channels, kernel_size, strides, padding=padding),
-            norm(),
-            activation(),
-        ]
-        super().__init__(*blocks)
+        super().__init__()
+        self.channels = channels
+        self.kernel_size = kernel_size
+        self.strides = strides
+        self.activation = activation
+        self.norm = norm
+        self.padding = padding
+
+    def init_params(self, first_input):
+        self.device = first_input.device
+        self.conv = ComplexConv2d(
+            self.channels, self.kernel_size, self.strides, padding=self.padding
+        ).to(self.device)
+        self.norm = self.norm().to(self.device)
+        self.activation = self.activation().to(self.device)
+
+    def forward(self, x, init_params=False):
+        if init_params:
+            self.init_params(x)
+
+        x = self.conv(x, init_params=init_params)
+        x = self.norm(x, init_params=init_params)
+        x = self.activation(x)
+
+        return x
 
 
 class Decoder_layer(nn.Module):

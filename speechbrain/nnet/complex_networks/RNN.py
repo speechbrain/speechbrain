@@ -706,14 +706,6 @@ class ComplexLiGRU_Layer(torch.nn.Module):
         self.normalization = normalization
         self.nonlinearity = nonlinearity
 
-        self.w = complex_linear(
-            self.input_size, 2 * self.hidden_size, bias=False
-        )
-
-        self.u = complex_linear(
-            self.hidden_size, 2 * self.hidden_size, bias=False
-        )
-
         if self.bidirectional:
             self.batch_size = self.batch_size * 2
 
@@ -754,6 +746,23 @@ class ComplexLiGRU_Layer(torch.nn.Module):
         else:
             self.act = torch.nn.ReLU().to(self.device)
 
+    def init_params(self, first_input):
+        """
+        Initializes the parameters of the ComplexliGRU.
+
+        Arguments
+        ---------
+        first_input : tensor
+            A first input used for initializing the parameters.
+        """
+        self.w = complex_linear(
+            self.input_size, 2 * self.hidden_size, bias=False
+        ).to(first_input.device)
+
+        self.u = complex_linear(
+            self.hidden_size, 2 * self.hidden_size, bias=False
+        ).to(first_input.device)
+
     def forward(self, x, hx=None, init_params=False):
         # type: (Tensor, Optional[Tensor], Optional[Bool]) -> Tensor # noqa F821
         """Returns the output of the Complex liGRU layer.
@@ -763,14 +772,16 @@ class ComplexLiGRU_Layer(torch.nn.Module):
         x : torch.Tensor
         """
         self.device = x.device
+
         if self.bidirectional:
             x_flip = x.flip(1)
             x = torch.cat([x, x_flip], dim=0)
 
         # Change batch size if needed
         self._change_batch_size(x)
-        self.u = self.u.to(self.device)
-        self.w = self.w.to(self.device)
+
+        if init_params:
+            self.init_params(x)
 
         # Feed-forward affine transformations (all steps in parallel)
         w = self.w(x)
