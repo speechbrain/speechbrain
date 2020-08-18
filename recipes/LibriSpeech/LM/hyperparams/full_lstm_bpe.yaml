@@ -14,7 +14,7 @@ csv_valid: !ref <data_folder>/dev-clean.csv
 
 # Training parameters
 number_of_epochs: 20
-batch_size: 32
+batch_size: 64
 lr: 0.001
 accu_steps: 8
 device: 'cuda'
@@ -23,9 +23,9 @@ multigpu: True
 # Model parameters
 emb_size: 128
 activation: !name:torch.nn.LeakyReLU
-dropout: 0.15
+dropout: 0.0
 rnn_layers: 2
-rnn_neurons: 1024
+rnn_neurons: 2048
 dnn_blocks: 1
 dnn_neurons: 512
 
