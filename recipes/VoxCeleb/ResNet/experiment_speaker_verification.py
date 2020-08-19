@@ -1,9 +1,11 @@
 #!/usr/bin/python
 import os
 import sys
+import math
 import torch
 import logging
 import speechbrain as sb
+import torch.nn.functional as F
 from tqdm.contrib import tqdm
 from speechbrain.utils.EER import EER
 from speechbrain.utils.data_utils import download_file
@@ -33,6 +35,9 @@ prepare_voxceleb(
     save_folder=params.save_folder,
     splits=["test"],
     rand_seed=params.seed,
+    source=params.voxceleb_source
+    if hasattr(params, "voxceleb_source")
+    else None,
 )
 
 # Cosine similarity initialization
@@ -44,14 +49,39 @@ index2label = params.test_loader.label_dict["lab_verification"]["index2lab"]
 
 
 # Definition of the steps for resnet computation from the waveforms
+# Note that ResNet models are trained with fixed segments w/o padding, so
+# variable-length segments w/ zero-padding are not generalized well.
+# Therefore, compute embeddings for each wavs.
+# TODO(hwidong.na): support batch size > 1?
 def compute_embedding(wavs, lens, init_params=False):
     with torch.no_grad():
-        wavs = wavs.to(params.device)
-        feats = params.compute_features(wavs, init_params=init_params)
+        assert wavs.shape[0] == 1 and len(wavs.shape) == 2
+        wavs = wavs.squeeze(0)
+        audiosize = wavs.shape[0]
+        max_audio = params.max_frames * 160 + 240
+        if audiosize <= max_audio:
+            shortage = math.floor((max_audio - audiosize + 1) / 2)
+            wavs = F.pad(wavs, (shortage, shortage), "constant", value=0)
+            audiosize = wavs.shape[0]
+
+        if params.max_frames == 0:
+            feats = wavs.unsqueeze(0)
+        else:
+            startframe = torch.linspace(
+                0, audiosize - max_audio, params.num_eval
+            )
+            feats = torch.zeros([params.num_eval, max_audio])
+            for i, asf in enumerate(startframe):
+                feats[i] = wavs[int(asf) : int(asf) + max_audio]
+            lens = lens.repeat(params.num_eval)
+        feats = feats.to(params.device)
+        feats = params.compute_features(feats, init_params=init_params)
         feats = params.mean_var_norm(feats, lens)
         feats = feats.unsqueeze(1)
         emb = params.resnet_model(feats, init_params=init_params)
-        # normalization after embedding?
+        emb = params.mean_var_norm_emb(
+            emb, torch.ones(emb.shape[0]).to(params.device)
+        )
     return emb
 
 
@@ -78,6 +108,10 @@ with tqdm(test_set, dynamic_ncols=True) as t:
 
         # Initialize the model and perform pre-training
         if init_params:
+            emb = compute_embedding(wav1, lens1, init_params=True)
+            params.mean_var_norm_emb.glob_mean = torch.zeros_like(emb[0, 0, :])
+            params.mean_var_norm_emb.count = 0
+
             # Download models from the web if needed
             if "https://" in params.resnet_file:
                 download_and_pretrain()
@@ -94,7 +128,7 @@ with tqdm(test_set, dynamic_ncols=True) as t:
         emb2 = compute_embedding(wav2, lens2)
 
         # Computing similarity
-        score = similarity(emb1, emb2)
+        score = similarity(emb1, emb2).mean(dim=0)
 
         # Adding score to positive or negative lists
         for i in range(len(label_verification)):
