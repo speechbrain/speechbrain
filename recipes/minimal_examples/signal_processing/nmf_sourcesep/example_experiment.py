@@ -147,7 +147,7 @@ Xmix_mag = spectral_magnitude(Xmix, power=2)
 
 X1hat, X2hat = sb_nmf.NMF_separate_spectra([W1hat, W2hat], Xmix_mag)
 
-x1, x2 = sb_nmf.reconstruct_results(
+x1hats, x2hats = sb_nmf.reconstruct_results(
     X1hat,
     X2hat,
     Xmix.permute(0, 2, 1, 3),
@@ -157,12 +157,37 @@ x1, x2 = sb_nmf.reconstruct_results(
 )
 
 if hyperparams.save_reconstructed:
-    write_wav_soundfile(
-        x1, os.path.join(hyperparams.output_folder, "x1.wav"), 16000
-    )
-    write_wav_soundfile(
-        x2, os.path.join(hyperparams.output_folder, "x2.wav"), 16000
-    )
+    savepath = "results/save/"
+    if not os.path.exists("results"):
+        os.mkdir("results")
+
+    if not os.path.exists(savepath):
+        os.mkdir(savepath)
+
+    for i, (x1hat, x2hat) in enumerate(zip(x1hats, x2hats)):
+        write_wav_soundfile(
+            x1hat,
+            os.path.join(savepath, "separated_source1_{}.wav".format(i)),
+            16000,
+        )
+        write_wav_soundfile(
+            x2hat,
+            os.path.join(savepath, "separated_source2_{}.wav".format(i)),
+            16000,
+        )
+
+    if hyperparams.copy_original_files:
+        datapath = "samples/audio_samples/sourcesep_samples"
+
+    filedir = os.path.dirname(os.path.realpath(__file__))
+    speechbrain_path = os.path.abspath(os.path.join(filedir, "../../../.."))
+    copypath = os.path.realpath(os.path.join(speechbrain_path, datapath))
+
+    all_files = os.listdir(copypath)
+    wav_files = [fl for fl in all_files if ".wav" in fl]
+
+    for wav_file in wav_files:
+        os.system("cp {} {}".format(copypath + "/" + wav_file, savepath))
 
 
 def test_NMF():
