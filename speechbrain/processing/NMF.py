@@ -132,10 +132,10 @@ def reconstruct_results(
 
     Returns
     -------
-    torch.tensor
-        The waveform of source 1
-    torch.tensor
-        The waveform of source 2
+    x1hats : (list)
+        List of waveforms for source 1
+    x2hats : (list)
+        List of waveforms for source 2
 
     Example
     -------
@@ -144,8 +144,7 @@ def reconstruct_results(
     >>> X1hat = torch.randn(BS, nfft//2 + 1, T)
     >>> X2hat = torch.randn(BS, nfft//2 + 1, T)
     >>> X_stft = torch.randn(BS, nfft//2 + 1, T, 2)
-    >>> x1, x2 = reconstruct_results(X1hat, X2hat, X_stft, sample_rate, win_length, hop_length)
-
+    >>> x1hats, x2hats = reconstruct_results(X1hat, X2hat, X_stft, sample_rate, win_length, hop_length)
     """
 
     ISTFT = spf.ISTFT(
@@ -155,6 +154,7 @@ def reconstruct_results(
     phase_mix = spectral_phase(X_stft)
     mag_mix = spectral_magnitude(X_stft, power=2)
 
+    x1hats, x2hats = [], []
     eps = 1e-25
     for i in range(X1hat.shape[0]):
         X1hat_stft = (
@@ -186,4 +186,7 @@ def reconstruct_results(
         div_factor = 10
         x1 = shat1 / (div_factor * shat1.std())
         x2 = shat2 / (div_factor * shat2.std())
-        return x1, x2
+
+        x1hats.append(x1)
+        x2hats.append(x2)
+    return x1hats, x2hats
