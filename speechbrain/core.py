@@ -18,10 +18,6 @@ from io import StringIO
 from datetime import date
 from enum import Enum, auto
 from tqdm.contrib import tqdm
-from speechbrain.utils.logger import setup_logging
-from speechbrain.utils.logger import format_order_of_magnitude
-from speechbrain.utils.logger import get_environment_description
-from speechbrain.utils.data_utils import recursive_update
 
 logger = logging.getLogger(__name__)
 DEFAULT_LOG_CONFIG = os.path.dirname(os.path.abspath(__file__))
@@ -62,7 +58,7 @@ def create_experiment_directory(
             experiment_directory, "hyperparams.yaml"
         )
         with open(hyperparams_to_save) as f:
-            resolved_yaml = sb.yaml.resolve_references(f, overrides)
+            resolved_yaml = sb.resolve_references(f, overrides)
         with open(hyperparams_filename, "w") as w:
             print("# Generated %s from:" % date.today(), file=w)
             print("# %s" % os.path.abspath(hyperparams_to_save), file=w)
@@ -78,7 +74,7 @@ def create_experiment_directory(
     # Log exceptions to output automatically
     log_file = os.path.join(experiment_directory, "log.txt")
     logger_overrides = {"handlers": {"file_handler": {"filename": log_file}}}
-    setup_logging(log_config, logger_overrides)
+    sb.setup_logging(log_config, logger_overrides)
     sys.excepthook = _logging_excepthook
 
     # Log beginning of experiment!
@@ -89,7 +85,7 @@ def create_experiment_directory(
 
     # Save system description:
     if save_env_desc:
-        description_str = get_environment_description()
+        description_str = sb.get_environment_description()
         with open(os.path.join(experiment_directory, "env.log"), "w") as fo:
             fo.write(description_str)
 
@@ -178,7 +174,7 @@ def parse_arguments(arg_list):
     # Convert to string and append to overrides
     ruamel_yaml = ruamel.yaml.YAML()
     overrides = ruamel_yaml.load(yaml_overrides) or {}
-    recursive_update(overrides, items)
+    sb.recursive_update(overrides, items)
     yaml_stream = StringIO()
     ruamel_yaml.dump(overrides, yaml_stream)
 
@@ -296,7 +292,7 @@ class Brain:
             p.numel() for p in self.modules.parameters() if p.requires_grad
         )
         clsname = self.__class__.__name__
-        fmt_num = format_order_of_magnitude(total_params)
+        fmt_num = sb.format_order_of_magnitude(total_params)
         logger.info(f"Initialized {fmt_num} trainable parameters in {clsname}")
 
     def compute_forward(self, x, stage=Stage.TRAIN, init_params=False):

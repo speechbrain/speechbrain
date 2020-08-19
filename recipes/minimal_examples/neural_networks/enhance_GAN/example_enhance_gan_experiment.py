@@ -4,7 +4,7 @@ import torch
 import speechbrain as sb
 
 
-class EnhanceGanBrain(sb.core.Brain):
+class EnhanceGanBrain(sb.Brain):
     def compute_forward(self, x, init_params=False):
         id, wavs, lens = x
 
@@ -17,11 +17,7 @@ class EnhanceGanBrain(sb.core.Brain):
         return enhanced
 
     def compute_objectives(
-        self,
-        predictions,
-        targets,
-        optimizer_modules=[],
-        stage=sb.core.Stage.TRAIN,
+        self, predictions, targets, optimizer_modules=[], stage=sb.Stage.TRAIN
     ):
         id, clean_wavs, lens = targets
         batch_size = clean_wavs.size(0)
@@ -63,24 +59,24 @@ class EnhanceGanBrain(sb.core.Brain):
 
         return loss.detach()
 
-    def evaluate_batch(self, batch, stage=sb.core.Stage.TEST):
+    def evaluate_batch(self, batch, stage=sb.Stage.TEST):
         inputs = batch[0]
         predictions = self.compute_forward(inputs)
         loss = self.compute_objectives(predictions, inputs, stage=stage)
         return loss.detach()
 
     def on_stage_start(self, stage, epoch=None):
-        if stage == sb.core.Stage.TRAIN:
+        if stage == sb.Stage.TRAIN:
             self.metrics = {"G": [], "D": []}
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
-        if stage == sb.core.Stage.TRAIN:
+        if stage == sb.Stage.TRAIN:
             g_loss = torch.tensor(self.metrics["G"])
             d_loss = torch.tensor(self.metrics["D"])
             print("Avg G loss: %.2f" % torch.mean(g_loss))
             print("Avg D loss: %.2f" % torch.mean(d_loss))
             print("train loss: ", stage_loss)
-        if stage == sb.core.Stage.VALID:
+        if stage == sb.Stage.VALID:
             print("Completed epoch %d" % epoch)
             print("Valid loss: %.3f" % stage_loss)
 
@@ -91,9 +87,7 @@ def main():
     data_folder = "../../../../samples/audio_samples/nn_training_samples"
     data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
     with open(hyperparams_file) as fin:
-        hyperparams = sb.yaml.load_extended_yaml(
-            fin, {"data_folder": data_folder}
-        )
+        hyperparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
 
     train_set = hyperparams.train_loader()
     first_x = next(iter(train_set))

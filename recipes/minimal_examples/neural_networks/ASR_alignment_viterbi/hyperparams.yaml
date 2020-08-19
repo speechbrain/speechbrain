@@ -26,7 +26,7 @@ rnn_bidirectional: True
 dnn_blocks: 1
 dnn_neurons: 128
 
-train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+train_loader: !new:speechbrain.DataLoaderFactory
     csv_file: !ref <csv_train>
     batch_size: !ref <N_batch>
     csv_read: [wav, phn]
@@ -34,7 +34,7 @@ train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
-valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+valid_loader: !new:speechbrain.DataLoaderFactory
     csv_file: !ref <csv_valid>
     batch_size: !ref <N_batch>
     csv_read: [wav, phn]
@@ -42,21 +42,22 @@ valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
-test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+test_loader: !new:speechbrain.DataLoaderFactory
     csv_file: !ref <csv_test>
     csv_read: [wav, phn]
     sentence_sorting: ascending
     replacements:
         $data_folder: !ref <data_folder>
 
-optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
-    learning_rate: !ref <lr>
+optimizer: !new:speechbrain.nnet.optimizers.Optimizer
+    OptClass: !name:torch.optim.Adam
+    lr: !ref <lr>
 
 modules:
-    compute_features: !new:speechbrain.lobes.features.mfcc.MFCC
-    mean_var_norm: !new:speechbrain.processing.features.InputNormalization
+    compute_features: !new:speechbrain.lobes.MFCC
+    mean_var_norm: !new:speechbrain.processing.InputNormalization
         norm_type: global
-    model: !new:speechbrain.lobes.models.CRDNN.CRDNN
+    model: !new:speechbrain.lobes.CRDNN
         activation: !ref <activation>
         dropout: !ref <dropout>
         cnn_blocks: !ref <cnn_blocks>
@@ -68,10 +69,10 @@ modules:
         rnn_bidirectional: !ref <rnn_bidirectional>
         dnn_blocks: !ref <dnn_blocks>
         dnn_neurons: !ref <dnn_neurons>
-    lin: !new:speechbrain.nnet.linear.Linear
+    lin: !new:speechbrain.nnet.Linear
         n_neurons: 42  # 42 phonemes, no blank
         bias: False
-    softmax: !new:speechbrain.nnet.activations.Softmax
+    softmax: !new:speechbrain.nnet.Softmax
         apply_log: True
     aligner: !new:speechbrain.alignment.aligner.HMMAligner
-    compute_cost: !name:speechbrain.nnet.losses.nll_loss
+    compute_cost: !name:speechbrain.nnet.nll_loss

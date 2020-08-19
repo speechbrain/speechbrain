@@ -46,28 +46,30 @@ output_neurons: 40
 blank_index: !ref <output_neurons> - 1
 
 # Training
-optimizer: !new:speechbrain.nnet.optimizers.Adadelta_Optimizer
+optimizer: !new:speechbrain.nnet.Optimizer
+    OptClass: !name:torch.optim.Adadelta
+    lr: !ref <lr>
     rho: 0.95
-    learning_rate: !ref <lr>
+    eps: 1.e-8
 
-epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+epoch_counter: !new:speechbrain.EpochCounter
     limit: !ref <number_of_epochs>
 
-train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+train_loader: !new:speechbrain.DataLoaderFactory
     csv_file: !ref <csv_train>
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
     csv_read: [wav, phn]
 
-valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+valid_loader: !new:speechbrain.DataLoaderFactory
     csv_file: !ref <csv_valid>
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
     csv_read: [wav, phn]
 
-test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+test_loader: !new:speechbrain.DataLoaderFactory
     csv_file: !ref <csv_test>
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
@@ -78,16 +80,16 @@ test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
 modules:
     wer_file: !ref <wer_file>
     epoch_counter: !ref <epoch_counter>
-    compute_features: !new:speechbrain.lobes.features.fbank.Fbank
+    compute_features: !new:speechbrain.lobes.Fbank
         sample_rate: !ref <sample_rate>
         n_fft: !ref <n_fft>
         n_mels: !ref <n_mels>
-    augmentation: !new:speechbrain.lobes.augment.tdsa.TimeDomainSpecAugment
+    augmentation: !new:speechbrain.lobes.TimeDomainSpecAugment
         sample_rate: !ref <sample_rate>
         speeds: [95, 100, 105]
-    normalize: !new:speechbrain.processing.features.InputNormalization
+    normalize: !new:speechbrain.processing.InputNormalization
         norm_type: global
-    model: !new:speechbrain.lobes.models.CRDNN.CRDNN
+    model: !new:speechbrain.lobes.CRDNN
         activation: !ref <activation>
         dropout: !ref <dropout>
         cnn_blocks: !ref <cnn_blocks>
@@ -99,30 +101,30 @@ modules:
         rnn_bidirectional: !ref <rnn_bidirectional>
         dnn_blocks: !ref <dnn_blocks>
         dnn_neurons: !ref <dnn_neurons>
-    output: !new:speechbrain.nnet.linear.Linear
+    output: !new:speechbrain.nnet.Linear
         n_neurons: !ref <output_neurons>
         bias: True
-    log_softmax: !new:speechbrain.nnet.activations.Softmax
+    log_softmax: !new:speechbrain.nnet.Softmax
         apply_log: True
-    lr_annealing: !new:speechbrain.nnet.lr_schedulers.NewBobLRScheduler
+    lr_annealing: !new:speechbrain.nnet.NewBobLRScheduler
         improvement_threshold: 0.0025
         annealing_factor: 0.8
         patient: 0
-    train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    train_logger: !new:speechbrain.FileTrainLogger
         save_file: !ref <train_log>
-    checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpointer: !new:speechbrain.Checkpointer
         checkpoints_dir: !ref <save_folder>
         recoverables:
-            optimizer: !ref <optimizer>
             counter: !ref <epoch_counter>
+            optimizer: !ref <optimizer>
             normalizer: !ref <modules.normalize>
             model: !ref <modules.model>
             output: !ref <modules.output>
             scheduler: !ref <modules.lr_annealing>
-    compute_cost: !name:speechbrain.nnet.losses.ctc_loss
+    compute_cost: !name:speechbrain.nnet.ctc_loss
         blank_index: !ref <blank_index>
-    ctc_stats: !name:speechbrain.utils.metric_stats.MetricStats
-        metric: !name:speechbrain.nnet.losses.ctc_loss
+    ctc_stats: !name:speechbrain.MetricStats
+        metric: !name:speechbrain.nnet.ctc_loss
             blank_index: !ref <blank_index>
             reduction: batch
-    per_stats: !name:speechbrain.utils.metric_stats.ErrorRateStats
+    per_stats: !name:speechbrain.ErrorRateStats

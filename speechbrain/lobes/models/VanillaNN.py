@@ -4,11 +4,10 @@ Authors
 * Elena Rastorgueva 2020
 """
 import torch
-from speechbrain.nnet.linear import Linear
-from speechbrain.nnet.containers import Sequential
+import speechbrain as sb
 
 
-class VanillaNN(Sequential):
+class VanillaNN(sb.nnet.Sequential):
     """ A simple vanilla Deep Neural Network.
 
     Arguments
@@ -37,7 +36,7 @@ class VanillaNN(Sequential):
         for block_index in range(dnn_blocks):
             blocks.extend(
                 [
-                    Linear(
+                    sb.nnet.Linear(
                         n_neurons=dnn_neurons, bias=True, combine_dims=False,
                     ),
                     activation(),

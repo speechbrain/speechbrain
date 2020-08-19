@@ -3,8 +3,8 @@ import os
 import speechbrain as sb
 
 
-class ASR_Brain(sb.core.Brain):
-    def compute_forward(self, x, stage=sb.core.Stage.TRAIN, init_params=False):
+class ASR_Brain(sb.Brain):
+    def compute_forward(self, x, stage=sb.Stage.TRAIN, init_params=False):
         id, wavs, lens = x
         feats = self.compute_features(wavs, init_params)
         feats = self.mean_var_norm(feats, lens)
@@ -16,31 +16,29 @@ class ASR_Brain(sb.core.Brain):
 
         return outputs, lens
 
-    def compute_objectives(
-        self, predictions, targets, stage=sb.core.Stage.TRAIN
-    ):
+    def compute_objectives(self, predictions, targets, stage=sb.Stage.TRAIN):
         outputs, lens = predictions
         ids, ali, ali_lens = targets
         loss = self.compute_cost(outputs, ali, lens)
 
-        if stage != sb.core.Stage.TRAIN:
+        if stage != sb.Stage.TRAIN:
             self.err_metrics.append(ids, outputs, ali, lens)
 
         return loss
 
     def on_stage_start(self, stage, epoch=None):
-        if stage != sb.core.Stage.TRAIN:
+        if stage != sb.Stage.TRAIN:
             self.err_metrics = self.error_stats()
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
-        if stage == sb.core.Stage.TRAIN:
+        if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
 
-        if stage == sb.core.Stage.VALID and epoch is not None:
+        if stage == sb.Stage.VALID and epoch is not None:
             print("Epoch %d complete" % epoch)
             print("Train loss: %.2f" % self.train_loss)
 
-        if stage != sb.core.Stage.TRAIN:
+        if stage != sb.Stage.TRAIN:
             print(stage, "loss: %.2f" % stage_loss)
             print(stage, "error: %.2f" % self.err_metrics.summarize("average"))
 
@@ -51,9 +49,7 @@ def main():
     data_folder = "../../../../samples/audio_samples/nn_training_samples"
     data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
     with open(hyperparams_file) as fin:
-        hyperparams = sb.yaml.load_extended_yaml(
-            fin, {"data_folder": data_folder}
-        )
+        hyperparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
 
     train_set = hyperparams.train_loader()
     first_x, first_y = next(iter(train_set))

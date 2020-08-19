@@ -3,7 +3,7 @@ import os
 import speechbrain as sb
 
 
-class AutoBrain(sb.core.Brain):
+class AutoBrain(sb.Brain):
     def compute_forward(self, x, init_params=False):
         id, wavs, lens = x
         feats = self.compute_features(wavs, init_params)
@@ -32,7 +32,7 @@ class AutoBrain(sb.core.Brain):
             optimizer.zero_grad()
         return loss.detach()
 
-    def evaluate_batch(self, batch, stage=sb.core.Stage.TEST):
+    def evaluate_batch(self, batch, stage=sb.Stage.TEST):
         inputs = batch[0]
         predictions = self.compute_forward(inputs)
         loss = self.compute_objectives(predictions, inputs)
@@ -43,28 +43,28 @@ class AutoBrain(sb.core.Brain):
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
         if self.use_tensorboard:
-            if stage == sb.core.Stage.TRAIN:
+            if stage == sb.Stage.TRAIN:
                 self.train_logger.log_stats(
                     {"Epoch": epoch},
                     train_stats={"loss": self.mse_metric.scores},
                 )
-            elif stage == sb.core.Stage.VALID:
+            elif stage == sb.Stage.VALID:
                 self.train_logger.log_stats(
                     {"Epoch": epoch},
                     valid_stats={"loss": self.mse_metric.scores},
                 )
-            if stage == sb.core.Stage.TEST:
+            if stage == sb.Stage.TEST:
                 self.train_logger.log_stats(
                     {}, test_stats={"loss": self.mse_metric.scores}
                 )
 
-        if stage == sb.core.Stage.TRAIN:
+        if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
-        if stage == sb.core.Stage.VALID:
+        if stage == sb.Stage.VALID:
             print("Completed epoch %d" % epoch)
             print("Train loss: %.3f" % self.train_loss)
             print("Valid loss: %.3f" % stage_loss)
-        if stage == sb.core.Stage.TEST:
+        if stage == sb.Stage.TEST:
             print("Test loss: %.3f" % stage_loss)
 
 
@@ -74,9 +74,7 @@ def main():
     data_folder = "../../../../samples/audio_samples/nn_training_samples"
     data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
     with open(hyperparams_file) as fin:
-        hyperparams = sb.yaml.load_extended_yaml(
-            fin, {"data_folder": data_folder}
-        )
+        hyperparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
 
     if hyperparams.use_tensorboard:
         from speechbrain.utils.train_logger import TensorboardLogger

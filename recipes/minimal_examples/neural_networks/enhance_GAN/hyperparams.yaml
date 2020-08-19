@@ -14,7 +14,7 @@ N_epochs: 5
 N_batch: 2
 lr: 0.004
 
-train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+train_loader: !new:speechbrain.DataLoaderFactory
     csv_file: !ref <csv_train>
     batch_size: !ref <N_batch>
     csv_read: [wav]
@@ -22,7 +22,7 @@ train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
-valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+valid_loader: !new:speechbrain.DataLoaderFactory
     csv_file: !ref <csv_valid>
     batch_size: !ref <N_batch>
     csv_read: [wav]
@@ -30,39 +30,41 @@ valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
-test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+test_loader: !new:speechbrain.DataLoaderFactory
     csv_file: !ref <csv_test>
     csv_read: [wav]
     sentence_sorting: ascending
     replacements:
         $data_folder: !ref <data_folder>
 
-g_optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
-    learning_rate: !ref <lr>
+g_optimizer: !new:speechbrain.nnet.Optimizer
+    OptClass: !name:torch.optim.Adam
+    lr: !ref <lr>
 
-d_optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
-    learning_rate: !ref <lr> / 4
+d_optimizer: !new:speechbrain.nnet.Optimizer
+    OptClass: !name:torch.optim.Adam
+    lr: !ref <lr> / 4
 
 modules:
-    add_noise: !new:speechbrain.processing.speech_augmentation.AddNoise
-    generator: !new:speechbrain.nnet.containers.Sequential
-        - !new:speechbrain.nnet.CNN.Conv1d
+    add_noise: !new:speechbrain.processing.AddNoise
+    generator: !new:speechbrain.nnet.Sequential
+        - !new:speechbrain.nnet.Conv1d
           out_channels: 32
           kernel_size: 11
         - !new:torch.nn.LeakyReLU
-        - !new:speechbrain.nnet.CNN.Conv1d
+        - !new:speechbrain.nnet.Conv1d
           out_channels: 1
           kernel_size: 11
         - !new:torch.nn.Tanh
-    discriminator: !new:speechbrain.nnet.containers.Sequential
-        - !new:speechbrain.nnet.CNN.Conv1d
+    discriminator: !new:speechbrain.nnet.Sequential
+        - !new:speechbrain.nnet.Conv1d
           out_channels: 32
           kernel_size: 11
           stride: 8
         - !new:torch.nn.LeakyReLU
-        - !new:speechbrain.nnet.CNN.Conv1d
+        - !new:speechbrain.nnet.Conv1d
           out_channels: 1
           kernel_size: 11
           stride: 8
         - !new:torch.nn.Sigmoid
-    compute_cost: !name:speechbrain.nnet.losses.mse_loss
+    compute_cost: !name:speechbrain.nnet.mse_loss
