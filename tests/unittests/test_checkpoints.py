@@ -248,3 +248,25 @@ def test_multiple_ckpts_and_criteria(tmpdir):
         min_key="error", max_num_checkpoints=2
     )
     assert found_ckpts == [fifth_ckpt, fourth_ckpt]
+
+
+def test_torch_meta(tmpdir):
+    from speechbrain.utils.checkpoints import Checkpointer
+    import torch
+
+    class Recoverable(torch.nn.Module):
+        def __init__(self, param):
+            super().__init__()
+            self.param = torch.nn.Parameter(torch.tensor([param]))
+
+        def forward(self, x):
+            return x * self.param
+
+    recoverable = Recoverable(1.0)
+    recoverables = {"recoverable": recoverable}
+    recoverer = Checkpointer(tmpdir, recoverables)
+    saved = recoverer.save_checkpoint(
+        meta={"loss": torch.tensor([1.0, 2.0, 3.0, 4.0, 5.0])}
+    )
+    loaded = recoverer.recover_if_possible()
+    assert saved.meta["loss"].allclose(loaded.meta["loss"])
