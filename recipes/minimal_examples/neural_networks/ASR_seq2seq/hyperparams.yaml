@@ -30,7 +30,7 @@ dnn_neurons: 128
 bos: 42
 eos: 42
 
-train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+train_loader: !new:speechbrain.DataLoaderFactory
     csv_file: !ref <csv_train>
     batch_size: !ref <N_batch>
     csv_read: [wav, phn]
@@ -38,7 +38,7 @@ train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
-valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+valid_loader: !new:speechbrain.DataLoaderFactory
     csv_file: !ref <csv_valid>
     batch_size: !ref <N_batch>
     csv_read: [wav, phn]
@@ -46,23 +46,24 @@ valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
-test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+test_loader: !new:speechbrain.DataLoaderFactory
     csv_file: !ref <csv_test>
     csv_read: [wav, phn]
     sentence_sorting: ascending
     replacements:
         $data_folder: !ref <data_folder>
 
-optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
-    learning_rate: !ref <lr>
+optimizer: !new:speechbrain.nnet.Optimizer
+    OptClass: !name:torch.optim.Adam
+    lr: !ref <lr>
 
 modules:
-    compute_features: !new:speechbrain.lobes.features.mfcc.MFCC
-    mean_var_norm: !new:speechbrain.processing.features.InputNormalization
+    compute_features: !new:speechbrain.lobes.MFCC
+    mean_var_norm: !new:speechbrain.processing.InputNormalization
         norm_type: global
     bos: !ref <bos>
     eos: !ref <eos>
-    enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
+    enc: !new:speechbrain.lobes.CRDNN
         activation: !ref <activation>
         dropout: !ref <dropout>
         cnn_blocks: !ref <cnn_blocks>
@@ -74,19 +75,19 @@ modules:
         rnn_bidirectional: !ref <rnn_bidirectional>
         dnn_blocks: !ref <dnn_blocks>
         dnn_neurons: !ref <dnn_neurons>
-    lin: !new:speechbrain.nnet.linear.Linear
+    lin: !new:speechbrain.nnet.Linear
         n_neurons: 43  # 42 phonemes + 1 eos
         bias: False
-    emb: !new:speechbrain.nnet.embedding.Embedding
+    emb: !new:speechbrain.nnet.Embedding
         num_embeddings: 43  # 42 phonemes + 1 bos
         embedding_dim: 128
-    dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
+    dec: !new:speechbrain.nnet.AttentionalRNNDecoder
         rnn_type: gru
         attn_type: content
         hidden_size: !ref <rnn_neurons>
         attn_dim: !ref <rnn_neurons>
         num_layers: 1
-    softmax: !new:speechbrain.nnet.activations.Softmax
+    softmax: !new:speechbrain.nnet.Softmax
         apply_log: True
     searcher: !new:speechbrain.decoders.seq2seq.S2SRNNGreedySearcher
         modules:
@@ -98,5 +99,5 @@ modules:
         eos_index: !ref <eos>
         min_decode_ratio: 0
         max_decode_ratio: 0.1
-    compute_cost: !name:speechbrain.nnet.losses.nll_loss
-    per_stats: !name:speechbrain.utils.metric_stats.ErrorRateStats
+    compute_cost: !name:speechbrain.nnet.nll_loss
+    per_stats: !name:speechbrain.ErrorRateStats

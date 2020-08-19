@@ -7,11 +7,8 @@ Authors
 import math
 import torch  # noqa 42
 from torch import nn
+import speechbrain as sb
 
-from speechbrain.nnet.linear import Linear
-from speechbrain.nnet.normalization import LayerNorm
-from speechbrain.nnet.containers import Sequential
-from speechbrain.nnet.embedding import Embedding
 from speechbrain.lobes.models.transformer.Transformer import (
     TransformerInterface,
     get_lookahead_mask,
@@ -77,12 +74,12 @@ class TransformerASR(TransformerInterface):
             positional_encoding=positional_encoding,
         )
 
-        self.custom_src_module = Sequential(
-            Linear(d_model, bias=True, combine_dims=False),
-            LayerNorm(),
+        self.custom_src_module = sb.nnet.Sequential(
+            sb.nnet.Linear(d_model, bias=True, combine_dims=False),
+            sb.nnet.LayerNorm(),
             torch.nn.Dropout(dropout),
         )
-        self.custom_tgt_module = Sequential(
+        self.custom_tgt_module = sb.nnet.Sequential(
             NormalizedEmbedding(d_model, tgt_vocab),
         )
 
@@ -169,7 +166,7 @@ class NormalizedEmbedding(nn.Module):
 
     def __init__(self, d_model, vocab):
         super().__init__()
-        self.emb = Embedding(
+        self.emb = sb.nnet.Embedding(
             num_embeddings=vocab, embedding_dim=d_model, blank_id=0
         )
         self.d_model = d_model

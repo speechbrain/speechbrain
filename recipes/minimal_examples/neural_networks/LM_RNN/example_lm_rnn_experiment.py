@@ -8,17 +8,15 @@ from speechbrain.data_io.data_io import prepend_bos_token
 from speechbrain.data_io.data_io import append_eos_token
 
 
-class LMBrain(sb.core.Brain):
-    def compute_forward(self, y, stage=sb.core.Stage.TRAIN, init_params=False):
+class LMBrain(sb.Brain):
+    def compute_forward(self, y, stage=sb.Stage.TRAIN, init_params=False):
         ids, phns, phn_lens = y
         y_in = prepend_bos_token(phns, bos_index=self.bos_index)
         logits = self.model(y_in, init_params=init_params)
         pout = self.log_softmax(logits)
         return pout
 
-    def compute_objectives(
-        self, predictions, targets, stage=sb.core.Stage.TRAIN
-    ):
+    def compute_objectives(self, predictions, targets, stage=sb.Stage.TRAIN):
         pout = predictions
         ids, phns, phn_lens = targets
 
@@ -45,19 +43,19 @@ class LMBrain(sb.core.Brain):
             optimizer.zero_grad()
         return loss.detach()
 
-    def evaluate_batch(self, batch, stage=sb.core.Stage.TEST):
+    def evaluate_batch(self, batch, stage=sb.Stage.TEST):
         inputs = batch[0]
         out = self.compute_forward(inputs, stage=stage)
         loss = self.compute_objectives(out, inputs, stage=stage)
         return loss.detach()
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
-        if stage == sb.core.Stage.TRAIN:
+        if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
-        if stage == sb.core.Stage.VALID:
+        if stage == sb.Stage.VALID:
             print("Epoch %d complete" % epoch)
             print("Train loss: %.2f" % self.train_loss)
-        if stage != sb.core.Stage.TRAIN:
+        if stage != sb.Stage.TRAIN:
             print(stage, "loss: %.2f" % stage_loss)
             perplexity = math.e ** stage_loss
             print(stage, "perplexity: %.2f" % perplexity)
@@ -69,9 +67,7 @@ def main():
     data_folder = "../../../../samples/audio_samples/nn_training_samples"
     data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
     with open(hyperparams_file) as fin:
-        hyperparams = sb.yaml.load_extended_yaml(
-            fin, {"data_folder": data_folder}
-        )
+        hyperparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
 
     train_set = hyperparams.train_loader()
     valid_set = hyperparams.valid_loader()

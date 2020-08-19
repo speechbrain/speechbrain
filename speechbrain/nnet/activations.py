@@ -67,7 +67,7 @@ class Softmax(torch.nn.Module):
         return x_act
 
 
-class gumbel_softmax(torch.nn.Module):
+class GumbelSoftmax(torch.nn.Module):
     """Samples from the Gumbel-Softmax distribution and optionally discretizes.
     reference: https://arxiv.org/abs/1611.00712, https://arxiv.org/abs/1611.01144
 
@@ -83,7 +83,7 @@ class gumbel_softmax(torch.nn.Module):
     Example
     -------
     >>> x = torch.randn((8, 40, 120))
-    >>> act = gumbel_softmax(0.8, True)
+    >>> act = GumbelSoftmax(0.8, True)
     >>> x = act(x)
     """
 

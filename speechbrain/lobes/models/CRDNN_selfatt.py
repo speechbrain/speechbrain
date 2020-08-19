@@ -1,4 +1,5 @@
-"""This is an extenstion of the popular speech model with consist of CNN -> Transformer-Encoder -> RNN -> DNN
+"""This is an extenstion of the popular speech model with consist of
+CNN -> Transformer-Encoder -> RNN -> DNN
 
 Authors
  * Mirco Ravanelli 2020
@@ -9,18 +10,11 @@ Authors
  * Jianyuan Zhong 2020
 """
 import torch
-from speechbrain.nnet.RNN import LiGRU
-from speechbrain.nnet.CNN import Conv2d
-from speechbrain.nnet.linear import Linear
-from speechbrain.nnet.pooling import Pooling1d, Pooling2d
-from speechbrain.nnet.dropout import Dropout2d
-from speechbrain.nnet.containers import Sequential
-from speechbrain.nnet.normalization import BatchNorm1d, LayerNorm
+import speechbrain as sb
 from speechbrain.lobes.models.transformer.Transformer import TransformerEncoder
-from speechbrain.nnet.attention import PositionalwiseFeedForward
 
 
-class CRDNN(Sequential):
+class CRDNN(sb.nnet.Sequential):
     """This model is a combination of CNNs, RNNs, and DNNs.
 
     The default CNN model is based on VGG.
@@ -92,7 +86,7 @@ class CRDNN(Sequential):
         self_attention_num_heads=32,
         self_attention_model_dim=512,
         self_attention_hidden_dim=512,
-        rnn_class=LiGRU,
+        rnn_class=sb.nnet.LiGRU,
         rnn_layers=4,
         rnn_neurons=512,
         rnn_bidirectional=True,
@@ -106,13 +100,13 @@ class CRDNN(Sequential):
 
         for block_index in range(cnn_blocks):
             if not using_2d_pooling:
-                pooling = Pooling1d(
+                pooling = sb.nnet.Pooling1d(
                     pool_type="max",
                     kernel_size=inter_layer_pooling_size,
                     pool_axis=2,
                 )
             else:
-                pooling = Pooling2d(
+                pooling = sb.nnet.Pooling2d(
                     pool_type="max",
                     kernel_size=(
                         inter_layer_pooling_size,
@@ -123,28 +117,28 @@ class CRDNN(Sequential):
 
             blocks.extend(
                 [
-                    Conv2d(
+                    sb.nnet.Conv2d(
                         out_channels=cnn_channels[block_index],
                         kernel_size=cnn_kernelsize,
                     ),
-                    LayerNorm(),
+                    sb.nnet.LayerNorm(),
                     activation(),
-                    Conv2d(
+                    sb.nnet.Conv2d(
                         out_channels=cnn_channels[block_index],
                         kernel_size=cnn_kernelsize,
                     ),
-                    LayerNorm(),
+                    sb.nnet.LayerNorm(),
                     activation(),
                     # Inter-layer Pooling
                     pooling,
-                    Dropout2d(drop_rate=dropout),
+                    sb.nnet.Dropout2d(drop_rate=dropout),
                 ]
             )
 
         if time_pooling:
             blocks.extend(
                 [
-                    Pooling1d(
+                    sb.nnet.Pooling1d(
                         pool_type="max",
                         kernel_size=time_pooling_size,
                         pool_axis=1,
@@ -178,10 +172,10 @@ class CRDNN(Sequential):
             if dnn_postionalwise:
                 blocks.extend(
                     [
-                        PositionalwiseFeedForward(
+                        sb.nnet.PositionalwiseFeedForward(
                             hidden_size=dnn_neurons, dropout=dropout
                         ),
-                        LayerNorm(),
+                        sb.nnet.LayerNorm(),
                         activation(),
                         torch.nn.Dropout(p=dropout),
                     ]
@@ -189,12 +183,12 @@ class CRDNN(Sequential):
             else:
                 blocks.extend(
                     [
-                        Linear(
+                        sb.nnet.Linear(
                             n_neurons=dnn_neurons,
                             bias=True,
                             combine_dims=False,
                         ),
-                        BatchNorm1d(),
+                        sb.nnet.BatchNorm1d(),
                         torch.nn.LeakyReLU(),
                         torch.nn.Dropout(p=dropout),
                     ]

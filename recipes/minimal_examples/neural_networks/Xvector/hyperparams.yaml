@@ -24,12 +24,12 @@ deltas: False
 out_n_neurons: 2
 
 modules:
-    compute_features: !new:speechbrain.lobes.features.fbank.Fbank
+    compute_features: !new:speechbrain.lobes.Fbank
         n_mels: !ref <n_mels>
         left_frames: !ref <left_frames>
         right_frames: !ref <right_frames>
         deltas: !ref <deltas>
-    xvector_model: !new:speechbrain.lobes.models.Xvector.Xvector
+    xvector_model: !new:speechbrain.lobes.Xvector
         activation: !name:torch.nn.LeakyReLU
         device: !ref <device>
         tdnn_blocks: 5
@@ -43,14 +43,14 @@ modules:
         lin_blocks: 1
         lin_neurons: 512
         out_neurons: !ref <out_n_neurons>
-    mean_var_norm: !new:speechbrain.processing.features.InputNormalization
+    mean_var_norm: !new:speechbrain.processing.InputNormalization
         norm_type: global
-    compute_cost: !name:speechbrain.nnet.losses.nll_loss
-    error_stats: !name:speechbrain.utils.metric_stats.MetricStats
-        metric: !name:speechbrain.nnet.losses.classification_error
+    compute_cost: !name:speechbrain.nnet.nll_loss
+    error_stats: !name:speechbrain.MetricStats
+        metric: !name:speechbrain.nnet.classification_error
             reduction: batch
 
-train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+train_loader: !new:speechbrain.DataLoaderFactory
     csv_file: !ref <csv_train>
     batch_size: !ref <batch_size>
     csv_read: [wav, spk_id]
@@ -58,7 +58,7 @@ train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
-valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+valid_loader: !new:speechbrain.DataLoaderFactory
     csv_file: !ref <csv_valid>
     batch_size: !ref <batch_size>
     csv_read: [wav, spk_id]
@@ -66,5 +66,6 @@ valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
-optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
-    learning_rate: !ref <lr>
+optimizer: !new:speechbrain.nnet.Optimizer
+    OptClass: !name:torch.optim.Adam
+    lr: !ref <lr>

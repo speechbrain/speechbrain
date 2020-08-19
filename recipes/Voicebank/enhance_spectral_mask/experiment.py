@@ -11,8 +11,8 @@ from speechbrain.nnet.loss.stoi_loss import stoi_loss
 
 
 # Brain class for speech enhancement training
-class SEBrain(sb.core.Brain):
-    def compute_forward(self, x, stage=sb.core.Stage.TRAIN, init_params=False):
+class SEBrain(sb.Brain):
+    def compute_forward(self, x, stage=sb.Stage.TRAIN, init_params=False):
         ids, wavs, lens = x
         wavs, lens = wavs.to(self.device), lens.to(self.device)
         feats = self.compute_STFT(wavs)
@@ -28,9 +28,7 @@ class SEBrain(sb.core.Brain):
 
         return predict_spec, predict_wav
 
-    def compute_objectives(
-        self, predictions, targets, stage=sb.core.Stage.TRAIN
-    ):
+    def compute_objectives(self, predictions, targets, stage=sb.Stage.TRAIN):
         predict_spec, predict_wav = predictions
         ids, target_wav, lens = targets
         target_wav, lens = target_wav.to(self.device), lens.to(self.device)
@@ -49,7 +47,7 @@ class SEBrain(sb.core.Brain):
                 ids, predict_spec, targets, lens, reduction="batch"
             )
 
-        if stage != sb.core.Stage.TRAIN:
+        if stage != sb.Stage.TRAIN:
 
             # Evaluate speech quality/intelligibility
             self.stoi_metric.append(
@@ -60,7 +58,7 @@ class SEBrain(sb.core.Brain):
             )
 
             # Write wavs to file
-            if stage == sb.core.Stage.TEST:
+            if stage == sb.Stage.TEST:
                 lens = lens * target_wav.shape[1]
                 for name, pred_wav, length in zip(ids, predict_wav, lens):
                     name += ".wav"
@@ -84,11 +82,11 @@ class SEBrain(sb.core.Brain):
                 mode="wb",
             )
 
-        if stage != sb.core.Stage.TRAIN:
+        if stage != sb.Stage.TRAIN:
             self.pesq_metric = MetricStats(metric=pesq_eval, n_jobs=30)
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
-        if stage == sb.core.Stage.TRAIN:
+        if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
             self.train_stats = {"loss": self.loss_metric.scores}
         else:
@@ -98,7 +96,7 @@ class SEBrain(sb.core.Brain):
                 "stoi": -self.stoi_metric.summarize("average"),
             }
 
-        if stage == sb.core.Stage.VALID:
+        if stage == sb.Stage.VALID:
             if self.use_tensorboard:
                 valid_stats = {
                     "loss": self.loss_metric.scores,
@@ -117,7 +115,7 @@ class SEBrain(sb.core.Brain):
                 meta=stats, min_keys=["pesq"],
             )
 
-        if stage == sb.core.Stage.TEST:
+        if stage == sb.Stage.TEST:
             self.train_logger.log_stats(
                 {"Test": "stage"}, test_stats=stats,
             )
@@ -160,12 +158,12 @@ if __name__ == "__main__":
     from voicebank_prepare import prepare_voicebank  # noqa E402
 
     # Load hyperparameters file with command-line overrides
-    params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
+    params_file, overrides = sb.parse_arguments(sys.argv[1:])
     with open(params_file) as fin:
-        params = sb.yaml.load_extended_yaml(fin, overrides)
+        params = sb.load_extended_yaml(fin, overrides)
 
     # Create experiment directory
-    sb.core.create_experiment_directory(
+    sb.create_experiment_directory(
         experiment_directory=params.output_folder,
         hyperparams_to_save=params_file,
         overrides=overrides,

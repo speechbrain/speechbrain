@@ -8,11 +8,7 @@ Authors
 # import os
 import torch  # noqa: F401
 import torch.nn as nn
-from speechbrain.nnet.pooling import StatisticsPooling
-from speechbrain.nnet.CNN import Conv1d
-from speechbrain.nnet.linear import Linear
-from speechbrain.nnet.normalization import BatchNorm1d
-from speechbrain.nnet.activations import Softmax
+import speechbrain as sb
 
 
 class Xvector(torch.nn.Module):
@@ -62,22 +58,22 @@ class Xvector(torch.nn.Module):
         for block_index in range(tdnn_blocks):
             self.blocks.extend(
                 [
-                    Conv1d(
+                    sb.nnet.Conv1d(
                         out_channels=tdnn_channels[block_index],
                         kernel_size=tdnn_kernel_sizes[block_index],
                         dilation=tdnn_dilations[block_index],
                     ),
                     activation(),
-                    BatchNorm1d(),
+                    sb.nnet.BatchNorm1d(),
                 ]
             )
 
         # Statistical pooling
-        self.blocks.append(StatisticsPooling(device))
+        self.blocks.append(sb.nnet.StatisticsPooling(device))
 
         # Final linear transformation
         self.blocks.append(
-            Linear(n_neurons=lin_neurons, bias=True, combine_dims=False)
+            sb.nnet.Linear(n_neurons=lin_neurons, bias=True, combine_dims=False)
         )
 
     def init_params(self, first_input):
@@ -153,22 +149,25 @@ class Classifier(torch.nn.Module):
         self.pretrain_file = pretrain_file
         self.blocks = nn.ModuleList()
 
-        self.blocks.extend([activation(), BatchNorm1d()])
+        self.blocks.extend([activation(), sb.nnet.BatchNorm1d()])
 
         for block_index in range(lin_blocks):
             self.blocks.extend(
                 [
-                    Linear(
+                    sb.nnet.Linear(
                         n_neurons=lin_neurons, bias=True, combine_dims=False
                     ),
                     activation(),
-                    BatchNorm1d(),
+                    sb.nnet.BatchNorm1d(),
                 ]
             )
 
         # Final Softmax classifier
         self.blocks.extend(
-            [Linear(n_neurons=out_neurons, bias=True), Softmax(apply_log=True)]
+            [
+                sb.nnet.Linear(n_neurons=out_neurons, bias=True),
+                sb.nnet.Softmax(apply_log=True),
+            ]
         )
 
     def init_params(self, first_input):

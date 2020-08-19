@@ -33,7 +33,7 @@ def transducer_loss(log_probs, targets, input_lens, target_lens, blank_index):
     blank_index : int
         The location of the blank symbol among the character indexes.
     """
-    from speechbrain.nnet.transducer.transducer_loss import Transducer
+    from speechbrain.nnet.loss.transducer_loss import Transducer
 
     input_lens = (input_lens * log_probs.shape[1]).int()
     target_lens = (target_lens * targets.shape[1]).int()
@@ -363,6 +363,7 @@ def nll_loss(
     length=None,
     label_smoothing=0.0,
     allowed_len_diff=3,
+    reduction="mean",
 ):
     """Computes negative log likelihood loss.
 
@@ -377,6 +378,9 @@ def nll_loss(
         Length of each utterance, if frame-level loss is desired.
     allowed_len_diff : int
         Length difference that will be tolerated before raising an exception.
+    reduction : str
+        Two options are 'mean' and 'batch', where 'mean' returns a single
+        value, and 'batch' returns one per item.
 
     Example
     -------
@@ -398,6 +402,7 @@ def nll_loss(
         targets.long(),
         length,
         label_smoothing=label_smoothing,
+        reduction=reduction,
     )
 
 
@@ -408,6 +413,7 @@ def kldiv_loss(
     label_smoothing=0.0,
     allowed_len_diff=3,
     pad_idx=0,
+    reduction="mean",
 ):
     """Computes the KL-divergence error at batch level.
     This loss applies label smoothing directly on the targets
@@ -423,6 +429,9 @@ def kldiv_loss(
         Length of each utterance, if frame-level loss is desired.
     allowed_len_diff : int
         Length difference that will be tolerated before raising an exception.
+    reduction : str
+        Two options are 'mean' and 'batch', where 'mean' returns a single
+        value, and 'batch' returns one per item.
 
     Example
     -------
@@ -452,7 +461,11 @@ def kldiv_loss(
 
         loss = functools.partial(torch.nn.functional.kl_div, reduction="none")
         return compute_masked_loss(
-            loss, log_probabilities, true_distribution, length
+            loss,
+            log_probabilities,
+            true_distribution,
+            length,
+            reduction=reduction,
         )
     else:
         log_probabilities = log_probabilities.view(bz, n_class, time)
@@ -461,7 +474,7 @@ def kldiv_loss(
             torch.nn.functional.nll_loss, ignore_index=pad_idx, reduction="none"
         )
         return compute_masked_loss(
-            loss, log_probabilities, targets.long(), length
+            loss, log_probabilities, targets.long(), length, reduction=reduction
         )
 
 
