@@ -5,6 +5,7 @@ import speechbrain.processing.NMF as sb_nmf
 from speechbrain.processing.features import spectral_magnitude
 from speechbrain.data_io.data_io import write_wav_soundfile
 import os
+import shutil
 
 experiment_dir = os.path.dirname(os.path.realpath(__file__))
 hyperparams_file = os.path.join(experiment_dir, "hyperparams.yaml")
@@ -187,7 +188,7 @@ if hyperparams.save_reconstructed:
     wav_files = [fl for fl in all_files if ".wav" in fl]
 
     for wav_file in wav_files:
-        os.system("cp {} {}".format(copypath + "/" + wav_file, savepath))
+        shutil.copy(copypath + "/" + wav_file, savepath)
 
 
 def test_NMF():
