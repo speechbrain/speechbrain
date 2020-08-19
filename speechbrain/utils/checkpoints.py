@@ -116,9 +116,11 @@ def torch_save(obj, path):
 # These dicts are indexed by class and hold the default checkpoints methods
 DEFAULT_LOAD_HOOKS = {
     torch.nn.Module: torch_recovery,
+    torch.optim.Optimizer: torch_recovery,
 }
 DEFAULT_SAVE_HOOKS = {
     torch.nn.Module: torch_save,
+    torch.optim.Optimizer: torch_save,
 }
 
 
@@ -745,7 +747,7 @@ class Checkpointer:
         list
             list of Checkpoint namedtuple (see above)
         """
-        return self._load_checkpoint_extra_data(self._list_checkpoint_dirs())
+        return self._construct_checkpoint_objects(self._list_checkpoint_dirs())
 
     # NOTE: * in arglist -> keyword only arguments
     def delete_checkpoints(
@@ -860,13 +862,13 @@ class Checkpointer:
         ]
 
     @staticmethod
-    def _load_checkpoint_extra_data(checkpoint_dirs):
+    def _construct_checkpoint_objects(checkpoint_dirs):
         # This internal method takes a list of individual checkpoint
         # directory paths (as produced by _list_checkpoint_dirs)
         checkpoints = []
         for ckpt_dir in checkpoint_dirs:
             with open(ckpt_dir / METAFNAME) as fi:
-                meta = yaml.safe_load(fi)
+                meta = yaml.load(fi, Loader=yaml.Loader)
             paramfiles = {}
             for ckptfile in ckpt_dir.iterdir():
                 if ckptfile.suffix == PARAMFILE_EXT:
