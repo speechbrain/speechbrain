@@ -15,9 +15,9 @@ The interface requires you to specify names for each thing to save. This name
 is used to give the right parameter file to the right object when recovering.
 
 Default saving and loading methods are only added for torch.nn.Modules (and
-their subclasses). If those methods do not work for your object, you can
-specify your own saving and/or loading methods, either for a particular
-instance or a for a class.
+their subclasses), and torch.optim.Optimizers. If those methods do not work for
+your object, you can specify your own saving and/or loading methods, either for
+a particular instance or a for a class.
 
 Example
 -------
@@ -544,6 +544,9 @@ class Checkpointer:
         used, then most recent checkpoint will be returned. No more than
         one of them may be used.
 
+        Most functionality is actually implemented in ``find_checkpoints()``
+        but this is kept as a useful interface.
+
         Arguments
         ---------
         importance_key : callable, optional
@@ -570,35 +573,17 @@ class Checkpointer:
         None
             if no Checkpoints exist/remain after filtering
         """
-        if importance_key is None and min_key is None and max_key is None:
-            importance_key = ckpt_recency
-
-        if max_key and not importance_key:
-
-            def importance_key(ckpt):
-                return ckpt.meta[max_key]
-
-        elif min_key and not importance_key:
-
-            def importance_key(ckpt):
-                return -ckpt.meta[min_key]
-
-        elif min_key or max_key:
-            raise ValueError(
-                "Must specify only one of 'importance_key', 'max_key', "
-                "and 'min_key'."
-            )
-
-        ckpts = self.list_checkpoints()
-        ckpts = list(filter(ckpt_predicate, ckpts))
-        # First sort by recency, so that importance being equal,
-        # the most recent one is returned
-        ckpts = sorted(ckpts, key=ckpt_recency, reverse=True)
-        if ckpts:
-            chosen_ckpt = max(ckpts, key=importance_key)
-            return chosen_ckpt
+        ckpts_found = self.find_checkpoints(
+            importance_key=importance_key,
+            max_key=max_key,
+            min_key=min_key,
+            ckpt_predicate=ckpt_predicate,
+            max_num_checkpoints=None,
+        )
+        if ckpts_found is None:
+            return None
         else:
-            return None  # Be explicit :)
+            return ckpts_found[0]
 
     def find_checkpoints(
         self,
@@ -676,7 +661,7 @@ class Checkpointer:
             # be documented Python so I don't want to trust it.
             if max_num_checkpoints is not None:
                 return ranked_ckpts[:max_num_checkpoints]
-            else:
+            else:  # No max number -> return all ckpts, but just sorted
                 return ranked_ckpts
         else:
             return None  # Be explicit :)
