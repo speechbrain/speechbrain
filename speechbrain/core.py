@@ -26,6 +26,9 @@ logger = logging.getLogger(__name__)
 DEFAULT_LOG_CONFIG = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_LOG_CONFIG = os.path.join(DEFAULT_LOG_CONFIG, "log-config.yaml")
 
+# This hack needed to run scripts outside of git repository directory
+git_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 
 def create_experiment_directory(
     experiment_directory,
@@ -83,7 +86,9 @@ def create_experiment_directory(
     # Log beginning of experiment!
     logger.info("Beginning experiment!")
     logger.info(f"Experiment folder: {experiment_directory}")
-    commit_hash = subprocess.check_output(["git", "describe", "--always"])
+    commit_hash = subprocess.check_output(
+        ["git", "describe", "--always"], cwd=git_directory
+    )
     logger.debug("Commit hash: '%s'" % commit_hash.decode("utf-8").strip())
 
     # Save system description:
