@@ -40,7 +40,7 @@ class DCCRN(nn.Module):
             [
                 Encoder_layer(
                     c, self.kernel_size, self.strides, padding=self.padding
-                )
+                ).to(self.device)
                 for c in self.conv_channels
             ]
         )
@@ -69,7 +69,7 @@ class DCCRN(nn.Module):
                     self.kernel_size,
                     output_size=[T, u],
                     padding=self.padding,
-                )
+                ).to(self.device)
                 for c, u in zip(
                     self.conv_channels[:-1][::-1], self.encoder_size[:-1][::-1]
                 )
@@ -132,7 +132,7 @@ class Encoder_layer(nn.Module):
         channels,
         kernel_size,
         strides,
-        activation=nn.LeakyReLU,
+        activation=nn.PReLU,
         norm=ComplexBatchNorm,
         padding="same",
     ):
@@ -169,7 +169,7 @@ class Decoder_layer(nn.Module):
         channels,
         kernel_size,
         output_size,
-        activation=nn.LeakyReLU,
+        activation=nn.PReLU,
         norm=ComplexBatchNorm,
         padding="same",
         use_norm_act=True,

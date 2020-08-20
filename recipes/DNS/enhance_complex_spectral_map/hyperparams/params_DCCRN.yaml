@@ -38,7 +38,7 @@ strides: [2, 1]
 rnn_size: 256
 rnn_layers: 2
 
-mask_activation: !new:torch.nn.Sigmoid
+mask_activation: !new:torch.nn.Tanh
 
 # FFT Parameters
 samplerate: 16000
