@@ -205,12 +205,11 @@ class S2SRNNGreedySearcher(S2SGreedySearcher):
 
     Example
     -------
-    >>> import torch
     >>> import speechbrain as sb
     >>> emb = torch.nn.Embedding(5, 3)
-    >>> dec = sb.nnet.RNN.AttentionalRNNDecoder("gru", "content", 3, 3, 1)
-    >>> lin = sb.nnet.linear.Linear(5)
-    >>> act = sb.nnet.activations.Softmax(apply_log=True)
+    >>> dec = sb.nnet.AttentionalRNNDecoder("gru", "content", 3, 3, 1)
+    >>> lin = sb.nnet.Linear(5)
+    >>> act = sb.nnet.Softmax(apply_log=True)
     >>> inp = torch.randint(low=0, high=5, size=(2, 3))
     >>> enc = torch.rand([2, 6, 7])
     >>> wav_len = torch.rand([2])
@@ -810,14 +809,14 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
     minus_inf : float
         The value of minus infinity to block some path
         of the search (default : -1e20).
+
     Example
     -------
-    >>> import torch
     >>> import speechbrain as sb
     >>> emb = torch.nn.Embedding(5, 3)
-    >>> dec = sb.nnet.RNN.AttentionalRNNDecoder("gru", "content", 3, 3, 1)
-    >>> lin = sb.nnet.linear.Linear(5)
-    >>> act = sb.nnet.activations.Softmax(apply_log=True)
+    >>> dec = sb.nnet.AttentionalRNNDecoder("gru", "content", 3, 3, 1)
+    >>> lin = sb.nnet.Linear(5)
+    >>> act = sb.nnet.Softmax(apply_log=True)
     >>> inp = torch.randint(low=0, high=5, size=(2, 3))
     >>> enc = torch.rand([2, 6, 7])
     >>> wav_len = torch.rand([2])
