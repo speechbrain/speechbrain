@@ -441,27 +441,16 @@ class Brain:
         loss = self.compute_objectives(out, targets, device, stage=stage)
         return loss.detach().cpu()
 
-    def ddp_init(self, rank, *args):
-        os.environ["MASTER_ADDR"] = "localhost"
-        os.environ["MASTER_PORT"] = "12321"
-        dist.init_process_group(
-            backend="nccl", world_size=self.torch_ddp_procs, rank=rank
-        )
-
-        # Move to correct device
-        for i, module in enumerate(self.modules):
-            module.to(rank)
-            module = DDP(module, rank)
-
-        self.fit(*args,)
-
-    def ddp_fit(self, *args):
+    def ddp_fit(self, *args, **kwargs):
         """Use torch DistributedDataParallel to fit over multiple devices.
 
-        For args, see ``fit()``.
+        For kwargs, see ``fit()``.
         """
         mp.spawn(
-            self.ddp_init, args=(*args,), nprocs=self.torch_ddp_procs, join=True
+            ddp_init,
+            args=(self, args, kwargs),
+            nprocs=self.torch_ddp_procs,
+            join=True,
         )
 
     def fit(
@@ -495,6 +484,9 @@ class Brain:
         progressbar : bool
             Whether to display the progress of each epoch in a progressbar.
         """
+        if device is None:
+            device = self.device
+
         for epoch in epoch_counter:
 
             # Training stage
@@ -589,3 +581,24 @@ class Brain:
         avg_loss -= avg_loss / iteration
         avg_loss += float(loss) / iteration
         return avg_loss
+
+
+def ddp_init(rank, brain, args, kwargs):
+    os.environ["MASTER_ADDR"] = "localhost"
+    os.environ["MASTER_PORT"] = "12321"
+    dist.init_process_group(
+        backend="nccl", world_size=brain.torch_ddp_procs, rank=rank
+    )
+
+    # Move to correct device
+    for modulelist, optimizer in brain.optimizers.items():
+        if isinstance(modulelist, str):
+            module = getattr(brain, modulelist)
+            setattr(brain, modulelist, DDP(module.to(rank), rank))
+        else:
+            for module_name in modulelist:
+                module = getattr(brain, module_name)
+                setattr(brain, module_name, DDP(module.to(rank), rank))
+
+    kwargs["device"] = rank
+    brain.fit(*args, **kwargs)
