@@ -367,10 +367,19 @@ asr_brain = ASR(
 )
 
 if params.multigpu:
+    # set up the model
     params.CNN = torch.nn.DataParallel(params.CNN)
     params.Transformer = torch.nn.DataParallel(params.Transformer)
     params.ctc_lin = torch.nn.DataParallel(params.ctc_lin)
     params.seq_lin = torch.nn.DataParallel(params.seq_lin)
+
+    # set up the feature processing module
+    # params.compute_features = torch.nn.DataParallel(params.compute_features)
+    # params.normalize = torch.nn.DataParallel(params.normalize)
+    # if hasattr(params, "augmentation"):
+    #     params.augmentation = torch.nn.DataParallel(params.augmentation)
+    # if hasattr(params, "env_corrupt"):
+    #     params.env_corrupt = torch.nn.DataParallel(env_corrupt)
 
 # Load latest checkpoint to resume training
 checkpointer.recover_if_possible()

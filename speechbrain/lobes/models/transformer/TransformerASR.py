@@ -170,7 +170,7 @@ class NormalizedEmbedding(nn.Module):
     def __init__(self, d_model, vocab):
         super().__init__()
         self.emb = Embedding(
-            num_embeddings=vocab, embedding_dim=d_model, blank_id=-1
+            num_embeddings=vocab, embedding_dim=d_model, blank_id=0
         )
         self.d_model = d_model
 

@@ -230,6 +230,11 @@ def ctc_loss(
     input_lens = (input_lens * log_probs.shape[1]).int()
     target_lens = (target_lens * targets.shape[1]).int()
     log_probs = log_probs.transpose(0, 1)
+
+    if reduction == "batchmean":
+        reduction_loss = "sum"
+    else:
+        reduction_loss = reduction
     loss = torch.nn.functional.ctc_loss(
         log_probs,
         targets,
@@ -237,7 +242,7 @@ def ctc_loss(
         target_lens,
         blank_index,
         zero_infinity=True,
-        reduction=reduction,
+        reduction=reduction_loss,
     )
 
     if reduction == "batchmean":
