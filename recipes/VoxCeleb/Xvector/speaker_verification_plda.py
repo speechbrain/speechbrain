@@ -29,7 +29,7 @@ from voxceleb_prepare import prepare_voxceleb  # noqa E402
 # Create experiment directory
 sb.core.create_experiment_directory(
     experiment_directory=params.output_folder,
-    hyperparams_to_save=params_file,
+    params_to_save=params_file,
     overrides=overrides,
 )
 
