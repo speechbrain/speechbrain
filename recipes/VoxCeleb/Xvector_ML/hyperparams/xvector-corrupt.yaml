@@ -7,6 +7,7 @@ seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Folders and train_log file
+voxceleb_source: /network/datasets/restricted/voxceleb_users/voxceleb/voxceleb1
 data_folder: /localscratch/voxceleb1
 output_folder: results/xvector-mlc
 save_folder: !ref <output_folder>/save/
@@ -18,10 +19,10 @@ csv_valid: !ref <save_folder>/dev.csv
 
 # Training hyperparameters
 number_of_epochs: 100
-batch_size: 512
-group_size: 2
+batch_size: 512 # 256-way
+group_size: 2   # support_size + query_size
 query_size: 1
-num_corrupts: 1
+num_corrupts: 1 # group_size *= 2
 lr: 0.001
 lr_final: 0.0001
 device: 'cuda:0'
@@ -33,7 +34,7 @@ right_frames: 0
 deltas: False
 
 # Evaluation hyperparameters
-eval_batch_size: 512
+eval_batch_size: 128 # 64-way
 eval_group_size: 2
 eval_query_size: 1
 
@@ -57,6 +58,7 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
 env_corrupt: !new:speechbrain.lobes.augment.env_corrupt.EnvCorrupt
+    openrir_source: /miniscratch/voxceleb1/rirs_noises.zip
     openrir_folder: !ref <data_folder>
     openrir_max_noise_len: 3.0  # seconds
     reverb_prob: 1.0

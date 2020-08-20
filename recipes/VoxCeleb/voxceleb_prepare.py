@@ -369,7 +369,7 @@ def prepare_csv(seg_dur, wav_lst, csv_file, vad=False):
         # Composition of the csv_line
         csv_line = [
             audio_id,
-            str(audio_duration / 100),
+            str(audio_duration),
             wav_file,
             "wav",
             wav_opt,

@@ -32,6 +32,9 @@ prepare_voxceleb(
     vad=False,
     rand_seed=params.seed,
     split_speaker=True,
+    source=params.voxceleb_source
+    if hasattr(params, "voxceleb_source")
+    else None,
 )
 
 
