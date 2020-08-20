@@ -13,6 +13,8 @@ class ASR_Brain(sb.Brain):
     ):
         ids, wavs, wav_lens = x
         wavs, wav_lens = wavs.to(device), wav_lens.to(device)
+        print("The device is: ", device)
+        print(wavs.device)
 
         # Adding environmental corruption if specified (i.e., noise+rev)
         if hasattr(self, "env_corrupt") and stage == sb.Stage.TRAIN:
@@ -25,7 +27,7 @@ class ASR_Brain(sb.Brain):
             wavs = self.augmentation(wavs, wav_lens, init_params)
 
         feats = self.compute_features(wavs, init_params)
-        feats = self.normalize(feats, wav_lens)
+        # feats = self.normalize(feats, wav_lens)
         out = self.model(feats, init_params)
         out = self.output(out, init_params)
         pout = self.log_softmax(out)
@@ -122,13 +124,13 @@ if __name__ == "__main__":
     asr_brain = ASR_Brain(
         modules=dict(params.modules, ind2lab=ind2lab),
         optimizers={("model", "output"): params.optimizer},
-        torch_ddp_procs=1,
+        torch_ddp_procs=2,
         first_inputs=[first_x],
     )
 
     # Load latest checkpoint to resume training
     asr_brain.checkpointer.recover_if_possible()
-    asr_brain.fit(params.epoch_counter, train_set, valid_set)
+    asr_brain.ddp_fit(params.epoch_counter, train_set, valid_set)
 
     # Load best checkpoint for evaluation
     asr_brain.checkpointer.recover_if_possible(min_key="PER")

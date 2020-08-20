@@ -12,9 +12,11 @@ from speechbrain.nnet.loss.stoi_loss import stoi_loss
 
 # Brain class for speech enhancement training
 class SEBrain(sb.Brain):
-    def compute_forward(self, x, stage=sb.Stage.TRAIN, init_params=False):
+    def compute_forward(
+        self, x, device, stage=sb.Stage.TRAIN, init_params=False
+    ):
         ids, wavs, lens = x
-        wavs, lens = wavs.to(self.device), lens.to(self.device)
+        wavs, lens = wavs.to(device), lens.to(device)
         feats = self.compute_STFT(wavs)
         feats = spectral_magnitude(feats, power=0.5)
         feats = torch.log1p(feats)
@@ -28,10 +30,12 @@ class SEBrain(sb.Brain):
 
         return predict_spec, predict_wav
 
-    def compute_objectives(self, predictions, targets, stage=sb.Stage.TRAIN):
+    def compute_objectives(
+        self, predictions, targets, device, stage=sb.Stage.TRAIN
+    ):
         predict_spec, predict_wav = predictions
         ids, target_wav, lens = targets
-        target_wav, lens = target_wav.to(self.device), lens.to(self.device)
+        target_wav, lens = target_wav.to(device), lens.to(device)
 
         if hasattr(self, "waveform_target") and self.waveform_target:
             loss = self.compute_cost(predict_wav, target_wav, lens)
@@ -190,12 +194,13 @@ if __name__ == "__main__":
     se_brain = SEBrain(
         modules=params.modules,
         optimizers={"model": params.optimizer},
+        torch_ddp_procs=2,
         first_inputs=[first_x],
     )
 
     # Load latest checkpoint to resume training
     params.modules["checkpointer"].recover_if_possible()
-    se_brain.fit(params.epoch_counter, train_set, valid_set)
+    se_brain.ddp_fit(params.epoch_counter, train_set, valid_set)
 
     # Load best checkpoint for evaluation
     params.modules["checkpointer"].recover_if_possible(min_key="pesq")
