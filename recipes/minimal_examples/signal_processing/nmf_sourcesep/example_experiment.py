@@ -1,9 +1,11 @@
 #!/usr/bin/python
 import os
 import torch
+import shutil
 import speechbrain as sb
 import speechbrain.processing.NMF as sb_nmf
 from nmf_brain import NMF_Brain
+from speechbrain.data_io.data_io import write_wav_soundfile
 from speechbrain.processing.features import spectral_magnitude
 
 experiment_dir = os.path.dirname(os.path.realpath(__file__))
@@ -50,14 +52,49 @@ Xmix_mag = spectral_magnitude(Xmix, power=2)
 
 X1hat, X2hat = sb_nmf.NMF_separate_spectra([W1hat, W2hat], Xmix_mag)
 
-sb_nmf.reconstruct_results(
+x1hats, x2hats = sb_nmf.reconstruct_results(
     X1hat,
     X2hat,
     Xmix.permute(0, 2, 1, 3),
     hyperparams.sample_rate,
     hyperparams.win_length,
     hyperparams.hop_length,
-    use_absolute_path=False,
-    copy_original_files=True,
-    datapath="samples/audio_samples/sourcesep_samples/",
 )
+
+if hyperparams.save_reconstructed:
+    savepath = "results/save/"
+    if not os.path.exists("results"):
+        os.mkdir("results")
+
+    if not os.path.exists(savepath):
+        os.mkdir(savepath)
+
+    for i, (x1hat, x2hat) in enumerate(zip(x1hats, x2hats)):
+        write_wav_soundfile(
+            x1hat,
+            os.path.join(savepath, "separated_source1_{}.wav".format(i)),
+            16000,
+        )
+        write_wav_soundfile(
+            x2hat,
+            os.path.join(savepath, "separated_source2_{}.wav".format(i)),
+            16000,
+        )
+
+    if hyperparams.copy_original_files:
+        datapath = "samples/audio_samples/sourcesep_samples"
+
+    filedir = os.path.dirname(os.path.realpath(__file__))
+    speechbrain_path = os.path.abspath(os.path.join(filedir, "../../../.."))
+    copypath = os.path.realpath(os.path.join(speechbrain_path, datapath))
+
+    all_files = os.listdir(copypath)
+    wav_files = [fl for fl in all_files if ".wav" in fl]
+
+    for wav_file in wav_files:
+        shutil.copy(copypath + "/" + wav_file, savepath)
+
+
+def test_NMF():
+    # Fill in some check here, comparing x1 and x2 to some expected result
+    pass
