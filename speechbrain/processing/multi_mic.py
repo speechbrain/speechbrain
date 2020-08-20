@@ -35,7 +35,7 @@ import torch
 
 class DelaySum(torch.nn.Module):
     """ Delay and Sum Beamforming
-    """    
+    """
 
     def __init__(self):
     """ Initialize the Delay and Sum module.
@@ -59,7 +59,7 @@ class DelaySum(torch.nn.Module):
             The time difference of arrival (TDOA) (in samples) for
             each timestamp. The tensor has the format
             (batch, time_steps, n_mics + n_pairs)
-    """    
+    """
 
         pi = 3.141592653589793
 
