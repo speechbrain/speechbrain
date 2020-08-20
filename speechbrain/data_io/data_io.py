@@ -22,6 +22,7 @@ import multiprocessing as mp
 from multiprocessing import Manager
 from torch.utils.data import Dataset, DataLoader
 import h5py
+import math
 
 logger = logging.getLogger(__name__)
 
@@ -1059,6 +1060,8 @@ class HDF5DataLoaderFactory(torch.nn.Module):
         sentence_sorting="random",
         num_workers=0,
         select_n_sentences=None,
+        local_random=False,
+        chunk_size=2048,
         drop_last=False,
         padding_value=0,
         output_folder=None,
@@ -1074,6 +1077,8 @@ class HDF5DataLoaderFactory(torch.nn.Module):
             raise ValueError("data entries must be specified.")
         self.data_entries = data_entries
         self.sentence_sorting = sentence_sorting
+        self.local_random = local_random
+        self.chunk_size = chunk_size
         self.num_workers = num_workers
         self.select_n_sentences = select_n_sentences
         self.drop_last = drop_last
@@ -1101,15 +1106,31 @@ class HDF5DataLoaderFactory(torch.nn.Module):
             sort_by=self.sort_by,
             sentence_sorting=self.sentence_sorting,
         )
-        self.dataloader = DataLoader(
-            dataset,
-            batch_size=self.batch_size,
-            shuffle=self.shuffle,
-            pin_memory=False,
-            drop_last=self.drop_last,
-            num_workers=self.num_workers,
-            collate_fn=self.batch_creation,
-        )
+        if self.local_random:
+            print("local random data loader is used.")
+            batch_sampler = LocalRandomSampler(
+                chunk_size=self.chunk_size,
+                batch_size=self.batch_size,
+                data_len=len(dataset),
+                drop_last=self.drop_last,
+            )
+            self.dataloader = DataLoader(
+                dataset,
+                pin_memory=False,
+                num_workers=self.num_workers,
+                collate_fn=self.batch_creation,
+                batch_sampler=batch_sampler,
+            )
+        else:
+            self.dataloader = DataLoader(
+                dataset,
+                batch_size=self.batch_size,
+                shuffle=self.shuffle,
+                pin_memory=False,
+                drop_last=self.drop_last,
+                num_workers=self.num_workers,
+                collate_fn=self.batch_creation,
+            )
 
         return self.dataloader
 
@@ -1444,7 +1465,6 @@ class LocalRandomSampler:
             ]
         random.shuffle(batches)
         return batches
-
 
 
 def convert_index_to_lab(batch, ind2lab):

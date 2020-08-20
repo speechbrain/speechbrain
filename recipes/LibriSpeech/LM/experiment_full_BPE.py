@@ -38,6 +38,8 @@ checkpointer = sb.utils.checkpoints.Checkpointer(
     },
 )
 
+steps = 0
+
 
 # Define training procedure
 class LM(sb.core.Brain):
@@ -80,9 +82,12 @@ class LM(sb.core.Brain):
         inputs = batch[0]
         predictions = self.compute_forward(inputs)
         loss, stats = self.compute_objectives(predictions, inputs)
-        loss.backward()
-        self.optimizer.step()
-        self.optimizer.zero_grad()
+        (loss / params.accu_steps).backward()
+        global steps
+        steps += 1
+        if steps % params.accu_steps == 0:
+            self.optimizer.step()
+            self.optimizer.zero_grad()
         stats["loss"] = loss.detach()
         return stats
 

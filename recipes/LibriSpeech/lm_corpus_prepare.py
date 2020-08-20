@@ -7,7 +7,6 @@ Ju-Chieh Chou 2020
 """
 
 import os
-import csv
 import logging
 from speechbrain.data_io.data_io import (
     load_pkl,
@@ -20,7 +19,7 @@ OPT_FILE = "opt_librispeech_lm_corpus_prepare.pkl"
 
 
 def prepare_librispeech_lm_corpus(
-    data_folder, save_folder, filename, select_n_sentences=None
+    data_folder, save_folder, filename, select_n_sentences=None,
 ):
     """
     This function prepares the csv file/hdf5 file for the LibriSpeech LM corpus.

@@ -19,20 +19,20 @@ data_folder: !PLACEHOLDER # e.g., /localscratch/LibriSpeech
 # then data_folder_rirs should be /localscratch/xxx_corpus
 # otherwise the dataset will automatically be downloaded
 data_folder_rirs: !ref <data_folder>
-csv_train: !ref <data_folder>/train-clean-100.csv
+csv_train: !ref <data_folder>/train-960.csv
 csv_valid: !ref <data_folder>/dev-clean.csv
 csv_test: !ref <data_folder>/test-clean.csv
 
 # Training parameters
-number_of_epochs: 30
-number_of_ctc_epochs: 10
-batch_size: 8
+number_of_epochs: 10
+number_of_ctc_epochs: 5
+batch_size: 12
 lr: 1.0
 ctc_weight: 0.5
 device: 'cuda'
-multigpu: False
+multigpu: True
 # allow token error rate computation
-ter_eval: False
+ter_eval: True
 
 # Feature parameters
 sample_rate: 16000

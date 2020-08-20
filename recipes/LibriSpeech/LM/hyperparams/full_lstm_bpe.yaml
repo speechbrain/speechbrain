@@ -14,9 +14,9 @@ csv_valid: !ref <data_folder>/dev-clean.csv
 
 # Training parameters
 number_of_epochs: 20
-batch_size: 64
+batch_size: 128
 lr: 0.001
-accu_steps: 8
+accu_steps: 4
 device: 'cuda'
 multigpu: True
 
@@ -82,7 +82,10 @@ train_loader: !new:speechbrain.data_io.data_io.HDF5DataLoaderFactory
     hdf5_file: !ref <hdf5_train>
     label_dict_file: !ref <output_folder>/label_dict.pkl
     batch_size: !ref <batch_size>
-    sentence_sorting: random
+    sentence_sorting: ascending
+    sort_by: wrd
+    local_random: True
+    chunk_size: 65536
     output_folder: !ref <output_folder>
     data_entries: [char]
 
