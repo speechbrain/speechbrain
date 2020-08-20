@@ -27,6 +27,7 @@ TEST_CSV = "test.csv"
 ENROL_CSV = "enrol.csv"
 SAMPLERATE = 16000
 
+
 DEV_WAV = "vox1_dev_wav.zip"
 TEST_WAV = "vox1_test_wav.zip"
 META = "meta"
@@ -100,7 +101,9 @@ def prepare_voxceleb(
 
     # Create the data folder contains VoxCeleb data from the source
     if source is not None:
-        if not os.path.exists(os.path.join(data_folder, "wav", "id10001")):
+        if "train" in splits and not os.path.exists(
+            os.path.join(data_folder, "wav", "id10001")
+        ):
             print(f"Extracting {source}/{DEV_WAV} to {data_folder}")
             shutil.unpack_archive(os.path.join(source, DEV_WAV), data_folder)
         if not os.path.exists(os.path.join(data_folder, "wav", "id10270")):
@@ -135,19 +138,16 @@ def prepare_voxceleb(
 
     # Creating csv file for training data
     if "train" in splits:
-        prepare_csv(
-            SAMPLERATE, seg_dur, wav_lst_train, save_csv_train,
-        )
+        prepare_csv(seg_dur, wav_lst_train, save_csv_train)
 
     if "dev" in splits:
-        prepare_csv(
-            SAMPLERATE, seg_dur, wav_lst_dev, save_csv_dev,
-        )
+        prepare_csv(seg_dur, wav_lst_dev, save_csv_dev)
 
-    # Test can be used for verification
+    # For PLDA verification
     if "enrol" in splits:
         prepare_csv_enrol_test(data_folder, save_folder)
 
+    # For basic verification
     if "test" in splits:
         prepare_csv_test(data_folder, save_csv_test)
 
@@ -307,9 +307,7 @@ def _get_chunks(seg_dur, audio_id, audio_duration):
     return chunk_lst
 
 
-def prepare_csv(
-    samplerate, seg_dur, wav_lst, csv_file, vad=False,
-):
+def prepare_csv(seg_dur, wav_lst, csv_file, vad=False):
     """
     Creates the csv file given a list of wav files.
 
@@ -355,35 +353,33 @@ def prepare_csv(
 
         # Reading the signal (to retrieve duration in seconds)
         signal = read_wav_soundfile(wav_file)
-        audio_duration = signal.shape[0] / samplerate
+        audio_duration = signal.shape[0] / SAMPLERATE
 
-        uniq_chunks_list = _get_chunks(seg_dur, audio_id, audio_duration)
+        start_sample = 0
+        stop_sample = signal.shape[0]
+        sample_dur = int(seg_dur / 100 * SAMPLERATE)
+        wav_opt = (
+            "start:"
+            + str(start_sample)
+            + " stop:"
+            + str(stop_sample)
+            + " frames:"
+            + str(sample_dur)
+        )
+        # Composition of the csv_line
+        csv_line = [
+            audio_id,
+            str(audio_duration / 100),
+            wav_file,
+            "wav",
+            wav_opt,
+            spk_id,
+            "string",
+            " ",
+        ]
 
-        for chunk in uniq_chunks_list:
-            s, e = chunk.split("_")[-2:]
-            start_sample = int(int(s) / 100 * samplerate)
-            end_sample = int(int(e) / 100 * samplerate)
+        entry.append(csv_line)
 
-            start_stop = (
-                "start:" + str(start_sample) + " stop:" + str(end_sample)
-            )
-
-            # Composition of the csv_line
-            csv_line = [
-                chunk,
-                str(seg_dur / 100),
-                wav_file,
-                "wav",
-                start_stop,
-                spk_id,
-                "string",
-                " ",
-            ]
-
-            entry.append(csv_line)
-
-    # Shuffling at chunk level
-    random.shuffle(entry)
     csv_output = csv_output + entry
 
     # Writing the csv lines
@@ -408,10 +404,8 @@ def prepare_csv_enrol_test(data_folders, save_folder):
     ---------
     data_folder : str
         Path of the data folders
-    csv_file : str
-        The path of the output csv file
-    enrol_or_test : str
-        enrol or test option
+    save_folder : str
+        The directory where to store the csv files.
 
     Returns
     -------
@@ -462,7 +456,7 @@ def prepare_csv_enrol_test(data_folders, save_folder):
             enrol_csv.append(csv_line)
 
         csv_output = csv_output_head + enrol_csv
-        csv_file = save_folder + "enrol.csv"
+        csv_file = save_folder + ENROL_CSV
 
         # Writing the csv lines
         with open(csv_file, mode="w") as csv_f:
@@ -493,7 +487,7 @@ def prepare_csv_enrol_test(data_folders, save_folder):
             test_csv.append(csv_line)
 
         csv_output = csv_output_head + test_csv
-        csv_file = save_folder + "test.csv"
+        csv_file = save_folder + TEST_CSV
 
         # Writing the csv lines
         with open(csv_file, mode="w") as csv_f:

@@ -1257,12 +1257,13 @@ def read_wav_soundfile(file, data_options={}, lab2ind=None):  # noqa: C901
 
     Example
     -------
-    >>> read_wav_soundfile('samples/audio_samples/example1.wav')[0:2]
+    >>> read_wav_soundfile('samples/audio_samples/example1.wav', {"frames":2})
     array([0.00024414, 0.00018311], dtype=float32)
     """
     # Option initialization
     start = 0
     stop = None
+    frames = -1
     endian = None
     subtype = None
     channels = None
@@ -1272,6 +1273,7 @@ def read_wav_soundfile(file, data_options={}, lab2ind=None):  # noqa: C901
     possible_options = [
         "start",
         "stop",
+        "frames",
         "samplerate",
         "endian",
         "subtype",
@@ -1315,6 +1317,22 @@ def read_wav_soundfile(file, data_options={}, lab2ind=None):  # noqa: C901
 
             logger.error(err_msg, exc_info=True)
 
+    # Managing frames option
+    if "frames" in data_options:
+        try:
+            frames = int(data_options["frames"])
+        except Exception:
+
+            err_msg = (
+                "The frames value for the file %s must be an integer "
+                "(e.g frames:405)" % (file)
+            )
+
+            logger.error(err_msg, exc_info=True)
+        # Read a random segment
+        start = np.random.randint(start, stop - frames)
+        stop = None
+
     # Managing samplerate option
     if "samplerate" in data_options:
         try:
@@ -1353,6 +1371,7 @@ def read_wav_soundfile(file, data_options={}, lab2ind=None):  # noqa: C901
     try:
         [signal, fs] = sf.read(
             file,
+            frames=frames,
             start=start,
             stop=stop,
             samplerate=samplerate,
