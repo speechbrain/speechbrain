@@ -14,10 +14,13 @@ import argparse
 import subprocess
 import ruamel.yaml
 import speechbrain as sb
+import torch.distributed as dist
+import torch.multiprocessing as mp
 from io import StringIO
 from datetime import date
 from enum import Enum, auto
 from tqdm.contrib import tqdm
+from torch.nn.parallel import DistributedDataParallel as DDP
 
 logger = logging.getLogger(__name__)
 DEFAULT_LOG_CONFIG = os.path.dirname(os.path.abspath(__file__))
@@ -259,10 +262,12 @@ class Brain:
         optimizers,
         first_inputs=None,
         device="cuda:0",
+        torch_ddp_procs=0,
         auto_mix_prec=False,
     ):
         self.device = device
         self.optimizers = optimizers
+        self.torch_ddp_procs = torch_ddp_procs
 
         # Set module attributes, so compute_forward can access modules
         modulelist = []
@@ -273,7 +278,7 @@ class Brain:
 
         # Initialize parameters
         if first_inputs is not None:
-            self.compute_forward(*first_inputs, init_params=True)
+            self.compute_forward(*first_inputs, device, init_params=True)
 
         # Initialize optimizers
         for module_list, optimizer in optimizers.items():
@@ -296,13 +301,15 @@ class Brain:
         fmt_num = sb.format_order_of_magnitude(total_params)
         logger.info(f"Initialized {fmt_num} trainable parameters in {clsname}")
 
-    def compute_forward(self, x, stage=Stage.TRAIN, init_params=False):
+    def compute_forward(self, x, device, stage=Stage.TRAIN, init_params=False):
         """Forward pass, to be overridden by sub-classes.
 
         Arguments
         ---------
         x : torch.Tensor or list of tensors
             The input tensor or tensors for processing.
+        device : int or str
+            The device to use for computation.
         stage : Stage
             The stage of the experiment: Stage.TRAIN, Stage.VALID, Stage.TEST
         init_params : bool
@@ -316,15 +323,17 @@ class Brain:
         """
         raise NotImplementedError
 
-    def compute_objectives(self, predictions, targets, stage=Stage.TRAIN):
+    def compute_objectives(self, outputs, labels, device, stage=Stage.TRAIN):
         """Compute loss, to be overridden by sub-classes.
 
         Arguments
         ---------
-        predictions : torch.Tensor or list of tensors
+        output : torch.Tensor or list of tensors
             The output tensor or tensors to evaluate.
-        targets : torch.Tensor or list of tensors
+        label : torch.Tensor or list of tensors
             The gold standard to use for evaluation.
+        device : int or str
+            The device to use for computation
         stage : Stage
             The stage of the experiment: Stage.TRAIN, Stage.VALID, Stage.TEST
 
@@ -363,7 +372,7 @@ class Brain:
         """
         pass
 
-    def fit_batch(self, batch):
+    def fit_batch(self, batch, device):
         """Fit one batch, override to do multiple updates.
 
         The default impementation depends on a few methods being defined
@@ -391,22 +400,22 @@ class Brain:
             # Managing automatic mixed precision
             if self.auto_mix_prec:
                 with torch.cuda.amp.autocast():
-                    predictions = self.compute_forward(inputs)
-                    loss, stats = self.compute_objectives(predictions, targets)
+                    predictions = self.compute_forward(inputs, device)
+                    loss = self.compute_objectives(predictions, targets, device)
                     self.scaler.scale(loss).backward()
                     self.scaler.step(optimizer.optim)
                     optimizer.zero_grad()
                     self.scaler.update()
             else:
-                predictions = self.compute_forward(inputs)
-                loss = self.compute_objectives(predictions, targets)
+                predictions = self.compute_forward(inputs, device)
+                loss = self.compute_objectives(predictions, targets, device)
                 loss.backward()
                 optimizer.step()
                 optimizer.zero_grad()
 
         return loss.detach().cpu()
 
-    def evaluate_batch(self, batch, stage="test"):
+    def evaluate_batch(self, batch, device, stage=Stage.VALID):
         """Evaluate one batch, override for different procedure than train.
 
         The default impementation depends on two methods being defined
@@ -428,11 +437,41 @@ class Brain:
         detached loss
         """
         inputs, targets = batch
-        out = self.compute_forward(inputs, stage=stage)
-        loss = self.compute_objectives(out, targets, stage=stage)
+        out = self.compute_forward(inputs, device, stage=stage)
+        loss = self.compute_objectives(out, targets, device, stage=stage)
         return loss.detach().cpu()
 
-    def fit(self, epoch_counter, train_set, valid_set=None, progressbar=True):
+    def ddp_init(self, rank, *args):
+        os.environ["MASTER_ADDR"] = "localhost"
+        os.environ["MASTER_PORT"] = "12321"
+        dist.init_process_group(
+            backend="nccl", world_size=self.torch_ddp_procs, rank=rank
+        )
+
+        # Move to correct device
+        for i, module in enumerate(self.modules):
+            module.to(rank)
+            module = DDP(module, rank)
+
+        self.fit(*args,)
+
+    def ddp_fit(self, *args):
+        """Use torch DistributedDataParallel to fit over multiple devices.
+
+        For args, see ``fit()``.
+        """
+        mp.spawn(
+            self.ddp_init, args=(*args,), nprocs=self.torch_ddp_procs, join=True
+        )
+
+    def fit(
+        self,
+        epoch_counter,
+        train_set,
+        valid_set=None,
+        device=None,
+        progressbar=True,
+    ):
         """Iterate epochs and datasets to improve objective.
 
         Relies on the existence of mulitple functions that can (or should) be
@@ -451,6 +490,8 @@ class Brain:
             A set of data to use for training.
         valid_set : DataLoader
             A set of data to use for validation.
+        device : int or str
+            Device to use for computation
         progressbar : bool
             Whether to display the progress of each epoch in a progressbar.
         """
@@ -463,7 +504,7 @@ class Brain:
             disable = not progressbar
             with tqdm(train_set, dynamic_ncols=True, disable=disable) as t:
                 for i, batch in enumerate(t):
-                    loss = self.fit_batch(batch)
+                    loss = self.fit_batch(batch, device)
                     avg_train_loss = self.update_average(
                         loss, avg_train_loss, iteration=i + 1
                     )
@@ -480,19 +521,23 @@ class Brain:
                     for i, batch in enumerate(
                         tqdm(valid_set, dynamic_ncols=True, disable=disable)
                     ):
-                        loss = self.evaluate_batch(batch, stage=Stage.VALID)
+                        loss = self.evaluate_batch(
+                            batch, device, stage=Stage.VALID
+                        )
                         avg_valid_loss = self.update_average(
                             loss, avg_valid_loss, iteration=i + 1
                         )
                 self.on_stage_end(Stage.VALID, avg_valid_loss, epoch)
 
-    def evaluate(self, test_set, progressbar=True):
+    def evaluate(self, test_set, device, progressbar=True):
         """Iterate test_set and evaluate brain performance.
 
         Arguments
         ---------
         test_set : list of DataLoaders
             This list will be zipped before iterating.
+        device : int or str
+            Device to use for computation
         progressbar : bool
             Whether to display the progress in a progressbar.
 
@@ -508,7 +553,7 @@ class Brain:
             for i, batch in enumerate(
                 tqdm(test_set, dynamic_ncols=True, disable=disable)
             ):
-                loss = self.evaluate_batch(batch, stage=Stage.TEST)
+                loss = self.evaluate_batch(batch, device, stage=Stage.TEST)
                 avg_test_loss = self.update_average(
                     loss, avg_test_loss, iteration=i + 1
                 )

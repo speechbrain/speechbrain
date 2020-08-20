@@ -8,9 +8,11 @@ from speechbrain.decoders.ctc import ctc_greedy_decode
 
 # Define training procedure
 class ASR_Brain(sb.Brain):
-    def compute_forward(self, x, stage=sb.Stage.TRAIN, init_params=False):
+    def compute_forward(
+        self, x, device, stage=sb.Stage.TRAIN, init_params=False
+    ):
         ids, wavs, wav_lens = x
-        wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
+        wavs, wav_lens = wavs.to(device), wav_lens.to(device)
 
         # Adding environmental corruption if specified (i.e., noise+rev)
         if hasattr(self, "env_corrupt") and stage == sb.Stage.TRAIN:
@@ -30,10 +32,10 @@ class ASR_Brain(sb.Brain):
 
         return pout, wav_lens
 
-    def compute_objectives(self, predictions, targets, stage=sb.Stage.TRAIN):
-        pout, pout_lens = predictions
-        ids, phns, phn_lens = targets
-        phns, phn_lens = phns.to(self.device), phn_lens.to(self.device)
+    def compute_objectives(self, outputs, labels, device, stage=sb.Stage.TRAIN):
+        pout, pout_lens = outputs
+        ids, phns, phn_lens = labels
+        phns, phn_lens = phns.to(device), phn_lens.to(device)
 
         if stage == sb.Stage.TRAIN and hasattr(self, "env_corrupt"):
             phns = torch.cat([phns, phns], dim=0)
@@ -120,7 +122,7 @@ if __name__ == "__main__":
     asr_brain = ASR_Brain(
         modules=dict(params.modules, ind2lab=ind2lab),
         optimizers={("model", "output"): params.optimizer},
-        device=params.device,
+        torch_ddp_procs=1,
         first_inputs=[first_x],
     )
 
