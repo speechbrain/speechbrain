@@ -8,6 +8,8 @@ Authors
 import math
 import torch
 import logging
+import speechbrain as sb  # noqa
+from torch.optim import SGD  # noqa
 from speechbrain.utils import checkpoints
 
 logger = logging.getLogger(__name__)
@@ -34,21 +36,18 @@ class NewBobLRScheduler:
 
     Example
     -------
-    >>> from speechbrain.nnet.optimizers import SGD_Optimizer
-    >>> from speechbrain.nnet.linear import Linear
-    >>> inp_tensor = torch.rand([1,660,3])
-    >>> model = Linear(n_neurons=4)
-    >>> optim = SGD_Optimizer(learning_rate=1.0)
+    >>> inp_tensor = torch.rand([1, 660, 3])
+    >>> model = sb.nnet.Linear(n_neurons=4)
+    >>> optim = sb.nnet.Optimizer(SGD, lr=1.0)
     >>> output = model(inp_tensor, init_params=True)
     >>> optim.init_params([model])
     >>> scheduler = NewBobLRScheduler()
-    >>> curr_lr,next_lr=scheduler([optim],current_epoch=1, current_loss=10.0)
-    >>> optim.optim.param_groups[0]["lr"]
-    1.0
-    >>> curr_lr,next_lr=scheduler([optim],current_epoch=2, current_loss=2.0)
-    >>> optim.optim.param_groups[0]["lr"]
-    1.0
-    >>> curr_lr,next_lr=scheduler([optim],current_epoch=3, current_loss=2.5)
+    >>> scheduler([optim], current_epoch=1, current_loss=10.0)
+    (1.0, 1.0)
+    >>> scheduler([optim], current_epoch=2, current_loss=2.0)
+    (1.0, 1.0)
+    >>> scheduler([optim], current_epoch=3, current_loss=2.5)
+    (1.0, 0.5)
     >>> optim.optim.param_groups[0]["lr"]
     0.5
     """
@@ -160,18 +159,21 @@ class LinearLRScheduler:
 
     Example
     -------
-    >>> from speechbrain.nnet.optimizers import SGD_Optimizer
-    >>> from speechbrain.nnet.linear import Linear
-    >>> inp_tensor = torch.rand([1,660,3])
-    >>> model = Linear(n_neurons=4)
-    >>> optim = SGD_Optimizer(learning_rate=1.0)
+    >>> inp_tensor = torch.rand([1, 660, 3])
+    >>> model = sb.nnet.Linear(n_neurons=4)
+    >>> initial_lr = 1.0
+    >>> optim = sb.nnet.Optimizer(SGD, lr=initial_lr)
     >>> output = model(inp_tensor, init_params=True)
     >>> optim.init_params([model])
-    >>> scheduler = LinearLRScheduler(optim.optim.param_groups[0]["lr"], 0.0, 4)
-    >>> curr_lr,next_lr=scheduler([optim],current_epoch=1, current_loss=10.0)
-    >>> curr_lr,next_lr=scheduler([optim],current_epoch=2, current_loss=10.0)
-    >>> curr_lr,next_lr=scheduler([optim],current_epoch=3, current_loss=10.0)
-    >>> curr_lr,next_lr=scheduler([optim],current_epoch=4, current_loss=10.0)
+    >>> scheduler = LinearLRScheduler(initial_lr, lr_final=0.0, N_epochs=4)
+    >>> scheduler([optim], current_epoch=1, current_loss=10.0)
+    (1.0, 0.666...)
+    >>> scheduler([optim], current_epoch=2, current_loss=1.0)
+    (0.666..., 0.333...)
+    >>> scheduler([optim], current_epoch=3, current_loss=1.0)
+    (0.333..., 0.0)
+    >>> scheduler([optim], current_epoch=4, current_loss=1.0)
+    (0.0, 0.0)
     >>> optim.optim.param_groups[0]["lr"]
     0.0
     """
@@ -257,21 +259,18 @@ class StepLRScheduler:
 
     Example
     -------
-    >>> from speechbrain.nnet.optimizers import SGD_Optimizer
-    >>> from speechbrain.nnet.linear import Linear
-    >>> inp_tensor = torch.rand([1,660,3])
-    >>> model = Linear(n_neurons=4)
-    >>> optim = SGD_Optimizer(learning_rate=1.0)
+    >>> inp_tensor = torch.rand([1, 660, 3])
+    >>> model = sb.nnet.Linear(n_neurons=4)
+    >>> optim = sb.nnet.Optimizer(SGD, lr=1.0)
     >>> output = model(inp_tensor, init_params=True)
     >>> optim.init_params([model])
-    >>> scheduler =StepLRScheduler(optim.optim.param_groups[0]["lr"])
-    >>> curr_lr,next_lr=scheduler([optim],current_epoch=1, current_loss=10.0)
-    >>> optim.optim.param_groups[0]["lr"]
-    0.5
-    >>> curr_lr,next_lr=scheduler([optim],current_epoch=2, current_loss=2.0)
-    >>> optim.optim.param_groups[0]["lr"]
-    0.5
-    >>> curr_lr,next_lr=scheduler([optim],current_epoch=3, current_loss=2.5)
+    >>> scheduler = StepLRScheduler(optim.optim.param_groups[0]["lr"])
+    >>> scheduler([optim], current_epoch=1, current_loss=10.0)
+    (1.0, 0.5)
+    >>> scheduler([optim], current_epoch=2, current_loss=2.0)
+    (0.5, 0.5)
+    >>> scheduler([optim], current_epoch=3, current_loss=2.5)
+    (0.5, 0.25)
     >>> optim.optim.param_groups[0]["lr"]
     0.25
     """
@@ -347,21 +346,18 @@ class NoamScheduler:
 
     Example
     -------
-    >>> from speechbrain.nnet.optimizers import SGD_Optimizer
-    >>> from speechbrain.nnet.linear import Linear
-    >>> inp_tensor = torch.rand([1,660,3])
-    >>> model = Linear(n_neurons=4)
-    >>> optim = SGD_Optimizer(learning_rate=1.0)
+    >>> inp_tensor = torch.rand([1, 660, 3])
+    >>> model = sb.nnet.Linear(n_neurons=4)
+    >>> optim = sb.nnet.Optimizer(SGD, lr=1.0)
     >>> output = model(inp_tensor, init_params=True)
     >>> optim.init_params([model])
-    >>> scheduler =NoamScheduler(optim.optim.param_groups[0]["lr"], 3)
-    >>> curr_lr,next_lr=scheduler([optim],current_epoch=1, current_loss=10.0)
-    >>> optim.optim.param_groups[0]["lr"]
-    0.33333333333333337
-    >>> curr_lr,next_lr=scheduler([optim],current_epoch=2, current_loss=2.0)
-    >>> optim.optim.param_groups[0]["lr"]
-    0.6666666666666667
-    >>> curr_lr,next_lr=scheduler([optim],current_epoch=3, current_loss=2.5)
+    >>> scheduler = NoamScheduler(optim.optim.param_groups[0]["lr"], 3)
+    >>> scheduler([optim], current_epoch=1, current_loss=10.0)
+    (1.0, 0.333...)
+    >>> scheduler([optim], current_epoch=2, current_loss=2.0)
+    (0.333..., 0.666...)
+    >>> scheduler([optim], current_epoch=3, current_loss=2.5)
+    (0.666..., 1.0)
     >>> optim.optim.param_groups[0]["lr"]
     1.0
     """
@@ -440,21 +436,18 @@ class CustomLRScheduler:
 
     Example
     -------
-    >>> from speechbrain.nnet.optimizers import SGD_Optimizer
-    >>> from speechbrain.nnet.linear import Linear
-    >>> inp_tensor = torch.rand([1,660,3])
-    >>> model = Linear(n_neurons=4)
-    >>> optim = SGD_Optimizer(learning_rate=1.0)
+    >>> inp_tensor = torch.rand([1, 660, 3])
+    >>> model = sb.nnet.Linear(n_neurons=4)
+    >>> optim = sb.nnet.Optimizer(SGD, lr=1.0)
     >>> output = model(inp_tensor, init_params=True)
     >>> optim.init_params([model])
-    >>> scheduler = CustomLRScheduler(lr_at_epoch=[1.0,0.8,0.6,0.5])
-    >>> curr_lr,next_lr=scheduler([optim],current_epoch=1, current_loss=10.0)
-    >>> optim.optim.param_groups[0]["lr"]
-    0.8
-    >>> curr_lr,next_lr=scheduler([optim],current_epoch=2, current_loss=2.0)
-    >>> optim.optim.param_groups[0]["lr"]
-    0.6
-    >>> curr_lr,next_lr=scheduler([optim],current_epoch=3, current_loss=2.5)
+    >>> scheduler = CustomLRScheduler(lr_at_epoch=[1.0, 0.8, 0.6, 0.5])
+    >>> scheduler([optim], current_epoch=1, current_loss=10.0)
+    (1.0, 0.8)
+    >>> scheduler([optim], current_epoch=2, current_loss=2.0)
+    (0.8, 0.6)
+    >>> scheduler([optim], current_epoch=3, current_loss=2.5)
+    (0.6, 0.5)
     >>> optim.optim.param_groups[0]["lr"]
     0.5
     """
