@@ -35,16 +35,39 @@ import torch
 
 class Covariance(torch.nn.Module):
 
-
-    def __init__(self):
+    def __init__(self, average=True):
         """ Initialize the covariance module.
         """
 
         super().__init__()
 
+        self.average = average
+
     def forward(self, Xs):
 
-        pass
+        # Formating the real and imaginary parts
+        Xs_re = Xs[..., 0, :].unsqueeze(4)
+        Xs_im = Xs[..., 1, :].unsqueeze(4)
+
+        # Computing the covariance
+        XXs_re = torch.matmul(Xs_re, Xs_re.transpose(3, 4)) + torch.matmul(Xs_im, Xs_im.transpose(3, 4))
+        XXs_im = torch.matmul(Xs_im, Xs_re.transpose(3, 4)) - torch.matmul(Xs_re, Xs_im.transpose(3, 4))
+
+        # Selecting the upper triangular part of the covariance matrices
+        n_channels = Xs.shape[4]
+        indices = torch.triu_indices(n_channels, n_channels)
+
+        XXs_re = XXs_re[..., indices[0], indices[1]]
+        XXs_im = XXs_im[..., indices[0], indices[1]]
+
+        XXs = torch.stack((XXs_re, XXs_im), 3)
+
+        if self.average is True:
+            n_time_frames = XXs.shape[1]
+            XXs = torch.mean(XXs, 1, keepdim=True)
+            XXs = XXs.repeat(1, n_time_frames, 1, 1, 1)
+
+        return XXs
 
 class DelaySum(torch.nn.Module):
     """ Delay and Sum Beamforming
