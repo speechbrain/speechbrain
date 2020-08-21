@@ -31,36 +31,48 @@ Authors:
 
 """
 
-
 import torch
+
+class Covariance(torch.nn.Module):
+
+
+    def __init__(self):
+        """ Initialize the covariance module.
+        """
+
+        super().__init__()
+
+    def forward(self, Xs):
+
+        pass
 
 class DelaySum(torch.nn.Module):
     """ Delay and Sum Beamforming
     """
 
     def __init__(self):
-    """ Initialize the Delay and Sum module.
-    """
+        """ Initialize the Delay and Sum module.
+        """
 
         super().__init__()
 
     def forward(self, Xs, tdoas):
-    """ Perform delay and sum beamforming using the TDOAs and
-        the first channel as a reference. It returns the result
-        in the frequency domain in the format
-        (batch, time_step, n_fft, 2, 1)
+        """ Perform delay and sum beamforming using the TDOAs and
+            the first channel as a reference. It returns the result
+            in the frequency domain in the format
+            (batch, time_step, n_fft, 2, 1)
 
-        Arguments
-        ---------
-        Xs : tensor
-            A batch of audio signals in the frequency domain, in 
-            the format (batch, time_step, n_fft, 2, n_mics)
+            Arguments
+            ---------
+            Xs : tensor
+                A batch of audio signals in the frequency domain, in 
+                the format (batch, time_step, n_fft, 2, n_mics)
 
-        tdoas : tensor
-            The time difference of arrival (TDOA) (in samples) for
-            each timestamp. The tensor has the format
-            (batch, time_steps, n_mics + n_pairs)
-    """
+            tdoas : tensor
+                The time difference of arrival (TDOA) (in samples) for
+                each timestamp. The tensor has the format
+                (batch, time_steps, n_mics + n_pairs)
+        """
 
         pi = 3.141592653589793
 
