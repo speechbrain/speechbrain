@@ -1257,7 +1257,7 @@ def read_wav_soundfile(file, data_options={}, lab2ind=None):  # noqa: C901
 
     Example
     -------
-    >>> read_wav_soundfile('samples/audio_samples/example1.wav', {"frames":2})
+    >>> read_wav_soundfile('samples/audio_samples/example1.wav', {"frames":2, "stop": 3})
     array([0.00024414, 0.00018311], dtype=float32)
     """
     # Option initialization
