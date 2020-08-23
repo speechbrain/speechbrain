@@ -277,11 +277,11 @@ class VerificationBrain(sb.core.Brain):
         return eer * 100
 
     # Function for pre-trained model downloads
-    def download_and_pretrain():
+    def download_and_pretrain(self):
         """ Downloads the specified pre-trained model
         """
         save_model_path = params.output_folder + "/save/embedding_model.ckpt"
-        if "http" in save_model_path:
+        if "http" in params.embedding_file:
             download_file(params.embedding_file, save_model_path)
         params.embedding_model.load_state_dict(
             torch.load(save_model_path), strict=True

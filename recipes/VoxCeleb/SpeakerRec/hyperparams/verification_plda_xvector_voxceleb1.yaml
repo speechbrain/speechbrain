@@ -7,8 +7,8 @@ seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Folders and train_log file
-data_folder: !PLACEHOLDER
-output_folder: results/voxceleb1/speaker_verification_plda_xvectors/<seed>
+data_folder: /localscratch/voxceleb1
+output_folder: results/voxceleb1/speaker_verification_plda_xvectors
 save_folder: !ref <output_folder>/save/
 device: 'cuda:0'
 
