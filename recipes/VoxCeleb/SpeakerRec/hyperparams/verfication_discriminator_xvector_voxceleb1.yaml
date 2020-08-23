@@ -19,10 +19,10 @@ csv_enrol: !ref <save_folder>/enrol.csv
 csv_test: !ref <save_folder>/test.csv
 
 # Training hyperparameters
-number_of_epochs: 100
+number_of_epochs: 25
 batch_size: 256
-lr: 0.00025
-lr_final: 0.000025
+lr: 0.0002500
+lr_final: 0.0001875
 device: 'cuda:0'
 freeze_embeddings: False
 
