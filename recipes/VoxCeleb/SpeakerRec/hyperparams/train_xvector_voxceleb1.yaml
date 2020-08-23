@@ -8,7 +8,7 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Folders and train_log file
 data_folder: /localscratch/voxceleb1
-output_folder: results/xvector
+output_folder: results/xvector/<seed>
 save_folder: !ref <output_folder>/save/
 train_log: !ref <output_folder>/train_log.txt
 
@@ -39,7 +39,7 @@ compute_features: !new:speechbrain.lobes.features.fbank.Fbank
     right_frames: !ref <right_frames>
     deltas: !ref <deltas>
 
-xvector_model: !new:speechbrain.lobes.models.Xvector.Xvector
+embedding_model: !new:speechbrain.lobes.models.Xvector.Xvector
     activation: !name:torch.nn.LeakyReLU
     device: !ref <device>
     tdnn_blocks: 5
