@@ -108,6 +108,7 @@ def freefield(doas, mics, fs, c=343.0):
 
     return tdoas
 
+
 def steering(tdoas, n_fft):
     """ Steering Vector
 
