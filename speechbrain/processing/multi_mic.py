@@ -26,7 +26,7 @@ Example
 >>> XXs = cov(Xs)
 >>> tdoas = gccphat(XXs)
 >>> Ys = delaysum(Xs, tdoas)
->>> ys = istft(Ys)
+>>> ys = istft(Ys.float())
 
 Authors:
  * William Aris
