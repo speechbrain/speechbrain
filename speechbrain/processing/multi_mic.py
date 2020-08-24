@@ -133,7 +133,12 @@ class DelaySum(torch.nn.Module):
         N = int((n_fft - 1) * 2)
 
         # Computing the different parts of the steering vector
-        omegas = 2 * pi * torch.arange(0, n_fft, device=Xs.device) / N
+        omegas = (
+            2
+            * pi
+            * torch.arange(0, n_fft, device=Xs.device, dtype=torch.float32)
+            / N
+        )
         omegas = omegas.unsqueeze(0).unsqueeze(-1)
         omegas = omegas.repeat(n_batches, n_time_frames, 1, n_channels)
         tdoas = tdoas[:, :, range(0, n_channels)]
