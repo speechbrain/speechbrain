@@ -10,7 +10,6 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 # /networ/dataset_tmp1/VoxCeleb/voxceleb1/ (meta)
 data_folder: /network/tmp1/dawalatn/ #!PLACEHOLDER
 data_folder_ami: /network/tmp1/dawalatn/AMI_MANUAL/
-# /network/datasets/ami/amicorpus/
 output_folder: results/
 save_folder: !ref <output_folder>/save/
 device: 'cuda:0'
@@ -41,7 +40,7 @@ overlap: 1.5
 
 compute_plda: !new:speechbrain.processing.PLDA_LDA.PLDA
     rank_f: 100
-    nb_iter: 10
+    nb_iter: 2
     scaling_factor: 1
 
 # Functions

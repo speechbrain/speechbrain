@@ -6,8 +6,10 @@ import logging
 import speechbrain as sb
 import numpy
 import pickle
-
+import copy
 from tqdm.contrib import tqdm
+from scipy.cluster.hierarchy import linkage
+from scipy.spatial.distance import squareform
 from speechbrain.utils.EER import EER  # noqa F401
 from speechbrain.utils.data_utils import download_file
 from speechbrain.data_io.data_io import convert_index_to_lab
@@ -61,8 +63,6 @@ prepare_ami(
     overlap=params.overlap,
 )
 
-# sys.exit()
-
 
 # Definition of the steps for xvector computation from the waveforms
 def compute_x_vectors(wavs, lens, init_params=False):
@@ -94,7 +94,7 @@ def get_utt_ids_for_test(ids, data_dict):
     return mod, seg
 
 
-# PLDA inputs for Train data
+# PLDA inumpyuts for Train data
 modelset, segset = [], []
 xvectors = numpy.empty(shape=[0, params.xvect_dim], dtype=numpy.float64)
 
@@ -173,8 +173,8 @@ else:
     # Load the saved stat object for train xvector
     logger.info("Skipping Xvector Extraction for training set")
     logger.info("Loading previously saved stat_object for train xvectors..")
-    with open(xv_file, "rb") as input:
-        xvectors_stat = pickle.load(input)
+    with open(xv_file, "rb") as inumpyut:
+        xvectors_stat = pickle.load(inumpyut)
 
 
 # Training Gaussina PLDA model
@@ -247,8 +247,8 @@ def xvect_computation_loop(split, set_loader, stat_file):
         logger.info(f"Skipping Xvector Extraction for {split}")
         logger.info(f"Loading previously saved stat_object for {split}")
 
-        with open(stat_file, "rb") as input:
-            stat_obj = pickle.load(input)
+        with open(stat_file, "rb") as inumpyut:
+            stat_obj = pickle.load(inumpyut)
 
     return stat_obj
 
@@ -263,15 +263,8 @@ diary_set_loader = params.diary_loader()
 # Compute Xvectors
 diary_obj = xvect_computation_loop("diary", diary_set_loader, diary_stat_file)
 
-
 # Loop for PLDA scoring per meeting
 all_rec_ids = set(diary_obj.modelset)
-# for rec in all_rec_ids:
-#    # get index of all ids starts with rec_id
-#    print (rec)
-
-
-# sys.exit()
 
 # Prepare Ndx Object
 if not os.path.isfile(diary_ndx_file):
@@ -285,8 +278,8 @@ if not os.path.isfile(diary_ndx_file):
 else:
     logger.info("Skipping Ndx preparation")
     logger.info("Loading Ndx from disk")
-    with open(diary_ndx_file, "rb") as input:
-        ndx_obj = pickle.load(input)
+    with open(diary_ndx_file, "rb") as inumpyut:
+        ndx_obj = pickle.load(inumpyut)
 
 
 logger.info("PLDA scoring...")
@@ -302,3 +295,175 @@ scores_plda = fast_PLDA_scoring(
 
 print("PLDA scoring completed...")
 print(scores_plda.scoremat)
+
+
+# Agglomerative Hierarchical Clustering
+scores = copy.deepcopy(scores_plda.scoremat)
+
+# Ignoring diagonal scores and normalizing as per remaining pairs
+mn = numpy.tril(scores).min()
+mx = numpy.tril(scores).max()
+scores = (scores - mn) / (mx - mn)
+
+# Prepare distance matrix
+dist_mat = (scores + scores.T) / 2.0 * -1.0
+dist_mat = dist_mat - numpy.tril(dist_mat).min()
+numpy.fill_diagonal(dist_mat, 0.0)
+dist_mat = squareform(dist_mat)
+
+print("AHC started...\n")
+links = linkage(dist_mat, method="complete")
+
+
+def trace_back_cluster_labels(links, threshold=0.9, oracle_num_spkrs=4):
+
+    N = len(links) + 1
+
+    # Create cluster dictionery
+    clusters = dict()
+
+    # Initialize clusters (cluster IDs starts from 0 )
+    for i in range(N):
+        clusters[str(i)] = [i]
+
+    i = 0
+    while i < N - 1:
+        a = str(int(links[i, 0]))
+        b = str(int(links[i, 1]))
+        # dist = links[i, 2]
+        new_id = str(N + i)
+        clusters[new_id] = clusters[a] + clusters[b]
+        clusters.pop(a)
+        clusters.pop(b)
+        i += 1
+        if oracle_num_spkrs and len(clusters) <= oracle_num_spkrs:
+            break
+        # elif dist >= threshold:
+        #    break
+
+    return clusters
+
+
+clusters = trace_back_cluster_labels(links)
+
+
+# Clusters IDs to segment labels
+clus = dict()
+subseg_ids = diary_obj.modelset
+
+i = 0
+lol = []
+for c in clusters:
+    clus_elements = clusters[c]
+    # temp = []
+    for elem in clus_elements:
+        sub_seg = subseg_ids[elem]
+        splitted = sub_seg.rsplit("_", 2)
+        rec_id = str(splitted[0])
+        sseg_start = float(splitted[1])
+        sseg_end = float(splitted[2])
+        spkr_id = rec_id + "_" + str(i)
+        a = [rec_id, sseg_start, sseg_end, spkr_id]
+        lol.append(a)
+    i += 1
+
+lol.sort(key=lambda x: float(x[1]))
+
+
+# Manage overlaped xvectors and prepare RTTM
+def is_overlapped(end1, start2):
+    if start2 > end1:
+        return False
+    else:
+        return True
+
+
+def merge_ssegs_same_speaker(lol):
+    """
+    Merge adjacent sub-segs from a same speaker
+    """
+    new_lol = []
+    seg = lol[0]
+    for i in range(1, len(lol)):
+        new_seg = lol[i]
+        if is_overlapped(seg[2], new_seg[1]) and seg[3] == new_seg[3]:
+            seg[2] = new_seg[2]  # update end time
+        else:
+            new_lol.append(seg)
+            seg = new_seg
+
+    return new_lol
+
+
+def distribute_overlap(lol):
+    """
+    Distributes the overlapped speech equally among the adjacent segments with different speakers.
+    """
+    new_lol = []
+    seg = lol[0]
+    for i in range(1, len(lol)):
+        new_seg = lol[i]
+        # No need to check if they are different speakers
+        # Because if segments are overlapped then alway different speakers
+        # This was taken care by merge_ssegs_same_speaker()
+        if is_overlapped(seg[2], new_seg[1]):
+            # divide
+            overlap = seg[2] - new_seg[1]
+
+            # update end time of old seg
+            seg[2] = seg[2] - (overlap / 2.0)
+
+            # Update start time of new seg
+            new_seg[1] = new_seg[1] + (overlap / 2.0)  # + 0.001
+
+            # To avoid duplicate entries
+            if new_lol[-1] != seg:
+                new_lol.append(seg)
+
+            # The new_seg should always be added
+            new_lol.append(new_seg)
+            seg = new_seg
+        else:
+            # For first sseg
+            if len(new_lol) == 0:
+                new_lol.append(seg)
+
+            # To avoid duplicate entries
+            if new_lol[-1] != new_seg:
+                new_lol.append(new_seg)
+            seg = new_seg
+
+    return new_lol
+
+
+lol = merge_ssegs_same_speaker(lol)
+lol = distribute_overlap(lol)
+
+
+def write_rttm(segs_list, out_rttm_file):
+    rttm = []
+    for seg in segs_list:
+        new_row = [
+            "SPEAKER",
+            rec_id,
+            "0",
+            str(round(seg[1], 4)),
+            str(round(seg[2] - seg[1], 4)),
+            "<NA>",
+            "<NA>",
+            seg[3],
+            "<NA>",
+            "<NA>",
+        ]
+        rttm.append(new_row)
+
+    for i in rttm:
+        print(i)
+    with open(out_rttm_file, "w") as f:
+        for row in rttm:
+            line_str = " ".join(row)
+            f.write("%s\n" % line_str)
+
+
+out_rttm_file = "results/save/abc.rttm"
+write_rttm(lol, out_rttm_file)
