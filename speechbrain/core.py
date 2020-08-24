@@ -239,16 +239,15 @@ class Brain:
     >>> from speechbrain.nnet import Optimizer
     >>> from torch.optim import SGD
     >>> class SimpleBrain(Brain):
-    ...     def compute_forward(self, x, init_params=False):
+    ...     def compute_forward(self, x, stage):
     ...         return self.model(x)
-    ...     def compute_objectives(self, predictions, targets):
+    ...     def compute_objectives(self, predictions, targets, stage):
     ...         return torch.nn.functional.l1_loss(predictions, targets)
     >>> model = torch.nn.Linear(in_features=10, out_features=10)
     >>> brain = SimpleBrain(
     ...     modules={'model': model},
     ...     optimizers={'model': Optimizer(SGD, 0.01)},
     ...     device='cpu',
-    ...     first_inputs=[torch.rand(10, 10)],
     ... )
     >>> brain.fit(
     ...     epoch_counter=range(1),
@@ -260,25 +259,23 @@ class Brain:
         self,
         modules,
         optimizers,
-        first_inputs=None,
+        jit_modules=None,
         device="cuda:0",
         torch_ddp_procs=0,
         auto_mix_prec=False,
     ):
         self.device = device
         self.optimizers = optimizers
+        self.jit_modules = jit_modules
         self.torch_ddp_procs = torch_ddp_procs
 
         # Set module attributes, so compute_forward can access modules
         modulelist = []
         for name, module in modules.items():
-            setattr(self, name, module)
             if isinstance(module, torch.nn.Module):
+                module = module.to(device)
                 modulelist.append(module)
-
-        # Initialize parameters
-        if first_inputs is not None:
-            self.compute_forward(*first_inputs, device, init_params=True)
+            setattr(self, name, module)
 
         # Initialize optimizers
         for module_list, optimizer in optimizers.items():
@@ -301,20 +298,15 @@ class Brain:
         fmt_num = sb.format_order_of_magnitude(total_params)
         logger.info(f"Initialized {fmt_num} trainable parameters in {clsname}")
 
-    def compute_forward(self, x, device, stage=Stage.TRAIN, init_params=False):
+    def compute_forward(self, x, stage):
         """Forward pass, to be overridden by sub-classes.
 
         Arguments
         ---------
         x : torch.Tensor or list of tensors
             The input tensor or tensors for processing.
-        device : int or str
-            The device to use for computation.
         stage : Stage
             The stage of the experiment: Stage.TRAIN, Stage.VALID, Stage.TEST
-        init_params : bool
-            Whether this pass should initialize parameters rather
-            than return the results of the forward pass.
 
         Returns
         -------
@@ -323,17 +315,15 @@ class Brain:
         """
         raise NotImplementedError
 
-    def compute_objectives(self, outputs, labels, device, stage=Stage.TRAIN):
+    def compute_objectives(self, predictions, targets, stage):
         """Compute loss, to be overridden by sub-classes.
 
         Arguments
         ---------
-        output : torch.Tensor or list of tensors
+        predictions : torch.Tensor or list of tensors
             The output tensor or tensors to evaluate.
-        label : torch.Tensor or list of tensors
+        targets : torch.Tensor or list of tensors
             The gold standard to use for evaluation.
-        device : int or str
-            The device to use for computation
         stage : Stage
             The stage of the experiment: Stage.TRAIN, Stage.VALID, Stage.TEST
 
@@ -372,7 +362,7 @@ class Brain:
         """
         pass
 
-    def fit_batch(self, batch, device):
+    def fit_batch(self, batch):
         """Fit one batch, override to do multiple updates.
 
         The default impementation depends on a few methods being defined
@@ -393,29 +383,29 @@ class Brain:
         -------
         detached loss
         """
-        inputs, targets = batch
+        inputs, labels = batch
 
         for optimizer in self.optimizers.values():
 
             # Managing automatic mixed precision
             if self.auto_mix_prec:
                 with torch.cuda.amp.autocast():
-                    predictions = self.compute_forward(inputs, device)
-                    loss = self.compute_objectives(predictions, targets, device)
+                    outputs = self.compute_forward(inputs, Stage.TRAIN)
+                    loss = self.compute_objectives(outputs, labels, Stage.TRAIN)
                     self.scaler.scale(loss).backward()
                     self.scaler.step(optimizer.optim)
                     optimizer.zero_grad()
                     self.scaler.update()
             else:
-                predictions = self.compute_forward(inputs, device)
-                loss = self.compute_objectives(predictions, targets, device)
+                outputs = self.compute_forward(inputs, Stage.TRAIN)
+                loss = self.compute_objectives(outputs, labels, Stage.TRAIN)
                 loss.backward()
                 optimizer.step()
                 optimizer.zero_grad()
 
         return loss.detach().cpu()
 
-    def evaluate_batch(self, batch, device, stage=Stage.VALID):
+    def evaluate_batch(self, batch, stage):
         """Evaluate one batch, override for different procedure than train.
 
         The default impementation depends on two methods being defined
@@ -437,8 +427,8 @@ class Brain:
         detached loss
         """
         inputs, targets = batch
-        out = self.compute_forward(inputs, device, stage=stage)
-        loss = self.compute_objectives(out, targets, device, stage=stage)
+        out = self.compute_forward(inputs, stage=stage)
+        loss = self.compute_objectives(out, targets, stage=stage)
         return loss.detach().cpu()
 
     def ddp_fit(self, *args, **kwargs):
@@ -454,12 +444,7 @@ class Brain:
         )
 
     def fit(
-        self,
-        epoch_counter,
-        train_set,
-        valid_set=None,
-        device=None,
-        progressbar=True,
+        self, epoch_counter, train_set, valid_set=None, progressbar=True,
     ):
         """Iterate epochs and datasets to improve objective.
 
@@ -479,13 +464,11 @@ class Brain:
             A set of data to use for training.
         valid_set : DataLoader
             A set of data to use for validation.
-        device : int or str
-            Device to use for computation
         progressbar : bool
             Whether to display the progress of each epoch in a progressbar.
         """
-        if device is None:
-            device = self.device
+        # Compile jit modules if requested
+        self._compile_jit()
 
         for epoch in epoch_counter:
 
@@ -496,7 +479,12 @@ class Brain:
             disable = not progressbar
             with tqdm(train_set, dynamic_ncols=True, disable=disable) as t:
                 for i, batch in enumerate(t):
-                    loss = self.fit_batch(batch, device)
+                    if (
+                        isinstance(self.device, int)
+                        and i % self.torch_ddp_procs != self.device
+                    ):
+                        continue
+                    loss = self.fit_batch(batch)
                     avg_train_loss = self.update_average(
                         loss, avg_train_loss, iteration=i + 1
                     )
@@ -513,23 +501,34 @@ class Brain:
                     for i, batch in enumerate(
                         tqdm(valid_set, dynamic_ncols=True, disable=disable)
                     ):
-                        loss = self.evaluate_batch(
-                            batch, device, stage=Stage.VALID
-                        )
+                        if (
+                            isinstance(self.device, int)
+                            and i % self.torch_ddp_procs != self.device
+                        ):
+                            continue
+                        loss = self.evaluate_batch(batch, stage=Stage.VALID)
                         avg_valid_loss = self.update_average(
                             loss, avg_valid_loss, iteration=i + 1
                         )
                 self.on_stage_end(Stage.VALID, avg_valid_loss, epoch)
 
-    def evaluate(self, test_set, device, progressbar=True):
+    def _compile_jit(self):
+        if self.jit_modules is None:
+            return
+
+        for jit_module in self.jit_modules:
+            module = getattr(self, jit_module)
+            module = torch.jit.script(module)
+            module = module.to(self.device)
+            setattr(self, jit_module, module)
+
+    def evaluate(self, test_set, progressbar=True):
         """Iterate test_set and evaluate brain performance.
 
         Arguments
         ---------
         test_set : list of DataLoaders
             This list will be zipped before iterating.
-        device : int or str
-            Device to use for computation
         progressbar : bool
             Whether to display the progress in a progressbar.
 
@@ -545,7 +544,7 @@ class Brain:
             for i, batch in enumerate(
                 tqdm(test_set, dynamic_ncols=True, disable=disable)
             ):
-                loss = self.evaluate_batch(batch, device, stage=Stage.TEST)
+                loss = self.evaluate_batch(batch, stage=Stage.TEST)
                 avg_test_loss = self.update_average(
                     loss, avg_test_loss, iteration=i + 1
                 )
@@ -591,14 +590,9 @@ def ddp_init(rank, brain, args, kwargs):
     )
 
     # Move to correct device
-    for modulelist, optimizer in brain.optimizers.items():
-        if isinstance(modulelist, str):
-            module = getattr(brain, modulelist)
-            setattr(brain, modulelist, DDP(module.to(rank), rank))
-        else:
-            for module_name in modulelist:
-                module = getattr(brain, module_name)
-                setattr(brain, module_name, DDP(module.to(rank), rank))
+    brain.device = rank
+    for i, module in enumerate(brain.modules):
+        if any(p.requires_grad for p in module.parameters()):
+            brain.modules[i] = DDP(module.to(rank), device_ids=[rank])
 
-    kwargs["device"] = rank
     brain.fit(*args, **kwargs)

@@ -6,10 +6,10 @@ def test_optimizers():
     from torch.optim import RMSprop
 
     inp_tensor = torch.rand([1, 660, 3])
-    model = Linear(n_neurons=4)
+    model = Linear(n_neurons=4, input_shape=inp_tensor.shape)
 
     optim = Optimizer(RMSprop, lr=0.01)
-    output = model(inp_tensor, init_params=True)
+    output = model(inp_tensor)
     optim.init_params([model])
     prediction = torch.nn.functional.log_softmax(output, dim=2)
     label = torch.randint(3, (1, 660))

@@ -4,19 +4,19 @@ import speechbrain as sb
 
 
 class ASR_Brain(sb.Brain):
-    def compute_forward(self, x, stage=sb.Stage.TRAIN, init_params=False):
+    def compute_forward(self, x, stage):
         id, wavs, lens = x
-        feats = self.compute_features(wavs, init_params)
+        feats = self.compute_features(wavs)
         feats = self.mean_var_norm(feats, lens)
 
-        x = self.linear1(feats, init_params)
+        x = self.linear1(feats)
         x = self.activation(x)
-        x = self.linear2(x, init_params)
+        x = self.linear2(x)
         outputs = self.softmax(x)
 
         return outputs, lens
 
-    def compute_objectives(self, predictions, targets, stage=sb.Stage.TRAIN):
+    def compute_objectives(self, predictions, targets, stage):
         outputs, lens = predictions
         ids, ali, ali_lens = targets
         loss = self.compute_cost(outputs, ali, lens)
@@ -51,16 +51,15 @@ def main():
     with open(hyperparams_file) as fin:
         hyperparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
 
-    train_set = hyperparams.train_loader()
-    first_x, first_y = next(iter(train_set))
     asr_brain = ASR_Brain(
         modules=hyperparams.modules,
         optimizers={("linear1", "linear2"): hyperparams.optimizer},
         device="cpu",
-        first_inputs=[first_x],
     )
     asr_brain.fit(
-        range(hyperparams.N_epochs), train_set, hyperparams.valid_loader()
+        range(hyperparams.N_epochs),
+        hyperparams.train_loader(),
+        hyperparams.valid_loader(),
     )
     asr_brain.evaluate(hyperparams.test_loader())
 

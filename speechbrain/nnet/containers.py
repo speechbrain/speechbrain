@@ -5,6 +5,7 @@ Authors
 """
 
 import torch
+import inspect
 import logging
 import operator
 import functools
@@ -14,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class Sequential(torch.nn.Module):
-    """A sequence of modules which may use the `init_params=True` argument in `forward()` for initialization.
+    """A sequence of modules inferring shape on construction.
 
     Arguments
     ---------
@@ -25,26 +26,44 @@ class Sequential(torch.nn.Module):
 
     Example
     -------
-    >>> from speechbrain.nnet.linear import Linear
+    >>> from speechbrain.nnet import Linear
+    >>> inputs = torch.rand(10, 40, 50)
     >>> model = Sequential(
-    ...     Linear(n_neurons=100),
-    ...     Linear(n_neurons=200),
+    ...     inputs.shape,
+    ...     lambda input_shape: Linear(input_shape=input_shape, n_neurons=100),
+    ...     lambda input_shape: Linear(input_shape=input_shape, n_neurons=200),
     ... )
-    >>> inputs = torch.rand(10, 50, 40)
-    >>> outputs = model(inputs, init_params=True)
+    >>> outputs = model(inputs)
     >>> outputs.shape
-    torch.Size([10, 50, 200])
+    torch.Size([10, 40, 200])
     """
 
-    def __init__(
-        self, *layers,
-    ):
+    def __init__(self, input_shape, *layers):
         super().__init__()
+
+        # Append layers, passing shape
         self.layers = torch.nn.ModuleList()
+        # self.modulelist = torch.nn.ModuleList()
         for layer in layers:
+
+            # Check if it needs to be constructed with input shape
+            argspec = inspect.getfullargspec(layer)
+            if "input_shape" in argspec.args + argspec.kwonlyargs:
+                layer = layer(input_shape=input_shape)
+
             self.layers.append(layer)
 
-    def forward(self, x, init_params=False):
+            # Collect shape information for next layer init
+            dummy_input = torch.zeros(input_shape)
+            dummy_output = layer(dummy_input)
+            input_shape = dummy_output.shape
+
+        # Register modules but ignore non-modules
+        # for layer in self.layers:
+        #    if isinstance(layer, torch.nn.Module):
+        #        self.modulelist.append(layer)
+
+    def forward(self, x):
         """
         Arguments
         ---------
@@ -52,10 +71,8 @@ class Sequential(torch.nn.Module):
             the input tensor to run through the network.
         """
         for layer in self.layers:
-            try:
-                x = layer(x, init_params=init_params)
-            except TypeError:
-                x = layer(x)
+            x = layer(x)
+
         return x
 
 

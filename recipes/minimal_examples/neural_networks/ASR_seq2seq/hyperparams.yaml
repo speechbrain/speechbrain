@@ -64,6 +64,7 @@ modules:
     bos: !ref <bos>
     eos: !ref <eos>
     enc: !new:speechbrain.lobes.CRDNN
+        input_shape: [!ref <N_batch>, 10, 660]
         activation: !ref <activation>
         dropout: !ref <dropout>
         cnn_blocks: !ref <cnn_blocks>
@@ -76,12 +77,14 @@ modules:
         dnn_blocks: !ref <dnn_blocks>
         dnn_neurons: !ref <dnn_neurons>
     lin: !new:speechbrain.nnet.Linear
+        input_size: !ref <dnn_neurons>
         n_neurons: 43  # 42 phonemes + 1 eos
         bias: False
     emb: !new:speechbrain.nnet.Embedding
         num_embeddings: 43  # 42 phonemes + 1 bos
         embedding_dim: 128
     dec: !new:speechbrain.nnet.AttentionalRNNDecoder
+        input_shape: [!ref <N_batch>, 10, 128]
         rnn_type: gru
         attn_type: content
         hidden_size: !ref <rnn_neurons>

@@ -51,7 +51,7 @@ class RNNLM(nn.Module):
     -------
     >>> model = RNNLM(output_neurons=5)
     >>> inputs = torch.Tensor([[1, 2, 3]])
-    >>> outputs = model(inputs, init_params=True)
+    >>> outputs = model(inputs)
     >>> outputs.shape
     torch.Size([1, 3, 5])
     """
@@ -76,6 +76,7 @@ class RNNLM(nn.Module):
         )
         self.dropout = nn.Dropout(p=dropout)
         self.rnn = rnn_class(
+            input_size=embedding_dim,
             hidden_size=rnn_neurons,
             num_layers=rnn_layers,
             dropout=dropout,
@@ -89,21 +90,25 @@ class RNNLM(nn.Module):
         for block_index in range(dnn_blocks):
             dnn_blocks_lst.extend(
                 [
-                    Linear(
-                        n_neurons=dnn_neurons, bias=True, combine_dims=False,
+                    lambda input_shape: Linear(
+                        input_shape=input_shape,
+                        n_neurons=dnn_neurons,
+                        bias=True,
+                        combine_dims=False,
                     ),
-                    LayerNorm(),
+                    lambda input_shape: LayerNorm(input_shape=input_shape),
                     activation(),
                     torch.nn.Dropout(p=dropout),
                 ]
             )
 
-        self.dnn = Sequential(*dnn_blocks_lst)
-        self.out = Linear(n_neurons=output_neurons)
+        input_shape = [8, 10, rnn_neurons]
+        self.dnn = Sequential(input_shape, *dnn_blocks_lst)
+        self.out = Linear(input_size=dnn_neurons, n_neurons=output_neurons)
 
-    def forward(self, x, hx=None, init_params=False):
+    def forward(self, x, hx=None):
 
-        x = self.embedding(x, init_params=init_params)
+        x = self.embedding(x)
         x = self.dropout(x)
 
         # If 2d tensor, add a time-axis
@@ -112,9 +117,9 @@ class RNNLM(nn.Module):
             x = x.unsqueeze(dim=1)
             self.reshape = True
 
-        x, h = self.rnn(x, hx, init_params=init_params)
-        x = self.dnn(x, init_params=init_params)
-        out = self.out(x, init_params=init_params)
+        x, h = self.rnn(x, hx)
+        x = self.dnn(x)
+        out = self.out(x)
 
         if self.reshape:
             out = out.squeeze(dim=1)

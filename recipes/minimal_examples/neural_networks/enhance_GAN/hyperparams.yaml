@@ -48,21 +48,23 @@ d_optimizer: !new:speechbrain.nnet.Optimizer
 modules:
     add_noise: !new:speechbrain.processing.AddNoise
     generator: !new:speechbrain.nnet.Sequential
-        - !new:speechbrain.nnet.Conv1d
+        - [!ref <N_batch>, 100, 1]  # input_shape
+        - !name:speechbrain.nnet.Conv1d
           out_channels: 32
           kernel_size: 11
         - !new:torch.nn.LeakyReLU
-        - !new:speechbrain.nnet.Conv1d
+        - !name:speechbrain.nnet.Conv1d
           out_channels: 1
           kernel_size: 11
         - !new:torch.nn.Tanh
     discriminator: !new:speechbrain.nnet.Sequential
-        - !new:speechbrain.nnet.Conv1d
+        - [!ref <N_batch>, 100, 1]  # input_shape
+        - !name:speechbrain.nnet.Conv1d
           out_channels: 32
           kernel_size: 11
           stride: 8
         - !new:torch.nn.LeakyReLU
-        - !new:speechbrain.nnet.Conv1d
+        - !name:speechbrain.nnet.Conv1d
           out_channels: 1
           kernel_size: 11
           stride: 8

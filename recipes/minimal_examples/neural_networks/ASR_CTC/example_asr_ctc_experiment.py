@@ -5,17 +5,17 @@ from speechbrain.decoders.ctc import ctc_greedy_decode
 
 
 class CTCBrain(sb.Brain):
-    def compute_forward(self, x, stage=sb.Stage.TRAIN, init_params=False):
+    def compute_forward(self, x, stage):
         id, wavs, lens = x
-        feats = self.compute_features(wavs, init_params)
+        feats = self.compute_features(wavs)
         feats = self.mean_var_norm(feats, lens)
-        x = self.model(feats, init_params=init_params)
-        x = self.lin(x, init_params)
+        x = self.model(feats)
+        x = self.lin(x)
         outputs = self.softmax(x)
 
         return outputs, lens
 
-    def compute_objectives(self, predictions, targets, stage=sb.Stage.TRAIN):
+    def compute_objectives(self, predictions, targets, stage):
         predictions, lens = predictions
         ids, phns, phn_lens = targets
         loss = self.compute_cost(predictions, phns, lens, phn_lens)
@@ -51,16 +51,15 @@ def main():
     with open(hyperparams_file) as fin:
         hyperparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
 
-    train_set = hyperparams.train_loader()
-    first_x, first_y = next(iter(train_set))
     ctc_brain = CTCBrain(
         modules=hyperparams.modules,
         optimizers={("model", "lin"): hyperparams.optimizer},
         device="cpu",
-        first_inputs=[first_x],
     )
     ctc_brain.fit(
-        range(hyperparams.N_epochs), train_set, hyperparams.valid_loader()
+        range(hyperparams.N_epochs),
+        hyperparams.train_loader(),
+        hyperparams.valid_loader(),
     )
     ctc_brain.evaluate(hyperparams.test_loader())
 

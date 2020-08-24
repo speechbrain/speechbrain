@@ -9,14 +9,14 @@ from speechbrain.data_io.data_io import append_eos_token
 
 
 class LMBrain(sb.Brain):
-    def compute_forward(self, y, stage=sb.Stage.TRAIN, init_params=False):
+    def compute_forward(self, y, stage):
         ids, phns, phn_lens = y
         y_in = prepend_bos_token(phns, bos_index=self.bos_index)
-        logits = self.model(y_in, init_params=init_params)
+        logits = self.model(y_in)
         pout = self.log_softmax(logits)
         return pout
 
-    def compute_objectives(self, predictions, targets, stage=sb.Stage.TRAIN):
+    def compute_objectives(self, predictions, targets, stage):
         pout = predictions
         ids, phns, phn_lens = targets
 
@@ -36,8 +36,8 @@ class LMBrain(sb.Brain):
     def fit_batch(self, batch):
         for optimizer in self.optimizers.values():
             inputs = batch[0]
-            predictions = self.compute_forward(inputs)
-            loss = self.compute_objectives(predictions, inputs)
+            predictions = self.compute_forward(inputs, sb.Stage.TRAIN)
+            loss = self.compute_objectives(predictions, inputs, sb.Stage.TRAIN)
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
@@ -71,13 +71,11 @@ def main():
 
     train_set = hyperparams.train_loader()
     valid_set = hyperparams.valid_loader()
-    first_y = next(iter(train_set))
 
     lm_brain = LMBrain(
         modules=hyperparams.modules,
         optimizers={"model": hyperparams.optimizer},
         device="cpu",
-        first_inputs=first_y,
     )
 
     lm_brain.fit(hyperparams.epoch_counter, train_set, valid_set)

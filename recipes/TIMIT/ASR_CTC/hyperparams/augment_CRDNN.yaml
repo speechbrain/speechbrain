@@ -90,6 +90,7 @@ modules:
     normalize: !new:speechbrain.processing.InputNormalization
         norm_type: global
     model: !new:speechbrain.lobes.CRDNN
+        input_shape: [!ref <batch_size>, 10, 40]
         activation: !ref <activation>
         dropout: !ref <dropout>
         cnn_blocks: !ref <cnn_blocks>
@@ -102,6 +103,7 @@ modules:
         dnn_blocks: !ref <dnn_blocks>
         dnn_neurons: !ref <dnn_neurons>
     output: !new:speechbrain.nnet.Linear
+        input_size: !ref <dnn_neurons>
         n_neurons: !ref <output_neurons>
         bias: True
     log_softmax: !new:speechbrain.nnet.Softmax

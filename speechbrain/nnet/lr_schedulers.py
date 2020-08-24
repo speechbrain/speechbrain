@@ -37,9 +37,9 @@ class NewBobLRScheduler:
     Example
     -------
     >>> inp_tensor = torch.rand([1, 660, 3])
-    >>> model = sb.nnet.Linear(n_neurons=4)
+    >>> model = sb.nnet.Linear(n_neurons=4, input_shape=inp_tensor.shape)
     >>> optim = sb.nnet.Optimizer(SGD, lr=1.0)
-    >>> output = model(inp_tensor, init_params=True)
+    >>> output = model(inp_tensor)
     >>> optim.init_params([model])
     >>> scheduler = NewBobLRScheduler()
     >>> scheduler([optim], current_epoch=1, current_loss=10.0)
@@ -160,10 +160,10 @@ class LinearLRScheduler:
     Example
     -------
     >>> inp_tensor = torch.rand([1, 660, 3])
-    >>> model = sb.nnet.Linear(n_neurons=4)
+    >>> model = sb.nnet.Linear(n_neurons=4, input_shape=inp_tensor.shape)
     >>> initial_lr = 1.0
     >>> optim = sb.nnet.Optimizer(SGD, lr=initial_lr)
-    >>> output = model(inp_tensor, init_params=True)
+    >>> output = model(inp_tensor)
     >>> optim.init_params([model])
     >>> scheduler = LinearLRScheduler(initial_lr, lr_final=0.0, N_epochs=4)
     >>> scheduler([optim], current_epoch=1, current_loss=10.0)
@@ -260,9 +260,9 @@ class StepLRScheduler:
     Example
     -------
     >>> inp_tensor = torch.rand([1, 660, 3])
-    >>> model = sb.nnet.Linear(n_neurons=4)
+    >>> model = sb.nnet.Linear(n_neurons=4, input_shape=inp_tensor.shape)
     >>> optim = sb.nnet.Optimizer(SGD, lr=1.0)
-    >>> output = model(inp_tensor, init_params=True)
+    >>> output = model(inp_tensor)
     >>> optim.init_params([model])
     >>> scheduler = StepLRScheduler(optim.optim.param_groups[0]["lr"])
     >>> scheduler([optim], current_epoch=1, current_loss=10.0)
@@ -347,9 +347,9 @@ class NoamScheduler:
     Example
     -------
     >>> inp_tensor = torch.rand([1, 660, 3])
-    >>> model = sb.nnet.Linear(n_neurons=4)
+    >>> model = sb.nnet.Linear(n_neurons=4, input_shape=inp_tensor.shape)
     >>> optim = sb.nnet.Optimizer(SGD, lr=1.0)
-    >>> output = model(inp_tensor, init_params=True)
+    >>> output = model(inp_tensor)
     >>> optim.init_params([model])
     >>> scheduler = NoamScheduler(optim.optim.param_groups[0]["lr"], 3)
     >>> scheduler([optim], current_epoch=1, current_loss=10.0)
@@ -437,9 +437,9 @@ class CustomLRScheduler:
     Example
     -------
     >>> inp_tensor = torch.rand([1, 660, 3])
-    >>> model = sb.nnet.Linear(n_neurons=4)
+    >>> model = sb.nnet.Linear(n_neurons=4, input_shape=inp_tensor.shape)
     >>> optim = sb.nnet.Optimizer(SGD, lr=1.0)
-    >>> output = model(inp_tensor, init_params=True)
+    >>> output = model(inp_tensor)
     >>> optim.init_params([model])
     >>> scheduler = CustomLRScheduler(lr_at_epoch=[1.0, 0.8, 0.6, 0.5])
     >>> scheduler([optim], current_epoch=1, current_loss=10.0)

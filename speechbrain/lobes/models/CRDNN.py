@@ -8,13 +8,17 @@ Authors
  * Abdel 2020
 """
 import torch
-from speechbrain.nnet.RNN import LiGRU
-from speechbrain.nnet.CNN import Conv2d
-from speechbrain.nnet.linear import Linear
-from speechbrain.nnet.pooling import Pooling1d, Pooling2d
-from speechbrain.nnet.dropout import Dropout2d
-from speechbrain.nnet.containers import Sequential
-from speechbrain.nnet.normalization import BatchNorm1d, LayerNorm
+from speechbrain.nnet import (
+    LiGRU,
+    Conv2d,
+    Linear,
+    Pooling1d,
+    Pooling2d,
+    Dropout2d,
+    Sequential,
+    BatchNorm1d,
+    LayerNorm,
+)
 
 
 class CRDNN(Sequential):
@@ -24,6 +28,8 @@ class CRDNN(Sequential):
 
     Arguments
     ---------
+    input_shape : tuple
+        The shape of an example expected input.
     activation : torch class
         A class used for constructing the activation layers. For cnn and dnn.
     dropout : float
@@ -59,15 +65,16 @@ class CRDNN(Sequential):
 
     Example
     -------
-    >>> model = CRDNN()
     >>> inputs = torch.rand([10, 120, 60])
-    >>> outputs = model(inputs, init_params=True)
+    >>> model = CRDNN(input_shape=inputs.shape)
+    >>> outputs = model(inputs)
     >>> outputs.shape
     torch.Size([10, 120, 512])
     """
 
     def __init__(
         self,
+        input_shape,
         activation=torch.nn.LeakyReLU,
         dropout=0.15,
         cnn_blocks=2,
@@ -86,9 +93,7 @@ class CRDNN(Sequential):
         dnn_blocks=2,
         dnn_neurons=512,
     ):
-
         blocks = []
-
         for block_index in range(cnn_blocks):
             if not using_2d_pooling:
                 pooling = Pooling1d(
@@ -108,17 +113,19 @@ class CRDNN(Sequential):
 
             blocks.extend(
                 [
-                    Conv2d(
+                    lambda input_shape: Conv2d(
+                        input_shape=input_shape,
                         out_channels=cnn_channels[block_index],
                         kernel_size=cnn_kernelsize,
                     ),
-                    LayerNorm(),
+                    lambda input_shape: LayerNorm(input_shape),
                     activation(),
-                    Conv2d(
+                    lambda input_shape: Conv2d(
+                        input_shape=input_shape,
                         out_channels=cnn_channels[block_index],
                         kernel_size=cnn_kernelsize,
                     ),
-                    LayerNorm(),
+                    lambda input_shape: LayerNorm(input_shape),
                     activation(),
                     # Inter-layer Pooling
                     pooling,
@@ -135,7 +142,8 @@ class CRDNN(Sequential):
 
         if rnn_layers > 0:
             blocks.append(
-                rnn_class(
+                lambda input_shape: rnn_class(
+                    input_shape=input_shape,
                     hidden_size=rnn_neurons,
                     num_layers=rnn_layers,
                     dropout=dropout,
@@ -147,13 +155,16 @@ class CRDNN(Sequential):
         for block_index in range(dnn_blocks):
             blocks.extend(
                 [
-                    Linear(
-                        n_neurons=dnn_neurons, bias=True, combine_dims=False,
+                    lambda input_shape: Linear(
+                        input_shape=input_shape,
+                        n_neurons=dnn_neurons,
+                        bias=True,
+                        combine_dims=False,
                     ),
-                    BatchNorm1d(),
+                    lambda input_shape: BatchNorm1d(input_shape),
                     activation(),
                     torch.nn.Dropout(p=dropout),
                 ]
             )
 
-        super().__init__(*blocks)
+        super().__init__(input_shape, *blocks)

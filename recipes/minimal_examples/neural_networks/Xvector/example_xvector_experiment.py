@@ -1,22 +1,22 @@
 #!/usr/bin/python
 import os
+import torch
 import speechbrain as sb
-from speechbrain.nnet.containers import Sequential
 
 
 # Trains xvector model
 class XvectorBrain(sb.Brain):
-    def compute_forward(self, x, stage=sb.Stage.TRAIN, init_params=False):
+    def compute_forward(self, x, stage):
         id, wavs, lens = x
 
-        feats = self.compute_features(wavs, init_params)
+        feats = self.compute_features(wavs)
         feats = self.mean_var_norm(feats, lens)
-        x_vect = self.xvector_model(feats, init_params=init_params)
-        outputs = self.classifier(x_vect, init_params)
+        x_vect = self.xvector_model(feats)
+        outputs = self.classifier(x_vect)
 
         return outputs, lens
 
-    def compute_objectives(self, predictions, targets, stage=sb.Stage.TRAIN):
+    def compute_objectives(self, predictions, targets, stage):
         predictions, lens = predictions
         uttid, spkid, _ = targets
 
@@ -45,26 +45,26 @@ class XvectorBrain(sb.Brain):
 
 
 # Extracts xvector given data and truncated model
-class Extractor(Sequential):
+class Extractor(torch.nn.Module):
     def __init__(self, model, feats, norm):
         super().__init__()
         self.model = model
         self.feats = feats
         self.norm = norm
 
-    def get_emb(self, feats, lens):
+    def get_emb(self, feats):
 
-        emb = self.model(feats, lens)
+        emb = self.model(feats)
 
         return emb
 
     def extract(self, x):
         id, wavs, lens = x
 
-        feats = self.feats(wavs, init_params=False)
+        feats = self.feats(wavs)
         feats = self.norm(feats, lens)
 
-        emb = self.get_emb(feats, lens)
+        emb = self.get_emb(feats)
         emb = emb.detach()
 
         return emb
@@ -84,15 +84,11 @@ def main():
     train_set = hyperparams.train_loader()
     valid_set = hyperparams.valid_loader()
 
-    # Xvector Model
-    first_x, first_y = next(iter(train_set))
-
     # Object initialization for training xvector model
     xvect_brain = XvectorBrain(
         modules=hyperparams.modules,
         optimizers={("xvector_model", "classifier"): hyperparams.optimizer},
         device="cpu",
-        first_inputs=[first_x],
     )
 
     # Train the Xvector model

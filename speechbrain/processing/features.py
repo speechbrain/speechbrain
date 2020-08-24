@@ -18,11 +18,11 @@ Example
 >>> features = compute_STFT(signal)
 >>> features = spectral_magnitude(features)
 >>> compute_fbanks = Filterbank(n_mels=40)
->>> features = compute_fbanks(features, init_params=True)
->>> compute_mfccs = DCT(n_out=20)
->>> features = compute_mfccs(features, init_params=True)
->>> compute_deltas = Deltas()
->>> delta1 = compute_deltas(features, init_params=True)
+>>> features = compute_fbanks(features)
+>>> compute_mfccs = DCT(input_size=40, n_out=20)
+>>> features = compute_mfccs(features)
+>>> compute_deltas = Deltas(input_size=20)
+>>> delta1 = compute_deltas(features)
 >>> delta2 = compute_deltas(delta1)
 >>> features = torch.cat([features, delta1, delta2], dim=2)
 >>> compute_cw = ContextWindow(left_frames=5, right_frames=5)
@@ -388,7 +388,7 @@ class Filterbank(torch.nn.Module):
     >>> import torch
     >>> compute_fbanks = Filterbank()
     >>> inputs = torch.randn([10, 101, 201])
-    >>> features = compute_fbanks(inputs, init_params=True)
+    >>> features = compute_fbanks(inputs)
     >>> features.shape
     torch.Size([10, 101, 40])
     """
@@ -468,18 +468,7 @@ class Filterbank(torch.nn.Module):
         # Replicating for all the filters
         self.all_freqs_mat = all_freqs.repeat(self.f_central.shape[0], 1)
 
-    def init_params(self, first_input):
-        """
-        Arguments
-        ---------
-        first_input : tensor
-            A dummy input of the right shape for initializing parameters.
-        """
-        self.band = self.band.to(self.device_inp)
-        self.f_central = self.f_central.to(self.device_inp)
-        self.all_freqs_mat = self.all_freqs_mat.to(self.device_inp)
-
-    def forward(self, spectrogram, init_params=False):
+    def forward(self, spectrogram):
         """Returns the FBANks.
 
         Arguments
@@ -487,9 +476,6 @@ class Filterbank(torch.nn.Module):
         x : tensor
             A batch of spectrogram tensors.
         """
-        if init_params:
-            self.init_params(spectrogram)
-
         # Computing central frequency and bandwidth of each filter
         f_central_mat = self.f_central.repeat(
             self.all_freqs_mat.shape[1], 1
@@ -711,6 +697,8 @@ class DCT(torch.nn.Module):
 
     Arguments
     ---------
+    input_size : int
+        Expected size of the last dimension in the input.
     n_out : int
         Number of output coefficients.
     ortho_norm : bool
@@ -719,60 +707,38 @@ class DCT(torch.nn.Module):
     Example
     -------
     >>> import torch
-    >>> compute_mfccs = DCT()
     >>> inputs = torch.randn([10, 101, 40])
-    >>> features = compute_mfccs(inputs, init_params=True)
+    >>> compute_mfccs = DCT(input_size=inputs.size(-1))
+    >>> features = compute_mfccs(inputs)
     >>> features.shape
     torch.Size([10, 101, 20])
     """
 
     def __init__(
-        self, n_out=20, ortho_norm=True,
+        self, input_size, n_out=20, ortho_norm=True,
     ):
         super().__init__()
-        self.n_out = n_out
-        self.ortho_norm = ortho_norm
 
-    def init_params(self, first_input):
-        """
-        Arguments
-        ---------
-        first_input : tensor
-            A dummy input of the right shape for initializing parameters.
-        """
-        self.n_in = first_input.size(-1)
-
-        if self.n_out > self.n_in:
-            err_msg = (
+        if n_out > input_size:
+            raise ValueError(
                 "Cannot select more DCT coefficients than inputs "
-                "(n_out=%i, n_in=%i)" % (self.n_out, self.n_in)
+                "(n_out=%i, n_in=%i)" % (n_out, input_size)
             )
-            raise ValueError(err_msg)
 
         # Generate matix for DCT transformation
-        self.dct_mat = self._create_dct(first_input.device)
+        n = torch.arange(float(input_size))
+        k = torch.arange(float(n_out)).unsqueeze(1)
+        dct = torch.cos(math.pi / float(input_size) * (n + 0.5) * k)
 
-    def _create_dct(self, device):
-        """Compute the matrix for the DCT transformation.
-
-        Arguments
-        ---------
-        device : str
-            A torch device to use for storing the dct matrix.
-        """
-        n = torch.arange(float(self.n_in), device=device)
-        k = torch.arange(float(self.n_out), device=device).unsqueeze(1)
-        dct = torch.cos(math.pi / float(self.n_in) * (n + 0.5) * k)
-
-        if self.ortho_norm:
+        if ortho_norm:
             dct[0] *= 1.0 / math.sqrt(2.0)
-            dct *= math.sqrt(2.0 / float(self.n_in))
+            dct *= math.sqrt(2.0 / float(input_size))
         else:
             dct *= 2.0
 
-        return dct.t()
+        self.dct_mat = dct.t()
 
-    def forward(self, x, init_params=False):
+    def forward(self, x):
         """Returns the DCT of the input tensor.
 
         Arguments
@@ -780,9 +746,6 @@ class DCT(torch.nn.Module):
         x : tensor
             A batch of tensors to transform, usually fbank features.
         """
-        if init_params:
-            self.init_params(x)
-
         # Managing multi-channels case
         input_shape = x.shape
         if len(input_shape) == 4:
@@ -810,34 +773,25 @@ class Deltas(torch.nn.Module):
 
     Example
     -------
-    >>> import torch
-    >>> compute_deltas = Deltas()
     >>> inputs = torch.randn([10, 101, 20])
-    >>> features = compute_deltas(inputs, init_params=True)
+    >>> compute_deltas = Deltas(input_size=inputs.size(-1))
+    >>> features = compute_deltas(inputs)
     >>> features.shape
     torch.Size([10, 101, 20])
     """
 
     def __init__(
-        self, window_length=5,
+        self, input_size, window_length=5,
     ):
         super().__init__()
         self.n = (window_length - 1) // 2
         self.denom = self.n * (self.n + 1) * (2 * self.n + 1) / 3
 
-    def init_params(self, first_input):
-        """
-        Arguments
-        ---------
-        first_input : tensor
-            A dummy input of the right shape for initializing parameters.
-        """
-        self.device = first_input.device
         self.kernel = torch.arange(
-            -self.n, self.n + 1, device=self.device, dtype=torch.float32,
-        ).repeat(first_input.shape[2], 1, 1)
+            -self.n, self.n + 1, dtype=torch.float32,
+        ).repeat(input_size, 1, 1)
 
-    def forward(self, x, init_params=False):
+    def forward(self, x):
         """Returns the delta coefficients.
 
         Arguments
@@ -845,9 +799,6 @@ class Deltas(torch.nn.Module):
         x : tensor
             A batch of tensors.
         """
-        if init_params:
-            self.init_params(x)
-
         # Managing multi-channel deltas reshape tensor (batch*channel,time)
         x = x.transpose(1, 2).transpose(2, -1)
         or_shape = x.shape

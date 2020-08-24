@@ -7,18 +7,18 @@ from speechbrain.data_io.data_io import append_eos_token
 
 
 class seq2seqBrain(sb.Brain):
-    def compute_forward(self, x, y, stage=sb.Stage.TRAIN, init_params=False):
+    def compute_forward(self, x, y, stage):
         id, wavs, wav_lens = x
         id, phns, phn_lens = y
-        feats = self.compute_features(wavs, init_params)
+        feats = self.compute_features(wavs)
         feats = self.mean_var_norm(feats, wav_lens)
-        x = self.enc(feats, init_params=init_params)
+        x = self.enc(feats)
 
         # Prepend bos token at the beginning
         y_in = prepend_bos_token(phns, bos_index=self.bos)
-        e_in = self.emb(y_in, init_params=init_params)
-        h, w = self.dec(e_in, x, wav_lens, init_params=init_params)
-        logits = self.lin(h, init_params=init_params)
+        e_in = self.emb(y_in)
+        h, w = self.dec(e_in, x, wav_lens)
+        logits = self.lin(h)
         outputs = self.softmax(logits)
 
         if stage != sb.Stage.TRAIN:
@@ -27,7 +27,7 @@ class seq2seqBrain(sb.Brain):
 
         return outputs
 
-    def compute_objectives(self, predictions, targets, stage=sb.Stage.TRAIN):
+    def compute_objectives(self, predictions, targets, stage):
         if stage == sb.Stage.TRAIN:
             outputs = predictions
         else:
@@ -53,8 +53,8 @@ class seq2seqBrain(sb.Brain):
     def fit_batch(self, batch):
         for optimizer in self.optimizers.values():
             inputs, targets = batch
-            predictions = self.compute_forward(inputs, targets)
-            loss = self.compute_objectives(predictions, targets)
+            preds = self.compute_forward(inputs, targets, sb.Stage.TRAIN)
+            loss = self.compute_objectives(preds, targets, sb.Stage.TRAIN)
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
@@ -89,16 +89,15 @@ def main():
     with open(hyperparams_file) as fin:
         hyperparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
 
-    train_set = hyperparams.train_loader()
-    first_x, first_y = next(iter(train_set))
     seq2seq_brain = seq2seqBrain(
         modules=hyperparams.modules,
         optimizers={("enc", "emb", "dec", "lin"): hyperparams.optimizer},
         device="cpu",
-        first_inputs=[first_x, first_y],
     )
     seq2seq_brain.fit(
-        range(hyperparams.N_epochs), train_set, hyperparams.valid_loader()
+        range(hyperparams.N_epochs),
+        hyperparams.train_loader(),
+        hyperparams.valid_loader(),
     )
     seq2seq_brain.evaluate(hyperparams.test_loader())
 

@@ -267,20 +267,21 @@ class complex_convolution(Module):
         return wx
 
 
-def check_complex_input(input):
+def check_complex_input(input_shape):
     """Check the complex-valued shape for a linear layer.
 
     Arguments
     ---------
-    input : torch.Tensor (batch, time, channel)
+    input_shape : tuple
+        Expected shape of the input.
     """
-    if input.dim() not in {2, 3}:
+    if len(input_shape) not in {2, 3}:
         raise Exception(
             "Complex linear accepts only input of dimension 2 or 3."
             " input.dim = " + str(input.dim())
         )
 
-    nb_hidden = input.size()[-1]
+    nb_hidden = input_shape[-1]
 
     if nb_hidden % 1 != 0:
         raise Exception(
@@ -289,23 +290,23 @@ def check_complex_input(input):
         )
 
 
-def check_conv_input(input, channels_axis=1):
+def check_conv_input(input_shape, channels_axis=1):
     """Check the complex-valued shape for a convolutional layer.
 
     Arguments
     ---------
-    input : torch.Tensor (batch, time, channel)
+    input_shape : tuple
     channels_axis : int, index of the channel axis.
     """
-    if input.dim() not in {3, 4, 5}:
+    if len(input_shape) not in {3, 4, 5}:
         raise Exception(
             "Complex convolution accepts only input of dimension 3, 4 or 5."
             " input.dim = " + str(input.dim())
         )
 
-    nb_channels = input.size(channels_axis)
+    nb_channels = input_shape[channels_axis]
     if nb_channels % 2 != 0:
-        print("input.size()" + str(input.size()))
+        print("input.size()" + str(input_shape))
         raise Exception(
             "Complex Tensors must have an even number of feature maps."
             " input.size()[1] = " + str(nb_channels)

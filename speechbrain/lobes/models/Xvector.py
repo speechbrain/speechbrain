@@ -7,17 +7,16 @@ Authors
 
 # import os
 import torch  # noqa: F401
-import torch.nn as nn
 import speechbrain as sb
 
 
-class Xvector(torch.nn.Module):
+class Xvector(sb.nnet.Sequential):
     """This model extracts XVectors for speaker recognition and diarization.
 
     Arguments
     ---------
-    device : str
-        Device used e.g. "cpu" or "cuda"
+    input_shape : tuple
+        Expected shape of an example input.
     activation : torch class
         A class for constructing the activation layers.
     tdnn_blocks : int
@@ -33,16 +32,16 @@ class Xvector(torch.nn.Module):
 
     Example
     -------
-    >>> compute_xvect = Xvector('cpu')
     >>> input_feats = torch.rand([5, 10, 24])
-    >>> outputs = compute_xvect(input_feats, init_params=True)
+    >>> compute_xvect = Xvector(input_shape=input_feats.shape)
+    >>> outputs = compute_xvect(input_feats)
     >>> outputs.shape
     torch.Size([5, 1, 512])
     """
 
     def __init__(
         self,
-        device="cpu",
+        input_shape,
         activation=torch.nn.LeakyReLU,
         tdnn_blocks=5,
         tdnn_channels=[512, 512, 512, 512, 1500],
@@ -51,72 +50,46 @@ class Xvector(torch.nn.Module):
         lin_neurons=512,
     ):
 
-        super().__init__()
-        self.blocks = nn.ModuleList()
+        blocks = []
 
         # TDNN layers
         for block_index in range(tdnn_blocks):
-            self.blocks.extend(
+            blocks.extend(
                 [
-                    sb.nnet.Conv1d(
+                    lambda input_shape: sb.nnet.Conv1d(
+                        input_shape=input_shape,
                         out_channels=tdnn_channels[block_index],
                         kernel_size=tdnn_kernel_sizes[block_index],
                         dilation=tdnn_dilations[block_index],
                     ),
                     activation(),
-                    sb.nnet.BatchNorm1d(),
+                    sb.nnet.BatchNorm1d,
                 ]
             )
 
         # Statistical pooling
-        self.blocks.append(sb.nnet.StatisticsPooling(device))
+        blocks.append(sb.nnet.StatisticsPooling())
 
         # Final linear transformation
-        self.blocks.append(
-            sb.nnet.Linear(n_neurons=lin_neurons, bias=True, combine_dims=False)
+        blocks.append(
+            lambda input_shape: sb.nnet.Linear(
+                input_shape=input_shape,
+                n_neurons=lin_neurons,
+                bias=True,
+                combine_dims=False,
+            )
         )
 
-    def init_params(self, first_input):
-        """
-        Arguments
-        ---------
-        first_input : tensor
-            A first input used for initializing the parameters.
-        """
-        x = first_input
-
-        for layer in self.blocks:
-            try:
-                x = layer(x, init_params=True)
-            except TypeError:
-                x = layer(x)
-
-    def forward(self, x, lens=None, init_params=False):
-        """Returns the x vectors.
-
-        Arguments
-        ---------
-        x : torch.Tensor
-        """
-        if init_params:
-            self.init_params(x)
-
-        for layer in self.blocks:
-            try:
-                x = layer(x, lengths=lens)
-            except TypeError:
-                x = layer(x)
-
-        return x
+        super().__init__(input_shape, *blocks)
 
 
-class Classifier(torch.nn.Module):
+class Classifier(sb.nnet.Sequential):
     """This class implements the last MLP on the top of xvector features.
 
     Arguments
     ---------
-    device : str
-        Device used e.g. "cpu" or "cuda"
+    input_shape : tuple
+        Expected shape of an example input.
     activation : torch class
         A class for constructing the activation layers.
     lin_blocks : int
@@ -126,78 +99,49 @@ class Classifier(torch.nn.Module):
 
     Example
     -------
-    >>> compute_xvect = Xvector('cpu')
-    >>> classify = Classifier('cpu')
     >>> input_feats = torch.rand([5, 10, 24])
-    >>> xvects = compute_xvect(input_feats, init_params=True)
-    >>> output = classify(xvects, init_params=True)
+    >>> compute_xvect = Xvector(input_shape=input_feats.shape)
+    >>> xvects = compute_xvect(input_feats)
+    >>> classify = Classifier(input_shape=xvects.shape)
+    >>> output = classify(xvects)
     >>> output.shape
     torch.Size([5, 1, 1211])
     """
 
     def __init__(
         self,
-        device="cpu",
+        input_shape,
         activation=torch.nn.LeakyReLU,
         lin_blocks=1,
         lin_neurons=512,
         out_neurons=1211,
-        pretrain_file=None,
     ):
+        blocks = []
 
-        super().__init__()
-        self.pretrain_file = pretrain_file
-        self.blocks = nn.ModuleList()
-
-        self.blocks.extend([activation(), sb.nnet.BatchNorm1d()])
+        blocks.extend([activation(), sb.nnet.BatchNorm1d])
 
         for block_index in range(lin_blocks):
-            self.blocks.extend(
+            blocks.extend(
                 [
-                    sb.nnet.Linear(
-                        n_neurons=lin_neurons, bias=True, combine_dims=False
+                    lambda input_shape: sb.nnet.Linear(
+                        n_neurons=lin_neurons,
+                        input_shape=input_shape,
+                        bias=True,
+                        combine_dims=False,
                     ),
                     activation(),
-                    sb.nnet.BatchNorm1d(),
+                    sb.nnet.BatchNorm1d,
                 ]
             )
 
         # Final Softmax classifier
-        self.blocks.extend(
+        blocks.extend(
             [
-                sb.nnet.Linear(n_neurons=out_neurons, bias=True),
+                sb.nnet.Linear(
+                    input_size=lin_neurons, n_neurons=out_neurons, bias=True
+                ),
                 sb.nnet.Softmax(apply_log=True),
             ]
         )
 
-    def init_params(self, first_input):
-        """
-        Arguments
-        ---------
-        first_input : tensor
-            A first input used for initializing the parameters.
-        """
-        x = first_input
-
-        for layer in self.blocks:
-            try:
-                x = layer(x, init_params=True)
-            except TypeError:
-                x = layer(x)
-
-    def forward(self, x, init_params=False):
-        """Returns the output probabilities over speakers.
-
-        Arguments
-        ---------
-        x : torch.Tensor
-        """
-        if init_params:
-            self.init_params(x)
-
-        for layer in self.blocks:
-            try:
-                x = layer(x, init_params=init_params)
-            except TypeError:
-                x = layer(x)
-        return x
+        super().__init__(input_shape, *blocks)

@@ -49,23 +49,24 @@ modules:
     mean_var_norm: !new:speechbrain.processing.InputNormalization
         norm_type: global
     model: !new:speechbrain.nnet.Sequential
-        - !new:speechbrain.nnet.ComplexConv1d
+        - [!ref <N_batch>, 10, 660]  # input_size
+        - !name:speechbrain.nnet.ComplexConv1d
           out_channels: 16
           kernel_size: 3
-        - !new:speechbrain.nnet.ComplexLayerNorm
+        - !name:speechbrain.nnet.ComplexLayerNorm
         - !ref <activation>
-        - !new:speechbrain.nnet.ComplexConv1d
+        - !name:speechbrain.nnet.ComplexConv1d
           out_channels: 32
           kernel_size: 3
-        - !new:speechbrain.nnet.ComplexLayerNorm
+        - !name:speechbrain.nnet.ComplexLayerNorm
         - !ref <activation>
         - !new:speechbrain.nnet.Pooling1d
           pool_type: "avg"
           kernel_size: 3
-        - !new:speechbrain.nnet.ComplexLiGRU
+        - !name:speechbrain.nnet.ComplexLiGRU
           hidden_size: 64
           bidirectional: True
-        - !new:speechbrain.nnet.Linear
+        - !name:speechbrain.nnet.Linear
           n_neurons: 43  # 42 phonemes + 1 blank
           bias: False
         - !new:speechbrain.nnet.Softmax
