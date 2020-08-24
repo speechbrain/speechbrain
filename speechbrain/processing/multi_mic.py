@@ -39,6 +39,13 @@ import torch
 class Covariance(torch.nn.Module):
     def __init__(self, average=True):
         """ Initialize the covariance module.
+
+        Arguments:
+        ----------
+        average : boolean
+            Informs the module if it should return an average
+            (computed on the time dimension) of the covariance
+            matrices. Default value is True.
         """
 
         super().__init__()
@@ -51,15 +58,10 @@ class Covariance(torch.nn.Module):
 
         Arguments:
         ----------
-        xs : tensor
+        Xs : tensor
             A batch of audio signals in the frequency domain.
             The tensor must have the following format:
             (batch, time_step, n_fft, 2, n_mics)
-
-        average : boolean
-            Informs the method if it should return an average
-            (computed on the time dimension) of the covariance
-            matrices. Default value is True.
         """
 
         # Formating the real and imaginary parts
