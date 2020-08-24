@@ -2,7 +2,7 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-use_tensorboard: True
+use_tensorboard: False
 tensorboard_logs: runs/minimal_example
 output_folder: !ref results/conv_tasnet/<seed>
 save_folder: !ref <output_folder>/save
@@ -13,7 +13,7 @@ data_folder: ../../../../samples/audio_samples/sourcesep_samples
 # Neural Parameters
 N_epochs: 100
 N_batch: 1
-lr: 0.0002
+lr: 0.001
 train_onthefly: False
 loss_fn: 'sisnr'
 progressbar: True
@@ -49,12 +49,12 @@ augmentation: !new:speechbrain.lobes.augment.tdsa.TimeDomainSpecAugment
 
 
 MaskNet: !new:speechbrain.lobes.models.conv_tasnet.MaskNet
-    N: 256
-    B: 256
-    H: 512
+    N: 32
+    B: 32
+    H: 32
     P: 3
-    X: 8
-    R: 4
+    X: 1
+    R: 2
     C: 2
     norm_type: 'gLN'
     causal: False
@@ -62,10 +62,9 @@ MaskNet: !new:speechbrain.lobes.models.conv_tasnet.MaskNet
 
 Encoder: !new:speechbrain.lobes.models.conv_tasnet.Encoder
     L: 21
-    N: 256
+    N: 32
 
 Decoder: !new:speechbrain.lobes.models.conv_tasnet.Decoder
-    # N: 256
     L: 20
 
 optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
