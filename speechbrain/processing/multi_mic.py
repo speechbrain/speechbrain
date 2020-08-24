@@ -9,13 +9,15 @@ Example
 >>> from speechbrain.processing.signal_processing import cov
 >>> from speechbrain.processing.multi_mic import GccPhat, DelaySum
 >>>
->>> xs_speech, fs = sf.read('samples/audio_samples/multi_mic/speech_-0.82918_0.55279_-0.082918.flac')
+>>> xs_speech, fs = sf.read(
+...    'samples/audio_samples/multi_mic/speech_-0.82918_0.55279_-0.082918.flac'
+)
 >>> xs_noise, _ = sf.read('samples/audio_samples/multi_mic/noise_diffuse.flac')
 >>> xs = xs_speech + 0.05 * xs_noise
 >>> xs = torch.tensor(xs).unsqueeze(0)
 >>>
 >>> stft = STFT(sample_rate=fs)
->>> gccphat = GccPhat() 
+>>> gccphat = GccPhat()
 >>> delaysum = DelaySum()
 >>> istft = ISTFT(sample_rate=fs)
 >>>
@@ -33,8 +35,8 @@ Authors:
 
 import torch
 
-class Covariance(torch.nn.Module):
 
+class Covariance(torch.nn.Module):
     def __init__(self, average=True):
         """ Initialize the covariance module.
         """
@@ -50,8 +52,13 @@ class Covariance(torch.nn.Module):
         Xs_im = Xs[..., 1, :].unsqueeze(4)
 
         # Computing the covariance
-        XXs_re = torch.matmul(Xs_re, Xs_re.transpose(3, 4)) + torch.matmul(Xs_im, Xs_im.transpose(3, 4))
-        XXs_im = torch.matmul(Xs_im, Xs_re.transpose(3, 4)) - torch.matmul(Xs_re, Xs_im.transpose(3, 4))
+        XXs_re = torch.matmul(Xs_re, Xs_re.transpose(3, 4)) + torch.matmul(
+            Xs_im, Xs_im.transpose(3, 4)
+        )
+
+        XXs_im = torch.matmul(Xs_im, Xs_re.transpose(3, 4)) - torch.matmul(
+            Xs_re, Xs_im.transpose(3, 4)
+        )
 
         # Selecting the upper triangular part of the covariance matrices
         n_channels = Xs.shape[4]
@@ -68,6 +75,7 @@ class Covariance(torch.nn.Module):
             XXs = XXs.repeat(1, n_time_frames, 1, 1, 1)
 
         return XXs
+
 
 class DelaySum(torch.nn.Module):
     """ Delay and Sum Beamforming
@@ -88,7 +96,7 @@ class DelaySum(torch.nn.Module):
             Arguments
             ---------
             Xs : tensor
-                A batch of audio signals in the frequency domain, in 
+                A batch of audio signals in the frequency domain, in
                 the format (batch, time_step, n_fft, 2, n_mics)
 
             tdoas : tensor
@@ -110,7 +118,7 @@ class DelaySum(torch.nn.Module):
         omegas = 2 * pi * torch.arange(0, n_fft, device=Xs.device) / N
         omegas = omegas.unsqueeze(0).unsqueeze(-1)
         omegas = omegas.repeat(n_batches, n_time_frames, 1, n_channels)
-        tdoas = tdoas[:,:,range(0,n_channels)]
+        tdoas = tdoas[:, :, range(0, n_channels)]
         tdoas = tdoas.unsqueeze(2)
         tdoas = tdoas.repeat(1, 1, n_fft, 1)
 
@@ -134,6 +142,7 @@ class DelaySum(torch.nn.Module):
 
         return Ys
 
+
 class Mvdr(torch.nn.Module):
     """ Minimum Variance Distortionless Response (MVDR) Beamforming
     """
@@ -145,6 +154,7 @@ class Mvdr(torch.nn.Module):
     def forward(self):
 
         pass
+
 
 class Gev(torch.nn.Module):
     """ Generalized EigenValue decomposition (GEV) Beamforming
@@ -158,8 +168,9 @@ class Gev(torch.nn.Module):
 
         pass
 
+
 class GccPhat(torch.nn.Module):
-    """ Generalized Cross-Correlation with Phase Transform (GCC-PHAT) localization
+    """ Generalized Cross-Correlation with Phase Transform localization
     """
 
     def __init__(self, tdoa_max=None, eps=1e-20):
@@ -184,10 +195,11 @@ class GccPhat(torch.nn.Module):
         self.eps = eps
 
     def forward(self, XXs):
-        """ Evaluate the time difference of arrival (TDOA) (in samples) for each timestamp.
-        It returns delays for every possible pair of microphones (including each
-        microphone compared to itself, which gives a TDOA of 0 in this case).
-        The result has the format (batch, time_steps, n_mics + n_pairs)
+        """ Evaluate the time difference of arrival (TDOA) (in samples)
+        for each timestamp. It returns delays for every possible pair of
+        microphones (including each microphone compared to itself, which
+        gives a TDOA of 0 in this case). The result has the format:
+        (batch, time_steps, n_mics + n_pairs)
 
         Arguments
         ---------
@@ -225,8 +237,8 @@ class GccPhat(torch.nn.Module):
             self.tdoa_max = n_fft // 2
 
         # Splitting the GCC-PHAT values to search in the range
-        slice_1 = xxs[..., 0:self.tdoa_max, :]
-        slice_2 = xxs[..., -self.tdoa_max:, :]
+        slice_1 = xxs[..., 0 : self.tdoa_max, :]
+        slice_2 = xxs[..., -self.tdoa_max :, :]
 
         xxs_sliced = torch.cat((slice_1, slice_2), 2)
 
@@ -243,12 +255,19 @@ class GccPhat(torch.nn.Module):
         delays[idx] -= n_fft
 
         # Quadratic interpolation
-        y1 = torch.gather(xxs, 2, torch.fmod((delays - 1) + n_fft, n_fft).unsqueeze(2)).squeeze(2)
-        y2 = torch.gather(xxs, 2, torch.fmod(delays + n_fft, n_fft).unsqueeze(2)).squeeze(2)
-        y3 = torch.gather(xxs, 2, torch.fmod((delays + 1) + n_fft, n_fft).unsqueeze(2)).squeeze(2)
-        delays_frac = delays + (y1 - y3) / (2*y1 - 4*y2 + 2*y3)
+        tp = torch.fmod((delays - 1) + n_fft, n_fft).unsqueeze(2)
+        y1 = torch.gather(xxs, 2, tp).squeeze(2)
+
+        tp = torch.fmod(delays + n_fft, n_fft).unsqueeze(2)
+        y2 = torch.gather(xxs, 2, tp).squeeze(2)
+
+        tp = torch.fmod((delays + 1) + n_fft, n_fft).unsqueeze(2)
+        y3 = torch.gather(xxs, 2, tp).squeeze(2)
+
+        delays_frac = delays + (y1 - y3) / (2 * y1 - 4 * y2 + 2 * y3)
 
         return delays_frac
+
 
 class SrpPhat(torch.nn.Module):
     """ Steered0-Response Power with Phase Transform (SRP-PHAT) localization
@@ -262,6 +281,7 @@ class SrpPhat(torch.nn.Module):
 
         pass
 
+
 class Music(torch.nn.Module):
     """ MUltpile SIgnal Classification (MUSIC) localization
     """
@@ -273,5 +293,3 @@ class Music(torch.nn.Module):
     def forward(self):
 
         pass
-
-
