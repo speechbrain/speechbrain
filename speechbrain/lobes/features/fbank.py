@@ -60,7 +60,7 @@ class Fbank(torch.nn.Module):
     >>> import torch
     >>> inputs = torch.randn([10, 16000])
     >>> feature_maker = Fbank()
-    >>> feats = feature_maker(inputs, init_params=True)
+    >>> feats = feature_maker(inputs)
     >>> feats.shape
     torch.Size([10, 101, 40])
     """
@@ -95,12 +95,12 @@ class Fbank(torch.nn.Module):
             param_change_factor=param_change_factor,
             param_rand_factor=param_rand_factor,
         )
-        self.compute_deltas = Deltas()
+        self.compute_deltas = Deltas(input_size=n_mels)
         self.context_window = ContextWindow(
             left_frames=left_frames, right_frames=right_frames,
         )
 
-    def forward(self, wav, init_params=False):
+    def forward(self, wav):
         """Returns a set of features generated from the input waveforms.
 
         Arguments
@@ -110,10 +110,10 @@ class Fbank(torch.nn.Module):
         """
         STFT = self.compute_STFT(wav)
         mag = spectral_magnitude(STFT)
-        fbanks = self.compute_fbanks(mag, init_params)
+        fbanks = self.compute_fbanks(mag)
 
         if self.deltas:
-            delta1 = self.compute_deltas(fbanks, init_params)
+            delta1 = self.compute_deltas(fbanks)
             delta2 = self.compute_deltas(delta1)
             fbanks = torch.cat([fbanks, delta1, delta2], dim=2)
 

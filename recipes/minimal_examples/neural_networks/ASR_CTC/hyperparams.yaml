@@ -15,7 +15,7 @@ N_batch: 1
 lr: 0.004
 
 # Model parameters
-activation: !name:torch.nn.LeakyReLU []
+activation: !name:torch.nn.LeakyReLU
 dropout: 0.15
 cnn_blocks: 1
 cnn_channels: (16,)
@@ -58,6 +58,7 @@ modules:
     mean_var_norm: !new:speechbrain.processing.InputNormalization
         norm_type: global
     model: !new:speechbrain.lobes.CRDNN
+        input_shape: [!ref <N_batch>, 10, 660]
         activation: !ref <activation>
         dropout: !ref <dropout>
         cnn_blocks: !ref <cnn_blocks>
@@ -70,6 +71,7 @@ modules:
         dnn_blocks: !ref <dnn_blocks>
         dnn_neurons: !ref <dnn_neurons>
     lin: !new:speechbrain.nnet.Linear
+        input_size: !ref <dnn_neurons>
         n_neurons: 43  # 42 phonemes + 1 blank
         bias: False
     softmax: !new:speechbrain.nnet.Softmax

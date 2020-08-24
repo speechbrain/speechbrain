@@ -12,11 +12,9 @@ from speechbrain.nnet.loss.stoi_loss import stoi_loss
 
 # Brain class for speech enhancement training
 class SEBrain(sb.Brain):
-    def compute_forward(
-        self, x, device, stage=sb.Stage.TRAIN, init_params=False
-    ):
+    def compute_forward(self, x, stage, init_params=False):
         ids, wavs, lens = x
-        wavs, lens = wavs.to(device), lens.to(device)
+        wavs, lens = wavs.to(self.device), lens.to(self.device)
         feats = self.compute_STFT(wavs)
         feats = spectral_magnitude(feats, power=0.5)
         feats = torch.log1p(feats)
@@ -30,12 +28,10 @@ class SEBrain(sb.Brain):
 
         return predict_spec, predict_wav
 
-    def compute_objectives(
-        self, predictions, targets, device, stage=sb.Stage.TRAIN
-    ):
+    def compute_objectives(self, predictions, targets, stage):
         predict_spec, predict_wav = predictions
         ids, target_wav, lens = targets
-        target_wav, lens = target_wav.to(device), lens.to(device)
+        target_wav, lens = target_wav.to(self.device), lens.to(self.device)
 
         if hasattr(self, "waveform_target") and self.waveform_target:
             loss = self.compute_cost(predict_wav, target_wav, lens)
@@ -107,7 +103,7 @@ class SEBrain(sb.Brain):
                     "stoi": self.stoi_metric.scores,
                     "pesq": self.pesq_metric.scores,
                 }
-                tensorboard_train_logger.log_stats(
+                self.tensorboard_train_logger.log_stats(
                     {"Epoch": epoch}, self.train_stats, valid_stats
                 )
             self.train_logger.log_stats(
@@ -176,7 +172,9 @@ if __name__ == "__main__":
     if params.use_tensorboard:
         from speechbrain.utils.train_logger import TensorboardLogger
 
-        tensorboard_train_logger = TensorboardLogger(params.tensorboard_logs)
+        params.modules["tensorboard_train_logger"] = TensorboardLogger(
+            params.tensorboard_logs
+        )
 
     # Create the folder to save enhanced files
     if not os.path.exists(params.enhanced_folder):
@@ -194,7 +192,7 @@ if __name__ == "__main__":
     se_brain = SEBrain(
         modules=params.modules,
         optimizers={"model": params.optimizer},
-        torch_ddp_procs=2,
+        torch_ddp_procs=1,
         first_inputs=[first_x],
     )
 

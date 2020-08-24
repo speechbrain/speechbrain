@@ -5,16 +5,16 @@ from speechbrain.decoders.ctc import ctc_greedy_decode
 
 
 class CTCBrain(sb.Brain):
-    def compute_forward(self, x, stage=sb.Stage.TRAIN, init_params=False):
+    def compute_forward(self, x, stage):
         id, wavs, lens = x
-        feats = self.compute_features(wavs, init_params)
+        feats = self.compute_features(wavs)
         feats = self.mean_var_norm(feats, lens)
 
-        outputs = self.model(feats, init_params)
+        outputs = self.model(feats)
 
         return outputs, lens
 
-    def compute_objectives(self, predictions, targets, stage=sb.Stage.TRAIN):
+    def compute_objectives(self, predictions, targets, stage):
         predictions, lens = predictions
         ids, phns, phn_lens = targets
         loss = self.compute_cost(predictions, phns, lens, phn_lens)

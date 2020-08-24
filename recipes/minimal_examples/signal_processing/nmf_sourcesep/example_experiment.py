@@ -27,6 +27,8 @@ class NMF_Brain(sb.core.Brain):
         self.init_matrices(loader)
         self.modules = torch.nn.ModuleList([])
         self.avg_train_loss = 0.0
+        self.jit_modules = []
+        self.device = "cpu"
 
     def init_matrices(self, train_loader):
         """

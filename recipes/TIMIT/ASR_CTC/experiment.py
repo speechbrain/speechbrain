@@ -8,36 +8,32 @@ from speechbrain.decoders.ctc import ctc_greedy_decode
 
 # Define training procedure
 class ASR_Brain(sb.Brain):
-    def compute_forward(
-        self, x, device, stage=sb.Stage.TRAIN, init_params=False
-    ):
+    def compute_forward(self, x, stage):
         ids, wavs, wav_lens = x
-        wavs, wav_lens = wavs.to(device), wav_lens.to(device)
-        print("The device is: ", device)
-        print(wavs.device)
+        wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
 
         # Adding environmental corruption if specified (i.e., noise+rev)
         if hasattr(self, "env_corrupt") and stage == sb.Stage.TRAIN:
-            wavs_noise = self.env_corrupt(wavs, wav_lens, init_params)
+            wavs_noise = self.env_corrupt(wavs, wav_lens)
             wavs = torch.cat([wavs, wavs_noise], dim=0)
             wav_lens = torch.cat([wav_lens, wav_lens])
 
         # Adding time-domain SpecAugment if specified
         if hasattr(self, "augmentation"):
-            wavs = self.augmentation(wavs, wav_lens, init_params)
+            wavs = self.augmentation(wavs, wav_lens)
 
-        feats = self.compute_features(wavs, init_params)
+        feats = self.compute_features(wavs)
         # feats = self.normalize(feats, wav_lens)
-        out = self.model(feats, init_params)
-        out = self.output(out, init_params)
+        out = self.model(feats)
+        out = self.output(out)
         pout = self.log_softmax(out)
 
         return pout, wav_lens
 
-    def compute_objectives(self, outputs, labels, device, stage=sb.Stage.TRAIN):
-        pout, pout_lens = outputs
-        ids, phns, phn_lens = labels
-        phns, phn_lens = phns.to(device), phn_lens.to(device)
+    def compute_objectives(self, predictions, targets, stage):
+        pout, pout_lens = predictions
+        ids, phns, phn_lens = targets
+        phns, phn_lens = phns.to(self.device), phn_lens.to(self.device)
 
         if stage == sb.Stage.TRAIN and hasattr(self, "env_corrupt"):
             phns = torch.cat([phns, phns], dim=0)
@@ -115,17 +111,16 @@ if __name__ == "__main__":
         splits=["train", "dev", "test"],
         save_folder=params.data_folder,
     )
-    train_set = params.train_loader()
-    valid_set = params.valid_loader()
-    first_x, first_y = next(iter(train_set))
 
     # Create brain object for training
+    train_set = params.train_loader()
+    valid_set = params.valid_loader()
     ind2lab = params.train_loader.label_dict["phn"]["index2lab"]
     asr_brain = ASR_Brain(
         modules=dict(params.modules, ind2lab=ind2lab),
         optimizers={("model", "output"): params.optimizer},
-        torch_ddp_procs=2,
-        first_inputs=[first_x],
+        jit_modules=["model"],
+        torch_ddp_procs=1,
     )
 
     # Load latest checkpoint to resume training

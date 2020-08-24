@@ -5,20 +5,15 @@ import speechbrain as sb
 
 
 class EnhanceGanBrain(sb.Brain):
-    def compute_forward(self, x, init_params=False):
+    def compute_forward(self, x, stage):
         id, wavs, lens = x
 
         noisy = self.add_noise(wavs, lens).unsqueeze(-1)
-        enhanced = self.generator(noisy, init_params=init_params)
-
-        if init_params:
-            self.discriminator(enhanced, init_params=init_params)
+        enhanced = self.generator(noisy)
 
         return enhanced
 
-    def compute_objectives(
-        self, predictions, targets, optimizer_modules=[], stage=sb.Stage.TRAIN
-    ):
+    def compute_objectives(self, predictions, targets, stage, opt_modules=[]):
         id, clean_wavs, lens = targets
         batch_size = clean_wavs.size(0)
 
@@ -32,12 +27,12 @@ class EnhanceGanBrain(sb.Brain):
         map_cost = self.compute_cost(predictions, clean_wavs, lens)
 
         # One is real, zero is fake
-        if "generator" in optimizer_modules:
+        if "generator" in opt_modules:
             simu_target = torch.ones(batch_size, 1)
             simu_cost = self.compute_cost(simu_result, simu_target)
             real_cost = 0.0
             self.metrics["G"].append(simu_cost.detach())
-        elif "discriminator" in optimizer_modules:
+        elif "discriminator" in opt_modules:
             real_target = torch.ones(batch_size, 1)
             simu_target = torch.zeros(batch_size, 1)
             real_cost = self.compute_cost(real_result, real_target)
@@ -51,18 +46,20 @@ class EnhanceGanBrain(sb.Brain):
 
         # Iterate optimizers and update
         for modules, optimizer in self.optimizers.items():
-            predictions = self.compute_forward(inputs)
-            loss = self.compute_objectives(predictions, inputs, modules)
+            predictions = self.compute_forward(inputs, sb.Stage.TRAIN)
+            loss = self.compute_objectives(
+                predictions, inputs, sb.Stage.TRAIN, modules
+            )
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
 
         return loss.detach()
 
-    def evaluate_batch(self, batch, stage=sb.Stage.TEST):
+    def evaluate_batch(self, batch, stage):
         inputs = batch[0]
-        predictions = self.compute_forward(inputs)
-        loss = self.compute_objectives(predictions, inputs, stage=stage)
+        predictions = self.compute_forward(inputs, stage)
+        loss = self.compute_objectives(predictions, inputs, stage)
         return loss.detach()
 
     def on_stage_start(self, stage, epoch=None):
@@ -89,8 +86,6 @@ def main():
     with open(hyperparams_file) as fin:
         hyperparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
 
-    train_set = hyperparams.train_loader()
-    first_x = next(iter(train_set))
     auto_brain = EnhanceGanBrain(
         modules=hyperparams.modules,
         optimizers={
@@ -98,10 +93,11 @@ def main():
             "discriminator": hyperparams.d_optimizer,
         },
         device="cpu",
-        first_inputs=first_x,
     )
     auto_brain.fit(
-        range(hyperparams.N_epochs), train_set, hyperparams.valid_loader()
+        range(hyperparams.N_epochs),
+        hyperparams.train_loader(),
+        hyperparams.valid_loader(),
     )
     test_loss = auto_brain.evaluate(hyperparams.test_loader())
 

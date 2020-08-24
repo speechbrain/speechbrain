@@ -85,14 +85,14 @@ class Pooling1d(nn.Module):
                 ceil_mode=self.ceil_mode,
             )
 
-    def forward(self, x, init_params=False):
+    def forward(self, x):
 
         # Put the pooling axes as the last dimension for torch.nn.pool
         # If the input tensor is 4 dimensional, combine the first and second
         # axes together to respect the input shape of torch.nn.pool1d
         x = x.transpose(-1, self.pool_axis)
         new_shape = x.shape
-        if len(x.shape) == 4:
+        if x.ndim == 4:
             x = x.reshape(new_shape[0] * new_shape[1], new_shape[2], -1)
             self.combine_batch_time = True
 
@@ -176,7 +176,7 @@ class Pooling2d(nn.Module):
                 ceil_mode=self.ceil_mode,
             )
 
-    def forward(self, x, init_params=False):
+    def forward(self, x):
 
         # Add extra two dimension at the last two, and then swap the pool_axis to them
         # Example: pool_axis=[1,2]
@@ -220,26 +220,20 @@ class StatisticsPooling(nn.Module):
     This class implements Statistics Pooling layer:
     It returns the concatenated mean and std of input tensor
 
-    Arguments
-    ---------
-    device : str
-        To keep tensors on cpu or cuda
-
     Example
     -------
     >>> inp_tensor = torch.rand([5, 100, 50])
-    >>> sp_layer = StatisticsPooling('cpu')
+    >>> sp_layer = StatisticsPooling()
     >>> out_tensor = sp_layer(inp_tensor)
     >>> out_tensor.shape
     torch.Size([5, 1, 100])
     """
 
-    def __init__(self, device):
+    def __init__(self):
         super().__init__()
 
         # Small value for GaussNoise
         self.eps = 1e-5
-        self.device = device
 
     def forward(self, x, lengths=None):
         """Calculates mean and std for a batch (input tensor).
@@ -271,7 +265,7 @@ class StatisticsPooling(nn.Module):
             std = torch.stack(std)
 
         gnoise = self._get_gauss_noise(mean.size())
-        gnoise = gnoise.to(self.device)
+        gnoise = gnoise
         mean += gnoise
         std = std + self.eps
 
@@ -335,8 +329,8 @@ class AdaptivePool(nn.Module):
 
     def forward(self, x):
 
-        if len(x.shape) == 3:
+        if x.ndim == 3:
             return self.pool(x.permute(0, 2, 1)).permute(0, 2, 1)
 
-        if len(x.shape) == 4:
+        if x.ndim == 4:
             return self.pool(x.permute(0, 3, 1, 2)).permute(0, 2, 3, 1)

@@ -4,20 +4,20 @@ import speechbrain as sb
 
 
 class AutoBrain(sb.Brain):
-    def compute_forward(self, x, init_params=False):
+    def compute_forward(self, x, stage):
         id, wavs, lens = x
-        feats = self.compute_features(wavs, init_params)
+        feats = self.compute_features(wavs)
         feats = self.mean_var_norm(feats, lens)
 
-        encoded = self.linear1(feats, init_params)
+        encoded = self.linear1(feats)
         encoded = self.activation(encoded)
-        decoded = self.linear2(encoded, init_params)
+        decoded = self.linear2(encoded)
 
         return decoded
 
-    def compute_objectives(self, predictions, targets):
+    def compute_objectives(self, predictions, targets, stage):
         id, wavs, lens = targets
-        feats = self.compute_features(wavs, init_params=False)
+        feats = self.compute_features(wavs)
         feats = self.mean_var_norm(feats, lens)
         self.mse_metric.append(id, predictions, feats, lens)
         return self.compute_cost(predictions, feats, lens)
@@ -25,17 +25,17 @@ class AutoBrain(sb.Brain):
     def fit_batch(self, batch):
         for optimizer in self.optimizers.values():
             inputs = batch[0]
-            predictions = self.compute_forward(inputs)
-            loss = self.compute_objectives(predictions, inputs)
+            predictions = self.compute_forward(inputs, sb.Stage.TRAIN)
+            loss = self.compute_objectives(predictions, inputs, sb.Stage.TRAIN)
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
         return loss.detach()
 
-    def evaluate_batch(self, batch, stage=sb.Stage.TEST):
+    def evaluate_batch(self, batch, stage):
         inputs = batch[0]
-        predictions = self.compute_forward(inputs)
-        loss = self.compute_objectives(predictions, inputs)
+        predictions = self.compute_forward(inputs, stage)
+        loss = self.compute_objectives(predictions, inputs, stage)
         return loss.detach()
 
     def on_stage_start(self, stage, epoch=None):
@@ -82,15 +82,15 @@ def main():
         train_logger = TensorboardLogger(hyperparams.tensorboard_logs)
         hyperparams.modules["train_logger"] = train_logger
 
-    train_set = hyperparams.train_loader()
-    first_x = next(iter(train_set))
     auto_brain = AutoBrain(
         modules=hyperparams.modules,
         optimizers={("linear1", "linear2"): hyperparams.optimizer},
-        first_inputs=first_x,
+        device="cpu",
     )
     auto_brain.fit(
-        range(hyperparams.N_epochs), train_set, hyperparams.valid_loader()
+        range(hyperparams.N_epochs),
+        hyperparams.train_loader(),
+        hyperparams.valid_loader(),
     )
     auto_brain.evaluate(hyperparams.test_loader())
 
