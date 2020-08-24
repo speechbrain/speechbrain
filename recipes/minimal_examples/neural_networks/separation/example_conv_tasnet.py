@@ -132,10 +132,6 @@ ctn = CTN_Brain(
     first_inputs=[next(iter(train_loader))[0][1].to(device)],
 )
 
-
-params.checkpointer.recover_if_possible(lambda c: -c.meta["av_loss"])
-
-# with torch.autograd.detect_anomaly():
 ctn.fit(
     range(params.N_epochs),
     train_set=train_loader,
