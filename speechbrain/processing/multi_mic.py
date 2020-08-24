@@ -6,7 +6,7 @@ Example
 >>> import torch
 >>>
 >>> from speechbrain.processing.features import STFT, ISTFT
->>> from speechbrain.processing.signal_processing import cov
+>>> from speechbrain.processing.multi_mic import Covariance
 >>> from speechbrain.processing.multi_mic import GccPhat, DelaySum
 >>>
 >>> xs_speech, fs = sf.read(
@@ -17,6 +17,7 @@ Example
 >>> xs = torch.tensor(xs).unsqueeze(0)
 >>>
 >>> stft = STFT(sample_rate=fs)
+>>> cov = Covariance()
 >>> gccphat = GccPhat()
 >>> delaysum = DelaySum()
 >>> istft = ISTFT(sample_rate=fs)
