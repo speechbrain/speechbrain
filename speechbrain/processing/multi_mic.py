@@ -11,7 +11,7 @@ Example
 >>>
 >>> xs_speech, fs = sf.read(
 ...    'samples/audio_samples/multi_mic/speech_-0.82918_0.55279_-0.082918.flac'
-)
+... )
 >>> xs_noise, _ = sf.read('samples/audio_samples/multi_mic/noise_diffuse.flac')
 >>> xs = xs_speech + 0.05 * xs_noise
 >>> xs = torch.tensor(xs).unsqueeze(0)
@@ -46,6 +46,21 @@ class Covariance(torch.nn.Module):
         self.average = average
 
     def forward(self, Xs):
+        """ Computes the covariance matrices of the signals. The result will
+        have the following format: (batch, time_step, n_fft, n_mics + n_pairs)
+
+        Arguments:
+        ----------
+        xs : tensor
+            A batch of audio signals in the frequency domain.
+            The tensor must have the following format:
+            (batch, time_step, n_fft, 2, n_mics)
+
+        average : boolean
+            Informs the method if it should return an average
+            (computed on the time dimension) of the covariance
+            matrices. Default value is True.
+        """
 
         # Formating the real and imaginary parts
         Xs_re = Xs[..., 0, :].unsqueeze(4)
