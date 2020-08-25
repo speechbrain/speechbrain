@@ -22,7 +22,7 @@ csv_test: !ref <save_folder>/test.csv
 number_of_epochs: 25
 batch_size: 128
 lr: 0.0002500
-lr_final: 0.00002500
+lr_final: 0.00005000
 device: 'cuda:0'
 freeze_embeddings: False
 
