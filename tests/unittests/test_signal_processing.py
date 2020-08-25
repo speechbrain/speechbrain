@@ -28,4 +28,3 @@ def test_normalize():
                 np.testing.assert_array_almost_equal(
                     scaled_back.numpy(), test_vec.numpy()
                 )
-
