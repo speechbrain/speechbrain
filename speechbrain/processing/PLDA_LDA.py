@@ -91,6 +91,40 @@ class StatObject_SB:
         ch += "-" * 30 + "\n"
         return ch
 
+    def save_stat_object(self, filename):
+        with open(filename, "wb") as output:
+            pickle.dump(self, output, pickle.HIGHEST_PROTOCOL)
+
+    def get_model_segsets(self, mod_id):
+        """Return segments of a given model
+
+        Arguments
+        ---------
+        mod_id: str
+            ID of the model which segments will be returned
+        """
+        return self.segset[self.modelset == mod_id]
+
+    def get_model_start(self, mod_id):
+        """Return start of segment of a given model
+
+        Arguments
+        ---------
+        mod_id: str
+            ID of the model which segments will be returned
+        """
+        return self.start[self.modelset == mod_id]
+
+    def get_model_stop(self, mod_id):
+        """Return stop of segment of a given model
+
+        Arguments
+        ---------
+        mod_id: str
+            ID of the model which segments will be returned
+        """
+        return self.stop[self.modelset == mod_id]
+
     def get_mean_stat1(self):
         """Return the mean of first order statistics
         """
@@ -379,6 +413,23 @@ class Ndx:
         self.trialmask = numpy.array([], dtype="bool")
 
         if ndx_file_name == "":
+            # This is needed to make sizes same
+            d = models.shape[0] - testsegs.shape[0]
+            if d != 0:
+                if d > 0:
+                    last = str(testsegs[-1])
+                    pad = numpy.array([last] * d)
+                    testsegs = numpy.hstack((testsegs, pad))
+                    # pad = testsegs[-d:]
+                    # testsegs = numpy.concatenate((testsegs, pad), axis=1)
+                else:
+                    d = abs(d)
+                    last = str(models[-1])
+                    pad = numpy.array([last] * d)
+                    models = numpy.hstack((models, pad))
+                    # pad = models[-d:]
+                    # models = numpy.concatenate((models, pad), axis=1)
+
             modelset = numpy.unique(models)
             segset = numpy.unique(testsegs)
 
@@ -399,6 +450,10 @@ class Ndx:
             self.modelset = ndx.modelset
             self.segset = ndx.segset
             self.trialmask = ndx.trialmask
+
+    def save_ndx_object(self, output_file_name):
+        with open(output_file_name, "wb") as output:
+            pickle.dump(self, output, pickle.HIGHEST_PROTOCOL)
 
     def filter(self, modlist, seglist, keep):
         """Removes some of the information in an Ndx. Useful for creating a
@@ -713,11 +768,10 @@ class LDA:
         The dimesion of the output representation.
     """
 
-    def __init__(self, reduced_dim=1):
+    def __init__(self,):
         self.transform_mat = None
-        self.reduced_dim = 1
 
-    def do_lda(self, stat_server=None, reduced_dim=2):
+    def do_lda(self, stat_server=None, reduced_dim=2, transform_mat=None):
         """Performs LDA and projects the vectors onto lower dimension space.
 
         Arguments
@@ -729,7 +783,10 @@ class LDA:
         """
 
         # Get transformation matrix and project
-        self.transform_mat = stat_server.get_lda_matrix_stat1(reduced_dim)
+        if transform_mat is None:
+            self.transform_mat = stat_server.get_lda_matrix_stat1(reduced_dim)
+        else:
+            self.transform_mat = transform_mat
 
         # Projection
         new_train_obj = copy.deepcopy(stat_server)
@@ -751,12 +808,67 @@ class PLDA:
         Eigenvoice matrix
     Sigma: tensor
         Residual matrix
+
+    Example
+    -------
+    >>> from speechbrain.processing.PLDA_LDA import *
+    >>> import random, numpy
+    >>> dim, N = 10, 100
+    >>> n_spkrs = 10
+    >>> train_xv = numpy.random.rand(N, dim)
+    >>> md = ['md'+str(random.randrange(1,n_spkrs,1)) for i in range(N)]
+    >>> modelset = numpy.array(md, dtype="|O")
+    >>> sg = ['sg'+str(i) for i in range(N)]
+    >>> segset = numpy.array(sg, dtype="|O")
+    >>> s = numpy.array([None] * N)
+    >>> stat0 = numpy.array([[1.0]]* N)
+    >>> xvectors_stat = StatObject_SB(modelset=modelset, segset=segset, start=s, stop=s, stat0=stat0, stat1=train_xv)
+    >>> # Training PLDA model: M ~ (mean, F, Sigma)
+    >>> plda = PLDA(rank_f=5)
+    >>> plda.plda(xvectors_stat)
+    >>> print (plda.mean.shape)
+    (10,)
+    >>> print (plda.F.shape)
+    (10, 5)
+    >>> print (plda.Sigma.shape)
+    (10, 10)
+    >>> # Enrolment (20 utts), Test (30 utts)
+    >>> en_N = 20
+    >>> en_xv = numpy.random.rand(en_N, dim)
+    >>> en_sgs = ['en'+str(i) for i in range(en_N)]
+    >>> en_sets = numpy.array(en_sgs, dtype="|O")
+    >>> en_s = numpy.array([None] * en_N)
+    >>> en_stat0 = numpy.array([[1.0]]* en_N)
+    >>> en_stat = StatObject_SB(modelset=en_sets, segset=en_sets, start=en_s, stop=en_s, stat0=en_stat0, stat1=en_xv)
+    >>> te_N = 30
+    >>> te_xv = numpy.random.rand(te_N, dim)
+    >>> te_sgs = ['te'+str(i) for i in range(te_N)]
+    >>> te_sets = numpy.array(te_sgs, dtype="|O")
+    >>> te_s = numpy.array([None] * te_N)
+    >>> te_stat0 = numpy.array([[1.0]]* te_N)
+    >>> te_stat = StatObject_SB(modelset=te_sets, segset=te_sets, start=te_s, stop=te_s, stat0=te_stat0, stat1=te_xv)
+    >>> ndx = Ndx(models=en_sets, testsegs=te_sets)
+    >>> # PLDA Scoring
+    >>> scores_plda = fast_PLDA_scoring(en_stat, te_stat, ndx, plda.mean, plda.F, plda.Sigma)
+    >>> print (scores_plda.scoremat.shape)
+    (20, 30)
     """
 
-    def __init__(self, mean=None, F=None, Sigma=None):
+    def __init__(
+        self,
+        mean=None,
+        F=None,
+        Sigma=None,
+        rank_f=100,
+        nb_iter=10,
+        scaling_factor=1.0,
+    ):
         self.mean = None
         self.F = None
         self.Sigma = None
+        self.rank_f = rank_f
+        self.nb_iter = nb_iter
+        self.scaling_factor = scaling_factor
 
         if mean is not None:
             self.mean = mean
@@ -766,12 +878,7 @@ class PLDA:
             self.Sigma = Sigma
 
     def plda(
-        self,
-        stat_server=None,
-        rank_f=100,
-        nb_iter=10,
-        scaling_factor=1.0,
-        output_file_name=None,
+        self, stat_server=None, output_file_name=None,
     ):
         """Trains PLDA model with no within class covariance matrix but full residual covariance matrix.
 
@@ -803,9 +910,9 @@ class PLDA:
         class_nb = model_shifted_stat.modelset.shape[0]
 
         # Multiply statistics by scaling_factor
-        model_shifted_stat.stat0 *= scaling_factor
-        model_shifted_stat.stat1 *= scaling_factor
-        session_per_model *= scaling_factor
+        model_shifted_stat.stat0 *= self.scaling_factor
+        model_shifted_stat.stat1 *= self.scaling_factor
+        session_per_model *= self.scaling_factor
 
         # Covariance for stat1
         sigma_obs = stat_server.get_total_covariance_stat1()
@@ -813,16 +920,16 @@ class PLDA:
 
         # Initial F (eigen voice matrix) from rank
         idx = numpy.argsort(evals)[::-1]
-        evecs = evecs.real[:, idx[:rank_f]]
-        self.F = evecs[:, :rank_f]
+        evecs = evecs.real[:, idx[: self.rank_f]]
+        self.F = evecs[:, : self.rank_f]
 
         # Estimate PLDA model by iterating the EM algorithm
-        for it in range(nb_iter):
+        for it in range(self.nb_iter):
 
             # E-step
-            print(
-                f"\nE-step: Estimate between class covariance, it {it+1} / {nb_iter}"
-            )
+            # print(
+            #    f"E-step: Estimate between class covariance, it {it+1} / {nb_iter}"
+            # )
 
             # Copy stats as they will be whitened with a different Sigma for each iteration
             local_stat = copy.deepcopy(model_shifted_stat)
@@ -847,8 +954,8 @@ class PLDA:
             index_map = numpy.zeros(vect_size, dtype=int)
             _stat0 = local_stat.stat0[:, index_map]
 
-            e_h = numpy.zeros((class_nb, rank_f))
-            e_hh = numpy.zeros((class_nb, rank_f, rank_f))
+            e_h = numpy.zeros((class_nb, self.rank_f))
+            e_hh = numpy.zeros((class_nb, self.rank_f, self.rank_f))
 
             # loop on model id's
             fa_model_loop(
@@ -868,7 +975,7 @@ class PLDA:
             _A = numpy.einsum("ijk,i->jk", e_hh, local_stat.stat0.squeeze())
 
             # M-step
-            print("M-step: Updating F and Sigma")
+            # print("M-step")
             self.F = linalg.solve(_A, _C).T
 
             # Update the residual covariance
@@ -876,77 +983,3 @@ class PLDA:
 
             # Minimum Divergence step
             self.F = self.F.dot(linalg.cholesky(_R))
-
-
-if __name__ == "__main__":
-    """
-    Example (shift this to PLDA)
-    -------
-    >>> from speechbrain.processing.PLDA import *
-    >>> data_dir = "/Users/nauman/Desktop/Mila/nauman/Data/xvect-sdk/sb-format/"
-    >>> train_file = data_dir + "VoxCeleb1_training_rvectors.pkl"
-    >>> with open(train_file, "rb") as xvectors:
-    ...     train_obj = pickle.load(xvectors)
-    ...
-    >>> lda = LDA()
-    >>> reduced_stat = lda.do_lda(train_obj, 100)
-    >>> print (reduced_stat.stat1.shape)
-    (148808, 100)
-    >>> plda = PLDA()
-    >>> plda.plda(train_obj)
-    >>> print ("Training Completed. Started scoring...")
-    >>> enrol_file = data_dir + "VoxCeleb1_enrol_rvectors.pkl"
-    >>> test_file = data_dir + "VoxCeleb1_test_rvectors.pkl"
-    >>> ndx_file = data_dir + "ndx.pkl"
-    >>> with open(enrol_file, "rb") as xvectors:
-    ...     enrol_obj = pickle.load(xvectors)
-    ...
-    >>> with open(test_file, "rb") as xvectors:
-    ...     test_obj = pickle.load(xvectors)
-    ...
-    >>> with open(ndx_file, "rb") as ndxes:
-    ...     ndx_obj = pickle.load(ndxes)
-    ...
-    >>> scores_plda = fast_PLDA_scoring(enrol_obj, test_obj, ndx_obj, plda.mean, plda.F, plda.Sigma)
-    >>> scores_plda.scoremat[:3, :3]
-    array([[-2.98146610e+07,  7.81558818e+07, -5.62018466e+07],
-       [ 1.80313207e+08, -4.90753877e+08,  3.39299061e+08],
-       [ 1.54824606e+08, -4.21029694e+08,  2.89427688e+08]])
-    """
-
-    data_dir = "/Users/nauman/Desktop/Mila/nauman/Data/xvect-sdk/sb-format/"
-    train_file = data_dir + "VoxCeleb1_training_rvectors.pkl"
-
-    # read extracted vectors (xvect, ivect, dvect, rvect etc.)
-    with open(train_file, "rb") as xvectors:
-        train_obj = pickle.load(xvectors)
-    print("Training started..")
-
-    # Perform LDA on train x-vectors
-    # lda = LDA(100)
-    # reduced_stat_train = lda.do_lda(train_obj, 150)
-
-    # Train PLDA model
-    plda = PLDA()
-    plda.plda(train_obj)
-    # print("sb_M: ", plda.mean[:20])
-    # print("sb_F: ", plda.F)
-    # print("sb_S: ", plda.Sigma)
-
-    # PLDA Scoring starts here
-    enrol_file = data_dir + "VoxCeleb1_enrol_rvectors.pkl"
-    test_file = data_dir + "VoxCeleb1_test_rvectors.pkl"
-    ndx_file = data_dir + "ndx.pkl"
-    with open(enrol_file, "rb") as xvectors:
-        enrol_obj = pickle.load(xvectors)
-    with open(test_file, "rb") as xvectors:
-        test_obj = pickle.load(xvectors)
-    with open(ndx_file, "rb") as ndxes:
-        ndx_obj = pickle.load(ndxes)
-
-    print("Started PLDA scoring...")
-    scores_plda = fast_PLDA_scoring(
-        enrol_obj, test_obj, ndx_obj, plda.mean, plda.F, plda.Sigma
-    )
-    print("\nScores with SpeechBrain:")
-    print(scores_plda.scoremat[:3, :3])

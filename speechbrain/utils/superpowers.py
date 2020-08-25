@@ -31,6 +31,11 @@ def run_shell(cmd):
     int
         the returncode
 
+    Raises
+    ------
+    OSError
+        If returncode is not 0, i.e. command failed
+
     Example
     -------
     >>> out, err, code = run_shell("echo 'hello world'")

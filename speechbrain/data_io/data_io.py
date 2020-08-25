@@ -348,7 +348,7 @@ class DataLoaderFactory(torch.nn.Module):
         # create label counts and label2index automatically when needed
         label_dict = {}
         if self.output_folder is not None:
-            label_dict_file = self.output_folder + "/label_dict.pkl"
+            label_dict_file = os.path.join(self.output_folder, "label_dict.pkl")
 
             # Read previously stored label_dict
             if os.path.isfile(label_dict_file):
@@ -975,12 +975,13 @@ class DatasetFactory(Dataset):
             data_source, data_options=data_options, lab2ind=lab2ind,
         )
 
-        # Convert numpy array to float32
+        # Get data_shape as float32 numpy array
         if isinstance(data, np.ndarray):
             data_shape = np.asarray(data.shape[-1]).astype("float32")
         elif isinstance(data, torch.Tensor):
             data_shape = np.asarray(data.shape[-1]).astype("float32")
-
+        elif isinstance(data, list):
+            data_shape = np.asarray(len(data)).astype("float32")
         else:
             data_shape = np.asarray(1).astype("float32")
 
@@ -1507,8 +1508,8 @@ def write_wav_soundfile(data, filename, sampling_rate):
     -------
     >>> tmpdir = getfixture('tmpdir')
     >>> signal = 0.1*torch.rand([16000])
-    >>> write_wav_soundfile(signal, tmpdir + '/wav_example.wav',
-    ...                     sampling_rate=16000)
+    >>> tmpfile = os.path.join(tmpdir, 'wav_example.wav')
+    >>> write_wav_soundfile(signal, tmpfile, sampling_rate=16000)
     """
     if len(data.shape) > 2:
         err_msg = (
@@ -1547,7 +1548,7 @@ def write_txt_file(data, filename, sampling_rate=None):
     -------
     >>> tmpdir = getfixture('tmpdir')
     >>> signal=torch.tensor([1,2,3,4])
-    >>> write_txt_file(signal, tmpdir + '/example.txt')
+    >>> write_txt_file(signal, os.path.join(tmpdir, 'example.txt'))
     """
     del sampling_rate  # Not used.
     # Check if the path of filename exists
@@ -1737,7 +1738,7 @@ class TensorSaver(torch.nn.Module):
 
         # Create the csv file (if specified)
         if self.save_csv:
-            self.save_csv_path = self.save_folder + "/csv.csv"
+            self.save_csv_path = os.path.join(self.save_folder, "csv.csv")
             open(self.save_csv_path, "w").close()
             self.first_line_csv = True
 
@@ -1820,8 +1821,8 @@ class TensorSaver(torch.nn.Module):
             writer = self.supported_formats[self.save_format]["writer"]
 
             # Output file
-            data_file = (
-                self.save_folder + "/" + data_id[j] + "." + self.save_format
+            data_file = os.path.join(
+                self.save_folder, data_id[j] + "." + self.save_format
             )
 
             # Writing all the batches in parallel (if paralle_write=True)
@@ -2008,9 +2009,9 @@ def save_md5(files, out_file):
     None
 
     Example:
-    >>> files=['samples/audio_samples/example1.wav']
-    >>> out_file=getfixture('tmpdir') + "/md5.pkl"
-    >>> save_md5(files, out_file)
+    >>> files = ['samples/audio_samples/example1.wav']
+    >>> tmpdir = getfixture('tmpdir')
+    >>> save_md5(files, os.path.join(tmpdir, "md5.pkl"))
     """
     # Initialization of the dictionary
     md5_dict = {}
@@ -2035,7 +2036,7 @@ def save_pkl(obj, file):
         Sampling rate of the audio file, TODO: this is not used?
 
     Example:
-    >>> tmpfile = getfixture('tmp_path') / "example.pkl"
+    >>> tmpfile = os.path.join(getfixture('tmpdir'), "example.pkl")
     >>> save_pkl([1, 2, 3, 4, 5], tmpfile)
     >>> load_pkl(tmpfile)
     [1, 2, 3, 4, 5]
@@ -2151,4 +2152,74 @@ def merge_char(sequences, space="_"):
     for seq in sequences:
         words = "".join(seq).split("_")
         results.append(words)
+    return results
+
+
+def merge_csvs(data_folder, csv_lst, merged_csv):
+    """Merging several csv files into one file.
+
+    Arguments
+    ---------
+    data_folder : string
+        The folder to store csv files to be merged and after merging.
+    csv_lst : list
+        filenames of csv file to be merged.
+    merged_csv : string
+        The filename to write the merged csv file.
+
+
+    Example:
+    >>> merge_csvs("samples/audio_samples/",
+    ... ["csv_example.csv", "csv_example2.csv"],
+    ... "test_csv_merge.csv")
+    """
+    write_path = os.path.join(data_folder, merged_csv)
+    if os.path.isfile(write_path):
+        logger.info("Skipping merging. Completed in previous run.")
+
+    with open(os.path.join(data_folder, csv_lst[0])) as f:
+        header = f.readline()
+    lines = []
+    for csv_file in csv_lst:
+        with open(os.path.join(data_folder, csv_file)) as f:
+            for i, line in enumerate(f):
+                if i == 0:
+                    # Checking header
+                    if line != header:
+                        raise ValueError(
+                            "Different header for " f"{csv_lst[0]} and {csv}."
+                        )
+                    continue
+                lines.append(line)
+    with open(write_path, "w") as f:
+        f.write(header)
+        for line in lines:
+            f.write(line)
+    logger.info(f"{write_path} is created.")
+
+
+def split_word(sequences, space="_"):
+    """Split word sequences into character sequences.
+
+    Arguments
+    ---------
+    sequences : list
+        Each item contains a list, and this list contains words sequence.
+    space : string
+        The token represents space. Default: _
+
+    Returns
+    -------
+    The list contain word sequences for each sentence.
+
+    Example:
+    >>> sequences = [['ab', 'c', 'de'], ['efg', 'hi']]
+    >>> results = split_word(sequences)
+    >>> results
+    [['a', 'b', '_', 'c', '_', 'd', 'e'], ['e', 'f', 'g', '_', 'h', 'i']]
+    """
+    results = []
+    for seq in sequences:
+        chars = list("_".join(seq))
+        results.append(chars)
     return results

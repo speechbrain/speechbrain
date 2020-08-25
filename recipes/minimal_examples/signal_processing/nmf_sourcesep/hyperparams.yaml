@@ -16,6 +16,10 @@ m: 513  # length of stft vectors
 win_length: 40  # window length (in ms) for stft
 hop_length: 10  # hop length (in ms) for stft
 
+# Experiment flags:
+save_reconstructed: True   # saves the results
+copy_original_files: True    # copies the original files
+
 train_loader1: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>
     batch_size: !ref <N_batch>
