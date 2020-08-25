@@ -14,7 +14,7 @@ Example
 ... )
 >>> xs_noise, _ = sf.read('samples/audio_samples/multi_mic/noise_diffuse.flac')
 >>> xs = xs_speech + 0.05 * xs_noise
->>> xs = torch.tensor(xs).unsqueeze(0)
+>>> xs = torch.tensor(xs).unsqueeze(0).float()
 >>>
 >>> stft = STFT(sample_rate=fs)
 >>> cov = Covariance()
@@ -47,6 +47,10 @@ class Covariance(torch.nn.Module):
             Informs the module if it should return an average
             (computed on the time dimension) of the covariance
             matrices. Default value is True.
+
+        Example:
+        --------
+        See example at the beginning of this file.
         """
 
         super().__init__()
@@ -101,26 +105,30 @@ class DelaySum(torch.nn.Module):
 
     def __init__(self):
         """ Initialize the Delay and Sum module.
+
+        Example:
+        --------
+        See example at the beginning of this file.
         """
 
         super().__init__()
 
     def forward(self, Xs, tdoas):
         """ Perform delay and sum beamforming using the TDOAs and
-            the first channel as a reference. It returns the result
-            in the frequency domain in the format
-            (batch, time_step, n_fft, 2, 1)
+        the first channel as a reference. It returns the result
+        in the frequency domain in the format
+        (batch, time_step, n_fft, 2, 1)
 
-            Arguments
-            ---------
-            Xs : tensor
-                A batch of audio signals in the frequency domain, in
-                the format (batch, time_step, n_fft, 2, n_mics)
+        Arguments
+        ---------
+        Xs : tensor
+            A batch of audio signals in the frequency domain, in
+            the format (batch, time_step, n_fft, 2, n_mics)
 
-            tdoas : tensor
-                The time difference of arrival (TDOA) (in samples) for
-                each timestamp. The tensor has the format
-                (batch, time_steps, n_mics + n_pairs)
+        tdoas : tensor
+            The time difference of arrival (TDOA) (in samples) for
+            each timestamp. The tensor has the format
+            (batch, time_steps, n_mics + n_pairs)
         """
 
         pi = 3.141592653589793
@@ -206,6 +214,10 @@ class GccPhat(torch.nn.Module):
         eps : float
             A small value to avoid divisions by 0 with the phase transform. The
             default value is 1e-20.
+
+        Example:
+        --------
+        See example at the beginning of this file.
         """
         super().__init__()
 
