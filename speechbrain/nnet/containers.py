@@ -28,11 +28,9 @@ class Sequential(torch.nn.Module):
     -------
     >>> from speechbrain.nnet import Linear
     >>> inputs = torch.rand(10, 40, 50)
-    >>> model = Sequential(
-    ...     inputs.shape,
-    ...     lambda input_shape: Linear(input_shape=input_shape, n_neurons=100),
-    ...     lambda input_shape: Linear(input_shape=input_shape, n_neurons=200),
-    ... )
+    >>> model = Sequential(inputs.shape)
+    >>> model.append(Linear, n_neurons=100)
+    >>> model.append(Linear, n_neurons=200)
     >>> outputs = model(inputs)
     >>> outputs.shape
     torch.Size([10, 40, 200])
@@ -43,25 +41,34 @@ class Sequential(torch.nn.Module):
 
         # Append layers, passing shape
         self.layers = torch.nn.ModuleList()
-        # self.modulelist = torch.nn.ModuleList()
+        self.input_shape = input_shape
         for layer in layers:
+            self.append(layer)
 
-            # Check if it needs to be constructed with input shape
-            argspec = inspect.getfullargspec(layer)
-            if "input_shape" in argspec.args + argspec.kwonlyargs:
-                layer = layer(input_shape=input_shape)
+    def append(self, layer, *args, **kwargs):
+        """Add a layer to the list of layers, inferring shape if necessary.
 
-            self.layers.append(layer)
+        Arguments
+        ---------
+        layer : A torch.nn.Module class or object
+            If the layer is a class, it should accept an argument called
+            ``input_shape`` which will be inferred and passed. If the layer
+            is a module object, it is added as-is.
+        *args, **kwargs
+            These are passed to the layer if it is constructed.
+        """
 
-            # Collect shape information for next layer init
-            dummy_input = torch.zeros(input_shape)
-            dummy_output = layer(dummy_input)
-            input_shape = dummy_output.shape
+        # Check if it needs to be constructed with input shape
+        argspec = inspect.getfullargspec(layer)
+        if "input_shape" in argspec.args + argspec.kwonlyargs:
+            layer = layer(*args, input_shape=self.input_shape, **kwargs)
 
-        # Register modules but ignore non-modules
-        # for layer in self.layers:
-        #    if isinstance(layer, torch.nn.Module):
-        #        self.modulelist.append(layer)
+        self.layers.append(layer)
+
+        # Collect shape information for next layer init
+        dummy_input = torch.zeros(self.input_shape)
+        dummy_output = layer(dummy_input)
+        self.input_shape = dummy_output.shape
 
     def forward(self, x):
         """

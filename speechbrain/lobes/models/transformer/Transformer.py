@@ -109,18 +109,16 @@ class PositionalEncoding(nn.Module):
     Example
     -------
     >>> a = torch.rand((8, 120, 512))
-    >>> enc = PositionalEncoding()
-    >>> b = enc(a, init_params=True)
+    >>> enc = PositionalEncoding(input_shape=a.shape)
+    >>> b = enc(a)
     >>> print(b.shape)
     torch.Size([1, 120, 512])
     """
 
-    def __init__(self, max_len=2500):
+    def __init__(self, input_shape, max_len=2500):
         super().__init__()
         self.max_len = max_len
-
-    def init_params(self, first_input):
-        model_dim = first_input.shape[-1]
+        model_dim = input_shape[-1]
         pe = torch.zeros(self.max_len, model_dim, requires_grad=False)
         positions = torch.arange(0, self.max_len).unsqueeze(1).float()
         denominator = torch.exp(
@@ -130,18 +128,16 @@ class PositionalEncoding(nn.Module):
 
         pe[:, 0::2] = torch.sin(positions * denominator)
         pe[:, 1::2] = torch.cos(positions * denominator)
-        pe = pe.unsqueeze(0).to(first_input.device)
+        pe = pe.unsqueeze(0)
         self.register_buffer("pe", pe)
 
-    def forward(self, x, init_params=False):
+    def forward(self, x):
         """
         Arguements
         ----------
         x:
             input feature (batch, time, fea)
         """
-        if init_params:
-            self.init_params(x)
         return self.pe[:, : x.size(1)].clone().detach()
 
 
@@ -166,7 +162,7 @@ class TransformerEncoderLayer(nn.Module):
     >>> import torch
     >>> x = torch.rand((8, 60, 512))
     >>> net = TransformerEncoderLayer(512, 8)
-    >>> output = net(x, init_params=True)
+    >>> output = net(x)
     >>> print(output[0].shape)
     torch.Size([8, 60, 512])
     """
@@ -193,9 +189,7 @@ class TransformerEncoderLayer(nn.Module):
         self.dropout1 = torch.nn.Dropout(dropout)
         self.dropout2 = torch.nn.Dropout(dropout)
 
-    def forward(
-        self, src, src_mask=None, src_key_padding_mask=None, init_params=False
-    ):
+    def forward(self, src, src_mask=None, src_key_padding_mask=None):
         """
         Arguements
         ----------
@@ -212,18 +206,17 @@ class TransformerEncoderLayer(nn.Module):
             src,
             attn_mask=src_mask,
             key_padding_mask=src_key_padding_mask,
-            init_params=init_params,
         )
 
         # add & norm
         src = src + self.dropout1(output)
-        src = self.norm1(src, init_params)
+        src = self.norm1(src)
 
-        output = self.pos_ffn(src, init_params)
+        output = self.pos_ffn(src)
 
         # add & norm
         output = src + self.dropout2(output)
-        output = self.norm2(output, init_params)
+        output = self.norm2(output)
 
         return output, self_attn
 
@@ -251,8 +244,8 @@ class TransformerEncoder(nn.Module):
     >>> import torch
     >>> x = torch.rand((8, 60, 512))
     >>> net = TransformerEncoder(1, 8, 512, 512)
-    >>> output = net(x, init_params=True)
-    >>> print(output.shape)
+    >>> output = net(x)
+    >>> output.shape
     torch.Size([8, 60, 512])
     """
 
@@ -284,9 +277,7 @@ class TransformerEncoder(nn.Module):
         self.norm = sb.nnet.LayerNorm(eps=1e-6)
         self.return_attention = return_attention
 
-    def forward(
-        self, src, src_mask=None, src_key_padding_mask=None, init_params=False
-    ):
+    def forward(self, src, src_mask=None, src_key_padding_mask=None):
         """
         Arguements
         ----------
@@ -304,10 +295,9 @@ class TransformerEncoder(nn.Module):
                 output,
                 src_mask=src_mask,
                 src_key_padding_mask=src_key_padding_mask,
-                init_params=init_params,
             )
             attention_lst.append(attention)
-        output = self.norm(output, init_params)
+        output = self.norm(output)
 
         if self.return_attention:
             return output, attention_lst
@@ -335,7 +325,7 @@ class TransformerDecoderLayer(nn.Module):
     >>> src = torch.rand((8, 60, 512))
     >>> tgt = torch.rand((8, 60, 512))
     >>> net = TransformerDecoderLayer(1024, 8)
-    >>> output = net(src, tgt, init_params=True)
+    >>> output = net(src, tgt)
     """
 
     def __init__(
@@ -374,7 +364,6 @@ class TransformerDecoderLayer(nn.Module):
         memory_mask=None,
         tgt_key_padding_mask=None,
         memory_key_padding_mask=None,
-        init_params=False,
     ):
         """
         Arguements
@@ -399,12 +388,11 @@ class TransformerDecoderLayer(nn.Module):
             value=tgt,
             attn_mask=tgt_mask,
             key_padding_mask=tgt_key_padding_mask,
-            init_params=init_params,
         )
 
         # add & norm
         tgt = tgt + self.dropout1(tgt2)
-        tgt = self.norm1(tgt, init_params)
+        tgt = self.norm1(tgt)
 
         # multi-head attention over the target sequence and encoder states
         tgt2, multihead_attention = self.mutihead_attn(
@@ -413,18 +401,17 @@ class TransformerDecoderLayer(nn.Module):
             value=memory,
             attn_mask=memory_mask,
             key_padding_mask=memory_key_padding_mask,
-            init_params=init_params,
         )
 
         # add & norm
         tgt = tgt + self.dropout2(tgt2)
-        tgt = self.norm2(tgt, init_params)
+        tgt = self.norm2(tgt)
 
-        tgt = self.pos_ffn(tgt, init_params)
+        tgt = self.pos_ffn(tgt)
 
         # add & norm
         tgt = tgt + self.dropout2(tgt2)
-        tgt = self.norm2(tgt, init_params)
+        tgt = self.norm2(tgt)
 
         return tgt, self_attn, multihead_attention
 
@@ -450,7 +437,7 @@ class TransformerDecoder(nn.Module):
     >>> src = torch.rand((8, 60, 512))
     >>> tgt = torch.rand((8, 60, 512))
     >>> net = TransformerDecoder(1, 8, 1024)
-    >>> output = net(src, tgt, init_params=True)
+    >>> output = net(src, tgt)
     """
 
     def __init__(
@@ -489,7 +476,6 @@ class TransformerDecoder(nn.Module):
         memory_mask=None,
         tgt_key_padding_mask=None,
         memory_key_padding_mask=None,
-        init_params=False,
     ):
         """
         Arguements
@@ -517,11 +503,10 @@ class TransformerDecoder(nn.Module):
                 memory_mask=memory_mask,
                 tgt_key_padding_mask=tgt_key_padding_mask,
                 memory_key_padding_mask=memory_key_padding_mask,
-                init_params=init_params,
             )
             self_attns.append(self_attn)
             multihead_attns.append(multihead_attn)
-        output = self.norm(output, init_params)
+        output = self.norm(output)
 
         if self.return_attention:
             return output, self_attns, multihead_attns

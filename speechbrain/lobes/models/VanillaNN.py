@@ -21,25 +21,22 @@ class VanillaNN(sb.nnet.Sequential):
 
     Example
     -------
-    >>> model = VanillaNN()
     >>> inputs = torch.rand([10, 120, 60])
-    >>> outputs = model(inputs, init_params = True)
+    >>> model = VanillaNN(input_shape=inputs.shape)
+    >>> outputs = model(inputs)
     >>> outputs.shape
     torch.Size([10, 120, 512])
     """
 
     def __init__(
-        self, activation=torch.nn.LeakyReLU, dnn_blocks=2, dnn_neurons=512,
+        self,
+        input_shape,
+        activation=torch.nn.LeakyReLU,
+        dnn_blocks=2,
+        dnn_neurons=512,
     ):
-        blocks = []
+        super().__init__(input_shape)
 
         for block_index in range(dnn_blocks):
-            blocks.extend(
-                [
-                    sb.nnet.Linear(
-                        n_neurons=dnn_neurons, bias=True, combine_dims=False,
-                    ),
-                    activation(),
-                ]
-            )
-        super().__init__(*blocks)
+            self.append(sb.nnet.Linear, n_neurons=dnn_neurons, bias=True)
+            self.append(activation())
