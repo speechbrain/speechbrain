@@ -20,9 +20,9 @@ csv_test: !ref <save_folder>/test.csv
 
 # Training hyperparameters
 number_of_epochs: 25
-batch_size: 256
+batch_size: 128
 lr: 0.0002500
-lr_final: 0.0001875
+lr_final: 0.00002500
 device: 'cuda:0'
 freeze_embeddings: False
 
