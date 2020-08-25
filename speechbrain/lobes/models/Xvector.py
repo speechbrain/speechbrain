@@ -49,38 +49,24 @@ class Xvector(sb.nnet.Sequential):
         tdnn_dilations=[1, 2, 3, 1, 1],
         lin_neurons=512,
     ):
-
-        blocks = []
+        super().__init__(input_shape)
 
         # TDNN layers
         for block_index in range(tdnn_blocks):
-            blocks.extend(
-                [
-                    lambda input_shape: sb.nnet.Conv1d(
-                        input_shape=input_shape,
-                        out_channels=tdnn_channels[block_index],
-                        kernel_size=tdnn_kernel_sizes[block_index],
-                        dilation=tdnn_dilations[block_index],
-                    ),
-                    activation(),
-                    sb.nnet.BatchNorm1d,
-                ]
+            self.append(
+                sb.nnet.Conv1d,
+                out_channels=tdnn_channels[block_index],
+                kernel_size=tdnn_kernel_sizes[block_index],
+                dilation=tdnn_dilations[block_index],
             )
+            self.append(activation())
+            self.append(sb.nnet.BatchNorm1d)
 
         # Statistical pooling
-        blocks.append(sb.nnet.StatisticsPooling())
+        self.append(sb.nnet.StatisticsPooling())
 
         # Final linear transformation
-        blocks.append(
-            lambda input_shape: sb.nnet.Linear(
-                input_shape=input_shape,
-                n_neurons=lin_neurons,
-                bias=True,
-                combine_dims=False,
-            )
-        )
-
-        super().__init__(input_shape, *blocks)
+        self.append(sb.nnet.Linear, n_neurons=lin_neurons, bias=True)
 
 
 class Classifier(sb.nnet.Sequential):
@@ -116,32 +102,16 @@ class Classifier(sb.nnet.Sequential):
         lin_neurons=512,
         out_neurons=1211,
     ):
-        blocks = []
+        super().__init__(input_shape)
 
-        blocks.extend([activation(), sb.nnet.BatchNorm1d])
+        self.append(activation())
+        self.append(sb.nnet.BatchNorm1d)
 
         for block_index in range(lin_blocks):
-            blocks.extend(
-                [
-                    lambda input_shape: sb.nnet.Linear(
-                        n_neurons=lin_neurons,
-                        input_shape=input_shape,
-                        bias=True,
-                        combine_dims=False,
-                    ),
-                    activation(),
-                    sb.nnet.BatchNorm1d,
-                ]
-            )
+            self.append(sb.nnet.Linear, n_neurons=lin_neurons, bias=True)
+            self.append(activation())
+            self.append(sb.nnet.BatchNorm1d)
 
         # Final Softmax classifier
-        blocks.extend(
-            [
-                sb.nnet.Linear(
-                    input_size=lin_neurons, n_neurons=out_neurons, bias=True
-                ),
-                sb.nnet.Softmax(apply_log=True),
-            ]
-        )
-
-        super().__init__(input_shape, *blocks)
+        self.append(sb.nnet.Linear, n_neurons=out_neurons, bias=True)
+        self.append(sb.nnet.Softmax(apply_log=True))

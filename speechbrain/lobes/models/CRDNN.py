@@ -93,7 +93,8 @@ class CRDNN(Sequential):
         dnn_blocks=2,
         dnn_neurons=512,
     ):
-        blocks = []
+        super().__init__(input_shape)
+
         for block_index in range(cnn_blocks):
             if not using_2d_pooling:
                 pooling = Pooling1d(
@@ -111,60 +112,42 @@ class CRDNN(Sequential):
                     pool_axis=(1, 2),
                 )
 
-            blocks.extend(
-                [
-                    lambda input_shape: Conv2d(
-                        input_shape=input_shape,
-                        out_channels=cnn_channels[block_index],
-                        kernel_size=cnn_kernelsize,
-                    ),
-                    lambda input_shape: LayerNorm(input_shape),
-                    activation(),
-                    lambda input_shape: Conv2d(
-                        input_shape=input_shape,
-                        out_channels=cnn_channels[block_index],
-                        kernel_size=cnn_kernelsize,
-                    ),
-                    lambda input_shape: LayerNorm(input_shape),
-                    activation(),
-                    # Inter-layer Pooling
-                    pooling,
-                    Dropout2d(drop_rate=dropout),
-                ]
+            self.append(
+                Conv2d,
+                out_channels=cnn_channels[block_index],
+                kernel_size=cnn_kernelsize,
             )
+            self.append(LayerNorm)
+            self.append(activation())
+            self.append(
+                Conv2d,
+                out_channels=cnn_channels[block_index],
+                kernel_size=cnn_kernelsize,
+            )
+            self.append(LayerNorm)
+            self.append(activation())
+            self.append(pooling)
+            self.append(Dropout2d(drop_rate=dropout))
 
         if time_pooling:
-            blocks.append(
+            self.append(
                 Pooling1d(
                     pool_type="max", kernel_size=time_pooling_size, pool_axis=1,
                 )
             )
 
         if rnn_layers > 0:
-            blocks.append(
-                lambda input_shape: rnn_class(
-                    input_shape=input_shape,
-                    hidden_size=rnn_neurons,
-                    num_layers=rnn_layers,
-                    dropout=dropout,
-                    bidirectional=rnn_bidirectional,
-                    re_init=rnn_re_init,
-                )
+            self.append(
+                rnn_class,
+                hidden_size=rnn_neurons,
+                num_layers=rnn_layers,
+                dropout=dropout,
+                bidirectional=rnn_bidirectional,
+                re_init=rnn_re_init,
             )
 
         for block_index in range(dnn_blocks):
-            blocks.extend(
-                [
-                    lambda input_shape: Linear(
-                        input_shape=input_shape,
-                        n_neurons=dnn_neurons,
-                        bias=True,
-                        combine_dims=False,
-                    ),
-                    lambda input_shape: BatchNorm1d(input_shape),
-                    activation(),
-                    torch.nn.Dropout(p=dropout),
-                ]
-            )
-
-        super().__init__(input_shape, *blocks)
+            self.append(Linear, n_neurons=dnn_neurons, bias=True)
+            self.append(BatchNorm1d)
+            self.append(activation())
+            self.append(torch.nn.Dropout(p=dropout))

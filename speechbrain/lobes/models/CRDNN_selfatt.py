@@ -71,6 +71,7 @@ class CRDNN(sb.nnet.Sequential):
 
     def __init__(
         self,
+        input_size,
         activation=torch.nn.LeakyReLU,
         dropout=0.15,
         cnn_blocks=2,
@@ -95,8 +96,7 @@ class CRDNN(sb.nnet.Sequential):
         dnn_blocks=2,
         dnn_neurons=512,
     ):
-
-        blocks = []
+        super().__init__(input_size)
 
         for block_index in range(cnn_blocks):
             if not using_2d_pooling:
@@ -115,83 +115,61 @@ class CRDNN(sb.nnet.Sequential):
                     pool_axis=(1, 2),
                 )
 
-            blocks.extend(
-                [
-                    sb.nnet.Conv2d(
-                        out_channels=cnn_channels[block_index],
-                        kernel_size=cnn_kernelsize,
-                    ),
-                    sb.nnet.LayerNorm(),
-                    activation(),
-                    sb.nnet.Conv2d(
-                        out_channels=cnn_channels[block_index],
-                        kernel_size=cnn_kernelsize,
-                    ),
-                    sb.nnet.LayerNorm(),
-                    activation(),
-                    # Inter-layer Pooling
-                    pooling,
-                    sb.nnet.Dropout2d(drop_rate=dropout),
-                ]
+            self.append(
+                sb.nnet.Conv2d,
+                out_channels=cnn_channels[block_index],
+                kernel_size=cnn_kernelsize,
             )
+            self.append(sb.nnet.LayerNorm)
+            self.append(activation())
+            self.append(
+                sb.nnet.Conv2d,
+                out_channels=cnn_channels[block_index],
+                kernel_size=cnn_kernelsize,
+            )
+            self.append(sb.nnet.LayerNorm)
+            self.append(activation())
+            self.append(pooling)
+            self.append(sb.nnet.Dropout2d(drop_rate=dropout)),
 
         if time_pooling:
-            blocks.extend(
-                [
-                    sb.nnet.Pooling1d(
-                        pool_type="max",
-                        kernel_size=time_pooling_size,
-                        pool_axis=1,
-                    ),
-                ]
+            self.append(
+                sb.nnet.Pooling1d(
+                    pool_type="max", kernel_size=time_pooling_size, pool_axis=1,
+                )
             )
 
         if self_attention:
-            blocks.append(
+            self.append(
                 TransformerEncoder(
                     num_layers=self_attention_layers,
                     nhead=self_attention_num_heads,
                     d_ffn=self_attention_hidden_dim,
-                ),
+                )
             )
 
         if rnn_layers > 0:
-            blocks.extend(
-                [
-                    rnn_class(
-                        hidden_size=rnn_neurons,
-                        num_layers=rnn_layers,
-                        dropout=dropout,
-                        bidirectional=rnn_bidirectional,
-                        re_init=rnn_re_init,
-                    ),
-                ]
+            self.append(
+                rnn_class,
+                hidden_size=rnn_neurons,
+                num_layers=rnn_layers,
+                dropout=dropout,
+                bidirectional=rnn_bidirectional,
+                re_init=rnn_re_init,
             )
 
         for block_index in range(dnn_blocks):
             if dnn_postionalwise:
-                blocks.extend(
-                    [
-                        sb.nnet.PositionalwiseFeedForward(
-                            hidden_size=dnn_neurons, dropout=dropout
-                        ),
-                        sb.nnet.LayerNorm(),
-                        activation(),
-                        torch.nn.Dropout(p=dropout),
-                    ]
+                self.append(
+                    sb.nnet.PositionalwiseFeedForward(
+                        hidden_size=dnn_neurons, dropout=dropout
+                    )
                 )
+                self.append(sb.nnet.LayerNorm)
+                self.append(activation())
+                self.append(torch.nn.Dropout(p=dropout))
             else:
-                blocks.extend(
-                    [
-                        sb.nnet.Linear(
-                            n_neurons=dnn_neurons,
-                            bias=True,
-                            combine_dims=False,
-                        ),
-                        sb.nnet.BatchNorm1d(),
-                        torch.nn.LeakyReLU(),
-                        torch.nn.Dropout(p=dropout),
-                    ]
-                )
-
-        super().__init__(*blocks)
+                self.append(sb.nnet.Linear, n_neurons=dnn_neurons, bias=True)
+                self.append(sb.nnet.BatchNorm1d),
+                self.append(activation()),
+                self.append(torch.nn.Dropout(p=dropout))

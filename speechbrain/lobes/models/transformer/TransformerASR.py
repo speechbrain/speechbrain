@@ -42,7 +42,7 @@ class TransformerASR(TransformerInterface):
     >>> src = torch.rand([8, 120, 60])
     >>> tgt = torch.randint(0, 720, [8, 120])
     >>> net = TransformerASR(720, 512, 8, 1, 1, 1024, activation=torch.nn.GELU)
-    >>> enc_out, dec_out = net.forward(src, tgt, init_params=True)
+    >>> enc_out, dec_out = net.forward(src, tgt)
     >>> print(enc_out.shape)
     torch.Size([8, 120, 512])
     >>> print(dec_out.shape)
@@ -75,7 +75,7 @@ class TransformerASR(TransformerInterface):
         )
 
         self.custom_src_module = sb.nnet.Sequential(
-            sb.nnet.Linear(d_model, bias=True, combine_dims=False),
+            sb.nnet.Linear(d_model, bias=True),
             sb.nnet.LayerNorm(),
             torch.nn.Dropout(dropout),
         )
@@ -161,7 +161,7 @@ class NormalizedEmbedding(nn.Module):
     -------
     >>> emb = NormalizedEmbedding(512, 1000)
     >>> trg = torch.randint(0, 999, (8, 50))
-    >>> emb_fea = emb(trg, True)
+    >>> emb_fea = emb(trg)
     """
 
     def __init__(self, d_model, vocab):
@@ -171,5 +171,5 @@ class NormalizedEmbedding(nn.Module):
         )
         self.d_model = d_model
 
-    def forward(self, x, init_params=False):
-        return self.emb(x, init_params) * math.sqrt(self.d_model)
+    def forward(self, x):
+        return self.emb(x) * math.sqrt(self.d_model)

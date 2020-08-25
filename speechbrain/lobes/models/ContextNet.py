@@ -52,8 +52,8 @@ class ContextNet(Sequential):
 
     Example
     -------
-    >>> block = ContextNet()
     >>> inp = torch.randn([8, 120, 40])
+    >>> block = ContextNet(input_shape=inp.shape)
     >>> out = block(inp, True)
     >>> print(out.shape)
     torch.Size([8, 15, 640])
@@ -61,6 +61,7 @@ class ContextNet(Sequential):
 
     def __init__(
         self,
+        input_shape,
         out_channels=640,
         conv_channels=None,
         kernel_size=3,
@@ -76,44 +77,28 @@ class ContextNet(Sequential):
         norm=BatchNorm1d,
         residuals=None,
     ):
+        super().__init__(input_shape)
+
         if conv_channels is None:
             conv_channels = [*[256] * 10, *[512] * 11]
         if strides is None:
-            strides = [
-                1,
-                1,
-                2,
-                1,
-                1,
-                1,
-                2,
-                1,
-                1,
-                1,
-                1,
-                1,
-                1,
-                2,
-                1,
-                1,
-                1,
-                1,
-                1,
-                1,
-                1,
-            ]
+            strides = [1] * num_blocks
+            strides[2] = 2
+            strides[6] = 2
+            strides[13] = 2
         if residuals is None:
             residuals = [True] * num_blocks
 
-        blocks = [
-            DepthwiseSeparableConv1d(conv_channels[0], kernel_size,),
-            norm(),
-            activation(beta) if isinstance(activation, Swish) else activation(),
-        ]
+        self.append(DepthwiseSeparableConv1d, conv_channels[0], kernel_size)
+        self.append(norm)
+        if isinstance(activation, Swish):
+            self.append(activation(beta))
+        else:
+            self.append(activation())
 
         for i in range(num_blocks):
             channels = int(conv_channels[i] * alpha)
-            blocks.append(
+            self.append(
                 ContextNetBlock(
                     out_channels=channels,
                     kernel_size=kernel_size,
@@ -129,16 +114,12 @@ class ContextNet(Sequential):
                 )
             )
 
-        blocks.extend(
-            [
-                DepthwiseSeparableConv1d(out_channels, kernel_size,),
-                norm(),
-                activation(beta)
-                if isinstance(activation, Swish)
-                else activation(),
-            ]
-        )
-        super().__init__(*blocks)
+        self.append(DepthwiseSeparableConv1d, out_channels, kernel_size)
+        self.append(norm)
+        if isinstance(activation, Swish):
+            self.append(activation(beta))
+        else:
+            self.append(activation())
 
 
 class SEmodule(torch.nn.Module):
@@ -163,17 +144,20 @@ class SEmodule(torch.nn.Module):
     """
 
     def __init__(
-        self, inner_dim, activation=torch.nn.Sigmoid, norm=BatchNorm1d,
+        self,
+        input_shape,
+        inner_dim,
+        activation=torch.nn.Sigmoid,
+        norm=BatchNorm1d,
     ):
         super().__init__()
         self.inner_dim = inner_dim
         self.norm = norm
         self.activation = activation
 
-    def init_params(self, first_input):
-        bz, t, chn = first_input.shape
+        bz, t, chn = input_shape
         self.conv = Sequential(
-            DepthwiseSeparableConv1d(chn, 1, 1), self.norm(), self.activation()
+            DepthwiseSeparableConv1d(chn, 1, 1), self.norm, self.activation()
         )
         self.avg_pool = AdaptivePool(1)
         self.bottleneck = Sequential(
@@ -183,15 +167,13 @@ class SEmodule(torch.nn.Module):
             self.activation(),
         )
 
-    def forward(self, x, init_params=False):
-        if init_params:
-            self.init_params(x)
+    def forward(self, x):
 
         bz, t, chn = x.shape
 
-        x = self.conv(x, init_params)
+        x = self.conv(x)
         avg = self.avg_pool(x)
-        avg = self.bottleneck(avg, init_params)
+        avg = self.bottleneck(avg)
         context = avg.repeat(1, t, 1)
         return x * context
 
