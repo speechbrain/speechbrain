@@ -82,10 +82,10 @@ class Covariance(torch.nn.Module):
         have the following format: (batch, time_step, n_fft, 2, n_mics + n_pairs).
 
         The order on the last dimension corresponds to the triu_indices for a
-        square matrix. For instance, if we had 4 channels, we would have gotten the
+        square matrix. For instance, if we have 4 channels, we get the
         following order: (0, 0), (0, 1), (0, 2), (0, 3), (1, 1), (1, 2), (1, 3),
-        (2, 2), (2, 3) and (3, 3). Therefore, XXs[..., 0] would have corresponded
-        to channels (0, 0) and XXs[..., 1] would have corresponded to channels (0, 1).
+        (2, 2), (2, 3) and (3, 3). Therefore, XXs[..., 0] corresponds
+        to channels (0, 0) and XXs[..., 1] corresponds to channels (0, 1).
 
         Arguments:
         ----------
@@ -298,10 +298,10 @@ class GccPhat(torch.nn.Module):
         (batch, time_steps, n_mics + n_pairs)
 
         The order on the last dimension corresponds to the triu_indices for a
-        square matrix. For instance, if we had 4 channels, we would have gotten the
-        following order: (0, 0), (0, 1), (0, 2), (0, 3), (1, 1), (1, 2), (1, 3),
-        (2, 2), (2, 3) and (3, 3). Therefore, tdoas[..., 0] would have corresponded to
-        channels (0, 0) and tdoas[..., 1] would have corresponded to channels (0, 1).
+        square matrix. For instance, if we have 4 channels, we get the following
+        order: (0, 0), (0, 1), (0, 2), (0, 3), (1, 1), (1, 2), (1, 3), (2, 2), (2, 3)
+        and (3, 3). Therefore, tdoas[..., 0] corresponds to channels (0, 0) and tdoas[..., 1]
+        corresponds to channels (0, 1).
 
         Arguments
         ---------
