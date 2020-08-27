@@ -78,8 +78,14 @@ class Covariance(torch.nn.Module):
         self.average = average
 
     def forward(self, Xs):
-        """ Computes the covariance matrices of the signals. The result will
-        have the following format: (batch, time_step, n_fft, n_mics + n_pairs)
+        """ Computes the covariance matrices (XXs) of the signals. The result will
+        have the following format: (batch, time_step, n_fft, 2, n_mics + n_pairs).
+
+        The order on the last dimension corresponds to the triu_indices for a
+        square matrix. For instance, if we had 4 channels, we would get the following
+        order: (0, 0), (0, 1), (0, 2), (0, 3), (1, 1), (1, 2), (1, 3), (2, 2), (2, 3)
+        and (3, 3). Therefore, XXs[..., 0] would corresponds to channels (0, 0) and
+        XXs[..., 1] would corresponds to channels (0, 1).
 
         Arguments:
         ----------
@@ -290,6 +296,12 @@ class GccPhat(torch.nn.Module):
         microphones (including each microphone compared to itself, which
         gives a TDOA of 0 in this case). The result has the format:
         (batch, time_steps, n_mics + n_pairs)
+
+        The order on the last dimension corresponds to the triu_indices for a
+        square matrix. For instance, if we had 4 channels, we would get the
+        following order: (0, 0), (0, 1), (0, 2), (0, 3), (1, 1), (1, 2), (1, 3),
+        (2, 2), (2, 3) and (3, 3). Therefore, tdoas[..., 0] would corresponds to
+        channels (0, 0) and tdoas[..., 1] would corresponds to channels (0, 1).
 
         Arguments
         ---------
