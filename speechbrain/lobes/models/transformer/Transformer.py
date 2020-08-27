@@ -11,35 +11,42 @@ import speechbrain as sb
 
 
 class TransformerInterface(nn.Module):
-    """This is an interface for transformer model. Users can modify the attributes and
-    define the forward function as needed according to their own tasks.
+    """This is an interface for transformer model.
 
-    The architecture is based on the paper "Attention Is All You Need": https://arxiv.org/pdf/1706.03762.pdf
+    Users can modify the attributes and define the forward function as
+    needed according to their own tasks.
+
+    The architecture is based on the paper "Attention Is All You Need":
+    https://arxiv.org/pdf/1706.03762.pdf
 
     Arguements
     ----------
-    d_model: int
+    input_size : int
+        Expected size of input features.
+    d_model : int
         the number of expected features in the encoder/decoder inputs (default=512).
-    nhead: int
+    nhead : int
         the number of heads in the multiheadattention models (default=8).
-    num_encoder_layers: int
+    num_encoder_layers : int
         the number of sub-encoder-layers in the encoder (default=6).
-    num_decoder_layers: int
+    num_decoder_layers : int
         the number of sub-decoder-layers in the decoder (default=6).
-    dim_ffn: int
+    dim_ffn : int
         the dimension of the feedforward network model (default=2048).
-    dropout: int
+    dropout : int
         the dropout value (default=0.1).
-    activation: torch class
-        the activation function of encoder/decoder intermediate layer, relu or gelu (default=relu)
-    custom_src_module: torch class
+    activation : torch class
+        the activation function of encoder/decoder intermediate layer,
+        e.g. relu or gelu (default=relu)
+    custom_src_module : torch class
         module that process the src features to expected feature dim
-    custom_tgt_module: torch class
+    custom_tgt_module : torch class
         module that process the src features to expected feature dim
     """
 
     def __init__(
         self,
+        input_size,
         d_model=512,
         nhead=8,
         num_encoder_layers=6,
@@ -59,7 +66,7 @@ class TransformerInterface(nn.Module):
         ), "number of encoder layers and number of decoder layers cannot both be 0!"
 
         if positional_encoding:
-            self.positional_encoding = PositionalEncoding()
+            self.positional_encoding = PositionalEncoding(input_size)
 
         # initialize the encoder
         if num_encoder_layers > 0:
@@ -70,6 +77,7 @@ class TransformerInterface(nn.Module):
                 nhead=nhead,
                 num_layers=num_encoder_layers,
                 d_ffn=d_ffn,
+                embed_dim=input_size,
                 dropout=dropout,
                 activation=activation,
                 return_attention=return_attention,
@@ -84,6 +92,7 @@ class TransformerInterface(nn.Module):
                 num_layers=num_decoder_layers,
                 nhead=nhead,
                 d_ffn=d_ffn,
+                embed_dim=input_size,
                 dropout=dropout,
                 activation=activation,
                 return_attention=return_attention,
@@ -109,21 +118,20 @@ class PositionalEncoding(nn.Module):
     Example
     -------
     >>> a = torch.rand((8, 120, 512))
-    >>> enc = PositionalEncoding(input_shape=a.shape)
+    >>> enc = PositionalEncoding(input_size=a.shape[-1])
     >>> b = enc(a)
-    >>> print(b.shape)
+    >>> b.shape
     torch.Size([1, 120, 512])
     """
 
-    def __init__(self, input_shape, max_len=2500):
+    def __init__(self, input_size, max_len=2500):
         super().__init__()
         self.max_len = max_len
-        model_dim = input_shape[-1]
-        pe = torch.zeros(self.max_len, model_dim, requires_grad=False)
+        pe = torch.zeros(self.max_len, input_size, requires_grad=False)
         positions = torch.arange(0, self.max_len).unsqueeze(1).float()
         denominator = torch.exp(
-            torch.arange(0, model_dim, 2).float()
-            * -(math.log(10000.0) / model_dim)
+            torch.arange(0, input_size, 2).float()
+            * -(math.log(10000.0) / input_size)
         )
 
         pe[:, 0::2] = torch.sin(positions * denominator)
@@ -135,7 +143,7 @@ class PositionalEncoding(nn.Module):
         """
         Arguements
         ----------
-        x:
+        x : Tensor
             input feature (batch, time, fea)
         """
         return self.pe[:, : x.size(1)].clone().detach()
@@ -161,9 +169,9 @@ class TransformerEncoderLayer(nn.Module):
     -------
     >>> import torch
     >>> x = torch.rand((8, 60, 512))
-    >>> net = TransformerEncoderLayer(512, 8)
+    >>> net = TransformerEncoderLayer(512, 8, embed_dim=512)
     >>> output = net(x)
-    >>> print(output[0].shape)
+    >>> output[0].shape
     torch.Size([8, 60, 512])
     """
 
@@ -171,6 +179,7 @@ class TransformerEncoderLayer(nn.Module):
         self,
         d_ffn,
         nhead,
+        embed_dim,
         kdim=None,
         vdim=None,
         dropout=0.1,
@@ -178,14 +187,21 @@ class TransformerEncoderLayer(nn.Module):
     ):
         super().__init__()
         self.self_att = sb.nnet.MultiheadAttention(
-            nhead=nhead, dropout=dropout, kdim=kdim, vdim=vdim
+            nhead=nhead,
+            embed_dim=embed_dim,
+            dropout=dropout,
+            kdim=kdim,
+            vdim=vdim,
         )
         self.pos_ffn = sb.nnet.PositionalwiseFeedForward(
-            d_ffn=d_ffn, dropout=dropout, activation=activation
+            d_ffn=d_ffn,
+            input_size=embed_dim,
+            dropout=dropout,
+            activation=activation,
         )
 
-        self.norm1 = sb.nnet.LayerNorm(eps=1e-6)
-        self.norm2 = sb.nnet.LayerNorm(eps=1e-6)
+        self.norm1 = torch.nn.LayerNorm(embed_dim, eps=1e-6)
+        self.norm2 = torch.nn.LayerNorm(embed_dim, eps=1e-6)
         self.dropout1 = torch.nn.Dropout(dropout)
         self.dropout2 = torch.nn.Dropout(dropout)
 
@@ -237,13 +253,14 @@ class TransformerEncoder(nn.Module):
     dropout : float
         dropout for the encoder (Optional)
     input_module: torch class
-        the module to process the source input feature to expected feature dimension (Optional)
+        the module to process the source input feature to expected
+        feature dimension (Optional)
 
     Example
     -------
     >>> import torch
     >>> x = torch.rand((8, 60, 512))
-    >>> net = TransformerEncoder(1, 8, 512, 512)
+    >>> net = TransformerEncoder(1, 8, 512, embed_dim=512)
     >>> output = net(x)
     >>> output.shape
     torch.Size([8, 60, 512])
@@ -254,6 +271,7 @@ class TransformerEncoder(nn.Module):
         num_layers,
         nhead,
         d_ffn,
+        embed_dim,
         kdim=None,
         vdim=None,
         dropout=0.1,
@@ -266,6 +284,7 @@ class TransformerEncoder(nn.Module):
                 TransformerEncoderLayer(
                     d_ffn=d_ffn,
                     nhead=nhead,
+                    embed_dim=embed_dim,
                     kdim=kdim,
                     vdim=vdim,
                     dropout=dropout,
@@ -274,7 +293,7 @@ class TransformerEncoder(nn.Module):
                 for _ in range(num_layers)
             ]
         )
-        self.norm = sb.nnet.LayerNorm(eps=1e-6)
+        self.norm = torch.nn.LayerNorm(embed_dim, eps=1e-6)
         self.return_attention = return_attention
 
     def forward(self, src, src_mask=None, src_key_padding_mask=None):
@@ -313,6 +332,8 @@ class TransformerDecoderLayer(nn.Module):
         Hidden size of self-attention Feed Forward layer
     nhead : int
         number of attention heads
+    embed_dim : int
+        dimension of the model
     kdim : int
         dimension for key (optional)
     vdim : int
@@ -324,14 +345,17 @@ class TransformerDecoderLayer(nn.Module):
     -------
     >>> src = torch.rand((8, 60, 512))
     >>> tgt = torch.rand((8, 60, 512))
-    >>> net = TransformerDecoderLayer(1024, 8)
-    >>> output = net(src, tgt)
+    >>> net = TransformerDecoderLayer(1024, 8, embed_dim=512)
+    >>> output, self_attn, multihead_attn = net(src, tgt)
+    >>> output.shape
+    torch.Size([8, 60, 512])
     """
 
     def __init__(
         self,
         d_ffn,
         nhead,
+        embed_dim,
         kdim=None,
         vdim=None,
         dropout=0.1,
@@ -339,19 +363,30 @@ class TransformerDecoderLayer(nn.Module):
     ):
         super().__init__()
         self.self_attn = sb.nnet.MultiheadAttention(
-            nhead=nhead, kdim=kdim, vdim=vdim, dropout=dropout
+            nhead=nhead,
+            embed_dim=embed_dim,
+            kdim=kdim,
+            vdim=vdim,
+            dropout=dropout,
         )
         self.mutihead_attn = sb.nnet.MultiheadAttention(
-            nhead=nhead, kdim=kdim, vdim=vdim, dropout=dropout
+            nhead=nhead,
+            embed_dim=embed_dim,
+            kdim=kdim,
+            vdim=vdim,
+            dropout=dropout,
         )
         self.pos_ffn = sb.nnet.PositionalwiseFeedForward(
-            d_ffn=d_ffn, dropout=dropout, activation=activation
+            d_ffn=d_ffn,
+            input_size=embed_dim,
+            dropout=dropout,
+            activation=activation,
         )
 
         # normalization layers
-        self.norm1 = sb.nnet.LayerNorm(eps=1e-6)
-        self.norm2 = sb.nnet.LayerNorm(eps=1e-6)
-        self.norm3 = sb.nnet.LayerNorm(eps=1e-6)
+        self.norm1 = torch.nn.LayerNorm(embed_dim, eps=1e-6)
+        self.norm2 = torch.nn.LayerNorm(embed_dim, eps=1e-6)
+        self.norm3 = torch.nn.LayerNorm(embed_dim, eps=1e-6)
         self.dropout1 = torch.nn.Dropout(dropout)
         self.dropout2 = torch.nn.Dropout(dropout)
         self.dropout3 = torch.nn.Dropout(dropout)
@@ -425,6 +460,8 @@ class TransformerDecoder(nn.Module):
         Hidden size of self-attention Feed Forward layer
     nhead : int
         number of attention heads
+    embed_dim : int
+        dimension of the model
     kdim : int
         dimension for key (Optional)
     vdim : int
@@ -436,8 +473,10 @@ class TransformerDecoder(nn.Module):
     -------
     >>> src = torch.rand((8, 60, 512))
     >>> tgt = torch.rand((8, 60, 512))
-    >>> net = TransformerDecoder(1, 8, 1024)
+    >>> net = TransformerDecoder(1, 8, 1024, embed_dim=512)
     >>> output = net(src, tgt)
+    >>> output.shape
+    torch.Size([8, 60, 512])
     """
 
     def __init__(
@@ -445,6 +484,7 @@ class TransformerDecoder(nn.Module):
         num_layers,
         nhead,
         d_ffn,
+        embed_dim,
         kdim=None,
         vdim=None,
         dropout=0.1,
@@ -457,6 +497,7 @@ class TransformerDecoder(nn.Module):
                 TransformerDecoderLayer(
                     d_ffn=d_ffn,
                     nhead=nhead,
+                    embed_dim=embed_dim,
                     kdim=kdim,
                     vdim=vdim,
                     dropout=dropout,
@@ -465,7 +506,7 @@ class TransformerDecoder(nn.Module):
                 for _ in range(num_layers)
             ]
         )
-        self.norm = sb.nnet.LayerNorm(eps=1e-6)
+        self.norm = torch.nn.LayerNorm(embed_dim, eps=1e-6)
         self.return_attention = return_attention
 
     def forward(
@@ -526,8 +567,7 @@ def get_key_padding_mask(padded_input, pad_idx):
     Example
     -------
     >>> a = torch.LongTensor([[1,1,0], [2,3,0], [4,5,0]])
-    >>> km = get_key_padding_mask(a, pad_idx=0)
-    >>> print(km)
+    >>> get_key_padding_mask(a, pad_idx=0)
     tensor([[False, False,  True],
             [False, False,  True],
             [False, False,  True]])
@@ -538,7 +578,8 @@ def get_key_padding_mask(padded_input, pad_idx):
 
     key_padded_mask = padded_input.eq(pad_idx)
 
-    # if the input is more than 2d, mask the locations where they are silence across all channels
+    # if the input is more than 2d, mask the locations where they are silence
+    # across all channels
     if len(padded_input.shape) > 2:
         key_padded_mask = key_padded_mask.float().prod(dim=-1).bool()
         return key_padded_mask.detach()
@@ -556,8 +597,7 @@ def get_lookahead_mask(padded_input):
     Example
     -------
     >>> a = torch.LongTensor([[1,1,0], [2,3,0], [4,5,0]])
-    >>> sm = get_lookahead_mask(a)
-    >>> print(sm)
+    >>> get_lookahead_mask(a)
     tensor([[0., -inf, -inf],
             [0., 0., -inf],
             [0., 0., 0.]])
@@ -569,4 +609,4 @@ def get_lookahead_mask(padded_input):
         .masked_fill(mask == 0, float("-inf"))
         .masked_fill(mask == 1, float(0.0))
     )
-    return mask.detach().to(padded_input.device)
+    return mask.detach()

@@ -42,10 +42,7 @@ class Linear(torch.nn.Module):
         combine_dims=False,
     ):
         super().__init__()
-        self.n_neurons = n_neurons
-        self.bias = bias
         self.combine_dims = combine_dims
-        self.input_shape = input_shape
 
         if input_shape is None and input_size is None:
             raise ValueError("Expected one of input_shape or input_size")
@@ -56,7 +53,7 @@ class Linear(torch.nn.Module):
                 input_size = input_shape[2] * input_shape[3]
 
         # Weights are initialized following pytorch approach
-        self.w = nn.Linear(input_size, self.n_neurons, bias=self.bias)
+        self.w = nn.Linear(input_size, n_neurons, bias=bias)
 
     def forward(self, x):
         """Returns the linear transformation of input tensor.
