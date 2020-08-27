@@ -1,5 +1,7 @@
 """ Multi-microphone components
 
+This library contains functions for multi-microphone signal processing.
+
 Example
 -------
 >>> import soundfile as sf
@@ -38,23 +40,41 @@ import torch
 
 
 class Covariance(torch.nn.Module):
+    """ Computes the covariance matrices of the signals.
+
+    Arguments:
+    ----------
+    average : boolean
+        Informs the module if it should return an average
+        (computed on the time dimension) of the covariance
+        matrices. Default value is True.
+
+    Example
+    -------
+    >>> import soundfile as sf
+    >>> import torch
+    >>>
+    >>> from speechbrain.processing.features import STFT
+    >>> from speechbrain.processing.multi_mic import Covariance
+    >>>
+    >>> xs_speech, fs = sf.read(
+    ...    'samples/audio_samples/multi_mic/speech_-0.82918_0.55279_-0.082918.flac'
+    ... )
+    >>> xs_noise, _ = sf.read('samples/audio_samples/multi_mic/noise_diffuse.flac')
+    >>> xs = xs_speech + 0.05 * xs_noise
+    >>> xs = torch.tensor(xs).unsqueeze(0).float()
+    >>>
+    >>> stft = STFT(sample_rate=fs)
+    >>> cov = Covariance()
+    >>>
+    >>> Xs = stft(xs)
+    >>> XXs = cov(Xs)
+    >>> XXs.shape
+    torch.Size([1, 1001, 201, 2, 10])
+    """
+
     def __init__(self, average=True):
-        """ Initialize the covariance module.
-
-        Arguments:
-        ----------
-        average : boolean
-            Informs the module if it should return an average
-            (computed on the time dimension) of the covariance
-            matrices. Default value is True.
-
-        Example:
-        --------
-        See example at the beginning of this file.
-        """
-
         super().__init__()
-
         self.average = average
 
     def forward(self, Xs):
@@ -100,21 +120,44 @@ class Covariance(torch.nn.Module):
 
 
 class DelaySum(torch.nn.Module):
-    """ Delay and Sum Beamforming
+    """ Performs delay and sum beamforming using the TDOAs and
+        the first channel as a reference.
+
+        Example
+        -------
+        >>> import soundfile as sf
+        >>> import torch
+        >>>
+        >>> from speechbrain.processing.features import STFT, ISTFT
+        >>> from speechbrain.processing.multi_mic import Covariance
+        >>> from speechbrain.processing.multi_mic import GccPhat, DelaySum
+        >>>
+        >>> xs_speech, fs = sf.read(
+        ...    'samples/audio_samples/multi_mic/speech_-0.82918_0.55279_-0.082918.flac'
+        ... )
+        >>> xs_noise, _ = sf.read('samples/audio_samples/multi_mic/noise_diffuse.flac')
+        >>> xs = xs_speech + 0.05 * xs_noise
+        >>> xs = torch.tensor(xs).unsqueeze(0).float()
+        >>>
+        >>> stft = STFT(sample_rate=fs)
+        >>> cov = Covariance()
+        >>> gccphat = GccPhat()
+        >>> delaysum = DelaySum()
+        >>> istft = ISTFT(sample_rate=fs)
+        >>>
+        >>> Xs = stft(xs)
+        >>> XXs = cov(Xs)
+        >>> tdoas = gccphat(XXs)
+        >>> Ys = delaysum(Xs, tdoas)
+        >>> ys = istft(Ys)
+
     """
 
     def __init__(self):
-        """ Initialize the Delay and Sum module.
-
-        Example:
-        --------
-        See example at the beginning of this file.
-        """
-
         super().__init__()
 
     def forward(self, Xs, tdoas):
-        """ Perform delay and sum beamforming using the TDOAs and
+        """ Performs delay and sum beamforming using the TDOAs and
         the first channel as a reference. It returns the result
         in the frequency domain in the format
         (batch, time_step, n_fft, 2, 1)
@@ -197,28 +240,45 @@ class Gev(torch.nn.Module):
 
 class GccPhat(torch.nn.Module):
     """ Generalized Cross-Correlation with Phase Transform localization
+
+    Arguments
+    ---------
+    tdoa_max : int
+        Specifies a range to search for delays. For example, if
+        tdoa_max = 10, the method will restrict its search for delays
+        between -10 and 10 samples. This parameter is optional and its
+        default value is None. When tdoa_max is None, the method will
+        search for delays between -n_fft/2 and n_fft/2 (full range).
+
+    eps : float
+        A small value to avoid divisions by 0 with the phase transform. The
+        default value is 1e-20.
+
+    Example
+    -------
+    >>> import soundfile as sf
+    >>> import torch
+    >>>
+    >>> from speechbrain.processing.features import STFT
+    >>> from speechbrain.processing.multi_mic import Covariance
+    >>> from speechbrain.processing.multi_mic import GccPhat
+    >>>
+    >>> xs_speech, fs = sf.read(
+    ...    'samples/audio_samples/multi_mic/speech_-0.82918_0.55279_-0.082918.flac'
+    ... )
+    >>> xs_noise, _ = sf.read('samples/audio_samples/multi_mic/noise_diffuse.flac')
+    >>> xs = xs_speech + 0.05 * xs_noise
+    >>> xs = torch.tensor(xs).unsqueeze(0).float()
+    >>>
+    >>> stft = STFT(sample_rate=fs)
+    >>> cov = Covariance()
+    >>> gccphat = GccPhat()
+    >>> Xs = stft(xs)
+    >>> XXs = cov(Xs)
+    >>> tdoas = gccphat(XXs)
     """
 
     def __init__(self, tdoa_max=None, eps=1e-20):
-        """ Initialize the GCC-PHAT module.
-
-        Arguments
-        ---------
-        tdoa_max : int
-            Specifies a range to search for delays. For example, if
-            tdoa_max = 10, the method will restrict its search for delays
-            between -10 and 10 samples. This parameter is optional and its
-            default value is None. When tdoa_max is None, the method will
-            search for delays between -n_fft/2 and n_fft/2 (full range).
-
-        eps : float
-            A small value to avoid divisions by 0 with the phase transform. The
-            default value is 1e-20.
-
-        Example:
-        --------
-        See example at the beginning of this file.
-        """
         super().__init__()
 
         self.tdoa_max = tdoa_max
