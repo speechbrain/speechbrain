@@ -6,6 +6,7 @@ Authors
 """
 import torch
 import torch.nn.functional as F
+from collections import OrderedDict
 from speechbrain.nnet.linear import Linear
 from speechbrain.lobes.models.ResNet import Conv2dAuto
 from speechbrain.lobes.models.ResNet import conv_bn
@@ -15,12 +16,24 @@ from speechbrain.lobes.models.ResNet import ResNetBlock
 from speechbrain.lobes.models.ResNet import ResNetLayer
 
 
-class GatingBlock(torch.nn.Module):
-    """An implementation of gating mechanism is useful for speaker embedding
+def conv_relu_bn(in_channels, out_channels, *args, **kwargs):
+    return torch.nn.Sequential(
+        OrderedDict(
+            {
+                "conv": Conv2dAuto(in_channels, out_channels, *args, **kwargs),
+                "relu": torch.nn.ReLU(inplace=True),
+                "bn": torch.nn.BatchNorm2d(out_channels),
+            }
+        )
+    )
+
+
+class SEBlock(torch.nn.Module):
+    """An implementation of sqeeuze-and-excitation
     """
 
     def __init__(self, channel, reduction=8):
-        super(GatingBlock, self).__init__()
+        super(SEBlock, self).__init__()
         self.avg_pool = torch.nn.AdaptiveAvgPool2d(1)
         self.fc = torch.nn.Sequential(
             torch.nn.Linear(channel, channel // reduction),
@@ -37,8 +50,8 @@ class GatingBlock(torch.nn.Module):
 
 
 class SpeechResNetBasicBlock(ResNetBlock):
-    """An implementation of ResNet basic block with gatting mechanism, i.e.
-    Conv3x3-BN-ReLU-Conv3x3-BN-Gating.
+    """An implementation of ResNet basic block with sqeeuze-and-excitation, i.e.
+    Conv3x3-ReLU-BN-Conv3x3-BN-SE.
 
     Arguements
     ----------
@@ -46,8 +59,6 @@ class SpeechResNetBasicBlock(ResNetBlock):
         number of input channels of this model
     out_channels: int
         number of output channels of this model
-    activation : torch class
-        A class for constructing the activation layers.
 
     Example
     -------
@@ -76,27 +87,26 @@ class SpeechResNetBasicBlock(ResNetBlock):
     ):
         super().__init__(in_channels, out_channels, *args, **kwargs)
         self.blocks = torch.nn.Sequential(
-            conv_bn(
+            conv_relu_bn(
                 self.in_channels,
                 self.out_channels,
                 kernel_size=3,
                 bias=False,
                 stride=self.downsampling,
             ),
-            activation(),
             conv_bn(
                 self.out_channels,
                 self.expanded_channels,
                 kernel_size=3,
                 bias=False,
             ),
-            GatingBlock(self.expanded_channels),
+            SEBlock(self.expanded_channels),
         )
 
 
 class SpeechResNetBottleNeckBlock(ResNetBlock):
     """An implementation of ResNet basic block with expansion and gating, i.e.
-    Conv1x1-BN-ReLU-Conv3x3-BN-ReLU-Conv1x1(x4)-BN-Gating.
+    Conv1x1-ReLU-BN-Conv3x3-ReLU-BN-Conv1x1(x4)-BN-SE.
 
     Arguements
     ----------
@@ -130,23 +140,21 @@ class SpeechResNetBottleNeckBlock(ResNetBlock):
             in_channels, out_channels, expansion=4, *args, **kwargs
         )
         self.blocks = torch.nn.Sequential(
-            conv_bn(self.in_channels, self.out_channels, kernel_size=1),
-            activation(),
-            conv_bn(
+            conv_relu_bn(self.in_channels, self.out_channels, kernel_size=1),
+            conv_relu_bn(
                 self.out_channels,
                 self.out_channels,
                 kernel_size=3,
                 stride=self.downsampling,
             ),
-            activation(),
             conv_bn(self.out_channels, self.expanded_channels, kernel_size=1,),
-            GatingBlock(self.expanded_channels),
+            SEBlock(self.expanded_channels),
         )
 
 
 class SpeechPreActBasicBlock(PreActResNetBlock):
     """An implementation of pre-activation ResNet basic block with gating, i.e.
-    BN-ReLU-Conv3x3-BN-ReLU-Conv3x3-Gating.
+    BN-ReLU-Conv3x3-ReLU-BN-Conv3x3-SE.
 
     Arguements
     ----------
@@ -199,13 +207,13 @@ class SpeechPreActBasicBlock(PreActResNetBlock):
                 kernel_size=3,
                 bias=False,
             ),
-            GatingBlock(self.expanded_channels),
+            SEBlock(self.expanded_channels),
         )
 
 
 class SpeechPreActBottleNeckBlock(PreActResNetBlock):
     """An implementation of pre-activation ResNet basic block with expansion
-    and gating i.e.  BN-ReLU-Conv1x1-BN-ReLU-Conv3x3-BN-ReLU-Conv1x1(x4)-Gating.
+    and gating i.e.  BN-ReLU-Conv1x1-ReLU-BN-Conv3x3-ReLU-BN-Conv1x1(x4)-SE.
     Shortcut is a Conv1x1 from input channels to expanded channels
 
     Arguements
@@ -267,7 +275,7 @@ class SpeechPreActBottleNeckBlock(PreActResNetBlock):
                 activation=activation,
                 kernel_size=1,
             ),
-            GatingBlock(self.expanded_channels),
+            SEBlock(self.expanded_channels),
         )
 
 
