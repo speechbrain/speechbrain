@@ -23,7 +23,7 @@ class ASR_Brain(sb.Brain):
             wavs = self.augmentation(wavs, wav_lens)
 
         feats = self.compute_features(wavs)
-        # feats = self.normalize(feats, wav_lens)
+        feats = self.normalize(feats, wav_lens)
         out = self.model(feats)
         out = self.output(out)
         pout = self.log_softmax(out)
@@ -125,7 +125,7 @@ if __name__ == "__main__":
 
     # Load latest checkpoint to resume training
     asr_brain.checkpointer.recover_if_possible()
-    asr_brain.ddp_fit(params.epoch_counter, train_set, valid_set)
+    asr_brain.fit(params.epoch_counter, train_set, valid_set)
 
     # Load best checkpoint for evaluation
     asr_brain.checkpointer.recover_if_possible(min_key="PER")

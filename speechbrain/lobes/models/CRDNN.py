@@ -96,37 +96,41 @@ class CRDNN(Sequential):
         super().__init__(input_shape)
 
         for block_index in range(cnn_blocks):
+            self.append(
+                Conv2d,
+                out_channels=cnn_channels[block_index],
+                kernel_size=cnn_kernelsize,
+            )
+            self.append(LayerNorm)
+            self.append(activation())
+            self.append(
+                Conv2d,
+                out_channels=cnn_channels[block_index],
+                kernel_size=cnn_kernelsize,
+            )
+            self.append(LayerNorm)
+            self.append(activation())
+
             if not using_2d_pooling:
-                pooling = Pooling1d(
-                    pool_type="max",
-                    kernel_size=inter_layer_pooling_size[block_index],
-                    pool_axis=2,
+                self.append(
+                    Pooling1d(
+                        pool_type="max",
+                        kernel_size=inter_layer_pooling_size[block_index],
+                        pool_axis=2,
+                    )
                 )
             else:
-                pooling = Pooling2d(
-                    pool_type="max",
-                    kernel_size=(
-                        inter_layer_pooling_size[block_index],
-                        inter_layer_pooling_size[block_index],
-                    ),
-                    pool_axis=(1, 2),
+                self.append(
+                    Pooling2d(
+                        pool_type="max",
+                        kernel_size=(
+                            inter_layer_pooling_size[block_index],
+                            inter_layer_pooling_size[block_index],
+                        ),
+                        pool_axis=(1, 2),
+                    )
                 )
 
-            self.append(
-                Conv2d,
-                out_channels=cnn_channels[block_index],
-                kernel_size=cnn_kernelsize,
-            )
-            self.append(LayerNorm)
-            self.append(activation())
-            self.append(
-                Conv2d,
-                out_channels=cnn_channels[block_index],
-                kernel_size=cnn_kernelsize,
-            )
-            self.append(LayerNorm)
-            self.append(activation())
-            self.append(pooling)
             self.append(Dropout2d(drop_rate=dropout))
 
         if time_pooling:

@@ -21,6 +21,8 @@ class CRDNN(sb.nnet.Sequential):
 
     Arguments
     ---------
+    input_shape : tuple
+        Expected shape of the input.
     activation : torch class
         A class used for constructing the activation layers. For cnn and dnn.
     dropout : float
@@ -62,16 +64,16 @@ class CRDNN(sb.nnet.Sequential):
 
     Example
     -------
-    >>> model = CRDNN()
     >>> inputs = torch.rand([10, 120, 60])
-    >>> outputs = model(inputs, init_params=True)
+    >>> model = CRDNN(input_shape=inputs.shape)
+    >>> outputs = model(inputs)
     >>> outputs.shape
     torch.Size([10, 120, 512])
     """
 
     def __init__(
         self,
-        input_size,
+        input_shape,
         activation=torch.nn.LeakyReLU,
         dropout=0.15,
         cnn_blocks=2,
@@ -96,40 +98,44 @@ class CRDNN(sb.nnet.Sequential):
         dnn_blocks=2,
         dnn_neurons=512,
     ):
-        super().__init__(input_size)
+        super().__init__(input_shape)
 
         for block_index in range(cnn_blocks):
+            self.append(
+                sb.nnet.Conv2d,
+                out_channels=cnn_channels[block_index],
+                kernel_size=cnn_kernelsize,
+            )
+            self.append(sb.nnet.LayerNorm)
+            self.append(activation())
+            self.append(
+                sb.nnet.Conv2d,
+                out_channels=cnn_channels[block_index],
+                kernel_size=cnn_kernelsize,
+            )
+            self.append(sb.nnet.LayerNorm)
+            self.append(activation())
+
             if not using_2d_pooling:
-                pooling = sb.nnet.Pooling1d(
-                    pool_type="max",
-                    kernel_size=inter_layer_pooling_size,
-                    pool_axis=2,
+                self.append(
+                    sb.nnet.Pooling1d(
+                        pool_type="max",
+                        kernel_size=inter_layer_pooling_size,
+                        pool_axis=2,
+                    )
                 )
             else:
-                pooling = sb.nnet.Pooling2d(
-                    pool_type="max",
-                    kernel_size=(
-                        inter_layer_pooling_size,
-                        inter_layer_pooling_size,
-                    ),
-                    pool_axis=(1, 2),
+                self.append(
+                    sb.nnet.Pooling2d(
+                        pool_type="max",
+                        kernel_size=(
+                            inter_layer_pooling_size,
+                            inter_layer_pooling_size,
+                        ),
+                        pool_axis=(1, 2),
+                    )
                 )
 
-            self.append(
-                sb.nnet.Conv2d,
-                out_channels=cnn_channels[block_index],
-                kernel_size=cnn_kernelsize,
-            )
-            self.append(sb.nnet.LayerNorm)
-            self.append(activation())
-            self.append(
-                sb.nnet.Conv2d,
-                out_channels=cnn_channels[block_index],
-                kernel_size=cnn_kernelsize,
-            )
-            self.append(sb.nnet.LayerNorm)
-            self.append(activation())
-            self.append(pooling)
             self.append(sb.nnet.Dropout2d(drop_rate=dropout)),
 
         if time_pooling:

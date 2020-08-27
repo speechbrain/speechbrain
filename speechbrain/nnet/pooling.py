@@ -293,6 +293,7 @@ class StatisticsPooling(nn.Module):
 
 class AdaptivePool(nn.Module):
     """This class implements the adaptive average pooling
+
     Arguments
     ---------
     delations : output_size
@@ -303,7 +304,7 @@ class AdaptivePool(nn.Module):
     >>> pool = AdaptivePool(1)
     >>> inp = torch.randn([8, 120, 40])
     >>> output = pool(inp)
-    >>> print(output.shape)
+    >>> output.shape
     torch.Size([8, 1, 40])
     """
 

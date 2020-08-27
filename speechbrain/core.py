@@ -244,9 +244,11 @@ class Brain:
     ...     def compute_objectives(self, predictions, targets, stage):
     ...         return torch.nn.functional.l1_loss(predictions, targets)
     >>> model = torch.nn.Linear(in_features=10, out_features=10)
+    >>> def optim_constructor(params):
+    ...     return SGD(params, lr=0.01)
     >>> brain = SimpleBrain(
     ...     modules={'model': model},
-    ...     optimizers={'model': Optimizer(SGD, 0.01)},
+    ...     optimizers={'model': optim_constructor},
     ...     device='cpu',
     ... )
     >>> brain.fit(
@@ -520,6 +522,7 @@ class Brain:
             module = getattr(self, jit_module)
             module = torch.jit.script(module)
             module = module.to(self.device)
+            self.modules.append(module)
             setattr(self, jit_module, module)
 
     def evaluate(self, test_set, progressbar=True):

@@ -45,7 +45,6 @@ dnn_neurons: 512
 output_neurons: 40
 blank_index: !ref <output_neurons> - 1
 
-# Training
 optimizer: !new:speechbrain.nnet.Optimizer
     OptClass: !name:torch.optim.Adadelta
     lr: !ref <lr>
@@ -90,7 +89,7 @@ modules:
     normalize: !new:speechbrain.processing.InputNormalization
         norm_type: global
     model: !new:speechbrain.lobes.CRDNN
-        input_shape: [!ref <batch_size>, 10, 40]
+        input_shape: [!ref <batch_size>, 10, !ref <n_mels>]
         activation: !ref <activation>
         dropout: !ref <dropout>
         cnn_blocks: !ref <cnn_blocks>

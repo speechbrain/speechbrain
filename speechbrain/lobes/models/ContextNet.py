@@ -54,8 +54,8 @@ class ContextNet(Sequential):
     -------
     >>> inp = torch.randn([8, 120, 40])
     >>> block = ContextNet(input_shape=inp.shape)
-    >>> out = block(inp, True)
-    >>> print(out.shape)
+    >>> out = block(inp)
+    >>> out.shape
     torch.Size([8, 15, 640])
     """
 
@@ -99,19 +99,18 @@ class ContextNet(Sequential):
         for i in range(num_blocks):
             channels = int(conv_channels[i] * alpha)
             self.append(
-                ContextNetBlock(
-                    out_channels=channels,
-                    kernel_size=kernel_size,
-                    num_layers=num_layers,
-                    inner_dim=inner_dim,
-                    stride=strides[i],
-                    beta=beta,
-                    dropout=dropout,
-                    activation=activation,
-                    se_activation=se_activation,
-                    norm=norm,
-                    residual=residuals[i],
-                )
+                ContextNetBlock,
+                out_channels=channels,
+                kernel_size=kernel_size,
+                num_layers=num_layers,
+                inner_dim=inner_dim,
+                stride=strides[i],
+                beta=beta,
+                dropout=dropout,
+                activation=activation,
+                se_activation=se_activation,
+                norm=norm,
+                residual=residuals[i],
             )
 
         self.append(DepthwiseSeparableConv1d, out_channels, kernel_size)
@@ -136,10 +135,10 @@ class SEmodule(torch.nn.Module):
 
     Example
     -------
-    >>> net = SEmodule(64)
     >>> inp = torch.randn([8, 120, 40])
-    >>> out = net(inp, True)
-    >>> print(out.shape)
+    >>> net = SEmodule(input_shape=inp.shape, inner_dim=64)
+    >>> out = net(inp)
+    >>> out.shape
     torch.Size([8, 120, 40])
     """
 
@@ -156,14 +155,19 @@ class SEmodule(torch.nn.Module):
         self.activation = activation
 
         bz, t, chn = input_shape
-        self.conv = Sequential(
-            DepthwiseSeparableConv1d(chn, 1, 1), self.norm, self.activation()
+        self.conv = Sequential(input_shape)
+        self.conv.append(
+            DepthwiseSeparableConv1d, out_channels=chn, kernel_size=1, stride=1,
         )
+        self.conv.append(self.norm)
+        self.conv.append(self.activation())
+
         self.avg_pool = AdaptivePool(1)
         self.bottleneck = Sequential(
-            Linear(n_neurons=self.inner_dim),
+            input_shape,
+            Linear(input_size=input_shape[-1], n_neurons=self.inner_dim),
             self.activation(),
-            Linear(n_neurons=chn),
+            Linear(input_size=self.inner_dim, n_neurons=chn),
             self.activation(),
         )
 
@@ -208,10 +212,10 @@ class ContextNetBlock(torch.nn.Module):
 
     Example
     -------
-    >>> block = ContextNetBlock(256, 3, 5, 12, 2)
     >>> inp = torch.randn([8, 120, 40])
-    >>> out = block(inp, True)
-    >>> print(out.shape)
+    >>> block = ContextNetBlock(256, 3, 5, 12, input_shape=inp.shape, stride=2)
+    >>> out = block(inp)
+    >>> out.shape
     torch.Size([8, 60, 256])
     """
 
@@ -221,6 +225,7 @@ class ContextNetBlock(torch.nn.Module):
         kernel_size,
         num_layers,
         inner_dim,
+        input_shape,
         stride=1,
         beta=1,
         dropout=0.15,
@@ -232,38 +237,40 @@ class ContextNetBlock(torch.nn.Module):
         super().__init__()
         self.residual = residual
 
-        blocks = []
-
+        self.Convs = Sequential(input_shape)
         for i in range(num_layers):
-            blocks.extend(
-                [
-                    DepthwiseSeparableConv1d(
-                        out_channels,
-                        kernel_size,
-                        stride=stride if i == num_layers - 1 else 1,
-                    ),
-                    norm(),
-                ]
+            self.Convs.append(
+                DepthwiseSeparableConv1d,
+                out_channels,
+                kernel_size,
+                stride=stride if i == num_layers - 1 else 1,
             )
+            self.Convs.append(norm)
 
-        self.Convs = Sequential(*blocks)
-        self.SE = SEmodule(inner_dim, activation=se_activation, norm=norm)
+        self.SE = SEmodule(
+            input_shape=self.Convs.input_shape,
+            inner_dim=inner_dim,
+            activation=se_activation,
+            norm=norm,
+        )
         self.drop = Dropout(dropout)
         self.reduced_cov = None
         if residual:
-            self.reduced_cov = Sequential(
-                Conv1d(out_channels, kernel_size=3, stride=stride), norm()
+            self.reduced_cov = Sequential(input_shape)
+            self.reduced_cov.append(
+                Conv1d, out_channels, kernel_size=3, stride=stride,
             )
+            self.reduced_cov.append(norm)
 
         if isinstance(activation, Swish):
             self.activation = activation(beta)
         else:
             self.activation = activation()
 
-    def forward(self, x, init_params=False):
-        out = self.Convs(x, init_params)
-        out = self.SE(out, init_params)
+    def forward(self, x):
+        out = self.Convs(x)
+        out = self.SE(out)
         if self.reduced_cov:
-            out = out + self.reduced_cov(x, init_params)
+            out = out + self.reduced_cov(x)
         out = self.activation(out)
         return self.drop(out)

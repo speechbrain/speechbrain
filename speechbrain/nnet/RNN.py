@@ -1151,7 +1151,8 @@ class LiGRU_Layer(torch.nn.Module):
             self.normalize = True
 
         # Initial state
-        self.h_init = torch.zeros(1, self.hidden_size, requires_grad=False)
+        self.register_buffer("h_init", torch.zeros(1, self.hidden_size))
+        # self.h_init = torch.zeros(1, self.hidden_size, requires_grad=False)
 
         # Preloading dropout masks (gives some speed improvement)
         self._init_drop(self.batch_size)
@@ -1216,7 +1217,7 @@ class LiGRU_Layer(torch.nn.Module):
         hiddens = []
 
         # Sampling dropout mask
-        drop_mask = self._sample_drop_mask().to(w.device)
+        drop_mask = self._sample_drop_mask(w)
 
         # Loop over time axis
         for k in range(w.shape[1]):
@@ -1241,20 +1242,22 @@ class LiGRU_Layer(torch.nn.Module):
         self.N_drop_masks = 16000
         self.drop_mask_cnt = 0
 
-        self.drop_masks = self.drop(
-            torch.ones(self.N_drop_masks, self.hidden_size)
-        ).data
+        self.register_buffer(
+            "drop_masks",
+            self.drop(torch.ones(self.N_drop_masks, self.hidden_size)).data,
+        )
 
-    def _sample_drop_mask(self,):
-        """Selects one of the pre-defined dropout masks
-        """
+    def _sample_drop_mask(self, w):
+        """Selects one of the pre-defined dropout masks"""
         if self.training:
 
             # Sample new masks when needed
             if self.drop_mask_cnt + self.batch_size > self.N_drop_masks:
                 self.drop_mask_cnt = 0
                 self.drop_masks = self.drop(
-                    torch.ones(self.N_drop_masks, self.hidden_size,)
+                    torch.ones(
+                        self.N_drop_masks, self.hidden_size, device=w.device
+                    )
                 ).data
 
             # Sampling the mask
@@ -1279,7 +1282,9 @@ class LiGRU_Layer(torch.nn.Module):
 
             if self.training:
                 self.drop_masks = self.drop(
-                    torch.ones(self.N_drop_masks, self.hidden_size)
+                    torch.ones(
+                        self.N_drop_masks, self.hidden_size, device=x.device,
+                    )
                 ).data
 
 
