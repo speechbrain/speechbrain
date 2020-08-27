@@ -5,6 +5,7 @@ Authors
  * Peter Plantinga 2020
 """
 import os
+import shutil
 import torch
 import torchaudio
 from speechbrain.utils.data_utils import download_file
@@ -28,6 +29,8 @@ class EnvCorrupt(torch.nn.Module):
         The probability that each batch will have babble added.
     noise_prob : float from 0 to 1
         The probability that each batch will have noise added.
+    openrir_source : str
+        If provided, prepare openrir from this source path.
     openrir_folder : str
         If provided, download and prepare openrir to this location. The
         reverberation csv and noise csv will come from here unless overridden
@@ -72,6 +75,7 @@ class EnvCorrupt(torch.nn.Module):
         reverb_prob=1.0,
         babble_prob=1.0,
         noise_prob=1.0,
+        openrir_source=None,
         openrir_folder=None,
         openrir_max_noise_len=None,
         reverb_csv=None,
@@ -92,6 +96,7 @@ class EnvCorrupt(torch.nn.Module):
             open_reverb_csv = os.path.join(openrir_folder, "reverb.csv")
             open_noise_csv = os.path.join(openrir_folder, "noise.csv")
             _prepare_openrir(
+                openrir_source,
                 openrir_folder,
                 open_reverb_csv,
                 open_noise_csv,
@@ -148,11 +153,13 @@ class EnvCorrupt(torch.nn.Module):
         return waveforms
 
 
-def _prepare_openrir(folder, reverb_csv, noise_csv, max_noise_len):
+def _prepare_openrir(source, folder, reverb_csv, noise_csv, max_noise_len):
     """Prepare the openrir dataset for adding reverb and noises.
 
     Arguments
     ---------
+    source : str
+        The location of the folder containing the dataset source.
     folder : str
         The location of the folder containing the dataset.
     reverb_csv : str
@@ -167,7 +174,11 @@ def _prepare_openrir(folder, reverb_csv, noise_csv, max_noise_len):
     # Download and unpack if necessary
     filepath = os.path.join(folder, "rirs_noises.zip")
 
-    if not os.path.isdir(os.path.join(folder, "RIRS_NOISES")):
+    if source is not None:
+        if not os.path.isdir(os.path.join(folder, "RIRS_NOISES")):
+            print(f"Extracting {source} to {folder}")
+            shutil.unpack_archive(source, folder)
+    elif not os.path.isdir(os.path.join(folder, "RIRS_NOISES")):
         download_file(OPENRIR_URL, filepath, unpack=True)
     else:
         download_file(OPENRIR_URL, filepath)
