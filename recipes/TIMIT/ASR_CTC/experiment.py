@@ -61,7 +61,7 @@ class ASR_Brain(sb.Brain):
             per = self.per_metrics.summarize("error_rate")
 
         if stage == sb.Stage.VALID:
-            old_lr, new_lr = self.lr_annealing(epoch, per)
+            old_lr, new_lr = self.lr_annealing(per)
             sb.nnet.update_learning_rate(self.optimizer, new_lr)
 
             self.train_logger.log_stats(
