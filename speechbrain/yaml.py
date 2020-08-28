@@ -482,3 +482,15 @@ def _ast_eval(node):
         return ops[type(node.op)](_ast_eval(node.operand))
     else:
         raise TypeError(node)
+
+
+def collect_params(*modules):
+    """Returns list of parameters for all passed models.
+
+    Useful for defining optimizers in extended YAML.
+
+    Arguments
+    ---------
+    *modules : torch.nn.Module objects
+    """
+    return [p for module in modules for p in module.parameters()]

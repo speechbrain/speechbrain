@@ -61,9 +61,9 @@ class ASR_Brain(sb.Brain):
             per = self.per_metrics.summarize("error_rate")
 
         if stage == sb.Stage.VALID:
-            old_lr, new_lr = self.lr_annealing(
-                self.optimizers.values(), epoch, per
-            )
+            old_lr, new_lr = self.lr_annealing(epoch, per)
+            sb.nnet.update_learning_rate(self.optimizer, new_lr)
+
             self.train_logger.log_stats(
                 stats_meta={"epoch": epoch, "lr": old_lr},
                 train_stats={"loss": self.train_loss},
@@ -118,7 +118,7 @@ if __name__ == "__main__":
     ind2lab = params.train_loader.label_dict["phn"]["index2lab"]
     asr_brain = ASR_Brain(
         modules=dict(params.modules, ind2lab=ind2lab),
-        optimizers={("model", "output"): params.optimizer},
+        optimizers=["optimizer"],
         jit_modules=["model"],
         torch_ddp_procs=1,
     )

@@ -34,7 +34,8 @@ class LMBrain(sb.Brain):
         return loss
 
     def fit_batch(self, batch):
-        for optimizer in self.optimizers.values():
+        for optimizer_name in self.optimizers:
+            optimizer = getattr(self, optimizer_name)
             inputs = batch[0]
             predictions = self.compute_forward(inputs, sb.Stage.TRAIN)
             loss = self.compute_objectives(predictions, inputs, sb.Stage.TRAIN)
@@ -69,17 +70,14 @@ def main():
     with open(hyperparams_file) as fin:
         hyperparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
 
-    train_set = hyperparams.train_loader()
-    valid_set = hyperparams.valid_loader()
-
     lm_brain = LMBrain(
-        modules=hyperparams.modules,
-        optimizers={"model": hyperparams.optimizer},
-        device="cpu",
+        modules=hyperparams.modules, optimizers=["optimizer"], device="cpu",
     )
-
-    lm_brain.fit(hyperparams.epoch_counter, train_set, valid_set)
-
+    lm_brain.fit(
+        hyperparams.epoch_counter,
+        hyperparams.train_loader(),
+        hyperparams.valid_loader(),
+    )
     lm_brain.evaluate(hyperparams.test_loader())
 
     # Check that model overfits for an integration test

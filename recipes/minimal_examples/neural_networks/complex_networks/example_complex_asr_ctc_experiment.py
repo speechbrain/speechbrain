@@ -48,16 +48,13 @@ def main():
     with open(hyperparams_file) as fin:
         hyperparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
 
-    train_set = hyperparams.train_loader()
-    first_x, first_y = next(iter(train_set))
     ctc_brain = CTCBrain(
-        modules=hyperparams.modules,
-        optimizers={"model": hyperparams.optimizer},
-        device="cpu",
-        first_inputs=[first_x],
+        modules=hyperparams.modules, optimizers=["optimizer"], device="cpu",
     )
     ctc_brain.fit(
-        range(hyperparams.N_epochs), train_set, hyperparams.valid_loader()
+        range(hyperparams.N_epochs),
+        hyperparams.train_loader(),
+        hyperparams.valid_loader(),
     )
     ctc_brain.evaluate(hyperparams.test_loader())
 

@@ -39,10 +39,6 @@ test_loader: !new:speechbrain.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
-optimizer: !new:speechbrain.nnet.Optimizer
-    OptClass: !name:torch.optim.Adam
-    lr: !ref <lr>
-
 modules:
     use_tensorboard: !ref <use_tensorboard>
     compute_features: !new:speechbrain.lobes.MFCC
@@ -63,3 +59,8 @@ modules:
     loss_tracker: !name:speechbrain.MetricStats
         metric: !name:speechbrain.nnet.mse_loss
             reduction: batch
+    optimizer: !new:torch.optim.Adam
+        params: !!python/object/apply:speechbrain.collect_params
+            - !ref <modules.linear1>
+            - !ref <modules.linear2>
+        lr: !ref <lr>

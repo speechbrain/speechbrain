@@ -47,9 +47,7 @@ def main():
         hyperparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
 
     align_brain = AlignBrain(
-        modules=hyperparams.modules,
-        optimizers={("model", "lin"): hyperparams.optimizer},
-        device="cpu",
+        modules=hyperparams.modules, optimizers=["optimizer"], device="cpu",
     )
     align_brain.fit(
         range(hyperparams.N_epochs),

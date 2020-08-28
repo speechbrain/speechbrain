@@ -52,9 +52,7 @@ def main():
         hyperparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
 
     ctc_brain = CTCBrain(
-        modules=hyperparams.modules,
-        optimizers={("model", "lin"): hyperparams.optimizer},
-        device="cpu",
+        modules=hyperparams.modules, optimizers=["optimizer"], device="cpu",
     )
     ctc_brain.fit(
         range(hyperparams.N_epochs),

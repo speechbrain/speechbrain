@@ -51,7 +51,8 @@ class seq2seqBrain(sb.Brain):
         return loss
 
     def fit_batch(self, batch):
-        for optimizer in self.optimizers.values():
+        for optimizer_name in self.optimizers:
+            optimizer = getattr(self, optimizer_name)
             inputs, targets = batch
             preds = self.compute_forward(inputs, targets, sb.Stage.TRAIN)
             loss = self.compute_objectives(preds, targets, sb.Stage.TRAIN)
@@ -90,9 +91,7 @@ def main():
         hyperparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
 
     seq2seq_brain = seq2seqBrain(
-        modules=hyperparams.modules,
-        optimizers={("enc", "emb", "dec", "lin"): hyperparams.optimizer},
-        device="cpu",
+        modules=hyperparams.modules, optimizers=["optimizer"], device="cpu",
     )
     seq2seq_brain.fit(
         range(hyperparams.N_epochs),

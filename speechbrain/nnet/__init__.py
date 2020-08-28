@@ -31,13 +31,6 @@ from .losses import (
     compute_masked_loss,
 )
 from .loss.stoi_loss import stoi_loss
-from .lr_schedulers import (
-    NewBobLRScheduler,
-    LinearLRScheduler,
-    StepLRScheduler,
-    NoamScheduler,
-    CustomLRScheduler,
-)
 from .normalization import (
     BatchNorm1d,
     BatchNorm2d,
@@ -45,8 +38,14 @@ from .normalization import (
     InstanceNorm1d,
     InstanceNorm2d,
 )
-from .optimizers import Optimizer
 from .pooling import Pooling1d, Pooling2d, StatisticsPooling, AdaptivePool
+from .schedulers import (
+    update_learning_rate,
+    NewBobScheduler,
+    LinearScheduler,
+    StepScheduler,
+    NoamScheduler,
+)
 from .RNN import RNN, LSTM, GRU, AttentionalRNNDecoder, LiGRU, QuasiRNN
 
 # Complex networks
@@ -83,17 +82,16 @@ __all__ = [
     "kldiv_loss",
     "compute_masked_loss",
     "stoi_loss",
-    "NewBobLRScheduler",
-    "LinearLRScheduler",
-    "StepLRScheduler",
+    "update_learning_rate",
+    "NewBobScheduler",
+    "LinearScheduler",
+    "StepScheduler",
     "NoamScheduler",
-    "CustomLRScheduler",
     "BatchNorm1d",
     "BatchNorm2d",
     "LayerNorm",
     "InstanceNorm1d",
     "InstanceNorm2d",
-    "Optimizer",
     "Pooling1d",
     "Pooling2d",
     "StatisticsPooling",

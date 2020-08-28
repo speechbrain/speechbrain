@@ -1,9 +1,9 @@
 # Basic parameters
-seed: 1234  # e.g, 1234
+seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Data (csv) files
-data_folder: !PLACEHOLDER #../../../../samples/voxceleb_samples/wav/
+data_folder: !PLACEHOLDER
 csv_train: !ref <data_folder>/train.csv
 csv_valid: !ref <data_folder>/dev.csv
 csv_test: !ref <data_folder>/test.csv
@@ -49,6 +49,11 @@ modules:
     error_stats: !name:speechbrain.MetricStats
         metric: !name:speechbrain.nnet.classification_error
             reduction: batch
+    optimizer: !new:torch.optim.Adam
+        params: !!python/object/apply:speechbrain.collect_params
+            - !ref <modules.xvector_model>
+            - !ref <modules.classifier>
+        lr: !ref <lr>
 
 train_loader: !new:speechbrain.DataLoaderFactory
     csv_file: !ref <csv_train>
@@ -65,7 +70,3 @@ valid_loader: !new:speechbrain.DataLoaderFactory
     sentence_sorting: ascending
     replacements:
         $data_folder: !ref <data_folder>
-
-optimizer: !new:speechbrain.nnet.Optimizer
-    OptClass: !name:torch.optim.Adam
-    lr: !ref <lr>

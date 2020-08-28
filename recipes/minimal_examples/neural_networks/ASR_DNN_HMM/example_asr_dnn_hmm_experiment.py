@@ -52,9 +52,7 @@ def main():
         hyperparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
 
     asr_brain = ASR_Brain(
-        modules=hyperparams.modules,
-        optimizers={("linear1", "linear2"): hyperparams.optimizer},
-        device="cpu",
+        modules=hyperparams.modules, optimizers=["optimizer"], device="cpu",
     )
     asr_brain.fit(
         range(hyperparams.N_epochs),

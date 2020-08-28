@@ -1,7 +1,7 @@
 """Comprehensive speech processing toolkit
 """
 from .core import Stage, Brain, create_experiment_directory, parse_arguments
-from .yaml import load_extended_yaml, resolve_references
+from .yaml import load_extended_yaml, resolve_references, collect_params
 
 from speechbrain.utils.epoch_loop import EpochCounter
 from speechbrain.utils.checkpoints import Checkpointer
@@ -33,6 +33,7 @@ __all__ = [
     "parse_arguments",
     "load_extended_yaml",
     "resolve_references",
+    "collect_params",
     "EpochCounter",
     "Checkpointer",
     "FileTrainLogger",
