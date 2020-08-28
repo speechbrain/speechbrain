@@ -53,10 +53,6 @@ test_loader: !new:speechbrain.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
-optimizer: !new:speechbrain.nnet.Optimizer
-    OptClass: !name:torch.optim.Adam
-    lr: !ref <lr>
-
 modules:
     compute_features: !new:speechbrain.lobes.MFCC
     mean_var_norm: !new:speechbrain.processing.InputNormalization
@@ -104,3 +100,10 @@ modules:
         max_decode_ratio: 0.1
     compute_cost: !name:speechbrain.nnet.nll_loss
     per_stats: !name:speechbrain.ErrorRateStats
+    optimizer: !new:torch.optim.Adam
+        params: !!python/object/apply:speechbrain.collect_params
+            - !ref <modules.enc>
+            - !ref <modules.lin>
+            - !ref <modules.emb>
+            - !ref <modules.dec>
+        lr: !ref <lr>

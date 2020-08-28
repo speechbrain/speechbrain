@@ -45,12 +45,6 @@ dnn_neurons: 512
 output_neurons: 40
 blank_index: !ref <output_neurons> - 1
 
-optimizer: !new:speechbrain.nnet.Optimizer
-    OptClass: !name:torch.optim.Adadelta
-    lr: !ref <lr>
-    rho: 0.95
-    eps: 1.e-8
-
 epoch_counter: !new:speechbrain.EpochCounter
     limit: !ref <number_of_epochs>
 
@@ -107,7 +101,15 @@ modules:
         bias: True
     log_softmax: !new:speechbrain.nnet.Softmax
         apply_log: True
-    lr_annealing: !new:speechbrain.nnet.NewBobLRScheduler
+    optimizer: !new:torch.optim.Adadelta
+        params: !!python/object/apply:speechbrain.collect_params
+            - !ref <modules.model>
+            - !ref <modules.output>
+        lr: !ref <lr>
+        rho: 0.95
+        eps: 1.e-8
+    lr_annealing: !new:speechbrain.nnet.NewBobScheduler
+        initial_value: !ref <lr>
         improvement_threshold: 0.0025
         annealing_factor: 0.8
         patient: 0
@@ -117,7 +119,7 @@ modules:
         checkpoints_dir: !ref <save_folder>
         recoverables:
             counter: !ref <epoch_counter>
-            optimizer: !ref <optimizer>
+            optimizer: !ref <modules.optimizer>
             normalizer: !ref <modules.normalize>
             model: !ref <modules.model>
             output: !ref <modules.output>

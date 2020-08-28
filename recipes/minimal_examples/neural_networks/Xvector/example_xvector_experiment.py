@@ -81,22 +81,16 @@ def main():
         hyperparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
 
     # Data loaders
-    train_set = hyperparams.train_loader()
-    valid_set = hyperparams.valid_loader()
 
     # Object initialization for training xvector model
     xvect_brain = XvectorBrain(
-        modules=hyperparams.modules,
-        optimizers={("xvector_model", "classifier"): hyperparams.optimizer},
-        device="cpu",
+        modules=hyperparams.modules, optimizers=["optimizer"], device="cpu",
     )
 
     # Train the Xvector model
-    xvect_brain.fit(
-        range(hyperparams.number_of_epochs),
-        train_set=train_set,
-        valid_set=valid_set,
-    )
+    train_set = hyperparams.train_loader()
+    valid_set = hyperparams.valid_loader()
+    xvect_brain.fit(range(hyperparams.number_of_epochs), train_set, valid_set)
     print("Xvector model training completed!")
 
     # Instantiate extractor obj

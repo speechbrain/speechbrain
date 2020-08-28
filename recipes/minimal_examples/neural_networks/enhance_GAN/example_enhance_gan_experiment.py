@@ -13,7 +13,7 @@ class EnhanceGanBrain(sb.Brain):
 
         return enhanced
 
-    def compute_objectives(self, predictions, targets, stage, opt_modules=[]):
+    def compute_objectives(self, predictions, targets, stage, optim_name=""):
         id, clean_wavs, lens = targets
         batch_size = clean_wavs.size(0)
 
@@ -27,12 +27,12 @@ class EnhanceGanBrain(sb.Brain):
         map_cost = self.compute_cost(predictions, clean_wavs, lens)
 
         # One is real, zero is fake
-        if "generator" in opt_modules:
+        if optim_name == "g_optimizer":
             simu_target = torch.ones(batch_size, 1)
             simu_cost = self.compute_cost(simu_result, simu_target)
             real_cost = 0.0
             self.metrics["G"].append(simu_cost.detach())
-        elif "discriminator" in opt_modules:
+        elif optim_name == "d_optimizer":
             real_target = torch.ones(batch_size, 1)
             simu_target = torch.zeros(batch_size, 1)
             real_cost = self.compute_cost(real_result, real_target)
@@ -45,10 +45,11 @@ class EnhanceGanBrain(sb.Brain):
         inputs = batch[0]
 
         # Iterate optimizers and update
-        for modules, optimizer in self.optimizers.items():
+        for optimizer_name in self.optimizers:
+            optimizer = getattr(self, optimizer_name)
             predictions = self.compute_forward(inputs, sb.Stage.TRAIN)
             loss = self.compute_objectives(
-                predictions, inputs, sb.Stage.TRAIN, modules
+                predictions, inputs, sb.Stage.TRAIN, optimizer_name
             )
             loss.backward()
             optimizer.step()
@@ -88,10 +89,7 @@ def main():
 
     auto_brain = EnhanceGanBrain(
         modules=hyperparams.modules,
-        optimizers={
-            "generator": hyperparams.g_optimizer,
-            "discriminator": hyperparams.d_optimizer,
-        },
+        optimizers=["g_optimizer", "d_optimizer"],
         device="cpu",
     )
     auto_brain.fit(

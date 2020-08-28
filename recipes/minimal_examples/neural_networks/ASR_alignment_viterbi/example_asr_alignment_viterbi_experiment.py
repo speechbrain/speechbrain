@@ -53,9 +53,7 @@ def main():
     train_set = hyperparams.train_loader()
     hyperparams.modules["train_set"] = train_set
     align_brain = AlignBrain(
-        modules=hyperparams.modules,
-        optimizers={("model", "lin"): hyperparams.optimizer},
-        device="cpu",
+        modules=hyperparams.modules, optimizers=["optimizer"], device="cpu",
     )
     align_brain.fit(
         range(hyperparams.N_epochs), train_set, hyperparams.valid_loader()

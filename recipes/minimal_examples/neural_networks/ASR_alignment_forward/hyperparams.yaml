@@ -49,9 +49,6 @@ test_loader: !new:speechbrain.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
-optimizer: !new:speechbrain.nnet.Optimizer
-    OptClass: !name:torch.optim.Adam
-    lr: !ref <lr>
 
 modules:
     compute_features: !new:speechbrain.lobes.MFCC
@@ -78,3 +75,8 @@ modules:
         apply_log: True
     aligner: !new:speechbrain.alignment.aligner.HMMAligner
     compute_cost: !name:speechbrain.nnet.nll_loss
+    optimizer: !new:torch.optim.Adam
+        params: !!python/object/apply:speechbrain.collect_params
+            - !ref <modules.model>
+            - !ref <modules.lin>
+        lr: !ref <lr>

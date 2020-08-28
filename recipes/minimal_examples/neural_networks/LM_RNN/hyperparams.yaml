@@ -36,10 +36,10 @@ modules:
     log_softmax: !new:speechbrain.nnet.Softmax
         apply_log: True
     compute_cost: !name:speechbrain.nnet.nll_loss
-
-optimizer: !new:speechbrain.nnet.Optimizer
-    OptClass: !name:torch.optim.Adam
-    lr: !ref <lr>
+    optimizer: !new:torch.optim.Adam
+        params: !!python/object/apply:speechbrain.collect_params
+            - !ref <modules.model>
+        lr: !ref <lr>
 
 epoch_counter: !new:speechbrain.EpochCounter
     limit: !ref <number_of_epochs>

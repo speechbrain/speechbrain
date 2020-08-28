@@ -23,7 +23,8 @@ class AutoBrain(sb.Brain):
         return self.compute_cost(predictions, feats, lens)
 
     def fit_batch(self, batch):
-        for optimizer in self.optimizers.values():
+        for optimizer_name in self.optimizers:
+            optimizer = getattr(self, optimizer_name)
             inputs = batch[0]
             predictions = self.compute_forward(inputs, sb.Stage.TRAIN)
             loss = self.compute_objectives(predictions, inputs, sb.Stage.TRAIN)
@@ -83,9 +84,7 @@ def main():
         hyperparams.modules["train_logger"] = train_logger
 
     auto_brain = AutoBrain(
-        modules=hyperparams.modules,
-        optimizers={("linear1", "linear2"): hyperparams.optimizer},
-        device="cpu",
+        modules=hyperparams.modules, optimizers=["optimizer"], device="cpu",
     )
     auto_brain.fit(
         range(hyperparams.N_epochs),

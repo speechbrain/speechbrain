@@ -217,26 +217,26 @@ class Brain:
 
     Arguments
     ---------
-    modules : dict
+    modules : dict of str:module pairs
         Each element should consist of a string key for indicating which
         modules need to be passed to an optimizer, as well as a module
         to be used by the Brain class (is not required to be a torch module).
-    optimizers : dict
-        Pairs where the key is a string referring to a specific module, or a
-        tuple referring to several modules, and the value is an optimizer.
-        The optimizer will be used to update the listed modules.
-    first_inputs : list of torch.Tensor
-        An example of the input to the Brain class, for parameter init.
-        Arguments are passed individually to the ``compute_forward`` method,
-        for cases where a different signature is desired.
+    optimizers : list of str
+        A list of strings corresponding to keys from ``modules`` paired with
+        a torch.optim object.
     device : str
         The location for performing computations.
+    jit_modules : list of str
+        A list of strings corresponding to keys from ``modules`` paired with
+        ``torch.nn.Module`` objects to pass to ``torch.jit.script``.
+    torch_ddp_procs : int
+        Number of processes to use with torch's ``DistributedDataParallel``.
+        In addition to this, you must call ``ddp_fit()`` instead of ``fit()``.
     auto_mix_prec: bool
         If True, automatic mixed-precision is used. Activate it only with cuda.
 
     Example
     -------
-    >>> from speechbrain.nnet import Optimizer
     >>> from torch.optim import SGD
     >>> class SimpleBrain(Brain):
     ...     def compute_forward(self, x, stage):
@@ -244,11 +244,10 @@ class Brain:
     ...     def compute_objectives(self, predictions, targets, stage):
     ...         return torch.nn.functional.l1_loss(predictions, targets)
     >>> model = torch.nn.Linear(in_features=10, out_features=10)
-    >>> def optim_constructor(params):
-    ...     return SGD(params, lr=0.01)
+    >>> optim = SGD(model.parameters(), 0.1)
     >>> brain = SimpleBrain(
-    ...     modules={'model': model},
-    ...     optimizers={'model': optim_constructor},
+    ...     modules={"model": model, "optimizer": optim},
+    ...     optimizers=["optimizer"],
     ...     device='cpu',
     ... )
     >>> brain.fit(
@@ -261,15 +260,20 @@ class Brain:
         self,
         modules,
         optimizers,
-        jit_modules=None,
         device="cuda:0",
+        jit_modules=None,
         torch_ddp_procs=0,
         auto_mix_prec=False,
     ):
         self.device = device
         self.optimizers = optimizers
         self.jit_modules = jit_modules
+        self.auto_mix_prec = auto_mix_prec
         self.torch_ddp_procs = torch_ddp_procs
+
+        # Automatic mixed precision init
+        if self.auto_mix_prec:
+            self.scaler = torch.cuda.amp.GradScaler()
 
         # Set module attributes, so compute_forward can access modules
         modulelist = []
@@ -277,21 +281,14 @@ class Brain:
             if isinstance(module, torch.nn.Module):
                 module = module.to(device)
                 modulelist.append(module)
-            setattr(self, name, module)
 
-        # Initialize optimizers
-        for module_list, optimizer in optimizers.items():
-            if isinstance(module_list, str):
-                optimizer.init_params([modules[module_list]])
-            else:
-                optimizer.init_params([modules[k] for k in module_list])
+            if hasattr(self, name):
+                raise ValueError(f"Cannot use name {name}, already in use")
+
+            setattr(self, name, module)
 
         # Store modules as ModuleList, primarily for calling train()/eval()
         self.modules = torch.nn.ModuleList(modulelist)
-        self.auto_mix_prec = auto_mix_prec
-
-        # Automatic mixed precision init
-        self.scaler = torch.cuda.amp.GradScaler()
 
         total_params = sum(
             p.numel() for p in self.modules.parameters() if p.requires_grad
@@ -387,7 +384,8 @@ class Brain:
         """
         inputs, labels = batch
 
-        for optimizer in self.optimizers.values():
+        for optimizer_name in self.optimizers:
+            optimizer = getattr(self, optimizer_name)
 
             # Managing automatic mixed precision
             if self.auto_mix_prec:
