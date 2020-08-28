@@ -20,7 +20,6 @@ from .signal_processing import (
     reverberate,
     dB_to_amplitude,
     notch_filter,
-    cov,
 )
 from .speech_augmentation import (
     AddNoise,
@@ -51,7 +50,6 @@ __all__ = [
     "reverberate",
     "dB_to_amplitude",
     "notch_filter",
-    "cov",
     "AddNoise",
     "AddReverb",
     "SpeedPerturb",
