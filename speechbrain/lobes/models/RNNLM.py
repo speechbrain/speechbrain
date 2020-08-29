@@ -9,11 +9,7 @@ Authors
 """
 import torch
 from torch import nn
-from speechbrain.nnet.embedding import Embedding
-from speechbrain.nnet.RNN import LiGRU, LSTM, GRU, RNN  # noqa E401
-from speechbrain.nnet.linear import Linear
-from speechbrain.nnet.containers import Sequential
-from speechbrain.nnet.normalization import LayerNorm
+from speechbrain.nnet import Embedding, LSTM, Linear, Sequential, LayerNorm
 
 
 class RNNLM(nn.Module):
@@ -23,7 +19,8 @@ class RNNLM(nn.Module):
     Arguments
     ---------
     output_neurons : int
-        Number of entries in embedding table, also the number of neurons in output layer.
+        Number of entries in embedding table, also the number of neurons in
+        output layer.
     embedding_dim : int
         Default : 128
         Size of embedding vectors.

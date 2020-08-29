@@ -196,6 +196,7 @@ class LSTM(torch.nn.Module):
         self.rnn = torch.nn.LSTM(
             input_size=input_size,
             hidden_size=hidden_size,
+            num_layers=num_layers,
             dropout=dropout,
             bidirectional=bidirectional,
             bias=bias,
@@ -705,12 +706,13 @@ class AttentionalRNNDecoder(nn.Module):
     >>> wav_len = torch.rand([4])
     >>> inp_tensor = torch.rand([4, 5, 6])
     >>> net = AttentionalRNNDecoder(
-    ...     rnn_type='lstm',
-    ...     attn_type='content',
+    ...     rnn_type="lstm",
+    ...     attn_type="content",
     ...     hidden_size=7,
     ...     attn_dim=5,
     ...     num_layers=1,
-    ...     input_shape=inp_tensor.shape,
+    ...     enc_dim=20,
+    ...     input_size=6,
     ... )
     >>> out_tensor, attn = net(inp_tensor, enc_states, wav_len)
     >>> out_tensor.shape
@@ -724,8 +726,8 @@ class AttentionalRNNDecoder(nn.Module):
         hidden_size,
         attn_dim,
         num_layers,
-        input_shape=None,
-        input_size=None,
+        enc_dim,
+        input_size,
         nonlinearity="relu",
         re_init=True,
         normalization="batchnorm",
@@ -753,22 +755,6 @@ class AttentionalRNNDecoder(nn.Module):
         self.channels = channels
         self.kernel_size = kernel_size
 
-        if input_shape is None and input_size is None:
-            raise ValueError("Expected one of input_shape or input_size.")
-
-        # Computing the feature dimensionality
-        self.reshape = False
-        if input_size is None:
-            if len(input_shape) > 3:
-                self.reshape = True
-            if len(input_shape) > 4:
-                err_msg = (
-                    "Class AttentionalRNNDecoder doesn't support tensors with ",
-                    "more than 4 dimensions. Got %i" % (str(len(input_shape))),
-                )
-                raise ValueError(err_msg)
-            input_size = torch.prod(torch.tensor(input_shape[2:]))
-
         # Combining the context vector and output of rnn
         self.proj = nn.Linear(
             self.hidden_size + self.attn_dim, self.hidden_size
@@ -776,7 +762,7 @@ class AttentionalRNNDecoder(nn.Module):
 
         if self.attn_type == "content":
             self.attn = ContentBasedAttention(
-                enc_dim=input_size,
+                enc_dim=enc_dim,
                 dec_dim=self.hidden_size,
                 attn_dim=self.attn_dim,
                 output_dim=self.attn_dim,
@@ -785,7 +771,7 @@ class AttentionalRNNDecoder(nn.Module):
 
         elif self.attn_type == "location":
             self.attn = LocationAwareAttention(
-                enc_dim=input_size,
+                enc_dim=enc_dim,
                 dec_dim=self.hidden_size,
                 attn_dim=self.attn_dim,
                 output_dim=self.attn_dim,
@@ -813,7 +799,7 @@ class AttentionalRNNDecoder(nn.Module):
             raise ValueError(f"{self.rnn_type} not implemented.")
 
         kwargs = {
-            "input_size": input_size * 2,
+            "input_size": input_size + self.attn_dim,
             "hidden_size": self.hidden_size,
             "num_layers": self.num_layers,
             "bias": self.bias,
@@ -878,13 +864,6 @@ class AttentionalRNNDecoder(nn.Module):
         attn : torch.Tensor
             The attention weight of each timestep.
         """
-        if self.reshape:
-            enc_states = enc_states.reshape(
-                enc_states.shape[0],
-                enc_states.shape[1],
-                enc_states.shape[2] * enc_states.shape[3],
-            )
-
         # calculating the actual length of enc_states
         enc_len = torch.round(enc_states.shape[1] * wav_len).long()
 
@@ -1312,7 +1291,7 @@ class QuasiRNNLayer(torch.nn.Module):
     >>> model = QuasiRNNLayer(60, 256, bidirectional=True)
     >>> a = torch.rand([10, 120, 60])
     >>> b = model(a)
-    >>> print(b[0].shape)
+    >>> b[0].shape
     torch.Size([10, 120, 512])
     """
 
@@ -1475,9 +1454,11 @@ class QuasiRNN(nn.Module):
     Example
     -------
     >>> a = torch.rand([8, 120, 40])
-    >>> model = QuasiRNN(256, 4, input_shape=a.shape, bidirectional=True)
+    >>> model = QuasiRNN(
+    ...     256, num_layers=4, input_shape=a.shape, bidirectional=True
+    ... )
     >>> b = model(a)
-    >>> print(b.shape)
+    >>> b.shape
     torch.Size([8, 120, 512])
     """
 

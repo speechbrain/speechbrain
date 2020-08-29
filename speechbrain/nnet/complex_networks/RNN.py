@@ -659,21 +659,21 @@ class ComplexLiGRU_Layer(torch.nn.Module):
 
         if self.normalization == "batchnorm":
             self.norm = ComplexBatchNorm(
-                input_size=input_size, dim=-1, momentum=0.05,
+                input_size=hidden_size * 2, dim=-1, momentum=0.05,
             )
             self.normalize = True
 
         elif self.normalization == "layernorm":
-            self.norm = ComplexLayerNorm(input_size=input_size, dim=-1)
+            self.norm = ComplexLayerNorm(input_size=hidden_size * 2, dim=-1)
             self.normalize = True
         else:
             # Normalization is disabled here. self.norm is only  formally
             # initialized to avoid jit issues.
-            self.norm = ComplexLayerNorm(input_size=input_size, dim=-1)
+            self.norm = ComplexLayerNorm(input_size=hidden_size * 2, dim=-1)
             self.normalize = True
 
         # Initial state
-        self.h_init = torch.zeros(1, self.hidden_size * 2, requires_grad=False,)
+        self.h_init = torch.zeros(1, self.hidden_size * 2, requires_grad=False)
 
         # Preloading dropout masks (gives some speed improvement)
         self._init_drop(self.batch_size)

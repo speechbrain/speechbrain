@@ -206,23 +206,26 @@ class S2SRNNGreedySearcher(S2SGreedySearcher):
     Example
     -------
     >>> import speechbrain as sb
-    >>> emb = torch.nn.Embedding(5, 3)
-    >>> dec = sb.nnet.AttentionalRNNDecoder("gru", "content", 3, 3, 1)
-    >>> lin = sb.nnet.Linear(5)
-    >>> act = sb.nnet.Softmax(apply_log=True)
     >>> inp = torch.randint(low=0, high=5, size=(2, 3))
+    >>> emb = torch.nn.Embedding(5, 3)
+    >>> e = emb(inp)
+    >>> dec = sb.nnet.AttentionalRNNDecoder(
+    ...     "gru", "content", 3, 3, 1, enc_dim=7, input_size=3
+    ... )
+    >>> lin = sb.nnet.Linear(n_neurons=5, input_size=3)
+    >>> act = sb.nnet.Softmax(apply_log=True)
     >>> enc = torch.rand([2, 6, 7])
     >>> wav_len = torch.rand([2])
-    >>> e = emb(inp)
-    >>> h, _ = dec(e, enc, wav_len, init_params=True)
-    >>> log_probs = act(lin(h, init_params=True))
+    >>> h, _ = dec(e, enc, wav_len)
+    >>> log_probs = act(lin(h))
     >>> modules = [emb, dec, lin]
     >>> searcher = S2SRNNGreedySearcher(
-    ... modules,
-    ... bos_index=4,
-    ... eos_index=4,
-    ... min_decode_ratio=0,
-    ... max_decode_ratio=1)
+    ...     modules,
+    ...     bos_index=4,
+    ...     eos_index=4,
+    ...     min_decode_ratio=0,
+    ...     max_decode_ratio=1,
+    ... )
     >>> hyps, scores = searcher(enc, wav_len)
     """
 
@@ -813,24 +816,27 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
     Example
     -------
     >>> import speechbrain as sb
-    >>> emb = torch.nn.Embedding(5, 3)
-    >>> dec = sb.nnet.AttentionalRNNDecoder("gru", "content", 3, 3, 1)
-    >>> lin = sb.nnet.Linear(5)
-    >>> act = sb.nnet.Softmax(apply_log=True)
     >>> inp = torch.randint(low=0, high=5, size=(2, 3))
+    >>> emb = torch.nn.Embedding(5, 3)
+    >>> e = emb(inp)
+    >>> dec = sb.nnet.AttentionalRNNDecoder(
+    ...     "gru", "content", 3, 3, 1, enc_dim=7, input_size=3
+    ... )
+    >>> lin = sb.nnet.Linear(n_neurons=5, input_size=3)
+    >>> act = sb.nnet.Softmax(apply_log=True)
     >>> enc = torch.rand([2, 6, 7])
     >>> wav_len = torch.rand([2])
-    >>> e = emb(inp)
-    >>> h, _ = dec(e, enc, wav_len, init_params=True)
-    >>> log_probs = act(lin(h, init_params=True))
+    >>> h, _ = dec(e, enc, wav_len)
+    >>> log_probs = act(lin(h))
     >>> modules = [emb, dec, lin]
     >>> searcher = S2SRNNBeamSearcher(
-    ... modules,
-    ... bos_index=4,
-    ... eos_index=4,
-    ... min_decode_ratio=0,
-    ... max_decode_ratio=1,
-    ... beam_size=2)
+    ...     modules,
+    ...     bos_index=4,
+    ...     eos_index=4,
+    ...     min_decode_ratio=0,
+    ...     max_decode_ratio=1,
+    ...     beam_size=2,
+    ... )
     >>> hyps, scores = searcher(enc, wav_len)
     """
 
