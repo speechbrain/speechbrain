@@ -149,9 +149,7 @@ def test_RNN():
 
     # Check RNNCell
     inputs = torch.randn(4, 2, 7)
-    net = RNNCell(
-        hidden_size=5, input_shape=inputs.shape, num_layers=2, dropout=0.0,
-    )
+    net = RNNCell(hidden_size=5, input_size=7, num_layers=2, dropout=0.0,)
     hn_t = None
     output_lst = []
     for t in range(inputs.shape[1]):

@@ -80,16 +80,16 @@ class ComplexBatchNorm(torch.nn.Module):
             self.num_complex_features = input_size // 2
 
         if self.scale:
-            self.gamma_rr = Parameter(torch.Tensor(self.num_complex_features))
-            self.gamma_ii = Parameter(torch.Tensor(self.num_complex_features))
-            self.gamma_ri = Parameter(torch.Tensor(self.num_complex_features))
+            self.gamma_rr = Parameter(torch.empty(self.num_complex_features))
+            self.gamma_ii = Parameter(torch.empty(self.num_complex_features))
+            self.gamma_ri = Parameter(torch.empty(self.num_complex_features))
         else:
             self.register_parameter("gamma_rr", None)
             self.register_parameter("gamma_ii", None)
             self.register_parameter("gamma_ri", None)
 
         if self.center:
-            self.beta = Parameter(torch.Tensor(self.num_complex_features * 2))
+            self.beta = Parameter(torch.empty(self.num_complex_features * 2))
         else:
             self.register_parameter("beta", None)
 
@@ -235,30 +235,29 @@ class ComplexBatchNorm(torch.nn.Module):
 
         # Pick the normalized form corresponding
         # to the training phase when we use running stats.
-        if self.training:
-            if self.track_running_stats:
-                if self.center:
-                    self.moving_mean = (
-                        1 - exponential_average_factor
-                    ) * self.moving_mean + exponential_average_factor * mu.view(
-                        self.moving_mean.size()
-                    )
-                if self.scale:
-                    self.moving_Vrr = (
-                        1 - exponential_average_factor
-                    ) * self.moving_Vrr + exponential_average_factor * Vrr.view(
-                        self.moving_Vrr.size()
-                    )
-                    self.moving_Vii = (
-                        1 - exponential_average_factor
-                    ) * self.moving_Vii + exponential_average_factor * Vii.view(
-                        self.moving_Vii.size()
-                    )
-                    self.moving_Vri = (
-                        1 - exponential_average_factor
-                    ) * self.moving_Vri + exponential_average_factor * Vri.view(
-                        self.moving_Vri.size()
-                    )
+        if self.training and self.track_running_stats:
+            if self.center:
+                self.moving_mean = (
+                    1 - exponential_average_factor
+                ) * self.moving_mean + exponential_average_factor * mu.view(
+                    self.moving_mean.size()
+                )
+            if self.scale:
+                self.moving_Vrr = (
+                    1 - exponential_average_factor
+                ) * self.moving_Vrr + exponential_average_factor * Vrr.view(
+                    self.moving_Vrr.size()
+                )
+                self.moving_Vii = (
+                    1 - exponential_average_factor
+                ) * self.moving_Vii + exponential_average_factor * Vii.view(
+                    self.moving_Vii.size()
+                )
+                self.moving_Vri = (
+                    1 - exponential_average_factor
+                ) * self.moving_Vri + exponential_average_factor * Vri.view(
+                    self.moving_Vri.size()
+                )
 
         if self.training or (not self.track_running_stats):
             input_inferred = input_centred if self.center else input
@@ -390,16 +389,16 @@ class ComplexLayerNorm(torch.nn.Module):
             self.num_complex_features = input_size // 2
 
         if self.scale:
-            self.gamma_rr = Parameter(torch.Tensor([self.num_complex_features]))
-            self.gamma_ii = Parameter(torch.Tensor([self.num_complex_features]))
-            self.gamma_ri = Parameter(torch.Tensor([self.num_complex_features]))
+            self.gamma_rr = Parameter(torch.empty(self.num_complex_features))
+            self.gamma_ii = Parameter(torch.empty(self.num_complex_features))
+            self.gamma_ri = Parameter(torch.empty(self.num_complex_features))
         else:
             self.register_parameter("gamma_rr", None)
             self.register_parameter("gamma_ii", None)
             self.register_parameter("gamma_ri", None)
 
         if self.center:
-            self.beta = Parameter(torch.Tensor(self.num_complex_features * 2))
+            self.beta = Parameter(torch.empty(self.num_complex_features * 2))
         else:
             self.register_parameter("beta", None)
         self.reset_parameters()
