@@ -64,7 +64,10 @@ class G2P(sb.core.Brain):
     def decode_batch(self, batch, init_params=False):
         x = batch[0]
         _, graphemes, graphemes_lens = x
-        graphemes, graphemes_lens = graphemes.to(hparams.device), graphemes_lens.to(hparams.device)
+        graphemes, graphemes_lens = (
+            graphemes.to(hparams.device),
+            graphemes_lens.to(hparams.device),
+        )
         x_embedded = hparams.encoder_embed(
             graphemes.long(), init_params=init_params
         )
@@ -111,8 +114,14 @@ class G2P(sb.core.Brain):
     def compute_forward(self, x, y, stage="train", init_params=False):
         _, graphemes, graphemes_lens = x
         _, phonemes, phonemes_lens = y
-        graphemes, graphemes_lens = graphemes.to(hparams.device), graphemes_lens.to(hparams.device)
-        phonemes, phonemes_lens = phonemes.to(hparams.device), phonemes_lens.to(hparams.device)
+        graphemes, graphemes_lens = (
+            graphemes.to(hparams.device),
+            graphemes_lens.to(hparams.device),
+        )
+        phonemes, phonemes_lens = (
+            phonemes.to(hparams.device),
+            phonemes_lens.to(hparams.device),
+        )
 
         phonemes = prepend_bos_token(phonemes, bos_index=hparams.bos)
 
@@ -150,7 +159,10 @@ class G2P(sb.core.Brain):
             outputs, seq = predictions
 
         ids, phonemes, phonemes_lens = targets
-        phonemes, phonemes_lens = phonemes.to(hparams.device), phonemes_lens.to(hparams.device)
+        phonemes, phonemes_lens = (
+            phonemes.to(hparams.device),
+            phonemes_lens.to(hparams.device),
+        )
 
         # Add 1 to lengths for eos token
         abs_length = torch.round(phonemes_lens * phonemes.shape[1])
@@ -201,20 +213,22 @@ class G2P(sb.core.Brain):
 # Create csv_train, csv_valid, csv_test (random 80-10-10 split) from lexicon.
 np.random.seed(hparams.seed)
 with open(hparams.input_lexicon, "r") as f:
-	lexicon_lines = f.readlines()
-shuffle_indices = np.random.permutation(np.arange(1,len(lexicon_lines)))
-train_indices = [0] + list(shuffle_indices[:8*len(lexicon_lines)//10])
-valid_indices = [0] + list(shuffle_indices[8*len(lexicon_lines)//10:9*len(lexicon_lines)//10])
-test_indices = [0] + list(shuffle_indices[9*len(lexicon_lines)//10:])
+    lexicon_lines = f.readlines()
+shuffle_indices = np.random.permutation(np.arange(1, len(lexicon_lines)))
+train_indices = [0] + list(shuffle_indices[: 8 * len(lexicon_lines) // 10])
+valid_indices = [0] + list(
+    shuffle_indices[8 * len(lexicon_lines) // 10 : 9 * len(lexicon_lines) // 10]
+)
+test_indices = [0] + list(shuffle_indices[9 * len(lexicon_lines) // 10 :])
 train_lines = list(np.array(lexicon_lines)[train_indices])
 valid_lines = list(np.array(lexicon_lines)[valid_indices])
 test_lines = list(np.array(lexicon_lines)[test_indices])
 with open(hparams.csv_train, "w") as f:
-	f.writelines(train_lines)
+    f.writelines(train_lines)
 with open(hparams.csv_valid, "w") as f:
-	f.writelines(valid_lines)
+    f.writelines(valid_lines)
 with open(hparams.csv_test, "w") as f:
-	f.writelines(test_lines)
+    f.writelines(test_lines)
 
 train_set = hparams.train_loader()
 valid_set = hparams.valid_loader()
@@ -274,8 +288,8 @@ model = G2P(
 
 model.fit(range(hparams.N_epochs), train_set, valid_set)
 
-#test_stats = model.evaluate(hparams.test_loader())
-#print("Test PER: %.2f" % summarize_error_rate(test_stats["PER"]))
+# test_stats = model.evaluate(hparams.test_loader())
+# print("Test PER: %.2f" % summarize_error_rate(test_stats["PER"]))
 
 # Get pronunciations for OOV words; add to lexicon_augmented.
 # (As in the other dataloaders, we need to change the labels to deal with padding.)
@@ -286,7 +300,7 @@ hparams.oov_loader.label_dict["graphemes"][
 hparams.oov_loader.label_dict["graphemes"][
     "lab2index"
 ] = hparams.train_loader.label_dict["graphemes"]["lab2index"]
-with open(hparams.output_lexicon,"w") as f:
+with open(hparams.output_lexicon, "w") as f:
     f.writelines(lexicon_lines)
     current_ID = len(lexicon_lines) - 1
     for batch in oov_set:
@@ -298,7 +312,21 @@ with open(hparams.output_lexicon,"w") as f:
         phonemes = decoded_outputs
         current_ID += batch_size
         for i in range(batch_size):
-            line = ",".join([ str(ID[i]), str(duration[i]), graphemes[i], "string", "", phonemes[i], "string", "" ]) + "\n"
+            line = (
+                ",".join(
+                    [
+                        str(ID[i]),
+                        str(duration[i]),
+                        graphemes[i],
+                        "string",
+                        "",
+                        phonemes[i],
+                        "string",
+                        "",
+                    ]
+                )
+                + "\n"
+            )
             f.write(line)
 
 print("New lexicon generated (%s)." % hparams.output_lexicon)
