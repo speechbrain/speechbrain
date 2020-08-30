@@ -283,11 +283,24 @@ class Gev(torch.nn.Module):
 
     def forward(self, Xs, SSs, NNs):
         """
-        Xs : (batch, time_step, n_fft, 2, n_channels)
-        SSs : (batch, time_step, n_fft, 2, n_mics + n_pairs)
-        NNs : (batch, time_step, n_fft, 2, n_mics + n_pairs)
+        Performs GEV beamforming using the signal Xs, the covariance matrix of
+        the pure signal and the covariance matrix of the noise. It returns the
+        result in the frequency domain with the following format:
+        (batch, time_step, n_fft, 2, 1).
 
-        ys : (batch, time_step, n_fft, 2, 1)
+        Arguments
+        ---------
+        Xs : tensor
+            A batch of audio signals in the frequency domain, in
+            the format (batch, time_step, n_fft, 2, n_mics)
+
+        SSs : tensor
+            The covariance matrix of the pure signal in the format
+            (batch, time_step, n_fft, 2, n_mics + n_pairs)
+
+        NNs : tensor
+            The covariance matrix of the noise in the format
+            (batch, time_step, n_fft, 2, n_mics + n_pairs)
         """
 
         # Extracting data
