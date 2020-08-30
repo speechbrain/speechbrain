@@ -89,9 +89,9 @@ class G2P(sb.core.Brain):
             " ".join(
                 [
                     hparams.train_loader.label_dict["graphemes"]["index2lab"][
-                        l.item()
+                        m.item()
                     ]
-                    for l in s_in
+                    for m in s_in
                 ]
             )
             for s_in in model_in
@@ -99,8 +99,8 @@ class G2P(sb.core.Brain):
         decoded_outputs = [
             " ".join(
                 [
-                    hparams.train_loader.label_dict["phonemes"]["index2lab"][l]
-                    for l in s_out
+                    hparams.train_loader.label_dict["phonemes"]["index2lab"][m]
+                    for m in s_out
                 ]
             )
             for s_out in seq
