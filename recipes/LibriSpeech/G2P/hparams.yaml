@@ -5,7 +5,7 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Data files
 output_folder: !ref results/g2p/<seed>
-data_folder: /home/mirco/datasets/lexicon
+data_folder: /home/lugosch/data/mini-librispeech #/home/mirco/datasets/lexicon
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
@@ -14,14 +14,15 @@ oov: !ref <data_folder>/oov.csv
 output_lexicon: !ref <data_folder>/lexicon_augmented.csv
 
 # These three files are created from lexicon.csv.
-csv_train: !ref <data_folder>/train.csv
-csv_valid: !ref <data_folder>/dev.csv
-csv_test: !ref <data_folder>/test.csv
+csv_train: !ref <data_folder>/lexicon_train_subset.csv
+csv_valid: !ref <data_folder>/lexicon_dev_subset.csv
+csv_test: !ref <data_folder>/lexicon_test_subset.csv
 
 # Training hyperparameters
 N_epochs: 10
 N_batch: 512
 lr: 0.002
+device: 'cuda:0'
 
 # token infomation
 bos: 40
@@ -47,6 +48,7 @@ valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
 
 test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_test>
+    batch_size: !ref <N_batch>
     csv_read: [graphemes, phonemes]
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
