@@ -39,6 +39,7 @@ rnn_size: 256
 rnn_layers: 2
 
 mask_activation: !new:torch.nn.Tanh
+norm: !name:speechbrain.nnet.complex_networks.normalization.ComplexLayerNorm
 
 # FFT Parameters
 samplerate: 16000
@@ -92,6 +93,7 @@ model: !new:speechbrain.lobes.models.DCCRN.DCCRN
   rnn_size: !ref <rnn_size>
   rnn_layers: !ref <rnn_layers>
   padding: !ref <padding_type>
+  norm: !ref <norm>
 
 compute_cost: !name:speechbrain.nnet.losses.mse_loss
 

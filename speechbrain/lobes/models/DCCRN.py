@@ -22,6 +22,7 @@ class DCCRN(nn.Module):
         rnn_size=128,
         rnn_layers=2,
         padding="same",
+        norm=ComplexBatchNorm,
     ):
         super().__init__()
         self.conv_channels = conv_channels
@@ -30,7 +31,7 @@ class DCCRN(nn.Module):
         self.rnn_size = rnn_size
         self.rnn_layers = rnn_layers
         self.padding = padding
-        self.encoder_outputs = []
+        self.norm = norm
 
     def init_params(self, first_input):
         N, T, F, C = first_input.shape
@@ -39,7 +40,11 @@ class DCCRN(nn.Module):
         self.encoder_convs = nn.ModuleList(
             [
                 Encoder_layer(
-                    c, self.kernel_size, self.strides, padding=self.padding
+                    c,
+                    self.kernel_size,
+                    self.strides,
+                    padding=self.padding,
+                    norm=self.norm,
                 ).to(self.device)
                 for c in self.conv_channels
             ]
@@ -69,6 +74,7 @@ class DCCRN(nn.Module):
                     self.kernel_size,
                     output_size=[T, u],
                     padding=self.padding,
+                    norm=self.norm,
                 ).to(self.device)
                 for c, u in zip(
                     self.conv_channels[:-1][::-1], self.encoder_size[:-1][::-1]
@@ -182,7 +188,7 @@ class Decoder_layer(nn.Module):
         )
         if self.use_norm_act:
             self.activation = activation()
-            self.norm = ComplexBatchNorm()
+            self.norm = norm()
 
     def forward(self, x, init_params=False):
         # Upsample to the expected size
