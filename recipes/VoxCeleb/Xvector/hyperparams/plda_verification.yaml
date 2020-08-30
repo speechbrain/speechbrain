@@ -7,7 +7,7 @@ seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Folders and train_log file
-data_folder: !PLACEHOLDER # e.g., /localscratch/voxceleb1/
+data_folder: !PLACEHOLDER
 output_folder: results/speaker_verification/
 save_folder: !ref <output_folder>/save/
 device: 'cuda:0'
@@ -63,7 +63,7 @@ enrol_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_enrol>
     batch_size: !ref <batch_size>
     csv_read: [wav]
-    sentence_sorting: ascending
+    sentence_sorting: original
     replacements:
         $data_folder: !ref <data_folder>
     output_folder: !ref <output_folder>/save/
