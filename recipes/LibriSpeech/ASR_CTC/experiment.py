@@ -27,7 +27,7 @@ with open(params_file) as fin:
 # Create experiment directory
 sb.core.create_experiment_directory(
     experiment_directory=params.output_folder,
-    params_to_save=params_file,
+    hyperparams_to_save=params_file,
     overrides=overrides,
 )
 
@@ -134,9 +134,21 @@ train_set = params.train_loader()
 valid_set = params.valid_loader()
 first_x, _ = next(iter(train_set))
 
+# if augmentation option is activate
+# add it as a module and allow the .eval() mode
+# to skip the perturbation during dev and test
+if hasattr(params, "augmentation"):
+    modules.append(params.augmentation)
+
 asr_brain = ASR(
     modules=modules, optimizer=params.optimizer, first_inputs=[first_x],
 )
+
+# Check if the model should be trained on multiple GPUs.
+# Important: DataParallel MUST be called after the ASR (Brain) class init.
+if params.multigpu:
+    params.enc = torch.nn.DataParallel(params.enc)
+    params.output = torch.nn.DataParallel(params.output)
 
 # Load latest checkpoint to resume training
 checkpointer.recover_if_possible()
