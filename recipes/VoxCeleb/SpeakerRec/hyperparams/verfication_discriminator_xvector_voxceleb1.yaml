@@ -118,11 +118,8 @@ test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
 
-mean_var_norm_emb: !new:speechbrain.processing.features.InputNormalization
-    norm_type: global
-    std_norm: False
+bn_emb: !new:speechbrain.nnet.normalization.BatchNorm1d
 
-# compute_cost: !name:speechbrain.nnet.losses.nll_loss
 compute_cost: !name:speechbrain.nnet.losses.compute_masked_loss
 
 optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
@@ -144,3 +141,4 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         optimizer: !ref <optimizer>
         normalizer: !ref <mean_var_norm>
         counter: !ref <epoch_counter>
+        mean_var_norm_emb: !ref <bn_emb>

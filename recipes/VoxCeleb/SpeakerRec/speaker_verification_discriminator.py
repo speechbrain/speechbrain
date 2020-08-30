@@ -12,9 +12,9 @@ from speechbrain.utils.data_utils import download_file
 # Trains (pre-trained) speaker embeddings + binary discriminator
 class VerificationBrain(sb.core.Brain):
     def fit_batch(self, batch):
-        inputs, target_class = batch
+        inputs, _ = batch
         out, target_discrim = self.compute_forward(inputs)
-        loss, stats = self.compute_objectives(out, target_class, target_discrim)
+        loss, stats = self.compute_objectives(out, target_discrim)
         loss.backward()
         self.optimizer.step()
         self.optimizer.zero_grad()
@@ -24,9 +24,7 @@ class VerificationBrain(sb.core.Brain):
     def evaluate_batch(self, batch, stage="test"):
         inputs, target_class = batch
         out, target_discrim = self.compute_forward(inputs, stage=stage)
-        loss, stats = self.compute_objectives(
-            out, target_class, target_discrim, stage=stage
-        )
+        loss, stats = self.compute_objectives(out, target_discrim, stage=stage)
         stats["loss"] = loss.detach()
         return stats
 
@@ -156,9 +154,8 @@ class VerificationBrain(sb.core.Brain):
         else:
             emb = params.embedding_model(feats, init_params=init_params)
 
-        emb = params.mean_var_norm_emb(
-            emb, torch.ones(emb.shape[0]).to("cuda:0")
-        )
+        # Applying batch normaization
+        emb = params.bn_emb(emb, init_params=init_params)
         return emb
 
     def compute_embeddings_loop(self, data_loader):
@@ -201,9 +198,7 @@ class VerificationBrain(sb.core.Brain):
 
         return outputs, target_discrim
 
-    def compute_objectives(
-        self, outputs, target_class, target_discrim, stage="train"
-    ):
+    def compute_objectives(self, outputs, target_discrim, stage="train"):
         """Computes the Binary Cross-Entropy Loss (BPE) using targets derived
         from positive and negative samples.
         """
@@ -230,9 +225,8 @@ class VerificationBrain(sb.core.Brain):
         epoch_stats = {"epoch": epoch, "lr": old_lr}
         params.train_logger.log_stats(epoch_stats, train_stats, valid_stats)
 
-        avg_loss = float(sum(valid_stats["loss"]) / len(valid_stats["loss"]))
         params.checkpointer.save_and_keep_only(
-            meta={"loss": avg_loss}, min_keys=["loss"]
+            meta={"EER": EER}, min_keys=["EER"]
         )
 
     def compute_EER(self,):
@@ -240,30 +234,54 @@ class VerificationBrain(sb.core.Brain):
         """
         # Computing  enrollment and test embeddings
         print("Computing enroll/test embeddings...")
-        enrol_dict = self.compute_embeddings_loop(enrol_set_loader)
-        test_dict = self.compute_embeddings_loop(test_set_loader)
+        self.enrol_dict = self.compute_embeddings_loop(enrol_set_loader)
+        self.test_dict = self.compute_embeddings_loop(test_set_loader)
 
         print("Computing EER..")
         # Reading standard verification split
         gt_file = os.path.join(params.data_folder, "meta", "veri_test.txt")
+        with open(gt_file) as f:
+            veri_test = [line.rstrip() for line in f]
+
+        positive_scores, negative_scores = self.get_verification_scores(
+            veri_test
+        )
+        del self.enrol_dict, self.test_dict
+
+        eer = EER(torch.tensor(positive_scores), torch.tensor(negative_scores))
+        return eer * 100
+
+    def get_verification_scores(self, veri_test):
+        """ computes positive and negative scores given the verification split.
+        """
         samples = []
         labs = []
         positive_scores = []
         negative_scores = []
+        params.discriminator.eval()
+        cnt = 0
 
-        for i, line in enumerate(open(gt_file)):
+        # Loop over all the verification tests
+        for i, line in enumerate(veri_test):
+
+            # Reading verification file (enrol_file test_file label)
             labs.append(int(line.split(" ")[0].rstrip().split(".")[0].strip()))
             enrol_id = line.split(" ")[1].rstrip().split(".")[0].strip()
             test_id = line.split(" ")[2].rstrip().split(".")[0].strip()
             sample = torch.cat(
-                [enrol_dict[enrol_id], test_dict[test_id]], dim=1
+                [self.enrol_dict[enrol_id], self.test_dict[test_id]], dim=1
             )
             samples.append(sample)
 
-            if i % params.batch_size:
+            # Gathering batches
+            if cnt == params.batch_size - 1 or i == len(veri_test) - 1:
                 samples = torch.cat(samples)
-                outputs = params.discriminator(samples)
+                with torch.no_grad():
+                    outputs = params.discriminator(samples)
                 scores = torch.sigmoid(outputs)
+                scores.detach()
+
+                # Putting scores in the corresponding lists
                 for j, score in enumerate(scores.tolist()):
                     if labs[j] == 1:
                         positive_scores.append(score[0])
@@ -271,10 +289,10 @@ class VerificationBrain(sb.core.Brain):
                         negative_scores.append(score[0])
                 labs = []
                 samples = []
-
-        del enrol_dict, test_dict
-        eer = EER(torch.tensor(positive_scores), torch.tensor(negative_scores))
-        return eer * 100
+                cnt = 0
+                continue
+            cnt = cnt + 1
+        return positive_scores, negative_scores
 
     # Function for pre-trained model downloads
     def download_and_pretrain(self):
@@ -329,7 +347,11 @@ if __name__ == "__main__":
     test_set_loader = params.test_loader()
 
     # Speaker verification Model
-    modules = [params.embedding_model, params.discriminator]
+    modules = [
+        params.embedding_model,
+        params.discriminator,
+        params.bn_emb,
+    ]
     first_x, first_y = next(iter(train_set))
 
     # Object initialization for training the speaker verification model
