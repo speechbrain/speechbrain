@@ -26,13 +26,15 @@ sb.core.create_experiment_directory(
     overrides=overrides,
 )
 
-modules = torch.nn.ModuleList([
-    hparams.encoder_embed,
-    hparams.encoder_net,
-    hparams.decoder_embed,
-    hparams.decoder_net,
-    hparams.decoder_linear,
-])
+modules = torch.nn.ModuleList(
+    [
+        hparams.encoder_embed,
+        hparams.encoder_net,
+        hparams.decoder_embed,
+        hparams.decoder_net,
+        hparams.decoder_linear,
+    ]
+)
 
 searcher = S2SRNNBeamSearcher(
     modules=[
@@ -44,7 +46,7 @@ searcher = S2SRNNBeamSearcher(
     bos_index=hparams.bos,
     eos_index=hparams.eos,
     min_decode_ratio=0,
-    max_decode_ratio=10.0, # the output may be longer than the input, e.g. "b o x" --> "B AA K S"
+    max_decode_ratio=10.0,  # the output may be longer than the input, e.g. "b o x" --> "B AA K S"
     beam_size=10,
 )
 
@@ -57,6 +59,7 @@ checkpointer = sb.utils.checkpoints.Checkpointer(
         "counter": hparams.epoch_counter,
     },
 )
+
 
 class G2P(sb.core.Brain):
     def decode_batch(self, batch, init_params=False):
@@ -73,15 +76,35 @@ class G2P(sb.core.Brain):
             if 0 in seq[i]:
                 seq_no_padding = []
                 for j in range(len(seq[i])):
-                    if seq[i][j] != 0: seq_no_padding += [seq[i][j]]
-                    else: break
+                    if seq[i][j] != 0:
+                        seq_no_padding += [seq[i][j]]
+                    else:
+                        break
                 seq[i] = seq_no_padding
 
         # Convert indices to labels
         batch_size = len(graphemes)
-        model_in = [graphemes[i][:gg[i]].long() for i in range(batch_size)]
-        decoded_inputs = [" ".join([hparams.train_loader.label_dict["graphemes"]["index2lab"][l.item()] for l in s_in]) for s_in in model_in]
-        decoded_outputs = [" ".join([hparams.train_loader.label_dict["phonemes"]["index2lab"][l] for l in s_out]) for s_out in seq]
+        model_in = [graphemes[i][: gg[i]].long() for i in range(batch_size)]
+        decoded_inputs = [
+            " ".join(
+                [
+                    hparams.train_loader.label_dict["graphemes"]["index2lab"][
+                        l.item()
+                    ]
+                    for l in s_in
+                ]
+            )
+            for s_in in model_in
+        ]
+        decoded_outputs = [
+            " ".join(
+                [
+                    hparams.train_loader.label_dict["phonemes"]["index2lab"][l]
+                    for l in s_out
+                ]
+            )
+            for s_out in seq
+        ]
 
         return decoded_inputs, decoded_outputs
 
@@ -103,14 +126,15 @@ class G2P(sb.core.Brain):
 
         if stage != "train":
             seq, _ = searcher(encoder_out, graphemes_lens)
-            gg = torch.round(graphemes.shape[1] * graphemes_lens).long()
             for i in range(len(graphemes)):
                 # remove padding from search results
                 if 0 in seq[i]:
                     seq_no_padding = []
                     for j in range(len(seq[i])):
-                        if seq[i][j] != 0: seq_no_padding += [seq[i][j]]
-                        else: break
+                        if seq[i][j] != 0:
+                            seq_no_padding += [seq[i][j]]
+                        else:
+                            break
                     seq[i] = seq_no_padding
             return outputs, seq
 
@@ -169,6 +193,7 @@ class G2P(sb.core.Brain):
         hparams.train_logger.log_stats(epoch_stats, train_stats, valid_stats)
         checkpointer.save_and_keep_only(meta={"PER": per}, min_keys=["PER"])
 
+
 train_set = hparams.train_loader()
 valid_set = hparams.valid_loader()
 test_set = hparams.test_loader()
@@ -177,25 +202,41 @@ first_x, first_y = next(iter(train_set))
 # Add 1 to labels, so that the token for padding =\= the token for a label
 temp = {}
 for key in hparams.train_loader.label_dict["graphemes"]["index2lab"]:
-        index = hparams.train_loader.label_dict["graphemes"]["index2lab"][key]
-        temp[key + 1] = index
-        hparams.train_loader.label_dict["graphemes"]["lab2index"][index] = key + 1
+    index = hparams.train_loader.label_dict["graphemes"]["index2lab"][key]
+    temp[key + 1] = index
+    hparams.train_loader.label_dict["graphemes"]["lab2index"][index] = key + 1
 hparams.train_loader.label_dict["graphemes"]["index2lab"] = temp
-hparams.valid_loader.label_dict["graphemes"]["index2lab"] = hparams.train_loader.label_dict["graphemes"]["index2lab"]
-hparams.valid_loader.label_dict["graphemes"]["lab2index"] = hparams.train_loader.label_dict["graphemes"]["lab2index"]
-hparams.test_loader.label_dict["graphemes"]["index2lab"] = hparams.train_loader.label_dict["graphemes"]["index2lab"]
-hparams.test_loader.label_dict["graphemes"]["lab2index"] = hparams.train_loader.label_dict["graphemes"]["lab2index"]
+hparams.valid_loader.label_dict["graphemes"][
+    "index2lab"
+] = hparams.train_loader.label_dict["graphemes"]["index2lab"]
+hparams.valid_loader.label_dict["graphemes"][
+    "lab2index"
+] = hparams.train_loader.label_dict["graphemes"]["lab2index"]
+hparams.test_loader.label_dict["graphemes"][
+    "index2lab"
+] = hparams.train_loader.label_dict["graphemes"]["index2lab"]
+hparams.test_loader.label_dict["graphemes"][
+    "lab2index"
+] = hparams.train_loader.label_dict["graphemes"]["lab2index"]
 
 temp = {}
 for key in hparams.train_loader.label_dict["phonemes"]["index2lab"]:
-        index = hparams.train_loader.label_dict["phonemes"]["index2lab"][key]
-        temp[key + 1] = index
-        hparams.train_loader.label_dict["phonemes"]["lab2index"][index] = key + 1
+    index = hparams.train_loader.label_dict["phonemes"]["index2lab"][key]
+    temp[key + 1] = index
+    hparams.train_loader.label_dict["phonemes"]["lab2index"][index] = key + 1
 hparams.train_loader.label_dict["phonemes"]["index2lab"] = temp
-hparams.valid_loader.label_dict["phonemes"]["index2lab"] = hparams.train_loader.label_dict["phonemes"]["index2lab"]
-hparams.valid_loader.label_dict["phonemes"]["lab2index"] = hparams.train_loader.label_dict["phonemes"]["lab2index"]
-hparams.test_loader.label_dict["phonemes"]["index2lab"] = hparams.train_loader.label_dict["phonemes"]["index2lab"]
-hparams.test_loader.label_dict["phonemes"]["lab2index"] = hparams.train_loader.label_dict["phonemes"]["lab2index"]
+hparams.valid_loader.label_dict["phonemes"][
+    "index2lab"
+] = hparams.train_loader.label_dict["phonemes"]["index2lab"]
+hparams.valid_loader.label_dict["phonemes"][
+    "lab2index"
+] = hparams.train_loader.label_dict["phonemes"]["lab2index"]
+hparams.test_loader.label_dict["phonemes"][
+    "index2lab"
+] = hparams.train_loader.label_dict["phonemes"]["index2lab"]
+hparams.test_loader.label_dict["phonemes"][
+    "lab2index"
+] = hparams.train_loader.label_dict["phonemes"]["lab2index"]
 
 # why do I have to list the modules?
 model = G2P(
@@ -218,8 +259,12 @@ print("Test PER: %.2f" % summarize_error_rate(test_stats["PER"]))
 # Get pronunciations for OOV words; add to lexicon_augmented.
 # (As in the other dataloaders, we need to change the labels to deal with padding.)
 oov_set = hparams.oov_loader()
-hparams.oov_loader.label_dict["graphemes"]["index2lab"] = hparams.train_loader.label_dict["graphemes"]["index2lab"]
-hparams.oov_loader.label_dict["graphemes"]["lab2index"] = hparams.train_loader.label_dict["graphemes"]["lab2index"]
+hparams.oov_loader.label_dict["graphemes"][
+    "index2lab"
+] = hparams.train_loader.label_dict["graphemes"]["index2lab"]
+hparams.oov_loader.label_dict["graphemes"][
+    "lab2index"
+] = hparams.train_loader.label_dict["graphemes"]["lab2index"]
 ID = []
 duration = []
 graphemes = []
@@ -231,28 +276,30 @@ phonemes_opts = []
 lexicon = pd.read_csv(hparams.input_lexicon)
 current_ID = max(lexicon.ID) + 1
 for batch in oov_set:
-	decoded_inputs, decoded_outputs = model.decode_batch(batch)
-	batch_size = len(decoded_inputs)
-	ID += [i for i in range(current_ID, current_ID + batch_size)]
-	duration += [len(d.split()) for d in decoded_inputs]
-	graphemes += decoded_inputs
-	graphemes_format += ["string"] * batch_size
-	graphemes_opts += [np.nan] * batch_size
-	phonemes += decoded_outputs
-	phonemes_format += ["string"] * batch_size
-	phonemes_opts += [np.nan] * batch_size
-	current_ID += batch_size
+    decoded_inputs, decoded_outputs = model.decode_batch(batch)
+    batch_size = len(decoded_inputs)
+    ID += [i for i in range(current_ID, current_ID + batch_size)]
+    duration += [len(d.split()) for d in decoded_inputs]
+    graphemes += decoded_inputs
+    graphemes_format += ["string"] * batch_size
+    graphemes_opts += [np.nan] * batch_size
+    phonemes += decoded_outputs
+    phonemes_format += ["string"] * batch_size
+    phonemes_opts += [np.nan] * batch_size
+    current_ID += batch_size
 
-augment = pd.DataFrame({
-	"ID" : ID,
-	"duration" : duration,
-	"graphemes" : graphemes,
-	"graphemes_format" : graphemes_format,
-	"graphemes_opts" : graphemes_opts,
-	"phonemes" : phonemes,
-	"phonemes_format" : phonemes_format,
-	"phonemes_opts" : phonemes_opts
-})
+augment = pd.DataFrame(
+    {
+        "ID": ID,
+        "duration": duration,
+        "graphemes": graphemes,
+        "graphemes_format": graphemes_format,
+        "graphemes_opts": graphemes_opts,
+        "phonemes": phonemes,
+        "phonemes_format": phonemes_format,
+        "phonemes_opts": phonemes_opts,
+    }
+)
 
 lexicon_augmented = pd.concat([lexicon, augment])
 lexicon_augmented.to_csv(hparams.output_lexicon, index=False)

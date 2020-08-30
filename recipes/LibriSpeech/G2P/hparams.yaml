@@ -5,8 +5,7 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Data files
 output_folder: !ref results/g2p/<seed>
-#data_folder: /localscratch/
-data_folder: /home/lugosch/data/mini-librispeech
+data_folder: /home/mirco/datasets/lexicon
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
