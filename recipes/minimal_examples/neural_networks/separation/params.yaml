@@ -1,3 +1,10 @@
+# ################################
+# Model: ConvTasnet for source separation
+# Data : Minimal Example
+# Author: Cem Subakan
+# ################################
+
+
 # Basic parameters
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
