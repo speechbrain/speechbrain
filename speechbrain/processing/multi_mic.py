@@ -37,6 +37,7 @@ Authors:
 """
 
 import torch
+import speechbrain.processing.decomposition as eig
 
 
 class Covariance(torch.nn.Module):
@@ -226,9 +227,71 @@ class Mvdr(torch.nn.Module):
 
         super().__init__()
 
-    def forward(self):
+    def forward(self, Xs, tdoas, XXs):
+        """
+        Xs (batch, time_step, n_fft, 2, n_mics)
+        tdoas (batch, time_steps, n_mics + n_pairs)
+        XXs (batch, time_step, n_fft, 2, n_mics + n_pairs)
+        """
 
-        pass
+        pi = 3.141592653589793
+
+        # Extracting data
+        n_batches = Xs.shape[0]
+        n_time_frames = Xs.shape[1]
+        n_fft = Xs.shape[2]
+        n_channels = Xs.shape[4]
+
+        N = int((n_fft - 1) * 2)
+
+        # Computing the different parts of the steering vector
+        omegas = 2 * pi * torch.arange(0, n_fft, device=Xs.device) / N
+        omegas = omegas.unsqueeze(0).unsqueeze(-1)
+        omegas = omegas.repeat(n_batches, n_time_frames, 1, n_channels)
+        tdoas = tdoas[:, :, range(0, n_channels)]
+        tdoas = tdoas.unsqueeze(2)
+        tdoas = tdoas.repeat(1, 1, n_fft, 1)
+
+        # Assembling the steering vector
+        As_re = torch.cos(-1.0 * omegas * tdoas).unsqueeze(4)
+        As_im = torch.sin(-1.0 * omegas * tdoas).unsqueeze(4)
+
+        AsH_re = As_re.transpose(3, 4)
+        AsH_im = -1.0 * As_im.transpose(3, 4)
+
+        # Computing the beamforming coefficients
+        XXs_val, XXs_indices = torch.unique(XXs, return_inverse=True, dim=1)
+
+        XXs_inv = eig.inv(XXs_val)
+
+        Rs_inv_re = XXs_inv[..., 0][:, XXs_indices]
+        Rs_inv_im = XXs_inv[..., 1][:, XXs_indices]
+
+        Rs_inv_A_re = torch.matmul(Rs_inv_re, As_re) - torch.matmul(
+            Rs_inv_im, As_im
+        )
+        Rs_inv_A_im = torch.matmul(Rs_inv_re, As_im) + torch.matmul(
+            Rs_inv_im, As_re
+        )
+
+        alpha = 1.0 / (
+            torch.matmul(AsH_re, Rs_inv_A_re)
+            - torch.matmul(AsH_im, Rs_inv_A_im)
+        )
+
+        Ws_re = torch.matmul(Rs_inv_A_re, alpha).squeeze(4)
+        Ws_im = torch.matmul(Rs_inv_A_im, alpha).squeeze(4)
+
+        # Applying MVDR
+        Xs_re = Xs[..., 0, :]
+        Xs_im = Xs[..., 1, :]
+
+        Ys_re = torch.sum((Ws_re * Xs_re - Ws_im * Xs_im), dim=3, keepdim=True)
+        Ys_im = torch.sum((Ws_re * Xs_im + Ws_im * Xs_re), dim=3, keepdim=True)
+
+        Ys = torch.stack((Ys_re, Ys_im), -2)
+
+        return Ys
 
 
 class Gev(torch.nn.Module):

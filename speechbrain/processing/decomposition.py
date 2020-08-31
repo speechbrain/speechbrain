@@ -289,3 +289,33 @@ def pos_def(ws, alpha=0.001, eps=1e-20):
     ws_pf[..., 0, ids_diag] += alpha * trace + eps
 
     return ws_pf
+
+
+def inv(x):
+    """
+    x : (*, 2, C+P)
+    x_inv : (*, C, C, 2)
+    """
+
+    d = x.dim()
+    p = x.shape[-1]
+    n_channels = int(round(((1 + 8 * p) ** 0.5 - 1) / 2))
+
+    ash = f(pos_def(x))
+    ash_inv = torch.inverse(ash)
+    as_inv = finv(ash_inv)
+
+    indices = torch.triu_indices(n_channels, n_channels)
+
+    x_inv = torch.zeros(
+        x.shape[slice(0, d - 2)] + (n_channels, n_channels, 2),
+        dtype=x.dtype,
+        device=x.device,
+    )
+
+    x_inv[..., indices[1], indices[0], 0] = as_inv[..., 0, :]
+    x_inv[..., indices[1], indices[0], 1] = -1 * as_inv[..., 1, :]
+    x_inv[..., indices[0], indices[1], 0] = as_inv[..., 0, :]
+    x_inv[..., indices[0], indices[1], 1] = as_inv[..., 1, :]
+
+    return x_inv
