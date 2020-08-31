@@ -14,10 +14,14 @@ Example
 >>> xs_speech, fs = sf.read(
 ...    'samples/audio_samples/multi_mic/speech_-0.82918_0.55279_-0.082918.flac'
 ... )
->>> xs_noise, _ = sf.read('samples/audio_samples/multi_mic/noise_diffuse.flac')
+>>> xs_noise_diff, _ = sf.read('samples/audio_samples/multi_mic/noise_diffuse.flac')
+>>> xs_noise_loc, _ = sf.read('samples/audio_samples/multi_mic/noise_0.70225_-0.70225_0.11704.flac')
+
 >>> ss = torch.tensor(xs_speech).unsqueeze(0).float()
->>> nn = torch.tensor(0.05 * xs_noise).unsqueeze(0).float()
->>> xs = ss + nn
+>>> nn_diff = torch.tensor(0.05 * xs_noise_diff).unsqueeze(0).float()
+>>> nn_loc = torch.tensor(0.05 * xs_noise_loc).unsqueeze(0).float()
+>>> xs_diffused_noise = ss + nn_diff
+>>> xs_localized_noise = ss + nn_loc
 >>>
 >>> stft = STFT(sample_rate=fs)
 >>> cov = Covariance()
@@ -26,14 +30,15 @@ Example
 >>> gev = Gev()
 >>> istft = ISTFT(sample_rate=fs)
 >>>
->>> Xs = stft(xs)
+>>> Xs = stft(xs_diffused_noise)
 >>> XXs = cov(Xs)
 >>> tdoas = gccphat(XXs)
 >>> Ys_ds = delaysum(Xs, tdoas)
 >>> ys_ds = istft(Ys_ds)
 >>>
+>>> Xs = stft(xs_localized_noise)
 >>> Ss = stft(ss)
->>> Nn = stft(nn)
+>>> Nn = stft(nn_loc)
 >>> SSs = cov(Ss)
 >>> NNs = cov(Nn)
 >>> Ys_gev = gev(Xs, SSs, NNs)
@@ -256,7 +261,7 @@ class Gev(torch.nn.Module):
     >>> xs_speech, fs = sf.read(
     ...    'samples/audio_samples/multi_mic/speech_-0.82918_0.55279_-0.082918.flac'
     ... )
-    >>> xs_noise, _ = sf.read('samples/audio_samples/multi_mic/noise_diffuse.flac')
+    >>> xs_noise, _ = sf.read('samples/audio_samples/multi_mic/noise_0.70225_-0.70225_0.11704.flac')
     >>> ss = torch.tensor(xs_speech).unsqueeze(0).float()
     >>> nn = torch.tensor(0.05 * xs_noise).unsqueeze(0).float()
     >>> xs = ss + nn
