@@ -911,6 +911,7 @@ class DatasetFactory(Dataset):
             else:
                 lab2ind = None
             # Managing caching
+
             if self.do_cache:
 
                 if snt_id not in self.cache:

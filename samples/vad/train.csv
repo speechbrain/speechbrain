@@ -1,0 +1,6 @@
+ID, duration, wav, wav_format, wav_opts, spk_id, spk_id_format, spk_id_opts, speech, speech_format, speech_opts
+
+example_1, 2, $data_folder/train.wav, wav, start:0 stop:32000, spk01, string,  , 0.52 0.85 1.32 1.83, string, label_func:True
+example_2, 2, $data_folder/train.wav, wav, start:32000 stop:64000, spk02, string,  , 0.35 1.70, string, label_func:True
+
+

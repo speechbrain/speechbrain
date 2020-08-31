@@ -14,13 +14,13 @@ csv_test: !ref <data_folder>/train.csv
 # Neural Parameters
 N_epochs: 10
 N_batch: 2
-lr: 0.001
+lr: 0.01
 
 # Model parameters
 rnn_layers: 2
 rnn_neurons: 256
 emb_size: 23
-dropout: 0.0
+dropout: 0.1
 
 # Outputs
 output_neurons: 1
@@ -43,7 +43,7 @@ lin: !new:speechbrain.nnet.linear.Linear
     n_neurons: !ref <output_neurons>
     bias: False
 
-compute_cost: !name:speechbrain.nnet.losses.compute_masked_loss
+compute_BCE_cost: !name:speechbrain.nnet.losses.compute_masked_loss
 
 optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
     learning_rate: !ref <lr>
