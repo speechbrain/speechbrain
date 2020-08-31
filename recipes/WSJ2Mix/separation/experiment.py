@@ -13,12 +13,12 @@ from speechbrain.utils.train_logger import summarize_average
 import torch
 from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.nnet.losses import get_si_snr_with_pitwrapper
-from prepare_data import create_wsj_csv, get_wsj_files
+from recipes.WSJ2Mix.prepare_data import create_wsj_csv, get_wsj_files
 
 import torch.nn.functional as F
 
 experiment_dir = os.path.dirname(os.path.realpath(__file__))
-params_file = os.path.join(experiment_dir, "params.yaml")
+params_file = os.path.join(experiment_dir, "../hyperparameter/convtasnet.yaml")
 
 with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(fin)
