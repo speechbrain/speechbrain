@@ -1,13 +1,21 @@
 #!/usr/bin/python
+
+"""
+Recipe to train CONV-TASNET model on the WSJ0 dataset
+
+Author:
+    * Cem Subakan 2020
+"""
+
 import os
 import speechbrain as sb
 from speechbrain.utils.train_logger import summarize_average
 import torch
 from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.nnet.losses import get_si_snr_with_pitwrapper
+from prepare_data import create_wsj_csv, get_wsj_files
 
 import torch.nn.functional as F
-import csv
 
 experiment_dir = os.path.dirname(os.path.realpath(__file__))
 params_file = os.path.join(experiment_dir, "params.yaml")
@@ -16,8 +24,11 @@ with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(fin)
 
 # this points to the folder which holds the wsj0-mix dataset folder
-datapath = params.datapath
+wsj0root = params.wsj0path
+data_save_dir = params.datapath
 
+if os.path.exists(data_save_dir):
+    get_wsj_files(wsj0root, data_save_dir)
 
 # load or create the csv files for the data
 if not (
@@ -25,55 +36,7 @@ if not (
     and os.path.exists("wsj_cv.csv")
     and os.path.exists("wsj_tt.csv")
 ):
-    for set_type in ["tr", "cv", "tt"]:
-        mix_path = (
-            datapath + "wsj0-mix/2speakers/wav8k/min/" + set_type + "/mix/"
-        )
-        s1_path = datapath + "wsj0-mix/2speakers/wav8k/min/" + set_type + "/s1/"
-        s2_path = datapath + "wsj0-mix/2speakers/wav8k/min/" + set_type + "/s2/"
-
-        files = os.listdir(mix_path)
-
-        mix_fl_paths = [mix_path + fl for fl in files]
-        s1_fl_paths = [s1_path + fl for fl in files]
-        s2_fl_paths = [s2_path + fl for fl in files]
-
-        csv_columns = [
-            "ID",
-            "duration",
-            "mix_wav",
-            "mix_wav_format",
-            "mix_wav_opts",
-            "s1_wav",
-            "s1_wav_format",
-            "s1_wav_opts",
-            "s2_wav",
-            "s2_wav_format",
-            "s2_wav_opts",
-        ]
-
-        with open("wsj_" + set_type + ".csv", "w") as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
-            writer.writeheader()
-            for i, (mix_path, s1_path, s2_path) in enumerate(
-                zip(mix_fl_paths, s1_fl_paths, s2_fl_paths)
-            ):
-
-                row = {
-                    "ID": i,
-                    "duration": 1.0,
-                    "mix_wav": mix_path,
-                    "mix_wav_format": "wav",
-                    "mix_wav_opts": None,
-                    "s1_wav": s1_path,
-                    "s1_wav_format": "wav",
-                    "s1_wav_opts": None,
-                    "s2_wav": s2_path,
-                    "s2_wav_format": "wav",
-                    "s2_wav_opts": None,
-                }
-                writer.writerow(row)
-
+    create_wsj_csv(data_save_dir)
 
 tr_csv = os.path.realpath(os.path.join(experiment_dir, "wsj_tr.csv"))
 cv_csv = os.path.realpath(os.path.join(experiment_dir, "wsj_cv.csv"))
@@ -85,12 +48,10 @@ with open(params_file) as fin:
     )
 # print(params)  # if needed this line can be uncommented for logging
 
-
 if params.use_tensorboard:
     from speechbrain.utils.train_logger import TensorboardLogger
 
     train_logger = TensorboardLogger(params.tensorboard_logs)
-
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -200,7 +161,6 @@ ctn = CTN_Brain(
 
 params.checkpointer.recover_if_possible(lambda c: -c.meta["av_loss"])
 
-# with torch.autograd.detect_anomaly():
 ctn.fit(
     range(params.N_epochs),
     train_set=train_loader,

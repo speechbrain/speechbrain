@@ -1,4 +1,12 @@
 #!/usr/bin/python
+
+"""
+A minimal example on the conv-tasnet model
+
+Author
+    * Cem Subakan 2020
+"""
+
 import os
 import speechbrain as sb
 from speechbrain.utils.train_logger import summarize_average
@@ -10,16 +18,38 @@ from speechbrain.nnet.losses import get_si_snr_with_pitwrapper
 experiment_dir = os.path.dirname(os.path.realpath(__file__))
 params_file = os.path.join(experiment_dir, "params.yaml")
 
-csv_dir = os.path.realpath(os.path.join(experiment_dir, "minimal_example.csv"))
+csv_tr = os.path.realpath(
+    os.path.join(
+        experiment_dir,
+        "../../../../samples/audio_samples/sourcesep_samples/minimal_example_convtasnet_tr.csv",
+    )
+)
+csv_cv = os.path.realpath(
+    os.path.join(
+        experiment_dir,
+        "../../../../samples/audio_samples/sourcesep_samples/minimal_example_convtasnet_cv.csv",
+    )
+)
+csv_tt = os.path.realpath(
+    os.path.join(
+        experiment_dir,
+        "../../../../samples/audio_samples/sourcesep_samples/minimal_example_convtasnet_tt.csv",
+    )
+)
 
 data_folder = "../../../../samples/audio_samples/sourcesep_samples"
 data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
 
 with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(
-        fin, {"data_folder": data_folder, "csv_dir": csv_dir}
+        fin,
+        {
+            "data_folder": data_folder,
+            "csv_tr": csv_tr,
+            "csv_cv": csv_cv,
+            "csv_tt": csv_tt,
+        },
     )
-print(params)
 
 if params.use_tensorboard:
     from speechbrain.utils.train_logger import TensorboardLogger
@@ -141,3 +171,8 @@ ctn.fit(
 
 test_stats = ctn.evaluate(test_loader)
 print("Test SI-SNR: %.3f" % -summarize_average(test_stats["loss"]))
+
+
+# Integration test: check that the model overfits the training data
+def test_error():
+    assert -ctn.avg_train_loss > 10.0

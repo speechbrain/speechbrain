@@ -7,19 +7,27 @@ tensorboard_logs: runs/minimal_example
 output_folder: !ref results/conv_tasnet/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
-csv_dir: minimal_example.csv
+csv_tr: >
+        ../../../../samples/audio_samples/sourcesep_samples/
+        minimal_example_convtasnet_tr.csv
+csv_cv: >
+        ../../../../samples/audio_samples/sourcesep_samples/
+        minimal_example_convtasnet_cv.csv
+csv_tt: >
+        ../../../../samples/audio_samples/sourcesep_samples/
+        minimal_example_convtasnet_tt.csv
 data_folder: ../../../../samples/audio_samples/sourcesep_samples
 
 # Neural Parameters
-N_epochs: 100
+N_epochs: 150
 N_batch: 1
-lr: 0.001
+lr: 0.002
 train_onthefly: False
 loss_fn: 'sisnr'
 progressbar: True
 
 train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_dir>
+    csv_file: !ref <csv_tr>
     batch_size: !ref <N_batch>
     sentence_sorting: random
     csv_read: [mix_wav, s1_wav, s2_wav]
@@ -27,7 +35,7 @@ train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
         $data_folder: !ref <data_folder>
 
 val_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_dir>
+    csv_file: !ref <csv_cv>
     batch_size: !ref <N_batch>
     sentence_sorting: random
     csv_read: [mix_wav, s1_wav, s2_wav]
@@ -36,7 +44,7 @@ val_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
 
 
 test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_dir>
+    csv_file: !ref <csv_tt>
     batch_size: !ref <N_batch>
     sentence_sorting: random
     csv_read: [mix_wav, s1_wav, s2_wav]
@@ -73,7 +81,6 @@ optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <N_epochs>
 
-
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
@@ -86,4 +93,4 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
     summary_fns:
-        PER: !name:speechbrain.utils.train_logger.summarize_error_rate
+        SISNR: !name:speechbrain.utils.train_logger.summarize_error_rate
