@@ -8,6 +8,7 @@ import torch
 import math
 import torch.nn as nn
 import speechbrain as sb
+from typing import Optional
 
 
 class TransformerInterface(nn.Module):
@@ -158,6 +159,10 @@ class TransformerEncoderLayer(nn.Module):
         Hidden size of self-attention Feed Forward layer
     nhead : int
         number of attention heads
+    embed_dim : int
+        The expected size of the input embedding
+    reshape : bool
+        Whether to automatically shape 4-d input to 3-d
     kdim : int
         dimension for key (Optional)
     vdim : int
@@ -179,13 +184,16 @@ class TransformerEncoderLayer(nn.Module):
         self,
         d_ffn,
         nhead,
-        embed_dim,
+        embed_dim=None,
+        reshape=False,
         kdim=None,
         vdim=None,
         dropout=0.1,
         activation=nn.ReLU,
     ):
         super().__init__()
+        self.reshape = reshape
+
         self.self_att = sb.nnet.MultiheadAttention(
             nhead=nhead,
             embed_dim=embed_dim,
@@ -205,7 +213,12 @@ class TransformerEncoderLayer(nn.Module):
         self.dropout1 = torch.nn.Dropout(dropout)
         self.dropout2 = torch.nn.Dropout(dropout)
 
-    def forward(self, src, src_mask=None, src_key_padding_mask=None):
+    def forward(
+        self,
+        src,
+        src_mask: Optional[torch.Tensor] = None,
+        src_key_padding_mask: Optional[torch.Tensor] = None,
+    ):
         """
         Arguements
         ----------
@@ -216,6 +229,12 @@ class TransformerEncoderLayer(nn.Module):
         src_key_padding_mask: tensor
             the mask for the src keys per batch (optional).
         """
+        in_shape = src.shape
+        if self.reshape:
+            src = src.reshape(
+                in_shape[0], in_shape[1], in_shape[2] * in_shape[3]
+            )
+
         output, self_attn = self.self_att(
             src,
             src,
@@ -242,10 +261,16 @@ class TransformerEncoder(nn.Module):
 
     Arguements
     ----------
-    d_ffn : int
-        Hidden size of self-attention Feed Forward layer
+    num_layers : int
+        Number of transformer layers to include
     nhead : int
         number of attention heads
+    d_ffn : int
+        Hidden size of self-attention Feed Forward layer
+    input_shape : tuple
+        Expected shape of an example input.
+    embed_dim : int
+        The dimension of the input embedding.
     kdim : int
         dimension for key (Optional)
     vdim : int
@@ -271,7 +296,8 @@ class TransformerEncoder(nn.Module):
         num_layers,
         nhead,
         d_ffn,
-        embed_dim,
+        input_shape=None,
+        embed_dim=None,
         kdim=None,
         vdim=None,
         dropout=0.1,
@@ -279,24 +305,42 @@ class TransformerEncoder(nn.Module):
         return_attention=False,
     ):
         super().__init__()
+
+        if input_shape is None and embed_dim is None:
+            raise ValueError("Expected one of input_shape or embed_dim")
+
+        reshape_first_layer = False
+        if embed_dim is None:
+            if len(input_shape) == 4:
+                reshape_first_layer = True
+                embed_dim = input_shape[-2] * input_shape[-1]
+            else:
+                embed_dim = input_shape[-1]
+
         self.layers = torch.nn.ModuleList(
             [
                 TransformerEncoderLayer(
                     d_ffn=d_ffn,
                     nhead=nhead,
                     embed_dim=embed_dim,
+                    reshape=reshape_first_layer if i == 0 else False,
                     kdim=kdim,
                     vdim=vdim,
                     dropout=dropout,
                     activation=activation,
                 )
-                for _ in range(num_layers)
+                for i in range(num_layers)
             ]
         )
         self.norm = torch.nn.LayerNorm(embed_dim, eps=1e-6)
         self.return_attention = return_attention
 
-    def forward(self, src, src_mask=None, src_key_padding_mask=None):
+    def forward(
+        self,
+        src,
+        src_mask: Optional[torch.Tensor] = None,
+        src_key_padding_mask: Optional[torch.Tensor] = None,
+    ):
         """
         Arguements
         ----------
@@ -308,18 +352,18 @@ class TransformerEncoder(nn.Module):
             the mask for the src keys per batch (optional).
         """
         output = src
-        attention_lst = []
+        # attention_lst = []
         for enc_layer in self.layers:
             output, attention = enc_layer(
                 output,
                 src_mask=src_mask,
                 src_key_padding_mask=src_key_padding_mask,
             )
-            attention_lst.append(attention)
+            # attention_lst.append(attention)
         output = self.norm(output)
 
-        if self.return_attention:
-            return output, attention_lst
+        # if self.return_attention:
+        #     return output, attention_lst
         return output
 
 

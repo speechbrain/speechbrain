@@ -147,11 +147,10 @@ class CRDNN(sb.nnet.Sequential):
 
         if self_attention:
             self.append(
-                TransformerEncoder(
-                    num_layers=self_attention_layers,
-                    nhead=self_attention_num_heads,
-                    d_ffn=self_attention_hidden_dim,
-                )
+                TransformerEncoder,
+                num_layers=self_attention_layers,
+                nhead=self_attention_num_heads,
+                d_ffn=self_attention_hidden_dim,
             )
 
         if rnn_layers > 0:
@@ -167,9 +166,9 @@ class CRDNN(sb.nnet.Sequential):
         for block_index in range(dnn_blocks):
             if dnn_postionalwise:
                 self.append(
-                    sb.nnet.PositionalwiseFeedForward(
-                        hidden_size=dnn_neurons, dropout=dropout
-                    )
+                    sb.nnet.PositionalwiseFeedForward,
+                    d_ffn=dnn_neurons,
+                    dropout=dropout,
                 )
                 self.append(sb.nnet.LayerNorm)
                 self.append(activation())
