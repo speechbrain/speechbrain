@@ -80,7 +80,8 @@ modules:
         num_embeddings: 43  # 42 phonemes + 1 bos
         embedding_dim: 128
     dec: !new:speechbrain.nnet.AttentionalRNNDecoder
-        input_shape: [!ref <N_batch>, 10, 128]
+        enc_dim: 128
+        input_size: 128
         rnn_type: gru
         attn_type: content
         hidden_size: !ref <rnn_neurons>

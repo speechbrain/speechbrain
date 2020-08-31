@@ -9,6 +9,7 @@ import torch
 import logging
 import torch.nn as nn
 import numpy as np
+from typing import Optional
 from speechbrain.data_io.data_io import length_to_mask
 
 logger = logging.getLogger(__name__)
@@ -282,9 +283,8 @@ class MultiheadAttention(nn.Module):
         query,
         key,
         value,
-        attn_mask=None,
-        key_padding_mask=None,
-        init_params=False,
+        attn_mask: Optional[torch.Tensor] = None,
+        key_padding_mask: Optional[torch.Tensor] = None,
     ):
         """
         Arguements
@@ -320,10 +320,10 @@ class MultiheadAttention(nn.Module):
         Outputs
         -------
         attn_output: tensor
-            (L, N, E)(L,N,E) where L is the target sequence length, N is the
+            (L, N, E) where L is the target sequence length, N is the
             batch size, E is the embedding dimension.
         attn_output_weights: tensor
-            (N, L, S)(N,L,S) where N is the batch size, L is the target
+            (N, L, S) where N is the batch size, L is the target
             sequence length, S is the source sequence length.
         """
         # give tensors of shape (time, batch, fea)
@@ -355,7 +355,9 @@ class PositionalwiseFeedForward(nn.Module):
         dimention of representation space of this positional-wise feed
         forward module
     input_shape : tuple
-        Expected shape of the input.
+        Expected shape of the input. Alternatively use ``input_size``.
+    input_size : int
+        Expected size of the input. Alternatively use ``input_shape``.
     dropout: float
         Fraction of outputs to drop.
     activation: torch class
@@ -370,8 +372,22 @@ class PositionalwiseFeedForward(nn.Module):
     torch.Size([8, 60, 512])
     """
 
-    def __init__(self, d_ffn, input_size, dropout=0.1, activation=nn.ReLU):
+    def __init__(
+        self,
+        d_ffn,
+        input_shape=None,
+        input_size=None,
+        dropout=0.1,
+        activation=nn.ReLU,
+    ):
         super().__init__()
+
+        if input_shape is None and input_size is None:
+            raise ValueError("Expected one of input_shape or input_size")
+
+        if input_size is None:
+            input_size = input_shape[-1]
+
         self.ffn = nn.Sequential(
             nn.Linear(input_size, d_ffn),
             activation(),
