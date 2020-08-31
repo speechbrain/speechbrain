@@ -22,20 +22,21 @@ Example
 >>> nn_loc = torch.tensor(0.05 * xs_noise_loc).unsqueeze(0).float()
 >>> xs_diffused_noise = ss + nn_diff
 >>> xs_localized_noise = ss + nn_loc
->>>
+
+>>> # Delay-and-Sum Beamforming
 >>> stft = STFT(sample_rate=fs)
 >>> cov = Covariance()
 >>> gccphat = GccPhat()
 >>> delaysum = DelaySum()
->>> gev = Gev()
 >>> istft = ISTFT(sample_rate=fs)
->>>
 >>> Xs = stft(xs_diffused_noise)
 >>> XXs = cov(Xs)
 >>> tdoas = gccphat(XXs)
 >>> Ys_ds = delaysum(Xs, tdoas)
 >>> ys_ds = istft(Ys_ds)
->>>
+
+>>> # GeV Beamforming
+>>> gev = Gev()
 >>> Xs = stft(xs_localized_noise)
 >>> Ss = stft(ss)
 >>> Nn = stft(nn_loc)
