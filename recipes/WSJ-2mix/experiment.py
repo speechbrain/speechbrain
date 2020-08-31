@@ -23,14 +23,17 @@ params_file = os.path.join(experiment_dir, "params.yaml")
 with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(fin)
 
-# this points to the folder which holds the wsj0-mix dataset folder
+# this points to the folder which holds the wsj0 dataset folder
 wsj0root = params.wsj0path
+
+# this points to the folder to which we will save the wsj0-mix dataset
 data_save_dir = params.datapath
 
-if os.path.exists(data_save_dir):
+# if the dataset is not present, we create the dataset
+if not os.path.exists(data_save_dir):
     get_wsj_files(wsj0root, data_save_dir)
 
-# load or create the csv files for the data
+# load or create the csv files which enables us to get the speechbrain dataloaders
 if not (
     os.path.exists("wsj_tr.csv")
     and os.path.exists("wsj_cv.csv")
