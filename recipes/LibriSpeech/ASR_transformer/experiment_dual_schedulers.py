@@ -208,7 +208,10 @@ class ASR(sb.core.Brain):
 
         stats = {}
         if stage != "train":
-            ind2lab = params.train_loader.label_dict["wrd"]["index2lab"]
+            if stage == "valid":
+                ind2lab = params.valid_loader.label_dict["wrd"]["index2lab"]
+            elif stage == "test":
+                ind2lab = params.test_loader.label_dict["wrd"]["index2lab"]
             char_seq = params.tokenizer(hyps, task="decode_from_list")
 
             chars = undo_padding(target_chars, target_lens)
