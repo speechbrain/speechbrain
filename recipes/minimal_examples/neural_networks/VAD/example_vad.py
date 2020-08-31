@@ -9,7 +9,7 @@ import numpy as np
 
 experiment_dir = os.path.dirname(os.path.abspath(__file__))
 params_file = os.path.join(experiment_dir, "params.yaml")
-data_folder = "../../../../../samples/speech_labelling"
+data_folder = "../../../../../samples/vad"
 data_folder = os.path.abspath(experiment_dir + data_folder)
 with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
@@ -36,7 +36,7 @@ class VADBrain(sb.core.Brain):
 
         targets = targets[1].to(predictions.device)
         predictions = predictions[:, : targets.shape[-1], 0]
-        loss = params.compute_cost(
+        loss = params.compute_BCE_cost(
             torch.nn.BCEWithLogitsLoss(reduction="none"),
             predictions,
             targets,
@@ -52,7 +52,7 @@ class VADBrain(sb.core.Brain):
         return loss, stats
 
     def on_epoch_end(self, epoch, train_stats, valid_stats):
-        print("Epoch %d complete" % epoch)
+        print("Epoch %d completed" % epoch)
         print("Train loss: %.4f" % summarize_average(train_stats["loss"]))
         print("Train Precision: %.2f" % self.metrics_train.get_precision())
         print("Train Recall: %.2f" % self.metrics_train.get_recall())
