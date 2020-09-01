@@ -221,6 +221,34 @@ class DelaySum(torch.nn.Module):
 
 class Mvdr(torch.nn.Module):
     """ Minimum Variance Distortionless Response (MVDR) Beamforming
+
+    Example
+    -------
+    >>> import soundfile as sf
+    >>> import torch
+    >>>
+    >>> from speechbrain.processing.features import STFT, ISTFT
+    >>> from speechbrain.processing.multi_mic import Covariance
+    >>> from speechbrain.processing.multi_mic import GccPhat, Mvdr
+    >>>
+    >>> xs_speech, fs = sf.read(
+    ...    'samples/audio_samples/multi_mic/speech_-0.82918_0.55279_-0.082918.flac'
+    ... )
+    >>> xs_noise, _ = sf.read('samples/audio_samples/multi_mic/nnoise_0.70225_-0.70225_0.11704.flac')
+    >>> xs = xs_speech + 0.05 * xs_noise
+    >>> xs = torch.tensor(xs).unsqueeze(0).float()
+    >>>
+    >>> stft = STFT(sample_rate=fs)
+    >>> cov = Covariance()
+    >>> gccphat = GccPhat()
+    >>> mvdr = Mvdr()
+    >>> istft = ISTFT(sample_rate=fs)
+    >>>
+    >>> Xs = stft(xs)
+    >>> XXs = cov(Xs)
+    >>> tdoas = gccphat(XXs)
+    >>> Ys = mvdr(Xs, tdoas, XXs)
+    >>> ys = istft(Ys)
     """
 
     def __init__(self):
@@ -229,9 +257,25 @@ class Mvdr(torch.nn.Module):
 
     def forward(self, Xs, tdoas, XXs):
         """
-        Xs (batch, time_step, n_fft, 2, n_mics)
-        tdoas (batch, time_steps, n_mics + n_pairs)
-        XXs (batch, time_step, n_fft, 2, n_mics + n_pairs)
+        Performs MVDR beamforming using the signal Xs in the frequency domain,
+        the time differences of arrival (TDOAs) in samples and the covariance
+        matrix XXs of the signal. It returns the result in the frequency
+        domain with the following format: (batch, time_step, n_fft, 2, 1)
+
+        Arguments
+        ---------
+        Xs : tensor
+            A batch of audio signals in the frequency domain, in
+            the format (batch, time_step, n_fft, 2, n_mics)
+
+        tdoas : tensor
+            The time difference of arrival (TDOA) (in samples) for
+            each timestamp. The tensor has the format
+            (batch, time_steps, n_mics + n_pairs)
+
+        XXs : tensor
+            The covariance matrices of the input signal. The tensor must
+            have the format (batch, time_steps, n_fft/2, 2, n_mics + n_pairs)
         """
 
         pi = 3.141592653589793

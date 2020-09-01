@@ -292,15 +292,48 @@ def pos_def(ws, alpha=0.001, eps=1e-20):
 
 
 def inv(x):
-    """
-    x : (*, 2, C+P)
-    x_inv : (*, C, C, 2)
+    """ Inverse Hermitian Matrix
+
+    This method finds the inverse of a complex Hermitian matrix
+    represented by its upper triangular part. The result will have
+    the following format: (*, C, C, 2).
+
+    Arguments
+    ---------
+        x : tensor
+            An input matrix to work with. The tensor must have the
+            following format: (*, 2, C+P)
+
+    Example
+    -------
+    >>> import soundfile as sf
+    >>> import torch
+    >>>
+    >>> from speechbrain.processing.features import STFT
+    >>> from speechbrain.processing.multi_mic import Covariance
+    >>> from speechbrain.processing.decomposition import inv
+    >>>
+    >>> xs_speech, fs = sf.read(
+    ...    'samples/audio_samples/multi_mic/speech_-0.82918_0.55279_-0.082918.flac'
+    ... )
+    >>> xs_noise, _ = sf.read('samples/audio_samples/multi_mic/nnoise_0.70225_-0.70225_0.11704.flac')
+    >>> xs = xs_speech + 0.05 * xs_noise
+    >>> xs = torch.tensor(xs).unsqueeze(0).float()
+    >>>
+    >>> stft = STFT(sample_rate=fs)
+    >>> cov = Covariance()
+    >>>
+    >>> Xs = stft(xs)
+    >>> XXs = cov(Xs)
+    >>> XXs_inv = inv(XXs)
     """
 
+    # Dimensions
     d = x.dim()
     p = x.shape[-1]
     n_channels = int(round(((1 + 8 * p) ** 0.5 - 1) / 2))
 
+    # Output matrix
     ash = f(pos_def(x))
     ash_inv = torch.inverse(ash)
     as_inv = finv(ash_inv)
