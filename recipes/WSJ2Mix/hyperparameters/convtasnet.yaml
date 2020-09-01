@@ -24,9 +24,10 @@ progressbar: True
 
 # The path for wsj0-mix data
 # e.g. '/network/tmp1/subakany/wsj0-mix-speechbrain-2speakers/'
-datapath: !PLACEHOLDER
+wsj0mixpath: !PLACEHOLDER
 
 # The path for the folder which contains wsj0 folder.
+# This is used only if the wsj0-mix is not already ready to be used.
 # e.g. '/network/tmp1/subakany/wsj0-mix/'
 wsj0path: !PLACEHOLDER
 

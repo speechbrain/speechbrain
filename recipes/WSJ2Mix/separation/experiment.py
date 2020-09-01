@@ -18,20 +18,20 @@ from recipes.WSJ2Mix.prepare_data import create_wsj_csv, get_wsj_files
 import torch.nn.functional as F
 
 experiment_dir = os.path.dirname(os.path.realpath(__file__))
-params_file = os.path.join(experiment_dir, "../hyperparameter/convtasnet.yaml")
+params_file = os.path.join(experiment_dir, "../hyperparameters/convtasnet.yaml")
 
 with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(fin)
 
-# this points to the folder which holds the wsj0 dataset folder
-wsj0root = params.wsj0path
-
 # this points to the folder to which we will save the wsj0-mix dataset
-data_save_dir = params.datapath
+data_save_dir = params.wsj0mixpath
 
 # if the dataset is not present, we create the dataset
 if not os.path.exists(data_save_dir):
-    get_wsj_files(wsj0root, data_save_dir)
+    # this points to the folder which holds the wsj0 dataset folder
+    wsj0path = params.wsj0path
+
+    get_wsj_files(wsj0path, data_save_dir)
 
 # load or create the csv files which enables us to get the speechbrain dataloaders
 if not (
