@@ -28,7 +28,6 @@ import numpy as np
 from tqdm import tqdm
 from speechbrain.data_io.data_io import read_wav_soundfile, write_wav_soundfile
 from speechbrain.utils.data_utils import download_file
-from oct2py import octave
 from scipy.io import wavfile
 from scipy import signal
 import pickle
@@ -239,6 +238,9 @@ def get_wsj_files(wsj0root, output_dir, save_fs="wav_8k", min_maxs=["min"]):
     """
 
     data_types = ["tr", "cv", "tt"]  # train, valid and test sets
+
+    from oct2py import octave
+
     octave.addpath(
         os.getcwd() + "/meta"
     )  # add the matlab functions to octave dir here
