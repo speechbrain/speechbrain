@@ -49,8 +49,8 @@ def test_binary_metrics():
     binary_stats = BinaryMetricStats()
     binary_stats.append(
         ids=["utt1", "utt2", "utt3", "utt4", "utt5", "utt6"],
-        scores=[0.1, 0.4, 0.8, 0.2, 0.3, 0.6],
-        labels=[1, 0, 1, 0, 1, 0],
+        scores=torch.tensor([0.1, 0.4, 0.8, 0.2, 0.3, 0.6]),
+        labels=torch.tensor([1, 0, 1, 0, 1, 0]),
     )
     summary = binary_stats.summarize(threshold=0.5)
     assert summary["TP"] == 1

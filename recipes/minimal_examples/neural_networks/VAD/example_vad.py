@@ -38,6 +38,7 @@ class VADBrain(sb.core.Brain):
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
         if stage == sb.Stage.TRAIN:
+            self.train_loss = stage_loss
             train_summary = self.binary_metrics.summarize(threshold=0.5)
 
             print("Epoch %d completed" % epoch)
@@ -65,7 +66,7 @@ def parsing_func(params, string):
 
 def main():
     experiment_dir = os.path.dirname(os.path.abspath(__file__))
-    params_file = os.path.join(experiment_dir, "params.yaml")
+    params_file = os.path.join(experiment_dir, "hyperparams.yaml")
     data_folder = "../../../../../samples/vad"
     data_folder = os.path.abspath(experiment_dir + data_folder)
     with open(params_file) as fin:
