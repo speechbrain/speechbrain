@@ -618,21 +618,23 @@ def compute_masked_loss(
 
     # Compute, then reduce loss
     loss = loss_fn(predictions, targets) * mask
+    N = loss.size(0)
     if reduction == "mean":
         loss = loss.sum() / torch.sum(mask)
     elif reduction == "batchmean":
-        loss = loss.sum() / targets.shape[0]
+        loss = loss.sum() / N
     elif reduction == "batch":
-        N = loss.size(0)
         loss = loss.view(N, -1).sum(1) / mask.view(N, -1).sum(1)
 
     if label_smoothing == 0:
         return loss
     else:
-        loss_reg = -torch.sum(torch.mean(predictions, dim=1) * mask)
+        loss_reg = torch.mean(predictions, dim=1) * mask
         if reduction == "mean":
-            loss_reg = loss_reg / torch.sum(mask)
-        if reduction == "batchmean":
-            loss_reg = loss_reg / targets.shape[0]
+            loss_reg = torch.sum(loss_reg) / torch.sum(mask)
+        elif reduction == "batchmean":
+            loss_reg = torch.sum(loss_reg) / targets.shape[0]
+        elif reduction == "batch":
+            loss_reg = loss_reg.sum(1) / mask.sum(1)
 
-        return label_smoothing * loss_reg + (1 - label_smoothing) * loss
+        return -label_smoothing * loss_reg + (1 - label_smoothing) * loss
