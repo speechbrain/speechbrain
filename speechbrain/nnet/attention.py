@@ -408,7 +408,7 @@ class MultiheadLocAttention(nn.Module):
     >>> enc_len = torch.ones([4]) * 10
     >>> dec_tensor = torch.rand([4, 25])
     >>> net = MultiheadLocAttention(
-    ...     nhead=3
+    ...     nhead=3,
     ...     enc_dim=20,
     ...     dec_dim=25,
     ...     attn_dim=30,
