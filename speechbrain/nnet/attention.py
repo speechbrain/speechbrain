@@ -298,22 +298,22 @@ class MultiheadAttention(nn.Module):
         Arguements
         ----------
         query: tensor
-            (L, N, E)(L,N,E) where L is the target sequence length, N is the batch size, E is the embedding dimension.
+            (L, N, E), where L is the target sequence length, N is the batch size, E is the embedding dimension.
         key: tensor
-            (S, N, E)(S,N,E) , where S is the source sequence length, N is the batch size, E is the embedding dimension.
+            (S, N, E), where S is the source sequence length, N is the batch size, E is the embedding dimension.
         value: tensor
-            (S, N, E)(S,N,E) where S is the source sequence length, N is the batch size, E is the embedding dimension.
+            (S, N, E), where S is the source sequence length, N is the batch size, E is the embedding dimension.
         key_padding_mask: tensor
-            (N, S)(N,S) where N is the batch size, S is the source sequence length. If a ByteTensor is provided, the non-zero positions will be ignored while the position with the zero positions will be unchanged. If a BoolTensor is provided, the positions with the value of True will be ignored while the position with the value of False will be unchanged.
+            (N, S), where N is the batch size, S is the source sequence length. If a ByteTensor is provided, the non-zero positions will be ignored while the position with the zero positions will be unchanged. If a BoolTensor is provided, the positions with the value of True will be ignored while the position with the value of False will be unchanged.
         attn_mask: tensor
-            2D mask (L, S)(L,S) where L is the target sequence length, S is the source sequence length. 3D mask (N*num_heads, L, S)(N∗num_heads,L,S) where N is the batch size, L is the target sequence length, S is the source sequence length. attn_mask ensure that position i is allowed to attend the unmasked positions. If a ByteTensor is provided, the non-zero positions are not allowed to attend while the zero positions will be unchanged. If a BoolTensor is provided, positions with True is not allowed to attend while False values will be unchanged. If a FloatTensor is provided, it will be added to the attention weight.
+            2D mask (L, S), where L is the target sequence length, S is the source sequence length. 3D mask (N*num_heads, L, S)(N∗num_heads,L,S) where N is the batch size, L is the target sequence length, S is the source sequence length. attn_mask ensure that position i is allowed to attend the unmasked positions. If a ByteTensor is provided, the non-zero positions are not allowed to attend while the zero positions will be unchanged. If a BoolTensor is provided, positions with True is not allowed to attend while False values will be unchanged. If a FloatTensor is provided, it will be added to the attention weight.
 
         Outputs
         -------
         attn_output: tensor
-            (L, N, E)(L,N,E) where L is the target sequence length, N is the batch size, E is the embedding dimension.
+            (L, N, E), where L is the target sequence length, N is the batch size, E is the embedding dimension.
         attn_output_weights: tensor
-            (N, L, S)(N,L,S) where N is the batch size, L is the target sequence length, S is the source sequence length.
+            (N, L, S), where N is the batch size, L is the target sequence length, S is the source sequence length.
         """
         if init_params:
             self.init_params(key)
