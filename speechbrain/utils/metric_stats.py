@@ -267,8 +267,8 @@ class BinaryMetricStats(MetricStats):
 
         """
         self.ids.extend(ids)
-        self.scores.extend(scores)
-        self.labels.extend(labels)
+        self.scores.extend(scores.detach())
+        self.labels.extend(labels.detach())
 
     def summarize(self, field=None, threshold=None, beta=1, eps=1e-8):
         """Compute statistics using full set of scores.
@@ -302,8 +302,8 @@ class BinaryMetricStats(MetricStats):
         """
 
         if isinstance(self.scores, list):
-            self.scores = torch.tensor(self.scores, dtype=float)
-            self.labels = torch.tensor(self.labels, dtype=float)
+            self.scores = torch.stack(self.scores)
+            self.labels = torch.stack(self.labels)
 
         if threshold is None:
             positive_scores = self.scores[self.labels.nonzero(as_tuple=True)]
