@@ -135,6 +135,8 @@ class LocationAwareAttention(nn.Module):
     torch.Size([4, 5])
     """
 
+    precomputed_enc_h: Optional[torch.Tensor]
+
     def __init__(
         self,
         enc_dim,

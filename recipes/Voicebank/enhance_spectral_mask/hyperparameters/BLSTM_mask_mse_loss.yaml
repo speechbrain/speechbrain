@@ -62,17 +62,17 @@ test_loader: !new:speechbrain.DataLoaderFactory
 epoch_counter: !new:speechbrain.EpochCounter
     limit: !ref <number_of_epochs>
 
-lstm: !new:speechbrain.nnet.LSTM
+lstm: !name:speechbrain.nnet.LSTM
     hidden_size: 200
     num_layers: 2
     dropout: 0
     bidirectional: True
 
-linear1: !new:speechbrain.nnet.Linear
+linear1: !name:speechbrain.nnet.Linear
     n_neurons: 300
     bias: True
 
-linear2: !new:speechbrain.nnet.Linear
+linear2: !name:speechbrain.nnet.Linear
     n_neurons: !ref <N_fft> // 2 + 1
     bias: True
 
@@ -80,10 +80,6 @@ activation_lrelu: !new:torch.nn.LeakyReLU
     negative_slope: 0.01
 
 activation_sigmoid: !new:torch.nn.Sigmoid
-
-optimizer: !new:speechbrain.nnet.Optimizer
-    OptClass: !name:torch.optim.RMSprop
-    lr: !ref <lr>
 
 modules:
     use_tensorboard: !ref <use_tensorboard>
@@ -103,15 +99,20 @@ modules:
     mean_var_norm: !new:speechbrain.processing.InputNormalization
         norm_type: sentence
     model: !new:speechbrain.nnet.Sequential
+        - [!ref <N_batch>, 10, !ref <N_fft> // 2 + 1]
         - !ref <lstm>
         - !ref <linear1>
         - !ref <activation_lrelu>
         - !ref <linear2>
         - !ref <activation_sigmoid>
+    optimizer: !new:torch.optim.RMSprop
+        params: !!python/object/apply:speechbrain.collect_params
+            - !ref <modules.model>
+        lr: !ref <lr>
     compute_cost: !name:speechbrain.nnet.mse_loss
     checkpointer: !new:speechbrain.Checkpointer
         checkpoints_dir: !ref <save_folder>
         recoverables:
             model: !ref <modules.model>
-            optimizer: !ref <optimizer>
+            optimizer: !ref <modules.optimizer>
             counter: !ref <epoch_counter>

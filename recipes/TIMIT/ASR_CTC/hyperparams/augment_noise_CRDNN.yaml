@@ -45,22 +45,22 @@ dnn_neurons: 512
 output_neurons: 40
 blank_index: !ref <output_neurons> - 1
 
-train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+train_loader: !new:speechbrain.DataLoaderFactory
     csv_file: !ref <csv_train>
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
     csv_read: [wav, phn]
-    select_n_sentences: 20
+    avoid_if_longer_than: 5.
 
-valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+valid_loader: !new:speechbrain.DataLoaderFactory
     csv_file: !ref <csv_valid>
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
     csv_read: [wav, phn]
 
-test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+test_loader: !new:speechbrain.DataLoaderFactory
     csv_file: !ref <csv_test>
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
@@ -71,6 +71,8 @@ epoch_counter: !new:speechbrain.EpochCounter
     limit: !ref <number_of_epochs>
 
 modules:
+    epoch_counter: !ref <epoch_counter>
+    wer_file: !ref <wer_file>
     augmentation: !new:speechbrain.lobes.TimeDomainSpecAugment
         sample_rate: !ref <sample_rate>
         speeds: [95, 100, 105]
