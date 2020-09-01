@@ -80,9 +80,9 @@ class ASR(sb.Brain):
         loss = self.ctc_weight * loss_ctc + (1 - self.ctc_weight) * loss_seq
 
         # Record losses for posterity
-        self.ctc_metrics.append(ids, p_ctc, phns, wav_lens, phn_lens)
-        self.seq_metrics.append(ids, p_seq, phns_with_eos, rel_length)
         if stage != sb.Stage.TRAIN:
+            self.ctc_metrics.append(ids, p_ctc, phns, wav_lens, phn_lens)
+            self.seq_metrics.append(ids, p_seq, phns_with_eos, rel_length)
             self.per_metrics.append(ids, hyps, phns, phn_lens, self.ind2lab)
 
         return loss
@@ -112,8 +112,6 @@ class ASR(sb.Brain):
     def on_stage_end(self, stage, stage_loss, epoch=None):
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
-            self.train_ctc_loss = self.ctc_metrics.summarize("average")
-            self.train_seq_loss = self.seq_metrics.summarize("average")
         else:
             per = self.per_metrics.summarize("error_rate")
 
@@ -121,11 +119,7 @@ class ASR(sb.Brain):
             old_lr, new_lr = self.lr_annealing(per)
             self.train_logger.log_stats(
                 stats_meta={"epoch": epoch, "lr": old_lr},
-                train_stats={
-                    "loss": self.train_loss,
-                    "ctc_loss": self.train_ctc_loss,
-                    "seq_loss": self.train_seq_loss,
-                },
+                train_stats={"loss": self.train_loss},
                 valid_stats={
                     "loss": stage_loss,
                     "ctc_loss": self.ctc_metrics.summarize("average"),
