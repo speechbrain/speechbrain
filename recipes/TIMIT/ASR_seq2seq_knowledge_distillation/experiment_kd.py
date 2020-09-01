@@ -3,8 +3,8 @@ import os
 import sys
 import torch
 import speechbrain as sb
-import numpy as np
 from tqdm.contrib import tqdm
+import h5py
 
 import speechbrain.data_io.wer as wer_io
 import speechbrain.utils.edit_distance as edit_distance
@@ -31,7 +31,7 @@ with open(params_file) as fin:
 # Create experiment directory
 sb.core.create_experiment_directory(
     experiment_directory=params.output_folder,
-    params_to_save=params_file,
+    hyperparams_to_save=params_file,
     overrides=overrides,
 )
 
@@ -72,64 +72,24 @@ checkpointer = sb.utils.checkpoints.Checkpointer(
 def load_teachers():
     """
     Load results of inference of teacher models stored on disk.
-    Note: Run experiment_save_teachers.py beforehand to generate .npz files.
+    Note: Run experiment_save_teachers.py beforehand to generate .hdf5 files.
     """
     if hasattr(params, "augmentation"):
-        path = current_dir + "/tea_infer_{}batch.npz".format(params.batch_size)
+        path = current_dir + "/tea_infer_{}batch.hdf5".format(params.batch_size)
     else:
-        path = current_dir + "/tea_infer_noAug_{}batch.npz".format(
+        path = current_dir + "/tea_infer_noAug_{}batch.hdf5".format(
             params.batch_size
         )
-    data = np.load(path, allow_pickle=True)
-    train_dict = data["train_dict"][()]
-    valid_dict = data["valid_dict"][()]
-    test_dict = data["test_dict"][()]
+
+    f = h5py.File(path, "r")
+    train_dict = f["train"]
+    valid_dict = f["valid"]
+    test_dict = f["test"]
+
     return [train_dict, valid_dict], test_dict
 
 
 # Define training procedure
-def re_format_teacher(ids, data_dict):
-    """
-    This function reformat teacher inference results from dict[sentence_ids] to
-    dict[teacher_ids].
-
-    There are 4 keys in the sub-dict: ["p_ctc_tea", "p_seq_tea", "wer_ctc_tea", "wer_tea"].
-    """
-    tea_list = [None, None, None, None]
-    for b_num in range(len(ids)):
-        id = ids[b_num]
-        tea_infer = data_dict[id]
-        item_tea_list = [None, None, None, None]
-        for tea_num in range(params.num_tea):
-            tea_dict = tea_infer[tea_num]
-            for i in range(4):
-
-                item_tea = tea_dict[tea_keys[i]]
-                # WER format: [num_teacher, WER]
-                if tea_keys[i].startswith("wer"):
-                    item_tea = torch.tensor(item_tea)
-                # Probability ("p_ctc_tea", "p_seq_tea") format: [num_teacher, frame, channel]
-                else:
-                    item_tea = torch.from_numpy(item_tea)
-
-                item_tea = item_tea.to(params.device)
-                item_tea = torch.unsqueeze(item_tea, 0)
-                if tea_num == 0:
-                    item_tea_list[i] = item_tea
-                else:
-                    item_tea_list[i] = torch.cat(
-                        [item_tea_list[i], item_tea], 0
-                    )
-        for j in range(4):
-            item_tea_list[j] = torch.unsqueeze(item_tea_list[j], 1)
-
-            if b_num == 0:
-                tea_list[j] = item_tea_list[j]
-            else:
-                tea_list[j] = torch.cat([tea_list[j], item_tea_list[j]], 1)
-    return tea_list
-
-
 class ASR(sb.core.Brain):
     def compute_forward(self, x, y, stage="train", init_params=False):
         ids, wavs, wav_lens = x
@@ -168,7 +128,7 @@ class ASR(sb.core.Brain):
         return p_ctc, p_seq, wav_lens
 
     def compute_objectives(
-        self, predictions, targets, data_dict, stage="train"
+        self, predictions, targets, data_dict, batch_id, stage="train"
     ):
         if stage == "train":
             p_ctc, p_seq, wav_lens = predictions
@@ -193,12 +153,32 @@ class ASR(sb.core.Brain):
         loss_ctc_nor = params.ctc_cost(p_ctc, phns, wav_lens, phn_lens)
         loss_seq_nor = params.seq_cost(p_seq, phns_with_eos, length=rel_length)
 
-        # load teacher inference results and re-format.
-        tea_list = re_format_teacher(ids, data_dict)
-        p_ctc_tea = tea_list[0]
-        p_seq_tea = tea_list[1]
-        wer_ctc_tea = tea_list[2]
-        wer_tea = tea_list[3]
+        # load teacher inference results
+        item_tea_list = [None, None, None, None]
+        for tea_num in range(params.num_tea):
+            for i in range(4):
+                item_tea = data_dict[str(batch_id)][tea_name[tea_num]][
+                    tea_keys[i]
+                ][()]
+
+                if tea_keys[i].startswith("wer"):
+                    item_tea = torch.tensor(item_tea)
+                else:
+                    item_tea = torch.from_numpy(item_tea)
+
+                item_tea = item_tea.to(params.device)
+                item_tea = torch.unsqueeze(item_tea, 0)
+                if tea_num == 0:
+                    item_tea_list[i] = item_tea
+                else:
+                    item_tea_list[i] = torch.cat(
+                        [item_tea_list[i], item_tea], 0
+                    )
+
+        p_ctc_tea = item_tea_list[0]
+        p_seq_tea = item_tea_list[1]
+        wer_ctc_tea = item_tea_list[2]
+        wer_tea = item_tea_list[3]
 
         # Stategy "average": average losses of teachers when doing distillation.
         # Stategy "best": choosing the best teacher based on WER.
@@ -218,13 +198,14 @@ class ASR(sb.core.Brain):
                 else:
                     tea_seq2seq_pout = torch.cat([tea_seq2seq_pout, s2s_one], 0)
 
-        if params.strategy == "best" or "weighted":
+        apply_softmax = torch.nn.Softmax(dim=0)
+
+        if params.strategy == "best" or params.strategy == "weighted":
             # mean wer for ctc
             tea_wer_ctc_mean = wer_ctc_tea.mean(1)
             tea_acc_main = 100 - tea_wer_ctc_mean
 
             # normalise weights via Softmax function
-            apply_softmax = torch.nn.Softmax(dim=0)
             tea_acc_softmax = apply_softmax(tea_acc_main)
 
         if params.strategy == "weighted":
@@ -304,21 +285,23 @@ class ASR(sb.core.Brain):
             stats["PER"] = per_stats
         return loss, stats
 
-    def fit_batch(self, batch, train_dict):
+    def fit_batch(self, batch, train_dict, batch_id):
         inputs, targets = batch
         predictions = self.compute_forward(inputs, targets)
-        loss, stats = self.compute_objectives(predictions, targets, train_dict)
+        loss, stats = self.compute_objectives(
+            predictions, targets, train_dict, batch_id
+        )
         loss.backward()
         self.optimizer.step()
         self.optimizer.zero_grad()
         stats["loss"] = loss.detach()
         return stats
 
-    def evaluate_batch(self, batch, data_dict=None, stage="valid"):
+    def evaluate_batch(self, batch, batch_id, data_dict=None, stage="valid"):
         inputs, targets = batch
         predictions = self.compute_forward(inputs, targets, stage=stage)
         loss, stats = self.compute_objectives(
-            predictions, targets, data_dict, stage=stage
+            predictions, targets, data_dict, batch_id, stage=stage
         )
         stats["loss"] = loss.detach()
         return stats
@@ -341,7 +324,7 @@ class ASR(sb.core.Brain):
             train_stats = {}
             with tqdm(train_set, dynamic_ncols=True) as t:
                 for i, batch in enumerate(t):
-                    stats = self.fit_batch(batch, train_dict)
+                    stats = self.fit_batch(batch, train_dict, i)
                     self.add_stats(train_stats, stats)
                     average = self.update_average(stats, iteration=i + 1)
                     t.set_postfix(train_loss=average)
@@ -350,11 +333,12 @@ class ASR(sb.core.Brain):
             if valid_set is not None:
                 self.modules.eval()
                 with torch.no_grad():
-                    for batch in tqdm(valid_set, dynamic_ncols=True):
-                        stats = self.evaluate_batch(
-                            batch, valid_dict, stage="valid"
-                        )
-                        self.add_stats(valid_stats, stats)
+                    with tqdm(valid_set, dynamic_ncols=True) as t:
+                        for i, batch in enumerate(t):
+                            stats = self.evaluate_batch(
+                                batch, i, valid_dict, stage="valid"
+                            )
+                            self.add_stats(valid_stats, stats)
 
             self.on_epoch_end(epoch, train_stats, valid_stats)
 
@@ -362,10 +346,12 @@ class ASR(sb.core.Brain):
         test_stats = {}
         self.modules.eval()
         with torch.no_grad():
-            for batch in tqdm(test_set, dynamic_ncols=True):
-                stats = self.evaluate_batch(batch, test_dict, stage="test")
-                self.add_stats(test_stats, stats)
-
+            with tqdm(test_set, dynamic_ncols=True) as t:
+                for i, batch in enumerate(t):
+                    stats = self.evaluate_batch(
+                        batch, i, test_dict, stage="test"
+                    )
+                    self.add_stats(test_stats, stats)
         return test_stats
 
 
@@ -390,6 +376,7 @@ asr_brain = ASR(
 # load teacher models
 save_dict, test_dict = load_teachers()
 tea_keys = ["p_ctc_tea", "p_seq_tea", "wer_ctc_tea", "wer_tea"]
+tea_name = ["t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9"]
 
 # initialization strategy
 if params.pretrain:
