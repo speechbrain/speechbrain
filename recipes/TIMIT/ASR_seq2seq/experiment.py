@@ -3,120 +3,64 @@ import os
 import sys
 import torch
 import speechbrain as sb
-
-import speechbrain.data_io.wer as wer_io
-import speechbrain.utils.edit_distance as edit_distance
-from speechbrain.data_io.data_io import convert_index_to_lab
 from speechbrain.data_io.data_io import prepend_bos_token
 from speechbrain.data_io.data_io import append_eos_token
 
-from speechbrain.decoders.seq2seq import S2SRNNGreedySearcher
-from speechbrain.decoders.seq2seq import S2SRNNBeamSearcher
-from speechbrain.decoders.decoders import undo_padding
-from speechbrain.utils.train_logger import summarize_error_rate
-
-# This hack needed to import data preparation script from ..
-current_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(os.path.dirname(current_dir))
-from timit_prepare import prepare_timit  # noqa E402
-
-# Load hyperparameters file with command-line overrides
-params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
-with open(params_file) as fin:
-    params = sb.yaml.load_extended_yaml(fin, overrides)
-
-# Create experiment directory
-sb.core.create_experiment_directory(
-    experiment_directory=params.output_folder,
-    hyperparams_to_save=params_file,
-    overrides=overrides,
-)
-
-modules = torch.nn.ModuleList(
-    [params.enc, params.emb, params.dec, params.ctc_lin, params.seq_lin]
-)
-greedy_searcher = S2SRNNGreedySearcher(
-    modules=[params.emb, params.dec, params.seq_lin],
-    bos_index=params.bos_index,
-    eos_index=params.eos_index,
-    min_decode_ratio=0,
-    max_decode_ratio=1,
-)
-beam_searcher = S2SRNNBeamSearcher(
-    modules=[params.emb, params.dec, params.seq_lin],
-    bos_index=params.bos_index,
-    eos_index=params.eos_index,
-    min_decode_ratio=0,
-    max_decode_ratio=1,
-    beam_size=params.beam_size,
-)
-
-checkpointer = sb.utils.checkpoints.Checkpointer(
-    checkpoints_dir=params.save_folder,
-    recoverables={
-        "model": modules,
-        "optimizer": params.optimizer,
-        "scheduler": params.lr_annealing,
-        "normalizer": params.normalize,
-        "counter": params.epoch_counter,
-    },
-)
-
 
 # Define training procedure
-class ASR(sb.core.Brain):
-    def compute_forward(self, x, y, stage="train", init_params=False):
+class ASR(sb.Brain):
+    def compute_forward(self, x, y, stage):
         ids, wavs, wav_lens = x
         ids, phns, phn_lens = y
 
-        wavs, wav_lens = wavs.to(params.device), wav_lens.to(params.device)
-        phns, phn_lens = phns.to(params.device), phn_lens.to(params.device)
+        wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
+        phns, phn_lens = phns.to(self.device), phn_lens.to(self.device)
 
-        if hasattr(params, "env_corrupt") and stage == "train":
-            wavs_noise = params.env_corrupt(wavs, wav_lens, init_params)
+        if hasattr(self, "env_corrupt") and stage == sb.Stage.TRAIN:
+            wavs_noise = self.env_corrupt(wavs, wav_lens)
             wavs = torch.cat([wavs, wavs_noise], dim=0)
             wav_lens = torch.cat([wav_lens, wav_lens])
             phns = torch.cat([phns, phns])
 
-        if hasattr(params, "augmentation"):
-            wavs = params.augmentation(wavs, wav_lens, init_params)
-        feats = params.compute_features(wavs, init_params)
-        feats = params.normalize(feats, wav_lens)
-        x = params.enc(feats, init_params=init_params)
+        if hasattr(self, "augmentation"):
+            wavs = self.augmentation(wavs, wav_lens)
+        feats = self.compute_features(wavs)
+        feats = self.normalize(feats, wav_lens)
+        x = self.enc(feats)
 
         # output layer for ctc log-probabilities
-        logits = params.ctc_lin(x, init_params)
-        p_ctc = params.log_softmax(logits)
+        logits = self.ctc_lin(x)
+        p_ctc = self.log_softmax(logits)
 
         # Prepend bos token at the beginning
-        y_in = prepend_bos_token(phns, bos_index=params.bos_index)
-        e_in = params.emb(y_in, init_params=init_params)
-        h, _ = params.dec(e_in, x, wav_lens, init_params)
+        y_in = prepend_bos_token(phns, bos_index=self.bos_index)
+        e_in = self.emb(y_in)
+        h, _ = self.dec(e_in, x, wav_lens)
 
         # output layer for seq2seq log-probabilities
-        logits = params.seq_lin(h, init_params)
-        p_seq = params.log_softmax(logits)
+        logits = self.seq_lin(h)
+        p_seq = self.log_softmax(logits)
 
-        if stage == "valid":
-            hyps, scores = greedy_searcher(x, wav_lens)
+        if stage == sb.Stage.VALID:
+            hyps, scores = self.greedy_searcher(x, wav_lens)
             return p_ctc, p_seq, wav_lens, hyps
 
-        elif stage == "test":
-            hyps, scores = beam_searcher(x, wav_lens)
+        elif stage == sb.Stage.TEST:
+            hyps, scores = self.beam_searcher(x, wav_lens)
             return p_ctc, p_seq, wav_lens, hyps
 
         return p_ctc, p_seq, wav_lens
 
-    def compute_objectives(self, predictions, targets, stage="train"):
-        if stage == "train":
+    def compute_objectives(self, predictions, targets, stage):
+        if stage == sb.Stage.TRAIN:
             p_ctc, p_seq, wav_lens = predictions
         else:
             p_ctc, p_seq, wav_lens, hyps = predictions
 
         ids, phns, phn_lens = targets
-        phns, phn_lens = phns.to(params.device), phn_lens.to(params.device)
+        phns, phn_lens = phns.to(self.device), phn_lens.to(self.device)
 
-        if hasattr(params, "env_corrupt") and stage == "train":
+        if hasattr(self, "env_corrupt") and stage == sb.Stage.TRAIN:
             phns = torch.cat([phns, phns], dim=0)
             phn_lens = torch.cat([phn_lens, phn_lens], dim=0)
 
@@ -125,86 +69,130 @@ class ASR(sb.core.Brain):
 
         # Append eos token at the end of the label sequences
         phns_with_eos = append_eos_token(
-            phns, length=abs_length, eos_index=params.eos_index
+            phns, length=abs_length, eos_index=self.eos_index
         )
 
         # convert to speechbrain-style relative length
         rel_length = (abs_length + 1) / phns_with_eos.shape[1]
 
-        loss_ctc = params.ctc_cost(p_ctc, phns, wav_lens, phn_lens)
-        loss_seq = params.seq_cost(p_seq, phns_with_eos, length=rel_length)
-        loss = params.ctc_weight * loss_ctc + (1 - params.ctc_weight) * loss_seq
+        loss_ctc = self.ctc_cost(p_ctc, phns, wav_lens, phn_lens)
+        loss_seq = self.seq_cost(p_seq, phns_with_eos, length=rel_length)
+        loss = self.ctc_weight * loss_ctc + (1 - self.ctc_weight) * loss_seq
 
-        stats = {}
-        if stage != "train":
-            ind2lab = params.train_loader.label_dict["phn"]["index2lab"]
-            sequence = convert_index_to_lab(hyps, ind2lab)
-            phns = undo_padding(phns, phn_lens)
-            phns = convert_index_to_lab(phns, ind2lab)
-            per_stats = edit_distance.wer_details_for_batch(
-                ids, phns, sequence, compute_alignments=True
-            )
-            stats["PER"] = per_stats
-        return loss, stats
+        # Record losses for posterity
+        self.ctc_metrics.append(ids, p_ctc, phns, wav_lens, phn_lens)
+        self.seq_metrics.append(ids, p_seq, phns_with_eos, rel_length)
+        if stage != sb.Stage.TRAIN:
+            self.per_metrics.append(ids, hyps, phns, phn_lens, self.ind2lab)
+
+        return loss
 
     def fit_batch(self, batch):
         inputs, targets = batch
-        predictions = self.compute_forward(inputs, targets)
-        loss, stats = self.compute_objectives(predictions, targets)
+        predictions = self.compute_forward(inputs, targets, sb.Stage.TRAIN)
+        loss = self.compute_objectives(predictions, targets, sb.Stage.TRAIN)
         loss.backward()
         self.optimizer.step()
         self.optimizer.zero_grad()
-        stats["loss"] = loss.detach()
-        return stats
+        return loss.detach()
 
-    def evaluate_batch(self, batch, stage="valid"):
+    def evaluate_batch(self, batch, stage):
         inputs, targets = batch
         predictions = self.compute_forward(inputs, targets, stage=stage)
-        loss, stats = self.compute_objectives(predictions, targets, stage=stage)
-        stats["loss"] = loss.detach()
-        return stats
+        loss = self.compute_objectives(predictions, targets, stage=stage)
+        return loss.detach()
 
-    def on_epoch_end(self, epoch, train_stats, valid_stats=None):
-        per = summarize_error_rate(valid_stats["PER"])
-        old_lr, new_lr = params.lr_annealing([params.optimizer], epoch, per)
-        epoch_stats = {"epoch": epoch, "lr": old_lr}
-        params.train_logger.log_stats(epoch_stats, train_stats, valid_stats)
+    def on_stage_start(self, stage, epoch=None):
+        self.ctc_metrics = self.ctc_stats()
+        self.seq_metrics = self.seq_stats()
 
-        checkpointer.save_and_keep_only(meta={"PER": per}, min_keys=["PER"])
+        if stage != sb.Stage.TRAIN:
+            self.per_metrics = self.per_stats()
+
+    def on_stage_end(self, stage, stage_loss, epoch=None):
+        if stage == sb.Stage.TRAIN:
+            self.train_loss = stage_loss
+            self.train_ctc_loss = self.ctc_metrics.summarize("average")
+            self.train_seq_loss = self.seq_metrics.summarize("average")
+        else:
+            per = self.per_metrics.summarize("error_rate")
+
+        if stage == sb.Stage.VALID:
+            old_lr, new_lr = self.lr_annealing(per)
+            self.train_logger.log_stats(
+                stats_meta={"epoch": epoch, "lr": old_lr},
+                train_stats={
+                    "loss": self.train_loss,
+                    "ctc_loss": self.train_ctc_loss,
+                    "seq_loss": self.train_seq_loss,
+                },
+                valid_stats={
+                    "loss": stage_loss,
+                    "ctc_loss": self.ctc_metrics.summarize("average"),
+                    "seq_loss": self.seq_metrics.summarize("average"),
+                    "PER": per,
+                },
+            )
+            self.checkpointer.save_and_keep_only(
+                meta={"PER": per}, min_keys=["PER"]
+            )
+
+        if stage == sb.Stage.TEST:
+            self.train_logger.log_stats(
+                stats_meta={"Epoch loaded": self.epoch_counter.current},
+                test_stats={"loss": stage_loss, "PER": per},
+            )
+            with open(self.wer_file, "w") as w:
+                w.write("CTC loss stats:\n")
+                self.ctc_metrics.write_stats(w)
+                w.write("\nseq2seq loss stats:\n")
+                self.seq_metrics.write_stats(w)
+                w.write("\nPER stats:\n")
+                self.per_metrics.write_stats(w)
+                print(
+                    "CTC, seq2seq, and PER stats written to file", self.wer_file
+                )
 
 
-# Prepare data
-prepare_timit(
-    data_folder=params.data_folder,
-    splits=["train", "dev", "test"],
-    save_folder=params.data_folder,
-)
-train_set = params.train_loader()
-valid_set = params.valid_loader()
-first_x, first_y = next(iter(train_set))
+if __name__ == "__main__":
+    # This hack needed to import data preparation script from ..
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    sys.path.append(os.path.dirname(current_dir))
+    from timit_prepare import prepare_timit  # noqa E402
 
-if hasattr(params, "augmentation"):
-    modules.append(params.augmentation)
-asr_brain = ASR(
-    modules=modules,
-    optimizer=params.optimizer,
-    first_inputs=[first_x, first_y],
-)
+    # Load hyperparameters file with command-line overrides
+    params_file, overrides = sb.parse_arguments(sys.argv[1:])
+    with open(params_file) as fin:
+        params = sb.load_extended_yaml(fin, overrides)
 
-# Load latest checkpoint to resume training
-checkpointer.recover_if_possible()
-asr_brain.fit(params.epoch_counter, train_set, valid_set)
+    # Create experiment directory
+    sb.create_experiment_directory(
+        experiment_directory=params.output_folder,
+        hyperparams_to_save=params_file,
+        overrides=overrides,
+    )
 
-# Load best checkpoint for evaluation
-checkpointer.recover_if_possible(min_key="PER")
-test_stats = asr_brain.evaluate(params.test_loader())
-params.train_logger.log_stats(
-    stats_meta={"Epoch loaded": params.epoch_counter.current},
-    test_stats=test_stats,
-)
+    # Prepare data
+    prepare_timit(
+        data_folder=params.data_folder,
+        splits=["train", "dev", "test"],
+        save_folder=params.data_folder,
+    )
 
-# Write alignments to file
-per_summary = edit_distance.wer_summary(test_stats["PER"])
-with open(params.wer_file, "w") as fo:
-    wer_io.print_wer_summary(per_summary, fo)
-    wer_io.print_alignments(test_stats["PER"], fo)
+    train_set = params.train_loader()
+    valid_set = params.valid_loader()
+    ind2lab = params.train_loader.label_dict["phn"]["index2lab"]
+    asr_brain = ASR(
+        modules=dict(params.modules, ind2lab=ind2lab),
+        optimizers=["optimizer"],
+        jit_modules=["enc"],
+        device=params.device,
+    )
+
+    # Load latest checkpoint to resume training
+    asr_brain.checkpointer.recover_if_possible()
+    asr_brain.fit(params.epoch_counter, train_set, valid_set)
+
+    # Load best checkpoint for evaluation
+    asr_brain.checkpointer.recover_if_possible(min_key="PER")
+    test_stats = asr_brain.evaluate(params.test_loader())

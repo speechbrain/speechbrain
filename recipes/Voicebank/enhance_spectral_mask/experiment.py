@@ -12,7 +12,7 @@ from speechbrain.nnet.loss.stoi_loss import stoi_loss
 
 # Brain class for speech enhancement training
 class SEBrain(sb.Brain):
-    def compute_forward(self, x, stage, init_params=False):
+    def compute_forward(self, x, stage):
         ids, wavs, lens = x
         wavs, lens = wavs.to(self.device), lens.to(self.device)
         feats = self.compute_STFT(wavs)
@@ -20,7 +20,7 @@ class SEBrain(sb.Brain):
         feats = torch.log1p(feats)
 
         # mask with "signal approximation (SA)"
-        mask = self.model(feats, init_params=init_params)
+        mask = self.model(feats)
         predict_spec = torch.mul(mask, feats)
 
         # Also return predicted wav
@@ -184,21 +184,16 @@ if __name__ == "__main__":
     prepare_voicebank(
         data_folder=params.data_folder, save_folder=params.data_folder,
     )
-    train_set = params.train_loader()
-    valid_set = params.valid_loader()
-    test_set = params.test_loader()
-    first_x, first_y = next(iter(train_set))
 
-    se_brain = SEBrain(
-        modules=params.modules,
-        optimizers={"model": params.optimizer},
-        torch_ddp_procs=1,
-        first_inputs=[first_x],
-    )
+    se_brain = SEBrain(modules=params.modules, optimizers=["optimizer"])
 
     # Load latest checkpoint to resume training
     params.modules["checkpointer"].recover_if_possible()
-    se_brain.ddp_fit(params.epoch_counter, train_set, valid_set)
+    se_brain.fit(
+        params.epoch_counter,
+        train_set=params.train_loader(),
+        valid_set=params.valid_loader(),
+    )
 
     # Load best checkpoint for evaluation
     params.modules["checkpointer"].recover_if_possible(min_key="pesq")
