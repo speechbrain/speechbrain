@@ -77,14 +77,14 @@ class EmbeddingBrain(sb.core.Brain):
         loss = params.compute_cost(predictions, spkid)
 
         stats = {}
-        stats["error"] = params.compute_error(predictions, spkid, lens)
         if stage != "train":
             stats["error"] = params.compute_error(predictions, spkid, lens)
 
+        params.lr_annealing.on_batch_end([params.optimizer])
         return loss, stats
 
     def on_epoch_end(self, epoch, train_stats, valid_stats):
-        old_lr, new_lr = params.lr_annealing(
+        old_lr = params.lr_annealing(
             [params.optimizer], epoch, valid_stats["error"]
         )
         epoch_stats = {"epoch": epoch, "lr": old_lr}

@@ -5,6 +5,7 @@
 
 seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+__set_seed_python: !!python/object/apply:random.seed [!ref <seed>]
 
 # Folders and train_log file
 voxceleb_source: /home/nahwidon/scratch/voxceleb1
@@ -19,9 +20,11 @@ csv_valid: !ref <save_folder>/dev.csv
 
 # Training hyperparameters
 number_of_epochs: 100
-batch_size: 256
+batch_size: 64
 lr: 0.001
-lr_final: 0.0001
+base_lr: 0.00000001
+max_lr: !ref <lr>
+step_size: 65000
 device: 'cuda:0'
 
 # Feature parameters
@@ -41,7 +44,6 @@ compute_features: !new:speechbrain.lobes.features.fbank.Fbank
     deltas: !ref <deltas>
 
 embedding_model: !new:speechbrain.lobes.models.ECAPA_TDNN.ECAPA_TDNN
-    activation: !name:torch.nn.LeakyReLU
     device: !ref <device>
     channels: [512, 512, 512, 512, 1536]
     kernel_sizes: [5, 3, 3, 3, 1]
@@ -50,7 +52,6 @@ embedding_model: !new:speechbrain.lobes.models.ECAPA_TDNN.ECAPA_TDNN
     lin_neurons: 192
 
 classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
-    activation: !name:torch.nn.LeakyReLU
     device: !ref <device>
     lin_blocks: 1
     lin_neurons: 192
@@ -102,10 +103,10 @@ compute_error: !name:speechbrain.nnet.losses.classification_error
 optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
     learning_rate: !ref <lr>
 
-lr_annealing: !new:speechbrain.nnet.lr_schedulers.LinearLRScheduler
-    lr_initial: !ref <lr>
-    lr_final: !ref <lr_final>
-    N_epochs: !ref <number_of_epochs>
+lr_annealing: !new:speechbrain.nnet.lr_schedulers.CyclicLRScheduler
+    base_lr: !ref <base_lr>
+    max_lr: !ref <max_lr>
+    step_size: !ref <step_size>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
