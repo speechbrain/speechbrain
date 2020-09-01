@@ -234,7 +234,7 @@ class Mvdr(torch.nn.Module):
     >>> xs_speech, fs = sf.read(
     ...    'samples/audio_samples/multi_mic/speech_-0.82918_0.55279_-0.082918.flac'
     ... )
-    >>> xs_noise, _ = sf.read('samples/audio_samples/multi_mic/nnoise_0.70225_-0.70225_0.11704.flac')
+    >>> xs_noise, _ = sf.read('samples/audio_samples/multi_mic/noise_0.70225_-0.70225_0.11704.flac')
     >>> xs = xs_speech + 0.05 * xs_noise
     >>> xs = torch.tensor(xs).unsqueeze(0).float()
     >>>
