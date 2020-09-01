@@ -1,4 +1,26 @@
 #!/usr/bin/python
+"""Recipe for training a speaker verification system based on contrastive
+learning. We employ a pre-trained embedding extractors (e.g, xvectors)
+followed by a binary discriminator trained with binary-cross-entropy.
+The discriminator distinguishes between positive and negative examples
+that are properly sampled from the dataset. Data augmentation is also
+employed to significantly improved performance.
+
+This approach is inspired from the following paper:
+
+M. Ravanelli, Y. Bengio: "Learning Speaker Representations with Mutual
+Information", Proc. of InterSpeech 2019
+https://arxiv.org/abs/1812.00271
+
+To run this recipe, do the following:
+    > python speaker_verification_discriminator.py {hyperparameter_file}
+
+Using your own hyperparameter file or one of the following:
+    hyperparams/verfication_discriminator_xvector_voxceleb1.yaml
+
+Author
+* Mirco Ravanelli 2020
+"""
 import os
 import sys
 import torch
@@ -333,7 +355,6 @@ if __name__ == "__main__":
         splits=["train", "dev", "test"],
         split_ratio=[90, 10],
         seg_dur=300,
-        vad=False,
         rand_seed=params.seed,
     )
 

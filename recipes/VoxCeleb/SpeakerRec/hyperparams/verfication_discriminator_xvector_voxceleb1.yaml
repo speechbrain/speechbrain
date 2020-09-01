@@ -7,7 +7,7 @@ seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Folders and train_log file
-data_folder: /localscratch/voxceleb1
+data_folder: !PLACEHOLDER # e.g., /localscratch/voxceleb1
 output_folder: results/voxceleb1/verification_discriminator_xvectors
 save_folder: !ref <output_folder>/save/
 train_log: !ref <output_folder>/train_log.txt
