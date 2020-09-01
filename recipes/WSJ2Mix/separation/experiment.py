@@ -13,7 +13,6 @@ from speechbrain.utils.train_logger import summarize_average
 import torch
 from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.nnet.losses import get_si_snr_with_pitwrapper
-from recipes.WSJ2Mix.prepare_data import create_wsj_csv, get_wsj_files
 
 import torch.nn.functional as F
 
@@ -28,6 +27,8 @@ data_save_dir = params.wsj0mixpath
 
 # if the dataset is not present, we create the dataset
 if not os.path.exists(data_save_dir):
+    from recipes.WSJ2Mix.prepare_data import get_wsj_files
+
     # this points to the folder which holds the wsj0 dataset folder
     wsj0path = params.wsj0path
 
@@ -39,6 +40,8 @@ if not (
     and os.path.exists("wsj_cv.csv")
     and os.path.exists("wsj_tt.csv")
 ):
+    from recipes.WSJ2Mix.prepare_data import create_wsj_csv
+
     create_wsj_csv(data_save_dir)
 
 tr_csv = os.path.realpath(os.path.join(experiment_dir, "wsj_tr.csv"))
