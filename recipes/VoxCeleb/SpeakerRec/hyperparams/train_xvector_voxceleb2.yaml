@@ -3,12 +3,12 @@
 # Authors: Nauman Dawalatabad & Mirco Ravanelli 2020
 # ################################
 
-seed: 222
+seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Folders and train_log file
-data_folder: !PLACEHOLDER # e.g, /localscratch/voxceleb1
-output_folder: results/voxceleb1/xvector
+data_folder: !PLACEHOLDER # e.g., /localscratch/voxceleb2
+output_folder: results/voxceleb2/xvector
 save_folder: !ref <output_folder>/save/
 train_log: !ref <output_folder>/train_log.txt
 
@@ -30,7 +30,7 @@ right_frames: 0
 deltas: False
 
 # Number of speakers
-out_n_neurons: 1211
+out_n_neurons: 5994
 
 # Functions
 compute_features: !new:speechbrain.lobes.features.fbank.Fbank
