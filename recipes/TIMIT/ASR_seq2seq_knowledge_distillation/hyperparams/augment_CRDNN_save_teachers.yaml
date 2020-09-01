@@ -48,6 +48,9 @@ eos_threshold: 1.5
 # teacher models
 num_tea: 10
 
+# a list of paths for saved teacher models. e.g. /path/to/model.ckpt
+tea_models_dir: !PLACEHOLDER
+
 # distillation parameters
 # Temperature
 T: 1
