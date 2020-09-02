@@ -10,6 +10,7 @@ spk1_snt5_spk1:
           - [0]
         files: [spk1_snt5.wav]
         lenghts: [41600]
+        samplerate: 16000
 spk2_snt5_spk2:
     supervision:
         phones: [vcl, jh, ah, m, cl, p, dh, ax, f, eh, n, s, ae, n, hh, er,
@@ -22,3 +23,4 @@ spk2_snt5_spk2:
           - [0]
         files: [spk2_snt5.wav]
         lenghts: [31680]
+        samplerate: 16000
