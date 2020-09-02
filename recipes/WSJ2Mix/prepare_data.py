@@ -35,17 +35,18 @@ import csv
 
 
 # load or create the csv files for the data
-def create_wsj_csv(datapath):
+def create_wsj_csv(datapath, savepath):
     """
     This function creates the csv files to get the speechbrain data loaders.
 
     Arguments:
-        datapath for the wsj0-mix dataset.
+        datapath (str) : path for the wsj0-mix dataset.
+        savepath (str) : path where we save the csv file
     """
     for set_type in ["tr", "cv", "tt"]:
-        mix_path = datapath + "wav_8k/min/" + set_type + "/mix/"
-        s1_path = datapath + "wav_8k/min/" + set_type + "/s1/"
-        s2_path = datapath + "wav_8k/min/" + set_type + "/s2/"
+        mix_path = os.path.join(datapath, "wav8k/min/" + set_type + "/mix/")
+        s1_path = os.path.join(datapath, "wav8k/min/" + set_type + "/s1/")
+        s2_path = os.path.join(datapath, "wav8k/min/" + set_type + "/s2/")
 
         files = os.listdir(mix_path)
 
@@ -67,7 +68,7 @@ def create_wsj_csv(datapath):
             "s2_wav_opts",
         ]
 
-        with open("wsj_" + set_type + ".csv", "w") as csvfile:
+        with open(savepath + "/wsj_" + set_type + ".csv", "w") as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
             writer.writeheader()
             for i, (mix_path, s1_path, s2_path) in enumerate(
@@ -113,7 +114,7 @@ def save_mixture(
         weight_1, weight_2 (float): weights for source1 and source2 respectively.
         num_files (int): number of files
         lev1, lev2 (float): levels for each souce obtained with octave.activlev() function
-        save_fs (str): in ['wav_8k', 'wav_16k']
+        save_fs (str): in ['wav8k', 'wav16k']
         output_dir (str): the save directory
         data_type (str): in ['tr', 'cv', 'tt']
         mix_name (str): name given to the mixture. (see the main function get_wsj_files())
@@ -150,7 +151,7 @@ def save_mixture(
     scaling[i, 1] = weight_2 * mix_scaling / np.sqrt(lev2)
     scaling16bit[i] = mix_scaling
 
-    sampling_rate = 8000 if save_fs == "wav_8k" else 16000
+    sampling_rate = 8000 if save_fs == "wav8k" else 16000
 
     write_wav_soundfile(
         s1,
@@ -218,13 +219,19 @@ def arrange_task_files(TaskFile, min_max, data_type, task_dir):
             if not len(line) == 0:
                 C.append(line.split())
 
-    Source1File = task_dir + "mix_2_spk_" + min_max + "_" + data_type + "_1"
-    Source2File = task_dir + "mix_2_spk_" + min_max + "_" + data_type + "_2"
-    MixFile = task_dir + "mix_2_spk_" + min_max + "_" + data_type + "_mix"
+    Source1File = os.path.join(
+        task_dir, "mix_2_spk_" + min_max + "_" + data_type + "_1"
+    )
+    Source2File = os.path.join(
+        task_dir, "mix_2_spk_" + min_max + "_" + data_type + "_2"
+    )
+    MixFile = os.path.join(
+        task_dir, "mix_2_spk_" + min_max + "_" + data_type + "_mix"
+    )
     return Source1File, Source2File, MixFile, C
 
 
-def get_wsj_files(wsj0root, output_dir, save_fs="wav_8k", min_maxs=["min"]):
+def get_wsj_files(wsj0root, output_dir, save_fs="wav8k", min_maxs=["min"]):
     """
     This function constructs the wsj0-2mix dataset out of wsj0 dataset.
     (We are assuming that we have the wav files and not the sphere format)
@@ -232,7 +239,7 @@ def get_wsj_files(wsj0root, output_dir, save_fs="wav_8k", min_maxs=["min"]):
     Argument:
         wsj0root (str): This string specifies the root folder for the wsj0 dataset.
         output_dir (str): The string that species the save folder.
-        save_fs (str): The string that specifies the saving sampling frequency, in ['wav_8k', 'wav_16k']
+        save_fs (str): The string that specifies the saving sampling frequency, in ['wav8k', 'wav16k']
         min_maxs (list): The list that contains the specification on whether we take min. or max. of signals
                          to construct the mixtures. example: ["min", "max"]
     """
@@ -245,15 +252,15 @@ def get_wsj_files(wsj0root, output_dir, save_fs="wav_8k", min_maxs=["min"]):
         os.getcwd() + "/meta"
     )  # add the matlab functions to octave dir here
 
-    fs_read = 8000 if save_fs == "wav_8k" else 16000
+    fs_read = 8000 if save_fs == "wav8k" else 16000
 
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
 
-    if not os.path.exists(output_dir + "/" + save_fs):
-        os.mkdir(output_dir + "/" + save_fs)
+    if not os.path.exists(os.path.join(output_dir, save_fs)):
+        os.mkdir(os.path.join(output_dir, save_fs))
 
-    task_dir = output_dir + "/" + save_fs + "/mixture_definitions_log"
+    task_dir = os.path.join(output_dir, save_fs + "/mixture_definitions_log")
     if not os.path.exists(task_dir):
         os.mkdir(task_dir)
 
@@ -270,19 +277,21 @@ def get_wsj_files(wsj0root, output_dir, save_fs="wav_8k", min_maxs=["min"]):
     inner_folders = ["/s1", "/s2", "/mix"]
     for min_max in min_maxs:
         for data_type in data_types:
-            save_dir = (
-                output_dir + "/" + save_fs + "/" + min_max + "/" + data_type
+            save_dir = os.path.join(
+                output_dir, save_fs + "/" + min_max + "/" + data_type
             )
 
-            if not os.path.exists(output_dir + "/" + save_fs + "/" + min_max):
-                os.mkdir(output_dir + "/" + save_fs + "/" + min_max)
+            if not os.path.exists(
+                os.path.join(output_dir, save_fs + "/" + min_max)
+            ):
+                os.mkdir(os.path.join(output_dir, save_fs + "/" + min_max))
 
             if not os.path.exists(save_dir):
                 os.mkdir(save_dir)
 
             for inner_folder in inner_folders:
-                if not os.path.exists(save_dir + inner_folder):
-                    os.mkdir(save_dir + inner_folder)
+                if not os.path.exists(os.path.join(save_dir, inner_folder)):
+                    os.mkdir(os.path.join(save_dir, inner_folder))
 
             TaskFile = os.getcwd() + "/mix_2_spk_" + data_type + ".txt"
             Source1File, Source2File, MixFile, C = arrange_task_files(
@@ -339,7 +348,7 @@ def get_wsj_files(wsj0root, output_dir, save_fs="wav_8k", min_maxs=["min"]):
                 weight_2 = 10 ** (float(inwav2_snr) / 20)
 
                 # apply same gain to 16 kHz file
-                if save_fs == "wav_8k":
+                if save_fs == "wav8k":
                     s1_8k = weight_1 * s1_8k
                     s2_8k = weight_2 * s2_8k
 
@@ -358,7 +367,7 @@ def get_wsj_files(wsj0root, output_dir, save_fs="wav_8k", min_maxs=["min"]):
                         mix_name,
                         i,
                     )
-                elif save_fs == "wav_16k":
+                elif save_fs == "wav16k":
                     s1_16k = weight_1 * s1 / np.sqrt(lev1)
                     s2_16k = weight_2 * s2 / np.sqrt(lev2)
 
@@ -380,7 +389,7 @@ def get_wsj_files(wsj0root, output_dir, save_fs="wav_8k", min_maxs=["min"]):
                 else:
                     raise ValueError("Incorrect sampling frequency for saving")
 
-            if save_fs == "wav_8k":
+            if save_fs == "wav8k":
                 pickle.dump(
                     {
                         "scaling_8k": scaling_8k,
@@ -398,7 +407,7 @@ def get_wsj_files(wsj0root, output_dir, save_fs="wav_8k", min_maxs=["min"]):
                         "wb",
                     ),
                 )
-            elif save_fs == "wav_16k":
+            elif save_fs == "wav16k":
                 pickle.dump(
                     {
                         "scaling_16k": scaling_16k,
