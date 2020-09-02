@@ -1,0 +1,37 @@
+spk1_snt5: # data_obj_id (can be also a collection of files)
+  waveforms:
+    files:
+      - spk1_snt5.wav
+    channels:
+      - [0] # channels used from each file it is a list)
+    lenghts:
+      - 41600 # length is in samples
+  supervision:
+    - spk1_snt5_spk1: # utterance_id
+        start: 0
+        stop: 41600 # we take all file
+        spk_id: spk1
+        phones: ["s", "ah", "n", "vcl", "d", "ey", "ih", "z", "dh",
+                 "ax", "vcl", "b", "eh", "s", "cl", "t", "cl", "p", "aa",
+                 "r", "dx", "ax", "v", "dh", "ax", "w", "iy", "cl"]
+        # we need to define standard names for entries for most tasks e.g.
+        #words, sources (for source sep) etc
+spk2_snt5:
+  waveforms:
+    files:
+      - spk2_snt5.wav
+    channels:
+      - [0] # channels used from each file it is a list)
+    lenghts:
+      - 31680
+  supervision:
+    - spk2_snt5_spk2: # utterance_id
+        start: 0
+        stop: 31680
+        spk_id: spk2
+        phones: ["vcl", "jh", "ah", "m", "cl", "p", "dh", "ax", "f", "eh", "n",
+                 "s", "ae", "n", "hh", "er", "iy", "ah", "cl", "p", "dh", "ax",
+                 "vcl", "b", "ae", "ng", "cl"]
+
+
+
