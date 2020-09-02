@@ -26,7 +26,7 @@ with open(params_file) as fin:
 data_save_dir = params.wsj0mixpath
 
 # if the dataset is not present, we create the dataset
-if not os.path.exists(data_save_dir):
+if os.path.exists(data_save_dir):
     from recipes.WSJ2Mix.prepare_data import get_wsj_files
 
     # this points to the folder which holds the wsj0 dataset folder
