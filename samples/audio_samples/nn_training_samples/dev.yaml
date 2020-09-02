@@ -6,6 +6,7 @@ spk1_snt5: # data_obj_id (can be also a collection of files)
       - [0] # channels used from each file it is a list)
     lenghts:
       - 41600 # length is in samples
+    samplerate: 16000 # shared
   supervision:
     - spk1_snt5_spk1: # utterance_id
         start: 0
