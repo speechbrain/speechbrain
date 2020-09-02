@@ -1,33 +1,34 @@
-from torch.utils.data import Dataset
+import torchaudio
+import torch
 
 
-def dataset_sanity_check(dataset):
-    # check that utterances and data_obj_ids are unique
-    pass
+def read_audio_example(example):
+    """
+    example with {"supervision": {"start" : x "stop": y ... etc}
+                 {"waveforms": {"files": , channels,
+    """
+
+    waveforms = []
+    for f in example["waveforms"]:
+        if (
+            "start" not in example["supervision"].keys()
+            or "stop" not in example["supervision"].keys()
+        ):
+            tmp = torchaudio.load(f, normalization=False)
+            waveforms.append(tmp)
+        else:
+            num_frames = (
+                example["supervision"]["stop"] - example["supervision"]["start"]
+            )
+            offset = example["supervision"]["start"]
+            tmp = torchaudio.load(
+                f, normalization=False, num_frames=num_frames, offset=offset
+            )
+            waveforms.append(tmp)
+
+    return torch.cat(waveforms, -1)
 
 
-def to_ASR_format(dataset):
-
-    utterances = {}
-    for data_obj_id in dataset.keys():
-        for supervision in dataset[data_obj_id]["supervision"]:
-            utt_id = list(supervision.keys())[0]
-            # we "reverse" the format
-            utterances[utt_id] = {
-                "supervision": supervision[utt_id],
-                "waveforms": dataset[data_obj_id]["waveforms"],
-            }
-
-    return utterances
 
 
-class ASRDataset(Dataset):
-    def __init__(self, examples):
-        # examples are assumed to be a list of utterances from yaml file
-        self.examples = to_ASR_format(examples)
 
-    def __len__(self):
-        return len(self.examples.keys())
-
-    def __getitem__(self, item):
-        pass
