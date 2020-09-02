@@ -278,9 +278,6 @@ def get_wsj_files(wsj0root, output_dir, save_fs="wav8k", min_maxs=["min"]):
         if not os.path.exists(filepath):
             download_file(filelink, filepath)
 
-    import pdb
-
-    pdb.set_trace()
     inner_folders = ["s1", "s2", "mix"]
     for min_max in min_maxs:
         for data_type in data_types:
