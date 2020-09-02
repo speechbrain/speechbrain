@@ -665,7 +665,9 @@ def cal_si_snr(source, estimate_source):
     mask = get_mask(source, source_lengths)
     estimate_source *= mask
 
-    num_samples = source_lengths.reshape(1, -1, 1).float()  # [1, B, 1]
+    num_samples = (
+        source_lengths.contiguous().reshape(1, -1, 1).float()
+    )  # [1, B, 1]
     mean_target = torch.sum(source, dim=0, keepdim=True) / num_samples
     mean_estimate = (
         torch.sum(estimate_source, dim=0, keepdim=True) / num_samples

@@ -17,7 +17,7 @@ from speechbrain.nnet.losses import get_si_snr_with_pitwrapper
 import torch.nn.functional as F
 
 experiment_dir = os.path.dirname(os.path.realpath(__file__))
-params_file = os.path.join(experiment_dir, "../hyperparameters/convtasnet.yaml")
+params_file = os.path.join(experiment_dir, "hyperparameters/convtasnet.yaml")
 
 with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(fin)
@@ -31,22 +31,27 @@ if not os.path.exists(data_save_dir):
 
     # this points to the folder which holds the wsj0 dataset folder
     wsj0path = params.wsj0path
-
     get_wsj_files(wsj0path, data_save_dir)
 
 # load or create the csv files which enables us to get the speechbrain dataloaders
 if not (
-    os.path.exists("wsj_tr.csv")
-    and os.path.exists("wsj_cv.csv")
-    and os.path.exists("wsj_tt.csv")
+    os.path.exists(params.save_folder + "/wsj_tr.csv")
+    and os.path.exists(params.save_folder + "/wsj_cv.csv")
+    and os.path.exists(params.save_folder + "/wsj_tt.csv")
 ):
     from recipes.WSJ2Mix.prepare_data import create_wsj_csv
 
-    create_wsj_csv(data_save_dir)
+    create_wsj_csv(data_save_dir, params.save_folder)
 
-tr_csv = os.path.realpath(os.path.join(experiment_dir, "wsj_tr.csv"))
-cv_csv = os.path.realpath(os.path.join(experiment_dir, "wsj_cv.csv"))
-tt_csv = os.path.realpath(os.path.join(experiment_dir, "wsj_tt.csv"))
+tr_csv = os.path.realpath(
+    os.path.join(experiment_dir, params.save_folder + "/wsj_tr.csv")
+)
+cv_csv = os.path.realpath(
+    os.path.join(experiment_dir, params.save_folder + "/wsj_cv.csv")
+)
+tt_csv = os.path.realpath(
+    os.path.join(experiment_dir, params.save_folder + "/wsj_tt.csv")
+)
 
 with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(

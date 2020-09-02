@@ -224,7 +224,9 @@ class MaskNet(Sequential):
         score = self.mask_conv1x1(y)
 
         # score = self.network(mixture_w)  # [M, K, N] -> [M, K, C*N]
-        score = score.reshape(M, K, self.C, N)  # [M, K, C*N] -> [M, K, C, N]
+        score = score.contiguous().reshape(
+            M, K, self.C, N
+        )  # [M, K, C*N] -> [M, K, C, N]
         if self.mask_nonlinear == "softmax":
             est_mask = F.softmax(score, dim=2)
         elif self.mask_nonlinear == "relu":
