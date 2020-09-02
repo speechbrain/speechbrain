@@ -188,7 +188,7 @@ if __name__ == "__main__":
     se_brain = SEBrain(modules=params.modules, optimizers=["optimizer"])
 
     # Load latest checkpoint to resume training
-    params.modules["checkpointer"].recover_if_possible()
+    se_brain.checkpointer.recover_if_possible()
     se_brain.fit(
         params.epoch_counter,
         train_set=params.train_loader(),
@@ -196,6 +196,6 @@ if __name__ == "__main__":
     )
 
     # Load best checkpoint for evaluation
-    params.modules["checkpointer"].recover_if_possible(min_key="pesq")
+    se_brain.checkpointer.recover_if_possible(max_key="pesq")
     print("Epoch loaded:", params.epoch_counter.current)
     test_stats = se_brain.evaluate(params.test_loader())

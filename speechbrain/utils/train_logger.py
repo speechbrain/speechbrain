@@ -58,7 +58,7 @@ class FileTrainLogger(TrainLogger):
 
     def _item_to_string(self, key, value, dataset=None):
         """Convert one item to string, handling floats"""
-        if isinstance(value, float) and 0.01 < value < 100.0:
+        if isinstance(value, float) and 1.0 < value < 100.0:
             value = f"{value:.2f}"
         elif isinstance(value, float):
             value = f"{value:.2e}"

@@ -46,7 +46,7 @@ train_loader: !new:speechbrain.DataLoaderFactory
 
 valid_loader: !new:speechbrain.DataLoaderFactory
     csv_file: !ref <csv_valid>
-    batch_size: 4
+    batch_size: 8
     csv_read: [noisy_wav, clean_wav]
     sentence_sorting: ascending
     replacements:
@@ -54,7 +54,7 @@ valid_loader: !new:speechbrain.DataLoaderFactory
 
 test_loader: !new:speechbrain.DataLoaderFactory
     csv_file: !ref <csv_test>
-    batch_size: 1
+    batch_size: 8
     csv_read: [noisy_wav, clean_wav]
     replacements:
         $data_folder: !ref <data_folder>
@@ -83,6 +83,7 @@ activation_sigmoid: !new:torch.nn.Sigmoid
 
 modules:
     use_tensorboard: !ref <use_tensorboard>
+    enhanced_folder: !ref <enhanced_folder>
     train_logger: !new:speechbrain.FileTrainLogger
         save_file: !ref <train_log>
     compute_STFT: !new:speechbrain.processing.STFT
