@@ -198,7 +198,7 @@ def save_mixture(
     return scaling, scaling16bit
 
 
-def arrange_task_files(TaskFile, min_max, data_type, task_dir):
+def arrange_task_files(TaskFile, min_max, data_type, log_dir):
     """
     This function gets the specifications on on what file to read
     and also opens the files for the logs.
@@ -208,7 +208,7 @@ def arrange_task_files(TaskFile, min_max, data_type, task_dir):
         min_max (list): Specifies whether we use min. or max. of the sources,
                         while creating mixtures
         data_type (list): Specifies which set to create, in ['tr', 'cv', 'tt']
-        task_dir (str): The string which points to the logs for data creation.
+        log_dir (str): The string which points to the logs for data creation.
     """
     with open(TaskFile, "r") as fid:
         lines = fid.read()
@@ -220,13 +220,13 @@ def arrange_task_files(TaskFile, min_max, data_type, task_dir):
                 C.append(line.split())
 
     Source1File = os.path.join(
-        task_dir, "mix_2_spk_" + min_max + "_" + data_type + "_1"
+        log_dir, "mix_2_spk_" + min_max + "_" + data_type + "_1"
     )
     Source2File = os.path.join(
-        task_dir, "mix_2_spk_" + min_max + "_" + data_type + "_2"
+        log_dir, "mix_2_spk_" + min_max + "_" + data_type + "_2"
     )
     MixFile = os.path.join(
-        task_dir, "mix_2_spk_" + min_max + "_" + data_type + "_mix"
+        log_dir, "mix_2_spk_" + min_max + "_" + data_type + "_mix"
     )
     return Source1File, Source2File, MixFile, C
 
@@ -248,8 +248,9 @@ def get_wsj_files(wsj0root, output_dir, save_fs="wav8k", min_maxs=["min"]):
 
     from oct2py import octave
 
+    filedir = os.path.dirname(os.path.realpath(__file__))
     octave.addpath(
-        os.getcwd() + "/meta"
+        filedir + "/meta"
     )  # add the matlab functions to octave dir here
 
     fs_read = 8000 if save_fs == "wav8k" else 16000
@@ -260,21 +261,27 @@ def get_wsj_files(wsj0root, output_dir, save_fs="wav8k", min_maxs=["min"]):
     if not os.path.exists(os.path.join(output_dir, save_fs)):
         os.mkdir(os.path.join(output_dir, save_fs))
 
-    task_dir = os.path.join(output_dir, save_fs + "/mixture_definitions_log")
-    if not os.path.exists(task_dir):
-        os.mkdir(task_dir)
+    log_dir = os.path.join(output_dir, save_fs + "/mixture_definitions_log")
+    if not os.path.exists(log_dir):
+        os.mkdir(log_dir)
 
     # get the the text files in the current working directory
-    for data_type in data_types:
-        filename = "mix_2_spk_" + data_type + ".txt"
-        if not os.path.exists(filename):
-            download_file(
-                "https://github.com/pchao6/LSTM_PIT_Speech_Separation/tree/master/1.create-speaker-mixtures-V1/"
-                + filename,
-                filename,
-            )
+    filelinks = [
+        "https://www.dropbox.com/s/u5gk5h3htzw4cgo/mix_2_spk_tr.txt?dl=1",
+        "https://www.dropbox.com/s/s3s6311d95n4sip/mix_2_spk_cv.txt?dl=1",
+        "https://www.dropbox.com/s/9kdxb2uz18a5k9d/mix_2_spk_tt.txt?dl=1",
+    ]
+    for filelink, data_type in zip(filelinks, data_types):
+        filepath = os.path.join(
+            filedir, "meta", "mix_2_spk_" + data_type + ".txt"
+        )
+        if not os.path.exists(filepath):
+            download_file(filelink, filepath)
 
-    inner_folders = ["/s1", "/s2", "/mix"]
+    import pdb
+
+    pdb.set_trace()
+    inner_folders = ["s1", "s2", "mix"]
     for min_max in min_maxs:
         for data_type in data_types:
             save_dir = os.path.join(
@@ -293,9 +300,11 @@ def get_wsj_files(wsj0root, output_dir, save_fs="wav8k", min_maxs=["min"]):
                 if not os.path.exists(os.path.join(save_dir, inner_folder)):
                     os.mkdir(os.path.join(save_dir, inner_folder))
 
-            TaskFile = os.getcwd() + "/mix_2_spk_" + data_type + ".txt"
+            TaskFile = os.path.join(
+                filedir, "meta", "mix_2_spk_" + data_type + ".txt"
+            )
             Source1File, Source2File, MixFile, C = arrange_task_files(
-                TaskFile, min_max, data_type
+                TaskFile, min_max, data_type, log_dir
             )
 
             fid_s1 = open(Source1File, "w")
