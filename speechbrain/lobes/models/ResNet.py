@@ -6,11 +6,13 @@ Authors
  * Hwidong Na 2020
 """
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 from collections import OrderedDict
 from speechbrain.nnet.linear import Linear
 
 
-class Conv2dAuto(torch.nn.Conv2d):
+class Conv2dAuto(nn.Conv2d):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.padding = (
@@ -19,7 +21,7 @@ class Conv2dAuto(torch.nn.Conv2d):
         )  # dynamic add padding based on the kernel_size
 
 
-class PreActResNetBlock(torch.nn.Module):
+class PreActResNetBlock(nn.Module):
     """An abstract implementation of pre-activation ResNet block
     Let x be input, y be output
     y = x + block(x) if x.shape == y.shape
@@ -81,11 +83,11 @@ class PreActResNetBlock(torch.nn.Module):
 
 
 def conv_bn(in_channels, out_channels, *args, **kwargs):
-    return torch.nn.Sequential(
+    return nn.Sequential(
         OrderedDict(
             {
                 "conv": Conv2dAuto(in_channels, out_channels, *args, **kwargs),
-                "bn": torch.nn.BatchNorm2d(out_channels),
+                "bn": nn.BatchNorm2d(out_channels),
             }
         )
     )
@@ -132,7 +134,7 @@ class ResNetBlock(PreActResNetBlock):
             if self.should_apply_shortcut
             else None
         )
-        self.relu = torch.nn.ReLU(inplace=True)
+        self.relu = nn.ReLU(inplace=True)
 
     def forward(self, x):
         residual = x
@@ -175,15 +177,10 @@ class ResNetBasicBlock(ResNetBlock):
     """
 
     def __init__(
-        self,
-        in_channels,
-        out_channels,
-        activation=torch.nn.ReLU,
-        *args,
-        **kwargs,
+        self, in_channels, out_channels, activation=nn.ReLU, *args, **kwargs,
     ):
         super().__init__(in_channels, out_channels, *args, **kwargs)
-        self.blocks = torch.nn.Sequential(
+        self.blocks = nn.Sequential(
             conv_bn(
                 self.in_channels,
                 self.out_channels,
@@ -226,17 +223,12 @@ class ResNetBottleNeckBlock(ResNetBlock):
     """
 
     def __init__(
-        self,
-        in_channels,
-        out_channels,
-        activation=torch.nn.ReLU,
-        *args,
-        **kwargs,
+        self, in_channels, out_channels, activation=nn.ReLU, *args, **kwargs,
     ):
         super().__init__(
             in_channels, out_channels, expansion=4, *args, **kwargs
         )
-        self.blocks = torch.nn.Sequential(
+        self.blocks = nn.Sequential(
             conv_bn(self.in_channels, self.out_channels, kernel_size=1),
             activation(),
             conv_bn(
@@ -252,10 +244,10 @@ class ResNetBottleNeckBlock(ResNetBlock):
 
 # Pre-activation version
 def pre_act(in_channels, out_channels, activation, *args, **kwargs):
-    return torch.nn.Sequential(
+    return nn.Sequential(
         OrderedDict(
             {
-                "bn": torch.nn.BatchNorm2d(in_channels),
+                "bn": nn.BatchNorm2d(in_channels),
                 "activation": activation(),
                 "conv": Conv2dAuto(in_channels, out_channels, *args, **kwargs),
             }
@@ -294,15 +286,10 @@ class PreActResNetBasicBlock(PreActResNetBlock):
     """
 
     def __init__(
-        self,
-        in_channels,
-        out_channels,
-        activation=torch.nn.ReLU,
-        *args,
-        **kwargs,
+        self, in_channels, out_channels, activation=nn.ReLU, *args, **kwargs,
     ):
         super().__init__(in_channels, out_channels, *args, **kwargs)
-        self.blocks = torch.nn.Sequential(
+        self.blocks = nn.Sequential(
             pre_act(
                 self.in_channels,
                 self.out_channels,
@@ -347,12 +334,7 @@ class PreActResNetBottleNeckBlock(PreActResNetBlock):
     """
 
     def __init__(
-        self,
-        in_channels,
-        out_channels,
-        activation=torch.nn.ReLU,
-        *args,
-        **kwargs,
+        self, in_channels, out_channels, activation=nn.ReLU, *args, **kwargs,
     ):
         super().__init__(
             in_channels, out_channels, expansion=4, *args, **kwargs
@@ -368,7 +350,7 @@ class PreActResNetBottleNeckBlock(PreActResNetBlock):
             if self.should_apply_shortcut
             else None
         )
-        self.blocks = torch.nn.Sequential(
+        self.blocks = nn.Sequential(
             pre_act(
                 self.in_channels, self.out_channels, activation, kernel_size=1,
             ),
@@ -388,7 +370,7 @@ class PreActResNetBottleNeckBlock(PreActResNetBlock):
         )
 
 
-class ResNetLayer(torch.nn.Module):
+class ResNetLayer(nn.Module):
     """An implementation of ResNet layer, consisting of multiple ResNetBlocks,
 
     Arguements
@@ -446,7 +428,7 @@ class ResNetLayer(torch.nn.Module):
             downsampling=downsampling,
         )
 
-        self.blocks = torch.nn.Sequential(
+        self.blocks = nn.Sequential(
             self.block,
             *[
                 block(
@@ -469,7 +451,7 @@ class ResNetLayer(torch.nn.Module):
         return self.block.expansion
 
 
-class ResNetEncoder(torch.nn.Module):
+class ResNetEncoder(nn.Module):
     """
     ResNet encoder composed by increasing different layers with increasing features.
     Beginning with Conv7x7(stride 2)-MaxPool3x3(strides 2), which results the 1/4
@@ -523,7 +505,7 @@ class ResNetEncoder(torch.nn.Module):
         blocks_sizes=[64, 128, 256, 512],
         depths=[2, 2, 2, 2],
         block=ResNetBasicBlock,
-        activation=torch.nn.ReLU,
+        activation=nn.ReLU,
         *args,
         **kwargs,
     ):
@@ -531,8 +513,8 @@ class ResNetEncoder(torch.nn.Module):
 
         self.blocks_sizes = blocks_sizes
 
-        self.gate = torch.nn.Sequential(
-            torch.nn.Conv2d(
+        self.gate = nn.Sequential(
+            nn.Conv2d(
                 in_channels,
                 self.blocks_sizes[0],
                 kernel_size=7,
@@ -540,9 +522,9 @@ class ResNetEncoder(torch.nn.Module):
                 padding=3,
                 bias=False,
             ),
-            torch.nn.BatchNorm2d(self.blocks_sizes[0]),
+            nn.BatchNorm2d(self.blocks_sizes[0]),
             activation(),
-            torch.nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
+            nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
         )
 
         self.in_out_block_sizes = list(zip(blocks_sizes, blocks_sizes[1:]))
@@ -556,7 +538,7 @@ class ResNetEncoder(torch.nn.Module):
             *args,
             **kwargs,
         )
-        self.blocks = torch.nn.ModuleList(
+        self.blocks = nn.ModuleList(
             [
                 self.layer,
                 *[
@@ -587,7 +569,7 @@ class ResNetEncoder(torch.nn.Module):
         return self.layer.expansion
 
 
-class ResNet(torch.nn.Module):
+class ResNet(nn.Module):
     """This model extracts embedding for speaker recognition and diarization.
     After the ResNet model defined by blocks_size, depths and block, AvgPool1x1
     is followed by a linear transformation for later stage.
@@ -636,7 +618,7 @@ class ResNet(torch.nn.Module):
         super().__init__()
         self.encoder = ResNetEncoder(in_channels, *args, **kwargs)
         self.fc = Linear(n_neurons=lin_neurons, bias=True)
-        self.pool = torch.nn.AdaptiveAvgPool2d((1, 1))
+        self.pool = nn.AdaptiveAvgPool2d((1, 1))
         self.to(device)
 
     def forward(self, x, init_params=False):
@@ -650,13 +632,13 @@ class ResNet(torch.nn.Module):
 
     def _reset_params(self):
         for m in self.modules():
-            if isinstance(m, torch.nn.Conv2d):
-                torch.nn.init.kaiming_normal_(
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(
                     m.weight, mode="fan_out", nonlinearity="relu"
                 )
-            elif isinstance(m, torch.nn.BatchNorm2d):
-                torch.nn.init.constant_(m.weight, 1)
-                torch.nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
 
 
 # Helper classes for popular architectures
@@ -768,3 +750,67 @@ class PreAct152(ResNet):
             block=PreActResNetBottleNeckBlock,
             deepths=[3, 8, 36, 3],
         )
+
+
+class CosineSimilarity(nn.Module):
+    """This class implements the cosine similarity on the top of features.
+
+    Arguments
+    ---------
+    device : str
+        Device used e.g. "cpu" or "cuda"
+    lin_blocks : int
+        Number of linear layers.
+    lin_neurons : int
+        Number of neurons in linear layers.
+    out_neurons : int
+        Number of classes
+
+    Example
+    -------
+    >>> classify = CosineSimilarity('cpu', out_neurons=2)
+    >>> outputs = torch.tensor([ [1., -1.], [-9., 1.], [0.9, 0.1], [0.1, 0.9] ])
+    >>> outupts = outputs.unsqueeze(1)
+    >>> cos = classify(outputs, init_params=True)
+    >>> (cos < -1.0).long().sum()
+    tensor(0)
+    >>> (cos > 1.0).long().sum()
+    tensor(0)
+    """
+
+    def __init__(
+        self,
+        device="cpu",
+        activation=nn.LeakyReLU,
+        lin_blocks=1,
+        lin_neurons=192,
+        out_neurons=1211,
+    ):
+
+        super().__init__()
+        self.blocks = nn.ModuleList()
+
+        for block_index in range(lin_blocks):
+            self.blocks.extend([Linear(n_neurons=lin_neurons), activation()])
+
+        self.weight = nn.Parameter(
+            torch.FloatTensor(out_neurons, lin_neurons).to(device)
+        )
+        nn.init.xavier_uniform_(self.weight)
+
+    def forward(self, x, init_params=False):
+        """Returns the output probabilities over speakers.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+        """
+        for layer in self.blocks:
+            try:
+                x = layer(x, init_params=init_params)
+            except TypeError:
+                x = layer(x)
+
+        # Need to be normalized
+        x = F.linear(F.normalize(x.squeeze(1)), F.normalize(self.weight))
+        return x.unsqueeze(1)
