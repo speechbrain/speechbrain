@@ -440,6 +440,7 @@ class MultiheadLocAttention(nn.Module):
         # linear projection before applying attention
         self.mlp_q = nn.Linear(dec_dim, attn_dim * nhead)
         self.mlp_k = nn.Linear(enc_dim, attn_dim * nhead)
+        self.mlp_v = nn.Linear(enc_dim, int(enc_dim) * nhead)
 
         # linear projection for attention and aligments
         self.mlp_attn = nn.Linear(attn_dim, 1, bias=False)
@@ -465,7 +466,8 @@ class MultiheadLocAttention(nn.Module):
         """Reset the memory in attention module
         """
         self.enc_len = None
-        self.precomputed_enc_h = None
+        self.key = None
+        self.value = None
         self.mask = None
         self.prev_attn = None
 
@@ -483,23 +485,21 @@ class MultiheadLocAttention(nn.Module):
 
         B, L, _ = enc_states.shape
 
-        # Query: dec_h, Key: self.precomputed_enc_h, Value: enc_states
-
-        # [B, Q_dim] -> [B, nhead, F] -> [B*nhead, 1, F]
-        dec_h = torch.tanh(self.mlp_q(dec_states))
-        dec_h = (
-            dec_h.view(B, self.nhead, self.attn_dim)
+        # query: [B, enc_dim] -> [B, nhead, F] -> [B*nhead, 1, F]
+        query = torch.tanh(self.mlp_q(dec_states))
+        query = (
+            query.view(B, self.nhead, self.attn_dim)
             .view(B * self.nhead, self.attn_dim)
             .unsqueeze(1)
         )
 
-        if self.precomputed_enc_h is None:
-            # [B, T, K_dim] -> [B, T, nhead*F] -> [B*nhead, T, F]
-            self.precomputed_enc_h = torch.tanh(self.mlp_k(enc_states))
-            self.precomputed_enc_h = self.precomputed_enc_h.view(
-                B, L, self.nhead, self.attn_dim
-            ).permute(0, 2, 1, 3)
-            self.precomputed_enc_h = self.precomputed_enc_h.reshape(
+        if self.key is None:
+            # key: [B, T, dec_dim] -> [B, T, nhead*F] -> [B*nhead, T, F]
+            self.key = torch.tanh(self.mlp_k(enc_states))
+            self.key = self.key.view(B, L, self.nhead, self.attn_dim).permute(
+                0, 2, 1, 3
+            )
+            self.key = self.key.contiguous().view(
                 B * self.nhead, L, self.attn_dim
             )
             self.mask = (
@@ -512,6 +512,15 @@ class MultiheadLocAttention(nn.Module):
                 .repeat(1, self.nhead, 1)
             )
 
+            # value: [B, T, enc_dim] -> [B, T, nhead*enc_dim] -> [B*nhead, T, enc_dim]
+            self.value = torch.tanh(self.mlp_v(enc_states))
+            self.value = self.value.view(
+                B, L, self.nhead, self.enc_dim
+            ).permute(0, 2, 1, 3)
+            self.value = self.value.contiguous().view(
+                B * self.nhead, L, self.enc_dim
+            )
+
             # multiply mask by 1/Ln for each row
             self.prev_attn = self.mask * (1 / enc_len.float()).unsqueeze(
                 1
@@ -519,7 +528,7 @@ class MultiheadLocAttention(nn.Module):
 
         # compute location-aware features
         # [B, nhead, L] -> [B, C, L]
-        attn_conv = self.conv_loc(self.prev_attn)
+        attn_conv = torch.tanh(self.conv_loc(self.prev_attn))
         # [B, C, L] -> [B, L, C] -> [B, L, F]
         attn_conv = self.mlp_loc(attn_conv.transpose(1, 2))
         # [B, L, F] -> [B*nhead, L, F]
@@ -529,24 +538,22 @@ class MultiheadLocAttention(nn.Module):
             .view(-1, L, self.attn_dim)
         )
         # Location-aware attention
-        attn = self.mlp_attn(
-            torch.tanh(self.precomputed_enc_h + dec_h + attn_conv)
-        ).squeeze(-1)
+        attn = self.mlp_attn(torch.tanh(self.key + query + attn_conv)).squeeze(
+            -1
+        )
 
         # mask the padded frames
         attn = attn.masked_fill(self.mask.view(-1, L) == 0, -np.inf)
         attn = self.softmax(attn * self.scaling)
 
+        # set prev_attn to current attn for the next timestep
+        self.prev_attn = attn.detach()
+        self.prev_attn = self.prev_attn.view(B, self.nhead, L)
+
         # compute context vectors
         # [B*nhead, 1, L] X [B*nhead, L, F]
-        context = torch.bmm(
-            attn.unsqueeze(1), enc_states.repeat(self.nhead, 1, 1)
-        ).squeeze(1)
+        context = torch.bmm(attn.unsqueeze(1), self.value).squeeze(1)
         context = context.view(B, self.nhead * self.enc_dim)
         context = self.mlp_out(context)
-
-        # set prev_attn to current attn for the next timestep
-        attn = attn.view(B, self.nhead, L)
-        self.prev_attn = attn.detach()
 
         return context, attn
