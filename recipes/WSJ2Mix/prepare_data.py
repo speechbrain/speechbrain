@@ -335,9 +335,9 @@ def get_wsj_files(wsj0root, output_dir, save_fs="wav8k", min_maxs=["min"]):
                 )
                 fid_m.write("{}\n".format(mix_name))
 
-                fs, _ = wavfile.read(wsj0root + line[0])
-                s1 = read_wav_soundfile(wsj0root + line[0])
-                s2 = read_wav_soundfile(wsj0root + line[2])
+                fs, _ = wavfile.read(os.path.join(wsj0root, line[0]))
+                s1 = read_wav_soundfile(os.path.join(wsj0root, line[0]))
+                s2 = read_wav_soundfile(os.path.join(wsj0root, line[2]))
 
                 # resample, determine levels for source 1
                 s1_8k = signal.resample(s1, int((fs_read / fs) * len(s1)))

@@ -87,13 +87,19 @@ class Decoder(nn.Module):
         """
 
         if init_params:
-            source_w = torch.unsqueeze(mixture_w, 2) * est_mask  # [M, K, C, N]
+            source_w = (
+                torch.unsqueeze(mixture_w, 2).repeat(1, 1, est_mask.size(2), 1)
+                * est_mask
+            )  # [M, K, C, N]
             source_w = source_w.permute(0, 2, 1, 3)  # [M, C, K, N]
 
             self.basis_signals(source_w, init_params=True)
 
         # D = W * M
-        source_w = torch.unsqueeze(mixture_w, 2) * est_mask  # [M, K, C, N]
+        source_w = (
+            torch.unsqueeze(mixture_w, 2).repeat(1, 1, est_mask.size(2), 1)
+            * est_mask
+        )  # [M, K, C, N]
         source_w = source_w.permute(0, 2, 1, 3)  # [M, C, K, N]
         # S = DV
         est_source = self.basis_signals(source_w)  # [M, C, K, L]
