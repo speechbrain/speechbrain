@@ -36,7 +36,7 @@ prepare_voxceleb(
 )
 
 
-# Trains xvector model
+# Trains embedding model
 class EmbeddingBrain(sb.core.Brain):
     def compute_forward(self, x, stage="train", init_params=False):
         id, wavs, lens = x
@@ -102,7 +102,7 @@ first_x, first_y = next(iter(train_set))
 if hasattr(params, "augmentation"):
     modules.append(params.augmentation)
 
-# Object initialization for training xvector model
+# Object initialization for training embedding model
 xvect_brain = EmbeddingBrain(
     modules=modules, optimizer=params.optimizer, first_inputs=[first_x],
 )

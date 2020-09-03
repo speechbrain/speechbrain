@@ -20,7 +20,7 @@ csv_valid: !ref <save_folder>/dev.csv
 
 # Training hyperparameters
 number_of_epochs: 100
-batch_size: 64
+batch_size: 256
 lr: 0.001
 base_lr: 0.00000001
 max_lr: !ref <lr>
@@ -116,7 +116,7 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
-        xvector_model: !ref <embedding_model>
+        embedding_model: !ref <embedding_model>
         classifier: !ref <classifier>
         optimizer: !ref <optimizer>
         normalizer: !ref <mean_var_norm>
