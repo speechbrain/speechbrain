@@ -19,6 +19,7 @@ from datetime import date
 from tqdm.contrib import tqdm
 from speechbrain.utils.logger import setup_logging
 from speechbrain.utils.logger import format_order_of_magnitude
+from speechbrain.utils.logger import get_environment_description
 from speechbrain.utils.data_utils import recursive_update
 
 logger = logging.getLogger(__name__)
@@ -28,9 +29,10 @@ DEFAULT_LOG_CONFIG = os.path.join(DEFAULT_LOG_CONFIG, "log-config.yaml")
 
 def create_experiment_directory(
     experiment_directory,
-    params_to_save=None,
+    hyperparams_to_save=None,
     overrides={},
     log_config=DEFAULT_LOG_CONFIG,
+    save_env_desc=True,
 ):
     """Create the output folder and relevant experimental files.
 
@@ -38,26 +40,31 @@ def create_experiment_directory(
     ---------
     experiment_directory : str
         The place where the experiment directory should be created.
-    params_to_save : str
+    hyperparams_to_save : str
         A filename of a yaml file representing the parameters for this
-        experiment. If passed, references are resolved and the result
-        is written to a file in the experiment directory called "params.yaml"
+        experiment. If passed, references are resolved and the result is
+        written to a file in the experiment directory called "hyperparams.yaml"
     overrides : dict
         A mapping of replacements made in the yaml file, to save in yaml.
     log_config : str
         A yaml filename containing configuration options for the logger.
+    save_env_desc : bool
+        If True, a basic environment state description is saved to the experiment
+        directory, in a file called env.log in the experiment directory
     """
     if not os.path.isdir(experiment_directory):
         os.makedirs(experiment_directory)
 
     # Write the parameters file
-    if params_to_save is not None:
-        params_filename = os.path.join(experiment_directory, "params.yaml")
-        with open(params_to_save) as f:
+    if hyperparams_to_save is not None:
+        hyperparams_filename = os.path.join(
+            experiment_directory, "hyperparams.yaml"
+        )
+        with open(hyperparams_to_save) as f:
             resolved_yaml = sb.yaml.resolve_references(f, overrides)
-        with open(params_filename, "w") as w:
+        with open(hyperparams_filename, "w") as w:
             print("# Generated %s from:" % date.today(), file=w)
-            print("# %s" % os.path.abspath(params_to_save), file=w)
+            print("# %s" % os.path.abspath(hyperparams_to_save), file=w)
             print("# yamllint disable", file=w)
             shutil.copyfileobj(resolved_yaml, w)
 
@@ -78,6 +85,12 @@ def create_experiment_directory(
     logger.info(f"Experiment folder: {experiment_directory}")
     commit_hash = subprocess.check_output(["git", "describe", "--always"])
     logger.debug("Commit hash: '%s'" % commit_hash.decode("utf-8").strip())
+
+    # Save system description:
+    if save_env_desc:
+        description_str = get_environment_description()
+        with open(os.path.join(experiment_directory, "env.log"), "w") as fo:
+            fo.write(description_str)
 
 
 def _logging_excepthook(exc_type, exc_value, exc_traceback):
@@ -102,9 +115,9 @@ def parse_arguments(arg_list):
 
     Example
     -------
-    >>> filename, overrides = parse_arguments(['params.yaml', '--seed', '10'])
+    >>> filename, overrides = parse_arguments(['hyperparams.yaml', '--seed', '10'])
     >>> filename
-    'params.yaml'
+    'hyperparams.yaml'
     >>> overrides
     'seed: 10\n'
     """
@@ -204,6 +217,8 @@ class Brain:
         An example of the input to the Brain class, for parameter init.
         Arguments are passed individually to the ``compute_forward`` method,
         for cases where a different signature is desired.
+    auto_mix_prec: bool
+        If True, automatic mixed-precision is used. Activate it only with cuda.
 
     Example
     -------
@@ -225,10 +240,17 @@ class Brain:
     ... )
     """
 
-    def __init__(self, modules=None, optimizer=None, first_inputs=None):
+    def __init__(
+        self,
+        modules=None,
+        optimizer=None,
+        first_inputs=None,
+        auto_mix_prec=False,
+    ):
         self.modules = torch.nn.ModuleList(modules)
         self.optimizer = optimizer
         self.avg_train_loss = 0.0
+        self.auto_mix_prec = auto_mix_prec
 
         # Initialize parameters
         if first_inputs is not None:
@@ -237,12 +259,19 @@ class Brain:
             if self.optimizer is not None:
                 self.optimizer.init_params(self.modules)
 
+        # Automatic mixed precision init
+        self.scaler = torch.cuda.amp.GradScaler()
+
         total_params = sum(
             p.numel() for p in self.modules.parameters() if p.requires_grad
         )
         clsname = self.__class__.__name__
         fmt_num = format_order_of_magnitude(total_params)
         logger.info(f"Initialized {fmt_num} trainable parameters in {clsname}")
+
+    def on_training_start(self, *args, **kwargs):
+
+        pass
 
     def compute_forward(self, x, stage="train", init_params=False):
         """Forward pass, to be overridden by sub-classes.
@@ -326,11 +355,23 @@ class Brain:
             (e.g. ``{"loss": 0.1, "accuracy": 0.9}``)
         """
         inputs, targets = batch
-        predictions = self.compute_forward(inputs)
-        loss, stats = self.compute_objectives(predictions, targets)
-        loss.backward()
-        self.optimizer.step()
-        self.optimizer.zero_grad()
+
+        # Managing automatic mixed precision
+        if self.auto_mix_prec:
+            with torch.cuda.amp.autocast():
+                predictions = self.compute_forward(inputs)
+                loss, stats = self.compute_objectives(predictions, targets)
+                self.scaler.scale(loss).backward()
+                self.scaler.step(self.optimizer.optim)
+                self.optimizer.zero_grad()
+                self.scaler.update()
+        else:
+            predictions = self.compute_forward(inputs)
+            loss, stats = self.compute_objectives(predictions, targets)
+            loss.backward()
+            self.optimizer.step()
+            self.optimizer.zero_grad()
+
         stats["loss"] = loss.detach()
         return stats
 
@@ -382,7 +423,7 @@ class Brain:
             else:
                 dataset_stats[key].append(batch_stats[key])
 
-    def fit(self, epoch_counter, train_set, valid_set=None):
+    def fit(self, epoch_counter, train_set, valid_set=None, progressbar=True):
         """Iterate epochs and datasets to improve objective.
 
         Relies on the existence of mulitple functions that can (or should) be
@@ -401,11 +442,15 @@ class Brain:
             a list of datasets to use for training, zipped before iterating.
         valid_set : list of Data Loaders
             a list of datasets to use for validation, zipped before iterating.
+        progressbar : bool
+            Whether to display the progress of each epoch in a progressbar.
         """
+        self.on_training_start()
         for epoch in epoch_counter:
             self.modules.train()
             train_stats = {}
-            with tqdm(train_set, dynamic_ncols=True) as t:
+            disable = not progressbar
+            with tqdm(train_set, dynamic_ncols=True, disable=disable) as t:
                 for i, batch in enumerate(t):
                     stats = self.fit_batch(batch)
                     self.add_stats(train_stats, stats)
@@ -416,19 +461,23 @@ class Brain:
             if valid_set is not None:
                 self.modules.eval()
                 with torch.no_grad():
-                    for batch in tqdm(valid_set, dynamic_ncols=True):
+                    for batch in tqdm(
+                        valid_set, dynamic_ncols=True, disable=disable
+                    ):
                         stats = self.evaluate_batch(batch, stage="valid")
                         self.add_stats(valid_stats, stats)
 
             self.on_epoch_end(epoch, train_stats, valid_stats)
 
-    def evaluate(self, test_set):
+    def evaluate(self, test_set, progressbar=True):
         """Iterate test_set and evaluate brain performance.
 
         Arguments
         ---------
         test_set : list of DataLoaders
             This list will be zipped before iterating.
+        progressbar : bool
+            Whether to display the progress in a progressbar.
 
         Returns
         -------
@@ -439,8 +488,9 @@ class Brain:
         """
         test_stats = {}
         self.modules.eval()
+        disable = not progressbar
         with torch.no_grad():
-            for batch in tqdm(test_set, dynamic_ncols=True):
+            for batch in tqdm(test_set, dynamic_ncols=True, disable=disable):
                 stats = self.evaluate_batch(batch, stage="test")
                 self.add_stats(test_stats, stats)
 
