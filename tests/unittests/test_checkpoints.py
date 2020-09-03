@@ -199,3 +199,74 @@ def test_checkpoint_deletion(tmpdir):
     )
     assert all(c in recoverer.list_checkpoints() for c in [c1, c2])
     assert c_to_delete not in recoverer.list_checkpoints()
+
+
+def test_multiple_ckpts_and_criteria(tmpdir):
+    from speechbrain.utils.checkpoints import Checkpointer
+    import torch
+
+    class Recoverable(torch.nn.Module):
+        def __init__(self, param):
+            super().__init__()
+            self.param = torch.nn.Parameter(torch.tensor([param]))
+
+        def forward(self, x):
+            return x * self.param
+
+    recoverable = Recoverable(1.0)
+    recoverables = {"recoverable": recoverable}
+    recoverer = Checkpointer(tmpdir, recoverables)
+
+    # Here testing multiple checkpoints with equal meta criteria
+    recoverer.save_and_keep_only(
+        meta={"error": 5}, min_keys=["error"], keep_recent=True
+    )
+    # By default, get the most recent one:
+    first_ckpt = recoverer.find_checkpoint()
+    recoverer.save_and_keep_only(
+        meta={"error": 5}, min_keys=["error"], keep_recent=True
+    )
+    second_ckpt = recoverer.find_checkpoint()
+    assert first_ckpt.meta["unixtime"] < second_ckpt.meta["unixtime"]
+    recoverer.save_and_keep_only(
+        meta={"error": 6}, min_keys=["error"], keep_recent=True
+    )
+    third_ckpt = recoverer.find_checkpoint()
+    remaining_ckpts = recoverer.list_checkpoints()
+    assert first_ckpt not in remaining_ckpts
+    assert second_ckpt in remaining_ckpts
+    assert third_ckpt in remaining_ckpts
+
+    # With equal importance criteria, the latest checkpoint should always be
+    # returned
+    fourth_ckpt = recoverer.save_checkpoint(meta={"error": 5})
+    found_ckpt = recoverer.find_checkpoint(min_key="error")
+    assert found_ckpt == fourth_ckpt
+    fifth_ckpt = recoverer.save_checkpoint(meta={"error": 5})
+    # Similarly for getting multiple checkpoints:
+    found_ckpts = recoverer.find_checkpoints(
+        min_key="error", max_num_checkpoints=2
+    )
+    assert found_ckpts == [fifth_ckpt, fourth_ckpt]
+
+
+def test_torch_meta(tmpdir):
+    from speechbrain.utils.checkpoints import Checkpointer
+    import torch
+
+    class Recoverable(torch.nn.Module):
+        def __init__(self, param):
+            super().__init__()
+            self.param = torch.nn.Parameter(torch.tensor([param]))
+
+        def forward(self, x):
+            return x * self.param
+
+    recoverable = Recoverable(1.0)
+    recoverables = {"recoverable": recoverable}
+    recoverer = Checkpointer(tmpdir, recoverables)
+    saved = recoverer.save_checkpoint(
+        meta={"loss": torch.tensor([1.0, 2.0, 3.0, 4.0, 5.0])}
+    )
+    loaded = recoverer.recover_if_possible()
+    assert saved.meta["loss"].allclose(loaded.meta["loss"])
