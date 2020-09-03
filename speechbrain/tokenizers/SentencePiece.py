@@ -9,6 +9,7 @@ import torch
 import logging
 import csv
 import sentencepiece as spm
+from speechbrain.data_io.data_io import merge_char
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +41,10 @@ class SentencePiece:
         If "word" take the vocabulary from the input text.
         If "unigram" do piece of word tokenization using unigram language model, see:
         https://arxiv.org/abs/1804.10959
+    char_format_input : bool
+        Default : False
+        Whether the csv_read entry contains characters format input.
+        (ex. a p p l e _ i s _ g o o d)
     character_coverage: int
         Default: 1.0,
         Amount of characters covered by the model,
@@ -77,6 +82,7 @@ class SentencePiece:
         csv_train=None,
         csv_read=None,
         model_type="unigram",
+        char_format_input=False,
         character_coverage=1.0,
         max_sentencepiece_length=10,
         bos_id=-1,
@@ -103,6 +109,7 @@ class SentencePiece:
         )
         self.vocab_size = str(vocab_size)
         self.model_type = model_type
+        self.char_format_input = char_format_input
         self.character_coverage = str(character_coverage)
         self.max_sentencepiece_length = str(max_sentencepiece_length)
         self.bos_id = str(bos_id)
@@ -131,7 +138,11 @@ class SentencePiece:
         index_label = headers.index(self.csv_read)
         text_file = open(self.text_file, "w+")
         for row in reader:
-            text_file.write(row[index_label] + "\n")
+            sent = row[index_label]
+            if self.char_format_input:
+                (sent,) = merge_char([sent.split()])
+                sent = " ".join(sent)
+            text_file.write(sent + "\n")
         text_file.close()
         csv_file.close()
         logger.info("Text file created at: " + self.text_file)
@@ -224,19 +235,20 @@ class SentencePiece:
             raise ValueError("Tokenizer encoder must have the ind2lab function")
 
         if task == "encode":
-            # Convert list of words to bpe ids
+            # Convert list of words/chars to bpe ids
             bpe = []
             max_bpe_len = 0
             batch_lens = (batch_lens * batch.shape[1]).int()
             for i, utt_seq in enumerate(batch):
-                bpe_encode = self.sp.encode_as_ids(
-                    " ".join(
-                        [
-                            ind2lab[int(index)]
-                            for index in utt_seq[: batch_lens[i]]
-                        ]
-                    )
-                )
+                tokens = [
+                    ind2lab[int(index)] for index in utt_seq[: batch_lens[i]]
+                ]
+                if self.char_format_input:
+                    (words_list,) = merge_char([tokens])
+                    sent = " ".join(words_list)
+                else:
+                    sent = " ".join(tokens)
+                bpe_encode = self.sp.encode_as_ids(sent)
                 bpe.append(bpe_encode)
                 # save the longest bpe sequence
                 # it help to compute the relative length of each utterance
