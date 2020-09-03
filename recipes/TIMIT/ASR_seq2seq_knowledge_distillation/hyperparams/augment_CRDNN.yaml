@@ -29,7 +29,7 @@ num_tea: 10
 
 # distillation parameters
 pretrain: True
-strategy: weighted  # [average, best, weighted]
+strategy: best  # [average, best, weighted]
 
 # Temperature : smooth the distribution of output probability
 Temperature: 1
