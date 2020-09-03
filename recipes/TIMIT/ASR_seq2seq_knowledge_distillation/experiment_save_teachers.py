@@ -90,7 +90,7 @@ tea_seq_lin_list = [
 
 for i in range(params.num_tea):
     exec(
-        "tea{}_modules = torch.nn.ModuleList([tea_enc_list[i], tea_emb_list[i], tea_dec_list[i], tea_ctc_lin_list[i], tea_seq_lin_list])".format(
+        "tea{}_modules = torch.nn.ModuleList([tea_enc_list[i], tea_emb_list[i], tea_dec_list[i], tea_ctc_lin_list[i], tea_seq_lin_list[i]])".format(
             i
         )
     )  # i denotes the index of teacher models
@@ -233,9 +233,14 @@ asr_brain = ASR(
 )
 
 # load teacher models
-for i in range(params.num_tea):
-    chpt_path = params.tea_models_dir[i]
-    exec("tea{}_modules.load_state_dict(torch.load(chpt_path))".format(i))
+with open(params.tea_models_dir, "r") as f:
+    enter_token = "\n"
+    for i, path in enumerate(f.readlines()):
+        exec(
+            "tea{}_modules.load_state_dict(torch.load(path.strip(enter_token)))".format(
+                i
+            )
+        )
 
 # run inference and save results
 asr_brain.fit_save(train_set, valid_set, test_set)
