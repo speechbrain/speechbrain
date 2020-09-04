@@ -75,7 +75,7 @@ class ResNetBrain(sb.core.Brain):
         if stage == "train":
             spkid = torch.cat([spkid, spkid], dim=0)
 
-        loss = params.compute_cost(predictions, spkid, lens)
+        loss = params.compute_cost(predictions, spkid)
 
         stats = {}
         if stage != "train":

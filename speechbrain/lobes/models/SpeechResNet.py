@@ -419,7 +419,6 @@ class SpeechResNet(torch.nn.Module):
         super().__init__()
 
         self.encoder = SpeechResNetEncoder(in_channels, *args, **kwargs)
-        # self.pool = torch.nn.AvgPool2d((9,1), stride=1)
         self.fc = Linear(n_neurons=lin_neurons, bias=True)
         out_channels = self.encoder.out_channels
         self.sap_linear = Linear(out_channels)
@@ -442,7 +441,6 @@ class SpeechResNet(torch.nn.Module):
         if init_params:
             self._reset_params()
         x = self.encoder(x)
-        # x = self.pool(x) # potentially harmful
         N, C, T, D = x.shape
         x = x.reshape(N, C, T * D).permute(0, 2, 1)
         h = torch.tanh(self.sap_linear(x, init_params))
