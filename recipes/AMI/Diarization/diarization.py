@@ -30,39 +30,6 @@ with open(params_file) as fin:
 from voxceleb_prepare import prepare_voxceleb  # noqa E402
 from ami_prepare import prepare_ami  # noqa E402
 
-# Create experiment directory
-sb.core.create_experiment_directory(
-    experiment_directory=params.output_folder,
-    hyperparams_to_save=params_file,
-    overrides=overrides,
-)
-
-# Prepare data from dev of Voxceleb1
-"""
-logger.info("Vox: Data preparation")
-prepare_voxceleb(
-    data_folder=params.data_folder,
-    save_folder=params.save_folder,
-    splits=["train", "test"],
-    split_ratio=[90, 10],
-    seg_dur=300,
-    vad=False,
-    rand_seed=params.seed,
-)
-"""
-
-# Prepare data for AMI
-logger.info("AMI: Data preparation")
-prepare_ami(
-    data_folder=params.data_folder_ami,
-    save_folder=params.save_folder,
-    split_type=params.split_type,
-    mic_type=params.mic_type,
-    vad_type=params.vad_type,
-    max_subseg_dur=params.max_subseg_dur,
-    overlap=params.overlap,
-)
-
 
 # Definition of the steps for xvector computation from the waveforms
 def compute_x_vectors(wavs, lens, init_params=False):
@@ -92,95 +59,6 @@ def get_utt_ids_for_test(ids, data_dict):
     seg = [data_dict[x]["wav2"]["data"] for x in ids]
 
     return mod, seg
-
-
-# PLDA inumpyuts for Train data
-modelset, segset = [], []
-xvectors = numpy.empty(shape=[0, params.xvect_dim], dtype=numpy.float64)
-
-# Train set
-train_set = params.train_loader()
-ind2lab = params.train_loader.label_dict["spk_id"]["index2lab"]
-
-# Xvector file for train data
-xv_file = os.path.join(
-    params.save_folder, "VoxCeleb1_train_xvectors_stat_obj.pkl"
-)
-
-# Skip extraction of train if already extracted
-if not os.path.exists(xv_file):
-    logger.info("Extracting xvectors from Training set..")
-    with tqdm(train_set, dynamic_ncols=True) as t:
-        init_params = True
-        for wav, spk_id in t:
-            _, wav, lens = wav
-            id, spk_id, lens = spk_id
-
-            # For modelset
-            spk_id_str = convert_index_to_lab(spk_id, ind2lab)
-
-            # Flattening speaker ids
-            spk_ids = [sid[0] for sid in spk_id_str]
-            modelset = modelset + spk_ids
-
-            # For segset
-            segset = segset + id
-
-            if init_params:
-                xvect = compute_x_vectors(wav, lens, init_params=True)
-                params.mean_var_norm_xvect.glob_mean = torch.zeros_like(
-                    xvect[0, 0, :]
-                )
-                params.mean_var_norm_xvect.count = 0
-
-                # Download models from the web if needed
-                if "https://" in params.xvector_file:
-                    download_and_pretrain()
-                else:
-                    params.xvector_model.load_state_dict(
-                        torch.load(params.xvector_file), strict=True
-                    )
-
-                init_params = False
-                params.xvector_model.eval()
-            xvect = compute_x_vectors(wav, lens)
-
-            xv = xvect.squeeze().cpu().numpy()
-            xvectors = numpy.concatenate((xvectors, xv), axis=0)
-
-    # Speaker IDs and utterance IDs
-    modelset = numpy.array(modelset, dtype="|O")
-    segset = numpy.array(segset, dtype="|O")
-
-    # intialize variables for start, stop and stat0
-    s = numpy.array([None] * xvectors.shape[0])
-    b = numpy.array([[1.0]] * xvectors.shape[0])
-
-    xvectors_stat = StatObject_SB(
-        modelset=modelset,
-        segset=segset,
-        start=s,
-        stop=s,
-        stat0=b,
-        stat1=xvectors,
-    )
-
-    del xvectors
-
-    # Save TRAINING Xvectors in StatObject_SB object
-    xvectors_stat.save_stat_object(xv_file)
-else:
-    # Load the saved stat object for train xvector
-    logger.info("Skipping Xvector Extraction for training set")
-    logger.info("Loading previously saved stat_object for train xvectors..")
-    with open(xv_file, "rb") as inumpyut:
-        xvectors_stat = pickle.load(inumpyut)
-
-
-# Training Gaussina PLDA model
-logger.info("Training PLDA model")
-params.compute_plda.plda(xvectors_stat)
-logger.info("PLDA training completed")
 
 
 def xvect_computation_loop(split, set_loader, stat_file):
@@ -253,68 +131,6 @@ def xvect_computation_loop(split, set_loader, stat_file):
     return stat_obj
 
 
-# xvector files
-diary_stat_file = os.path.join(params.save_folder, "diary_stat_enrol.pkl")
-diary_ndx_file = os.path.join(params.save_folder, "diary_ndx.pkl")
-
-# Data loader
-diary_set_loader = params.diary_loader()
-
-# Compute Xvectors
-diary_obj = xvect_computation_loop("diary", diary_set_loader, diary_stat_file)
-
-# Loop for PLDA scoring per meeting
-all_rec_ids = set(diary_obj.modelset)
-
-# Prepare Ndx Object
-if not os.path.isfile(diary_ndx_file):
-    models = diary_obj.modelset
-    testsegs = diary_obj.modelset  # test_obj.modelset
-
-    logger.info("Preparing Ndx")
-    ndx_obj = Ndx(models=models, testsegs=testsegs)
-    logger.info("Saving ndx obj...")
-    ndx_obj.save_ndx_object(diary_ndx_file)
-else:
-    logger.info("Skipping Ndx preparation")
-    logger.info("Loading Ndx from disk")
-    with open(diary_ndx_file, "rb") as inumpyut:
-        ndx_obj = pickle.load(inumpyut)
-
-
-logger.info("PLDA scoring...")
-scores_plda = fast_PLDA_scoring(
-    diary_obj,
-    diary_obj,
-    ndx_obj,
-    params.compute_plda.mean,
-    params.compute_plda.F,
-    params.compute_plda.Sigma,
-)
-
-
-print("PLDA scoring completed...")
-print(scores_plda.scoremat)
-
-
-# Agglomerative Hierarchical Clustering
-scores = copy.deepcopy(scores_plda.scoremat)
-
-# Ignoring diagonal scores and normalizing as per remaining pairs
-mn = numpy.tril(scores).min()
-mx = numpy.tril(scores).max()
-scores = (scores - mn) / (mx - mn)
-
-# Prepare distance matrix
-dist_mat = (scores + scores.T) / 2.0 * -1.0
-dist_mat = dist_mat - numpy.tril(dist_mat).min()
-numpy.fill_diagonal(dist_mat, 0.0)
-dist_mat = squareform(dist_mat)
-
-print("AHC started...\n")
-links = linkage(dist_mat, method="complete")
-
-
 def trace_back_cluster_labels(links, threshold=0.9, oracle_num_spkrs=4):
 
     N = len(links) + 1
@@ -342,32 +158,6 @@ def trace_back_cluster_labels(links, threshold=0.9, oracle_num_spkrs=4):
         #    break
 
     return clusters
-
-
-clusters = trace_back_cluster_labels(links)
-
-
-# Clusters IDs to segment labels
-clus = dict()
-subseg_ids = diary_obj.modelset
-
-i = 0
-lol = []
-for c in clusters:
-    clus_elements = clusters[c]
-    # temp = []
-    for elem in clus_elements:
-        sub_seg = subseg_ids[elem]
-        splitted = sub_seg.rsplit("_", 2)
-        rec_id = str(splitted[0])
-        sseg_start = float(splitted[1])
-        sseg_end = float(splitted[2])
-        spkr_id = rec_id + "_" + str(i)
-        a = [rec_id, sseg_start, sseg_end, spkr_id]
-        lol.append(a)
-    i += 1
-
-lol.sort(key=lambda x: float(x[1]))
 
 
 # Manage overlaped xvectors and prepare RTTM
@@ -436,10 +226,6 @@ def distribute_overlap(lol):
     return new_lol
 
 
-lol = merge_ssegs_same_speaker(lol)
-lol = distribute_overlap(lol)
-
-
 def write_rttm(segs_list, out_rttm_file):
     rttm = []
     rec_id = segs_list[0][0]
@@ -466,5 +252,214 @@ def write_rttm(segs_list, out_rttm_file):
             f.write("%s\n" % line_str)
 
 
-out_rttm_file = "results/save/abc.rttm"
-write_rttm(lol, out_rttm_file)
+if __name__ == "__main__":
+
+    # Create experiment directory
+    sb.core.create_experiment_directory(
+        experiment_directory=params.output_folder,
+        hyperparams_to_save=params_file,
+        overrides=overrides,
+    )
+
+    # Prepare data from dev of Voxceleb1
+    """
+    logger.info("Vox: Data preparation")
+    prepare_voxceleb(
+        data_folder=params.data_folder,
+        save_folder=params.save_folder,
+        splits=["train", "test"],
+        split_ratio=[90, 10],
+        seg_dur=300,
+        vad=False,
+        rand_seed=params.seed,
+    )
+    """
+
+    # Prepare data for AMI
+    logger.info("AMI: Data preparation")
+    prepare_ami(
+        data_folder=params.data_folder_ami,
+        save_folder=params.save_folder,
+        split_type=params.split_type,
+        mic_type=params.mic_type,
+        vad_type=params.vad_type,
+        max_subseg_dur=params.max_subseg_dur,
+        overlap=params.overlap,
+    )
+
+    # PLDA inumpyuts for Train data
+    modelset, segset = [], []
+    xvectors = numpy.empty(shape=[0, params.xvect_dim], dtype=numpy.float64)
+
+    # Train set
+    train_set = params.train_loader()
+    ind2lab = params.train_loader.label_dict["spk_id"]["index2lab"]
+
+    # Xvector file for train data
+    xv_file = os.path.join(
+        params.save_folder, "VoxCeleb1_train_xvectors_stat_obj.pkl"
+    )
+
+    # Skip extraction of train if already extracted
+    if not os.path.exists(xv_file):
+        logger.info("Extracting xvectors from Training set..")
+        with tqdm(train_set, dynamic_ncols=True) as t:
+            init_params = True
+            for wav, spk_id in t:
+                _, wav, lens = wav
+                id, spk_id, lens = spk_id
+
+                # For modelset
+                spk_id_str = convert_index_to_lab(spk_id, ind2lab)
+
+                # Flattening speaker ids
+                spk_ids = [sid[0] for sid in spk_id_str]
+                modelset = modelset + spk_ids
+
+                # For segset
+                segset = segset + id
+
+                if init_params:
+                    xvect = compute_x_vectors(wav, lens, init_params=True)
+                    params.mean_var_norm_xvect.glob_mean = torch.zeros_like(
+                        xvect[0, 0, :]
+                    )
+                    params.mean_var_norm_xvect.count = 0
+
+                    # Download models from the web if needed
+                    if "https://" in params.xvector_file:
+                        download_and_pretrain()
+                    else:
+                        params.xvector_model.load_state_dict(
+                            torch.load(params.xvector_file), strict=True
+                        )
+
+                    init_params = False
+                    params.xvector_model.eval()
+                xvect = compute_x_vectors(wav, lens)
+
+                xv = xvect.squeeze().cpu().numpy()
+                xvectors = numpy.concatenate((xvectors, xv), axis=0)
+
+        # Speaker IDs and utterance IDs
+        modelset = numpy.array(modelset, dtype="|O")
+        segset = numpy.array(segset, dtype="|O")
+
+        # intialize variables for start, stop and stat0
+        s = numpy.array([None] * xvectors.shape[0])
+        b = numpy.array([[1.0]] * xvectors.shape[0])
+
+        xvectors_stat = StatObject_SB(
+            modelset=modelset,
+            segset=segset,
+            start=s,
+            stop=s,
+            stat0=b,
+            stat1=xvectors,
+        )
+
+        del xvectors
+
+        # Save TRAINING Xvectors in StatObject_SB object
+        xvectors_stat.save_stat_object(xv_file)
+    else:
+        # Load the saved stat object for train xvector
+        logger.info("Skipping Xvector Extraction for training set")
+        logger.info("Loading previously saved stat_object for train xvectors..")
+        with open(xv_file, "rb") as inumpyut:
+            xvectors_stat = pickle.load(inumpyut)
+
+    # Training Gaussina PLDA model
+    logger.info("Training PLDA model")
+    params.compute_plda.plda(xvectors_stat)
+    logger.info("PLDA training completed")
+
+    # xvector files
+    diary_stat_file = os.path.join(params.save_folder, "diary_stat_enrol.pkl")
+    diary_ndx_file = os.path.join(params.save_folder, "diary_ndx.pkl")
+
+    # Data loader
+    diary_set_loader = params.diary_loader()
+
+    # Compute Xvectors
+    diary_obj = xvect_computation_loop(
+        "diary", diary_set_loader, diary_stat_file
+    )
+
+    # Loop for PLDA scoring per meeting
+    all_rec_ids = set(diary_obj.modelset)
+
+    # Prepare Ndx Object
+    if not os.path.isfile(diary_ndx_file):
+        models = diary_obj.modelset
+        testsegs = diary_obj.modelset  # test_obj.modelset
+
+        logger.info("Preparing Ndx")
+        ndx_obj = Ndx(models=models, testsegs=testsegs)
+        logger.info("Saving ndx obj...")
+        ndx_obj.save_ndx_object(diary_ndx_file)
+    else:
+        logger.info("Skipping Ndx preparation")
+        logger.info("Loading Ndx from disk")
+        with open(diary_ndx_file, "rb") as inumpyut:
+            ndx_obj = pickle.load(inumpyut)
+
+    logger.info("PLDA scoring...")
+    scores_plda = fast_PLDA_scoring(
+        diary_obj,
+        diary_obj,
+        ndx_obj,
+        params.compute_plda.mean,
+        params.compute_plda.F,
+        params.compute_plda.Sigma,
+    )
+
+    print("PLDA scoring completed...")
+    print(scores_plda.scoremat)
+
+    # Agglomerative Hierarchical Clustering
+    scores = copy.deepcopy(scores_plda.scoremat)
+
+    # Ignoring diagonal scores and normalizing as per remaining pairs
+    mn = numpy.tril(scores).min()
+    mx = numpy.tril(scores).max()
+    scores = (scores - mn) / (mx - mn)
+
+    # Prepare distance matrix
+    dist_mat = (scores + scores.T) / 2.0 * -1.0
+    dist_mat = dist_mat - numpy.tril(dist_mat).min()
+    numpy.fill_diagonal(dist_mat, 0.0)
+    dist_mat = squareform(dist_mat)
+
+    print("AHC started...\n")
+    links = linkage(dist_mat, method="complete")
+
+    clusters = trace_back_cluster_labels(links)
+
+    # Clusters IDs to segment labels
+    clus = dict()
+    subseg_ids = diary_obj.modelset
+
+    i = 0
+    lol = []
+    for c in clusters:
+        clus_elements = clusters[c]
+        # temp = []
+        for elem in clus_elements:
+            sub_seg = subseg_ids[elem]
+            splitted = sub_seg.rsplit("_", 2)
+            rec_id = str(splitted[0])
+            sseg_start = float(splitted[1])
+            sseg_end = float(splitted[2])
+            spkr_id = rec_id + "_" + str(i)
+            a = [rec_id, sseg_start, sseg_end, spkr_id]
+            lol.append(a)
+        i += 1
+
+    lol.sort(key=lambda x: float(x[1]))
+
+    lol = merge_ssegs_same_speaker(lol)
+    lol = distribute_overlap(lol)
+
+    out_rttm_file = "results/save/abc.rttm"
+    write_rttm(lol, out_rttm_file)
