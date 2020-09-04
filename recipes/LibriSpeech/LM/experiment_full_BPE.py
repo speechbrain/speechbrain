@@ -13,7 +13,9 @@ from speechbrain.utils.train_logger import summarize_average
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(current_dir))
 from librispeech_prepare import prepare_librispeech  # noqa E402
-from lm_corpus_prepare import prepare_librispeech_lm_corpus  # noqa E402
+from librispeech_lm_corpus_prepare import (
+    prepare_librispeech_lm_corpus,
+)  # noqa E402
 
 # Load hyperparameters file with command-line overrides
 params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
