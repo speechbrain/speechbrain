@@ -106,7 +106,7 @@ class NewBobScheduler:
         """
         old_value = new_value = self.hyperparam_value
         if len(self.metric_values) > 0:
-            prev_metric = min(self.metric_values)
+            prev_metric = self.metric_values[-1]
 
             # Update value if improvement too small and patience is 0
             improvement = (prev_metric - metric_value) / prev_metric
