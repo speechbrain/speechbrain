@@ -65,11 +65,11 @@ bos_index: 0
 eos_index: 0
 min_decode_ratio: 0.0
 max_decode_ratio: 1.0
-beam_size: 40
+beam_size: 80
 eos_threshold: 1.5
 using_max_attn_shift: True
 max_attn_shift: 60
-lm_weight: 0.05
+lm_weight: 0.45
 
 # LM Model parameters
 lm_emb_size: 128
