@@ -28,9 +28,7 @@ with open(params_file) as fin:
 
 # Create experiment directory
 sb.core.create_experiment_directory(
-    experiment_directory=params.output_folder,
-    hyperparams_to_save=params_file,
-    overrides=overrides,
+    experiment_directory=params.output_folder, overrides=overrides,
 )
 
 modules = torch.nn.ModuleList(
