@@ -39,13 +39,15 @@ def prepare_voxceleb(
     splits=["train", "dev", "test"],
     split_ratio=[90, 10],
     seg_dur=300,
-    vad=False,
-    rand_seed=1234,
+    amp_th=5e-04,
     source=None,
     split_speaker=False,
+    random_segment=False,
 ):
     """
-    Prepares the csv files for the Voxceleb1 dataset.
+    Prepares the csv files for the Voxceleb1 or Voxceleb2 datasets.
+    Please follow the instructions in the README.md file for
+    preparing Voxceleb2.
 
     Arguments
     ---------
@@ -60,14 +62,15 @@ def prepare_voxceleb(
         List if int for train and validation splits
     seg_dur : int
         Segment duration of a chunk in milliseconds
-    vad : bool
-        To perform VAD or not
-    rand_seed : int
-        random seed
+    amp_th : float
+        removes segments whose average amplitude is below the
+        given threshold.
     source : str
         Path to the folder where the VoxCeleb dataset source is stored.
     split_speaker : bool
         Speaker-wise split
+    random_segment : bool
+        Train random segment
 
     Example
     -------
@@ -85,7 +88,6 @@ def prepare_voxceleb(
         "splits": splits,
         "split_ratio": split_ratio,
         "save_folder": save_folder,
-        "vad": vad,
         "seg_dur": seg_dur,
         "split_speaker": split_speaker,
     }
@@ -126,7 +128,7 @@ def prepare_voxceleb(
     else:
         data_folder = [data_folder]
 
-    _check_voxceleb1_folders(data_folder, splits)
+    # _check_voxceleb1_folders(data_folder, splits)
 
     msg = "\tCreating csv file for the VoxCeleb1 Dataset.."
     logger.debug(msg)
@@ -138,10 +140,10 @@ def prepare_voxceleb(
 
     # Creating csv file for training data
     if "train" in splits:
-        prepare_csv(seg_dur, wav_lst_train, save_csv_train)
+        prepare_csv(seg_dur, wav_lst_train, save_csv_train, random_segment)
 
     if "dev" in splits:
-        prepare_csv(seg_dur, wav_lst_dev, save_csv_dev)
+        prepare_csv(seg_dur, wav_lst_dev, save_csv_dev, random_segment)
 
     # For PLDA verification
     if "enrol" in splits:
@@ -193,7 +195,7 @@ def skip(splits, save_folder, conf):
     return skip
 
 
-def _check_voxceleb1_folders(data_folders, splits):
+def _check_voxceleb_folders(data_folders, splits):
     """
     Check if the data folder actually contains the Voxceleb1 dataset.
 
@@ -210,12 +212,13 @@ def _check_voxceleb1_folders(data_folders, splits):
     for data_folder in data_folders:
 
         if "train" in splits:
-            folder = os.path.join(data_folder, "wav", "id10001")
-            if not os.path.exists(folder):
-                err_msg = (
-                    "the folder %s does not exist (as it is expected in "
-                    "the Voxceleb dataset)" % folder
-                )
+            folder_vox1 = os.path.join(data_folder, "wav", "id10001")
+            folder_vox2 = os.path.join(data_folder, "wav", "id00012")
+
+            if not os.path.exists(folder_vox1) or not os.path.exists(
+                folder_vox2
+            ):
+                err_msg = "the specified folder does not contain Voxceleb"
                 raise FileNotFoundError(err_msg)
 
         if "test" in splits:
@@ -239,7 +242,8 @@ def _check_voxceleb1_folders(data_folders, splits):
 # Used for verification split
 def _get_utt_split_lists(data_folders, split_ratio, split_speaker=False):
     """
-    Tot. number of speakers = 1211.
+    Tot. number of speakers vox1= 1211.
+    Tot. number of speakers vox2= 5994.
     Splits the audio file list into train and dev.
     This function is useful when using verification split
     """
@@ -307,7 +311,9 @@ def _get_chunks(seg_dur, audio_id, audio_duration):
     return chunk_lst
 
 
-def prepare_csv(seg_dur, wav_lst, csv_file, vad=False):
+def prepare_csv(
+    samplerate, seg_dur, wav_lst, csv_file, random_segment=False, amp_th=0
+):
     """
     Creates the csv file given a list of wav files.
 
@@ -317,8 +323,11 @@ def prepare_csv(seg_dur, wav_lst, csv_file, vad=False):
         The list of wav files of a given data split.
     csv_file : str
         The path of the output csv file
-    vad : bool
-        Perform VAD. True or False
+    random_segment: bool
+        Read random segments
+    amp_th: float
+        Threshold on the average amplitude on the chunk.
+        If under this threshold, the chunk is discarded.
 
     Returns
     -------
@@ -353,32 +362,63 @@ def prepare_csv(seg_dur, wav_lst, csv_file, vad=False):
 
         # Reading the signal (to retrieve duration in seconds)
         signal = read_wav_soundfile(wav_file)
-        audio_duration = signal.shape[0] / SAMPLERATE
+        if random_segment:
+            audio_duration = signal.shape[0] / SAMPLERATE
 
-        start_sample = 0
-        stop_sample = signal.shape[0]
-        sample_dur = int(seg_dur / 100 * SAMPLERATE)
-        wav_opt = (
-            "start:"
-            + str(start_sample)
-            + " stop:"
-            + str(stop_sample)
-            + " frames:"
-            + str(sample_dur)
-        )
-        # Composition of the csv_line
-        csv_line = [
-            audio_id,
-            str(audio_duration / 100),
-            wav_file,
-            "wav",
-            wav_opt,
-            spk_id,
-            "string",
-            " ",
-        ]
+            start_sample = 0
+            stop_sample = signal.shape[0]
+            sample_dur = int(seg_dur / 100 * SAMPLERATE)
+            wav_opt = (
+                "start:"
+                + str(start_sample)
+                + " stop:"
+                + str(stop_sample)
+                + " frames:"
+                + str(sample_dur)
+            )
+            # Composition of the csv_line
+            csv_line = [
+                audio_id,
+                str(audio_duration / 100),
+                wav_file,
+                "wav",
+                wav_opt,
+                spk_id,
+                "string",
+                " ",
+            ]
+            entry.append(csv_line)
+        else:
+            audio_duration = signal.shape[0] / samplerate
 
-        entry.append(csv_line)
+            uniq_chunks_list = _get_chunks(seg_dur, audio_id, audio_duration)
+
+            for chunk in uniq_chunks_list:
+                s, e = chunk.split("_")[-2:]
+                start_sample = int(int(s) / 100 * samplerate)
+                end_sample = int(int(e) / 100 * samplerate)
+
+                #  Avoid chunks with very small energy
+                mean_sig = np.mean(np.abs(signal[start_sample:end_sample]))
+                if mean_sig < amp_th:
+                    continue
+
+                start_stop = (
+                    "start:" + str(start_sample) + " stop:" + str(end_sample)
+                )
+
+                # Composition of the csv_line
+                csv_line = [
+                    chunk,
+                    str(audio_duration),
+                    wav_file,
+                    "wav",
+                    start_stop,
+                    spk_id,
+                    "string",
+                    " ",
+                ]
+                entry.append(csv_line)
 
     csv_output = csv_output + entry
 
