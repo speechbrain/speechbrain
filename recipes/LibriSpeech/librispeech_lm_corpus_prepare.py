@@ -22,7 +22,7 @@ def prepare_librispeech_lm_corpus(
     data_folder, save_folder, filename, select_n_sentences=None,
 ):
     """
-    This function prepares the csv file/hdf5 file for the LibriSpeech LM corpus.
+    This function prepares the hdf5 file for the LibriSpeech LM corpus.
     Download link: http://www.openslr.org/11/
 
     Arguments:
