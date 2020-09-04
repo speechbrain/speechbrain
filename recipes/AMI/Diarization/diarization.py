@@ -442,6 +442,7 @@ lol = distribute_overlap(lol)
 
 def write_rttm(segs_list, out_rttm_file):
     rttm = []
+    rec_id = segs_list[0][0]
     for seg in segs_list:
         new_row = [
             "SPEAKER",
