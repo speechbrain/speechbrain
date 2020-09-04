@@ -91,6 +91,8 @@ modules:
         babble_prob: 0.0
         reverb_prob: 0.0
         noise_prob: 1.0
+        noise_snr_low: 0
+        noise_snr_high: 15
     compute_features: !new:speechbrain.lobes.Fbank
         sample_rate: !ref <sample_rate>
         n_fft: !ref <n_fft>
