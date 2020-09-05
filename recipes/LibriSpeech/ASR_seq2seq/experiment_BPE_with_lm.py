@@ -3,7 +3,7 @@ import os
 import sys
 import torch
 import speechbrain as sb
-
+from speechbrain.utils.data_utils import download_file
 import speechbrain.data_io.wer as wer_io
 import speechbrain.utils.edit_distance as edit_distance
 from speechbrain.data_io.data_io import convert_index_to_lab
@@ -102,9 +102,6 @@ checkpointer = sb.utils.checkpoints.Checkpointer(
         "normalizer": params.normalize,
         "counter": params.epoch_counter,
     },
-)
-lm_checkpointer = sb.utils.checkpoints.Checkpointer(
-    checkpoints_dir=params.lm_save_folder, recoverables={"model": lm_modules}
 )
 
 
@@ -311,7 +308,22 @@ words.fill_(params.bos_index)
 # Only needs one timestep of input to initialize the weight
 # Initialization has to be done before loading a heckpoint
 beam_searcher.lm_forward_step(words[:, 0], memory=None)
-lm_checkpointer.recover_if_possible(lambda c: -c.meta["loss"])
+
+
+def download_and_load():
+    """ Downloads the LM
+    """
+    save_model_path = params.output_folder + "/save/lm_model.ckpt"
+    if "http" in params.lm_ckpt_file:
+        download_file(params.lm_ckpt_file, save_model_path)
+
+    state_dict = torch.load(save_model_path)
+    # Removing prefix
+    state_dict = {k.split(".", 1)[1]: v for k, v in state_dict.items()}
+    params.lm_model.load_state_dict(state_dict, strict=True)
+
+
+download_and_load()
 test_stats = asr_brain.evaluate(params.test_loader())
 params.train_logger.log_stats(
     stats_meta={"Epoch loaded": params.epoch_counter.current},

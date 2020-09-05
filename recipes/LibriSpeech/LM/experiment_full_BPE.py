@@ -8,6 +8,7 @@ from speechbrain.data_io.data_io import prepend_bos_token
 from speechbrain.data_io.data_io import append_eos_token
 from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.train_logger import summarize_average
+from speechbrain.utils.data_utils import download_file
 
 # This hack needed to import data preparation script from ..
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -140,6 +141,21 @@ if params.multigpu:
     params.model = torch.nn.DataParallel(params.model)
 # Load latest checkpoint to resume training
 checkpointer.recover_if_possible()
+
+
+def download_tokenizer():
+    """ Downloads the tokenizer model.
+    """
+    save_model_path = params.save_folder + "/1000_unigram.model"
+    save_vocab_path = params.save_folder + "/1000_unigram.vocab"
+
+    if "http" in params.tokenizer_model_file:
+        download_file(params.tok_mdl_file, save_model_path)
+    if "http" in params.tokenizer_vocab_file:
+        download_file(params.tok_voc_file, save_vocab_path)
+
+
+download_tokenizer()
 lm_brain.fit(params.epoch_counter, train_set, valid_set)
 
 # Load best checkpoint for evaluation
