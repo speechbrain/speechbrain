@@ -11,6 +11,9 @@ import torch.nn as nn
 import numpy as np
 from speechbrain.data_io.data_io import length_to_mask
 
+from speechbrain.nnet.group_layer_norm import GroupLayerNorm
+from speechbrain.nnet.group_linear import GroupLinear
+
 logger = logging.getLogger(__name__)
 
 
@@ -254,6 +257,7 @@ class MultiheadAttention(nn.Module):
         add_zero_attn=False,
         kdim=None,
         vdim=None,
+        nb=1
     ):
         super().__init__()
         self.nhead = nhead
@@ -263,6 +267,7 @@ class MultiheadAttention(nn.Module):
         self.add_zero_attn = add_zero_attn
         self.kdim = kdim
         self.vdim = vdim
+        self.nb = nb
 
     def init_params(self, first_input):
         if len(first_input.shape) == 4:
@@ -272,17 +277,17 @@ class MultiheadAttention(nn.Module):
                 first_input.shape[2] * first_input.shape[3],
             )
 
-        self.embed_dim = first_input.shape[-1]
+        self.embed_dim = first_input.shape[-1] // self.nb
 
         self.att = nn.MultiheadAttention(
-            embed_dim=self.embed_dim,
-            num_heads=self.nhead,
+            embed_dim=self.embed_dim//self.nb,
+            num_heads=self.nhead//self.nb,
             dropout=self.dropout,
             bias=self.bias,
             add_bias_kv=self.add_bias_kv,
             add_zero_attn=self.add_zero_attn,
-            kdim=self.kdim,
-            vdim=self.vdim,
+            kdim=self.kdim//self.nb,
+            vdim=self.vdim//self.nb,
         ).to(first_input.device)
 
     def forward(
@@ -323,6 +328,14 @@ class MultiheadAttention(nn.Module):
         key = key.permute(1, 0, 2)
         value = value.permute(1, 0, 2)
 
+        tq,bsz,_ = query.shape
+
+        query = query.reshape((query.shape[0], query.shape[1]*self.nb, query.shape[2]//self.nb))
+        key = key.reshape((key.shape[0], key.shape[1]*self.nb, key.shape[2]//self.nb))
+        value = value.reshape((value.shape[0], value.shape[1]*self.nb, value.shape[2]//self.nb))
+
+        key_padding_mask = key_padding_mask.unsqueeze(1).repeat(1,self.nb,1).reshape((key_padding_mask.shape[0]*self.nb,key_padding_mask.shape[1]))
+
         output, attention = self.att(
             query,
             key,
@@ -331,6 +344,8 @@ class MultiheadAttention(nn.Module):
             key_padding_mask=key_padding_mask,
         )
 
+        output = output.reshape((tq, bsz, output.shape[2]*self.nb))
+
         # reshape the output back to (batch, time, fea)
         output = output.permute(1, 0, 2)
 
@@ -338,7 +353,7 @@ class MultiheadAttention(nn.Module):
 
 
 class PositionalwiseFeedForward(nn.Module):
-    def __init__(self, d_ffn, dropout=0.1, activation=nn.ReLU):
+    def __init__(self, d_ffn, nb=1, dropout=0.1, activation=nn.ReLU):
         """The class implements the positional-wise feadd forward module in “Attention Is All You Need”
 
         Arguements
@@ -354,15 +369,16 @@ class PositionalwiseFeedForward(nn.Module):
         self.d_ffn = d_ffn
         self.dropout = dropout
         self.activation = activation
+        self.nb = nb
 
     def init_params(self, first_input):
         self.input_size = first_input.shape[-1]
 
         self.ffn = nn.Sequential(
-            nn.Linear(self.input_size, self.d_ffn),
+            GroupLinear(self.input_size, self.d_ffn,nb=nb),
             self.activation(),
             nn.Dropout(self.dropout),
-            nn.Linear(self.d_ffn, self.input_size),
+            GroupLinear(self.d_ffn, self.input_size,nb=nb),
         ).to(first_input.device)
 
     def forward(self, x, init_params=False):
