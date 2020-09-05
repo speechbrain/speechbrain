@@ -12,7 +12,7 @@ output_folder: !ref results/augment_noise_CRDNN_time_pooling_BPE/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
-lm_save_folder: !PLACEHOLDER
+lm_ckpt_file: https://www.dropbox.com/s/6uy5m6jaf0t769i/model.ckpt?dl=1
 
 # Data files
 data_folder: !PLACEHOLDER # e.g., /localscratch/LibriSpeech
