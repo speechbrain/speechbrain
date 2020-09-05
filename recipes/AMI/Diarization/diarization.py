@@ -252,6 +252,55 @@ def write_rttm(segs_list, out_rttm_file):
             f.write("%s\n" % line_str)
 
 
+def do_ahc(score_matrix, out_rttm_file):
+
+    ## Agglomerative Hierarchical Clustering Starts here
+    scores = copy.deepcopy(score_matrix)
+
+    # Ignoring diagonal scores and normalizing as per remaining pairs
+    mn = numpy.tril(scores).min()
+    mx = numpy.tril(scores).max()
+    scores = (scores - mn) / (mx - mn)
+
+    # Prepare distance matrix
+    dist_mat = (scores + scores.T) / 2.0 * -1.0
+    dist_mat = dist_mat - numpy.tril(dist_mat).min()
+    numpy.fill_diagonal(dist_mat, 0.0)
+    dist_mat = squareform(dist_mat)
+
+    print("AHC started...\n")
+    links = linkage(dist_mat, method="complete")
+
+    clusters = trace_back_cluster_labels(links)
+
+    # Clusters IDs to segment labels
+    # clus = dict()
+    subseg_ids = diary_obj.modelset
+
+    i = 0
+    lol = []
+    for c in clusters:
+        clus_elements = clusters[c]
+        # temp = []
+        for elem in clus_elements:
+            sub_seg = subseg_ids[elem]
+            splitted = sub_seg.rsplit("_", 2)
+            rec_id = str(splitted[0])
+            sseg_start = float(splitted[1])
+            sseg_end = float(splitted[2])
+            spkr_id = rec_id + "_" + str(i)
+            a = [rec_id, sseg_start, sseg_end, spkr_id]
+            lol.append(a)
+        i += 1
+
+    lol.sort(key=lambda x: float(x[1]))
+
+    lol = merge_ssegs_same_speaker(lol)
+    lol = distribute_overlap(lol)
+
+    write_rttm(lol, out_rttm_file)
+
+
 if __name__ == "__main__":
 
     # Create experiment directory
@@ -287,7 +336,7 @@ if __name__ == "__main__":
         overlap=params.overlap,
     )
 
-    # PLDA inumpyuts for Train data
+    # PLDA inputs for Train data
     modelset, segset = [], []
     xvectors = numpy.empty(shape=[0, params.xvect_dim], dtype=numpy.float64)
 
@@ -370,6 +419,7 @@ if __name__ == "__main__":
             xvectors_stat = pickle.load(inumpyut)
 
     # Training Gaussina PLDA model
+    # (Using Xvectors from Voxceleb)
     logger.info("Training PLDA model")
     params.compute_plda.plda(xvectors_stat)
     logger.info("PLDA training completed")
@@ -417,49 +467,6 @@ if __name__ == "__main__":
     print("PLDA scoring completed...")
     print(scores_plda.scoremat)
 
-    # Agglomerative Hierarchical Clustering
-    scores = copy.deepcopy(scores_plda.scoremat)
-
-    # Ignoring diagonal scores and normalizing as per remaining pairs
-    mn = numpy.tril(scores).min()
-    mx = numpy.tril(scores).max()
-    scores = (scores - mn) / (mx - mn)
-
-    # Prepare distance matrix
-    dist_mat = (scores + scores.T) / 2.0 * -1.0
-    dist_mat = dist_mat - numpy.tril(dist_mat).min()
-    numpy.fill_diagonal(dist_mat, 0.0)
-    dist_mat = squareform(dist_mat)
-
-    print("AHC started...\n")
-    links = linkage(dist_mat, method="complete")
-
-    clusters = trace_back_cluster_labels(links)
-
-    # Clusters IDs to segment labels
-    clus = dict()
-    subseg_ids = diary_obj.modelset
-
-    i = 0
-    lol = []
-    for c in clusters:
-        clus_elements = clusters[c]
-        # temp = []
-        for elem in clus_elements:
-            sub_seg = subseg_ids[elem]
-            splitted = sub_seg.rsplit("_", 2)
-            rec_id = str(splitted[0])
-            sseg_start = float(splitted[1])
-            sseg_end = float(splitted[2])
-            spkr_id = rec_id + "_" + str(i)
-            a = [rec_id, sseg_start, sseg_end, spkr_id]
-            lol.append(a)
-        i += 1
-
-    lol.sort(key=lambda x: float(x[1]))
-
-    lol = merge_ssegs_same_speaker(lol)
-    lol = distribute_overlap(lol)
-
+    # Function to do AHC
     out_rttm_file = "results/save/abc.rttm"
-    write_rttm(lol, out_rttm_file)
+    do_ahc(scores_plda.scoremat, out_rttm_file)
