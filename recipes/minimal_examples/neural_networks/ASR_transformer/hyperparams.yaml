@@ -1,0 +1,91 @@
+# Seed needs to be set at top of yaml, before objects with parameters are made
+# NOTE: Seed does not guarantee replicability with CTC
+seed: 1234
+__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+
+# Data files
+data_folder: !PLACEHOLDER
+csv_train: !ref <data_folder>/train.csv
+csv_valid: !ref <data_folder>/dev.csv
+csv_test: !ref <data_folder>/test.csv
+
+# Neural Parameters
+N_epochs: 30
+N_batch: 1
+lr: 0.0005
+
+# token infomation
+bos: 43
+eos: 43
+pad_id: 0
+
+train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_train>
+    batch_size: !ref <N_batch>
+    csv_read: [wav, phn]
+    sentence_sorting: ascending
+    add_padding_label: True
+    replacements:
+        $data_folder: !ref <data_folder>
+
+valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_valid>
+    batch_size: !ref <N_batch>
+    csv_read: [wav, phn]
+    sentence_sorting: ascending
+    add_padding_label: True
+    replacements:
+        $data_folder: !ref <data_folder>
+
+test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_test>
+    csv_read: [wav, phn]
+    sentence_sorting: ascending
+    add_padding_label: True
+    replacements:
+        $data_folder: !ref <data_folder>
+
+compute_features: !new:speechbrain.lobes.features.fbank.Fbank
+    sample_rate: 16000
+    n_fft: 400
+    n_mels: 80
+
+mean_var_norm: !new:speechbrain.processing.features.InputNormalization
+    norm_type: global
+
+CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
+    dropout: 0.1
+    num_blocks: 1
+    num_layers_per_block: 1
+    out_channels: (128,)
+    strides: (2,)
+    residuals: (False,)
+    dilations: (1,)
+    kernel_sizes: (3,)
+
+lin: !new:speechbrain.nnet.linear.Linear
+    n_neurons: 44  # 42 phonemes + 1 eos + 1 pad
+    bias: False
+
+emb: !new:speechbrain.nnet.embedding.Embedding
+    num_embeddings: 44 # 42 phonemes + 1 bos + 1 pad
+    embedding_dim: 128
+
+Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.TransformerASR # yamllint disable-line rule:line-length
+    tgt_vocab: 44
+    d_model: 64
+    nhead: 2
+    num_encoder_layers: 3
+    num_decoder_layers: 3
+    d_ffn: 512
+    dropout: 0.0
+    activation: !name:torch.nn.ReLU
+    normalize_before: True
+
+softmax: !new:torch.nn.LogSoftmax
+    dim: -1
+
+compute_cost: !name:speechbrain.nnet.losses.nll_loss
+
+optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
+    learning_rate: !ref <lr>
