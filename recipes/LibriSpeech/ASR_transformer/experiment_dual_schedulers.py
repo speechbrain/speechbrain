@@ -12,12 +12,10 @@ from speechbrain.data_io.data_io import append_eos_token
 from speechbrain.data_io.data_io import merge_csvs
 
 from speechbrain.utils.checkpoints import ckpt_recency
-from speechbrain.utils.train_logger import summarize_error_rate
+from speechbrain.utils.train_logger import summarize_average
+from speechbrain.utils.Accuracy import Accuracy
 from speechbrain.decoders.decoders import undo_padding
-from speechbrain.decoders.seq2seq import (
-    S2STransformerBeamSearch,
-    S2STransformerGreedySearch,
-)
+from speechbrain.decoders.seq2seq import S2STransformerBeamSearch
 from speechbrain.lobes.models.transformer.Transformer import (
     get_key_padding_mask,
     get_lookahead_mask,
@@ -58,23 +56,26 @@ checkpointer = sb.utils.checkpoints.Checkpointer(
 
 
 # Define a beam search according to this recipe
-valid_search = S2STransformerGreedySearch(
+valid_search = S2STransformerBeamSearch(
     modules=[params.Transformer, params.seq_lin],
     bos_index=params.bos_index,
     eos_index=params.eos_index,
     min_decode_ratio=0,
     max_decode_ratio=1,
+    beam_size=params.valid_beam_size,
+    length_normalization=params.length_normalization,
+    length_rewarding=params.length_rewarding,
 )
 
 test_search = S2STransformerBeamSearch(
     modules=[params.Transformer, params.seq_lin],
     bos_index=params.bos_index,
     eos_index=params.eos_index,
-    eos_threshold=params.eos_threshold,
     min_decode_ratio=0,
     max_decode_ratio=1,
     beam_size=params.test_beam_size,
     length_normalization=params.length_normalization,
+    length_rewarding=params.length_rewarding,
 )
 
 
@@ -109,7 +110,7 @@ class ASR(sb.core.Brain):
             chars = torch.cat([chars, chars], dim=0)
             seq_lengths = torch.cat([seq_lengths, seq_lengths], dim=0)
 
-        if hasattr(params, "augmentation"):
+        if hasattr(params, "augmentation") and stage == "train":
             wavs = params.augmentation(wavs, wav_lens, init_params)
 
         feats = params.compute_features(wavs, init_params)
@@ -163,7 +164,11 @@ class ASR(sb.core.Brain):
                 0
             ].emb.Embedding.weight
 
-        if stage == "valid":
+        if (
+            stage == "valid"
+            and params.epoch_counter.current % params.num_epoch_to_valid_search
+            == 0
+        ):
             torch.cuda.empty_cache()
             hyps, _ = valid_search(enc_out.detach(), wav_lens)
             return p_ctc, p_seq, wav_lens, hyps, target_chars, seq_lengths
@@ -208,19 +213,25 @@ class ASR(sb.core.Brain):
 
         stats = {}
         if stage != "train":
-            if stage == "valid":
-                ind2lab = params.valid_loader.label_dict["wrd"]["index2lab"]
-            elif stage == "test":
-                ind2lab = params.test_loader.label_dict["wrd"]["index2lab"]
-            char_seq = params.tokenizer(hyps, task="decode_from_list")
+            if (
+                params.epoch_counter.current % params.num_epoch_to_valid_search
+                == 0
+                or stage == "test"
+            ):
+                if stage == "valid":
+                    ind2lab = params.valid_loader.label_dict["wrd"]["index2lab"]
+                elif stage == "test":
+                    ind2lab = params.test_loader.label_dict["wrd"]["index2lab"]
+                char_seq = params.tokenizer(hyps, task="decode_from_list")
 
-            chars = undo_padding(target_chars, target_lens)
-            chars = convert_index_to_lab(chars, ind2lab)
+                target_chars = undo_padding(target_chars, target_lens)
+                target_chars = convert_index_to_lab(target_chars, ind2lab)
 
-            wer_stats = edit_distance.wer_details_for_batch(
-                ids, chars, char_seq, compute_alignments=True
-            )
-            stats["WER"] = wer_stats
+                wer_stats = edit_distance.wer_details_for_batch(
+                    ids, target_chars, char_seq, compute_alignments=True
+                )
+                stats["WER"] = wer_stats
+            stats["ACC"] = Accuracy(p_seq, chars_with_eos, rel_length)
         return loss, stats
 
     def fit_batch(self, batch):
@@ -299,19 +310,18 @@ class ASR(sb.core.Brain):
         }
         params.train_logger.log_stats(epoch_stats, train_stats, valid_stats)
 
-        wer = summarize_error_rate(valid_stats["WER"])
-
-        if params.ckpt_avg:
+        acc = summarize_average(valid_stats["ACC"])
+        try:
             checkpointer.save_and_keep_only(
-                meta={"epoch": epoch},
-                importance_keys=[ckpt_recency, lambda c: c.meta["epoch"]],
+                meta={"ACC": acc, "epoch": epoch},
+                importance_keys=[ckpt_recency, lambda c: -c.meta["ACC"]],
                 num_to_keep=params.num_ckpt_to_avg,
             )
-        else:
+        except KeyError:
             checkpointer.save_and_keep_only(
-                meta={"WER": wer},
-                importance_keys=[ckpt_recency, lambda c: -c.meta["WER"]],
-                num_to_keep=1,
+                meta={"epoch": epoch, "ACC": acc},
+                importance_keys=[ckpt_recency, lambda c: c.meta["epoch"]],
+                num_to_keep=params.num_ckpt_to_avg,
             )
 
     def _reset_params(self):
@@ -328,6 +338,7 @@ prepare_librispeech(
         "train-clean-360",
         "train-other-500",
         "dev-clean",
+        "test-clean",
     ],
     save_folder=params.data_folder,
 )
@@ -375,19 +386,23 @@ if params.multigpu:
     params.ctc_lin = torch.nn.DataParallel(params.ctc_lin)
     params.seq_lin = torch.nn.DataParallel(params.seq_lin)
 
+    if hasattr(params, "env_corrupt"):
+        params.env_corrupt = torch.nn.DataParallel(params.env_corrupt)
+
 # Load latest checkpoint to resume training
 checkpointer.recover_if_possible()
+params.epoch_counter.limit = params.number_of_epochs
 asr_brain.fit(params.epoch_counter, train_set, valid_set)
 
 # process ckpt and do test stage
+print(params.ckpt_avg, "wheter to avg checkpoints")
 if params.ckpt_avg:
     # if ckpt_avg set to true, average the last N ckpts for evaluation
-    checkpointer.recover_if_possible(
-        lambda c: c.meta["epoch"], get_average=True
-    )
+    checkpointer.recover_if_possible(lambda c: -c.meta["ACC"], get_average=True)
 else:
     # otherwise Load best checkpoint for evaluation
-    checkpointer.recover_if_possible(lambda c: -c.meta["WER"])
+    checkpointer.recover_if_possible(lambda c: c.meta["ACC"])
+
 test_stats = asr_brain.evaluate(params.test_loader())
 params.train_logger.log_stats(
     stats_meta={"Epoch loaded": params.epoch_counter.current},
