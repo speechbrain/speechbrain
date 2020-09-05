@@ -14,9 +14,9 @@ csv_valid: !ref <data_folder>/dev-clean.csv
 
 # Training parameters
 number_of_epochs: 20
-batch_size: 128
+batch_size: 32
 lr: 0.001
-accu_steps: 4
+accu_steps: 16 # Gradient accumulation to simulate large batch training
 device: 'cuda'
 multigpu: True
 

@@ -13,6 +13,8 @@ from speechbrain.data_io.data_io import (
     save_pkl,
 )
 import h5py
+from speechbrain.utils.data_utils import download_file
+import gzip
 
 logger = logging.getLogger(__name__)
 OPT_FILE = "opt_librispeech_lm_corpus_prepare.pkl"
@@ -52,10 +54,12 @@ def prepare_librispeech_lm_corpus(
 
     # Check if this phase is already done (if so, skip it)
     if skip(save_folder, filename, conf):
-        logger.debug("Skipping preparation, completed in previous run.")
+        logger.info("Skipping preparation, completed in previous run.")
         return
 
-    data_path = os.path.join(data_folder, "librispeech-lm-norm.txt")
+    data_path = os.path.join(data_folder, "librispeech-lm-norm.txt.gz")
+    src = "http://www.openslr.org/resources/11/librispeech-lm-norm.txt.gz"
+    download_file(src, data_path)
 
     create_hdf5(
         data_path, save_folder, filename, select_n_sentences,
@@ -115,7 +119,7 @@ def create_hdf5(
     Arguments
     ---------
     data_path : str
-        The path of LM corpus txt file.
+        The path of LM corpus txt file (compressed).
     save_folder : str
         Location of the folder for storing the csv.
     filename : str
@@ -132,11 +136,11 @@ def create_hdf5(
 
     # Preliminary prints
     msg = "\tCreating hdf5 in  %s..." % (hdf5_file)
-    logger.debug(msg)
+    logger.info(msg)
 
     snt_cnt = 0
     all_wrds, all_chars = [], []
-    with open(data_path, "r") as f_in:
+    with gzip.open(data_path, "rt") as f_in:
         for snt_id, line in enumerate(f_in):
             wrds = line.strip()
             wrds_lst = wrds.split(" ")
@@ -168,4 +172,4 @@ def create_hdf5(
 
     # Final print
     msg = "\t%s sucessfully created!" % (hdf5_file)
-    logger.debug(msg)
+    logger.info(msg)
