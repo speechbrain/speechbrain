@@ -277,6 +277,10 @@ class Brain:
         fmt_num = format_order_of_magnitude(total_params)
         logger.info(f"Initialized {fmt_num} trainable parameters in {clsname}")
 
+    def on_training_start(self, *args, **kwargs):
+
+        pass
+
     def compute_forward(self, x, stage="train", init_params=False):
         """Forward pass, to be overridden by sub-classes.
 
@@ -449,6 +453,7 @@ class Brain:
         progressbar : bool
             Whether to display the progress of each epoch in a progressbar.
         """
+        self.on_training_start()
         for epoch in epoch_counter:
             self.modules.train()
             train_stats = {}
