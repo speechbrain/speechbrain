@@ -266,8 +266,8 @@ class ASR(sb.core.Brain):
         )
 
     def load_tokenizer(self):
-        save_model_path = params.save_folder + "/1000_unigram.model"
-        save_vocab_path = params.save_folder + "/1000_unigram.vocab"
+        save_model_path = params.save_folder + "/tok_unigram.model"
+        save_vocab_path = params.save_folder + "/tok_unigram.vocab"
 
         if hasattr(params, "tok_mdl_file"):
             download_file(

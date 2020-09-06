@@ -6,11 +6,13 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: /localscratch/LibriSpeech
+data_folder: !PLACEHOLDER # e.g, /localscratch/LibriSpeech
 filename: lm_corpus.h5
 hdf5_train: !ref <data_folder>/<filename>
-csv_label: !ref <data_folder>/train-clean-100.csv
+csv_label: !ref <data_folder>/train-960.csv
 csv_valid: !ref <data_folder>/dev-clean.csv
+
+# Tokenizer model
 tok_mdl_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
 tok_voc_file: https://www.dropbox.com/s/7l8z622cpd3t8st/1000_unigram.vocab?dl=1
 
