@@ -10,6 +10,7 @@ from speechbrain.data_io.data_io import convert_index_to_lab
 from speechbrain.data_io.data_io import prepend_bos_token
 from speechbrain.data_io.data_io import append_eos_token
 from speechbrain.data_io.data_io import split_word
+from speechbrain.data_io.data_io import merge_csvs
 
 from speechbrain.decoders.seq2seq import S2SRNNGreedySearcher
 from speechbrain.decoders.seq2seq import S2SRNNBeamSearcher
@@ -268,8 +269,23 @@ class ASR(sb.core.Brain):
 # Prepare data
 prepare_librispeech(
     data_folder=params.data_folder,
-    splits=["train-clean-100", "dev-clean", "test-clean"],
+    splits=[
+        "train-clean-100",
+        "train-clean-360",
+        "train-other-500",
+        "dev-clean",
+        "test-clean",
+    ],
     save_folder=params.data_folder,
+)
+merge_csvs(
+    data_folder=params.data_folder,
+    csv_lst=[
+        "train-clean-100.csv",
+        "train-clean-360.csv",
+        "train-other-500.csv",
+    ],
+    merged_csv="train-960.csv",
 )
 train_set = params.train_loader()
 valid_set = params.valid_loader()
@@ -311,7 +327,7 @@ beam_searcher.lm_forward_step(words[:, 0], memory=None)
 
 
 def download_and_load():
-    """ Downloads the LM
+    """ Downloads the LM and tokenizer
     """
     save_model_path = params.output_folder + "/save/lm_model.ckpt"
     if "http" in params.lm_ckpt_file:
@@ -321,6 +337,14 @@ def download_and_load():
     # Removing prefix
     state_dict = {k.split(".", 1)[1]: v for k, v in state_dict.items()}
     params.lm_model.load_state_dict(state_dict, strict=True)
+
+    save_model_path = params.save_folder + "/1000_unigram.model"
+    save_vocab_path = params.save_folder + "/1000_unigram.vocab"
+
+    if "http" in params.tokenizer_model_file:
+        download_file(params.tok_mdl_file, save_model_path)
+    if "http" in params.tokenizer_vocab_file:
+        download_file(params.tok_voc_file, save_vocab_path)
 
 
 download_and_load()
