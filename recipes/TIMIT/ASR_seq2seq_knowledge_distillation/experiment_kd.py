@@ -73,9 +73,11 @@ def load_teachers():
     Note: Run experiment_save_teachers.py beforehand to generate .hdf5 files.
     """
     if hasattr(params, "augmentation"):
-        path = current_dir + "/tea_infer_{}batch.hdf5".format(params.batch_size)
+        path = params.tea_infer_dir + "/tea_infer_{}batch.hdf5".format(
+            params.batch_size
+        )
     else:
-        path = current_dir + "/tea_infer_noAug_{}batch.hdf5".format(
+        path = params.tea_infer_dir + "/tea_infer_noAug_{}batch.hdf5".format(
             params.batch_size
         )
 
@@ -380,14 +382,8 @@ tea_name = ["t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9"]
 if params.pretrain:
     # load pre-trained student model except last layer
     if params.epoch_counter.current == 0:
-        save_dir = (
-            current_dir
-            + "/teacher_models_training/results/tea0/{}/save/".format(
-                params.seed
-            )
-        )
-        ckpt_dir_list = os.listdir(save_dir)
-        chpt_path = save_dir + ckpt_dir_list[0] + "/model.ckpt"
+        ckpt_dir_list = os.listdir(params.pretrain_tea_dir)
+        chpt_path = params.pretrain_tea_dir + "/model.ckpt"
         weight_dict = torch.load(chpt_path)
         # del the last layer
         key_list = []

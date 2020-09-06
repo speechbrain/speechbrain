@@ -6,6 +6,9 @@ wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
+# Path containing the stored inferences of the different teachers
+tea_infer_dir: !PLACEHOLDER
+
 # Data files
 data_folder: !PLACEHOLDER  # e.g. /path/to/TIMIT
 csv_train: !ref <data_folder>/train.csv
@@ -13,9 +16,9 @@ csv_valid: !ref <data_folder>/dev.csv
 csv_test: !ref <data_folder>/test.csv
 
 # Training parameters
-number_of_epochs: 50
+number_of_epochs: 30
 batch_size: 8
-lr: 0.00025
+lr: 0.0005
 ctc_weight: 0.1
 device: 'cuda:0'
 
@@ -29,6 +32,9 @@ num_tea: 10
 
 # distillation parameters
 pretrain: True
+
+# Path to the teacher model to load the weights from
+pretrain_tea_dir: !PLACEHOLDER
 strategy: best  # [average, best, weighted]
 
 # Temperature : smooth the distribution of output probability
