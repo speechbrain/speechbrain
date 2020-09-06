@@ -8,20 +8,23 @@ train_log: !ref <output_folder>/train_log.txt
 
 # Data files
 data_folder: !PLACEHOLDER  # e.g. /path/to/librispeech
-train_set: train-clean-960
-csv_train: !ref <data_folder>/train-clean-960.csv
+train_set: train-960
+csv_train: !ref <data_folder>/train-960.csv
 csv_valid: !ref <data_folder>/dev-clean.csv
 csv_test: !ref <data_folder>/test-clean.csv
 
 # Training parameters
 number_of_epochs: 100
 batch_size: 64
-lr: 0.0001
+lr: 1
 ctc_weight: 0.3
-gradient_accumulation: 2
+gradient_accumulation: 4
 device: 'cuda'
 multigpu: True
 auto_mix_precision: False
+ckpt_avg: True
+num_ckpt_to_avg: 10
+loss_reduction: 'batchmean'
 
 # Feature parameters
 sample_rate: 16000
@@ -35,20 +38,22 @@ src_masking: False
 
 # Outputs
 output_neurons: 5000
-blank_index: 3
+blank_index: 0
 label_smoothing: 0.1
-pad_id: 0
+pad_id: -1
 bos_index: 1
 eos_index: 2
-unk_id: 3
+unk_id: 0
 
 # Decoding parameters
 min_decode_ratio: 0.0
 max_decode_ratio: 3
-num_epoch_to_valid_search: 1
+num_epoch_to_valid_search: 10
+valid_beam_size: 10
 test_beam_size: 80
 eos_threshold: 1.5
 length_normalization: False
+length_rewarding: 0
 
 # Functions
 tokenizer: !new:speechbrain.tokenizers.SentencePiece.SentencePiece
@@ -57,7 +62,7 @@ tokenizer: !new:speechbrain.tokenizers.SentencePiece.SentencePiece
     csv_train: !ref <csv_train>
     csv_read: wrd
     model_type: "unigram" # ["unigram", "bpe", "char"]
-    max_sentencepiece_length: 5
+    max_sentencepiece_length: 16
     character_coverage: 0.9995 # for language with large set of chars use 0.9995
     pad_id: !ref <pad_id>
     bos_id: !ref <bos_index>
@@ -81,7 +86,7 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.Transforme
     num_decoder_layers: 6
     d_ffn: 2048
     dropout: 0.0
-    activation: !name:torch.nn.ReLU
+    activation: !name:torch.nn.GELU
 
 ctc_lin: !new:speechbrain.nnet.linear.Linear
     n_neurons: !ref <output_neurons>
@@ -93,13 +98,17 @@ seq_lin: !new:speechbrain.nnet.linear.Linear
 log_softmax: !new:torch.nn.LogSoftmax
     dim: -1
 
-optimizer: !new:speechbrain.nnet.optimizers.AdamW_Optimizer
-    learning_rate: !ref <lr>
+optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
+    learning_rate: 0
     betas: (0.9, 0.98)
-    weight_decay: 0.000001
+    eps: 0.000000001
 
-lr_annealing: !new:speechbrain.nnet.lr_schedulers.NoamScheduler
+noam_annealing: !new:speechbrain.nnet.lr_schedulers.NoamScheduler
     lr_initial: !ref <lr>
+    n_warmup_steps: 25000
+    model_size: 512
+
+cosine_annealing: !new:speechbrain.nnet.lr_schedulers.CyclicCosineScheduler
     n_warmup_steps: 25000
 
 normalize: !new:speechbrain.processing.features.InputNormalization
@@ -132,7 +141,7 @@ compute_features: !new:speechbrain.lobes.features.fbank.Fbank
 train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>
     batch_size: !ref <batch_size>
-    sentence_sorting: random
+    sentence_sorting: ascending
     output_folder: !ref <output_folder>
     csv_read: [wav, wrd]
     add_padding_label: True
@@ -162,9 +171,12 @@ test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
 
 ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
     blank_index: !ref <blank_index>
+    reduction: !ref <loss_reduction>
 
-seq_cost: !name:speechbrain.nnet.losses.nll_loss
+seq_cost: !name:speechbrain.nnet.losses.kldiv_loss
+# seq_cost: !name:speechbrain.nnet.losses.nll_loss
     label_smoothing: !ref <label_smoothing>
+    reduction: !ref <loss_reduction>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
