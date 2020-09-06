@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 OPT_FILE = "opt_librispeech_lm_corpus_prepare.pkl"
 
 
-def prepare_librispeech_lm_corpus(
+def prepare_lm_corpus(
     data_folder, save_folder, filename, select_n_sentences=None,
 ):
     """
