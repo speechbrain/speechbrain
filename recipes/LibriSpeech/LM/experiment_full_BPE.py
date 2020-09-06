@@ -2,7 +2,9 @@
 import os
 import sys
 import torch
+
 import speechbrain as sb
+from speechbrain.data_io.data_io import merge_csvs
 from speechbrain.data_io.data_io import prepend_bos_token
 from speechbrain.data_io.data_io import append_eos_token
 from speechbrain.utils.checkpoints import ckpt_recency
@@ -111,12 +113,41 @@ class LM(sb.core.Brain):
             importance_keys=[ckpt_recency, lambda c: -c.meta["loss"]],
         )
 
+    def load_tokenizer(self):
+        save_model_path = params.save_folder + "/tok_unigram.model"
+        save_vocab_path = params.save_folder + "/tok_unigram.vocab"
+
+        if hasattr(params, "tok_mdl_file"):
+            download_file(
+                params.tok_mdl_file, save_model_path, replace_existing=True
+            )
+            params.bpe_tokenizer.sp.load(save_model_path)
+        if hasattr(params, "tok_voc_file"):
+            download_file(
+                params.tok_voc_file, save_vocab_path, replace_existing=True
+            )
+
 
 # Prepare data
 prepare_librispeech(
     data_folder=params.data_folder,
-    splits=["train-clean-100", "dev-clean"],
+    splits=[
+        "train-clean-100",
+        "train-clean-360",
+        "train-other-500",
+        "dev-clean",
+        "test-clean",
+    ],
     save_folder=params.data_folder,
+)
+merge_csvs(
+    data_folder=params.data_folder,
+    csv_lst=[
+        "train-clean-100.csv",
+        "train-clean-360.csv",
+        "train-other-500.csv",
+    ],
+    merged_csv="train-960.csv",
 )
 
 prepare_lm_corpus(
@@ -124,8 +155,7 @@ prepare_lm_corpus(
     save_folder=params.data_folder,
     filename=params.filename,
 )
-# Using train-clean-100 to generate the same label_dict as ASR model
-# Temporary solution
+
 _ = params.label_loader()
 train_set = params.train_loader()
 valid_set = params.valid_loader()
@@ -139,20 +169,7 @@ if params.multigpu:
 # Load latest checkpoint to resume training
 checkpointer.recover_if_possible()
 
-
-def download_tokenizer():
-    """ Downloads the tokenizer model.
-    """
-    save_model_path = params.save_folder + "/1000_unigram.model"
-    save_vocab_path = params.save_folder + "/1000_unigram.vocab"
-
-    if "http" in params.tokenizer_model_file:
-        download_file(params.tok_mdl_file, save_model_path)
-    if "http" in params.tokenizer_vocab_file:
-        download_file(params.tok_voc_file, save_vocab_path)
-
-
-download_tokenizer()
+lm_brain.load_tokenizer()
 lm_brain.fit(params.epoch_counter, train_set, valid_set)
 
 # Load best checkpoint for evaluation
