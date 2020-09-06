@@ -55,6 +55,7 @@ class TransformerInterface(nn.Module):
         custom_tgt_module=None,
         return_attention=False,
         positional_encoding=True,
+        normalize_before=False,
     ):
         super().__init__()
 
@@ -77,6 +78,7 @@ class TransformerInterface(nn.Module):
                 dropout=dropout,
                 activation=activation,
                 return_attention=return_attention,
+                normalize_before=normalize_before,
             )
 
         # initialize the dncoder
@@ -91,6 +93,7 @@ class TransformerInterface(nn.Module):
                 dropout=dropout,
                 activation=activation,
                 return_attention=return_attention,
+                normalize_before=normalize_before,
             )
 
     def forward(self, **kwags):
@@ -183,6 +186,7 @@ class TransformerEncoderLayer(nn.Module):
         vdim=None,
         dropout=0.1,
         activation=nn.ReLU,
+        normalize_before=False,
     ):
         super().__init__()
         self.self_att = MultiheadAttention(
@@ -197,6 +201,8 @@ class TransformerEncoderLayer(nn.Module):
         self.dropout1 = torch.nn.Dropout(dropout)
         self.dropout2 = torch.nn.Dropout(dropout)
 
+        self.normalize_before = normalize_before
+
     def forward(
         self, src, src_mask=None, src_key_padding_mask=None, init_params=False
     ):
@@ -210,10 +216,15 @@ class TransformerEncoderLayer(nn.Module):
         src_key_padding_mask: tensor
             the mask for the src keys per batch (optional).
         """
+        if self.normalize_before:
+            src1 = self.norm1(src, init_params)
+        else:
+            src1 = src
+
         output, self_attn = self.self_att(
-            src,
-            src,
-            src,
+            src1,
+            src1,
+            src1,
             attn_mask=src_mask,
             key_padding_mask=src_key_padding_mask,
             init_params=init_params,
@@ -221,13 +232,19 @@ class TransformerEncoderLayer(nn.Module):
 
         # add & norm
         src = src + self.dropout1(output)
-        src = self.norm1(src, init_params)
+        if not self.normalize_before:
+            src = self.norm1(src, init_params)
 
-        output = self.pos_ffn(src, init_params)
+        if self.normalize_before:
+            src1 = self.norm2(src, init_params)
+        else:
+            src1 = src
+        output = self.pos_ffn(src1, init_params)
 
         # add & norm
         output = src + self.dropout2(output)
-        output = self.norm2(output, init_params)
+        if not self.normalize_before:
+            output = self.norm2(output, init_params)
 
         return output, self_attn
 
@@ -270,6 +287,7 @@ class TransformerEncoder(nn.Module):
         dropout=0.1,
         activation=nn.ReLU,
         return_attention=False,
+        normalize_before=False,
     ):
         super().__init__()
         self.layers = torch.nn.ModuleList(
@@ -281,6 +299,7 @@ class TransformerEncoder(nn.Module):
                     vdim=vdim,
                     dropout=dropout,
                     activation=activation,
+                    normalize_before=normalize_before,
                 )
                 for _ in range(num_layers)
             ]
@@ -350,6 +369,7 @@ class TransformerDecoderLayer(nn.Module):
         vdim=None,
         dropout=0.1,
         activation=nn.ReLU,
+        normalize_before=False,
     ):
         super().__init__()
         self.self_attn = MultiheadAttention(
@@ -369,6 +389,8 @@ class TransformerDecoderLayer(nn.Module):
         self.dropout1 = torch.nn.Dropout(dropout)
         self.dropout2 = torch.nn.Dropout(dropout)
         self.dropout3 = torch.nn.Dropout(dropout)
+
+        self.normalize_before = normalize_before
 
     def forward(
         self,
@@ -396,11 +418,16 @@ class TransformerDecoderLayer(nn.Module):
         memory_key_padding_mask: tensor
             the mask for the memory keys per batch (optional).
         """
+        if self.normalize_before:
+            tgt1 = self.norm1(tgt, init_params)
+        else:
+            tgt1 = tgt
+
         # self-attention over the target sequence
         tgt2, self_attn = self.self_attn(
-            query=tgt,
-            key=tgt,
-            value=tgt,
+            query=tgt1,
+            key=tgt1,
+            value=tgt1,
             attn_mask=tgt_mask,
             key_padding_mask=tgt_key_padding_mask,
             init_params=init_params,
@@ -408,11 +435,17 @@ class TransformerDecoderLayer(nn.Module):
 
         # add & norm
         tgt = tgt + self.dropout1(tgt2)
-        tgt = self.norm1(tgt, init_params)
+        if not self.normalize_before:
+            tgt = self.norm1(tgt, init_params)
+
+        if self.normalize_before:
+            tgt1 = self.norm2(tgt, init_params)
+        else:
+            tgt1 = tgt
 
         # multi-head attention over the target sequence and encoder states
         tgt2, multihead_attention = self.mutihead_attn(
-            query=tgt,
+            query=tgt1,
             key=memory,
             value=memory,
             attn_mask=memory_mask,
@@ -422,13 +455,20 @@ class TransformerDecoderLayer(nn.Module):
 
         # add & norm
         tgt = tgt + self.dropout2(tgt2)
-        tgt = self.norm2(tgt, init_params)
+        if not self.normalize_before:
+            tgt = self.norm2(tgt, init_params)
 
-        tgt = self.pos_ffn(tgt, init_params)
+        if self.normalize_before:
+            tgt1 = self.norm3(tgt, init_params)
+        else:
+            tgt1 = tgt
+
+        tgt = self.pos_ffn(tgt1, init_params)
 
         # add & norm
-        tgt = tgt + self.dropout2(tgt2)
-        tgt = self.norm2(tgt, init_params)
+        tgt = tgt + self.dropout3(tgt2)
+        if not self.normalize_before:
+            tgt = self.norm3(tgt, init_params)
 
         return tgt, self_attn, multihead_attention
 
@@ -467,6 +507,7 @@ class TransformerDecoder(nn.Module):
         dropout=0.1,
         activation=nn.ReLU,
         return_attention=False,
+        normalize_before=False,
     ):
         super().__init__()
         self.layers = torch.nn.ModuleList(
@@ -478,6 +519,7 @@ class TransformerDecoder(nn.Module):
                     vdim=vdim,
                     dropout=dropout,
                     activation=activation,
+                    normalize_before=normalize_before,
                 )
                 for _ in range(num_layers)
             ]

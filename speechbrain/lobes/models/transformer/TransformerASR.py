@@ -9,7 +9,6 @@ import torch  # noqa 42
 from torch import nn
 
 from speechbrain.nnet.linear import Linear
-from speechbrain.nnet.normalization import LayerNorm
 from speechbrain.nnet.containers import Sequential
 from speechbrain.nnet.embedding import Embedding
 from speechbrain.lobes.models.transformer.Transformer import (
@@ -64,6 +63,7 @@ class TransformerASR(TransformerInterface):
         activation=nn.ReLU,
         return_attention=False,
         positional_encoding=True,
+        normalize_before=False,
     ):
         super().__init__(
             d_model=d_model,
@@ -75,11 +75,11 @@ class TransformerASR(TransformerInterface):
             activation=activation,
             return_attention=return_attention,
             positional_encoding=positional_encoding,
+            normalize_before=normalize_before,
         )
 
         self.custom_src_module = Sequential(
             Linear(d_model, bias=True, combine_dims=False),
-            LayerNorm(),
             torch.nn.Dropout(dropout),
         )
         self.custom_tgt_module = Sequential(

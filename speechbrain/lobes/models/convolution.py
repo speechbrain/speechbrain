@@ -112,24 +112,36 @@ class ConvBlock(torch.nn.Module):
         residual=False,
         conv_module=Conv2d,
         activation=torch.nn.LeakyReLU,
-        norm=BatchNorm2d,
+        norm=None,
         dropout=0.1,
     ):
         super().__init__()
-        blocks = [
-            Sequential(
-                conv_module(
-                    out_channels=out_channels,
-                    kernel_size=kernel_size,
-                    stride=stride if i == num_layers - 1 else 1,
-                    dilation=dilation,
-                ),
-                norm(),
-                activation(),
-                torch.nn.Dropout(dropout),
-            )
-            for i in range(num_layers)
-        ]
+        blocks = []
+        for i in range(num_layers):
+            if norm is not None:
+                block = Sequential(
+                    conv_module(
+                        out_channels=out_channels,
+                        kernel_size=kernel_size,
+                        stride=stride if i == num_layers - 1 else 1,
+                        dilation=dilation,
+                    ),
+                    norm(),
+                    activation(),
+                    torch.nn.Dropout(dropout),
+                )
+            else:
+                block = Sequential(
+                    conv_module(
+                        out_channels=out_channels,
+                        kernel_size=kernel_size,
+                        stride=stride if i == num_layers - 1 else 1,
+                        dilation=dilation,
+                    ),
+                    activation(),
+                    torch.nn.Dropout(dropout),
+                )
+        blocks.append(block)
 
         self.convs = Sequential(*blocks)
 
@@ -137,7 +149,7 @@ class ConvBlock(torch.nn.Module):
         self.drop = None
         if residual:
             self.reduce_conv = Sequential(
-                conv_module(out_channels, 1, stride), norm()
+                conv_module(out_channels, kernel_size, stride), norm()
             )
             self.drop = torch.nn.Dropout(dropout)
 
@@ -145,14 +157,5 @@ class ConvBlock(torch.nn.Module):
         out = self.convs(x, init_params)
         if self.reduce_conv:
             out = out + self.reduce_conv(x, init_params)
-            out = self.drop(x)
-
-        if init_params:
-            self._reset_params()
-
+            out = self.drop(out)
         return out
-
-    def _reset_params(self):
-        for p in self.parameters():
-            if p.dim() > 1:
-                torch.nn.init.kaiming_normal_(p)

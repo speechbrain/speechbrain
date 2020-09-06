@@ -366,7 +366,7 @@ class NoamScheduler:
     1.0
     """
 
-    def __init__(self, lr_initial, n_warmup_steps):
+    def __init__(self, lr_initial, n_warmup_steps, model_size=None):
         self.lr_initial = lr_initial
         self.n_warmup_steps = n_warmup_steps
         self.losses = []
@@ -374,6 +374,8 @@ class NoamScheduler:
 
         self.n_steps = 0
         self.normalize = 1 / (n_warmup_steps * n_warmup_steps ** -1.5)
+        if model_size is not None:
+            self.normalize = model_size ** (-0.5)
 
     def __call__(self, optim_list, current_epoch, current_loss):
         """
@@ -411,6 +413,101 @@ class NoamScheduler:
         n_steps, n_warmup_steps = self.n_steps, self.n_warmup_steps
         return self.normalize * min(
             n_steps ** (-0.5), n_steps * n_warmup_steps ** (-1.5)
+        )
+
+    @checkpoints.mark_as_saver
+    def save(self, path):
+        data = {"losses": self.losses, "n_steps": self.n_steps}
+        torch.save(data, path)
+
+    @checkpoints.mark_as_loader
+    def load(self, path, end_of_epoch):
+        del end_of_epoch  # Unused in this class
+        data = torch.load(path)
+        self.losses = data["losses"]
+        self.n_steps = data["n_steps"]
+
+
+@checkpoints.register_checkpoint_hooks
+class CyclicCosineScheduler:
+    """The is an implementation of the Cyclic-Cosine learning rate scheduler with warmup.
+    Reference:  https://openreview.net/pdf?id=BJYwwY9ll
+
+    Arguments
+    ---------
+    lr_initial : float
+        Initial learning rate (i.e. the lr used at epoch 0).
+    n_warmup_steps : int
+        numer of warm up steps
+    total_steps: int
+        total number of updating steps
+
+    Example
+    -------
+    >>> from speechbrain.nnet.optimizers import SGD_Optimizer
+    >>> from speechbrain.nnet.linear import Linear
+    >>> inp_tensor = torch.rand([1,660,3])
+    >>> model = Linear(n_neurons=4)
+    >>> optim = SGD_Optimizer(learning_rate=1.0)
+    >>> output = model(inp_tensor, init_params=True)
+    >>> optim.init_params([model])
+    >>> scheduler =CyclicCosineScheduler(optim.optim.param_groups[0]["lr"], 3)
+    >>> curr_lr,next_lr=scheduler([optim],current_epoch=1, current_loss=10.0)
+    >>> optim.optim.param_groups[0]["lr"]
+    1.0
+    >>> curr_lr,next_lr=scheduler([optim],current_epoch=2, current_loss=2.0)
+    >>> optim.optim.param_groups[0]["lr"]
+    0.75
+    >>> curr_lr,next_lr=scheduler([optim],current_epoch=3, current_loss=2.5)
+    >>> optim.optim.param_groups[0]["lr"]
+    0.18750000000000008
+    """
+
+    def __init__(self, n_warmup_steps, total_steps=100000):
+        self.n_warmup_steps = n_warmup_steps
+        self.losses = []
+        self.current_lr = None
+        self.total = total_steps
+
+        self.n_steps = 0
+        self.normalize = 1 / (n_warmup_steps * n_warmup_steps ** -1.5)
+
+    def __call__(self, optim_list, current_epoch, current_loss):
+        """
+        Arguments
+        ---------
+        optim_list : list of optimizers
+            The optimizers to update using this scheduler.
+        current_epoch : int
+            Number of times the dataset has been iterated.
+        current_loss : int
+            A number for determining whether to change the learning rate.
+        Returns
+        -------
+        float
+            The learning rate before the update.
+        float
+            The learning rate after the update.
+        """
+        self.n_steps += 1
+
+        for opt in optim_list:
+            current_lr = opt.optim.param_groups[0]["lr"]
+
+            lr = current_lr * self._get_lr_scale()
+
+            # Changing the learning rate within the optimizer
+            for param_group in opt.optim.param_groups:
+                param_group["lr"] = lr
+
+        self.losses.append(current_loss)
+        self.current_lr = current_lr
+        return current_lr, lr
+
+    def _get_lr_scale(self):
+        n_steps, n_warmup_steps = self.n_steps, self.n_warmup_steps
+        return 0.5 * (
+            math.cos(math.pi * (n_steps - n_warmup_steps) / self.total) + 1
         )
 
     @checkpoints.mark_as_saver
