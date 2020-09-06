@@ -92,8 +92,8 @@ class SEBrain(sb.core.Brain):
         output_mag = spectral_magnitude(output, power=0.5)
 
         # Extract phase
-        noisy_phase = torch.atan2(feats[:, :, :, 1], feats[:, :, :, 0])
-        output_phase = torch.atan2(output[:, :, :, 1], output[:, :, :, 0])
+        noisy_phase = torch.atan2(feats[..., 1] + EPS, feats[..., 0] + EPS)
+        output_phase = torch.atan2(output[..., 1] + EPS, output[..., 0] + EPS)
 
         # enhanced = |X||M| * e^(X_phase + M_phase)
         enhanced_spec = torch.mul(
@@ -107,10 +107,11 @@ class SEBrain(sb.core.Brain):
             ),
         )
 
-        enhanced_wavs = params.compute_istft(enhanced_spec)
+        # enhanced_wavs = params.compute_istft(enhanced_spec)
 
-        padding = (0, wavs.shape[1] - enhanced_wavs.shape[1])
-        return torch.nn.functional.pad(enhanced_wavs, padding)
+        # padding = (0, wavs.shape[1] - enhanced_wavs.shape[1])
+        # return torch.nn.functional.pad(enhanced_wavs, padding)
+        return enhanced_spec
 
     def compute_sisnr(self, est_target, target, lens):
         assert target.size() == est_target.size()
@@ -142,8 +143,14 @@ class SEBrain(sb.core.Brain):
     def compute_objectives(self, predictions, cleans, stage="train"):
         ids, wavs, lens = cleans
         wavs, lens = wavs.to(params.device), lens.to(params.device)
+        feats = params.compute_stft(wavs)
 
-        loss = self.compute_sisnr(predictions, wavs, lens)
+        # loss = self.compute_sisnr(predictions, wavs, lens)
+        loss = params.compute_cost(
+            torch.flatten(predictions, start_dim=2),
+            torch.flatten(feats, start_dim=2),
+            lens,
+        )
 
         return loss, {}
 
@@ -167,12 +174,17 @@ class SEBrain(sb.core.Brain):
         noisys, cleans = batch
         predictions = self.compute_forward(noisys, stage=stage)
 
-        # Normalize the waveform
-        abs_max, _ = torch.max(torch.abs(predictions), dim=1, keepdim=True)
-        pred_wavs = predictions / abs_max * 0.99
-
         # Evaluating PESQ and STOI
         _, clean_wavs, lens = cleans
+
+        pred_wavs = params.compute_istft(predictions)
+
+        padding = (0, clean_wavs.shape[1] - pred_wavs.shape[1])
+        pred_wavs = torch.nn.functional.pad(pred_wavs, padding)
+
+        # Normalize the waveform
+        abs_max, _ = torch.max(torch.abs(pred_wavs), dim=1, keepdim=True)
+        pred_wavs = pred_wavs / abs_max * 0.99
 
         lens = lens * clean_wavs.shape[1]
         pesq_scores, stoi_scores = multiprocess_evaluation(
@@ -199,10 +211,16 @@ class SEBrain(sb.core.Brain):
         epoch_pesq = summarize_average(valid_stats["pesq"])
         epoch_stoi = summarize_average(valid_stats["stoi"])
 
+        old_lr, new_lr = params.lr_annealing(
+            [params.optimizer], epoch, 4.5 - epoch_pesq
+        )
+        print(old_lr, new_lr, epoch_pesq)
+
         if params.use_tensorboard:
             tensorboard_logger.log_stats(
                 {
                     "Epoch": epoch,
+                    "lr": old_lr,
                     "Valid PESQ": epoch_pesq,
                     "Valid STOI": epoch_stoi,
                 },
@@ -211,7 +229,7 @@ class SEBrain(sb.core.Brain):
             )
 
         params.train_logger.log_stats(
-            {"Epoch": epoch}, train_stats, valid_stats
+            {"Epoch": epoch, "lr": old_lr}, train_stats, valid_stats
         )
 
         params.checkpointer.save_and_keep_only(
