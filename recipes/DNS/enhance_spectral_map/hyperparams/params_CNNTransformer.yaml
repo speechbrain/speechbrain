@@ -9,11 +9,11 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Basic parameters
 data_folder: !PLACEHOLDER
-output_folder: !ref results/causalCNNTransformer_log1p_dynamic/<seed>
+output_folder: !ref results/causal_modularTransformer/<seed>
 enhanced_folder: !ref <output_folder>/enhanced/
 
 use_tensorboard: False
-tensorboard_logs: !ref results/logs/causalCNNTransformer_log1p_dynamic/<seed>
+tensorboard_logs: !ref results/logs/causal_modularTransformer/<seed>
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
@@ -97,6 +97,8 @@ model: !new:speechbrain.lobes.models.transformer.TransformerSE.CNNTransformerSE
   nhead: !ref <nhead>
   dropout: !ref <dropout>
   custom_emb_module: !ref <CNN>
+  num_modules: 2
+  use_group_comm: False
 
 add_noise: !new:speechbrain.processing.speech_augmentation.AddNoise
   csv_file: !ref <csv_noise>
@@ -139,6 +141,11 @@ compute_istft: !new:speechbrain.processing.features.ISTFT
 
 compute_cost: !name:speechbrain.nnet.losses.mse_loss
 
+lr_annealing: !new:speechbrain.nnet.lr_schedulers.NewBobLRScheduler
+  improvement_threshold: 0.0
+  annealing_factor: 0.5
+  patient: 5
+
 optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
   learning_rate: !ref <lr>
 
@@ -148,6 +155,7 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     optimizer: !ref <optimizer>
     counter: !ref <epoch_counter>
     model: !ref <model>
+    scheduler: !ref <lr_annealing>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
   save_file: !ref <train_log>
