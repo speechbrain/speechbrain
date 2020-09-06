@@ -1,12 +1,12 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: !PLACEHOLDER  # e.g, 1234
+seed: 222
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/RNN/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: !PLACEHOLDER  # e.g. /path/to/librispeech
+data_folder: /localscratch/LibriSpeech
 filename: lm_corpus.h5
 hdf5_train: !ref <data_folder>/<filename>
 csv_label: !ref <data_folder>/train-clean-100.csv
