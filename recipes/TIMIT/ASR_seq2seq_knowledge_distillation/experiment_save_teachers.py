@@ -180,7 +180,7 @@ class ASR(sb.core.Brain):
         else:
             f_name = "/tea_infer_noAug_{}batch.hdf5".format(params.batch_size)
 
-        f = h5py.File(current_dir + f_name, "w")
+        f = h5py.File(params.output_folder + f_name, "w")
         for num in range(3):
             # create group for each set (train, valid, test).
             g_sets = f.create_group(stage[num])
@@ -220,6 +220,7 @@ prepare_timit(
     data_folder=params.data_folder,
     splits=["train", "dev", "test"],
     save_folder=params.data_folder,
+    uppercase=True,
 )
 train_set = params.train_loader()
 valid_set = params.valid_loader()
