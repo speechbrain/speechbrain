@@ -905,7 +905,10 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
             hs = torch.index_select(hs, dim=1, index=index)
 
         c = torch.index_select(c, dim=0, index=index)
-        if self.dec.attn_type == "location":
+        if (
+            self.dec.attn_type == "location"
+            or self.dec.attn_type == "multiheadlocation"
+        ):
             self.dec.attn.prev_attn = torch.index_select(
                 self.dec.attn.prev_attn, dim=0, index=index
             )
