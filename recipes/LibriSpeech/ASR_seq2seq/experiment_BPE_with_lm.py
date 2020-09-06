@@ -265,6 +265,28 @@ class ASR(sb.core.Brain):
             importance_keys=[ckpt_recency, lambda c: -c.meta["WER"]],
         )
 
+    def load_tokenizer(self):
+        save_model_path = params.save_folder + "/1000_unigram.model"
+        save_vocab_path = params.save_folder + "/1000_unigram.vocab"
+
+        if hasattr(params, "tok_mdl_file"):
+            download_file(
+                params.tok_mdl_file, save_model_path, replace_existing=True
+            )
+            params.bpe_tokenizer.sp.load(save_model_path)
+        if hasattr(params, "tok_voc_file"):
+            download_file(
+                params.tok_voc_file, save_vocab_path, replace_existing=True
+            )
+
+    def load_lm(self):
+        save_model_path = params.output_folder + "/save/lm_model.ckpt"
+        download_file(params.lm_ckpt_file, save_model_path)
+        state_dict = torch.load(save_model_path)
+        # Removing prefix
+        state_dict = {k.split(".", 1)[1]: v for k, v in state_dict.items()}
+        params.lm_model.load_state_dict(state_dict, strict=True)
+
 
 # Prepare data
 prepare_librispeech(
@@ -313,6 +335,7 @@ if params.multigpu:
     params.seq_lin = torch.nn.DataParallel(params.seq_lin)
 
 # Load latest checkpoint to resume training
+asr_brain.load_tokenizer()
 checkpointer.recover_if_possible()
 asr_brain.fit(params.epoch_counter, train_set, valid_set)
 
@@ -325,29 +348,7 @@ words.fill_(params.bos_index)
 # Initialization has to be done before loading a heckpoint
 beam_searcher.lm_forward_step(words[:, 0], memory=None)
 
-
-def download_and_load():
-    """ Downloads the LM and tokenizer
-    """
-    save_model_path = params.output_folder + "/save/lm_model.ckpt"
-    if "http" in params.lm_ckpt_file:
-        download_file(params.lm_ckpt_file, save_model_path)
-
-    state_dict = torch.load(save_model_path)
-    # Removing prefix
-    state_dict = {k.split(".", 1)[1]: v for k, v in state_dict.items()}
-    params.lm_model.load_state_dict(state_dict, strict=True)
-
-    save_model_path = params.save_folder + "/1000_unigram.model"
-    save_vocab_path = params.save_folder + "/1000_unigram.vocab"
-
-    if "http" in params.tokenizer_model_file:
-        download_file(params.tok_mdl_file, save_model_path)
-    if "http" in params.tokenizer_vocab_file:
-        download_file(params.tok_voc_file, save_vocab_path)
-
-
-download_and_load()
+asr_brain.load_lm()
 test_stats = asr_brain.evaluate(params.test_loader())
 params.train_logger.log_stats(
     stats_meta={"Epoch loaded": params.epoch_counter.current},
