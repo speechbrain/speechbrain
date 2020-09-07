@@ -7,11 +7,13 @@ import speechbrain as sb
 import numpy
 import pickle
 import copy
+import csv
 from tqdm.contrib import tqdm
 from scipy.cluster.hierarchy import linkage
 from scipy.spatial.distance import squareform
 from speechbrain.utils.EER import EER  # noqa F401
 from speechbrain.utils.data_utils import download_file
+from speechbrain.data_io.data_io import DataLoaderFactory
 from speechbrain.data_io.data_io import convert_index_to_lab
 from speechbrain.processing.PLDA_LDA import StatObject_SB
 from speechbrain.processing.PLDA_LDA import Ndx
@@ -29,6 +31,20 @@ with open(params_file) as fin:
 
 from voxceleb_prepare import prepare_voxceleb  # noqa E402
 from ami_prepare import prepare_ami  # noqa E402
+from ami_splits import get_AMI_split  # noqa E402
+
+"""
+# Verify correctness of the final segments
+# Simply run the DER evaluation and check for MISSED SPEECH and FALARM SPEECH
+
+MISSED SPEECH =      0.00 secs (  0.0 percent of scored time)
+FALARM SPEECH =      0.00 secs (  0.0 percent of scored time)
+MISSED WORDS =      0         (100.0 percent of scored words)
+---------------------------------------------
+SCORED SPEAKER TIME =    496.47 secs (100.0 percent of scored speech)
+MISSED SPEAKER TIME =      0.00 secs (  0.0 percent of scored speaker time)
+FALARM SPEAKER TIME =      0.00 secs (  0.0 percent of scored speaker time)
+"""
 
 
 # Definition of the steps for xvector computation from the waveforms
@@ -125,10 +141,31 @@ def xvect_computation_loop(split, set_loader, stat_file):
         logger.info(f"Skipping Xvector Extraction for {split}")
         logger.info(f"Loading previously saved stat_object for {split}")
 
-        with open(stat_file, "rb") as inumpyut:
-            stat_obj = pickle.load(inumpyut)
+        with open(stat_file, "rb") as in_file:
+            stat_obj = pickle.load(in_file)
 
     return stat_obj
+
+
+def prepare_subset_csv(full_diary_csv, rec_id, out_dir):
+    out_csv_head = [full_diary_csv[0]]
+    entry = []
+    for row in full_diary_csv:
+        if row[0].startswith(rec_id):
+            entry.append(row)
+
+    out_csv = out_csv_head + entry
+
+    out_csv_file = out_dir + "/" + rec_id + ".csv"
+    with open(out_csv_file, mode="w") as csv_file:
+        csv_writer = csv.writer(
+            csv_file, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
+        )
+        for l in out_csv:
+            csv_writer.writerow(l)
+
+    msg = "Prepared CSV file: " + out_csv_file
+    logger.info(msg)
 
 
 def trace_back_cluster_labels(links, threshold=0.9, oracle_num_spkrs=4):
@@ -244,15 +281,15 @@ def write_rttm(segs_list, out_rttm_file):
         ]
         rttm.append(new_row)
 
-    for i in rttm:
-        print(i)
     with open(out_rttm_file, "w") as f:
         for row in rttm:
             line_str = " ".join(row)
             f.write("%s\n" % line_str)
 
+    logger.info("RTTM saved at " + out_rttm_file)
 
-def do_ahc(score_matrix, out_rttm_file):
+
+def do_ahc(score_matrix, out_rttm_file, rec_id):
 
     ## Agglomerative Hierarchical Clustering Starts here
     scores = copy.deepcopy(score_matrix)
@@ -268,7 +305,6 @@ def do_ahc(score_matrix, out_rttm_file):
     numpy.fill_diagonal(dist_mat, 0.0)
     dist_mat = squareform(dist_mat)
 
-    print("AHC started...\n")
     links = linkage(dist_mat, method="complete")
 
     clusters = trace_back_cluster_labels(links)
@@ -281,7 +317,6 @@ def do_ahc(score_matrix, out_rttm_file):
     lol = []
     for c in clusters:
         clus_elements = clusters[c]
-        # temp = []
         for elem in clus_elements:
             sub_seg = subseg_ids[elem]
             splitted = sub_seg.rsplit("_", 2)
@@ -298,6 +333,7 @@ def do_ahc(score_matrix, out_rttm_file):
     lol = merge_ssegs_same_speaker(lol)
     lol = distribute_overlap(lol)
 
+    logger.info("Completed diarizing " + rec_id)
     write_rttm(lol, out_rttm_file)
 
 
@@ -415,8 +451,8 @@ if __name__ == "__main__":
         # Load the saved stat object for train xvector
         logger.info("Skipping Xvector Extraction for training set")
         logger.info("Loading previously saved stat_object for train xvectors..")
-        with open(xv_file, "rb") as inumpyut:
-            xvectors_stat = pickle.load(inumpyut)
+        with open(xv_file, "rb") as in_file:
+            xvectors_stat = pickle.load(in_file)
 
     # Training Gaussina PLDA model
     # (Using Xvectors from Voxceleb)
@@ -424,49 +460,86 @@ if __name__ == "__main__":
     params.compute_plda.plda(xvectors_stat)
     logger.info("PLDA training completed")
 
-    # xvector files
-    diary_stat_file = os.path.join(params.save_folder, "diary_stat_enrol.pkl")
-    diary_ndx_file = os.path.join(params.save_folder, "diary_ndx.pkl")
+    full_diary_csv = []
+    with open(params.csv_diary, "r") as csv_file:
+        reader = csv.reader(csv_file, delimiter=",")
+        for row in reader:
+            full_diary_csv.append(row)
 
-    # Data loader
-    diary_set_loader = params.diary_loader()
+    A = [row[0].rstrip().split("_")[0] for row in full_diary_csv]
+    all_rec_ids = list(set(A[1:]))
 
-    # Compute Xvectors
-    diary_obj = xvect_computation_loop(
-        "diary", diary_set_loader, diary_stat_file
-    )
+    xvect_dir = os.path.join(params.save_folder, "xvectors")
+    rttm_dir = os.path.join(params.save_folder, "rttms")
 
-    # Loop for PLDA scoring per meeting
-    all_rec_ids = set(diary_obj.modelset)
+    if not os.path.exists(xvect_dir):
+        os.makedirs(xvect_dir)
 
-    # Prepare Ndx Object
-    if not os.path.isfile(diary_ndx_file):
-        models = diary_obj.modelset
-        testsegs = diary_obj.modelset  # test_obj.modelset
+    if not os.path.exists(rttm_dir):
+        os.makedirs(rttm_dir)
 
-        logger.info("Preparing Ndx")
-        ndx_obj = Ndx(models=models, testsegs=testsegs)
-        logger.info("Saving ndx obj...")
-        ndx_obj.save_ndx_object(diary_ndx_file)
-    else:
-        logger.info("Skipping Ndx preparation")
-        logger.info("Loading Ndx from disk")
-        with open(diary_ndx_file, "rb") as inumpyut:
-            ndx_obj = pickle.load(inumpyut)
+    all_rec_ids.sort()
 
-    logger.info("PLDA scoring...")
-    scores_plda = fast_PLDA_scoring(
-        diary_obj,
-        diary_obj,
-        ndx_obj,
-        params.compute_plda.mean,
-        params.compute_plda.F,
-        params.compute_plda.Sigma,
-    )
+    N = str(len(all_rec_ids))
+    i = 1
 
-    print("PLDA scoring completed...")
-    print(scores_plda.scoremat)
+    for rec_id in all_rec_ids:
 
-    # Function to do AHC
-    out_rttm_file = "results/save/abc.rttm"
-    do_ahc(scores_plda.scoremat, out_rttm_file)
+        ss = "[" + str(i) + "/" + N + "]"
+        i = i + 1
+        msg = "Diarizing (rec_id) %s : %s " % (ss, rec_id)
+        logger.info(msg)
+
+        diary_stat_file = os.path.join(xvect_dir, rec_id + "_xv_stat.pkl")
+        diary_ndx_file = os.path.join(xvect_dir, rec_id + "_ndx.pkl")
+
+        # Data loader
+        prepare_subset_csv(full_diary_csv, rec_id, xvect_dir)
+        new_csv_file = os.path.join(xvect_dir, rec_id + ".csv")
+
+        # DataLoaderFactory
+        diary_set = DataLoaderFactory(
+            new_csv_file,
+            params.diary_loader.batch_size,
+            params.diary_loader.csv_read,
+            params.diary_loader.sentence_sorting,
+        )
+
+        diary_set_loader = diary_set.forward()
+
+        # Compute Xvectors
+        diary_obj = xvect_computation_loop(
+            "diary", diary_set_loader, diary_stat_file
+        )
+
+        # Prepare Ndx Object
+        if not os.path.isfile(diary_ndx_file):
+            models = diary_obj.modelset
+            testsegs = diary_obj.modelset
+
+            logger.info("Preparing Ndx")
+            ndx_obj = Ndx(models=models, testsegs=testsegs)
+            logger.info("Saving ndx obj...")
+            ndx_obj.save_ndx_object(diary_ndx_file)
+        else:
+            logger.info("Skipping Ndx preparation")
+            logger.info("Loading Ndx from disk")
+            with open(diary_ndx_file, "rb") as in_file:
+                ndx_obj = pickle.load(in_file)
+
+        logger.info("Performing PLDA scoring")
+        scores_plda = fast_PLDA_scoring(
+            diary_obj,
+            diary_obj,
+            ndx_obj,
+            params.compute_plda.mean,
+            params.compute_plda.F,
+            params.compute_plda.Sigma,
+        )
+
+        # print(scores_plda.scoremat)
+
+        # Function to do AHC
+        out_rttm_file = rttm_dir + "/" + rec_id + ".rttm"
+        logger.info("Performing AHC")
+        do_ahc(scores_plda.scoremat, out_rttm_file, rec_id)
