@@ -1226,7 +1226,10 @@ def read_wav_soundfile(file, data_options={}, lab2ind=None):  # noqa: C901
 
     Example
     -------
-    >>> read_wav_soundfile('samples/audio_samples/example1.wav', {"frames":2})
+    >>> read_wav_soundfile('samples/audio_samples/example1.wav')[0:2]
+    array([0.00024414, 0.00018311], dtype=float32)
+    >>> random_segment = {"frames":2, "stop":2}
+    >>> read_wav_soundfile('samples/audio_samples/example1.wav', random_segment)
     array([0.00024414, 0.00018311], dtype=float32)
     """
     # Option initialization
@@ -1299,7 +1302,7 @@ def read_wav_soundfile(file, data_options={}, lab2ind=None):  # noqa: C901
 
             logger.error(err_msg, exc_info=True)
         # Read a random segment
-        start = np.random.randint(start, stop - frames)
+        start = np.random.randint(start, stop - frames + 1)
         stop = None
 
     # Managing samplerate option

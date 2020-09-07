@@ -28,8 +28,9 @@ prepare_voxceleb(
     splits=["train", "dev"],
     split_ratio=[90, 10],
     seg_dur=300,
-    vad=False,
-    rand_seed=params.seed,
+    random_segment=params.random_segment
+    if hasattr(params, "random_segment")
+    else False,
     source=params.voxceleb_source
     if hasattr(params, "voxceleb_source")
     else None,

@@ -121,7 +121,7 @@ if __name__ == "__main__":
     prepare_voxceleb(
         data_folder=params.data_folder,
         save_folder=params.save_folder,
-        splits=["enrol"],
+        splits=["test"],
         rand_seed=params.seed,
         source=params.voxceleb_source
         if hasattr(params, "voxceleb_source")

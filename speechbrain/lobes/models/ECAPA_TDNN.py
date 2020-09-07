@@ -9,12 +9,10 @@ Authors
 import torch  # noqa: F401
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn.utils import weight_norm
 from speechbrain.data_io.data_io import length_to_mask
 from speechbrain.nnet.CNN import Conv1d as _Conv1d
 from speechbrain.nnet.normalization import BatchNorm1d as _BatchNorm1d
 from speechbrain.nnet.linear import Linear
-from collections import OrderedDict
 
 
 # Skip transpose as much as possible for efficiency
@@ -156,9 +154,10 @@ class SEBlock(nn.Module):
         if lengths is not None:
             mask = length_to_mask(lengths, max_len=L, device=x.device)
             mask = mask.unsqueeze(1)
-            s = (x * mask).sum(dim=2, keepdim=True)
+            total = mask.sum(dim=2, keepdim=True)
+            s = (x * mask).sum(dim=2, keepdim=True) / total
         else:
-            s = x.sum(dim=2, keepdim=True)
+            s = x.mean(dim=2, keepdim=True)
         for layer in self.blocks:
             try:
                 s = layer(s, init_params=init_params)
@@ -404,7 +403,7 @@ class ECAPA_TDNN(torch.nn.Module):
         # Final linear transformation
         self.fc = Conv1d(lin_neurons, kernel_size=1)
 
-    def forward(self, x, length=None, init_params=False):
+    def forward(self, x, lengths=None, init_params=False):
         """Returns the embedding vector.
 
         Arguments
@@ -417,7 +416,7 @@ class ECAPA_TDNN(torch.nn.Module):
         xl = []
         for layer in self.blocks:
             try:
-                x = layer(x, length=length, init_params=init_params)
+                x = layer(x, lengths=lengths, init_params=init_params)
             except TypeError:
                 try:
                     x = layer(x, init_params=init_params)
@@ -431,7 +430,7 @@ class ECAPA_TDNN(torch.nn.Module):
         x = self.mfa_activation(x)
 
         # Attantitve Statistical pooling
-        x = self.asp(x, init_params=init_params)
+        x = self.asp(x, lengths=lengths, init_params=init_params)
         x = self.asp_bn(x, init_params=init_params)
 
         # Final linear transformation
@@ -475,9 +474,7 @@ class Classifier(torch.nn.Module):
         self.blocks = nn.ModuleList()
 
         for block_index in range(lin_blocks):
-            self.blocks.extend(
-                [Linear(n_neurons=lin_neurons), _BatchNorm1d(),]
-            )
+            self.blocks.extend([Linear(n_neurons=lin_neurons), _BatchNorm1d()])
 
         self.weight = nn.Parameter(
             torch.FloatTensor(out_neurons, lin_neurons).to(device)
