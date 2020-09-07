@@ -4,7 +4,6 @@ import sys
 import torch
 
 import speechbrain as sb
-from speechbrain.data_io.data_io import merge_csvs
 from speechbrain.data_io.data_io import prepend_bos_token
 from speechbrain.data_io.data_io import append_eos_token
 from speechbrain.utils.checkpoints import ckpt_recency
@@ -131,23 +130,10 @@ class LM(sb.core.Brain):
 # Prepare data
 prepare_librispeech(
     data_folder=params.data_folder,
-    splits=[
-        "train-clean-100",
-        "train-clean-360",
-        "train-other-500",
-        "dev-clean",
-        "test-clean",
-    ],
+    splits=params.train_splits + [params.dev_split],
+    merge_lst=params.train_splits,
+    merge_name=params.csv_label,
     save_folder=params.data_folder,
-)
-merge_csvs(
-    data_folder=params.data_folder,
-    csv_lst=[
-        "train-clean-100.csv",
-        "train-clean-360.csv",
-        "train-other-500.csv",
-    ],
-    merged_csv="train-960.csv",
 )
 
 prepare_lm_corpus(

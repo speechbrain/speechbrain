@@ -10,7 +10,6 @@ from speechbrain.data_io.data_io import convert_index_to_lab
 from speechbrain.data_io.data_io import prepend_bos_token
 from speechbrain.data_io.data_io import append_eos_token
 from speechbrain.data_io.data_io import split_word
-from speechbrain.data_io.data_io import merge_csvs
 
 from speechbrain.decoders.seq2seq import S2SRNNGreedySearcher
 from speechbrain.decoders.seq2seq import S2SRNNBeamSearcher
@@ -291,24 +290,13 @@ class ASR(sb.core.Brain):
 # Prepare data
 prepare_librispeech(
     data_folder=params.data_folder,
-    splits=[
-        "train-clean-100",
-        "train-clean-360",
-        "train-other-500",
-        "dev-clean",
-        "test-clean",
-    ],
+    splits=params.train_splits + [params.dev_split, params.test_split],
+    merge_lst=params.train_splits,
+    merge_name=params.csv_train,
     save_folder=params.data_folder,
 )
-merge_csvs(
-    data_folder=params.data_folder,
-    csv_lst=[
-        "train-clean-100.csv",
-        "train-clean-360.csv",
-        "train-other-500.csv",
-    ],
-    merged_csv="train-960.csv",
-)
+
+
 train_set = params.train_loader()
 valid_set = params.valid_loader()
 first_x, first_y = next(iter(train_set))
