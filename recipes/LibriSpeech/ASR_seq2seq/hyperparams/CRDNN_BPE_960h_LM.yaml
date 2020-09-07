@@ -1,26 +1,47 @@
+# ################################
+# Model: VGG2 + LSTM + time pooling
+# Augmentation: TimeDomainSpecAugment + noise
+# Additions: BPE
+# Authors: Mirco Ravanelli, Peter Plantinga, Ju-Chieh Chou, Abdel HEBA 2020
+# ################################
+
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 1234
+seed: 222
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/CRDNN_2d_pooling/<seed>
+output_folder: !ref results/CRDNN_BPE_960h_LM/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
-lm_save_folder: !PLACEHOLDER # e.g. /path/to/LM/results/<seed>/save
 train_log: !ref <output_folder>/train_log.txt
+lm_ckpt_file: https://www.dropbox.com/s/6uy5m6jaf0t769i/model.ckpt?dl=1
+
+# Tokenizer model
+tok_mdl_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
+tok_voc_file: https://www.dropbox.com/s/7l8z622cpd3t8st/1000_unigram.vocab?dl=1
 
 # Data files
-data_folder: !PLACEHOLDER  # e.g. /path/to/librispeech
-csv_train: !ref <data_folder>/train-clean-100.csv
-csv_valid: !ref <data_folder>/dev-clean.csv
-csv_test: !ref <data_folder>/test-clean.csv
+data_folder: !PLACEHOLDER # e.g., /localscratch/LibriSpeech
+# If RIRS_NOISES dir exists in /localscratch/xxx_corpus/RIRS_NOISES
+# then data_folder_rirs should be /localscratch/xxx_corpus
+# otherwise the dataset will automatically be downloaded
+data_folder_rirs: !ref <data_folder>
+train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
+dev_split: dev-clean
+test_split: test-clean
+
+csv_train: !ref <data_folder>/train.csv
+csv_valid: !ref <data_folder>/<dev_split>.csv
+csv_test: !ref <data_folder>/<test_split>.csv
 
 # Training parameters
-number_of_epochs: 30
-number_of_ctc_epochs: 10
+number_of_epochs: 15
+number_of_ctc_epochs: 5
 batch_size: 8
 lr: 1.0
 ctc_weight: 0.5
 device: 'cuda'
-multigpu: False
+multigpu: True
+# allow token error rate computation
+ter_eval: True
 
 # Feature parameters
 sample_rate: 16000
@@ -31,8 +52,11 @@ n_mels: 40
 activation: !name:torch.nn.LeakyReLU
 dropout: 0.15
 cnn_blocks: 2
-cnn_channels: (128, 128)
+cnn_channels: (128, 256)
+inter_layer_pooling_size: (2, 2)
 cnn_kernelsize: (3, 3)
+time_pooling_size: 4
+rnn_class: !name:speechbrain.nnet.RNN.LSTM
 rnn_layers: 4
 rnn_neurons: 1024
 rnn_bidirectional: True
@@ -41,28 +65,38 @@ dnn_neurons: 512
 emb_size: 128
 
 # Outputs
-output_neurons: 29 # 28 chars + 1 blank/eos/bos
-blank_index: !ref <output_neurons> - 1
-
+output_neurons: 1000 #  index(blank/eos/bos) = 0
+blank_index: 0
 # Decoding parameters
-bos_index: !ref <output_neurons> - 1
-eos_index: !ref <output_neurons> - 1
+# Be sure that the bos and eos index match with the BPEs ones
+bos_index: 0
+eos_index: 0
 min_decode_ratio: 0.0
 max_decode_ratio: 1.0
 beam_size: 80
 eos_threshold: 1.5
 using_max_attn_shift: True
 max_attn_shift: 60
-lm_weight: 0.05
+lm_weight: 0.45
 
 # LM Model parameters
 lm_emb_size: 128
 lm_activation: !name:torch.nn.LeakyReLU
 lm_dropout: 0.0
 lm_rnn_layers: 2
-lm_rnn_neurons: 1024
+lm_rnn_neurons: 2048
 lm_dnn_blocks: 1
 lm_dnn_neurons: 512
+
+# BPE
+# Specify the bos_id/eos_id if different with blank_id
+bpe_tokenizer: !new:speechbrain.tokenizers.SentencePiece.SentencePiece
+    model_dir: !ref <save_folder>
+    vocab_size: !ref <output_neurons>
+    csv_train: !ref <csv_train>
+    csv_read: wrd
+    model_type: "unigram" #  ["unigram", "bpe", "char"]
+    character_coverage: 1.0 #  for language with large set of chars use 0.9995
 
 # Functions
 lm_model: !new:speechbrain.lobes.models.RNNLM.RNNLM
@@ -74,7 +108,7 @@ lm_model: !new:speechbrain.lobes.models.RNNLM.RNNLM
     rnn_neurons: !ref <lm_rnn_neurons>
     dnn_blocks: !ref <lm_dnn_blocks>
     dnn_neurons: !ref <lm_dnn_neurons>
-    return_hidden: True # For inference
+    return_hidden: True #  For inference
 
 enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
     activation: !ref <activation>
@@ -82,8 +116,11 @@ enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
     cnn_blocks: !ref <cnn_blocks>
     cnn_channels: !ref <cnn_channels>
     cnn_kernelsize: !ref <cnn_kernelsize>
-    time_pooling: False
-    using_2d_pooling: True
+    inter_layer_pooling_size: !ref <inter_layer_pooling_size>
+    time_pooling: True
+    using_2d_pooling: False
+    time_pooling_size: !ref <time_pooling_size>
+    rnn_class: !ref <rnn_class>
     rnn_layers: !ref <rnn_layers>
     rnn_neurons: !ref <rnn_neurons>
     rnn_bidirectional: !ref <rnn_bidirectional>
@@ -108,10 +145,10 @@ dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
     dropout: !ref <dropout>
 
 ctc_lin: !new:speechbrain.nnet.linear.Linear
-    n_neurons: !ref <output_neurons> # 28 char + 1 blank
+    n_neurons: !ref <output_neurons>
 
 seq_lin: !new:speechbrain.nnet.linear.Linear
-    n_neurons: !ref <output_neurons> # 28 char + 1 eos
+    n_neurons: !ref <output_neurons>
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
@@ -131,6 +168,22 @@ normalize: !new:speechbrain.processing.features.InputNormalization
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
+env_corrupt: !new:speechbrain.lobes.augment.env_corrupt.EnvCorrupt
+    openrir_folder: !ref <data_folder_rirs>
+    babble_prob: 0.0
+    reverb_prob: 0.0
+    noise_prob: 1.0
+    babble_speaker_count: 7
+    babble_snr_low: 10
+    babble_snr_high: 10
+    noise_snr_low: 0
+    noise_snr_high: 15
+    rir_scale_factor: 1.0
+
+augmentation: !new:speechbrain.lobes.augment.tdsa.TimeDomainSpecAugment
+    sample_rate: !ref <sample_rate>
+    speeds: [95, 100, 105]
+
 compute_features: !new:speechbrain.lobes.features.fbank.Fbank
     sample_rate: !ref <sample_rate>
     n_fft: !ref <n_fft>
@@ -141,21 +194,21 @@ train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
-    csv_read: [wav, char]
+    csv_read: [wav, wrd]
 
 valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_valid>
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
-    csv_read: [wav, char]
+    csv_read: [wav, wrd]
 
 test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_test>
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
-    csv_read: [wav, char]
+    csv_read: [wav, wrd]
 
 ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
     blank_index: !ref <blank_index>
@@ -166,6 +219,6 @@ seq_cost: !name:speechbrain.nnet.losses.nll_loss
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
     summary_fns:
-        loss: !name:speechbrain.utils.train_logger.summarize_average
+        TER: !name:speechbrain.utils.train_logger.summarize_error_rate
         CER: !name:speechbrain.utils.train_logger.summarize_error_rate
         WER: !name:speechbrain.utils.train_logger.summarize_error_rate
