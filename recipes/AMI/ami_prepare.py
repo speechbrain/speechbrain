@@ -68,8 +68,7 @@ def prepare_segs_for_RTTM(list_ids, out_rttm_file):
     for main_meet_id in list_ids:
 
         # different recordings
-        # for sess in ["a", "b", "c", "d"]:
-        for sess in ["a"]:
+        for sess in ["a", "b"]:
             rec_id = main_meet_id + sess
             path = annot_dir + "/segments/" + rec_id
             f = path + ".*.segments.xml"
