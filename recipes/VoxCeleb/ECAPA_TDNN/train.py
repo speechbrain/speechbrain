@@ -27,7 +27,7 @@ prepare_voxceleb(
     save_folder=params.save_folder,
     splits=["train", "dev"],
     split_ratio=[90, 10],
-    seg_dur=300,
+    seg_dur=params.max_frames if hasattr(params, "max_frames") else 300,
     random_segment=params.random_segment
     if hasattr(params, "random_segment")
     else False,
