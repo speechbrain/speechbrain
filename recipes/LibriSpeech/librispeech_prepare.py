@@ -16,6 +16,7 @@ from speechbrain.data_io.data_io import (
     read_wav_soundfile,
     load_pkl,
     save_pkl,
+    merge_csvs,
 )
 
 logger = logging.getLogger(__name__)
@@ -29,6 +30,8 @@ def prepare_librispeech(
     save_folder,
     select_n_sentences=None,
     use_lexicon=False,
+    merge_lst=[],
+    merge_name=None,
 ):
     """
     This class prepares the csv files for the LibriSpeech dataset.
@@ -118,6 +121,12 @@ def prepare_librispeech(
             n_sentences,
         )
 
+    # Merging csv file if needed
+    if merge_lst and merge_name is not None:
+        merge_files = [split + ".csv" for split in merge_lst]
+        merge_csvs(
+            data_folder=save_folder, csv_lst=merge_files, merged_csv=merge_name,
+        )
     # saving options
     save_pkl(conf, save_opt)
 
