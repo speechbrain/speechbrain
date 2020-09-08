@@ -402,6 +402,8 @@ class S2SBeamSearcher(S2SBaseSearcher):
             The peak of the attn tensor.
         """
         # Block the candidates that exceed the max shift
+        if self.dec.attn_type == "multiheadlocation":
+            attn = torch.mean(attn, dim=1)
         _, attn_peak = torch.max(attn, dim=1)
         lt_cond = attn_peak <= (prev_attn_peak + self.max_attn_shift)
         mt_cond = attn_peak > (prev_attn_peak - self.max_attn_shift)
@@ -648,7 +650,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             if self.lm_weight > 0:
                 lm_memory = self.permute_lm_mem(lm_memory, index=predecessors)
 
-            # If using_max_attn_shift, thne the previous attn peak has to be permuted too.
+            # If using_max_attn_shift, then the previous attn peak has to be permuted too.
             if self.using_max_attn_shift:
                 prev_attn_peak = torch.index_select(
                     prev_attn_peak, dim=0, index=predecessors
@@ -905,7 +907,10 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
             hs = torch.index_select(hs, dim=1, index=index)
 
         c = torch.index_select(c, dim=0, index=index)
-        if self.dec.attn_type == "location":
+        if (
+            self.dec.attn_type == "location"
+            or self.dec.attn_type == "multiheadlocation"
+        ):
             self.dec.attn.prev_attn = torch.index_select(
                 self.dec.attn.prev_attn, dim=0, index=index
             )

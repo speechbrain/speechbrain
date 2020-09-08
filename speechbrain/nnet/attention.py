@@ -546,14 +546,14 @@ class MultiheadLocAttention(nn.Module):
         attn = attn.masked_fill(self.mask.view(-1, L) == 0, -np.inf)
         attn = self.softmax(attn * self.scaling)
 
-        # set prev_attn to current attn for the next timestep
-        self.prev_attn = attn.detach()
-        self.prev_attn = self.prev_attn.view(B, self.nhead, L)
-
         # compute context vectors
         # [B*nhead, 1, L] X [B*nhead, L, F]
         context = torch.bmm(attn.unsqueeze(1), self.value).squeeze(1)
         context = context.view(B, self.nhead * self.enc_dim)
         context = self.mlp_out(context)
+
+        # set prev_attn to current attn for the next timestep
+        attn = attn.view(B, self.nhead, L)
+        self.prev_attn = attn.detach()
 
         return context, attn
