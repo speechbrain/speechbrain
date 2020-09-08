@@ -4,16 +4,15 @@ Authors
 * Jianyuan Zhong 2020
 """
 
-import math
 import torch  # noqa 42
 from torch import nn
 
 from speechbrain.nnet.linear import Linear
 from speechbrain.nnet.containers import Sequential
-from speechbrain.nnet.embedding import Embedding
 from speechbrain.lobes.models.transformer.Transformer import (
     TransformerInterface,
     get_lookahead_mask,
+    NormalizedEmbedding,
 )
 
 
@@ -145,34 +144,3 @@ class TransformerASR(TransformerInterface):
         tgt = tgt + self.positional_encoding(tgt)
         prediction = self.decoder(tgt, encoder_out, tgt_mask=tgt_mask)
         return prediction
-
-
-class NormalizedEmbedding(nn.Module):
-    """This class implements the normalized embedding layer for transformer.
-    Since the dot product of the self-attention is always normalized by sqrt(d_model)
-    and the final linear projection for prediction shares weight with the embedding layer,
-    we multiply the output of the embedding by sqrt(d_model)
-
-    Arguments
-    ---------
-    d_model: int
-        the number of expected features in the encoder/decoder inputs (default=512).
-    vocab: int
-        the vocab size
-
-    Example
-    -------
-    >>> emb = NormalizedEmbedding(512, 1000)
-    >>> trg = torch.randint(0, 999, (8, 50))
-    >>> emb_fea = emb(trg, True)
-    """
-
-    def __init__(self, d_model, vocab):
-        super().__init__()
-        self.emb = Embedding(
-            num_embeddings=vocab, embedding_dim=d_model, blank_id=0
-        )
-        self.d_model = d_model
-
-    def forward(self, x, init_params=False):
-        return self.emb(x, init_params) * math.sqrt(self.d_model)

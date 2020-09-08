@@ -87,8 +87,21 @@ class LM(sb.core.Brain):
         global steps
         steps += 1
         if steps % params.accu_steps == 0:
+            # gradient clipping
+            torch.nn.utils.clip_grad_norm_(self.modules.parameters(), 2.0)
+
             self.optimizer.step()
             self.optimizer.zero_grad()
+
+            # anneal lr every update
+            if (
+                hasattr(params, "stepwise_annealing")
+                and params.stepwise_annealing
+            ):
+                old_lr, new_lr = params.lr_annealing(
+                    [params.optimizer], None, None
+                )
+
         stats["loss"] = loss.detach()
         return stats
 
@@ -101,9 +114,13 @@ class LM(sb.core.Brain):
 
     def on_epoch_end(self, epoch, train_stats, valid_stats=None):
         val_loss = summarize_average(valid_stats["loss"])
-        old_lr, new_lr = params.lr_annealing(
-            [params.optimizer], epoch, val_loss
-        )
+
+        if hasattr(params, "stepwise_annealing") and params.stepwise_annealing:
+            old_lr = params.lr_annealing.current_lr
+        else:
+            old_lr, new_lr = params.lr_annealing(
+                [params.optimizer], epoch, val_loss
+            )
         epoch_stats = {"epoch": epoch, "lr": old_lr}
         params.train_logger.log_stats(epoch_stats, train_stats, valid_stats)
 
@@ -156,6 +173,7 @@ if params.multigpu:
 checkpointer.recover_if_possible()
 
 lm_brain.load_tokenizer()
+# with torch.autograd.detect_anomaly():
 lm_brain.fit(params.epoch_counter, train_set, valid_set)
 
 # Load best checkpoint for evaluation

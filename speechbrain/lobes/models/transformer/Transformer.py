@@ -3,10 +3,11 @@
 Authors
 * Jianyuan Zhong 2020
 """
-
-import torch
 import math
+import torch
 import torch.nn as nn
+
+from speechbrain.nnet.embedding import Embedding
 from speechbrain.nnet.attention import (
     MultiheadAttention,
     PositionalwiseFeedForward,
@@ -572,6 +573,37 @@ class TransformerDecoder(nn.Module):
         if self.return_attention:
             return output, self_attns, multihead_attns
         return output
+
+
+class NormalizedEmbedding(nn.Module):
+    """This class implements the normalized embedding layer for transformer.
+    Since the dot product of the self-attention is always normalized by sqrt(d_model)
+    and the final linear projection for prediction shares weight with the embedding layer,
+    we multiply the output of the embedding by sqrt(d_model)
+
+    Arguments
+    ---------
+    d_model: int
+        the number of expected features in the encoder/decoder inputs (default=512).
+    vocab: int
+        the vocab size
+
+    Example
+    -------
+    >>> emb = NormalizedEmbedding(512, 1000)
+    >>> trg = torch.randint(0, 999, (8, 50))
+    >>> emb_fea = emb(trg, True)
+    """
+
+    def __init__(self, d_model, vocab):
+        super().__init__()
+        self.emb = Embedding(
+            num_embeddings=vocab, embedding_dim=d_model, blank_id=0
+        )
+        self.d_model = d_model
+
+    def forward(self, x, init_params=False):
+        return self.emb(x, init_params) * math.sqrt(self.d_model)
 
 
 def get_key_padding_mask(padded_input, pad_idx):
