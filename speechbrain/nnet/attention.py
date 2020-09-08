@@ -11,7 +11,6 @@ import torch.nn as nn
 import numpy as np
 from speechbrain.data_io.data_io import length_to_mask
 
-from speechbrain.nnet.group_layer_norm import GroupLayerNorm
 from speechbrain.nnet.group_linear import GroupLinear
 
 logger = logging.getLogger(__name__)
@@ -257,7 +256,7 @@ class MultiheadAttention(nn.Module):
         add_zero_attn=False,
         kdim=None,
         vdim=None,
-        nb=1
+        nb=1,
     ):
         super().__init__()
         self.nhead = nhead
@@ -279,9 +278,15 @@ class MultiheadAttention(nn.Module):
 
         self.embed_dim = first_input.shape[-1] // self.nb
 
+        if self.kdim is not None:
+            self.kdim = self.kdim // self.nb
+
+        if self.vdim is not None:
+            self.vdim = self.vdim // self.nb
+
         self.att = nn.MultiheadAttention(
-            embed_dim=self.embed_dim//self.nb,
-            num_heads=self.nhead//self.nb,
+            embed_dim=self.embed_dim // self.nb,
+            num_heads=self.nhead // self.nb,
             dropout=self.dropout,
             bias=self.bias,
             add_bias_kv=self.add_bias_kv,
@@ -327,14 +332,37 @@ class MultiheadAttention(nn.Module):
         query = query.permute(1, 0, 2)
         key = key.permute(1, 0, 2)
         value = value.permute(1, 0, 2)
+        tq, bsz, _ = query.shape
 
-        tq,bsz,_ = query.shape
+        query = query.reshape(
+            (
+                query.shape[0],
+                query.shape[1] * self.nb,
+                query.shape[2] // self.nb,
+            )
+        )
+        key = key.reshape(
+            (key.shape[0], key.shape[1] * self.nb, key.shape[2] // self.nb)
+        )
+        value = value.reshape(
+            (
+                value.shape[0],
+                value.shape[1] * self.nb,
+                value.shape[2] // self.nb,
+            )
+        )
 
-        query = query.reshape((query.shape[0], query.shape[1]*self.nb, query.shape[2]//self.nb))
-        key = key.reshape((key.shape[0], key.shape[1]*self.nb, key.shape[2]//self.nb))
-        value = value.reshape((value.shape[0], value.shape[1]*self.nb, value.shape[2]//self.nb))
-
-        key_padding_mask = key_padding_mask.unsqueeze(1).repeat(1,self.nb,1).reshape((key_padding_mask.shape[0]*self.nb,key_padding_mask.shape[1]))
+        if key_padding_mask is not None:
+            key_padding_mask = (
+                key_padding_mask.unsqueeze(1)
+                .repeat(1, self.nb, 1)
+                .reshape(
+                    (
+                        key_padding_mask.shape[0] * self.nb,
+                        key_padding_mask.shape[1],
+                    )
+                )
+            )
 
         output, attention = self.att(
             query,
@@ -344,7 +372,7 @@ class MultiheadAttention(nn.Module):
             key_padding_mask=key_padding_mask,
         )
 
-        output = output.reshape((tq, bsz, output.shape[2]*self.nb))
+        output = output.reshape((tq, bsz, output.shape[2] * self.nb))
 
         # reshape the output back to (batch, time, fea)
         output = output.permute(1, 0, 2)
@@ -375,10 +403,10 @@ class PositionalwiseFeedForward(nn.Module):
         self.input_size = first_input.shape[-1]
 
         self.ffn = nn.Sequential(
-            GroupLinear(self.input_size, self.d_ffn,nb=nb),
+            GroupLinear(self.input_size, self.d_ffn, nb=self.nb),
             self.activation(),
             nn.Dropout(self.dropout),
-            GroupLinear(self.d_ffn, self.input_size,nb=nb),
+            GroupLinear(self.d_ffn, self.input_size, nb=self.nb),
         ).to(first_input.device)
 
     def forward(self, x, init_params=False):

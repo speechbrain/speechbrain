@@ -151,10 +151,15 @@ class SEBrain(sb.core.Brain):
         epoch_pesq = summarize_average(valid_stats["pesq"])
         epoch_stoi = summarize_average(valid_stats["stoi"])
 
+        old_lr, new_lr = params.lr_annealing(
+            [params.optimizer], epoch, 4.5 - epoch_pesq
+        )
+
         if params.use_tensorboard:
             tensorboard_logger.log_stats(
                 {
                     "Epoch": epoch,
+                    "lr": old_lr,
                     "Valid PESQ": epoch_pesq,
                     "Valid STOI": epoch_stoi,
                 },
@@ -163,7 +168,7 @@ class SEBrain(sb.core.Brain):
             )
 
         params.train_logger.log_stats(
-            {"Epoch": epoch}, train_stats, valid_stats
+            {"Epoch": epoch, "lr": old_lr}, train_stats, valid_stats
         )
 
         params.checkpointer.save_and_keep_only(
