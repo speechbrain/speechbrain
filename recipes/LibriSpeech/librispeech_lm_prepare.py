@@ -21,7 +21,7 @@ OPT_FILE = "opt_librispeech_lm_corpus_prepare.pkl"
 
 
 def prepare_lm_corpus(
-    data_folder, save_folder, filename, select_n_sentences=None,
+    data_folder, save_folder, filename, select_n_sentences=None, add_txt=None
 ):
     """
     This function prepares the hdf5 file for the LibriSpeech LM corpus.
@@ -37,6 +37,9 @@ def prepare_lm_corpus(
     select_n_sentences : int
         Default : None
         If not None, only pick this many sentences.
+    add_txt: list
+        Additional test to add in the LM (e.g, text from
+        the training transcriptions on LibriSpeech)
 
     Example
     -------
@@ -62,7 +65,7 @@ def prepare_lm_corpus(
     download_file(src, data_path)
 
     create_hdf5(
-        data_path, save_folder, filename, select_n_sentences,
+        data_path, save_folder, filename, select_n_sentences, add_txt=None
     )
 
     # saving options
@@ -111,7 +114,7 @@ def skip(save_folder, filename, conf):
 
 
 def create_hdf5(
-    data_path, save_folder, filename, select_n_sentences,
+    data_path, save_folder, filename, select_n_sentences, add_txt=None
 ):
     """
     Create the hdf5 file.
@@ -126,6 +129,9 @@ def create_hdf5(
         The filename of hdf5 file.
     select_n_sentences : int, optional
         The number of sentences to select.
+    add_txt: list
+        Additional test to add in the LM (e.g, text from
+        the training transcriptions on LibriSpeech)
 
     Returns
     -------
@@ -140,6 +146,12 @@ def create_hdf5(
 
     snt_cnt = 0
     all_wrds, all_chars = [], []
+
+    if add_txt is not None:
+        all_wrds = add_txt
+        chars_lst = [c for c in "_".join(all_wrds)]
+        all_chars = " ".join(chars_lst)
+
     with gzip.open(data_path, "rt") as f_in:
         for snt_id, line in enumerate(f_in):
             wrds = line.strip()
