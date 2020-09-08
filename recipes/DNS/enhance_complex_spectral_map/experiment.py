@@ -198,9 +198,7 @@ class SEBrain(sb.core.Brain):
             for name, pred_wav, length in zip(noisys[0], pred_wavs, lens):
                 enhance_path = os.path.join(params.enhanced_folder, name)
                 pred_wav = pred_wav.cpu()
-                torchaudio.save(
-                    enhance_path + ".wav", pred_wav[: int(length)], 16000
-                )
+                torchaudio.save(enhance_path, pred_wav[: int(length)], 16000)
 
         return stats
 
