@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import math
 
+
 class GroupLinear(nn.Module):
     def __init__(self, din, dout, nb, bias=True, a=None):
         super(GroupLinear, self).__init__()
@@ -38,9 +39,9 @@ class GroupLinear(nn.Module):
         # input: ts x bs x blocks*nhid
         # ts*bs , blocks, nhid
         # blocks, ts*bs, nhid
-        ts, bs, m = x.shape
+        bs, ts, m = x.shape
 
-        x = x.reshape((ts * bs, self.nb, m // self.nb))
+        x = x.reshape((bs * ts, self.nb, m // self.nb))
         x = x.permute(1, 0, 2)
         x = torch.bmm(x, self.weight)
         x = x.permute(1, 0, 2)
@@ -48,12 +49,13 @@ class GroupLinear(nn.Module):
         if self.bias is not None:
             x = x + self.bias
 
-        x = x.reshape((ts, bs, self.dout * self.nb))
+        x = x.reshape((bs, ts, self.dout * self.nb))
 
         # if not self.bias is None:
         #    x += self.bias
 
         return x
+
 
 class GroupMLP(nn.Module):
     """Container module with an encoder, a recurrent module, and a decoder."""
@@ -77,6 +79,7 @@ class GroupMLP(nn.Module):
         x = self.layer_norm(x + residual)
 
         return x
+
 
 if __name__ == "__main__":
 

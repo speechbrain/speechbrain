@@ -4,6 +4,7 @@ import torch.nn.functional as F
 
 from speechbrain.nnet.group_linear import GroupLinear
 
+
 class GroupCommunication(nn.Module):
     def __init__(self, dim, n_blocks):
         super(GroupCommunication, self).__init__()
@@ -38,17 +39,17 @@ class GroupCommunication(nn.Module):
         if init_params:
             self.init_params(x)
 
-        seq_len, bsz, _ = x.shape
+        bsz, seq_len, _ = x.shape
         # x = x.view(seq_len, bsz, self.n_blocks, self.block_dim)
 
         q = self.query_net(x).view(
-            seq_len, bsz, self.n_blocks, self.n_heads, self.head_dim
+            bsz, seq_len, self.n_blocks, self.n_heads, self.head_dim
         )
         k = self.key_net(x).view(
-            seq_len, bsz, self.n_blocks, self.n_heads, self.head_dim
+            bsz, seq_len, self.n_blocks, self.n_heads, self.head_dim
         )
         v = self.value_net(x).view(
-            seq_len, bsz, self.n_blocks, self.n_heads, self.head_dim
+            bsz, seq_len, self.n_blocks, self.n_heads, self.head_dim
         )
 
         q = q.transpose(2, 3) * self.scale
@@ -61,10 +62,9 @@ class GroupCommunication(nn.Module):
         score = score.mean(dim=2)
 
         out = out.reshape(
-            seq_len, bsz, self.n_blocks * self.head_dim * self.n_heads
+            bsz, seq_len, self.n_blocks * self.head_dim * self.n_heads
         )
         out = self.final(out)
-        out = out.view(seq_len, bsz, self.dim)
+        out = out.view(bsz, seq_len, self.dim)
 
         return out
-
