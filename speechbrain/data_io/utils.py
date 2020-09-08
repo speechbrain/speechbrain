@@ -2,6 +2,7 @@ import os
 import torch
 from ruamel import yaml
 from collections.abc import MutableMapping
+from copy import copy
 
 
 class DataCollection(MutableMapping):
@@ -61,34 +62,48 @@ def dataset_sanity_check(dataset_splits):
 
     # we take first supervision of first structure
     first_key = list(dataset_splits[0].keys())[0]
-    first_sup_keys = dataset_splits[0][first_key]["supervision"].keys()
+    first_sup_keys = copy(
+        list(dataset_splits[0][first_key]["supervision"][0].keys())
+    )
 
     for d_split in dataset_splits:
         for data_obj_id in d_split.keys():
             c_obj = d_split[data_obj_id]
             # we check that waveforms have at least one file, channels, lengths, and samplerate
             assert all(
-                k in c_obj["waveforms"].keys()
-                for k in ("files", "channels", "lengths", "samplerate")
-            )
+                [
+                    k in c_obj["waveforms"].keys()
+                    for k in ["files", "channels", "samplerate", "lengths"]
+                ]
+            ), "Waveforms entries should have always files, channels, samplerate and length keys. "
             # assert are not empty and are of proper type
             assert isinstance(c_obj["waveforms"]["files"], list)
             assert isinstance(c_obj["waveforms"]["files"][0], str)
             assert isinstance(c_obj["waveforms"]["channels"], list)
             assert isinstance(c_obj["waveforms"]["channels"][0], list)
-            assert isinstance(c_obj["waveforms"]["lengths"], int)
+            assert isinstance(c_obj["waveforms"]["lengths"], list)
+            assert isinstance(c_obj["waveforms"]["lengths"][0], int)
             assert isinstance(c_obj["waveforms"]["samplerate"], int)
 
             # assert files exists
             for f in c_obj["waveforms"]["files"]:
                 assert os.path.exists(f), "{} does not exist".format(f)
+            # we should also check for external paths here how do we specify that an entry is a path ?
 
-            # check if there are any duplicates in supervision
-            assert len(c_obj["supervision"]) == len(
-                set(c_obj["supervision"])
-            ), "Supervision for data object ID {} contains duplicates please remove them".format(
-                data_obj_id
-            )
+            # check if there are any duplicates in supervision in the same data_obj
+            seen = set()
+            for sup in c_obj["supervision"]:
+                t = tuple(
+                    (k, str(v)) for (k, v) in sup.items()
+                )  # tuplefy lists to make em hashable
+                if t not in seen:
+                    seen.add(t)
+                else:
+                    raise KeyError(
+                        "Supervision for data object ID {} contains duplicates please remove them".format(
+                            data_obj_id
+                        )
+                    )
 
             assert (
                 len(c_obj["supervision"]) > 0
@@ -96,8 +111,19 @@ def dataset_sanity_check(dataset_splits):
 
             for sup in c_obj["supervision"]:
                 assert (
-                    sup.keys() == first_sup_keys
-                )  # assert all supervisions in all
+                    list(sup.keys()) == first_sup_keys
+                ), "All supervision must have same fields within a data object and must be ordered in same way"
+                # assert all supervisions in all
+
+            for sup_name in sup.keys():
+                assert isinstance(
+                    sup[sup_name], (tuple, list, float, int, bool, str)
+                ), "Format not supported"
+
+    for d_split in dataset_splits:
+        for data_obj_id in d_split.keys():
+            c_obj = d_split[data_obj_id]
+            for sup in c_obj["supervision"]:
                 # dataset have same supervisions
                 # if start and stop are not specified we assume that all file is used
                 # we make it explicit and take start and stop from waveforms.
@@ -109,12 +135,10 @@ def dataset_sanity_check(dataset_splits):
                     pass
                 else:
                     raise EnvironmentError(
-                        "You can't specify only start and stop. Either specify both or none of the two"
+                        "You can't specify only start or stop. Either specify both or none of the two"
                     )
 
-                # ideally we should also check for other paths to exist here
-                # e.g. alignments.
-                # how we specify external path dependencies ?
+        # how we specify external path dependencies ?
 
 
 def to_ASR_format(dataset):
@@ -149,9 +173,7 @@ class CategoricalEncoder:
                 for sup in data_obj["supervision"]:
                     for sup_key in sup.keys():
                         if sup_key == supervision:
-                            if isinstance(
-                                sup[sup_key], (list, tuple)
-                            ):
+                            if isinstance(sup[sup_key], (list, tuple)):
                                 all_labs.update(set(sup[sup_key]))
                             elif isinstance(sup[sup_key], (str)):
                                 all_labs.add(sup[sup_key])
@@ -160,12 +182,8 @@ class CategoricalEncoder:
 
         all_labs = sorted(list(all_labs))  # sort alphabetically just in case
 
-        self.lab2indx = {
-            key: index for index, key in enumerate(all_labs)
-        }
-        self.indx2lab = {
-            key: index for key, index in enumerate(all_labs)
-        }
+        self.lab2indx = {key: index for index, key in enumerate(all_labs)}
+        self.indx2lab = {key: index for key, index in enumerate(all_labs)}
 
     def encode_labels(self, x, dtype=torch.long):
         # TODO handle numpy arrays maybe ?
@@ -212,21 +230,31 @@ def replace_entries(data_coll, replacements_dict):
 
     for data_obj_key in data_coll:
         data_obj = data_coll[data_obj_key]
-        for sup in data_obj["supervision"]:
+        for sup in [*data_obj["supervision"], data_obj["waveforms"]]:
             for sup_key in sup.keys():
                 if sup_key in replacements_dict.keys():
                     if isinstance(sup[sup_key], (str)):
                         mapping = replacements_dict[sup_key]
                         for map_key in mapping.keys():
                             # we replace in place
-                            sup[sup_key].replace(map_key, mapping[map_key])
+                            sup[sup_key] = sup[sup_key].replace(
+                                map_key, mapping[map_key]
+                            )
                     elif isinstance(sup[sup_key], (list, tuple)):
-                        assert isinstance(sup[sup_key][0], str), "Replacements "
+                        assert isinstance(
+                            sup[sup_key][0], str
+                        ), "Replacements supported only for str type, and unidimensional lists"
+                        mapping = replacements_dict[sup_key]
+                        for map_key in mapping.keys():
+                            for indx in range(len(sup[sup_key])):
+                                sup[sup_key][indx] = sup[sup_key][indx].replace(
+                                    map_key, mapping[map_key]
+                                )
                     else:
                         raise NotImplementedError
                     # check if we have to replace it
 
-
+    return data_coll
 
 
 def get_windowed_examples(dataset):
