@@ -285,7 +285,7 @@ class MultiheadAttention(nn.Module):
             self.vdim = self.vdim // self.nb
 
         self.att = nn.MultiheadAttention(
-            embed_dim=self.embed_dim,
+            embed_dim=self.embed_dim // self.nb,
             num_heads=self.nhead // self.nb,
             dropout=self.dropout,
             bias=self.bias,
@@ -372,7 +372,7 @@ class MultiheadAttention(nn.Module):
             attn_mask=attn_mask,
             key_padding_mask=key_padding_mask,
         )
-
+        print(output.shape)
         output = output.reshape((tq, bsz, output.shape[2] * self.nb))
 
         # reshape the output back to (batch, time, fea)
