@@ -51,7 +51,6 @@ train_loader: !new:speechbrain.DataLoaderFactory
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
     csv_read: [wav, phn]
-    avoid_if_longer_than: 5.
 
 valid_loader: !new:speechbrain.DataLoaderFactory
     csv_file: !ref <csv_valid>
