@@ -88,6 +88,7 @@ def dataset_sanity_check(dataset_splits):
             # assert files exists
             for f in c_obj["waveforms"]["files"]:
                 assert os.path.exists(f), "{} does not exist".format(f)
+
             # we should also check for external paths here how do we specify that an entry is a path ?
 
             # check if there are any duplicates in supervision in the same data_obj
@@ -115,10 +116,11 @@ def dataset_sanity_check(dataset_splits):
                 ), "All supervision must have same fields within a data object and must be ordered in same way"
                 # assert all supervisions in all
 
-            for sup_name in sup.keys():
-                assert isinstance(
-                    sup[sup_name], (tuple, list, float, int, bool, str)
-                ), "Format not supported"
+                for sup_name in sup.keys():
+                    assert isinstance(
+                        sup[sup_name],
+                        (tuple, list, float, int, bool, str, dict),
+                    ), "Format not supported"
 
     for d_split in dataset_splits:
         for data_obj_id in d_split.keys():
@@ -149,11 +151,10 @@ def to_ASR_format(dataset):
     utterances = []
     for data_obj_id in dataset.keys():
         for supervision in dataset[data_obj_id]["supervision"]:
-            utt_id = list(supervision.keys())[0]
             # we "reverse" the format
             utterances.append(
                 {
-                    "supervision": supervision[utt_id],
+                    "supervision": supervision,
                     "waveforms": dataset[data_obj_id]["waveforms"],
                 }
             )
@@ -185,7 +186,7 @@ class CategoricalEncoder:
         self.lab2indx = {key: index for index, key in enumerate(all_labs)}
         self.indx2lab = {key: index for key, index in enumerate(all_labs)}
 
-    def encode_labels(self, x, dtype=torch.long):
+    def encode(self, x, dtype=torch.long):
         # TODO handle numpy arrays maybe ?
         if isinstance(x, (tuple, list)):
             # then we will return
@@ -199,7 +200,7 @@ class CategoricalEncoder:
 
         return labels
 
-    def decode_one_hot(self, x: torch.Tensor):
+    def decode(self, x: torch.Tensor):
         # labels are of shape num_classes or num_classes, lengthofseq
         if x.ndim == 1:
             indx = torch.argmax(x)
