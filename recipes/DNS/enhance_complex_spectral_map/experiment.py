@@ -107,10 +107,6 @@ class SEBrain(sb.core.Brain):
             ),
         )
 
-        # enhanced_wavs = params.compute_istft(enhanced_spec)
-
-        # padding = (0, wavs.shape[1] - enhanced_wavs.shape[1])
-        # return torch.nn.functional.pad(enhanced_wavs, padding)
         return enhanced_spec
 
     def compute_sisnr(self, est_target, target, lens):
@@ -143,14 +139,13 @@ class SEBrain(sb.core.Brain):
     def compute_objectives(self, predictions, cleans, stage="train"):
         ids, wavs, lens = cleans
         wavs, lens = wavs.to(params.device), lens.to(params.device)
-        feats = params.compute_stft(wavs)
 
-        # loss = self.compute_sisnr(predictions, wavs, lens)
-        loss = params.compute_cost(
-            torch.flatten(predictions, start_dim=2),
-            torch.flatten(feats, start_dim=2),
-            lens,
-        )
+        enhanced_wavs = params.compute_istft(predictions)
+
+        padding = (0, wavs.shape[1] - enhanced_wavs.shape[1])
+        predictions = torch.nn.functional.pad(enhanced_wavs, padding)
+
+        loss = self.compute_sisnr(predictions, wavs, lens)
 
         return loss, {}
 
@@ -203,7 +198,9 @@ class SEBrain(sb.core.Brain):
             for name, pred_wav, length in zip(noisys[0], pred_wavs, lens):
                 enhance_path = os.path.join(params.enhanced_folder, name)
                 pred_wav = pred_wav.cpu()
-                torchaudio.save(enhance_path, pred_wav[: int(length)], 16000)
+                torchaudio.save(
+                    enhance_path + ".wav", pred_wav[: int(length)], 16000
+                )
 
         return stats
 
@@ -214,7 +211,6 @@ class SEBrain(sb.core.Brain):
         old_lr, new_lr = params.lr_annealing(
             [params.optimizer], epoch, 4.5 - epoch_pesq
         )
-        print(old_lr, new_lr, epoch_pesq)
 
         if params.use_tensorboard:
             tensorboard_logger.log_stats(

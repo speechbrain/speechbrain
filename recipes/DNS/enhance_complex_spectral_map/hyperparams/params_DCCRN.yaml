@@ -9,14 +9,14 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Basic parameters
 data_folder: !PLACEHOLDER
-output_folder: !ref results/complexDCCRN_dynamic/<seed>
+output_folder: !ref results/complexDCCRN_dynamic_lr_sisnr/<seed>
 enhanced_folder: !ref <output_folder>/enhanced/
 
 use_tensorboard: False
-tensorboard_logs: !ref results/logs/complexDCCRN_dynamic/<seed>
+tensorboard_logs: !ref results/logs/complexDCCRN_dynamic_lr_sisnr/<seed>
 train_log: !ref <output_folder>/train_log.txt
 
-use_multigpu: False
+use_multigpu: True
 
 # Data files
 csv_noise: !ref <data_folder>/tr_noise.csv
@@ -26,13 +26,13 @@ csv_test: !ref <data_folder>/test.csv
 
 # Training Parameters
 N_epochs: 50
-N_batch: 8
+N_batch: 12
 lr: 0.001
 device: cuda
 
 # Model Parameters
 conv_channels: [32, 64, 128, 128, 128, 256]
-kernel_size: [3, 5]
+kernel_size: [3, 3]
 padding_type: same
 strides: [2, 1]
 rnn_size: 256
