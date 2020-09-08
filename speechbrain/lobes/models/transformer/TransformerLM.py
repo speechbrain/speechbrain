@@ -40,14 +40,11 @@ class TransformerLM(TransformerInterface):
 
     Example
     -------
-    >>> src = torch.rand([8, 120, 60])
-    >>> tgt = torch.randint(0, 720, [8, 120])
-    >>> net = TransformerASR(720, 512, 8, 1, 1, 1024, activation=torch.nn.GELU)
-    >>> enc_out, dec_out = net.forward(src, tgt, init_params=True)
+    >>> src = torch.randint(0, 720, [8, 120])
+    >>> net = TransformerLM(None, 720, 512, 8, 1, 0, 1024, activation=torch.nn.GELU)
+    >>> enc_out = net.forward(src, init_params=True)
     >>> print(enc_out.shape)
-    torch.Size([8, 120, 512])
-    >>> print(dec_out.shape)
-    torch.Size([8, 120, 512])
+    torch.Size([8, 120, 720])
     """
 
     def __init__(
@@ -93,7 +90,9 @@ class TransformerLM(TransformerInterface):
         tgt: tensor
             the sequence to the decoder (required).
         """
-        src_mask, src_key_padding_mask = self.masking_func(src)
+        src_mask, src_key_padding_mask = None, None
+        if self.masking_func is not None:
+            src_mask, src_key_padding_mask = self.masking_func(src)
 
         src = self.custom_src_module(src, init_params)
         src = src + self.positional_encoding(src, init_params)
