@@ -8,10 +8,12 @@ import numpy
 import pickle
 import copy
 import csv
+import glob
+import shutil
 from tqdm.contrib import tqdm
 from scipy.cluster.hierarchy import linkage
 from scipy.spatial.distance import squareform
-from speechbrain.utils.EER import EER  # noqa F401
+from speechbrain.utils.DER import DER  # noqa F401
 from speechbrain.utils.data_utils import download_file
 from speechbrain.data_io.data_io import DataLoaderFactory
 from speechbrain.data_io.data_io import convert_index_to_lab
@@ -539,7 +541,19 @@ if __name__ == "__main__":
 
         # print(scores_plda.scoremat)
 
-        # Function to do AHC
+        # Do AHC
         out_rttm_file = rttm_dir + "/" + rec_id + ".rttm"
         logger.info("Performing AHC")
         do_ahc(scores_plda.scoremat, out_rttm_file, rec_id)
+
+    # Optional
+    concate_rttm_file = rttm_dir + "/sys_output.rttm"
+
+    with open(concate_rttm_file, "w") as cat_file:
+        for f in glob.glob(rttm_dir + "/*.rttm"):
+            if f == concate_rttm_file:
+                continue
+            with open(f, "r") as indi_rttm_file:
+                shutil.copyfileobj(indi_rttm_file, cat_file)
+
+    logger.info("Final system RTTM : " + concate_rttm_file)
