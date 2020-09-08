@@ -1,40 +1,52 @@
 from torch.utils.data import Dataset
-from .utils import to_ASR_format, dataset_sanity_check
-from .data_io_new import read_audio_example
+from utils import to_ASR_format, dataset_sanity_check, replace_entries
+from data_io_new import read_audio_example
+from ruamel import yaml
 
 
-class ASRDataset(Dataset):
+class ASRDataset(
+    Dataset
+):  # note the user can override the methods when needed # e.g. he wants to return also the channels used
+    # or for example if speech is near-field or far-field
+
     def __init__(
         self,
-        dataset_root_dir,
         dataset,
+        supervisions,
+        encoding_funcs,
         sentence_sorting="original",
         discard_longer=None,
         discard_shorter=None,
     ):
 
+        if not isinstance(supervisions, (list, tuple)):
+            supervisions = [supervisions]
+        self.supervisions = supervisions
+        if not isinstance(encoding_funcs, (list, tuple)):
+            encoding_funcs = [encoding_funcs]
+        self.encoding_funcs = encoding_funcs
+        self.sentence_sorting = (
+            sentence_sorting  # we will use this when wrapping
+        )
+        # with DataLoader to prevent shuffling when != original
+
         assert sentence_sorting in [
             "ascending",
             "descending",
             "original",
-        ]  # note how to force that when sentence sorting is on we disable shuffling ?
+        ]
 
-        # where do we specify absolute paths ? either here or in __getitem__ i would say it is better here.
-        dataset_sanity_check(
+        self.sanity_check(
             dataset
-        )  # verify dataset is consistent, paths exists etc
+        )  # verify dataset is consistent with the specified ASR task
 
-        examples = to_ASR_format(dataset)  # convert to utterances list
+        examples = to_ASR_format(
+            dataset
+        )  # convert to utterances list for the ASR task
 
+        # filtering operation -> very easy because of how we have defined annotation
+        # first filter then sort
 
-        # check specific to ASR task: verify each example at least contains words or phones
-        for ex in examples:
-            assert (
-                "words" in ex["supervision"].keys()
-                or "phones" in ex["supervision"].keys()
-            ), "To perform ASR task you need to provide words or phones supervision "
-
-        # filtering operation
         if discard_shorter:
             examples = filter(
                 lambda x: ["supervision"]["stop"] - x["supervision"]["start"]
@@ -65,18 +77,102 @@ class ASRDataset(Dataset):
         else:
             pass
 
-        # label creation step
-        #TODO
-
+        # label creation step is in __getitem__ now
         self.examples = examples
 
+    def sanity_check(
+        self, examples
+    ):  # maybe this can be more general --> put it into a template class ?
+
+        # TODO
+        # maybe check config samplerate == samplerate of source files--> not all recipes have samplerate specified
+        # i would make it mandatory because it helps avoiding stupid mistakes.
+
+        for _, ex in examples.items():
+            for supervision in ex["supervision"]:
+                for req_sup in self.supervisions:
+                    assert req_sup in supervision.keys(), (
+                        "Requested supervision entry is not in the dataset."
+                        "Available supervisions are {}".format(
+                            list(ex["supervision"].keys())
+                        )
+                    )
+
+    def create_targets(self, examples):
+
+        for supervision in self.supervisions:
+            if supervision == "phones":
+
+                # TODO probably we could make a more general function here for integer encoding
+                # TODO question what happens when we have a symbol in test which is not in train --> will probably break everything.
+                all_phns = set()
+                for ex in examples:
+                    c_phs = ex["supervision"]["phones"]
+                    all_phns.union(set(c_phs))
+
+                all_phns = sorted(
+                    list(all_phns)
+                )  # sort alphabetically just in case
+                all_phns = {
+                    key: {"index": index} for index, key in enumerate(all_phns)
+                }
+                # we convert from phones to integers now
+                for ex in examples:
+                    for phn_indx in range(len(ex["supervision"]["phones"])):
+                        c_phn = ex["supervision"]["phones"][phn_indx]
+                        ex["supervision"]["phones"][phn_indx] = all_phns[c_phn]
+
+            else:
+                # TODO other supervisions for ASR here
+                raise NotImplementedError
+
+        return examples
 
     def __len__(self):
         return len(self.examples)
 
     def __getitem__(self, item):
 
-        audio = read_audio_example(self.examples[item])  # (samples, channels)
+        # common for every ASR task i think.. just read the audio
+        audio = read_audio_example(self.examples[item])  # (channels, samples)
 
-        # we read labels for this example.
-        #TODO
+        labels = {k: [] for k in self.supervisions}
+        # we will return supervisions in the order they are specified
+        for i in range(len(self.supervisions)):
+            c_sup = self.supervisions[i]
+            # handles only one supervision per example --> standard ASR
+            # for more complex tasks like 2 speakers ASR we will have two supervisions
+            labels[c_sup].append(
+                self.encoding_funcs[i].encode(
+                    self.examples[item]["supervision"][c_sup]
+                )
+            )
+
+        # padding of labels and examples will be handled by dataloader
+        return (audio, labels)
+
+
+if __name__ == "__main__":
+
+    with open(
+        "/media/sam/bx500/speechbrain_minimalVAD/speechbrain/samples/audio_samples/nn_training_samples/dev.yaml",
+        "r",
+    ) as f:
+        devset = yaml.safe_load(f)
+
+    # we can put this in other places than utils
+    from utils import CategoricalEncoder
+
+    encoder = CategoricalEncoder(devset, "phones")
+    replacements_dict = {
+        "files": {
+            "DATASET_ROOT": "/media/sam/bx500/speechbrain_minimalVAD/speechbrain/samples/audio_samples/nn_training_samples"
+        },
+        "alignment_file": {
+            "ALIGNMENT_ROOT": "/media/sam/bx500/speechbrain_minimalVAD/speechbrain/samples/audio_samples/nn_training_samples"
+        },
+    }
+    devset = replace_entries(devset, replacements_dict)
+    dataset_sanity_check([devset, devset])  # sanity check for dev
+    dataset = ASRDataset(devset, "phones", encoder)
+    dataset[0]
