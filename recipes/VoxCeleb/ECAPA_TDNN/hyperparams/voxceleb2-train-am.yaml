@@ -1,5 +1,5 @@
 # ################################
-# Model: ECAPA-TDNN using AAM-softmax
+# Model: ECAPA-TDNN using AM-softmax
 # Authors: Hwidong Na 2020
 # ################################
 
@@ -8,9 +8,8 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 __set_seed_python: !!python/object/apply:random.seed [!ref <seed>]
 
 # Folders and train_log file
-voxceleb_source: /network/datasets/restricted/voxceleb_users/voxceleb/voxceleb1
-data_folder: /localscratch/voxceleb1
-output_folder: results/voxceleb1/ecapa-tdnn-aam
+data_folder: /localscratch/voxceleb2
+output_folder: results/voxceleb2/ecapa-tdnn-am
 save_folder: !ref <output_folder>/save/
 train_log: !ref <output_folder>/train_log.txt
 
@@ -36,7 +35,7 @@ random_segment: True
 max_frames: 300
 
 # Number of speakers
-out_n_neurons: 1211
+out_n_neurons: 5994
 
 # Functions
 compute_features: !new:speechbrain.lobes.features.fbank.Fbank
@@ -98,7 +97,7 @@ mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
 
 compute_cost: !new:speechbrain.nnet.losses.LogSoftmaxWrapper
-    loss_fn: !new:speechbrain.nnet.losses.AdditiveAngularMargin
+    loss_fn: !new:speechbrain.nnet.losses.AngularMargin
         margin: 0.2
         scale: 30
 

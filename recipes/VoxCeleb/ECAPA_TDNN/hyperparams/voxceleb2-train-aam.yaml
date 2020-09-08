@@ -8,7 +8,6 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 __set_seed_python: !!python/object/apply:random.seed [!ref <seed>]
 
 # Folders and train_log file
-voxceleb_source: /network/datasets/restricted/voxceleb_users/voxceleb/voxceleb1
 data_folder: /localscratch/voxceleb2
 output_folder: results/voxceleb2/ecapa-tdnn-aam
 save_folder: !ref <output_folder>/save/
@@ -33,7 +32,7 @@ left_frames: 0
 right_frames: 0
 deltas: False
 random_segment: True
-max_frames: 200
+max_frames: 300
 
 # Number of speakers
 out_n_neurons: 5994

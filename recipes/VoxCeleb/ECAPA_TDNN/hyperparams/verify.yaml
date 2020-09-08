@@ -7,15 +7,15 @@ seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Folders and train_log file
-voxceleb_source: /home/nahwidon/scratch/voxceleb1
-data_folder: voxceleb1
-output_folder: results/ecapt-tdnn-am-verify
+voxceleb_source: /network/datasets/restricted/voxceleb_users/voxceleb/voxceleb1
+data_folder: /localscratch/voxceleb1
+output_folder: results/ecapt-tdnn-verify
 save_folder: !ref <output_folder>/save/
 device: 'cuda:0'
 
 # Pretrain from web (as an alternative specify a file)
 embedding_file:
-    https://www.dropbox.com/s/b74bq0tiojola46/embedding_model.ckpt?dl=1
+    https://www.dropbox.com/s/8vguzp8lk77r2az/embedding_model.ckpt?dl=1
 
 # csv files
 csv_enrol: !ref <save_folder>/enrol.csv
