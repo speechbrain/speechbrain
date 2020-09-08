@@ -17,8 +17,6 @@ from speechbrain.lobes.models.transformer.group_communication import (
     GroupCommunication,
 )
 
-from speechbrain.nnet.group_layer_norm import GroupLayerNorm
-from speechbrain.lobes.models.transformer.group_communication import GroupCommunication
 
 class TransformerInterface(nn.Module):
     """This is an interface for transformer model. Users can modify the attributes and
@@ -200,10 +198,10 @@ class TransformerEncoderLayer(nn.Module):
     ):
         super().__init__()
         self.self_att = MultiheadAttention(
-            nhead=nhead, dropout=dropout, kdim=kdim, vdim=vdim
+            nhead=nhead, dropout=dropout, kdim=kdim, vdim=vdim, nb=num_modules,
         )
         self.pos_ffn = PositionalwiseFeedForward(
-            d_ffn=d_ffn, dropout=dropout, activation=activation
+            d_ffn=d_ffn, dropout=dropout, activation=activation, nb=num_modules,
         )
 
         self.norm1 = GroupLayerNorm(d_ffn, num_modules, eps=1e-6)
@@ -254,12 +252,6 @@ class TransformerEncoderLayer(nn.Module):
             output = self.group_comm(output, init_params=init_params)
             output = self.dropout_comm(output)
             output = self.norm_comm(output + residual, init_params=init_params)
-
-        if self.use_group_comm:
-            residual = output * 1.0
-            output = self.group_comm(output)
-            output = self.dropout(output)
-            output = self.norm_comm(output + residual)
 
         return output, self_attn
 
@@ -393,13 +385,13 @@ class TransformerDecoderLayer(nn.Module):
     ):
         super().__init__()
         self.self_attn = MultiheadAttention(
-            nhead=nhead, kdim=kdim, vdim=vdim, dropout=dropout
+            nhead=nhead, kdim=kdim, vdim=vdim, dropout=dropout, nb=num_modules,
         )
         self.mutihead_attn = MultiheadAttention(
-            nhead=nhead, kdim=kdim, vdim=vdim, dropout=dropout
+            nhead=nhead, kdim=kdim, vdim=vdim, dropout=dropout, nb=num_modules,
         )
         self.pos_ffn = PositionalwiseFeedForward(
-            d_ffn=d_ffn, dropout=dropout, activation=activation
+            d_ffn=d_ffn, dropout=dropout, activation=activation, nb=num_modules,
         )
 
         self.use_group_comm = use_group_comm
@@ -480,7 +472,7 @@ class TransformerDecoderLayer(nn.Module):
             residual = tgt * 1.0
             tgt = self.group_comm(tgt, init_params=init_params)
             tgt = self.dropout_comm(tgt)
-            tgt = self.norm_comm(tgt + residual)
+            tgt = self.norm_comm(tgt + residual, init_params=init_params)
 
         return tgt, self_attn, multihead_attention
 
@@ -583,7 +575,7 @@ class TransformerDecoder(nn.Module):
             )
             self_attns.append(self_attn)
             multihead_attns.append(multihead_attn)
-        output = self.norm(output, init_params)
+        output = self.norm(output, init_params=init_params)
 
         if self.return_attention:
             return output, self_attns, multihead_attns

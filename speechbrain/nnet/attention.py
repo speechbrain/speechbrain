@@ -285,14 +285,14 @@ class MultiheadAttention(nn.Module):
             self.vdim = self.vdim // self.nb
 
         self.att = nn.MultiheadAttention(
-            embed_dim=self.embed_dim // self.nb,
+            embed_dim=self.embed_dim,
             num_heads=self.nhead // self.nb,
             dropout=self.dropout,
             bias=self.bias,
             add_bias_kv=self.add_bias_kv,
             add_zero_attn=self.add_zero_attn,
-            kdim=self.kdim//self.nb,
-            vdim=self.vdim//self.nb,
+            kdim=self.kdim,
+            vdim=self.vdim,
         ).to(first_input.device)
 
     def forward(
