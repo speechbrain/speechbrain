@@ -404,10 +404,14 @@ class PositionalwiseFeedForward(nn.Module):
         self.input_size = first_input.shape[-1]
 
         self.ffn = nn.Sequential(
-            GroupLinear(self.input_size, self.d_ffn, nb=self.nb),
+            GroupLinear(self.input_size, self.d_ffn, nb=self.nb).to(
+                first_input.device
+            ),
             self.activation(),
             nn.Dropout(self.dropout),
-            GroupLinear(self.d_ffn, self.input_size, nb=self.nb),
+            GroupLinear(self.d_ffn, self.input_size, nb=self.nb).to(
+                first_input.device
+            ),
         ).to(first_input.device)
 
     def forward(self, x, init_params=False):

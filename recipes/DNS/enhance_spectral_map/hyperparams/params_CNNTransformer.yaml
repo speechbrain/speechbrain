@@ -24,7 +24,7 @@ csv_test: !ref <data_folder>/test.csv
 
 # Training Parameters
 N_epochs: 50
-N_batch: 8
+N_batch: 16
 lr: 0.0001
 device: cuda:0
 
@@ -37,6 +37,7 @@ causal: True
 kernel_size: 3
 base_channels: 1024
 padding_type: causal
+num_modules: 2
 
 # FFT Parameters
 samplerate: 16000
@@ -97,8 +98,8 @@ model: !new:speechbrain.lobes.models.transformer.TransformerSE.CNNTransformerSE
   nhead: !ref <nhead>
   dropout: !ref <dropout>
   custom_emb_module: !ref <CNN>
-  num_modules: 2
-  use_group_comm: False
+  num_modules: !ref <num_modules>
+  use_group_comm: True
 
 add_noise: !new:speechbrain.processing.speech_augmentation.AddNoise
   csv_file: !ref <csv_noise>

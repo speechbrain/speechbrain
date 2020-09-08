@@ -249,8 +249,8 @@ class TransformerEncoderLayer(nn.Module):
 
         if self.use_group_comm:
             residual = output * 1.0
-            output = self.group_comm(output)
-            output = self.dropout(output)
+            output = self.group_comm(output, init_params=init_params)
+            output = self.dropout_comm(output)
             output = self.norm_comm(output + residual, init_params=init_params)
 
         return output, self_attn
@@ -470,8 +470,8 @@ class TransformerDecoderLayer(nn.Module):
 
         if self.use_group_comm:
             residual = tgt * 1.0
-            tgt = self.group_comm(tgt)
-            tgt = self.dropout(tgt)
+            tgt = self.group_comm(tgt, init_params=init_params)
+            tgt = self.dropout_comm(tgt)
             tgt = self.norm_comm(tgt + residual)
 
         return tgt, self_attn, multihead_attention
