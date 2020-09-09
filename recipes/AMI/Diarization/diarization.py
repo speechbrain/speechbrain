@@ -48,6 +48,13 @@ MISSED SPEAKER TIME =      0.00 secs (  0.0 percent of scored speaker time)
 FALARM SPEAKER TIME =      0.00 secs (  0.0 percent of scored speaker time)
 """
 
+"""
+Note:
+Though variable/funtion names are quite interpretable, the following points are useful in clearly understanding this code.
+- "segments" reffer to the big chunks that comes from the VAD or groundtruth.
+- "sub-segment" or "sseg" denotes smaller duration segments that are generated from "segments"
+"""
+
 
 # Definition of the steps for xvector computation from the waveforms
 def compute_x_vectors(wavs, lens, init_params=False):
@@ -174,7 +181,8 @@ def trace_back_cluster_labels(links, threshold=0.9, oracle_num_spkrs=4):
 
     N = len(links) + 1
 
-    # Create cluster dictionery
+    # Cluster dictionery for maintaining cluster IDs and segments inside each cluster ID
+    # example: clusters['10'] : [1,4,7] denotes cluster number 10 has segment ids 1, 4 and 7
     clusters = dict()
 
     # Initialize clusters (cluster IDs starts from 0 )
@@ -183,24 +191,35 @@ def trace_back_cluster_labels(links, threshold=0.9, oracle_num_spkrs=4):
 
     i = 0
     while i < N - 1:
+
         a = str(int(links[i, 0]))
         b = str(int(links[i, 1]))
+
         # dist = links[i, 2]
         new_id = str(N + i)
+
+        # Concatenate the list of cluster IDs from old clusters 'a' and 'b'
         clusters[new_id] = clusters[a] + clusters[b]
+
+        # Remove old cluster from the "clusters" dictionary
         clusters.pop(a)
         clusters.pop(b)
         i += 1
+
+        # Stop when number of speakers are reached
         if oracle_num_spkrs and len(clusters) <= oracle_num_spkrs:
             break
+        # Stop when PLDA threshold is reached
         # elif dist >= threshold:
         #    break
 
     return clusters
 
 
-# Manage overlaped xvectors and prepare RTTM
 def is_overlapped(end1, start2):
+    """
+    Returns True if segments are overlapping
+    """
     if start2 > end1:
         return False
     else:
@@ -210,16 +229,24 @@ def is_overlapped(end1, start2):
 def merge_ssegs_same_speaker(lol):
     """
     Merge adjacent sub-segs from a same speaker
+    Input lol structure: [rec_id, sseg_start, sseg_end, spkr_id]
     """
     new_lol = []
-    seg = lol[0]
+
+    # Start from the first sub-seg
+    sseg = lol[0]
+
+    # Loop over all sub-segments from 1 (not 0)
     for i in range(1, len(lol)):
-        new_seg = lol[i]
-        if is_overlapped(seg[2], new_seg[1]) and seg[3] == new_seg[3]:
-            seg[2] = new_seg[2]  # update end time
+        next_sseg = lol[i]
+
+        # IF sub-segments overlap AND has same speaker THEN merge
+        if is_overlapped(sseg[2], next_sseg[1]) and sseg[3] == next_sseg[3]:
+            sseg[2] = next_sseg[2]  # just update the end time
+
         else:
-            new_lol.append(seg)
-            seg = new_seg
+            new_lol.append(sseg)
+            sseg = next_sseg
 
     return new_lol
 
@@ -227,40 +254,55 @@ def merge_ssegs_same_speaker(lol):
 def distribute_overlap(lol):
     """
     Distributes the overlapped speech equally among the adjacent segments with different speakers.
+    Input lol structure: [rec_id, sseg_start, sseg_end, spkr_id]
     """
     new_lol = []
-    seg = lol[0]
+    sseg = lol[0]
+
+    # Add first sub-segment here to avoid error at: "if new_lol[-1] != sseg:" when new_lol is empty
+    # new_lol.append(sseg)
+
     for i in range(1, len(lol)):
-        new_seg = lol[i]
+        next_sseg = lol[i]
         # No need to check if they are different speakers
-        # Because if segments are overlapped then alway different speakers
-        # This was taken care by merge_ssegs_same_speaker()
-        if is_overlapped(seg[2], new_seg[1]):
-            # divide
-            overlap = seg[2] - new_seg[1]
+        # Because if segments are overlapped then they always have different speakers
+        # This is because similar speaker's adjacent sub-segments are already merged by "merge_ssegs_same_speaker()"
+        if is_overlapped(sseg[2], next_sseg[1]):
 
-            # update end time of old seg
-            seg[2] = seg[2] - (overlap / 2.0)
+            # Get overlap duration
+            overlap = sseg[2] - next_sseg[1]
 
-            # Update start time of new seg
-            new_seg[1] = new_seg[1] + (overlap / 2.0)  # + 0.001
+            # Update end time of old seg
+            sseg[2] = sseg[2] - (overlap / 2.0)
 
-            # To avoid duplicate entries
-            if new_lol[-1] != seg:
-                new_lol.append(seg)
+            # Update start time of next seg
+            next_sseg[1] = next_sseg[1] + (overlap / 2.0)  # + 0.001
 
-            # The new_seg should always be added
-            new_lol.append(new_seg)
-            seg = new_seg
+            if len(new_lol) == 0:
+                # For first sub-segment entry
+                new_lol.append(sseg)
+            else:
+                # To avoid duplicate entries
+                if new_lol[-1] != sseg:
+                    new_lol.append(sseg)
+
+            # Current sub-segment is next sub-segment
+            sseg = next_sseg
+
         else:
             # For first sseg
             if len(new_lol) == 0:
-                new_lol.append(seg)
+                new_lol.append(sseg)
+            else:
+                # To avoid duplicate entries
+                if new_lol[-1] != sseg:
+                    new_lol.append(sseg)
 
-            # To avoid duplicate entries
-            if new_lol[-1] != new_seg:
-                new_lol.append(new_seg)
-            seg = new_seg
+            # Update the current sub-segment
+            sseg = next_sseg
+
+    # Add the remaning last sub-segment
+    new_lol.append(next_sseg)
 
     return new_lol
 
@@ -309,30 +351,41 @@ def do_ahc(score_matrix, out_rttm_file, rec_id):
 
     links = linkage(dist_mat, method="complete")
 
+    # Convert the links into interpretable clusters
     clusters = trace_back_cluster_labels(links)
 
     # Clusters IDs to segment labels
     # clus = dict()
     subseg_ids = diary_obj.modelset
 
-    i = 0
+    i = 0  # speaker/cluster ID
     lol = []
     for c in clusters:
         clus_elements = clusters[c]
+
         for elem in clus_elements:
+
             sub_seg = subseg_ids[elem]
+
             splitted = sub_seg.rsplit("_", 2)
             rec_id = str(splitted[0])
             sseg_start = float(splitted[1])
             sseg_end = float(splitted[2])
             spkr_id = rec_id + "_" + str(i)
+
             a = [rec_id, sseg_start, sseg_end, spkr_id]
             lol.append(a)
         i += 1
 
+    # Sorting based on start time of sub-segment
     lol.sort(key=lambda x: float(x[1]))
 
+    # Proceed in simple 2 steps: (i) Merge sseg of same speakers then (ii) splits different speakers
+    # Merge adjacent sub-segments that belong to same speaker (or cluster)
     lol = merge_ssegs_same_speaker(lol)
+
+    # Distribute duration of adjacent overlapping sub-segments belonging to different speakers (or cluster)
+    # Taking mid-point as the splitting time location.
     lol = distribute_overlap(lol)
 
     logger.info("Completed diarizing " + rec_id)
@@ -457,7 +510,7 @@ if __name__ == "__main__":
             xvectors_stat = pickle.load(in_file)
 
     # Training Gaussina PLDA model
-    # (Using Xvectors from Voxceleb)
+    # (Using Xvectors extracted from Voxceleb)
     logger.info("Training PLDA model")
     params.compute_plda.plda(xvectors_stat)
     logger.info("PLDA training completed")
@@ -495,11 +548,11 @@ if __name__ == "__main__":
         diary_stat_file = os.path.join(xvect_dir, rec_id + "_xv_stat.pkl")
         diary_ndx_file = os.path.join(xvect_dir, rec_id + "_ndx.pkl")
 
-        # Data loader
+        # Prepare a csv for a recording
         prepare_subset_csv(full_diary_csv, rec_id, xvect_dir)
         new_csv_file = os.path.join(xvect_dir, rec_id + ".csv")
 
-        # DataLoaderFactory
+        # Setup a dataloader for above csv
         diary_set = DataLoaderFactory(
             new_csv_file,
             params.diary_loader.batch_size,
@@ -546,7 +599,7 @@ if __name__ == "__main__":
         logger.info("Performing AHC")
         do_ahc(scores_plda.scoremat, out_rttm_file, rec_id)
 
-    # Optional
+    # (Optional) Concatenate individual RTTM files
     concate_rttm_file = rttm_dir + "/sys_output.rttm"
 
     with open(concate_rttm_file, "w") as cat_file:
