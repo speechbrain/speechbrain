@@ -98,36 +98,6 @@ class ASRDataset(
                         )
                     )
 
-    def create_targets(self, examples):
-
-        for supervision in self.supervisions:
-            if supervision == "phones":
-
-                # TODO probably we could make a more general function here for integer encoding
-                # TODO question what happens when we have a symbol in test which is not in train --> will probably break everything.
-                all_phns = set()
-                for ex in examples:
-                    c_phs = ex["supervision"]["phones"]
-                    all_phns.union(set(c_phs))
-
-                all_phns = sorted(
-                    list(all_phns)
-                )  # sort alphabetically just in case
-                all_phns = {
-                    key: {"index": index} for index, key in enumerate(all_phns)
-                }
-                # we convert from phones to integers now
-                for ex in examples:
-                    for phn_indx in range(len(ex["supervision"]["phones"])):
-                        c_phn = ex["supervision"]["phones"][phn_indx]
-                        ex["supervision"]["phones"][phn_indx] = all_phns[c_phn]
-
-            else:
-                # TODO other supervisions for ASR here
-                raise NotImplementedError
-
-        return examples
-
     def __len__(self):
         return len(self.examples)
 
