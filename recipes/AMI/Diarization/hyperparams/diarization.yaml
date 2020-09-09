@@ -40,7 +40,7 @@ overlap: 1.5
 
 compute_plda: !new:speechbrain.processing.PLDA_LDA.PLDA
     rank_f: 100
-    nb_iter: 2
+    nb_iter: 10
     scaling_factor: 1
 
 # Functions
