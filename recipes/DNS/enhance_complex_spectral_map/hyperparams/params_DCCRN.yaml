@@ -9,11 +9,11 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Basic parameters
 data_folder: !PLACEHOLDER
-output_folder: !ref results/complexDCCRN_dynamic_lr_sisnr/<seed>
+output_folder: !ref results/complexDCCRN_semicausal/<seed>
 enhanced_folder: !ref <output_folder>/enhanced/
 
 use_tensorboard: False
-tensorboard_logs: !ref results/logs/complexDCCRN_dynamic_lr_sisnr/<seed>
+tensorboard_logs: !ref results/logs/complexDCCRN_semicausal/<seed>
 train_log: !ref <output_folder>/train_log.txt
 
 use_multigpu: True
@@ -32,9 +32,9 @@ device: cuda
 
 # Model Parameters
 conv_channels: [32, 64, 128, 128, 128, 256]
-kernel_size: [3, 3]
-padding_type: same
-strides: [2, 1]
+kernel_size: [3, 5]
+padding_type: causal
+strides: [1, 2]
 rnn_size: 256
 rnn_layers: 2
 
@@ -100,7 +100,7 @@ compute_cost: !name:speechbrain.nnet.losses.mse_loss
 lr_annealing: !new:speechbrain.nnet.lr_schedulers.NewBobLRScheduler
   improvement_threshold: 0.0
   annealing_factor: 0.5
-  patient: 0
+  patient: 5
 
 optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
   learning_rate: !ref <lr>

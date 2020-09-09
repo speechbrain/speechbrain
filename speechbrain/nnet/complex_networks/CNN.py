@@ -227,7 +227,8 @@ class ComplexConv2d(nn.Module):
         Default: same.
         (same, valid, causal). If "valid", no padding is performed.
         If "same" and stride is 1, output shape is same as input shape.
-        "causal" results in causal (dilated) convolutions.
+        "causal" results in convolutions which are causal on time axis,
+        and "same" on feature axis.
     padding_mode: str, optional
         Default: reflect.
         This flag specifies the type of padding. See torch.nn documentation
@@ -337,12 +338,12 @@ class ComplexConv2d(nn.Module):
         if init_params:
             self.init_params(x)
 
-        # (batch, channel, feature, time)
-        x = x.transpose(1, -1)
-
-        # If (batch, time, feature) -> (batch, 1, time, feature)
+        # If (batch, time, feature) -> (batch, time, feature, 1)
         if self.unsqueeze:
             x = x.unsqueeze(1)
+
+        # (batch, channel, time, feature)
+        x = x.permute(0, 3, 1, 2)
 
         if self.padding == "same":
             x = self._manage_padding(
@@ -350,8 +351,17 @@ class ComplexConv2d(nn.Module):
             )
 
         elif self.padding == "causal":
-            num_pad = (self.kernel_size - 1) * self.dilation
-            x = F.pad(x, (num_pad, 0))
+            # Padding on time axis for causal
+            num_pad = (self.kernel_size[0] - 1) * self.dilation[0]
+            x = F.pad(x, (0, 0, num_pad, 0))
+
+            # Padding on feature axis
+            x = self._manage_padding(
+                x,
+                [1, self.kernel_size[1]],
+                [1, self.dilation[1]],
+                [1, self.stride[1]],
+            )
 
         elif self.padding == "valid":
             pass
@@ -364,10 +374,10 @@ class ComplexConv2d(nn.Module):
 
         wx = self.conv(x)
 
-        if self.unsqueeze:
-            wx = wx.squeeze(1)
+        wx = wx.permute(0, 2, 3, 1)
 
-        wx = wx.transpose(1, -1)
+        if self.unsqueeze:
+            wx = wx.squeeze(-1)
 
         return wx
 
@@ -387,13 +397,13 @@ class ComplexConv2d(nn.Module):
 
         # Time padding
         padding_time = get_padding_elem(
-            L_in, stride[-1], kernel_size[-1], dilation[-1]
+            L_in, stride[-2], kernel_size[-2], dilation[-2]
         )
 
         padding_freq = get_padding_elem(
-            L_in, stride[-2], kernel_size[-2], dilation[-2]
+            L_in, stride[-1], kernel_size[-1], dilation[-1]
         )
-        padding = padding_time + padding_freq
+        padding = padding_freq + padding_time
 
         # Applying padding
         x = nn.functional.pad(x, tuple(padding), mode=self.padding_mode)

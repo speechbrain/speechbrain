@@ -7,7 +7,7 @@ Authors
 import torch  # noqa F4001
 import torch.nn as nn
 from speechbrain.nnet.complex_networks.CNN import ComplexConv2d
-from speechbrain.nnet.linear import Linear
+from speechbrain.nnet.CNN import Conv1d
 from speechbrain.nnet.complex_networks.normalization import ComplexBatchNorm
 from speechbrain.nnet.RNN import LSTM
 from speechbrain.nnet.complex_networks.complex_ops import complex_concat
@@ -57,15 +57,15 @@ class DCCRN(nn.Module):
             x = conv(x, init_params=True)
             self.encoder_size.append(x.shape[2])
 
-        self.rnn = LSTM(
-            self.rnn_size,
-            num_layers=self.rnn_layers,
-            # normalization="batchnorm",
+        self.rnn = LSTM(self.rnn_size, num_layers=self.rnn_layers,).to(
+            self.device
         )
 
         # Linear layer to transform rnn output back to 4-D
         self.linear_dim = self.encoder_size[-1] * self.conv_channels[-1] * 2
-        self.linear_trans = Linear(self.linear_dim)
+        self.linear_trans = Conv1d(self.linear_dim, 3, 1, padding="valid").to(
+            self.device
+        )
 
         self.decoder_convs = nn.ModuleList(
             [
@@ -88,7 +88,7 @@ class DCCRN(nn.Module):
                 output_size=[T, F],
                 padding=self.padding,
                 use_norm_act=False,
-            )
+            ).to(self.device)
         )
 
     def forward(self, x, init_params=False):
@@ -100,22 +100,13 @@ class DCCRN(nn.Module):
             x = conv(x, init_params=False)
             encoder_outputs.append(x)
 
-        # Apply RNN and linear transform back to 4-D
+        # Apply RNN and reshape back to 4-D
         rnn_out = self.rnn(x, init_params=init_params)
+
+        # Semi-causal padding on time axis, kernel size is fixed to 3
+        rnn_out = torch.nn.functional.pad(rnn_out, (0, 0, 1, 1))
         rnn_out = self.linear_trans(rnn_out, init_params=init_params)
 
-        # If use complex RNN + complex Linear:
-        # split then reshape is needed instead of directly reshape
-        # rnn_out_r, rnn_out_i = torch.split(rnn_out, self.linear_dim, -1)
-        # rnn_out_r = rnn_out_r.reshape(
-        #     x.shape[0], x.shape[1], x.shape[2], x.shape[3] // 2
-        # )
-        # rnn_out_i = rnn_out_i.reshape(
-        #     x.shape[0], x.shape[1], x.shape[2], x.shape[3] // 2
-        # )
-        # rnn_out = torch.cat([rnn_out_r, rnn_out_i], dim=3)
-
-        # Directly reshape
         rnn_out = rnn_out.reshape(
             x.shape[0], x.shape[1], x.shape[2], x.shape[3]
         )
