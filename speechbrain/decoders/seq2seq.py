@@ -1043,7 +1043,7 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
         beam_size,
         topk=1,
         return_log_probs=False,
-        using_eos_threshold=False,
+        using_eos_threshold=True,
         eos_threshold=1.5,
         length_normalization=False,
         length_rewarding=0,
