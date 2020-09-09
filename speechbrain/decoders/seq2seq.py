@@ -328,6 +328,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         eos_threshold=1.5,
         length_normalization=True,
         length_rewarding=0,
+        coverage_penalty=False,
         lm_weight=0.0,
         lm_modules=None,
         using_max_attn_shift=False,
@@ -342,6 +343,8 @@ class S2SBeamSearcher(S2SBaseSearcher):
         self.return_log_probs = return_log_probs
         self.length_normalization = length_normalization
         self.length_rewarding = length_rewarding
+        self.coverage_penalty = coverage_penalty
+        self.coverage = None
 
         if self.length_normalization and self.length_rewarding > 0:
             raise ValueError(
@@ -656,6 +659,23 @@ class S2SBeamSearcher(S2SBaseSearcher):
                     prev_attn_peak, dim=0, index=predecessors
                 )
 
+            if self.coverage_penalty:
+                cur_attn = self.dec.attn.prev_attn
+
+                if self.dec.attn_type == "multiheadlocation":
+                    cur_attn = torch.mean(cur_attn, dim=1)
+
+                if t == 0:
+                    self.coverage = cur_attn
+                else:
+                    self.coverage += cur_attn
+                    penalty = torch.max(
+                        self.coverage, self.coverage.clone().fill_(0.5)
+                    ).sum(-1)
+                    penalty -= self.coverage.size(-1) * 0.5
+                    penalty = penalty.view(batch_size * self.beam_size)
+                    scores -= penalty * 1
+
             # Update alived_seq
             alived_seq = torch.cat(
                 [
@@ -849,8 +869,9 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
         return_log_probs=False,
         using_eos_threshold=True,
         eos_threshold=1.5,
-        length_normalization=True,
+        length_normalization=False,
         length_rewarding=0,
+        coverage_penalty=True,
         lm_weight=0.0,
         lm_modules=None,
         using_max_attn_shift=False,
@@ -870,6 +891,7 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
             eos_threshold,
             length_normalization,
             length_rewarding,
+            coverage_penalty,
             lm_weight,
             lm_modules,
             using_max_attn_shift,
