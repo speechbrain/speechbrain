@@ -21,6 +21,8 @@ import soundfile as sf
 import multiprocessing as mp
 from multiprocessing import Manager
 from torch.utils.data import Dataset, DataLoader
+import h5py
+import math
 
 logger = logging.getLogger(__name__)
 
@@ -1011,6 +1013,481 @@ class DatasetFactory(Dataset):
         data_read = [snt_id, data, data_shape]
 
         return data_read
+
+
+class HDF5DataLoaderFactory(torch.nn.Module):
+    """
+    Creates data loaders for a hdf5 file (text-only).
+
+    Arguments
+    ---------
+    hdf5 : str
+        the hdf5 file that stores the data
+    batch_size : int, optional
+        Default: 1 .  The data itemized in the hdf5 file are automatically
+        organized in batches. In the case of variable size tensors, zero
+        padding is performed. When batch_size=1, the data are simply processed
+        one by one without the creation of batches.
+    data_entries : list, None, optional
+        Default: None .  A list of data entries may be specified.  If
+        specified, only those data entries are read from the hdf5 file. If None,
+        read all the data entries.
+    sentence_sorting : {'ascending', 'descending', 'random', 'original'}
+        Default: 'random'. This parameter specifies how to sort the data
+        before the batch creation. Ascending and descending values sort the
+        data using the length of tokens specified in the "sort_by" option.
+        Random sort the data randomly, while original (the default option) keeps
+        the original sequence of data defined in the hdf5 file. Note that this option
+        affect the batch creation. If the data are sorted in ascending or descending
+        order the batches will approximately have the same size and the need
+        for zero padding is minimized. Instead, if sentence_sorting is set to
+        random, the batches might be composed of both short and long sequences
+        and several zeros might be added in the batch. When possible, it is
+        desirable to sort the data. This way, we use more efficiently the
+        computational resources, without wasting time on processing time steps
+        composed on zeros only. Note that is the data are sorted in ascending/
+        descending errors the same batches will be created every time we want
+        to loop over the dataset, while if we set a random order the batches
+        will be different every time we loop over the dataset.
+    num_workers : int, optional
+        Default: 0 . Data is read using the pytorch data_loader.  This option
+        sets the number of workers used to read the data from disk and form the
+        related batch of data. Please, see the pytorch documentation on the
+        data loader for more details.
+    select_n_setences : int, optional
+        Default: None . It selects the first N sentences of the CSV file.
+    drop_last : bool, optional
+        Default: False . This is an option directly passed to the pytorch
+        dataloader (see the related documentation for more details). When True,
+        it skips the last batch of data if contains fewer samples than the
+        other ones.
+    padding_value : int, optional
+        Default: 0. Value to use for padding.
+    output_folder : str, optional
+        A folder for storing the label dict
+
+    Example
+    -------
+    >>> h5_file = 'samples/text_samples/hdf5_example.h5'
+    >>> label_dict_file = 'samples/text_samples/label_dict.pkl'
+    >>> data_loader=DataLoaderFactory(h5_file, label_dict_file)
+    """
+
+    def __init__(
+        self,
+        hdf5_file,
+        label_dict_file,
+        sort_by="wrd",
+        batch_size=1,
+        data_entries=None,
+        sentence_sorting="random",
+        num_workers=0,
+        select_n_sentences=None,
+        local_random=False,
+        chunk_size=2048,
+        drop_last=False,
+        padding_value=0,
+        output_folder=None,
+    ):
+        super().__init__()
+
+        # Store init params
+        self.hdf5_file = hdf5_file
+        self.label_dict_file = label_dict_file
+        self.sort_by = sort_by
+        self.batch_size = batch_size
+        if data_entries is None:
+            raise ValueError("data entries must be specified.")
+        self.data_entries = data_entries
+        self.sentence_sorting = sentence_sorting
+        self.local_random = local_random
+        self.chunk_size = chunk_size
+        self.num_workers = num_workers
+        self.select_n_sentences = select_n_sentences
+        self.drop_last = drop_last
+        self.padding_value = padding_value
+        self.output_folder = output_folder
+
+        # Shuffle the data every time if random is selected
+        if self.sentence_sorting == "random":
+            self.shuffle = True
+        else:
+            self.shuffle = False
+
+    def forward(self):
+        """
+        Output:
+        dataloader: It is a list returning all the dataloaders created.
+        """
+        self.label_dict = self.load_label_dict(self.label_dict_file)
+
+        # Creating a dataloader
+        dataset = HDF5DatasetFactory(
+            self.hdf5_file,
+            self.label_dict,
+            self.data_entries,
+            sort_by=self.sort_by,
+            sentence_sorting=self.sentence_sorting,
+        )
+        if self.local_random:
+            print("local random data loader is used.")
+            batch_sampler = LocalRandomSampler(
+                chunk_size=self.chunk_size,
+                batch_size=self.batch_size,
+                data_len=len(dataset),
+                drop_last=self.drop_last,
+            )
+            self.dataloader = DataLoader(
+                dataset,
+                pin_memory=False,
+                num_workers=self.num_workers,
+                collate_fn=self.batch_creation,
+                batch_sampler=batch_sampler,
+            )
+        else:
+            self.dataloader = DataLoader(
+                dataset,
+                batch_size=self.batch_size,
+                shuffle=self.shuffle,
+                pin_memory=False,
+                drop_last=self.drop_last,
+                num_workers=self.num_workers,
+                collate_fn=self.batch_creation,
+            )
+
+        return self.dataloader
+
+    def batch_creation(self, data_lists):
+        """
+        Data batching
+
+        When necessary this performs zero padding on the input tensors. The
+        function is executed in collate_fn of the pytorch DataLoader.
+
+        Arguments
+        ---------
+        data_list : list
+            list of data returned by the data reader [data_id, data, data_len]
+
+        Returns
+        -------
+        list :
+            list containing the final batches:
+            [data_id,data,data_len] where zero-padding is
+            performed where needed.
+        """
+        batch = []
+
+        n_data_entries = len(data_lists[0])
+
+        batch_list = [[[] for i in range(3)] for j in range(n_data_entries)]
+
+        for data_entry in data_lists:
+            for i, data in enumerate(data_entry):
+                batch_list[i][0].append(data[0])
+                batch_list[i][1].append(data[1])
+                batch_list[i][2].append(data[2])
+
+        for data_list in batch_list:
+
+            # Convert all to torch tensors
+            self.numpy2torch(data_list)
+
+            # Save sentence IDs
+            snt_ids = data_list[0]
+
+            # Save duration
+            sequences = data_list[1]
+            time_steps = torch.tensor(data_list[2])
+
+            # Check if current element is a tensor
+            if isinstance(sequences[0], torch.Tensor):
+
+                # Padding the sequence of sentences (if needed)
+                batch_data = self.padding(sequences)
+
+                # Return % of time steps without padding (useful for save_batch)
+                time_steps = time_steps / batch_data.shape[1]
+
+            else:
+                # Non-tensor case
+                batch_data = sequences
+
+            # Batch composition
+            batch.append([snt_ids, batch_data, time_steps])
+
+        return batch
+
+    def padding(self, sequences):
+        """
+        This function perform zero padding on the input list of tensors
+
+        Arguments
+        ---------
+        sequences : list
+            the list of tensors to pad
+
+        Returns
+        -------
+        torch.tensor
+            a tensor gathering all the padded tensors
+
+        Example
+        -------
+        >>> csv_file = 'samples/audio_samples/csv_example2.csv'
+        >>> # Initialization of the class
+        >>> data_loader=DataLoaderFactory(csv_file)
+        >>> # list of tensors
+        >>> tensor_lst=[torch.tensor([1,2,3,4]),torch.tensor([1,2])]
+        >>> data_loader.padding(tensor_lst)[1,:]
+        tensor([1., 2., 0., 0.])
+        """
+
+        # Batch size
+        batch_size = len(sequences)
+
+        # Computing data dimensionality (only the first time)
+        try:
+            self.data_dim
+        except Exception:
+            self.data_dim = list(sequences[0].shape[2:])
+
+        # Finding the max len across sequences
+        max_len = max([s.size(0) for s in sequences])
+
+        # Batch out dimensions
+        out_dims = [batch_size] + [max_len] + self.data_dim
+
+        # Batch initialization
+        batch_data = torch.zeros(out_dims) + self.padding_value
+
+        # Appending data
+        for i, tensor in enumerate(sequences):
+            length = tensor.shape[0]
+            batch_data[i, :length, ...] = tensor
+
+        return batch_data
+
+    def numpy2torch(self, data_list):
+        """
+        This function coverts a list of numpy tensors to torch.Tensor
+
+        Arguments
+        ---------
+        data_list : list
+            list of numpy arrays
+
+        Returns
+        -------
+        None
+            The tensors are modified in place!
+
+        Note
+        ----
+        Did you notice, the tensors are modified in place!
+
+        Example
+        -------
+        >>> csv_file = 'samples/audio_samples/csv_example2.csv'
+        >>> # Initialization of the class
+        >>> data_loader=DataLoaderFactory(csv_file)
+        >>> # list of numpy tensors
+        >>> tensor_lst=[[np.asarray([1,2,3,4]),np.asarray([1,2])]]
+        >>> # Applying zero padding
+        >>> data_loader.numpy2torch(tensor_lst)
+        >>> print(tensor_lst)
+        [[tensor([1, 2, 3, 4]), tensor([1, 2])]]
+        >>> print(type(tensor_lst[0][0]))
+        <class 'torch.Tensor'>
+        """
+
+        # Covert all the elements of the list to torch.Tensor
+        for i in range(len(data_list)):
+            for j in range(len(data_list[i])):
+                if isinstance(data_list[i][j], np.ndarray):
+                    data_list[i][j] = torch.from_numpy(data_list[i][j])
+
+    def load_label_dict(self, label_dict_file):
+        label_dict = load_pkl(label_dict_file)
+
+        # saving the label_dict:
+        if self.output_folder is not None:
+            label_dict_file = self.output_folder + "/label_dict.pkl"
+            save_pkl(label_dict, label_dict_file)
+        return label_dict
+
+
+class HDF5DatasetFactory(Dataset):
+    """
+    This class implements the dataset needed by the pytorch data_loader.
+    This class is used for text-only data loading.
+
+    Arguments
+    ---------
+    hdf5 : string
+        The path of hdf5 file.
+    label_dict : python dict
+        The label dictionary used for string to index conversion.
+        It has to contain a "lab2index" entry.
+    data_entries : list
+        it is a list containing the data_entries to read from the hdf5 file.
+    sentence_sorting : string
+        One of (ascending/descending/random/original).
+    sort_by : string
+        The entry that the sentence_sorting option is based on.
+
+    Example
+    -------
+    >>> import pickle
+    >>> h5_file = 'samples/text_samples/hdf5_example.h5'
+    >>> label_dict = pickle.load(open("samples/text_samples/label_dict.pkl", "rb"))
+    >>> dataset = HDF5DatasetFactory(h5_file, label_dict, ["wrd"], "random")
+    >>> data = dataset[0]
+    >>> data[0][1]
+    tensor([1, 2])
+    """
+
+    def __init__(
+        self, hdf5, label_dict, data_entries, sentence_sorting, sort_by="wrd",
+    ):
+
+        # Setting the variables
+        self.f_h5 = h5py.File(hdf5, "r")
+        self.label_dict = label_dict
+        self.data_entries = data_entries
+        self.sentence_sorting = sentence_sorting
+        self.data_len = len(self.f_h5[self.data_entries[0]])
+
+        # Only useful for ascending/descending order
+        self.sort_by = sort_by
+        self.indices = self._generate_indices()
+
+    def _generate_indices(self):
+        """
+        Generate the indices to load the sentences.
+        """
+        indices = [i for i in range(self.data_len)]
+
+        def sort_key(i):
+            return len(self.f_h5[self.sort_by][i].split())
+
+        if self.sentence_sorting == "ascending":
+            indices = sorted(indices, key=sort_key)
+        elif self.sentence_sorting == "descending":
+            indices = sorted(indices, key=sort_key, reverse=True)
+        return indices
+
+    def __len__(self):
+        """
+        This (mandatory) function returns the number of sentences.
+
+        Returns
+        -------
+        int
+            the number of data that can be read.
+        """
+        return self.data_len
+
+    def __getitem__(self, idx):
+
+        data = []
+        real_idx = self.indices[idx]
+
+        for data_entry in self.data_entries:
+            data_source = self.f_h5[data_entry][real_idx]
+
+            # Check if we need to convert labels to indexes
+            if self.label_dict and data_entry in self.label_dict:
+                lab2ind = self.label_dict[data_entry]["lab2index"]
+            else:
+                lab2ind = None
+
+            # Reading data
+            new_data = self.read_data(
+                data_source, str(real_idx), lab2ind=lab2ind
+            )
+            data.append(new_data)
+        return data
+
+    def read_data(self, data_source, snt_id, lab2ind=None):
+        """
+        This function manages reading operation from disk.
+
+        Arguments
+        ---------
+        data_source : string
+            The sentence to be encoded.
+        snt_id : str
+            Sentence identifier
+
+        Returns
+        -------
+        list
+            List contaning the read data. The list is formatted in the following
+            way: [data_id,data,data_len]
+        """
+
+        # Read the data from disk
+        data = read_string(data_source, lab2ind=lab2ind)
+
+        # Convert numpy array to float32
+        if isinstance(data, np.ndarray):
+            data_shape = np.asarray(data.shape[-1]).astype("float32")
+        elif isinstance(data, torch.Tensor):
+            data_shape = np.asarray(data.shape[-1]).astype("float32")
+
+        else:
+            data_shape = np.asarray(1).astype("float32")
+
+        data_read = [snt_id, data, data_shape]
+
+        return data_read
+
+
+class LocalRandomSampler:
+    def __init__(self, chunk_size, batch_size, data_len, drop_last):
+        self.chunk_size = chunk_size
+        self.batch_size = batch_size
+        self.data_len = data_len
+        self.drop_last = drop_last
+
+        self.chunks = [
+            list(range(i * chunk_size, i * chunk_size + chunk_size))
+            for i in range(data_len // chunk_size)
+        ]
+        if not drop_last and data_len % chunk_size != 0:
+            self.chunks.append(
+                list(range(data_len - (data_len % chunk_size), data_len))
+            )
+        self.shuffle()
+        self.batches = self.generate_batches()
+
+    def __getitem__(self, idx):
+        if idx >= len(self.batches):
+            self.shuffle()
+            self.batches = self.generate_batches()
+            raise IndexError
+        return self.batches[idx]
+
+    def __len__(self):
+        return len(self.batches)
+
+    def shuffle(self):
+        for i in range(len(self.chunks)):
+            random.shuffle(self.chunks[i])
+        return
+
+    def generate_batches(self):
+        batches = []
+        for chunk in self.chunks:
+            batches += [
+                chunk[
+                    i * self.batch_size : i * self.batch_size + self.batch_size
+                ]
+                for i in range(math.ceil(len(chunk) / self.batch_size))
+            ]
+        random.shuffle(batches)
+        return batches
 
 
 def convert_index_to_lab(batch, ind2lab):
