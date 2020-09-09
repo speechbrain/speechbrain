@@ -660,7 +660,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 )
 
             if self.coverage_penalty:
-                cur_attn = self.dec.attn.prev_attn
+                cur_attn = torch.index_select(attn, dim=0, index=predecessors)
 
                 if self.dec.attn_type == "multiheadlocation":
                     cur_attn = torch.mean(cur_attn, dim=1)
