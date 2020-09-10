@@ -152,9 +152,9 @@ class SEBrain(sb.Brain):
 # Recipe begins!
 if __name__ == "__main__":
 
-    # This hack needed to import data preparation script from ..
+    # This hack needed to import data preparation script from ../..
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    sys.path.append(os.path.dirname(current_dir))
+    sys.path.append(os.path.dirname(os.path.dirname(current_dir)))
     from voicebank_prepare import prepare_voicebank  # noqa E402
 
     # Load hyperparameters file with command-line overrides

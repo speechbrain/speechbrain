@@ -18,9 +18,9 @@ except ImportError:
     print("Please install STOI from https://pypi.org/project/pystoi/")
 
 
-# This hack needed to import data preparation script from ..
+# This hack needed to import data preparation script from ../..
 current_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(os.path.dirname(current_dir))
+sys.path.append(os.path.dirname(os.path.dirname(current_dir)))
 from dns_prepare import prepare_dns  # noqa E402
 
 # Load hyperparameters file with command-line overrides
