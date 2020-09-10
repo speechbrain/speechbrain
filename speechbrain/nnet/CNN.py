@@ -2,6 +2,7 @@
 
 Authors
  * Mirco Ravanelli 2020
+ * Jianyuan Zhong 2020
 """
 
 import math
@@ -519,6 +520,15 @@ class Conv2d(nn.Module):
         padding_mode="reflect",
     ):
         super().__init__()
+
+        # handle the case if some parameter is int
+        if isinstance(kernel_size, int):
+            kernel_size = (kernel_size, kernel_size)
+        if isinstance(stride, int):
+            stride = (stride, stride)
+        if isinstance(dilation, int):
+            dilation = (dilation, dilation)
+
         self.out_channels = out_channels
         self.kernel_size = kernel_size
         self.stride = stride
@@ -541,6 +551,7 @@ class Conv2d(nn.Module):
 
         self.in_channels = self._check_input(first_input)
 
+        # Weights are initialized following pytorch approach
         self.conv = nn.Conv2d(
             self.in_channels,
             self.out_channels,
@@ -642,6 +653,220 @@ class Conv2d(nn.Module):
             )
 
         return in_channels
+
+
+class DepthwiseSeparableConv1d(nn.Module):
+    """This class implements the depthwise seperable convolution
+    First, a channel wise convolution is applied to the input
+    Then, a point wise convolution to project the input to output
+
+    Arguments
+    ---------
+    ut_channels: int
+        It is the number of output channels.
+    kernel_size: int
+        Kernel size of the convolutional filters.
+    stride: int
+        Stride factor of the convolutional filters. When the stride factor > 1,
+        a decimation in time is performed.
+    dilation: int
+        Dilation factor of the convolutional filters.
+    padding: str
+        (same, valid, causal). If "valid", no padding is performed.
+        If "same" and stride is 1, output shape is same as input shape.
+        "causal" results in causal (dilated) convolutions.
+    padding_mode: str
+        This flag specifies the type of padding. See torch.nn documentation
+        for more information.
+    bias: bool
+        If True, the additive bias b is adopted
+
+    Example
+    -------
+    >>> conv = DepthwiseSeparableConv1d(256, 3)
+    >>> inp = torch.randn([8, 120, 40])
+    >>> out = conv(inp, True)
+    >>> print(out.shape)
+    torch.Size([8, 120, 256])
+    """
+
+    def __init__(
+        self,
+        out_channels,
+        kernel_size,
+        stride=1,
+        dilation=1,
+        padding="same",
+        bias=True,
+        padding_mode="reflect",
+    ):
+        super().__init__()
+        self.out_channels = out_channels
+        self.kernel_size = kernel_size
+        self.stride = stride
+        self.dilation = dilation
+        self.padding = padding
+        self.bias = bias
+        self.padding_mode = padding_mode
+
+    def _check_input(self, x):
+        """
+        Checks the input.
+        Input must be 3d tensor.
+        """
+        assert x.dim() == 3, "input must be a 3d tensor"
+
+    def init_params(self, first_input):
+        """
+        Initializes the parameters of the conv1d layer.
+
+        Arguments
+        ---------
+        first_input : tensor
+            A first input used for initializing the parameters.
+        """
+        bz, time, chn = first_input.shape
+
+        self.depthwise = Conv1d(
+            chn,
+            self.kernel_size,
+            stride=self.stride,
+            dilation=self.dilation,
+            padding=self.padding,
+            groups=chn,
+            bias=self.bias,
+        )
+
+        self.pointwise = Conv1d(self.out_channels, kernel_size=1)
+
+    def forward(self, x, init_params=False):
+        """Returns the output of the convolution.
+
+        Arguments
+        ---------
+        x : torch.Tensor (batch, time, channel)
+            input to convolve. 3d tensors are expected.
+
+        """
+        self._check_input(x)
+
+        if init_params:
+            self.init_params(x)
+
+        return self.pointwise(self.depthwise(x, init_params), init_params)
+
+
+class DepthwiseSeparableConv2d(nn.Module):
+    """This class implements the depthwise seperable convolution
+    First, a channel wise convolution is applied to the input
+    Then, a point wise convolution to project the input to output
+
+    Arguments
+    ---------
+    ut_channels: int
+        It is the number of output channels.
+    kernel_size: int
+        Kernel size of the convolutional filters.
+    stride: int
+        Stride factor of the convolutional filters. When the stride factor > 1,
+        a decimation in time is performed.
+    dilation: int
+        Dilation factor of the convolutional filters.
+    padding: str
+        (same, valid, causal). If "valid", no padding is performed.
+        If "same" and stride is 1, output shape is same as input shape.
+        "causal" results in causal (dilated) convolutions.
+    padding_mode: str
+        This flag specifies the type of padding. See torch.nn documentation
+        for more information.
+    bias: bool
+        If True, the additive bias b is adopted
+
+    Example
+    -------
+    >>> conv = DepthwiseSeparableConv2d(256, (3, 3))
+    >>> inp = torch.randn([8, 120, 40])
+    >>> out = conv(inp, True)
+    >>> print(out.shape)
+    torch.Size([8, 120, 40, 256])
+    """
+
+    def __init__(
+        self,
+        out_channels,
+        kernel_size,
+        stride=(1, 1),
+        dilation=(1, 1),
+        padding="same",
+        bias=True,
+        padding_mode="reflect",
+    ):
+        super().__init__()
+
+        # handle the case if some parameter is int
+        if isinstance(kernel_size, int):
+            kernel_size = (kernel_size, kernel_size)
+        if isinstance(stride, int):
+            stride = (stride, stride)
+        if isinstance(dilation, int):
+            dilation = (dilation, dilation)
+
+        self.out_channels = out_channels
+        self.kernel_size = kernel_size
+        self.stride = stride
+        self.dilation = dilation
+        self.padding = padding
+        self.bias = bias
+        self.padding_mode = padding_mode
+
+    def _check_input(self, x):
+        """
+        Checks the input and return a tensor in 4d
+        Input must be 3d tensor.
+        """
+        assert x.dim() == 3 or x.dim() == 4, "input must be a 3d tensor"
+        if x.dim() == 3:
+            x = x.unsqueeze(-1)
+        return x
+
+    def init_params(self, first_input):
+        """
+        Initializes the parameters of the conv1d layer.
+
+        Arguments
+        ---------
+        first_input : tensor
+            A first input used for initializing the parameters.
+        """
+        bz, time, chn1, chn2 = first_input.shape
+
+        self.depthwise = Conv2d(
+            chn2,
+            self.kernel_size,
+            stride=self.stride,
+            dilation=self.dilation,
+            padding=self.padding,
+            groups=chn2,
+            bias=self.bias,
+        )
+
+        self.pointwise = Conv2d(self.out_channels, kernel_size=(1, 1))
+
+    def forward(self, x, init_params=False):
+        """Returns the output of the convolution.
+
+        Arguments
+        ---------
+        x : torch.Tensor (batch, time, channel)
+            input to convolve. 3d tensors are expected.
+
+        """
+        x = self._check_input(x)
+
+        if init_params:
+            self.init_params(x)
+
+        return self.pointwise(self.depthwise(x, init_params), init_params)
 
 
 def get_padding_elem(L_in, stride, kernel_size, dilation):

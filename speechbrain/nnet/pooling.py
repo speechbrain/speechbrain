@@ -4,6 +4,7 @@ Authors
  * Titouan Parcollet 2020
  * Mirco Ravanelli 2020
  * Nauman Dawalatabad 2020
+ * Jianyuan Zhong 2020
 """
 
 import torch
@@ -240,7 +241,7 @@ class StatisticsPooling(nn.Module):
         self.eps = 1e-5
         self.device = device
 
-    def forward(self, x):
+    def forward(self, x, lengths=None):
         """Calculates mean and std for a batch (input tensor).
 
         Arguments
@@ -248,17 +249,31 @@ class StatisticsPooling(nn.Module):
         x : torch.Tensor
             It represents a tensor for a mini-batch
         """
-        mean = x.mean(dim=1)
+        if lengths is None:
+            mean = x.mean(dim=1)
+            std = x.std(dim=1)
+        else:
+            mean = []
+            std = []
+            for snt_id in range(x.shape[0]):
+                # Avoiding padded time steps
+                actual_size = int(torch.round(lengths[snt_id] * x.shape[1]))
 
-        # Generate epsilon Gaussian noise tensor
+                # computing statistics
+                mean.append(
+                    torch.mean(x[snt_id, 1 : actual_size - 1, ...], dim=0)
+                )
+                std.append(
+                    torch.std(x[snt_id, 1 : actual_size - 1, ...], dim=0)
+                )
+
+            mean = torch.stack(mean)
+            std = torch.stack(std)
+
         gnoise = self._get_gauss_noise(mean.size())
         gnoise = gnoise.to(self.device)
-
-        # Adding noise tensor to mean
         mean += gnoise
-
-        # Adding small noise to std
-        std = x.std(dim=1) + self.eps
+        std = std + self.eps
 
         # Append mean and std of the batch
         pooled_stats = torch.cat((mean, std), dim=1)
@@ -280,3 +295,48 @@ class StatisticsPooling(nn.Module):
         gnoise = self.eps * ((1 - 9) * gnoise + 9)
 
         return gnoise
+
+
+class AdaptivePool(nn.Module):
+    """This class implements the adaptive average pooling
+    Arguments
+    ---------
+    delations : output_size
+        the size of the output
+
+    Example
+    -------
+    >>> pool = AdaptivePool(1)
+    >>> inp = torch.randn([8, 120, 40])
+    >>> output = pool(inp)
+    >>> print(output.shape)
+    torch.Size([8, 1, 40])
+    """
+
+    def __init__(self, output_size):
+        super().__init__()
+
+        condition = (
+            isinstance(output_size, int)
+            or isinstance(output_size, tuple)
+            or isinstance(output_size, list)
+        )
+        assert condition, "output size must be int or tuple"
+
+        if isinstance(output_size, tuple) or isinstance(output_size, list):
+            assert (
+                len(output_size) == 2
+            ), "len of output size must not be greater than 2"
+
+        if isinstance(output_size, int):
+            self.pool = nn.AdaptiveAvgPool1d(output_size)
+        else:
+            self.pool = nn.AdaptiveAvgPool2d(output_size)
+
+    def forward(self, x):
+
+        if len(x.shape) == 3:
+            return self.pool(x.permute(0, 2, 1)).permute(0, 2, 1)
+
+        if len(x.shape) == 4:
+            return self.pool(x.permute(0, 3, 1, 2)).permute(0, 2, 3, 1)
