@@ -457,9 +457,3 @@ test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
     csv_read: [wav, phn]
-
-wer_ctc: !name:speechbrain.nnet.knowledge_distillation.kd_losses.wer_ctc
-    blank_index: !ref <blank_index>
-
-wer_ce: !name:speechbrain.nnet.knowledge_distillation.kd_losses.wer_ce
-    eos_index: !ref <eos_index>

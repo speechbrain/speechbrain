@@ -5,8 +5,14 @@ import torch
 import speechbrain as sb
 from tqdm.contrib import tqdm
 import h5py
+import numpy as np
 
 from speechbrain.data_io.data_io import prepend_bos_token
+import speechbrain.utils.edit_distance as edit_distance
+from speechbrain.data_io.data_io import convert_index_to_lab
+from speechbrain.decoders.ctc import ctc_greedy_decode
+from speechbrain.decoders.decoders import undo_padding
+from speechbrain.decoders.seq2seq import batch_filter_seq2seq_output
 
 # This hack needed to import data preparation script from ..
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -98,6 +104,19 @@ for i in range(params.num_tea):
     exec("tea_modules_list.append(tea{}_modules)".format(i))
 
 
+def exclude_wer(wer):
+    """
+    This function is used to exclude the
+    wer values which is more than 100.
+    """
+    wer_list = []
+    for item in wer:
+        if item > 100:
+            item = 100
+        wer_list.append(item)
+    return np.array(wer_list)
+
+
 # Define training procedure
 class ASR(sb.core.Brain):
     def __init__(
@@ -127,6 +146,10 @@ class ASR(sb.core.Brain):
         feats = params.normalize(feats, wav_lens)
         apply_softmax = torch.nn.Softmax(dim=-1)
 
+        ind2lab = params.train_loader.label_dict["phn"]["index2lab"]
+        phns_decode = undo_padding(phns, phn_lens)
+        phns_decode = convert_index_to_lab(phns_decode, ind2lab)
+
         # run inference to each teacher model
         tea_dict_list = []
         for num in range(params.num_tea):
@@ -151,21 +174,43 @@ class ASR(sb.core.Brain):
                 p_seq_tea = apply_softmax(seq_logits_tea / params.T)
 
                 # WER from output layer of CTC
-                wer_ctc_tea = params.wer_ctc(
-                    p_ctc_tea, phns, wav_lens, phn_lens
+                sequence_ctc = ctc_greedy_decode(
+                    p_ctc_tea, wav_lens, blank_id=params.blank_index
+                )
+                sequence_ctc = convert_index_to_lab(sequence_ctc, ind2lab)
+                per_stats_ctc = edit_distance.wer_details_for_batch(
+                    ids, phns_decode, sequence_ctc, compute_alignments=False
                 )
 
-                # WER from output layer of CE
-                wer_tea = params.wer_ce(p_seq_tea, phns, phn_lens)
+                wer_ctc_tea = []
+                for item in per_stats_ctc:
+                    wer_ctc_tea.append(item["WER"])
 
-                wer_ctc_tea = wer_ctc_tea.to(params.device)
-                wer_tea = wer_tea.to(params.device)
+                wer_ctc_tea = exclude_wer(wer_ctc_tea)
+                wer_ctc_tea = np.expand_dims(wer_ctc_tea, axis=0)
+
+                # WER from output layer of CE
+                _, predictions = p_seq_tea.max(dim=-1)
+                hyps = batch_filter_seq2seq_output(
+                    predictions, eos_id=params.eos_index
+                )
+                sequence_ce = convert_index_to_lab(hyps, ind2lab)
+                per_stats_ce = edit_distance.wer_details_for_batch(
+                    ids, phns_decode, sequence_ce, compute_alignments=False
+                )
+
+                wer_tea = []
+                for item in per_stats_ce:
+                    wer_tea.append(item["WER"])
+
+                wer_tea = exclude_wer(wer_tea)
+                wer_tea = np.expand_dims(wer_tea, axis=0)
 
             # save the variables into dict
             tea_dict["p_ctc_tea"] = p_ctc_tea.cpu().numpy()
             tea_dict["p_seq_tea"] = p_seq_tea.cpu().numpy()
-            tea_dict["wer_ctc_tea"] = wer_ctc_tea.cpu().numpy()
-            tea_dict["wer_tea"] = wer_tea.cpu().numpy()
+            tea_dict["wer_ctc_tea"] = wer_ctc_tea
+            tea_dict["wer_tea"] = wer_tea
             tea_dict_list.append(tea_dict)
 
         return tea_dict_list
