@@ -74,7 +74,6 @@ lm_model: !new:speechbrain.lobes.models.RNNLM.RNNLM
     rnn_neurons: !ref <lm_rnn_neurons>
     dnn_blocks: !ref <lm_dnn_blocks>
     dnn_neurons: !ref <lm_dnn_neurons>
-    return_hidden: True # For inference
 
 enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
     activation: !ref <activation>
