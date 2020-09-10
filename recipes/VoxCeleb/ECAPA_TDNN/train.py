@@ -104,7 +104,7 @@ if hasattr(params, "augmentation"):
     modules.append(params.augmentation)
 
 # Object initialization for training embedding model
-xvect_brain = EmbeddingBrain(
+embedding_brain = EmbeddingBrain(
     modules=modules, optimizer=params.optimizer, first_inputs=[first_x],
 )
 
@@ -112,7 +112,7 @@ xvect_brain = EmbeddingBrain(
 params.checkpointer.recover_if_possible()
 
 # Train the Embedding model
-xvect_brain.fit(
+embedding_brain.fit(
     params.epoch_counter, train_set=train_set, valid_set=valid_set,
 )
 print("Embedding model training completed!")

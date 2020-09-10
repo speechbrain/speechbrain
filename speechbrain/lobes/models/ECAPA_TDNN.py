@@ -179,12 +179,14 @@ class AttentiveStatisticsPooling(nn.Module):
 
     Example
     -------
-    >>> inp_tensor = torch.rand([8, 120, 64]).transpose(1,2)
+    >>> inp_tensor = torch.rand([8, 120, 64]).transpose(1,2) * 1e+23
     >>> asp_layer = AttentiveStatisticsPooling(64)
     >>> lengths = torch.randint(1, 120, (8,))
     >>> out_tensor = asp_layer(inp_tensor, lengths, True).transpose(1,2)
     >>> out_tensor.shape
     torch.Size([8, 1, 128])
+    >>> torch.isnan(out_tensor).float().sum()
+    tensor(0.)
     """
 
     def __init__(self, channels, attention_channels=128, global_context=True):
@@ -211,21 +213,32 @@ class AttentiveStatisticsPooling(nn.Module):
         """
         L = x.shape[-1]
 
-        def _masked_mean_std(x, m, dim=2, eps=self.eps):
+        def _compute_statistics(x, m, dim=2, eps=self.eps, bound=1e9):
+            # Improving numerical stability before accumulation
+            absmax = int(x.abs().max())
+            if absmax > bound:
+                x = x.clamp(-bound, bound)
             mean = (m * x).sum(dim)
-            std = torch.sqrt((m * x * x).sum(dim) - mean * mean + eps)
+            # mse = (m * (x - mean.unsqueeze(2)).pow(2)).sum(dim)
+            # std = torch.sqrt(mse / m.sum(dim) + eps)
+            # Improving numerical stability of std for backward computation
+            # std = torch.max(std, eps * torch.ones_like(std))
+            std = eps * torch.ones_like(mean)
             return mean, std
 
-        if lengths is not None:
-            mask = length_to_mask(lengths, max_len=L, device=x.device)
-            mask = mask.unsqueeze(1)
-        # Global context
+        if lengths is None:
+            lengths = torch.ones(x.shape[0], device=x.device) * L
+
+        # Make binary mask of shape [N, 1, L]
+        mask = length_to_mask(lengths, max_len=L, device=x.device)
+        mask = mask.unsqueeze(1)
+
+        # Expand the temporal context  of the pooling layer by allowing the
+        # self-attention to look at global properties of the utterance.
         if self.global_context:
-            if lengths is None:
-                mean = x.mean(dim=2)
-                std = x.std(dim=2)
-            else:
-                mean, std = _masked_mean_std(x, mask)
+            # torch.std is unstable for backward computation
+            total = mask.sum(dim=2, keepdim=True).float()
+            mean, std = _compute_statistics(x.detach(), mask / total)
             mean = mean.unsqueeze(2).repeat(1, 1, L)
             std = std.unsqueeze(2).repeat(1, 1, L)
             attn = torch.cat([x, mean, std], dim=1)
@@ -238,11 +251,10 @@ class AttentiveStatisticsPooling(nn.Module):
             except TypeError:
                 attn = layer(attn)
 
-        if lengths is not None:
-            attn = attn.masked_fill(mask == 0, float("-inf"))
-
+        # Filter out zero-paddings
+        attn = attn.masked_fill(mask == 0, float("-inf"))
         attn = F.softmax(attn, dim=2)
-        mean, std = _masked_mean_std(x, attn)
+        mean, std = _compute_statistics(x, attn)
         # Append mean and std of the batch
         pooled_stats = torch.cat((mean, std), dim=1)
         pooled_stats = pooled_stats.unsqueeze(2)
@@ -364,6 +376,7 @@ class ECAPA_TDNN(torch.nn.Module):
         attention_channels=128,
         res2net_scale=8,
         se_channels=128,
+        global_context=True,
     ):
 
         super().__init__()
@@ -397,7 +410,11 @@ class ECAPA_TDNN(torch.nn.Module):
         self.mfa_activation = activation()
 
         # Attantitve Statistical pooling
-        self.asp = AttentiveStatisticsPooling(channels[-1], attention_channels)
+        self.asp = AttentiveStatisticsPooling(
+            channels[-1],
+            attention_channels=attention_channels,
+            global_context=global_context,
+        )
         self.asp_bn = BatchNorm1d()
 
         # Final linear transformation
