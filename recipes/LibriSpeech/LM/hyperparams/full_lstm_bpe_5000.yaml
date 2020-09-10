@@ -13,7 +13,7 @@ hdf5_train: !ref <data_folder>/<filename>
 # Training audio text (used for BPE tokenizer)
 train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
 dev_split: dev-clean
-csv_label: !ref <data_folder>/train.csv
+csv_label: !ref <data_folder>/train-960.csv
 csv_valid: !ref <data_folder>/<dev_split>.csv
 
 # Tokenizer model
