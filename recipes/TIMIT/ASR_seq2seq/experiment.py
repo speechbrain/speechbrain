@@ -117,6 +117,7 @@ class ASR(sb.Brain):
 
         if stage == sb.Stage.VALID:
             old_lr, new_lr = self.lr_annealing(per)
+            sb.nnet.update_learning_rate(self.optimizer, new_lr)
             self.train_logger.log_stats(
                 stats_meta={"epoch": epoch, "lr": old_lr},
                 train_stats={"loss": self.train_loss},
