@@ -661,20 +661,22 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
             if self.coverage_penalty:
                 cur_attn = torch.index_select(attn, dim=0, index=predecessors)
-
                 if self.dec.attn_type == "multiheadlocation":
                     cur_attn = torch.mean(cur_attn, dim=1)
 
                 if t == 0:
                     self.coverage = cur_attn
                 else:
-                    self.coverage += cur_attn
+                    self.coverage = torch.index_select(
+                        self.coverage, dim=0, index=predecessors
+                    )
+                    self.coverage = self.coverage + cur_attn
                     penalty = torch.max(
                         self.coverage, self.coverage.clone().fill_(0.5)
                     ).sum(-1)
-                    penalty -= self.coverage.size(-1) * 0.5
+                    penalty = penalty - self.coverage.size(-1) * 0.5
                     penalty = penalty.view(batch_size * self.beam_size)
-                    scores -= penalty * 1
+                    scores = scores - penalty * 0.5
 
             # Update alived_seq
             alived_seq = torch.cat(
