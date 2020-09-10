@@ -41,7 +41,6 @@ prepare_voxceleb(
     splits=["train", "dev", "enrol"],
     split_ratio=[90, 10],
     seg_dur=300,
-    vad=False,
     rand_seed=params.seed,
 )
 
