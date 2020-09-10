@@ -219,11 +219,10 @@ class AttentiveStatisticsPooling(nn.Module):
             if absmax > bound:
                 x = x.clamp(-bound, bound)
             mean = (m * x).sum(dim)
-            # mse = (m * (x - mean.unsqueeze(2)).pow(2)).sum(dim)
-            # std = torch.sqrt(mse / m.sum(dim) + eps)
+            mse = (m * (x - mean.unsqueeze(2)).pow(2)).sum(dim)
+            std = torch.sqrt(mse / m.sum(dim) + eps)
             # Improving numerical stability of std for backward computation
-            # std = torch.max(std, eps * torch.ones_like(std))
-            std = eps * torch.ones_like(mean)
+            std = torch.max(std, eps * torch.ones_like(std))
             return mean, std
 
         if lengths is None:
