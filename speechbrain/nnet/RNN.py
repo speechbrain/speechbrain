@@ -46,8 +46,6 @@ class RNN(torch.nn.Module):
     re_init : bool:
         It True, orthogonal initialization is used for the recurrent weights.
         Xavier initialization is used for the input connection weights.
-    return_hidden : bool
-        It True, the function returns the last hidden layer.
     bidirectional : bool
         If True, a bidirectioal model that scans the sequence both
         right-to-left and left-to-right is used.
@@ -72,11 +70,9 @@ class RNN(torch.nn.Module):
         dropout=0.0,
         re_init=True,
         bidirectional=False,
-        return_hidden=False,
     ):
         super().__init__()
         self.reshape = False
-        self.return_hidden = return_hidden
 
         if input_shape is None and input_size is None:
             raise ValueError("Expected one of input_shape or input_size.")
@@ -122,10 +118,12 @@ class RNN(torch.nn.Module):
         else:
             output, hn = self.rnn(x)
 
-        if self.return_hidden:
-            return output, hn
-        else:
-            return output
+        self.hidden = hn
+
+        return output
+
+    def get_hidden(self):
+        return self.hidden
 
 
 class LSTM(torch.nn.Module):
@@ -153,8 +151,6 @@ class LSTM(torch.nn.Module):
     re_init : bool
         It True, orthogonal initialization is used for the recurrent weights.
         Xavier initialization is used for the input connection weights.
-    return_hidden : bool
-        It True, the function returns the last hidden layer.
     bidirectional : bool
         if True, a bidirectioal model that scans the sequence both
         right-to-left and left-to-right is used.
@@ -178,11 +174,9 @@ class LSTM(torch.nn.Module):
         dropout=0.0,
         re_init=True,
         bidirectional=False,
-        return_hidden=False,
     ):
         super().__init__()
         self.reshape = False
-        self.return_hidden = return_hidden
 
         if input_shape is None and input_size is None:
             raise ValueError("Expected one of input_shape or input_size.")
@@ -227,10 +221,12 @@ class LSTM(torch.nn.Module):
         else:
             output, hn = self.rnn(x)
 
-        if self.return_hidden:
-            return output, hn
-        else:
-            return output
+        self.hidden = hn
+
+        return output
+
+    def get_hidden(self):
+        return self.hidden
 
 
 class GRU(torch.nn.Module):
@@ -258,8 +254,6 @@ class GRU(torch.nn.Module):
     re_init : bool
         It True, orthogonal initialization is used for the recurrent weights.
         Xavier initialization is used for the input connection weights.
-    return_hidden : bool
-        It True, the function returns the last hidden layer.
     bidirectional : bool
         if True, a bidirectioal model that scans the sequence both
         right-to-left and left-to-right is used.
@@ -283,11 +277,9 @@ class GRU(torch.nn.Module):
         dropout=0.0,
         re_init=True,
         bidirectional=False,
-        return_hidden=False,
     ):
         super().__init__()
         self.reshape = False
-        self.return_hidden = return_hidden
 
         if input_shape is None and input_size is None:
             raise ValueError("Expected one of input_shape or input_size.")
@@ -332,10 +324,12 @@ class GRU(torch.nn.Module):
         else:
             output, hn = self.rnn(x)
 
-        if self.return_hidden:
-            return output, hn
-        else:
-            return output
+        self.hidden = hn
+
+        return output
+
+    def get_hidden(self):
+        return self.hidden
 
 
 class RNNCell(nn.Module):
@@ -932,8 +926,6 @@ class LiGRU(torch.nn.Module):
     re_init : bool
         It True, orthogonal initialization is used for the recurrent weights.
         Xavier initialization is used for the input connection weights.
-    return_hidden : bool
-        It True, the function returns the last hidden layer.
     bidirectional : bool
         if True, a bidirectional model that scans the sequence both
         right-to-left and left-to-right is used.
@@ -958,7 +950,6 @@ class LiGRU(torch.nn.Module):
         dropout=0.0,
         re_init=True,
         bidirectional=False,
-        return_hidden=False,
     ):
         super().__init__()
         self.hidden_size = hidden_size
@@ -970,7 +961,6 @@ class LiGRU(torch.nn.Module):
         self.re_init = re_init
         self.bidirectional = bidirectional
         self.reshape = False
-        self.return_hidden = return_hidden
 
         # Computing the feature dimensionality
         if len(input_shape) > 3:
@@ -1024,10 +1014,12 @@ class LiGRU(torch.nn.Module):
         # run ligru
         output, hh = self._forward_ligru(x, hx=hx)
 
-        # if self.return_hidden:
-        #     return output, hh
-        # else:
+        self.hidden = hh
+
         return output
+
+    def get_hidden(self):
+        return self.hidden
 
     def _forward_ligru(self, x, hx: Optional[Tensor]):
         """Returns the output of the vanilla liGRU.
@@ -1472,7 +1464,6 @@ class QuasiRNN(nn.Module):
         batch_first=False,
         dropout=0,
         bidirectional=False,
-        return_hidden=False,
         **kwargs,
     ):
         assert bias is True, "Removing underlying bias is not yet supported"
@@ -1480,7 +1471,6 @@ class QuasiRNN(nn.Module):
 
         self.hidden_size = hidden_size
         self.num_layers = num_layers
-        self.return_hidden = return_hidden
         self.bidirectional = bidirectional
         self.dropout = dropout if dropout > 0 else None
         self.kwargs = kwargs
@@ -1525,14 +1515,14 @@ class QuasiRNN(nn.Module):
             if self.dropout and i < len(self.qrnn) - 1:
                 x = self.dropout(x)
 
-        next_hidden = torch.cat(next_hidden, 0).view(
+        self.hidden = torch.cat(next_hidden, 0).view(
             self.num_layers, *next_hidden[0].shape[-2:]
         )
 
-        if self.return_hidden:
-            return x, next_hidden
-        else:
-            return x
+        return x
+
+    def get_hidden(self):
+        return self.hidden
 
 
 def rnn_init(module):
