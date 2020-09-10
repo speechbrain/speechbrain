@@ -162,8 +162,8 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     summary_fns:
         PER: !name:speechbrain.utils.train_logger.summarize_error_rate
 
-ctc_cost_kd: !name:speechbrain.nnet.knowledge_distillation.kd_losses.ctc_loss_kd
+ctc_cost_kd: !name:speechbrain.nnet.losses.ctc_loss_kd
     blank_index: !ref <blank_index>
     device: !ref <device>
 
-seq_cost_kd: !name:speechbrain.nnet.knowledge_distillation.kd_losses.nll_loss_kd
+seq_cost_kd: !name:speechbrain.nnet.losses.nll_loss_kd
