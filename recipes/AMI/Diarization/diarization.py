@@ -53,6 +53,8 @@ Note:
 Though variable/funtion names are quite interpretable, the following points are useful in clearly understanding this code.
 - "segments" reffer to the big chunks that comes from the VAD or groundtruth.
 - "sub-segment" or "sseg" denotes smaller duration segments that are generated from "segments"
+- There are multiple ways to write this recipe. We chose to iterate individual file.
+This method is less GPU memory demnading and easy to understand and update the code.
 """
 
 
@@ -72,7 +74,7 @@ def compute_x_vectors(wavs, lens, init_params=False):
 # Function for pre-trained model downloads
 def download_and_pretrain():
     save_model_path = params.output_folder + "/save/xvect.ckpt"
-    download_file(params.xvector_file, save_model_path)
+    download_file(params.xvector_f, save_model_path)
     params.xvector_model.load_state_dict(
         torch.load(save_model_path), strict=True
     )
@@ -113,11 +115,11 @@ def xvect_computation_loop(split, set_loader, stat_file):
                     params.mean_var_norm_xvect.count = 0
 
                     # Download models from the web if needed
-                    if "https://" in params.xvector_file:
+                    if "https://" in params.xvector_f:
                         download_and_pretrain()
                     else:
                         params.xvector_model.load_state_dict(
-                            torch.load(params.xvector_file), strict=True
+                            torch.load(params.xvector_f), strict=True
                         )
 
                     init_params = False
@@ -402,7 +404,6 @@ if __name__ == "__main__":
     )
 
     # Prepare data from dev of Voxceleb1
-    """
     logger.info("Vox: Data preparation")
     prepare_voxceleb(
         data_folder=params.data_folder,
@@ -413,9 +414,9 @@ if __name__ == "__main__":
         vad=False,
         rand_seed=params.seed,
     )
-    """
 
     # Prepare data for AMI
+    # TODO: Shift this below (to improve code readability)
     logger.info("AMI: Data preparation")
     prepare_ami(
         data_folder=params.data_folder_ami,
@@ -436,9 +437,7 @@ if __name__ == "__main__":
     ind2lab = params.train_loader.label_dict["spk_id"]["index2lab"]
 
     # Xvector file for train data
-    xv_file = os.path.join(
-        params.save_folder, "VoxCeleb1_train_xvectors_stat_obj.pkl"
-    )
+    xv_file = os.path.join(params.save_folder, "Vox1_train_xvects_stat_obj.pkl")
 
     # Skip extraction of train if already extracted
     if not os.path.exists(xv_file):
@@ -467,11 +466,11 @@ if __name__ == "__main__":
                     params.mean_var_norm_xvect.count = 0
 
                     # Download models from the web if needed
-                    if "https://" in params.xvector_file:
+                    if "https://" in params.xvector_f:
                         download_and_pretrain()
                     else:
                         params.xvector_model.load_state_dict(
-                            torch.load(params.xvector_file), strict=True
+                            torch.load(params.xvector_f), strict=True
                         )
 
                     init_params = False
@@ -515,6 +514,7 @@ if __name__ == "__main__":
     params.compute_plda.plda(xvectors_stat)
     logger.info("PLDA training completed")
 
+    # Get all recording IDs in AMI test split
     full_diary_csv = []
     with open(params.csv_diary, "r") as csv_file:
         reader = csv.reader(csv_file, delimiter=",")
@@ -524,6 +524,7 @@ if __name__ == "__main__":
     A = [row[0].rstrip().split("_")[0] for row in full_diary_csv]
     all_rec_ids = list(set(A[1:]))
 
+    # Set directories to store xvectors (not neccesaary) and rttms (must save)
     xvect_dir = os.path.join(params.save_folder, "xvectors")
     rttm_dir = os.path.join(params.save_folder, "rttms")
 
@@ -538,11 +539,14 @@ if __name__ == "__main__":
     N = str(len(all_rec_ids))
     i = 1
 
+    # Loop through all recordings in AMI Test split
     for rec_id in all_rec_ids:
 
         ss = "[" + str(i) + "/" + N + "]"
         i = i + 1
-        msg = "Diarizing (rec_id) %s : %s " % (ss, rec_id)
+
+        # Replace with tqdm??? (doesn't make any difference!!)
+        msg = "Diarizing %s : %s " % (ss, rec_id)
         logger.info(msg)
 
         diary_stat_file = os.path.join(xvect_dir, rec_id + "_xv_stat.pkl")

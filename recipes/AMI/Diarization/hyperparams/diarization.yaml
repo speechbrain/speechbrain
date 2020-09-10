@@ -15,35 +15,44 @@ save_folder: !ref <output_folder>/save/
 device: 'cuda:0'
 
 # Pretrain from web (as an alternative specify a file)
-xvector_file: https://www.dropbox.com/s/skfz2sme5nw7jji/xvector_model.ckpt?dl=1
 
-# csv files
-csv_diary: !ref <save_folder>/eval.subsegments.csv
-csv_train: !ref <save_folder>/train.csv
-csv_enrol: !ref <save_folder>/enrol.csv
-csv_test: !ref <save_folder>/test.csv
-batch_size: 128
+# Vox-1 only
+#xvector_f: https://www.dropbox.com/s/skfz2sme5nw7jji/xvector_model.ckpt?dl=1
+
+# Vox-2 only
+xvector_f: https://www.dropbox.com/s/exzbyt4qoabo7v4/embedding_model.ckpt?dl=1
+
+# Vox: csv files
+csv_train: !ref <save_folder>/csv/vox1_train.csv
+csv_enrol: !ref <save_folder>/csv/vox1_enrol.csv
+csv_test: !ref <save_folder>/csv/vox1_test.csv
+
+# AMI: csv files
+csv_diary: !ref <save_folder>/csv/ami_eval.subsegments.csv
 
 # Spectral feature parameters
 n_mels: 24
 left_frames: 0
 right_frames: 0
 deltas: False
-xvect_dim: 512
 
-# Diarization parameters
+# Xvector model
+xvect_dim: 512
+batch_size: 128
+
+# AMI: Diarization parameters
 split_type: 'sample'
 mic_type: 'hm'
 vad_type: 'oracle'
 max_subseg_dur: 3.0
 overlap: 1.5
 
+# Functions
 compute_plda: !new:speechbrain.processing.PLDA_LDA.PLDA
     rank_f: 100
     nb_iter: 10
     scaling_factor: 1
 
-# Functions
 compute_features: !new:speechbrain.lobes.features.fbank.Fbank
     n_mels: !ref <n_mels>
     left_frames: !ref <left_frames>
