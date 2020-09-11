@@ -114,7 +114,12 @@ def skip(save_folder, filename, conf):
 
 
 def create_hdf5(
-    data_path, save_folder, filename, select_n_sentences, tokenizer, add_txt=None
+    data_path,
+    save_folder,
+    filename,
+    select_n_sentences,
+    tokenizer,
+    add_txt=None,
 ):
     """
     Create the hdf5 file.
