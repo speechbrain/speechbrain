@@ -68,7 +68,6 @@ class CNNTransformerSE(TransformerInterface):
             d_ffn=d_ffn,
             dropout=dropout,
             activation=activation,
-            return_attention=False,
             positional_encoding=False,
         )
 
