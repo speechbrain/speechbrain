@@ -1,8 +1,8 @@
 """A popular speaker recognition/diarization model (LDA and PLDA).
 
 Authors
- * Nauman Dawalatabad 2020
  * Anthony Larcher 2020
+ * Nauman Dawalatabad 2020
 
 Relevant Papers
  - This implementation of PLDA is based of following papers.
@@ -878,7 +878,11 @@ class PLDA:
             self.Sigma = Sigma
 
     def plda(
-        self, stat_server=None, output_file_name=None,
+        self,
+        stat_server=None,
+        output_file_name=None,
+        whiten=False,
+        w_stat_server=None,
     ):
         """Trains PLDA model with no within class covariance matrix but full residual covariance matrix.
 
@@ -898,6 +902,12 @@ class PLDA:
 
         # Dimension of the vector (x-vectors stored in stat1)
         vect_size = stat_server.stat1.shape[1]  # noqa F841
+
+        # Whitening (Optional)
+        if whiten is True:
+            w_mean = w_stat_server.get_mean_stat1()
+            w_Sigma = w_stat_server.get_total_covariance_stat1()
+            stat_server.whiten_stat1(w_mean, w_Sigma)
 
         # Initialize mean and residual covariance from the training data
         self.mean = stat_server.get_mean_stat1()

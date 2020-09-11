@@ -73,7 +73,7 @@ def compute_x_vectors(wavs, lens, init_params=False):
 
 # Function for pre-trained model downloads
 def download_and_pretrain():
-    save_model_path = params.output_folder + "/save/xvect.ckpt"
+    save_model_path = params.output_folder + "/save/models/xvect.ckpt"
     download_file(params.xvector_f, save_model_path)
     params.xvector_model.load_state_dict(
         torch.load(save_model_path), strict=True
@@ -149,7 +149,9 @@ def xvect_computation_loop(split, set_loader, stat_file):
         stat_obj.save_stat_object(stat_file)
 
     else:
-        logger.info(f"Skipping Xvector Extraction for {split}")
+        logger.info(
+            f"Skipping Xvector Extraction for {split} (as already present)"
+        )
         logger.info(f"Loading previously saved stat_object for {split}")
 
         with open(stat_file, "rb") as in_file:
@@ -332,12 +334,12 @@ def write_rttm(segs_list, out_rttm_file):
             line_str = " ".join(row)
             f.write("%s\n" % line_str)
 
-    logger.info("RTTM saved at " + out_rttm_file)
+    logger.info("Output RTTM saved at: " + out_rttm_file)
 
 
 def do_ahc(score_matrix, out_rttm_file, rec_id):
 
-    ## Agglomerative Hierarchical Clustering Starts here
+    ## Agglomerative Hierarchical Clustering using linkage
     scores = copy.deepcopy(score_matrix)
 
     # Ignoring diagonal scores and normalizing as per remaining pairs
@@ -404,9 +406,10 @@ if __name__ == "__main__":
     )
 
     # Prepare data from dev of Voxceleb1
+    """
     logger.info("Vox: Data preparation")
     prepare_voxceleb(
-        data_folder=params.data_folder,
+        data_folder=params.data_folder_vox,
         save_folder=params.save_folder,
         splits=["train", "test"],
         split_ratio=[90, 10],
@@ -414,10 +417,13 @@ if __name__ == "__main__":
         vad=False,
         rand_seed=params.seed,
     )
+    """
 
     # Prepare data for AMI
     # TODO: Shift this below (to improve code readability)
-    logger.info("AMI: Data preparation")
+    logger.info(
+        "AMI: Data preparation [Prepares both, the reference RTTMs and the CSVs]"
+    )
     prepare_ami(
         data_folder=params.data_folder_ami,
         save_folder=params.save_folder,
@@ -428,20 +434,25 @@ if __name__ == "__main__":
         overlap=params.overlap,
     )
 
+    xvect_dir = os.path.join(params.save_folder, "xvectors")
+    if not os.path.exists(xvect_dir):
+        os.makedirs(xvect_dir)
+
     # PLDA inputs for Train data
     modelset, segset = [], []
     xvectors = numpy.empty(shape=[0, params.xvect_dim], dtype=numpy.float64)
 
     # Train set
-    train_set = params.train_loader()
-    ind2lab = params.train_loader.label_dict["spk_id"]["index2lab"]
+    train_set = params.train_loader_vox()
+    ind2lab = params.train_loader_vox.label_dict["spk_id"]["index2lab"]
 
     # Xvector file for train data
-    xv_file = os.path.join(params.save_folder, "Vox1_train_xvects_stat_obj.pkl")
+    # xv_file = os.path.join(params.save_folder, "Vox1_train_xvects_stat_obj.pkl")
+    xv_file = os.path.join(xvect_dir, "VoxCeleb1_train_xvectors_stat_obj.pkl")
 
     # Skip extraction of train if already extracted
     if not os.path.exists(xv_file):
-        logger.info("Extracting xvectors from Training set..")
+        logger.info("[Vox] Extracting xvectors from Training set..")
         with tqdm(train_set, dynamic_ncols=True) as t:
             init_params = True
             for wav, spk_id in t:
@@ -503,20 +514,43 @@ if __name__ == "__main__":
         xvectors_stat.save_stat_object(xv_file)
     else:
         # Load the saved stat object for train xvector
-        logger.info("Skipping Xvector Extraction for training set")
+        logger.info(
+            "Skipping Xvector Extraction for Vox1 train set (as already present)"
+        )
         logger.info("Loading previously saved stat_object for train xvectors..")
         with open(xv_file, "rb") as in_file:
             xvectors_stat = pickle.load(in_file)
 
-    # Training Gaussina PLDA model
+    # Training Gaussian PLDA model
     # (Using Xvectors extracted from Voxceleb)
-    logger.info("Training PLDA model")
-    params.compute_plda.plda(xvectors_stat)
+
+    if params.whiten is True:
+
+        # Compute Xvectors for AMI dev set (will use it to whiten)
+        # xvect_dir = os.path.join(params.save_folder, "xvectors")
+        diary_stat_file = os.path.join(xvect_dir, "ami_dev_xv_stat.pkl")
+        logger.info("Extracting xvectors for AMI DEV")
+        diary_obj = xvect_computation_loop(
+            "diary", params.diary_loader_dev(), diary_stat_file
+        )
+
+        logger.info(
+            "Training PLDA model using Vox1 and whitening using AMI dev"
+        )
+        params.compute_plda.plda(
+            xvectors_stat, whiten=True, w_stat_server=diary_obj
+        )
+        del diary_obj
+    else:
+        logger.info("Training PLDA model using Vox1 (no whitening)")
+        params.compute_plda.plda(xvectors_stat)
+
     logger.info("PLDA training completed")
 
+    # EVAL
     # Get all recording IDs in AMI test split
     full_diary_csv = []
-    with open(params.csv_diary, "r") as csv_file:
+    with open(params.csv_diary_eval, "r") as csv_file:
         reader = csv.reader(csv_file, delimiter=",")
         for row in reader:
             full_diary_csv.append(row)
@@ -525,11 +559,8 @@ if __name__ == "__main__":
     all_rec_ids = list(set(A[1:]))
 
     # Set directories to store xvectors (not neccesaary) and rttms (must save)
-    xvect_dir = os.path.join(params.save_folder, "xvectors")
-    rttm_dir = os.path.join(params.save_folder, "rttms")
-
-    if not os.path.exists(xvect_dir):
-        os.makedirs(xvect_dir)
+    # xvect_dir = os.path.join(params.save_folder, "xvectors")
+    rttm_dir = os.path.join(params.save_folder, "sys_RTTM")
 
     if not os.path.exists(rttm_dir):
         os.makedirs(rttm_dir)
@@ -559,9 +590,9 @@ if __name__ == "__main__":
         # Setup a dataloader for above csv
         diary_set = DataLoaderFactory(
             new_csv_file,
-            params.diary_loader.batch_size,
-            params.diary_loader.csv_read,
-            params.diary_loader.sentence_sorting,
+            params.diary_loader_eval.batch_size,
+            params.diary_loader_eval.csv_read,
+            params.diary_loader_eval.sentence_sorting,
         )
 
         diary_set_loader = diary_set.forward()
@@ -613,4 +644,7 @@ if __name__ == "__main__":
             with open(f, "r") as indi_rttm_file:
                 shutil.copyfileobj(indi_rttm_file, cat_file)
 
-    logger.info("Final system RTTM : " + concate_rttm_file)
+    logger.info(
+        "Final system generated concatenated RTTM saved at : "
+        + concate_rttm_file
+    )

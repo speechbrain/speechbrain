@@ -8,8 +8,9 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Folders and train_log file
 # /networ/dataset_tmp1/VoxCeleb/voxceleb1/ (meta)
-data_folder: /network/tmp1/dawalatn/ #!PLACEHOLDER
-data_folder_ami: /network/tmp1/dawalatn/AMI_MANUAL/
+data_folder_vox: /network/tmp1/dawalatn/ #!PLACEHOLDER
+data_folder_ami: /network/datasets/ami/amicorpus/
+
 output_folder: results/
 save_folder: !ref <output_folder>/save/
 device: 'cuda:0'
@@ -17,18 +18,20 @@ device: 'cuda:0'
 # Pretrain from web (as an alternative specify a file)
 
 # Vox-1 only
-#xvector_f: https://www.dropbox.com/s/skfz2sme5nw7jji/xvector_model.ckpt?dl=1
+xvector_f: https://www.dropbox.com/s/skfz2sme5nw7jji/xvector_model.ckpt?dl=1
 
 # Vox-2 only
-xvector_f: https://www.dropbox.com/s/exzbyt4qoabo7v4/embedding_model.ckpt?dl=1
+#xvector_f: https://www.dropbox.com/s/exzbyt4qoabo7v4/embedding_model.ckpt?dl=1
 
 # Vox: csv files
-csv_train: !ref <save_folder>/csv/vox1_train.csv
-csv_enrol: !ref <save_folder>/csv/vox1_enrol.csv
-csv_test: !ref <save_folder>/csv/vox1_test.csv
+csv_train_vox: !ref <save_folder>/train.csv
+csv_enrol_vox: !ref <save_folder>/enrol.csv
+csv_test_vox: !ref <save_folder>/test.csv
 
 # AMI: csv files
-csv_diary: !ref <save_folder>/csv/ami_eval.subsegments.csv
+csv_diary_train: !ref <save_folder>/csv/ami_train.subsegments.csv
+csv_diary_dev: !ref <save_folder>/csv/ami_dev.subsegments.csv
+csv_diary_eval: !ref <save_folder>/csv/ami_eval.subsegments.csv
 
 # Spectral feature parameters
 n_mels: 24
@@ -46,12 +49,18 @@ mic_type: 'hm'
 vad_type: 'oracle'
 max_subseg_dur: 3.0
 overlap: 1.5
+whiten: True
+
+# PLDA parameters
+rank_f: 100
+nb_iter: 10
+scaling_factor: 1
 
 # Functions
 compute_plda: !new:speechbrain.processing.PLDA_LDA.PLDA
-    rank_f: 100
-    nb_iter: 10
-    scaling_factor: 1
+    rank_f: !ref <rank_f>
+    nb_iter: !ref <nb_iter>
+    scaling_factor: !ref <scaling_factor>
 
 compute_features: !new:speechbrain.lobes.features.fbank.Fbank
     n_mels: !ref <n_mels>
@@ -69,8 +78,8 @@ mean_var_norm_xvect: !new:speechbrain.processing.features.InputNormalization
 xvector_model: !new:speechbrain.lobes.models.Xvector.Xvector
     device: !ref <device>
 
-diary_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_diary>
+diary_loader_train: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_diary_train>
     batch_size: !ref <batch_size>
     csv_read: [wav]
     sentence_sorting: original
@@ -78,29 +87,47 @@ diary_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
         $data_folder: !ref <data_folder_ami>
     output_folder: !ref <output_folder>/save/
 
-train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_train>
+diary_loader_dev: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_diary_dev>
+    batch_size: !ref <batch_size>
+    csv_read: [wav]
+    sentence_sorting: original
+    replacements:
+        $data_folder: !ref <data_folder_ami>
+    output_folder: !ref <output_folder>/save/
+
+diary_loader_eval: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_diary_eval>
+    batch_size: !ref <batch_size>
+    csv_read: [wav]
+    sentence_sorting: original
+    replacements:
+        $data_folder: !ref <data_folder_ami>
+    output_folder: !ref <output_folder>/save/
+
+train_loader_vox: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_train_vox>
     batch_size: !ref <batch_size>
     csv_read: [wav, spk_id]
     sentence_sorting: ascending
     replacements:
-        $data_folder: !ref  <data_folder>
+        $data_folder: !ref  <data_folder_vox>
     output_folder: !ref <output_folder>/save/
 
-enrol_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_enrol>
+enrol_loader_vox: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_enrol_vox>
     batch_size: !ref <batch_size>
     csv_read: [wav]
     sentence_sorting: original
     replacements:
-        $data_folder: !ref <data_folder>
+        $data_folder: !ref <data_folder_vox>
     output_folder: !ref <output_folder>/save/
 
-test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_test>
+test_loader_vox: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_test_vox>
     batch_size: !ref <batch_size>
     csv_read: [wav]
     sentence_sorting: original
     replacements:
-        $data_folder: !ref <data_folder>
+        $data_folder: !ref <data_folder_vox>
     output_folder: !ref <output_folder>/save/
