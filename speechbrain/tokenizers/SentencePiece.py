@@ -117,6 +117,7 @@ class SentencePiece:
         self.pad_id = str(pad_id)
         self.unk_id = str(unk_id)
         self.minloglevel = str(minloglevel)
+        self.sp = spm.SentencePieceProcessor()
 
     def _csv2text(self):
         """
@@ -198,7 +199,7 @@ class SentencePiece:
         logger.info("Tokenizer path: " + self.prefix_model_file + ".model")
         logger.info("Tokenizer vocab_size: " + str(self.vocab_size))
         logger.info("Tokenizer type: " + self.model_type)
-        self.sp = spm.SentencePieceProcessor()
+        # self.sp = spm.SentencePieceProcessor()
         self.sp.load(self.prefix_model_file + ".model")
 
     def __call__(

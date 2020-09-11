@@ -1076,7 +1076,7 @@ class HDF5DataLoaderFactory(torch.nn.Module):
     def __init__(
         self,
         hdf5_file,
-        label_dict_file,
+        label_dict_file=None,
         sort_by="wrd",
         batch_size=1,
         data_entries=None,
@@ -1121,7 +1121,9 @@ class HDF5DataLoaderFactory(torch.nn.Module):
         Output:
         dataloader: It is a list returning all the dataloaders created.
         """
-        self.label_dict = self.load_label_dict(self.label_dict_file)
+        self.label_dict = None
+        if self.label_dict_file is not None:
+            self.label_dict = self.load_label_dict(self.label_dict_file)
 
         # Creating a dataloader
         dataset = HDF5DatasetFactory(
@@ -1142,7 +1144,7 @@ class HDF5DataLoaderFactory(torch.nn.Module):
             )
             self.dataloader = DataLoader(
                 dataset,
-                pin_memory=True,
+                pin_memory=False,
                 num_workers=self.num_workers,
                 collate_fn=self.batch_creation,
                 batch_sampler=batch_sampler,
@@ -1152,7 +1154,7 @@ class HDF5DataLoaderFactory(torch.nn.Module):
                 dataset,
                 batch_size=self.batch_size,
                 shuffle=self.shuffle,
-                pin_memory=True,
+                pin_memory=False,
                 drop_last=self.drop_last,
                 num_workers=self.num_workers,
                 collate_fn=self.batch_creation,
@@ -1388,7 +1390,10 @@ class HDF5DatasetFactory(Dataset):
         indices = [i for i in range(self.data_len)]
 
         def sort_key(i):
-            return len(self.f_h5[self.sort_by][i].split())
+            if self.label_dict:
+                return len(self.f_h5[self.sort_by][i].split())
+            else:
+                return len(self.f_h5[self.sort_by][i])
 
         if self.sentence_sorting == "ascending":
             indices = sorted(indices, key=sort_key)
@@ -1447,7 +1452,10 @@ class HDF5DatasetFactory(Dataset):
         """
 
         # Read the data from disk
-        data = read_string(data_source, lab2ind=lab2ind)
+        if lab2ind is not None:
+            data = read_string(data_source, lab2ind=lab2ind)
+        else:
+            data = np.asarray(data_source)
 
         # Convert numpy array to float32
         if isinstance(data, np.ndarray):
