@@ -1,5 +1,5 @@
 # ################################
-# Model: 1-D causal CNNTransformer model with log1p mapping
+# Model: 1-D causal modular-CNNTransformer model with log1p mapping
 # Authors: Chien-Feng Liao
 # ################################
 
@@ -9,11 +9,11 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Basic parameters
 data_folder: !PLACEHOLDER
-output_folder: !ref results/causal_modularTransformer/<seed>
+output_folder: !ref results/causal_modularTransformer_comp/<seed>
 enhanced_folder: !ref <output_folder>/enhanced/
 
 use_tensorboard: False
-tensorboard_logs: !ref results/logs/causal_modularTransformer/<seed>
+tensorboard_logs: !ref results/logs/causal_modularTransformer_comp/<seed>
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
@@ -25,7 +25,7 @@ csv_test: !ref <data_folder>/test.csv
 # Training Parameters
 N_epochs: 50
 N_batch: 16
-lr: 0.0001
+lr: 0.0002
 device: cuda:0
 
 # Model Parameters

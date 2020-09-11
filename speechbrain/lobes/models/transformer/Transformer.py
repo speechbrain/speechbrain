@@ -7,12 +7,14 @@ Authors
 import torch
 import math
 import torch.nn as nn
+import torch.nn.functional as F
 from speechbrain.nnet.attention import (
     MultiheadAttention,
     PositionalwiseFeedForward,
 )
 
 from speechbrain.nnet.group_layer_norm import GroupLayerNorm
+from speechbrain.nnet.group_linear import GroupLinear
 from speechbrain.lobes.models.transformer.group_communication import (
     GroupCommunication,
 )
@@ -204,13 +206,8 @@ class TransformerEncoderLayer(nn.Module):
             d_ffn=d_ffn, dropout=dropout, activation=activation, nb=num_modules,
         )
 
-
         self.num_modules = num_modules
         self.d_ffn = d_ffn
-        if num_modules > 1:
-            self.competition = GroupLinearLayer(d_ffn//num_modules, 1, num_modules, a=0.05)
-        else:
-            self.competition = None
 
         self.norm1 = GroupLayerNorm(d_ffn, num_modules, eps=1e-6)
         self.norm2 = GroupLayerNorm(d_ffn, num_modules, eps=1e-6)
@@ -222,6 +219,16 @@ class TransformerEncoderLayer(nn.Module):
             self.group_comm = GroupCommunication(d_ffn, num_modules)
             self.norm_comm = GroupLayerNorm(d_ffn, num_modules, eps=1e-6)
             self.dropout_comm = torch.nn.Dropout(dropout)
+
+    def init_params(self, first_input):
+        self.din = first_input.shape[-1]
+
+        if self.num_modules > 1:
+            self.competition = GroupLinear(
+                self.din, self.num_modules, self.num_modules, a=0.05
+            ).to(first_input.device)
+        else:
+            self.competition = None
 
     def forward(
         self, src, src_mask=None, src_key_padding_mask=None, init_params=False
@@ -236,12 +243,16 @@ class TransformerEncoderLayer(nn.Module):
         src_key_padding_mask: tensor
             the mask for the src keys per batch (optional).
         """
+        if init_params:
+            self.init_params(src)
 
         if self.competition is not None:
             comp = self.competition(src)
             comp = F.softmax(comp, dim=2)
-            comp = comp.unsqueeze(-1).repeat(1,1,1,self.d_ffn//self.num_modules)
-            comp = comp.view((src.shape[0], src.shape[1], self.d_ffn))
+            comp = comp.unsqueeze(-1).repeat(
+                1, 1, 1, self.din // self.num_modules
+            )
+            comp = comp.view((src.shape[0], src.shape[1], self.din))
         else:
             comp = None
 
@@ -258,7 +269,7 @@ class TransformerEncoderLayer(nn.Module):
         if comp is None:
             src = src + self.dropout1(output)
         else:
-            src = src + self.dropout1(output)*comp
+            src = src + self.dropout1(output) * comp
         src = self.norm1(src, init_params=init_params)
 
         output = self.pos_ffn(src, init_params)
@@ -417,7 +428,9 @@ class TransformerDecoderLayer(nn.Module):
         self.num_modules = num_modules
         self.d_ffn = d_ffn
         if num_modules > 1:
-            self.competition = GroupLinearLayer(d_ffn//num_modules, 1, num_modules, a=0.05)
+            self.competition = GroupLinear(
+                d_ffn // num_modules, 1, num_modules, a=0.05
+            )
         else:
             self.competition = None
 
@@ -465,7 +478,9 @@ class TransformerDecoderLayer(nn.Module):
         if self.competition is not None:
             comp = self.competition(tgt)
             comp = F.softmax(comp, dim=2)
-            comp = comp.unsqueeze(-1).repeat(1,1,1,self.d_ffn//self.num_modules)
+            comp = comp.unsqueeze(-1).repeat(
+                1, 1, 1, self.d_ffn // self.num_modules
+            )
             comp = comp.view((tgt.shape[0], tgt.shape[1], self.d_ffn))
         else:
             comp = None
@@ -484,7 +499,7 @@ class TransformerDecoderLayer(nn.Module):
         if comp is None:
             tgt = tgt + self.dropout1(tgt2)
         else:
-            tgt = tgt + self.dropout1(tgt2)*comp
+            tgt = tgt + self.dropout1(tgt2) * comp
 
         tgt = self.norm1(tgt, init_params)
 
