@@ -1088,6 +1088,7 @@ class HDF5DataLoaderFactory(torch.nn.Module):
         drop_last=False,
         padding_value=0,
         output_folder=None,
+        cache_in_ram=False,
     ):
         super().__init__()
 
@@ -1107,6 +1108,7 @@ class HDF5DataLoaderFactory(torch.nn.Module):
         self.drop_last = drop_last
         self.padding_value = padding_value
         self.output_folder = output_folder
+        self.cache_in_ram = cache_in_ram
 
         # Shuffle the data every time if random is selected
         if self.sentence_sorting == "random":
@@ -1128,6 +1130,7 @@ class HDF5DataLoaderFactory(torch.nn.Module):
             self.data_entries,
             sort_by=self.sort_by,
             sentence_sorting=self.sentence_sorting,
+            cache_in_ram=self.cache_in_ram,
         )
         if self.local_random:
             print("local random data loader is used.")
@@ -1139,7 +1142,7 @@ class HDF5DataLoaderFactory(torch.nn.Module):
             )
             self.dataloader = DataLoader(
                 dataset,
-                pin_memory=False,
+                pin_memory=True,
                 num_workers=self.num_workers,
                 collate_fn=self.batch_creation,
                 batch_sampler=batch_sampler,
@@ -1149,7 +1152,7 @@ class HDF5DataLoaderFactory(torch.nn.Module):
                 dataset,
                 batch_size=self.batch_size,
                 shuffle=self.shuffle,
-                pin_memory=False,
+                pin_memory=True,
                 drop_last=self.drop_last,
                 num_workers=self.num_workers,
                 collate_fn=self.batch_creation,
@@ -1348,14 +1351,30 @@ class HDF5DatasetFactory(Dataset):
     """
 
     def __init__(
-        self, hdf5, label_dict, data_entries, sentence_sorting, sort_by="wrd",
+        self,
+        hdf5,
+        label_dict,
+        data_entries,
+        sentence_sorting,
+        sort_by="wrd",
+        cache_in_ram=False,
     ):
 
         # Setting the variables
-        self.f_h5 = h5py.File(hdf5, "r")
+        # self.f_h5 = h5py.File(hdf5, "r")
         self.label_dict = label_dict
         self.data_entries = data_entries
         self.sentence_sorting = sentence_sorting
+
+        # cache data in ram
+        if cache_in_ram:
+            msg = "caching data in RAM..."
+            logger.info(msg)
+            self.f_h5 = load_pkl(hdf5)
+            msg = "caching completed."
+            logger.info(msg)
+        else:
+            self.f_h5 = h5py.File(hdf5, "r")
         self.data_len = len(self.f_h5[self.data_entries[0]])
 
         # Only useful for ascending/descending order

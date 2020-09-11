@@ -160,15 +160,21 @@ def create_hdf5(
             if snt_cnt == select_n_sentences:
                 break
 
-    with h5py.File(hdf5_file, "w") as f_h5:
-        dset = f_h5.create_dataset(
-            "wrd", (len(all_wrds),), dtype=h5py.string_dtype()
-        )
-        dset[:] = all_wrds
-        dset = f_h5.create_dataset(
-            "char", (len(all_chars),), dtype=h5py.string_dtype()
-        )
-        dset[:] = all_chars
+    if ".pkl" in hdf5_file:
+        dset = {}
+        dset["wrd"] = all_wrds
+        dset["char"] = all_chars
+        save_pkl(dset, hdf5_file)
+    else:
+        with h5py.File(hdf5_file, "w") as f_h5:
+            dset = f_h5.create_dataset(
+                "wrd", (len(all_wrds),), dtype=h5py.string_dtype()
+            )
+            dset[:] = all_wrds
+            dset = f_h5.create_dataset(
+                "char", (len(all_chars),), dtype=h5py.string_dtype()
+            )
+            dset[:] = all_chars
 
     # Final print
     msg = "\t%s sucessfully created!" % (hdf5_file)

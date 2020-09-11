@@ -7,7 +7,7 @@ train_log: !ref <output_folder>/train_log.txt
 
 # Data files
 data_folder: !PLACEHOLDER # e.g, /localscratch/LibriSpeech
-filename: lm_corpus.h5
+filename: lm_corpus.pkl
 hdf5_train: !ref <data_folder>/<filename>
 
 # Training audio text (used for BPE tokenizer)
@@ -67,7 +67,7 @@ model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM # y
     vocab: !ref <output_neurons>
     d_model: 512
     nhead: 8
-    num_encoder_layers: 16
+    num_encoder_layers: 12
     num_decoder_layers: 0
     d_ffn: 2048
     dropout: 0.1
@@ -101,11 +101,12 @@ train_loader: !new:speechbrain.data_io.data_io.HDF5DataLoaderFactory
     hdf5_file: !ref <hdf5_train>
     label_dict_file: !ref <output_folder>/label_dict.pkl
     batch_size: !ref <batch_size>
-    sentence_sorting: random
+    sentence_sorting: ascending
     sort_by: wrd
     output_folder: !ref <output_folder>
     data_entries: [char]
     num_workers: 4
+    cache_in_ram: True
 
 valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_valid>
