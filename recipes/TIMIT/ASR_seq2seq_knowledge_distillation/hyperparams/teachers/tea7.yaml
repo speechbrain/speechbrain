@@ -1,25 +1,23 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 1234
+seed: !PLACEHOLDER  # e.g, 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/augment_CRDNN_time_pooling/<seed>
+output_folder: !ref results/CRDNN/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: !PLACEHOLDER  # e.g. /path/to/librispeech
-csv_train: !ref <data_folder>/train-clean-100.csv
-csv_valid: !ref <data_folder>/dev-clean.csv
-csv_test: !ref <data_folder>/test-clean.csv
+data_folder: !PLACEHOLDER  # e.g. /path/to/TIMIT
+csv_train: !ref <data_folder>/train.csv
+csv_valid: !ref <data_folder>/dev.csv
+csv_test: !ref <data_folder>/test.csv
 
 # Training parameters
-number_of_epochs: 30
-number_of_ctc_epochs: 10
+number_of_epochs: 50
 batch_size: 8
-lr: 1.0
-ctc_weight: 0.5
-device: 'cuda'
-multigpu: False
+lr: 0.001
+ctc_weight: 0.2
+device: 'cuda:0'
 
 # Feature parameters
 sample_rate: 16000
@@ -30,17 +28,17 @@ n_mels: 40
 activation: !name:torch.nn.LeakyReLU
 dropout: 0.15
 cnn_blocks: 2
-cnn_channels: (128, 128)
+cnn_channels: (128, 256)
 cnn_kernelsize: (3, 3)
 rnn_layers: 4
-rnn_neurons: 1024
+rnn_neurons: 640
 rnn_bidirectional: True
 dnn_blocks: 2
 dnn_neurons: 512
 emb_size: 128
 
 # Outputs
-output_neurons: 29 # 28 chars + 1 blank/eos/bos
+output_neurons: 40
 blank_index: !ref <output_neurons> - 1
 
 # Decoding parameters
@@ -48,10 +46,9 @@ bos_index: !ref <output_neurons> - 1
 eos_index: !ref <output_neurons> - 1
 min_decode_ratio: 0.0
 max_decode_ratio: 1.0
-beam_size: 80
+beam_size: 16
+length_penalty: 0.1
 eos_threshold: 1.5
-using_max_attn_shift: True
-max_attn_shift: 60
 
 # Functions
 enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
@@ -61,7 +58,6 @@ enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
     cnn_channels: !ref <cnn_channels>
     cnn_kernelsize: !ref <cnn_kernelsize>
     time_pooling: True
-    using_2d_pooling: False
     rnn_layers: !ref <rnn_layers>
     rnn_neurons: !ref <rnn_neurons>
     rnn_bidirectional: !ref <rnn_bidirectional>
@@ -76,27 +72,26 @@ emb: !new:speechbrain.nnet.embedding.Embedding
 dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
     rnn_type: gru
     attn_type: location
-    hidden_size: 1024
-    attn_dim: 1024
+    hidden_size: 256
+    attn_dim: 256
     num_layers: 1
     scaling: 1.0
     channels: 10
     kernel_size: 100
     re_init: True
-    dropout: !ref <dropout>
+    dropout: 0.5
 
 ctc_lin: !new:speechbrain.nnet.linear.Linear
-    n_neurons: !ref <output_neurons> # 28 char + 1 blank
+    n_neurons: !ref <output_neurons>  # 39 phonemes + 1 blank
 
 seq_lin: !new:speechbrain.nnet.linear.Linear
-    n_neurons: !ref <output_neurons> # 28 char + 1 eos
+    n_neurons: !ref <output_neurons>  # 39 phonemes + 1 eos
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
-optimizer: !new:speechbrain.nnet.optimizers.Adadelta_Optimizer
+optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
     learning_rate: !ref <lr>
-    rho: 0.95
 
 lr_annealing: !new:speechbrain.nnet.lr_schedulers.NewBobLRScheduler
     improvement_threshold: 0.0025
@@ -119,21 +114,21 @@ train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
-    csv_read: [wav, char]
+    csv_read: [wav, phn]
 
 valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_valid>
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
-    csv_read: [wav, char]
+    csv_read: [wav, phn]
 
 test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_test>
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
-    csv_read: [wav, char]
+    csv_read: [wav, phn]
 
 ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
     blank_index: !ref <blank_index>
@@ -144,5 +139,4 @@ seq_cost: !name:speechbrain.nnet.losses.nll_loss
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
     summary_fns:
-        CER: !name:speechbrain.utils.train_logger.summarize_error_rate
-        WER: !name:speechbrain.utils.train_logger.summarize_error_rate
+        PER: !name:speechbrain.utils.train_logger.summarize_error_rate
