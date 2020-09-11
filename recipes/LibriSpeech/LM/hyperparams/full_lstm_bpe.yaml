@@ -1,36 +1,58 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 1234
+seed: 2223
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/RNN/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: !PLACEHOLDER  # e.g. /path/to/librispeech
-csv_label: !ref <data_folder>/train-clean-100.csv
-csv_train: !ref <data_folder>/train-960.csv
-csv_valid: !ref <data_folder>/dev-clean.csv
+data_folder: !PLACEHOLDER # e.g, /localscratch/LibriSpeech
+filename: lm_corpus.h5
+hdf5_train: !ref <data_folder>/<filename>
+
+# Training audio text (used for BPE tokenizer)
+train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
+dev_split: dev-clean
+csv_label: !ref <data_folder>/train.csv
+csv_valid: !ref <data_folder>/<dev_split>.csv
+
+# Tokenizer model
+tok_mdl_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
+tok_voc_file: https://www.dropbox.com/s/7l8z622cpd3t8st/1000_unigram.vocab?dl=1
 
 # Training parameters
 number_of_epochs: 20
-batch_size: 128
+batch_size: 32
 lr: 0.001
+accu_steps: 16 # Gradient accumulation to simulate large batch training
 device: 'cuda'
-multigpu: False
+multigpu: True
 
 # Model parameters
 emb_size: 128
 activation: !name:torch.nn.LeakyReLU
-dropout: 0.15
+dropout: 0.0
 rnn_layers: 2
-rnn_neurons: 1024
+rnn_neurons: 2048
 dnn_blocks: 1
 dnn_neurons: 512
 
 # Outputs
-output_neurons: 29 # 28 chars + 1 eos/bos
-bos_index: !ref <output_neurons> - 1
-eos_index: !ref <output_neurons> - 1
+output_neurons: 1000 # index(blank/eos/bos) = 0
+blank_index: 0
+bos_index: 0
+eos_index: 0
+
+# BPE
+# Specify the bos_id/eos_id if different with blank_id
+bpe_tokenizer: !new:speechbrain.tokenizers.SentencePiece.SentencePiece
+    model_dir: !ref <save_folder>
+    vocab_size: !ref <output_neurons>
+    csv_train: !ref <csv_label>
+    csv_read: char
+    char_format_input: True
+    model_type: "unigram" # ["unigram", "bpe", "char"]
+    character_coverage: 1.0 # for language with large set of chars use 0.9995
 
 # Functions
 model: !new:speechbrain.lobes.models.RNNLM.RNNLM
@@ -64,12 +86,14 @@ label_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     output_folder: !ref <output_folder>
     csv_read: [char]
 
-train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_train>
+train_loader: !new:speechbrain.data_io.data_io.HDF5DataLoaderFactory
+    hdf5_file: !ref <hdf5_train>
+    label_dict_file: !ref <output_folder>/label_dict.pkl
     batch_size: !ref <batch_size>
-    sentence_sorting: random
+    sentence_sorting: ascending
+    sort_by: wrd
     output_folder: !ref <output_folder>
-    csv_read: [char]
+    data_entries: [char]
 
 valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_valid>
