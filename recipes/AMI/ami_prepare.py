@@ -190,8 +190,10 @@ def get_subsegments(merged_segs, max_subseg_dur=3.0, overlap=1.5):
     return subsegments
 
 
-def prepare_csv(rttm_file, save_dir, data_dir):
-    # Read RTTM, get unique meeting_IDs (from headers)
+def prepare_csv(
+    rttm_file, save_dir, data_dir, filename, max_subseg_dur, overlap
+):
+    # Read RTTM, get unique meeting_IDs (from RTTM headers)
     # For each MeetingID.. select only that meetID -> merge -> subsegment -> csv -> append
 
     # Read RTTM
@@ -205,7 +207,7 @@ def prepare_csv(rttm_file, save_dir, data_dir):
     rec_ids = list(set([row.split(" ")[1] for row in spkr_info]))
     rec_ids.sort()  # sorting just to make CSV look in proper sequence
 
-    # for each recoding merge segments and then perform subsegmentation
+    # For each recording merge segments and then perform subsegmentation
     MERGED_SEGMENTS = []
     SUBSEGMENTS = []
     for rec_id in rec_ids:
@@ -221,15 +223,18 @@ def prepare_csv(rttm_file, save_dir, data_dir):
         MERGED_SEGMENTS = MERGED_SEGMENTS + merged_segs
 
         # TODO: Xvector hyperparams from hyperparams
-        max_subseg_dur = 3
-        overlap = 1.5
+        # max_subseg_dur = 3
+        # overlap = 1.5
+
+        # Divide segments into smaller sub-segments
         subsegs = get_subsegments(merged_segs, max_subseg_dur, overlap)
         SUBSEGMENTS = SUBSEGMENTS + subsegs
 
-    # Write segment and sub-segments (in RTTM format)
-    # Usefull for verifing correctness of sub-segmentor module
-    segs_file = save_dir + "/eval.segments.rttm"
-    subsegment_file = save_dir + "/eval.subsegments.rttm"
+    # Write segment AND sub-segments (in RTTM format)
+    # Useful for verifing correctness of sub-segmentor module. Verify using md-eval.pl and check Missed Speech, FA Speech
+    segs_file = save_dir + "/" + filename + ".segments.rttm"
+    subsegment_file = save_dir + "/" + filename + ".subsegments.rttm"
+
     with open(segs_file, "w") as f:
         for row in MERGED_SEGMENTS:
             line_str = " ".join(row)
@@ -278,7 +283,8 @@ def prepare_csv(rttm_file, save_dir, data_dir):
 
     csv_output = csv_output_head + entry
 
-    csv_file = save_dir + "eval.subsegments.csv"
+    # Write csv file only for subsegments
+    csv_file = save_dir + "/" + filename + ".subsegments.csv"
     with open(csv_file, mode="w") as csv_f:
         csv_writer = csv.writer(
             csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
@@ -326,6 +332,7 @@ def prepare_ami(
 
     # Setting ouput files
     save_opt = os.path.join(save_folder, OPT_FILE)  # noqa F841
+
     save_csv_train = os.path.join(save_folder, TRAIN_CSV)  # noqa F841
     save_csv_dev = os.path.join(save_folder, DEV_CSV)  # noqa F841
     save_csv_eval = os.path.join(save_folder, EVAL_CSV)  # noqa F841
@@ -347,13 +354,23 @@ def prepare_ami(
     # Write RTTMs to save directory
     # train_rttm = prepare_RTTM(train_set)
     # dev_rttm = prepare_RTTM(dev_set)
+
+    # Create ref_RTTM directory
     ref_dir = save_folder + "/ref_RTTM/"
     if not os.path.exists(ref_dir):
         os.makedirs(ref_dir)
-    rttm_file = ref_dir + "/fullref_eval.rttm"
-    prepare_segs_for_RTTM(eval_set, rttm_file)
 
-    # Inp: RTTM, Out: Merged segments
+    # Create Groundtruth RTTM files
+    for i in splits:
+        rttm_file = ref_dir + "/fullref_ami_" + i + ".rttm"
+        if i == "train":
+            prepare_segs_for_RTTM(train_set, rttm_file)
+        if i == "dev":
+            prepare_segs_for_RTTM(dev_set, rttm_file)
+        if i == "eval":
+            prepare_segs_for_RTTM(eval_set, rttm_file)
+
+    # Inp: GT RTTM, Out: Merged segments
     # Add options if user needs merged segments or non-overlapping (homogeneous speakers) subsegments
     # If segments are merged then spkr-ID will be lost (or add prefix "o-" for overlapping segments)
     # If homogneous subsegs: spkIDs are retained.
@@ -361,7 +378,23 @@ def prepare_ami(
     # dev_segs = merge_intervals (dev_rttm)
     # eval_segs = merge_intervals_and_subsegment(eval_rttm)
     # ONE csv file for whole Eval dataset
-    prepare_csv(rttm_file, save_folder, data_folder)
+
+    # Create csv_files for splits
+    csv_folder = os.path.join(save_folder, "csv")
+    if not os.path.exists(csv_folder):
+        os.makedirs(csv_folder)
+
+    for i in splits:
+        rttm_file = ref_dir + "/fullref_ami_" + i + ".rttm"
+        csv_filename_prefix = "ami_" + i
+        prepare_csv(
+            rttm_file,
+            csv_folder,
+            data_folder,
+            csv_filename_prefix,
+            max_subseg_dur,
+            overlap,
+        )
 
     # sys.exit()
 

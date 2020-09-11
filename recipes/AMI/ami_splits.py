@@ -18,10 +18,10 @@ def get_AMI_split(split_option):
         )
         return
 
-    # TODO: Remove this before merge
+    # TODO: Remove this sample before merge
     if split_option == "sample":
-        train_set = ["IS1000", "ES2012"]
-        dev_set = ["IS1001", "ES2013"]
+        train_set = ["IS1000"]  # , "ES2012"]
+        dev_set = ["IS1001"]  # "ES2013"]
         # test_set = ["IS1003", "ES2015"]
         test_set = ["IS1003"]
 
