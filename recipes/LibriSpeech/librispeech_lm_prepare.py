@@ -15,13 +15,14 @@ from speechbrain.data_io.data_io import (
 import h5py
 from speechbrain.utils.data_utils import download_file
 import gzip
+from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 OPT_FILE = "opt_librispeech_lm_corpus_prepare.pkl"
 
 
 def prepare_lm_corpus(
-    data_folder, save_folder, filename, select_n_sentences=None,
+    data_folder, save_folder, filename, select_n_sentences=None, tokenizer=None,
 ):
     """
     This function prepares the hdf5 file for the LibriSpeech LM corpus.
@@ -61,9 +62,7 @@ def prepare_lm_corpus(
     src = "http://www.openslr.org/resources/11/librispeech-lm-norm.txt.gz"
     download_file(src, data_path)
 
-    create_hdf5(
-        data_path, save_folder, filename, select_n_sentences,
-    )
+    create_hdf5(data_path, save_folder, filename, select_n_sentences, tokenizer)
 
     # saving options
     save_pkl(conf, save_opt)
@@ -92,6 +91,7 @@ def skip(save_folder, filename, conf):
     # Checking csv files
     skip = True
 
+    print(os.path.isfile(os.path.join(save_folder, filename)))
     if not os.path.isfile(os.path.join(save_folder, filename)):
         skip = False
 
@@ -111,7 +111,7 @@ def skip(save_folder, filename, conf):
 
 
 def create_hdf5(
-    data_path, save_folder, filename, select_n_sentences,
+    data_path, save_folder, filename, select_n_sentences, tokenizer
 ):
     """
     Create the hdf5 file.
@@ -139,10 +139,11 @@ def create_hdf5(
     logger.info(msg)
 
     snt_cnt = 0
-    all_wrds, all_chars = [], []
+    all_wrds, all_chars, lines = [], [], []
     with gzip.open(data_path, "rt") as f_in:
         for snt_id, line in enumerate(f_in):
             wrds = line.strip()
+            lines.append(wrds)
             wrds_lst = wrds.split(" ")
 
             # skip empty sentences
@@ -160,10 +161,19 @@ def create_hdf5(
             if snt_cnt == select_n_sentences:
                 break
 
+    subwrds = []
+    logger.info("generating subwrd lists...")
+    for i, line in enumerate(tqdm(lines)):
+        print(wrds)
+        ids = tokenizer.sp.encode_as_ids(line)
+        print(ids)
+        subwrds.append(tokenizer.sp.encode_as_ids(line))
+
     if ".pkl" in hdf5_file:
         dset = {}
         dset["wrd"] = all_wrds
         dset["char"] = all_chars
+        dset["subwrd"] = subwrds
         save_pkl(dset, hdf5_file)
     else:
         with h5py.File(hdf5_file, "w") as f_h5:

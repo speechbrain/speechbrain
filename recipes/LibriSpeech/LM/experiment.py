@@ -47,9 +47,17 @@ class LM(sb.core.Brain):
     def compute_forward(self, y, stage="train", init_params=False):
         ids, chars, char_lens = y
         index2lab = params.label_loader.label_dict["char"]["index2lab"]
-        bpe, _ = params.bpe_tokenizer(
-            chars, char_lens, index2lab, task="encode", init_params=init_params
-        )
+
+        if not params.load_subwrd_directly or stage != "train":
+            bpe, _ = params.bpe_tokenizer(
+                chars,
+                char_lens,
+                index2lab,
+                task="encode",
+                init_params=init_params,
+            )
+        else:
+            bpe = chars
         bpe = bpe.to(params.device)
 
         y_in = prepend_bos_token(bpe, bos_index=params.bos_index)
@@ -61,9 +69,12 @@ class LM(sb.core.Brain):
         pout = predictions
         ids, chars, char_lens = targets
         index2lab = params.label_loader.label_dict["char"]["index2lab"]
-        bpe, bpe_lens = params.bpe_tokenizer(
-            chars, char_lens, index2lab, task="encode"
-        )
+        if not params.load_subwrd_directly or stage != "train":
+            bpe, bpe_lens = params.bpe_tokenizer(
+                chars, char_lens, index2lab, task="encode"
+            )
+        else:
+            bpe, bpe_lens = chars, char_lens
         bpe, bpe_lens = bpe.to(params.device), bpe_lens.to(params.device)
 
         abs_length = torch.round(bpe_lens * bpe.shape[1])
@@ -129,22 +140,28 @@ class LM(sb.core.Brain):
             importance_keys=[ckpt_recency, lambda c: -c.meta["loss"]],
         )
 
-    def load_tokenizer(self):
-        save_model_path = params.save_folder + "/tok_unigram.model"
-        save_vocab_path = params.save_folder + "/tok_unigram.vocab"
 
-        if hasattr(params, "tok_mdl_file"):
-            download_file(
-                params.tok_mdl_file, save_model_path, replace_existing=True
-            )
-            params.bpe_tokenizer.sp.load(save_model_path)
-        if hasattr(params, "tok_voc_file"):
-            download_file(
-                params.tok_voc_file, save_vocab_path, replace_existing=True
-            )
+def load_tokenizer():
+    save_model_path = params.save_folder + "/{}_unigram.model".format(
+        params.output_neurons
+    )
+    save_vocab_path = params.save_folder + "/{}_unigram.vocab".format(
+        params.output_neurons
+    )
+
+    if hasattr(params, "tok_mdl_file"):
+        download_file(
+            params.tok_mdl_file, save_model_path, replace_existing=True
+        )
+        params.bpe_tokenizer.sp.load(save_model_path)
+    if hasattr(params, "tok_voc_file"):
+        download_file(
+            params.tok_voc_file, save_vocab_path, replace_existing=True
+        )
 
 
 # Prepare data
+load_tokenizer()
 prepare_librispeech(
     data_folder=params.data_folder,
     splits=params.train_splits + [params.dev_split],
@@ -153,11 +170,12 @@ prepare_librispeech(
     save_folder=params.data_folder,
 )
 
-prepare_lm_corpus(
-    data_folder=params.data_folder,
-    save_folder=params.data_folder,
-    filename=params.filename,
-)
+# prepare_lm_corpus(
+#     data_folder=params.data_folder,
+#     save_folder=params.data_folder,
+#     filename=params.filename,
+#     tokenizer=params.bpe_tokenizer
+# )
 
 _ = params.label_loader()
 train_set = params.train_loader()
@@ -169,11 +187,11 @@ lm_brain = LM(
 )
 if params.multigpu:
     params.model = torch.nn.DataParallel(params.model)
+    params.log_softmax = torch.nn.DataParallel(params.log_softmax)
 # Load latest checkpoint to resume training
 checkpointer.recover_if_possible()
 
-lm_brain.load_tokenizer()
-# with torch.autograd.detect_anomaly():
+# lm_brain.load_tokenizer()
 lm_brain.fit(params.epoch_counter, train_set, valid_set)
 
 # Load best checkpoint for evaluation
