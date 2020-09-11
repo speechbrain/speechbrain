@@ -68,11 +68,11 @@ model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM # y
     vocab: !ref <output_neurons>
     d_model: 512
     nhead: 8
-    num_encoder_layers: 12
+    num_encoder_layers: 16
     num_decoder_layers: 0
     d_ffn: 2048
     dropout: 0.1
-    activation: !name:torch.nn.GELU
+    activation: !name:torch.nn.ReLU
 
 log_softmax: !new:torch.nn.LogSoftmax
     dim: -1

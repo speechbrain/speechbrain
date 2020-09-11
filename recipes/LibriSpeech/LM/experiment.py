@@ -170,12 +170,12 @@ prepare_librispeech(
     save_folder=params.data_folder,
 )
 
-# prepare_lm_corpus(
-#     data_folder=params.data_folder,
-#     save_folder=params.data_folder,
-#     filename=params.filename,
-#     tokenizer=params.bpe_tokenizer
-# )
+prepare_lm_corpus(
+    data_folder=params.data_folder,
+    save_folder=params.data_folder,
+    filename=params.filename,
+    tokenizer=params.bpe_tokenizer,
+)
 
 _ = params.label_loader()
 train_set = params.train_loader()
@@ -191,7 +191,6 @@ if params.multigpu:
 # Load latest checkpoint to resume training
 checkpointer.recover_if_possible()
 
-# lm_brain.load_tokenizer()
 lm_brain.fit(params.epoch_counter, train_set, valid_set)
 
 # Load best checkpoint for evaluation
