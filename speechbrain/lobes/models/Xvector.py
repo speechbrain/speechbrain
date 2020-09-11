@@ -82,6 +82,8 @@ class Classifier(sb.nnet.Sequential):
         Number of linear layers.
     lin_neurons : int
         Number of neurons in linear layers.
+    out_neurons : int
+        Number of ouput neurons.
 
     Example
     -------
@@ -115,3 +117,53 @@ class Classifier(sb.nnet.Sequential):
         # Final Softmax classifier
         self.append(sb.nnet.Linear, n_neurons=out_neurons, bias=True)
         self.append(sb.nnet.Softmax(apply_log=True))
+
+
+class Discriminator(torch.nn.Module):
+    """This class implements a discriminator on the top of xvector features.
+
+    Arguments
+    ---------
+    device : str
+        Device used e.g. "cpu" or "cuda"
+    activation : torch class
+        A class for constructing the activation layers.
+    lin_blocks : int
+        Number of linear layers.
+    lin_neurons : int
+        Number of neurons in linear layers.
+
+    Example
+    -------
+    >>> input_feats = torch.rand([5, 10, 24])
+    >>> compute_xvect = Xvector(input_feats.shape)
+    >>> xvects = compute_xvect(input_feats)
+    >>> classify = Classifier(xvects.shape)
+    >>> output = classify(xvects)
+    >>> output.shape
+    torch.Size([5, 1, 1211])
+    """
+
+    def __init__(
+        self,
+        input_shape,
+        activation=torch.nn.LeakyReLU,
+        lin_blocks=1,
+        lin_neurons=512,
+        out_neurons=1,
+    ):
+
+        super().__init__(input_shape)
+
+        for block_index in range(lin_blocks):
+            self.append(
+                sb.nnet.Linear,
+                n_neurons=lin_neurons,
+                bias=True,
+                combine_dims=False,
+            )
+            self.append(sb.nnet.BatchNorm1d)
+            self.append(activation())
+
+        # Final Layer (sigmoid not included)
+        self.append(sb.nnet.Linear, n_neurons=out_neurons)

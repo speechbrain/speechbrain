@@ -1,4 +1,5 @@
 -r lint-requirements.txt
+h5py>=2.10.0
 joblib>=0.14.1
 numpy>=1.17.0
 pre-commit>=2.3.0
