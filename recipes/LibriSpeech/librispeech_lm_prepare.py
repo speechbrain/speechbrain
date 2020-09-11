@@ -38,9 +38,6 @@ def prepare_lm_corpus(
     select_n_sentences : int
         Default : None
         If not None, only pick this many sentences.
-    add_txt: list
-        Additional test to add in the LM (e.g, text from
-        the training transcriptions on LibriSpeech)
 
     Example
     -------
@@ -94,7 +91,6 @@ def skip(save_folder, filename, conf):
     # Checking csv files
     skip = True
 
-    print(os.path.isfile(os.path.join(save_folder, filename)))
     if not os.path.isfile(os.path.join(save_folder, filename)):
         skip = False
 
@@ -114,12 +110,7 @@ def skip(save_folder, filename, conf):
 
 
 def create_hdf5(
-    data_path,
-    save_folder,
-    filename,
-    select_n_sentences,
-    tokenizer,
-    add_txt=None,
+    data_path, save_folder, filename, select_n_sentences, tokenizer
 ):
     """
     Create the hdf5 file.
@@ -134,9 +125,6 @@ def create_hdf5(
         The filename of hdf5 file.
     select_n_sentences : int, optional
         The number of sentences to select.
-    add_txt: list
-        Additional test to add in the LM (e.g, text from
-        the training transcriptions on LibriSpeech)
 
     Returns
     -------
@@ -151,16 +139,10 @@ def create_hdf5(
 
     snt_cnt = 0
     all_wrds, all_chars, lines = [], [], []
-
-    if add_txt is not None:
-        all_wrds = add_txt
-        chars_lst = [c for c in "_".join(all_wrds)]
-        all_chars = " ".join(chars_lst)
-
     with gzip.open(data_path, "rt") as f_in:
         for snt_id, line in enumerate(f_in):
             wrds = line.strip()
-            lines.append(wrds)
+            sent = wrds
             wrds_lst = wrds.split(" ")
 
             # skip empty sentences
@@ -173,6 +155,7 @@ def create_hdf5(
 
             all_wrds.append(wrds)
             all_chars.append(chars)
+            lines.append(sent)
 
             snt_cnt = snt_cnt + 1
             if snt_cnt == select_n_sentences:
@@ -181,15 +164,15 @@ def create_hdf5(
     subwrds = []
     logger.info("generating subwrd lists...")
     for i, line in enumerate(tqdm(lines)):
-        print(wrds)
         ids = tokenizer.sp.encode_as_ids(line)
-        print(ids)
-        subwrds.append(tokenizer.sp.encode_as_ids(line))
+        # filter out sentence that is too short or to long
+        if len(ids) > 0 and len(ids) < 400:
+            subwrds.append(ids)
 
     if ".pkl" in hdf5_file:
         dset = {}
-        dset["wrd"] = all_wrds
-        dset["char"] = all_chars
+        # dset["wrd"] = all_wrds
+        # dset["char"] = all_chars
         dset["subwrd"] = subwrds
         save_pkl(dset, hdf5_file)
     else:

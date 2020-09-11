@@ -11,6 +11,9 @@ import shutil
 import urllib.request
 import collections.abc
 import tqdm
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def get_all_files(
@@ -238,7 +241,7 @@ def download_file(
     elif not os.path.isfile(dest) or (
         os.path.isfile(dest) and replace_existing
     ):
-        print(f"Downloading {source} to {dest}")
+        logger.info(f"Downloading {source} to {dest}")
         with DownloadProgressBar(
             unit="B", unit_scale=True, miniters=1, desc=source.split("/")[-1]
         ) as t:
@@ -246,11 +249,11 @@ def download_file(
                 source, filename=dest, reporthook=t.update_to
             )
     else:
-        print("Destination path is not empty. Skipping download")
+        logger.info("Destination path is not empty. Skipping download")
 
     # Unpack if necessary
     if unpack:
         if dest_unpack is None:
             dest_unpack = os.path.dirname(dest)
-        print(f"Extracting {dest} to {dest_unpack}")
+        logger.info(f"Extracting {dest} to {dest_unpack}")
         shutil.unpack_archive(dest, dest_unpack)
