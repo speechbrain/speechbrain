@@ -5,7 +5,7 @@ import numpy as np
 import speechbrain as sb
 
 
-class VADBrain(sb.core.Brain):
+class VADBrain(sb.Brain):
     def compute_forward(self, x, stage):
         id, wavs, lens = x
         feats = self.compute_features(wavs)
@@ -70,7 +70,7 @@ def main():
     data_folder = "../../../../../samples/vad"
     data_folder = os.path.abspath(experiment_dir + data_folder)
     with open(params_file) as fin:
-        params = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
+        params = sb.load_extended_yaml(fin, {"data_folder": data_folder})
 
     train_set = sb.DataLoaderFactory(
         params.csv_train,
