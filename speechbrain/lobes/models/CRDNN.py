@@ -58,7 +58,7 @@ class CRDNN(Sequential):
         The number of neurons in the linear layers.
     projection_dim : int
         The number of neurons in the projection layer.
-        This layer is used to reduced the size of the flatened
+        This layer is used to reduce the size of the flatened
         representation obtained after the CNN blocks.
 
     Example
@@ -138,7 +138,8 @@ class CRDNN(Sequential):
                 )
             )
 
-        # This projection helps with large CNN filters
+        # This projection helps reducing the number of parameters
+        # when using large number of CNN filters.
         # Large numbers of CNN filters + large features
         # often lead to very large flattened layers
         # This layer projects it back to something reasonable
