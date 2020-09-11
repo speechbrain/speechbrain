@@ -213,16 +213,11 @@ class AttentiveStatisticsPooling(nn.Module):
         """
         L = x.shape[-1]
 
-        def _compute_statistics(x, m, dim=2, eps=self.eps, bound=1e9):
-            # Improving numerical stability before accumulation
-            absmax = int(x.abs().max())
-            if absmax > bound:
-                x = x.clamp(-bound, bound)
+        def _compute_statistics(x, m, dim=2, eps=self.eps):
             mean = (m * x).sum(dim)
-            mse = (m * (x - mean.unsqueeze(2)).pow(2)).sum(dim)
-            std = torch.sqrt(mse / m.sum(dim) + eps)
-            # Improving numerical stability of std for backward computation
-            std = torch.max(std, eps * torch.ones_like(std))
+            diff = (x - mean.unsqueeze(2)).clamp(-1e9, 1e9)
+            mse = (m * diff).pow(2).sum(dim)
+            std = (mse / m.sum(dim) + eps).pow(1 / 2)
             return mean, std
 
         if lengths is None:
@@ -236,8 +231,9 @@ class AttentiveStatisticsPooling(nn.Module):
         # self-attention to look at global properties of the utterance.
         if self.global_context:
             # torch.std is unstable for backward computation
+            # https://github.com/pytorch/pytorch/issues/4320
             total = mask.sum(dim=2, keepdim=True).float()
-            mean, std = _compute_statistics(x.detach(), mask / total)
+            mean, std = _compute_statistics(x, mask / total)
             mean = mean.unsqueeze(2).repeat(1, 1, L)
             std = std.unsqueeze(2).repeat(1, 1, L)
             attn = torch.cat([x, mean, std], dim=1)

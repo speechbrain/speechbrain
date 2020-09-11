@@ -106,8 +106,10 @@ def prepare_voxceleb(
 
     # Create the data folder contains VoxCeleb1 data from the source
     if source is not None:
-        if "train" in splits and not os.path.exists(
-            os.path.join(data_folder, "wav", "id10001")
+        if (
+            "train" in splits
+            and not os.path.exists(os.path.join(data_folder, "wav", "id10001"))
+            and not os.path.exists(os.path.join(data_folder, "wav", "id00012"))
         ):
             print(f"Extracting {source}/{DEV_WAV} to {data_folder}")
             shutil.unpack_archive(os.path.join(source, DEV_WAV), data_folder)
