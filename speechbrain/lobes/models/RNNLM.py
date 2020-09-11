@@ -78,7 +78,6 @@ class RNNLM(nn.Module):
             num_layers=rnn_layers,
             dropout=dropout,
             re_init=rnn_re_init,
-            return_hidden=True,
         )
         self.return_hidden = return_hidden
         self.reshape = False
@@ -103,7 +102,7 @@ class RNNLM(nn.Module):
             x = x.unsqueeze(dim=1)
             self.reshape = True
 
-        x, h = self.rnn(x, hx)
+        x = self.rnn(x, hx)
         x = self.dnn(x)
         out = self.out(x)
 
@@ -111,6 +110,6 @@ class RNNLM(nn.Module):
             out = out.squeeze(dim=1)
 
         if self.return_hidden:
-            return out, h
+            return out, self.rnn.get_hidden()
         else:
             return out
