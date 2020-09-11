@@ -56,147 +56,10 @@ class CRDNN(Sequential):
         The number of linear neural blocks to include.
     dnn_neurons : int
         The number of neurons in the linear layers.
-
-    Example
-    -------
-    >>> model = CRDNN()
-    >>> inputs = torch.rand([10, 120, 60])
-    >>> outputs = model(inputs, init_params=True)
-    >>> outputs.shape
-    torch.Size([10, 120, 512])
-    """
-
-    def __init__(
-        self,
-        activation=torch.nn.LeakyReLU,
-        dropout=0.15,
-        cnn_blocks=2,
-        cnn_channels=[128, 256],
-        cnn_kernelsize=(3, 3),
-        time_pooling=False,
-        time_pooling_size=2,
-        freq_pooling_size=2,
-        rnn_class=LiGRU,
-        inter_layer_pooling_size=[2, 2],
-        using_2d_pooling=False,
-        rnn_layers=4,
-        rnn_neurons=512,
-        rnn_bidirectional=True,
-        rnn_re_init=False,
-        dnn_blocks=2,
-        dnn_neurons=512,
-    ):
-
-        blocks = []
-
-        for block_index in range(cnn_blocks):
-            if not using_2d_pooling:
-                pooling = Pooling1d(
-                    pool_type="max",
-                    kernel_size=inter_layer_pooling_size[block_index],
-                    pool_axis=2,
-                )
-            else:
-                pooling = Pooling2d(
-                    pool_type="max",
-                    kernel_size=(
-                        inter_layer_pooling_size[block_index],
-                        inter_layer_pooling_size[block_index],
-                    ),
-                    pool_axis=(1, 2),
-                )
-
-            blocks.extend(
-                [
-                    Conv2d(
-                        out_channels=cnn_channels[block_index],
-                        kernel_size=cnn_kernelsize,
-                    ),
-                    LayerNorm(),
-                    activation(),
-                    Conv2d(
-                        out_channels=cnn_channels[block_index],
-                        kernel_size=cnn_kernelsize,
-                    ),
-                    LayerNorm(),
-                    activation(),
-                    # Inter-layer Pooling
-                    pooling,
-                    Dropout2d(drop_rate=dropout),
-                ]
-            )
-
-        if time_pooling:
-            blocks.append(
-                Pooling1d(
-                    pool_type="max", kernel_size=time_pooling_size, pool_axis=1,
-                )
-            )
-
-        if rnn_layers > 0:
-            blocks.append(
-                rnn_class(
-                    hidden_size=rnn_neurons,
-                    num_layers=rnn_layers,
-                    dropout=dropout,
-                    bidirectional=rnn_bidirectional,
-                    re_init=rnn_re_init,
-                )
-            )
-
-        for block_index in range(dnn_blocks):
-            blocks.extend(
-                [
-                    Linear(
-                        n_neurons=dnn_neurons, bias=True, combine_dims=False,
-                    ),
-                    BatchNorm1d(),
-                    activation(),
-                    torch.nn.Dropout(p=dropout),
-                ]
-            )
-
-        super().__init__(*blocks)
-
-class CRDNN_EMB(Sequential):
-    """This model is a combination of CNNs, RNNs, and DNNs.
-
-    The default CNN model is based on VGG.
-
-    Arguments
-    ---------
-    activation : torch class
-        A class used for constructing the activation layers. For cnn and dnn.
-    dropout : float
-        Neuron dropout rate, applied to cnn, rnn, and dnn.
-    cnn_blocks : int
-        The number of convolutional neural blocks to include.
-    cnn_channels : list of ints
-        A list of the number of output channels for each cnn block.
-    cnn_kernelsize : tuple of ints
-        The size of the convolutional kernels.
-    time_pooling : bool
-        Whether to pool the utterance on the time axis before the LiGRU.
-    time_pooling_size : int
-        The number of elements to pool on the time axis.
-    time_pooling_stride : int
-        The number of elements to increment by when iterating the time axis.
-    using_2d_pooling: bool
-        Whether using a 2D or 1D pooling after each cnn block.
-    inter_layer_pooling_size : list of ints
-        A list of the number of pooling for each cnn block.
-    rnn_class : torch class
-        The type of rnn to use in CRDNN network (LiGRU, LSTM, GRU, RNN)
-    rnn_layers : int
-        The number of recurrent LiGRU layers to include.
-    rnn_neurons : int
-        Number of neurons in each layer of the LiGRU.
-    rnn_bidirectional : bool
-        Whether this model will process just forward or both directions.
-    dnn_blocks : int
-        The number of linear neural blocks to include.
     dnn_neurons : int
-        The number of neurons in the linear layers.
+        The number of neurons in the projection layer.
+        This layer is used to reduced the size of the flatened
+        representation obtained after the CNN blocks.
 
     Example
     -------
@@ -226,7 +89,7 @@ class CRDNN_EMB(Sequential):
         rnn_re_init=False,
         dnn_blocks=2,
         dnn_neurons=512,
-        embedding_dim=-1,
+        projection_dim=-1,
     ):
 
         blocks = []
@@ -275,11 +138,15 @@ class CRDNN_EMB(Sequential):
                 )
             )
 
-        if embedding_dim != -1:
+        # This projection helps with large CNN filters
+        # Large numbers of CNN filters + large features
+        # often lead to very large flattened layers
+        # This layer projects it back to something reasonable
+        if projection_dim != -1:
             blocks.extend(
                 [
                     Linear(
-                        n_neurons=embedding_dim, bias=True, combine_dims=True,
+                        n_neurons=projection_dim, bias=True, combine_dims=True,
                     ),
                     LayerNorm(),
                     activation(),
