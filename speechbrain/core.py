@@ -83,8 +83,8 @@ def create_experiment_directory(
     # Log beginning of experiment!
     logger.info("Beginning experiment!")
     logger.info(f"Experiment folder: {experiment_directory}")
-    commit_hash = subprocess.check_output(["git", "describe", "--always"])
-    logger.debug("Commit hash: '%s'" % commit_hash.decode("utf-8").strip())
+    #commit_hash = subprocess.check_output(["git", "describe", "--always"])
+    #logger.debug("Commit hash: '%s'" % commit_hash.decode("utf-8").strip())
 
     # Save system description:
     if save_env_desc:
