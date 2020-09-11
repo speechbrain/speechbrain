@@ -35,7 +35,6 @@ modules:
         dropout: !ref <dropout>
         bidirectional: False
         re_init: True
-        return_hidden: False
     lin: !new:speechbrain.nnet.Linear
         input_size: !ref <rnn_neurons>
         n_neurons: !ref <output_neurons>
