@@ -40,7 +40,7 @@ test_loader: !new:speechbrain.DataLoaderFactory
 modules:
     add_noise: !new:speechbrain.processing.AddNoise
     generator: !new:speechbrain.nnet.Sequential
-        - [!ref <N_batch>, 100, 1]  # input_shape
+        - [null, null, 1]  # input_shape
         - !name:speechbrain.nnet.Conv1d
           out_channels: 32
           kernel_size: 11
@@ -50,7 +50,7 @@ modules:
           kernel_size: 11
         - !new:torch.nn.Tanh
     discriminator: !new:speechbrain.nnet.Sequential
-        - [!ref <N_batch>, 100, 1]  # input_shape
+        - [null null, 1]  # input_shape
         - !name:speechbrain.nnet.Conv1d
           out_channels: 32
           kernel_size: 11

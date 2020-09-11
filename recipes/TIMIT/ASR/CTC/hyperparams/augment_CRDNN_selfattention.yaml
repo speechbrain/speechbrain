@@ -81,7 +81,7 @@ modules:
     epoch_counter: !ref <epoch_counter>
     wer_file: !ref <wer_file>
     model: !new:speechbrain.lobes.models.CRDNN_selfatt.CRDNN
-        input_shape: [!ref <batch_size>, 10, !ref <n_mels>]
+        input_shape: [null, null, !ref <n_mels>]
         activation: !ref <activation>
         dropout: !ref <dropout>
         cnn_blocks: !ref <cnn_blocks>

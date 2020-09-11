@@ -55,7 +55,7 @@ modules:
     mean_var_norm: !new:speechbrain.processing.InputNormalization
         norm_type: global
     model: !new:speechbrain.lobes.CRDNN
-        input_shape: [!ref <N_batch>, 10, 660]
+        input_shape: [null, null, 660]
         activation: !ref <activation>
         dropout: !ref <dropout>
         cnn_blocks: !ref <cnn_blocks>
