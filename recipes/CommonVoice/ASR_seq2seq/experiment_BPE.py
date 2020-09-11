@@ -98,25 +98,6 @@ class ASR(sb.core.Brain):
 
         x = params.enc(feats, init_params=init_params)
 
-        # print(params.enc)
-        # print(feats.shape)
-        # test = params.enc.layers[0](feats)
-        # test = params.enc.layers[2](test)
-        # test = params.enc.layers[3](test)
-        # test = params.enc.layers[4](test)
-        # test = params.enc.layers[5](test)
-        # test = params.enc.layers[6](test)
-        # print(test.shape)
-        # test = params.enc.layers[7](test)
-        # test = params.enc.layers[8](test)
-        # test = params.enc.layers[9](test)
-        # test = params.enc.layers[10](test)
-        # test = params.enc.layers[11](test)
-        # test = params.enc.layers[12](test)
-        # test = params.enc.layers[13](test)
-        # test = params.enc.layers[14](test)
-        # print(test.shape)
-
         # Prepend bos token at the beginning
         y_in = prepend_bos_token(bpe, bos_index=params.bos_index)
         e_in = params.emb(y_in, init_params=init_params)
