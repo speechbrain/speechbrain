@@ -83,7 +83,7 @@ modules:
     normalize: !new:speechbrain.processing.InputNormalization
         norm_type: global
     model: !new:speechbrain.lobes.CRDNN
-        input_shape: [!ref <batch_size>, 10, !ref <n_mels>]
+        input_shape: [null, null, !ref <n_mels>]
         activation: !ref <activation>
         dropout: !ref <dropout>
         cnn_blocks: !ref <cnn_blocks>
