@@ -90,7 +90,7 @@ train_loader: !new:speechbrain.data_io.data_io.HDF5DataLoaderFactory
     hdf5_file: !ref <hdf5_train>
     label_dict_file: !ref <output_folder>/label_dict.pkl
     batch_size: !ref <batch_size>
-    sentence_sorting: random
+    sentence_sorting: ascending
     sort_by: wrd
     output_folder: !ref <output_folder>
     data_entries: [char]
