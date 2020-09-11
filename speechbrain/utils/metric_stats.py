@@ -10,7 +10,7 @@ import torch
 import speechbrain.data_io.wer as wer_io
 import speechbrain.utils.edit_distance as edit_distance
 from joblib import Parallel, delayed
-from speechbrain.data_io.data_io import convert_index_to_lab
+from speechbrain.data_io.data_io import convert_index_to_lab, merge_char
 from speechbrain.decoders.decoders import undo_padding
 from speechbrain.utils.edit_distance import wer_summary
 
@@ -157,6 +157,12 @@ class MetricStats:
 class ErrorRateStats(MetricStats):
     """A class for tracking error rates (e.g. WER, PER).
 
+    Arguments
+    ---------
+    merge_tokens : bool
+        Whether to merge the successive tokens (used for e.g.
+        creating words out of character tokens).
+
     Example
     -------
     >>> cer_stats = ErrorRateStats()
@@ -178,10 +184,11 @@ class ErrorRateStats(MetricStats):
     1
     """
 
-    def __init__(self):
+    def __init__(self, merge_tokens=False):
         self.clear()
+        self.merge_tokens = merge_tokens
 
-    def append(self, ids, predict, target, target_len, ind2lab=None):
+    def append(self, ids, predict, target, target_len=None, ind2lab=None):
         """Add stats to the relevant containers.
 
         * See MetricStats.append()
@@ -195,16 +202,23 @@ class ErrorRateStats(MetricStats):
         target : torch.tensor
             The correct reference output, for comparison with the prediction.
         target_len : torch.tensor
-            The target outputs' relative lengths.
+            The target outputs' relative lengths, used to undo padding if
+            there is padding present in the target.
         ind2lab : dict
             Mapping from indices to labels, for writing alignments.
         """
         self.ids.extend(ids)
-        target_lab = undo_padding(target, target_len)
+
+        if target_len is not None:
+            target_lab = undo_padding(target, target_len)
 
         if ind2lab is not None:
             predict = convert_index_to_lab(predict, ind2lab)
             target_lab = convert_index_to_lab(target_lab, ind2lab)
+
+        if self.merge_tokens:
+            predict = merge_char(predict)
+            target_lab = merge_char(target_lab)
 
         scores = edit_distance.wer_details_for_batch(
             ids, target_lab, predict, compute_alignments=ind2lab is not None
