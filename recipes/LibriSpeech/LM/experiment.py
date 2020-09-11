@@ -46,9 +46,9 @@ steps = 0
 class LM(sb.core.Brain):
     def compute_forward(self, y, stage="train", init_params=False):
         ids, chars, char_lens = y
-        index2lab = params.label_loader.label_dict["char"]["index2lab"]
 
         if not params.load_subwrd_directly or stage != "train":
+            index2lab = params.label_loader.label_dict["char"]["index2lab"]
             bpe, _ = params.bpe_tokenizer(
                 chars,
                 char_lens,
@@ -68,8 +68,9 @@ class LM(sb.core.Brain):
     def compute_objectives(self, predictions, targets, stage="train"):
         pout = predictions
         ids, chars, char_lens = targets
-        index2lab = params.label_loader.label_dict["char"]["index2lab"]
+
         if not params.load_subwrd_directly or stage != "train":
+            index2lab = params.label_loader.label_dict["char"]["index2lab"]
             bpe, bpe_lens = params.bpe_tokenizer(
                 chars, char_lens, index2lab, task="encode"
             )

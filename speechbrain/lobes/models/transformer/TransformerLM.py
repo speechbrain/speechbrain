@@ -105,14 +105,18 @@ class TransformerLM(TransformerInterface):
 
         pred = self.output_proj(encoder_out, init_params)
 
+        if init_params:
+            self.reset_params()
+            self.output_proj.weight = (
+                self.custom_src_module.emb.Embedding.weight
+            )
+
         return pred
 
-    def decode(self, tgt, encoder_out):
-        tgt_mask = get_lookahead_mask(tgt)
-        tgt = self.custom_tgt_module(tgt)
-        tgt = tgt + self.positional_encoding(tgt)
-        prediction = self.decoder(tgt, encoder_out, tgt_mask=tgt_mask)
-        return prediction
+    def reset_params(self):
+        for p in self.parameters():
+            if p.dim() > 1:
+                torch.nn.init.xavier_normal_(p)
 
 
 def make_masks(src, pad_idx=0, look_ahead_mask=True, padding_mask=True):

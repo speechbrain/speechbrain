@@ -72,7 +72,8 @@ model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM # y
     num_decoder_layers: 0
     d_ffn: 2048
     dropout: 0.1
-    activation: !name:torch.nn.ReLU
+    activation: !name:torch.nn.GELU
+    normalize_before: True
 
 log_softmax: !new:torch.nn.LogSoftmax
     dim: -1
@@ -115,7 +116,7 @@ valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
     csv_read: [wrd]
-    num_workers: 3
+    num_workers: 4
 
 compute_cost: !name:speechbrain.nnet.losses.nll_loss
 
