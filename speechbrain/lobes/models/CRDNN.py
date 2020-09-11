@@ -56,7 +56,7 @@ class CRDNN(Sequential):
         The number of linear neural blocks to include.
     dnn_neurons : int
         The number of neurons in the linear layers.
-    dnn_neurons : int
+    projection_dim : int
         The number of neurons in the projection layer.
         This layer is used to reduced the size of the flatened
         representation obtained after the CNN blocks.
