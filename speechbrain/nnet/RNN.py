@@ -1054,7 +1054,7 @@ class LiGRU(torch.nn.Module):
     def __init__(
         self,
         hidden_size,
-        nonlinearity="sin",
+        nonlinearity="relu",
         normalization="batchnorm",
         num_layers=1,
         bias=True,
@@ -1217,7 +1217,7 @@ class LiGRU_Layer(torch.jit.ScriptModule):
         num_layers,
         batch_size,
         dropout=0.0,
-        nonlinearity="sin",
+        nonlinearity="relu",
         normalization="batchnorm",
         bidirectional=False,
         device="cuda",
@@ -1277,9 +1277,8 @@ class LiGRU_Layer(torch.jit.ScriptModule):
         if nonlinearity == "tanh":
             self.act = torch.nn.Tanh().to(device)
         elif nonlinearity == "sin":
-            print("Using Sin function")
-            self.act = torch.sin
-        elif nonlinearity =="leaky_relu":
+            self.act = torch.sin.to(device)
+        elif nonlinearity == "leaky_relu":
             self.act = torch.nn.LeakyReLU().to(device)
         else:
             self.act = torch.nn.ReLU().to(device)
