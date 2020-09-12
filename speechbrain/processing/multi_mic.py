@@ -90,50 +90,58 @@ class Covariance(torch.nn.Module):
     """
 
     def __init__(self, average=True):
+
         super().__init__()
         self.average = average
 
     def forward(self, Xs):
-        """ Computes the covariance matrices (XXs) of the signals. The result will
-        have the following format: (batch, time_step, n_fft, 2, n_mics + n_pairs).
 
-        The order on the last dimension corresponds to the triu_indices for a
-        square matrix. For instance, if we have 4 channels, we get the
-        following order: (0, 0), (0, 1), (0, 2), (0, 3), (1, 1), (1, 2), (1, 3),
-        (2, 2), (2, 3) and (3, 3). Therefore, XXs[..., 0] corresponds
-        to channels (0, 0) and XXs[..., 1] corresponds to channels (0, 1).
+        XXs = Covariance._cov(Xs=Xs, average=self.average)
+        return XXs
+
+    @staticmethod
+    def _cov(Xs, average=True):
+        """ Computes the covariance matrices (XXs) of the signals. The result will
+        have the following format: (batch, time_step, n_fft/2 + 1, 2, n_mics + n_pairs).
 
         Arguments:
         ----------
         Xs : tensor
             A batch of audio signals in the frequency domain.
             The tensor must have the following format:
-            (batch, time_step, n_fft, 2, n_mics)
+            (batch, time_step, n_fft/2 + 1, 2, n_mics)
+        average : boolean
+            Informs the function if it should return an average
+            (computed on the time dimension) of the covariance
+            matrices. Default value is True.
         """
+
+        # Get useful dimensions
+        n_mics = Xs.shape[4]
 
         # Formating the real and imaginary parts
         Xs_re = Xs[..., 0, :].unsqueeze(4)
         Xs_im = Xs[..., 1, :].unsqueeze(4)
 
         # Computing the covariance
-        XXs_re = torch.matmul(Xs_re, Xs_re.transpose(3, 4)) + torch.matmul(
+        Rxx_re = torch.matmul(Xs_re, Xs_re.transpose(3, 4)) + torch.matmul(
             Xs_im, Xs_im.transpose(3, 4)
         )
 
-        XXs_im = torch.matmul(Xs_im, Xs_re.transpose(3, 4)) - torch.matmul(
-            Xs_re, Xs_im.transpose(3, 4)
+        Rxx_im = torch.matmul(Xs_re, Xs_im.transpose(3, 4)) - torch.matmul(
+            Xs_im, Xs_re.transpose(3, 4)
         )
 
         # Selecting the upper triangular part of the covariance matrices
-        n_channels = Xs.shape[4]
-        indices = torch.triu_indices(n_channels, n_channels)
+        idx = torch.triu_indices(n_mics, n_mics)
 
-        XXs_re = XXs_re[..., indices[0], indices[1]]
-        XXs_im = XXs_im[..., indices[0], indices[1]]
+        XXs_re = Rxx_re[..., idx[0], idx[1]]
+        XXs_im = Rxx_im[..., idx[0], idx[1]]
 
         XXs = torch.stack((XXs_re, XXs_im), 3)
 
-        if self.average is True:
+        # Computing the average if desired
+        if average is True:
             n_time_frames = XXs.shape[1]
             XXs = torch.mean(XXs, 1, keepdim=True)
             XXs = XXs.repeat(1, n_time_frames, 1, 1, 1)
