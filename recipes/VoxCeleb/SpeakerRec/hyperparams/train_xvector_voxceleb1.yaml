@@ -7,8 +7,8 @@ seed: 222
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Folders and train_log file
-data_folder: !PLACEHOLDER # e.g, /localscratch/voxceleb1
-output_folder: results/voxceleb1/xvector
+data_folder: /local_disk/nyx/tparcollet/datasets/voxceleb1/
+output_folder: /local_disk/arges/jduret/exp_sb/voxceleb1/xvector
 save_folder: !ref <output_folder>/save/
 train_log: !ref <output_folder>/train_log.txt
 
@@ -59,7 +59,7 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
 env_corrupt: !new:speechbrain.lobes.augment.env_corrupt.EnvCorrupt
-    openrir_folder: !ref <data_folder>
+    openrir_folder: /local_disk/arges/jduret/corpus/voxceleb1/dev
     openrir_max_noise_len: 3.0  # seconds
     reverb_prob: 1.0
     noise_prob: 1.0
