@@ -186,61 +186,59 @@ class DelaySum(torch.nn.Module):
         >>> tdoas = gccphat(XXs)
         >>> Ys = delaysum(Xs, tdoas)
         >>> ys = istft(Ys)
-
     """
 
     def __init__(self):
+
         super().__init__()
 
     def forward(self, Xs, tdoas):
-        """ Performs delay and sum beamforming using the TDOAs and
-        the first channel as a reference. It returns the result
-        in the frequency domain in the format
-        (batch, time_step, n_fft, 2, 1)
+
+        # Get useful dimensions
+        n_fft = Xs.shape[2]
+
+        # Convert the tdoas to taus
+        taus = tdoas2taus(tdoas=tdoas)
+
+        # Generate the steering vector
+        As = steering(taus=taus, n_fft=n_fft)
+
+        # Apply delay and sum
+        Ys = DelaySum._delaysum(Xs=Xs, As=As)
+
+        return Ys
+
+    @staticmethod
+    def _delaysum(Xs, As):
+        """ Perform delay and sum beamforming.
 
         Arguments
         ---------
-        Xs : tensor
-            A batch of audio signals in the frequency domain, in
-            the format (batch, time_step, n_fft, 2, n_mics)
 
-        tdoas : tensor
-            The time difference of arrival (TDOA) (in samples) for
-            each timestamp. The tensor has the format
-            (batch, time_steps, n_mics + n_pairs)
+        Xs : tensor
+            A batch of audio signals in the frequency domain.
+            The tensor must have the following format:
+            (batch, time_step, n_fft/2 + 1, 2, n_mics)
+        As : tensor
+            The steering vector to point in the direction of
+            the target source. The tensor must have the format
+            (batch, time_step, n_fft/2 + 1, 2, n_mics)
         """
 
-        pi = 3.141592653589793
+        # Get useful dimensions
+        n_mics = Xs.shape[4]
 
-        n_batches = Xs.shape[0]
-        n_time_frames = Xs.shape[1]
-        n_fft = Xs.shape[2]
-        n_channels = Xs.shape[4]
+        # Generate unmixing coefficients
+        Ws_re = As[..., 0, :] / n_mics
+        Ws_im = -1 * As[..., 1, :] / n_mics
 
-        N = int((n_fft - 1) * 2)
-
-        # Computing the different parts of the steering vector
-        omegas = 2 * pi * torch.arange(0, n_fft, device=Xs.device) / N
-        omegas = omegas.unsqueeze(0).unsqueeze(-1)
-        omegas = omegas.repeat(n_batches, n_time_frames, 1, n_channels)
-        tdoas = tdoas[:, :, range(0, n_channels)]
-        tdoas = tdoas.unsqueeze(2)
-        tdoas = tdoas.repeat(1, 1, n_fft, 1)
-
-        # Assembling the steering vector
-        As_re = torch.cos(-1.0 * omegas * tdoas)
-        As_im = -1.0 * torch.sin(-1.0 * omegas * tdoas)
-        As = torch.stack((As_re, As_im), 3)
-
-        # Computing beamforming coefficients
-        Ws_re = As[..., 0, :] / n_channels
-        Ws_im = -1.0 * As[..., 1, :] / n_channels
-
-        # Applying delay and sum
+        # Get input signal
         Xs_re = Xs[..., 0, :]
         Xs_im = Xs[..., 1, :]
-        Ys_re = torch.sum((Ws_re * Xs_re - Ws_im * Xs_im), dim=-1, keepdim=True)
-        Ys_im = torch.sum((Ws_re * Xs_im + Ws_im * Xs_re), dim=-1, keepdim=True)
+
+        # Applying delay and sum
+        Ys_re = torch.sum((Ws_re * Xs_re - Ws_im * Xs_im), dim=3, keepdim=True)
+        Ys_im = torch.sum((Ws_re * Xs_im + Ws_im * Xs_re), dim=3, keepdim=True)
 
         # Assembling the result
         Ys = torch.stack((Ys_re, Ys_im), 3)
@@ -561,3 +559,49 @@ class Music(torch.nn.Module):
     def forward(self):
 
         pass
+
+
+def doas2taus(doas, mics, fs, c=343.0):
+
+    taus = (fs / c) * torch.matmul(doas, mics.transpose(0, 1))
+
+    return taus
+
+
+def taus2tdoas(taus):
+
+    pass
+
+
+def tdoas2taus(tdoas):
+
+    n_pairs = tdoas.shape[len(tdoas.shape) - 1]
+    n_channels = int(((1 + 8 * n_pairs) ** 0.5 - 1) / 2)
+    taus = tdoas[..., range(0, n_channels)]
+
+    return taus
+
+
+def steering(taus, n_fft):
+
+    # Collecting useful numbers
+    pi = 3.141592653589793
+
+    frame_size = int((n_fft - 1) * 2)
+
+    # Computing the different parts of the steering vector
+    omegas = 2 * pi * torch.arange(0, n_fft, device=taus.device) / frame_size
+    omegas = omegas.repeat(taus.shape + (1,))
+    taus = taus.unsqueeze(len(taus.shape)).repeat(
+        (1,) * len(taus.shape) + (n_fft,)
+    )
+
+    # Assembling the steering vector
+    a_re = torch.cos(-omegas * taus)
+    a_im = torch.sin(-omegas * taus)
+    a = torch.stack((a_re, a_im), len(a_re.shape))
+    a = a.transpose(len(a.shape) - 3, len(a.shape) - 1).transpose(
+        len(a.shape) - 3, len(a.shape) - 2
+    )
+
+    return a
