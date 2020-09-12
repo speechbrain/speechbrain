@@ -24,7 +24,7 @@ def test_gccphat():
     gccphat = GccPhat()
 
     XXs = cov(Xs)
-    tdoas = gccphat(XXs)
+    tdoas = torch.abs(gccphat(XXs))
 
-    n_valid_tdoas = torch.sum(torch.abs(tdoas[..., 1] - delay) < 1e-2)
+    n_valid_tdoas = torch.sum(torch.abs(tdoas[..., 1] - delay) < 1e-3)
     assert n_valid_tdoas == Xs.shape[0] * Xs.shape[1]
