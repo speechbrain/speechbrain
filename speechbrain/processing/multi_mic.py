@@ -104,6 +104,12 @@ class Covariance(torch.nn.Module):
         """ Computes the covariance matrices (XXs) of the signals. The result will
         have the following format: (batch, time_step, n_fft/2 + 1, 2, n_mics + n_pairs).
 
+        The order on the last dimension corresponds to the triu_indices for a
+        square matrix. For instance, if we have 4 channels, we get the following
+        order: (0, 0), (0, 1), (0, 2), (0, 3), (1, 1), (1, 2), (1, 3), (2, 2), (2, 3)
+        and (3, 3). Therefore, XXs[..., 0] corresponds to channels (0, 0) and XXs[..., 1]
+        corresponds to channels (0, 1).
+
         Arguments:
         ----------
         Xs : tensor
@@ -393,62 +399,94 @@ class GccPhat(torch.nn.Module):
     """
 
     def __init__(self, tdoa_max=None, eps=1e-20):
-        super().__init__()
 
+        super().__init__()
         self.tdoa_max = tdoa_max
         self.eps = eps
 
     def forward(self, XXs):
-        """ Evaluate the time difference of arrival (TDOA) (in samples)
-        for each timestamp. It returns delays for every possible pair of
-        microphones (including each microphone compared to itself, which
-        gives a TDOA of 0 in this case). The result has the format:
-        (batch, time_steps, n_mics + n_pairs)
 
-        The order on the last dimension corresponds to the triu_indices for a
-        square matrix. For instance, if we have 4 channels, we get the following
-        order: (0, 0), (0, 1), (0, 2), (0, 3), (1, 1), (1, 2), (1, 3), (2, 2), (2, 3)
-        and (3, 3). Therefore, tdoas[..., 0] corresponds to channels (0, 0) and tdoas[..., 1]
-        corresponds to channels (0, 1).
+        xxs = GccPhat._gcc_phat(XXs=XXs, eps=self.eps)
+        delays = GccPhat._extract_delays(xxs=xxs, tdoa_max=self.tdoa_max)
+        tdoas = GccPhat._interpolate(xxs=xxs, delays=delays)
+
+        return tdoas
+
+    @staticmethod
+    def _gcc_phat(XXs, eps=1e-20):
+        """ Evaluate GCC-PHAT for each timestamp. It returns the result in the time
+        domain. The result has the format: (batch, time_steps, n_fft, n_mics + n_pairs)
 
         Arguments
         ---------
         XXs : tensor
             The covariance matrices of the input signal. The tensor must
-            have the format (batch, time_steps, n_fft/2, 2, n_mics + n_pairs)
+            have the format (batch, time_steps, n_fft/2 + 1, 2, n_mics + n_pairs)
+
+        eps : float
+            A small value to avoid divisions by 0 with the phase transform. The
+            default value is 1e-20.
         """
 
-        # Extracting the tensors for the operations
-        XXs_values, XXs_indices = torch.unique(XXs, return_inverse=True, dim=1)
+        # Get useful dimensions
+        n_samples = int((XXs.shape[2] - 1) * 2)
 
-        XXs_re = XXs_values[..., 0, :]
-        XXs_im = XXs_values[..., 1, :]
+        # Extracting the tensors needed
+        XXs_val, XXs_idx = torch.unique(XXs, return_inverse=True, dim=4)
 
-        # Phase transform
-        XXs_abs = torch.sqrt(XXs_re ** 2 + XXs_im ** 2) + self.eps
+        XXs_re = XXs_val[..., 0, :]
+        XXs_im = XXs_val[..., 1, :]
 
+        # Applying the phase transform
+        XXs_abs = torch.sqrt(XXs_re ** 2 + XXs_im ** 2) + eps
         XXs_re_phat = XXs_re / XXs_abs
         XXs_im_phat = XXs_im / XXs_abs
-
         XXs_phat = torch.stack((XXs_re_phat, XXs_im_phat), 4)
 
         # Returning in the temporal domain
         XXs_phat = XXs_phat.transpose(2, 3)
-        n_samples = int((XXs.shape[2] - 1) * 2)
-
         xxs = torch.irfft(XXs_phat, signal_ndim=1, signal_sizes=[n_samples])
-        xxs = xxs[:, XXs_indices]
+        xxs = xxs[..., XXs_idx, :]
+
+        # Formatting the output
         xxs = xxs.transpose(2, 3)
 
-        # Setting things up
+        return xxs
+
+    @staticmethod
+    def _extract_delays(xxs, tdoa_max=None):
+        """ Extract the rounded delay from the cross-correlation for each timestamp.
+        The result has the format: (batch, time_steps, n_mics + n_pairs)
+
+        The order on the last dimension corresponds to the triu_indices for a
+        square matrix. For instance, if we have 4 channels, we get the following
+        order: (0, 0), (0, 1), (0, 2), (0, 3), (1, 1), (1, 2), (1, 3), (2, 2), (2, 3)
+        and (3, 3). Therefore, delays[..., 0] corresponds to channels (0, 0) and delays[..., 1]
+        corresponds to channels (0, 1).
+
+        Arguments
+        ---------
+        xxs : tensor
+            The correlation signals obtained after a gcc-phat operation. The tensor
+            must have the format (batch, time_steps, n_fft, n_mics + n_pairs)
+        tdoa_max : int
+            Specifies a range to search for delays. For example, if
+            tdoa_max = 10, the method will restrict its search for delays
+            between -10 and 10 samples. This parameter is optional and its
+            default value is None. When tdoa_max is None, the method will
+            search for delays between -n_fft/2 and +n_fft/2 (full range).
+        """
+
+        # Get useful dimensions
         n_fft = xxs.shape[2]
 
-        if self.tdoa_max is None:
-            self.tdoa_max = n_fft // 2
+        # If no tdoa specified, cover the whole frame
+        if tdoa_max is None:
+            tdoa_max = n_fft // 2
 
         # Splitting the GCC-PHAT values to search in the range
-        slice_1 = xxs[..., 0 : self.tdoa_max, :]
-        slice_2 = xxs[..., -self.tdoa_max :, :]
+        slice_1 = xxs[..., 0:tdoa_max, :]
+        slice_2 = xxs[..., -tdoa_max:, :]
 
         xxs_sliced = torch.cat((slice_1, slice_2), 2)
 
@@ -457,23 +495,43 @@ class GccPhat(torch.nn.Module):
 
         # Adjusting the delays that were affected by the slicing
         offset = n_fft - xxs_sliced.shape[2]
-
         idx = delays >= slice_1.shape[2]
         delays[idx] += offset
 
         # Centering the delays around 0
         delays[idx] -= n_fft
 
-        # Quadratic interpolation
+        return delays
+
+    @staticmethod
+    def _interpolate(xxs, delays):
+        """ Perform quadratic interpolation on the cross-correlation to
+        improve the tdoa accuracy. The result has the format:
+        (batch, time_steps, n_mics + n_pairs)
+
+        Arguments
+        ---------
+        xxs : tensor
+            The correlation signals obtained after a gcc-phat operation. The tensor
+            must have the format (batch, time_steps, n_fft, n_mics + n_pairs)
+        delays : tensor
+            The rounded tdoas obtained by selecting the sample with the highest
+            amplitude. The tensor must have the format
+            (batch, time_steps, n_mics + n_pairs)
+        """
+
+        # Get useful dimensions
+        n_fft = xxs.shape[2]
+
+        # Get the max amplitude and its neighbours
         tp = torch.fmod((delays - 1) + n_fft, n_fft).unsqueeze(2)
         y1 = torch.gather(xxs, 2, tp).squeeze(2)
-
         tp = torch.fmod(delays + n_fft, n_fft).unsqueeze(2)
         y2 = torch.gather(xxs, 2, tp).squeeze(2)
-
         tp = torch.fmod((delays + 1) + n_fft, n_fft).unsqueeze(2)
         y3 = torch.gather(xxs, 2, tp).squeeze(2)
 
+        # Add a fractional part to the initially rounded delay
         delays_frac = delays + (y1 - y3) / (2 * y1 - 4 * y2 + 2 * y3)
 
         return delays_frac
