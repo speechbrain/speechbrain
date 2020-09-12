@@ -300,30 +300,33 @@ class Gev(torch.nn.Module):
         super().__init__()
 
     def forward(self, Xs, SSs, NNs):
-        """
-        Performs GEV beamforming using the signal Xs, the covariance matrix of
-        the pure signal and the covariance matrix of the noise. It returns the
-        result in the frequency domain with the following format:
-        (batch, time_step, n_fft, 2, 1).
+
+        Ys = Gev._gev(Xs=Xs, SSs=SSs, NNs=NNs)
+
+        return Ys
+
+    @staticmethod
+    def _gev(Xs, SSs, NNs):
+        """ Perform generalized eigenvalue decomposition beamforming.
 
         Arguments
         ---------
+
         Xs : tensor
-            A batch of audio signals in the frequency domain, in
-            the format (batch, time_step, n_fft, 2, n_mics)
-
+            A batch of audio signals in the frequency domain.
+            The tensor must have the following format:
+            (batch, time_step, n_fft/2 + 1, 2, n_mics)
         SSs : tensor
-            The covariance matrix of the pure signal in the format
-            (batch, time_step, n_fft, 2, n_mics + n_pairs)
-
+            The covariance matrices of the target signal. The tensor must
+            have the format (batch, time_steps, n_fft/2 + 1, 2, n_mics + n_pairs)
         NNs : tensor
-            The covariance matrix of the noise in the format
-            (batch, time_step, n_fft, 2, n_mics + n_pairs)
+            The covariance matrices of the noise signal. The tensor must
+            have the format (batch, time_steps, n_fft/2 + 1, 2, n_mics + n_pairs)
         """
 
-        # Extracting data
-        n_channels = Xs.shape[4]
-        p = SSs.shape[4]
+        # Get useful dimensions
+        n_mics = Xs.shape[4]
+        n_mics_pairs = SSs.shape[4]
 
         # Computing the eigenvectors
         SSs_NNs = torch.cat((SSs, NNs), dim=4)
@@ -331,18 +334,24 @@ class Gev(torch.nn.Module):
             SSs_NNs, return_inverse=True, dim=1
         )
 
-        SSs = SSs_NNs_val[..., range(0, p)]
-        NNs = SSs_NNs_val[..., range(p, 2 * p)]
+        SSs = SSs_NNs_val[..., range(0, n_mics_pairs)]
+        NNs = SSs_NNs_val[..., range(n_mics_pairs, 2 * n_mics_pairs)]
         NNs = eig.pos_def(NNs)
-
-        Vs, _ = eig.gevd(SSs, NNs)
+        Vs, Ds = eig.gevd(SSs, NNs)
 
         # Beamforming
-        F_re = Vs[..., (n_channels - 1), 0]
-        F_im = Vs[..., (n_channels - 1), 1]
+        F_re = Vs[..., (n_mics - 1), 0]
+        F_im = Vs[..., (n_mics - 1), 1]
+
+        # Normalize
+        F_norm = 1.0 / (
+            torch.sum(F_re ** 2 + F_im ** 2, dim=3, keepdim=True) ** 0.5
+        ).repeat(1, 1, 1, n_mics)
+        F_re *= F_norm
+        F_im *= F_norm
 
         Ws_re = F_re[:, SSs_NNs_idx]
-        Ws_im = -1.0 * F_im[:, SSs_NNs_idx]
+        Ws_im = F_im[:, SSs_NNs_idx]
 
         Xs_re = Xs[..., 0, :]
         Xs_im = Xs[..., 1, :]
