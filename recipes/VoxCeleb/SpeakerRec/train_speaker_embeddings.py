@@ -4,6 +4,8 @@ import sys
 import torch
 import speechbrain as sb
 
+#os.environ["CUDA_VISIBLE_DEVICES"] = "6"
+
 # This hack needed to import data preparation script from ..
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(current_dir))
