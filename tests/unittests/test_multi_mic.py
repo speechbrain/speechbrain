@@ -9,7 +9,7 @@ def test_gccphat():
     # Creating the test signal
     fs = 16000
 
-    delay = 120
+    delay = 60
 
     sig = torch.randn([10, fs])
     sig_delayed = torch.cat((torch.zeros([10, delay]), sig[:, 0:-delay]), 1)
@@ -26,5 +26,5 @@ def test_gccphat():
     XXs = cov(Xs)
     tdoas = gccphat(XXs)
 
-    n_valid_tdoas = torch.sum(torch.abs(tdoas[..., 1] - delay) < 1.0)
+    n_valid_tdoas = torch.sum(torch.abs(tdoas[..., 1] - delay) < 1e-2)
     assert n_valid_tdoas == Xs.shape[0] * Xs.shape[1]
