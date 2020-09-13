@@ -17,7 +17,7 @@ from speechbrain.nnet.losses import get_si_snr_with_pitwrapper
 import torch.nn.functional as F
 
 experiment_dir = os.path.dirname(os.path.realpath(__file__))
-params_file = os.path.join(experiment_dir, "hyperparameters/convtasnet.yaml")
+params_file = os.path.join(experiment_dir, "hyperparameters/rim.yaml")
 
 with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(fin)
@@ -67,6 +67,10 @@ if params.use_tensorboard:
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 
+# hidden = params.MaskNet.init_hidden(params.N_batch)
+# hidden = [(hid[0].to(device), hid[1].to(device)) for hid in hidden]
+
+
 class CTN_Brain(sb.core.Brain):
     def compute_forward(self, mixture, stage="train", init_params=False):
 
@@ -78,7 +82,25 @@ class CTN_Brain(sb.core.Brain):
                 mixture = params.augmentation(mixture, wav_lens, init_params)
 
         mixture_w = params.Encoder(mixture, init_params)
-        est_mask = params.MaskNet(mixture_w, init_params)
+        bptt_len = 200
+        mixture_w = mixture_w[
+            :, : (mixture_w.shape[1] - mixture_w.shape[1] % bptt_len), :
+        ]
+
+        mixture_w_split = torch.split(mixture_w, bptt_len, dim=1)
+        mixture_w_split = torch.cat(mixture_w_split, dim=0)
+
+        est_mask = params.MaskNet(
+            mixture_w_split.permute(1, 0, 2), init_params=True
+        )
+        est_mask = est_mask[0].permute(1, 0, 2)
+        est_mask = torch.split(est_mask, mixture_w.shape[0], dim=0)
+        est_mask = torch.cat(est_mask, dim=1)
+
+        est_mask = est_mask.reshape(
+            est_mask.shape[0], est_mask.shape[1], 2, est_mask.shape[2] // 2
+        )
+        est_mask = F.relu(est_mask)
         est_source = params.Decoder(mixture_w, est_mask, init_params)
 
         # T changed after conv1d in encoder, fix it here
@@ -170,7 +192,7 @@ ctn = CTN_Brain(
     first_inputs=[next(iter(train_loader))[0][1].to(device)],
 )
 
-params.checkpointer.recover_if_possible(lambda c: -c.meta["av_loss"])
+# params.checkpointer.recover_if_possible(lambda c: -c.meta["av_loss"])
 
 ctn.fit(
     range(params.N_epochs),
