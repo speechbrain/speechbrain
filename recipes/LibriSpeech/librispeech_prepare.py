@@ -24,11 +24,7 @@ SAMPLERATE = 16000
 
 
 def prepare_librispeech(
-    data_folder,
-    splits,
-    save_folder,
-    select_n_sentences=None,
-    use_lexicon=False,
+    data_folder, splits, save_folder, select_n_sentences=None,
 ):
     """
     This class prepares the csv files for the LibriSpeech dataset.
@@ -46,8 +42,6 @@ def prepare_librispeech(
     select_n_sentences : int
         Default : None
         If not None, only pick this many sentences.
-    use_lexicon : bool
-        When it is true, using lexicon to generate phonemes columns in the csv file.
 
     Example
     -------
@@ -60,10 +54,8 @@ def prepare_librispeech(
     splits = splits
     save_folder = save_folder
     select_n_sentences = select_n_sentences
-    use_lexicon = use_lexicon
     conf = {
         "select_n_sentences": select_n_sentences,
-        "use_lexicon": use_lexicon,
     }
 
     # Other variables
@@ -72,13 +64,6 @@ def prepare_librispeech(
         os.makedirs(save_folder)
 
     save_opt = os.path.join(save_folder, OPT_FILE)
-
-    if use_lexicon:
-        lexicon_dict = read_lexicon(
-            os.path.join(data_folder, "librispeech-lexicon.txt")
-        )
-    else:
-        lexicon_dict = {}
 
     # Check if this phase is already done (if so, skip it)
     if skip(splits, save_folder, conf):
@@ -109,52 +94,15 @@ def prepare_librispeech(
             n_sentences = len(wav_lst)
 
         create_csv(
-            save_folder,
-            wav_lst,
-            text_dict,
-            split,
-            use_lexicon,
-            lexicon_dict,
-            n_sentences,
+            save_folder, wav_lst, text_dict, split, n_sentences,
         )
 
     # saving options
     save_pkl(conf, save_opt)
 
 
-def read_lexicon(lexicon_path):
-    """
-    Read the lexicon into a dictionary.
-    Download link: http://www.openslr.org/resources/11/librispeech-lexicon.txt
-    Arguments
-    ---------
-    lexicon_path : string
-        The path of the lexicon.
-    """
-    if not os.path.exists(lexicon_path):
-        err_msg = (
-            f"Lexicon path {lexicon_path} does not exist."
-            "Link: http://www.openslr.org/resources/11/librispeech-lexicon.txt"
-        )
-        raise OSError(err_msg)
-
-    lexicon_dict = {}
-
-    with open(lexicon_path, "r") as f:
-        for line in f:
-            line_lst = line.split()
-            lexicon_dict[line_lst[0]] = " ".join(line_lst[1:])
-    return lexicon_dict
-
-
 def create_csv(
-    save_folder,
-    wav_lst,
-    text_dict,
-    split,
-    use_lexicon,
-    lexicon_dict,
-    select_n_sentences,
+    save_folder, wav_lst, text_dict, split, select_n_sentences,
 ):
     """
     Create the csv file given a list of wav files.
@@ -169,10 +117,6 @@ def create_csv(
         The dictionary containing the text of each sentence.
     split : str
         The name of the current data split.
-    use_lexicon : bool
-        Whether to use a lexicon or not.
-    lexicon_dict : dict
-        A dictionary for converting words to phones.
     select_n_sentences : int, optional
         The number of sentences to select.
 
@@ -206,10 +150,6 @@ def create_csv(
         ]
     ]
 
-    # add phn column when there is a lexicon.
-    if use_lexicon:
-        csv_lines[0] += ["phn", "phn_format", "phn_opts"]
-
     snt_cnt = 0
     # Processing all the wav files in wav_lst
     for wav_file in wav_lst:
@@ -241,17 +181,6 @@ def create_csv(
             "string",
             "",
         ]
-
-        if use_lexicon:
-            # skip words not in the lexicon
-            phns = " ".join(
-                [
-                    lexicon_dict[wrd]
-                    for wrd in wrds.split("_")
-                    if wrd in lexicon_dict
-                ]
-            )
-            csv_line += [str(phns), "string", ""]
 
         #  Appending current file to the csv_lines list
         csv_lines.append(csv_line)
