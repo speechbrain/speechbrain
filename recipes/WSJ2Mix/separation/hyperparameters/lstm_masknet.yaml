@@ -58,9 +58,12 @@ augmentation: !new:speechbrain.lobes.augment.tdsa.TimeDomainSpecAugment
     speeds: [95, 100, 105]
 
 MaskNet: !new:speechbrain.nnet.RNN.LSTM
-    hidden_size: 256
+    hidden_size: 300
     num_layers: 2
     bidirectional: True
+
+MaskNet_Linear: !new:speechbrain.nnet.linear.Linear
+    n_neurons: 512
 
 Encoder: !new:speechbrain.lobes.models.conv_tasnet.Encoder
     L: 21

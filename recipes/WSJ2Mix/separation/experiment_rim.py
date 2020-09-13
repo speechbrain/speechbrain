@@ -96,10 +96,11 @@ class CTN_Brain(sb.core.Brain):
         if "rim" in params_file:
             mixture_w_split = mixture_w_split.permute(1, 0, 2)
 
-        est_mask = params.MaskNet(mixture_w_split, init_params=True)
+        est_mask = params.MaskNet(mixture_w_split, init_params=init_params)
 
         if "rim" in params_file:
             est_mask = est_mask[0].permute(1, 0, 2)
+        est_mask = params.MaskNet_Linear(est_mask, init_params=init_params)
 
         est_mask = torch.split(est_mask, mixture_w.shape[0], dim=0)
         est_mask = torch.cat(est_mask, dim=1)

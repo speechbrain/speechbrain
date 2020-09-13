@@ -130,6 +130,9 @@ MaskNet: !new:speechbrain.lobes.models.block_models.modularity.RIM
     num_rules: 0
     rule_time_steps: 0
 
+MaskNet_Linear: !new:speechbrain.nnet.linear.Linear
+    n_neurons: 512
+
 Encoder: !new:speechbrain.lobes.models.conv_tasnet.Encoder
     L: 21
     N: 256
