@@ -3,12 +3,12 @@
 # Authors: Nauman Dawalatabad & Mirco Ravanelli 2020
 # ################################
 
-seed: 1234
+seed: 222
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Folders and train_log file
-data_folder: /localscratch/voxceleb1
-output_folder: results/xvector
+data_folder: !PLACEHOLDER # e.g, /localscratch/voxceleb1
+output_folder: results/voxceleb1/xvector
 save_folder: !ref <output_folder>/save/
 train_log: !ref <output_folder>/train_log.txt
 
@@ -39,7 +39,7 @@ compute_features: !new:speechbrain.lobes.features.fbank.Fbank
     right_frames: !ref <right_frames>
     deltas: !ref <deltas>
 
-xvector_model: !new:speechbrain.lobes.models.Xvector.Xvector
+embedding_model: !new:speechbrain.lobes.models.Xvector.Xvector
     activation: !name:torch.nn.LeakyReLU
     device: !ref <device>
     tdnn_blocks: 5
@@ -110,7 +110,7 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
-        xvector_model: !ref <xvector_model>
+        xvector_model: !ref <embedding_model>
         classifier: !ref <classifier>
         optimizer: !ref <optimizer>
         normalizer: !ref <mean_var_norm>

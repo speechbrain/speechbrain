@@ -7,13 +7,14 @@ seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Folders and train_log file
-data_folder: !PLACEHOLDER
-output_folder: results/speaker_verification/
+data_folder: !PLACEHOLDER # e.,g., /localscratch/voxceleb1
+output_folder: results/voxceleb1/speaker_verification_plda_xvectors
 save_folder: !ref <output_folder>/save/
 device: 'cuda:0'
 
 # Pretrain from web (as an alternative specify a file)
-xvector_file: https://www.dropbox.com/s/skfz2sme5nw7jji/xvector_model.ckpt?dl=1
+embedding_file:
+    https://www.dropbox.com/s/skfz2sme5nw7jji/xvector_model.ckpt?dl=1
 
 # csv files
 csv_train: !ref <save_folder>/train.csv
@@ -26,7 +27,7 @@ n_mels: 24
 left_frames: 0
 right_frames: 0
 deltas: False
-xvect_dim: 512
+emb_dim: 512
 
 compute_plda: !new:speechbrain.processing.PLDA_LDA.PLDA
     rank_f: 100
@@ -43,11 +44,11 @@ compute_features: !new:speechbrain.lobes.features.fbank.Fbank
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
 
-mean_var_norm_xvect: !new:speechbrain.processing.features.InputNormalization
+mean_var_norm_emb: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
     std_norm: False
 
-xvector_model: !new:speechbrain.lobes.models.Xvector.Xvector
+embedding_model: !new:speechbrain.lobes.models.Xvector.Xvector
     device: !ref <device>
 
 train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory

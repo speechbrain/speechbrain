@@ -127,6 +127,8 @@ class Classifier(torch.nn.Module):
         Number of linear layers.
     lin_neurons : int
         Number of neurons in linear layers.
+    out_neurons : int
+        Number of ouput neurons.
 
     Example
     -------
@@ -146,11 +148,9 @@ class Classifier(torch.nn.Module):
         lin_blocks=1,
         lin_neurons=512,
         out_neurons=1211,
-        pretrain_file=None,
     ):
 
         super().__init__()
-        self.pretrain_file = pretrain_file
         self.blocks = nn.ModuleList()
 
         self.blocks.extend([activation(), BatchNorm1d()])
@@ -201,4 +201,89 @@ class Classifier(torch.nn.Module):
                 x = layer(x, init_params=init_params)
             except TypeError:
                 x = layer(x)
+        return x
+
+
+class Discriminator(torch.nn.Module):
+    """This class implements a discriminator on the top of xvector features.
+
+    Arguments
+    ---------
+    device : str
+        Device used e.g. "cpu" or "cuda"
+    activation : torch class
+        A class for constructing the activation layers.
+    lin_blocks : int
+        Number of linear layers.
+    lin_neurons : int
+        Number of neurons in linear layers.
+
+    Example
+    -------
+    >>> compute_xvect = Xvector('cpu')
+    >>> classify = Classifier('cpu')
+    >>> input_feats = torch.rand([5, 10, 24])
+    >>> xvects = compute_xvect(input_feats, init_params=True)
+    >>> output = classify(xvects, init_params=True)
+    >>> output.shape
+    torch.Size([5, 1, 1211])
+    """
+
+    def __init__(
+        self,
+        device="cpu",
+        activation=torch.nn.LeakyReLU,
+        lin_blocks=1,
+        lin_neurons=512,
+        out_neurons=1,
+    ):
+
+        super().__init__()
+        self.blocks = nn.ModuleList()
+
+        for block_index in range(lin_blocks):
+            self.blocks.extend(
+                [
+                    Linear(
+                        n_neurons=lin_neurons, bias=True, combine_dims=False
+                    ),
+                    BatchNorm1d(),
+                    activation(),
+                ]
+            )
+
+        # Final Layer (sigmoid not included)
+        self.blocks.extend([Linear(n_neurons=out_neurons)])
+
+    def init_params(self, first_input):
+        """
+        Arguments
+        ---------
+        first_input : tensor
+            A first input used for initializing the parameters.
+        """
+        x = first_input
+
+        for layer in self.blocks:
+            try:
+                x = layer(x, init_params=True)
+            except TypeError:
+                x = layer(x)
+
+    def forward(self, x, init_params=False):
+        """Returns the output probabilities over speakers.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+        """
+        if init_params:
+            self.init_params(x)
+
+        for layer in self.blocks:
+            try:
+                x = layer(x, init_params=init_params)
+            except TypeError:
+                x = layer(x)
+
         return x

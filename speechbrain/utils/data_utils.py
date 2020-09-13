@@ -223,14 +223,21 @@ def recursive_update(d, u, must_match=False):
             d[k] = v
 
 
-def download_file(source, dest, unpack=False, dest_unpack=None):
+def download_file(
+    source, dest, unpack=False, dest_unpack=None, replace_existing=False
+):
     class DownloadProgressBar(tqdm.tqdm):
         def update_to(self, b=1, bsize=1, tsize=None):
             if tsize is not None:
                 self.total = tsize
             self.update(b * bsize - self.n)
 
-    if not os.path.isfile(dest):
+    if "http" not in source:
+        shutil.copyfile(source, dest)
+
+    elif not os.path.isfile(dest) or (
+        os.path.isfile(dest) and replace_existing
+    ):
         print(f"Downloading {source} to {dest}")
         with DownloadProgressBar(
             unit="B", unit_scale=True, miniters=1, desc=source.split("/")[-1]
