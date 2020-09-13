@@ -26,10 +26,6 @@ logger = logging.getLogger(__name__)
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(current_dir))
 
-# Load hyperparameters file with command-line overrides
-params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
-with open(params_file) as fin:
-    params = sb.yaml.load_extended_yaml(fin, overrides)
 
 from voxceleb_prepare import prepare_voxceleb  # noqa E402
 from ami_prepare import prepare_ami  # noqa E402
@@ -396,7 +392,13 @@ def do_ahc(score_matrix, out_rttm_file, rec_id):
     write_rttm(lol, out_rttm_file)
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # noqa: C901
+
+    # Load hyperparameters file with command-line overrides
+    params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
+
+    with open(params_file) as fin:
+        params = sb.yaml.load_extended_yaml(fin, overrides)
 
     # Create experiment directory
     sb.core.create_experiment_directory(
@@ -405,11 +407,32 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-    # Prepare data from dev of Voxceleb1
+    # Few more experiment directories
+    models_dir = os.path.join(params.save_folder, "models")
+    if not os.path.exists(models_dir):
+        os.makedirs(models_dir)
+
+    xvect_dir = os.path.join(params.save_folder, "xvectors")
+    if not os.path.exists(xvect_dir):
+        os.makedirs(xvect_dir)
+
+    csv_dir = os.path.join(params.save_folder, "csv")
+    if not os.path.exists(csv_dir):
+        os.makedirs(csv_dir)
+
+    ref_dir = os.path.join(params.save_folder, "ref_RTTM")
+    if not os.path.exists(ref_dir):
+        os.makedirs(ref_dir)
+
+    rttm_dir = os.path.join(params.save_folder, "sys_RTTM")
+    if not os.path.exists(rttm_dir):
+        os.makedirs(rttm_dir)
+
     """
+    # Prepare data from dev of Voxceleb1
     logger.info("Vox: Data preparation")
     prepare_voxceleb(
-        data_folder=params.data_folder_vox,
+        data_folder=params.data_folder,
         save_folder=params.save_folder,
         splits=["train", "test"],
         split_ratio=[90, 10],
@@ -434,10 +457,6 @@ if __name__ == "__main__":
         overlap=params.overlap,
     )
 
-    xvect_dir = os.path.join(params.save_folder, "xvectors")
-    if not os.path.exists(xvect_dir):
-        os.makedirs(xvect_dir)
-
     # PLDA inputs for Train data
     modelset, segset = [], []
     xvectors = numpy.empty(shape=[0, params.xvect_dim], dtype=numpy.float64)
@@ -447,8 +466,12 @@ if __name__ == "__main__":
     ind2lab = params.train_loader_vox.label_dict["spk_id"]["index2lab"]
 
     # Xvector file for train data
-    # xv_file = os.path.join(params.save_folder, "Vox1_train_xvects_stat_obj.pkl")
-    xv_file = os.path.join(xvect_dir, "VoxCeleb1_train_xvectors_stat_obj.pkl")
+    if not os.path.exists(os.path.join(xvect_dir, "Vox1_train")):
+        os.makedirs(os.path.join(xvect_dir, "Vox1_train"))
+
+    xv_file = os.path.join(
+        xvect_dir, "Vox1_train/VoxCeleb1_train_xvectors_stat_obj.pkl"
+    )
 
     # Skip extraction of train if already extracted
     if not os.path.exists(xv_file):
@@ -512,6 +535,7 @@ if __name__ == "__main__":
 
         # Save TRAINING Xvectors in StatObject_SB object
         xvectors_stat.save_stat_object(xv_file)
+
     else:
         # Load the saved stat object for train xvector
         logger.info(
@@ -527,8 +551,11 @@ if __name__ == "__main__":
     if params.whiten is True:
 
         # Compute Xvectors for AMI dev set (will use it to whiten)
-        # xvect_dir = os.path.join(params.save_folder, "xvectors")
-        diary_stat_file = os.path.join(xvect_dir, "ami_dev_xv_stat.pkl")
+        if not os.path.exists(os.path.join(xvect_dir, "AMI_dev")):
+            os.makedirs(os.path.join(xvect_dir, "AMI_dev"))
+
+        diary_stat_file = os.path.join(xvect_dir, "AMI_dev/ami_dev_xv_stat.pkl")
+
         logger.info("Extracting xvectors for AMI DEV")
         diary_obj = xvect_computation_loop(
             "diary", params.diary_loader_dev(), diary_stat_file
@@ -580,12 +607,19 @@ if __name__ == "__main__":
         msg = "Diarizing %s : %s " % (ss, rec_id)
         logger.info(msg)
 
-        diary_stat_file = os.path.join(xvect_dir, rec_id + "_xv_stat.pkl")
-        diary_ndx_file = os.path.join(xvect_dir, rec_id + "_ndx.pkl")
+        if not os.path.exists(os.path.join(xvect_dir, "AMI_eval")):
+            os.makedirs(os.path.join(xvect_dir, "AMI_eval"))
+
+        diary_stat_file = os.path.join(
+            xvect_dir, "AMI_eval", rec_id + "_xv_stat.pkl"
+        )
+        diary_ndx_file = os.path.join(
+            xvect_dir, "AMI_eval", rec_id + "_ndx.pkl"
+        )
 
         # Prepare a csv for a recording
-        prepare_subset_csv(full_diary_csv, rec_id, xvect_dir)
-        new_csv_file = os.path.join(xvect_dir, rec_id + ".csv")
+        prepare_subset_csv(full_diary_csv, rec_id, xvect_dir + "/AMI_eval/")
+        new_csv_file = os.path.join(xvect_dir, "AMI_eval", rec_id + ".csv")
 
         # Setup a dataloader for above csv
         diary_set = DataLoaderFactory(

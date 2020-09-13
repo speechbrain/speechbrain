@@ -2,13 +2,13 @@
 This script returns the train, dev and test split for AMI corpus
 """
 
+
 # TODO: Remove sample b4 merge
 ALLOWED_OPTIONS = ["scenario_only", "full_corpus", "full_corpus_asr", "sample"]
 
 
 def get_AMI_split(split_option):
     """Returns train, dev, and test sets for given split_option
-    Note: IS1002 (no a), IS1005 (no d)
     """
 
     if split_option not in ALLOWED_OPTIONS:
@@ -22,7 +22,6 @@ def get_AMI_split(split_option):
     if split_option == "sample":
         train_set = ["IS1000"]  # , "ES2012"]
         dev_set = ["IS1001"]  # "ES2013"]
-        # test_set = ["IS1003", "ES2015"]
         test_set = ["IS1003"]
 
     if split_option == "scenario_only":
@@ -73,7 +72,6 @@ def get_AMI_split(split_option):
 
     if split_option == "full_corpus":
         # List of train: SA (TRAINING PART OF SEEN DATA)
-        # Note: IS1002 (no a), IS1005 (no d)
         train_set = [
             "ES2002",
             "ES2005",
@@ -102,8 +100,8 @@ def get_AMI_split(split_option):
             "TS3012",
             "EN2001",
             "EN2003",
-            "EN2004a",
-            "EN2005a",
+            "EN2004",
+            "EN2005",
             "EN2006",
             "EN2009",
             "IN1001",
@@ -177,8 +175,8 @@ def get_AMI_split(split_option):
             "TS3012",
             "EN2001",
             "EN2003",
-            "EN2004a",
-            "EN2005a",
+            "EN2004",
+            "EN2005",
             "EN2006",
             "EN2009",
             "IN1001",

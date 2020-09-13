@@ -7,12 +7,12 @@ seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Folders and train_log file
-# /networ/dataset_tmp1/VoxCeleb/voxceleb1/ (meta)
-data_folder_vox: /network/tmp1/dawalatn/ #!PLACEHOLDER
-data_folder_ami: /network/datasets/ami/amicorpus/
+# /network/dataset_tmp1/VoxCeleb/voxceleb1/ (meta)
+data_folder: /network/tmp1/dawalatn/ #!PLACEHOLDER
+data_folder_ami: /network/datasets/ami/amicorpus
 
-output_folder: results/
-save_folder: !ref <output_folder>/save/
+output_folder: results
+save_folder: !ref <output_folder>/save
 device: 'cuda:0'
 
 # Pretrain from web (as an alternative specify a file)
@@ -44,7 +44,8 @@ xvect_dim: 512
 batch_size: 128
 
 # AMI: Diarization parameters
-split_type: 'sample'
+split_type: 'full_corpus_asr'
+# scenario_only, "full_corpus", "full_corpus_asr", "sample"
 mic_type: 'hm'
 vad_type: 'oracle'
 max_subseg_dur: 3.0
@@ -111,7 +112,7 @@ train_loader_vox: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_read: [wav, spk_id]
     sentence_sorting: ascending
     replacements:
-        $data_folder: !ref  <data_folder_vox>
+        $data_folder: !ref  <data_folder>
     output_folder: !ref <output_folder>/save/
 
 enrol_loader_vox: !new:speechbrain.data_io.data_io.DataLoaderFactory
@@ -120,7 +121,7 @@ enrol_loader_vox: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_read: [wav]
     sentence_sorting: original
     replacements:
-        $data_folder: !ref <data_folder_vox>
+        $data_folder: !ref <data_folder>
     output_folder: !ref <output_folder>/save/
 
 test_loader_vox: !new:speechbrain.data_io.data_io.DataLoaderFactory
@@ -129,5 +130,5 @@ test_loader_vox: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_read: [wav]
     sentence_sorting: original
     replacements:
-        $data_folder: !ref <data_folder_vox>
+        $data_folder: !ref <data_folder>
     output_folder: !ref <output_folder>/save/

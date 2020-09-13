@@ -42,6 +42,22 @@ def get_RTTM_per_rec(segs, spkrs_list, rec_id):
     # Append remaining lines
     for row in segs:
         # e.g. SPEAKER ES2008c 0 37.880 0.590 <NA> <NA> ES2008c.A_PM <NA> <NA>
+
+        if float(row[1]) < float(row[0]):
+            msg1 = (
+                "Incorrect Annotation: transcriber_start (%s) > transcriber_start (%s)"
+                % (row[0], row[1])
+            )
+            msg2 = "Hence, excluding row from RTTM : %s, %s, %s, %s" % (
+                rec_id,
+                row[0],
+                str(round(float(row[1]) - float(row[0]), 4)),
+                str(row[2]),
+            )
+            logger.info(msg1)
+            logger.info(msg2)
+            continue
+
         line = (
             "SPEAKER "
             + rec_id
@@ -58,7 +74,7 @@ def get_RTTM_per_rec(segs, spkrs_list, rec_id):
     return rttm
 
 
-def prepare_segs_for_RTTM(list_ids, out_rttm_file):
+def prepare_segs_for_RTTM(list_ids, out_rttm_file, audio_dir):
 
     # TODO: take this as parameter
     # annot_dir = "/home/mila/d/dawalatn/AMI_MANUAL/"
@@ -68,14 +84,27 @@ def prepare_segs_for_RTTM(list_ids, out_rttm_file):
     for main_meet_id in list_ids:
 
         # different recordings
-        for sess in ["a", "b", "c", "d"]:
-            rec_id = main_meet_id + sess
+        # for sess in ["a", "b", "c", "d"]:
+        #    rec_id = main_meet_id + sess
+
+        # Skipping all TNO (later just skip it from dev and test)
+        # SPEAKER DIARISATION USING 2D SELF-ATTENTIVE COMBINATION OF EMBEDDINGS
+        if main_meet_id.startswith("TS"):
+            msg = "Skipping TNO meeting : " + str(main_meet_id)
+            logger.info(msg)
+            continue
+
+        list_sessions = glob.glob(audio_dir + "/" + main_meet_id + "*")
+        list_sessions.sort()
+
+        for sess in list_sessions:
+            rec_id = os.path.basename(sess)
             path = annot_dir + "/segments/" + rec_id
             f = path + ".*.segments.xml"
             list_spkr_xmls = glob.glob(f)
             list_spkr_xmls.sort()  # A, B, C, D, E (Speakers)
             segs = []
-            spkrs_list = []  # Since non-scene recodings have 3-5 speakers
+            spkrs_list = []  # Since non-scene recordings have 3-5 speakers
 
             for spkr_xml_file in list_spkr_xmls:
 
@@ -259,7 +288,7 @@ def prepare_csv(
         subsegment_ID = rec_id + "_" + strt + "_" + end
         dur = row[4]
         wav_file_path = (
-            data_dir + "/" + rec_id + "/audio/" + rec_id + ".Mix-Headset.wav"
+            data_dir + "/" + rec_id + "/audio/" + rec_id + ".Mix-Lapel.wav"
         )
 
         start_sample = int(float(strt) * SAMPLERATE)
@@ -300,7 +329,7 @@ def prepare_ami(
     data_folder,
     save_folder,
     split_type="sample",
-    mic_type="hm",
+    mic_type="Lapel",
     vad_type="oracle",
     max_subseg_dur=3.0,
     overlap=1.5,
@@ -364,11 +393,11 @@ def prepare_ami(
     for i in splits:
         rttm_file = ref_dir + "/fullref_ami_" + i + ".rttm"
         if i == "train":
-            prepare_segs_for_RTTM(train_set, rttm_file)
+            prepare_segs_for_RTTM(train_set, rttm_file, data_folder)
         if i == "dev":
-            prepare_segs_for_RTTM(dev_set, rttm_file)
+            prepare_segs_for_RTTM(dev_set, rttm_file, data_folder)
         if i == "eval":
-            prepare_segs_for_RTTM(eval_set, rttm_file)
+            prepare_segs_for_RTTM(eval_set, rttm_file, data_folder)
 
     # Inp: GT RTTM, Out: Merged segments
     # Add options if user needs merged segments or non-overlapping (homogeneous speakers) subsegments
