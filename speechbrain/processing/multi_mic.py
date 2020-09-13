@@ -95,14 +95,9 @@ class Covariance(torch.nn.Module):
         self.average = average
 
     def forward(self, Xs):
-
-        XXs = Covariance._cov(Xs=Xs, average=self.average)
-        return XXs
-
-    @staticmethod
-    def _cov(Xs, average=True):
-        """ Computes the covariance matrices (XXs) of the signals. The result will
-        have the following format: (batch, time_step, n_fft/2 + 1, 2, n_mics + n_pairs).
+        """ This method uses the utility function _cov to compute covariance
+        matrices. Therefore, the result has the following format:
+        (batch, time_step, n_fft/2 + 1, 2, n_mics + n_pairs).
 
         The order on the last dimension corresponds to the triu_indices for a
         square matrix. For instance, if we have 4 channels, we get the following
@@ -116,6 +111,23 @@ class Covariance(torch.nn.Module):
             A batch of audio signals in the frequency domain.
             The tensor must have the following format:
             (batch, time_step, n_fft/2 + 1, 2, n_mics)
+        """
+
+        XXs = Covariance._cov(Xs=Xs, average=self.average)
+        return XXs
+
+    @staticmethod
+    def _cov(Xs, average=True):
+        """ Computes the covariance matrices (XXs) of the signals. The result will
+        have the following format: (batch, time_step, n_fft/2 + 1, 2, n_mics + n_pairs).
+
+        Arguments:
+        ----------
+        Xs : tensor
+            A batch of audio signals in the frequency domain.
+            The tensor must have the following format:
+            (batch, time_step, n_fft/2 + 1, 2, n_mics)
+
         average : boolean
             Informs the function if it should return an average
             (computed on the time dimension) of the covariance
@@ -156,7 +168,7 @@ class Covariance(torch.nn.Module):
 
 
 class DelaySum(torch.nn.Module):
-    """ Performs delay and sum beamforming using the TDOAs and
+    """ Performs delay and sum beamforming by using the TDOAs and
         the first channel as a reference.
 
         Example
@@ -193,6 +205,22 @@ class DelaySum(torch.nn.Module):
         super().__init__()
 
     def forward(self, Xs, tdoas):
+        """ This method computes a steering vector by using the TDOAs and
+        then calls the utility function _delaysum to perform beamforming.
+        The result has the following format: (batch, time_step, n_fft, 2, 1).
+
+        Arguments
+        ---------
+        Xs : tensor
+            A batch of audio signals in the frequency domain.
+            The tensor must have the following format:
+            (batch, time_step, n_fft/2 + 1, 2, n_mics)
+
+        tdoas : tensor
+            The time difference of arrival (TDOA) (in samples) for
+            each timestamp. The tensor has the format
+            (batch, time_steps, n_mics + n_pairs)
+        """
 
         # Get useful dimensions
         n_fft = Xs.shape[2]
@@ -210,15 +238,16 @@ class DelaySum(torch.nn.Module):
 
     @staticmethod
     def _delaysum(Xs, As):
-        """ Perform delay and sum beamforming.
+        """ Perform delay and sum beamforming. The result has
+        the following format: (batch, time_step, n_fft, 2, 1).
 
         Arguments
         ---------
-
         Xs : tensor
             A batch of audio signals in the frequency domain.
             The tensor must have the following format:
             (batch, time_step, n_fft/2 + 1, 2, n_mics)
+
         As : tensor
             The steering vector to point in the direction of
             the target source. The tensor must have the format
@@ -300,6 +329,25 @@ class Gev(torch.nn.Module):
         super().__init__()
 
     def forward(self, Xs, SSs, NNs):
+        """ This method uses the utility function _gev to perform generalized
+        eigenvalue decomposition beamforming. Therefore, the result has
+        the following format: (batch, time_step, n_fft, 2, 1).
+
+        Arguments
+        ---------
+        Xs : tensor
+            A batch of audio signals in the frequency domain.
+            The tensor must have the following format:
+            (batch, time_step, n_fft/2 + 1, 2, n_mics)
+
+        SSs : tensor
+            The covariance matrices of the target signal. The tensor must
+            have the format (batch, time_steps, n_fft/2 + 1, 2, n_mics + n_pairs)
+
+        NNs : tensor
+            The covariance matrices of the noise signal. The tensor must
+            have the format (batch, time_steps, n_fft/2 + 1, 2, n_mics + n_pairs)
+        """
 
         Ys = Gev._gev(Xs=Xs, SSs=SSs, NNs=NNs)
 
@@ -307,18 +355,20 @@ class Gev(torch.nn.Module):
 
     @staticmethod
     def _gev(Xs, SSs, NNs):
-        """ Perform generalized eigenvalue decomposition beamforming.
+        """ Perform generalized eigenvalue decomposition beamforming. The result
+        has the following format: (batch, time_step, n_fft, 2, 1).
 
         Arguments
         ---------
-
         Xs : tensor
             A batch of audio signals in the frequency domain.
             The tensor must have the following format:
             (batch, time_step, n_fft/2 + 1, 2, n_mics)
+
         SSs : tensor
             The covariance matrices of the target signal. The tensor must
             have the format (batch, time_steps, n_fft/2 + 1, 2, n_mics + n_pairs)
+
         NNs : tensor
             The covariance matrices of the noise signal. The tensor must
             have the format (batch, time_steps, n_fft/2 + 1, 2, n_mics + n_pairs)
@@ -412,6 +462,23 @@ class GccPhat(torch.nn.Module):
         self.eps = eps
 
     def forward(self, XXs):
+        """ Perform generalized cross-correlation with phase transform localization
+        by using the utility function _gcc_phat and by extracting the delays (in samples)
+        before perfoming a quadratic interpolation to improve the accuracy.
+        The result has the format: (batch, time_steps, n_mics + n_pairs).
+
+        The order on the last dimension corresponds to the triu_indices for a
+        square matrix. For instance, if we have 4 channels, we get the following
+        order: (0, 0), (0, 1), (0, 2), (0, 3), (1, 1), (1, 2), (1, 3), (2, 2), (2, 3)
+        and (3, 3). Therefore, delays[..., 0] corresponds to channels (0, 0) and delays[..., 1]
+        corresponds to channels (0, 1).
+
+        Arguments:
+        ----------
+        XXs : tensor
+            The covariance matrices of the input signal. The tensor must
+            have the format (batch, time_steps, n_fft/2 + 1, 2, n_mics + n_pairs)
+        """
 
         xxs = GccPhat._gcc_phat(XXs=XXs, eps=self.eps)
         delays = GccPhat._extract_delays(xxs=xxs, tdoa_max=self.tdoa_max)
@@ -462,20 +529,15 @@ class GccPhat(torch.nn.Module):
 
     @staticmethod
     def _extract_delays(xxs, tdoa_max=None):
-        """ Extract the rounded delay from the cross-correlation for each timestamp.
-        The result has the format: (batch, time_steps, n_mics + n_pairs)
-
-        The order on the last dimension corresponds to the triu_indices for a
-        square matrix. For instance, if we have 4 channels, we get the following
-        order: (0, 0), (0, 1), (0, 2), (0, 3), (1, 1), (1, 2), (1, 3), (2, 2), (2, 3)
-        and (3, 3). Therefore, delays[..., 0] corresponds to channels (0, 0) and delays[..., 1]
-        corresponds to channels (0, 1).
+        """ Extract the rounded delays from the cross-correlation for each timestamp.
+        The result has the format: (batch, time_steps, n_mics + n_pairs).
 
         Arguments
         ---------
         xxs : tensor
             The correlation signals obtained after a gcc-phat operation. The tensor
             must have the format (batch, time_steps, n_fft, n_mics + n_pairs)
+
         tdoa_max : int
             Specifies a range to search for delays. For example, if
             tdoa_max = 10, the method will restrict its search for delays
@@ -521,6 +583,7 @@ class GccPhat(torch.nn.Module):
         xxs : tensor
             The correlation signals obtained after a gcc-phat operation. The tensor
             must have the format (batch, time_steps, n_fft, n_mics + n_pairs)
+
         delays : tensor
             The rounded tdoas obtained by selecting the sample with the highest
             amplitude. The tensor must have the format
@@ -545,7 +608,7 @@ class GccPhat(torch.nn.Module):
 
 
 class SrpPhat(torch.nn.Module):
-    """ Steered0-Response Power with Phase Transform (SRP-PHAT) localization
+    """ Steered-Response Power with Phase Transform (SRP-PHAT) localization
     """
 
     def __init__(self):
@@ -558,7 +621,7 @@ class SrpPhat(torch.nn.Module):
 
 
 class Music(torch.nn.Module):
-    """ MUltpile SIgnal Classification (MUSIC) localization
+    """ Multpile SIgnal Classification (MUSIC) localization
     """
 
     def __init__(self):
@@ -570,19 +633,43 @@ class Music(torch.nn.Module):
         pass
 
 
-def doas2taus(doas, mics, fs, c=343.0):
-
-    taus = (fs / c) * torch.matmul(doas, mics.transpose(0, 1))
-
-    return taus
-
-
-def taus2tdoas(taus):
-
-    pass
-
-
 def tdoas2taus(tdoas):
+    """ This function selects the tdoas of each channel and put them
+    in a tensor. The result has the following format:
+    (batch, time_steps, n_mics).
+
+    Arguments:
+    ----------
+    tdoas : tensor
+       The time difference of arrival (TDOA) (in samples) for
+       each timestamp. The tensor has the format
+       (batch, time_steps, n_mics + n_pairs)
+
+    Example
+    -------
+    >>> import soundfile as sf
+    >>> import torch
+    >>>
+    >>> from speechbrain.processing.features import STFT
+    >>> from speechbrain.processing.multi_mic import Covariance
+    >>> from speechbrain.processing.multi_mic import GccPhat, tdoas2taus
+    >>>
+    >>> xs_speech, fs = sf.read(
+    ...    'samples/audio_samples/multi_mic/speech_-0.82918_0.55279_-0.082918.flac'
+    ... )
+    >>> xs_noise, _ = sf.read('samples/audio_samples/multi_mic/noise_diffuse.flac')
+    >>> xs = xs_speech + 0.05 * xs_noise
+    >>> xs = torch.tensor(xs).unsqueeze(0).float()
+    >>>
+    >>> stft = STFT(sample_rate=fs)
+    >>> cov = Covariance()
+    >>> gccphat = GccPhat()
+    >>>
+    >>> Xs = stft(xs)
+    >>> XXs = cov(Xs)
+    >>> tdoas = gccphat(XXs)
+    >>> taus = tdoas2taus(tdoas)
+    """
 
     n_pairs = tdoas.shape[len(tdoas.shape) - 1]
     n_channels = int(((1 + 8 * n_pairs) ** 0.5 - 1) / 2)
@@ -592,6 +679,47 @@ def tdoas2taus(tdoas):
 
 
 def steering(taus, n_fft):
+    """ This function computes a steering vector by using the time differences
+    of arrival for each channel (in samples) and the number of bins (n_fft).
+    The result has the following format: (batch, time_step, n_fft/2 + 1, 2, n_mics).
+
+    Arguments:
+    ----------
+    taus : tensor
+        The time differences of arrival for each channel. The tensor must have
+        the following format: (batch, time_steps, n_mics).
+
+    n_fft : int
+        The number of bins resulting of the STFT. It is assumed that the
+        argument "onesided" was set to True for the STFT.
+
+    Example:
+    --------
+    >>> import soundfile as sf
+    >>> import torch
+    >>>
+    >>> from speechbrain.processing.features import STFT
+    >>> from speechbrain.processing.multi_mic import Covariance
+    >>> from speechbrain.processing.multi_mic import GccPhat, tdoas2taus, steering
+    >>>
+    >>> xs_speech, fs = sf.read(
+    ...    'samples/audio_samples/multi_mic/speech_-0.82918_0.55279_-0.082918.flac'
+    ... )
+    >>> xs_noise, _ = sf.read('samples/audio_samples/multi_mic/noise_diffuse.flac')
+    >>> xs = xs_speech + 0.05 * xs_noise
+    >>> xs = torch.tensor(xs).unsqueeze(0).float()
+    >>>
+    >>> stft = STFT(sample_rate=fs)
+    >>> cov = Covariance()
+    >>> gccphat = GccPhat()
+    >>>
+    >>> Xs = stft(xs)
+    >>> n_fft = Xs.shape[2]
+    >>> XXs = cov(Xs)
+    >>> tdoas = gccphat(XXs)
+    >>> taus = tdoas2taus(tdoas)
+    >>> As = steering(taus, n_fft)
+    """
 
     # Collecting useful numbers
     pi = 3.141592653589793
