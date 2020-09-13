@@ -59,7 +59,7 @@ augmentation: !new:speechbrain.lobes.augment.tdsa.TimeDomainSpecAugment
     speeds: [95, 100, 105]
 
 
-MaskNet: > 
+MaskNet: >
     !new:speechbrain.lobes.models.transformer.TransformerSE.CNNTransformerSE
     output_size: 512
     output_activation: !name:torch.nn.ReLU

@@ -15,9 +15,12 @@ from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.nnet.losses import get_si_snr_with_pitwrapper
 
 import torch.nn.functional as F
+import sys
 
 experiment_dir = os.path.dirname(os.path.realpath(__file__))
-params_file = os.path.join(experiment_dir, "hyperparameters/rim.yaml")
+
+# params_file = os.path.join(experiment_dir, "hyperparameters/rim.yaml")
+params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
 
 with open(params_file) as fin:
     params = sb.yaml.load_extended_yaml(fin)
@@ -90,10 +93,14 @@ class CTN_Brain(sb.core.Brain):
         mixture_w_split = torch.split(mixture_w, bptt_len, dim=1)
         mixture_w_split = torch.cat(mixture_w_split, dim=0)
 
-        est_mask = params.MaskNet(
-            mixture_w_split.permute(1, 0, 2), init_params=True
-        )
-        est_mask = est_mask[0].permute(1, 0, 2)
+        if "rim" in params_file:
+            mixture_w_split = mixture_w_split.permute(1, 0, 2)
+
+        est_mask = params.MaskNet(mixture_w_split, init_params=True)
+
+        if "rim" in params_file:
+            est_mask = est_mask[0].permute(1, 0, 2)
+
         est_mask = torch.split(est_mask, mixture_w.shape[0], dim=0)
         est_mask = torch.cat(est_mask, dim=1)
 
