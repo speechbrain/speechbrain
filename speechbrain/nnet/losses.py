@@ -4,13 +4,17 @@ Losses for training neural networks.
 Authors
  * Mirco Ravanelli 2020
  * Samuele Cornell 2020
+ * Yan Gao 2020
+ * Titouan Parcollet 2020
 """
 
 import torch
 from torch import nn
+import numpy as np
 import logging
 import functools
 from speechbrain.data_io.data_io import length_to_mask
+from speechbrain.decoders.ctc import filter_ctc_output
 from itertools import permutations
 
 
@@ -137,6 +141,7 @@ class PitWrapper(nn.Module):
         """
 
         n_sources = pred.size(-1)
+
         pred = pred.unsqueeze(-2).repeat(
             *[1 for x in range(len(pred.shape) - 1)], n_sources, 1
         )
@@ -605,3 +610,262 @@ def compute_masked_loss(
             loss_reg = loss_reg / targets.shape[0]
 
         return label_smoothing * loss_reg + (1 - label_smoothing) * loss
+
+
+def get_si_snr_with_pitwrapper(source, estimate_source):
+    """
+    This function wraps si_snr calculation with the speechbrain pit-wrapper
+
+    Args:
+        source: [B, T, C],
+            where B is batch size, T is the length of the sources, C is the number of sources
+            the ordering is made so that this loss is compatible with the class PitWrapper
+
+        estimate_source: [B, T, C]
+            the estimated source
+
+    Example:
+    >>> x = torch.arange(600).reshape(3, 100, 2)
+    >>> xhat = x[:, :, (1, 0)]
+    >>> si_snr = -get_si_snr_with_pitwrapper(x, xhat)
+    >>> print(si_snr)
+    tensor(135.2284)
+    """
+
+    pit_si_snr = PitWrapper(cal_si_snr)
+    loss, perms = pit_si_snr(source, estimate_source)
+
+    return loss.mean()
+
+
+def cal_si_snr(source, estimate_source):
+    """Calculate SI-SNR
+    Arguments:
+        source: [T, B, C],
+            where B is batch size, T is the length of the sources, C is the number of sources
+            the ordering is made so that this loss is compatible with the class PitWrapper
+
+        estimate_source: [T, B, C]
+            the estimated source
+
+    Example:
+    >>> import numpy as np
+    >>> x = torch.Tensor([[1, 0], [123, 45], [34, 5], [2312, 421]])
+    >>> xhat = x[:, (1, 0)]
+    >>> x = x.unsqueeze(-1).repeat(1, 1, 2)
+    >>> xhat = xhat.unsqueeze(1).repeat(1, 2, 1)
+    >>> si_snr = -cal_si_snr(x, xhat)
+    >>> print(si_snr)
+    tensor([[[ 25.2142, 144.1789],
+             [130.9283,  25.2142]]])
+    """
+    EPS = 1e-8
+    assert source.size() == estimate_source.size()
+    device = estimate_source.device.type
+
+    source_lengths = torch.tensor(
+        [estimate_source.shape[0]] * estimate_source.shape[1]
+    ).to(device)
+    mask = get_mask(source, source_lengths)
+    estimate_source *= mask
+
+    num_samples = (
+        source_lengths.contiguous().reshape(1, -1, 1).float()
+    )  # [1, B, 1]
+    mean_target = torch.sum(source, dim=0, keepdim=True) / num_samples
+    mean_estimate = (
+        torch.sum(estimate_source, dim=0, keepdim=True) / num_samples
+    )
+    zero_mean_target = source - mean_target
+    zero_mean_estimate = estimate_source - mean_estimate
+    # mask padding position along T
+    zero_mean_target *= mask
+    zero_mean_estimate *= mask
+
+    # Step 2. SI-SNR with PIT
+    # reshape to use broadcast
+    s_target = zero_mean_target  # [T, B, C]
+    s_estimate = zero_mean_estimate  # [T, B, C]
+    # s_target = <s', s>s / ||s||^2
+    dot = torch.sum(s_estimate * s_target, dim=0, keepdim=True)  # [1, B, C]
+    s_target_energy = (
+        torch.sum(s_target ** 2, dim=0, keepdim=True) + EPS
+    )  # [1, B, C]
+    proj = dot * s_target / s_target_energy  # [T, B, C]
+    # e_noise = s' - s_target
+    e_noise = s_estimate - proj  # [T, B, C]
+    # SI-SNR = 10 * log_10(||s_target||^2 / ||e_noise||^2)
+    si_snr_beforelog = torch.sum(proj ** 2, dim=0) / (
+        torch.sum(e_noise ** 2, dim=0) + EPS
+    )
+    si_snr = 10 * torch.log10(si_snr_beforelog + EPS)  # [B, C]
+
+    return -si_snr.unsqueeze(0)
+
+
+def get_mask(source, source_lengths):
+    """
+    Args:
+        source: [T, B, C]
+        source_lengths: [B]
+    Returns:
+        mask: [T, B, 1]
+
+    Example:
+    ---------
+    >>> source = torch.randn(4, 3, 2)
+    >>> source_lengths = torch.Tensor([2, 1, 4]).int()
+    >>> mask = get_mask(source, source_lengths)
+    >>> print(mask)
+    tensor([[[1.],
+             [1.],
+             [1.]],
+    <BLANKLINE>
+            [[1.],
+             [0.],
+             [1.]],
+    <BLANKLINE>
+            [[0.],
+             [0.],
+             [1.]],
+    <BLANKLINE>
+            [[0.],
+             [0.],
+             [1.]]])
+    """
+    T, B, _ = source.size()
+    mask = source.new_ones((T, B, 1))
+    for i in range(B):
+        mask[source_lengths[i] :, i, :] = 0
+    return mask
+
+
+def ctc_loss_kd(log_probs, targets, input_lens, blank_index, device):
+    """Knowledge distillation for CTC loss
+
+    Reference
+    ---------
+    Distilling Knowledge from Ensembles of Acoustic Models for Joint CTC-Attention End-to-End Speech Recognition.
+    https://arxiv.org/abs/2005.09310
+
+    Arguments
+    ---------
+    log_probs : torch.Tensor
+        Predicted tensor from student model, of shape [batch, time, chars].
+    targets : torch.Tensor
+        Predicted tensor from single teacher model, of shape [batch, time, chars].
+    input_lens : torch.Tensor
+        Length of each utterance.
+    blank_index : int
+        The location of the blank symbol among the character indexes.
+    device : str
+        device for computing.
+    """
+    scores, predictions = torch.max(targets, dim=-1)
+
+    pred_list = []
+    pred_len_list = []
+    for j in range(predictions.shape[0]):
+        # Getting current predictions
+        current_pred = predictions[j]
+
+        actual_size = (input_lens[j] * log_probs.shape[1]).int()
+        current_pred = current_pred[0:actual_size]
+        current_pred = filter_ctc_output(
+            list(current_pred.cpu().numpy()), blank_id=blank_index
+        )
+        current_pred_len = len(current_pred)
+        pred_list.append(current_pred)
+        pred_len_list.append(current_pred_len)
+
+    max_pred_len = max(pred_len_list)
+    for j in range(predictions.shape[0]):
+        diff = max_pred_len - pred_len_list[j]
+        for n in range(diff):
+            pred_list[j].append(0)
+
+    # generate soft label of teacher model
+    fake_lab = torch.from_numpy(np.array(pred_list))
+    fake_lab.to(device)
+    fake_lab = fake_lab.int()
+    fake_lab_lengths = torch.from_numpy(np.array(pred_len_list)).int()
+    fake_lab_lengths.to(device)
+
+    input_lens = (input_lens * log_probs.shape[1]).int()
+    log_probs = log_probs.transpose(0, 1)
+    return torch.nn.functional.ctc_loss(
+        log_probs,
+        fake_lab,
+        input_lens,
+        fake_lab_lengths,
+        blank_index,
+        zero_infinity=True,
+    )
+
+
+def ce_kd(inp, target):
+    """Simple version of distillation fro cross entropy loss.
+
+    Arguments
+    ---------
+    inp : torch.Tensor
+        The probabilities from student model, of shape [batch_size * length, feature]
+    target : torch.Tensor
+        The probabilities from teacher model, of shape [batch_size * length, feature]
+    """
+    return (-target * inp).sum(1)
+
+
+def nll_loss_kd(
+    probabilities, targets, rel_lab_lengths,
+):
+    """Knowledge distillation for negative log likelihood loss.
+
+    Reference
+    ---------
+    Distilling Knowledge from Ensembles of Acoustic Models for Joint CTC-Attention End-to-End Speech Recognition.
+    https://arxiv.org/abs/2005.09310
+
+    Arguments
+    ---------
+    probabilities : torch.Tensor
+        The predicted probabilities from student model.
+        Format is [batch, frames, p]
+    targets : torch.Tensor
+        The target probabilities from teacher model.
+        Format is [batch, frames, p]
+    rel_lab_lengths : torch.Tensor
+        Length of each utterance, if frame-level loss is desired.
+
+    Example
+    -------
+    >>> probabilities = torch.tensor([[[0.8, 0.2], [0.2, 0.8]]])
+    >>> targets = torch.tensor([[[0.9, 0.1], [0.1, 0.9]]])
+    >>> rel_lab_lengths = torch.tensor([1.])
+    >>> nll_loss_kd(probabilities, targets, rel_lab_lengths)
+    tensor(-0.7400)
+    """
+    # Getting the number of sentences in the minibatch
+    N_snt = probabilities.shape[0]
+
+    # Getting the maximum length of label sequence
+    max_len = probabilities.shape[1]
+
+    # Getting the label lengths
+    lab_lengths = torch.round(rel_lab_lengths * targets.shape[1]).int()
+
+    # Reshape to [batch_size * length, feature]
+    prob_curr = probabilities.reshape(N_snt * max_len, probabilities.shape[-1])
+
+    # Generating mask
+    mask = length_to_mask(
+        lab_lengths, max_len=max_len, dtype=torch.float, device=prob_curr.device
+    )
+
+    # Reshape to [batch_size * length, feature]
+    lab_curr = targets.reshape(N_snt * max_len, targets.shape[-1])
+
+    loss = ce_kd(prob_curr, lab_curr)
+    # Loss averaging
+    loss = torch.sum(loss.reshape(N_snt, max_len) * mask) / torch.sum(mask)
+    return loss
