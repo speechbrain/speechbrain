@@ -81,7 +81,7 @@ class ASR(sb.Brain):
                 test_stats={"loss": stage_loss, "WER": wer},
             )
             with open(self.wer_file, "w") as w:
-                self.wer_metrics.write_stats(w)
+                self.wer_metric.write_stats(w)
                 print("WER stats written to file", self.wer_file)
 
 
