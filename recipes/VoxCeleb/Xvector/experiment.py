@@ -4,9 +4,6 @@ import sys
 import torch
 import speechbrain as sb
 
-# This flag enable the inbuilt cudnn auto-tuner
-torch.backends.cudnn.benchmark = True
-
 # This hack needed to import data preparation script from ..
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(current_dir))
