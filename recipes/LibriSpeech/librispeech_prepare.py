@@ -5,13 +5,14 @@ Download: http://www.openslr.org/12
 
 Author
 ------
-Mirco Ravanelli, Ju-Chieh Chou 2020
+Mirco Ravanelli, Ju-Chieh Chou, Loren Lugosch 2020
 """
 
 import os
 import csv
+from collections import Counter
 import logging
-from speechbrain.utils.data_utils import get_all_files
+from speechbrain.utils.data_utils import download_file, get_all_files
 from speechbrain.data_io.data_io import (
     read_wav_soundfile,
     load_pkl,
@@ -74,6 +75,7 @@ def prepare_librispeech(
     check_librispeech_folders(data_folder, splits)
 
     # create csv files for each split
+    all_texts = {}
     for split_index in range(len(splits)):
 
         split = splits[split_index]
@@ -87,6 +89,7 @@ def prepare_librispeech(
         )
 
         text_dict = text_to_dict(text_lst)
+        all_texts = {**all_texts, **text_dict}
 
         if select_n_sentences is not None:
             n_sentences = select_n_sentences[split_index]
@@ -97,15 +100,103 @@ def prepare_librispeech(
             save_folder, wav_lst, text_dict, split, n_sentences,
         )
 
+    # Create lexicon.csv and oov.csv
+    create_lexicon_and_oov_csv(all_texts, data_folder)
+
     # saving options
     save_pkl(conf, save_opt)
+
+
+def create_lexicon_and_oov_csv(all_texts, data_folder):
+    # If the lexicon file does not exist, download it
+    lexicon_url = "http://www.openslr.org/resources/11/librispeech-lexicon.txt"
+    lexicon_path = os.path.join(data_folder, "librispeech-lexicon.txt")
+    if not os.path.isfile(lexicon_path):
+        print("Lexicon file not found. Downloading from %s." % lexicon_url)
+        download_file(lexicon_url, lexicon_path)
+
+    # Get list of all words in the transcripts
+    transcript_words = Counter()
+    for key in all_texts:
+        transcript_words.update(all_texts[key].split("_"))
+
+    # Get list of all words in the lexicon
+    lexicon_words = []
+    lexicon_pronunciations = []
+    with open(lexicon_path, "r") as f:
+        lines = f.readlines()
+        for line in lines:
+            word = line.split()[0]
+            pronunciation = line.split()[1:]
+            lexicon_words.append(word)
+            lexicon_pronunciations.append(pronunciation)
+
+    # Create lexicon.csv
+    header = "ID,duration,graphemes,graphemes_format,graphemes_opts,phonemes,phonemes_format,phonemes_opts\n"
+    lexicon_csv_path = os.path.join(data_folder, "lexicon.csv")
+    with open(lexicon_csv_path, "w") as f:
+        f.write(header)
+        for idx in range(len(lexicon_words)):
+            separated_graphemes = [c for c in lexicon_words[idx]]
+            duration = len(separated_graphemes)
+            graphemes = " ".join(separated_graphemes)
+            pronunciation_no_numbers = [
+                p.strip("0123456789") for p in lexicon_pronunciations[idx]
+            ]
+            phonemes = " ".join(pronunciation_no_numbers)
+            line = (
+                ",".join(
+                    [
+                        str(idx),
+                        str(duration),
+                        graphemes,
+                        "string",
+                        "",
+                        phonemes,
+                        "string",
+                        "",
+                    ]
+                )
+                + "\n"
+            )
+            f.write(line)
+    print("Lexicon written to %s." % lexicon_csv_path)
+
+    # Find OOV words (words that are in the transcripts but not the lexicon)
+    print("Searching for OOV words...")
+    oov = []
+    oov_found = False
+    for word in transcript_words:
+        if word not in lexicon_words:
+            oov.append(word)
+            oov_found = True
+
+    # If OOV found, create oov.csv
+    if oov_found:
+        header = "ID,duration,graphemes,graphemes_format,graphemes_opts\n"
+        oov_csv_path = os.path.join(data_folder, "oov.csv")
+        with open(oov_csv_path, "w") as f:
+            f.write(header)
+            for idx in range(len(oov)):
+                separated_graphemes = [c for c in oov[idx]]
+                duration = len(separated_graphemes)
+                graphemes = " ".join(separated_graphemes)
+                line = (
+                    ",".join([str(idx), str(duration), graphemes, "string", ""])
+                    + "\n"
+                )
+                f.write(line)
+        print(
+            "OOV words written to %s. (You can use the g2p recipe to add these words to the lexicon.)"
+            % oov_csv_path
+        )
 
 
 def create_csv(
     save_folder, wav_lst, text_dict, split, select_n_sentences,
 ):
     """
-    Create the csv file given a list of wav files.
+    Create the dataset csv file given a list of wav files.
 
     Arguments
     ---------
