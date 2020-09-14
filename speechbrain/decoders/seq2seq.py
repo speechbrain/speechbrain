@@ -659,7 +659,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
                     prev_attn_peak, dim=0, index=predecessors
                 )
 
-            if self.coverage_penalty:
+            if self.coverage_penalty > 0:
                 cur_attn = torch.index_select(attn, dim=0, index=predecessors)
                 if self.dec.attn_type == "multiheadlocation":
                     cur_attn = torch.mean(cur_attn, dim=1)
@@ -676,7 +676,12 @@ class S2SBeamSearcher(S2SBaseSearcher):
                     ).sum(-1)
                     penalty = penalty - self.coverage.size(-1) * 0.5
                     penalty = penalty.view(batch_size * self.beam_size)
-                    scores = scores - penalty * 0.5
+                    penalty = (
+                        penalty / (t + 1)
+                        if self.length_normalization
+                        else penalty
+                    )
+                    scores = scores - penalty * self.coverage_penalty
 
             # Update alived_seq
             alived_seq = torch.cat(
@@ -873,7 +878,7 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
         eos_threshold=1.5,
         length_normalization=False,
         length_rewarding=0,
-        coverage_penalty=True,
+        coverage_penalty=0.0,
         lm_weight=0.0,
         lm_modules=None,
         using_max_attn_shift=False,
