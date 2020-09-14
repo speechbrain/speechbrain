@@ -30,7 +30,7 @@ modules:
         right_frames: !ref <right_frames>
         deltas: !ref <deltas>
     xvector_model: !new:speechbrain.lobes.Xvector
-        input_shape: [!ref <batch_size>, 100, !ref <n_mels>]
+        input_shape: [null, null, !ref <n_mels>]
         activation: !name:torch.nn.LeakyReLU
         tdnn_blocks: 5
         tdnn_channels: [512, 512, 512, 512, 1500]
@@ -38,7 +38,7 @@ modules:
         tdnn_dilations: [1, 2, 3, 1, 1]
         lin_neurons: 512
     classifier: !new:speechbrain.lobes.models.Xvector.Classifier
-        input_shape: [!ref <batch_size>, 100, 512]
+        input_shape: [null, null, 512]
         activation: !name:torch.nn.LeakyReLU
         lin_blocks: 1
         lin_neurons: 512

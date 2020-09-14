@@ -64,7 +64,6 @@ class TransformerASR(TransformerInterface):
         d_ffn=2048,
         dropout=0.1,
         activation=nn.ReLU,
-        return_attention=False,
         positional_encoding=True,
     ):
         super().__init__(
@@ -76,7 +75,6 @@ class TransformerASR(TransformerInterface):
             input_size=input_size,
             dropout=dropout,
             activation=activation,
-            return_attention=return_attention,
             positional_encoding=positional_encoding,
         )
 

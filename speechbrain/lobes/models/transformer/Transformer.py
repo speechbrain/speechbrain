@@ -57,7 +57,6 @@ class TransformerInterface(nn.Module):
         activation=nn.ReLU,
         custom_src_module=None,
         custom_tgt_module=None,
-        return_attention=False,
         positional_encoding=True,
     ):
         super().__init__()
@@ -81,7 +80,6 @@ class TransformerInterface(nn.Module):
                 embed_dim=input_size,
                 dropout=dropout,
                 activation=activation,
-                return_attention=return_attention,
             )
 
         # initialize the dncoder
@@ -96,7 +94,6 @@ class TransformerInterface(nn.Module):
                 embed_dim=input_size,
                 dropout=dropout,
                 activation=activation,
-                return_attention=return_attention,
             )
 
     def forward(self, **kwags):
@@ -302,7 +299,6 @@ class TransformerEncoder(nn.Module):
         vdim=None,
         dropout=0.1,
         activation=nn.ReLU,
-        return_attention=False,
     ):
         super().__init__()
 
@@ -333,7 +329,6 @@ class TransformerEncoder(nn.Module):
             ]
         )
         self.norm = torch.nn.LayerNorm(embed_dim, eps=1e-6)
-        self.return_attention = return_attention
 
     def forward(
         self,
@@ -352,19 +347,21 @@ class TransformerEncoder(nn.Module):
             the mask for the src keys per batch (optional).
         """
         output = src
-        # attention_lst = []
+        attention_lst = []
         for enc_layer in self.layers:
             output, attention = enc_layer(
                 output,
                 src_mask=src_mask,
                 src_key_padding_mask=src_key_padding_mask,
             )
-            # attention_lst.append(attention)
+            attention_lst.append(attention)
         output = self.norm(output)
+        self.attention = attention_lst
 
-        # if self.return_attention:
-        #     return output, attention_lst
         return output
+
+    def get_attention(self):
+        return self.attention
 
 
 class TransformerDecoderLayer(nn.Module):
@@ -533,7 +530,6 @@ class TransformerDecoder(nn.Module):
         vdim=None,
         dropout=0.1,
         activation=nn.ReLU,
-        return_attention=False,
     ):
         super().__init__()
         self.layers = torch.nn.ModuleList(
@@ -551,7 +547,6 @@ class TransformerDecoder(nn.Module):
             ]
         )
         self.norm = torch.nn.LayerNorm(embed_dim, eps=1e-6)
-        self.return_attention = return_attention
 
     def forward(
         self,
@@ -592,10 +587,13 @@ class TransformerDecoder(nn.Module):
             self_attns.append(self_attn)
             multihead_attns.append(multihead_attn)
         output = self.norm(output)
+        self.self_attns = self_attns
+        self.multihead_attns = multihead_attns
 
-        if self.return_attention:
-            return output, self_attns, multihead_attns
         return output
+
+    def get_attention(self):
+        return self.self_attns, self.multihead_attns
 
 
 def get_key_padding_mask(padded_input, pad_idx):

@@ -20,14 +20,15 @@ def test_RNN():
         hidden_size=5,
         input_shape=inputs.shape,
         num_layers=2,
-        return_hidden=True,
         bidirectional=False,
     )
-    output, hn = net(inputs)
+    output = net(inputs)
+    hn = net.get_hidden()
     output_l = []
     hn_t = None
     for t in range(inputs.shape[1]):
-        out_t, hn_t = net(inputs[:, t, :].unsqueeze(1), hn_t)
+        out_t = net(inputs[:, t, :].unsqueeze(1), hn_t)
+        hn_t = net.get_hidden()
         output_l.append(out_t.squeeze(1))
 
     out_steps = torch.stack(output_l, dim=1)
@@ -44,14 +45,15 @@ def test_RNN():
         hidden_size=5,
         input_shape=inputs.shape,
         num_layers=2,
-        return_hidden=True,
         bidirectional=False,
     )
-    output, hn = net(inputs)
+    output = net(inputs)
+    hn = net.get_hidden()
     output_l = []
     hn_t = None
     for t in range(inputs.shape[1]):
-        out_t, hn_t = net(inputs[:, t, :].unsqueeze(1), hn_t)
+        out_t = net(inputs[:, t, :].unsqueeze(1), hn_t)
+        hn_t = net.get_hidden()
         output_l.append(out_t.squeeze(1))
 
     out_steps = torch.stack(output_l, dim=1)
@@ -68,14 +70,15 @@ def test_RNN():
         hidden_size=5,
         input_shape=inputs.shape,
         num_layers=2,
-        return_hidden=True,
         bidirectional=False,
     )
-    output, hn = net(inputs)
+    output = net(inputs)
+    hn = net.get_hidden()
     output_l = []
     hn_t = None
     for t in range(inputs.shape[1]):
-        out_t, hn_t = net(inputs[:, t, :].unsqueeze(1), hn_t)
+        out_t = net(inputs[:, t, :].unsqueeze(1), hn_t)
+        hn_t = net.get_hidden()
         output_l.append(out_t.squeeze(1))
 
     out_steps = torch.stack(output_l, dim=1)
@@ -92,7 +95,6 @@ def test_RNN():
         hidden_size=5,
         input_shape=inputs.shape,
         num_layers=2,
-        return_hidden=False,
         bidirectional=False,
         normalization="layernorm",
     )
@@ -125,15 +127,16 @@ def test_RNN():
         hidden_size=5,
         input_shape=inputs.shape,
         num_layers=2,
-        return_hidden=True,
         bidirectional=False,
     )
 
-    output, hn = net(inputs)
+    output = net(inputs)
+    hn = net.get_hidden()
     output_l = []
     hn_t = None
     for t in range(inputs.shape[1]):
-        out_t, hn_t = net(inputs[:, t, :].unsqueeze(1), hn_t)
+        out_t = net(inputs[:, t, :].unsqueeze(1), hn_t)
+        hn_t = net.get_hidden()
         output_l.append(out_t.squeeze(1))
 
     out_steps = torch.stack(output_l, dim=1)

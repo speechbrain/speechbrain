@@ -40,7 +40,15 @@ class Sequential(torch.nn.Module):
 
         # Append layers, passing shape
         self.layers = torch.nn.ModuleList()
+
+        # Replace None dimensions with arbitrary value
+        if None in input_shape:
+            input_shape = list(input_shape)
+            for i, dim in enumerate(input_shape):
+                input_shape[i] = dim if dim is not None else 100
         self.input_shape = input_shape
+
+        # Append all the input layers
         for layer in layers:
             self.append(layer)
 
