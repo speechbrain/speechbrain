@@ -606,7 +606,7 @@ class DepthwiseSeparableConv1d(nn.Module):
 
     Arguments
     ---------
-    ut_channels: int
+    out_channels: int
         It is the number of output channels.
     kernel_size: int
         Kernel size of the convolutional filters.
