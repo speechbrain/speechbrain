@@ -4,7 +4,8 @@ import sys
 import torch
 import speechbrain as sb
 
-#os.environ["CUDA_VISIBLE_DEVICES"] = "6"
+# This flag enable the inbuilt cudnn auto-tuner
+torch.backends.cudnn.benchmark = True
 
 # This hack needed to import data preparation script from ..
 current_dir = os.path.dirname(os.path.abspath(__file__))
