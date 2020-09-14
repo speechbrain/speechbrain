@@ -51,10 +51,13 @@ vad_type: 'oracle'
 max_subseg_dur: 3.0
 overlap: 1.5
 whiten: True
+len_norm: True
+do_lda: True
+lda_dim: 100
 
 # PLDA parameters
 rank_f: 100
-nb_iter: 10
+nb_iter: 20
 scaling_factor: 1
 
 # Functions
