@@ -18,6 +18,7 @@ from speechbrain.utils.data_utils import download_file
 from speechbrain.data_io.data_io import DataLoaderFactory
 from speechbrain.data_io.data_io import convert_index_to_lab
 from speechbrain.processing.PLDA_LDA import StatObject_SB
+from speechbrain.processing.PLDA_LDA import LDA
 from speechbrain.processing.PLDA_LDA import Ndx
 from speechbrain.processing.PLDA_LDA import fast_PLDA_scoring
 
@@ -333,7 +334,7 @@ def write_rttm(segs_list, out_rttm_file):
     logger.info("Output RTTM saved at: " + out_rttm_file)
 
 
-def do_ahc(score_matrix, out_rttm_file, rec_id):
+def do_ahc(score_matrix, out_rttm_file, rec_id, diary_obj_eval):
 
     ## Agglomerative Hierarchical Clustering using linkage
     scores = copy.deepcopy(score_matrix)
@@ -356,7 +357,7 @@ def do_ahc(score_matrix, out_rttm_file, rec_id):
 
     # Clusters IDs to segment labels
     # clus = dict()
-    subseg_ids = diary_obj.modelset
+    subseg_ids = diary_obj_eval.modelset
 
     i = 0  # speaker/cluster ID
     lol = []
@@ -428,6 +429,10 @@ if __name__ == "__main__":  # noqa: C901
     if not os.path.exists(rttm_dir):
         os.makedirs(rttm_dir)
 
+    #############
+    ## Data Preparation
+    #############
+
     """
     # Prepare data from dev of Voxceleb1
     logger.info("Vox: Data preparation")
@@ -457,6 +462,10 @@ if __name__ == "__main__":  # noqa: C901
         overlap=params.overlap,
     )
 
+    #########################
+    ## Vox1 variables and Setup
+    #########################
+
     # PLDA inputs for Train data
     modelset, segset = [], []
     xvectors = numpy.empty(shape=[0, params.xvect_dim], dtype=numpy.float64)
@@ -472,6 +481,10 @@ if __name__ == "__main__":  # noqa: C901
     xv_file = os.path.join(
         xvect_dir, "Vox1_train/VoxCeleb1_train_xvectors_stat_obj.pkl"
     )
+
+    ########################################
+    ## Vox1 X-vector Extraction (15-20 mins on V100)
+    ########################################
 
     # Skip extraction of train if already extracted
     if not os.path.exists(xv_file):
@@ -545,6 +558,24 @@ if __name__ == "__main__":  # noqa: C901
         with open(xv_file, "rb") as in_file:
             xvectors_stat = pickle.load(in_file)
 
+    if params.len_norm is True:
+        xvectors_stat.norm_stat1()
+
+    if params.do_lda is True:
+        lda_vox = LDA()
+        xvectors_stat = lda_vox.do_lda(
+            stat_server=xvectors_stat, reduced_dim=params.lda_dim
+        )
+
+    # Whitening Vox1
+    mean_vox = xvectors_stat.get_mean_stat1()
+    Sigma_vox = xvectors_stat.get_total_covariance_stat1()
+    xvectors_stat.whiten_stat1(mean_vox, Sigma_vox)
+
+    #####################################
+    ## PLDA TRAINING using Vox1 (10 iters, 30-45 secs on CPU)
+    #####################################
+
     # Training Gaussian PLDA model
     # (Using Xvectors extracted from Voxceleb)
 
@@ -557,22 +588,36 @@ if __name__ == "__main__":  # noqa: C901
         diary_stat_file = os.path.join(xvect_dir, "AMI_dev/ami_dev_xv_stat.pkl")
 
         logger.info("Extracting xvectors for AMI DEV")
-        diary_obj = xvect_computation_loop(
+        diary_obj_dev = xvect_computation_loop(
             "diary", params.diary_loader_dev(), diary_stat_file
         )
+
+        if params.len_norm is True:
+            diary_obj_dev.norm_stat1()
+
+        if params.do_lda is True:
+            diary_obj_dev = lda_vox.do_lda(
+                stat_server=diary_obj_dev,
+                reduced_dim=params.lda_dim,
+                transform_mat=lda_vox.transform_mat,
+            )
 
         logger.info(
             "Training PLDA model using Vox1 and whitening using AMI dev"
         )
         params.compute_plda.plda(
-            xvectors_stat, whiten=True, w_stat_server=diary_obj
+            xvectors_stat, whiten=True, w_stat_server=diary_obj_dev
         )
-        del diary_obj
+        del diary_obj_dev
     else:
         logger.info("Training PLDA model using Vox1 (no whitening)")
         params.compute_plda.plda(xvectors_stat)
 
     logger.info("PLDA training completed")
+
+    #####################################
+    ## AMI - Eval: Xvector extract (5-10 secs per recording)
+    #####################################
 
     # EVAL
     # Get all recording IDs in AMI test split
@@ -598,6 +643,7 @@ if __name__ == "__main__":  # noqa: C901
     i = 1
 
     # Loop through all recordings in AMI Test split
+    # Extract xvector one-by-one for each recording
     for rec_id in all_rec_ids:
 
         ss = "[" + str(i) + "/" + N + "]"
@@ -632,14 +678,27 @@ if __name__ == "__main__":  # noqa: C901
         diary_set_loader = diary_set.forward()
 
         # Compute Xvectors
-        diary_obj = xvect_computation_loop(
+        diary_obj_eval = xvect_computation_loop(
             "diary", diary_set_loader, diary_stat_file
         )
 
+        if params.len_norm is True:
+            diary_obj_eval.norm_stat1()
+
+        if params.do_lda is True:
+            diary_obj_eval = lda_vox.do_lda(
+                stat_server=diary_obj_eval,
+                reduced_dim=params.lda_dim,
+                transform_mat=lda_vox.transform_mat,
+            )
+
+        # Whiten using Vox's mean and Sigma
+        diary_obj_eval.whiten_stat1(mean_vox, Sigma_vox)
+
         # Prepare Ndx Object
         if not os.path.isfile(diary_ndx_file):
-            models = diary_obj.modelset
-            testsegs = diary_obj.modelset
+            models = diary_obj_eval.modelset
+            testsegs = diary_obj_eval.modelset
 
             logger.info("Preparing Ndx")
             ndx_obj = Ndx(models=models, testsegs=testsegs)
@@ -651,10 +710,14 @@ if __name__ == "__main__":  # noqa: C901
             with open(diary_ndx_file, "rb") as in_file:
                 ndx_obj = pickle.load(in_file)
 
+        ##################################
+        ## PLDA scoring (per recording) (few seconds)
+        ##################################
+
         logger.info("Performing PLDA scoring")
         scores_plda = fast_PLDA_scoring(
-            diary_obj,
-            diary_obj,
+            diary_obj_eval,
+            diary_obj_eval,
             ndx_obj,
             params.compute_plda.mean,
             params.compute_plda.F,
@@ -663,10 +726,14 @@ if __name__ == "__main__":  # noqa: C901
 
         # print(scores_plda.scoremat)
 
+        ##################################
+        ## AHC (per recording) (few seconds)
+        ##################################
+
         # Do AHC
         out_rttm_file = rttm_dir + "/" + rec_id + ".rttm"
         logger.info("Performing AHC")
-        do_ahc(scores_plda.scoremat, out_rttm_file, rec_id)
+        do_ahc(scores_plda.scoremat, out_rttm_file, rec_id, diary_obj_eval)
 
     # (Optional) Concatenate individual RTTM files
     concate_rttm_file = rttm_dir + "/sys_output.rttm"
