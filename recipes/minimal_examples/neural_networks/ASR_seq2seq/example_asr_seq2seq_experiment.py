@@ -2,8 +2,6 @@
 import os
 import torch
 import speechbrain as sb
-from speechbrain.data_io.data_io import prepend_bos_token
-from speechbrain.data_io.data_io import append_eos_token
 
 
 class seq2seqBrain(sb.Brain):
@@ -15,7 +13,7 @@ class seq2seqBrain(sb.Brain):
         x = self.enc(feats)
 
         # Prepend bos token at the beginning
-        y_in = prepend_bos_token(phns, bos_index=self.bos)
+        y_in = sb.data_io.data_io.prepend_bos_token(phns, self.bos)
         e_in = self.emb(y_in)
         h, w = self.dec(e_in, x, wav_lens)
         logits = self.lin(h)
@@ -39,14 +37,16 @@ class seq2seqBrain(sb.Brain):
         abs_length = torch.round(phn_lens * phns.shape[1])
 
         # Append eos token at the end of the label sequences
-        phns = append_eos_token(phns, length=abs_length, eos_index=self.eos)
+        phns = sb.data_io.data_io.append_eos_token(
+            phns, length=abs_length, eos_index=self.eos
+        )
 
         # convert to speechbrain-style relative length
         rel_length = (abs_length + 1) / phns.shape[1]
         loss = self.compute_cost(outputs, phns, length=rel_length)
 
         if stage != sb.Stage.TRAIN:
-            self.per_metrics.append(ids, seq, phns, phn_lens)
+            self.per_metrics.append(ids, seq, phns, target_len=phn_lens)
 
         return loss
 
