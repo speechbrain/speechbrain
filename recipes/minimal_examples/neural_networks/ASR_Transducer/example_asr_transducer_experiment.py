@@ -1,8 +1,7 @@
 #!/usr/bin/python
 import os
 import speechbrain as sb
-from speechbrain.decoders.ctc import ctc_greedy_decode
-from speechbrain.decoders.transducer import decode_batch
+from speechbrain.decoders.transducer import transducer_greedy_decode
 from speechbrain.data_io.data_io import prepend_bos_token
 from speechbrain.decoders.decoders import undo_padding
 from speechbrain.utils.edit_distance import wer_details_for_batch
@@ -50,8 +49,10 @@ class TransducerBrain(sb.core.Brain):
             )
             # projection layer
             outputs = params.output(joint, init_params=init_params)
+            outputs = params.log_softmax(outputs)
+            return outputs, lens
         else:
-            outputs = decode_batch(
+            hyps, scores = transducer_greedy_decode(
                 TN_output,
                 [
                     params.decoder_embedding,
@@ -62,28 +63,24 @@ class TransducerBrain(sb.core.Brain):
                 [params.output],
                 params.blank_id,
             )
-        outputs = params.log_softmax(outputs)
-        return outputs, lens
+            return hyps, scores
 
     def compute_objectives(self, predictions, targets, stage="train"):
-        predictions, lens = predictions
         ids, phns, phn_lens = targets
-        if stage != "train":
-            pout = predictions.squeeze(2)
-            predictions = predictions.expand(-1, -1, phns.shape[1] + 1, -1)
-
-        loss = params.compute_cost(
-            predictions,
-            phns.to(params.device).long(),
-            lens.to(params.device),
-            phn_lens.to(params.device),
-        )
 
         stats = {}
         if stage != "train":
-            seq = ctc_greedy_decode(pout, lens, blank_id=params.blank_id)
+            seq, loss = predictions
             phns = undo_padding(phns, phn_lens)
             stats["PER"] = wer_details_for_batch(ids, phns, seq)
+        else:
+            predictions, lens = predictions
+            loss = params.compute_cost(
+                predictions,
+                phns.to(params.device).long(),
+                lens.to(params.device),
+                phn_lens.to(params.device),
+            )
 
         return loss, stats
 
