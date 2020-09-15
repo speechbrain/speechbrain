@@ -63,7 +63,7 @@ class EmbeddingBrain(sb.core.Brain):
         if stage == "train":
             # Addding noise and reverberation
             wavs_aug = params.env_corrupt(wavs, lens, init_params)
-            wavs_aug = _nan_to_zero(wavs, "NaN after env_corrupt", ids)
+            wavs_aug = _nan_to_zero(wavs_aug, "NaN after env_corrupt", ids)
 
             # Adding time-domain augmentation
             wavs_aug = params.augmentation(wavs_aug, lens, init_params)
