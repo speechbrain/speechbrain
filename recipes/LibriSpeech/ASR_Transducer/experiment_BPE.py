@@ -5,8 +5,10 @@ import speechbrain as sb
 import speechbrain.data_io.wer as wer_io
 import speechbrain.utils.edit_distance as edit_distance
 from speechbrain.data_io.data_io import convert_index_to_lab
-from speechbrain.decoders.ctc import ctc_greedy_decode
-from speechbrain.decoders.transducer import decode_batch
+from speechbrain.decoders.transducer import (
+    transducer_greedy_decode,
+    transducer_beam_search_decode,
+)
 from speechbrain.data_io.data_io import prepend_bos_token
 from speechbrain.data_io.data_io import split_word
 from speechbrain.decoders.decoders import undo_padding
@@ -67,7 +69,7 @@ class ASR(sb.core.Brain):
         TN_output = params.enc(feats, init_params=init_params)
         if stage == "train":
             # Prediction network: output-output dependency
-            # y contains a tuple of tensors (id, chars, chars_lens)
+            # y contains a tuple of tensors (id, words, word_lens)
             ids, words, word_lens = y
             words = torch.cat([words, words], dim=0)
             word_lens = torch.cat([word_lens, word_lens])
@@ -90,19 +92,35 @@ class ASR(sb.core.Brain):
                 init_params=init_params,
             )
             outputs = params.output(joint, init_params=init_params)
-        else:
-            outputs = decode_batch(
+            outputs = params.log_softmax(outputs)
+            return outputs, lens
+        elif stage == "eval":
+            hyps, scores = transducer_greedy_decode(
                 TN_output,
                 [params.emb, params.dec],
                 params.Tjoint,
                 [params.output],
                 params.blank_index,
             )
-        outputs = params.log_softmax(outputs)
-        return outputs, lens
+            return hyps, scores
+        else:
+            (
+                best_hyps,
+                best_scores,
+                nbest_hyps,
+                nbest_scores,
+            ) = transducer_beam_search_decode(
+                TN_output,
+                [params.emb, params.dec],
+                params.Tjoint,
+                [params.output],
+                params.blank_index,
+                beam=params.beam,
+                nbest=params.nbest,
+            )
+            return best_hyps, best_scores
 
     def compute_objectives(self, predictions, targets, stage="train"):
-        predictions, lens = predictions
         ids, words, word_lens = targets
         if stage != "train":
             if stage == "valid":
@@ -113,12 +131,8 @@ class ASR(sb.core.Brain):
                 words, word_lens, index2lab, task="encode"
             )
             bpe, bpe_lens = bpe.to(params.device), bpe_lens.to(params.device)
-            # if not train, the predictions will be a tensor of [B, T, 1, char_dim]
-            # So expand the 3rd dimension to compute the loss on the valid set
-            # the expected new tensor will have a dimension of [B, T, U, char_dim]
-            pout = predictions.squeeze(2)
-            predictions = predictions.expand(-1, -1, bpe.shape[1] + 1, -1)
         else:
+            predictions, lens = predictions
             index2lab = params.train_loader.label_dict["wrd"]["index2lab"]
             bpe, bpe_lens = params.bpe_tokenizer(
                 words, word_lens, index2lab, task="encode"
@@ -127,18 +141,16 @@ class ASR(sb.core.Brain):
             if hasattr(params, "env_corrupt"):
                 bpe = torch.cat([bpe, bpe], dim=0)
                 bpe_lens = torch.cat([bpe_lens, bpe_lens], dim=0)
-        loss = params.compute_cost(
-            predictions,
-            bpe.to(params.device).long(),
-            lens.to(params.device),
-            bpe_lens.to(params.device),
-        )
+            loss = params.compute_cost(
+                predictions,
+                bpe.to(params.device).long(),
+                lens.to(params.device),
+                bpe_lens.to(params.device),
+            )
 
         stats = {}
         if stage != "train":
-            sequence_BPE = ctc_greedy_decode(
-                pout, lens, blank_id=params.blank_index
-            )
+            sequence_BPE, loss = predictions
             word_seq = params.bpe_tokenizer(
                 sequence_BPE, task="decode_from_list"
             )
@@ -217,7 +229,7 @@ asr_brain = ASR(
 # Check if the model should be trained on multiple GPUs.
 # Important: DataParallel MUST be called after the ASR (Brain) class init.
 if params.multigpu:
-    params.enc = torch.nn.DataParallel(params.encoder_crdnn)
+    params.enc = torch.nn.DataParallel(params.enc)
     params.emb = torch.nn.DataParallel(params.emb)
     params.dec = torch.nn.DataParallel(params.dec)
     params.output = torch.nn.DataParallel(params.output)
