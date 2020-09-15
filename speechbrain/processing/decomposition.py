@@ -128,8 +128,8 @@ def svdl(a):
     Arguments:
     ----------
         a : tensor
-            An input matrix to work with. The tensor must have the
-            following format: (*,2,C+P).
+            A complex input matrix to work with. The tensor must have
+            the following format: (*,2,C+P).
 
     Example:
     --------
