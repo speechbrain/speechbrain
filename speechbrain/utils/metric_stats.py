@@ -193,7 +193,15 @@ class ErrorRateStats(MetricStats):
         self.merge_tokens = merge_tokens
         self.split_tokens = split_tokens
 
-    def append(self, ids, predict, target, target_len=None, ind2lab=None):
+    def append(
+        self,
+        ids,
+        predict,
+        target,
+        predict_len=None,
+        target_len=None,
+        ind2lab=None,
+    ):
         """Add stats to the relevant containers.
 
         * See MetricStats.append()
@@ -206,6 +214,9 @@ class ErrorRateStats(MetricStats):
             A predicted output, for comparison with the target output
         target : torch.tensor
             The correct reference output, for comparison with the prediction.
+        predict_len : torch.tensor
+            The predictions relative lengths, used to undo padding if
+            there is padding present in the predictions.
         target_len : torch.tensor
             The target outputs' relative lengths, used to undo padding if
             there is padding present in the target.
@@ -214,23 +225,26 @@ class ErrorRateStats(MetricStats):
         """
         self.ids.extend(ids)
 
+        if predict_len is not None:
+            predict = undo_padding(predict, predict_len)
+
         if target_len is not None:
-            target_lab = undo_padding(target, target_len)
+            target = undo_padding(target, target_len)
 
         if ind2lab is not None:
             predict = convert_index_to_lab(predict, ind2lab)
-            target_lab = convert_index_to_lab(target_lab, ind2lab)
+            target = convert_index_to_lab(target, ind2lab)
 
         if self.merge_tokens:
             predict = merge_char(predict)
-            target_lab = merge_char(target_lab)
+            target = merge_char(target)
 
         if self.split_tokens:
             predict = split_word(predict)
-            target_lab = split_word(target_lab)
+            target = split_word(target)
 
         scores = edit_distance.wer_details_for_batch(
-            ids, target_lab, predict, compute_alignments=ind2lab is not None
+            ids, target, predict, compute_alignments=ind2lab is not None
         )
 
         self.scores.extend(scores)

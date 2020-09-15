@@ -17,7 +17,6 @@ import os
 import sys
 import torch
 import speechbrain as sb
-from speechbrain.decoders.ctc import ctc_greedy_decode
 
 
 # Define training procedure
@@ -57,8 +56,12 @@ class ASR_Brain(sb.Brain):
         self.ctc_metrics.append(ids, pout, phns, pout_lens, phn_lens)
 
         if stage != sb.Stage.TRAIN:
-            sequence = ctc_greedy_decode(pout, pout_lens, blank_id=-1)
-            self.per_metrics.append(ids, sequence, phns, phn_lens, self.ind2lab)
+            sequence = sb.decoders.ctc_greedy_decode(
+                pout, pout_lens, blank_id=-1
+            )
+            self.per_metrics.append(
+                ids, sequence, phns, target_len=phn_lens, ind2lab=self.ind2lab
+            )
 
         return loss
 
