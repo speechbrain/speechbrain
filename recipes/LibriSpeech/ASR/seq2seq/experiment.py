@@ -255,7 +255,7 @@ if __name__ == "__main__":
     train_set = params.train_loader()
     valid_set = params.valid_loader()
     test_set = params.test_loader()
-    ind2lab = params.train_loader.label_dict["wrd"]["index2lab"]
+    ind2lab = params.test_loader.label_dict["wrd"]["index2lab"]
     asr_brain = ASR(
         modules=dict(params.modules, index2lab=ind2lab),
         optimizers=["optimizer"],
