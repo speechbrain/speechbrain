@@ -10,7 +10,11 @@ import torch
 import speechbrain.data_io.wer as wer_io
 import speechbrain.utils.edit_distance as edit_distance
 from joblib import Parallel, delayed
-from speechbrain.data_io.data_io import convert_index_to_lab, merge_char
+from speechbrain.data_io.data_io import (
+    convert_index_to_lab,
+    merge_char,
+    split_word,
+)
 from speechbrain.decoders.decoders import undo_padding
 from speechbrain.utils.edit_distance import wer_summary
 
@@ -184,9 +188,10 @@ class ErrorRateStats(MetricStats):
     1
     """
 
-    def __init__(self, merge_tokens=False):
+    def __init__(self, merge_tokens=False, split_tokens=False):
         self.clear()
         self.merge_tokens = merge_tokens
+        self.split_tokens = split_tokens
 
     def append(self, ids, predict, target, target_len=None, ind2lab=None):
         """Add stats to the relevant containers.
@@ -219,6 +224,10 @@ class ErrorRateStats(MetricStats):
         if self.merge_tokens:
             predict = merge_char(predict)
             target_lab = merge_char(target_lab)
+
+        if self.split_tokens:
+            predict = split_word(predict)
+            target_lab = split_word(target_lab)
 
         scores = edit_distance.wer_details_for_batch(
             ids, target_lab, predict, compute_alignments=ind2lab is not None
