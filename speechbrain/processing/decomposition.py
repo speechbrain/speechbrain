@@ -116,6 +116,44 @@ def gevd(a, b=None):
 
 
 def svdl(a):
+    """ Singular Value Decomposition (Left Singular Vectors)
+
+    This function finds the eigenvalues and eigenvectors of the
+    input multiplied by its transpose (a x a.T).
+
+    The function will return (in this order):
+        1. The eigenvalues in a tensor with the format (*,C,C,2)
+        2. The eigenvectors in a tensor with the format (*,C,C,2)
+
+    Arguments:
+    ----------
+        a : tensor
+            An input matrix to work with. The tensor must have the
+            following format: (*,2,C+P).
+
+    Example:
+    --------
+    >>> import soundfile as sf
+    >>> import torch
+    >>>
+    >>> from speechbrain.processing.features import STFT
+    >>> from speechbrain.processing.multi_mic import Covariance
+    >>> from speechbrain.processing.decomposition import svdl
+    >>>
+    >>> xs_speech, fs = sf.read(
+    ...    'samples/audio_samples/multi_mic/speech_-0.82918_0.55279_-0.082918.flac'
+    ... )
+    >>> xs_noise, _ = sf.read('samples/audio_samples/multi_mic/noise_diffuse.flac')
+    >>> xs = xs_speech + 0.05 * xs_noise
+    >>> xs = torch.tensor(xs).unsqueeze(0).float()
+    >>>
+    >>> stft = STFT(sample_rate=fs)
+    >>> cov = Covariance()
+    >>>
+    >>> Xs = stft(xs)
+    >>> XXs = cov(Xs)
+    >>> us, ds = svdl(XXs)
+    """
 
     # Dimensions
     D = a.dim()
