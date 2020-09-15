@@ -5,8 +5,7 @@ import speechbrain as sb
 import speechbrain.data_io.wer as wer_io
 import speechbrain.utils.edit_distance as edit_distance
 from speechbrain.data_io.data_io import convert_index_to_lab
-from speechbrain.decoders.ctc import ctc_greedy_decode
-from speechbrain.decoders.transducer import decode_batch
+from speechbrain.decoders.transducer import transducer_greedy_decode
 from speechbrain.data_io.data_io import prepend_bos_token
 from speechbrain.decoders.decoders import undo_padding
 from speechbrain.utils.checkpoints import ckpt_recency
@@ -75,8 +74,10 @@ class ASR(sb.core.Brain):
             )
             # projection layer
             outputs = params.output(joint, init_params=init_params)
+            outputs = params.log_softmax(outputs)
+            return outputs, lens
         else:
-            outputs = decode_batch(
+            hyps, scores = transducer_greedy_decode(
                 TN_output,
                 [
                     params.decoder_embedding,
@@ -87,32 +88,15 @@ class ASR(sb.core.Brain):
                 [params.output],
                 params.blank_index,
             )
-        outputs = params.log_softmax(outputs)
-        return outputs, lens
+            return hyps, scores
 
     def compute_objectives(self, predictions, targets, stage="train"):
-        predictions, lens = predictions
         ids, phns, phn_lens = targets
-        if hasattr(params, "env_corrupt"):
-            phns = torch.cat([phns, phns], dim=0)
-            phn_lens = torch.cat([phn_lens, phn_lens], dim=0)
-        if stage != "train":
-            pout = predictions.squeeze(2)
-            predictions = predictions.expand(-1, -1, phns.shape[1] + 1, -1)
-
-        loss = params.compute_cost(
-            predictions,
-            phns.to(params.device).long(),
-            lens.to(params.device),
-            phn_lens.to(params.device),
-        )
 
         stats = {}
         if stage != "train":
+            sequence, loss = predictions
             ind2lab = params.train_loader.label_dict["phn"]["index2lab"]
-            sequence = ctc_greedy_decode(
-                pout, lens, blank_id=params.blank_index
-            )
             sequence = convert_index_to_lab(sequence, ind2lab)
             phns = undo_padding(phns, phn_lens)
             phns = convert_index_to_lab(phns, ind2lab)
@@ -120,7 +104,18 @@ class ASR(sb.core.Brain):
                 ids, phns, sequence, compute_alignments=True
             )
             stats["PER"] = per_stats
+        else:
+            predictions, lens = predictions
+            if hasattr(params, "env_corrupt"):
+                phns = torch.cat([phns, phns], dim=0)
+                phn_lens = torch.cat([phn_lens, phn_lens], dim=0)
 
+            loss = params.compute_cost(
+                predictions,
+                phns.to(params.device).long(),
+                lens.to(params.device),
+                phn_lens.to(params.device),
+            )
         return loss, stats
 
     def on_epoch_end(self, epoch, train_stats, valid_stats=None):
