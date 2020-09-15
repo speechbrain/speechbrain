@@ -104,15 +104,8 @@ def prepare_voxceleb(
     save_csv_train = os.path.join(save_folder, TRAIN_CSV)
     save_csv_dev = os.path.join(save_folder, DEV_CSV)
 
-    # Create the data folder contains VoxCeleb1 data from the source
+    # Create the data folder contains VoxCeleb1 test data from the source
     if source is not None:
-        if (
-            "train" in splits
-            and not os.path.exists(os.path.join(data_folder, "wav", "id10001"))
-            and not os.path.exists(os.path.join(data_folder, "wav", "id00012"))
-        ):
-            print(f"Extracting {source}/{DEV_WAV} to {data_folder}")
-            shutil.unpack_archive(os.path.join(source, DEV_WAV), data_folder)
         if not os.path.exists(os.path.join(data_folder, "wav", "id10270")):
             print(f"Extracting {source}/{TEST_WAV} to {data_folder}")
             shutil.unpack_archive(os.path.join(source, TEST_WAV), data_folder)

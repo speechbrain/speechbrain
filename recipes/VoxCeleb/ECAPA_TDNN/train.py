@@ -2,7 +2,12 @@
 import os
 import sys
 import torch
+import logging
 import speechbrain as sb
+
+logger = logging.getLogger(__name__)
+
+torch.backends.cudnn.benchmark = True
 
 # This hack needed to import data preparation script from ..
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -37,31 +42,51 @@ prepare_voxceleb(
 )
 
 
+def _nan_to_zero(t, msg, ids):
+    isnan = t.isnan().long()
+    if int(isnan.sum()) > 0:
+        for idx in isnan.nonzero(as_tuple=True)[0]:
+            err_msg = f"{msg}: {ids[idx]}"
+            logger.error(err_msg, exc_info=True)
+        t = torch.where(t.isnan(), torch.zeros_like(t), t)
+    return t
+
+
 # Trains embedding model
 class EmbeddingBrain(sb.core.Brain):
     def compute_forward(self, x, stage="train", init_params=False):
-        id, wavs, lens = x
+        ids, wavs, lens = x
 
         wavs, lens = wavs.to(params.device), lens.to(params.device)
+        wavs = _nan_to_zero(wavs, "NaN in wav", ids)
 
         if stage == "train":
             # Addding noise and reverberation
             wavs_aug = params.env_corrupt(wavs, lens, init_params)
+            wavs_aug = _nan_to_zero(wavs, "NaN after env_corrupt", ids)
 
             # Adding time-domain augmentation
             wavs_aug = params.augmentation(wavs_aug, lens, init_params)
+            wavs_aug = _nan_to_zero(wavs_aug, "NaN after augmentation", ids)
 
             # Concatenate noisy and clean batches
+            ids = ids + ids
             wavs = torch.cat([wavs, wavs_aug], dim=0)
             lens = torch.cat([lens, lens], dim=0)
 
         # Feature extraction and normalization
         feats = params.compute_features(wavs, init_params)
+        feats = _nan_to_zero(feats, "NaN after compute_features", ids)
+
         feats = params.mean_var_norm(feats, lens)
+        feats = _nan_to_zero(feats, "NaN after mean_var_norm", ids)
 
         # Embedding + speaker classifier
         emb = params.embedding_model(feats, init_params=init_params)
+        emb = _nan_to_zero(emb, "NaN after embedding_model", ids)
+
         outputs = params.classifier(emb, init_params)
+        outputs = _nan_to_zero(outputs, "NaN after classifier", ids)
 
         return outputs, lens
 
@@ -73,9 +98,11 @@ class EmbeddingBrain(sb.core.Brain):
 
         # Concatenate labels
         if stage == "train":
+            uttid = uttid + uttid
             spkid = torch.cat([spkid, spkid], dim=0)
 
         loss = params.compute_cost(predictions, spkid)
+        loss = _nan_to_zero(loss, "NaN after classifier", uttid)
 
         stats = {}
         if stage != "train":

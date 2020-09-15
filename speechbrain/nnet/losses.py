@@ -807,9 +807,6 @@ class AdditiveAngularMargin(AngularMargin):
     Return
     ---------
     predictions : torch.Tensor
-        Log probabilities of samples of shape [N, C], where N is the batch size
-        and C is the number of classes
-
     Example
     -------
     >>> outputs = torch.tensor([ [1., -1.], [-1., 1.], [0.9, 0.1], [0.1, 0.9] ])
