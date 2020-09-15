@@ -17,12 +17,12 @@ csv_label: !ref <data_folder>/train-960.csv
 csv_valid: !ref <data_folder>/<dev_split>.csv
 
 # Tokenizer model
-tok_mdl_file: https://www.dropbox.com/s/945gmkcwzfnvn1y/5000_unigram.model?dl=1
-tok_voc_file: https://www.dropbox.com/s/oqvr68b3mfjyqnt/5000_unigram.vocab?dl=1
+tok_mdl_file: /scratch/jianyuan/5000_unigram.model
+tok_voc_file: /scratch/jianyuan/5000_unigram.vocab
 
 # Training parameters
 number_of_epochs: 20
-batch_size: 64
+batch_size: 96
 lr: 1
 accu_steps: 8 # Gradient accumulation to simulate large batch training
 device: 'cuda'
@@ -71,7 +71,7 @@ model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM # y
     num_encoder_layers: 16
     num_decoder_layers: 0
     d_ffn: 2048
-    dropout: 0.1
+    dropout: 0.0
     activation: !name:torch.nn.GELU
     normalize_before: True
 
@@ -98,6 +98,7 @@ label_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     output_folder: !ref <output_folder>
     csv_read: [wrd]
     num_workers: 4
+    drop_last: True
 
 train_loader: !new:speechbrain.data_io.data_io.HDF5DataLoaderFactory
     hdf5_file: !ref <hdf5_train>
@@ -109,6 +110,7 @@ train_loader: !new:speechbrain.data_io.data_io.HDF5DataLoaderFactory
     data_entries: [subwrd]
     num_workers: 4
     cache_in_ram: True
+    drop_last: True
 
 valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_valid>
@@ -117,6 +119,7 @@ valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     output_folder: !ref <output_folder>
     csv_read: [wrd]
     num_workers: 4
+    drop_last: True
 
 compute_cost: !name:speechbrain.nnet.losses.nll_loss
 
