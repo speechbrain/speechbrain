@@ -1,7 +1,6 @@
 #!/usr/bin/python
 import os
 import speechbrain as sb
-from speechbrain.decoders.ctc import ctc_greedy_decode
 
 
 class CTCBrain(sb.Brain):
@@ -20,8 +19,8 @@ class CTCBrain(sb.Brain):
         loss = self.compute_cost(predictions, phns, lens, phn_lens)
 
         if stage != sb.Stage.TRAIN:
-            seq = ctc_greedy_decode(predictions, lens, blank_id=-1)
-            self.per_metrics.append(ids, seq, phns, phn_lens)
+            seq = sb.decoders.ctc_greedy_decode(predictions, lens, blank_id=-1)
+            self.per_metrics.append(ids, seq, phns, target_len=phn_lens)
 
         return loss
 
