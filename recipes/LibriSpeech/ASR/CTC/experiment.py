@@ -3,7 +3,6 @@ import os
 import sys
 import torch
 import speechbrain as sb
-from speechbrain.decoders.ctc import ctc_greedy_decode
 
 
 # Define training procedure
@@ -29,22 +28,24 @@ class ASR(sb.Brain):
 
     def compute_objectives(self, predictions, targets, stage):
         pout, pout_lens = predictions
-        ids, chars, char_lens = targets
-        chars, char_lens = chars.to(self.device), char_lens.to(self.device)
+        ids, char, char_len = targets
+        char, char_len = char.to(self.device), char_len.to(self.device)
 
         if hasattr(self, "env_corrupt"):
-            chars = torch.cat([chars, chars], dim=0)
-            char_lens = torch.cat([char_lens, char_lens], dim=0)
+            char = torch.cat([char, char], dim=0)
+            char_len = torch.cat([char_len, char_len], dim=0)
 
-        loss = self.ctc_cost(pout, chars, pout_lens, char_lens)
+        loss = self.ctc_cost(pout, char, pout_lens, char_len)
 
         if stage != sb.Stage.TRAIN:
-            sequence = ctc_greedy_decode(pout, pout_lens, blank_id=-1)
+            sequence = sb.decoders.ctc_greedy_decode(
+                pout, pout_lens, blank_id=-1
+            )
             self.cer_metric.append(
-                ids, sequence, chars, char_lens, self.ind2lab
+                ids, sequence, char, target_len=char_len, ind2lab=self.ind2lab
             )
             self.wer_metric.append(
-                ids, sequence, chars, char_lens, self.ind2lab
+                ids, sequence, char, target_len=char_len, ind2lab=self.ind2lab
             )
 
         return loss

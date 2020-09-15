@@ -4,12 +4,9 @@ import sys
 import torch
 import speechbrain as sb
 from speechbrain.utils.data_utils import download_file
-from speechbrain.data_io.data_io import prepend_bos_token
-from speechbrain.data_io.data_io import append_eos_token
-from speechbrain.decoders.seq2seq import S2SRNNBeamSearcher
 
 
-class MyBeamSearcher(S2SRNNBeamSearcher):
+class MyBeamSearcher(sb.decoders.S2SRNNBeamSearcher):
     def lm_forward_step(self, inp_tokens, memory):
         hs = memory
         (model,) = self.lm_modules
@@ -65,14 +62,14 @@ class ASR(sb.Brain):
             words, word_lens, self.index2lab, task="encode"
         )
         bpe = bpe.to(self.device)
-        y_in = prepend_bos_token(bpe, bos_index=self.bos_index)
+        y_in = sb.data_io.data_io.prepend_bos_token(bpe, self.bos_index)
 
         # Forward pass
         feats = self.compute_features(wavs)
         feats = self.normalize(feats, wav_lens)
         x = self.enc(feats)
         e_in = self.emb(y_in)
-        h = self.dec(e_in, x, wav_lens)
+        h, _ = self.dec(e_in, x, wav_lens)
 
         # output layer for seq2seq log-probabilities
         logits = self.seq_lin(h)
@@ -116,7 +113,7 @@ class ASR(sb.Brain):
         abs_length = torch.round(bpe_lens * bpe.shape[1])
 
         # Append eos token at the end of the label sequences
-        bpe_with_eos = append_eos_token(
+        bpe_with_eos = sb.data_io.data_io.append_eos_token(
             bpe, length=abs_length, eos_index=self.eos_index
         )
 
@@ -136,17 +133,19 @@ class ASR(sb.Brain):
 
         if stage != sb.Stage.TRAIN:
             # Decode BPE terms to words
-            word_seq = self.bpe_tokenizer(hyps, task="decode_from_list")
+            target = self.bpe_tokenizer(hyps, task="decode_from_list")
 
-            # If needed, compute token error rate
+            # Convert indices to words
+            words = sb.decoders.undo_padding(words, word_lens)
+            words = sb.data_io.data_io.convert_index_to_lab(
+                words, self.index2lab
+            )
+
             if self.ter_eval:
-                self.ter_metric.append(ids, bpe, hyps, ind2lab=self.index2lab)
+                self.ter_metric.append(ids, bpe, hyps, predict_len=bpe_lens)
+            self.wer_metric.append(ids, words, target)
+            self.cer_metric.append(ids, words, target)
 
-            # Store metrics for WER computation
-            self.wer_metric.append(ids, words, word_seq, ind2lab=self.index2lab)
-
-            # Takes care of dividing words into characters.
-            self.cer_metric.append(ids, words, word_seq, ind2lab=self.index2lab)
         return loss
 
     def fit_batch(self, batch):
@@ -253,22 +252,23 @@ if __name__ == "__main__":
         save_folder=params.data_folder,
     )
 
+    train_set = params.train_loader()
+    valid_set = params.valid_loader()
+    test_set = params.test_loader()
     ind2lab = params.train_loader.label_dict["wrd"]["index2lab"]
     asr_brain = ASR(
         modules=dict(params.modules, index2lab=ind2lab),
-        optimizer=["optimizer"],
+        optimizers=["optimizer"],
         device=params.device,
     )
 
     # Load latest checkpoint to resume training
     asr_brain.load_tokenizer()
     asr_brain.checkpointer.recover_if_possible()
-    train_set = params.train_loader()
-    valid_set = params.valid_loader()
     asr_brain.fit(asr_brain.epoch_counter, train_set, valid_set)
 
     # Load best checkpoint for evaluation
     asr_brain.checkpointer.recover_if_possible(min_key="WER")
     if hasattr(params, "lm_ckpt_file"):
         asr_brain.load_lm()
-    test_stats = asr_brain.evaluate(params.test_loader())
+    test_stats = asr_brain.evaluate(test_set)

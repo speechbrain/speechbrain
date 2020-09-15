@@ -18,8 +18,6 @@ import os
 import sys
 import torch
 import speechbrain as sb
-from speechbrain.data_io.data_io import prepend_bos_token
-from speechbrain.data_io.data_io import append_eos_token
 
 
 # Define training procedure
@@ -48,7 +46,7 @@ class ASR(sb.Brain):
         p_ctc = self.log_softmax(logits)
 
         # Prepend bos token at the beginning
-        y_in = prepend_bos_token(phns, bos_index=self.bos_index)
+        y_in = sb.data_io.data_io.prepend_bos_token(phns, self.bos_index)
         e_in = self.emb(y_in)
         h, _ = self.dec(e_in, x, wav_lens)
 
@@ -83,7 +81,7 @@ class ASR(sb.Brain):
         abs_length = torch.round(phn_lens * phns.shape[1])
 
         # Append eos token at the end of the label sequences
-        phns_with_eos = append_eos_token(
+        phns_with_eos = sb.data_io.data_io.append_eos_token(
             phns, length=abs_length, eos_index=self.eos_index
         )
 
@@ -98,7 +96,9 @@ class ASR(sb.Brain):
         if stage != sb.Stage.TRAIN:
             self.ctc_metrics.append(ids, p_ctc, phns, wav_lens, phn_lens)
             self.seq_metrics.append(ids, p_seq, phns_with_eos, rel_length)
-            self.per_metrics.append(ids, hyps, phns, phn_lens, self.ind2lab)
+            self.per_metrics.append(
+                ids, hyps, phns, target_len=phn_lens, ind2lab=self.ind2lab
+            )
 
         return loss
 
