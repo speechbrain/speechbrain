@@ -133,7 +133,6 @@ def _forward_PN(out_PN, decode_network_lst, hidden=None):
         >>> blank_id = 34
         >>> PN_emb = Embedding(num_embeddings=35, consider_as_one_hot=True, blank_id=blank_id)
         >>> PN = GRU(hidden_size=5, num_layers=1, bidirectional=False, return_hidden=True)
-        >>> PN_lin = Linear(n_neurons=35, bias=True)
         >>> # Initialize modules...
         >>> test_emb = PN_emb(torch.Tensor([[1]]).long(), init_params=True)
         >>> test_PN, hidden = PN(test_emb, init_params=True)
