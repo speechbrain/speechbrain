@@ -11,6 +11,62 @@ logger = logging.getLogger(__name__)
 
 
 class ReproducibleRandomSampler(RandomSampler):
+    """
+    A modification of RandomSampler which always returns the same values.
+
+    Also look at `torch.utils.data.RandomSampler`. This has mostly
+    the same behaviour and arguments, expect for adding 'seed' and 'epoch' and
+    not supporting 'generator'.
+
+    Note
+    ----
+    Call `set_epoch` before every epoch. Otherwise the sampler will produce the
+    same sequence of indices every epoch.
+
+    Arguments
+    ---------
+    seed : int
+        The base seed to use for the random number generator. It is recommended
+        to use a value which has a good mix of 0 and 1 bits.
+    epoch : int
+        The epoch to start at.
+
+    Example
+    -------
+    >>> import torch
+    >>> from speechbrain.utils.checkpoints import Checkpointer
+    >>> from speechbrain.data_io.dataloader import SaveableDataLoader
+    >>> # An example "dataset"
+    >>> dataset = torch.arange(10).unsqueeze(1)
+    >>> # Create the random sampler:
+    >>> sampler = ReproducibleRandomSampler(dataset)
+    >>> dataloader = SaveableDataLoader(dataset, sampler = sampler,
+    ...     num_workers = 3)
+    >>> # Setup the checkpointer.
+    >>> # Note that the sampler doesn't need to be saved itself.
+    >>> tmpdir = getfixture('tmpdir')
+    >>> checkpointer = Checkpointer(tmpdir, {"dataloader": dataloader})
+    >>> # Iterate:
+    >>> subset = []
+    >>> for i, data_point in enumerate(dataloader):
+    ...     # Say you save a checkpoint on the fourth batch:
+    ...     if i == 3:
+    ...         _ = checkpointer.save_checkpoint(end_of_epoch = False)
+    ...     # So let's save the numbers you would get if you continue
+    ...     if i >= 4:
+    ...         subset.append(data_point.item())
+    >>> # What if instead you had to restart the experiment?
+    >>> new_sampler = ReproducibleRandomSampler(dataset)
+    >>> new_dataloader = SaveableDataLoader(dataset, sampler = new_sampler,
+    ...        num_workers = 3)
+    >>> new_checkpointer = Checkpointer(tmpdir, {"dataloader": new_dataloader})
+    >>> _ = new_checkpointer.recover_if_possible()
+    >>> # You'll get the same random order again:
+    >>> new_subset = [data_point.item() for data_point in new_dataloader]
+    >>> assert subset == new_subset
+
+    """
+
     def __init__(self, data_source, seed=563375142, epoch=0, **kwargs):
         if "generator" in kwargs:
             MSG = (
