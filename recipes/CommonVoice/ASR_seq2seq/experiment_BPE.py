@@ -261,8 +261,6 @@ asr_brain = ASR(
 
 # Check if the model should be trained on multiple GPUs.
 # Important: DataParallel MUST be called after the ASR (Brain) class init.
-
-
 if params.multigpu:
     params.enc = torch.nn.DataParallel(params.enc)
     params.ctc_lin = torch.nn.DataParallel(params.ctc_lin)
