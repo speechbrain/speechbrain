@@ -9,7 +9,8 @@ Example
 >>>
 >>> from speechbrain.processing.features import STFT, ISTFT
 >>> from speechbrain.processing.multi_mic import Covariance
->>> from speechbrain.processing.multi_mic import GccPhat, DelaySum, Gev
+>>> from speechbrain.processing.multi_mic import GccPhat
+>>> from speechbrain.processing.multi_mic import DelaySum, Mvdr, Gev
 >>>
 >>> xs_speech, fs = sf.read(
 ...    'samples/audio_samples/multi_mic/speech_-0.82918_0.55279_-0.082918.flac'
@@ -34,6 +35,11 @@ Example
 >>> tdoas = gccphat(XXs)
 >>> Ys_ds = delaysum(Xs, tdoas)
 >>> ys_ds = istft(Ys_ds)
+
+>>> # Mvdr Beamforming
+>>> mvdr = Mvdr()
+>>> Ys_mvdr = mvdr(Xs, XXs, tdoas)
+>>> ys_mvdr = istft(Ys_mvdr)
 
 >>> # GeV Beamforming
 >>> gev = Gev()
@@ -276,16 +282,145 @@ class DelaySum(torch.nn.Module):
 
 
 class Mvdr(torch.nn.Module):
-    """ Minimum Variance Distortionless Response (MVDR) Beamforming
+    """ Perform minimum variance distortionless response (MVDR) beamforming
+    by using an input signal in the frequency domain, its covariance matrices
+    and tdoas (to compute a steering vector).
+
+        Example
+        -------
+        >>> import soundfile as sf
+        >>> import torch
+        >>>
+        >>> from speechbrain.processing.features import STFT, ISTFT
+        >>> from speechbrain.processing.multi_mic import Covariance
+        >>> from speechbrain.processing.multi_mic import GccPhat, Mvdr
+        >>>
+        >>> xs_speech, fs = sf.read(
+        ...    'samples/audio_samples/multi_mic/speech_-0.82918_0.55279_-0.082918.flac'
+        ... )
+        >>> xs_noise, _ = sf.read('samples/audio_samples/multi_mic/noise_diffuse.flac')
+        >>> xs = xs_speech + 0.05 * xs_noise
+        >>> xs = torch.tensor(xs).unsqueeze(0).float()
+        >>>
+        >>> stft = STFT(sample_rate=fs)
+        >>> cov = Covariance()
+        >>> gccphat = GccPhat()
+        >>> mvdr = Mvdr()
+        >>> istft = ISTFT(sample_rate=fs)
+        >>>
+        >>> Xs = stft(xs)
+        >>> XXs = cov(Xs)
+        >>> tdoas = gccphat(XXs)
+        >>> Ys = mvdr(Xs, XXs, tdoas)
+        >>> ys = istft(Ys)
     """
 
-    def __init__(self):
+    def __init__(self, eps=1e-20):
 
         super().__init__()
 
-    def forward(self):
+        self.eps = eps
 
-        pass
+    def forward(self, Xs, XXs, tdoas):
+        """ This method computes a steering vector before using the
+        utility function _mvdr to perform beamforming. The result has
+        the following format: (batch, time_step, n_fft, 2, 1).
+
+        Arguments
+        ---------
+        Xs : tensor
+            A batch of audio signals in the frequency domain.
+            The tensor must have the following format:
+            (batch, time_step, n_fft/2 + 1, 2, n_mics)
+
+        XXs : tensor
+            The covariance matrices of the input signal. The tensor must
+            have the format (batch, time_steps, n_fft/2 + 1, 2, n_mics + n_pairs)
+
+        tdoas : tensor
+            The time difference of arrival (TDOA) (in samples) for
+            each timestamp. The tensor has the format
+            (batch, time_steps, n_mics + n_pairs)
+        """
+        # Get useful dimensions
+        n_fft = Xs.shape[2]
+
+        # Convert the tdoas to taus
+        taus = tdoas2taus(tdoas=tdoas)
+
+        # Generate the steering vector
+        As = steering(taus=taus, n_fft=n_fft)
+
+        # Perform mvdr
+        Ys = Mvdr._mvdr(Xs=Xs, XXs=XXs, As=As)
+
+        return Ys
+
+    @staticmethod
+    def _mvdr(Xs, XXs, As, eps=1e-20):
+        """ Perform minimum variance distortionless response beamforming.
+
+        Arguments
+        ---------
+        Xs : tensor
+            A batch of audio signals in the frequency domain.
+            The tensor must have the following format:
+            (batch, time_step, n_fft/2 + 1, 2, n_mics)
+
+        XXs : tensor
+            The covariance matrices of the input signal. The tensor must
+            have the format (batch, time_steps, n_fft/2 + 1, 2, n_mics + n_pairs)
+
+        As : tensor
+            The steering vector to point in the direction of
+            the target source. The tensor must have the format
+            (batch, time_step, n_fft/2 + 1, 2, n_mics)
+        """
+
+        # Get unique covariance values to reduce the number of computations
+        XXs_val, XXs_idx = torch.unique(XXs, return_inverse=True, dim=1)
+
+        # Inverse covariance matrices
+        XXs_inv = eig.inv(XXs_val)
+
+        # Capture real and imaginary parts, and restore time steps
+        XXs_inv_re = XXs_inv[..., 0][:, XXs_idx]
+        XXs_inv_im = XXs_inv[..., 1][:, XXs_idx]
+
+        # Decompose steering vector
+        AsC_re = As[..., 0, :].unsqueeze(4)
+        AsC_im = 1.0 * As[..., 1, :].unsqueeze(4)
+        AsT_re = AsC_re.transpose(3, 4)
+        AsT_im = -1.0 * AsC_im.transpose(3, 4)
+
+        # Project
+        XXs_inv_AsC_re = torch.matmul(XXs_inv_re, AsC_re) - torch.matmul(
+            XXs_inv_im, AsC_im
+        )
+        XXs_inv_AsC_im = torch.matmul(XXs_inv_re, AsC_im) + torch.matmul(
+            XXs_inv_im, AsC_re
+        )
+
+        # Compute the gain
+        alpha = 1.0 / (
+            torch.matmul(AsT_re, XXs_inv_AsC_re)
+            - torch.matmul(AsT_im, XXs_inv_AsC_im)
+        )
+
+        # Get the unmixing coefficients
+        Ws_re = torch.matmul(XXs_inv_AsC_re, alpha).squeeze(4)
+        Ws_im = -torch.matmul(XXs_inv_AsC_im, alpha).squeeze(4)
+
+        # Applying MVDR
+        Xs_re = Xs[..., 0, :]
+        Xs_im = Xs[..., 1, :]
+
+        Ys_re = torch.sum((Ws_re * Xs_re - Ws_im * Xs_im), dim=3, keepdim=True)
+        Ys_im = torch.sum((Ws_re * Xs_im + Ws_im * Xs_re), dim=3, keepdim=True)
+
+        Ys = torch.stack((Ys_re, Ys_im), -2)
+
+        return Ys
 
 
 class Gev(torch.nn.Module):
