@@ -4,11 +4,11 @@ This folder contains scripts necessary to run an ASR experiment with the CommonV
 # Data preparation
 Fortunately, SpeechBrain provides a script that automatically generates the training, validation and testing files. However, it is important to note that CommonVoice initially offers mp3 audio files at 42Hz. Therefore the `commonvoice_prepare.py` script converts these files to .wav and 16KHz.
 
-# Languages covered
+# Languages
 Here is a list of the different languages that we tested within the CommonVoice dataset:
 - French
 
-# Reported results
+# Results
 
 | Language | hyperparams file | LM ? | Val. CER | Val. WER | Test CER | Test WER | Model link |
 | ------------- |:---------------------------:| -----:| -----:| -----:| -----:| -----:| :-----------:|
