@@ -12,6 +12,7 @@ import os
 import csv
 import re
 import logging
+import torch
 import torchaudio
 import unicodedata
 from tqdm.contrib import tzip
@@ -240,7 +241,7 @@ def convert_mp3_wav(data_folder, tsv_file, path_to_wav, samplerate):
         # Path is at indice 1 in Common Voice tsv files. And .mp3 files
         # are located in datasets/lang/clips/
         mp3_path = data_folder + "/clips/" + line.split("\t")[1]
-        file_name = mp3_path.split(".")[0].split("/")[-1]
+        file_name = mp3_path.split(".")[-2].split("/")[-1]
         new_wav_path = path_to_wav + "/" + file_name + ".wav"
 
         # If corresponding wav file already exists, continue to the next one
@@ -251,6 +252,10 @@ def convert_mp3_wav(data_folder, tsv_file, path_to_wav, samplerate):
         if os.path.isfile(mp3_path):
             try:
                 sig, orig_rate = torchaudio.load(mp3_path)
+
+                # !! STEREO DETECTED, ME MUST GO TO MONO !!
+                if sig.shape[0] == 2:
+                    sig = torch.mean(sig, dim=0).unsqueeze(0)
             except RuntimeError:
                 msg = "Error loading: %s" % (str(len(file_name)))
                 logger.debug(msg)
