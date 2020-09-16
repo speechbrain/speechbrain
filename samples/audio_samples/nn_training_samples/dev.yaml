@@ -1,3 +1,4 @@
+# yamllint disable
 spk1_snt5: # data_obj_id (can be also a collection of files)
   waveforms:
     files:
