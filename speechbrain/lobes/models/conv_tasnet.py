@@ -12,11 +12,9 @@ EPS = 1e-8
 
 class Encoder(nn.Module):
     """This class learns the adaptive frontend for the ConvTasnet model
-
     Arguments:
     L: The filter kernel size, needs to an odd number
     N: number of dimensions at the output of the adaptive front end.
-
     Example:
     ----------
     >>> inp = torch.rand(10, 100)
@@ -55,10 +53,8 @@ class Decoder(nn.Module):
     """
     This class implements the decoder for the ConvTasnet.
     The seperated source embeddings are fed to the decoder to reconstruct the estimated sources in the time domain.
-
     Argument:
     L: Number of bases to use when reconstructing
-
     Example:
     ---------
     >>> L, C = 8, 2
@@ -111,7 +107,6 @@ class Decoder(nn.Module):
 class TemporalBlocksSequential(Sequential):
     """
     A wrapper for the temporalblock layer to replicate it
-
     Arguments:
     B: the number of input channels, and the number of output channels
     H: the number of intermediate channels
@@ -120,7 +115,6 @@ class TemporalBlocksSequential(Sequential):
     X: The number of layers of Temporal Blocks with different dilations
     norm type: the type of normalization, in ['gLN', 'cLN']
     causal: to use causal or non-causal convolutions, in [True, False]
-
     Example:
     ---------
     >>> B, H, P, R, X = 10, 10, 5, 2, 3
@@ -180,7 +174,6 @@ class MaskNet(Sequential):
             norm_type: BN, gLN, cLN
             causal: causal or non-causal
             mask_nonlinear: use which non-linear function to generate mask, in ['softmax', 'relu']
-
         Example:
         ---------
         >>> N, B, H, P, X, R, C = 11, 12, 2, 5, 6, 1, 2
@@ -245,7 +238,6 @@ class MaskNet(Sequential):
 class TemporalBlock(Sequential):
     """
     The conv1d compound layers used in Masknet
-
     Arguments:
     in_channels: the number of input channels, and the number of output channels
     out_channels: the number of intermediate channels
@@ -256,7 +248,6 @@ class TemporalBlock(Sequential):
     dilation: amount of dilation in convolutional layers
     norm type: the type of normalization, in ['gLN', 'cLN']
     causal: to use causal or non-causal convolutions, in [True, False]
-
     Example:
     ---------
     >>> in_channels = 10
@@ -316,7 +307,6 @@ class TemporalBlock(Sequential):
 class DepthwiseSeparableConv(Sequential):
     """
     Building block for the Temporal Blocks of Masknet in ConvTasNet
-
     Arguments:
     in_channels: number of input channels
     out_channels: number of output channels
@@ -327,7 +317,6 @@ class DepthwiseSeparableConv(Sequential):
     dilation: amount of dilation in convolutional layers
     norm type: the type of normalization, in ['gLN', 'cLN']
     causal: to use causal or non-causal convolutions, in [True, False]
-
     Example:
     ---------
     >>> in_channels = 10
@@ -336,7 +325,6 @@ class DepthwiseSeparableConv(Sequential):
     >>> y = DSconv(x, init_params=True)
     >>> y.shape
     torch.Size([14, 100, 10])
-
     """
 
     def __init__(
@@ -377,10 +365,8 @@ class DepthwiseSeparableConv(Sequential):
 class Chomp1d(nn.Module):
     """This class cuts out a portion of the signal from the end.
     It is written as a class to be able to incorporate it inside a sequential wrapper.
-
     Argument:
     chomp_size: The size of the portion to discard. (in samples)
-
     Example:
     ----------
     >>> x = torch.randn(10, 110, 5)
@@ -407,11 +393,9 @@ class Chomp1d(nn.Module):
 def choose_norm(norm_type, channel_size):
     """
     This function returns the chosen normalization type
-
     Arguments:
     norm_type: in ['gLN', 'cLN', 'batchnorm']
     channel_size: number of channels (integer)
-
     Example:
     >>> norm = choose_norm('gLN', 10)
     >>> print(norm)
@@ -428,10 +412,8 @@ def choose_norm(norm_type, channel_size):
 class ChannelwiseLayerNorm(nn.Module):
     """
     Channel-wise Layer Normalization (cLN)
-
     Arguments:
     Channel_size: number of channels in the normalization dimension (the third dimension)
-
     Example:
     ---------
     >>> x = torch.randn(2, 3, 3)
@@ -467,10 +449,8 @@ class ChannelwiseLayerNorm(nn.Module):
 class GlobalLayerNorm(nn.Module):
     """
     Global Layer Normalization (gLN)
-
     Arguments:
     Channel_size: number of channels in the third dimension
-
     Example:
     ---------
     >>> x = torch.randn(2, 3, 3)

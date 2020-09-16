@@ -16,6 +16,8 @@ from speechbrain.nnet.losses import get_si_snr_with_pitwrapper
 
 import torch.nn.functional as F
 import sys
+import itertools as it
+from speechbrain.processing.signal_processing import overlap_and_add
 
 experiment_dir = os.path.dirname(os.path.realpath(__file__))
 
@@ -74,6 +76,30 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 # hidden = [(hid[0].to(device), hid[1].to(device)) for hid in hidden]
 
 
+def split_overlapping_chunks(tensor, chunk_len=200, overlap_rate=0.5, dim=1):
+
+    chunks = []
+    for i in it.islice(
+        range(tensor.shape[1]),
+        0,
+        tensor.shape[1],
+        int(chunk_len * overlap_rate),
+    ):
+        chunk = tensor[:, i : i + chunk_len, :]
+
+        orig_len = chunk.shape[1]
+        if orig_len < chunk_len:
+            pad = (0, 0, 0, chunk_len - orig_len, 0, 0)
+            chunk = F.pad(chunk, pad, "constant", 0)
+            assert (
+                chunk[:, orig_len:, :].sum() == 0
+            ), "zero padding is not proper"
+        assert chunk.shape[1] == chunk_len, "a chunk does not have bptt length"
+        chunks.append(chunk)
+
+    return chunks
+
+
 class CTN_Brain(sb.core.Brain):
     def compute_forward(self, mixture, stage="train", init_params=False):
 
@@ -86,11 +112,13 @@ class CTN_Brain(sb.core.Brain):
 
         mixture_w = params.Encoder(mixture, init_params)
         bptt_len = 200
-        mixture_w = mixture_w[
-            :, : (mixture_w.shape[1] - mixture_w.shape[1] % bptt_len), :
-        ]
+        # mixture_w = mixture_w[
+        #    :, : (mixture_w.shape[1] - mixture_w.shape[1] % bptt_len), :
+        # ]
 
-        mixture_w_split = torch.split(mixture_w, bptt_len, dim=1)
+        mixture_w_split = split_overlapping_chunks(
+            mixture_w, chunk_len=bptt_len
+        )
         mixture_w_split = torch.cat(mixture_w_split, dim=0)
 
         if "rim" in params_file:
@@ -103,7 +131,12 @@ class CTN_Brain(sb.core.Brain):
         est_mask = params.MaskNet_Linear(est_mask, init_params=init_params)
 
         est_mask = torch.split(est_mask, mixture_w.shape[0], dim=0)
-        est_mask = torch.cat(est_mask, dim=1)
+        est_mask = torch.stack(est_mask)
+
+        # est_mask = torch.cat(est_mask, dim=1)
+        est_mask = overlap_and_add(est_mask.permute(1, 3, 0, 2), 100).permute(
+            0, 2, 1
+        )[:, : mixture_w.shape[1], :]
 
         est_mask = est_mask.reshape(
             est_mask.shape[0], est_mask.shape[1], 2, est_mask.shape[2] // 2
