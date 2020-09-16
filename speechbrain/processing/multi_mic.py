@@ -9,7 +9,6 @@ Example
 >>>
 >>> from speechbrain.processing.features import STFT, ISTFT
 >>> from speechbrain.processing.multi_mic import Covariance
-
 >>> from speechbrain.processing.multi_mic import GccPhat
 >>> from speechbrain.processing.multi_mic import DelaySum, Mvdr, Gev
 >>>
@@ -283,6 +282,39 @@ class DelaySum(torch.nn.Module):
 
 
 class Mvdr(torch.nn.Module):
+    """ Perform minimum variance distortionless response (MVDR) beamforming
+    by using an input signal in the frequency domain, its covariance matrices
+    and tdoas (to compute a steering vector).
+
+        Example
+        -------
+        >>> import soundfile as sf
+        >>> import torch
+        >>>
+        >>> from speechbrain.processing.features import STFT, ISTFT
+        >>> from speechbrain.processing.multi_mic import Covariance
+        >>> from speechbrain.processing.multi_mic import GccPhat, Mvdr
+        >>>
+        >>> xs_speech, fs = sf.read(
+        ...    'samples/audio_samples/multi_mic/speech_-0.82918_0.55279_-0.082918.flac'
+        ... )
+        >>> xs_noise, _ = sf.read('samples/audio_samples/multi_mic/noise_diffuse.flac')
+        >>> xs = xs_speech + 0.05 * xs_noise
+        >>> xs = torch.tensor(xs).unsqueeze(0).float()
+        >>>
+        >>> stft = STFT(sample_rate=fs)
+        >>> cov = Covariance()
+        >>> gccphat = GccPhat()
+        >>> mvdr = Mvdr()
+        >>> istft = ISTFT(sample_rate=fs)
+        >>>
+        >>> Xs = stft(xs)
+        >>> XXs = cov(Xs)
+        >>> tdoas = gccphat(XXs)
+        >>> Ys = mvdr(Xs, XXs, tdoas)
+        >>> ys = istft(Ys)
+    """
+
     def __init__(self, eps=1e-20):
 
         super().__init__()
@@ -290,7 +322,26 @@ class Mvdr(torch.nn.Module):
         self.eps = eps
 
     def forward(self, Xs, XXs, tdoas):
+        """ This method computes a steering vector before using the
+        utility function _mvdr to perform beamforming. The result has
+        the following format: (batch, time_step, n_fft, 2, 1).
 
+        Arguments
+        ---------
+        Xs : tensor
+            A batch of audio signals in the frequency domain.
+            The tensor must have the following format:
+            (batch, time_step, n_fft/2 + 1, 2, n_mics)
+
+        XXs : tensor
+            The covariance matrices of the input signal. The tensor must
+            have the format (batch, time_steps, n_fft/2 + 1, 2, n_mics + n_pairs)
+
+        tdoas : tensor
+            The time difference of arrival (TDOA) (in samples) for
+            each timestamp. The tensor has the format
+            (batch, time_steps, n_mics + n_pairs)
+        """
         # Get useful dimensions
         n_fft = Xs.shape[2]
 
@@ -311,14 +362,15 @@ class Mvdr(torch.nn.Module):
 
         Arguments
         ---------
-
         Xs : tensor
             A batch of audio signals in the frequency domain.
             The tensor must have the following format:
             (batch, time_step, n_fft/2 + 1, 2, n_mics)
+
         XXs : tensor
             The covariance matrices of the input signal. The tensor must
             have the format (batch, time_steps, n_fft/2 + 1, 2, n_mics + n_pairs)
+
         As : tensor
             The steering vector to point in the direction of
             the target source. The tensor must have the format
