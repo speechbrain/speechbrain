@@ -1,6 +1,10 @@
 from torch.utils.data import Dataset
-from utils import to_ASR_format, dataset_sanity_check, replace_entries
-from data_io_new import read_audio_example
+from speechbrain.data_io.utils import (
+    to_ASR_format,
+    dataset_sanity_check,
+    replace_entries,
+)
+from speechbrain.data_io.data_io_new import read_audio_example
 from ruamel import yaml
 
 
