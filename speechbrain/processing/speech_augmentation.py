@@ -17,7 +17,6 @@ import math
 import torch
 import soundfile as sf  # noqa
 import torch.nn.functional as F
-from speechbrain.data_io.data_io import DataLoaderFactory
 from speechbrain.processing.signal_processing import (
     compute_amplitude,
     dB_to_amplitude,
@@ -67,6 +66,8 @@ class AddNoise(torch.nn.Module):
 
     Example
     -------
+    >>> import pytest
+    >>> pytest.skip("Need to replace DataLoaderFactory")
     >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
     >>> noisifier = AddNoise('samples/noise_samples/noise.csv')
     >>> clean = torch.tensor([signal], dtype=torch.float32)
@@ -162,6 +163,7 @@ class AddNoise(torch.nn.Module):
 
     def _load_noise(self, lengths, max_length):
         """Load a batch of noises"""
+        raise NotImplementedError("Need to replace DataLoaderFactory")
         lengths = lengths.long().squeeze(1)
         batch_size = len(lengths)
 
@@ -172,7 +174,7 @@ class AddNoise(torch.nn.Module):
 
             # Create a data loader for the noise wavforms
             if self.csv_file is not None:
-                data_factory = DataLoaderFactory(
+                data_loader = DataLoaderFactory(  # noqa: F821
                     csv_file=self.csv_file,
                     csv_read=self.csv_read,
                     sentence_sorting=self.order,
@@ -181,7 +183,7 @@ class AddNoise(torch.nn.Module):
                     replacements=self.replacements,
                     num_workers=self.num_workers,
                 )
-                self.data_loader = data_factory().get_dataloader()
+                self.data_loader = data_loader()
                 self.noise_data = iter(self.data_loader)
 
         # Load noise to correct device
@@ -297,6 +299,8 @@ class AddReverb(torch.nn.Module):
 
     Example
     -------
+    >>> import pytest
+    >>> pytest.skip("Need to replace DataLoaderFactory")
     >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
     >>> reverb = AddReverb('samples/rir_samples/rirs.csv')
     >>> clean = torch.tensor([signal], dtype=torch.float32)
@@ -313,12 +317,22 @@ class AddReverb(torch.nn.Module):
         replacements={},
     ):
         super().__init__()
+        raise NotImplementedError("Need to replace DataLoaderFactory")
         self.csv_file = csv_file
         self.order = order
         self.do_cache = do_cache
         self.reverb_prob = reverb_prob
         self.replacements = replacements
         self.rir_scale_factor = rir_scale_factor
+
+        # Create a data loader for the RIR waveforms
+        self.data_loader = DataLoaderFactory(  # noqa: F821
+            csv_file=self.csv_file,
+            sentence_sorting=self.order,
+            cache=self.do_cache,
+            replacements=self.replacements,
+        )
+        self.rir_data = iter(self.data_loader())
 
     def forward(self, waveforms, lengths):
         """
@@ -368,20 +382,10 @@ class AddReverb(torch.nn.Module):
         return rev_waveform
 
     def _load_rir(self, waveforms):
-        if not hasattr(self, "data_loader"):
-            data_factory = DataLoaderFactory(
-                csv_file=self.csv_file,
-                sentence_sorting=self.order,
-                cache=self.do_cache,
-                replacements=self.replacements,
-            )
-            self.data_loader = data_factory().get_dataloader()
-            self.rir_data = iter(self.data_loader)
-
         try:
             wav_id, rir_waveform, length = next(self.rir_data)[0]
         except StopIteration:
-            self.rir_data = iter(self.data_loader)
+            self.rir_data = iter(self.data_loader())
             wav_id, rir_waveform, length = next(self.rir_data)[0]
 
         # Make sure RIR has correct channels
@@ -792,12 +796,14 @@ class AddBabble(torch.nn.Module):
 
     Example
     -------
+    >>> import pytest
+    >>> pytest.skip("Need to replace DataLoaderFactory")
     >>> babbler = AddBabble()
-    >>> factory = DataLoaderFactory(
+    >>> dataloader = DataLoaderFactory(
     ...     csv_file='samples/audio_samples/csv_example3.csv',
     ...     batch_size=5,
     ... )
-    >>> loader = iter(factory().get_dataloader())
+    >>> loader = iter(dataloader())
     >>> ids, batch, lengths = next(loader)[0]
     >>> noisy = babbler(batch, lengths)
     """
@@ -852,7 +858,7 @@ class AddBabble(torch.nn.Module):
 
         # Rescale and add to mixture
         babble_amplitude = compute_amplitude(babble_waveform, babble_len)
-        babble_waveform *= new_noise_amplitude / (babble_amplitude + 1e-14)
+        babble_waveform *= new_noise_amplitude / babble_amplitude
         babbled_waveform += babble_waveform
 
         return babbled_waveform
@@ -944,7 +950,7 @@ class DropFreq(torch.nn.Module):
         pad = filter_length // 2
 
         # Start with delta function
-        drop_filter = torch.zeros(1, filter_length, 1, device=waveforms.device)
+        drop_filter = torch.zeros(1, filter_length, 1).to(waveforms.device)
         drop_filter[0, pad, 0] = 1
 
         # Subtract each frequency
@@ -1087,7 +1093,7 @@ class DropChunk(torch.nn.Module):
                 start_max = lengths[i]
             if start_max < 0:
                 start_max += lengths[i]
-            start_max = max(0, start_max - length.max())
+            start_max -= length.max()
 
             # Pick starting locations
             start = torch.randint(
