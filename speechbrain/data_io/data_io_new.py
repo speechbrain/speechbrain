@@ -1,5 +1,4 @@
 import torchaudio
-import torch
 
 
 def read_audio_example(example):
