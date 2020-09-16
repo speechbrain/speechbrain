@@ -1,5 +1,4 @@
-# Automatic Speech Recognition based on CTC+Attention Seq2Seq models.
-
+# CommonVoice ASR with CTC + Attention based Seq2Seq models.
 This folder contains scripts necessary to run an ASR experiment with the CommonVoice dataset: [CommonVoice Homepage](https://commonvoice.mozilla.org/fr)
 
 # Data preparation
