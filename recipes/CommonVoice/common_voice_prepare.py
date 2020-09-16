@@ -338,11 +338,11 @@ def create_csv(
     nb_samples = str(len(loaded_csv))
 
     msg = "Preparing CSV files for %s samples ..." % (str(nb_samples))
-    logger.debug(msg)
+    logger.info(msg)
 
     # Adding some Prints
     msg = "Creating csv lists in %s ..." % (csv_file)
-    logger.debug(msg)
+    logger.info(msg)
 
     csv_lines = [
         [
@@ -370,7 +370,7 @@ def create_csv(
         # Path is at indice 1 in Common Voice tsv files. And .mp3 files
         # are located in datasets/lang/clips/
         mp3_path = data_folder + "/clips/" + line.split("\t")[1]
-        file_name = mp3_path.split(".")[0].split("/")[-1]
+        file_name = mp3_path.split(".")[-2].split("/")[-1]
         wav_path = path_to_wav + "/" + file_name + ".wav"
         spk_id = line.split("\t")[0]
         snt_id = file_name
@@ -397,7 +397,7 @@ def create_csv(
         # Important: feel free to specify the text normalization
         # corresponding to your alphabet.
 
-        if language in ["en", "fr", "it"]:
+        if language in ["en", "fr", "it", "rw"]:
             words = re.sub("[^'A-Za-z0-9À-ÖØ-öø-ÿЀ-ӿ]+", " ", words).upper()
         elif language == "ar":
             HAMZA = "\u0621"

@@ -21,6 +21,7 @@ train_tsv_file: !PLACEHOLDER/train.tsv # Standard CommonVoice .tsv files
 dev_tsv_file: !PLACEHOLDER/dev.tsv # Standard CommonVoice .tsv files
 test_tsv_file: !PLACEHOLDER/test.tsv # Standard CommonVoice .tsv files
 accented_letters: False
+language: fr
 duration_threshold: 8 # Longer sentences will be removed (in seconds)
 csv_train: !ref <save_folder>/train.csv
 csv_valid: !ref <save_folder>/dev.csv
