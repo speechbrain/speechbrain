@@ -165,8 +165,8 @@ class ASR(sb.Brain):
 
     def on_stage_start(self, stage, epoch=None):
         if stage != sb.Stage.TRAIN:
-            self.cer_metric = self.error_rate_computer()
-            self.wer_metric = self.wer_computer()
+            self.cer_metric = self.cer_computer()
+            self.wer_metric = self.error_rate_computer()
             if self.ter_eval:
                 self.ter_metric = self.error_rate_computer()
 
