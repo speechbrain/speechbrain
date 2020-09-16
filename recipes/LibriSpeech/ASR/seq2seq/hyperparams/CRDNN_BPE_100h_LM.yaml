@@ -249,7 +249,7 @@ modules:
     train_logger: !new:speechbrain.FileTrainLogger
         save_file: !ref <train_log>
     error_rate_computer: !name:speechbrain.ErrorRateStats
-    wer_computer: !name:speechbrain.ErrorRateStats
+    cer_computer: !name:speechbrain.ErrorRateStats
         split_tokens: True
     checkpointer: !new:speechbrain.Checkpointer
         checkpoints_dir: !ref <save_folder>
