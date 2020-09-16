@@ -9,6 +9,7 @@ Example
 >>>
 >>> from speechbrain.processing.features import STFT, ISTFT
 >>> from speechbrain.processing.multi_mic import Covariance
+
 >>> from speechbrain.processing.multi_mic import GccPhat
 >>> from speechbrain.processing.multi_mic import DelaySum, Mvdr, Gev
 >>>
