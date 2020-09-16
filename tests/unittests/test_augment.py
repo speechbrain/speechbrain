@@ -1,8 +1,10 @@
 import os
 import torch
 import soundfile as sf
+import pytest
 
 
+@pytest.mark.xfail(raises=NotImplementedError)
 def test_add_noise(tmpdir):
     from speechbrain.processing.speech_augmentation import AddNoise
 
@@ -46,6 +48,7 @@ def test_add_noise(tmpdir):
     assert add_noise(test_waveform, wav_lens).allclose(expected, atol=1e-4)
 
 
+@pytest.mark.xfail(raises=NotImplementedError)
 def test_add_reverb(tmpdir):
     from speechbrain.processing.speech_augmentation import AddReverb
 

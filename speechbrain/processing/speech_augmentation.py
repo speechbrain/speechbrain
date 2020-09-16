@@ -17,7 +17,6 @@ import math
 import torch
 import soundfile as sf  # noqa
 import torch.nn.functional as F
-from speechbrain.data_io.data_io import DataLoaderFactory
 from speechbrain.processing.signal_processing import (
     compute_amplitude,
     dB_to_amplitude,
@@ -67,6 +66,8 @@ class AddNoise(torch.nn.Module):
 
     Example
     -------
+    >>> import pytest
+    >>> pytest.skip("Need to replace DataLoaderFactory")
     >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
     >>> noisifier = AddNoise('samples/noise_samples/noise.csv')
     >>> clean = torch.tensor([signal], dtype=torch.float32)
@@ -162,6 +163,7 @@ class AddNoise(torch.nn.Module):
 
     def _load_noise(self, lengths, max_length):
         """Load a batch of noises"""
+        raise NotImplementedError("Need to replace DataLoaderFactory")
         lengths = lengths.long().squeeze(1)
         batch_size = len(lengths)
 
@@ -172,7 +174,7 @@ class AddNoise(torch.nn.Module):
 
             # Create a data loader for the noise wavforms
             if self.csv_file is not None:
-                data_loader = DataLoaderFactory(
+                data_loader = DataLoaderFactory(  # noqa: F821
                     csv_file=self.csv_file,
                     csv_read=self.csv_read,
                     sentence_sorting=self.order,
@@ -297,6 +299,8 @@ class AddReverb(torch.nn.Module):
 
     Example
     -------
+    >>> import pytest
+    >>> pytest.skip("Need to replace DataLoaderFactory")
     >>> signal, rate = sf.read('samples/audio_samples/example1.wav')
     >>> reverb = AddReverb('samples/rir_samples/rirs.csv')
     >>> clean = torch.tensor([signal], dtype=torch.float32)
@@ -313,6 +317,7 @@ class AddReverb(torch.nn.Module):
         replacements={},
     ):
         super().__init__()
+        raise NotImplementedError("Need to replace DataLoaderFactory")
         self.csv_file = csv_file
         self.order = order
         self.do_cache = do_cache
@@ -321,7 +326,7 @@ class AddReverb(torch.nn.Module):
         self.rir_scale_factor = rir_scale_factor
 
         # Create a data loader for the RIR waveforms
-        self.data_loader = DataLoaderFactory(
+        self.data_loader = DataLoaderFactory(  # noqa: F821
             csv_file=self.csv_file,
             sentence_sorting=self.order,
             cache=self.do_cache,
@@ -791,6 +796,8 @@ class AddBabble(torch.nn.Module):
 
     Example
     -------
+    >>> import pytest
+    >>> pytest.skip("Need to replace DataLoaderFactory")
     >>> babbler = AddBabble()
     >>> dataloader = DataLoaderFactory(
     ...     csv_file='samples/audio_samples/csv_example3.csv',
