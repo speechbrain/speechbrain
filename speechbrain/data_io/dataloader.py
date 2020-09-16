@@ -1,6 +1,43 @@
+"""PyTorch compatible DataLoaders
+
+Essentially we extend PyTorch DataLoader by adding the ability to save the
+data loading state, so that a checkpoint may be saved in the middle of an
+epoch.
+
+Example
+-------
+>>> import torch
+>>> from speechbrain.utils.checkpoints import Checkpointer
+>>> # An example "dataset" and its loader
+>>> dataset = torch.randn(10, 1)
+>>> dataloader = SaveableDataLoader(dataset, num_workers = 3)
+>>> # Setup the checkpointer:
+>>> tmpdir = getfixture('tmpdir')
+>>> checkpointer = Checkpointer(tmpdir, {"dataloader": dataloader})
+>>> # Iterate:
+>>> for i, data_point in enumerate(dataloader):
+...     # Here you would process the data:
+...     rainfall_amount_prediction = data_point * 4.
+...     # Now, imagine the experiment gets killed on the fifth batch:
+...     if i == 4:
+...         break
+...     # Luckily, you had just saved a checkpoint:
+...     if i == 3:
+...         _ = checkpointer.save_checkpoint(end_of_epoch = False)
+>>> # So when you restart the experiment:
+>>> new_dataloader = SaveableDataLoader(dataset, num_workers = 3)
+>>> new_checkpointer = Checkpointer(tmpdir, {"dataloader": new_dataloader})
+>>> _ = new_checkpointer.recover_if_possible()
+>>> # The dataloader fast-forwards to the position where we left off:
+>>> assert next(iter(new_dataloader)) == dataset[4]
+
+Authors:
+  * Aku Rouhe 2020
+"""
 from torch.utils.data import DataLoader
 from torch.utils.data.dataloader import _BaseDataLoaderIter
 import logging
+import functools
 from speechbrain.utils.checkpoints import (
     register_checkpoint_hooks,
     mark_as_saver,
@@ -8,6 +45,7 @@ from speechbrain.utils.checkpoints import (
 )
 
 logger = logging.getLogger(__name__)
+
 
 # We essentially want to make the DataLoader iterators able to skip ahead
 # after checkpoint recovery
@@ -39,6 +77,9 @@ def __new_reset(self, loader, first_iter=False, *args, **kwargs):
         self._IterableDataset_len_called = loader._IterableDataset_len_called
 
 
+# functools.update_wrapper is meant for decorators, but it should basically
+# preserve what we want:
+functools.update_wrapper(__new_init, _BaseDataLoaderIter.__init__)
 _BaseDataLoaderIter.__old_init__ = _BaseDataLoaderIter.__init__
 _BaseDataLoaderIter.__init__ = __new_init
 if hasattr(_BaseDataLoaderIter, "_reset"):
@@ -47,6 +88,25 @@ if hasattr(_BaseDataLoaderIter, "_reset"):
 
 @register_checkpoint_hooks
 class SaveableDataLoader(DataLoader):
+    """
+    A saveable version of the PyTorch DataLoader.
+
+    See `torch.utils.data.DataLoader` for usage. This class should work exactly
+    like the PyTorch basic DataLoader, but this can be checkpointed with
+    SpeechBrain's Checkpointer.
+
+    Note
+    ----
+    1. The saveability is implemented via some unfortunately slightly magical
+    means.
+    2. The data loader cannot recover after entering __iter__. Normally this is
+    not a problem, as recovery should happen before training begins.  However,
+    just before evaluation, it is also typical to recover the checkpoint at
+    which performance was the best. Thus, if a checkpoint is loaded after
+    entering __iter__, we just assume it is for this reason. A warning is
+    logged, but that is all.
+    """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._speechbrain_recovery_skip_to = None
@@ -74,6 +134,15 @@ class SaveableDataLoader(DataLoader):
 
     @mark_as_loader
     def _speechbrain_load(self, path, end_of_epoch):
+        if self._speechbrain_iterator is not None:
+            logging.warning(
+                "SaveableDataLoader was requested to load a "
+                "checkpoint, but the data loader has already been "
+                "iterated. Cannot load checkpoint here. Assuming that the "
+                "checkpoint was only loaded for e.g. retrieving the best "
+                "model"
+            )
+            return
         if end_of_epoch:
             # Don't load at end of epoch, as we actually want to start a fresh
             # epoch iteration next.
