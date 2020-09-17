@@ -186,7 +186,7 @@ modules:
         !ref <modules.ctc_lin>,
         !ref <modules.seq_lin>
     ]]
-    greedy_searcher: !new:speechbrain.decoders.seq2seq.S2SRNNGreedySearcher
+    greedy_searcher: !new:speechbrain.decoders.S2SRNNGreedySearcher
         modules:
             - !ref <modules.emb>
             - !ref <modules.dec>
@@ -195,11 +195,12 @@ modules:
         eos_index: !ref <eos_index>
         min_decode_ratio: !ref <min_decode_ratio>
         max_decode_ratio: !ref <max_decode_ratio>
-    beam_searcher: !new:experiment.MyBeamSearcher
+    beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearchLM
         modules:
             - !ref <modules.emb>
             - !ref <modules.dec>
             - !ref <modules.seq_lin>
+            - !ref <modules.lm_model>
         bos_index: !ref <bos_index>
         eos_index: !ref <eos_index>
         min_decode_ratio: !ref <min_decode_ratio>
@@ -208,7 +209,6 @@ modules:
         eos_threshold: !ref <eos_threshold>
         using_max_attn_shift: !ref <using_max_attn_shift>
         lm_weight: !ref <lm_weight>
-        lm_modules: !ref <modules.lm_model>
     optimizer: !new:torch.optim.Adadelta
         params: !!python/object/apply:speechbrain.collect_params
             - !ref <modules.model>
