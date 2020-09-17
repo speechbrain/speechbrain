@@ -179,20 +179,18 @@ class AttentiveStatisticsPooling(nn.Module):
 
     Example
     -------
-    >>> inp_tensor = torch.rand([8, 120, 64]).transpose(1,2) * 1e+23
+    >>> inp_tensor = torch.rand([8, 120, 64]).transpose(1,2)
     >>> asp_layer = AttentiveStatisticsPooling(64)
     >>> lengths = torch.randint(1, 120, (8,))
     >>> out_tensor = asp_layer(inp_tensor, lengths, True).transpose(1,2)
     >>> out_tensor.shape
     torch.Size([8, 1, 128])
-    >>> torch.isnan(out_tensor).float().sum()
-    tensor(0.)
     """
 
     def __init__(self, channels, attention_channels=128, global_context=True):
         super().__init__()
 
-        self.eps = 1e-5
+        self.eps = 1e-12
         self.global_context = global_context
         self.blocks = nn.ModuleList()
         self.blocks.extend(
@@ -215,9 +213,9 @@ class AttentiveStatisticsPooling(nn.Module):
 
         def _compute_statistics(x, m, dim=2, eps=self.eps):
             mean = (m * x).sum(dim)
-            diff = (x - mean.unsqueeze(2)).clamp(-1e9, 1e9)
-            mse = (m * diff).pow(2).sum(dim)
-            std = (mse / m.sum(dim) + eps).pow(1 / 2)
+            std = torch.sqrt(
+                (m * (x - mean.unsqueeze(dim)).pow(2)).sum(dim) + eps
+            )
             return mean, std
 
         if lengths is None:
@@ -227,7 +225,7 @@ class AttentiveStatisticsPooling(nn.Module):
         mask = length_to_mask(lengths, max_len=L, device=x.device)
         mask = mask.unsqueeze(1)
 
-        # Expand the temporal context  of the pooling layer by allowing the
+        # Expand the temporal context of the pooling layer by allowing the
         # self-attention to look at global properties of the utterance.
         if self.global_context:
             # torch.std is unstable for backward computation
@@ -248,6 +246,7 @@ class AttentiveStatisticsPooling(nn.Module):
 
         # Filter out zero-paddings
         attn = attn.masked_fill(mask == 0, float("-inf"))
+
         attn = F.softmax(attn, dim=2)
         mean, std = _compute_statistics(x, attn)
         # Append mean and std of the batch
@@ -399,10 +398,9 @@ class ECAPA_TDNN(torch.nn.Module):
             )
 
         # Multi-layer feature aggregation
-        self.mfa = Conv1d(
-            channels[-1], kernel_sizes[-1], dilation=dilations[-1]
+        self.mfa = TDNNBlock(
+            channels[-1], kernel_sizes[-1], dilations[-1], activation
         )
-        self.mfa_activation = activation()
 
         # Attantitve Statistical pooling
         self.asp = AttentiveStatisticsPooling(
@@ -439,7 +437,6 @@ class ECAPA_TDNN(torch.nn.Module):
         # Multi-layer feature aggregation
         x = torch.cat(xl[1:], dim=1)
         x = self.mfa(x, init_params=init_params)
-        x = self.mfa_activation(x)
 
         # Attantitve Statistical pooling
         x = self.asp(x, lengths=lengths, init_params=init_params)
@@ -486,27 +483,13 @@ class Classifier(torch.nn.Module):
         self.blocks = nn.ModuleList()
 
         for block_index in range(lin_blocks):
-            self.blocks.extend([Linear(n_neurons=lin_neurons), _BatchNorm1d()])
+            self.blocks.extend([_BatchNorm1d(), Linear(n_neurons=lin_neurons)])
 
+        # Final Layer
         self.weight = nn.Parameter(
             torch.FloatTensor(out_neurons, lin_neurons).to(device)
         )
         nn.init.xavier_uniform_(self.weight)
-
-    def init_params(self, first_input):
-        """
-        Arguments
-        ---------
-        first_input : tensor
-            A first input used for initializing the parameters.
-        """
-        x = first_input
-
-        for layer in self.blocks:
-            try:
-                x = layer(x, init_params=True)
-            except TypeError:
-                x = layer(x)
 
     def forward(self, x, init_params=False):
         """Returns the output probabilities over speakers.
@@ -515,9 +498,6 @@ class Classifier(torch.nn.Module):
         ---------
         x : torch.Tensor
         """
-        if init_params:
-            self.init_params(x)
-
         for layer in self.blocks:
             try:
                 x = layer(x, init_params=init_params)

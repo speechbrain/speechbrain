@@ -509,6 +509,7 @@ class CustomLRScheduler:
         self.losses = data["losses"]
 
 
+@checkpoints.register_checkpoint_hooks
 class CyclicLRScheduler:
     """This implements a cyclical learning rate policy (CLR).
     The method cycles the learning rate between two boundaries with
