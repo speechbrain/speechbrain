@@ -6,6 +6,7 @@ Authors
 """
 import torch
 import numpy as np
+import speechbrain as sb
 
 
 class S2SBaseSearcher(torch.nn.Module):
@@ -205,7 +206,6 @@ class S2SRNNGreedySearcher(S2SGreedySearcher):
 
     Example
     -------
-    >>> import speechbrain as sb
     >>> inp = torch.randint(low=0, high=5, size=(2, 3))
     >>> emb = torch.nn.Embedding(5, 3)
     >>> e = emb(inp)
@@ -303,8 +303,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
         Default : 0.0
         The weight of LM when performing beam search (λ).
         log P(y|x) + λ log P_LM(y)
-    lm_modules : torch.nn.ModuleList
-        neural networks modules for LM.
     using_max_attn_shift: bool
         Whether using the max_attn_shift constaint. Default: False
     max_attn_shift: int
@@ -331,7 +329,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
         length_normalization=True,
         length_rewarding=0,
         lm_weight=0.0,
-        lm_modules=None,
         using_max_attn_shift=False,
         max_attn_shift=60,
         minus_inf=-1e20,
@@ -355,10 +352,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
         self.using_max_attn_shift = using_max_attn_shift
         self.max_attn_shift = max_attn_shift
         self.lm_weight = lm_weight
-        self.lm_modules = lm_modules
-
-        # to initialize the params of LM modules
-        self.init_lm_params = True
         self.minus_inf = minus_inf
 
     def _check_full_beams(self, hyps, beam_size):
@@ -815,7 +808,6 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
 
     Example
     -------
-    >>> import speechbrain as sb
     >>> inp = torch.randint(low=0, high=5, size=(2, 3))
     >>> emb = torch.nn.Embedding(5, 3)
     >>> e = emb(inp)
@@ -855,7 +847,6 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
         length_normalization=True,
         length_rewarding=0,
         lm_weight=0.0,
-        lm_modules=None,
         using_max_attn_shift=False,
         max_attn_shift=60,
         minus_inf=-1e20,
@@ -874,7 +865,6 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
             length_normalization,
             length_rewarding,
             lm_weight,
-            lm_modules,
             using_max_attn_shift,
             max_attn_shift,
         )
@@ -915,6 +905,83 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
                 self.dec.attn.prev_attn, dim=0, index=index
             )
         return (hs, c)
+
+
+class S2SRNNBeamSearchLM(S2SRNNBeamSearcher):
+    """
+    This class implements the beam search decoding
+    for AttentionalRNNDecoder (speechbrain/nnet/RNN.py) with LM.
+    See also S2SBaseSearcher(), S2SBeamSearcher(), S2SRNNBeamSearcher().
+
+    Parameters
+    ----------
+    modules : list of torch.nn.Module
+        The list should contain four items:
+            1. Embedding layer
+            2. Attentional RNN decoder
+            3. Output layer
+            4. Language Model
+    *args, **kwargs
+        See S2SRNNBeamSearcher(), these args are directly passed.
+
+    Example
+    -------
+    >>> emb = torch.nn.Embedding(5, 3)
+    >>> dec = sb.nnet.AttentionalRNNDecoder(
+    ...     "gru", "content", 3, 3, 1, enc_dim=7, input_size=3
+    ... )
+    >>> lin = sb.nnet.Linear(n_neurons=5, input_size=3)
+    >>> lm = sb.lobes.RNNLM(output_neurons=5, return_hidden=True)
+    >>> modules = [emb, dec, lin, lm]
+    >>> searcher = S2SRNNBeamSearchLM(
+    ...     modules,
+    ...     bos_index=4,
+    ...     eos_index=4,
+    ...     min_decode_ratio=0,
+    ...     max_decode_ratio=1,
+    ...     beam_size=2,
+    ...     lm_weight=0.5,
+    ... )
+    >>> inp = torch.randint(low=0, high=5, size=(2, 3))
+    >>> enc = torch.rand([2, 6, 7])
+    >>> wav_len = torch.rand([2])
+    >>> hyps, scores = searcher(enc, wav_len)
+    """
+
+    def __init__(self, modules, *args, **kwargs):
+        lm = modules[3]
+        del modules[3]
+
+        super(S2SRNNBeamSearchLM, self).__init__(modules, *args, **kwargs)
+
+        self.lm = lm
+        self.log_softmax = sb.nnet.Softmax(apply_log=True)
+
+    def lm_forward_step(self, inp_tokens, memory):
+        logits, hs = self.lm(inp_tokens, hx=memory)
+        log_probs = self.log_softmax(logits)
+
+        return log_probs, hs
+
+    def permute_lm_mem(self, memory, index):
+        """This is to permute lm memory to synchronize with current index
+        during beam search. The order of beams will be shuffled by scores
+        every timestep to allow batched beam search.
+        Further details please refer to speechbrain/decoder/seq2seq.py.
+        """
+
+        if isinstance(memory, tuple):
+            memory_0 = torch.index_select(memory[0], dim=1, index=index)
+            memory_1 = torch.index_select(memory[1], dim=1, index=index)
+            memory = (memory_0, memory_1)
+        else:
+            memory = torch.index_select(memory, dim=1, index=index)
+        return memory
+
+    def reset_lm_mem(self, batch_size, device):
+        # set hidden_state=None, pytorch RNN will automatically set it to
+        # zero vectors.
+        return None
 
 
 def inflate_tensor(tensor, times, dim):
@@ -1053,7 +1120,6 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
         length_normalization=True,
         length_rewarding=0,
         lm_weight=0.0,
-        lm_modules=None,
         using_max_attn_shift=False,
         max_attn_shift=60,
         minus_inf=-1e20,
@@ -1072,7 +1138,6 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
             length_normalization,
             length_rewarding,
             lm_weight,
-            lm_modules,
             using_max_attn_shift,
             max_attn_shift,
         )

@@ -6,39 +6,6 @@ import speechbrain as sb
 from speechbrain.utils.data_utils import download_file
 
 
-class MyBeamSearcher(sb.decoders.S2SRNNBeamSearcher):
-    def lm_forward_step(self, inp_tokens, memory):
-        hs = memory
-        (model,) = self.lm_modules
-        logits, hs = model(inp_tokens, hx=hs)
-        log_probs = params.log_softmax(logits)
-
-        # set it to false after initialization
-        if self.init_lm_params:
-            self.init_lm_params = False
-        return log_probs, hs
-
-    def permute_lm_mem(self, memory, index):
-        """This is to permute lm memory to synchronize with current index
-        during beam search. The order of beams will be shuffled by scores
-        every timestep to allow batched beam search.
-        Further details please refer to speechbrain/decoder/seq2seq.py.
-        """
-
-        if isinstance(memory, tuple):
-            memory_0 = torch.index_select(memory[0], dim=1, index=index)
-            memory_1 = torch.index_select(memory[1], dim=1, index=index)
-            memory = (memory_0, memory_1)
-        else:
-            memory = torch.index_select(memory, dim=1, index=index)
-        return memory
-
-    def reset_lm_mem(self, batch_size, device):
-        # set hidden_state=None, pytorch RNN will automatically set it to
-        # zero vectors.
-        return None
-
-
 # Define training procedure
 class ASR(sb.Brain):
     def compute_forward(self, x, y, stage):
