@@ -1,6 +1,6 @@
 from torch.utils.data import Dataset
-from utils import to_ASR_format, dataset_sanity_check, replace_entries
-from data_io_new import read_audio_example
+from .utils import to_ASR_format, dataset_sanity_check, replace_entries
+from .data_io_new import read_audio_example
 from ruamel import yaml
 
 
@@ -104,22 +104,35 @@ class ASRDataset(
     def __getitem__(self, item):
 
         # common for every ASR task i think.. just read the audio
-        audio = read_audio_example(self.examples[item])  # (channels, samples)
+        id = [self.examples[item]["waveforms"]["files"][0].split("/")[-1]]
 
-        labels = {k: [] for k in self.supervisions}
+        waveforms = read_audio_example(
+            self.examples[item]
+        )  # (channels, samples)
+        # per data_obj padding
+        # TODO inputs are assumed to be processed here for example
+        # user can define its own read_input_data function and concatenate waveforms with additional features
+        # e.g. video.
+        # but what if we want to have different inputs for different nnets ? e.g. one does video and another speechg
+        # then late fusion for asr ?
+        # --> we should use a dict also here not only for labels
+        perceptions = [waveforms]
+
+        # for labels
+        labels = []
         # we will return supervisions in the order they are specified
         for i in range(len(self.supervisions)):
             c_sup = self.supervisions[i]
             # handles only one supervision per example --> standard ASR
             # for more complex tasks like 2 speakers ASR we will have two supervisions
-            labels[c_sup].append(
+            labels.append(
                 self.encoding_funcs[i].encode(
                     self.examples[item]["supervision"][c_sup]
                 )
             )
 
         # padding of labels and examples will be handled by dataloader
-        return (audio, labels)
+        return id, perceptions, labels
 
 
 if __name__ == "__main__":
@@ -142,7 +155,14 @@ if __name__ == "__main__":
             "ALIGNMENT_ROOT": "/media/sam/bx500/speechbrain_minimalVAD/speechbrain/samples/audio_samples/nn_training_samples"
         },
     }
+
     devset = replace_entries(devset, replacements_dict)
     dataset_sanity_check([devset, devset])  # sanity check for dev
     dataset = ASRDataset(devset, "phones", encoder)
-    dataset[0]
+
+    from torch.utils.data import DataLoader
+    from dataloader import pad_examples
+
+    dl = DataLoader(dataset, 2, shuffle=True, collate_fn=pad_examples)
+    for i in dl:
+        print(i)

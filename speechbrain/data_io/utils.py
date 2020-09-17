@@ -163,7 +163,13 @@ def to_ASR_format(dataset):
 
 
 class CategoricalEncoder:
-    def __init__(self, data_collections: (list, dict), supervision: str):
+    def __init__(
+        self, data_collections: (list, dict), supervision: str, encode_to="int"
+    ):
+
+        assert encode_to in ["int", "onehot"]
+        self.encode_to = encode_to
+
         if isinstance(data_collections, dict):
             data_collections = [data_collections]
 
@@ -186,7 +192,45 @@ class CategoricalEncoder:
         self.lab2indx = {key: index for index, key in enumerate(all_labs)}
         self.indx2lab = {key: index for key, index in enumerate(all_labs)}
 
-    def encode(self, x, dtype=torch.long):
+    def intEncode(self, x, dtype=torch.long):
+        if isinstance(x, (tuple, list)):  # x is list of strings or other things
+            labels = []
+            for i, elem in enumerate(x):
+                labels.append(self.lab2indx[elem])
+            labels = torch.tensor(labels, dtype=dtype)
+
+        else:
+            labels = torch.tensor([self.lab2indx[x]], dtype=dtype)
+
+        return labels
+
+    def intDecode(self, x: torch.Tensor):
+
+        # labels are of shape batch, num_classes, arbitrary dims (e.g. sequence length)
+        if x.ndim == 1:
+            decoded = self.indx2lab[x.item()]
+            return decoded
+
+        elif x.ndim == 2:
+            decoded = []
+            indexes = torch.argmax(x, 0)
+            for time_step in range(len(indexes)):
+                decoded.append(self.indx2lab[indexes[time_step]])
+            return decoded
+
+        elif x.ndim == 3:  # batched tensor b, classes, steps
+            decoded = []
+            for batch in x.shape[0]:
+                c_batch = []
+                indexes = torch.argmax(x[batch], 0)
+                for time_step in range(len(indexes)):
+                    c_batch.append(self.indx2lab[indexes[time_step]])
+                decoded.append(c_batch)
+            return decoded
+        else:
+            raise NotImplementedError
+
+    def oneHotEncode(self, x, dtype=torch.long):
         # TODO handle numpy arrays maybe ?
         if isinstance(x, (tuple, list)):
             # then we will return
@@ -200,7 +244,7 @@ class CategoricalEncoder:
 
         return labels
 
-    def decode(self, x: torch.Tensor):
+    def oneHotDecode(self, x: torch.Tensor):
         # labels are of shape num_classes or num_classes, lengthofseq
         if x.ndim == 1:
             indx = torch.argmax(x)
@@ -225,6 +269,14 @@ class CategoricalEncoder:
             return decoded
         else:
             raise NotImplementedError
+
+    def encode(self, x):
+        if self.encode_to == "int":
+            return self.intEncode(x)
+        elif self.encode_to == "onehot":
+            return self.oneHotEncode(x)
+        else:
+            return NotImplementedError
 
 
 def replace_entries(data_coll, replacements_dict):

@@ -26,4 +26,4 @@ def read_audio_example(example):
 
     # we pad to same length here or on dataloader ?
 
-    return waveforms  # torch.cat(waveforms, 0)
+    return torch.cat(waveforms, 0)  # torch.cat(waveforms, 0)
