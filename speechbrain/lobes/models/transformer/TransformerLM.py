@@ -79,9 +79,7 @@ class TransformerLM(TransformerInterface):
 
         self.custom_src_module = NormalizedEmbedding(d_model, vocab)
         self.output_proj = Sequential(
-            Linear(d_model),
-            LayerNorm(eps=1e-12),
-            Linear(vocab)
+            Linear(d_model), LayerNorm(eps=1e-12), Linear(vocab)
         )
 
         self.masking_func = masking_func
