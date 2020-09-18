@@ -573,9 +573,6 @@ class CyclicLRScheduler:
     >>> scheduler.on_batch_end([optim])
     >>> optim.optim.param_groups[0]["lr"]
     0.2
-    >>> curr_lr=scheduler([optim],current_epoch=1, current_loss=10.0)
-    >>> optim.optim.param_groups[0]["lr"]
-    0.2
     """
 
     def __init__(

@@ -465,7 +465,7 @@ class Classifier(torch.nn.Module):
 
     Example
     -------
-    >>> classify = Classifier('cpu', out_neurons=2)
+    >>> classify = Classifier('cpu', lin_neurons=2, out_neurons=2)
     >>> outputs = torch.tensor([ [1., -1.], [-9., 1.], [0.9, 0.1], [0.1, 0.9] ])
     >>> outupts = outputs.unsqueeze(1)
     >>> cos = classify(outputs, init_params=True)
