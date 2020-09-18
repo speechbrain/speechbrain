@@ -8,6 +8,8 @@ import torch  # noqa 42
 from torch import nn
 
 from speechbrain.nnet.linear import Linear
+from speechbrain.nnet.containers import Sequential
+from speechbrain.nnet.normalization import LayerNorm
 from speechbrain.lobes.models.transformer.Transformer import (
     TransformerInterface,
     get_lookahead_mask,
@@ -76,7 +78,12 @@ class TransformerLM(TransformerInterface):
         )
 
         self.custom_src_module = NormalizedEmbedding(d_model, vocab)
-        self.output_proj = Linear(vocab)
+        self.output_proj = Sequential(
+            Linear(d_model),
+            LayerNorm(eps=1e-12),
+            Linear(vocab)
+        )
+
         self.masking_func = masking_func
 
     def forward(

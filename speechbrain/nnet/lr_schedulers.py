@@ -463,10 +463,11 @@ class CyclicCosineScheduler:
     0.18750000000000008
     """
 
-    def __init__(self, n_warmup_steps, total_steps=100000):
+    def __init__(self, n_warmup_steps, lr_initial=None, total_steps=100000):
         self.n_warmup_steps = n_warmup_steps
         self.losses = []
-        self.current_lr = None
+        self.initial_lr = lr_initial
+        self.current_lr = lr_initial
         self.total = total_steps
 
         self.n_steps = 0
@@ -492,7 +493,10 @@ class CyclicCosineScheduler:
         self.n_steps += 1
 
         for opt in optim_list:
-            current_lr = opt.optim.param_groups[0]["lr"]
+            if self.initial_lr is None:
+                current_lr = opt.optim.param_groups[0]["lr"]
+            else:
+                current_lr = self.current_lr
 
             lr = current_lr * self._get_lr_scale()
 
