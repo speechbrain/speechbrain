@@ -330,6 +330,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         length_rewarding=0,
         lm_weight=0.0,
         lm_modules=None,
+        ctc_weight=0.0,
         using_max_attn_shift=False,
         max_attn_shift=60,
         minus_inf=-1e20,
@@ -354,9 +355,11 @@ class S2SBeamSearcher(S2SBaseSearcher):
         self.max_attn_shift = max_attn_shift
         self.lm_weight = lm_weight
         self.lm_modules = lm_modules
+        self.ctc_weight = ctc_weight
 
         # to initialize the params of LM modules
         self.init_lm_params = True
+        self.init_ctc_params = True
         self.minus_inf = minus_inf
 
     def _check_full_beams(self, hyps, beam_size):
@@ -533,6 +536,10 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         if self.lm_weight > 0:
             lm_memory = self.reset_lm_mem(batch_size * self.beam_size, device)
+
+        if self.ctc_weight > 0:
+            ctc_outputs = self.ctc_forward_step(enc_states)
+            print(ctc_outputs)
 
         # Using bos as the first input
         inp_tokens = (
@@ -851,6 +858,7 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
         length_rewarding=0,
         lm_weight=0.0,
         lm_modules=None,
+        ctc_weight=0.0,
         using_max_attn_shift=False,
         max_attn_shift=60,
         minus_inf=-1e20,
@@ -870,6 +878,7 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
             length_rewarding,
             lm_weight,
             lm_modules,
+            ctc_weight,
             using_max_attn_shift,
             max_attn_shift,
         )
@@ -1049,6 +1058,7 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
         length_rewarding=0,
         lm_weight=0.0,
         lm_modules=None,
+        ctc_weight=0.0,
         using_max_attn_shift=False,
         max_attn_shift=60,
         minus_inf=-1e20,
