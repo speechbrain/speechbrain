@@ -329,6 +329,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         length_normalization=True,
         length_rewarding=0,
         lm_weight=0.0,
+        ctc_weight=0.0,
         lm_modules=None,
         using_max_attn_shift=False,
         max_attn_shift=60,
@@ -353,10 +354,12 @@ class S2SBeamSearcher(S2SBaseSearcher):
         self.using_max_attn_shift = using_max_attn_shift
         self.max_attn_shift = max_attn_shift
         self.lm_weight = lm_weight
+        self.ctc_weight = ctc_weight
         self.lm_modules = lm_modules
 
         # to initialize the params of LM modules
         self.init_lm_params = True
+        self.init_ctc_params = True
         self.minus_inf = minus_inf
 
     def _check_full_beams(self, hyps, beam_size):
@@ -530,6 +533,10 @@ class S2SBeamSearcher(S2SBaseSearcher):
         enc_lens = inflate_tensor(enc_lens, times=self.beam_size, dim=0)
 
         memory = self.reset_mem(batch_size * self.beam_size, device=device)
+
+        if self.ctc_weight > 0:
+            ctc_outputs = self.ctc_forward_step(enc_states)
+            print(ctc_outputs)
 
         if self.lm_weight > 0:
             lm_memory = self.reset_lm_mem(batch_size * self.beam_size, device)
@@ -850,6 +857,7 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
         length_normalization=True,
         length_rewarding=0,
         lm_weight=0.0,
+        ctc_weight=0.0,
         lm_modules=None,
         using_max_attn_shift=False,
         max_attn_shift=60,
@@ -869,6 +877,7 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
             length_normalization,
             length_rewarding,
             lm_weight,
+            ctc_weight,
             lm_modules,
             using_max_attn_shift,
             max_attn_shift,
@@ -1048,6 +1057,7 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
         length_normalization=True,
         length_rewarding=0,
         lm_weight=0.0,
+        ctc_weight=0.0,
         lm_modules=None,
         using_max_attn_shift=False,
         max_attn_shift=60,
