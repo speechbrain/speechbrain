@@ -9,11 +9,11 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Basic parameters
 data_folder: !PLACEHOLDER
-output_folder: !ref results/causal_modularTransformer_comp/<seed>
+output_folder: !ref results/causal_modularTransformer_ent/<seed>
 enhanced_folder: !ref <output_folder>/enhanced/
 
 use_tensorboard: False
-tensorboard_logs: !ref results/logs/causal_modularTransformer_comp/<seed>
+tensorboard_logs: !ref results/logs/causal_modularTransformer_ent/<seed>
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files

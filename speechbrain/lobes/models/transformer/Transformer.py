@@ -213,6 +213,7 @@ class TransformerEncoderLayer(nn.Module):
         self.norm2 = GroupLayerNorm(d_ffn, num_modules, eps=1e-6)
         self.dropout1 = torch.nn.Dropout(dropout)
         self.dropout2 = torch.nn.Dropout(dropout)
+        self.dropout_comp = torch.nn.Dropout(dropout)
 
         self.use_group_comm = use_group_comm
         if use_group_comm:
@@ -247,14 +248,16 @@ class TransformerEncoderLayer(nn.Module):
             self.init_params(src)
 
         if self.competition is not None:
-            comp = self.competition(src)
+            comp = self.competition(self.dropout_comp(src))
             comp = F.softmax(comp, dim=2)
+            self.comp_score = comp
             comp = comp.unsqueeze(-1).repeat(
                 1, 1, 1, self.din // self.num_modules
             )
             comp = comp.view((src.shape[0], src.shape[1], self.din))
         else:
             comp = None
+            self.comp_score = None
 
         output, self_attn = self.self_att(
             src,
@@ -269,7 +272,8 @@ class TransformerEncoderLayer(nn.Module):
         if comp is None:
             src = src + self.dropout1(output)
         else:
-            src = src + self.dropout1(output) * comp
+            src = src + self.dropout1(output)
+
         src = self.norm1(src, init_params=init_params)
 
         output = self.pos_ffn(src, init_params)
@@ -282,9 +286,16 @@ class TransformerEncoderLayer(nn.Module):
             residual = output * 1.0
             output = self.group_comm(output, init_params=init_params)
             output = self.dropout_comm(output)
-            output = self.norm_comm(output + residual, init_params=init_params)
+            if comp is not None:
+                output = self.norm_comm(
+                    output * comp + residual, init_params=init_params
+                )
+            else:
+                output = self.norm_comm(
+                    output + residual, init_params=init_params
+                )
 
-        return output, self_attn
+        return output, self.comp_score
 
 
 class TransformerEncoder(nn.Module):
