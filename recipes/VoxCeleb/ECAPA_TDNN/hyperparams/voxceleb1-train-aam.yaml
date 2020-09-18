@@ -20,7 +20,7 @@ csv_valid: !ref <save_folder>/dev.csv
 
 # Training hyperparameters
 number_of_epochs: 100
-batch_size: 256
+batch_size: 64
 lr: 0.001
 base_lr: 0.00000001
 max_lr: !ref <lr>
@@ -55,8 +55,7 @@ embedding_model: !new:speechbrain.lobes.models.ECAPA_TDNN.ECAPA_TDNN
 
 classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
     device: !ref <device>
-    lin_blocks: 1
-    lin_neurons: 192
+    lin_blocks: 0
     out_neurons: !ref <out_n_neurons>
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
