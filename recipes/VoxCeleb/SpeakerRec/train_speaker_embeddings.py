@@ -2,7 +2,10 @@
 import os
 import sys
 import torch
+import logging
 import speechbrain as sb
+
+logger = logging.getLogger(__name__)
 
 # This flag enable the inbuilt cudnn auto-tuner
 torch.backends.cudnn.benchmark = True
@@ -35,16 +38,28 @@ prepare_voxceleb(
 )
 
 
+def _nan_to_zero(t, msg, ids):
+    isnan = t.isnan().long()
+    if int(isnan.sum()) > 0:
+        for idx in isnan.nonzero(as_tuple=True)[0]:
+            err_msg = f"{msg}: {ids[idx]}"
+            logger.error(err_msg, exc_info=True)
+        t = torch.where(t.isnan(), torch.zeros_like(t), t)
+    return t
+
+
 # Trains speaker embeddings
 class EmbeddingBrain(sb.core.Brain):
     def compute_forward(self, x, stage="train", init_params=False):
-        id, wavs, lens = x
+        ids, wavs, lens = x
 
         wavs, lens = wavs.to(params.device), lens.to(params.device)
 
         if stage == "train":
             # Addding noise and reverberation
             wavs_aug = params.env_corrupt(wavs, lens, init_params)
+            # For voxceleb2
+            wavs_aug = _nan_to_zero(wavs_aug, "NaN after env_corrupt", ids)
 
             # Adding time-domain augmentation
             wavs_aug = params.augmentation(wavs_aug, lens, init_params)
@@ -79,6 +94,8 @@ class EmbeddingBrain(sb.core.Brain):
         if stage != "train":
             stats["error"] = params.compute_error(predictions, spkid, lens)
 
+        if hasattr(params.lr_annealing, "on_batch_end"):
+            params.lr_annealing.on_batch_end([params.optimizer])
         return loss, stats
 
     def on_epoch_end(self, epoch, train_stats, valid_stats):
