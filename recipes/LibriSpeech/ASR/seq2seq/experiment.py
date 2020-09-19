@@ -167,7 +167,7 @@ class ASR(sb.Brain):
                 test_stats=stage_stats,
             )
             with open(self.wer_file, "w") as w:
-                self.wer_metric.write_results(w)
+                self.wer_metric.write_stats(w)
 
     def load_tokenizer(self):
         save_model_path = self.save_folder + "/tok_unigram.model"

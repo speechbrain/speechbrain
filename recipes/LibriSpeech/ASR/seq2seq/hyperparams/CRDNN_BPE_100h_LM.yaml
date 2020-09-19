@@ -116,6 +116,8 @@ modules:
     ctc_weight: !ref <ctc_weight>
     wer_file: !ref <wer_file>
     ter_eval: !ref <ter_eval>
+    output_folder: !ref <output_folder>
+    lm_ckpt_file: !ref <lm_ckpt_file>
     number_of_ctc_epochs: !ref <number_of_ctc_epochs>
     # Specify the bos_id/eos_id if different with blank_id
     bpe_tokenizer: !new:speechbrain.tokenizers.SentencePiece.SentencePiece
