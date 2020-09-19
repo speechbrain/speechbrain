@@ -243,9 +243,7 @@ class ErrorRateStats(MetricStats):
             predict = split_word(predict)
             target = split_word(target)
 
-        scores = edit_distance.wer_details_for_batch(
-            ids, target, predict, compute_alignments=ind2lab is not None
-        )
+        scores = edit_distance.wer_details_for_batch(ids, target, predict, True)
 
         self.scores.extend(scores)
 
