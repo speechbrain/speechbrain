@@ -4,6 +4,7 @@ import sys
 import torch
 import speechbrain as sb
 from speechbrain.utils.data_utils import download_file
+from speechbrain.tokenizers.SentencePiece import SentencePiece
 
 
 # Define training procedure
@@ -219,14 +220,25 @@ if __name__ == "__main__":
         save_folder=params.data_folder,
     )
 
+    # Creating tokenizer must be done after preparation
+    # Specify the bos_id/eos_id if different from blank_id
+    bpe_tokenizer = SentencePiece(
+        model_dir=params.save_folder,
+        vocab_size=params.output_neurons,
+        csv_train=params.csv_train,
+        csv_read="wrd",
+        model_type="unigram",  # ["unigram", "bpe", "char"]
+        character_coverage=1.0,  # with large set of chars use 0.9995
+    )
+
     train_set = params.train_loader()
     valid_set = params.valid_loader()
     test_set = params.test_loader()
     ind2lab = params.test_loader.label_dict["wrd"]["index2lab"]
+    params.modules["index2lab"] = ind2lab
+    params.modules["bpe_tokenizer"] = bpe_tokenizer
     asr_brain = ASR(
-        modules=dict(params.modules, index2lab=ind2lab),
-        optimizers=["optimizer"],
-        device=params.device,
+        modules=params.modules, optimizers=["optimizer"], device=params.device,
     )
 
     # Load latest checkpoint to resume training
