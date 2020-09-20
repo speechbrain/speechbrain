@@ -14,7 +14,7 @@ device: 'cuda:0'
 
 # Pretrain from web (as an alternative specify a file)
 embedding_file:
-    https://www.dropbox.com/s/4djt6i63rq8v7e0/embedding_model.ckpt?dl=1
+    https://www.dropbox.com/s/n4kkhss16fbku5a/embedding_model.ckpt?dl=1
 
 # csv files
 csv_enrol: !ref <save_folder>/enrol.csv
