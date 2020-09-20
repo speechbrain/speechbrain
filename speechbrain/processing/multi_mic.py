@@ -748,7 +748,7 @@ class SrpPhat(torch.nn.Module):
     Arguments
     ---------
     mics : tensor
-        The cartesian position (xyz) of each microphone in meters.
+        The cartesian coordinates (xyz) in meters of each microphone.
         The tensor must have the following format (n_mics, 3)
 
     space : string
@@ -840,7 +840,17 @@ class SrpPhat(torch.nn.Module):
         self.eps = eps
 
     def forward(self, XXs):
+        """ Perform SRP-PHAT localization on a signal by computing a steering
+        vector and then by using the utility function _srp_phat to extract the doas.
+        The result is a tensor containing the directions of arrival (xyz coordinates
+        in meters). The output tensor has the format (batch, time_steps, 3).
 
+        Arguments
+        ---------
+        XXs : tensor
+            The covariance matrices of the input signal. The tensor must
+            have the format (batch, time_steps, n_fft/2 + 1, 2, n_mics + n_pairs)
+        """
         # Get useful dimensions
         n_fft = XXs.shape[2]
 
@@ -860,7 +870,6 @@ class SrpPhat(torch.nn.Module):
 
         Arguments
         ---------
-
         XXs : tensor
             The covariance matrices of the input signal. The tensor must
             have the format (batch, time_steps, n_fft/2 + 1, 2, n_mics + n_pairs)
@@ -918,7 +927,7 @@ class SrpPhat(torch.nn.Module):
 
 
 class Music(torch.nn.Module):
-    """ Multpile SIgnal Classification (MUSIC) localization
+    """ Multiple Signal Classification (MUSIC) localization
     """
 
     def __init__(self):
@@ -931,6 +940,45 @@ class Music(torch.nn.Module):
 
 
 def doas2taus(doas, mics, fs, c=343.0):
+    """ This function converts directions of arrival (xyz coordinates
+    expressed in meters) in time differences of arrival (expressed in
+    samples). The result has the following format: (batch, time_steps, n_mics).
+
+    Arguments
+    ---------
+    doas : tensor
+        The directions of arrival expressed with cartesian coordinates (xyz)
+        in meters. The tensor must have the following format: (batch, time_steps, 3)
+
+    mics : tensor
+        The cartesian position (xyz) in meters of each microphone.
+        The tensor must have the following format (n_mics, 3)
+
+    fs : int
+        The sample rate in Hertz of the signals.
+
+    c : float
+        The speed of sound in the medium. The speed is expressed in meters
+        per second and the default value of this parameter is 343 m/s.
+
+    Example
+    -------
+    >>> import soundfile as sf
+    >>> import torch
+
+    >>> from speechbrain.processing.multi_mic import sphere, doas2taus
+
+    >>> xs, fs = sf.read('samples/audio_samples/multi_mic/speech_-0.82918_0.55279_-0.082918.flac')
+
+    >>> mics = torch.zeros((4,3), dtype=torch.float)
+    >>> mics[0,:] = torch.FloatTensor([-0.05, -0.05, +0.00])
+    >>> mics[1,:] = torch.FloatTensor([-0.05, +0.05, +0.00])
+    >>> mics[2,:] = torch.FloatTensor([+0.05, +0.05, +0.00])
+    >>> mics[3,:] = torch.FloatTensor([+0.05, +0.05, +0.00])
+
+    >>> doas = sphere()
+    >>> taus = doas2taus(doas, mics, fs)
+    """
 
     taus = (fs / c) * torch.matmul(doas, mics.transpose(0, 1))
 
@@ -1049,6 +1097,30 @@ def steering(taus, n_fft):
 
 
 def sphere(levels_count=4):
+    """ This function generates cartesian coordinates (xyz) for a set
+    of points forming a 3D sphere. The coordinates are expressed in
+    meters and can be used as doas. The result has the format:
+    (n_points, 3).
+
+    Arguments
+    ---------
+    levels_count : int
+        A number proportional to the number of points that the user
+        wants to generate
+            - If levels_count = 1, then the sphere will have 42 points
+            - If levels_count = 2, then the sphere will have 162 points
+            - If levels_count = 3, then the sphere will have 642 points
+            - If levels_count = 4, then the sphere will have 2562 points
+            - If levels_count = 5, then the sphere will have 10242 points
+            - ...
+        By default, levels_count is set to 4.
+
+    Example
+    -------
+    >>> import torch
+    >>> from speechbrain.processing.multi_mic import sphere
+    >>> doas = sphere()
+    """
 
     # Generate points at level 0
 
