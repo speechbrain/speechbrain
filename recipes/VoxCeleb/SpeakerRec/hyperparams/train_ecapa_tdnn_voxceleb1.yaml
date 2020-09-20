@@ -31,6 +31,7 @@ n_mels: 80
 left_frames: 0
 right_frames: 0
 deltas: False
+random_segment: True
 max_frames: 300
 
 # Number of speakers
