@@ -2,6 +2,7 @@
 import os
 import sys
 import speechbrain as sb
+from speechbrain.utils.data_utils import download_file
 import speechbrain.data_io.wer as wer_io
 import speechbrain.utils.edit_distance as edit_distance
 from speechbrain.data_io.data_io import convert_index_to_lab
@@ -94,7 +95,7 @@ class ASR(sb.core.Brain):
             outputs = params.output(joint, init_params=init_params)
             outputs = params.log_softmax(outputs)
             return outputs, lens
-        elif stage == "eval":
+        elif stage == "valid":
             hyps, scores = transducer_greedy_decode(
                 TN_output,
                 [params.emb, params.dec],
@@ -104,20 +105,38 @@ class ASR(sb.core.Brain):
             )
             return hyps, scores
         else:
-            (
-                best_hyps,
-                best_scores,
-                nbest_hyps,
-                nbest_scores,
-            ) = transducer_beam_search_decode(
-                TN_output,
-                [params.emb, params.dec],
-                params.Tjoint,
-                [params.output],
-                params.blank_index,
-                beam=params.beam,
-                nbest=params.nbest,
-            )
+            if hasattr(params, "lm_model"):
+                (
+                    best_hyps,
+                    best_scores,
+                    nbest_hyps,
+                    nbest_scores,
+                ) = transducer_beam_search_decode(
+                    TN_output,
+                    [params.emb, params.dec],
+                    params.Tjoint,
+                    [params.output],
+                    params.blank_index,
+                    beam=params.beam,
+                    nbest=params.nbest,
+                    lm_module=params.lm_model,
+                    lm_weight=params.lm_weight,
+                )
+            else:
+                (
+                    best_hyps,
+                    best_scores,
+                    nbest_hyps,
+                    nbest_scores,
+                ) = transducer_beam_search_decode(
+                    TN_output,
+                    [params.emb, params.dec],
+                    params.Tjoint,
+                    [params.output],
+                    params.blank_index,
+                    beam=params.beam,
+                    nbest=params.nbest,
+                )
             return best_hyps, best_scores
 
     def compute_objectives(self, predictions, targets, stage="train"):
@@ -205,6 +224,28 @@ class ASR(sb.core.Brain):
         stats["loss"] = loss.detach()
         return stats
 
+    def load_tokenizer(self):
+        save_model_path = params.save_folder + "/tok_unigram.model"
+        save_vocab_path = params.save_folder + "/tok_unigram.vocab"
+
+        if hasattr(params, "tok_mdl_file"):
+            download_file(
+                params.tok_mdl_file, save_model_path, replace_existing=True
+            )
+            params.bpe_tokenizer.sp.load(save_model_path)
+        if hasattr(params, "tok_voc_file"):
+            download_file(
+                params.tok_voc_file, save_vocab_path, replace_existing=True
+            )
+
+    def load_lm(self):
+        save_model_path = params.output_folder + "/save/lm_model.ckpt"
+        download_file(params.lm_ckpt_file, save_model_path)
+        state_dict = torch.load(save_model_path)
+        # Removing prefix
+        state_dict = {k.split(".", 1)[1]: v for k, v in state_dict.items()}
+        params.lm_model.load_state_dict(state_dict, strict=True)
+
 
 # Prepare data
 prepare_librispeech(
@@ -225,6 +266,15 @@ asr_brain = ASR(
     optimizer=params.optimizer,
     first_inputs=[first_x, first_y],
 )
+
+# Beamsearch with external LM
+# Only needs one timestep of input to initialize the weight
+# Initialization has to be done before loading a heckpoint
+if hasattr(params, "lm_ckpt_file"):
+    # fake an forward pass to initialisaze the model
+    inp_tokens = torch.Tensor([[1, 2, 3]]).cuda()
+    _, _ = params.lm_model(inp_tokens, init_params=True)
+    asr_brain.load_lm()
 
 # Check if the model should be trained on multiple GPUs.
 # Important: DataParallel MUST be called after the ASR (Brain) class init.
