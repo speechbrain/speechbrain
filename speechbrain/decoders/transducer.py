@@ -327,6 +327,8 @@ def transducer_beam_search_decode(
     blank_id=-1,
     beam=4,
     nbest=5,
+    lm_module=None,
+    lm_weight=0.3,
 ):
     """
     transducer beam search decoder is a beam search decoder over batch which apply Transducer rules:
@@ -358,6 +360,13 @@ def transducer_beam_search_decode(
         The width of beam.
     nbest : int
         Number of hypothesis to keep.
+    lm_module: torch.nn.ModuleList
+        neural networks modules for LM.
+    lm_weight: float
+        Default: 0.3
+        The weight of LM when performing beam search (λ).
+        log P(y|x) + λ log P_LM(y)
+
 
     Returns
     -------
@@ -418,6 +427,9 @@ def transducer_beam_search_decode(
             "hidden_dec": hidden,
             "out_PN": out_PN,
         }
+        if lm_module:
+            lm_dict = {"hidden_lm": None}
+            hyp.update(lm_dict)
         beam_hyps = [hyp]
 
         # For each time step
@@ -446,6 +458,16 @@ def transducer_beam_search_decode(
                 )
                 # forward the output layers + activation + save logits
                 out = _forward_after_joint(out, classifier_network)
+                out = out.log_softmax(dim=-1)
+                if lm_module:
+                    # from 4 dims to 3 dims
+                    # to match with LM output
+                    out.squeeze_(1)
+                    logits, hidden_lm = lm_module(
+                        input_PN, hx=best_hyp["hidden_lm"]
+                    )
+                    log_probs_lm = logits.log_softmax(dim=-1)
+                    out = out + lm_weight * log_probs_lm
                 # Sort outputs at time
                 logp_targets, positions = torch.topk(
                     out.log_softmax(dim=-1).view(-1), k=beam, dim=-1
@@ -465,6 +487,8 @@ def transducer_beam_search_decode(
                             "hidden_dec": hidden,
                             "out_PN": out_PN,
                         }
+                        if lm_module:
+                            topk_hyp.update({"hidden_lm": hidden_lm})
                         process_hyps.append(topk_hyp)
                     else:
                         topk_hyp = {
@@ -474,6 +498,8 @@ def transducer_beam_search_decode(
                             "hidden_dec": best_hyp["hidden_dec"],
                             "out_PN": best_hyp["out_PN"],
                         }
+                        if lm_module:
+                            topk_hyp.update({"hidden_lm": hidden_lm})
                         beam_hyps.append(topk_hyp)
         # Add norm score
         nbest_hyps = sorted(
