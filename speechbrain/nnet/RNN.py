@@ -12,6 +12,7 @@ import torch.nn as nn
 from speechbrain.nnet.attention import (
     ContentBasedAttention,
     LocationAwareAttention,
+    MultiheadLocAttention,
 )
 
 logger = logging.getLogger(__name__)
@@ -723,6 +724,7 @@ class AttentionalRNNDecoder(nn.Module):
         re_init=True,
         normalization="batchnorm",
         scaling=1.0,
+        nhead=None,
         channels=None,
         kernel_size=None,
         bias=True,
@@ -759,6 +761,8 @@ class AttentionalRNNDecoder(nn.Module):
              in no normalization.
         scaling: float
             The scaling factor to sharpen or smoothen the attention distribution.
+        nhead: int
+            Number of parallel heads for multi-head location-aware attention.
         channels: int
             Number of channels for location-aware attention.
         kernel_size: int
@@ -800,6 +804,9 @@ class AttentionalRNNDecoder(nn.Module):
         # only for location-aware attention
         self.channels = channels
         self.kernel_size = kernel_size
+
+        # for multi-head location-aware attention
+        self.nhead = nhead
 
     def _check_dim(self, tensor):
         """
@@ -856,6 +863,18 @@ class AttentionalRNNDecoder(nn.Module):
 
         elif self.attn_type == "location":
             self.attn = LocationAwareAttention(
+                enc_dim=self.enc_dim,
+                dec_dim=self.hidden_size,
+                attn_dim=self.attn_dim,
+                output_dim=self.attn_dim,
+                conv_channels=self.channels,
+                kernel_size=self.kernel_size,
+                scaling=self.scaling,
+            ).to(device)
+
+        elif self.attn_type == "multiheadlocation":
+            self.attn = MultiheadLocAttention(
+                nhead=self.nhead,
                 enc_dim=self.enc_dim,
                 dec_dim=self.hidden_size,
                 attn_dim=self.attn_dim,
