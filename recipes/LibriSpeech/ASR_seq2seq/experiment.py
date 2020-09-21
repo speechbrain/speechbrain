@@ -85,6 +85,7 @@ if hasattr(params, "lm_ckpt_file"):
         eos_threshold=params.eos_threshold,
         using_max_attn_shift=params.using_max_attn_shift,
         max_attn_shift=params.max_attn_shift,
+        converage_penalty=params.coverage_penalty,
         lm_weight=params.lm_weight,
         lm_modules=lm_modules,
     )
@@ -101,6 +102,7 @@ else:
         eos_threshold=params.eos_threshold,
         using_max_attn_shift=params.using_max_attn_shift,
         max_attn_shift=params.max_attn_shift,
+        converage_penalty=params.coverage_penalty
     )
 
 
