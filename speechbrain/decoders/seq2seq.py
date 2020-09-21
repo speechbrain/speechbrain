@@ -297,6 +297,11 @@ class S2SBeamSearcher(S2SBaseSearcher):
         Default : 0.0
         The coefficient of length rewarding (γ).
         log P(y|x) + λ log P_LM(y) + γ*len(y)
+    coverage_penalty: float
+        Default: 0.0
+        The coefficient of coverage penalty (η).
+        log P(y|x) + λ log P_LM(y) + γ*len(y) + η*coverage(x,y)
+        Reference: https://arxiv.org/pdf/1612.02695.pdf, https://arxiv.org/pdf/1808.10792.pdf
     lm_weight : float
         Default : 0.0
         The weight of LM when performing beam search (λ).
@@ -328,7 +333,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         eos_threshold=1.5,
         length_normalization=True,
         length_rewarding=0,
-        coverage_penalty=False,
+        coverage_penalty=0.0,
         lm_weight=0.0,
         lm_modules=None,
         using_max_attn_shift=False,
@@ -830,6 +835,11 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
         Default : 0.0
         The coefficient of length rewarding (γ).
         log P(y|x) + λ log P_LM(y) + γ*len(y
+    coverage_penalty: float
+        Default: 0.0
+        The coefficient of coverage penalty (η).
+        log P(y|x) + λ log P_LM(y) + γ*len(y) + η*coverage(x,y)
+        Reference: https://arxiv.org/pdf/1612.02695.pdf, https://arxiv.org/pdf/1808.10792.pdf
     using_max_attn_shift: bool
         Whether using the max_attn_shift constaint. Default: False
     max_attn_shift: int
