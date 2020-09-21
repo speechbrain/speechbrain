@@ -664,18 +664,23 @@ class S2SBeamSearcher(S2SBaseSearcher):
                     prev_attn_peak, dim=0, index=predecessors
                 )
 
+            # Add coverage penalty
             if self.coverage_penalty > 0:
                 cur_attn = torch.index_select(attn, dim=0, index=predecessors)
                 if self.dec.attn_type == "multiheadlocation":
                     cur_attn = torch.mean(cur_attn, dim=1)
 
+                # coverage: cumulative attention probability vector
                 if t == 0:
+                    # Init coverage
                     self.coverage = cur_attn
                 else:
+                    # Update coverage
                     self.coverage = torch.index_select(
                         self.coverage, dim=0, index=predecessors
                     )
                     self.coverage = self.coverage + cur_attn
+                    # Compute coverage penalty and add it to scores
                     penalty = torch.max(
                         self.coverage, self.coverage.clone().fill_(0.5)
                     ).sum(-1)
