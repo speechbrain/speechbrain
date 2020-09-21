@@ -891,7 +891,7 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
         return_log_probs=False,
         using_eos_threshold=True,
         eos_threshold=1.5,
-        length_normalization=False,
+        length_normalization=True,
         length_rewarding=0,
         coverage_penalty=0.0,
         lm_weight=0.0,
