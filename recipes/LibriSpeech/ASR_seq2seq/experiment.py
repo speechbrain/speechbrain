@@ -83,7 +83,7 @@ if hasattr(params, "lm_ckpt_file"):
         max_decode_ratio=1,
         beam_size=params.beam_size,
         eos_threshold=params.eos_threshold,
-        converage_penalty=params.coverage_penalty,
+        coverage_penalty=params.coverage_penalty,
         using_max_attn_shift=params.using_max_attn_shift,
         max_attn_shift=params.max_attn_shift,
         lm_weight=params.lm_weight,
@@ -100,7 +100,7 @@ else:
         max_decode_ratio=1,
         beam_size=params.beam_size,
         eos_threshold=params.eos_threshold,
-        converage_penalty=params.coverage_penalty,
+        coverage_penalty=params.coverage_penalty,
         using_max_attn_shift=params.using_max_attn_shift,
         max_attn_shift=params.max_attn_shift,
     )
