@@ -78,7 +78,6 @@ def filter_ctc_output(string_pred, blank_id=-1):
         >>> print(string_out)
         ['a', 'b', 'c']
     """
-    print(blank_id)
 
     if isinstance(string_pred, list):
         # Filter the repetitions
