@@ -6,7 +6,51 @@ Authors
  * Aku Rouhe 2020
 """
 import torch
+import numpy as np
 from itertools import groupby
+from speechbrain.data_io.data_io import length_to_mask
+
+
+class CTCPrefixScorer:
+    def __init__(self, x, enc_lens, blank_index, eos_index):
+        self.blank_index = blank_index
+        self.eos_index = eos_index
+        self.max_enc_len = x.size(1)
+        self.batch_size = x.size(0)
+
+        # mask frames > enc_lens
+        mask = 1 - length_to_mask(enc_lens)
+        mask = mask.unsqueeze(-1).expand(-1, -1, x.size(-1))
+        x.masked_fill_(mask.byte(), -np.inf)
+        x[:, :, 0] = x[:, :, 0].masked_fill_(mask[:, :, 0].byte(), 0)
+
+        # xnb: dim=0, nonblank posteriors, xb: dim=1, blank posteriors
+        xnb = x.transpose(0, 1)
+        xb = xnb[:, :, self.blank_index].unsqueeze(2).expand(-1, -1, x.size(-1))
+        # (2, L, B, vocab_size)
+        self.x = torch.stack([xnb, xb])
+
+    def forward_step(self, g, memory):
+        """g: prefix"""
+        device = g.device
+        beam_size = len(g) // self.batch_size
+        if memory is None:
+            r_prev = torch.Tensor(
+                self.max_enc_len, 2, self.batch_size, beam_size
+            ).to(device)
+            r_prev.fill_(-np.inf)
+            # Accumulate blank posteriors at each step
+            r_prev[:, 1] = torch.cumsum(
+                self.x[0, :, :, self.blank_index], 0
+            ).unsqueeze(2)
+            r_prev = r_prev.view(-1, 2, g.size(0))
+
+        # scores for candidates
+        # x_ = self.x.unsqueeze(3).repeat(1, 1, 1, beam_size, 1).view(2, -1, beam_size * beatch_size, vocab_size)
+
+        print(self.batch_size, self.x.shape, beam_size, r_prev.shape)
+
+        return None
 
 
 def filter_ctc_output(string_pred, blank_id=-1):
@@ -34,6 +78,7 @@ def filter_ctc_output(string_pred, blank_id=-1):
         >>> print(string_out)
         ['a', 'b', 'c']
     """
+    print(blank_id)
 
     if isinstance(string_pred, list):
         # Filter the repetitions
