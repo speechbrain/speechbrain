@@ -1,8 +1,7 @@
 """A popular speaker recognition and diarization model.
 
 Authors
- * Nauman Dawalatabad 2020
- * Mirco Ravanelli 2020
+ * Hwidong Na 2020
 """
 
 # import os
@@ -124,8 +123,10 @@ class SEBlock(nn.Module):
 
     Arguments
     ---------
-    channels: int
-        The number of input channels
+    se_channels: int
+        The number of output channels after squeeze
+    out_channels: int
+        The number of output channels
 
     Example
     -------
@@ -214,7 +215,7 @@ class AttentiveStatisticsPooling(nn.Module):
         def _compute_statistics(x, m, dim=2, eps=self.eps):
             mean = (m * x).sum(dim)
             std = torch.sqrt(
-                (m * (x - mean.unsqueeze(dim)).pow(2)).sum(dim) + eps
+                (m * (x - mean.unsqueeze(dim)).pow(2)).sum(dim).clamp(eps)
             )
             return mean, std
 
