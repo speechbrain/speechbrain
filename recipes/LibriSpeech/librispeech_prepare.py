@@ -10,6 +10,7 @@ Mirco Ravanelli, Ju-Chieh Chou, Loren Lugosch 2020
 
 import os
 import csv
+import random
 from collections import Counter
 import logging
 from speechbrain.utils.data_utils import download_file, get_all_files
@@ -32,6 +33,7 @@ def prepare_librispeech(
     select_n_sentences=None,
     merge_lst=[],
     merge_name=None,
+    create_lexicon=False,
 ):
     """
     This class prepares the csv files for the LibriSpeech dataset.
@@ -49,6 +51,15 @@ def prepare_librispeech(
     select_n_sentences : int
         Default : None
         If not None, only pick this many sentences.
+    merge_lst : list
+        List of librispeech splits (e.g, train-clean, train-clean-360,..) to
+        merge in a singe csv file.
+    merge_name: str
+        Name of the merged csv file.
+    create_lexicon: bool
+        If True, it outputs csv files contaning mapping between graphene
+        to phonemes. Use it for training a G2P system.
+
 
     Example
     -------
@@ -95,7 +106,7 @@ def prepare_librispeech(
         )
 
         text_dict = text_to_dict(text_lst)
-        all_texts = {**all_texts, **text_dict}
+        all_texts.update(text_dict)
 
         if select_n_sentences is not None:
             n_sentences = select_n_sentences[split_index]
@@ -106,24 +117,42 @@ def prepare_librispeech(
             save_folder, wav_lst, text_dict, split, n_sentences,
         )
 
-    # Create lexicon.csv and oov.csv
-    create_lexicon_and_oov_csv(all_texts, data_folder)
-
     # Merging csv file if needed
     if merge_lst and merge_name is not None:
-        merge_files = [split + ".csv" for split in merge_lst]
+        merge_files = [split_libri + ".csv" for split_libri in merge_lst]
         merge_csvs(
             data_folder=save_folder, csv_lst=merge_files, merged_csv=merge_name,
         )
+
+    # Create lexicon.csv and oov.csv
+    if create_lexicon:
+        create_lexicon_and_oov_csv(all_texts, data_folder, save_folder)
 
     # saving options
     save_pkl(conf, save_opt)
 
 
-def create_lexicon_and_oov_csv(all_texts, data_folder):
+def create_lexicon_and_oov_csv(all_texts, data_folder, save_folder):
+    """
+    Creates lexicon csv files useful for traning and testing a
+    graphene-to-phonene (G2P) model.
+
+    Arguments
+    ---------
+    all_text : dict
+        Dictionary contaning text from the librispeech transcriptions
+    data_folder : str
+        Path to the folder where the original LibriSpeech dataset is stored.
+    save_folder : str
+        The directory where to store the csv files.
+    Returns
+    -------
+    None
+    """
     # If the lexicon file does not exist, download it
     lexicon_url = "http://www.openslr.org/resources/11/librispeech-lexicon.txt"
     lexicon_path = os.path.join(data_folder, "librispeech-lexicon.txt")
+
     if not os.path.isfile(lexicon_path):
         print("Lexicon file not found. Downloading from %s." % lexicon_url)
         download_file(lexicon_url, lexicon_path)
@@ -175,34 +204,53 @@ def create_lexicon_and_oov_csv(all_texts, data_folder):
             f.write(line)
     print("Lexicon written to %s." % lexicon_csv_path)
 
-    # Find OOV words (words that are in the transcripts but not the lexicon)
-    print("Searching for OOV words...")
-    oov = []
-    oov_found = False
-    for word in transcript_words:
-        if word not in lexicon_words:
-            oov.append(word)
-            oov_found = True
+    # Split lexicon.csv in train, validation, and test splits
+    split_lexicon(data_folder, [98, 1, 1])
 
-    # If OOV found, create oov.csv
-    if oov_found:
-        header = "ID,duration,graphemes,graphemes_format,graphemes_opts\n"
-        oov_csv_path = os.path.join(data_folder, "oov.csv")
-        with open(oov_csv_path, "w") as f:
-            f.write(header)
-            for idx in range(len(oov)):
-                separated_graphemes = [c for c in oov[idx]]
-                duration = len(separated_graphemes)
-                graphemes = " ".join(separated_graphemes)
-                line = (
-                    ",".join([str(idx), str(duration), graphemes, "string", ""])
-                    + "\n"
-                )
-                f.write(line)
-        print(
-            "OOV words written to %s. (You can use the g2p recipe to add these words to the lexicon.)"
-            % oov_csv_path
-        )
+
+def split_lexicon(data_folder, split_ratio):
+    """
+    Splits the lexicon.csv file into train, validation, and test csv files
+
+    Arguments
+    ---------
+    data_folder : str
+        Path to the folder contaning the lexicon.csv file to split.
+    split_ratio : list
+        List contaning the training, validation, and test split ratio. Set it
+        to [80, 10, 10] for having 80% of material for training, 10% for valid,
+        and 10 for test.
+
+    Returns
+    -------
+    None
+    """
+    # Reading lexicon.csv
+    lexicon_csv_path = os.path.join(data_folder, "lexicon.csv")
+    with open(lexicon_csv_path, "r") as f:
+        lexicon_lines = f.readlines()
+    # Remove header
+    lexicon_lines = lexicon_lines[1:]
+
+    # Shuffle entries
+    random.shuffle(lexicon_lines)
+
+    # Selecting lines
+    header = "ID,duration,graphemes,graphemes_format,graphemes_opts,phonemes,phonemes_format,phonemes_opts\n"
+
+    tr_snts = int(0.01 * split_ratio[0] * len(lexicon_lines))
+    train_lines = [header] + lexicon_lines[0:tr_snts]
+    valid_snts = int(0.01 * split_ratio[1] * len(lexicon_lines))
+    valid_lines = [header] + lexicon_lines[tr_snts : tr_snts + valid_snts]
+    test_lines = [header] + lexicon_lines[tr_snts + valid_snts :]
+
+    # Saving files
+    with open(os.path.join(data_folder, "lexicon_tr.csv"), "w") as f:
+        f.writelines(train_lines)
+    with open(os.path.join(data_folder, "lexicon_dev.csv"), "w") as f:
+        f.writelines(valid_lines)
+    with open(os.path.join(data_folder, "lexicon_test.csv"), "w") as f:
+        f.writelines(test_lines)
 
 
 def create_csv(
