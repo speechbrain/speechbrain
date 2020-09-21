@@ -112,9 +112,6 @@ class CTN_Brain(sb.core.Brain):
                 mixture = params.augmentation(mixture, wav_lens, init_params)
 
         mixture_w = params.Encoder(mixture, init_params=init_params)
-        import pdb
-
-        pdb.set_trace()
 
         est_mask = params.MaskNet(mixture_w, init_params=init_params)
 

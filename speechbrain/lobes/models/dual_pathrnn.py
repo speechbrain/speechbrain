@@ -2,9 +2,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from speechbrain.lobes.models.transformer.Transformer import (
-    TransformerInterface,
-)
+from speechbrain.lobes.models.transformer.Transformer import TransformerEncoder
+from speechbrain.nnet.linear import Linear
+
+# from speechbrain.nnet.RNN import LSTM
+
 
 EPS = 1e-8
 
@@ -124,7 +126,7 @@ class Encoder(nn.Module):
             bias=False,
         )
 
-    def forward(self, x, init_params=False):
+    def forward(self, x, init_params=True):
         """
           Input:
               x: [B, T], B is batch size, T is times
@@ -151,7 +153,7 @@ class Decoder(nn.ConvTranspose1d):
     def __init__(self, *args, **kwargs):
         super(Decoder, self).__init__(*args, **kwargs)
 
-    def forward(self, x, init_params=False):
+    def forward(self, x, init_params=True):
         """
         x: [B, N, L]
         """
@@ -332,7 +334,7 @@ class Dual_Path_RNN(nn.Module):
             nn.Conv1d(out_channels, out_channels, 1), nn.Sigmoid()
         )
 
-    def forward(self, x, init_params=False):
+    def forward(self, x, init_params=True):
         """
            x: [B, N, L]
         """
@@ -430,28 +432,23 @@ class Dual_Path_Transformer(Dual_Path_RNN):
         self,
         in_channels,
         out_channels,
-        hidden_channels,
-        d_model=512,
+        num_tf_layers=6,
+        num_layers=1,
         nhead=8,
-        num_encoder_layers=6,
-        num_decoder_layers=6,
         d_ffn=2048,
+        kdim=None,
+        vdim=None,
         dropout=0.1,
         activation=nn.ReLU,
-        custom_src_module=None,
-        custom_tgt_module=None,
         return_attention=False,
-        positional_encoding=True,
         num_modules=1,
         use_group_comm=False,
         norm="ln",
-        bidirectional=False,
-        num_layers=4,
         K=200,
         num_spks=2,
     ):
         super(Dual_Path_Transformer, self).__init__(
-            in_channels, out_channels, hidden_channels
+            in_channels, out_channels, hidden_channels=64
         )
         self.K = K
         self.num_spks = num_spks
@@ -463,20 +460,18 @@ class Dual_Path_Transformer(Dual_Path_RNN):
         for i in range(num_layers):
             self.dual_mdl.append(
                 Dual_Transformer_Block(
-                    d_model,
-                    nhead,
-                    num_encoder_layers,
-                    num_decoder_layers,
-                    d_ffn,
-                    dropout,
-                    activation,
-                    custom_src_module,
-                    custom_tgt_module,
-                    return_attention,
-                    positional_encoding,
-                    num_modules,
-                    use_group_comm,
-                    norm,
+                    out_channels,
+                    num_layers=num_tf_layers,
+                    nhead=8,
+                    d_ffn=2048,
+                    kdim=None,
+                    vdim=None,
+                    dropout=0.1,
+                    activation=nn.ReLU,
+                    return_attention=False,
+                    num_modules=1,
+                    use_group_comm=False,
+                    norm="ln",
                 )
             )
 
@@ -494,7 +489,7 @@ class Dual_Path_Transformer(Dual_Path_RNN):
             nn.Conv1d(out_channels, out_channels, 1), nn.Sigmoid()
         )
 
-    def forward(self, x, init_params=False):
+    def forward(self, x, init_params=True):
         """
            x: [B, N, L]
         """
@@ -506,7 +501,7 @@ class Dual_Path_Transformer(Dual_Path_RNN):
         x, gap = self._Segmentation(x, self.K)
         # [B, N*spks, K, S]
         for i in range(self.num_layers):
-            x = self.dual_mdl[i](x)
+            x = self.dual_mdl[i](x, init_params=init_params)
         x = self.prelu(x)
         x = self.conv2d(x)
         # [B*spks, N, K, S]
@@ -577,56 +572,48 @@ class Dual_Transformer_Block(nn.Module):
 
     def __init__(
         self,
-        d_model=512,
+        out_channels,
+        num_layers=6,
         nhead=8,
-        num_encoder_layers=6,
-        num_decoder_layers=6,
         d_ffn=2048,
+        kdim=None,
+        vdim=None,
         dropout=0.1,
         activation=nn.ReLU,
-        custom_src_module=None,
-        custom_tgt_module=None,
         return_attention=False,
-        positional_encoding=True,
         num_modules=1,
         use_group_comm=False,
         norm="ln",
     ):
         super(Dual_Transformer_Block, self).__init__()
         # RNN model
-        self.intra_mdl = TransformerInterface(
-            d_model,
+        self.intra_mdl = TransformerEncoder(
+            num_layers,
             nhead,
-            num_encoder_layers,
-            num_decoder_layers,
             d_ffn,
+            kdim,
+            vdim,
             dropout,
             activation,
-            custom_src_module,
-            custom_tgt_module,
             return_attention,
-            positional_encoding,
+            num_modules,
+            use_group_comm,
+        )
+        # self.intra_rnn = LSTM(out_channels, bidirectional=True)
+
+        self.inter_mdl = TransformerEncoder(
+            num_layers,
+            nhead,
+            d_ffn,
+            kdim,
+            vdim,
+            dropout,
+            activation,
+            return_attention,
             num_modules,
             use_group_comm,
         )
 
-        self.inter_mdl = TransformerInterface(
-            d_model,
-            nhead,
-            num_encoder_layers,
-            num_decoder_layers,
-            d_ffn,
-            dropout,
-            activation,
-            custom_src_module,
-            custom_tgt_module,
-            return_attention,
-            positional_encoding,
-            num_modules,
-            use_group_comm,
-        )
-
-        out_channels, hidden_channels = 256, 256
         # getattr(nn, rnn_type)(
         #    out_channels, hidden_channels, 1, batch_first=True, dropout=dropout, bidirectional=bidirectional)
         # self.inter_rnn = getattr(nn, rnn_type)(
@@ -635,10 +622,10 @@ class Dual_Transformer_Block(nn.Module):
         self.intra_norm = select_norm(norm, out_channels, 4)
         self.inter_norm = select_norm(norm, out_channels, 4)
         # Linear
-        self.intra_linear = nn.Linear(hidden_channels, out_channels)
-        self.inter_linear = nn.Linear(hidden_channels, out_channels)
+        self.intra_linear = Linear(out_channels)
+        self.inter_linear = Linear(out_channels)
 
-    def forward(self, x):
+    def forward(self, x, init_params=True):
         """
            x: [B, N, K, S]
            out: [Spks, B, N, K, S]
@@ -648,10 +635,11 @@ class Dual_Transformer_Block(nn.Module):
         # [BS, K, N]
         intra_rnn = x.permute(0, 3, 2, 1).contiguous().view(B * S, K, N)
         # [BS, K, H]
-        intra_rnn, _ = self.intra_mdl(intra_rnn)
+        intra_rnn = self.intra_mdl(intra_rnn, init_params=init_params)
+        # intra_rnn = self.intra_rnn(intra_rnn, init_params=init_params)
         # [BS, K, N]
         intra_rnn = self.intra_linear(
-            intra_rnn.contiguous().view(B * S * K, -1)
+            intra_rnn.contiguous().view(B * S * K, -1), init_params=init_params
         ).view(B * S, K, -1)
         # [B, S, K, N]
         intra_rnn = intra_rnn.view(B, S, K, N)
@@ -661,15 +649,16 @@ class Dual_Transformer_Block(nn.Module):
 
         # [B, N, K, S]
         intra_rnn = intra_rnn + x
+        # out = intra_rnn
 
         # inter RNN
         # [BK, S, N]
         inter_rnn = intra_rnn.permute(0, 2, 3, 1).contiguous().view(B * K, S, N)
         # [BK, S, H]
-        inter_rnn, _ = self.inter_mdl(inter_rnn)
+        inter_rnn = self.inter_mdl(inter_rnn, init_params=init_params)
         # [BK, S, N]
         inter_rnn = self.inter_linear(
-            inter_rnn.contiguous().view(B * S * K, -1)
+            inter_rnn.contiguous().view(B * S * K, -1), init_params=init_params
         ).view(B * K, S, -1)
         # [B, K, S, N]
         inter_rnn = inter_rnn.view(B, K, S, N)

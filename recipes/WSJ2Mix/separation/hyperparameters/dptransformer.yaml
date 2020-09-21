@@ -17,7 +17,7 @@ train_log: !ref <output_folder>/train_log.txt
 # Neural Parameters
 N_epochs: 100
 N_batch: 1
-lr: 0.0002
+lr: 0.0001
 train_onthefly: False
 loss_fn: 'sisnr'
 progressbar: True
@@ -58,8 +58,10 @@ augmentation: !new:speechbrain.lobes.augment.tdsa.TimeDomainSpecAugment
     speeds: [95, 100, 105]
 
 N_encoder_out: 256
+kernel_size: 20
+kernel_stride: 10
 
-#Dual_Path_RNN:
+# Dual_Path_RNN:
 #  in_channels: 256
 #  out_channels: 64
 #  hidden_channels: 128
@@ -74,24 +76,26 @@ N_encoder_out: 256
 
 
 Encoder: !new:speechbrain.lobes.models.dual_pathrnn.Encoder
-    kernel_size: 2
+    kernel_size: !ref <kernel_size>
     out_channels: !ref <N_encoder_out>
 
 MaskNet: !new:speechbrain.lobes.models.dual_pathrnn.Dual_Path_Transformer
     in_channels: !ref <N_encoder_out>
-    out_channels: 64
-    hidden_channels: 128
-    norm: ln
+    out_channels: 256
+    norm: gln
     dropout: 0
+    num_tf_layers: 6
+    d_ffn: 2048
+    nhead: 8
     num_layers: 1
-    K: 250
+    K: 200
 
 
 Decoder: !new:speechbrain.lobes.models.dual_pathrnn.Decoder
     in_channels: !ref <N_encoder_out>
     out_channels: 1
-    kernel_size: 2
-    stride: 1
+    kernel_size: !ref <kernel_size>
+    stride: !ref <kernel_stride>
     bias: False
 
 optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
