@@ -542,8 +542,9 @@ class S2SBeamSearcher(S2SBaseSearcher):
             # (batch_size * beam_size, L, vocab_size)
             ctc_outputs = self.ctc_forward_step(enc_states)
             ctc_scorer = CTCPrefixScorer(
-                ctc_outputs, enc_lens, 0, self.eos_index
+                ctc_outputs, enc_lens, batch_size, 0, self.eos_index
             )
+            ctc_memory = None
 
         # Using bos as the first input
         inp_tokens = (
@@ -627,7 +628,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             # adding CTC scores to log_prob if ctc_weight > 0
             if self.ctc_weight > 0:
                 print(alived_seq.shape)
-                ctc_scorer.forward_step(alived_seq, memory=None)
+                ctc_scorer.forward_step(alived_seq, ctc_memory, inp_tokens)
 
             scores = sequence_scores.unsqueeze(1).expand(-1, vocab_size)
             scores = scores + log_probs
