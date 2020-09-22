@@ -15,41 +15,50 @@ from speechbrain.utils.checkpoints import ckpt_recency
 import torch.nn.functional as F
 from speechbrain.nnet.losses import get_si_snr_with_pitwrapper
 
-experiment_dir = os.path.dirname(os.path.realpath(__file__))
-params_file = os.path.join(experiment_dir, "params.yaml")
 
-csv_tr = os.path.realpath(
-    os.path.join(
-        experiment_dir,
-        "../../../../samples/audio_samples/sourcesep_samples/minimal_example_convtasnet_tr.csv",
+def create_minimal_data(repository_folder, config_file_path):
+    csv_tr = os.path.realpath(
+        os.path.join(
+            repository_folder,
+            "samples/audio_samples/sourcesep_samples/minimal_example_convtasnet_tr.csv",
+        )
     )
-)
-csv_cv = os.path.realpath(
-    os.path.join(
-        experiment_dir,
-        "../../../../samples/audio_samples/sourcesep_samples/minimal_example_convtasnet_cv.csv",
+    csv_cv = os.path.realpath(
+        os.path.join(
+            repository_folder,
+            "samples/audio_samples/sourcesep_samples/minimal_example_convtasnet_cv.csv",
+        )
     )
-)
-csv_tt = os.path.realpath(
-    os.path.join(
-        experiment_dir,
-        "../../../../samples/audio_samples/sourcesep_samples/minimal_example_convtasnet_tt.csv",
+    csv_tt = os.path.realpath(
+        os.path.join(
+            repository_folder,
+            "samples/audio_samples/sourcesep_samples/minimal_example_convtasnet_tt.csv",
+        )
     )
-)
 
-data_folder = "../../../../samples/audio_samples/sourcesep_samples"
-data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
+    data_folder = "samples/audio_samples/sourcesep_samples"
+    data_folder = os.path.realpath(os.path.join(repository_folder, data_folder))
 
-with open(params_file) as fin:
-    params = sb.yaml.load_extended_yaml(
-        fin,
-        {
-            "data_folder": data_folder,
-            "csv_tr": csv_tr,
-            "csv_cv": csv_cv,
-            "csv_tt": csv_tt,
-        },
-    )
+    with open(config_file_path) as fin:
+        params = sb.yaml.load_extended_yaml(
+            fin,
+            {
+                "data_folder": data_folder,
+                "csv_tr": csv_tr,
+                "csv_cv": csv_cv,
+                "csv_tt": csv_tt,
+            },
+        )
+    return params
+
+
+repository_folder = (
+    os.path.dirname(os.path.realpath(__file__)) + "/../../../../"
+)
+params = create_minimal_data(
+    repository_folder,
+    os.path.join(os.path.dirname(os.path.realpath(__file__)), "params.yaml"),
+)
 
 if params.use_tensorboard:
     from speechbrain.utils.train_logger import TensorboardLogger

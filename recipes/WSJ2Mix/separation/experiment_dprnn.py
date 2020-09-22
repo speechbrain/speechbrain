@@ -9,13 +9,15 @@ Author:
 import argparse
 import os
 import speechbrain as sb
+from recipes.minimal_examples.neural_networks.separation.example_conv_tasnet import (
+    create_minimal_data,
+)
 from speechbrain.utils.train_logger import summarize_average, TensorboardLogger
 import torch
 from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.nnet.losses import get_si_snr_with_pitwrapper
 
 import torch.nn.functional as F
-import sys
 import itertools as it
 
 
@@ -44,7 +46,6 @@ def split_overlapping_chunks(tensor, chunk_len=200, overlap_rate=0.5, dim=1):
 
 
 class CTNBrain(sb.core.Brain):
-
     def __init__(self, params, device, **kwargs):
         super(CTNBrain, self).__init__(**kwargs)
         self.param = params
@@ -57,7 +58,9 @@ class CTNBrain(sb.core.Brain):
                 wav_lens = torch.tensor(
                     [mixture.shape[-1]] * mixture.shape[0]
                 ).to(self.device)
-                mixture = self.param.augmentation(mixture, wav_lens, init_params)
+                mixture = self.param.augmentation(
+                    mixture, wav_lens, init_params
+                )
 
         mixture_w = self.param.Encoder(mixture, init_params=init_params)
 
@@ -146,54 +149,65 @@ class CTNBrain(sb.core.Brain):
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--config", help="config file", required=True)
     parser.add_argument(
-        "--config", help="config file", required=True)
+        "--minimal",
+        help="will run a minimal example for debugging",
+        action="store_true",
+    )
     args = parser.parse_args()
 
     experiment_dir = os.path.dirname(os.path.realpath(__file__))
 
-    # params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
-    params_file = args.config
-
-    with open(params_file) as fin:
-        params = sb.yaml.load_extended_yaml(fin)
-
-    # this points to the folder to which we will save the wsj0-mix dataset
-    data_save_dir = params.wsj0mixpath
-
-    # if the dataset is not present, we create the dataset
-    if not os.path.exists(data_save_dir):
-        from recipes.WSJ2Mix.prepare_data import get_wsj_files
-
-    # this points to the folder which holds the wsj0 dataset folder
-    wsj0path = params.wsj0path
-    get_wsj_files(wsj0path, data_save_dir)
-
-    # load or create the csv files which enables us to get the speechbrain dataloaders
-    if not (
-            os.path.exists(params.save_folder + "/wsj_tr.csv")
-            and os.path.exists(params.save_folder + "/wsj_cv.csv")
-            and os.path.exists(params.save_folder + "/wsj_tt.csv")
-    ):
-        from recipes.WSJ2Mix.prepare_data import create_wsj_csv
-
-    create_wsj_csv(data_save_dir, params.save_folder)
-
-    tr_csv = os.path.realpath(
-        os.path.join(experiment_dir, params.save_folder + "/wsj_tr.csv")
-    )
-    cv_csv = os.path.realpath(
-        os.path.join(experiment_dir, params.save_folder + "/wsj_cv.csv")
-    )
-    tt_csv = os.path.realpath(
-        os.path.join(experiment_dir, params.save_folder + "/wsj_tt.csv")
-    )
-
-    with open(params_file) as fin:
-        params = sb.yaml.load_extended_yaml(
-            fin, {"tr_csv": tr_csv, "cv_csv": cv_csv, "tt_csv": tt_csv}
+    if args.minimal:
+        params = create_minimal_data(
+            os.path.dirname(os.path.realpath(__file__)) + "/../../../../",
+            args.config,
         )
-    # print(params)  # if needed this line can be uncommented for logging
+    else:
+        params_file = args.config
+        with open(params_file) as fin:
+            params = sb.yaml.load_extended_yaml(fin)
+
+            # this points to the folder to which we will save the wsj0-mix dataset
+            data_save_dir = params.wsj0mixpath
+            import pdb
+
+            pdb.set_trace()
+
+            # if the dataset is not present, we create the dataset
+            if not os.path.exists(data_save_dir):
+                from recipes.WSJ2Mix.prepare_data import get_wsj_files
+
+                # this points to the folder which holds the wsj0 dataset folder
+                wsj0path = params.wsj0path
+                get_wsj_files(wsj0path, data_save_dir)
+
+            # load or create the csv files which enables us to get the speechbrain dataloaders
+            if not (
+                os.path.exists(params.save_folder + "/wsj_tr.csv")
+                and os.path.exists(params.save_folder + "/wsj_cv.csv")
+                and os.path.exists(params.save_folder + "/wsj_tt.csv")
+            ):
+                from recipes.WSJ2Mix.prepare_data import create_wsj_csv
+
+            create_wsj_csv(data_save_dir, params.save_folder)
+
+            tr_csv = os.path.realpath(
+                os.path.join(experiment_dir, params.save_folder + "/wsj_tr.csv")
+            )
+            cv_csv = os.path.realpath(
+                os.path.join(experiment_dir, params.save_folder + "/wsj_cv.csv")
+            )
+            tt_csv = os.path.realpath(
+                os.path.join(experiment_dir, params.save_folder + "/wsj_tt.csv")
+            )
+
+            with open(params_file) as fin:
+                params = sb.yaml.load_extended_yaml(
+                    fin, {"tr_csv": tr_csv, "cv_csv": cv_csv, "tt_csv": tt_csv}
+                )
+            # print(params)  # if needed this line can be uncommented for logging
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -210,7 +224,7 @@ def main():
         optimizer=params.optimizer,
         first_inputs=[next(iter(train_loader))[0][1].to(device)],
         params=params,
-        device=device
+        device=device,
     )
 
     ctn.fit(
