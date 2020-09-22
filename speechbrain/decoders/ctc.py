@@ -18,6 +18,8 @@ class CTCPrefixScorer:
         self.max_enc_len = x.size(1)
         self.batch_size = batch_size
         self.beam_size = x.size(0) // batch_size
+        self.vocab_size = x.size(-1)
+        self.last_frame_index = enc_lens - 1
 
         # mask frames > enc_lens
         mask = 1 - length_to_mask(enc_lens)
@@ -27,16 +29,27 @@ class CTCPrefixScorer:
 
         # xnb: dim=0, nonblank posteriors, xb: dim=1, blank posteriors
         xnb = x.transpose(0, 1)
-        xb = xnb[:, :, self.blank_index].unsqueeze(2).expand(-1, -1, x.size(-1))
+        xb = (
+            xnb[:, :, self.blank_index]
+            .unsqueeze(2)
+            .expand(-1, -1, self.vocab_size)
+        )
+
         # (2, L, batch_size * beam_size, vocab_size)
         self.x = torch.stack([xnb, xb])
-        print(self.x.shape)
+
+        # The first index of each sentence.
+        # TODO: for candidates mode
+        # self.beam_offset = (torch.arange(batch_size) * self.beam_size).to(device)
 
     def forward_step(self, g, memory, candidates=None):
         """g: prefix"""
         device = g.device
         prefix_length = g.size(1)
-        num_candidates = candidates.size(-1)
+        last_token = [gi[-1] for gi in g]
+        num_candidates = (
+            self.vocab_size
+        )  # TODO support scoring for candidates, candidates.size(-1)
 
         if memory is None:
             # r_prev: (max_enc_len, 2, batch_size * beam_size)
@@ -51,24 +64,57 @@ class CTCPrefixScorer:
             r_prev = memory
 
         r = torch.Tensor(
-            prefix_length, 2, self.beam_size, num_candidates
-        ).fill_(-np.inf)
+            self.max_enc_len,
+            2,
+            self.batch_size * self.beam_size,
+            num_candidates,
+        ).to(device)
+        r.fill_(-np.inf)
 
-        # scores for candidates
-        # x_ = self.x.unsqueeze(3).repeat(1, 1, 1, beam_size, 1).view(2, -1, beam_size * beatch_size, vocab_size)
+        # TODO: scores for candidates
 
-        # TODO: phi = (prev_nb, prev_b), note that phi only depends on prefix g.
+        # 0. phi = prev_nonblank + prev_blank = r_t-1^nb(g) + r_t-1^b(g), phi only depends on prefix g.
+        r_sum = torch.logsumexp(r_prev, 1)
+        phi = r_sum.unsqueeze(2).repeat(1, 1, num_candidates)
 
-        # TODO: if last token of prefix g in candidates
+        # if last token of prefix g in candidates, phi = prev_b + 0
+        for i in range(self.batch_size * self.beam_size):
+            phi[:, i, last_token[i]] = r_prev[:, 1, i]
 
-        # TODO: Compute forward probabilities log(r_t^n(h)) and log(r_t^b(h))
-        # 1. p(h|cur step is nonblank) = [p(prev step=y) + phi] * p(c)
-        # 2. p(h|cur step is blank) = [p(prev step is blank) + p(prev step is nonblank)] * p(blank)
+        # Define start, end, |g| < |h| for ctc decoding.
+        start = max(1, prefix_length)
+        end = self.max_enc_len
+
+        # Compute forward prob log(r_t^nb(h)) and log(r_t^b(h))
+        for t in range(start, end):
+            # 1. p(h|cur step is nonblank) = [p(prev step=y) + phi] * p(c)
+            r[t, 0] = torch.logsumexp(
+                torch.stack((r[t - 1, 0], phi[t - 1]), dim=0), dim=0
+            )
+            r[t, 0] = r[t, 0] + self.x[0, t]
+            # 2. p(h|cur step is blank) = [p(prev step is blank) + p(prev step is nonblank)] * p(blank)
+            r[t, 1] = torch.logsumexp(
+                torch.stack((r[t - 1, 0], r[t - 1, 1]), dim=0), dim=0
+            )
+            r[t, 1] = r[t, 1] + self.x[1, t]
+
+        # Compute the predix prob
+        psi = r[start - 1, 0].unsqueeze(0)
+        # phi is prob at t-1 step, shift one frame then add it to current prob p(c)
+        phix = torch.cat((phi[0].unsqueeze(0), phi[:-1]), dim=0) + self.x[0]
         # 3. psi = psi + phi * p(c)
+        psi = torch.logsumexp(torch.cat((phix[start:end], psi), dim=0), dim=0,)
+        for i in range(self.batch_size * self.beam_size):
+            psi[i, self.eos_index] = r_sum[
+                self.last_frame_index[i // self.beam_size], i
+            ]
 
-        print(self.batch_size, self.x.shape, self.beam_size, r_prev, r.shape)
+        # exclude blank probs for joint scoring
+        # TODO: currently comment out this line since bos_index, eos_indx is the same as blank_index
+        # log_psi[:, self.blank] = self.logzero
 
-        return None
+        print("r", r.shape, "psi", psi.shape)
+        return psi, r
 
 
 def filter_ctc_output(string_pred, blank_id=-1):

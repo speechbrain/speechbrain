@@ -627,8 +627,10 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
             # adding CTC scores to log_prob if ctc_weight > 0
             if self.ctc_weight > 0:
-                print(alived_seq.shape)
-                ctc_scorer.forward_step(alived_seq, ctc_memory, inp_tokens)
+                if t > 1:
+                    ctc_log_probs, ctc_memory = ctc_scorer.forward_step(
+                        alived_seq, ctc_memory
+                    )
 
             scores = sequence_scores.unsqueeze(1).expand(-1, vocab_size)
             scores = scores + log_probs
