@@ -9,10 +9,10 @@ class XvectorBrain(sb.Brain):
     def compute_forward(self, x, stage):
         id, wavs, lens = x
 
-        feats = self.compute_features(wavs)
-        feats = self.mean_var_norm(feats, lens)
-        x_vect = self.xvector_model(feats)
-        outputs = self.classifier(x_vect)
+        feats = self.hparams.compute_features(wavs)
+        feats = self.hparams.mean_var_norm(feats, lens)
+        x_vect = self.hparams.xvector_model(feats)
+        outputs = self.hparams.classifier(x_vect)
 
         return outputs, lens
 
@@ -20,7 +20,7 @@ class XvectorBrain(sb.Brain):
         predictions, lens = predictions
         uttid, spkid, _ = targets
 
-        loss = self.compute_cost(predictions, spkid, lens)
+        loss = self.hparams.compute_cost(predictions, spkid, lens)
 
         if stage != sb.Stage.TRAIN:
             self.error_metrics.append(uttid, predictions, spkid, lens)
@@ -29,7 +29,7 @@ class XvectorBrain(sb.Brain):
 
     def on_stage_start(self, stage, epoch=None):
         if stage != sb.Stage.TRAIN:
-            self.error_metrics = self.error_stats()
+            self.error_metrics = self.hparams.error_stats()
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
         if stage == sb.Stage.TRAIN:
@@ -71,33 +71,31 @@ class Extractor(torch.nn.Module):
 
 
 def main():
-    # Load hyperparams file
+    # Load hparams file
     experiment_dir = os.path.dirname(os.path.abspath(__file__))
-    hyperparams_file = os.path.join(experiment_dir, "hyperparams.yaml")
+    hparams_file = os.path.join(experiment_dir, "hyperparams.yaml")
     data_folder = "../../../../../samples/voxceleb_samples/wav/"
     data_folder = os.path.abspath(experiment_dir + data_folder)
 
-    with open(hyperparams_file) as fin:
-        hyperparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
+    with open(hparams_file) as fin:
+        hparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
 
     # Data loaders
 
     # Object initialization for training xvector model
-    xvect_brain = XvectorBrain(
-        modules=hyperparams.modules, optimizers=["optimizer"], device="cpu",
-    )
+    xvect_brain = XvectorBrain(hparams["hparams"], hparams["optim"])
 
     # Train the Xvector model
-    train_set = hyperparams.train_loader()
-    valid_set = hyperparams.valid_loader()
-    xvect_brain.fit(range(hyperparams.number_of_epochs), train_set, valid_set)
+    train_set = hparams["train_loader"]()
+    valid_set = hparams["valid_loader"]()
+    xvect_brain.fit(range(hparams["number_of_epochs"]), train_set, valid_set)
     print("Xvector model training completed!")
 
     # Instantiate extractor obj
     ext_brain = Extractor(
-        model=hyperparams.modules["xvector_model"],
-        feats=hyperparams.modules["compute_features"],
-        norm=hyperparams.modules["mean_var_norm"],
+        model=hparams["xvector_model"],
+        feats=hparams["compute_features"],
+        norm=hparams["mean_var_norm"],
     )
 
     # Extract xvectors from a validation sample

@@ -22,8 +22,6 @@ from speechbrain.utils.data_utils import (
     download_file,
 )
 
-from speechbrain.data_io.data_io import DataLoaderFactory
-
 from speechbrain import nnet, lobes
 
 __all__ = [
@@ -47,7 +45,6 @@ __all__ = [
     "get_all_files",
     "recursive_update",
     "download_file",
-    "DataLoaderFactory",
     "nnet",
     "lobes",
 ]

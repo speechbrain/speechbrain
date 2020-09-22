@@ -42,7 +42,7 @@ class CNNTransformerSE(TransformerInterface):
     -------
     >>> src = torch.rand([8, 120, 256])
     >>> net = CNNTransformerSE(output_size=257, input_size=256)
-    >>> out = net.forward(src)
+    >>> out = net(src)
     >>> out.shape
     torch.Size([8, 120, 257])
     """
@@ -87,7 +87,7 @@ class CNNTransformerSE(TransformerInterface):
         if self.custom_emb_module is not None:
             x = self.custom_emb_module(x)
 
-        encoder_output = self.encoder(
+        encoder_output, _ = self.encoder(
             src=x,
             src_mask=self.attn_mask,
             src_key_padding_mask=src_key_padding_mask,

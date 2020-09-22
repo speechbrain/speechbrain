@@ -6,11 +6,11 @@ import speechbrain as sb
 class AlignBrain(sb.Brain):
     def compute_forward(self, x, stage):
         id, wavs, lens = x
-        feats = self.compute_features(wavs)
-        feats = self.mean_var_norm(feats, lens)
-        x = self.model(feats)
-        x = self.lin(x)
-        outputs = self.softmax(x)
+        feats = self.hparams.compute_features(wavs)
+        feats = self.hparams.mean_var_norm(feats, lens)
+        x = self.hparams.model(feats)
+        x = self.hparams.lin(x)
+        outputs = self.hparams.softmax(x)
 
         return outputs, lens
 
@@ -18,16 +18,16 @@ class AlignBrain(sb.Brain):
         predictions, lens = predictions
         ids, phns, phn_lens = targets
 
-        prev_alignments = self.aligner.get_prev_alignments(
+        prev_alignments = self.hparams.aligner.get_prev_alignments(
             ids, predictions, lens, phns, phn_lens
         )
-        loss = self.compute_cost(predictions, prev_alignments)
+        loss = self.hparams.compute_cost(predictions, prev_alignments)
 
         if stage != sb.Stage.TRAIN:
-            viterbi_scores, alignments = self.aligner(
+            viterbi_scores, alignments = self.hparams.aligner(
                 predictions, lens, phns, phn_lens, "viterbi"
             )
-            self.aligner.store_alignments(ids, alignments)
+            self.hparams.aligner.store_alignments(ids, alignments)
 
         return loss
 
@@ -39,26 +39,24 @@ class AlignBrain(sb.Brain):
             print("Train loss: %.2f" % self.train_loss)
             print("Valid loss: %.2f" % stage_loss)
             print("Recalculating and recording alignments...")
-            self.evaluate(self.train_set)
+            self.evaluate(self.hparams.train_set)
 
 
 def main():
     experiment_dir = os.path.dirname(os.path.realpath(__file__))
-    hyperparams_file = os.path.join(experiment_dir, "hyperparams.yaml")
+    hparams_file = os.path.join(experiment_dir, "hyperparams.yaml")
     data_folder = "../../../../samples/audio_samples/nn_training_samples"
     data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
-    with open(hyperparams_file) as fin:
-        hyperparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
+    with open(hparams_file) as fin:
+        hparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
 
-    train_set = hyperparams.train_loader()
-    hyperparams.modules["train_set"] = train_set
-    align_brain = AlignBrain(
-        modules=hyperparams.modules, optimizers=["optimizer"], device="cpu",
-    )
+    train_set = hparams["train_loader"]()
+    hparams["hparams"]["train_set"] = train_set
+    align_brain = AlignBrain(hparams["hparams"], hparams["optim"])
     align_brain.fit(
-        range(hyperparams.N_epochs), train_set, hyperparams.valid_loader()
+        range(hparams["N_epochs"]), train_set, hparams["valid_loader"]()
     )
-    align_brain.evaluate(hyperparams.test_loader())
+    align_brain.evaluate(hparams["test_loader"]())
 
     # Check that model overfits for integration test
     assert align_brain.train_loss < 2.0

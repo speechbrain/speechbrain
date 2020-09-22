@@ -15,11 +15,11 @@ import subprocess
 import ruamel.yaml
 import speechbrain as sb
 import torch.distributed as dist
-import torch.multiprocessing as mp
 from io import StringIO
 from datetime import date
 from enum import Enum, auto
 from tqdm.contrib import tqdm
+from types import SimpleNamespace
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 logger = logging.getLogger(__name__)
@@ -49,7 +49,7 @@ def create_experiment_directory(
     log_config : str
         A yaml filename containing configuration options for the logger.
     save_env_desc : bool
-        If True, a basic environment state description is saved to the experiment
+        If True, an environment state description is saved to the experiment
         directory, in a file called env.log in the experiment directory
     """
     if not os.path.isdir(experiment_directory):
@@ -115,7 +115,8 @@ def parse_arguments(arg_list):
 
     Example
     -------
-    >>> filename, overrides = parse_arguments(['hyperparams.yaml', '--seed', '10'])
+    >>> argv = ['hyperparams.yaml', '--seed', '10']
+    >>> filename, overrides = parse_arguments(argv)
     >>> filename
     'hyperparams.yaml'
     >>> overrides
@@ -184,6 +185,25 @@ def parse_arguments(arg_list):
     return param_file, yaml_stream.getvalue()
 
 
+def ddp_init(rank, brain, args):
+    os.environ["MASTER_ADDR"] = "localhost"
+    os.environ["MASTER_PORT"] = "12321"
+    dist.init_process_group(
+        backend="nccl", world_size=brain.ddp_procs, rank=rank
+    )
+    brain.device = rank
+    brain.root_process = rank == 0
+
+    # Wrap modules with DDP
+    for name, hparam in brain.hparams.__dict__.items():
+        if isinstance(hparam, torch.nn.Module):
+            if any(p.requires_grad for p in hparam.parameters()):
+                hparam = DDP(hparam, device_ids=[rank])
+                setattr(brain.hparams, name, hparam)
+
+    brain._fit(*args)
+
+
 class Stage(Enum):
     """Simple enum to track stage of experiments."""
 
@@ -217,21 +237,28 @@ class Brain:
 
     Arguments
     ---------
-    modules : dict of str:module pairs
-        Each element should consist of a string key for indicating which
-        modules need to be passed to an optimizer, as well as a module
-        to be used by the Brain class (is not required to be a torch module).
-    optimizers : list of str
-        A list of strings corresponding to keys from ``modules`` paired with
-        a torch.optim object.
+    hparams : dict
+        Each key:value pair should consist of a string key and a hyperparameter
+        that is used within the overridden methods. The hyperparameters can
+        be any python object, including torch modules which will be moved
+        to the device specified in the ``device`` argument. These will
+        be accessible via an ``hparams`` attribute, using "dot" notation:
+        e.g. self.hparams.model(x)
+    optim : dict of str:torch.optim pairs
+        These will be accessible via an ``optim`` attribute,
+        using "dot" notation: e.g. brain.optim.optimizer.step()
+        Default ``fit_batch`` calls, ``compute_forward`` and
+        ``compute_objectives`` once per optimizer.
+    jit_modules : dict of str:torch.nn.Module pairs
+        ``torch.nn.Module`` object(s) to pass to ``torch.jit.script``. As
+        with the hparams and optim arguments, these are made accessible with
+        a ``jit_modules`` attribute, using "dot" notation:
+        e.g. self.jit_modules.model(x)
     device : str
         The location for performing computations.
-    jit_modules : list of str
-        A list of strings corresponding to keys from ``modules`` paired with
-        ``torch.nn.Module`` objects to pass to ``torch.jit.script``.
-    torch_ddp_procs : int
+    ddp_procs : int
         Number of processes to use with torch's ``DistributedDataParallel``.
-        In addition to this, you must call ``ddp_fit()`` instead of ``fit()``.
+        if passed, this will assume there is one GPU per process.
     auto_mix_prec: bool
         If True, automatic mixed-precision is used. Activate it only with cuda.
 
@@ -240,62 +267,66 @@ class Brain:
     >>> from torch.optim import SGD
     >>> class SimpleBrain(Brain):
     ...     def compute_forward(self, x, stage):
-    ...         return self.model(x)
+    ...         return self.hparams.model(x)
     ...     def compute_objectives(self, predictions, targets, stage):
     ...         return torch.nn.functional.l1_loss(predictions, targets)
     >>> model = torch.nn.Linear(in_features=10, out_features=10)
-    >>> optim = SGD(model.parameters(), 0.1)
-    >>> brain = SimpleBrain(
-    ...     modules={"model": model, "optimizer": optim},
-    ...     optimizers=["optimizer"],
-    ...     device='cpu',
-    ... )
-    >>> brain.fit(
-    ...     epoch_counter=range(1),
-    ...     train_set=([torch.rand(10, 10), torch.rand(10, 10)],)
-    ... )
+    >>> optim = SGD(model.parameters(), lr=0.1)
+    >>> brain = SimpleBrain({"model": model}, {"optimizer": optim})
+    >>> brain.fit(range(1), ([torch.rand(10, 10), torch.rand(10, 10)],))
     """
 
     def __init__(
         self,
-        modules,
-        optimizers,
-        device="cuda:0",
+        hparams,
+        optim=None,
         jit_modules=None,
-        torch_ddp_procs=0,
+        device="cpu",
+        ddp_procs=0,
         auto_mix_prec=False,
     ):
         self.device = device
-        self.optimizers = optimizers
         self.jit_modules = jit_modules
         self.auto_mix_prec = auto_mix_prec
-        self.torch_ddp_procs = torch_ddp_procs
+
+        self.root_process = True
+        self.ddp_procs = ddp_procs
+        modulelist = []
+
+        # Make optimizer accessible with simple "dot" notation
+        self.optim = SimpleNamespace(**optim)
+
+        # Put modules onto correct device
+        for name, hparam in hparams.items():
+            if isinstance(hparam, torch.nn.Module):
+                hparam = hparam.to(self.device)
+                hparams[name] = hparam
+                modulelist.append(hparam)
+
+        # Make hyperparams available with simple "dot" notation
+        self.hparams = SimpleNamespace(**hparams)
+
+        # Append JIT modules here just for accurate parameter count.
+        # JIT modules are compiled and converted to "dot" notation when fit()
+        # is called, since compiled modules can't be pickled for DDP.
+        if jit_modules is not None:
+            for name, module in jit_modules.items():
+                modulelist.append(module)
+
+        # Store modules as ModuleList, primarily for calling train()/eval()
+        self.modules = torch.nn.ModuleList(modulelist)
 
         # Automatic mixed precision init
         if self.auto_mix_prec:
             self.scaler = torch.cuda.amp.GradScaler()
 
-        # Set module attributes, so compute_forward can access modules
-        modulelist = []
-        for name, module in modules.items():
-            if isinstance(module, torch.nn.Module):
-                module = module.to(device)
-                modulelist.append(module)
-
-            if hasattr(self, name):
-                raise ValueError(f"Cannot use name {name}, already in use")
-
-            setattr(self, name, module)
-
-        # Store modules as ModuleList, primarily for calling train()/eval()
-        self.modules = torch.nn.ModuleList(modulelist)
-
+        # List parameter count for the user
         total_params = sum(
             p.numel() for p in self.modules.parameters() if p.requires_grad
         )
         clsname = self.__class__.__name__
         fmt_num = sb.format_order_of_magnitude(total_params)
-        logger.info(f"Initialized {fmt_num} trainable parameters in {clsname}")
+        logger.info(f"{fmt_num} trainable parameters in {clsname}")
 
     def compute_forward(self, x, stage):
         """Forward pass, to be overridden by sub-classes.
@@ -384,16 +415,14 @@ class Brain:
         """
         inputs, labels = batch
 
-        for optimizer_name in self.optimizers:
-            optimizer = getattr(self, optimizer_name)
-
+        for optimizer_key, optimizer in self.optim.__dict__.items():
             # Managing automatic mixed precision
             if self.auto_mix_prec:
                 with torch.cuda.amp.autocast():
                     outputs = self.compute_forward(inputs, Stage.TRAIN)
                     loss = self.compute_objectives(outputs, labels, Stage.TRAIN)
                     self.scaler.scale(loss).backward()
-                    self.scaler.step(optimizer.optim)
+                    self.scaler.step(optimizer)
                     optimizer.zero_grad()
                     self.scaler.update()
             else:
@@ -431,18 +460,6 @@ class Brain:
         loss = self.compute_objectives(out, targets, stage=stage)
         return loss.detach().cpu()
 
-    def ddp_fit(self, *args, **kwargs):
-        """Use torch DistributedDataParallel to fit over multiple devices.
-
-        For kwargs, see ``fit()``.
-        """
-        mp.spawn(
-            ddp_init,
-            args=(self, args, kwargs),
-            nprocs=self.torch_ddp_procs,
-            join=True,
-        )
-
     def fit(
         self, epoch_counter, train_set, valid_set=None, progressbar=True,
     ):
@@ -456,6 +473,10 @@ class Brain:
         * ``evaluate_batch()``
         * ``update_average()``
 
+        If the initialization was done with ddp_procs > 0, this
+        method will spawn the correct number of processes and run a portion
+        of the training data on the corresponding device.
+
         Arguments
         ---------
         epoch_counter : iterable
@@ -467,7 +488,17 @@ class Brain:
         progressbar : bool
             Whether to display the progress of each epoch in a progressbar.
         """
-        # Compile jit modules if requested
+        if self.ddp_procs > 0:
+            self._ddp_fit(epoch_counter, train_set, valid_set, progressbar)
+        else:
+            self._fit(epoch_counter, train_set, valid_set, progressbar)
+
+    def _ddp_fit(self, *args):
+        torch.multiprocessing.spawn(ddp_init, (self, args), self.ddp_procs)
+
+    def _fit(self, epoch_counter, train_set, valid_set, progressbar):
+
+        # Run this *after* mp.spawn since jit modules cannot be pickled.
         self._compile_jit()
 
         for epoch in epoch_counter:
@@ -476,12 +507,14 @@ class Brain:
             self.on_stage_start(Stage.TRAIN, epoch)
             self.modules.train()
             avg_train_loss = 0.0
-            disable = not progressbar
+
+            # Only show progressbar if requested and root_process
+            disable = not progressbar and not self.root_process
             with tqdm(train_set, dynamic_ncols=True, disable=disable) as t:
                 for i, batch in enumerate(t):
                     if (
                         isinstance(self.device, int)
-                        and i % self.torch_ddp_procs != self.device
+                        and i % self.ddp_procs != self.device
                     ):
                         continue
                     loss = self.fit_batch(batch)
@@ -503,7 +536,7 @@ class Brain:
                     ):
                         if (
                             isinstance(self.device, int)
-                            and i % self.torch_ddp_procs != self.device
+                            and i % self.ddp_procs != self.device
                         ):
                             continue
                         loss = self.evaluate_batch(batch, stage=Stage.VALID)
@@ -513,15 +546,26 @@ class Brain:
                 self.on_stage_end(Stage.VALID, avg_valid_loss, epoch)
 
     def _compile_jit(self):
+        """This should be run *after* mp.spawn, since jit modules
+        cannot be pickled.
+        """
         if self.jit_modules is None:
             return
 
-        for jit_module in self.jit_modules:
-            module = getattr(self, jit_module)
+        for name, module in self.jit_modules.items():
             module = torch.jit.script(module)
             module = module.to(self.device)
+
+            # Wrap module with DDP when requested
+            needs_grad = any(p.requires_grad for p in module.parameters())
+            if needs_grad and self.ddp_procs > 0:
+                module = DDP(module, device_ids=[self.device])
+
             self.modules.append(module)
-            setattr(self, jit_module, module)
+            self.jit_modules[name] = module
+
+        # Convert jit modules to use "dot" notation
+        self.jit_modules = SimpleNamespace(**self.jit_modules)
 
     def evaluate(self, test_set, progressbar=True):
         """Iterate test_set and evaluate brain performance.
@@ -581,19 +625,3 @@ class Brain:
         avg_loss -= avg_loss / iteration
         avg_loss += float(loss) / iteration
         return avg_loss
-
-
-def ddp_init(rank, brain, args, kwargs):
-    os.environ["MASTER_ADDR"] = "localhost"
-    os.environ["MASTER_PORT"] = "12321"
-    dist.init_process_group(
-        backend="nccl", world_size=brain.torch_ddp_procs, rank=rank
-    )
-
-    # Move to correct device
-    brain.device = rank
-    for i, module in enumerate(brain.modules):
-        if any(p.requires_grad for p in module.parameters()):
-            brain.modules[i] = DDP(module.to(rank), device_ids=[rank])
-
-    brain.fit(*args, **kwargs)

@@ -23,6 +23,7 @@ number_of_epochs: 30
 batch_size: 8
 lr: 1.0
 device: 'cuda:0'
+ddp_procs: 0  # Set to number of GPUs if multi-gpu
 
 # Feature parameters
 sample_rate: 16000
@@ -45,34 +46,65 @@ dnn_neurons: 512
 output_neurons: 40
 blank_index: !ref <output_neurons> - 1
 
-epoch_counter: !new:speechbrain.EpochCounter
-    limit: !ref <number_of_epochs>
 
-train_loader: !new:speechbrain.DataLoaderFactory
+train_loader: !new:speechbrain.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
     csv_read: [wav, phn]
 
-valid_loader: !new:speechbrain.DataLoaderFactory
+valid_loader: !new:speechbrain.data_io.DataLoaderFactory
     csv_file: !ref <csv_valid>
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
     csv_read: [wav, phn]
 
-test_loader: !new:speechbrain.DataLoaderFactory
+test_loader: !new:speechbrain.data_io.DataLoaderFactory
     csv_file: !ref <csv_test>
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
     csv_read: [wav, phn]
 
-# These get passed to the Brain class
-modules:
+model: !new:speechbrain.lobes.CRDNN
+    input_shape: [null, null, !ref <n_mels>]
+    activation: !ref <activation>
+    dropout: !ref <dropout>
+    cnn_blocks: !ref <cnn_blocks>
+    cnn_channels: !ref <cnn_channels>
+    cnn_kernelsize: !ref <cnn_kernelsize>
+    time_pooling: True
+    rnn_layers: !ref <rnn_layers>
+    rnn_neurons: !ref <rnn_neurons>
+    rnn_bidirectional: !ref <rnn_bidirectional>
+    dnn_blocks: !ref <dnn_blocks>
+    dnn_neurons: !ref <dnn_neurons>
+
+output: !new:speechbrain.nnet.Linear
+    input_size: !ref <dnn_neurons>
+    n_neurons: !ref <output_neurons>
+    bias: True
+
+optim:
+    optimizer: !new:torch.optim.Adadelta
+        params: !!python/object/apply:speechbrain.collect_params
+            - !ref <model>
+            - !ref <output>
+        lr: !ref <lr>
+        rho: 0.95
+        eps: 1.e-8
+
+jit_modules:
+    model: !ref <model>
+
+# These hyperparameters get passed to the Brain class
+hparams:
     wer_file: !ref <wer_file>
-    epoch_counter: !ref <epoch_counter>
+    output: !ref <output>
+    epoch_counter: !new:speechbrain.EpochCounter
+        limit: !ref <number_of_epochs>
     compute_features: !new:speechbrain.lobes.Fbank
         sample_rate: !ref <sample_rate>
         n_fft: !ref <n_fft>
@@ -82,48 +114,13 @@ modules:
         speeds: [95, 100, 105]
     normalize: !new:speechbrain.processing.InputNormalization
         norm_type: global
-    model: !new:speechbrain.lobes.CRDNN
-        input_shape: [null, null, !ref <n_mels>]
-        activation: !ref <activation>
-        dropout: !ref <dropout>
-        cnn_blocks: !ref <cnn_blocks>
-        cnn_channels: !ref <cnn_channels>
-        cnn_kernelsize: !ref <cnn_kernelsize>
-        time_pooling: True
-        rnn_layers: !ref <rnn_layers>
-        rnn_neurons: !ref <rnn_neurons>
-        rnn_bidirectional: !ref <rnn_bidirectional>
-        dnn_blocks: !ref <dnn_blocks>
-        dnn_neurons: !ref <dnn_neurons>
-    output: !new:speechbrain.nnet.Linear
-        input_size: !ref <dnn_neurons>
-        n_neurons: !ref <output_neurons>
-        bias: True
     log_softmax: !new:speechbrain.nnet.Softmax
         apply_log: True
-    optimizer: !new:torch.optim.Adadelta
-        params: !!python/object/apply:speechbrain.collect_params
-            - !ref <modules.model>
-            - !ref <modules.output>
-        lr: !ref <lr>
-        rho: 0.95
-        eps: 1.e-8
     lr_annealing: !new:speechbrain.nnet.NewBobScheduler
         initial_value: !ref <lr>
         improvement_threshold: 0.0025
         annealing_factor: 0.8
         patient: 0
-    train_logger: !new:speechbrain.FileTrainLogger
-        save_file: !ref <train_log>
-    checkpointer: !new:speechbrain.Checkpointer
-        checkpoints_dir: !ref <save_folder>
-        recoverables:
-            counter: !ref <epoch_counter>
-            optimizer: !ref <modules.optimizer>
-            normalizer: !ref <modules.normalize>
-            model: !ref <modules.model>
-            output: !ref <modules.output>
-            scheduler: !ref <modules.lr_annealing>
     compute_cost: !name:speechbrain.nnet.ctc_loss
         blank_index: !ref <blank_index>
     ctc_stats: !name:speechbrain.MetricStats
@@ -131,3 +128,14 @@ modules:
             blank_index: !ref <blank_index>
             reduction: batch
     per_stats: !name:speechbrain.ErrorRateStats
+    train_logger: !new:speechbrain.FileTrainLogger
+        save_file: !ref <train_log>
+    checkpointer: !new:speechbrain.Checkpointer
+        checkpoints_dir: !ref <save_folder>
+        recoverables:
+            model: !ref <model>
+            output: !ref <output>
+            optimizer: !ref <optim.optimizer>
+            counter: !ref <hparams.epoch_counter>
+            scheduler: !ref <hparams.lr_annealing>
+            normalizer: !ref <hparams.normalize>

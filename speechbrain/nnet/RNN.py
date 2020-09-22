@@ -54,7 +54,7 @@ class RNN(torch.nn.Module):
     -------
     >>> inp_tensor = torch.rand([4, 10, 20])
     >>> net = RNN(hidden_size=5, input_shape=inp_tensor.shape)
-    >>> out_tensor = net(inp_tensor)
+    >>> out_tensor, _ = net(inp_tensor)
     >>>
     torch.Size([4, 10, 5])
     """
@@ -118,12 +118,7 @@ class RNN(torch.nn.Module):
         else:
             output, hn = self.rnn(x)
 
-        self.hidden = hn
-
-        return output
-
-    def get_hidden(self):
-        return self.hidden
+        return output, hn
 
 
 class LSTM(torch.nn.Module):
@@ -185,7 +180,7 @@ class LSTM(torch.nn.Module):
         if input_size is None:
             if len(input_shape) > 3:
                 self.reshape = True
-            input_size = torch.prod(torch.tensor(input_shape[2:]))
+            input_size = torch.prod(torch.tensor(input_shape[2:])).item()
 
         self.rnn = torch.nn.LSTM(
             input_size=input_size,
@@ -221,12 +216,7 @@ class LSTM(torch.nn.Module):
         else:
             output, hn = self.rnn(x)
 
-        self.hidden = hn
-
-        return output
-
-    def get_hidden(self):
-        return self.hidden
+        return output, hn
 
 
 class GRU(torch.nn.Module):
@@ -262,7 +252,7 @@ class GRU(torch.nn.Module):
     -------
     >>> inp_tensor = torch.rand([4, 10, 20])
     >>> net = GRU(hidden_size=5, input_shape=inp_tensor.shape)
-    >>> out_tensor = net(inp_tensor)
+    >>> out_tensor, _ = net(inp_tensor)
     >>>
     torch.Size([4, 10, 5])
     """
@@ -324,12 +314,7 @@ class GRU(torch.nn.Module):
         else:
             output, hn = self.rnn(x)
 
-        self.hidden = hn
-
-        return output
-
-    def get_hidden(self):
-        return self.hidden
+        return output, hn
 
 
 class RNNCell(nn.Module):
@@ -934,7 +919,7 @@ class LiGRU(torch.nn.Module):
     -------
     >>> inp_tensor = torch.rand([4, 10, 20])
     >>> net = LiGRU(input_shape=inp_tensor.shape, hidden_size=5)
-    >>> out_tensor = net(inp_tensor)
+    >>> out_tensor, _ = net(inp_tensor)
     >>>
     torch.Size([4, 10, 5])
     """
@@ -1014,12 +999,7 @@ class LiGRU(torch.nn.Module):
         # run ligru
         output, hh = self._forward_ligru(x, hx=hx)
 
-        self.hidden = hh
-
-        return output
-
-    def get_hidden(self):
-        return self.hidden
+        return output, hh
 
     def _forward_ligru(self, x, hx: Optional[Tensor]):
         """Returns the output of the vanilla liGRU.
@@ -1450,7 +1430,7 @@ class QuasiRNN(nn.Module):
     >>> model = QuasiRNN(
     ...     256, num_layers=4, input_shape=a.shape, bidirectional=True
     ... )
-    >>> b = model(a)
+    >>> b, _ = model(a)
     >>> b.shape
     torch.Size([8, 120, 512])
     """
@@ -1516,14 +1496,11 @@ class QuasiRNN(nn.Module):
             if self.dropout and i < len(self.qrnn) - 1:
                 x = self.dropout(x)
 
-        self.hidden = torch.cat(next_hidden, 0).view(
+        hidden = torch.cat(next_hidden, 0).view(
             self.num_layers, *next_hidden[0].shape[-2:]
         )
 
-        return x
-
-    def get_hidden(self):
-        return self.hidden
+        return x, hidden
 
 
 def rnn_init(module):

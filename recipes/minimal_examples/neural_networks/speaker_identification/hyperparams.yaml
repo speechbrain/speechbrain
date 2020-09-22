@@ -13,7 +13,7 @@ N_epochs: 4
 N_batch: 2
 lr: 0.0004
 
-train_loader: !new:speechbrain.DataLoaderFactory
+train_loader: !new:speechbrain.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>
     batch_size: !ref <N_batch>
     csv_read: [wav, spk_id]
@@ -21,7 +21,7 @@ train_loader: !new:speechbrain.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
-valid_loader: !new:speechbrain.DataLoaderFactory
+valid_loader: !new:speechbrain.data_io.DataLoaderFactory
     csv_file: !ref <csv_valid>
     batch_size: !ref <N_batch>
     csv_read: [wav, spk_id]
@@ -29,34 +29,40 @@ valid_loader: !new:speechbrain.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
-test_loader: !new:speechbrain.DataLoaderFactory
+test_loader: !new:speechbrain.data_io.DataLoaderFactory
     csv_file: !ref <csv_test>
     csv_read: [wav, spk_id]
     sentence_sorting: ascending
     replacements:
         $data_folder: !ref <data_folder>
 
-modules:
+linear1: !new:speechbrain.nnet.Linear
+    input_size: 660
+    n_neurons: 1024
+    bias: False
+
+linear2: !new:speechbrain.nnet.Linear
+    input_size: 1024
+    n_neurons: 2
+    bias: False
+
+optim:
+    optimizer: !new:torch.optim.Adam
+        params: !!python/object/apply:speechbrain.collect_params
+            - !ref <linear1>
+            - !ref <linear2>
+        lr: !ref <lr>
+
+hparams:
     compute_features: !new:speechbrain.lobes.MFCC
     mean_var_norm: !new:speechbrain.processing.InputNormalization
         norm_type: global
-    linear1: !new:speechbrain.nnet.Linear
-        input_size: 660
-        n_neurons: 1024
-        bias: False
+    linear1: !ref <linear1>
+    linear2: !ref <linear2>
     activation: !new:torch.nn.LeakyReLU
-    linear2: !new:speechbrain.nnet.Linear
-        input_size: 1024
-        n_neurons: 2
-        bias: False
     softmax: !new:speechbrain.nnet.Softmax
         apply_log: True
     compute_cost: !name:speechbrain.nnet.nll_loss
     error_stats: !name:speechbrain.MetricStats
         metric: !name:speechbrain.nnet.classification_error
             reduction: batch
-    optimizer: !new:torch.optim.Adam
-        params: !!python/object/apply:speechbrain.collect_params
-            - !ref <modules.linear1>
-            - !ref <modules.linear2>
-        lr: !ref <lr>

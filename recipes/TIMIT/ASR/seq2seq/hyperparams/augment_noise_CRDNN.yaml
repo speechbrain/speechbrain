@@ -18,6 +18,7 @@ batch_size: 8
 lr: 0.001
 ctc_weight: 0.2
 device: 'cuda:0'
+ddp_procs: 0  # Set this to number of GPUs for multi-GPU
 
 # Feature parameters
 sample_rate: 16000
@@ -72,15 +73,86 @@ test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     output_folder: !ref <output_folder>
     csv_read: [wav, phn]
 
-epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
-    limit: !ref <number_of_epochs>
+enc: !new:speechbrain.lobes.CRDNN
+    input_shape: [null, null, !ref <n_mels>]
+    activation: !ref <activation>
+    dropout: !ref <dropout>
+    cnn_blocks: !ref <cnn_blocks>
+    cnn_channels: !ref <cnn_channels>
+    cnn_kernelsize: !ref <cnn_kernelsize>
+    time_pooling: True
+    rnn_layers: !ref <rnn_layers>
+    rnn_neurons: !ref <rnn_neurons>
+    rnn_bidirectional: !ref <rnn_bidirectional>
+    dnn_blocks: !ref <dnn_blocks>
+    dnn_neurons: !ref <dnn_neurons>
 
-modules:
-    epoch_counter: !ref <epoch_counter>
+emb: !new:speechbrain.nnet.Embedding
+    num_embeddings: !ref <output_neurons>
+    embedding_dim: !ref <emb_size>
+
+dec: !new:speechbrain.nnet.AttentionalRNNDecoder
+    enc_dim: !ref <dnn_neurons>
+    input_size: !ref <emb_size>
+    rnn_type: gru
+    attn_type: location
+    hidden_size: !ref <dec_neurons>
+    attn_dim: 256
+    num_layers: 1
+    scaling: 1.0
+    channels: 10
+    kernel_size: 100
+    re_init: True
+    dropout: 0.5
+
+ctc_lin: !new:speechbrain.nnet.Linear
+    input_size: !ref <dnn_neurons>
+    n_neurons: !ref <output_neurons>  # 39 phonemes + 1 blank
+
+seq_lin: !new:speechbrain.nnet.Linear
+    input_size: !ref <dec_neurons>
+    n_neurons: !ref <output_neurons>  # 39 phonemes + 1 eos
+
+greedy_searcher: !new:speechbrain.decoders.seq2seq.S2SRNNGreedySearcher
+    modules: [!ref <emb>, !ref <dec>, !ref <seq_lin>]
+    bos_index: !ref <bos_index>
+    eos_index: !ref <eos_index>
+    min_decode_ratio: !ref <min_decode_ratio>
+    max_decode_ratio: !ref <max_decode_ratio>
+
+beam_searcher: !new:speechbrain.decoders.seq2seq.S2SRNNBeamSearcher
+    modules: [!ref <emb>, !ref <dec>, !ref <seq_lin>]
+    bos_index: !ref <bos_index>
+    eos_index: !ref <eos_index>
+    min_decode_ratio: !ref <min_decode_ratio>
+    max_decode_ratio: !ref <max_decode_ratio>
+    beam_size: !ref <beam_size>
+
+model: !new:torch.nn.ModuleList
+    - [!ref <enc>, !ref <emb>, !ref <dec>, !ref <ctc_lin>, !ref <seq_lin>]
+
+optim:
+    optimizer: !new:torch.optim.Adam
+        params: !!python/object/apply:speechbrain.collect_params
+            - !ref <model>
+        lr: !ref <lr>
+
+jit_modules:
+    enc: !ref <enc>
+
+hparams:
     wer_file: !ref <wer_file>
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
     ctc_weight: !ref <ctc_weight>
+    emb: !ref <emb>
+    dec: !ref <dec>
+    ctc_lin: !ref <ctc_lin>
+    seq_lin: !ref <seq_lin>
+    greedy_searcher: !ref <greedy_searcher>
+    beam_searcher: !ref <beam_searcher>
+    epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+        limit: !ref <number_of_epochs>
     normalize: !new:speechbrain.processing.InputNormalization
         norm_type: global
     augmentation: !new:speechbrain.lobes.TimeDomainSpecAugment
@@ -97,70 +169,8 @@ modules:
         sample_rate: !ref <sample_rate>
         n_fft: !ref <n_fft>
         n_mels: !ref <n_mels>
-    enc: !new:speechbrain.lobes.CRDNN
-        input_shape: [null, null, !ref <n_mels>]
-        activation: !ref <activation>
-        dropout: !ref <dropout>
-        cnn_blocks: !ref <cnn_blocks>
-        cnn_channels: !ref <cnn_channels>
-        cnn_kernelsize: !ref <cnn_kernelsize>
-        time_pooling: True
-        rnn_layers: !ref <rnn_layers>
-        rnn_neurons: !ref <rnn_neurons>
-        rnn_bidirectional: !ref <rnn_bidirectional>
-        dnn_blocks: !ref <dnn_blocks>
-        dnn_neurons: !ref <dnn_neurons>
-    emb: !new:speechbrain.nnet.Embedding
-        num_embeddings: !ref <output_neurons>
-        embedding_dim: !ref <emb_size>
-    dec: !new:speechbrain.nnet.AttentionalRNNDecoder
-        enc_dim: !ref <dnn_neurons>
-        input_size: !ref <emb_size>
-        rnn_type: gru
-        attn_type: location
-        hidden_size: !ref <dec_neurons>
-        attn_dim: 256
-        num_layers: 1
-        scaling: 1.0
-        channels: 10
-        kernel_size: 100
-        re_init: True
-        dropout: 0.5
-    ctc_lin: !new:speechbrain.nnet.Linear
-        input_size: !ref <dnn_neurons>
-        n_neurons: !ref <output_neurons>  # 39 phonemes + 1 blank
-    seq_lin: !new:speechbrain.nnet.Linear
-        input_size: !ref <dec_neurons>
-        n_neurons: !ref <output_neurons>  # 39 phonemes + 1 eos
     log_softmax: !new:speechbrain.nnet.Softmax
         apply_log: True
-    greedy_searcher: !new:speechbrain.decoders.seq2seq.S2SRNNGreedySearcher
-        modules:
-            - !ref <modules.emb>
-            - !ref <modules.dec>
-            - !ref <modules.seq_lin>
-        bos_index: !ref <bos_index>
-        eos_index: !ref <eos_index>
-        min_decode_ratio: 0
-        max_decode_ratio: 1
-    beam_searcher: !new:speechbrain.decoders.seq2seq.S2SRNNBeamSearcher
-        modules:
-            - !ref <modules.emb>
-            - !ref <modules.dec>
-            - !ref <modules.seq_lin>
-        bos_index: !ref <bos_index>
-        eos_index: !ref <eos_index>
-        min_decode_ratio: 0
-        max_decode_ratio: 1
-        beam_size: !ref <beam_size>
-    optimizer: !new:torch.optim.Adam
-        params: !!python/object/apply:speechbrain.collect_params
-            - !ref <modules.enc>
-            - !ref <modules.emb>
-            - !ref <modules.dec>
-            - !ref <modules.ctc_lin>
-            - !ref <modules.seq_lin>
-        lr: !ref <lr>
     lr_annealing: !new:speechbrain.nnet.NewBobScheduler
         initial_value: !ref <lr>
         improvement_threshold: 0.0025
@@ -175,15 +185,11 @@ modules:
     checkpointer: !new:speechbrain.Checkpointer
         checkpoints_dir: !ref <save_folder>
         recoverables:
-            normalize: !ref <modules.normalize>
-            enc: !ref <modules.enc>
-            emb: !ref <modules.emb>
-            dec: !ref <modules.dec>
-            ctc_lin: !ref <modules.ctc_lin>
-            seq_lin: !ref <modules.seq_lin>
-            optimizer: !ref <modules.optimizer>
-            lr_annealing: !ref <modules.lr_annealing>
-            counter: !ref <epoch_counter>
+            model: !ref <model>
+            optimizer: !ref <optim.optimizer>
+            normalize: !ref <hparams.normalize>
+            lr_annealing: !ref <hparams.lr_annealing>
+            counter: !ref <hparams.epoch_counter>
     ctc_stats: !name:speechbrain.MetricStats
         metric: !name:speechbrain.nnet.ctc_loss
             blank_index: !ref <blank_index>

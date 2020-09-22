@@ -118,7 +118,7 @@ class TransformerASR(TransformerInterface):
 
         src = self.custom_src_module(src)
         src = src + self.positional_encoding(src)
-        encoder_out = self.encoder(
+        encoder_out, _ = self.encoder(
             src=src,
             src_mask=src_mask,
             src_key_padding_mask=src_key_padding_mask,
@@ -126,7 +126,7 @@ class TransformerASR(TransformerInterface):
 
         tgt = self.custom_tgt_module(tgt)
         tgt = tgt + self.positional_encoding(tgt)
-        decoder_out = self.decoder(
+        decoder_out, _, _ = self.decoder(
             tgt=tgt,
             memory=encoder_out,
             tgt_mask=tgt_mask,

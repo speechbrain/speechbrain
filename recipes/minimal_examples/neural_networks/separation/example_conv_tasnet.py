@@ -16,15 +16,9 @@ from speechbrain.nnet.losses import get_si_snr_with_pitwrapper
 class CTN_Brain(sb.Brain):
     def compute_forward(self, mixture, stage):
 
-        if hasattr(self, "env_corrupt") and stage == sb.Stage.TRAIN:
-            wav_lens = torch.tensor([mixture.shape[-1]] * mixture.shape[0]).to(
-                self.device
-            )
-            mixture = self.augmentation(mixture, wav_lens)
-
-        mixture_w = self.Encoder(mixture)
-        est_mask = self.MaskNet(mixture_w)
-        est_source = self.Decoder(mixture_w, est_mask)
+        mixture_w = self.hparams.encoder(mixture)
+        est_mask = self.hparams.mask_net(mixture_w)
+        est_source = self.hparams.decoder(mixture_w, est_mask)
 
         # T changed after conv1d in encoder, fix it here
         T_origin = mixture.size(1)
@@ -37,7 +31,7 @@ class CTN_Brain(sb.Brain):
         return est_source
 
     def compute_objectives(self, predictions, targets):
-        if self.loss_fn == "sisnr":
+        if self.hparams.loss_fn == "sisnr":
             loss = get_si_snr_with_pitwrapper(targets, predictions)
             return loss
         else:
@@ -46,7 +40,7 @@ class CTN_Brain(sb.Brain):
     def fit_batch(self, batch):
         # train_onthefly option enables data augmentation,
         # by creating random mixtures within the batch
-        if self.train_onthefly:
+        if self.hparams.train_onthefly:
             bs = batch[0][1].shape[0]
             perm = torch.randperm(bs)
 
@@ -73,8 +67,8 @@ class CTN_Brain(sb.Brain):
         loss = self.compute_objectives(predictions, targets)
 
         loss.backward()
-        self.optimizer.step()
-        self.optimizer.zero_grad()
+        self.optim.optimizer.step()
+        self.optim.optimizer.zero_grad()
         return loss.detach()
 
     def evaluate_batch(self, batch, stage):
@@ -91,8 +85,8 @@ class CTN_Brain(sb.Brain):
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
         elif stage == sb.Stage.VALID:
-            if self.use_tensorboard:
-                self.train_logger.log_stats(
+            if self.hparams.use_tensorboard:
+                self.hparams.train_logger.log_stats(
                     {"Epoch": epoch},
                     {"loss": -self.train_loss},
                     {"loss": -stage_loss},
@@ -125,28 +119,24 @@ def main():
             fin, {"data_folder": sourcesep_samples_dir},
         )
 
-    if hparams.use_tensorboard:
+    if hparams["use_tensorboard"]:
         from speechbrain.utils.train_logger import TensorboardLogger
 
-        hparams.modules["train_logger"] = TensorboardLogger(
-            hparams.tensorboard_logs
+        hparams["modules"]["train_logger"] = TensorboardLogger(
+            hparams["tensorboard_logs"]
         )
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    train_loader = hparams["train_loader"]()
+    val_loader = hparams["val_loader"]()
+    test_loader = hparams["test_loader"]()
 
-    train_loader = hparams.train_loader()
-    val_loader = hparams.val_loader()
-    test_loader = hparams.test_loader()
-
-    ctn = CTN_Brain(
-        modules=hparams.modules, optimizers=["optimizer"], device=device,
-    )
+    ctn = CTN_Brain(hparams["hparams"], hparams["optim"])
 
     ctn.fit(
-        ctn.epoch_counter,
+        ctn.hparams.epoch_counter,
         train_set=train_loader,
         valid_set=val_loader,
-        progressbar=hparams.progressbar,
+        progressbar=hparams["progressbar"],
     )
 
     ctn.evaluate(test_loader)
