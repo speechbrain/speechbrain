@@ -6,6 +6,7 @@ Authors
 """
 import torch
 import numpy as np
+from speechbrain.decoders.ctc import CTCPrefixScorer
 
 
 class S2SBaseSearcher(torch.nn.Module):
@@ -330,6 +331,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         length_rewarding=0,
         lm_weight=0.0,
         lm_modules=None,
+        ctc_weight=0.0,
         using_max_attn_shift=False,
         max_attn_shift=60,
         minus_inf=-1e20,
@@ -354,9 +356,11 @@ class S2SBeamSearcher(S2SBaseSearcher):
         self.max_attn_shift = max_attn_shift
         self.lm_weight = lm_weight
         self.lm_modules = lm_modules
+        self.ctc_weight = ctc_weight
 
         # to initialize the params of LM modules
         self.init_lm_params = True
+        self.init_ctc_params = True
         self.minus_inf = minus_inf
 
     def _check_full_beams(self, hyps, beam_size):
@@ -534,6 +538,14 @@ class S2SBeamSearcher(S2SBaseSearcher):
         if self.lm_weight > 0:
             lm_memory = self.reset_lm_mem(batch_size * self.beam_size, device)
 
+        if self.ctc_weight > 0:
+            # (batch_size * beam_size, L, vocab_size)
+            ctc_outputs = self.ctc_forward_step(enc_states)
+            ctc_scorer = CTCPrefixScorer(
+                ctc_outputs, enc_lens, batch_size, 0, self.eos_index
+            )
+            ctc_memory = None
+
         # Using bos as the first input
         inp_tokens = (
             torch.zeros(batch_size * self.beam_size)
@@ -612,6 +624,11 @@ class S2SBeamSearcher(S2SBaseSearcher):
                     inp_tokens, lm_memory
                 )
                 log_probs = log_probs + self.lm_weight * lm_log_probs
+
+            # adding CTC scores to log_prob if ctc_weight > 0
+            if self.ctc_weight > 0:
+                print(alived_seq.shape)
+                ctc_scorer.forward_step(alived_seq, ctc_memory, inp_tokens)
 
             scores = sequence_scores.unsqueeze(1).expand(-1, vocab_size)
             scores = scores + log_probs
@@ -851,6 +868,7 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
         length_rewarding=0,
         lm_weight=0.0,
         lm_modules=None,
+        ctc_weight=0.0,
         using_max_attn_shift=False,
         max_attn_shift=60,
         minus_inf=-1e20,
@@ -870,6 +888,7 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
             length_rewarding,
             lm_weight,
             lm_modules,
+            ctc_weight,
             using_max_attn_shift,
             max_attn_shift,
         )
@@ -1049,6 +1068,7 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
         length_rewarding=0,
         lm_weight=0.0,
         lm_modules=None,
+        ctc_weight=0.0,
         using_max_attn_shift=False,
         max_attn_shift=60,
         minus_inf=-1e20,
