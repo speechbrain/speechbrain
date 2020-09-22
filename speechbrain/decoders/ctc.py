@@ -6,7 +6,69 @@ Authors
  * Aku Rouhe 2020
 """
 import torch
+import numpy as np
 from itertools import groupby
+from speechbrain.data_io.data_io import length_to_mask
+
+
+class CTCPrefixScorer:
+    def __init__(self, x, enc_lens, batch_size, blank_index, eos_index):
+        self.blank_index = blank_index
+        self.eos_index = eos_index
+        self.max_enc_len = x.size(1)
+        self.batch_size = batch_size
+        self.beam_size = x.size(0) // batch_size
+
+        # mask frames > enc_lens
+        mask = 1 - length_to_mask(enc_lens)
+        mask = mask.unsqueeze(-1).expand(-1, -1, x.size(-1)) == 1
+        x.masked_fill_(mask, -np.inf)
+        x[:, :, 0] = x[:, :, 0].masked_fill_(mask[:, :, 0], 0)
+
+        # xnb: dim=0, nonblank posteriors, xb: dim=1, blank posteriors
+        xnb = x.transpose(0, 1)
+        xb = xnb[:, :, self.blank_index].unsqueeze(2).expand(-1, -1, x.size(-1))
+        # (2, L, batch_size * beam_size, vocab_size)
+        self.x = torch.stack([xnb, xb])
+        print(self.x.shape)
+
+    def forward_step(self, g, memory, candidates=None):
+        """g: prefix"""
+        device = g.device
+        prefix_length = g.size(1)
+        num_candidates = candidates.size(-1)
+
+        if memory is None:
+            # r_prev: (max_enc_len, 2, batch_size * beam_size)
+            r_prev = torch.Tensor(
+                self.max_enc_len, 2, self.batch_size * self.beam_size
+            ).to(device)
+            r_prev.fill_(-np.inf)
+            # Accumulate blank posteriors at each step
+            r_prev[:, 1] = torch.cumsum(self.x[0, :, :, self.blank_index], 0)
+            r_prev = r_prev.view(-1, 2, self.batch_size * self.beam_size)
+        else:
+            r_prev = memory
+
+        r = torch.Tensor(
+            prefix_length, 2, self.beam_size, num_candidates
+        ).fill_(-np.inf)
+
+        # scores for candidates
+        # x_ = self.x.unsqueeze(3).repeat(1, 1, 1, beam_size, 1).view(2, -1, beam_size * beatch_size, vocab_size)
+
+        # TODO: phi = (prev_nb, prev_b), note that phi only depends on prefix g.
+
+        # TODO: if last token of prefix g in candidates
+
+        # TODO: Compute forward probabilities log(r_t^n(h)) and log(r_t^b(h))
+        # 1. p(h|cur step is nonblank) = [p(prev step=y) + phi] * p(c)
+        # 2. p(h|cur step is blank) = [p(prev step is blank) + p(prev step is nonblank)] * p(blank)
+        # 3. psi = psi + phi * p(c)
+
+        print(self.batch_size, self.x.shape, self.beam_size, r_prev, r.shape)
+
+        return None
 
 
 def filter_ctc_output(string_pred, blank_id=-1):
