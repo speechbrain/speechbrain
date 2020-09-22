@@ -5,33 +5,34 @@ Download: http://www.openslr.org/12
 
 Author
 ------
-Mirco Ravanelli, Ju-Chieh Chou 2020
+Mirco Ravanelli, Ju-Chieh Chou, Samuele Cornell 2020
 """
 
 import os
-import csv
 import logging
 from speechbrain.utils.data_utils import get_all_files
-from speechbrain.data_io.data_io import (
-    read_wav_soundfile,
-    load_pkl,
-    save_pkl,
-)
+import soundfile as sf
+import argparse
+from ruamel import yaml
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
-OPT_FILE = "opt_librispeech_prepare.pkl"
 SAMPLERATE = 16000
+
+parser = argparse.ArgumentParser(
+    "Librispeech datacollection yaml files preparation script"
+)
+parser.add_argument("--dataset_root", required=True, type=str)
+parser.add_argument("--splits", required=True, type=str)
+parser.add_argument("--save_dir", required=True, type=str)
+parser.add_argument("--use_lexicon", required=False, type=int, default=1)
 
 
 def prepare_librispeech(
-    data_folder,
-    splits,
-    save_folder,
-    select_n_sentences=None,
-    use_lexicon=False,
+    data_folder, splits, save_folder, use_lexicon=False,
 ):
     """
-    This class prepares the csv files for the LibriSpeech dataset.
+    This function prepares the csv files for the LibriSpeech dataset.
     Download link: http://www.openslr.org/12
 
     Arguments
@@ -43,9 +44,6 @@ def prepare_librispeech(
         'test-others','train-clean-100','train-clean-360','train-other-500']
     save_folder : str
         The directory where to store the csv files.
-    select_n_sentences : int
-        Default : None
-        If not None, only pick this many sentences.
     use_lexicon : bool
         When it is true, using lexicon to generate phonemes columns in the csv file.
 
@@ -59,19 +57,11 @@ def prepare_librispeech(
     data_folder = data_folder
     splits = splits
     save_folder = save_folder
-    select_n_sentences = select_n_sentences
     use_lexicon = use_lexicon
-    conf = {
-        "select_n_sentences": select_n_sentences,
-        "use_lexicon": use_lexicon,
-    }
-
     # Other variables
     # Saving folder
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
-
-    save_opt = os.path.join(save_folder, OPT_FILE)
 
     if use_lexicon:
         lexicon_dict = read_lexicon(
@@ -79,11 +69,6 @@ def prepare_librispeech(
         )
     else:
         lexicon_dict = {}
-
-    # Check if this phase is already done (if so, skip it)
-    if skip(splits, save_folder, conf):
-        logger.info("Skipping preparation, completed in previous run.")
-        return
 
     # Additional checks to make sure the data folder contains Librispeech
     check_librispeech_folders(data_folder, splits)
@@ -103,23 +88,15 @@ def prepare_librispeech(
 
         text_dict = text_to_dict(text_lst)
 
-        if select_n_sentences is not None:
-            n_sentences = select_n_sentences[split_index]
-        else:
-            n_sentences = len(wav_lst)
-
-        create_csv(
+        create_yamls(
+            data_folder,
             save_folder,
             wav_lst,
             text_dict,
             split,
             use_lexicon,
             lexicon_dict,
-            n_sentences,
         )
-
-    # saving options
-    save_pkl(conf, save_opt)
 
 
 def read_lexicon(lexicon_path):
@@ -147,14 +124,14 @@ def read_lexicon(lexicon_path):
     return lexicon_dict
 
 
-def create_csv(
+def create_yamls(
+    data_folder,
     save_folder,
     wav_lst,
     text_dict,
     split,
     use_lexicon,
     lexicon_dict,
-    select_n_sentences,
 ):
     """
     Create the csv file given a list of wav files.
@@ -173,147 +150,65 @@ def create_csv(
         Whether to use a lexicon or not.
     lexicon_dict : dict
         A dictionary for converting words to phones.
-    select_n_sentences : int, optional
-        The number of sentences to select.
 
     Returns
     -------
     None
     """
-    # Setting path for the csv file
-    csv_file = os.path.join(save_folder, split + ".csv")
+    # Setting path for the yaml file
+    yaml_file = os.path.join(save_folder, split + ".yaml")
 
     # Preliminary prints
-    msg = "Creating csv lists in  %s..." % (csv_file)
+    msg = "Creating Data Object entries in  %s..." % (yaml_file)
     logger.info(msg)
 
-    csv_lines = [
-        [
-            "ID",
-            "duration",
-            "wav",
-            "wav_format",
-            "wav_opts",
-            "spk_id",
-            "spk_id_format",
-            "spk_id_opts",
-            "wrd",
-            "wrd_format",
-            "wrd_opts",
-            "char",
-            "char_format",
-            "char_opts",
-        ]
-    ]
-
-    # add phn column when there is a lexicon.
-    if use_lexicon:
-        csv_lines[0] += ["phn", "phn_format", "phn_opts"]
-
     snt_cnt = 0
+    to_yaml = {}
     # Processing all the wav files in wav_lst
     for wav_file in wav_lst:
 
-        snt_id = wav_file.split("/")[-1].replace(".flac", "")
-        spk_id = "-".join(snt_id.split("-")[0:2])
+        snt_id = str(Path(wav_file).stem)
+        spk_id = "-".join(snt_id.split("-")[0:1])
         wrds = text_dict[snt_id]
 
-        signal = read_wav_soundfile(wav_file)
-        duration = signal.shape[0] / SAMPLERATE
+        samples = len(sf.SoundFile(wav_file))
 
         # replace space to <space> token
         chars_lst = [c for c in wrds]
-        chars = " ".join(chars_lst)
 
-        csv_line = [
-            snt_id,
-            str(duration),
-            wav_file,
-            "flac",
-            "",
-            spk_id,
-            "string",
-            "",
-            str(" ".join(wrds.split("_"))),
-            "string",
-            "",
-            str(chars),
-            "string",
-            "",
-        ]
+        data_obj = {
+            "waveforms": {
+                "files": os.path.join(
+                    "DATASET_ROOT", str(Path(wav_file).relative_to(data_folder))
+                ),
+                "channels": [0],
+                "samplerate": SAMPLERATE,
+                "lengths": [samples],
+            },
+            "supervisions": [
+                {"spk_id": spk_id, "words": wrds.split("_"), "chars": chars_lst}
+            ],
+        }
 
         if use_lexicon:
             # skip words not in the lexicon
-            phns = " ".join(
-                [
-                    lexicon_dict[wrd]
-                    for wrd in wrds.split("_")
-                    if wrd in lexicon_dict
-                ]
-            )
-            csv_line += [str(phns), "string", ""]
+            data_obj["supervisions"][0]["phns"] = [
+                lexicon_dict[wrd]
+                for wrd in wrds.split("_")
+                if wrd in lexicon_dict
+            ]
 
         #  Appending current file to the csv_lines list
-        csv_lines.append(csv_line)
-        snt_cnt = snt_cnt + 1
-
-        if snt_cnt == select_n_sentences:
-            break
+        to_yaml[snt_id] = data_obj
+        snt_cnt += 1
 
     # Writing the csv_lines
-    with open(csv_file, mode="w") as csv_f:
-        csv_writer = csv.writer(
-            csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
-        )
-
-        for line in csv_lines:
-            csv_writer.writerow(line)
+    with open(yaml_file, mode="w") as f:
+        yaml.dump(to_yaml, f)
 
     # Final print
-    msg = "%s sucessfully created!" % (csv_file)
+    msg = "%s sucessfully created!" % (yaml_file)
     logger.info(msg)
-
-
-def skip(splits, save_folder, conf):
-    """
-    Detect when the librispeech data prep can be skipped.
-
-    Arguments
-    ---------
-    splits : list
-        A list of the splits expected in the preparation.
-    save_folder : str
-        The location of the seave directory
-    conf : dict
-        The configuration options to ensure they haven't changed.
-
-    Returns
-    -------
-    bool
-        if True, the preparation phase can be skipped.
-        if False, it must be done.
-    """
-
-    # Checking csv files
-    skip = True
-
-    for split in splits:
-        if not os.path.isfile(os.path.join(save_folder, split + ".csv")):
-            skip = False
-
-    #  Checking saved options
-    save_opt = os.path.join(save_folder, OPT_FILE)
-    if skip is True:
-        if os.path.isfile(save_opt):
-            opts_old = load_pkl(save_opt)
-            if opts_old == conf:
-                skip = True
-            else:
-                skip = False
-        else:
-            skip = False
-
-    return skip
 
 
 def text_to_dict(text_lst):
@@ -367,3 +262,21 @@ def check_librispeech_folders(data_folder, splits):
                 "Librispeech dataset)" % split_folder
             )
             raise OSError(err_msg)
+
+
+if __name__ == "__main__":
+    args = parser.parse_args()
+    splits = args.splits.split(" ")
+    for x in splits:
+        assert x in [
+            "train-clean-100",
+            "dev-clean",
+            "test-clean",
+            "train-clean-360",
+            "train-other-500",
+            "dev-other",
+            "test-other",
+        ]
+    prepare_librispeech(
+        args.dataset_root, splits, args.save_dir, bool(args.use_lexicon)
+    )
