@@ -147,14 +147,13 @@ class CTNBrain(sb.core.Brain):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--config",
-        help="config file with generic hyper-parameters,  such as optimizer, "
-        "batch_size, ... -  in yaml format")
+        "--config", help="config file", required=True)
     args = parser.parse_args()
 
     experiment_dir = os.path.dirname(os.path.realpath(__file__))
 
-    params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
+    # params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
+    params_file = args.config
 
     with open(params_file) as fin:
         params = sb.yaml.load_extended_yaml(fin)
