@@ -157,29 +157,31 @@ class CTN_Brain(sb.core.Brain):
         )
 
 
-train_loader = params.train_loader()
-val_loader = params.val_loader()
-test_loader = params.test_loader()
+if __name__ == "__main__":
 
-ctn = CTN_Brain(
-    modules=[
-        params.Encoder.to(device),
-        params.MaskNet.to(device),
-        params.Decoder.to(device),
-    ],
-    optimizer=params.optimizer,
-    first_inputs=[next(iter(train_loader))[0][1].to(device)],
-)
+    train_loader = params.train_loader()
+    val_loader = params.val_loader()
+    test_loader = params.test_loader()
 
-ctn.fit(
-    range(params.N_epochs),
-    train_set=train_loader,
-    valid_set=val_loader,
-    progressbar=params.progressbar,
-)
+    ctn = CTN_Brain(
+        modules=[
+            params.Encoder.to(device),
+            params.MaskNet.to(device),
+            params.Decoder.to(device),
+        ],
+        optimizer=params.optimizer,
+        first_inputs=[next(iter(train_loader))[0][1].to(device)],
+    )
 
-test_stats = ctn.evaluate(test_loader)
-print("Test SI-SNR: %.3f" % -summarize_average(test_stats["loss"]))
+    ctn.fit(
+        range(params.N_epochs),
+        train_set=train_loader,
+        valid_set=val_loader,
+        progressbar=params.progressbar,
+    )
+
+    test_stats = ctn.evaluate(test_loader)
+    print("Test SI-SNR: %.3f" % -summarize_average(test_stats["loss"]))
 
 
 # Integration test: check that the model overfits the training data
