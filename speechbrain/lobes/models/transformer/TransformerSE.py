@@ -132,12 +132,9 @@ class CNNTransformerSE(TransformerInterface):
     #                     bottom = 0
     #                 elif n == 1:
     #                     bottom = attn[bs, :, 0]
-    #                 elif n == 2:
-    #                     bottom = attn[bs, :, 0] + attn[bs, :, 1]
-    #                 elif n == 3:
-    #                     bottom = (
-    #                         attn[bs, :, 0] + attn[bs, :, 1] + attn[bs, :, 2]
-    #                     )
+    #                 elif n >= 2:
+    #                     bottom = np.sum(attn[bs, :, :n], -1)
+
     #                 plt.bar(
     #                     np.arange(attn.shape[1]),
     #                     attn[bs, :, n],
