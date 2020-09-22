@@ -29,37 +29,37 @@ class ASR(sb.Brain):
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
         phns, phn_lens = phns.to(self.device), phn_lens.to(self.device)
 
-        if hasattr(self, "env_corrupt") and stage == sb.Stage.TRAIN:
-            wavs_noise = self.env_corrupt(wavs, wav_lens)
+        if hasattr(self.hparams, "env_corrupt") and stage == sb.Stage.TRAIN:
+            wavs_noise = self.hparams.env_corrupt(wavs, wav_lens)
             wavs = torch.cat([wavs, wavs_noise], dim=0)
             wav_lens = torch.cat([wav_lens, wav_lens])
             phns = torch.cat([phns, phns])
 
-        if hasattr(self, "augmentation"):
-            wavs = self.augmentation(wavs, wav_lens)
-        feats = self.compute_features(wavs)
-        feats = self.normalize(feats, wav_lens)
-        x = self.enc(feats)
+        if hasattr(self.hparams, "augmentation"):
+            wavs = self.hparams.augmentation(wavs, wav_lens)
+        feats = self.hparams.compute_features(wavs)
+        feats = self.hparams.normalize(feats, wav_lens)
+        x = self.jit_modules.enc(feats)
 
         # output layer for ctc log-probabilities
-        logits = self.ctc_lin(x)
-        p_ctc = self.log_softmax(logits)
+        logits = self.hparams.ctc_lin(x)
+        p_ctc = self.hparams.log_softmax(logits)
 
         # Prepend bos token at the beginning
-        y_in = sb.data_io.data_io.prepend_bos_token(phns, self.bos_index)
-        e_in = self.emb(y_in)
-        h, _ = self.dec(e_in, x, wav_lens)
+        y_in = sb.data_io.prepend_bos_token(phns, self.hparams.bos_index)
+        e_in = self.hparams.emb(y_in)
+        h, _ = self.hparams.dec(e_in, x, wav_lens)
 
         # output layer for seq2seq log-probabilities
-        logits = self.seq_lin(h)
-        p_seq = self.log_softmax(logits)
+        logits = self.hparams.seq_lin(h)
+        p_seq = self.hparams.log_softmax(logits)
 
         if stage == sb.Stage.VALID:
-            hyps, scores = self.greedy_searcher(x, wav_lens)
+            hyps, scores = self.hparams.greedy_searcher(x, wav_lens)
             return p_ctc, p_seq, wav_lens, hyps
 
         elif stage == sb.Stage.TEST:
-            hyps, scores = self.beam_searcher(x, wav_lens)
+            hyps, scores = self.hparams.beam_searcher(x, wav_lens)
             return p_ctc, p_seq, wav_lens, hyps
 
         return p_ctc, p_seq, wav_lens
@@ -73,7 +73,7 @@ class ASR(sb.Brain):
         ids, phns, phn_lens = targets
         phns, phn_lens = phns.to(self.device), phn_lens.to(self.device)
 
-        if hasattr(self, "env_corrupt") and stage == sb.Stage.TRAIN:
+        if hasattr(self.hparams, "env_corrupt") and stage == sb.Stage.TRAIN:
             phns = torch.cat([phns, phns], dim=0)
             phn_lens = torch.cat([phn_lens, phn_lens], dim=0)
 
@@ -82,22 +82,23 @@ class ASR(sb.Brain):
 
         # Append eos token at the end of the label sequences
         phns_with_eos = sb.data_io.data_io.append_eos_token(
-            phns, length=abs_length, eos_index=self.eos_index
+            phns, length=abs_length, eos_index=self.hparams.eos_index
         )
 
         # convert to speechbrain-style relative length
         rel_length = (abs_length + 1) / phns_with_eos.shape[1]
 
-        loss_ctc = self.ctc_cost(p_ctc, phns, wav_lens, phn_lens)
-        loss_seq = self.seq_cost(p_seq, phns_with_eos, length=rel_length)
-        loss = self.ctc_weight * loss_ctc + (1 - self.ctc_weight) * loss_seq
+        loss_ctc = self.hparams.ctc_cost(p_ctc, phns, wav_lens, phn_lens)
+        loss_seq = self.hparams.seq_cost(p_seq, phns_with_eos, rel_length)
+        loss = self.hparams.ctc_weight * loss_ctc
+        loss += (1 - self.hparams.ctc_weight) * loss_seq
 
         # Record losses for posterity
         if stage != sb.Stage.TRAIN:
             self.ctc_metrics.append(ids, p_ctc, phns, wav_lens, phn_lens)
             self.seq_metrics.append(ids, p_seq, phns_with_eos, rel_length)
             self.per_metrics.append(
-                ids, hyps, phns, target_len=phn_lens, ind2lab=self.ind2lab
+                ids, hyps, phns, None, phn_lens, self.hparams.ind2lab
             )
 
         return loss
@@ -107,8 +108,8 @@ class ASR(sb.Brain):
         predictions = self.compute_forward(inputs, targets, sb.Stage.TRAIN)
         loss = self.compute_objectives(predictions, targets, sb.Stage.TRAIN)
         loss.backward()
-        self.optimizer.step()
-        self.optimizer.zero_grad()
+        self.optim.optimizer.step()
+        self.optim.optimizer.zero_grad()
         return loss.detach()
 
     def evaluate_batch(self, batch, stage):
@@ -118,11 +119,11 @@ class ASR(sb.Brain):
         return loss.detach()
 
     def on_stage_start(self, stage, epoch=None):
-        self.ctc_metrics = self.ctc_stats()
-        self.seq_metrics = self.seq_stats()
+        self.ctc_metrics = self.hparams.ctc_stats()
+        self.seq_metrics = self.hparams.seq_stats()
 
         if stage != sb.Stage.TRAIN:
-            self.per_metrics = self.per_stats()
+            self.per_metrics = self.hparams.per_stats()
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
         if stage == sb.Stage.TRAIN:
@@ -131,9 +132,9 @@ class ASR(sb.Brain):
             per = self.per_metrics.summarize("error_rate")
 
         if stage == sb.Stage.VALID:
-            old_lr, new_lr = self.lr_annealing(per)
-            sb.nnet.update_learning_rate(self.optimizer, new_lr)
-            self.train_logger.log_stats(
+            old_lr, new_lr = self.hparams.lr_annealing(per)
+            sb.nnet.update_learning_rate(self.optim.optimizer, new_lr)
+            self.hparams.train_logger.log_stats(
                 stats_meta={"epoch": epoch, "lr": old_lr},
                 train_stats={"loss": self.train_loss},
                 valid_stats={
@@ -143,16 +144,16 @@ class ASR(sb.Brain):
                     "PER": per,
                 },
             )
-            self.checkpointer.save_and_keep_only(
+            self.hparams.checkpointer.save_and_keep_only(
                 meta={"PER": per}, min_keys=["PER"]
             )
 
         if stage == sb.Stage.TEST:
-            self.train_logger.log_stats(
-                stats_meta={"Epoch loaded": self.epoch_counter.current},
+            self.hparams.train_logger.log_stats(
+                stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats={"loss": stage_loss, "PER": per},
             )
-            with open(self.wer_file, "w") as w:
+            with open(self.hparams.wer_file, "w") as w:
                 w.write("CTC loss stats:\n")
                 self.ctc_metrics.write_stats(w)
                 w.write("\nseq2seq loss stats:\n")
@@ -160,7 +161,8 @@ class ASR(sb.Brain):
                 w.write("\nPER stats:\n")
                 self.per_metrics.write_stats(w)
                 print(
-                    "CTC, seq2seq, and PER stats written to file", self.wer_file
+                    "CTC, seq2seq, and PER stats written to file",
+                    self.hparams.wer_file,
                 )
 
 
@@ -171,38 +173,39 @@ if __name__ == "__main__":
     from timit_prepare import prepare_timit  # noqa E402
 
     # Load hyperparameters file with command-line overrides
-    params_file, overrides = sb.parse_arguments(sys.argv[1:])
-    with open(params_file) as fin:
-        params = sb.load_extended_yaml(fin, overrides)
+    hparams_file, overrides = sb.parse_arguments(sys.argv[1:])
+    with open(hparams_file) as fin:
+        hparams = sb.load_extended_yaml(fin, overrides)
 
     # Create experiment directory
     sb.create_experiment_directory(
-        experiment_directory=params.output_folder,
-        hyperparams_to_save=params_file,
+        experiment_directory=hparams["output_folder"],
+        hyperparams_to_save=hparams_file,
         overrides=overrides,
     )
 
     # Prepare data
     prepare_timit(
-        data_folder=params.data_folder,
+        data_folder=hparams["data_folder"],
         splits=["train", "dev", "test"],
-        save_folder=params.data_folder,
+        save_folder=hparams["data_folder"],
     )
 
-    train_set = params.train_loader()
-    valid_set = params.valid_loader()
-    ind2lab = params.train_loader.label_dict["phn"]["index2lab"]
-    asr_brain = ASR(
-        modules=dict(params.modules, ind2lab=ind2lab),
-        optimizers=["optimizer"],
-        jit_modules=["enc"],
-        device=params.device,
-    )
+    # Collect index to label conversion dict for decoding
+    train_set = hparams["train_loader"]()
+    valid_set = hparams["valid_loader"]()
+    ind2lab = hparams["train_loader"].label_dict["phn"]["index2lab"]
+    hparams["hparams"]["ind2lab"] = ind2lab
+
+    # Since the parameters to the ASR class are called the same thing
+    # in YAML, we can use a list to select keys for passing.
+    keys = ["hparams", "optim", "jit_modules", "device", "ddp_procs"]
+    asr_brain = ASR(**{key: hparams[key] for key in keys})
 
     # Load latest checkpoint to resume training
-    asr_brain.checkpointer.recover_if_possible()
-    asr_brain.fit(params.epoch_counter, train_set, valid_set)
+    asr_brain.hparams.checkpointer.recover_if_possible()
+    asr_brain.fit(asr_brain.hparams.epoch_counter, train_set, valid_set)
 
     # Load best checkpoint for evaluation
-    asr_brain.checkpointer.recover_if_possible(min_key="PER")
-    test_stats = asr_brain.evaluate(params.test_loader())
+    asr_brain.hparams.checkpointer.recover_if_possible(min_key="PER")
+    test_stats = asr_brain.evaluate(hparams["test_loader"]())

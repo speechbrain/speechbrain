@@ -23,25 +23,31 @@ emb_size: 23
 dropout: 0.1
 output_neurons: 1
 
-modules:
+rnn: !new:speechbrain.nnet.LSTM
+    input_size: !ref <n_mfcc> * 33  # d & dd = *3, 5 left & 5 right = *11
+    hidden_size: !ref <rnn_neurons>
+    num_layers: !ref <rnn_layers>
+    dropout: !ref <dropout>
+    bidirectional: False
+    re_init: True
+
+lin: !new:speechbrain.nnet.Linear
+    input_size: !ref <rnn_neurons>
+    n_neurons: !ref <output_neurons>
+    bias: False
+
+optim:
+    optimizer: !new:torch.optim.Adam
+        params: !!python/object/apply:speechbrain.collect_params
+            - !ref <rnn>
+            - !ref <lin>
+        lr: !ref <lr>
+
+hparams:
     compute_features: !new:speechbrain.lobes.MFCC
         n_mfcc: !ref <n_mfcc>
     mean_var_norm: !new:speechbrain.processing.InputNormalization
         norm_type: global
-    rnn: !new:speechbrain.nnet.LSTM
-        input_size: !ref <n_mfcc> * 33  # d & dd = *3, 5 left & 5 right = *11
-        hidden_size: !ref <rnn_neurons>
-        num_layers: !ref <rnn_layers>
-        dropout: !ref <dropout>
-        bidirectional: False
-        re_init: True
-    lin: !new:speechbrain.nnet.Linear
-        input_size: !ref <rnn_neurons>
-        n_neurons: !ref <output_neurons>
-        bias: False
+    rnn: !ref <rnn>
+    lin: !ref <lin>
     compute_BCE_cost: !name:speechbrain.nnet.compute_masked_loss
-    optimizer: !new:torch.optim.Adam
-        params: !!python/object/apply:speechbrain.collect_params
-            - !ref <modules.rnn>
-            - !ref <modules.lin>
-        lr: !ref <lr>

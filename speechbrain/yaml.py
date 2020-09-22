@@ -15,14 +15,13 @@ import functools
 import ruamel.yaml
 import operator as op
 from io import StringIO
-from types import SimpleNamespace
 from speechbrain.utils.data_utils import recursive_update
 
 
 # NOTE: Empty dict as default parameter is fine here since overrides are never
 # modified
 def load_extended_yaml(
-    yaml_stream, overrides=None, overrides_must_match=True, return_dict=False
+    yaml_stream, overrides=None, overrides_must_match=True,
 ):
     r'''This function implements the SpeechBrain extended YAML syntax
 
@@ -38,7 +37,7 @@ def load_extended_yaml(
 
     .. code-block:: yaml
 
-        alignment_saver: !!python/object/new:speechbrain.data_io.data_io.TensorSaver
+        alignment_saver: !!python/object/new:speechbrain.data_io.TensorSaver
             kwargs: {save_dir: results/asr/ali}
 
     However, due to the extensive use within speechbrain yaml files, we have
@@ -46,7 +45,7 @@ def load_extended_yaml(
 
     .. code-block:: yaml
 
-        alignment_saver: !new:speechbrain.data_io.data_io.TensorSaver
+        alignment_saver: !new:speechbrain.data_io.TensorSaver
             save_dir: results/asr/ali
 
     In this example, the alignment_saver will be an instance of the
@@ -56,7 +55,7 @@ def load_extended_yaml(
     .. code-block:: python
 
         import speechbrain.data_io.data_io
-        alignment_saver = speechbrain.data_io.data_io.TensorSaver(
+        alignment_saver = speechbrain.data_io.TensorSaver(
             save_dir='exp/asr/ali'
         )
 
@@ -69,12 +68,13 @@ def load_extended_yaml(
 
     Allows internal references to any node in the file. Any node with
     tag ``!ref`` will create an object reference to the yaml object at the
-    ``<key.subkey>`` location within the yaml itself, following reference chains.
+    ``<key.subkey>`` location within the yaml itself,
+    following reference chains.
 
     .. code-block:: yaml
 
         output_folder: results/asr
-        alignment_saver: !new:speechbrain.data_io.data_io.TensorSaver
+        alignment_saver: !new:speechbrain.data_io.TensorSaver
             save_dir: !ref <output_folder>
 
     Strings values are handled specially: references are substituted but
@@ -84,7 +84,7 @@ def load_extended_yaml(
     .. code-block:: yaml
 
         output_folder: results/asr
-        alignment_saver: !new:speechbrain.data_io.data_io.TensorSaver
+        alignment_saver: !new:speechbrain.data_io.TensorSaver
             save_dir: !ref <output_folder>/ali  # results/asr/ali
 
     A more complex example for demonstration purposes:
@@ -133,10 +133,8 @@ def load_extended_yaml(
 
     Returns
     -------
-    SimpleNamespace
-        Namespace that reflects the structure of ``yaml_stream``. The namespace
-        provides convenient "dot" access to all the first-level items in
-        the yaml file.
+    hparams : dict
+        Reflects the structure of ``yaml_stream``.
 
     Example
     -------
@@ -146,7 +144,7 @@ def load_extended_yaml(
     ...     b: !ref <a>
     ... """
     >>> params = load_extended_yaml(yaml_string)
-    >>> params.thing
+    >>> params["thing"]
     Counter({'b': 3})
     '''
     yaml_stream = resolve_references(
@@ -163,12 +161,7 @@ def load_extended_yaml(
     yaml.Loader.add_multi_constructor("!name:", _construct_name)
     yaml.Loader.add_multi_constructor("!module:", _construct_module)
 
-    # If requested, return a dictionary as normal yaml (preserves order)
-    if return_dict:
-        return yaml.load(yaml_stream, Loader=yaml.Loader)
-
-    # Return a namespace for clean dot-notation
-    return SimpleNamespace(**yaml.load(yaml_stream, Loader=yaml.Loader))
+    return yaml.load(yaml_stream, Loader=yaml.Loader)
 
 
 def resolve_references(yaml_stream, overrides=None, overrides_must_match=False):

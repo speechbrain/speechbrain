@@ -30,7 +30,7 @@ dnn_neurons: 128
 bos: 42
 eos: 42
 
-train_loader: !new:speechbrain.DataLoaderFactory
+train_loader: !new:speechbrain.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>
     batch_size: !ref <N_batch>
     csv_read: [wav, phn]
@@ -38,7 +38,7 @@ train_loader: !new:speechbrain.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
-valid_loader: !new:speechbrain.DataLoaderFactory
+valid_loader: !new:speechbrain.data_io.DataLoaderFactory
     csv_file: !ref <csv_valid>
     batch_size: !ref <N_batch>
     csv_read: [wav, phn]
@@ -46,65 +46,71 @@ valid_loader: !new:speechbrain.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
-test_loader: !new:speechbrain.DataLoaderFactory
+test_loader: !new:speechbrain.data_io.DataLoaderFactory
     csv_file: !ref <csv_test>
     csv_read: [wav, phn]
     sentence_sorting: ascending
     replacements:
         $data_folder: !ref <data_folder>
 
-modules:
+enc: !new:speechbrain.lobes.CRDNN
+    input_shape: [null, null, 660]
+    activation: !ref <activation>
+    dropout: !ref <dropout>
+    cnn_blocks: !ref <cnn_blocks>
+    cnn_channels: !ref <cnn_channels>
+    cnn_kernelsize: !ref <cnn_kernelsize>
+    time_pooling: True
+    rnn_layers: !ref <rnn_layers>
+    rnn_neurons: !ref <rnn_neurons>
+    rnn_bidirectional: !ref <rnn_bidirectional>
+    dnn_blocks: !ref <dnn_blocks>
+    dnn_neurons: !ref <dnn_neurons>
+
+lin: !new:speechbrain.nnet.Linear
+    input_size: !ref <dnn_neurons>
+    n_neurons: 43  # 42 phonemes + 1 eos
+    bias: False
+
+emb: !new:speechbrain.nnet.Embedding
+    num_embeddings: 43  # 42 phonemes + 1 bos
+    embedding_dim: 128
+
+dec: !new:speechbrain.nnet.AttentionalRNNDecoder
+    enc_dim: 128
+    input_size: 128
+    rnn_type: gru
+    attn_type: content
+    hidden_size: !ref <rnn_neurons>
+    attn_dim: !ref <rnn_neurons>
+    num_layers: 1
+
+softmax: !new:speechbrain.nnet.Softmax
+    apply_log: True
+
+optim:
+    optimizer: !new:torch.optim.Adam
+        params: !!python/object/apply:speechbrain.collect_params [
+            !ref <enc>, !ref <lin>, !ref <emb>, !ref <dec>
+        ]
+        lr: !ref <lr>
+
+hparams:
     compute_features: !new:speechbrain.lobes.MFCC
     mean_var_norm: !new:speechbrain.processing.InputNormalization
         norm_type: global
     bos: !ref <bos>
     eos: !ref <eos>
-    enc: !new:speechbrain.lobes.CRDNN
-        input_shape: [null, null, 660]
-        activation: !ref <activation>
-        dropout: !ref <dropout>
-        cnn_blocks: !ref <cnn_blocks>
-        cnn_channels: !ref <cnn_channels>
-        cnn_kernelsize: !ref <cnn_kernelsize>
-        time_pooling: True
-        rnn_layers: !ref <rnn_layers>
-        rnn_neurons: !ref <rnn_neurons>
-        rnn_bidirectional: !ref <rnn_bidirectional>
-        dnn_blocks: !ref <dnn_blocks>
-        dnn_neurons: !ref <dnn_neurons>
-    lin: !new:speechbrain.nnet.Linear
-        input_size: !ref <dnn_neurons>
-        n_neurons: 43  # 42 phonemes + 1 eos
-        bias: False
-    emb: !new:speechbrain.nnet.Embedding
-        num_embeddings: 43  # 42 phonemes + 1 bos
-        embedding_dim: 128
-    dec: !new:speechbrain.nnet.AttentionalRNNDecoder
-        enc_dim: 128
-        input_size: 128
-        rnn_type: gru
-        attn_type: content
-        hidden_size: !ref <rnn_neurons>
-        attn_dim: !ref <rnn_neurons>
-        num_layers: 1
-    softmax: !new:speechbrain.nnet.Softmax
-        apply_log: True
+    enc: !ref <enc>
+    emb: !ref <emb>
+    dec: !ref <dec>
+    lin: !ref <lin>
+    softmax: !ref <softmax>
     searcher: !new:speechbrain.decoders.seq2seq.S2SRNNGreedySearcher
-        modules:
-            - !ref <modules.emb>
-            - !ref <modules.dec>
-            - !ref <modules.lin>
-            - !ref <modules.softmax>
+        modules: [!ref <emb>, !ref <dec>, !ref <lin>, !ref <softmax>]
         bos_index: !ref <bos>
         eos_index: !ref <eos>
         min_decode_ratio: 0
         max_decode_ratio: 0.1
     compute_cost: !name:speechbrain.nnet.nll_loss
     per_stats: !name:speechbrain.ErrorRateStats
-    optimizer: !new:torch.optim.Adam
-        params: !!python/object/apply:speechbrain.collect_params
-            - !ref <modules.enc>
-            - !ref <modules.lin>
-            - !ref <modules.emb>
-            - !ref <modules.dec>
-        lr: !ref <lr>

@@ -25,7 +25,7 @@ N_batch: 1
 lr: 0.002
 progressbar: True
 
-train_loader: !new:speechbrain.DataLoaderFactory
+train_loader: !new:speechbrain.data_io.DataLoaderFactory
     csv_file: !ref <csv_tr>
     batch_size: !ref <N_batch>
     sentence_sorting: random
@@ -33,7 +33,7 @@ train_loader: !new:speechbrain.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
-val_loader: !new:speechbrain.DataLoaderFactory
+val_loader: !new:speechbrain.data_io.DataLoaderFactory
     csv_file: !ref <csv_cv>
     batch_size: !ref <N_batch>
     sentence_sorting: random
@@ -41,7 +41,7 @@ val_loader: !new:speechbrain.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
-test_loader: !new:speechbrain.DataLoaderFactory
+test_loader: !new:speechbrain.data_io.DataLoaderFactory
     csv_file: !ref <csv_tt>
     batch_size: !ref <N_batch>
     sentence_sorting: random
@@ -49,36 +49,41 @@ test_loader: !new:speechbrain.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
-modules:
-    train_onthefly: False
-    loss_fn: 'sisnr'
-    use_tensorboard: !ref <use_tensorboard>
-    augmentation: !new:speechbrain.lobes.TimeDomainSpecAugment
-        sample_rate: 8000
-        speeds: [95, 100, 105]
-    MaskNet: !new:speechbrain.lobes.models.conv_tasnet.MaskNet
-        N: 32
-        B: 32
-        H: 32
-        P: 3
-        X: 1
-        R: 2
-        C: 2
-        norm_type: 'gLN'
-        causal: False
-        mask_nonlinear: 'relu'
-    Encoder: !new:speechbrain.lobes.models.conv_tasnet.Encoder
-        L: 21
-        N: 32
-    Decoder: !new:speechbrain.lobes.models.conv_tasnet.Decoder
-        L: 20
-        N: 32
+mask_net: !new:speechbrain.lobes.models.conv_tasnet.MaskNet
+    N: 32
+    B: 32
+    H: 32
+    P: 3
+    X: 1
+    R: 2
+    C: 2
+    norm_type: 'gLN'
+    causal: False
+    mask_nonlinear: 'relu'
+
+encoder: !new:speechbrain.lobes.models.conv_tasnet.Encoder
+    L: 21
+    N: 32
+
+decoder: !new:speechbrain.lobes.models.conv_tasnet.Decoder
+    L: 20
+    N: 32
+
+optim:
     optimizer: !new:torch.optim.Adam
         lr: !ref <lr>
         params: !!python/object/apply:speechbrain.collect_params
-            - !ref <modules.Encoder>
-            - !ref <modules.Decoder>
-            - !ref <modules.MaskNet>
+            - !ref <encoder>
+            - !ref <decoder>
+            - !ref <mask_net>
+
+hparams:
+    train_onthefly: False
+    loss_fn: 'sisnr'
+    use_tensorboard: !ref <use_tensorboard>
+    mask_net: !ref <mask_net>
+    encoder: !ref <encoder>
+    decoder: !ref <decoder>
     epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
         limit: !ref <N_epochs>
     train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger

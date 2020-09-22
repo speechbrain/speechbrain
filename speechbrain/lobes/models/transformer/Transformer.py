@@ -283,7 +283,7 @@ class TransformerEncoder(nn.Module):
     >>> import torch
     >>> x = torch.rand((8, 60, 512))
     >>> net = TransformerEncoder(1, 8, 512, embed_dim=512)
-    >>> output = net(x)
+    >>> output, _ = net(x)
     >>> output.shape
     torch.Size([8, 60, 512])
     """
@@ -356,12 +356,8 @@ class TransformerEncoder(nn.Module):
             )
             attention_lst.append(attention)
         output = self.norm(output)
-        self.attention = attention_lst
 
-        return output
-
-    def get_attention(self):
-        return self.attention
+        return output, attention_lst
 
 
 class TransformerDecoderLayer(nn.Module):
@@ -515,7 +511,7 @@ class TransformerDecoder(nn.Module):
     >>> src = torch.rand((8, 60, 512))
     >>> tgt = torch.rand((8, 60, 512))
     >>> net = TransformerDecoder(1, 8, 1024, embed_dim=512)
-    >>> output = net(src, tgt)
+    >>> output, _, _ = net(src, tgt)
     >>> output.shape
     torch.Size([8, 60, 512])
     """
@@ -587,13 +583,8 @@ class TransformerDecoder(nn.Module):
             self_attns.append(self_attn)
             multihead_attns.append(multihead_attn)
         output = self.norm(output)
-        self.self_attns = self_attns
-        self.multihead_attns = multihead_attns
 
-        return output
-
-    def get_attention(self):
-        return self.self_attns, self.multihead_attns
+        return output, self_attns, multihead_attns
 
 
 def get_key_padding_mask(padded_input, pad_idx):

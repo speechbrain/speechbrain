@@ -17,16 +17,13 @@ def test_brain():
 
     class SimpleBrain(Brain):
         def compute_forward(self, x, stage):
-            return self.model(x)
+            return self.hparams.model(x)
 
         def compute_objectives(self, predictions, targets, stage):
             return torch.nn.functional.l1_loss(predictions, targets)
 
-    brain = SimpleBrain(
-        modules={"model": model, "optimizer": SGD(model.parameters(), 0.1)},
-        optimizers=["optimizer"],
-        device="cpu",
-    )
+    optimizer = SGD(model.parameters(), 0.1)
+    brain = SimpleBrain({"model": model}, {"optim": optimizer})
 
     inputs = torch.rand(10, 10)
     targets = torch.rand(10, 10)

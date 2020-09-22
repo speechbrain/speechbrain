@@ -22,7 +22,9 @@ class Sequential(torch.nn.Module):
     *layers
         The inputs are treated as a list of layers to be
         applied in sequence. The output shape of each layer is used to
-        infer the shape of the following layer.
+        infer the shape of the following layer. If a tuple is returned,
+        only the shape of the first element is used to determine input
+        shape of the next layer (e.g. RNN returns output, hidden).
 
     Example
     -------
@@ -75,6 +77,8 @@ class Sequential(torch.nn.Module):
         # Collect shape information for next layer init
         dummy_input = torch.zeros(self.input_shape)
         dummy_output = layer(dummy_input)
+        if isinstance(dummy_output, tuple):
+            dummy_output = dummy_output[0]
         self.input_shape = dummy_output.shape
 
     def forward(self, x):
@@ -86,6 +90,8 @@ class Sequential(torch.nn.Module):
         """
         for layer in self.layers:
             x = layer(x)
+            if isinstance(x, tuple):
+                x = x[0]
 
         return x
 

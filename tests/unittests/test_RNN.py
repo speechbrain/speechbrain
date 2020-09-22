@@ -22,13 +22,11 @@ def test_RNN():
         num_layers=2,
         bidirectional=False,
     )
-    output = net(inputs)
-    hn = net.get_hidden()
+    output, hn = net(inputs)
     output_l = []
     hn_t = None
     for t in range(inputs.shape[1]):
-        out_t = net(inputs[:, t, :].unsqueeze(1), hn_t)
-        hn_t = net.get_hidden()
+        out_t, hn_t = net(inputs[:, t, :].unsqueeze(1), hn_t)
         output_l.append(out_t.squeeze(1))
 
     out_steps = torch.stack(output_l, dim=1)
@@ -47,13 +45,11 @@ def test_RNN():
         num_layers=2,
         bidirectional=False,
     )
-    output = net(inputs)
-    hn = net.get_hidden()
+    output, hn = net(inputs)
     output_l = []
     hn_t = None
     for t in range(inputs.shape[1]):
-        out_t = net(inputs[:, t, :].unsqueeze(1), hn_t)
-        hn_t = net.get_hidden()
+        out_t, hn_t = net(inputs[:, t, :].unsqueeze(1), hn_t)
         output_l.append(out_t.squeeze(1))
 
     out_steps = torch.stack(output_l, dim=1)
@@ -72,13 +68,11 @@ def test_RNN():
         num_layers=2,
         bidirectional=False,
     )
-    output = net(inputs)
-    hn = net.get_hidden()
+    output, hn = net(inputs)
     output_l = []
     hn_t = None
     for t in range(inputs.shape[1]):
-        out_t = net(inputs[:, t, :].unsqueeze(1), hn_t)
-        hn_t = net.get_hidden()
+        out_t, hn_t = net(inputs[:, t, :].unsqueeze(1), hn_t)
         output_l.append(out_t.squeeze(1))
 
     out_steps = torch.stack(output_l, dim=1)
@@ -99,11 +93,6 @@ def test_RNN():
         normalization="layernorm",
     )
 
-    output = net(inputs)
-    assert output.shape[-1] == 5
-
-    """
-    # CAN'T RETURN HIDDEN STATE ONLY SOMETIMES DUE TO JIT
     output, hn = net(inputs)
     output_l = []
     hn_t = None
@@ -119,7 +108,6 @@ def test_RNN():
     assert torch.all(torch.lt(torch.add(hn_t[0], -hn[0]), 1e-3)) and torch.all(
         torch.lt(torch.add(hn_t[1], -hn[1]), 1e-3)
     ), "LiGRU hidden states mismatch"
-    """
 
     # Check QuasiRNN
     inputs = torch.randn(1, 2, 2)
@@ -130,13 +118,11 @@ def test_RNN():
         bidirectional=False,
     )
 
-    output = net(inputs)
-    hn = net.get_hidden()
+    output, hn = net(inputs)
     output_l = []
     hn_t = None
     for t in range(inputs.shape[1]):
-        out_t = net(inputs[:, t, :].unsqueeze(1), hn_t)
-        hn_t = net.get_hidden()
+        out_t, hn_t = net(inputs[:, t, :].unsqueeze(1), hn_t)
         output_l.append(out_t.squeeze(1))
 
     out_steps = torch.stack(output_l, dim=1)

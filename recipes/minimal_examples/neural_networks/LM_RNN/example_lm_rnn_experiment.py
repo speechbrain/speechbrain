@@ -4,16 +4,13 @@ import math
 import torch
 import speechbrain as sb
 
-from speechbrain.data_io.data_io import prepend_bos_token
-from speechbrain.data_io.data_io import append_eos_token
-
 
 class LMBrain(sb.Brain):
     def compute_forward(self, y, stage):
         ids, phns, phn_lens = y
-        y_in = prepend_bos_token(phns, bos_index=self.bos_index)
-        logits = self.model(y_in)
-        pout = self.log_softmax(logits)
+        y_in = sb.data_io.prepend_bos_token(phns, self.hparams.bos_index)
+        logits = self.hparams.model(y_in)
+        pout = self.hparams.log_softmax(logits)
         return pout
 
     def compute_objectives(self, predictions, targets, stage):
@@ -23,25 +20,23 @@ class LMBrain(sb.Brain):
         abs_length = torch.round(phn_lens * phns.shape[1])
 
         # Append eos token at the end of the label sequences
-        phns_with_eos = append_eos_token(
-            phns, length=abs_length, eos_index=self.eos_index
+        phns_with_eos = sb.data_io.append_eos_token(
+            phns, length=abs_length, eos_index=self.hparams.eos_index
         )
 
         # convert to speechbrain-style relative length
         rel_length = (abs_length + 1) / phns_with_eos.shape[1]
-        loss = self.compute_cost(pout, phns_with_eos, length=rel_length)
+        loss = self.hparams.compute_cost(pout, phns_with_eos, length=rel_length)
 
         return loss
 
     def fit_batch(self, batch):
-        for optimizer_name in self.optimizers:
-            optimizer = getattr(self, optimizer_name)
-            inputs = batch[0]
-            predictions = self.compute_forward(inputs, sb.Stage.TRAIN)
-            loss = self.compute_objectives(predictions, inputs, sb.Stage.TRAIN)
-            loss.backward()
-            optimizer.step()
-            optimizer.zero_grad()
+        inputs = batch[0]
+        predictions = self.compute_forward(inputs, sb.Stage.TRAIN)
+        loss = self.compute_objectives(predictions, inputs, sb.Stage.TRAIN)
+        loss.backward()
+        self.optim.optimizer.step()
+        self.optim.optimizer.zero_grad()
         return loss.detach()
 
     def evaluate_batch(self, batch, stage=sb.Stage.TEST):
@@ -64,21 +59,19 @@ class LMBrain(sb.Brain):
 
 def main():
     experiment_dir = os.path.dirname(os.path.realpath(__file__))
-    hyperparams_file = os.path.join(experiment_dir, "hyperparams.yaml")
+    hparams_file = os.path.join(experiment_dir, "hyperparams.yaml")
     data_folder = "../../../../samples/audio_samples/nn_training_samples"
     data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
-    with open(hyperparams_file) as fin:
-        hyperparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
+    with open(hparams_file) as fin:
+        hparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
 
-    lm_brain = LMBrain(
-        modules=hyperparams.modules, optimizers=["optimizer"], device="cpu",
-    )
+    lm_brain = LMBrain(hparams["hparams"], hparams["optim"])
     lm_brain.fit(
-        hyperparams.epoch_counter,
-        hyperparams.train_loader(),
-        hyperparams.valid_loader(),
+        lm_brain.hparams.epoch_counter,
+        hparams["train_loader"](),
+        hparams["valid_loader"](),
     )
-    lm_brain.evaluate(hyperparams.test_loader())
+    lm_brain.evaluate(hparams["test_loader"]())
 
     # Check that model overfits for an integration test
     assert lm_brain.train_loss < 0.15

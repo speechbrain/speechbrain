@@ -185,7 +185,8 @@ class Pooling2d(nn.Module):
         # [a,1,c,d,b,1] => [a,1,1,d,b,c]
         # [a,1,1,d,b,c] => [a,d,b,c]
         x = (
-            x.reshape(*x.shape, 1, 1)
+            x.unsqueeze(-1)
+            .unsqueeze(-1)
             .transpose(-2, self.pool_axis[0])
             .transpose(-1, self.pool_axis[1])
             .squeeze(self.pool_axis[1])
