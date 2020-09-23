@@ -18,6 +18,9 @@ import torch.nn.functional as F
 import sys
 import itertools as it
 
+# from torch.optim.lr_scheduler import ReduceLROnPlateau
+
+
 # from speechbrain.processing.signal_processing import overlap_and_add
 
 experiment_dir = os.path.dirname(os.path.realpath(__file__))
@@ -69,6 +72,9 @@ if params.use_tensorboard:
     from speechbrain.utils.train_logger import TensorboardLogger
 
     train_logger = TensorboardLogger(params.tensorboard_logs)
+
+# lr_scheduler = ReduceLROnPlateau(params.optimizer, mode='max',
+#                                 min_lr=1e-8, patience=2, factor=0.5)
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -166,6 +172,9 @@ class CTN_Brain(sb.core.Brain):
         loss = self.compute_objectives(predictions, targets)
 
         loss.backward()
+
+        torch.nn.utils.clip_grad_norm_(self.modules.parameters(), 5.0)
+
         self.optimizer.step()
         self.optimizer.zero_grad()
         return {"loss": loss.detach()}
@@ -183,11 +192,17 @@ class CTN_Brain(sb.core.Brain):
     def on_epoch_end(self, epoch, train_stats, valid_stats):
 
         av_loss = summarize_average(valid_stats["loss"])
+        current_lr, next_lr = params.lr_scheduler(
+            [params.optimizer], epoch, av_loss
+        )
         # if params.use_tensorboard:
         train_logger.log_stats({"Epoch": epoch}, train_stats, valid_stats)
         print("Completed epoch %d" % epoch)
         print("Train SI-SNR: %.3f" % -summarize_average(train_stats["loss"]))
         print("Valid SI-SNR: %.3f" % -summarize_average(valid_stats["loss"]))
+        print(
+            "Current LR {} New LR on next epoch {}".format(current_lr, next_lr)
+        )
 
         params.checkpointer.save_and_keep_only(
             meta={"av_loss": av_loss},
