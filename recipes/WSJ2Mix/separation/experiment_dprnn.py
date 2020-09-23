@@ -7,6 +7,7 @@ Author:
     * Cem Subakan 2020
 """
 import argparse
+import logging
 import os
 import speechbrain as sb
 from recipes.minimal_examples.neural_networks.separation.example_conv_tasnet import (
@@ -19,6 +20,8 @@ from speechbrain.nnet.losses import get_si_snr_with_pitwrapper
 
 import torch.nn.functional as F
 import itertools as it
+
+logger = logging.getLogger(__name__)
 
 
 def split_overlapping_chunks(tensor, chunk_len=200, overlap_rate=0.5, dim=1):
@@ -136,9 +139,13 @@ class CTNBrain(sb.core.Brain):
         # if params.use_tensorboard:
         train_logger = TensorboardLogger(self.params.tensorboard_logs)
         train_logger.log_stats({"Epoch": epoch}, train_stats, valid_stats)
-        print("Completed epoch %d" % epoch)
-        print("Train SI-SNR: %.3f" % -summarize_average(train_stats["loss"]))
-        print("Valid SI-SNR: %.3f" % -summarize_average(valid_stats["loss"]))
+        logger.info("Completed epoch %d" % epoch)
+        logger.info(
+            "Train SI-SNR: %.3f" % -summarize_average(train_stats["loss"])
+        )
+        logger.info(
+            "Valid SI-SNR: %.3f" % -summarize_average(valid_stats["loss"])
+        )
 
         self.param.checkpointer.save_and_keep_only(
             meta={"av_loss": av_loss},
@@ -155,6 +162,8 @@ def main():
         action="store_true",
     )
     args = parser.parse_args()
+
+    logging.basicConfig(level=logging.INFO)
 
     experiment_dir = os.path.dirname(os.path.realpath(__file__))
 
@@ -204,7 +213,7 @@ def main():
                 params = sb.yaml.load_extended_yaml(
                     fin, {"tr_csv": tr_csv, "cv_csv": cv_csv, "tt_csv": tt_csv}
                 )
-            # print(params)  # if needed this line can be uncommented for logging
+            # logger.info(params)  # if needed this line can be uncommented for logging
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -232,7 +241,7 @@ def main():
     )
 
     test_stats = ctn.evaluate(test_loader)
-    print("Test SI-SNR: %.3f" % -summarize_average(test_stats["loss"]))
+    logger.info("Test SI-SNR: %.3f" % -summarize_average(test_stats["loss"]))
 
 
 if __name__ == "__main__":
