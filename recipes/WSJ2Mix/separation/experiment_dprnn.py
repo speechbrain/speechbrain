@@ -137,7 +137,7 @@ class CTNBrain(sb.core.Brain):
 
         av_loss = summarize_average(valid_stats["loss"])
         # if params.use_tensorboard:
-        train_logger = TensorboardLogger(self.params.tensorboard_logs)
+        train_logger = TensorboardLogger(self.param.tensorboard_logs)
         train_logger.log_stats({"Epoch": epoch}, train_stats, valid_stats)
         logger.info("Completed epoch %d" % epoch)
         logger.info(
