@@ -251,9 +251,12 @@ if __name__ == "__main__":
     hparams["hparams"]["index2lab"] = ind2lab
     hparams["hparams"]["bpe_tokenizer"] = bpe_tokenizer
 
-    # Use list of keys to pass args from yaml to ASR()
-    keys = ["hparams", "optim", "device", "ddp_procs"]
-    asr_brain = ASR(**{key: hparams[key] for key in keys})
+    asr_brain = ASR(
+        hparams=hparams["hparams"],
+        optim=hparams["optim"],
+        device=hparams["device"],
+        ddp_procs=hparams["ddp_procs"],
+    )
 
     # Load latest checkpoint to resume training
     asr_brain.load_tokenizer()

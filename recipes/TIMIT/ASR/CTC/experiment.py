@@ -137,10 +137,13 @@ if __name__ == "__main__":
     ind2lab = hparams["train_loader"].label_dict["phn"]["index2lab"]
     hparams["hparams"]["ind2lab"] = ind2lab
 
-    # Since arguments to ASR_Brain are named the same in YAML, we can
-    # just use a list to pass them.
-    keys = ["hparams", "optim", "jit_modules", "device", "ddp_procs"]
-    asr_brain = ASR_Brain(**{key: hparams[key] for key in keys})
+    asr_brain = ASR_Brain(
+        hparams=hparams["hparams"],
+        optim=hparams["optim"],
+        jit_modules=hparams["jit_modules"],
+        device=hparams["device"],
+        ddp_procs=hparams["ddp_procs"],
+    )
 
     # Load latest checkpoint to resume training
     asr_brain.hparams.checkpointer.recover_if_possible()
