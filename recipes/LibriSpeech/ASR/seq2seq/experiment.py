@@ -162,7 +162,7 @@ class ASR(sb.Brain):
                 train_stats=self.train_stats,
                 valid_stats=stage_stats,
             )
-            self.checkpointer.save_and_keep_only(
+            self.hparams.checkpointer.save_and_keep_only(
                 meta={"WER": stage_stats["WER"]}, min_keys=["WER"],
             )
         elif stage == sb.Stage.TEST:
