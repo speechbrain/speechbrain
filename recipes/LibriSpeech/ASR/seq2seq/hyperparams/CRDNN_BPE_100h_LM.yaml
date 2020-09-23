@@ -170,14 +170,18 @@ lm_model: !new:speechbrain.lobes.RNNLM
     return_hidden: True  # For inference
 
 greedy_searcher: !new:speechbrain.decoders.S2SRNNGreedySearcher
-    modules: [!ref <emb>, !ref <dec>, !ref <seq_lin>]
+    embedding: !ref <emb>
+    decoder: !ref <dec>
+    linear: !ref <seq_lin>
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
 
 beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearchLM
-    modules: [!ref <emb>, !ref <dec>, !ref <seq_lin>, !ref <lm_model>]
+    embedding: !ref <emb>
+    decoder: !ref <dec>
+    linear: !ref <seq_lin>
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
     min_decode_ratio: !ref <min_decode_ratio>
