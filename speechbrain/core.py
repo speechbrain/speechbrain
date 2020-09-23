@@ -197,6 +197,7 @@ def ddp_init(rank, brain, args):
     # Wrap modules with DDP
     for name, hparam in brain.hparams.__dict__.items():
         if isinstance(hparam, torch.nn.Module):
+            hparam = hparam.to(rank)
             if any(p.requires_grad for p in hparam.parameters()):
                 hparam = DDP(hparam, device_ids=[rank])
                 setattr(brain.hparams, name, hparam)
@@ -294,7 +295,8 @@ class Brain:
         modulelist = []
 
         # Make optimizer accessible with simple "dot" notation
-        self.optim = SimpleNamespace(**optim)
+        if optim is not None:
+            self.optim = SimpleNamespace(**optim)
 
         # Put modules onto correct device
         for name, hparam in hparams.items():
@@ -324,9 +326,10 @@ class Brain:
         total_params = sum(
             p.numel() for p in self.modules.parameters() if p.requires_grad
         )
-        clsname = self.__class__.__name__
-        fmt_num = sb.format_order_of_magnitude(total_params)
-        logger.info(f"{fmt_num} trainable parameters in {clsname}")
+        if total_params > 0:
+            clsname = self.__class__.__name__
+            fmt_num = sb.format_order_of_magnitude(total_params)
+            logger.info(f"{fmt_num} trainable parameters in {clsname}")
 
     def compute_forward(self, x, stage):
         """Forward pass, to be overridden by sub-classes.
@@ -509,7 +512,7 @@ class Brain:
             avg_train_loss = 0.0
 
             # Only show progressbar if requested and root_process
-            disable = not progressbar and not self.root_process
+            disable = not (progressbar and self.root_process)
             with tqdm(train_set, dynamic_ncols=True, disable=disable) as t:
                 for i, batch in enumerate(t):
                     if (
