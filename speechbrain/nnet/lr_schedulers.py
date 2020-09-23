@@ -512,9 +512,7 @@ class CustomLRScheduler:
 
 @checkpoints.register_checkpoint_hooks
 class ReduceLROnPlateau:
-    """Learning rate scheduler with linear annealing technique.
-     The learning rate linearly decays over the epochs between lr_initial
-     and lr_final.
+    """Learning rate scheduler which decreases the learning rate if the loss function of interest gets stuck on a plateau, or starts to increase. .
     Arguments
     ---------
     lr_min: float
