@@ -189,7 +189,7 @@ def main():
             ):
                 from recipes.WSJ2Mix.prepare_data import create_wsj_csv
 
-            create_wsj_csv(data_save_dir, params.save_folder)
+                create_wsj_csv(data_save_dir, params.save_folder)
 
             tr_csv = os.path.realpath(
                 os.path.join(experiment_dir, params.save_folder + "/wsj_tr.csv")
