@@ -8,7 +8,7 @@ from speechbrain.data_io.data_io import write_wav_soundfile
 from speechbrain.processing.features import spectral_magnitude
 
 
-class NMF_Brain(sb.core.Brain):
+class NMF_Brain(sb.Brain):
     """
     This class implements Non-Negative Matrix Factorization for source
     separation as described in
@@ -21,14 +21,14 @@ class NMF_Brain(sb.core.Brain):
     Author: Cem Subakan; Mila, Quebec AI Institute
     """
 
-    def __init__(self, loader, hyperparams):
-        # over riding the init of Brain class, as we don't deal with neural nets in NMF.
-        self.hyperparams = hyperparams
-        self.init_matrices(loader)
-        self.modules = torch.nn.ModuleList([])
-        self.avg_train_loss = 0.0
-        self.jit_modules = []
-        self.device = "cpu"
+    # def __init__(self, loader, hyperparams):
+    #    # over riding the init of Brain class, as we don't deal with neural nets in NMF.
+    #    self.hyperparams = hyperparams
+    #    self.init_matrices(loader)
+    #    self.modules = torch.nn.ModuleList([])
+    #    self.avg_train_loss = 0.0
+    #    self.jit_modules = []
+    #    self.device = "cpu"
 
     def init_matrices(self, train_loader):
         """
@@ -36,16 +36,16 @@ class NMF_Brain(sb.core.Brain):
         """
 
         X = list(train_loader)[0]
-        X = self.hyperparams.compute_features(X[0][1])
+        X = self.hparams.compute_features(X[0][1])
         X = spectral_magnitude(X, power=2)
         n = X.shape[0] * X.shape[1]
 
         # initialize
         eps = 1e-20
-        w = 0.1 * torch.rand(self.hyperparams.m, self.hyperparams.K) + 1
+        w = 0.1 * torch.rand(self.hparams.m, self.hparams.K) + 1
         self.w = w / torch.sum(w, dim=0) + eps
 
-        h = 0.1 * torch.rand(self.hyperparams.K, n) + 1
+        h = 0.1 * torch.rand(self.hparams.K, n) + 1
         self.h = h / torch.sum(h, dim=0) + eps
 
     def compute_forward(self, X, init_params=False):
@@ -60,7 +60,7 @@ class NMF_Brain(sb.core.Brain):
             than return the results of the forward pass.
         """
 
-        X = self.hyperparams.compute_features(X[0][1])
+        X = self.hparams.compute_features(X[0][1])
         X = spectral_magnitude(X, power=2)
 
         # concatenate all the inputs
@@ -109,43 +109,43 @@ def main():
     data_folder = "../../../../samples/audio_samples/sourcesep_samples"
     data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
     with open(hyperparams_file) as fin:
-        hyperparams = sb.yaml.load_extended_yaml(
-            fin, {"data_folder": data_folder}
-        )
+        hyperparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
 
-    sb.core.create_experiment_directory(
-        experiment_directory=hyperparams.output_folder,
+    sb.create_experiment_directory(
+        experiment_directory=hyperparams["output_folder"],
         hyperparams_to_save=hyperparams_file,
     )
     torch.manual_seed(0)
 
-    NMF1 = NMF_Brain(hyperparams.train_loader1(), hyperparams)
+    NMF1 = NMF_Brain(hyperparams["hparams"])
+    NMF1.init_matrices(hyperparams["train_loader1"]())
 
     print("fitting model 1")
     NMF1.fit(
-        train_set=hyperparams.train_loader1(),
+        train_set=hyperparams["train_loader1"](),
         valid_set=None,
-        epoch_counter=range(hyperparams.N_epochs),
+        epoch_counter=range(hyperparams["N_epochs"]),
         progressbar=False,
     )
     W1hat = NMF1.training_out[1]
 
-    NMF2 = NMF_Brain(hyperparams.train_loader2(), hyperparams)
+    NMF2 = NMF_Brain(hyperparams["hparams"])
+    NMF2.init_matrices(hyperparams["train_loader2"]())
 
     print("fitting model 2")
     NMF2.fit(
-        train_set=hyperparams.train_loader2(),
+        train_set=hyperparams["train_loader2"](),
         valid_set=None,
-        epoch_counter=range(hyperparams.N_epochs),
+        epoch_counter=range(hyperparams["N_epochs"]),
         progressbar=False,
     )
     W2hat = NMF2.training_out[1]
 
     # separate
-    mixture_loader = hyperparams.test_loader()
+    mixture_loader = hyperparams["test_loader"]()
     Xmix = list(mixture_loader)[0]
 
-    Xmix = hyperparams.compute_features(Xmix[0][1])
+    Xmix = NMF1.hparams.compute_features(Xmix[0][1])
     Xmix_mag = spectral_magnitude(Xmix, power=2)
 
     X1hat, X2hat = sb_nmf.NMF_separate_spectra([W1hat, W2hat], Xmix_mag)
@@ -154,15 +154,15 @@ def main():
         X1hat,
         X2hat,
         Xmix.permute(0, 2, 1, 3),
-        hyperparams.sample_rate,
-        hyperparams.win_length,
-        hyperparams.hop_length,
+        hyperparams["sample_rate"],
+        hyperparams["win_length"],
+        hyperparams["hop_length"],
     )
 
     # Fill in some check here, comparing x1 and x2 to some expected result
     assert True
 
-    if hyperparams.save_reconstructed:
+    if hyperparams["save_reconstructed"]:
         savepath = "results/save/"
         if not os.path.exists("results"):
             os.mkdir("results")
@@ -182,7 +182,7 @@ def main():
                 16000,
             )
 
-        if hyperparams.copy_original_files:
+        if hyperparams["copy_original_files"]:
             datapath = "samples/audio_samples/sourcesep_samples"
 
         filedir = os.path.dirname(os.path.realpath(__file__))
