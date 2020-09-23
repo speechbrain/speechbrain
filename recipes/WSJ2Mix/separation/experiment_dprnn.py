@@ -21,6 +21,7 @@ from speechbrain.nnet.losses import get_si_snr_with_pitwrapper
 import torch.nn.functional as F
 import itertools as it
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -140,6 +141,9 @@ class CTNBrain(sb.core.Brain):
     def on_epoch_end(self, epoch, train_stats, valid_stats):
 
         av_loss = summarize_average(valid_stats["loss"])
+        current_lr, next_lr = self.param.lr_scheduler(
+            [self.param.optimizer], epoch, av_loss
+        )
         # if params.use_tensorboard:
         train_logger = TensorboardLogger(self.param.tensorboard_logs)
         train_logger.log_stats({"Epoch": epoch}, train_stats, valid_stats)
@@ -149,6 +153,9 @@ class CTNBrain(sb.core.Brain):
         )
         logger.info(
             "Valid SI-SNR: %.3f" % -summarize_average(valid_stats["loss"])
+        )
+        logger.info(
+            "Current LR {} New LR on next epoch {}".format(current_lr, next_lr)
         )
 
         self.param.checkpointer.save_and_keep_only(

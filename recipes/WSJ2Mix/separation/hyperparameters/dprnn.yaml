@@ -18,8 +18,8 @@ data_folder: ../../../samples/audio_samples/sourcesep_samples
 
 # Neural Parameters
 N_epochs: 100
-N_batch: 1
-lr: 0.0002
+N_batch: 8
+lr: 0.0005
 train_onthefly: False
 loss_fn: 'sisnr'
 progressbar: True
@@ -36,30 +36,33 @@ wsj0mixpath: '/network/tmp1/subakany/wsj0-mix/2speakers/'
 tr_csv: 'wsj_tr.csv'
 cv_csv: 'wsj_cv.csv'
 tt_csv: 'wsj_tt.csv'
+sentence_sorting: 'descending'
 
 train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <tr_csv>
     batch_size: !ref <N_batch>
-    sentence_sorting: ascending
+    sentence_sorting: !ref <sentence_sorting>
     csv_read: [mix_wav, s1_wav, s2_wav]
 
 val_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <cv_csv>
     batch_size: !ref <N_batch>
-    sentence_sorting: ascending
+    sentence_sorting: !ref <sentence_sorting>
     csv_read: [mix_wav, s1_wav, s2_wav]
 
 test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <tt_csv>
     batch_size: !ref <N_batch>
-    sentence_sorting: ascending
+    sentence_sorting: !ref <sentence_sorting>
     csv_read: [mix_wav, s1_wav, s2_wav]
 
-augmentation: !new:speechbrain.lobes.augment.tdsa.TimeDomainSpecAugment
-    sample_rate: 8000
-    speeds: [95, 100, 105]
+    # augmentation: !new:speechbrain.lobes.augment.tdsa.TimeDomainSpecAugment
+    # sample_rate: 8000
+    # speeds: [95, 100, 105]
 
 N_encoder_out: 64
+kernel_size: 16
+kernel_stride: 8
 
 #Dual_Path_RNN:
 #  in_channels: 256
@@ -76,7 +79,7 @@ N_encoder_out: 64
 
 
 Encoder: !new:speechbrain.lobes.models.dual_pathrnn.Encoder
-    kernel_size: 2
+    kernel_size: !ref <kernel_size>
     out_channels: !ref <N_encoder_out>
 
 MaskNet: !new:speechbrain.lobes.models.dual_pathrnn.Dual_Path_RNN
@@ -88,18 +91,22 @@ MaskNet: !new:speechbrain.lobes.models.dual_pathrnn.Dual_Path_RNN
     dropout: 0
     bidirectional: True
     num_layers: 6
-    K: 200
+    K: 100
 
 
 Decoder: !new:speechbrain.lobes.models.dual_pathrnn.Decoder
     in_channels: !ref <N_encoder_out>
     out_channels: 1
-    kernel_size: 2
-    stride: 1
+    kernel_size: !ref <kernel_size>
+    stride: !ref <kernel_stride>
     bias: False
 
 optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
     learning_rate: !ref <lr>
+
+lr_scheduler: !new:speechbrain.nnet.lr_schedulers.ReduceLROnPlateau
+    factor: 0.5
+    patience: 2
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <N_epochs>
