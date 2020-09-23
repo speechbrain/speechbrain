@@ -112,15 +112,19 @@ if __name__ == "__main__":
         splits=["train-clean-100", "dev-clean", "test-clean"],
         save_folder=hparams["data_folder"],
     )
+
+    asr_brain = ASR(
+        hparams=hparams["hparams"],
+        optim=hparams["optim"],
+        jit_modules=hparams["jit_modules"],
+        device=hparams["device"],
+        ddp_procs=hparams["ddp_procs"],
+    )
+
     train_set = hparams["train_loader"]()
     valid_set = hparams["valid_loader"]()
     ind2lab = hparams["train_loader"].label_dict["char"]["index2lab"]
-    hparams["hparams"]["ind2lab"] = ind2lab
-
-    # The arguments to ASR have the same name in YAML, so we can
-    # just use the list of arguments to pass them.
-    keys = ["hparams", "optim", "jit_modules", "device"]
-    asr_brain = ASR(**{k: hparams[k] for k in keys})
+    asr_brain.hparams.ind2lab = ind2lab
 
     # Load latest checkpoint to resume training
     asr_brain.hparams.checkpointer.recover_if_possible()
