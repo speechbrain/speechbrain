@@ -166,15 +166,12 @@ def main():
             os.path.dirname(os.path.realpath(__file__)) + "/" + args.config,
         )
     else:
-        params_file = args.config
+        params_file = os.path.join(experiment_dir, args.config)
         with open(params_file) as fin:
             params = sb.yaml.load_extended_yaml(fin)
 
             # this points to the folder to which we will save the wsj0-mix dataset
             data_save_dir = params.wsj0mixpath
-            import pdb
-
-            pdb.set_trace()
 
             # if the dataset is not present, we create the dataset
             if not os.path.exists(data_save_dir):
