@@ -136,10 +136,10 @@ class ASR(sb.Brain):
 
     def on_stage_start(self, stage, epoch=None):
         if stage != sb.Stage.TRAIN:
-            self.cer_metric = self.cer_computer()
-            self.wer_metric = self.error_rate_computer()
-            if self.ter_eval:
-                self.ter_metric = self.error_rate_computer()
+            self.cer_metric = self.hparams.cer_computer()
+            self.wer_metric = self.hparams.error_rate_computer()
+            if self.hparams.ter_eval:
+                self.ter_metric = self.hparams.error_rate_computer()
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
 
@@ -150,7 +150,7 @@ class ASR(sb.Brain):
         else:
             stage_stats["CER"] = self.cer_metric.summarize("error_rate")
             stage_stats["WER"] = self.wer_metric.summarize("error_rate")
-            if self.ter_eval:
+            if self.hparams.ter_eval:
                 stage_stats["TER"] = self.ter_metric.summarize("error_rate")
 
         # Perform end-of-iteration things, like annealing, logging, etc.
@@ -166,11 +166,11 @@ class ASR(sb.Brain):
                 meta={"WER": stage_stats["WER"]}, min_keys=["WER"],
             )
         elif stage == sb.Stage.TEST:
-            self.train_logger.log_stats(
-                stats_meta={"Epoch loaded": self.epoch_counter.current},
+            self.hparams.train_logger.log_stats(
+                stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
-            with open(self.wer_file, "w") as w:
+            with open(self.hparams.wer_file, "w") as w:
                 self.wer_metric.write_stats(w)
 
     def load_tokenizer(self):
@@ -184,6 +184,7 @@ class ASR(sb.Brain):
                 replace_existing=True,
             )
             self.hparams.bpe_tokenizer.sp.load(save_model_path)
+
         if hasattr(self.hparams, "tok_voc_file"):
             download_file(
                 source=self.hparams.tok_voc_file,
@@ -260,6 +261,7 @@ if __name__ == "__main__":
     asr_brain.fit(asr_brain.hparams.epoch_counter, train_set, valid_set)
 
     # Load best checkpoint for evaluation
+    asr_brain.load_tokenizer()
     asr_brain.hparams.checkpointer.recover_if_possible(min_key="WER")
     if hasattr(asr_brain.hparams, "lm_ckpt_file"):
         asr_brain.load_lm()

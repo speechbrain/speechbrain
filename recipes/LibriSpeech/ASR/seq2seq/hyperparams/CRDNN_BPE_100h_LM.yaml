@@ -6,7 +6,7 @@
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 1234
+seed: 7
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/CRDNN_BPE_100h_LM/<seed>
 wer_file: !ref <output_folder>/wer.txt
@@ -201,6 +201,7 @@ hparams:
     tok_mdl_file: !ref <tok_mdl_file>
     tok_voc_file: !ref <tok_voc_file>
     lm_ckpt_file: !ref <lm_ckpt_file>
+    lm_model: !ref <lm_model>
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
     ctc_weight: !ref <ctc_weight>
