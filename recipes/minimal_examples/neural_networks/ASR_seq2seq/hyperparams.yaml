@@ -107,7 +107,9 @@ hparams:
     lin: !ref <lin>
     softmax: !ref <softmax>
     searcher: !new:speechbrain.decoders.seq2seq.S2SRNNGreedySearcher
-        modules: [!ref <emb>, !ref <dec>, !ref <lin>, !ref <softmax>]
+        embedding: !ref <emb>
+        decoder: !ref <dec>
+        linear: !ref <lin>
         bos_index: !ref <bos>
         eos_index: !ref <eos>
         min_decode_ratio: 0
