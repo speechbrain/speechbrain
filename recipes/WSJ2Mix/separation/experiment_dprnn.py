@@ -181,8 +181,8 @@ def main():
     # os.path.dirname(os.path.realpath(__file__)) + "/../../../s.path.dirname(os.path.realpath(__file__)) + "/../../../
     if args.minimal:
         params = create_minimal_data(
-            "/home/cem/speechbrain",
-            os.path.dirname(os.path.realpath(__file__)) + "/" + args.config,
+            os.path.dirname(os.path.realpath(__file__)) + "/../../../",
+            args.config,
         )
     else:
         params_file = os.path.join(experiment_dir, args.config)
