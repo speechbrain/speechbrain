@@ -40,12 +40,16 @@ train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     batch_size: !ref <N_batch>
     sentence_sorting: ascending
     csv_read: [mix_wav, s1_wav, s2_wav]
+    replacements:
+        $data_folder: !ref <data_folder>
 
 val_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <cv_csv>
     batch_size: !ref <N_batch>
     sentence_sorting: ascending
     csv_read: [mix_wav, s1_wav, s2_wav]
+    replacements:
+        $data_folder: !ref <data_folder>
 
 test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <tt_csv>

@@ -17,19 +17,19 @@ from speechbrain.nnet.losses import get_si_snr_with_pitwrapper
 
 
 def create_minimal_data(repository_folder, config_file_path):
-    csv_tr = os.path.realpath(
+    tr_csv = os.path.realpath(
         os.path.join(
             repository_folder,
             "samples/audio_samples/sourcesep_samples/minimal_example_convtasnet_tr.csv",
         )
     )
-    csv_cv = os.path.realpath(
+    cv_csv = os.path.realpath(
         os.path.join(
             repository_folder,
             "samples/audio_samples/sourcesep_samples/minimal_example_convtasnet_cv.csv",
         )
     )
-    csv_tt = os.path.realpath(
+    tt_csv = os.path.realpath(
         os.path.join(
             repository_folder,
             "samples/audio_samples/sourcesep_samples/minimal_example_convtasnet_tt.csv",
@@ -44,28 +44,12 @@ def create_minimal_data(repository_folder, config_file_path):
             fin,
             {
                 "data_folder": data_folder,
-                "csv_tr": csv_tr,
-                "csv_cv": csv_cv,
-                "csv_tt": csv_tt,
+                "tr_csv": tr_csv,
+                "cv_csv": cv_csv,
+                "tt_csv": tt_csv,
             },
         )
     return params
-
-
-repository_folder = (
-    os.path.dirname(os.path.realpath(__file__)) + "/../../../../"
-)
-params = create_minimal_data(
-    repository_folder,
-    os.path.join(os.path.dirname(os.path.realpath(__file__)), "params.yaml"),
-)
-
-if params.use_tensorboard:
-    from speechbrain.utils.train_logger import TensorboardLogger
-
-    train_logger = TensorboardLogger(params.tensorboard_logs)
-
-device = "cuda" if torch.cuda.is_available() else "cpu"
 
 
 class CTN_Brain(sb.core.Brain):
@@ -158,6 +142,23 @@ class CTN_Brain(sb.core.Brain):
 
 
 if __name__ == "__main__":
+
+    repository_folder = (
+        os.path.dirname(os.path.realpath(__file__)) + "/../../../../"
+    )
+    params = create_minimal_data(
+        repository_folder,
+        os.path.join(
+            os.path.dirname(os.path.realpath(__file__)), "params.yaml"
+        ),
+    )
+
+    if params.use_tensorboard:
+        from speechbrain.utils.train_logger import TensorboardLogger
+
+        train_logger = TensorboardLogger(params.tensorboard_logs)
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
 
     train_loader = params.train_loader()
     val_loader = params.val_loader()
