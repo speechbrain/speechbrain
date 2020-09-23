@@ -15,48 +15,41 @@ from speechbrain.utils.checkpoints import ckpt_recency
 import torch.nn.functional as F
 from speechbrain.nnet.losses import get_si_snr_with_pitwrapper
 
-experiment_dir = os.path.dirname(os.path.realpath(__file__))
-params_file = os.path.join(experiment_dir, "params.yaml")
 
-csv_tr = os.path.realpath(
-    os.path.join(
-        experiment_dir,
-        "../../../../samples/audio_samples/sourcesep_samples/minimal_example_convtasnet_tr.csv",
+def create_minimal_data(repository_folder, config_file_path):
+    tr_csv = os.path.realpath(
+        os.path.join(
+            repository_folder,
+            "samples/audio_samples/sourcesep_samples/minimal_example_convtasnet_tr.csv",
+        )
     )
-)
-csv_cv = os.path.realpath(
-    os.path.join(
-        experiment_dir,
-        "../../../../samples/audio_samples/sourcesep_samples/minimal_example_convtasnet_cv.csv",
+    cv_csv = os.path.realpath(
+        os.path.join(
+            repository_folder,
+            "samples/audio_samples/sourcesep_samples/minimal_example_convtasnet_cv.csv",
+        )
     )
-)
-csv_tt = os.path.realpath(
-    os.path.join(
-        experiment_dir,
-        "../../../../samples/audio_samples/sourcesep_samples/minimal_example_convtasnet_tt.csv",
-    )
-)
-
-data_folder = "../../../../samples/audio_samples/sourcesep_samples"
-data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
-
-with open(params_file) as fin:
-    params = sb.yaml.load_extended_yaml(
-        fin,
-        {
-            "data_folder": data_folder,
-            "csv_tr": csv_tr,
-            "csv_cv": csv_cv,
-            "csv_tt": csv_tt,
-        },
+    tt_csv = os.path.realpath(
+        os.path.join(
+            repository_folder,
+            "samples/audio_samples/sourcesep_samples/minimal_example_convtasnet_tt.csv",
+        )
     )
 
-if params.use_tensorboard:
-    from speechbrain.utils.train_logger import TensorboardLogger
+    data_folder = "samples/audio_samples/sourcesep_samples"
+    data_folder = os.path.realpath(os.path.join(repository_folder, data_folder))
 
-    train_logger = TensorboardLogger(params.tensorboard_logs)
-
-device = "cuda" if torch.cuda.is_available() else "cpu"
+    with open(config_file_path) as fin:
+        params = sb.yaml.load_extended_yaml(
+            fin,
+            {
+                "data_folder": data_folder,
+                "tr_csv": tr_csv,
+                "cv_csv": cv_csv,
+                "tt_csv": tt_csv,
+            },
+        )
+    return params
 
 
 class CTN_Brain(sb.core.Brain):
@@ -148,29 +141,48 @@ class CTN_Brain(sb.core.Brain):
         )
 
 
-train_loader = params.train_loader()
-val_loader = params.val_loader()
-test_loader = params.test_loader()
+if __name__ == "__main__":
 
-ctn = CTN_Brain(
-    modules=[
-        params.Encoder.to(device),
-        params.MaskNet.to(device),
-        params.Decoder.to(device),
-    ],
-    optimizer=params.optimizer,
-    first_inputs=[next(iter(train_loader))[0][1].to(device)],
-)
+    repository_folder = (
+        os.path.dirname(os.path.realpath(__file__)) + "/../../../../"
+    )
+    params = create_minimal_data(
+        repository_folder,
+        os.path.join(
+            os.path.dirname(os.path.realpath(__file__)), "params.yaml"
+        ),
+    )
 
-ctn.fit(
-    range(params.N_epochs),
-    train_set=train_loader,
-    valid_set=val_loader,
-    progressbar=params.progressbar,
-)
+    if params.use_tensorboard:
+        from speechbrain.utils.train_logger import TensorboardLogger
 
-test_stats = ctn.evaluate(test_loader)
-print("Test SI-SNR: %.3f" % -summarize_average(test_stats["loss"]))
+        train_logger = TensorboardLogger(params.tensorboard_logs)
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    train_loader = params.train_loader()
+    val_loader = params.val_loader()
+    test_loader = params.test_loader()
+
+    ctn = CTN_Brain(
+        modules=[
+            params.Encoder.to(device),
+            params.MaskNet.to(device),
+            params.Decoder.to(device),
+        ],
+        optimizer=params.optimizer,
+        first_inputs=[next(iter(train_loader))[0][1].to(device)],
+    )
+
+    ctn.fit(
+        range(params.N_epochs),
+        train_set=train_loader,
+        valid_set=val_loader,
+        progressbar=params.progressbar,
+    )
+
+    test_stats = ctn.evaluate(test_loader)
+    print("Test SI-SNR: %.3f" % -summarize_average(test_stats["loss"]))
 
 
 # Integration test: check that the model overfits the training data

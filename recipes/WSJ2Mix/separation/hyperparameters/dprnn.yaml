@@ -13,6 +13,8 @@ tensorboard_logs: runs/1-dprnn
 output_folder: !ref results/conv_tasnet/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
+data_folder: ../../../samples/audio_samples/sourcesep_samples
+
 
 # Neural Parameters
 N_epochs: 100
