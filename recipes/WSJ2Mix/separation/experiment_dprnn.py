@@ -180,9 +180,9 @@ def main():
 
     # os.path.dirname(os.path.realpath(__file__)) + "/../../../s.path.dirname(os.path.realpath(__file__)) + "/../../../
     if args.minimal:
+        repo_path = os.path.dirname(os.path.realpath(__file__)) + "/../../../"
         params = create_minimal_data(
-            os.path.dirname(os.path.realpath(__file__)) + "/../../../",
-            args.config,
+            repo_path, os.path.join(experiment_dir, args.config),
         )
     else:
         params_file = os.path.join(experiment_dir, args.config)

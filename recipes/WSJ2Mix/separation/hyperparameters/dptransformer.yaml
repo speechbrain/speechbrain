@@ -13,6 +13,7 @@ tensorboard_logs: runs/1-dptf
 output_folder: !ref results/conv_tasnet/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
+data_folder: ../../../samples/audio_samples/sourcesep_samples
 
 # Neural Parameters
 N_epochs: 100
@@ -57,6 +58,9 @@ test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     batch_size: !ref <N_batch>
     sentence_sorting: !ref <sentence_sorting>
     csv_read: [mix_wav, s1_wav, s2_wav]
+    replacements:
+        $data_folder: !ref <data_folder>
+
 
     #augmentation: !new:speechbrain.lobes.augment.tdsa.TimeDomainSpecAugment
     #    sample_rate: 8000
@@ -107,6 +111,11 @@ optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
     learning_rate: !ref <lr>
     weight_decay: 0
 
+lr_scheduler: !new:speechbrain.nnet.lr_schedulers.ReduceLROnPlateau
+    factor: 0.5
+    patience: 2
+
+clip_grad_norm: 5
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <N_epochs>

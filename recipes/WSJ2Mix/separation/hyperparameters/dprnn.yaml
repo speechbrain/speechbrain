@@ -17,7 +17,7 @@ data_folder: ../../../samples/audio_samples/sourcesep_samples
 
 
 # Neural Parameters
-N_epochs: 100
+N_epochs: 200
 N_batch: 8
 lr: 0.0005
 train_onthefly: False
@@ -38,23 +38,31 @@ cv_csv: 'wsj_cv.csv'
 tt_csv: 'wsj_tt.csv'
 sentence_sorting: 'descending'
 
+
 train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <tr_csv>
     batch_size: !ref <N_batch>
-    sentence_sorting: !ref <sentence_sorting>
+    sentence_sorting: random
     csv_read: [mix_wav, s1_wav, s2_wav]
+    replacements:
+        $data_folder: !ref <data_folder>
 
 val_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <cv_csv>
     batch_size: !ref <N_batch>
-    sentence_sorting: !ref <sentence_sorting>
+    sentence_sorting: random
     csv_read: [mix_wav, s1_wav, s2_wav]
+    replacements:
+        $data_folder: !ref <data_folder>
+
 
 test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <tt_csv>
     batch_size: !ref <N_batch>
-    sentence_sorting: !ref <sentence_sorting>
+    sentence_sorting: random
     csv_read: [mix_wav, s1_wav, s2_wav]
+    replacements:
+        $data_folder: !ref <data_folder>
 
     # augmentation: !new:speechbrain.lobes.augment.tdsa.TimeDomainSpecAugment
     # sample_rate: 8000
@@ -103,6 +111,8 @@ Decoder: !new:speechbrain.lobes.models.dual_pathrnn.Decoder
 
 optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
     learning_rate: !ref <lr>
+
+clip_grad_norm: 5
 
 lr_scheduler: !new:speechbrain.nnet.lr_schedulers.ReduceLROnPlateau
     factor: 0.5
