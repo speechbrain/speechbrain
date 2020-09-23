@@ -627,10 +627,11 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
             # adding CTC scores to log_prob if ctc_weight > 0
             if self.ctc_weight > 0:
-                if t > 1:
-                    ctc_log_probs, ctc_memory = ctc_scorer.forward_step(
-                        alived_seq, ctc_memory
-                    )
+                g = alived_seq if t > 0 else inp_tokens.unsqueeze(1)
+                ctc_log_probs, ctc_memory = ctc_scorer.forward_step(
+                    g, ctc_memory
+                )
+                log_probs = log_probs + self.ctc_weight * ctc_log_probs
 
             scores = sequence_scores.unsqueeze(1).expand(-1, vocab_size)
             scores = scores + log_probs
@@ -643,6 +644,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             scores, candidates = scores.view(batch_size, -1).topk(
                 self.beam_size, dim=-1
             )
+            # print("candidates", candidates, 'seq_scores', sequence_scores.shape, 'scores', scores.shape)
 
             # The input for the next step, also the output of current step.
             inp_tokens = (candidates % vocab_size).view(
@@ -666,6 +668,9 @@ class S2SBeamSearcher(S2SBaseSearcher):
             memory = self.permute_mem(memory, index=predecessors)
             if self.lm_weight > 0:
                 lm_memory = self.permute_lm_mem(lm_memory, index=predecessors)
+
+            if self.ctc_weight > 0:
+                ctc_memory = ctc_scorer.permute_mem(ctc_memory, candidates)
 
             # If using_max_attn_shift, thne the previous attn peak has to be permuted too.
             if self.using_max_attn_shift:
