@@ -164,7 +164,11 @@ def to_ASR_format(dataset):
 
 class CategoricalEncoder:
     def __init__(
-        self, data_collections: (list, dict), supervision: str, encode_to="int"
+        self,
+        data_collections: (list, dict),
+        supervision: str,
+        encode_to="int",
+        init_dict=None,
     ):
 
         assert encode_to in ["int", "onehot"]
@@ -187,10 +191,34 @@ class CategoricalEncoder:
                             else:
                                 raise NotImplementedError
 
-        all_labs = sorted(list(all_labs))  # sort alphabetically just in case
+        # all_labs = sorted(list(all_labs))  # sort alphabetically just in case
+        if init_dict:
+            self.lab2indx = init_dict
+            self.indx2lab = {index: key for key, index in init_dict.items()}
+        else:
+            self.lab2indx = {}
+            self.indx2lab = {}
 
-        self.lab2indx = {key: index for index, key in enumerate(all_labs)}
-        self.indx2lab = {key: index for key, index in enumerate(all_labs)}
+        self.lab2indx.update({key: index for index, key in enumerate(all_labs)})
+        self.indx2lab.update({key: index for key, index in enumerate(all_labs)})
+
+    def update(self, key, elem=None):
+        # if no element is provided we simply append to end of label dictionary
+        max_indx = list(self.indx2lab.keys())
+        if elem is None or elem == (max_indx + 1):
+            self.lab2indx[key] = max_indx + 1
+            self.indx2lab[max_indx + 1] = key
+        else:
+            # if elem is provided we have to check if the range is valid
+            # from 0 to max_indx + 1
+            # we enforce label indx to be continuos
+            assert 0 <= elem <= (max_indx + 1)
+            self.lab2indx[key] = elem
+            orig_key = self.indx2lab[elem]
+            self.lab2indx[orig_key] = max_indx + 1  # append old element on tail
+            self.indx2lab[max_indx + 1] = orig_key
+            # NOTE: this is efficient but order is not respected
+            # we could have odd labeldicts
 
     def intEncode(self, x, dtype=torch.long):
         if isinstance(x, (tuple, list)):  # x is list of strings or other things
@@ -207,6 +235,7 @@ class CategoricalEncoder:
     def intDecode(self, x: torch.Tensor):
 
         # labels are of shape batch, num_classes, arbitrary dims (e.g. sequence length)
+        # maybe we should supprt arbitrary dims.
         if x.ndim == 1:
             decoded = self.indx2lab[x.item()]
             return decoded
