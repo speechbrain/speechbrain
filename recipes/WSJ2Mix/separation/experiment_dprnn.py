@@ -119,6 +119,10 @@ class CTNBrain(sb.core.Brain):
         loss = self.compute_objectives(predictions, targets)
 
         loss.backward()
+        if self.param.clip_grad_norm >= 0:
+            torch.nn.utils.clip_grad_norm_(
+                self.modules.parameters(), self.param.clip_grad_norm
+            )
         self.optimizer.step()
         self.optimizer.zero_grad()
         return {"loss": loss.detach()}
