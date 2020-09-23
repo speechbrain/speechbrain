@@ -19,6 +19,7 @@ class CTCPrefixScorer:
         self.batch_size = batch_size
         self.beam_size = x.size(0) // batch_size
         self.vocab_size = x.size(-1)
+        self.device = x.device
         self.last_frame_index = enc_lens - 1
 
         # mask frames > enc_lens
@@ -40,36 +41,41 @@ class CTCPrefixScorer:
 
         # The first index of each sentence.
         # TODO: for candidates mode
-        # self.beam_offset = (torch.arange(batch_size) * self.beam_size).to(device)
+        self.beam_offset = (torch.arange(batch_size) * self.beam_size).to(
+            self.device
+        )
 
-    def forward_step(self, g, memory, candidates=None):
+    def forward_step(self, g, state, candidates=None):
         """g: prefix"""
-        device = g.device
-        prefix_length = g.size(1)
+        prefix_length = g.size(1) - 1  # TODO
         last_token = [gi[-1] for gi in g]
         num_candidates = (
             self.vocab_size
         )  # TODO support scoring for candidates, candidates.size(-1)
 
-        if memory is None:
+        if state is None:
             # r_prev: (max_enc_len, 2, batch_size * beam_size)
             r_prev = torch.Tensor(
                 self.max_enc_len, 2, self.batch_size * self.beam_size
-            ).to(device)
+            ).to(self.device)
             r_prev.fill_(-np.inf)
             # Accumulate blank posteriors at each step
             r_prev[:, 1] = torch.cumsum(self.x[0, :, :, self.blank_index], 0)
             r_prev = r_prev.view(-1, 2, self.batch_size * self.beam_size)
+            psi_prev = 0
         else:
-            r_prev = memory
+            r_prev, psi_prev = state
 
         r = torch.Tensor(
             self.max_enc_len,
             2,
             self.batch_size * self.beam_size,
             num_candidates,
-        ).to(device)
+        ).to(self.device)
         r.fill_(-np.inf)
+
+        if prefix_length == 0:
+            r[0, 0] = self.x[0, 0]
 
         # TODO: scores for candidates
 
@@ -111,10 +117,35 @@ class CTCPrefixScorer:
 
         # exclude blank probs for joint scoring
         # TODO: currently comment out this line since bos_index, eos_indx is the same as blank_index
-        # log_psi[:, self.blank] = self.logzero
+        psi[:, self.blank_index] = -np.inf
 
-        print("r", r.shape, "psi", psi.shape)
-        return psi, r
+        return psi - psi_prev, (r, psi)
+
+    def permute_mem(self, memory, candidates):
+
+        r, psi = memory
+        best_index = (
+            candidates
+            + (
+                self.beam_offset.unsqueeze(1).expand_as(candidates)
+                * self.vocab_size
+            )
+        ).view(-1)
+        r = torch.index_select(
+            r.view(-1, 2, self.batch_size * self.beam_size * self.vocab_size),
+            dim=-1,
+            index=best_index,
+        )
+        r = r.view(-1, 2, self.batch_size * self.beam_size)
+
+        psi = torch.index_select(psi.view(-1), dim=0, index=best_index)
+        psi = (
+            psi.view(-1, 1)
+            .repeat(1, self.vocab_size)
+            .view(self.batch_size * self.beam_size, self.vocab_size)
+        )
+
+        return r, psi
 
 
 def filter_ctc_output(string_pred, blank_id=-1):
