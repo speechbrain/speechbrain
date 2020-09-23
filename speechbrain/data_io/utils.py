@@ -75,7 +75,7 @@ def dataset_sanity_check(dataset_splits):
                     k in c_obj["waveforms"].keys()
                     for k in ["files", "channels", "samplerate", "lengths"]
                 ]
-            ), "Waveforms entries should have always files, channels, samplerate and length keys. "
+            ), "Waveforms entries should have always files, channels, samplerate and length keys."
             # assert are not empty and are of proper type
             assert isinstance(c_obj["waveforms"]["files"], list)
             assert isinstance(c_obj["waveforms"]["files"][0], str)
@@ -204,7 +204,7 @@ class CategoricalEncoder:
 
     def update(self, key, elem=None):
         # if no element is provided we simply append to end of label dictionary
-        max_indx = list(self.indx2lab.keys())
+        max_indx = list(self.indx2lab.keys())[-1]
         if elem is None or elem == (max_indx + 1):
             self.lab2indx[key] = max_indx + 1
             self.indx2lab[max_indx + 1] = key
