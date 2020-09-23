@@ -47,12 +47,11 @@ def split_overlapping_chunks(tensor, chunk_len=200, overlap_rate=0.5, dim=1):
 
 class CTNBrain(sb.core.Brain):
     def __init__(self, params, device, **kwargs):
-        super(CTNBrain, self).__init__(**kwargs)
         self.param = params
         self.device = device
+        super(CTNBrain, self).__init__(**kwargs)
 
     def compute_forward(self, mixture, stage="train", init_params=False):
-
         if hasattr(self.param, "env_corrupt"):
             if stage == "train":
                 wav_lens = torch.tensor(
