@@ -299,6 +299,11 @@ class S2SBeamSearcher(S2SBaseSearcher):
         Default : 0.0
         The coefficient of length rewarding (γ).
         log P(y|x) + λ log P_LM(y) + γ*len(y)
+    coverage_penalty: float
+        Default: 0.0
+        The coefficient of coverage penalty (η).
+        log P(y|x) + λ log P_LM(y) + γ*len(y) + η*coverage(x,y)
+        Reference: https://arxiv.org/pdf/1612.02695.pdf, https://arxiv.org/pdf/1808.10792.pdf
     lm_weight : float
         Default : 0.0
         The weight of LM when performing beam search (λ).
@@ -328,6 +333,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         eos_threshold=1.5,
         length_normalization=True,
         length_rewarding=0,
+        coverage_penalty=0.0,
         lm_weight=0.0,
         using_max_attn_shift=False,
         max_attn_shift=60,
@@ -341,6 +347,8 @@ class S2SBeamSearcher(S2SBaseSearcher):
         self.return_log_probs = return_log_probs
         self.length_normalization = length_normalization
         self.length_rewarding = length_rewarding
+        self.coverage_penalty = coverage_penalty
+        self.coverage = None
 
         if self.length_normalization and self.length_rewarding > 0:
             raise ValueError(
@@ -397,6 +405,8 @@ class S2SBeamSearcher(S2SBaseSearcher):
             The peak of the attn tensor.
         """
         # Block the candidates that exceed the max shift
+        if self.dec.attn_type == "multiheadlocation":
+            attn = torch.mean(attn, dim=1)
         _, attn_peak = torch.max(attn, dim=1)
         lt_cond = attn_peak <= (prev_attn_peak + self.max_attn_shift)
         mt_cond = attn_peak > (prev_attn_peak - self.max_attn_shift)
@@ -643,11 +653,40 @@ class S2SBeamSearcher(S2SBaseSearcher):
             if self.lm_weight > 0:
                 lm_memory = self.permute_lm_mem(lm_memory, index=predecessors)
 
-            # If using_max_attn_shift, thne the previous attn peak has to be permuted too.
+            # If using_max_attn_shift, then the previous attn peak has to be permuted too.
             if self.using_max_attn_shift:
                 prev_attn_peak = torch.index_select(
                     prev_attn_peak, dim=0, index=predecessors
                 )
+
+            # Add coverage penalty
+            if self.coverage_penalty > 0:
+                cur_attn = torch.index_select(attn, dim=0, index=predecessors)
+                if self.dec.attn_type == "multiheadlocation":
+                    cur_attn = torch.mean(cur_attn, dim=1)
+
+                # coverage: cumulative attention probability vector
+                if t == 0:
+                    # Init coverage
+                    self.coverage = cur_attn
+                else:
+                    # Update coverage
+                    self.coverage = torch.index_select(
+                        self.coverage, dim=0, index=predecessors
+                    )
+                    self.coverage = self.coverage + cur_attn
+                    # Compute coverage penalty and add it to scores
+                    penalty = torch.max(
+                        self.coverage, self.coverage.clone().fill_(0.5)
+                    ).sum(-1)
+                    penalty = penalty - self.coverage.size(-1) * 0.5
+                    penalty = penalty.view(batch_size * self.beam_size)
+                    penalty = (
+                        penalty / (t + 1)
+                        if self.length_normalization
+                        else penalty
+                    )
+                    scores = scores - penalty * self.coverage_penalty
 
             # Update alived_seq
             alived_seq = torch.cat(
@@ -796,6 +835,11 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
         Default : 0.0
         The coefficient of length rewarding (γ).
         log P(y|x) + λ log P_LM(y) + γ*len(y
+    coverage_penalty: float
+        Default: 0.0
+        The coefficient of coverage penalty (η).
+        log P(y|x) + λ log P_LM(y) + γ*len(y) + η*coverage(x,y)
+        Reference: https://arxiv.org/pdf/1612.02695.pdf, https://arxiv.org/pdf/1808.10792.pdf
     using_max_attn_shift: bool
         Whether using the max_attn_shift constaint. Default: False
     max_attn_shift: int
@@ -846,6 +890,7 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
         eos_threshold=1.5,
         length_normalization=True,
         length_rewarding=0,
+        coverage_penalty=0.0,
         lm_weight=0.0,
         using_max_attn_shift=False,
         max_attn_shift=60,
@@ -864,6 +909,7 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
             eos_threshold,
             length_normalization,
             length_rewarding,
+            coverage_penalty,
             lm_weight,
             using_max_attn_shift,
             max_attn_shift,
@@ -900,7 +946,10 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
             hs = torch.index_select(hs, dim=1, index=index)
 
         c = torch.index_select(c, dim=0, index=index)
-        if self.dec.attn_type == "location":
+        if (
+            self.dec.attn_type == "location"
+            or self.dec.attn_type == "multiheadlocation"
+        ):
             self.dec.attn.prev_attn = torch.index_select(
                 self.dec.attn.prev_attn, dim=0, index=index
             )
