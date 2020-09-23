@@ -209,9 +209,6 @@ def main():
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    import pdb
-
-    pdb.set_trace()
     train_loader = params.train_loader()
     val_loader = params.val_loader()
     test_loader = params.test_loader()
