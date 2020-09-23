@@ -182,6 +182,7 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearchLM
     embedding: !ref <emb>
     decoder: !ref <dec>
     linear: !ref <seq_lin>
+    language_model: !ref <lm_model>
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
     min_decode_ratio: !ref <min_decode_ratio>
