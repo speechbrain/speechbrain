@@ -18,7 +18,7 @@ csv_train: !ref <save_folder>/train.csv
 csv_valid: !ref <save_folder>/dev.csv
 
 # Training hyperparameters
-number_of_epochs: 100
+number_of_epochs: 60
 batch_size: 64
 lr: 0.001
 base_lr: 0.00000001

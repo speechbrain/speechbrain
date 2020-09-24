@@ -29,16 +29,34 @@ In particular, we employ a pre-trained encoder followed by a binary discriminato
 If you didn't train the speaker embedding before, we automatically download the xvector model from the web.
 This system achieves an EER = 3.8 % on voxceleb1 and EER = 3.1 % on voxceleb2.
 
+# Training speaker embeddings using ECAPA-TDNN
+Run the following command to train speaker embeddings using [ECAPA-TDNN](https://arxiv.org/abs/2005.07143):
+
+`python train_speaker_embeddings.py hyperparams/train_ecapa_tdnn_voxceleb1.yaml` (for voxceleb1)
+`python train_speaker_embeddings.py hyperparams/train_ecapa_tdnn_voxceleb2.yaml` (for voxceleb2, see preparation instructions below).
+
+The speaker-id accuracy should be around 98-99% for both voxceleb1 and voceleb2.
+
+# Speaker verification with cosine similarity
+After training the speaker embeddings, it is possible to perform speaker verification using cosine similarity.  You can run it with the following command:
+
+`python speaker_verification_cosine.py hyperparams/verification_ecapa_tdnn_voxceleb1.yaml` (for voxceleb1)
+`python speaker_verification_cosine.py hyperparams/verification_ecapa_tdnn_voxceleb2.yaml` (for voxceleb2)
+
+This system achieves an EER = 3.4 % on voxceleb1 and EER = 1.6 % on voxceleb2.
+
 # Model/Experment folder donwload:
 Voxceleb1:
 
 xvector(full exp folder): https://www.dropbox.com/sh/e00wna66l1xhefc/AAAaVP9l5tzTs9YM_wapvW5Na?dl=1
 xvector(model only): https://www.dropbox.com/s/skfz2sme5nw7jji/xvector_model.ckpt?dl=1
+ecapa-tdnn(model only): https://www.dropbox.com/s/lbv09i1nb8f9z7t/embedding_model.ckpt?dl=1
 
 Voxceleb2:
 
 xvector(full exp folder): https://www.dropbox.com/sh/3ui8ju1kjqnvh70/AAB5ALciI7ObSy8_HsmJrnOOa?dl=1
 xvector(model only): https://www.dropbox.com/s/exzbyt4qoabo7v4/embedding_model.ckpt?dl=1
+ecapa-tdnn(model only): https://www.dropbox.com/s/n4kkhss16fbku5a/embedding_model.ckpt?dl=1
 
 # VoxCeleb2 Preparation
 Voxceleb2 audio files are released in ma4 format. All the files must be converted in wav files before
