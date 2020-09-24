@@ -909,6 +909,7 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
         self.emb = self.modules[0]
         self.dec = self.modules[1]
         self.fc = self.modules[2]
+        self.ctc_fc = self.modules[3]
         self.softmax = torch.nn.LogSoftmax(dim=-1)
 
     def reset_mem(self, batch_size, device):
