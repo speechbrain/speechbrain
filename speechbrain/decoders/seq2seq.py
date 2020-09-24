@@ -529,10 +529,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
         device = enc_states.device
         batch_size = enc_states.shape[0]
 
-        # Inflate the enc_states and enc_len by beam_size times
-        enc_states = inflate_tensor(enc_states, times=self.beam_size, dim=0)
-        enc_lens = inflate_tensor(enc_lens, times=self.beam_size, dim=0)
-
         memory = self.reset_mem(batch_size * self.beam_size, device=device)
 
         if self.lm_weight > 0:
@@ -542,9 +538,18 @@ class S2SBeamSearcher(S2SBaseSearcher):
             # (batch_size * beam_size, L, vocab_size)
             ctc_outputs = self.ctc_forward_step(enc_states)
             ctc_scorer = CTCPrefixScorer(
-                ctc_outputs, enc_lens, batch_size, 0, self.eos_index
+                ctc_outputs,
+                enc_lens,
+                batch_size,
+                self.beam_size,
+                0,
+                self.eos_index,
             )
             ctc_memory = None
+
+        # Inflate the enc_states and enc_len by beam_size times
+        enc_states = inflate_tensor(enc_states, times=self.beam_size, dim=0)
+        enc_lens = inflate_tensor(enc_lens, times=self.beam_size, dim=0)
 
         # Using bos as the first input
         inp_tokens = (
@@ -627,11 +632,13 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
             # adding CTC scores to log_prob if ctc_weight > 0
             if self.ctc_weight > 0:
-                g = alived_seq if t > 0 else inp_tokens.unsqueeze(1)
+                g = alived_seq
                 ctc_log_probs, ctc_memory = ctc_scorer.forward_step(
                     g, ctc_memory
                 )
-                log_probs = log_probs + self.ctc_weight * ctc_log_probs
+                log_probs = (
+                    1 - self.ctc_weight
+                ) * log_probs + self.ctc_weight * ctc_log_probs
 
             scores = sequence_scores.unsqueeze(1).expand(-1, vocab_size)
             scores = scores + log_probs
@@ -869,7 +876,7 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
         beam_size,
         topk=1,
         return_log_probs=False,
-        using_eos_threshold=True,
+        using_eos_threshold=False,  # True
         eos_threshold=1.5,
         length_normalization=True,
         length_rewarding=0,
