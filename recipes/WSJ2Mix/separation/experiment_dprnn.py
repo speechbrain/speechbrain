@@ -187,7 +187,9 @@ def main():
     # os.path.dirname(os.path.realpath(__file__)) + "/../../../s.path.dirname(os.path.realpath(__file__)) + "/../../../
     if args.minimal:
         repo_path = os.path.dirname(os.path.realpath(__file__)) + "/../../../"
-        params = create_minimal_data(repo_path, args.config,)
+        params = create_minimal_data(repo_path, args.config)
+        logger.info("setting epoch size to 1 - because --minimal")
+        params.N_epochs = 1
     else:
         params_file = os.path.join(experiment_dir, args.config)
         with open(params_file) as fin:
