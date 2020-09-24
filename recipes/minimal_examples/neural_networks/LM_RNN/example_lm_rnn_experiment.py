@@ -35,8 +35,8 @@ class LMBrain(sb.Brain):
         predictions = self.compute_forward(inputs, sb.Stage.TRAIN)
         loss = self.compute_objectives(predictions, inputs, sb.Stage.TRAIN)
         loss.backward()
-        self.optim.optimizer.step()
-        self.optim.optimizer.zero_grad()
+        self.optimizer.step()
+        self.optimizer.zero_grad()
         return loss.detach()
 
     def evaluate_batch(self, batch, stage=sb.Stage.TEST):
@@ -65,7 +65,7 @@ def main():
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
 
-    lm_brain = LMBrain(hparams["hparams"], hparams["optim"])
+    lm_brain = LMBrain(hparams["hparams"], hparams["opt_class"])
     lm_brain.fit(
         lm_brain.hparams.epoch_counter,
         hparams["train_loader"](),

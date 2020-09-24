@@ -64,12 +64,8 @@ classifier: !new:speechbrain.lobes.models.Xvector.Classifier
 mean_var_norm: !new:speechbrain.processing.InputNormalization
     norm_type: global
 
-optim:
-    optimizer: !new:torch.optim.Adam
-        params: !!python/object/apply:speechbrain.collect_params
-            - !ref <xvector_model>
-            - !ref <classifier>
-        lr: !ref <lr>
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
 
 hparams:
     compute_features: !ref <compute_features>

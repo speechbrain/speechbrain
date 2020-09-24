@@ -22,8 +22,7 @@ def test_brain():
         def compute_objectives(self, predictions, targets, stage):
             return torch.nn.functional.l1_loss(predictions, targets)
 
-    optimizer = SGD(model.parameters(), 0.1)
-    brain = SimpleBrain({"model": model}, {"optim": optimizer})
+    brain = SimpleBrain({"model": model}, lambda x: SGD(x, 0.1))
 
     inputs = torch.rand(10, 10)
     targets = torch.rand(10, 10)

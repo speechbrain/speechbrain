@@ -68,12 +68,8 @@ lin: !new:speechbrain.nnet.Linear
     n_neurons: 42  # 42 phonemes, no blank
     bias: False
 
-optim:
-    optimizer: !new:torch.optim.Adam
-        params: !!python/object/apply:speechbrain.collect_params
-            - !ref <model>
-            - !ref <lin>
-        lr: !ref <lr>
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
 
 hparams:
     model: !ref <model>

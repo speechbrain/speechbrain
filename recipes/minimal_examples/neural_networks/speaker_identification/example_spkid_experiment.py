@@ -53,7 +53,7 @@ def main():
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
 
-    spk_id_brain = SpkIdBrain(hparams["hparams"], hparams["optim"])
+    spk_id_brain = SpkIdBrain(hparams["hparams"], hparams["opt_class"])
     spk_id_brain.fit(
         range(hparams["N_epochs"]),
         hparams["train_loader"](),

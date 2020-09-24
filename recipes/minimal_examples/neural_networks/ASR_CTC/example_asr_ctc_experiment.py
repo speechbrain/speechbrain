@@ -50,7 +50,7 @@ def main():
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
 
-    ctc_brain = CTCBrain(hparams["hparams"], hparams["optim"])
+    ctc_brain = CTCBrain(hparams["hparams"], hparams["opt_class"])
     ctc_brain.fit(
         range(hparams["N_epochs"]),
         hparams["train_loader"](),

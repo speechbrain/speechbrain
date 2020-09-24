@@ -67,8 +67,8 @@ class CTN_Brain(sb.Brain):
         loss = self.compute_objectives(predictions, targets)
 
         loss.backward()
-        self.optim.optimizer.step()
-        self.optim.optimizer.zero_grad()
+        self.optimizer.step()
+        self.optimizer.zero_grad()
         return loss.detach()
 
     def evaluate_batch(self, batch, stage):
@@ -130,7 +130,7 @@ def main():
     val_loader = hparams["val_loader"]()
     test_loader = hparams["test_loader"]()
 
-    ctn = CTN_Brain(hparams["hparams"], hparams["optim"])
+    ctn = CTN_Brain(hparams["hparams"], hparams["opt_class"])
 
     ctn.fit(
         ctn.hparams.epoch_counter,

@@ -186,6 +186,7 @@ def parse_arguments(arg_list):
 
 
 def ddp_init(rank, brain, args):
+    print(f"Process {rank} reporting in!")
     os.environ["MASTER_ADDR"] = "localhost"
     os.environ["MASTER_PORT"] = "12321"
     dist.init_process_group(
@@ -245,11 +246,12 @@ class Brain:
         to the device specified in the ``device`` argument. These will
         be accessible via an ``hparams`` attribute, using "dot" notation:
         e.g. self.hparams.model(x)
-    optim : dict of str:torch.optim pairs
-        These will be accessible via an ``optim`` attribute,
-        using "dot" notation: e.g. brain.optim.optimizer.step()
-        Default ``fit_batch`` calls, ``compute_forward`` and
-        ``compute_objectives`` once per optimizer.
+    opt_class : torch.optim class
+        A torch optimizer constructor that has takes only the list of
+        parameters (e.g. a lambda or partial function definition). By default,
+        this will be passed all modules in hparams and jit_modules at the
+        beginning of the ``fit()`` method. This behavior can be changed
+        by overriding the ``configure_optimizers()`` method.
     jit_modules : dict of str:torch.nn.Module pairs
         ``torch.nn.Module`` object(s) to pass to ``torch.jit.script``. As
         with the hparams and optim arguments, these are made accessible with
@@ -272,15 +274,14 @@ class Brain:
     ...     def compute_objectives(self, predictions, targets, stage):
     ...         return torch.nn.functional.l1_loss(predictions, targets)
     >>> model = torch.nn.Linear(in_features=10, out_features=10)
-    >>> optim = SGD(model.parameters(), lr=0.1)
-    >>> brain = SimpleBrain({"model": model}, {"optimizer": optim})
+    >>> brain = SimpleBrain({"model": model}, opt_class=lambda x: SGD(x, 0.1))
     >>> brain.fit(range(1), ([torch.rand(10, 10), torch.rand(10, 10)],))
     """
 
     def __init__(
         self,
         hparams,
-        optim=None,
+        opt_class=None,
         jit_modules=None,
         device="cpu",
         ddp_procs=0,
@@ -295,8 +296,8 @@ class Brain:
         modulelist = []
 
         # Make optimizer accessible with simple "dot" notation
-        if optim is not None:
-            self.optim = SimpleNamespace(**optim)
+        if opt_class is not None:
+            self.opt_class = opt_class
 
         # Put modules onto correct device
         for name, hparam in hparams.items():
@@ -395,6 +396,36 @@ class Brain:
         """
         pass
 
+    def on_fit_start(self):
+        """Gets called at the beginning of ``fit()``, on multiple processes
+        if ddp_procs is more than 0.
+
+        The default implementation of this method depends on an optimizer
+        class being passed at initialization that takes only a list
+        of parameters (e.g. a lambda or a partial function definition).
+
+        Most recipes will override this class to potentially load
+        an interrupted run and complete it.
+        """
+        # Run this *after* mp.spawn since jit modules cannot be pickled.
+        self.compile_jit()
+
+        # Initialize optimizer with parameters on the correct device
+        params = []
+        for name, hparam in self.hparams.__dict__.items():
+            if isinstance(hparam, torch.nn.Module):
+                params.extend(hparam.parameters())
+
+        if self.jit_modules is not None:
+            for name, jit_module in self.jit_modules.__dict__.items():
+                params.extend(jit_module.parameters())
+
+        self.optimizer = self.opt_class(params)
+
+    def on_evaluate_start(self):
+        """Gets called at the beginning of ``evaluate()``"""
+        pass
+
     def fit_batch(self, batch):
         """Fit one batch, override to do multiple updates.
 
@@ -418,22 +449,21 @@ class Brain:
         """
         inputs, labels = batch
 
-        for optimizer_key, optimizer in self.optim.__dict__.items():
-            # Managing automatic mixed precision
-            if self.auto_mix_prec:
-                with torch.cuda.amp.autocast():
-                    outputs = self.compute_forward(inputs, Stage.TRAIN)
-                    loss = self.compute_objectives(outputs, labels, Stage.TRAIN)
-                    self.scaler.scale(loss).backward()
-                    self.scaler.step(optimizer)
-                    optimizer.zero_grad()
-                    self.scaler.update()
-            else:
+        # Managing automatic mixed precision
+        if self.auto_mix_prec:
+            with torch.cuda.amp.autocast():
                 outputs = self.compute_forward(inputs, Stage.TRAIN)
                 loss = self.compute_objectives(outputs, labels, Stage.TRAIN)
-                loss.backward()
-                optimizer.step()
-                optimizer.zero_grad()
+                self.scaler.scale(loss).backward()
+                self.scaler.step(self.optimizer)
+                self.optimizer.zero_grad()
+                self.scaler.update()
+        else:
+            outputs = self.compute_forward(inputs, Stage.TRAIN)
+            loss = self.compute_objectives(outputs, labels, Stage.TRAIN)
+            loss.backward()
+            self.optimizer.step()
+            self.optimizer.zero_grad()
 
         return loss.detach().cpu()
 
@@ -501,9 +531,9 @@ class Brain:
 
     def _fit(self, epoch_counter, train_set, valid_set, progressbar):
 
-        # Run this *after* mp.spawn since jit modules cannot be pickled.
-        self._compile_jit()
+        self.on_fit_start()
 
+        # Iterate epochs
         for epoch in epoch_counter:
 
             # Training stage
@@ -548,7 +578,7 @@ class Brain:
                         )
                 self.on_stage_end(Stage.VALID, avg_valid_loss, epoch)
 
-    def _compile_jit(self):
+    def compile_jit(self):
         """This should be run *after* mp.spawn, since jit modules
         cannot be pickled.
         """
@@ -584,7 +614,8 @@ class Brain:
         -------
         average test loss
         """
-        self.on_stage_start(Stage.TEST)
+        epoch = self.on_evaluate_start()
+        self.on_stage_start(Stage.TEST, epoch)
         self.modules.eval()
         avg_test_loss = 0.0
         disable = not progressbar
@@ -597,8 +628,6 @@ class Brain:
                     loss, avg_test_loss, iteration=i + 1
                 )
         self.on_stage_end(Stage.TEST, avg_test_loss)
-
-        return avg_test_loss
 
     def update_average(self, loss, avg_loss, iteration):
         """Update running average of the loss.

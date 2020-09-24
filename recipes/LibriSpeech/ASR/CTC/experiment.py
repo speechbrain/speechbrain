@@ -51,12 +51,12 @@ class ASR(sb.Brain):
 
         return loss
 
-    def on_stage_start(self, stage, epoch=None):
+    def on_stage_start(self, stage, epoch):
         if stage != sb.Stage.TRAIN:
             self.cer_metric = self.hparams.cer_tracker()
             self.wer_metric = self.hparams.wer_tracker()
 
-    def on_stage_end(self, stage, stage_loss, epoch=None):
+    def on_stage_end(self, stage, stage_loss, epoch):
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
         else:
@@ -64,7 +64,7 @@ class ASR(sb.Brain):
 
         if stage == sb.Stage.VALID:
             old_lr, new_lr = self.hparams.lr_annealing(wer)
-            sb.nnet.update_learning_rate(self.optim.optimizer, new_lr)
+            sb.nnet.update_learning_rate(self.optimizer, new_lr)
 
             cer = self.cer_metric.summarize("error_rate")
             self.hparams.train_logger.log_stats(
@@ -79,12 +79,30 @@ class ASR(sb.Brain):
 
         if stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
-                stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
+                stats_meta={"Epoch loaded": epoch},
                 test_stats={"loss": stage_loss, "WER": wer},
             )
             with open(self.hparams.wer_file, "w") as w:
                 self.wer_metric.write_stats(w)
                 print("WER stats written to file", self.hparams.wer_file)
+
+    def on_fit_start(self):
+        self.compile_jit()
+
+        params = list(self.jit_modules.enc.parameters())
+        params.extend(self.hparams.output.parameters())
+        self.optimizer = self.opt_class(params)
+        self.hparams.checkpointer.add_recoverable("optimizer", self.optimizer)
+
+        # Load latest checkpoint to resume training
+        self.hparams.checkpointer.recover_if_possible()
+
+    def on_evaluate_start(self):
+        # Load best checkpoint for evaluation
+        self.hparams.checkpointer.recover_if_possible(min_key="WER")
+
+        # Return loaded epoch for logging
+        return self.hparams.epoch_counter.current
 
 
 if __name__ == "__main__":
@@ -115,7 +133,7 @@ if __name__ == "__main__":
 
     asr_brain = ASR(
         hparams=hparams["hparams"],
-        optim=hparams["optim"],
+        opt_class=hparams["opt_class"],
         jit_modules=hparams["jit_modules"],
         device=hparams["device"],
         ddp_procs=hparams["ddp_procs"],
@@ -126,10 +144,5 @@ if __name__ == "__main__":
     ind2lab = hparams["train_loader"].label_dict["char"]["index2lab"]
     asr_brain.hparams.ind2lab = ind2lab
 
-    # Load latest checkpoint to resume training
-    asr_brain.hparams.checkpointer.recover_if_possible()
     asr_brain.fit(asr_brain.hparams.epoch_counter, train_set, valid_set)
-
-    # Load best checkpoint for evaluation
-    asr_brain.hparams.checkpointer.recover_if_possible(min_key="WER")
-    test_stats = asr_brain.evaluate(hparams["test_loader"]())
+    asr_brain.evaluate(hparams["test_loader"]())

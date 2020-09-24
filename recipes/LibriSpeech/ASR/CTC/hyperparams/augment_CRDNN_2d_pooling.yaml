@@ -24,7 +24,7 @@ number_of_epochs: 30
 batch_size: 8
 lr: 1.0
 device: 'cuda'
-multigpu: False
+ddp_procs: 0  # Set this to number of GPUs for multi-gpu training
 
 # Feature parameters
 sample_rate: 16000
@@ -88,14 +88,10 @@ output: !new:speechbrain.nnet.Linear
     input_size: !ref <dnn_neurons>
     n_neurons: !ref <output_neurons>  # 28 char + 1 blank
 
-optim:
-    optimizer: !new:torch.optim.Adadelta
-        params: !!python/object/apply:speechbrain.collect_params
-            - !ref <enc>
-            - !ref <output>
-        lr: !ref <lr>
-        rho: 0.95
-        eps: 1.e-8
+opt_class: !name:torch.optim.Adadelta
+    lr: !ref <lr>
+    rho: 0.95
+    eps: 1.e-8
 
 jit_modules:
     enc: !ref <enc>
@@ -130,7 +126,6 @@ hparams:
         recoverables:
             model: !ref <enc>
             output: !ref <output>
-            optimizer: !ref <optim.optimizer>
             scheduler: !ref <hparams.lr_annealing>
             normalizer: !ref <hparams.normalize>
             counter: !ref <hparams.epoch_counter>

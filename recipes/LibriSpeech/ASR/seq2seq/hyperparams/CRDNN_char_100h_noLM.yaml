@@ -157,13 +157,10 @@ beam_searcher: !new:speechbrain.decoders.seq2seq.S2SRNNBeamSearcher
     using_max_attn_shift: !ref <using_max_attn_shift>
     max_attn_shift: !ref <max_attn_shift>
 
-optim:
-    optimizer: !new:torch.optim.Adadelta
-        params: !!python/object/apply:speechbrain.collect_params
-            - !ref <model>
-        lr: !ref <lr>
-        rho: 0.95
-        epsilon: 1.e-8
+opt_class: !name:torch.optim.Adadelta
+    lr: !ref <lr>
+    rho: 0.95
+    epsilon: 1.e-8
 
 hparams:
     save_folder: !ref <save_folder>
@@ -183,6 +180,7 @@ hparams:
     dec: !ref <dec>
     ctc_lin: !ref <ctc_lin>
     seq_lin: !ref <seq_lin>
+    model: !ref <model>
     greedy_searcher: !ref <greedy_searcher>
     beam_searcher: !ref <beam_searcher>
     log_softmax: !new:speechbrain.nnet.activations.Softmax
@@ -220,7 +218,6 @@ hparams:
         checkpoints_dir: !ref <save_folder>
         recoverables:
             model: !ref <model>
-            optimizer: !ref <optim.optimizer>
             scheduler: !ref <hparams.lr_annealing>
             normalizer: !ref <hparams.normalize>
             counter: !ref <hparams.epoch_counter>

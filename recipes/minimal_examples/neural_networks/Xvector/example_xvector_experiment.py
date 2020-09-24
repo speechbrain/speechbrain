@@ -83,7 +83,7 @@ def main():
     # Data loaders
 
     # Object initialization for training xvector model
-    xvect_brain = XvectorBrain(hparams["hparams"], hparams["optim"])
+    xvect_brain = XvectorBrain(hparams["hparams"], hparams["opt_class"])
 
     # Train the Xvector model
     train_set = hparams["train_loader"]()

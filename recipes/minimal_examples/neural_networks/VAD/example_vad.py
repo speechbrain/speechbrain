@@ -80,7 +80,7 @@ def main():
         label_parsing_func=lambda x: parsing_func(hparams, x),
     )()
 
-    vad_brain = VADBrain(hparams["hparams"], hparams["optim"])
+    vad_brain = VADBrain(hparams["hparams"], hparams["opt_class"])
     vad_brain.fit(range(hparams["N_epochs"]), train_set)
 
     assert vad_brain.train_loss < 0.01

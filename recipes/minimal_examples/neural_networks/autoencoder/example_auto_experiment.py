@@ -27,8 +27,8 @@ class AutoBrain(sb.Brain):
         predictions = self.compute_forward(inputs, sb.Stage.TRAIN)
         loss = self.compute_objectives(predictions, inputs, sb.Stage.TRAIN)
         loss.backward()
-        self.optim.optimizer.step()
-        self.optim.optimizer.zero_grad()
+        self.optimizer.step()
+        self.optimizer.zero_grad()
         return loss.detach()
 
     def evaluate_batch(self, batch, stage):
@@ -81,7 +81,7 @@ def main():
         train_logger = TensorboardLogger(hparams["tensorboard_logs"])
         hparams["hparams"]["train_logger"] = train_logger
 
-    auto_brain = AutoBrain(hparams["hparams"], hparams["optim"])
+    auto_brain = AutoBrain(hparams["hparams"], hparams["opt_class"])
     auto_brain.fit(
         range(hparams["N_epochs"]),
         hparams["train_loader"](),

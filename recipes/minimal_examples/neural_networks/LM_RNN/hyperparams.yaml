@@ -55,11 +55,8 @@ model: !new:speechbrain.lobes.RNNLM
     rnn_layers: !ref <rnn_layers>
     dropout: !ref <dropout>
 
-optim:
-    optimizer: !new:torch.optim.Adam
-        params: !!python/object/apply:speechbrain.collect_params
-            - !ref <model>
-        lr: !ref <lr>
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
 
 hparams:
     bos_index: !ref <bos_index>
