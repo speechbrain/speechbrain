@@ -253,6 +253,7 @@ def main():
         device=device,
     )
 
+    params.checkpointer.recover_if_possible(lambda c: -c.meta["av_loss"])
     ctn.fit(
         range(params.N_epochs),
         train_set=train_loader,
