@@ -47,10 +47,10 @@ class CTCPrefixScorer:
             self.device
         )
 
-    def forward_step(self, h, state, candidates=None):
+    def forward_step(self, g, state, candidates=None):
         """h = g + c"""
-        prefix_length = h.size(1)
-        last_char = [hi[-1] for hi in h] if prefix_length > 0 else [0] * len(h)
+        prefix_length = g.size(1)
+        last_char = [gi[-1] for gi in g] if prefix_length > 0 else [0] * len(g)
         num_candidates = (
             self.vocab_size
         )  # TODO support scoring for candidates, candidates.size(-1)
@@ -121,6 +121,7 @@ class CTCPrefixScorer:
         # 3. psi = psi + phi * p(c)
         psi = torch.logsumexp(torch.cat((phix[start:end], psi), dim=0), dim=0)
 
+        # if c = <eos>, log(r_T^n(g) + r_T^b(g)), where T is the max frames of enc_states
         for i in range(self.batch_size * self.beam_size):
             psi[i, self.eos_index] = r_sum[
                 self.last_frame_index[i // self.beam_size], i
