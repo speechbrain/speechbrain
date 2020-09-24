@@ -8,7 +8,7 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 __set_seed_python: !!python/object/apply:random.seed [!ref <seed>]
 
 # Folders and train_log file
-data_folder: !PLACEHOLDER # e.g, /localscratch/voxceleb1
+data_folder: !PLACEHOLDER # e.g, /localscratch/voxceleb2
 output_folder: results/voxceleb2/ecapa-tdnn
 save_folder: !ref <output_folder>/save/
 train_log: !ref <output_folder>/train_log.txt
@@ -18,7 +18,7 @@ csv_train: !ref <save_folder>/train.csv
 csv_valid: !ref <save_folder>/dev.csv
 
 # Training hyperparameters
-number_of_epochs: 100
+number_of_epochs: 30
 batch_size: 64
 lr: 0.001
 base_lr: 0.00000001
