@@ -108,8 +108,8 @@ class ASR(sb.Brain):
         predictions = self.compute_forward(inputs, targets, sb.Stage.TRAIN)
         loss = self.compute_objectives(predictions, targets, sb.Stage.TRAIN)
         loss.backward()
-        self.optim.optimizer.step()
-        self.optim.optimizer.zero_grad()
+        self.optimizer.step()
+        self.optimizer.zero_grad()
         return loss.detach()
 
     def evaluate_batch(self, batch, stage):
@@ -118,14 +118,14 @@ class ASR(sb.Brain):
         loss = self.compute_objectives(predictions, targets, stage=stage)
         return loss.detach()
 
-    def on_stage_start(self, stage, epoch=None):
+    def on_stage_start(self, stage, epoch):
         self.ctc_metrics = self.hparams.ctc_stats()
         self.seq_metrics = self.hparams.seq_stats()
 
         if stage != sb.Stage.TRAIN:
             self.per_metrics = self.hparams.per_stats()
 
-    def on_stage_end(self, stage, stage_loss, epoch=None):
+    def on_stage_end(self, stage, stage_loss, epoch):
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
         else:
@@ -133,7 +133,7 @@ class ASR(sb.Brain):
 
         if stage == sb.Stage.VALID:
             old_lr, new_lr = self.hparams.lr_annealing(per)
-            sb.nnet.update_learning_rate(self.optim.optimizer, new_lr)
+            sb.nnet.update_learning_rate(self.optimizer, new_lr)
             self.hparams.train_logger.log_stats(
                 stats_meta={"epoch": epoch, "lr": old_lr},
                 train_stats={"loss": self.train_loss},
@@ -150,7 +150,7 @@ class ASR(sb.Brain):
 
         if stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
-                stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
+                stats_meta={"Epoch loaded": epoch},
                 test_stats={"loss": stage_loss, "PER": per},
             )
             with open(self.hparams.wer_file, "w") as w:
@@ -164,6 +164,21 @@ class ASR(sb.Brain):
                     "CTC, seq2seq, and PER stats written to file",
                     self.hparams.wer_file,
                 )
+
+    def on_fit_start(self):
+        self.compile_jit()
+        self.optimizer = self.opt_class(self.hparams.model.parameters())
+        self.hparams.checkpointer.add_recoverable("optimizer", self.optimizer)
+
+        # Load latest checkpoint to resume training
+        self.hparams.checkpointer.recover_if_possible()
+
+    def on_evaluate_start(self):
+        # Load best checkpoint for evaluation
+        self.hparams.checkpointer.recover_if_possible(min_key="PER")
+
+        # Return current epoch for logging
+        return self.hparams.epoch_counter.current
 
 
 if __name__ == "__main__":
@@ -199,16 +214,11 @@ if __name__ == "__main__":
 
     asr_brain = ASR(
         hparams=hparams["hparams"],
-        optim=hparams["optim"],
+        opt_class=hparams["opt_class"],
         jit_modules=hparams["jit_modules"],
         device=hparams["device"],
         ddp_procs=hparams["ddp_procs"],
     )
 
-    # Load latest checkpoint to resume training
-    asr_brain.hparams.checkpointer.recover_if_possible()
     asr_brain.fit(asr_brain.hparams.epoch_counter, train_set, valid_set)
-
-    # Load best checkpoint for evaluation
-    asr_brain.hparams.checkpointer.recover_if_possible(min_key="PER")
-    test_stats = asr_brain.evaluate(hparams["test_loader"]())
+    asr_brain.evaluate(hparams["test_loader"]())

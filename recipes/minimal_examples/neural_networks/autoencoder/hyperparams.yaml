@@ -49,12 +49,8 @@ linear2: !new:speechbrain.nnet.Linear
     n_neurons: 180
     bias: False
 
-optim:
-    optimizer: !new:torch.optim.Adam
-        params: !!python/object/apply:speechbrain.collect_params
-            - !ref <linear1>
-            - !ref <linear2>
-        lr: !ref <lr>
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
 
 hparams:
     use_tensorboard: !ref <use_tensorboard>

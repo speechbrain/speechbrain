@@ -61,18 +61,12 @@ discriminator: !new:speechbrain.nnet.Sequential
       stride: 8
     - !new:torch.nn.Sigmoid
 
-optim:
-    g_optimizer: !new:torch.optim.Adam
-        params: !!python/object/apply:speechbrain.collect_params
-            - !ref <generator>
-        lr: !ref <lr>
-    d_optimizer: !new:torch.optim.Adam
-        params: !!python/object/apply:speechbrain.collect_params
-            - !ref <discriminator>
-        lr: !ref <lr> / 4
-
 hparams:
     generator: !ref <generator>
     discriminator: !ref <discriminator>
+    g_opt_class: !name:torch.optim.Adam
+        lr: !ref <lr>
+    d_opt_class: !name:torch.optim.Adam
+        lr: !ref <lr> / 4
     add_noise: !new:speechbrain.processing.AddNoise
     compute_cost: !name:speechbrain.nnet.mse_loss

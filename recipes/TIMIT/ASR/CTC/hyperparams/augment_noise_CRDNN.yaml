@@ -86,14 +86,10 @@ output: !new:speechbrain.nnet.Linear
     n_neurons: !ref <output_neurons>
     bias: True
 
-optim:
-    optimizer: !new:torch.optim.Adadelta
-        params: !!python/object/apply:speechbrain.collect_params
-            - !ref <model>
-            - !ref <output>
-        rho: 0.95
-        lr: !ref <lr>
-        eps: 1.e-8
+opt_class: !name:torch.optim.Adadelta
+    rho: 0.95
+    lr: !ref <lr>
+    eps: 1.e-8
 
 jit_modules:
     model: !ref <model>
@@ -140,7 +136,6 @@ hparams:
         recoverables:
             model: !ref <model>
             output: !ref <output>
-            optimizer: !ref <optim.optimizer>
             scheduler: !ref <hparams.lr_annealing>
             normalizer: !ref <hparams.normalize>
             counter: !ref <hparams.epoch_counter>

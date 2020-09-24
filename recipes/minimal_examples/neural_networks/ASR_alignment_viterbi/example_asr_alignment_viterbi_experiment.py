@@ -52,7 +52,7 @@ def main():
 
     train_set = hparams["train_loader"]()
     hparams["hparams"]["train_set"] = train_set
-    align_brain = AlignBrain(hparams["hparams"], hparams["optim"])
+    align_brain = AlignBrain(hparams["hparams"], hparams["opt_class"])
     align_brain.fit(
         range(hparams["N_epochs"]), train_set, hparams["valid_loader"]()
     )

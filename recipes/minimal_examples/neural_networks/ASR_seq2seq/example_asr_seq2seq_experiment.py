@@ -55,8 +55,8 @@ class seq2seqBrain(sb.Brain):
         preds = self.compute_forward(inputs, targets, sb.Stage.TRAIN)
         loss = self.compute_objectives(preds, targets, sb.Stage.TRAIN)
         loss.backward()
-        self.optim.optimizer.step()
-        self.optim.optimizer.zero_grad()
+        self.optimizer.step()
+        self.optimizer.zero_grad()
         return loss.detach()
 
     def evaluate_batch(self, batch, stage=sb.Stage.TEST):
@@ -88,7 +88,7 @@ def main():
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
 
-    seq2seq_brain = seq2seqBrain(hparams["hparams"], hparams["optim"])
+    seq2seq_brain = seq2seqBrain(hparams["hparams"], hparams["opt_class"])
     seq2seq_brain.fit(
         range(hparams["N_epochs"]),
         hparams["train_loader"](),

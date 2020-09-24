@@ -135,11 +135,8 @@ beam_searcher: !new:speechbrain.decoders.seq2seq.S2SRNNBeamSearcher
 model: !new:torch.nn.ModuleList
     - [!ref <enc>, !ref <emb>, !ref <dec>, !ref <ctc_lin>, !ref <seq_lin>]
 
-optim:
-    optimizer: !new:torch.optim.Adam
-        params: !!python/object/apply:speechbrain.collect_params
-            - !ref <model>
-        lr: !ref <lr>
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
 
 jit_modules:
     enc: !ref <enc>
@@ -190,7 +187,6 @@ hparams:
         checkpoints_dir: !ref <save_folder>
         recoverables:
             model: !ref <model>
-            optimizer: !ref <optim.optimizer>
             normalize: !ref <hparams.normalize>
             lr_annealing: !ref <hparams.lr_annealing>
             counter: !ref <hparams.epoch_counter>

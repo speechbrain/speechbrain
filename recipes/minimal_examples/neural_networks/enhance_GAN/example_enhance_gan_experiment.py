@@ -27,12 +27,12 @@ class EnhanceGanBrain(sb.Brain):
         map_cost = self.hparams.compute_cost(predictions, clean_wavs, lens)
 
         # One is real, zero is fake
-        if optim_name == "g_optimizer":
+        if optim_name == "generator":
             simu_target = torch.ones(batch_size, 1)
             simu_cost = self.hparams.compute_cost(simu_result, simu_target)
             real_cost = 0.0
             self.metrics["G"].append(simu_cost.detach())
-        elif optim_name == "d_optimizer":
+        elif optim_name == "discriminator":
             real_target = torch.ones(batch_size, 1)
             simu_target = torch.zeros(batch_size, 1)
             real_cost = self.hparams.compute_cost(real_result, real_target)
@@ -44,17 +44,23 @@ class EnhanceGanBrain(sb.Brain):
     def fit_batch(self, batch):
         inputs = batch[0]
 
-        # Iterate optimizers and update
-        for optim_name, optimizer in self.optim.__dict__.items():
-            predictions = self.compute_forward(inputs, sb.Stage.TRAIN)
-            loss = self.compute_objectives(
-                predictions, inputs, sb.Stage.TRAIN, optim_name
-            )
-            loss.backward()
-            optimizer.step()
-            optimizer.zero_grad()
+        predictions = self.compute_forward(inputs, sb.Stage.TRAIN)
+        g_loss = self.compute_objectives(
+            predictions, inputs, sb.Stage.TRAIN, "generator"
+        )
+        g_loss.backward()
+        self.g_optimizer.step()
+        self.g_optimizer.zero_grad()
 
-        return loss.detach()
+        predictions = self.compute_forward(inputs, sb.Stage.TRAIN)
+        d_loss = self.compute_objectives(
+            predictions, inputs, sb.Stage.TRAIN, "discriminator"
+        )
+        d_loss.backward()
+        self.d_optimizer.step()
+        self.d_optimizer.zero_grad()
+
+        return g_loss.detach() + d_loss.detach()
 
     def evaluate_batch(self, batch, stage):
         inputs = batch[0]
@@ -73,9 +79,19 @@ class EnhanceGanBrain(sb.Brain):
             print("Avg G loss: %.2f" % torch.mean(g_loss))
             print("Avg D loss: %.2f" % torch.mean(d_loss))
             print("train loss: ", stage_loss)
-        if stage == sb.Stage.VALID:
+        elif stage == sb.Stage.VALID:
             print("Completed epoch %d" % epoch)
             print("Valid loss: %.3f" % stage_loss)
+        else:
+            self.test_loss = stage_loss
+
+    def on_fit_start(self):
+        self.g_optimizer = self.hparams.g_opt_class(
+            self.hparams.generator.parameters()
+        )
+        self.d_optimizer = self.hparams.d_opt_class(
+            self.hparams.discriminator.parameters()
+        )
 
 
 def main():
@@ -86,16 +102,16 @@ def main():
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
 
-    auto_brain = EnhanceGanBrain(hparams["hparams"], hparams["optim"])
-    auto_brain.fit(
+    gan_brain = EnhanceGanBrain(hparams["hparams"])
+    gan_brain.fit(
         range(hparams["N_epochs"]),
         hparams["train_loader"](),
         hparams["valid_loader"](),
     )
-    test_loss = auto_brain.evaluate(hparams["test_loader"]())
+    gan_brain.evaluate(hparams["test_loader"]())
 
     # Check test loss (mse), train loss is GAN loss
-    assert test_loss < 0.002
+    assert gan_brain.test_loss < 0.002
 
 
 if __name__ == "__main__":

@@ -141,8 +141,8 @@ class ASR(sb.Brain):
         predictions = self.compute_forward(inputs, targets, sb.Stage.TRAIN)
         loss = self.compute_objectives(predictions, targets, sb.Stage.TRAIN)
         loss.backward()
-        self.optim.optimizer.step()
-        self.optim.optimizer.zero_grad()
+        self.optimizer.step()
+        self.optimizer.zero_grad()
         return loss.detach()
 
     def evaluate_batch(self, batch, stage):
@@ -151,14 +151,14 @@ class ASR(sb.Brain):
         loss = self.compute_objectives(predictions, targets, stage=stage)
         return loss.detach()
 
-    def on_stage_start(self, stage, epoch=None):
+    def on_stage_start(self, stage, epoch):
         if stage != sb.Stage.TRAIN:
             self.cer_metric = self.hparams.cer_computer()
             self.wer_metric = self.hparams.error_rate_computer()
             if self.hparams.ter_eval:
                 self.ter_metric = self.hparams.error_rate_computer()
 
-    def on_stage_end(self, stage, stage_loss, epoch=None):
+    def on_stage_end(self, stage, stage_loss, epoch):
 
         # Compute/store important stats
         stage_stats = {"loss": stage_loss}
@@ -173,7 +173,7 @@ class ASR(sb.Brain):
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
             old_lr, new_lr = self.hparams.lr_annealing(stage_stats["WER"])
-            sb.nnet.update_learning_rate(self.optim.optimizer, new_lr)
+            sb.nnet.update_learning_rate(self.optimizer, new_lr)
             self.hparams.train_logger.log_stats(
                 stats_meta={"epoch": epoch, "lr": old_lr},
                 train_stats=self.train_stats,
@@ -184,8 +184,7 @@ class ASR(sb.Brain):
             )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
-                stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
-                test_stats=stage_stats,
+                stats_meta={"Epoch loaded": epoch}, test_stats=stage_stats,
             )
             with open(self.hparams.wer_file, "w") as w:
                 self.wer_metric.write_stats(w)
@@ -219,6 +218,27 @@ class ASR(sb.Brain):
         state_dict = torch.load(save_model_path)
         state_dict = {k.split(".", 1)[1]: v for k, v in state_dict.items()}
         self.hparams.lm_model.load_state_dict(state_dict, strict=True)
+
+    def on_fit_start(self):
+        self.compile_jit()
+        self.optimizer = self.opt_class(self.hparams.model.parameters())
+        self.hparams.checkpointer.add_recoverable("optimizer", self.optimizer)
+
+        # Load latest checkpoint to resume training
+        asr_brain.load_tokenizer()
+        self.hparams.checkpointer.recover_if_possible()
+        if hasattr(self.hparams, "lm_ckpt_file"):
+            self.load_lm()
+
+    def on_evaluate_start(self):
+        # Load best checkpoint for evaluation
+        asr_brain.load_tokenizer()
+        self.hparams.checkpointer.recover_if_possible(min_key="WER")
+        if hasattr(self.hparams, "lm_ckpt_file"):
+            self.load_lm()
+
+        # Return epoch for logging
+        return self.hparams.epoch_counter.current
 
 
 if __name__ == "__main__":
@@ -270,19 +290,10 @@ if __name__ == "__main__":
 
     asr_brain = ASR(
         hparams=hparams["hparams"],
-        optim=hparams["optim"],
+        opt_class=hparams["opt_class"],
         device=hparams["device"],
         ddp_procs=hparams["ddp_procs"],
     )
 
-    # Load latest checkpoint to resume training
-    asr_brain.load_tokenizer()
-    asr_brain.hparams.checkpointer.recover_if_possible()
-    if hasattr(asr_brain.hparams, "lm_ckpt_file"):
-        asr_brain.load_lm()
     asr_brain.fit(asr_brain.hparams.epoch_counter, train_set, valid_set)
-
-    # Load best checkpoint for evaluation
-    asr_brain.load_tokenizer()
-    asr_brain.hparams.checkpointer.recover_if_possible(min_key="WER")
-    test_stats = asr_brain.evaluate(test_set)
+    asr_brain.evaluate(test_set)

@@ -48,7 +48,7 @@ def main():
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
 
-    align_brain = AlignBrain(hparams["hparams"], hparams["optim"])
+    align_brain = AlignBrain(hparams["hparams"], hparams["opt_class"])
     align_brain.fit(
         range(hparams["N_epochs"]),
         hparams["train_loader"](),

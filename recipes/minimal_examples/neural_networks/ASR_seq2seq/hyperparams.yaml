@@ -88,12 +88,8 @@ dec: !new:speechbrain.nnet.AttentionalRNNDecoder
 softmax: !new:speechbrain.nnet.Softmax
     apply_log: True
 
-optim:
-    optimizer: !new:torch.optim.Adam
-        params: !!python/object/apply:speechbrain.collect_params [
-            !ref <enc>, !ref <lin>, !ref <emb>, !ref <dec>
-        ]
-        lr: !ref <lr>
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
 
 hparams:
     compute_features: !new:speechbrain.lobes.MFCC

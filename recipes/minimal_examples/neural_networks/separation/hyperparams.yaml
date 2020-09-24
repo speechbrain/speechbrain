@@ -69,13 +69,8 @@ decoder: !new:speechbrain.lobes.models.conv_tasnet.Decoder
     L: 20
     N: 32
 
-optim:
-    optimizer: !new:torch.optim.Adam
-        lr: !ref <lr>
-        params: !!python/object/apply:speechbrain.collect_params
-            - !ref <encoder>
-            - !ref <decoder>
-            - !ref <mask_net>
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
 
 hparams:
     train_onthefly: False
