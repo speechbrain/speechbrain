@@ -13,9 +13,12 @@ from speechbrain.data_io.data_io import split_word
 
 from speechbrain.decoders.seq2seq import S2SRNNGreedySearcher
 from speechbrain.decoders.seq2seq import S2SRNNBeamSearcher
+from speechbrain.decoders.ctc import ctc_greedy_decode
 from speechbrain.decoders.decoders import undo_padding
 from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.train_logger import summarize_error_rate
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"  # set your device id
 
 # This hack needed to import data preparation script from ..
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -51,15 +54,6 @@ class MyBeamSearcher(S2SRNNBeamSearcher):
             self.init_lm_params = False
         return log_probs, hs
 
-    def ctc_forward_step(self, x):
-        logits = params.ctc_lin(x, self.init_ctc_params)
-        log_probs = params.log_softmax(logits)
-
-        # set it to false after initialization
-        if self.init_ctc_params:
-            self.init_ctc_params = False
-        return log_probs
-
     def permute_lm_mem(self, memory, index):
         # This is to permute lm memory to synchronize with current index during beam search.
         # The order of beams will be shuffled by scores every timestep to allow batched beam search.
@@ -85,7 +79,7 @@ if hasattr(params, "lm_ckpt_file"):
     lm_modules.eval()
 
     beam_searcher = MyBeamSearcher(
-        modules=[params.emb, params.dec, params.seq_lin],
+        modules=[params.emb, params.dec, params.seq_lin, params.ctc_lin],
         bos_index=params.bos_index,
         eos_index=params.eos_index,
         min_decode_ratio=0,
@@ -102,7 +96,7 @@ if hasattr(params, "lm_ckpt_file"):
 else:
     # Beamsearch without LM
     beam_searcher = S2SRNNBeamSearcher(
-        modules=[params.emb, params.dec, params.seq_lin],
+        modules=[params.emb, params.dec, params.seq_lin, params.ctc_lin],
         bos_index=params.bos_index,
         eos_index=params.eos_index,
         min_decode_ratio=0,
@@ -187,7 +181,10 @@ class ASR(sb.core.Brain):
             hyps, scores = greedy_searcher(x, wav_lens)
             return p_seq, wav_lens, hyps
         elif stage == "test":
-            hyps, scores = beam_searcher(x, wav_lens)
+            # hyps, scores = beam_searcher(x, wav_lens)
+            # ctc greedy
+            logits = beam_searcher.ctc_fc(x)
+            hyps = ctc_greedy_decode(logits, wav_lens, 0)
             return p_seq, wav_lens, hyps
 
     def compute_objectives(self, predictions, targets, stage="train"):
