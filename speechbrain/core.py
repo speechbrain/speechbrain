@@ -287,17 +287,14 @@ class Brain:
         ddp_procs=0,
         auto_mix_prec=False,
     ):
-        self.device = device
+        self.opt_class = opt_class
         self.jit_modules = jit_modules
+        self.device = device
+        self.ddp_procs = ddp_procs
         self.auto_mix_prec = auto_mix_prec
 
         self.root_process = True
-        self.ddp_procs = ddp_procs
         modulelist = []
-
-        # Make optimizer accessible with simple "dot" notation
-        if opt_class is not None:
-            self.opt_class = opt_class
 
         # Put modules onto correct device
         for name, hparam in hparams.items():
@@ -411,16 +408,17 @@ class Brain:
         self.compile_jit()
 
         # Initialize optimizer with parameters on the correct device
-        params = []
-        for name, hparam in self.hparams.__dict__.items():
-            if isinstance(hparam, torch.nn.Module):
-                params.extend(hparam.parameters())
+        if self.opt_class is not None:
+            params = []
+            for name, hparam in self.hparams.__dict__.items():
+                if isinstance(hparam, torch.nn.Module):
+                    params.extend(hparam.parameters())
 
-        if self.jit_modules is not None:
-            for name, jit_module in self.jit_modules.__dict__.items():
-                params.extend(jit_module.parameters())
+            if self.jit_modules is not None:
+                for name, jit_module in self.jit_modules.__dict__.items():
+                    params.extend(jit_module.parameters())
 
-        self.optimizer = self.opt_class(params)
+            self.optimizer = self.opt_class(params)
 
     def on_evaluate_start(self):
         """Gets called at the beginning of ``evaluate()``"""
