@@ -847,15 +847,16 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
     >>> import speechbrain as sb
     >>> emb = torch.nn.Embedding(5, 3)
     >>> dec = sb.nnet.RNN.AttentionalRNNDecoder("gru", "content", 3, 3, 1)
-    >>> lin = sb.nnet.linear.Linear(5)
+    >>> dec_lin = sb.nnet.linear.Linear(5)
+    >>> ctc_lin = sb.nnet.linear.Linear(5)
     >>> act = sb.nnet.activations.Softmax(apply_log=True)
     >>> inp = torch.randint(low=0, high=5, size=(2, 3))
     >>> enc = torch.rand([2, 6, 7])
     >>> wav_len = torch.rand([2])
     >>> e = emb(inp)
     >>> h, _ = dec(e, enc, wav_len, init_params=True)
-    >>> log_probs = act(lin(h, init_params=True))
-    >>> modules = [emb, dec, lin]
+    >>> log_probs = act(dec_lin(h, init_params=True))
+    >>> modules = [emb, dec, dec_lin, ctc_lin]
     >>> searcher = S2SRNNBeamSearcher(
     ... modules,
     ... bos_index=4,
