@@ -8,21 +8,21 @@ Author:
     * Mirko Bronzi 2020
 """
 import argparse
+import itertools as it
 import logging
 import os
+import shutil
+
+import torch
+import torch.nn.functional as F
+
 import speechbrain as sb
 from recipes.minimal_examples.neural_networks.separation.example_conv_tasnet import (
     create_minimal_data,
 )
-from speechbrain.utils.train_logger import summarize_average, TensorboardLogger
-import torch
-from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.nnet.losses import get_si_snr_with_pitwrapper
-
-import torch.nn.functional as F
-import itertools as it
-import shutil
-
+from speechbrain.utils.checkpoints import ckpt_recency
+from speechbrain.utils.train_logger import summarize_average, TensorboardLogger
 
 logger = logging.getLogger(__name__)
 
@@ -263,6 +263,13 @@ def main():
 
     test_stats = ctn.evaluate(test_loader)
     logger.info("Test SI-SNR: %.3f" % -summarize_average(test_stats["loss"]))
+
+    # FIXME: use the correct best valid value
+    # report_results([dict(
+    #     name='dev_metric',
+    #     type='objective',
+    #     # note the minus - cause orion is always trying to minimize (cit. from the guide)
+    #     value=-float(1.0))])
 
 
 if __name__ == "__main__":
