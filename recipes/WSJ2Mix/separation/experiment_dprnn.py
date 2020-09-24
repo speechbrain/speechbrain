@@ -1,10 +1,11 @@
 #!/usr/bin/python
 
 """
-Recipe to train CONV-TASNET model on the WSJ0 dataset
+Recipe to train DP-RNN model on the WSJ0-2Mix dataset
 
 Author:
     * Cem Subakan 2020
+    * Mirko Bronzi 2020
 """
 import argparse
 import logging
@@ -20,6 +21,7 @@ from speechbrain.nnet.losses import get_si_snr_with_pitwrapper
 
 import torch.nn.functional as F
 import itertools as it
+import shutil
 
 
 logger = logging.getLogger(__name__)
@@ -144,6 +146,10 @@ class CTNBrain(sb.core.Brain):
         current_lr, next_lr = self.param.lr_scheduler(
             [self.param.optimizer], epoch, av_loss
         )
+
+        epoch_stats = {"epoch": epoch, "lr": current_lr}
+        self.param.train_logger.log_stats(epoch_stats, train_stats, valid_stats)
+
         # if params.use_tensorboard:
         train_logger = TensorboardLogger(self.param.tensorboard_logs)
         train_logger.log_stats({"Epoch": epoch}, train_stats, valid_stats)
@@ -225,6 +231,9 @@ def main():
                     fin, {"tr_csv": tr_csv, "cv_csv": cv_csv, "tt_csv": tt_csv}
                 )
             # logger.info(params)  # if needed this line can be uncommented for logging
+
+        # copy the config file for book keeping
+        shutil.copyfile(params_file, params.output_folder + "/config.txt")
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
