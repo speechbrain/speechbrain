@@ -11,7 +11,7 @@ from speechbrain.tokenizers.SentencePiece import SentencePiece
 class ASR(sb.Brain):
     def compute_forward(self, x, y, stage):
         ids, wavs, wav_lens = x
-        ids, words, word_lens = y
+        ids, target_words, target_word_lens = y
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
 
         # Add augmentation if specified
@@ -20,17 +20,21 @@ class ASR(sb.Brain):
                 wavs_noise = self.hparams.env_corrupt(wavs, wav_lens)
                 wavs = torch.cat([wavs, wavs_noise], dim=0)
                 wav_lens = torch.cat([wav_lens, wav_lens])
-                words = torch.cat([words, words], dim=0)
-                word_lens = torch.cat([word_lens, word_lens])
+                target_words = torch.cat([target_words, target_words], dim=0)
+                target_word_lens = torch.cat(
+                    [target_word_lens, target_word_lens]
+                )
             if hasattr(self.hparams, "augmentation"):
                 wavs = self.hparams.augmentation(wavs, wav_lens)
 
         # Prepare labels
-        bpe, _ = self.hparams.bpe_tokenizer(
-            words, word_lens, self.hparams.index2lab, task="encode"
+        target_tokens, _ = self.hparams.bpe_tokenizer(
+            target_words, target_word_lens, self.hparams.ind2lab, task="encode"
         )
-        bpe = bpe.to(self.device)
-        y_in = sb.data_io.prepend_bos_token(bpe, self.hparams.bos_index)
+        target_tokens = target_tokens.to(self.device)
+        y_in = sb.data_io.prepend_bos_token(
+            target_tokens, self.hparams.bos_index
+        )
 
         # Forward pass
         feats = self.hparams.compute_features(wavs)
@@ -54,8 +58,8 @@ class ASR(sb.Brain):
             else:
                 return p_seq, wav_lens
         else:
-            hyps, scores = self.hparams.beam_searcher(x, wav_lens)
-            return p_seq, wav_lens, hyps
+            p_tokens, scores = self.hparams.beam_searcher(x, wav_lens)
+            return p_seq, wav_lens, p_tokens
 
     def compute_objectives(self, predictions, targets, stage):
         current_epoch = self.hparams.epoch_counter.current
@@ -65,35 +69,42 @@ class ASR(sb.Brain):
             else:
                 p_seq, wav_lens = predictions
         else:
-            p_seq, wav_lens, hyps = predictions
+            p_seq, wav_lens, predicted_tokens = predictions
 
-        ids, words, word_lens = targets
-        bpe, bpe_lens = self.hparams.bpe_tokenizer(
-            words, word_lens, self.hparams.index2lab, task="encode"
+        ids, target_words, target_word_lens = targets
+        target_tokens, target_token_lens = self.hparams.bpe_tokenizer(
+            target_words, target_word_lens, self.hparams.ind2lab, task="encode"
         )
-        bpe, bpe_lens = bpe.to(self.device), bpe_lens.to(self.device)
+        target_tokens = target_tokens.to(self.device)
+        target_token_lens = target_token_lens.to(self.device)
         if hasattr(self.hparams, "env_corrupt") and stage == sb.Stage.TRAIN:
-            bpe = torch.cat([bpe, bpe], dim=0)
-            bpe_lens = torch.cat([bpe_lens, bpe_lens], dim=0)
+            target_tokens = torch.cat([target_tokens, target_tokens], dim=0)
+            target_token_lens = torch.cat(
+                [target_token_lens, target_token_lens], dim=0
+            )
 
         # Add char_lens by one for eos token
-        abs_length = torch.round(bpe_lens * bpe.shape[1])
+        abs_length = torch.round(target_token_lens * target_tokens.shape[1])
 
         # Append eos token at the end of the label sequences
-        bpe_with_eos = sb.data_io.append_eos_token(
-            bpe, length=abs_length, eos_index=self.hparams.eos_index
+        target_tokens_with_eos = sb.data_io.append_eos_token(
+            target_tokens, length=abs_length, eos_index=self.hparams.eos_index
         )
 
         # convert to speechbrain-style relative length
-        rel_length = (abs_length + 1) / bpe_with_eos.shape[1]
-        loss_seq = self.hparams.seq_cost(p_seq, bpe_with_eos, length=rel_length)
+        rel_length = (abs_length + 1) / target_tokens_with_eos.shape[1]
+        loss_seq = self.hparams.seq_cost(
+            p_seq, target_tokens_with_eos, length=rel_length
+        )
 
         # Add ctc loss if necessary
         if (
             stage == sb.Stage.TRAIN
             and current_epoch <= self.hparams.number_of_ctc_epochs
         ):
-            loss_ctc = self.hparams.ctc_cost(p_ctc, bpe, wav_lens, bpe_lens)
+            loss_ctc = self.hparams.ctc_cost(
+                p_ctc, target_tokens, wav_lens, target_token_lens
+            )
             loss = self.hparams.ctc_weight * loss_ctc
             loss += (1 - self.hparams.ctc_weight) * loss_seq
         else:
@@ -101,18 +112,27 @@ class ASR(sb.Brain):
 
         if stage != sb.Stage.TRAIN:
             # Decode BPE terms to words
-            target = self.hparams.bpe_tokenizer(hyps, task="decode_from_list")
+            predicted_words = self.hparams.bpe_tokenizer(
+                predicted_tokens, task="decode_from_list"
+            )
 
             # Convert indices to words
-            words = sb.decoders.undo_padding(words, word_lens)
-            words = sb.data_io.convert_index_to_lab(
-                words, self.hparams.index2lab
+            target_words = sb.decoders.undo_padding(
+                target_words, target_word_lens
+            )
+            target_words = sb.data_io.convert_index_to_lab(
+                target_words, self.hparams.ind2lab
             )
 
             if self.hparams.ter_eval:
-                self.ter_metric.append(ids, bpe, hyps, predict_len=bpe_lens)
-            self.wer_metric.append(ids, words, target)
-            self.cer_metric.append(ids, words, target)
+                self.ter_metric.append(
+                    ids=ids,
+                    predict=predicted_tokens,
+                    target=target_tokens,
+                    target_len=target_token_lens,
+                )
+            self.wer_metric.append(ids, predicted_words, target_words)
+            self.cer_metric.append(ids, predicted_words, target_words)
 
         return loss
 
@@ -245,7 +265,7 @@ if __name__ == "__main__":
     valid_set = hparams["valid_loader"]()
     test_set = hparams["test_loader"]()
     ind2lab = hparams["test_loader"].label_dict["wrd"]["index2lab"]
-    hparams["hparams"]["index2lab"] = ind2lab
+    hparams["hparams"]["ind2lab"] = ind2lab
     hparams["hparams"]["bpe_tokenizer"] = bpe_tokenizer
 
     asr_brain = ASR(
