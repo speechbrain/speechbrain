@@ -13,7 +13,8 @@ from speechbrain.data_io.data_io import split_word
 
 from speechbrain.decoders.seq2seq import S2SRNNGreedySearcher
 from speechbrain.decoders.seq2seq import S2SRNNBeamSearcher
-from speechbrain.decoders.ctc import ctc_greedy_decode
+
+# from speechbrain.decoders.ctc import ctc_greedy_decode
 from speechbrain.decoders.decoders import undo_padding
 from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.train_logger import summarize_error_rate
@@ -53,6 +54,12 @@ class MyBeamSearcher(S2SRNNBeamSearcher):
         if self.init_lm_params:
             self.init_lm_params = False
         return log_probs, hs
+
+    def ctc_forward_step(self, x):
+        logits = self.ctc_fc(x, self.init_ctc_params)
+        log_probs = params.log_softmax(logits)
+
+        return log_probs
 
     def permute_lm_mem(self, memory, index):
         # This is to permute lm memory to synchronize with current index during beam search.
@@ -181,10 +188,10 @@ class ASR(sb.core.Brain):
             hyps, scores = greedy_searcher(x, wav_lens)
             return p_seq, wav_lens, hyps
         elif stage == "test":
-            # hyps, scores = beam_searcher(x, wav_lens)
+            hyps, scores = beam_searcher(x, wav_lens)
             # ctc greedy
-            logits = beam_searcher.ctc_fc(x)
-            hyps = ctc_greedy_decode(logits, wav_lens, 0)
+            # logits = beam_searcher.ctc_forward_step(x)
+            # hyps = ctc_greedy_decode(logits, wav_lens, 0)
             return p_seq, wav_lens, hyps
 
     def compute_objectives(self, predictions, targets, stage="train"):
