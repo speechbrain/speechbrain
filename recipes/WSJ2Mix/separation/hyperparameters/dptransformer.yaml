@@ -9,15 +9,17 @@
 seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 use_tensorboard: True
-tensorboard_logs: runs/1-dptf
-output_folder: !ref results/conv_tasnet/<seed>
+experiment_name: 2-dprnnK250
+tensorboard_logs: !ref runs/<experiment_name>
+output_folder: !ref results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 data_folder: ../../../samples/audio_samples/sourcesep_samples
 
+
 # Neural Parameters
-N_epochs: 100
-N_batch: 1
+N_epochs: 200
+N_batch: 2
 lr: 0.0002
 train_onthefly: False
 loss_fn: 'sisnr'
