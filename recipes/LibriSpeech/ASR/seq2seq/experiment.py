@@ -278,11 +278,11 @@ if __name__ == "__main__":
     # Load latest checkpoint to resume training
     asr_brain.load_tokenizer()
     asr_brain.hparams.checkpointer.recover_if_possible()
+    if hasattr(asr_brain.hparams, "lm_ckpt_file"):
+        asr_brain.load_lm()
     asr_brain.fit(asr_brain.hparams.epoch_counter, train_set, valid_set)
 
     # Load best checkpoint for evaluation
     asr_brain.load_tokenizer()
     asr_brain.hparams.checkpointer.recover_if_possible(min_key="WER")
-    if hasattr(asr_brain.hparams, "lm_ckpt_file"):
-        asr_brain.load_lm()
     test_stats = asr_brain.evaluate(test_set)
