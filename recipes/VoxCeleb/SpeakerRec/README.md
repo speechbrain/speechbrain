@@ -138,7 +138,9 @@ Note: To prepare the voxceleb1 + voxceleb2 dataset you have to copy and unpack v
 
 - xvector + CL (full exp folder): https://www.dropbox.com/sh/egbd9jsywbsjm45/AABC1hh3AngRZZ_yQBCMkKVQa?dl=1
 
-- xvector + CL (model only): https://www.dropbox.com/s/exzbyt4qoabo7v4/embedding_model.ckpt?dl=0
+- xvector + CL (model only): https://www.dropbox.com/s/exzbyt4qoabo7v4/embedding_model.ckpt?dl=1
+
+- ecapa-tdnn (full exp folder): https://www.dropbox.com/sh/9tpae97au7yopwj/AABF6weFsd4Gb7EkU7vZco6ha?dl=1
 
 - ecapa-tdnn(model only): https://www.dropbox.com/s/n4kkhss16fbku5a/embedding_model.ckpt?dl=1
 
@@ -152,5 +154,7 @@ Note: To prepare the voxceleb1 + voxceleb2 dataset you have to copy and unpack v
 - xvector + CL (full exp folder): https://www.dropbox.com/sh/m4y3y1s7974j51j/AAB9V8xP4T1jQCxxvFUu3Fsca?dl=1
 
 - xvector + CL (model only): https://www.dropbox.com/s/blsr7iybtcjrusy/embedding_model.ckpt?dl=1
+
+- ecapa-tdnn(full exp folder): https://www.dropbox.com/sh/9tpae97au7yopwj/AABF6weFsd4Gb7EkU7vZco6ha?dl=1
 
 - ecapa-tdnn(model only): https://www.dropbox.com/s/ovrzhwnik651rzj/embedding_model.ckpt?dl=1
