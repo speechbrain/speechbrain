@@ -360,7 +360,8 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         # to initialize the params of LM modules
         self.init_lm_params = True
-        self.init_ctc_params = True
+        # ctc already initalized
+        self.init_ctc_params = False
         self.minus_inf = minus_inf
 
     def _check_full_beams(self, hyps, beam_size):
@@ -877,7 +878,7 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
         beam_size,
         topk=1,
         return_log_probs=False,
-        using_eos_threshold=False,  # True
+        using_eos_threshold=True,  # True
         eos_threshold=1.5,
         length_normalization=True,
         length_rewarding=0,
