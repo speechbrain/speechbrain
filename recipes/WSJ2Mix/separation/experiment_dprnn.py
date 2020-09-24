@@ -15,6 +15,7 @@ import shutil
 
 import torch
 import torch.nn.functional as F
+from orion.client import report_results
 
 import speechbrain as sb
 from recipes.minimal_examples.neural_networks.separation.example_conv_tasnet import (
@@ -56,6 +57,7 @@ class CTNBrain(sb.core.Brain):
         self.param = params
         self.device = device
         super(CTNBrain, self).__init__(**kwargs)
+        self.eval_scores = []
 
     def compute_forward(self, mixture, stage="train", init_params=False):
         if hasattr(self.param, "env_corrupt"):
@@ -157,9 +159,9 @@ class CTNBrain(sb.core.Brain):
         logger.info(
             "Train SI-SNR: %.3f" % -summarize_average(train_stats["loss"])
         )
-        logger.info(
-            "Valid SI-SNR: %.3f" % -summarize_average(valid_stats["loss"])
-        )
+        eval_score = summarize_average(valid_stats["loss"])
+        self.eval_scores.append(eval_score)
+        logger.info("Valid SI-SNR: %.3f" % -eval_score)
         logger.info(
             "Current LR {} New LR on next epoch {}".format(current_lr, next_lr)
         )
@@ -264,12 +266,20 @@ def main():
     test_stats = ctn.evaluate(test_loader)
     logger.info("Test SI-SNR: %.3f" % -summarize_average(test_stats["loss"]))
 
+    best_eval = min(ctn.eval_scores)
+    logger.info("Best result on validation: {}".format(-best_eval))
+
     # FIXME: use the correct best valid value
-    # report_results([dict(
-    #     name='dev_metric',
-    #     type='objective',
-    #     # note the minus - cause orion is always trying to minimize (cit. from the guide)
-    #     value=-float(1.0))])
+    report_results(
+        [
+            dict(
+                name="dev_metric",
+                type="objective",
+                # note the minus - cause orion is always trying to minimize (cit. from the guide)
+                value=float(best_eval),
+            )
+        ]
+    )
 
 
 if __name__ == "__main__":
