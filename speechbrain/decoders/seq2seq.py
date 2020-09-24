@@ -248,7 +248,7 @@ class S2SRNNGreedySearcher(S2SGreedySearcher):
         dec_out, hs, c, w = self.dec.forward_step(
             e, hs, c, enc_states, enc_lens
         )
-        log_probs = self.softmax(self.fc(dec_out))
+        log_probs = self.softmax(self.fc(dec_out) / self.temperature)
         return log_probs, (hs, c), w
 
 
@@ -394,8 +394,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
             The peak of the attn tensor.
         """
         # Block the candidates that exceed the max shift
-        if self.dec.attn_type == "multiheadlocation":
-            attn = torch.mean(attn, dim=1)
         _, attn_peak = torch.max(attn, dim=1)
         lt_cond = attn_peak <= (prev_attn_peak + self.max_attn_shift)
         mt_cond = attn_peak > (prev_attn_peak - self.max_attn_shift)
@@ -796,6 +794,9 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
         Attentional RNN decoder
     linear : torch.nn.Module
         A linear output layer
+    temperature : float
+        Temperature factor applied to softmax. It changes the probability
+        distribution, being more soft when T>1 and more sharp with T<1.
     **kwargs
         see S2SBeamSearcher, arguments are directly passed
 
@@ -821,12 +822,13 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
     >>> hyps, scores = searcher(enc, wav_len)
     """
 
-    def __init__(self, embedding, decoder, linear, **kwargs):
+    def __init__(self, embedding, decoder, linear, temperature=1.0, **kwargs):
         super(S2SRNNBeamSearcher, self).__init__(**kwargs)
         self.emb = embedding
         self.dec = decoder
         self.fc = linear
         self.softmax = torch.nn.LogSoftmax(dim=-1)
+        self.temperature = temperature
 
     def reset_mem(self, batch_size, device):
         hs = None
@@ -840,7 +842,7 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
         dec_out, hs, c, w = self.dec.forward_step(
             e, hs, c, enc_states, enc_lens
         )
-        log_probs = self.softmax(self.fc(dec_out))
+        log_probs = self.softmax(self.fc(dec_out) / self.temperature)
         return log_probs, (hs, c), w
 
     def permute_mem(self, memory, index):
@@ -855,10 +857,7 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
             hs = torch.index_select(hs, dim=1, index=index)
 
         c = torch.index_select(c, dim=0, index=index)
-        if (
-            self.dec.attn_type == "location"
-            or self.dec.attn_type == "multiheadlocation"
-        ):
+        if self.dec.attn_type == "location":
             self.dec.attn.prev_attn = torch.index_select(
                 self.dec.attn.prev_attn, dim=0, index=index
             )
@@ -881,6 +880,9 @@ class S2SRNNBeamSearchLM(S2SRNNBeamSearcher):
         A linear output layer
     language_model : torch.nn.Module
         A language model
+    temperature_lm : float
+        Temperature factor applied to softmax. It changes the probability
+        distribution, being more soft when T>1 and more sharp with T<1.
     **kwargs
         Arguments to pass to S2SBeamSearcher
 
@@ -909,17 +911,26 @@ class S2SRNNBeamSearchLM(S2SRNNBeamSearcher):
     >>> hyps, scores = searcher(enc, wav_len)
     """
 
-    def __init__(self, embedding, decoder, linear, language_model, **kwargs):
+    def __init__(
+        self,
+        embedding,
+        decoder,
+        linear,
+        language_model,
+        temperature_lm=1.0,
+        **kwargs,
+    ):
         super(S2SRNNBeamSearchLM, self).__init__(
             embedding, decoder, linear, **kwargs
         )
 
         self.lm = language_model
         self.log_softmax = sb.nnet.Softmax(apply_log=True)
+        self.temperature_lm = temperature_lm
 
     def lm_forward_step(self, inp_tokens, memory):
         logits, hs = self.lm(inp_tokens, hx=memory)
-        log_probs = self.log_softmax(logits)
+        log_probs = self.log_softmax(logits / self.temperature_lm)
 
         return log_probs, hs
 
