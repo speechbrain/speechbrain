@@ -53,10 +53,7 @@ class ASR(sb.Brain):
                 return p_ctc, p_seq, wav_lens
             else:
                 return p_seq, wav_lens
-        elif stage == sb.Stage.VALID:
-            hyps, scores = self.hparams.greedy_searcher(x, wav_lens)
-            return p_seq, wav_lens, hyps
-        elif stage == sb.Stage.TEST:
+        else:
             hyps, scores = self.hparams.beam_searcher(x, wav_lens)
             return p_seq, wav_lens, hyps
 
