@@ -248,7 +248,7 @@ class S2SRNNGreedySearcher(S2SGreedySearcher):
         dec_out, hs, c, w = self.dec.forward_step(
             e, hs, c, enc_states, enc_lens
         )
-        log_probs = self.softmax(self.fc(dec_out) / self.temperature)
+        log_probs = self.softmax(self.fc(dec_out))
         return log_probs, (hs, c), w
 
 
