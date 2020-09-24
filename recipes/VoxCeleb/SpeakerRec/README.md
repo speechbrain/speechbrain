@@ -57,8 +57,9 @@ After training the speaker embeddings, it is possible to perform speaker verific
 
 `python speaker_verification_cosine.py hyperparams/verification_ecapa_tdnn_voxceleb1.yaml` (for voxceleb1)
 `python speaker_verification_cosine.py hyperparams/verification_ecapa_tdnn_voxceleb2.yaml` (for voxceleb2)
+`python speaker_verification_cosine.py hyperparams/verification_ecapa_tdnn_voxceleb1_2.yaml` (for voxceleb1 + voxceleb2)
 
-This system achieves an EER = 3.4 % on voxceleb1, EER = 1.6 % on voxceleb2, and EER = 1.4 % on voxceleb1 + voxceleb2.
+This system achieves an EER = 3.4 % on voxceleb1, EER = 1.6 % on voxceleb2, and EER = 1.5 % on voxceleb1 + voxceleb2.
 These results are all obtained with the official verification split of voxceleb1 (veri\_split.txt)
 
 # VoxCeleb2 preparation
@@ -113,7 +114,7 @@ Note: To prepare the voxceleb1 + voxceleb2 dataset you have to copy and unpack v
 |-----------------|------------|------|
 | Xvector + PLDA  | VoxCeleb 2 | 5.2% |
 | Xvector + CL    | Voxceleb 2 | 2.9% |
-| ECAPA-TDNN      | Voxceleb 2 | 1.4% |
+| ECAPA-TDNN      | Voxceleb 2 | 1.5% |
 
 
 # Resources
@@ -152,7 +153,4 @@ Note: To prepare the voxceleb1 + voxceleb2 dataset you have to copy and unpack v
 
 - xvector + CL (model only): https://www.dropbox.com/s/blsr7iybtcjrusy/embedding_model.ckpt?dl=1
 
-- ecapa-tdnn(model only): https://www.dropbox.com/s/n4kkhss16fbku5a/embedding_model.ckpt?dl=1
-
-
-
+- ecapa-tdnn(model only): https://www.dropbox.com/s/ovrzhwnik651rzj/embedding_model.ckpt?dl=1
