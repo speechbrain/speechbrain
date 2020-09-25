@@ -85,7 +85,7 @@ class EnhanceGanBrain(sb.Brain):
         else:
             self.test_loss = stage_loss
 
-    def on_fit_start(self):
+    def init_optimizers(self):
         self.g_optimizer = self.hparams.g_opt_class(
             self.hparams.generator.parameters()
         )

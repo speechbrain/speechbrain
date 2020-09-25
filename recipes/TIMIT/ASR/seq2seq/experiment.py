@@ -144,13 +144,13 @@ class ASR(sb.Brain):
                     "PER": per,
                 },
             )
-            self.hparams.checkpointer.save_and_keep_only(
+            self.checkpointer.save_and_keep_only(
                 meta={"PER": per}, min_keys=["PER"]
             )
 
         if stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
-                stats_meta={"Epoch loaded": epoch},
+                stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats={"loss": stage_loss, "PER": per},
             )
             with open(self.hparams.wer_file, "w") as w:
@@ -164,21 +164,6 @@ class ASR(sb.Brain):
                     "CTC, seq2seq, and PER stats written to file",
                     self.hparams.wer_file,
                 )
-
-    def on_fit_start(self):
-        self.compile_jit()
-        self.optimizer = self.opt_class(self.hparams.model.parameters())
-        self.hparams.checkpointer.add_recoverable("optimizer", self.optimizer)
-
-        # Load latest checkpoint to resume training
-        self.hparams.checkpointer.recover_if_possible()
-
-    def on_evaluate_start(self):
-        # Load best checkpoint for evaluation
-        self.hparams.checkpointer.recover_if_possible(min_key="PER")
-
-        # Return current epoch for logging
-        return self.hparams.epoch_counter.current
 
 
 if __name__ == "__main__":
@@ -216,6 +201,7 @@ if __name__ == "__main__":
         hparams=hparams["hparams"],
         opt_class=hparams["opt_class"],
         jit_modules=hparams["jit_modules"],
+        checkpointer=hparams["checkpointer"],
         device=hparams["device"],
         ddp_procs=hparams["ddp_procs"],
     )

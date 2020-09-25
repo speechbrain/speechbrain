@@ -257,6 +257,9 @@ class Brain:
         with the hparams and optim arguments, these are made accessible with
         a ``jit_modules`` attribute, using "dot" notation:
         e.g. self.jit_modules.model(x)
+    checkpointer : speechbrain.Checkpointer
+        By default, this will be used to load checkpoints, and will have the
+        optimizer added to continue training if interrupted.
     device : str
         The location for performing computations.
     ddp_procs : int
@@ -283,12 +286,14 @@ class Brain:
         hparams,
         opt_class=None,
         jit_modules=None,
+        checkpointer=None,
         device="cpu",
         ddp_procs=0,
         auto_mix_prec=False,
     ):
         self.opt_class = opt_class
         self.jit_modules = jit_modules
+        self.checkpointer = checkpointer
         self.device = device
         self.ddp_procs = ddp_procs
         self.auto_mix_prec = auto_mix_prec
@@ -397,22 +402,36 @@ class Brain:
         """Gets called at the beginning of ``fit()``, on multiple processes
         if ddp_procs is more than 0.
 
-        The default implementation of this method depends on an optimizer
-        class being passed at initialization that takes only a list
-        of parameters (e.g. a lambda or a partial function definition).
-
-        Most recipes will override this class to potentially load
-        an interrupted run and complete it.
+        Default implementation compiles the jit modules, initializes
+        optimizers, and loads the latest checkpoint to resume training.
         """
         # Run this *after* mp.spawn since jit modules cannot be pickled.
         self.compile_jit()
 
-        # Initialize optimizer with parameters on the correct device
+        # Initialize optimizers after parameters are configured
+        self.init_optimizers()
+
+        # Load latest checkpoint to resume training if interrupted
+        if self.checkpointer is not None:
+            self.checkpointer.recover_if_possible()
+
+    def init_optimizers(self):
+        """Called during ``on_fit_start()``, initialize optimizers
+        after parameters are fully configured (e.g. DDP, jit).
+
+        The default implementation of this method depends on an optimizer
+        class being passed at initialization that takes only a list
+        of parameters (e.g. a lambda or a partial function definition).
+        This creates a single optimizer that optimizes all trainable params.
+
+        Override this class if there are multiple optimizers.
+        """
         if self.opt_class is not None:
             params = []
             for name, hparam in self.hparams.__dict__.items():
                 if isinstance(hparam, torch.nn.Module):
-                    params.extend(hparam.parameters())
+                    if any(p.requires_grad for p in hparam.parameters()):
+                        params.extend(hparam.parameters())
 
             if self.jit_modules is not None:
                 for name, jit_module in self.jit_modules.__dict__.items():
@@ -420,9 +439,30 @@ class Brain:
 
             self.optimizer = self.opt_class(params)
 
-    def on_evaluate_start(self):
-        """Gets called at the beginning of ``evaluate()``"""
-        pass
+            if self.checkpointer is not None:
+                self.checkpointer.add_recoverable("optimizer", self.optimizer)
+
+    def on_evaluate_start(self, max_key=None, min_key=None):
+        """Gets called at the beginning of ``evaluate()``
+
+        Default implementation loads the best-performing checkpoint for
+        evaluation, based on stored metrics.
+
+        Arguments
+        ---------
+        max_key : str
+            Key to use for finding best checkpoint (higher is better).
+            By default, passed to ``self.checkpointer.recover_if_possible()``.
+        min_key : str
+            Key to use for finding best checkpoint (lower is better).
+            By default, passed to ``self.checkpointer.recover_if_possible()``.
+        """
+
+        # Recover best checkpoint for evaluation
+        if self.checkpointer is not None:
+            self.checkpointer.recover_if_possible(
+                max_key=max_key, min_key=min_key
+            )
 
     def fit_batch(self, batch):
         """Fit one batch, override to do multiple updates.
@@ -598,13 +638,18 @@ class Brain:
         # Convert jit modules to use "dot" notation
         self.jit_modules = SimpleNamespace(**self.jit_modules)
 
-    def evaluate(self, test_set, progressbar=True):
-        """Iterate test_set and evaluate brain performance.
+    def evaluate(self, test_set, max_key=None, min_key=None, progressbar=True):
+        """Iterate test_set and evaluate brain performance. By default, loads
+        the best-performing checkpoint (as recorded using the checkpointer).
 
         Arguments
         ---------
         test_set : list of DataLoaders
             This list will be zipped before iterating.
+        max_key : str
+            Key to use for finding best checkpoint, passed to on_evaluate_start
+        min_key : str
+            Key to use for finding best checkpoint, passed to on_evaluate_start
         progressbar : bool
             Whether to display the progress in a progressbar.
 
@@ -612,8 +657,8 @@ class Brain:
         -------
         average test loss
         """
-        epoch = self.on_evaluate_start()
-        self.on_stage_start(Stage.TEST, epoch)
+        self.on_evaluate_start(max_key=max_key, min_key=min_key)
+        self.on_stage_start(Stage.TEST, epoch=None)
         self.modules.eval()
         avg_test_loss = 0.0
         disable = not progressbar
@@ -625,7 +670,7 @@ class Brain:
                 avg_test_loss = self.update_average(
                     loss, avg_test_loss, iteration=i + 1
                 )
-        self.on_stage_end(Stage.TEST, avg_test_loss, epoch)
+        self.on_stage_end(Stage.TEST, avg_test_loss, epoch=None)
 
     def update_average(self, loss, avg_loss, iteration):
         """Update running average of the loss.

@@ -179,12 +179,13 @@ class ASR(sb.Brain):
                 train_stats=self.train_stats,
                 valid_stats=stage_stats,
             )
-            self.hparams.checkpointer.save_and_keep_only(
+            self.checkpointer.save_and_keep_only(
                 meta={"WER": stage_stats["WER"]}, min_keys=["WER"],
             )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
-                stats_meta={"Epoch loaded": epoch}, test_stats=stage_stats,
+                stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
+                test_stats=stage_stats,
             )
             with open(self.hparams.wer_file, "w") as w:
                 self.wer_metric.write_stats(w)
@@ -218,27 +219,6 @@ class ASR(sb.Brain):
         state_dict = torch.load(save_model_path)
         state_dict = {k.split(".", 1)[1]: v for k, v in state_dict.items()}
         self.hparams.lm_model.load_state_dict(state_dict, strict=True)
-
-    def on_fit_start(self):
-        self.compile_jit()
-        self.optimizer = self.opt_class(self.hparams.model.parameters())
-        self.hparams.checkpointer.add_recoverable("optimizer", self.optimizer)
-
-        # Load latest checkpoint to resume training
-        asr_brain.load_tokenizer()
-        self.hparams.checkpointer.recover_if_possible()
-        if hasattr(self.hparams, "lm_ckpt_file"):
-            self.load_lm()
-
-    def on_evaluate_start(self):
-        # Load best checkpoint for evaluation
-        asr_brain.load_tokenizer()
-        self.hparams.checkpointer.recover_if_possible(min_key="WER")
-        if hasattr(self.hparams, "lm_ckpt_file"):
-            self.load_lm()
-
-        # Return epoch for logging
-        return self.hparams.epoch_counter.current
 
 
 if __name__ == "__main__":
@@ -294,6 +274,10 @@ if __name__ == "__main__":
         device=hparams["device"],
         ddp_procs=hparams["ddp_procs"],
     )
+
+    asr_brain.load_tokenizer()
+    if hasattr(asr_brain.hparams, "lm_ckpt_file"):
+        asr_brain.load_lm()
 
     asr_brain.fit(asr_brain.hparams.epoch_counter, train_set, valid_set)
     asr_brain.evaluate(test_set)
