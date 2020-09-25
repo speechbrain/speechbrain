@@ -83,12 +83,8 @@ def prepare_segs_for_RTTM(list_ids, out_rttm_file, audio_dir, split_type):
     RTTM = []  # All RTTMs clubbed together for a given dataset
     for main_meet_id in list_ids:
 
-        # different recordings
-        # for sess in ["a", "b", "c", "d"]:
-        #    rec_id = main_meet_id + sess
-
-        # Skipping all TNO (later just skip it from dev and test)
-        # SPEAKER DIARISATION USING 2D SELF-ATTENTIVE COMBINATION OF EMBEDDINGS
+        # Skip all TNO (later just skip it from dev and test)
+        # SPEAKER DIARISATION USING 2D SELF-ATTENTIVE COMBINATION OF EMBEDDINGS, ICASSP 2019
         if main_meet_id.startswith("TS") and split_type != "train":
             msg = (
                 "Skipping TNO meeting in AMI "

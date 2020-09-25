@@ -14,7 +14,6 @@ import logging
 import speechbrain as sb
 import numpy
 import pickle
-import copy
 import csv
 import glob
 import shutil
@@ -139,7 +138,7 @@ def xvect_computation_loop(split, set_loader, stat_file):
     return stat_obj
 
 
-def prepare_subset_csv(full_diary_csv, rec_id, out_dir):
+def prepare_subset_csv(full_diary_csv, rec_id, out_csv_file):
     out_csv_head = [full_diary_csv[0]]
     entry = []
     for row in full_diary_csv:
@@ -148,7 +147,7 @@ def prepare_subset_csv(full_diary_csv, rec_id, out_dir):
 
     out_csv = out_csv_head + entry
 
-    out_csv_file = out_dir + "/" + rec_id + ".csv"
+    # out_csv_file = out_dir + "/" + rec_id + ".csv"
     with open(out_csv_file, mode="w") as csv_file:
         csv_writer = csv.writer(
             csv_file, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
@@ -158,6 +157,8 @@ def prepare_subset_csv(full_diary_csv, rec_id, out_dir):
 
     msg = "Prepared CSV file: " + out_csv_file
     logger.info(msg)
+
+    # return out_csv_file
 
 
 def trace_back_cluster_labels(
@@ -320,14 +321,12 @@ def write_rttm(segs_list, out_rttm_file):
 
 def do_sc(diary_obj_eval, out_rttm_file, rec_id, k=4):
 
-    xvects = copy.deepcopy(diary_obj_eval.stat1)
-
     clustering = SpectralClustering(
         n_clusters=k,
         assign_labels="kmeans",
         random_state=1234,
         affinity="nearest_neighbors",
-    ).fit(xvects)
+    ).fit(diary_obj_eval.stat1)
 
     labels = clustering.labels_
 
@@ -363,7 +362,29 @@ def do_sc(diary_obj_eval, out_rttm_file, rec_id, k=4):
     write_rttm(lol, out_rttm_file)
 
 
+def get_oracle_num_spkrs(rec_id, spkr_info):
+
+    num_spkrs = 0
+    for line in spkr_info:
+        if rec_id in line:
+            # Since rec_id is prefix for each speaker
+            num_spkrs += 1
+
+    return num_spkrs
+
+
 def diarizer(full_csv, split_type):
+
+    full_ref_rttm_file = (
+        params.ref_rttm_dir + "/fullref_ami_" + split_type + ".rttm"
+    )
+    RTTM = []
+    with open(full_ref_rttm_file, "r") as f:
+        for line in f:
+            entry = line[:-1]
+            RTTM.append(entry)
+
+    spkr_info = list(filter(lambda x: x.startswith("SPKR-INFO"), RTTM))
 
     split = "AMI_" + split_type
 
@@ -373,8 +394,8 @@ def diarizer(full_csv, split_type):
     all_rec_ids.sort()
 
     N = str(len(all_rec_ids))
-    i = 1
 
+    i = 1
     # Loop through each recording
     for rec_id in all_rec_ids:
 
@@ -392,9 +413,8 @@ def diarizer(full_csv, split_type):
         )
 
         # Prepare a csv for a recording
-        out_csv_dir = os.path.join(params.xvect_dir, split)
-        prepare_subset_csv(full_csv, rec_id, out_csv_dir)
         new_csv_file = os.path.join(params.xvect_dir, split, rec_id + ".csv")
+        prepare_subset_csv(full_csv, rec_id, new_csv_file)
 
         # Setup a dataloader for above one recording (above csv)
         diary_set = DataLoaderFactory(
@@ -437,11 +457,11 @@ def diarizer(full_csv, split_type):
             os.makedirs(out_rttm_dir)
         out_rttm_file = out_rttm_dir + "/" + rec_id + ".rttm"
 
-        # logger.info("Performing SC")
-        do_sc(diary_obj_dev, out_rttm_file, rec_id)
+        num_spkrs = get_oracle_num_spkrs(rec_id, spkr_info)
+        do_sc(diary_obj_dev, out_rttm_file, rec_id, k=num_spkrs)
 
     # Concatenate individual RTTM files
-    # This is not needed but just staying with standards
+    # This is not needed but just staying with the standards
     concate_rttm_file = out_rttm_dir + "/sys_output.rttm"
 
     logger.info("Concatenating individual RTTM files...")
