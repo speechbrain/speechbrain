@@ -220,6 +220,10 @@ class ASR(sb.Brain):
         state_dict = {k.split(".", 1)[1]: v for k, v in state_dict.items()}
         self.hparams.lm_model.load_state_dict(state_dict, strict=True)
 
+    def init_optimizers(self):
+        self.optimizer = self.opt_class(self.hparams.model.parameters())
+        self.checkpointer.add_recoverable("optimizer", self.optimizer)
+
 
 if __name__ == "__main__":
     # This hack needed to import data preparation script from ../..
@@ -271,6 +275,7 @@ if __name__ == "__main__":
     asr_brain = ASR(
         hparams=hparams["hparams"],
         opt_class=hparams["opt_class"],
+        checkpointer=hparams["checkpointer"],
         device=hparams["device"],
         ddp_procs=hparams["ddp_procs"],
     )

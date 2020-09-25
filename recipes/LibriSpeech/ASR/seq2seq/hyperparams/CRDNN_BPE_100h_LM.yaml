@@ -8,7 +8,8 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 9
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/CRDNN_BPE_100h_LM/<seed>
+#output_folder: !ref results/CRDNN_BPE_100h_LM/<seed>
+output_folder: results/CRDNN_BPE_100h_LM_last
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -235,6 +236,7 @@ hparams:
     dec: !ref <dec>
     ctc_lin: !ref <ctc_lin>
     seq_lin: !ref <seq_lin>
+    model: !ref <model>
     beam_searcher: !ref <beam_searcher>
     lr_annealing: !ref <lr_annealing>
     compute_features: !new:speechbrain.lobes.Fbank
