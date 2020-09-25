@@ -20,7 +20,7 @@ import glob
 import shutil
 from tqdm.contrib import tqdm
 
-from speechbrain.utils.DER import DER  # noqa F401
+from speechbrain.utils.DER import DER
 from speechbrain.utils.data_utils import download_file
 from speechbrain.data_io.data_io import DataLoaderFactory
 from speechbrain.processing.PLDA_LDA import StatObject_SB
@@ -126,14 +126,12 @@ def xvect_computation_loop(split, set_loader, stat_file):
             stat0=b,
             stat1=xvectors,
         )
-        logger.info(f"Saving stat obj for {split}")
+        logger.info(f"Saving Embeddings...")
         stat_obj.save_stat_object(stat_file)
 
     else:
-        logger.info(
-            f"Skipping Xvector Extraction for {split} (as already present)"
-        )
-        logger.info(f"Loading previously saved stat_object for {split}")
+        logger.info(f"Skipping embedding extraction (as already present)")
+        logger.info(f"Loading previously saved embeddings")
 
         with open(stat_file, "rb") as in_file:
             stat_obj = pickle.load(in_file)
@@ -412,8 +410,8 @@ def diarizer(full_csv, split_type):
         if not os.path.exists(os.path.join(params.xvect_dir, split)):
             os.makedirs(os.path.join(params.xvect_dir, split))
 
-        msg = "Extracting xvectors for AMI " + split
-        logger.info(msg)
+        # msg = "Extracting xvectors for AMI " + split_type
+        # logger.info(msg)
 
         # Compute Xvectors
         diary_obj_dev = xvect_computation_loop(
@@ -458,10 +456,13 @@ def diarizer(full_csv, split_type):
             with open(f, "r") as indi_rttm_file:
                 shutil.copyfileobj(indi_rttm_file, cat_file)
 
-    logger.info(
-        "Final system generated concatenated RTTM file is saved at : "
-        + concate_rttm_file
+    msg = "Final system generated RTTM file for %s set : %s" % (
+        split_type,
+        concate_rttm_file,
     )
+    logger.info(msg)
+
+    return concate_rttm_file
 
 
 # Begin!
@@ -528,7 +529,16 @@ if __name__ == "__main__":  # noqa: C901
         for row in reader:
             full_csv.append(row)
 
-    diarizer(full_csv, "dev")
+    out_boundaries = diarizer(full_csv, "dev")
+
+    logger.info("Evaluating for AMI Dev. set")
+    ref_rttm = os.path.join(params.ref_rttm_dir, "fullref_ami_dev.rttm")
+    sys_rttm = out_boundaries
+    [MS, FA, SER, DER_] = DER(
+        ref_rttm, sys_rttm, params.ignore_overlap, params.forgiveness_collar
+    )
+    msg = "DER (Dev. set)= %s %%\n" % (str(round(DER_, 2)))
+    logger.info(msg)
 
     # AMI Eval Set
     full_csv = []
@@ -537,4 +547,13 @@ if __name__ == "__main__":  # noqa: C901
         for row in reader:
             full_csv.append(row)
 
-    diarizer(full_csv, "eval")
+    out_boundaries = diarizer(full_csv, "eval")
+
+    logger.info("Evaluating for AMI Eval. set")
+    ref_rttm = os.path.join(params.ref_rttm_dir, "fullref_ami_eval.rttm")
+    sys_rttm = out_boundaries
+    [MS, FA, SER, DER_] = DER(
+        ref_rttm, sys_rttm, params.ignore_overlap, params.forgiveness_collar
+    )
+    msg = "DER (Eval. set) = %s %%\n" % (str(round(DER_, 2)))
+    logger.info(msg)

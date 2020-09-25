@@ -1,3 +1,4 @@
+#!/usr/bin/perl -w
 #################################
 # NIST. (2009). The 2009 (RT-09) Rich Transcription Meeting Recognition Evaluation Plan.
 # https://web.archive.org/web/20100606041157if_/http://www.itl.nist.gov/iad/mig/tests/rt/2009/docs/rt09-meeting-eval-plan-v2.pdf
@@ -30,7 +31,6 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #################################
 
-#!/usr/bin/perl -w
 use strict;
 
 my $version = "22";
