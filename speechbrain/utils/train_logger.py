@@ -49,21 +49,24 @@ class FileTrainLogger(TrainLogger):
     ---------
     save_file : str
         The file to use for logging train information.
+    precision : int
+        Number of decimal places to display. Default 2, example: 1.35e-5
     summary_fns : dict of str:function pairs
         Each summary function should take a list produced as output
         from a training/validation pass and summarize it to a single scalar.
     """
 
-    def __init__(self, save_file, summary_fns=None):
+    def __init__(self, save_file, precision=2, summary_fns=None):
         self.save_file = save_file
+        self.precision = precision
         self.summary_fns = summary_fns or {}
 
     def _item_to_string(self, key, value, dataset=None):
         """Convert one item to string, handling floats"""
-        if isinstance(value, float) and 0.01 < value < 100.0:
-            value = f"{value:.2f}"
+        if isinstance(value, float) and 1.0 < value < 100.0:
+            value = f"{value:.{self.precision}f}"
         elif isinstance(value, float):
-            value = f"{value:.2e}"
+            value = f"{value:.{self.precision}e}"
         if dataset is not None:
             key = f"{dataset} {key}"
         return f"{key}: {value}"
