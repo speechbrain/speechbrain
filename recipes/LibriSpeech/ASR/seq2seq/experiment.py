@@ -280,4 +280,4 @@ if __name__ == "__main__":
         asr_brain.load_lm()
 
     asr_brain.fit(asr_brain.hparams.epoch_counter, train_set, valid_set)
-    asr_brain.evaluate(test_set)
+    asr_brain.evaluate(test_set, min_key="WER")
