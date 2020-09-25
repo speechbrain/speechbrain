@@ -183,6 +183,7 @@ class Adam_Optimizer:
 
         # Dummy input for jitability
         self.optim = torch.Tensor([])
+        self.param_groups = None
 
     def init_params(self, modules):
         # Making sure the input is class with parameters to optimize
@@ -208,6 +209,7 @@ class Adam_Optimizer:
             weight_decay=self.weight_decay,
             amsgrad=self.amsgrad,
         )
+        self.param_groups = self.optim.param_groups
 
     def step(self):
         # Parameter update
