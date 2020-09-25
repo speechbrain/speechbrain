@@ -358,6 +358,10 @@ class S2SBeamSearcher(S2SBaseSearcher):
         self.lm_modules = lm_modules
         self.ctc_weight = ctc_weight
 
+        assert (
+            0.0 <= self.ctc_weight <= 1.0
+        ), "ctc_weight should not > 1.0 and < 0.0"
+
         # to initialize the params of LM modules
         self.init_lm_params = True
         # ctc already initalized
@@ -624,13 +628,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
                     fill_value=self.minus_inf,
                 )
 
-            # adding LM scores to log_prob if lm_weight > 0
-            if self.lm_weight > 0:
-                lm_log_probs, lm_memory = self.lm_forward_step(
-                    inp_tokens, lm_memory
-                )
-                log_probs = log_probs + self.lm_weight * lm_log_probs
-
             # adding CTC scores to log_prob if ctc_weight > 0
             if self.ctc_weight > 0:
                 g = alived_seq
@@ -638,8 +635,15 @@ class S2SBeamSearcher(S2SBaseSearcher):
                     g, ctc_memory
                 )
                 log_probs = (
-                    1 - self.ctc_weight
+                    1.0 - self.ctc_weight
                 ) * log_probs + self.ctc_weight * ctc_log_probs
+
+            # adding LM scores to log_prob if lm_weight > 0
+            if self.lm_weight > 0:
+                lm_log_probs, lm_memory = self.lm_forward_step(
+                    inp_tokens, lm_memory
+                )
+                log_probs = log_probs + self.lm_weight * lm_log_probs
 
             scores = sequence_scores.unsqueeze(1).expand(-1, vocab_size)
             scores = scores + log_probs
@@ -652,7 +656,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
             scores, candidates = scores.view(batch_size, -1).topk(
                 self.beam_size, dim=-1
             )
-            # print("candidates", candidates, 'seq_scores', sequence_scores.shape, 'scores', scores.shape)
 
             # The input for the next step, also the output of current step.
             inp_tokens = (candidates % vocab_size).view(
