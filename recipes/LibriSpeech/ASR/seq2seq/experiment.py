@@ -28,7 +28,7 @@ class ASR(sb.Brain):
                 wavs = self.hparams.augmentation(wavs, wav_lens)
 
         # Prepare labels
-        target_tokens, _ = self.hparams.bpe_tokenizer(
+        target_tokens, _ = self.hparams.tokenizer(
             target_words, target_word_lens, self.hparams.ind2lab, task="encode"
         )
         target_tokens = target_tokens.to(self.device)
@@ -72,7 +72,7 @@ class ASR(sb.Brain):
             p_seq, wav_lens, predicted_tokens = predictions
 
         ids, target_words, target_word_lens = targets
-        target_tokens, target_token_lens = self.hparams.bpe_tokenizer(
+        target_tokens, target_token_lens = self.hparams.tokenizer(
             target_words, target_word_lens, self.hparams.ind2lab, task="encode"
         )
         target_tokens = target_tokens.to(self.device)
@@ -111,8 +111,8 @@ class ASR(sb.Brain):
             loss = loss_seq
 
         if stage != sb.Stage.TRAIN:
-            # Decode BPE terms to words
-            predicted_words = self.hparams.bpe_tokenizer(
+            # Decode token terms to words
+            predicted_words = self.hparams.tokenizer(
                 predicted_tokens, task="decode_from_list"
             )
 
@@ -124,13 +124,6 @@ class ASR(sb.Brain):
                 target_words, self.hparams.ind2lab
             )
 
-            if self.hparams.ter_eval:
-                self.ter_metric.append(
-                    ids=ids,
-                    predict=predicted_tokens,
-                    target=target_tokens,
-                    target_len=target_token_lens,
-                )
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
 
@@ -155,8 +148,6 @@ class ASR(sb.Brain):
         if stage != sb.Stage.TRAIN:
             self.cer_metric = self.hparams.cer_computer()
             self.wer_metric = self.hparams.error_rate_computer()
-            if self.hparams.ter_eval:
-                self.ter_metric = self.hparams.error_rate_computer()
 
     def on_stage_end(self, stage, stage_loss, epoch):
 
@@ -167,8 +158,6 @@ class ASR(sb.Brain):
         else:
             stage_stats["CER"] = self.cer_metric.summarize("error_rate")
             stage_stats["WER"] = self.wer_metric.summarize("error_rate")
-            if self.hparams.ter_eval:
-                stage_stats["TER"] = self.ter_metric.summarize("error_rate")
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
@@ -200,7 +189,7 @@ class ASR(sb.Brain):
                 dest=save_model_path,
                 replace_existing=True,
             )
-            self.hparams.bpe_tokenizer.sp.load(save_model_path)
+            self.hparams.tokenizer.sp.load(save_model_path)
 
         if hasattr(self.hparams, "tok_voc_file"):
             download_file(
@@ -247,7 +236,7 @@ if __name__ == "__main__":
     prepare_librispeech(
         data_folder=hparams["data_folder"],
         splits=hparams["train_splits"]
-        + [hparams["dev_split"], hparams["test_split"]],
+        + [hparams["dev_split"], "test-clean", "test-other"],
         merge_lst=hparams["train_splits"],
         merge_name=hparams["csv_train"],
         save_folder=hparams["data_folder"],
@@ -255,22 +244,23 @@ if __name__ == "__main__":
 
     # Creating tokenizer must be done after preparation
     # Specify the bos_id/eos_id if different from blank_id
-    bpe_tokenizer = SentencePiece(
+    tokenizer = SentencePiece(
         model_dir=hparams["save_folder"],
         vocab_size=hparams["output_neurons"],
         csv_train=hparams["csv_train"],
         csv_read="wrd",
-        model_type="unigram",  # ["unigram", "bpe", "char"]
+        model_type=hparams["token_type"],
         character_coverage=1.0,  # with large set of chars use 0.9995
     )
 
     # Load index2label dict for decoding
     train_set = hparams["train_loader"]()
     valid_set = hparams["valid_loader"]()
-    test_set = hparams["test_loader"]()
-    ind2lab = hparams["test_loader"].label_dict["wrd"]["index2lab"]
+    test_clean_set = hparams["test_clean_loader"]()
+    test_other_set = hparams["test_other_loader"]()
+    ind2lab = hparams["test_other_loader"].label_dict["wrd"]["index2lab"]
     hparams["hparams"]["ind2lab"] = ind2lab
-    hparams["hparams"]["bpe_tokenizer"] = bpe_tokenizer
+    hparams["hparams"]["tokenizer"] = tokenizer
 
     asr_brain = ASR(
         hparams=hparams["hparams"],
@@ -285,4 +275,13 @@ if __name__ == "__main__":
         asr_brain.load_lm()
 
     asr_brain.fit(asr_brain.hparams.epoch_counter, train_set, valid_set)
-    asr_brain.evaluate(test_set, min_key="WER")
+
+    # Test
+    asr_brain.hparams.wer_file = (
+        hparams["output_folder"] + "/wer_test_clean.txt"
+    )
+    asr_brain.evaluate(test_clean_set)
+    asr_brain.hparams.wer_file = (
+        hparams["output_folder"] + "/wer_test_other.txt"
+    )
+    asr_brain.evaluate(test_other_set)
