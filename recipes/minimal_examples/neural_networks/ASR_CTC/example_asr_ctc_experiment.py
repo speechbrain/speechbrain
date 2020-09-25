@@ -12,6 +12,8 @@ from placeholders import ASRMinimalExampleDataset
 
 # TODO: Replace ASR Dataset transforms:
 from placeholders import FuncPipeline
+from placeholders import torchaudio_load
+from placeholders import split_by_whitespace
 from placeholders import ExampleCategoricalEncoder
 from placeholders import to_int_tensor
 
@@ -34,15 +36,26 @@ with open(hyperparams_file) as fin:
     label_encoder = ExampleCategoricalEncoder(
         label2ind=ASR_example_label2ind, ind2label=ASR_example_ind2label
     )
-    text_transform = FuncPipeline(label_encoder.encode_list, to_int_tensor)
+    # TODO: Make proper transforms
+    text_transform = FuncPipeline(
+        split_by_whitespace, label_encoder.encode_list, to_int_tensor
+    )
+
+    # TODO: Convert minimal example CSV to new YAML format
     train_data = ASRMinimalExampleDataset(
-        os.path.join(data_folder, "train.csv"), text_transform=text_transform
+        os.path.join(data_folder, "train.csv"),
+        audio_transform=torchaudio_load,
+        text_transform=text_transform,
     )
     valid_data = ASRMinimalExampleDataset(
-        os.path.join(data_folder, "dev.csv"), text_transform=text_transform
+        os.path.join(data_folder, "dev.csv"),
+        audio_transform=torchaudio_load,
+        text_transform=text_transform,
     )
     test_data = ASRMinimalExampleDataset(
-        os.path.join(data_folder, "test.csv"), text_transform=text_transform
+        os.path.join(data_folder, "test.csv"),
+        audio_transform=torchaudio_load,
+        text_transform=text_transform,
     )
 
 # Placeholders:
@@ -96,7 +109,7 @@ ctc_brain = CTCBrain(
     first_inputs=[first_x],
 )
 ctc_brain.fit(range(hyperparams.N_epochs), train_loader, valid_loader)
-test_stats = ctc_brain.evaluate(hyperparams.test_loader())
+test_stats = ctc_brain.evaluate(test_loader)
 print("Test PER: %.2f" % summarize_error_rate(test_stats["PER"]))
 
 

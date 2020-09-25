@@ -1,9 +1,62 @@
+"""
+This file has placeholders for most blocks in the data loading pipeline.
+We should replace these one by one as we get stuff done.
+"""
 import torch
 import torchaudio
 import os.path
 
 torchaudio.set_audio_backend("soundfile")
 DATAFOLDER = "../../../../samples/audio_samples/nn_training_samples"
+
+# Manually created label to index, index to label mappings
+# NOTE: At the moment, these do not have the blank index.
+ASR_example_label2ind = {
+    "aa": 0,
+    "ae": 1,
+    "ah": 2,
+    "ao": 3,
+    "aw": 4,
+    "ax": 5,
+    "ay": 6,
+    "b": 7,
+    "ch": 8,
+    "cl": 9,
+    "d": 10,
+    "dh": 11,
+    "dx": 12,
+    "eh": 13,
+    "el": 14,
+    "er": 15,
+    "ey": 16,
+    "f": 17,
+    "g": 18,
+    "hh": 19,
+    "ih": 20,
+    "iy": 21,
+    "jh": 22,
+    "k": 23,
+    "l": 24,
+    "m": 25,
+    "n": 26,
+    "ng": 27,
+    "ow": 28,
+    "oy": 29,
+    "p": 30,
+    "r": 31,
+    "s": 32,
+    "sh": 33,
+    "t": 34,
+    "th": 35,
+    "uh": 36,
+    "uw": 37,
+    "v": 38,
+    "w": 39,
+    "y": 40,
+    "z": 41,
+    "sil": 42,
+    "vcl": 43,
+}
 
 ASR_example_ind2label = {
     0: "aa",
@@ -52,64 +105,36 @@ ASR_example_ind2label = {
     43: "vcl",
 }
 
-ASR_example_label2ind = {
-    "aa": 0,
-    "ae": 1,
-    "ah": 2,
-    "ao": 3,
-    "aw": 4,
-    "ax": 5,
-    "ay": 6,
-    "b": 7,
-    "ch": 8,
-    "cl": 9,
-    "d": 10,
-    "dh": 11,
-    "dx": 12,
-    "eh": 13,
-    "el": 14,
-    "er": 15,
-    "ey": 16,
-    "f": 17,
-    "g": 18,
-    "hh": 19,
-    "ih": 20,
-    "iy": 21,
-    "jh": 22,
-    "k": 23,
-    "l": 24,
-    "m": 25,
-    "n": 26,
-    "ng": 27,
-    "ow": 28,
-    "oy": 29,
-    "p": 30,
-    "r": 31,
-    "s": 32,
-    "sh": 33,
-    "t": 34,
-    "th": 35,
-    "uh": 36,
-    "uw": 37,
-    "v": 38,
-    "w": 39,
-    "y": 40,
-    "z": 41,
-    "sil": 42,
-    "vcl": 43,
-}
-
 
 class ASRMinimalExampleDataset(torch.utils.data.Dataset):
+    """
+    Dataset which supports the old CSV format, which we have for all the
+    minimal example data subsets.
+
+    This loads four hard coded fields from the given CSV file:
+    - ID
+    - duration
+    - wav
+    - phn
+    However, for now we do nothing with duration.
+    It could be used to get the length order for ascending order Sampling.
+
+    audio_transform and text_transform should be callables or None
+
+    """
+
     def __init__(
         self,
         filepath=os.path.join(DATAFOLDER, "train.csv"),
         audio_transform=None,
         text_transform=None,
     ):
+        # List of (ID, duration, wavpath, phn)
         self.items = []
         self.audio_transform = audio_transform
         self.text_transform = text_transform
+
+        # Next, we read the hardcoded fields from the given CSV file.
         with open(filepath) as fi:
             fiterator = iter(fi)
             header = next(fiterator)
@@ -126,25 +151,39 @@ class ASRMinimalExampleDataset(torch.utils.data.Dataset):
                 wavpath = fields[field_idx["wav"]].replace(
                     "$data_folder", DATAFOLDER
                 )
-                phn_seq = fields[field_idx["phn"]].strip()
-                self.items.append((ID, duration, wavpath, phn_seq))
+                phn = fields[field_idx["phn"]].strip()
+                self.items.append((ID, duration, wavpath, phn))
 
     def __len__(self):
         return len(self.items)
 
     def __getitem__(self, idx):
-        ID, duration, wavpath, phn_seq = self.items[idx]
-        wav, samplerate = torchaudio.load(wavpath)
-        wav = wav.squeeze(0)  # flat tensor
+        # List of (ID, duration, wavpath, phn)
+        ID, duration, wav, phn = self.items[idx]
         if self.audio_transform is not None:
             wav = self.audio_transform(wav)
-        phn_seq = phn_seq.split()
         if self.text_transform is not None:
-            phn_seq = self.text_transform(phn_seq)
-        return (ID, wav, phn_seq)
+            phn = self.text_transform(phn)
+        return (ID, wav, phn)
+
+
+# Audio transform
+# This could possibly be hardcoded into the Dataset object.
+def torchaudio_load(wavpath):
+    wav, samplerate = torchaudio.load(wavpath)
+    wav = wav.squeeze(0)  # flat tensor
+    return wav
+
+
+# Text transforms
+def split_by_whitespace(text):
+    # In general, this corresponds to the text segmentation step
+    return text.split()
 
 
 class ExampleCategoricalEncoder:
+    # I did not understand the current CategoricalEncoder, so
+    # now just using this super simple version.
     def __init__(self, label2ind, ind2label):
         self.label2ind = label2ind
         self.ind2label = ind2label
@@ -156,8 +195,8 @@ class ExampleCategoricalEncoder:
         return [self.ind2label[item] for item in x]
 
 
+# Should all the relevant data be torch tensors when yielded by Dataset?
 def to_int_tensor(x):
-    # Takes a python list of integers and returns torch integer tensor
     return torch.tensor(x, dtype=torch.int)
 
 
@@ -167,7 +206,6 @@ class FuncPipeline:
         self.funcs = funcs
 
     def __call__(self, x):
-        # NOTE: Does not support keyword arguments
         if not self.funcs:
             return x
         for func in self.funcs:
@@ -176,6 +214,7 @@ class FuncPipeline:
 
 
 def pad_and_stack(sequences, padding_value=0):
+    # Basic padding. But something like this should be enough usually.
     num = len(sequences)
     lens = [s.size(0) for s in sequences]
     max_len = max(lens)
@@ -189,7 +228,10 @@ def pad_and_stack(sequences, padding_value=0):
 
 
 def ASR_example_collation(batch):
+    # This is coupled to the ASRMinimalExampleDataset output format.
     IDs, wavs, phns = zip(*batch)
     wavs, wav_lens = pad_and_stack(wavs)
     phns, phn_lens = pad_and_stack(phns)
+    # And the output here defines our batch format.
+    # For now, using the old format.
     return (IDs, wavs, wav_lens), (IDs, phns, phn_lens)
