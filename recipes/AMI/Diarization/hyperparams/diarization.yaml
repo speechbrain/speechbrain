@@ -48,16 +48,12 @@ deltas: False
 xvect_dim: 512
 batch_size: 128
 
-# AMI: Diarization parameters
+# AMI data_prep parameters
 split_type: 'full_corpus_asr'
 mic_type: 'hm'
 vad_type: 'oracle'
 max_subseg_dur: 3.0
 overlap: 1.5
-whiten: True
-len_norm: True
-do_lda: False
-lda_dim: 100
 
 # DER evaluation parameters
 ignore_overlap: True
@@ -106,31 +102,4 @@ diary_loader_eval: !new:speechbrain.data_io.data_io.DataLoaderFactory
     sentence_sorting: original
     replacements:
         $data_folder: !ref <data_folder_ami>
-    output_folder: !ref <output_folder>/save/
-
-train_loader_vox: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_train_vox>
-    batch_size: !ref <batch_size>
-    csv_read: [wav, spk_id]
-    sentence_sorting: ascending
-    replacements:
-        $data_folder: !ref  <data_folder>
-    output_folder: !ref <output_folder>/save/
-
-enrol_loader_vox: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_enrol_vox>
-    batch_size: !ref <batch_size>
-    csv_read: [wav]
-    sentence_sorting: original
-    replacements:
-        $data_folder: !ref <data_folder>
-    output_folder: !ref <output_folder>/save/
-
-test_loader_vox: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_test_vox>
-    batch_size: !ref <batch_size>
-    csv_read: [wav]
-    sentence_sorting: original
-    replacements:
-        $data_folder: !ref <data_folder>
     output_folder: !ref <output_folder>/save/
