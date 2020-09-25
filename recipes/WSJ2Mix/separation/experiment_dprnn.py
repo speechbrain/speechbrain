@@ -19,6 +19,7 @@ import orion
 import torch
 import torch.nn.functional as F
 from orion.client import report_results
+from torch.cuda.amp import GradScaler, autocast
 
 import speechbrain as sb
 from recipes.minimal_examples.neural_networks.separation.example_conv_tasnet import (
@@ -62,6 +63,7 @@ class CTNBrain(sb.core.Brain):
         super(CTNBrain, self).__init__(**kwargs)
         self.eval_scores = []
         self.train_logger = TensorboardLogger(params.tensorboard_logs)
+        self.scaler = GradScaler()
 
     def compute_forward(self, mixture, stage="train", init_params=False):
         if hasattr(self.params, "env_corrupt"):
@@ -101,7 +103,9 @@ class CTNBrain(sb.core.Brain):
             raise ValueError("Not Correct Loss Function Type")
 
     def fit_batch(self, batch):
-        # train_onthefly option enables data augmentation, by creating random mixtures within the batch
+        self.optimizer.zero_grad()
+        # train_onthefly option enables data augmentation,
+        # by creating random mixtures within the batch
         if self.params.train_onthefly:
             bs = batch[0][1].shape[0]
             perm = torch.randperm(bs)
@@ -125,16 +129,22 @@ class CTNBrain(sb.core.Brain):
                 [batch[1][1].unsqueeze(-1), batch[2][1].unsqueeze(-1)], dim=-1
             ).to(self.device)
 
-        predictions = self.compute_forward(inputs)
-        loss = self.compute_objectives(predictions, targets)
-
-        loss.backward()
-        if self.params.clip_grad_norm >= 0:
-            torch.nn.utils.clip_grad_norm_(
-                self.modules.parameters(), self.params.clip_grad_norm
-            )
-        self.optimizer.step()
-        self.optimizer.zero_grad()
+        if self.params.mixed_precision:
+            with autocast():
+                predictions = self.compute_forward(inputs)
+                loss = self.compute_objectives(predictions, targets)
+            self.scaler.scale(loss).backward()
+            self.scaler.step(self.optimizer)
+            self.scaler.update()
+        else:
+            predictions = self.compute_forward(inputs)
+            loss = self.compute_objectives(predictions, targets)
+            loss.backward()
+            if self.params.clip_grad_norm >= 0:
+                torch.nn.utils.clip_grad_norm_(
+                    self.modules.parameters(), self.params.clip_grad_norm
+                )
+            self.optimizer.step()
         return {"loss": loss.detach()}
 
     def evaluate_batch(self, batch, stage="test"):
@@ -260,6 +270,12 @@ def main():
 
     logger.info(pprint.PrettyPrinter(indent=4).pformat(params))
     device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    logger.info(
+        "will run on device {} / using mixed precision? {}".format(
+            device, params.mixed_precision
+        )
+    )
 
     train_loader = params.train_loader()
     val_loader = params.val_loader()
