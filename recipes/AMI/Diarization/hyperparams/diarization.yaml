@@ -1,4 +1,4 @@
-# ################################
+# ################################00000
 # Model: Speaker Diarization Baseline
 # Authors: Nauman Dawalatabad 2020
 # ################################
@@ -8,7 +8,7 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Folders and train_log file
 data_folder: /network/datasets/ami/amicorpus
-data_folder_ami: /network/datasets/ami/amicorpus
+manual_annot_folder: /network/tmp1/dawalatn/AMI_MANUAL
 output_folder: results
 save_folder: !ref <output_folder>/save
 device: 'cuda:0'
@@ -81,7 +81,7 @@ diary_loader_train: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_read: [wav]
     sentence_sorting: original
     replacements:
-        $data_folder: !ref <data_folder_ami>
+        $data_folder: !ref <data_folder>
     output_folder: !ref <output_folder>/save/
 
 diary_loader_dev: !new:speechbrain.data_io.data_io.DataLoaderFactory
@@ -90,7 +90,7 @@ diary_loader_dev: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_read: [wav]
     sentence_sorting: original
     replacements:
-        $data_folder: !ref <data_folder_ami>
+        $data_folder: !ref <data_folder>
     output_folder: !ref <output_folder>/save/
 
 diary_loader_eval: !new:speechbrain.data_io.data_io.DataLoaderFactory
@@ -99,5 +99,5 @@ diary_loader_eval: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_read: [wav]
     sentence_sorting: original
     replacements:
-        $data_folder: !ref <data_folder_ami>
+        $data_folder: !ref <data_folder>
     output_folder: !ref <output_folder>/save/

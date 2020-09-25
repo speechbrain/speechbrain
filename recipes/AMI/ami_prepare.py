@@ -24,6 +24,8 @@ SAMPLERATE = 16000
 
 
 def get_RTTM_per_rec(segs, spkrs_list, rec_id):
+    """Prepares rttm for each recording
+    """
 
     rttm = []
 
@@ -74,11 +76,9 @@ def get_RTTM_per_rec(segs, spkrs_list, rec_id):
     return rttm
 
 
-def prepare_segs_for_RTTM(list_ids, out_rttm_file, audio_dir, split_type):
-
-    # TODO: take this as parameter
-    # annot_dir = "/home/mila/d/dawalatn/AMI_MANUAL/"
-    annot_dir = "/network/tmp1/dawalatn/AMI_MANUAL/"
+def prepare_segs_for_RTTM(
+    list_ids, out_rttm_file, audio_dir, annot_dir, split_type
+):
 
     RTTM = []  # All RTTMs clubbed together for a given dataset
     for main_meet_id in list_ids:
@@ -324,6 +324,7 @@ def prepare_csv(
 
 def prepare_ami(
     data_folder,
+    manual_annot_folder,
     save_folder,
     split_type="sample",
     mic_type="Lapel",
@@ -390,20 +391,17 @@ def prepare_ami(
     for i in splits:
         rttm_file = ref_dir + "/fullref_ami_" + i + ".rttm"
         if i == "train":
-            prepare_segs_for_RTTM(train_set, rttm_file, data_folder, i)
+            prepare_segs_for_RTTM(
+                train_set, rttm_file, data_folder, manual_annot_folder, i
+            )
         if i == "dev":
-            prepare_segs_for_RTTM(dev_set, rttm_file, data_folder, i)
+            prepare_segs_for_RTTM(
+                dev_set, rttm_file, data_folder, manual_annot_folder, i
+            )
         if i == "eval":
-            prepare_segs_for_RTTM(eval_set, rttm_file, data_folder, i)
-
-    # Inp: GT RTTM, Out: Merged segments
-    # Add options if user needs merged segments or non-overlapping (homogeneous speakers) subsegments
-    # If segments are merged then spkr-ID will be lost (or add prefix "o-" for overlapping segments)
-    # If homogneous subsegs: spkIDs are retained.
-    # train_segs = merge_intervals (train_rttm)
-    # dev_segs = merge_intervals (dev_rttm)
-    # eval_segs = merge_intervals_and_subsegment(eval_rttm)
-    # ONE csv file for whole Eval dataset
+            prepare_segs_for_RTTM(
+                eval_set, rttm_file, data_folder, manual_annot_folder, i
+            )
 
     # Create csv_files for splits
     csv_folder = os.path.join(save_folder, "csv")

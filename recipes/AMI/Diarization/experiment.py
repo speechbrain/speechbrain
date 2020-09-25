@@ -19,20 +19,17 @@ import glob
 import shutil
 from tqdm.contrib import tqdm
 
-from speechbrain.utils.DER import DER
 from speechbrain.utils.data_utils import download_file
 from speechbrain.data_io.data_io import DataLoaderFactory
 from speechbrain.processing.PLDA_LDA import StatObject_SB
-from speechbrain.processing.PLDA_LDA import LDA  # noqa F401
+from speechbrain.utils.DER import DER
 
 # Logger setup
 logger = logging.getLogger(__name__)
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(current_dir))
 
-from voxceleb_prepare import prepare_voxceleb  # noqa E402
 from ami_prepare import prepare_ami  # noqa E402
-from ami_splits import get_AMI_split  # noqa E402
 
 
 # Definition of the steps for xvector computation from the waveforms
@@ -68,6 +65,8 @@ def get_utt_ids_for_test(ids, data_dict):
 
 # Computes xvectors for given split
 def xvect_computation_loop(split, set_loader, stat_file):
+    """Extracts embeddings for a given set_loader
+    """
 
     # Extract xvectors (skip if already done)
     if not os.path.isfile(stat_file):
@@ -139,6 +138,8 @@ def xvect_computation_loop(split, set_loader, stat_file):
 
 
 def prepare_subset_csv(full_diary_csv, rec_id, out_csv_file):
+    """Prepares csv for a recording ID
+    """
     out_csv_head = [full_diary_csv[0]]
     entry = []
     for row in full_diary_csv:
@@ -158,12 +159,12 @@ def prepare_subset_csv(full_diary_csv, rec_id, out_csv_file):
     msg = "Prepared CSV file: " + out_csv_file
     logger.info(msg)
 
-    # return out_csv_file
-
 
 def trace_back_cluster_labels(
     cluster_map_traverse, threshold=0.9, oracle_num_spkrs=4
 ):
+    """Gets cluster IDs from clustering solution
+    """
 
     N = len(cluster_map_traverse) + 1
 
@@ -200,8 +201,7 @@ def trace_back_cluster_labels(
 
 
 def is_overlapped(end1, start2):
-    """
-    Returns True if segments are overlapping
+    """Returns True if segments are overlapping
     """
     if start2 > end1:
         return False
@@ -210,8 +210,7 @@ def is_overlapped(end1, start2):
 
 
 def merge_ssegs_same_speaker(lol):
-    """
-    Merge adjacent sub-segs from a same speaker
+    """Merge adjacent sub-segs from a same speaker.
     Input list of lists: structure [rec_id, sseg_start, sseg_end, spkr_id]
     """
     new_lol = []
@@ -235,8 +234,7 @@ def merge_ssegs_same_speaker(lol):
 
 
 def distribute_overlap(lol):
-    """
-    Distributes the overlapped speech equally among the adjacent segments with different speakers.
+    """Distributes the overlapped speech equally among the adjacent segments with different speakers.
     Input list of list: structure [rec_id, sseg_start, sseg_end, spkr_id]
     """
     new_lol = []
@@ -293,6 +291,8 @@ def distribute_overlap(lol):
 
 
 def write_rttm(segs_list, out_rttm_file):
+    """Writes the segment list in RTTM format.
+    """
     rttm = []
     rec_id = segs_list[0][0]
 
@@ -320,6 +320,8 @@ def write_rttm(segs_list, out_rttm_file):
 
 
 def do_sc(diary_obj_eval, out_rttm_file, rec_id, k=4):
+    """Performs spectral clustering on embeddings
+    """
 
     clustering = SpectralClustering(
         n_clusters=k,
@@ -363,6 +365,8 @@ def do_sc(diary_obj_eval, out_rttm_file, rec_id, k=4):
 
 
 def get_oracle_num_spkrs(rec_id, spkr_info):
+    """Returns actual number of speakers in a recording
+    """
 
     num_spkrs = 0
     for line in spkr_info:
@@ -374,6 +378,8 @@ def get_oracle_num_spkrs(rec_id, spkr_info):
 
 
 def diarizer(full_csv, split_type):
+    """Performs diarization on each recording
+    """
 
     full_ref_rttm_file = (
         params.ref_rttm_dir + "/fullref_ami_" + split_type + ".rttm"
@@ -529,7 +535,8 @@ if __name__ == "__main__":  # noqa: C901
         "AMI: Data preparation [Prepares both, the reference RTTMs and the CSVs]"
     )
     prepare_ami(
-        data_folder=params.data_folder_ami,
+        data_folder=params.data_folder,
+        manual_annot_folder=params.manual_annot_folder,
         save_folder=params.save_folder,
         split_type=params.split_type,
         mic_type=params.mic_type,
@@ -553,7 +560,9 @@ if __name__ == "__main__":  # noqa: C901
     [MS_dev, FA_dev, SER_dev, DER_dev] = DER(
         ref_rttm, sys_rttm, params.ignore_overlap, params.forgiveness_collar
     )
-    msg = "DER (Dev. set)= %s %%\n" % (str(round(DER_dev, 2)))
+    msg = "AMI Dev. set: Diarization Error Rate = %s %%\n" % (
+        str(round(DER_dev, 2))
+    )
     logger.info(msg)
 
     # AMI Eval Set
@@ -571,5 +580,7 @@ if __name__ == "__main__":  # noqa: C901
     [MS_eval, FA_eval, SER_eval, DER_eval] = DER(
         ref_rttm, sys_rttm, params.ignore_overlap, params.forgiveness_collar
     )
-    msg = "DER (Eval. set) = %s %%\n" % (str(round(DER_eval, 2)))
+    msg = "AMI Eval. set: Diarization Error Rate = %s %%\n" % (
+        str(round(DER_eval, 2))
+    )
     logger.info(msg)
