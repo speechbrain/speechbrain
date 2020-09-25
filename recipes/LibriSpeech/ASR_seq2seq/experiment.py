@@ -14,12 +14,10 @@ from speechbrain.data_io.data_io import split_word
 from speechbrain.decoders.seq2seq import S2SRNNGreedySearcher
 from speechbrain.decoders.seq2seq import S2SRNNBeamSearcher
 
-# from speechbrain.decoders.ctc import ctc_greedy_decode
 from speechbrain.decoders.decoders import undo_padding
 from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.train_logger import summarize_error_rate
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"  # set your device id
 
 # This hack needed to import data preparation script from ..
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -189,9 +187,6 @@ class ASR(sb.core.Brain):
             return p_seq, wav_lens, hyps
         elif stage == "test":
             hyps, scores = beam_searcher(x, wav_lens)
-            # ctc greedy
-            # logits = beam_searcher.ctc_forward_step(x)
-            # hyps = ctc_greedy_decode(logits, wav_lens, 0)
             return p_seq, wav_lens, hyps
 
     def compute_objectives(self, predictions, targets, stage="train"):
