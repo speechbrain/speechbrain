@@ -211,7 +211,7 @@ def is_overlapped(end1, start2):
 def merge_ssegs_same_speaker(lol):
     """
     Merge adjacent sub-segs from a same speaker
-    Input lol structure: [rec_id, sseg_start, sseg_end, spkr_id]
+    Input list of lists: structure [rec_id, sseg_start, sseg_end, spkr_id]
     """
     new_lol = []
 
@@ -236,7 +236,7 @@ def merge_ssegs_same_speaker(lol):
 def distribute_overlap(lol):
     """
     Distributes the overlapped speech equally among the adjacent segments with different speakers.
-    Input lol structure: [rec_id, sseg_start, sseg_end, spkr_id]
+    Input list of list: structure [rec_id, sseg_start, sseg_end, spkr_id]
     """
     new_lol = []
     sseg = lol[0]
@@ -249,16 +249,18 @@ def distribute_overlap(lol):
         # No need to check if they are different speakers
         # Because if segments are overlapped then they always have different speakers
         # This is because similar speaker's adjacent sub-segments are already merged by "merge_ssegs_same_speaker()"
+
         if is_overlapped(sseg[2], next_sseg[1]):
 
             # Get overlap duration
+            # Now this overlap will be divided equally between adjacent segments
             overlap = sseg[2] - next_sseg[1]
 
             # Update end time of old seg
             sseg[2] = sseg[2] - (overlap / 2.0)
 
             # Update start time of next seg
-            next_sseg[1] = next_sseg[1] + (overlap / 2.0) + 0.001
+            next_sseg[1] = next_sseg[1] + (overlap / 2.0)
 
             if len(new_lol) == 0:
                 # For first sub-segment entry
@@ -292,6 +294,7 @@ def distribute_overlap(lol):
 def write_rttm(segs_list, out_rttm_file):
     rttm = []
     rec_id = segs_list[0][0]
+
     for seg in segs_list:
         new_row = [
             "SPEAKER",
@@ -320,7 +323,7 @@ def do_sc(diary_obj_eval, out_rttm_file, rec_id, k=4):
     xvects = copy.deepcopy(diary_obj_eval.stat1)
 
     clustering = SpectralClustering(
-        n_clusters=4,
+        n_clusters=k,
         assign_labels="kmeans",
         random_state=1234,
         affinity="nearest_neighbors",
@@ -388,10 +391,6 @@ def diarizer(full_csv, split_type):
             params.xvect_dir, split, rec_id + "_xv_stat.pkl"
         )
 
-        # diary_ndx_file = os.path.join(
-        #    params.xvect_dir, split, rec_id + "_ndx.pkl"
-        # )
-
         # Prepare a csv for a recording
         out_csv_dir = os.path.join(params.xvect_dir, split)
         prepare_subset_csv(full_csv, rec_id, out_csv_dir)
@@ -409,9 +408,6 @@ def diarizer(full_csv, split_type):
 
         if not os.path.exists(os.path.join(params.xvect_dir, split)):
             os.makedirs(os.path.join(params.xvect_dir, split))
-
-        # msg = "Extracting xvectors for AMI " + split_type
-        # logger.info(msg)
 
         # Compute Xvectors
         diary_obj_dev = xvect_computation_loop(
@@ -498,7 +494,7 @@ if __name__ == "__main__":  # noqa: C901
 
     except ImportError:
         err_msg = "The optional dependency sklearn to use this module\n"
-        err_msg += "cannot import sklearn. \n"
+        err_msg += "Cannot import sklearn. \n"
         err_msg += "Please follow the instructions below\n"
         err_msg += "=============================\n"
         err_msg += "Using pip:\n"
@@ -534,10 +530,10 @@ if __name__ == "__main__":  # noqa: C901
     logger.info("Evaluating for AMI Dev. set")
     ref_rttm = os.path.join(params.ref_rttm_dir, "fullref_ami_dev.rttm")
     sys_rttm = out_boundaries
-    [MS, FA, SER, DER_] = DER(
+    [MS_dev, FA_dev, SER_dev, DER_dev] = DER(
         ref_rttm, sys_rttm, params.ignore_overlap, params.forgiveness_collar
     )
-    msg = "DER (Dev. set)= %s %%\n" % (str(round(DER_, 2)))
+    msg = "DER (Dev. set)= %s %%\n" % (str(round(DER_dev, 2)))
     logger.info(msg)
 
     # AMI Eval Set
@@ -552,8 +548,8 @@ if __name__ == "__main__":  # noqa: C901
     logger.info("Evaluating for AMI Eval. set")
     ref_rttm = os.path.join(params.ref_rttm_dir, "fullref_ami_eval.rttm")
     sys_rttm = out_boundaries
-    [MS, FA, SER, DER_] = DER(
+    [MS_eval, FA_eval, SER_eval, DER_eval] = DER(
         ref_rttm, sys_rttm, params.ignore_overlap, params.forgiveness_collar
     )
-    msg = "DER (Eval. set) = %s %%\n" % (str(round(DER_, 2)))
+    msg = "DER (Eval. set) = %s %%\n" % (str(round(DER_eval, 2)))
     logger.info(msg)
