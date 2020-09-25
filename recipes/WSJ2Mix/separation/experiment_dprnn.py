@@ -11,8 +11,11 @@ import argparse
 import itertools as it
 import logging
 import os
+import pprint
 import shutil
+from pathlib import PosixPath
 
+import orion
 import torch
 import torch.nn.functional as F
 from orion.client import report_results
@@ -175,6 +178,23 @@ class CTNBrain(sb.core.Brain):
         )
 
 
+def fix_params_for_orion(params):
+    if orion.client.cli.IS_ORION_ON:
+        save_folder = os.getenv("ORION_WORKING_DIR")
+        logger.info(
+            "running orion - changing the output folder to {}".format(
+                save_folder
+            )
+        )
+        params.output_folder = save_folder
+        params.save_folder = os.path.join(save_folder, "models")
+        params.checkpointer.checkpoints_dir = PosixPath(save_folder)
+        params.train_log = os.path.join(save_folder, "train_log.txt")
+        params.train_logger.save_file = params.train_log
+        params.tensorboard_logs += os.path.sep + os.getenv("ORION_TRIAL_ID")
+    return params
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", help="config file", required=True)
@@ -192,52 +212,53 @@ def main():
         params = create_minimal_data(repo_path, args.config)
         logger.info("setting epoch size to 1 - because --minimal")
         params.N_epochs = 1
+        params = fix_params_for_orion(params)
     else:
         with open(args.config) as fin:
             params = sb.yaml.load_extended_yaml(fin)
 
-            # this points to the folder to which we will save the wsj0-mix dataset
-            data_save_dir = params.wsj0mixpath
+        # this points to the folder to which we will save the wsj0-mix dataset
+        data_save_dir = params.wsj0mixpath
 
-            # if the dataset is not present, we create the dataset
-            if not os.path.exists(data_save_dir):
-                from recipes.WSJ2Mix.prepare_data import get_wsj_files
+        # if the dataset is not present, we create the dataset
+        if not os.path.exists(data_save_dir):
+            from recipes.WSJ2Mix.prepare_data import get_wsj_files
 
-                # this points to the folder which holds the wsj0 dataset folder
-                wsj0path = params.wsj0path
-                get_wsj_files(wsj0path, data_save_dir)
+            # this points to the folder which holds the wsj0 dataset folder
+            wsj0path = params.wsj0path
+            get_wsj_files(wsj0path, data_save_dir)
 
-            # load or create the csv files which enables us to get the speechbrain dataloaders
-            if not (
-                os.path.exists(params.save_folder + "/wsj_tr.csv")
-                and os.path.exists(params.save_folder + "/wsj_cv.csv")
-                and os.path.exists(params.save_folder + "/wsj_tt.csv")
-            ):
-                from recipes.WSJ2Mix.prepare_data import create_wsj_csv
+        # load or create the csv files which enables us to get the speechbrain dataloaders
+        if not (
+            os.path.exists(params.save_folder + "/wsj_tr.csv")
+            and os.path.exists(params.save_folder + "/wsj_cv.csv")
+            and os.path.exists(params.save_folder + "/wsj_tt.csv")
+        ):
+            from recipes.WSJ2Mix.prepare_data import create_wsj_csv
 
-                create_wsj_csv(data_save_dir, params.save_folder)
+            create_wsj_csv(data_save_dir, params.save_folder)
 
-            experiment_dir = os.path.dirname(os.path.realpath(__file__))
+        experiment_dir = os.path.dirname(os.path.realpath(__file__))
 
-            tr_csv = os.path.realpath(
-                os.path.join(experiment_dir, params.save_folder + "/wsj_tr.csv")
+        tr_csv = os.path.realpath(
+            os.path.join(experiment_dir, params.save_folder + "/wsj_tr.csv")
+        )
+        cv_csv = os.path.realpath(
+            os.path.join(experiment_dir, params.save_folder + "/wsj_cv.csv")
+        )
+        tt_csv = os.path.realpath(
+            os.path.join(experiment_dir, params.save_folder + "/wsj_tt.csv")
+        )
+
+        with open(args.config) as fin:
+            params = sb.yaml.load_extended_yaml(
+                fin, {"tr_csv": tr_csv, "cv_csv": cv_csv, "tt_csv": tt_csv}
             )
-            cv_csv = os.path.realpath(
-                os.path.join(experiment_dir, params.save_folder + "/wsj_cv.csv")
-            )
-            tt_csv = os.path.realpath(
-                os.path.join(experiment_dir, params.save_folder + "/wsj_tt.csv")
-            )
-
-            with open(args.config) as fin:
-                params = sb.yaml.load_extended_yaml(
-                    fin, {"tr_csv": tr_csv, "cv_csv": cv_csv, "tt_csv": tt_csv}
-                )
-            # logger.info(params)  # if needed this line can be uncommented for logging
-
+        params = fix_params_for_orion(params)
         # copy the config file for book keeping
         shutil.copyfile(args.config, params.output_folder + "/config.txt")
 
+    logger.info(pprint.PrettyPrinter(indent=4).pformat(params))
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     train_loader = params.train_loader()
@@ -271,14 +292,7 @@ def main():
     logger.info("Best result on validation: {}".format(-best_eval))
 
     report_results(
-        [
-            dict(
-                name="dev_metric",
-                type="objective",
-                # note the minus - cause orion is always trying to minimize (cit. from the guide)
-                value=float(best_eval),
-            )
-        ]
+        [dict(name="dev_metric", type="objective", value=float(best_eval),)]
     )
 
 
