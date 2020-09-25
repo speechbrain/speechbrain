@@ -43,14 +43,14 @@ model: !new:speechbrain.lobes.models.CRDNN.CRDNN
     dnn_neurons: !ref <dnn_neurons>
 
 lin: !new:speechbrain.nnet.linear.Linear
-    n_neurons: 43  # 42 phonemes + 1 blank
+    n_neurons: 45  # 44 phonemes + 1 blank
     bias: False
 
 softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
 compute_cost: !name:speechbrain.nnet.losses.ctc_loss
-    blank_index: 42
+    blank_index: 44
 
 optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
     learning_rate: !ref <lr>
