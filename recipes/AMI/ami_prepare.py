@@ -386,7 +386,7 @@ def prepare_ami(
     # dev_rttm = prepare_RTTM(dev_set)
 
     # Create ref_RTTM directory
-    ref_dir = save_folder + "/ref_RTTM/"
+    ref_dir = save_folder + "/ref_rttms/"
     if not os.path.exists(ref_dir):
         os.makedirs(ref_dir)
 

@@ -7,10 +7,8 @@ seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Folders and train_log file
-data_folder: /network/tmp1/dawalatn/ # !PLACEHOLDER
+data_folder: /network/datasets/ami/amicorpus
 data_folder_ami: /network/datasets/ami/amicorpus
-
-# output_folder: results_ecapa_vox2
 output_folder: results
 save_folder: !ref <output_folder>/save
 device: 'cuda:0'
@@ -52,7 +50,6 @@ batch_size: 128
 
 # AMI: Diarization parameters
 split_type: 'full_corpus_asr'
-# scenario_only, "full_corpus", "full_corpus_asr", "sample"
 mic_type: 'hm'
 vad_type: 'oracle'
 max_subseg_dur: 3.0
@@ -61,6 +58,10 @@ whiten: True
 len_norm: True
 do_lda: False
 lda_dim: 100
+
+# DER evaluation parameters
+ignore_overlap: True
+forgiveness_collar: 0.25
 
 
 # Functions
