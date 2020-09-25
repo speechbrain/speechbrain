@@ -6,10 +6,9 @@
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 9
+seed: 16
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-#output_folder: !ref results/CRDNN_BPE_100h_LM/<seed>
-output_folder: results/CRDNN_BPE_100h_LM_last
+output_folder: !ref results/CRDNN_BPE_100h_LM/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -27,11 +26,11 @@ data_folder: /localscratch/LibriSpeech
 data_folder_rirs: !ref <data_folder>
 train_splits: ["train-clean-100"]
 dev_split: dev-clean
-test_split: test-clean
-
 csv_train: !ref <data_folder>/train.csv
 csv_valid: !ref <data_folder>/<dev_split>.csv
-csv_test: !ref <data_folder>/<test_split>.csv
+csv_test_clean: !ref <data_folder>/test-clean.csv
+csv_test_other: !ref <data_folder>/test-other.csv
+
 
 # Training parameters
 number_of_epochs: 30
@@ -41,8 +40,7 @@ lr: 1.0
 ctc_weight: 0.5
 device: 'cuda'
 ddp_procs: 0  # Set to number of GPUs for multi-gpu training
-# allow token error rate computation
-ter_eval: True
+token_type: unigram # ["unigram", "bpe", "char"]
 
 # Feature parameters
 sample_rate: 16000
@@ -65,12 +63,10 @@ dnn_blocks: 2
 dnn_neurons: 512
 emb_size: 128
 dec_neurons: 1024
-
-# Outputs
 output_neurons: 1000  # index(blank/eos/bos) = 0
 blank_index: 0
+
 # Decoding parameters
-# Be sure that the bos and eos index match with the BPEs ones
 bos_index: 0
 eos_index: 0
 min_decode_ratio: 0.0
@@ -96,6 +92,7 @@ lm_dnn_neurons: 512
 epoch_counter: !new:speechbrain.EpochCounter
     limit: !ref <number_of_epochs>
 
+# Dataloaders
 train_loader: !new:speechbrain.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>
     batch_size: !ref <batch_size>
@@ -110,13 +107,22 @@ valid_loader: !new:speechbrain.data_io.DataLoaderFactory
     output_folder: !ref <output_folder>
     csv_read: [wav, wrd]
 
-test_loader: !new:speechbrain.data_io.DataLoaderFactory
-    csv_file: !ref <csv_test>
+test_clean_loader: !new:speechbrain.data_io.DataLoaderFactory
+    csv_file: !ref <csv_test_clean>
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
     csv_read: [wav, wrd]
 
+test_other_loader: !new:speechbrain.data_io.DataLoaderFactory
+    csv_file: !ref <csv_test_other>
+    batch_size: !ref <batch_size>
+    sentence_sorting: ascending
+    output_folder: !ref <output_folder>
+    csv_read: [wav, wrd]
+
+
+# Models
 normalize: !new:speechbrain.processing.InputNormalization
     norm_type: global
 
@@ -226,8 +232,6 @@ hparams:
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
     ctc_weight: !ref <ctc_weight>
-    wer_file: !ref <wer_file>
-    ter_eval: !ref <ter_eval>
     output_folder: !ref <output_folder>
     number_of_ctc_epochs: !ref <number_of_ctc_epochs>
     normalize: !ref <normalize>
