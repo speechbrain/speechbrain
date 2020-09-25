@@ -7,21 +7,27 @@ seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Folders and train_log file
-# /network/dataset_tmp1/VoxCeleb/voxceleb1/ (meta)
-data_folder: /network/tmp1/dawalatn/ #!PLACEHOLDER
+data_folder: /network/tmp1/dawalatn/ # !PLACEHOLDER
 data_folder_ami: /network/datasets/ami/amicorpus
 
+# output_folder: results_ecapa_vox2
 output_folder: results
 save_folder: !ref <output_folder>/save
 device: 'cuda:0'
 
 # Pretrain from web (as an alternative specify a file)
 
-# Vox-1 only
-xvector_f: https://www.dropbox.com/s/skfz2sme5nw7jji/xvector_model.ckpt?dl=1
+# Vox1+Vox2
+xvector_f: >
+    https://www.dropbox.com/sh/egbd9jsywbsjm45/AADp96m552bo5lsahR5hmmzMa/
+    save/CKPT%2B2020-09-07%2B08-34-27%2B00/embedding_model.ckpt?dl=1
+model_dir: !ref <save_folder>/model_tdnn_vox1and2
 
-# Vox-2 only
-#xvector_f: https://www.dropbox.com/s/exzbyt4qoabo7v4/embedding_model.ckpt?dl=1
+# Exp directories
+xvect_dir: !ref <save_folder>/xvectors
+csv_dir: !ref <save_folder>/csv
+ref_rttm_dir: !ref <save_folder>/ref_rttms
+sys_rttm_dir: !ref <save_folder>/sys_rttms
 
 # Vox: csv files
 csv_train_vox: !ref <save_folder>/train.csv
@@ -32,6 +38,7 @@ csv_test_vox: !ref <save_folder>/test.csv
 csv_diary_train: !ref <save_folder>/csv/ami_train.subsegments.csv
 csv_diary_dev: !ref <save_folder>/csv/ami_dev.subsegments.csv
 csv_diary_eval: !ref <save_folder>/csv/ami_eval.subsegments.csv
+
 
 # Spectral feature parameters
 n_mels: 24
@@ -52,20 +59,11 @@ max_subseg_dur: 3.0
 overlap: 1.5
 whiten: True
 len_norm: True
-do_lda: True
+do_lda: False
 lda_dim: 100
 
-# PLDA parameters
-rank_f: 100
-nb_iter: 20
-scaling_factor: 1
 
 # Functions
-compute_plda: !new:speechbrain.processing.PLDA_LDA.PLDA
-    rank_f: !ref <rank_f>
-    nb_iter: !ref <nb_iter>
-    scaling_factor: !ref <scaling_factor>
-
 compute_features: !new:speechbrain.lobes.features.fbank.Fbank
     n_mels: !ref <n_mels>
     left_frames: !ref <left_frames>
