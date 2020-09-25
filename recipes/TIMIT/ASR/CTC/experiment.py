@@ -147,4 +147,4 @@ if __name__ == "__main__":
     )
 
     asr_brain.fit(asr_brain.hparams.epoch_counter, train_set, valid_set)
-    asr_brain.evaluate(hparams["test_loader"]())
+    asr_brain.evaluate(hparams["test_loader"](), min_key="PER")
