@@ -248,16 +248,14 @@ def main():
 
             create_wsj_csv(data_save_dir, params.save_folder)
 
-        experiment_dir = os.path.dirname(os.path.realpath(__file__))
-
         tr_csv = os.path.realpath(
-            os.path.join(experiment_dir, params.save_folder + "/wsj_tr.csv")
+            os.path.join(params.save_folder + "/wsj_tr.csv")
         )
         cv_csv = os.path.realpath(
-            os.path.join(experiment_dir, params.save_folder + "/wsj_cv.csv")
+            os.path.join(params.save_folder + "/wsj_cv.csv")
         )
         tt_csv = os.path.realpath(
-            os.path.join(experiment_dir, params.save_folder + "/wsj_tt.csv")
+            os.path.join(params.save_folder + "/wsj_tt.csv")
         )
 
         with open(args.config) as fin:
