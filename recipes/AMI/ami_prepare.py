@@ -45,10 +45,10 @@ def get_RTTM_per_rec(segs, spkrs_list, rec_id):
 
         if float(row[1]) < float(row[0]):
             msg1 = (
-                "Incorrect Annotation: transcriber_start (%s) > transcriber_start (%s)"
+                "Incorrect Annotation Found: transcriber_start (%s) > transcriber_start (%s)"
                 % (row[0], row[1])
             )
-            msg2 = "Hence, excluding row from RTTM : %s, %s, %s, %s" % (
+            msg2 = "Excluding incorrect row from RTTM : %s, %s, %s, %s" % (
                 rec_id,
                 row[0],
                 str(round(float(row[1]) - float(row[0]), 4)),
@@ -74,7 +74,7 @@ def get_RTTM_per_rec(segs, spkrs_list, rec_id):
     return rttm
 
 
-def prepare_segs_for_RTTM(list_ids, out_rttm_file, audio_dir):
+def prepare_segs_for_RTTM(list_ids, out_rttm_file, audio_dir, split_type):
 
     # TODO: take this as parameter
     # annot_dir = "/home/mila/d/dawalatn/AMI_MANUAL/"
@@ -89,8 +89,13 @@ def prepare_segs_for_RTTM(list_ids, out_rttm_file, audio_dir):
 
         # Skipping all TNO (later just skip it from dev and test)
         # SPEAKER DIARISATION USING 2D SELF-ATTENTIVE COMBINATION OF EMBEDDINGS
-        if main_meet_id.startswith("TS"):
-            msg = "Skipping TNO meeting : " + str(main_meet_id)
+        if main_meet_id.startswith("TS") and split_type != "train":
+            msg = (
+                "Skipping TNO meeting in AMI "
+                + str(split_type)
+                + " set : "
+                + str(main_meet_id)
+            )
             logger.info(msg)
             continue
 
@@ -251,10 +256,6 @@ def prepare_csv(
         )  # We lose speaker_ID after merging
         MERGED_SEGMENTS = MERGED_SEGMENTS + merged_segs
 
-        # TODO: Xvector hyperparams from hyperparams
-        # max_subseg_dur = 3
-        # overlap = 1.5
-
         # Divide segments into smaller sub-segments
         subsegs = get_subsegments(merged_segs, max_subseg_dur, overlap)
         SUBSEGMENTS = SUBSEGMENTS + subsegs
@@ -393,11 +394,11 @@ def prepare_ami(
     for i in splits:
         rttm_file = ref_dir + "/fullref_ami_" + i + ".rttm"
         if i == "train":
-            prepare_segs_for_RTTM(train_set, rttm_file, data_folder)
+            prepare_segs_for_RTTM(train_set, rttm_file, data_folder, i)
         if i == "dev":
-            prepare_segs_for_RTTM(dev_set, rttm_file, data_folder)
+            prepare_segs_for_RTTM(dev_set, rttm_file, data_folder, i)
         if i == "eval":
-            prepare_segs_for_RTTM(eval_set, rttm_file, data_folder)
+            prepare_segs_for_RTTM(eval_set, rttm_file, data_folder, i)
 
     # Inp: GT RTTM, Out: Merged segments
     # Add options if user needs merged segments or non-overlapping (homogeneous speakers) subsegments
