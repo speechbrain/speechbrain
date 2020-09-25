@@ -269,7 +269,6 @@ def main():
     best_eval = min(ctn.eval_scores)
     logger.info("Best result on validation: {}".format(-best_eval))
 
-    # FIXME: use the correct best valid value
     report_results(
         [
             dict(
