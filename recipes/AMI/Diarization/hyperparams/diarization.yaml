@@ -13,8 +13,6 @@ output_folder: results
 save_folder: !ref <output_folder>/save
 device: 'cuda:0'
 
-# Pretrain from web (as an alternative specify a file)
-
 # Vox1+Vox2
 xvector_f: >
     https://www.dropbox.com/sh/egbd9jsywbsjm45/AADp96m552bo5lsahR5hmmzMa/
