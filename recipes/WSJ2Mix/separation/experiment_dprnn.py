@@ -54,28 +54,30 @@ def split_overlapping_chunks(tensor, chunk_len=200, overlap_rate=0.5, dim=1):
 
 class CTNBrain(sb.core.Brain):
     def __init__(self, params, device, **kwargs):
-        self.param = params
+        self.params = params
         self.device = device
         super(CTNBrain, self).__init__(**kwargs)
         self.eval_scores = []
+        self.train_logger = TensorboardLogger(params.tensorboard_logs)
 
     def compute_forward(self, mixture, stage="train", init_params=False):
-        if hasattr(self.param, "env_corrupt"):
+        if hasattr(self.params, "env_corrupt"):
             if stage == "train":
                 wav_lens = torch.tensor(
                     [mixture.shape[-1]] * mixture.shape[0]
                 ).to(self.device)
-                mixture = self.param.augmentation(
+                mixture = self.params.augmentation(
                     mixture, wav_lens, init_params
                 )
 
-        mixture_w = self.param.Encoder(mixture, init_params=init_params)
+        mixture_w = self.params.Encoder(mixture, init_params=init_params)
 
-        est_mask = self.param.MaskNet(mixture_w, init_params=init_params)
+        est_mask = self.params.MaskNet(mixture_w, init_params=init_params)
 
         out = [est_mask[i] * mixture_w for i in range(2)]
         est_source = torch.cat(
-            [self.param.Decoder(out[i]).unsqueeze(-1) for i in range(2)], dim=-1
+            [self.params.Decoder(out[i]).unsqueeze(-1) for i in range(2)],
+            dim=-1,
         )
 
         # T changed after conv1d in encoder, fix it here
@@ -89,7 +91,7 @@ class CTNBrain(sb.core.Brain):
         return est_source
 
     def compute_objectives(self, predictions, targets):
-        if self.param.loss_fn == "sisnr":
+        if self.params.loss_fn == "sisnr":
             loss = get_si_snr_with_pitwrapper(targets, predictions)
             return loss
         else:
@@ -97,7 +99,7 @@ class CTNBrain(sb.core.Brain):
 
     def fit_batch(self, batch):
         # train_onthefly option enables data augmentation, by creating random mixtures within the batch
-        if self.param.train_onthefly:
+        if self.params.train_onthefly:
             bs = batch[0][1].shape[0]
             perm = torch.randperm(bs)
 
@@ -124,9 +126,9 @@ class CTNBrain(sb.core.Brain):
         loss = self.compute_objectives(predictions, targets)
 
         loss.backward()
-        if self.param.clip_grad_norm >= 0:
+        if self.params.clip_grad_norm >= 0:
             torch.nn.utils.clip_grad_norm_(
-                self.modules.parameters(), self.param.clip_grad_norm
+                self.modules.parameters(), self.params.clip_grad_norm
             )
         self.optimizer.step()
         self.optimizer.zero_grad()
@@ -145,16 +147,17 @@ class CTNBrain(sb.core.Brain):
     def on_epoch_end(self, epoch, train_stats, valid_stats):
 
         av_loss = summarize_average(valid_stats["loss"])
-        current_lr, next_lr = self.param.lr_scheduler(
-            [self.param.optimizer], epoch, av_loss
+        current_lr, next_lr = self.params.lr_scheduler(
+            [self.params.optimizer], epoch, av_loss
         )
 
         epoch_stats = {"epoch": epoch, "lr": current_lr}
-        self.param.train_logger.log_stats(epoch_stats, train_stats, valid_stats)
+        self.params.train_logger.log_stats(
+            epoch_stats, train_stats, valid_stats
+        )
 
         # if params.use_tensorboard:
-        train_logger = TensorboardLogger(self.param.tensorboard_logs)
-        train_logger.log_stats({"Epoch": epoch}, train_stats, valid_stats)
+        self.train_logger.log_stats({"Epoch": epoch}, train_stats, valid_stats)
         logger.info("Completed epoch %d" % epoch)
         logger.info(
             "Train SI-SNR: %.3f" % -summarize_average(train_stats["loss"])
@@ -166,7 +169,7 @@ class CTNBrain(sb.core.Brain):
             "Current LR {} New LR on next epoch {}".format(current_lr, next_lr)
         )
 
-        self.param.checkpointer.save_and_keep_only(
+        self.params.checkpointer.save_and_keep_only(
             meta={"av_loss": av_loss},
             importance_keys=[ckpt_recency, lambda c: -c.meta["av_loss"]],
         )
@@ -184,17 +187,13 @@ def main():
 
     logging.basicConfig(level=logging.INFO)
 
-    experiment_dir = os.path.dirname(os.path.realpath(__file__))
-
-    # os.path.dirname(os.path.realpath(__file__)) + "/../../../s.path.dirname(os.path.realpath(__file__)) + "/../../../
     if args.minimal:
         repo_path = os.path.dirname(os.path.realpath(__file__)) + "/../../../"
         params = create_minimal_data(repo_path, args.config)
         logger.info("setting epoch size to 1 - because --minimal")
         params.N_epochs = 1
     else:
-        params_file = os.path.join(experiment_dir, args.config)
-        with open(params_file) as fin:
+        with open(args.config) as fin:
             params = sb.yaml.load_extended_yaml(fin)
 
             # this points to the folder to which we will save the wsj0-mix dataset
@@ -218,6 +217,8 @@ def main():
 
                 create_wsj_csv(data_save_dir, params.save_folder)
 
+            experiment_dir = os.path.dirname(os.path.realpath(__file__))
+
             tr_csv = os.path.realpath(
                 os.path.join(experiment_dir, params.save_folder + "/wsj_tr.csv")
             )
@@ -228,14 +229,14 @@ def main():
                 os.path.join(experiment_dir, params.save_folder + "/wsj_tt.csv")
             )
 
-            with open(params_file) as fin:
+            with open(args.config) as fin:
                 params = sb.yaml.load_extended_yaml(
                     fin, {"tr_csv": tr_csv, "cv_csv": cv_csv, "tt_csv": tt_csv}
                 )
             # logger.info(params)  # if needed this line can be uncommented for logging
 
         # copy the config file for book keeping
-        shutil.copyfile(params_file, params.output_folder + "/config.txt")
+        shutil.copyfile(args.config, params.output_folder + "/config.txt")
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
