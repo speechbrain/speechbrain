@@ -683,7 +683,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             if self.ctc_weight > 0:
                 ctc_memory = ctc_scorer.permute_mem(ctc_memory, candidates)
 
-            # If using_max_attn_shift, thne the previous attn peak has to be permuted too.
+            # If using_max_attn_shift, then the previous attn peak has to be permuted too.
             if self.using_max_attn_shift:
                 prev_attn_peak = torch.index_select(
                     prev_attn_peak, dim=0, index=predecessors
