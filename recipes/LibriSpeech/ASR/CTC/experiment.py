@@ -73,36 +73,18 @@ class ASR(sb.Brain):
                 valid_stats={"loss": stage_loss, "CER": cer, "WER": wer},
             )
 
-            self.hparams.checkpointer.save_and_keep_only(
+            self.checkpointer.save_and_keep_only(
                 meta={"WER": wer}, min_keys=["WER"],
             )
 
         if stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
-                stats_meta={"Epoch loaded": epoch},
+                stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats={"loss": stage_loss, "WER": wer},
             )
             with open(self.hparams.wer_file, "w") as w:
                 self.wer_metric.write_stats(w)
                 print("WER stats written to file", self.hparams.wer_file)
-
-    def on_fit_start(self):
-        self.compile_jit()
-
-        params = list(self.jit_modules.enc.parameters())
-        params.extend(self.hparams.output.parameters())
-        self.optimizer = self.opt_class(params)
-        self.hparams.checkpointer.add_recoverable("optimizer", self.optimizer)
-
-        # Load latest checkpoint to resume training
-        self.hparams.checkpointer.recover_if_possible()
-
-    def on_evaluate_start(self):
-        # Load best checkpoint for evaluation
-        self.hparams.checkpointer.recover_if_possible(min_key="WER")
-
-        # Return loaded epoch for logging
-        return self.hparams.epoch_counter.current
 
 
 if __name__ == "__main__":
@@ -131,18 +113,19 @@ if __name__ == "__main__":
         save_folder=hparams["data_folder"],
     )
 
+    train_set = hparams["train_loader"]()
+    valid_set = hparams["valid_loader"]()
+    ind2lab = hparams["train_loader"].label_dict["char"]["index2lab"]
+    hparams["hparams"]["ind2lab"] = ind2lab
+
     asr_brain = ASR(
         hparams=hparams["hparams"],
         opt_class=hparams["opt_class"],
         jit_modules=hparams["jit_modules"],
+        checkpointer=hparams["checkpointer"],
         device=hparams["device"],
         ddp_procs=hparams["ddp_procs"],
     )
-
-    train_set = hparams["train_loader"]()
-    valid_set = hparams["valid_loader"]()
-    ind2lab = hparams["train_loader"].label_dict["char"]["index2lab"]
-    asr_brain.hparams.ind2lab = ind2lab
 
     asr_brain.fit(asr_brain.hparams.epoch_counter, train_set, valid_set)
     asr_brain.evaluate(hparams["test_loader"]())
