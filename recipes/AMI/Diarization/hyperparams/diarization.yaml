@@ -48,7 +48,7 @@ batch_size: 128
 
 # AMI data_prep parameters
 split_type: 'full_corpus_asr'
-mic_type: 'hm'
+mic_type: 'Lapel'
 vad_type: 'oracle'
 max_subseg_dur: 3.0
 overlap: 1.5

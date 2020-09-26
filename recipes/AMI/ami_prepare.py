@@ -14,12 +14,16 @@ import glob
 import csv
 from ami_splits import get_AMI_split
 
+from speechbrain.data_io.data_io import (
+    load_pkl,
+    save_pkl,
+)
 
 logger = logging.getLogger(__name__)
 OPT_FILE = "opt_ami_prepare.pkl"
-TRAIN_CSV = "train.csv"
-DEV_CSV = "dev.csv"
-EVAL_CSV = "eval.csv"
+TRAIN_CSV = "ami_train.subsegments.csv"
+DEV_CSV = "ami_dev.subsegments.csv"
+EVAL_CSV = "ami_eval.subsegments.csv"
 SAMPLERATE = 16000
 
 
@@ -221,7 +225,7 @@ def get_subsegments(merged_segs, max_subseg_dur=3.0, overlap=1.5):
 
 
 def prepare_csv(
-    rttm_file, save_dir, data_dir, filename, max_subseg_dur, overlap
+    rttm_file, save_dir, data_dir, filename, max_subseg_dur, overlap, mic_type
 ):
     # Read RTTM, get unique meeting_IDs (from RTTM headers)
     # For each MeetingID.. select only that meetID -> merge -> subsegment -> csv -> append
@@ -285,7 +289,14 @@ def prepare_csv(
         subsegment_ID = rec_id + "_" + strt + "_" + end
         dur = row[4]
         wav_file_path = (
-            data_dir + "/" + rec_id + "/audio/" + rec_id + ".Mix-Lapel.wav"
+            data_dir
+            + "/"
+            + rec_id
+            + "/audio/"
+            + rec_id
+            + ".Mix-"
+            + mic_type
+            + ".wav"
         )
 
         start_sample = int(float(strt) * SAMPLERATE)
@@ -326,7 +337,7 @@ def prepare_ami(
     data_folder,
     manual_annot_folder,
     save_folder,
-    split_type="sample",
+    split_type="full_corpus_asr",
     mic_type="Lapel",
     vad_type="oracle",
     max_subseg_dur=3.0,
@@ -357,37 +368,30 @@ def prepare_ami(
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
 
-    # Setting ouput files
-    save_opt = os.path.join(save_folder, OPT_FILE)  # noqa F841
-
-    save_csv_train = os.path.join(save_folder, TRAIN_CSV)  # noqa F841
-    save_csv_dev = os.path.join(save_folder, DEV_CSV)  # noqa F841
-    save_csv_eval = os.path.join(save_folder, EVAL_CSV)  # noqa F841
+    # Setting ouput opt files
+    save_opt = os.path.join(save_folder, OPT_FILE)
 
     # Check if this phase is already done (if so, skip it)
     splits = ["train", "dev", "eval"]
     if skip(splits, save_folder, conf):
-        logger.debug("Skipping preparation, completed in previous run.")
+        logger.info(
+            "Skipping data preparation, as it was completed in previous run."
+        )
         return
 
     msg = "\tCreating csv file for the VoxCeleb1 Dataset.."
     logger.debug(msg)
 
+    # Get the split
     train_set, dev_set, eval_set = get_AMI_split(split_type)
 
-    # print (eval_set)
-
     # Prepare RTTM from XML(manual annot) and store are groundtruth
-    # Write RTTMs to save directory
-    # train_rttm = prepare_RTTM(train_set)
-    # dev_rttm = prepare_RTTM(dev_set)
-
     # Create ref_RTTM directory
     ref_dir = save_folder + "/ref_rttms/"
     if not os.path.exists(ref_dir):
         os.makedirs(ref_dir)
 
-    # Create Groundtruth RTTM files
+    # Create reference RTTM files
     for i in splits:
         rttm_file = ref_dir + "/fullref_ami_" + i + ".rttm"
         if i == "train":
@@ -418,9 +422,8 @@ def prepare_ami(
             csv_filename_prefix,
             max_subseg_dur,
             overlap,
+            mic_type,
         )
-
-    # sys.exit()
 
     # Perform subsegmentation on large segments
     # Inp: largesegments, max_subseg_size, overlap (1sec)
@@ -431,7 +434,7 @@ def prepare_ami(
     # Creating csv file using above subsegments
     # prepare_csv(train_set, dev_set, eval_set)
 
-    # save_pkl(conf, save_opt)
+    save_pkl(conf, save_opt)
 
 
 def skip(splits, save_folder, conf):
@@ -454,7 +457,10 @@ def skip(splits, save_folder, conf):
         "eval": EVAL_CSV,
     }
     for split in splits:
-        if not os.path.isfile(os.path.join(save_folder, split_files[split])):
+        # if not os.path.isfile(os.path.join(save_folder, split_files[split])):
+        if not os.path.isfile(
+            os.path.join(save_folder, "csv", split_files[split])
+        ):
             skip = False
 
     #  Checking saved options
