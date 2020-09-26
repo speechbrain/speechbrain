@@ -10,6 +10,7 @@ Authors
 import torch  # noqa E402
 from torch import nn
 from speechbrain.nnet.linear import Linear
+from speechbrain.nnet.CNN import Conv1d
 from speechbrain.lobes.models.transformer.Transformer import (
     TransformerInterface,
     get_lookahead_mask,
@@ -79,6 +80,7 @@ class CNNTransformerSE(TransformerInterface):
         self.causal = causal
         self.output_layer = Linear(output_size, bias=False)
         self.output_activation = output_activation()
+        self.linear_trans = Conv1d(256, 3, 1, padding="valid")
 
     def forward(self, x, src_key_padding_mask=None, init_params=False):
         if self.causal:
@@ -88,6 +90,10 @@ class CNNTransformerSE(TransformerInterface):
 
         if self.custom_emb_module is not None:
             src = self.custom_emb_module(x, init_params)
+
+        # Semi-causal padding on time axis, kernel size is fixed to 3
+        src = torch.nn.functional.pad(src, (0, 0, 1, 1))
+        src = self.linear_trans(src, init_params=init_params)
 
         encoder_output, attn_list = self.encoder(
             src=src,

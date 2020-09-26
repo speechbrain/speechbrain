@@ -99,22 +99,6 @@ class SEBrain(sb.core.Brain):
 
         loss = params.compute_cost(predictions, feats, lens)
 
-        # Entropy Minimization
-        comp_scores = [
-            layer.comp_score
-            for layer in params.model.encoder.layers
-            if layer.comp_score is not None
-        ]
-        entropy = 0.0
-        for comp_score in comp_scores:
-            entropy += (
-                -1.0
-                * torch.sum(comp_score * torch.log(comp_score + 1e-8))
-                / lens.shape[0]
-            )
-
-        loss = loss + 0.01 * entropy
-
         return loss, {}
 
     def fit_batch(self, batch):
