@@ -57,7 +57,7 @@ checkpointer = sb.utils.checkpoints.Checkpointer(
 
 # Define a beam search according to this recipe
 valid_search = S2STransformerBeamSearch(
-    modules=[params.Transformer, params.seq_lin],
+    modules=[params.Transformer, params.seq_lin, params.ctc_lin],
     bos_index=params.bos_index,
     eos_index=params.eos_index,
     min_decode_ratio=0,
@@ -68,7 +68,7 @@ valid_search = S2STransformerBeamSearch(
 )
 
 test_search = S2STransformerBeamSearch(
-    modules=[params.Transformer, params.seq_lin],
+    modules=[params.Transformer, params.seq_lin, params.ctc_lin],
     bos_index=params.bos_index,
     eos_index=params.eos_index,
     min_decode_ratio=0,
