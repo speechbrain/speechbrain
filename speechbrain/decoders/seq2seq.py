@@ -1082,7 +1082,7 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
         beam_size,
         topk=1,
         return_log_probs=False,
-        using_eos_threshold=True,
+        using_eos_threshold=False,
         eos_threshold=1.5,
         length_normalization=False,
         length_rewarding=0,
@@ -1108,13 +1108,20 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
             length_rewarding,
             lm_weight,
             lm_modules,
+            ctc_weight,
             using_max_attn_shift,
             max_attn_shift,
         )
 
         self.model = modules[0]
         self.fc = modules[1]
+        self.ctc_fc = modules[2]
         self.softmax = torch.nn.LogSoftmax(dim=-1)
+
+    def ctc_forward_step(self, x):
+        logits = self.ctc_fc(x, self.init_ctc_params)
+        log_probs = self.softmax(logits)
+        return log_probs
 
     def reset_mem(self, batch_size, device):
         return None
