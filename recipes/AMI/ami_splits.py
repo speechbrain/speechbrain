@@ -2,9 +2,7 @@
 This script returns the train, dev and test split for AMI corpus
 """
 
-
-# TODO: Remove sample b4 merge
-ALLOWED_OPTIONS = ["scenario_only", "full_corpus", "full_corpus_asr", "sample"]
+ALLOWED_OPTIONS = ["scenario_only", "full_corpus", "full_corpus_asr"]
 
 
 def get_AMI_split(split_option):
@@ -17,12 +15,6 @@ def get_AMI_split(split_option):
             ALLOWED_OPTIONS,
         )
         return
-
-    # TODO: Remove this sample before merge
-    if split_option == "sample":
-        train_set = ["IS1000"]  # , "ES2012"]
-        dev_set = ["IS1001"]  # "ES2013"]
-        test_set = ["IS1003"]
 
     if split_option == "scenario_only":
 
