@@ -1,4 +1,35 @@
-#!/usr/bin/env python3
+#!/usr/bin/env/python3
+"""Recipe for training a sequence-to-sequence ASR system with librispeech.
+The system employs an encoder, a decoder, and an attention mechanism
+between them. Decoding is performed with beamsearch coupled with a neural
+language model.
+
+To run this recipe, do the following:
+> python experiment.py hyperparams.yaml
+
+With the default hyperparameters, the system employs a CRDNN encoder.
+The decoder is based on a standard  GRU. Beamsearch coupled with a RNN
+language model is used  on the top of decoder probabilities.
+
+The neural network is trained on both CTC and negative-log likelihood
+targets and sub-word units estimated with Byte Pairwise Encoding (BPE)
+are used as basic recognition tokens. Training is performed on the full
+LibriSpeech dataset (960 h).
+
+The experiment file is flexible enough to support a large variety of
+different systems. By properly changing the parameter files, you can try
+different encoders, decoders, tokens (e.g, characters instead of BPE),
+training split (e.g, train-clean 100 rather than the full one), and many
+other possible variations.
+
+
+Authors
+ * Ju-Chieh Chou 2020
+ * Mirco Ravanelli 2020
+ * Abdel Heba 2020
+ * Peter Plantinga 2020
+"""
+
 import os
 import sys
 import torch
@@ -10,6 +41,7 @@ from speechbrain.tokenizers.SentencePiece import SentencePiece
 # Define training procedure
 class ASR(sb.Brain):
     def compute_forward(self, x, y, stage):
+        """Forward computations from the waveform batches to the output probabilities."""
         ids, wavs, wav_lens = x
         ids, target_words, target_word_lens = y
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
@@ -43,7 +75,7 @@ class ASR(sb.Brain):
         e_in = self.hparams.emb(y_in)
         h, _ = self.hparams.dec(e_in, x, wav_lens)
 
-        # output layer for seq2seq log-probabilities
+        # Output layer for seq2seq log-probabilities
         logits = self.hparams.seq_lin(h)
         p_seq = self.hparams.log_softmax(logits)
 
@@ -51,7 +83,7 @@ class ASR(sb.Brain):
         if stage == sb.Stage.TRAIN:
             current_epoch = self.hparams.epoch_counter.current
             if current_epoch <= self.hparams.number_of_ctc_epochs:
-                # output layer for ctc log-probabilities
+                # Output layer for ctc log-probabilities
                 logits = self.hparams.ctc_lin(x)
                 p_ctc = self.hparams.log_softmax(logits)
                 return p_ctc, p_seq, wav_lens
@@ -62,6 +94,8 @@ class ASR(sb.Brain):
             return p_seq, wav_lens, p_tokens
 
     def compute_objectives(self, predictions, targets, stage):
+        """Computes the loss (CTC+NLL) given predictions and targets."""
+
         current_epoch = self.hparams.epoch_counter.current
         if stage == sb.Stage.TRAIN:
             if current_epoch <= self.hparams.number_of_ctc_epochs:
@@ -91,7 +125,7 @@ class ASR(sb.Brain):
             target_tokens, length=abs_length, eos_index=self.hparams.eos_index
         )
 
-        # convert to speechbrain-style relative length
+        # Convert to speechbrain-style relative length
         rel_length = (abs_length + 1) / target_tokens_with_eos.shape[1]
         loss_seq = self.hparams.seq_cost(
             p_seq, target_tokens_with_eos, length=rel_length
@@ -130,6 +164,7 @@ class ASR(sb.Brain):
         return loss
 
     def fit_batch(self, batch):
+        """Train the parameters given a single batch in input"""
         inputs, targets = batch
         predictions = self.compute_forward(inputs, targets, sb.Stage.TRAIN)
         loss = self.compute_objectives(predictions, targets, sb.Stage.TRAIN)
@@ -139,18 +174,20 @@ class ASR(sb.Brain):
         return loss.detach()
 
     def evaluate_batch(self, batch, stage):
+        """Computations needed for validation/test batches"""
         inputs, targets = batch
         predictions = self.compute_forward(inputs, targets, stage=stage)
         loss = self.compute_objectives(predictions, targets, stage=stage)
         return loss.detach()
 
     def on_stage_start(self, stage, epoch):
+        """Gets called at the beginning of each epoch"""
         if stage != sb.Stage.TRAIN:
             self.cer_metric = self.hparams.cer_computer()
             self.wer_metric = self.hparams.error_rate_computer()
 
     def on_stage_end(self, stage, stage_loss, epoch):
-
+        """Gets called at the end of a epoch."""
         # Compute/store important stats
         stage_stats = {"loss": stage_loss}
         if stage == sb.Stage.TRAIN:
@@ -180,6 +217,7 @@ class ASR(sb.Brain):
                 self.wer_metric.write_stats(w)
 
     def load_tokenizer(self):
+        """Loads the sentence piece tokinizer specified in the yaml file"""
         save_model_path = self.hparams.save_folder + "/tok_unigram.model"
         save_vocab_path = self.hparams.save_folder + "/tok_unigram.vocab"
 
@@ -199,6 +237,7 @@ class ASR(sb.Brain):
             )
 
     def load_lm(self):
+        """Loads the LM specified in the yaml file"""
         save_model_path = os.path.join(
             self.hparams.output_folder, "save", "lm_model.ckpt"
         )
@@ -210,6 +249,7 @@ class ASR(sb.Brain):
         self.hparams.lm_model.load_state_dict(state_dict, strict=True)
 
     def init_optimizers(self):
+        """Initializes the optmizers (needed to support DDP)"""
         self.optimizer = self.opt_class(self.hparams.model.parameters())
         self.checkpointer.add_recoverable("optimizer", self.optimizer)
 
@@ -250,7 +290,7 @@ if __name__ == "__main__":
         csv_train=hparams["csv_train"],
         csv_read="wrd",
         model_type=hparams["token_type"],
-        character_coverage=1.0,  # with large set of chars use 0.9995
+        character_coverage=1.0,
     )
 
     # Load index2label dict for decoding
@@ -262,6 +302,7 @@ if __name__ == "__main__":
     hparams["hparams"]["ind2lab"] = ind2lab
     hparams["hparams"]["tokenizer"] = tokenizer
 
+    # Brain class initialization
     asr_brain = ASR(
         hparams=hparams["hparams"],
         opt_class=hparams["opt_class"],
@@ -274,6 +315,7 @@ if __name__ == "__main__":
     if hasattr(asr_brain.hparams, "lm_ckpt_file"):
         asr_brain.load_lm()
 
+    # Training
     asr_brain.fit(asr_brain.hparams.epoch_counter, train_set, valid_set)
 
     # Test
