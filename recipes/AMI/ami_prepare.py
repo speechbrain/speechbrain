@@ -145,6 +145,8 @@ def prepare_segs_for_RTTM(
 
 
 def is_overlapped(end1, start2):
+    """Returns True if 2 segments overlap
+    """
     if start2 > end1:
         return False
     else:
@@ -152,6 +154,8 @@ def is_overlapped(end1, start2):
 
 
 def merge_rttm_intervals(rttm_segs):
+    """Merges segments if overlaped
+    """
     # For one recording
     # rec_id = rttm_segs[0][1]
     rttm_segs.sort(key=lambda x: float(x[3]))
@@ -182,6 +186,8 @@ def merge_rttm_intervals(rttm_segs):
 
 
 def get_subsegments(merged_segs, max_subseg_dur=3.0, overlap=1.5):
+    """Divides the bigger segments into smaller sub-segments
+    """
     shift = max_subseg_dur - overlap
     subsegments = []
     # These rows are in RTTM format
