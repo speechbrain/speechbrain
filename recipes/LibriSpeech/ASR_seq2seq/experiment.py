@@ -53,12 +53,6 @@ class MyBeamSearcher(S2SRNNBeamSearcher):
             self.init_lm_params = False
         return log_probs, hs
 
-    # def ctc_forward_step(self, x):
-    #    logits = self.ctc_fc(x, self.init_ctc_params)
-    #    log_probs = params.log_softmax(logits)
-
-    #    return log_probs
-
     def permute_lm_mem(self, memory, index):
         # This is to permute lm memory to synchronize with current index during beam search.
         # The order of beams will be shuffled by scores every timestep to allow batched beam search.
