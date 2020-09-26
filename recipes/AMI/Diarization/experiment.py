@@ -1,9 +1,11 @@
 #!/usr/bin/python
 """
-This recipe implements diarization baseline.
+This recipe implements diarization baseline
+using deep embedding extraction followed by spectral clustering.
+
 Condition: Oracle VAD and Oracle number of speakers.
 
-Note: There could be multiple ways to write this recipe. We chose to iterate over individual files.
+Note: There are multiple ways to write this recipe. We chose to iterate over individual files.
 This method is less GPU memory demanding and also makes code easy to understand.
 """
 
@@ -49,8 +51,9 @@ except ImportError:
     raise ImportError(err_msg)
 
 
-# Definition of the steps for xvector computation from the waveforms
 def compute_x_vectors(wavs, lens, init_params=False):
+    """Definition of the steps for xvector computation from the waveforms
+    """
     with torch.no_grad():
         wavs = wavs.to(params.device)
         feats = params.compute_features(wavs, init_params=init_params)
@@ -63,8 +66,9 @@ def compute_x_vectors(wavs, lens, init_params=False):
     return x_vect
 
 
-# Function for pre-trained model downloads
 def download_and_pretrain():
+    """Downloads pre-trained model
+    """
     save_model_path = params.model_dir + "/xvect.ckpt"
     download_file(params.xvector_f, save_model_path)
     params.xvector_model.load_state_dict(
@@ -72,15 +76,15 @@ def download_and_pretrain():
     )
 
 
-# Function to get mod and seg
 def get_utt_ids_for_test(ids, data_dict):
+    """Function to get mod and seg
+    """
     mod = [data_dict[x]["wav1"]["data"] for x in ids]
     seg = [data_dict[x]["wav2"]["data"] for x in ids]
 
     return mod, seg
 
 
-# Computes xvectors for given split
 def xvect_computation_loop(split, set_loader, stat_file):
     """Extracts embeddings for a given set_loader
     """
@@ -459,7 +463,7 @@ def diarizer(full_csv, split_type):
             "diary", diary_set_loader, diary_stat_file
         )
 
-        # Perform sc on each recording
+        # Perform spectral clustering on each recording
         out_rttm_dir = os.path.join(params.sys_rttm_dir, split)
         if not os.path.exists(out_rttm_dir):
             os.makedirs(out_rttm_dir)
