@@ -9,13 +9,14 @@
 seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 use_tensorboard: True
-experiment_name: 2-dprnnK250
+experiment_name: 4-dprnnK200kernel16augment
 tensorboard_logs: !ref runs/<experiment_name>
 output_folder: !ref results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 data_folder: ../../../samples/audio_samples/sourcesep_samples
 
+mixed_precision: False
 
 # Neural Parameters
 N_epochs: 200
@@ -38,7 +39,6 @@ tr_csv: 'wsj_tr.csv'
 cv_csv: 'wsj_cv.csv'
 tt_csv: 'wsj_tt.csv'
 sentence_sorting: 'descending'
-
 
 train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <tr_csv>
@@ -65,9 +65,11 @@ test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
-    # augmentation: !new:speechbrain.lobes.augment.tdsa.TimeDomainSpecAugment
-    # sample_rate: 8000
-    # speeds: [95, 100, 105]
+use_data_augmentation: False
+
+augmentation: !new:speechbrain.lobes.augment.tdsa.TimeDomainSpecAugment
+    sample_rate: 8000
+    speeds: [95, 100, 105]
 
 N_encoder_out: 64
 kernel_size: 16

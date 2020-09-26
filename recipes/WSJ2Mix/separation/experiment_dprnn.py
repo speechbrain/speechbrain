@@ -66,17 +66,8 @@ class CTNBrain(sb.core.Brain):
         self.scaler = GradScaler()
 
     def compute_forward(self, mixture, stage="train", init_params=False):
-        if hasattr(self.params, "env_corrupt"):
-            if stage == "train":
-                wav_lens = torch.tensor(
-                    [mixture.shape[-1]] * mixture.shape[0]
-                ).to(self.device)
-                mixture = self.params.augmentation(
-                    mixture, wav_lens, init_params
-                )
 
         mixture_w = self.params.Encoder(mixture, init_params=init_params)
-
         est_mask = self.params.MaskNet(mixture_w, init_params=init_params)
 
         out = [est_mask[i] * mixture_w for i in range(2)]
@@ -87,9 +78,9 @@ class CTNBrain(sb.core.Brain):
 
         # T changed after conv1d in encoder, fix it here
         T_origin = mixture.size(1)
-        T_conv = est_source.size(1)
-        if T_origin > T_conv:
-            est_source = F.pad(est_source, (0, 0, 0, T_origin - T_conv))
+        T_est = est_source.size(1)
+        if T_origin > T_est:
+            est_source = F.pad(est_source, (0, 0, 0, T_origin - T_est))
         else:
             est_source = est_source[:, :T_origin, :]
 
@@ -128,6 +119,18 @@ class CTNBrain(sb.core.Brain):
             targets = torch.cat(
                 [batch[1][1].unsqueeze(-1), batch[2][1].unsqueeze(-1)], dim=-1
             ).to(self.device)
+
+        if self.params.use_data_augmentation:
+            targets = targets.permute(0, 2, 1)
+            targets = targets.reshape(-1, targets.shape[-1])
+            wav_lens = torch.tensor([targets.shape[-1]] * targets.shape[0]).to(
+                self.device
+            )
+
+            targets = self.params.augmentation(targets, wav_lens)
+            targets = targets.reshape(-1, 2, targets.shape[-1])
+            targets = targets.permute(0, 2, 1)
+            inputs = targets.sum(-1)
 
         if self.params.mixed_precision:
             with autocast():
