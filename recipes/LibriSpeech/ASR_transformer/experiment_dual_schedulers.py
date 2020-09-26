@@ -65,6 +65,7 @@ valid_search = S2STransformerBeamSearch(
     beam_size=params.valid_beam_size,
     length_normalization=params.length_normalization,
     length_rewarding=params.length_rewarding,
+    ctc_weight=params.ctc_weight,
 )
 
 test_search = S2STransformerBeamSearch(
@@ -76,6 +77,7 @@ test_search = S2STransformerBeamSearch(
     beam_size=params.test_beam_size,
     length_normalization=params.length_normalization,
     length_rewarding=params.length_rewarding,
+    ctc_weight=params.ctc_weight,
 )
 
 

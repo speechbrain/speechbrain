@@ -935,7 +935,6 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
     def ctc_forward_step(self, x):
         logits = self.ctc_fc(x, self.init_ctc_params)
         log_probs = self.softmax(logits)
-
         return log_probs
 
     def permute_mem(self, memory, index):
@@ -1137,6 +1136,11 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
             self.model, self.softmax, self.fc, inp_tokens, memory, enc_states
         )
         return prob_dist[:, -1, :], memory, None
+
+    def ctc_forward_step(self, x):
+        logits = self.ctc_fc(x, self.init_ctc_params)
+        log_probs = self.softmax(logits)
+        return log_probs
 
 
 class S2STransformerGreedySearch(S2SGreedySearcher):
