@@ -31,6 +31,23 @@ sys.path.append(os.path.dirname(current_dir))
 
 from ami_prepare import prepare_ami  # noqa E402
 
+try:
+    from sklearn.neighbors import kneighbors_graph
+    from sklearn.utils import check_random_state
+    from sklearn.cluster import SpectralClustering
+    from sklearn.cluster import spectral_clustering
+except ImportError:
+    err_msg = "The optional dependency sklearn is used in this module\n"
+    err_msg += "Cannot import sklearn. \n"
+    err_msg += "Please follow the below instructions\n"
+    err_msg += "=============================\n"
+    err_msg += "Using pip:\n"
+    err_msg += "pip install sklearn\n"
+    err_msg += "================================ \n"
+    err_msg += "Using conda:\n"
+    err_msg += "conda install sklearn"
+    raise ImportError(err_msg)
+
 
 # Definition of the steps for xvector computation from the waveforms
 def compute_x_vectors(wavs, lens, init_params=False):
@@ -322,15 +339,17 @@ def write_rttm(segs_list, out_rttm_file):
 def do_sc(diary_obj_eval, out_rttm_file, rec_id, k=4):
     """Performs spectral clustering on embeddings
     """
-
-    clustering = SpectralClustering(
+    clust_obj = Spec_Clus(
         n_clusters=k,
         assign_labels="kmeans",
         random_state=1234,
         affinity="nearest_neighbors",
-    ).fit(diary_obj_eval.stat1)
+    )
 
-    labels = clustering.labels_
+    clust_obj.perform_sc(diary_obj_eval.stat1)
+
+    labels = clust_obj.labels_
+    # labels = clustering.labels_
 
     # Convert labels to speaker boundaries
     subseg_ids = diary_obj_eval.segset
@@ -440,23 +459,6 @@ def diarizer(full_csv, split_type):
             "diary", diary_set_loader, diary_stat_file
         )
 
-        """
-        if params.len_norm is True:
-            logger.info('len_norm')
-            diary_obj_dev.norm_stat1()
-        """
-        """
-        if params.do_lda is True:
-            diary_obj_eval = lda_vox.do_lda(
-                stat_server=diary_obj_eval,
-                reduced_dim=params.lda_dim,
-                transform_mat=lda_vox.transform_mat,
-            )
-        """
-
-        # Whiten using Vox's mean and Sigma
-        # diary_obj_eval.whiten_stat1(mean_vox, Sigma_vox)
-
         # Perform sc on each recording
         out_rttm_dir = os.path.join(params.sys_rttm_dir, split)
         if not os.path.exists(out_rttm_dir):
@@ -487,6 +489,38 @@ def diarizer(full_csv, split_type):
     return concate_rttm_file
 
 
+class Spec_Clus(SpectralClustering):
+    def perform_sc(self, X):
+        """Perform spectral clustering on X.
+        X : array shape (n_samples, n_features)
+        """
+        X = self._validate_data(
+            X,
+            accept_sparse=["csr", "csc", "coo"],
+            dtype=numpy.float64,
+            ensure_min_samples=2,
+        )
+
+        # Computation of affinity matrix
+        connectivity = kneighbors_graph(
+            X,
+            n_neighbors=self.n_neighbors,
+            include_self=True,
+            n_jobs=self.n_jobs,
+        )
+        self.affinity_matrix_ = 0.5 * (connectivity + connectivity.T)
+        random_state = check_random_state(self.random_state)
+
+        # Perform spectral clustering
+        self.labels_ = spectral_clustering(
+            self.affinity_matrix_,
+            n_clusters=self.n_clusters,
+            random_state=random_state,
+            assign_labels=self.assign_labels,
+        )
+        return self
+
+
 # Begin!
 if __name__ == "__main__":  # noqa: C901
 
@@ -514,21 +548,6 @@ if __name__ == "__main__":  # noqa: C901
     for dir_ in exp_dirs:
         if not os.path.exists(dir_):
             os.makedirs(dir_)
-
-    try:
-        from sklearn.cluster import SpectralClustering
-
-    except ImportError:
-        err_msg = "The optional dependency sklearn to use this module\n"
-        err_msg += "Cannot import sklearn. \n"
-        err_msg += "Please follow the instructions below\n"
-        err_msg += "=============================\n"
-        err_msg += "Using pip:\n"
-        err_msg += "pip install sklearn\n"
-        err_msg += "================================ \n"
-        err_msg += "Using conda:\n"
-        err_msg += "conda install sklearn"
-        raise ImportError(err_msg)
 
     # Prepare data for AMI
     logger.info(
