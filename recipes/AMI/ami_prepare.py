@@ -431,15 +431,6 @@ def prepare_ami(
             mic_type,
         )
 
-    # Perform subsegmentation on large segments
-    # Inp: largesegments, max_subseg_size, overlap (1sec)
-    # train_subsegs = subsegmentor (train_segs, max_subseg_size, overlap)
-    # dev_subsegs = subsegmentor (dev_segs, max_subseg_size, overlap)
-    # eval_subsegs = subsegmentor (eval_segs, max_subseg_size, overlap)
-
-    # Creating csv file using above subsegments
-    # prepare_csv(train_set, dev_set, eval_set)
-
     save_pkl(conf, save_opt)
 
 
@@ -463,7 +454,6 @@ def skip(splits, save_folder, conf):
         "eval": EVAL_CSV,
     }
     for split in splits:
-        # if not os.path.isfile(os.path.join(save_folder, split_files[split])):
         if not os.path.isfile(
             os.path.join(save_folder, "csv", split_files[split])
         ):
