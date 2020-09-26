@@ -57,25 +57,29 @@ checkpointer = sb.utils.checkpoints.Checkpointer(
 
 # Define a beam search according to this recipe
 valid_search = S2STransformerBeamSearch(
-    modules=[params.Transformer, params.seq_lin],
+    modules=[params.Transformer, params.seq_lin, params.ctc_lin],
     bos_index=params.bos_index,
     eos_index=params.eos_index,
+    # blank_index=params.blank_index,
     min_decode_ratio=0,
     max_decode_ratio=1,
     beam_size=params.valid_beam_size,
     length_normalization=params.length_normalization,
     length_rewarding=params.length_rewarding,
+    ctc_weight=0.5,
 )
 
 test_search = S2STransformerBeamSearch(
-    modules=[params.Transformer, params.seq_lin],
+    modules=[params.Transformer, params.seq_lin, params.ctc_lin],
     bos_index=params.bos_index,
     eos_index=params.eos_index,
+    # blank_index=params.blank_index,
     min_decode_ratio=0,
     max_decode_ratio=1,
     beam_size=params.test_beam_size,
     length_normalization=params.length_normalization,
     length_rewarding=params.length_rewarding,
+    ctc_weight=0.5,
 )
 
 
@@ -230,6 +234,7 @@ class ASR(sb.core.Brain):
                 wer_stats = edit_distance.wer_details_for_batch(
                     ids, target_chars, char_seq, compute_alignments=True
                 )
+
                 stats["WER"] = wer_stats
             stats["ACC"] = Accuracy(p_seq, chars_with_eos, rel_length)
         return loss, stats
