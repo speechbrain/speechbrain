@@ -13,9 +13,11 @@ from speechbrain.data_io.data_io import split_word
 
 from speechbrain.decoders.seq2seq import S2SRNNGreedySearcher
 from speechbrain.decoders.seq2seq import S2SRNNBeamSearcher
+
 from speechbrain.decoders.decoders import undo_padding
 from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.train_logger import summarize_error_rate
+
 
 # This hack needed to import data preparation script from ..
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -51,6 +53,12 @@ class MyBeamSearcher(S2SRNNBeamSearcher):
             self.init_lm_params = False
         return log_probs, hs
 
+    def ctc_forward_step(self, x):
+        logits = self.ctc_fc(x, self.init_ctc_params)
+        log_probs = params.log_softmax(logits)
+
+        return log_probs
+
     def permute_lm_mem(self, memory, index):
         # This is to permute lm memory to synchronize with current index during beam search.
         # The order of beams will be shuffled by scores every timestep to allow batched beam search.
@@ -76,7 +84,7 @@ if hasattr(params, "lm_ckpt_file"):
     lm_modules.eval()
 
     beam_searcher = MyBeamSearcher(
-        modules=[params.emb, params.dec, params.seq_lin],
+        modules=[params.emb, params.dec, params.seq_lin, params.ctc_lin],
         bos_index=params.bos_index,
         eos_index=params.eos_index,
         min_decode_ratio=0,
@@ -86,13 +94,14 @@ if hasattr(params, "lm_ckpt_file"):
         using_max_attn_shift=params.using_max_attn_shift,
         max_attn_shift=params.max_attn_shift,
         lm_weight=params.lm_weight,
+        ctc_weight=params.ctc_weight,
         lm_modules=lm_modules,
     )
 
 else:
     # Beamsearch without LM
     beam_searcher = S2SRNNBeamSearcher(
-        modules=[params.emb, params.dec, params.seq_lin],
+        modules=[params.emb, params.dec, params.seq_lin, params.ctc_lin],
         bos_index=params.bos_index,
         eos_index=params.eos_index,
         min_decode_ratio=0,
