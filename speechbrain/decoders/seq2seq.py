@@ -932,6 +932,12 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
         log_probs = self.softmax(self.fc(dec_out))
         return log_probs, (hs, c), w
 
+    def ctc_forward_step(self, x):
+        logits = self.ctc_fc(x, self.init_ctc_params)
+        log_probs = self.softmax(logits)
+
+        return log_probs
+
     def permute_mem(self, memory, index):
         hs, c = memory
 
