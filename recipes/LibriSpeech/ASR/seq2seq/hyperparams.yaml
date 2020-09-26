@@ -1,14 +1,17 @@
-# ################################
-# Model: VGG2 + LSTM + time pooling
-# Augmentation: TimeDomainSpecAugment + noise
-# Additions: BPE
-# Authors: Mirco Ravanelli, Peter Plantinga, Ju-Chieh Chou, Abdel HEBA 2020
-# ################################
+# ############################################################################
+# Model: E2E ASR with attention-based ASR
+# Encoder: CRDNN model
+# Decoder: GRU + beamsearch + RNNLM
+# Tokens: BPE with unigram
+# losses: CTC+ NLL
+# Training: Librispeech 960h
+# Authors:  Ju-Chieh Chou, Mirco Ravanelli, Abdel Heba, Peter Plantinga 2020
+# ############################################################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 16
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/CRDNN_BPE_100h_LM/<seed>
+output_folder: !ref results/CRDNN_BPE_960h_LM/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -24,7 +27,7 @@ data_folder: /localscratch/LibriSpeech
 # then data_folder_rirs should be /localscratch/xxx_corpus
 # otherwise the dataset will automatically be downloaded
 data_folder_rirs: !ref <data_folder>
-train_splits: ["train-clean-100"]
+train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
 dev_split: dev-clean
 csv_train: !ref <data_folder>/train.csv
 csv_valid: !ref <data_folder>/<dev_split>.csv
