@@ -642,7 +642,9 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 lm_log_probs, lm_memory = self.lm_forward_step(
                     inp_tokens, lm_memory
                 )
-                log_probs = log_probs + self.lm_weight * lm_log_probs
+                log_probs = (
+                    1.0 - self.lm_weight
+                ) * log_probs + self.lm_weight * lm_log_probs
 
             scores = sequence_scores.unsqueeze(1).expand(-1, vocab_size)
             scores = scores + log_probs
@@ -1120,15 +1122,17 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
         self.ctc_fc = modules[2]
         self.softmax = torch.nn.LogSoftmax(dim=-1)
 
-    def ctc_forward_step(self, x):
-        logits = self.ctc_fc(x, self.init_ctc_params)
-        log_probs = self.softmax(logits)
-        return log_probs
-
     def reset_mem(self, batch_size, device):
         return None
 
+    def reset_lm_mem(self, batch_size, device):
+        return None
+
     def permute_mem(self, memory, index):
+        memory = torch.index_select(memory, dim=0, index=index)
+        return memory
+
+    def permute_lm_mem(self, memory, index):
         memory = torch.index_select(memory, dim=0, index=index)
         return memory
 
@@ -1137,6 +1141,22 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
             self.model, self.softmax, self.fc, inp_tokens, memory, enc_states
         )
         return prob_dist[:, -1, :], memory, None
+
+    def ctc_forward_step(self, x):
+        logits = self.ctc_fc(x, self.init_ctc_params)
+        log_probs = self.softmax(logits)
+        return log_probs
+
+    def lm_forward_step(self, inp_tokens, memory):
+        memory = _update_mem(inp_tokens, memory)
+        logits = self.lm_modules(memory, self.init_lm_params)
+        log_probs = self.softmax(logits)
+        t = log_probs.shape[1]
+
+        # set it to false after initialization
+        if self.init_lm_params:
+            self.init_lm_params = False
+        return log_probs.sum(1) / t, memory
 
 
 class S2STransformerGreedySearch(S2SGreedySearcher):
