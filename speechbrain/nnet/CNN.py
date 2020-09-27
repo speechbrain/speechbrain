@@ -348,6 +348,7 @@ class Conv1d(nn.Module):
         groups=1,
         bias=True,
         padding_mode="reflect",
+        skip_transpose=False,
     ):
         super().__init__()
         self.out_channels = out_channels
@@ -359,6 +360,7 @@ class Conv1d(nn.Module):
         self.bias = bias
         self.padding_mode = padding_mode
         self.unsqueeze = False
+        self.skip_transpose = skip_transpose
 
     def init_params(self, first_input):
         """
@@ -395,7 +397,8 @@ class Conv1d(nn.Module):
         if init_params:
             self.init_params(x)
 
-        x = x.transpose(1, -1)
+        if not self.skip_transpose:
+            x = x.transpose(1, -1)
 
         if self.unsqueeze:
             x = x.unsqueeze(1)
@@ -423,7 +426,8 @@ class Conv1d(nn.Module):
         if self.unsqueeze:
             wx = wx.squeeze(1)
 
-        wx = wx.transpose(1, -1)
+        if not self.skip_transpose:
+            wx = wx.transpose(1, -1)
 
         return wx
 
@@ -458,6 +462,8 @@ class Conv1d(nn.Module):
         if len(x.shape) == 2:
             self.unsqueeze = True
             in_channels = 1
+        elif self.skip_transpose:
+            in_channels = x.shape[1]
         elif len(x.shape) == 3:
             in_channels = x.shape[2]
         else:
