@@ -512,8 +512,12 @@ class CustomLRScheduler:
 
 @checkpoints.register_checkpoint_hooks
 class ReduceLROnPlateau:
-    """Learning rate scheduler which decreases the learning rate if the loss function of interest gets stuck on a plateau, or starts to increase.
-    The difference from NewBobLRScheduler is that, this one keeps a memory of the last step where do not observe improvement, and compares against that particular loss value as opposed to the most recent loss.
+    """Learning rate scheduler which decreases the learning rate if the loss 
+    function of interest gets stuck on a plateau, or starts to increase.
+    The difference from NewBobLRScheduler is that, this one keeps a memory of 
+    the last step where do not observe improvement, and compares against that
+    particular loss value as opposed to the most recent loss.
+    
     Arguments
     ---------
     lr_min: float
@@ -522,6 +526,7 @@ class ReduceLROnPlateau:
         Factor with which to reduce the learning rate
     patience: int
         How many epochs to wait before reducing the learning rate
+    
     Example
     -------
     >>> from speechbrain.nnet.optimizers import SGD_Optimizer
