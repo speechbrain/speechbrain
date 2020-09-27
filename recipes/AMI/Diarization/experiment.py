@@ -562,6 +562,7 @@ if __name__ == "__main__":  # noqa: C901
         manual_annot_folder=params.manual_annot_folder,
         save_folder=params.save_folder,
         split_type=params.split_type,
+        skip_TNO=params.skip_TNO,
         mic_type=params.mic_type,
         vad_type=params.vad_type,
         max_subseg_dur=params.max_subseg_dur,

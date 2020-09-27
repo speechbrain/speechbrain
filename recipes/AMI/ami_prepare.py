@@ -32,6 +32,7 @@ def prepare_ami(
     manual_annot_folder,
     save_folder,
     split_type="full_corpus_asr",
+    skip_TNO=True,
     mic_type="Lapel",
     vad_type="oracle",
     max_subseg_dur=3.0,
@@ -76,6 +77,7 @@ def prepare_ami(
         "data_folder": data_folder,
         "save_folder": save_folder,
         "split_type": split_type,
+        "skip_TNO": skip_TNO,
         "mic_type": mic_type,
         "vad": vad_type,
         "max_subseg_dur": max_subseg_dur,
@@ -113,15 +115,30 @@ def prepare_ami(
         rttm_file = ref_dir + "/fullref_ami_" + i + ".rttm"
         if i == "train":
             prepare_segs_for_RTTM(
-                train_set, rttm_file, data_folder, manual_annot_folder, i
+                train_set,
+                rttm_file,
+                data_folder,
+                manual_annot_folder,
+                i,
+                skip_TNO,
             )
         if i == "dev":
             prepare_segs_for_RTTM(
-                dev_set, rttm_file, data_folder, manual_annot_folder, i
+                dev_set,
+                rttm_file,
+                data_folder,
+                manual_annot_folder,
+                i,
+                skip_TNO,
             )
         if i == "eval":
             prepare_segs_for_RTTM(
-                eval_set, rttm_file, data_folder, manual_annot_folder, i
+                eval_set,
+                rttm_file,
+                data_folder,
+                manual_annot_folder,
+                i,
+                skip_TNO,
             )
 
     # Create csv_files for splits
@@ -199,15 +216,19 @@ def get_RTTM_per_rec(segs, spkrs_list, rec_id):
 
 
 def prepare_segs_for_RTTM(
-    list_ids, out_rttm_file, audio_dir, annot_dir, split_type
+    list_ids, out_rttm_file, audio_dir, annot_dir, split_type, skip_TNO
 ):
 
     RTTM = []  # All RTTMs clubbed together for a given dataset
+
     for main_meet_id in list_ids:
 
-        # Skip all TNO (later just skip it from dev and test)
-        # SPEAKER DIARISATION USING 2D SELF-ATTENTIVE COMBINATION OF EMBEDDINGS, ICASSP 2019
-        if main_meet_id.startswith("TS") and split_type != "train":
+        # Skip TNO meetings from dev and eval sets
+        if (
+            main_meet_id.startswith("TS")
+            and split_type != "train"
+            and skip_TNO is True
+        ):
             msg = (
                 "Skipping TNO meeting in AMI "
                 + str(split_type)
@@ -225,7 +246,7 @@ def prepare_segs_for_RTTM(
             path = annot_dir + "/segments/" + rec_id
             f = path + ".*.segments.xml"
             list_spkr_xmls = glob.glob(f)
-            list_spkr_xmls.sort()  # A, B, C, D, E (Speakers)
+            list_spkr_xmls.sort()  # A, B, C, D, E etc (Speakers)
             segs = []
             spkrs_list = []  # Since non-scene recordings have 3-5 speakers
 
@@ -234,7 +255,7 @@ def prepare_segs_for_RTTM(
                 # Speaker ID
                 spkr = os.path.basename(spkr_xml_file).split(".")[1]
                 spkr_ID = rec_id + "." + spkr
-                spkrs_list.append(spkr_ID)  # used while get_RTTM_per_rec
+                spkrs_list.append(spkr_ID)
 
                 # Parse xml tree
                 tree = et.parse(spkr_xml_file)
@@ -250,13 +271,13 @@ def prepare_segs_for_RTTM(
                     for elem in root.iter("segment")
                 ]
 
-            # Sort rows as per start time (per recording)
+            # Sort rows as per the start time (per recording)
             segs.sort(key=lambda x: float(x[0]))
 
             rttm_per_rec = get_RTTM_per_rec(segs, spkrs_list, rec_id)
             RTTM = RTTM + rttm_per_rec
 
-    # Write 1 RTTM as groundtruth "fullref_eval.rttm"
+    # Write one RTTM as groundtruth "fullref_eval.rttm"
     with open(out_rttm_file, "w") as f:
         for item in RTTM:
             f.write("%s\n" % item)
