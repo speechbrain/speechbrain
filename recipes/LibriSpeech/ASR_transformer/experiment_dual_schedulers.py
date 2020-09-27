@@ -81,7 +81,7 @@ test_search = S2STransformerBeamSearch(
     length_normalization=params.length_normalization,
     length_rewarding=params.length_rewarding,
     ctc_weight=0.5,
-    lm_weight=0.6,
+    lm_weight=0.8,
     lm_modules=params.lm_model,
 )
 
