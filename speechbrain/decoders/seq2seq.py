@@ -6,7 +6,7 @@ Authors
 """
 import torch
 import numpy as np
-from speechbrain.decoders.ctc import CTCPrefixScorer
+from speechbrain.decoders.ctc import CTCPrefixScoreTH
 
 
 class S2SBaseSearcher(torch.nn.Module):
@@ -542,11 +542,11 @@ class S2SBeamSearcher(S2SBaseSearcher):
         if self.ctc_weight > 0:
             # (batch_size * beam_size, L, vocab_size)
             ctc_outputs = self.ctc_forward_step(enc_states)
-            ctc_scorer = CTCPrefixScorer(
+            ctc_scorer = CTCPrefixScoreTH(
                 ctc_outputs,
                 enc_lens,
-                batch_size,
-                self.beam_size,
+                # batch_size,
+                # self.beam_size,
                 0,
                 self.eos_index,
             )
@@ -630,10 +630,9 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
             # adding CTC scores to log_prob if ctc_weight > 0
             if self.ctc_weight > 0:
-                g = alived_seq
-                ctc_log_probs, ctc_memory = ctc_scorer.forward_step(
-                    g, ctc_memory
-                )
+                # g = alived_seq
+                g = memory
+                ctc_log_probs, ctc_memory = ctc_scorer(g, ctc_memory)
                 log_probs = (
                     1.0 - self.ctc_weight
                 ) * log_probs + self.ctc_weight * ctc_log_probs
@@ -681,7 +680,10 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 lm_memory = self.permute_lm_mem(lm_memory, index=predecessors)
 
             if self.ctc_weight > 0:
-                ctc_memory = ctc_scorer.permute_mem(ctc_memory, candidates)
+                # ctc_memory = ctc_scorer.permute_mem(ctc_memory, candidates)
+                ctc_memory = ctc_scorer.index_select_state(
+                    ctc_memory, candidates
+                )
 
             # If using_max_attn_shift, then the previous attn peak has to be permuted too.
             if self.using_max_attn_shift:
