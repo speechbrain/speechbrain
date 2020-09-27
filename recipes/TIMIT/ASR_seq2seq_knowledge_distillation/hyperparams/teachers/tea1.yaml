@@ -1,33 +1,23 @@
-# ################################
-# Model: VGG2 + LSTM + time pooling
-# Augmentation: TimeDomainSpecAugment
-# Additions: 2D pooling
-# Authors: Mirco Ravanelli, Peter Plantinga, Ju-Chieh Chou, Abdel HEBA 2020
-# ################################
-
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 123
+seed: !PLACEHOLDER  # e.g, 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/CRDNN_2d_pooling_BPE_4x/<seed>
+output_folder: !ref results/CRDNN/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: /localscratch/LibriSpeech
-csv_train: !ref <data_folder>/train-clean-100.csv
-csv_valid: !ref <data_folder>/dev-clean.csv
-csv_test: !ref <data_folder>/test-clean.csv
+data_folder: !PLACEHOLDER  # e.g. /path/to/TIMIT
+csv_train: !ref <data_folder>/train.csv
+csv_valid: !ref <data_folder>/dev.csv
+csv_test: !ref <data_folder>/test.csv
 
 # Training parameters
-number_of_epochs: 30
-number_of_ctc_epochs: 30
-batch_size: 8
-lr: 1.0
-ctc_weight: 0.5
-device: 'cuda'
-multigpu: False
-ter_eval: False
+number_of_epochs: 50
+batch_size: 16
+lr: 0.0005
+ctc_weight: 0.2
+device: 'cuda:0'
 
 # Feature parameters
 sample_rate: 16000
@@ -37,47 +27,29 @@ n_mels: 40
 # Model parameters
 activation: !name:torch.nn.LeakyReLU
 dropout: 0.15
-cnn_blocks: 3
-cnn_channels: (64, 128, 256)
-inter_layer_pooling_size: (2, 2, 2)
+cnn_blocks: 2
+cnn_channels: (128, 256)
 cnn_kernelsize: (3, 3)
-time_pooling_size: 4
-rnn_class: !name:speechbrain.nnet.RNN.LSTM
 rnn_layers: 4
-rnn_neurons: 1024
+rnn_neurons: 512
 rnn_bidirectional: True
 dnn_blocks: 2
 dnn_neurons: 512
 emb_size: 128
+# rnn_class: !name:speechbrain.nnet.RNN.LSTM
 
 # Outputs
-output_neurons: 1000 # index(blank/eos/bos) = 0
-blank_index: 0
+output_neurons: 40
+blank_index: !ref <output_neurons> - 1
+
 # Decoding parameters
-# Be sure that the bos and eos index match with the BPEs ones
-bos_index: !ref <blank_index>
-eos_index: !ref <blank_index>
+bos_index: !ref <output_neurons> - 1
+eos_index: !ref <output_neurons> - 1
 min_decode_ratio: 0.0
 max_decode_ratio: 1.0
-beam_size: 40
+beam_size: 16
+length_penalty: 0.1
 eos_threshold: 1.5
-using_max_attn_shift: False
-max_attn_shift: 60
-
-# BPE
-# Specify the bos_id/eos_id if different with blank_id
-bpe_tokenizer: !new:speechbrain.tokenizers.SentencePiece.SentencePiece
-    model_dir: !ref <save_folder>
-    vocab_size: !ref <output_neurons>
-    csv_train: !ref <csv_train>
-    csv_read: wrd
-    model_type: "unigram" # ["unigram", "bpe", "char"]
-    character_coverage: 1.0 # for language with large set of chars use 0.9995
-
-# SpecAugment
-augmentation: !new:speechbrain.lobes.augment.tdsa.TimeDomainSpecAugment
-    sample_rate: !ref <sample_rate>
-    speeds: [95, 100, 105]
 
 # Functions
 enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
@@ -86,17 +58,14 @@ enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
     cnn_blocks: !ref <cnn_blocks>
     cnn_channels: !ref <cnn_channels>
     cnn_kernelsize: !ref <cnn_kernelsize>
-    inter_layer_pooling_size: !ref <inter_layer_pooling_size>
     time_pooling: True
-    using_2d_pooling: False
-    time_pooling_size: !ref <time_pooling_size>
-    rnn_class: !ref <rnn_class>
     rnn_layers: !ref <rnn_layers>
     rnn_neurons: !ref <rnn_neurons>
     rnn_bidirectional: !ref <rnn_bidirectional>
     rnn_re_init: True
     dnn_blocks: !ref <dnn_blocks>
     dnn_neurons: !ref <dnn_neurons>
+    # rnn_class: !ref <rnn_class>
 
 emb: !new:speechbrain.nnet.embedding.Embedding
     num_embeddings: !ref <output_neurons>
@@ -105,27 +74,26 @@ emb: !new:speechbrain.nnet.embedding.Embedding
 dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
     rnn_type: gru
     attn_type: location
-    hidden_size: 1024
-    attn_dim: 1024
+    hidden_size: 256
+    attn_dim: 256
     num_layers: 1
     scaling: 1.0
     channels: 10
     kernel_size: 100
     re_init: True
-    dropout: !ref <dropout>
+    dropout: 0.5
 
 ctc_lin: !new:speechbrain.nnet.linear.Linear
-    n_neurons: !ref <output_neurons>
+    n_neurons: !ref <output_neurons>  # 39 phonemes + 1 blank
 
 seq_lin: !new:speechbrain.nnet.linear.Linear
-    n_neurons: !ref <output_neurons>
+    n_neurons: !ref <output_neurons>  # 39 phonemes + 1 eos
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
-optimizer: !new:speechbrain.nnet.optimizers.Adadelta_Optimizer
+optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
     learning_rate: !ref <lr>
-    rho: 0.95
 
 lr_annealing: !new:speechbrain.nnet.lr_schedulers.NewBobLRScheduler
     improvement_threshold: 0.0025
@@ -148,21 +116,21 @@ train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
-    csv_read: [wav, wrd]
+    csv_read: [wav, phn]
 
 valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_valid>
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
-    csv_read: [wav, wrd]
+    csv_read: [wav, phn]
 
 test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_test>
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
-    csv_read: [wav, wrd]
+    csv_read: [wav, phn]
 
 ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
     blank_index: !ref <blank_index>
@@ -173,5 +141,4 @@ seq_cost: !name:speechbrain.nnet.losses.nll_loss
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
     summary_fns:
-        CER: !name:speechbrain.utils.train_logger.summarize_error_rate
-        WER: !name:speechbrain.utils.train_logger.summarize_error_rate
+        PER: !name:speechbrain.utils.train_logger.summarize_error_rate
