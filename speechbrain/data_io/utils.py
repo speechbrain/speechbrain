@@ -1,5 +1,50 @@
 import os
 from copy import copy
+import torch
+
+
+def pad_right_to(tensor, target_shape, mode="constant", value=0.0):
+    assert len(target_shape) == tensor.ndim
+
+    pads = []
+    valid = []
+    i = len(target_shape) - 1
+    j = 0
+    while i >= 0:
+        pads.extend([0, target_shape[i] - tensor.shape[i]])
+        valid.append(tensor.shape[j] / target_shape[j])
+        i -= 1
+        j += 1
+
+    tensor = torch.nn.functional.pad(tensor, pads, mode=mode, value=value)
+
+    return tensor, valid
+
+
+def batch_pad_right(tensors: list, mode="constant", value=0.0):
+
+    assert len(tensors), "Tensors list must not be empty"
+    assert any(
+        [tensors[i].ndim == tensors[0].ndim for i in range(1, len(tensors))]
+    ), "All tensors must have same number of dimensions"
+
+    # we gather the max length for each dimension
+    max_shape = []
+    for dim in range(tensors[0].ndim):
+        max_shape.append([x.shape[dim] for x in tensors])
+
+    batched = []
+    valid = []
+    for t in tensors:
+        padded, valid_percent = pad_right_to(
+            t, max_shape, mode=mode, value=value
+        )
+        batched.append(padded)
+        valid.append(valid_percent)
+
+    batched = torch.stack(batched)
+
+    return batched, valid
 
 
 def dataset_sanity_check(dataset_splits):
