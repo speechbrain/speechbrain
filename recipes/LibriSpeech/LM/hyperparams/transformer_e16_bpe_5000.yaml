@@ -73,7 +73,7 @@ model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM # y
     d_ffn: 2048
     dropout: 0.1
     activation: !name:torch.nn.GELU
-    normalize_before: True
+    normalize_before: False
 
 log_softmax: !new:torch.nn.LogSoftmax
     dim: -1

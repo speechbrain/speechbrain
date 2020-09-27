@@ -112,9 +112,9 @@ class TransformerLM(TransformerInterface):
 
         if init_params:
             self.reset_params()
-            self.output_proj.weight = (
-                self.custom_src_module.emb.Embedding.weight
-            )
+            # self.output_proj.weight = (
+            #     self.custom_src_module.emb.Embedding.weight
+            # )
 
         return pred
 

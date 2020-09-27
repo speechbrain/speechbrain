@@ -154,5 +154,5 @@ class TransformerASR(TransformerInterface):
         prediction, self_attn, multihead_attn = self.decoder(
             tgt, encoder_out, tgt_mask=tgt_mask
         )
-        multihead_attn = torch.stack(multihead_attn, 1).view(tgt.shape[0], -1)
-        return prediction, multihead_attn
+        multihead_attn = torch.stack(multihead_attn, 1)
+        return prediction, multihead_attn[:, -1, :]
