@@ -11,6 +11,7 @@ from speechbrain.decoders.transducer import (
     transducer_beam_search_decode,
 )
 from speechbrain.data_io.data_io import prepend_bos_token
+from speechbrain.data_io.data_io import append_eos_token
 from speechbrain.data_io.data_io import split_word
 from speechbrain.decoders.decoders import undo_padding
 from speechbrain.utils.checkpoints import ckpt_recency
@@ -34,9 +35,13 @@ sb.core.create_experiment_directory(
     overrides=overrides,
 )
 
-modules = torch.nn.ModuleList(
-    [params.enc, params.emb, params.dec, params.output]
-)
+list_modules = [params.enc, params.emb, params.dec, params.output]
+if hasattr(params, "enc_lin"):
+    list_modules.append(params.enc_lin)
+if hasattr(params, "dec_lin"):
+    list_modules.append(params.dec_lin)
+
+modules = torch.nn.ModuleList(list_modules)
 
 checkpointer = sb.utils.checkpoints.Checkpointer(
     checkpoints_dir=params.save_folder,
@@ -60,32 +65,36 @@ class ASR(sb.core.Brain):
                 wavs_noise = params.env_corrupt(wavs, lens, init_params)
                 wavs = torch.cat([wavs, wavs_noise], dim=0)
                 lens = torch.cat([lens, lens])
-
-        if hasattr(params, "augmentation") and stage == "train":
-            wavs = params.augmentation(wavs, lens, init_params)
+            if hasattr(params, "augmentation"):
+                wavs = params.augmentation(wavs, lens, init_params)
 
         feats = params.compute_features(wavs, init_params)
         feats = params.normalize(feats, lens)
         # Transcription network: input-output dependency
         TN_output = params.enc(feats, init_params=init_params)
+        TN_output = params.enc_lin(TN_output, init_params)
         if stage == "train":
             # Prediction network: output-output dependency
-            # y contains a tuple of tensors (id, words, word_lens)
+            # y contains a tuple of tensors (id, words, word_lens) for BPE
+            # even if tokenization if char
             ids, words, word_lens = y
-            words = torch.cat([words, words], dim=0)
-            word_lens = torch.cat([word_lens, word_lens])
-            index2lab = params.train_loader.label_dict["wrd"]["index2lab"]
-            bpe, _ = params.bpe_tokenizer(
-                words,
-                word_lens,
-                index2lab,
-                task="encode",
-                init_params=init_params,
-            )
-            bpe = bpe.to(params.device)
+            if hasattr(params, "env_corrupt"):
+                words = torch.cat([words, words], dim=0)
+                word_lens = torch.cat([word_lens, word_lens])
+            if hasattr(params, "bpe_tokenizer"):
+                index2lab = params.train_loader.label_dict["wrd"]["index2lab"]
+                bpe, _ = params.bpe_tokenizer(
+                    words,
+                    word_lens,
+                    index2lab,
+                    task="encode",
+                    init_params=init_params,
+                )
+                bpe = bpe.to(params.device)
             decoder_input = prepend_bos_token(bpe, bos_index=params.blank_index)
             PN_output = params.emb(decoder_input, init_params=init_params)
             PN_output, _ = params.dec(PN_output, init_params=init_params)
+            PN_output = params.dec_lin(PN_output, init_params)
             # Joint the networks
             joint = params.Tjoint(
                 TN_output.unsqueeze(2),
@@ -94,11 +103,32 @@ class ASR(sb.core.Brain):
             )
             outputs = params.output(joint, init_params=init_params)
             outputs = params.log_softmax(outputs)
-            return outputs, lens
+            return_CTC = False
+            if hasattr(params, "ctc_cost") and hasattr(
+                params, "number_of_ctc_epochs"
+            ):
+                if params.epoch_counter.current <= params.number_of_ctc_epochs:
+                    CTC_output = params.log_softmax(TN_output)
+                    return_CTC = True
+            return_CE = False
+            if hasattr(params, "ce_cost") and hasattr(
+                params, "number_of_ce_epochs"
+            ):
+                if params.epoch_counter.current <= params.number_of_ce_epochs:
+                    CE_output = params.log_softmax(PN_output)
+                    return_CE = True
+            if return_CTC and return_CE:
+                return CTC_output, CE_output, outputs, lens
+            elif return_CTC:
+                return CTC_output, outputs, lens
+            elif return_CE:
+                return CE_output, outputs, lens
+            else:
+                return outputs, lens
         elif stage == "valid":
             hyps, scores = transducer_greedy_decode(
                 TN_output,
-                [params.emb, params.dec],
+                [params.emb, params.dec, params.dec_lin],
                 params.Tjoint,
                 [params.output],
                 params.blank_index,
@@ -113,7 +143,7 @@ class ASR(sb.core.Brain):
                     nbest_scores,
                 ) = transducer_beam_search_decode(
                     TN_output,
-                    [params.emb, params.dec],
+                    [params.emb, params.dec, params.dec_lin],
                     params.Tjoint,
                     [params.output],
                     params.blank_index,
@@ -130,7 +160,7 @@ class ASR(sb.core.Brain):
                     nbest_scores,
                 ) = transducer_beam_search_decode(
                     TN_output,
-                    [params.emb, params.dec],
+                    [params.emb, params.dec, params.dec_lin],
                     params.Tjoint,
                     [params.output],
                     params.blank_index,
@@ -141,7 +171,85 @@ class ASR(sb.core.Brain):
 
     def compute_objectives(self, predictions, targets, stage="train"):
         ids, words, word_lens = targets
-        if stage != "train":
+        stats = {}
+        if stage == "train":
+            index2lab = params.train_loader.label_dict["wrd"]["index2lab"]
+            bpe, bpe_lens = params.bpe_tokenizer(
+                words, word_lens, index2lab, task="encode"
+            )
+            bpe, bpe_lens = (
+                bpe.to(params.device).long(),
+                bpe_lens.to(params.device),
+            )
+            if hasattr(params, "env_corrupt"):
+                bpe = torch.cat([bpe, bpe], dim=0)
+                bpe_lens = torch.cat([bpe_lens, bpe_lens], dim=0)
+            # len(predictions) = 4
+            # means that we use RNN-T + CTC for enc + CE for dec
+            # len(predictions) = 3
+            # means that we use RNN-T and oneof(CTC for enc or CE for dec)
+            # len(predictions) = 2
+            # means that we use only RNN-T loss
+            if len(predictions) == 4:
+                (
+                    ctc_predictions,
+                    ce_predictions,
+                    RNNT_predictions,
+                    lens,
+                ) = predictions
+                CTC_loss = params.ctc_cost(ctc_predictions, bpe, lens, bpe_lens)
+                # generate output sequence for decoder + CE loss
+                abs_length = torch.round(bpe_lens * bpe.shape[1])
+                bpe_with_eos = append_eos_token(
+                    bpe, length=abs_length, eos_index=params.blank_index
+                )
+                rel_length = (abs_length + 1) / bpe_with_eos.shape[1]
+                CE_loss = params.ce_cost(
+                    ce_predictions, bpe_with_eos, length=rel_length
+                )
+                RNNT_loss = params.compute_cost(
+                    RNNT_predictions, bpe, lens, bpe_lens,
+                )
+                loss = (
+                    params.ctc_weight * CTC_loss
+                    + params.ce_weight * CE_loss
+                    + (1 - (params.ctc_weight + params.ce_weight)) * RNNT_loss
+                )
+            elif len(predictions) == 3:
+                if hasattr(params, "ctc_cost"):
+                    ctc_predictions, RNNT_predictions, lens = predictions
+                    CTC_loss = params.ctc_cost(
+                        ctc_predictions, bpe, lens, bpe_lens
+                    )
+                    RNNT_loss = params.compute_cost(
+                        RNNT_predictions, bpe, lens, bpe_lens,
+                    )
+                    loss = (
+                        params.ctc_weight * CTC_loss
+                        + (1 - params.ctc_weight) * RNNT_loss
+                    )
+                else:
+                    ce_predictions, RNNT_predictions, lens = predictions
+                    # generate output sequence for decoder + CE loss
+                    abs_length = torch.round(bpe_lens * bpe.shape[1])
+                    bpe_with_eos = append_eos_token(
+                        bpe, length=abs_length, eos_index=params.blank_index
+                    )
+                    rel_length = (abs_length + 1) / bpe_with_eos.shape[1]
+                    CE_loss = params.ce_cost(
+                        ce_predictions, bpe_with_eos, length=rel_length
+                    )
+                    RNNT_loss = params.compute_cost(
+                        RNNT_predictions, bpe, lens, bpe_lens,
+                    )
+                    loss = (
+                        params.ce_weight * CE_loss
+                        + (1 - params.ce_weight) * RNNT_loss
+                    )
+            else:
+                predictions, lens = predictions
+                loss = params.compute_cost(predictions, bpe, lens, bpe_lens,)
+        else:
             if stage == "valid":
                 index2lab = params.valid_loader.label_dict["wrd"]["index2lab"]
             else:
@@ -150,31 +258,11 @@ class ASR(sb.core.Brain):
                 words, word_lens, index2lab, task="encode"
             )
             bpe, bpe_lens = bpe.to(params.device), bpe_lens.to(params.device)
-        else:
-            predictions, lens = predictions
-            index2lab = params.train_loader.label_dict["wrd"]["index2lab"]
-            bpe, bpe_lens = params.bpe_tokenizer(
-                words, word_lens, index2lab, task="encode"
-            )
-            bpe, bpe_lens = bpe.to(params.device), bpe_lens.to(params.device)
-            if hasattr(params, "env_corrupt"):
-                bpe = torch.cat([bpe, bpe], dim=0)
-                bpe_lens = torch.cat([bpe_lens, bpe_lens], dim=0)
-            loss = params.compute_cost(
-                predictions,
-                bpe.to(params.device).long(),
-                lens.to(params.device),
-                bpe_lens.to(params.device),
-            )
-
-        stats = {}
-        if stage != "train":
             sequence_BPE, loss = predictions
             word_seq = params.bpe_tokenizer(
                 sequence_BPE, task="decode_from_list"
             )
             char_seq = split_word(word_seq)
-
             words = undo_padding(words, word_lens)
             words = convert_index_to_lab(words, index2lab)
             chars = split_word(words)
@@ -225,8 +313,22 @@ class ASR(sb.core.Brain):
         return stats
 
     def load_tokenizer(self):
-        save_model_path = params.save_folder + "/tok_unigram.model"
-        save_vocab_path = params.save_folder + "/tok_unigram.vocab"
+        save_model_path = (
+            params.save_folder
+            + "/"
+            + str(params.output_neurons)
+            + "_"
+            + params.bpe_model_type
+            + ".model"
+        )
+        save_vocab_path = (
+            params.save_folder
+            + "/"
+            + str(params.output_neurons)
+            + "_"
+            + params.bpe_model_type
+            + ".vocab"
+        )
 
         if hasattr(params, "tok_mdl_file"):
             download_file(
@@ -283,8 +385,12 @@ if params.multigpu:
     params.emb = torch.nn.DataParallel(params.emb)
     params.dec = torch.nn.DataParallel(params.dec)
     params.output = torch.nn.DataParallel(params.output)
+    params.enc_lin = torch.nn.DataParallel(params.enc_lin)
+    params.dec_lin = torch.nn.DataParallel(params.dec_lin)
+
 
 # Load latest checkpoint to resume training
+asr_brain.load_tokenizer()
 checkpointer.recover_if_possible()
 asr_brain.fit(params.epoch_counter, train_set, valid_set)
 

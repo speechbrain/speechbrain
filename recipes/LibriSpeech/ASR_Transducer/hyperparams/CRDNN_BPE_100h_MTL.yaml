@@ -1,36 +1,46 @@
 # ################################
-# Model: Transducer + VGG2 + LiGRU with time pooling for efficiency
-# Additions: Transducer seq2seq model
-#               Encoder: CRDNN LiGRU
-#               Decoder: LiGRU
-#		Joint: SUM + LeakyRelu activation
-# Authors: Mirco Ravanelli & Peter Plantinga & Abdel HEBA 2020
+# Model: VGG2 + LSTM + time pooling
+# Augmentation: TimeDomainSpecAugment + noise
+# Additions: BPE
+# Authors: Mirco Ravanelli, Peter Plantinga, Ju-Chieh Chou, Abdel HEBA 2020
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-#seed: !PLACEHOLDER # e.g, 1234
 seed: 7
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/augment_CRDNN_concat_MTL/<seed>
+output_folder: !ref results/CRDNN_BPE_MTL/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
+# Tokenizer model
+tok_mdl_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
+tok_voc_file: https://www.dropbox.com/s/7l8z622cpd3t8st/1000_unigram.vocab?dl=1
+
 # Data files
-#data_folder: !PLACEHOLDER # e.g. /path/to/TIMIT
-data_folder: /network/tmp1/abdelwah/librispeech/LibriSpeech
-csv_train: !ref <data_folder>/train-clean-100.csv
+data_folder: !PLACEHOLDER # e.g., /localscratch/LibriSpeech
+# If RIRS_NOISES dir exists in /localscratch/xxx_corpus/RIRS_NOISES
+# then data_folder_rirs should be /localscratch/xxx_corpus
+# otherwise the dataset will automatically be downloaded
+data_folder_rirs: !ref <data_folder>
+#csv_train: !ref <data_folder>/train-clean-100.csv
+csv_train: !ref <data_folder>/dev-clean.csv
 csv_valid: !ref <data_folder>/dev-clean.csv
 csv_test: !ref <data_folder>/test-clean.csv
 
 # Training parameters
-number_of_epochs: 50
-number_of_ctc_epochs: 10
+number_of_epochs: 20
 batch_size: 8
+batch_size_eval: 4
 lr: 1.0
-ctc_weight: 0.5
+ctc_weight: 0.33
+number_of_ctc_epochs: 20
+ce_weight: 0.33
+number_of_ce_epochs: 20
 device: 'cuda'
 multigpu: False
+# allow token error rate computation
+ter_eval: False
 
 # Feature parameters
 sample_rate: 16000
@@ -41,30 +51,54 @@ n_mels: 40
 activation: !name:torch.nn.LeakyReLU
 dropout: 0.15
 cnn_blocks: 2
-cnn_channels: (128, 128)
+cnn_channels: (128, 256)
+inter_layer_pooling_size: (2, 2)
 cnn_kernelsize: (3, 3)
+time_pooling_size: 4
+rnn_class: !name:speechbrain.nnet.RNN.LSTM
 rnn_layers: 4
 rnn_neurons: 1024
 rnn_bidirectional: True
 dnn_blocks: 2
-dnn_neurons: 512
+dnn_neurons: 1024
 emb_size: 128
+# Outputs & BPE params
+output_neurons: 1000 # index(blank) = 0
+bpe_model_type: unigram
+blank_index: 0
+beam: 4
+nbest: 5
 
-# Outputs
-output_neurons: 29
-#joint_dim: 300
-blank_index: !ref <output_neurons> - 1
 
+# MTL CTC for encoder
+#ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
+#    blank_index: !ref <blank_index>
+
+# MTL CE for decoder
+#ce_cost: !name:speechbrain.nnet.losses.nll_loss
+
+# BPE
+# Specify the bos_id/eos_id if different with blank_id
+bpe_tokenizer: !new:speechbrain.tokenizers.SentencePiece.SentencePiece
+    model_dir: !ref <save_folder>
+    vocab_size: !ref <output_neurons>
+    csv_train: !ref <csv_train>
+    csv_read: wrd
+    model_type: !ref <bpe_model_type> # ["unigram", "bpe", "char"]
+    character_coverage: 1.0 # for language with large set of chars use 0.9995
 
 # Functions
-encoder_crdnn: !new:speechbrain.lobes.models.CRDNN.CRDNN
+enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
     activation: !ref <activation>
     dropout: !ref <dropout>
     cnn_blocks: !ref <cnn_blocks>
     cnn_channels: !ref <cnn_channels>
     cnn_kernelsize: !ref <cnn_kernelsize>
-    time_pooling: False
-    using_2d_pooling: True
+    inter_layer_pooling_size: !ref <inter_layer_pooling_size>
+    time_pooling: True
+    using_2d_pooling: False
+    time_pooling_size: !ref <time_pooling_size>
+    rnn_class: !ref <rnn_class>
     rnn_layers: !ref <rnn_layers>
     rnn_neurons: !ref <rnn_neurons>
     rnn_bidirectional: !ref <rnn_bidirectional>
@@ -72,43 +106,38 @@ encoder_crdnn: !new:speechbrain.lobes.models.CRDNN.CRDNN
     dnn_blocks: !ref <dnn_blocks>
     dnn_neurons: !ref <dnn_neurons>
 
-ctc_lin: !new:speechbrain.nnet.linear.Linear
+enc_lin: !new:speechbrain.nnet.linear.Linear
     n_neurons: !ref <output_neurons>
-    bias: False
+    bias: True
 
-decoder_embedding: !new:speechbrain.nnet.embedding.Embedding
+emb: !new:speechbrain.nnet.embedding.Embedding
     num_embeddings: !ref <output_neurons>
     embedding_dim: !ref <emb_size>
-    #     consider_as_one_hot: True # consider blank as zero vect
-    #     blank_id: !ref <blank_index>
 
-decoder: !new:speechbrain.nnet.RNN.LiGRU
-    hidden_size: 512
+dec: !new:speechbrain.nnet.RNN.GRU
+    hidden_size: 1024
     num_layers: 1
-    dropout: 0.0
-    normalization: layernorm
     re_init: True
     bidirectional: False
     return_hidden: True
 
-# decoder_lin: !new:speechbrain.nnet.linear.Linear
-#     n_neurons: !ref <joint_dim>
-#     bias: False
+dec_lin: !new:speechbrain.nnet.linear.Linear
+    n_neurons: !ref <output_neurons>
+    bias: True
 
 Tjoint: !new:speechbrain.nnet.transducer.transducer_joint.Transducer_joint
-    joint: concat # joint [sum | concat]
+    joint: sum # joint [sum | concat]
     nonlinearity: !ref <activation>
 
 output: !new:speechbrain.nnet.linear.Linear
-    n_neurons: !ref <output_neurons>  # 42 phonemes + 1 blank
-    bias: False
+    n_neurons: !ref <output_neurons>
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
 optimizer: !new:speechbrain.nnet.optimizers.Adadelta_Optimizer
-    rho: 0.95
     learning_rate: !ref <lr>
+    rho: 0.95
 
 lr_annealing: !new:speechbrain.nnet.lr_schedulers.NewBobLRScheduler
     improvement_threshold: 0.0025
@@ -121,7 +150,19 @@ normalize: !new:speechbrain.processing.features.InputNormalization
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-augmentation1: !new:speechbrain.lobes.augment.tdsa.TimeDomainSpecAugment
+env_corrupt: !new:speechbrain.lobes.augment.env_corrupt.EnvCorrupt
+    openrir_folder: !ref <data_folder_rirs>
+    babble_prob: 0.0
+    reverb_prob: 0.0
+    noise_prob: 1.0
+    babble_speaker_count: 7
+    babble_snr_low: 10
+    babble_snr_high: 10
+    noise_snr_low: 0
+    noise_snr_high: 15
+    rir_scale_factor: 1.0
+
+augmentation: !new:speechbrain.lobes.augment.tdsa.TimeDomainSpecAugment
     sample_rate: !ref <sample_rate>
     speeds: [95, 100, 105]
 
@@ -135,44 +176,28 @@ train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
-    csv_read: [wav, char]
+    csv_read: [wav, wrd]
 
 valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_valid>
-    batch_size: !ref <batch_size>
+    batch_size: !ref <batch_size_eval>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
-    csv_read: [wav, char]
+    csv_read: [wav, wrd]
 
 test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_test>
-    batch_size: !ref <batch_size>
+    batch_size: !ref <batch_size_eval>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
-    csv_read: [wav, char]
+    csv_read: [wav, wrd]
 
 compute_cost: !name:speechbrain.nnet.losses.transducer_loss
-    blank_index: !ref <blank_index>
-
-ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
     blank_index: !ref <blank_index>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
     summary_fns:
-        loss: !name:speechbrain.utils.train_logger.summarize_average
+        TER: !name:speechbrain.utils.train_logger.summarize_error_rate
         CER: !name:speechbrain.utils.train_logger.summarize_error_rate
         WER: !name:speechbrain.utils.train_logger.summarize_error_rate
-
-checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
-    checkpoints_dir: !ref <save_folder>
-    recoverables:
-        encoder_crdnn: !ref <encoder_crdnn>
-        ctc_lin: !ref <ctc_lin>
-        decoder: !ref <decoder>
-        #decoder_lin: !ref <decoder_lin>
-        output: !ref <output>
-        optimizer: !ref <optimizer>
-        scheduler: !ref <lr_annealing>
-        normalizer: !ref <normalize>
-        counter: !ref <epoch_counter>
