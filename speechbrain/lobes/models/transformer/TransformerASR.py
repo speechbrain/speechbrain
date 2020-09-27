@@ -128,13 +128,22 @@ class TransformerASR(TransformerInterface):
 
         tgt = self.custom_tgt_module(tgt, init_params)
         tgt = tgt + self.positional_encoding(tgt, init_params)
-        decoder_out = self.decoder(
-            tgt=tgt,
-            memory=encoder_out,
-            tgt_mask=tgt_mask,
-            tgt_key_padding_mask=tgt_key_padding_mask,
-            init_params=init_params,
-        )
+        if self.training:
+            decoder_out = self.decoder(
+                tgt=tgt,
+                memory=encoder_out,
+                tgt_mask=tgt_mask,
+                tgt_key_padding_mask=tgt_key_padding_mask,
+                init_params=init_params,
+            )
+        else:
+            decoder_out, self_attn, multihead_attn = self.decoder(
+                tgt=tgt,
+                memory=encoder_out,
+                tgt_mask=tgt_mask,
+                tgt_key_padding_mask=tgt_key_padding_mask,
+                init_params=init_params,
+            )
 
         return encoder_out, decoder_out
 
@@ -142,5 +151,8 @@ class TransformerASR(TransformerInterface):
         tgt_mask = get_lookahead_mask(tgt)
         tgt = self.custom_tgt_module(tgt)
         tgt = tgt + self.positional_encoding(tgt)
-        prediction = self.decoder(tgt, encoder_out, tgt_mask=tgt_mask)
-        return prediction
+        prediction, self_attn, multihead_attn = self.decoder(
+            tgt, encoder_out, tgt_mask=tgt_mask
+        )
+        multihead_attn = torch.stack(multihead_attn, 1).view(tgt.shape[0], -1)
+        return prediction, multihead_attn

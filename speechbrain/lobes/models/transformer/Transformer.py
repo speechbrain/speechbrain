@@ -570,7 +570,7 @@ class TransformerDecoder(nn.Module):
             multihead_attns.append(multihead_attn)
         output = self.norm(output, init_params)
 
-        if self.return_attention:
+        if self.return_attention or not self.training:
             return output, self_attns, multihead_attns
         return output
 

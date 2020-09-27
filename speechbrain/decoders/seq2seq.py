@@ -642,9 +642,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 lm_log_probs, lm_memory = self.lm_forward_step(
                     inp_tokens, lm_memory
                 )
-                log_probs = (
-                    1.0 - self.lm_weight
-                ) * log_probs + self.lm_weight * lm_log_probs
+                log_probs = log_probs + self.lm_weight * lm_log_probs
 
             scores = sequence_scores.unsqueeze(1).expand(-1, vocab_size)
             scores = scores + log_probs
@@ -1054,9 +1052,9 @@ def _model_decode(model, softmax, fc, inp_tokens, memory, enc_states):
         encoder states
     """
     memory = _update_mem(inp_tokens, memory)
-    pred = model.decode(memory, enc_states)
+    pred, attn = model.decode(memory, enc_states)
     prob_dist = softmax(fc(pred))
-    return prob_dist, memory
+    return prob_dist, memory, attn
 
 
 class S2STransformerBeamSearch(S2SBeamSearcher):
@@ -1094,7 +1092,7 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
         lm_modules=None,
         ctc_weight=0.0,
         using_max_attn_shift=False,
-        max_attn_shift=60,
+        max_attn_shift=10,
         minus_inf=-1e20,
     ):
         super(S2STransformerBeamSearch, self).__init__(
@@ -1137,10 +1135,10 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
         return memory
 
     def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
-        prob_dist, memory = _model_decode(
+        prob_dist, memory, attn = _model_decode(
             self.model, self.softmax, self.fc, inp_tokens, memory, enc_states
         )
-        return prob_dist[:, -1, :], memory, None
+        return prob_dist[:, -1, :], memory, attn
 
     def ctc_forward_step(self, x):
         logits = self.ctc_fc(x, self.init_ctc_params)
