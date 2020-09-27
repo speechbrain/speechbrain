@@ -14,6 +14,7 @@ from speechbrain.data_io.data_io import merge_csvs
 from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.train_logger import summarize_average
 from speechbrain.utils.Accuracy import Accuracy
+from speechbrain.utils.data_utils import download_file
 from speechbrain.decoders.decoders import undo_padding
 from speechbrain.decoders.seq2seq import S2STransformerBeamSearch
 from speechbrain.lobes.models.transformer.Transformer import (
@@ -80,6 +81,8 @@ test_search = S2STransformerBeamSearch(
     length_normalization=params.length_normalization,
     length_rewarding=params.length_rewarding,
     ctc_weight=0.5,
+    lm_weight=0.6,
+    lm_modules=params.lm_model,
 )
 
 
@@ -334,6 +337,14 @@ class ASR(sb.core.Brain):
             if p.dim() > 1:
                 torch.nn.init.xavier_normal_(p)
 
+    def load_lm(self):
+        save_model_path = params.output_folder + "/save/lm_model.ckpt"
+        download_file(params.lm_ckpt_file, save_model_path)
+        state_dict = torch.load(save_model_path)
+        # Removing prefix
+        state_dict = {k.split(".", 1)[1]: v for k, v in state_dict.items()}
+        params.lm_model.load_state_dict(state_dict, strict=True)
+
 
 # Prepare data
 prepare_librispeech(
@@ -400,13 +411,24 @@ params.epoch_counter.limit = params.number_of_epochs
 asr_brain.fit(params.epoch_counter, train_set, valid_set)
 
 # process ckpt and do test stage
-print(params.ckpt_avg, "wheter to avg checkpoints")
 if params.ckpt_avg:
     # if ckpt_avg set to true, average the last N ckpts for evaluation
     checkpointer.recover_if_possible(lambda c: -c.meta["ACC"], get_average=True)
 else:
     # otherwise Load best checkpoint for evaluation
     checkpointer.recover_if_possible(lambda c: c.meta["ACC"])
+
+ids, words, word_lens = first_y
+words = words.to(params.device)
+words.fill_(params.bos_index)
+# Only needs one timestep of input to initialize the weight
+# Initialization has to be done before loading a heckpoint
+if hasattr(params, "lm_ckpt_file"):
+    test_search.lm_forward_step(words[:, 0], memory=None)
+    asr_brain.load_lm()
+    if params.multigpu:
+        params.lm_model = torch.nn.DataParallel(params.lm_model)
+    print("lm weight loaded!")
 
 test_stats = asr_brain.evaluate(params.test_loader())
 params.train_logger.log_stats(
