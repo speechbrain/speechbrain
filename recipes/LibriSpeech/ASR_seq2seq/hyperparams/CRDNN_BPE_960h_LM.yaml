@@ -76,8 +76,9 @@ max_decode_ratio: 1.0
 beam_size: 64
 eos_threshold: 1.5
 using_max_attn_shift: True
-max_attn_shift: 170
-lm_weight: 0.45
+max_attn_shift: 240
+lm_weight: 0.50
+coverage_penalty: 1.5
 
 # LM Model parameters
 lm_emb_size: 128
