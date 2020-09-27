@@ -1151,12 +1151,11 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
         memory = _update_mem(inp_tokens, memory)
         logits = self.lm_modules(memory, self.init_lm_params)
         log_probs = self.softmax(logits)
-        t = log_probs.shape[1]
 
         # set it to false after initialization
         if self.init_lm_params:
             self.init_lm_params = False
-        return log_probs.sum(1) / t, memory
+        return log_probs[:, -1, :], memory
 
 
 class S2STransformerGreedySearch(S2SGreedySearcher):
