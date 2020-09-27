@@ -421,7 +421,6 @@ def prepare_csv(
         SUBSEGMENTS = SUBSEGMENTS + subsegs
 
     # Write segment AND sub-segments (in RTTM format)
-    # Useful for verifing correctness of sub-segmentor module. Verify using md-eval.pl and check Missed Speech, FA Speech
     segs_file = save_dir + "/" + filename + ".segments.rttm"
     subsegment_file = save_dir + "/" + filename + ".subsegments.rttm"
 
@@ -492,7 +491,7 @@ def prepare_csv(
 
 def skip(splits, save_folder, conf):
     """
-    Detects if the timit data_preparation has been already done.
+    Detects if the AMI data_preparation has been already done.
     If the preparation has been done, we can skip it.
 
     Returns
