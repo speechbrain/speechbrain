@@ -106,13 +106,78 @@ def gevd(a, b=None):
     dsh[..., range(0, 2 * C), range(0, 2 * C)] = es
 
     # Collecting the eigenvectors
-    vsh = torch.matmul(lsh_inv_T, torch.transpose(ysh, D - 2, D - 1))
+    vsh = torch.matmul(lsh_inv_T, ysh)
 
     # Converting the block matrices to full complex matrices
     vs = ginv(vsh)
     ds = ginv(dsh)
 
     return vs, ds
+
+
+def svdl(a):
+    """ Singular Value Decomposition (Left Singular Vectors)
+
+    This function finds the eigenvalues and eigenvectors of the
+    input multiplied by its transpose (a x a.T).
+
+    The function will return (in this order):
+        1. The eigenvalues in a tensor with the format (*,C,C,2)
+        2. The eigenvectors in a tensor with the format (*,C,C,2)
+
+    Arguments:
+    ----------
+        a : tensor
+            A complex input matrix to work with. The tensor must have
+            the following format: (*,2,C+P).
+
+    Example:
+    --------
+    >>> import soundfile as sf
+    >>> import torch
+    >>>
+    >>> from speechbrain.processing.features import STFT
+    >>> from speechbrain.processing.multi_mic import Covariance
+    >>> from speechbrain.processing.decomposition import svdl
+    >>>
+    >>> xs_speech, fs = sf.read(
+    ...    'samples/audio_samples/multi_mic/speech_-0.82918_0.55279_-0.082918.flac'
+    ... )
+    >>> xs_noise, _ = sf.read('samples/audio_samples/multi_mic/noise_diffuse.flac')
+    >>> xs = xs_speech + 0.05 * xs_noise
+    >>> xs = torch.tensor(xs).unsqueeze(0).float()
+    >>>
+    >>> stft = STFT(sample_rate=fs)
+    >>> cov = Covariance()
+    >>>
+    >>> Xs = stft(xs)
+    >>> XXs = cov(Xs)
+    >>> us, ds = svdl(XXs)
+    """
+
+    # Dimensions
+    D = a.dim()
+    P = a.shape[D - 1]
+    C = int(round(((1 + 8 * P) ** 0.5 - 1) / 2))
+
+    # Computing As * As_T
+    ash = f(a)
+    ash_T = torch.transpose(ash, -2, -1)
+
+    ash_mm_ash_T = torch.matmul(ash, ash_T)
+
+    # Finding the eigenvectors and eigenvalues
+    es, ush = torch.symeig(ash_mm_ash_T, eigenvectors=True)
+
+    # Collecting the eigenvalues
+    dsh = torch.zeros(ush.shape, dtype=es.dtype, device=es.device)
+    dsh[..., range(0, 2 * C), range(0, 2 * C)] = torch.sqrt(es)
+
+    # Converting the block matrices to full complex matrices
+    us = ginv(ush)
+    ds = ginv(dsh)
+
+    return us, ds
 
 
 def f(ws):
@@ -289,3 +354,66 @@ def pos_def(ws, alpha=0.001, eps=1e-20):
     ws_pf[..., 0, ids_diag] += alpha * trace + eps
 
     return ws_pf
+
+
+def inv(x):
+    """ Inverse Hermitian Matrix
+
+    This method finds the inverse of a complex Hermitian matrix
+    represented by its upper triangular part. The result will have
+    the following format: (*, C, C, 2).
+
+    Arguments
+    ---------
+        x : tensor
+            An input matrix to work with. The tensor must have the
+            following format: (*, 2, C+P)
+
+    Example
+    -------
+    >>> import soundfile as sf
+    >>> import torch
+    >>>
+    >>> from speechbrain.processing.features import STFT
+    >>> from speechbrain.processing.multi_mic import Covariance
+    >>> from speechbrain.processing.decomposition import inv
+    >>>
+    >>> xs_speech, fs = sf.read(
+    ...    'samples/audio_samples/multi_mic/speech_-0.82918_0.55279_-0.082918.flac'
+    ... )
+    >>> xs_noise, _ = sf.read('samples/audio_samples/multi_mic/noise_0.70225_-0.70225_0.11704.flac')
+    >>> xs = xs_speech + 0.05 * xs_noise
+    >>> xs = torch.tensor(xs).unsqueeze(0).float()
+    >>>
+    >>> stft = STFT(sample_rate=fs)
+    >>> cov = Covariance()
+    >>>
+    >>> Xs = stft(xs)
+    >>> XXs = cov(Xs)
+    >>> XXs_inv = inv(XXs)
+    """
+
+    # Dimensions
+    d = x.dim()
+    p = x.shape[-1]
+    n_channels = int(round(((1 + 8 * p) ** 0.5 - 1) / 2))
+
+    # Output matrix
+    ash = f(pos_def(x))
+    ash_inv = torch.inverse(ash)
+    as_inv = finv(ash_inv)
+
+    indices = torch.triu_indices(n_channels, n_channels)
+
+    x_inv = torch.zeros(
+        x.shape[slice(0, d - 2)] + (n_channels, n_channels, 2),
+        dtype=x.dtype,
+        device=x.device,
+    )
+
+    x_inv[..., indices[1], indices[0], 0] = as_inv[..., 0, :]
+    x_inv[..., indices[1], indices[0], 1] = -1 * as_inv[..., 1, :]
+    x_inv[..., indices[0], indices[1], 0] = as_inv[..., 0, :]
+    x_inv[..., indices[0], indices[1], 1] = as_inv[..., 1, :]
+
+    return x_inv
