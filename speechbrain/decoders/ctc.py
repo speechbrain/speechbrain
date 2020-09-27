@@ -27,7 +27,7 @@ class CTCPrefixScorer:
 
         # mask frames > enc_lens
         mask = 1 - length_to_mask(enc_lens)
-        mask = mask.unsqueeze(-1).expand(-1, -1, x.size(-1)) == 1
+        mask = mask.unsqueeze(-1).expand(-1, -1, x.size(-1)).eq(1)
         x.masked_fill_(mask, -np.inf)
         x[:, :, 0] = x[:, :, 0].masked_fill_(mask[:, :, 0], 0)
 
@@ -43,18 +43,24 @@ class CTCPrefixScorer:
         self.x = torch.stack([xnb, xb])
 
         # The first index of each sentence.
-        # TODO: for candidates mode
         self.beam_offset = (torch.arange(batch_size) * self.beam_size).to(
+            self.device
+        )
+        # The first index of each candidates.
+        self.cand_offset = (torch.arange(batch_size) * self.vocab_size).to(
             self.device
         )
 
     def forward_step(self, g, state, candidates=None):
-        """h = g + c"""
+        """h = g + c
+        candidates: (batch_size * beam_size, beam_size)
+        """
         prefix_length = g.size(1)
         last_char = [gi[-1] for gi in g] if prefix_length > 0 else [0] * len(g)
-        num_candidates = (
-            self.vocab_size
-        )  # TODO support scoring for candidates, candidates.size(-1)
+        # TODO support scoring for candidates, candidates.size(-1)
+        self.num_candidates = (
+            self.vocab_size if candidates is None else candidates.size(-1)
+        )
 
         if state is None:
             # r_prev: (max_enc_len, 2, batch_size * beam_size)
@@ -71,17 +77,47 @@ class CTCPrefixScorer:
         else:
             r_prev, psi_prev = state
 
-        x_inflate = (
-            self.x.unsqueeze(3)
-            .repeat(1, 1, 1, self.beam_size, 1)
-            .view(2, -1, self.batch_size * self.beam_size, self.vocab_size)
-        )
-
+        # for partial search
+        if candidates is not None:
+            scoring_table = (
+                torch.Tensor(self.batch_size * self.beam_size, self.vocab_size)
+                .to(self.device)
+                .fill_(-1)
+                .long()
+            )
+            # assign indices of candidates to their positions in the table
+            col_index = torch.arange(
+                self.batch_size * self.beam_size, device=self.device
+            ).unsqueeze(1)
+            scoring_table[col_index, candidates] = torch.arange(
+                self.num_candidates,
+            ).to(self.device)
+            # select candidates indices for scoring
+            scoring_index = (
+                candidates
+                + self.cand_offset.repeat(1, self.beam_size).view(-1, 1)
+            ).view(-1)
+            x_inflate = torch.index_select(
+                self.x.view(2, -1, self.batch_size * self.vocab_size),
+                2,
+                scoring_index,
+            ).view(2, -1, self.batch_size * self.beam_size, self.num_candidates)
+        # for full search
+        else:
+            scoring_table is not None
+            x_inflate = (
+                self.x.unsqueeze(3)
+                .repeat(1, 1, 1, self.beam_size, 1)
+                .view(
+                    2, -1, self.batch_size * self.beam_size, self.num_candidates
+                )
+            )
+        # TODO add comments
         r = torch.Tensor(
             self.max_enc_len,
             2,
             self.batch_size * self.beam_size,
-            num_candidates,
+            self.num_candidates,
         ).to(self.device)
         r.fill_(-np.inf)
 
@@ -92,11 +128,16 @@ class CTCPrefixScorer:
 
         # 0. phi = prev_nonblank + prev_blank = r_t-1^nb(g) + r_t-1^b(g), phi only depends on prefix g.
         r_sum = torch.logsumexp(r_prev, 1)
-        phi = r_sum.unsqueeze(2).repeat(1, 1, num_candidates)
+        phi = r_sum.unsqueeze(2).repeat(1, 1, self.num_candidates)
 
         # if last token of prefix g in candidates, phi = prev_b + 0
         for i in range(self.batch_size * self.beam_size):
-            phi[:, i, last_char[i]] = r_prev[:, 1, i]
+            if candidates is not None:
+                pos = scoring_table[i, last_char[i]]
+                if pos != -1:
+                    phi[:, i, pos] = r_prev[:, 1, i]
+            else:
+                phi[:, i, last_char[i]] = r_prev[:, 1, i]
 
         # Define start, end, |g| < |h| for ctc decoding.
         start = max(1, prefix_length)
@@ -116,46 +157,70 @@ class CTCPrefixScorer:
             r[t, 1] = r[t, 1] + x_inflate[1, t]
 
         # Compute the predix prob
-        psi = r[start - 1, 0].unsqueeze(0)
+        psi_init = r[start - 1, 0].unsqueeze(0)
         # phi is prob at t-1 step, shift one frame then add it to current prob p(c)
         phix = torch.cat((phi[0].unsqueeze(0), phi[:-1]), dim=0) + x_inflate[0]
         # 3. psi = psi + phi * p(c)
-        psi = torch.logsumexp(torch.cat((phix[start:end], psi), dim=0), dim=0)
+        if candidates is not None:
+            psi = torch.Tensor(
+                self.batch_size * self.beam_size, self.vocab_size
+            ).to(self.device)
+            psi.fill_(-np.inf)
+            psi_ = torch.logsumexp(
+                torch.cat((phix[start:end], psi_init), dim=0), dim=0
+            )
+            # only assign prob to candidates
+            for i in range(self.batch_size * self.beam_size):
+                psi[i, candidates[i]] = psi_[i]
+        else:
+            psi = torch.logsumexp(
+                torch.cat((phix[start:end], psi_init), dim=0), dim=0
+            )
 
-        # if c = <eos>, log(r_T^n(g) + r_T^b(g)), where T is the max frames of enc_states
+        # if c = <eos>, psi = log(r_T^n(g) + r_T^b(g)), where T is the max frames index of enc_states
         for i in range(self.batch_size * self.beam_size):
             psi[i, self.eos_index] = r_sum[
                 self.last_frame_index[i // self.beam_size], i
             ]
 
         # exclude blank probs for joint scoring
-        # TODO: currently comment out this line since bos_index, eos_indx is the same as blank_index
         psi[:, self.blank_index] = -np.inf
 
-        return psi - psi_prev, (r, psi)
+        return psi - psi_prev, (r, psi, scoring_table)
 
-    def permute_mem(self, memory, candidates):
-        r, psi = memory
+    def permute_mem(self, memory, index):
+        r, psi, scoring_table = memory
+        # The index of top-K vocab came from in (t-1) timesteps.
         best_index = (
-            candidates
-            + (
-                self.beam_offset.unsqueeze(1).expand_as(candidates)
-                * self.vocab_size
-            )
+            index
+            + (self.beam_offset.unsqueeze(1).expand_as(index) * self.vocab_size)
         ).view(-1)
-        r = torch.index_select(
-            r.view(-1, 2, self.batch_size * self.beam_size * self.vocab_size),
-            dim=-1,
-            index=best_index,
-        )
-        r = r.view(-1, 2, self.batch_size * self.beam_size)
-
+        # synchoronize forward prob
         psi = torch.index_select(psi.view(-1), dim=0, index=best_index)
         psi = (
             psi.view(-1, 1)
             .repeat(1, self.vocab_size)
             .view(self.batch_size * self.beam_size, self.vocab_size)
         )
+
+        # synchoronize ctc states
+        if scoring_table is not None:
+            effective_index = (
+                index // self.vocab_size + self.beam_offset.view(-1, 1)
+            ).view(-1)
+            selected_vocab = (index % self.vocab_size).view(-1)
+            score_index = scoring_table[effective_index, selected_vocab]
+            score_index[score_index == -1] = 0
+            best_index = score_index + effective_index * self.num_candidates
+
+        r = torch.index_select(
+            r.view(
+                -1, 2, self.batch_size * self.beam_size * self.num_candidates
+            ),
+            dim=-1,
+            index=best_index,
+        )
+        r = r.view(-1, 2, self.batch_size * self.beam_size)
 
         return r, psi
 
