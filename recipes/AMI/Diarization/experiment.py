@@ -85,7 +85,7 @@ def get_utt_ids_for_test(ids, data_dict):
     return mod, seg
 
 
-def xvect_computation_loop(split, set_loader, stat_file):
+def embedding_computation_loop(split, set_loader, stat_file):
     """Extracts embeddings for a given set_loader
     """
 
@@ -459,7 +459,7 @@ def diarizer(full_csv, split_type):
             os.makedirs(os.path.join(params.xvect_dir, split))
 
         # Compute Xvectors
-        diary_obj_dev = xvect_computation_loop(
+        diary_obj_dev = embedding_computation_loop(
             "diary", diary_set_loader, diary_stat_file
         )
 
@@ -610,7 +610,7 @@ if __name__ == "__main__":  # noqa: C901
     logger.info(msg)
 
     msg = (
-        "Diarization Error Rate (%%): AMI-Dev = %s %% | AMI-Eval = %s %%\n"
+        "Final Diarization Error Rate (%%) on AMI corpus: Dev = %s %% | Eval = %s %%\n"
         % (str(round(DER_dev, 2)), str(round(DER_eval, 2)))
     )
     logger.info(msg)

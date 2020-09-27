@@ -17,7 +17,7 @@ device: 'cuda:0'
 xvector_f: >
     https://www.dropbox.com/sh/egbd9jsywbsjm45/AADp96m552bo5lsahR5hmmzMa/
     save/CKPT%2B2020-09-07%2B08-34-27%2B00/embedding_model.ckpt?dl=1
-model_dir: !ref <save_folder>/model_tdnn_vox1and2
+model_dir: !ref <save_folder>/emb_model
 
 # Exp directories
 xvect_dir: !ref <save_folder>/xvectors

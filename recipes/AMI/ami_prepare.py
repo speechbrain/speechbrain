@@ -7,7 +7,6 @@ Prepares csv from manual annotations "segments/" using RTTM format (Oracle VAD).
 """
 
 import os
-import sys  # noqa F401
 import logging
 import xml.etree.ElementTree as et
 import glob
@@ -186,14 +185,17 @@ def get_RTTM_per_rec(segs, spkrs_list, rec_id):
 
         if float(row[1]) < float(row[0]):
             msg1 = (
-                "Incorrect Annotation Found: transcriber_start (%s) > transcriber_start (%s)"
+                "Possibly Incorrect Annotation Found!! transcriber_start (%s) > transcriber_start (%s)"
                 % (row[0], row[1])
             )
-            msg2 = "Excluding incorrect row from RTTM : %s, %s, %s, %s" % (
-                rec_id,
-                row[0],
-                str(round(float(row[1]) - float(row[0]), 4)),
-                str(row[2]),
+            msg2 = (
+                "Excluding this incorrect row from the RTTM : %s, %s, %s, %s"
+                % (
+                    rec_id,
+                    row[0],
+                    str(round(float(row[1]) - float(row[0]), 4)),
+                    str(row[2]),
+                )
             )
             logger.info(msg1)
             logger.info(msg2)
@@ -219,7 +221,7 @@ def prepare_segs_for_RTTM(
     list_ids, out_rttm_file, audio_dir, annot_dir, split_type, skip_TNO
 ):
 
-    RTTM = []  # All RTTMs clubbed together for a given dataset
+    RTTM = []  # Stores all RTTMs clubbed together for a given dataset split
 
     for main_meet_id in list_ids:
 
@@ -248,7 +250,9 @@ def prepare_segs_for_RTTM(
             list_spkr_xmls = glob.glob(f)
             list_spkr_xmls.sort()  # A, B, C, D, E etc (Speakers)
             segs = []
-            spkrs_list = []  # Since non-scene recordings have 3-5 speakers
+            spkrs_list = (
+                []
+            )  # Since non-scenario recordings contains 3-5 speakers
 
             for spkr_xml_file in list_spkr_xmls:
 
@@ -277,15 +281,23 @@ def prepare_segs_for_RTTM(
             rttm_per_rec = get_RTTM_per_rec(segs, spkrs_list, rec_id)
             RTTM = RTTM + rttm_per_rec
 
-    # Write one RTTM as groundtruth "fullref_eval.rttm"
+    # Write one RTTM as groundtruth. For example, "fullref_eval.rttm"
     with open(out_rttm_file, "w") as f:
         for item in RTTM:
             f.write("%s\n" % item)
 
 
 def is_overlapped(end1, start2):
-    """Returns True if 2 segments overlap
+    """Returns True if the two segments overlap
+
+    Arguments
+    ---------
+    end1 : float
+        End time of the first segment.
+    start2 : float
+        Start time of the second segment.
     """
+
     if start2 > end1:
         return False
     else:
@@ -293,7 +305,7 @@ def is_overlapped(end1, start2):
 
 
 def merge_rttm_intervals(rttm_segs):
-    """Merges segments if overlaped
+    """Merges adjacent segments in rttm if they overlap.
     """
     # For one recording
     # rec_id = rttm_segs[0][1]
@@ -309,7 +321,7 @@ def merge_rttm_intervals(rttm_segs):
         e = float(row[3]) + float(row[4])
 
         if is_overlapped(end, s):
-            # Update end. strt will be same as in last segment
+            # Update only end. The strt will be same as in last segment
             # Just update last row in the merged_segs
             end = max(end, e)
             merged_segs[-1][3] = str(round(strt, 4))
@@ -325,20 +337,23 @@ def merge_rttm_intervals(rttm_segs):
 
 
 def get_subsegments(merged_segs, max_subseg_dur=3.0, overlap=1.5):
-    """Divides the bigger segments into smaller sub-segments
+    """Divides bigger segments into smaller sub-segments
     """
+
     shift = max_subseg_dur - overlap
     subsegments = []
+
     # These rows are in RTTM format
     for row in merged_segs:
         seg_dur = float(row[4])
         rec_id = row[1]
+
         if seg_dur > max_subseg_dur:
             num_subsegs = int(seg_dur / shift)
-            # Usually, frame shift is 10ms
-            # So assuming 0.01 sec as discrete step
+            # Taking 0.01 sec as small step
             seg_start = float(row[3])
             seg_end = seg_start + seg_dur
+
             # Now divide this segment (new_row) in smaller subsegments
             for i in range(num_subsegs):
                 subseg_start = seg_start + i * shift
@@ -373,7 +388,7 @@ def prepare_csv(
     rttm_file, save_dir, data_dir, filename, max_subseg_dur, overlap, mic_type
 ):
     # Read RTTM, get unique meeting_IDs (from RTTM headers)
-    # For each MeetingID.. select only that meetID -> merge -> subsegment -> csv -> append
+    # For each MeetingID. select that meetID -> merge -> subsegment -> csv -> append
 
     # Read RTTM
     RTTM = []
@@ -446,11 +461,8 @@ def prepare_csv(
 
         start_sample = int(float(strt) * SAMPLERATE)
         end_sample = int(float(end) * SAMPLERATE)
-        # print ("HEY, " , start_sample, end_sample)
 
         start_stop = "start:" + str(start_sample) + " stop:" + str(end_sample)
-
-        # start_stop = "start:" + strt + " stop:" + end
 
         # Composition of the csv_line
         csv_line = [
@@ -507,7 +519,7 @@ def skip(splits, save_folder, conf):
     save_opt = os.path.join(save_folder, OPT_FILE)
     if skip is True:
         if os.path.isfile(save_opt):
-            opts_old = load_pkl(save_opt)  # noqa F821
+            opts_old = load_pkl(save_opt)
             if opts_old == conf:
                 skip = True
             else:

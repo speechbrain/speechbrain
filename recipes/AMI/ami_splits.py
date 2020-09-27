@@ -8,7 +8,18 @@ ALLOWED_OPTIONS = ["scenario_only", "full_corpus", "full_corpus_asr"]
 
 
 def get_AMI_split(split_option):
-    """Returns train, dev, and test sets for given split_option
+    """
+    Prepares train, dev, and test sets for given split_option
+
+    Arguments
+    ---------
+    split_option: str
+        The standard split option.
+        Allowed options: "scenario_only", "full_corpus", "full_corpus_asr"
+
+    Returns
+    -------
+        Meeting IDs for train, dev, and test sets for given split_option
     """
 
     if split_option not in ALLOWED_OPTIONS:
