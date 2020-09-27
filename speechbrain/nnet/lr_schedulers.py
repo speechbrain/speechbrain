@@ -509,6 +509,7 @@ class CustomLRScheduler:
         data = torch.load(path)
         self.losses = data["losses"]
 
+
 @checkpoints.register_checkpoint_hooks
 class ReduceLROnPlateau:
     """Learning rate scheduler which decreases the learning rate if the loss
@@ -617,6 +618,7 @@ class ReduceLROnPlateau:
         del end_of_epoch  # Unused in this class
         data = torch.load(path)
         self.losses = data["losses"]
+
 
 @checkpoints.register_checkpoint_hooks
 class CyclicLRScheduler:
