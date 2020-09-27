@@ -121,7 +121,7 @@ class NewBobLRScheduler:
             The learning rate to use for the next epoch
         """
         next_lr = current_lr
-        current_improvement = (last_loss - current_loss) / last_loss
+        current_improvement = (last_loss - current_loss) / abs(last_loss)
         if current_improvement < self.improvement_threshold:
             if self.current_patient == 0:
                 next_lr = current_lr * self.annealing_factor
@@ -512,7 +512,8 @@ class CustomLRScheduler:
 
 @checkpoints.register_checkpoint_hooks
 class ReduceLROnPlateau:
-    """Learning rate scheduler which decreases the learning rate if the loss function of interest gets stuck on a plateau, or starts to increase. .
+    """Learning rate scheduler which decreases the learning rate if the loss function of interest gets stuck on a plateau, or starts to increase.
+    The difference from NewBobLRScheduler is that, this one keeps a memory of the last step where do not observe improvement, and compares against that particular loss value as opposed to the most recent loss.
     Arguments
     ---------
     lr_min: float
