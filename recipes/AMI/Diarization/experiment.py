@@ -607,3 +607,9 @@ if __name__ == "__main__":  # noqa: C901
         str(round(DER_eval, 2))
     )
     logger.info(msg)
+
+    msg = (
+        "Diarization Error Rate (%%): AMI-Dev = %s %% | AMI-Eval = %s %%\n"
+        % (str(round(DER_dev, 2)), str(round(DER_eval, 2)))
+    )
+    logger.info(msg)
