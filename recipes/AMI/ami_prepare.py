@@ -27,6 +27,124 @@ EVAL_CSV = "ami_eval.subsegments.csv"
 SAMPLERATE = 16000
 
 
+def prepare_ami(
+    data_folder,
+    manual_annot_folder,
+    save_folder,
+    split_type="full_corpus_asr",
+    mic_type="Lapel",
+    vad_type="oracle",
+    max_subseg_dur=3.0,
+    overlap=1.5,
+):
+    """
+    Prepares reference RTTM and CSV files for the AMI dataset.
+
+    Arguments
+    ---------
+    data_folder : str
+        Path to the folder where the original VoxCeleb dataset is stored.
+    manual_annot_folder : str
+        Directory where the manual annotations are stored.
+    save_folder : str
+        The save directory in results.
+    split_type : str
+        Standard dataset split. See ami_splits.py for more information.
+        Allowed split_type: "scenario_only", "full_corpus" or "full_corpus_asr"
+    mic_type : str
+        Type of microphone to be used.
+    vad_type : str
+        Type of VAD. Kept for future when system VAD will be added.
+    max_subseg_dur : float
+        Duration in seconds of a subsegments to be prepared from larger segments.
+    overlap : float
+        Overlap duration in seconds between adjacent subsegments
+
+    Example
+    -------
+    >>> from recipes.AMI.ami_prepare import prepare_ami
+    >>> data_folder = 'data/amicorpus/'
+    >>> manual_annot_folder = 'annot/manual_annotations/'
+    >>> save_folder = 'results/save/'
+    >>> split_type = 'full_corpus_asr'
+    >>> mic_type = 'Lapel'
+    >>> prepare_ami(data_folder, manual_annot_folder, save_folder, split_type, mic_type)
+    """
+
+    # Create configuration for easily skipping data_preparation stage
+    conf = {
+        "data_folder": data_folder,
+        "save_folder": save_folder,
+        "split_type": split_type,
+        "mic_type": mic_type,
+        "vad": vad_type,
+        "max_subseg_dur": max_subseg_dur,
+        "overlap": overlap,
+    }
+
+    if not os.path.exists(save_folder):
+        os.makedirs(save_folder)
+
+    # Setting ouput opt files
+    save_opt = os.path.join(save_folder, OPT_FILE)
+
+    # Check if this phase is already done (if so, skip it)
+    splits = ["train", "dev", "eval"]
+    if skip(splits, save_folder, conf):
+        logger.info(
+            "Skipping data preparation, as it was completed in previous run."
+        )
+        return
+
+    msg = "\tCreating csv file for the VoxCeleb1 Dataset.."
+    logger.debug(msg)
+
+    # Get the split
+    train_set, dev_set, eval_set = get_AMI_split(split_type)
+
+    # Prepare RTTM from XML(manual annot) and store are groundtruth
+    # Create ref_RTTM directory
+    ref_dir = save_folder + "/ref_rttms/"
+    if not os.path.exists(ref_dir):
+        os.makedirs(ref_dir)
+
+    # Create reference RTTM files
+    for i in splits:
+        rttm_file = ref_dir + "/fullref_ami_" + i + ".rttm"
+        if i == "train":
+            prepare_segs_for_RTTM(
+                train_set, rttm_file, data_folder, manual_annot_folder, i
+            )
+        if i == "dev":
+            prepare_segs_for_RTTM(
+                dev_set, rttm_file, data_folder, manual_annot_folder, i
+            )
+        if i == "eval":
+            prepare_segs_for_RTTM(
+                eval_set, rttm_file, data_folder, manual_annot_folder, i
+            )
+
+    # Create csv_files for splits
+    csv_folder = os.path.join(save_folder, "csv")
+    if not os.path.exists(csv_folder):
+        os.makedirs(csv_folder)
+
+    for i in splits:
+        rttm_file = ref_dir + "/fullref_ami_" + i + ".rttm"
+        csv_filename_prefix = "ami_" + i
+        prepare_csv(
+            rttm_file,
+            csv_folder,
+            data_folder,
+            csv_filename_prefix,
+            max_subseg_dur,
+            overlap,
+            mic_type,
+        )
+
+    save_pkl(conf, save_opt)
+
+
 def get_RTTM_per_rec(segs, spkrs_list, rec_id):
     """Prepares rttm for each recording
     """
@@ -337,101 +455,6 @@ def prepare_csv(
 
     msg = "%s csv prepared" % (csv_file)
     logger.debug(msg)
-
-
-def prepare_ami(
-    data_folder,
-    manual_annot_folder,
-    save_folder,
-    split_type="full_corpus_asr",
-    mic_type="Lapel",
-    vad_type="oracle",
-    max_subseg_dur=3.0,
-    overlap=1.5,
-):
-    """
-    Prepares the csv files for the AMI dataset.
-
-    Arguments
-    ---------
-    data_folder : str
-        Path to the folder where the original VoxCeleb dataset is stored.
-    save_folder : str
-        The directory where to store the csv files.
-    """
-
-    # Create configuration for easily skipping data_preparation stage
-    conf = {
-        "data_folder": data_folder,
-        "save_folder": save_folder,
-        "split_type": split_type,
-        "mic_type": mic_type,
-        "vad": vad_type,
-        "max_subseg_dur": max_subseg_dur,
-        "overlap": overlap,
-    }
-
-    if not os.path.exists(save_folder):
-        os.makedirs(save_folder)
-
-    # Setting ouput opt files
-    save_opt = os.path.join(save_folder, OPT_FILE)
-
-    # Check if this phase is already done (if so, skip it)
-    splits = ["train", "dev", "eval"]
-    if skip(splits, save_folder, conf):
-        logger.info(
-            "Skipping data preparation, as it was completed in previous run."
-        )
-        return
-
-    msg = "\tCreating csv file for the VoxCeleb1 Dataset.."
-    logger.debug(msg)
-
-    # Get the split
-    train_set, dev_set, eval_set = get_AMI_split(split_type)
-
-    # Prepare RTTM from XML(manual annot) and store are groundtruth
-    # Create ref_RTTM directory
-    ref_dir = save_folder + "/ref_rttms/"
-    if not os.path.exists(ref_dir):
-        os.makedirs(ref_dir)
-
-    # Create reference RTTM files
-    for i in splits:
-        rttm_file = ref_dir + "/fullref_ami_" + i + ".rttm"
-        if i == "train":
-            prepare_segs_for_RTTM(
-                train_set, rttm_file, data_folder, manual_annot_folder, i
-            )
-        if i == "dev":
-            prepare_segs_for_RTTM(
-                dev_set, rttm_file, data_folder, manual_annot_folder, i
-            )
-        if i == "eval":
-            prepare_segs_for_RTTM(
-                eval_set, rttm_file, data_folder, manual_annot_folder, i
-            )
-
-    # Create csv_files for splits
-    csv_folder = os.path.join(save_folder, "csv")
-    if not os.path.exists(csv_folder):
-        os.makedirs(csv_folder)
-
-    for i in splits:
-        rttm_file = ref_dir + "/fullref_ami_" + i + ".rttm"
-        csv_filename_prefix = "ami_" + i
-        prepare_csv(
-            rttm_file,
-            csv_folder,
-            data_folder,
-            csv_filename_prefix,
-            max_subseg_dur,
-            overlap,
-            mic_type,
-        )
-
-    save_pkl(conf, save_opt)
 
 
 def skip(splits, save_folder, conf):

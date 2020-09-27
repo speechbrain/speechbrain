@@ -1,5 +1,7 @@
 """
-This script returns the train, dev and test split for AMI corpus
+AMI corpus containd 100 hours of meeting recording.
+This script returns the standard train, dev and eval split for AMI corpus.
+For more information on dataset please refer to http://groups.inf.ed.ac.uk/ami/corpus/datasets.shtml
 """
 
 ALLOWED_OPTIONS = ["scenario_only", "full_corpus", "full_corpus_asr"]
