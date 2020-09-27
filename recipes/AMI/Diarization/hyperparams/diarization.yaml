@@ -6,20 +6,20 @@
 seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
-# Folders and train_log file
+# Folders
 data_folder: /network/datasets/ami/amicorpus
 manual_annot_folder: /network/tmp1/dawalatn/AMI_MANUAL
 output_folder: results
 save_folder: !ref <output_folder>/save
 device: 'cuda:0'
 
-# Vox1+Vox2
+# Embedding model
 xvector_f: >
     https://www.dropbox.com/sh/egbd9jsywbsjm45/AADp96m552bo5lsahR5hmmzMa/
     save/CKPT%2B2020-09-07%2B08-34-27%2B00/embedding_model.ckpt?dl=1
 model_dir: !ref <save_folder>/emb_model
 
-# Exp directories
+# Some more exp folders (for cleaner structure)
 xvect_dir: !ref <save_folder>/xvectors
 csv_dir: !ref <save_folder>/csv
 ref_rttm_dir: !ref <save_folder>/ref_rttms

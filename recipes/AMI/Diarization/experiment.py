@@ -35,7 +35,6 @@ from ami_prepare import prepare_ami  # noqa E402
 
 try:
     from sklearn.neighbors import kneighbors_graph
-    from sklearn.utils import check_random_state
     from sklearn.cluster import SpectralClustering
     from sklearn.cluster import spectral_clustering
 except ImportError:
@@ -51,19 +50,19 @@ except ImportError:
     raise ImportError(err_msg)
 
 
-def compute_x_vectors(wavs, lens, init_params=False):
-    """Definition of the steps for xvector computation from the waveforms
+def compute_embeddings(wavs, lens, init_params=False):
+    """Definition of the steps for computation of embeddings from the waveforms
     """
     with torch.no_grad():
         wavs = wavs.to(params.device)
         feats = params.compute_features(wavs, init_params=init_params)
         feats = params.mean_var_norm(feats, lens)
-        x_vect = params.xvector_model(feats, lens=lens, init_params=init_params)
-        x_vect = params.mean_var_norm_xvect(
-            x_vect, torch.ones(x_vect.shape[0]).to("cuda:0")
+        emb = params.xvector_model(feats, lens=lens, init_params=init_params)
+        emb = params.mean_var_norm_xvect(
+            emb, torch.ones(emb.shape[0]).to("cuda:0")
         )
 
-    return x_vect
+    return emb
 
 
 def download_and_pretrain():
@@ -86,7 +85,7 @@ def get_utt_ids_for_test(ids, data_dict):
 
 
 def embedding_computation_loop(split, set_loader, stat_file):
-    """Extracts embeddings for a given set_loader
+    """Extracts embeddings for a given dataset loader
     """
 
     # Extract xvectors (skip if already done)
@@ -108,7 +107,7 @@ def embedding_computation_loop(split, set_loader, stat_file):
 
                 # Initialize the model and perform pre-training
                 if init_params:
-                    xvects = compute_x_vectors(wavs, lens, init_params=True)
+                    xvects = compute_embeddings(wavs, lens, init_params=True)
                     params.mean_var_norm_xvect.glob_mean = torch.zeros_like(
                         xvects[0, 0, :]
                     )
@@ -126,7 +125,7 @@ def embedding_computation_loop(split, set_loader, stat_file):
                     params.xvector_model.eval()
 
                 # xvector computation
-                xvects = compute_x_vectors(wavs, lens)
+                xvects = compute_embeddings(wavs, lens)
                 xv = xvects.squeeze().cpu().numpy()
                 xvectors = numpy.concatenate((xvectors, xv), axis=0)
 
@@ -169,7 +168,6 @@ def prepare_subset_csv(full_diary_csv, rec_id, out_csv_file):
 
     out_csv = out_csv_head + entry
 
-    # out_csv_file = out_dir + "/" + rec_id + ".csv"
     with open(out_csv_file, mode="w") as csv_file:
         csv_writer = csv.writer(
             csv_file, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
@@ -232,14 +230,17 @@ def is_overlapped(end1, start2):
 
 def merge_ssegs_same_speaker(lol):
     """Merge adjacent sub-segs from a same speaker.
-    Input list of lists: structure [rec_id, sseg_start, sseg_end, spkr_id]
+
+    Arguments
+    ---------
+    lol : list of list
+        Each list -  [rec_id, sseg_start, sseg_end, spkr_id]
     """
     new_lol = []
 
     # Start from the first sub-seg
     sseg = lol[0]
 
-    # Loop over all sub-segments from 1 (not 0)
     for i in range(1, len(lol)):
         next_sseg = lol[i]
 
@@ -346,14 +347,13 @@ def do_sc(diary_obj_eval, out_rttm_file, rec_id, k=4):
     clust_obj = Spec_Clus(
         n_clusters=k,
         assign_labels="kmeans",
-        random_state=1234,
+        random_state=params.seed,
         affinity="nearest_neighbors",
     )
 
     clust_obj.perform_sc(diary_obj_eval.stat1)
 
     labels = clust_obj.labels_
-    # labels = clustering.labels_
 
     # Convert labels to speaker boundaries
     subseg_ids = diary_obj_eval.segset
@@ -495,31 +495,22 @@ def diarizer(full_csv, split_type):
 
 class Spec_Clus(SpectralClustering):
     def perform_sc(self, X):
-        """Perform spectral clustering on X.
-        X : array shape (n_samples, n_features)
+        """Performs spectral clustering using sklearn on embeddings (X).
+
+        Arguments
+        ---------
+        X : array (n_samples, n_features)
+            Embeddings to be clustered
         """
-        X = self._validate_data(
-            X,
-            accept_sparse=["csr", "csc", "coo"],
-            dtype=numpy.float64,
-            ensure_min_samples=2,
-        )
 
         # Computation of affinity matrix
-        connectivity = kneighbors_graph(
-            X,
-            n_neighbors=self.n_neighbors,
-            include_self=True,
-            n_jobs=self.n_jobs,
-        )
+        connectivity = kneighbors_graph(X, n_neighbors=10, include_self=True,)
         self.affinity_matrix_ = 0.5 * (connectivity + connectivity.T)
-        random_state = check_random_state(self.random_state)
 
-        # Perform spectral clustering
+        # Perform spectral clustering on affinity matrix
         self.labels_ = spectral_clustering(
             self.affinity_matrix_,
             n_clusters=self.n_clusters,
-            random_state=random_state,
             assign_labels=self.assign_labels,
         )
         return self
