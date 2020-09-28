@@ -139,7 +139,8 @@ class CTCPrefixScorer:
                 if pos != -1:
                     phi[:, i, pos] = r_prev[:, 1, i]
         else:
-            phi[:, i, last_char[i]] = r_prev[:, 1, i]
+            for i in range(self.batch_size * self.beam_size):
+                phi[:, i, last_char[i]] = r_prev[:, 1, i]
 
         # Define start, end, |g| < |h| for ctc decoding.
         start = max(1, prefix_length)
