@@ -247,6 +247,7 @@ class ASR(sb.Brain):
         state_dict = torch.load(save_model_path)
         state_dict = {k.split(".", 1)[1]: v for k, v in state_dict.items()}
         self.hparams.lm_model.load_state_dict(state_dict, strict=True)
+        self.hparams.lm_model.eval()
 
     def init_optimizers(self):
         """Initializes the optmizers (needed to support DDP)"""
