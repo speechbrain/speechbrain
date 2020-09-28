@@ -300,6 +300,7 @@ def main():
         train_set=train_loader,
         valid_set=val_loader,
         progressbar=params.progressbar,
+        early_stopping_with_patience=params.early_stopping_with_patience,
     )
 
     test_stats = ctn.evaluate(test_loader)
