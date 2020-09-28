@@ -95,7 +95,9 @@ class CTCPrefixScorer:
             # select candidates indices for scoring
             scoring_index = (
                 candidates
-                + self.cand_offset.repeat(1, self.beam_size).view(-1, 1)
+                + self.cand_offset.unsqueeze(1)
+                .repeat(1, self.beam_size)
+                .view(-1, 1)
             ).view(-1)
             x_inflate = torch.index_select(
                 self.x.view(2, -1, self.batch_size * self.vocab_size),
@@ -104,7 +106,7 @@ class CTCPrefixScorer:
             ).view(2, -1, self.batch_size * self.beam_size, self.num_candidates)
         # for full search
         else:
-            scoring_table is not None
+            scoring_table = None
             x_inflate = (
                 self.x.unsqueeze(3)
                 .repeat(1, 1, 1, self.beam_size, 1)
@@ -131,13 +133,13 @@ class CTCPrefixScorer:
         phi = r_sum.unsqueeze(2).repeat(1, 1, self.num_candidates)
 
         # if last token of prefix g in candidates, phi = prev_b + 0
-        for i in range(self.batch_size * self.beam_size):
-            if candidates is not None:
+        if candidates is not None:
+            for i in range(self.batch_size * self.beam_size):
                 pos = scoring_table[i, last_char[i]]
                 if pos != -1:
                     phi[:, i, pos] = r_prev[:, 1, i]
-            else:
-                phi[:, i, last_char[i]] = r_prev[:, 1, i]
+        else:
+            phi[:, i, last_char[i]] = r_prev[:, 1, i]
 
         # Define start, end, |g| < |h| for ctc decoding.
         start = max(1, prefix_length)
