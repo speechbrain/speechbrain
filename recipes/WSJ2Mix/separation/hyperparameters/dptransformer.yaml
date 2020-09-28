@@ -9,18 +9,19 @@
 seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 use_tensorboard: True
-experiment_name: 2-dprnnK250
+experiment_name: 7-dptransflr015
 tensorboard_logs: !ref runs/<experiment_name>
 output_folder: !ref results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 data_folder: ../../../samples/audio_samples/sourcesep_samples
 
+mixed_precision: False
 
 # Neural Parameters
 N_epochs: 200
-N_batch: 2
-lr: 0.0002
+N_batch: 1
+lr: 0.00015
 train_onthefly: False
 loss_fn: 'sisnr'
 progressbar: True
@@ -63,14 +64,15 @@ test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
+use_data_augmentation: True
 
-    #augmentation: !new:speechbrain.lobes.augment.tdsa.TimeDomainSpecAugment
-    #    sample_rate: 8000
-    #    speeds: [95, 100, 105]
+augmentation: !new:speechbrain.lobes.augment.tdsa.TimeDomainSpecAugment
+    sample_rate: 8000
+    speeds: [95, 100, 105]
 
 N_encoder_out: 256
-kernel_size: 20
-kernel_stride: 10
+kernel_size: 16
+kernel_stride: 8
 
 # Dual_Path_RNN:
 #  in_channels: 256
@@ -99,7 +101,7 @@ MaskNet: !new:speechbrain.lobes.models.dual_pathrnn.Dual_Path_Transformer
     d_ffn: 2048
     nhead: 8
     num_layers: 1
-    K: 250
+    K: 200
 
 
 Decoder: !new:speechbrain.lobes.models.dual_pathrnn.Decoder
