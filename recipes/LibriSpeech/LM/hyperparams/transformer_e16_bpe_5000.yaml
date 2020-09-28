@@ -22,9 +22,9 @@ tok_voc_file: https://www.dropbox.com/s/oqvr68b3mfjyqnt/5000_unigram.vocab?dl=1
 
 # Training parameters
 number_of_epochs: 20
-batch_size: 128
-lr: 1
-accu_steps: 4 # Gradient accumulation to simulate large batch training
+batch_size: 64
+lr: 10
+accu_steps: 8 # Gradient accumulation to simulate large batch training
 device: 'cuda'
 multigpu: True
 stepwise_annealing: True

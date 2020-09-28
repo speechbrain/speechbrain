@@ -1144,7 +1144,7 @@ class HDF5DataLoaderFactory(torch.nn.Module):
             )
             self.dataloader = DataLoader(
                 dataset,
-                pin_memory=False,
+                pin_memory=True,
                 num_workers=self.num_workers,
                 collate_fn=self.batch_creation,
                 batch_sampler=batch_sampler,
@@ -1154,7 +1154,7 @@ class HDF5DataLoaderFactory(torch.nn.Module):
                 dataset,
                 batch_size=self.batch_size,
                 shuffle=self.shuffle,
-                pin_memory=False,
+                pin_memory=True,
                 drop_last=self.drop_last,
                 num_workers=self.num_workers,
                 collate_fn=self.batch_creation,
