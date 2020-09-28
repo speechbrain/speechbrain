@@ -19,6 +19,7 @@ lm_ckpt_file: https://www.dropbox.com/s/6uy5m6jaf0t769i/model.ckpt?dl=1
 # Tokenizer model
 tok_mdl_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
 tok_voc_file: https://www.dropbox.com/s/7l8z622cpd3t8st/1000_unigram.vocab?dl=1
+replace_existing_bpe: False
 
 # Data files
 data_folder: !PLACEHOLDER # e.g., /localscratch/LibriSpeech
@@ -26,7 +27,11 @@ data_folder: !PLACEHOLDER # e.g., /localscratch/LibriSpeech
 # then data_folder_rirs should be /localscratch/xxx_corpus
 # otherwise the dataset will automatically be downloaded
 data_folder_rirs: !ref <data_folder>
-csv_train: !ref <data_folder>/train-clean-100.csv
+train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
+dev_split: dev-clean
+test_split: test-clean
+
+csv_train: !ref <data_folder>/train-960.csv
 csv_valid: !ref <data_folder>/dev-clean.csv
 csv_test: !ref <data_folder>/test-clean.csv
 
@@ -120,6 +125,10 @@ enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
     dnn_blocks: !ref <dnn_blocks>
     dnn_neurons: !ref <dnn_neurons>
 
+enc_lin: !new:speechbrain.nnet.linear.Linear
+    n_neurons: !ref <output_neurons>
+    bias: True
+
 emb: !new:speechbrain.nnet.embedding.Embedding
     num_embeddings: !ref <output_neurons>
     embedding_dim: !ref <emb_size>
@@ -131,6 +140,10 @@ dec: !new:speechbrain.nnet.RNN.GRU
     re_init: True
     bidirectional: False
     return_hidden: True
+
+dec_lin: !new:speechbrain.nnet.linear.Linear
+    n_neurons: !ref <output_neurons>
+    bias: True
 
 Tjoint: !new:speechbrain.nnet.transducer.transducer_joint.Transducer_joint
     joint: sum # joint [sum | concat]
@@ -183,6 +196,7 @@ train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
+    avoid_if_longer_than: 18
     csv_read: [wav, wrd]
 
 valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory

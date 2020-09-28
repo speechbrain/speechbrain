@@ -16,6 +16,7 @@ train_log: !ref <output_folder>/train_log.txt
 # Tokenizer model
 tok_mdl_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
 tok_voc_file: https://www.dropbox.com/s/7l8z622cpd3t8st/1000_unigram.vocab?dl=1
+replace_existing_bpe: False
 
 # Data files
 data_folder: !PLACEHOLDER # e.g., /localscratch/LibriSpeech
@@ -23,8 +24,11 @@ data_folder: !PLACEHOLDER # e.g., /localscratch/LibriSpeech
 # then data_folder_rirs should be /localscratch/xxx_corpus
 # otherwise the dataset will automatically be downloaded
 data_folder_rirs: !ref <data_folder>
-#csv_train: !ref <data_folder>/train-clean-100.csv
-csv_train: !ref <data_folder>/dev-clean.csv
+train_splits: ["train-clean-100"]
+dev_split: dev-clean
+test_split: test-clean
+
+csv_train: !ref <data_folder>/train.csv
 csv_valid: !ref <data_folder>/dev-clean.csv
 csv_test: !ref <data_folder>/test-clean.csv
 
@@ -71,11 +75,11 @@ nbest: 5
 
 
 # MTL CTC for encoder
-#ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
-#    blank_index: !ref <blank_index>
+ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
+    blank_index: !ref <blank_index>
 
 # MTL CE for decoder
-#ce_cost: !name:speechbrain.nnet.losses.nll_loss
+ce_cost: !name:speechbrain.nnet.losses.nll_loss
 
 # BPE
 # Specify the bos_id/eos_id if different with blank_id

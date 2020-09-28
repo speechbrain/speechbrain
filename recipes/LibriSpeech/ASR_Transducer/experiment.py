@@ -57,6 +57,20 @@ checkpointer = sb.utils.checkpoints.Checkpointer(
 
 # Define training procedure
 class ASR(sb.core.Brain):
+    def __init__(self, **args):
+        # donwload and use specefic BPE model
+        if hasattr(params, "tok_mdl_file") and hasattr(params, "tok_voc_file"):
+            self.download_tokenizer()
+        # Load external LM
+        # Initialization has to be done before loading weigths
+        # It help to instentiate the lm_model module
+        if hasattr(params, "lm_ckpt_file"):
+            # fake an forward pass to initialisaze the model
+            inp_tokens = torch.Tensor([[1, 2, 3]]).to(params.device)
+            _, _ = params.lm_model(inp_tokens, init_params=True)
+            self.load_lm()
+        super().__init__(**args)
+
     def compute_forward(self, x, y, stage="train", init_params=False):
         id, wavs, lens = x
         wavs, lens = wavs.to(params.device), lens.to(params.device)
@@ -72,7 +86,7 @@ class ASR(sb.core.Brain):
         feats = params.normalize(feats, lens)
         # Transcription network: input-output dependency
         TN_output = params.enc(feats, init_params=init_params)
-        TN_output = params.enc_lin(TN_output, init_params)
+        TN_output = params.enc_lin(TN_output, init_params=init_params)
         if stage == "train":
             # Prediction network: output-output dependency
             # y contains a tuple of tensors (id, words, word_lens) for BPE
@@ -94,7 +108,7 @@ class ASR(sb.core.Brain):
             decoder_input = prepend_bos_token(bpe, bos_index=params.blank_index)
             PN_output = params.emb(decoder_input, init_params=init_params)
             PN_output, _ = params.dec(PN_output, init_params=init_params)
-            PN_output = params.dec_lin(PN_output, init_params)
+            PN_output = params.dec_lin(PN_output, init_params=init_params)
             # Joint the networks
             joint = params.Tjoint(
                 TN_output.unsqueeze(2),
@@ -312,7 +326,7 @@ class ASR(sb.core.Brain):
         stats["loss"] = loss.detach()
         return stats
 
-    def load_tokenizer(self):
+    def download_tokenizer(self):
         save_model_path = (
             params.save_folder
             + "/"
@@ -332,12 +346,15 @@ class ASR(sb.core.Brain):
 
         if hasattr(params, "tok_mdl_file"):
             download_file(
-                params.tok_mdl_file, save_model_path, replace_existing=True
+                params.tok_mdl_file,
+                save_model_path,
+                replace_existing=params.replace_existing_bpe,
             )
-            params.bpe_tokenizer.sp.load(save_model_path)
         if hasattr(params, "tok_voc_file"):
             download_file(
-                params.tok_voc_file, save_vocab_path, replace_existing=True
+                params.tok_voc_file,
+                save_vocab_path,
+                replace_existing=params.replace_existing_bpe,
             )
 
     def load_lm(self):
@@ -352,9 +369,12 @@ class ASR(sb.core.Brain):
 # Prepare data
 prepare_librispeech(
     data_folder=params.data_folder,
-    splits=["train-clean-100", "dev-clean", "test-clean"],
+    splits=params.train_splits + [params.dev_split, params.test_split],
+    merge_lst=params.train_splits,
+    merge_name=params.csv_train,
     save_folder=params.data_folder,
 )
+
 train_set = params.train_loader()
 valid_set = params.valid_loader()
 first_x, first_y = next(iter(train_set))
@@ -369,15 +389,6 @@ asr_brain = ASR(
     first_inputs=[first_x, first_y],
 )
 
-# Beamsearch with external LM
-# Only needs one timestep of input to initialize the weight
-# Initialization has to be done before loading a heckpoint
-if hasattr(params, "lm_ckpt_file"):
-    # fake an forward pass to initialisaze the model
-    inp_tokens = torch.Tensor([[1, 2, 3]]).cuda()
-    _, _ = params.lm_model(inp_tokens, init_params=True)
-    asr_brain.load_lm()
-
 # Check if the model should be trained on multiple GPUs.
 # Important: DataParallel MUST be called after the ASR (Brain) class init.
 if params.multigpu:
@@ -388,9 +399,7 @@ if params.multigpu:
     params.enc_lin = torch.nn.DataParallel(params.enc_lin)
     params.dec_lin = torch.nn.DataParallel(params.dec_lin)
 
-
 # Load latest checkpoint to resume training
-asr_brain.load_tokenizer()
 checkpointer.recover_if_possible()
 asr_brain.fit(params.epoch_counter, train_set, valid_set)
 
