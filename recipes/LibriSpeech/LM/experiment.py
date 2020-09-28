@@ -100,7 +100,7 @@ class LM(sb.core.Brain):
         steps += 1
         if steps % params.accu_steps == 0:
             # gradient clipping
-            torch.nn.utils.clip_grad_norm_(self.modules.parameters(), 2.0)
+            torch.nn.utils.clip_grad_norm_(self.modules.parameters(), 1.0)
 
             self.optimizer.step()
             self.optimizer.zero_grad()

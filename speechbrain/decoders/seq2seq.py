@@ -1092,7 +1092,7 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
         lm_modules=None,
         ctc_weight=0.0,
         using_max_attn_shift=False,
-        max_attn_shift=10,
+        max_attn_shift=0.3,
         minus_inf=-1e20,
     ):
         super(S2STransformerBeamSearch, self).__init__(
