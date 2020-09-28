@@ -570,16 +570,16 @@ class Dual_Path_Transformer(nn.Module):
                 Dual_Transformer_Block(
                     out_channels,
                     num_layers=num_tf_layers,
-                    nhead=8,
-                    d_ffn=2048,
-                    kdim=None,
-                    vdim=None,
-                    dropout=0.1,
-                    activation=nn.ReLU,
-                    return_attention=False,
-                    num_modules=1,
-                    use_group_comm=False,
-                    norm="ln",
+                    nhead=nhead,
+                    d_ffn=d_ffn,
+                    kdim=kdim,
+                    vdim=vdim,
+                    dropout=dropout,
+                    activation=activation,
+                    return_attention=return_attention,
+                    num_modules=num_modules,
+                    use_group_comm=use_group_comm,
+                    norm=norm,
                 )
             )
 
