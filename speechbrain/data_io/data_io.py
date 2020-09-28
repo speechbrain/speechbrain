@@ -1209,7 +1209,9 @@ class HDF5DataLoaderFactory(torch.nn.Module):
             if isinstance(sequences[0], torch.Tensor):
 
                 # Padding the sequence of sentences (if needed)
-                batch_data = self.padding(sequences)
+                batch_data = torch.nn.utils.rnn.pad_sequence(
+                    sequences, batch_first=True, padding_value=0.0
+                )
 
                 # Return % of time steps without padding (useful for save_batch)
                 time_steps = time_steps / batch_data.shape[1]
