@@ -633,7 +633,10 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 g = alived_seq
                 # TODO rescore after lm for better candidates
                 if self.ctc_weight != 1.0:
-                    _, ctc_candidates = log_probs.topk(self.beam_size, dim=-1)
+                    # pruning vocab for ctc_scorer
+                    _, ctc_candidates = log_probs.topk(
+                        self.beam_size * 2, dim=-1
+                    )
                 else:
                     ctc_candidates = None
                 ctc_log_probs, ctc_memory = ctc_scorer.forward_step(
