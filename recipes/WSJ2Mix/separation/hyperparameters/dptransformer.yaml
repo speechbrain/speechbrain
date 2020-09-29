@@ -9,7 +9,7 @@
 seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 use_tensorboard: True
-experiment_name: 9-dptransf-pytorch
+experiment_name: 11-dptransf-reformer
 tensorboard_logs: !ref runs/<experiment_name>
 output_folder: !ref results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
@@ -39,6 +39,7 @@ tr_csv: 'wsj_tr.csv'
 cv_csv: 'wsj_cv.csv'
 tt_csv: 'wsj_tt.csv'
 sentence_sorting: random
+early_stopping_with_patience: -1
 
 train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <tr_csv>
@@ -93,7 +94,7 @@ Encoder: !new:speechbrain.lobes.models.dual_pathrnn.Encoder
     out_channels: !ref <N_encoder_out>
 
 MaskNet: !new:speechbrain.lobes.models.dual_pathrnn.Dual_Path_Transformer
-    transformer_type: 'pytorch'
+    transformer_type: 'reformer'
     in_channels: !ref <N_encoder_out>
     out_channels: 256
     norm: ln
@@ -102,8 +103,9 @@ MaskNet: !new:speechbrain.lobes.models.dual_pathrnn.Dual_Path_Transformer
     d_ffn: 2048
     nhead: 8
     num_layers: 2
-    K: 200
+    K: 256
     activation: 'relu'
+    reformer_bucket_size: 8
 
 
 Decoder: !new:speechbrain.lobes.models.dual_pathrnn.Decoder
