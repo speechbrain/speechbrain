@@ -120,7 +120,7 @@ class NewBobLRScheduler:
             The learning rate to use for the next epoch
         """
         next_lr = current_lr
-        current_improvement = (last_loss - current_loss) / last_loss
+        current_improvement = (last_loss - current_loss) / abs(last_loss)
         if current_improvement < self.improvement_threshold:
             if self.current_patient == 0:
                 next_lr = current_lr * self.annealing_factor
