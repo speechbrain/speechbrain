@@ -15,9 +15,11 @@ import pprint
 import shutil
 from pathlib import PosixPath
 
+import mlflow
 import orion
 import torch
 import torch.nn.functional as F
+from mlflow import log_metric
 from orion.client import report_results
 from torch.cuda.amp import GradScaler, autocast
 
@@ -27,7 +29,7 @@ from recipes.minimal_examples.neural_networks.separation.example_conv_tasnet imp
 )
 from speechbrain.nnet.losses import get_si_snr_with_pitwrapper
 from speechbrain.utils.checkpoints import ckpt_recency
-from speechbrain.utils.train_logger import summarize_average, TensorboardLogger
+from speechbrain.utils.train_logger import summarize_average
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +64,6 @@ class CTNBrain(sb.core.Brain):
         self.device = device
         super(CTNBrain, self).__init__(**kwargs)
         self.eval_scores = []
-        self.train_logger = TensorboardLogger(params.tensorboard_logs)
         self.scaler = GradScaler()
 
     def compute_forward(self, mixture, stage="train", init_params=False):
@@ -94,7 +95,6 @@ class CTNBrain(sb.core.Brain):
             raise ValueError("Not Correct Loss Function Type")
 
     def fit_batch(self, batch):
-        self.optimizer.zero_grad()
         # train_onthefly option enables data augmentation,
         # by creating random mixtures within the batch
         if self.params.train_onthefly:
@@ -137,6 +137,13 @@ class CTNBrain(sb.core.Brain):
                 predictions = self.compute_forward(inputs)
                 loss = self.compute_objectives(predictions, targets)
             self.scaler.scale(loss).backward()
+
+            if self.params.clip_grad_norm >= 0:
+                self.scaler.unscale_(self.optimizer)
+                torch.nn.utils.clip_grad_norm_(
+                    self.modules.parameters(), self.params.clip_grad_norm
+                )
+
             self.scaler.step(self.optimizer)
             self.scaler.update()
         else:
@@ -148,6 +155,7 @@ class CTNBrain(sb.core.Brain):
                     self.modules.parameters(), self.params.clip_grad_norm
                 )
             self.optimizer.step()
+        self.optimizer.zero_grad()
         return {"loss": loss.detach()}
 
     def evaluate_batch(self, batch, stage="test"):
@@ -162,9 +170,9 @@ class CTNBrain(sb.core.Brain):
 
     def on_epoch_end(self, epoch, train_stats, valid_stats):
 
-        av_loss = summarize_average(valid_stats["loss"])
+        av_valid_loss = summarize_average(valid_stats["loss"])
         current_lr, next_lr = self.params.lr_scheduler(
-            [self.params.optimizer], epoch, av_loss
+            [self.params.optimizer], epoch, av_valid_loss
         )
 
         epoch_stats = {"epoch": epoch, "lr": current_lr}
@@ -172,8 +180,11 @@ class CTNBrain(sb.core.Brain):
             epoch_stats, train_stats, valid_stats
         )
 
-        # if params.use_tensorboard:
-        self.train_logger.log_stats({"Epoch": epoch}, train_stats, valid_stats)
+        av_train_loss = summarize_average(train_stats["loss"])
+        log_metric("train_loss", av_train_loss, step=epoch)
+        log_metric("valid_loss", av_valid_loss, step=epoch)
+        log_metric("current_lr", current_lr, step=epoch)
+
         logger.info("Completed epoch %d" % epoch)
         logger.info(
             "Train SI-SNR: %.3f" % -summarize_average(train_stats["loss"])
@@ -186,7 +197,7 @@ class CTNBrain(sb.core.Brain):
         )
 
         self.params.checkpointer.save_and_keep_only(
-            meta={"av_loss": av_loss},
+            meta={"av_loss": av_valid_loss},
             importance_keys=[ckpt_recency, lambda c: -c.meta["av_loss"]],
         )
 
@@ -295,6 +306,7 @@ def main():
     )
 
     params.checkpointer.recover_if_possible(lambda c: -c.meta["av_loss"])
+    mlflow.start_run()
     ctn.fit(
         range(params.N_epochs),
         train_set=train_loader,
@@ -302,6 +314,7 @@ def main():
         progressbar=params.progressbar,
         early_stopping_with_patience=params.early_stopping_with_patience,
     )
+    mlflow.end_run()
 
     test_stats = ctn.evaluate(test_loader)
     logger.info("Test SI-SNR: %.3f" % -summarize_average(test_stats["loss"]))

@@ -1,5 +1,6 @@
 -r lint-requirements.txt
 joblib>=0.14.1
+mlflow
 numpy>=1.17.0
 orion
 pre-commit>=2.3.0
