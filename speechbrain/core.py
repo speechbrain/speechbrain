@@ -21,6 +21,7 @@ from speechbrain.utils.logger import setup_logging
 from speechbrain.utils.logger import format_order_of_magnitude
 from speechbrain.utils.logger import get_environment_description
 from speechbrain.utils.data_utils import recursive_update
+from speechbrain.utils.train_logger import summarize_average
 
 logger = logging.getLogger(__name__)
 DEFAULT_LOG_CONFIG = os.path.dirname(os.path.abspath(__file__))
@@ -453,7 +454,7 @@ class Brain:
             Whether to display the progress of each epoch in a progressbar.
         """
         not_improving_since = 0
-        old_validation_score = 99999
+        best_validation_score = 99999
         self.on_training_start()
         for epoch in epoch_counter:
             self.modules.train()
@@ -475,28 +476,35 @@ class Brain:
                     ):
                         stats = self.evaluate_batch(batch, stage="valid")
                         self.add_stats(valid_stats, stats)
-                        validation_score = stats["loss"].cpu().item()
-                        if validation_score > old_validation_score:
-                            not_improving_since += 1
-                            logger.info("not improving on validation")
-                        else:
-                            not_improving_since = 0
-                            old_validation_score = validation_score
-                            logger.info(
-                                "best result so far - resetting patience"
-                            )
-                        if (
-                            early_stopping_with_patience >= 0
-                            and not_improving_since
-                            > early_stopping_with_patience
-                        ):
-                            logger.info(
-                                "stopping - not improving since {} / patience is {}".format(
-                                    not_improving_since,
-                                    early_stopping_with_patience,
-                                )
-                            )
-                            break
+                validation_score = summarize_average(valid_stats["loss"])
+                if validation_score >= best_validation_score:
+                    not_improving_since += 1
+                    logger.info(
+                        "not improving on validation since {} epoch (best is {}, "
+                        "current is {})".format(
+                            not_improving_since,
+                            best_validation_score,
+                            validation_score,
+                        )
+                    )
+                else:
+                    not_improving_since = 0
+                    best_validation_score = validation_score
+                    logger.info(
+                        "best result so far {} - resetting patience".format(
+                            best_validation_score
+                        )
+                    )
+                if (
+                    early_stopping_with_patience >= 0
+                    and not_improving_since > early_stopping_with_patience
+                ):
+                    logger.info(
+                        "stopping - not improving since {} / patience is {}".format(
+                            not_improving_since, early_stopping_with_patience,
+                        )
+                    )
+                    break
 
             self.on_epoch_end(epoch, train_stats, valid_stats)
 
