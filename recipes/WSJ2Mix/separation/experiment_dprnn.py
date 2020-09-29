@@ -95,7 +95,6 @@ class CTNBrain(sb.core.Brain):
             raise ValueError("Not Correct Loss Function Type")
 
     def fit_batch(self, batch):
-        self.optimizer.zero_grad()
         # train_onthefly option enables data augmentation,
         # by creating random mixtures within the batch
         if self.params.train_onthefly:
@@ -138,6 +137,13 @@ class CTNBrain(sb.core.Brain):
                 predictions = self.compute_forward(inputs)
                 loss = self.compute_objectives(predictions, targets)
             self.scaler.scale(loss).backward()
+
+            if self.params.clip_grad_norm >= 0:
+                self.scaler.unscale_(self.optimizer)
+                torch.nn.utils.clip_grad_norm_(
+                    self.modules.parameters(), self.params.clip_grad_norm
+                )
+
             self.scaler.step(self.optimizer)
             self.scaler.update()
         else:
@@ -149,6 +155,7 @@ class CTNBrain(sb.core.Brain):
                     self.modules.parameters(), self.params.clip_grad_norm
                 )
             self.optimizer.step()
+        self.optimizer.zero_grad()
         return {"loss": loss.detach()}
 
     def evaluate_batch(self, batch, stage="test"):
