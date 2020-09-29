@@ -57,8 +57,8 @@ def compute_embeddings(wavs, lens, init_params=False):
         wavs = wavs.to(params.device)
         feats = params.compute_features(wavs, init_params=init_params)
         feats = params.mean_var_norm(feats, lens)
-        emb = params.xvector_model(feats, lens=lens, init_params=init_params)
-        emb = params.mean_var_norm_xvect(
+        emb = params.embedding_model(feats, lens, init_params=init_params)
+        emb = params.mean_var_norm_emb(
             emb, torch.ones(emb.shape[0]).to("cuda:0")
         )
 
@@ -68,9 +68,9 @@ def compute_embeddings(wavs, lens, init_params=False):
 def download_and_pretrain():
     """Downloads pre-trained model
     """
-    save_model_path = params.model_dir + "/xvect.ckpt"
-    download_file(params.xvector_f, save_model_path)
-    params.xvector_model.load_state_dict(
+    save_model_path = params.model_dir + "/emb.ckpt"
+    download_file(params.embedding_file, save_model_path)
+    params.embedding_model.load_state_dict(
         torch.load(save_model_path), strict=True
     )
 
@@ -88,14 +88,15 @@ def embedding_computation_loop(split, set_loader, stat_file):
     """Extracts embeddings for a given dataset loader
     """
 
-    # Extract xvectors (skip if already done)
+    # Extract embeddings (skip if already done)
     if not os.path.isfile(stat_file):
-        init_params = True
 
-        xvectors = numpy.empty(shape=[0, params.xvect_dim], dtype=numpy.float64)
+        embeddings = numpy.empty(shape=[0, params.emb_dim], dtype=numpy.float64)
         modelset = []
         segset = []
         with tqdm(set_loader, dynamic_ncols=True) as t:
+            # different data may have different statistics
+            params.mean_var_norm_emb.count = 0
 
             for wav in t:
                 ids, wavs, lens = wav[0]
@@ -105,36 +106,16 @@ def embedding_computation_loop(split, set_loader, stat_file):
                 modelset = modelset + mod
                 segset = segset + seg
 
-                # Initialize the model and perform pre-training
-                if init_params:
-                    xvects = compute_embeddings(wavs, lens, init_params=True)
-                    params.mean_var_norm_xvect.glob_mean = torch.zeros_like(
-                        xvects[0, 0, :]
-                    )
-                    params.mean_var_norm_xvect.count = 0
-
-                    # Download models from the web if needed
-                    if "https://" in params.xvector_f:
-                        download_and_pretrain()
-                    else:
-                        params.xvector_model.load_state_dict(
-                            torch.load(params.xvector_f), strict=True
-                        )
-
-                    init_params = False
-                    params.xvector_model.eval()
-
-                # xvector computation
-                xvects = compute_embeddings(wavs, lens)
-                xv = xvects.squeeze().cpu().numpy()
-                xvectors = numpy.concatenate((xvectors, xv), axis=0)
+                # embedding computation
+                emb = compute_embeddings(wavs, lens).squeeze().cpu().numpy()
+                embeddings = numpy.concatenate((embeddings, emb), axis=0)
 
         modelset = numpy.array(modelset, dtype="|O")
         segset = numpy.array(segset, dtype="|O")
 
         # Intialize variables for start, stop and stat0
-        s = numpy.array([None] * xvectors.shape[0])
-        b = numpy.array([[1.0]] * xvectors.shape[0])
+        s = numpy.array([None] * embeddings.shape[0])
+        b = numpy.array([[1.0]] * embeddings.shape[0])
 
         stat_obj = StatObject_SB(
             modelset=modelset,
@@ -142,7 +123,7 @@ def embedding_computation_loop(split, set_loader, stat_file):
             start=s,
             stop=s,
             stat0=b,
-            stat1=xvectors,
+            stat1=embeddings,
         )
         logger.info(f"Saving Embeddings...")
         stat_obj.save_stat_object(stat_file)
@@ -425,6 +406,7 @@ def diarizer(full_csv, split_type):
     N = str(len(all_rec_ids))
 
     i = 1
+    init_params = True
     # Loop through each recording
     for rec_id in all_rec_ids:
 
@@ -434,15 +416,17 @@ def diarizer(full_csv, split_type):
         msg = "[%s] Diarizing %s : %s " % (split_type, ss, rec_id)
         logger.info(msg)
 
-        if not os.path.exists(os.path.join(params.xvect_dir, split)):
-            os.makedirs(os.path.join(params.xvect_dir, split))
+        if not os.path.exists(os.path.join(params.embedding_dir, split)):
+            os.makedirs(os.path.join(params.embedding_dir, split))
 
         diary_stat_file = os.path.join(
-            params.xvect_dir, split, rec_id + "_xv_stat.pkl"
+            params.embedding_dir, split, rec_id + "_xv_stat.pkl"
         )
 
         # Prepare a csv for a recording
-        new_csv_file = os.path.join(params.xvect_dir, split, rec_id + ".csv")
+        new_csv_file = os.path.join(
+            params.embedding_dir, split, rec_id + ".csv"
+        )
         prepare_subset_csv(full_csv, rec_id, new_csv_file)
 
         # Setup a dataloader for above one recording (above csv)
@@ -455,10 +439,27 @@ def diarizer(full_csv, split_type):
 
         diary_set_loader = diary_set.forward()
 
-        if not os.path.exists(os.path.join(params.xvect_dir, split)):
-            os.makedirs(os.path.join(params.xvect_dir, split))
+        if not os.path.exists(os.path.join(params.embedding_dir, split)):
+            os.makedirs(os.path.join(params.embedding_dir, split))
 
-        # Compute Xvectors
+        if init_params:
+            _, wavs, lens = next(iter(diary_set_loader))[0]
+            # Initialize the model and perform pre-training
+            _ = compute_embeddings(wavs, lens, init_params=True)
+            # We don't actually need to set glob_mean
+
+            # Download models from the web if needed
+            if "https://" in params.embedding_file:
+                download_and_pretrain()
+            else:
+                params.embedding_model.load_state_dict(
+                    torch.load(params.embedding_file), strict=True
+                )
+
+            init_params = False
+            params.embedding_model.eval()
+
+        # Compute Embeddings
         diary_obj_dev = embedding_computation_loop(
             "diary", diary_set_loader, diary_stat_file
         )
@@ -535,7 +536,7 @@ if __name__ == "__main__":  # noqa: C901
     # Few more experiment directories (to have cleaner structure)
     exp_dirs = [
         params.model_dir,
-        params.xvect_dir,
+        params.embedding_dir,
         params.csv_dir,
         params.ref_rttm_dir,
         params.sys_rttm_dir,
