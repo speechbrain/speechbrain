@@ -7,35 +7,30 @@ seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Folders and train_log file
-data_folder: !PLACEHOLDER # e.g., /localscratch/voxceleb1
-output_folder: results/voxceleb1/verification_discriminator_xvectors
+data_folder: !PLACEHOLDER # e.g. /localscratch/voxceleb2
+output_folder: results/voxceleb1_2/xvector
 save_folder: !ref <output_folder>/save/
 train_log: !ref <output_folder>/train_log.txt
 
 # csv files
 csv_train: !ref <save_folder>/train.csv
 csv_valid: !ref <save_folder>/dev.csv
-csv_enrol: !ref <save_folder>/enrol.csv
-csv_test: !ref <save_folder>/test.csv
 
 # Training hyperparameters
 number_of_epochs: 25
-batch_size: 128
-lr: 0.0002500
-lr_final: 0.00005000
+batch_size: 256
+lr: 0.001
+lr_final: 7.82e-04
 device: 'cuda:0'
-freeze_embeddings: False
-
-# Pretrain from web (as an alternative specify a file)
-pretrain_embeddings: True
-embedding_file:
-    https://www.dropbox.com/s/skfz2sme5nw7jji/xvector_model.ckpt?dl=1
 
 # Feature parameters
 n_mels: 24
 left_frames: 0
 right_frames: 0
 deltas: False
+
+# Number of speakers
+out_n_neurons: 7205
 
 # Functions
 compute_features: !new:speechbrain.lobes.features.fbank.Fbank
@@ -53,12 +48,12 @@ embedding_model: !new:speechbrain.lobes.models.Xvector.Xvector
     tdnn_dilations: [1, 2, 3, 1, 1]
     lin_neurons: 512
 
-discriminator: !new:speechbrain.lobes.models.Xvector.Discriminator
+classifier: !new:speechbrain.lobes.models.Xvector.Classifier
     activation: !name:torch.nn.LeakyReLU
     device: !ref <device>
     lin_blocks: 1
-    lin_neurons: 4096
-    out_neurons: 1
+    lin_neurons: 512
+    out_neurons: !ref <out_n_neurons>
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
@@ -94,30 +89,12 @@ valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
         $data_folder: !ref <data_folder>
     output_folder: !ref <output_folder>/save/
 
-enrol_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_enrol>
-    batch_size: 1
-    csv_read: [wav]
-    sentence_sorting: ascending
-    replacements:
-        $data_folder: !ref <data_folder>
-    output_folder: !ref <output_folder>/save/
-
-test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_test>
-    batch_size: 1
-    csv_read: [wav]
-    sentence_sorting: ascending
-    replacements:
-        $data_folder: !ref <data_folder>
-    output_folder: !ref <output_folder>/save/
-
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
 
-bn_emb: !new:speechbrain.nnet.normalization.BatchNorm1d
+compute_cost: !name:speechbrain.nnet.losses.nll_loss
 
-compute_cost: !name:speechbrain.nnet.losses.compute_masked_loss
+compute_error: !name:speechbrain.nnet.losses.classification_error
 
 optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
     learning_rate: !ref <lr>
@@ -133,9 +110,8 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
-        embedding_model: !ref <embedding_model>
-        discriminator: !ref <discriminator>
+        xvector_model: !ref <embedding_model>
+        classifier: !ref <classifier>
         optimizer: !ref <optimizer>
         normalizer: !ref <mean_var_norm>
         counter: !ref <epoch_counter>
-        mean_var_norm_emb: !ref <bn_emb>
