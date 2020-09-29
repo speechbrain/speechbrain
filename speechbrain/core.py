@@ -480,7 +480,7 @@ class Brain:
                 if validation_score >= best_validation_score:
                     not_improving_since += 1
                     logger.info(
-                        "not improving on validation since {} epoch (best is {}, "
+                        ">> not improving on validation since {} epoch (best is {}, "
                         "current is {})".format(
                             not_improving_since,
                             best_validation_score,
@@ -491,7 +491,7 @@ class Brain:
                     not_improving_since = 0
                     best_validation_score = validation_score
                     logger.info(
-                        "best result so far {} - resetting patience".format(
+                        ">> best result so far {} - resetting patience".format(
                             best_validation_score
                         )
                     )
@@ -500,7 +500,7 @@ class Brain:
                     and not_improving_since > early_stopping_with_patience
                 ):
                     logger.info(
-                        "stopping - not improving since {} / patience is {}".format(
+                        ">> stopping - not improving since {} / patience is {}".format(
                             not_improving_since, early_stopping_with_patience,
                         )
                     )
