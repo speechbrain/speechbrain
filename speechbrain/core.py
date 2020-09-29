@@ -452,6 +452,8 @@ class Brain:
             a list of datasets to use for validation, zipped before iterating.
         progressbar : bool
             Whether to display the progress of each epoch in a progressbar.
+        early_stopping_with_patience : int
+            if different from -1, will enable early stopping with this given patience.
         """
         not_improving_since = 0
         best_validation_score = 99999
