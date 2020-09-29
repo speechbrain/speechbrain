@@ -9,7 +9,7 @@
 seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 use_tensorboard: True
-experiment_name: 8-dptrans3tflayers2layers
+experiment_name: 9-dptransf-pytorch
 tensorboard_logs: !ref runs/<experiment_name>
 output_folder: !ref results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
@@ -93,6 +93,7 @@ Encoder: !new:speechbrain.lobes.models.dual_pathrnn.Encoder
     out_channels: !ref <N_encoder_out>
 
 MaskNet: !new:speechbrain.lobes.models.dual_pathrnn.Dual_Path_Transformer
+    transformer_type: 'pytorch'
     in_channels: !ref <N_encoder_out>
     out_channels: 256
     norm: ln
@@ -102,6 +103,7 @@ MaskNet: !new:speechbrain.lobes.models.dual_pathrnn.Dual_Path_Transformer
     nhead: 8
     num_layers: 2
     K: 200
+    activation: 'relu'
 
 
 Decoder: !new:speechbrain.lobes.models.dual_pathrnn.Decoder

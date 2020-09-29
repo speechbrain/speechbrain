@@ -445,45 +445,66 @@ class Dual_Transformer_Block(nn.Module):
         kdim=None,
         vdim=None,
         dropout=0.1,
-        activation=nn.ReLU,
+        activation="relu",
         return_attention=False,
         num_modules=1,
         use_group_comm=False,
         norm="ln",
+        transformer_type="pytorch",
     ):
         super(Dual_Transformer_Block, self).__init__()
-        # RNN model
-        self.intra_mdl = TransformerEncoder(
-            num_layers,
-            nhead,
-            d_ffn,
-            kdim,
-            vdim,
-            dropout,
-            activation,
-            return_attention,
-            num_modules,
-            use_group_comm,
-        )
-        # self.intra_rnn = LSTM(out_channels, bidirectional=True)
+        self.transformer_type = transformer_type
 
-        self.inter_mdl = TransformerEncoder(
-            num_layers,
-            nhead,
-            d_ffn,
-            kdim,
-            vdim,
-            dropout,
-            activation,
-            return_attention,
-            num_modules,
-            use_group_comm,
-        )
+        if transformer_type == "pytorch":
+            encoder_layer = nn.TransformerEncoderLayer(
+                d_model=out_channels,
+                nhead=nhead,
+                dim_feedforward=d_ffn,
+                dropout=dropout,
+                activation=activation,
+            )
+            # cem :this encoder thing has a normalization component. we should look at that probably also.
+            self.intra_mdl = nn.TransformerEncoder(
+                encoder_layer, num_layers=num_layers
+            )
+            self.inter_mdl = nn.TransformerEncoder(
+                encoder_layer, num_layers=num_layers
+            )
 
-        # getattr(nn, rnn_type)(
-        #    out_channels, hidden_channels, 1, batch_first=True, dropout=dropout, bidirectional=bidirectional)
-        # self.inter_rnn = getattr(nn, rnn_type)(
-        #    out_channels, hidden_channels, 1, batch_first=True, dropout=dropout, bidirectional=bidirectional)
+        elif transformer_type == "speechbrain":
+            if activation == "relu":
+                activation = nn.ReLU
+            elif activation == "gelu":
+                activation = nn.GELU
+            else:
+                raise ValueError("unknown activation")
+
+            self.intra_mdl = TransformerEncoder(
+                num_layers,
+                nhead,
+                d_ffn,
+                kdim,
+                vdim,
+                dropout,
+                activation,
+                return_attention,
+                num_modules,
+                use_group_comm,
+            )
+
+            self.inter_mdl = TransformerEncoder(
+                num_layers,
+                nhead,
+                d_ffn,
+                kdim,
+                vdim,
+                dropout,
+                activation,
+                return_attention,
+                num_modules,
+                use_group_comm,
+            )
+
         # Norm
         self.intra_norm = select_norm(norm, out_channels, 4)
         self.inter_norm = select_norm(norm, out_channels, 4)
@@ -501,7 +522,10 @@ class Dual_Transformer_Block(nn.Module):
         # [BS, K, N]
         intra_rnn = x.permute(0, 3, 2, 1).contiguous().view(B * S, K, N)
         # [BS, K, H]
-        intra_rnn = self.intra_mdl(intra_rnn, init_params=init_params)
+        if self.transformer_type == "speechbrain":
+            intra_rnn = self.intra_mdl(intra_rnn, init_params=init_params)
+        else:
+            intra_rnn = self.intra_mdl(intra_rnn)
         # intra_rnn = self.intra_rnn(intra_rnn, init_params=init_params)
         # [BS, K, N]
         intra_rnn = self.intra_linear(
@@ -521,7 +545,10 @@ class Dual_Transformer_Block(nn.Module):
         # [BK, S, N]
         inter_rnn = intra_rnn.permute(0, 2, 3, 1).contiguous().view(B * K, S, N)
         # [BK, S, H]
-        inter_rnn = self.inter_mdl(inter_rnn, init_params=init_params)
+        if self.transformer_type == "speechbrain":
+            inter_rnn = self.inter_mdl(inter_rnn, init_params=init_params)
+        else:
+            inter_rnn = self.inter_mdl(inter_rnn)
         # [BK, S, N]
         inter_rnn = self.inter_linear(
             inter_rnn.contiguous().view(B * S * K, -1), init_params=init_params
@@ -549,13 +576,14 @@ class Dual_Path_Transformer(nn.Module):
         kdim=None,
         vdim=None,
         dropout=0.1,
-        activation=nn.ReLU,
+        activation="relu",
         return_attention=False,
         num_modules=1,
         use_group_comm=False,
         norm="ln",
         K=200,
         num_spks=2,
+        transformer_type="pytorch",
     ):
         super(Dual_Path_Transformer, self).__init__()
         self.K = K
@@ -580,6 +608,7 @@ class Dual_Path_Transformer(nn.Module):
                     num_modules=num_modules,
                     use_group_comm=use_group_comm,
                     norm=norm,
+                    transformer_type=transformer_type,
                 )
             )
 
