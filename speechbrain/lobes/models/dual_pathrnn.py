@@ -1,9 +1,11 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import copy
 
 from speechbrain.lobes.models.block_models.modularity import RIM
 from speechbrain.nnet.linear import Linear
+from speechbrain.lobes.models.transformer.Transformer import TransformerEncoder
 
 # from speechbrain.lobes.models.block_models.modularity import SCOFF
 
@@ -455,6 +457,65 @@ class PytorchTransformerBlock(nn.Module):
     def forward(self, x, init_params=False):
         return self.mdl(x)
 
+        # in_channels,
+        # out_channels,
+        # transformer_type,
+        # num_tf_layers=6,
+        # num_layers=1,
+        # nhead=8,
+        # d_ffn=2048,
+        # kdim=None,
+        # vdim=None,
+        # dropout=0.1,
+        # activation="relu",
+        # return_attention=False,
+        # num_modules=1,
+        # use_group_comm=False,
+        # norm="ln",
+        # K=200,
+        # num_spks=2,
+        # reformer_bucket_size=32,
+
+
+class SBTransformerBlock(nn.Module):
+    def __init__(
+        self,
+        num_layers,
+        nhead,
+        d_ffn=2048,
+        kdim=None,
+        vdim=None,
+        dropout=0.1,
+        activation="relu",
+        return_attention=False,
+        num_modules=1,
+        use_group_comm=False,
+    ):
+        super(SBTransformerBlock, self).__init__()
+
+        if activation == "relu":
+            activation = nn.ReLU
+        elif activation == "gelu":
+            activation = nn.GELU
+        else:
+            raise ValueError("unknown activation")
+
+        self.mdl = TransformerEncoder(
+            num_layers,
+            nhead,
+            d_ffn,
+            kdim,
+            vdim,
+            dropout,
+            activation,
+            return_attention,
+            num_modules,
+            use_group_comm,
+        )
+
+    def forward(self, x, init_params=False):
+        return self.mdl(x, init_params=init_params)
+
 
 class Dual_Computation_Block(nn.Module):
     """
@@ -547,8 +608,10 @@ class Dual_Path_Model(nn.Module):
         self.dual_mdl = nn.ModuleList([])
         for i in range(num_layers):
             self.dual_mdl.append(
-                Dual_Computation_Block(
-                    intra_model, inter_model, out_channels, norm
+                copy.deepcopy(
+                    Dual_Computation_Block(
+                        intra_model, inter_model, out_channels, norm
+                    )
                 )
             )
 
@@ -579,6 +642,9 @@ class Dual_Path_Model(nn.Module):
         # [B, N*spks, K, S]
         for i in range(self.num_layers):
             x = self.dual_mdl[i](x, init_params=init_params)
+
+        # self.dual_mdl[1].inter_mdl.mdl.layers[0].linear1.weight to see the weights
+
         x = self.prelu(x)
         x = self.conv2d(x)
         # [B*spks, N, K, S]
@@ -973,41 +1039,6 @@ class Dual_Path_RIM(nn.Module):
         #
         #     # self.intra_mdl = TransformerEncoder(layers, norm_layer=None)
         #
-        # elif transformer_type == "speechbrain":
-        #     if activation == "relu":
-        #         activation = nn.ReLU
-        #     elif activation == "gelu":
-        #         activation = nn.GELU
-        #     else:
-        #         raise ValueError("unknown activation")
-        #
-        #     self.intra_mdl = TransformerEncoder(
-        #         num_layers,
-        #         nhead,
-        #         d_ffn,
-        #         kdim,
-        #         vdim,
-        #         dropout,
-        #         activation,
-        #         return_attention,
-        #         num_modules,
-        #         use_group_comm,
-        #     )
-        #
-        #     self.inter_mdl = TransformerEncoder(
-        #         num_layers,
-        #         nhead,
-        #         d_ffn,
-        #         kdim,
-        #         vdim,
-        #         dropout,
-        #         activation,
-        #         return_attention,
-        #         num_modules,
-        #         use_group_comm,
-        #     )
-        # else:
-        #     raise ValueError("Unknown Transformer Type!!!")
 
         # if self.transformer_type == "speechbrain":
         #     inter_rnn = self.inter_mdl(inter_rnn, init_params=init_params)

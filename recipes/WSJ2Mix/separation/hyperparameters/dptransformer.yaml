@@ -70,8 +70,8 @@ augmentation: !new:speechbrain.lobes.augment.tdsa.TimeDomainSpecAugment
     speeds: [95, 100, 105]
 
 N_encoder_out: 256
-kernel_size: 8
-kernel_stride: 4
+kernel_size: 16
+kernel_stride: 8
 
 # Dual_Path_RNN:
 #  in_channels: 256
@@ -92,9 +92,16 @@ Encoder: !new:speechbrain.lobes.models.dual_pathrnn.Encoder
     out_channels: !ref <N_encoder_out>
 
 out_channels: 256
+
 PTtf: !new:speechbrain.lobes.models.dual_pathrnn.PytorchTransformerBlock
     out_channels: !ref <out_channels>
-    num_layers: 2
+    num_layers: 1
+    nhead: 8
+    d_ffn: 2048
+    dropout: 0
+
+SBtf: !new:speechbrain.lobes.models.dual_pathrnn.SBTransformerBlock
+    num_layers: 1
     nhead: 8
     d_ffn: 2048
     dropout: 0
@@ -103,9 +110,9 @@ PTtf: !new:speechbrain.lobes.models.dual_pathrnn.PytorchTransformerBlock
 MaskNet: !new:speechbrain.lobes.models.dual_pathrnn.Dual_Path_Model
     in_channels: !ref <N_encoder_out>
     out_channels: !ref <out_channels>
-    num_layers: 1
+    num_layers: 2
     K: 250
-    intra_model: !ref <PTtf>
+    intra_model: !ref <SBtf>
     inter_model: !ref <PTtf>
 
 Decoder: !new:speechbrain.lobes.models.dual_pathrnn.Decoder
