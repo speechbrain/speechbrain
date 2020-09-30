@@ -2,6 +2,7 @@
 """
 This recipe implements diarization baseline
 using deep embedding extraction followed by spectral clustering.
+We use nearest-neighbor based affinity matrix.
 
 Condition: Oracle VAD and Oracle number of speakers.
 
@@ -73,15 +74,6 @@ def download_and_pretrain():
     params.embedding_model.load_state_dict(
         torch.load(save_model_path), strict=True
     )
-
-
-def get_utt_ids_for_test(ids, data_dict):
-    """Function to get mod and seg
-    """
-    mod = [data_dict[x]["wav1"]["data"] for x in ids]
-    seg = [data_dict[x]["wav2"]["data"] for x in ids]
-
-    return mod, seg
 
 
 def embedding_computation_loop(split, set_loader, stat_file):
@@ -158,46 +150,6 @@ def prepare_subset_csv(full_diary_csv, rec_id, out_csv_file):
 
     msg = "Prepared CSV file: " + out_csv_file
     logger.info(msg)
-
-
-def trace_back_cluster_labels(
-    cluster_map_traverse, threshold=0.9, oracle_num_spkrs=4
-):
-    """Gets cluster IDs from clustering solution
-    """
-
-    N = len(cluster_map_traverse) + 1
-
-    # Cluster dictionery for maintaining cluster IDs and segments inside each cluster ID
-    # example: clusters['10'] : [1,4,7] denotes cluster number 10 has segment ids 1, 4 and 7
-    clusters = dict()
-
-    # Initialize clusters (cluster IDs starts from 0 )
-    for i in range(N):
-        clusters[str(i)] = [i]
-
-    i = 0
-    while i < N - 1:
-
-        a = str(int(cluster_map_traverse[i, 0]))
-        b = str(int(cluster_map_traverse[i, 1]))
-
-        # dist = cluster_map_traverse[i, 2]
-        new_id = str(N + i)
-
-        # Concatenate the list of cluster IDs from old clusters 'a' and 'b'
-        clusters[new_id] = clusters[a] + clusters[b]
-
-        # Remove old cluster from the "clusters" dictionary
-        clusters.pop(a)
-        clusters.pop(b)
-        i += 1
-
-        # Stop when number of speakers are reached
-        if oracle_num_spkrs and len(clusters) <= oracle_num_spkrs:
-            break
-
-    return clusters
 
 
 def is_overlapped(end1, start2):
@@ -407,6 +359,7 @@ def diarizer(full_csv, split_type):
 
     i = 1
     init_params = True
+
     # Loop through each recording
     for rec_id in all_rec_ids:
 
@@ -446,7 +399,6 @@ def diarizer(full_csv, split_type):
             _, wavs, lens = next(iter(diary_set_loader))[0]
             # Initialize the model and perform pre-training
             _ = compute_embeddings(wavs, lens, init_params=True)
-            # We don't actually need to set glob_mean
 
             # Download models from the web if needed
             if "https://" in params.embedding_file:
