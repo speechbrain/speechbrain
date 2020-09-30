@@ -30,15 +30,14 @@ class CategoricalEncoder:
         for data_coll in data_collections:
             for data_obj_key in data_coll:
                 data_obj = data_coll[data_obj_key]
-                for sup in data_obj["supervision"]:
-                    for sup_key in sup.keys():
-                        if sup_key == supervision:
-                            if isinstance(sup[sup_key], (list, tuple)):
-                                all_labs.update(set(sup[sup_key]))
-                            elif isinstance(sup[sup_key], (str)):
-                                all_labs.add(sup[sup_key])
-                            else:
-                                raise NotImplementedError
+                for sup in data_obj.keys():
+                    if sup == supervision:
+                        if isinstance(data_obj[sup], (list, tuple)):
+                            all_labs.update(set(data_obj[sup]))
+                        elif isinstance(data_obj[sup], (str)):
+                            all_labs.add(data_obj[sup])
+                        else:
+                            raise NotImplementedError
 
         if init_dict:
             self.lab2indx = init_dict
