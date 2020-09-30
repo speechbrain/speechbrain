@@ -1297,6 +1297,8 @@ class LiGRU_Layer(torch.jit.ScriptModule):
             self.act = torch.nn.Tanh().to(device)
         elif nonlinearity == "sin":
             self.act = torch.sin.to(device)
+        elif nonlinearity == "leaky_relu":
+            self.act = torch.nn.LeakyReLU().to(device)
         else:
             self.act = torch.nn.ReLU().to(device)
 

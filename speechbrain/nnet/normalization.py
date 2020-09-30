@@ -42,6 +42,7 @@ class BatchNorm1d(nn.Module):
         affine=True,
         track_running_stats=True,
         combine_batch_time=False,
+        skip_transpose=False,
     ):
         super().__init__()
         self.eps = eps
@@ -49,6 +50,7 @@ class BatchNorm1d(nn.Module):
         self.affine = affine
         self.track_running_stats = track_running_stats
         self.combine_batch_time = combine_batch_time
+        self.skip_transpose = skip_transpose
 
     def init_params(self, first_input):
         """
@@ -57,7 +59,10 @@ class BatchNorm1d(nn.Module):
         first_input : tensor
             A first input used for initializing the parameters.
         """
-        fea_dim = first_input.shape[-1]
+        if self.skip_transpose:
+            fea_dim = first_input.shape[1]
+        else:
+            fea_dim = first_input.shape[-1]
 
         self.norm = nn.BatchNorm1d(
             fea_dim,
@@ -88,14 +93,14 @@ class BatchNorm1d(nn.Module):
                     shape_or[0] * shape_or[1], shape_or[3], shape_or[2]
                 )
 
-        else:
+        elif not self.skip_transpose:
             x = x.transpose(-1, 1)
 
         x_n = self.norm(x)
 
         if self.combine_batch_time:
             x_n = x_n.reshape(shape_or)
-        else:
+        elif not self.skip_transpose:
             x_n = x_n.transpose(1, -1)
 
         return x_n
