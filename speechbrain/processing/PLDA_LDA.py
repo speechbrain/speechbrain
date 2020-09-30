@@ -23,10 +23,7 @@ Credits
 import numpy
 import copy
 import pickle
-import sys  # noqa F401
-import time  # noqa F401
 
-# from numpy import linalg
 from scipy import linalg
 
 STAT_TYPE = numpy.float64
@@ -967,8 +964,6 @@ class PLDA:
             self.F = sqr_inv_sigma.T.dot(self.F)
 
             # Replicate self.stat0
-            # index_map = numpy.zeros(vect_size, dtype=int)
-            # _stat0 = local_stat.stat0[:, index_map]
             index_map = numpy.zeros(vect_size, dtype=int)
             _stat0 = local_stat.stat0[:, index_map]
 
