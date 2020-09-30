@@ -7,12 +7,67 @@ from speechbrain.utils.edit_distance import wer_details_for_batch
 from speechbrain.utils.train_logger import summarize_average
 from speechbrain.utils.train_logger import summarize_error_rate
 
+# TODO: Replace local placeholder Dataset class
+from placeholders import ASRMinimalExampleDataset
+
+# TODO: Replace ASR Dataset transforms:
+from placeholders import FuncPipeline
+from placeholders import torchaudio_load
+from placeholders import split_by_whitespace
+from placeholders import ExampleCategoricalEncoder
+from placeholders import to_int_tensor
+
+# TODO: Replace label dict creation
+from placeholders import ASR_example_label2ind, ASR_example_ind2label
+
+# TODO: Replace collate fn:
+from placeholders import ASR_example_collation
+from speechbrain.data_io.dataloader import SaveableDataLoader
+
 experiment_dir = os.path.dirname(os.path.realpath(__file__))
 hyperparams_file = os.path.join(experiment_dir, "hyperparams.yaml")
 data_folder = "../../../../samples/audio_samples/nn_training_samples"
 data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
 with open(hyperparams_file) as fin:
-    hyperparams = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
+    # TODO: Data loading back into YAML:
+    hyperparams = sb.yaml.load_extended_yaml(fin)
+
+    # Placeholders:
+    label_encoder = ExampleCategoricalEncoder(
+        label2ind=ASR_example_label2ind, ind2label=ASR_example_ind2label
+    )
+    # TODO: Make proper transforms
+    text_transform = FuncPipeline(
+        split_by_whitespace, label_encoder.encode_list, to_int_tensor
+    )
+
+    # TODO: Convert minimal example CSV to new YAML format
+    train_data = ASRMinimalExampleDataset(
+        os.path.join(data_folder, "train.csv"),
+        audio_transform=torchaudio_load,
+        text_transform=text_transform,
+    )
+    valid_data = ASRMinimalExampleDataset(
+        os.path.join(data_folder, "dev.csv"),
+        audio_transform=torchaudio_load,
+        text_transform=text_transform,
+    )
+    test_data = ASRMinimalExampleDataset(
+        os.path.join(data_folder, "test.csv"),
+        audio_transform=torchaudio_load,
+        text_transform=text_transform,
+    )
+
+# Placeholders:
+train_loader = SaveableDataLoader(
+    train_data, batch_size=hyperparams.N_batch, collate_fn=ASR_example_collation
+)
+valid_loader = SaveableDataLoader(
+    valid_data, batch_size=1, collate_fn=ASR_example_collation
+)
+test_loader = SaveableDataLoader(
+    valid_data, batch_size=1, collate_fn=ASR_example_collation
+)
 
 
 class CTCBrain(sb.core.Brain):
@@ -46,17 +101,15 @@ class CTCBrain(sb.core.Brain):
         print("Valid PER: %.2f" % summarize_error_rate(valid_stats["PER"]))
 
 
-train_set = hyperparams.train_loader()
-first_x, first_y = next(iter(train_set))
+# TODO: Replace first input fetching
+first_x, first_y = ASR_example_collation([train_data[0]])
 ctc_brain = CTCBrain(
     modules=[hyperparams.model, hyperparams.lin],
     optimizer=hyperparams.optimizer,
     first_inputs=[first_x],
 )
-ctc_brain.fit(
-    range(hyperparams.N_epochs), train_set, hyperparams.valid_loader()
-)
-test_stats = ctc_brain.evaluate(hyperparams.test_loader())
+ctc_brain.fit(range(hyperparams.N_epochs), train_loader, valid_loader)
+test_stats = ctc_brain.evaluate(test_loader)
 print("Test PER: %.2f" % summarize_error_rate(test_stats["PER"]))
 
 
