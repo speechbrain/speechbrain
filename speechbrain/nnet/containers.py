@@ -47,7 +47,10 @@ class Sequential(torch.nn.Module):
         if None in input_shape:
             input_shape = list(input_shape)
             for i, dim in enumerate(input_shape):
-                input_shape[i] = dim if dim is not None else 100
+                if i == 0 and dim is None:
+                    input_shape[i] = 1
+                else:
+                    input_shape[i] = dim if dim is not None else 100
         self.input_shape = input_shape
 
         # Append all the input layers
