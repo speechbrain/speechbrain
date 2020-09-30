@@ -1,3 +1,5 @@
+import copy
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -8,7 +10,6 @@ from speechbrain.lobes.models.block_models.modularity import RIM
 
 # from speechbrain.lobes.models.block_models.modularity import SCOFF
 from reformer_pytorch import Reformer
-from fast_transformers.builders import TransformerEncoderBuilder
 
 
 # from speechbrain.nnet.RNN import LSTM
@@ -498,6 +499,8 @@ class Dual_Transformer_Block(nn.Module):
 
         elif "fasttf" in transformer_type:
 
+            from fast_transformers.builders import TransformerEncoderBuilder
+
             builder = TransformerEncoderBuilder()
 
             builder.n_layers = num_layers
@@ -644,22 +647,11 @@ class Dual_Path_Transformer(nn.Module):
         self,
         in_channels,
         out_channels,
-        transformer_type,
-        num_tf_layers=6,
         num_layers=1,
-        nhead=8,
-        d_ffn=2048,
-        kdim=None,
-        vdim=None,
-        dropout=0.1,
-        activation="relu",
-        return_attention=False,
-        num_modules=1,
-        use_group_comm=False,
         norm="ln",
         K=200,
         num_spks=2,
-        reformer_bucket_size=32,
+        transformer_block=None,
     ):
         super(Dual_Path_Transformer, self).__init__()
         self.K = K
@@ -670,24 +662,7 @@ class Dual_Path_Transformer(nn.Module):
 
         self.dual_mdl = nn.ModuleList([])
         for i in range(num_layers):
-            self.dual_mdl.append(
-                Dual_Transformer_Block(
-                    out_channels,
-                    num_layers=num_tf_layers,
-                    nhead=nhead,
-                    d_ffn=d_ffn,
-                    kdim=kdim,
-                    vdim=vdim,
-                    dropout=dropout,
-                    activation=activation,
-                    return_attention=return_attention,
-                    num_modules=num_modules,
-                    use_group_comm=use_group_comm,
-                    norm=norm,
-                    transformer_type=transformer_type,
-                    reformer_bucket_size=reformer_bucket_size,
-                )
-            )
+            self.dual_mdl.append(copy.deepcopy(transformer_block))
 
         self.conv2d = nn.Conv2d(
             out_channels, out_channels * num_spks, kernel_size=1
