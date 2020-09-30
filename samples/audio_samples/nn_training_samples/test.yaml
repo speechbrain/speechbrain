@@ -1,0 +1,13 @@
+# yamllint disable
+spk1_snt6:
+    phones: [dh, ax, cl, p, eh, n, s, el, z, hh, ae, v, ao, l, vcl, b, ih, n, y, uw, z, vcl]
+    spk_id: spk1
+    alignment_file: ALIGNMENTS_ROOT/spk1_snt6.pkl
+    waveforms:
+        files: DATASET_ROOT/spk1_snt6.wav
+spk2_snt6:
+    phones: [k, ae, n, vcl, d, cl, p, eh, r, z, l, ae, cl, k, f, uh, l, f, l, ey, v]
+    spk_id: spk2
+    alignment_file: ALIGNMENTS_ROOT/spk2_snt6.pkl
+    waveforms:
+        files: DATASET_ROOT/spk2_snt6.wav
