@@ -32,8 +32,9 @@ Example
 >>> assert next(iter(new_dataloader)) == dataset[4]
 
 Authors:
-  * Aku Rouhe 2020
+  * Aku Rouhe 2020, Samuele Cornell
 """
+import torch
 from torch.utils.data import DataLoader
 from torch.utils.data.dataloader import _BaseDataLoaderIter
 import logging
@@ -43,6 +44,7 @@ from speechbrain.utils.checkpoints import (
     mark_as_saver,
     mark_as_loader,
 )
+from speechbrain.data_io.utils import batch_pad_right
 
 logger = logging.getLogger(__name__)
 
@@ -154,3 +156,18 @@ class SaveableDataLoader(DataLoader):
                 return
             else:
                 self._speechbrain_recovery_skip_to = int(saved)
+
+
+def collate_pad(example_list, mode="constant", value=0.0):
+    keys = example_list[0].keys()
+
+    out = {}
+    for k in keys:
+        out[k] = []
+        for ex in example_list:
+            out[k].append(ex[k])
+
+        if isinstance(out[k][0], (torch.Tensor)):
+            out[k] = batch_pad_right(out[k], mode=mode, value=value)
+
+    return out
