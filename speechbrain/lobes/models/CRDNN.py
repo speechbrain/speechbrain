@@ -56,6 +56,10 @@ class CRDNN(Sequential):
         The number of linear neural blocks to include.
     dnn_neurons : int
         The number of neurons in the linear layers.
+    projection_dim : int
+        The number of neurons in the projection layer.
+        This layer is used to reduce the size of the flatened
+        representation obtained after the CNN blocks.
 
     Example
     -------
@@ -85,6 +89,7 @@ class CRDNN(Sequential):
         rnn_re_init=False,
         dnn_blocks=2,
         dnn_neurons=512,
+        projection_dim=-1,
     ):
 
         blocks = []
@@ -131,6 +136,22 @@ class CRDNN(Sequential):
                 Pooling1d(
                     pool_type="max", kernel_size=time_pooling_size, pool_axis=1,
                 )
+            )
+
+        # This projection helps reducing the number of parameters
+        # when using large number of CNN filters.
+        # Large numbers of CNN filters + large features
+        # often lead to very large flattened layers
+        # This layer projects it back to something reasonable
+        if projection_dim != -1:
+            blocks.extend(
+                [
+                    Linear(
+                        n_neurons=projection_dim, bias=True, combine_dims=True,
+                    ),
+                    LayerNorm(),
+                    activation(),
+                ]
             )
 
         if rnn_layers > 0:
