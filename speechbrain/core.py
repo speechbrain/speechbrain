@@ -254,7 +254,7 @@ class Brain:
 
         # Initialize parameters
         if first_inputs is not None:
-            self.compute_forward(*first_inputs, init_params=True)
+            self.compute_forward(first_inputs, init_params=True)
 
             if self.optimizer is not None:
                 self.optimizer.init_params(self.modules)
@@ -354,20 +354,19 @@ class Brain:
             item includes a statistic about the batch, including the loss.
             (e.g. ``{"loss": 0.1, "accuracy": 0.9}``)
         """
-        inputs, targets = batch
 
         # Managing automatic mixed precision
         if self.auto_mix_prec:
             with torch.cuda.amp.autocast():
-                predictions = self.compute_forward(inputs)
-                loss, stats = self.compute_objectives(predictions, targets)
+                predictions = self.compute_forward(batch)
+                loss, stats = self.compute_objectives(predictions, batch)
                 self.scaler.scale(loss).backward()
                 self.scaler.step(self.optimizer.optim)
                 self.optimizer.zero_grad()
                 self.scaler.update()
         else:
-            predictions = self.compute_forward(inputs)
-            loss, stats = self.compute_objectives(predictions, targets)
+            predictions = self.compute_forward(batch)
+            loss, stats = self.compute_objectives(predictions, batch)
             loss.backward()
             self.optimizer.step()
             self.optimizer.zero_grad()
@@ -399,9 +398,8 @@ class Brain:
             includes a statistic about the batch, including the loss.
             (e.g. ``{"loss": 0.1, "accuracy": 0.9}``)
         """
-        inputs, targets = batch
-        out = self.compute_forward(inputs, stage=stage)
-        loss, stats = self.compute_objectives(out, targets, stage=stage)
+        out = self.compute_forward(batch, stage=stage)
+        loss, stats = self.compute_objectives(out, batch, stage=stage)
         stats["loss"] = loss.detach()
         return stats
 
