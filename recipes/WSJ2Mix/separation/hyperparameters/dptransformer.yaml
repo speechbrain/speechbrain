@@ -9,7 +9,7 @@
 seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 use_tensorboard: True
-experiment_name: 11-dptransf-reformer
+experiment_name: 12-dptransf-fasttf-linear
 tensorboard_logs: !ref runs/<experiment_name>
 output_folder: !ref results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
@@ -72,8 +72,8 @@ augmentation: !new:speechbrain.lobes.augment.tdsa.TimeDomainSpecAugment
     speeds: [95, 100, 105]
 
 N_encoder_out: 256
-kernel_size: 16
-kernel_stride: 8
+kernel_size: 8
+kernel_stride: 4
 
 # Dual_Path_RNN:
 #  in_channels: 256
@@ -94,7 +94,7 @@ Encoder: !new:speechbrain.lobes.models.dual_pathrnn.Encoder
     out_channels: !ref <N_encoder_out>
 
 MaskNet: !new:speechbrain.lobes.models.dual_pathrnn.Dual_Path_Transformer
-    transformer_type: 'reformer'
+    transformer_type: 'fasttf_linear'
     in_channels: !ref <N_encoder_out>
     out_channels: 256
     norm: ln
@@ -103,7 +103,7 @@ MaskNet: !new:speechbrain.lobes.models.dual_pathrnn.Dual_Path_Transformer
     d_ffn: 2048
     nhead: 8
     num_layers: 2
-    K: 256
+    K: 250
     activation: 'relu'
     reformer_bucket_size: 8
 

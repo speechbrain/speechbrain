@@ -8,6 +8,7 @@ from speechbrain.lobes.models.block_models.modularity import RIM
 
 # from speechbrain.lobes.models.block_models.modularity import SCOFF
 from reformer_pytorch import Reformer
+from fast_transformers.builders import TransformerEncoderBuilder
 
 
 # from speechbrain.nnet.RNN import LSTM
@@ -495,6 +496,33 @@ class Dual_Transformer_Block(nn.Module):
                 causal=False,
             )
 
+        elif "fasttf" in transformer_type:
+
+            builder = TransformerEncoderBuilder()
+
+            builder.n_layers = num_layers
+            builder.n_heads = nhead
+            builder.feed_forward_dimensions = d_ffn
+            builder.query_dimensions = out_channels // nhead
+            builder.value_dimensions = out_channels // nhead
+            builder.dropout = dropout
+            builder.attention_dropout = dropout
+
+            if transformer_type == "fasttf_linear":
+                builder.attention_type = "linear"
+            elif transformer_type == "fasttf_reformer":
+                builder.attention_type = "reformer"
+            else:
+                raise ValueError("Unknown transformer type")
+
+            self.intra_mdl = builder.get()
+            self.inter_mdl = builder.get()
+
+            # encoderlayer = TransformerEncoderLayer(attention, d_model=out_channels, n_heads=nhead,
+            #                                       d_ff=d_ffn, dropout=dropout, activation=activation)
+
+            # self.intra_mdl = TransformerEncoder(layers, norm_layer=None)
+
         elif transformer_type == "speechbrain":
             if activation == "relu":
                 activation = nn.ReLU
@@ -573,7 +601,7 @@ class Dual_Transformer_Block(nn.Module):
         # [BK, S, H]
         if self.transformer_type == "speechbrain":
             inter_rnn = self.inter_mdl(inter_rnn, init_params=init_params)
-        elif self.transformer_type == "reformer":
+        elif self.transformer_type in ["reformer", "fasttf_reformer"]:
             # pad zeros at the end
             pad_size = (self.reformer_bucket_size * 2) - (
                 inter_rnn.shape[1] % (self.reformer_bucket_size * 2)
