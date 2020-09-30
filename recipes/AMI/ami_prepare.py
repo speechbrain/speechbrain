@@ -43,7 +43,7 @@ def prepare_ami(
     Arguments
     ---------
     data_folder : str
-        Path to the folder where the original VoxCeleb dataset is stored.
+        Path to the folder where the original amicorpus is stored.
     manual_annot_folder : str
         Directory where the manual annotations are stored.
     save_folder : str
@@ -51,10 +51,12 @@ def prepare_ami(
     split_type : str
         Standard dataset split. See ami_splits.py for more information.
         Allowed split_type: "scenario_only", "full_corpus" or "full_corpus_asr"
+    skip_TNO: bool
+        Skips TNO meeting recordings if True.
     mic_type : str
         Type of microphone to be used.
     vad_type : str
-        Type of VAD. Kept for future when system VAD will be added.
+        Type of VAD. Kept for future when VAD will be added.
     max_subseg_dur : float
         Duration in seconds of a subsegments to be prepared from larger segments.
     overlap : float
@@ -63,8 +65,8 @@ def prepare_ami(
     Example
     -------
     >>> from recipes.AMI.ami_prepare import prepare_ami
-    >>> data_folder = 'data/amicorpus/'
-    >>> manual_annot_folder = 'annot/manual_annotations/'
+    >>> data_folder = '/network/datasets/ami/amicorpus/'
+    >>> manual_annot_folder = '/home/mila/d/dawalatn/nauman/ami_public_manual/'
     >>> save_folder = 'results/save/'
     >>> split_type = 'full_corpus_asr'
     >>> mic_type = 'Lapel'
@@ -97,7 +99,7 @@ def prepare_ami(
         )
         return
 
-    msg = "\tCreating csv file for the VoxCeleb1 Dataset.."
+    msg = "\tCreating csv file for the AMI Dataset.."
     logger.debug(msg)
 
     # Get the split
@@ -185,7 +187,7 @@ def get_RTTM_per_rec(segs, spkrs_list, rec_id):
 
         if float(row[1]) < float(row[0]):
             msg1 = (
-                "Possibly Incorrect Annotation Found!! transcriber_start (%s) > transcriber_start (%s)"
+                "Possibly Incorrect Annotation Found!! transcriber_start (%s) > transcriber_end (%s)"
                 % (row[0], row[1])
             )
             msg2 = (
