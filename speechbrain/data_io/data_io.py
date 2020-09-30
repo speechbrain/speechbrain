@@ -21,29 +21,26 @@ import torchaudio
 logger = logging.getLogger(__name__)
 
 
-def read_audio_example(example):
-    """
-    example with {"supervision": {"start" : x "stop": y ... etc}
-                 {"waveforms": {"files": , channels,
-    """
+def read_wav(waveforms_obj):
+    files = waveforms_obj["files"]
+    if not isinstance(files, list):
+        files = [files]
 
     waveforms = []
-    for f in example["waveforms"]["files"]:
+    for f in files:
         if (
-            "start" not in example["supervision"].keys()
-            or "stop" not in example["supervision"].keys()
+            "start" not in waveforms_obj.keys()
+            or "stop" not in waveforms_obj.keys()
         ):
-            tmp = torchaudio.load(f)
+            tmp, fs = torchaudio.load(f)
             waveforms.append(tmp)
         else:
-            num_frames = (
-                example["supervision"]["stop"] - example["supervision"]["start"]
-            )
-            offset = example["supervision"]["start"]
+            num_frames = waveforms_obj["stop"] - waveforms_obj["start"]
+            offset = waveforms_obj["start"]
             tmp, fs = torchaudio.load(f, num_frames=num_frames, offset=offset)
             waveforms.append(tmp)
 
-    return torch.cat(waveforms, 0)  # torch.cat(waveforms, 0)
+    return torch.cat(waveforms, 0)
 
 
 def convert_index_to_lab(batch, ind2lab):
