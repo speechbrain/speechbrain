@@ -3,15 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import copy
 
-from speechbrain.lobes.models.block_models.modularity import RIM
 from speechbrain.nnet.linear import Linear
 from speechbrain.lobes.models.transformer.Transformer import TransformerEncoder
-
-# from speechbrain.lobes.models.block_models.modularity import SCOFF
-
-
-# from speechbrain.nnet.RNN import LSTM
-
 
 EPS = 1e-8
 
@@ -432,6 +425,62 @@ class Dual_Path_RNN(nn.Module):
         return input
 
 
+class FastTransformerBlock(nn.Module):
+    """
+    This block is used to implement fast transformer models with efficient attention.
+    The implementations are taken from https://fast-transformers.github.io/
+    """
+
+    def __init__(
+        self,
+        attention_type,
+        out_channels,
+        num_layers=6,
+        nhead=8,
+        d_ffn=1024,
+        dropout=0,
+        activation="relu",
+    ):
+        super(FastTransformerBlock, self).__init__()
+        from fast_transformers.builders import TransformerEncoderBuilder
+
+        # cem: there is another way of building the transformer.. I think this one is NOT the most flexible way, but it's easier.
+        builder = TransformerEncoderBuilder()
+
+        builder.n_layers = num_layers
+        builder.n_heads = nhead
+        builder.feed_forward_dimensions = d_ffn
+        builder.query_dimensions = out_channels // nhead
+        builder.value_dimensions = out_channels // nhead
+        builder.dropout = dropout
+        builder.attention_dropout = dropout
+        builder.attention_type = self.attention_type = attention_type
+
+        self.mdl = builder.get()
+
+    def forward(self, x, init_params=False):
+        if self.attention_type == "reformer":
+            # not working for now
+
+            # pad zeros at the end
+            pad_size = (self.reformer_bucket_size * 2) - (
+                x.shape[1] % (self.reformer_bucket_size * 2)
+            )
+            device = x.device
+            x_padded = torch.cat(
+                [x, torch.zeros(x.size(0), pad_size, x.size(-1)).to(device)],
+                dim=1,
+            )
+
+            # apply the model
+            x_padded = self.mdl(x_padded)
+
+            # get rid of zeros at the end
+            x = x_padded[:, :-pad_size, :]
+        else:
+            return self.mdl(x)
+
+
 class PytorchTransformerBlock(nn.Module):
     def __init__(
         self,
@@ -456,25 +505,6 @@ class PytorchTransformerBlock(nn.Module):
 
     def forward(self, x, init_params=False):
         return self.mdl(x)
-
-        # in_channels,
-        # out_channels,
-        # transformer_type,
-        # num_tf_layers=6,
-        # num_layers=1,
-        # nhead=8,
-        # d_ffn=2048,
-        # kdim=None,
-        # vdim=None,
-        # dropout=0.1,
-        # activation="relu",
-        # return_attention=False,
-        # num_modules=1,
-        # use_group_comm=False,
-        # norm="ln",
-        # K=200,
-        # num_spks=2,
-        # reformer_bucket_size=32,
 
 
 class SBTransformerBlock(nn.Module):
@@ -723,345 +753,3 @@ class Dual_Path_Model(nn.Module):
             input = input[:, :, :-gap]
 
         return input
-
-
-class Dual_RIM_Block(nn.Module):
-    """
-#            norm: gln = "Global Norm", cln = "Cumulative Norm", ln = "Layer Norm"
-    """
-
-    def __init__(
-        self,
-        device,
-        in_channels,
-        out_channels,
-        hidden_channels,
-        num_units,
-        k,
-        rnn_type="GRU",
-        norm="ln",
-        dropout=0.0,
-        num_layers=1,
-        bidirectional=True,
-        version=1,
-        attention_out=32,
-        num_rules=0,
-        rule_time_steps=0,
-    ):
-        super(Dual_RIM_Block, self).__init__()
-        # RNN model
-        self.intra_mdl = RIM(
-            device,
-            input_size=in_channels,
-            hidden_size=hidden_channels,
-            num_units=num_units,
-            k=k,
-            rnn_cell=rnn_type,
-            n_layers=num_layers,
-            bidirectional=bidirectional,
-            version=version,
-            attention_out=attention_out,
-            num_rules=num_rules,
-            rule_time_steps=rule_time_steps,
-            batch_first=True,
-            dropout=dropout,
-        )
-
-        self.inter_mdl = RIM(
-            device,
-            input_size=in_channels,
-            hidden_size=hidden_channels,
-            num_units=num_units,
-            k=k,
-            rnn_cell=rnn_type,
-            n_layers=num_layers,
-            bidirectional=bidirectional,
-            version=version,
-            attention_out=attention_out,
-            num_rules=num_rules,
-            rule_time_steps=rule_time_steps,
-            batch_first=True,
-            dropout=dropout,
-        )
-
-        self.intra_norm = select_norm(norm, out_channels, 4)
-        self.inter_norm = select_norm(norm, out_channels, 4)
-
-        # Linear
-        self.intra_linear = Linear(out_channels)
-        self.inter_linear = Linear(out_channels)
-
-    def forward(self, x, init_params=True):
-        """
-           x: [B, N, K, S]
-           out: [Spks, B, N, K, S]
-        """
-        B, N, K, S = x.shape
-        # intra RNN
-        # [BS, K, N]
-        intra_rnn = x.permute(0, 3, 2, 1).contiguous().view(B * S, K, N)
-        # [BS, K, H]
-        intra_rnn, _ = self.intra_mdl(intra_rnn, init_params=init_params)
-        # intra_rnn = self.intra_rnn(intra_rnn, init_params=init_params)
-        # [BS, K, N]
-        intra_rnn = self.intra_linear(
-            intra_rnn.contiguous().view(B * S * K, -1), init_params=init_params
-        ).view(B * S, K, -1)
-        # [B, S, K, N]
-        intra_rnn = intra_rnn.view(B, S, K, N)
-        # [B, N, K, S]
-        intra_rnn = intra_rnn.permute(0, 3, 2, 1).contiguous()
-        intra_rnn = self.intra_norm(intra_rnn)
-
-        # [B, N, K, S]
-        intra_rnn = intra_rnn + x
-        # out = intra_rnn
-
-        # inter RNN
-        # [BK, S, N]
-        inter_rnn = intra_rnn.permute(0, 2, 3, 1).contiguous().view(B * K, S, N)
-        # [BK, S, H]
-        inter_rnn, _ = self.inter_mdl(inter_rnn, init_params=init_params)
-        # [BK, S, N]
-        inter_rnn = self.inter_linear(
-            inter_rnn.contiguous().view(B * S * K, -1), init_params=init_params
-        ).view(B * K, S, -1)
-        # [B, K, S, N]
-        inter_rnn = inter_rnn.view(B, K, S, N)
-        # [B, N, K, S]
-        inter_rnn = inter_rnn.permute(0, 3, 1, 2).contiguous()
-        inter_rnn = self.inter_norm(inter_rnn)
-        # [B, N, K, S]
-        out = inter_rnn + intra_rnn
-
-        return out
-
-
-class Dual_Path_RIM(nn.Module):
-    def __init__(
-        self,
-        device,
-        in_channels,
-        out_channels,
-        hidden_channels,
-        num_rim_layers=1,
-        num_layers=6,
-        num_units=4,
-        k=4,
-        rnn_type="GRU",
-        norm="ln",
-        dropout=0.0,
-        bidirectional=True,
-        version=1,
-        K=200,
-        num_spks=2,
-    ):
-        super(Dual_Path_RIM, self).__init__()
-        self.K = K
-        self.num_spks = num_spks
-        self.num_layers = num_layers
-        self.norm = select_norm(norm, in_channels, 3)
-        self.conv1d = nn.Conv1d(in_channels, out_channels, 1, bias=False)
-
-        self.dual_mdl = nn.ModuleList([])
-        for i in range(num_layers):
-            self.dual_mdl.append(
-                Dual_RIM_Block(
-                    device,
-                    out_channels,
-                    out_channels,
-                    hidden_channels,
-                    num_units=num_units,
-                    k=k,
-                    rnn_type=rnn_type,
-                    norm=norm,
-                    dropout=dropout,
-                    num_layers=num_rim_layers,
-                    bidirectional=bidirectional,
-                    version=version,
-                )
-            )
-
-        self.conv2d = nn.Conv2d(
-            out_channels, out_channels * num_spks, kernel_size=1
-        )
-        self.end_conv1x1 = nn.Conv1d(out_channels, in_channels, 1, bias=False)
-        self.prelu = nn.PReLU()
-        self.activation = nn.ReLU()
-        # gated output layer
-        self.output = nn.Sequential(
-            nn.Conv1d(out_channels, out_channels, 1), nn.Tanh()
-        )
-        self.output_gate = nn.Sequential(
-            nn.Conv1d(out_channels, out_channels, 1), nn.Sigmoid()
-        )
-
-    def forward(self, x, init_params=True):
-        """
-           x: [B, N, L]
-        """
-        # [B, N, L]
-        x = self.norm(x)
-        # [B, N, L]
-        x = self.conv1d(x)
-        # [B, N, K, S]
-        x, gap = self._Segmentation(x, self.K)
-        # [B, N*spks, K, S]
-        for i in range(self.num_layers):
-            x = self.dual_mdl[i](x, init_params=init_params)
-        x = self.prelu(x)
-        x = self.conv2d(x)
-        # [B*spks, N, K, S]
-        B, _, K, S = x.shape
-        x = x.view(B * self.num_spks, -1, K, S)
-        # [B*spks, N, L]
-        x = self._over_add(x, gap)
-        x = self.output(x) * self.output_gate(x)
-        # [spks*B, N, L]
-        x = self.end_conv1x1(x)
-        # [B*spks, N, L] -> [B, spks, N, L]
-        _, N, L = x.shape
-        x = x.view(B, self.num_spks, N, L)
-        x = self.activation(x)
-        # [spks, B, N, L]
-        x = x.transpose(0, 1)
-
-        return x
-
-    def _padding(self, input, K):
-        """
-           padding the audio times
-           K: chunks of length
-           P: hop size
-           input: [B, N, L]
-        """
-        B, N, L = input.shape
-        P = K // 2
-        gap = K - (P + L % K) % K
-        if gap > 0:
-            pad = torch.Tensor(torch.zeros(B, N, gap)).type(input.type())
-            input = torch.cat([input, pad], dim=2)
-
-        _pad = torch.Tensor(torch.zeros(B, N, P)).type(input.type())
-        input = torch.cat([_pad, input, _pad], dim=2)
-
-        return input, gap
-
-    def _Segmentation(self, input, K):
-        """
-           the segmentation stage splits
-           K: chunks of length
-           P: hop size
-           input: [B, N, L]
-           output: [B, N, K, S]
-        """
-        B, N, L = input.shape
-        P = K // 2
-        input, gap = self._padding(input, K)
-        # [B, N, K, S]
-        input1 = input[:, :, :-P].contiguous().view(B, N, -1, K)
-        input2 = input[:, :, P:].contiguous().view(B, N, -1, K)
-        input = (
-            torch.cat([input1, input2], dim=3).view(B, N, -1, K).transpose(2, 3)
-        )
-
-        return input.contiguous(), gap
-
-    def _over_add(self, input, gap):
-        """
-           Merge sequence
-           input: [B, N, K, S]
-           gap: padding length
-           output: [B, N, L]
-        """
-        B, N, K, S = input.shape
-        P = K // 2
-        # [B, N, S, K]
-        input = input.transpose(2, 3).contiguous().view(B, N, -1, K * 2)
-
-        input1 = input[:, :, :, :K].contiguous().view(B, N, -1)[:, :, P:]
-        input2 = input[:, :, :, K:].contiguous().view(B, N, -1)[:, :, :-P]
-        input = input1 + input2
-        # [B, N, L]
-        if gap > 0:
-            input = input[:, :, :-gap]
-
-        return input
-
-        # To clean up later
-        # elif transformer_type == "reformer":
-        #
-        #     self.intra_mdl = Reformer(
-        #         dim=out_channels,
-        #         depth=num_layers,
-        #         max_seq_len=8192,
-        #         heads=nhead,
-        #         lsh_dropout=dropout,
-        #         causal=False,
-        #     )
-        #
-        #     self.inter_mdl = Reformer(
-        #         dim=out_channels,
-        #         depth=num_layers,
-        #         bucket_size=reformer_bucket_size,
-        #         max_seq_len=8192,
-        #         heads=nhead,
-        #         lsh_dropout=dropout,
-        #         causal=False,
-        #     )
-        #
-        # elif "fasttf" in transformer_type:
-        #
-        #     from fast_transformers.builders import TransformerEncoderBuilder
-        #
-        #     builder = TransformerEncoderBuilder()
-        #
-        #     builder.n_layers = num_layers
-        #     builder.n_heads = nhead
-        #     builder.feed_forward_dimensions = d_ffn
-        #     builder.query_dimensions = out_channels // nhead
-        #     builder.value_dimensions = out_channels // nhead
-        #     builder.dropout = dropout
-        #     builder.attention_dropout = dropout
-        #
-        #     if transformer_type == "fasttf_linear":
-        #         builder.attention_type = "linear"
-        #     elif transformer_type == "fasttf_reformer":
-        #         builder.attention_type = "reformer"
-        #     else:
-        #         raise ValueError("Unknown transformer type")
-        #
-        #     self.intra_mdl = builder.get()
-        #     self.inter_mdl = builder.get()
-        #
-        #     # encoderlayer = TransformerEncoderLayer(attention, d_model=out_channels, n_heads=nhead,
-        #     #                                       d_ff=d_ffn, dropout=dropout, activation=activation)
-        #
-        #     # self.intra_mdl = TransformerEncoder(layers, norm_layer=None)
-        #
-
-        # if self.transformer_type == "speechbrain":
-        #     inter_rnn = self.inter_mdl(inter_rnn, init_params=init_params)
-        # elif self.transformer_type in ["reformer", "fasttf_reformer"]:
-        #     # pad zeros at the end
-        #     pad_size = (self.reformer_bucket_size * 2) - (
-        #         inter_rnn.shape[1] % (self.reformer_bucket_size * 2)
-        #     )
-        #     device = inter_rnn.device
-        #     inter_rnn_padded = torch.cat(
-        #         [
-        #             inter_rnn,
-        #             torch.zeros(
-        #                 inter_rnn.size(0), pad_size, inter_rnn.size(-1)
-        #             ).to(device),
-        #         ],
-        #         dim=1,
-        #     )
-        #
-        #     # apply the model
-        #     inter_rnn_padded = self.inter_mdl(inter_rnn_padded)
-        #
-        #     # get rid of zeros at the end
-        #     inter_rnn = inter_rnn_padded[:, :-pad_size, :]
-        # else:
-        #     inter_rnn = self.inter_mdl(inter_rnn)
