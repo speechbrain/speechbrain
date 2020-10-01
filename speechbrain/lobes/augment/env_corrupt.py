@@ -138,12 +138,13 @@ class EnvCorrupt(torch.nn.Module):
         """
         # Augmentation
         if self.training:
-            if hasattr(self, "add_reverb"):
-                waveforms = self.add_reverb(waveforms, lengths)
-            if hasattr(self, "add_babble"):
-                waveforms = self.add_babble(waveforms, lengths)
-            if hasattr(self, "add_noise"):
-                waveforms = self.add_noise(waveforms, lengths)
+            with torch.no_grad():
+                if hasattr(self, "add_reverb"):
+                    waveforms = self.add_reverb(waveforms, lengths)
+                if hasattr(self, "add_babble"):
+                    waveforms = self.add_babble(waveforms, lengths)
+                if hasattr(self, "add_noise"):
+                    waveforms = self.add_noise(waveforms, lengths)
 
         return waveforms
 

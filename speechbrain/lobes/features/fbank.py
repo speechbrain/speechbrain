@@ -108,16 +108,17 @@ class Fbank(torch.nn.Module):
         wav : tensor
             A batch of audio signals to transform to features.
         """
-        STFT = self.compute_STFT(wav)
-        mag = spectral_magnitude(STFT)
-        fbanks = self.compute_fbanks(mag)
+        with torch.no_grad():
+            STFT = self.compute_STFT(wav)
+            mag = spectral_magnitude(STFT)
+            fbanks = self.compute_fbanks(mag)
 
-        if self.deltas:
-            delta1 = self.compute_deltas(fbanks)
-            delta2 = self.compute_deltas(delta1)
-            fbanks = torch.cat([fbanks, delta1, delta2], dim=2)
+            if self.deltas:
+                delta1 = self.compute_deltas(fbanks)
+                delta2 = self.compute_deltas(delta1)
+                fbanks = torch.cat([fbanks, delta1, delta2], dim=2)
 
-        if self.context:
-            fbanks = self.context_window(fbanks)
+            if self.context:
+                fbanks = self.context_window(fbanks)
 
         return fbanks

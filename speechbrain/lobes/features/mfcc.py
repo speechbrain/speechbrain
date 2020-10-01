@@ -113,17 +113,18 @@ class MFCC(torch.nn.Module):
         wav : tensor
             A batch of audio signals to transform to features.
         """
-        STFT = self.compute_STFT(wav)
-        mag = spectral_magnitude(STFT)
-        fbanks = self.compute_fbanks(mag)
-        mfccs = self.compute_dct(fbanks)
+        with torch.no_grad():
+            STFT = self.compute_STFT(wav)
+            mag = spectral_magnitude(STFT)
+            fbanks = self.compute_fbanks(mag)
+            mfccs = self.compute_dct(fbanks)
 
-        if self.deltas:
-            delta1 = self.compute_deltas(mfccs)
-            delta2 = self.compute_deltas(delta1)
-            mfccs = torch.cat([mfccs, delta1, delta2], dim=2)
+            if self.deltas:
+                delta1 = self.compute_deltas(mfccs)
+                delta2 = self.compute_deltas(delta1)
+                mfccs = torch.cat([mfccs, delta1, delta2], dim=2)
 
-        if self.context:
-            mfccs = self.context_window(mfccs)
+            if self.context:
+                mfccs = self.context_window(mfccs)
 
         return mfccs
