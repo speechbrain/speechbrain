@@ -1,11 +1,11 @@
-import copy
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import copy
 
 from speechbrain.lobes.models.block_models.modularity import RIM
 from speechbrain.nnet.linear import Linear
+from speechbrain.lobes.models.transformer.Transformer import TransformerEncoder
 
 # from speechbrain.lobes.models.block_models.modularity import SCOFF
 
@@ -432,196 +432,7 @@ class Dual_Path_RNN(nn.Module):
         return input
 
 
-class Dual_Transformer_Block(nn.Module):
-    """
-#            norm: gln = "Global Norm", cln = "Cumulative Norm", ln = "Layer Norm"
-    """
-
-    def __init__(
-        self, out_channels, norm="ln", reformer_bucket_size=32,
-    ):
-        super(Dual_Transformer_Block, self).__init__()
-        self.reformer_bucket_size = reformer_bucket_size
-
-        # elif transformer_type == "reformer":
-        #
-        #     self.intra_mdl = Reformer(
-        #         dim=out_channels,
-        #         depth=num_layers,
-        #         max_seq_len=8192,
-        #         heads=nhead,
-        #         lsh_dropout=dropout,
-        #         causal=False,
-        #     )
-        #
-        #     self.inter_mdl = Reformer(
-        #         dim=out_channels,
-        #         depth=num_layers,
-        #         bucket_size=reformer_bucket_size,
-        #         max_seq_len=8192,
-        #         heads=nhead,
-        #         lsh_dropout=dropout,
-        #         causal=False,
-        #     )
-        #
-        # elif "fasttf" in transformer_type:
-        #
-        #     from fast_transformers.builders import TransformerEncoderBuilder
-        #
-        #     builder = TransformerEncoderBuilder()
-        #
-        #     builder.n_layers = num_layers
-        #     builder.n_heads = nhead
-        #     builder.feed_forward_dimensions = d_ffn
-        #     builder.query_dimensions = out_channels // nhead
-        #     builder.value_dimensions = out_channels // nhead
-        #     builder.dropout = dropout
-        #     builder.attention_dropout = dropout
-        #
-        #     if transformer_type == "fasttf_linear":
-        #         builder.attention_type = "linear"
-        #     elif transformer_type == "fasttf_reformer":
-        #         builder.attention_type = "reformer"
-        #     else:
-        #         raise ValueError("Unknown transformer type")
-        #
-        #     self.intra_mdl = builder.get()
-        #     self.inter_mdl = builder.get()
-        #
-        #     # encoderlayer = TransformerEncoderLayer(attention, d_model=out_channels, n_heads=nhead,
-        #     #                                       d_ff=d_ffn, dropout=dropout, activation=activation)
-        #
-        #     # self.intra_mdl = TransformerEncoder(layers, norm_layer=None)
-        #
-        # elif transformer_type == "speechbrain":
-        #     if activation == "relu":
-        #         activation = nn.ReLU
-        #     elif activation == "gelu":
-        #         activation = nn.GELU
-        #     else:
-        #         raise ValueError("unknown activation")
-        #
-        #     self.intra_mdl = TransformerEncoder(
-        #         num_layers,
-        #         nhead,
-        #         d_ffn,
-        #         kdim,
-        #         vdim,
-        #         dropout,
-        #         activation,
-        #         return_attention,
-        #         num_modules,
-        #         use_group_comm,
-        #     )
-        #
-        #     self.inter_mdl = TransformerEncoder(
-        #         num_layers,
-        #         nhead,
-        #         d_ffn,
-        #         kdim,
-        #         vdim,
-        #         dropout,
-        #         activation,
-        #         return_attention,
-        #         num_modules,
-        #         use_group_comm,
-        #     )
-        # else:
-        #     raise ValueError("Unknown Transformer Type!!!")
-
-        # Norm
-        self.intra_norm = select_norm(norm, out_channels, 4)
-        self.inter_norm = select_norm(norm, out_channels, 4)
-        # Linear
-        self.intra_linear = Linear(out_channels)
-        self.inter_linear = Linear(out_channels)
-
-    def run_intra_model(self, intra_rnn, init_params):
-        raise NotImplementedError("do not use this class - use a subclass")
-
-    def run_inter_model(self, intra_rnn, init_params):
-        raise NotImplementedError("do not use this class - use a subclass")
-
-    def forward(self, x, init_params=True):
-        """
-           x: [B, N, K, S]
-           out: [Spks, B, N, K, S]
-        """
-        B, N, K, S = x.shape
-        # intra RNN
-        # [BS, K, N]
-        intra_rnn = x.permute(0, 3, 2, 1).contiguous().view(B * S, K, N)
-        # [BS, K, H]
-
-        intra_rnn = self.run_intra_model(intra_rnn, init_params=init_params)
-        # if self.transformer_type == "speechbrain":
-        #     intra_rnn = self.intra_mdl(intra_rnn, init_params=init_params)
-        # else:
-        #     intra_rnn = self.intra_mdl(intra_rnn)
-
-        # [BS, K, N]
-        intra_rnn = self.intra_linear(
-            intra_rnn.contiguous().view(B * S * K, -1), init_params=init_params
-        ).view(B * S, K, -1)
-        # [B, S, K, N]
-        intra_rnn = intra_rnn.view(B, S, K, N)
-        # [B, N, K, S]
-        intra_rnn = intra_rnn.permute(0, 3, 2, 1).contiguous()
-        intra_rnn = self.intra_norm(intra_rnn)
-
-        # [B, N, K, S]
-        intra_rnn = intra_rnn + x
-        # out = intra_rnn
-
-        # inter RNN
-        # [BK, S, N]
-        inter_rnn = intra_rnn.permute(0, 2, 3, 1).contiguous().view(B * K, S, N)
-        # [BK, S, H]
-
-        # if self.transformer_type == "speechbrain":
-        #     inter_rnn = self.inter_mdl(inter_rnn, init_params=init_params)
-        # elif self.transformer_type in ["reformer", "fasttf_reformer"]:
-        #     # pad zeros at the end
-        #     pad_size = (self.reformer_bucket_size * 2) - (
-        #         inter_rnn.shape[1] % (self.reformer_bucket_size * 2)
-        #     )
-        #     device = inter_rnn.device
-        #     inter_rnn_padded = torch.cat(
-        #         [
-        #             inter_rnn,
-        #             torch.zeros(
-        #                 inter_rnn.size(0), pad_size, inter_rnn.size(-1)
-        #             ).to(device),
-        #         ],
-        #         dim=1,
-        #     )
-        #
-        #     # apply the model
-        #     inter_rnn_padded = self.inter_mdl(inter_rnn_padded)
-        #
-        #     # get rid of zeros at the end
-        #     inter_rnn = inter_rnn_padded[:, :-pad_size, :]
-        # else:
-        #     inter_rnn = self.inter_mdl(inter_rnn)
-
-        inter_rnn = self.run_inter_model(inter_rnn, init_params=init_params)
-
-        # [BK, S, N]
-        inter_rnn = self.inter_linear(
-            inter_rnn.contiguous().view(B * S * K, -1), init_params=init_params
-        ).view(B * K, S, -1)
-        # [B, K, S, N]
-        inter_rnn = inter_rnn.view(B, K, S, N)
-        # [B, N, K, S]
-        inter_rnn = inter_rnn.permute(0, 3, 1, 2).contiguous()
-        inter_rnn = self.inter_norm(inter_rnn)
-        # [B, N, K, S]
-        out = inter_rnn + intra_rnn
-
-        return out
-
-
-class PytorchTransformerBlock(Dual_Transformer_Block):
+class PytorchTransformerBlock(nn.Module):
     def __init__(
         self,
         out_channels,
@@ -630,11 +441,8 @@ class PytorchTransformerBlock(Dual_Transformer_Block):
         d_ffn=2048,
         dropout=0.1,
         activation="relu",
-        **kwargs,
     ):
-        super(PytorchTransformerBlock, self).__init__(
-            out_channels=out_channels, **kwargs
-        )
+        super(PytorchTransformerBlock, self).__init__()
 
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=out_channels,
@@ -644,32 +452,134 @@ class PytorchTransformerBlock(Dual_Transformer_Block):
             activation=activation,
         )
         # cem :this encoder thing has a normalization component. we should look at that probably also.
-        self.intra_mdl = nn.TransformerEncoder(
-            encoder_layer, num_layers=num_layers
+        self.mdl = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
+
+    def forward(self, x, init_params=False):
+        return self.mdl(x)
+
+
+class SBTransformerBlock(nn.Module):
+    def __init__(
+        self,
+        num_layers,
+        nhead,
+        d_ffn=2048,
+        kdim=None,
+        vdim=None,
+        dropout=0.1,
+        activation="relu",
+        return_attention=False,
+        num_modules=1,
+        use_group_comm=False,
+    ):
+        super(SBTransformerBlock, self).__init__()
+
+        if activation == "relu":
+            activation = nn.ReLU
+        elif activation == "gelu":
+            activation = nn.GELU
+        else:
+            raise ValueError("unknown activation")
+
+        self.mdl = TransformerEncoder(
+            num_layers,
+            nhead,
+            d_ffn,
+            kdim,
+            vdim,
+            dropout,
+            activation,
+            return_attention,
+            num_modules,
+            use_group_comm,
         )
-        self.inter_mdl = nn.TransformerEncoder(
-            encoder_layer, num_layers=num_layers
-        )
 
-    def run_intra_model(self, intra_rnn, init_params):
-        return self.intra_mdl(intra_rnn)
-
-    def run_inter_model(self, intra_rnn, init_params):
-        return self.inter_mdl(intra_rnn)
+    def forward(self, x, init_params=False):
+        return self.mdl(x, init_params=init_params)
 
 
-class Dual_Path_Transformer(nn.Module):
+class Dual_Computation_Block(nn.Module):
+    """
+#            norm: gln = "Global Norm", cln = "Cumulative Norm", ln = "Layer Norm"
+    """
+
+    def __init__(
+        self, intra_mdl, inter_mdl, out_channels, norm="ln",
+    ):
+        super(Dual_Computation_Block, self).__init__()
+
+        self.intra_mdl = intra_mdl
+        self.inter_mdl = inter_mdl
+
+        # Norm
+        self.intra_norm = select_norm(norm, out_channels, 4)
+        self.inter_norm = select_norm(norm, out_channels, 4)
+
+        # Linear
+        self.intra_linear = Linear(out_channels)
+        self.inter_linear = Linear(out_channels)
+
+    def forward(self, x, init_params=True):
+        """
+           x: [B, N, K, S]
+           out: [Spks, B, N, K, S]
+        """
+        B, N, K, S = x.shape
+        # intra RNN
+        # [BS, K, N]
+        intra = x.permute(0, 3, 2, 1).contiguous().view(B * S, K, N)
+        # [BS, K, H]
+
+        intra = self.intra_mdl(intra, init_params=init_params)
+
+        # [BS, K, N]
+        intra = self.intra_linear(
+            intra.contiguous().view(B * S * K, -1), init_params=init_params
+        ).view(B * S, K, -1)
+        # [B, S, K, N]
+        intra = intra.view(B, S, K, N)
+        # [B, N, K, S]
+        intra = intra.permute(0, 3, 2, 1).contiguous()
+        intra = self.intra_norm(intra)
+
+        # [B, N, K, S]
+        intra = intra + x
+        # out = intra
+
+        # inter RNN
+        # [BK, S, N]
+        inter = intra.permute(0, 2, 3, 1).contiguous().view(B * K, S, N)
+        # [BK, S, H]
+        inter = self.inter_mdl(inter, init_params=init_params)
+
+        # [BK, S, N]
+        inter = self.inter_linear(
+            inter.contiguous().view(B * S * K, -1), init_params=init_params
+        ).view(B * K, S, -1)
+        # [B, K, S, N]
+        inter = inter.view(B, K, S, N)
+        # [B, N, K, S]
+        inter = inter.permute(0, 3, 1, 2).contiguous()
+        inter = self.inter_norm(inter)
+        # [B, N, K, S]
+        out = inter + intra
+
+        return out
+
+
+class Dual_Path_Model(nn.Module):
     def __init__(
         self,
         in_channels,
         out_channels,
+        intra_model,
+        inter_model,
         num_layers=1,
         norm="ln",
         K=200,
         num_spks=2,
-        transformer_block=None,
     ):
-        super(Dual_Path_Transformer, self).__init__()
+        super(Dual_Path_Model, self).__init__()
         self.K = K
         self.num_spks = num_spks
         self.num_layers = num_layers
@@ -678,7 +588,13 @@ class Dual_Path_Transformer(nn.Module):
 
         self.dual_mdl = nn.ModuleList([])
         for i in range(num_layers):
-            self.dual_mdl.append(copy.deepcopy(transformer_block))
+            self.dual_mdl.append(
+                copy.deepcopy(
+                    Dual_Computation_Block(
+                        intra_model, inter_model, out_channels, norm
+                    )
+                )
+            )
 
         self.conv2d = nn.Conv2d(
             out_channels, out_channels * num_spks, kernel_size=1
@@ -707,6 +623,9 @@ class Dual_Path_Transformer(nn.Module):
         # [B, N*spks, K, S]
         for i in range(self.num_layers):
             x = self.dual_mdl[i](x, init_params=init_params)
+
+        # self.dual_mdl[1].inter_mdl.mdl.layers[0].linear1.weight to see the weights
+
         x = self.prelu(x)
         x = self.conv2d(x)
         # [B*spks, N, K, S]
@@ -1049,3 +968,81 @@ class Dual_Path_RIM(nn.Module):
             input = input[:, :, :-gap]
 
         return input
+
+        # To clean up later
+        # elif transformer_type == "reformer":
+        #
+        #     self.intra_mdl = Reformer(
+        #         dim=out_channels,
+        #         depth=num_layers,
+        #         max_seq_len=8192,
+        #         heads=nhead,
+        #         lsh_dropout=dropout,
+        #         causal=False,
+        #     )
+        #
+        #     self.inter_mdl = Reformer(
+        #         dim=out_channels,
+        #         depth=num_layers,
+        #         bucket_size=reformer_bucket_size,
+        #         max_seq_len=8192,
+        #         heads=nhead,
+        #         lsh_dropout=dropout,
+        #         causal=False,
+        #     )
+        #
+        # elif "fasttf" in transformer_type:
+        #
+        #     from fast_transformers.builders import TransformerEncoderBuilder
+        #
+        #     builder = TransformerEncoderBuilder()
+        #
+        #     builder.n_layers = num_layers
+        #     builder.n_heads = nhead
+        #     builder.feed_forward_dimensions = d_ffn
+        #     builder.query_dimensions = out_channels // nhead
+        #     builder.value_dimensions = out_channels // nhead
+        #     builder.dropout = dropout
+        #     builder.attention_dropout = dropout
+        #
+        #     if transformer_type == "fasttf_linear":
+        #         builder.attention_type = "linear"
+        #     elif transformer_type == "fasttf_reformer":
+        #         builder.attention_type = "reformer"
+        #     else:
+        #         raise ValueError("Unknown transformer type")
+        #
+        #     self.intra_mdl = builder.get()
+        #     self.inter_mdl = builder.get()
+        #
+        #     # encoderlayer = TransformerEncoderLayer(attention, d_model=out_channels, n_heads=nhead,
+        #     #                                       d_ff=d_ffn, dropout=dropout, activation=activation)
+        #
+        #     # self.intra_mdl = TransformerEncoder(layers, norm_layer=None)
+        #
+
+        # if self.transformer_type == "speechbrain":
+        #     inter_rnn = self.inter_mdl(inter_rnn, init_params=init_params)
+        # elif self.transformer_type in ["reformer", "fasttf_reformer"]:
+        #     # pad zeros at the end
+        #     pad_size = (self.reformer_bucket_size * 2) - (
+        #         inter_rnn.shape[1] % (self.reformer_bucket_size * 2)
+        #     )
+        #     device = inter_rnn.device
+        #     inter_rnn_padded = torch.cat(
+        #         [
+        #             inter_rnn,
+        #             torch.zeros(
+        #                 inter_rnn.size(0), pad_size, inter_rnn.size(-1)
+        #             ).to(device),
+        #         ],
+        #         dim=1,
+        #     )
+        #
+        #     # apply the model
+        #     inter_rnn_padded = self.inter_mdl(inter_rnn_padded)
+        #
+        #     # get rid of zeros at the end
+        #     inter_rnn = inter_rnn_padded[:, :-pad_size, :]
+        # else:
+        #     inter_rnn = self.inter_mdl(inter_rnn)
