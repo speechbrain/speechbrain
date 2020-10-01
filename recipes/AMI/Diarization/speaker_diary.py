@@ -530,7 +530,7 @@ if __name__ == "__main__":  # noqa: C901
     [MS_dev, FA_dev, SER_dev, DER_dev] = DER(
         ref_rttm, sys_rttm, params.ignore_overlap, params.forgiveness_collar
     )
-    msg = "AMI Dev. set: Diarization Error Rate = %s %%\n" % (
+    msg = "AMI Dev set: Diarization Error Rate = %s %%\n" % (
         str(round(DER_dev, 2))
     )
     logger.info(msg)
@@ -550,7 +550,7 @@ if __name__ == "__main__":  # noqa: C901
     [MS_eval, FA_eval, SER_eval, DER_eval] = DER(
         ref_rttm, sys_rttm, params.ignore_overlap, params.forgiveness_collar
     )
-    msg = "AMI Eval. set: Diarization Error Rate = %s %%\n" % (
+    msg = "AMI Eval set: Diarization Error Rate = %s %%\n" % (
         str(round(DER_eval, 2))
     )
     logger.info(msg)
