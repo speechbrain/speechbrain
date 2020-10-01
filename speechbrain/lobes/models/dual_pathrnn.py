@@ -457,25 +457,6 @@ class PytorchTransformerBlock(nn.Module):
     def forward(self, x, init_params=False):
         return self.mdl(x)
 
-        # in_channels,
-        # out_channels,
-        # transformer_type,
-        # num_tf_layers=6,
-        # num_layers=1,
-        # nhead=8,
-        # d_ffn=2048,
-        # kdim=None,
-        # vdim=None,
-        # dropout=0.1,
-        # activation="relu",
-        # return_attention=False,
-        # num_modules=1,
-        # use_group_comm=False,
-        # norm="ln",
-        # K=200,
-        # num_spks=2,
-        # reformer_bucket_size=32,
-
 
 class SBTransformerBlock(nn.Module):
     def __init__(

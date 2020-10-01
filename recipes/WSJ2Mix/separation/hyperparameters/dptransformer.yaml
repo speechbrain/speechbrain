@@ -73,20 +73,6 @@ N_encoder_out: 256
 kernel_size: 16
 kernel_stride: 8
 
-# Dual_Path_RNN:
-#  in_channels: 256
-#  out_channels: 64
-#  hidden_channels: 128
-#  kernel_size: 2
-#  rnn_type: LSTM
-#  norm: ln
-#  dropout: 0
-#  bidirectional: true
-#  num_layers: 6
-#  K: 250
-#  num_spks: 2
-
-
 Encoder: !new:speechbrain.lobes.models.dual_pathrnn.Encoder
     kernel_size: !ref <kernel_size>
     out_channels: !ref <N_encoder_out>
