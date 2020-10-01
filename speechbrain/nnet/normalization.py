@@ -48,14 +48,15 @@ class BatchNorm1d(nn.Module):
         affine=True,
         track_running_stats=True,
         combine_batch_time=False,
+        skip_transpose=False,
     ):
         super().__init__()
         self.combine_batch_time = combine_batch_time
+        self.skip_transpose = skip_transpose
 
-        if input_shape is None and input_size is None:
-            raise ValueError("Expected input_shape or input_size as input")
-
-        if input_size is None:
+        if input_size is None and skip_transpose:
+            input_size = input_shape[1]
+        elif input_size is None:
             input_size = input_shape[-1]
 
         self.norm = nn.BatchNorm1d(
@@ -84,14 +85,14 @@ class BatchNorm1d(nn.Module):
                     shape_or[0] * shape_or[1], shape_or[3], shape_or[2]
                 )
 
-        else:
+        elif not self.skip_transpose:
             x = x.transpose(-1, 1)
 
         x_n = self.norm(x)
 
         if self.combine_batch_time:
             x_n = x_n.reshape(shape_or)
-        else:
+        elif not self.skip_transpose:
             x_n = x_n.transpose(1, -1)
 
         return x_n

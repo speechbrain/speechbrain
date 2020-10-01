@@ -300,6 +300,7 @@ class Conv1d(nn.Module):
         groups=1,
         bias=True,
         padding_mode="reflect",
+        skip_transpose=False,
     ):
         super().__init__()
         self.kernel_size = kernel_size
@@ -308,6 +309,7 @@ class Conv1d(nn.Module):
         self.padding = padding
         self.padding_mode = padding_mode
         self.unsqueeze = False
+        self.skip_transpose = skip_transpose
 
         if input_shape is None and in_channels is None:
             raise ValueError("Must provide one of input_shape or in_channels")
@@ -335,8 +337,8 @@ class Conv1d(nn.Module):
             input to convolve. 2d or 4d tensors are expected.
 
         """
-        # Conv expects time dimension last, not second
-        x = x.transpose(1, -1)
+        if not self.skip_transpose:
+            x = x.transpose(1, -1)
 
         if self.unsqueeze:
             x = x.unsqueeze(1)
@@ -364,7 +366,8 @@ class Conv1d(nn.Module):
         if self.unsqueeze:
             wx = wx.squeeze(1)
 
-        wx = wx.transpose(1, -1)
+        if not self.skip_transpose:
+            wx = wx.transpose(1, -1)
 
         return wx
 
@@ -399,6 +402,8 @@ class Conv1d(nn.Module):
         if len(shape) == 2:
             self.unsqueeze = True
             in_channels = 1
+        elif self.skip_transpose:
+            in_channels = shape[1]
         elif len(shape) == 3:
             in_channels = shape[2]
         else:

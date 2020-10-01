@@ -10,6 +10,7 @@ from .augment.tdsa import TimeDomainSpecAugment
 from .augment.env_corrupt import EnvCorrupt
 from .models.CRDNN import CRDNN
 from .models.ContextNet import ContextNet
+from .models.ECAPA_TDNN import ECAPA_TDNN
 from .models.RNNLM import RNNLM
 from .models.VanillaNN import VanillaNN
 from .models.Xvector import Xvector
@@ -27,6 +28,7 @@ __all__ = [
     "EnvCorrupt",
     "CRDNN",
     "ContextNet",
+    "ECAPA_TDNN",
     "RNNLM",
     "VanillaNN",
     "Xvector",
