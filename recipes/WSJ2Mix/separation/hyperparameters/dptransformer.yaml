@@ -109,9 +109,9 @@ SBtf: !new:speechbrain.lobes.models.dual_pathrnn.SBTransformerBlock
     dropout: 0
 
 FTtf: !new:speechbrain.lobes.models.dual_pathrnn.FastTransformerBlock
-    attention_type: 'linear'
+    attention_type: 'reformer'  # this is whatever available on fasttf repo.
     out_channels: !ref <out_channels>
-    num_layers: 3
+    num_layers: 1
     nhead: 8
     d_ffn: 1024
     dropout: 0

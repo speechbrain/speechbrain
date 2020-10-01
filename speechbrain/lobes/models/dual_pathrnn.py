@@ -440,27 +440,32 @@ class FastTransformerBlock(nn.Module):
         d_ffn=1024,
         dropout=0,
         activation="relu",
+        reformer_bucket_size=32,
     ):
         super(FastTransformerBlock, self).__init__()
         from fast_transformers.builders import TransformerEncoderBuilder
 
         # cem: there is another way of building the transformer.. I think this one is NOT the most flexible way, but it's easier.
-        builder = TransformerEncoderBuilder()
 
-        builder.n_layers = num_layers
-        builder.n_heads = nhead
-        builder.feed_forward_dimensions = d_ffn
-        builder.query_dimensions = out_channels // nhead
-        builder.value_dimensions = out_channels // nhead
-        builder.dropout = dropout
-        builder.attention_dropout = dropout
-        builder.attention_type = self.attention_type = attention_type
-
+        builder = TransformerEncoderBuilder.from_kwargs(
+            attention_type=attention_type,
+            n_layers=num_layers,
+            n_heads=nhead,
+            feed_forward_dimensions=d_ffn,
+            query_dimensions=out_channels
+            // nhead,  # @ Mirko: do these make sense?
+            value_dimensions=out_channels // nhead,
+            dropout=dropout,
+            attention_dropout=dropout,
+            chunk_size=reformer_bucket_size,
+        )
         self.mdl = builder.get()
+
+        self.attention_type = attention_type
+        self.reformer_bucket_size = reformer_bucket_size
 
     def forward(self, x, init_params=False):
         if self.attention_type == "reformer":
-            # not working for now
 
             # pad zeros at the end
             pad_size = (self.reformer_bucket_size * 2) - (
@@ -476,7 +481,7 @@ class FastTransformerBlock(nn.Module):
             x_padded = self.mdl(x_padded)
 
             # get rid of zeros at the end
-            x = x_padded[:, :-pad_size, :]
+            return x_padded[:, :-pad_size, :]
         else:
             return self.mdl(x)
 
