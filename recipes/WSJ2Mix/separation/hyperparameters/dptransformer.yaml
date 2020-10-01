@@ -79,6 +79,8 @@ Encoder: !new:speechbrain.lobes.models.dual_pathrnn.Encoder
 
 out_channels: 256
 
+# cem: when we run the models let's comment out unused blocks.
+# All are provided to give an idea on what's available
 PTtf: !new:speechbrain.lobes.models.dual_pathrnn.PytorchTransformerBlock
     out_channels: !ref <out_channels>
     num_layers: 1
@@ -92,14 +94,23 @@ SBtf: !new:speechbrain.lobes.models.dual_pathrnn.SBTransformerBlock
     d_ffn: 2048
     dropout: 0
 
+FTtf: !new:speechbrain.lobes.models.dual_pathrnn.FastTransformerBlock
+    attention_type: 'reformer'  # this is whatever available on fasttf repo.
+    out_channels: !ref <out_channels>
+    num_layers: 1
+    nhead: 8
+    d_ffn: 1024
+    dropout: 0
+
+IB: !new:speechbrain.lobes.models.dual_pathrnn.IdentityBlock
 
 MaskNet: !new:speechbrain.lobes.models.dual_pathrnn.Dual_Path_Model
     in_channels: !ref <N_encoder_out>
     out_channels: !ref <out_channels>
     num_layers: 2
     K: 250
-    intra_model: !ref <SBtf>
-    inter_model: !ref <PTtf>
+    intra_model: !ref <IB>
+    inter_model: !ref <IB>
 
 Decoder: !new:speechbrain.lobes.models.dual_pathrnn.Decoder
     in_channels: !ref <N_encoder_out>
@@ -129,6 +140,7 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         masknet: !ref <MaskNet>
         optimizer: !ref <optimizer>
         counter: !ref <epoch_counter>
+        lr_scheduler: !ref <lr_scheduler>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
