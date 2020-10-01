@@ -225,7 +225,7 @@ class Dual_RNN_Block(nn.Module):
 
     def forward(self, x):
         """
-           x: [B, N, K, S]
+           x: [B=batch size, N=channels, K=chunk size, S=number of chunks]
            out: [Spks, B, N, K, S]
         """
 

@@ -67,8 +67,16 @@ class CTNBrain(sb.core.Brain):
         self.scaler = GradScaler()
 
     def compute_forward(self, mixture, stage="train", init_params=False):
+        """
+
+        :param mixture: raw audio - dimension [batch_size, time]
+        :param stage:
+        :param init_params:
+        :return:
+        """
 
         mixture_w = self.params.Encoder(mixture, init_params=init_params)
+        # [batch, channel, time / kernel stride]
         est_mask = self.params.MaskNet(mixture_w, init_params=init_params)
 
         out = [est_mask[i] * mixture_w for i in range(2)]
