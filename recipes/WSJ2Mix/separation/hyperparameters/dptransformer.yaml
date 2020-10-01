@@ -116,13 +116,15 @@ FTtf: !new:speechbrain.lobes.models.dual_pathrnn.FastTransformerBlock
     d_ffn: 1024
     dropout: 0
 
+IB: !new:speechbrain.lobes.models.dual_pathrnn.IdentityBlock
+
 MaskNet: !new:speechbrain.lobes.models.dual_pathrnn.Dual_Path_Model
     in_channels: !ref <N_encoder_out>
     out_channels: !ref <out_channels>
     num_layers: 2
     K: 250
-    intra_model: !ref <FTtf>
-    inter_model: !ref <FTtf>
+    intra_model: !ref <IB>
+    inter_model: !ref <IB>
 
 Decoder: !new:speechbrain.lobes.models.dual_pathrnn.Decoder
     in_channels: !ref <N_encoder_out>

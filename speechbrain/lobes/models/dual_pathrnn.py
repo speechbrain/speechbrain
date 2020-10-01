@@ -425,6 +425,14 @@ class Dual_Path_RNN(nn.Module):
         return input
 
 
+class IdentityBlock:
+    def _init__(self, **kwargs):
+        pass
+
+    def __call__(self, x, init_params=True):
+        return x
+
+
 class FastTransformerBlock(nn.Module):
     """
     This block is used to implement fast transformer models with efficient attention.
