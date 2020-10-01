@@ -7,8 +7,8 @@ seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Folders
-data_folder: !PLACEHOLDER # e.g. /network/datasets/ami/amicorpus
-manual_annot_folder: !PLACEHOLER # e.g. /miniscratch/nahwidon/ami/
+data_folder: /network/datasets/ami/amicorpus
+manual_annot_folder: /home/mila/d/dawalatn/nauman/ami_public_manual
 output_folder: results/ami/speaker_diarization_xvector/
 save_folder: !ref <output_folder>/save
 device: 'cuda:0'
@@ -48,6 +48,10 @@ mic_type: 'Lapel'
 vad_type: 'oracle'
 max_subseg_dur: 3.0
 overlap: 1.5
+
+# Cluster parameters
+n_neighbors: 10
+include_self: True
 
 # DER evaluation parameters
 ignore_overlap: True

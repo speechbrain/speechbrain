@@ -457,7 +457,9 @@ class Spec_Clus(SpectralClustering):
         """
 
         # Computation of affinity matrix
-        connectivity = kneighbors_graph(X, n_neighbors=10, include_self=True,)
+        connectivity = kneighbors_graph(
+            X, n_neighbors=params.n_neighbors, include_self=params.include_self
+        )
         self.affinity_matrix_ = 0.5 * (connectivity + connectivity.T)
 
         # Perform spectral clustering on affinity matrix
