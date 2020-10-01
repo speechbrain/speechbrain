@@ -9,7 +9,6 @@ from .features.mfcc import MFCC
 from .augment.tdsa import TimeDomainSpecAugment
 from .augment.env_corrupt import EnvCorrupt
 from .models.CRDNN import CRDNN
-from .models.CRDNN_selfatt import CRDNN as CRDNN_SelfAtt
 from .models.ContextNet import ContextNet
 from .models.RNNLM import RNNLM
 from .models.VanillaNN import VanillaNN
@@ -27,7 +26,6 @@ __all__ = [
     "TimeDomainSpecAugment",
     "EnvCorrupt",
     "CRDNN",
-    "CRDNN_SelfAtt",
     "ContextNet",
     "RNNLM",
     "VanillaNN",
