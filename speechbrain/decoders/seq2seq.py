@@ -837,12 +837,13 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
         return hs, c
 
     def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
-        hs, c = memory
-        e = self.emb(inp_tokens)
-        dec_out, hs, c, w = self.dec.forward_step(
-            e, hs, c, enc_states, enc_lens
-        )
-        log_probs = self.softmax(self.fc(dec_out) / self.temperature)
+        with torch.no_grad():
+            hs, c = memory
+            e = self.emb(inp_tokens)
+            dec_out, hs, c, w = self.dec.forward_step(
+                e, hs, c, enc_states, enc_lens
+            )
+            log_probs = self.softmax(self.fc(dec_out) / self.temperature)
         return log_probs, (hs, c), w
 
     def permute_mem(self, memory, index):
@@ -925,12 +926,14 @@ class S2SRNNBeamSearchLM(S2SRNNBeamSearcher):
         )
 
         self.lm = language_model
+        self.lm.eval()
         self.log_softmax = sb.nnet.Softmax(apply_log=True)
         self.temperature_lm = temperature_lm
 
     def lm_forward_step(self, inp_tokens, memory):
-        logits, hs = self.lm(inp_tokens, hx=memory)
-        log_probs = self.log_softmax(logits / self.temperature_lm)
+        with torch.no_grad():
+            logits, hs = self.lm(inp_tokens, hx=memory)
+            log_probs = self.log_softmax(logits / self.temperature_lm)
 
         return log_probs, hs
 
