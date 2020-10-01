@@ -58,6 +58,12 @@ class Bert(nn.Module):
             "bert-base-uncased", return_dict=False
         )
         self.bert = pretrain.encoder
+        self.input_proj = Sequential(
+            Linear(3072),
+            torch.nn.GELU(),
+            torch.nn.Dropout(dropout),
+            Linear(d_model),
+        )
         self.output_proj = Sequential(
             Linear(d_model), LayerNorm(eps=1e-12), Linear(vocab)
         )
@@ -86,6 +92,7 @@ class Bert(nn.Module):
             src, src_mask = self.masking_func(src, self.training)
 
         src = self.custom_src_module(src, init_params)
+        src = self.input_proj(src, init_params)
         encoder_out = self.bert(src, attention_mask=src_mask,)
 
         pred = self.output_proj(encoder_out[0], init_params)
@@ -114,20 +121,20 @@ def make_masks(
     if padding_mask:
         src_key_padding_mask = get_key_padding_mask(src, pad_idx).int()
         src_key_padding_mask = 1 - src_key_padding_mask
-        # extended_attention_mask = src_key_padding_mask[:, None, None, :]
+        extended_attention_mask = src_key_padding_mask[:, None, None, :]
 
-        batch_size, seq_length = src.shape
-        seq_ids = torch.arange(seq_length, device=src.device)
-        causal_mask = (
-            seq_ids[None, None, :].repeat(batch_size, seq_length, 1)
-            <= seq_ids[None, :, None]
-        )
-        # causal and attention masks must have same type with pytorch version < 1.3
-        causal_mask = causal_mask.to(src_key_padding_mask.dtype)
-        extended_attention_mask = (
-            causal_mask[:, None, :, :] * src_key_padding_mask[:, None, None, :]
-        )
-        extended_attention_mask = (1.0 - extended_attention_mask) * -10000.0
+        # batch_size, seq_length = src.shape
+        # seq_ids = torch.arange(seq_length, device=src.device)
+        # causal_mask = (
+        #     seq_ids[None, None, :].repeat(batch_size, seq_length, 1)
+        #     <= seq_ids[None, :, None]
+        # )
+        # # causal and attention masks must have same type with pytorch version < 1.3
+        # causal_mask = causal_mask.to(src_key_padding_mask.dtype)
+        # extended_attention_mask = (
+        #     causal_mask[:, None, :, :] * src_key_padding_mask[:, None, None, :]
+        # )
+        # extended_attention_mask = (1.0 - extended_attention_mask) * -10000.0
 
     # if istraining:
     #     to_mask = (torch.rand(src.shape, device=src.device) > 0.15).int()

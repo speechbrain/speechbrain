@@ -6,7 +6,7 @@ Authors
 """
 import torch
 import numpy as np
-from speechbrain.decoders.ctc import CTCPrefixScorer
+from speechbrain.decoders.ctc import CTCPrefixScorer, CTCPrefixScoreTH
 
 
 class S2SBaseSearcher(torch.nn.Module):
@@ -542,11 +542,11 @@ class S2SBeamSearcher(S2SBaseSearcher):
         if self.ctc_weight > 0:
             # (batch_size * beam_size, L, vocab_size)
             ctc_outputs = self.ctc_forward_step(enc_states)
-            ctc_scorer = CTCPrefixScorer(
+            ctc_scorer = CTCPrefixScoreTH(
                 ctc_outputs,
                 enc_lens,
-                batch_size,
-                self.beam_size,
+                # batch_size,
+                # self.beam_size,
                 0,
                 self.eos_index,
             )
@@ -630,16 +630,21 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
             # adding CTC scores to log_prob if ctc_weight > 0
             if self.ctc_weight > 0:
-                g = alived_seq
+                # g = alived_seq
+                g = memory
                 # TODO rescore after lm for better candidates
                 if self.ctc_weight != 1.0:
                     # pruning vocab for ctc_scorer
-                    _, ctc_candidates = log_probs.topk(
-                        self.beam_size * 2, dim=-1
-                    )
+                    # _, ctc_candidates = log_probs.topk(
+                    #     self.beam_size * 2, dim=-1
+                    # )
+                    ctc_candidates = None
                 else:
                     ctc_candidates = None
-                ctc_log_probs, ctc_memory = ctc_scorer.forward_step(
+                # ctc_log_probs, ctc_memory = ctc_scorer.forward_step(
+                #     g, ctc_memory, ctc_candidates
+                # )
+                ctc_log_probs, ctc_memory = ctc_scorer(
                     g, ctc_memory, ctc_candidates
                 )
                 log_probs = (
@@ -889,9 +894,9 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
         beam_size,
         topk=1,
         return_log_probs=False,
-        using_eos_threshold=True,
+        using_eos_threshold=False,
         eos_threshold=1.5,
-        length_normalization=True,
+        length_normalization=False,
         length_rewarding=0,
         lm_weight=0.0,
         lm_modules=None,
