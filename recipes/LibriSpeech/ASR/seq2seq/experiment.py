@@ -71,7 +71,7 @@ class ASR(sb.Brain):
         # Forward pass
         feats = self.hparams.compute_features(wavs)
         feats = self.hparams.normalize(feats, wav_lens)
-        x = self.hparams.enc(feats)
+        x = self.hparams.enc(feats.detach())
         e_in = self.hparams.emb(y_in)
         h, _ = self.hparams.dec(e_in, x, wav_lens)
 
