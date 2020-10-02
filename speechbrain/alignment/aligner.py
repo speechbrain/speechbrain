@@ -10,7 +10,7 @@ import random
 from speechbrain.utils.checkpoints import register_checkpoint_hooks
 from speechbrain.utils.checkpoints import mark_as_saver
 from speechbrain.utils.checkpoints import mark_as_loader
-from speechbrain.decoders.decoders import undo_padding
+from speechbrain.utils.data_utils import undo_padding
 
 
 @register_checkpoint_hooks

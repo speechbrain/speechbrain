@@ -11,7 +11,7 @@ from speechbrain.data_io.data_io import prepend_bos_token
 import speechbrain.utils.edit_distance as edit_distance
 from speechbrain.data_io.data_io import convert_index_to_lab
 from speechbrain.decoders.ctc import ctc_greedy_decode
-from speechbrain.decoders.decoders import undo_padding
+from speechbrain.utils.data_utils import undo_padding
 from speechbrain.decoders.seq2seq import batch_filter_seq2seq_output
 
 # This hack needed to import data preparation script from ..
