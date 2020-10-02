@@ -271,7 +271,7 @@ class TransformerEncoderLayer(nn.Module):
         if comp is None:
             src = src + self.dropout1(output)
         else:
-            src = src + self.dropout1(output)
+            src = src + self.dropout1(output) * comp
 
         src = self.norm1(src, init_params=init_params)
 

@@ -143,6 +143,8 @@ class SEBrain(sb.core.Brain):
         if stage == "test":
             for name, pred_wav, length in zip(noisys[0], pred_wavs, lens):
                 enhance_path = os.path.join(params.enhanced_folder, name)
+                if not enhance_path.endswith(".wav"):
+                    enhance_path = enhance_path + ".wav"
                 torchaudio.save(enhance_path, pred_wav[: int(length)], 16000)
 
         return stats

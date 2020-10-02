@@ -9,11 +9,11 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Basic parameters
 data_folder: !PLACEHOLDER
-output_folder: !ref results/causal_Transformer/<seed>
+output_folder: !ref results/semicausal_Transformer/<seed>
 enhanced_folder: !ref <output_folder>/enhanced/
 
 use_tensorboard: False
-tensorboard_logs: !ref results/logs/causal_Transformer/<seed>
+tensorboard_logs: !ref results/logs/semicausal_Transformer/<seed>
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
@@ -32,7 +32,7 @@ device: cuda:0
 dropout: 0.1
 num_blocks: 8
 intermediate_size: 256
-nhead: 8
+nhead: 16
 causal: True
 kernel_size: 3
 base_channels: 1024
