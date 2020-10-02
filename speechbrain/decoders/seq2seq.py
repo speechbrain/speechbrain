@@ -528,17 +528,18 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         # Using bos as the first input
         inp_tokens = (
-            torch.zeros(batch_size * self.beam_size)
-            .to(device)
+            torch.zeros(batch_size * self.beam_size, device=device)
             .fill_(self.bos_index)
             .long()
         )
 
         # The first index of each sentence.
-        beam_offset = (torch.arange(batch_size) * self.beam_size).to(device)
+        beam_offset = torch.arange(batch_size, device=device) * self.beam_size
 
         # initialize sequence scores variables.
-        sequence_scores = torch.Tensor(batch_size * self.beam_size).to(device)
+        sequence_scores = torch.Tensor(
+            batch_size * self.beam_size, device=device
+        )
         sequence_scores.fill_(-np.inf)
 
         # keep only the first to make sure no redundancy.
@@ -548,13 +549,13 @@ class S2SBeamSearcher(S2SBaseSearcher):
         hyps_and_scores = [[] for _ in range(batch_size)]
 
         # keep the sequences that still not reaches eos.
-        alived_seq = (
-            torch.empty(batch_size * self.beam_size, 0).long().to(device)
-        )
+        alived_seq = torch.empty(
+            batch_size * self.beam_size, 0, device=device
+        ).long()
 
         # Keep the log-probabilities of alived sequences.
-        alived_log_probs = torch.empty(batch_size * self.beam_size, 0).to(
-            device
+        alived_log_probs = torch.empty(
+            batch_size * self.beam_size, 0, device=device
         )
 
         min_decode_steps = int(enc_states.shape[1] * self.min_decode_ratio)
@@ -562,7 +563,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         # Initialize the previous attention peak to zero
         # This variable will be used when using_max_attn_shift=True
-        prev_attn_peak = torch.zeros(batch_size * self.beam_size).to(device)
+        prev_attn_peak = torch.zeros(batch_size * self.beam_size, device=device)
 
         for t in range(max_decode_steps):
             # terminate condition
@@ -713,8 +714,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         if not self._check_full_beams(hyps_and_scores, self.beam_size):
             # Using all eos to fill-up the hyps.
             eos = (
-                torch.zeros(batch_size * self.beam_size)
-                .to(device)
+                torch.zeros(batch_size * self.beam_size, device=device)
                 .fill_(self.eos_index)
                 .long()
             )
@@ -833,7 +833,7 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
     def reset_mem(self, batch_size, device):
         hs = None
         self.dec.attn.reset()
-        c = torch.zeros(batch_size, self.dec.attn_dim).to(device)
+        c = torch.zeros(batch_size, self.dec.attn_dim, device=device)
         return hs, c
 
     def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
@@ -1017,7 +1017,7 @@ def mask_by_condition(tensor, cond, fill_value):
             [4., 0., 0.]])
     """
     tensor = torch.where(
-        cond, tensor, torch.Tensor([fill_value]).to(tensor.device)
+        cond, tensor, torch.Tensor([fill_value], device=tensor.device)
     )
     return tensor
 

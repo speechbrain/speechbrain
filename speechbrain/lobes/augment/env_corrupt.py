@@ -140,7 +140,10 @@ class EnvCorrupt(torch.nn.Module):
         if self.training:
             with torch.no_grad():
                 if hasattr(self, "add_reverb"):
-                    waveforms = self.add_reverb(waveforms, lengths)
+                    try:
+                        waveforms = self.add_reverb(waveforms, lengths)
+                    except Exception:
+                        pass
                 if hasattr(self, "add_babble"):
                     waveforms = self.add_babble(waveforms, lengths)
                 if hasattr(self, "add_noise"):

@@ -523,7 +523,7 @@ class Classifier(torch.nn.Module):
 
         # Final Layer
         self.weight = nn.Parameter(
-            torch.FloatTensor(out_neurons, input_size).to(device)
+            torch.FloatTensor(out_neurons, input_size, device=device)
         )
         nn.init.xavier_uniform_(self.weight)
 

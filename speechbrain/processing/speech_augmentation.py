@@ -943,7 +943,7 @@ class DropFreq(torch.nn.Module):
         pad = filter_length // 2
 
         # Start with delta function
-        drop_filter = torch.zeros(1, filter_length, 1).to(waveforms.device)
+        drop_filter = torch.zeros(1, filter_length, 1, device=waveforms.device)
         drop_filter[0, pad, 0] = 1
 
         # Subtract each frequency

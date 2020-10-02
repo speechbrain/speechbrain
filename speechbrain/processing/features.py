@@ -581,7 +581,7 @@ class Filterbank(torch.nn.Module):
         right_side = -slope + 1.0
 
         # Adding zeros for negative values
-        zero = torch.zeros(1).to(self.device_inp)
+        zero = torch.zeros(1, device=self.device_inp)
         fbank_matrix = torch.max(
             zero, torch.min(left_side, right_side)
         ).transpose(0, 1)
@@ -1094,13 +1094,13 @@ class InputNormalization(torch.nn.Module):
         if self.mean_norm:
             current_mean = torch.mean(x, dim=0).detach().data
         else:
-            current_mean = torch.tensor([0.0]).to(x.device)
+            current_mean = torch.tensor([0.0], device=x.device)
 
         # Compute current std
         if self.std_norm:
             current_std = torch.std(x, dim=0).detach().data
         else:
-            current_std = torch.tensor([1.0]).to(x.device)
+            current_std = torch.tensor([1.0], device=x.device)
 
         # Improving numerical stability of std
         current_std = torch.max(

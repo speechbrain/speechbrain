@@ -178,7 +178,7 @@ class PitWrapper(nn.Module):
                 reordered tensor given permutation p.
         """
 
-        reordered = torch.zeros_like(tensor).to(tensor.device)
+        reordered = torch.zeros_like(tensor, device=tensor.device)
         for b in range(tensor.shape[0]):
             reordered[b] = tensor[b][..., p[b]].clone()
         return reordered
@@ -700,8 +700,8 @@ def cal_si_snr(source, estimate_source):
     device = estimate_source.device.type
 
     source_lengths = torch.tensor(
-        [estimate_source.shape[0]] * estimate_source.shape[1]
-    ).to(device)
+        [estimate_source.shape[0]] * estimate_source.shape[1], device=device
+    )
     mask = get_mask(source, source_lengths)
     estimate_source *= mask
 
