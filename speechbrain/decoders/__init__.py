@@ -1,7 +1,5 @@
 """Decoders
 """
-
-from .decoders import undo_padding
 from .seq2seq import (
     S2SRNNGreedySearcher,
     S2SRNNBeamSearcher,
@@ -12,7 +10,6 @@ from .seq2seq import (
 from .ctc import ctc_greedy_decode
 
 __all__ = [
-    "undo_padding",
     "S2SRNNGreedySearcher",
     "S2SRNNBeamSearcher",
     "S2SRNNBeamSearchLM",

@@ -36,6 +36,7 @@ import torch
 import speechbrain as sb
 from speechbrain.utils.data_utils import download_file
 from speechbrain.tokenizers.SentencePiece import SentencePiece
+from speechbrain.utils.data_utils import undo_padding
 
 
 # Define training procedure
@@ -151,9 +152,7 @@ class ASR(sb.Brain):
             )
 
             # Convert indices to words
-            target_words = sb.decoders.undo_padding(
-                target_words, target_word_lens
-            )
+            target_words = undo_padding(target_words, target_word_lens)
             target_words = sb.data_io.convert_index_to_lab(
                 target_words, self.hparams.ind2lab
             )

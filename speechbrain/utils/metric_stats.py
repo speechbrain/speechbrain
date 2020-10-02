@@ -15,7 +15,7 @@ from speechbrain.data_io.data_io import (
     merge_char,
     split_word,
 )
-from speechbrain.decoders.decoders import undo_padding
+from speechbrain.utils.data_utils import undo_padding
 from speechbrain.utils.edit_distance import wer_summary
 
 
