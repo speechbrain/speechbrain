@@ -8,7 +8,6 @@ Author:
     * Mirko Bronzi 2020
 """
 import argparse
-import itertools as it
 import logging
 import os
 import pprint
@@ -34,28 +33,12 @@ from speechbrain.utils.train_logger import summarize_average
 logger = logging.getLogger(__name__)
 
 
-def split_overlapping_chunks(tensor, chunk_len=200, overlap_rate=0.5, dim=1):
-
-    chunks = []
-    for i in it.islice(
-        range(tensor.shape[1]),
-        0,
-        tensor.shape[1],
-        int(chunk_len * overlap_rate),
-    ):
-        chunk = tensor[:, i : i + chunk_len, :]
-
-        orig_len = chunk.shape[1]
-        if orig_len < chunk_len:
-            pad = (0, 0, 0, chunk_len - orig_len, 0, 0)
-            chunk = F.pad(chunk, pad, "constant", 0)
-            assert (
-                chunk[:, orig_len:, :].sum() == 0
-            ), "zero padding is not proper"
-        assert chunk.shape[1] == chunk_len, "a chunk does not have bptt length"
-        chunks.append(chunk)
-
-    return chunks
+def reset_layer_recursively(layer):
+    if hasattr(layer, "reset_parameters"):
+        layer.reset_parameters()
+    for child_layer in layer.modules():
+        if layer != child_layer:
+            reset_layer_recursively(child_layer)
 
 
 class SourceSeparationBrainSuperclass(sb.core.Brain):
@@ -317,6 +300,10 @@ def main():
         params=params,
         device=device,
     )
+
+    # reinitialize the parameters
+    for module in ctn.modules:
+        reset_layer_recursively(module)
 
     params.checkpointer.recover_if_possible(lambda c: -c.meta["av_loss"])
     mlflow.start_run()
