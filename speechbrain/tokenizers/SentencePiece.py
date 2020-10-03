@@ -172,8 +172,8 @@ class SentencePiece:
             + self.max_sentencepiece_length
             + " --character_coverage="
             + self.character_coverage
-            + " --minloglevel="
-            + self.minloglevel
+            # + " --minloglevel="
+            # + self.minloglevel
         )
         if self.model_type not in ["char"]:
             # include vocab_size

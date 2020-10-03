@@ -54,6 +54,13 @@ class Bert(nn.Module):
         super().__init__()
 
         self.custom_src_module = BertEmbedding(d_model, vocab, dropout)
+        self.input_proj = Sequential(
+            Linear(3072),
+            torch.nn.GELU(),
+            torch.nn.Dropout(dropout),
+            Linear(d_model)
+        )
+
         pretrain = BertModel.from_pretrained(
             "bert-base-uncased", return_dict=False
         )
@@ -86,6 +93,7 @@ class Bert(nn.Module):
             src, src_mask = self.masking_func(src, self.training)
 
         src = self.custom_src_module(src, init_params)
+        src = self.input_proj(src, init_params)
         encoder_out = self.bert(src, attention_mask=src_mask,)
 
         pred = self.output_proj(encoder_out[0], init_params)
@@ -114,7 +122,7 @@ def make_masks(
     if padding_mask:
         src_key_padding_mask = get_key_padding_mask(src, pad_idx).int()
         src_key_padding_mask = 1 - src_key_padding_mask
-        # extended_attention_mask = src_key_padding_mask[:, None, None, :]
+        extended_attention_mask = src_key_padding_mask[:, None, None, :]
 
         batch_size, seq_length = src.shape
         seq_ids = torch.arange(seq_length, device=src.device)
