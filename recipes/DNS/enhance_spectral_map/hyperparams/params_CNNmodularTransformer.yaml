@@ -1,5 +1,5 @@
 # ################################
-# Model: 1-D causal CNNTransformer model with log1p mapping
+# Model: 1-D causal modular-CNNTransformer model with log1p mapping
 # Authors: Chien-Feng Liao
 # ################################
 
@@ -9,11 +9,11 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Basic parameters
 data_folder: !PLACEHOLDER
-output_folder: !ref results/causal_modularTransformer/<seed>
+output_folder: !ref results/semicausal_modularTransformer_comp/<seed>
 enhanced_folder: !ref <output_folder>/enhanced/
 
 use_tensorboard: False
-tensorboard_logs: !ref results/logs/causal_modularTransformer/<seed>
+tensorboard_logs: !ref results/logs/semicausal_modularTransformer_comp/<seed>
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
@@ -25,19 +25,20 @@ csv_test: !ref <data_folder>/test.csv
 # Training Parameters
 N_epochs: 50
 N_batch: 16
-lr: 0.0001
+lr: 0.0002
 device: cuda:0
 
 # Model Parameters
 dropout: 0.1
 num_blocks: 8
 intermediate_size: 512
-nhead: 8
+nhead: 16
 causal: True
 kernel_size: 3
 base_channels: 1024
 padding_type: causal
 num_modules: 2
+group_comm: True
 
 # FFT Parameters
 samplerate: 16000
@@ -99,7 +100,7 @@ model: !new:speechbrain.lobes.models.transformer.TransformerSE.CNNTransformerSE
   dropout: !ref <dropout>
   custom_emb_module: !ref <CNN>
   num_modules: !ref <num_modules>
-  use_group_comm: True
+  use_group_comm: !ref <group_comm>
 
 add_noise: !new:speechbrain.processing.speech_augmentation.AddNoise
   csv_file: !ref <csv_noise>
