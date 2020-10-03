@@ -63,7 +63,7 @@ class MFCC(torch.nn.Module):
     >>> import torch
     >>> inputs = torch.randn([10, 16000])
     >>> feature_maker = MFCC()
-    >>> feats = feature_maker(inputs, init_params=True)
+    >>> feats = feature_maker(inputs)
     >>> feats.shape
     torch.Size([10, 101, 660])
     """
@@ -99,13 +99,13 @@ class MFCC(torch.nn.Module):
             param_change_factor=param_change_factor,
             param_rand_factor=param_rand_factor,
         )
-        self.compute_dct = DCT(n_out=n_mfcc)
-        self.compute_deltas = Deltas()
+        self.compute_dct = DCT(input_size=n_mels, n_out=n_mfcc)
+        self.compute_deltas = Deltas(input_size=n_mfcc)
         self.context_window = ContextWindow(
             left_frames=left_frames, right_frames=right_frames,
         )
 
-    def forward(self, wav, init_params=False):
+    def forward(self, wav):
         """Returns a set of mfccs generated from the input waveforms.
 
         Arguments
@@ -113,17 +113,18 @@ class MFCC(torch.nn.Module):
         wav : tensor
             A batch of audio signals to transform to features.
         """
-        STFT = self.compute_STFT(wav)
-        mag = spectral_magnitude(STFT)
-        fbanks = self.compute_fbanks(mag, init_params)
-        mfccs = self.compute_dct(fbanks, init_params)
+        with torch.no_grad():
+            STFT = self.compute_STFT(wav)
+            mag = spectral_magnitude(STFT)
+            fbanks = self.compute_fbanks(mag)
+            mfccs = self.compute_dct(fbanks)
 
-        if self.deltas:
-            delta1 = self.compute_deltas(mfccs, init_params)
-            delta2 = self.compute_deltas(delta1)
-            mfccs = torch.cat([mfccs, delta1, delta2], dim=2)
+            if self.deltas:
+                delta1 = self.compute_deltas(mfccs)
+                delta2 = self.compute_deltas(delta1)
+                mfccs = torch.cat([mfccs, delta1, delta2], dim=2)
 
-        if self.context:
-            mfccs = self.context_window(mfccs)
+            if self.context:
+                mfccs = self.context_window(mfccs)
 
         return mfccs

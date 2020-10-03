@@ -91,8 +91,9 @@ class TimeDomainSpecAugment(torch.nn.Module):
         """
         # Augmentation
         if self.training:
-            waveforms = self.speed_perturb(waveforms)
-            waveforms = self.drop_freq(waveforms)
-            waveforms = self.drop_chunk(waveforms, lengths)
+            with torch.no_grad():
+                waveforms = self.speed_perturb(waveforms)
+                waveforms = self.drop_freq(waveforms)
+                waveforms = self.drop_chunk(waveforms, lengths)
 
         return waveforms
