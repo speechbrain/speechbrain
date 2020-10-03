@@ -537,9 +537,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         beam_offset = torch.arange(batch_size, device=device) * self.beam_size
 
         # initialize sequence scores variables.
-        sequence_scores = torch.Tensor(
-            batch_size * self.beam_size, device=device
-        )
+        sequence_scores = torch.Tensor(batch_size * self.beam_size).to(device)
         sequence_scores.fill_(-np.inf)
 
         # keep only the first to make sure no redundancy.
@@ -1017,7 +1015,7 @@ def mask_by_condition(tensor, cond, fill_value):
             [4., 0., 0.]])
     """
     tensor = torch.where(
-        cond, tensor, torch.Tensor([fill_value], device=tensor.device)
+        cond, tensor, torch.Tensor([fill_value]).to(tensor.device)
     )
     return tensor
 
