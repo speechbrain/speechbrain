@@ -10,17 +10,17 @@ overrides = {
     "batch_size": 5,
 }
 with open(hyperparams_file) as fin:
-    hyperparams = sb.yaml.load_extended_yaml(fin, overrides)
+    hyperparams = sb.load_extended_yaml(fin, overrides)
 
-sb.core.create_experiment_directory(
+sb.create_experiment_directory(
     experiment_directory=output_folder,
     hyperparams_to_save=hyperparams_file,
     overrides=overrides,
 )
 
-for ((id, wav, wav_len),) in zip(*hyperparams.sample_data()):
-    wav_babble = hyperparams.add_babble(wav, wav_len)
-    hyperparams.save(wav_babble, id, wav_len)
+for ((id, wav, wav_len),) in zip(*hyperparams["sample_data"]()):
+    wav_babble = hyperparams["add_babble"](wav, wav_len)
+    hyperparams["save"](wav_babble, id, wav_len)
 
 
 def test_babble():

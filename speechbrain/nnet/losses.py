@@ -44,7 +44,7 @@ def transducer_loss(
     reduction: str
         Specifies the reduction to apply to the output: 'mean' | 'batchmean' | 'sum'.
     """
-    from speechbrain.nnet.transducer.transducer_loss import Transducer
+    from speechbrain.nnet.loss.transducer_loss import Transducer
 
     input_lens = (input_lens * log_probs.shape[1]).int()
     target_lens = (target_lens * targets.shape[1]).int()
@@ -178,7 +178,7 @@ class PitWrapper(nn.Module):
                 reordered tensor given permutation p.
         """
 
-        reordered = torch.zeros_like(tensor).to(tensor.device)
+        reordered = torch.zeros_like(tensor, device=tensor.device)
         for b in range(tensor.shape[0]):
             reordered[b] = tensor[b][..., p[b]].clone()
         return reordered
@@ -232,8 +232,11 @@ def ctc_loss(
         Length of each target sequence.
     blank_index : int
         The location of the blank symbol among the character indexes.
-    reduction: str
-        Specifies the reduction to apply to the output: 'none' | 'mean' | 'batchmean' | 'sum'.
+    reduction : str
+        What reduction to apply to the output. 'mean', 'sum', 'batch',
+        'batchmean', 'none'.
+        See pytorch for 'mean', 'sum', 'none'. The 'batch' option returns
+        one loss per item in the batch, 'batchmean' returns sum / batch size.
     """
     input_lens = (input_lens * log_probs.shape[1]).int()
     target_lens = (target_lens * targets.shape[1]).int()
@@ -241,6 +244,8 @@ def ctc_loss(
 
     if reduction == "batchmean":
         reduction_loss = "sum"
+    elif reduction == "batch":
+        reduction_loss = "none"
     else:
         reduction_loss = reduction
     loss = torch.nn.functional.ctc_loss(
@@ -255,6 +260,9 @@ def ctc_loss(
 
     if reduction == "batchmean":
         return loss / targets.shape[0]
+    elif reduction == "batch":
+        N = loss.size(0)
+        return loss.view(N, -1).sum(1) / target_lens.view(N, -1).sum(1)
     else:
         return loss
 
@@ -274,8 +282,10 @@ def l1_loss(
         Length of each utterance for computing true error with a mask.
     allowed_len_diff : int
         Length difference that will be tolerated before raising an exception.
-    reduction: str
-        Specifies the reduction to apply to the output: 'mean' | 'batchmean' | 'sum'.
+    reduction : str
+        Options are 'mean', 'batch', 'batchmean', 'sum'.
+        See pytorch for 'mean', 'sum'. The 'batch' option returns
+        one loss per item in the batch, 'batchmean' returns sum / batch size.
 
     Example
     -------
@@ -305,8 +315,10 @@ def mse_loss(
         Length of each utterance for computing true error with a mask.
     allowed_len_diff : int
         Length difference that will be tolerated before raising an exception.
-    reduction: str
-        Specifies the reduction to apply to the output: 'mean' | 'batchmean' | 'sum'.
+    reduction : str
+        Options are 'mean', 'batch', 'batchmean', 'sum'.
+        See pytorch for 'mean', 'sum'. The 'batch' option returns
+        one loss per item in the batch, 'batchmean' returns sum / batch size.
 
     Example
     -------
@@ -322,7 +334,7 @@ def mse_loss(
 
 
 def classification_error(
-    probabilities, targets, length=None, allowed_len_diff=3
+    probabilities, targets, length=None, allowed_len_diff=3, reduction="mean"
 ):
     """Computes the classification error at frame or batch level.
 
@@ -337,6 +349,10 @@ def classification_error(
         Length of each utterance, if frame-level loss is desired.
     allowed_len_diff : int
         Length difference that will be tolerated before raising an exception.
+    reduction : str
+        Options are 'mean', 'batch', 'batchmean', 'sum'.
+        See pytorch for 'mean', 'sum'. The 'batch' option returns
+        one loss per item in the batch, 'batchmean' returns sum / batch size.
 
     Example
     -------
@@ -353,7 +369,9 @@ def classification_error(
         predictions = torch.argmax(probabilities, dim=-1)
         return (predictions != targets).float()
 
-    return compute_masked_loss(error, probabilities, targets.long(), length)
+    return compute_masked_loss(
+        error, probabilities, targets.long(), length, reduction=reduction
+    )
 
 
 def nll_loss(
@@ -377,8 +395,10 @@ def nll_loss(
         Length of each utterance, if frame-level loss is desired.
     allowed_len_diff : int
         Length difference that will be tolerated before raising an exception.
-    reduction: str
-        Specifies the reduction to apply to the output: 'mean' | 'batchmean' | 'sum'.
+    reduction : str
+        Options are 'mean', 'batch', 'batchmean', 'sum'.
+        See pytorch for 'mean', 'sum'. The 'batch' option returns
+        one loss per item in the batch, 'batchmean' returns sum / batch size.
 
     Example
     -------
@@ -435,7 +455,9 @@ def BCE_loss(
     allowed_len_diff : int
         Length difference that will be tolerated before raising an exception.
     reduction: str
-        Specifies the reduction to apply to the output: 'mean' | 'batchmean' | 'sum'.
+        Options are 'mean', 'batch', 'batchmean', 'sum'.
+        See pytorch for 'mean', 'sum'. The 'batch' option returns
+        one loss per item in the batch, 'batchmean' returns sum / batch size.
 
     Example
     -------
@@ -488,8 +510,10 @@ def kldiv_loss(
         Length of each utterance, if frame-level loss is desired.
     allowed_len_diff : int
         Length difference that will be tolerated before raising an exception.
-    reduction: str
-        Specifies the reduction to apply to the output: 'none' | 'mean' | 'batchmean' | 'sum'.
+    reduction : str
+        Options are 'mean', 'batch', 'batchmean', 'sum'.
+        See pytorch for 'mean', 'sum'. The 'batch' option returns
+        one loss per item in the batch, 'batchmean' returns sum / batch size.
 
     Example
     -------
@@ -525,6 +549,8 @@ def kldiv_loss(
             return loss.sum().mean()
         elif reduction == "batchmean":
             return loss.sum() / bz
+        elif reduction == "batch":
+            return loss.view(bz, -1).sum(1) / length
         elif reduction == "sum":
             return loss.sum()
         else:
@@ -583,11 +609,12 @@ def compute_masked_loss(
         computed and returned.
     label_smoothing: float
         The proportion of label smoothing. Should only be used for NLL loss.
-        Ref: Regularizing Neural Networks by Penalizing Confident Output Distributions.
-        https://arxiv.org/abs/1701.06548
-    reduction: str
-        Specifies the reduction to apply to the output loss: 'mean' | 'sum'.
-
+        Ref: Regularizing Neural Networks by Penalizing Confident Output
+        Distributions. https://arxiv.org/abs/1701.06548
+    reduction : str
+        One of 'mean', 'batch', 'batchmean', 'none' where 'mean' returns a
+        single value and 'batch' returns one per item in the batch and
+        'batchmean' is sum / batch_size and 'none' returns all.
     """
     mask = torch.ones_like(targets)
     if length is not None:
@@ -597,22 +624,28 @@ def compute_masked_loss(
         if len(targets.shape) == 3:
             mask = mask.unsqueeze(2).repeat(1, 1, targets.shape[2])
 
-    loss = torch.sum(loss_fn(predictions, targets) * mask)
+    # Compute, then reduce loss
+    loss = loss_fn(predictions, targets) * mask
+    N = loss.size(0)
     if reduction == "mean":
-        loss = loss / torch.sum(mask)
-    if reduction == "batchmean":
-        loss = loss / targets.shape[0]
+        loss = loss.sum() / torch.sum(mask)
+    elif reduction == "batchmean":
+        loss = loss.sum() / N
+    elif reduction == "batch":
+        loss = loss.view(N, -1).sum(1) / mask.view(N, -1).sum(1)
 
     if label_smoothing == 0:
         return loss
     else:
-        loss_reg = -torch.sum(torch.mean(predictions, dim=1) * mask)
+        loss_reg = torch.mean(predictions, dim=1) * mask
         if reduction == "mean":
-            loss_reg = loss_reg / torch.sum(mask)
-        if reduction == "batchmean":
-            loss_reg = loss_reg / targets.shape[0]
+            loss_reg = torch.sum(loss_reg) / torch.sum(mask)
+        elif reduction == "batchmean":
+            loss_reg = torch.sum(loss_reg) / targets.shape[0]
+        elif reduction == "batch":
+            loss_reg = loss_reg.sum(1) / mask.sum(1)
 
-        return label_smoothing * loss_reg + (1 - label_smoothing) * loss
+        return -label_smoothing * loss_reg + (1 - label_smoothing) * loss
 
 
 def get_si_snr_with_pitwrapper(source, estimate_source):
@@ -667,8 +700,8 @@ def cal_si_snr(source, estimate_source):
     device = estimate_source.device.type
 
     source_lengths = torch.tensor(
-        [estimate_source.shape[0]] * estimate_source.shape[1]
-    ).to(device)
+        [estimate_source.shape[0]] * estimate_source.shape[1], device=device
+    )
     mask = get_mask(source, source_lengths)
     estimate_source *= mask
 
