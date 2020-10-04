@@ -5,6 +5,7 @@ import copy
 
 from speechbrain.nnet.linear import Linear
 from speechbrain.lobes.models.transformer.Transformer import TransformerEncoder
+from speechbrain.lobes.models.transformer.Transformer import PositionalEncoding
 from speechbrain.lobes.models.transformer.TransformerSE import CNNTransformerSE
 import speechbrain.nnet.RNN as SBRNN
 
@@ -536,8 +537,10 @@ class SBTransformerBlock(nn.Module):
         return_attention=False,
         num_modules=1,
         use_group_comm=False,
+        use_positional_encoding=False,
     ):
         super(SBTransformerBlock, self).__init__()
+        self.use_positional_encoding = use_positional_encoding
 
         if activation == "relu":
             activation = nn.ReLU
@@ -559,8 +562,15 @@ class SBTransformerBlock(nn.Module):
             use_group_comm,
         )
 
+        if use_positional_encoding:
+            self.pos_enc = PositionalEncoding()
+
     def forward(self, x, init_params=False):
-        return self.mdl(x, init_params=init_params)
+        if self.use_positional_encoding:
+            pos_enc = self.pos_enc(x, init_params=init_params)
+            return self.mdl(x + pos_enc, init_params=init_params)
+        else:
+            return self.mdl(x, init_params=init_params)
 
 
 class SBRNNBlock(nn.Module):
