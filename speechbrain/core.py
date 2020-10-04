@@ -193,7 +193,7 @@ def ddp_init(rank, brain, args):
     # Remove the "ddp_" from the backend
     backend = brain.multigpu_backend[4:]
     dist.init_process_group(
-        backend=backend, world_size=brain.ddp_procs, rank=rank
+        backend=backend, world_size=brain.multigpu_procs, rank=rank
     )
     brain.device = rank
     brain.root_process = rank == 0
@@ -265,7 +265,7 @@ class Brain:
         optimizer added to continue training if interrupted.
     device : str
         The location for performing computations.
-    ddp_procs : int
+    multigpu_procs : int
         Number of processes to use with torch's ``DistributedDataParallel``.
         if passed, this will assume there is one GPU per process.
     multigpu_backend : str
@@ -578,7 +578,9 @@ class Brain:
             self._data_parallel_wrap()
             self._fit(*args)
         else:
-            torch.multiprocessing.spawn(ddp_init, (self, args), self.ddp_procs)
+            torch.multiprocessing.spawn(
+                ddp_init, (self, args), self.multigpu_procs
+            )
 
     def _data_parallel_wrap(self):
         """Simple method for wrapping all modules with dataparallel"""
@@ -605,7 +607,7 @@ class Brain:
                 for i, batch in enumerate(t):
                     if (
                         isinstance(self.device, int)
-                        and i % self.ddp_procs != self.device
+                        and i % self.multigpu_procs != self.device
                     ):
                         continue
                     loss = self.fit_batch(batch)
@@ -644,8 +646,11 @@ class Brain:
 
             # Wrap module with DDP when requested
             needs_grad = any(p.requires_grad for p in module.parameters())
-            if needs_grad and self.ddp_procs > 0:
-                module = DDP(module, device_ids=[self.device])
+            if needs_grad and self.multigpu_procs > 0:
+                if self.multigpu_backend == "data_parallel":
+                    module = torch.nn.DataParallel(module)
+                else:
+                    module = DDP(module, device_ids=[self.device])
 
             self.modules.append(module)
             self.jit_modules[name] = module
