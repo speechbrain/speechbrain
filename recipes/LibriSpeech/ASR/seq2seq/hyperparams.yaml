@@ -42,7 +42,8 @@ batch_size: 8
 lr: 1.0
 ctc_weight: 0.5
 device: 'cuda'
-ddp_procs: 0  # Set to number of GPUs for multi-gpu training
+multigpu_procs: 0  # Set to number of GPUs for multi-gpu training
+multigpu_backend: ddp_nccl
 token_type: unigram # ["unigram", "bpe", "char"]
 
 # Feature parameters

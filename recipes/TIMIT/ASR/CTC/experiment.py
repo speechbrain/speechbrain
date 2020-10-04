@@ -143,7 +143,8 @@ if __name__ == "__main__":
         jit_modules=hparams["jit_modules"],
         checkpointer=hparams["checkpointer"],
         device=hparams["device"],
-        ddp_procs=hparams["ddp_procs"],
+        multigpu_procs=hparams["multigpu_procs"],
+        multigpu_backend=hparams["multigpu_backend"],
     )
 
     asr_brain.fit(asr_brain.hparams.epoch_counter, train_set, valid_set)

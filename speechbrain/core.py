@@ -189,8 +189,11 @@ def ddp_init(rank, brain, args):
     print(f"Process {rank} reporting in!")
     os.environ["MASTER_ADDR"] = "localhost"
     os.environ["MASTER_PORT"] = "12321"
+
+    # Remove the "ddp_" from the backend
+    backend = brain.multigpu_backend[4:]
     dist.init_process_group(
-        backend="nccl", world_size=brain.ddp_procs, rank=rank
+        backend=backend, world_size=brain.ddp_procs, rank=rank
     )
     brain.device = rank
     brain.root_process = rank == 0
@@ -265,6 +268,8 @@ class Brain:
     ddp_procs : int
         Number of processes to use with torch's ``DistributedDataParallel``.
         if passed, this will assume there is one GPU per process.
+    multigpu_backend : str
+        one of {"ddp_nccl", "ddp_gloo", "ddp_mpi", "data_parallel"}
     auto_mix_prec: bool
         If True, automatic mixed-precision is used. Activate it only with cuda.
 
@@ -288,14 +293,16 @@ class Brain:
         jit_modules=None,
         checkpointer=None,
         device="cpu",
-        ddp_procs=0,
+        multigpu_procs=0,
+        multigpu_backend="ddp_nccl",
         auto_mix_prec=False,
     ):
         self.opt_class = opt_class
         self.jit_modules = jit_modules
         self.checkpointer = checkpointer
         self.device = device
-        self.ddp_procs = ddp_procs
+        self.multigpu_procs = multigpu_procs
+        self.multigpu_backend = multigpu_backend
         self.auto_mix_prec = auto_mix_prec
 
         self.root_process = True
@@ -400,7 +407,7 @@ class Brain:
 
     def on_fit_start(self):
         """Gets called at the beginning of ``fit()``, on multiple processes
-        if ddp_procs is more than 0.
+        if multigpu_procs is more than 0 and backend is ddp.
 
         Default implementation compiles the jit modules, initializes
         optimizers, and loads the latest checkpoint to resume training.
@@ -544,9 +551,10 @@ class Brain:
         * ``evaluate_batch()``
         * ``update_average()``
 
-        If the initialization was done with ddp_procs > 0, this
-        method will spawn the correct number of processes and run a portion
-        of the training data on the corresponding device.
+        If the initialization was done with multigpu_procs > 0 and the
+        multigpu_backend is ddp, this method will spawn the correct number
+        of processes and run a portion of the training data on the
+        corresponding device.
 
         Arguments
         ---------
@@ -559,16 +567,28 @@ class Brain:
         progressbar : bool
             Whether to display the progress of each epoch in a progressbar.
         """
-        if self.ddp_procs > 0:
-            self._ddp_fit(epoch_counter, train_set, valid_set, progressbar)
+        if self.multigpu_procs > 0:
+            self._multigpu_fit(epoch_counter, train_set, valid_set, progressbar)
         else:
             self._fit(epoch_counter, train_set, valid_set, progressbar)
 
-    def _ddp_fit(self, *args):
-        torch.multiprocessing.spawn(ddp_init, (self, args), self.ddp_procs)
+    def _multigpu_fit(self, *args):
+        """Fit on multiple gpus using specified backend"""
+        if self.multigpu_backend == "data_parallel":
+            self._data_parallel_wrap()
+            self._fit(*args)
+        else:
+            torch.multiprocessing.spawn(ddp_init, (self, args), self.ddp_procs)
+
+    def _data_parallel_wrap(self):
+        """Simple method for wrapping all modules with dataparallel"""
+        for name, hparam in self.hparams.__dict__.items():
+            if isinstance(hparam, torch.nn.Module):
+                hparam = torch.nn.DataParallel(hparam)
+                setattr(self, name, hparam)
 
     def _fit(self, epoch_counter, train_set, valid_set, progressbar):
-
+        """Adjust parameters based on data."""
         self.on_fit_start()
 
         # Iterate epochs
@@ -605,11 +625,6 @@ class Brain:
                     for i, batch in enumerate(
                         tqdm(valid_set, dynamic_ncols=True, disable=disable)
                     ):
-                        if (
-                            isinstance(self.device, int)
-                            and i % self.ddp_procs != self.device
-                        ):
-                            continue
                         loss = self.evaluate_batch(batch, stage=Stage.VALID)
                         avg_valid_loss = self.update_average(
                             loss, avg_valid_loss, iteration=i + 1
