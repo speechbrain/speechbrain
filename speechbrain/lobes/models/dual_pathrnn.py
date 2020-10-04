@@ -5,6 +5,9 @@ import copy
 
 from speechbrain.nnet.linear import Linear
 from speechbrain.lobes.models.transformer.Transformer import TransformerEncoder
+from speechbrain.lobes.models.transformer.TransformerSE import CNNTransformerSE
+import speechbrain.nnet.RNN as SBRNN
+
 
 EPS = 1e-8
 
@@ -560,6 +563,63 @@ class SBTransformerBlock(nn.Module):
         return self.mdl(x, init_params=init_params)
 
 
+class SBRNNBlock(nn.Module):
+    def __init__(
+        self,
+        hidden_channels,
+        num_layers,
+        rnn_type="LSTM",
+        dropout=0,
+        bidirectional=True,
+    ):
+        super(SBRNNBlock, self).__init__()
+
+        self.mdl = getattr(SBRNN, rnn_type)(
+            hidden_channels,
+            num_layers=num_layers,
+            dropout=dropout,
+            bidirectional=bidirectional,
+        )
+
+    def forward(self, x, init_params=False):
+        return self.mdl(x, init_params=init_params)
+
+
+class ModularTransformerBlock(nn.Module):
+    def __init__(
+        self,
+        out_channels,
+        nhead,
+        num_layers,
+        d_ffn=2048,
+        dropout=0.1,
+        activation=nn.LeakyReLU,
+        output_activation=nn.ReLU,
+        causal=False,
+        custom_emb_module=None,
+        num_modules=1,
+        use_group_comm=False,
+    ):
+        super(ModularTransformerBlock, self).__init__()
+
+        self.mdl = CNNTransformerSE(
+            out_channels,
+            output_activation,
+            nhead,
+            num_layers,
+            d_ffn,
+            dropout,
+            activation,
+            causal,
+            custom_emb_module,
+            num_modules,
+            use_group_comm,
+        )
+
+    def forward(self, x, init_params=False):
+        return self.mdl(x, init_params=init_params)
+
+
 class Dual_Computation_Block(nn.Module):
     """
 #            norm: gln = "Global Norm", cln = "Cumulative Norm", ln = "Layer Norm"
@@ -676,6 +736,7 @@ class Dual_Path_Model(nn.Module):
         """
            x: [B, N, L]
         """
+
         # [B, N, L]
         x = self.norm(x)
         # [B, N, L]

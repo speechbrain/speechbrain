@@ -94,6 +94,14 @@ SBtf: !new:speechbrain.lobes.models.dual_pathrnn.SBTransformerBlock
     d_ffn: 2048
     dropout: 0
 
+SBModtf: !new:speechbrain.lobes.models.dual_pathrnn.ModularTransformerBlock
+    out_channels: !ref <out_channels>
+    nhead: 8
+    num_layers: 3
+    d_ffn: 2048
+    dropout: 0
+
+
 FTtf: !new:speechbrain.lobes.models.dual_pathrnn.FastTransformerBlock
     attention_type: 'reformer'  # this is whatever available on fasttf repo.
     out_channels: !ref <out_channels>
@@ -108,9 +116,9 @@ MaskNet: !new:speechbrain.lobes.models.dual_pathrnn.Dual_Path_Model
     in_channels: !ref <N_encoder_out>
     out_channels: !ref <out_channels>
     num_layers: 2
-    K: 250
-    intra_model: !ref <IB>
-    inter_model: !ref <IB>
+    K: 200
+    intra_model: !ref <SBModtf>
+    inter_model: !ref <SBModtf>
 
 Decoder: !new:speechbrain.lobes.models.dual_pathrnn.Decoder
     in_channels: !ref <N_encoder_out>
