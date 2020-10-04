@@ -134,19 +134,21 @@ class ASR(sb.Brain):
         if stage == sb.Stage.VALID:
             old_lr, new_lr = self.hparams.lr_annealing(per)
             sb.nnet.update_learning_rate(self.optimizer, new_lr)
-            self.hparams.train_logger.log_stats(
-                stats_meta={"epoch": epoch, "lr": old_lr},
-                train_stats={"loss": self.train_loss},
-                valid_stats={
-                    "loss": stage_loss,
-                    "ctc_loss": self.ctc_metrics.summarize("average"),
-                    "seq_loss": self.seq_metrics.summarize("average"),
-                    "PER": per,
-                },
-            )
-            self.checkpointer.save_and_keep_only(
-                meta={"PER": per}, min_keys=["PER"]
-            )
+
+            if self.root_process:
+                self.hparams.train_logger.log_stats(
+                    stats_meta={"epoch": epoch, "lr": old_lr},
+                    train_stats={"loss": self.train_loss},
+                    valid_stats={
+                        "loss": stage_loss,
+                        "ctc_loss": self.ctc_metrics.summarize("average"),
+                        "seq_loss": self.seq_metrics.summarize("average"),
+                        "PER": per,
+                    },
+                )
+                self.checkpointer.save_and_keep_only(
+                    meta={"PER": per}, min_keys=["PER"]
+                )
 
         if stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -203,7 +205,8 @@ if __name__ == "__main__":
         jit_modules=hparams["jit_modules"],
         checkpointer=hparams["checkpointer"],
         device=hparams["device"],
-        ddp_procs=hparams["ddp_procs"],
+        multigpu_procs=hparams["multigpu_procs"],
+        multigpu_backend=hparams["multigpu_backend"],
     )
 
     asr_brain.fit(asr_brain.hparams.epoch_counter, train_set, valid_set)
