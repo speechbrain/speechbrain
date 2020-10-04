@@ -83,7 +83,7 @@ class TransformerInterface(nn.Module):
             )
 
         # initialize the dncoder
-        if num_encoder_layers > 0:
+        if num_decoder_layers > 0:
             if custom_tgt_module is not None:
                 self.custom_tgt_module = custom_tgt_module(d_model)
 
@@ -570,7 +570,7 @@ class TransformerDecoder(nn.Module):
             multihead_attns.append(multihead_attn)
         output = self.norm(output, init_params)
 
-        if self.return_attention:
+        if self.return_attention or not self.training:
             return output, self_attns, multihead_attns
         return output
 

@@ -8,6 +8,8 @@ import torch  # noqa 42
 from torch import nn
 
 from speechbrain.nnet.linear import Linear
+from speechbrain.nnet.containers import Sequential
+from speechbrain.nnet.normalization import LayerNorm
 from speechbrain.lobes.models.transformer.Transformer import (
     TransformerInterface,
     get_lookahead_mask,
@@ -76,8 +78,13 @@ class TransformerLM(TransformerInterface):
         )
 
         self.custom_src_module = NormalizedEmbedding(d_model, vocab)
-        self.output_proj = Linear(vocab)
+        self.output_proj = Sequential(
+            Linear(d_model), LayerNorm(eps=1e-6), Linear(vocab)
+        )
+
         self.masking_func = masking_func
+        self.num_encoder_layers = num_encoder_layers
+        self.num_decoder_layers = num_decoder_layers
 
     def forward(
         self, src, init_params=False,
@@ -96,20 +103,30 @@ class TransformerLM(TransformerInterface):
 
         src = self.custom_src_module(src, init_params)
         src = src + self.positional_encoding(src, init_params)
-        encoder_out = self.encoder(
-            src=src,
-            src_mask=src_mask,
-            src_key_padding_mask=src_key_padding_mask,
-            init_params=init_params,
-        )
+        if self.num_encoder_layers > 0:
+            encoder_out = self.encoder(
+                src=src,
+                src_mask=src_mask,
+                src_key_padding_mask=src_key_padding_mask,
+                init_params=init_params,
+            )
+
+        if self.num_decoder_layers > 0:
+            encoder_out = self.decoder(
+                src,
+                src,
+                tgt_mask=src_mask,
+                tgt_key_padding_mask=src_key_padding_mask,
+                init_params=init_params,
+            )
 
         pred = self.output_proj(encoder_out, init_params)
 
         if init_params:
             self.reset_params()
-            self.output_proj.weight = (
-                self.custom_src_module.emb.Embedding.weight
-            )
+#            self.output_proj.weight = (
+#                self.custom_src_module.emb.Embedding.weight
+#            )
 
         return pred
 

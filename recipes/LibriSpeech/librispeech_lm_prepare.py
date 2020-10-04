@@ -16,6 +16,7 @@ import h5py
 from speechbrain.utils.data_utils import download_file
 import gzip
 from tqdm import tqdm
+import gc
 
 logger = logging.getLogger(__name__)
 OPT_FILE = "opt_librispeech_lm_corpus_prepare.pkl"
@@ -171,10 +172,10 @@ def create_hdf5(
 
     if ".pkl" in hdf5_file:
         dset = {}
-        # dset["wrd"] = all_wrds
-        # dset["char"] = all_chars
         dset["subwrd"] = subwrds
         save_pkl(dset, hdf5_file)
+        logger.info("clearing garbage during data preparation...")
+        gc.collect()
     else:
         with h5py.File(hdf5_file, "w") as f_h5:
             dset = f_h5.create_dataset(
@@ -185,6 +186,10 @@ def create_hdf5(
                 "char", (len(all_chars),), dtype=h5py.string_dtype()
             )
             dset[:] = all_chars
+            dset = f_h5.create_dataset(
+                "subwrd", (len(subwrds),), dtype=h5py.string_dtype()
+            )
+            dset[:] = subwrds
 
     # Final print
     msg = "\t%s sucessfully created!" % (hdf5_file)

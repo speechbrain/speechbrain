@@ -103,7 +103,7 @@ tensor=(batch, time_steps, channels[optional])
 **The batch is always the first element, and time_steps is always the second one.
 The rest of the dimensions are as many channels as you need**.
 
-*Why we need tensor with the same format?*
+*Why do we need all tensors to have the same format?*
 It is crucial to have a shared format for all the classes that process data and all the processing functions must be designed considering it. In SpeechBrain we might have pipelines of modules and if each module was based on different tensor formats, exchanging data between processing units would have been painful. Many formats are possible. For SpeechBrain we selected this one because
 it is commonly used with recurrent layers, which are common in speech applications.
 
@@ -111,7 +111,7 @@ The format is very **flexible** and allows users to read different types of data
 ```
 (batch, time_step, n_filters)
 ```
-The Short-Time Fourier Transform (STFT) the tensor, instead, will be:
+The Short-Time Fourier Transform (STFT) tensor, instead, will be:
 ```
 (batch, time_step, n_fft, 2)
 ```

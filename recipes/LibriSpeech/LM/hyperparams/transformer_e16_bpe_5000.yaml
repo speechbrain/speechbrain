@@ -22,8 +22,13 @@ tok_voc_file: /scratch/jianyuan/5000_unigram.vocab
 
 # Training parameters
 number_of_epochs: 20
+<<<<<<< HEAD
 batch_size: 96
 lr: 1
+=======
+batch_size: 64
+lr: 10
+>>>>>>> d20b1abca0594ad9490bfd9cc80bf216be564f8f
 accu_steps: 8 # Gradient accumulation to simulate large batch training
 device: 'cuda'
 multigpu: True
@@ -73,7 +78,7 @@ model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM # y
     d_ffn: 2048
     dropout: 0.0
     activation: !name:torch.nn.GELU
-    normalize_before: True
+    normalize_before: False
 
 log_softmax: !new:torch.nn.LogSoftmax
     dim: -1
@@ -104,7 +109,7 @@ train_loader: !new:speechbrain.data_io.data_io.HDF5DataLoaderFactory
     hdf5_file: !ref <hdf5_train>
     # label_dict_file: !ref <output_folder>/label_dict.pkl
     batch_size: !ref <batch_size>
-    sentence_sorting: ascending
+    sentence_sorting: random
     sort_by: subwrd
     output_folder: !ref <output_folder>
     data_entries: [subwrd]
