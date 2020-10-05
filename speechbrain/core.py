@@ -582,16 +582,14 @@ class Brain:
             # Only show progressbar if requested and root_process
             disable = not (progressbar and self.root_process)
             with tqdm(train_set, dynamic_ncols=True, disable=disable) as t:
-                for i, batch in enumerate(t):
+                for self.step, batch in enumerate(t):
                     if (
                         isinstance(self.device, int)
-                        and i % self.ddp_procs != self.device
+                        and self.step % self.ddp_procs != self.device
                     ):
                         continue
                     loss = self.fit_batch(batch)
-                    avg_train_loss = self.update_average(
-                        loss, avg_train_loss, iteration=i + 1
-                    )
+                    avg_train_loss = self.update_average(loss, avg_train_loss)
                     t.set_postfix(train_loss=avg_train_loss)
             self.on_stage_end(Stage.TRAIN, avg_train_loss, epoch)
 
@@ -602,17 +600,17 @@ class Brain:
                 self.modules.eval()
                 avg_valid_loss = 0.0
                 with torch.no_grad():
-                    for i, batch in enumerate(
+                    for self.step, batch in enumerate(
                         tqdm(valid_set, dynamic_ncols=True, disable=disable)
                     ):
                         if (
                             isinstance(self.device, int)
-                            and i % self.ddp_procs != self.device
+                            and self.step % self.ddp_procs != self.device
                         ):
                             continue
                         loss = self.evaluate_batch(batch, stage=Stage.VALID)
                         avg_valid_loss = self.update_average(
-                            loss, avg_valid_loss, iteration=i + 1
+                            loss, avg_valid_loss
                         )
                 self.on_stage_end(Stage.VALID, avg_valid_loss, epoch)
 
@@ -663,16 +661,14 @@ class Brain:
         avg_test_loss = 0.0
         disable = not progressbar
         with torch.no_grad():
-            for i, batch in enumerate(
+            for self.step, batch in enumerate(
                 tqdm(test_set, dynamic_ncols=True, disable=disable)
             ):
                 loss = self.evaluate_batch(batch, stage=Stage.TEST)
-                avg_test_loss = self.update_average(
-                    loss, avg_test_loss, iteration=i + 1
-                )
+                avg_test_loss = self.update_average(loss, avg_test_loss)
         self.on_stage_end(Stage.TEST, avg_test_loss, epoch=None)
 
-    def update_average(self, loss, avg_loss, iteration):
+    def update_average(self, loss, avg_loss):
         """Update running average of the loss.
 
         Arguments
@@ -681,8 +677,6 @@ class Brain:
             detached loss, a single float value.
         avg_loss : float
             current running average.
-        iteration : int
-            The iteration count.
 
         Returns
         -------
@@ -697,6 +691,6 @@ class Brain:
             )
 
         # Compute moving average
-        avg_loss -= avg_loss / iteration
-        avg_loss += float(loss) / iteration
+        avg_loss -= avg_loss / (self.step + 1)
+        avg_loss += float(loss) / (self.step + 1)
         return avg_loss
