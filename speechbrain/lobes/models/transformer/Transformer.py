@@ -83,7 +83,7 @@ class TransformerInterface(nn.Module):
             )
 
         # initialize the dncoder
-        if num_encoder_layers > 0:
+        if num_decoder_layers > 0:
             if custom_tgt_module is not None:
                 self.custom_tgt_module = custom_tgt_module(d_model)
 
