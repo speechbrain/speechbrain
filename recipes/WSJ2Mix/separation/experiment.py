@@ -13,6 +13,7 @@ import os
 import pprint
 import shutil
 from pathlib import PosixPath
+import itertools as it
 
 import mlflow
 import orion
@@ -29,6 +30,7 @@ from recipes.minimal_examples.neural_networks.separation.example_conv_tasnet imp
 from speechbrain.nnet.losses import get_si_snr_with_pitwrapper
 from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.train_logger import summarize_average
+from speechbrain.data_io.data_io import write_wav_soundfile
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +41,37 @@ def reset_layer_recursively(layer):
     for child_layer in layer.modules():
         if layer != child_layer:
             reset_layer_recursively(child_layer)
+
+
+def save_audio_results(params, model, test_loader, device, N=10):
+    save_path = os.path.join(params.output_folder, "audio_results")
+    if not os.path.exists(save_path):
+        os.mkdir(save_path)
+
+    fs = 8000
+
+    for i, batch in enumerate(it.islice(test_loader, 0, N, 1)):
+        inputs = batch[0][1].to(device)
+        predictions = model.compute_forward(inputs, stage="test").detach()
+        write_wav_soundfile(
+            predictions[0, :, 0] / predictions[0, :, 0].std(),
+            save_path + "/item{}_source{}hat.wav".format(i, 1),
+            fs,
+        )
+        write_wav_soundfile(
+            predictions[0, :, 1] / predictions[0, :, 1].std(),
+            save_path + "/item{}_source{}hat.wav".format(i, 2),
+            fs,
+        )
+        write_wav_soundfile(
+            batch[1][1], save_path + "/item{}_source{}.wav".format(i, 1), fs
+        )
+        write_wav_soundfile(
+            batch[2][1], save_path + "/item{}_source{}.wav".format(i, 2), fs
+        )
+        write_wav_soundfile(
+            inputs[0], save_path + "/item{}_mixture.wav".format(i), fs
+        )
 
 
 class SourceSeparationBrainSuperclass(sb.core.Brain):
@@ -223,6 +256,12 @@ def main():
         help="will run a minimal example for debugging",
         action="store_true",
     )
+    parser.add_argument(
+        "--test_only",
+        help="will only run testing, and not training",
+        action="store_true",
+    )
+
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO)
@@ -306,25 +345,37 @@ def main():
         reset_layer_recursively(module)
 
     params.checkpointer.recover_if_possible(lambda c: -c.meta["av_loss"])
-    mlflow.start_run()
-    ctn.fit(
-        range(params.N_epochs),
-        train_set=train_loader,
-        valid_set=val_loader,
-        progressbar=params.progressbar,
-        early_stopping_with_patience=params.early_stopping_with_patience,
-    )
-    mlflow.end_run()
 
-    test_stats = ctn.evaluate(test_loader)
-    logger.info("Test SI-SNR: %.3f" % -summarize_average(test_stats["loss"]))
+    if args.test_only:
+        save_audio_results(params, ctn, test_loader, device, N=10)
 
-    best_eval = min(ctn.eval_scores)
-    logger.info("Best result on validation: {}".format(-best_eval))
+        # get the score on the whole test set
+        test_stats = ctn.evaluate(test_loader)
+        logger.info(
+            "Test SI-SNR: %.3f" % -summarize_average(test_stats["loss"])
+        )
+    else:
+        mlflow.start_run()
+        ctn.fit(
+            range(params.N_epochs),
+            train_set=train_loader,
+            valid_set=val_loader,
+            progressbar=params.progressbar,
+            early_stopping_with_patience=params.early_stopping_with_patience,
+        )
+        mlflow.end_run()
 
-    report_results(
-        [dict(name="dev_metric", type="objective", value=float(best_eval),)]
-    )
+        test_stats = ctn.evaluate(test_loader)
+        logger.info(
+            "Test SI-SNR: %.3f" % -summarize_average(test_stats["loss"])
+        )
+
+        best_eval = min(ctn.eval_scores)
+        logger.info("Best result on validation: {}".format(-best_eval))
+
+        report_results(
+            [dict(name="dev_metric", type="objective", value=float(best_eval),)]
+        )
 
 
 if __name__ == "__main__":
