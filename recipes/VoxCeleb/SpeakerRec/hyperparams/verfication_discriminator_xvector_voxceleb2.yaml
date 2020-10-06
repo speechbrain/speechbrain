@@ -37,9 +37,6 @@ left_frames: 0
 right_frames: 0
 deltas: False
 
-# Number of speakers
-out_n_neurons: 1211
-
 # Functions
 compute_features: !new:speechbrain.lobes.features.fbank.Fbank
     n_mels: !ref <n_mels>

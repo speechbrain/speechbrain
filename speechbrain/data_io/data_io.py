@@ -24,6 +24,8 @@ from torch.utils.data import Dataset, DataLoader
 import h5py
 import math
 
+from speechbrain.utils import checkpoints
+
 logger = logging.getLogger(__name__)
 
 
@@ -1116,17 +1118,11 @@ class HDF5DataLoaderFactory(torch.nn.Module):
         else:
             self.shuffle = False
 
-    def forward(self):
-        """
-        Output:
-        dataloader: It is a list returning all the dataloaders created.
-        """
         self.label_dict = None
         if self.label_dict_file is not None:
             self.label_dict = self.load_label_dict(self.label_dict_file)
 
-        # Creating a dataloader
-        dataset = HDF5DatasetFactory(
+        self.dataset = HDF5DatasetFactory(
             self.hdf5_file,
             self.label_dict,
             self.data_entries,
@@ -1134,6 +1130,14 @@ class HDF5DataLoaderFactory(torch.nn.Module):
             sentence_sorting=self.sentence_sorting,
             cache_in_ram=self.cache_in_ram,
         )
+
+    def forward(self, resumable=None):
+        """
+        Output:
+        dataloader: It is a list returning all the dataloaders created.
+        """
+        # Creating a dataloader
+        dataset = self.dataset
         if self.local_random:
             print("local random data loader is used.")
             batch_sampler = LocalRandomSampler(
@@ -1144,7 +1148,7 @@ class HDF5DataLoaderFactory(torch.nn.Module):
             )
             self.dataloader = DataLoader(
                 dataset,
-                pin_memory=True,
+                pin_memory=False,
                 num_workers=self.num_workers,
                 collate_fn=self.batch_creation,
                 batch_sampler=batch_sampler,
@@ -1153,11 +1157,12 @@ class HDF5DataLoaderFactory(torch.nn.Module):
             self.dataloader = DataLoader(
                 dataset,
                 batch_size=self.batch_size,
-                shuffle=self.shuffle,
-                pin_memory=True,
+                shuffle=False,
+                pin_memory=False,
                 drop_last=self.drop_last,
                 num_workers=self.num_workers,
                 collate_fn=self.batch_creation,
+                sampler=resumable if self.shuffle else None,
             )
 
         return self.dataloader
@@ -1375,7 +1380,7 @@ class HDF5DatasetFactory(Dataset):
             msg = "caching data in RAM..."
             logger.info(msg)
             self.f_h5 = load_pkl(hdf5)
-            msg = "caching completed."
+            msg = "caching complete!"
             logger.info(msg)
         else:
             self.f_h5 = h5py.File(hdf5, "r")
@@ -1471,6 +1476,67 @@ class HDF5DatasetFactory(Dataset):
         data_read = [snt_id, data, data_shape]
 
         return data_read
+
+
+@checkpoints.register_checkpoint_hooks
+class ResumableRandomSampler(torch.utils.data.Sampler):
+    """Samples elements randomly. If without replacement, then sample from a shuffled dataset.
+    If with replacement, then user can specify :attr:`num_samples` to draw.
+
+    This class is adapted from: https://gist.github.com/usamec/1b3b4dcbafad2d58faa71a9633eea6a5
+
+    Arguments:
+        data_source (Dataset): dataset to sample from
+        replacement (bool): samples are drawn on-demand with replacement if ``True``, default=``False``
+        num_samples (int): number of samples to draw, default=`len(dataset)`. This argument
+            is supposed to be specified only when `replacement` is ``True``.
+        generator (Generator): Generator used in sampling.
+    """
+
+    def __init__(self, data_source, key="subwrd"):
+        self.data_source = load_pkl(data_source)
+        self.key = key
+        self.generator = torch.Generator()
+        self.generator.manual_seed(24325)
+
+        self.perm_index = 0
+        self.perm = torch.randperm(self.num_samples, generator=self.generator)
+
+    @property
+    def num_samples(self) -> int:
+        return len(self.data_source[self.key])
+
+    def __iter__(self):
+        if self.perm_index >= len(self.perm):
+            self.perm_index = 0
+            self.perm = torch.randperm(
+                self.num_samples, generator=self.generator
+            )
+            self.generator.manual_seed(random.randint(1, 999999))
+
+        while self.perm_index < len(self.perm):
+            self.perm_index += 1
+            yield self.perm[self.perm_index - 1]
+
+    def __len__(self):
+        return self.num_samples
+
+    @checkpoints.mark_as_saver
+    def save(self, path):
+        state_dict = {
+            "perm": self.perm,
+            "perm_index": self.perm_index,
+            "generator_state": self.generator.get_state(),
+        }
+        torch.save(state_dict, path)
+
+    @checkpoints.mark_as_loader
+    def set_state(self, path, end_of_epoch):
+        del end_of_epoch
+        state = torch.load(path)
+        self.perm = state["perm"]
+        self.perm_index = state["perm_index"]
+        self.generator.set_state(state["generator_state"])
 
 
 class LocalRandomSampler:
@@ -1734,10 +1800,14 @@ def read_wav_soundfile(file, data_options={}, lab2ind=None):  # noqa: C901
     -------
     >>> read_wav_soundfile('samples/audio_samples/example1.wav')[0:2]
     array([0.00024414, 0.00018311], dtype=float32)
+    >>> random_segment = {"frames":2, "stop":2}
+    >>> read_wav_soundfile('samples/audio_samples/example1.wav', random_segment)
+    array([0.00024414, 0.00018311], dtype=float32)
     """
     # Option initialization
     start = 0
     stop = None
+    frames = -1
     endian = None
     subtype = None
     channels = None
@@ -1747,6 +1817,7 @@ def read_wav_soundfile(file, data_options={}, lab2ind=None):  # noqa: C901
     possible_options = [
         "start",
         "stop",
+        "frames",
         "samplerate",
         "endian",
         "subtype",
@@ -1790,6 +1861,22 @@ def read_wav_soundfile(file, data_options={}, lab2ind=None):  # noqa: C901
 
             logger.error(err_msg, exc_info=True)
 
+    # Managing frames option
+    if "frames" in data_options:
+        try:
+            frames = int(data_options["frames"])
+        except Exception:
+
+            err_msg = (
+                "The frames value for the file %s must be an integer "
+                "(e.g frames:405)" % (file)
+            )
+
+            logger.error(err_msg, exc_info=True)
+        # Read a random segment
+        start = np.random.randint(start, stop - frames + 1)
+        stop = None
+
     # Managing samplerate option
     if "samplerate" in data_options:
         try:
@@ -1828,6 +1915,7 @@ def read_wav_soundfile(file, data_options={}, lab2ind=None):  # noqa: C901
     try:
         [signal, fs] = sf.read(
             file,
+            frames=frames,
             start=start,
             stop=stop,
             samplerate=samplerate,

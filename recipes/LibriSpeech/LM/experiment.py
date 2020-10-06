@@ -36,6 +36,7 @@ checkpointer = sb.utils.checkpoints.Checkpointer(
         "optimizer": params.optimizer,
         "scheduler": params.lr_annealing,
         "counter": params.epoch_counter,
+        "resumable": params.resumable
     },
 )
 
@@ -114,6 +115,13 @@ class LM(sb.core.Brain):
                     [params.optimizer], None, None
                 )
 
+        if steps % params.saving_interval == 0:
+            checkpointer.save_and_keep_only(
+                meta={"loss": loss.detach()},
+                importance_keys=[ckpt_recency, lambda c: -c.meta["loss"]],
+                end_of_epoch=False,
+            )
+
         stats["loss"] = loss.detach()
         return stats
 
@@ -179,7 +187,7 @@ prepare_lm_corpus(
 )
 
 _ = params.label_loader()
-train_set = params.train_loader()
+train_set = params.train_loader(resumable=params.resumable)
 valid_set = params.valid_loader()
 first_y = next(iter(train_set))
 
@@ -192,7 +200,13 @@ if params.multigpu:
 # Load latest checkpoint to resume training
 checkpointer.recover_if_possible()
 
-lm_brain.fit(params.epoch_counter, train_set, valid_set)
+# reinitialize the train loader with recovered states
+train_set = params.train_loader(resumable=params.resumable)
+lm_brain.fit(
+    params.epoch_counter,
+    train_set,
+    valid_set,
+)
 
 # Load best checkpoint for evaluation
 checkpointer.recover_if_possible(lambda c: -c.meta["loss"])
