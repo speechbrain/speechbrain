@@ -66,8 +66,8 @@ class ComplexRNN(torch.nn.Module):
     Example
     -------
     >>> inp_tensor = torch.rand([10, 16, 30])
-    >>> rnn = ComplexRNN(hidden_size=16)
-    >>> out_tensor = rnn(inp_tensor, init_params=True)
+    >>> rnn = ComplexRNN(hidden_size=16, input_shape=inp_tensor.shape)
+    >>> out_tensor = rnn(inp_tensor)
     >>>
     torch.Size([10, 16, 64])
     """
@@ -75,6 +75,7 @@ class ComplexRNN(torch.nn.Module):
     def __init__(
         self,
         hidden_size,
+        input_shape,
         nonlinearity="tanh",
         num_layers=1,
         bias=True,
@@ -96,26 +97,14 @@ class ComplexRNN(torch.nn.Module):
         self.init_criterion = init_criterion
         self.weight_init = weight_init
 
-    def init_params(self, first_input):
-        """
-        Initializes the parameters of the RNN.
-
-        Arguments
-        ---------
-        first_input : tensor
-            A first input used for initializing the parameters.
-        """
-        if len(first_input.shape) > 3:
+        if len(input_shape) > 3:
             self.reshape = True
 
         # Computing the feature dimensionality
-        self.fea_dim = torch.prod(torch.tensor(first_input.shape[2:]))
-        self.batch_size = first_input.shape[0]
-        self.device = first_input.device
+        self.fea_dim = torch.prod(torch.tensor(input_shape[2:]))
+        self.batch_size = input_shape[0]
 
         self.rnn = self._init_layers()
-
-        self.rnn.to(first_input.device)
 
     def _init_layers(self,):
         """
@@ -138,10 +127,9 @@ class ComplexRNN(torch.nn.Module):
                 dropout=self.dropout,
                 nonlinearity=self.nonlinearity,
                 bidirectional=self.bidirectional,
-                device=self.device,
                 init_criterion=self.init_criterion,
                 weight_init=self.weight_init,
-            ).to(self.device)
+            )
 
             rnn.append(rnn_lay)
 
@@ -152,19 +140,16 @@ class ComplexRNN(torch.nn.Module):
 
         return rnn
 
-    def forward(self, x, hx=None, init_params=False):
+    def forward(self, x, hx=None):
         """Returns the output of the vanilla ComplexRNN.
 
         Arguments
         ---------
         x : torch.Tensor
         """
-        if init_params:
-            self.init_params(x)
-
         # Reshaping input tensors for 4d inputs
         if self.reshape:
-            if len(x.shape) == 4:
+            if x.ndim == 4:
                 x = x.reshape(x.shape[0], x.shape[1], x.shape[2] * x.shape[3])
 
         output, hh = self._forward_rnn(x, hx=hx)
@@ -205,7 +190,7 @@ class ComplexRNN(torch.nn.Module):
         return x, h
 
 
-class ComplexRNN_Layer(torch.jit.ScriptModule):
+class ComplexRNN_Layer(torch.nn.Module):
     """ This function implements complex-valued recurrent layer.
 
     Arguments
@@ -225,9 +210,6 @@ class ComplexRNN_Layer(torch.jit.ScriptModule):
     dropout: float, optional
         Default: 0.0
         It is the dropout factor (must be between 0 and 1).
-    device: str, optional
-        Default: cpu
-        Device used for running the computations (e.g, 'cpu', 'cuda').
     bidirectional: bool, optional
         Default: False
         If True, a bidirectioal model that scans the sequence both
@@ -258,7 +240,6 @@ class ComplexRNN_Layer(torch.jit.ScriptModule):
         nonlinearity="relu",
         normalization="batchnorm",
         bidirectional=False,
-        device="cuda",
         init_criterion="glorot",
         weight_init="complex",
     ):
@@ -269,7 +250,6 @@ class ComplexRNN_Layer(torch.jit.ScriptModule):
         self.batch_size = batch_size
         self.bidirectional = bidirectional
         self.dropout = dropout
-        self.device = device
         self.init_criterion = init_criterion
         self.weight_init = weight_init
 
@@ -279,7 +259,7 @@ class ComplexRNN_Layer(torch.jit.ScriptModule):
             bias=True,
             weight_init=self.weight_init,
             init_criterion=self.init_criterion,
-        ).to(device)
+        )
 
         self.u = complex_linear(
             self.hidden_size,
@@ -287,31 +267,28 @@ class ComplexRNN_Layer(torch.jit.ScriptModule):
             bias=True,
             weight_init=self.weight_init,
             init_criterion=self.init_criterion,
-        ).to(device)
+        )
 
         if self.bidirectional:
             self.batch_size = self.batch_size * 2
 
         # Initial state
-        self.h_init = torch.zeros(
-            1, self.hidden_size * 2, requires_grad=False, device=self.device,
-        )
+        self.h_init = torch.zeros(1, self.hidden_size * 2, requires_grad=False,)
 
         # Preloading dropout masks (gives some speed improvement)
         self._init_drop(self.batch_size)
 
         # Initilizing dropout
-        self.drop = torch.nn.Dropout(p=self.dropout, inplace=False).to(device)
+        self.drop = torch.nn.Dropout(p=self.dropout, inplace=False)
 
-        self.drop_mask_te = torch.tensor([1.0], device=self.device).float()
+        self.drop_mask_te = torch.tensor([1.0]).float()
 
         # Setting the activation function
         if nonlinearity == "tanh":
-            self.act = torch.nn.Tanh().to(device)
+            self.act = torch.nn.Tanh()
         else:
-            self.act = torch.nn.ReLU().to(device)
+            self.act = torch.nn.ReLU()
 
-    @torch.jit.script_method
     def forward(self, x, hx=None):
         # type: (Tensor, Optional[Tensor]) -> Tensor # noqa F821
         """Returns the output of the ComplexRNN_layer.
@@ -343,7 +320,6 @@ class ComplexRNN_Layer(torch.jit.ScriptModule):
 
         return h
 
-    @torch.jit.script_method
     def _complexrnn_cell(self, w, ht):
         """Returns the hidden states for each time step.
 
@@ -371,21 +347,16 @@ class ComplexRNN_Layer(torch.jit.ScriptModule):
         """Initializes the recurrent dropout operation. To speed it up,
         the dropout masks are sampled in advance.
         """
-        self.drop = torch.nn.Dropout(p=self.dropout, inplace=False).to(
-            self.device
-        )
-        self.drop_mask_te = torch.tensor([1.0], device=self.device).float()
+        self.drop = torch.nn.Dropout(p=self.dropout, inplace=False)
+        self.drop_mask_te = torch.tensor([1.0]).float()
 
         self.N_drop_masks = 16000
         self.drop_mask_cnt = 0
 
         self.drop_masks = self.drop(
-            torch.ones(
-                self.N_drop_masks, self.hidden_size * 2, device=self.device,
-            )
+            torch.ones(self.N_drop_masks, self.hidden_size * 2,)
         ).data
 
-    @torch.jit.script_method
     def _sample_drop_mask(self,):
         """Selects one of the pre-defined dropout masks
         """
@@ -394,13 +365,9 @@ class ComplexRNN_Layer(torch.jit.ScriptModule):
             # Sample new masks when needed
             if self.drop_mask_cnt + self.batch_size > self.N_drop_masks:
                 self.drop_mask_cnt = 0
-                self.drop_masks = (
-                    self.drop(
-                        torch.ones(self.N_drop_masks, self.hidden_size * 2,)
-                    )
-                    .to(self.device)
-                    .data
-                )
+                self.drop_masks = self.drop(
+                    torch.ones(self.N_drop_masks, self.hidden_size * 2,)
+                ).data
 
             # Sampling the mask
             drop_mask = self.drop_masks[
@@ -413,7 +380,6 @@ class ComplexRNN_Layer(torch.jit.ScriptModule):
 
         return drop_mask
 
-    @torch.jit.script_method
     def _change_batch_size(self, x):
         """This function changes the batch size when it is different from
         the one detected in the initialization method. This might happen in
@@ -425,11 +391,7 @@ class ComplexRNN_Layer(torch.jit.ScriptModule):
 
             if self.training:
                 self.drop_masks = self.drop(
-                    torch.ones(
-                        self.N_drop_masks,
-                        self.hidden_size * 2,
-                        device=self.device,
-                    )
+                    torch.ones(self.N_drop_masks, self.hidden_size * 2,)
                 ).data
 
 
@@ -492,8 +454,8 @@ class ComplexLiGRU(torch.nn.Module):
     Example
     -------
     >>> inp_tensor = torch.rand([10, 16, 30])
-    >>> rnn = ComplexLiGRU(hidden_size=16)
-    >>> out_tensor = rnn(inp_tensor, init_params=True)
+    >>> rnn = ComplexLiGRU(input_shape=inp_tensor.shape, hidden_size=16)
+    >>> out_tensor = rnn(inp_tensor)
     >>>
     torch.Size([4, 10, 5])
     """
@@ -501,6 +463,7 @@ class ComplexLiGRU(torch.nn.Module):
     def __init__(
         self,
         hidden_size,
+        input_shape,
         nonlinearity="relu",
         normalization="batchnorm",
         num_layers=1,
@@ -524,26 +487,14 @@ class ComplexLiGRU(torch.nn.Module):
         self.init_criterion = init_criterion
         self.weight_init = weight_init
 
-    def init_params(self, first_input):
-        """
-        Initializes the parameters of the ComplexliGRU.
-
-        Arguments
-        ---------
-        first_input : tensor
-            A first input used for initializing the parameters.
-        """
-        if len(first_input.shape) > 3:
+        if len(input_shape) > 3:
             self.reshape = True
 
-        self.fea_dim = torch.prod(torch.tensor(first_input.shape[2:]))
+        self.fea_dim = torch.prod(torch.tensor(input_shape[2:]))
+        self.batch_size = input_shape[0]
+        self.rnn = self._init_layers()
 
-        self.batch_size = first_input.shape[0]
-        self.device = first_input.device
-
-        self.rnn = self._init_layers(first_input)
-
-    def _init_layers(self, first_input):
+    def _init_layers(self):
         """
         Initializes the layers of the liGRU.
 
@@ -555,8 +506,6 @@ class ComplexLiGRU(torch.nn.Module):
         rnn = torch.nn.ModuleList([])
         current_dim = self.fea_dim
 
-        x = first_input
-
         for i in range(self.num_layers):
             rnn_lay = ComplexLiGRU_Layer(
                 current_dim,
@@ -567,11 +516,9 @@ class ComplexLiGRU(torch.nn.Module):
                 nonlinearity=self.nonlinearity,
                 normalization=self.normalization,
                 bidirectional=self.bidirectional,
-                device=self.device,
                 init_criterion=self.init_criterion,
                 weight_init=self.weight_init,
-            ).to(self.device)
-            x = rnn_lay(x, init_params=True)
+            )
             rnn.append(rnn_lay)
 
             if self.bidirectional:
@@ -580,19 +527,16 @@ class ComplexLiGRU(torch.nn.Module):
                 current_dim = self.hidden_size
         return rnn
 
-    def forward(self, x, hx=None, init_params=False):
+    def forward(self, x, hx=None):
         """Returns the output of the ComplexliGRU.
 
         Arguments
         ---------
         x : torch.Tensor
         """
-        if init_params:
-            self.init_params(x)
-
         # Reshaping input tensors for 4d inputs
         if self.reshape:
-            if len(x.shape) == 4:
+            if x.ndim == 4:
                 x = x.reshape(x.shape[0], x.shape[1], x.shape[2] * x.shape[3])
 
         # run ligru
@@ -658,8 +602,6 @@ class ComplexLiGRU_Layer(torch.nn.Module):
     bidirectional: bool
         if True, a bidirectioal model that scans the sequence both
         right-to-left and left-to-right is used.
-    device: str
-        Device used for running the computations (e.g, 'cpu', 'cuda').
     init_criterion: str , optional
         Default: he.
         (glorot, he).
@@ -686,7 +628,6 @@ class ComplexLiGRU_Layer(torch.nn.Module):
         nonlinearity="relu",
         normalization="batchnorm",
         bidirectional=False,
-        device="cuda",
         init_criterion="glorot",
         weight_init="complex",
     ):
@@ -697,7 +638,6 @@ class ComplexLiGRU_Layer(torch.nn.Module):
         self.batch_size = batch_size
         self.bidirectional = bidirectional
         self.dropout = dropout
-        self.device = device
         self.init_criterion = init_criterion
         self.weight_init = weight_init
         self.normalization = normalization
@@ -705,11 +645,11 @@ class ComplexLiGRU_Layer(torch.nn.Module):
 
         self.w = complex_linear(
             self.input_size, 2 * self.hidden_size, bias=False
-        ).to(self.device)
+        )
 
         self.u = complex_linear(
             self.hidden_size, 2 * self.hidden_size, bias=False
-        ).to(self.device)
+        )
 
         if self.bidirectional:
             self.batch_size = self.batch_size * 2
@@ -718,40 +658,38 @@ class ComplexLiGRU_Layer(torch.nn.Module):
         self.normalize = False
 
         if self.normalization == "batchnorm":
-            self.norm = ComplexBatchNorm(dim=-1, momentum=0.05,).to(self.device)
+            self.norm = ComplexBatchNorm(
+                input_size=hidden_size * 2, dim=-1, momentum=0.05,
+            )
             self.normalize = True
 
         elif self.normalization == "layernorm":
-            self.norm = ComplexLayerNorm(dim=-1,).to(self.device)
+            self.norm = ComplexLayerNorm(input_size=hidden_size * 2, dim=-1)
             self.normalize = True
         else:
             # Normalization is disabled here. self.norm is only  formally
             # initialized to avoid jit issues.
-            self.norm = ComplexLayerNorm(dim=-1).to(self.device)
+            self.norm = ComplexLayerNorm(input_size=hidden_size * 2, dim=-1)
             self.normalize = True
 
         # Initial state
-        self.h_init = torch.zeros(
-            1, self.hidden_size * 2, requires_grad=False, device=self.device,
-        )
+        self.h_init = torch.zeros(1, self.hidden_size * 2, requires_grad=False)
 
         # Preloading dropout masks (gives some speed improvement)
         self._init_drop(self.batch_size)
 
         # Initilizing dropout
-        self.drop = torch.nn.Dropout(p=self.dropout, inplace=False).to(
-            self.device
-        )
+        self.drop = torch.nn.Dropout(p=self.dropout, inplace=False)
 
-        self.drop_mask_te = torch.tensor([1.0], device=self.device).float()
+        self.drop_mask_te = torch.tensor([1.0]).float()
 
         # Setting the activation function
         if self.nonlinearity == "tanh":
-            self.act = torch.nn.Tanh().to(self.device)
+            self.act = torch.nn.Tanh()
         else:
-            self.act = torch.nn.ReLU().to(self.device)
+            self.act = torch.nn.ReLU()
 
-    def forward(self, x, hx=None, init_params=False):
+    def forward(self, x, hx=None):
         # type: (Tensor, Optional[Tensor], Optional[Bool]) -> Tensor # noqa F821
         """Returns the output of the Complex liGRU layer.
 
@@ -759,7 +697,6 @@ class ComplexLiGRU_Layer(torch.nn.Module):
         ---------
         x : torch.Tensor
         """
-
         if self.bidirectional:
             x_flip = x.flip(1)
             x = torch.cat([x, x_flip], dim=0)
@@ -772,10 +709,7 @@ class ComplexLiGRU_Layer(torch.nn.Module):
 
         # Apply batch normalization
         if self.normalize:
-            w_bn = self.norm(
-                w.reshape(w.shape[0] * w.shape[1], w.shape[2]),
-                init_params=init_params,
-            )
+            w_bn = self.norm(w.reshape(w.shape[0] * w.shape[1], w.shape[2]))
             w = w_bn.reshape(w.shape[0], w.shape[1], w.shape[2])
 
         # Processing time steps
@@ -823,18 +757,14 @@ class ComplexLiGRU_Layer(torch.nn.Module):
         """Initializes the recurrent dropout operation. To speed it up,
         the dropout masks are sampled in advance.
         """
-        self.drop = torch.nn.Dropout(p=self.dropout, inplace=False).to(
-            self.device
-        )
-        self.drop_mask_te = torch.tensor([1.0], device=self.device).float()
+        self.drop = torch.nn.Dropout(p=self.dropout, inplace=False)
+        self.drop_mask_te = torch.tensor([1.0]).float()
 
         self.N_drop_masks = 16000
         self.drop_mask_cnt = 0
 
         self.drop_masks = self.drop(
-            torch.ones(
-                self.N_drop_masks, self.hidden_size * 2, device=self.device,
-            )
+            torch.ones(self.N_drop_masks, self.hidden_size * 2)
         ).data
 
     def _sample_drop_mask(self,):
@@ -845,13 +775,9 @@ class ComplexLiGRU_Layer(torch.nn.Module):
             # Sample new masks when needed
             if self.drop_mask_cnt + self.batch_size > self.N_drop_masks:
                 self.drop_mask_cnt = 0
-                self.drop_masks = (
-                    self.drop(
-                        torch.ones(self.N_drop_masks, self.hidden_size * 2,)
-                    )
-                    .to(self.device)
-                    .data
-                )
+                self.drop_masks = self.drop(
+                    torch.ones(self.N_drop_masks, self.hidden_size * 2,)
+                ).data
 
             # Sampling the mask
             drop_mask = self.drop_masks[
@@ -875,7 +801,5 @@ class ComplexLiGRU_Layer(torch.nn.Module):
 
             if self.training:
                 self.drop_masks = self.drop(
-                    torch.ones(
-                        self.N_drop_masks, self.hidden_size, device=self.device,
-                    )
+                    torch.ones(self.N_drop_masks, self.hidden_size)
                 ).data

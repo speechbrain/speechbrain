@@ -1162,7 +1162,7 @@ class HDF5DataLoaderFactory(torch.nn.Module):
                 drop_last=self.drop_last,
                 num_workers=self.num_workers,
                 collate_fn=self.batch_creation,
-                sampler=resumable if self.shuffle else None
+                sampler=resumable if self.shuffle else None,
             )
 
         return self.dataloader
@@ -1490,7 +1490,8 @@ class ResumableRandomSampler(torch.utils.data.Sampler):
             is supposed to be specified only when `replacement` is ``True``.
         generator (Generator): Generator used in sampling.
     """
-    def __init__(self, data_source, key='subwrd'):
+
+    def __init__(self, data_source, key="subwrd"):
         self.data_source = load_pkl(data_source)
         self.key = key
         self.generator = torch.Generator()
@@ -1506,19 +1507,25 @@ class ResumableRandomSampler(torch.utils.data.Sampler):
     def __iter__(self):
         if self.perm_index >= len(self.perm):
             self.perm_index = 0
-            self.perm = torch.randperm(self.num_samples, generator=self.generator)
+            self.perm = torch.randperm(
+                self.num_samples, generator=self.generator
+            )
             self.generator.manual_seed(random.randint(1, 999999))
 
         while self.perm_index < len(self.perm):
             self.perm_index += 1
-            yield self.perm[self.perm_index-1]
+            yield self.perm[self.perm_index - 1]
 
     def __len__(self):
         return self.num_samples
 
     @checkpoints.mark_as_saver
     def save(self, path):
-        state_dict = {"perm": self.perm, "perm_index": self.perm_index, "generator_state": self.generator.get_state()}
+        state_dict = {
+            "perm": self.perm,
+            "perm_index": self.perm_index,
+            "generator_state": self.generator.get_state(),
+        }
         torch.save(state_dict, path)
 
     @checkpoints.mark_as_loader
@@ -1791,10 +1798,14 @@ def read_wav_soundfile(file, data_options={}, lab2ind=None):  # noqa: C901
     -------
     >>> read_wav_soundfile('samples/audio_samples/example1.wav')[0:2]
     array([0.00024414, 0.00018311], dtype=float32)
+    >>> random_segment = {"frames":2, "stop":2}
+    >>> read_wav_soundfile('samples/audio_samples/example1.wav', random_segment)
+    array([0.00024414, 0.00018311], dtype=float32)
     """
     # Option initialization
     start = 0
     stop = None
+    frames = -1
     endian = None
     subtype = None
     channels = None
@@ -1804,6 +1815,7 @@ def read_wav_soundfile(file, data_options={}, lab2ind=None):  # noqa: C901
     possible_options = [
         "start",
         "stop",
+        "frames",
         "samplerate",
         "endian",
         "subtype",
@@ -1847,6 +1859,22 @@ def read_wav_soundfile(file, data_options={}, lab2ind=None):  # noqa: C901
 
             logger.error(err_msg, exc_info=True)
 
+    # Managing frames option
+    if "frames" in data_options:
+        try:
+            frames = int(data_options["frames"])
+        except Exception:
+
+            err_msg = (
+                "The frames value for the file %s must be an integer "
+                "(e.g frames:405)" % (file)
+            )
+
+            logger.error(err_msg, exc_info=True)
+        # Read a random segment
+        start = np.random.randint(start, stop - frames + 1)
+        stop = None
+
     # Managing samplerate option
     if "samplerate" in data_options:
         try:
@@ -1885,6 +1913,7 @@ def read_wav_soundfile(file, data_options={}, lab2ind=None):  # noqa: C901
     try:
         [signal, fs] = sf.read(
             file,
+            frames=frames,
             start=start,
             stop=stop,
             samplerate=samplerate,
