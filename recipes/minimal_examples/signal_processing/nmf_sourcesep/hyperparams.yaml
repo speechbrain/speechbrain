@@ -47,8 +47,11 @@ test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
-compute_features: !new:speechbrain.processing.features.STFT
-    sample_rate: !ref <sample_rate>
-    n_fft: 1024
-    win_length: !ref <win_length>
-    hop_length: !ref <hop_length>
+hparams:
+    m: !ref <m>
+    K: !ref <K>
+    compute_features: !new:speechbrain.processing.features.STFT
+        sample_rate: !ref <sample_rate>
+        n_fft: 1024
+        win_length: !ref <win_length>
+        hop_length: !ref <hop_length>
