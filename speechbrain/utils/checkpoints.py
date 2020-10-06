@@ -86,7 +86,10 @@ def torch_recovery(obj, path, end_of_epoch):
         Given object is modified in place
     """
     del end_of_epoch  # Unused
-    obj.load_state_dict(torch.load(path), strict=True)
+    try:
+        obj.load_state_dict(torch.load(path), strict=True)
+    except TypeError:
+        obj.load_state_dict(torch.load(path))
 
 
 def torch_save(obj, path):

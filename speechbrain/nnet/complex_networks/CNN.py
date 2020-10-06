@@ -68,8 +68,10 @@ class ComplexConv1d(torch.nn.Module):
     Example
     -------
     >>> inp_tensor = torch.rand([10, 16, 30])
-    >>> cnn_1d = ComplexConv1d(out_channels=12, kernel_size=5)
-    >>> out_tensor = cnn_1d(inp_tensor, init_params=True)
+    >>> cnn_1d = ComplexConv1d(
+    ...     input_shape=inp_tensor.shape, out_channels=12, kernel_size=5
+    ... )
+    >>> out_tensor = cnn_1d(inp_tensor)
     >>> out_tensor.shape
     torch.Size([10, 16, 24])
     """
@@ -78,6 +80,7 @@ class ComplexConv1d(torch.nn.Module):
         self,
         out_channels,
         kernel_size,
+        input_shape,
         stride=1,
         dilation=1,
         padding="same",
@@ -100,18 +103,8 @@ class ComplexConv1d(torch.nn.Module):
         self.init_criterion = init_criterion
         self.weight_init = weight_init
 
-    def init_params(self, first_input):
-        """
-        Initializes the parameters of the conv1d layer.
-
-        Arguments
-        ---------
-        first_input : tensor
-            A first input used for initializing the parameters.
-        """
-
-        check_conv_input(first_input, channels_axis=-1)
-        self.in_channels = self._check_input(first_input) // 2
+        check_conv_input(input_shape, channels_axis=-1)
+        self.in_channels = self._check_input(input_shape) // 2
 
         self.conv = complex_convolution(
             self.in_channels,
@@ -125,9 +118,9 @@ class ComplexConv1d(torch.nn.Module):
             bias=self.bias,
             init_criterion=self.init_criterion,
             weight_init=self.weight_init,
-        ).to(first_input.device)
+        )
 
-    def forward(self, x, init_params=False):
+    def forward(self, x):
         """Returns the output of the convolution.
 
         Arguments
@@ -136,9 +129,6 @@ class ComplexConv1d(torch.nn.Module):
             input to convolve. 3d or 4d tensors are expected.
 
         """
-        if init_params:
-            self.init_params(x)
-
         # (batch, channel, time)
         x = x.transpose(1, -1)
         if self.padding == "same":
@@ -187,21 +177,23 @@ class ComplexConv1d(torch.nn.Module):
 
         return x
 
-    def _check_input(self, x):
+    def _check_input(self, input_shape):
         """
         Checks the input and returns the number of input channels.
         """
 
-        if len(x.shape) == 3:
-            in_channels = x.shape[2]
+        if len(input_shape) == 3:
+            in_channels = input_shape[2]
         else:
-            raise ValueError("conv1d expects 3d inputs. Got " + len(x))
+            raise ValueError("conv1d expects 3d inputs. Got " + input_shape)
+
         # Kernel size must be odd
         if self.kernel_size % 2 == 0:
             raise ValueError(
                 "The field kernel size must be an odd number. Got %s."
                 % (self.kernel_size)
             )
+
         return in_channels
 
 
@@ -257,8 +249,10 @@ class ComplexConv2d(nn.Module):
     Example
     -------
     >>> inp_tensor = torch.rand([10, 16, 30, 30])
-    >>> cnn_2d = ComplexConv2d(out_channels=12, kernel_size=5)
-    >>> out_tensor = cnn_2d(inp_tensor, init_params=True)
+    >>> cnn_2d = ComplexConv2d(
+    ...     input_shape=inp_tensor.shape, out_channels=12, kernel_size=5
+    ... )
+    >>> out_tensor = cnn_2d(inp_tensor)
     >>> out_tensor.shape
     torch.Size([10, 16, 30, 24])
     """
@@ -267,6 +261,7 @@ class ComplexConv2d(nn.Module):
         self,
         out_channels,
         kernel_size,
+        input_shape,
         stride=1,
         dilation=1,
         padding="same",
@@ -289,16 +284,6 @@ class ComplexConv2d(nn.Module):
         self.init_criterion = init_criterion
         self.weight_init = weight_init
 
-    def init_params(self, first_input):
-        """
-        Initializes the parameters of the conv1d layer.
-
-        Arguments
-        ---------
-        first_input : tensor
-            A first input used for initializing the parameters.
-        """
-
         # k -> [k,k]
         if isinstance(self.kernel_size, int):
             self.kernel_size = [self.kernel_size, self.kernel_size]
@@ -309,7 +294,7 @@ class ComplexConv2d(nn.Module):
         if isinstance(self.stride, int):
             self.stride = [self.stride, self.stride]
 
-        self.in_channels = self._check_input(first_input) // 2
+        self.in_channels = self._check_input(input_shape) // 2
 
         self.conv = complex_convolution(
             self.in_channels,
@@ -323,7 +308,7 @@ class ComplexConv2d(nn.Module):
             bias=self.bias,
             init_criterion=self.init_criterion,
             weight_init=self.weight_init,
-        ).to(first_input.device)
+        )
 
     def forward(self, x, init_params=False):
         """Returns the output of the convolution.
@@ -400,19 +385,19 @@ class ComplexConv2d(nn.Module):
 
         return x
 
-    def _check_input(self, x):
+    def _check_input(self, input_shape):
         """
         Checks the input and returns the number of input channels.
         """
-        if len(x.shape) == 3:
+        if len(input_shape) == 3:
             self.unsqueeze = True
             in_channels = 1
 
-        elif len(x.shape) == 4:
-            in_channels = x.shape[3]
+        elif len(input_shape) == 4:
+            in_channels = input_shape[3]
 
         else:
-            raise ValueError("conv1d expects 3d or 4d inputs. Got " + len(x))
+            raise ValueError("Expected 3d or 4d inputs. Got " + input_shape)
 
         # Kernel size must be odd
         if self.kernel_size[0] % 2 == 0 or self.kernel_size[1] % 2 == 0:

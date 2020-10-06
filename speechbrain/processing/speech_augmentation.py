@@ -320,15 +320,6 @@ class AddReverb(torch.nn.Module):
         self.replacements = replacements
         self.rir_scale_factor = rir_scale_factor
 
-        # Create a data loader for the RIR waveforms
-        self.data_loader = DataLoaderFactory(
-            csv_file=self.csv_file,
-            sentence_sorting=self.order,
-            cache=self.do_cache,
-            replacements=self.replacements,
-        )
-        self.rir_data = iter(self.data_loader())
-
     def forward(self, waveforms, lengths):
         """
         Arguments
@@ -377,6 +368,15 @@ class AddReverb(torch.nn.Module):
         return rev_waveform
 
     def _load_rir(self, waveforms):
+        if not hasattr(self, "data_loader"):
+            self.data_loader = DataLoaderFactory(
+                csv_file=self.csv_file,
+                sentence_sorting=self.order,
+                cache=self.do_cache,
+                replacements=self.replacements,
+            )
+            self.rir_data = iter(self.data_loader())
+
         try:
             wav_id, rir_waveform, length = next(self.rir_data)[0]
         except StopIteration:
@@ -943,7 +943,7 @@ class DropFreq(torch.nn.Module):
         pad = filter_length // 2
 
         # Start with delta function
-        drop_filter = torch.zeros(1, filter_length, 1).to(waveforms.device)
+        drop_filter = torch.zeros(1, filter_length, 1, device=waveforms.device)
         drop_filter[0, pad, 0] = 1
 
         # Subtract each frequency

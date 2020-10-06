@@ -54,6 +54,13 @@ class Bert(nn.Module):
         super().__init__()
 
         self.custom_src_module = BertEmbedding(d_model, vocab, dropout)
+        self.input_proj = Sequential(
+            Linear(3072),
+            torch.nn.GELU(),
+            torch.nn.Dropout(dropout),
+            Linear(d_model)
+        )
+
         pretrain = BertModel.from_pretrained(
             "bert-base-uncased", return_dict=False
         )
@@ -123,6 +130,7 @@ def make_masks(
         src_key_padding_mask = 1 - src_key_padding_mask
         extended_attention_mask = src_key_padding_mask[:, None, None, :]
 
+<<<<<<< HEAD
         # batch_size, seq_length = src.shape
         # seq_ids = torch.arange(seq_length, device=src.device)
         # causal_mask = (
@@ -135,6 +143,20 @@ def make_masks(
         #     causal_mask[:, None, :, :] * src_key_padding_mask[:, None, None, :]
         # )
         # extended_attention_mask = (1.0 - extended_attention_mask) * -10000.0
+=======
+        batch_size, seq_length = src.shape
+        seq_ids = torch.arange(seq_length, device=src.device)
+        causal_mask = (
+            seq_ids[None, None, :].repeat(batch_size, seq_length, 1)
+            <= seq_ids[None, :, None]
+        )
+        # causal and attention masks must have same type with pytorch version < 1.3
+        causal_mask = causal_mask.to(src_key_padding_mask.dtype)
+        extended_attention_mask = (
+            causal_mask[:, None, :, :] * src_key_padding_mask[:, None, None, :]
+        )
+        extended_attention_mask = (1.0 - extended_attention_mask) * -10000.0
+>>>>>>> dd0021c5026968428f3dbb8dfbffb0cab75d80cb
 
     # if istraining:
     #     to_mask = (torch.rand(src.shape, device=src.device) > 0.15).int()
