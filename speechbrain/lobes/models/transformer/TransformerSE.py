@@ -90,6 +90,8 @@ class CNNTransformerSE(TransformerInterface):
 
         if self.custom_emb_module is not None:
             src = self.custom_emb_module(x, init_params)
+        else:
+            src = x
 
         # Semi-causal padding on time axis, kernel size is fixed to 3
         src = torch.nn.functional.pad(src, (0, 0, 1, 1))

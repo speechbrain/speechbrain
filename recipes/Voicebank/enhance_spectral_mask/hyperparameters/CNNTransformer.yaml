@@ -4,46 +4,107 @@
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: !PLACEHOLDER  # e.g, 1234
+seed: 1234  # e.g, 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 data_folder: !PLACEHOLDER
 test_clean_folder: !ref <data_folder>/clean_testset_wav_16k/
 
-output_folder: !ref ./results/BLSTM/<seed>
+output_folder: \
+    !ref ./results/semicausal_modularTransformer_comp_16head/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
-enhanced_folder: !ref <output_folder>/BLSTM_enhanced
+enhanced_folder: !ref <output_folder>/enhanced
 
 # Basic parameters
-use_tensorboard: True
-tensorboard_logs: !ref ./results/BLSTM/<seed>/logs/
+use_tensorboard: False
+tensorboard_logs: \
+    !ref ./results/semicausal_modularTransformer_comp_16head/<seed>/logs/
 
 # FFT paremeters
 Sample_rate: 16000
 Win_length: 32
 Hop_length: 16
 N_fft: 512
-window_type: hamming
 
 # Data files
 csv_train: !ref <data_folder>/train.csv
-csv_valid: !ref <data_folder>/valid.csv
+csv_valid: !ref <data_folder>/test.csv
 csv_test: !ref <data_folder>/test.csv
 
 # Training Parameters
 number_of_epochs: 50
-N_batch: 8
-lr: 0.00001
+N_batch: 16
+lr: 0.0002
 device: 'cuda:0'
 
 # Model Parameters
-drop_rate: 0.1
+dropout: 0.1
 num_blocks: 8
 intermediate_size: 512
-num_heads: 8
-head_dim: 64
+nhead: 16
 causal: True
+kernel_size: 3
+base_channels: 1024
+padding_type: causal
+num_modules: 2
+group_comm: True
+
+activation: !name:torch.nn.LeakyReLU
+output_activation: !name:torch.nn.ReLU
+CNN_activation: !new:torch.nn.LeakyReLU
+
+conv1: !new:speechbrain.nnet.CNN.Conv1d
+    out_channels: !ref <base_channels>
+    kernel_size: !ref <kernel_size>
+    padding: !ref <padding_type>
+
+conv2: !new:speechbrain.nnet.CNN.Conv1d
+    out_channels: !ref <base_channels> // 2
+    kernel_size: !ref <kernel_size>
+    padding: !ref <padding_type>
+
+conv3: !new:speechbrain.nnet.CNN.Conv1d
+    out_channels: !ref <base_channels> // 8
+    kernel_size: !ref <kernel_size>
+    padding: !ref <padding_type>
+
+conv4: !new:speechbrain.nnet.CNN.Conv1d
+    out_channels: !ref <base_channels> // 4
+    kernel_size: !ref <kernel_size>
+    padding: !ref <padding_type>
+
+layernorm1: !new:speechbrain.nnet.normalization.LayerNorm
+layernorm2: !new:speechbrain.nnet.normalization.LayerNorm
+layernorm3: !new:speechbrain.nnet.normalization.LayerNorm
+layernorm4: !new:speechbrain.nnet.normalization.LayerNorm
+
+CNN: !new:speechbrain.nnet.containers.Sequential
+    - !ref <conv1>
+    - !ref <layernorm1>
+    - !ref <CNN_activation>
+    - !ref <conv2>
+    - !ref <layernorm2>
+    - !ref <CNN_activation>
+    - !ref <conv3>
+    - !ref <layernorm3>
+    - !ref <CNN_activation>
+    - !ref <conv4>
+    - !ref <layernorm4>
+    - !ref <CNN_activation>
+
+model: !new:speechbrain.lobes.models.transformer.TransformerSE.CNNTransformerSE
+    output_size: !ref <N_fft> // 2 + 1
+    output_activation: !ref <output_activation>
+    activation: !ref <activation>
+    causal: !ref <causal>
+    num_layers: !ref <num_blocks>
+    d_ffn: !ref <intermediate_size>
+    nhead: !ref <nhead>
+    dropout: !ref <dropout>
+    custom_emb_module: !ref <CNN>
+    num_modules: !ref <num_modules>
+    use_group_comm: !ref <group_comm>
 
 train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>
@@ -54,7 +115,7 @@ train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
 
 valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_valid>
-    batch_size: 4
+    batch_size: !ref <N_batch>
     csv_read: [noisy_wav, clean_wav]
     sentence_sorting: ascending
     replacements:
@@ -62,7 +123,7 @@ valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
 
 test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_test>
-    batch_size: 1
+    batch_size: !ref <N_batch>
     csv_read: [noisy_wav, clean_wav]
     replacements:
         $data_folder: !ref <data_folder>
@@ -80,34 +141,11 @@ compute_STFT: !new:speechbrain.processing.features.STFT
     win_length: !ref <Win_length>
     hop_length: !ref <Hop_length>
     n_fft: !ref <N_fft>
-    window_type: !ref <window_type>
 
 compute_ISTFT: !new:speechbrain.processing.features.ISTFT
     sample_rate: !ref <Sample_rate>
     win_length: !ref <Win_length>
     hop_length: !ref <Hop_length>
-    window_type: !ref <window_type>
-
-mean_var_norm: !new:speechbrain.processing.features.InputNormalization
-    norm_type: sentence
-
-activation: !name:torch.nn.LeakyReLU
-
-output_activation: !name:torch.nn.Sigmoid
-
-model: !new:speechbrain.lobes.models.CNNTransformer.CNNTransformer
-    output_size: !ref <N_fft> // 2 + 1
-    output_activation: !ref <output_activation>
-    activation: !ref <activation>
-    drop_rate: !ref <drop_rate>
-    cnn_channels: [1024, 512, 128, 256]
-    cnn_kernelsize: [3, 3, 3, 3]
-    num_blocks: !ref <num_blocks>
-    intermediate_size: !ref <intermediate_size>
-    num_heads: !ref <num_heads>
-    head_dim: !ref <head_dim>
-    causal: !ref <causal>
-
 
 compute_cost: !name:speechbrain.nnet.losses.mse_loss
 
