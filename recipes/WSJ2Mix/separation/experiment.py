@@ -296,9 +296,7 @@ def main():
 
         # override the data_path if we want to
         if args.data_path is not None:
-            params.wsj0mixpath = os.path.join(
-                args.data_path, "wsj0-mix/2speakers/"
-            )
+            params.wsj0mixpath = args.data_path
 
         # this points to the folder to which we will save the wsj0-mix dataset
         data_save_dir = params.wsj0mixpath
