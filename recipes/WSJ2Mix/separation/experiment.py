@@ -267,6 +267,9 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", help="config file", required=True)
     parser.add_argument(
+        "--datapath", help="the data path to load the dataset", required=False
+    )
+    parser.add_argument(
         "--minimal",
         help="will run a minimal example for debugging",
         action="store_true",
@@ -290,6 +293,12 @@ def main():
     else:
         with open(args.config) as fin:
             params = sb.yaml.load_extended_yaml(fin)
+
+        # override the data_path if we want to
+        if args.data_path is not None:
+            params.wsj0mixpath = os.path.join(
+                args.data_path, "wsj0-mix/2speakers/"
+            )
 
         # this points to the folder to which we will save the wsj0-mix dataset
         data_save_dir = params.wsj0mixpath
