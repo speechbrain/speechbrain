@@ -31,6 +31,7 @@ from speechbrain.nnet.losses import get_si_snr_with_pitwrapper
 from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.train_logger import summarize_average
 from speechbrain.data_io.data_io import write_wav_soundfile
+import speechbrain.nnet.lr_schedulers as schedulers
 
 logger = logging.getLogger(__name__)
 
@@ -154,6 +155,9 @@ class SourceSeparationBrainSuperclass(sb.core.Brain):
                 )
             self.optimizer.step()
         self.optimizer.zero_grad()
+
+        if isinstance(self.params.lr_scheduler, schedulers.NoamScheduler):
+            self.params.lr_scheduler([self.params.optimizer], None, None)
         return {"loss": loss.detach()}
 
     def evaluate_batch(self, batch, stage="test"):
@@ -169,9 +173,12 @@ class SourceSeparationBrainSuperclass(sb.core.Brain):
     def on_epoch_end(self, epoch, train_stats, valid_stats):
 
         av_valid_loss = summarize_average(valid_stats["loss"])
-        current_lr, next_lr = self.params.lr_scheduler(
-            [self.params.optimizer], epoch, av_valid_loss
-        )
+        if isinstance(self.params.lr_scheduler, schedulers.ReduceLROnPlateau):
+            current_lr, next_lr = self.params.lr_scheduler(
+                [self.params.optimizer], epoch, av_valid_loss
+            )
+        else:
+            next_lr = current_lr = self.params.optimizer.param_groups[0]["lr"]
 
         epoch_stats = {"epoch": epoch, "lr": current_lr}
         self.params.train_logger.log_stats(
