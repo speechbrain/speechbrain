@@ -131,6 +131,13 @@ class SourceSeparationBrainSuperclass(sb.core.Brain):
             targets = targets.permute(0, 2, 1)
             inputs = targets.sum(-1)
 
+        if isinstance(self.params.lr_scheduler, schedulers.NoamScheduler):
+            old_lr, new_lr = self.params.lr_scheduler(
+                [self.optimizer], None, None
+            )
+            print("oldlr ", old_lr, "newlr", new_lr)
+            print(self.optimizer.optim.param_groups[0]["lr"])
+
         if self.params.mixed_precision:
             with autocast():
                 predictions = self.compute_forward(inputs)
@@ -156,8 +163,6 @@ class SourceSeparationBrainSuperclass(sb.core.Brain):
             self.optimizer.step()
         self.optimizer.zero_grad()
 
-        if isinstance(self.params.lr_scheduler, schedulers.NoamScheduler):
-            self.params.lr_scheduler([self.params.optimizer], None, None)
         return {"loss": loss.detach()}
 
     def evaluate_batch(self, batch, stage="test"):
@@ -178,7 +183,10 @@ class SourceSeparationBrainSuperclass(sb.core.Brain):
                 [self.params.optimizer], epoch, av_valid_loss
             )
         else:
-            next_lr = current_lr = self.params.optimizer.param_groups[0]["lr"]
+            # if we do not use the reducelronplateau, we do not change the lr
+            next_lr = current_lr = self.params.optimizer.optim.param_groups[0][
+                "lr"
+            ]
 
         epoch_stats = {"epoch": epoch, "lr": current_lr}
         self.params.train_logger.log_stats(
