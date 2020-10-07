@@ -135,8 +135,8 @@ class SourceSeparationBrainSuperclass(sb.core.Brain):
             old_lr, new_lr = self.params.lr_scheduler(
                 [self.optimizer], None, None
             )
-            print("oldlr ", old_lr, "newlr", new_lr)
-            print(self.optimizer.optim.param_groups[0]["lr"])
+            # print("oldlr ", old_lr, "newlr", new_lr)
+            # print(self.optimizer.optim.param_groups[0]["lr"])
 
         if self.params.mixed_precision:
             with autocast():
