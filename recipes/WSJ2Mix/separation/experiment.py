@@ -267,7 +267,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", help="config file", required=True)
     parser.add_argument(
-        "--datapath", help="the data path to load the dataset", required=False
+        "--data_path", help="the data path to load the dataset", required=False
     )
     parser.add_argument(
         "--minimal",
