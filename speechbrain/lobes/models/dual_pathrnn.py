@@ -663,16 +663,26 @@ class Dual_Computation_Block(nn.Module):
     """
 
     def __init__(
-        self, intra_mdl, inter_mdl, out_channels, norm="ln",
+        self,
+        intra_mdl,
+        inter_mdl,
+        out_channels,
+        norm="ln",
+        skip_around_intra=True,
+        linear_layer_after_inter_intra=True,
     ):
         super(Dual_Computation_Block, self).__init__()
 
         self.intra_mdl = intra_mdl
         self.inter_mdl = inter_mdl
+        self.skip_around_intra = skip_around_intra
+        self.linear_layer_after_inter_intra = linear_layer_after_inter_intra
 
         # Norm
-        self.intra_norm = select_norm(norm, out_channels, 4)
-        self.inter_norm = select_norm(norm, out_channels, 4)
+        self.norm = norm
+        if norm is not None:
+            self.intra_norm = select_norm(norm, out_channels, 4)
+            self.inter_norm = select_norm(norm, out_channels, 4)
 
         # Linear
         self.intra_linear = Linear(out_channels)
@@ -692,18 +702,20 @@ class Dual_Computation_Block(nn.Module):
         intra = self.intra_mdl(intra, init_params=init_params)
 
         # [BS, K, N]
-        intra = self.intra_linear(
-            intra.contiguous().view(B * S * K, -1), init_params=init_params
-        ).view(B * S, K, -1)
+        if self.linear_layer_after_inter_intra:
+            intra = self.intra_linear(
+                intra.contiguous().view(B * S * K, -1), init_params=init_params
+            ).view(B * S, K, -1)
         # [B, S, K, N]
         intra = intra.view(B, S, K, N)
         # [B, N, K, S]
         intra = intra.permute(0, 3, 2, 1).contiguous()
-        intra = self.intra_norm(intra)
+        if self.norm is not None:
+            intra = self.intra_norm(intra)
 
         # [B, N, K, S]
-        intra = intra + x
-        # out = intra
+        if self.skip_around_intra:
+            intra = intra + x
 
         # inter RNN
         # [BK, S, N]
@@ -712,14 +724,16 @@ class Dual_Computation_Block(nn.Module):
         inter = self.inter_mdl(inter, init_params=init_params)
 
         # [BK, S, N]
-        inter = self.inter_linear(
-            inter.contiguous().view(B * S * K, -1), init_params=init_params
-        ).view(B * K, S, -1)
+        if self.linear_layer_after_inter_intra:
+            inter = self.inter_linear(
+                inter.contiguous().view(B * S * K, -1), init_params=init_params
+            ).view(B * K, S, -1)
         # [B, K, S, N]
         inter = inter.view(B, K, S, N)
         # [B, N, K, S]
         inter = inter.permute(0, 3, 1, 2).contiguous()
-        inter = self.inter_norm(inter)
+        if self.norm is not None:
+            inter = self.inter_norm(inter)
         # [B, N, K, S]
         out = inter + intra
 
@@ -737,6 +751,8 @@ class Dual_Path_Model(nn.Module):
         norm="ln",
         K=200,
         num_spks=2,
+        skip_around_intra=True,
+        linear_layer_after_inter_intra=True,
     ):
         super(Dual_Path_Model, self).__init__()
         self.K = K
@@ -750,7 +766,12 @@ class Dual_Path_Model(nn.Module):
             self.dual_mdl.append(
                 copy.deepcopy(
                     Dual_Computation_Block(
-                        intra_model, inter_model, out_channels, norm
+                        intra_model,
+                        inter_model,
+                        out_channels,
+                        norm,
+                        skip_around_intra=skip_around_intra,
+                        linear_layer_after_inter_intra=linear_layer_after_inter_intra,
                     )
                 )
             )
