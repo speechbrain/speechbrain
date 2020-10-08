@@ -527,14 +527,27 @@ class PytorchTransformerBlock(nn.Module):
 
 
 class PerformerBlock(nn.Module):
-    def __init__(self, out_channels, num_layers=6, nhead=8, ff_mult=4):
+    def __init__(
+        self,
+        out_channels,
+        num_layers=6,
+        nhead=8,
+        ff_mult=4,
+        use_positional_encoding=True,
+    ):
         super(PerformerBlock, self).__init__()
 
         self.encoder_layer = Performer(
             dim=out_channels, heads=nhead, depth=num_layers, ff_mult=ff_mult
         )
 
+        if use_positional_encoding:
+            self.pos_enc = PositionalEncoding()
+
     def forward(self, x, init_params=False):
+        if self.pos_enc is not None:
+            pos_enc = self.pos_enc(x, init_params=init_params)
+            x = x + pos_enc
         return self.encoder_layer(x)
 
 
