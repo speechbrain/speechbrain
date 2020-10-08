@@ -1,4 +1,17 @@
 #!/usr/bin/env python3
+"""Recipe for doing ASR with phoneme targets and CTC loss on Voicebank
+
+To run this recipe, do the following:
+> python experiment.py {hyperparameter file} --data_folder /path/to/noisy-vctk
+
+Use your own hyperparameter file or the provided `hyperparams.yaml`
+
+To use noisy inputs, change `input_type` field from `clean_wav` to `noisy_wav`.
+To use pretrained model, enter path in `pretrained` field.
+
+Authors
+ * Peter Plantinga 2020
+"""
 import os
 import sys
 import torch
@@ -6,19 +19,22 @@ import speechbrain as sb
 
 
 # Define training procedure
-class ASR(sb.Brain):
+class ASR_Brain(sb.Brain):
     def compute_forward(self, x, stage):
         ids, wavs, wav_lens = x
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
 
-        if hasattr(self.hparams, "augmentation") and stage == sb.Stage.TRAIN:
-            wavs = self.hparams.augmentation(wavs, wav_lens)
+        # Adding augmentation when specified:
+        if stage == sb.Stage.TRAIN:
+            if hasattr(self.hparams, "augmentation"):
+                wavs = self.hparams.augmentation(wavs, wav_lens)
 
         feats = self.hparams.compute_features(wavs)
         feats = self.hparams.normalize(feats, wav_lens)
         out = self.jit_modules.model(feats)
         out = self.hparams.output(out)
         pout = self.hparams.log_softmax(out)
+
         return pout, wav_lens
 
     def compute_objectives(self, predictions, targets, stage):
@@ -26,67 +42,62 @@ class ASR(sb.Brain):
         ids, chars, char_lens = targets
         chars, char_lens = chars.to(self.device), char_lens.to(self.device)
         loss = self.hparams.compute_cost(pout, chars, pout_lens, char_lens)
+        self.ctc_metrics.append(ids, pout, chars, pout_lens, char_lens)
 
         if stage != sb.Stage.TRAIN:
-            pred_chars = sb.decoders.ctc_greedy_decode(pout, pout_lens)
+            sequence = sb.decoders.ctc_greedy_decode(
+                pout, pout_lens, blank_id=-1
+            )
             self.cer_metrics.append(
-                ids, pred_chars, chars, None, char_lens, self.hparams.ind2lab
+                ids, sequence, chars, None, char_lens, self.hparams.ind2lab
             )
 
         return loss
 
-    """
-    def fit_batch(self, batch):
-        if self.hparams.loaders == "noisy_loaders":
-            (ids, clean, lens), (_, noisy, _), (_, chars, char_lens) = batch
-            joint_batch = torch.cat((clean, noisy))
-            inputs = (ids + ids, joint_batch, torch.cat((lens, lens)))
-            joint_targets = torch.cat((chars, chars))
-            targets = (ids, joint_targets, torch.cat((char_lens, char_lens)))
-        else:
-            inputs, targets = batch
-
-        predictions = self.compute_forward(inputs, sb.Stage.TRAIN)
-        loss = self.compute_objectives(predictions, targets, sb.Stage.TRAIN)
-        loss.backward()
-        self.optimizer.step()
-        self.optimizer.zero_grad()
-        return loss.detach()
-    """
-
     def on_stage_start(self, stage, epoch):
+        self.ctc_metrics = self.hparams.ctc_stats()
+
         if stage != sb.Stage.TRAIN:
-            self.cer_metrics = self.hparams.cer_computer()
+            self.cer_metrics = self.hparams.cer_stats()
 
     def on_stage_end(self, stage, stage_loss, epoch):
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
         else:
             cer = self.cer_metrics.summarize("error_rate")
-            stage_stats = {"loss": stage_loss, "CER": cer}
 
         if stage == sb.Stage.VALID:
             old_lr, new_lr = self.hparams.lr_annealing(cer)
             sb.nnet.update_learning_rate(self.optimizer, new_lr)
 
-            epoch_stats = {"epoch": epoch, "lr": old_lr}
+            # In distributed setting, only want to save model/stats once
+            if self.root_process:
+                self.hparams.train_logger.log_stats(
+                    stats_meta={"epoch": epoch, "lr": old_lr},
+                    train_stats={"loss": self.train_loss},
+                    valid_stats={"loss": stage_loss, "CER": cer},
+                )
+                self.checkpointer.save_and_keep_only(
+                    meta={"CER": cer}, min_keys=["CER"],
+                )
+
+        elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
-                epoch_stats, {"loss": self.train_loss}, stage_stats
+                stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
+                test_stats={"loss": stage_loss, "CER": cer},
             )
-            self.checkpointer.save_and_keep_only(
-                meta={"CER": cer}, min_keys=["CER"],
-            )
-        if stage == sb.Stage.TEST:
-            self.hparams.train_logger.log_stats(
-                {"Epoch loaded": self.hparams.epoch_counter.current},
-                test_stats=stage_stats,
-            )
-            with open(self.hparams.cer_file, "w") as w:
+            with open(self.hparams.wer_file, "w") as w:
+                w.write("CTC loss stats:\n")
+                self.ctc_metrics.write_stats(w)
+                w.write("\nCER stats:\n")
                 self.cer_metrics.write_stats(w)
+                print("CTC and CER stats written to ", self.hparams.wer_file)
 
 
+# Begin Recipe!
 if __name__ == "__main__":
-    # This hack needed to import data preparation script from ../..
+
+    # This hack needed to import data preparation script from ..
     current_dir = os.path.dirname(os.path.abspath(__file__))
     sys.path.append(os.path.dirname(os.path.dirname(current_dir)))
     from voicebank_prepare import prepare_voicebank  # noqa E402
@@ -108,24 +119,25 @@ if __name__ == "__main__":
         data_folder=hparams["data_folder"], save_folder=hparams["data_folder"],
     )
 
-    loaders = hparams["loaders"]
-    train_set = hparams[loaders]["train"]()
-    valid_set = hparams[loaders]["valid"]()
-    test_set = hparams[loaders]["test"]()
-    ind2lab = hparams[loaders]["train"].label_dict["char"]["index2lab"]
+    # Collect index to label dictionary for decoding
+    train_set = hparams["train_loader"]()
+    valid_set = hparams["valid_loader"]()
+    ind2lab = hparams["train_loader"].label_dict["char"]["index2lab"]
     hparams["hparams"]["ind2lab"] = ind2lab
 
+    # Load pretrained model
     if "pretrained" in hparams:
-        params = torch.load(hparams["pretrained"])
-        hparams["jit_modules"]["model"].load_state_dict(params)
+        state_dict = torch.load(hparams["pretrained"])
+        hparams["jit_modules"]["model"].load_state_dict(state_dict)
 
-    asr_brain = ASR(
+    asr_brain = ASR_Brain(
         hparams=hparams["hparams"],
         opt_class=hparams["opt_class"],
         jit_modules=hparams["jit_modules"],
         checkpointer=hparams["checkpointer"],
         device=hparams["device"],
+        ddp_procs=hparams["ddp_procs"],
     )
 
     asr_brain.fit(asr_brain.hparams.epoch_counter, train_set, valid_set)
-    asr_brain.evaluate(test_set)
+    asr_brain.evaluate(hparams["test_loader"](), min_key="CER")

@@ -196,7 +196,7 @@ def create_csv(wav_lst, csv_file, clean_folder, txt_folder):
         # Strip punctuation and add spaces (excluding repeats).
         words = words.translate(str.maketrans("", "", string.punctuation))
         chars = " ".join(words.strip().upper())
-        chars = chars.replace("   ", " <SP> ")
+        chars = chars.replace("   ", " _ ")
         chars = re.sub(r"\s{2,}", r" ", chars)
         chars = re.sub(r"(.) \1", r"\1\1", chars)
 
