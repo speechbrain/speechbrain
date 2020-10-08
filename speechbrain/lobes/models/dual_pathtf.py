@@ -9,7 +9,7 @@ from speechbrain.lobes.models.transformer.TranformerXL import (
 )
 
 from speechbrain.nnet.quantization import quant_noise
-from .dual_pathrnn import select_norm
+from speechbrain.lobes.models.dual_pathrnn import select_norm
 
 EPS = 1e-8
 
