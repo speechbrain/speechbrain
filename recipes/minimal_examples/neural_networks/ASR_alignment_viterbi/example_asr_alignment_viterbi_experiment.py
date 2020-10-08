@@ -7,9 +7,9 @@ class AlignBrain(sb.Brain):
     def compute_forward(self, x, stage):
         id, wavs, lens = x
         feats = self.hparams.compute_features(wavs)
-        feats = self.hparams.mean_var_norm(feats, lens)
-        x = self.hparams.model(feats)
-        x = self.hparams.lin(x)
+        feats = self.modules.mean_var_norm(feats, lens)
+        x = self.modules.model(feats)
+        x = self.modules.lin(x)
         outputs = self.hparams.softmax(x)
 
         return outputs, lens
@@ -50,11 +50,12 @@ def main():
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
 
-    train_set = hparams["train_loader"]()
-    hparams["hparams"]["train_set"] = train_set
-    align_brain = AlignBrain(hparams["hparams"], hparams["opt_class"])
+    hparams["train_set"] = hparams["train_loader"]()
+    align_brain = AlignBrain(hparams["modules"], hparams["opt_class"], hparams)
     align_brain.fit(
-        range(hparams["N_epochs"]), train_set, hparams["valid_loader"]()
+        range(hparams["N_epochs"]),
+        hparams["train_set"],
+        hparams["valid_loader"](),
     )
     align_brain.evaluate(hparams["test_loader"]())
 

@@ -7,9 +7,9 @@ class CTCBrain(sb.Brain):
     def compute_forward(self, x, stage):
         id, wavs, lens = x
         feats = self.hparams.compute_features(wavs)
-        feats = self.hparams.mean_var_norm(feats, lens)
-        x = self.hparams.model(feats)
-        x = self.hparams.lin(x)
+        feats = self.modules.mean_var_norm(feats, lens)
+        x = self.modules.model(feats)
+        x = self.modules.lin(x)
         outputs = self.hparams.softmax(x)
 
         return outputs, lens
@@ -50,7 +50,7 @@ def main():
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
 
-    ctc_brain = CTCBrain(hparams["hparams"], hparams["opt_class"])
+    ctc_brain = CTCBrain(hparams["modules"], hparams["opt_class"], hparams)
     ctc_brain.fit(
         range(hparams["N_epochs"]),
         hparams["train_loader"](),

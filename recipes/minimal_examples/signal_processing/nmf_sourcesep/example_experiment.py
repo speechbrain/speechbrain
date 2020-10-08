@@ -117,7 +117,7 @@ def main():
     )
     torch.manual_seed(0)
 
-    NMF1 = NMF_Brain(hyperparams["hparams"])
+    NMF1 = NMF_Brain(hparams=hyperparams)
     NMF1.init_matrices(hyperparams["train_loader1"]())
 
     print("fitting model 1")
@@ -129,7 +129,7 @@ def main():
     )
     W1hat = NMF1.training_out[1]
 
-    NMF2 = NMF_Brain(hyperparams["hparams"])
+    NMF2 = NMF_Brain(hparams=hyperparams)
     NMF2.init_matrices(hyperparams["train_loader2"]())
 
     print("fitting model 2")
