@@ -426,15 +426,19 @@ class PositionalwiseFeedForward(nn.Module):
 
 
 class RelativePosMultiHeadAttention(nn.Module):
-
-    def __init__(self, nhead,
+    def __init__(
+        self,
+        nhead,
         dropout=0.0,
         bias=True,
         add_bias_kv=False,
         add_zero_attn=False,
         kdim=None,
         vdim=None,
-        nb=1, u=None, v=None):
+        nb=1,
+        u=None,
+        v=None,
+    ):
         super().__init__()
 
         self.nhead = nhead
@@ -468,28 +472,43 @@ class RelativePosMultiHeadAttention(nn.Module):
 
         self.kdim = self.vdim = self.embed_dim
 
-        self.k_proj = nn.Linear(self.kdim, self.embed_dim, bias=self.bias).to(first_input.device)
-        self.q_proj = nn.Linear(self.vdim, self.embed_dim, bias=self.bias).to(first_input.device)
-        self.v_proj = nn.Linear(self.vdim, self.embed_dim, bias=self.bias).to(first_input.device)
-        self.out_proj = nn.Linear(self.embed_dim, self.embed_dim, bias=self.bias).to(first_input.device)
+        self.k_proj = nn.Linear(self.kdim, self.embed_dim, bias=self.bias).to(
+            first_input.device
+        )
+        self.q_proj = nn.Linear(self.vdim, self.embed_dim, bias=self.bias).to(
+            first_input.device
+        )
+        self.v_proj = nn.Linear(self.vdim, self.embed_dim, bias=self.bias).to(
+            first_input.device
+        )
+        self.out_proj = nn.Linear(
+            self.embed_dim, self.embed_dim, bias=self.bias
+        ).to(first_input.device)
         self.scale = 1 / (self.inner_dim ** 0.5)
 
-        self.pos_proj = nn.Linear(
-            self.vdim, self.embed_dim,
-            bias=False
-        ).to(first_input.device)
+        self.pos_proj = nn.Linear(self.vdim, self.embed_dim, bias=False).to(
+            first_input.device
+        )
 
         if self.add_bias_kv:
-            self.bias_k = nn.Parameter(torch.Tensor(1, 1, self.vdim)).to(first_input.device)
-            self.bias_v = nn.Parameter(torch.Tensor(1, 1, self.vdim)).to(first_input.device)
+            self.bias_k = nn.Parameter(torch.Tensor(1, 1, self.vdim)).to(
+                first_input.device
+            )
+            self.bias_v = nn.Parameter(torch.Tensor(1, 1, self.vdim)).to(
+                first_input.device
+            )
         else:
             self.bias_k = self.bias_v = None
 
-        if self.u == None and self.v == None:
+        if self.u is None and self.v is None:
 
             # u and v biases are not shared we init these here
-            self.u = nn.Parameter(torch.Tensor(self.embed_dim, self.nb)).to(first_input.device)
-            self.v = nn.Parameter(torch.Tensor(self.embed_dim, self.nb)).to(first_input.device)
+            self.u = nn.Parameter(torch.Tensor(self.embed_dim, self.nb)).to(
+                first_input.device
+            )
+            self.v = nn.Parameter(torch.Tensor(self.embed_dim, self.nb)).to(
+                first_input.device
+            )
 
         else:
             pass
@@ -512,28 +531,34 @@ class RelativePosMultiHeadAttention(nn.Module):
 
         nn.init.xavier_uniform_(self.out_proj.weight)
         if self.out_proj.bias is not None:
-            nn.init.constant_(self.out_proj.bias, 0.)
+            nn.init.constant_(self.out_proj.bias, 0.0)
         if self.bias_k is not None:
             nn.init.xavier_normal_(self.bias_k)
         if self.bias_v is not None:
             nn.init.xavier_normal_(self.bias_v)
-        nn.init.constant_(self.u, 0.)
-        nn.init.constant_(self.v, 0.)
+        nn.init.constant_(self.u, 0.0)
+        nn.init.constant_(self.v, 0.0)
 
     def _rel_shift(self, x):
-        zero_pad = torch.zeros((x.size(0), 1, *x.size()[2:]),
-                               device=x.device, dtype=x.dtype)
-        return (torch.cat([zero_pad, x], dim=1)
-                .view(x.size(1) + 1, x.size(0), *x.size()[2:])[1:]
-                .view_as(x))
+        zero_pad = torch.zeros(
+            (x.size(0), 1, *x.size()[2:]), device=x.device, dtype=x.dtype
+        )
+        return (
+            torch.cat([zero_pad, x], dim=1)
+            .view(x.size(1) + 1, x.size(0), *x.size()[2:])[1:]
+            .view_as(x)
+        )
 
-    def forward(self, query,
+    def forward(
+        self,
+        query,
         key,
         value,
         pos_embs,
         attn_mask=None,
         key_padding_mask=None,
-        init_params=False):
+        init_params=False,
+    ):
 
         if init_params:
             self.init_params(key)
@@ -546,61 +571,35 @@ class RelativePosMultiHeadAttention(nn.Module):
         v = self.v_proj(value)
         p = self.pos_proj(pos_embs)
 
-        content_attn = torch.einsum("ibhd,jbhd->ijbh", (
-            q.view(query_len, bsz, self.inner_dim, self.nb) +
-             self.u), k.view(key_len, bsz, self.inner_dim, self.nb))
+        content_attn = torch.einsum(
+            "ibhd,jbhd->ijbh",
+            (q.view(query_len, bsz, self.inner_dim, self.nb) + self.u),
+            k.view(key_len, bsz, self.inner_dim, self.nb),
+        )
 
-        position_attn = torch.einsum("ibhd,jhd->ijbh", (
-            q.view(query_len, bsz, self.inner_dim, self.nb) +  # (b)
-             self.v), p.view(query_len, self.inner_dim, self.nb))
+        position_attn = torch.einsum(
+            "ibhd,jhd->ijbh",
+            (q.view(query_len, bsz, self.inner_dim, self.nb) + self.v),  # (b)
+            p.view(query_len, self.inner_dim, self.nb),
+        )
 
         position_attn = self._rel_shift(position_attn)
         attn = content_attn + position_attn
         if attn_mask is not None and attn_mask.any().item():
-            attn = attn.masked_fill(
-                attn_mask[..., None], -float('inf'))
+            attn = attn.masked_fill(attn_mask[..., None], -float("inf"))
         if key_padding_mask is not None and key_padding_mask.any().item():
-            attn = attn.masked_fill(
-                key_padding_mask[..., None], -float('inf'))
+            attn = attn.masked_fill(key_padding_mask[..., None], -float("inf"))
 
         attn = torch.softmax(attn * self.scale, dim=1)
         attn = self.dropout(attn)
 
-        attn_weighted = torch.einsum("ijbh,jbhd->ibhd",
-                                             attn,
-                                              v.view(query_len,
-                                                          bsz, self.inner_dim, self.nb),
-                                              ).contiguous()
-        output = self.out_proj(attn_weighted.reshape(query_len,
-                                                      bsz, self.inner_dim*self.nb))
+        attn_weighted = torch.einsum(
+            "ijbh,jbhd->ibhd",
+            attn,
+            v.view(query_len, bsz, self.inner_dim, self.nb),
+        ).contiguous()
+
+        output = self.out_proj(
+            attn_weighted.reshape(query_len, bsz, self.inner_dim * self.nb)
+        )
         return output, attn
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

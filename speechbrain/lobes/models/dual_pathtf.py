@@ -1,16 +1,18 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+
 import copy
 
-from speechbrain.lobes.models.transformer.Transformer import PositionalEncoding
-from speechbrain.lobes.models.transformer.TransformerSE import CNNTransformerSE
-from speechbrain.lobes.models.transformer.TranformerXL import TransformerEncoderRP
-import speechbrain.nnet.RNN as SBRNN
+
+from speechbrain.lobes.models.transformer.TranformerXL import (
+    TransformerEncoderRP,
+)
+
 from speechbrain.nnet.quantization import quant_noise
-from .dual_pathrnn import select_norm
+from speechbrain.lobes.models.dual_pathrnn import select_norm
 
 EPS = 1e-8
+
 
 class SBTransformerBlockRP(nn.Module):
     def __init__(
@@ -27,7 +29,6 @@ class SBTransformerBlockRP(nn.Module):
         use_group_comm=False,
     ):
         super(SBTransformerBlockRP, self).__init__()
-
 
         if activation == "relu":
             activation = nn.ReLU
@@ -51,7 +52,9 @@ class SBTransformerBlockRP(nn.Module):
 
     def forward(self, x, pos_embs, init_params=False):
 
-        return self.mdl(x.transpose(0, 1), pos_embs, init_params=init_params).transpose(0, 1)
+        return self.mdl(
+            x.transpose(0, 1), pos_embs, init_params=init_params
+        ).transpose(0, 1)
 
 
 class Dual_Computation_Block(nn.Module):
@@ -59,16 +62,13 @@ class Dual_Computation_Block(nn.Module):
 #            norm: gln = "Global Norm", cln = "Cumulative Norm", ln = "Layer Norm"
     """
 
-    def __init__(
-        self, intra_mdl, inter_mdl
-    ):
+    def __init__(self, intra_mdl, inter_mdl):
         super(Dual_Computation_Block, self).__init__()
 
         self.intra_mdl = intra_mdl
         self.inter_mdl = inter_mdl
 
-
-    def forward(self, x,  pos_embs_intra, pos_embs_inter, init_params=True):
+    def forward(self, x, pos_embs_intra, pos_embs_inter, init_params=True):
         """
            x: [B, N, K, S]
            out: [Spks, B, N, K, S]
@@ -79,7 +79,9 @@ class Dual_Computation_Block(nn.Module):
         intra = x.permute(0, 3, 2, 1).contiguous().view(B * S, K, N)
         # [BS, K, H]
 
-        intra = self.intra_mdl(intra, pos_embs_intra, init_params=init_params).view(B, S, K, N)
+        intra = self.intra_mdl(
+            intra, pos_embs_intra, init_params=init_params
+        ).view(B, S, K, N)
         intra = intra.permute(0, 3, 2, 1).contiguous()
         # [B, N, K, S]
         # out = intra
@@ -88,7 +90,9 @@ class Dual_Computation_Block(nn.Module):
         # [BK, S, N]
         inter = intra.permute(0, 2, 3, 1).contiguous().view(B * K, S, N)
         # [BK, S, H]
-        inter = self.inter_mdl(inter, pos_embs_inter, init_params=init_params).view(B, K, S, N)
+        inter = self.inter_mdl(
+            inter, pos_embs_inter, init_params=init_params
+        ).view(B, K, S, N)
         inter = inter.permute(0, 3, 1, 2).contiguous()
         out = inter
         return out
@@ -101,8 +105,9 @@ class PositionalEmbedding(nn.Module):
         inv_freq = 1 / (10000 ** (torch.arange(0.0, d, 2.0) / d))
         self.register_buffer("inv_freq", inv_freq)
 
-    def forward(self, positions: torch.LongTensor,  # (seq, )
-                ):
+    def forward(
+        self, positions: torch.LongTensor,  # (seq, )
+    ):
         # outer product
         sinusoid_inp = torch.einsum("i,j->ij", positions.float(), self.inv_freq)
         pos_emb = torch.cat([sinusoid_inp.sin(), sinusoid_inp.cos()], dim=-1)
@@ -121,7 +126,8 @@ class Dual_Path_Model(nn.Module):
         K=200,
         num_spks=2,
         position="relative",
-        qnoise_p=0., qnoise_block=1
+        qnoise_p=0.0,
+        qnoise_block=1,
     ):
         super(Dual_Path_Model, self).__init__()
         self.K = K
@@ -135,19 +141,12 @@ class Dual_Path_Model(nn.Module):
 
         assert position in ["relative"]
 
-
         self.pos_emb = PositionalEmbedding(out_channels)
-
-
 
         self.dual_mdl = nn.ModuleList([])
         for i in range(num_layers):
             self.dual_mdl.append(
-                copy.deepcopy(
-                    Dual_Computation_Block(
-                        intra_model, inter_model
-                    )
-                )
+                copy.deepcopy(Dual_Computation_Block(intra_model, inter_model))
             )
 
         self.conv2d = nn.Conv2d(
@@ -168,10 +167,12 @@ class Dual_Path_Model(nn.Module):
         # NOTE APPLY AFTER INIT_PARAMS HAS BEEN CALLED !!!
         modules = list(self.modules())
         for i in range(len(modules)):
-            if isinstance(modules[i], (nn.Conv2d, nn.Linear, nn.Embedding, nn.Conv1d)):
-                modules[i] = quant_noise(modules[i], self.qnoise_p , self.qnoise_block)
-
-
+            if isinstance(
+                modules[i], (nn.Conv2d, nn.Linear, nn.Embedding, nn.Conv1d)
+            ):
+                modules[i] = quant_noise(
+                    modules[i], self.qnoise_p, self.qnoise_block
+                )
 
     def forward(self, x, init_params=True):
         """
@@ -186,22 +187,22 @@ class Dual_Path_Model(nn.Module):
         # [B, N, K, S]
         x, gap = self._Segmentation(x, self.K)
 
-
         if self.position == "relative":
             # inter positional embs
             pos_intra = self.pos_emb(
-                torch.arange(0, self.K, dtype=torch.float).to(
-                    x.device))
+                torch.arange(0, self.K, dtype=torch.float).to(x.device)
+            )
             pos_inter = self.pos_emb(
-                torch.arange(0, x.size(-1), dtype=torch.float).to(x.device))
+                torch.arange(0, x.size(-1), dtype=torch.float).to(x.device)
+            )
         else:
             raise NotImplementedError
 
-
         # [B, N*spks, K, S]
         for i in range(self.num_layers):
-            x = self.dual_mdl[i](x, pos_intra, pos_inter,  init_params=init_params)
-
+            x = self.dual_mdl[i](
+                x, pos_intra, pos_inter, init_params=init_params
+            )
 
         # self.dual_mdl[1].inter_mdl.mdl.layers[0].linear1.weight to see the weights
 
@@ -284,7 +285,4 @@ class Dual_Path_Model(nn.Module):
         # [B, N, L]
         if gap > 0:
             input = input[:, :, :-gap]
-
         return input
-
-
