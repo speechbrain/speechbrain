@@ -131,6 +131,13 @@ class SourceSeparationBrainSuperclass(sb.core.Brain):
             targets = targets.permute(0, 2, 1)
             inputs = targets.sum(-1)
 
+        if isinstance(self.params.lr_scheduler, schedulers.NoamScheduler):
+            old_lr, new_lr = self.params.lr_scheduler(
+                [self.optimizer], None, None
+            )
+            # print("oldlr ", old_lr, "newlr", new_lr)
+            # print(self.optimizer.optim.param_groups[0]["lr"])
+
         if self.params.mixed_precision:
             with autocast():
                 predictions = self.compute_forward(inputs)
@@ -156,8 +163,6 @@ class SourceSeparationBrainSuperclass(sb.core.Brain):
             self.optimizer.step()
         self.optimizer.zero_grad()
 
-        if isinstance(self.params.lr_scheduler, schedulers.NoamScheduler):
-            self.params.lr_scheduler([self.params.optimizer], None, None)
         return {"loss": loss.detach()}
 
     def evaluate_batch(self, batch, stage="test"):
@@ -178,7 +183,10 @@ class SourceSeparationBrainSuperclass(sb.core.Brain):
                 [self.params.optimizer], epoch, av_valid_loss
             )
         else:
-            next_lr = current_lr = self.params.optimizer.param_groups[0]["lr"]
+            # if we do not use the reducelronplateau, we do not change the lr
+            next_lr = current_lr = self.params.optimizer.optim.param_groups[0][
+                "lr"
+            ]
 
         epoch_stats = {"epoch": epoch, "lr": current_lr}
         self.params.train_logger.log_stats(
@@ -259,6 +267,9 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", help="config file", required=True)
     parser.add_argument(
+        "--data_path", help="the data path to load the dataset", required=False
+    )
+    parser.add_argument(
         "--minimal",
         help="will run a minimal example for debugging",
         action="store_true",
@@ -282,6 +293,10 @@ def main():
     else:
         with open(args.config) as fin:
             params = sb.yaml.load_extended_yaml(fin)
+
+        # override the data_path if we want to
+        if args.data_path is not None:
+            params.wsj0mixpath = args.data_path
 
         # this points to the folder to which we will save the wsj0-mix dataset
         data_save_dir = params.wsj0mixpath
