@@ -334,16 +334,7 @@ if __name__ == "__main__":
         asr_brain.load_lm()
 
     # Training
-    # asr_brain.fit(asr_brain.hparams.epoch_counter, train_set, valid_set)
-    import dill
-
-    for name, hparam in asr_brain.hparams.__dict__.items():
-        if not dill.pickles(hparam):
-            print("{} not pickle-able!!".format(name))
-            print("bad types: ")
-            print(dill.detect.badtypes(hparam, depth=1))
-            print(dill.pickles(hparam.sp))
-            print(dill.detect.badtypes(hparam.sp, depth=1))
+    asr_brain.fit(asr_brain.hparams.epoch_counter, train_set, valid_set)
 
     # Test
     asr_brain.hparams.wer_file = (

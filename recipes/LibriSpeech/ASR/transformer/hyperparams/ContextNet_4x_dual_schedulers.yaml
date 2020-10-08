@@ -14,7 +14,7 @@ output_folder: !ref results/Contextnet_Transformer/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
-lm_ckpt_file: /scratch/jianyuan/TransformerLM/e16_gelu_noskip_1024/save/CKPT+2020-10-06+07-44-04+00/model.ckpt
+lm_ckpt_file: /network/tmp1/jianyuan.zhong/TransformerLM/e16_gelu_noskip_1024/save/CKPT+2020-10-06+05-02-01+00/model.ckpt
 
 # Data files
 data_folder: !PLACEHOLDER  # e.g. /path/to/librispeech
@@ -27,13 +27,13 @@ csv_test_other: !ref <data_folder>/test-other.csv
 
 # Training parameters
 number_of_epochs: 100
-batch_size: 32
+batch_size: 16
 lr: 1
 ctc_weight: 0.3
 gradient_accumulation: 8
 loss_reduction: 'batchmean'
 device: 'cuda'
-ddp_procs: 4  # Set to number of GPUs for multi-gpu training
+ddp_procs: 0  # Set to number of GPUs for multi-gpu training
 token_type: unigram # ["unigram", "bpe", "char"]
 
 # Feature parameters
@@ -46,7 +46,6 @@ n_mels: 80
 # Contextnet
 alpha: 0.5
 dropout: 0.1
-norm: !name:speechbrain.nnet.normalization.LayerNorm
 num_blocks: 9
 conv_channels: (256, 256, 256, 256, 512, 512, 512, 512, 512)
 strides: (1, 2, 1, 1, 1, 1, 1, 2, 1)
@@ -71,8 +70,8 @@ unk_index: 0
 
 # Decoding parameters
 min_decode_ratio: 0.0
-max_decode_ratio: 1
-num_epoch_to_valid_search: 10
+max_decode_ratio: 1.0
+valid_search_interval: 10
 valid_beam_size: 10
 test_beam_size: 80
 lm_weight: 0.50
@@ -120,7 +119,6 @@ CNN: !new:speechbrain.lobes.models.ContextNet.ContextNet
     input_shape: (8, 10, 80)
     alpha: !ref <alpha>
     dropout: !ref <dropout>
-    norm: !ref <norm>
     num_blocks: !ref <num_blocks>
     conv_channels: !ref <conv_channels>
     strides: !ref <strides>
@@ -183,6 +181,7 @@ hparams:
     eos_index: !ref <eos_index>
     pad_id: !ref <pad_index>
     ctc_weight: !ref <ctc_weight>
+    valid_search_interval: !ref <valid_search_interval>
     valid_search: !ref <valid_search>
     test_search: !ref <test_search>
     tokenizer: !name:speechbrain.tokenizers.SentencePiece.SentencePiece

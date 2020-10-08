@@ -198,6 +198,7 @@ def ddp_init(rank, brain, args):
     # Wrap modules with DDP
     for name, hparam in brain.hparams.__dict__.items():
         if isinstance(hparam, torch.nn.Module):
+            hparam = torch.nn.SyncBatchNorm.convert_sync_batchnorm(hparam)
             hparam = hparam.to(rank)
             if any(p.requires_grad for p in hparam.parameters()):
                 hparam = DDP(hparam, device_ids=[rank])
