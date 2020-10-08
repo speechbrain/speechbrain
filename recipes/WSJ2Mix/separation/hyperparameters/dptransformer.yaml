@@ -110,6 +110,12 @@ FTtf: !new:speechbrain.lobes.models.dual_pathrnn.FastTransformerBlock
     d_ffn: 1024
     dropout: 0
 
+Performer: !new:speechbrain.lobes.models.dual_pathrnn.PerformerBlock
+    out_channels: !ref <out_channels>
+    num_layers: 1
+    nhead: 8
+    ff_mult: 4
+
 IB: !new:speechbrain.lobes.models.dual_pathrnn.IdentityBlock
 
 MaskNet: !new:speechbrain.lobes.models.dual_pathrnn.Dual_Path_Model

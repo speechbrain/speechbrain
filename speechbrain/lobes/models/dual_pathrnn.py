@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import copy
 
+from performer_pytorch import Performer
+
 from speechbrain.nnet.linear import Linear
 from speechbrain.lobes.models.transformer.Transformer import TransformerEncoder
 from speechbrain.lobes.models.transformer.Transformer import PositionalEncoding
@@ -522,6 +524,18 @@ class PytorchTransformerBlock(nn.Module):
 
     def forward(self, x, init_params=False):
         return self.mdl(x)
+
+
+class PerformerBlock(nn.Module):
+    def __init__(self, out_channels, num_layers=6, nhead=8, ff_mult=4):
+        super(PerformerBlock, self).__init__()
+
+        self.encoder_layer = Performer(
+            dim=out_channels, heads=nhead, depth=num_layers, ff_mult=ff_mult
+        )
+
+    def forward(self, x, init_params=False):
+        return self.encoder_layer(x)
 
 
 class SBTransformerBlock(nn.Module):
