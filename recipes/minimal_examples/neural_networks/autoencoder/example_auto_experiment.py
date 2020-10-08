@@ -7,18 +7,18 @@ class AutoBrain(sb.Brain):
     def compute_forward(self, x, stage):
         id, wavs, lens = x
         feats = self.hparams.compute_features(wavs)
-        feats = self.hparams.mean_var_norm(feats, lens)
+        feats = self.modules.mean_var_norm(feats, lens)
 
-        encoded = self.hparams.linear1(feats)
+        encoded = self.modules.linear1(feats)
         encoded = self.hparams.activation(encoded)
-        decoded = self.hparams.linear2(encoded)
+        decoded = self.modules.linear2(encoded)
 
         return decoded
 
     def compute_objectives(self, predictions, targets, stage):
         id, wavs, lens = targets
         feats = self.hparams.compute_features(wavs)
-        feats = self.hparams.mean_var_norm(feats, lens)
+        feats = self.modules.mean_var_norm(feats, lens)
         self.mse_metric.append(id, predictions, feats, lens)
         return self.hparams.compute_cost(predictions, feats, lens)
 
@@ -81,7 +81,7 @@ def main():
         train_logger = TensorboardLogger(hparams["tensorboard_logs"])
         hparams["hparams"]["train_logger"] = train_logger
 
-    auto_brain = AutoBrain(hparams["hparams"], hparams["opt_class"])
+    auto_brain = AutoBrain(hparams["modules"], hparams["opt_class"], hparams)
     auto_brain.fit(
         range(hparams["N_epochs"]),
         hparams["train_loader"](),

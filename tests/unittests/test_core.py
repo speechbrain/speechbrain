@@ -17,7 +17,7 @@ def test_brain():
 
     class SimpleBrain(Brain):
         def compute_forward(self, x, stage):
-            return self.hparams.model(x)
+            return self.modules.model(x)
 
         def compute_objectives(self, predictions, targets, stage):
             return torch.nn.functional.l1_loss(predictions, targets)
