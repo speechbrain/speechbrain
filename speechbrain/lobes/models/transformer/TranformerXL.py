@@ -9,11 +9,12 @@ from speechbrain.nnet.attention import (
 from speechbrain.nnet.group_layer_norm import GroupLayerNorm
 from speechbrain.nnet.group_linear import GroupLinear
 from speechbrain.lobes.models.transformer.group_communication import (
-    GroupCommunication
+    GroupCommunication,
 )
 
 
 class TransformerEncoderLayerRP(nn.Module):
+
     """ This is an implementation of self-attention encoder layer
 
     Arguements
@@ -84,7 +85,12 @@ class TransformerEncoderLayerRP(nn.Module):
             self.competition = None
 
     def forward(
-        self, src, pos_embs, src_mask=None, src_key_padding_mask=None, init_params=False
+        self,
+        src,
+        pos_embs,
+        src_mask=None,
+        src_key_padding_mask=None,
+        init_params=False,
     ):
         """
         Arguements
@@ -142,7 +148,6 @@ class TransformerEncoderLayerRP(nn.Module):
             output = self.norm_comm(output + residual, init_params=init_params)
 
         return output, self.comp_score
-
 
 
 class TransformerEncoderRP(nn.Module):
@@ -209,7 +214,12 @@ class TransformerEncoderRP(nn.Module):
         self.return_attention = return_attention
 
     def forward(
-        self, src, pos_embs, src_mask=None, src_key_padding_mask=None, init_params=False
+        self,
+        src,
+        pos_embs,
+        src_mask=None,
+        src_key_padding_mask=None,
+        init_params=False,
     ):
         """
         Arguements
@@ -237,4 +247,3 @@ class TransformerEncoderRP(nn.Module):
         if self.return_attention:
             return output, attention_lst
         return output
-
