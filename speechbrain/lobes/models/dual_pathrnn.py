@@ -753,9 +753,7 @@ class Dual_Path_Model(nn.Module):
         num_spks=2,
         skip_around_intra=True,
         linear_layer_after_inter_intra=True,
-        use_pos_enc = False
-
-
+        use_pos_enc=False,
     ):
         super(Dual_Path_Model, self).__init__()
         self.K = K
@@ -807,7 +805,7 @@ class Dual_Path_Model(nn.Module):
         # [B, N, L]
         x = self.conv1d(x)
         if self.pos_enc:
-            x = self.pos_enc(x, init_params) + x*(x.size(1)**0.5)
+            x = self.pos_enc(x, init_params) + x * (x.size(1) ** 0.5)
 
         # [B, N, K, S]
         x, gap = self._Segmentation(x, self.K)
