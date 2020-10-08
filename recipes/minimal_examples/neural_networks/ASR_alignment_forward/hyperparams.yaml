@@ -49,6 +49,11 @@ test_loader: !new:speechbrain.data_io.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
+compute_features: !new:speechbrain.lobes.MFCC
+
+mean_var_norm: !new:speechbrain.processing.InputNormalization
+    norm_type: global
+
 model: !new:speechbrain.lobes.CRDNN
     input_shape: [null, null, 660]
     activation: !ref <activation>
@@ -68,16 +73,17 @@ lin: !new:speechbrain.nnet.Linear
     n_neurons: 42  # 42 phonemes, no blank
     bias: False
 
+modules:
+    model: !ref <model>
+    lin: !ref <lin>
+    mean_var_norm: !ref <mean_var_norm>
+
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
 
-hparams:
-    model: !ref <model>
-    lin: !ref <lin>
-    compute_features: !new:speechbrain.lobes.MFCC
-    mean_var_norm: !new:speechbrain.processing.InputNormalization
-        norm_type: global
-    softmax: !new:speechbrain.nnet.Softmax
-        apply_log: True
-    aligner: !new:speechbrain.alignment.aligner.HMMAligner
-    compute_cost: !name:speechbrain.nnet.nll_loss
+softmax: !new:speechbrain.nnet.Softmax
+    apply_log: True
+
+aligner: !new:speechbrain.alignment.aligner.HMMAligner
+
+compute_cost: !name:speechbrain.nnet.nll_loss

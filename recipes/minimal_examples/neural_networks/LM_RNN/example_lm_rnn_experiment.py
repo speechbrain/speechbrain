@@ -9,7 +9,7 @@ class LMBrain(sb.Brain):
     def compute_forward(self, y, stage):
         ids, phns, phn_lens = y
         y_in = sb.data_io.prepend_bos_token(phns, self.hparams.bos_index)
-        logits = self.hparams.model(y_in)
+        logits = self.modules.model(y_in)
         pout = self.hparams.log_softmax(logits)
         return pout
 
@@ -65,7 +65,7 @@ def main():
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
 
-    lm_brain = LMBrain(hparams["hparams"], hparams["opt_class"])
+    lm_brain = LMBrain(hparams["modules"], hparams["opt_class"], hparams)
     lm_brain.fit(
         lm_brain.hparams.epoch_counter,
         hparams["train_loader"](),

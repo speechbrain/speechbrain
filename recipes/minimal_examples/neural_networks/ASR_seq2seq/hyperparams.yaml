@@ -53,6 +53,11 @@ test_loader: !new:speechbrain.data_io.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
+compute_features: !new:speechbrain.lobes.MFCC
+
+mean_var_norm: !new:speechbrain.processing.InputNormalization
+    norm_type: global
+
 enc: !new:speechbrain.lobes.CRDNN
     input_shape: [null, null, 660]
     activation: !ref <activation>
@@ -88,27 +93,25 @@ dec: !new:speechbrain.nnet.AttentionalRNNDecoder
 softmax: !new:speechbrain.nnet.Softmax
     apply_log: True
 
-opt_class: !name:torch.optim.Adam
-    lr: !ref <lr>
-
-hparams:
-    compute_features: !new:speechbrain.lobes.MFCC
-    mean_var_norm: !new:speechbrain.processing.InputNormalization
-        norm_type: global
-    bos: !ref <bos>
-    eos: !ref <eos>
+modules:
     enc: !ref <enc>
     emb: !ref <emb>
     dec: !ref <dec>
     lin: !ref <lin>
-    softmax: !ref <softmax>
-    searcher: !new:speechbrain.decoders.seq2seq.S2SRNNGreedySearcher
-        embedding: !ref <emb>
-        decoder: !ref <dec>
-        linear: !ref <lin>
-        bos_index: !ref <bos>
-        eos_index: !ref <eos>
-        min_decode_ratio: 0
-        max_decode_ratio: 0.1
-    compute_cost: !name:speechbrain.nnet.nll_loss
-    per_stats: !name:speechbrain.ErrorRateStats
+    mean_var_norm: !ref <mean_var_norm>
+
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+
+searcher: !new:speechbrain.decoders.seq2seq.S2SRNNGreedySearcher
+    embedding: !ref <emb>
+    decoder: !ref <dec>
+    linear: !ref <lin>
+    bos_index: !ref <bos>
+    eos_index: !ref <eos>
+    min_decode_ratio: 0
+    max_decode_ratio: 0.1
+
+compute_cost: !name:speechbrain.nnet.nll_loss
+
+per_stats: !name:speechbrain.ErrorRateStats

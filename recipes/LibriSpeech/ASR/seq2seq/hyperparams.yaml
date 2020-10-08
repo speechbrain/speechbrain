@@ -43,7 +43,7 @@ lr: 1.0
 ctc_weight: 0.5
 device: 'cuda'
 ddp_procs: 0  # Set to number of GPUs for multi-gpu training
-token_type: unigram # ["unigram", "bpe", "char"]
+token_type: unigram  # ["unigram", "bpe", "char"]
 
 # Feature parameters
 sample_rate: 16000
@@ -124,10 +124,25 @@ test_other_loader: !new:speechbrain.data_io.DataLoaderFactory
     output_folder: !ref <output_folder>
     csv_read: [wav, wrd]
 
-
-# Models
 normalize: !new:speechbrain.processing.InputNormalization
     norm_type: global
+
+compute_features: !new:speechbrain.lobes.Fbank
+    sample_rate: !ref <sample_rate>
+    n_fft: !ref <n_fft>
+    n_mels: !ref <n_mels>
+
+env_corrupt: !new:speechbrain.lobes.EnvCorrupt
+    openrir_folder: !ref <data_folder_rirs>
+    babble_prob: 0.0
+    reverb_prob: 0.0
+    noise_prob: 1.0
+    noise_snr_low: 0
+    noise_snr_high: 15
+
+augmentation: !new:speechbrain.lobes.TimeDomainSpecAugment
+    sample_rate: !ref <sample_rate>
+    speeds: [95, 100, 105]
 
 enc: !new:speechbrain.lobes.CRDNN
     input_shape: [null, null, !ref <n_mels>]
@@ -174,8 +189,14 @@ seq_lin: !new:speechbrain.nnet.Linear
     input_size: !ref <dec_neurons>
     n_neurons: !ref <output_neurons>
 
-model: !new:torch.nn.ModuleList
-    - [!ref <enc>, !ref <emb>, !ref <dec>, !ref <ctc_lin>, !ref <seq_lin>]
+log_softmax: !new:speechbrain.nnet.Softmax
+    apply_log: True
+
+ctc_cost: !name:speechbrain.nnet.ctc_loss
+    blank_index: !ref <blank_index>
+
+seq_cost: !name:speechbrain.nnet.nll_loss
+    label_smoothing: 0.1
 
 lm_model: !new:speechbrain.lobes.RNNLM
     output_neurons: !ref <output_neurons>
@@ -187,6 +208,21 @@ lm_model: !new:speechbrain.lobes.RNNLM
     dnn_blocks: !ref <lm_dnn_blocks>
     dnn_neurons: !ref <lm_dnn_neurons>
     return_hidden: True  # For inference
+
+modules:
+    enc: !ref <enc>
+    emb: !ref <emb>
+    dec: !ref <dec>
+    ctc_lin: !ref <ctc_lin>
+    seq_lin: !ref <seq_lin>
+    normalize: !ref <normalize>
+    env_corrupt: !ref <env_corrupt>
+    augmentation: !ref <augmentation>
+    lm_model: !ref <lm_model>
+
+model: !new:torch.nn.ModuleList
+    - [!ref <enc>, !ref <emb>, !ref <dec>, !ref <ctc_lin>, !ref <seq_lin>]
+
 
 beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearchLM
     embedding: !ref <emb>
@@ -225,50 +261,10 @@ checkpointer: !new:speechbrain.Checkpointer
         normalizer: !ref <normalize>
         counter: !ref <epoch_counter>
 
-# Hyperparameters to pass to the Brain class
-hparams:
-    epoch_counter: !ref <epoch_counter>
-    save_folder: !ref <save_folder>
-    tok_mdl_file: !ref <tok_mdl_file>
-    tok_voc_file: !ref <tok_voc_file>
-    lm_ckpt_file: !ref <lm_ckpt_file>
-    lm_model: !ref <lm_model>
-    bos_index: !ref <bos_index>
-    eos_index: !ref <eos_index>
-    ctc_weight: !ref <ctc_weight>
-    output_folder: !ref <output_folder>
-    number_of_ctc_epochs: !ref <number_of_ctc_epochs>
-    normalize: !ref <normalize>
-    enc: !ref <enc>
-    emb: !ref <emb>
-    dec: !ref <dec>
-    ctc_lin: !ref <ctc_lin>
-    seq_lin: !ref <seq_lin>
-    model: !ref <model>
-    beam_searcher: !ref <beam_searcher>
-    lr_annealing: !ref <lr_annealing>
-    compute_features: !new:speechbrain.lobes.Fbank
-        sample_rate: !ref <sample_rate>
-        n_fft: !ref <n_fft>
-        n_mels: !ref <n_mels>
-    env_corrupt: !new:speechbrain.lobes.EnvCorrupt
-        openrir_folder: !ref <data_folder_rirs>
-        babble_prob: 0.0
-        reverb_prob: 0.0
-        noise_prob: 1.0
-        noise_snr_low: 0
-        noise_snr_high: 15
-    augmentation: !new:speechbrain.lobes.TimeDomainSpecAugment
-        sample_rate: !ref <sample_rate>
-        speeds: [95, 100, 105]
-    log_softmax: !new:speechbrain.nnet.Softmax
-        apply_log: True
-    ctc_cost: !name:speechbrain.nnet.ctc_loss
-        blank_index: !ref <blank_index>
-    seq_cost: !name:speechbrain.nnet.nll_loss
-        label_smoothing: 0.1
-    train_logger: !new:speechbrain.FileTrainLogger
-        save_file: !ref <train_log>
-    error_rate_computer: !name:speechbrain.ErrorRateStats
-    cer_computer: !name:speechbrain.ErrorRateStats
-        split_tokens: True
+train_logger: !new:speechbrain.FileTrainLogger
+    save_file: !ref <train_log>
+
+error_rate_computer: !name:speechbrain.ErrorRateStats
+
+cer_computer: !name:speechbrain.ErrorRateStats
+    split_tokens: True
