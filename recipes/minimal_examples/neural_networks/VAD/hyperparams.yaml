@@ -23,6 +23,12 @@ emb_size: 23
 dropout: 0.1
 output_neurons: 1
 
+compute_features: !new:speechbrain.lobes.MFCC
+    n_mfcc: !ref <n_mfcc>
+
+mean_var_norm: !new:speechbrain.processing.InputNormalization
+    norm_type: global
+
 rnn: !new:speechbrain.nnet.LSTM
     input_size: !ref <n_mfcc> * 33  # d & dd = *3, 5 left & 5 right = *11
     hidden_size: !ref <rnn_neurons>
@@ -36,14 +42,12 @@ lin: !new:speechbrain.nnet.Linear
     n_neurons: !ref <output_neurons>
     bias: False
 
+modules:
+    rnn: !ref <rnn>
+    lin: !ref <lin>
+    mean_var_norm: !ref <mean_var_norm>
+
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
 
-hparams:
-    compute_features: !new:speechbrain.lobes.MFCC
-        n_mfcc: !ref <n_mfcc>
-    mean_var_norm: !new:speechbrain.processing.InputNormalization
-        norm_type: global
-    rnn: !ref <rnn>
-    lin: !ref <lin>
-    compute_BCE_cost: !name:speechbrain.nnet.compute_masked_loss
+compute_BCE_cost: !name:speechbrain.nnet.compute_masked_loss

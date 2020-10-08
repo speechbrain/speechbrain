@@ -24,6 +24,8 @@ N_epochs: 150
 N_batch: 1
 lr: 0.002
 progressbar: True
+loss_fn: 'sisnr'
+train_onthefly: False
 
 train_loader: !new:speechbrain.data_io.DataLoaderFactory
     csv_file: !ref <csv_tr>
@@ -69,17 +71,16 @@ decoder: !new:speechbrain.lobes.models.conv_tasnet.Decoder
     L: 20
     N: 32
 
-opt_class: !name:torch.optim.Adam
-    lr: !ref <lr>
-
-hparams:
-    train_onthefly: False
-    loss_fn: 'sisnr'
-    use_tensorboard: !ref <use_tensorboard>
+modules:
     mask_net: !ref <mask_net>
     encoder: !ref <encoder>
     decoder: !ref <decoder>
-    epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
-        limit: !ref <N_epochs>
-    train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
-        save_file: !ref <train_log>
+
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <N_epochs>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>

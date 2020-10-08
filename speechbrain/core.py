@@ -249,14 +249,15 @@ class Brain:
     opt_class : torch.optim class
         A torch optimizer constructor that has takes only the list of
         parameters (e.g. a lambda or partial function definition). By default,
-        this will be passed all modules in hparams and jit_modules at the
+        this will be passed all modules in ``modules`` at the
         beginning of the ``fit()`` method. This behavior can be changed
         by overriding the ``configure_optimizers()`` method.
-    jit_modules : dict of str:torch.nn.Module pairs
-        ``torch.nn.Module`` object(s) to pass to ``torch.jit.script``. As
-        with the hparams and optim arguments, these are made accessible with
-        a ``jit_modules`` attribute, using "dot" notation:
-        e.g. self.jit_modules.model(x)
+    modules : dict of str:torch.nn.Module pairs
+        These modules are passed to the optimizier by default if they have
+        trainable parameters, and will have train()/eval() called on them.
+    jit_module_keys : list of str
+        keys from the dictionary passed to ``modules`` to compile with
+        ``torch.jit.script``.
     checkpointer : speechbrain.Checkpointer
         By default, this will be used to load checkpoints, and will have the
         optimizer added to continue training if interrupted.
@@ -273,7 +274,7 @@ class Brain:
     >>> from torch.optim import SGD
     >>> class SimpleBrain(Brain):
     ...     def compute_forward(self, x, stage):
-    ...         return self.hparams.model(x)
+    ...         return self.modules.model(x)
     ...     def compute_objectives(self, predictions, targets, stage):
     ...         return torch.nn.functional.l1_loss(predictions, targets)
     >>> model = torch.nn.Linear(in_features=10, out_features=10)
@@ -283,43 +284,28 @@ class Brain:
 
     def __init__(
         self,
-        hparams,
+        modules=None,
         opt_class=None,
-        jit_modules=None,
+        hparams=None,
+        jit_module_keys=None,
         checkpointer=None,
         device="cpu",
         ddp_procs=0,
         auto_mix_prec=False,
     ):
         self.opt_class = opt_class
-        self.jit_modules = jit_modules
+        self.jit_module_keys = jit_module_keys
         self.checkpointer = checkpointer
         self.device = device
         self.ddp_procs = ddp_procs
         self.auto_mix_prec = auto_mix_prec
 
         self.root_process = True
-        modulelist = []
-
-        # Put modules onto correct device
-        for name, hparam in hparams.items():
-            if isinstance(hparam, torch.nn.Module):
-                hparam = hparam.to(self.device)
-                hparams[name] = hparam
-                modulelist.append(hparam)
+        self.modules = torch.nn.ModuleDict(modules).to(self.device)
 
         # Make hyperparams available with simple "dot" notation
-        self.hparams = SimpleNamespace(**hparams)
-
-        # Append JIT modules here just for accurate parameter count.
-        # JIT modules are compiled and converted to "dot" notation when fit()
-        # is called, since compiled modules can't be pickled for DDP.
-        if jit_modules is not None:
-            for name, module in jit_modules.items():
-                modulelist.append(module)
-
-        # Store modules as ModuleList, primarily for calling train()/eval()
-        self.modules = torch.nn.ModuleList(modulelist)
+        if hparams is not None:
+            self.hparams = SimpleNamespace(**hparams)
 
         # Automatic mixed precision init
         if self.auto_mix_prec:
@@ -427,17 +413,7 @@ class Brain:
         Override this class if there are multiple optimizers.
         """
         if self.opt_class is not None:
-            params = []
-            for name, hparam in self.hparams.__dict__.items():
-                if isinstance(hparam, torch.nn.Module):
-                    if any(p.requires_grad for p in hparam.parameters()):
-                        params.extend(hparam.parameters())
-
-            if self.jit_modules is not None:
-                for name, jit_module in self.jit_modules.__dict__.items():
-                    params.extend(jit_module.parameters())
-
-            self.optimizer = self.opt_class(params)
+            self.optimizer = self.opt_class(self.modules.parameters())
 
             if self.checkpointer is not None:
                 self.checkpointer.add_recoverable("optimizer", self.optimizer)
@@ -618,11 +594,11 @@ class Brain:
         """This should be run *after* mp.spawn, since jit modules
         cannot be pickled.
         """
-        if self.jit_modules is None:
+        if self.jit_module_keys is None:
             return
 
-        for name, module in self.jit_modules.items():
-            module = torch.jit.script(module)
+        for name in self.jit_module_keys:
+            module = torch.jit.script(self.modules[name])
             module = module.to(self.device)
 
             # Wrap module with DDP when requested
@@ -630,11 +606,7 @@ class Brain:
             if needs_grad and self.ddp_procs > 0:
                 module = DDP(module, device_ids=[self.device])
 
-            self.modules.append(module)
-            self.jit_modules[name] = module
-
-        # Convert jit modules to use "dot" notation
-        self.jit_modules = SimpleNamespace(**self.jit_modules)
+            self.modules[name] = module
 
     def evaluate(self, test_set, max_key=None, min_key=None, progressbar=True):
         """Iterate test_set and evaluate brain performance. By default, loads
