@@ -753,7 +753,7 @@ class Dual_Path_Model(nn.Module):
         num_spks=2,
         skip_around_intra=True,
         linear_layer_after_inter_intra=True,
-        use_pos_enc=False,
+        use_global_pos_enc=False,
     ):
         super(Dual_Path_Model, self).__init__()
         self.K = K
@@ -761,7 +761,7 @@ class Dual_Path_Model(nn.Module):
         self.num_layers = num_layers
         self.norm = select_norm(norm, in_channels, 3)
         self.conv1d = nn.Conv1d(in_channels, out_channels, 1, bias=False)
-        self.use_pos_enc = use_pos_enc
+        self.use_pos_enc = use_global_pos_enc
 
         if self.use_pos_enc:
             self.pos_enc = PositionalEncoding()
