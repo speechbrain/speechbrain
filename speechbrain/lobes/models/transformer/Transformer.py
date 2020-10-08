@@ -82,8 +82,8 @@ class TransformerInterface(nn.Module):
                 activation=activation,
             )
 
-        # initialize the dncoder
-        if num_encoder_layers > 0:
+        # initialize the decoder
+        if num_decoder_layers > 0:
             if custom_tgt_module is not None:
                 self.custom_tgt_module = custom_tgt_module(d_model)
 
@@ -205,8 +205,8 @@ class TransformerEncoderLayer(nn.Module):
             activation=activation,
         )
 
-        self.norm1 = torch.nn.LayerNorm(embed_dim, eps=1e-6)
-        self.norm2 = torch.nn.LayerNorm(embed_dim, eps=1e-6)
+        self.norm1 = sb.nnet.LayerNorm([None, None, embed_dim], eps=1e-6)
+        self.norm2 = sb.nnet.LayerNorm([None, None, embed_dim], eps=1e-6)
         self.dropout1 = torch.nn.Dropout(dropout)
         self.dropout2 = torch.nn.Dropout(dropout)
 
@@ -328,7 +328,7 @@ class TransformerEncoder(nn.Module):
                 for i in range(num_layers)
             ]
         )
-        self.norm = torch.nn.LayerNorm(embed_dim, eps=1e-6)
+        self.norm = sb.nnet.LayerNorm([None, None, embed_dim], eps=1e-6)
 
     def forward(
         self,
@@ -642,4 +642,4 @@ def get_lookahead_mask(padded_input):
         .masked_fill(mask == 0, float("-inf"))
         .masked_fill(mask == 1, float(0.0))
     )
-    return mask.detach()
+    return mask.detach().to(padded_input.device)
