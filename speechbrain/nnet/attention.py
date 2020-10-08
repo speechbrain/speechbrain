@@ -468,28 +468,28 @@ class RelativePosMultiHeadAttention(nn.Module):
 
         self.kdim = self.vdim = self.embed_dim
 
-        self.k_proj = nn.Linear(self.kdim, self.embed_dim, bias=self.bias)
-        self.q_proj = nn.Linear(self.vdim, self.embed_dim, bias=self.bias)
-        self.v_proj = nn.Linear(self.vdim, self.embed_dim, bias=self.bias)
-        self.out_proj = nn.Linear(self.embed_dim, self.embed_dim, bias=self.bias)
+        self.k_proj = nn.Linear(self.kdim, self.embed_dim, bias=self.bias).to(first_input.device)
+        self.q_proj = nn.Linear(self.vdim, self.embed_dim, bias=self.bias).to(first_input.device)
+        self.v_proj = nn.Linear(self.vdim, self.embed_dim, bias=self.bias).to(first_input.device)
+        self.out_proj = nn.Linear(self.embed_dim, self.embed_dim, bias=self.bias).to(first_input.device)
         self.scale = 1 / (self.inner_dim ** 0.5)
 
         self.pos_proj = nn.Linear(
             self.vdim, self.embed_dim,
             bias=False
-        )
+        ).to(first_input.device)
 
         if self.add_bias_kv:
-            self.bias_k = nn.Parameter(torch.Tensor(1, 1, self.vdim))
-            self.bias_v = nn.Parameter(torch.Tensor(1, 1, self.vdim))
+            self.bias_k = nn.Parameter(torch.Tensor(1, 1, self.vdim)).to(first_input.device)
+            self.bias_v = nn.Parameter(torch.Tensor(1, 1, self.vdim)).to(first_input.device)
         else:
             self.bias_k = self.bias_v = None
 
         if self.u == None and self.v == None:
 
             # u and v biases are not shared we init these here
-            self.u = nn.Parameter(torch.Tensor(self.embed_dim, self.nb))
-            self.v = nn.Parameter(torch.Tensor(self.embed_dim, self.nb))
+            self.u = nn.Parameter(torch.Tensor(self.embed_dim, self.nb)).to(first_input.device)
+            self.v = nn.Parameter(torch.Tensor(self.embed_dim, self.nb)).to(first_input.device)
 
         else:
             pass
@@ -573,7 +573,6 @@ class RelativePosMultiHeadAttention(nn.Module):
                                               ).contiguous()
         output = self.out_proj(attn_weighted.reshape(query_len,
                                                       bsz, self.inner_dim*self.nb))
-        output = output.permute(1, 0, 2)
         return output, attn
 
 
