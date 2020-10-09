@@ -490,7 +490,7 @@ class TransformerDecoderLayer(nn.Module):
         else:
             tgt1 = tgt
 
-        tgt = self.pos_ffn(tgt1)
+        tgt2 = self.pos_ffn(tgt1)
 
         # add & norm
         tgt = tgt + self.dropout3(tgt2)

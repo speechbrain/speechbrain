@@ -14,7 +14,7 @@ output_folder: !ref results/Contextnet_Transformer/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
-lm_ckpt_file: /network/tmp1/jianyuan.zhong/TransformerLM/e16_gelu_noskip_1024/save/CKPT+2020-10-06+05-02-01+00/model.ckpt
+lm_ckpt_file: /network/tmp1/jianyuan.zhong/TransformerLM/e16_gelu_noskip_1024/save/CKPT+2020-10-06+05-02-01+00/model.ckpt # yamllint disable-line rule:line-length
 
 # Data files
 data_folder: !PLACEHOLDER  # e.g. /path/to/librispeech
@@ -30,10 +30,10 @@ number_of_epochs: 100
 batch_size: 16
 lr: 1
 ctc_weight: 0.3
-gradient_accumulation: 8
+gradient_accumulation: 4
 loss_reduction: 'batchmean'
 device: 'cuda'
-ddp_procs: 0  # Set to number of GPUs for multi-gpu training
+ddp_procs: 2  # Set to number of GPUs for multi-gpu training
 token_type: unigram # ["unigram", "bpe", "char"]
 
 # Feature parameters
@@ -133,6 +133,7 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.Transforme
     d_ffn: !ref <d_ffn>
     dropout: !ref <transformer_dropout>
     activation: !ref <activation>
+    normalize_before: False
 
 ctc_lin: !new:speechbrain.nnet.Linear
     input_size: !ref <d_model>
@@ -143,7 +144,7 @@ seq_lin: !new:speechbrain.nnet.Linear
     n_neurons: !ref <output_neurons>
 
 model: !new:torch.nn.ModuleList
-    - [!ref <CNN>, !ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
+    - [!ref <hparams.normalize>, !ref <CNN>, !ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>] # yamllint disable-line rule:line-length
 
 optimizer: !name:torch.optim.Adam
     lr: 0
@@ -191,7 +192,7 @@ hparams:
         csv_read: wrd
         model_type: "unigram" # ["unigram", "bpe", "char"]
         max_sentencepiece_length: 16
-        character_coverage: 0.9995 # for language with large set of chars use 0.9995
+        character_coverage: 0.9995
         pad_id: -1
         bos_id: !ref <bos_index>
         eos_id: !ref <eos_index>
@@ -205,7 +206,7 @@ hparams:
     model: !ref <model>
 
     log_softmax: !new:torch.nn.LogSoftmax
-            dim: -1
+        dim: -1
 
     ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
         blank_index: !ref <blank_index>
@@ -249,8 +250,10 @@ hparams:
     epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
         limit: !ref <number_of_epochs>
 
-    normalize: !new:speechbrain.processing.features.InputNormalization
-        norm_type: global
+    # normalize: !new:speechbrain.processing.features.InputNormalization
+    #     norm_type: global
+    normalize: !new:torch.nn.LayerNorm
+        - !ref <n_mels>
 
     augmentation: !new:speechbrain.lobes.augment.tdsa.TimeDomainSpecAugment
         sample_rate: !ref <sample_rate>

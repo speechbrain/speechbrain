@@ -195,6 +195,15 @@ def ddp_init(rank, brain, args):
     brain.device = rank
     brain.root_process = rank == 0
 
+    # force the models to start and remain synchronized
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+    args = list(args)
+    sampler = torch.utils.data.DistributedSampler
+    args[1] = args[1](sampler, brain.ddp_procs, rank=rank)
+    args[2] = args[2](sampler, brain.ddp_procs, rank=rank)
+
     # Wrap modules with DDP
     for name, hparam in brain.hparams.__dict__.items():
         if isinstance(hparam, torch.nn.Module):
@@ -563,7 +572,7 @@ class Brain:
         if self.ddp_procs > 0:
             self._ddp_fit(epoch_counter, train_set, valid_set, progressbar)
         else:
-            self._fit(epoch_counter, train_set, valid_set, progressbar)
+            self._fit(epoch_counter, train_set(), valid_set(), progressbar)
 
     def _ddp_fit(self, *args):
         torch.multiprocessing.spawn(ddp_init, (self, args), self.ddp_procs)
@@ -584,11 +593,6 @@ class Brain:
             disable = not (progressbar and self.root_process)
             with tqdm(train_set, dynamic_ncols=True, disable=disable) as t:
                 for i, batch in enumerate(t):
-                    if (
-                        isinstance(self.device, int)
-                        and i % self.ddp_procs != self.device
-                    ):
-                        continue
                     loss = self.fit_batch(batch)
                     avg_train_loss = self.update_average(
                         loss, avg_train_loss, iteration=i + 1
@@ -606,11 +610,6 @@ class Brain:
                     for i, batch in enumerate(
                         tqdm(valid_set, dynamic_ncols=True, disable=disable)
                     ):
-                        if (
-                            isinstance(self.device, int)
-                            and i % self.ddp_procs != self.device
-                        ):
-                            continue
                         loss = self.evaluate_batch(batch, stage=Stage.VALID)
                         avg_valid_loss = self.update_average(
                             loss, avg_valid_loss, iteration=i + 1
