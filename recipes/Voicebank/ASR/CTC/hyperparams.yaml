@@ -5,7 +5,7 @@
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 1235
+seed: 1236
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 input_type: clean_wav
 output_folder: !ref results/<input_type>/<seed>
@@ -20,14 +20,14 @@ csv_valid: !ref <data_folder>/valid.csv
 csv_test: !ref <data_folder>/test.csv
 
 # Training parameters
-number_of_epochs: 30
+number_of_epochs: 50
 batch_size: 8
 lr: 1.0
 device: 'cuda:0'
 ddp_procs: 0  # Set to number of GPUs if multi-gpu
 
 # Set this to the path of a pretrained model to load before training
-# pretrained: model.ckpt
+# pretrained: model_clean_ep3.ckpt
 
 # Feature parameters
 sample_rate: 16000
@@ -74,6 +74,15 @@ test_loader: !new:speechbrain.data_io.DataLoaderFactory
     output_folder: !ref <output_folder>
     csv_read: [!ref <input_type>, char]
 
+compute_features: !new:speechbrain.lobes.Fbank
+    sample_rate: !ref <sample_rate>
+    n_fft: !ref <n_fft>
+    n_mels: !ref <n_mels>
+
+augmentation: !new:speechbrain.lobes.TimeDomainSpecAugment
+    sample_rate: !ref <sample_rate>
+    speeds: [95, 100, 105]
+
 model: !new:speechbrain.lobes.CRDNN
     input_shape: [null, null, !ref <n_mels>]
     activation: !ref <activation>
@@ -81,8 +90,8 @@ model: !new:speechbrain.lobes.CRDNN
     cnn_blocks: !ref <cnn_blocks>
     cnn_channels: !ref <cnn_channels>
     cnn_kernelsize: !ref <cnn_kernelsize>
-    time_pooling: False
-    using_2d_pooling: True
+    time_pooling: True
+    rnn_class: !name:speechbrain.nnet.LSTM
     rnn_layers: !ref <rnn_layers>
     rnn_neurons: !ref <rnn_neurons>
     rnn_bidirectional: !ref <rnn_bidirectional>
@@ -93,6 +102,9 @@ output: !new:speechbrain.nnet.Linear
     input_size: !ref <dnn_neurons>
     n_neurons: !ref <output_neurons>
     bias: True
+
+log_softmax: !new:speechbrain.nnet.Softmax
+    apply_log: True
 
 opt_class: !name:torch.optim.Adadelta
     lr: !ref <lr>
@@ -108,8 +120,13 @@ lr_annealing: !new:speechbrain.nnet.NewBobScheduler
 normalize: !new:speechbrain.processing.InputNormalization
     norm_type: global
 
-jit_modules:
+modules:
     model: !ref <model>
+    output: !ref <output>
+    normalize: !ref <normalize>
+    augmentation: !ref <augmentation>
+
+#jit_module_keys: [model]
 
 checkpointer: !new:speechbrain.Checkpointer
     checkpoints_dir: !ref <save_folder>
@@ -120,28 +137,15 @@ checkpointer: !new:speechbrain.Checkpointer
         scheduler: !ref <lr_annealing>
         normalizer: !ref <normalize>
 
-# These hyperparameters get passed to the Brain class
-hparams:
-    wer_file: !ref <wer_file>
-    output: !ref <output>
-    lr_annealing: !ref <lr_annealing>
-    normalize: !ref <normalize>
-    epoch_counter: !ref <epoch_counter>
-    compute_features: !new:speechbrain.lobes.Fbank
-        sample_rate: !ref <sample_rate>
-        n_fft: !ref <n_fft>
-        n_mels: !ref <n_mels>
-    augmentation: !new:speechbrain.lobes.TimeDomainSpecAugment
-        sample_rate: !ref <sample_rate>
-        speeds: [95, 100, 105]
-    log_softmax: !new:speechbrain.nnet.Softmax
-        apply_log: True
-    compute_cost: !name:speechbrain.nnet.ctc_loss
+compute_cost: !name:speechbrain.nnet.ctc_loss
+    blank_index: !ref <blank_index>
+
+ctc_stats: !name:speechbrain.MetricStats
+    metric: !name:speechbrain.nnet.ctc_loss
         blank_index: !ref <blank_index>
-    ctc_stats: !name:speechbrain.MetricStats
-        metric: !name:speechbrain.nnet.ctc_loss
-            blank_index: !ref <blank_index>
-            reduction: batch
-    cer_stats: !name:speechbrain.ErrorRateStats
-    train_logger: !new:speechbrain.FileTrainLogger
-        save_file: !ref <train_log>
+        reduction: batch
+
+cer_stats: !name:speechbrain.ErrorRateStats
+
+train_logger: !new:speechbrain.FileTrainLogger
+    save_file: !ref <train_log>
