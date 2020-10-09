@@ -266,14 +266,7 @@ class ASR(sb.core.Brain):
         # Load downloaded model, removing prefix
         state_dict = torch.load(save_model_path)
         state_dict = {k.split(".", 1)[1]: v for k, v in state_dict.items()}
-        state_dict_refactored = {}
-        for k, v in state_dict.items():
-            if k.split(".")[0] == "output_proj":
-                k = k.split(".", 2)[0] + "." + k.split(".", 2)[-1]
-            state_dict_refactored[k] = v
-        self.hparams.lm_model.load_state_dict(
-            state_dict_refactored, strict=True
-        )
+        self.hparams.lm_model.load_state_dict(state_dict, strict=True)
         self.hparams.lm_model.eval()
 
     def init_optimizers(self):
