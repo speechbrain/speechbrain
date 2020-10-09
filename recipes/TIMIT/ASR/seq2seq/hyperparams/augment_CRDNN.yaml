@@ -18,7 +18,7 @@ batch_size: 8
 lr: 0.001
 ctc_weight: 0.2
 device: 'cuda:0'
-multigpu_procs: 0  # Set to number of GPUS if multi-gpu
+multigpu_count: 0  # Set to number of GPUS if multi-gpu
 multigpu_backend: ddp_nccl
 
 # Feature parameters
