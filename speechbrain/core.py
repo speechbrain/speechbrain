@@ -549,7 +549,7 @@ class Brain:
         progressbar : bool
             Whether to display the progress of each epoch in a progressbar.
         """
-        if self.multigpu_backend.startswith("ddp"):
+        if self.multigpu_backend and self.multigpu_backend.startswith("ddp"):
             self._ddp_fit(epoch_counter, train_set, valid_set, progressbar)
         else:
             self._fit(epoch_counter, train_set, valid_set, progressbar)
