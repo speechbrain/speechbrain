@@ -8,6 +8,7 @@ import torch  # noqa 42
 from torch import nn
 
 from speechbrain.nnet.linear import Linear
+from speechbrain.nnet.containers import ModuleList
 from speechbrain.lobes.models.transformer.Transformer import (
     TransformerInterface,
     get_lookahead_mask,
@@ -81,7 +82,7 @@ class TransformerASR(TransformerInterface):
             normalize_before=normalize_before,
         )
 
-        self.custom_src_module = torch.nn.Sequential(
+        self.custom_src_module = ModuleList(
             Linear(
                 input_size=input_size,
                 n_neurons=d_model,
@@ -90,7 +91,9 @@ class TransformerASR(TransformerInterface):
             ),
             torch.nn.Dropout(dropout),
         )
-        self.custom_tgt_module = NormalizedEmbedding(d_model, tgt_vocab)
+        self.custom_tgt_module = ModuleList(
+            NormalizedEmbedding(d_model, tgt_vocab)
+        )
 
         # reset parameters using xavier_normal_
         self._init_params()

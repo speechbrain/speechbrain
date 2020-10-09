@@ -7,7 +7,9 @@ Authors
 """
 import torch
 import numpy as np
-from speechbrain.decoders.ctc import CTCPrefixScorer, CTCPrefixScoreTH
+
+import speechbrain as sb
+from speechbrain.decoders.ctc import CTCPrefixScoreTH
 
 
 class S2SBaseSearcher(torch.nn.Module):
@@ -522,7 +524,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             top_log_probs += [log_probs[index] for index in indices]
         return predictions, top_scores, top_log_probs
 
-    def forward(self, enc_states, wav_len):
+    def forward(self, enc_states, wav_len):  # noqa: C901
         enc_lens = torch.round(enc_states.shape[1] * wav_len).int()
         device = enc_states.device
         batch_size = enc_states.shape[0]
@@ -1100,9 +1102,9 @@ def _model_decode(model, softmax, fc, inp_tokens, memory, enc_states):
         encoder states
     """
     memory = _update_mem(inp_tokens, memory)
-    pred, attn = model.decode(memory, enc_states)
+    pred = model.decode(memory, enc_states)
     prob_dist = softmax(fc(pred))
-    return prob_dist, memory, attn
+    return prob_dist, memory, pred[:, -1, :]
 
 
 class S2STransformerBeamSearch(S2SBeamSearcher):

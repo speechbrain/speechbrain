@@ -98,14 +98,14 @@ class TransformerLM(TransformerInterface):
         src = self.custom_src_module(src)
         src = src + self.positional_encoding(src)
         if self.num_encoder_layers > 0:
-            encoder_out = self.encoder(
+            encoder_out, _ = self.encoder(
                 src=src,
                 src_mask=src_mask,
                 src_key_padding_mask=src_key_padding_mask,
             )
 
         if self.num_decoder_layers > 0:
-            encoder_out = self.decoder(
+            encoder_out, _ = self.decoder(
                 src,
                 src,
                 tgt_mask=src_mask,
