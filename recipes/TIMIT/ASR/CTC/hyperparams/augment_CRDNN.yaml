@@ -71,6 +71,15 @@ test_loader: !new:speechbrain.data_io.DataLoaderFactory
     output_folder: !ref <output_folder>
     csv_read: [wav, phn]
 
+compute_features: !new:speechbrain.lobes.Fbank
+    sample_rate: !ref <sample_rate>
+    n_fft: !ref <n_fft>
+    n_mels: !ref <n_mels>
+
+augmentation: !new:speechbrain.lobes.TimeDomainSpecAugment
+    sample_rate: !ref <sample_rate>
+    speeds: [95, 100, 105]
+
 model: !new:speechbrain.lobes.CRDNN
     input_shape: [null, null, !ref <n_mels>]
     activation: !ref <activation>
@@ -90,6 +99,12 @@ output: !new:speechbrain.nnet.Linear
     n_neurons: !ref <output_neurons>
     bias: True
 
+log_softmax: !new:speechbrain.nnet.Softmax
+    apply_log: True
+
+compute_cost: !name:speechbrain.nnet.ctc_loss
+    blank_index: !ref <blank_index>
+
 opt_class: !name:torch.optim.Adadelta
     lr: !ref <lr>
     rho: 0.95
@@ -104,8 +119,15 @@ lr_annealing: !new:speechbrain.nnet.NewBobScheduler
 normalize: !new:speechbrain.processing.InputNormalization
     norm_type: global
 
-jit_modules:
+# Modules have train/eval/optimizer called on them
+modules:
     model: !ref <model>
+    output: !ref <output>
+    normalize: !ref <normalize>
+    augmentation: !ref <augmentation>
+
+# Modules to compile with torch.jit.script
+jit_module_keys: [model]
 
 checkpointer: !new:speechbrain.Checkpointer
     checkpoints_dir: !ref <save_folder>
@@ -116,28 +138,12 @@ checkpointer: !new:speechbrain.Checkpointer
         scheduler: !ref <lr_annealing>
         normalizer: !ref <normalize>
 
-# These hyperparameters get passed to the Brain class
-hparams:
-    wer_file: !ref <wer_file>
-    output: !ref <output>
-    lr_annealing: !ref <lr_annealing>
-    normalize: !ref <normalize>
-    epoch_counter: !ref <epoch_counter>
-    compute_features: !new:speechbrain.lobes.Fbank
-        sample_rate: !ref <sample_rate>
-        n_fft: !ref <n_fft>
-        n_mels: !ref <n_mels>
-    augmentation: !new:speechbrain.lobes.TimeDomainSpecAugment
-        sample_rate: !ref <sample_rate>
-        speeds: [95, 100, 105]
-    log_softmax: !new:speechbrain.nnet.Softmax
-        apply_log: True
-    compute_cost: !name:speechbrain.nnet.ctc_loss
+ctc_stats: !name:speechbrain.MetricStats
+    metric: !name:speechbrain.nnet.ctc_loss
         blank_index: !ref <blank_index>
-    ctc_stats: !name:speechbrain.MetricStats
-        metric: !name:speechbrain.nnet.ctc_loss
-            blank_index: !ref <blank_index>
-            reduction: batch
-    per_stats: !name:speechbrain.ErrorRateStats
-    train_logger: !new:speechbrain.FileTrainLogger
-        save_file: !ref <train_log>
+        reduction: batch
+
+per_stats: !name:speechbrain.ErrorRateStats
+
+train_logger: !new:speechbrain.FileTrainLogger
+    save_file: !ref <train_log>

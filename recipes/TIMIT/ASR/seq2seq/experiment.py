@@ -29,29 +29,29 @@ class ASR(sb.Brain):
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
         phns, phn_lens = phns.to(self.device), phn_lens.to(self.device)
 
-        if hasattr(self.hparams, "env_corrupt") and stage == sb.Stage.TRAIN:
-            wavs_noise = self.hparams.env_corrupt(wavs, wav_lens)
+        if hasattr(self.modules, "env_corrupt") and stage == sb.Stage.TRAIN:
+            wavs_noise = self.modules.env_corrupt(wavs, wav_lens)
             wavs = torch.cat([wavs, wavs_noise], dim=0)
             wav_lens = torch.cat([wav_lens, wav_lens])
             phns = torch.cat([phns, phns])
 
-        if hasattr(self.hparams, "augmentation"):
-            wavs = self.hparams.augmentation(wavs, wav_lens)
+        if hasattr(self.modules, "augmentation"):
+            wavs = self.modules.augmentation(wavs, wav_lens)
         feats = self.hparams.compute_features(wavs)
-        feats = self.hparams.normalize(feats, wav_lens)
-        x = self.jit_modules.enc(feats)
+        feats = self.modules.normalize(feats, wav_lens)
+        x = self.modules.enc(feats)
 
         # output layer for ctc log-probabilities
-        logits = self.hparams.ctc_lin(x)
+        logits = self.modules.ctc_lin(x)
         p_ctc = self.hparams.log_softmax(logits)
 
         # Prepend bos token at the beginning
         y_in = sb.data_io.prepend_bos_token(phns, self.hparams.bos_index)
-        e_in = self.hparams.emb(y_in)
-        h, _ = self.hparams.dec(e_in, x, wav_lens)
+        e_in = self.modules.emb(y_in)
+        h, _ = self.modules.dec(e_in, x, wav_lens)
 
         # output layer for seq2seq log-probabilities
-        logits = self.hparams.seq_lin(h)
+        logits = self.modules.seq_lin(h)
         p_seq = self.hparams.log_softmax(logits)
 
         if stage == sb.Stage.VALID:
@@ -196,13 +196,13 @@ if __name__ == "__main__":
     # Collect index to label conversion dict for decoding
     train_set = hparams["train_loader"]()
     valid_set = hparams["valid_loader"]()
-    ind2lab = hparams["train_loader"].label_dict["phn"]["index2lab"]
-    hparams["hparams"]["ind2lab"] = ind2lab
+    hparams["ind2lab"] = hparams["train_loader"].label_dict["phn"]["index2lab"]
 
     asr_brain = ASR(
-        hparams=hparams["hparams"],
+        modules=hparams["modules"],
         opt_class=hparams["opt_class"],
-        jit_modules=hparams["jit_modules"],
+        hparams=hparams,
+        jit_module_keys=hparams["jit_module_keys"],
         checkpointer=hparams["checkpointer"],
         device=hparams["device"],
         multigpu_procs=hparams["multigpu_procs"],

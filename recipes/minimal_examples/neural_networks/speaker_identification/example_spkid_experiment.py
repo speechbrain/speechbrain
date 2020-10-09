@@ -8,11 +8,11 @@ class SpkIdBrain(sb.Brain):
     def compute_forward(self, x, stage):
         id, wavs, lens = x
         feats = self.hparams.compute_features(wavs)
-        feats = self.hparams.mean_var_norm(feats, lens)
+        feats = self.modules.mean_var_norm(feats, lens)
 
-        x = self.hparams.linear1(feats)
+        x = self.modules.linear1(feats)
         x = self.hparams.activation(x)
-        x = self.hparams.linear2(x)
+        x = self.modules.linear2(x)
         x = torch.mean(x, dim=1, keepdim=True)
         outputs = self.hparams.softmax(x)
 
@@ -53,7 +53,7 @@ def main():
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
 
-    spk_id_brain = SpkIdBrain(hparams["hparams"], hparams["opt_class"])
+    spk_id_brain = SpkIdBrain(hparams["modules"], hparams["opt_class"], hparams)
     spk_id_brain.fit(
         range(hparams["N_epochs"]),
         hparams["train_loader"](),
