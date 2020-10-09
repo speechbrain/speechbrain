@@ -69,7 +69,8 @@ class ASR(sb.core.Brain):
 
         # forward pass
         feats = self.hparams.compute_features(wavs)
-        feats = self.hparams.normalize(feats, wav_lens)
+        # feats = self.hparams.normalize(feats, wav_lens)
+        feats = self.hparams.normalize(feats)
         src = self.hparams.CNN(feats)
         enc_out, pred = self.hparams.Transformer(
             src, y_in, pad_idx=self.hparams.pad_id
@@ -114,7 +115,6 @@ class ASR(sb.core.Brain):
         target_tokens_with_eos = sb.data_io.append_eos_token(
             target_tokens, length=abs_length, eos_index=self.hparams.eos_index
         )
-
         # convert to speechbrain-style relative length
         rel_length = (abs_length + 1) / target_tokens_with_eos.shape[1]
 
@@ -150,7 +150,7 @@ class ASR(sb.core.Brain):
 
                 self.wer_metric.append(ids, predicted_words, target_words)
             # compute the accuracy of the one-step-forward prediction
-
+            print("acc!!" * 50)
             self.acc_metric.append(p_seq, target_tokens_with_eos, rel_length)
         return loss
 
@@ -314,8 +314,8 @@ if __name__ == "__main__":
     tokenizer = hparams["hparams"]["tokenizer"]()
 
     # Load index2label dict for decoding
-    train_set = hparams["train_loader"]()
-    valid_set = hparams["valid_loader"]()
+    train_set = hparams["train_loader"]
+    valid_set = hparams["valid_loader"]
     test_clean_set = hparams["test_clean_loader"]()
     test_other_set = hparams["test_other_loader"]()
     ind2lab = hparams["test_other_loader"].label_dict["wrd"]["index2lab"]
