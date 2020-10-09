@@ -16,9 +16,9 @@ from speechbrain.nnet.losses import get_si_snr_with_pitwrapper
 class CTN_Brain(sb.Brain):
     def compute_forward(self, mixture, stage):
 
-        mixture_w = self.hparams.encoder(mixture)
-        est_mask = self.hparams.mask_net(mixture_w)
-        est_source = self.hparams.decoder(mixture_w, est_mask)
+        mixture_w = self.modules.encoder(mixture)
+        est_mask = self.modules.mask_net(mixture_w)
+        est_source = self.modules.decoder(mixture_w, est_mask)
 
         # T changed after conv1d in encoder, fix it here
         T_origin = mixture.size(1)
@@ -122,15 +122,13 @@ def main():
     if hparams["use_tensorboard"]:
         from speechbrain.utils.train_logger import TensorboardLogger
 
-        hparams["modules"]["train_logger"] = TensorboardLogger(
-            hparams["tensorboard_logs"]
-        )
+        hparams["train_logger"] = TensorboardLogger(hparams["tensorboard_logs"])
 
     train_loader = hparams["train_loader"]()
     val_loader = hparams["val_loader"]()
     test_loader = hparams["test_loader"]()
 
-    ctn = CTN_Brain(hparams["hparams"], hparams["opt_class"])
+    ctn = CTN_Brain(hparams["modules"], hparams["opt_class"], hparams)
 
     ctn.fit(
         ctn.hparams.epoch_counter,

@@ -10,9 +10,9 @@ class XvectorBrain(sb.Brain):
         id, wavs, lens = x
 
         feats = self.hparams.compute_features(wavs)
-        feats = self.hparams.mean_var_norm(feats, lens)
-        x_vect = self.hparams.xvector_model(feats)
-        outputs = self.hparams.classifier(x_vect)
+        feats = self.modules.mean_var_norm(feats, lens)
+        x_vect = self.modules.xvector_model(feats)
+        outputs = self.modules.classifier(x_vect)
 
         return outputs, lens
 
@@ -83,7 +83,9 @@ def main():
     # Data loaders
 
     # Object initialization for training xvector model
-    xvect_brain = XvectorBrain(hparams["hparams"], hparams["opt_class"])
+    xvect_brain = XvectorBrain(
+        hparams["modules"], hparams["opt_class"], hparams
+    )
 
     # Train the Xvector model
     train_set = hparams["train_loader"]()

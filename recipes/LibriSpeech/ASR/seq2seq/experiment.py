@@ -49,16 +49,16 @@ class ASR(sb.Brain):
 
         # Add augmentation if specified
         if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "env_corrupt"):
-                wavs_noise = self.hparams.env_corrupt(wavs, wav_lens)
+            if hasattr(self.modules, "env_corrupt"):
+                wavs_noise = self.modules.env_corrupt(wavs, wav_lens)
                 wavs = torch.cat([wavs, wavs_noise], dim=0)
                 wav_lens = torch.cat([wav_lens, wav_lens])
                 target_words = torch.cat([target_words, target_words], dim=0)
                 target_word_lens = torch.cat(
                     [target_word_lens, target_word_lens]
                 )
-            if hasattr(self.hparams, "augmentation"):
-                wavs = self.hparams.augmentation(wavs, wav_lens)
+            if hasattr(self.modules, "augmentation"):
+                wavs = self.modules.augmentation(wavs, wav_lens)
 
         # Prepare labels
         target_tokens, _ = self.hparams.tokenizer(
@@ -71,13 +71,13 @@ class ASR(sb.Brain):
 
         # Forward pass
         feats = self.hparams.compute_features(wavs)
-        feats = self.hparams.normalize(feats, wav_lens)
-        x = self.hparams.enc(feats.detach())
-        e_in = self.hparams.emb(y_in)
-        h, _ = self.hparams.dec(e_in, x, wav_lens)
+        feats = self.modules.normalize(feats, wav_lens)
+        x = self.modules.enc(feats.detach())
+        e_in = self.modules.emb(y_in)
+        h, _ = self.modules.dec(e_in, x, wav_lens)
 
         # Output layer for seq2seq log-probabilities
-        logits = self.hparams.seq_lin(h)
+        logits = self.modules.seq_lin(h)
         p_seq = self.hparams.log_softmax(logits)
 
         # Compute outputs
@@ -85,7 +85,7 @@ class ASR(sb.Brain):
             current_epoch = self.hparams.epoch_counter.current
             if current_epoch <= self.hparams.number_of_ctc_epochs:
                 # Output layer for ctc log-probabilities
-                logits = self.hparams.ctc_lin(x)
+                logits = self.modules.ctc_lin(x)
                 p_ctc = self.hparams.log_softmax(logits)
                 return p_ctc, p_seq, wav_lens
             else:
@@ -112,7 +112,7 @@ class ASR(sb.Brain):
         )
         target_tokens = target_tokens.to(self.device)
         target_token_lens = target_token_lens.to(self.device)
-        if hasattr(self.hparams, "env_corrupt") and stage == sb.Stage.TRAIN:
+        if hasattr(self.modules, "env_corrupt") and stage == sb.Stage.TRAIN:
             target_tokens = torch.cat([target_tokens, target_tokens], dim=0)
             target_token_lens = torch.cat(
                 [target_token_lens, target_token_lens], dim=0
@@ -250,11 +250,6 @@ class ASR(sb.Brain):
         self.hparams.lm_model.load_state_dict(state_dict, strict=True)
         self.hparams.lm_model.eval()
 
-    def init_optimizers(self):
-        """Initializes the optmizers (needed to support DDP)"""
-        self.optimizer = self.opt_class(self.hparams.model.parameters())
-        self.checkpointer.add_recoverable("optimizer", self.optimizer)
-
 
 if __name__ == "__main__":
     # This hack needed to import data preparation script from ../..
@@ -286,7 +281,7 @@ if __name__ == "__main__":
 
     # Creating tokenizer must be done after preparation
     # Specify the bos_id/eos_id if different from blank_id
-    tokenizer = SentencePiece(
+    hparams["tokenizer"] = SentencePiece(
         model_dir=hparams["save_folder"],
         vocab_size=hparams["output_neurons"],
         csv_train=hparams["csv_train"],
@@ -300,14 +295,15 @@ if __name__ == "__main__":
     valid_set = hparams["valid_loader"]()
     test_clean_set = hparams["test_clean_loader"]()
     test_other_set = hparams["test_other_loader"]()
-    ind2lab = hparams["test_other_loader"].label_dict["wrd"]["index2lab"]
-    hparams["hparams"]["ind2lab"] = ind2lab
-    hparams["hparams"]["tokenizer"] = tokenizer
+    hparams["ind2lab"] = hparams["test_other_loader"].label_dict["wrd"][
+        "index2lab"
+    ]
 
     # Brain class initialization
     asr_brain = ASR(
-        hparams=hparams["hparams"],
+        modules=hparams["modules"],
         opt_class=hparams["opt_class"],
+        hparams=hparams,
         checkpointer=hparams["checkpointer"],
         device=hparams["device"],
         multigpu_procs=hparams["multigpu_procs"],

@@ -9,7 +9,7 @@ class EnhanceGanBrain(sb.Brain):
         id, wavs, lens = x
 
         noisy = self.hparams.add_noise(wavs, lens).unsqueeze(-1)
-        enhanced = self.hparams.generator(noisy)
+        enhanced = self.modules.generator(noisy)
 
         return enhanced
 
@@ -19,8 +19,8 @@ class EnhanceGanBrain(sb.Brain):
 
         # Average the predictions of each time step
         clean_wavs = clean_wavs.unsqueeze(-1)
-        real_result = self.hparams.discriminator(clean_wavs).mean(dim=1)
-        simu_result = self.hparams.discriminator(predictions).mean(dim=1)
+        real_result = self.modules.discriminator(clean_wavs).mean(dim=1)
+        simu_result = self.modules.discriminator(predictions).mean(dim=1)
 
         real_cost = 0
         simu_cost = 0
@@ -87,10 +87,10 @@ class EnhanceGanBrain(sb.Brain):
 
     def init_optimizers(self):
         self.g_optimizer = self.hparams.g_opt_class(
-            self.hparams.generator.parameters()
+            self.modules.generator.parameters()
         )
         self.d_optimizer = self.hparams.d_opt_class(
-            self.hparams.discriminator.parameters()
+            self.modules.discriminator.parameters()
         )
 
 
@@ -102,7 +102,7 @@ def main():
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
 
-    gan_brain = EnhanceGanBrain(hparams["hparams"])
+    gan_brain = EnhanceGanBrain(hparams["modules"], hparams=hparams)
     gan_brain.fit(
         range(hparams["N_epochs"]),
         hparams["train_loader"](),
