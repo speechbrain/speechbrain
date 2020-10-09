@@ -104,6 +104,7 @@ else:
         eos_threshold=params.eos_threshold,
         using_max_attn_shift=params.using_max_attn_shift,
         max_attn_shift=params.max_attn_shift,
+        ctc_weight=params.ctc_weight,
     )
 
 
