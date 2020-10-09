@@ -193,7 +193,7 @@ def ddp_init(rank, brain, args):
     # Remove the "ddp_" from the backend
     backend = brain.multigpu_backend[4:]
     dist.init_process_group(
-        backend=backend, world_size=brain.multigpu_procs, rank=rank
+        backend=backend, world_size=brain.multigpu_count, rank=rank
     )
     brain.device = rank
     brain.root_process = rank == 0
@@ -242,22 +242,20 @@ class Brain:
 
     Arguments
     ---------
-    hparams : dict
-        Each key:value pair should consist of a string key and a hyperparameter
-        that is used within the overridden methods. The hyperparameters can
-        be any python object, including torch modules which will be moved
-        to the device specified in the ``device`` argument. These will
-        be accessible via an ``hparams`` attribute, using "dot" notation:
-        e.g. self.hparams.model(x)
+    modules : dict of str:torch.nn.Module pairs
+        These modules are passed to the optimizier by default if they have
+        trainable parameters, and will have train()/eval() called on them.
     opt_class : torch.optim class
         A torch optimizer constructor that has takes only the list of
         parameters (e.g. a lambda or partial function definition). By default,
         this will be passed all modules in ``modules`` at the
         beginning of the ``fit()`` method. This behavior can be changed
         by overriding the ``configure_optimizers()`` method.
-    modules : dict of str:torch.nn.Module pairs
-        These modules are passed to the optimizier by default if they have
-        trainable parameters, and will have train()/eval() called on them.
+    hparams : dict
+        Each key:value pair should consist of a string key and a hyperparameter
+        that is used within the overridden methods. These will
+        be accessible via an ``hparams`` attribute, using "dot" notation:
+        e.g. self.hparams.model(x)
     jit_module_keys : list of str
         keys from the dictionary passed to ``modules`` to compile with
         ``torch.jit.script``.
@@ -266,9 +264,10 @@ class Brain:
         optimizer added to continue training if interrupted.
     device : str
         The location for performing computations.
-    multigpu_procs : int
-        Number of processes to use with torch's ``DistributedDataParallel``.
-        if passed, this will assume there is one GPU per process.
+    multigpu_count : int
+        Number of GPUs to use for computation. With ``"data_parallel"``
+        backend, ``fit()`` is run on one process and multiple GPUs. With one of
+        the three ``ddp`` backends, ``fit()`` is run with one process per GPU.
     multigpu_backend : str
         one of {"ddp_nccl", "ddp_gloo", "ddp_mpi", "data_parallel"}
     auto_mix_prec: bool
@@ -295,19 +294,23 @@ class Brain:
         jit_module_keys=None,
         checkpointer=None,
         device="cpu",
-        multigpu_procs=0,
+        multigpu_count=0,
         multigpu_backend="ddp_nccl",
         auto_mix_prec=False,
     ):
         self.opt_class = opt_class
         self.jit_module_keys = jit_module_keys
         self.checkpointer = checkpointer
-        self.device = device
-        self.multigpu_procs = multigpu_procs
-        self.multigpu_backend = multigpu_backend
-        self.auto_mix_prec = auto_mix_prec
 
+        # root_process and device will be updated if ddp is used
+        self.device = device
         self.root_process = True
+        self.multigpu_count = multigpu_count
+        self.multigpu_backend = None
+        if self.multigpu_count > 0:
+            self.multigpu_backend = multigpu_backend
+
+        self.auto_mix_prec = auto_mix_prec
         self.modules = torch.nn.ModuleDict(modules).to(self.device)
 
         # Make hyperparams available with simple "dot" notation
@@ -393,13 +396,16 @@ class Brain:
 
     def on_fit_start(self):
         """Gets called at the beginning of ``fit()``, on multiple processes
-        if multigpu_procs is more than 0 and backend is ddp.
+        if multigpu_count is more than 0 and backend is ddp.
 
         Default implementation compiles the jit modules, initializes
         optimizers, and loads the latest checkpoint to resume training.
         """
         # Run this *after* mp.spawn since jit modules cannot be pickled.
-        self.compile_jit()
+        self._compile_jit()
+
+        # Wrap modules with parallel backend after jit
+        self._wrap_multigpu()
 
         # Initialize optimizers after parameters are configured
         self.init_optimizers()
@@ -527,7 +533,7 @@ class Brain:
         * ``evaluate_batch()``
         * ``update_average()``
 
-        If the initialization was done with multigpu_procs > 0 and the
+        If the initialization was done with multigpu_count > 0 and the
         multigpu_backend is ddp, this method will spawn the correct number
         of processes and run a portion of the training data on the
         corresponding device.
@@ -543,27 +549,14 @@ class Brain:
         progressbar : bool
             Whether to display the progress of each epoch in a progressbar.
         """
-        if self.multigpu_procs > 0:
-            self._multigpu_fit(epoch_counter, train_set, valid_set, progressbar)
+        if self.multigpu_backend.startswith("ddp"):
+            self._ddp_fit(epoch_counter, train_set, valid_set, progressbar)
         else:
             self._fit(epoch_counter, train_set, valid_set, progressbar)
 
-    def _multigpu_fit(self, *args):
-        """Fit on multiple gpus using specified backend"""
-        if self.multigpu_backend == "data_parallel":
-            self._data_parallel_wrap()
-            self._fit(*args)
-        else:
-            torch.multiprocessing.spawn(
-                ddp_init, (self, args), self.multigpu_procs
-            )
-
-    def _data_parallel_wrap(self):
-        """Simple method for wrapping all modules with dataparallel"""
-        for name, hparam in self.hparams.__dict__.items():
-            if isinstance(hparam, torch.nn.Module):
-                hparam = torch.nn.DataParallel(hparam)
-                setattr(self, name, hparam)
+    def _ddp_fit(self, *args):
+        """Fit on multiple gpus using ddp backend"""
+        torch.multiprocessing.spawn(ddp_init, (self, args), self.multigpu_count)
 
     def _fit(self, epoch_counter, train_set, valid_set, progressbar):
         """Adjust parameters based on data."""
@@ -583,7 +576,7 @@ class Brain:
                 for self.step, batch in enumerate(t):
                     if (
                         isinstance(self.device, int)
-                        and self.step % self.multigpu_procs != self.device
+                        and self.step % self.multigpu_count != self.device
                     ):
                         continue
                     loss = self.fit_batch(batch)
@@ -607,7 +600,7 @@ class Brain:
                         )
                 self.on_stage_end(Stage.VALID, avg_valid_loss, epoch)
 
-    def compile_jit(self):
+    def _compile_jit(self):
         """This should be run *after* mp.spawn, since jit modules
         cannot be pickled.
         """
@@ -616,16 +609,19 @@ class Brain:
 
         for name in self.jit_module_keys:
             module = torch.jit.script(self.modules[name])
-            module = module.to(self.device)
+            self.modules[name] = module.to(self.device)
 
-            # Wrap module with DDP when requested
+    def _wrap_multigpu(self):
+        """Wrap modules with multigpu wrapper when requested"""
+        if self.multigpu_backend is None:
+            return
+
+        for name, module in self.modules.items():
             needs_grad = any(p.requires_grad for p in module.parameters())
-            if needs_grad and self.multigpu_procs > 0:
-                if self.multigpu_backend == "data_parallel":
-                    module = torch.nn.DataParallel(module)
-                else:
-                    module = DDP(module, device_ids=[self.device])
-
+            if needs_grad and self.multigpu_backend == "data_parallel":
+                module = torch.nn.DataParallel(module)
+            elif needs_grad and self.multigpu_backend.startswith("ddp"):
+                module = DDP(module, device_ids=[self.device])
             self.modules[name] = module
 
     def evaluate(self, test_set, max_key=None, min_key=None, progressbar=True):

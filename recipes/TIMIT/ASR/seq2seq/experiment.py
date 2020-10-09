@@ -205,7 +205,7 @@ if __name__ == "__main__":
         jit_module_keys=hparams["jit_module_keys"],
         checkpointer=hparams["checkpointer"],
         device=hparams["device"],
-        multigpu_procs=hparams["multigpu_procs"],
+        multigpu_count=hparams["multigpu_count"],
         multigpu_backend=hparams["multigpu_backend"],
     )
 

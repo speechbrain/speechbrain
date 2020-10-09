@@ -306,7 +306,7 @@ if __name__ == "__main__":
         hparams=hparams,
         checkpointer=hparams["checkpointer"],
         device=hparams["device"],
-        multigpu_procs=hparams["multigpu_procs"],
+        multigpu_count=hparams["multigpu_count"],
         multigpu_backend=hparams["multigpu_backend"],
     )
 
