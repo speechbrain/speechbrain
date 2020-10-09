@@ -23,16 +23,11 @@ class ASR_Brain(sb.Brain):
     def compute_forward(self, x, stage):
         ids, wavs, wav_lens = x
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
-
-        # Adding augmentation when specified:
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "augmentation"):
-                wavs = self.hparams.augmentation(wavs, wav_lens)
-
+        wavs = self.modules.augmentation(wavs, wav_lens)
         feats = self.hparams.compute_features(wavs)
-        feats = self.hparams.normalize(feats, wav_lens)
-        out = self.jit_modules.model(feats)
-        out = self.hparams.output(out)
+        feats = self.modules.normalize(feats, wav_lens)
+        out = self.modules.model(feats)
+        out = self.modules.output(out)
         pout = self.hparams.log_softmax(out)
 
         return pout, wav_lens
@@ -122,18 +117,18 @@ if __name__ == "__main__":
     # Collect index to label dictionary for decoding
     train_set = hparams["train_loader"]()
     valid_set = hparams["valid_loader"]()
-    ind2lab = hparams["train_loader"].label_dict["char"]["index2lab"]
-    hparams["hparams"]["ind2lab"] = ind2lab
+    hparams["ind2lab"] = hparams["train_loader"].label_dict["char"]["index2lab"]
 
     # Load pretrained model
     if "pretrained" in hparams:
         state_dict = torch.load(hparams["pretrained"])
-        hparams["jit_modules"]["model"].load_state_dict(state_dict)
+        hparams["modules"]["model"].load_state_dict(state_dict)
 
     asr_brain = ASR_Brain(
-        hparams=hparams["hparams"],
+        modules=hparams["modules"],
         opt_class=hparams["opt_class"],
-        jit_modules=hparams["jit_modules"],
+        hparams=hparams,
+        # jit_module_keys=hparams["jit_module_keys"],
         checkpointer=hparams["checkpointer"],
         device=hparams["device"],
         ddp_procs=hparams["ddp_procs"],
