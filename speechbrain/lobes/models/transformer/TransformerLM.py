@@ -9,6 +9,7 @@ from torch import nn
 
 from speechbrain.nnet.linear import Linear
 from speechbrain.nnet.normalization import LayerNorm
+from speechbrain.nnet.containers import ModuleList
 from speechbrain.lobes.models.transformer.Transformer import (
     TransformerInterface,
     get_lookahead_mask,
@@ -74,7 +75,7 @@ class TransformerLM(TransformerInterface):
         )
 
         self.custom_src_module = NormalizedEmbedding(d_model, vocab)
-        self.output_proj = torch.nn.Sequential(
+        self.output_proj = ModuleList(
             Linear(input_size=d_model, n_neurons=d_model),
             LayerNorm(d_model, eps=1e-6),
             Linear(input_size=d_model, n_neurons=vocab),
