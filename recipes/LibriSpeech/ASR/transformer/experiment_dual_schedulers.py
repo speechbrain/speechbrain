@@ -65,6 +65,7 @@ class ASR(sb.core.Brain):
             target_tokens, self.hparams.bos_index
         ).to(self.device)
         target_tokens = target_tokens.to(self.device)
+        target_tokens_len = target_tokens_len.to(self.device)
 
         # forward pass
         feats = self.hparams.compute_features(wavs)
@@ -135,6 +136,7 @@ class ASR(sb.core.Brain):
                 current_epoch % valid_search_interval == 0
                 or stage == sb.Stage.TEST
             ):
+
                 # Decode token terms to words
                 predicted_words = self.hparams.tokenizer(
                     hyps, task="decode_from_list"
@@ -148,6 +150,7 @@ class ASR(sb.core.Brain):
 
                 self.wer_metric.append(ids, predicted_words, target_words)
             # compute the accuracy of the one-step-forward prediction
+
             self.acc_metric.append(p_seq, target_tokens_with_eos, rel_length)
         return loss
 
@@ -181,9 +184,8 @@ class ASR(sb.core.Brain):
         """Computations needed for validation/test batches"""
         inputs, targets = batch
         predictions = self.compute_forward(inputs, targets, stage=stage)
-        loss, stats = self.compute_objectives(predictions, targets, stage=stage)
-        stats["loss"] = loss.detach()
-        return stats
+        loss = self.compute_objectives(predictions, targets, stage=stage)
+        return loss.detach()
 
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
