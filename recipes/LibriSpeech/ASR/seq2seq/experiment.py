@@ -57,8 +57,8 @@ class ASR(sb.Brain):
                 target_word_lens = torch.cat(
                     [target_word_lens, target_word_lens]
                 )
-            if hasattr(self.modules, "augmentation"):
-                wavs = self.modules.augmentation(wavs, wav_lens)
+            if hasattr(self.hparams, "augmentation"):
+                wavs = self.hparams.augmentation(wavs, wav_lens)
 
         # Prepare labels
         target_tokens, _ = self.hparams.tokenizer(

@@ -35,8 +35,8 @@ class ASR(sb.Brain):
             wav_lens = torch.cat([wav_lens, wav_lens])
             phns = torch.cat([phns, phns])
 
-        if hasattr(self.modules, "augmentation"):
-            wavs = self.modules.augmentation(wavs, wav_lens)
+        if hasattr(self.hparams, "augmentation"):
+            wavs = self.hparams.augmentation(wavs, wav_lens)
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.normalize(feats, wav_lens)
         x = self.modules.enc(feats)
