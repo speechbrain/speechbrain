@@ -129,7 +129,6 @@ modules:
     output: !ref <output>
     normalize: !ref <normalize>
     env_corrupt: !ref <env_corrupt>
-    augmentation: !ref <augmentation>
 
 jit_module_keys: [model]
 
