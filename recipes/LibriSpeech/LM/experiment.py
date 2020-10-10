@@ -36,7 +36,7 @@ checkpointer = sb.utils.checkpoints.Checkpointer(
         "optimizer": params.optimizer,
         "scheduler": params.lr_annealing,
         "counter": params.epoch_counter,
-        "resumable": params.resumable
+        "resumable": params.resumable,
     },
 )
 
@@ -203,9 +203,7 @@ checkpointer.recover_if_possible()
 # reinitialize the train loader with recovered states
 train_set = params.train_loader(resumable=params.resumable)
 lm_brain.fit(
-    params.epoch_counter,
-    train_set,
-    valid_set,
+    params.epoch_counter, train_set, valid_set,
 )
 
 # Load best checkpoint for evaluation
