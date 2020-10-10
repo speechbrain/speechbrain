@@ -570,9 +570,14 @@ class Brain:
             Whether to display the progress of each epoch in a progressbar.
         """
         if self.ddp_procs > 0:
+            assert isinstance(
+                train_set, sb.data_io.data_io.DataLoaderFactory
+            ) and isinstance(
+                valid_set, sb.data_io.data_io.DataLoaderFactory
+            ), "train_set and valid set must be sb.data_io.data_io.DataLoaderFactory Object under DDP mode"
             self._ddp_fit(epoch_counter, train_set, valid_set, progressbar)
         else:
-            self._fit(epoch_counter, train_set(), valid_set(), progressbar)
+            self._fit(epoch_counter, train_set, valid_set, progressbar)
 
     def _ddp_fit(self, *args):
         torch.multiprocessing.spawn(ddp_init, (self, args), self.ddp_procs)

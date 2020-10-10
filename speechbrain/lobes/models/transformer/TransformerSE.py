@@ -41,7 +41,7 @@ class CNNTransformerSE(TransformerInterface):
     Example
     -------
     >>> src = torch.rand([8, 120, 256])
-    >>> net = CNNTransformerSE(output_size=257, input_size=256)
+    >>> net = CNNTransformerSE(output_size=257, input_size=256, d_model=256)
     >>> out = net(src)
     >>> out.shape
     torch.Size([8, 120, 257])
@@ -49,6 +49,7 @@ class CNNTransformerSE(TransformerInterface):
 
     def __init__(
         self,
+        d_model,
         output_size,
         input_size,
         output_activation=nn.ReLU,
@@ -61,8 +62,8 @@ class CNNTransformerSE(TransformerInterface):
         custom_emb_module=None,
     ):
         super().__init__(
+            d_model=d_model,
             nhead=nhead,
-            input_size=input_size,
             num_encoder_layers=num_layers,
             num_decoder_layers=0,
             d_ffn=d_ffn,

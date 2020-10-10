@@ -258,22 +258,20 @@ class NoamScheduler:
 
     Example
     -------
-    >>> from speechbrain.nnet.optimizers import SGD_Optimizer
     >>> from speechbrain.nnet.linear import Linear
     >>> inp_tensor = torch.rand([1,660,3])
-    >>> model = Linear(n_neurons=4)
-    >>> optim = SGD_Optimizer(learning_rate=1.0)
-    >>> output = model(inp_tensor, init_params=True)
-    >>> optim.init_params([model])
-    >>> scheduler =NoamScheduler(optim.optim.param_groups[0]["lr"], 3)
-    >>> curr_lr,next_lr=scheduler([optim])
-    >>> optim.optim.param_groups[0]["lr"]
+    >>> model = Linear(input_size=3, n_neurons=4)
+    >>> optim = torch.optim.Adam(model.parameters(), lr=1)
+    >>> output = model(inp_tensor)
+    >>> scheduler =NoamScheduler(optim.param_groups[0]["lr"], 3)
+    >>> curr_lr,next_lr=scheduler(optim)
+    >>> optim.param_groups[0]["lr"]
     0.33333333333333337
-    >>> curr_lr,next_lr=scheduler([optim])
-    >>> optim.optim.param_groups[0]["lr"]
+    >>> curr_lr,next_lr=scheduler(optim)
+    >>> optim.param_groups[0]["lr"]
     0.6666666666666667
-    >>> curr_lr,next_lr=scheduler([optim])
-    >>> optim.optim.param_groups[0]["lr"]
+    >>> curr_lr,next_lr=scheduler(optim)
+    >>> optim.param_groups[0]["lr"]
     1.0
     """
 
@@ -351,23 +349,21 @@ class CyclicCosineScheduler:
 
     Example
     -------
-    >>> from speechbrain.nnet.optimizers import SGD_Optimizer
     >>> from speechbrain.nnet.linear import Linear
     >>> inp_tensor = torch.rand([1,660,3])
-    >>> model = Linear(n_neurons=4)
-    >>> optim = SGD_Optimizer(learning_rate=1.0)
-    >>> output = model(inp_tensor, init_params=True)
-    >>> optim.init_params([model])
-    >>> scheduler =CyclicCosineScheduler(optim.optim.param_groups[0]["lr"], 3)
-    >>> curr_lr,next_lr=scheduler([optim])
-    >>> optim.optim.param_groups[0]["lr"]
+    >>> model = Linear(input_size=3, n_neurons=4)
+    >>> optim = torch.optim.Adam(model.parameters(), lr=1)
+    >>> output = model(inp_tensor)
+    >>> scheduler =CyclicCosineScheduler(3, optim.param_groups[0]["lr"])
+    >>> curr_lr,next_lr=scheduler(optim)
+    >>> optim.param_groups[0]["lr"]
+    0.9999999990130395
+    >>> curr_lr,next_lr=scheduler(optim)
+    >>> optim.param_groups[0]["lr"]
+    0.9999999997532598
+    >>> curr_lr,next_lr=scheduler(optim)
+    >>> optim.param_groups[0]["lr"]
     1.0
-    >>> curr_lr,next_lr=scheduler([optim])
-    >>> optim.optim.param_groups[0]["lr"]
-    0.75
-    >>> curr_lr,next_lr=scheduler([optim])
-    >>> optim.optim.param_groups[0]["lr"]
-    0.18750000000000008
     """
 
     def __init__(self, n_warmup_steps, lr_initial=None, total_steps=100000):
