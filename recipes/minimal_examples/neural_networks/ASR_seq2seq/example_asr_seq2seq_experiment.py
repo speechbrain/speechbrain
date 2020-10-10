@@ -9,14 +9,14 @@ class seq2seqBrain(sb.Brain):
         id, wavs, wav_lens = x
         id, phns, phn_lens = y
         feats = self.hparams.compute_features(wavs)
-        feats = self.hparams.mean_var_norm(feats, wav_lens)
-        x = self.hparams.enc(feats)
+        feats = self.modules.mean_var_norm(feats, wav_lens)
+        x = self.modules.enc(feats)
 
         # Prepend bos token at the beginning
         y_in = sb.data_io.prepend_bos_token(phns, self.hparams.bos)
-        e_in = self.hparams.emb(y_in)
-        h, w = self.hparams.dec(e_in, x, wav_lens)
-        logits = self.hparams.lin(h)
+        e_in = self.modules.emb(y_in)
+        h, w = self.modules.dec(e_in, x, wav_lens)
+        logits = self.modules.lin(h)
         outputs = self.hparams.softmax(logits)
 
         if stage != sb.Stage.TRAIN:
@@ -88,7 +88,9 @@ def main():
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
 
-    seq2seq_brain = seq2seqBrain(hparams["hparams"], hparams["opt_class"])
+    seq2seq_brain = seq2seqBrain(
+        hparams["modules"], hparams["opt_class"], hparams
+    )
     seq2seq_brain.fit(
         range(hparams["N_epochs"]),
         hparams["train_loader"](),

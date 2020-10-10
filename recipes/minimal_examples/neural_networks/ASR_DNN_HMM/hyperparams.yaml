@@ -36,29 +36,36 @@ test_loader: !new:speechbrain.data_io.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
+compute_features: !new:speechbrain.lobes.MFCC
+
+mean_var_norm: !new:speechbrain.processing.InputNormalization
+    norm_type: global
+
 linear1: !new:speechbrain.nnet.Linear
     input_size: 660
     n_neurons: 1024
     bias: False
+
+activation: !new:torch.nn.LeakyReLU
 
 linear2: !new:speechbrain.nnet.Linear
     input_size: 1024
     n_neurons: 43
     bias: False
 
+softmax: !new:speechbrain.nnet.Softmax
+    apply_log: True
+
+modules:
+    linear1: !ref <linear1>
+    linear2: !ref <linear2>
+    mean_var_norm: !ref <mean_var_norm>
+
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
 
-hparams:
-    linear1: !ref <linear1>
-    linear2: !ref <linear2>
-    compute_features: !new:speechbrain.lobes.MFCC
-    mean_var_norm: !new:speechbrain.processing.InputNormalization
-        norm_type: global
-    activation: !new:torch.nn.LeakyReLU
-    softmax: !new:speechbrain.nnet.Softmax
-        apply_log: True
-    compute_cost: !name:speechbrain.nnet.nll_loss
-    error_stats: !name:speechbrain.MetricStats
-        metric: !name:speechbrain.nnet.classification_error
-            reduction: batch
+compute_cost: !name:speechbrain.nnet.nll_loss
+
+error_stats: !name:speechbrain.MetricStats
+    metric: !name:speechbrain.nnet.classification_error
+        reduction: batch

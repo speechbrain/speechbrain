@@ -9,9 +9,9 @@ class VADBrain(sb.Brain):
     def compute_forward(self, x, stage):
         id, wavs, lens = x
         feats = self.hparams.compute_features(wavs)
-        feats = self.hparams.mean_var_norm(feats, lens)
-        x, _ = self.hparams.rnn(feats)
-        outputs = self.hparams.lin(x)
+        feats = self.modules.mean_var_norm(feats, lens)
+        x, _ = self.modules.rnn(feats)
+        outputs = self.modules.lin(x)
 
         return outputs, lens
 
@@ -80,7 +80,7 @@ def main():
         label_parsing_func=lambda x: parsing_func(hparams, x),
     )()
 
-    vad_brain = VADBrain(hparams["hparams"], hparams["opt_class"])
+    vad_brain = VADBrain(hparams["modules"], hparams["opt_class"], hparams)
     vad_brain.fit(range(hparams["N_epochs"]), train_set)
 
     assert vad_brain.train_loss < 0.01
