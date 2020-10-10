@@ -259,15 +259,14 @@ class Brain:
     opt_class : torch.optim class
         A torch optimizer constructor that has takes only the list of
         parameters (e.g. a lambda or partial function definition). By default,
-        this will be passed all modules in ``modules`` at the
+        this will be passed all modules in hparams and jit_modules at the
         beginning of the ``fit()`` method. This behavior can be changed
         by overriding the ``configure_optimizers()`` method.
-    modules : dict of str:torch.nn.Module pairs
-        These modules are passed to the optimizier by default if they have
-        trainable parameters, and will have train()/eval() called on them.
-    jit_module_keys : list of str
-        keys from the dictionary passed to ``modules`` to compile with
-        ``torch.jit.script``.
+    jit_modules : dict of str:torch.nn.Module pairs
+        ``torch.nn.Module`` object(s) to pass to ``torch.jit.script``. As
+        with the hparams and optim arguments, these are made accessible with
+        a ``jit_modules`` attribute, using "dot" notation:
+        e.g. self.jit_modules.model(x)
     checkpointer : speechbrain.Checkpointer
         By default, this will be used to load checkpoints, and will have the
         optimizer added to continue training if interrupted.
@@ -284,7 +283,7 @@ class Brain:
     >>> from torch.optim import SGD
     >>> class SimpleBrain(Brain):
     ...     def compute_forward(self, x, stage):
-    ...         return self.modules.model(x)
+    ...         return self.hparams.model(x)
     ...     def compute_objectives(self, predictions, targets, stage):
     ...         return torch.nn.functional.l1_loss(predictions, targets)
     >>> model = torch.nn.Linear(in_features=10, out_features=10)
@@ -294,28 +293,43 @@ class Brain:
 
     def __init__(
         self,
-        modules=None,
+        hparams,
         opt_class=None,
-        hparams=None,
-        jit_module_keys=None,
+        jit_modules=None,
         checkpointer=None,
         device="cpu",
         ddp_procs=0,
         auto_mix_prec=False,
     ):
         self.opt_class = opt_class
-        self.jit_module_keys = jit_module_keys
+        self.jit_modules = jit_modules
         self.checkpointer = checkpointer
         self.device = device
         self.ddp_procs = ddp_procs
         self.auto_mix_prec = auto_mix_prec
 
         self.root_process = True
-        self.modules = torch.nn.ModuleDict(modules).to(self.device)
+        modulelist = []
+
+        # Put modules onto correct device
+        for name, hparam in hparams.items():
+            if isinstance(hparam, torch.nn.Module):
+                hparam = hparam.to(self.device)
+                hparams[name] = hparam
+                modulelist.append(hparam)
 
         # Make hyperparams available with simple "dot" notation
-        if hparams is not None:
-            self.hparams = SimpleNamespace(**hparams)
+        self.hparams = SimpleNamespace(**hparams)
+
+        # Append JIT modules here just for accurate parameter count.
+        # JIT modules are compiled and converted to "dot" notation when fit()
+        # is called, since compiled modules can't be pickled for DDP.
+        if jit_modules is not None:
+            for name, module in jit_modules.items():
+                modulelist.append(module)
+
+        # Store modules as ModuleList, primarily for calling train()/eval()
+        self.modules = torch.nn.ModuleList(modulelist)
 
         # Automatic mixed precision init
         if self.auto_mix_prec:
@@ -423,7 +437,17 @@ class Brain:
         Override this class if there are multiple optimizers.
         """
         if self.opt_class is not None:
-            self.optimizer = self.opt_class(self.modules.parameters())
+            params = []
+            for name, hparam in self.hparams.__dict__.items():
+                if isinstance(hparam, torch.nn.Module):
+                    if any(p.requires_grad for p in hparam.parameters()):
+                        params.extend(hparam.parameters())
+
+            if self.jit_modules is not None:
+                for name, jit_module in self.jit_modules.__dict__.items():
+                    params.extend(jit_module.parameters())
+
+            self.optimizer = self.opt_class(params)
 
             if self.checkpointer is not None:
                 self.checkpointer.add_recoverable("optimizer", self.optimizer)
@@ -573,9 +597,11 @@ class Brain:
             # Only show progressbar if requested and root_process
             disable = not (progressbar and self.root_process)
             with tqdm(train_set, dynamic_ncols=True, disable=disable) as t:
-                for self.step, batch in enumerate(t):
+                for i, batch in enumerate(t):
                     loss = self.fit_batch(batch)
-                    avg_train_loss = self.update_average(loss, avg_train_loss)
+                    avg_train_loss = self.update_average(
+                        loss, avg_train_loss, iteration=i + 1
+                    )
                     t.set_postfix(train_loss=avg_train_loss)
             self.on_stage_end(Stage.TRAIN, avg_train_loss, epoch)
 
@@ -586,12 +612,12 @@ class Brain:
                 self.modules.eval()
                 avg_valid_loss = 0.0
                 with torch.no_grad():
-                    for self.step, batch in enumerate(
+                    for i, batch in enumerate(
                         tqdm(valid_set, dynamic_ncols=True, disable=disable)
                     ):
                         loss = self.evaluate_batch(batch, stage=Stage.VALID)
                         avg_valid_loss = self.update_average(
-                            loss, avg_valid_loss
+                            loss, avg_valid_loss, iteration=i + 1
                         )
                 self.on_stage_end(Stage.VALID, avg_valid_loss, epoch)
 
@@ -599,11 +625,11 @@ class Brain:
         """This should be run *after* mp.spawn, since jit modules
         cannot be pickled.
         """
-        if self.jit_module_keys is None:
+        if self.jit_modules is None:
             return
 
-        for name in self.jit_module_keys:
-            module = torch.jit.script(self.modules[name])
+        for name, module in self.jit_modules.items():
+            module = torch.jit.script(module)
             module = module.to(self.device)
 
             # Wrap module with DDP when requested
@@ -611,7 +637,11 @@ class Brain:
             if needs_grad and self.ddp_procs > 0:
                 module = DDP(module, device_ids=[self.device])
 
-            self.modules[name] = module
+            self.modules.append(module)
+            self.jit_modules[name] = module
+
+        # Convert jit modules to use "dot" notation
+        self.jit_modules = SimpleNamespace(**self.jit_modules)
 
     def evaluate(self, test_set, max_key=None, min_key=None, progressbar=True):
         """Iterate test_set and evaluate brain performance. By default, loads
@@ -638,14 +668,16 @@ class Brain:
         avg_test_loss = 0.0
         disable = not progressbar
         with torch.no_grad():
-            for self.step, batch in enumerate(
+            for i, batch in enumerate(
                 tqdm(test_set, dynamic_ncols=True, disable=disable)
             ):
                 loss = self.evaluate_batch(batch, stage=Stage.TEST)
-                avg_test_loss = self.update_average(loss, avg_test_loss)
+                avg_test_loss = self.update_average(
+                    loss, avg_test_loss, iteration=i + 1
+                )
         self.on_stage_end(Stage.TEST, avg_test_loss, epoch=None)
 
-    def update_average(self, loss, avg_loss):
+    def update_average(self, loss, avg_loss, iteration):
         """Update running average of the loss.
 
         Arguments
@@ -654,6 +686,8 @@ class Brain:
             detached loss, a single float value.
         avg_loss : float
             current running average.
+        iteration : int
+            The iteration count.
 
         Returns
         -------
@@ -668,6 +702,6 @@ class Brain:
             )
 
         # Compute moving average
-        avg_loss -= avg_loss / (self.step + 1)
-        avg_loss += float(loss) / (self.step + 1)
+        avg_loss -= avg_loss / iteration
+        avg_loss += float(loss) / iteration
         return avg_loss

@@ -16,6 +16,10 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 lm_ckpt_file: /network/tmp1/jianyuan.zhong/TransformerLM/e16_gelu_noskip_1024/save/CKPT+2020-10-06+05-02-01+00/model.ckpt # yamllint disable-line rule:line-length
 
+# Tokenizer model
+tok_mdl_file: /network/tmp1/jianyuan.zhong/TransformerLM/e16_gelu_noskip_1024/save/5000_unigram.model
+tok_voc_file: /network/tmp1/jianyuan.zhong/TransformerLM/e16_gelu_noskip_1024/save/5000_unigram.vocab
+
 # Data files
 data_folder: !PLACEHOLDER  # e.g. /path/to/librispeech
 train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
