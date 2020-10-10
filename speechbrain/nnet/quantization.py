@@ -97,6 +97,7 @@ def quant_noise(module, p, block_size):
                     )
                     mask.bernoulli_(p)
                 mask = mask.unsqueeze(-1).repeat(1, 1, mod.kernel_size[0])
+
             else:
                 # gather weight and sizes
                 weight = mod.weight
