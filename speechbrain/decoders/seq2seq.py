@@ -631,6 +631,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             # adding CTC scores to log_prob if ctc_weight > 0
             if self.ctc_weight > 0:
                 g = alived_seq
+                log_probs[:, self.bos_index] = self.minus_inf
                 # TODO rescore after lm for better candidates
                 if self.ctc_weight != 1.0:
                     # pruning vocab for ctc_scorer
