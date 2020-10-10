@@ -150,7 +150,6 @@ class ASR(sb.core.Brain):
 
                 self.wer_metric.append(ids, predicted_words, target_words)
             # compute the accuracy of the one-step-forward prediction
-            print("acc!!" * 50)
             self.acc_metric.append(p_seq, target_tokens_with_eos, rel_length)
         return loss
 
