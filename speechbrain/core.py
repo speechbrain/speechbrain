@@ -573,7 +573,7 @@ class Brain:
             # Only show progressbar if requested and root_process
             disable = not (progressbar and self.root_process)
             with tqdm(train_set, dynamic_ncols=True, disable=disable) as t:
-                for i, batch in enumerate(t):
+                for self.step, batch in enumerate(t):
                     loss = self.fit_batch(batch)
                     avg_train_loss = self.update_average(loss, avg_train_loss)
                     t.set_postfix(train_loss=avg_train_loss)
