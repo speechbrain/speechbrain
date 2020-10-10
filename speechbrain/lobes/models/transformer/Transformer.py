@@ -618,7 +618,7 @@ class NormalizedEmbedding(nn.Module):
     -------
     >>> emb = NormalizedEmbedding(512, 1000)
     >>> trg = torch.randint(0, 999, (8, 50))
-    >>> emb_fea = emb(trg, True)
+    >>> emb_fea = emb(trg)
     """
 
     def __init__(self, d_model, vocab):

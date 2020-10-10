@@ -43,8 +43,8 @@ class TransformerLM(TransformerInterface):
     Example
     -------
     >>> src = torch.randint(0, 720, [8, 120])
-    >>> net = TransformerLM(None, 720, 512, 8, 1, 0, 1024, activation=torch.nn.GELU)
-    >>> enc_out = net.forward(src=True)
+    >>> net = TransformerLM(720, 512, 8, 1, 0, 1024, activation=torch.nn.GELU)
+    >>> enc_out = net.forward(src)
     >>> print(enc_out.shape)
     torch.Size([8, 120, 720])
     """

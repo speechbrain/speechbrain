@@ -250,7 +250,7 @@ class MultiheadAttention(nn.Module):
     Example
     -------
     >>> inputs = torch.rand([8, 60, 512])
-    >>> net = MultiheadAttention(nhead=8, embed_dim=inputs.shape[-1])
+    >>> net = MultiheadAttention(nhead=8, d_model=inputs.shape[-1])
     >>> outputs, attn = net(inputs, inputs, inputs)
     >>> outputs.shape
     torch.Size([8, 60, 512])
