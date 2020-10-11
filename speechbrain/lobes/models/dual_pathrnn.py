@@ -117,16 +117,17 @@ class Encoder(nn.Module):
        out_channels: the number of filters
     """
 
-    def __init__(self, kernel_size=2, out_channels=64):
+    def __init__(self, kernel_size=2, out_channels=64, in_channels=1):
         super(Encoder, self).__init__()
         self.conv1d = nn.Conv1d(
-            in_channels=1,
+            in_channels=in_channels,
             out_channels=out_channels,
             kernel_size=kernel_size,
             stride=kernel_size // 2,
             groups=1,
             bias=False,
         )
+        self.in_channels = in_channels
 
     def forward(self, x, init_params=True):
         """
@@ -137,7 +138,8 @@ class Encoder(nn.Module):
               T_out is the number of time steps
         """
         # B x T -> B x 1 x T
-        x = torch.unsqueeze(x, dim=1)
+        if self.in_channels == 1:
+            x = torch.unsqueeze(x, dim=1)
         # B x 1 x T -> B x C x T_out
         x = self.conv1d(x)
         x = F.relu(x)
