@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import copy
 
+from performer_pytorch import Performer
+
 from speechbrain.nnet.linear import Linear
 from speechbrain.lobes.models.transformer.Transformer import TransformerEncoder
 from speechbrain.lobes.models.transformer.Transformer import PositionalEncoding
@@ -526,6 +528,31 @@ class PytorchTransformerBlock(nn.Module):
         return self.mdl(x)
 
 
+class PerformerBlock(nn.Module):
+    def __init__(
+        self,
+        out_channels,
+        num_layers=6,
+        nhead=8,
+        ff_mult=4,
+        use_positional_encoding=True,
+    ):
+        super(PerformerBlock, self).__init__()
+
+        self.encoder_layer = Performer(
+            dim=out_channels, heads=nhead, depth=num_layers, ff_mult=ff_mult
+        )
+
+        if use_positional_encoding:
+            self.pos_enc = PositionalEncoding()
+
+    def forward(self, x, init_params=False):
+        if self.pos_enc is not None:
+            pos_enc = self.pos_enc(x, init_params=init_params)
+            x = x + pos_enc
+        return self.encoder_layer(x)
+
+
 class SBTransformerBlock(nn.Module):
     def __init__(
         self,
@@ -638,16 +665,26 @@ class Dual_Computation_Block(nn.Module):
     """
 
     def __init__(
-        self, intra_mdl, inter_mdl, out_channels, norm="ln",
+        self,
+        intra_mdl,
+        inter_mdl,
+        out_channels,
+        norm="ln",
+        skip_around_intra=True,
+        linear_layer_after_inter_intra=True,
     ):
         super(Dual_Computation_Block, self).__init__()
 
         self.intra_mdl = intra_mdl
         self.inter_mdl = inter_mdl
+        self.skip_around_intra = skip_around_intra
+        self.linear_layer_after_inter_intra = linear_layer_after_inter_intra
 
         # Norm
-        self.intra_norm = select_norm(norm, out_channels, 4)
-        self.inter_norm = select_norm(norm, out_channels, 4)
+        self.norm = norm
+        if norm is not None:
+            self.intra_norm = select_norm(norm, out_channels, 4)
+            self.inter_norm = select_norm(norm, out_channels, 4)
 
         # Linear
         self.intra_linear = Linear(out_channels)
@@ -667,18 +704,20 @@ class Dual_Computation_Block(nn.Module):
         intra = self.intra_mdl(intra, init_params=init_params)
 
         # [BS, K, N]
-        intra = self.intra_linear(
-            intra.contiguous().view(B * S * K, -1), init_params=init_params
-        ).view(B * S, K, -1)
+        if self.linear_layer_after_inter_intra:
+            intra = self.intra_linear(
+                intra.contiguous().view(B * S * K, -1), init_params=init_params
+            ).view(B * S, K, -1)
         # [B, S, K, N]
         intra = intra.view(B, S, K, N)
         # [B, N, K, S]
         intra = intra.permute(0, 3, 2, 1).contiguous()
-        intra = self.intra_norm(intra)
+        if self.norm is not None:
+            intra = self.intra_norm(intra)
 
         # [B, N, K, S]
-        intra = intra + x
-        # out = intra
+        if self.skip_around_intra:
+            intra = intra + x
 
         # inter RNN
         # [BK, S, N]
@@ -687,14 +726,16 @@ class Dual_Computation_Block(nn.Module):
         inter = self.inter_mdl(inter, init_params=init_params)
 
         # [BK, S, N]
-        inter = self.inter_linear(
-            inter.contiguous().view(B * S * K, -1), init_params=init_params
-        ).view(B * K, S, -1)
+        if self.linear_layer_after_inter_intra:
+            inter = self.inter_linear(
+                inter.contiguous().view(B * S * K, -1), init_params=init_params
+            ).view(B * K, S, -1)
         # [B, K, S, N]
         inter = inter.view(B, K, S, N)
         # [B, N, K, S]
         inter = inter.permute(0, 3, 1, 2).contiguous()
-        inter = self.inter_norm(inter)
+        if self.norm is not None:
+            inter = self.inter_norm(inter)
         # [B, N, K, S]
         out = inter + intra
 
@@ -712,6 +753,10 @@ class Dual_Path_Model(nn.Module):
         norm="ln",
         K=200,
         num_spks=2,
+        skip_around_intra=True,
+        linear_layer_after_inter_intra=True,
+        use_global_pos_enc=False,
+        max_length=9000,
     ):
         super(Dual_Path_Model, self).__init__()
         self.K = K
@@ -719,13 +764,22 @@ class Dual_Path_Model(nn.Module):
         self.num_layers = num_layers
         self.norm = select_norm(norm, in_channels, 3)
         self.conv1d = nn.Conv1d(in_channels, out_channels, 1, bias=False)
+        self.use_pos_enc = use_global_pos_enc
+
+        if self.use_pos_enc:
+            self.pos_enc = PositionalEncoding(max_length)
 
         self.dual_mdl = nn.ModuleList([])
         for i in range(num_layers):
             self.dual_mdl.append(
                 copy.deepcopy(
                     Dual_Computation_Block(
-                        intra_model, inter_model, out_channels, norm
+                        intra_model,
+                        inter_model,
+                        out_channels,
+                        norm,
+                        skip_around_intra=skip_around_intra,
+                        linear_layer_after_inter_intra=linear_layer_after_inter_intra,
                     )
                 )
             )
@@ -753,6 +807,11 @@ class Dual_Path_Model(nn.Module):
         x = self.norm(x)
         # [B, N, L]
         x = self.conv1d(x)
+        if self.use_pos_enc:
+            x = self.pos_enc(x.transpose(1, -1), init_params).transpose(
+                1, -1
+            ) + x * (x.size(1) ** 0.5)
+
         # [B, N, K, S]
         x, gap = self._Segmentation(x, self.K)
         # [B, N*spks, K, S]

@@ -10,6 +10,7 @@ import logging
 import torch.nn as nn
 import numpy as np
 from speechbrain.data_io.data_io import length_to_mask
+import math
 
 from speechbrain.nnet.group_linear import GroupLinear
 
@@ -422,3 +423,183 @@ class PositionalwiseFeedForward(nn.Module):
         x = x.permute(1, 0, 2)
 
         return x
+
+
+class RelativePosMultiHeadAttention(nn.Module):
+    def __init__(
+        self,
+        nhead,
+        dropout=0.0,
+        bias=True,
+        add_bias_kv=False,
+        add_zero_attn=False,
+        kdim=None,
+        vdim=None,
+        nb=1,
+        u=None,
+        v=None,
+    ):
+        super().__init__()
+
+        self.nhead = nhead
+        self.dropout = dropout
+        self.bias = bias
+        self.add_bias_kv = add_bias_kv
+        self.add_zero_attn = add_zero_attn
+        self.kdim = kdim
+        self.vdim = vdim
+        if self.kdim != self.vdim:
+            raise NotImplementedError
+        if self.add_zero_attn:
+            raise NotImplementedError
+        if self.add_bias_kv:
+            raise NotImplementedError
+        self.nb = nb
+        self.u = u
+        self.v = v
+        self.dropout = nn.Dropout(dropout)
+
+    def init_params(self, first_input):
+        if len(first_input.shape) == 4:
+            first_input = first_input.reshape(
+                first_input.shape[0],
+                first_input.shape[1],
+                first_input.shape[2] * first_input.shape[3],
+            )
+
+        self.embed_dim = first_input.shape[-1]
+        self.inner_dim = first_input.shape[-1] // self.nb
+
+        self.kdim = self.vdim = self.embed_dim
+
+        self.k_proj = nn.Linear(self.kdim, self.embed_dim, bias=self.bias).to(
+            first_input.device
+        )
+        self.q_proj = nn.Linear(self.vdim, self.embed_dim, bias=self.bias).to(
+            first_input.device
+        )
+        self.v_proj = nn.Linear(self.vdim, self.embed_dim, bias=self.bias).to(
+            first_input.device
+        )
+        self.out_proj = nn.Linear(
+            self.embed_dim, self.embed_dim, bias=self.bias
+        ).to(first_input.device)
+        self.scale = 1 / (self.inner_dim ** 0.5)
+
+        self.pos_proj = nn.Linear(self.vdim, self.embed_dim, bias=False).to(
+            first_input.device
+        )
+
+        if self.add_bias_kv:
+            self.bias_k = nn.Parameter(torch.Tensor(1, 1, self.vdim)).to(
+                first_input.device
+            )
+            self.bias_v = nn.Parameter(torch.Tensor(1, 1, self.vdim)).to(
+                first_input.device
+            )
+        else:
+            self.bias_k = self.bias_v = None
+
+        if self.u is None and self.v is None:
+
+            # u and v biases are not shared we init these here
+            self.u = nn.Parameter(torch.Tensor(self.embed_dim, self.nb)).to(
+                first_input.device
+            )
+            self.v = nn.Parameter(torch.Tensor(self.embed_dim, self.nb)).to(
+                first_input.device
+            )
+
+        else:
+            pass
+
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        # from fairseq code
+        # from https://github.com/pytorch/fairseq/blob/5e82514d687289a73a6dec33b555217acd97cb0d/fairseq/modules/multihead_attention.py
+        if self.kdim == self.vdim:
+            # Empirically observed the convergence to be much better with
+            # the scaled initialization
+            nn.init.xavier_uniform_(self.k_proj.weight, gain=1 / math.sqrt(2))
+            nn.init.xavier_uniform_(self.v_proj.weight, gain=1 / math.sqrt(2))
+            nn.init.xavier_uniform_(self.q_proj.weight, gain=1 / math.sqrt(2))
+        else:
+            nn.init.xavier_uniform_(self.k_proj.weight)
+            nn.init.xavier_uniform_(self.v_proj.weight)
+            nn.init.xavier_uniform_(self.q_proj.weight)
+
+        nn.init.xavier_uniform_(self.out_proj.weight)
+        if self.out_proj.bias is not None:
+            nn.init.constant_(self.out_proj.bias, 0.0)
+        if self.bias_k is not None:
+            nn.init.xavier_normal_(self.bias_k)
+        if self.bias_v is not None:
+            nn.init.xavier_normal_(self.bias_v)
+        nn.init.constant_(self.u, 0.0)
+        nn.init.constant_(self.v, 0.0)
+
+    def _rel_shift(self, x):
+        zero_pad = torch.zeros(
+            (x.size(0), 1, *x.size()[2:]), device=x.device, dtype=x.dtype
+        )
+        return (
+            torch.cat([zero_pad, x], dim=1)
+            .view(x.size(1) + 1, x.size(0), *x.size()[2:])[1:]
+            .view_as(x)
+        )
+
+    def forward(
+        self,
+        query,
+        key,
+        value,
+        pos_embs,
+        attn_mask=None,
+        key_padding_mask=None,
+        init_params=False,
+    ):
+
+        if init_params:
+            self.init_params(key)
+
+        # query is shape (time, batch, fea)
+        query_len, bsz, embed_dim = query.size()
+        key_len = key.size(0)
+        q = self.q_proj(query)
+        k = self.k_proj(key)
+        v = self.v_proj(value)
+        p = self.pos_proj(pos_embs)
+
+        content_attn = torch.einsum(
+            "ibhd,jbhd->ijbh",
+            (q.view(query_len, bsz, self.inner_dim, self.nb) + self.u),
+            k.view(key_len, bsz, self.inner_dim, self.nb),
+        )
+
+        position_attn = torch.einsum(
+            "ibhd,jhd->ijbh",
+            (q.view(query_len, bsz, self.inner_dim, self.nb) + self.v),  # (b)
+            p.view(query_len, self.inner_dim, self.nb),
+        )
+
+        position_attn = self._rel_shift(position_attn)
+        attn = content_attn + position_attn
+        if attn_mask is not None and attn_mask.any().item():
+            attn = attn.masked_fill(attn_mask[..., None], -float("inf"))
+        if key_padding_mask is not None and key_padding_mask.any().item():
+            attn = attn.masked_fill(key_padding_mask[..., None], -float("inf"))
+
+        attn = torch.softmax(attn * self.scale, dim=1)
+        attn = self.dropout(attn)
+
+        attn_weighted = torch.einsum(
+            "ijbh,jbhd->ibhd",
+            attn,
+            v.view(query_len, bsz, self.inner_dim, self.nb),
+        ).contiguous()
+
+        output = self.out_proj(
+            attn_weighted.reshape(query_len, bsz, self.inner_dim * self.nb)
+        )
+        return output, attn
