@@ -764,9 +764,9 @@ class Dual_Path_Model(nn.Module):
         self.num_layers = num_layers
         self.norm = select_norm(norm, in_channels, 3)
         self.conv1d = nn.Conv1d(in_channels, out_channels, 1, bias=False)
-        self.use_pos_enc = use_global_pos_enc
+        self.use_global_pos_enc = use_global_pos_enc
 
-        if self.use_pos_enc:
+        if self.use_global_pos_enc:
             self.pos_enc = PositionalEncoding(max_length)
 
         self.dual_mdl = nn.ModuleList([])
@@ -807,7 +807,7 @@ class Dual_Path_Model(nn.Module):
         x = self.norm(x)
         # [B, N, L]
         x = self.conv1d(x)
-        if self.use_pos_enc:
+        if self.use_global_pos_enc:
             x = self.pos_enc(x.transpose(1, -1), init_params).transpose(
                 1, -1
             ) + x * (x.size(1) ** 0.5)
