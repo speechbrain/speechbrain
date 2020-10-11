@@ -96,7 +96,8 @@ def quant_noise(module, p, block_size):
                         weight.size(0), weight.size(1), device=weight.device
                     )
                     mask.bernoulli_(p)
-                    mask = mask.unsqueeze(-1).repeat(1, 1, mod.kernel_size[0])
+                mask = mask.unsqueeze(-1).repeat(1, 1, mod.kernel_size[0])
+
             else:
                 # gather weight and sizes
                 weight = mod.weight
@@ -118,11 +119,12 @@ def quant_noise(module, p, block_size):
                         weight.size(0), weight.size(1), device=weight.device
                     )
                     mask.bernoulli_(p)
-                    mask = (
-                        mask.unsqueeze(2)
-                        .unsqueeze(3)
-                        .repeat(1, 1, mod.kernel_size[0], mod.kernel_size[1])
-                    )
+
+                mask = (
+                    mask.unsqueeze(2)
+                    .unsqueeze(3)
+                    .repeat(1, 1, mod.kernel_size[0], mod.kernel_size[1])
+                )
             # scale weights and apply mask
             mask = mask.to(
                 torch.bool

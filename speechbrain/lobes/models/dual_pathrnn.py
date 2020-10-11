@@ -754,6 +754,7 @@ class Dual_Path_Model(nn.Module):
         skip_around_intra=True,
         linear_layer_after_inter_intra=True,
         use_global_pos_enc=False,
+        max_length=9000,
     ):
         super(Dual_Path_Model, self).__init__()
         self.K = K
@@ -764,7 +765,7 @@ class Dual_Path_Model(nn.Module):
         self.use_pos_enc = use_global_pos_enc
 
         if self.use_pos_enc:
-            self.pos_enc = PositionalEncoding()
+            self.pos_enc = PositionalEncoding(max_length)
 
         self.dual_mdl = nn.ModuleList([])
         for i in range(num_layers):
@@ -804,8 +805,10 @@ class Dual_Path_Model(nn.Module):
         x = self.norm(x)
         # [B, N, L]
         x = self.conv1d(x)
-        if self.pos_enc:
-            x = self.pos_enc(x, init_params) + x * (x.size(1) ** 0.5)
+        if self.use_pos_enc:
+            x = self.pos_enc(x.transpose(1, -1), init_params).transpose(
+                1, -1
+            ) + x * (x.size(1) ** 0.5)
 
         # [B, N, K, S]
         x, gap = self._Segmentation(x, self.K)
