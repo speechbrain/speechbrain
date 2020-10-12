@@ -31,7 +31,7 @@ class CTCPrefixScorer:
         x.masked_fill_(mask, -np.inf)
         x[:, :, 0] = x[:, :, 0].masked_fill_(mask[:, :, 0], 0)
 
-        # xnb: dim=0, nonblank posteriors, xb: dim=1, blank posteriors
+        # dim=0: xnb, nonblank posteriors, dim=1: xb, blank posteriors
         xnb = x.transpose(0, 1)
         xb = (
             xnb[:, :, self.blank_index]
@@ -63,11 +63,12 @@ class CTCPrefixScorer:
         )
 
         if state is None:
-            # r_prev: (max_enc_len, 2, batch_size * beam_size)
+            # r_prev: (L, 2, batch_size * beam_size)
             r_prev = torch.Tensor(
                 self.max_enc_len, 2, self.batch_size, self.beam_size
             ).to(self.device)
             r_prev.fill_(-np.inf)
+
             # Accumulate blank posteriors at each step
             r_prev[:, 1] = torch.cumsum(
                 self.x[0, :, :, self.blank_index], 0
@@ -92,6 +93,7 @@ class CTCPrefixScorer:
             scoring_table[col_index, candidates] = torch.arange(
                 self.num_candidates,
             ).to(self.device)
+
             # select candidates indices for scoring
             scoring_index = (
                 candidates
@@ -114,7 +116,8 @@ class CTCPrefixScorer:
                     2, -1, self.batch_size * self.beam_size, self.num_candidates
                 )
             )
-        # TODO add comments
+
+        # Prepare forward probs
         r = torch.Tensor(
             self.max_enc_len,
             2,
@@ -126,9 +129,7 @@ class CTCPrefixScorer:
         if prefix_length == 0:
             r[0, 0] = x_inflate[0, 0]
 
-        # TODO: scores for candidates
-
-        # 0. phi = prev_nonblank + prev_blank = r_t-1^nb(g) + r_t-1^b(g), phi only depends on prefix g.
+        # phi = prev_nonblank + prev_blank = r_t-1^nb(g) + r_t-1^b(g) (phi only depends on prefix g.)
         r_sum = torch.logsumexp(r_prev, 1)
         phi = r_sum.unsqueeze(2).repeat(1, 1, self.num_candidates)
 
@@ -146,24 +147,22 @@ class CTCPrefixScorer:
         start = max(1, prefix_length)
         end = self.max_enc_len
 
-        # Compute forward prob log(r_t^nb(h)) and log(r_t^b(h))
+        # Compute forward prob log(r_t^nb(h)) and log(r_t^b(h)):
+        # dim=0: p(h|cur step is nonblank) = [p(prev step=y) + phi] * p(c)
+        # dim=1: p(h|cur step is blank) = [p(prev step is blank) + p(prev step is nonblank)] * p(blank)
         for t in range(start, end):
-            # 1. p(h|cur step is nonblank) = [p(prev step=y) + phi] * p(c)
-            r[t, 0] = torch.logsumexp(
-                torch.stack((r[t - 1, 0], phi[t - 1]), dim=0), dim=0
+            rnb_prev = r[t - 1, 0]
+            rb_prev = r[t - 1, 1]
+            r_ = torch.stack([rnb_prev, phi[t - 1], rnb_prev, rb_prev]).view(
+                2, 2, self.batch_size * self.beam_size, self.num_candidates
             )
-            r[t, 0] = r[t, 0] + x_inflate[0, t]
-            # 2. p(h|cur step is blank) = [p(prev step is blank) + p(prev step is nonblank)] * p(blank)
-            r[t, 1] = torch.logsumexp(
-                torch.stack((r[t - 1, 0], r[t - 1, 1]), dim=0), dim=0
-            )
-            r[t, 1] = r[t, 1] + x_inflate[1, t]
+            r[t] = torch.logsumexp(r_, 1) + x_inflate[:, t]
 
-        # Compute the predix prob
+        # Compute the predix prob, psi
         psi_init = r[start - 1, 0].unsqueeze(0)
-        # phi is prob at t-1 step, shift one frame then add it to current prob p(c)
+        # phi is prob at t-1 step, shift one frame and add it to the current prob p(c)
         phix = torch.cat((phi[0].unsqueeze(0), phi[:-1]), dim=0) + x_inflate[0]
-        # 3. psi = psi + phi * p(c)
+        # psi = psi + phi * p(c)
         if candidates is not None:
             psi = torch.Tensor(
                 self.batch_size * self.beam_size, self.vocab_size
