@@ -99,6 +99,38 @@ class Sequential(torch.nn.Module):
         return x
 
 
+class ModuleList(torch.nn.Module):
+    """This class implements a wraper to torch.nn.ModuleList with a forward() method to forward all the layers sequentially.
+
+    For some pretained model with the SpeechBrain older implementation of Sequential class, user can use this class to load those pretrained models
+
+    Arguments
+    ---------
+    *layers: torch class
+        torch objects to be put in a ModuleList
+    """
+
+    def __init__(self, *layers):
+        super().__init__()
+        self.layers = torch.nn.ModuleList(layers)
+
+    def forward(self, x):
+        for layer in self.layers:
+            x = layer(x)
+            if isinstance(x, tuple):
+                x = x[0]
+        return x
+
+    def append(self, module):
+        self.layers.append(module)
+
+    def extend(self, modules):
+        self.layers.extend(modules)
+
+    def insert(self, index, module):
+        self.layers.insert(module)
+
+
 def ignore_init(function):
     """Wrapper function to ignore the init_params argument"""
     return lambda x, y, init_params=False: function(x, y)
