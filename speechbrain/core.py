@@ -196,7 +196,7 @@ def ddp_init(rank, brain, args):
     brain.root_process = rank == 0
 
     # force the models to start and remain synchronized
-    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.deterministic = False
     torch.backends.cudnn.benchmark = False
 
     args = list(args)

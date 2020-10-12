@@ -225,8 +225,10 @@ hparams:
         n_warmup_steps: 25000
         model_size: !ref <d_model>
 
-    cosine_annealing: !new:speechbrain.nnet.schedulers.CyclicCosineScheduler
+    cosine_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
         n_warmup_steps: 25000
+        lr_initial: !ref <lr>
+        model_size: !ref <d_model>
 
     checkpointer: !new:speechbrain.Checkpointer
         checkpoints_dir: !ref <save_folder>
