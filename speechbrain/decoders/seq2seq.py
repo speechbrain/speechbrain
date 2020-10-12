@@ -357,6 +357,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         self.lm_weight = lm_weight
         self.lm_modules = lm_modules
         self.ctc_weight = ctc_weight
+        self.att_weight = 1.0 - ctc_weight
 
         assert (
             0.0 <= self.ctc_weight <= 1.0
@@ -602,6 +603,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             log_probs, memory, attn = self.forward_step(
                 inp_tokens, memory, enc_states, enc_lens
             )
+            log_probs = self.att_weight * log_probs
 
             # Keep the original value
             log_probs_clone = log_probs.clone().reshape(batch_size, -1)
@@ -628,9 +630,17 @@ class S2SBeamSearcher(S2SBaseSearcher):
                     fill_value=self.minus_inf,
                 )
 
+            # adding LM scores to log_prob if lm_weight > 0
+            if self.lm_weight > 0:
+                lm_log_probs, lm_memory = self.lm_forward_step(
+                    inp_tokens, lm_memory
+                )
+                log_probs = log_probs + self.lm_weight * lm_log_probs
+
             # adding CTC scores to log_prob if ctc_weight > 0
             if self.ctc_weight > 0:
                 g = alived_seq
+                # block blank token
                 log_probs[:, self.bos_index] = self.minus_inf
                 # TODO rescore after lm for better candidates
                 if self.ctc_weight != 1.0:
@@ -643,16 +653,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 ctc_log_probs, ctc_memory = ctc_scorer.forward_step(
                     g, ctc_memory, ctc_candidates
                 )
-                log_probs = (
-                    1.0 - self.ctc_weight
-                ) * log_probs + self.ctc_weight * ctc_log_probs
-
-            # adding LM scores to log_prob if lm_weight > 0
-            if self.lm_weight > 0:
-                lm_log_probs, lm_memory = self.lm_forward_step(
-                    inp_tokens, lm_memory
-                )
-                log_probs = log_probs + self.lm_weight * lm_log_probs
+                log_probs = log_probs + self.ctc_weight * ctc_log_probs
 
             scores = sequence_scores.unsqueeze(1).expand(-1, vocab_size)
             scores = scores + log_probs
@@ -892,8 +893,8 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
         return_log_probs=False,
         using_eos_threshold=True,
         eos_threshold=1.5,
-        length_normalization=True,
-        length_rewarding=0,
+        length_normalization=False,
+        length_rewarding=0.3,
         lm_weight=0.0,
         lm_modules=None,
         ctc_weight=0.0,
