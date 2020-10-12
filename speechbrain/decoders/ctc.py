@@ -43,12 +43,12 @@ class CTCPrefixScorer:
         self.x = torch.stack([xnb, xb])
 
         # The first index of each sentence.
-        self.beam_offset = (torch.arange(batch_size) * self.beam_size).to(
-            self.device
+        self.beam_offset = (
+            torch.arange(batch_size, device=self.device) * self.beam_size
         )
         # The first index of each candidates.
-        self.cand_offset = (torch.arange(batch_size) * self.vocab_size).to(
-            self.device
+        self.cand_offset = (
+            torch.arange(batch_size, device=self.device) * self.vocab_size
         )
 
     def forward_step(self, g, state, candidates=None):
@@ -91,8 +91,8 @@ class CTCPrefixScorer:
                 self.batch_size * self.beam_size, device=self.device
             ).unsqueeze(1)
             scoring_table[col_index, candidates] = torch.arange(
-                self.num_candidates,
-            ).to(self.device)
+                self.num_candidates, device=self.device
+            )
 
             # select candidates indices for scoring
             scoring_index = (
