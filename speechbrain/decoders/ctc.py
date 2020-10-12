@@ -13,7 +13,9 @@ from speechbrain.data_io.data_io import length_to_mask
 
 class CTCPrefixScorer:
     """
-    This class implements the CTC prefix scorer for beam-search.
+    This class implements the CTC prefix scorer of Algorithm 2 in
+    reference: https://www.merl.com/publications/docs/TR2017-190.pdf.
+    Official implementation: https://github.com/espnet/espnet/blob/master/espnet/nets/ctc_prefix_score.py
 
     Parameters
     ----------
@@ -230,7 +232,7 @@ class CTCPrefixScorer:
             index
             + (self.beam_offset.unsqueeze(1).expand_as(index) * self.vocab_size)
         ).view(-1)
-        # synchoronize forward prob
+        # Update forward prob
         psi = torch.index_select(psi.view(-1), dim=0, index=best_index)
         psi = (
             psi.view(-1, 1)
@@ -238,7 +240,7 @@ class CTCPrefixScorer:
             .view(self.batch_size * self.beam_size, self.vocab_size)
         )
 
-        # synchoronize ctc states
+        # Update ctc states
         if scoring_table is not None:
             effective_index = (
                 index // self.vocab_size + self.beam_offset.view(-1, 1)
