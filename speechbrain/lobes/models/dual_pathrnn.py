@@ -567,6 +567,7 @@ class SBTransformerBlock(nn.Module):
         num_modules=1,
         use_group_comm=False,
         use_positional_encoding=False,
+        norm_before=False,
     ):
         super(SBTransformerBlock, self).__init__()
         self.use_positional_encoding = use_positional_encoding
@@ -589,6 +590,7 @@ class SBTransformerBlock(nn.Module):
             return_attention,
             num_modules,
             use_group_comm,
+            norm_before,
         )
 
         if use_positional_encoding:
@@ -756,7 +758,7 @@ class Dual_Path_Model(nn.Module):
         skip_around_intra=True,
         linear_layer_after_inter_intra=True,
         use_global_pos_enc=False,
-        max_length=9000,
+        max_length=20000,
     ):
         super(Dual_Path_Model, self).__init__()
         self.K = K
