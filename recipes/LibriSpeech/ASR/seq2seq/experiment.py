@@ -291,9 +291,8 @@ if __name__ == "__main__":
     )
 
     # Load index2label dict for decoding
-    if (
-        hparams["multigpu_count"] > 0
-        and hparams["multigpu_backend"] == "ddp_nccl"
+    if hparams["multigpu_count"] > 0 and hparams["multigpu_backend"].startswith(
+        "ddp"
     ):
         # if distributed training is desired, initialize the dataloader later
         train_set = hparams["train_loader"]
