@@ -20,7 +20,9 @@ from datetime import date
 from enum import Enum, auto
 from tqdm.contrib import tqdm
 from types import SimpleNamespace
+from torch.utils.data import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel as DDP
+from speechbrain.data_io.data_io import DataLoaderFactory
 
 logger = logging.getLogger(__name__)
 DEFAULT_LOG_CONFIG = os.path.dirname(os.path.abspath(__file__))
@@ -201,22 +203,6 @@ def ddp_init(rank, brain, args):
     # force the models to start and remain synchronized
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
-
-    # init dataloaders with DistributedSampler
-    args = list(args)
-    sampler = torch.utils.data.DistributedSampler
-    args[1] = args[1](sampler, brain.multigpu_count, rank=rank)
-    args[2] = args[2](sampler, brain.multigpu_count, rank=rank)
-
-    # Wrap modules with DDP
-    for name, hparam in brain.hparams.__dict__.items():
-        if isinstance(hparam, torch.nn.Module):
-            # sync batch norms in modules
-            hparam = torch.nn.SyncBatchNorm.convert_sync_batchnorm(hparam)
-            hparam = hparam.to(rank)
-            if any(p.requires_grad for p in hparam.parameters()):
-                hparam = DDP(hparam, device_ids=[rank])
-                setattr(brain.hparams, name, hparam)
 
     brain._fit(*args)
 
@@ -574,6 +560,22 @@ class Brain:
         """Adjust parameters based on data."""
         self.on_fit_start()
 
+        # Use factories to get loaders
+        self.train_sampler = None
+        if isinstance(train_set, DataLoaderFactory):
+            if self.multigpu_backend and self.multigpu_backend.startswith(
+                "ddp"
+            ):
+                self.train_sampler = DistributedSampler(
+                    dataset=train_set.dataset,
+                    num_replicas=self.multigpu_count,
+                    rank=self.device,
+                    shuffle=train_set.shuffle,
+                )
+            train_set = train_set.get_dataloader(self.train_sampler)
+        if isinstance(valid_set, DataLoaderFactory):
+            valid_set = valid_set.get_dataloader()
+
         # Iterate epochs
         for epoch in epoch_counter:
 
@@ -581,6 +583,9 @@ class Brain:
             self.on_stage_start(Stage.TRAIN, epoch)
             self.modules.train()
             avg_train_loss = 0.0
+
+            if self.train_sampler is not None:
+                self.train_sampler.set_epoch(epoch)
 
             # Only show progressbar if requested and root_process
             disable = not (progressbar and self.root_process)
@@ -624,11 +629,12 @@ class Brain:
             return
 
         for name, module in self.modules.items():
-            needs_grad = any(p.requires_grad for p in module.parameters())
-            if needs_grad and self.multigpu_backend == "data_parallel":
-                module = torch.nn.DataParallel(module)
-            elif needs_grad and self.multigpu_backend.startswith("ddp"):
-                module = DDP(module, device_ids=[self.device])
+            module = torch.nn.SyncBatchNorm.convert_sync_batchnorm(module)
+            if any(p.requires_grad for p in module.parameters()):
+                if self.multigpu_backend == "data_parallel":
+                    module = torch.nn.DataParallel(module)
+                elif self.multigpu_backend.startswith("ddp"):
+                    module = DDP(module, device_ids=[self.device])
             self.modules[name] = module
 
     def evaluate(self, test_set, max_key=None, min_key=None, progressbar=True):
@@ -650,6 +656,10 @@ class Brain:
         -------
         average test loss
         """
+        # Get test loader from factory
+        if isinstance(test_set, DataLoaderFactory):
+            test_set = test_set.get_dataloader()
+
         self.on_evaluate_start(max_key=max_key, min_key=min_key)
         self.on_stage_start(Stage.TEST, epoch=None)
         self.modules.eval()

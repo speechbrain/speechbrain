@@ -290,16 +290,8 @@ if __name__ == "__main__":
         character_coverage=1.0,
     )
 
-    # Load index2label dict for decoding
-    if hparams["multigpu_count"] > 0 and hparams["multigpu_backend"].startswith(
-        "ddp"
-    ):
-        # if distributed training is desired, initialize the dataloader later
-        train_set = hparams["train_loader"]
-        valid_set = hparams["valid_loader"]
-    else:
-        train_set = hparams["train_loader"]()
-        valid_set = hparams["valid_loader"]()
+    train_set = hparams["train_loader"]()
+    valid_set = hparams["valid_loader"]()
     test_clean_set = hparams["test_clean_loader"]()
     test_other_set = hparams["test_other_loader"]()
     hparams["ind2lab"] = hparams["test_other_loader"].label_dict["wrd"][
