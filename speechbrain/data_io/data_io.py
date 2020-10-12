@@ -198,7 +198,7 @@ class DataLoaderFactory(torch.nn.Module):
             drop_last=self.drop_last,
             num_workers=self.num_workers,
             collate_fn=self.batch_creation,
-            sampler=sampler if sampler is not None else None,
+            sampler=sampler,
         )
 
         return self.dataloader
