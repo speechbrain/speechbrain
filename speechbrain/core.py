@@ -198,9 +198,21 @@ def ddp_init(rank, brain, args):
     brain.device = rank
     brain.root_process = rank == 0
 
+    # force the models to start and remain synchronized
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+    # init dataloaders with DistributedSampler
+    args = list(args)
+    sampler = torch.utils.data.DistributedSampler
+    args[1] = args[1](sampler, brain.multigpu_count, rank=rank)
+    args[2] = args[2](sampler, brain.multigpu_count, rank=rank)
+
     # Wrap modules with DDP
     for name, hparam in brain.hparams.__dict__.items():
         if isinstance(hparam, torch.nn.Module):
+            # sync batch norms in modules
+            hparam = torch.nn.SyncBatchNorm.convert_sync_batchnorm(hparam)
             hparam = hparam.to(rank)
             if any(p.requires_grad for p in hparam.parameters()):
                 hparam = DDP(hparam, device_ids=[rank])
@@ -574,11 +586,6 @@ class Brain:
             disable = not (progressbar and self.root_process)
             with tqdm(train_set, dynamic_ncols=True, disable=disable) as t:
                 for self.step, batch in enumerate(t):
-                    if (
-                        isinstance(self.device, int)
-                        and self.step % self.multigpu_count != self.device
-                    ):
-                        continue
                     loss = self.fit_batch(batch)
                     avg_train_loss = self.update_average(loss, avg_train_loss)
                     t.set_postfix(train_loss=avg_train_loss)

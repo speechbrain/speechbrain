@@ -160,7 +160,7 @@ class DataLoaderFactory(torch.nn.Module):
         else:
             self.shuffle = False
 
-    def forward(self):
+    def forward(self, sampler=None, num_replicas=None, rank=None):
         """
         Output:
         dataloader: It is a list returning all the dataloaders created.
@@ -187,14 +187,18 @@ class DataLoaderFactory(torch.nn.Module):
             self.label_parsing_func,
         )
 
+        if sampler is not None:
+            sampler = sampler(dataset, num_replicas, rank)
+
         self.dataloader = DataLoader(
             dataset,
             batch_size=self.batch_size,
-            shuffle=self.shuffle,
-            pin_memory=False,
+            shuffle=self.shuffle if sampler is None else False,
+            pin_memory=(sampler is not None),
             drop_last=self.drop_last,
             num_workers=self.num_workers,
             collate_fn=self.batch_creation,
+            sampler=sampler,
         )
 
         return self.dataloader
