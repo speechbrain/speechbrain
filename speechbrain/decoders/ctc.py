@@ -7,12 +7,30 @@ Authors
  * Sung-Lin Yeh 2020
 """
 import torch
-import numpy as np
 from itertools import groupby
 from speechbrain.data_io.data_io import length_to_mask
 
 
 class CTCPrefixScorer:
+    """
+    This class implements the CTC prefix scorer for beam-search.
+
+    Parameters
+    ----------
+    x : torch.Tensor
+        The encoder states.
+    enc_lens : torch.Tensor
+        The actual length of each enc_states sequence.
+    batch_size : int
+        The size of the batch.
+    beam_size : int
+        The width of beam.
+    blank_index : int
+        The index of the blank.
+    eos_index : int
+        The index of end-of-sequence token.
+    """
+
     def __init__(
         self, x, enc_lens, batch_size, beam_size, blank_index, eos_index
     ):
@@ -23,12 +41,17 @@ class CTCPrefixScorer:
         self.beam_size = beam_size
         self.vocab_size = x.size(-1)
         self.device = x.device
+        self.minus_inf = -1e20
         self.last_frame_index = enc_lens - 1
+
+        assert (
+            self.eos_index != self.blank_index
+        ), "Please set these two tokens to different indexes"
 
         # mask frames > enc_lens
         mask = 1 - length_to_mask(enc_lens)
         mask = mask.unsqueeze(-1).expand(-1, -1, x.size(-1)).eq(1)
-        x.masked_fill_(mask, -np.inf)
+        x.masked_fill_(mask, self.minus_inf)
         x[:, :, 0] = x[:, :, 0].masked_fill_(mask[:, :, 0], 0)
 
         # dim=0: xnb, nonblank posteriors, dim=1: xb, blank posteriors
@@ -52,22 +75,32 @@ class CTCPrefixScorer:
         )
 
     def forward_step(self, g, state, candidates=None):
-        """h = g + c
-        candidates: (batch_size * beam_size, beam_size)
+        """This method if one step of forwarding operation
+        for prefic ctc scorer.
+
+        Arguments
+        ---------
+        g : torch.Tensor
+            The tensor of prefix label sequences, h = g + c.
+        state : tuple
+            Previous ctc states.
+        candidates : torch.Tensor
+            (batch_size * beam_size, ctc_beam_size), The topk candidates for rescoring.
+            The ctc_beam_size is set as 2 * beam_size. If given, performing partial ctc scoring.
         """
         prefix_length = g.size(1)
         last_char = [gi[-1] for gi in g] if prefix_length > 0 else [0] * len(g)
-        # TODO support scoring for candidates, candidates.size(-1)
         self.num_candidates = (
             self.vocab_size if candidates is None else candidates.size(-1)
         )
+        print(candidates.shape)
 
         if state is None:
             # r_prev: (L, 2, batch_size * beam_size)
             r_prev = torch.Tensor(
                 self.max_enc_len, 2, self.batch_size, self.beam_size
             ).to(self.device)
-            r_prev.fill_(-np.inf)
+            r_prev.fill_(self.minus_inf)
 
             # Accumulate blank posteriors at each step
             r_prev[:, 1] = torch.cumsum(
@@ -124,7 +157,7 @@ class CTCPrefixScorer:
             self.batch_size * self.beam_size,
             self.num_candidates,
         ).to(self.device)
-        r.fill_(-np.inf)
+        r.fill_(self.minus_inf)
 
         if prefix_length == 0:
             r[0, 0] = x_inflate[0, 0]
@@ -167,7 +200,7 @@ class CTCPrefixScorer:
             psi = torch.Tensor(
                 self.batch_size * self.beam_size, self.vocab_size
             ).to(self.device)
-            psi.fill_(-np.inf)
+            psi.fill_(self.minus_inf)
             psi_ = torch.logsumexp(
                 torch.cat((phix[start:end], psi_init), dim=0), dim=0
             )
@@ -186,7 +219,7 @@ class CTCPrefixScorer:
             ]
 
         # exclude blank probs for joint scoring
-        psi[:, self.blank_index] = -np.inf
+        psi[:, self.blank_index] = self.minus_inf
 
         return psi - psi_prev, (r, psi, scoring_table)
 
