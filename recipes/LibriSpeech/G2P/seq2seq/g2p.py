@@ -187,4 +187,4 @@ if __name__ == "__main__":
     g2p_brain.fit(g2p_brain.hparams.epoch_counter, train_set, valid_set)
 
     # Test
-    g2p_brain.evaluate(test_set)
+    g2p_brain.evaluate(test_set, min_key="PER")
