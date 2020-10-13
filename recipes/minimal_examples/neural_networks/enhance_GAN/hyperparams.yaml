@@ -61,12 +61,14 @@ discriminator: !new:speechbrain.nnet.Sequential
       stride: 8
     - !new:torch.nn.Sigmoid
 
-hparams:
-    generator: !ref <generator>
-    discriminator: !ref <discriminator>
-    g_opt_class: !name:torch.optim.Adam
-        lr: !ref <lr>
-    d_opt_class: !name:torch.optim.Adam
-        lr: !ref <lr> / 4
-    add_noise: !new:speechbrain.processing.AddNoise
-    compute_cost: !name:speechbrain.nnet.mse_loss
+modules: {generator: !ref <generator>, discriminator: !ref <discriminator>}
+
+g_opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+
+d_opt_class: !name:torch.optim.Adam
+    lr: !ref <lr> / 4
+
+add_noise: !new:speechbrain.processing.AddNoise
+
+compute_cost: !name:speechbrain.nnet.mse_loss

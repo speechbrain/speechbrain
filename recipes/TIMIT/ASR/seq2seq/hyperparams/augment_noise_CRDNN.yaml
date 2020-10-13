@@ -18,7 +18,8 @@ batch_size: 8
 lr: 0.001
 ctc_weight: 0.2
 device: 'cuda:0'
-ddp_procs: 0  # Set this to number of GPUs for multi-GPU
+multigpu_count: 0  # Set this to number of GPUs for multi-GPU
+multigpu_backend: null
 
 # Feature parameters
 sample_rate: 16000
@@ -78,6 +79,23 @@ test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
 normalize: !new:speechbrain.processing.InputNormalization
     norm_type: global
 
+augmentation: !new:speechbrain.lobes.TimeDomainSpecAugment
+    sample_rate: !ref <sample_rate>
+    speeds: [95, 100, 105]
+
+env_corrupt: !new:speechbrain.lobes.augment.env_corrupt.EnvCorrupt
+    openrir_folder: !ref <data_folder>
+    babble_prob: 0.0
+    reverb_prob: 0.0
+    noise_prob: 1.0
+    noise_snr_low: 0
+    noise_snr_high: 15
+
+compute_features: !new:speechbrain.lobes.Fbank
+    sample_rate: !ref <sample_rate>
+    n_fft: !ref <n_fft>
+    n_mels: !ref <n_mels>
+
 enc: !new:speechbrain.lobes.CRDNN
     input_shape: [null, null, !ref <n_mels>]
     activation: !ref <activation>
@@ -118,6 +136,15 @@ seq_lin: !new:speechbrain.nnet.Linear
     input_size: !ref <dec_neurons>
     n_neurons: !ref <output_neurons>  # 39 phonemes + 1 eos
 
+log_softmax: !new:speechbrain.nnet.Softmax
+    apply_log: True
+
+ctc_cost: !name:speechbrain.nnet.ctc_loss
+    blank_index: !ref <blank_index>
+
+seq_cost: !name:speechbrain.nnet.nll_loss
+    label_smoothing: 0.1
+
 greedy_searcher: !new:speechbrain.decoders.seq2seq.S2SRNNGreedySearcher
     embedding: !ref <emb>
     decoder: !ref <dec>
@@ -149,8 +176,16 @@ lr_annealing: !new:speechbrain.nnet.NewBobScheduler
     annealing_factor: 0.8
     patient: 0
 
-jit_modules:
+modules:
     enc: !ref <enc>
+    emb: !ref <emb>
+    dec: !ref <dec>
+    ctc_lin: !ref <ctc_lin>
+    seq_lin: !ref <seq_lin>
+    normalize: !ref <normalize>
+    env_corrupt: !ref <env_corrupt>
+
+jit_module_keys: [enc]
 
 checkpointer: !new:speechbrain.Checkpointer
     checkpoints_dir: !ref <save_folder>
@@ -160,48 +195,17 @@ checkpointer: !new:speechbrain.Checkpointer
         lr_annealing: !ref <lr_annealing>
         counter: !ref <epoch_counter>
 
-hparams:
-    wer_file: !ref <wer_file>
-    bos_index: !ref <bos_index>
-    eos_index: !ref <eos_index>
-    ctc_weight: !ref <ctc_weight>
-    normalize: !ref <normalize>
-    emb: !ref <emb>
-    dec: !ref <dec>
-    ctc_lin: !ref <ctc_lin>
-    seq_lin: !ref <seq_lin>
-    greedy_searcher: !ref <greedy_searcher>
-    beam_searcher: !ref <beam_searcher>
-    lr_annealing: !ref <lr_annealing>
-    epoch_counter: !ref <epoch_counter>
-    augmentation: !new:speechbrain.lobes.TimeDomainSpecAugment
-        sample_rate: !ref <sample_rate>
-        speeds: [95, 100, 105]
-    env_corrupt: !new:speechbrain.lobes.augment.env_corrupt.EnvCorrupt
-        openrir_folder: !ref <data_folder>
-        babble_prob: 0.0
-        reverb_prob: 0.0
-        noise_prob: 1.0
-        noise_snr_low: 0
-        noise_snr_high: 15
-    compute_features: !new:speechbrain.lobes.Fbank
-        sample_rate: !ref <sample_rate>
-        n_fft: !ref <n_fft>
-        n_mels: !ref <n_mels>
-    log_softmax: !new:speechbrain.nnet.Softmax
-        apply_log: True
-    ctc_cost: !name:speechbrain.nnet.ctc_loss
+train_logger: !new:speechbrain.FileTrainLogger
+    save_file: !ref <train_log>
+
+ctc_stats: !name:speechbrain.MetricStats
+    metric: !name:speechbrain.nnet.ctc_loss
         blank_index: !ref <blank_index>
-    seq_cost: !name:speechbrain.nnet.nll_loss
+        reduction: batch
+
+seq_stats: !name:speechbrain.MetricStats
+    metric: !name:speechbrain.nnet.nll_loss
         label_smoothing: 0.1
-    train_logger: !new:speechbrain.FileTrainLogger
-        save_file: !ref <train_log>
-    ctc_stats: !name:speechbrain.MetricStats
-        metric: !name:speechbrain.nnet.ctc_loss
-            blank_index: !ref <blank_index>
-            reduction: batch
-    seq_stats: !name:speechbrain.MetricStats
-        metric: !name:speechbrain.nnet.nll_loss
-            label_smoothing: 0.1
-            reduction: batch
-    per_stats: !name:speechbrain.ErrorRateStats
+        reduction: batch
+
+per_stats: !name:speechbrain.ErrorRateStats

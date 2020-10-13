@@ -40,6 +40,11 @@ test_loader: !new:speechbrain.data_io.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
+compute_features: !new:speechbrain.lobes.MFCC
+
+mean_var_norm: !new:speechbrain.processing.InputNormalization
+    norm_type: global
+
 model: !new:speechbrain.nnet.Sequential
     - [!ref <N_batch>, null, 660]  # input_size
     - !name:speechbrain.nnet.ComplexConv1d
@@ -64,14 +69,12 @@ model: !new:speechbrain.nnet.Sequential
     - !new:speechbrain.nnet.Softmax
       apply_log: True
 
+modules: {model: !ref <model>, mean_var_norm: !ref <mean_var_norm>}
+
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
 
-hparams:
-    compute_features: !new:speechbrain.lobes.MFCC
-    mean_var_norm: !new:speechbrain.processing.InputNormalization
-        norm_type: global
-    model: !ref <model>
-    compute_cost: !name:speechbrain.nnet.ctc_loss
-        blank_index: 42
-    per_stats: !name:speechbrain.ErrorRateStats
+compute_cost: !name:speechbrain.nnet.ctc_loss
+    blank_index: 42
+
+per_stats: !name:speechbrain.ErrorRateStats

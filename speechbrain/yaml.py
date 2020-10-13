@@ -161,7 +161,14 @@ def load_extended_yaml(
     yaml.Loader.add_multi_constructor("!name:", _construct_name)
     yaml.Loader.add_multi_constructor("!module:", _construct_module)
 
-    return yaml.load(yaml_stream, Loader=yaml.Loader)
+    hparams = yaml.load(yaml_stream, Loader=yaml.Loader)
+
+    # Remove items that start with "__"
+    removal_keys = [k for k in hparams.keys() if k.startswith("__")]
+    for key in removal_keys:
+        del hparams[key]
+
+    return hparams
 
 
 def resolve_references(yaml_stream, overrides=None, overrides_must_match=False):

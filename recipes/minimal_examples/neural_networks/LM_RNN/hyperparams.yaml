@@ -55,15 +55,15 @@ model: !new:speechbrain.lobes.RNNLM
     rnn_layers: !ref <rnn_layers>
     dropout: !ref <dropout>
 
+modules: {model: !ref <model>}
+
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
 
-hparams:
-    bos_index: !ref <bos_index>
-    eos_index: !ref <eos_index>
-    model: !ref <model>
-    epoch_counter: !new:speechbrain.EpochCounter
-        limit: !ref <number_of_epochs>
-    log_softmax: !new:speechbrain.nnet.Softmax
-        apply_log: True
-    compute_cost: !name:speechbrain.nnet.nll_loss
+epoch_counter: !new:speechbrain.EpochCounter
+    limit: !ref <number_of_epochs>
+
+log_softmax: !new:speechbrain.nnet.Softmax
+    apply_log: True
+
+compute_cost: !name:speechbrain.nnet.nll_loss
