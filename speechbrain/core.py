@@ -293,7 +293,7 @@ class Brain:
         checkpointer=None,
         device="cpu",
         multigpu_count=0,
-        multigpu_backend="ddp_nccl",
+        multigpu_backend=None,
         auto_mix_prec=False,
     ):
         self.opt_class = opt_class
@@ -304,9 +304,7 @@ class Brain:
         self.device = device
         self.root_process = True
         self.multigpu_count = multigpu_count
-        self.multigpu_backend = None
-        if self.multigpu_count > 0:
-            self.multigpu_backend = multigpu_backend
+        self.multigpu_backend = multigpu_backend
 
         self.auto_mix_prec = auto_mix_prec
         self.modules = torch.nn.ModuleDict(modules).to(self.device)

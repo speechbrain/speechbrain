@@ -43,7 +43,7 @@ lr: 1.0
 ctc_weight: 0.5
 device: 'cuda'
 multigpu_count: 0  # Set to number of GPUs for multi-gpu training
-multigpu_backend: ddp_nccl
+multigpu_backend: null  # ["data_parallel", "ddp_nccl", "ddp_gloo", "ddp_mpi"]
 token_type: unigram # ["unigram", "bpe", "char"]
 
 # Feature parameters
