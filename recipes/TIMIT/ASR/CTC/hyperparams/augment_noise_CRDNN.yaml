@@ -23,7 +23,8 @@ number_of_epochs: 50
 batch_size: 8
 lr: 1.0
 device: 'cuda:0'
-ddp_procs: 0  # Set to number of GPUs if multi-gpu
+multigpu_count: 0  # Set to number of GPUs if multi-gpu
+multigpu_backend: ddp_nccl
 
 # Feature parameters
 sample_rate: 16000
@@ -70,6 +71,26 @@ test_loader: !new:speechbrain.data_io.DataLoaderFactory
     output_folder: !ref <output_folder>
     csv_read: [wav, phn]
 
+normalize: !new:speechbrain.processing.InputNormalization
+    norm_type: global
+
+augmentation: !new:speechbrain.lobes.TimeDomainSpecAugment
+    sample_rate: !ref <sample_rate>
+    speeds: [95, 100, 105]
+
+env_corrupt: !new:speechbrain.lobes.EnvCorrupt
+    openrir_folder: !ref <data_folder>
+    babble_prob: 0.0
+    reverb_prob: 0.0
+    noise_prob: 1.0
+    noise_snr_low: 0
+    noise_snr_high: 15
+
+compute_features: !new:speechbrain.lobes.Fbank
+    sample_rate: !ref <sample_rate>
+    n_fft: !ref <n_fft>
+    n_mels: !ref <n_mels>
+
 model: !new:speechbrain.lobes.CRDNN
     input_shape: [null, null, !ref <n_mels>]
     activation: !ref <activation>
@@ -89,8 +110,8 @@ output: !new:speechbrain.nnet.Linear
     n_neurons: !ref <output_neurons>
     bias: True
 
-normalize: !new:speechbrain.processing.InputNormalization
-    norm_type: global
+log_softmax: !new:speechbrain.nnet.Softmax
+    apply_log: True
 
 opt_class: !name:torch.optim.Adadelta
     rho: 0.95
@@ -103,8 +124,13 @@ lr_annealing: !new:speechbrain.nnet.NewBobScheduler
     annealing_factor: 0.8
     patient: 0
 
-jit_modules:
+modules:
     model: !ref <model>
+    output: !ref <output>
+    normalize: !ref <normalize>
+    env_corrupt: !ref <env_corrupt>
+
+jit_module_keys: [model]
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
@@ -115,34 +141,15 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         normalizer: !ref <normalize>
         counter: !ref <epoch_counter>
 
-hparams:
-    wer_file: !ref <wer_file>
-    output: !ref <output>
-    normalize: !ref <normalize>
-    lr_annealing: !ref <lr_annealing>
-    epoch_counter: !ref <epoch_counter>
-    augmentation: !new:speechbrain.lobes.TimeDomainSpecAugment
-        sample_rate: !ref <sample_rate>
-        speeds: [95, 100, 105]
-    env_corrupt: !new:speechbrain.lobes.EnvCorrupt
-        openrir_folder: !ref <data_folder>
-        babble_prob: 0.0
-        reverb_prob: 0.0
-        noise_prob: 1.0
-        noise_snr_low: 0
-        noise_snr_high: 15
-    compute_features: !new:speechbrain.lobes.Fbank
-        sample_rate: !ref <sample_rate>
-        n_fft: !ref <n_fft>
-        n_mels: !ref <n_mels>
-    log_softmax: !new:speechbrain.nnet.Softmax
-        apply_log: True
-    compute_cost: !name:speechbrain.nnet.ctc_loss
+compute_cost: !name:speechbrain.nnet.ctc_loss
+    blank_index: !ref <blank_index>
+
+train_logger: !new:speechbrain.FileTrainLogger
+    save_file: !ref <train_log>
+
+ctc_stats: !name:speechbrain.MetricStats
+    metric: !name:speechbrain.nnet.ctc_loss
         blank_index: !ref <blank_index>
-    train_logger: !new:speechbrain.FileTrainLogger
-        save_file: !ref <train_log>
-    ctc_stats: !name:speechbrain.MetricStats
-        metric: !name:speechbrain.nnet.ctc_loss
-            blank_index: !ref <blank_index>
-            reduction: batch
-    per_stats: !name:speechbrain.ErrorRateStats
+        reduction: batch
+
+per_stats: !name:speechbrain.ErrorRateStats

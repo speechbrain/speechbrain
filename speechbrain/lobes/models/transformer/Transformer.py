@@ -479,11 +479,11 @@ class TransformerDecoderLayer(nn.Module):
         tgt = tgt + self.dropout2(tgt2)
         tgt = self.norm2(tgt)
 
-        tgt = self.pos_ffn(tgt)
+        tgt2 = self.pos_ffn(tgt)
 
         # add & norm
-        tgt = tgt + self.dropout2(tgt2)
-        tgt = self.norm2(tgt)
+        tgt = tgt + self.dropout3(tgt2)
+        tgt = self.norm3(tgt)
 
         return tgt, self_attn, multihead_attention
 
