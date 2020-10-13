@@ -86,7 +86,7 @@ class ASR(sb.core.Brain):
         feats = params.normalize(feats, lens)
         # Transcription network: input-output dependency
         TN_output = params.enc(feats, init_params=init_params)
-        TN_output = params.enc_lin(TN_output, init_params=init_params)
+        # TN_output = params.enc_lin(TN_output, init_params=init_params)
         if stage == "train":
             # Prediction network: output-output dependency
             # y contains a tuple of tensors (id, words, word_lens) for BPE
@@ -108,7 +108,7 @@ class ASR(sb.core.Brain):
             decoder_input = prepend_bos_token(bpe, bos_index=params.blank_index)
             PN_output = params.emb(decoder_input, init_params=init_params)
             PN_output, _ = params.dec(PN_output, init_params=init_params)
-            PN_output = params.dec_lin(PN_output, init_params=init_params)
+            # PN_output = params.dec_lin(PN_output, init_params=init_params)
             # Joint the networks
             joint = params.Tjoint(
                 TN_output.unsqueeze(2),
@@ -142,7 +142,7 @@ class ASR(sb.core.Brain):
         elif stage == "valid":
             hyps, scores = transducer_greedy_decode(
                 TN_output,
-                [params.emb, params.dec, params.dec_lin],
+                [params.emb, params.dec],
                 params.Tjoint,
                 [params.output],
                 params.blank_index,
@@ -157,7 +157,7 @@ class ASR(sb.core.Brain):
                     nbest_scores,
                 ) = transducer_beam_search_decode(
                     TN_output,
-                    [params.emb, params.dec, params.dec_lin],
+                    [params.emb, params.dec],
                     params.Tjoint,
                     [params.output],
                     params.blank_index,
@@ -174,7 +174,7 @@ class ASR(sb.core.Brain):
                     nbest_scores,
                 ) = transducer_beam_search_decode(
                     TN_output,
-                    [params.emb, params.dec, params.dec_lin],
+                    [params.emb, params.dec],
                     params.Tjoint,
                     [params.output],
                     params.blank_index,
