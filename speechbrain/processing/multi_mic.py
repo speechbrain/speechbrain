@@ -24,7 +24,7 @@ Example
 >>> xs_diffused_noise = ss + nn_diff
 >>> xs_localized_noise = ss + nn_loc
 
->>> # Delay-and-Sum Beamforming
+>>> # Delay-and-Sum Beamforming with GCC-PHAT localization
 >>> stft = STFT(sample_rate=fs)
 >>> cov = Covariance()
 >>> gccphat = GccPhat()
@@ -36,7 +36,7 @@ Example
 >>> Ys_ds = delaysum(Xs, tdoas)
 >>> ys_ds = istft(Ys_ds)
 
->>> # Mvdr Beamforming
+>>> # Mvdr Beamforming with SRP-PHAT localization
 >>> mvdr = Mvdr()
 >>> Ys_mvdr = mvdr(Xs, XXs, tdoas)
 >>> ys_mvdr = istft(Ys_mvdr)
@@ -843,7 +843,11 @@ class SrpPhat(torch.nn.Module):
         """ Perform SRP-PHAT localization on a signal by computing a steering
         vector and then by using the utility function _srp_phat to extract the doas.
         The result is a tensor containing the directions of arrival (xyz coordinates
-        in meters). The output tensor has the format (batch, time_steps, 3).
+        (in meters) in the direction of the sound source). The output tensor
+        has the format (batch, time_steps, 3).
+
+        This localization method uses Global Coherence Field (GCF):
+        https://www.researchgate.net/publication/221491705_Speaker_localization_based_on_oriented_global_coherence_field
 
         Arguments
         ---------
@@ -865,8 +869,9 @@ class SrpPhat(torch.nn.Module):
     @staticmethod
     def _srp_phat(XXs, As, doas, eps=1e-20):
         """ Perform srp-phat to find the direction of arrival
-        of the sound source. The result has the format:
-        (batch, time_steps, 3)
+        of the sound source. The result is a tensor containing the directions
+        of arrival (xyz coordinates (in meters) in the direction of the sound source).
+        The output tensor has the format: (batch, time_steps, 3)
 
         Arguments
         ---------
