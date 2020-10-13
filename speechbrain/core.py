@@ -20,6 +20,7 @@ from datetime import date
 from enum import Enum, auto
 from tqdm.contrib import tqdm
 from types import SimpleNamespace
+from torch.nn import SyncBatchNorm
 from torch.utils.data import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel as DDP
 from speechbrain.data_io.data_io import DataLoaderFactory
@@ -627,11 +628,12 @@ class Brain:
             return
 
         for name, module in self.modules.items():
-            module = torch.nn.SyncBatchNorm.convert_sync_batchnorm(module)
             if any(p.requires_grad for p in module.parameters()):
                 if self.multigpu_backend == "data_parallel":
                     module = torch.nn.DataParallel(module)
                 elif self.multigpu_backend.startswith("ddp"):
+                    module = SyncBatchNorm.convert_sync_batchnorm(module)
+                    module = module.to(self.device)
                     module = DDP(module, device_ids=[self.device])
             self.modules[name] = module
 
