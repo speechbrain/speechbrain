@@ -23,7 +23,8 @@ N_epochs: 20
 N_batch: 512
 lr: 0.002
 device: 'cuda'
-ddp_procs: 0  # Set to number of GPUs for multi-gpu training
+multigpu_count: 0  # Set to number of GPUs for multi-gpu training
+multigpu_backend: null  # ["data_parallel", "ddp_nccl", "ddp_gloo", "ddp_mpi"]
 
 # Model parameters
 enc_dropout: 0.5
