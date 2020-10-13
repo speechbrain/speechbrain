@@ -996,9 +996,6 @@ class LiGRU(torch.nn.Module):
             if x.ndim == 4:
                 x = x.reshape(x.shape[0], x.shape[1], x.shape[2] * x.shape[3])
 
-        # Flatten params for data parallel
-        self.rnn.flatten_parameters()
-
         # run ligru
         output, hh = self._forward_ligru(x, hx=hx)
 
