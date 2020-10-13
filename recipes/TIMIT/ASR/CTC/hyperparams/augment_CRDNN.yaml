@@ -22,14 +22,9 @@ csv_test: !ref <data_folder>/test.csv
 number_of_epochs: 30
 batch_size: 8
 lr: 1.0
-<<<<<<< HEAD
-device: 'cuda'
-ddp_procs: 4  # Set to number of GPUs if multi-gpu
-=======
 device: 'cuda:0'
 multigpu_count: 0  # Set to number of GPUs if multi-gpu
 multigpu_backend: null
->>>>>>> master
 
 # Feature parameters
 sample_rate: 16000
