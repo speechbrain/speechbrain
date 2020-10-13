@@ -17,7 +17,7 @@ sb.create_experiment_directory(
     overrides=overrides,
 )
 
-for ((id, wav, wav_len),) in hyperparams["sample_data"]():
+for ((id, wav, wav_len),) in hyperparams["sample_data"]().get_dataloader():
     wav_reverb = hyperparams["add_reverb"](wav, wav_len)
     hyperparams["save"](wav_reverb, id, wav_len)
 
