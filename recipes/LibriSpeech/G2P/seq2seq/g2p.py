@@ -179,7 +179,8 @@ if __name__ == "__main__":
         hparams=hparams,
         checkpointer=hparams["checkpointer"],
         device=hparams["device"],
-        ddp_procs=hparams["ddp_procs"],
+        multigpu_count=hparams["multigpu_count"],
+        multigpu_backend=hparams["multigpu_backend"],
     )
 
     # Training
