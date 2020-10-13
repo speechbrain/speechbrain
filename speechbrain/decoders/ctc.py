@@ -90,12 +90,12 @@ class CTCPrefixScorer:
             (batch_size * beam_size, ctc_beam_size), The topk candidates for rescoring.
             The ctc_beam_size is set as 2 * beam_size. If given, performing partial ctc scoring.
         """
+
         prefix_length = g.size(1)
         last_char = [gi[-1] for gi in g] if prefix_length > 0 else [0] * len(g)
         self.num_candidates = (
             self.vocab_size if candidates is None else candidates.size(-1)
         )
-        print(candidates.shape)
 
         if state is None:
             # r_prev: (L, 2, batch_size * beam_size)
@@ -161,14 +161,15 @@ class CTCPrefixScorer:
         ).to(self.device)
         r.fill_(self.minus_inf)
 
+        # (Alg.2-6):
         if prefix_length == 0:
             r[0, 0] = x_inflate[0, 0]
 
-        # phi = prev_nonblank + prev_blank = r_t-1^nb(g) + r_t-1^b(g) (phi only depends on prefix g.)
+        # (Alg.2-10): phi = prev_nonblank + prev_blank = r_t-1^nb(g) + r_t-1^b(g)
         r_sum = torch.logsumexp(r_prev, 1)
         phi = r_sum.unsqueeze(2).repeat(1, 1, self.num_candidates)
 
-        # if last token of prefix g in candidates, phi = prev_b + 0
+        # (Alg.2-10): if last token of prefix g in candidates, phi = prev_b + 0
         if candidates is not None:
             for i in range(self.batch_size * self.beam_size):
                 pos = scoring_table[i, last_char[i]]
@@ -183,10 +184,10 @@ class CTCPrefixScorer:
         end = self.max_enc_len
 
         # Compute forward prob log(r_t^nb(h)) and log(r_t^b(h)):
-        # dim=0: p(h|cur step is nonblank) = [p(prev step=y) + phi] * p(c)
-        # dim=1: p(h|cur step is blank) = [p(prev step is blank) + p(prev step is nonblank)] * p(blank)
         for t in range(start, end):
+            # (Alg.2-11): dim=0, p(h|cur step is nonblank) = [p(prev step=y) + phi] * p(c)
             rnb_prev = r[t - 1, 0]
+            # (Alg.2-12): dim=1: p(h|cur step is blank) = [p(prev step is blank) + p(prev step is nonblank)] * p(blank)
             rb_prev = r[t - 1, 1]
             r_ = torch.stack([rnb_prev, phi[t - 1], rnb_prev, rb_prev]).view(
                 2, 2, self.batch_size * self.beam_size, self.num_candidates
@@ -197,7 +198,7 @@ class CTCPrefixScorer:
         psi_init = r[start - 1, 0].unsqueeze(0)
         # phi is prob at t-1 step, shift one frame and add it to the current prob p(c)
         phix = torch.cat((phi[0].unsqueeze(0), phi[:-1]), dim=0) + x_inflate[0]
-        # psi = psi + phi * p(c)
+        # (Alg.2-13): psi = psi + phi * p(c)
         if candidates is not None:
             psi = torch.Tensor(
                 self.batch_size * self.beam_size, self.vocab_size
@@ -214,7 +215,7 @@ class CTCPrefixScorer:
                 torch.cat((phix[start:end], psi_init), dim=0), dim=0
             )
 
-        # if c = <eos>, psi = log(r_T^n(g) + r_T^b(g)), where T is the max frames index of enc_states
+        # (Alg.2-3): if c = <eos>, psi = log(r_T^n(g) + r_T^b(g)), where T is the length of max frames
         for i in range(self.batch_size * self.beam_size):
             psi[i, self.eos_index] = r_sum[
                 self.last_frame_index[i // self.beam_size], i
@@ -232,7 +233,7 @@ class CTCPrefixScorer:
             index
             + (self.beam_offset.unsqueeze(1).expand_as(index) * self.vocab_size)
         ).view(-1)
-        # Update forward prob
+        # synchronize forward prob
         psi = torch.index_select(psi.view(-1), dim=0, index=best_index)
         psi = (
             psi.view(-1, 1)
@@ -240,7 +241,7 @@ class CTCPrefixScorer:
             .view(self.batch_size * self.beam_size, self.vocab_size)
         )
 
-        # Update ctc states
+        # synchronize ctc states
         if scoring_table is not None:
             effective_index = (
                 index // self.vocab_size + self.beam_offset.view(-1, 1)
