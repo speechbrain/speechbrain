@@ -61,13 +61,11 @@ class SEBrain(sb.core.Brain):
         # Write wavs to file
         if stage == sb.Stage.TEST:
             lens = lens * clean_wav.shape[1]
-            for name, pred_wav, length in zip(ids, predict_wav, lens):
+            for name, wav, length in zip(ids, predict_wav, lens):
                 enhance_path = os.path.join(self.hparams.enhanced_folder, name)
                 if not enhance_path.endswith(".wav"):
                     enhance_path = enhance_path + ".wav"
-                torchaudio.save(
-                    enhance_path, predict_wav[: int(length)].cpu(), 16000
-                )
+                torchaudio.save(enhance_path, wav[: int(length)].cpu(), 16000)
 
         return loss
 
@@ -137,7 +135,7 @@ class SEBrain(sb.core.Brain):
                 train_stats={"loss": self.train_loss},
                 valid_stats=stats,
             )
-            self.checkpointer.save_and_keep_only(meta=stats, min_keys=["pesq"])
+            self.checkpointer.save_and_keep_only(meta=stats, max_keys=["pesq"])
 
         if stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -225,7 +223,7 @@ if __name__ == "__main__":
     )
 
     # Load best checkpoint for evaluation
-    test_stats = se_brain.evaluate(hparams["test_loader"](), max_key="PESQ")
+    test_stats = se_brain.evaluate(hparams["test_loader"](), max_key="pesq")
     # params.train_logger.log_stats(
     #     stats_meta={"Epoch loaded": params.epoch_counter.current},
     #     test_stats=test_stats,
