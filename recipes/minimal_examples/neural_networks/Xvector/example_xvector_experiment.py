@@ -101,7 +101,7 @@ def main():
     )
 
     # Extract xvectors from a validation sample
-    valid_x, valid_y = next(iter(valid_set))
+    valid_x, valid_y = next(iter(valid_set.get_dataloader()))
     print("Extracting Xvector from a sample validation batch!")
     xvectors = ext_brain.extract(valid_x)
     print("Extracted Xvector.Shape: ", xvectors.shape)
