@@ -4,18 +4,21 @@ Losses for training neural networks.
 Authors
  * Mirco Ravanelli 2020
  * Samuele Cornell 2020
+ * Hwidong Na 2020
  * Yan Gao 2020
  * Titouan Parcollet 2020
 """
 
+import math
 import torch
-from torch import nn
-import numpy as np
 import logging
 import functools
+import numpy as np
+import torch.nn as nn
+import torch.nn.functional as F
+from itertools import permutations
 from speechbrain.data_io.data_io import length_to_mask
 from speechbrain.decoders.ctc import filter_ctc_output
-from itertools import permutations
 
 
 logger = logging.getLogger(__name__)
@@ -41,7 +44,7 @@ def transducer_loss(
     reduction: str
         Specifies the reduction to apply to the output: 'mean' | 'batchmean' | 'sum'.
     """
-    from speechbrain.nnet.transducer.transducer_loss import Transducer
+    from speechbrain.nnet.loss.transducer_loss import Transducer
 
     input_lens = (input_lens * log_probs.shape[1]).int()
     target_lens = (target_lens * targets.shape[1]).int()
@@ -170,7 +173,7 @@ class PitWrapper(nn.Module):
                 reordered tensor given permutation p.
         """
 
-        reordered = torch.zeros_like(tensor).to(tensor.device)
+        reordered = torch.zeros_like(tensor, device=tensor.device)
         for b in range(tensor.shape[0]):
             reordered[b] = tensor[b][..., p[b]].clone()
         return reordered
@@ -224,8 +227,11 @@ def ctc_loss(
         Length of each target sequence.
     blank_index : int
         The location of the blank symbol among the character indexes.
-    reduction: str
-        Specifies the reduction to apply to the output: 'none' | 'mean' | 'batchmean' | 'sum'.
+    reduction : str
+        What reduction to apply to the output. 'mean', 'sum', 'batch',
+        'batchmean', 'none'.
+        See pytorch for 'mean', 'sum', 'none'. The 'batch' option returns
+        one loss per item in the batch, 'batchmean' returns sum / batch size.
     """
     input_lens = (input_lens * log_probs.shape[1]).int()
     target_lens = (target_lens * targets.shape[1]).int()
@@ -233,6 +239,8 @@ def ctc_loss(
 
     if reduction == "batchmean":
         reduction_loss = "sum"
+    elif reduction == "batch":
+        reduction_loss = "none"
     else:
         reduction_loss = reduction
     loss = torch.nn.functional.ctc_loss(
@@ -247,6 +255,9 @@ def ctc_loss(
 
     if reduction == "batchmean":
         return loss / targets.shape[0]
+    elif reduction == "batch":
+        N = loss.size(0)
+        return loss.view(N, -1).sum(1) / target_lens.view(N, -1).sum(1)
     else:
         return loss
 
@@ -266,8 +277,10 @@ def l1_loss(
         Length of each utterance for computing true error with a mask.
     allowed_len_diff : int
         Length difference that will be tolerated before raising an exception.
-    reduction: str
-        Specifies the reduction to apply to the output: 'mean' | 'batchmean' | 'sum'.
+    reduction : str
+        Options are 'mean', 'batch', 'batchmean', 'sum'.
+        See pytorch for 'mean', 'sum'. The 'batch' option returns
+        one loss per item in the batch, 'batchmean' returns sum / batch size.
 
     Example
     -------
@@ -297,8 +310,10 @@ def mse_loss(
         Length of each utterance for computing true error with a mask.
     allowed_len_diff : int
         Length difference that will be tolerated before raising an exception.
-    reduction: str
-        Specifies the reduction to apply to the output: 'mean' | 'batchmean' | 'sum'.
+    reduction : str
+        Options are 'mean', 'batch', 'batchmean', 'sum'.
+        See pytorch for 'mean', 'sum'. The 'batch' option returns
+        one loss per item in the batch, 'batchmean' returns sum / batch size.
 
     Example
     -------
@@ -314,7 +329,7 @@ def mse_loss(
 
 
 def classification_error(
-    probabilities, targets, length=None, allowed_len_diff=3
+    probabilities, targets, length=None, allowed_len_diff=3, reduction="mean"
 ):
     """Computes the classification error at frame or batch level.
 
@@ -329,6 +344,10 @@ def classification_error(
         Length of each utterance, if frame-level loss is desired.
     allowed_len_diff : int
         Length difference that will be tolerated before raising an exception.
+    reduction : str
+        Options are 'mean', 'batch', 'batchmean', 'sum'.
+        See pytorch for 'mean', 'sum'. The 'batch' option returns
+        one loss per item in the batch, 'batchmean' returns sum / batch size.
 
     Example
     -------
@@ -345,7 +364,9 @@ def classification_error(
         predictions = torch.argmax(probabilities, dim=-1)
         return (predictions != targets).float()
 
-    return compute_masked_loss(error, probabilities, targets.long(), length)
+    return compute_masked_loss(
+        error, probabilities, targets.long(), length, reduction=reduction
+    )
 
 
 def nll_loss(
@@ -369,8 +390,10 @@ def nll_loss(
         Length of each utterance, if frame-level loss is desired.
     allowed_len_diff : int
         Length difference that will be tolerated before raising an exception.
-    reduction: str
-        Specifies the reduction to apply to the output: 'mean' | 'batchmean' | 'sum'.
+    reduction : str
+        Options are 'mean', 'batch', 'batchmean', 'sum'.
+        See pytorch for 'mean', 'sum'. The 'batch' option returns
+        one loss per item in the batch, 'batchmean' returns sum / batch size.
 
     Example
     -------
@@ -427,7 +450,9 @@ def BCE_loss(
     allowed_len_diff : int
         Length difference that will be tolerated before raising an exception.
     reduction: str
-        Specifies the reduction to apply to the output: 'mean' | 'batchmean' | 'sum'.
+        Options are 'mean', 'batch', 'batchmean', 'sum'.
+        See pytorch for 'mean', 'sum'. The 'batch' option returns
+        one loss per item in the batch, 'batchmean' returns sum / batch size.
 
     Example
     -------
@@ -480,8 +505,10 @@ def kldiv_loss(
         Length of each utterance, if frame-level loss is desired.
     allowed_len_diff : int
         Length difference that will be tolerated before raising an exception.
-    reduction: str
-        Specifies the reduction to apply to the output: 'none' | 'mean' | 'batchmean' | 'sum'.
+    reduction : str
+        Options are 'mean', 'batch', 'batchmean', 'sum'.
+        See pytorch for 'mean', 'sum'. The 'batch' option returns
+        one loss per item in the batch, 'batchmean' returns sum / batch size.
 
     Example
     -------
@@ -517,6 +544,8 @@ def kldiv_loss(
             return loss.sum().mean()
         elif reduction == "batchmean":
             return loss.sum() / bz
+        elif reduction == "batch":
+            return loss.view(bz, -1).sum(1) / length
         elif reduction == "sum":
             return loss.sum()
         else:
@@ -575,11 +604,12 @@ def compute_masked_loss(
         computed and returned.
     label_smoothing: float
         The proportion of label smoothing. Should only be used for NLL loss.
-        Ref: Regularizing Neural Networks by Penalizing Confident Output Distributions.
-        https://arxiv.org/abs/1701.06548
-    reduction: str
-        Specifies the reduction to apply to the output loss: 'mean' | 'sum'.
-
+        Ref: Regularizing Neural Networks by Penalizing Confident Output
+        Distributions. https://arxiv.org/abs/1701.06548
+    reduction : str
+        One of 'mean', 'batch', 'batchmean', 'none' where 'mean' returns a
+        single value and 'batch' returns one per item in the batch and
+        'batchmean' is sum / batch_size and 'none' returns all.
     """
     mask = torch.ones_like(targets)
     if length is not None:
@@ -589,22 +619,28 @@ def compute_masked_loss(
         if len(targets.shape) == 3:
             mask = mask.unsqueeze(2).repeat(1, 1, targets.shape[2])
 
-    loss = torch.sum(loss_fn(predictions, targets) * mask)
+    # Compute, then reduce loss
+    loss = loss_fn(predictions, targets) * mask
+    N = loss.size(0)
     if reduction == "mean":
-        loss = loss / torch.sum(mask)
-    if reduction == "batchmean":
-        loss = loss / targets.shape[0]
+        loss = loss.sum() / torch.sum(mask)
+    elif reduction == "batchmean":
+        loss = loss.sum() / N
+    elif reduction == "batch":
+        loss = loss.view(N, -1).sum(1) / mask.view(N, -1).sum(1)
 
     if label_smoothing == 0:
         return loss
     else:
-        loss_reg = -torch.sum(torch.mean(predictions, dim=1) * mask)
+        loss_reg = torch.mean(predictions, dim=1) * mask
         if reduction == "mean":
-            loss_reg = loss_reg / torch.sum(mask)
-        if reduction == "batchmean":
-            loss_reg = loss_reg / targets.shape[0]
+            loss_reg = torch.sum(loss_reg) / torch.sum(mask)
+        elif reduction == "batchmean":
+            loss_reg = torch.sum(loss_reg) / targets.shape[0]
+        elif reduction == "batch":
+            loss_reg = loss_reg.sum(1) / mask.sum(1)
 
-        return label_smoothing * loss_reg + (1 - label_smoothing) * loss
+        return -label_smoothing * loss_reg + (1 - label_smoothing) * loss
 
 
 def get_si_snr_with_pitwrapper(source, estimate_source):
@@ -659,8 +695,8 @@ def cal_si_snr(source, estimate_source):
     device = estimate_source.device.type
 
     source_lengths = torch.tensor(
-        [estimate_source.shape[0]] * estimate_source.shape[1]
-    ).to(device)
+        [estimate_source.shape[0]] * estimate_source.shape[1], device=device
+    )
     mask = get_mask(source, source_lengths)
     estimate_source *= mask
 
@@ -733,6 +769,181 @@ def get_mask(source, source_lengths):
     for i in range(B):
         mask[source_lengths[i] :, i, :] = 0
     return mask
+
+
+class AngularMargin(nn.Module):
+    """
+    An implementation of Angular Margin (AM) proposed in the following
+    paper: '''Margin Matters: Towards More Discriminative Deep Neural Network
+    Embeddings for Speaker Recognition''' (https://arxiv.org/abs/1906.07317)
+
+    Arguments
+    ---------
+    margin : float
+        The margin for cosine similiarity
+    scale: float
+        The scale for cosine similiarity
+
+    Return
+    ---------
+    predictions : torch.Tensor
+
+    Example
+    -------
+    >>> pred = AngularMargin()
+    >>> outputs = torch.tensor([ [1., -1.], [-1., 1.], [0.9, 0.1], [0.1, 0.9] ])
+    >>> targets = torch.tensor([ [1., 0.], [0., 1.], [ 1., 0.], [0.,  1.] ])
+    >>> predictions = pred(outputs, targets)
+    >>> predictions[:,0] > predictions[:,1]
+    tensor([ True, False,  True, False])
+    """
+
+    def __init__(self, margin=0.0, scale=1.0):
+        super(AngularMargin, self).__init__()
+        self.margin = margin
+        self.scale = scale
+
+    def forward(self, outputs, targets):
+        """
+        Compute AM between two tensors
+
+        Arguments
+        ---------
+        outputs : torch.Tensor
+            The outputs of shape [N, C], cosine simiarity is required
+        targets : torch.Tensor
+            The targets of shape [N, C], where the margin is applied for
+
+        Return
+        ---------
+        predictions : torch.Tensor
+        """
+        outputs = outputs - self.margin * targets
+        return self.scale * outputs
+
+
+class AdditiveAngularMargin(AngularMargin):
+    """
+    An implementation of Additive Angular Margin (AAM) proposed
+    in the following paper: '''Margin Matters: Towards More Discriminative Deep
+    Neural Network Embeddings for Speaker Recognition'''
+    (https://arxiv.org/abs/1906.07317)
+
+    Arguments
+    ---------
+    margin : float
+        The margin for cosine similiarity
+    scale: float
+        The scale for cosine similiarity
+
+    Return
+    ---------
+    predictions : torch.Tensor
+    Example
+    -------
+    >>> outputs = torch.tensor([ [1., -1.], [-1., 1.], [0.9, 0.1], [0.1, 0.9] ])
+    >>> targets = torch.tensor([ [1., 0.], [0., 1.], [ 1., 0.], [0.,  1.] ])
+    >>> pred = AdditiveAngularMargin()
+    >>> predictions = pred(outputs, targets)
+    >>> predictions[:,0] > predictions[:,1]
+    tensor([ True, False,  True, False])
+    """
+
+    def __init__(self, margin=0.0, scale=1.0, easy_margin=False):
+        super(AdditiveAngularMargin, self).__init__(margin, scale)
+        self.easy_margin = easy_margin
+
+        self.cos_m = math.cos(self.margin)
+        self.sin_m = math.sin(self.margin)
+        self.th = math.cos(math.pi - self.margin)
+        self.mm = math.sin(math.pi - self.margin) * self.margin
+
+    def forward(self, outputs, targets):
+        """
+        Compute AAM between two tensors
+
+        Arguments
+        ---------
+        outputs : torch.Tensor
+            The outputs of shape [N, C], cosine simiarity is required
+        targets : torch.Tensor
+            The targets of shape [N, C], where the margin is applied for
+
+        Return
+        ---------
+        predictions : torch.Tensor
+        """
+        cosine = outputs
+        sine = torch.sqrt(1.0 - torch.pow(cosine, 2))
+        phi = cosine * self.cos_m - sine * self.sin_m  # cos(theta + m)
+        if self.easy_margin:
+            phi = torch.where(cosine > 0, phi, cosine)
+        else:
+            phi = torch.where(cosine > self.th, phi, cosine - self.mm)
+        outputs = (targets * phi) + ((1.0 - targets) * cosine)
+        return self.scale * outputs
+
+
+class LogSoftmaxWrapper(nn.Module):
+    """
+    Arguments
+    ---------
+    Returns
+    ---------
+    loss : torch.Tensor
+        Learning loss
+    predictions : torch.Tensor
+        Log probabilities
+    Example
+    -------
+    >>> outputs = torch.tensor([ [1., -1.], [-1., 1.], [0.9, 0.1], [0.1, 0.9] ])
+    >>> outputs = outputs.unsqueeze(1)
+    >>> targets = torch.tensor([ [0], [1], [0], [1] ])
+    >>> log_prob = LogSoftmaxWrapper(nn.Identity())
+    >>> loss = log_prob(outputs, targets)
+    >>> 0 <= loss < 1
+    tensor(True)
+    >>> log_prob = LogSoftmaxWrapper(AngularMargin(margin=0.2, scale=32))
+    >>> loss = log_prob(outputs, targets)
+    >>> 0 <= loss < 1
+    tensor(True)
+    >>> outputs = torch.tensor([ [1., -1.], [-1., 1.], [0.9, 0.1], [0.1, 0.9] ])
+    >>> log_prob = LogSoftmaxWrapper(AdditiveAngularMargin(margin=0.3, scale=32))
+    >>> loss = log_prob(outputs, targets)
+    >>> 0 <= loss < 1
+    tensor(True)
+    """
+
+    def __init__(self, loss_fn):
+        super(LogSoftmaxWrapper, self).__init__()
+        self.loss_fn = loss_fn
+        self.criterion = torch.nn.KLDivLoss(reduction="sum")
+
+    def forward(self, outputs, targets, length=None):
+        """
+            Arguments
+            ---------
+            outputs : torch.Tensor
+                Network output tensor, of shape
+                [batch, 1, outdim].
+            targets : torch.Tensor
+                Target tensor, of shape [batch, 1].
+            Returns
+            -------
+            loss: torch.Tensor
+                loss for current examples
+        """
+        outputs = outputs.squeeze(1)
+        targets = targets.squeeze(1)
+        targets = F.one_hot(targets.long(), outputs.shape[1]).float()
+        try:
+            predictions = self.loss_fn(outputs, targets)
+        except TypeError:
+            predictions = self.loss_fn(outputs)
+
+        predictions = F.log_softmax(predictions, dim=1)
+        loss = self.criterion(predictions, targets) / targets.sum()
+        return loss
 
 
 def ctc_loss_kd(log_probs, targets, input_lens, blank_index, device):
