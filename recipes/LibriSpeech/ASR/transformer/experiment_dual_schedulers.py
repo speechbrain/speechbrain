@@ -225,6 +225,8 @@ class ASR(sb.core.Brain):
                 meta={"ACC": stage_stats["ACC"], "epoch": epoch},
                 min_keys=["ACC"],
             )
+
+            if self.multigpu_count.startswith
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
@@ -274,11 +276,6 @@ class ASR(sb.core.Brain):
         self.checkpointer.add_recoverable("model", self.modules)
         super().on_fit_start()
 
-    
-# def init_optimizers(self):
-#         """Initializes the optmizers (needed to support DDP)"""
-#         self.optimizer = self.opt_class(self.hparams.model.parameters())
-#         self.checkpointer.add_recoverable("optimizer", self.optimizer)
 
 if __name__ == "__main__":
     # This hack needed to import data preparation script from ../..
