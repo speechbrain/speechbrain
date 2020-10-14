@@ -164,20 +164,35 @@ class TransformerBasedEncoder(nn.Module):
         d_ffn=1024,
         nhead=8,
         num_layers=1,
+        version=1,
     ):
         super(TransformerBasedEncoder, self).__init__()
 
         self.in_channels = in_channels
         self.kernel_size = kernel_size
-        self.conv1d = nn.Conv1d(
-            in_channels=in_channels,
-            out_channels=out_channels,
-            kernel_size=1,
-            stride=1,
-            groups=1,
-            bias=False,
-        )
-        self.pooling = Linear(1)
+        self.version = version
+        if version == 1:
+            self.conv1d = nn.Conv1d(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                kernel_size=1,
+                stride=1,
+                groups=1,
+                bias=False,
+            )
+            self.pooling = Linear(1)
+        elif version == 2:
+            self.conv1d = nn.Conv1d(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                kernel_size=kernel_size,
+                stride=kernel_size // 2,
+                groups=1,
+                bias=False,
+            )
+        else:
+            raise ValueError("No such version!")
+
         self.transformer = SBTransformerBlock(
             num_layers=num_layers,
             nhead=nhead,
@@ -200,14 +215,23 @@ class TransformerBasedEncoder(nn.Module):
             x = torch.unsqueeze(x, dim=1)
 
         x = self.conv1d(x)
-        x, _ = self._Segmentation(x, self.kernel_size)
-        x = x.permute(0, 3, 2, 1)
-        x = x.reshape(-1, x.size(-2), x.size(-1))
-        x = self.transformer(x, init_params=init_params)
-        x = x.reshape(batchsize, -1, x.size(-2), x.size(-1))
-        x = x.permute(0, 1, 3, 2)
-        x = self.pooling(x, init_params=init_params)
-        x = x.squeeze(-1).permute(0, 2, 1)
+        if self.version == 1:
+            x, _ = self._Segmentation(x, self.kernel_size)
+            x = x.permute(0, 3, 2, 1)
+            x = x.reshape(-1, x.size(-2), x.size(-1))
+            x = self.transformer(x, init_params=init_params)
+            x = x.reshape(batchsize, -1, x.size(-2), x.size(-1))
+            x = x.permute(0, 1, 3, 2)
+            x = self.pooling(x, init_params=init_params)
+            x = x.squeeze(-1).permute(0, 2, 1)
+        else:
+            x, gap = self._Segmentation(x, self.kernel_size)
+            x = x.permute(0, 3, 2, 1)
+            x = x.reshape(-1, x.size(-2), x.size(-1))
+            x = self.transformer(x, init_params=init_params)
+            x = x.reshape(batchsize, -1, x.size(-2), x.size(-1))
+            x = x.permute(0, 3, 2, 1)
+            x = self._over_add(x, gap)
 
         x = F.relu(x)
 
