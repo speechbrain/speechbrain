@@ -79,7 +79,7 @@ class G2P(sb.Brain):
 
         if stage != sb.Stage.TRAIN:
             # Convert indices to words
-            phns = undo_padding(phns, rel_length)
+            phns = undo_padding(phns, phn_lens)
             phns = sb.data_io.convert_index_to_lab(phns, self.hparams.ind2lab)
             seq = sb.data_io.convert_index_to_lab(seq, self.hparams.ind2lab)
             self.per_metrics.append(ids, seq, phns)
@@ -121,14 +121,15 @@ class G2P(sb.Brain):
         if stage == sb.Stage.VALID:
             old_lr, new_lr = self.hparams.lr_annealing(stage_stats["PER"])
             sb.nnet.update_learning_rate(self.optimizer, new_lr)
-            self.hparams.train_logger.log_stats(
-                stats_meta={"epoch": epoch, "lr": old_lr},
-                train_stats=self.train_stats,
-                valid_stats=stage_stats,
-            )
-            self.checkpointer.save_and_keep_only(
-                meta={"PER": stage_stats["PER"]}, min_keys=["PER"],
-            )
+            if self.root_process:
+                self.hparams.train_logger.log_stats(
+                    stats_meta={"epoch": epoch, "lr": old_lr},
+                    train_stats=self.train_stats,
+                    valid_stats=stage_stats,
+                )
+                self.checkpointer.save_and_keep_only(
+                    meta={"PER": stage_stats["PER"]}, min_keys=["PER"],
+                )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
