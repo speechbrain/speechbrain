@@ -828,5 +828,4 @@ def cal_si_snr_stereo(source, estimate_source):
         torch.sum(e_noise ** 2, dim=1) + EPS
     )
     si_snr = 10 * torch.log10(si_snr_beforelog + EPS).mean(0)  # [B, C]
-
     return -si_snr.unsqueeze(0)

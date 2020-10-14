@@ -129,6 +129,13 @@ class SourceSeparationBrainSuperclass(sb.core.Brain):
             targets = self.params.augmentation(targets, wav_lens)
             targets = targets.reshape(-1, 2, targets.shape[-1])
             targets = targets.permute(0, 2, 1)
+
+            if hasattr(self.params, "use_data_shuffling"):
+                perm = torch.randperm(targets.size(0))
+                targets = torch.stack(
+                    [targets[perm, :, 0], targets[:, :, 1]], dim=2
+                )
+
             inputs = targets.sum(-1)
 
         if isinstance(self.params.lr_scheduler, schedulers.NoamScheduler):
@@ -279,6 +286,11 @@ def main():
         help="will only run testing, and not training",
         action="store_true",
     )
+    parser.add_argument(
+        "--use_multigpu",
+        help="will use multigpu in training",
+        action="store_true",
+    )
 
     args = parser.parse_args()
 
@@ -353,19 +365,36 @@ def main():
 
     ctn = SourceSeparationBrain(
         modules=[
-            params.Encoder.to(device),
-            params.MaskNet.to(device),
-            params.Decoder.to(device),
+            params.Encoder,  # .to(device),
+            params.MaskNet,  # .to(device),
+            params.Decoder,  # .to(device),
         ],
         optimizer=params.optimizer,
-        first_inputs=[next(iter(train_loader))[0][1].to(device)],
+        first_inputs=[next(iter(train_loader))[0][1]],
         params=params,
         device=device,
     )
 
-    # reinitialize the parameters
     for module in ctn.modules:
         reset_layer_recursively(module)
+
+    if args.use_multigpu and torch.cuda.device_count() > 1:
+        # ctn.modules[i] = torch.nn.DataParallel(ctn.modules[i]).to(device)
+        print("will train on multiple gpus")
+        ctn.params.Encoder = torch.nn.DataParallel(ctn.params.Encoder).to(
+            device
+        )
+        ctn.params.MaskNet = torch.nn.DataParallel(ctn.params.MaskNet).to(
+            device
+        )
+        ctn.params.Decoder = torch.nn.DataParallel(ctn.params.Decoder).to(
+            device
+        )
+    else:
+        print("will train on single gpu")
+        ctn.params.Encoder = ctn.params.Encoder.to(device)
+        ctn.params.MaskNet = ctn.params.MaskNet.to(device)
+        ctn.params.Decoder = ctn.params.Decoder.to(device)
 
     params.checkpointer.recover_if_possible(lambda c: -c.meta["av_loss"])
 

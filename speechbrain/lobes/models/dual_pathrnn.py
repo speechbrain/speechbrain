@@ -145,7 +145,133 @@ class Encoder(nn.Module):
         # B x 1 x T -> B x C x T_out
         x = self.conv1d(x)
         x = F.relu(x)
+
         return x
+
+
+class TransformerBasedEncoder(nn.Module):
+    """
+       The transformer encoder we discussed on slack
+       kernel_size: the length of filters
+       out_channels: the number of filters
+    """
+
+    def __init__(
+        self,
+        kernel_size=2,
+        out_channels=64,
+        in_channels=1,
+        d_ffn=1024,
+        nhead=8,
+        num_layers=1,
+    ):
+        super(TransformerBasedEncoder, self).__init__()
+
+        self.in_channels = in_channels
+        self.kernel_size = kernel_size
+        self.conv1d = nn.Conv1d(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            kernel_size=1,
+            stride=1,
+            groups=1,
+            bias=False,
+        )
+        self.pooling = Linear(1)
+        self.transformer = SBTransformerBlock(
+            num_layers=num_layers,
+            nhead=nhead,
+            dropout=0,
+            d_ffn=d_ffn,
+            use_positional_encoding=True,
+        )
+
+    def forward(self, x, init_params=True):
+        """
+          Input:
+              x: [B, T], B is batch size, T is times
+          Returns:
+              x: [B, C, T_out]
+              T_out is the number of time steps
+        """
+        # B x T -> B x 1 x T
+        batchsize = x.size(0)
+        if self.in_channels == 1:
+            x = torch.unsqueeze(x, dim=1)
+
+        x = self.conv1d(x)
+        x, _ = self._Segmentation(x, self.kernel_size)
+        x = x.permute(0, 3, 2, 1)
+        x = x.reshape(-1, x.size(-2), x.size(-1))
+        x = self.transformer(x, init_params=init_params)
+        x = x.reshape(batchsize, -1, x.size(-2), x.size(-1))
+        x = x.permute(0, 1, 3, 2)
+        x = self.pooling(x, init_params=init_params)
+        x = x.squeeze(-1).permute(0, 2, 1)
+
+        x = F.relu(x)
+
+        return x
+
+    def _padding(self, input, K):
+        """
+           padding the audio times
+           K: chunks of length
+           P: hop size
+           input: [B, N, L]
+        """
+        B, N, L = input.shape
+        P = K // 2
+        gap = K - (P + L % K) % K
+        if gap > 0:
+            pad = torch.Tensor(torch.zeros(B, N, gap)).type(input.type())
+            input = torch.cat([input, pad], dim=2)
+
+        _pad = torch.Tensor(torch.zeros(B, N, P)).type(input.type())
+        input = torch.cat([_pad, input, _pad], dim=2)
+
+        return input, gap
+
+    def _Segmentation(self, input, K):
+        """
+           the segmentation stage splits
+           K: chunks of length
+           P: hop size
+           input: [B, N, L]
+           output: [B, N, K, S]
+        """
+        B, N, L = input.shape
+        P = K // 2
+        input, gap = self._padding(input, K)
+        # [B, N, K, S]
+        input1 = input[:, :, :-P].contiguous().view(B, N, -1, K)
+        input2 = input[:, :, P:].contiguous().view(B, N, -1, K)
+        input = (
+            torch.cat([input1, input2], dim=3).view(B, N, -1, K).transpose(2, 3)
+        )
+
+        return input.contiguous(), gap
+
+    def _over_add(self, input, gap):
+        """
+           Merge sequence
+           input: [B, N, K, S]
+           gap: padding length
+           output: [B, N, L]
+        """
+        B, N, K, S = input.shape
+        P = K // 2
+        # [B, N, S, K]
+        input = input.transpose(2, 3).contiguous().view(B, N, -1, K * 2)
+
+        input1 = input[:, :, :, :K].contiguous().view(B, N, -1)[:, :, P:]
+        input2 = input[:, :, :, K:].contiguous().view(B, N, -1)[:, :, :-P]
+        input = input1 + input2
+        # [B, N, L]
+        if gap > 0:
+            input = input[:, :, :-gap]
+
+        return input
 
 
 class Decoder(nn.ConvTranspose1d):
@@ -689,8 +815,9 @@ class Dual_Computation_Block(nn.Module):
             self.inter_norm = select_norm(norm, out_channels, 4)
 
         # Linear
-        self.intra_linear = Linear(out_channels)
-        self.inter_linear = Linear(out_channels)
+        if linear_layer_after_inter_intra:
+            self.intra_linear = Linear(out_channels)
+            self.inter_linear = Linear(out_channels)
 
     def forward(self, x, init_params=True):
         """
