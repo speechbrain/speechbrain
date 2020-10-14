@@ -133,7 +133,7 @@ class NewBobScheduler:
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
-    def load(self, path, end_of_epoch):
+    def load(self, path, end_of_epoch, device=None):
         del end_of_epoch  # Unused in this class
         data = torch.load(path)
         self.hyperparam_value = data["hyperparam_value"]
