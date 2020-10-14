@@ -363,10 +363,10 @@ def diarizer(full_csv, split_type):
     # Loop through each recording
     for rec_id in all_rec_ids:
 
-        ss = "[" + str(i) + "/" + N + "]"
+        ss = "[" + str(split_type) + ": " + str(i) + "/" + N + "]"
         i = i + 1
 
-        msg = "[%s] Diarizing %s : %s " % (split_type, ss, rec_id)
+        msg = "Diarizing %s : %s " % (ss, rec_id)
         logger.info(msg)
 
         if not os.path.exists(os.path.join(params.embedding_dir, split)):
