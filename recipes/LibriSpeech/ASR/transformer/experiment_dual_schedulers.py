@@ -31,7 +31,6 @@ Authors
 import os
 import sys
 import torch
-import torch.distributed as dist
 
 import speechbrain as sb
 from speechbrain.utils.data_utils import download_file
@@ -226,7 +225,6 @@ class ASR(sb.core.Brain):
                 min_keys=["ACC"],
             )
 
-            if self.multigpu_count.startswith
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
