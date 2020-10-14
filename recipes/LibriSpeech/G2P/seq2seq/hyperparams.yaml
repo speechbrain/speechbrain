@@ -1,5 +1,5 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 16
+seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Data paths
@@ -20,7 +20,7 @@ csv_test: !ref <data_folder>/lexicon_test.csv
 
 # Neural Parameters
 N_epochs: 20
-N_batch: 512
+N_batch: 1024
 lr: 0.002
 device: 'cuda'
 multigpu_count: 0  # Set to number of GPUs for multi-gpu training
@@ -32,8 +32,8 @@ enc_neurons: 512
 enc_num_layers: 4
 
 dec_dropout: 0.5
-dec_neurons: 256
-dec_att_neurons: 512
+dec_neurons: 512
+dec_att_neurons: 256
 dec_num_layers: 4
 
 embedding_dim: 512
@@ -49,6 +49,7 @@ train_loader: !new:speechbrain.data_io.DataLoaderFactory
     batch_size: !ref <N_batch>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
+    drop_last: False # Set it to True with multigpu_backend: data_parallel
     replacements:
         $data_folder: !ref <data_folder>
 
@@ -58,6 +59,7 @@ valid_loader: !new:speechbrain.data_io.DataLoaderFactory
     batch_size: !ref <N_batch>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
+    drop_last: False #  Set it to True with multigpu_backend: data_parallel
     replacements:
         $data_folder: !ref <data_folder>
 
@@ -125,9 +127,9 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     bos_index: !ref <bos>
     eos_index: !ref <eos>
     min_decode_ratio: 0
-    max_decode_ratio: 1.5
+    max_decode_ratio: 1.35
     beam_size: 16
-    eos_threshold: 100.0
+    eos_threshold: 10.0
     using_max_attn_shift: False
     max_attn_shift: 10
     coverage_penalty: 5.0
