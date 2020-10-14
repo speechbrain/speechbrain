@@ -485,7 +485,6 @@ class TransformerDecoderLayer(nn.Module):
         if not self.normalize_before:
             tgt = self.norm2(tgt)
 
-<<<<<<< HEAD
         if self.normalize_before:
             tgt1 = self.norm3(tgt)
         else:
@@ -497,13 +496,6 @@ class TransformerDecoderLayer(nn.Module):
         tgt = tgt + self.dropout3(tgt2)
         if not self.normalize_before:
             tgt = self.norm3(tgt)
-=======
-        tgt2 = self.pos_ffn(tgt)
-
-        # add & norm
-        tgt = tgt + self.dropout3(tgt2)
-        tgt = self.norm3(tgt)
->>>>>>> master
 
         return tgt, self_attn, multihead_attention
 
