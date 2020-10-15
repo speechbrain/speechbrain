@@ -5,7 +5,6 @@ Authors
 """
 
 import os.path
-from importlib.metadata import version
 import torch
 import logging
 import csv
@@ -193,16 +192,6 @@ class SentencePiece:
         if self.model_type not in ["char"]:
             # include vocab_size
             query += " --vocab_size=" + str(self.vocab_size)
-        # Check sentencepiece version to allow the use of minloglevel
-        spm_version = version("sentencepiece").split(".")
-        if (
-            spm_version[0] == "0"
-            and spm_version[1] == "1"
-            and int(spm_version[2]) <= 91
-        ):
-            logger.info("[TOKENIZER] minloglevel is not supported")
-        else:
-            query += " --minloglevel=" + self.minloglevel
         # Train tokenizer
         spm.SentencePieceTrainer.train(query)
 
