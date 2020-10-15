@@ -14,13 +14,11 @@ output_folder: !ref results/Contextnet_Transformer/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
-# lm_ckpt_file: /network/tmp1/jianyuan.zhong/TransformerLM/e16_gelu_noskip_1024/save/CKPT+2020-10-06+05-02-01+00/model.ckpt # yamllint disable-line rule:line-length
-tok_mdl_file: /scratch/jianyuan/5000_unigram.model
-tok_voc_file: /scratch/jianyuan/5000_unigram.vocab
+lm_ckpt_file: /network/tmp1/jianyuan.zhong/TransformerLM/e16_gelu_noskip_1024/save/CKPT+2020-10-06+05-02-01+00/model.ckpt # yamllint disable-line rule:line-length
 
 # Tokenizer model
-tok_mdl_file: /network/tmp1/jianyuan.zhong/TransformerLM/e16_gelu_noskip_1024/save/5000_unigram.model
-tok_voc_file: /network/tmp1/jianyuan.zhong/TransformerLM/e16_gelu_noskip_1024/save/5000_unigram.vocab
+tok_mdl_file: /network/tmp1/jianyuan.zhong/TransformerLM/e16_gelu_noskip_1024/save/5000_unigram.model # yamllint disable-line rule:line-length
+tok_voc_file: /network/tmp1/jianyuan.zhong/TransformerLM/e16_gelu_noskip_1024/save/5000_unigram.vocab # yamllint disable-line rule:line-length
 
 # Data files
 data_folder: !PLACEHOLDER  # e.g. /path/to/librispeech
