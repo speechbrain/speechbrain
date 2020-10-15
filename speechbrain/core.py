@@ -14,7 +14,6 @@ import argparse
 import subprocess
 import ruamel.yaml
 import speechbrain as sb
-import torch.distributed as dist
 from io import StringIO
 from datetime import date
 from enum import Enum, auto
@@ -162,6 +161,7 @@ def parse_arguments(arg_list):
         "--log_config",
         help="A file storing the configuration options for logging",
     )
+    parser.add_argument("--device", help="The device to run the experiment on")
 
     # Ignore items that are "None", they were not passed
     parsed_args = vars(parser.parse_args(arg_list))
@@ -186,26 +186,6 @@ def parse_arguments(arg_list):
     ruamel_yaml.dump(overrides, yaml_stream)
 
     return param_file, yaml_stream.getvalue()
-
-
-def ddp_init(rank, brain, args):
-    print(f"Process {rank} reporting in!")
-    os.environ["MASTER_ADDR"] = "localhost"
-    os.environ["MASTER_PORT"] = "12321"
-
-    # Remove the "ddp_" from the backend
-    backend = brain.multigpu_backend[4:]
-    dist.init_process_group(
-        backend=backend, world_size=brain.multigpu_count, rank=rank
-    )
-    brain.device = rank
-    brain.root_process = rank == 0
-
-    # force the models to start and remain synchronized
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-
-    brain._fit(*args)
 
 
 class Stage(Enum):
@@ -326,6 +306,24 @@ class Brain:
             clsname = self.__class__.__name__
             fmt_num = sb.format_order_of_magnitude(total_params)
             logger.info(f"{fmt_num} trainable parameters in {clsname}")
+
+        # Initialize ddp environment
+        if self.multigpu_backend.startswith("ddp"):
+            rank = int(self.device[-1])
+            os.environ["MASTER_ADDR"] = "localhost"
+            os.environ["MASTER_PORT"] = "12321"
+
+            # Remove the "ddp_" from the backend
+            backend = self.multigpu_backend[4:]
+            torch.distributed.init_process_group(
+                backend=backend, world_size=self.multigpu_count, rank=rank
+            )
+
+            self.root_process = rank == 0
+
+            # force the models to start and remain synchronized
+            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.benchmark = False
 
     def compute_forward(self, x, stage):
         """Forward pass, to be overridden by sub-classes.
@@ -546,17 +544,6 @@ class Brain:
         progressbar : bool
             Whether to display the progress of each epoch in a progressbar.
         """
-        if self.multigpu_backend and self.multigpu_backend.startswith("ddp"):
-            self._ddp_fit(epoch_counter, train_set, valid_set, progressbar)
-        else:
-            self._fit(epoch_counter, train_set, valid_set, progressbar)
-
-    def _ddp_fit(self, *args):
-        """Fit on multiple gpus using ddp backend"""
-        torch.multiprocessing.spawn(ddp_init, (self, args), self.multigpu_count)
-
-    def _fit(self, epoch_counter, train_set, valid_set, progressbar):
-        """Adjust parameters based on data."""
         self.on_fit_start()
 
         # Use factories to get loaders
@@ -568,7 +555,7 @@ class Brain:
                 self.train_sampler = DistributedSampler(
                     dataset=train_set.dataset,
                     num_replicas=self.multigpu_count,
-                    rank=self.device,
+                    rank=int(self.device[-1]),
                     shuffle=train_set.shuffle,
                 )
             train_set = train_set.get_dataloader(self.train_sampler)
