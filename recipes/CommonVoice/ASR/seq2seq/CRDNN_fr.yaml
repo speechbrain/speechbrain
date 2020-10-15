@@ -17,28 +17,28 @@ train_log: !ref <output_folder>/train_log.txt
 # Data files
 data_folder: !PLACEHOLDER # root path of the commonvoice dataset
 wav_folder: !PLACEHOLDER # !! Largish disk required !! (mp3 files converted)
-train_tsv_file: !ref <data_folder>/train.tsv # Standard CommonVoice .tsv files
+train_tsv_file: !ref <data_folder>/dev.tsv # Standard CommonVoice .tsv files
 dev_tsv_file: !ref <data_folder>/dev.tsv # Standard CommonVoice .tsv files
 test_tsv_file: !ref <data_folder>/test.tsv # Standard CommonVoice .tsv files
 accented_letters: False
 language: fr
 duration_threshold: 8 # Longer sentences will be removed (in seconds)
-csv_train: !ref <save_folder>/train.csv
+csv_train: !ref <save_folder>/dev.csv
 csv_valid: !ref <save_folder>/dev.csv
 csv_test: !ref <save_folder>/test.csv
 
 # Training parameters
-number_of_epochs: 35
-number_of_ctc_epochs: 30
+number_of_epochs: 1 #35
+number_of_ctc_epochs: 1 #30
 
 # With data_parallel batch_size is split into N jobs
 # With DDP batch_size is multiplied by N jobs
-batch_size: 3
+batch_size: 16
 lr: 1.0
 ctc_weight: 0.3
 device: 'cuda'
-multigpu_count: 2  # Set to number of GPUs for multi-gpu training
-multigpu_backend: ddp_nccl  # ["data_parallel", "ddp_nccl", "ddp_gloo", "ddp_mpi"]
+multigpu_count: 2  # Set to number of GPUs for multi-gpu training (only for DDP)
+multigpu_backend: data_parallel  # ["data_parallel", "ddp_nccl", "ddp_gloo", "ddp_mpi"]
 token_type: unigram # ["unigram", "bpe", "char"]
 
 # Feature parameters
@@ -89,7 +89,7 @@ epoch_counter: !new:speechbrain.EpochCounter
 train_loader: !new:speechbrain.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>
     batch_size: !ref <batch_size>
-    sentence_sorting: descending
+    sentence_sorting: ascending
     output_folder: !ref <output_folder>
     csv_read: [wav, wrd]
 
@@ -164,6 +164,12 @@ seq_lin: !new:speechbrain.nnet.Linear
 
 log_softmax: !new:speechbrain.nnet.Softmax
     apply_log: True
+
+ctc_cost: !name:speechbrain.nnet.ctc_loss
+    blank_index: !ref <blank_index>
+
+seq_cost: !name:speechbrain.nnet.nll_loss
+    label_smoothing: 0.1
 
 modules:
   enc: !ref <enc>
