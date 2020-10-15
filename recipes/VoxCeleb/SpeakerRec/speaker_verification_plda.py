@@ -8,7 +8,7 @@ import numpy
 import pickle
 
 from tqdm.contrib import tqdm
-from speechbrain.utils.EER import EER
+from speechbrain.utils.metric_stats import BinaryMetricStats
 from speechbrain.utils.data_utils import download_file
 from speechbrain.data_io.data_io import convert_index_to_lab
 from speechbrain.processing.PLDA_LDA import StatObject_SB
@@ -272,12 +272,11 @@ scores_plda = fast_PLDA_scoring(
     params.compute_plda.Sigma,
 )
 
-# Positive and Negative scores
-positive_scores = []
-negative_scores = []
-
 gt_file = os.path.join(params.data_folder, "meta", "veri_test.txt")
 
+ids = []
+labels = []
+scores = []
 for line in open(gt_file):
     lab = int(line.split(" ")[0].rstrip().split(".")[0].strip())
     enrol_id = line.split(" ")[1].rstrip().split(".")[0].strip()
@@ -288,11 +287,9 @@ for line in open(gt_file):
     j = int(numpy.where(scores_plda.segset == test_id)[0][0])
 
     s = float(scores_plda.scoremat[i, j])
-
-    if lab == 1:
-        positive_scores.append(s)
-    else:
-        negative_scores.append(s)
+    scores.append(s)
+    labels.append(lab)
+    ids.append(enrol_id + "<>" + test_id)
 
 
 logger.info("Computing EER... ")
@@ -300,5 +297,7 @@ del scores_plda
 del embeddings_stat
 del enrol_obj
 del test_obj
-eer = EER(torch.tensor(positive_scores), torch.tensor(negative_scores))
+eer_computer = BinaryMetricStats()
+eer_computer.append(ids, scores, labels)
+eer = eer_computer.summarize(field="DER")
 logger.info("EER=%f", eer)
