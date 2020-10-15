@@ -277,7 +277,7 @@ class Brain:
     >>> from torch.optim import SGD
     >>> class SimpleBrain(Brain):
     ...     def compute_forward(self, x, stage):
-    ...         return self.hparams.model(x)
+    ...         return self.modules.model(x)
     ...     def compute_objectives(self, predictions, targets, stage):
     ...         return torch.nn.functional.l1_loss(predictions, targets)
     >>> model = torch.nn.Linear(in_features=10, out_features=10)
@@ -425,17 +425,7 @@ class Brain:
         Override this class if there are multiple optimizers.
         """
         if self.opt_class is not None:
-            params = []
-            for name, hparam in self.hparams.__dict__.items():
-                if isinstance(hparam, torch.nn.Module):
-                    if any(p.requires_grad for p in hparam.parameters()):
-                        params.extend(hparam.parameters())
-
-            if self.jit_modules is not None:
-                for name, jit_module in self.jit_modules.__dict__.items():
-                    params.extend(jit_module.parameters())
-
-            self.optimizer = self.opt_class(params)
+            self.optimizer = self.opt_class(self.modules.parameters())
 
             if self.checkpointer is not None:
                 self.checkpointer.add_recoverable("optimizer", self.optimizer)
