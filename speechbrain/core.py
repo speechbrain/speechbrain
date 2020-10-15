@@ -408,7 +408,9 @@ class Brain:
 
         # Load latest checkpoint to resume training if interrupted
         if self.checkpointer is not None:
-            self.checkpointer.recover_if_possible(device=self.device)
+            self.checkpointer.recover_if_possible(
+                device=torch.device(self.device)
+            )
 
     def init_optimizers(self):
         """Called during ``on_fit_start()``, initialize optimizers
@@ -456,7 +458,9 @@ class Brain:
         # Recover best checkpoint for evaluation
         if self.checkpointer is not None:
             self.checkpointer.recover_if_possible(
-                max_key=max_key, min_key=min_key, device=self.device
+                max_key=max_key,
+                min_key=min_key,
+                device=torch.device(self.device),
             )
 
     def fit_batch(self, batch):
@@ -611,7 +615,7 @@ class Brain:
                 self.modules.eval()
                 avg_valid_loss = 0.0
                 with torch.no_grad():
-                    for i, batch in enumerate(
+                    for self.step, batch in enumerate(
                         tqdm(valid_set, dynamic_ncols=True, disable=disable)
                     ):
                         loss = self.evaluate_batch(batch, stage=Stage.VALID)

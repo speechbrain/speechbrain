@@ -31,7 +31,6 @@ Authors
 import os
 import sys
 import torch
-import torch.distributed as dist
 
 import speechbrain as sb
 from speechbrain.utils.data_utils import download_file
@@ -159,14 +158,9 @@ class ASR(sb.core.Brain):
         predictions = self.compute_forward(inputs, targets, sb.Stage.TRAIN)
         loss = self.compute_objectives(predictions, targets, sb.Stage.TRAIN)
 
-        if not hasattr(self, "step"):
-            self.step = 0
-
         # normalize the loss by gradient_accumulation step
         (loss / self.hparams.gradient_accumulation).backward()
 
-        # gradient accumulation
-        self.step = self.step + 1
         if self.step % self.hparams.gradient_accumulation == 0:
             # gradient clipping
             torch.nn.utils.clip_grad_norm_(self.modules.parameters(), 5.0)
