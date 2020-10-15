@@ -10,7 +10,39 @@ import os
 import shutil
 import urllib.request
 import collections.abc
+import torch
 import tqdm
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+def undo_padding(batch, lengths):
+    """Produces Python lists given a batch of sentences with
+    their corresponding relative lenghts.
+
+    Arguments
+    ---------
+    batch : tensor
+        Batch of sentences gathered in a batch.
+    lenght: tensor
+        Relative length of each sentence in the batch.
+
+    Example
+    -------
+    >>> batch=torch.rand([4,100])
+    >>> lengths=torch.tensor([0.5,0.6,0.7,1.0])
+    >>> snt_list=undo_padding(batch, lengths)
+    >>> len(snt_list)
+    4
+    """
+    batch_max_len = batch.shape[1]
+    as_list = []
+    for seq, seq_length in zip(batch, lengths):
+        actual_size = int(torch.round(seq_length * batch_max_len))
+        seq_true = seq.narrow(0, 0, actual_size)
+        as_list.append(seq_true.tolist())
+    return as_list
 
 
 def get_all_files(
@@ -238,7 +270,7 @@ def download_file(
     elif not os.path.isfile(dest) or (
         os.path.isfile(dest) and replace_existing
     ):
-        print(f"Downloading {source} to {dest}")
+        logger.info(f"Downloading {source} to {dest}")
         with DownloadProgressBar(
             unit="B", unit_scale=True, miniters=1, desc=source.split("/")[-1]
         ) as t:
@@ -246,11 +278,11 @@ def download_file(
                 source, filename=dest, reporthook=t.update_to
             )
     else:
-        print("Destination path is not empty. Skipping download")
+        logger.info("Destination path is not empty. Skipping download")
 
     # Unpack if necessary
     if unpack:
         if dest_unpack is None:
             dest_unpack = os.path.dirname(dest)
-        print(f"Extracting {dest} to {dest_unpack}")
+        logger.info(f"Extracting {dest} to {dest_unpack}")
         shutil.unpack_archive(dest, dest_unpack)

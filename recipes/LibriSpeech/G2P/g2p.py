@@ -7,7 +7,7 @@ import speechbrain.utils.edit_distance as edit_distance
 from speechbrain.data_io.data_io import prepend_bos_token
 from speechbrain.data_io.data_io import append_eos_token
 from speechbrain.data_io.data_io import convert_index_to_lab
-from speechbrain.decoders.decoders import undo_padding
+from speechbrain.utils.data_utils import undo_padding
 from speechbrain.decoders.seq2seq import S2SRNNBeamSearcher
 from speechbrain.utils.edit_distance import wer_details_for_batch
 from speechbrain.utils.train_logger import summarize_error_rate

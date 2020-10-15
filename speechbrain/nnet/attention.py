@@ -9,15 +9,16 @@ import torch
 import logging
 import torch.nn as nn
 import numpy as np
+from typing import Optional
 from speechbrain.data_io.data_io import length_to_mask
 
 logger = logging.getLogger(__name__)
 
 
 class ContentBasedAttention(nn.Module):
-    """ This class implements content-based attention module for seq2seq learning.
-    Ref: NEURAL MACHINE TRANSLATION BY JOINTLY LEARNING TO ALIGN AND TRANSLATE, Bahdanau et.al.
-    https://arxiv.org/pdf/1409.0473.pdf
+    """ This class implements content-based attention module for seq2seq
+    learning. Ref: NEURAL MACHINE TRANSLATION BY JOINTLY LEARNING TO ALIGN
+    AND TRANSLATE, Bahdanau et.al. https://arxiv.org/pdf/1409.0473.pdf
 
     Arguments
     ---------
@@ -134,6 +135,8 @@ class LocationAwareAttention(nn.Module):
     torch.Size([4, 5])
     """
 
+    precomputed_enc_h: Optional[torch.Tensor]
+
     def __init__(
         self,
         enc_dim,
@@ -243,11 +246,20 @@ class MultiheadAttention(nn.Module):
         total number of features in key. Default: None.
     vdim : int
         total number of features in value. Default: None.
+
+    Example
+    -------
+    >>> inputs = torch.rand([8, 60, 512])
+    >>> net = MultiheadAttention(nhead=8, d_model=inputs.shape[-1])
+    >>> outputs, attn = net(inputs, inputs, inputs)
+    >>> outputs.shape
+    torch.Size([8, 60, 512])
     """
 
     def __init__(
         self,
         nhead,
+        d_model,
         dropout=0.0,
         bias=True,
         add_bias_kv=False,
@@ -256,68 +268,66 @@ class MultiheadAttention(nn.Module):
         vdim=None,
     ):
         super().__init__()
-        self.nhead = nhead
-        self.dropout = dropout
-        self.bias = bias
-        self.add_bias_kv = add_bias_kv
-        self.add_zero_attn = add_zero_attn
-        self.kdim = kdim
-        self.vdim = vdim
-
-    def init_params(self, first_input):
-        if len(first_input.shape) == 4:
-            first_input = first_input.reshape(
-                first_input.shape[0],
-                first_input.shape[1],
-                first_input.shape[2] * first_input.shape[3],
-            )
-
-        self.embed_dim = first_input.shape[-1]
 
         self.att = nn.MultiheadAttention(
-            embed_dim=self.embed_dim,
-            num_heads=self.nhead,
-            dropout=self.dropout,
-            bias=self.bias,
-            add_bias_kv=self.add_bias_kv,
-            add_zero_attn=self.add_zero_attn,
-            kdim=self.kdim,
-            vdim=self.vdim,
-        ).to(first_input.device)
+            embed_dim=d_model,
+            num_heads=nhead,
+            dropout=dropout,
+            bias=bias,
+            add_bias_kv=add_bias_kv,
+            add_zero_attn=add_zero_attn,
+            kdim=kdim,
+            vdim=vdim,
+        )
 
     def forward(
         self,
         query,
         key,
         value,
-        attn_mask=None,
-        key_padding_mask=None,
-        init_params=False,
+        attn_mask: Optional[torch.Tensor] = None,
+        key_padding_mask: Optional[torch.Tensor] = None,
     ):
         """
         Arguements
         ----------
         query: tensor
-            (L, N, E)(L,N,E) where L is the target sequence length, N is the batch size, E is the embedding dimension.
+            (L, N, E) where L is the target sequence length,
+            N is the batch size, E is the embedding dimension.
         key: tensor
-            (S, N, E)(S,N,E) , where S is the source sequence length, N is the batch size, E is the embedding dimension.
+            (S, N, E) where S is the source sequence length,
+            N is the batch size, E is the embedding dimension.
         value: tensor
-            (S, N, E)(S,N,E) where S is the source sequence length, N is the batch size, E is the embedding dimension.
+            (S, N, E) where S is the source sequence length,
+            N is the batch size, E is the embedding dimension.
         key_padding_mask: tensor
-            (N, S)(N,S) where N is the batch size, S is the source sequence length. If a ByteTensor is provided, the non-zero positions will be ignored while the position with the zero positions will be unchanged. If a BoolTensor is provided, the positions with the value of True will be ignored while the position with the value of False will be unchanged.
+            (N, S) where N is the batch size, S is the source sequence
+            length. If a ByteTensor is provided, the non-zero positions will
+            be ignored while the position with the zero positions will be
+            unchanged. If a BoolTensor is provided, the positions with the
+            value of True will be ignored while the position with the value
+            of False will be unchanged.
         attn_mask: tensor
-            2D mask (L, S)(L,S) where L is the target sequence length, S is the source sequence length. 3D mask (N*num_heads, L, S)(N∗num_heads,L,S) where N is the batch size, L is the target sequence length, S is the source sequence length. attn_mask ensure that position i is allowed to attend the unmasked positions. If a ByteTensor is provided, the non-zero positions are not allowed to attend while the zero positions will be unchanged. If a BoolTensor is provided, positions with True is not allowed to attend while False values will be unchanged. If a FloatTensor is provided, it will be added to the attention weight.
+            2D mask (L, S) where L is the target sequence length, S is
+            the source sequence length.
+            3D mask (N*num_heads, L, S) where N is the batch
+            size, L is the target sequence length, S is the source sequence
+            length. attn_mask ensure that position i is allowed to attend the
+            unmasked positions. If a ByteTensor is provided, the non-zero
+            positions are not allowed to attend while the zero positions will
+            be unchanged. If a BoolTensor is provided, positions with True is
+            not allowed to attend while False values will be unchanged. If a
+            FloatTensor is provided, it will be added to the attention weight.
 
         Outputs
         -------
         attn_output: tensor
-            (L, N, E)(L,N,E) where L is the target sequence length, N is the batch size, E is the embedding dimension.
+            (L, N, E) where L is the target sequence length, N is the
+            batch size, E is the embedding dimension.
         attn_output_weights: tensor
-            (N, L, S)(N,L,S) where N is the batch size, L is the target sequence length, S is the source sequence length.
+            (N, L, S) where N is the batch size, L is the target
+            sequence length, S is the source sequence length.
         """
-        if init_params:
-            self.init_params(key)
-
         # give tensors of shape (time, batch, fea)
         query = query.permute(1, 0, 2)
         key = key.permute(1, 0, 2)
@@ -338,40 +348,58 @@ class MultiheadAttention(nn.Module):
 
 
 class PositionalwiseFeedForward(nn.Module):
-    def __init__(self, d_ffn, dropout=0.1, activation=nn.ReLU):
-        """The class implements the positional-wise feadd forward module in “Attention Is All You Need”
+    """The class implements the positional-wise feed forward module in
+    “Attention Is All You Need”
 
-        Arguements
-        ----------
-        d_ffn: int
-            dimention of representation space of this positional-wise feadd forward module
-        dropout: float
-            dropout
-        activation: torch class
-            activation functions to be applied (Recommandation: ReLU, GELU)
-        """
+    Arguements
+    ----------
+    d_ffn: int
+        dimention of representation space of this positional-wise feed
+        forward module
+    input_shape : tuple
+        Expected shape of the input. Alternatively use ``input_size``.
+    input_size : int
+        Expected size of the input. Alternatively use ``input_shape``.
+    dropout: float
+        Fraction of outputs to drop.
+    activation: torch class
+        activation functions to be applied (Recommandation: ReLU, GELU)
+
+    Example
+    -------
+    >>> inputs = torch.rand([8, 60, 512])
+    >>> net = PositionalwiseFeedForward(256, input_size=inputs.shape[-1])
+    >>> outputs = net(inputs)
+    >>> outputs.shape
+    torch.Size([8, 60, 512])
+    """
+
+    def __init__(
+        self,
+        d_ffn,
+        input_shape=None,
+        input_size=None,
+        dropout=0.1,
+        activation=nn.ReLU,
+    ):
         super().__init__()
-        self.d_ffn = d_ffn
-        self.dropout = dropout
-        self.activation = activation
 
-    def init_params(self, first_input):
-        self.input_size = first_input.shape[-1]
+        if input_shape is None and input_size is None:
+            raise ValueError("Expected one of input_shape or input_size")
+
+        if input_size is None:
+            input_size = input_shape[-1]
 
         self.ffn = nn.Sequential(
-            nn.Linear(self.input_size, self.d_ffn),
-            self.activation(),
-            nn.Dropout(self.dropout),
-            nn.Linear(self.d_ffn, self.input_size),
-        ).to(first_input.device)
+            nn.Linear(input_size, d_ffn),
+            activation(),
+            nn.Dropout(dropout),
+            nn.Linear(d_ffn, input_size),
+        )
 
-    def forward(self, x, init_params=False):
-        if init_params:
-            self.init_params(x)
-
+    def forward(self, x):
         # give a tensor of shap (time, batch, fea)
         x = x.permute(1, 0, 2)
-
         x = self.ffn(x)
 
         # reshape the output back to (batch, time, fea)

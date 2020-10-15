@@ -7,8 +7,7 @@ def test_deltas():
 
     size = torch.Size([10, 101, 20])
     inp = torch.ones(size)
-    compute_deltas = Deltas()
-    compute_deltas.init_params(inp)
+    compute_deltas = Deltas(input_size=20)
     out = torch.zeros(size)
     assert torch.sum(compute_deltas(inp) == out) == out.numel()
 
