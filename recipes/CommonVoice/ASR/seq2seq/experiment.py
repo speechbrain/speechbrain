@@ -3,9 +3,9 @@ import os
 import sys
 import torch
 import speechbrain as sb
-from speechbrain.utils.data_utils import download_file
 from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.data_utils import undo_padding
+
 """Recipe for training a sequence-to-sequence ASR system with CommonVoice.
 The system employs an encoder, a decoder, and an attention mechanism
 between them. Decoding is performed with beamsearch.
@@ -85,7 +85,6 @@ class ASR(sb.core.Brain):
         else:
             p_tokens, scores = self.hparams.beam_searcher(x, wav_lens)
             return p_seq, wav_lens, p_tokens
-
 
     def compute_objectives(self, predictions, targets, stage):
         """Computes the loss (CTC+NLL) given predictions and targets."""
@@ -205,6 +204,7 @@ class ASR(sb.core.Brain):
             with open(self.hparams.wer_file, "w") as w:
                 self.wer_metric.write_stats(w)
 
+
 if __name__ == "__main__":
 
     # This hack needed to import data preparation script from ..
@@ -270,7 +270,5 @@ if __name__ == "__main__":
     asr_brain.fit(asr_brain.hparams.epoch_counter, train_set, valid_set)
 
     # Test
-    asr_brain.hparams.wer_file = (
-        hparams["output_folder"] + "/wer_test.txt"
-    )
-    asr_brain.evaluate(test_clean_set)
+    asr_brain.hparams.wer_file = hparams["output_folder"] + "/wer_test.txt"
+    asr_brain.evaluate(test_set)
