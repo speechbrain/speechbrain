@@ -14,7 +14,7 @@ output_folder: !ref results/Contextnet_Transformer/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
-# lm_ckpt_file: /scratch/jianyuan/TransformerLM/lr1/e16_gelu_noskip_1024/save/CKPT+2020-10-10+13-09-37+00/model.ckpt # yamllint disable-line rule:line-length
+lm_ckpt_file: /scratch/jianyuan/TransformerLM/lr1/e16_gelu_noskip_1024/save/CKPT+2020-10-10+13-09-37+00/model.ckpt # yamllint disable-line rule:line-length
 tok_mdl_file: /scratch/jianyuan/5000_unigram.model
 tok_voc_file: /scratch/jianyuan/5000_unigram.vocab
 
@@ -172,12 +172,12 @@ seq_lin: !new:speechbrain.nnet.Linear
     n_neurons: !ref <output_neurons>
 
 model: [
-        ["normalize", !ref <normalize>],
-        ["CNN", !ref <CNN>],
-        ["Transformer", !ref <Transformer>],
-        ["seq_lin", !ref <seq_lin>],
-        ["ctc_lin", !ref <ctc_lin>]
-    ]
+    ["normalize", !ref <normalize>],
+    ["CNN", !ref <CNN>],
+    ["Transformer", !ref <Transformer>],
+    ["seq_lin", !ref <seq_lin>],
+    ["ctc_lin", !ref <ctc_lin>]
+]
 
 optimizer: !name:torch.optim.Adam
     lr: 0
@@ -194,7 +194,7 @@ valid_search: !new:speechbrain.decoders.S2STransformerBeamSearch
     ctc_weight: !ref <ctc_weight_decode>
     using_eos_threshold: False
     length_normalization: False
-        
+
 
 test_search: !new:speechbrain.decoders.S2STransformerBeamSearch
     modules: [!ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]

@@ -311,7 +311,8 @@ class Brain:
         self.modules = torch.nn.ModuleDict(modules).to(self.device)
 
         # Make hyperparams available with simple "dot" notation
-        self.hparams = SimpleNamespace(**hparams)
+        if hparams is not None:
+            self.hparams = SimpleNamespace(**hparams)
 
         # Automatic mixed precision init
         if self.auto_mix_prec:
