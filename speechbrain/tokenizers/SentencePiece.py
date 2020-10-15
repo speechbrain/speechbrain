@@ -57,9 +57,6 @@ class SentencePiece:
         Default: -1, if -1 the bos_id = unk_id = 0. otherwise, bos_id = int.
     eos_id: int
         Default: -1, if -1 the bos_id = unk_id = 0. otherwise, bos_id = int.
-    minloglevel: int
-        Default: 1, if 1 then the log(INFO) for BPE training is skipped
-        if 0, the log is printed.
 
     Example
     -------
@@ -91,7 +88,6 @@ class SentencePiece:
         eos_id=-1,
         pad_id=-1,
         unk_id=0,
-        minloglevel=1,
     ):
         if model_type not in ["unigram", "bpe", "char"]:
             raise ValueError("model_type must be one of : [unigram, bpe, char]")
@@ -118,7 +114,6 @@ class SentencePiece:
         self.eos_id = str(eos_id)
         self.pad_id = str(pad_id)
         self.unk_id = str(unk_id)
-        self.minloglevel = str(minloglevel)
 
         if not os.path.isfile(self.prefix_model_file + ".model"):
             logger.info("Train tokenizer with type:" + self.model_type)
@@ -188,8 +183,6 @@ class SentencePiece:
             + self.max_sentencepiece_length
             + " --character_coverage="
             + self.character_coverage
-            + " --minloglevel="
-            + self.minloglevel
         )
         if self.model_type not in ["char"]:
             # include vocab_size
