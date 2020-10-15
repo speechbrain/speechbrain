@@ -287,10 +287,10 @@ class Brain:
 
     def __init__(
         self,
-        modules,
-        hparams,
+        modules=None,
         opt_class=None,
-        jit_modules=None,
+        hparams=None,
+        jit_module_keys=None,
         checkpointer=None,
         device="cpu",
         multigpu_count=0,
@@ -298,7 +298,7 @@ class Brain:
         auto_mix_prec=False,
     ):
         self.opt_class = opt_class
-        self.jit_modules = jit_modules
+        self.jit_modules = jit_module_keys
         self.checkpointer = checkpointer
 
         # root_process and device will be updated if ddp is used
