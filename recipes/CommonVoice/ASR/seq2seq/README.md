@@ -12,4 +12,4 @@ Here is a list of the different languages that we tested within the CommonVoice 
 
 | Language | Release | hyperparams file | LM ? | Val. CER | Val. WER | Test CER | Test WER | Model link | GPUs - VRAM |
 | ------------- |:-------------:|:---------------------------:| -----:| -----:| -----:| -----:| -----:| :-----------:| :----------------:|
-| French | 2020-06-22 | CRDNN_fr_best.yaml | No | 7.20 | 16.96 | 8.05 | 18.78 | [Not Available](https://commonvoice.mozilla.org/fr) | 4x2080ti 11GB |
+| French | 2020-06-22 | CRDNN_fr.yaml | No | 7.20 | 16.96 | 8.05 | 18.78 | [Not Available](https://commonvoice.mozilla.org/fr) | 4x2080ti 11GB |
