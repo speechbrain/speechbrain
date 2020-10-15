@@ -8,8 +8,7 @@ from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.data_utils import undo_padding
 """Recipe for training a sequence-to-sequence ASR system with CommonVoice.
 The system employs an encoder, a decoder, and an attention mechanism
-between them. Decoding is performed with beamsearch and can be coupled with
-a neural language model.
+between them. Decoding is performed with beamsearch.
 
 To run this recipe, do the following:
 > python experiment.py hyperparams.yaml
@@ -20,8 +19,7 @@ language model is used  on the top of decoder probabilities.
 
 The neural network is trained on both CTC and negative-log likelihood
 targets and sub-word units estimated with Byte Pairwise Encoding (BPE)
-are used as basic recognition tokens. Training is performed on the full
-LibriSpeech dataset (960 h).
+are used as basic recognition tokens.
 
 The experiment file is flexible enough to support a large variety of
 different systems. By properly changing the parameter files, you can try
@@ -249,9 +247,6 @@ if __name__ == "__main__":
         character_coverage=1.0,
     )
 
-    # Train the tokenizer
-    #tokenizer.train()
-
     # Load DataLoaders :-)
     # Load ind2label dict for decoding
     train_set = hparams["train_loader"]()
@@ -259,8 +254,6 @@ if __name__ == "__main__":
     test_set = hparams["test_loader"]()
     ind2lab = hparams["test_loader"].label_dict["wrd"]["index2lab"]
     hparams["ind2lab"] = ind2lab
-
-    print(hparams["device"])
 
     # Brain class initialization
     asr_brain = ASR(
@@ -275,9 +268,6 @@ if __name__ == "__main__":
 
     # Training
     asr_brain.fit(asr_brain.hparams.epoch_counter, train_set, valid_set)
-
-    # TO MODIFY
-    #asr_brain.load_tokenizer()
 
     # Test
     asr_brain.hparams.wer_file = (
