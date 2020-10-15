@@ -28,8 +28,8 @@ csv_valid: !ref <save_folder>/dev.csv
 csv_test: !ref <save_folder>/test.csv
 
 # Training parameters
-number_of_epochs: 1  # 35
-number_of_ctc_epochs: 1  # 30
+number_of_epochs: 35
+number_of_ctc_epochs: 30
 
 # With data_parallel batch_size is split into N jobs
 # With DDP batch_size is multiplied by N jobs
@@ -42,7 +42,7 @@ device: 'cuda'
 # ["data_parallel", "ddp_nccl", "ddp_gloo", "ddp_mpi"]
 # The number of gpu is only needed with ddp_* backend
 # data_parallel takes all the available devices
-multigpu_count: 2
+multigpu_count: 0
 multigpu_backend: data_parallel
 token_type: unigram  # ["unigram", "bpe", "char"]
 
@@ -218,6 +218,9 @@ checkpointer: !new:speechbrain.Checkpointer
         scheduler: !ref <lr_annealing>
         normalizer: !ref <normalize>
         counter: !ref <epoch_counter>
+
+train_logger: !new:speechbrain.FileTrainLogger
+    save_file: !ref <train_log>
 
 error_rate_computer: !name:speechbrain.ErrorRateStats
 
