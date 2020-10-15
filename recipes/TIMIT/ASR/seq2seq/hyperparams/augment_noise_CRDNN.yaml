@@ -19,7 +19,7 @@ lr: 0.001
 ctc_weight: 0.2
 device: 'cuda:0'
 multigpu_count: 0  # Set this to number of GPUs for multi-GPU
-multigpu_backend: ddp_nccl
+multigpu_backend: null
 
 # Feature parameters
 sample_rate: 16000
