@@ -20,7 +20,10 @@ from datetime import date
 from enum import Enum, auto
 from tqdm.contrib import tqdm
 from types import SimpleNamespace
+from torch.nn import SyncBatchNorm
+from torch.utils.data import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel as DDP
+from speechbrain.data_io.data_io import DataLoaderFactory
 
 logger = logging.getLogger(__name__)
 DEFAULT_LOG_CONFIG = os.path.dirname(os.path.abspath(__file__))
@@ -189,29 +192,18 @@ def ddp_init(rank, brain, args):
     print(f"Process {rank} reporting in!")
     os.environ["MASTER_ADDR"] = "localhost"
     os.environ["MASTER_PORT"] = "12321"
+
+    # Remove the "ddp_" from the backend
+    backend = brain.multigpu_backend[4:]
     dist.init_process_group(
-        backend="nccl", world_size=brain.ddp_procs, rank=rank
+        backend=backend, world_size=brain.multigpu_count, rank=rank
     )
     brain.device = rank
     brain.root_process = rank == 0
 
     # force the models to start and remain synchronized
-    torch.backends.cudnn.deterministic = False
+    torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
-
-    args = list(args)
-    sampler = torch.utils.data.DistributedSampler
-    args[1] = args[1](sampler, brain.ddp_procs, rank=rank)
-    args[2] = args[2](sampler, brain.ddp_procs, rank=rank)
-
-    # Wrap modules with DDP
-    for name, hparam in brain.hparams.__dict__.items():
-        if isinstance(hparam, torch.nn.Module):
-            hparam = torch.nn.SyncBatchNorm.convert_sync_batchnorm(hparam)
-            hparam = hparam.to(rank)
-            if any(p.requires_grad for p in hparam.parameters()):
-                hparam = DDP(hparam, device_ids=[rank])
-                setattr(brain.hparams, name, hparam)
 
     brain._fit(*args)
 
@@ -249,32 +241,34 @@ class Brain:
 
     Arguments
     ---------
-    hparams : dict
-        Each key:value pair should consist of a string key and a hyperparameter
-        that is used within the overridden methods. The hyperparameters can
-        be any python object, including torch modules which will be moved
-        to the device specified in the ``device`` argument. These will
-        be accessible via an ``hparams`` attribute, using "dot" notation:
-        e.g. self.hparams.model(x)
+    modules : dict of str:torch.nn.Module pairs
+        These modules are passed to the optimizier by default if they have
+        trainable parameters, and will have train()/eval() called on them.
     opt_class : torch.optim class
         A torch optimizer constructor that has takes only the list of
         parameters (e.g. a lambda or partial function definition). By default,
         this will be passed all modules in hparams and jit_modules at the
         beginning of the ``fit()`` method. This behavior can be changed
         by overriding the ``configure_optimizers()`` method.
-    jit_modules : dict of str:torch.nn.Module pairs
-        ``torch.nn.Module`` object(s) to pass to ``torch.jit.script``. As
-        with the hparams and optim arguments, these are made accessible with
-        a ``jit_modules`` attribute, using "dot" notation:
-        e.g. self.jit_modules.model(x)
+    hparams : dict
+        Each key:value pair should consist of a string key and a hyperparameter
+        that is used within the overridden methods. These will
+        be accessible via an ``hparams`` attribute, using "dot" notation:
+        e.g. self.hparams.model(x)
+    jit_module_keys : list of str
+        keys from the dictionary passed to ``modules`` to compile with
+        ``torch.jit.script``.
     checkpointer : speechbrain.Checkpointer
         By default, this will be used to load checkpoints, and will have the
         optimizer added to continue training if interrupted.
     device : str
         The location for performing computations.
-    ddp_procs : int
-        Number of processes to use with torch's ``DistributedDataParallel``.
-        if passed, this will assume there is one GPU per process.
+    multigpu_count : int
+        Number of GPUs to use for computation. With ``"data_parallel"``
+        backend, ``fit()`` is run on one process and multiple GPUs. With one of
+        the three ``ddp`` backends, ``fit()`` is run with one process per GPU.
+    multigpu_backend : str
+        one of {"ddp_nccl", "ddp_gloo", "ddp_mpi", "data_parallel"}
     auto_mix_prec: bool
         If True, automatic mixed-precision is used. Activate it only with cuda.
 
@@ -293,43 +287,31 @@ class Brain:
 
     def __init__(
         self,
+        modules,
         hparams,
         opt_class=None,
         jit_modules=None,
         checkpointer=None,
         device="cpu",
-        ddp_procs=0,
+        multigpu_count=0,
+        multigpu_backend=None,
         auto_mix_prec=False,
     ):
         self.opt_class = opt_class
         self.jit_modules = jit_modules
         self.checkpointer = checkpointer
+
+        # root_process and device will be updated if ddp is used
         self.device = device
-        self.ddp_procs = ddp_procs
-        self.auto_mix_prec = auto_mix_prec
-
         self.root_process = True
-        modulelist = []
+        self.multigpu_count = multigpu_count
+        self.multigpu_backend = multigpu_backend
 
-        # Put modules onto correct device
-        for name, hparam in hparams.items():
-            if isinstance(hparam, torch.nn.Module):
-                hparam = hparam.to(self.device)
-                hparams[name] = hparam
-                modulelist.append(hparam)
+        self.auto_mix_prec = auto_mix_prec
+        self.modules = torch.nn.ModuleDict(modules).to(self.device)
 
         # Make hyperparams available with simple "dot" notation
         self.hparams = SimpleNamespace(**hparams)
-
-        # Append JIT modules here just for accurate parameter count.
-        # JIT modules are compiled and converted to "dot" notation when fit()
-        # is called, since compiled modules can't be pickled for DDP.
-        if jit_modules is not None:
-            for name, module in jit_modules.items():
-                modulelist.append(module)
-
-        # Store modules as ModuleList, primarily for calling train()/eval()
-        self.modules = torch.nn.ModuleList(modulelist)
 
         # Automatic mixed precision init
         if self.auto_mix_prec:
@@ -410,13 +392,16 @@ class Brain:
 
     def on_fit_start(self):
         """Gets called at the beginning of ``fit()``, on multiple processes
-        if ddp_procs is more than 0.
+        if multigpu_count is more than 0 and backend is ddp.
 
         Default implementation compiles the jit modules, initializes
         optimizers, and loads the latest checkpoint to resume training.
         """
         # Run this *after* mp.spawn since jit modules cannot be pickled.
-        self.compile_jit()
+        self._compile_jit()
+
+        # Wrap modules with parallel backend after jit
+        self._wrap_multigpu()
 
         # Initialize optimizers after parameters are configured
         self.init_optimizers()
@@ -554,9 +539,10 @@ class Brain:
         * ``evaluate_batch()``
         * ``update_average()``
 
-        If the initialization was done with ddp_procs > 0, this
-        method will spawn the correct number of processes and run a portion
-        of the training data on the corresponding device.
+        If the initialization was done with multigpu_count > 0 and the
+        multigpu_backend is ddp, this method will spawn the correct number
+        of processes and run a portion of the training data on the
+        corresponding device.
 
         Arguments
         ---------
@@ -569,22 +555,34 @@ class Brain:
         progressbar : bool
             Whether to display the progress of each epoch in a progressbar.
         """
-        if self.ddp_procs > 0:
-            assert isinstance(
-                train_set, sb.data_io.data_io.DataLoaderFactory
-            ) and isinstance(
-                valid_set, sb.data_io.data_io.DataLoaderFactory
-            ), "train_set and valid set must be sb.data_io.data_io.DataLoaderFactory Object under DDP mode"
+        if self.multigpu_backend and self.multigpu_backend.startswith("ddp"):
             self._ddp_fit(epoch_counter, train_set, valid_set, progressbar)
         else:
             self._fit(epoch_counter, train_set, valid_set, progressbar)
 
     def _ddp_fit(self, *args):
-        torch.multiprocessing.spawn(ddp_init, (self, args), self.ddp_procs)
+        """Fit on multiple gpus using ddp backend"""
+        torch.multiprocessing.spawn(ddp_init, (self, args), self.multigpu_count)
 
     def _fit(self, epoch_counter, train_set, valid_set, progressbar):
-
+        """Adjust parameters based on data."""
         self.on_fit_start()
+
+        # Use factories to get loaders
+        self.train_sampler = None
+        if isinstance(train_set, DataLoaderFactory):
+            if self.multigpu_backend and self.multigpu_backend.startswith(
+                "ddp"
+            ):
+                self.train_sampler = DistributedSampler(
+                    dataset=train_set.dataset,
+                    num_replicas=self.multigpu_count,
+                    rank=self.device,
+                    shuffle=train_set.shuffle,
+                )
+            train_set = train_set.get_dataloader(self.train_sampler)
+        if isinstance(valid_set, DataLoaderFactory):
+            valid_set = valid_set.get_dataloader()
 
         # Iterate epochs
         for epoch in epoch_counter:
@@ -594,14 +592,15 @@ class Brain:
             self.modules.train()
             avg_train_loss = 0.0
 
+            if self.train_sampler is not None:
+                self.train_sampler.set_epoch(epoch)
+
             # Only show progressbar if requested and root_process
             disable = not (progressbar and self.root_process)
             with tqdm(train_set, dynamic_ncols=True, disable=disable) as t:
-                for i, batch in enumerate(t):
+                for self.step, batch in enumerate(t):
                     loss = self.fit_batch(batch)
-                    avg_train_loss = self.update_average(
-                        loss, avg_train_loss, iteration=i + 1
-                    )
+                    avg_train_loss = self.update_average(loss, avg_train_loss)
                     t.set_postfix(train_loss=avg_train_loss)
             self.on_stage_end(Stage.TRAIN, avg_train_loss, epoch)
 
@@ -617,31 +616,35 @@ class Brain:
                     ):
                         loss = self.evaluate_batch(batch, stage=Stage.VALID)
                         avg_valid_loss = self.update_average(
-                            loss, avg_valid_loss, iteration=i + 1
+                            loss, avg_valid_loss
                         )
                 self.on_stage_end(Stage.VALID, avg_valid_loss, epoch)
 
-    def compile_jit(self):
+    def _compile_jit(self):
         """This should be run *after* mp.spawn, since jit modules
         cannot be pickled.
         """
         if self.jit_modules is None:
             return
 
-        for name, module in self.jit_modules.items():
-            module = torch.jit.script(module)
-            module = module.to(self.device)
+        for name in self.jit_module_keys:
+            module = torch.jit.script(self.modules[name])
+            self.modules[name] = module.to(self.device)
 
-            # Wrap module with DDP when requested
-            needs_grad = any(p.requires_grad for p in module.parameters())
-            if needs_grad and self.ddp_procs > 0:
-                module = DDP(module, device_ids=[self.device])
+    def _wrap_multigpu(self):
+        """Wrap modules with multigpu wrapper when requested"""
+        if self.multigpu_backend is None:
+            return
 
-            self.modules.append(module)
-            self.jit_modules[name] = module
-
-        # Convert jit modules to use "dot" notation
-        self.jit_modules = SimpleNamespace(**self.jit_modules)
+        for name, module in self.modules.items():
+            if any(p.requires_grad for p in module.parameters()):
+                if self.multigpu_backend == "data_parallel":
+                    module = torch.nn.DataParallel(module)
+                elif self.multigpu_backend.startswith("ddp"):
+                    module = SyncBatchNorm.convert_sync_batchnorm(module)
+                    module = module.to(self.device)
+                    module = DDP(module, device_ids=[self.device])
+            self.modules[name] = module
 
     def evaluate(self, test_set, max_key=None, min_key=None, progressbar=True):
         """Iterate test_set and evaluate brain performance. By default, loads
@@ -662,6 +665,10 @@ class Brain:
         -------
         average test loss
         """
+        # Get test loader from factory
+        if isinstance(test_set, DataLoaderFactory):
+            test_set = test_set.get_dataloader()
+
         self.on_evaluate_start(max_key=max_key, min_key=min_key)
         self.on_stage_start(Stage.TEST, epoch=None)
         self.modules.eval()
@@ -672,12 +679,10 @@ class Brain:
                 tqdm(test_set, dynamic_ncols=True, disable=disable)
             ):
                 loss = self.evaluate_batch(batch, stage=Stage.TEST)
-                avg_test_loss = self.update_average(
-                    loss, avg_test_loss, iteration=i + 1
-                )
+                avg_test_loss = self.update_average(loss, avg_test_loss)
         self.on_stage_end(Stage.TEST, avg_test_loss, epoch=None)
 
-    def update_average(self, loss, avg_loss, iteration):
+    def update_average(self, loss, avg_loss):
         """Update running average of the loss.
 
         Arguments
@@ -702,6 +707,6 @@ class Brain:
             )
 
         # Compute moving average
-        avg_loss -= avg_loss / iteration
-        avg_loss += float(loss) / iteration
+        avg_loss -= float(avg_loss) / (self.step + 1)
+        avg_loss += float(loss) / (self.step + 1)
         return avg_loss

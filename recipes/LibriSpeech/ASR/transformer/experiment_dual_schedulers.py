@@ -31,6 +31,7 @@ Authors
 import os
 import sys
 import torch
+import torch.distributed as dist
 
 import speechbrain as sb
 from speechbrain.utils.data_utils import download_file
@@ -73,7 +74,7 @@ class ASR(sb.core.Brain):
         feats = self.hparams.normalize(feats)
         src = self.hparams.CNN(feats)
         enc_out, pred = self.hparams.Transformer(
-            src, y_in, pad_idx=self.hparams.pad_id
+            src, y_in, pad_idx=self.hparams.pad_index
         )
 
         # output layer for ctc log-probabilities
@@ -224,6 +225,7 @@ class ASR(sb.core.Brain):
                 meta={"ACC": stage_stats["ACC"], "epoch": epoch},
                 min_keys=["ACC"],
             )
+
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
@@ -247,7 +249,7 @@ class ASR(sb.core.Brain):
                 save_model_path,
                 replace_existing=True,
             )
-            self.hparams.bpe_tokenizer.sp.load(save_model_path)
+            self.hparams.tokenizer.sp.load(save_model_path)
         if hasattr(self.hparams, "tok_voc_file"):
             download_file(
                 self.hparams.tok_voc_file,
@@ -268,10 +270,10 @@ class ASR(sb.core.Brain):
         self.hparams.lm_model.load_state_dict(state_dict, strict=True)
         self.hparams.lm_model.eval()
 
-    def init_optimizers(self):
-        """Initializes the optmizers (needed to support DDP)"""
-        self.optimizer = self.opt_class(self.hparams.model.parameters())
-        self.checkpointer.add_recoverable("optimizer", self.optimizer)
+    def on_fit_start(self):
+        torch.cuda.set_device(self.device)
+        self.checkpointer.add_recoverable("model", self.modules)
+        super().on_fit_start()
 
 
 if __name__ == "__main__":
@@ -303,24 +305,26 @@ if __name__ == "__main__":
     )
 
     # Creating tokenizer must be done after preparation
-    tokenizer = hparams["hparams"]["tokenizer"]()
+    tokenizer = hparams["tokenizer"]()
 
     # Load index2label dict for decoding
-    train_set = hparams["train_loader"]
-    valid_set = hparams["valid_loader"]
+    train_set = hparams["train_loader"]()
+    valid_set = hparams["valid_loader"]()
     test_clean_set = hparams["test_clean_loader"]()
     test_other_set = hparams["test_other_loader"]()
     ind2lab = hparams["test_other_loader"].label_dict["wrd"]["index2lab"]
-    hparams["hparams"]["ind2lab"] = ind2lab
-    hparams["hparams"]["tokenizer"] = tokenizer
+    hparams["ind2lab"] = ind2lab
+    hparams["tokenizer"] = tokenizer
 
     # Brain class initialization
     asr_brain = ASR(
-        hparams=hparams["hparams"],
+        modules=hparams["model"],
         opt_class=hparams["optimizer"],
-        checkpointer=hparams["hparams"]["checkpointer"],
+        hparams=hparams,
+        checkpointer=hparams["checkpointer"],
         device=hparams["device"],
-        ddp_procs=hparams["ddp_procs"],
+        multigpu_count=hparams["multigpu_count"],
+        multigpu_backend=hparams["multigpu_backend"],
     )
 
     asr_brain.load_tokenizer()

@@ -18,7 +18,8 @@ batch_size: 8
 lr: 0.001
 ctc_weight: 0.2
 device: 'cuda:0'
-ddp_procs: 0  # Set this to number of GPUs for multi-GPU
+multigpu_count: 0  # Set this to number of GPUs for multi-GPU
+multigpu_backend: null
 
 # Feature parameters
 sample_rate: 16000
@@ -183,7 +184,6 @@ modules:
     seq_lin: !ref <seq_lin>
     normalize: !ref <normalize>
     env_corrupt: !ref <env_corrupt>
-    augmentation: !ref <augmentation>
 
 jit_module_keys: [enc]
 

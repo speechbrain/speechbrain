@@ -23,7 +23,8 @@ number_of_epochs: 50
 batch_size: 8
 lr: 1.0
 device: 'cuda:0'
-ddp_procs: 0  # Set to number of GPUs if multi-gpu
+multigpu_count: 0  # Set to number of GPUs if multi-gpu
+multigpu_backend: null
 
 # Feature parameters
 sample_rate: 16000
@@ -128,7 +129,6 @@ modules:
     output: !ref <output>
     normalize: !ref <normalize>
     env_corrupt: !ref <env_corrupt>
-    augmentation: !ref <augmentation>
 
 jit_module_keys: [model]
 

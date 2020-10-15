@@ -118,11 +118,12 @@ def main():
     torch.manual_seed(0)
 
     NMF1 = NMF_Brain(hparams=hyperparams)
-    NMF1.init_matrices(hyperparams["train_loader1"]())
+    train_loader = hyperparams["train_loader1"]().get_dataloader()
+    NMF1.init_matrices(train_loader)
 
     print("fitting model 1")
     NMF1.fit(
-        train_set=hyperparams["train_loader1"](),
+        train_set=train_loader,
         valid_set=None,
         epoch_counter=range(hyperparams["N_epochs"]),
         progressbar=False,
@@ -130,11 +131,12 @@ def main():
     W1hat = NMF1.training_out[1]
 
     NMF2 = NMF_Brain(hparams=hyperparams)
-    NMF2.init_matrices(hyperparams["train_loader2"]())
+    train_loader = hyperparams["train_loader2"]().get_dataloader()
+    NMF2.init_matrices(train_loader)
 
     print("fitting model 2")
     NMF2.fit(
-        train_set=hyperparams["train_loader2"](),
+        train_set=train_loader,
         valid_set=None,
         epoch_counter=range(hyperparams["N_epochs"]),
         progressbar=False,
@@ -142,7 +144,7 @@ def main():
     W2hat = NMF2.training_out[1]
 
     # separate
-    mixture_loader = hyperparams["test_loader"]()
+    mixture_loader = hyperparams["test_loader"]().get_dataloader()
     Xmix = list(mixture_loader)[0]
 
     Xmix = NMF1.hparams.compute_features(Xmix[0][1])
