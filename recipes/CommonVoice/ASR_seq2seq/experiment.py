@@ -62,15 +62,15 @@ class ASR(sb.core.Brain):
 
         # Forward pass
         feats = self.hparams.compute_features(wavs)
-        feats = self.hparams.normalize(feats, wav_lens)
+        feats = self.modules.normalize(feats, wav_lens)
 
         # We detach as we don't need the features to be on the backward graph
-        x = self.hparams.enc(feats.detach())
-        e_in = self.hparams.emb(y_in)
-        h, _ = self.hparams.dec(e_in, x, wav_lens)
+        x = self.modules.enc(feats.detach())
+        e_in = self.modules.emb(y_in)
+        h, _ = self.modules.dec(e_in, x, wav_lens)
 
         # Output layer for seq2seq log-probabilities
-        logits = self.hparams.seq_lin(h)
+        logits = self.modules.seq_lin(h)
         p_seq = self.hparams.log_softmax(logits)
 
         # Compute outputs
@@ -78,7 +78,7 @@ class ASR(sb.core.Brain):
             current_epoch = self.hparams.epoch_counter.current
             if current_epoch <= self.hparams.number_of_ctc_epochs:
                 # Output layer for ctc log-probabilities
-                logits = self.hparams.ctc_lin(x)
+                logits = self.modules.ctc_lin(x)
                 p_ctc = self.hparams.log_softmax(logits)
                 return p_ctc, p_seq, wav_lens
             else:
@@ -207,31 +207,6 @@ class ASR(sb.core.Brain):
             with open(self.hparams.wer_file, "w") as w:
                 self.wer_metric.write_stats(w)
 
-    def load_tokenizer(self):
-        """Loads the sentence piece tokenizer specified in the yaml file"""
-        save_model_path = self.hparams.save_folder + "/tok_unigram.model"
-        save_vocab_path = self.hparams.save_folder + "/tok_unigram.vocab"
-
-        if hasattr(self.hparams, "tok_mdl_file"):
-            download_file(
-                source=self.hparams.tok_mdl_file,
-                dest=save_model_path,
-                replace_existing=True,
-            )
-            self.hparams.tokenizer.sp.load(save_model_path)
-
-        if hasattr(self.hparams, "tok_voc_file"):
-            download_file(
-                source=self.hparams.tok_voc_file,
-                dest=save_vocab_path,
-                replace_existing=True,
-            )
-
-    def init_optimizers(self):
-        """Initializes the optmizers (needed to support DDP)"""
-        self.optimizer = self.opt_class(self.hparams.model.parameters())
-        self.checkpointer.add_recoverable("optimizer", self.optimizer)
-
 if __name__ == "__main__":
 
     # This hack needed to import data preparation script from ..
@@ -265,7 +240,7 @@ if __name__ == "__main__":
 
     # Creating tokenizer must be done after preparation
     # Specify the bos_id/eos_id if different from blank_id
-    tokenizer = SentencePiece(
+    hparams["tokenizer"] = SentencePiece(
         model_dir=hparams["save_folder"],
         vocab_size=hparams["output_neurons"],
         csv_train=hparams["csv_train"],
@@ -275,7 +250,7 @@ if __name__ == "__main__":
     )
 
     # Train the tokenizer
-    tokenizer.train()
+    #tokenizer.train()
 
     # Load DataLoaders :-)
     # Load ind2label dict for decoding
@@ -283,16 +258,19 @@ if __name__ == "__main__":
     valid_set = hparams["valid_loader"]()
     test_set = hparams["test_loader"]()
     ind2lab = hparams["test_loader"].label_dict["wrd"]["index2lab"]
-    hparams["hparams"]["ind2lab"] = ind2lab
-    hparams["hparams"]["tokenizer"] = tokenizer
+    hparams["ind2lab"] = ind2lab
+
+    print(hparams["device"])
 
     # Brain class initialization
     asr_brain = ASR(
-        hparams=hparams["hparams"],
+        modules=hparams["modules"],
+        hparams=hparams,
         opt_class=hparams["opt_class"],
         checkpointer=hparams["checkpointer"],
         device=hparams["device"],
-        ddp_procs=hparams["ddp_procs"],
+        multigpu_count=hparams["multigpu_count"],
+        multigpu_backend=hparams["multigpu_backend"],
     )
 
     # Training
