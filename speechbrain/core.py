@@ -408,7 +408,7 @@ class Brain:
 
         # Load latest checkpoint to resume training if interrupted
         if self.checkpointer is not None:
-            self.checkpointer.recover_if_possible()
+            self.checkpointer.recover_if_possible(device=self.device)
 
     def init_optimizers(self):
         """Called during ``on_fit_start()``, initialize optimizers
@@ -456,7 +456,7 @@ class Brain:
         # Recover best checkpoint for evaluation
         if self.checkpointer is not None:
             self.checkpointer.recover_if_possible(
-                max_key=max_key, min_key=min_key
+                max_key=max_key, min_key=min_key, device=self.device
             )
 
     def fit_batch(self, batch):
