@@ -561,7 +561,7 @@ def get_oracle_num_spkrs(rec_id, spkr_info):
     return num_spkrs
 
 
-def diarizer(full_csv, split_type, n_lambda):
+def diarizer(full_csv, split_type, n_lambdas):
     """Performs diarization on each recording
     """
 
@@ -574,23 +574,72 @@ def diarizer(full_csv, split_type, n_lambda):
             entry = line[:-1]
             RTTM.append(entry)
 
-    spkr_info = list(
+    spkr_info = list(  # noqa F841
         filter(lambda x: x.startswith("SPKR-INFO"), RTTM)
     )  # noqa F841
 
-    split = "AMI_" + split_type
+    # split = "AMI_" + split_type
 
     A = [row[0].rstrip().split("_")[0] for row in full_csv]
     all_rec_ids = list(set(A[1:]))
 
     all_rec_ids.sort()
 
+    # N = str(len(all_rec_ids))
+
+    # i = 1
+    # init_params = True  # Just for downloading
+
+    concate_rttm_file = process_dataset(all_rec_ids, split_type, n_lambdas)
+
+    return concate_rttm_file
+
+
+class Spec_Cluster(SpectralClustering):
+    def perform_sc(self, X):
+        """Performs spectral clustering using sklearn on embeddings (X).
+
+        Arguments
+        ---------
+        X : array (n_samples, n_features)
+            Embeddings to be clustered
+        """
+
+        # Computation of affinity matrix
+        connectivity = kneighbors_graph(
+            X, n_neighbors=params.n_neighbors, include_self=params.include_self
+        )
+        self.affinity_matrix_ = 0.5 * (connectivity + connectivity.T)
+
+        # Perform spectral clustering on affinity matrix
+        self.labels_ = spectral_clustering_sb(
+            self.affinity_matrix_,
+            n_clusters=self.n_clusters,
+            assign_labels=self.assign_labels,
+        )
+        return self
+
+
+def process_dataset(all_rec_ids, split_type, n_lambdas):
+    # Prepare `spkr_info` once when Oracle num of speakers is selected
+    if params.oracle_n_spkrs is True:
+        full_ref_rttm_file = (
+            params.ref_rttm_dir + "/fullref_ami_" + split_type + ".rttm"
+        )
+        RTTM = []
+        with open(full_ref_rttm_file, "r") as f:
+            for line in f:
+                entry = line[:-1]
+                RTTM.append(entry)
+
+        spkr_info = list(  # noqa F841
+            filter(lambda x: x.startswith("SPKR-INFO"), RTTM)
+        )
+
     N = str(len(all_rec_ids))
-
+    split = "AMI_" + split_type
     i = 1
-    init_params = True  # Just for downloading
-
-    # Loop through each recording
+    init_params = True
     for rec_id in all_rec_ids:
 
         ss = "[" + str(split_type) + ": " + str(i) + "/" + N + "]"
@@ -647,7 +696,7 @@ def diarizer(full_csv, split_type, n_lambda):
             "diary", diary_set_loader, diary_stat_file
         )
 
-        # Perform spectral clustering on each recording
+        # Perform spectral clustering
         out_rttm_dir = os.path.join(params.sys_rttm_dir, split)
         if not os.path.exists(out_rttm_dir):
             os.makedirs(out_rttm_dir)
@@ -658,7 +707,7 @@ def diarizer(full_csv, split_type, n_lambda):
             num_spkrs = get_oracle_num_spkrs(rec_id, spkr_info)
         else:
             # Num of speakers tunned on dev set
-            num_spkrs = n_lambda
+            num_spkrs = n_lambdas
 
         do_spec_clustering(diary_obj_dev, out_rttm_file, rec_id, k=num_spkrs)
 
@@ -666,7 +715,7 @@ def diarizer(full_csv, split_type, n_lambda):
     # This is not needed but just staying with the standards
     concate_rttm_file = out_rttm_dir + "/sys_output.rttm"
 
-    logger.info("Concatenating individual RTTM files...")
+    # logger.info("Concatenating individual RTTM files...")
     with open(concate_rttm_file, "w") as cat_file:
         for f in glob.glob(out_rttm_dir + "/*.rttm"):
             if f == concate_rttm_file:
@@ -674,38 +723,12 @@ def diarizer(full_csv, split_type, n_lambda):
             with open(f, "r") as indi_rttm_file:
                 shutil.copyfileobj(indi_rttm_file, cat_file)
 
-    msg = "Final system generated RTTM file for %s set : %s" % (
+    msg = "The system generated RTTM file for %s set : %s" % (
         split_type,
         concate_rttm_file,
     )
-    logger.info(msg)
-
+    # logger.info(msg)
     return concate_rttm_file
-
-
-class Spec_Cluster(SpectralClustering):
-    def perform_sc(self, X):
-        """Performs spectral clustering using sklearn on embeddings (X).
-
-        Arguments
-        ---------
-        X : array (n_samples, n_features)
-            Embeddings to be clustered
-        """
-
-        # Computation of affinity matrix
-        connectivity = kneighbors_graph(
-            X, n_neighbors=params.n_neighbors, include_self=params.include_self
-        )
-        self.affinity_matrix_ = 0.5 * (connectivity + connectivity.T)
-
-        # Perform spectral clustering on affinity matrix
-        self.labels_ = spectral_clustering_sb(
-            self.affinity_matrix_,
-            n_clusters=self.n_clusters,
-            assign_labels=self.assign_labels,
-        )
-        return self
 
 
 def dev_tuner(full_csv, split_type):
@@ -714,117 +737,22 @@ def dev_tuner(full_csv, split_type):
     n_lambdas = n_components
     """
 
-    full_ref_rttm_file = (
-        params.ref_rttm_dir + "/fullref_ami_" + split_type + ".rttm"
-    )
-    RTTM = []
-    with open(full_ref_rttm_file, "r") as f:
-        for line in f:
-            entry = line[:-1]
-            RTTM.append(entry)
-
-    spkr_info = list(  # noqa F841
-        filter(lambda x: x.startswith("SPKR-INFO"), RTTM)
-    )
-
-    split = "AMI_" + split_type
+    # split = "AMI_" + split_type
 
     A = [row[0].rstrip().split("_")[0] for row in full_csv]
     all_rec_ids = list(set(A[1:]))
 
     all_rec_ids.sort()
 
-    N = str(len(all_rec_ids))
+    # N = str(len(all_rec_ids))
 
     # Loop through each recording
 
-    init_params = False
+    # init_params = False
     DER_list = []
     for n_lambdas in range(1, params.max_num_spkrs + 1):
 
-        i = 1
-        for rec_id in all_rec_ids:
-
-            ss = "[tuner " + str(split_type) + ": " + str(i) + "/" + N + "]"
-            i = i + 1
-
-            msg = "Diarizing %s : %s " % (ss, rec_id)
-            logger.info(msg)
-
-            if not os.path.exists(os.path.join(params.embedding_dir, split)):
-                os.makedirs(os.path.join(params.embedding_dir, split))
-
-            diary_stat_file = os.path.join(
-                params.embedding_dir, split, rec_id + "_xv_stat.pkl"
-            )
-
-            # Prepare a csv for a recording
-            new_csv_file = os.path.join(
-                params.embedding_dir, split, rec_id + ".csv"
-            )
-            prepare_subset_csv(full_csv, rec_id, new_csv_file)
-
-            # Setup a dataloader for above one recording (above csv)
-            diary_set = DataLoaderFactory(
-                new_csv_file,
-                params.diary_loader_eval.batch_size,
-                params.diary_loader_eval.csv_read,
-                params.diary_loader_eval.sentence_sorting,
-            )
-
-            diary_set_loader = diary_set.forward()
-
-            if not os.path.exists(os.path.join(params.embedding_dir, split)):
-                os.makedirs(os.path.join(params.embedding_dir, split))
-
-            if init_params:
-                _, wavs, lens = next(iter(diary_set_loader))[0]
-                # Initialize the model and perform pre-training
-                _ = compute_embeddings(wavs, lens, init_params=True)
-
-                # Download models from the web if needed
-                if "https://" in params.embedding_file:
-                    download_and_pretrain()
-                else:
-                    params.embedding_model.load_state_dict(
-                        torch.load(params.embedding_file), strict=True
-                    )
-
-                init_params = False
-                params.embedding_model.eval()
-
-            # Compute Embeddings
-            diary_obj_dev = embedding_computation_loop(
-                "diary", diary_set_loader, diary_stat_file
-            )
-
-            # Perform spectral clustering
-            out_rttm_dir = os.path.join(params.sys_rttm_dir, split)
-            if not os.path.exists(out_rttm_dir):
-                os.makedirs(out_rttm_dir)
-            out_rttm_file = out_rttm_dir + "/" + rec_id + ".rttm"
-
-            do_spec_clustering(
-                diary_obj_dev, out_rttm_file, rec_id, k=n_lambdas
-            )
-
-        # Concatenate individual RTTM files
-        # This is not needed but just staying with the standards
-        concate_rttm_file = out_rttm_dir + "/sys_output.rttm"
-
-        # logger.info("Concatenating individual RTTM files...")
-        with open(concate_rttm_file, "w") as cat_file:
-            for f in glob.glob(out_rttm_dir + "/*.rttm"):
-                if f == concate_rttm_file:
-                    continue
-                with open(f, "r") as indi_rttm_file:
-                    shutil.copyfileobj(indi_rttm_file, cat_file)
-
-        msg = "The system generated RTTM file for %s set : %s" % (
-            split_type,
-            concate_rttm_file,
-        )
-        # logger.info(msg)
+        concate_rttm_file = process_dataset(all_rec_ids, split_type, n_lambdas)
 
         ref_rttm = os.path.join(params.ref_rttm_dir, "fullref_ami_dev.rttm")
         sys_rttm = concate_rttm_file
@@ -836,7 +764,7 @@ def dev_tuner(full_csv, split_type):
             n_lambdas,
             str(round(DER_, 2)),
         )
-        init_params = True
+
         logger.info(msg)
         DER_list.append(DER_)
 
@@ -896,10 +824,10 @@ if __name__ == "__main__":  # noqa: C901
         for row in reader:
             full_csv.append(row)
 
-    # TUNING
+    # TUNING for num of lambdas
     if params.oracle_n_spkrs is False:
         a = time.time()
-        n_lambda = dev_tuner(full_csv, "dev")
+        n_lambdas = dev_tuner(full_csv, "dev")
         msg = "Tuning completed! Total time spent in tuning = %s seconds\n" % (
             str(round(time.time() - a, 2))
         )
@@ -907,9 +835,9 @@ if __name__ == "__main__":  # noqa: C901
     else:
         msg = "Running for Oracle number of speakers"
         logger.info(msg)
-        n_lambda = None  # will be taken from groundtruth
+        n_lambdas = None  # will be taken from groundtruth
 
-    out_boundaries = diarizer(full_csv, "dev", n_lambda=n_lambda)
+    out_boundaries = diarizer(full_csv, "dev", n_lambdas=n_lambdas)
 
     # Evaluating on DEV set
     logger.info("Evaluating for AMI Dev. set")
@@ -930,7 +858,7 @@ if __name__ == "__main__":  # noqa: C901
         for row in reader:
             full_csv.append(row)
 
-    out_boundaries = diarizer(full_csv, "eval", n_lambda=n_lambda)
+    out_boundaries = diarizer(full_csv, "eval", n_lambdas=n_lambdas)
 
     # Evaluating on EVAL set
     logger.info("Evaluating for AMI Eval. set")
