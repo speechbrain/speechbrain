@@ -63,7 +63,7 @@ def compute_amplitude(waveforms, lengths, amp_type="avg", scale="linear"):
         raise NotImplementedError
 
 
-def normalize(waveforms, lengths, amp_type="avg"):
+def normalize(waveforms, lengths, amp_type="avg", eps=1e-14):
     """
     This function normalizes a signal to unitary average or peak amplitude.
 
@@ -79,6 +79,8 @@ def normalize(waveforms, lengths, amp_type="avg"):
         Whether one wants to normalize with respect to "avg" or "peak"
         amplitude. Choose between ["avg", "peak"]. Note: for "avg" clipping
         is not prevented and can occur.
+    eps : float
+        A small number to add to the denominator to prevent NaN.
 
     Returns
     -------
@@ -93,7 +95,7 @@ def normalize(waveforms, lengths, amp_type="avg"):
         batch_added = True
         waveforms = waveforms.unsqueeze(0)
 
-    den = compute_amplitude(waveforms, lengths, amp_type)
+    den = compute_amplitude(waveforms, lengths, amp_type) + eps
     if batch_added:
         waveforms = waveforms.squeeze(0)
     return waveforms / den
