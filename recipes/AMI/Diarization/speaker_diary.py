@@ -395,8 +395,6 @@ def spectral_embedding_sb(
 
     # random_state = check_random_state(random_state)
 
-    # n_nodes = adjacency.shape[0]
-
     # Whether to drop the first eigenvector
     if drop_first:
         n_components = n_components + 1
@@ -561,40 +559,6 @@ def get_oracle_num_spkrs(rec_id, spkr_info):
     return num_spkrs
 
 
-def diarizer(full_csv, split_type, n_lambdas):
-    """Performs diarization on each recording
-    """
-
-    full_ref_rttm_file = (
-        params.ref_rttm_dir + "/fullref_ami_" + split_type + ".rttm"
-    )
-    RTTM = []
-    with open(full_ref_rttm_file, "r") as f:
-        for line in f:
-            entry = line[:-1]
-            RTTM.append(entry)
-
-    spkr_info = list(  # noqa F841
-        filter(lambda x: x.startswith("SPKR-INFO"), RTTM)
-    )  # noqa F841
-
-    # split = "AMI_" + split_type
-
-    A = [row[0].rstrip().split("_")[0] for row in full_csv]
-    all_rec_ids = list(set(A[1:]))
-
-    all_rec_ids.sort()
-
-    # N = str(len(all_rec_ids))
-
-    # i = 1
-    # init_params = True  # Just for downloading
-
-    concate_rttm_file = process_dataset(all_rec_ids, split_type, n_lambdas)
-
-    return concate_rttm_file
-
-
 class Spec_Cluster(SpectralClustering):
     def perform_sc(self, X):
         """Performs spectral clustering using sklearn on embeddings (X).
@@ -620,8 +584,11 @@ class Spec_Cluster(SpectralClustering):
         return self
 
 
-def process_dataset(all_rec_ids, split_type, n_lambdas):
-    # Prepare `spkr_info` once when Oracle num of speakers is selected
+def diarize_dataset(full_csv, split_type, n_lambdas):
+    """Diarizes all the recordings in a given dataset
+    """
+
+    # Prepare `spkr_info` only once when Oracle num of speakers is selected
     if params.oracle_n_spkrs is True:
         full_ref_rttm_file = (
             params.ref_rttm_dir + "/fullref_ami_" + split_type + ".rttm"
@@ -636,16 +603,22 @@ def process_dataset(all_rec_ids, split_type, n_lambdas):
             filter(lambda x: x.startswith("SPKR-INFO"), RTTM)
         )
 
+    # Get all recording IDs in this dataset
+    A = [row[0].rstrip().split("_")[0] for row in full_csv]
+    all_rec_ids = list(set(A[1:]))
+    all_rec_ids.sort()
+
     N = str(len(all_rec_ids))
     split = "AMI_" + split_type
     i = 1
     init_params = True
+
     for rec_id in all_rec_ids:
 
-        ss = "[" + str(split_type) + ": " + str(i) + "/" + N + "]"
+        tag = "[" + str(split_type) + ": " + str(i) + "/" + N + "]"
         i = i + 1
 
-        msg = "Diarizing %s : %s " % (ss, rec_id)
+        msg = "Diarizing %s : %s " % (tag, rec_id)
         logger.info(msg)
 
         if not os.path.exists(os.path.join(params.embedding_dir, split)):
@@ -671,6 +644,7 @@ def process_dataset(all_rec_ids, split_type, n_lambdas):
 
         diary_set_loader = diary_set.forward()
 
+        # Dir to store embeddings
         if not os.path.exists(os.path.join(params.embedding_dir, split)):
             os.makedirs(os.path.join(params.embedding_dir, split))
 
@@ -727,32 +701,22 @@ def process_dataset(all_rec_ids, split_type, n_lambdas):
         split_type,
         concate_rttm_file,
     )
-    # logger.info(msg)
+    logger.info(msg)
+
     return concate_rttm_file
 
 
 def dev_tuner(full_csv, split_type):
-    """Tuning n_compenents on dev set. (Basic tunning)
+    """Tuning n_compenents on dev set. (Basic tunning).
     Returns:
-    n_lambdas = n_components
+        n_lambdas = n_components
     """
 
-    # split = "AMI_" + split_type
-
-    A = [row[0].rstrip().split("_")[0] for row in full_csv]
-    all_rec_ids = list(set(A[1:]))
-
-    all_rec_ids.sort()
-
-    # N = str(len(all_rec_ids))
-
-    # Loop through each recording
-
-    # init_params = False
     DER_list = []
     for n_lambdas in range(1, params.max_num_spkrs + 1):
 
-        concate_rttm_file = process_dataset(all_rec_ids, split_type, n_lambdas)
+        # Process whole dataset for value of n_lambdas
+        concate_rttm_file = diarize_dataset(full_csv, split_type, n_lambdas)
 
         ref_rttm = os.path.join(params.ref_rttm_dir, "fullref_ami_dev.rttm")
         sys_rttm = concate_rttm_file
@@ -768,6 +732,7 @@ def dev_tuner(full_csv, split_type):
         logger.info(msg)
         DER_list.append(DER_)
 
+    # Take n_lambdas with minmum DER
     tuned_n_lambdas = DER_list.index(min(DER_list)) + 1
 
     return tuned_n_lambdas
@@ -837,7 +802,7 @@ if __name__ == "__main__":  # noqa: C901
         logger.info(msg)
         n_lambdas = None  # will be taken from groundtruth
 
-    out_boundaries = diarizer(full_csv, "dev", n_lambdas=n_lambdas)
+    out_boundaries = diarize_dataset(full_csv, "dev", n_lambdas=n_lambdas)
 
     # Evaluating on DEV set
     logger.info("Evaluating for AMI Dev. set")
@@ -858,7 +823,7 @@ if __name__ == "__main__":  # noqa: C901
         for row in reader:
             full_csv.append(row)
 
-    out_boundaries = diarizer(full_csv, "eval", n_lambdas=n_lambdas)
+    out_boundaries = diarize_dataset(full_csv, "eval", n_lambdas=n_lambdas)
 
     # Evaluating on EVAL set
     logger.info("Evaluating for AMI Eval. set")
