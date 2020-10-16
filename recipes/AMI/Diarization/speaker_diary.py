@@ -16,16 +16,19 @@ import torch
 import logging
 import speechbrain as sb
 import numpy
+import numpy as np
 import pickle
 import csv
 import glob
 import shutil
+import numbers
+import warnings
 from tqdm.contrib import tqdm
 
-from scipy import sparse  # noqa F401
-from scipy.sparse.linalg import eigsh  # noqa F401
-from scipy.sparse.csgraph import connected_components  # noqa F401
-from scipy.sparse.csgraph import laplacian as csgraph_laplacian  # noqa F401
+from scipy import sparse
+from scipy.sparse.linalg import eigsh
+from scipy.sparse.csgraph import connected_components
+from scipy.sparse.csgraph import laplacian as csgraph_laplacian
 
 from speechbrain.utils.data_utils import download_file
 from speechbrain.data_io.data_io import DataLoaderFactory
@@ -42,7 +45,7 @@ from ami_prepare import prepare_ami  # noqa E402
 try:
     from sklearn.neighbors import kneighbors_graph
     from sklearn.cluster import SpectralClustering
-    from sklearn.cluster import spectral_clustering
+    from sklearn.cluster._kmeans import k_means
 except ImportError:
     err_msg = "The optional dependency sklearn is used in this module\n"
     err_msg += "Cannot import sklearn. \n"
@@ -279,6 +282,234 @@ def write_rttm(segs_list, out_rttm_file):
     logger.info("Output RTTM saved at: " + out_rttm_file)
 
 
+####################
+
+
+def _graph_connected_component(graph, node_id):
+    """Find the largest graph connected components that contains one
+    given node
+    Parameters
+    ----------
+    graph : array-like, shape: (n_samples, n_samples)
+        adjacency matrix of the graph, non-zero weight means an edge
+        between the nodes
+    node_id : int
+        The index of the query node of the graph
+    Returns
+    -------
+    connected_components_matrix : array-like, shape: (n_samples,)
+        An array of bool value indicating the indexes of the nodes
+        belonging to the largest connected components of the given query
+        node
+    """
+    n_node = graph.shape[0]
+    if sparse.issparse(graph):
+        # speed up row-wise access to boolean connection mask
+        graph = graph.tocsr()
+    connected_nodes = np.zeros(n_node, dtype=np.bool)
+    nodes_to_explore = np.zeros(n_node, dtype=np.bool)
+    nodes_to_explore[node_id] = True
+    for _ in range(n_node):
+        last_num_component = connected_nodes.sum()
+        np.logical_or(connected_nodes, nodes_to_explore, out=connected_nodes)
+        if last_num_component >= connected_nodes.sum():
+            break
+        indices = np.where(nodes_to_explore)[0]
+        nodes_to_explore.fill(False)
+        for i in indices:
+            if sparse.issparse(graph):
+                neighbors = graph[i].toarray().ravel()
+            else:
+                neighbors = graph[i]
+            np.logical_or(nodes_to_explore, neighbors, out=nodes_to_explore)
+    return connected_nodes
+
+
+def _graph_is_connected(graph):
+    """ Return whether the graph is connected (True) or Not (False)
+    Parameters
+    ----------
+    graph : array-like or sparse matrix, shape: (n_samples, n_samples)
+        adjacency matrix of the graph, non-zero weight means an edge
+        between the nodes
+    Returns
+    -------
+    is_connected : bool
+        True means the graph is fully connected and False means not
+    """
+    if sparse.isspmatrix(graph):
+        # sparse graph, find all the connected components
+        n_connected_components, _ = connected_components(graph)
+        return n_connected_components == 1
+    else:
+        # dense graph, find all connected components start from node 0
+        return _graph_connected_component(graph, 0).sum() == graph.shape[0]
+
+
+def _set_diag(laplacian, value, norm_laplacian):
+    """Set the diagonal of the laplacian matrix and convert it to a
+    sparse format well suited for eigenvalue decomposition
+    Parameters
+    ----------
+    laplacian : array or sparse matrix
+        The graph laplacian
+    value : float
+        The value of the diagonal
+    norm_laplacian : bool
+        Whether the value of the diagonal should be changed or not
+    Returns
+    -------
+    laplacian : array or sparse matrix
+        An array of matrix in a form that is well suited to fast
+        eigenvalue decomposition, depending on the band width of the
+        matrix.
+    """
+    n_nodes = laplacian.shape[0]
+    # We need all entries in the diagonal to values
+    if not sparse.isspmatrix(laplacian):
+        if norm_laplacian:
+            laplacian.flat[:: n_nodes + 1] = value
+    else:
+        laplacian = laplacian.tocoo()
+        if norm_laplacian:
+            diag_idx = laplacian.row == laplacian.col
+            laplacian.data[diag_idx] = value
+        # If the matrix has a small number of diagonals (as in the
+        # case of structured matrices coming from images), the
+        # dia format might be best suited for matvec products:
+        n_diags = np.unique(laplacian.row - laplacian.col).size
+        if n_diags <= 7:
+            # 3 or less outer diagonals on each side
+            laplacian = laplacian.todia()
+        else:
+            # csr has the fastest matvec and is thus best suited to
+            # arpack
+            laplacian = laplacian.tocsr()
+    return laplacian
+
+
+def spectral_embedding_sb(
+    adjacency,
+    *,
+    n_components=8,
+    eigen_solver="arpack",
+    random_state=None,
+    eigen_tol=0.0,
+    norm_laplacian=True,
+    drop_first=True,
+):
+
+    random_state = check_random_state(random_state)
+
+    # n_nodes = adjacency.shape[0]
+
+    # Whether to drop the first eigenvector
+    if drop_first:
+        n_components = n_components + 1
+
+    if not _graph_is_connected(adjacency):
+        warnings.warn(
+            "Graph is not fully connected, spectral embedding"
+            " may not work as expected."
+        )
+
+    laplacian, dd = csgraph_laplacian(
+        adjacency, normed=norm_laplacian, return_diag=True
+    )
+
+    laplacian = _set_diag(laplacian, 1, norm_laplacian)
+
+    laplacian *= -1
+    v0 = random_state.uniform(-1, 1, laplacian.shape[0])
+
+    vals, diffusion_map = eigsh(
+        laplacian, k=n_components, sigma=1.0, which="LM", tol=eigen_tol, v0=v0
+    )
+
+    embedding = diffusion_map.T[n_components::-1]
+
+    if norm_laplacian:
+        embedding = embedding / dd
+
+    embedding = _deterministic_vector_sign_flip(embedding)
+    if drop_first:
+        return embedding[1:n_components].T
+    else:
+        return embedding[:n_components].T
+
+
+def _deterministic_vector_sign_flip(u):
+    """Modify the sign of vectors for reproducibility.
+    Flips the sign of elements of all the vectors (rows of u) such that
+    the absolute maximum element of each vector is positive.
+    Parameters
+    ----------
+    u : ndarray
+        Array with vectors as its rows.
+    Returns
+    -------
+    u_flipped : ndarray with same shape as u
+        Array with the sign flipped vectors as its rows.
+    """
+    max_abs_rows = np.argmax(np.abs(u), axis=1)
+    signs = np.sign(u[range(u.shape[0]), max_abs_rows])
+    u *= signs[:, np.newaxis]
+    return u
+
+
+def check_random_state(seed):
+    """Turn seed into a np.random.RandomState instance
+    Parameters
+    ----------
+    seed : None | int | instance of RandomState
+        If seed is None, return the RandomState singleton used by np.random.
+        If seed is an int, return a new RandomState instance seeded with seed.
+        If seed is already a RandomState instance, return it.
+        Otherwise raise ValueError.
+    """
+    if seed is None or seed is np.random:
+        return np.random.mtrand._rand
+    if isinstance(seed, numbers.Integral):
+        return np.random.RandomState(seed)
+    if isinstance(seed, np.random.RandomState):
+        return seed
+    raise ValueError(
+        "%r cannot be used to seed a numpy.random.RandomState"
+        " instance" % seed
+    )
+
+
+def spectral_clustering_sb(
+    affinity,
+    *,
+    n_clusters=8,
+    n_components=None,
+    eigen_solver=None,
+    random_state=None,
+    n_init=10,
+    eigen_tol=0.0,
+    assign_labels="kmeans",
+):
+
+    random_state = check_random_state(random_state)
+    n_components = n_clusters if n_components is None else n_components
+
+    maps = spectral_embedding_sb(
+        affinity,
+        n_components=n_components,
+        eigen_solver=eigen_solver,
+        random_state=random_state,
+        eigen_tol=eigen_tol,
+        drop_first=False,
+    )
+
+    _, labels, _ = k_means(
+        maps, n_clusters, random_state=random_state, n_init=n_init
+    )
+
+    return labels
+
+
 def do_sc(diary_obj_eval, out_rttm_file, rec_id, k=4):
     """Performs spectral clustering on embeddings
     """
@@ -468,7 +699,7 @@ class Spec_Clus(SpectralClustering):
         self.affinity_matrix_ = 0.5 * (connectivity + connectivity.T)
 
         # Perform spectral clustering on affinity matrix
-        self.labels_ = spectral_clustering(
+        self.labels_ = spectral_clustering_sb(
             self.affinity_matrix_,
             n_clusters=self.n_clusters,
             assign_labels=self.assign_labels,
