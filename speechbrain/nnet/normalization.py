@@ -190,13 +190,22 @@ class LayerNorm(nn.Module):
     torch.Size([100, 101, 128])
     """
 
-    def __init__(self, input_shape, eps=1e-05, elementwise_affine=True):
+    def __init__(
+        self,
+        input_size=None,
+        input_shape=None,
+        eps=1e-05,
+        elementwise_affine=True,
+    ):
         super().__init__()
         self.eps = eps
         self.elementwise_affine = elementwise_affine
 
+        if input_shape is not None:
+            input_size = input_shape[2:]
+
         self.norm = torch.nn.LayerNorm(
-            input_shape[2:],
+            input_size,
             eps=self.eps,
             elementwise_affine=self.elementwise_affine,
         )
