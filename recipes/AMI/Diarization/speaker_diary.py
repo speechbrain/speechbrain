@@ -283,7 +283,7 @@ def write_rttm(segs_list, out_rttm_file):
     logger.info("Output RTTM saved at: " + out_rttm_file)
 
 
-####################
+################################################
 
 
 def _graph_connected_component(graph, node_id):
@@ -390,17 +390,10 @@ def _set_diag(laplacian, value, norm_laplacian):
 
 
 def spectral_embedding_sb(
-    adjacency,
-    *,
-    n_components=8,
-    eigen_solver="arpack",
-    random_state=None,
-    eigen_tol=0.0,
-    norm_laplacian=True,
-    drop_first=True,
+    adjacency, n_components=8, norm_laplacian=True, drop_first=True,
 ):
 
-    random_state = check_random_state(random_state)
+    # random_state = check_random_state(random_state)
 
     # n_nodes = adjacency.shape[0]
 
@@ -421,10 +414,14 @@ def spectral_embedding_sb(
     laplacian = _set_diag(laplacian, 1, norm_laplacian)
 
     laplacian *= -1
-    v0 = random_state.uniform(-1, 1, laplacian.shape[0])
+    # v0 = random_state.uniform(-1, 1, laplacian.shape[0])
+
+    # vals, diffusion_map = eigsh(
+    #    laplacian, k=n_components, sigma=1.0, which="LM", tol=eigen_tol, v0=v0
+    # )
 
     vals, diffusion_map = eigsh(
-        laplacian, k=n_components, sigma=1.0, which="LM", tol=eigen_tol, v0=v0
+        laplacian, k=n_components, sigma=1.0, which="LM",
     )
 
     embedding = diffusion_map.T[n_components::-1]
@@ -482,7 +479,6 @@ def check_random_state(seed):
 
 def spectral_clustering_sb(
     affinity,
-    *,
     n_clusters=8,
     n_components=None,
     eigen_solver=None,
@@ -496,12 +492,7 @@ def spectral_clustering_sb(
     n_components = n_clusters if n_components is None else n_components
 
     maps = spectral_embedding_sb(
-        affinity,
-        n_components=n_components,
-        eigen_solver=eigen_solver,
-        random_state=random_state,
-        eigen_tol=eigen_tol,
-        drop_first=False,
+        affinity, n_components=n_components, drop_first=False,
     )
 
     _, labels, _ = k_means(
