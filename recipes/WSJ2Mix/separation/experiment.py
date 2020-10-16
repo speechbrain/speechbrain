@@ -82,6 +82,7 @@ class SourceSeparationBrainSuperclass(sb.core.Brain):
         super(SourceSeparationBrainSuperclass, self).__init__(**kwargs)
         self.eval_scores = []
         self.scaler = GradScaler()
+        self.inifinite_loss_found = 0
 
     def compute_forward(self, mixture, stage="train", init_params=False):
         raise NotImplementedError("use a subclass")
@@ -142,16 +143,24 @@ class SourceSeparationBrainSuperclass(sb.core.Brain):
             with autocast():
                 predictions = self.compute_forward(inputs)
                 loss = self.compute_objectives(predictions, targets)
-            self.scaler.scale(loss).backward()
 
-            if self.params.clip_grad_norm >= 0:
-                self.scaler.unscale_(self.optimizer)
-                torch.nn.utils.clip_grad_norm_(
-                    self.modules.parameters(), self.params.clip_grad_norm
+            if loss < 999999:  # fix for computational problems
+                self.scaler.scale(loss).backward()
+                if self.params.clip_grad_norm >= 0:
+                    self.scaler.unscale_(self.optimizer)
+                    torch.nn.utils.clip_grad_norm_(
+                        self.modules.parameters(), self.params.clip_grad_norm
+                    )
+                self.scaler.step(self.optimizer)
+                self.scaler.update()
+            else:
+                self.inifinite_loss_found += 1
+                logger.info(
+                    "infinite loss! it happened {} times so far - skipping this batch".format(
+                        self.inifinite_loss_found
+                    )
                 )
-
-            self.scaler.step(self.optimizer)
-            self.scaler.update()
+                loss.data = torch.tensor(0).to(self.device)
         else:
             predictions = self.compute_forward(inputs)
             loss = self.compute_objectives(predictions, targets)
