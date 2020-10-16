@@ -502,10 +502,10 @@ def spectral_clustering_sb(
     return labels
 
 
-def do_sc(diary_obj_eval, out_rttm_file, rec_id, k=4):
+def do_spec_clustering(diary_obj_eval, out_rttm_file, rec_id, k=4):
     """Performs spectral clustering on embeddings
     """
-    clust_obj = Spec_Clus(
+    clust_obj = Spec_Cluster(
         n_clusters=k,
         assign_labels="kmeans",
         random_state=params.seed,
@@ -588,7 +588,7 @@ def diarizer(full_csv, split_type, n_lambda):
     N = str(len(all_rec_ids))
 
     i = 1
-    init_params = True
+    init_params = True  # Just for downloading
 
     # Loop through each recording
     for rec_id in all_rec_ids:
@@ -627,6 +627,7 @@ def diarizer(full_csv, split_type, n_lambda):
 
         if init_params:
             _, wavs, lens = next(iter(diary_set_loader))[0]
+
             # Initialize the model and perform pre-training
             _ = compute_embeddings(wavs, lens, init_params=True)
 
@@ -659,7 +660,7 @@ def diarizer(full_csv, split_type, n_lambda):
             # Num of speakers tunned on dev set
             num_spkrs = n_lambda
 
-        do_sc(diary_obj_dev, out_rttm_file, rec_id, k=num_spkrs)
+        do_spec_clustering(diary_obj_dev, out_rttm_file, rec_id, k=num_spkrs)
 
     # Concatenate individual RTTM files
     # This is not needed but just staying with the standards
@@ -682,7 +683,7 @@ def diarizer(full_csv, split_type, n_lambda):
     return concate_rttm_file
 
 
-class Spec_Clus(SpectralClustering):
+class Spec_Cluster(SpectralClustering):
     def perform_sc(self, X):
         """Performs spectral clustering using sklearn on embeddings (X).
 
@@ -737,10 +738,11 @@ def dev_tuner(full_csv, split_type):
 
     # Loop through each recording
 
+    init_params = False
     DER_list = []
     for n_lambdas in range(1, params.max_num_spkrs + 1):
+
         i = 1
-        init_params = True
         for rec_id in all_rec_ids:
 
             ss = "[tuner " + str(split_type) + ": " + str(i) + "/" + N + "]"
@@ -796,13 +798,15 @@ def dev_tuner(full_csv, split_type):
                 "diary", diary_set_loader, diary_stat_file
             )
 
-            # Perform spectral clustering on each recording
+            # Perform spectral clustering
             out_rttm_dir = os.path.join(params.sys_rttm_dir, split)
             if not os.path.exists(out_rttm_dir):
                 os.makedirs(out_rttm_dir)
             out_rttm_file = out_rttm_dir + "/" + rec_id + ".rttm"
 
-            do_sc(diary_obj_dev, out_rttm_file, rec_id, k=n_lambdas)
+            do_spec_clustering(
+                diary_obj_dev, out_rttm_file, rec_id, k=n_lambdas
+            )
 
         # Concatenate individual RTTM files
         # This is not needed but just staying with the standards
@@ -828,7 +832,11 @@ def dev_tuner(full_csv, split_type):
             ref_rttm, sys_rttm, params.ignore_overlap, params.forgiveness_collar
         )
 
-        msg = "[Tuner] n_lambdas= %d , DER= %s" % (n_lambdas, str(DER_))
+        msg = "[Tuner]: n_lambdas= %d , DER= %s\n" % (
+            n_lambdas,
+            str(round(DER_, 2)),
+        )
+        init_params = True
         logger.info(msg)
         DER_list.append(DER_)
 
@@ -893,7 +901,7 @@ if __name__ == "__main__":  # noqa: C901
         a = time.time()
         n_lambda = dev_tuner(full_csv, "dev")
         msg = "Tuning completed! Total time spent in tuning = %s seconds\n" % (
-            str(time.time() - a)
+            str(round(time.time() - a, 2))
         )
         logger.info(msg)
     else:
