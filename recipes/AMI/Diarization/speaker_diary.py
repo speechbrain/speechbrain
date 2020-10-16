@@ -23,6 +23,7 @@ import glob
 import shutil
 import numbers
 import warnings
+import time
 from tqdm.contrib import tqdm
 
 from scipy import sparse
@@ -569,7 +570,7 @@ def get_oracle_num_spkrs(rec_id, spkr_info):
     return num_spkrs
 
 
-def diarizer(full_csv, split_type):
+def diarizer(full_csv, split_type, n_lambda):
     """Performs diarization on each recording
     """
 
@@ -582,7 +583,9 @@ def diarizer(full_csv, split_type):
             entry = line[:-1]
             RTTM.append(entry)
 
-    spkr_info = list(filter(lambda x: x.startswith("SPKR-INFO"), RTTM))
+    spkr_info = list(
+        filter(lambda x: x.startswith("SPKR-INFO"), RTTM)
+    )  # noqa F841
 
     split = "AMI_" + split_type
 
@@ -658,7 +661,13 @@ def diarizer(full_csv, split_type):
             os.makedirs(out_rttm_dir)
         out_rttm_file = out_rttm_dir + "/" + rec_id + ".rttm"
 
-        num_spkrs = get_oracle_num_spkrs(rec_id, spkr_info)
+        if params.oracle_n_spkrs is True:
+            # Oracle num of speakers
+            num_spkrs = get_oracle_num_spkrs(rec_id, spkr_info)
+        else:
+            # Num of speakers tunned on dev set
+            num_spkrs = n_lambda
+
         do_sc(diary_obj_dev, out_rttm_file, rec_id, k=num_spkrs)
 
     # Concatenate individual RTTM files
@@ -705,6 +714,136 @@ class Spec_Clus(SpectralClustering):
             assign_labels=self.assign_labels,
         )
         return self
+
+
+def dev_tuner(full_csv, split_type):
+    """Tuning n_compenents on dev set. (Basic tunning)
+    Returns:
+    n_lambdas = n_components
+    """
+
+    full_ref_rttm_file = (
+        params.ref_rttm_dir + "/fullref_ami_" + split_type + ".rttm"
+    )
+    RTTM = []
+    with open(full_ref_rttm_file, "r") as f:
+        for line in f:
+            entry = line[:-1]
+            RTTM.append(entry)
+
+    spkr_info = list(  # noqa F841
+        filter(lambda x: x.startswith("SPKR-INFO"), RTTM)
+    )
+
+    split = "AMI_" + split_type
+
+    A = [row[0].rstrip().split("_")[0] for row in full_csv]
+    all_rec_ids = list(set(A[1:]))
+
+    all_rec_ids.sort()
+
+    N = str(len(all_rec_ids))
+
+    # Loop through each recording
+
+    DER_list = []
+    for n_lambdas in range(1, params.max_num_spkrs + 1):
+        i = 1
+        init_params = True
+        for rec_id in all_rec_ids:
+
+            ss = "[tuner " + str(split_type) + ": " + str(i) + "/" + N + "]"
+            i = i + 1
+
+            msg = "Diarizing %s : %s " % (ss, rec_id)
+            logger.info(msg)
+
+            if not os.path.exists(os.path.join(params.embedding_dir, split)):
+                os.makedirs(os.path.join(params.embedding_dir, split))
+
+            diary_stat_file = os.path.join(
+                params.embedding_dir, split, rec_id + "_xv_stat.pkl"
+            )
+
+            # Prepare a csv for a recording
+            new_csv_file = os.path.join(
+                params.embedding_dir, split, rec_id + ".csv"
+            )
+            prepare_subset_csv(full_csv, rec_id, new_csv_file)
+
+            # Setup a dataloader for above one recording (above csv)
+            diary_set = DataLoaderFactory(
+                new_csv_file,
+                params.diary_loader_eval.batch_size,
+                params.diary_loader_eval.csv_read,
+                params.diary_loader_eval.sentence_sorting,
+            )
+
+            diary_set_loader = diary_set.forward()
+
+            if not os.path.exists(os.path.join(params.embedding_dir, split)):
+                os.makedirs(os.path.join(params.embedding_dir, split))
+
+            if init_params:
+                _, wavs, lens = next(iter(diary_set_loader))[0]
+                # Initialize the model and perform pre-training
+                _ = compute_embeddings(wavs, lens, init_params=True)
+
+                # Download models from the web if needed
+                if "https://" in params.embedding_file:
+                    download_and_pretrain()
+                else:
+                    params.embedding_model.load_state_dict(
+                        torch.load(params.embedding_file), strict=True
+                    )
+
+                init_params = False
+                params.embedding_model.eval()
+
+            # Compute Embeddings
+            diary_obj_dev = embedding_computation_loop(
+                "diary", diary_set_loader, diary_stat_file
+            )
+
+            # Perform spectral clustering on each recording
+            out_rttm_dir = os.path.join(params.sys_rttm_dir, split)
+            if not os.path.exists(out_rttm_dir):
+                os.makedirs(out_rttm_dir)
+            out_rttm_file = out_rttm_dir + "/" + rec_id + ".rttm"
+
+            do_sc(diary_obj_dev, out_rttm_file, rec_id, k=n_lambdas)
+
+        # Concatenate individual RTTM files
+        # This is not needed but just staying with the standards
+        concate_rttm_file = out_rttm_dir + "/sys_output.rttm"
+
+        # logger.info("Concatenating individual RTTM files...")
+        with open(concate_rttm_file, "w") as cat_file:
+            for f in glob.glob(out_rttm_dir + "/*.rttm"):
+                if f == concate_rttm_file:
+                    continue
+                with open(f, "r") as indi_rttm_file:
+                    shutil.copyfileobj(indi_rttm_file, cat_file)
+
+        msg = "The system generated RTTM file for %s set : %s" % (
+            split_type,
+            concate_rttm_file,
+        )
+        # logger.info(msg)
+
+        ref_rttm = os.path.join(params.ref_rttm_dir, "fullref_ami_dev.rttm")
+        sys_rttm = concate_rttm_file
+        [MS, FA, SER, DER_] = DER(
+            ref_rttm, sys_rttm, params.ignore_overlap, params.forgiveness_collar
+        )
+
+        msg = "[Tuner] n_lambdas= %d , DER= %s" % (n_lambdas, str(DER_))
+        logger.info(msg)
+        DER_list.append(DER_)
+
+    tuned_n_lambdas = DER_list.index(min(DER_list)) + 1
+
+    return tuned_n_lambdas
 
 
 # Begin!
@@ -758,8 +897,22 @@ if __name__ == "__main__":  # noqa: C901
         for row in reader:
             full_csv.append(row)
 
-    out_boundaries = diarizer(full_csv, "dev")
+    # TUNING
+    if params.oracle_n_spkrs is False:
+        a = time.time()
+        n_lambda = dev_tuner(full_csv, "dev")
+        msg = "Tuning completed! Total time spent in tuning = %s seconds\n" % (
+            str(time.time() - a)
+        )
+        logger.info(msg)
+    else:
+        msg = "Running for Oracle number of speakers"
+        logger.info(msg)
+        n_lambda = None  # will be taken from groundtruth
 
+    out_boundaries = diarizer(full_csv, "dev", n_lambda=n_lambda)
+
+    # Evaluating on DEV set
     logger.info("Evaluating for AMI Dev. set")
     ref_rttm = os.path.join(params.ref_rttm_dir, "fullref_ami_dev.rttm")
     sys_rttm = out_boundaries
@@ -778,8 +931,9 @@ if __name__ == "__main__":  # noqa: C901
         for row in reader:
             full_csv.append(row)
 
-    out_boundaries = diarizer(full_csv, "eval")
+    out_boundaries = diarizer(full_csv, "eval", n_lambda=n_lambda)
 
+    # Evaluating on EVAL set
     logger.info("Evaluating for AMI Eval. set")
     ref_rttm = os.path.join(params.ref_rttm_dir, "fullref_ami_eval.rttm")
     sys_rttm = out_boundaries
