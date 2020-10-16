@@ -154,8 +154,14 @@ log_softmax: !new:speechbrain.nnet.Softmax
 compute_cost: !name:speechbrain.nnet.losses.transducer_loss
     blank_index: !ref <blank_index>
 
-model: !new:torch.nn.ModuleList
-    - [!ref <enc>, !ref <enc_lin>, !ref <emb>, !ref <dec>, !ref <dec_lin>, !ref <output>] # yamllint disable-line rule:line-length
+model: !new:torch.nn.ModuleList [[
+    !ref <enc>,
+    !ref <enc_lin>,
+    !ref <emb>,
+    !ref <dec>,
+    !ref <dec_lin>,
+    !ref <output>
+]]
 
 opt_class: !name:torch.optim.Adadelta
     rho: 0.95
