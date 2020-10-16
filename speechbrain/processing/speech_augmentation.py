@@ -852,7 +852,7 @@ class AddBabble(torch.nn.Module):
 
         # Rescale and add to mixture
         babble_amplitude = compute_amplitude(babble_waveform, babble_len)
-        babble_waveform *= new_noise_amplitude / babble_amplitude
+        babble_waveform *= new_noise_amplitude / (babble_amplitude + 1e-14)
         babbled_waveform += babble_waveform
 
         return babbled_waveform
