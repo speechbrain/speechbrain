@@ -197,8 +197,10 @@ class TransformerEncoderLayer(nn.Module):
         activation=nn.ReLU,
         num_modules=1,
         use_group_comm=False,
+        norm_before=False,
     ):
         super().__init__()
+        self.norm_before = norm_before
         self.self_att = MultiheadAttention(
             nhead=nhead, dropout=dropout, kdim=kdim, vdim=vdim, nb=num_modules,
         )
@@ -231,7 +233,7 @@ class TransformerEncoderLayer(nn.Module):
             self.competition = None
 
     def forward(
-        self, src, src_mask=None, src_key_padding_mask=None, init_params=False
+        self, inp, src_mask=None, src_key_padding_mask=None, init_params=False
     ):
         """
         Arguements
@@ -244,7 +246,12 @@ class TransformerEncoderLayer(nn.Module):
             the mask for the src keys per batch (optional).
         """
         if init_params:
-            self.init_params(src)
+            self.init_params(inp)
+
+        if self.norm_before:
+            src = self.norm1(inp, init_params=init_params)  # norm here
+        else:
+            src = inp
 
         if self.competition is not None:
             comp = self.competition(src)
@@ -268,18 +275,31 @@ class TransformerEncoderLayer(nn.Module):
         )
 
         # add & norm
-        if comp is None:
-            src = src + self.dropout1(output)
+        if self.norm_before:
+            if comp is None:
+                inp = inp + self.dropout1(output)
+            else:
+                inp = inp + self.dropout1(output) * comp
+            src = self.norm2(
+                inp, init_params=init_params
+            )  # we add norm2 before
         else:
-            src = src + self.dropout1(output) * comp
-
-        src = self.norm1(src, init_params=init_params)
+            if comp is None:
+                src = src + self.dropout1(output)
+            else:
+                src = src + self.dropout1(output) * comp
+            src = self.norm1(src, init_params=init_params)
 
         output = self.pos_ffn(src, init_params)
 
         # add & norm
-        output = src + self.dropout2(output)
-        output = self.norm2(output, init_params=init_params)
+        if self.norm_before:
+            output = inp + self.dropout2(output)  # inp is non normed skip
+        else:
+            output = src + self.dropout2(output)  # src is output of norm1
+            output = self.norm2(
+                output, init_params=init_params
+            )  # we add norm2 after
 
         if self.use_group_comm:
             residual = output * 1.0
@@ -330,6 +350,7 @@ class TransformerEncoder(nn.Module):
         return_attention=False,
         num_modules=1,
         use_group_comm=False,
+        norm_before=False,
     ):
         super().__init__()
         self.layers = torch.nn.ModuleList(
@@ -345,6 +366,7 @@ class TransformerEncoder(nn.Module):
                     if (j > 1 and j < num_layers - 1)
                     else 1,
                     use_group_comm=use_group_comm,
+                    norm_before=norm_before,
                 )
                 for j in range(num_layers)
             ]

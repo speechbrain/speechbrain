@@ -319,14 +319,15 @@ def main():
             get_wsj_files(wsj0path, data_save_dir)
 
         # load or create the csv files which enables us to get the speechbrain dataloaders
-        if not (
-            os.path.exists(params.save_folder + "/wsj_tr.csv")
-            and os.path.exists(params.save_folder + "/wsj_cv.csv")
-            and os.path.exists(params.save_folder + "/wsj_tt.csv")
-        ):
-            from recipes.WSJ2Mix.prepare_data import create_wsj_csv
+        # if not (
+        #    os.path.exists(params.save_folder + "/wsj_tr.csv")
+        #    and os.path.exists(params.save_folder + "/wsj_cv.csv")
+        #    and os.path.exists(params.save_folder + "/wsj_tt.csv")
+        # ):
+        # we always recreate the csv files too keep track of the latest path
+        from recipes.WSJ2Mix.prepare_data import create_wsj_csv
 
-            create_wsj_csv(data_save_dir, params.save_folder)
+        create_wsj_csv(data_save_dir, params.save_folder)
 
         tr_csv = os.path.realpath(
             os.path.join(params.save_folder + "/wsj_tr.csv")

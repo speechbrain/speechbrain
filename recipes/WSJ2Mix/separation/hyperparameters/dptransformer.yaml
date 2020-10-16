@@ -18,7 +18,7 @@ mixed_precision: False
 
 # Neural Parameters
 N_epochs: 200
-N_batch: 1
+N_batch: 3
 lr: 0.00015
 train_onthefly: False
 loss_fn: 'sisnr'

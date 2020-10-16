@@ -121,16 +121,17 @@ class Encoder(nn.Module):
        out_channels: the number of filters
     """
 
-    def __init__(self, kernel_size=2, out_channels=64):
+    def __init__(self, kernel_size=2, out_channels=64, in_channels=1):
         super(Encoder, self).__init__()
         self.conv1d = nn.Conv1d(
-            in_channels=1,
+            in_channels=in_channels,
             out_channels=out_channels,
             kernel_size=kernel_size,
             stride=kernel_size // 2,
             groups=1,
             bias=False,
         )
+        self.in_channels = in_channels
 
     def forward(self, x, init_params=True):
         """
@@ -141,7 +142,8 @@ class Encoder(nn.Module):
               T_out is the number of time steps
         """
         # B x T -> B x 1 x T
-        x = torch.unsqueeze(x, dim=1)
+        if self.in_channels == 1:
+            x = torch.unsqueeze(x, dim=1)
         # B x 1 x T -> B x C x T_out
         x = self.conv1d(x)
         x = F.relu(x)
@@ -595,6 +597,7 @@ class SBTransformerBlock(nn.Module):
         num_modules=1,
         use_group_comm=False,
         use_positional_encoding=False,
+        norm_before=False,
     ):
         super(SBTransformerBlock, self).__init__()
         self.use_positional_encoding = use_positional_encoding
@@ -617,6 +620,7 @@ class SBTransformerBlock(nn.Module):
             return_attention,
             num_modules,
             use_group_comm,
+            norm_before,
         )
 
         if use_positional_encoding:
@@ -783,6 +787,8 @@ class Dual_Path_Model(nn.Module):
         num_spks=2,
         skip_around_intra=True,
         linear_layer_after_inter_intra=True,
+        use_global_pos_enc=False,
+        max_length=20000,
     ):
         super(Dual_Path_Model, self).__init__()
         self.K = K
@@ -790,6 +796,10 @@ class Dual_Path_Model(nn.Module):
         self.num_layers = num_layers
         self.norm = select_norm(norm, in_channels, 3)
         self.conv1d = nn.Conv1d(in_channels, out_channels, 1, bias=False)
+        self.use_global_pos_enc = use_global_pos_enc
+
+        if self.use_global_pos_enc:
+            self.pos_enc = PositionalEncoding(max_length)
 
         self.dual_mdl = nn.ModuleList([])
         for i in range(num_layers):
@@ -829,6 +839,11 @@ class Dual_Path_Model(nn.Module):
         x = self.norm(x)
         # [B, N, L]
         x = self.conv1d(x)
+        if self.use_global_pos_enc:
+            x = self.pos_enc(x.transpose(1, -1), init_params).transpose(
+                1, -1
+            ) + x * (x.size(1) ** 0.5)
+
         # [B, N, K, S]
         x, gap = self._Segmentation(x, self.K)
         # [B, N*spks, K, S]
