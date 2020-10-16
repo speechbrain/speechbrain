@@ -22,6 +22,11 @@ import glob
 import shutil
 from tqdm.contrib import tqdm
 
+from scipy import sparse  # noqa F401
+from scipy.sparse.linalg import eigsh  # noqa F401
+from scipy.sparse.csgraph import connected_components  # noqa F401
+from scipy.sparse.csgraph import laplacian as csgraph_laplacian  # noqa F401
+
 from speechbrain.utils.data_utils import download_file
 from speechbrain.data_io.data_io import DataLoaderFactory
 from speechbrain.processing.PLDA_LDA import StatObject_SB
