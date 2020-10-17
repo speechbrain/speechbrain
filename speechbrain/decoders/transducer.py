@@ -252,7 +252,7 @@ def transducer_greedy_decode(
         >>> # init tjoint
         >>> joint_network= Linear(input_shape=TN_out.unsqueeze(1).shape, n_neurons=35)
         >>> tjoint = Transducer_joint(joint_network, joint="sum")
-        >>> joint_tensor = tjoint(TN_out.unsqueeze(1), test_PN.unsqueeze(2), init_params=True)
+        >>> joint_tensor = tjoint(TN_out.unsqueeze(1), test_PN.unsqueeze(2))
         >>> Out_lin = Linear(input_shape=joint_tensor.shape, n_neurons=35)
         >>> out = Out_lin(joint_tensor)
         >>> best_hyps, scores = transducer_greedy_decode(TN_out, [PN_emb,PN,PN_lin], tjoint, [Out_lin], blank_id)
@@ -398,7 +398,7 @@ def transducer_beam_search_decode(
         >>> # init tjoint
         >>> joint_network= Linear(input_shape=TN_out.unsqueeze(1).shape, n_neurons=35)
         >>> tjoint = Transducer_joint(joint_network, joint="sum")
-        >>> joint_tensor = tjoint(TN_out.unsqueeze(1), test_PN.unsqueeze(2), init_params=True)
+        >>> joint_tensor = tjoint(TN_out.unsqueeze(1), test_PN.unsqueeze(2))
         >>> Out_lin = Linear(input_shape=joint_tensor.shape, n_neurons=35)
         >>> out = Out_lin(joint_tensor)
         >>> # out_decode = transducer_beam_search_decode(TN_out, [PN_emb,PN,PN_lin], tjoint, [Out_lin], blank_id, beam=2, nbest=5)
