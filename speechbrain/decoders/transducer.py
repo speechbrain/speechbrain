@@ -242,10 +242,10 @@ def transducer_greedy_decode(
         >>> TN_out, hidden = TN(inputs)
         >>> TN_out = TN_lin(TN_out)
         >>> # Initialize modules...
-        >>> PN = GRU(hidden_size=5, input_shape=test_emb.shape)
         >>> blank_id = 34
         >>> PN_emb = Embedding(num_embeddings=35, consider_as_one_hot=True, blank_id=blank_id)
         >>> test_emb = PN_emb(torch.Tensor([[1]]).long())
+        >>> PN = GRU(hidden_size=5, input_shape=test_emb.shape)
         >>> test_PN, _ = PN(test_emb)
         >>> PN_lin = Linear(input_shape=test_PN.shape, n_neurons=35)
         >>> test_PN = PN_lin(test_PN)
@@ -391,8 +391,8 @@ def transducer_beam_search_decode(
         >>> # Initialize modules...
         >>> PN_emb = Embedding(num_embeddings=35, consider_as_one_hot=True, blank_id=blank_id)
         >>> test_emb = PN_emb(torch.Tensor([[1]]).long())
-        >>> test_PN, _ = PN(test_emb)
         >>> PN = GRU(hidden_size=5, input_shape=test_emb.shape)
+        >>> test_PN, _ = PN(test_emb)
         >>> PN_lin = Linear(input_shape=test_PN.shape, n_neurons=35)
         >>> test_PN = PN_lin(test_PN)
         >>> # init tjoint
