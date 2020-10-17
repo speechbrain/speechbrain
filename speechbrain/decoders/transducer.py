@@ -237,7 +237,7 @@ def transducer_greedy_decode(
         >>> from speechbrain.nnet.linear import Linear
         >>> inputs = torch.rand(3, 40, 35)
         >>> TN = GRU(hidden_size=5, input_shape=(3, 40, 35), bidirectional=True)
-        >>> TN_lin = Linear(input_shape=(3, 40, 35), n_neurons=35)
+        >>> TN_lin = Linear(input_shape=(3, 40, 5), n_neurons=35)
         >>> log_softmax = Softmax(apply_log=False)
         >>> TN_out = TN(inputs)
         >>> TN_out = TN_lin(TN_out)
@@ -383,7 +383,7 @@ def transducer_beam_search_decode(
         >>> from speechbrain.nnet.linear import Linear
         >>> inputs = torch.rand(3, 40, 35)
         >>> TN = GRU(hidden_size=5, input_shape=(3, 40, 35))
-        >>> TN_lin = Linear(input_shape=(3, 40, 35), n_neurons=35)
+        >>> TN_lin = Linear(input_shape=(3, 40, 5), n_neurons=35)
         >>> blank_id = 34
         >>> log_softmax = Softmax(apply_log=False)
         >>> TN_out = TN(inputs)
