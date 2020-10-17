@@ -236,13 +236,13 @@ def transducer_greedy_decode(
         >>> from speechbrain.nnet.transducer.transducer_joint import Transducer_joint
         >>> from speechbrain.nnet.linear import Linear
         >>> inputs = torch.rand(3, 40, 35)
-        >>> TN = GRU(hidden_size=5, bidirectional=True)
+        >>> TN = GRU(hidden_size=5, input_shape=(3, 40, 35), bidirectional=True)
         >>> TN_lin = Linear(input_shape=(3, 40, 35), n_neurons=35)
         >>> log_softmax = Softmax(apply_log=False)
         >>> TN_out = TN(inputs)
         >>> TN_out = TN_lin(TN_out)
         >>> # Initialize modules...
-        >>> PN = GRU(input_shape=test_emb.shape, hidden_size=5)
+        >>> PN = GRU(hidden_size=5, input_shape=test_emb.shape)
         >>> blank_id = 34
         >>> PN_emb = Embedding(num_embeddings=35, consider_as_one_hot=True, blank_id=blank_id)
         >>> test_emb = PN_emb(torch.Tensor([[1]]).long())
