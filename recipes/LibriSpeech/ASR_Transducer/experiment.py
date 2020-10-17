@@ -13,7 +13,7 @@ from speechbrain.decoders.transducer import (
 from speechbrain.data_io.data_io import prepend_bos_token
 from speechbrain.data_io.data_io import append_eos_token
 from speechbrain.data_io.data_io import split_word
-from speechbrain.decoders.decoders import undo_padding
+from speechbrain.utils.data_utils import undo_padding
 from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.train_logger import summarize_error_rate
 import torch
