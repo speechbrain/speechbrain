@@ -37,8 +37,8 @@ def _get_sentence_to_update(selected_sentences, output_PN, hidden):
         >>> from speechbrain.nnet.embedding import Embedding
         >>> blank_id = 34
         >>> PN_emb = Embedding(num_embeddings=35, consider_as_one_hot=True, blank_id=blank_id)
-        >>> PN = GRU(hidden_size=5, num_layers=1, bidirectional=False, return_hidden=True)
         >>> test_emb = PN_emb(torch.Tensor([[1],[2],[10],[6]]).long(), init_params=True)
+        >>> PN = GRU(hidden_size=5, input_shape=test_emb.shape)
         >>> test_PN, hidden = PN(test_emb, init_params=True)
         >>> selected_sentences = [1,3]
         >>> selected_output_PN, selected_hidden = _get_sentence_to_update(selected_sentences, test_PN, hidden)
@@ -83,8 +83,8 @@ def _update_hiddens(selected_sentences, updated_hidden, hidden):
         >>> from speechbrain.nnet.embedding import Embedding
         >>> blank_id = 34
         >>> PN_emb = Embedding(num_embeddings=35, consider_as_one_hot=True, blank_id=blank_id)
-        >>> PN = GRU(hidden_size=5, num_layers=1, bidirectional=False, return_hidden=True)
         >>> test_emb = PN_emb(torch.Tensor([[1],[2],[10],[6]]).long(), init_params=True)
+        >>> PN = GRU(hidden_size=5, input_shape=test_emb.shape)
         >>> test_PN, hidden = PN(test_emb, init_params=True)
         >>> selected_sentences = [1,3]
         >>> updated_hidden = torch.ones((1,2,5))
