@@ -30,7 +30,7 @@ class Transducer_joint(nn.Module):
     >>> from speechbrain.nnet.linear import Linear
     >>> input_TN = torch.randn((8, 200, 1, 40))
     >>> input_PN = torch.randn((8, 1, 12, 40))
-    >>> joint_network = Linear(input_size=40, 80)
+    >>> joint_network = Linear(input_size=40, n_neurons=80)
     >>> TJoint = Transducer_joint(joint_network, joint="concat")
     >>> output = TJoint(input_TN, input_PN, init_params=True)
     >>> output.shape
