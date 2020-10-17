@@ -37,9 +37,9 @@ def _get_sentence_to_update(selected_sentences, output_PN, hidden):
         >>> from speechbrain.nnet.embedding import Embedding
         >>> blank_id = 34
         >>> PN_emb = Embedding(num_embeddings=35, consider_as_one_hot=True, blank_id=blank_id)
-        >>> test_emb = PN_emb(torch.Tensor([[1],[2],[10],[6]]).long(), init_params=True)
+        >>> test_emb = PN_emb(torch.Tensor([[1],[2],[10],[6]]).long())
         >>> PN = GRU(hidden_size=5, input_shape=test_emb.shape)
-        >>> test_PN, hidden = PN(test_emb, init_params=True)
+        >>> test_PN, hidden = PN(test_emb)
         >>> selected_sentences = [1,3]
         >>> selected_output_PN, selected_hidden = _get_sentence_to_update(selected_sentences, test_PN, hidden)
 
@@ -83,9 +83,9 @@ def _update_hiddens(selected_sentences, updated_hidden, hidden):
         >>> from speechbrain.nnet.embedding import Embedding
         >>> blank_id = 34
         >>> PN_emb = Embedding(num_embeddings=35, consider_as_one_hot=True, blank_id=blank_id)
-        >>> test_emb = PN_emb(torch.Tensor([[1],[2],[10],[6]]).long(), init_params=True)
+        >>> test_emb = PN_emb(torch.Tensor([[1],[2],[10],[6]]).long())
         >>> PN = GRU(hidden_size=5, input_shape=test_emb.shape)
-        >>> test_PN, hidden = PN(test_emb, init_params=True)
+        >>> test_PN, hidden = PN(test_emb)
         >>> selected_sentences = [1,3]
         >>> updated_hidden = torch.ones((1,2,5))
         >>> hidden = _update_hiddens(selected_sentences, updated_hidden, hidden)
@@ -134,7 +134,7 @@ def _forward_PN(out_PN, decode_network_lst, hidden=None):
         >>> PN_emb = Embedding(num_embeddings=35, consider_as_one_hot=True, blank_id=blank_id)
         >>> test_emb = PN_emb(torch.Tensor([[1]]).long())
         >>> PN = GRU(hidden_size=5, input_shape=test_emb.shape)
-        >>> test_PN, hidden = PN(test_emb, init_params=True)
+        >>> test_PN, hidden = PN(test_emb)
         >>> out_PN, hidden = _forward_PN(torch.Tensor([[1]]).long(), [PN_emb, PN], hidden)
 
     Author:
@@ -247,11 +247,11 @@ def transducer_greedy_decode(
         >>> Out_lin = Linear(n_neurons=35)
         >>> log_softmax = Softmax(apply_log=False)
         >>> inputs = torch.randn((3,40,35))
-        >>> TN_out = TN(inputs, init_params=True)
+        >>> TN_out = TN(inputs)
         >>> TN_out = TN_lin(TN_out, init_params=True)
         >>> # Initialize modules...
-        >>> test_emb = PN_emb(torch.Tensor([[1]]).long(), init_params=True)
-        >>> test_PN, _ = PN(test_emb, init_params=True)
+        >>> test_emb = PN_emb(torch.Tensor([[1]]).long())
+        >>> test_PN, _ = PN(test_emb)
         >>> test_PN = PN_lin(test_PN, init_params=True)
         >>> # init tjoint
         >>> joint_tensor = tjoint(TN_out.unsqueeze(1), test_PN.unsqueeze(2), init_params=True)
@@ -393,11 +393,11 @@ def transducer_beam_search_decode(
         >>> Out_lin = Linear(n_neurons=35)
         >>> log_softmax = Softmax(apply_log=False)
         >>> inputs = torch.randn((3,40,35))
-        >>> TN_out = TN(inputs, init_params=True)
+        >>> TN_out = TN(inputs)
         >>> TN_out = TN_lin(TN_out, init_params=True)
         >>> # Initialize modules...
-        >>> test_emb = PN_emb(torch.Tensor([[1]]).long(), init_params=True)
-        >>> test_PN, _ = PN(test_emb, init_params=True)
+        >>> test_emb = PN_emb(torch.Tensor([[1]]).long())
+        >>> test_PN, _ = PN(test_emb)
         >>> test_PN = PN_lin(test_PN, init_params=True)
         >>> # init tjoint
         >>> joint_tensor = tjoint(TN_out.unsqueeze(1), test_PN.unsqueeze(2), init_params=True)
