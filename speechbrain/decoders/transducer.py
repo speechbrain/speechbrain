@@ -132,7 +132,7 @@ def _forward_PN(out_PN, decode_network_lst, hidden=None):
         >>> from speechbrain.nnet.embedding import Embedding
         >>> blank_id = 34
         >>> PN_emb = Embedding(num_embeddings=35, consider_as_one_hot=True, blank_id=blank_id)
-        >>> test_emb = PN_emb(torch.Tensor([[1]]).long(), init_params=True)
+        >>> test_emb = PN_emb(torch.Tensor([[1]]).long())
         >>> PN = GRU(hidden_size=5, input_shape=test_emb.shape)
         >>> test_PN, hidden = PN(test_emb, init_params=True)
         >>> out_PN, hidden = _forward_PN(torch.Tensor([[1]]).long(), [PN_emb, PN], hidden)
