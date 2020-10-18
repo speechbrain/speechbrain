@@ -1087,7 +1087,7 @@ class DropChunk(torch.nn.Module):
                 start_max = lengths[i]
             if start_max < 0:
                 start_max += lengths[i]
-            start_max -= length.max()
+            start_max = max(0, start_max - length.max())
 
             # Pick starting locations
             start = torch.randint(
