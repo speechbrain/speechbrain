@@ -165,6 +165,7 @@ class TransformerBasedEncoder(nn.Module):
         nhead=8,
         num_layers=1,
         version=1,
+        use_positional_encoding=False,
     ):
         super(TransformerBasedEncoder, self).__init__()
 
@@ -198,7 +199,7 @@ class TransformerBasedEncoder(nn.Module):
             nhead=nhead,
             dropout=0,
             d_ffn=d_ffn,
-            use_positional_encoding=True,
+            use_positional_encoding=use_positional_encoding,
         )
 
     def forward(self, x, init_params=True):

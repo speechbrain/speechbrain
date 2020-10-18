@@ -13,7 +13,8 @@ import os
 import pprint
 import shutil
 from pathlib import PosixPath
-import itertools as it
+
+# import itertools as it
 
 import mlflow
 import orion
@@ -32,6 +33,10 @@ from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.train_logger import summarize_average
 from speechbrain.data_io.data_io import write_wav_soundfile
 import speechbrain.nnet.lr_schedulers as schedulers
+from mir_eval.separation import bss_eval_sources
+from tqdm import tqdm
+import numpy as np
+
 
 logger = logging.getLogger(__name__)
 
@@ -50,29 +55,48 @@ def save_audio_results(params, model, test_loader, device, N=10):
         os.mkdir(save_path)
 
     fs = 8000
+    all_sdrs = []
+    with tqdm(test_loader, dynamic_ncols=True) as t:
+        for i, batch in enumerate(t):
 
-    for i, batch in enumerate(it.islice(test_loader, 0, N, 1)):
-        inputs = batch[0][1].to(device)
-        predictions = model.compute_forward(inputs, stage="test").detach()
-        write_wav_soundfile(
-            predictions[0, :, 0] / predictions[0, :, 0].std(),
-            save_path + "/item{}_source{}hat.wav".format(i, 1),
-            fs,
-        )
-        write_wav_soundfile(
-            predictions[0, :, 1] / predictions[0, :, 1].std(),
-            save_path + "/item{}_source{}hat.wav".format(i, 2),
-            fs,
-        )
-        write_wav_soundfile(
-            batch[1][1], save_path + "/item{}_source{}.wav".format(i, 1), fs
-        )
-        write_wav_soundfile(
-            batch[2][1], save_path + "/item{}_source{}.wav".format(i, 2), fs
-        )
-        write_wav_soundfile(
-            inputs[0], save_path + "/item{}_mixture.wav".format(i), fs
-        )
+            inputs = batch[0][1].to(device)
+            predictions = model.compute_forward(inputs, stage="test").detach()
+            targets = torch.stack(
+                [batch[1][1].squeeze(), batch[2][1].squeeze()], dim=0
+            )
+
+            sdr, _, _, _ = bss_eval_sources(
+                targets.numpy(), predictions[0].t().cpu().numpy()
+            )
+            all_sdrs.append(sdr.mean())
+
+            if i < N:
+                write_wav_soundfile(
+                    predictions[0, :, 0] / predictions[0, :, 0].std(),
+                    save_path + "/item{}_source{}hat.wav".format(i, 1),
+                    fs,
+                )
+                write_wav_soundfile(
+                    predictions[0, :, 1] / predictions[0, :, 1].std(),
+                    save_path + "/item{}_source{}hat.wav".format(i, 2),
+                    fs,
+                )
+                write_wav_soundfile(
+                    batch[1][1],
+                    save_path + "/item{}_source{}.wav".format(i, 1),
+                    fs,
+                )
+                write_wav_soundfile(
+                    batch[2][1],
+                    save_path + "/item{}_source{}.wav".format(i, 2),
+                    fs,
+                )
+                write_wav_soundfile(
+                    inputs[0], save_path + "/item{}_mixture.wav".format(i), fs
+                )
+            t.set_postfix(average_sdr=np.array(all_sdrs).mean())
+
+    print("Mean SDR is {}".format(np.array(all_sdrs).mean()))
 
 
 class SourceSeparationBrainSuperclass(sb.core.Brain):
@@ -116,7 +140,11 @@ class SourceSeparationBrainSuperclass(sb.core.Brain):
         else:
             inputs = batch[0][1].to(self.device)
             targets = torch.cat(
-                [batch[1][1].unsqueeze(-1), batch[2][1].unsqueeze(-1)], dim=-1
+                [
+                    batch[i][1].unsqueeze(-1)
+                    for i in range(1, self.params.MaskNet.num_spks + 1)
+                ],
+                dim=-1,
             ).to(self.device)
 
         if self.params.use_data_augmentation:
@@ -127,10 +155,13 @@ class SourceSeparationBrainSuperclass(sb.core.Brain):
             )
 
             targets = self.params.augmentation(targets, wav_lens)
-            targets = targets.reshape(-1, 2, targets.shape[-1])
+            targets = targets.reshape(
+                -1, self.params.MaskNet.num_spks, targets.shape[-1]
+            )
             targets = targets.permute(0, 2, 1)
 
             if hasattr(self.params, "use_data_shuffling"):
+                # only would work for 2 spks
                 perm = torch.randperm(targets.size(0))
                 targets = torch.stack(
                     [targets[perm, :, 0], targets[:, :, 1]], dim=2
@@ -175,7 +206,11 @@ class SourceSeparationBrainSuperclass(sb.core.Brain):
     def evaluate_batch(self, batch, stage="test"):
         inputs = batch[0][1].to(self.device)
         targets = torch.cat(
-            [batch[1][1].unsqueeze(-1), batch[2][1].unsqueeze(-1)], dim=-1
+            [
+                batch[i][1].unsqueeze(-1)
+                for i in range(1, self.params.MaskNet.num_spks + 1)
+            ],
+            dim=-1,
         ).to(self.device)
 
         predictions = self.compute_forward(inputs, stage="test")
@@ -236,9 +271,14 @@ class SourceSeparationBrain(SourceSeparationBrainSuperclass):
         # [batch, channel, time / kernel stride]
         est_mask = self.params.MaskNet(mixture_w, init_params=init_params)
 
-        out = [est_mask[i] * mixture_w for i in range(2)]
+        out = [
+            est_mask[i] * mixture_w for i in range(self.params.MaskNet.num_spks)
+        ]
         est_source = torch.cat(
-            [self.params.Decoder(out[i]).unsqueeze(-1) for i in range(2)],
+            [
+                self.params.Decoder(out[i]).unsqueeze(-1)
+                for i in range(self.params.MaskNet.num_spks)
+            ],
             dim=-1,
         )
 
@@ -291,6 +331,12 @@ def main():
         help="will use multigpu in training",
         action="store_true",
     )
+    # parser.add_argument(
+    #    "--num_spks",
+    #    help="number of speakers",
+    #    type=int,
+    #    default=2,
+    # )
 
     args = parser.parse_args()
 
@@ -328,9 +374,17 @@ def main():
         #    and os.path.exists(params.save_folder + "/wsj_tt.csv")
         # ):
         # we always recreate the csv files too keep track of the latest path
-        from recipes.WSJ2Mix.prepare_data import create_wsj_csv
 
-        create_wsj_csv(data_save_dir, params.save_folder)
+        if params.MaskNet.num_spks == 2:
+            from recipes.WSJ2Mix.prepare_data import create_wsj_csv
+
+            create_wsj_csv(data_save_dir, params.save_folder)
+        elif params.MaskNet.num_spks == 3:
+            from recipes.WSJ2Mix.prepare_data import create_wsj_csv_3spks
+
+            create_wsj_csv_3spks(data_save_dir, params.save_folder)
+        else:
+            raise ValueError("We do not support this many speakers")
 
         tr_csv = os.path.realpath(
             os.path.join(params.save_folder + "/wsj_tr.csv")
