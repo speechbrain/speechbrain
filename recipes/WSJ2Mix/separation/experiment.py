@@ -33,7 +33,6 @@ from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.train_logger import summarize_average
 from speechbrain.data_io.data_io import write_wav_soundfile
 import speechbrain.nnet.lr_schedulers as schedulers
-from mir_eval.separation import bss_eval_sources
 from tqdm import tqdm
 import numpy as np
 
@@ -50,6 +49,8 @@ def reset_layer_recursively(layer):
 
 
 def save_audio_results(params, model, test_loader, device, N=10):
+    from mir_eval.separation import bss_eval_sources
+
     save_path = os.path.join(params.output_folder, "audio_results")
     if not os.path.exists(save_path):
         os.mkdir(save_path)
