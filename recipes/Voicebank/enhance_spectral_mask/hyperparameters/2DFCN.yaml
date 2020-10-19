@@ -5,7 +5,7 @@
 
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 1234
+seed: 5234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 data_folder: !PLACEHOLDER
@@ -34,7 +34,7 @@ csv_test: !ref <data_folder>/test.csv
 
 # Training Parameters
 number_of_epochs: 100
-N_batch: 1
+N_batch: 4
 lr: 0.001
 device: 'cuda:0'
 
@@ -125,29 +125,29 @@ activation: !new:torch.nn.LeakyReLU
 
 activation_sigmoid: !new:torch.nn.Sigmoid
 
-IN0: !new:speechbrain.nnet.normalization.InstanceNorm2d
-    track_running_stats: False
+IN0: !new:speechbrain.nnet.normalization.BatchNorm2d
+    track_running_stats: True
     affine: True
-IN1: !new:speechbrain.nnet.normalization.InstanceNorm2d
-    track_running_stats: False
+IN1: !new:speechbrain.nnet.normalization.BatchNorm2d
+    track_running_stats: True
     affine: True
-IN2: !new:speechbrain.nnet.normalization.InstanceNorm2d
-    track_running_stats: False
+IN2: !new:speechbrain.nnet.normalization.BatchNorm2d
+    track_running_stats: True
     affine: True
-IN3: !new:speechbrain.nnet.normalization.InstanceNorm2d
-    track_running_stats: False
+IN3: !new:speechbrain.nnet.normalization.BatchNorm2d
+    track_running_stats: True
     affine: True
-IN4: !new:speechbrain.nnet.normalization.InstanceNorm2d
-    track_running_stats: False
+IN4: !new:speechbrain.nnet.normalization.BatchNorm2d
+    track_running_stats: True
     affine: True
-IN5: !new:speechbrain.nnet.normalization.InstanceNorm2d
-    track_running_stats: False
+IN5: !new:speechbrain.nnet.normalization.BatchNorm2d
+    track_running_stats: True
     affine: True
-IN6: !new:speechbrain.nnet.normalization.InstanceNorm2d
-    track_running_stats: False
+IN6: !new:speechbrain.nnet.normalization.BatchNorm2d
+    track_running_stats: True
     affine: True
-IN7: !new:speechbrain.nnet.normalization.InstanceNorm2d
-    track_running_stats: False
+IN7: !new:speechbrain.nnet.normalization.BatchNorm2d
+    track_running_stats: True
     affine: True
 
 model: !new:speechbrain.nnet.containers.Sequential
