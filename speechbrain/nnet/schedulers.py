@@ -29,7 +29,7 @@ def update_learning_rate(optimizer, new_lr, param_group=None):
     Example
     -------
     >>> from torch.optim import SGD
-    >>> from speechbrain.nnet import Linear
+    >>> from speechbrain.nnet.linear import Linear
     >>> model = Linear(n_neurons=10, input_size=10)
     >>> optimizer = SGD(model.parameters(), lr=0.1)
     >>> update_learning_rate(optimizer, 0.2)

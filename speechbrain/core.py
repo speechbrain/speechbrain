@@ -80,7 +80,7 @@ def create_experiment_directory(
     # Log exceptions to output automatically
     log_file = os.path.join(experiment_directory, "log.txt")
     logger_overrides = {"handlers": {"file_handler": {"filename": log_file}}}
-    sb.setup_logging(log_config, logger_overrides)
+    sb.utils.logger.setup_logging(log_config, logger_overrides)
     sys.excepthook = _logging_excepthook
 
     # Log beginning of experiment!
@@ -91,7 +91,7 @@ def create_experiment_directory(
 
     # Save system description:
     if save_env_desc:
-        description_str = sb.get_environment_description()
+        description_str = sb.utils.logger.get_environment_description()
         with open(os.path.join(experiment_directory, "env.log"), "w") as fo:
             fo.write(description_str)
 
@@ -181,7 +181,7 @@ def parse_arguments(arg_list):
     # Convert to string and append to overrides
     ruamel_yaml = ruamel.yaml.YAML()
     overrides = ruamel_yaml.load(yaml_overrides) or {}
-    sb.recursive_update(overrides, items)
+    sb.utils.data_utils.recursive_update(overrides, items)
     yaml_stream = StringIO()
     ruamel_yaml.dump(overrides, yaml_stream)
 
@@ -324,7 +324,7 @@ class Brain:
         )
         if total_params > 0:
             clsname = self.__class__.__name__
-            fmt_num = sb.format_order_of_magnitude(total_params)
+            fmt_num = sb.utils.logger.format_order_of_magnitude(total_params)
             logger.info(f"{fmt_num} trainable parameters in {clsname}")
 
     def compute_forward(self, x, stage):

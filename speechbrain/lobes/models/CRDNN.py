@@ -8,20 +8,10 @@ Authors
  * Abdel 2020
 """
 import torch
-from speechbrain.nnet import (
-    LiGRU,
-    Conv2d,
-    Linear,
-    Pooling1d,
-    Pooling2d,
-    Dropout2d,
-    Sequential,
-    BatchNorm1d,
-    LayerNorm,
-)
+import speechbrain as sb
 
 
-class CRDNN(Sequential):
+class CRDNN(sb.nnet.containers.Sequential):
     """This model is a combination of CNNs, RNNs, and DNNs.
 
     The default CNN model is based on VGG.
@@ -87,7 +77,7 @@ class CRDNN(Sequential):
         time_pooling=False,
         time_pooling_size=2,
         freq_pooling_size=2,
-        rnn_class=LiGRU,
+        rnn_class=sb.nnet.RNN.LiGRU,
         inter_layer_pooling_size=[2, 2],
         using_2d_pooling=False,
         rnn_layers=4,
@@ -102,23 +92,23 @@ class CRDNN(Sequential):
 
         for block_index in range(cnn_blocks):
             self.append(
-                Conv2d,
+                sb.nnet.CNN.Conv2d,
                 out_channels=cnn_channels[block_index],
                 kernel_size=cnn_kernelsize,
             )
-            self.append(LayerNorm)
+            self.append(sb.nnet.normalization.LayerNorm)
             self.append(activation())
             self.append(
-                Conv2d,
+                sb.nnet.CNN.Conv2d,
                 out_channels=cnn_channels[block_index],
                 kernel_size=cnn_kernelsize,
             )
-            self.append(LayerNorm)
+            self.append(sb.nnet.normalization.LayerNorm)
             self.append(activation())
 
             if not using_2d_pooling:
                 self.append(
-                    Pooling1d(
+                    sb.nnet.pooling.Pooling1d(
                         pool_type="max",
                         kernel_size=inter_layer_pooling_size[block_index],
                         pool_axis=2,
@@ -126,7 +116,7 @@ class CRDNN(Sequential):
                 )
             else:
                 self.append(
-                    Pooling2d(
+                    sb.nnet.pooling.Pooling2d(
                         pool_type="max",
                         kernel_size=(
                             inter_layer_pooling_size[block_index],
@@ -136,11 +126,11 @@ class CRDNN(Sequential):
                     )
                 )
 
-            self.append(Dropout2d(drop_rate=dropout))
+            self.append(sb.nnet.dropout.Dropout2d(drop_rate=dropout))
 
         if time_pooling:
             self.append(
-                Pooling1d(
+                sb.nnet.pooling.Pooling1d(
                     pool_type="max", kernel_size=time_pooling_size, pool_axis=1,
                 )
             )
@@ -152,9 +142,12 @@ class CRDNN(Sequential):
         # This layer projects it back to something reasonable
         if projection_dim != -1:
             self.append(
-                Linear, n_neurons=projection_dim, bias=True, combine_dims=True,
+                sb.nnet.linear.Linear,
+                n_neurons=projection_dim,
+                bias=True,
+                combine_dims=True,
             )
-            self.append(LayerNorm)
+            self.append(sb.nnet.normalization.LayerNorm)
             self.append(activation())
 
         if rnn_layers > 0:
@@ -168,7 +161,7 @@ class CRDNN(Sequential):
             )
 
         for block_index in range(dnn_blocks):
-            self.append(Linear, n_neurons=dnn_neurons, bias=True)
-            self.append(BatchNorm1d)
+            self.append(sb.nnet.linear.Linear, n_neurons=dnn_neurons, bias=True)
+            self.append(sb.nnet.normalization.BatchNorm1d)
             self.append(activation())
             self.append(torch.nn.Dropout(p=dropout))
