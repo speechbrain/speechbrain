@@ -327,6 +327,7 @@ def transducer_beam_search_decode(
     nbest=5,
     lm_module=None,
     lm_weight=0.3,
+    state_beam=4.6,
 ):
     """
     transducer beam search decoder is a beam search decoder over batch which apply Transducer rules:
@@ -439,10 +440,19 @@ def transducer_beam_search_decode(
                 if len(beam_hyps) >= beam:
                     break
                 # pondéré la proba
-                best_hyp = max(process_hyps, key=lambda x: x["logp_score"])
+                a_best_hyp = max(process_hyps, key=lambda x: x["logp_score"])
+
+                # (Brian) break if best_hyp in A is worse by more than state_beam than best_hyp in B
+                if len(beam_hyps) > 0:
+                    b_best_hyp = max(beam_hyps, key=lambda x: x["logp_score"])
+                    a_best_prob = a_best_hyp["logp_score"]
+                    b_best_prob = b_best_hyp["logp_score"]
+                    if b_best_prob >= state_beam + a_best_prob:
+                        break
+
                 # remove best hyp from process_hyps
-                process_hyps.remove(best_hyp)
-                out_PN = best_hyp["out_PN"]
+                process_hyps.remove(a_best_hyp)
+                out_PN = a_best_hyp["out_PN"]
                 # Join predictions (TN & PN)
                 # tjoint must be have a 4 dim [B,T,U,Hidden]
                 # so do unsqueeze over
@@ -457,16 +467,18 @@ def transducer_beam_search_decode(
                 # forward the output layers + activation + save logits
                 out = _forward_after_joint(out, classifier_network)
                 out = out.log_softmax(dim=-1)
+                # print(out.shape, input_PN.shape, out_PN.shape, tn_output.shape)
                 if lm_module:
                     # from 4 dims to 3 dims
                     # to match with LM output
                     out.squeeze_(1)
                     logits, hidden_lm = lm_module(
-                        input_PN, hx=best_hyp["hidden_lm"]
+                        input_PN, hx=a_best_hyp["hidden_lm"]
                     )
                     log_probs_lm = logits.log_softmax(dim=-1)
                     out = out + lm_weight * log_probs_lm
                 # Sort outputs at time
+                # (1, 1, 40) -> (4)
                 logp_targets, positions = torch.topk(
                     out.log_softmax(dim=-1).view(-1), k=beam, dim=-1
                 )
@@ -475,12 +487,14 @@ def transducer_beam_search_decode(
                     if positions[j] != blank_id:
                         input_PN[0, 0] = positions[j]
                         out_PN, hidden = _forward_PN(
-                            input_PN, decode_network_lst, best_hyp["hidden_dec"]
+                            input_PN,
+                            decode_network_lst,
+                            a_best_hyp["hidden_dec"],
                         )
                         topk_hyp = {
-                            "prediction": best_hyp["prediction"]
+                            "prediction": a_best_hyp["prediction"]
                             + [positions[j].item()],
-                            "logp_score": best_hyp["logp_score"]
+                            "logp_score": a_best_hyp["logp_score"]
                             + logp_targets[j],
                             "hidden_dec": hidden,
                             "out_PN": out_PN,
@@ -490,11 +504,11 @@ def transducer_beam_search_decode(
                         process_hyps.append(topk_hyp)
                     else:
                         topk_hyp = {
-                            "prediction": best_hyp["prediction"],
-                            "logp_score": best_hyp["logp_score"]
+                            "prediction": a_best_hyp["prediction"],
+                            "logp_score": a_best_hyp["logp_score"]
                             + logp_targets[j],
-                            "hidden_dec": best_hyp["hidden_dec"],
-                            "out_PN": best_hyp["out_PN"],
+                            "hidden_dec": a_best_hyp["hidden_dec"],
+                            "out_PN": a_best_hyp["out_PN"],
                         }
                         if lm_module:
                             topk_hyp.update({"hidden_lm": hidden_lm})
