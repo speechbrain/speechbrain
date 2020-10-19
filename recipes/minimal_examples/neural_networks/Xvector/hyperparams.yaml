@@ -64,15 +64,16 @@ classifier: !new:speechbrain.lobes.models.Xvector.Classifier
 mean_var_norm: !new:speechbrain.processing.InputNormalization
     norm_type: global
 
-opt_class: !name:torch.optim.Adam
-    lr: !ref <lr>
-
-hparams:
-    compute_features: !ref <compute_features>
+modules:
     xvector_model: !ref <xvector_model>
     classifier: !ref <classifier>
     mean_var_norm: !ref <mean_var_norm>
-    compute_cost: !name:speechbrain.nnet.nll_loss
-    error_stats: !name:speechbrain.MetricStats
-        metric: !name:speechbrain.nnet.classification_error
-            reduction: batch
+
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+
+compute_cost: !name:speechbrain.nnet.nll_loss
+
+error_stats: !name:speechbrain.MetricStats
+    metric: !name:speechbrain.nnet.classification_error
+        reduction: batch
