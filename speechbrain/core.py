@@ -161,7 +161,16 @@ def parse_arguments(arg_list):
         "--log_config",
         help="A file storing the configuration options for logging",
     )
+    parser.add_argument(
+        "--rank", type=int, help="Rank of process in multiprocessing setup"
+    )
     parser.add_argument("--device", help="The device to run the experiment on")
+    parser.add_argument(
+        "--multigpu_count", type=int, help="Number of gpus to run on"
+    )
+    parser.add_argument(
+        "--multigpu_backend", help="data_parallel, ddp_nccl, ddp_gloo, ddp_mpi"
+    )
 
     # Ignore items that are "None", they were not passed
     parsed_args = vars(parser.parse_args(arg_list))
@@ -266,31 +275,31 @@ class Brain:
     """
 
     def __init__(
-        self,
-        modules=None,
-        opt_class=None,
-        hparams=None,
-        jit_module_keys=None,
-        checkpointer=None,
-        device="cpu",
-        multigpu_count=0,
-        multigpu_backend=None,
-        auto_mix_prec=False,
+        self, modules=None, opt_class=None, hparams=None, checkpointer=None,
     ):
         self.opt_class = opt_class
-        self.jit_module_keys = jit_module_keys
         self.checkpointer = checkpointer
-
-        # root_process and device will be updated if ddp is used
-        self.device = device
         self.root_process = True
-        self.multigpu_count = multigpu_count
-        self.multigpu_backend = multigpu_backend
 
-        self.auto_mix_prec = auto_mix_prec
+        # Arguments passed via the hparams dictionary
+        brain_arg_defaults = {
+            "rank": None,
+            "device": "cpu",
+            "multigpu_count": 0,
+            "multigpu_backend": None,
+            "jit_module_keys": None,
+            "auto_mix_prec": False,
+        }
+        for arg, default in brain_arg_defaults.items():
+            if hparams is not None and arg in hparams:
+                setattr(self, arg, hparams[arg])
+            else:
+                setattr(self, arg, default)
+
+        # Put modules on the right device, accessible with dot notation
         self.modules = torch.nn.ModuleDict(modules).to(self.device)
 
-        # Make hyperparams available with simple "dot" notation
+        # Make hyperparams available with dot notation too
         if hparams is not None:
             self.hparams = SimpleNamespace(**hparams)
 
@@ -308,18 +317,16 @@ class Brain:
             logger.info(f"{fmt_num} trainable parameters in {clsname}")
 
         # Initialize ddp environment
-        if self.multigpu_backend.startswith("ddp"):
-            rank = int(self.device[-1])
+        if self.multigpu_backend and self.multigpu_backend.startswith("ddp"):
+            self.root_process = self.rank == 0
+
+            # Use backend (without "ddp_") to initialize process group
+            backend = self.multigpu_backend[4:]
             os.environ["MASTER_ADDR"] = "localhost"
             os.environ["MASTER_PORT"] = "12321"
-
-            # Remove the "ddp_" from the backend
-            backend = self.multigpu_backend[4:]
             torch.distributed.init_process_group(
-                backend=backend, world_size=self.multigpu_count, rank=rank
+                backend=backend, world_size=self.multigpu_count, rank=self.rank
             )
-
-            self.root_process = rank == 0
 
             # force the models to start and remain synchronized
             torch.backends.cudnn.deterministic = True
@@ -553,13 +560,11 @@ class Brain:
         # Use factories to get loaders
         self.train_sampler = None
         if isinstance(train_set, DataLoaderFactory):
-            if self.multigpu_backend and self.multigpu_backend.startswith(
-                "ddp"
-            ):
+            if self.rank is not None:
                 self.train_sampler = DistributedSampler(
                     dataset=train_set.dataset,
                     num_replicas=self.multigpu_count,
-                    rank=int(self.device[-1]),
+                    rank=self.rank,
                     shuffle=train_set.shuffle,
                 )
             train_set = train_set.get_dataloader(self.train_sampler)
@@ -624,7 +629,6 @@ class Brain:
                     module = torch.nn.DataParallel(module)
                 elif self.multigpu_backend.startswith("ddp"):
                     module = SyncBatchNorm.convert_sync_batchnorm(module)
-                    module = module.to(self.device)
                     module = DDP(module, device_ids=[self.device])
             self.modules[name] = module
 

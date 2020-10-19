@@ -304,9 +304,6 @@ if __name__ == "__main__":
         opt_class=hparams["opt_class"],
         hparams=hparams,
         checkpointer=hparams["checkpointer"],
-        device=hparams["device"],
-        multigpu_count=hparams["multigpu_count"],
-        multigpu_backend=hparams["multigpu_backend"],
     )
 
     asr_brain.load_tokenizer()
