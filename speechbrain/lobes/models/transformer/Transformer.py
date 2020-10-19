@@ -9,8 +9,6 @@ import torch.nn as nn
 import speechbrain as sb
 from typing import Optional
 
-from speechbrain.nnet.normalization import LayerNorm
-
 
 class TransformerInterface(nn.Module):
     """This is an interface for transformer model.
@@ -191,18 +189,18 @@ class TransformerEncoderLayer(nn.Module):
     ):
         super().__init__()
 
-        self.self_att = sb.nnet.MultiheadAttention(
+        self.self_att = sb.nnet.attention.MultiheadAttention(
             nhead=nhead, d_model=d_model, dropout=dropout, kdim=kdim, vdim=vdim,
         )
-        self.pos_ffn = sb.nnet.PositionalwiseFeedForward(
+        self.pos_ffn = sb.nnet.attention.PositionalwiseFeedForward(
             d_ffn=d_ffn,
             input_size=d_model,
             dropout=dropout,
             activation=activation,
         )
 
-        self.norm1 = LayerNorm(d_model, eps=1e-6)
-        self.norm2 = LayerNorm(d_model, eps=1e-6)
+        self.norm1 = sb.nnet.normalization.LayerNorm(d_model, eps=1e-6)
+        self.norm2 = sb.nnet.normalization.LayerNorm(d_model, eps=1e-6)
         self.dropout1 = torch.nn.Dropout(dropout)
         self.dropout2 = torch.nn.Dropout(dropout)
 
@@ -327,7 +325,7 @@ class TransformerEncoder(nn.Module):
                 for i in range(num_layers)
             ]
         )
-        self.norm = LayerNorm(d_model, eps=1e-6)
+        self.norm = sb.nnet.normalization.LayerNorm(d_model, eps=1e-6)
 
     def forward(
         self,
@@ -399,13 +397,13 @@ class TransformerDecoderLayer(nn.Module):
         normalize_before=False,
     ):
         super().__init__()
-        self.self_attn = sb.nnet.MultiheadAttention(
+        self.self_attn = sb.nnet.attention.MultiheadAttention(
             nhead=nhead, d_model=d_model, kdim=kdim, vdim=vdim, dropout=dropout,
         )
-        self.mutihead_attn = sb.nnet.MultiheadAttention(
+        self.mutihead_attn = sb.nnet.attention.MultiheadAttention(
             nhead=nhead, d_model=d_model, kdim=kdim, vdim=vdim, dropout=dropout,
         )
-        self.pos_ffn = sb.nnet.PositionalwiseFeedForward(
+        self.pos_ffn = sb.nnet.attention.PositionalwiseFeedForward(
             d_ffn=d_ffn,
             input_size=d_model,
             dropout=dropout,
@@ -413,9 +411,9 @@ class TransformerDecoderLayer(nn.Module):
         )
 
         # normalization layers
-        self.norm1 = LayerNorm(d_model, eps=1e-6)
-        self.norm2 = LayerNorm(d_model, eps=1e-6)
-        self.norm3 = LayerNorm(d_model, eps=1e-6)
+        self.norm1 = sb.nnet.normalization.LayerNorm(d_model, eps=1e-6)
+        self.norm2 = sb.nnet.normalization.LayerNorm(d_model, eps=1e-6)
+        self.norm3 = sb.nnet.normalization.LayerNorm(d_model, eps=1e-6)
         self.dropout1 = torch.nn.Dropout(dropout)
         self.dropout2 = torch.nn.Dropout(dropout)
         self.dropout3 = torch.nn.Dropout(dropout)
@@ -556,7 +554,7 @@ class TransformerDecoder(nn.Module):
                 for _ in range(num_layers)
             ]
         )
-        self.norm = LayerNorm(d_model, eps=1e-6)
+        self.norm = sb.nnet.normalization.LayerNorm(d_model, eps=1e-6)
 
     def forward(
         self,

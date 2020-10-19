@@ -1,13 +1,9 @@
-#!/usr/bin/env/python3
+#!/usr/bin/env python3
 """Recipe for doing ASR with phoneme targets and joint seq2seq
 and CTC loss on the TIMIT dataset.
 
 To run this recipe, do the following:
-> python experiment.py {hyperparameter file} --data_folder /path/to/TIMIT
-
-Using your own hyperparameter file or one of the following:
- * hyperparams/augment_CRDNN.yaml
- * hyperparams/augment_noise_CRDNN.yaml
+> python experiment.py hyperparams.yaml --data_folder /path/to/TIMIT
 
 Authors
  * Mirco Ravanelli 2020

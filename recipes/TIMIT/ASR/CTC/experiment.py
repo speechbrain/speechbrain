@@ -1,13 +1,8 @@
-#!/usr/bin/env/python3
+#!/usr/bin/env python3
 """Recipe for doing ASR with phoneme targets and CTC loss on the TIMIT dataset
 
 To run this recipe, do the following:
-> python experiment.py {hyperparameter file} --data_folder /path/to/TIMIT
-
-Using your own hyperparameter file or one of the following:
- * hyperparams/augment_CRDNN.yaml
- * hyperparams/augment_noise_CRDNN.yaml
- * hyperparams/augment_CRDNN_selfatt.yaml
+> python experiment.py hyperparams.yaml --data_folder /path/to/TIMIT
 
 Authors
  * Mirco Ravanelli 2020
@@ -78,7 +73,7 @@ class ASR_Brain(sb.Brain):
 
         if stage == sb.Stage.VALID:
             old_lr, new_lr = self.hparams.lr_annealing(per)
-            sb.nnet.update_learning_rate(self.optimizer, new_lr)
+            sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
 
             # In distributed setting, only want to save model/stats once
             if self.root_process:
