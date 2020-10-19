@@ -27,17 +27,17 @@ class ASR_Brain(sb.Brain):
 
         # Adding augmentation when specified:
         if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "env_corrupt"):
-                wavs_noise = self.hparams.env_corrupt(wavs, wav_lens)
+            if hasattr(self.modules, "env_corrupt"):
+                wavs_noise = self.modules.env_corrupt(wavs, wav_lens)
                 wavs = torch.cat([wavs, wavs_noise], dim=0)
                 wav_lens = torch.cat([wav_lens, wav_lens])
             if hasattr(self.hparams, "augmentation"):
                 wavs = self.hparams.augmentation(wavs, wav_lens)
 
         feats = self.hparams.compute_features(wavs)
-        feats = self.hparams.normalize(feats, wav_lens)
-        out = self.jit_modules.model(feats)
-        out = self.hparams.output(out)
+        feats = self.modules.normalize(feats, wav_lens)
+        out = self.modules.model(feats)
+        out = self.modules.output(out)
         pout = self.hparams.log_softmax(out)
 
         return pout, wav_lens
@@ -47,7 +47,7 @@ class ASR_Brain(sb.Brain):
         ids, phns, phn_lens = targets
         phns, phn_lens = phns.to(self.device), phn_lens.to(self.device)
 
-        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "env_corrupt"):
+        if stage == sb.Stage.TRAIN and hasattr(self.modules, "env_corrupt"):
             phns = torch.cat([phns, phns], dim=0)
             phn_lens = torch.cat([phn_lens, phn_lens], dim=0)
 
@@ -134,16 +134,17 @@ if __name__ == "__main__":
     # Collect index to label dictionary for decoding
     train_set = hparams["train_loader"]()
     valid_set = hparams["valid_loader"]()
-    ind2lab = hparams["train_loader"].label_dict["phn"]["index2lab"]
-    hparams["hparams"]["ind2lab"] = ind2lab
+    hparams["ind2lab"] = hparams["train_loader"].label_dict["phn"]["index2lab"]
 
     asr_brain = ASR_Brain(
-        hparams=hparams["hparams"],
+        modules=hparams["modules"],
         opt_class=hparams["opt_class"],
-        jit_modules=hparams["jit_modules"],
+        hparams=hparams,
+        jit_module_keys=hparams["jit_module_keys"],
         checkpointer=hparams["checkpointer"],
         device=hparams["device"],
-        ddp_procs=hparams["ddp_procs"],
+        multigpu_count=hparams["multigpu_count"],
+        multigpu_backend=hparams["multigpu_backend"],
     )
 
     asr_brain.fit(asr_brain.hparams.epoch_counter, train_set, valid_set)

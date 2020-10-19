@@ -1169,7 +1169,7 @@ class InputNormalization(torch.nn.Module):
         torch.save(stats, path)
 
     @mark_as_loader
-    def _load(self, path, end_of_epoch):
+    def _load(self, path, end_of_epoch, device=None):
         """Load statistic dictionary.
 
         Arguments

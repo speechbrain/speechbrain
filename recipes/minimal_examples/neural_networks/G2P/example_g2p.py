@@ -6,21 +6,22 @@ import speechbrain as sb
 
 class seq2seqBrain(sb.Brain):
     def compute_forward(self, x, y, stage):
-        id, wavs, wav_lens = x
+        id, chars, char_lens = x
         id, phns, phn_lens = y
-        feats = self.hparams.compute_features(wavs)
-        feats = self.modules.mean_var_norm(feats, wav_lens)
-        x = self.modules.enc(feats)
+
+        emb_char = self.hparams.encoder_emb(chars)
+        x, _ = self.modules.enc(emb_char)
 
         # Prepend bos token at the beginning
         y_in = sb.data_io.prepend_bos_token(phns, self.hparams.bos)
         e_in = self.modules.emb(y_in)
-        h, w = self.modules.dec(e_in, x, wav_lens)
+
+        h, w = self.modules.dec(e_in, x, char_lens)
         logits = self.modules.lin(h)
         outputs = self.hparams.softmax(logits)
 
         if stage != sb.Stage.TRAIN:
-            seq, _ = self.hparams.searcher(x, wav_lens)
+            seq, _ = self.hparams.searcher(x, char_lens)
             return outputs, seq
 
         return outputs
