@@ -13,7 +13,7 @@ N_epochs: 25
 N_batch: 2
 lr: 0.0004
 
-train_loader: !new:speechbrain.data_io.DataLoaderFactory
+train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>
     batch_size: !ref <N_batch>
     csv_read: [wav, ali]
@@ -21,7 +21,7 @@ train_loader: !new:speechbrain.data_io.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
-valid_loader: !new:speechbrain.data_io.DataLoaderFactory
+valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_valid>
     batch_size: !ref <N_batch>
     csv_read: [wav, ali]
@@ -29,31 +29,31 @@ valid_loader: !new:speechbrain.data_io.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
-test_loader: !new:speechbrain.data_io.DataLoaderFactory
+test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_test>
     csv_read: [wav, ali]
     sentence_sorting: ascending
     replacements:
         $data_folder: !ref <data_folder>
 
-compute_features: !new:speechbrain.lobes.MFCC
+compute_features: !new:speechbrain.lobes.features.MFCC
 
-mean_var_norm: !new:speechbrain.processing.InputNormalization
+mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
 
-linear1: !new:speechbrain.nnet.Linear
+linear1: !new:speechbrain.nnet.linear.Linear
     input_size: 660
     n_neurons: 1024
     bias: False
 
 activation: !new:torch.nn.LeakyReLU
 
-linear2: !new:speechbrain.nnet.Linear
+linear2: !new:speechbrain.nnet.linear.Linear
     input_size: 1024
     n_neurons: 43
     bias: False
 
-softmax: !new:speechbrain.nnet.Softmax
+softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
 modules:
@@ -64,8 +64,8 @@ modules:
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
 
-compute_cost: !name:speechbrain.nnet.nll_loss
+compute_cost: !name:speechbrain.nnet.losses.nll_loss
 
-error_stats: !name:speechbrain.MetricStats
-    metric: !name:speechbrain.nnet.classification_error
+error_stats: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !name:speechbrain.nnet.losses.classification_error
         reduction: batch

@@ -26,7 +26,7 @@ rnn_bidirectional: True
 dnn_blocks: 1
 dnn_neurons: 128
 
-train_loader: !new:speechbrain.data_io.DataLoaderFactory
+train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>
     batch_size: !ref <N_batch>
     csv_read: [wav, phn]
@@ -34,7 +34,7 @@ train_loader: !new:speechbrain.data_io.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
-valid_loader: !new:speechbrain.data_io.DataLoaderFactory
+valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_valid>
     batch_size: !ref <N_batch>
     csv_read: [wav, phn]
@@ -42,19 +42,19 @@ valid_loader: !new:speechbrain.data_io.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
-test_loader: !new:speechbrain.data_io.DataLoaderFactory
+test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_test>
     csv_read: [wav, phn]
     sentence_sorting: ascending
     replacements:
         $data_folder: !ref <data_folder>
 
-compute_features: !new:speechbrain.lobes.MFCC
+compute_features: !new:speechbrain.lobes.features.MFCC
 
-mean_var_norm: !new:speechbrain.processing.InputNormalization
+mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
 
-model: !new:speechbrain.lobes.CRDNN
+model: !new:speechbrain.lobes.models.CRDNN.CRDNN
     input_shape: [null, null, 660]
     activation: !ref <activation>
     dropout: !ref <dropout>
@@ -68,7 +68,7 @@ model: !new:speechbrain.lobes.CRDNN
     dnn_blocks: !ref <dnn_blocks>
     dnn_neurons: !ref <dnn_neurons>
 
-lin: !new:speechbrain.nnet.Linear
+lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <dnn_neurons>
     n_neurons: 42  # 42 phonemes, no blank
     bias: False
@@ -81,9 +81,9 @@ modules:
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
 
-softmax: !new:speechbrain.nnet.Softmax
+softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
 aligner: !new:speechbrain.alignment.aligner.HMMAligner
 
-compute_cost: !name:speechbrain.nnet.nll_loss
+compute_cost: !name:speechbrain.nnet.losses.nll_loss

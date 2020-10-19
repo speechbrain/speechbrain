@@ -65,7 +65,7 @@ class ASR(sb.Brain):
             target_words, target_word_lens, self.hparams.ind2lab, task="encode"
         )
         target_tokens = target_tokens.to(self.device)
-        y_in = sb.data_io.prepend_bos_token(
+        y_in = sb.data_io.data_io.prepend_bos_token(
             target_tokens, self.hparams.bos_index
         )
 
@@ -122,7 +122,7 @@ class ASR(sb.Brain):
         abs_length = torch.round(target_token_lens * target_tokens.shape[1])
 
         # Append eos token at the end of the label sequences
-        target_tokens_with_eos = sb.data_io.append_eos_token(
+        target_tokens_with_eos = sb.data_io.data_io.append_eos_token(
             target_tokens, length=abs_length, eos_index=self.hparams.eos_index
         )
 
@@ -153,7 +153,7 @@ class ASR(sb.Brain):
 
             # Convert indices to words
             target_words = undo_padding(target_words, target_word_lens)
-            target_words = sb.data_io.convert_index_to_lab(
+            target_words = sb.data_io.data_io.convert_index_to_lab(
                 target_words, self.hparams.ind2lab
             )
 
