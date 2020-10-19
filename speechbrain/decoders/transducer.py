@@ -327,7 +327,8 @@ def transducer_beam_search_decode(
     nbest=5,
     lm_module=None,
     lm_weight=0.3,
-    state_beam=4.6,
+    state_beam=1.0,
+    expand_beam=1.0,
 ):
     """
     transducer beam search decoder is a beam search decoder over batch which apply Transducer rules:
@@ -478,13 +479,29 @@ def transducer_beam_search_decode(
                     log_probs_lm = logits.log_softmax(dim=-1)
                     out = out + lm_weight * log_probs_lm
                 # Sort outputs at time
-                # (1, 1, 40) -> (4)
                 logp_targets, positions = torch.topk(
                     out.log_softmax(dim=-1).view(-1), k=beam, dim=-1
                 )
+                best_logp = (
+                    logp_targets[0]
+                    if positions[0] != blank_id
+                    else logp_targets[1]
+                )
                 # Extend hyp by  selection
                 for j in range(logp_targets.size(0)):
-                    if positions[j] != blank_id:
+                    if positions[j] == blank_id:
+                        topk_hyp = {
+                            "prediction": a_best_hyp["prediction"],
+                            "logp_score": a_best_hyp["logp_score"]
+                            + logp_targets[j],
+                            "hidden_dec": a_best_hyp["hidden_dec"],
+                            "out_PN": a_best_hyp["out_PN"],
+                        }
+                        if lm_module:
+                            topk_hyp.update({"hidden_lm": hidden_lm})
+                        beam_hyps.append(topk_hyp)
+                        continue
+                    if logp_targets[j] >= best_logp - expand_beam:
                         input_PN[0, 0] = positions[j]
                         out_PN, hidden = _forward_PN(
                             input_PN,
@@ -502,17 +519,6 @@ def transducer_beam_search_decode(
                         if lm_module:
                             topk_hyp.update({"hidden_lm": hidden_lm})
                         process_hyps.append(topk_hyp)
-                    else:
-                        topk_hyp = {
-                            "prediction": a_best_hyp["prediction"],
-                            "logp_score": a_best_hyp["logp_score"]
-                            + logp_targets[j],
-                            "hidden_dec": a_best_hyp["hidden_dec"],
-                            "out_PN": a_best_hyp["out_PN"],
-                        }
-                        if lm_module:
-                            topk_hyp.update({"hidden_lm": hidden_lm})
-                        beam_hyps.append(topk_hyp)
         # Add norm score
         nbest_hyps = sorted(
             beam_hyps,
