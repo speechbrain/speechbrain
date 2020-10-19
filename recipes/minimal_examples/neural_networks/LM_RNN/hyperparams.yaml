@@ -24,7 +24,7 @@ output_neurons: 42
 bos_index: !ref <output_neurons> - 1
 eos_index: !ref <output_neurons> - 1
 
-train_loader: !new:speechbrain.data_io.DataLoaderFactory
+train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>
     batch_size: !ref <batch_size>
     sentence_sorting: random
@@ -32,7 +32,7 @@ train_loader: !new:speechbrain.data_io.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
-valid_loader: !new:speechbrain.data_io.DataLoaderFactory
+valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_valid>
     batch_size: !ref <batch_size>
     sentence_sorting: random
@@ -40,7 +40,7 @@ valid_loader: !new:speechbrain.data_io.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
-test_loader: !new:speechbrain.data_io.DataLoaderFactory
+test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_test>
     batch_size: !ref <batch_size>
     sentence_sorting: random
@@ -48,7 +48,7 @@ test_loader: !new:speechbrain.data_io.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
-model: !new:speechbrain.lobes.RNNLM
+model: !new:speechbrain.lobes.models.RNNLM.RNNLM
     output_neurons: !ref <output_neurons>
     embedding_dim: !ref <emb_size>
     rnn_neurons: !ref <rnn_neurons>
@@ -60,10 +60,10 @@ modules: {model: !ref <model>}
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
 
-epoch_counter: !new:speechbrain.EpochCounter
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-log_softmax: !new:speechbrain.nnet.Softmax
+log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
-compute_cost: !name:speechbrain.nnet.nll_loss
+compute_cost: !name:speechbrain.nnet.losses.nll_loss
