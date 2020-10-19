@@ -18,6 +18,7 @@ batch_size: 8
 lr: 0.001
 ctc_weight: 0.2
 device: 'cuda:0'
+rank: null
 multigpu_count: 0  # Set this to number of GPUs for multi-GPU
 multigpu_backend: null
 

@@ -18,7 +18,6 @@ import subprocess
 original_argslist = list(sys.argv)[1:]
 num_gpus = torch.cuda.device_count()
 original_argslist += [f"--multigpu_count={num_gpus}"]
-original_argslist += ["--multigpu_backend=ddp_nccl"]
 workers = []
 ddp_logs_folder = "ddp_logs"
 if not os.path.isdir(ddp_logs_folder):
