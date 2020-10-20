@@ -107,7 +107,6 @@ class SourceSeparationBrainSuperclass(sb.core.Brain):
         super(SourceSeparationBrainSuperclass, self).__init__(**kwargs)
         self.eval_scores = []
         self.scaler = GradScaler()
-        self.inifinite_loss_found = 0
 
     def compute_forward(self, mixture, stage="train", init_params=False):
         raise NotImplementedError("use a subclass")
@@ -142,24 +141,13 @@ class SourceSeparationBrainSuperclass(sb.core.Brain):
         else:
             inputs = batch[0][1].to(self.device)
             targets = torch.cat(
-                [
-                    batch[i][1].unsqueeze(-1)
-                    for i in range(1, self.params.MaskNet.num_spks + 1)
-                ],
-                dim=-1,
+                [batch[i][1].unsqueeze(-1) for i in range(1, 3 + 1)], dim=-1,
             ).to(self.device)
 
-        if isinstance(
-            self.params.MaskNet.dual_mdl[0].intra_mdl,
-            sb.lobes.models.dual_pathrnn.DPTNetBlock,
-        ) or isinstance(
-            self.params.MaskNet.dual_mdl[0].intra_mdl,
-            sb.lobes.models.dual_pathrnn.PTRNNBlock,
-        ):
-            randstart = np.random.randint(
-                0, 1 + max(0, inputs.shape[1] - 32000)
-            )
-            targets = targets[:, randstart : randstart + 32000, :]
+        # if isinstance(self.params.MaskNet.dual_mdl[0].intra_mdl, sb.lobes.models.dual_pathrnn.DPTNetBlock) or \
+        #    isinstance(self.params.MaskNet.dual_mdl[0].intra_mdl, sb.lobes.models.dual_pathrnn.PTRNNBlock):
+        #    randstart = np.random.randint(0, 1 + max(0, inputs.shape[1] - 32000))
+        #    targets = targets[:, randstart:randstart + 32000, :]
 
         if self.params.use_data_augmentation:
             targets = targets.permute(0, 2, 1)
@@ -169,9 +157,7 @@ class SourceSeparationBrainSuperclass(sb.core.Brain):
             )
 
             targets = self.params.augmentation(targets, wav_lens)
-            targets = targets.reshape(
-                -1, self.params.MaskNet.num_spks, targets.shape[-1]
-            )
+            targets = targets.reshape(-1, 3, targets.shape[-1])
             targets = targets.permute(0, 2, 1)
 
             if hasattr(self.params, "use_data_shuffling"):
@@ -195,9 +181,9 @@ class SourceSeparationBrainSuperclass(sb.core.Brain):
                 predictions = self.compute_forward(inputs)
                 loss = self.compute_objectives(predictions, targets)
 
-
-            if loss < 999999:  # fix for computational problems
+            if loss < 999999:
                 self.scaler.scale(loss).backward()
+
                 if self.params.clip_grad_norm >= 0:
                     self.scaler.unscale_(self.optimizer)
                     torch.nn.utils.clip_grad_norm_(
@@ -207,12 +193,8 @@ class SourceSeparationBrainSuperclass(sb.core.Brain):
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
             else:
-                self.inifinite_loss_found += 1
-                logger.info(
-                    "infinite loss! it happened {} times so far - skipping this batch".format(
-                        self.inifinite_loss_found
-                    )
-                )
+                print("inifinite loss!")
+
                 loss.data = torch.tensor(0).to(self.device)
         else:
             predictions = self.compute_forward(inputs)
@@ -230,11 +212,7 @@ class SourceSeparationBrainSuperclass(sb.core.Brain):
     def evaluate_batch(self, batch, stage="test"):
         inputs = batch[0][1].to(self.device)
         targets = torch.cat(
-            [
-                batch[i][1].unsqueeze(-1)
-                for i in range(1, self.params.MaskNet.num_spks + 1)
-            ],
-            dim=-1,
+            [batch[i][1].unsqueeze(-1) for i in range(1, 3 + 1)], dim=-1,
         ).to(self.device)
 
         predictions = self.compute_forward(inputs, stage="test")
@@ -297,14 +275,9 @@ class SourceSeparationBrain(SourceSeparationBrainSuperclass):
         # [batch, channel, time / kernel stride]
         est_mask = self.params.MaskNet(mixture_w, init_params=init_params)
 
-        out = [
-            est_mask[i] * mixture_w for i in range(self.params.MaskNet.num_spks)
-        ]
+        out = [est_mask[i] * mixture_w for i in range(3)]
         est_source = torch.cat(
-            [
-                self.params.Decoder(out[i]).unsqueeze(-1)
-                for i in range(self.params.MaskNet.num_spks)
-            ],
+            [self.params.Decoder(out[i]).unsqueeze(-1) for i in range(3)],
             dim=-1,
         )
 

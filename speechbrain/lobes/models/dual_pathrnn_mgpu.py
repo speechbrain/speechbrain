@@ -1,5 +1,3 @@
-import math
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -12,6 +10,8 @@ from speechbrain.lobes.models.transformer.Transformer import TransformerEncoder
 from speechbrain.lobes.models.transformer.Transformer import PositionalEncoding
 from speechbrain.lobes.models.transformer.TransformerSE import CNNTransformerSE
 import speechbrain.nnet.RNN as SBRNN
+
+from torch.cuda.amp import autocast
 
 
 EPS = 1e-8
@@ -142,13 +142,14 @@ class Encoder(nn.Module):
               T_out is the number of time steps
         """
         # B x T -> B x 1 x T
-        if self.in_channels == 1:
-            x = torch.unsqueeze(x, dim=1)
-        # B x 1 x T -> B x C x T_out
-        x = self.conv1d(x)
-        x = F.relu(x)
+        with autocast():
+            if self.in_channels == 1:
+                x = torch.unsqueeze(x, dim=1)
+            # B x 1 x T -> B x C x T_out
+            x = self.conv1d(x)
+            x = F.relu(x)
 
-        return x
+            return x
 
 
 class TransformerBasedEncoder(nn.Module):
@@ -316,17 +317,18 @@ class Decoder(nn.ConvTranspose1d):
         """
         x: [B, N, L]
         """
-        if x.dim() not in [2, 3]:
-            raise RuntimeError(
-                "{} accept 3/4D tensor as input".format(self.__name__)
-            )
-        x = super().forward(x if x.dim() == 3 else torch.unsqueeze(x, 1))
+        with autocast():
+            if x.dim() not in [2, 3]:
+                raise RuntimeError(
+                    "{} accept 3/4D tensor as input".format(self.__name__)
+                )
+            x = super().forward(x if x.dim() == 3 else torch.unsqueeze(x, 1))
 
-        if torch.squeeze(x).dim() == 1:
-            x = torch.squeeze(x, dim=1)
-        else:
-            x = torch.squeeze(x)
-        return x
+            if torch.squeeze(x).dim() == 1:
+                x = torch.squeeze(x, dim=1)
+            else:
+                x = torch.squeeze(x)
+            return x
 
 
 class Dual_RNN_Block(nn.Module):
@@ -655,26 +657,6 @@ class FastTransformerBlock(nn.Module):
             return self.mdl(x)
 
 
-class PyTorchPositionalEncoding(nn.Module):
-    def __init__(self, d_model, dropout=0.1, max_len=5000):
-        super(PyTorchPositionalEncoding, self).__init__()
-        self.dropout = nn.Dropout(p=dropout)
-
-        pe = torch.zeros(max_len, d_model)
-        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-        div_term = torch.exp(
-            torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model)
-        )
-        pe[:, 0::2] = torch.sin(position * div_term)
-        pe[:, 1::2] = torch.cos(position * div_term)
-        pe = pe.unsqueeze(0).transpose(0, 1)
-        self.register_buffer("pe", pe)
-
-    def forward(self, x):
-        x = x + self.pe[: x.size(0), :]
-        return self.dropout(x)
-
-
 class PytorchTransformerBlock(nn.Module):
     def __init__(
         self,
@@ -684,7 +666,6 @@ class PytorchTransformerBlock(nn.Module):
         d_ffn=2048,
         dropout=0.1,
         activation="relu",
-        use_positional_encoding=True,
     ):
         super(PytorchTransformerBlock, self).__init__()
 
@@ -698,14 +679,7 @@ class PytorchTransformerBlock(nn.Module):
         # cem :this encoder thing has a normalization component. we should look at that probably also.
         self.mdl = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
 
-        if use_positional_encoding:
-            self.pos_encoder = PyTorchPositionalEncoding(out_channels)
-        else:
-            self.pos_encoder = None
-
     def forward(self, x, init_params=False):
-        if self.pos_encoder is not None:
-            x = self.pos_encoder(x)
         return self.mdl(x)
 
 
@@ -1091,45 +1065,46 @@ class Dual_Path_Model(nn.Module):
         )
 
     def forward(self, x, init_params=True):
-        """
-           x: [B, N, L]
-        """
+        with autocast():
+            """
+               x: [B, N, L]
+            """
 
-        # [B, N, L]
-        x = self.norm(x)
-        # [B, N, L]
-        x = self.conv1d(x)
-        if self.use_global_pos_enc:
-            x = self.pos_enc(x.transpose(1, -1), init_params).transpose(
-                1, -1
-            ) + x * (x.size(1) ** 0.5)
+            # [B, N, L]
+            x = self.norm(x)
+            # [B, N, L]
+            x = self.conv1d(x)
+            if self.use_global_pos_enc:
+                x = self.pos_enc(x.transpose(1, -1), init_params).transpose(
+                    1, -1
+                ) + x * (x.size(1) ** 0.5)
 
-        # [B, N, K, S]
-        x, gap = self._Segmentation(x, self.K)
-        # [B, N*spks, K, S]
-        for i in range(self.num_layers):
-            x = self.dual_mdl[i](x, init_params=init_params)
+            # [B, N, K, S]
+            x, gap = self._Segmentation(x, self.K)
+            # [B, N*spks, K, S]
+            for i in range(self.num_layers):
+                x = self.dual_mdl[i](x, init_params=init_params)
 
-        # self.dual_mdl[1].inter_mdl.mdl.layers[0].linear1.weight to see the weights
+            # self.dual_mdl[1].inter_mdl.mdl.layers[0].linear1.weight to see the weights
 
-        x = self.prelu(x)
-        x = self.conv2d(x)
-        # [B*spks, N, K, S]
-        B, _, K, S = x.shape
-        x = x.view(B * self.num_spks, -1, K, S)
-        # [B*spks, N, L]
-        x = self._over_add(x, gap)
-        x = self.output(x) * self.output_gate(x)
-        # [spks*B, N, L]
-        x = self.end_conv1x1(x)
-        # [B*spks, N, L] -> [B, spks, N, L]
-        _, N, L = x.shape
-        x = x.view(B, self.num_spks, N, L)
-        x = self.activation(x)
-        # [spks, B, N, L]
-        x = x.transpose(0, 1)
+            x = self.prelu(x)
+            x = self.conv2d(x)
+            # [B*spks, N, K, S]
+            B, _, K, S = x.shape
+            x = x.view(B * self.num_spks, -1, K, S)
+            # [B*spks, N, L]
+            x = self._over_add(x, gap)
+            x = self.output(x) * self.output_gate(x)
+            # [spks*B, N, L]
+            x = self.end_conv1x1(x)
+            # [B*spks, N, L] -> [B, spks, N, L]
+            _, N, L = x.shape
+            x = x.view(B, self.num_spks, N, L)
+            x = self.activation(x)
+            # [spks, B, N, L]
+            x = x.transpose(0, 1)
 
-        return x
+            return x
 
     def _padding(self, input, K):
         """
