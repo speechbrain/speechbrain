@@ -318,6 +318,11 @@ class Brain:
 
         # Initialize ddp environment
         if self.multigpu_backend and self.multigpu_backend.startswith("ddp"):
+            if self.rank is None:
+                sys.exit(
+                    "To use DDP backend, start your script with:\n\t"
+                    "python -m speechbrain.ddp experiment.py hyperparams.yaml"
+                )
             self.root_process = self.rank == 0
 
             # Use backend (without "ddp_") to initialize process group
