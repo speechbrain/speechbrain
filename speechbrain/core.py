@@ -273,6 +273,8 @@ class Brain:
         If True, automatic mixed-precision is used. Activate it only with cuda.
     gradient_clipping : float
         Default implementation of ``fit_batch()`` uses ``clip_grad_norm_``
+    nonfinite_patience : int
+        Number of times to ignore non-finite losses before stopping.
 
     Example
     -------
@@ -299,6 +301,7 @@ class Brain:
         multigpu_backend=None,
         auto_mix_prec=False,
         max_grad_norm=5.0,
+        nonfinite_patience=3,
     ):
         self.opt_class = opt_class
         self.jit_module_keys = jit_module_keys
@@ -312,6 +315,8 @@ class Brain:
 
         self.auto_mix_prec = auto_mix_prec
         self.max_grad_norm = max_grad_norm
+        self.nonfinite_patience = nonfinite_patience
+        self.nonfinite_count = 0
         self.modules = torch.nn.ModuleDict(modules).to(self.device)
 
         # Make hyperparams available with simple "dot" notation
@@ -487,23 +492,55 @@ class Brain:
                 outputs = self.compute_forward(inputs, Stage.TRAIN)
                 loss = self.compute_objectives(outputs, labels, Stage.TRAIN)
                 self.scaler.scale(loss).backward()
-                torch.nn.utils.clip_grad_norm_(
-                    (p for p in self.modules.parameters()), self.max_grad_norm
-                )
-                self.scaler.step(self.optimizer)
+                if self.check_gradients(loss):
+                    self.scaler.step(self.optimizer)
                 self.optimizer.zero_grad()
                 self.scaler.update()
         else:
             outputs = self.compute_forward(inputs, Stage.TRAIN)
             loss = self.compute_objectives(outputs, labels, Stage.TRAIN)
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(
-                (p for p in self.modules.parameters()), self.max_grad_norm
-            )
-            self.optimizer.step()
+            if self.check_gradients(loss):
+                self.optimizer.step()
             self.optimizer.zero_grad()
 
         return loss.detach().cpu()
+
+    def check_gradients(self, loss):
+        """Check if gradients are finite and not too large.
+
+        Automatically clips large gradients.
+
+        Arguments
+        ---------
+        loss : tensor
+            The loss tensor after ``backward()`` has been called but
+            before the optimizers ``step()``.
+
+        Returns
+        -------
+        bool
+            Whether or not the optimizer step should be carried out.
+        """
+        if not torch.isfinite(loss):
+            self.nonfinite_count += 1
+            if self.nonfinite_count > self.nonfinite_patience:
+                raise ValueError(
+                    "Loss is not finite and patience is exhausted. "
+                    "To debug, wrap `fit()` with "
+                    "autograd's `detect_anomaly()`, e.g.\n\nwith "
+                    "torch.autograd.detect_anomaly():\n\tbrain.fit(...)"
+                )
+            else:
+                logger.warn("Loss is not finite. Ignoring this batch.")
+                return False
+
+        # Clip gradient norm
+        torch.nn.utils.clip_grad_norm_(
+            (p for p in self.modules.parameters()), self.max_grad_norm
+        )
+
+        return True
 
     def evaluate_batch(self, batch, stage):
         """Evaluate one batch, override for different procedure than train.
@@ -702,14 +739,6 @@ class Brain:
         float
             The average loss
         """
-        if not torch.isfinite(loss):
-            raise ValueError(
-                "Loss is not finite. To debug, wrap `fit()` with autograd's "
-                "`detect_anomaly()`, e.g.\n\nwith "
-                "torch.autograd.detect_anomaly():\n\tbrain.fit(...)"
-            )
-
-        # Compute moving average
         avg_loss -= avg_loss / (self.step + 1)
         avg_loss += float(loss) / (self.step + 1)
         return avg_loss
