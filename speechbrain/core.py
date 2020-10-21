@@ -271,6 +271,8 @@ class Brain:
         one of {"ddp_nccl", "ddp_gloo", "ddp_mpi", "data_parallel"}
     auto_mix_prec: bool
         If True, automatic mixed-precision is used. Activate it only with cuda.
+    gradient_clipping : float
+        Default implementation of ``fit_batch()`` uses ``clip_grad_norm_``
 
     Example
     -------
@@ -296,6 +298,7 @@ class Brain:
         multigpu_count=0,
         multigpu_backend=None,
         auto_mix_prec=False,
+        max_grad_norm=5.0,
     ):
         self.opt_class = opt_class
         self.jit_module_keys = jit_module_keys
@@ -308,6 +311,7 @@ class Brain:
         self.multigpu_backend = multigpu_backend
 
         self.auto_mix_prec = auto_mix_prec
+        self.max_grad_norm = max_grad_norm
         self.modules = torch.nn.ModuleDict(modules).to(self.device)
 
         # Make hyperparams available with simple "dot" notation
@@ -483,6 +487,9 @@ class Brain:
                 outputs = self.compute_forward(inputs, Stage.TRAIN)
                 loss = self.compute_objectives(outputs, labels, Stage.TRAIN)
                 self.scaler.scale(loss).backward()
+                torch.nn.utils.clip_grad_norm_(
+                    (p for p in self.modules.parameters()), self.max_grad_norm
+                )
                 self.scaler.step(self.optimizer)
                 self.optimizer.zero_grad()
                 self.scaler.update()
@@ -490,6 +497,9 @@ class Brain:
             outputs = self.compute_forward(inputs, Stage.TRAIN)
             loss = self.compute_objectives(outputs, labels, Stage.TRAIN)
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(
+                (p for p in self.modules.parameters()), self.max_grad_norm
+            )
             self.optimizer.step()
             self.optimizer.zero_grad()
 
