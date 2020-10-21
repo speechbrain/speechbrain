@@ -52,11 +52,11 @@ class ContextNet(Sequential):
 
     Example
     -------
-    >>> inp = torch.randn([8, 120, 40])
-    >>> block = ContextNet(input_shape=inp.shape)
+    >>> inp = torch.randn([8, 48, 40])
+    >>> block = ContextNet(input_shape=inp.shape, num_blocks=14)
     >>> out = block(inp)
     >>> out.shape
-    torch.Size([8, 15, 640])
+    torch.Size([8, 6, 640])
     """
 
     def __init__(
@@ -77,7 +77,7 @@ class ContextNet(Sequential):
         norm=BatchNorm1d,
         residuals=None,
     ):
-        super().__init__(input_shape)
+        super().__init__(input_shape=input_shape)
 
         if conv_channels is None:
             conv_channels = [*[256] * 10, *[512] * 11]
@@ -155,7 +155,7 @@ class SEmodule(torch.nn.Module):
         self.activation = activation
 
         bz, t, chn = input_shape
-        self.conv = Sequential(input_shape)
+        self.conv = Sequential(input_shape=input_shape)
         self.conv.append(
             DepthwiseSeparableConv1d, out_channels=chn, kernel_size=1, stride=1,
         )
@@ -164,7 +164,6 @@ class SEmodule(torch.nn.Module):
 
         self.avg_pool = AdaptivePool(1)
         self.bottleneck = Sequential(
-            input_shape,
             Linear(input_size=input_shape[-1], n_neurons=self.inner_dim),
             self.activation(),
             Linear(input_size=self.inner_dim, n_neurons=chn),
@@ -237,7 +236,7 @@ class ContextNetBlock(torch.nn.Module):
         super().__init__()
         self.residual = residual
 
-        self.Convs = Sequential(input_shape)
+        self.Convs = Sequential(input_shape=input_shape)
         for i in range(num_layers):
             self.Convs.append(
                 DepthwiseSeparableConv1d,
@@ -248,7 +247,7 @@ class ContextNetBlock(torch.nn.Module):
             self.Convs.append(norm)
 
         self.SE = SEmodule(
-            input_shape=self.Convs.input_shape,
+            input_shape=self.Convs.get_output_shape(),
             inner_dim=inner_dim,
             activation=se_activation,
             norm=norm,
@@ -256,7 +255,7 @@ class ContextNetBlock(torch.nn.Module):
         self.drop = Dropout(dropout)
         self.reduced_cov = None
         if residual:
-            self.reduced_cov = Sequential(input_shape)
+            self.reduced_cov = Sequential(input_shape=input_shape)
             self.reduced_cov.append(
                 Conv1d, out_channels, kernel_size=3, stride=stride,
             )

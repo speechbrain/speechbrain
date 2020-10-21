@@ -236,7 +236,7 @@ class ConnectBlocks(torch.nn.Module):
             which is used to indicate that the shorcut should be added in.
         """
         if self.new_block:
-            self.blocks.append(Sequential(self.block_input_shape))
+            self.blocks.append(Sequential(input_shape=self.block_input_shape))
             self.new_block = False
 
         end_of_block = False
