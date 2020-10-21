@@ -59,7 +59,7 @@ class ConvolutionFrontEnd(Sequential):
         norm=BatchNorm2d,
         dropout=0.1,
     ):
-        super().__init__(input_shape)
+        super().__init__(input_shape=input_shape)
         for i in range(num_blocks):
             self.append(
                 ConvBlock,
@@ -121,7 +121,7 @@ class ConvBlock(torch.nn.Module):
     ):
         super().__init__()
 
-        self.convs = Sequential(input_shape)
+        self.convs = Sequential(input_shape=input_shape)
 
         for i in range(num_layers):
             self.convs.append(
@@ -138,7 +138,7 @@ class ConvBlock(torch.nn.Module):
         self.reduce_conv = None
         self.drop = None
         if residual:
-            self.reduce_conv = Sequential(input_shape)
+            self.reduce_conv = Sequential(input_shape=input_shape)
             self.reduce_conv.append(
                 conv_module,
                 out_channels=out_channels,

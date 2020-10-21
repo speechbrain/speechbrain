@@ -49,7 +49,7 @@ class Xvector(sb.nnet.Sequential):
         tdnn_dilations=[1, 2, 3, 1, 1],
         lin_neurons=512,
     ):
-        super().__init__(input_shape)
+        super().__init__(input_shape=input_shape)
 
         # TDNN layers
         for block_index in range(tdnn_blocks):
@@ -104,7 +104,7 @@ class Classifier(sb.nnet.Sequential):
         lin_neurons=512,
         out_neurons=1211,
     ):
-        super().__init__(input_shape)
+        super().__init__(input_shape=input_shape)
 
         self.append(activation())
         self.append(sb.nnet.BatchNorm1d)
@@ -153,7 +153,7 @@ class Discriminator(torch.nn.Module):
         out_neurons=1,
     ):
 
-        super().__init__(input_shape)
+        super().__init__(input_shape=input_shape)
 
         for block_index in range(lin_blocks):
             self.append(

@@ -69,11 +69,11 @@ class CRDNN(torch.nn.Module):
 
     Example
     -------
-    >>> inputs = torch.rand([10, 120, 60])
+    >>> inputs = torch.rand([10, 15, 60])
     >>> model = CRDNN(input_shape=inputs.shape)
     >>> outputs = model(inputs)
     >>> outputs.shape
-    torch.Size([10, 120, 512])
+    torch.Size([10, 15, 512])
     """
 
     def __init__(
