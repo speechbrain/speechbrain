@@ -366,8 +366,13 @@ def transducer_beam_search_decode(
         Default: 0.3
         The weight of LM when performing beam search (λ).
         log P(y|x) + λ log P_LM(y)
-
-
+    state_beam: float
+        The threshold coefficient in log space to decide if hyps in A (process_hyps)
+        is likely to compete with hyps in B (beam_hyps), if not, end the while loop.
+        Reference: https://arxiv.org/abs/1904.02619
+    expand_beam: float
+        The threshold coefficient to limit number of expanded hypothesises that are added in A (process_hyp).
+        Reference: https://arxiv.org/abs/1904.02619
     Returns
     -------
     torch.tensor
