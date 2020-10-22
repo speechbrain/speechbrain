@@ -271,4 +271,4 @@ if __name__ == "__main__":
 
     # Test
     asr_brain.hparams.wer_file = hparams["output_folder"] + "/wer_test.txt"
-    asr_brain.evaluate(test_set)
+    asr_brain.evaluate(test_set, min_key="WER")
