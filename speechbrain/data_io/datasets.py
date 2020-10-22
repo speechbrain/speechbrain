@@ -30,10 +30,7 @@ class SegmentedDataset(Dataset):
     """
 
     def __init__(
-        self,
-        examples: dict,
-        data_fields: (list, tuple),
-        data_transforms=None,
+        self, examples: dict, data_fields: (list, tuple), data_transforms=None,
     ):
 
         self.data_fields = data_fields
@@ -44,7 +41,6 @@ class SegmentedDataset(Dataset):
             assert callable(
                 self.data_transforms[k]
             ), "Each element in data_transforms dict must be callable"
-
         self.examples = examples
         self.ex_ids = list(self.examples.keys())
 
