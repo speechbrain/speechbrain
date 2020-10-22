@@ -28,11 +28,11 @@ class Transducer_joint(nn.Module):
     -------
     >>> from speechbrain.nnet.transducer.transducer_joint import Transducer_joint
     >>> from speechbrain.nnet.linear import Linear
-    >>> joint_network = Linear(80)
+    >>> input_TN = torch.rand(8, 200, 1, 40)
+    >>> input_PN = torch.rand(8, 1, 12, 40)
+    >>> joint_network = Linear(input_size=80, n_neurons=80)
     >>> TJoint = Transducer_joint(joint_network, joint="concat")
-    >>> input_TN = torch.randn((8, 200, 1, 40))
-    >>> input_PN = torch.randn((8, 1, 12, 40))
-    >>> output = TJoint(input_TN, input_PN, init_params=True)
+    >>> output = TJoint(input_TN, input_PN)
     >>> output.shape
     torch.Size([8, 200, 12, 80])
     """
@@ -52,9 +52,9 @@ class Transducer_joint(nn.Module):
         first_input : tensor
             A first input used for initializing the parameters.
         """
-        self.joint_network(first_input, init_params=True)
+        self.joint_network(first_input)
 
-    def forward(self, input_TN, input_PN, init_params=False):
+    def forward(self, input_TN, input_PN):
         """Returns the fusion of inputs tensors.
 
         Arguments
@@ -88,10 +88,6 @@ class Transducer_joint(nn.Module):
             # For evaluation
             elif len(input_TN.shape) == 1:
                 joint = torch.cat((input_TN, input_PN), dim=0)
-
-            # use a joint_network it we do a concat
-            if init_params and self.joint_network is not None:
-                self.init_params(joint)
 
             if self.joint_network is not None:
                 joint = self.joint_network(joint)
