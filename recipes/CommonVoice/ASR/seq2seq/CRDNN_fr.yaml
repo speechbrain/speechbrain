@@ -226,3 +226,8 @@ error_rate_computer: !name:speechbrain.ErrorRateStats
 
 cer_computer: !name:speechbrain.ErrorRateStats
     split_tokens: True
+
+# SpecAugment
+augmentation: !new:speechbrain.lobes.augment.tdsa.TimeDomainSpecAugment
+    sample_rate: !ref <sample_rate>
+    speeds: [95, 100, 105]
