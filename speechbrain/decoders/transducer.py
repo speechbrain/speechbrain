@@ -37,9 +37,9 @@ def _get_sentence_to_update(selected_sentences, output_PN, hidden):
         >>> from speechbrain.nnet.embedding import Embedding
         >>> blank_id = 34
         >>> PN_emb = Embedding(num_embeddings=35, consider_as_one_hot=True, blank_id=blank_id)
-        >>> PN = GRU(hidden_size=5, num_layers=1, bidirectional=False, return_hidden=True)
-        >>> test_emb = PN_emb(torch.Tensor([[1],[2],[10],[6]]).long(), init_params=True)
-        >>> test_PN, hidden = PN(test_emb, init_params=True)
+        >>> test_emb = PN_emb(torch.Tensor([[1],[2],[10],[6]]).long())
+        >>> PN = GRU(hidden_size=5, input_shape=test_emb.shape)
+        >>> test_PN, hidden = PN(test_emb)
         >>> selected_sentences = [1,3]
         >>> selected_output_PN, selected_hidden = _get_sentence_to_update(selected_sentences, test_PN, hidden)
 
@@ -83,9 +83,9 @@ def _update_hiddens(selected_sentences, updated_hidden, hidden):
         >>> from speechbrain.nnet.embedding import Embedding
         >>> blank_id = 34
         >>> PN_emb = Embedding(num_embeddings=35, consider_as_one_hot=True, blank_id=blank_id)
-        >>> PN = GRU(hidden_size=5, num_layers=1, bidirectional=False, return_hidden=True)
-        >>> test_emb = PN_emb(torch.Tensor([[1],[2],[10],[6]]).long(), init_params=True)
-        >>> test_PN, hidden = PN(test_emb, init_params=True)
+        >>> test_emb = PN_emb(torch.Tensor([[1],[2],[10],[6]]).long())
+        >>> PN = GRU(hidden_size=5, input_shape=test_emb.shape)
+        >>> test_PN, hidden = PN(test_emb)
         >>> selected_sentences = [1,3]
         >>> updated_hidden = torch.ones((1,2,5))
         >>> hidden = _update_hiddens(selected_sentences, updated_hidden, hidden)
@@ -132,10 +132,9 @@ def _forward_PN(out_PN, decode_network_lst, hidden=None):
         >>> from speechbrain.nnet.embedding import Embedding
         >>> blank_id = 34
         >>> PN_emb = Embedding(num_embeddings=35, consider_as_one_hot=True, blank_id=blank_id)
-        >>> PN = GRU(hidden_size=5, num_layers=1, bidirectional=False, return_hidden=True)
-        >>> # Initialize modules...
-        >>> test_emb = PN_emb(torch.Tensor([[1]]).long(), init_params=True)
-        >>> test_PN, hidden = PN(test_emb, init_params=True)
+        >>> test_emb = PN_emb(torch.Tensor([[1]]).long())
+        >>> PN = GRU(hidden_size=5, input_shape=test_emb.shape)
+        >>> test_PN, hidden = PN(test_emb)
         >>> out_PN, hidden = _forward_PN(torch.Tensor([[1]]).long(), [PN_emb, PN], hidden)
 
     Author:
@@ -178,13 +177,12 @@ def _forward_after_joint(out, classifier_network):
         >>> import torch
         >>> from speechbrain.decoders.transducer import _forward_after_joint
         >>> from speechbrain.nnet.linear import Linear
-        >>> Out_lin1 = Linear(n_neurons=10)
-        >>> Out_lin2 = Linear(n_neurons=15)
-        >>> inputs = torch.randn((3,5,10,5))
-        >>> # Init Linear
-        >>> out = Out_lin1(inputs, init_params=True)
-        >>> out = Out_lin2(out, init_params=True)
-        >>> logits = _forward_after_joint(inputs, [Out_lin1,Out_lin2])
+        >>> inputs = torch.rand(3, 5, 10, 5)
+        >>> Out_lin1 = Linear(input_shape=(3, 5, 10, 5), n_neurons=10)
+        >>> Out_lin2 = Linear(input_shape=(3, 5, 10, 10), n_neurons=15)
+        >>> out = Out_lin1(inputs)
+        >>> out = Out_lin2(out)
+        >>> logits = _forward_after_joint(inputs, [Out_lin1, Out_lin2])
 
     Author:
         Abdelwahab HEBA 2020
@@ -237,26 +235,26 @@ def transducer_greedy_decode(
         >>> from speechbrain.nnet.embedding import Embedding
         >>> from speechbrain.nnet.transducer.transducer_joint import Transducer_joint
         >>> from speechbrain.nnet.linear import Linear
-        >>> TN = GRU(hidden_size=5, num_layers=1, bidirectional=True)
-        >>> TN_lin = Linear(n_neurons=35, bias=True)
+        >>> inputs = torch.rand(3, 40, 35)
+        >>> TN = GRU(hidden_size=5, input_shape=(3, 40, 35), bidirectional=True)
+        >>> TN_lin = Linear(input_shape=(3, 40, 10), n_neurons=35)
+        >>> log_softmax = Softmax(apply_log=False)
+        >>> TN_out, hidden = TN(inputs)
+        >>> TN_out = TN_lin(TN_out)
+        >>> # Initialize modules...
         >>> blank_id = 34
         >>> PN_emb = Embedding(num_embeddings=35, consider_as_one_hot=True, blank_id=blank_id)
-        >>> PN = GRU(hidden_size=5, num_layers=1, bidirectional=False, return_hidden=True)
-        >>> PN_lin = Linear(n_neurons=35, bias=True)
-        >>> joint_network= Linear(n_neurons=35, bias=True)
-        >>> tjoint = Transducer_joint(joint_network, joint="sum")
-        >>> Out_lin = Linear(n_neurons=35)
-        >>> log_softmax = Softmax(apply_log=False)
-        >>> inputs = torch.randn((3,40,35))
-        >>> TN_out = TN(inputs, init_params=True)
-        >>> TN_out = TN_lin(TN_out, init_params=True)
-        >>> # Initialize modules...
-        >>> test_emb = PN_emb(torch.Tensor([[1]]).long(), init_params=True)
-        >>> test_PN, _ = PN(test_emb, init_params=True)
-        >>> test_PN = PN_lin(test_PN, init_params=True)
+        >>> test_emb = PN_emb(torch.Tensor([[1]]).long())
+        >>> PN = GRU(hidden_size=5, input_shape=test_emb.shape)
+        >>> test_PN, _ = PN(test_emb)
+        >>> PN_lin = Linear(input_shape=test_PN.shape, n_neurons=35)
+        >>> test_PN = PN_lin(test_PN)
         >>> # init tjoint
-        >>> joint_tensor = tjoint(TN_out.unsqueeze(1), test_PN.unsqueeze(2), init_params=True)
-        >>> out = Out_lin(joint_tensor, init_params=True)
+        >>> joint_network= Linear(input_shape=TN_out.unsqueeze(1).shape, n_neurons=35)
+        >>> tjoint = Transducer_joint(joint_network, joint="sum")
+        >>> joint_tensor = tjoint(TN_out.unsqueeze(1), test_PN.unsqueeze(2))
+        >>> Out_lin = Linear(input_shape=joint_tensor.shape, n_neurons=35)
+        >>> out = Out_lin(joint_tensor)
         >>> best_hyps, scores = transducer_greedy_decode(TN_out, [PN_emb,PN,PN_lin], tjoint, [Out_lin], blank_id)
 
     Author:
@@ -329,6 +327,8 @@ def transducer_beam_search_decode(
     nbest=5,
     lm_module=None,
     lm_weight=0.3,
+    state_beam=1.0,
+    expand_beam=1.0,
 ):
     """
     transducer beam search decoder is a beam search decoder over batch which apply Transducer rules:
@@ -366,8 +366,13 @@ def transducer_beam_search_decode(
         Default: 0.3
         The weight of LM when performing beam search (λ).
         log P(y|x) + λ log P_LM(y)
-
-
+    state_beam: float
+        The threshold coefficient in log space to decide if hyps in A (process_hyps)
+        is likely to compete with hyps in B (beam_hyps), if not, end the while loop.
+        Reference: https://arxiv.org/abs/1904.02619
+    expand_beam: float
+        The threshold coefficient to limit number of expanded hypothesises that are added in A (process_hyp).
+        Reference: https://arxiv.org/abs/1904.02619
     Returns
     -------
     torch.tensor
@@ -383,26 +388,26 @@ def transducer_beam_search_decode(
         >>> from speechbrain.nnet.embedding import Embedding
         >>> from speechbrain.nnet.transducer.transducer_joint import Transducer_joint
         >>> from speechbrain.nnet.linear import Linear
-        >>> TN = GRU(hidden_size=5, num_layers=1, bidirectional=True)
-        >>> TN_lin = Linear(n_neurons=35, bias=True)
+        >>> inputs = torch.rand(3, 40, 35)
+        >>> TN = GRU(hidden_size=5, input_shape=(3, 40, 35))
+        >>> TN_lin = Linear(input_shape=(3, 40, 5), n_neurons=35)
         >>> blank_id = 34
-        >>> PN_emb = Embedding(num_embeddings=35, consider_as_one_hot=True, blank_id=blank_id)
-        >>> PN = GRU(hidden_size=5, num_layers=1, bidirectional=False, return_hidden=True)
-        >>> PN_lin = Linear(n_neurons=35, bias=True)
-        >>> joint_network= Linear(n_neurons=35, bias=True)
-        >>> tjoint = Transducer_joint(joint_network, joint="sum")
-        >>> Out_lin = Linear(n_neurons=35)
         >>> log_softmax = Softmax(apply_log=False)
-        >>> inputs = torch.randn((3,40,35))
-        >>> TN_out = TN(inputs, init_params=True)
-        >>> TN_out = TN_lin(TN_out, init_params=True)
+        >>> TN_out, _ = TN(inputs)
+        >>> TN_out = TN_lin(TN_out)
         >>> # Initialize modules...
-        >>> test_emb = PN_emb(torch.Tensor([[1]]).long(), init_params=True)
-        >>> test_PN, _ = PN(test_emb, init_params=True)
-        >>> test_PN = PN_lin(test_PN, init_params=True)
+        >>> PN_emb = Embedding(num_embeddings=35, consider_as_one_hot=True, blank_id=blank_id)
+        >>> test_emb = PN_emb(torch.Tensor([[1]]).long())
+        >>> PN = GRU(hidden_size=5, input_shape=test_emb.shape)
+        >>> test_PN, _ = PN(test_emb)
+        >>> PN_lin = Linear(input_shape=test_PN.shape, n_neurons=35)
+        >>> test_PN = PN_lin(test_PN)
         >>> # init tjoint
-        >>> joint_tensor = tjoint(TN_out.unsqueeze(1), test_PN.unsqueeze(2), init_params=True)
-        >>> out = Out_lin(joint_tensor, init_params=True)
+        >>> joint_network= Linear(input_shape=TN_out.unsqueeze(1).shape, n_neurons=35)
+        >>> tjoint = Transducer_joint(joint_network, joint="sum")
+        >>> joint_tensor = tjoint(TN_out.unsqueeze(1), test_PN.unsqueeze(2))
+        >>> Out_lin = Linear(input_shape=joint_tensor.shape, n_neurons=35)
+        >>> out = Out_lin(joint_tensor)
         >>> # out_decode = transducer_beam_search_decode(TN_out, [PN_emb,PN,PN_lin], tjoint, [Out_lin], blank_id, beam=2, nbest=5)
 
     Author:
@@ -441,10 +446,19 @@ def transducer_beam_search_decode(
                 if len(beam_hyps) >= beam:
                     break
                 # pondéré la proba
-                best_hyp = max(process_hyps, key=lambda x: x["logp_score"])
+                a_best_hyp = max(process_hyps, key=lambda x: x["logp_score"])
+
+                # (Brian) break if best_hyp in A is worse by more than state_beam than best_hyp in B
+                if len(beam_hyps) > 0:
+                    b_best_hyp = max(beam_hyps, key=lambda x: x["logp_score"])
+                    a_best_prob = a_best_hyp["logp_score"]
+                    b_best_prob = b_best_hyp["logp_score"]
+                    if b_best_prob >= state_beam + a_best_prob:
+                        break
+
                 # remove best hyp from process_hyps
-                process_hyps.remove(best_hyp)
-                out_PN = best_hyp["out_PN"]
+                process_hyps.remove(a_best_hyp)
+                out_PN = a_best_hyp["out_PN"]
                 # Join predictions (TN & PN)
                 # tjoint must be have a 4 dim [B,T,U,Hidden]
                 # so do unsqueeze over
@@ -459,12 +473,13 @@ def transducer_beam_search_decode(
                 # forward the output layers + activation + save logits
                 out = _forward_after_joint(out, classifier_network)
                 out = out.log_softmax(dim=-1)
+                # print(out.shape, input_PN.shape, out_PN.shape, tn_output.shape)
                 if lm_module:
                     # from 4 dims to 3 dims
                     # to match with LM output
                     out.squeeze_(1)
                     logits, hidden_lm = lm_module(
-                        input_PN, hx=best_hyp["hidden_lm"]
+                        input_PN, hx=a_best_hyp["hidden_lm"]
                     )
                     log_probs_lm = logits.log_softmax(dim=-1)
                     out = out + lm_weight * log_probs_lm
@@ -472,17 +487,36 @@ def transducer_beam_search_decode(
                 logp_targets, positions = torch.topk(
                     out.log_softmax(dim=-1).view(-1), k=beam, dim=-1
                 )
+                best_logp = (
+                    logp_targets[0]
+                    if positions[0] != blank_id
+                    else logp_targets[1]
+                )
                 # Extend hyp by  selection
                 for j in range(logp_targets.size(0)):
-                    if positions[j] != blank_id:
+                    if positions[j] == blank_id:
+                        topk_hyp = {
+                            "prediction": a_best_hyp["prediction"],
+                            "logp_score": a_best_hyp["logp_score"]
+                            + logp_targets[j],
+                            "hidden_dec": a_best_hyp["hidden_dec"],
+                            "out_PN": a_best_hyp["out_PN"],
+                        }
+                        if lm_module:
+                            topk_hyp.update({"hidden_lm": hidden_lm})
+                        beam_hyps.append(topk_hyp)
+                        continue
+                    if logp_targets[j] >= best_logp - expand_beam:
                         input_PN[0, 0] = positions[j]
                         out_PN, hidden = _forward_PN(
-                            input_PN, decode_network_lst, best_hyp["hidden_dec"]
+                            input_PN,
+                            decode_network_lst,
+                            a_best_hyp["hidden_dec"],
                         )
                         topk_hyp = {
-                            "prediction": best_hyp["prediction"]
+                            "prediction": a_best_hyp["prediction"]
                             + [positions[j].item()],
-                            "logp_score": best_hyp["logp_score"]
+                            "logp_score": a_best_hyp["logp_score"]
                             + logp_targets[j],
                             "hidden_dec": hidden,
                             "out_PN": out_PN,
@@ -490,17 +524,6 @@ def transducer_beam_search_decode(
                         if lm_module:
                             topk_hyp.update({"hidden_lm": hidden_lm})
                         process_hyps.append(topk_hyp)
-                    else:
-                        topk_hyp = {
-                            "prediction": best_hyp["prediction"],
-                            "logp_score": best_hyp["logp_score"]
-                            + logp_targets[j],
-                            "hidden_dec": best_hyp["hidden_dec"],
-                            "out_PN": best_hyp["out_PN"],
-                        }
-                        if lm_module:
-                            topk_hyp.update({"hidden_lm": hidden_lm})
-                        beam_hyps.append(topk_hyp)
         # Add norm score
         nbest_hyps = sorted(
             beam_hyps,
