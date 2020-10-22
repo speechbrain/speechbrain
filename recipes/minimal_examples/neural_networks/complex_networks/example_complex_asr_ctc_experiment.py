@@ -55,7 +55,7 @@ def main():
     ctc_brain.evaluate(hparams["test_loader"]())
 
     # Check that model overfits for an integration test
-    assert ctc_brain.train_loss < 0.8
+    assert ctc_brain.train_loss < 0.1
 
 
 if __name__ == "__main__":
