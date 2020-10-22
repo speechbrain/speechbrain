@@ -302,6 +302,7 @@ class Brain:
         auto_mix_prec=False,
         max_grad_norm=5.0,
         nonfinite_patience=3,
+        progressbar=True,
     ):
         self.opt_class = opt_class
         self.jit_module_keys = jit_module_keys
@@ -317,6 +318,7 @@ class Brain:
         self.max_grad_norm = max_grad_norm
         self.nonfinite_patience = nonfinite_patience
         self.nonfinite_count = 0
+        self.progressbar = progressbar
         self.modules = torch.nn.ModuleDict(modules).to(self.device)
 
         # Make hyperparams available with simple "dot" notation
@@ -569,7 +571,7 @@ class Brain:
         return loss.detach().cpu()
 
     def fit(
-        self, epoch_counter, train_set, valid_set=None, progressbar=True,
+        self, epoch_counter, train_set, valid_set=None, progressbar=None,
     ):
         """Iterate epochs and datasets to improve objective.
 
@@ -609,6 +611,9 @@ class Brain:
     def _fit(self, epoch_counter, train_set, valid_set, progressbar):
         """Adjust parameters based on data."""
         self.on_fit_start()
+
+        if progressbar is None:
+            progressbar = self.progressbar
 
         # Use factories to get loaders
         self.train_sampler = None
@@ -688,7 +693,7 @@ class Brain:
                     module = DDP(module, device_ids=[self.device])
             self.modules[name] = module
 
-    def evaluate(self, test_set, max_key=None, min_key=None, progressbar=True):
+    def evaluate(self, test_set, max_key=None, min_key=None, progressbar=None):
         """Iterate test_set and evaluate brain performance. By default, loads
         the best-performing checkpoint (as recorded using the checkpointer).
 
@@ -707,6 +712,9 @@ class Brain:
         -------
         average test loss
         """
+        if progressbar is None:
+            progressbar = self.progressbar
+
         # Get test loader from factory
         if isinstance(test_set, DataLoaderFactory):
             test_set = test_set.get_dataloader()
