@@ -234,6 +234,7 @@ if __name__ == "__main__":
         test_tsv_file=hparams["test_tsv_file"],
         accented_letters=hparams["accented_letters"],
         language=hparams["language"],
+        duration_threshold=hparams["duration_threshold"],
     )
 
     # Creating tokenizer must be done after preparation
