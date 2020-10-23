@@ -370,7 +370,9 @@ def create_csv(
 
     # Start processing lines
     total_duration = 0.0
-    for line in loaded_csv:
+    for line in tzip(loaded_csv):
+
+        line = line[0]
 
         # Path is at indice 1 in Common Voice tsv files. And .mp3 files
         # are located in datasets/lang/clips/
@@ -422,6 +424,7 @@ def create_csv(
             words = "".join(
                 [c for c in nfkd_form if not unicodedata.combining(c)]
             )
+            words = words.replace("'", " ")
 
         # Remove multiple spaces
         words = re.sub(" +", " ", words)
