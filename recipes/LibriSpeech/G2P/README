@@ -1,3 +1,0 @@
-This recipe can be used to add out-of-vocabulary words to a lexicon.
-The input is "lexicon.csv" and "oov.csv", and the output is "lexicon_augmented.csv".
-(TODO: it doesn't do this yet, it just trains the model right now. Also, it doesn't work right now lol)
