@@ -57,47 +57,91 @@ def save_audio_results(params, model, test_loader, device, N=10):
 
     fs = 8000
     all_sdrs = []
+    all_sdris = []
+    all_sisnrs = []
+    all_sisnris = []
+    all_bas_sdrs = []
+    all_bas_sisnrs = []
     with tqdm(test_loader, dynamic_ncols=True) as t:
         for i, batch in enumerate(t):
 
             inputs = batch[0][1].to(device)
-            predictions = model.compute_forward(inputs, stage="test").detach()
+            # predictions = model.compute_forward(inputs, stage="test").detach()
             targets = torch.stack(
-                [batch[1][1].squeeze(), batch[2][1].squeeze()], dim=0
+                [
+                    batch[i][1].squeeze()
+                    for i in range(1, params.MaskNet.num_spks + 1)
+                ]
+            )
+            baseline_targets = torch.stack(
+                [
+                    batch[0][1].squeeze()
+                    for i in range(1, params.MaskNet.num_spks + 1)
+                ]
             )
 
-            sdr, _, _, _ = bss_eval_sources(
-                targets.numpy(), predictions[0].t().cpu().numpy()
+            # sdr, _, _, _ = bss_eval_sources(
+            #    targets.numpy(), predictions[0].t().cpu().numpy()
+            # )
+            # SDR_baseline, _, _, _ = bss_eval_sources(
+            #    targets.numpy(), baseline_targets.numpy()
+            # )
+            sdr = np.array([0])
+            sdr_baseline = np.array([0])
+            sisnr = 0  #  -model.evaluate_batch(batch)['loss'].detach().item()
+            sisnr_baseline = (
+                -model.evaluate_batch_wmixturepred(batch)["loss"].cpu().item()
             )
+
+            all_sdris.append(sdr.mean() - sdr_baseline.mean())
             all_sdrs.append(sdr.mean())
+            all_bas_sdrs.append(sdr_baseline.mean())
 
-            if i < N:
-                write_wav_soundfile(
-                    predictions[0, :, 0] / predictions[0, :, 0].std(),
-                    save_path + "/item{}_source{}hat.wav".format(i, 1),
-                    fs,
-                )
-                write_wav_soundfile(
-                    predictions[0, :, 1] / predictions[0, :, 1].std(),
-                    save_path + "/item{}_source{}hat.wav".format(i, 2),
-                    fs,
-                )
-                write_wav_soundfile(
-                    batch[1][1],
-                    save_path + "/item{}_source{}.wav".format(i, 1),
-                    fs,
-                )
-                write_wav_soundfile(
-                    batch[2][1],
-                    save_path + "/item{}_source{}.wav".format(i, 2),
-                    fs,
-                )
-                write_wav_soundfile(
-                    inputs[0], save_path + "/item{}_mixture.wav".format(i), fs
-                )
-            t.set_postfix(average_sdr=np.array(all_sdrs).mean())
+            all_sisnris.append(sisnr - sisnr_baseline)
+            all_sisnrs.append(sisnr)
+            all_bas_sisnrs.append(sisnr_baseline)
+
+            # if i < N:
+            #    write_wav_soundfile(
+            #        predictions[0, :, 0] / predictions[0, :, 0].std(),
+            #        save_path + "/item{}_source{}hat.wav".format(i, 1),
+            #        fs,
+            #    )
+            #    write_wav_soundfile(
+            #        predictions[0, :, 1] / predictions[0, :, 1].std(),
+            #        save_path + "/item{}_source{}hat.wav".format(i, 2),
+            #        fs,
+            #    )
+            #    write_wav_soundfile(
+            #        batch[1][1],
+            #        save_path + "/item{}_source{}.wav".format(i, 1),
+            #        fs,
+            #    )
+            #    write_wav_soundfile(
+            #        batch[2][1],
+            #        save_path + "/item{}_source{}.wav".format(i, 2),
+            #        fs,
+            #    )
+            #    write_wav_soundfile(
+            #        inputs[0], save_path + "/item{}_mixture.wav".format(i), fs
+            #    )
+            t.set_postfix(
+                average_sdri=np.array(all_sdris).mean(),
+                average_sdr=np.array(all_sdrs).mean(),
+                average_sisnri=np.array(all_sisnris).mean(),
+                average_sisnr=np.array(all_sisnrs).mean(),
+                average_bas_sisnr=np.array(all_bas_sisnrs).mean(),
+                average_bas_sdr=np.array(all_bas_sdrs).mean(),
+            )
 
     print("Mean SDR is {}".format(np.array(all_sdrs).mean()))
+    print("Mean SDRi is {}".format(np.array(all_sdris).mean()))
+
+    print("Mean sisnr is {}".format(np.array(all_sisnrs).mean()))
+    print("Mean sisnri is {}".format(np.array(all_sisnris).mean()))
+
+    print("Mean baseline sisnr {}".format(np.array(all_bas_sisnrs).mean()))
+    print("Mean baseline sdr {}".format(np.array(all_bas_sdrs).mean()))
 
 
 class SourceSeparationBrainSuperclass(sb.core.Brain):
@@ -233,6 +277,29 @@ class SourceSeparationBrainSuperclass(sb.core.Brain):
         ).to(self.device)
 
         predictions = self.compute_forward(inputs, stage="test")
+        loss = self.compute_objectives(predictions, targets)
+        return {"loss": loss.detach()}
+
+    def evaluate_batch_wmixturepred(self, batch, stage="test"):
+        # this to to compute the baseling
+        # inputs = batch[0][1].to(self.device)
+        targets = torch.cat(
+            [
+                batch[i][1].unsqueeze(-1)
+                for i in range(1, self.params.MaskNet.num_spks + 1)
+            ],
+            dim=-1,
+        ).to(self.device)
+
+        predictions = torch.cat(
+            [
+                batch[0][1].unsqueeze(-1)
+                for i in range(1, self.params.MaskNet.num_spks + 1)
+            ],
+            dim=-1,
+        ).to(self.device)
+
+        # predictions = self.compute_forward(inputs, stage="test")
         loss = self.compute_objectives(predictions, targets)
         return {"loss": loss.detach()}
 
@@ -472,6 +539,22 @@ def main():
     params.checkpointer.recover_if_possible(lambda c: -c.meta["av_loss"])
 
     if args.test_only:
+        # calculate the baseline
+        losses = []
+        # with tqdm(test_loader, dynamic_ncols=True) as t:
+
+        #    for i, batch in enumerate(t):
+        #        targets = torch.stack(
+        #            [batch[1][1].squeeze(), batch[2][1].squeeze()], dim=0
+        #        ).to(device)
+        #        predictions = torch.stack(
+        #            [batch[0][1].squeeze(), batch[0][1].squeeze()], dim=0
+        #        ).to(device)
+
+        #        loss = ctn.compute_objectives(predictions, targets).detach()
+        #        losses.append(loss.item())
+        #        print('the baseline loss: ', torch.array(losses).mean())
+
         save_audio_results(params, ctn, test_loader, device, N=10)
 
         # get the score on the whole test set
