@@ -26,36 +26,36 @@ class Linear(torch.nn.Module):
 
     Example
     -------
-    >>> lin_t = Linear(n_neurons=100)
     >>> inputs = torch.rand(10, 50, 40)
-    >>> output = lin_t(inputs,init_params=True)
+    >>> lin_t = Linear(input_shape=(10, 50, 40), n_neurons=100)
+    >>> output = lin_t(inputs)
     >>> output.shape
     torch.Size([10, 50, 100])
     """
 
-    def __init__(self, n_neurons, bias=True, combine_dims=False):
+    def __init__(
+        self,
+        n_neurons,
+        input_shape=None,
+        input_size=None,
+        bias=True,
+        combine_dims=False,
+    ):
         super().__init__()
-        self.n_neurons = n_neurons
-        self.bias = bias
         self.combine_dims = combine_dims
 
-    def init_params(self, first_input):
-        """
-        Arguments
-        ---------
-        first_input : tensor
-            A first input used for initializing the parameters.
-        """
-        fea_dim = first_input.shape[-1]
-        if len(first_input.shape) == 4 and self.combine_dims:
-            fea_dim = first_input.shape[2] * first_input.shape[3]
+        if input_shape is None and input_size is None:
+            raise ValueError("Expected one of input_shape or input_size")
+
+        if input_size is None:
+            input_size = input_shape[-1]
+            if len(input_shape) == 4 and self.combine_dims:
+                input_size = input_shape[2] * input_shape[3]
 
         # Weights are initialized following pytorch approach
-        self.w = nn.Linear(fea_dim, self.n_neurons, bias=self.bias)
+        self.w = nn.Linear(input_size, n_neurons, bias=bias)
 
-        self.w.to(first_input.device)
-
-    def forward(self, x, init_params=False):
+    def forward(self, x):
         """Returns the linear transformation of input tensor.
 
         Arguments
@@ -63,10 +63,7 @@ class Linear(torch.nn.Module):
         x : torch.Tensor
             input to transform linearly.
         """
-        if init_params:
-            self.init_params(x)
-
-        if len(x.shape) == 4 and self.combine_dims:
+        if x.ndim == 4 and self.combine_dims:
             x = x.reshape(x.shape[0], x.shape[1], x.shape[2] * x.shape[3])
 
         wx = self.w(x)

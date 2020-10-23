@@ -5,6 +5,7 @@ Authors
 """
 
 import torch
+import inspect
 import logging
 import operator
 import functools
@@ -14,37 +15,76 @@ logger = logging.getLogger(__name__)
 
 
 class Sequential(torch.nn.Module):
-    """A sequence of modules which may use the `init_params=True` argument in `forward()` for initialization.
+    """A sequence of modules inferring shape on construction.
 
     Arguments
     ---------
     *layers
         The inputs are treated as a list of layers to be
         applied in sequence. The output shape of each layer is used to
-        infer the shape of the following layer.
+        infer the shape of the following layer. If a tuple is returned,
+        only the shape of the first element is used to determine input
+        shape of the next layer (e.g. RNN returns output, hidden).
 
     Example
     -------
-    >>> from speechbrain.nnet.linear import Linear
-    >>> model = Sequential(
-    ...     Linear(n_neurons=100),
-    ...     Linear(n_neurons=200),
-    ... )
-    >>> inputs = torch.rand(10, 50, 40)
-    >>> outputs = model(inputs, init_params=True)
+    >>> inputs = torch.rand(10, 40, 50)
+    >>> model = Sequential(inputs.shape)
+    >>> model.append(Linear, n_neurons=100)
+    >>> model.append(Linear, n_neurons=200)
+    >>> outputs = model(inputs)
     >>> outputs.shape
-    torch.Size([10, 50, 200])
+    torch.Size([10, 40, 200])
     """
 
-    def __init__(
-        self, *layers,
-    ):
+    def __init__(self, input_shape, *layers):
         super().__init__()
-        self.layers = torch.nn.ModuleList()
-        for layer in layers:
-            self.layers.append(layer)
 
-    def forward(self, x, init_params=False):
+        # Append layers, passing shape
+        self.layers = torch.nn.ModuleList()
+
+        # Replace None dimensions with arbitrary value
+        if None in input_shape:
+            input_shape = list(input_shape)
+            for i, dim in enumerate(input_shape):
+                if i == 0 and dim is None:
+                    input_shape[i] = 1
+                else:
+                    input_shape[i] = dim if dim is not None else 100
+        self.input_shape = input_shape
+
+        # Append all the input layers
+        for layer in layers:
+            self.append(layer)
+
+    def append(self, layer, *args, **kwargs):
+        """Add a layer to the list of layers, inferring shape if necessary.
+
+        Arguments
+        ---------
+        layer : A torch.nn.Module class or object
+            If the layer is a class, it should accept an argument called
+            ``input_shape`` which will be inferred and passed. If the layer
+            is a module object, it is added as-is.
+        *args, **kwargs
+            These are passed to the layer if it is constructed.
+        """
+
+        # Check if it needs to be constructed with input shape
+        argspec = inspect.getfullargspec(layer)
+        if "input_shape" in argspec.args + argspec.kwonlyargs:
+            layer = layer(*args, input_shape=self.input_shape, **kwargs)
+
+        self.layers.append(layer)
+
+        # Collect shape information for next layer init
+        dummy_input = torch.zeros(self.input_shape)
+        dummy_output = layer(dummy_input)
+        if isinstance(dummy_output, tuple):
+            dummy_output = dummy_output[0]
+        self.input_shape = dummy_output.shape
+
+    def forward(self, x):
         """
         Arguments
         ---------
@@ -52,11 +92,43 @@ class Sequential(torch.nn.Module):
             the input tensor to run through the network.
         """
         for layer in self.layers:
-            try:
-                x = layer(x, init_params=init_params)
-            except TypeError:
-                x = layer(x)
+            x = layer(x)
+            if isinstance(x, tuple):
+                x = x[0]
+
         return x
+
+
+class ModuleList(torch.nn.Module):
+    """This class implements a wraper to torch.nn.ModuleList with a forward() method to forward all the layers sequentially.
+
+    For some pretained model with the SpeechBrain older implementation of Sequential class, user can use this class to load those pretrained models
+
+    Arguments
+    ---------
+    *layers: torch class
+        torch objects to be put in a ModuleList
+    """
+
+    def __init__(self, *layers):
+        super().__init__()
+        self.layers = torch.nn.ModuleList(layers)
+
+    def forward(self, x):
+        for layer in self.layers:
+            x = layer(x)
+            if isinstance(x, tuple):
+                x = x[0]
+        return x
+
+    def append(self, module):
+        self.layers.append(module)
+
+    def extend(self, modules):
+        self.layers.extend(modules)
+
+    def insert(self, index, module):
+        self.layers.insert(module)
 
 
 def ignore_init(function):
@@ -72,14 +144,8 @@ class ConnectBlocks(torch.nn.Module):
 
     Arguments
     ---------
-    param_file : str
-        The location of the yaml file to use for a block. This file is
-        expected to have an item called "block" defining the block,
-        and can assume that the item "block_index" will be overridden.
-    yaml_overrides : dict
-        A set of yaml overrides to apply to the parameters file.
-    replication_count : int
-        The number of times to replicate the block listed in the yaml.
+    input_shape : tuple
+        The shape of the
     shortcut_type : str
         One of:
         * "residual" - first block output passed to final output
@@ -97,113 +163,128 @@ class ConnectBlocks(torch.nn.Module):
 
     Example
     -------
-    >>> block1 = Linear(n_neurons=10)
-    >>> block2 = Linear(n_neurons=10)
-    >>> block3 = Linear(n_neurons=10)
     >>> inputs = torch.rand(10, 100, 20)
-    >>> model = ConnectBlocks([block1, block2, block3])
-    >>> outputs = model(inputs, init_params=True)
+    >>> model = ConnectBlocks(
+    ...     input_shape=inputs.shape, shortcut_projection=True
+    ... )
+    >>> model.append(Linear, n_neurons=10)
+    >>> model.append(Linear, n_neurons=10, end_of_block=True)
+    >>> model.append(Linear, n_neurons=10)
+    >>> model.append(Linear, n_neurons=10, end_of_block=True)
+    >>> outputs = model(inputs)
     >>> outputs.shape
     torch.Size([10, 100, 10])
     """
 
     def __init__(
         self,
-        blocks,
+        input_shape,
         shortcut_type="residual",
         shortcut_projection=False,
-        shortcut_combine_fn="add",
+        shortcut_combine_fn=torch.add,
     ):
         super().__init__()
-        self.blocks = torch.nn.ModuleList(blocks)
-        if shortcut_type not in [None, "residual", "dense", "skip"]:
+
+        self.first_input_shape = input_shape
+        self.block_input_shape = input_shape
+        self.new_block = True
+        self.blocks = torch.nn.ModuleList()
+        if shortcut_type not in ["residual", "dense", "skip"]:
             raise ValueError(
                 "'shortcuts' must be one of 'residual', 'dense', or 'skip'"
             )
         self.shortcut_type = shortcut_type
         self.shortcut_projection = shortcut_projection
-        self.projections = []
+        if shortcut_projection:
+            self.projections = torch.nn.ModuleList()
+        self.shortcut_combine_fn = shortcut_combine_fn
 
-        # Define combination options
-        combine_functions = {
-            "add": ignore_init(torch.add),
-            "sub": ignore_init(functools.partial(torch.add, alpha=-1)),
-            "mul": ignore_init(torch.mul),
-            "div": ignore_init(torch.div),
-            "avg": ignore_init(lambda x, y: torch.add(x, y) / 2),
-            "cat": ignore_init(functools.partial(torch.cat, axis=-1)),
-        }
-        if isinstance(shortcut_combine_fn, str):
-            if shortcut_combine_fn not in combine_functions:
-                raise ValueError(
-                    "'shortcut_combine_fn' must be one of %s or a user-"
-                    "defined function that combines two arguments and takes "
-                    "`init_params` as an argument." % combine_functions.keys()
+    def append(self, layer, *args, **kwargs):
+        """Appends the specified module to the shortcut model.
+
+        Arguments
+        ---------
+        layer : torch.nn.Module class
+            This layer will get initialized with *args and **kwargs. Also,
+            the argument ``input_shape`` will be passed if the layer takes it.
+        *args, **kwargs
+            Passed unchanged to the layer **EXCEPT** the kwarg ``end_of_block``
+            which is used to indicate that the shorcut should be added in.
+        """
+        if self.new_block:
+            self.blocks.append(Sequential(self.block_input_shape))
+            self.new_block = False
+
+        end_of_block = False
+        if "end_of_block" in kwargs:
+            end_of_block = kwargs["end_of_block"]
+            del kwargs["end_of_block"]
+
+        self.blocks[-1].append(layer, *args, **kwargs)
+
+        # When we reach the end of the block, prepare to add shortcut
+        if end_of_block:
+
+            # Use dummy input to find shape of next block
+            dummy_input = torch.zeros(self.block_input_shape)
+            dummy_output = self.blocks[-1](dummy_input)
+
+            # Initialize projection if necessary
+            if self.shortcut_projection:
+                projection_size = functools.reduce(
+                    operator.mul, dummy_output.shape[2:], 1
                 )
 
-            self.shortcut_combine_fn = combine_functions[shortcut_combine_fn]
-        else:
-            self.shortcut_combine_fn = shortcut_combine_fn
+                if self.shortcut_type == "residual":
+                    shape = self.first_input_shape
+                    dummy_input = torch.zeros(self.first_input_shape)
+                else:
+                    shape = self.block_input_shape
 
-    def forward(self, x, init_params=True):
+                self.projections.append(
+                    Linear(
+                        n_neurons=projection_size,
+                        input_shape=shape,
+                        bias=False,
+                        combine_dims=True,
+                    )
+                )
+
+            # Prepare for next block
+            self.new_block = True
+            dummy_output = self._combine(dummy_input, dummy_output, -1)
+            self.block_input_shape = dummy_output.shape
+
+    def forward(self, x):
         """
         Arguments
         ---------
         x : torch.Tensor
             The inputs to the replicated modules.
-        init_params : bool
-            Whether to initialize the parameters of the blocks.
         """
-        # Don't include first block in shortcut, since it may change
-        # the shape in significant ways.
-        x = _apply_block(self.blocks[0], x, init_params)
         shortcut = x
 
-        for i, block in enumerate(self.blocks[1:]):
-            x = _apply_block(block, x, init_params)
+        for i, block in enumerate(self.blocks):
+            x = block(x)
 
-            # Record outputs and combine with current shortcut
-            if self.shortcut_type in ["dense", "skip"]:
-                shortcut = self._combine(shortcut, x, init_params, i)
-
-            # Update inputs to next layer
+            if self.shortcut_type == "skip":
+                shortcut = self._combine(shortcut, x, i)
             if self.shortcut_type == "dense":
-                x = shortcut
+                x = shortcut = self._combine(shortcut, x, i)
+            if self.shortcut_type == "residual":
+                x = self._combine(shortcut, x, i)
 
-        # Apply residual connection to final output
-        if self.shortcut_type == "residual":
-            shortcut = self._combine(shortcut, x, init_params, 0)
+        if self.shortcut_type == "skip":
+            return shortcut
+        else:
+            return x
 
-        if self.shortcut_type in ["residual", "dense", "skip"]:
-            x = shortcut
-
-        return x
-
-    def _combine(self, shortcut, x, init_params=False, block_index=0):
+    def _combine(self, shortcut, x, block_index=0):
         """Handle combining shortcut with outputs."""
-
-        # Initialize projection if necessary
-        if init_params and self.shortcut_projection:
-            projection_size = functools.reduce(operator.mul, x.shape[2:], 1)
-            projection = Linear(projection_size, bias=False, combine_dims=True)
-
-            # Store and register projection
-            self.projections.append(projection)
-            self.layers.append(projection)
 
         # Apply projection
         if self.shortcut_projection:
-            shortcut = self.projections[block_index](
-                shortcut, init_params=init_params
-            )
+            shortcut = self.projections[block_index](shortcut)
             shortcut = shortcut.reshape(x.shape)
 
-        return self.shortcut_combine_fn(shortcut, x, init_params=init_params)
-
-
-def _apply_block(block, x, init_params):
-    """Apply a function handling cases with no init_params"""
-    try:
-        return block(x, init_params=init_params)
-    except TypeError:
-        return block(x)
+        return self.shortcut_combine_fn(shortcut, x)
