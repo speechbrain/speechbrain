@@ -370,7 +370,7 @@ class BinaryMetricStats(MetricStats):
 
         self.summary["MCC"] = (TP * TN - FP * FN) / (
             (TP + FP) * (TP + FN) * (TN + FP) * (TN + FN) + eps
-        ).sqrt()
+        ) ** 0.5
 
         if field is not None:
             return self.summary[field]
