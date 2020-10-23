@@ -7,9 +7,13 @@ Fortunately, SpeechBrain provides a script that automatically generates the trai
 # Languages
 Here is a list of the different languages that we tested within the CommonVoice dataset:
 - French
+- Kinyarwanda
+- Italian
 
 # Results
 
-| Language | Release | hyperparams file | LM ? | Val. CER | Val. WER | Test CER | Test WER | Model link | GPUs - VRAM |
-| ------------- |:-------------:|:---------------------------:| -----:| -----:| -----:| -----:| -----:| :-----------:| :----------------:|
+| Language | Release | hyperparams file | LM ? | Val. CER | Val. WER | Test CER | Test WER | Model link | GPUs |
+| ------------- |:-------------:|:---------------------------:| -----:| -----:| -----:| -----:| -----:| :-----------:| :-----------:|
 | French | 2020-06-22 | CRDNN_fr.yaml | No | 7.20 | 16.96 | 8.05 | 18.78 | [Not Available](https://commonvoice.mozilla.org/fr) | 2xV100 16GB |
+| Kinyarwanda | 2020-06-22 | CRDNN_rw.yaml | No | 11.09 | 30.91 | 16.53 | 38.78 | [Download](https://drive.google.com/file/d/1FXvqgYQX6ldhnbfD16PvTinvX4D1HWKG/view?usp=sharing) | 2xV100 16GB |
+| Italian | 2020-06-22 | CRDNN_it.yaml | No | 9.34 | 25.42 | 10.04 | 26.78 | [Download](https://drive.google.com/file/d/14dmeh7_mfjBy1wh9SUmYgJU5c0yc2vXX/view?usp=sharing) | 2xV100 16GB |
