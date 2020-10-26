@@ -118,7 +118,7 @@ class SEBrain(sb.core.Brain):
             old_lr, new_lr = self.hparams.lr_annealing(4.5 - stats["pesq"])
             sb.nnet.update_learning_rate(self.optimizer, new_lr)
 
-            if self.hparams.use_tensorboard:
+            if self.hparams.use_tensorboard:  # and self.root_process:
                 valid_stats = {
                     "loss": self.loss_metric.scores,
                     "stoi": self.stoi_metric.scores,
@@ -130,6 +130,7 @@ class SEBrain(sb.core.Brain):
                     valid_stats,
                 )
 
+            # if self.root_process:
             self.hparams.train_logger.log_stats(
                 {"Epoch": epoch, "lr": old_lr},
                 train_stats={"loss": self.train_loss},
@@ -209,10 +210,13 @@ if __name__ == "__main__":
     )
 
     se_brain = SEBrain(
+        modules=hparams["modules"],
         hparams=hparams["hparams"],
         opt_class=hparams["opt_class"],
         checkpointer=hparams["checkpointer"],
         device=hparams["device"],
+        multigpu_count=2,
+        multigpu_backend="ddp_gloo",
     )
 
     # Load latest checkpoint to resume training
@@ -224,7 +228,3 @@ if __name__ == "__main__":
 
     # Load best checkpoint for evaluation
     test_stats = se_brain.evaluate(hparams["test_loader"](), max_key="pesq")
-    # params.train_logger.log_stats(
-    #     stats_meta={"Epoch loaded": params.epoch_counter.current},
-    #     test_stats=test_stats,
-    # )
