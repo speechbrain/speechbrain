@@ -82,13 +82,16 @@ activation_lrelu: !new:torch.nn.LeakyReLU
 activation_sigmoid: !new:torch.nn.Sigmoid
 
 
-model: !new:speechbrain.nnet.Sequential
+model: !new:speechbrain.nnet.containers.Sequential
     - [null, null, !ref <N_fft> // 2 + 1]
     - !ref <lstm>
     - !ref <linear1>
     - !ref <activation_lrelu>
     - !ref <linear2>
     - !ref <activation_sigmoid>
+
+modules:
+    model: !ref <model>
 
 opt_class: !name:torch.optim.RMSprop
     lr: !ref <lr>
