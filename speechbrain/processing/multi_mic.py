@@ -47,7 +47,7 @@ Example
 >>> srpphat = SrpPhat(mics=mics)
 
 >>> doas = srpphat(XXs)
->>> Ys_mvdr = mvdr(Xs, XXs, doas, mics=mics, fs=fs)
+>>> Ys_mvdr = mvdr(Xs, XXs, doas, doa_mode=True, mics=mics, fs=fs)
 >>> ys_mvdr = istft(Ys_mvdr)
 
 >>> # GeV Beamforming
@@ -219,8 +219,16 @@ class DelaySum(torch.nn.Module):
 
         super().__init__()
 
-    def forward(self, Xs, localization_tensor, mics=None, fs=None, c=343.0):
-        """ This method computes a steering vector by using the TDOAs and
+    def forward(
+        self,
+        Xs,
+        localization_tensor,
+        doa_mode=False,
+        mics=None,
+        fs=None,
+        c=343.0,
+    ):
+        """ This method computes a steering vector by using the TDOAs/DOAs and
         then calls the utility function _delaysum to perform beamforming.
         The result has the following format: (batch, time_step, n_fft, 2, 1).
 
@@ -237,7 +245,11 @@ class DelaySum(torch.nn.Module):
             (xyz coordinates in meters). If localization_tensor represents
             TDOAs, then its format is (batch, time_steps, n_mics + n_pairs).
             If localization_tensor represents DOAs, then its format is
-            (batch, time_steps, n_mics)
+            (batch, time_steps, 3)
+
+        doa_mode : bool
+            The user needs to set this parameter to True if localization_tensor
+            represents DOAs instead of TDOAs. Its default value is set to False.
 
         mics : tensor
             The cartesian position (xyz coordinates in meters) of each microphone.
@@ -258,10 +270,9 @@ class DelaySum(torch.nn.Module):
 
         # Get useful dimensions
         n_fft = Xs.shape[2]
-        n_mics = Xs.shape[-1]
 
         # Convert the tdoas to taus
-        if localization_tensor.shape[-1] == n_mics:
+        if doa_mode:
             taus = doas2taus(doas=localization_tensor, mics=mics, fs=fs, c=c)
 
         else:
@@ -355,7 +366,14 @@ class Mvdr(torch.nn.Module):
         self.eps = eps
 
     def forward(
-        self, Xs, XXs, localization_tensor, mics=None, fs=None, c=343.0
+        self,
+        Xs,
+        XXs,
+        localization_tensor,
+        doa_mode=False,
+        mics=None,
+        fs=None,
+        c=343.0,
     ):
         """ This method computes a steering vector before using the
         utility function _mvdr to perform beamforming. The result has
@@ -378,7 +396,11 @@ class Mvdr(torch.nn.Module):
             (xyz coordinates in meters). If localization_tensor represents
             TDOAs, then its format is (batch, time_steps, n_mics + n_pairs).
             If localization_tensor represents DOAs, then its format is
-            (batch, time_steps, n_mics)
+            (batch, time_steps, 3)
+
+        doa_mode : bool
+            The user needs to set this parameter to True if localization_tensor
+            represents DOAs instead of TDOAs. Its default value is set to False.
 
         mics : tensor
             The cartesian position (xyz coordinates in meters) of each microphone.
@@ -398,10 +420,9 @@ class Mvdr(torch.nn.Module):
         """
         # Get useful dimensions
         n_fft = Xs.shape[2]
-        n_mics = Xs.shape[-1]
 
         # Convert the tdoas to taus
-        if localization_tensor.shape[-1] == n_mics:
+        if doa_mode:
             taus = doas2taus(doas=localization_tensor, mics=mics, fs=fs, c=c)
 
         else:
