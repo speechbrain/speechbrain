@@ -4,7 +4,7 @@
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 1234
+seed: 3234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 data_folder: !PLACEHOLDER
@@ -102,6 +102,7 @@ embedding_module: !new:speechbrain.nnet.Sequential
     - !new:torch.nn.LeakyReLU
 
 model: !new:speechbrain.lobes.CNNTransformerSE
+    d_model: !ref <base_channels> // 4
     output_size: !ref <N_fft> // 2 + 1
     input_size: !ref <N_fft> // 2
     output_activation: !ref <output_activation>
@@ -112,6 +113,9 @@ model: !new:speechbrain.lobes.CNNTransformerSE
     nhead: !ref <num_heads>
     causal: !ref <causal>
     custom_emb_module: !ref <embedding_module>
+
+modules:
+    model: !ref <model>
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
