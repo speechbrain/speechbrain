@@ -46,8 +46,9 @@ class SEBrain(sb.Brain):
                     enhance_path = os.path.join(
                         self.hparams.enhanced_folder, name
                     )
+                    pred_wav = pred_wav / torch.max(torch.abs(pred_wav)) * 0.99
                     torchaudio.save(
-                        enhance_path, predict_wav[: int(length)].cpu(), 16000
+                        enhance_path, pred_wav[: int(length)].cpu(), 16000
                     )
 
         return loss
