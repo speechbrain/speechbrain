@@ -29,14 +29,15 @@ class ASR(sb.Brain):
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
         phns, phn_lens = phns.to(self.device), phn_lens.to(self.device)
 
-        if hasattr(self.modules, "env_corrupt") and stage == sb.Stage.TRAIN:
-            wavs_noise = self.modules.env_corrupt(wavs, wav_lens)
-            wavs = torch.cat([wavs, wavs_noise], dim=0)
-            wav_lens = torch.cat([wav_lens, wav_lens])
-            phns = torch.cat([phns, phns])
+        if stage == sb.Stage.TRAIN:
+            if hasattr(self.modules, "env_corrupt"):
+                wavs_noise = self.modules.env_corrupt(wavs, wav_lens)
+                wavs = torch.cat([wavs, wavs_noise], dim=0)
+                wav_lens = torch.cat([wav_lens, wav_lens])
+                phns = torch.cat([phns, phns])
+            if hasattr(self.hparams, "augmentation"):
+                wavs = self.hparams.augmentation(wavs, wav_lens)
 
-        if hasattr(self.hparams, "augmentation"):
-            wavs = self.hparams.augmentation(wavs, wav_lens)
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.normalize(feats, wav_lens)
         x = self.modules.enc(feats)
