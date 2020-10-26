@@ -9,7 +9,7 @@ Example
 >>>
 >>> from speechbrain.processing.features import STFT, ISTFT
 >>> from speechbrain.processing.multi_mic import Covariance
->>> from speechbrain.processing.multi_mic import GccPhat
+>>> from speechbrain.processing.multi_mic import GccPhat, SrpPhat
 >>> from speechbrain.processing.multi_mic import DelaySum, Mvdr, Gev
 >>>
 >>> xs_speech, fs = sf.read(
@@ -38,7 +38,16 @@ Example
 
 >>> # Mvdr Beamforming with SRP-PHAT localization
 >>> mvdr = Mvdr()
->>> Ys_mvdr = mvdr(Xs, XXs, tdoas)
+
+>>> mics = torch.zeros((4,3), dtype=torch.float)
+>>> mics[0,:] = torch.FloatTensor([-0.05, -0.05, +0.00])
+>>> mics[1,:] = torch.FloatTensor([-0.05, +0.05, +0.00])
+>>> mics[2,:] = torch.FloatTensor([+0.05, +0.05, +0.00])
+>>> mics[3,:] = torch.FloatTensor([+0.05, +0.05, +0.00])
+>>> srpphat = SrpPhat(mics=mics)
+
+>>> doas = srpphat(XXs)
+>>> Ys_mvdr = mvdr(Xs, XXs, doas, mics=mics, fs=fs)
 >>> ys_mvdr = istft(Ys_mvdr)
 
 >>> # GeV Beamforming
@@ -210,7 +219,7 @@ class DelaySum(torch.nn.Module):
 
         super().__init__()
 
-    def forward(self, Xs, tdoas):
+    def forward(self, Xs, localization_tensor, mics=None, fs=None, c=343.0):
         """ This method computes a steering vector by using the TDOAs and
         then calls the utility function _delaysum to perform beamforming.
         The result has the following format: (batch, time_step, n_fft, 2, 1).
@@ -222,17 +231,41 @@ class DelaySum(torch.nn.Module):
             The tensor must have the following format:
             (batch, time_step, n_fft/2 + 1, 2, n_mics)
 
-        tdoas : tensor
-            The time difference of arrival (TDOA) (in samples) for
-            each timestamp. The tensor has the format
-            (batch, time_steps, n_mics + n_pairs)
+        localization_tensor : tensor
+            A tensor containing either time differences of arrival (TDOAs)
+            (in samples) for each timestamp or directions of arrival (DOAs)
+            (xyz coordinates in meters). If localization_tensor represents
+            TDOAs, then its format is (batch, time_steps, n_mics + n_pairs).
+            If localization_tensor represents DOAs, then its format is
+            (batch, time_steps, n_mics)
+
+        mics : tensor
+            The cartesian position (xyz coordinates in meters) of each microphone.
+            The tensor must have the following format (n_mics, 3). This
+            parameter is only mandatory when localization_tensor represents
+            DOAs.
+
+        fs : int
+            The sample rate in Hertz of the signals. This parameter is only
+            mandatory when localization_tensor represents DOAs.
+
+        c : float
+            The speed of sound in the medium. The speed is expressed in meters
+            per second and the default value of this parameter is 343 m/s. This
+            parameter is only used when localization_tensor represents DOAs.
+
         """
 
         # Get useful dimensions
         n_fft = Xs.shape[2]
+        n_mics = Xs.shape[-1]
 
         # Convert the tdoas to taus
-        taus = tdoas2taus(tdoas=tdoas)
+        if localization_tensor.shape[-1] == n_mics:
+            taus = doas2taus(doas=localization_tensor, mics=mics, fs=fs, c=c)
+
+        else:
+            taus = tdoas2taus(tdoas=localization_tensor)
 
         # Generate the steering vector
         As = steering(taus=taus, n_fft=n_fft)
@@ -321,7 +354,9 @@ class Mvdr(torch.nn.Module):
 
         self.eps = eps
 
-    def forward(self, Xs, XXs, tdoas):
+    def forward(
+        self, Xs, XXs, localization_tensor, mics=None, fs=None, c=343.0
+    ):
         """ This method computes a steering vector before using the
         utility function _mvdr to perform beamforming. The result has
         the following format: (batch, time_step, n_fft, 2, 1).
@@ -337,16 +372,40 @@ class Mvdr(torch.nn.Module):
             The covariance matrices of the input signal. The tensor must
             have the format (batch, time_steps, n_fft/2 + 1, 2, n_mics + n_pairs)
 
-        tdoas : tensor
-            The time difference of arrival (TDOA) (in samples) for
-            each timestamp. The tensor has the format
-            (batch, time_steps, n_mics + n_pairs)
+        localization_tensor : tensor
+            A tensor containing either time differences of arrival (TDOAs)
+            (in samples) for each timestamp or directions of arrival (DOAs)
+            (xyz coordinates in meters). If localization_tensor represents
+            TDOAs, then its format is (batch, time_steps, n_mics + n_pairs).
+            If localization_tensor represents DOAs, then its format is
+            (batch, time_steps, n_mics)
+
+        mics : tensor
+            The cartesian position (xyz coordinates in meters) of each microphone.
+            The tensor must have the following format (n_mics, 3). This
+            parameter is only mandatory when localization_tensor represents
+            DOAs.
+
+        fs : int
+            The sample rate in Hertz of the signals. This parameter is only
+            mandatory when localization_tensor represents DOAs.
+
+        c : float
+            The speed of sound in the medium. The speed is expressed in meters
+            per second and the default value of this parameter is 343 m/s. This
+            parameter is only used when localization_tensor represents DOAs.
+
         """
         # Get useful dimensions
         n_fft = Xs.shape[2]
+        n_mics = Xs.shape[-1]
 
         # Convert the tdoas to taus
-        taus = tdoas2taus(tdoas=tdoas)
+        if localization_tensor.shape[-1] == n_mics:
+            taus = doas2taus(doas=localization_tensor, mics=mics, fs=fs, c=c)
+
+        else:
+            taus = tdoas2taus(tdoas=localization_tensor)
 
         # Generate the steering vector
         As = steering(taus=taus, n_fft=n_fft)
@@ -843,7 +902,7 @@ class SrpPhat(torch.nn.Module):
         """ Perform SRP-PHAT localization on a signal by computing a steering
         vector and then by using the utility function _srp_phat to extract the doas.
         The result is a tensor containing the directions of arrival (xyz coordinates
-        (in meters) in the direction of the sound source). The output tensor
+        in meters) in the direction of the sound source). The output tensor
         has the format (batch, time_steps, 3).
 
         This localization method uses Global Coherence Field (GCF):
