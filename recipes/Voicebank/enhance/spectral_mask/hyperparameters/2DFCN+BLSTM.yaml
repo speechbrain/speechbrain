@@ -1,19 +1,19 @@
 # ################################
-# Model: 1-D causal CNNTransformer model
-# Authors: Chien-Feng Liao
+# Model: 2DFCN+BLSTM SE baseline
+# Authors: Szu-Wei, Fu 2020
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 1234
+seed: 2234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 data_folder: !PLACEHOLDER
 test_clean_folder: !ref <data_folder>/clean_testset_wav_16k/
 
-output_folder: !ref ./results/transformer/<seed>
+output_folder: !ref ./results/2DFCN+BLSTM/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
-enhanced_folder: !ref <output_folder>/transformer_enhanced
+enhanced_folder: !ref <output_folder>/2DFCN+BLSTM_enhanced
 
 # Basic parameters
 use_tensorboard: True
@@ -32,22 +32,14 @@ csv_valid: !ref <data_folder>/valid.csv
 csv_test: !ref <data_folder>/test.csv
 
 # Training Parameters
-number_of_epochs: 130
-N_batch: 8
-lr: 0.0001
+number_of_epochs: 50
+N_batch: 4
+lr: 0.001
 device: 'cuda:0'
 
-# Model Parameters
-drop_rate: 0.1
-num_blocks: 8
-intermediate_size: 512
-num_heads: 8
-causal: False
-kernel_size: 3
-base_channels: 1024
-padding_type: same
-activation: !name:torch.nn.LeakyReLU
-output_activation: !name:torch.nn.ReLU
+# Neural parameters
+kernel_size: (9,9)
+base_channels: 64
 
 train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>
@@ -74,44 +66,75 @@ test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-embedding_module: !new:speechbrain.nnet.Sequential
-    - [null, null, !ref <N_fft> // 2 + 1]
-    - !name:speechbrain.nnet.Conv1d
-      out_channels: !ref <base_channels>
-      kernel_size: !ref <kernel_size>
-      padding: !ref <padding_type>
-    - !name:speechbrain.nnet.LayerNorm
-    - !new:torch.nn.LeakyReLU
-    - !name:speechbrain.nnet.Conv1d
-      out_channels: !ref <base_channels> // 2
-      kernel_size: !ref <kernel_size>
-      padding: !ref <padding_type>
-    - !name:speechbrain.nnet.LayerNorm
-    - !new:torch.nn.LeakyReLU
-    - !name:speechbrain.nnet.Conv1d
-      out_channels: !ref <base_channels> // 8
-      kernel_size: !ref <kernel_size>
-      padding: !ref <padding_type>
-    - !name:speechbrain.nnet.LayerNorm
-    - !new:torch.nn.LeakyReLU
-    - !name:speechbrain.nnet.Conv1d
-      out_channels: !ref <base_channels> // 4
-      kernel_size: !ref <kernel_size>
-      padding: !ref <padding_type>
-    - !name:speechbrain.nnet.LayerNorm
-    - !new:torch.nn.LeakyReLU
+conv1: !name:speechbrain.nnet.Conv2d
+    out_channels: !ref <base_channels>
+    kernel_size: !ref <kernel_size>
+conv2: !name:speechbrain.nnet.CNN.Conv2d
+    out_channels: !ref <base_channels>
+    kernel_size: !ref <kernel_size>
+conv3: !name:speechbrain.nnet.CNN.Conv2d
+    out_channels: !ref <base_channels>
+    kernel_size: !ref <kernel_size>
+conv4: !name:speechbrain.nnet.CNN.Conv2d
+    out_channels: !ref <base_channels>
+    kernel_size: !ref <kernel_size>
+conv5: !name:speechbrain.nnet.CNN.Conv2d
+    out_channels: 1
+    kernel_size: !ref <kernel_size>
 
-model: !new:speechbrain.lobes.CNNTransformerSE
-    output_size: !ref <N_fft> // 2 + 1
-    input_size: !ref <N_fft> // 2
-    output_activation: !ref <output_activation>
-    activation: !ref <activation>
-    dropout: !ref <drop_rate>
-    num_layers: !ref <num_blocks>
-    d_ffn: !ref <intermediate_size>
-    nhead: !ref <num_heads>
-    causal: !ref <causal>
-    custom_emb_module: !ref <embedding_module>
+BN1: !new:speechbrain.nnet.BatchNorm2d
+    input_size: !ref <base_channels>
+BN2: !new:speechbrain.nnet.BatchNorm2d
+    input_size: !ref <base_channels>
+BN3: !new:speechbrain.nnet.BatchNorm2d
+    input_size: !ref <base_channels>
+BN4: !new:speechbrain.nnet.BatchNorm2d
+    input_size: !ref <base_channels>
+BN5: !new:speechbrain.nnet.BatchNorm2d
+    input_size: 1
+
+lstm: !name:speechbrain.nnet.LSTM
+    hidden_size: 200
+    num_layers: 2
+    dropout: 0
+    bidirectional: True
+
+linear1: !name:speechbrain.nnet.Linear
+    n_neurons: 300
+    bias: True
+
+linear2: !name:speechbrain.nnet.Linear
+    n_neurons: !ref <N_fft> // 2 + 1
+    bias: True
+
+activation_lrelu: !new:torch.nn.LeakyReLU
+    negative_slope: 0.01
+
+activation_sigmoid: !new:torch.nn.Sigmoid
+
+
+model: !new:speechbrain.nnet.Sequential
+    - [null, null, !ref <N_fft> // 2 + 1]
+    - !ref <conv1>
+    - !ref <BN1>
+    - !ref <activation_lrelu>
+    - !ref <conv2>
+    - !ref <BN2>
+    - !ref <activation_lrelu>
+    - !ref <conv3>
+    - !ref <BN3>
+    - !ref <activation_lrelu>
+    - !ref <conv4>
+    - !ref <BN4>
+    - !ref <activation_lrelu>
+    - !ref <conv5>
+    - !ref <BN5>
+    - !ref <activation_lrelu>
+    - !ref <lstm>
+    - !ref <linear1>
+    - !ref <activation_lrelu>
+    - !ref <linear2>
+    - !ref <activation_sigmoid>
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
