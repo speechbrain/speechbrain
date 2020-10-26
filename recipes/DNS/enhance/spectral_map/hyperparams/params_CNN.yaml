@@ -91,6 +91,8 @@ model: !new:speechbrain.nnet.containers.Sequential
     bias: False
   - !ref <output_activation>
 
+modules:
+  model: !ref <model>
 
 train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
   csv_file: !ref <csv_clean>
@@ -111,12 +113,6 @@ test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
   limit: !ref <N_epochs>
-
-lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
-  initial_value: !ref <lr>
-  annealing_factor: 0.5
-  improvement_threshold: 0.0
-  patient: 5
 
 opt_class: !name:torch.optim.Adam
   lr: !ref <lr>
@@ -140,6 +136,11 @@ hparams:
     pad_noise: False
     start_index: 0
     csv_read: [wav]
+  lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
+    initial_value: !ref <lr>
+    annealing_factor: 0.5
+    improvement_threshold: 0.0
+    patient: 5
   compute_cost: !name:speechbrain.nnet.mse_loss
   compute_STFT: !new:speechbrain.processing.features.STFT
     sample_rate: !ref <Sample_rate>

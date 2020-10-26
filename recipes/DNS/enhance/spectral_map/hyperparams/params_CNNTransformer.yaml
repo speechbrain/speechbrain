@@ -17,8 +17,8 @@ tensorboard_logs: !ref results/logs/new_causalCNNTransformer/<seed>
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-csv_noise: !ref <data_folder>/tr_noise.csv
-csv_clean: !ref <data_folder>/tr_clean.csv
+csv_noise: !ref <data_folder>/tr_noise_small.csv
+csv_clean: !ref <data_folder>/tr_clean_small.csv
 csv_valid: !ref <data_folder>/valid.csv
 csv_test: !ref <data_folder>/test.csv
 
@@ -76,8 +76,8 @@ CNN: !new:speechbrain.nnet.containers.Sequential
   - !new:torch.nn.LeakyReLU
 
 model: !new:speechbrain.lobes.CNNTransformerSE
+  d_model: !ref <base_channels> // 4
   output_size: !ref <N_fft> // 2 + 1
-  input_size: !ref <base_channels> // 4
   output_activation: !ref <output_activation>
   activation: !ref <activation>
   dropout: !ref <drop_rate>
@@ -86,6 +86,9 @@ model: !new:speechbrain.lobes.CNNTransformerSE
   nhead: !ref <nhead>
   causal: !ref <causal>
   custom_emb_module: !ref <CNN>
+
+modules:
+  model: !ref <model>
 
 train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
   csv_file: !ref <csv_clean>
