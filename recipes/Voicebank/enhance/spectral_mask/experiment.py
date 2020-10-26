@@ -21,6 +21,7 @@ class SEBrain(sb.Brain):
 
         # mask with "signal approximation (SA)"
         mask = self.hparams.model(feats)
+        mask = torch.squeeze(mask, 2)
         predict_spec = torch.mul(mask, feats)
 
         # Also return predicted wav
@@ -113,7 +114,7 @@ class SEBrain(sb.Brain):
                 train_stats={"loss": self.train_loss},
                 valid_stats=stats,
             )
-            self.checkpointer.save_and_keep_only(meta=stats, min_keys=["pesq"])
+            self.checkpointer.save_and_keep_only(meta=stats, max_keys=["pesq"])
 
         if stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
