@@ -116,7 +116,8 @@ If the node is a mapping node, all the items are passed as keyword arguments
 to the class when the instance is created. A list can similarly be used to
 pass positional arguments.
 
-We also simplify the interface for specifying a function or class:
+We also simplify the interface for specifying a function or class or other
+static Python entity:
 
 ```yaml
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger

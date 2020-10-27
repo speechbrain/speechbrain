@@ -283,3 +283,37 @@ def download_file(
             dest_unpack = os.path.dirname(dest)
         print(f"Extracting {dest} to {dest_unpack}")
         shutil.unpack_archive(dest, dest_unpack)
+
+
+class FuncPipeline:
+    """
+    Chain together functions.
+
+    The class instances are callable, and will apply all given functions to the input,
+    in the given order.
+
+    Arguments
+    ---------
+    *funcs : function, optional
+        Any number of functions, given in order of execution.
+
+    Returns
+    -------
+    Any
+        The input as processed by each function. If no functions were given, simply returns the input.
+    """
+
+    def __init__(self, *funcs):
+        self.funcs = funcs
+
+    def __call__(self, x):
+        if not self.funcs:
+            return x
+        for func in self.funcs:
+            x = func(x)
+        return x
+
+
+def split_by_whitespace(text):
+    """A very basic functional version of str.split"""
+    return text.split()
