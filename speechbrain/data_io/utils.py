@@ -20,7 +20,7 @@ def pad_right_to(
     mode: str
         Pad mode, please refer to torch.nn.functional.pad documentation.
     value: float
-        Pad value
+        Pad value, please refer to torch.nn.functional.pad documentation.
 
     Returns
     -------
@@ -62,7 +62,7 @@ def batch_pad_right(tensors: list, mode="constant", value=0.0):
     mode: str
         Padding mode see torch.nn.functional.pad documentation.
     value: float
-        Padding value.
+        Padding value see torch.nn.functional.pad documentation.
 
     Returns
     -------
