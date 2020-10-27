@@ -31,10 +31,15 @@ Authors
 import os
 import sys
 import torch
+import torch.distributed as dist
 
 import speechbrain as sb
 from speechbrain.utils.data_utils import download_file
 from speechbrain.utils.data_utils import undo_padding
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 # Define training procedure
@@ -158,14 +163,9 @@ class ASR(sb.core.Brain):
         predictions = self.compute_forward(inputs, targets, sb.Stage.TRAIN)
         loss = self.compute_objectives(predictions, targets, sb.Stage.TRAIN)
 
-        if not hasattr(self, "step"):
-            self.step = 0
-
         # normalize the loss by gradient_accumulation step
         (loss / self.hparams.gradient_accumulation).backward()
 
-        # gradient accumulation
-        self.step = self.step + 1
         if self.step % self.hparams.gradient_accumulation == 0:
             # gradient clipping
             torch.nn.utils.clip_grad_norm_(self.modules.parameters(), 5.0)
@@ -204,7 +204,7 @@ class ASR(sb.core.Brain):
             valid_search_interval = self.hparams.valid_search_interval
             if (
                 current_epoch % valid_search_interval == 0
-                or stage == sb.Stage.TRAIN
+                or stage == sb.Stage.TEST
             ):
                 stage_stats["WER"] = self.wer_metric.summarize("error_rate")
 
@@ -268,11 +268,39 @@ class ASR(sb.core.Brain):
         state_dict = {k.split(".", 1)[1]: v for k, v in state_dict.items()}
         self.hparams.lm_model.load_state_dict(state_dict, strict=True)
         self.hparams.lm_model.eval()
+        logger.info("loaded LM from {}".format(save_model_path))
 
     def on_fit_start(self):
         torch.cuda.set_device(self.device)
         self.checkpointer.add_recoverable("model", self.modules)
         super().on_fit_start()
+
+    def on_evaluate_start(self, max_key=None, min_key=None):
+        self.checkpointer.add_recoverable("model", self.modules)
+        self._compile_jit()
+        self._wrap_multigpu()
+        super().on_evaluate_start(max_key=max_key, min_key=min_key)
+
+    def evaluate_ddp(self, *args):
+        torch.multiprocessing.spawn(
+            ddp_evaluate, (self, args), self.multigpu_count
+        )
+
+
+def ddp_evaluate(rank, brain, args):
+    print(f"Process {rank} reporting in!")
+    os.environ["MASTER_ADDR"] = "localhost"
+    os.environ["MASTER_PORT"] = "12321"
+
+    # Remove the "ddp_" from the backend
+    backend = brain.multigpu_backend[4:]
+    dist.init_process_group(
+        backend=backend, world_size=brain.multigpu_count, rank=rank
+    )
+    brain.device = rank
+    brain.root_process = rank == 0
+
+    brain.evaluate(*args)
 
 
 if __name__ == "__main__":
@@ -337,8 +365,8 @@ if __name__ == "__main__":
     asr_brain.hparams.wer_file = (
         hparams["output_folder"] + "/wer_test_clean.txt"
     )
-    asr_brain.evaluate(test_clean_set)
+    asr_brain.evaluate_ddp(test_clean_set, "ACC")
     asr_brain.hparams.wer_file = (
         hparams["output_folder"] + "/wer_test_other.txt"
     )
-    asr_brain.evaluate(test_other_set)
+    asr_brain.evaluate_ddp(test_other_set, "ACC")

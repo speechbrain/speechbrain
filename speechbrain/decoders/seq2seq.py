@@ -1159,6 +1159,11 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
 
     def lm_forward_step(self, inp_tokens, memory):
         memory = _update_mem(inp_tokens, memory)
+        if not next(self.lm_modules.parameters()).is_cuda:
+            self.lm_modules.to(inp_tokens.device)
+            self.lm_modules = torch.nn.parallel.DistributedDataParallel(
+                self.lm_modules, device_ids=[inp_tokens.device]
+            )
         logits = self.lm_modules(memory)
         log_probs = self.softmax(logits)
         return log_probs[:, -1, :], memory
