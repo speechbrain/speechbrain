@@ -38,7 +38,7 @@ class ConvolutionFrontEnd(Sequential):
     Example
     -------
     >>> x = torch.rand((8, 120, 40))
-    >>> conv = ConvolutionFrontEnd(input_shape=x.shape, num_blocks=1)
+    >>> conv = ConvolutionFrontEnd(input_shape=x.shape)
     >>> out = conv(x)
     >>> out.shape
     torch.Size([8, 120, 40])
@@ -116,7 +116,7 @@ class ConvBlock(torch.nn.Module):
         residual=False,
         conv_module=Conv2d,
         activation=torch.nn.LeakyReLU,
-        norm=BatchNorm2d,
+        norm=None,
         dropout=0.1,
     ):
         super().__init__()
@@ -131,7 +131,8 @@ class ConvBlock(torch.nn.Module):
                 stride=stride if i == num_layers - 1 else 1,
                 dilation=dilation,
             )
-            self.convs.append(norm)
+            if norm is not None:
+                self.convs.append(norm)
             self.convs.append(activation())
             self.convs.append(torch.nn.Dropout(dropout))
 

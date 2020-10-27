@@ -267,6 +267,8 @@ class ContextNetBlock(torch.nn.Module):
         else:
             self.activation = activation()
 
+        self._reset_params()
+
     def forward(self, x):
         out = self.Convs(x)
         out = self.SE(out)
@@ -274,3 +276,8 @@ class ContextNetBlock(torch.nn.Module):
             out = out + self.reduced_cov(x)
         out = self.activation(out)
         return self.drop(out)
+
+    def _reset_params(self):
+        for p in self.parameters():
+            if p.dim() > 1:
+                torch.nn.init.kaiming_normal_(p)
