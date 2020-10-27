@@ -24,7 +24,7 @@ def Accuracy(log_probablities, targets, length=None):
     >>> probs = torch.tensor([[0.9, 0.1], [0.1, 0.9], [0.8, 0.2]]).unsqueeze(0)
     >>> acc = Accuracy(torch.log(probs), torch.tensor([1, 1, 0]).unsqueeze(0), torch.tensor([2/3]))
     >>> print(acc)
-    0.5
+    (1.0, 2.0)
     """
     if length is not None:
         mask = length_to_mask(
