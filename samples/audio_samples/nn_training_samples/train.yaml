@@ -1,0 +1,64 @@
+# yamllint disable
+spk1_snt1:
+    phones: [dh, ax, cl, ch, ay, l, vcl, d, ao, l, m, ow, s, cl, t, hh, er,
+             cl, t, sil, dh, ax, s, m, ao, l, vcl, d, ao, vcl]
+    spk_id: spk1
+    alignment_file: ALIGNMENTS_ROOT/spk1_snt1.pkl
+    waveforms:
+        files: DATASET_ROOT/spk1_snt1.wav
+    length: 45920
+spk1_snt2:
+    phones: [vcl, d, r, aa, cl, p, dh, ax, cl, t, uw,
+             sil, w, eh, n, y, uw, ae, vcl, d, dh, ax, f, ih, vcl, g, y, er]
+    spk_id: spk1
+    alignment_file: ALIGNMENTS_ROOT/spk1_snt2.pkl
+    waveforms:
+        files: DATASET_ROOT/spk1_snt2.wav
+    length: 50400
+spk1_snt3:
+    phones: [ae, cl, t, dh, ae, cl, t, hh, ay, l,
+             eh, v, ax, l, dh, iy, eh, r, ih, z, cl, p, y, uh]
+    spk_id: spk1
+    alignment_file: ALIGNMENTS_ROOT/spk1_snt3.pkl
+    waveforms:
+        files: DATASET_ROOT/spk1_snt3.wav
+    length: 43520
+spk1_snt4:
+    phones: [ey, th, ih, n, s, cl, t, r, ay, cl, p, r,
+             ah, n, z, vcl, d, aw, n, dh, ax, m, ih, vcl, d, ax]
+    spk_id: spk1
+    alignment_file: ALIGNMENTS_ROOT/spk1_snt4.pkl
+    waveforms:
+        files: DATASET_ROOT/spk1_snt4.wav
+    length: 40480
+spk2_snt1:
+    phones: [w, iy, er, sh, ao, r, dh, ax, dx, w, ah, n, w, ao, r, ih, z, ih, n, ah]
+    spk_id: spk2
+    alignment_file: ALIGNMENTS_ROOT/spk2_snt1.pkl
+    waveforms:
+        files: DATASET_ROOT/spk2_snt1.wav
+    length: 32160
+spk2_snt2:
+    phones: [w, ah, cl, t, vcl, jh, oy, dh, eh, r, ih, z, ih, n, l, ih, v, ih]
+    spk_id: spk2
+    alignment_file: ALIGNMENTS_ROOT/spk2_snt2.pkl
+    waveforms:
+        files: DATASET_ROOT/spk2_snt2.wav
+    length: 28160
+spk2_snt3:
+    phones: [t, eh, r, ah, th, ih, n, sh, iy, cl, t,
+             f, er, m, dh, iy, y, eh, l, ow, cl, p, ae, vcl]
+    spk_id: spk2
+    alignment_file: ALIGNMENTS_ROOT/spk2_snt3.pkl
+    waveforms:
+        files: DATASET_ROOT/spk2_snt3.wav
+    length: 30080
+spk2_snt4:
+    phones: [m, eh, n, vcl, d, dh, ax, cl, k, ow,
+             cl, t, vcl, b, ih, f, ao, r, y, uw, vcl, g, ow, aw, cl]
+    spk_id: spk2
+    alignment_file: ALIGNMENTS_ROOT/spk2_snt4.pkl
+    waveforms:
+        files: DATASET_ROOT/spk2_snt4.wav
+    length: 32640
+
