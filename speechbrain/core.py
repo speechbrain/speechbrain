@@ -15,15 +15,14 @@ import subprocess
 import ruamel.yaml
 import speechbrain as sb
 import torch.distributed as dist
+import warnings
 from io import StringIO
 from datetime import date
 from enum import Enum, auto
 from tqdm.contrib import tqdm
 from types import SimpleNamespace
 from torch.nn import SyncBatchNorm
-from torch.utils.data import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel as DDP
-from speechbrain.data_io.data_io import DataLoaderFactory
 
 logger = logging.getLogger(__name__)
 DEFAULT_LOG_CONFIG = os.path.dirname(os.path.abspath(__file__))
@@ -549,6 +548,7 @@ class Brain:
             Whether to display the progress of each epoch in a progressbar.
         """
         if self.multigpu_backend and self.multigpu_backend.startswith("ddp"):
+            warnings.warn("Distributed sampler handling removed from Brain!")
             self._ddp_fit(epoch_counter, train_set, valid_set, progressbar)
         else:
             self._fit(epoch_counter, train_set, valid_set, progressbar)
@@ -561,22 +561,6 @@ class Brain:
         """Adjust parameters based on data."""
         self.on_fit_start()
 
-        # Use factories to get loaders
-        self.train_sampler = None
-        if isinstance(train_set, DataLoaderFactory):
-            if self.multigpu_backend and self.multigpu_backend.startswith(
-                "ddp"
-            ):
-                self.train_sampler = DistributedSampler(
-                    dataset=train_set.dataset,
-                    num_replicas=self.multigpu_count,
-                    rank=self.device,
-                    shuffle=train_set.shuffle,
-                )
-            train_set = train_set.get_dataloader(self.train_sampler)
-        if isinstance(valid_set, DataLoaderFactory):
-            valid_set = valid_set.get_dataloader()
-
         # Iterate epochs
         for epoch in epoch_counter:
 
@@ -584,9 +568,6 @@ class Brain:
             self.on_stage_start(Stage.TRAIN, epoch)
             self.modules.train()
             avg_train_loss = 0.0
-
-            if self.train_sampler is not None:
-                self.train_sampler.set_epoch(epoch)
 
             # Only show progressbar if requested and root_process
             disable = not (progressbar and self.root_process)
@@ -658,10 +639,6 @@ class Brain:
         -------
         average test loss
         """
-        # Get test loader from factory
-        if isinstance(test_set, DataLoaderFactory):
-            test_set = test_set.get_dataloader()
-
         self.on_evaluate_start(max_key=max_key, min_key=min_key)
         self.on_stage_start(Stage.TEST, epoch=None)
         self.modules.eval()
