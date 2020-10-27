@@ -2,7 +2,6 @@
 """
 
 from .data_io import (
-    DataLoaderFactory,
     prepend_bos_token,
     append_eos_token,
     convert_index_to_lab,
@@ -13,7 +12,6 @@ from .data_io import (
 )
 
 __all__ = [
-    "DataLoaderFactory",
     "prepend_bos_token",
     "append_eos_token",
     "convert_index_to_lab",
