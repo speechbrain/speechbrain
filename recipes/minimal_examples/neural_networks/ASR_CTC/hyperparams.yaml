@@ -30,6 +30,7 @@ mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
 
 model: !new:speechbrain.lobes.models.CRDNN.CRDNN
+    input_shape: [null, null, 660]
     activation: !ref <activation>
     dropout: !ref <dropout>
     cnn_blocks: !ref <cnn_blocks>
@@ -43,6 +44,7 @@ model: !new:speechbrain.lobes.models.CRDNN.CRDNN
     dnn_neurons: !ref <dnn_neurons>
 
 lin: !new:speechbrain.nnet.linear.Linear
+    input_size: !ref <dnn_neurons>
     n_neurons: 45  # 44 phonemes + 1 blank
     bias: False
 
@@ -52,5 +54,12 @@ softmax: !new:speechbrain.nnet.activations.Softmax
 compute_cost: !name:speechbrain.nnet.losses.ctc_loss
     blank_index: 44
 
-optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
-    learning_rate: !ref <lr>
+modules:
+    model: !ref <model>
+    lin: !ref <lin>
+    mean_var_norm: !ref <mean_var_norm>
+
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+
+per_stats: !name:speechbrain.ErrorRateStats
