@@ -324,7 +324,7 @@ class NoamScheduler:
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
-    def load(self, path, end_of_epoch):
+    def load(self, path, end_of_epoch, device=None):
         del end_of_epoch  # Unused in this class
         data = torch.load(path)
         self.losses = data["losses"]
@@ -421,7 +421,7 @@ class CyclicCosineScheduler:
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
-    def load(self, path, end_of_epoch):
+    def load(self, path, end_of_epoch, device=None):
         del end_of_epoch  # Unused in this class
         data = torch.load(path)
         self.losses = data["losses"]
