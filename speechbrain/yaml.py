@@ -160,6 +160,7 @@ def load_extended_yaml(
     yaml.Loader.add_multi_constructor("!new:", _construct_object)
     yaml.Loader.add_multi_constructor("!name:", _construct_name)
     yaml.Loader.add_multi_constructor("!module:", _construct_module)
+    yaml.Loader.add_multi_constructor("!apply:", _apply_function)
 
     hparams = yaml.load(yaml_stream, Loader=yaml.Loader)
 
@@ -337,6 +338,25 @@ def _construct_module(loader, module_name, node):
         )
 
     return module
+
+
+def _apply_function(loader, callable_string, node):
+    callable_ = pydoc.locate(callable_string)
+    if callable_ is None:
+        raise ImportError("There is no such callable as %s" % callable_string)
+
+    if not inspect.isroutine(callable_):
+        raise ValueError(
+            f"!apply:{callable_string} should be a callable, but is {callable_}"
+        )
+
+    try:
+        args, kwargs = _load_node(loader, node)
+        return callable_(*args, **kwargs)
+    except TypeError as e:
+        err_msg = "Invalid argument to callable %s" % callable_string
+        e.args = (err_msg, *e.args)
+        raise
 
 
 def deref(ref, full_tree, copy_mode=False):

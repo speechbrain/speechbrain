@@ -7,7 +7,7 @@
 # Basic parameters
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
 use_tensorboard: True
 tensorboard_logs: runs/1-newexperiment
 output_folder: !ref results/conv_tasnet/<seed>

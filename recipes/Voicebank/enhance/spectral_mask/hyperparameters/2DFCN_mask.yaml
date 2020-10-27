@@ -6,7 +6,7 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: !PLACEHOLDER  # e.g, 1234
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 data_folder: !PLACEHOLDER
 test_clean_folder: !ref <data_folder>/clean_testset_wav_16k/
@@ -139,7 +139,7 @@ modules:
         - !ref <activation_sigmoid>
     compute_cost: !name:speechbrain.nnet.mse_loss
     optimizer: !new:torch.optim.Adam
-        params: !!python/object/apply:speechbrain.collect_params
+        params: !apply:speechbrain.collect_params
             - !ref <modules.model>
         learning_rate: !ref <lr>
     checkpointer: !new:speechbrain.Checkpointer
