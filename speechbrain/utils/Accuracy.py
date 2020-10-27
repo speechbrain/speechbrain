@@ -43,15 +43,18 @@ def Accuracy(log_probablities, targets, length=None):
     else:
         numerator = torch.sum(padded_pred == targets)
         denominator = targets.shape[1]
-    return float(numerator) / float(denominator)
+    return float(numerator), float(denominator)
 
 
 class AccuracyStats:
     def __init__(self):
-        self.acc_list = []
+        self.correct = 0
+        self.total = 0
 
     def append(self, log_probablities, targets, length=None):
-        self.acc_list.append(Accuracy(log_probablities, targets, length))
+        numerator, denominator = Accuracy(log_probablities, targets, length)
+        self.correct += numerator
+        self.total += denominator
 
     def summarize(self):
-        return sum(self.acc_list) / len(self.acc_list)
+        return self.correct / self.total

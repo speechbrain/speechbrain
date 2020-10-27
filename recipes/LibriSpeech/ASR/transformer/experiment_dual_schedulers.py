@@ -204,7 +204,7 @@ class ASR(sb.core.Brain):
             valid_search_interval = self.hparams.valid_search_interval
             if (
                 current_epoch % valid_search_interval == 0
-                or stage == sb.Stage.TRAIN
+                or stage == sb.Stage.TEST
             ):
                 stage_stats["WER"] = self.wer_metric.summarize("error_rate")
 
