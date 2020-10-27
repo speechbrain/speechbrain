@@ -6,14 +6,7 @@ import speechbrain as sb
 from placeholders import ASRMinimalExampleDataset
 
 # TODO: Replace ASR Dataset transforms:
-from placeholders import FuncPipeline
 from placeholders import torchaudio_load
-from placeholders import split_by_whitespace
-from placeholders import ExampleCategoricalEncoder
-from placeholders import to_int_tensor
-
-# TODO: Replace label dict creation
-from placeholders import ASR_example_label2ind, ASR_example_ind2label
 
 # TODO: Replace collate fn:
 from placeholders import ASR_example_collation
@@ -68,30 +61,21 @@ def main():
         # TODO: Data loading back into YAML:
         hparams = sb.yaml.load_extended_yaml(fin)
 
-        # Placeholders:
-        label_encoder = ExampleCategoricalEncoder(
-            label2ind=ASR_example_label2ind, ind2label=ASR_example_ind2label
-        )
-        # TODO: Make proper transforms
-        text_transform = FuncPipeline(
-            split_by_whitespace, label_encoder.encode_list, to_int_tensor
-        )
-
         # TODO: Convert minimal example CSV to new YAML format
         train_data = ASRMinimalExampleDataset(
             os.path.join(data_folder, "train.csv"),
             audio_transform=torchaudio_load,
-            text_transform=text_transform,
+            text_transform=hparams["text_transform"],
         )
         valid_data = ASRMinimalExampleDataset(
             os.path.join(data_folder, "dev.csv"),
             audio_transform=torchaudio_load,
-            text_transform=text_transform,
+            text_transform=hparams["text_transform"],
         )
         test_data = ASRMinimalExampleDataset(
             os.path.join(data_folder, "dev.csv"),
             audio_transform=torchaudio_load,
-            text_transform=text_transform,
+            text_transform=hparams["text_transform"],
         )
 
     # Placeholders:

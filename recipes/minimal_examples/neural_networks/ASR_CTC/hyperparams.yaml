@@ -4,9 +4,6 @@ seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 
-# TODO:
-# Reintroduce Data specification here.
-
 # Neural Parameters
 N_epochs: 10
 N_batch: 1
@@ -23,6 +20,19 @@ rnn_neurons: 128
 rnn_bidirectional: True
 dnn_blocks: 1
 dnn_neurons: 128
+
+
+# Data:
+# TODO: Replace with final implementations
+label_encoder: !new:placeholders.ExampleCategoricalEncoder
+    label2ind: !name:placeholders.ASR_example_label2ind
+    ind2label: !name:placeholders.ASR_example_ind2label
+
+text_transform: !new:speechbrain.utils.data_utils.FuncPipeline
+    - !name:speechbrain.utils.data_utils.split_by_whitespace
+    - !name:placeholders.ExampleCategoricalEncoder.encode_list [!ref <label_encoder>]
+    - !name:torch.tensor
+      dtype: !name:torch.int
 
 compute_features: !new:speechbrain.lobes.features.mfcc.MFCC
 

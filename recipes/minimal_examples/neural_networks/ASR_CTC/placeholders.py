@@ -175,12 +175,6 @@ def torchaudio_load(wavpath):
     return wav
 
 
-# Text transforms
-def split_by_whitespace(text):
-    # In general, this corresponds to the text segmentation step
-    return text.split()
-
-
 class ExampleCategoricalEncoder:
     # I did not understand the current CategoricalEncoder, so
     # now just using this super simple version.
@@ -198,19 +192,6 @@ class ExampleCategoricalEncoder:
 # Should all the relevant data be torch tensors when yielded by Dataset?
 def to_int_tensor(x):
     return torch.tensor(x, dtype=torch.int)
-
-
-class FuncPipeline:
-    # Chains together functions.
-    def __init__(self, *funcs):
-        self.funcs = funcs
-
-    def __call__(self, x):
-        if not self.funcs:
-            return x
-        for func in self.funcs:
-            x = func(x)
-        return x
 
 
 def pad_and_stack(sequences, padding_value=0):
