@@ -1079,61 +1079,49 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
     >>> # see recipes/LibriSpeech/ASR_transformer/experiment.py
     """
 
-    def __init__(self, model, linear, **kwargs):
+    def __init__(
+        self, modules, **kwargs,
+    ):
         super(S2STransformerBeamSearch, self).__init__(**kwargs)
 
-        self.model = model
-        self.fc = linear
+        self.model = modules[0]
+        self.fc = modules[1]
+        self.ctc_fc = modules[2]
         self.softmax = torch.nn.LogSoftmax(dim=-1)
 
     def reset_mem(self, batch_size, device):
+        return None
+
+    def reset_lm_mem(self, batch_size, device):
         return None
 
     def permute_mem(self, memory, index):
         memory = torch.index_select(memory, dim=0, index=index)
         return memory
 
-    def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
-        prob_dist, memory = _model_decode(
-            self.model, self.softmax, self.fc, inp_tokens, memory, enc_states
-        )
-        return prob_dist[:, -1, :], memory, None
-
-
-class S2STransformerGreedySearch(S2SGreedySearcher):
-    """This class implements the greedy decoding
-    for AttentionalRNNDecoder (speechbrain/nnet/RNN.py).
-    See also S2SBaseSearcher() and S2SGreedySearcher().
-
-    Arguments
-    ---------
-    model : torch.nn.Module
-        The model to use for decoding
-    linear : torch.nn.Module
-        A linear output layer
-    **kwargs
-        Arguments to pass to S2SGreedySearcher
-
-    Example:
-    --------
-    >>> # see recipes/LibriSpeech/ASR_transformer/experiment.py
-    """
-
-    def __init__(self, model, linear, **kwargs):
-        super().__init__(**kwargs)
-
-        self.model = model
-        self.fc = linear
-        self.softmax = torch.nn.LogSoftmax(dim=-1)
-
-    def reset_mem(self, batch_size, device):
-        return None
+    def permute_lm_mem(self, memory, index):
+        memory = torch.index_select(memory, dim=0, index=index)
+        return memory
 
     def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
-        prob_dist, memory = _model_decode(
+        prob_dist, memory, attn = _model_decode(
             self.model, self.softmax, self.fc, inp_tokens, memory, enc_states
         )
-        return prob_dist[:, -1, :], memory, None
+        return prob_dist[:, -1, :], memory, attn
+
+    def ctc_forward_step(self, x):
+        logits = self.ctc_fc(x)
+        log_probs = self.softmax(logits)
+        return log_probs
+
+    def lm_forward_step(self, inp_tokens, memory):
+        memory = _update_mem(inp_tokens, memory)
+        # if not next(self.lm_modules.parameters()).is_cuda:
+        #     self.lm_modules.to(inp_tokens.device)
+        #     self.lm_modules = torch.nn.parallel.DistributedDataParallel(self.lm_modules, device_ids=[inp_tokens.device])
+        logits = self.lm_modules(memory)
+        log_probs = self.softmax(logits)
+        return log_probs[:, -1, :], memory
 
 
 def batch_filter_seq2seq_output(prediction, eos_id=-1):
