@@ -1,5 +1,5 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 2223
+seed: 1024
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/RNN/<seed>
 save_folder: !ref <output_folder>/save
@@ -17,17 +17,17 @@ csv_label: !ref <data_folder>/train-960.csv
 csv_valid: !ref <data_folder>/<dev_split>.csv
 
 # Tokenizer model
-tok_mdl_file: /home/jianyuan/scratch/rnnLM/1000_unigram.model
-tok_voc_file: /home/jianyuan/scratch/rnnLM/1000_unigram.vocab
+tok_mdl_file: /scratch/jianyuan/5000_unigram.model
+tok_voc_file: /scratch/jianyuan/5000_unigram.vocab
 
 # Training parameters
 number_of_epochs: 20
-batch_size: 32
-lr: 0.001
-accu_steps: 16 # Gradient accumulation to simulate large batch training
-device: 'cpu'
-multigpu: False
-stepwise_annealing: False
+batch_size: 128
+lr: 1
+accu_steps: 8 # Gradient accumulation to simulate large batch training
+device: 'cuda'
+multigpu: True
+stepwise_annealing: True
 load_subwrd_directly: True
 saving_interval: 10000
 
@@ -41,10 +41,11 @@ dnn_blocks: 1
 dnn_neurons: 512
 
 # Outputs
-output_neurons: 1000 # index(blank/eos/bos) = 0
+output_neurons: 5000
 blank_index: 0
-bos_index: 0
-eos_index: 0
+bos_index: 1
+eos_index: 2
+pad_index: 0
 
 # BPE
 # Specify the bos_id/eos_id if different with blank_id
@@ -58,26 +59,35 @@ bpe_tokenizer: !new:speechbrain.tokenizers.SentencePiece.SentencePiece
     character_coverage: 1.0 # for language with large set of chars use 0.9995
 
 # Functions
-model: !new:speechbrain.lobes.models.RNNLM.RNNLM
-    output_neurons: !ref <output_neurons>
-    embedding_dim: !ref <emb_size>
-    activation: !ref <activation>
-    dropout: !ref <dropout>
-    rnn_layers: !ref <rnn_layers>
-    rnn_neurons: !ref <rnn_neurons>
-    dnn_blocks: !ref <dnn_blocks>
-    dnn_neurons: !ref <dnn_neurons>
+masking_function: !name:speechbrain.lobes.models.transformer.TransformerLM.make_masks # yamllint disable-line rule:line-length
+    pad_idx: 0
+    look_ahead_mask: True
+    padding_mask: True
 
-log_softmax: !new:speechbrain.nnet.activations.Softmax
-    apply_log: True
+model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM # yamllint disable-line rule:line-length
+    masking_func: !ref <masking_function>
+    vocab: !ref <output_neurons>
+    d_model: 512
+    nhead: 8
+    num_encoder_layers: 16
+    num_decoder_layers: 0
+    d_ffn: 2048
+    dropout: 0.0
+    activation: !name:torch.nn.GELU
+    normalize_before: False
+
+log_softmax: !new:torch.nn.LogSoftmax
+    dim: -1
 
 optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
-    learning_rate: !ref <lr>
+    learning_rate: 0
+    betas: (0.9, 0.999)
+    eps: 0.000000001
 
-lr_annealing: !new:speechbrain.nnet.lr_schedulers.NewBobLRScheduler
-    improvement_threshold: 0.0025
-    annealing_factor: 0.8
-    patient: 0
+lr_annealing: !new:speechbrain.nnet.lr_schedulers.NoamScheduler
+    lr_initial: !ref <lr>
+    n_warmup_steps: 25000
+    model_size: 512
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
@@ -88,7 +98,7 @@ label_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     sentence_sorting: ascending # This must be the same as the ASR recipe
     output_folder: !ref <output_folder>
     csv_read: [char]
-    num_workers: 0
+    num_workers: 4
     drop_last: True
 
 resumable: !new:speechbrain.data_io.data_io.ResumableRandomSampler
@@ -102,7 +112,7 @@ train_loader: !new:speechbrain.data_io.data_io.HDF5DataLoaderFactory
     sort_by: subwrd
     output_folder: !ref <output_folder>
     data_entries: [subwrd]
-    num_workers: 0
+    num_workers: 4
     cache_in_ram: True
     drop_last: True
 
@@ -112,7 +122,7 @@ valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
     csv_read: [char]
-    num_workers: 0
+    num_workers: 4
     drop_last: True
 
 compute_cost: !name:speechbrain.nnet.losses.nll_loss

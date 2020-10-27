@@ -1054,24 +1054,24 @@ class InputNormalization(torch.nn.Module):
                 x = (x - current_mean.data) / (current_std.data)
 
             if self.norm_type == "global":
+                if self.training:
+                    if self.count == 0:
+                        self.glob_mean = current_mean
+                        self.glob_std = current_std
 
-                if self.count == 0:
-                    self.glob_mean = current_mean
-                    self.glob_std = current_std
-
-                else:
-                    if self.avg_factor is None:
-                        self.weight = 1 / (self.count + 1)
                     else:
-                        self.weight = self.avg_factor
+                        if self.avg_factor is None:
+                            self.weight = 1 / (self.count + 1)
+                        else:
+                            self.weight = self.avg_factor
 
-                    self.glob_mean = (
-                        1 - self.weight
-                    ) * self.glob_mean + self.weight * current_mean
+                        self.glob_mean = (
+                            1 - self.weight
+                        ) * self.glob_mean + self.weight * current_mean
 
-                    self.glob_std = (
-                        1 - self.weight
-                    ) * self.glob_std + self.weight * current_std
+                        self.glob_std = (
+                            1 - self.weight
+                        ) * self.glob_std + self.weight * current_std
 
                 self.glob_mean.detach()
                 self.glob_std.detach()

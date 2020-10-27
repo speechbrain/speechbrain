@@ -84,6 +84,9 @@ class TransformerLM(TransformerInterface):
         self.num_encoder_layers = num_encoder_layers
         self.num_decoder_layers = num_decoder_layers
 
+        # reset the params of the transformer model
+        self._reset_params()
+
     def forward(self, src):
         """
         Arguements
@@ -114,8 +117,6 @@ class TransformerLM(TransformerInterface):
             )
 
         pred = self.output_proj(encoder_out)
-
-        self._reset_params()
 
         return pred
 

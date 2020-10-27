@@ -7,7 +7,7 @@ train_log: !ref <output_folder>/train_log.txt
 
 # Data files
 data_folder: !PLACEHOLDER # e.g, /localscratch/LibriSpeech
-filename: lm_corpus.pkl
+filename: lm_corpus.h5
 hdf5_train: !ref <data_folder>/<filename>
 
 # Training audio text (used for BPE tokenizer)
@@ -17,19 +17,17 @@ csv_label: !ref <data_folder>/train-960.csv
 csv_valid: !ref <data_folder>/<dev_split>.csv
 
 # Tokenizer model
-tok_mdl_file: /home/jianyuan/scratch/rnnLM/1000_unigram.model
-tok_voc_file: /home/jianyuan/scratch/rnnLM/1000_unigram.vocab
+tok_mdl_file: /scratch/jianyuan/5000_unigram.model
+tok_voc_file: /scratch/jianyuan/5000_unigram.vocab
 
 # Training parameters
-number_of_epochs: 20
-batch_size: 32
-lr: 0.001
-accu_steps: 16 # Gradient accumulation to simulate large batch training
-device: 'cpu'
-multigpu: False
-stepwise_annealing: False
-load_subwrd_directly: True
-saving_interval: 10000
+batch_size: 64
+lr: 10
+accu_steps: 8
+device: 'cuda'
+multigpu: True
+stepwise_annealing: True
+load_subwrd_directly: False
 
 # Model parameters
 emb_size: 128
@@ -41,10 +39,11 @@ dnn_blocks: 1
 dnn_neurons: 512
 
 # Outputs
-output_neurons: 1000 # index(blank/eos/bos) = 0
+output_neurons: 5000
 blank_index: 0
-bos_index: 0
-eos_index: 0
+bos_index: 1
+eos_index: 2
+pad_index: 0
 
 # BPE
 # Specify the bos_id/eos_id if different with blank_id
@@ -53,31 +52,40 @@ bpe_tokenizer: !new:speechbrain.tokenizers.SentencePiece.SentencePiece
     vocab_size: !ref <output_neurons>
     csv_train: !ref <csv_label>
     csv_read: char
-    char_format_input: True
+    char_format_input: False
     model_type: "unigram" # ["unigram", "bpe", "char"]
     character_coverage: 1.0 # for language with large set of chars use 0.9995
 
 # Functions
-model: !new:speechbrain.lobes.models.RNNLM.RNNLM
-    output_neurons: !ref <output_neurons>
-    embedding_dim: !ref <emb_size>
-    activation: !ref <activation>
-    dropout: !ref <dropout>
-    rnn_layers: !ref <rnn_layers>
-    rnn_neurons: !ref <rnn_neurons>
-    dnn_blocks: !ref <dnn_blocks>
-    dnn_neurons: !ref <dnn_neurons>
+masking_function: !name:speechbrain.lobes.models.transformer.TransformerLM.make_masks # yamllint disable-line rule:line-length
+    pad_idx: 0
+    look_ahead_mask: True
+    padding_mask: True
 
-log_softmax: !new:speechbrain.nnet.activations.Softmax
-    apply_log: True
+model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM # yamllint disable-line rule:line-length
+    masking_func: !ref <masking_function>
+    vocab: !ref <output_neurons>
+    d_model: 512
+    nhead: 8
+    num_encoder_layers: 16
+    num_decoder_layers: 0
+    d_ffn: 2048
+    dropout: 0.0
+    activation: !name:torch.nn.GELU
+    normalize_before: False
+
+log_softmax: !new:torch.nn.LogSoftmax
+    dim: -1
 
 optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
-    learning_rate: !ref <lr>
+    learning_rate: 0
+    betas: (0.9, 0.999)
+    eps: 0.000000001
 
-lr_annealing: !new:speechbrain.nnet.lr_schedulers.NewBobLRScheduler
-    improvement_threshold: 0.0025
-    annealing_factor: 0.8
-    patient: 0
+lr_annealing: !new:speechbrain.nnet.lr_schedulers.NoamScheduler
+    lr_initial: !ref <lr>
+    n_warmup_steps: 25000
+    model_size: 512
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
@@ -87,22 +95,19 @@ label_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     batch_size: !ref <batch_size>
     sentence_sorting: ascending # This must be the same as the ASR recipe
     output_folder: !ref <output_folder>
-    csv_read: [char]
-    num_workers: 0
+    csv_read: [wrd]
+    num_workers: 4
     drop_last: True
-
-resumable: !new:speechbrain.data_io.data_io.ResumableRandomSampler
-    data_source: !ref <hdf5_train>
 
 train_loader: !new:speechbrain.data_io.data_io.HDF5DataLoaderFactory
     hdf5_file: !ref <hdf5_train>
-    # label_dict_file: !ref <output_folder>/label_dict.pkl
+    label_dict_file: !ref <output_folder>/label_dict.pkl
     batch_size: !ref <batch_size>
     sentence_sorting: random
-    sort_by: subwrd
+    sort_by: char
     output_folder: !ref <output_folder>
     data_entries: [subwrd]
-    num_workers: 0
+    num_workers: 4
     cache_in_ram: True
     drop_last: True
 
@@ -111,8 +116,8 @@ valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
-    csv_read: [char]
-    num_workers: 0
+    csv_read: [wrd]
+    num_workers: 4
     drop_last: True
 
 compute_cost: !name:speechbrain.nnet.losses.nll_loss

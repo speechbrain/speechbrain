@@ -24,6 +24,8 @@ from torch.utils.data import Dataset, DataLoader
 import h5py
 import math
 
+from speechbrain.utils import checkpoints
+
 logger = logging.getLogger(__name__)
 
 
@@ -1092,7 +1094,7 @@ class HDF5DataLoaderFactory(torch.nn.Module):
     def __init__(
         self,
         hdf5_file,
-        label_dict_file,
+        label_dict_file=None,
         sort_by="wrd",
         batch_size=1,
         data_entries=None,
@@ -1104,6 +1106,7 @@ class HDF5DataLoaderFactory(torch.nn.Module):
         drop_last=False,
         padding_value=0,
         output_folder=None,
+        cache_in_ram=False,
     ):
         super().__init__()
 
@@ -1123,6 +1126,7 @@ class HDF5DataLoaderFactory(torch.nn.Module):
         self.drop_last = drop_last
         self.padding_value = padding_value
         self.output_folder = output_folder
+        self.cache_in_ram = cache_in_ram
 
         # Shuffle the data every time if random is selected
         if self.sentence_sorting == "random":
@@ -1130,21 +1134,26 @@ class HDF5DataLoaderFactory(torch.nn.Module):
         else:
             self.shuffle = False
 
-    def forward(self):
-        """
-        Output:
-        dataloader: It is a list returning all the dataloaders created.
-        """
-        self.label_dict = self.load_label_dict(self.label_dict_file)
+        self.label_dict = None
+        if self.label_dict_file is not None:
+            self.label_dict = self.load_label_dict(self.label_dict_file)
 
-        # Creating a dataloader
-        dataset = HDF5DatasetFactory(
+        self.dataset = HDF5DatasetFactory(
             self.hdf5_file,
             self.label_dict,
             self.data_entries,
             sort_by=self.sort_by,
             sentence_sorting=self.sentence_sorting,
+            cache_in_ram=self.cache_in_ram,
         )
+
+    def forward(self, resumable=None):
+        """
+        Output:
+        dataloader: It is a list returning all the dataloaders created.
+        """
+        # Creating a dataloader
+        dataset = self.dataset
         if self.local_random:
             print("local random data loader is used.")
             batch_sampler = LocalRandomSampler(
@@ -1164,11 +1173,12 @@ class HDF5DataLoaderFactory(torch.nn.Module):
             self.dataloader = DataLoader(
                 dataset,
                 batch_size=self.batch_size,
-                shuffle=self.shuffle,
+                shuffle=False,
                 pin_memory=False,
                 drop_last=self.drop_last,
                 num_workers=self.num_workers,
                 collate_fn=self.batch_creation,
+                sampler=resumable if self.shuffle else None,
             )
 
         return self.dataloader
@@ -1220,7 +1230,9 @@ class HDF5DataLoaderFactory(torch.nn.Module):
             if isinstance(sequences[0], torch.Tensor):
 
                 # Padding the sequence of sentences (if needed)
-                batch_data = self.padding(sequences)
+                batch_data = torch.nn.utils.rnn.pad_sequence(
+                    sequences, batch_first=True, padding_value=0.0
+                )
 
                 # Return % of time steps without padding (useful for save_batch)
                 time_steps = time_steps / batch_data.shape[1]
@@ -1364,14 +1376,30 @@ class HDF5DatasetFactory(Dataset):
     """
 
     def __init__(
-        self, hdf5, label_dict, data_entries, sentence_sorting, sort_by="wrd",
+        self,
+        hdf5,
+        label_dict,
+        data_entries,
+        sentence_sorting,
+        sort_by="wrd",
+        cache_in_ram=False,
     ):
 
         # Setting the variables
-        self.f_h5 = h5py.File(hdf5, "r")
+        # self.f_h5 = h5py.File(hdf5, "r")
         self.label_dict = label_dict
         self.data_entries = data_entries
         self.sentence_sorting = sentence_sorting
+
+        # cache data in ram
+        if cache_in_ram:
+            msg = "caching data in RAM..."
+            logger.info(msg)
+            self.f_h5 = load_pkl(hdf5)
+            msg = "caching complete!"
+            logger.info(msg)
+        else:
+            self.f_h5 = h5py.File(hdf5, "r")
         self.data_len = len(self.f_h5[self.data_entries[0]])
 
         # Only useful for ascending/descending order
@@ -1385,7 +1413,10 @@ class HDF5DatasetFactory(Dataset):
         indices = [i for i in range(self.data_len)]
 
         def sort_key(i):
-            return len(self.f_h5[self.sort_by][i].split())
+            if self.label_dict:
+                return len(self.f_h5[self.sort_by][i].split())
+            else:
+                return len(self.f_h5[self.sort_by][i])
 
         if self.sentence_sorting == "ascending":
             indices = sorted(indices, key=sort_key)
@@ -1444,7 +1475,10 @@ class HDF5DatasetFactory(Dataset):
         """
 
         # Read the data from disk
-        data = read_string(data_source, lab2ind=lab2ind)
+        if lab2ind is not None:
+            data = read_string(data_source, lab2ind=lab2ind)
+        else:
+            data = np.asarray(data_source)
 
         # Convert numpy array to float32
         if isinstance(data, np.ndarray):
@@ -1458,6 +1492,67 @@ class HDF5DatasetFactory(Dataset):
         data_read = [snt_id, data, data_shape]
 
         return data_read
+
+
+@checkpoints.register_checkpoint_hooks
+class ResumableRandomSampler(torch.utils.data.Sampler):
+    """Samples elements randomly. If without replacement, then sample from a shuffled dataset.
+    If with replacement, then user can specify :attr:`num_samples` to draw.
+
+    This class is adapted from: https://gist.github.com/usamec/1b3b4dcbafad2d58faa71a9633eea6a5
+
+    Arguments:
+        data_source (Dataset): dataset to sample from
+        replacement (bool): samples are drawn on-demand with replacement if ``True``, default=``False``
+        num_samples (int): number of samples to draw, default=`len(dataset)`. This argument
+            is supposed to be specified only when `replacement` is ``True``.
+        generator (Generator): Generator used in sampling.
+    """
+
+    def __init__(self, data_source, key="subwrd"):
+        self.data_source = load_pkl(data_source)
+        self.key = key
+        self.generator = torch.Generator()
+        self.generator.manual_seed(24325)
+
+        self.perm_index = 0
+        self.perm = torch.randperm(self.num_samples, generator=self.generator)
+
+    @property
+    def num_samples(self) -> int:
+        return len(self.data_source[self.key])
+
+    def __iter__(self):
+        if self.perm_index >= len(self.perm):
+            self.perm_index = 0
+            self.perm = torch.randperm(
+                self.num_samples, generator=self.generator
+            )
+            self.generator.manual_seed(random.randint(1, 999999))
+
+        while self.perm_index < len(self.perm):
+            self.perm_index += 1
+            yield self.perm[self.perm_index - 1]
+
+    def __len__(self):
+        return self.num_samples
+
+    @checkpoints.mark_as_saver
+    def save(self, path):
+        state_dict = {
+            "perm": self.perm,
+            "perm_index": self.perm_index,
+            "generator_state": self.generator.get_state(),
+        }
+        torch.save(state_dict, path)
+
+    @checkpoints.mark_as_loader
+    def set_state(self, path, end_of_epoch):
+        del end_of_epoch
+        state = torch.load(path)
+        self.perm = state["perm"]
+        self.perm_index = state["perm_index"]
+        self.generator.set_state(state["generator_state"])
 
 
 class LocalRandomSampler:

@@ -24,6 +24,8 @@ from speechbrain.utils.data_utils import (
 
 from speechbrain import nnet, lobes
 
+from speechbrain.utils.Accuracy import AccuracyStats
+
 __all__ = [
     "Stage",
     "Brain",
@@ -46,4 +48,5 @@ __all__ = [
     "download_file",
     "nnet",
     "lobes",
+    "AccuracyStats",
 ]
