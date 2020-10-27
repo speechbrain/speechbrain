@@ -30,19 +30,69 @@ class SegmentedDataset(Dataset):
     """
 
     def __init__(
-        self, examples: dict, data_fields: (list, tuple), data_transforms=None,
+        self,
+        examples: dict,
+        data_fields: (list, tuple),
+        data_transforms=None,
+        length_sorting="original",
+        discard_longer=None,
+        discard_shorter=None,
     ):
 
         self.data_fields = data_fields
         self.data_transforms = data_transforms
+        assert length_sorting in ["original", "ascending", "descending"]
+        if length_sorting in ["ascending", "descending"]:
+            assert (
+                "length" in self.examples[self.examples.keys()[0]].keys()
+            ), "If sorting != original then,' \
+                   ' each example must have a 'length' key containing the length of the example in order to be able to sort them."
+        self.sentence_sorting = length_sorting
 
         assert isinstance(self.data_transforms, dict)
         for k in self.data_transforms.keys():
             assert callable(
                 self.data_transforms[k]
             ), "Each element in data_transforms dict must be callable"
+
+        if discard_shorter:
+            assert (
+                "length" in self.examples[self.examples.keys()[0]].keys()
+            ), "If discard_shorter option wants to be used, each example must have a 'length' key containing the length of the example."
+
+            examples = {
+                k: v
+                for k, v in examples.items()
+                if examples[k]["length"] >= discard_shorter
+            }
+
+        if discard_longer:
+            assert (
+                "length" in self.examples[self.examples.keys()[0]].keys()
+            ), "If discard_shorter option wants to be used, each example must have a 'length' key containing the length of the example."
+
+            examples = {
+                k: v
+                for k, v in examples.items()
+                if examples[k]["length"] <= discard_longer
+            }
+
         self.examples = examples
         self.ex_ids = list(self.examples.keys())
+
+        # sorting operation
+        if length_sorting == "ascending":
+            self.ex_ids = sorted(
+                self.ex_ids, key=lambda x: self.examples[x]["length"]
+            )
+        elif length_sorting == "descending":
+            self.ex_ids = sorted(
+                examples,
+                key=lambda x: self.examples[x]["length"],
+                reverse=True,
+            )
+        else:
+            pass
 
     def __len__(self):
         return len(self.ex_ids)
