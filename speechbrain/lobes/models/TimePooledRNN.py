@@ -45,10 +45,10 @@ class TimePooledRNN(Sequential):
     Example
     -------
     >>> inputs = torch.rand([10, 120, 60])
-    >>> model = CRDNN(input_shape=inputs.shape)
+    >>> model = TimePooledRNN(input_shape=inputs.shape)
     >>> outputs = model(inputs)
     >>> outputs.shape
-    torch.Size([10, 120, 512])
+    torch.Size([10, 120, 1024])
     """
 
     def __init__(
@@ -56,7 +56,7 @@ class TimePooledRNN(Sequential):
         input_shape,
         activation=torch.nn.LeakyReLU,
         dropout=0.15,
-        time_pooling_factor_list=[1, 1, 2, 2],
+        time_pooling_factor_list=[1, 1, 1, 1],
         rnn_class=torch.nn.LSTM,
         rnn_layers=4,
         rnn_neurons=512,
