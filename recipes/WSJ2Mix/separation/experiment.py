@@ -27,7 +27,6 @@ logger = logging.getLogger(__name__)
 
 
 class SourceSeparationBrain(sb.core.Brain):
-
     def __init__(self, params, device, **kwargs):
         self.params = params
         self.device = device
