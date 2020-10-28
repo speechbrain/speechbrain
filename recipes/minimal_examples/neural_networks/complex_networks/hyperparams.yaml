@@ -59,6 +59,7 @@ model: !new:speechbrain.nnet.Sequential
     - !ref <activation>
     - !new:speechbrain.nnet.Pooling1d
       pool_type: "avg"
+      input_dims: 4
       kernel_size: 3
     - !name:speechbrain.nnet.ComplexLiGRU
       hidden_size: 64

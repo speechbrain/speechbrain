@@ -69,7 +69,6 @@ class Pooling1d(nn.Module):
                     kernel_size,
                     stride=stride,
                     padding=padding,
-                    dilation=dilation,
                     ceil_mode=ceil_mode,
                 )
             elif input_dims == 4:
@@ -77,7 +76,6 @@ class Pooling1d(nn.Module):
                     (1, kernel_size),
                     stride=(1, stride),
                     padding=(0, padding),
-                    dilation=(1, dilation),
                     ceil_mode=ceil_mode,
                 )
             else:
