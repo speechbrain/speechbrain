@@ -9,6 +9,7 @@ from .features.mfcc import MFCC
 from .augment.tdsa import TimeDomainSpecAugment
 from .augment.env_corrupt import EnvCorrupt
 from .models.CRDNN import CRDNN
+from .models.TimePooledRNN import TimePooledRNN
 from .models.ContextNet import ContextNet
 from .models.ECAPA_TDNN import ECAPA_TDNN
 from .models.RNNLM import RNNLM
@@ -27,6 +28,7 @@ __all__ = [
     "TimeDomainSpecAugment",
     "EnvCorrupt",
     "CRDNN",
+    "TimePooledRNN",
     "ContextNet",
     "ECAPA_TDNN",
     "RNNLM",

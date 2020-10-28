@@ -46,7 +46,15 @@ from .schedulers import (
     StepScheduler,
     NoamScheduler,
 )
-from .RNN import RNN, LSTM, GRU, AttentionalRNNDecoder, LiGRU, QuasiRNN
+from .RNN import (
+    RNN,
+    LSTM,
+    GRU,
+    AttentionalRNNDecoder,
+    LiGRU,
+    QuasiRNN,
+    LiGRU_nonorm,
+)
 
 # Complex networks
 from .complex_networks.CNN import ComplexConv1d, ComplexConv2d
@@ -101,6 +109,7 @@ __all__ = [
     "GRU",
     "AttentionalRNNDecoder",
     "LiGRU",
+    "LiGRU_nonorm",
     "QuasiRNN",
     "ComplexConv1d",
     "ComplexConv2d",
