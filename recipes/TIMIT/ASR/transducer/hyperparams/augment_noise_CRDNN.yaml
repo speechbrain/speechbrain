@@ -20,7 +20,7 @@ data_folder: !PLACEHOLDER  # e.g. /path/to/TIMIT
 csv_train: !ref <data_folder>/train.csv
 csv_valid: !ref <data_folder>/dev.csv
 csv_test: !ref <data_folder>/test.csv
-openrir_folder: !PLACEHOLDER # e.g. /path/to/RIRS
+openrir_folder: !ref <data_folder> # e.g. /path/to/RIRS
 
 # Training parameters
 number_of_epochs: 50
@@ -130,7 +130,7 @@ dec: !new:speechbrain.nnet.LiGRU
     input_shape: [null, null, !ref <output_neurons> - 1]
     hidden_size: !ref <dec_neurons>
     num_layers: 1
-    dropout: 0.15
+    dropout: 0.0
     normalization: layernorm
     bidirectional: False
 
