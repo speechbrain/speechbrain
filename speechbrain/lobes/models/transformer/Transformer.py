@@ -283,7 +283,7 @@ class TransformerEncoderLayer(nn.Module):
 
         if self.use_group_comm:
             residual = output * 1.0
-            output = self.group_comm(output, init_params=init_params)
+            output = self.group_comm(output, qkv=(self.qlst,self.klst,self.vlst), init_params=init_params)
             output = self.dropout_comm(output)
             output = self.norm_comm(output + residual, init_params=init_params)
 
@@ -367,6 +367,17 @@ class TransformerEncoder(nn.Module):
         """
         output = src
         attention_lst = []
+
+        qlst = []
+        klst = []
+        vlst = []
+
+        for layer in self.layers:
+            layer.qlst = qlst
+            layer.klst = klst
+            layer.vlst = vlst
+
+
         for enc_layer in self.layers:
             output, attention = enc_layer(
                 output,
@@ -528,7 +539,7 @@ class TransformerDecoderLayer(nn.Module):
 
         if self.use_group_comm:
             residual = tgt * 1.0
-            tgt = self.group_comm(tgt, init_params=init_params)
+            tgt = self.group_comm(tgt, qkv=(self.qlst,self.klst,self.vlst), init_params=init_params)
             tgt = self.dropout_comm(tgt)
             tgt = self.norm_comm(tgt + residual, init_params=init_params)
 
@@ -621,6 +632,16 @@ class TransformerDecoder(nn.Module):
         """
         output = tgt
         self_attns, multihead_attns = [], []
+        
+        qlst = []
+        klst = []
+        vlst = []
+
+        for layer in self.layers:
+            layer.qlst = qlst
+            layer.klst = klst
+            layer.vlst = vlst
+        
         for dec_layer in self.layers:
             output, self_attn, multihead_attn = dec_layer(
                 output,

@@ -35,9 +35,12 @@ class GroupCommunication(nn.Module):
             first_input.device
         )
 
-    def forward(self, x, init_params=False):
+    def forward(self, x, qkv=None, init_params=False):
         if init_params:
             self.init_params(x)
+
+        if qkv is not None:
+            qlst, klst, vlst = qkv
 
         bsz, seq_len, _ = x.shape
         # x = x.view(seq_len, bsz, self.n_blocks, self.block_dim)
@@ -56,6 +59,16 @@ class GroupCommunication(nn.Module):
         k = k.transpose(2, 3)
         v = v.transpose(2, 3)
 
+        use_nfm = True
+        if use_nfm and qkv is not None:
+            klst.append(k)
+            vlst.append(v)
+            #print('len qlst', len(qlst))
+            #for kval in klst:
+            #    print(kval.shape)
+            k = torch.cat(klst, dim=3)
+            v = torch.cat(vlst, dim=3)
+
         score = torch.matmul(q, k.transpose(3, 4))
         score = F.softmax(score, dim=-1)
         out = torch.matmul(score, v).transpose(2, 3)
@@ -68,3 +81,5 @@ class GroupCommunication(nn.Module):
         out = out.view(bsz, seq_len, self.dim)
 
         return out
+
+
