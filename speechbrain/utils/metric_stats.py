@@ -346,7 +346,7 @@ class BinaryMetricStats(MetricStats):
                 self.labels[self.labels == 0].nonzero(as_tuple=True)
             ]
 
-            threshold = eer_threshold(positive_scores, negative_scores)
+            eer, threshold = EER(positive_scores, negative_scores)
 
         pred = (self.scores >= threshold).float()
         true = self.labels
@@ -378,8 +378,8 @@ class BinaryMetricStats(MetricStats):
             return self.summary
 
 
-def eer_threshold(positive_scores, negative_scores):
-    """Computes the EER threshold
+def EER(positive_scores, negative_scores):
+    """Computes the EER (and its threshold)
 
     Arguments
     ---------
@@ -392,8 +392,11 @@ def eer_threshold(positive_scores, negative_scores):
     -------
     >>> postive_scores=torch.tensor([0.6, 0.7, 0.8, 0.5])
     >>> negative_scores=torch.tensor([0.6, 0.4, 0.3, 0.2])
-    >>> eer_threshold(postive_scores, negative_scores)
-    tensor(0.5500)
+    >>> val_eer, th=EER(postive_scores, negative_scores)
+    >>> val_eer
+    0.25
+    >>> th
+    0.5
     """
 
     # Computing candidate thresholds
@@ -424,4 +427,8 @@ def eer_threshold(positive_scores, negative_scores):
 
     # Finding the threshold for EER
     min_index = (FAR - FRR).abs().argmin()
-    return float(thresholds[min_index])
+
+    # It is possible that eer != fpr != fnr. We return (FAR  + FRR) / 2 as EER.
+    EER = (FAR[min_index] + FRR[min_index]) / 2
+
+    return float(EER), float(thresholds[min_index])
