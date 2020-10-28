@@ -53,7 +53,6 @@ from .RNN import (
     AttentionalRNNDecoder,
     LiGRU,
     QuasiRNN,
-    LiGRU_nonorm,
 )
 
 # Complex networks
@@ -109,7 +108,6 @@ __all__ = [
     "GRU",
     "AttentionalRNNDecoder",
     "LiGRU",
-    "LiGRU_nonorm",
     "QuasiRNN",
     "ComplexConv1d",
     "ComplexConv2d",
