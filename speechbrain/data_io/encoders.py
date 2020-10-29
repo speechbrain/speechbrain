@@ -260,7 +260,9 @@ class TextEncoder(CategoricalEncoder):
                 print(
                     "key {} can't be encoded because it is not in the encoder dictionary, "
                     "either something was meesed up during data preparation or, "
-                    "if this happens in test consider using the <unkwown> fallback symbol"
+                    "if this happens in test consider using the <unkwown> fallback symbol".format(
+                        k
+                    )
                 )
 
     def encode_int(self, x: (tuple, list, str)):
