@@ -89,7 +89,7 @@ class Embedding(nn.Module):
             one_hot = torch.eye(self.embedding_dim)
             if self.blank_id + 1 != self.num_embeddings:
                 self.Embedding.weight.data[self.blank_id + 1 :] = one_hot[
-                    self.blank_id + 1 :
+                    self.blank_id :
                 ]
             if self.blank_id != 0:
                 self.Embedding.weight.data[: self.blank_id] = one_hot[
