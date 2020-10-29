@@ -3,33 +3,20 @@ import pickle
 import warnings
 
 
-class CategoricalEncoder:
+class CategoricalEncoder(object):
     """
     Categorical encoder object. It is used to encode labels to a categorical distribution.
     It is thus suitable for speaker recognition where for example you have speakers
     labels e.g. spk1, spk2, spk3 and you want corresponding labels 0, 1, 2 to be able to train a classifier with CrossEntropy loss.
-    Arguments:
-        init_dict: (dict, optional)
-            dictionary with labels and corresponding integer encoding.
-            Note must be ordered and first item must start with integer encoding 0.
     """
 
-    def __init__(
-        self, init_dict=None,
-    ):
+    def __init__(self):
 
-        if init_dict:
-            # check that init dict has contiguos values
-            max_indx = max([init_dict[x] for x in init_dict.keys()])
-            min_indx = min([init_dict[x] for x in init_dict.keys()])
-            assert (
-                min_indx == 0
-            ), "init dict first key must correspond to 0 index."
-            assert [init_dict[x] for x in init_dict.keys()] == [
-                x for x in range(min_indx, max_indx + 1)
-            ], "Init dictionary must have contigouos categorical values."
-            self.lab2indx = init_dict
-            self.indx2lab = {index: key for key, index in init_dict.items()}
+        self.lab2indx = {}
+        self.indx2lab = {}
+
+    def __len__(self):
+        return len(self.lab2indx)
 
     def fit(self, data_collections: (list, dict), supervision: str):
 
@@ -61,26 +48,9 @@ class CategoricalEncoder:
         if not len(self.lab2indx.keys()) and not len(self.indx2lab.keys()):
             self.lab2indx = {key: index for index, key in enumerate(all_labs)}
             self.indx2lab = {key: index for key, index in enumerate(all_labs)}
-        elif len(self.lab2indx.keys()) != len(self.indx2lab.keys()):
-            raise EnvironmentError(
-                "Indx2lab and lab2indx should have same number of keys, something has gone wrong."
-            )
         else:
-            # max index till now
-            max_indx_init = (
-                max([self.lab2indx[x] for x in self.lab2indx.keys()]) + 1
-            )
-            self.lab2indx.update(
-                {
-                    key: index + max_indx_init
-                    for index, key in enumerate(all_labs)
-                }
-            )
-            self.indx2lab.update(
-                {
-                    key + max_indx_init: index
-                    for key, index in enumerate(all_labs)
-                }
+            raise EnvironmentError(
+                "lab2indx and indx2lab must be empty, please use fit right after object instantiation."
             )
 
     def add_elem(self, key, elem=None):
@@ -116,6 +86,10 @@ class CategoricalEncoder:
             self.lab2indx[orig_key] = max_indx + 1
             self.indx2lab[max_indx + 1] = orig_key
             self.indx2lab[elem] = key
+
+    def update(self, d: dict):
+        for k, v in d.items():
+            self.add_elem(k, v)
 
     def _index_label_dict(self, label_dict, k):
 
@@ -230,60 +204,71 @@ class CategoricalEncoder:
             pickle.dump((self.lab2indx, self.indx2lab), f)
 
     def load(self, path):
+        assert not (
+            len(self.lab2indx) or len(self.indx2lab)
+        ), "Use load right after instantiation, lab2indx and indx2lab must be empty otherwise this operation will overwrite them."
 
-        with open(path, "rbb") as f:
+        with open(path, "rb") as f:
             self.lab2indx, self.indx2lab = pickle.load(f)
 
 
 class TextEncoder(CategoricalEncoder):
-    def __init__(
+    def __init__(self,):
+
+        super(TextEncoder, self).__init__()
+        self.blank_token = None
+        self.unkw_token = None
+        self.bos_token = None
+        self.eos_token = None
+
+    def add_blank(self, encoding: int, token="<blank>"):
+        self.blank_token = token
+        self.add_elem(token, encoding)
+
+    def add_unkw(self, encoding: int, token="<unkw>"):
+        self.unkw_token = token
+        self.add_elem(token, encoding)
+
+    def add_bos_eos(
         self,
-        blank_symbol=("<blank>", 0),
-        unknown_symbol=("<unknown>", 1),
-        bos_symbol=None,
-        eos_symbol=None,
-        init_dict=None,
+        bos_encoding: int,
+        bos_token="<bos>",
+        eos_encoding=None,
+        eos_token="<eos>",
     ):
-
-        init_dict = {}
-        self.blank_symbol = blank_symbol
-        if self.blank_symbol:
-            init_dict[self.blank_symbol[0]] = self.blank_symbol[1]
-        self.unknown_symbol = unknown_symbol
-        if self.unknown_symbol:
-            init_dict[self.unknown_symbol[0]] = self.unknown_symbol[1]
-        self.bos_symbol = bos_symbol
-        self.eos_symbol = eos_symbol
-
-        if bool(bos_symbol) != bool(eos_symbol):  # xor
-            print("BOS and EOS symbols are set equal if only one is specified.")
-            tmp = self.bos_symbol or self.eos_symbol
-            self.eos_symbol = tmp
-            self.bos_symbol = tmp
-            init_dict[self.eos_symbol[0]] = self.eos_symbol[1]
-            init_dict[self.bos_symbol[0]] = self.bos_symbol[1]
-        elif bool(bos_symbol) and bool(eos_symbol):
-            init_dict[self.eos_symbol[0]] = self.eos_symbol[1]
-            init_dict[self.bos_symbol[0]] = self.bos_symbol[1]
-
-        super(TextEncoder, self).__init__(init_dict)
+        if not eos_encoding:
+            print("Only BOS token specified, EOS is set implictly equal to BOS")
+            self.bos_token = bos_token
+            self.eos_token = bos_token
+            self.add_elem(bos_token, bos_encoding)
+        else:
+            self.update({bos_token: bos_encoding, eos_token: eos_encoding})
+            self.bos_token = bos_token
+            self.eos_token = eos_token
 
     def _index_label_dict(self, label_dict, k):
-        if self.unknown_symbol:
+        if self.unkw_token:
             try:
                 out = label_dict[k]
             except KeyError:
-                out = label_dict[self.unknown_symbol[0]]
+                out = label_dict[self.unkw_token]
             return out
         else:
-            return label_dict[k]
+            try:
+                return label_dict[k]
+            except KeyError:
+                print(
+                    "key {} can't be encoded because it is not in the encoder dictionary, "
+                    "either something was meesed up during data preparation or, "
+                    "if this happens in test consider using the <unkwown> fallback symbol"
+                )
 
     def encode_int(self, x: (tuple, list, str)):
-        if self.bos_symbol:
+        if self.bos_token:
             if isinstance(x, str):
-                x = [self.bos_symbol[0], x, self.eos_symbol[0]]
+                x = [self.bos_token, x, self.eos_token]
             else:
-                x = [self.bos_symbol[0]] + [x] + [self.eos_symbol[0]]
+                x = [self.bos_token] + [x] + [self.eos_token]
             return super(TextEncoder, self).encode_int(x)
         else:
             return super(TextEncoder, self).encode_int(x)
