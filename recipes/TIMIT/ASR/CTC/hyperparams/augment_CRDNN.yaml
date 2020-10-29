@@ -23,6 +23,7 @@ number_of_epochs: 30
 batch_size: 8
 lr: 1.0
 device: 'cuda:0'
+rank: null
 multigpu_count: 0  # Set to number of GPUs if multi-gpu
 multigpu_backend: null
 
