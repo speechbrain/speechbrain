@@ -12,9 +12,6 @@ import urllib.request
 import collections.abc
 import torch
 import tqdm
-import logging
-
-logger = logging.getLogger(__name__)
 
 
 def undo_padding(batch, lengths):
@@ -270,7 +267,7 @@ def download_file(
     elif not os.path.isfile(dest) or (
         os.path.isfile(dest) and replace_existing
     ):
-        logger.info(f"Downloading {source} to {dest}")
+        print(f"Downloading {source} to {dest}")
         with DownloadProgressBar(
             unit="B", unit_scale=True, miniters=1, desc=source.split("/")[-1]
         ) as t:
@@ -278,11 +275,11 @@ def download_file(
                 source, filename=dest, reporthook=t.update_to
             )
     else:
-        logger.info("Destination path is not empty. Skipping download")
+        print("Destination path is not empty. Skipping download")
 
     # Unpack if necessary
     if unpack:
         if dest_unpack is None:
             dest_unpack = os.path.dirname(dest)
-        logger.info(f"Extracting {dest} to {dest_unpack}")
+        print(f"Extracting {dest} to {dest_unpack}")
         shutil.unpack_archive(dest, dest_unpack)
