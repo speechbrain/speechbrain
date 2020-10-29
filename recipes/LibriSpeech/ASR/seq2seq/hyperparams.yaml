@@ -256,7 +256,7 @@ lr_annealing: !new:speechbrain.nnet.NewBobScheduler
 checkpointer: !new:speechbrain.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
-        # model: !ref <model>
+        model: !ref <model>
         scheduler: !ref <lr_annealing>
         normalizer: !ref <normalize>
         counter: !ref <epoch_counter>
