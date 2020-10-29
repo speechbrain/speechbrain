@@ -67,13 +67,13 @@ def test_EER():
     positive_scores = torch.tensor([0.1, 0.2, 0.3])
     negative_scores = torch.tensor([0.4, 0.5, 0.6])
     eer, threshold = EER(positive_scores, negative_scores)
-    assert eer==1.0
+    assert eer == 1.0
     assert threshold > 0.3 and threshold < 0.4
 
     positive_scores = torch.tensor([0.4, 0.5, 0.6])
     negative_scores = torch.tensor([0.3, 0.2, 0.1])
     eer, threshold = EER(positive_scores, negative_scores)
-    assert eer==0
+    assert eer == 0
     assert threshold > 0.3 and threshold < 0.4
 
     cos = torch.nn.CosineSimilarity(dim=1, eps=1e-6)

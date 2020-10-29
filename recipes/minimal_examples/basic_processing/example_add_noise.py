@@ -24,6 +24,7 @@ for ((id, wav, wav_len),) in hyperparams["sample_data"]().get_dataloader():
 
 def test_noise():
     import torchaudio
+
     torchaudio.set_audio_backend("sox_io")
     from glob import glob
 
