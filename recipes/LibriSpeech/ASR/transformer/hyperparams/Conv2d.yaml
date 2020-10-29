@@ -19,9 +19,13 @@ batch_size: 32
 lr: 0.0001
 ctc_weight: 0.3
 gradient_accumulation: 4
-device: 'cuda'
-multigpu: True
 auto_precision_mix: False
+
+# For DDP, use `python -m speechbrain.ddp experiment.py` to launch experiment
+# These options will be set by that script, and will override these.
+device: 'cuda:0'
+multigpu_count: 0  # Set to number of GPUs if multi-gpu
+multigpu_backend: null  # ['data_parallel', 'ddp_nccl', 'ddp_gloo', 'ddp_mpi']
 
 # Feature parameters
 sample_rate: 16000
