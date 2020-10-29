@@ -36,7 +36,6 @@ checkpointer = sb.utils.checkpoints.Checkpointer(
         "optimizer": params.optimizer,
         "scheduler": params.lr_annealing,
         "counter": params.epoch_counter,
-        "resumable": params.resumable,
     },
 )
 
@@ -47,18 +46,10 @@ steps = 0
 class LM(sb.core.Brain):
     def compute_forward(self, y, stage="train", init_params=False):
         ids, chars, char_lens = y
-
-        if not params.load_subwrd_directly or stage != "train":
-            index2lab = params.label_loader.label_dict["char"]["index2lab"]
-            bpe, _ = params.bpe_tokenizer(
-                chars,
-                char_lens,
-                index2lab,
-                task="encode",
-                init_params=init_params,
-            )
-        else:
-            bpe = chars
+        index2lab = params.label_loader.label_dict["char"]["index2lab"]
+        bpe, _ = params.bpe_tokenizer(
+            chars, char_lens, index2lab, task="encode", init_params=init_params
+        )
         bpe = bpe.to(params.device)
 
         y_in = prepend_bos_token(bpe, bos_index=params.bos_index)
@@ -69,14 +60,10 @@ class LM(sb.core.Brain):
     def compute_objectives(self, predictions, targets, stage="train"):
         pout = predictions
         ids, chars, char_lens = targets
-
-        if not params.load_subwrd_directly or stage != "train":
-            index2lab = params.label_loader.label_dict["char"]["index2lab"]
-            bpe, bpe_lens = params.bpe_tokenizer(
-                chars, char_lens, index2lab, task="encode"
-            )
-        else:
-            bpe, bpe_lens = chars, char_lens
+        index2lab = params.label_loader.label_dict["char"]["index2lab"]
+        bpe, bpe_lens = params.bpe_tokenizer(
+            chars, char_lens, index2lab, task="encode"
+        )
         bpe, bpe_lens = bpe.to(params.device), bpe_lens.to(params.device)
 
         abs_length = torch.round(bpe_lens * bpe.shape[1])
@@ -100,28 +87,8 @@ class LM(sb.core.Brain):
         global steps
         steps += 1
         if steps % params.accu_steps == 0:
-            # gradient clipping
-            torch.nn.utils.clip_grad_norm_(self.modules.parameters(), 1.0)
-
             self.optimizer.step()
             self.optimizer.zero_grad()
-
-            # anneal lr every update
-            if (
-                hasattr(params, "stepwise_annealing")
-                and params.stepwise_annealing
-            ):
-                old_lr, new_lr = params.lr_annealing(
-                    [params.optimizer], None, None
-                )
-
-        if steps % params.saving_interval == 0:
-            checkpointer.save_and_keep_only(
-                meta={"loss": loss.detach()},
-                importance_keys=[ckpt_recency, lambda c: -c.meta["loss"]],
-                end_of_epoch=False,
-            )
-
         stats["loss"] = loss.detach()
         return stats
 
@@ -134,13 +101,9 @@ class LM(sb.core.Brain):
 
     def on_epoch_end(self, epoch, train_stats, valid_stats=None):
         val_loss = summarize_average(valid_stats["loss"])
-
-        if hasattr(params, "stepwise_annealing") and params.stepwise_annealing:
-            old_lr = params.lr_annealing.current_lr
-        else:
-            old_lr, new_lr = params.lr_annealing(
-                [params.optimizer], epoch, val_loss
-            )
+        old_lr, new_lr = params.lr_annealing(
+            [params.optimizer], epoch, val_loss
+        )
         epoch_stats = {"epoch": epoch, "lr": old_lr}
         params.train_logger.log_stats(epoch_stats, train_stats, valid_stats)
 
@@ -149,28 +112,22 @@ class LM(sb.core.Brain):
             importance_keys=[ckpt_recency, lambda c: -c.meta["loss"]],
         )
 
+    def load_tokenizer(self):
+        save_model_path = params.save_folder + "/tok_unigram.model"
+        save_vocab_path = params.save_folder + "/tok_unigram.vocab"
 
-def load_tokenizer():
-    save_model_path = params.save_folder + "/{}_unigram.model".format(
-        params.output_neurons
-    )
-    save_vocab_path = params.save_folder + "/{}_unigram.vocab".format(
-        params.output_neurons
-    )
-
-    if hasattr(params, "tok_mdl_file"):
-        download_file(
-            params.tok_mdl_file, save_model_path, replace_existing=True
-        )
-        params.bpe_tokenizer.sp.load(save_model_path)
-    if hasattr(params, "tok_voc_file"):
-        download_file(
-            params.tok_voc_file, save_vocab_path, replace_existing=True
-        )
+        if hasattr(params, "tok_mdl_file"):
+            download_file(
+                params.tok_mdl_file, save_model_path, replace_existing=True
+            )
+            params.bpe_tokenizer.sp.load(save_model_path)
+        if hasattr(params, "tok_voc_file"):
+            download_file(
+                params.tok_voc_file, save_vocab_path, replace_existing=True
+            )
 
 
 # Prepare data
-load_tokenizer()
 prepare_librispeech(
     data_folder=params.data_folder,
     splits=params.train_splits + [params.dev_split],
@@ -183,11 +140,10 @@ prepare_lm_corpus(
     data_folder=params.data_folder,
     save_folder=params.data_folder,
     filename=params.filename,
-    tokenizer=params.bpe_tokenizer,
 )
 
 _ = params.label_loader()
-train_set = params.train_loader(resumable=params.resumable)
+train_set = params.train_loader()
 valid_set = params.valid_loader()
 first_y = next(iter(train_set))
 
@@ -196,15 +152,11 @@ lm_brain = LM(
 )
 if params.multigpu:
     params.model = torch.nn.DataParallel(params.model)
-    params.log_softmax = torch.nn.DataParallel(params.log_softmax)
 # Load latest checkpoint to resume training
 checkpointer.recover_if_possible()
 
-# reinitialize the train loader with recovered states
-train_set = params.train_loader(resumable=params.resumable)
-lm_brain.fit(
-    params.epoch_counter, train_set, valid_set,
-)
+lm_brain.load_tokenizer()
+lm_brain.fit(params.epoch_counter, train_set, valid_set)
 
 # Load best checkpoint for evaluation
 checkpointer.recover_if_possible(lambda c: -c.meta["loss"])

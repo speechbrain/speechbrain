@@ -7,29 +7,26 @@ train_log: !ref <output_folder>/train_log.txt
 
 # Data files
 data_folder: !PLACEHOLDER # e.g, /localscratch/LibriSpeech
-filename: lm_corpus.pkl
+filename: lm_corpus.h5
 hdf5_train: !ref <data_folder>/<filename>
 
 # Training audio text (used for BPE tokenizer)
 train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
 dev_split: dev-clean
-csv_label: !ref <data_folder>/train-960.csv
+csv_label: !ref <data_folder>/train.csv
 csv_valid: !ref <data_folder>/<dev_split>.csv
 
 # Tokenizer model
-tok_mdl_file: /home/jianyuan/scratch/rnnLM/1000_unigram.model
-tok_voc_file: /home/jianyuan/scratch/rnnLM/1000_unigram.vocab
+tok_mdl_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
+tok_voc_file: https://www.dropbox.com/s/7l8z622cpd3t8st/1000_unigram.vocab?dl=1
 
 # Training parameters
 number_of_epochs: 20
 batch_size: 32
 lr: 0.001
 accu_steps: 16 # Gradient accumulation to simulate large batch training
-device: 'cpu'
-multigpu: False
-stepwise_annealing: False
-load_subwrd_directly: True
-saving_interval: 10000
+device: 'cuda'
+multigpu: True
 
 # Model parameters
 emb_size: 128
@@ -88,23 +85,15 @@ label_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     sentence_sorting: ascending # This must be the same as the ASR recipe
     output_folder: !ref <output_folder>
     csv_read: [char]
-    num_workers: 0
-    drop_last: True
-
-resumable: !new:speechbrain.data_io.data_io.ResumableRandomSampler
-    data_source: !ref <hdf5_train>
 
 train_loader: !new:speechbrain.data_io.data_io.HDF5DataLoaderFactory
     hdf5_file: !ref <hdf5_train>
-    # label_dict_file: !ref <output_folder>/label_dict.pkl
+    label_dict_file: !ref <output_folder>/label_dict.pkl
     batch_size: !ref <batch_size>
-    sentence_sorting: random
-    sort_by: subwrd
+    sentence_sorting: ascending
+    sort_by: wrd
     output_folder: !ref <output_folder>
-    data_entries: [subwrd]
-    num_workers: 0
-    cache_in_ram: True
-    drop_last: True
+    data_entries: [char]
 
 valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_valid>
@@ -112,8 +101,6 @@ valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
     csv_read: [char]
-    num_workers: 0
-    drop_last: True
 
 compute_cost: !name:speechbrain.nnet.losses.nll_loss
 
