@@ -7,6 +7,7 @@ Authors
 import os
 import torch
 import torchaudio
+torchaudio.set_audio_backend("sox_io")
 from speechbrain.utils.data_utils import download_file
 from speechbrain.processing.speech_augmentation import (
     AddBabble,
