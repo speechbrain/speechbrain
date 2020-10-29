@@ -385,7 +385,7 @@ class AddReverb(torch.nn.Module):
         try:
             wav_id, rir_waveform, length = next(self.rir_data)[0]
         except StopIteration:
-            self.rir_data = iter(self.data_loader())
+            self.rir_data = iter(self.data_loader)
             wav_id, rir_waveform, length = next(self.rir_data)[0]
 
         # Make sure RIR has correct channels
@@ -799,11 +799,11 @@ class AddBabble(torch.nn.Module):
     >>> import pytest
     >>> pytest.skip("Need to replace DataLoaderFactory")
     >>> babbler = AddBabble()
-    >>> dataloader = DataLoaderFactory(
+    >>> factory = DataLoaderFactory(
     ...     csv_file='samples/audio_samples/csv_example3.csv',
     ...     batch_size=5,
     ... )
-    >>> loader = iter(dataloader())
+    >>> loader = iter(factory().get_dataloader())
     >>> ids, batch, lengths = next(loader)[0]
     >>> noisy = babbler(batch, lengths)
     """
@@ -858,7 +858,7 @@ class AddBabble(torch.nn.Module):
 
         # Rescale and add to mixture
         babble_amplitude = compute_amplitude(babble_waveform, babble_len)
-        babble_waveform *= new_noise_amplitude / babble_amplitude
+        babble_waveform *= new_noise_amplitude / (babble_amplitude + 1e-14)
         babbled_waveform += babble_waveform
 
         return babbled_waveform
@@ -950,7 +950,7 @@ class DropFreq(torch.nn.Module):
         pad = filter_length // 2
 
         # Start with delta function
-        drop_filter = torch.zeros(1, filter_length, 1).to(waveforms.device)
+        drop_filter = torch.zeros(1, filter_length, 1, device=waveforms.device)
         drop_filter[0, pad, 0] = 1
 
         # Subtract each frequency
@@ -1093,7 +1093,7 @@ class DropChunk(torch.nn.Module):
                 start_max = lengths[i]
             if start_max < 0:
                 start_max += lengths[i]
-            start_max -= length.max()
+            start_max = max(0, start_max - length.max())
 
             # Pick starting locations
             start = torch.randint(

@@ -174,9 +174,9 @@ def mark_as_loader(method):
     """
     sig = inspect.signature(method)
     try:
-        sig.bind(object(), pathlib.Path("testpath"), True)
+        sig.bind(object(), pathlib.Path("testpath"), True, None)
     except TypeError:
-        MSG = "Checkpoint loader must have signature (self, path, end_of_epoch)"
+        MSG = "Checkpoint loader must have signature (self, path, end_of_epoch, device)"
         raise TypeError(MSG)
     method._speechbrain_loader = True
     return method
