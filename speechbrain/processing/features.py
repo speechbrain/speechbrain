@@ -153,7 +153,7 @@ class STFT(torch.nn.Module):
             self.pad_mode,
             self.normalized_stft,
             self.onesided,
-            return_complex=False
+            return_complex=False,
         )
 
         # Retrieving the original dimensionality (batch,time, channels)

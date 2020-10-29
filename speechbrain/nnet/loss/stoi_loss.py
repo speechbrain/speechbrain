@@ -8,6 +8,7 @@ import torch
 import torchaudio
 import numpy as np
 
+torchaudio.set_audio_backend("sox_io")
 smallVal = np.finfo("float").eps  # To avoid divide by zero
 
 
