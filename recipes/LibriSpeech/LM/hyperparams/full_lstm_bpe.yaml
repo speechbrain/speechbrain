@@ -25,8 +25,12 @@ number_of_epochs: 20
 batch_size: 32
 lr: 0.001
 accu_steps: 16 # Gradient accumulation to simulate large batch training
-device: 'cuda'
-multigpu: True
+
+# For DDP, use `python -m speechbrain.ddp experiment.py` to launch experiment
+# These options will be set by that script, and will override these.
+device: 'cuda:0'
+multigpu_count: 0  # Set to number of GPUs if multi-gpu
+multigpu_backend: null  # ['data_parallel', 'ddp_nccl', 'ddp_gloo', 'ddp_mpi']
 
 # Model parameters
 emb_size: 128
