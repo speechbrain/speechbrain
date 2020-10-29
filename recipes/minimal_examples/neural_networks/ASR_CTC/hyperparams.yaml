@@ -6,20 +6,20 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Neural Parameters
 N_epochs: 10
-N_batch: 1
+N_batch: 2
 lr: 0.004
 
 # Model parameters
 activation: !name:torch.nn.LeakyReLU
-dropout: 0.15
+dropout: 0.0
 cnn_blocks: 1
 cnn_channels: (16,)
 cnn_kernelsize: (3, 3)
 rnn_layers: 1
-rnn_neurons: 128
+rnn_neurons: 64
 rnn_bidirectional: True
 dnn_blocks: 1
-dnn_neurons: 128
+dnn_neurons: 64
 
 compute_features: !new:speechbrain.lobes.features.mfcc.MFCC
 
@@ -48,7 +48,8 @@ lin: !new:speechbrain.nnet.Linear
 softmax: !new:speechbrain.nnet.Softmax
     apply_log: True
 
-blank_index: 42
+blank_index: 0
+unknown_index: 1
 compute_cost: !name:speechbrain.nnet.ctc_loss
     blank_index: !ref <blank_index>
 

@@ -11,7 +11,7 @@ from speechbrain.data_io.datasets import SegmentedDataset
 # TODO: Replace ASR Dataset transforms for now no FuncPipeline:
 # from placeholders import FuncPipeline
 from speechbrain.data_io.data_io import read_wav
-from speechbrain.data_io.encoders import CategoricalEncoder
+from speechbrain.data_io.encoders import TextEncoder
 
 # from placeholders import split_by_whitespace
 # from placeholders import ExampleCategoricalEncoder
@@ -29,11 +29,8 @@ class CTCBrain(sb.Brain):
     def compute_forward(self, x, stage):
 
         wavs, lens = x["waveforms"]
-        # lens now supports multidimensional padding
         # TEMPORARY PATCH:
         lens = torch.Tensor([x[-1] for x in lens]).to(wavs.device)
-        assert wavs.size(1) == 1, "multichannel not supported"
-        wavs = wavs.squeeze(1)
 
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.mean_var_norm(feats, lens)
@@ -55,7 +52,9 @@ class CTCBrain(sb.Brain):
         loss = self.hparams.compute_cost(predictions, phns, lens, phn_lens)
 
         if stage != sb.Stage.TRAIN:
-            seq = sb.decoders.ctc_greedy_decode(predictions, lens, blank_id=-1)
+            seq = sb.decoders.ctc_greedy_decode(
+                predictions, lens, blank_id=self.hparams.blank_index
+            )
             self.per_metrics.append(ids, seq, phns, target_len=phn_lens)
 
         return loss
@@ -104,10 +103,14 @@ def main():
     replace_entries(dev_examples, replacements_dict)
     replace_entries(test_examples, replacements_dict)
 
-    # Placeholders:
-    label_encoder = CategoricalEncoder()
-    label_encoder.fit([train_examples, dev_examples, test_examples], "phones")
-    label_encoder.add_elem("<blank>", hparams["blank_index"])
+    label_encoder = TextEncoder()
+    if not os.path.isfile("/tmp/label_enc.pkl"):
+        label_encoder.fit([train_examples, dev_examples], "phones")
+        label_encoder.save("/tmp/label_enc.pkl")
+    else:
+        label_encoder.load("/tmp/label_enc.pkl")
+    label_encoder.add_blank(hparams["blank_index"], "<blank>")
+    label_encoder.add_unkw(hparams["unknown_index"], "<unknown>")
 
     # TODO: Convert minimal example CSV to new YAML format
     train_data = SegmentedDataset(
