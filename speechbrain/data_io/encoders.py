@@ -18,7 +18,6 @@ class CategoricalEncoder:
         self, init_dict=None,
     ):
 
-        self.init_dict = False
         if init_dict:
             # check that init dict has contiguos values
             max_indx = max([init_dict[x] for x in init_dict.keys()])
@@ -31,7 +30,6 @@ class CategoricalEncoder:
             ], "Init dictionary must have contigouos categorical values."
             self.lab2indx = init_dict
             self.indx2lab = {index: key for key, index in init_dict.items()}
-            self.init_dict = True
 
     def fit(self, data_collections: (list, dict), supervision: str):
 
@@ -60,9 +58,13 @@ class CategoricalEncoder:
         for data_coll in data_collections:
             _recursive_helper(data_coll, supervision, all_labs)
 
-        if not self.init_dict:
+        if not len(self.lab2indx.keys()) and not len(self.indx2lab.keys()):
             self.lab2indx = {key: index for index, key in enumerate(all_labs)}
             self.indx2lab = {key: index for key, index in enumerate(all_labs)}
+        elif len(self.lab2indx.keys()) != len(self.indx2lab.keys()):
+            raise EnvironmentError(
+                "Indx2lab and lab2indx should have same number of keys, something has gone wrong."
+            )
         else:
             # max index till now
             max_indx_init = (
@@ -98,18 +100,28 @@ class CategoricalEncoder:
 
         """
         # if no element is provided we simply append to end of label dictionary
+        assert (
+            key not in self.lab2indx.keys()
+        ), "Label already present in label dictionary"
         max_indx = list(self.indx2lab.keys())[-1]
         if elem is None or elem == (max_indx + 1):
             self.lab2indx[key] = max_indx + 1
             self.indx2lab[max_indx + 1] = key
         else:
-            assert 0 <= elem <= (max_indx + 1)
+            assert (
+                0 <= elem <= (max_indx + 1)
+            ), "invalid value specified choose between 0 and len(Encoder)"
             self.lab2indx[key] = elem
             orig_key = self.indx2lab[elem]
             self.lab2indx[orig_key] = max_indx + 1
             self.indx2lab[max_indx + 1] = orig_key
+            self.indx2lab[elem] = key
 
-    def encode_int(self, x):
+    def _index_label_dict(self, label_dict, k):
+
+        return label_dict[k]
+
+    def encode_int(self, x: (tuple, list, str)):
         """
         Parameters
         ----------
@@ -125,12 +137,15 @@ class CategoricalEncoder:
         if isinstance(x, (tuple, list)):
             labels = []
             for i, elem in enumerate(x):
-                labels.append(self.lab2indx[elem])
+                labels.append(self._index_label_dict(self.lab2indx, elem))
             labels = torch.tensor(labels, dtype=torch.long)
 
+        elif isinstance(x, str):
+            labels = torch.tensor(
+                [self._index_label_dict(self.lab2indx, x)], dtype=torch.long
+            )
         else:
-            labels = torch.tensor([self.lab2indx[x]], dtype=torch.long)
-
+            raise NotImplementedError
         return labels
 
     def decode_int(self, x: torch.Tensor):
@@ -209,11 +224,66 @@ class CategoricalEncoder:
 
     def save(self, path):
         warnings.warn(
-            "Using pickle right now but we may want to move to something better for huge datasets"
+            "Using pickle right now but we may want to move to something better for big datasets"
         )
         with open(path, "wb") as f:
             pickle.dump((self.lab2indx, self.indx2lab), f)
 
     def load(self, path):
+
         with open(path, "rbb") as f:
             self.lab2indx, self.indx2lab = pickle.load(f)
+
+
+class TextEncoder(CategoricalEncoder):
+    def __init__(
+        self,
+        blank_symbol=("<blank>", 0),
+        unknown_symbol=("<unknown>", 1),
+        bos_symbol=None,
+        eos_symbol=None,
+        init_dict=None,
+    ):
+
+        init_dict = {}
+        self.blank_symbol = blank_symbol
+        if self.blank_symbol:
+            init_dict[self.blank_symbol[0]] = self.blank_symbol[1]
+        self.unknown_symbol = unknown_symbol
+        if self.unknown_symbol:
+            init_dict[self.unknown_symbol[0]] = self.unknown_symbol[1]
+        self.bos_symbol = bos_symbol
+        self.eos_symbol = eos_symbol
+
+        if bool(bos_symbol) != bool(eos_symbol):  # xor
+            print("BOS and EOS symbols are set equal if only one is specified.")
+            tmp = self.bos_symbol or self.eos_symbol
+            self.eos_symbol = tmp
+            self.bos_symbol = tmp
+            init_dict[self.eos_symbol[0]] = self.eos_symbol[1]
+            init_dict[self.bos_symbol[0]] = self.bos_symbol[1]
+        elif bool(bos_symbol) and bool(eos_symbol):
+            init_dict[self.eos_symbol[0]] = self.eos_symbol[1]
+            init_dict[self.bos_symbol[0]] = self.bos_symbol[1]
+
+        super(TextEncoder, self).__init__(init_dict)
+
+    def _index_label_dict(self, label_dict, k):
+        if self.unknown_symbol:
+            try:
+                out = label_dict[k]
+            except KeyError:
+                out = label_dict[self.unknown_symbol[0]]
+            return out
+        else:
+            return label_dict[k]
+
+    def encode_int(self, x: (tuple, list, str)):
+        if self.bos_symbol:
+            if isinstance(x, str):
+                x = [self.bos_symbol[0], x, self.eos_symbol[0]]
+            else:
+                x = [self.bos_symbol[0]] + [x] + [self.eos_symbol[0]]
+            return super(TextEncoder, self).encode_int(x)
+        else:
+            return super(TextEncoder, self).encode_int(x)
