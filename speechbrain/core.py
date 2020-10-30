@@ -324,8 +324,8 @@ class Brain:
             logger.info(f"{fmt_num} trainable parameters in {clsname}")
 
         # Initialize ddp environment
+        self.rank = os.environ.get("RANK")
         if self.multigpu_backend and self.multigpu_backend.startswith("ddp"):
-            self.rank = os.environ.get("RANK")
             if self.rank is None:
                 sys.exit(
                     "To use DDP backend, start your script with:\n\t"
