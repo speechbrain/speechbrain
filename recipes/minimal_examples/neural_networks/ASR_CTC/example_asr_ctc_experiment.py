@@ -23,6 +23,8 @@ from speechbrain.data_io.encoders import TextEncoder
 # TODO: Replace collate fn:
 from speechbrain.data_io.dataloader import collate_pad
 from speechbrain.data_io.dataloader import SaveableDataLoader
+from speechbrain.utils.data_utils import FuncPipeline
+from speechbrain.data_io.data_io import to_floatTensor, to_longTensor
 
 
 class CTCBrain(sb.Brain):
@@ -112,21 +114,20 @@ def main():
     label_encoder.add_blank(hparams["blank_index"], "<blank>")
     label_encoder.add_unkw(hparams["unknown_index"], "<unknown>")
 
+    wav_pip = FuncPipeline("waveforms", funcs=(read_wav, to_floatTensor))
+    phn_pip = FuncPipeline(
+        "phones", funcs=(label_encoder.encode_int, to_longTensor)
+    )
+
     # TODO: Convert minimal example CSV to new YAML format
     train_data = SegmentedDataset(
-        train_examples,
-        ["waveforms", "phones"],
-        {"waveforms": read_wav, "phones": label_encoder.encode_int},
+        train_examples, data_transforms=[wav_pip, phn_pip]
     )
     valid_data = SegmentedDataset(
-        dev_examples,
-        ["waveforms", "phones"],
-        {"waveforms": read_wav, "phones": label_encoder.encode_int},
+        dev_examples, data_transforms=[wav_pip, phn_pip]
     )
     test_data = SegmentedDataset(
-        test_examples,
-        ["waveforms", "phones"],
-        {"waveforms": read_wav, "phones": label_encoder.encode_int},
+        test_examples, data_transforms=[wav_pip, phn_pip]
     )
 
     # Placeholders:
