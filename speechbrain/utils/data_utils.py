@@ -294,7 +294,7 @@ class FuncPipeline:
 
     Arguments
     ---------
-    *funcs : function, optional
+    *funcs : list, optional
         Any number of functions, given in order of execution.
 
     Returns
@@ -303,12 +303,19 @@ class FuncPipeline:
         The input as processed by each function. If no functions were given, simply returns the input.
     """
 
-    def __init__(self, *funcs):
+    def __init__(self, target, name=None, funcs=None):
+        if name is None:
+            name = target
+        self.name = name
+        self.target = target
+        assert callable(funcs) or isinstance(funcs, (list, tuple)) or not funcs
         self.funcs = funcs
 
     def __call__(self, x):
         if not self.funcs:
             return x
+        if callable(self.funcs):
+            self.funcs = [self.funcs]
         for func in self.funcs:
             x = func(x)
         return x
