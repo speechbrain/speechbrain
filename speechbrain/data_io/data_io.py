@@ -16,7 +16,6 @@ import random
 import pickle
 import logging
 import hashlib
-import numpy as np
 import soundfile as sf
 import multiprocessing as mp
 from multiprocessing import Manager
@@ -24,6 +23,7 @@ from torch.utils.data import Dataset, DataLoader
 import h5py
 import math
 import torchaudio
+import numpy as np
 
 
 def read_wav(waveforms_obj):
@@ -57,24 +57,30 @@ def load_pickle(pickle_path):
 
 
 def to_floatTensor(x: (list, tuple, np.ndarray)):
-    if np.ndarray:
+    if isinstance(x, torch.Tensor):
+        return x.float()
+    if isinstance(x, np.ndarray):
         return torch.from_numpy(x).float()
     else:
-        return torch.Tensor(x, dtype=torch.float)
+        return torch.tensor(x, dtype=torch.float)
 
 
 def to_doubleTensor(x: (list, tuple, np.ndarray)):
-    if np.ndarray:
+    if isinstance(x, torch.Tensor):
+        return x.double()
+    if isinstance(x, np.ndarray):
         return torch.from_numpy(x).double()
     else:
-        return torch.Tensor(x, dtype=torch.double)
+        return torch.tensor(x, dtype=torch.double)
 
 
 def to_longTensor(x: (list, tuple, np.ndarray)):
-    if np.ndarray:
+    if isinstance(x, torch.Tensor):
+        return x.long()
+    if isinstance(x, np.ndarray):
         return torch.from_numpy(x).long()
     else:
-        return torch.Tensor(x, dtype=torch.long)
+        return torch.tensor(x, dtype=torch.long)
 
 
 logger = logging.getLogger(__name__)
