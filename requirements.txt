@@ -11,6 +11,6 @@ sentencepiece>=0.1.91
 SoundFile>=0.10.0
 sphinx-rtd-theme==0.4.3
 Sphinx>=3.0.4
-torch>=1.6.0
+torch==1.6.0
 torchaudio>=0.6
 tqdm>=4.42.0
