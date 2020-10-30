@@ -42,10 +42,7 @@ def replace_entries(data_coll, replacements_dict):
 
 
 def pad_right_to(
-    tensor: torch.Tensor,
-    target_shape: (list, tuple),
-    mode="constant",
-    value=0.0,
+    tensor: torch.Tensor, target_shape: (list, tuple), mode="constant", value=0,
 ):
     """
     This function takes a torch tensor of arbitrary shape and pads it to target
@@ -90,7 +87,7 @@ def pad_right_to(
     return tensor, valid_vals
 
 
-def batch_pad_right(tensors: list, mode="constant", value=0.0):
+def batch_pad_right(tensors: list, mode="constant", value=0):
     """
     Given a list of torch tensors it batches them together by padding to the right
     on each dimension in order to get same length for all.
