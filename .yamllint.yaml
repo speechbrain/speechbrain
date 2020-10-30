@@ -8,8 +8,5 @@ rules:
       - 'True'
       - 'False'
     level: error
-  comments: disable
-  comments-indentation: disable
-  line-length:
-    level: warning
-    allow-non-breakable-inline-mappings: True
+  comments:
+    min-spaces-from-content: 2
