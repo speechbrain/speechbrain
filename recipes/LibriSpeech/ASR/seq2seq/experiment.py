@@ -245,7 +245,7 @@ class ASR(sb.Brain):
         download_file(self.hparams.lm_ckpt_file, save_model_path)
 
         # Load downloaded model, removing prefix
-        state_dict = torch.load(save_model_path)
+        state_dict = torch.load(save_model_path, map_location=self.device)
         state_dict = {k.split(".", 1)[1]: v for k, v in state_dict.items()}
         self.hparams.lm_model.load_state_dict(state_dict, strict=True)
         self.hparams.lm_model.eval()
