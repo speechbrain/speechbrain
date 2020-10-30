@@ -31,7 +31,6 @@ Authors
 import os
 import sys
 import torch
-import torch.distributed as dist
 
 import speechbrain as sb
 from speechbrain.utils.data_utils import download_file
@@ -277,30 +276,7 @@ class ASR(sb.core.Brain):
 
     def on_evaluate_start(self, max_key=None, min_key=None):
         self.checkpointer.add_recoverable("model", self.modules)
-        self._compile_jit()
-        self._wrap_multigpu()
         super().on_evaluate_start(max_key=max_key, min_key=min_key)
-
-    def evaluate_ddp(self, *args):
-        torch.multiprocessing.spawn(
-            ddp_evaluate, (self, args), self.multigpu_count
-        )
-
-
-def ddp_evaluate(rank, brain, args):
-    print(f"Process {rank} reporting in!")
-    os.environ["MASTER_ADDR"] = "localhost"
-    os.environ["MASTER_PORT"] = "12321"
-
-    # Remove the "ddp_" from the backend
-    backend = brain.multigpu_backend[4:]
-    dist.init_process_group(
-        backend=backend, world_size=brain.multigpu_count, rank=rank
-    )
-    brain.device = rank
-    brain.root_process = rank == 0
-
-    brain.evaluate(*args)
 
 
 if __name__ == "__main__":
@@ -349,9 +325,6 @@ if __name__ == "__main__":
         opt_class=hparams["optimizer"],
         hparams=hparams,
         checkpointer=hparams["checkpointer"],
-        device=hparams["device"],
-        multigpu_count=hparams["multigpu_count"],
-        multigpu_backend=hparams["multigpu_backend"],
     )
 
     asr_brain.load_tokenizer()
@@ -365,8 +338,8 @@ if __name__ == "__main__":
     asr_brain.hparams.wer_file = (
         hparams["output_folder"] + "/wer_test_clean.txt"
     )
-    asr_brain.evaluate_ddp(test_clean_set, "ACC")
+    asr_brain.evaluate(test_clean_set, max_key="ACC")
     asr_brain.hparams.wer_file = (
         hparams["output_folder"] + "/wer_test_other.txt"
     )
-    asr_brain.evaluate_ddp(test_other_set, "ACC")
+    asr_brain.evaluate(test_other_set, max_key="ACC")
