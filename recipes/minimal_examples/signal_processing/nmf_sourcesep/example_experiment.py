@@ -117,7 +117,7 @@ def main():
     )
     torch.manual_seed(0)
 
-    NMF1 = NMF_Brain(hparams=hyperparams, progressbar=False)
+    NMF1 = NMF_Brain(hparams=hyperparams)
     train_loader = hyperparams["train_loader1"]().get_dataloader()
     NMF1.init_matrices(train_loader)
 
@@ -126,10 +126,11 @@ def main():
         train_set=train_loader,
         valid_set=None,
         epoch_counter=range(hyperparams["N_epochs"]),
+        progressbar=False
     )
     W1hat = NMF1.training_out[1]
 
-    NMF2 = NMF_Brain(hparams=hyperparams, progressbar=False)
+    NMF2 = NMF_Brain(hparams=hyperparams)
     train_loader = hyperparams["train_loader2"]().get_dataloader()
     NMF2.init_matrices(train_loader)
 
@@ -138,6 +139,7 @@ def main():
         train_set=train_loader,
         valid_set=None,
         epoch_counter=range(hyperparams["N_epochs"]),
+        progressbar=False
     )
     W2hat = NMF2.training_out[1]
 
