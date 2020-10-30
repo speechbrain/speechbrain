@@ -32,27 +32,25 @@ class SegmentedDataset(Dataset):
     def __init__(
         self,
         examples: dict,
-        data_fields: (list, tuple),
         data_transforms=None,
-        length_sorting="original",
+        length_sorting="random",
         discard_longer=None,
         discard_shorter=None,
     ):
 
-        self.data_fields = data_fields
         self.data_transforms = data_transforms
-        assert length_sorting in ["original", "ascending", "descending"]
+        assert length_sorting in ["random", "ascending", "descending"]
         if length_sorting in ["ascending", "descending"]:
             assert (
                 "length" in self.examples[self.examples.keys()[0]].keys()
-            ), "If sorting != original then,' \
+            ), "If sorting != random then,' \
                    ' each example must have a 'length' key containing the length of the example in order to be able to sort them."
         self.sentence_sorting = length_sorting
 
-        assert isinstance(self.data_transforms, dict)
-        for k in self.data_transforms.keys():
+        assert isinstance(self.data_transforms, list)
+        for k in self.data_transforms:
             assert callable(
-                self.data_transforms[k]
+                k
             ), "Each element in data_transforms dict must be callable"
 
         if discard_shorter:
@@ -103,7 +101,9 @@ class SegmentedDataset(Dataset):
         out = {"id": ex_id}
 
         for k in c_ex.keys():
-            if k in self.data_fields:
-                out[k] = self.data_transforms[k](c_ex[k])
+            for t_pipeline in self.data_transforms:
+                if t_pipeline.target == k:
+                    pip_name = t_pipeline.name
+                    out[pip_name] = t_pipeline(c_ex[k])
 
         return out
