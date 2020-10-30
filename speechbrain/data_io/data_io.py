@@ -45,13 +45,36 @@ def read_wav(waveforms_obj):
             tmp, fs = torchaudio.load(f, num_frames=num_frames, offset=offset)
             waveforms.append(tmp)
 
-    return torch.cat(waveforms, 0)
+    out = torch.cat(waveforms, 0)
+    assert out.size(0) == 1, "Multichannel audio currently not supported"
+    return out.squeeze(0)
 
 
 def load_pickle(pickle_path):
     with open(pickle_path, "r") as f:
         out = pickle.load(f)
     return out
+
+
+def to_floatTensor(x: (list, tuple, np.ndarray)):
+    if np.ndarray:
+        return torch.from_numpy(x).float()
+    else:
+        return torch.Tensor(x, dtype=torch.float)
+
+
+def to_doubleTensor(x: (list, tuple, np.ndarray)):
+    if np.ndarray:
+        return torch.from_numpy(x).double()
+    else:
+        return torch.Tensor(x, dtype=torch.double)
+
+
+def to_longTensor(x: (list, tuple, np.ndarray)):
+    if np.ndarray:
+        return torch.from_numpy(x).long()
+    else:
+        return torch.Tensor(x, dtype=torch.long)
 
 
 logger = logging.getLogger(__name__)
