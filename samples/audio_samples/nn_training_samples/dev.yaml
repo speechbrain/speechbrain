@@ -1,3 +1,4 @@
+# yamllint disable
 spk1_snt5:
     phones: [s, ah, n, vcl, d, ey, ih, z, dh, ax, vcl, b, eh, s, cl, t,
                  cl, p, aa, r, dx, ax, v, dh, ax, w, iy, cl]
