@@ -474,20 +474,19 @@ class Brain:
         -------
         detached loss
         """
-        inputs, labels = batch
 
         # Managing automatic mixed precision
         if self.auto_mix_prec:
             with torch.cuda.amp.autocast():
-                outputs = self.compute_forward(inputs, Stage.TRAIN)
-                loss = self.compute_objectives(outputs, labels, Stage.TRAIN)
+                outputs = self.compute_forward(batch, Stage.TRAIN)
+                loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
                 self.scaler.scale(loss).backward()
                 self.scaler.step(self.optimizer)
                 self.optimizer.zero_grad()
                 self.scaler.update()
         else:
-            outputs = self.compute_forward(inputs, Stage.TRAIN)
-            loss = self.compute_objectives(outputs, labels, Stage.TRAIN)
+            outputs = self.compute_forward(batch, Stage.TRAIN)
+            loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
             loss.backward()
             self.optimizer.step()
             self.optimizer.zero_grad()
@@ -515,9 +514,8 @@ class Brain:
         -------
         detached loss
         """
-        inputs, targets = batch
-        out = self.compute_forward(inputs, stage=stage)
-        loss = self.compute_objectives(out, targets, stage=stage)
+        out = self.compute_forward(batch, stage=stage)
+        loss = self.compute_objectives(out, batch, stage=stage)
         return loss.detach().cpu()
 
     def fit(

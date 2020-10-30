@@ -38,6 +38,8 @@ from torch.utils.data import DataLoader
 from torch.utils.data.dataloader import _BaseDataLoaderIter
 import logging
 import functools
+import torch
+from speechbrain.data_io.utils import batch_pad_right
 from speechbrain.utils.checkpoints import (
     register_checkpoint_hooks,
     mark_as_saver,
@@ -155,3 +157,40 @@ class SaveableDataLoader(DataLoader):
                 return
             else:
                 self._speechbrain_recovery_skip_to = int(saved)
+
+
+def collate_pad(example_list, mode="constant", value=0.0):
+    """
+    This function takes in input a list of single examples.
+    Each example is a dictionary which contains data (e.g. tensors) and corresponding keys
+    (e.g. "audio": torch.Tensor(), "spk_id": 20, "file_id": /export/data/dataset/train/utterance.wav ).
+    This function batches torch.Tensors contained in each example together by padding right each tensor.
+    NOTE: Other datatypes are not batched together but instead put into a list.
+    It returns a single dictionary where each entry is either a list or a torch.Tensor.
+
+    Parameters
+    ----------
+    example_list: list
+        List of examples with each example being a dictionary.
+    mode: string
+        Padding mode see torch.nn.functional.pad documentation.
+    value: float
+        Padding value see torch.nn.functional.pad documentation.
+    Returns
+    -------
+    batch: dict
+        Dictionary containing all examples. torch.Tensor are batched together in this dict,
+        other datatypes are instead put in a list where each element correspond to a different example.
+    """
+    keys = example_list[0].keys()
+
+    out = {}
+    for k in keys:
+        out[k] = []
+        for ex in example_list:
+            out[k].append(ex[k])
+
+        if isinstance(out[k][0], (torch.Tensor)):
+            out[k] = batch_pad_right(out[k], mode=mode, value=value)
+
+    return out

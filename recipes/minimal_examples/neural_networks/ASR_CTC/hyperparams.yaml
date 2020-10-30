@@ -6,40 +6,27 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Neural Parameters
 N_epochs: 10
-N_batch: 1
+N_batch: 2
 lr: 0.004
 
 # Model parameters
-activation: !name:torch.nn.LeakyReLU []
-dropout: 0.15
+activation: !name:torch.nn.LeakyReLU
+dropout: 0.0
 cnn_blocks: 1
 cnn_channels: (16,)
 cnn_kernelsize: (3, 3)
 rnn_layers: 1
-rnn_neurons: 128
+rnn_neurons: 64
 rnn_bidirectional: True
 dnn_blocks: 1
-dnn_neurons: 128
-
-
-# Data:
-# TODO: Replace with final implementations
-label_encoder: !new:placeholders.ExampleCategoricalEncoder
-    label2ind: !name:placeholders.ASR_example_label2ind
-    ind2label: !name:placeholders.ASR_example_ind2label
-
-text_transform: !new:speechbrain.utils.data_utils.FuncPipeline
-    - !name:speechbrain.utils.data_utils.split_by_whitespace
-    - !name:placeholders.ExampleCategoricalEncoder.encode_list [!ref <label_encoder>]
-    - !name:torch.tensor
-      dtype: !name:torch.int
+dnn_neurons: 64
 
 compute_features: !new:speechbrain.lobes.features.mfcc.MFCC
 
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
 
-model: !new:speechbrain.lobes.models.CRDNN.CRDNN
+model: !new:speechbrain.lobes.CRDNN
     input_shape: [null, null, 660]
     activation: !ref <activation>
     dropout: !ref <dropout>
@@ -53,16 +40,18 @@ model: !new:speechbrain.lobes.models.CRDNN.CRDNN
     dnn_blocks: !ref <dnn_blocks>
     dnn_neurons: !ref <dnn_neurons>
 
-lin: !new:speechbrain.nnet.linear.Linear
+lin: !new:speechbrain.nnet.Linear
     input_size: !ref <dnn_neurons>
     n_neurons: 45  # 44 phonemes + 1 blank
     bias: False
 
-softmax: !new:speechbrain.nnet.activations.Softmax
+softmax: !new:speechbrain.nnet.Softmax
     apply_log: True
 
-compute_cost: !name:speechbrain.nnet.losses.ctc_loss
-    blank_index: 44
+blank_index: 0
+unknown_index: 1
+compute_cost: !name:speechbrain.nnet.ctc_loss
+    blank_index: !ref <blank_index>
 
 modules:
     model: !ref <model>

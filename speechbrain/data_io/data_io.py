@@ -5,37 +5,1503 @@ Authors
  * Mirco Ravanelli 2020
  * Aku Rouhe 2020
  * Ju-Chieh Chou 2020
+ * Samuele Cornell 2020
 """
-
 import os
-import torch
-import logging
-import soundfile as sf
-import numpy as np
-import pickle
-import hashlib
-import multiprocessing as mp
+import re
 import csv
+import torch
+import psutil
+import random
+import pickle
+import logging
+import hashlib
+import numpy as np
+import soundfile as sf
+import multiprocessing as mp
+from multiprocessing import Manager
+from torch.utils.data import Dataset, DataLoader
+import h5py
+import math
+import torchaudio
+
+
+def read_wav(waveforms_obj):
+    files = waveforms_obj["files"]
+    if not isinstance(files, list):
+        files = [files]
+
+    waveforms = []
+    for f in files:
+        if (
+            "start" not in waveforms_obj.keys()
+            or "stop" not in waveforms_obj.keys()
+        ):
+            tmp, fs = torchaudio.load(f)
+            waveforms.append(tmp)
+        else:
+            num_frames = waveforms_obj["stop"] - waveforms_obj["start"]
+            offset = waveforms_obj["start"]
+            tmp, fs = torchaudio.load(f, num_frames=num_frames, offset=offset)
+            waveforms.append(tmp)
+
+    return torch.cat(waveforms, 0)
+
+
+def load_pickle(pickle_path):
+    with open(pickle_path, "r") as f:
+        out = pickle.load(f)
+    return out
+
 
 logger = logging.getLogger(__name__)
+
+
+class DataLoaderFactory(torch.nn.Module):
+    """
+    Creates data loaders for a csv file
+    Arguments
+    ---------
+    csv : str
+        the csv file that itemizes the data
+    batch_size : int, optional
+        Default: 1 .  The data itemized in the csv file are automatically
+        organized in batches. In the case of variable size tensors, zero
+        padding is performed. When batch_size=1, the data are simply processed
+        one by one without the creation of batches.
+    csv_read : list, None, optional
+        Default: None .  A list of data entries may be specified.  If
+        specified, only those data entries are read from the csv file. If None,
+        read all the data entries.
+    sentence_sorting : {'ascending', 'descending', 'random', 'original'}
+        Default: 'original'. This parameter specifies how to sort the data
+        before the batch creation. Ascending and descending values sort the
+        data using the "duration" field in the csv files. Random sort the data
+        randomly, while original (the default option) keeps the original
+        sequence of data defined in the csv file. Note that this option affects
+        the batch creation. If the data are sorted in ascending or descending
+        order the batches will approximately have the same size and the need
+        for zero padding is minimized. Instead, if sentence_sorting is set to
+        random, the batches might be composed of both short and long sequences
+        and several zeros might be added in the batch. When possible, it is
+        desirable to sort the data. This way, we use more efficiently the
+        computational resources, without wasting time on processing time steps
+        composed on zeros only. Note that is the data are sorted in ascending/
+        descending errors the same batches will be created every time we want
+        to loop over the dataset, while if we set a random order the batches
+        will be different every time we loop over the dataset.
+    num_workers : int, optional
+        Default: 0 . Data is read using the pytorch data_loader.  This option
+        sets the number of workers used to read the data from disk and form the
+        related batch of data. Please, see the pytorch documentation on the
+        data loader for more details.
+    cache : bool, optional
+        Default: False . When set to true, this option stores the input data in
+        a variable called self.cache (see DataLoaderFactory in data_io.py). In
+        practice, the first time the data are read from the disk, they are
+        stored in the cpu RAM. If the data needs to be used again (e.g. when
+        loops>1) the data will be read from the RAM directly.  If False, data
+        are read from the disk every time.  Data are stored until a certain
+        percentage of the total ram available is reached (see cache_ram_percent
+        below).
+    cache_ram_percent : float, optional
+        Default: 75 . If cache if True, data will be stored in the cpu RAM
+        until the total RAM occupation is less or equal than the specified
+        threshold (by default 75%). In practice, if a lot of RAM is available
+        several data will be stored in memory, otherwise, most of them will be
+        read from the disk directly.
+    select_n_setences : int, optional
+        Default: None . It selects the first N sentences of the CSV file.
+    avoid_if_longer_than : float, optional
+        Default: 36000 . It excludes sentences longer than the specified value
+        in seconds.
+    avoid_if_shorter_than : float, optional
+        Default: 0 . It excludes sentences shorter than the specified value in
+        seconds.
+    drop_last : bool, optional
+        Default: False . This is an option directly passed to the pytorch
+        dataloader (see the related documentation for more details). When True,
+        it skips the last batch of data if contains fewer samples than the
+        other ones.
+    padding_value : int, optional
+        Default: 0. Value to use for padding.
+    add_padding_label : bool, optional
+        Default: False. If set to True, the padding value will be add to the label dict as an additional label
+    replacements : dict, optional
+        String replacements to perform in this method
+    output_folder : str, optional
+        A folder for storing the label dict
+    Example
+    -------
+    >>> csv_file = 'samples/audio_samples/csv_example2.csv'
+    >>> # Initialization of the class
+    >>> data_loader=DataLoaderFactory(csv_file)
+    >>> # When called, creates a dataloader for each entry in the csv file
+    >>> # The sample has two: wav and spk
+    """
+
+    def __init__(
+        self,
+        csv_file,
+        batch_size=1,
+        csv_read=None,
+        sentence_sorting="random",
+        num_workers=0,
+        cache=False,
+        cache_ram_percent=75,
+        select_n_sentences=None,
+        avoid_if_longer_than=36000,
+        avoid_if_shorter_than=0,
+        drop_last=False,
+        padding_value=0,
+        add_padding_label=False,
+        replacements={},
+        output_folder=None,
+        label_parsing_func=None,
+    ):
+        super().__init__()
+
+        # Store init params
+        self.csv_file = csv_file
+        self.batch_size = batch_size
+        self.csv_read = csv_read
+        self.sentence_sorting = sentence_sorting
+        self.num_workers = num_workers
+        self.cache = cache
+        self.cache_ram_percent = cache_ram_percent
+        self.select_n_sentences = select_n_sentences
+        self.avoid_if_longer_than = avoid_if_longer_than
+        self.avoid_if_shorter_than = avoid_if_shorter_than
+        self.drop_last = drop_last
+        self.padding_value = padding_value
+        self.replacements = replacements
+        self.output_folder = output_folder
+        self.label_parsing_func = label_parsing_func
+        self.add_padding_lab = add_padding_label
+
+        # Other variables
+        self.supported_formats = self.get_supported_formats()
+
+        # Shuffle the data every time if random is selected
+        if self.sentence_sorting == "random":
+            self.shuffle = True
+        else:
+            self.shuffle = False
+
+    def forward(self, sampler=None):
+        """
+        Returns
+        -------
+        dataset : torch.utils.data.Dataset
+            A dataset object for the data to be loaded
+        """
+
+        data_dict = self.generate_data_dict()
+
+        self.label_dict = self.label_dict_creation(data_dict)
+
+        self.data_len = len(data_dict["data_list"])
+
+        if self.csv_read is None:
+            self.csv_read = data_dict["data_entries"]
+
+        # Creating a dataloader
+        self.dataset = DatasetFactory(
+            data_dict,
+            self.label_dict,
+            self.supported_formats,
+            self.csv_read,
+            self.cache,
+            self.cache_ram_percent,
+            self.label_parsing_func,
+        )
+
+        # Return the factory to pass to Brain class.
+        return self
+
+    def get_dataloader(self, sampler=None):
+        """Get a dataloader for this dataset.
+        Arguments
+        ---------
+        sampler : torch.utils.data.Sampler
+        Returns
+        -------
+        dataloader : torch.utils.data.DataLoader
+        """
+        dataloader = DataLoader(
+            self.dataset,
+            batch_size=self.batch_size,
+            shuffle=self.shuffle if sampler is None else False,
+            pin_memory=(sampler is not None),
+            drop_last=self.drop_last,
+            num_workers=self.num_workers,
+            collate_fn=self.batch_creation,
+            sampler=sampler,
+        )
+
+        return dataloader
+
+    def batch_creation(self, data_lists):
+        """
+        Data batching
+        When necessary this performs zero padding on the input tensors. The
+        function is executed in collate_fn of the pytorch DataLoader.
+        Arguments
+        ---------
+        data_list : list
+            list of data returned by the data reader [data_id, data, data_len]
+        Returns
+        -------
+        list :
+            list containing the final batches:
+            [data_id,data,data_len] where zero-padding is
+            performed where needed.
+        """
+        batch = []
+
+        n_data_entries = len(data_lists[0])
+
+        batch_list = [[[] for i in range(3)] for j in range(n_data_entries)]
+
+        for data_entry in data_lists:
+            for i, data in enumerate(data_entry):
+                batch_list[i][0].append(data[0])
+                batch_list[i][1].append(data[1])
+                batch_list[i][2].append(data[2])
+
+        for data_list in batch_list:
+
+            # Convert all to torch tensors
+            self.numpy2torch(data_list)
+
+            # Save sentence IDs
+            snt_ids = data_list[0]
+
+            # Save duration
+            sequences = data_list[1]
+            time_steps = torch.tensor(data_list[2])
+
+            # Check if current element is a tensor
+            if isinstance(sequences[0], torch.Tensor):
+
+                # Padding the sequence of sentences (if needed)
+                batch_data = self.padding(sequences)
+
+                # Return % of time steps without padding (useful for save_batch)
+                time_steps = time_steps / batch_data.shape[1]
+
+            else:
+                # Non-tensor case
+                batch_data = sequences
+
+            # Batch composition
+            batch.append([snt_ids, batch_data, time_steps])
+
+        return batch
+
+    def padding(self, sequences):
+        """
+        This function perform zero padding on the input list of tensors
+        Arguments
+        ---------
+        sequences : list
+            the list of tensors to pad
+        Returns
+        -------
+        torch.tensor
+            a tensor gathering all the padded tensors
+        Example
+        -------
+        >>> csv_file = 'samples/audio_samples/csv_example2.csv'
+        >>> # Initialization of the class
+        >>> data_loader=DataLoaderFactory(csv_file)
+        >>> # list of tensors
+        >>> tensor_lst=[torch.tensor([1,2,3,4]),torch.tensor([1,2])]
+        >>> data_loader.padding(tensor_lst)[1,:]
+        tensor([1., 2., 0., 0.])
+        """
+
+        # Batch size
+        batch_size = len(sequences)
+
+        # Computing data dimensionality (only the first time)
+        try:
+            self.data_dim
+        except Exception:
+            self.data_dim = list(sequences[0].shape[2:])
+
+        # Finding the max len across sequences
+        max_len = max([s.size(0) for s in sequences])
+
+        # Batch out dimensions
+        out_dims = [batch_size] + [max_len] + self.data_dim
+
+        # Batch initialization
+        batch_data = torch.zeros(out_dims) + self.padding_value
+
+        # Appending data
+        for i, tensor in enumerate(sequences):
+            length = tensor.shape[0]
+            batch_data[i, :length, ...] = tensor
+
+        return batch_data
+
+    def numpy2torch(self, data_list):
+        """
+        This function coverts a list of numpy tensors to torch.Tensor
+        Arguments
+        ---------
+        data_list : list
+            list of numpy arrays
+        Returns
+        -------
+        None
+            The tensors are modified in place!
+        Note
+        ----
+        Did you notice, the tensors are modified in place!
+        Example
+        -------
+        >>> csv_file = 'samples/audio_samples/csv_example2.csv'
+        >>> # Initialization of the class
+        >>> data_loader=DataLoaderFactory(csv_file)
+        >>> # list of numpy tensors
+        >>> tensor_lst=[[np.asarray([1,2,3,4]),np.asarray([1,2])]]
+        >>> # Applying zero padding
+        >>> data_loader.numpy2torch(tensor_lst)
+        >>> print(tensor_lst)
+        [[tensor([1, 2, 3, 4]), tensor([1, 2])]]
+        >>> print(type(tensor_lst[0][0]))
+        <class 'torch.Tensor'>
+        """
+
+        # Covert all the elements of the list to torch.Tensor
+        for i in range(len(data_list)):
+            for j in range(len(data_list[i])):
+                if isinstance(data_list[i][j], np.ndarray):
+                    data_list[i][j] = torch.from_numpy(data_list[i][j])
+
+    def label_dict_creation(self, data_dict):
+        # create label counts and label2index automatically when needed
+        label_dict = {}
+        if self.output_folder is not None:
+            label_dict_file = os.path.join(self.output_folder, "label_dict.pkl")
+
+            # Read previously stored label_dict
+            if os.path.isfile(label_dict_file):
+                label_dict = load_pkl(label_dict_file)
+
+        # Update label dict
+        for snt in data_dict:
+            if not isinstance(data_dict[snt], dict):
+                continue
+
+            for elem in data_dict[snt]:
+                if "format" not in data_dict[snt][elem]:
+                    continue
+
+                count_lab, labels = self._should_count(data_dict[snt][elem])
+
+                if not count_lab:
+                    continue
+
+                if elem not in label_dict:
+                    label_dict[elem] = {}
+                    label_dict[elem]["counts"] = {}
+
+                for lab in labels:
+                    if lab not in label_dict[elem]["counts"]:
+                        label_dict[elem]["counts"][lab] = 1
+                    else:
+                        label_dict[elem]["counts"][lab] += 1
+
+        # create label2index:
+        for lab in label_dict:
+            # sorted_ids = sorted(label_dict[lab]["counts"].keys())
+            cnt_id = -1
+
+            label_dict[lab]["lab2index"] = {}
+            label_dict[lab]["index2lab"] = {}
+
+            # append <pad> token to label_dict
+            if self.add_padding_lab:
+                label_dict[lab]["lab2index"]["<pad>"] = self.padding_value
+                label_dict[lab]["index2lab"][self.padding_value] = "<pad>"
+
+            for lab_id in label_dict[lab]["counts"]:
+                if (
+                    cnt_id == int(self.padding_value) - 1
+                    and self.add_padding_lab
+                ):
+                    cnt_id = cnt_id + 2
+                else:
+                    cnt_id = cnt_id + 1
+                label_dict[lab]["lab2index"][lab_id] = cnt_id
+                label_dict[lab]["index2lab"][cnt_id] = lab_id
+
+        # saving the label_dict:
+        if self.output_folder is not None:
+            save_pkl(label_dict, label_dict_file)
+
+        return label_dict
+
+    def _should_count(self, data_dict_elem):
+        """Compute whether this label should be counted or not"""
+        count_lab = False
+        labels = []
+        opts = data_dict_elem["options"]
+
+        if "label_func" in opts and opts["label_func"] == "True":
+            assert self.label_parsing_func, (
+                "A parsing function must be defined for "
+                "the labels and passed to DataLoadFactory"
+            )
+            labels = self.label_parsing_func(data_dict_elem["data"])
+            count_lab = False
+
+        if (
+            data_dict_elem["format"] == "string"
+            and ("label" not in opts or opts["label"] == "True")
+            and (not ("label_func" in opts and opts["label_func"] == "True"))
+        ):
+
+            if len(data_dict_elem["data"].split(" ")) > 1:
+                # Processing list of string labels
+                labels = data_dict_elem["data"].split(" ")
+                count_lab = True
+
+            else:
+                # Processing a single label
+                labels = [data_dict_elem["data"]]
+                count_lab = True
+
+        if data_dict_elem["format"] == "pkl":
+
+            labels = load_pkl(data_dict_elem["data"])
+
+            # Create counts if tensor is a list of integers
+            if isinstance(labels, list):
+                if isinstance(labels[0], int):
+                    count_lab = True
+
+            if isinstance(labels, np.ndarray):
+                if "numpy.int" in str(type(labels[0])):
+                    count_lab = True
+
+            # Create counts if tensor is a list of integers
+            if isinstance(labels, torch.Tensor):
+
+                if labels.type() == "torch.LongTensor":
+                    count_lab = True
+                if labels.type() == "torch.IntTensor":
+                    count_lab = True
+
+        return count_lab, labels
+
+    def generate_data_dict(self):
+        """
+        Create a dictionary from the csv file
+        Returns
+        -------
+        dict
+            Dictionary with the data itemized in the csv file
+        Example
+        -------
+        >>> csv_file = 'samples/audio_samples/csv_example2.csv'
+        >>> data_loader=DataLoaderFactory(csv_file)
+        >>> data_loader.generate_data_dict().keys()
+        dict_keys(['example1', 'data_list', 'data_entries'])
+        """
+        # Initial prints
+        logger.debug("Creating dataloader for %s" % (self.csv_file))
+
+        # Initialization of the data_dict
+        data_dict = {}
+
+        # CSV file reader
+        reader = csv.reader(open(self.csv_file, "r"))
+
+        first_row = True
+
+        # Tracking the total number of sentences and their duration
+        total_duration = 0
+        total_sentences = 0
+
+        for row in reader:
+
+            # Skipping empty lines
+            if len(row) == 0:
+                continue
+
+            # remove left/right spaces
+            row = [elem.strip(" ") for elem in row]
+
+            # update sentence counter
+            total_sentences = total_sentences + 1
+            if self.select_n_sentences is not None:
+                if total_sentences > self.select_n_sentences:
+                    break
+
+            # Check and get field list from first row
+            if first_row:
+                self._check_first_row(row)
+                field_lst = row
+                first_row = False
+                continue
+
+            # replace local variables with global ones
+            variable_finder = re.compile(r"\$[\w.]+")
+            for i, item in enumerate(row):
+                try:
+                    row[i] = variable_finder.sub(
+                        lambda x: self.replacements[x[0]], item,
+                    )
+                except KeyError as e:
+                    e.args = (
+                        *e.args,
+                        "The item '%s' contains variables "
+                        "not included in 'replacements'" % item,
+                    )
+                    raise
+
+            # Make sure that the current row contains all the fields
+            if len(row) != len(field_lst):
+                err_msg = (
+                    'The row "%s" of the cvs file %s does not '
+                    "contain the right number fields (they must be %i "
+                    "%s"
+                    ")" % (row, self.csv_file, len(field_lst), field_lst)
+                )
+                raise ValueError(err_msg)
+
+            # Filling the data dictionary
+            for i, field in enumerate(field_lst):
+                if i == 0:
+                    row_id = row[i]
+                    data_dict[row_id] = {}
+                    continue
+
+                elif field == "duration":
+                    data_dict[row_id][field] = row[i]
+                    total_duration = total_duration + float(row[i])
+                    continue
+
+                format_field = field.endswith("_format")
+                opts_field = field.endswith("_opts")
+                field = field.replace("_format", "").replace("_opts", "")
+
+                if field not in data_dict[row_id]:
+                    data_dict[row_id][field] = {
+                        "data": {},
+                        "format": {},
+                        "options": {},
+                    }
+
+                if not format_field and not opts_field:
+                    data_dict[row_id][field]["data"] = row[i]
+
+                elif format_field:
+                    data_dict[row_id][field]["format"] = row[i]
+
+                elif opts_field:
+                    data_dict[row_id][field]["options"] = self._parse_opts(
+                        row[i]
+                    )
+
+            # Avoiding sentence that are too long or too short
+            self._avoid_short_long_sentences(data_dict, row_id)
+
+        data_dict = self.sort_sentences(data_dict, self.sentence_sorting)
+
+        logger.debug("Number of sentences: %i" % (len(data_dict.keys())))
+        logger.debug("Total duration (hours): %1.2f" % (total_duration / 3600))
+        logger.debug(
+            "Average duration (seconds): %1.2f"
+            % (total_duration / len(data_dict.keys()))
+        )
+
+        # Adding sorted list of sentences
+        data_dict["data_list"] = list(data_dict.keys())
+
+        snt_ex = data_dict["data_list"][0]
+
+        data_entries = list(data_dict[snt_ex].keys())
+        data_entries.remove("duration")
+
+        data_dict["data_entries"] = data_entries
+
+        return data_dict
+
+    def _avoid_short_long_sentences(self, snt, row_id):
+        """Excludes long and short sentences from the dataset"""
+        if float(snt[row_id]["duration"]) > self.avoid_if_longer_than:
+            del snt[row_id]
+
+        elif float(snt[row_id]["duration"]) < self.avoid_if_shorter_than:
+            del snt[row_id]
+
+    def _check_first_row(self, row):
+        # Make sure ID field exists
+        if "ID" not in row:
+            err_msg = (
+                "The mandatory field ID (i.e, the field that contains "
+                "a unique  id for each sentence is not present in the "
+                "csv file  %s" % (self.csv_file)
+            )
+            raise ValueError(err_msg)
+
+        # Make sure the duration field exists
+        if "duration" not in row:
+            err_msg = (
+                "The mandatory field duration (i.e, the field that "
+                "contains the  duration of each sentence is not "
+                "present in the csv  file %s" % (self.csv_file)
+            )
+            raise ValueError(err_msg)
+
+        if len(row) == 2:
+            err_msg = (
+                "The cvs file %s does not contain features entries! "
+                "The features are specified with the following fields:"
+                "feaname, feaname_format, feaname_opts" % (self.csv_file)
+            )
+            raise ValueError(err_msg)
+
+        # Make sure the features are expressed in the following way:
+        # feaname, feaname_format, feaname_opts
+        feats = row[2:]
+        feat_names = feats[0::3]
+
+        for feat_name in feat_names:
+
+            if feat_name + "_format" not in row:
+                err_msg = (
+                    "The feature %s in the cvs file %s does not "
+                    "contain the field %s to specified its format."
+                    % (feat_name, self.csv_file, feat_name + "_format")
+                )
+                raise ValueError(err_msg)
+
+            if feat_name + "_opts" not in row:
+                err_msg = (
+                    "The feature %s in the cvs file %s does not "
+                    "contain the field %s to specified the reader "
+                    "options. "
+                    % (feat_name, self.csv_file, feat_name + "_opts")
+                )
+                raise ValueError(err_msg)
+
+    def _parse_opts(self, entry):
+        """Parse options from a list of options"""
+        if len(entry) == 0:
+            return {}
+
+        opts = {}
+        for opt in entry.split(" "):
+            opt_name, opt_val = opt.split(":")
+            opts[opt_name] = opt_val
+
+        return opts
+
+    @staticmethod
+    def sort_sentences(data_dict, sorting):
+        """
+        Sort the data dictionary
+        Arguments
+        ---------
+        data_dict : dict
+            Dictionary with the data itemized in the csv file
+        sorting : {'ascending', 'descending', 'random', 'original'}
+            Default: 'original'. This parameter specifies how to sort the data
+            before the batch creation. Ascending and descending values sort the
+            data using the "duration" field in the csv files. Random sort the data
+            randomly, while original (the default option) keeps the original
+            sequence of data defined in the csv file. Note that this option affects
+            the batch creation. If the data are sorted in ascending or descending
+            order the batches will approximately have the same size and the need
+            for zero padding is minimized. Instead, if sentence_sorting is set to
+            random, the batches might be composed of both short and long sequences
+            and several zeros might be added in the batch. When possible, it is
+            desirable to sort the data. This way, we use more efficiently the
+            computational resources, without wasting time on processing time steps
+            composed on zeros only. Note that is the data are sorted in ascending/
+            descending errors the same batches will be created every time we want
+            to loop over the dataset, while if we set a random order the batches
+            will be different every time we loop over the dataset.
+        Returns
+        -------
+        dict
+            dictionary with the sorted data
+        """
+        # Initialization of the dictionary
+        # Note: in Python 3.7 the order of the keys added in the dictionary is
+        # preserved
+        sorted_dictionary = {}
+
+        # Ascending sorting
+        if sorting == "ascending":
+            sorted_ids = sorted(
+                sorted(data_dict.keys()),
+                key=lambda k: float(data_dict[k]["duration"]),
+            )
+
+        # Descending sorting
+        if sorting == "descending":
+            sorted_ids = sorted(
+                sorted(data_dict.keys()),
+                key=lambda k: -float(data_dict[k]["duration"]),
+            )
+
+        # Original order
+        if sorting == "original" or sorting == "random":
+            sorted_ids = list(data_dict.keys())
+
+        # Filling the dictionary
+        for snt_id in sorted_ids:
+            sorted_dictionary[snt_id] = data_dict[snt_id]
+
+        return sorted_dictionary
+
+    @staticmethod
+    def get_supported_formats():
+        """
+        Itemize the supported reading formats
+        Returns
+        -------
+        dict
+            The supported formats as top level keys, and the related
+            readers plus descriptions in nested keys.
+        Example
+        -------
+        >>> data_loader=DataLoaderFactory(
+        ...     csv_file='samples/audio_samples/csv_example2.csv'
+        ... )
+        >>> data_loader.get_supported_formats()['flac']['description']
+        'FLAC...'
+        """
+
+        # Initializing the supported formats dictionary
+        supported_formats = {}
+
+        # Getting the soundfile formats
+        sf_formats = sf.available_formats()
+
+        # Adding soundfile formats
+        for wav_format in sf_formats.keys():
+            wav_format = wav_format.lower()
+            supported_formats[wav_format] = {}
+            supported_formats[wav_format]["reader"] = read_wav_soundfile
+            supported_formats[wav_format]["description"] = sf_formats[
+                wav_format.upper()
+            ]
+            supported_formats[wav_format]["file"] = True
+
+        # Adding the other supported formats
+        supported_formats["pkl"] = {}
+        supported_formats["pkl"]["reader"] = read_pkl
+        supported_formats["pkl"]["description"] = "Python binary format"
+        supported_formats["pkl"]["file"] = True
+
+        supported_formats["string"] = {}
+        supported_formats["string"]["reader"] = read_string
+        supported_formats["string"]["description"] = "Plain text"
+        supported_formats["string"]["file"] = False
+
+        return supported_formats
+
+
+class DatasetFactory(Dataset):
+    """
+    This class implements the dataset needed by the pytorch data_loader.
+    Arguments
+    ---------
+    data_dict : dict
+        a dictionary containing all the entries of the csv file.
+    supported_formats : dict
+        a dictionary contaning the reading supported format
+    data_entries : list
+        it is a list containing the data_entries to read from the csv file
+    do_cache : bool, optional
+        Default:False When set to true, this option stores the input data in a
+        variable called self.cache. In practice, the first time the data are
+        read from the disk, they are stored in the cpu RAM. If the data needs
+        to be used again (e.g. when loops>1) the data will be read from the RAM
+        directly. If False, data are read from the disk every time.  Data are
+        stored until a certain percentage of the total ram available is reached
+        (see cache_ram_percent below)
+    cache_ram_percent : float
+        If cache if True, data will be stored in the cpu RAM until the total
+        RAM occupation is less or equal than the specified threshold. In
+        practice, if a lot of RAM is available several  data will be stored in
+        memory, otherwise, most of them will be read from the disk directly.
+    Example
+    -------
+    >>> csv_file = 'samples/audio_samples/csv_example2.csv'
+    >>> data_loader=DataLoaderFactory(csv_file)
+    >>> # data_dict creation
+    >>> data_dict=data_loader.generate_data_dict()
+    >>> formats=data_loader.get_supported_formats()
+    >>> dataset=DatasetFactory(data_dict,{},formats,['wav'],False,0)
+    >>> [first_example_id, first_tensor, first_len], = dataset[0]
+    >>> print(first_example_id)
+    example1
+    """
+
+    def __init__(
+        self,
+        data_dict,
+        label_dict,
+        supported_formats,
+        data_entries,
+        do_cache,
+        cache_ram_percent,
+        label_parsing_func=None,
+    ):
+
+        # Setting the variables
+        self.data_dict = data_dict
+        self.label_dict = label_dict
+        self.supported_formats = supported_formats
+        self.data_entries = data_entries
+        self.do_cache = do_cache
+        self.label_parsing_func = label_parsing_func
+
+        # Creating a shared dictionary for caching
+        # (dictionary must be shared across the workers)
+        if do_cache:
+            manager = Manager()
+            self.cache = manager.dict()
+            self.cache["do_caching"] = True
+            self.cache_ram_percent = cache_ram_percent
+
+    def __len__(self):
+        """
+        This (mandatory) function returns the length of the data list
+        Returns
+        -------
+        int
+            the number of data that can be read (i.e. length of the data_list
+            entry of the data_dict)
+        Example
+        -------
+        >>> csv_file = 'samples/audio_samples/csv_example2.csv'
+        >>> # Initialization of the data_loader class
+        >>> data_loader=DataLoaderFactory(csv_file)
+        >>> # data_dict creation
+        >>> data_dict=data_loader.generate_data_dict()
+        >>> # supported formats
+        >>> formats=data_loader.get_supported_formats()
+        >>> # Initialization of the dataser class
+        >>> dataset=DatasetFactory(data_dict,{},formats,['wav'],False,0)
+        >>> # Getting data length
+        >>> len(dataset)
+        1
+        """
+        # Reading the data_list in data_dict
+        data_len = len(self.data_dict["data_list"])
+
+        return data_len
+
+    def __getitem__(self, idx):
+
+        # Checking if id is a tensor
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
+
+        # Getting the sentence id
+        snt_id = self.data_dict["data_list"][idx]
+
+        data = []
+
+        for data_entry in self.data_entries:
+
+            # Reading data from data_dict
+            data_line = self.data_dict[snt_id][data_entry]
+
+            # Check if we need to convert labels to indexes
+            if self.label_dict and data_entry in self.label_dict:
+                lab2ind = self.label_dict[data_entry]["lab2index"]
+
+            # Check if we need to convert labels with label func
+            elif (
+                self.label_parsing_func
+                and "label_func" in data_line["options"]
+                and (data_line["options"]["label_func"] == "True")
+            ):
+                lab2ind = self.label_parsing_func
+            else:
+                lab2ind = None
+            # Managing caching
+
+            if self.do_cache:
+
+                if snt_id not in self.cache:
+
+                    # Reading data
+                    new_data = self.read_data(
+                        data_line, snt_id, lab2ind=lab2ind
+                    )
+                    data.append(new_data)
+
+                    # Store the in the variable cache if needed
+                    if self.cache["do_caching"]:
+
+                        try:
+                            self.cache[snt_id] = new_data
+                        except Exception:
+                            pass
+
+                        # Check ram occupation periodically
+                        if random.random() < 0.05:
+                            # Store data only if the RAM available is smaller
+                            # than what set in cache_ram_percent.
+                            if (
+                                psutil.virtual_memory().percent
+                                >= self.cache_ram_percent
+                            ):
+
+                                self.cache["do_caching"] = False
+                else:
+                    # Reading data from the cache directly
+                    data.append(self.cache[snt_id])
+            else:
+                # Read data from the disk
+                data.append(self.read_data(data_line, snt_id, lab2ind=lab2ind))
+
+        return data
+
+    def read_data(self, data_line, snt_id, lab2ind=None):
+        """
+        This function manages reading operation from disk.
+        Arguments
+        ---------
+        data_line : dict
+            One of entries extreacted from the data_dict. It contains
+            all the needed information to read the data from the disk.
+        snt_id : str
+            Sentence identifier
+        Returns
+        -------
+        list
+            List contaning the read data. The list is formatted in the following
+            way: [data_id,data_data_len]
+        Example
+        -------
+        >>> csv_file = 'samples/audio_samples/csv_example2.csv'
+        >>> # Initialization of the data_loader class
+        >>> data_loader=DataLoaderFactory(csv_file)
+        >>> # data_dict creation
+        >>> data_dict=data_loader.generate_data_dict()
+        >>> # supported formats
+        >>> formats=data_loader.get_supported_formats()
+        >>> # Initialization of the dataser class
+        >>> dataset=DatasetFactory(data_dict,{},formats,'wav',False,0)
+        >>> # data line example
+        >>> data_line={'data': 'samples/audio_samples/example5.wav',
+        ...           'format': 'wav',
+        ...           'options': {'start': '10000', 'stop': '26000'}}
+        >>> snt_id='example5'
+        >>> # Reading data from disk
+        >>> print(dataset.read_data(data_line, snt_id))
+        ['example5', array(...)]
+        """
+
+        # Reading the data_line dictionary
+        data_format = data_line["format"]
+        data_source = data_line["data"]
+        data_options = data_line["options"]
+
+        # Read the data from disk
+        data = self.supported_formats[data_format]["reader"](
+            data_source, data_options=data_options, lab2ind=lab2ind,
+        )
+
+        # Get data_shape as float32 numpy array
+        if isinstance(data, np.ndarray):
+            data_shape = np.asarray(data.shape[-1]).astype("float32")
+        elif isinstance(data, torch.Tensor):
+            data_shape = np.asarray(data.shape[-1]).astype("float32")
+        elif isinstance(data, list):
+            data_shape = np.asarray(len(data)).astype("float32")
+        else:
+            data_shape = np.asarray(1).astype("float32")
+
+        data_read = [snt_id, data, data_shape]
+
+        return data_read
+
+
+class HDF5DataLoaderFactory(torch.nn.Module):
+    """
+    Creates data loaders for a hdf5 file (text-only).
+    Arguments
+    ---------
+    hdf5 : str
+        the hdf5 file that stores the data
+    batch_size : int, optional
+        Default: 1 .  The data itemized in the hdf5 file are automatically
+        organized in batches. In the case of variable size tensors, zero
+        padding is performed. When batch_size=1, the data are simply processed
+        one by one without the creation of batches.
+    data_entries : list, None, optional
+        Default: None .  A list of data entries may be specified.  If
+        specified, only those data entries are read from the hdf5 file. If None,
+        read all the data entries.
+    sentence_sorting : {'ascending', 'descending', 'random', 'original'}
+        Default: 'random'. This parameter specifies how to sort the data
+        before the batch creation. Ascending and descending values sort the
+        data using the length of tokens specified in the "sort_by" option.
+        Random sort the data randomly, while original (the default option) keeps
+        the original sequence of data defined in the hdf5 file. Note that this option
+        affect the batch creation. If the data are sorted in ascending or descending
+        order the batches will approximately have the same size and the need
+        for zero padding is minimized. Instead, if sentence_sorting is set to
+        random, the batches might be composed of both short and long sequences
+        and several zeros might be added in the batch. When possible, it is
+        desirable to sort the data. This way, we use more efficiently the
+        computational resources, without wasting time on processing time steps
+        composed on zeros only. Note that is the data are sorted in ascending/
+        descending errors the same batches will be created every time we want
+        to loop over the dataset, while if we set a random order the batches
+        will be different every time we loop over the dataset.
+    num_workers : int, optional
+        Default: 0 . Data is read using the pytorch data_loader.  This option
+        sets the number of workers used to read the data from disk and form the
+        related batch of data. Please, see the pytorch documentation on the
+        data loader for more details.
+    select_n_setences : int, optional
+        Default: None . It selects the first N sentences of the CSV file.
+    drop_last : bool, optional
+        Default: False . This is an option directly passed to the pytorch
+        dataloader (see the related documentation for more details). When True,
+        it skips the last batch of data if contains fewer samples than the
+        other ones.
+    padding_value : int, optional
+        Default: 0. Value to use for padding.
+    output_folder : str, optional
+        A folder for storing the label dict
+    Example
+    -------
+    >>> h5_file = 'samples/text_samples/hdf5_example.h5'
+    >>> label_dict_file = 'samples/text_samples/label_dict.pkl'
+    >>> data_loader=DataLoaderFactory(h5_file, label_dict_file)
+    """
+
+    def __init__(
+        self,
+        hdf5_file,
+        label_dict_file,
+        sort_by="wrd",
+        batch_size=1,
+        data_entries=None,
+        sentence_sorting="random",
+        num_workers=0,
+        select_n_sentences=None,
+        local_random=False,
+        chunk_size=2048,
+        drop_last=False,
+        padding_value=0,
+        output_folder=None,
+    ):
+        super().__init__()
+
+        # Store init params
+        self.hdf5_file = hdf5_file
+        self.label_dict_file = label_dict_file
+        self.sort_by = sort_by
+        self.batch_size = batch_size
+        if data_entries is None:
+            raise ValueError("data entries must be specified.")
+        self.data_entries = data_entries
+        self.sentence_sorting = sentence_sorting
+        self.local_random = local_random
+        self.chunk_size = chunk_size
+        self.num_workers = num_workers
+        self.select_n_sentences = select_n_sentences
+        self.drop_last = drop_last
+        self.padding_value = padding_value
+        self.output_folder = output_folder
+
+        # Shuffle the data every time if random is selected
+        if self.sentence_sorting == "random":
+            self.shuffle = True
+        else:
+            self.shuffle = False
+
+    def forward(self):
+        """
+        Output:
+        dataloader: It is a list returning all the dataloaders created.
+        """
+        self.label_dict = self.load_label_dict(self.label_dict_file)
+
+        # Creating a dataloader
+        dataset = HDF5DatasetFactory(
+            self.hdf5_file,
+            self.label_dict,
+            self.data_entries,
+            sort_by=self.sort_by,
+            sentence_sorting=self.sentence_sorting,
+        )
+        if self.local_random:
+            print("local random data loader is used.")
+            batch_sampler = LocalRandomSampler(
+                chunk_size=self.chunk_size,
+                batch_size=self.batch_size,
+                data_len=len(dataset),
+                drop_last=self.drop_last,
+            )
+            self.dataloader = DataLoader(
+                dataset,
+                pin_memory=False,
+                num_workers=self.num_workers,
+                collate_fn=self.batch_creation,
+                batch_sampler=batch_sampler,
+            )
+        else:
+            self.dataloader = DataLoader(
+                dataset,
+                batch_size=self.batch_size,
+                shuffle=self.shuffle,
+                pin_memory=False,
+                drop_last=self.drop_last,
+                num_workers=self.num_workers,
+                collate_fn=self.batch_creation,
+            )
+
+        return self.dataloader
+
+    def batch_creation(self, data_lists):
+        """
+        Data batching
+        When necessary this performs zero padding on the input tensors. The
+        function is executed in collate_fn of the pytorch DataLoader.
+        Arguments
+        ---------
+        data_list : list
+            list of data returned by the data reader [data_id, data, data_len]
+        Returns
+        -------
+        list :
+            list containing the final batches:
+            [data_id,data,data_len] where zero-padding is
+            performed where needed.
+        """
+        batch = []
+
+        n_data_entries = len(data_lists[0])
+
+        batch_list = [[[] for i in range(3)] for j in range(n_data_entries)]
+
+        for data_entry in data_lists:
+            for i, data in enumerate(data_entry):
+                batch_list[i][0].append(data[0])
+                batch_list[i][1].append(data[1])
+                batch_list[i][2].append(data[2])
+
+        for data_list in batch_list:
+
+            # Convert all to torch tensors
+            self.numpy2torch(data_list)
+
+            # Save sentence IDs
+            snt_ids = data_list[0]
+
+            # Save duration
+            sequences = data_list[1]
+            time_steps = torch.tensor(data_list[2])
+
+            # Check if current element is a tensor
+            if isinstance(sequences[0], torch.Tensor):
+
+                # Padding the sequence of sentences (if needed)
+                batch_data = self.padding(sequences)
+
+                # Return % of time steps without padding (useful for save_batch)
+                time_steps = time_steps / batch_data.shape[1]
+
+            else:
+                # Non-tensor case
+                batch_data = sequences
+
+            # Batch composition
+            batch.append([snt_ids, batch_data, time_steps])
+
+        return batch
+
+    def padding(self, sequences):
+        """
+        This function perform zero padding on the input list of tensors
+        Arguments
+        ---------
+        sequences : list
+            the list of tensors to pad
+        Returns
+        -------
+        torch.tensor
+            a tensor gathering all the padded tensors
+        Example
+        -------
+        >>> csv_file = 'samples/audio_samples/csv_example2.csv'
+        >>> # Initialization of the class
+        >>> data_loader=DataLoaderFactory(csv_file)
+        >>> # list of tensors
+        >>> tensor_lst=[torch.tensor([1,2,3,4]),torch.tensor([1,2])]
+        >>> data_loader.padding(tensor_lst)[1,:]
+        tensor([1., 2., 0., 0.])
+        """
+
+        # Batch size
+        batch_size = len(sequences)
+
+        # Computing data dimensionality (only the first time)
+        try:
+            self.data_dim
+        except Exception:
+            self.data_dim = list(sequences[0].shape[2:])
+
+        # Finding the max len across sequences
+        max_len = max([s.size(0) for s in sequences])
+
+        # Batch out dimensions
+        out_dims = [batch_size] + [max_len] + self.data_dim
+
+        # Batch initialization
+        batch_data = torch.zeros(out_dims) + self.padding_value
+
+        # Appending data
+        for i, tensor in enumerate(sequences):
+            length = tensor.shape[0]
+            batch_data[i, :length, ...] = tensor
+
+        return batch_data
+
+    def numpy2torch(self, data_list):
+        """
+        This function coverts a list of numpy tensors to torch.Tensor
+        Arguments
+        ---------
+        data_list : list
+            list of numpy arrays
+        Returns
+        -------
+        None
+            The tensors are modified in place!
+        Note
+        ----
+        Did you notice, the tensors are modified in place!
+        Example
+        -------
+        >>> csv_file = 'samples/audio_samples/csv_example2.csv'
+        >>> # Initialization of the class
+        >>> data_loader=DataLoaderFactory(csv_file)
+        >>> # list of numpy tensors
+        >>> tensor_lst=[[np.asarray([1,2,3,4]),np.asarray([1,2])]]
+        >>> # Applying zero padding
+        >>> data_loader.numpy2torch(tensor_lst)
+        >>> print(tensor_lst)
+        [[tensor([1, 2, 3, 4]), tensor([1, 2])]]
+        >>> print(type(tensor_lst[0][0]))
+        <class 'torch.Tensor'>
+        """
+
+        # Covert all the elements of the list to torch.Tensor
+        for i in range(len(data_list)):
+            for j in range(len(data_list[i])):
+                if isinstance(data_list[i][j], np.ndarray):
+                    data_list[i][j] = torch.from_numpy(data_list[i][j])
+
+    def load_label_dict(self, label_dict_file):
+        label_dict = load_pkl(label_dict_file)
+
+        # saving the label_dict:
+        if self.output_folder is not None:
+            label_dict_file = self.output_folder + "/label_dict.pkl"
+            save_pkl(label_dict, label_dict_file)
+        return label_dict
+
+
+class HDF5DatasetFactory(Dataset):
+    """
+    This class implements the dataset needed by the pytorch data_loader.
+    This class is used for text-only data loading.
+    Arguments
+    ---------
+    hdf5 : string
+        The path of hdf5 file.
+    label_dict : python dict
+        The label dictionary used for string to index conversion.
+        It has to contain a "lab2index" entry.
+    data_entries : list
+        it is a list containing the data_entries to read from the hdf5 file.
+    sentence_sorting : string
+        One of (ascending/descending/random/original).
+    sort_by : string
+        The entry that the sentence_sorting option is based on.
+    Example
+    -------
+    >>> import pickle
+    >>> h5_file = 'samples/text_samples/hdf5_example.h5'
+    >>> label_dict = pickle.load(open("samples/text_samples/label_dict.pkl", "rb"))
+    >>> dataset = HDF5DatasetFactory(h5_file, label_dict, ["wrd"], "random")
+    >>> data = dataset[0]
+    >>> data[0][1]
+    tensor([1, 2])
+    """
+
+    def __init__(
+        self, hdf5, label_dict, data_entries, sentence_sorting, sort_by="wrd",
+    ):
+
+        # Setting the variables
+        self.f_h5 = h5py.File(hdf5, "r")
+        self.label_dict = label_dict
+        self.data_entries = data_entries
+        self.sentence_sorting = sentence_sorting
+        self.data_len = len(self.f_h5[self.data_entries[0]])
+
+        # Only useful for ascending/descending order
+        self.sort_by = sort_by
+        self.indices = self._generate_indices()
+
+    def _generate_indices(self):
+        """
+        Generate the indices to load the sentences.
+        """
+        indices = [i for i in range(self.data_len)]
+
+        def sort_key(i):
+            return len(self.f_h5[self.sort_by][i].split())
+
+        if self.sentence_sorting == "ascending":
+            indices = sorted(indices, key=sort_key)
+        elif self.sentence_sorting == "descending":
+            indices = sorted(indices, key=sort_key, reverse=True)
+        return indices
+
+    def __len__(self):
+        """
+        This (mandatory) function returns the number of sentences.
+        Returns
+        -------
+        int
+            the number of data that can be read.
+        """
+        return self.data_len
+
+    def __getitem__(self, idx):
+
+        data = []
+        real_idx = self.indices[idx]
+
+        for data_entry in self.data_entries:
+            data_source = self.f_h5[data_entry][real_idx]
+
+            # Check if we need to convert labels to indexes
+            if self.label_dict and data_entry in self.label_dict:
+                lab2ind = self.label_dict[data_entry]["lab2index"]
+            else:
+                lab2ind = None
+
+            # Reading data
+            new_data = self.read_data(
+                data_source, str(real_idx), lab2ind=lab2ind
+            )
+            data.append(new_data)
+        return data
+
+    def read_data(self, data_source, snt_id, lab2ind=None):
+        """
+        This function manages reading operation from disk.
+        Arguments
+        ---------
+        data_source : string
+            The sentence to be encoded.
+        snt_id : str
+            Sentence identifier
+        Returns
+        -------
+        list
+            List contaning the read data. The list is formatted in the following
+            way: [data_id,data,data_len]
+        """
+
+        # Read the data from disk
+        data = read_string(data_source, lab2ind=lab2ind)
+
+        # Convert numpy array to float32
+        if isinstance(data, np.ndarray):
+            data_shape = np.asarray(data.shape[-1]).astype("float32")
+        elif isinstance(data, torch.Tensor):
+            data_shape = np.asarray(data.shape[-1]).astype("float32")
+
+        else:
+            data_shape = np.asarray(1).astype("float32")
+
+        data_read = [snt_id, data, data_shape]
+
+        return data_read
+
+
+class LocalRandomSampler:
+    def __init__(self, chunk_size, batch_size, data_len, drop_last):
+        self.chunk_size = chunk_size
+        self.batch_size = batch_size
+        self.data_len = data_len
+        self.drop_last = drop_last
+
+        self.chunks = [
+            list(range(i * chunk_size, i * chunk_size + chunk_size))
+            for i in range(data_len // chunk_size)
+        ]
+        if not drop_last and data_len % chunk_size != 0:
+            self.chunks.append(
+                list(range(data_len - (data_len % chunk_size), data_len))
+            )
+        self.shuffle()
+        self.batches = self.generate_batches()
+
+    def __getitem__(self, idx):
+        if idx >= len(self.batches):
+            self.shuffle()
+            self.batches = self.generate_batches()
+            raise IndexError
+        return self.batches[idx]
+
+    def __len__(self):
+        return len(self.batches)
+
+    def shuffle(self):
+        for i in range(len(self.chunks)):
+            random.shuffle(self.chunks[i])
+        return
+
+    def generate_batches(self):
+        batches = []
+        for chunk in self.chunks:
+            batches += [
+                chunk[
+                    i * self.batch_size : i * self.batch_size + self.batch_size
+                ]
+                for i in range(math.ceil(len(chunk) / self.batch_size))
+            ]
+        random.shuffle(batches)
+        return batches
 
 
 def convert_index_to_lab(batch, ind2lab):
     """
     Convert a batch of integer IDs to string labels
-
     Arguments
     ---------
     batch : list
         List of lists, a batch of sequences
     ind2lab : dict
         Mapping from integer IDs to labels
-
     Returns
     -------
     list
         List of lists, same size as batch, with labels from ind2lab
-
     Example
     -------
     >>> ind2lab = {1: "h", 2: "e", 3: "l", 4: "o"}
@@ -51,9 +1517,7 @@ def convert_index_to_lab(batch, ind2lab):
 def relative_time_to_absolute(batch, relative_lens, rate):
     """
     Converts SpeechBrain style relative length to absolute duration
-
     Operates on batch level.
-
     Arguments
     ---------
     batch : torch.tensor
@@ -65,12 +1529,10 @@ def relative_time_to_absolute(batch, relative_lens, rate):
         The rate at which sequence elements occur in real world time. Sample
         rate, if batch is raw wavs (recommended) or 1/frame_shift if batch is
         features. This has to have 1/s as the unit.
-
     Returns
     -------
     torch.tensor
         Duration of each sequence in seconds.
-
     Example
     -------
     >>> batch = torch.ones(2, 16000)
@@ -86,7 +1548,6 @@ def relative_time_to_absolute(batch, relative_lens, rate):
 
 class IterativeCSVWriter:
     """Write CSV files a line at a time.
-
     Arguments
     ---------
     outstream : file-object
@@ -94,7 +1555,6 @@ class IterativeCSVWriter:
     data_fields : list
         List of the optional keys to write. Each key will be expanded to the
         SpeechBrain format, producing three fields: key, key_format, key_opts
-
     Example
     -------
     >>> import io
@@ -130,7 +1590,6 @@ class IterativeCSVWriter:
     def set_default(self, field, value):
         """
         Sets a default value for the given CSV field.
-
         Arguments
         ---------
         field : str
@@ -145,7 +1604,6 @@ class IterativeCSVWriter:
     def write(self, *args, **kwargs):
         """
         Writes one data line into the CSV.
-
         Arguments
         ---------
         *args
@@ -174,9 +1632,7 @@ class IterativeCSVWriter:
     def write_batch(self, *args, **kwargs):
         """
         Writes a batch of lines into the CSV
-
         Here each argument should be a list with the same length.
-
         Arguments
         ---------
         *args
@@ -216,7 +1672,6 @@ class IterativeCSVWriter:
 def read_wav_soundfile(file, data_options={}, lab2ind=None):  # noqa: C901
     """
     Read wav audio files with soundfile.
-
     Arguments
     ---------
     file : str
@@ -225,20 +1680,22 @@ def read_wav_soundfile(file, data_options={}, lab2ind=None):  # noqa: C901
         a dictionary containing options for the reader.
     lab2ind : dict, None
         a dictionary for converting labels to indices
-
     Returns
     -------
     numpy.array
         An array with the read signal
-
     Example
     -------
     >>> read_wav_soundfile('samples/audio_samples/example1.wav')[0:2]
+    array([0.00024414, 0.00018311], dtype=float32)
+    >>> random_segment = {"frames":2, "stop":2}
+    >>> read_wav_soundfile('samples/audio_samples/example1.wav', random_segment)
     array([0.00024414, 0.00018311], dtype=float32)
     """
     # Option initialization
     start = 0
     stop = None
+    frames = -1
     endian = None
     subtype = None
     channels = None
@@ -248,6 +1705,7 @@ def read_wav_soundfile(file, data_options={}, lab2ind=None):  # noqa: C901
     possible_options = [
         "start",
         "stop",
+        "frames",
         "samplerate",
         "endian",
         "subtype",
@@ -291,6 +1749,22 @@ def read_wav_soundfile(file, data_options={}, lab2ind=None):  # noqa: C901
 
             logger.error(err_msg, exc_info=True)
 
+    # Managing frames option
+    if "frames" in data_options:
+        try:
+            frames = int(data_options["frames"])
+        except Exception:
+
+            err_msg = (
+                "The frames value for the file %s must be an integer "
+                "(e.g frames:405)" % (file)
+            )
+
+            logger.error(err_msg, exc_info=True)
+        # Read a random segment
+        start = np.random.randint(start, stop - frames + 1)
+        stop = None
+
     # Managing samplerate option
     if "samplerate" in data_options:
         try:
@@ -329,6 +1803,7 @@ def read_wav_soundfile(file, data_options={}, lab2ind=None):  # noqa: C901
     try:
         [signal, fs] = sf.read(
             file,
+            frames=frames,
             start=start,
             stop=stop,
             samplerate=samplerate,
@@ -354,7 +1829,6 @@ def read_wav_soundfile(file, data_options={}, lab2ind=None):  # noqa: C901
 def read_pkl(file, data_options={}, lab2ind=None):
     """
     This function reads tensors store in pkl format.
-
     Arguments
     ---------
     file : str
@@ -363,7 +1837,6 @@ def read_pkl(file, data_options={}, lab2ind=None):
         A dictionary containing options for the reader.
     lab2ind : dict, optional
         Mapping from label to integer indices.
-
     Returns
     -------
     numpy.array
@@ -424,7 +1897,6 @@ def read_pkl(file, data_options={}, lab2ind=None):
 def read_string(string, data_options={}, lab2ind=None):
     """
     This function reads data in string format.
-
     Arguments
     ---------
     string : str
@@ -433,14 +1905,12 @@ def read_string(string, data_options={}, lab2ind=None):
         Options for the reader
     lab2ind : dict, optional
         Mapping from label to index
-
     Returns
     -------
     torch.LongTensor
         The read string in integer indices, if lab2ind is provided, else
     list
         The read string split at each space
-
     Example
     -------
     >>> read_string('hello world', lab2ind = {"hello":1, "world": 2})
@@ -469,26 +1939,21 @@ def read_string(string, data_options={}, lab2ind=None):
 def read_kaldi_lab(kaldi_ali, kaldi_lab_opts):
     """
     Read labels in kaldi format
-
     Uses kaldi IO
-
     Arguments
     ---------
     kaldi_ali : str
         Path to directory where kaldi alignents are stored.
     kaldi_lab_opts : str
         A string that contains the options for reading the kaldi alignments.
-
     Returns
     -------
     dict
         A dictionary contaning the labels
-
     Note
     ----
     This depends on kaldi-io-for-python. Install it separately.
     See: https://github.com/vesis84/kaldi-io-for-python
-
     Example
     -------
     This example requires kaldi files
@@ -521,9 +1986,7 @@ def read_kaldi_lab(kaldi_ali, kaldi_lab_opts):
 def write_wav_soundfile(data, filename, sampling_rate):
     """
     Can be used to write audio with soundfile
-
     Expecting data in (time, [channels]) format
-
     Arguments
     ---------
     data : torch.tensor
@@ -532,11 +1995,9 @@ def write_wav_soundfile(data, filename, sampling_rate):
         path to file where writing the data
     sampling_rate : int, None
         sampling rate of the audio file
-
     Returns
     -------
     None
-
     Example
     -------
     >>> tmpdir = getfixture('tmpdir')
@@ -563,7 +2024,6 @@ def write_wav_soundfile(data, filename, sampling_rate):
 def write_txt_file(data, filename, sampling_rate=None):
     """
     Write data in text format
-
     Arguments
     ---------
     data : str, list, torch.tensor, numpy.ndarray
@@ -572,11 +2032,9 @@ def write_txt_file(data, filename, sampling_rate=None):
         Path to file where to write the data
     sampling_rate : None
         Not used, just here for interface compatibility
-
     Returns
     -------
     None
-
     Example
     -------
     >>> tmpdir = getfixture('tmpdir')
@@ -601,7 +2059,6 @@ def write_txt_file(data, filename, sampling_rate=None):
 def write_stdout(data, filename=None, sampling_rate=None):
     """
     Write data to standard output
-
     Arguments
     ---------
     data : str, list, torch.tensor, numpy.ndarray
@@ -610,12 +2067,9 @@ def write_stdout(data, filename=None, sampling_rate=None):
         Not used, just here for compatibility
     sampling_rate : None
         Not used, just here for compatibility
-
     Returns
     -------
     None
-
-
     Example
     -------
     >>> tmpdir = getfixture('tmpdir')
@@ -639,7 +2093,6 @@ def write_stdout(data, filename=None, sampling_rate=None):
 def save_img(data, filename, sampling_rate=None, logger=None):
     """
     Save a tensor as an image.
-
     Arguments
     ---------
     data : torch.tensor
@@ -648,15 +2101,12 @@ def save_img(data, filename, sampling_rate=None, logger=None):
         Path where to write the data.
     sampling_rate : int
         Sampling rate of the audio file.
-
     Returns
     -------
     None
-
     Note
     ----
     Depends on matplotlib as an extra tool. Install it separately.
-
     Example
     -------
     >>> tmpdir = getfixture('tmpdir')
@@ -698,7 +2148,6 @@ def save_img(data, filename, sampling_rate=None, logger=None):
 class TensorSaver(torch.nn.Module):
     """
     Save tensors on disk.
-
     Arguments
     ---------
     save_folder : str
@@ -723,7 +2172,6 @@ class TensorSaver(torch.nn.Module):
     decibel : bool, optional
         Default: False
         if True it saves the log of the data.
-
     Example:
     >>> tmpdir = getfixture('tmpdir')
     >>> save_signal = TensorSaver(save_folder=tmpdir, save_format='wav')
@@ -796,7 +2244,6 @@ class TensorSaver(torch.nn.Module):
     def write_batch(self, data, data_id, data_len):
         """
         Saves a batch of data.
-
         Arguments
         ---------
         data : torch.tensor
@@ -805,7 +2252,6 @@ class TensorSaver(torch.nn.Module):
             list of ids in the batch
         data_len : torch.tensor
             relative length of each audio signal
-
         Example
         -------
         >>> save_folder = getfixture('tmpdir')
@@ -896,13 +2342,11 @@ class TensorSaver(torch.nn.Module):
     def get_supported_formats():
         """
         Lists the supported formats and their related writers
-
         Returns
         -------
         dict
             Maps from file name extensions to dicts which have the keys
             "writer" and "description"
-
         Example
         -------
         >>> save_folder = getfixture('tmpdir')
@@ -951,7 +2395,6 @@ def length_to_mask(length, max_len=None, dtype=None, device=None):
     """
     Creates a binary mask for each sequence.
     Reference: https://discuss.pytorch.org/t/how-to-generate-variable-length-mask/23397/3
-
     Arguments
     ---------
     length : torch.LongTensor
@@ -962,11 +2405,9 @@ def length_to_mask(length, max_len=None, dtype=None, device=None):
         The dtype of the generated mask.
     device: torch.device, default: None
         The device to put the mask variable.
-
     Returns
     -------
     mask : The binary mask
-
     Example:
     -------
     >>> length=torch.Tensor([1,2,3])
@@ -997,17 +2438,14 @@ def length_to_mask(length, max_len=None, dtype=None, device=None):
 def get_md5(file):
     """
     Get the md5 checksum of an input file
-
     Arguments
     ---------
     file : str
         Path to file for which compute the checksum
-
     Returns
     -------
     md5
         Checksum for the given filepath
-
     Example
     -------
     >>> get_md5('samples/audio_samples/example1.wav')
@@ -1029,18 +2467,15 @@ def get_md5(file):
 def save_md5(files, out_file):
     """
     Saves the md5 of a list of input files as a pickled dict into a file.
-
     Arguments
     ---------
     files : list
         List of input files from which we will compute the md5.
     outfile : str
         The path where to store the output pkl file.
-
     Returns
     -------
     None
-
     Example:
     >>> files = ['samples/audio_samples/example1.wav']
     >>> tmpdir = getfixture('tmpdir')
@@ -1058,7 +2493,6 @@ def save_md5(files, out_file):
 def save_pkl(obj, file):
     """
     Save an object in pkl format.
-
     Arguments
     ---------
     obj : object
@@ -1067,7 +2501,6 @@ def save_pkl(obj, file):
         Path to the output file
     sampling_rate : int
         Sampling rate of the audio file, TODO: this is not used?
-
     Example:
     >>> tmpfile = os.path.join(getfixture('tmpdir'), "example.pkl")
     >>> save_pkl([1, 2, 3, 4, 5], tmpfile)
@@ -1081,14 +2514,11 @@ def save_pkl(obj, file):
 def load_pkl(file):
     """
     Loads a pkl file
-
     For an example, see `save_pkl`
-
     Arguments
     ---------
     file : str
         Path to the input pkl file.
-
     Returns
     -------
     The loaded object
@@ -1099,18 +2529,15 @@ def load_pkl(file):
 
 def prepend_bos_token(label, bos_index):
     """Create labels with <bos> token at the beginning.
-
     Arguments
     ---------
     label : torch.IntTensor
         Containing the original labels. Must be of size: [batch_size, max_length]
     bos_index : int
         The index for <bos> token.
-
     Returns
     -------
     new_label : The new label with <bos> at the beginning.
-
     Example:
     >>> label=torch.LongTensor([[1,0,0], [2,3,0], [4,5,6]])
     >>> new_label=prepend_bos_token(label, bos_index=7)
@@ -1129,7 +2556,6 @@ def prepend_bos_token(label, bos_index):
 
 def append_eos_token(label, length, eos_index):
     """Create labels with <eos> token appended.
-
     Arguments
     ---------
     label : torch.IntTensor
@@ -1138,11 +2564,9 @@ def append_eos_token(label, length, eos_index):
         Cotaining the original length of each label sequences. Must be 1D.
     eos_index : int
         The index for <eos> token.
-
     Returns
     -------
     new_label : The new label with <eos> appended.
-
     Example:
     >>> label=torch.IntTensor([[1,0,0], [2,3,0], [4,5,6]])
     >>> length=torch.LongTensor([1,2,3])
@@ -1163,18 +2587,15 @@ def append_eos_token(label, length, eos_index):
 
 def merge_char(sequences, space="_"):
     """Merge characters sequences into word sequences.
-
     Arguments
     ---------
     sequences : list
         Each item contains a list, and this list contains character sequence.
     space : string
         The token represents space. Default: _
-
     Returns
     -------
     The list contain word sequences for each sentence.
-
     Example:
     >>> sequences = [["a", "b", "_", "c", "_", "d", "e"], ["e", "f", "g", "_", "h", "i"]]
     >>> results = merge_char(sequences)
@@ -1190,7 +2611,6 @@ def merge_char(sequences, space="_"):
 
 def merge_csvs(data_folder, csv_lst, merged_csv):
     """Merging several csv files into one file.
-
     Arguments
     ---------
     data_folder : string
@@ -1199,8 +2619,6 @@ def merge_csvs(data_folder, csv_lst, merged_csv):
         filenames of csv file to be merged.
     merged_csv : string
         The filename to write the merged csv file.
-
-
     Example:
     >>> merge_csvs("samples/audio_samples/",
     ... ["csv_example.csv", "csv_example2.csv"],
@@ -1233,18 +2651,15 @@ def merge_csvs(data_folder, csv_lst, merged_csv):
 
 def split_word(sequences, space="_"):
     """Split word sequences into character sequences.
-
     Arguments
     ---------
     sequences : list
         Each item contains a list, and this list contains words sequence.
     space : string
         The token represents space. Default: _
-
     Returns
     -------
     The list contain word sequences for each sentence.
-
     Example:
     >>> sequences = [['ab', 'c', 'de'], ['efg', 'hi']]
     >>> results = split_word(sequences)

@@ -1,6 +1,46 @@
 import torch
 
 
+def data_collection_sanity_check(data_collection):
+    # every key most be unique for each data object.
+    # in each data_object keys must be unique (even when nested):
+    # e.g. {"audio" : {"file": /path/to/audio.wav}, "alignments": {"file": /path/to/a,ign.pkl}}
+    # is not allowed !!
+    # e.g. {"audio" : {"file": /path/to/audio.wav}, "alignments": {"alignment_file": /path/to/a,ign.pkl}}
+    # is allowed.
+    # also every data object must contain same keys and have same structure.
+    pass
+
+
+def replace_entries(data_coll, replacements_dict):
+    """
+
+    Parameters
+    ----------
+    data_coll
+    replacements_dict
+
+    Returns
+    -------
+
+    """
+
+    for k in data_coll.keys():
+        if isinstance(data_coll[k], dict):
+            replace_entries(data_coll[k], replacements_dict)
+        elif isinstance(data_coll[k], str):
+            for repl_k in replacements_dict.keys():
+                if k == repl_k:
+                    # we should replace
+                    for repl_regex in replacements_dict[repl_k].keys():
+                        data_coll[k] = data_coll[k].replace(
+                            repl_regex, replacements_dict[repl_k][repl_regex]
+                        )
+        else:
+            pass
+    return
+
+
 def pad_right_to(
     tensor: torch.Tensor,
     target_shape: (list, tuple),
@@ -20,7 +60,7 @@ def pad_right_to(
     mode: str
         Pad mode, please refer to torch.nn.functional.pad documentation.
     value: float
-        Pad value
+        Pad value, please refer to torch.nn.functional.pad documentation.
 
     Returns
     -------
@@ -62,7 +102,7 @@ def batch_pad_right(tensors: list, mode="constant", value=0.0):
     mode: str
         Padding mode see torch.nn.functional.pad documentation.
     value: float
-        Padding value.
+        Padding value see torch.nn.functional.pad documentation.
 
     Returns
     -------

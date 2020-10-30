@@ -1,16 +1,16 @@
-data_root: !PLACEHOLDER
-examples:
-  spk1_snt6:
-    duration: 2.29
-    wav: !ref <data_root>/spk1_snt6.wav
+# yamllint disable
+spk1_snt6:
+    phones: [dh, ax, cl, p, eh, n, s, el, z, hh, ae, v, ao, l, vcl, b, ih, n, y, uw, z, vcl]
     spk_id: spk1
-    ali: !ref <data_root>/spk1_snt6.pkl
-    phn: t h e  p e n c I l s h a v e a l l b e e n u s e d
-    char: t h e c h i l d a l m o s t h u r t t h e s m a l l d o g
-  spk2_snt6:
-    duration: 1.8
-    wav: !ref <data_root>/spk2_snt6.wav
+    alignment_file: ALIGNMENTS_ROOT/spk1_snt6.pkl
+    waveforms:
+        files: DATASET_ROOT/spk1_snt6.wav
+    length: 36640
+spk2_snt6:
+    phones: [k, ae, n, vcl, d, cl, p, eh, r, z, l, ae, cl, k, f, uh, l, f, l, ey, v]
     spk_id: spk2
-    ali: !ref <data_root>/spk2_snt6.pkl
-    phn: j u m p t h e f e n c e a n d h u r r y u p t h e b a n k
-    char: k e n p a I r s l a c k f u l l f l a v o r
+    alignment_file: ALIGNMENTS_ROOT/spk2_snt6.pkl
+    waveforms:
+        files: DATASET_ROOT/spk2_snt6.wav
+    length: 28800
+
