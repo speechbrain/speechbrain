@@ -112,12 +112,10 @@ class CategoricalEncoder(object):
             labels = []
             for i, elem in enumerate(x):
                 labels.append(self._index_label_dict(self.lab2indx, elem))
-            labels = torch.tensor(labels, dtype=torch.long)
+            labels = labels
 
         elif isinstance(x, str):
-            labels = torch.tensor(
-                [self._index_label_dict(self.lab2indx, x)], dtype=torch.long
-            )
+            labels = [self._index_label_dict(self.lab2indx, x)]
         else:
             raise NotImplementedError
         return labels
@@ -236,8 +234,10 @@ class TextEncoder(CategoricalEncoder):
         eos_encoding=None,
         eos_token="<eos>",
     ):
-        if not eos_encoding:
-            print("Only BOS token specified, EOS is set implictly equal to BOS")
+        if not eos_encoding or (eos_encoding == bos_encoding):
+            print(
+                "Only BOS token specified or BOS == EOS, EOS is set implictly equal to BOS"
+            )
             self.bos_token = bos_token
             self.eos_token = bos_token
             self.add_elem(bos_token, bos_encoding)
@@ -265,12 +265,14 @@ class TextEncoder(CategoricalEncoder):
                     )
                 )
 
-    def encode_int(self, x: (tuple, list, str)):
-        if self.bos_token:
-            if isinstance(x, str):
-                x = [self.bos_token, x, self.eos_token]
-            else:
-                x = [self.bos_token] + [x] + [self.eos_token]
-            return super(TextEncoder, self).encode_int(x)
+    def prepend_bos(self, x: (tuple, list, str)):
+        if isinstance(x, str):
+            return [self.bos_token, x]
         else:
-            return super(TextEncoder, self).encode_int(x)
+            return [self.bos_token] + x
+
+    def append_eos(self, x: (tuple, list, str)):
+        if isinstance(x, str):
+            return [x, self.eos_token]
+        else:
+            return x + [self.eos_token]
