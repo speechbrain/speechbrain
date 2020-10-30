@@ -126,7 +126,7 @@ def main():
         train_set=train_loader,
         valid_set=None,
         epoch_counter=range(hyperparams["N_epochs"]),
-        progressbar=False
+        progressbar=False,
     )
     W1hat = NMF1.training_out[1]
 
@@ -139,7 +139,7 @@ def main():
         train_set=train_loader,
         valid_set=None,
         epoch_counter=range(hyperparams["N_epochs"]),
-        progressbar=False
+        progressbar=False,
     )
     W2hat = NMF2.training_out[1]
 
