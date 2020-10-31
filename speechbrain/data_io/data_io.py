@@ -160,13 +160,14 @@ class DataLoaderFactory(torch.nn.Module):
         else:
             self.shuffle = False
 
-    def forward(self):
+    def forward(self, sampler=None):
         """
-        Output:
-        dataloader: It is a list returning all the dataloaders created.
+        Returns
+        -------
+        dataset : torch.utils.data.Dataset
+            A dataset object for the data to be loaded
         """
 
-        # create data dictionary
         data_dict = self.generate_data_dict()
 
         self.label_dict = self.label_dict_creation(data_dict)
@@ -177,7 +178,7 @@ class DataLoaderFactory(torch.nn.Module):
             self.csv_read = data_dict["data_entries"]
 
         # Creating a dataloader
-        dataset = DatasetFactory(
+        self.dataset = DatasetFactory(
             data_dict,
             self.label_dict,
             self.supported_formats,
@@ -187,17 +188,32 @@ class DataLoaderFactory(torch.nn.Module):
             self.label_parsing_func,
         )
 
-        self.dataloader = DataLoader(
-            dataset,
+        # Return the factory to pass to Brain class.
+        return self
+
+    def get_dataloader(self, sampler=None):
+        """Get a dataloader for this dataset.
+
+        Arguments
+        ---------
+        sampler : torch.utils.data.Sampler
+
+        Returns
+        -------
+        dataloader : torch.utils.data.DataLoader
+        """
+        dataloader = DataLoader(
+            self.dataset,
             batch_size=self.batch_size,
-            shuffle=self.shuffle,
-            pin_memory=False,
+            shuffle=self.shuffle if sampler is None else False,
+            pin_memory=(sampler is not None),
             drop_last=self.drop_last,
             num_workers=self.num_workers,
             collate_fn=self.batch_creation,
+            sampler=sampler,
         )
 
-        return self.dataloader
+        return dataloader
 
     def batch_creation(self, data_lists):
         """

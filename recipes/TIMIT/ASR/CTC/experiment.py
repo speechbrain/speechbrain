@@ -31,8 +31,8 @@ class ASR_Brain(sb.Brain):
                 wavs_noise = self.modules.env_corrupt(wavs, wav_lens)
                 wavs = torch.cat([wavs, wavs_noise], dim=0)
                 wav_lens = torch.cat([wav_lens, wav_lens])
-            if hasattr(self.modules, "augmentation"):
-                wavs = self.modules.augmentation(wavs, wav_lens)
+            if hasattr(self.hparams, "augmentation"):
+                wavs = self.hparams.augmentation(wavs, wav_lens)
 
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.normalize(feats, wav_lens)
@@ -143,7 +143,8 @@ if __name__ == "__main__":
         jit_module_keys=hparams["jit_module_keys"],
         checkpointer=hparams["checkpointer"],
         device=hparams["device"],
-        ddp_procs=hparams["ddp_procs"],
+        multigpu_count=hparams["multigpu_count"],
+        multigpu_backend=hparams["multigpu_backend"],
     )
 
     asr_brain.fit(asr_brain.hparams.epoch_counter, train_set, valid_set)

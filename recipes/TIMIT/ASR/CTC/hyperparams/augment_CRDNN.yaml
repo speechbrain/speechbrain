@@ -23,7 +23,8 @@ number_of_epochs: 30
 batch_size: 8
 lr: 1.0
 device: 'cuda:0'
-ddp_procs: 0  # Set to number of GPUs if multi-gpu
+multigpu_count: 0  # Set to number of GPUs if multi-gpu
+multigpu_backend: null
 
 # Feature parameters
 sample_rate: 16000
@@ -123,7 +124,6 @@ modules:
     model: !ref <model>
     output: !ref <output>
     normalize: !ref <normalize>
-    augmentation: !ref <augmentation>
 
 # Modules to compile with torch.jit.script
 jit_module_keys: [model]
