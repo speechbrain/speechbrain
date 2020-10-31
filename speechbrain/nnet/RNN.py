@@ -109,6 +109,9 @@ class RNN(torch.nn.Module):
             if x.ndim == 4:
                 x = x.reshape(x.shape[0], x.shape[1], x.shape[2] * x.shape[3])
 
+        # Flatten params for data parallel
+        self.rnn.flatten_parameters()
+
         # Support custom inital state
         if hx is not None:
             output, hn = self.rnn(x, hx=hx)
@@ -204,6 +207,9 @@ class LSTM(torch.nn.Module):
             if x.ndim == 4:
                 x = x.reshape(x.shape[0], x.shape[1], x.shape[2] * x.shape[3])
 
+        # Flatten params for data parallel
+        self.rnn.flatten_parameters()
+
         # Support custom inital state
         if hx is not None:
             output, hn = self.rnn(x, hx=hx)
@@ -298,6 +304,9 @@ class GRU(torch.nn.Module):
         if self.reshape:
             if x.ndim == 4:
                 x = x.reshape(x.shape[0], x.shape[1], x.shape[2] * x.shape[3])
+
+        # Flatten params for data parallel
+        self.rnn.flatten_parameters()
 
         # Support custom inital state
         if hx is not None:

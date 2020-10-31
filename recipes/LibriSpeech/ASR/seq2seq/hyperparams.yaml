@@ -42,8 +42,9 @@ batch_size: 8
 lr: 1.0
 ctc_weight: 0.5
 device: 'cuda'
-ddp_procs: 0  # Set to number of GPUs for multi-gpu training
-token_type: unigram  # ["unigram", "bpe", "char"]
+multigpu_count: 0  # Set to number of GPUs for multi-gpu training
+multigpu_backend: null  # ["data_parallel", "ddp_nccl", "ddp_gloo", "ddp_mpi"]
+token_type: unigram # ["unigram", "bpe", "char"]
 
 # Feature parameters
 sample_rate: 16000
@@ -217,7 +218,6 @@ modules:
     seq_lin: !ref <seq_lin>
     normalize: !ref <normalize>
     env_corrupt: !ref <env_corrupt>
-    augmentation: !ref <augmentation>
     lm_model: !ref <lm_model>
 
 model: !new:torch.nn.ModuleList

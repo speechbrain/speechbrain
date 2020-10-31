@@ -57,8 +57,8 @@ class ASR(sb.Brain):
                 target_word_lens = torch.cat(
                     [target_word_lens, target_word_lens]
                 )
-            if hasattr(self.modules, "augmentation"):
-                wavs = self.modules.augmentation(wavs, wav_lens)
+            if hasattr(self.hparams, "augmentation"):
+                wavs = self.hparams.augmentation(wavs, wav_lens)
 
         # Prepare labels
         target_tokens, _ = self.hparams.tokenizer(
@@ -199,14 +199,16 @@ class ASR(sb.Brain):
         if stage == sb.Stage.VALID:
             old_lr, new_lr = self.hparams.lr_annealing(stage_stats["WER"])
             sb.nnet.update_learning_rate(self.optimizer, new_lr)
-            self.hparams.train_logger.log_stats(
-                stats_meta={"epoch": epoch, "lr": old_lr},
-                train_stats=self.train_stats,
-                valid_stats=stage_stats,
-            )
-            self.checkpointer.save_and_keep_only(
-                meta={"WER": stage_stats["WER"]}, min_keys=["WER"],
-            )
+
+            if self.root_process:
+                self.hparams.train_logger.log_stats(
+                    stats_meta={"epoch": epoch, "lr": old_lr},
+                    train_stats=self.train_stats,
+                    valid_stats=stage_stats,
+                )
+                self.checkpointer.save_and_keep_only(
+                    meta={"WER": stage_stats["WER"]}, min_keys=["WER"],
+                )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
@@ -288,7 +290,6 @@ if __name__ == "__main__":
         character_coverage=1.0,
     )
 
-    # Load index2label dict for decoding
     train_set = hparams["train_loader"]()
     valid_set = hparams["valid_loader"]()
     test_clean_set = hparams["test_clean_loader"]()
@@ -304,7 +305,8 @@ if __name__ == "__main__":
         hparams=hparams,
         checkpointer=hparams["checkpointer"],
         device=hparams["device"],
-        ddp_procs=hparams["ddp_procs"],
+        multigpu_count=hparams["multigpu_count"],
+        multigpu_backend=hparams["multigpu_backend"],
     )
 
     asr_brain.load_tokenizer()
