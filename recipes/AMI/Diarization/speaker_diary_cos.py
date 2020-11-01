@@ -20,7 +20,6 @@ import pickle
 import csv
 import glob
 import shutil
-import time
 import scipy
 from tqdm.contrib import tqdm
 
@@ -304,16 +303,18 @@ class Standard_SC:
     def __init__(self):
         self.max_num_spkrs = 10
 
-    def do_sc(self, X, k):
+    def do_sc(self, X, k, PVAL):
 
         sim_mat = self.get_sim_mat(X)
 
-        p_val = params.p_val
-        sim_mat = self.p_pruning(sim_mat, p_val)
+        p_val = PVAL  # params.p_val
+        # Requires PVAL
+        prunned_sim_mat = self.p_pruning(sim_mat, p_val)
 
-        sim_mat = 0.5 * (sim_mat + sim_mat.T)
-        lap = self.get_laplacian(sim_mat)
+        sym_prund_sim_mat = 0.5 * (prunned_sim_mat + prunned_sim_mat.T)
+        lap = self.get_laplacian(sym_prund_sim_mat)
 
+        # Requires n_spkrs (or estimates it)
         emb, num_of_spk = self.get_spec_emb(lap, k)
 
         self.cluster_me(emb, num_of_spk)
@@ -324,12 +325,15 @@ class Standard_SC:
         return M
 
     def p_pruning(self, A, pval):
+
         n_elems = int((1 - pval) * A.shape[0])
 
         for i in range(A.shape[0]):
+            # For each row in a affinity matrix
             low_indexes = np.argsort(A[i, :])
             low_indexes = low_indexes[0:n_elems]
-            A[i, low_indexes] = 0  # Exp this
+            # Replace smaller similarity values by 0s
+            A[i, low_indexes] = 0
 
         return A
 
@@ -347,8 +351,8 @@ class Standard_SC:
         if params.oracle_n_spkrs is True:
             num_of_spk = k_oracle
         else:
-
-            # TODO: Some issues max eigen gap. Fix this later
+            # Ignore this else part. It will be update in another PR
+            # TODO: Some issues with max eigen gap. Fix this later
             print("\nlambdas = ", lambdas[0:8])
 
             # Ignore the first eigen value
@@ -374,16 +378,15 @@ class Standard_SC:
         return emb, num_of_spk
 
     def cluster_me(self, emb, k):
-        # sklearn
         _, self.labels_, _ = k_means(emb, k)
 
 
-def do_spec_clustering(diary_obj_eval, out_rttm_file, rec_id, k=4):
+def do_spec_clustering(diary_obj_eval, out_rttm_file, rec_id, k=4, PVAL=0.01):
     """Performs spectral clustering on embeddings
     """
 
     clust_obj = Standard_SC()
-    clust_obj.do_sc(diary_obj_eval.stat1, k)
+    clust_obj.do_sc(diary_obj_eval.stat1, k, PVAL)
 
     labels = clust_obj.labels_
 
@@ -432,7 +435,7 @@ def get_oracle_num_spkrs(rec_id, spkr_info):
     return num_spkrs
 
 
-def diarize_dataset(full_csv, split_type, n_lambdas):
+def diarize_dataset(full_csv, split_type, p_val):
     """Diarizes all the recordings in a given dataset
     """
 
@@ -526,13 +529,16 @@ def diarize_dataset(full_csv, split_type, n_lambdas):
 
         if params.oracle_n_spkrs is True:
             # Oracle num of speakers
+            PVAL = p_val
             num_spkrs = get_oracle_num_spkrs(rec_id, spkr_info)
         else:
-            # TODO: update this later (instead of n_lambdas use lambda gaps)
-            # Num of speakers tunned on dev set
-            num_spkrs = n_lambdas
+            PVAL = p_val
+            num_spkrs = None  # Will be estimated later
 
-        do_spec_clustering(diary_obj_dev, out_rttm_file, rec_id, k=num_spkrs)
+        # Note this is for ONE recording
+        do_spec_clustering(
+            diary_obj_dev, out_rttm_file, rec_id, num_spkrs, PVAL
+        )
 
     # Concatenate individual RTTM files
     # This is not needed but just staying with the standards
@@ -555,17 +561,18 @@ def diarize_dataset(full_csv, split_type, n_lambdas):
     return concate_rttm_file
 
 
-def dev_tuner(full_csv, split_type):
+def dev_p_tuner(full_csv, split_type):
     """Tuning n_compenents on dev set. (Basic tunning).
     Returns:
         n_lambdas = n_components
     """
 
     DER_list = []
-    for n_lambdas in range(1, params.max_num_spkrs + 1):
+    prange = [0.0025, 0.0050, 0.0075, 0.010, 0.025, 0.050, 0.075, 0.100]
 
+    for p_v in prange:
         # Process whole dataset for value of n_lambdas
-        concate_rttm_file = diarize_dataset(full_csv, split_type, n_lambdas)
+        concate_rttm_file = diarize_dataset(full_csv, split_type, p_v)
 
         ref_rttm = os.path.join(params.ref_rttm_dir, "fullref_ami_dev.rttm")
         sys_rttm = concate_rttm_file
@@ -573,18 +580,16 @@ def dev_tuner(full_csv, split_type):
             ref_rttm, sys_rttm, params.ignore_overlap, params.forgiveness_collar
         )
 
-        msg = "[Tuner]: n_lambdas= %d , DER= %s\n" % (
-            n_lambdas,
-            str(round(DER_, 2)),
-        )
+        msg = "\n[Tuner]: p_val= %f , DER= %s\n" % (p_v, str(round(DER_, 2)),)
 
         logger.info(msg)
         DER_list.append(DER_)
 
-    # Take n_lambdas with minmum DER
-    tuned_n_lambdas = DER_list.index(min(DER_list)) + 1
+    # Take p_val that gave minmum DER on Dev dataset
+    tuned_p_val = prange[DER_list.index(min(DER_list))]
 
-    return tuned_n_lambdas
+    # return tuned_n_lambdas
+    return tuned_p_val
 
 
 # Begin!
@@ -638,22 +643,11 @@ if __name__ == "__main__":  # noqa: C901
         for row in reader:
             full_csv.append(row)
 
-    # TUNING for num of lambdas
-    # TODO: Unblock this (later)
-    if params.oracle_n_spkrs is False and False:
-        a = time.time()
-        logger.info("Started tunning using DEV dataset.")
-        n_lambdas = dev_tuner(full_csv, "dev")
-        msg = "Tuning completed! Total time spent in tuning = %s seconds\n" % (
-            str(round(time.time() - a, 2))
-        )
-        logger.info(msg)
-    else:
-        msg = "Experiment for Oracle number of speakers"
-        logger.info(msg)
-        n_lambdas = None  # will be taken from groundtruth
+    # Tuning p_val for affinity matrix on dev data
+    best_p_val = dev_p_tuner(full_csv, "dev")
 
-    out_boundaries = diarize_dataset(full_csv, "dev", n_lambdas=n_lambdas)
+    # Following is not needed but lets keep this as results dir will have final best RTTMs
+    out_boundaries = diarize_dataset(full_csv, "dev", best_p_val)
 
     # Evaluating on DEV set
     logger.info("Evaluating for AMI Dev. set")
@@ -674,7 +668,7 @@ if __name__ == "__main__":  # noqa: C901
         for row in reader:
             full_csv.append(row)
 
-    out_boundaries = diarize_dataset(full_csv, "eval", n_lambdas=n_lambdas)
+    out_boundaries = diarize_dataset(full_csv, "eval", best_p_val)
 
     # Evaluating on EVAL set
     logger.info("Evaluating for AMI Eval. set")
