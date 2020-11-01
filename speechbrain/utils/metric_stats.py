@@ -424,4 +424,4 @@ def eer_threshold(positive_scores, negative_scores):
 
     # Finding the threshold for EER
     min_index = (FAR - FRR).abs().argmin()
-    return thresholds[min_index]
+    return float(thresholds[min_index])
