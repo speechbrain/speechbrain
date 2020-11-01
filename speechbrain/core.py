@@ -283,7 +283,6 @@ class Brain:
 
         # Arguments passed via the hparams dictionary
         brain_arg_defaults = {
-            "rank": None,
             "device": "cpu",
             "multigpu_count": 0,
             "multigpu_backend": None,
@@ -317,18 +316,19 @@ class Brain:
             logger.info(f"{fmt_num} trainable parameters in {clsname}")
 
         # Initialize ddp environment
+        self.rank = os.environ.get("RANK")
         if self.multigpu_backend and self.multigpu_backend.startswith("ddp"):
             if self.rank is None:
                 sys.exit(
                     "To use DDP backend, start your script with:\n\t"
                     "python -m speechbrain.ddp experiment.py hyperparams.yaml"
                 )
+            else:
+                self.rank = int(self.rank)
             self.root_process = self.rank == 0
 
             # Use backend (without "ddp_") to initialize process group
             backend = self.multigpu_backend[4:]
-            os.environ["MASTER_ADDR"] = "localhost"
-            os.environ["MASTER_PORT"] = "12321"
             torch.distributed.init_process_group(
                 backend=backend, world_size=self.multigpu_count, rank=self.rank
             )

@@ -9,7 +9,7 @@ Example
 >>>
 >>> from speechbrain.processing.features import STFT, ISTFT
 >>> from speechbrain.processing.multi_mic import Covariance
->>> from speechbrain.processing.multi_mic import GccPhat
+>>> from speechbrain.processing.multi_mic import GccPhat, SrpPhat
 >>> from speechbrain.processing.multi_mic import DelaySum, Mvdr, Gev
 >>>
 >>> xs_speech, fs = sf.read(
@@ -24,7 +24,7 @@ Example
 >>> xs_diffused_noise = ss + nn_diff
 >>> xs_localized_noise = ss + nn_loc
 
->>> # Delay-and-Sum Beamforming
+>>> # Delay-and-Sum Beamforming with GCC-PHAT localization
 >>> stft = STFT(sample_rate=fs)
 >>> cov = Covariance()
 >>> gccphat = GccPhat()
@@ -36,9 +36,18 @@ Example
 >>> Ys_ds = delaysum(Xs, tdoas)
 >>> ys_ds = istft(Ys_ds)
 
->>> # Mvdr Beamforming
+>>> # Mvdr Beamforming with SRP-PHAT localization
 >>> mvdr = Mvdr()
->>> Ys_mvdr = mvdr(Xs, XXs, tdoas)
+
+>>> mics = torch.zeros((4,3), dtype=torch.float)
+>>> mics[0,:] = torch.FloatTensor([-0.05, -0.05, +0.00])
+>>> mics[1,:] = torch.FloatTensor([-0.05, +0.05, +0.00])
+>>> mics[2,:] = torch.FloatTensor([+0.05, +0.05, +0.00])
+>>> mics[3,:] = torch.FloatTensor([+0.05, +0.05, +0.00])
+>>> srpphat = SrpPhat(mics=mics)
+
+>>> doas = srpphat(XXs)
+>>> Ys_mvdr = mvdr(Xs, XXs, doas, doa_mode=True, mics=mics, fs=fs)
 >>> ys_mvdr = istft(Ys_mvdr)
 
 >>> # GeV Beamforming
@@ -210,8 +219,16 @@ class DelaySum(torch.nn.Module):
 
         super().__init__()
 
-    def forward(self, Xs, tdoas):
-        """ This method computes a steering vector by using the TDOAs and
+    def forward(
+        self,
+        Xs,
+        localization_tensor,
+        doa_mode=False,
+        mics=None,
+        fs=None,
+        c=343.0,
+    ):
+        """ This method computes a steering vector by using the TDOAs/DOAs and
         then calls the utility function _delaysum to perform beamforming.
         The result has the following format: (batch, time_step, n_fft, 2, 1).
 
@@ -222,17 +239,44 @@ class DelaySum(torch.nn.Module):
             The tensor must have the following format:
             (batch, time_step, n_fft/2 + 1, 2, n_mics)
 
-        tdoas : tensor
-            The time difference of arrival (TDOA) (in samples) for
-            each timestamp. The tensor has the format
-            (batch, time_steps, n_mics + n_pairs)
+        localization_tensor : tensor
+            A tensor containing either time differences of arrival (TDOAs)
+            (in samples) for each timestamp or directions of arrival (DOAs)
+            (xyz coordinates in meters). If localization_tensor represents
+            TDOAs, then its format is (batch, time_steps, n_mics + n_pairs).
+            If localization_tensor represents DOAs, then its format is
+            (batch, time_steps, 3)
+
+        doa_mode : bool
+            The user needs to set this parameter to True if localization_tensor
+            represents DOAs instead of TDOAs. Its default value is set to False.
+
+        mics : tensor
+            The cartesian position (xyz coordinates in meters) of each microphone.
+            The tensor must have the following format (n_mics, 3). This
+            parameter is only mandatory when localization_tensor represents
+            DOAs.
+
+        fs : int
+            The sample rate in Hertz of the signals. This parameter is only
+            mandatory when localization_tensor represents DOAs.
+
+        c : float
+            The speed of sound in the medium. The speed is expressed in meters
+            per second and the default value of this parameter is 343 m/s. This
+            parameter is only used when localization_tensor represents DOAs.
+
         """
 
         # Get useful dimensions
         n_fft = Xs.shape[2]
 
         # Convert the tdoas to taus
-        taus = tdoas2taus(tdoas=tdoas)
+        if doa_mode:
+            taus = doas2taus(doas=localization_tensor, mics=mics, fs=fs, c=c)
+
+        else:
+            taus = tdoas2taus(tdoas=localization_tensor)
 
         # Generate the steering vector
         As = steering(taus=taus, n_fft=n_fft)
@@ -321,7 +365,16 @@ class Mvdr(torch.nn.Module):
 
         self.eps = eps
 
-    def forward(self, Xs, XXs, tdoas):
+    def forward(
+        self,
+        Xs,
+        XXs,
+        localization_tensor,
+        doa_mode=False,
+        mics=None,
+        fs=None,
+        c=343.0,
+    ):
         """ This method computes a steering vector before using the
         utility function _mvdr to perform beamforming. The result has
         the following format: (batch, time_step, n_fft, 2, 1).
@@ -337,16 +390,43 @@ class Mvdr(torch.nn.Module):
             The covariance matrices of the input signal. The tensor must
             have the format (batch, time_steps, n_fft/2 + 1, 2, n_mics + n_pairs)
 
-        tdoas : tensor
-            The time difference of arrival (TDOA) (in samples) for
-            each timestamp. The tensor has the format
-            (batch, time_steps, n_mics + n_pairs)
+        localization_tensor : tensor
+            A tensor containing either time differences of arrival (TDOAs)
+            (in samples) for each timestamp or directions of arrival (DOAs)
+            (xyz coordinates in meters). If localization_tensor represents
+            TDOAs, then its format is (batch, time_steps, n_mics + n_pairs).
+            If localization_tensor represents DOAs, then its format is
+            (batch, time_steps, 3)
+
+        doa_mode : bool
+            The user needs to set this parameter to True if localization_tensor
+            represents DOAs instead of TDOAs. Its default value is set to False.
+
+        mics : tensor
+            The cartesian position (xyz coordinates in meters) of each microphone.
+            The tensor must have the following format (n_mics, 3). This
+            parameter is only mandatory when localization_tensor represents
+            DOAs.
+
+        fs : int
+            The sample rate in Hertz of the signals. This parameter is only
+            mandatory when localization_tensor represents DOAs.
+
+        c : float
+            The speed of sound in the medium. The speed is expressed in meters
+            per second and the default value of this parameter is 343 m/s. This
+            parameter is only used when localization_tensor represents DOAs.
+
         """
         # Get useful dimensions
         n_fft = Xs.shape[2]
 
         # Convert the tdoas to taus
-        taus = tdoas2taus(tdoas=tdoas)
+        if doa_mode:
+            taus = doas2taus(doas=localization_tensor, mics=mics, fs=fs, c=c)
+
+        else:
+            taus = tdoas2taus(tdoas=localization_tensor)
 
         # Generate the steering vector
         As = steering(taus=taus, n_fft=n_fft)
@@ -743,20 +823,196 @@ class GccPhat(torch.nn.Module):
 
 
 class SrpPhat(torch.nn.Module):
-    """ Steered-Response Power with Phase Transform (SRP-PHAT) localization
+    """ Steered-Response Power with Phase Transform Localization
+
+    Arguments
+    ---------
+    mics : tensor
+        The cartesian coordinates (xyz) in meters of each microphone.
+        The tensor must have the following format (n_mics, 3)
+
+    space : string
+        If this parameter is set to 'sphere', the localization will
+        be done in 3D by searching in a sphere of possible doas. If
+        it set to 'circle', the search will be done in 2D by searching
+        in a circle. By default, this parameter is set to 'sphere'.
+
+        Note: The 'circle' option isn't implemented yet.
+
+    sample_rate : int
+        The sample rate in Hertz of the signals to perform SRP-PHAT on.
+        By default, this parameter is set to 16000 Hz.
+
+    speed_sound : float
+        The speed of sound in the medium. The speed is expressed in meters
+        per second and the default value of this parameter is 343 m/s.
+
+    eps : float
+        A small value to avoid errors like division by 0. The default value
+        of this parameter is 1e-20.
+
+    Example
+    -------
+    >>> import soundfile as sf
+    >>> import torch
+
+    >>> from speechbrain.processing.features import STFT
+    >>> from speechbrain.processing.multi_mic import Covariance
+    >>> from speechbrain.processing.multi_mic import SrpPhat
+
+    >>> xs_speech, fs = sf.read('samples/audio_samples/multi_mic/speech_-0.82918_0.55279_-0.082918.flac')
+    >>> xs_noise, _ = sf.read('samples/audio_samples/multi_mic/noise_diffuse.flac')
+
+    >>> xs_speech = torch.tensor(xs_speech).unsqueeze(0).float()
+    >>> xs_noise = torch.tensor(xs_noise).unsqueeze(0).float()
+
+    >>> ss1 = xs_speech
+    >>> ns1 = 0.05 * xs_noise
+    >>> xs1 = ss1 + ns1
+
+    >>> ss2 = xs_speech
+    >>> ns2 = 0.20 * xs_noise
+    >>> xs2 = ss2 + ns2
+
+    >>> ss = torch.cat((ss1,ss2), dim=0)
+    >>> ns = torch.cat((ns1,ns2), dim=0)
+    >>> xs = torch.cat((xs1,xs2), dim=0)
+
+    >>> mics = torch.zeros((4,3), dtype=torch.float)
+    >>> mics[0,:] = torch.FloatTensor([-0.05, -0.05, +0.00])
+    >>> mics[1,:] = torch.FloatTensor([-0.05, +0.05, +0.00])
+    >>> mics[2,:] = torch.FloatTensor([+0.05, +0.05, +0.00])
+    >>> mics[3,:] = torch.FloatTensor([+0.05, +0.05, +0.00])
+
+    >>> stft = STFT(sample_rate=fs)
+    >>> cov = Covariance()
+    >>> srpphat = SrpPhat(mics=mics)
+
+    >>> Xs = stft(xs)
+    >>> XXs = cov(Xs)
+    >>> doas = srpphat(XXs)
     """
 
-    def __init__(self):
+    def __init__(
+        self,
+        mics,
+        space="sphere",
+        sample_rate=16000,
+        speed_sound=343.0,
+        eps=1e-20,
+    ):
 
         super().__init__()
 
-    def forward(self):
+        # Generate the doas
+        if space == "sphere":
+            self.doas = sphere()
 
-        pass
+        if space == "circle":
+            pass
+
+        # Generate associated taus with the doas
+        self.taus = doas2taus(
+            self.doas, mics=mics, fs=sample_rate, c=speed_sound
+        )
+
+        # Save epsilon
+        self.eps = eps
+
+    def forward(self, XXs):
+        """ Perform SRP-PHAT localization on a signal by computing a steering
+        vector and then by using the utility function _srp_phat to extract the doas.
+        The result is a tensor containing the directions of arrival (xyz coordinates
+        in meters) in the direction of the sound source). The output tensor
+        has the format (batch, time_steps, 3).
+
+        This localization method uses Global Coherence Field (GCF):
+        https://www.researchgate.net/publication/221491705_Speaker_localization_based_on_oriented_global_coherence_field
+
+        Arguments
+        ---------
+        XXs : tensor
+            The covariance matrices of the input signal. The tensor must
+            have the format (batch, time_steps, n_fft/2 + 1, 2, n_mics + n_pairs)
+        """
+        # Get useful dimensions
+        n_fft = XXs.shape[2]
+
+        # Generate the steering vector
+        As = steering(self.taus, n_fft)
+
+        # Perform srp-phat
+        doas = SrpPhat._srp_phat(XXs=XXs, As=As, doas=self.doas, eps=self.eps)
+
+        return doas
+
+    @staticmethod
+    def _srp_phat(XXs, As, doas, eps=1e-20):
+        """ Perform srp-phat to find the direction of arrival
+        of the sound source. The result is a tensor containing the directions
+        of arrival (xyz coordinates (in meters) in the direction of the sound source).
+        The output tensor has the format: (batch, time_steps, 3)
+
+        Arguments
+        ---------
+        XXs : tensor
+            The covariance matrices of the input signal. The tensor must
+            have the format (batch, time_steps, n_fft/2 + 1, 2, n_mics + n_pairs)
+
+        As : tensor
+            The steering vector that cover the all the potential directions
+            of arrival. The tensor must have the format
+            (n_doas, n_fft/2 + 1, 2, n_mics)
+
+        doas : tensor
+            All the possible directions of arrival that will be scanned. The
+            tensor must have the format (n_doas, 3)
+        """
+
+        # Get useful dimensions
+        n_mics = As.shape[3]
+
+        # Get the indices for the pairs of microphones
+        idx = torch.triu_indices(n_mics, n_mics)
+
+        # Generate the demixing vector from the steering vector
+        As_1_re = As[:, :, 0, idx[0, :]]
+        As_1_im = As[:, :, 1, idx[0, :]]
+        As_2_re = As[:, :, 0, idx[1, :]]
+        As_2_im = As[:, :, 1, idx[1, :]]
+        Ws_re = As_1_re * As_2_re + As_1_im * As_2_im
+        Ws_im = As_1_re * As_2_im - As_1_im * As_2_re
+        Ws_re = Ws_re.reshape(Ws_re.shape[0], -1)
+        Ws_im = Ws_im.reshape(Ws_im.shape[0], -1)
+
+        # Get unique covariance values to reduce the number of computations
+        XXs_val, XXs_idx = torch.unique(XXs, return_inverse=True, dim=1)
+
+        # Perform the phase transform
+        XXs_re = XXs_val[:, :, :, 0, :]
+        XXs_im = XXs_val[:, :, :, 1, :]
+        XXs_re = XXs_re.reshape((XXs_re.shape[0], XXs_re.shape[1], -1))
+        XXs_im = XXs_im.reshape((XXs_im.shape[0], XXs_im.shape[1], -1))
+        XXs_abs = torch.sqrt(XXs_re ** 2 + XXs_im ** 2) + eps
+        XXs_re_norm = XXs_re / XXs_abs
+        XXs_im_norm = XXs_im / XXs_abs
+
+        # Project on the demixing vectors, and keep only real part
+        Ys_A = torch.matmul(XXs_re_norm, Ws_re.transpose(0, 1))
+        Ys_B = torch.matmul(XXs_im_norm, Ws_im.transpose(0, 1))
+        Ys = Ys_A - Ys_B
+
+        # Get maximum points
+        _, doas_idx = torch.max(Ys, dim=2)
+
+        # Repeat for each frame
+        doas = (doas[doas_idx, :])[:, XXs_idx, :]
+
+        return doas
 
 
 class Music(torch.nn.Module):
-    """ Multpile SIgnal Classification (MUSIC) localization
+    """ Multiple Signal Classification (MUSIC) localization
     """
 
     def __init__(self):
@@ -766,6 +1022,52 @@ class Music(torch.nn.Module):
     def forward(self):
 
         pass
+
+
+def doas2taus(doas, mics, fs, c=343.0):
+    """ This function converts directions of arrival (xyz coordinates
+    expressed in meters) in time differences of arrival (expressed in
+    samples). The result has the following format: (batch, time_steps, n_mics).
+
+    Arguments
+    ---------
+    doas : tensor
+        The directions of arrival expressed with cartesian coordinates (xyz)
+        in meters. The tensor must have the following format: (batch, time_steps, 3)
+
+    mics : tensor
+        The cartesian position (xyz) in meters of each microphone.
+        The tensor must have the following format (n_mics, 3)
+
+    fs : int
+        The sample rate in Hertz of the signals.
+
+    c : float
+        The speed of sound in the medium. The speed is expressed in meters
+        per second and the default value of this parameter is 343 m/s.
+
+    Example
+    -------
+    >>> import soundfile as sf
+    >>> import torch
+
+    >>> from speechbrain.processing.multi_mic import sphere, doas2taus
+
+    >>> xs, fs = sf.read('samples/audio_samples/multi_mic/speech_-0.82918_0.55279_-0.082918.flac')
+
+    >>> mics = torch.zeros((4,3), dtype=torch.float)
+    >>> mics[0,:] = torch.FloatTensor([-0.05, -0.05, +0.00])
+    >>> mics[1,:] = torch.FloatTensor([-0.05, +0.05, +0.00])
+    >>> mics[2,:] = torch.FloatTensor([+0.05, +0.05, +0.00])
+    >>> mics[3,:] = torch.FloatTensor([+0.05, +0.05, +0.00])
+
+    >>> doas = sphere()
+    >>> taus = doas2taus(doas, mics, fs)
+    """
+
+    taus = (fs / c) * torch.matmul(doas, mics.transpose(0, 1))
+
+    return taus
 
 
 def tdoas2taus(tdoas):
@@ -877,3 +1179,154 @@ def steering(taus, n_fft):
     )
 
     return a
+
+
+def sphere(levels_count=4):
+    """ This function generates cartesian coordinates (xyz) for a set
+    of points forming a 3D sphere. The coordinates are expressed in
+    meters and can be used as doas. The result has the format:
+    (n_points, 3).
+
+    Arguments
+    ---------
+    levels_count : int
+        A number proportional to the number of points that the user
+        wants to generate
+            - If levels_count = 1, then the sphere will have 42 points
+            - If levels_count = 2, then the sphere will have 162 points
+            - If levels_count = 3, then the sphere will have 642 points
+            - If levels_count = 4, then the sphere will have 2562 points
+            - If levels_count = 5, then the sphere will have 10242 points
+            - ...
+        By default, levels_count is set to 4.
+
+    Example
+    -------
+    >>> import torch
+    >>> from speechbrain.processing.multi_mic import sphere
+    >>> doas = sphere()
+    """
+
+    # Generate points at level 0
+
+    h = (5.0 ** 0.5) / 5.0
+    r = (2.0 / 5.0) * (5.0 ** 0.5)
+    pi = 3.141592654
+
+    pts = torch.zeros((12, 3), dtype=torch.float)
+    pts[0, :] = torch.FloatTensor([0, 0, 1])
+    pts[11, :] = torch.FloatTensor([0, 0, -1])
+    pts[range(1, 6), 0] = r * torch.sin(2.0 * pi * torch.arange(0, 5) / 5.0)
+    pts[range(1, 6), 1] = r * torch.cos(2.0 * pi * torch.arange(0, 5) / 5.0)
+    pts[range(1, 6), 2] = h
+    pts[range(6, 11), 0] = (
+        -1.0 * r * torch.sin(2.0 * pi * torch.arange(0, 5) / 5.0)
+    )
+    pts[range(6, 11), 1] = (
+        -1.0 * r * torch.cos(2.0 * pi * torch.arange(0, 5) / 5.0)
+    )
+    pts[range(6, 11), 2] = -1.0 * h
+
+    # Generate triangles at level 0
+
+    trs = torch.zeros((20, 3), dtype=torch.long)
+
+    trs[0, :] = torch.LongTensor([0, 2, 1])
+    trs[1, :] = torch.LongTensor([0, 3, 2])
+    trs[2, :] = torch.LongTensor([0, 4, 3])
+    trs[3, :] = torch.LongTensor([0, 5, 4])
+    trs[4, :] = torch.LongTensor([0, 1, 5])
+
+    trs[5, :] = torch.LongTensor([9, 1, 2])
+    trs[6, :] = torch.LongTensor([10, 2, 3])
+    trs[7, :] = torch.LongTensor([6, 3, 4])
+    trs[8, :] = torch.LongTensor([7, 4, 5])
+    trs[9, :] = torch.LongTensor([8, 5, 1])
+
+    trs[10, :] = torch.LongTensor([4, 7, 6])
+    trs[11, :] = torch.LongTensor([5, 8, 7])
+    trs[12, :] = torch.LongTensor([1, 9, 8])
+    trs[13, :] = torch.LongTensor([2, 10, 9])
+    trs[14, :] = torch.LongTensor([3, 6, 10])
+
+    trs[15, :] = torch.LongTensor([11, 6, 7])
+    trs[16, :] = torch.LongTensor([11, 7, 8])
+    trs[17, :] = torch.LongTensor([11, 8, 9])
+    trs[18, :] = torch.LongTensor([11, 9, 10])
+    trs[19, :] = torch.LongTensor([11, 10, 6])
+
+    # Generate next levels
+
+    for levels_index in range(0, levels_count):
+
+        #      0
+        #     / \
+        #    A---B
+        #   / \ / \
+        #  1---C---2
+
+        trs_count = trs.shape[0]
+        subtrs_count = trs_count * 4
+
+        subtrs = torch.zeros((subtrs_count, 6), dtype=torch.long)
+
+        subtrs[0 * trs_count + torch.arange(0, trs_count), 0] = trs[:, 0]
+        subtrs[0 * trs_count + torch.arange(0, trs_count), 1] = trs[:, 0]
+        subtrs[0 * trs_count + torch.arange(0, trs_count), 2] = trs[:, 0]
+        subtrs[0 * trs_count + torch.arange(0, trs_count), 3] = trs[:, 1]
+        subtrs[0 * trs_count + torch.arange(0, trs_count), 4] = trs[:, 2]
+        subtrs[0 * trs_count + torch.arange(0, trs_count), 5] = trs[:, 0]
+
+        subtrs[1 * trs_count + torch.arange(0, trs_count), 0] = trs[:, 0]
+        subtrs[1 * trs_count + torch.arange(0, trs_count), 1] = trs[:, 1]
+        subtrs[1 * trs_count + torch.arange(0, trs_count), 2] = trs[:, 1]
+        subtrs[1 * trs_count + torch.arange(0, trs_count), 3] = trs[:, 1]
+        subtrs[1 * trs_count + torch.arange(0, trs_count), 4] = trs[:, 1]
+        subtrs[1 * trs_count + torch.arange(0, trs_count), 5] = trs[:, 2]
+
+        subtrs[2 * trs_count + torch.arange(0, trs_count), 0] = trs[:, 2]
+        subtrs[2 * trs_count + torch.arange(0, trs_count), 1] = trs[:, 0]
+        subtrs[2 * trs_count + torch.arange(0, trs_count), 2] = trs[:, 1]
+        subtrs[2 * trs_count + torch.arange(0, trs_count), 3] = trs[:, 2]
+        subtrs[2 * trs_count + torch.arange(0, trs_count), 4] = trs[:, 2]
+        subtrs[2 * trs_count + torch.arange(0, trs_count), 5] = trs[:, 2]
+
+        subtrs[3 * trs_count + torch.arange(0, trs_count), 0] = trs[:, 0]
+        subtrs[3 * trs_count + torch.arange(0, trs_count), 1] = trs[:, 1]
+        subtrs[3 * trs_count + torch.arange(0, trs_count), 2] = trs[:, 1]
+        subtrs[3 * trs_count + torch.arange(0, trs_count), 3] = trs[:, 2]
+        subtrs[3 * trs_count + torch.arange(0, trs_count), 4] = trs[:, 2]
+        subtrs[3 * trs_count + torch.arange(0, trs_count), 5] = trs[:, 0]
+
+        subtrs_flatten = torch.cat(
+            (subtrs[:, [0, 1]], subtrs[:, [2, 3]], subtrs[:, [4, 5]]), axis=0
+        )
+        subtrs_sorted, _ = torch.sort(subtrs_flatten, axis=1)
+
+        index_max = torch.max(subtrs_sorted)
+
+        subtrs_scalar = (
+            subtrs_sorted[:, 0] * (index_max + 1) + subtrs_sorted[:, 1]
+        )
+
+        unique_scalar, unique_indices = torch.unique(
+            subtrs_scalar, return_inverse=True
+        )
+
+        unique_values = torch.zeros(
+            (unique_scalar.shape[0], 2), dtype=unique_scalar.dtype
+        )
+
+        unique_values[:, 0] = torch.floor_divide(unique_scalar, index_max + 1)
+        unique_values[:, 1] = unique_scalar - unique_values[:, 0] * (
+            index_max + 1
+        )
+
+        trs = torch.transpose(torch.reshape(unique_indices, (3, -1)), 0, 1)
+
+        pts = pts[unique_values[:, 0], :] + pts[unique_values[:, 1], :]
+        pts /= torch.repeat_interleave(
+            torch.unsqueeze(torch.sum(pts ** 2, axis=1) ** 0.5, 1), 3, 1
+        )
+
+    return pts

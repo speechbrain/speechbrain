@@ -140,7 +140,6 @@ class ASR(sb.core.Brain):
                 current_epoch % valid_search_interval == 0
                 or stage == sb.Stage.TEST
             ):
-
                 # Decode token terms to words
                 predicted_words = self.hparams.tokenizer(
                     hyps, task="decode_from_list"
