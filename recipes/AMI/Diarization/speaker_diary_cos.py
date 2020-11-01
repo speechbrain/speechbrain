@@ -302,19 +302,19 @@ def get_gaps_n_num_spk(Mat, spk_max):
 
 class Standard_SC:
     def __init__(self):
-        self.max_num_spkrs = 8
+        self.max_num_spkrs = 10
 
-    def do_sc(self, X):
+    def do_sc(self, X, k):
 
         sim_mat = self.get_sim_mat(X)
 
-        p_val = 0.01
+        p_val = params.p_val
         sim_mat = self.p_pruning(sim_mat, p_val)
 
         sim_mat = 0.5 * (sim_mat + sim_mat.T)
         lap = self.get_laplacian(sim_mat)
 
-        emb, num_of_spk = self.get_spec_emb(lap)
+        emb, num_of_spk = self.get_spec_emb(lap, k)
 
         self.cluster_me(emb, num_of_spk)
 
@@ -324,8 +324,6 @@ class Standard_SC:
         return M
 
     def p_pruning(self, A, pval):
-        # TODO: I can skip deepcopy
-        # A = copy.deepcopy(M)
         n_elems = int((1 - pval) * A.shape[0])
 
         for i in range(A.shape[0]):
@@ -343,12 +341,11 @@ class Standard_SC:
         L = D - A
         return L
 
-    def get_spec_emb(self, L):
+    def get_spec_emb(self, L, k_oracle=4):
         lambdas, eig_vecs = scipy.linalg.eigh(L)
 
         if params.oracle_n_spkrs is True:
-            # TODO: Replace this get_oracle_n_spkrs
-            num_of_spk = 4
+            num_of_spk = k_oracle
         else:
 
             # TODO: Some issues max eigen gap. Fix this later
@@ -386,7 +383,7 @@ def do_spec_clustering(diary_obj_eval, out_rttm_file, rec_id, k=4):
     """
 
     clust_obj = Standard_SC()
-    clust_obj.do_sc(diary_obj_eval.stat1)
+    clust_obj.do_sc(diary_obj_eval.stat1, k)
 
     labels = clust_obj.labels_
 
@@ -531,6 +528,7 @@ def diarize_dataset(full_csv, split_type, n_lambdas):
             # Oracle num of speakers
             num_spkrs = get_oracle_num_spkrs(rec_id, spkr_info)
         else:
+            # TODO: update this later (instead of n_lambdas use lambda gaps)
             # Num of speakers tunned on dev set
             num_spkrs = n_lambdas
 
