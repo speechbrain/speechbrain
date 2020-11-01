@@ -53,6 +53,7 @@ min_num_spkrs: 2
 oracle_n_spkrs: True
 n_neighbors: 10
 include_self: True
+p_val: 0.01
 
 # DER evaluation parameters
 ignore_overlap: True
