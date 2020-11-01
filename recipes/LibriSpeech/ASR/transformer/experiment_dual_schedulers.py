@@ -77,7 +77,7 @@ class ASR(sb.core.Brain):
         feats = self.hparams.normalize(feats)
         src = self.hparams.CNN(feats)
         enc_out, pred = self.hparams.Transformer(
-            src, y_in, pad_idx=self.hparams.pad_index
+            src, y_in, wav_lens, pad_idx=self.hparams.pad_index
         )
 
         # output layer for ctc log-probabilities
@@ -221,7 +221,7 @@ class ASR(sb.core.Brain):
             )
             self.checkpointer.save_and_keep_only(
                 meta={"ACC": stage_stats["ACC"], "epoch": epoch},
-                min_keys=["ACC"],
+                max_keys=["ACC"],
             )
 
         elif stage == sb.Stage.TEST:
