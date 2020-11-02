@@ -286,38 +286,29 @@ def getLamdaGaplist(lambdas):
     return lambda_gap_list
 
 
-def get_gaps_n_num_spk(Mat, spk_max):
-
-    lambdas, eig_vecs = scipy.sparse.linalg.eigs(Mat, spk_max)
-    lambdas = np.sort(lambdas)
-
-    lambda_gap_list = getLamdaGaplist(lambdas)
-    num_of_spk = (
-        np.argmax(lambda_gap_list[: min(spk_max, len(lambda_gap_list))]) + 1
-    )
-
-    return lambda_gap_list, num_of_spk
-
-
 class Standard_SC:
     def __init__(self):
-        self.max_num_spkrs = 10
+        pass
 
-    def do_sc(self, X, k, PVAL):
+    def do_spec_clust(self, X, k, p_val):
 
+        # Similarity matrix
         sim_mat = self.get_sim_mat(X)
 
-        p_val = PVAL  # params.p_val
-        # Requires PVAL
+        # Prunning
         prunned_sim_mat = self.p_pruning(sim_mat, p_val)
 
+        # Symmetrization
         sym_prund_sim_mat = 0.5 * (prunned_sim_mat + prunned_sim_mat.T)
-        lap = self.get_laplacian(sym_prund_sim_mat)
 
-        # Requires n_spkrs (or estimates it)
-        emb, num_of_spk = self.get_spec_emb(lap, k)
+        # Laplaciann
+        laplacian = self.get_laplacian(sym_prund_sim_mat)
 
-        self.cluster_me(emb, num_of_spk)
+        # Get Spectral Embeddings
+        emb, num_of_spk = self.get_spec_embs(laplacian, k)
+
+        # Perform clustering
+        self.cluster_embs(emb, num_of_spk)
 
     def get_sim_mat(self, X):
         # Cosine similarities
@@ -328,10 +319,11 @@ class Standard_SC:
 
         n_elems = int((1 - pval) * A.shape[0])
 
+        # For each row in a affinity matrix
         for i in range(A.shape[0]):
-            # For each row in a affinity matrix
             low_indexes = np.argsort(A[i, :])
             low_indexes = low_indexes[0:n_elems]
+
             # Replace smaller similarity values by 0s
             A[i, low_indexes] = 0
 
@@ -339,45 +331,36 @@ class Standard_SC:
 
     def get_laplacian(self, M):
         M[np.diag_indices(M.shape[0])] = 0
-        A = M
-        D = np.sum(np.abs(A), axis=1)
+        D = np.sum(np.abs(M), axis=1)
         D = np.diag(D)
-        L = D - A
+        L = D - M
         return L
 
-    def get_spec_emb(self, L, k_oracle=4):
+    def get_spec_embs(self, L, k_oracle=4):
         lambdas, eig_vecs = scipy.linalg.eigh(L)
 
         if params.oracle_n_spkrs is True:
             num_of_spk = k_oracle
         else:
-            # Ignore this else part. It will be update in another PR
-            # TODO: Some issues with max eigen gap. Fix this later
-            print("\nlambdas = ", lambdas[0:8])
+            lambda_gap_list = getLamdaGaplist(lambdas[1 : params.max_num_spkrs])
 
-            # Ignore the first eigen value
-            lambda_gap_list = getLamdaGaplist(lambdas[1:10])
-            print("gaps= ", np.around(lambda_gap_list, 3))
-            spk_max = 10
             num_of_spk = (
-                np.argmax(lambda_gap_list[: min(spk_max, len(lambda_gap_list))])
-                + 1
-            )
-            max_gap = max(  # noqa F841
-                lambda_gap_list[: min(spk_max, len(lambda_gap_list))]
+                np.argmax(
+                    lambda_gap_list[
+                        : min(params.max_num_spkrs, len(lambda_gap_list))
+                    ]
+                )
+                + 2
             )
 
-            # k =  num_of_spk
-            # Sort
-            # indx = np.argsort(lambdas)
-            # indx = indx[0:k]
-            # emb = eig_vecs[:,indx]
+            if num_of_spk < params.min_num_spkrs:
+                num_of_spk = params.min_num_spkrs
 
         emb = eig_vecs[:, 0:num_of_spk]
 
         return emb, num_of_spk
 
-    def cluster_me(self, emb, k):
+    def cluster_embs(self, emb, k):
         _, self.labels_, _ = k_means(emb, k)
 
 
@@ -386,7 +369,7 @@ def do_spec_clustering(diary_obj_eval, out_rttm_file, rec_id, k=4, PVAL=0.01):
     """
 
     clust_obj = Standard_SC()
-    clust_obj.do_sc(diary_obj_eval.stat1, k, PVAL)
+    clust_obj.do_spec_clust(diary_obj_eval.stat1, k, PVAL)
 
     labels = clust_obj.labels_
 
@@ -568,10 +551,22 @@ def dev_p_tuner(full_csv, split_type):
     """
 
     DER_list = []
-    prange = [0.0025, 0.0050, 0.0075, 0.010, 0.025, 0.050, 0.075, 0.100]
+    prange = [
+        0.0025,
+        0.0050,
+        0.006,
+        0.007,
+        0.008,
+        0.009,
+        0.010,
+        0.025,
+        0.050,
+        0.075,
+        0.100,
+    ]
 
     for p_v in prange:
-        # Process whole dataset for value of n_lambdas
+        # Process whole dataset for value of p_v
         concate_rttm_file = diarize_dataset(full_csv, split_type, p_v)
 
         ref_rttm = os.path.join(params.ref_rttm_dir, "fullref_ami_dev.rttm")
@@ -588,7 +583,6 @@ def dev_p_tuner(full_csv, split_type):
     # Take p_val that gave minmum DER on Dev dataset
     tuned_p_val = prange[DER_list.index(min(DER_list))]
 
-    # return tuned_n_lambdas
     return tuned_p_val
 
 
