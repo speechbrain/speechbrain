@@ -14,7 +14,6 @@ import argparse
 import subprocess
 import ruamel.yaml
 import speechbrain as sb
-import torch.distributed as dist
 from io import StringIO
 from datetime import date
 from enum import Enum, auto
@@ -164,6 +163,16 @@ def parse_arguments(arg_list):
         "--log_config",
         help="A file storing the configuration options for logging",
     )
+    parser.add_argument(
+        "--rank", type=int, help="Rank of process in multiprocessing setup"
+    )
+    parser.add_argument("--device", help="The device to run the experiment on")
+    parser.add_argument(
+        "--multigpu_count", type=int, help="Number of gpus to run on"
+    )
+    parser.add_argument(
+        "--multigpu_backend", help="data_parallel, ddp_nccl, ddp_gloo, ddp_mpi"
+    )
 
     # Ignore items that are "None", they were not passed
     parsed_args = vars(parser.parse_args(arg_list))
@@ -188,26 +197,6 @@ def parse_arguments(arg_list):
     ruamel_yaml.dump(overrides, yaml_stream)
 
     return param_file, yaml_stream.getvalue()
-
-
-def ddp_init(rank, brain, args):
-    print(f"Process {rank} reporting in!")
-    os.environ["MASTER_ADDR"] = "localhost"
-    os.environ["MASTER_PORT"] = "12321"
-
-    # Remove the "ddp_" from the backend
-    backend = brain.multigpu_backend[4:]
-    dist.init_process_group(
-        backend=backend, world_size=brain.multigpu_count, rank=rank
-    )
-    brain.device = rank
-    brain.root_process = rank == 0
-
-    # force the models to start and remain synchronized
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-
-    brain._fit(*args)
 
 
 class Stage(Enum):
@@ -288,31 +277,30 @@ class Brain:
     """
 
     def __init__(
-        self,
-        modules=None,
-        opt_class=None,
-        hparams=None,
-        jit_module_keys=None,
-        checkpointer=None,
-        device="cpu",
-        multigpu_count=0,
-        multigpu_backend=None,
-        auto_mix_prec=False,
+        self, modules=None, opt_class=None, hparams=None, checkpointer=None,
     ):
         self.opt_class = opt_class
-        self.jit_module_keys = jit_module_keys
         self.checkpointer = checkpointer
-
-        # root_process and device will be updated if ddp is used
-        self.device = device
         self.root_process = True
-        self.multigpu_count = multigpu_count
-        self.multigpu_backend = multigpu_backend
 
-        self.auto_mix_prec = auto_mix_prec
+        # Arguments passed via the hparams dictionary
+        brain_arg_defaults = {
+            "device": "cpu",
+            "multigpu_count": 0,
+            "multigpu_backend": None,
+            "jit_module_keys": None,
+            "auto_mix_prec": False,
+        }
+        for arg, default in brain_arg_defaults.items():
+            if hparams is not None and arg in hparams:
+                setattr(self, arg, hparams[arg])
+            else:
+                setattr(self, arg, default)
+
+        # Put modules on the right device, accessible with dot notation
         self.modules = torch.nn.ModuleDict(modules).to(self.device)
 
-        # Make hyperparams available with simple "dot" notation
+        # Make hyperparams available with dot notation too
         if hparams is not None:
             self.hparams = SimpleNamespace(**hparams)
 
@@ -328,6 +316,28 @@ class Brain:
             clsname = self.__class__.__name__
             fmt_num = sb.format_order_of_magnitude(total_params)
             logger.info(f"{fmt_num} trainable parameters in {clsname}")
+
+        # Initialize ddp environment
+        self.rank = os.environ.get("RANK")
+        if self.multigpu_backend and self.multigpu_backend.startswith("ddp"):
+            if self.rank is None:
+                sys.exit(
+                    "To use DDP backend, start your script with:\n\t"
+                    "python -m speechbrain.ddp experiment.py hyperparams.yaml"
+                )
+            else:
+                self.rank = int(self.rank)
+            self.root_process = self.rank == 0
+
+            # Use backend (without "ddp_") to initialize process group
+            backend = self.multigpu_backend[4:]
+            torch.distributed.init_process_group(
+                backend=backend, world_size=self.multigpu_count, rank=self.rank
+            )
+
+            # force the models to start and remain synchronized
+            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.benchmark = False
 
     def compute_forward(self, x, stage):
         """Forward pass, to be overridden by sub-classes.
@@ -552,29 +562,16 @@ class Brain:
         progressbar : bool
             Whether to display the progress of each epoch in a progressbar.
         """
-        if self.multigpu_backend and self.multigpu_backend.startswith("ddp"):
-            self._ddp_fit(epoch_counter, train_set, valid_set, progressbar)
-        else:
-            self._fit(epoch_counter, train_set, valid_set, progressbar)
-
-    def _ddp_fit(self, *args):
-        """Fit on multiple gpus using ddp backend"""
-        torch.multiprocessing.spawn(ddp_init, (self, args), self.multigpu_count)
-
-    def _fit(self, epoch_counter, train_set, valid_set, progressbar):
-        """Adjust parameters based on data."""
         self.on_fit_start()
 
         # Use factories to get loaders
         self.train_sampler = None
         if isinstance(train_set, DataLoaderFactory):
-            if self.multigpu_backend and self.multigpu_backend.startswith(
-                "ddp"
-            ):
+            if self.rank is not None:
                 self.train_sampler = DistributedSampler(
                     dataset=train_set.dataset,
                     num_replicas=self.multigpu_count,
-                    rank=self.device,
+                    rank=self.rank,
                     shuffle=train_set.shuffle,
                 )
             train_set = train_set.get_dataloader(self.train_sampler)
@@ -639,7 +636,6 @@ class Brain:
                     module = torch.nn.DataParallel(module)
                 elif self.multigpu_backend.startswith("ddp"):
                     module = SyncBatchNorm.convert_sync_batchnorm(module)
-                    module = module.to(self.device)
                     module = DDP(module, device_ids=[self.device])
             self.modules[name] = module
 

@@ -140,11 +140,7 @@ if __name__ == "__main__":
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
         hparams=hparams,
-        jit_module_keys=hparams["jit_module_keys"],
         checkpointer=hparams["checkpointer"],
-        device=hparams["device"],
-        multigpu_count=hparams["multigpu_count"],
-        multigpu_backend=hparams["multigpu_backend"],
     )
 
     asr_brain.fit(asr_brain.hparams.epoch_counter, train_set, valid_set)
