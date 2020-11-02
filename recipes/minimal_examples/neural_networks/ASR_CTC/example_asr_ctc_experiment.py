@@ -59,14 +59,8 @@ def main():
     data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
     with open(hparams_file) as fin:
         # TODO: Data loading back into YAML:
-        hparams = sb.yaml.load_extended_yaml(fin)
+        hparams = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
 
-        # TODO: Convert minimal example CSV to new YAML format
-        train_data = ASRMinimalExampleDataset(
-            os.path.join(data_folder, "train.csv"),
-            audio_transform=torchaudio_load,
-            text_transform=hparams["text_transform"],
-        )
         valid_data = ASRMinimalExampleDataset(
             os.path.join(data_folder, "dev.csv"),
             audio_transform=torchaudio_load,
@@ -80,7 +74,7 @@ def main():
 
     # Placeholders:
     train_loader = SaveableDataLoader(
-        train_data,
+        hparams["train_data"],
         batch_size=hparams["N_batch"],
         collate_fn=ASR_example_collation,
     )
