@@ -384,19 +384,19 @@ def EER(positive_scores, negative_scores):
     Arguments
     ---------
     positive_scores : torch.tensor
-        The scores from entiries of the same class.
+        The scores from entries of the same class.
     negative_scores : torch.tensor
-        The scores from entiries of different classes.
+        The scores from entries of different classes.
 
     Example
     -------
-    >>> postive_scores=torch.tensor([0.6, 0.7, 0.8, 0.5])
-    >>> negative_scores=torch.tensor([0.6, 0.4, 0.3, 0.2])
-    >>> val_eer, th=EER(postive_scores, negative_scores)
+    >>> postive_scores = torch.tensor([0.6, 0.7, 0.8, 0.5])
+    >>> negative_scores = torch.tensor([0.6, 0.4, 0.3, 0.2])
+    >>> val_eer, threshold = EER(postive_scores, negative_scores)
     >>> val_eer
     0.25
-    >>> th
-    0.5
+    >>> threshold
+    0.5500...
     """
 
     # Computing candidate thresholds
