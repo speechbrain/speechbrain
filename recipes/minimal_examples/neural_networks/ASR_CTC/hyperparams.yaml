@@ -23,6 +23,7 @@ dnn_neurons: 128
 
 
 # Data:
+data_folder: !PLACEHOLDER
 # TODO: Replace with final implementations
 label_encoder: !new:placeholders.ExampleCategoricalEncoder
     label2ind: !name:placeholders.ASR_example_label2ind
@@ -30,9 +31,21 @@ label_encoder: !new:placeholders.ExampleCategoricalEncoder
 
 text_transform: !new:speechbrain.utils.data_utils.FuncPipeline
     - !name:speechbrain.utils.data_utils.split_by_whitespace
-    - !name:placeholders.ExampleCategoricalEncoder.encode_list [!ref <label_encoder>]
+    - !!python/object/apply:getattr [!ref <label_encoder>, encode_list]
     - !name:torch.tensor
       dtype: !name:torch.int
+
+
+#NEED new apply here
+train_data: !apply:speechbrain.data_io.datasets.SegmentedDataset.from_extended_yaml
+    filepath: !ref <data_folder>/train.yaml
+    overrides:
+        data_root: !ref <data_folder>
+    data_fields: [wav, phn]
+    data_transforms:
+        wav: !name:placeholders.torchaudio_load
+        phn: !ref <text_transform>
+
 
 compute_features: !new:speechbrain.lobes.features.mfcc.MFCC
 
