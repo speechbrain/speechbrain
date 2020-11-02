@@ -1,5 +1,5 @@
-# ################################00000
-# Model: Speaker Diarization Baseline
+# ################################
+# Model: Speaker Diarization Baseline on deep embedding + spectral clustering
 # Authors: Nauman Dawalatabad 2020
 # ################################
 
@@ -7,8 +7,8 @@ seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Folders
-data_folder: !PLACEHOLDER # e.g. /path/to/datasets/ami/amicorpus
-manual_annot_folder: !PLACEHOLDER # e.g. /path/to/ami_public_manual
+data_folder: /network/datasets/ami/amicorpus
+manual_annot_folder: /home/mila/d/dawalatn/nauman/ami_public_manual
 output_folder: results/ami/speaker_diarization_xvector/
 save_folder: !ref <output_folder>/save
 device: 'cuda:0'
@@ -48,6 +48,9 @@ max_subseg_dur: 3.0
 overlap: 1.5
 
 # Cluster parameters
+max_num_spkrs: 10
+min_num_spkrs: 2
+oracle_n_spkrs: False
 n_neighbors: 10
 include_self: True
 
