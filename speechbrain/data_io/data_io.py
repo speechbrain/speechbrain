@@ -1958,6 +1958,12 @@ def read_string(string, data_options={}, lab2ind=None):
     if callable(lab2ind):
         return lab2ind(string)
 
+    # Try decoding string
+    try:
+        string = string.decode("utf-8")
+    except AttributeError:
+        pass
+
     # Splitting elements with ' '
     string = string.split(" ")
 
