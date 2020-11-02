@@ -54,13 +54,13 @@ n_mels: 80
 # Model parameters
 activation: !name:torch.nn.LeakyReLU
 dropout: 0.15
-cnn_blocks: 3
-cnn_channels: (128, 200, 256)
-inter_layer_pooling_size: (2, 2, 2)
+cnn_blocks: 2
+cnn_channels: (128, 256)
+inter_layer_pooling_size: (2, 2)
 cnn_kernelsize: (3, 3)
 time_pooling_size: 4
 rnn_class: !name:speechbrain.nnet.LSTM
-rnn_layers: 5
+rnn_layers: 4
 rnn_neurons: 1024
 rnn_bidirectional: True
 dnn_blocks: 2
@@ -78,10 +78,10 @@ bos_index: 0
 eos_index: 0
 min_decode_ratio: 0.0
 max_decode_ratio: 1.0
-beam_size: 40
+beam_size: 80
 eos_threshold: 1.5
-using_max_attn_shift: False
-max_attn_shift: 60
+using_max_attn_shift: True
+max_attn_shift: 180
 
 #
 # Functions and classes
