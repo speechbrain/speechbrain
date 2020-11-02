@@ -391,12 +391,10 @@ def EER(positive_scores, negative_scores):
     Example
     -------
     >>> postive_scores = torch.tensor([0.6, 0.7, 0.8, 0.5])
-    >>> negative_scores = torch.tensor([0.6, 0.4, 0.3, 0.2])
+    >>> negative_scores = torch.tensor([0.4, 0.3, 0.2, 0.1])
     >>> val_eer, threshold = EER(postive_scores, negative_scores)
     >>> val_eer
-    0.25
-    >>> threshold
-    0.5500...
+    0.0
     """
 
     # Computing candidate thresholds
