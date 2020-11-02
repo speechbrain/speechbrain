@@ -133,7 +133,7 @@ class NewBobScheduler:
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
-    def load(self, path, end_of_epoch):
+    def load(self, path, end_of_epoch, device=None):
         del end_of_epoch  # Unused in this class
         data = torch.load(path)
         self.hyperparam_value = data["hyperparam_value"]
@@ -242,58 +242,187 @@ class StepScheduler:
         )
 
 
+@checkpoints.register_checkpoint_hooks
 class NoamScheduler:
-    """The is an implementation of the transformer's learning rate scheduler
-    with warmup. Reference: https://arxiv.org/abs/1706.03762
+    """The is an implementation of the transformer's learning rate scheduler with warmup.
+    Reference: https://arxiv.org/abs/1706.03762
+
+    Note: this schdualer aneals lr at each update of the model's weight, and n_steps must be saved for restarting
 
     Arguments
     ---------
-    max_value : float
-        Highest value for the hyperparameter.
+    lr_initial : float
+        Initial learning rate (i.e. the lr used at epoch 0).
     n_warmup_steps : int
         numer of warm up steps
 
     Example
     -------
-    >>> scheduler = NoamScheduler(max_value=1.0, n_warmup_steps=3)
-    >>> scheduler(current_epoch=1)
-    (0.1, 0.333...)
-    >>> scheduler(current_epoch=2)
-    (0.333..., 0.666...)
-    >>> scheduler(current_epoch=3)
-    (0.666..., 1.0)
-    >>> scheduler(current_epoch=4)
-    (1.0, 0.866...)
+    >>> from speechbrain.nnet.linear import Linear
+    >>> inp_tensor = torch.rand([1,660,3])
+    >>> model = Linear(input_size=3, n_neurons=4)
+    >>> optim = torch.optim.Adam(model.parameters(), lr=1)
+    >>> output = model(inp_tensor)
+    >>> scheduler =NoamScheduler(optim.param_groups[0]["lr"], 3)
+    >>> curr_lr,next_lr=scheduler(optim)
+    >>> optim.param_groups[0]["lr"]
+    0.33333333333333337
+    >>> curr_lr,next_lr=scheduler(optim)
+    >>> optim.param_groups[0]["lr"]
+    0.6666666666666667
+    >>> curr_lr,next_lr=scheduler(optim)
+    >>> optim.param_groups[0]["lr"]
+    1.0
     """
 
-    def __init__(self, max_value, n_warmup_steps, first_lr=0.1):
-        self.max_value = max_value
+    def __init__(self, lr_initial, n_warmup_steps, model_size=None):
+        self.lr_initial = lr_initial
         self.n_warmup_steps = n_warmup_steps
-        self.first_lr = first_lr
+        self.current_lr = lr_initial
+        self.losses = []
 
+        self.n_steps = 0
         self.normalize = 1 / (n_warmup_steps * n_warmup_steps ** -1.5)
+        if model_size is not None:
+            self.normalize = model_size ** (-0.5)
 
-    def __call__(self, current_epoch):
-        """Returns the current and next value for the hyperparameter.
-
+    def __call__(self, opt):
+        """
         Arguments
         ---------
+        opt : optimizer
+            The optimizer to update using this scheduler.
+        Returns
+        -------
+        float
+            The learning rate before the update.
+        float
+            The learning rate after the update.
+        """
+        self.n_steps += 1
+
+        current_lr = opt.param_groups[0]["lr"]
+
+        lr = self.lr_initial * self._get_lr_scale()
+
+        # Changing the learning rate within the optimizer
+        for param_group in opt.param_groups:
+            param_group["lr"] = lr
+
+        self.current_lr = current_lr
+        return current_lr, lr
+
+    def _get_lr_scale(self):
+        n_steps, n_warmup_steps = self.n_steps, self.n_warmup_steps
+        return self.normalize * min(
+            n_steps ** (-0.5), n_steps * n_warmup_steps ** (-1.5)
+        )
+
+    @checkpoints.mark_as_saver
+    def save(self, path):
+        data = {"losses": self.losses, "n_steps": self.n_steps}
+        torch.save(data, path)
+
+    @checkpoints.mark_as_loader
+    def load(self, path, end_of_epoch):
+        del end_of_epoch  # Unused in this class
+        data = torch.load(path)
+        self.losses = data["losses"]
+        self.n_steps = data["n_steps"]
+
+
+@checkpoints.register_checkpoint_hooks
+class CyclicCosineScheduler:
+    """The is an implementation of the Cyclic-Cosine learning rate scheduler with warmup.
+    Reference:  https://openreview.net/pdf?id=BJYwwY9ll
+
+    Note: this schdualer aneals lr at each update of the model's weight, and n_steps must be saved for restarting
+
+    Arguments
+    ---------
+    lr_initial : float
+        Initial learning rate (i.e. the lr used at epoch 0).
+    n_warmup_steps : int
+        numer of warm up steps
+    total_steps: int
+        total number of updating steps
+
+    Example
+    -------
+    >>> from speechbrain.nnet.linear import Linear
+    >>> inp_tensor = torch.rand([1,660,3])
+    >>> model = Linear(input_size=3, n_neurons=4)
+    >>> optim = torch.optim.Adam(model.parameters(), lr=1)
+    >>> output = model(inp_tensor)
+    >>> scheduler =CyclicCosineScheduler(3, optim.param_groups[0]["lr"])
+    >>> curr_lr,next_lr=scheduler(optim)
+    >>> optim.param_groups[0]["lr"]
+    0.9999999990130395
+    >>> curr_lr,next_lr=scheduler(optim)
+    >>> optim.param_groups[0]["lr"]
+    0.9999999997532598
+    >>> curr_lr,next_lr=scheduler(optim)
+    >>> optim.param_groups[0]["lr"]
+    1.0
+    """
+
+    def __init__(self, n_warmup_steps, lr_initial=None, total_steps=100000):
+        self.n_warmup_steps = n_warmup_steps
+        self.losses = []
+        self.initial_lr = lr_initial
+        self.current_lr = lr_initial
+        self.total = total_steps
+
+        self.n_steps = 0
+        self.normalize = 1 / (n_warmup_steps * n_warmup_steps ** -1.5)
+
+    def __call__(self, opt):
+        """
+        Arguments
+        ---------
+        opt : list of optimizers
+            The optimizers to update using this scheduler.
         current_epoch : int
             Number of times the dataset has been iterated.
+        current_loss : int
+            A number for determining whether to change the learning rate.
+        Returns
+        -------
+        float
+            The learning rate before the update.
+        float
+            The learning rate after the update.
         """
-        current_value = self._compute_value(current_epoch - 1)
-        next_value = self._compute_value(current_epoch)
-        return current_value, next_value
+        self.n_steps += 1
 
-    def _compute_value(self, current_epoch):
-        if current_epoch == 0:
-            return self.first_lr
+        if self.initial_lr is None:
+            current_lr = opt.param_groups[0]["lr"]
+        else:
+            current_lr = self.current_lr
 
-        return (
-            self.max_value
-            * self.normalize
-            * min(
-                current_epoch ** (-0.5),
-                current_epoch * self.n_warmup_steps ** (-1.5),
-            )
+        lr = current_lr * self._get_lr_scale()
+
+        # Changing the learning rate within the optimizer
+        for param_group in opt.param_groups:
+            param_group["lr"] = lr
+
+        self.current_lr = current_lr
+        return current_lr, lr
+
+    def _get_lr_scale(self):
+        n_steps, n_warmup_steps = self.n_steps, self.n_warmup_steps
+        return 0.5 * (
+            math.cos(math.pi * (n_steps - n_warmup_steps) / self.total) + 1
         )
+
+    @checkpoints.mark_as_saver
+    def save(self, path):
+        data = {"losses": self.losses, "n_steps": self.n_steps}
+        torch.save(data, path)
+
+    @checkpoints.mark_as_loader
+    def load(self, path, end_of_epoch):
+        del end_of_epoch  # Unused in this class
+        data = torch.load(path)
+        self.losses = data["losses"]
+        self.n_steps = data["n_steps"]

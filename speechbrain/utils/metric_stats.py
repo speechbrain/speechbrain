@@ -393,7 +393,7 @@ def eer_threshold(positive_scores, negative_scores):
     >>> postive_scores=torch.tensor([0.6, 0.7, 0.8, 0.5])
     >>> negative_scores=torch.tensor([0.6, 0.4, 0.3, 0.2])
     >>> eer_threshold(postive_scores, negative_scores)
-    tensor(0.5500)
+    0.5500...
     """
 
     # Computing candidate thresholds
@@ -424,4 +424,4 @@ def eer_threshold(positive_scores, negative_scores):
 
     # Finding the threshold for EER
     min_index = (FAR - FRR).abs().argmin()
-    return thresholds[min_index]
+    return float(thresholds[min_index])
