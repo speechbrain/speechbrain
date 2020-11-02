@@ -2,131 +2,120 @@
 import os
 import speechbrain as sb
 from speechbrain.decoders.transducer import transducer_greedy_decode
-from speechbrain.data_io.data_io import prepend_bos_token
-from speechbrain.decoders.decoders import undo_padding
-from speechbrain.utils.edit_distance import wer_details_for_batch
-from speechbrain.utils.train_logger import summarize_average
-from speechbrain.utils.train_logger import summarize_error_rate
 import pytest
 
-pytest.importorskip("numba")
-experiment_dir = os.path.dirname(os.path.realpath(__file__))
-params_file = os.path.join(experiment_dir, "params.yaml")
-data_folder = "../../../../samples/audio_samples/nn_training_samples"
-data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
-with open(params_file) as fin:
-    params = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
 
-
-class TransducerBrain(sb.core.Brain):
-    def compute_forward(self, x, y, stage="train", init_params=False):
+class TransducerBrain(sb.Brain):
+    def compute_forward(self, x, y, stage):
         id, wavs, lens = x
-        wavs, lens = wavs.to(params.device), lens.to(params.device)
-        feats = params.compute_features(wavs, init_params)
-        feats = params.mean_var_norm(feats, lens)
+        feats = self.hparams.compute_features(wavs)
+        feats = self.modules.mean_var_norm(feats, lens)
+        feats, lens = feats.to(self.device), lens.to(self.device)
         # Transcription network: input-output dependency
-        TN_output = params.encoder_crdnn(feats, init_params=init_params)
-        TN_output = params.encoder_lin(TN_output, init_params)
-        if stage == "train":
-            _, targets, _ = y
-            targets = targets.to(params.device)
-            # Prediction network: output-output dependency
-            decoder_input = prepend_bos_token(
-                targets, bos_index=params.blank_id
-            )
-            PN_output = params.decoder_embedding(
-                decoder_input, init_params=init_params
-            )
-            PN_output, _ = params.decoder_gru(
-                PN_output, init_params=init_params
-            )
-            PN_output = params.decoder_lin(PN_output, init_params=init_params)
-            # Joint the networks
-            joint = params.Tjoint(
-                TN_output.unsqueeze(2),
-                PN_output.unsqueeze(1),
-                init_params=init_params,
-            )
-            # projection layer
-            outputs = params.output(joint, init_params=init_params)
-            outputs = params.log_softmax(outputs)
+        TN_output = self.modules.enc(feats)
+        TN_output = self.modules.enc_lin(TN_output)
+        _, targets, _ = y
+        targets = targets.to(self.device)
+        # Prediction network: output-output dependency
+        decoder_input = sb.data_io.prepend_bos_token(
+            targets, bos_index=self.hparams.blank_id
+        )
+        PN_output = self.modules.emb(decoder_input)
+        PN_output, _ = self.modules.dec(PN_output)
+        PN_output = self.modules.dec_lin(PN_output)
+        # Joint the networks
+        joint = self.modules.Tjoint(
+            TN_output.unsqueeze(2), PN_output.unsqueeze(1),
+        )
+        # projection layer
+        outputs = self.modules.output(joint)
+        outputs = self.hparams.log_softmax(outputs)
+        if stage == sb.Stage.TRAIN:
             return outputs, lens
         else:
             hyps, scores = transducer_greedy_decode(
                 TN_output,
-                [
-                    params.decoder_embedding,
-                    params.decoder_gru,
-                    params.decoder_lin,
-                ],
-                params.Tjoint,
-                [params.output],
-                params.blank_id,
+                [self.modules.emb, self.modules.dec, self.modules.dec_lin],
+                self.modules.Tjoint,
+                [self.modules.output],
+                self.hparams.blank_id,
             )
-            return hyps, scores
+            return outputs, lens, hyps
 
-    def compute_objectives(self, predictions, targets, stage="train"):
+    def compute_objectives(self, predictions, targets, stage):
         ids, phns, phn_lens = targets
 
-        stats = {}
-        if stage != "train":
-            seq, loss = predictions
-            phns = undo_padding(phns, phn_lens)
-            stats["PER"] = wer_details_for_batch(ids, phns, seq)
-        else:
+        if stage == sb.Stage.TRAIN:
             predictions, lens = predictions
-            loss = params.compute_cost(
-                predictions,
-                phns.to(params.device).long(),
-                lens.to(params.device),
-                phn_lens.to(params.device),
-            )
-
-        return loss, stats
-
-    def on_epoch_end(self, epoch, train_stats, valid_stats):
-        print("Epoch %d complete" % epoch)
-        print("Train loss: %.2f" % summarize_average(train_stats["loss"]))
-        print("Valid loss: %.2f" % summarize_average(valid_stats["loss"]))
-        print("Valid PER: %.2f" % summarize_error_rate(valid_stats["PER"]))
+        else:
+            predictions, lens, seq = predictions
+            self.per_metrics.append(ids, seq, phns, target_len=phn_lens)
+        loss = self.hparams.compute_cost(
+            predictions,
+            phns.to(self.device).long(),
+            lens,
+            phn_lens.to(self.device),
+        )
+        return loss
 
     def fit_batch(self, batch):
         inputs, targets = batch
-        predictions = self.compute_forward(inputs, targets)
-        loss, stats = self.compute_objectives(predictions, targets)
+        preds = self.compute_forward(inputs, targets, sb.Stage.TRAIN)
+        loss = self.compute_objectives(preds, targets, sb.Stage.TRAIN)
         loss.backward()
         self.optimizer.step()
         self.optimizer.zero_grad()
-        stats["loss"] = loss.detach()
-        return stats
+        return loss.detach()
 
-    def evaluate_batch(self, batch, stage="test"):
+    def evaluate_batch(self, batch, stage=sb.Stage.TEST):
         inputs, targets = batch
-        out = self.compute_forward(inputs, None, stage=stage)
-        loss, stats = self.compute_objectives(out, targets, stage=stage)
-        stats["loss"] = loss.detach()
-        return stats
+        out = self.compute_forward(inputs, targets, stage)
+        loss = self.compute_objectives(out, targets, stage)
+        return loss.detach()
+
+    def on_stage_start(self, stage, epoch=None):
+        if stage != sb.Stage.TRAIN:
+            self.per_metrics = self.hparams.per_stats()
+
+    def on_stage_end(self, stage, stage_loss, epoch=None):
+        if stage == sb.Stage.TRAIN:
+            self.train_loss = stage_loss
+        if stage == sb.Stage.VALID and epoch is not None:
+            print("Epoch %d complete" % epoch)
+            print("Train loss: %.2f" % self.train_loss)
+        if stage != sb.Stage.TRAIN:
+            print(stage, "loss: %.2f" % stage_loss)
+            print(stage, "PER: %.2f" % self.per_metrics.summarize("error_rate"))
 
 
-train_set = params.train_loader()
-first_x, first_y = next(iter(train_set))
-transducer_brain = TransducerBrain(
-    modules=[
-        params.encoder_crdnn,
-        params.encoder_lin,
-        params.decoder_gru,
-        params.decoder_lin,
-        params.joint_lin,
-        params.output,
-    ],
-    optimizer=params.optimizer,
-    first_inputs=[first_x, first_y],
-)
-transducer_brain.fit(range(params.N_epochs), train_set, params.valid_loader())
-test_stats = transducer_brain.evaluate(params.test_loader())
-print("Test PER: %.2f" % summarize_error_rate(test_stats["PER"]))
+def main():
+    pytest.importorskip("numba")
+    experiment_dir = os.path.dirname(os.path.realpath(__file__))
+    hparams_file = os.path.join(experiment_dir, "hyperparams.yaml")
+    data_folder = "../../../../samples/audio_samples/nn_training_samples"
+    data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
+    with open(hparams_file) as fin:
+        hparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
+    transducer_brain = TransducerBrain(
+        modules=hparams["modules"],
+        opt_class=hparams["opt_class"],
+        hparams=hparams,
+        device=hparams["device"],
+    )
+    transducer_brain.fit(
+        range(hparams["N_epochs"]),
+        hparams["train_loader"](),
+        hparams["valid_loader"](),
+    )
+    transducer_brain.evaluate(hparams["test_loader"]())
+
+    # Integration test: check that the model overfits the training data
+    assert transducer_brain.train_loss <= 1.0
 
 
-# Integration test: check that the model overfits the training data
+if __name__ == "__main__":
+    main()
+
+
 def test_error():
-    assert transducer_brain.avg_train_loss <= 70.0
+    main()
