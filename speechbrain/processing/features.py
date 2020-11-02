@@ -1169,7 +1169,7 @@ class InputNormalization(torch.nn.Module):
         torch.save(stats, path)
 
     @mark_as_loader
-    def _load(self, path, end_of_epoch):
+    def _load(self, path, end_of_epoch, device=None):
         """Load statistic dictionary.
 
         Arguments
@@ -1180,5 +1180,5 @@ class InputNormalization(torch.nn.Module):
             If True, the training has completed a full epoch.
         """
         del end_of_epoch  # Unused here.
-        stats = torch.load(path)
+        stats = torch.load(path, map_location=device)
         self._load_statistics_dict(stats)

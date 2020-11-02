@@ -4,13 +4,16 @@ Authors
 * Jianyuan Zhong 2020
 """
 
-import math
 import torch  # noqa 42
 from torch import nn
 
+from speechbrain.nnet.linear import Linear
+from speechbrain.nnet.containers import ModuleList
 from speechbrain.lobes.models.transformer.Transformer import (
     TransformerInterface,
     get_lookahead_mask,
+    get_key_padding_mask,
+    NormalizedEmbedding,
 )
 
 
@@ -65,6 +68,7 @@ class TransformerASR(TransformerInterface):
         dropout=0.1,
         activation=nn.ReLU,
         positional_encoding=True,
+        normalize_before=False,
     ):
         super().__init__(
             d_model=d_model,
@@ -72,27 +76,30 @@ class TransformerASR(TransformerInterface):
             num_encoder_layers=num_encoder_layers,
             num_decoder_layers=num_decoder_layers,
             d_ffn=d_ffn,
-            input_size=input_size,
             dropout=dropout,
             activation=activation,
             positional_encoding=positional_encoding,
+            normalize_before=normalize_before,
         )
 
-        self.custom_src_module = torch.nn.Sequential(
-            torch.nn.Linear(input_size, d_model),
-            torch.nn.LayerNorm(d_model),
+        self.custom_src_module = ModuleList(
+            Linear(
+                input_size=input_size,
+                n_neurons=d_model,
+                bias=True,
+                combine_dims=False,
+            ),
             torch.nn.Dropout(dropout),
         )
-        self.custom_tgt_module = NormalizedEmbedding(d_model, tgt_vocab)
+        self.custom_tgt_module = ModuleList(
+            NormalizedEmbedding(d_model, tgt_vocab)
+        )
+
+        # reset parameters using xavier_normal_
+        self._init_params()
 
     def forward(
-        self,
-        src,
-        tgt,
-        src_mask=None,
-        tgt_mask=None,
-        src_key_padding_mask=None,
-        tgt_key_padding_mask=None,
+        self, src, tgt, pad_idx=0,
     ):
         """
         Arguements
@@ -101,20 +108,21 @@ class TransformerASR(TransformerInterface):
             the sequence to the encoder (required).
         tgt: tensor
             the sequence to the decoder (required).
-        src_mask: tensor
-            the additive mask for the src sequence (optional).
-        tgt_mask: tensor
-            the additive mask for the tgt sequence (optional).
-        src_key_padding_mask: tensor
-            the ByteTensor mask for src keys per batch (optional).
-        tgt_key_padding_mask: tensor
-            the ByteTensor mask for tgt keys per batch (optional).
-        memory_key_padding_mask: tensor
-            the ByteTensor mask for memory keys per batch (optional).
+        pad_idx: int
+            the index for <pad> token (default=0).
         """
+
+        # reshpae the src vector to [Batch, Time, Fea] is a 4d vector is given
         if src.dim() == 4:
             bz, t, ch1, ch2 = src.shape
             src = src.reshape(bz, t, ch1 * ch2)
+
+        (
+            src_key_padding_mask,
+            tgt_key_padding_mask,
+            src_mask,
+            tgt_mask,
+        ) = self.make_masks(src, tgt, pad_idx=pad_idx)
 
         src = self.custom_src_module(src)
         src = src + self.positional_encoding(src)
@@ -135,40 +143,42 @@ class TransformerASR(TransformerInterface):
 
         return encoder_out, decoder_out
 
+    def make_masks(self, src, tgt, pad_idx=0):
+        """This method generate the masks for training the transformer model
+
+        Arguements
+        ----------
+        src: tensor
+            the sequence to the encoder (required).
+        tgt: tensor
+            the sequence to the decoder (required).
+        pad_idx: int
+            the index for <pad> token (default=0).
+        """
+        src_key_padding_mask = None
+        tgt_key_padding_mask = get_key_padding_mask(tgt, pad_idx=pad_idx)
+
+        src_mask = None
+        tgt_mask = get_lookahead_mask(tgt)
+        return src_key_padding_mask, tgt_key_padding_mask, src_mask, tgt_mask
+
     def decode(self, tgt, encoder_out):
+        """This method implements a decoding step for the transformer model.
+
+        Arguements
+        ----------
+        tgt: tensor
+            the sequence to the decoder (required).
+        encoder_out: tensor
+            hidden output of the encoder (required).
+        """
         tgt_mask = get_lookahead_mask(tgt)
         tgt = self.custom_tgt_module(tgt)
         tgt = tgt + self.positional_encoding(tgt)
-        prediction = self.decoder(tgt, encoder_out, tgt_mask=tgt_mask)
+        prediction, _, _ = self.decoder(tgt, encoder_out, tgt_mask=tgt_mask)
         return prediction
 
-
-class NormalizedEmbedding(nn.Module):
-    """This class implements the normalized embedding layer for transformer.
-    Since the dot product of the self-attention is always normalized by
-    sqrt(d_model) and the final linear projection for prediction shares weight
-    with the embedding layer we multiply the output of the embedding by
-    sqrt(d_model)
-
-    Arguments
-    ---------
-    d_model: int
-        the number of expected features in the encoder/decoder inputs
-        (default=512).
-    vocab: int
-        the vocab size
-
-    Example
-    -------
-    >>> emb = NormalizedEmbedding(512, 1000)
-    >>> trg = torch.randint(0, 999, (8, 50))
-    >>> emb_fea = emb(trg)
-    """
-
-    def __init__(self, d_model, vocab):
-        super().__init__()
-        self.emb = torch.nn.Embedding(vocab, d_model)
-        self.d_model = d_model
-
-    def forward(self, x):
-        return self.emb(x) * math.sqrt(self.d_model)
+    def _init_params(self):
+        for p in self.parameters():
+            if p.dim() > 1:
+                torch.nn.init.xavier_normal_(p)

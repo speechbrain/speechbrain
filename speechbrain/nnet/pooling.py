@@ -317,7 +317,7 @@ class AdaptivePool(nn.Module):
             or isinstance(output_size, tuple)
             or isinstance(output_size, list)
         )
-        assert condition, "output size must be int or tuple"
+        assert condition, "output size must be int, list or tuple"
 
         if isinstance(output_size, tuple) or isinstance(output_size, list):
             assert (
