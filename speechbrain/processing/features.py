@@ -1181,5 +1181,5 @@ class InputNormalization(torch.nn.Module):
             If True, the training has completed a full epoch.
         """
         del end_of_epoch  # Unused here.
-        stats = torch.load(path)
+        stats = torch.load(path, map_location=device)
         self._load_statistics_dict(stats)
