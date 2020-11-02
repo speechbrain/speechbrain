@@ -104,31 +104,36 @@ class CRDNN(Sequential):
             self.append(Sequential, layer_name="CNN")
 
         for block_index in range(cnn_blocks):
-            self.CNN.append(
+            block_name = f"block_{block_index}"
+            self.CNN.append(Sequential, layer_name=block_name)
+            self.CNN[block_name].append(
                 Conv2d,
                 out_channels=cnn_channels[block_index],
                 kernel_size=cnn_kernelsize,
+                layer_name="conv_1",
             )
-            self.CNN.append(LayerNorm)
-            self.CNN.append(activation())
-            self.CNN.append(
+            self.CNN[block_name].append(LayerNorm, layer_name="norm_1")
+            self.CNN[block_name].append(activation(), layer_name="act_1")
+            self.CNN[block_name].append(
                 Conv2d,
                 out_channels=cnn_channels[block_index],
                 kernel_size=cnn_kernelsize,
+                layer_name="conv_2",
             )
-            self.CNN.append(LayerNorm)
-            self.CNN.append(activation())
+            self.CNN[block_name].append(LayerNorm, layer_name="norm_2")
+            self.CNN[block_name].append(activation(), layer_name="act_2")
 
             if not using_2d_pooling:
-                self.CNN.append(
+                self.CNN[block_name].append(
                     Pooling1d(
                         pool_type="max",
                         kernel_size=inter_layer_pooling_size[block_index],
                         pool_axis=2,
-                    )
+                    ),
+                    layer_name="pooling",
                 )
             else:
-                self.CNN.append(
+                self.CNN[block_name].append(
                     Pooling2d(
                         pool_type="max",
                         kernel_size=(
@@ -136,10 +141,13 @@ class CRDNN(Sequential):
                             inter_layer_pooling_size[block_index],
                         ),
                         pool_axis=(1, 2),
-                    )
+                    ),
+                    layer_name="pooling",
                 )
 
-            self.CNN.append(Dropout2d(drop_rate=dropout))
+            self.CNN[block_name].append(
+                Dropout2d(drop_rate=dropout), layer_name="dropout"
+            )
 
         if time_pooling:
             self.append(
@@ -157,10 +165,14 @@ class CRDNN(Sequential):
         if projection_dim != -1:
             self.append(Sequential, layer_name="projection")
             self.projection.append(
-                Linear, n_neurons=projection_dim, bias=True, combine_dims=True,
+                Linear,
+                n_neurons=projection_dim,
+                bias=True,
+                combine_dims=True,
+                layer_name="linear",
             )
-            self.projection.append(LayerNorm)
-            self.projection.append(activation())
+            self.projection.append(LayerNorm, layer_name="norm")
+            self.projection.append(activation(), layer_name="act")
 
         if rnn_layers > 0:
             self.append(
@@ -173,9 +185,17 @@ class CRDNN(Sequential):
                 re_init=rnn_re_init,
             )
 
-        for block_index in range(dnn_blocks):
+        if dnn_blocks > 0:
             self.append(Sequential, layer_name="DNN")
-            self.DNN.append(Linear, n_neurons=dnn_neurons, bias=True)
-            self.DNN.append(BatchNorm1d)
-            self.DNN.append(activation())
-            self.DNN.append(torch.nn.Dropout(p=dropout))
+
+        for block_index in range(dnn_blocks):
+            block_name = f"block_{block_index}"
+            self.DNN.append(Sequential, layer_name=block_name)
+            self.DNN[block_name].append(
+                Linear, n_neurons=dnn_neurons, bias=True, layer_name="linear"
+            )
+            self.DNN[block_name].append(BatchNorm1d, layer_name="norm")
+            self.DNN[block_name].append(activation(), layer_name="act")
+            self.DNN[block_name].append(
+                torch.nn.Dropout(p=dropout), layer_name="dropout"
+            )
