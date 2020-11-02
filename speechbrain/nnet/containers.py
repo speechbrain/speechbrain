@@ -14,7 +14,7 @@ from speechbrain.nnet.linear import Linear
 logger = logging.getLogger(__name__)
 
 
-class Sequential(torch.nn.Module):
+class Sequential(torch.nn.ModuleDict):
     """A sequence of modules with potentially inferring shape on construction.
 
     If layers are passed with names
@@ -86,10 +86,10 @@ class Sequential(torch.nn.Module):
 
         # Compute layer_name
         if layer_name is None:
-            layer_name = str(len(self._modules))
-        elif layer_name in self._modules:
+            layer_name = str(len(self))
+        elif layer_name in self:
             index = 0
-            while f"{layer_name}_{index}" in self._modules:
+            while f"{layer_name}_{index}" in self:
                 index += 1
             layer_name = f"{layer_name}_{index}"
 
@@ -115,7 +115,7 @@ class Sequential(torch.nn.Module):
         x : tensor
             the input tensor to run through the network.
         """
-        for layer in self._modules.values():
+        for layer in self.values():
             x = layer(x)
             if isinstance(x, tuple):
                 x = x[0]
