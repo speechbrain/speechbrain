@@ -418,10 +418,10 @@ def transducer_beam_search_decode(
     nbest_batch_score = []
     for i_batch in range(tn_output.size(0)):
         # if we use RNN LM keep there hiddens
-        # prepare BOS= Blank for the Prediction Network (PN)
+        # prepare BOS = Blank for the Prediction Network (PN)
         # Prepare Blank prediction
         input_PN = (
-            torch.ones((1, 1), device=tn_output.device, dtype=torch.int64)
+            torch.ones((1, 1), device=tn_output.device, dtype=torch.int32)
             * blank_id
         )
         # First forward-pass on PN
@@ -448,7 +448,7 @@ def transducer_beam_search_decode(
                 # pondéré la proba
                 a_best_hyp = max(process_hyps, key=lambda x: x["logp_score"])
 
-                # (Brian) break if best_hyp in A is worse by more than state_beam than best_hyp in B
+                # Break if best_hyp in A is worse by more than state_beam than best_hyp in B
                 if len(beam_hyps) > 0:
                     b_best_hyp = max(beam_hyps, key=lambda x: x["logp_score"])
                     a_best_prob = a_best_hyp["logp_score"]
@@ -459,6 +459,7 @@ def transducer_beam_search_decode(
                 # remove best hyp from process_hyps
                 process_hyps.remove(a_best_hyp)
                 out_PN = a_best_hyp["out_PN"]
+
                 # Join predictions (TN & PN)
                 # tjoint must be have a 4 dim [B,T,U,Hidden]
                 # so do unsqueeze over
@@ -473,16 +474,15 @@ def transducer_beam_search_decode(
                 # forward the output layers + activation + save logits
                 out = _forward_after_joint(out, classifier_network)
                 out = out.log_softmax(dim=-1)
-                # print(out.shape, input_PN.shape, out_PN.shape, tn_output.shape)
+
                 if lm_module:
                     # from 4 dims to 3 dims
                     # to match with LM output
-                    out.squeeze_(1)
                     logits, hidden_lm = lm_module(
                         input_PN, hx=a_best_hyp["hidden_lm"]
                     )
                     log_probs_lm = logits.log_softmax(dim=-1)
-                    out = out + lm_weight * log_probs_lm
+
                 # Sort outputs at time
                 logp_targets, positions = torch.topk(
                     out.log_softmax(dim=-1).view(-1), k=beam, dim=-1
@@ -506,6 +506,7 @@ def transducer_beam_search_decode(
                             topk_hyp.update({"hidden_lm": hidden_lm})
                         beam_hyps.append(topk_hyp)
                         continue
+
                     if logp_targets[j] >= best_logp - expand_beam:
                         input_PN[0, 0] = positions[j]
                         out_PN, hidden = _forward_PN(
@@ -523,6 +524,9 @@ def transducer_beam_search_decode(
                         }
                         if lm_module:
                             topk_hyp.update({"hidden_lm": hidden_lm})
+                            topk_hyp["logp_score"] += (
+                                lm_weight * log_probs_lm[0, 0, positions[j]]
+                            )
                         process_hyps.append(topk_hyp)
         # Add norm score
         nbest_hyps = sorted(
