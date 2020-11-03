@@ -89,12 +89,18 @@ class ContextNet(Sequential):
         if residuals is None:
             residuals = [True] * num_blocks
 
-        self.append(DepthwiseSeparableConv1d, conv_channels[0], kernel_size)
-        self.append(norm)
+        self.append(
+            DepthwiseSeparableConv1d,
+            conv_channels[0],
+            kernel_size,
+            layer_name="conv_start",
+        )
+        self.append(norm, layer_name="norm_start")
+
         if isinstance(activation, Swish):
-            self.append(activation(beta))
+            self.append(activation(beta), layer_name="act_start")
         else:
-            self.append(activation())
+            self.append(activation(), layer_name="act_start")
 
         for i in range(num_blocks):
             channels = int(conv_channels[i] * alpha)
@@ -111,14 +117,20 @@ class ContextNet(Sequential):
                 se_activation=se_activation,
                 norm=norm,
                 residual=residuals[i],
+                layer_name=f"block_{i}",
             )
 
-        self.append(DepthwiseSeparableConv1d, out_channels, kernel_size)
-        self.append(norm)
+        self.append(
+            DepthwiseSeparableConv1d,
+            out_channels,
+            kernel_size,
+            layer_name="conv_end",
+        )
+        self.append(norm, layer_name="norm_end")
         if isinstance(activation, Swish):
-            self.append(activation(beta))
+            self.append(activation(beta), layer_name="act_end")
         else:
-            self.append(activation())
+            self.append(activation(), layer_name="act_end")
 
 
 class SEmodule(torch.nn.Module):

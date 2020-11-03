@@ -73,6 +73,7 @@ class ConvolutionFrontEnd(Sequential):
                 activation=activation,
                 norm=norm,
                 dropout=dropout,
+                layer_name=f"convblock_{i}",
             )
 
 
@@ -130,10 +131,13 @@ class ConvBlock(torch.nn.Module):
                 kernel_size=kernel_size,
                 stride=stride if i == num_layers - 1 else 1,
                 dilation=dilation,
+                layer_name=f"conv_{i}",
             )
-            self.convs.append(norm)
-            self.convs.append(activation())
-            self.convs.append(torch.nn.Dropout(dropout))
+            self.convs.append(norm, layer_name=f"norm_{i}")
+            self.convs.append(activation(), layer_name=f"act_{i}")
+            self.convs.append(
+                torch.nn.Dropout(dropout), layer_name=f"dropout_{i}"
+            )
 
         self.reduce_conv = None
         self.drop = None
@@ -144,8 +148,9 @@ class ConvBlock(torch.nn.Module):
                 out_channels=out_channels,
                 kernel_size=1,
                 stride=stride,
+                layer_name="conv",
             )
-            self.reduce_conv.append(norm)
+            self.reduce_conv.append(norm, layer_name="norm")
             self.drop = torch.nn.Dropout(dropout)
 
     def forward(self, x):

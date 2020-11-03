@@ -164,6 +164,7 @@ class TemporalBlocksSequential(sb.nnet.Sequential):
                     dilation=dilation,
                     norm_type=norm_type,
                     causal=causal,
+                    layer_name=f"temporalblock_{r}_{x}",
                 )
 
 
@@ -325,10 +326,16 @@ class TemporalBlock(torch.nn.Module):
 
         # [M, K, B] -> [M, K, H]
         self.layers.append(
-            sb.nnet.Conv1d, out_channels=out_channels, kernel_size=1, bias=False
+            sb.nnet.Conv1d,
+            out_channels=out_channels,
+            kernel_size=1,
+            bias=False,
+            layer_name="conv",
         )
-        self.layers.append(nn.PReLU())
-        self.layers.append(choose_norm(norm_type, out_channels))
+        self.layers.append(nn.PReLU(), layer_name="act")
+        self.layers.append(
+            choose_norm(norm_type, out_channels), layer_name="norm"
+        )
 
         # [M, K, H] -> [M, K, B]
         self.layers.append(
@@ -340,6 +347,7 @@ class TemporalBlock(torch.nn.Module):
             dilation=dilation,
             norm_type=norm_type,
             causal=causal,
+            layer_name="DSconv",
         )
 
     def forward(self, x):
@@ -418,17 +426,22 @@ class DepthwiseSeparableConv(sb.nnet.Sequential):
             dilation=dilation,
             groups=in_channels,
             bias=False,
+            layer_name="conv_0",
         )
 
         if causal:
-            self.append(Chomp1d(padding))
+            self.append(Chomp1d(padding), layer_name="chomp")
 
-        self.append(nn.PReLU())
-        self.append(choose_norm(norm_type, in_channels))
+        self.append(nn.PReLU(), layer_name="act")
+        self.append(choose_norm(norm_type, in_channels), layer_name="act")
 
         # [M, K, H] -> [M, K, B]
         self.append(
-            sb.nnet.Conv1d, out_channels=out_channels, kernel_size=1, bias=False
+            sb.nnet.Conv1d,
+            out_channels=out_channels,
+            kernel_size=1,
+            bias=False,
+            layer_name="conv_1",
         )
 
 

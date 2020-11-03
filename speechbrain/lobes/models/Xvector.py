@@ -51,22 +51,30 @@ class Xvector(sb.nnet.Sequential):
     ):
         super().__init__(input_shape=input_shape)
 
+        if tdnn_blocks > 0:
+            self.append(sb.nnet.Sequential, layer_name="TDNN")
+
         # TDNN layers
         for block_index in range(tdnn_blocks):
-            self.append(
+            block_name = f"block_{block_index}"
+            self.TDNN.append(sb.nnet.Sequential, layer_name=block_name)
+            self.TDNN[block_name].append(
                 sb.nnet.Conv1d,
                 out_channels=tdnn_channels[block_index],
                 kernel_size=tdnn_kernel_sizes[block_index],
                 dilation=tdnn_dilations[block_index],
+                layer_name="conv",
             )
-            self.append(activation())
-            self.append(sb.nnet.BatchNorm1d)
+            self.TDNN[block_name].append(activation(), layer_name="act")
+            self.TDNN[block_name].append(sb.nnet.BatchNorm1d, layer_name="norm")
 
         # Statistical pooling
-        self.append(sb.nnet.StatisticsPooling())
+        self.append(sb.nnet.StatisticsPooling(), layer_name="stats_pool")
 
         # Final linear transformation
-        self.append(sb.nnet.Linear, n_neurons=lin_neurons, bias=True)
+        self.append(
+            sb.nnet.Linear, n_neurons=lin_neurons, bias=True, layer_name="out"
+        )
 
 
 class Classifier(sb.nnet.Sequential):
@@ -106,20 +114,32 @@ class Classifier(sb.nnet.Sequential):
     ):
         super().__init__(input_shape=input_shape)
 
-        self.append(activation())
-        self.append(sb.nnet.BatchNorm1d)
+        self.append(activation(), layer_name="act")
+        self.append(sb.nnet.BatchNorm1d, layer_name="norm")
+
+        if lin_blocks > 0:
+            self.append(sb.nnet.Sequential, layer_name="DNN")
 
         for block_index in range(lin_blocks):
-            self.append(sb.nnet.Linear, n_neurons=lin_neurons, bias=True)
-            self.append(activation())
-            self.append(sb.nnet.BatchNorm1d)
+            block_name = f"block_{block_index}"
+            self.DNN.append(sb.nnet.Sequential, layer_name=block_name)
+            self.DNN[block_name].append(
+                sb.nnet.Linear,
+                n_neurons=lin_neurons,
+                bias=True,
+                layer_name="linear",
+            )
+            self.DNN[block_name].append(activation(), layer_name="act")
+            self.DNN[block_name].append(sb.nnet.BatchNorm1d, layer_name="norm")
 
         # Final Softmax classifier
-        self.append(sb.nnet.Linear, n_neurons=out_neurons, bias=True)
-        self.append(sb.nnet.Softmax(apply_log=True))
+        self.append(
+            sb.nnet.Linear, n_neurons=out_neurons, bias=True, layer_name="out"
+        )
+        self.append(sb.nnet.Softmax(apply_log=True), layer_name="softmax")
 
 
-class Discriminator(torch.nn.Module):
+class Discriminator(sb.nnet.Sequential):
     """This class implements a discriminator on the top of xvector features.
 
     Arguments
@@ -152,18 +172,23 @@ class Discriminator(torch.nn.Module):
         lin_neurons=512,
         out_neurons=1,
     ):
-
         super().__init__(input_shape=input_shape)
 
+        if lin_blocks > 0:
+            self.append(sb.nnet.Sequential, layer_name="DNN")
+
         for block_index in range(lin_blocks):
-            self.append(
+            block_name = f"block_{block_index}"
+            self.DNN.append(sb.nnet.Sequential, layer_name=block_name)
+            self.DNN[block_name].append(
                 sb.nnet.Linear,
                 n_neurons=lin_neurons,
                 bias=True,
                 combine_dims=False,
+                layer_name="linear",
             )
-            self.append(sb.nnet.BatchNorm1d)
-            self.append(activation())
+            self.DNN[block_name].append(sb.nnet.BatchNorm1d, layer_name="norm")
+            self.DNN[block_name].append(activation(), layer_name="act")
 
         # Final Layer (sigmoid not included)
-        self.append(sb.nnet.Linear, n_neurons=out_neurons)
+        self.append(sb.nnet.Linear, n_neurons=out_neurons, layer_name="out")

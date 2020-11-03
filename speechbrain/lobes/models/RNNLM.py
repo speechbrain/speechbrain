@@ -84,10 +84,12 @@ class RNNLM(nn.Module):
 
         self.dnn = Sequential(input_shape=[8, 10, rnn_neurons])
         for block_index in range(dnn_blocks):
-            self.dnn.append(Linear, n_neurons=dnn_neurons, bias=True)
-            self.dnn.append(LayerNorm)
-            self.dnn.append(activation())
-            self.dnn.append(torch.nn.Dropout(p=dropout))
+            self.dnn.append(
+                Linear, n_neurons=dnn_neurons, bias=True, layer_name="linear"
+            )
+            self.dnn.append(LayerNorm, layer_name="norm")
+            self.dnn.append(activation(), layer_name="act")
+            self.dnn.append(torch.nn.Dropout(p=dropout), layer_name="dropout")
 
         self.out = Linear(input_size=dnn_neurons, n_neurons=output_neurons)
 
