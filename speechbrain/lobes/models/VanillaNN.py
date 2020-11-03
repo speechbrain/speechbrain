@@ -38,5 +38,10 @@ class VanillaNN(sb.nnet.Sequential):
         super().__init__(input_shape=input_shape)
 
         for block_index in range(dnn_blocks):
-            self.append(sb.nnet.Linear, n_neurons=dnn_neurons, bias=True)
-            self.append(activation())
+            self.append(
+                sb.nnet.Linear,
+                n_neurons=dnn_neurons,
+                bias=True,
+                layer_name="linear",
+            )
+            self.append(activation(), layer_name="act")
