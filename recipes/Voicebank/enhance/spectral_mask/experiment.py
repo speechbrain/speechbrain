@@ -188,6 +188,7 @@ if __name__ == "__main__":
     )
 
     se_brain = SEBrain(
+        modules=hparams["modules"],
         hparams=hparams["hparams"],
         opt_class=hparams["opt_class"],
         checkpointer=hparams["checkpointer"],

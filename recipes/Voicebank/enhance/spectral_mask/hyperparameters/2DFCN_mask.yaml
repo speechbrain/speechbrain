@@ -113,7 +113,7 @@ BN6: !new:speechbrain.nnet.BatchNorm2d
 BN7: !new:speechbrain.nnet.BatchNorm2d
     input_size: !ref <base_channels>
 
-model: !new:speechbrain.nnet.Sequential
+model: !new:speechbrain.nnet.containers.Sequential
     - [null, null, !ref <N_fft> // 2 + 1]
     - !ref <conv1>
     - !ref <BN1>
@@ -138,6 +138,9 @@ model: !new:speechbrain.nnet.Sequential
     - !ref <activation>
     - !ref <conv8>
     - !ref <activation_sigmoid>
+
+modules:
+    model: !ref <model>
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
