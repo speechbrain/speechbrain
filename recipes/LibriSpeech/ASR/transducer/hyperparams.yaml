@@ -67,9 +67,9 @@ rnn_layers: 4
 rnn_neurons: 1024
 rnn_bidirectional: True
 dnn_blocks: 2
-dnn_neurons: 512
+dnn_neurons: 1024
 emb_size: 128
-dec_neurons: 512
+dec_neurons: 1024
 output_neurons: 1000  # index(blank/eos/bos) = 0
 joint_dim: 128
 blank_index: 0
@@ -168,8 +168,6 @@ enc: !new:speechbrain.lobes.CRDNN
 #    blank_index: !ref <blank_index>
 
 emb: !new:speechbrain.nnet.Embedding
-    # num_embeddings: !ref <output_neurons>
-    # embedding_dim: !ref <emb_size>
     num_embeddings: !ref <output_neurons>
     consider_as_one_hot: True
     blank_id: !ref <blank_index>
