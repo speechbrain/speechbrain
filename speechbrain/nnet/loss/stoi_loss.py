@@ -117,7 +117,8 @@ def stoi_loss(y_pred_batch, y_true_batch, lens, reduction="mean"):
     -------
     >>> a = torch.sin(torch.arange(16000, dtype=torch.float32)).unsqueeze(0)
     >>> b = a + 0.001
-    >>> c = -stoi_loss(b, a, torch.ones(1))
+    >>> -stoi_loss(b, a, torch.ones(1))
+    tensor(0.7...)
     """
 
     y_pred_batch = torch.squeeze(y_pred_batch, dim=-1)
