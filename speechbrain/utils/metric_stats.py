@@ -351,10 +351,10 @@ class BinaryMetricStats(MetricStats):
         pred = (self.scores >= threshold).float()
         true = self.labels
 
-        TP = self.summary["TP"] = pred.mul(true).sum()
-        TN = self.summary["TN"] = (1.0 - pred).mul(1.0 - true).sum()
-        FP = self.summary["FP"] = pred.mul(1.0 - true).sum()
-        FN = self.summary["FN"] = (1.0 - pred).mul(true).sum()
+        TP = self.summary["TP"] = float(pred.mul(true).sum())
+        TN = self.summary["TN"] = float((1.0 - pred).mul(1.0 - true).sum())
+        FP = self.summary["FP"] = float(pred.mul(1.0 - true).sum())
+        FN = self.summary["FN"] = float((1.0 - pred).mul(true).sum())
 
         self.summary["FAR"] = FP / (TP + TN + eps)
         self.summary["FRR"] = FN / (TP + TN + eps)
@@ -370,7 +370,7 @@ class BinaryMetricStats(MetricStats):
 
         self.summary["MCC"] = (TP * TN - FP * FN) / (
             (TP + FP) * (TP + FN) * (TN + FP) * (TN + FN) + eps
-        ).sqrt()
+        ) ** 0.5
 
         if field is not None:
             return self.summary[field]

@@ -27,7 +27,7 @@ progressbar: True
 loss_fn: 'sisnr'
 train_onthefly: False
 
-train_loader: !new:speechbrain.data_io.DataLoaderFactory
+train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_tr>
     batch_size: !ref <N_batch>
     sentence_sorting: random
@@ -35,7 +35,7 @@ train_loader: !new:speechbrain.data_io.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
-val_loader: !new:speechbrain.data_io.DataLoaderFactory
+val_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_cv>
     batch_size: !ref <N_batch>
     sentence_sorting: random
@@ -43,7 +43,7 @@ val_loader: !new:speechbrain.data_io.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
-test_loader: !new:speechbrain.data_io.DataLoaderFactory
+test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_tt>
     batch_size: !ref <N_batch>
     sentence_sorting: random
