@@ -79,7 +79,7 @@ def create_experiment_directory(
     # Log exceptions to output automatically
     log_file = os.path.join(experiment_directory, "log.txt")
     logger_overrides = {"handlers": {"file_handler": {"filename": log_file}}}
-    sb.setup_logging(log_config, logger_overrides)
+    sb.utils.logger.setup_logging(log_config, logger_overrides)
     sys.excepthook = _logging_excepthook
 
     # Log beginning of experiment!
@@ -90,7 +90,7 @@ def create_experiment_directory(
 
     # Save system description:
     if save_env_desc:
-        description_str = sb.get_environment_description()
+        description_str = sb.utils.logger.get_environment_description()
         with open(os.path.join(experiment_directory, "env.log"), "w") as fo:
             fo.write(description_str)
 
@@ -190,7 +190,7 @@ def parse_arguments(arg_list):
     # Convert to string and append to overrides
     ruamel_yaml = ruamel.yaml.YAML()
     overrides = ruamel_yaml.load(yaml_overrides) or {}
-    sb.recursive_update(overrides, items)
+    sb.utils.data_utils.recursive_update(overrides, items)
     yaml_stream = StringIO()
     ruamel_yaml.dump(overrides, yaml_stream)
 
@@ -260,6 +260,10 @@ class Brain:
         one of {"ddp_nccl", "ddp_gloo", "ddp_mpi", "data_parallel"}
     auto_mix_prec: bool
         If True, automatic mixed-precision is used. Activate it only with cuda.
+    gradient_clipping : float
+        Default implementation of ``fit_batch()`` uses ``clip_grad_norm_``
+    nonfinite_patience : int
+        Number of times to ignore non-finite losses before stopping.
 
     Example
     -------
@@ -288,6 +292,9 @@ class Brain:
             "multigpu_backend": None,
             "jit_module_keys": None,
             "auto_mix_prec": False,
+            "max_grad_norm": 5.0,
+            "nonfinite_patience": 3,
+            "progressbar": True,
         }
         for arg, default in brain_arg_defaults.items():
             if hparams is not None and arg in hparams:
@@ -312,7 +319,7 @@ class Brain:
         )
         if total_params > 0:
             clsname = self.__class__.__name__
-            fmt_num = sb.format_order_of_magnitude(total_params)
+            fmt_num = sb.utils.logger.format_order_of_magnitude(total_params)
             logger.info(f"{fmt_num} trainable parameters in {clsname}")
 
         # Initialize ddp environment
@@ -493,17 +500,63 @@ class Brain:
                 outputs = self.compute_forward(inputs, Stage.TRAIN)
                 loss = self.compute_objectives(outputs, labels, Stage.TRAIN)
                 self.scaler.scale(loss).backward()
-                self.scaler.step(self.optimizer)
+                if self.check_gradients(loss):
+                    self.scaler.step(self.optimizer)
                 self.optimizer.zero_grad()
                 self.scaler.update()
         else:
             outputs = self.compute_forward(inputs, Stage.TRAIN)
             loss = self.compute_objectives(outputs, labels, Stage.TRAIN)
             loss.backward()
-            self.optimizer.step()
+            if self.check_gradients(loss):
+                self.optimizer.step()
             self.optimizer.zero_grad()
 
         return loss.detach().cpu()
+
+    def check_gradients(self, loss):
+        """Check if gradients are finite and not too large.
+
+        Automatically clips large gradients.
+
+        Arguments
+        ---------
+        loss : tensor
+            The loss tensor after ``backward()`` has been called but
+            before the optimizers ``step()``.
+
+        Returns
+        -------
+        bool
+            Whether or not the optimizer step should be carried out.
+        """
+        if not torch.isfinite(loss):
+            self.nonfinite_count += 1
+
+            # Print helpful debug info
+            logger.warn(f"Loss is {loss}.")
+            for p in self.modules.parameters():
+                if not torch.isfinite(p).all():
+                    logger.warn("Parameter is not finite: " + str(p))
+
+            # Check if patience is exhausted
+            if self.nonfinite_count > self.nonfinite_patience:
+                raise ValueError(
+                    "Loss is not finite and patience is exhausted. "
+                    "To debug, wrap `fit()` with "
+                    "autograd's `detect_anomaly()`, e.g.\n\nwith "
+                    "torch.autograd.detect_anomaly():\n\tbrain.fit(...)"
+                )
+            else:
+                logger.warn("Patience not yet exhausted, ignoring this batch.")
+                return False
+
+        # Clip gradient norm
+        torch.nn.utils.clip_grad_norm_(
+            (p for p in self.modules.parameters()), self.max_grad_norm
+        )
+
+        return True
 
     def evaluate_batch(self, batch, stage):
         """Evaluate one batch, override for different procedure than train.
@@ -532,7 +585,7 @@ class Brain:
         return loss.detach().cpu()
 
     def fit(
-        self, epoch_counter, train_set, valid_set=None, progressbar=True,
+        self, epoch_counter, train_set, valid_set=None, progressbar=None,
     ):
         """Iterate epochs and datasets to improve objective.
 
@@ -562,6 +615,9 @@ class Brain:
         """
         self.on_fit_start()
 
+        if progressbar is None:
+            progressbar = self.progressbar
+
         # Use factories to get loaders
         self.train_sampler = None
         if isinstance(train_set, DataLoaderFactory):
@@ -583,6 +639,9 @@ class Brain:
             self.on_stage_start(Stage.TRAIN, epoch)
             self.modules.train()
             avg_train_loss = 0.0
+
+            # Reset nonfinite count to 0 each epoch
+            self.nonfinite_count = 0
 
             if self.train_sampler is not None:
                 self.train_sampler.set_epoch(epoch)
@@ -637,7 +696,7 @@ class Brain:
                     module = DDP(module, device_ids=[self.device])
             self.modules[name] = module
 
-    def evaluate(self, test_set, max_key=None, min_key=None, progressbar=True):
+    def evaluate(self, test_set, max_key=None, min_key=None, progressbar=None):
         """Iterate test_set and evaluate brain performance. By default, loads
         the best-performing checkpoint (as recorded using the checkpointer).
 
@@ -656,6 +715,9 @@ class Brain:
         -------
         average test loss
         """
+        if progressbar is None:
+            progressbar = self.progressbar
+
         # Get test loader from factory
         if isinstance(test_set, DataLoaderFactory):
             test_set = test_set.get_dataloader()
@@ -688,14 +750,7 @@ class Brain:
         float
             The average loss
         """
-        if not torch.isfinite(loss):
-            raise ValueError(
-                "Loss is not finite. To debug, wrap `fit()` with autograd's "
-                "`detect_anomaly()`, e.g.\n\nwith "
-                "torch.autograd.detect_anomaly():\n\tbrain.fit(...)"
-            )
-
-        # Compute moving average
-        avg_loss -= avg_loss / (self.step + 1)
-        avg_loss += float(loss) / (self.step + 1)
+        if torch.isfinite(loss):
+            avg_loss -= avg_loss / (self.step + 1)
+            avg_loss += float(loss) / (self.step + 1)
         return avg_loss
