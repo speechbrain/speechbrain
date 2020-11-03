@@ -47,11 +47,11 @@ class CTCPrefixScoreTH(object):
         )
         # Pad the rest of posteriors in the batch
         # TODO(takaaki-hori): need a better way without for-loops
-        # for i, l in enumerate(xlens):
-        #     if l < self.input_length:
-        #         x[i, l:, :] = self.logzero
-        #         x[i, l:, blank] = 0
-        x[:, :, blank] = 0
+        for i, l in enumerate(xlens):
+            if l < self.input_length:
+                x[i, l:, :] = self.logzero
+                x[i, l:, blank] = 0
+
         # Reshape input x
         xn = x.transpose(0, 1)  # (B, T, O) -> (T, B, O)
         xb = xn[:, :, self.blank].unsqueeze(2).expand(-1, -1, self.odim)
