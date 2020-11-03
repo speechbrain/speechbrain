@@ -206,7 +206,7 @@ class DataLoaderFactory(torch.nn.Module):
             self.dataset,
             batch_size=self.batch_size,
             shuffle=self.shuffle if sampler is None else False,
-            pin_memory=(sampler is not None),
+            pin_memory=False,
             drop_last=self.drop_last,
             num_workers=self.num_workers,
             collate_fn=self.batch_creation,
