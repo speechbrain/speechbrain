@@ -284,7 +284,6 @@ class Brain:
         self.opt_class = opt_class
         self.checkpointer = checkpointer
         self.root_process = True
-        self.nonfinite_count = 0
 
         # Arguments passed via the hparams dictionary
         brain_arg_defaults = {
@@ -533,6 +532,14 @@ class Brain:
         """
         if not torch.isfinite(loss):
             self.nonfinite_count += 1
+
+            # Print helpful debug info
+            logger.warn(f"Loss is {loss}.")
+            for p in self.modules.parameters():
+                if not torch.isfinite(p).all():
+                    logger.warn("Parameter is not finite: " + str(p))
+
+            # Check if patience is exhausted
             if self.nonfinite_count > self.nonfinite_patience:
                 raise ValueError(
                     "Loss is not finite and patience is exhausted. "
@@ -541,7 +548,7 @@ class Brain:
                     "torch.autograd.detect_anomaly():\n\tbrain.fit(...)"
                 )
             else:
-                logger.warn("Loss is not finite. Ignoring this batch.")
+                logger.warn("Patience not yet exhausted, ignoring this batch.")
                 return False
 
         # Clip gradient norm
@@ -632,6 +639,9 @@ class Brain:
             self.on_stage_start(Stage.TRAIN, epoch)
             self.modules.train()
             avg_train_loss = 0.0
+
+            # Reset nonfinite count to 0 each epoch
+            self.nonfinite_count = 0
 
             if self.train_sampler is not None:
                 self.train_sampler.set_epoch(epoch)
@@ -740,6 +750,7 @@ class Brain:
         float
             The average loss
         """
-        avg_loss -= avg_loss / (self.step + 1)
-        avg_loss += float(loss) / (self.step + 1)
+        if torch.isfinite(loss):
+            avg_loss -= avg_loss / (self.step + 1)
+            avg_loss += float(loss) / (self.step + 1)
         return avg_loss
