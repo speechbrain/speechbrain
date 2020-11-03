@@ -17,6 +17,8 @@ import operator as op
 from io import StringIO
 from speechbrain.utils.data_utils import recursive_update
 
+REFATTR = "!refattr"
+
 
 # NOTE: Empty dict as default parameter is fine here since overrides are never
 # modified
@@ -92,7 +94,7 @@ def load_extended_yaml(
     .. code-block:: yaml
 
         key1: {a: !new:object {arg1: 1}}
-        key2: !ref <key1.a>
+        key2: !ref <key1[a]>
 
     Here, ``key2`` will contain a reference to the ``a`` object, so changing
     ``a.arg1`` will also change ``key2.arg1``. If you need a
@@ -160,8 +162,13 @@ def load_extended_yaml(
     yaml.Loader.add_multi_constructor("!new:", _construct_object)
     yaml.Loader.add_multi_constructor("!name:", _construct_name)
     yaml.Loader.add_multi_constructor("!module:", _construct_module)
+    yaml.Loader.add_multi_constructor("!apply:", _apply_function)
+    yaml.Loader.add_constructor(REFATTR, _refattr)
 
     hparams = yaml.load(yaml_stream, Loader=yaml.Loader)
+
+    # Look for the !refattr tags and update them appropriately
+    hparams = _resolve_refattr(current_node=hparams, full_tree=hparams)
 
     # Remove items that start with "__"
     removal_keys = [k for k in hparams.keys() if k.startswith("__")]
@@ -197,7 +204,7 @@ def resolve_references(yaml_stream, overrides=None, overrides_must_match=False):
     >>> yaml_string = """
     ... constants:
     ...     a: 3
-    ...     b: !ref <constants.a>
+    ...     b: !ref <constants[a]>
     ... """
     >>> overrides = {'constants': {'a': 4}}
     >>> resolve_references(yaml_string, overrides).getvalue()
@@ -262,6 +269,27 @@ def _walk_tree_and_resolve(current_node, tree):
     elif isinstance(current_node, dict):
         for k, v in current_node.items():
             current_node[k] = _walk_tree_and_resolve(v, tree)
+
+    return current_node
+
+
+def _resolve_refattr(current_node, full_tree):
+    """Recursively find references including attributes"""
+    if isinstance(current_node, str) and current_node.startswith(REFATTR):
+        reference = current_node[len(REFATTR) :].strip("<>")
+        reference, attrs = reference.split(".", maxsplit=1)
+        target = deref(reference, full_tree)
+        for attr in attrs.split("."):
+            target = getattr(target, attr)
+        return target
+
+    if isinstance(current_node, dict):
+        for key, value in current_node.items():
+            current_node[key] = _resolve_refattr(value, full_tree)
+
+    if isinstance(current_node, list):
+        for i, value in enumerate(current_node):
+            current_node[i] = _resolve_refattr(value, full_tree)
 
     return current_node
 
@@ -339,6 +367,32 @@ def _construct_module(loader, module_name, node):
     return module
 
 
+def _apply_function(loader, callable_string, node):
+    callable_ = pydoc.locate(callable_string)
+    if callable_ is None:
+        raise ImportError("There is no such callable as %s" % callable_string)
+
+    if not inspect.isroutine(callable_):
+        raise ValueError(
+            f"!apply:{callable_string} should be a callable, but is {callable_}"
+        )
+
+    try:
+        args, kwargs = _load_node(loader, node)
+        return callable_(*args, **kwargs)
+    except TypeError as e:
+        err_msg = "Invalid argument to callable %s" % callable_string
+        e.args = (err_msg, *e.args)
+        raise
+
+
+def _refattr(loader, node):
+    """Just passthrough, since we need to wait for full tree
+    to be constructed before we can reference attributes."""
+    scalar = loader.construct_scalar(node)
+    return REFATTR + scalar
+
+
 def deref(ref, full_tree, copy_mode=False):
     """Find the value referred to by a reference in dot-notation
 
@@ -358,13 +412,14 @@ def deref(ref, full_tree, copy_mode=False):
 
     Example
     -------
-    >>> deref('<constants.a.b>', {'constants': {'a': {'b': 'c'}}})
+    >>> deref('constants[a][b]', {'constants': {'a': {'b': 'c'}}})
     'c'
     """
 
     # Follow references in dot notation
     branch = full_tree
-    for part in ref[1:-1].split("."):
+    for part in ref.split("["):
+        part = part.strip("]")
         if part not in branch:
             raise ValueError('The reference "%s" is not valid' % ref)
         branch = branch[part]
@@ -381,7 +436,7 @@ def recursive_resolve(reference, reference_list, full_tree, copy_mode=False):
     Arguments
     ---------
     reference : str
-        a string containing '<x.y>' in it where x.y refers
+        a string containing '<x[y]>' in it where x[y] refers
         to a scalar node in the file.
     reference_list : list
         list of prior references in the chain, in order
@@ -419,7 +474,7 @@ def recursive_resolve(reference, reference_list, full_tree, copy_mode=False):
 
     # First check for a full match. These replacements preserve type.
     if reference_finder.fullmatch(reference):
-        value = deref(reference, full_tree, copy_mode)
+        value = deref(reference.strip("<>"), full_tree, copy_mode)
         reference_list += [reference]
         return recursive_resolve(value, reference_list, full_tree, copy_mode)
 
@@ -429,7 +484,7 @@ def recursive_resolve(reference, reference_list, full_tree, copy_mode=False):
 
     # Do replacements within the string (interpolation)
     def replace_fn(x, tree=full_tree, copy_mode=copy_mode):
-        return str(deref(x[0], full_tree=tree, copy_mode=copy_mode))
+        return str(deref(x[0].strip("<>"), full_tree=tree, copy_mode=copy_mode))
 
     sub = reference_finder.sub(replace_fn, reference)
     reference = recursive_resolve(sub, reference_list, full_tree, copy_mode)

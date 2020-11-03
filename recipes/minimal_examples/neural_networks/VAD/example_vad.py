@@ -34,7 +34,7 @@ class VADBrain(sb.Brain):
         return loss
 
     def on_stage_start(self, stage, epoch=None):
-        self.binary_metrics = sb.BinaryMetricStats()
+        self.binary_metrics = sb.utils.metric_stats.BinaryMetricStats()
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
         if stage == sb.Stage.TRAIN:
@@ -72,7 +72,7 @@ def main():
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
 
-    train_set = sb.data_io.DataLoaderFactory(
+    train_set = sb.data_io.data_io.DataLoaderFactory(
         hparams["csv_train"],
         hparams["N_batch"],
         ["wav", "speech"],

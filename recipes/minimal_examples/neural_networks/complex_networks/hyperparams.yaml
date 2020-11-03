@@ -1,7 +1,7 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 # NOTE: Seed does not guarantee replicability with CTC
 seed: 1234
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Data files
 data_folder: !PLACEHOLDER
@@ -10,14 +10,14 @@ csv_valid: !ref <data_folder>/dev.csv
 csv_test: !ref <data_folder>/test.csv
 
 # Neural Parameters
-N_epochs: 15
+N_epochs: 30
 N_batch: 1
-lr: 0.008
+lr: 0.002
 
 # Model parameters
 activation: !new:torch.nn.LeakyReLU
 
-train_loader: !new:speechbrain.data_io.DataLoaderFactory
+train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>
     batch_size: !ref <N_batch>
     csv_read: [wav, phn]
@@ -25,7 +25,7 @@ train_loader: !new:speechbrain.data_io.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
-valid_loader: !new:speechbrain.data_io.DataLoaderFactory
+valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_valid>
     batch_size: !ref <N_batch>
     csv_read: [wav, phn]
@@ -33,41 +33,41 @@ valid_loader: !new:speechbrain.data_io.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
-test_loader: !new:speechbrain.data_io.DataLoaderFactory
+test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_test>
     csv_read: [wav, phn]
     sentence_sorting: ascending
     replacements:
         $data_folder: !ref <data_folder>
 
-compute_features: !new:speechbrain.lobes.MFCC
+compute_features: !new:speechbrain.lobes.features.MFCC
 
-mean_var_norm: !new:speechbrain.processing.InputNormalization
+mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
 
-model: !new:speechbrain.nnet.Sequential
-    - [!ref <N_batch>, null, 660]  # input_size
-    - !name:speechbrain.nnet.ComplexConv1d
+model: !new:speechbrain.nnet.containers.Sequential
+    - [null, null, 660]  # input_size
+    - !name:speechbrain.nnet.complex_networks.CNN.ComplexConv1d
       out_channels: 16
       kernel_size: 3
-    - !name:speechbrain.nnet.ComplexLayerNorm
+    - !name:speechbrain.nnet.complex_networks.normalization.ComplexLayerNorm
     - !ref <activation>
-    - !name:speechbrain.nnet.ComplexConv1d
+    - !name:speechbrain.nnet.complex_networks.CNN.ComplexConv1d
       out_channels: 32
       kernel_size: 3
-    - !name:speechbrain.nnet.ComplexLayerNorm
+    - !name:speechbrain.nnet.complex_networks.normalization.ComplexLayerNorm
     - !ref <activation>
-    - !new:speechbrain.nnet.Pooling1d
+    - !new:speechbrain.nnet.pooling.Pooling1d
       pool_type: "avg"
       input_dims: 4
       kernel_size: 3
-    - !name:speechbrain.nnet.ComplexLiGRU
+    - !name:speechbrain.nnet.complex_networks.RNN.ComplexLiGRU
       hidden_size: 64
       bidirectional: True
-    - !name:speechbrain.nnet.Linear
+    - !name:speechbrain.nnet.linear.Linear
       n_neurons: 43  # 42 phonemes + 1 blank
       bias: False
-    - !new:speechbrain.nnet.Softmax
+    - !new:speechbrain.nnet.activations.Softmax
       apply_log: True
 
 modules: {model: !ref <model>, mean_var_norm: !ref <mean_var_norm>}
@@ -75,7 +75,7 @@ modules: {model: !ref <model>, mean_var_norm: !ref <mean_var_norm>}
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
 
-compute_cost: !name:speechbrain.nnet.ctc_loss
+compute_cost: !name:speechbrain.nnet.losses.ctc_loss
     blank_index: 42
 
-per_stats: !name:speechbrain.ErrorRateStats
+per_stats: !name:speechbrain.utils.metric_stats.ErrorRateStats
