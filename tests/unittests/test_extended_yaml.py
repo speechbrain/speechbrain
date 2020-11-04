@@ -31,10 +31,14 @@ def test_load_extended_yaml():
     b: !ref <a>
     thing: !new:collections.Counter
         a: !ref <a>
+    thing2: !new:zip
+        - !ref <a>
+        - abc
     """
     things = load_extended_yaml(yaml)
     assert things["thing"]["a"] == things["a"]
     assert things["a"] == things["b"]
+    assert next(things["thing2"]) == ("a", "a")
 
     # String interpolation
     yaml = """
@@ -108,11 +112,15 @@ def test_load_extended_yaml():
         a: 3
         b: 5
     thing2: !ref <thing1>
+    thing3: !new:speechbrain.TestThing
+        - !ref <thing1>
+        - abc
     """
     things = load_extended_yaml(yaml)
     assert things["thing2"]["b"] == things["thing1"]["b"]
     things["thing2"]["b"] = 7
     assert things["thing2"]["b"] == things["thing1"]["b"]
+    assert things["thing3"].args[0] == things["thing1"]
 
     # Copy tag
     yaml = """
@@ -145,10 +153,11 @@ def test_load_extended_yaml():
     yaml = """
     thing1: "A string"
     thing2: !refattr <thing1.lower>
-    thing3:
-        - Testing for a bug where !refattr didn't work in a list
+    thing3: !new:speechbrain.TestThing
         - !refattr <thing1.lower>
+        - abc
     """
     things = load_extended_yaml(yaml)
     assert things["thing2"]() == "a string"
-    assert things["thing3"][1]() == "a string"
+    print(things["thing3"].args)
+    assert things["thing3"].args[0]() == "a string"
