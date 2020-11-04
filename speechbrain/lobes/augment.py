@@ -17,6 +17,7 @@ from speechbrain.processing.speech_augmentation import (
     AddReverb,
 )
 
+torchaudio.set_audio_backend("sox_io")
 OPENRIR_URL = "http://www.openslr.org/resources/28/rirs_noises.zip"
 
 
