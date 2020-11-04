@@ -420,17 +420,15 @@ def transducer_beam_search_decode(
         # if we use RNN LM keep there hiddens
         # prepare BOS = Blank for the Prediction Network (PN)
         # Prepare Blank prediction
-        input_PN = (
-            torch.ones((1, 1), device=tn_output.device, dtype=torch.int32)
-            * blank_id
+        blank = torch.zeros((1, 1), device=tn_output.device, dtype=torch.int32)
+        input_PN = torch.zeros(
+            (1, 1), device=tn_output.device, dtype=torch.int32
         )
         # First forward-pass on PN
-        out_PN, hidden = _forward_PN(input_PN, decode_network_lst)
         hyp = {
-            "prediction": [],
+            "prediction": [blank_id],
             "logp_score": 0.0,
-            "hidden_dec": hidden,
-            "out_PN": out_PN,
+            "hidden_dec": None,
         }
         if lm_module:
             lm_dict = {"hidden_lm": None}
@@ -458,7 +456,12 @@ def transducer_beam_search_decode(
 
                 # remove best hyp from process_hyps
                 process_hyps.remove(a_best_hyp)
-                out_PN = a_best_hyp["out_PN"]
+
+                # forward PN
+                input_PN[0, 0] = a_best_hyp["prediction"][-1]
+                out_PN, hidden = _forward_PN(
+                    input_PN, decode_network_lst, a_best_hyp["hidden_dec"],
+                )
 
                 # Join predictions (TN & PN)
                 # tjoint must be have a 4 dim [B,T,U,Hidden]
@@ -476,7 +479,6 @@ def transducer_beam_search_decode(
                 out = out.log_softmax(dim=-1)
 
                 if lm_module:
-                    # print(input_PN)
                     logits, hidden_lm = lm_module(
                         input_PN, hx=a_best_hyp["hidden_lm"]
                     )
@@ -490,14 +492,7 @@ def transducer_beam_search_decode(
 
                 # concat blank_id
                 logp_targets = torch.cat((logp_targets, out.view(-1)[0:1]))
-                positions = torch.cat(
-                    (
-                        positions + 1,
-                        torch.zeros(
-                            (1), device=tn_output.device, dtype=torch.int32
-                        ),
-                    )
-                )
+                positions = torch.cat((positions + 1, blank.squeeze(1)))
 
                 # Extend hyp by  selection
                 for j in range(logp_targets.size(0)):
@@ -508,7 +503,6 @@ def transducer_beam_search_decode(
                         "logp_score": a_best_hyp["logp_score"]
                         + logp_targets[j],
                         "hidden_dec": a_best_hyp["hidden_dec"],
-                        "out_PN": a_best_hyp["out_PN"],
                     }
 
                     if positions[j] == blank_id:
@@ -518,15 +512,8 @@ def transducer_beam_search_decode(
                         continue
 
                     if logp_targets[j] >= best_logp - expand_beam:
-                        input_PN[0, 0] = positions[j]
-                        out_PN, hidden = _forward_PN(
-                            input_PN,
-                            decode_network_lst,
-                            a_best_hyp["hidden_dec"],
-                        )
                         topk_hyp["prediction"].append(positions[j].item())
                         topk_hyp["hidden_dec"] = hidden
-                        topk_hyp["out_PN"] = out_PN
                         if lm_module:
                             topk_hyp["hidden_lm"] = hidden_lm
                             topk_hyp["logp_score"] += (
@@ -537,12 +524,12 @@ def transducer_beam_search_decode(
         nbest_hyps = sorted(
             beam_hyps,
             key=lambda x: x["logp_score"] / len(x["prediction"]),
-            reverse=True,
+            reverse=False,
         )[:nbest]
         all_predictions = []
         all_scores = []
         for hyp in nbest_hyps:
-            all_predictions.append(hyp["prediction"])
+            all_predictions.append(hyp["prediction"][1:])
             all_scores.append(hyp["logp_score"] / len(hyp["prediction"]))
         nbest_batch.append(all_predictions)
         nbest_batch_score.append(all_scores)
