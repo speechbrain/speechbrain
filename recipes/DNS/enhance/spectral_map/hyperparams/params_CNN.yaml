@@ -9,11 +9,11 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Basic parameters
 data_folder: !PLACEHOLDER
-output_folder: !ref results/new_causalCNN_log1p_dynamic/<seed>
+output_folder: !ref results/causalCNN/<seed>
 enhanced_folder: !ref <output_folder>/enhanced/
 
 use_tensorboard: False
-tensorboard_logs: !ref results/logs/new_causalCNN_log1p_dynamic/<seed>
+tensorboard_logs: !ref results/logs/causalCNN/<seed>
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files

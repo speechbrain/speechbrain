@@ -9,16 +9,16 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Basic parameters
 data_folder: !PLACEHOLDER
-output_folder: !ref results/new_causalCNNTransformer/<seed>
+output_folder: !ref results/causalCNNTransformer/<seed>
 enhanced_folder: !ref <output_folder>/enhanced/
 
 use_tensorboard: False
-tensorboard_logs: !ref results/logs/new_causalCNNTransformer/<seed>
+tensorboard_logs: !ref results/logs/causalCNNTransformer/<seed>
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-csv_noise: !ref <data_folder>/tr_noise_small.csv
-csv_clean: !ref <data_folder>/tr_clean_small.csv
+csv_noise: !ref <data_folder>/tr_noise.csv
+csv_clean: !ref <data_folder>/tr_clean.csv
 csv_valid: !ref <data_folder>/valid.csv
 csv_test: !ref <data_folder>/test.csv
 
