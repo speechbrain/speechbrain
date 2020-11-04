@@ -9,7 +9,7 @@ Authors
 import torch
 import logging
 import torch.nn as nn
-from speechbrain.nnet import (
+from speechbrain.nnet.attention import (
     ContentBasedAttention,
     LocationAwareAttention,
 )

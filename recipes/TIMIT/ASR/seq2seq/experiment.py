@@ -1,13 +1,9 @@
-#!/usr/bin/env/python3
+#!/usr/bin/env python3
 """Recipe for doing ASR with phoneme targets and joint seq2seq
 and CTC loss on the TIMIT dataset.
 
 To run this recipe, do the following:
-> python experiment.py {hyperparameter file} --data_folder /path/to/TIMIT
-
-Using your own hyperparameter file or one of the following:
- * hyperparams/augment_CRDNN.yaml
- * hyperparams/augment_noise_CRDNN.yaml
+> python experiment.py hyperparams.yaml --data_folder /path/to/TIMIT
 
 Authors
  * Mirco Ravanelli 2020
@@ -47,7 +43,9 @@ class ASR(sb.Brain):
         p_ctc = self.hparams.log_softmax(logits)
 
         # Prepend bos token at the beginning
-        y_in = sb.data_io.prepend_bos_token(phns, self.hparams.bos_index)
+        y_in = sb.data_io.data_io.prepend_bos_token(
+            phns, self.hparams.bos_index
+        )
         e_in = self.modules.emb(y_in)
         h, _ = self.modules.dec(e_in, x, wav_lens)
 
@@ -134,7 +132,7 @@ class ASR(sb.Brain):
 
         if stage == sb.Stage.VALID:
             old_lr, new_lr = self.hparams.lr_annealing(per)
-            sb.nnet.update_learning_rate(self.optimizer, new_lr)
+            sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
 
             if self.root_process:
                 self.hparams.train_logger.log_stats(

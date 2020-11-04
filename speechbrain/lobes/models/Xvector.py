@@ -10,7 +10,7 @@ import torch  # noqa: F401
 import speechbrain as sb
 
 
-class Xvector(sb.nnet.Sequential):
+class Xvector(sb.nnet.containers.Sequential):
     """This model extracts XVectors for speaker recognition and diarization.
 
     Arguments
@@ -54,22 +54,22 @@ class Xvector(sb.nnet.Sequential):
         # TDNN layers
         for block_index in range(tdnn_blocks):
             self.append(
-                sb.nnet.Conv1d,
+                sb.nnet.CNN.Conv1d,
                 out_channels=tdnn_channels[block_index],
                 kernel_size=tdnn_kernel_sizes[block_index],
                 dilation=tdnn_dilations[block_index],
             )
             self.append(activation())
-            self.append(sb.nnet.BatchNorm1d)
+            self.append(sb.nnet.normalization.BatchNorm1d)
 
         # Statistical pooling
-        self.append(sb.nnet.StatisticsPooling())
+        self.append(sb.nnet.pooling.StatisticsPooling())
 
         # Final linear transformation
-        self.append(sb.nnet.Linear, n_neurons=lin_neurons, bias=True)
+        self.append(sb.nnet.linear.Linear, n_neurons=lin_neurons, bias=True)
 
 
-class Classifier(sb.nnet.Sequential):
+class Classifier(sb.nnet.containers.Sequential):
     """This class implements the last MLP on the top of xvector features.
 
     Arguments
@@ -107,16 +107,16 @@ class Classifier(sb.nnet.Sequential):
         super().__init__(input_shape)
 
         self.append(activation())
-        self.append(sb.nnet.BatchNorm1d)
+        self.append(sb.nnet.normalization.BatchNorm1d)
 
         for block_index in range(lin_blocks):
-            self.append(sb.nnet.Linear, n_neurons=lin_neurons, bias=True)
+            self.append(sb.nnet.linear.Linear, n_neurons=lin_neurons, bias=True)
             self.append(activation())
-            self.append(sb.nnet.BatchNorm1d)
+            self.append(sb.nnet.normalization.BatchNorm1d)
 
         # Final Softmax classifier
-        self.append(sb.nnet.Linear, n_neurons=out_neurons, bias=True)
-        self.append(sb.nnet.Softmax(apply_log=True))
+        self.append(sb.nnet.linear.Linear, n_neurons=out_neurons, bias=True)
+        self.append(sb.nnet.activations.Softmax(apply_log=True))
 
 
 class Discriminator(torch.nn.Module):
@@ -162,8 +162,8 @@ class Discriminator(torch.nn.Module):
                 bias=True,
                 combine_dims=False,
             )
-            self.append(sb.nnet.BatchNorm1d)
+            self.append(sb.nnet.normalization.BatchNorm1d)
             self.append(activation())
 
         # Final Layer (sigmoid not included)
-        self.append(sb.nnet.Linear, n_neurons=out_neurons)
+        self.append(sb.nnet.linear.Linear, n_neurons=out_neurons)

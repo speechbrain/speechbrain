@@ -10,6 +10,7 @@ Authors
 import os
 import re
 import csv
+import time
 import torch
 import psutil
 import random
@@ -2607,8 +2608,24 @@ def load_pkl(file):
     -------
     The loaded object
     """
-    with open(file, "rb") as f:
-        return pickle.load(f)
+
+    # Deals with the situation where two processes are trying
+    # to access the same label dictionary by creating a lock
+    count = 100
+    while count > 0:
+        if os.path.isfile(file + ".lock"):
+            time.sleep(1)
+            count -= 1
+        else:
+            break
+
+    try:
+        open(file + ".lock", "w").close()
+        with open(file, "rb") as f:
+            return pickle.load(f)
+    finally:
+        if os.path.isfile(file + ".lock"):
+            os.remove(file + ".lock")
 
 
 def prepend_bos_token(label, bos_index):
