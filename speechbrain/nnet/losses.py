@@ -23,6 +23,8 @@ from speechbrain.decoders.ctc import filter_ctc_output
 
 logger = logging.getLogger(__name__)
 
+def min_wer_loss():
+    # WIP
 
 def transducer_loss(
     log_probs, targets, input_lens, target_lens, blank_index, reduction="mean"
