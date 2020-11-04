@@ -3,6 +3,7 @@ Decoders and output normalization for Transducer sequence
 
 Author:
     Abdelwahab HEBA 2020
+    Sung-Lin Yeh 2020
 """
 import torch
 
