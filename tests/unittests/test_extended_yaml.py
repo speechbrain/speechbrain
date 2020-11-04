@@ -140,3 +140,15 @@ def test_load_extended_yaml():
     """
     things = load_extended_yaml(yaml)
     assert things["mod"].__name__ == "collections"
+
+    # Refattr:
+    yaml = """
+    thing1: "A string"
+    thing2: !refattr <thing1.lower>
+    thing3:
+        - Testing for a bug where !refattr didn't work in a list
+        - !refattr <thing1.lower>
+    """
+    things = load_extended_yaml(yaml)
+    assert things["thing2"]() == "a string"
+    assert things["thing3"][1]() == "a string"
