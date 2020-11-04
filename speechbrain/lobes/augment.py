@@ -307,7 +307,7 @@ def _prepare_csv(folder, filelist, csv_file, max_length=None):
 
             # Ensure only one channel
             if signal.shape[0] > 1:
-                signal = signal[0]
+                signal = signal[0].unsqueeze(0)
                 torchaudio.save(filename, signal, rate)
 
             ID, ext = os.path.basename(filename).split(".")
