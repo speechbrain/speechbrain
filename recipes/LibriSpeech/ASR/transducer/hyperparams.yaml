@@ -71,7 +71,7 @@ dnn_neurons: 1024
 emb_size: 128
 dec_neurons: 1024
 output_neurons: 1000  # index(blank/eos/bos) = 0
-joint_dim: 128
+joint_dim: 1024
 blank_index: 0
 
 # Decoding parameters
@@ -188,11 +188,11 @@ dec: !new:speechbrain.nnet.GRU
 #    label_smoothing: 0.1
 
 Tjoint: !new:speechbrain.nnet.transducer.transducer_joint.Transducer_joint
-    joint: concat # joint [sum | concat]
+    joint: sum # joint [sum | concat]
     nonlinearity: !ref <activation>
 
 transducer_lin: !new:speechbrain.nnet.Linear
-    input_size: 1024
+    input_size: !ref <joint_dim>
     n_neurons: !ref <output_neurons>
     bias: False
 
