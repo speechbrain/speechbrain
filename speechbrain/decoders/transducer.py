@@ -501,15 +501,17 @@ def transducer_beam_search_decode(
 
                 # Extend hyp by  selection
                 for j in range(logp_targets.size(0)):
-                    print(j)
+
+                    # hyp
+                    topk_hyp = {
+                        "prediction": a_best_hyp["prediction"],
+                        "logp_score": a_best_hyp["logp_score"]
+                        + logp_targets[j],
+                        "hidden_dec": a_best_hyp["hidden_dec"],
+                        "out_PN": a_best_hyp["out_PN"],
+                    }
+
                     if positions[j] == blank_id:
-                        topk_hyp = {
-                            "prediction": a_best_hyp["prediction"],
-                            "logp_score": a_best_hyp["logp_score"]
-                            + float(logp_targets[j]),
-                            "hidden_dec": a_best_hyp["hidden_dec"],
-                            "out_PN": a_best_hyp["out_PN"],
-                        }
                         if lm_module:
                             topk_hyp["hidden_lm"] = a_best_hyp["hidden_lm"]
                         beam_hyps.append(topk_hyp)
@@ -522,14 +524,9 @@ def transducer_beam_search_decode(
                             decode_network_lst,
                             a_best_hyp["hidden_dec"],
                         )
-                        topk_hyp = {
-                            "prediction": a_best_hyp["prediction"]
-                            + [positions[j].item()],
-                            "logp_score": a_best_hyp["logp_score"]
-                            + float(logp_targets[j]),
-                            "hidden_dec": hidden,
-                            "out_PN": out_PN,
-                        }
+                        topk_hyp["prediction"].append(positions[j].item())
+                        topk_hyp["hidden_dec"] = hidden
+                        topk_hyp["out_PN"] = out_PN
                         if lm_module:
                             topk_hyp["hidden_lm"] = hidden_lm
                             topk_hyp["logp_score"] += (
