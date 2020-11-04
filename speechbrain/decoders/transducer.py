@@ -504,7 +504,7 @@ def transducer_beam_search_decode(
 
                     # hyp
                     topk_hyp = {
-                        "prediction": a_best_hyp["prediction"],
+                        "prediction": a_best_hyp["prediction"][:],
                         "logp_score": a_best_hyp["logp_score"]
                         + logp_targets[j],
                         "hidden_dec": a_best_hyp["hidden_dec"],
