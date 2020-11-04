@@ -313,6 +313,9 @@ class FuncPipeline:
             x = func(x)
         return x
 
+    def __str__(self):
+        return "FuncPipeline of:\n" + "\n".join(str(f) for f in self.funcs)
+
 
 def split_by_whitespace(text):
     """A very basic functional version of str.split"""

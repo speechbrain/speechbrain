@@ -31,12 +31,11 @@ label_encoder: !new:placeholders.ExampleCategoricalEncoder
 
 text_transform: !new:speechbrain.utils.data_utils.FuncPipeline
     - !name:speechbrain.utils.data_utils.split_by_whitespace
-    - !!python/object/apply:getattr [!ref <label_encoder>, encode_list]
+    - !refattr <label_encoder.encode_list>
     - !name:torch.tensor
       dtype: !name:torch.int
 
 
-#NEED new apply here
 train_data: !apply:speechbrain.data_io.datasets.SegmentedDataset.from_extended_yaml
     filepath: !ref <data_folder>/train.yaml
     overrides:
