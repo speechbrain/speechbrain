@@ -43,7 +43,9 @@ class ASR(sb.Brain):
         p_ctc = self.hparams.log_softmax(logits)
 
         # Prepend bos token at the beginning
-        y_in = sb.data_io.prepend_bos_token(phns, self.hparams.bos_index)
+        y_in = sb.data_io.data_io.prepend_bos_token(
+            phns, self.hparams.bos_index
+        )
         e_in = self.modules.emb(y_in)
         h, _ = self.modules.dec(e_in, x, wav_lens)
 
@@ -130,7 +132,7 @@ class ASR(sb.Brain):
 
         if stage == sb.Stage.VALID:
             old_lr, new_lr = self.hparams.lr_annealing(per)
-            sb.nnet.update_learning_rate(self.optimizer, new_lr)
+            sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
 
             if self.root_process:
                 self.hparams.train_logger.log_stats(

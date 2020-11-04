@@ -110,6 +110,7 @@ class CRDNN(sb.nnet.containers.Sequential):
                 self.append(
                     sb.nnet.pooling.Pooling1d(
                         pool_type="max",
+                        input_dims=4,
                         kernel_size=inter_layer_pooling_size[block_index],
                         pool_axis=2,
                     )
@@ -131,7 +132,10 @@ class CRDNN(sb.nnet.containers.Sequential):
         if time_pooling:
             self.append(
                 sb.nnet.pooling.Pooling1d(
-                    pool_type="max", kernel_size=time_pooling_size, pool_axis=1,
+                    pool_type="max",
+                    input_dims=4,
+                    kernel_size=time_pooling_size,
+                    pool_axis=1,
                 )
             )
 
