@@ -58,7 +58,7 @@ def test_load_extended_yaml():
         a: 1
     thing: !new:collections.Counter
         other: !new:collections.Counter
-            a: !ref <constants.a>
+            a: !ref <constants[a]>
     """
     things = load_extended_yaml(yaml)
     assert things["thing"]["other"].__class__ == Counter
@@ -84,7 +84,7 @@ def test_load_extended_yaml():
     yaml = """
     constants:
         a: 1
-        b: !ref <constants.c>
+        b: !ref <constants[c]>
     """
     with pytest.raises(ValueError):
         things = load_extended_yaml(yaml)
