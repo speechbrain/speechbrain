@@ -21,11 +21,13 @@ class Pooling1d(nn.Module):
     ---------
     pool_type : str
         It is the type of pooling function to use ('avg','max')
-    pool_axis : int
-        Axis where pooling is applied
     kernel_size : int
         It is the kernel size that defines the pooling dimension.
         For instance, kernel size=3 applies a 1D Pooling with a size=3.
+    input_dims : int
+        The count of dimensions expected in the input
+    pool_axis : int
+        Axis where pooling is applied
     stride : int
         It is the stride size.
     padding : int
@@ -48,6 +50,7 @@ class Pooling1d(nn.Module):
         self,
         pool_type,
         kernel_size,
+        input_dims=3,
         pool_axis=1,
         ceil_mode=False,
         padding=0,
@@ -55,53 +58,61 @@ class Pooling1d(nn.Module):
         stride=None,
     ):
         super().__init__()
-        self.pool_type = pool_type
-        self.kernel_size = kernel_size
         self.pool_axis = pool_axis
-        self.ceil_mode = ceil_mode
-        self.padding = padding
-        self.dilation = dilation
-        self.combine_batch_time = False
 
         if stride is None:
-            self.stride = kernel_size
+            stride = kernel_size
+
+        if pool_type == "avg":
+            if input_dims == 3:
+                self.pool_layer = torch.nn.AvgPool1d(
+                    kernel_size,
+                    stride=stride,
+                    padding=padding,
+                    ceil_mode=ceil_mode,
+                )
+            elif input_dims == 4:
+                self.pool_layer = torch.nn.AvgPool2d(
+                    (1, kernel_size),
+                    stride=(1, stride),
+                    padding=(0, padding),
+                    ceil_mode=ceil_mode,
+                )
+            else:
+                raise ValueError("input_dims must be 3 or 4")
+
+        elif pool_type == "max":
+            if input_dims == 3:
+                self.pool_layer = torch.nn.MaxPool1d(
+                    kernel_size,
+                    stride=stride,
+                    padding=padding,
+                    dilation=dilation,
+                    ceil_mode=ceil_mode,
+                )
+            elif input_dims == 4:
+                self.pool_layer = torch.nn.MaxPool2d(
+                    (1, kernel_size),
+                    stride=(1, stride),
+                    padding=(0, padding),
+                    dilation=(1, dilation),
+                    ceil_mode=ceil_mode,
+                )
+            else:
+                raise ValueError("input_dims must be 3 or 4")
+
         else:
-            self.stride = stride
-
-        if self.pool_type == "avg":
-
-            self.pool_layer = torch.nn.AvgPool1d(
-                self.kernel_size,
-                stride=self.stride,
-                padding=self.padding,
-                ceil_mode=self.ceil_mode,
-            )
-
-        else:
-            self.pool_layer = torch.nn.MaxPool1d(
-                self.kernel_size,
-                stride=self.stride,
-                padding=self.padding,
-                ceil_mode=self.ceil_mode,
-            )
+            raise ValueError("pool_type must be 'avg' or 'max'")
 
     def forward(self, x):
 
         # Put the pooling axes as the last dimension for torch.nn.pool
-        # If the input tensor is 4 dimensional, combine the first and second
-        # axes together to respect the input shape of torch.nn.pool1d
         x = x.transpose(-1, self.pool_axis)
-        new_shape = x.shape
-        if x.ndim == 4:
-            x = x.reshape(new_shape[0] * new_shape[1], new_shape[2], -1)
-            self.combine_batch_time = True
 
         # Apply pooling
         x = self.pool_layer(x)
 
         # Recover input shape
-        if self.combine_batch_time:
-            x = x.reshape(new_shape[0], new_shape[1], new_shape[2], -1)
         x = x.transpose(-1, self.pool_axis)
 
         return x
