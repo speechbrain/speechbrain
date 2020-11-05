@@ -50,6 +50,7 @@ def reset_layer_recursively(layer):
 
 def save_audio_results(params, model, test_loader, device, N=10):
     from mir_eval.separation import bss_eval_sources
+    from soundfile import write
 
     save_path = os.path.join(params.output_folder, "audio_results")
     if not os.path.exists(save_path):
@@ -63,7 +64,11 @@ def save_audio_results(params, model, test_loader, device, N=10):
             inputs = batch[0][1].to(device)
             predictions = model.compute_forward(inputs, stage="test").detach()
             targets = torch.stack(
-                [batch[1][1].squeeze(), batch[2][1].squeeze()], dim=0
+                [
+                    batch[i][1].squeeze()
+                    for i in range(1, model.params.MaskNet.num_spks + 1)
+                ],
+                dim=0,
             )
 
             sdr, _, _, _ = bss_eval_sources(
@@ -72,29 +77,55 @@ def save_audio_results(params, model, test_loader, device, N=10):
             all_sdrs.append(sdr.mean())
 
             if i < N:
-                write_wav_soundfile(
-                    predictions[0, :, 0] / predictions[0, :, 0].std(),
-                    save_path + "/item{}_source{}hat.wav".format(i, 1),
+                # write_wav_soundfile(
+                #    predictions[0, :, 0] / predictions[0, :, 0].std(),
+                #    save_path + "/item{}_source{}hat.wav".format(i, 1),
+                #    fs,
+                # )
+                # write_wav_soundfile(
+                #    predictions[0, :, 1] / predictions[0, :, 1].std(),
+                #    save_path + "/item{}_source{}hat.wav".format(i, 2),
+                #    fs,
+                # )
+                # write_wav_soundfile(
+                #    batch[1][1],
+                #    save_path + "/item{}_source{}.wav".format(i, 1),
+                #    fs,
+                # )
+                # write_wav_soundfile(
+                #    batch[2][1],
+                #    save_path + "/item{}_source{}.wav".format(i, 2),
+                #    fs,
+                # )
+                # write_wav_soundfile(
+                #    inputs[0], save_path + "/item{}_mixture.wav".format(i), fs
+                # )
+
+                for ns in range(model.params.MaskNet.num_spks):
+                    tosave = predictions[0, :, ns].cpu().numpy()
+                    mx_val = tosave.max()
+                    write(
+                        save_path + "/item{}_source{}hat.wav".format(i, ns + 1),
+                        tosave / mx_val,
+                        fs,
+                    )
+
+                    tosave = batch[ns + 1][1].cpu().squeeze().numpy()
+                    mx_val = tosave.max()
+                    write(
+                        save_path + "/item{}_source{}.wav".format(i, ns + 1),
+                        tosave / mx_val,
+                        fs,
+                    )
+
+                tosave = inputs[0].data.cpu().numpy()
+                mx_val = tosave.max()
+                write(
+                    save_path + "/item{}_mixture.wav".format(i),
+                    tosave / mx_val,
                     fs,
                 )
-                write_wav_soundfile(
-                    predictions[0, :, 1] / predictions[0, :, 1].std(),
-                    save_path + "/item{}_source{}hat.wav".format(i, 2),
-                    fs,
-                )
-                write_wav_soundfile(
-                    batch[1][1],
-                    save_path + "/item{}_source{}.wav".format(i, 1),
-                    fs,
-                )
-                write_wav_soundfile(
-                    batch[2][1],
-                    save_path + "/item{}_source{}.wav".format(i, 2),
-                    fs,
-                )
-                write_wav_soundfile(
-                    inputs[0], save_path + "/item{}_mixture.wav".format(i), fs
-                )
+
             t.set_postfix(average_sdr=np.array(all_sdrs).mean())
 
     print("Mean SDR is {}".format(np.array(all_sdrs).mean()))

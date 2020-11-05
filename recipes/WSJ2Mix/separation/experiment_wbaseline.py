@@ -83,7 +83,7 @@ def save_audio_results(params, model, test_loader, device, N=10):
             # sdr, _, _, _ = bss_eval_sources(
             #    targets.numpy(), predictions[0].t().cpu().numpy()
             # )
-            # SDR_baseline, _, _, _ = bss_eval_sources(
+            # sdr_baseline, _, _, _ = bss_eval_sources(
             #    targets.numpy(), baseline_targets.numpy()
             # )
             sdr = np.array([0])
@@ -543,17 +543,17 @@ def main():
         losses = []
         # with tqdm(test_loader, dynamic_ncols=True) as t:
 
-        #    for i, batch in enumerate(t):
-        #        targets = torch.stack(
-        #            [batch[1][1].squeeze(), batch[2][1].squeeze()], dim=0
-        #        ).to(device)
-        #        predictions = torch.stack(
-        #            [batch[0][1].squeeze(), batch[0][1].squeeze()], dim=0
-        #        ).to(device)
+        #   for i, batch in enumerate(t):
+        #       targets = torch.stack(
+        #           [batch[1][1].squeeze(), batch[2][1].squeeze()], dim=0
+        #       ).to(device)
+        #       predictions = torch.stack(
+        #           [batch[0][1].squeeze(), batch[0][1].squeeze()], dim=0
+        #       ).to(device)
 
-        #        loss = ctn.compute_objectives(predictions, targets).detach()
-        #        losses.append(loss.item())
-        #        print('the baseline loss: ', torch.array(losses).mean())
+        #       loss = ctn.compute_objectives(predictions, targets).detach()
+        #       losses.append(loss.item())
+        #       print('the baseline loss: ', torch.array(losses).mean())
 
         save_audio_results(params, ctn, test_loader, device, N=10)
 
