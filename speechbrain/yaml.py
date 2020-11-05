@@ -17,8 +17,6 @@ import operator as op
 from io import StringIO
 from speechbrain.utils.data_utils import recursive_update
 
-REFATTR = "!refattr"
-
 
 # NOTE: Empty dict as default parameter is fine here since overrides are never
 # modified
@@ -163,12 +161,8 @@ def load_extended_yaml(
     yaml.Loader.add_multi_constructor("!name:", _construct_name)
     yaml.Loader.add_multi_constructor("!module:", _construct_module)
     yaml.Loader.add_multi_constructor("!apply:", _apply_function)
-    yaml.Loader.add_constructor(REFATTR, _refattr)
 
     hparams = yaml.load(yaml_stream, Loader=yaml.Loader)
-
-    # Look for the !refattr tags and update them appropriately
-    hparams = _resolve_refattr(current_node=hparams, full_tree=hparams)
 
     # Remove items that start with "__"
     removal_keys = [k for k in hparams.keys() if k.startswith("__")]
@@ -273,27 +267,6 @@ def _walk_tree_and_resolve(current_node, tree):
     return current_node
 
 
-def _resolve_refattr(current_node, full_tree):
-    """Recursively find references including attributes"""
-    if isinstance(current_node, str) and current_node.startswith(REFATTR):
-        reference = current_node[len(REFATTR) :].strip("<>")
-        reference, attrs = reference.split(".", maxsplit=1)
-        target = deref(reference, full_tree)
-        for attr in attrs.split("."):
-            target = getattr(target, attr)
-        return target
-
-    if isinstance(current_node, dict):
-        for key, value in current_node.items():
-            current_node[key] = _resolve_refattr(value, full_tree)
-
-    if isinstance(current_node, list):
-        for i, value in enumerate(current_node):
-            current_node[i] = _resolve_refattr(value, full_tree)
-
-    return current_node
-
-
 def _make_tuple(loader, node):
     """Parse scalar node as a list, convert to tuple"""
     tuple_string = loader.construct_scalar(node)
@@ -386,13 +359,6 @@ def _apply_function(loader, callable_string, node):
         raise
 
 
-def _refattr(loader, node):
-    """Just passthrough, since we need to wait for full tree
-    to be constructed before we can reference attributes."""
-    scalar = loader.construct_scalar(node)
-    return REFATTR + scalar
-
-
 def deref(ref, full_tree, copy_mode=False):
     """Find the value referred to by a reference in dot-notation
 
@@ -416,6 +382,11 @@ def deref(ref, full_tree, copy_mode=False):
     'c'
     """
 
+    # Collect the attribute reference
+    attr = None
+    if "." in ref:
+        ref, attr = ref.split(".", maxsplit=1)
+
     # Follow references in dot notation
     branch = full_tree
     for part in ref.split("["):
@@ -424,8 +395,16 @@ def deref(ref, full_tree, copy_mode=False):
             raise ValueError('The reference "%s" is not valid' % ref)
         branch = branch[part]
 
+    # Copy node if requested
     if copy_mode:
         return copy.deepcopy(branch)
+
+    # To refer to an attribute, we add this special node
+    if attr is not None:
+        node = ruamel.yaml.comments.CommentedSeq()
+        node += [branch, attr]
+        node.yaml_set_tag("!apply:getattr")
+        return node
 
     return branch
 
