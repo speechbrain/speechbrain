@@ -45,7 +45,9 @@ class ASR(sb.Brain):
         x = self.modules.enc_lin(x)
 
         # Prepend bos token at the beginning
-        y_in = sb.data_io.data_io.prepend_bos_token(phns, self.hparams.blank_index)
+        y_in = sb.data_io.data_io.prepend_bos_token(
+            phns, self.hparams.blank_index
+        )
         e_in = self.modules.emb(y_in)
         h, _ = self.modules.dec(e_in)
         h = self.modules.dec_lin(h)
