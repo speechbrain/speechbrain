@@ -149,12 +149,19 @@ def test_load_extended_yaml():
     things = load_extended_yaml(yaml)
     assert things["mod"].__name__ == "collections"
 
+    # Apply tag
+    yaml = """
+    a: !apply:sum [[1, 2]]
+    """
+    things = load_extended_yaml(yaml)
+    assert things["a"] == 3
+
     # Refattr:
     yaml = """
     thing1: "A string"
-    thing2: !refattr <thing1.lower>
+    thing2: !ref <thing1.lower>
     thing3: !new:speechbrain.TestThing
-        - !refattr <thing1.lower>
+        - !ref <thing1.lower>
         - abc
     """
     things = load_extended_yaml(yaml)
