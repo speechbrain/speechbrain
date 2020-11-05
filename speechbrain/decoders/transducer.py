@@ -328,8 +328,8 @@ def transducer_beam_search_decode(
     nbest=5,
     lm_module=None,
     lm_weight=0.3,
-    state_beam=2.0,
-    expand_beam=2.0,
+    state_beam=2.3,
+    expand_beam=2.3,
 ):
     """
     transducer beam search decoder is a beam search decoder over batch which apply Transducer rules:
@@ -475,15 +475,25 @@ def transducer_beam_search_decode(
                     .unsqueeze(0),
                     out_PN.unsqueeze(0),
                 )
+                print(
+                    tn_output[i_batch, t_step, :]
+                    .unsqueeze(0)
+                    .unsqueeze(0)
+                    .unsqueeze(0)
+                    .shape
+                )
                 # forward the output layers + activation + save logits
                 out = _forward_after_joint(out, classifier_network)
                 out = out.log_softmax(dim=-1)
 
                 if lm_module:
+                    out.squeeze_(1)
                     logits, hidden_lm = lm_module(
                         input_PN, hx=a_best_hyp["hidden_lm"]
                     )
                     log_probs_lm = logits.log_softmax(dim=-1)
+                    log_probs_lm[0, 0, 0] = 0.0
+                    out = out + lm_weight * log_probs_lm
 
                 # Sort outputs at time
                 logp_targets, positions = torch.topk(
@@ -517,15 +527,12 @@ def transducer_beam_search_decode(
                         topk_hyp["hidden_dec"] = hidden
                         if lm_module:
                             topk_hyp["hidden_lm"] = hidden_lm
-                            topk_hyp["logp_score"] += (
-                                lm_weight * log_probs_lm[0, 0, positions[j]]
-                            )
                         process_hyps.append(topk_hyp)
         # Add norm score
         nbest_hyps = sorted(
             beam_hyps,
             key=lambda x: x["logp_score"] / len(x["prediction"]),
-            reverse=False,
+            reverse=True,
         )[:nbest]
         all_predictions = []
         all_scores = []
