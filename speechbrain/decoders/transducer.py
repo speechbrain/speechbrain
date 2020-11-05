@@ -431,7 +431,9 @@ def transducer_beam_search_decode(
             "logp_score": 0.0,
             "hidden_dec": None,
         }
-        if lm_module:
+        if lm_weight > 0:
+            if lm_module is None:
+                raise ValueError("No language model provided.")
             lm_dict = {"hidden_lm": None}
             hyp.update(lm_dict)
         beam_hyps = [hyp]
@@ -475,25 +477,15 @@ def transducer_beam_search_decode(
                     .unsqueeze(0),
                     out_PN.unsqueeze(0),
                 )
-                print(
-                    tn_output[i_batch, t_step, :]
-                    .unsqueeze(0)
-                    .unsqueeze(0)
-                    .unsqueeze(0)
-                    .shape
-                )
                 # forward the output layers + activation + save logits
                 out = _forward_after_joint(out, classifier_network)
                 out = out.log_softmax(dim=-1)
 
-                if lm_module:
-                    out.squeeze_(1)
+                if lm_weight > 0:
                     logits, hidden_lm = lm_module(
                         input_PN, hx=a_best_hyp["hidden_lm"]
                     )
                     log_probs_lm = logits.log_softmax(dim=-1)
-                    log_probs_lm[0, 0, 0] = 0.0
-                    out = out + lm_weight * log_probs_lm
 
                 # Sort outputs at time
                 logp_targets, positions = torch.topk(
@@ -517,16 +509,19 @@ def transducer_beam_search_decode(
                     }
 
                     if positions[j] == blank_id:
-                        if lm_module:
-                            topk_hyp["hidden_lm"] = a_best_hyp["hidden_lm"]
                         beam_hyps.append(topk_hyp)
+                        if lm_weight > 0:
+                            topk_hyp["hidden_lm"] = a_best_hyp["hidden_lm"]
                         continue
 
                     if logp_targets[j] >= best_logp - expand_beam:
                         topk_hyp["prediction"].append(positions[j].item())
                         topk_hyp["hidden_dec"] = hidden
-                        if lm_module:
+                        if lm_weight > 0:
                             topk_hyp["hidden_lm"] = hidden_lm
+                            topk_hyp["logp_score"] += (
+                                lm_weight * log_probs_lm[0, 0, positions[j]]
+                            )
                         process_hyps.append(topk_hyp)
         # Add norm score
         nbest_hyps = sorted(
