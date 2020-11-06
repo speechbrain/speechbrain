@@ -447,11 +447,17 @@ def transducer_beam_search_decode(
                 if len(beam_hyps) >= beam:
                     break
                 # pondéré la proba
-                a_best_hyp = max(process_hyps, key=lambda x: x["logp_score"])
+                a_best_hyp = max(
+                    process_hyps,
+                    key=lambda x: x["logp_score"] / len(x["prediction"]),
+                )
 
                 # Break if best_hyp in A is worse by more than state_beam than best_hyp in B
                 if len(beam_hyps) > 0:
-                    b_best_hyp = max(beam_hyps, key=lambda x: x["logp_score"])
+                    b_best_hyp = max(
+                        beam_hyps,
+                        key=lambda x: x["logp_score"] / len(x["prediction"]),
+                    )
                     a_best_prob = a_best_hyp["logp_score"]
                     b_best_prob = b_best_hyp["logp_score"]
                     if b_best_prob >= state_beam + a_best_prob:
