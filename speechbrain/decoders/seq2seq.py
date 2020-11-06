@@ -207,10 +207,10 @@ class S2SRNNGreedySearcher(S2SGreedySearcher):
     Example
     -------
     >>> emb = torch.nn.Embedding(5, 3)
-    >>> dec = sb.nnet.AttentionalRNNDecoder(
+    >>> dec = sb.nnet.RNN.AttentionalRNNDecoder(
     ...     "gru", "content", 3, 3, 1, enc_dim=7, input_size=3
     ... )
-    >>> lin = sb.nnet.Linear(n_neurons=5, input_size=3)
+    >>> lin = sb.nnet.linear.Linear(n_neurons=5, input_size=3)
     >>> searcher = S2SRNNGreedySearcher(
     ...     embedding=emb,
     ...     decoder=dec,
@@ -801,10 +801,10 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
     Example
     -------
     >>> emb = torch.nn.Embedding(5, 3)
-    >>> dec = sb.nnet.AttentionalRNNDecoder(
+    >>> dec = sb.nnet.RNN.AttentionalRNNDecoder(
     ...     "gru", "content", 3, 3, 1, enc_dim=7, input_size=3
     ... )
-    >>> lin = sb.nnet.Linear(n_neurons=5, input_size=3)
+    >>> lin = sb.nnet.linear.Linear(n_neurons=5, input_size=3)
     >>> searcher = S2SRNNBeamSearcher(
     ...     embedding=emb,
     ...     decoder=dec,
@@ -887,12 +887,13 @@ class S2SRNNBeamSearchLM(S2SRNNBeamSearcher):
 
     Example
     -------
+    >>> from speechbrain.lobes.models.RNNLM import RNNLM
     >>> emb = torch.nn.Embedding(5, 3)
-    >>> dec = sb.nnet.AttentionalRNNDecoder(
+    >>> dec = sb.nnet.RNN.AttentionalRNNDecoder(
     ...     "gru", "content", 3, 3, 1, enc_dim=7, input_size=3
     ... )
-    >>> lin = sb.nnet.Linear(n_neurons=5, input_size=3)
-    >>> lm = sb.lobes.RNNLM(output_neurons=5, return_hidden=True)
+    >>> lin = sb.nnet.linear.Linear(n_neurons=5, input_size=3)
+    >>> lm = RNNLM(output_neurons=5, return_hidden=True)
     >>> searcher = S2SRNNBeamSearchLM(
     ...     embedding=emb,
     ...     decoder=dec,
@@ -925,7 +926,7 @@ class S2SRNNBeamSearchLM(S2SRNNBeamSearcher):
 
         self.lm = language_model
         self.lm.eval()
-        self.log_softmax = sb.nnet.Softmax(apply_log=True)
+        self.log_softmax = sb.nnet.activations.Softmax(apply_log=True)
         self.temperature_lm = temperature_lm
 
     def lm_forward_step(self, inp_tokens, memory):

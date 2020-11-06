@@ -61,17 +61,19 @@ def test_binary_metrics():
     summary = binary_stats.summarize()
 
 
-def test_EER_threshold():
-    from speechbrain.utils.metric_stats import eer_threshold
+def test_EER():
+    from speechbrain.utils.metric_stats import EER
 
     positive_scores = torch.tensor([0.1, 0.2, 0.3])
     negative_scores = torch.tensor([0.4, 0.5, 0.6])
-    threshold = eer_threshold(positive_scores, negative_scores)
+    eer, threshold = EER(positive_scores, negative_scores)
+    assert eer == 1.0
     assert threshold > 0.3 and threshold < 0.4
 
     positive_scores = torch.tensor([0.4, 0.5, 0.6])
     negative_scores = torch.tensor([0.3, 0.2, 0.1])
-    threshold = eer_threshold(positive_scores, negative_scores)
+    eer, threshold = EER(positive_scores, negative_scores)
+    assert eer == 0
     assert threshold > 0.3 and threshold < 0.4
 
     cos = torch.nn.CosineSimilarity(dim=1, eps=1e-6)
@@ -83,7 +85,7 @@ def test_EER_threshold():
     input2 = torch.randn(1000, 64)
     negative_scores = cos(input1, input2)
 
-    threshold = eer_threshold(positive_scores, negative_scores)
+    eer, threshold = EER(positive_scores, negative_scores)
 
     correct = (positive_scores > threshold).nonzero(as_tuple=False).size(0) + (
         negative_scores < threshold

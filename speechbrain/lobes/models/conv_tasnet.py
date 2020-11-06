@@ -31,7 +31,7 @@ class Encoder(nn.Module):
         super(Encoder, self).__init__()
 
         # 50% overlap
-        self.conv1d_U = sb.nnet.Conv1d(
+        self.conv1d_U = sb.nnet.CNN.Conv1d(
             in_channels=1,
             out_channels=N,
             kernel_size=L,
@@ -86,7 +86,7 @@ class Decoder(nn.Module):
         self.L = L
 
         # Components
-        self.basis_signals = sb.nnet.Linear(
+        self.basis_signals = sb.nnet.linear.Linear(
             input_size=N, n_neurons=L, bias=False
         )
 
@@ -117,7 +117,7 @@ class Decoder(nn.Module):
         return est_source.permute(0, 2, 1)  # M x T x C
 
 
-class TemporalBlocksSequential(sb.nnet.Sequential):
+class TemporalBlocksSequential(sb.nnet.containers.Sequential):
     """
     A wrapper for the temporalblock layer to replicate it
 
@@ -227,7 +227,7 @@ class MaskNet(nn.Module):
         self.layer_norm = ChannelwiseLayerNorm(N)
 
         # [M, K, N] -> [M, K, B]
-        self.bottleneck_conv1x1 = sb.nnet.Conv1d(
+        self.bottleneck_conv1x1 = sb.nnet.CNN.Conv1d(
             in_channels=N, out_channels=B, kernel_size=1, bias=False,
         )
 
@@ -238,7 +238,7 @@ class MaskNet(nn.Module):
         )
 
         # [M, K, B] -> [M, K, C*N]
-        self.mask_conv1x1 = sb.nnet.Conv1d(
+        self.mask_conv1x1 = sb.nnet.CNN.Conv1d(
             in_channels=B, out_channels=C * N, kernel_size=1, bias=False
         )
 
@@ -322,11 +322,11 @@ class TemporalBlock(torch.nn.Module):
         super().__init__()
         M, K, B = input_shape
 
-        self.layers = sb.nnet.Sequential(input_shape=input_shape)
+        self.layers = sb.nnet.containers.Sequential(input_shape=input_shape)
 
         # [M, K, B] -> [M, K, H]
         self.layers.append(
-            sb.nnet.Conv1d,
+            sb.nnet.CNN.Conv1d,
             out_channels=out_channels,
             kernel_size=1,
             bias=False,
@@ -367,7 +367,7 @@ class TemporalBlock(torch.nn.Module):
         return x + residual
 
 
-class DepthwiseSeparableConv(sb.nnet.Sequential):
+class DepthwiseSeparableConv(sb.nnet.containers.Sequential):
     """
     Building block for the Temporal Blocks of Masknet in ConvTasNet
 
@@ -418,7 +418,7 @@ class DepthwiseSeparableConv(sb.nnet.Sequential):
 
         # [M, K, H] -> [M, K, H]
         self.append(
-            sb.nnet.Conv1d,
+            sb.nnet.CNN.Conv1d,
             out_channels=in_channels,
             kernel_size=kernel_size,
             stride=stride,
@@ -437,7 +437,7 @@ class DepthwiseSeparableConv(sb.nnet.Sequential):
 
         # [M, K, H] -> [M, K, B]
         self.append(
-            sb.nnet.Conv1d,
+            sb.nnet.CNN.Conv1d,
             out_channels=out_channels,
             kernel_size=1,
             bias=False,
