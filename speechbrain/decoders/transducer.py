@@ -304,37 +304,6 @@ class TransducerBeamSearcher:
             Outputs a logits tensor [B,T,1,Output_Dim]; padding
             has not been removed.
 
-        Example
-        -------
-            >>> import torch
-            >>> from speechbrain.decoders.transducer import transducer_greedy_decode
-            >>> from speechbrain.nnet.RNN import GRU
-            >>> from speechbrain.nnet.activations import Softmax
-            >>> from speechbrain.nnet.embedding import Embedding
-            >>> from speechbrain.nnet.transducer.transducer_joint import Transducer_joint
-            >>> from speechbrain.nnet.linear import Linear
-            >>> inputs = torch.rand(3, 40, 35)
-            >>> TN = GRU(hidden_size=5, input_shape=(3, 40, 35), bidirectional=True)
-            >>> TN_lin = Linear(input_shape=(3, 40, 10), n_neurons=35)
-            >>> log_softmax = Softmax(apply_log=False)
-            >>> TN_out, hidden = TN(inputs)
-            >>> TN_out = TN_lin(TN_out)
-            >>> # Initialize modules...
-            >>> blank_id = 34
-            >>> PN_emb = Embedding(num_embeddings=35, consider_as_one_hot=True, blank_id=blank_id)
-            >>> test_emb = PN_emb(torch.Tensor([[1]]).long())
-            >>> PN = GRU(hidden_size=5, input_shape=test_emb.shape)
-            >>> test_PN, _ = PN(test_emb)
-            >>> PN_lin = Linear(input_shape=test_PN.shape, n_neurons=35)
-            >>> test_PN = PN_lin(test_PN)
-            >>> # init tjoint
-            >>> joint_network= Linear(input_shape=TN_out.unsqueeze(1).shape, n_neurons=35)
-            >>> tjoint = Transducer_joint(joint_network, joint="sum")
-            >>> joint_tensor = tjoint(TN_out.unsqueeze(1), test_PN.unsqueeze(2))
-            >>> Out_lin = Linear(input_shape=joint_tensor.shape, n_neurons=35)
-            >>> out = Out_lin(joint_tensor)
-            >>> best_hyps, scores = transducer_greedy_decode(TN_out, [PN_emb,PN,PN_lin], tjoint, [Out_lin], blank_id)
-
         Author:
             Abdelwahab HEBA 2020
         """
@@ -420,37 +389,6 @@ class TransducerBeamSearcher:
         torch.tensor
             Outputs a logits tensor [B,T,1,Output_Dim]; padding
             has not been removed.
-
-        Example
-        -------
-            >>> import torch
-            >>> from speechbrain.decoders.transducer import transducer_beam_search_decode
-            >>> from speechbrain.nnet.RNN import GRU
-            >>> from speechbrain.nnet.activations import Softmax
-            >>> from speechbrain.nnet.embedding import Embedding
-            >>> from speechbrain.nnet.transducer.transducer_joint import Transducer_joint
-            >>> from speechbrain.nnet.linear import Linear
-            >>> inputs = torch.rand(3, 40, 35)
-            >>> TN = GRU(hidden_size=5, input_shape=(3, 40, 35))
-            >>> TN_lin = Linear(input_shape=(3, 40, 5), n_neurons=35)
-            >>> blank_id = 34
-            >>> log_softmax = Softmax(apply_log=False)
-            >>> TN_out, _ = TN(inputs)
-            >>> TN_out = TN_lin(TN_out)
-            >>> # Initialize modules...
-            >>> PN_emb = Embedding(num_embeddings=35, consider_as_one_hot=True, blank_id=blank_id)
-            >>> test_emb = PN_emb(torch.Tensor([[1]]).long())
-            >>> PN = GRU(hidden_size=5, input_shape=test_emb.shape)
-            >>> test_PN, _ = PN(test_emb)
-            >>> PN_lin = Linear(input_shape=test_PN.shape, n_neurons=35)
-            >>> test_PN = PN_lin(test_PN)
-            >>> # init tjoint
-            >>> joint_network= Linear(input_shape=TN_out.unsqueeze(1).shape, n_neurons=35)
-            >>> tjoint = Transducer_joint(joint_network, joint="sum")
-            >>> joint_tensor = tjoint(TN_out.unsqueeze(1), test_PN.unsqueeze(2))
-            >>> Out_lin = Linear(input_shape=joint_tensor.shape, n_neurons=35)
-            >>> out = Out_lin(joint_tensor)
-            >>> # out_decode = transducer_beam_search_decode(TN_out, [PN_emb,PN,PN_lin], tjoint, [Out_lin], blank_id, beam=2, nbest=5)
 
         Author:
             Abdelwahab HEBA 2020
