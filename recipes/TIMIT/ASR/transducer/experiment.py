@@ -45,7 +45,9 @@ class ASR(sb.Brain):
         x = self.modules.enc_lin(x)
 
         # Prepend bos token at the beginning
-        y_in = sb.data_io.prepend_bos_token(phns, self.hparams.blank_index)
+        y_in = sb.data_io.data_io.prepend_bos_token(
+            phns, self.hparams.blank_index
+        )
         e_in = self.modules.emb(y_in)
         h, _ = self.modules.dec(e_in)
         h = self.modules.dec_lin(h)
@@ -142,7 +144,7 @@ class ASR(sb.Brain):
 
         if stage == sb.Stage.VALID:
             old_lr, new_lr = self.hparams.lr_annealing(per)
-            sb.nnet.update_learning_rate(self.optimizer, new_lr)
+            sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
             self.hparams.train_logger.log_stats(
                 stats_meta={"epoch": epoch, "lr": old_lr},
                 train_stats={"loss": self.train_loss},
@@ -201,10 +203,7 @@ if __name__ == "__main__":
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
         hparams=hparams,
-        jit_module_keys=hparams["jit_module_keys"],
         checkpointer=hparams["checkpointer"],
-        device=hparams["device"],
-        ddp_procs=hparams["ddp_procs"],
     )
 
     asr_brain.fit(asr_brain.hparams.epoch_counter, train_set, valid_set)

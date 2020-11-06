@@ -36,6 +36,7 @@ Authors
 import math
 import torch
 import logging
+from packaging import version
 from speechbrain.utils.checkpoints import (
     mark_as_saver,
     mark_as_loader,
@@ -143,17 +144,31 @@ class STFT(torch.nn.Module):
             x = x.transpose(1, 2)
             x = x.reshape(or_shape[0] * or_shape[2], or_shape[1])
 
-        stft = torch.stft(
-            x,
-            self.n_fft,
-            self.hop_length,
-            self.win_length,
-            self.window.to(x.device),
-            self.center,
-            self.pad_mode,
-            self.normalized_stft,
-            self.onesided,
-        )
+        if version.parse(torch.__version__) <= version.parse("1.6.0"):
+            stft = torch.stft(
+                x,
+                self.n_fft,
+                self.hop_length,
+                self.win_length,
+                self.window.to(x.device),
+                self.center,
+                self.pad_mode,
+                self.normalized_stft,
+                self.onesided,
+            )
+        else:
+            stft = torch.stft(
+                x,
+                self.n_fft,
+                self.hop_length,
+                self.win_length,
+                self.window.to(x.device),
+                self.center,
+                self.pad_mode,
+                self.normalized_stft,
+                self.onesided,
+                return_complex=False,
+            )
 
         # Retrieving the original dimensionality (batch,time, channels)
         if len(or_shape) == 3:
@@ -1169,7 +1184,7 @@ class InputNormalization(torch.nn.Module):
         torch.save(stats, path)
 
     @mark_as_loader
-    def _load(self, path, end_of_epoch):
+    def _load(self, path, end_of_epoch, device=None):
         """Load statistic dictionary.
 
         Arguments
@@ -1180,5 +1195,5 @@ class InputNormalization(torch.nn.Module):
             If True, the training has completed a full epoch.
         """
         del end_of_epoch  # Unused here.
-        stats = torch.load(path)
+        stats = torch.load(path, map_location=device)
         self._load_statistics_dict(stats)

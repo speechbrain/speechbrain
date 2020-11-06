@@ -3,9 +3,8 @@
 Authors
 * Jianyuan Zhong 2020
 """
-
-import torch
 import math
+import torch
 import torch.nn as nn
 import speechbrain as sb
 from typing import Optional
@@ -22,8 +21,6 @@ class TransformerInterface(nn.Module):
 
     Arguements
     ----------
-    input_size : int
-        Expected size of input features.
     d_model : int
         the number of expected features in the encoder/decoder inputs (default=512).
     nhead : int
@@ -47,7 +44,6 @@ class TransformerInterface(nn.Module):
 
     def __init__(
         self,
-        input_size,
         d_model=512,
         nhead=8,
         num_encoder_layers=6,
@@ -58,6 +54,7 @@ class TransformerInterface(nn.Module):
         custom_src_module=None,
         custom_tgt_module=None,
         positional_encoding=True,
+        normalize_before=False,
     ):
         super().__init__()
 
@@ -66,7 +63,7 @@ class TransformerInterface(nn.Module):
         ), "number of encoder layers and number of decoder layers cannot both be 0!"
 
         if positional_encoding:
-            self.positional_encoding = PositionalEncoding(input_size)
+            self.positional_encoding = PositionalEncoding(d_model)
 
         # initialize the encoder
         if num_encoder_layers > 0:
@@ -77,13 +74,14 @@ class TransformerInterface(nn.Module):
                 nhead=nhead,
                 num_layers=num_encoder_layers,
                 d_ffn=d_ffn,
-                embed_dim=input_size,
+                d_model=d_model,
                 dropout=dropout,
                 activation=activation,
+                normalize_before=normalize_before,
             )
 
         # initialize the dncoder
-        if num_encoder_layers > 0:
+        if num_decoder_layers > 0:
             if custom_tgt_module is not None:
                 self.custom_tgt_module = custom_tgt_module(d_model)
 
@@ -91,9 +89,10 @@ class TransformerInterface(nn.Module):
                 num_layers=num_decoder_layers,
                 nhead=nhead,
                 d_ffn=d_ffn,
-                embed_dim=input_size,
+                d_model=d_model,
                 dropout=dropout,
                 activation=activation,
+                normalize_before=normalize_before,
             )
 
     def forward(self, **kwags):
@@ -156,7 +155,7 @@ class TransformerEncoderLayer(nn.Module):
         Hidden size of self-attention Feed Forward layer
     nhead : int
         number of attention heads
-    embed_dim : int
+    d_model : int
         The expected size of the input embedding
     reshape : bool
         Whether to automatically shape 4-d input to 3-d
@@ -171,7 +170,7 @@ class TransformerEncoderLayer(nn.Module):
     -------
     >>> import torch
     >>> x = torch.rand((8, 60, 512))
-    >>> net = TransformerEncoderLayer(512, 8, embed_dim=512)
+    >>> net = TransformerEncoderLayer(512, 8, d_model=512)
     >>> output = net(x)
     >>> output[0].shape
     torch.Size([8, 60, 512])
@@ -181,34 +180,31 @@ class TransformerEncoderLayer(nn.Module):
         self,
         d_ffn,
         nhead,
-        embed_dim=None,
-        reshape=False,
+        d_model=None,
         kdim=None,
         vdim=None,
         dropout=0.1,
         activation=nn.ReLU,
+        normalize_before=False,
     ):
         super().__init__()
-        self.reshape = reshape
 
-        self.self_att = sb.nnet.MultiheadAttention(
-            nhead=nhead,
-            embed_dim=embed_dim,
-            dropout=dropout,
-            kdim=kdim,
-            vdim=vdim,
+        self.self_att = sb.nnet.attention.MultiheadAttention(
+            nhead=nhead, d_model=d_model, dropout=dropout, kdim=kdim, vdim=vdim,
         )
-        self.pos_ffn = sb.nnet.PositionalwiseFeedForward(
+        self.pos_ffn = sb.nnet.attention.PositionalwiseFeedForward(
             d_ffn=d_ffn,
-            input_size=embed_dim,
+            input_size=d_model,
             dropout=dropout,
             activation=activation,
         )
 
-        self.norm1 = torch.nn.LayerNorm(embed_dim, eps=1e-6)
-        self.norm2 = torch.nn.LayerNorm(embed_dim, eps=1e-6)
+        self.norm1 = sb.nnet.normalization.LayerNorm(d_model, eps=1e-6)
+        self.norm2 = sb.nnet.normalization.LayerNorm(d_model, eps=1e-6)
         self.dropout1 = torch.nn.Dropout(dropout)
         self.dropout2 = torch.nn.Dropout(dropout)
+
+        self.normalize_before = normalize_before
 
     def forward(
         self,
@@ -226,29 +222,34 @@ class TransformerEncoderLayer(nn.Module):
         src_key_padding_mask: tensor
             the mask for the src keys per batch (optional).
         """
-        in_shape = src.shape
-        if self.reshape:
-            src = src.reshape(
-                in_shape[0], in_shape[1], in_shape[2] * in_shape[3]
-            )
+        if self.normalize_before:
+            src1 = self.norm1(src)
+        else:
+            src1 = src
 
         output, self_attn = self.self_att(
-            src,
-            src,
-            src,
+            src1,
+            src1,
+            src1,
             attn_mask=src_mask,
             key_padding_mask=src_key_padding_mask,
         )
 
         # add & norm
         src = src + self.dropout1(output)
-        src = self.norm1(src)
+        if not self.normalize_before:
+            src = self.norm1(src)
 
-        output = self.pos_ffn(src)
+        if self.normalize_before:
+            src1 = self.norm2(src)
+        else:
+            src1 = src
+        output = self.pos_ffn(src1)
 
         # add & norm
         output = src + self.dropout2(output)
-        output = self.norm2(output)
+        if not self.normalize_before:
+            output = self.norm2(output)
 
         return output, self_attn
 
@@ -266,7 +267,7 @@ class TransformerEncoder(nn.Module):
         Hidden size of self-attention Feed Forward layer
     input_shape : tuple
         Expected shape of an example input.
-    embed_dim : int
+    d_model : int
         The dimension of the input embedding.
     kdim : int
         dimension for key (Optional)
@@ -282,7 +283,7 @@ class TransformerEncoder(nn.Module):
     -------
     >>> import torch
     >>> x = torch.rand((8, 60, 512))
-    >>> net = TransformerEncoder(1, 8, 512, embed_dim=512)
+    >>> net = TransformerEncoder(1, 8, 512, d_model=512)
     >>> output, _ = net(x)
     >>> output.shape
     torch.Size([8, 60, 512])
@@ -294,41 +295,37 @@ class TransformerEncoder(nn.Module):
         nhead,
         d_ffn,
         input_shape=None,
-        embed_dim=None,
+        d_model=None,
         kdim=None,
         vdim=None,
         dropout=0.1,
         activation=nn.ReLU,
+        normalize_before=False,
     ):
         super().__init__()
 
-        if input_shape is None and embed_dim is None:
-            raise ValueError("Expected one of input_shape or embed_dim")
-
-        reshape_first_layer = False
-        if embed_dim is None:
-            if len(input_shape) == 4:
-                reshape_first_layer = True
-                embed_dim = input_shape[-2] * input_shape[-1]
-            else:
-                embed_dim = input_shape[-1]
+        if input_shape is None and d_model is None:
+            raise ValueError("Expected one of input_shape or d_model")
+            if len(input_shape) == 3:
+                msg = "Input shape of the Transformer must be (batch, time, fea). Please revise the forward function in TransformerInterface to handel arbitary shape of input."
+                raise ValueError(msg)
 
         self.layers = torch.nn.ModuleList(
             [
                 TransformerEncoderLayer(
                     d_ffn=d_ffn,
                     nhead=nhead,
-                    embed_dim=embed_dim,
-                    reshape=reshape_first_layer if i == 0 else False,
+                    d_model=d_model,
                     kdim=kdim,
                     vdim=vdim,
                     dropout=dropout,
                     activation=activation,
+                    normalize_before=normalize_before,
                 )
                 for i in range(num_layers)
             ]
         )
-        self.norm = torch.nn.LayerNorm(embed_dim, eps=1e-6)
+        self.norm = sb.nnet.normalization.LayerNorm(d_model, eps=1e-6)
 
     def forward(
         self,
@@ -369,7 +366,7 @@ class TransformerDecoderLayer(nn.Module):
         Hidden size of self-attention Feed Forward layer
     nhead : int
         number of attention heads
-    embed_dim : int
+    d_model : int
         dimension of the model
     kdim : int
         dimension for key (optional)
@@ -382,7 +379,7 @@ class TransformerDecoderLayer(nn.Module):
     -------
     >>> src = torch.rand((8, 60, 512))
     >>> tgt = torch.rand((8, 60, 512))
-    >>> net = TransformerDecoderLayer(1024, 8, embed_dim=512)
+    >>> net = TransformerDecoderLayer(1024, 8, d_model=512)
     >>> output, self_attn, multihead_attn = net(src, tgt)
     >>> output.shape
     torch.Size([8, 60, 512])
@@ -392,41 +389,36 @@ class TransformerDecoderLayer(nn.Module):
         self,
         d_ffn,
         nhead,
-        embed_dim,
+        d_model,
         kdim=None,
         vdim=None,
         dropout=0.1,
         activation=nn.ReLU,
+        normalize_before=False,
     ):
         super().__init__()
-        self.self_attn = sb.nnet.MultiheadAttention(
-            nhead=nhead,
-            embed_dim=embed_dim,
-            kdim=kdim,
-            vdim=vdim,
-            dropout=dropout,
+        self.self_attn = sb.nnet.attention.MultiheadAttention(
+            nhead=nhead, d_model=d_model, kdim=kdim, vdim=vdim, dropout=dropout,
         )
-        self.mutihead_attn = sb.nnet.MultiheadAttention(
-            nhead=nhead,
-            embed_dim=embed_dim,
-            kdim=kdim,
-            vdim=vdim,
-            dropout=dropout,
+        self.mutihead_attn = sb.nnet.attention.MultiheadAttention(
+            nhead=nhead, d_model=d_model, kdim=kdim, vdim=vdim, dropout=dropout,
         )
-        self.pos_ffn = sb.nnet.PositionalwiseFeedForward(
+        self.pos_ffn = sb.nnet.attention.PositionalwiseFeedForward(
             d_ffn=d_ffn,
-            input_size=embed_dim,
+            input_size=d_model,
             dropout=dropout,
             activation=activation,
         )
 
         # normalization layers
-        self.norm1 = torch.nn.LayerNorm(embed_dim, eps=1e-6)
-        self.norm2 = torch.nn.LayerNorm(embed_dim, eps=1e-6)
-        self.norm3 = torch.nn.LayerNorm(embed_dim, eps=1e-6)
+        self.norm1 = sb.nnet.normalization.LayerNorm(d_model, eps=1e-6)
+        self.norm2 = sb.nnet.normalization.LayerNorm(d_model, eps=1e-6)
+        self.norm3 = sb.nnet.normalization.LayerNorm(d_model, eps=1e-6)
         self.dropout1 = torch.nn.Dropout(dropout)
         self.dropout2 = torch.nn.Dropout(dropout)
         self.dropout3 = torch.nn.Dropout(dropout)
+
+        self.normalize_before = normalize_before
 
     def forward(
         self,
@@ -453,22 +445,33 @@ class TransformerDecoderLayer(nn.Module):
         memory_key_padding_mask: tensor
             the mask for the memory keys per batch (optional).
         """
+        if self.normalize_before:
+            tgt1 = self.norm1(tgt)
+        else:
+            tgt1 = tgt
+
         # self-attention over the target sequence
         tgt2, self_attn = self.self_attn(
-            query=tgt,
-            key=tgt,
-            value=tgt,
+            query=tgt1,
+            key=tgt1,
+            value=tgt1,
             attn_mask=tgt_mask,
             key_padding_mask=tgt_key_padding_mask,
         )
 
         # add & norm
         tgt = tgt + self.dropout1(tgt2)
-        tgt = self.norm1(tgt)
+        if not self.normalize_before:
+            tgt = self.norm1(tgt)
+
+        if self.normalize_before:
+            tgt1 = self.norm2(tgt)
+        else:
+            tgt1 = tgt
 
         # multi-head attention over the target sequence and encoder states
         tgt2, multihead_attention = self.mutihead_attn(
-            query=tgt,
+            query=tgt1,
             key=memory,
             value=memory,
             attn_mask=memory_mask,
@@ -477,13 +480,20 @@ class TransformerDecoderLayer(nn.Module):
 
         # add & norm
         tgt = tgt + self.dropout2(tgt2)
-        tgt = self.norm2(tgt)
+        if not self.normalize_before:
+            tgt = self.norm2(tgt)
 
-        tgt2 = self.pos_ffn(tgt)
+        if self.normalize_before:
+            tgt1 = self.norm3(tgt)
+        else:
+            tgt1 = tgt
+
+        tgt2 = self.pos_ffn(tgt1)
 
         # add & norm
         tgt = tgt + self.dropout3(tgt2)
-        tgt = self.norm3(tgt)
+        if not self.normalize_before:
+            tgt = self.norm3(tgt)
 
         return tgt, self_attn, multihead_attention
 
@@ -497,7 +507,7 @@ class TransformerDecoder(nn.Module):
         Hidden size of self-attention Feed Forward layer
     nhead : int
         number of attention heads
-    embed_dim : int
+    d_model : int
         dimension of the model
     kdim : int
         dimension for key (Optional)
@@ -510,7 +520,7 @@ class TransformerDecoder(nn.Module):
     -------
     >>> src = torch.rand((8, 60, 512))
     >>> tgt = torch.rand((8, 60, 512))
-    >>> net = TransformerDecoder(1, 8, 1024, embed_dim=512)
+    >>> net = TransformerDecoder(1, 8, 1024, d_model=512)
     >>> output, _, _ = net(src, tgt)
     >>> output.shape
     torch.Size([8, 60, 512])
@@ -521,11 +531,12 @@ class TransformerDecoder(nn.Module):
         num_layers,
         nhead,
         d_ffn,
-        embed_dim,
+        d_model,
         kdim=None,
         vdim=None,
         dropout=0.1,
         activation=nn.ReLU,
+        normalize_before=False,
     ):
         super().__init__()
         self.layers = torch.nn.ModuleList(
@@ -533,16 +544,17 @@ class TransformerDecoder(nn.Module):
                 TransformerDecoderLayer(
                     d_ffn=d_ffn,
                     nhead=nhead,
-                    embed_dim=embed_dim,
+                    d_model=d_model,
                     kdim=kdim,
                     vdim=vdim,
                     dropout=dropout,
                     activation=activation,
+                    normalize_before=normalize_before,
                 )
                 for _ in range(num_layers)
             ]
         )
-        self.norm = torch.nn.LayerNorm(embed_dim, eps=1e-6)
+        self.norm = sb.nnet.normalization.LayerNorm(d_model, eps=1e-6)
 
     def forward(
         self,
@@ -587,6 +599,37 @@ class TransformerDecoder(nn.Module):
         return output, self_attns, multihead_attns
 
 
+class NormalizedEmbedding(nn.Module):
+    """This class implements the normalized embedding layer for transformer.
+    Since the dot product of the self-attention is always normalized by sqrt(d_model)
+    and the final linear projection for prediction shares weight with the embedding layer,
+    we multiply the output of the embedding by sqrt(d_model)
+
+    Arguments
+    ---------
+    d_model: int
+        the number of expected features in the encoder/decoder inputs (default=512).
+    vocab: int
+        the vocab size
+
+    Example
+    -------
+    >>> emb = NormalizedEmbedding(512, 1000)
+    >>> trg = torch.randint(0, 999, (8, 50))
+    >>> emb_fea = emb(trg)
+    """
+
+    def __init__(self, d_model, vocab):
+        super().__init__()
+        self.emb = sb.nnet.embedding.Embedding(
+            num_embeddings=vocab, embedding_dim=d_model, blank_id=0
+        )
+        self.d_model = d_model
+
+    def forward(self, x):
+        return self.emb(x) * math.sqrt(self.d_model)
+
+
 def get_key_padding_mask(padded_input, pad_idx):
     """Create a binary mask to prevent attention to padded locations
 
@@ -609,7 +652,7 @@ def get_key_padding_mask(padded_input, pad_idx):
         bz, time, ch1, ch2 = padded_input.shape
         padded_input = padded_input.reshape(bz, time, ch1 * ch2)
 
-    key_padded_mask = padded_input.eq(pad_idx)
+    key_padded_mask = padded_input.eq(pad_idx).to(padded_input.device)
 
     # if the input is more than 2d, mask the locations where they are silence
     # across all channels
@@ -636,7 +679,10 @@ def get_lookahead_mask(padded_input):
             [0., 0., 0.]])
     """
     seq_len = padded_input.shape[1]
-    mask = (torch.triu(torch.ones(seq_len, seq_len)) == 1).transpose(0, 1)
+    mask = (
+        torch.triu(torch.ones((seq_len, seq_len), device=padded_input.device))
+        == 1
+    ).transpose(0, 1)
     mask = (
         mask.float()
         .masked_fill(mask == 0, float("-inf"))

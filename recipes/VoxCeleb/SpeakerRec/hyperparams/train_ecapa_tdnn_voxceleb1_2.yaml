@@ -4,8 +4,8 @@
 # ################################
 
 seed: 1234
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-__set_seed_python: !!python/object/apply:random.seed [!ref <seed>]
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+__set_seed_python: !apply:random.seed [!ref <seed>]
 
 # Folders and train_log file
 data_folder: !PLACEHOLDER # e.g, /localscratch/voxceleb1_2
