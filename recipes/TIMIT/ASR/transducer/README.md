@@ -1,5 +1,6 @@
 # TIMIT ASR with Transducer models.
 This folder contains scripts necessary to run an ASR experiment with the TIMIT dataset;
+Before running this recipe, make sure numba is installed (pip install numba)
 
 
 

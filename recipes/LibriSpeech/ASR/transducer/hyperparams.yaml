@@ -22,11 +22,11 @@ tok_mdl_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
 tok_voc_file: https://www.dropbox.com/s/7l8z622cpd3t8st/1000_unigram.vocab?dl=1
 
 # Data files
-data_folder: !PLACEHOLDER
+data_folder: /localscratch/LibriSpeech
 # If RIRS_NOISES dir exists in /localscratch/xxx_corpus/RIRS_NOISES
 # then data_folder_rirs should be /localscratch/xxx_corpus
 # otherwise the dataset will automatically be downloaded
-data_folder_rirs: !PLACEHOLDER
+data_folder_rirs: !ref <data_folder>
 #train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
 train_splits: ["train-clean-100"]
 dev_split: dev-clean
@@ -37,9 +37,9 @@ csv_test_other: !ref <data_folder>/test-other.csv
 
 
 # Training parameters
-number_of_epochs: 30
-number_of_ctc_epochs: 20
-number_of_ce_epochs: 20
+number_of_epochs: 3
+number_of_ctc_epochs: 2
+number_of_ce_epochs: 2
 batch_size: 8
 batch_size_valid: 4
 lr: 1.0
@@ -62,7 +62,7 @@ cnn_channels: (128, 256)
 inter_layer_pooling_size: (2, 2)
 cnn_kernelsize: (3, 3)
 time_pooling_size: 4
-rnn_class: !name:speechbrain.nnet.LSTM
+rnn_class: !name:speechbrain.nnet.RNN.LSTM
 rnn_layers: 4
 rnn_neurons: 1024
 rnn_bidirectional: True
@@ -88,47 +88,47 @@ lm_rnn_neurons: 2048
 lm_dnn_blocks: 1
 lm_dnn_neurons: 512
 
-epoch_counter: !new:speechbrain.EpochCounter
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
 # Dataloaders
-train_loader: !new:speechbrain.data_io.DataLoaderFactory
+train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
     csv_read: [wav, wrd]
 
-valid_loader: !new:speechbrain.data_io.DataLoaderFactory
+valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_valid>
     batch_size: !ref <batch_size_valid>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
     csv_read: [wav, wrd]
 
-test_clean_loader: !new:speechbrain.data_io.DataLoaderFactory
+test_clean_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_test_clean>
     batch_size: !ref <batch_size_valid>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
     csv_read: [wav, wrd]
 
-test_other_loader: !new:speechbrain.data_io.DataLoaderFactory
+test_other_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_test_other>
     batch_size: !ref <batch_size_valid>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
     csv_read: [wav, wrd]
 
-normalize: !new:speechbrain.processing.InputNormalization
+normalize: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
 
-compute_features: !new:speechbrain.lobes.Fbank
+compute_features: !new:speechbrain.lobes.features.Fbank
     sample_rate: !ref <sample_rate>
     n_fft: !ref <n_fft>
     n_mels: !ref <n_mels>
 
-env_corrupt: !new:speechbrain.lobes.EnvCorrupt
+env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
     openrir_folder: !ref <data_folder_rirs>
     babble_prob: 0.0
     reverb_prob: 0.0
@@ -136,11 +136,11 @@ env_corrupt: !new:speechbrain.lobes.EnvCorrupt
     noise_snr_low: 0
     noise_snr_high: 15
 
-augmentation: !new:speechbrain.lobes.TimeDomainSpecAugment
+augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
     sample_rate: !ref <sample_rate>
     speeds: [95, 100, 105]
 
-enc: !new:speechbrain.lobes.CRDNN
+enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
     input_shape: [null, null, !ref <n_mels>]
     activation: !ref <activation>
     dropout: !ref <dropout>
@@ -167,12 +167,12 @@ enc: !new:speechbrain.lobes.CRDNN
 # ctc_cost: !name:speechbrain.nnet.ctc_loss
 #    blank_index: !ref <blank_index>
 
-emb: !new:speechbrain.nnet.Embedding
+emb: !new:speechbrain.nnet.embedding.Embedding
     num_embeddings: !ref <output_neurons>
     consider_as_one_hot: True
     blank_id: !ref <blank_index>
 
-dec: !new:speechbrain.nnet.GRU
+dec: !new:speechbrain.nnet.RNN.GRU
     input_shape: [null, null, !ref <output_neurons> - 1]
     hidden_size: !ref <dec_neurons>
     num_layers: 1
@@ -191,18 +191,18 @@ Tjoint: !new:speechbrain.nnet.transducer.transducer_joint.Transducer_joint
     joint: sum # joint [sum | concat]
     nonlinearity: !ref <activation>
 
-transducer_lin: !new:speechbrain.nnet.Linear
+transducer_lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <joint_dim>
     n_neurons: !ref <output_neurons>
     bias: False
 
-log_softmax: !new:speechbrain.nnet.Softmax
+log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
-transducer_cost: !name:speechbrain.nnet.transducer_loss
+transducer_cost: !name:speechbrain.nnet.losses.transducer_loss
     blank_index: !ref <blank_index>
 
-lm_model: !new:speechbrain.lobes.RNNLM
+lm_model: !new:speechbrain.lobes.models.RNNLM.RNNLM
     output_neurons: !ref <output_neurons>
     embedding_dim: !ref <emb_size>
     activation: !ref <lm_activation>
@@ -236,13 +236,13 @@ opt_class: !name:torch.optim.Adadelta
     rho: 0.95
     eps: 1.e-8
 
-lr_annealing: !new:speechbrain.nnet.NewBobScheduler
+lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
     initial_value: !ref <lr>
     improvement_threshold: 0.0025
     annealing_factor: 0.8
     patient: 0
 
-checkpointer: !new:speechbrain.Checkpointer
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
         model: !ref <model>
@@ -250,10 +250,10 @@ checkpointer: !new:speechbrain.Checkpointer
         normalizer: !ref <normalize>
         counter: !ref <epoch_counter>
 
-train_logger: !new:speechbrain.FileTrainLogger
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
 
-error_rate_computer: !name:speechbrain.ErrorRateStats
+error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
 
-cer_computer: !name:speechbrain.ErrorRateStats
+cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
     split_tokens: True
