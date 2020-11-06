@@ -11,7 +11,7 @@ def test_normalize():
     for scale in ["dB", "linear"]:
         for amp_type in ["peak", "avg"]:
             for test_vec in [
-                torch.rand((100)),
+                torch.zeros((100)),
                 torch.rand((10, 100)),
                 torch.rand((10, 100, 5)),
             ]:
