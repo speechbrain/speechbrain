@@ -19,6 +19,8 @@ from speechbrain.lobes.models.transformer.group_communication import (
     GroupCommunication,
 )
 
+from speechbrain.nnet.relational_memory import RelationalMemory
+from speechbrian.nnet.basic_mha import MemoryAttention
 
 class TransformerInterface(nn.Module):
     """This is an interface for transformer model. Users can modify the attributes and
@@ -216,7 +218,11 @@ class TransformerEncoderLayer(nn.Module):
 
         self.use_group_comm = use_group_comm
         if use_group_comm:
-            self.group_comm = GroupCommunication(d_ffn, num_modules)
+            #self.group_comm = GroupCommunication(d_ffn, num_modules)
+            
+            self.memory_layer = RelationalMemory(mem_slots=10, head_size=32, input_size=self.embed_dim, output_size=self.embed_dim, num_heads=8, num_blocks=1, forget_bias=1., input_bias=0., gate_style='unit')
+            self.memory_attention = MemoryAttention(n_blocks_query=self.nb, n_blocks_val=10, dim_query=self.embed_dim, dim_val=10*32*8)
+            
             self.norm_comm = GroupLayerNorm(d_ffn, num_modules, eps=1e-6)
             self.dropout_comm = torch.nn.Dropout(dropout)
 
@@ -283,7 +289,17 @@ class TransformerEncoderLayer(nn.Module):
 
         if self.use_group_comm:
             residual = output * 1.0
-            output = self.group_comm(output, qkv=(self.qlst,self.klst,self.vlst), init_params=init_params)
+            #output = self.group_comm(output, qkv=(self.qlst,self.klst,self.vlst), init_params=init_params)
+            T,bsz,nhid = output.shape
+            if comp is not None:
+                out_write = comp * output
+            else:
+                out_write = output*1.0
+            _, new_memory = self.memory_layer.forward_step(out_write.reshape((T*bsz, nhid)), self.memory_obj[0])
+            self.memory_obj[0] = new_memory
+            Tbs,num_slots,nhid_slot = new_memory.shape
+            mem_read = new_memory.reshape((T, bsz, num_slots*nhid_slot))
+            output,_ = self.memory_attention(output, mem_read)
             output = self.dropout_comm(output)
             output = self.norm_comm(output + residual, init_params=init_params)
 
@@ -372,11 +388,14 @@ class TransformerEncoder(nn.Module):
         klst = []
         vlst = []
 
+        initial_state = self.layers[0].memory_layer.initial_state(batch_size=src.shape[0]*src.shape[1]).type(src.dtype).to(src.device)
+        memory_obj = [initial_state]
+
         for layer in self.layers:
             layer.qlst = qlst
             layer.klst = klst
             layer.vlst = vlst
-
+            layer.memory_obj = memory_obj
 
         for enc_layer in self.layers:
             output, attention = enc_layer(
@@ -637,10 +656,14 @@ class TransformerDecoder(nn.Module):
         klst = []
         vlst = []
 
+        initial_state = self.layers[0].memory_layer.initial_state(batch_size=tgt.shape[0]*tgt.shape[1]).type(tgt.dtype).to(tgt.device)
+        memory_obj = [initial_state]
+
         for layer in self.layers:
             layer.qlst = qlst
             layer.klst = klst
             layer.vlst = vlst
+            layer.memory_obj = memory_obj
         
         for dec_layer in self.layers:
             output, self_attn, multihead_attn = dec_layer(
