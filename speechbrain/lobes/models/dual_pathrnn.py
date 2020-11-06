@@ -329,6 +329,51 @@ class Decoder(nn.ConvTranspose1d):
         return x
 
 
+class Decoder_twolayer(nn.Module):
+    """
+        Two layer Decoder
+    """
+
+    def __init__(
+        self, in_channels, out_channels, kernel_size, stride, bias=False
+    ):
+        super(Decoder_twolayer, self).__init__()
+
+        self.convt1 = nn.ConvTranspose1d(
+            in_channels=in_channels,
+            out_channels=in_channels,
+            kernel_size=kernel_size,
+            stride=stride,
+            bias=bias,
+        )
+        self.convt2 = nn.ConvTranspose1d(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            kernel_size=kernel_size,
+            stride=1,
+            bias=bias,
+        )
+
+    def forward(self, x, init_params=True):
+        """
+        x: [B, N, L]
+        """
+        if x.dim() not in [2, 3]:
+            raise RuntimeError(
+                "{} accept 3/4D tensor as input".format(self.__name__)
+            )
+        x = x if x.dim() == 3 else torch.unsqueeze(x, 1)
+
+        x = self.convt1(x)
+        x = self.convt2(x)
+
+        if torch.squeeze(x).dim() == 1:
+            x = torch.squeeze(x, dim=1)
+        else:
+            x = torch.squeeze(x)
+        return x
+
+
 class Dual_RNN_Block(nn.Module):
     """
        Implementation of the intra-RNN and the inter-RNN
