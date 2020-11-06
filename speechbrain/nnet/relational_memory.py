@@ -41,10 +41,11 @@ class RelationalMemory(nn.Module):
       ValueError: attention_mlp_layers is < 1.
     """
 
-    def __init__(self, mem_slots, head_size, input_size, output_size, num_heads=1, num_blocks=1, forget_bias=1., input_bias=0.,
+    def __init__(self, mem_slots, head_size, input_size, output_size, num_heads=1, num_iterations=1, forget_bias=1., input_bias=0.,
                  gate_style='unit', attention_mlp_layers=2, key_size=None, return_all_outputs=False):
         super(RelationalMemory, self).__init__()
 
+        num_blocks = num_iterations
         ########## generic parameters for RMC ##########
         self.mem_slots = mem_slots
         self.head_size = head_size

@@ -220,8 +220,8 @@ class TransformerEncoderLayer(nn.Module):
         if use_group_comm:
             #self.group_comm = GroupCommunication(d_ffn, num_modules)
             
-            self.memory_layer = RelationalMemory(mem_slots=10, head_size=32, input_size=self.embed_dim, output_size=self.embed_dim, num_heads=8, num_blocks=1, forget_bias=1., input_bias=0., gate_style='unit')
-            self.memory_attention = MemoryAttention(n_blocks_query=self.nb, n_blocks_val=10, dim_query=self.embed_dim, dim_val=10*32*8)
+            self.memory_layer = RelationalMemory(mem_slots=10, head_size=32, input_size=self.embed_dim, output_size=self.embed_dim, num_heads=8, num_iterations=1, forget_bias=1., input_bias=0., gate_style='unit')
+            self.memory_attention = MemoryAttention(n_blocks_query=num_modules, n_blocks_val=10, dim_query=self.embed_dim, dim_val=10*32*8)
             
             self.norm_comm = GroupLayerNorm(d_ffn, num_modules, eps=1e-6)
             self.dropout_comm = torch.nn.Dropout(dropout)
