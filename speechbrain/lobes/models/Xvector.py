@@ -10,7 +10,7 @@ import torch  # noqa: F401
 import speechbrain as sb
 
 
-class Xvector(sb.nnet.Sequential):
+class Xvector(sb.nnet.containers.Sequential):
     """This model extracts XVectors for speaker recognition and diarization.
 
     Arguments
@@ -52,32 +52,36 @@ class Xvector(sb.nnet.Sequential):
         super().__init__(input_shape=input_shape)
 
         if tdnn_blocks > 0:
-            self.append(sb.nnet.Sequential, layer_name="TDNN")
+            self.append(sb.nnet.containers.Sequential, layer_name="TDNN")
 
         # TDNN layers
         for block_index in range(tdnn_blocks):
             block_name = f"block_{block_index}"
-            self.TDNN.append(sb.nnet.Sequential, layer_name=block_name)
+            self.TDNN.append(
+                sb.nnet.containers.Sequential, layer_name=block_name
+            )
             self.TDNN[block_name].append(
-                sb.nnet.Conv1d,
+                sb.nnet.CNN.Conv1d,
                 out_channels=tdnn_channels[block_index],
                 kernel_size=tdnn_kernel_sizes[block_index],
                 dilation=tdnn_dilations[block_index],
                 layer_name="conv",
             )
             self.TDNN[block_name].append(activation(), layer_name="act")
-            self.TDNN[block_name].append(sb.nnet.BatchNorm1d, layer_name="norm")
+            self.TDNN[block_name].append(
+                sb.nnet.normalization.BatchNorm1d, layer_name="norm"
+            )
 
         # Statistical pooling
-        self.append(sb.nnet.StatisticsPooling(), layer_name="stats_pool")
+        self.append(sb.nnet.pooling.StatisticsPooling(), layer_name="stat_pool")
 
         # Final linear transformation
         self.append(
-            sb.nnet.Linear, n_neurons=lin_neurons, bias=True, layer_name="out"
+            sb.nnet.linear.Linear, n_neurons=lin_neurons, layer_name="out"
         )
 
 
-class Classifier(sb.nnet.Sequential):
+class Classifier(sb.nnet.containers.Sequential):
     """This class implements the last MLP on the top of xvector features.
 
     Arguments
@@ -115,31 +119,37 @@ class Classifier(sb.nnet.Sequential):
         super().__init__(input_shape=input_shape)
 
         self.append(activation(), layer_name="act")
-        self.append(sb.nnet.BatchNorm1d, layer_name="norm")
+        self.append(sb.nnet.normalization.BatchNorm1d, layer_name="norm")
 
         if lin_blocks > 0:
-            self.append(sb.nnet.Sequential, layer_name="DNN")
+            self.append(sb.nnet.containers.Sequential, layer_name="DNN")
 
         for block_index in range(lin_blocks):
             block_name = f"block_{block_index}"
-            self.DNN.append(sb.nnet.Sequential, layer_name=block_name)
+            self.DNN.append(
+                sb.nnet.containers.Sequential, layer_name=block_name
+            )
             self.DNN[block_name].append(
-                sb.nnet.Linear,
+                sb.nnet.linear.Linear,
                 n_neurons=lin_neurons,
                 bias=True,
                 layer_name="linear",
             )
             self.DNN[block_name].append(activation(), layer_name="act")
-            self.DNN[block_name].append(sb.nnet.BatchNorm1d, layer_name="norm")
+            self.DNN[block_name].append(
+                sb.nnet.normalization.BatchNorm1d, layer_name="norm"
+            )
 
         # Final Softmax classifier
         self.append(
-            sb.nnet.Linear, n_neurons=out_neurons, bias=True, layer_name="out"
+            sb.nnet.linear.Linear, n_neurons=out_neurons, layer_name="out"
         )
-        self.append(sb.nnet.Softmax(apply_log=True), layer_name="softmax")
+        self.append(
+            sb.nnet.activations.Softmax(apply_log=True), layer_name="softmax"
+        )
 
 
-class Discriminator(sb.nnet.Sequential):
+class Discriminator(sb.nnet.containers.Sequential):
     """This class implements a discriminator on the top of xvector features.
 
     Arguments
@@ -175,20 +185,26 @@ class Discriminator(sb.nnet.Sequential):
         super().__init__(input_shape=input_shape)
 
         if lin_blocks > 0:
-            self.append(sb.nnet.Sequential, layer_name="DNN")
+            self.append(sb.nnet.containers.Sequential, layer_name="DNN")
 
         for block_index in range(lin_blocks):
             block_name = f"block_{block_index}"
-            self.DNN.append(sb.nnet.Sequential, layer_name=block_name)
+            self.DNN.append(
+                sb.nnet.containers.Sequential, layer_name=block_name
+            )
             self.DNN[block_name].append(
-                sb.nnet.Linear,
+                sb.nnet.linear.Linear,
                 n_neurons=lin_neurons,
                 bias=True,
                 combine_dims=False,
                 layer_name="linear",
             )
-            self.DNN[block_name].append(sb.nnet.BatchNorm1d, layer_name="norm")
+            self.DNN[block_name].append(
+                sb.nnet.normalization.BatchNorm1d, layer_name="norm"
+            )
             self.DNN[block_name].append(activation(), layer_name="act")
 
         # Final Layer (sigmoid not included)
-        self.append(sb.nnet.Linear, n_neurons=out_neurons, layer_name="out")
+        self.append(
+            sb.nnet.linear.Linear, n_neurons=out_neurons, layer_name="out"
+        )

@@ -1,13 +1,9 @@
-#!/usr/bin/env/python3
+#!/usr/bin/env python3
 """Recipe for doing ASR with phoneme targets and joint seq2seq
 and CTC loss on the TIMIT dataset.
 
 To run this recipe, do the following:
-> python experiment.py {hyperparameter file} --data_folder /path/to/TIMIT
-
-Using your own hyperparameter file or one of the following:
- * hyperparams/augment_CRDNN.yaml
- * hyperparams/augment_noise_CRDNN.yaml
+> python experiment.py hyperparams.yaml --data_folder /path/to/TIMIT
 
 Authors
  * Mirco Ravanelli 2020
@@ -29,14 +25,15 @@ class ASR(sb.Brain):
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
         phns, phn_lens = phns.to(self.device), phn_lens.to(self.device)
 
-        if hasattr(self.modules, "env_corrupt") and stage == sb.Stage.TRAIN:
-            wavs_noise = self.modules.env_corrupt(wavs, wav_lens)
-            wavs = torch.cat([wavs, wavs_noise], dim=0)
-            wav_lens = torch.cat([wav_lens, wav_lens])
-            phns = torch.cat([phns, phns])
+        if stage == sb.Stage.TRAIN:
+            if hasattr(self.modules, "env_corrupt"):
+                wavs_noise = self.modules.env_corrupt(wavs, wav_lens)
+                wavs = torch.cat([wavs, wavs_noise], dim=0)
+                wav_lens = torch.cat([wav_lens, wav_lens])
+                phns = torch.cat([phns, phns])
+            if hasattr(self.hparams, "augmentation"):
+                wavs = self.hparams.augmentation(wavs, wav_lens)
 
-        if hasattr(self.hparams, "augmentation"):
-            wavs = self.hparams.augmentation(wavs, wav_lens)
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.normalize(feats, wav_lens)
         x = self.modules.enc(feats)
@@ -46,7 +43,9 @@ class ASR(sb.Brain):
         p_ctc = self.hparams.log_softmax(logits)
 
         # Prepend bos token at the beginning
-        y_in = sb.data_io.prepend_bos_token(phns, self.hparams.bos_index)
+        y_in = sb.data_io.data_io.prepend_bos_token(
+            phns, self.hparams.bos_index
+        )
         e_in = self.modules.emb(y_in)
         h, _ = self.modules.dec(e_in, x, wav_lens)
 
@@ -133,7 +132,7 @@ class ASR(sb.Brain):
 
         if stage == sb.Stage.VALID:
             old_lr, new_lr = self.hparams.lr_annealing(per)
-            sb.nnet.update_learning_rate(self.optimizer, new_lr)
+            sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
 
             if self.root_process:
                 self.hparams.train_logger.log_stats(
@@ -202,11 +201,7 @@ if __name__ == "__main__":
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
         hparams=hparams,
-        jit_module_keys=hparams["jit_module_keys"],
         checkpointer=hparams["checkpointer"],
-        device=hparams["device"],
-        multigpu_count=hparams["multigpu_count"],
-        multigpu_backend=hparams["multigpu_backend"],
     )
 
     asr_brain.fit(asr_brain.hparams.epoch_counter, train_set, valid_set)

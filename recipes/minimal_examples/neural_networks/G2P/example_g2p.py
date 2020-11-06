@@ -13,7 +13,7 @@ class seq2seqBrain(sb.Brain):
         x, _ = self.modules.enc(emb_char)
 
         # Prepend bos token at the beginning
-        y_in = sb.data_io.prepend_bos_token(phns, self.hparams.bos)
+        y_in = sb.data_io.data_io.prepend_bos_token(phns, self.hparams.bos)
         e_in = self.modules.emb(y_in)
 
         h, w = self.modules.dec(e_in, x, char_lens)
@@ -38,7 +38,7 @@ class seq2seqBrain(sb.Brain):
         abs_length = torch.round(phn_lens * phns.shape[1])
 
         # Append eos token at the end of the label sequences
-        phns = sb.data_io.append_eos_token(
+        phns = sb.data_io.data_io.append_eos_token(
             phns, length=abs_length, eos_index=self.hparams.eos
         )
 

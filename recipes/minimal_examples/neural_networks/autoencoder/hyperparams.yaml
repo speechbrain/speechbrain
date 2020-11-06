@@ -1,7 +1,7 @@
 # Basic parameters
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
 use_tensorboard: False
 tensorboard_logs: runs
 
@@ -16,7 +16,7 @@ N_epochs: 100
 N_batch: 2
 lr: 0.004
 
-train_loader: !new:speechbrain.data_io.DataLoaderFactory
+train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>
     batch_size: !ref <N_batch>
     csv_read: [wav]
@@ -24,7 +24,7 @@ train_loader: !new:speechbrain.data_io.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
-valid_loader: !new:speechbrain.data_io.DataLoaderFactory
+valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_valid>
     batch_size: !ref <N_batch>
     csv_read: [wav]
@@ -32,28 +32,28 @@ valid_loader: !new:speechbrain.data_io.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
-test_loader: !new:speechbrain.data_io.DataLoaderFactory
+test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_test>
     csv_read: [wav]
     sentence_sorting: ascending
     replacements:
         $data_folder: !ref <data_folder>
 
-compute_features: !new:speechbrain.lobes.MFCC
+compute_features: !new:speechbrain.lobes.features.MFCC
     left_frames: 1
     right_frames: 1
 
-mean_var_norm: !new:speechbrain.processing.InputNormalization
+mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
 
-linear1: !new:speechbrain.nnet.Linear
+linear1: !new:speechbrain.nnet.linear.Linear
     input_size: 180
     n_neurons: 128
     bias: False
 
 activation: !new:torch.nn.LeakyReLU
 
-linear2: !new:speechbrain.nnet.Linear
+linear2: !new:speechbrain.nnet.linear.Linear
     input_size: 128
     n_neurons: 180
     bias: False
@@ -66,8 +66,8 @@ modules:
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
 
-compute_cost: !name:speechbrain.nnet.mse_loss
+compute_cost: !name:speechbrain.nnet.losses.mse_loss
 
-loss_tracker: !name:speechbrain.MetricStats
-    metric: !name:speechbrain.nnet.mse_loss
+loss_tracker: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !name:speechbrain.nnet.losses.mse_loss
         reduction: batch
