@@ -4,6 +4,8 @@ Decoding methods for seq2seq autoregressive model.
 Authors
  * Ju-Chieh Chou 2020
  * Peter Plantinga 2020
+ * Mirco Ravanelli 2020
+ * Sung-Lin Yeh 2020
 """
 import torch
 import numpy as np
@@ -537,8 +539,10 @@ class S2SBeamSearcher(S2SBaseSearcher):
         beam_offset = torch.arange(batch_size, device=device) * self.beam_size
 
         # initialize sequence scores variables.
-        sequence_scores = torch.Tensor(batch_size * self.beam_size).to(device)
-        sequence_scores.fill_(-np.inf)
+        sequence_scores = torch.empty(
+            batch_size * self.beam_size, device=device
+        )
+        sequence_scores.fill_(float("-inf"))
 
         # keep only the first to make sure no redundancy.
         sequence_scores.index_fill_(0, beam_offset, 0.0)
@@ -707,7 +711,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             )
 
             # Block the pathes that have reached eos.
-            sequence_scores.masked_fill_(is_eos, -np.inf)
+            sequence_scores.masked_fill_(is_eos, float("-inf"))
 
         if not self._check_full_beams(hyps_and_scores, self.beam_size):
             # Using all eos to fill-up the hyps.

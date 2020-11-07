@@ -1,3 +1,16 @@
+"""This temporary script converts old checkpoints  (i.e., before merging the
+Sequential Dict PR - Nov,7 ) into the new format.
+You can call this script in this way:
+
+python convert_model.py --hparams current_hyparams.yaml \
+--old_ckpt /miniscratch/ravanelm/LM/1234/save/CKPT+2020-08-29+02-30-20+00/model.ckpt \
+--new_ckpt /miniscratch/ravanelm/LM_converted/model.ckpt \
+--hparams_key model
+
+Authors
+ * Peter Plantinga 2020
+"""
+
 import torch
 import argparse
 import speechbrain as sb
