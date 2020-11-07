@@ -82,14 +82,19 @@ class RNNLM(nn.Module):
         self.return_hidden = return_hidden
         self.reshape = False
 
-        self.dnn = sb.nnet.containers.Sequential([None, None, rnn_neurons])
+        self.dnn = sb.nnet.containers.Sequential(
+            input_shape=[None, None, rnn_neurons]
+        )
         for block_index in range(dnn_blocks):
             self.dnn.append(
-                sb.nnet.linear.Linear, n_neurons=dnn_neurons, bias=True
+                sb.nnet.linear.Linear,
+                n_neurons=dnn_neurons,
+                bias=True,
+                layer_name="linear",
             )
-            self.dnn.append(sb.nnet.normalization.LayerNorm)
-            self.dnn.append(activation())
-            self.dnn.append(torch.nn.Dropout(p=dropout))
+            self.dnn.append(sb.nnet.normalization.LayerNorm, layer_name="norm")
+            self.dnn.append(activation(), layer_name="act")
+            self.dnn.append(torch.nn.Dropout(p=dropout), layer_name="dropout")
 
         self.out = sb.nnet.linear.Linear(
             input_size=dnn_neurons, n_neurons=output_neurons
