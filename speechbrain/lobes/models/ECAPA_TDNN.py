@@ -30,43 +30,46 @@ class TDNNBlock(nn.Module):
 
     Arguements
     ----------
-    out_channels: int
+    in_channels : int
+        Number of input channels
+    out_channels : int
         The number of output channels
-    kernel_size: int
+    kernel_size : int
         The kernel size of the TDNN blocks
-    dialation: int
+    dialation : int
         The dialation of the Res2Net block
     activation : torch class
         A class for constructing the activation layers.
 
     Example
     -------
-    >>> inp_tensor = torch.rand([8, 120, 64]).transpose(1,2)
-    >>> layer = TDNNBlock(64, kernel_size=3, dilation=1)
-    >>> out_tensor = layer(inp_tensor, init_params=True).transpose(1,2)
+    >>> inp_tensor = torch.rand([8, 120, 64]).transpose(1, 2)
+    >>> layer = TDNNBlock(64, 64, kernel_size=3, dilation=1)
+    >>> out_tensor = layer(inp_tensor).transpose(1, 2)
     >>> out_tensor.shape
     torch.Size([8, 120, 64])
     """
 
-    def __init__(self, out_channels, kernel_size, dilation, activation=nn.ReLU):
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        kernel_size,
+        dilation,
+        activation=nn.ReLU,
+    ):
         super(TDNNBlock, self).__init__()
-        self.blocks = nn.ModuleList()
-        self.blocks.extend(
-            [
-                Conv1d(out_channels, kernel_size, dilation=dilation),
-                activation(),
-                BatchNorm1d(),
-            ]
+        self.conv = Conv1d(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            kernel_size=kernel_size,
+            dilation=dilation,
         )
+        self.activation = activation()
+        self.norm = BatchNorm1d(input_size=out_channels)
 
-    def forward(self, x, init_params=False):
-        for layer in self.blocks:
-            try:
-                x = layer(x, init_params=init_params)
-            except TypeError:
-                x = layer(x)
-
-        return x
+    def forward(self, x):
+        return self.norm(self.activation(self.conv(x)))
 
 
 class Res2NetBlock(torch.nn.Module):
@@ -74,45 +77,51 @@ class Res2NetBlock(torch.nn.Module):
 
     Arguments
     ---------
-    out_channels: int
+    in_channels : int
+        The number of channels expected in the input
+    out_channels : int
         The number of output channels
-    scale: int
+    scale : int
         The scale of the Res2Net block
-    dialation: int
+    dialation : int
         The dialation of the Res2Net block
 
     Example
     -------
-    >>> inp_tensor = torch.rand([8, 120, 64]).transpose(1,2)
-    >>> layer = Res2NetBlock(64, scale=4, dilation=3)
-    >>> out_tensor = layer(inp_tensor, init_params=True).transpose(1,2)
+    >>> inp_tensor = torch.rand([8, 120, 64]).transpose(1, 2)
+    >>> layer = Res2NetBlock(64, 64, scale=4, dilation=3)
+    >>> out_tensor = layer(inp_tensor).transpose(1, 2)
     >>> out_tensor.shape
     torch.Size([8, 120, 64])
     """
 
-    def __init__(self, out_channels, scale=8, dilation=1):
+    def __init__(self, in_channels, out_channels, scale=8, dilation=1):
         super(Res2NetBlock, self).__init__()
+        assert in_channels % scale == 0
         assert out_channels % scale == 0
-        self.blocks = nn.ModuleList()
 
+        in_channel = in_channels // scale
         hidden_channel = out_channels // scale
-        self.blocks.extend(
+
+        self.blocks = nn.ModuleList(
             [
-                TDNNBlock(hidden_channel, kernel_size=3, dilation=dilation)
+                TDNNBlock(
+                    in_channel, hidden_channel, kernel_size=3, dilation=dilation
+                )
                 for i in range(scale - 1)
             ]
         )
         self.scale = scale
 
-    def forward(self, x, init_params=False):
+    def forward(self, x):
         y = []
         for i, x_i in enumerate(torch.chunk(x, self.scale, dim=1)):
             if i == 0:
                 y_i = x_i
             elif i == 1:
-                y_i = self.blocks[i - 1](x_i, init_params=init_params)
+                y_i = self.blocks[i - 1](x_i)
             else:
-                y_i = self.blocks[i - 1](x_i + y_i, init_params=init_params)
+                y_i = self.blocks[i - 1](x_i + y_i)
             y.append(y_i)
         y = torch.cat(y, dim=1)
         return y
@@ -123,34 +132,36 @@ class SEBlock(nn.Module):
 
     Arguments
     ---------
-    se_channels: int
+    in_channels : int
+        The number of input channels
+    se_channels : int
         The number of output channels after squeeze
-    out_channels: int
+    out_channels : int
         The number of output channels
 
     Example
     -------
-    >>> inp_tensor = torch.rand([8, 120, 64]).transpose(1,2)
-    >>> se_layer = SEBlock(16, 64)
+    >>> inp_tensor = torch.rand([8, 120, 64]).transpose(1, 2)
+    >>> se_layer = SEBlock(64, 16, 64)
     >>> lengths = torch.randint(1, 120, (8,))
-    >>> out_tensor = se_layer(inp_tensor, lengths, True).transpose(1,2)
+    >>> out_tensor = se_layer(inp_tensor, lengths).transpose(1, 2)
     >>> out_tensor.shape
     torch.Size([8, 120, 64])
     """
 
-    def __init__(self, se_channels, out_channels):
+    def __init__(self, in_channels, se_channels, out_channels):
         super(SEBlock, self).__init__()
-        self.blocks = nn.ModuleList()
-        self.blocks.extend(
-            [
-                Conv1d(se_channels, kernel_size=1),
-                torch.nn.ReLU(inplace=True),
-                Conv1d(out_channels, kernel_size=1),
-                torch.nn.Sigmoid(),
-            ]
-        )
 
-    def forward(self, x, lengths=None, init_params=False):
+        self.conv1 = Conv1d(
+            in_channels=in_channels, out_channels=se_channels, kernel_size=1
+        )
+        self.relu = torch.nn.ReLU(inplace=True)
+        self.conv2 = Conv1d(
+            in_channels=se_channels, out_channels=out_channels, kernel_size=1
+        )
+        self.sigmoid = torch.nn.Sigmoid()
+
+    def forward(self, x, lengths=None):
         L = x.shape[-1]
         if lengths is not None:
             mask = length_to_mask(lengths, max_len=L, device=x.device)
@@ -159,11 +170,10 @@ class SEBlock(nn.Module):
             s = (x * mask).sum(dim=2, keepdim=True) / total
         else:
             s = x.mean(dim=2, keepdim=True)
-        for layer in self.blocks:
-            try:
-                s = layer(s, init_params=init_params)
-            except TypeError:
-                s = layer(s)
+
+        s = self.relu(self.conv1(s))
+        s = self.sigmoid(self.conv2(s))
+
         return s * x
 
 
@@ -180,10 +190,10 @@ class AttentiveStatisticsPooling(nn.Module):
 
     Example
     -------
-    >>> inp_tensor = torch.rand([8, 120, 64]).transpose(1,2)
+    >>> inp_tensor = torch.rand([8, 120, 64]).transpose(1, 2)
     >>> asp_layer = AttentiveStatisticsPooling(64)
     >>> lengths = torch.randint(1, 120, (8,))
-    >>> out_tensor = asp_layer(inp_tensor, lengths, True).transpose(1,2)
+    >>> out_tensor = asp_layer(inp_tensor, lengths).transpose(1, 2)
     >>> out_tensor.shape
     torch.Size([8, 1, 128])
     """
@@ -193,16 +203,16 @@ class AttentiveStatisticsPooling(nn.Module):
 
         self.eps = 1e-12
         self.global_context = global_context
-        self.blocks = nn.ModuleList()
-        self.blocks.extend(
-            [
-                TDNNBlock(attention_channels, kernel_size=1, dilation=1),
-                nn.Tanh(),
-                Conv1d(channels, kernel_size=1),
-            ]
+        if global_context:
+            self.tdnn = TDNNBlock(channels * 3, attention_channels, 1, 1)
+        else:
+            self.tdnn = TDNNBlock(channels, attention_channels, 1, 1)
+        self.tanh = nn.Tanh()
+        self.conv = Conv1d(
+            in_channels=attention_channels, out_channels=channels, kernel_size=1
         )
 
-    def forward(self, x, lengths=None, init_params=False):
+    def forward(self, x, lengths=None):
         """Calculates mean and std for a batch (input tensor).
 
         Arguments
@@ -239,11 +249,8 @@ class AttentiveStatisticsPooling(nn.Module):
         else:
             attn = x
 
-        for layer in self.blocks:
-            try:
-                attn = layer(attn, init_params)
-            except TypeError:
-                attn = layer(attn)
+        # Apply layers
+        attn = self.conv(self.tanh(self.tdnn(attn)))
 
         # Filter out zero-paddings
         attn = attn.masked_fill(mask == 0, float("-inf"))
@@ -276,15 +283,16 @@ class SERes2NetBlock(nn.Module):
 
     Example
     -------
-    >>> x = torch.rand((8, 120, 64)).transpose(1,2)
-    >>> conv = SERes2NetBlock(64, res2net_scale=4)
-    >>> out = conv(x, init_params=True).transpose(1,2)
+    >>> x = torch.rand(8, 120, 64).transpose(1, 2)
+    >>> conv = SERes2NetBlock(64, 64, res2net_scale=4)
+    >>> out = conv(x).transpose(1, 2)
     >>> out.shape
     torch.Size([8, 120, 64])
     """
 
     def __init__(
         self,
+        in_channels,
         out_channels,
         res2net_scale=8,
         se_channels=128,
@@ -294,41 +302,44 @@ class SERes2NetBlock(nn.Module):
     ):
         super().__init__()
         self.out_channels = out_channels
-        self.blocks = nn.ModuleList()
-        self.blocks.extend(
-            [
-                TDNNBlock(
-                    out_channels,
-                    kernel_size=1,
-                    dilation=1,
-                    activation=activation,
-                ),
-                Res2NetBlock(out_channels, res2net_scale, dilation),
-                TDNNBlock(
-                    out_channels,
-                    kernel_size=1,
-                    dilation=1,
-                    activation=activation,
-                ),
-                SEBlock(se_channels, out_channels),
-            ]
+        self.tdnn1 = TDNNBlock(
+            in_channels,
+            out_channels,
+            kernel_size=1,
+            dilation=1,
+            activation=activation,
         )
+        self.res2net_block = Res2NetBlock(
+            out_channels, out_channels, res2net_scale, dilation
+        )
+        self.tdnn2 = TDNNBlock(
+            out_channels,
+            out_channels,
+            kernel_size=1,
+            dilation=1,
+            activation=activation,
+        )
+        self.se_block = SEBlock(out_channels, se_channels, out_channels)
+
         self.shortcut = None
+        if in_channels != out_channels:
+            self.shortcut = Conv1d(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                kernel_size=1,
+            )
 
-    def forward(self, x, lengths=None, init_params=False):
-        if init_params and x.shape[1] != self.out_channels:
-            self.shortcut = Conv1d(self.out_channels, kernel_size=1)
-
+    def forward(self, x, lengths=None):
         residual = x
         if self.shortcut:
-            residual = self.shortcut(x, init_params=init_params)
-        for layer in self.blocks:
-            try:
-                x = layer(x, lengths=lengths, init_params=init_params)
-            except TypeError:
-                x = layer(x, init_params=init_params)
-        x += residual
-        return x
+            residual = self.shortcut(x)
+
+        x = self.tdnn1(x)
+        x = self.res2net_block(x)
+        x = self.tdnn2(x)
+        x = self.se_block(x)
+
+        return x + residual
 
 
 class ECAPA_TDNN(torch.nn.Module):
@@ -354,14 +365,15 @@ class ECAPA_TDNN(torch.nn.Module):
     Example
     -------
     >>> input_feats = torch.rand([5, 120, 80])
-    >>> compute_embedding = ECAPA_TDNN(lin_neurons=192)
-    >>> outputs = compute_embedding(input_feats, init_params=True)
+    >>> compute_embedding = ECAPA_TDNN(80, lin_neurons=192)
+    >>> outputs = compute_embedding(input_feats)
     >>> outputs.shape
     torch.Size([5, 1, 192])
     """
 
     def __init__(
         self,
+        input_size,
         device="cpu",
         lin_neurons=192,
         activation=torch.nn.ReLU,
@@ -382,13 +394,20 @@ class ECAPA_TDNN(torch.nn.Module):
 
         # The initial TDNN layer
         self.blocks.append(
-            TDNNBlock(channels[0], kernel_sizes[0], dilations[0], activation)
+            TDNNBlock(
+                input_size,
+                channels[0],
+                kernel_sizes[0],
+                dilations[0],
+                activation,
+            )
         )
 
         # SE-Res2Net layers
         for i in range(1, len(channels) - 1):
             self.blocks.append(
                 SERes2NetBlock(
+                    channels[i - 1],
                     channels[i],
                     res2net_scale=res2net_scale,
                     se_channels=se_channels,
@@ -400,7 +419,11 @@ class ECAPA_TDNN(torch.nn.Module):
 
         # Multi-layer feature aggregation
         self.mfa = TDNNBlock(
-            channels[-1], kernel_sizes[-1], dilations[-1], activation
+            channels[-1],
+            channels[-1],
+            kernel_sizes[-1],
+            dilations[-1],
+            activation,
         )
 
         # Attantitve Statistical pooling
@@ -409,12 +432,16 @@ class ECAPA_TDNN(torch.nn.Module):
             attention_channels=attention_channels,
             global_context=global_context,
         )
-        self.asp_bn = BatchNorm1d()
+        self.asp_bn = BatchNorm1d(input_size=channels[-1] * 2)
 
         # Final linear transformation
-        self.fc = Conv1d(lin_neurons, kernel_size=1)
+        self.fc = Conv1d(
+            in_channels=channels[-1] * 2,
+            out_channels=lin_neurons,
+            kernel_size=1,
+        )
 
-    def forward(self, x, lengths=None, init_params=False):
+    def forward(self, x, lengths=None):
         """Returns the embedding vector.
 
         Arguments
@@ -427,24 +454,21 @@ class ECAPA_TDNN(torch.nn.Module):
         xl = []
         for layer in self.blocks:
             try:
-                x = layer(x, lengths=lengths, init_params=init_params)
+                x = layer(x, lengths=lengths)
             except TypeError:
-                try:
-                    x = layer(x, init_params=init_params)
-                except TypeError:
-                    x = layer(x)
+                x = layer(x)
             xl.append(x)
 
         # Multi-layer feature aggregation
         x = torch.cat(xl[1:], dim=1)
-        x = self.mfa(x, init_params=init_params)
+        x = self.mfa(x)
 
         # Attantitve Statistical pooling
-        x = self.asp(x, lengths=lengths, init_params=init_params)
-        x = self.asp_bn(x, init_params=init_params)
+        x = self.asp(x, lengths=lengths)
+        x = self.asp_bn(x)
 
         # Final linear transformation
-        x = self.fc(x, init_params=init_params)
+        x = self.fc(x)
 
         x = x.transpose(1, 2)
         return x
@@ -466,10 +490,10 @@ class Classifier(torch.nn.Module):
 
     Example
     -------
-    >>> classify = Classifier('cpu', lin_neurons=2, out_neurons=2)
+    >>> classify = Classifier(input_size=2, lin_neurons=2, out_neurons=2)
     >>> outputs = torch.tensor([ [1., -1.], [-9., 1.], [0.9, 0.1], [0.1, 0.9] ])
     >>> outupts = outputs.unsqueeze(1)
-    >>> cos = classify(outputs, init_params=True)
+    >>> cos = classify(outputs)
     >>> (cos < -1.0).long().sum()
     tensor(0)
     >>> (cos > 1.0).long().sum()
@@ -477,22 +501,33 @@ class Classifier(torch.nn.Module):
     """
 
     def __init__(
-        self, device="cpu", lin_blocks=0, lin_neurons=192, out_neurons=1211,
+        self,
+        input_size,
+        device="cpu",
+        lin_blocks=0,
+        lin_neurons=192,
+        out_neurons=1211,
     ):
 
         super().__init__()
         self.blocks = nn.ModuleList()
 
         for block_index in range(lin_blocks):
-            self.blocks.extend([_BatchNorm1d(), Linear(n_neurons=lin_neurons)])
+            self.blocks.extend(
+                [
+                    _BatchNorm1d(input_size),
+                    Linear(input_size=input_size, n_neurons=lin_neurons),
+                ]
+            )
+            input_size = lin_neurons
 
         # Final Layer
         self.weight = nn.Parameter(
-            torch.FloatTensor(out_neurons, lin_neurons).to(device)
+            torch.FloatTensor(out_neurons, input_size, device=device)
         )
         nn.init.xavier_uniform_(self.weight)
 
-    def forward(self, x, init_params=False):
+    def forward(self, x):
         """Returns the output probabilities over speakers.
 
         Arguments
@@ -500,10 +535,7 @@ class Classifier(torch.nn.Module):
         x : torch.Tensor
         """
         for layer in self.blocks:
-            try:
-                x = layer(x, init_params=init_params)
-            except TypeError:
-                x = layer(x)
+            x = layer(x)
 
         # Need to be normalized
         x = F.linear(F.normalize(x.squeeze(1)), F.normalize(self.weight))

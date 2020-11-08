@@ -1,65 +1,70 @@
 #!/usr/bin/python
 import os
 import speechbrain as sb
-from speechbrain.decoders.ctc import ctc_greedy_decode
-from speechbrain.decoders.decoders import undo_padding
-from speechbrain.utils.edit_distance import wer_details_for_batch
-from speechbrain.utils.train_logger import summarize_average
-from speechbrain.utils.train_logger import summarize_error_rate
-
-experiment_dir = os.path.dirname(os.path.realpath(__file__))
-hyperparams_file = os.path.join(experiment_dir, "hyperparams.yaml")
-data_folder = "../../../../samples/audio_samples/nn_training_samples"
-data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
-with open(hyperparams_file) as fin:
-    hyperparams = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
 
 
-class CTCBrain(sb.core.Brain):
-    def compute_forward(self, x, stage="train", init_params=False):
+class CTCBrain(sb.Brain):
+    def compute_forward(self, x, stage):
         id, wavs, lens = x
-        feats = hyperparams.compute_features(wavs, init_params)
-        feats = hyperparams.mean_var_norm(feats, lens)
-        x = hyperparams.model(feats, init_params=init_params)
-        x = hyperparams.lin(x, init_params)
-        outputs = hyperparams.softmax(x)
+        feats = self.hparams.compute_features(wavs)
+        feats = self.modules.mean_var_norm(feats, lens)
+        x = self.modules.model(feats)
+        x = self.modules.lin(x)
+        outputs = self.hparams.softmax(x)
 
         return outputs, lens
 
-    def compute_objectives(self, predictions, targets, stage="train"):
+    def compute_objectives(self, predictions, targets, stage):
         predictions, lens = predictions
         ids, phns, phn_lens = targets
-        loss = hyperparams.compute_cost(predictions, phns, lens, phn_lens)
+        loss = self.hparams.compute_cost(predictions, phns, lens, phn_lens)
 
-        stats = {}
-        if stage != "train":
-            seq = ctc_greedy_decode(predictions, lens, blank_id=-1)
-            phns = undo_padding(phns, phn_lens)
-            stats["PER"] = wer_details_for_batch(ids, phns, seq)
+        if stage != sb.Stage.TRAIN:
+            seq = sb.decoders.ctc_greedy_decode(predictions, lens, blank_id=-1)
+            self.per_metrics.append(ids, seq, phns, target_len=phn_lens)
 
-        return loss, stats
+        return loss
 
-    def on_epoch_end(self, epoch, train_stats, valid_stats):
-        print("Epoch %d complete" % epoch)
-        print("Train loss: %.2f" % summarize_average(train_stats["loss"]))
-        print("Valid loss: %.2f" % summarize_average(valid_stats["loss"]))
-        print("Valid PER: %.2f" % summarize_error_rate(valid_stats["PER"]))
+    def on_stage_start(self, stage, epoch=None):
+        if stage != sb.Stage.TRAIN:
+            self.per_metrics = self.hparams.per_stats()
 
+    def on_stage_end(self, stage, stage_loss, epoch=None):
+        if stage == sb.Stage.TRAIN:
+            self.train_loss = stage_loss
 
-train_set = hyperparams.train_loader()
-first_x, first_y = next(iter(train_set))
-ctc_brain = CTCBrain(
-    modules=[hyperparams.model, hyperparams.lin],
-    optimizer=hyperparams.optimizer,
-    first_inputs=[first_x],
-)
-ctc_brain.fit(
-    range(hyperparams.N_epochs), train_set, hyperparams.valid_loader()
-)
-test_stats = ctc_brain.evaluate(hyperparams.test_loader())
-print("Test PER: %.2f" % summarize_error_rate(test_stats["PER"]))
+        if stage == sb.Stage.VALID and epoch is not None:
+            print("Epoch %d complete" % epoch)
+            print("Train loss: %.2f" % self.train_loss)
+
+        if stage != sb.Stage.TRAIN:
+            print(stage, "loss: %.2f" % stage_loss)
+            print(stage, "PER: %.2f" % self.per_metrics.summarize("error_rate"))
 
 
-# Integration test: check that the model overfits the training data
+def main():
+    experiment_dir = os.path.dirname(os.path.realpath(__file__))
+    hparams_file = os.path.join(experiment_dir, "hyperparams.yaml")
+    data_folder = "../../../../samples/audio_samples/nn_training_samples"
+    data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
+    with open(hparams_file) as fin:
+        hparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
+
+    ctc_brain = CTCBrain(hparams["modules"], hparams["opt_class"], hparams)
+    ctc_brain.fit(
+        range(hparams["N_epochs"]),
+        hparams["train_loader"](),
+        hparams["valid_loader"](),
+    )
+    ctc_brain.evaluate(hparams["test_loader"]())
+
+    # Check if model overfits for integration test
+    assert ctc_brain.train_loss < 3.0
+
+
+if __name__ == "__main__":
+    main()
+
+
 def test_error():
-    assert ctc_brain.avg_train_loss < 3.0
+    main()

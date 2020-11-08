@@ -10,7 +10,7 @@ import random
 from speechbrain.utils.checkpoints import register_checkpoint_hooks
 from speechbrain.utils.checkpoints import mark_as_saver
 from speechbrain.utils.checkpoints import mark_as_loader
-from speechbrain.decoders.decoders import undo_padding
+from speechbrain.utils.data_utils import undo_padding
 
 
 @register_checkpoint_hooks
@@ -518,7 +518,9 @@ class HMMAligner(torch.nn.Module):
         )
 
         # clear probabilities for too-long sequences
-        mask_a = torch.arange(U_max).to(device)[None, :] < phn_lens_abs[:, None]
+        mask_a = (
+            torch.arange(U_max, device=device)[None, :] < phn_lens_abs[:, None]
+        )
         mask_a = mask_a.unsqueeze(2)
         mask_a = mask_a.expand(-1, -1, U_max)
         mask_b = mask_a.permute(0, 2, 1)
@@ -526,7 +528,9 @@ class HMMAligner(torch.nn.Module):
 
         ## put -infs in place of zeros:
         trans_prob = torch.where(
-            trans_prob == 1, trans_prob, torch.tensor(-float("Inf")).to(device)
+            trans_prob == 1,
+            trans_prob,
+            torch.tensor(-float("Inf"), device=device),
         )
 
         ## normalize
@@ -575,7 +579,7 @@ class HMMAligner(torch.nn.Module):
         emiss_pred_acc_lens = torch.where(
             mask_lens[:, :, None],
             emission_pred,
-            torch.tensor([0.0]).to(device),
+            torch.tensor([0.0], device=device),
         )
 
         # manipulate phn tensor, and then 'torch.gather'
@@ -590,7 +594,7 @@ class HMMAligner(torch.nn.Module):
         emiss_pred_useful = torch.where(
             mask_phn_lens[:, None, :],
             emiss_pred_useful,
-            torch.tensor([self.neg_inf]).to(device),
+            torch.tensor([self.neg_inf], device=device),
         )
 
         emiss_pred_useful = emiss_pred_useful.permute(0, 2, 1)
@@ -647,8 +651,8 @@ class HMMAligner(torch.nn.Module):
 
         # initialise
         alpha_matrix = self.neg_inf * torch.ones(
-            [batch_size, U_max, fb_max_length]
-        ).to(device)
+            [batch_size, U_max, fb_max_length], device=device
+        )
         alpha_matrix[:, :, 0] = pi_prob + emiss_pred_useful[:, :, 0]
 
         for t in range(1, fb_max_length):
@@ -733,9 +737,11 @@ class HMMAligner(torch.nn.Module):
         trans_prob = trans_prob.to(device)
 
         v_matrix = self.neg_inf * torch.ones(
-            [batch_size, U_max, fb_max_length]
-        ).to(device)
-        backpointers = -99 * torch.ones([batch_size, U_max, fb_max_length])
+            [batch_size, U_max, fb_max_length], device=device
+        )
+        backpointers = -99 * torch.ones(
+            [batch_size, U_max, fb_max_length], device=device
+        )
 
         # initialise
         v_matrix[:, :, 0] = pi_prob + emiss_pred_useful[:, :, 0]
@@ -1334,7 +1340,7 @@ class HMMAligner(torch.nn.Module):
         torch.save(self.align_dict, path)
 
     @mark_as_loader
-    def _load(self, path, end_of_epoch):
+    def _load(self, path, end_of_epoch, device=None):
         del end_of_epoch  # Not used here.
         self.align_dict = torch.load(path)
 

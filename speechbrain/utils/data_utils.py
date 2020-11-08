@@ -10,7 +10,36 @@ import os
 import shutil
 import urllib.request
 import collections.abc
+import torch
 import tqdm
+
+
+def undo_padding(batch, lengths):
+    """Produces Python lists given a batch of sentences with
+    their corresponding relative lenghts.
+
+    Arguments
+    ---------
+    batch : tensor
+        Batch of sentences gathered in a batch.
+    lenght: tensor
+        Relative length of each sentence in the batch.
+
+    Example
+    -------
+    >>> batch=torch.rand([4,100])
+    >>> lengths=torch.tensor([0.5,0.6,0.7,1.0])
+    >>> snt_list=undo_padding(batch, lengths)
+    >>> len(snt_list)
+    4
+    """
+    batch_max_len = batch.shape[1]
+    as_list = []
+    for seq, seq_length in zip(batch, lengths):
+        actual_size = int(torch.round(seq_length * batch_max_len))
+        seq_true = seq.narrow(0, 0, actual_size)
+        as_list.append(seq_true.tolist())
+    return as_list
 
 
 def get_all_files(

@@ -1,0 +1,119 @@
+# ################################
+# Model: BLSTM SE baseline
+# Authors: Szu-Wei, Fu 2020
+# ################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1234
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+
+data_folder: !PLACEHOLDER
+test_clean_folder: !ref <data_folder>/clean_testset_wav_16k/
+
+output_folder: !ref ./results/BLSTM/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+enhanced_folder: !ref <output_folder>/BLSTM_enhanced
+
+# Basic parameters
+use_tensorboard: False
+tensorboard_logs: !ref ./results/BLSTM/<seed>/logs/
+
+# FFT paremeters
+Sample_rate: 16000
+Win_length: 32
+Hop_length: 16
+N_fft: 512
+window_fn: !name:torch.hamming_window
+
+# Data files
+csv_train: !ref <data_folder>/train.csv
+csv_valid: !ref <data_folder>/valid.csv
+csv_test: !ref <data_folder>/test.csv
+
+# Training Parameters
+number_of_epochs: 50
+N_batch: 1
+lr: 0.001
+device: 'cuda:0'
+
+train_loader: !new:speechbrain.DataLoaderFactory
+    csv_file: !ref <csv_train>
+    batch_size: !ref <N_batch>
+    csv_read: [noisy_wav, clean_wav]
+    sentence_sorting: ascending
+    output_folder: !ref <output_folder>
+
+valid_loader: !new:speechbrain.DataLoaderFactory
+    csv_file: !ref <csv_valid>
+    batch_size: 8
+    csv_read: [noisy_wav, clean_wav]
+    sentence_sorting: ascending
+    replacements:
+        $data_folder: !ref <data_folder>
+
+test_loader: !new:speechbrain.DataLoaderFactory
+    csv_file: !ref <csv_test>
+    batch_size: 8
+    csv_read: [noisy_wav, clean_wav]
+    replacements:
+        $data_folder: !ref <data_folder>
+
+epoch_counter: !new:speechbrain.EpochCounter
+    limit: !ref <number_of_epochs>
+
+lstm: !name:speechbrain.nnet.LSTM
+    hidden_size: 200
+    num_layers: 2
+    dropout: 0
+    bidirectional: True
+
+linear1: !name:speechbrain.nnet.Linear
+    n_neurons: 300
+    bias: True
+
+linear2: !name:speechbrain.nnet.Linear
+    n_neurons: !ref <N_fft> // 2 + 1
+    bias: True
+
+activation_lrelu: !new:torch.nn.LeakyReLU
+    negative_slope: 0.01
+
+activation_sigmoid: !new:torch.nn.Sigmoid
+
+modules:
+    use_tensorboard: !ref <use_tensorboard>
+    enhanced_folder: !ref <enhanced_folder>
+    train_logger: !new:speechbrain.FileTrainLogger
+        save_file: !ref <train_log>
+    compute_STFT: !new:speechbrain.processing.STFT
+        sample_rate: !ref <Sample_rate>
+        win_length: !ref <Win_length>
+        hop_length: !ref <Hop_length>
+        n_fft: !ref <N_fft>
+        window_fn: !ref <window_fn>
+    compute_ISTFT: !new:speechbrain.processing.ISTFT
+        sample_rate: !ref <Sample_rate>
+        win_length: !ref <Win_length>
+        hop_length: !ref <Hop_length>
+        window_fn: !ref <window_fn>
+    mean_var_norm: !new:speechbrain.processing.InputNormalization
+        norm_type: sentence
+    model: !new:speechbrain.nnet.Sequential
+        - [!ref <N_batch>, 10, !ref <N_fft> // 2 + 1]
+        - !ref <lstm>
+        - !ref <linear1>
+        - !ref <activation_lrelu>
+        - !ref <linear2>
+        - !ref <activation_sigmoid>
+    optimizer: !new:torch.optim.RMSprop
+        params: !apply:speechbrain.collect_params
+            - !ref <modules.model>
+        lr: !ref <lr>
+    compute_cost: !name:speechbrain.nnet.mse_loss
+    checkpointer: !new:speechbrain.Checkpointer
+        checkpoints_dir: !ref <save_folder>
+        recoverables:
+            model: !ref <modules.model>
+            optimizer: !ref <modules.optimizer>
+            counter: !ref <epoch_counter>

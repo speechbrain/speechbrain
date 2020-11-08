@@ -118,7 +118,7 @@ def test_recovery_custom_io(tmpdir):
                 fo.write(str(self.param))
 
         @mark_as_loader
-        def load(self, path, end_of_epoch):
+        def load(self, path, end_of_epoch, device=None):
             del end_of_epoch  # Unused
             with open(path) as fi:
                 self.param = int(fi.read())

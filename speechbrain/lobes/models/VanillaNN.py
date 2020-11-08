@@ -4,11 +4,10 @@ Authors
 * Elena Rastorgueva 2020
 """
 import torch
-from speechbrain.nnet.linear import Linear
-from speechbrain.nnet.containers import Sequential
+import speechbrain as sb
 
 
-class VanillaNN(Sequential):
+class VanillaNN(sb.nnet.containers.Sequential):
     """ A simple vanilla Deep Neural Network.
 
     Arguments
@@ -22,25 +21,27 @@ class VanillaNN(Sequential):
 
     Example
     -------
-    >>> model = VanillaNN()
     >>> inputs = torch.rand([10, 120, 60])
-    >>> outputs = model(inputs, init_params = True)
+    >>> model = VanillaNN(input_shape=inputs.shape)
+    >>> outputs = model(inputs)
     >>> outputs.shape
     torch.Size([10, 120, 512])
     """
 
     def __init__(
-        self, activation=torch.nn.LeakyReLU, dnn_blocks=2, dnn_neurons=512,
+        self,
+        input_shape,
+        activation=torch.nn.LeakyReLU,
+        dnn_blocks=2,
+        dnn_neurons=512,
     ):
-        blocks = []
+        super().__init__(input_shape=input_shape)
 
         for block_index in range(dnn_blocks):
-            blocks.extend(
-                [
-                    Linear(
-                        n_neurons=dnn_neurons, bias=True, combine_dims=False,
-                    ),
-                    activation(),
-                ]
+            self.append(
+                sb.nnet.linear.Linear,
+                n_neurons=dnn_neurons,
+                bias=True,
+                layer_name="linear",
             )
-        super().__init__(*blocks)
+            self.append(activation(), layer_name="act")

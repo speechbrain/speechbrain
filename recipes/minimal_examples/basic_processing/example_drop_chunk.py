@@ -9,21 +9,23 @@ overrides = {
     "data_folder": os.path.join(experiment_dir, "..", "..", "..", "samples"),
 }
 with open(hyperparams_file) as fin:
-    hyperparams = sb.yaml.load_extended_yaml(fin, overrides)
+    hyperparams = sb.load_extended_yaml(fin, overrides)
 
-sb.core.create_experiment_directory(
+sb.create_experiment_directory(
     experiment_directory=output_folder,
     hyperparams_to_save=hyperparams_file,
     overrides=overrides,
 )
 
-for ((id, wav, wav_len),) in hyperparams.sample_data():
-    wav_drop = hyperparams.drop_chunk(wav, wav_len)
-    hyperparams.save(wav_drop, id, wav_len)
+for ((id, wav, wav_len),) in hyperparams["sample_data"]().get_dataloader():
+    wav_drop = hyperparams["drop_chunk"](wav, wav_len)
+    hyperparams["save"](wav_drop, id, wav_len)
 
 
 def test_drop_chunk():
     import torchaudio
+
+    torchaudio.set_audio_backend("sox_io")
     from glob import glob
 
     for filename in glob(os.path.join(output_folder, "save", "*.wav")):
