@@ -1015,13 +1015,122 @@ class Music(torch.nn.Module):
     """ Multiple Signal Classification (MUSIC) localization
     """
 
-    def __init__(self):
+    def __init__(
+        self,
+        mics,
+        space="sphere",
+        sample_rate=16000,
+        speed_sound=343.0,
+        eps=1e-20,
+        n_sig=1,
+    ):
 
         super().__init__()
 
-    def forward(self):
+        # Generate the doas
+        if space == "sphere":
+            self.doas = sphere()
 
-        pass
+        if space == "circle":
+            pass
+
+        # Generate associated taus with the doas
+        self.taus = doas2taus(
+            self.doas, mics=mics, fs=sample_rate, c=speed_sound
+        )
+
+        # Save epsilon
+        self.eps = eps
+
+        # Save number of signalsà
+        self.n_sig = n_sig
+
+    def forward(self, XXs):
+
+        # Get useful dimensions
+        n_fft = XXs.shape[2]
+
+        # Generate the steering vector
+        As = steering(self.taus, n_fft)
+
+        # Perform music
+        doas = Music._music(
+            XXs=XXs, As=As, doas=self.doas, n_sig=self.n_sig, eps=self.eps
+        )
+
+        return doas
+
+    @staticmethod
+    def _music(XXs, As, doas, n_sig, eps=1e-20):
+        """ Perform multiple signal classfication to find the
+        direction of arrival of the sound source. The result
+        has the format: (batch, time_steps, 3)
+
+        Arguments
+        ---------
+
+        XXs : tensor
+            The covariance matrices of the input signal. The tensor must
+            have the format (batch, time_steps, n_fft/2 + 1, 2, n_mics + n_pairs)
+        As : tensor
+            The steering vector that cover the all the potential directions
+            of arrival. The tensor must have the format
+            (n_doas, n_fft/2 + 1, 2, n_mics)
+        doas : tensor
+            All the possible directions of arrival that will be scanned. The
+            tensor must have the format (n_doas, 3)
+        n_sig : int
+            The number of signals in the signal + noise subspace (default is 1)
+        """
+
+        # Collecting data
+        n_mics = As.shape[3]
+        n_doas = As.shape[0]
+        n_bins = As.shape[2]
+        svd_range = n_mics - n_sig
+
+        # Get unique values to reduce computations
+        XXs_val, XXs_idx = torch.unique(XXs, return_inverse=True, dim=1)
+
+        # Singular value decomposition
+        Us, _ = eig.svdl(XXs_val)
+
+        # Format for the projection
+        Us = Us.unsqueeze(2).repeat(1, 1, n_doas, 1, 1, 1, 1)
+        Us_re = Us[..., range(0, svd_range), 0]
+        Us_im = Us[..., range(0, svd_range), 1]
+
+        # Fixing the format of the steering vector
+        As = (
+            As.unsqueeze(0)
+            .unsqueeze(0)
+            .unsqueeze(6)
+            .permute(0, 1, 2, 3, 6, 5, 4)
+        )
+        As = As.repeat(Us.shape[0], Us.shape[1], 1, 1, 1, 1, 1)
+
+        As_re = As[..., 0]
+        As_im = As[..., 1]
+
+        # Applying MUSIC's formula
+        As_mm_Us_re = torch.matmul(As_re, Us_re) + torch.matmul(As_im, Us_im)
+        As_mm_Us_im = torch.matmul(As_re, Us_im) - torch.matmul(As_im, Us_re)
+
+        As_mm_Us_abs = torch.sqrt(As_mm_Us_re ** 2 + As_mm_Us_im ** 2)
+        As_mm_Us_sum = torch.sum(As_mm_Us_abs, dim=5)
+
+        As_As_abs = torch.sum(As_re ** 2, dim=5) + torch.sum(As_im ** 2, dim=5)
+
+        Ps = (As_As_abs / (As_mm_Us_sum + eps)).squeeze(4)
+
+        Ys = torch.sum(Ps, dim=3) / n_bins
+
+        # Get maximum points
+        _, doas_idx = torch.max(Ys, dim=2)
+
+        doas = (doas[doas_idx, :])[:, XXs_idx, :]
+
+        return doas
 
 
 def doas2taus(doas, mics, fs, c=343.0):
