@@ -9,7 +9,7 @@ Example
 >>>
 >>> from speechbrain.processing.features import STFT, ISTFT
 >>> from speechbrain.processing.multi_mic import Covariance
->>> from speechbrain.processing.multi_mic import GccPhat, SrpPhat
+>>> from speechbrain.processing.multi_mic import GccPhat, SrpPhat, Music
 >>> from speechbrain.processing.multi_mic import DelaySum, Mvdr, Gev
 >>>
 >>> xs_speech, fs = sf.read(
@@ -38,17 +38,21 @@ Example
 
 >>> # Mvdr Beamforming with SRP-PHAT localization
 >>> mvdr = Mvdr()
-
 >>> mics = torch.zeros((4,3), dtype=torch.float)
 >>> mics[0,:] = torch.FloatTensor([-0.05, -0.05, +0.00])
 >>> mics[1,:] = torch.FloatTensor([-0.05, +0.05, +0.00])
 >>> mics[2,:] = torch.FloatTensor([+0.05, +0.05, +0.00])
 >>> mics[3,:] = torch.FloatTensor([+0.05, +0.05, +0.00])
 >>> srpphat = SrpPhat(mics=mics)
-
 >>> doas = srpphat(XXs)
 >>> Ys_mvdr = mvdr(Xs, XXs, doas, doa_mode=True, mics=mics, fs=fs)
 >>> ys_mvdr = istft(Ys_mvdr)
+
+>>> # Mvdr Beamforming with MUSIC localization
+>>> music = Music(mics=mics)
+>>> doas = music(XXs)
+>>> Ys_mvdr2 = mvdr(Xs, XXs, doas, doa_mode=True, mics=mics, fs=fs)
+>>> ys_mvdr2 = istft(Ys_mvdr2)
 
 >>> # GeV Beamforming
 >>> gev = Gev()
@@ -1046,6 +1050,44 @@ class Music(torch.nn.Module):
 
     Example
     -------
+    >>> import soundfile as sf
+    >>> import torch
+
+    >>> from speechbrain.processing.features import STFT
+    >>> from speechbrain.processing.multi_mic import Covariance
+    >>> from speechbrain.processing.multi_mic import Music
+
+    >>> xs_speech, fs = sf.read('samples/audio_samples/multi_mic/speech_-0.82918_0.55279_-0.082918.flac')
+    >>> xs_noise, _ = sf.read('samples/audio_samples/multi_mic/noise_diffuse.flac')
+
+    >>> xs_speech = torch.tensor(xs_speech).unsqueeze(0).float()
+    >>> xs_noise = torch.tensor(xs_noise).unsqueeze(0).float()
+
+    >>> ss1 = xs_speech
+    >>> ns1 = 0.05 * xs_noise
+    >>> xs1 = ss1 + ns1
+
+    >>> ss2 = xs_speech
+    >>> ns2 = 0.20 * xs_noise
+    >>> xs2 = ss2 + ns2
+
+    >>> ss = torch.cat((ss1,ss2), dim=0)
+    >>> ns = torch.cat((ns1,ns2), dim=0)
+    >>> xs = torch.cat((xs1,xs2), dim=0)
+
+    >>> mics = torch.zeros((4,3), dtype=torch.float)
+    >>> mics[0,:] = torch.FloatTensor([-0.05, -0.05, +0.00])
+    >>> mics[1,:] = torch.FloatTensor([-0.05, +0.05, +0.00])
+    >>> mics[2,:] = torch.FloatTensor([+0.05, +0.05, +0.00])
+    >>> mics[3,:] = torch.FloatTensor([+0.05, +0.05, +0.00])
+
+    >>> stft = STFT(sample_rate=fs)
+    >>> cov = Covariance()
+    >>> music = Music(mics=mics)
+
+    >>> Xs = stft(xs)
+    >>> XXs = cov(Xs)
+    >>> doas = music(XXs)
     """
 
     def __init__(
