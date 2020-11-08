@@ -923,7 +923,7 @@ class SrpPhat(torch.nn.Module):
         """ Perform SRP-PHAT localization on a signal by computing a steering
         vector and then by using the utility function _srp_phat to extract the doas.
         The result is a tensor containing the directions of arrival (xyz coordinates
-        in meters) in the direction of the sound source). The output tensor
+        (in meters) in the direction of the sound source). The output tensor
         has the format (batch, time_steps, 3).
 
         This localization method uses Global Coherence Field (GCF):
@@ -1013,6 +1013,39 @@ class SrpPhat(torch.nn.Module):
 
 class Music(torch.nn.Module):
     """ Multiple Signal Classification (MUSIC) localization
+
+    Arguments
+    ---------
+    mics : tensor
+        The cartesian coordinates (xyz) in meters of each microphone.
+        The tensor must have the following format (n_mics, 3)
+
+    space : string
+        If this parameter is set to 'sphere', the localization will
+        be done in 3D by searching in a sphere of possible doas. If
+        it set to 'circle', the search will be done in 2D by searching
+        in a circle. By default, this parameter is set to 'sphere'.
+
+        Note: The 'circle' option isn't implemented yet.
+
+    sample_rate : int
+        The sample rate in Hertz of the signals to perform SRP-PHAT on.
+        By default, this parameter is set to 16000 Hz.
+
+    speed_sound : float
+        The speed of sound in the medium. The speed is expressed in meters
+        per second and the default value of this parameter is 343 m/s.
+
+    eps : float
+        A small value to avoid errors like division by 0. The default value
+        of this parameter is 1e-20.
+
+    n_sig : int
+        An estimation of the number of sound sources. The default value is set
+        to one source.
+
+    Example
+    -------
     """
 
     def __init__(
@@ -1046,6 +1079,18 @@ class Music(torch.nn.Module):
         self.n_sig = n_sig
 
     def forward(self, XXs):
+        """ Perform MUSIC localization on a signal by computing a steering
+        vector and then by using the utility function _music to extract the doas.
+        The result is a tensor containing the directions of arrival (xyz coordinates
+        (in meters) in the direction of the sound source). The output tensor
+        has the format (batch, time_steps, 3).
+
+        Arguments
+        ---------
+        XXs : tensor
+            The covariance matrices of the input signal. The tensor must
+            have the format (batch, time_steps, n_fft/2 + 1, 2, n_mics + n_pairs)
+        """
 
         # Get useful dimensions
         n_fft = XXs.shape[2]
