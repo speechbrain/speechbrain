@@ -16,15 +16,19 @@ import ruamel.yaml
 import speechbrain as sb
 from io import StringIO
 from datetime import date
+from enum import Enum, auto
 from tqdm.contrib import tqdm
-from speechbrain.utils.logger import setup_logging
-from speechbrain.utils.logger import format_order_of_magnitude
-from speechbrain.utils.logger import get_environment_description
-from speechbrain.utils.data_utils import recursive_update
+from types import SimpleNamespace
+from torch.nn import SyncBatchNorm
+from torch.utils.data import DistributedSampler
+from torch.nn.parallel import DistributedDataParallel as DDP
+from speechbrain.data_io.data_io import DataLoaderFactory
 
 logger = logging.getLogger(__name__)
 DEFAULT_LOG_CONFIG = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_LOG_CONFIG = os.path.join(DEFAULT_LOG_CONFIG, "log-config.yaml")
+torch._C._jit_set_profiling_executor(False)
+torch._C._jit_set_profiling_mode(False)
 
 
 def create_experiment_directory(
@@ -49,7 +53,7 @@ def create_experiment_directory(
     log_config : str
         A yaml filename containing configuration options for the logger.
     save_env_desc : bool
-        If True, a basic environment state description is saved to the experiment
+        If True, an environment state description is saved to the experiment
         directory, in a file called env.log in the experiment directory
     """
     if not os.path.isdir(experiment_directory):
@@ -61,7 +65,7 @@ def create_experiment_directory(
             experiment_directory, "hyperparams.yaml"
         )
         with open(hyperparams_to_save) as f:
-            resolved_yaml = sb.yaml.resolve_references(f, overrides)
+            resolved_yaml = sb.resolve_references(f, overrides)
         with open(hyperparams_filename, "w") as w:
             print("# Generated %s from:" % date.today(), file=w)
             print("# %s" % os.path.abspath(hyperparams_to_save), file=w)
@@ -77,7 +81,7 @@ def create_experiment_directory(
     # Log exceptions to output automatically
     log_file = os.path.join(experiment_directory, "log.txt")
     logger_overrides = {"handlers": {"file_handler": {"filename": log_file}}}
-    setup_logging(log_config, logger_overrides)
+    sb.utils.logger.setup_logging(log_config, logger_overrides)
     sys.excepthook = _logging_excepthook
 
     # Log beginning of experiment!
@@ -88,7 +92,7 @@ def create_experiment_directory(
 
     # Save system description:
     if save_env_desc:
-        description_str = get_environment_description()
+        description_str = sb.utils.logger.get_environment_description()
         with open(os.path.join(experiment_directory, "env.log"), "w") as fo:
             fo.write(description_str)
 
@@ -115,7 +119,8 @@ def parse_arguments(arg_list):
 
     Example
     -------
-    >>> filename, overrides = parse_arguments(['hyperparams.yaml', '--seed', '10'])
+    >>> argv = ['hyperparams.yaml', '--seed', '10']
+    >>> filename, overrides = parse_arguments(argv)
     >>> filename
     'hyperparams.yaml'
     >>> overrides
@@ -158,6 +163,16 @@ def parse_arguments(arg_list):
         "--log_config",
         help="A file storing the configuration options for logging",
     )
+    parser.add_argument(
+        "--rank", type=int, help="Rank of process in multiprocessing setup"
+    )
+    parser.add_argument("--device", help="The device to run the experiment on")
+    parser.add_argument(
+        "--multigpu_count", type=int, help="Number of gpus to run on"
+    )
+    parser.add_argument(
+        "--multigpu_backend", help="data_parallel, ddp_nccl, ddp_gloo, ddp_mpi"
+    )
 
     # Ignore items that are "None", they were not passed
     parsed_args = vars(parser.parse_args(arg_list))
@@ -177,11 +192,19 @@ def parse_arguments(arg_list):
     # Convert to string and append to overrides
     ruamel_yaml = ruamel.yaml.YAML()
     overrides = ruamel_yaml.load(yaml_overrides) or {}
-    recursive_update(overrides, items)
+    sb.utils.data_utils.recursive_update(overrides, items)
     yaml_stream = StringIO()
     ruamel_yaml.dump(overrides, yaml_stream)
 
     return param_file, yaml_stream.getvalue()
+
+
+class Stage(Enum):
+    """Simple enum to track stage of experiments."""
+
+    TRAIN = auto()
+    VALID = auto()
+    TEST = auto()
 
 
 class Brain:
@@ -209,82 +232,129 @@ class Brain:
 
     Arguments
     ---------
-    modules : list of torch.Tensors
-        The modules that will be updated using the optimizer.
-    optimizer : optimizer
-        The class to use for updating the modules' parameters.
-    first_inputs : list of torch.Tensor
-        An example of the input to the Brain class, for parameter init.
-        Arguments are passed individually to the ``compute_forward`` method,
-        for cases where a different signature is desired.
+    modules : dict of str:torch.nn.Module pairs
+        These modules are passed to the optimizier by default if they have
+        trainable parameters, and will have train()/eval() called on them.
+    opt_class : torch.optim class
+        A torch optimizer constructor that has takes only the list of
+        parameters (e.g. a lambda or partial function definition). By default,
+        this will be passed all modules in ``modules`` at the
+        beginning of the ``fit()`` method. This behavior can be changed
+        by overriding the ``configure_optimizers()`` method.
+    hparams : dict
+        Each key:value pair should consist of a string key and a hyperparameter
+        that is used within the overridden methods. These will
+        be accessible via an ``hparams`` attribute, using "dot" notation:
+        e.g. self.hparams.model(x)
+    jit_module_keys : list of str
+        keys from the dictionary passed to ``modules`` to compile with
+        ``torch.jit.script``.
+    checkpointer : speechbrain.Checkpointer
+        By default, this will be used to load checkpoints, and will have the
+        optimizer added to continue training if interrupted.
+    device : str
+        The location for performing computations.
+    multigpu_count : int
+        Number of GPUs to use for computation. With ``"data_parallel"``
+        backend, ``fit()`` is run on one process and multiple GPUs. With one of
+        the three ``ddp`` backends, ``fit()`` is run with one process per GPU.
+    multigpu_backend : str
+        one of {"ddp_nccl", "ddp_gloo", "ddp_mpi", "data_parallel"}
     auto_mix_prec: bool
         If True, automatic mixed-precision is used. Activate it only with cuda.
+    gradient_clipping : float
+        Default implementation of ``fit_batch()`` uses ``clip_grad_norm_``
+    nonfinite_patience : int
+        Number of times to ignore non-finite losses before stopping.
 
     Example
     -------
-    >>> from speechbrain.nnet.optimizers import SGD_Optimizer
+    >>> from torch.optim import SGD
     >>> class SimpleBrain(Brain):
-    ...     def compute_forward(self, x, init_params=False):
-    ...         return self.modules[0](x)
-    ...     def compute_objectives(self, predictions, targets, train=True):
-    ...         return torch.nn.functional.l1_loss(predictions, targets), {}
+    ...     def compute_forward(self, x, stage):
+    ...         return self.modules.model(x)
+    ...     def compute_objectives(self, predictions, targets, stage):
+    ...         return torch.nn.functional.l1_loss(predictions, targets)
     >>> model = torch.nn.Linear(in_features=10, out_features=10)
-    >>> brain = SimpleBrain(
-    ...     modules=[model],
-    ...     optimizer=SGD_Optimizer(0.01),
-    ...     first_inputs=[torch.rand(10, 10)],
-    ... )
-    >>> brain.fit(
-    ...     epoch_counter=range(1),
-    ...     train_set=([torch.rand(10, 10),torch.rand(10, 10)],)
-    ... )
+    >>> brain = SimpleBrain({"model": model}, opt_class=lambda x: SGD(x, 0.1))
+    >>> brain.fit(range(1), ([torch.rand(10, 10), torch.rand(10, 10)],))
     """
 
     def __init__(
-        self,
-        modules=None,
-        optimizer=None,
-        first_inputs=None,
-        auto_mix_prec=False,
+        self, modules=None, opt_class=None, hparams=None, checkpointer=None,
     ):
-        self.modules = torch.nn.ModuleList(modules)
-        self.optimizer = optimizer
-        self.avg_train_loss = 0.0
-        self.auto_mix_prec = auto_mix_prec
+        self.opt_class = opt_class
+        self.checkpointer = checkpointer
+        self.root_process = True
 
-        # Initialize parameters
-        if first_inputs is not None:
-            self.compute_forward(*first_inputs, init_params=True)
+        # Arguments passed via the hparams dictionary
+        brain_arg_defaults = {
+            "device": "cpu",
+            "multigpu_count": 0,
+            "multigpu_backend": None,
+            "jit_module_keys": None,
+            "auto_mix_prec": False,
+            "max_grad_norm": 5.0,
+            "nonfinite_patience": 3,
+            "progressbar": True,
+        }
+        for arg, default in brain_arg_defaults.items():
+            if hparams is not None and arg in hparams:
+                setattr(self, arg, hparams[arg])
+            else:
+                setattr(self, arg, default)
 
-            if self.optimizer is not None:
-                self.optimizer.init_params(self.modules)
+        # Put modules on the right device, accessible with dot notation
+        self.modules = torch.nn.ModuleDict(modules).to(self.device)
+
+        # Make hyperparams available with dot notation too
+        if hparams is not None:
+            self.hparams = SimpleNamespace(**hparams)
 
         # Automatic mixed precision init
-        self.scaler = torch.cuda.amp.GradScaler()
+        if self.auto_mix_prec:
+            self.scaler = torch.cuda.amp.GradScaler()
 
+        # List parameter count for the user
         total_params = sum(
             p.numel() for p in self.modules.parameters() if p.requires_grad
         )
-        clsname = self.__class__.__name__
-        fmt_num = format_order_of_magnitude(total_params)
-        logger.info(f"Initialized {fmt_num} trainable parameters in {clsname}")
+        if total_params > 0:
+            clsname = self.__class__.__name__
+            fmt_num = sb.utils.logger.format_order_of_magnitude(total_params)
+            logger.info(f"{fmt_num} trainable parameters in {clsname}")
 
-    def on_training_start(self, *args, **kwargs):
+        # Initialize ddp environment
+        self.rank = os.environ.get("RANK")
+        if self.multigpu_backend and self.multigpu_backend.startswith("ddp"):
+            if self.rank is None:
+                sys.exit(
+                    "To use DDP backend, start your script with:\n\t"
+                    "python -m speechbrain.ddp experiment.py hyperparams.yaml"
+                )
+            else:
+                self.rank = int(self.rank)
+            self.root_process = self.rank == 0
 
-        pass
+            # Use backend (without "ddp_") to initialize process group
+            backend = self.multigpu_backend[4:]
+            torch.distributed.init_process_group(
+                backend=backend, world_size=self.multigpu_count, rank=self.rank
+            )
 
-    def compute_forward(self, x, stage="train", init_params=False):
+            # force the models to start and remain synchronized
+            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.benchmark = False
+
+    def compute_forward(self, x, stage):
         """Forward pass, to be overridden by sub-classes.
 
         Arguments
         ---------
         x : torch.Tensor or list of tensors
             The input tensor or tensors for processing.
-        stage : str
-            The stage of the training process, one of "train", "valid", "test"
-        init_params : bool
-            Whether this pass should initialize parameters rather
-            than return the results of the forward pass.
+        stage : Stage
+            The stage of the experiment: Stage.TRAIN, Stage.VALID, Stage.TEST
 
         Returns
         -------
@@ -293,7 +363,7 @@ class Brain:
         """
         raise NotImplementedError
 
-    def compute_objectives(self, predictions, targets, stage="train"):
+    def compute_objectives(self, predictions, targets, stage):
         """Compute loss, to be overridden by sub-classes.
 
         Arguments
@@ -302,44 +372,117 @@ class Brain:
             The output tensor or tensors to evaluate.
         targets : torch.Tensor or list of tensors
             The gold standard to use for evaluation.
-        stage : str
-            The stage of the training process, one of "train", "valid", "test"
+        stage : Stage
+            The stage of the experiment: Stage.TRAIN, Stage.VALID, Stage.TEST
 
         Returns
         -------
         loss : torch.Tensor
             A tensor with the computed loss
-        stats : dict
-            A mapping with additional statistics about the batch
-            (e.g. ``{"accuracy": .9}``)
         """
         raise NotImplementedError
 
-    def on_epoch_end(self, epoch, train_stats, valid_stats=None):
-        """Gets called at the end of each epoch.
+    def on_stage_start(self, stage, epoch=None):
+        """Gets called when a stage starts.
+
+        Useful for defining class variables used during the stage.
 
         Arguments
         ---------
+        stage : Stage
+            The stage of the experiment: Stage.TRAIN, Stage.VALID, Stage.TEST
         epoch : int
             The current epoch count.
-        train_stats : dict of str:list pairs
-            Each key refers to a statstic, and the list contains the values
-            for this statistic, generated in a training pass.
-        valid_stats : dict of str:list pairs
-            Each key refers to a statstic, and the list contains the values
-            for this statistic, generated in a training pass.
         """
         pass
+
+    def on_stage_end(self, stage, stage_loss, epoch=None):
+        """Gets called at the end of a stage.
+
+        Arguments
+        ---------
+        stage : Stage
+            The stage of the experiment: Stage.TRAIN, Stage.VALID, Stage.TEST
+        stage_loss : float
+            The average loss over the completed stage.
+        epoch : int
+            The current epoch count.
+        """
+        pass
+
+    def on_fit_start(self):
+        """Gets called at the beginning of ``fit()``, on multiple processes
+        if multigpu_count is more than 0 and backend is ddp.
+
+        Default implementation compiles the jit modules, initializes
+        optimizers, and loads the latest checkpoint to resume training.
+        """
+        # Run this *after* mp.spawn since jit modules cannot be pickled.
+        self._compile_jit()
+
+        # Wrap modules with parallel backend after jit
+        self._wrap_multigpu()
+
+        # Initialize optimizers after parameters are configured
+        self.init_optimizers()
+
+        # Load latest checkpoint to resume training if interrupted
+        if self.checkpointer is not None:
+            self.checkpointer.recover_if_possible(
+                device=torch.device(self.device)
+            )
+
+    def init_optimizers(self):
+        """Called during ``on_fit_start()``, initialize optimizers
+        after parameters are fully configured (e.g. DDP, jit).
+
+        The default implementation of this method depends on an optimizer
+        class being passed at initialization that takes only a list
+        of parameters (e.g. a lambda or a partial function definition).
+        This creates a single optimizer that optimizes all trainable params.
+
+        Override this class if there are multiple optimizers.
+        """
+        if self.opt_class is not None:
+            self.optimizer = self.opt_class(self.modules.parameters())
+
+            if self.checkpointer is not None:
+                self.checkpointer.add_recoverable("optimizer", self.optimizer)
+
+    def on_evaluate_start(self, max_key=None, min_key=None):
+        """Gets called at the beginning of ``evaluate()``
+
+        Default implementation loads the best-performing checkpoint for
+        evaluation, based on stored metrics.
+
+        Arguments
+        ---------
+        max_key : str
+            Key to use for finding best checkpoint (higher is better).
+            By default, passed to ``self.checkpointer.recover_if_possible()``.
+        min_key : str
+            Key to use for finding best checkpoint (lower is better).
+            By default, passed to ``self.checkpointer.recover_if_possible()``.
+        """
+
+        # Recover best checkpoint for evaluation
+        if self.checkpointer is not None:
+            self.checkpointer.recover_if_possible(
+                max_key=max_key,
+                min_key=min_key,
+                device=torch.device(self.device),
+            )
 
     def fit_batch(self, batch):
         """Fit one batch, override to do multiple updates.
 
-        The default impementation depends on three methods being defined
+        The default impementation depends on a few methods being defined
         with a particular behavior:
 
         * ``compute_forward()``
         * ``compute_objectives()``
-        * ``optimizer()``
+
+        Also depends on having optimizers passed at initialization.
 
         Arguments
         ---------
@@ -349,33 +492,75 @@ class Brain:
 
         Returns
         -------
-        dict
-            A dictionary of the same format as `evaluate_batch()` where each
-            item includes a statistic about the batch, including the loss.
-            (e.g. ``{"loss": 0.1, "accuracy": 0.9}``)
+        detached loss
         """
-        inputs, targets = batch
+        inputs, labels = batch
 
         # Managing automatic mixed precision
         if self.auto_mix_prec:
             with torch.cuda.amp.autocast():
-                predictions = self.compute_forward(inputs)
-                loss, stats = self.compute_objectives(predictions, targets)
+                outputs = self.compute_forward(inputs, Stage.TRAIN)
+                loss = self.compute_objectives(outputs, labels, Stage.TRAIN)
                 self.scaler.scale(loss).backward()
-                self.scaler.step(self.optimizer.optim)
+                if self.check_gradients(loss):
+                    self.scaler.step(self.optimizer)
                 self.optimizer.zero_grad()
                 self.scaler.update()
         else:
-            predictions = self.compute_forward(inputs)
-            loss, stats = self.compute_objectives(predictions, targets)
+            outputs = self.compute_forward(inputs, Stage.TRAIN)
+            loss = self.compute_objectives(outputs, labels, Stage.TRAIN)
             loss.backward()
-            self.optimizer.step()
+            if self.check_gradients(loss):
+                self.optimizer.step()
             self.optimizer.zero_grad()
 
-        stats["loss"] = loss.detach()
-        return stats
+        return loss.detach().cpu()
 
-    def evaluate_batch(self, batch, stage="test"):
+    def check_gradients(self, loss):
+        """Check if gradients are finite and not too large.
+
+        Automatically clips large gradients.
+
+        Arguments
+        ---------
+        loss : tensor
+            The loss tensor after ``backward()`` has been called but
+            before the optimizers ``step()``.
+
+        Returns
+        -------
+        bool
+            Whether or not the optimizer step should be carried out.
+        """
+        if not torch.isfinite(loss):
+            self.nonfinite_count += 1
+
+            # Print helpful debug info
+            logger.warn(f"Loss is {loss}.")
+            for p in self.modules.parameters():
+                if not torch.isfinite(p).all():
+                    logger.warn("Parameter is not finite: " + str(p))
+
+            # Check if patience is exhausted
+            if self.nonfinite_count > self.nonfinite_patience:
+                raise ValueError(
+                    "Loss is not finite and patience is exhausted. "
+                    "To debug, wrap `fit()` with "
+                    "autograd's `detect_anomaly()`, e.g.\n\nwith "
+                    "torch.autograd.detect_anomaly():\n\tbrain.fit(...)"
+                )
+            else:
+                logger.warn("Patience not yet exhausted, ignoring this batch.")
+                return False
+
+        # Clip gradient norm
+        torch.nn.utils.clip_grad_norm_(
+            (p for p in self.modules.parameters()), self.max_grad_norm
+        )
+
+        return True
+
+    def evaluate_batch(self, batch, stage):
         """Evaluate one batch, override for different procedure than train.
 
         The default impementation depends on two methods being defined
@@ -389,135 +574,185 @@ class Brain:
         batch : list of torch.Tensors
             batch of data to use for evaluation. Default implementation assumes
             this batch has two elements: inputs and targets.
-        stage : str
-            The stage of the training process, one of "valid", "test"
+        stage : Stage
+            The stage of the experiment: Stage.VALID, Stage.TEST
 
         Returns
         -------
-        dict
-            A dictionary of the same format as ``fit_batch()`` where each item
-            includes a statistic about the batch, including the loss.
-            (e.g. ``{"loss": 0.1, "accuracy": 0.9}``)
+        detached loss
         """
         inputs, targets = batch
         out = self.compute_forward(inputs, stage=stage)
-        loss, stats = self.compute_objectives(out, targets, stage=stage)
-        stats["loss"] = loss.detach()
-        return stats
+        loss = self.compute_objectives(out, targets, stage=stage)
+        return loss.detach().cpu()
 
-    def add_stats(self, dataset_stats, batch_stats):
-        """Add the stats for a batch to the set of stats for a dataset.
-
-        Arguments
-        ---------
-        dataset_stats : dict
-            A mapping of stat name to a list of the stats in the dataset.
-        batch_stats : dict
-            A mapping of stat name to the value for that stat in a batch.
-        """
-        for key in batch_stats:
-            if key not in dataset_stats:
-                dataset_stats[key] = []
-            if isinstance(batch_stats[key], list):
-                dataset_stats[key].extend(batch_stats[key])
-            else:
-                dataset_stats[key].append(batch_stats[key])
-
-    def fit(self, epoch_counter, train_set, valid_set=None, progressbar=True):
+    def fit(
+        self, epoch_counter, train_set, valid_set=None, progressbar=None,
+    ):
         """Iterate epochs and datasets to improve objective.
 
         Relies on the existence of mulitple functions that can (or should) be
-        overridden. The following functions are used and expected to have a
+        overridden. The following methods are used and expected to have a
         certain behavior:
 
         * ``fit_batch()``
         * ``evaluate_batch()``
-        * ``add_stats()``
+        * ``update_average()``
+
+        If the initialization was done with multigpu_count > 0 and the
+        multigpu_backend is ddp, this method will spawn the correct number
+        of processes and run a portion of the training data on the
+        corresponding device.
 
         Arguments
         ---------
         epoch_counter : iterable
             each call should return an integer indicating the epoch count.
-        train_set : list of DataLoaders
-            a list of datasets to use for training, zipped before iterating.
-        valid_set : list of Data Loaders
-            a list of datasets to use for validation, zipped before iterating.
+        train_set : DataLoader
+            A set of data to use for training.
+        valid_set : DataLoader
+            A set of data to use for validation.
         progressbar : bool
             Whether to display the progress of each epoch in a progressbar.
         """
-        self.on_training_start()
+        self.on_fit_start()
+
+        if progressbar is None:
+            progressbar = self.progressbar
+
+        # Use factories to get loaders
+        self.train_sampler = None
+        if isinstance(train_set, DataLoaderFactory):
+            if self.rank is not None:
+                self.train_sampler = DistributedSampler(
+                    dataset=train_set.dataset,
+                    num_replicas=self.multigpu_count,
+                    rank=self.rank,
+                    shuffle=train_set.shuffle,
+                )
+            train_set = train_set.get_dataloader(self.train_sampler)
+        if isinstance(valid_set, DataLoaderFactory):
+            valid_set = valid_set.get_dataloader()
+
+        # Iterate epochs
         for epoch in epoch_counter:
+
+            # Training stage
+            self.on_stage_start(Stage.TRAIN, epoch)
             self.modules.train()
-            train_stats = {}
-            disable = not progressbar
+            avg_train_loss = 0.0
+
+            # Reset nonfinite count to 0 each epoch
+            self.nonfinite_count = 0
+
+            if self.train_sampler is not None:
+                self.train_sampler.set_epoch(epoch)
+
+            # Only show progressbar if requested and root_process
+            disable = not (progressbar and self.root_process)
             with tqdm(train_set, dynamic_ncols=True, disable=disable) as t:
-                for i, batch in enumerate(t):
-                    stats = self.fit_batch(batch)
-                    self.add_stats(train_stats, stats)
-                    average = self.update_average(stats, iteration=i + 1)
-                    t.set_postfix(train_loss=average)
+                for self.step, batch in enumerate(t):
+                    loss = self.fit_batch(batch)
+                    avg_train_loss = self.update_average(loss, avg_train_loss)
+                    t.set_postfix(train_loss=avg_train_loss)
+            self.on_stage_end(Stage.TRAIN, avg_train_loss, epoch)
 
-            valid_stats = {}
+            # Validation stage
+            avg_valid_loss = None
             if valid_set is not None:
+                self.on_stage_start(Stage.VALID, epoch)
                 self.modules.eval()
+                avg_valid_loss = 0.0
                 with torch.no_grad():
-                    for batch in tqdm(
-                        valid_set, dynamic_ncols=True, disable=disable
+                    for self.step, batch in enumerate(
+                        tqdm(valid_set, dynamic_ncols=True, disable=disable)
                     ):
-                        stats = self.evaluate_batch(batch, stage="valid")
-                        self.add_stats(valid_stats, stats)
+                        loss = self.evaluate_batch(batch, stage=Stage.VALID)
+                        avg_valid_loss = self.update_average(
+                            loss, avg_valid_loss
+                        )
+                self.on_stage_end(Stage.VALID, avg_valid_loss, epoch)
 
-            self.on_epoch_end(epoch, train_stats, valid_stats)
+    def _compile_jit(self):
+        """This should be run *after* mp.spawn, since jit modules
+        cannot be pickled.
+        """
+        if self.jit_module_keys is None:
+            return
 
-    def evaluate(self, test_set, progressbar=True):
-        """Iterate test_set and evaluate brain performance.
+        for name in self.jit_module_keys:
+            module = torch.jit.script(self.modules[name])
+            self.modules[name] = module.to(self.device)
+
+    def _wrap_multigpu(self):
+        """Wrap modules with multigpu wrapper when requested"""
+        if self.multigpu_backend is None:
+            return
+
+        for name, module in self.modules.items():
+            if any(p.requires_grad for p in module.parameters()):
+                if self.multigpu_backend == "data_parallel":
+                    module = torch.nn.DataParallel(module)
+                elif self.multigpu_backend.startswith("ddp"):
+                    module = SyncBatchNorm.convert_sync_batchnorm(module)
+                    module = DDP(module, device_ids=[self.device])
+            self.modules[name] = module
+
+    def evaluate(self, test_set, max_key=None, min_key=None, progressbar=None):
+        """Iterate test_set and evaluate brain performance. By default, loads
+        the best-performing checkpoint (as recorded using the checkpointer).
 
         Arguments
         ---------
         test_set : list of DataLoaders
             This list will be zipped before iterating.
+        max_key : str
+            Key to use for finding best checkpoint, passed to on_evaluate_start
+        min_key : str
+            Key to use for finding best checkpoint, passed to on_evaluate_start
         progressbar : bool
             Whether to display the progress in a progressbar.
 
         Returns
         -------
-        dict
-            The test stats, where each item
-            has a list of all the statistics from the test pass.
-            (e.g. ``{"loss": [0.1, 0.2, 0.05], "accuracy": [0.8, 0.8, 0.9]}``)
+        average test loss
         """
-        test_stats = {}
+        if progressbar is None:
+            progressbar = self.progressbar
+
+        # Get test loader from factory
+        if isinstance(test_set, DataLoaderFactory):
+            test_set = test_set.get_dataloader()
+
+        self.on_evaluate_start(max_key=max_key, min_key=min_key)
+        self.on_stage_start(Stage.TEST, epoch=None)
         self.modules.eval()
+        avg_test_loss = 0.0
         disable = not progressbar
         with torch.no_grad():
-            for batch in tqdm(test_set, dynamic_ncols=True, disable=disable):
-                stats = self.evaluate_batch(batch, stage="test")
-                self.add_stats(test_stats, stats)
+            for self.step, batch in enumerate(
+                tqdm(test_set, dynamic_ncols=True, disable=disable)
+            ):
+                loss = self.evaluate_batch(batch, stage=Stage.TEST)
+                avg_test_loss = self.update_average(loss, avg_test_loss)
+        self.on_stage_end(Stage.TEST, avg_test_loss, epoch=None)
 
-        return test_stats
-
-    def update_average(self, stats, iteration):
+    def update_average(self, loss, avg_loss):
         """Update running average of the loss.
 
         Arguments
         ---------
-        stats : dict
-            Result of `compute_objectives()`
-        iteration : int
-            The iteration count.
+        loss : torch.tensor
+            detached loss, a single float value.
+        avg_loss : float
+            current running average.
 
         Returns
         -------
         float
             The average loss
         """
-        if not torch.isfinite(stats["loss"]):
-            raise ValueError(
-                "Loss is not finite. To debug, wrap `fit()` with `debug_anomaly`"
-                ", e.g.\nwith torch.autograd.detect_anomaly():\n\tbrain.fit(...)"
-            )
-
-        # Compute moving average
-        self.avg_train_loss -= self.avg_train_loss / iteration
-        self.avg_train_loss += float(stats["loss"]) / iteration
-        return self.avg_train_loss
+        if torch.isfinite(loss):
+            avg_loss -= avg_loss / (self.step + 1)
+            avg_loss += float(loss) / (self.step + 1)
+        return avg_loss

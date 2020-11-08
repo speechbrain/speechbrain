@@ -1,70 +1,71 @@
 #!/usr/bin/python
 import os
 import speechbrain as sb
-from speechbrain.utils.train_logger import summarize_average
-
-experiment_dir = os.path.dirname(os.path.realpath(__file__))
-hyperparams_file = os.path.join(experiment_dir, "hyperparams.yaml")
-data_folder = "../../../../samples/audio_samples/nn_training_samples"
-data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
-with open(hyperparams_file) as fin:
-    hyperparams = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
 
 
-class AlignBrain(sb.core.Brain):
-    def compute_forward(self, x, stage="train", init_params=False):
+class AlignBrain(sb.Brain):
+    def compute_forward(self, x, stage):
         id, wavs, lens = x
-        feats = hyperparams.compute_features(wavs, init_params)
-        feats = hyperparams.mean_var_norm(feats, lens)
-        x = hyperparams.model(feats, init_params=init_params)
-        x = hyperparams.lin(x, init_params)
-        outputs = hyperparams.softmax(x)
+        feats = self.hparams.compute_features(wavs)
+        feats = self.modules.mean_var_norm(feats, lens)
+        x = self.modules.model(feats)
+        x = self.modules.lin(x)
+        outputs = self.hparams.softmax(x)
 
         return outputs, lens
 
-    def compute_objectives(self, predictions, targets, stage="train"):
+    def compute_objectives(self, predictions, targets, stage):
         predictions, lens = predictions
         ids, phns, phn_lens = targets
 
-        prev_alignments = hyperparams.aligner.get_prev_alignments(
+        prev_alignments = self.hparams.aligner.get_prev_alignments(
             ids, predictions, lens, phns, phn_lens
         )
+        loss = self.hparams.compute_cost(predictions, prev_alignments)
 
-        loss = hyperparams.compute_cost(predictions, prev_alignments)
-
-        stats = {}
-
-        if stage != "train":
-            viterbi_scores, alignments = hyperparams.aligner(
+        if stage != sb.Stage.TRAIN:
+            viterbi_scores, alignments = self.hparams.aligner(
                 predictions, lens, phns, phn_lens, "viterbi"
             )
+            self.hparams.aligner.store_alignments(ids, alignments)
 
-            hyperparams.aligner.store_alignments(ids, alignments)
+        return loss
 
-        return loss, stats
-
-    def on_epoch_end(self, epoch, train_stats, valid_stats):
-        print("Epoch %d complete" % epoch)
-        print("Train loss: %.2f" % summarize_average(train_stats["loss"]))
-        print("Valid loss: %.2f" % summarize_average(valid_stats["loss"]))
-
-        print("Recalculating and recording alignments...")
-        self.evaluate(train_set)
-
-
-train_set = hyperparams.train_loader()
-first_x, first_y = next(iter(train_set))
-align_brain = AlignBrain(
-    modules=[hyperparams.model, hyperparams.lin],
-    optimizer=hyperparams.optimizer,
-    first_inputs=[first_x],
-)
-align_brain.fit(
-    range(hyperparams.N_epochs), train_set, hyperparams.valid_loader()
-)
-test_stats = align_brain.evaluate(hyperparams.test_loader())
+    def on_stage_end(self, stage, stage_loss, epoch=None):
+        if stage == sb.Stage.TRAIN:
+            self.train_loss = stage_loss
+        if stage == sb.Stage.VALID:
+            print("Epoch %d complete" % epoch)
+            print("Train loss: %.2f" % self.train_loss)
+            print("Valid loss: %.2f" % stage_loss)
+            print("Recalculating and recording alignments...")
+            self.evaluate(self.hparams.train_set)
 
 
-# Integration test: check that the model overfits the training data
+def main():
+    experiment_dir = os.path.dirname(os.path.realpath(__file__))
+    hparams_file = os.path.join(experiment_dir, "hyperparams.yaml")
+    data_folder = "../../../../samples/audio_samples/nn_training_samples"
+    data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
+    with open(hparams_file) as fin:
+        hparams = sb.load_extended_yaml(fin, {"data_folder": data_folder})
+
+    hparams["train_set"] = hparams["train_loader"]()
+    align_brain = AlignBrain(hparams["modules"], hparams["opt_class"], hparams)
+    align_brain.fit(
+        range(hparams["N_epochs"]),
+        hparams["train_set"],
+        hparams["valid_loader"](),
+    )
+    align_brain.evaluate(hparams["test_loader"]())
+
+    # Check that model overfits for integration test
+    assert align_brain.train_loss < 2.0
+
+
+if __name__ == "__main__":
+    main()
+
+
 def test_error():
-    assert align_brain.avg_train_loss < 2.0
+    main()

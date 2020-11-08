@@ -13,7 +13,7 @@ from speechbrain.data_io.data_io import split_word
 
 from speechbrain.decoders.seq2seq import S2SRNNGreedySearcher
 from speechbrain.decoders.seq2seq import S2SRNNBeamSearcher
-from speechbrain.decoders.decoders import undo_padding
+from speechbrain.utils.data_utils import undo_padding
 from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.train_logger import summarize_error_rate
 

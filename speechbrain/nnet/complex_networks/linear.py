@@ -25,9 +25,11 @@ class ComplexLinear(torch.nn.Module):
     Arguments
     ---------
     n_neurons : int
-          it is the number of output neurons (i.e, the dimensionality of the
-          output). Please note that these are complex-valued neurons. If 256
-          neurons are specified, the output dimension will be 512.
+        it is the number of output neurons (i.e, the dimensionality of the
+        output). Please note that these are complex-valued neurons. If 256
+        neurons are specified, the output dimension will be 512.
+    input_shape : tuple
+        Expected size of the input.
     bias : bool
         if True, the additive bias b is adopted.
     init_criterion: str , optional
@@ -47,9 +49,9 @@ class ComplexLinear(torch.nn.Module):
 
     Example
     -------
-    >>> lin = ComplexLinear(n_neurons=100)
     >>> inputs = torch.rand(10, 50, 40)
-    >>> output = lin(inputs, init_params=True)
+    >>> lin = ComplexLinear(n_neurons=100, input_shape=inputs.shape)
+    >>> output = lin(inputs)
     >>> output.shape
     torch.Size([10, 50, 200])
     """
@@ -57,6 +59,7 @@ class ComplexLinear(torch.nn.Module):
     def __init__(
         self,
         n_neurons,
+        input_shape,
         bias=True,
         init_criterion="glorot",
         weight_init="complex",
@@ -67,21 +70,11 @@ class ComplexLinear(torch.nn.Module):
         self.init_criterion = init_criterion
         self.weight_init = weight_init
 
-    def init_params(self, first_input):
-        """
-        Arguments
-        ---------
-        first_input : tensor
-            A first input used for initializing the parameters.
-        """
-
         # Check the complex_valued form of the input
-        check_complex_input(first_input[0])
+        check_complex_input(input_shape)
 
         # Computing the complex dimensionality of the input
-        fea_dim = first_input[0].shape[-1] // 2
-
-        self.in_features = fea_dim
+        self.in_features = input_shape[-1] // 2
         self.out_features = self.n_neurons
 
         self.linear = complex_linear(
@@ -90,10 +83,9 @@ class ComplexLinear(torch.nn.Module):
             self.bias,
             self.init_criterion,
             self.weight_init,
-            first_input.device,
         )
 
-    def forward(self, x, init_params=False):
+    def forward(self, x):
         """Returns the linear transformation of input tensor.
 
         Arguments
@@ -101,9 +93,6 @@ class ComplexLinear(torch.nn.Module):
         x : torch.Tensor
             input to transform linearly.
         """
-        if init_params:
-            self.init_params(x)
-
         wx = self.linear(x)
 
         return wx

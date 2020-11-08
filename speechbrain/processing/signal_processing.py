@@ -10,6 +10,7 @@ Authors
 """
 import torch
 import math
+from packaging import version
 
 
 def compute_amplitude(waveforms, lengths, amp_type="avg", scale="linear"):
@@ -63,7 +64,7 @@ def compute_amplitude(waveforms, lengths, amp_type="avg", scale="linear"):
         raise NotImplementedError
 
 
-def normalize(waveforms, lengths, amp_type="avg"):
+def normalize(waveforms, lengths, amp_type="avg", eps=1e-14):
     """
     This function normalizes a signal to unitary average or peak amplitude.
 
@@ -79,6 +80,8 @@ def normalize(waveforms, lengths, amp_type="avg"):
         Whether one wants to normalize with respect to "avg" or "peak"
         amplitude. Choose between ["avg", "peak"]. Note: for "avg" clipping
         is not prevented and can occur.
+    eps : float
+        A small number to add to the denominator to prevent NaN.
 
     Returns
     -------
@@ -93,7 +96,7 @@ def normalize(waveforms, lengths, amp_type="avg"):
         batch_added = True
         waveforms = waveforms.unsqueeze(0)
 
-    den = compute_amplitude(waveforms, lengths, amp_type)
+    den = compute_amplitude(waveforms, lengths, amp_type) + eps
     if batch_added:
         waveforms = waveforms.squeeze(0)
     return waveforms / den
@@ -237,29 +240,27 @@ def convolve1d(
         before_index = kernel[..., :rotation_index]
         kernel = torch.cat((after_index, zeros, before_index), dim=-1)
 
-        # Compute FFT for both signals
-        f_signal = torch.rfft(waveform, 1)
-        f_kernel = torch.rfft(kernel, 1)
+        # Multiply in frequency domain to convolve in time domain
+        if version.parse(torch.__version__) > version.parse("1.6.0"):
+            import torch.fft as fft
 
-        # Complex multiply
-        sig_real, sig_imag = f_signal.unbind(-1)
-        ker_real, ker_imag = f_kernel.unbind(-1)
-        f_result = torch.stack(
-            [
-                sig_real * ker_real - sig_imag * ker_imag,
-                sig_real * ker_imag + sig_imag * ker_real,
-            ],
-            dim=-1,
-        )
-
-        # Inverse FFT
-        convolved = torch.irfft(f_result, 1)
-
-        # Because we're using `onesided`, sometimes the output's length
-        # is increased by one in the time dimension. Truncate to ensure
-        # that the length is preserved.
-        if convolved.size(-1) > waveform.size(-1):
-            convolved = convolved[..., : waveform.size(-1)]
+            result = fft.rfft(waveform) * fft.rfft(kernel)
+            convolved = fft.irfft(result, n=waveform.size(-1))
+        else:
+            f_signal = torch.rfft(waveform, 1)
+            f_kernel = torch.rfft(kernel, 1)
+            sig_real, sig_imag = f_signal.unbind(-1)
+            ker_real, ker_imag = f_kernel.unbind(-1)
+            f_result = torch.stack(
+                [
+                    sig_real * ker_real - sig_imag * ker_imag,
+                    sig_real * ker_imag + sig_imag * ker_real,
+                ],
+                dim=-1,
+            )
+            convolved = torch.irfft(
+                f_result, 1, signal_sizes=[waveform.size(-1)]
+            )
 
     # Use the implementation given by torch, which should be efficient on GPU
     else:
