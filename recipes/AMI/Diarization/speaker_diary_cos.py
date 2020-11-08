@@ -101,7 +101,7 @@ def embedding_computation_loop(split, set_loader, stat_file):
                 segset = segset + seg
 
                 # embedding computation
-                emb = compute_embeddings(wavs, lens).squeeze().cpu().np()
+                emb = compute_embeddings(wavs, lens).squeeze().cpu().numpy()
                 embeddings = np.concatenate((embeddings, emb), axis=0)
 
         modelset = np.array(modelset, dtype="|O")
