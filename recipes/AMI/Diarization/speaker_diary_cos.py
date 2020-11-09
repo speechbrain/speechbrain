@@ -147,8 +147,8 @@ def prepare_subset_csv(full_diary_csv, rec_id, out_csv_file):
         csv_writer = csv.writer(
             csv_file, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
         )
-        for l in out_csv:
-            csv_writer.writerow(l)
+        for r in out_csv:
+            csv_writer.writerow(r)
 
     msg = "Prepared CSV file: " + out_csv_file
     logger.info(msg)
