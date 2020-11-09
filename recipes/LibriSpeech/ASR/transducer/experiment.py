@@ -37,8 +37,7 @@ import speechbrain as sb
 from speechbrain.utils.data_utils import download_file
 from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.data_utils import undo_padding
-from speechbrain.decoders.transducer import transducer_greedy_decode
-from speechbrain.decoders.transducer import transducer_beam_search_decode
+from speechbrain.decoders.transducer import TransducerBeamSearcher
 
 
 # Define training procedure
@@ -117,47 +116,12 @@ class ASR(sb.Brain):
                 return p_transducer, wav_lens
 
         elif stage == sb.Stage.VALID:
-            predicted_tokens, scores = transducer_greedy_decode(
-                x,
-                [self.modules.emb, self.modules.dec],
-                self.modules.Tjoint,
-                [self.modules.transducer_lin],
-                self.hparams.blank_index,
-            )
+            predicted_tokens, scores, _, _ = searcher.forward(x)
             return p_transducer, wav_lens, predicted_tokens
         else:
-            if hasattr(self.hparams, "lm_model"):
-                (
-                    best_hyps,
-                    best_scores,
-                    nbest_hyps,
-                    nbest_scores,
-                ) = transducer_beam_search_decode(
-                    x,
-                    [self.modules.emb, self.modules.dec],
-                    self.modules.Tjoint,
-                    [self.modules.transducer_lin],
-                    self.hparams.blank_index,
-                    beam=self.hparams.beam_size,
-                    nbest=self.hparams.nbest,
-                    lm_module=self.modules.lm_model,
-                    lm_weight=self.hparams.lm_weight,
-                )
-            else:
-                (
-                    best_hyps,
-                    best_scores,
-                    nbest_hyps,
-                    nbest_scores,
-                ) = transducer_beam_search_decode(
-                    x,
-                    [self.modules.emb, self.modules.dec],
-                    self.modules.Tjoint,
-                    [self.modules.transducer_lin],
-                    self.hparams.blank_index,
-                    beam=self.hparams.beam_size,
-                    nbest=self.hparams.nbest,
-                )
+            best_hyps, best_scores, nbest_hyps, nbest_scores = searcher.forward(
+                x
+            )
             return p_transducer, wav_lens, best_hyps
 
     def compute_objectives(self, predictions, targets, stage):
@@ -421,6 +385,21 @@ if __name__ == "__main__":
     asr_brain.load_tokenizer()
     if hasattr(asr_brain.hparams, "lm_ckpt_file"):
         asr_brain.load_lm()
+
+    # Searcher
+    # TODO (Brian) move this part to yaml file
+    searcher = TransducerBeamSearcher(
+        decode_network_lst=[hparams["emb"], hparams["dec"]],
+        tjoint=hparams["Tjoint"],
+        classifier_network=[hparams["transducer_lin"]],
+        blank_id=0,
+        beam_size=hparams["beam_size"],
+        nbest=hparams["nbest"],
+        lm_module=hparams["lm_model"],
+        lm_weight=hparams["lm_weight"],
+        state_beam=2.3,
+        expand_beam=2.3,
+    )
 
     # Training
     asr_brain.fit(asr_brain.hparams.epoch_counter, train_set, valid_set)
