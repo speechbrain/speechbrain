@@ -1,7 +1,7 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: !PLACEHOLDER  # e.g, 1234
-__set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/augment_CRDNN/<seed>
+__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+output_folder: !ref results/teachers_save/<seed>
 
 # Data files
 data_folder: !PLACEHOLDER  # e.g. /path/to/TIMIT
@@ -65,6 +65,7 @@ alpha: 1
 
 # tea0
 tea0_enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
+    input_shape: [null, null, !ref <n_mels>]
     activation: !name:torch.nn.LeakyReLU
     dropout: 0.15
     cnn_blocks: 2
@@ -82,6 +83,8 @@ tea0_emb: !new:speechbrain.nnet.embedding.Embedding
     embedding_dim: !ref <emb_size>
 
 tea0_dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
+    enc_dim: 512
+    input_size: !ref <emb_size>
     rnn_type: gru
     attn_type: location
     hidden_size: 256
@@ -94,13 +97,16 @@ tea0_dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
     dropout: 0.5
 
 tea0_ctc_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: 512
     n_neurons: !ref <output_neurons>  # 39 phonemes + 1 blank
 
 tea0_seq_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: 256
     n_neurons: !ref <output_neurons>  # 39 phonemes + 1 eos
 
 # tea1
 tea1_enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
+    input_shape: [null, null, !ref <n_mels>]
     activation: !name:torch.nn.LeakyReLU
     dropout: 0.3
     cnn_blocks: 2
@@ -118,6 +124,8 @@ tea1_emb: !new:speechbrain.nnet.embedding.Embedding
     embedding_dim: !ref <emb_size>
 
 tea1_dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
+    enc_dim: 512
+    input_size: !ref <emb_size>
     rnn_type: gru
     attn_type: location
     hidden_size: 256
@@ -130,13 +138,16 @@ tea1_dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
     dropout: 0.5
 
 tea1_ctc_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: 512
     n_neurons: !ref <output_neurons>  # 39 phonemes + 1 blank
 
 tea1_seq_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: 256
     n_neurons: !ref <output_neurons>  # 39 phonemes + 1 eos
 
 # tea2
 tea2_enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
+    input_shape: [null, null, !ref <n_mels>]
     activation: !name:torch.nn.LeakyReLU
     dropout: 0.3
     cnn_blocks: 2
@@ -154,6 +165,8 @@ tea2_emb: !new:speechbrain.nnet.embedding.Embedding
     embedding_dim: !ref <emb_size>
 
 tea2_dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
+    enc_dim: 512
+    input_size: !ref <emb_size>
     rnn_type: gru
     attn_type: location
     hidden_size: 256
@@ -166,13 +179,16 @@ tea2_dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
     dropout: 0.5
 
 tea2_ctc_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: 512
     n_neurons: !ref <output_neurons>  # 39 phonemes + 1 blank
 
 tea2_seq_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: 256
     n_neurons: !ref <output_neurons>  # 39 phonemes + 1 eos
 
 # tea3
 tea3_enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
+    input_shape: [null, null, !ref <n_mels>]
     activation: !name:torch.nn.LeakyReLU
     dropout: 0.2
     cnn_blocks: 2
@@ -190,6 +206,8 @@ tea3_emb: !new:speechbrain.nnet.embedding.Embedding
     embedding_dim: !ref <emb_size>
 
 tea3_dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
+    enc_dim: 512
+    input_size: !ref <emb_size>
     rnn_type: lstm
     attn_type: location
     hidden_size: 256
@@ -202,13 +220,16 @@ tea3_dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
     dropout: 0.5
 
 tea3_ctc_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: 512
     n_neurons: !ref <output_neurons>  # 39 phonemes + 1 blank
 
 tea3_seq_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: 256
     n_neurons: !ref <output_neurons>  # 39 phonemes + 1 eos
 
 # tea4
 tea4_enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
+    input_shape: [null, null, !ref <n_mels>]
     activation: !ref <activation>
     dropout: !ref <dropout>
     cnn_blocks: !ref <cnn_blocks>
@@ -226,6 +247,8 @@ tea4_emb: !new:speechbrain.nnet.embedding.Embedding
     embedding_dim: !ref <emb_size>
 
 tea4_dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
+    enc_dim: 512
+    input_size: !ref <emb_size>
     rnn_type: gru
     attn_type: location
     hidden_size: 256
@@ -238,13 +261,16 @@ tea4_dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
     dropout: 0.5
 
 tea4_ctc_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: 512
     n_neurons: !ref <output_neurons>  # 39 phonemes + 1 blank
 
 tea4_seq_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: 256
     n_neurons: !ref <output_neurons>  # 39 phonemes + 1 eos
 
 # tea5
 tea5_enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
+    input_shape: [null, null, !ref <n_mels>]
     activation: !ref <activation>
     dropout: 0.3
     cnn_blocks: 2
@@ -262,6 +288,8 @@ tea5_emb: !new:speechbrain.nnet.embedding.Embedding
     embedding_dim: !ref <emb_size>
 
 tea5_dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
+    enc_dim: 320
+    input_size: !ref <emb_size>
     rnn_type: lstm
     attn_type: location
     hidden_size: 256
@@ -274,13 +302,16 @@ tea5_dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
     dropout: 0.5
 
 tea5_ctc_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: 320
     n_neurons: !ref <output_neurons>  # 39 phonemes + 1 blank
 
 tea5_seq_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: 256
     n_neurons: !ref <output_neurons>  # 39 phonemes + 1 eos
 
 # tea6
 tea6_enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
+    input_shape: [null, null, !ref <n_mels>]
     activation: !ref <activation>
     dropout: 0.3
     cnn_blocks: 1
@@ -298,6 +329,8 @@ tea6_emb: !new:speechbrain.nnet.embedding.Embedding
     embedding_dim: !ref <emb_size>
 
 tea6_dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
+    enc_dim: 320
+    input_size: !ref <emb_size>
     rnn_type: lstm
     attn_type: location
     hidden_size: 256
@@ -310,13 +343,16 @@ tea6_dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
     dropout: 0.5
 
 tea6_ctc_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: 320
     n_neurons: !ref <output_neurons>  # 39 phonemes + 1 blank
 
 tea6_seq_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: 256
     n_neurons: !ref <output_neurons>  # 39 phonemes + 1 eos
 
 # tea7
 tea7_enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
+    input_shape: [null, null, !ref <n_mels>]
     activation: !ref <activation>
     dropout: 0.15
     cnn_blocks: 2
@@ -334,6 +370,8 @@ tea7_emb: !new:speechbrain.nnet.embedding.Embedding
     embedding_dim: !ref <emb_size>
 
 tea7_dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
+    enc_dim: 512
+    input_size: !ref <emb_size>
     rnn_type: gru
     attn_type: location
     hidden_size: 256
@@ -346,13 +384,16 @@ tea7_dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
     dropout: 0.5
 
 tea7_ctc_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: 512
     n_neurons: !ref <output_neurons>  # 39 phonemes + 1 blank
 
 tea7_seq_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: 256
     n_neurons: !ref <output_neurons>  # 39 phonemes + 1 eos
 
 # tea8
 tea8_enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
+    input_shape: [null, null, !ref <n_mels>]
     activation: !ref <activation>
     dropout: 0.3
     cnn_blocks: 2
@@ -370,6 +411,8 @@ tea8_emb: !new:speechbrain.nnet.embedding.Embedding
     embedding_dim: !ref <emb_size>
 
 tea8_dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
+    enc_dim: 512
+    input_size: !ref <emb_size>
     rnn_type: lstm
     attn_type: location
     hidden_size: 256
@@ -382,13 +425,16 @@ tea8_dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
     dropout: 0.5
 
 tea8_ctc_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: 512
     n_neurons: !ref <output_neurons>  # 39 phonemes + 1 blank
 
 tea8_seq_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: 256
     n_neurons: !ref <output_neurons>  # 39 phonemes + 1 eos
 
 # tea9
 tea9_enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
+    input_shape: [null, null, !ref <n_mels>]
     activation: !ref <activation>
     dropout: 0.15
     cnn_blocks: 2
@@ -406,6 +452,8 @@ tea9_emb: !new:speechbrain.nnet.embedding.Embedding
     embedding_dim: !ref <emb_size>
 
 tea9_dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
+    enc_dim: 512
+    input_size: !ref <emb_size>
     rnn_type: gru
     attn_type: location
     hidden_size: 256
@@ -418,9 +466,11 @@ tea9_dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
     dropout: 0.5
 
 tea9_ctc_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: 512
     n_neurons: !ref <output_neurons>  # 39 phonemes + 1 blank
 
 tea9_seq_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: 256
     n_neurons: !ref <output_neurons>  # 39 phonemes + 1 eos
 
 
@@ -433,14 +483,14 @@ normalize: !new:speechbrain.processing.features.InputNormalization
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-augmentation: !new:speechbrain.lobes.augment.tdsa.TimeDomainSpecAugment
-    sample_rate: !ref <sample_rate>
-    speeds: [95, 100, 105]
-
-compute_features: !new:speechbrain.lobes.features.fbank.Fbank
+compute_features: !new:speechbrain.lobes.features.Fbank
     sample_rate: !ref <sample_rate>
     n_fft: !ref <n_fft>
     n_mels: !ref <n_mels>
+
+augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+    sample_rate: !ref <sample_rate>
+    speeds: [95, 100, 105]
 
 train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>
