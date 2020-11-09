@@ -12,8 +12,7 @@ from types import SimpleNamespace
 
 # Define training procedure
 class ASR(sb.Brain):
-    def __init__(
-        self, tea_modules_list=None):
+    def __init__(self, tea_modules_list=None):
         self.root_process = True
 
         # Arguments passed via the hparams dictionary
@@ -48,8 +47,14 @@ class ASR(sb.Brain):
         ids, wavs, wav_lens = x
         ids, phns, phn_lens = y
 
-        wavs, wav_lens = wavs.to(self.hparams.device), wav_lens.to(self.hparams.device)
-        phns, phn_lens = phns.to(self.hparams.device), phn_lens.to(self.hparams.device)
+        wavs, wav_lens = (
+            wavs.to(self.hparams.device),
+            wav_lens.to(self.hparams.device),
+        )
+        phns, phn_lens = (
+            phns.to(self.hparams.device),
+            phn_lens.to(self.hparams.device),
+        )
 
         if hasattr(self.hparams, "augmentation"):
             wavs = self.hparams.augmentation(wavs, wav_lens)
@@ -60,7 +65,9 @@ class ASR(sb.Brain):
 
         ind2lab = self.hparams.train_loader.label_dict["phn"]["index2lab"]
         phns_decode = sb.utils.data_utils.undo_padding(phns, phn_lens)
-        phns_decode = sb.data_io.data_io.convert_index_to_lab(phns_decode, ind2lab)
+        phns_decode = sb.data_io.data_io.convert_index_to_lab(
+            phns_decode, ind2lab
+        )
 
         # run inference to each teacher model
         tea_dict_list = []
@@ -72,14 +79,16 @@ class ASR(sb.Brain):
                 ctc_logits_tea = tea_ctc_lin_list[num](x_tea)
 
                 # output layer for ctc log-probabilities
-                p_ctc_tea = self.hparams.log_softmax(ctc_logits_tea / self.hparams.T)
+                p_ctc_tea = self.hparams.log_softmax(
+                    ctc_logits_tea / self.hparams.T
+                )
 
                 # Prepend bos token at the beginning
-                y_in_tea = sb.data_io.data_io.prepend_bos_token(phns, bos_index=self.hparams.bos_index)
-                e_in_tea = tea_emb_list[num](y_in_tea)
-                h_tea, _ = tea_dec_list[num](
-                    e_in_tea, x_tea, wav_lens
+                y_in_tea = sb.data_io.data_io.prepend_bos_token(
+                    phns, bos_index=self.hparams.bos_index
                 )
+                e_in_tea = tea_emb_list[num](y_in_tea)
+                h_tea, _ = tea_dec_list[num](e_in_tea, x_tea, wav_lens)
 
                 # output layer for seq2seq log-probabilities
                 seq_logits_tea = tea_seq_lin_list[num](h_tea)
@@ -89,7 +98,9 @@ class ASR(sb.Brain):
                 sequence_ctc = sb.decoders.ctc.ctc_greedy_decode(
                     p_ctc_tea, wav_lens, blank_id=self.hparams.blank_index
                 )
-                sequence_ctc = sb.data_io.data_io.convert_index_to_lab(sequence_ctc, ind2lab)
+                sequence_ctc = sb.data_io.data_io.convert_index_to_lab(
+                    sequence_ctc, ind2lab
+                )
                 per_stats_ctc = sb.utils.edit_distance.wer_details_for_batch(
                     ids, phns_decode, sequence_ctc, compute_alignments=False
                 )
@@ -106,7 +117,9 @@ class ASR(sb.Brain):
                 hyps = sb.decoders.seq2seq.batch_filter_seq2seq_output(
                     predictions, eos_id=self.hparams.eos_index
                 )
-                sequence_ce = sb.data_io.data_io.convert_index_to_lab(hyps, ind2lab)
+                sequence_ce = sb.data_io.data_io.convert_index_to_lab(
+                    hyps, ind2lab
+                )
                 per_stats_ce = sb.utils.edit_distance.wer_details_for_batch(
                     ids, phns_decode, sequence_ce, compute_alignments=False
                 )
@@ -135,7 +148,9 @@ class ASR(sb.Brain):
         if hasattr(self.hparams, "augmentation"):
             f_name = "/tea_infer_{}batch.hdf5".format(self.hparams.batch_size)
         else:
-            f_name = "/tea_infer_noAug_{}batch.hdf5".format(self.hparams.batch_size)
+            f_name = "/tea_infer_noAug_{}batch.hdf5".format(
+                self.hparams.batch_size
+            )
 
         f = h5py.File(self.hparams.output_folder + f_name, "w")
         for num in range(3):
@@ -274,17 +289,17 @@ if __name__ == "__main__":
     ]
 
     for i in range(hparams["num_tea"]):
-        exec (
+        exec(
             "tea{}_modules = torch.nn.ModuleList([tea_enc_list[i], tea_emb_list[i], tea_dec_list[i], tea_ctc_lin_list[i], tea_seq_lin_list[i]])".format(
                 i
             )
         )  # i denotes the index of teacher models
 
-        exec ("tea{}_modules = tea{}_modules.to(hparams['device'])".format(i, i))
+        exec("tea{}_modules = tea{}_modules.to(hparams['device'])".format(i, i))
 
     tea_modules_list = []
     for i in range(hparams["num_tea"]):
-        exec ("tea_modules_list.append(tea{}_modules)".format(i))
+        exec("tea_modules_list.append(tea{}_modules)".format(i))
 
     # Collect index to label conversion dict for decoding
     train_set = hparams["train_loader"]()
@@ -298,7 +313,7 @@ if __name__ == "__main__":
     with open(hparams["tea_models_dir"], "r") as f:
         enter_token = "\n"
         for i, path in enumerate(f.readlines()):
-            exec (
+            exec(
                 "tea{}_modules.load_state_dict(torch.load(path.strip(enter_token)))".format(
                     i
                 )
