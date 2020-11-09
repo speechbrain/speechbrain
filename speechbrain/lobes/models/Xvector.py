@@ -123,8 +123,8 @@ class Classifier(sb.nnet.containers.Sequential):
 
     Example
     -------
-    >>> input_feats = torch.rand([5, 10, 24])
-    >>> compute_xvect = Xvector(input_shape=input_feats.shape)
+    >>> input_feats = torch.rand([5, 10, 40])
+    >>> compute_xvect = Xvector()
     >>> xvects = compute_xvect(input_feats)
     >>> classify = Classifier(input_shape=xvects.shape)
     >>> output = classify(xvects)
@@ -189,8 +189,8 @@ class Discriminator(sb.nnet.containers.Sequential):
 
     Example
     -------
-    >>> input_feats = torch.rand([5, 10, 24])
-    >>> compute_xvect = Xvector(input_feats.shape)
+    >>> input_feats = torch.rand([5, 10, 40])
+    >>> compute_xvect = Xvector()
     >>> xvects = compute_xvect(input_feats)
     >>> classify = Classifier(xvects.shape)
     >>> output = classify(xvects)
