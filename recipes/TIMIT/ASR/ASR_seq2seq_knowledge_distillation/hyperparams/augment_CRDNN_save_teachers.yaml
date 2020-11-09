@@ -3,6 +3,7 @@ seed: !PLACEHOLDER  # e.g, 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/teachers_save/<seed>
 
+
 # Data files
 data_folder: !PLACEHOLDER  # e.g. /path/to/TIMIT
 csv_train: !ref <data_folder>/train.csv
