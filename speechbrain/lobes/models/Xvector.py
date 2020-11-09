@@ -39,7 +39,7 @@ class Xvector(torch.nn.Module):
     -------
     >>> compute_xvect = Xvector('cpu')
     >>> input_feats = torch.rand([5, 10, 24])
-    >>> outputs = compute_xvect(input_feats, init_params=True)
+    >>> outputs = compute_xvect(input_feats)
     >>> outputs.shape
     torch.Size([5, 1, 512])
     """
