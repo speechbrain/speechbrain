@@ -8,14 +8,14 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Folders
 data_folder: /network/datasets/ami/amicorpus
-manual_annot_folder: /home/mila/d/dawalatn/nauman/ami_public_manual
+manual_annot_folder: /miniscratch/ravanelm/ami_public_manual
 output_folder: results/ami/speaker_diarization_xvector/
 save_folder: !ref <output_folder>/save
 device: 'cuda:0'
 
 # Embedding model
 embedding_file: https://www.dropbox.com/sh/egbd9jsywbsjm45/AADp96m552bo5lsahR5hmmzMa/save/CKPT%2B2020-09-07%2B08-34-27%2B00/embedding_model.ckpt?dl=1 # yamllint disable-line rule:line-length
-
+#mbedding_file: /miniscratch/ravanelm/xvector_model/emb.ckpt
 model_dir: !ref <save_folder>/emb_model
 
 # Some more exp folders (for cleaner structure)
@@ -37,7 +37,7 @@ deltas: False
 
 # Xvector model
 emb_dim: 512
-batch_size: 128
+batch_size: 512
 
 # AMI data_prep parameters
 split_type: 'full_corpus_asr'
@@ -60,7 +60,7 @@ forgiveness_collar: 0.25
 
 
 # Functions
-compute_features: !new:speechbrain.lobes.features.fbank.Fbank
+compute_features: !new:speechbrain.lobes.features.Fbank
     n_mels: !ref <n_mels>
     left_frames: !ref <left_frames>
     right_frames: !ref <right_frames>
@@ -74,7 +74,13 @@ mean_var_norm_emb: !new:speechbrain.processing.features.InputNormalization
     std_norm: False
 
 embedding_model: !new:speechbrain.lobes.models.Xvector.Xvector
-    device: !ref <device>
+    in_channels: !ref <n_mels>
+    activation: !name:torch.nn.LeakyReLU
+    tdnn_blocks: 5
+    tdnn_channels: [512, 512, 512, 512, 1500]
+    tdnn_kernel_sizes: [5, 3, 3, 1, 1]
+    tdnn_dilations: [1, 2, 3, 1, 1]
+    lin_neurons: 512
 
 diary_loader_train: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_diary_train>
