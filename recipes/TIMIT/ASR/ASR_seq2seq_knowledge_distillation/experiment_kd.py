@@ -85,7 +85,9 @@ class ASR(sb.Brain):
 
         # normal supervised training
         loss_ctc_nor = self.hparams.ctc_cost(p_ctc, phns, wav_lens, phn_lens)
-        loss_seq_nor = self.hparams.seq_cost(p_seq, phns_with_eos, length=rel_length)
+        loss_seq_nor = self.hparams.seq_cost(
+            p_seq, phns_with_eos, length=rel_length
+        )
 
         # load teacher inference results
         item_tea_list = [None, None, None, None]
@@ -134,7 +136,10 @@ class ASR(sb.Brain):
 
         apply_softmax = torch.nn.Softmax(dim=0)
 
-        if self.hparams.strategy == "best" or self.hparams.strategy == "weighted":
+        if (
+            self.hparams.strategy == "best"
+            or self.hparams.strategy == "weighted"
+        ):
             # mean wer for ctc
             tea_wer_ctc_mean = wer_ctc_tea.mean(1)
             tea_acc_main = 100 - tea_wer_ctc_mean
@@ -157,7 +162,9 @@ class ASR(sb.Brain):
             # ctc
             p_ctc_tea_one = p_ctc_tea[tea_num]
             # calculate CTC distillation loss of one teacher
-            loss_ctc_one = self.hparams.ctc_cost_kd(p_ctc, p_ctc_tea_one, wav_lens)
+            loss_ctc_one = self.hparams.ctc_cost_kd(
+                p_ctc, p_ctc_tea_one, wav_lens
+            )
             loss_ctc_one = torch.unsqueeze(loss_ctc_one, 0)
             if tea_num == 0:
                 ctc_loss_list = loss_ctc_one
@@ -167,7 +174,9 @@ class ASR(sb.Brain):
             # ce
             p_seq_tea_one = p_seq_tea[tea_num]
             # calculate CE distillation loss of one teacher
-            loss_seq_one = self.hparams.seq_cost_kd(p_seq, p_seq_tea_one, rel_length)
+            loss_seq_one = self.hparams.seq_cost_kd(
+                p_seq, p_seq_tea_one, rel_length
+            )
             loss_seq_one = torch.unsqueeze(loss_seq_one, 0)
             if tea_num == 0:
                 ce_loss_list = loss_seq_one
@@ -194,7 +203,10 @@ class ASR(sb.Brain):
         # total loss
         # combine normal supervised training
         loss_ctc = (
-            self.hparams.Temperature * self.hparams.Temperature * self.hparams.alpha * ctc_loss_kd
+            self.hparams.Temperature
+            * self.hparams.Temperature
+            * self.hparams.alpha
+            * ctc_loss_kd
             + (1 - self.hparams.alpha) * loss_ctc_nor
         )
         loss_seq = (
@@ -205,7 +217,10 @@ class ASR(sb.Brain):
             + (1 - self.hparams.alpha) * loss_seq_nor
         )
 
-        loss = self.hparams.ctc_weight * loss_ctc + (1 - self.hparams.ctc_weight) * loss_seq
+        loss = (
+            self.hparams.ctc_weight * loss_ctc
+            + (1 - self.hparams.ctc_weight) * loss_seq
+        )
 
         # Record losses for posterity
         if stage != sb.Stage.TRAIN:
@@ -237,7 +252,12 @@ class ASR(sb.Brain):
         return loss.detach()
 
     def fit(
-        self, epoch_counter, save_dict, train_set, valid_set=None, progressbar=None,
+        self,
+        epoch_counter,
+        save_dict,
+        train_set,
+        valid_set=None,
+        progressbar=None,
     ):
         train_dict, valid_dict = save_dict
         self.on_fit_start()
@@ -292,13 +312,17 @@ class ASR(sb.Brain):
                     for self.step, batch in enumerate(
                         tqdm(valid_set, dynamic_ncols=True, disable=disable)
                     ):
-                        loss = self.evaluate_batch(batch, self.step, valid_dict, stage=sb.Stage.VALID)
+                        loss = self.evaluate_batch(
+                            batch, self.step, valid_dict, stage=sb.Stage.VALID
+                        )
                         avg_valid_loss = self.update_average(
                             loss, avg_valid_loss
                         )
                 self.on_stage_end(sb.Stage.VALID, avg_valid_loss, epoch)
 
-    def evaluate(self, test_set, test_dict, max_key=None, min_key=None, progressbar=None):
+    def evaluate(
+        self, test_set, test_dict, max_key=None, min_key=None, progressbar=None
+    ):
         if progressbar is None:
             progressbar = self.progressbar
 
@@ -315,7 +339,9 @@ class ASR(sb.Brain):
             for self.step, batch in enumerate(
                 tqdm(test_set, dynamic_ncols=True, disable=disable)
             ):
-                loss = self.evaluate_batch(batch, self.step, test_dict, stage=sb.Stage.TEST)
+                loss = self.evaluate_batch(
+                    batch, self.step, test_dict, stage=sb.Stage.TEST
+                )
                 avg_test_loss = self.update_average(loss, avg_test_loss)
         self.on_stage_end(sb.Stage.TEST, avg_test_loss, epoch=None)
 
@@ -401,9 +427,13 @@ class ASR(sb.Brain):
                 self.modules.load_state_dict(weight_dict, strict=False)
             else:
                 # Load latest checkpoint to resume training
-                self.checkpointer.recover_if_possible(device=torch.device(self.device))
+                self.checkpointer.recover_if_possible(
+                    device=torch.device(self.device)
+                )
         else:
-            self.checkpointer.recover_if_possible(device=torch.device(self.device))
+            self.checkpointer.recover_if_possible(
+                device=torch.device(self.device)
+            )
 
 
 def load_teachers(hparams):
@@ -416,9 +446,9 @@ def load_teachers(hparams):
             hparams["batch_size"]
         )
     else:
-        path = hparams["tea_infer_dir"] + "/tea_infer_noAug_{}batch.hdf5".format(
-            hparams["batch_size"]
-        )
+        path = hparams[
+            "tea_infer_dir"
+        ] + "/tea_infer_noAug_{}batch.hdf5".format(hparams["batch_size"])
 
     f = h5py.File(path, "r")
     train_dict = f["train"]
@@ -468,5 +498,7 @@ if __name__ == "__main__":
     # load teacher models
     save_dict, test_dict = load_teachers(hparams)
 
-    asr_brain.fit(asr_brain.hparams.epoch_counter, save_dict, train_set, valid_set)
+    asr_brain.fit(
+        asr_brain.hparams.epoch_counter, save_dict, train_set, valid_set
+    )
     asr_brain.evaluate(hparams["test_loader"](), test_dict, min_key="PER")
