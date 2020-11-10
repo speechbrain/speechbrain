@@ -59,7 +59,7 @@ cnn_channels: (128, 200, 256)
 inter_layer_pooling_size: (2, 2, 2)
 cnn_kernelsize: (3, 3)
 time_pooling_size: 4
-rnn_class: !name:speechbrain.nnet.LSTM
+rnn_class: !name:speechbrain.nnet.RNN.LSTM
 rnn_layers: 5
 rnn_neurons: 1024
 rnn_bidirectional: True
@@ -86,26 +86,26 @@ max_attn_shift: 60
 #
 # Functions and classes
 #
-epoch_counter: !new:speechbrain.EpochCounter
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
 # Dataloaders
 
-train_loader: !new:speechbrain.data_io.DataLoaderFactory
+train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
     csv_read: [wav, wrd]
 
-valid_loader: !new:speechbrain.data_io.DataLoaderFactory
+valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_valid>
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
     csv_read: [wav, wrd]
 
-test_loader: !new:speechbrain.data_io.DataLoaderFactory
+test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_test>
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
@@ -115,19 +115,19 @@ test_loader: !new:speechbrain.data_io.DataLoaderFactory
 # Models
 
 # SpecAugment
-augmentation: !new:speechbrain.lobes.augment.tdsa.TimeDomainSpecAugment
+augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
     sample_rate: !ref <sample_rate>
     speeds: [95, 100, 105]
 
-normalize: !new:speechbrain.processing.InputNormalization
+normalize: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
 
-compute_features: !new:speechbrain.lobes.Fbank
+compute_features: !new:speechbrain.lobes.features.Fbank
     sample_rate: !ref <sample_rate>
     n_fft: !ref <n_fft>
     n_mels: !ref <n_mels>
 
-enc: !new:speechbrain.lobes.CRDNN
+enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
     input_shape: [null, null, !ref <n_mels>]
     activation: !ref <activation>
     dropout: !ref <dropout>
@@ -146,11 +146,11 @@ enc: !new:speechbrain.lobes.CRDNN
     dnn_blocks: !ref <dnn_blocks>
     dnn_neurons: !ref <dnn_neurons>
 
-emb: !new:speechbrain.nnet.Embedding
+emb: !new:speechbrain.nnet.embedding.Embedding
     num_embeddings: !ref <output_neurons>
     embedding_dim: !ref <emb_size>
 
-dec: !new:speechbrain.nnet.AttentionalRNNDecoder
+dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
     enc_dim: !ref <dnn_neurons>
     input_size: !ref <emb_size>
     rnn_type: gru
@@ -164,21 +164,21 @@ dec: !new:speechbrain.nnet.AttentionalRNNDecoder
     re_init: True
     dropout: !ref <dropout>
 
-ctc_lin: !new:speechbrain.nnet.Linear
+ctc_lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <dnn_neurons>
     n_neurons: !ref <output_neurons>
 
-seq_lin: !new:speechbrain.nnet.Linear
+seq_lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <dec_neurons>
     n_neurons: !ref <output_neurons>
 
-log_softmax: !new:speechbrain.nnet.Softmax
+log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
-ctc_cost: !name:speechbrain.nnet.ctc_loss
+ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
     blank_index: !ref <blank_index>
 
-seq_cost: !name:speechbrain.nnet.nll_loss
+seq_cost: !name:speechbrain.nnet.losses.nll_loss
     label_smoothing: 0.1
 
 modules:
@@ -197,7 +197,7 @@ opt_class: !name:torch.optim.Adadelta
     rho: 0.95
     eps: 1.e-8
 
-lr_annealing: !new:speechbrain.nnet.NewBobScheduler
+lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
     initial_value: !ref <lr>
     improvement_threshold: 0.0025
     annealing_factor: 0.8
@@ -216,7 +216,7 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     using_max_attn_shift: !ref <using_max_attn_shift>
     max_attn_shift: !ref <max_attn_shift>
 
-checkpointer: !new:speechbrain.Checkpointer
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
         model: !ref <model>
@@ -224,10 +224,10 @@ checkpointer: !new:speechbrain.Checkpointer
         normalizer: !ref <normalize>
         counter: !ref <epoch_counter>
 
-train_logger: !new:speechbrain.FileTrainLogger
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
 
-error_rate_computer: !name:speechbrain.ErrorRateStats
+error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
 
-cer_computer: !name:speechbrain.ErrorRateStats
+cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
     split_tokens: True
