@@ -121,6 +121,7 @@ searcher: !new:speechbrain.decoders.transducer.TransducerBeamSearcher
     decode_network_lst: [!ref <emb>, !ref <dec>, !ref <dec_lin>]
     tjoint: !ref <Tjoint>
     classifier_network: [!ref <output>]
+    blank_id: !ref <blank_id>
     beam_size: 1
     nbest: 1
 
