@@ -1,5 +1,9 @@
 #!/usr/bin/env/python3
 """
+ASR helper functions for the SLU recipe.
+
+Authors
+ * Loren Lugosch 2020
 """
 
 import os
@@ -50,7 +54,6 @@ class ASR(sb.Brain):
             self.hparams.output_folder, "save", "lm_model.ckpt"
         )
         state_dict = torch.load(save_model_path)
-        #state_dict = {k.split(".", 1)[1]: v for k, v in state_dict.items()}
         self.hparams.lm_model.load_state_dict(state_dict, strict=True)
         self.hparams.lm_model.eval()
 
@@ -68,15 +71,9 @@ def get_asr_brain():
         character_coverage=1.0,
     )
     hparams["tokenizer"] = tokenizer
-    #hparams["hparams"]["tokenizer"] = tokenizer
 
     # Brain class initialization
     asr_brain = ASR(
-        #hparams=hparams["hparams"],
-        #opt_class=hparams["opt_class"],
-        #checkpointer=hparams["checkpointer"],
-        #device=hparams["device"],
-        #ddp_procs=hparams["ddp_procs"],
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
         hparams=hparams,
