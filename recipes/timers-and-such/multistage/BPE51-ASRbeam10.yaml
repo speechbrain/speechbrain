@@ -1,6 +1,6 @@
 # ############################################################################
-# Model: E2E SLU with attention-based SLU
-# Encoder: CRDNN model
+# Model: Multistage SLU
+# Encoder: ASR model -> LSTM 
 # Decoder: GRU + beamsearch
 # Tokens: BPE with unigram
 # losses: NLL
