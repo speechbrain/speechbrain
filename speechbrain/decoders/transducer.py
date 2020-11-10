@@ -41,6 +41,40 @@ class TransducerBeamSearcher(torch.nn.Module):
         The threshold coefficient to limit number of expanded hypothesises that are added in A (process_hyp).
         Reference: https://arxiv.org/abs/1904.02619
 
+    Example
+    -------
+    searcher = TransducerBeamSearcher(
+        decode_network_lst=[hparams["emb"], hparams["dec"]],
+        tjoint=hparams["Tjoint"],
+        classifier_network=[hparams["transducer_lin"]],
+        blank_id=0,
+        beam_size=hparams["beam_size"],
+        nbest=hparams["nbest"],
+        lm_module=hparams["lm_model"],
+        lm_weight=hparams["lm_weight"],
+        state_beam=2.3,
+        expand_beam=2.3,
+    )
+    >>> emb = torch.nn.Embedding(5, 3)
+    >>> dec = sb.nnet.RNN.GRU(
+    ...     hidden_size=5, input_shape=(1, 40, 35), bidirectional=True
+    ... )
+    >>> lin = sb.nnet.linear.Linear(input_shape=(1, 40, 10), n_neurons=35)
+    >>> joint_network= Linear(input_shape=(1, 1, 40, 35), n_neurons=35)
+    >>> tjoint = sb.nnet.transducer.transducer_joint.Transducer_joint(joint_network, joint="sum")
+    >>> searcher = TransducerBeamSearcher(
+    ...     decode_network_lst=[emb, dec],
+    ...     tjoint=tjoint,
+    ...     classifier_network=lin,
+    ...     blank_id=0,
+    ...     beam_size=1,
+    ...     nbest=1,
+    ...     lm_module=None,
+    ...     lm_weight=0.0,
+    ... )
+    >>> enc = torch.rand([1, 40, 10])
+    >>> hyps, scores, _, _ = searcher(enc)
+
     Author:
         Abdelwahab HEBA 2020
         Sung-Lin Yeh 2020
