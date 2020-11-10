@@ -2,6 +2,7 @@
 
 Authors
  * Abdelwahab Heba 2020
+ * Loren Lugosch 2020
 """
 
 import os.path
@@ -57,6 +58,9 @@ class SentencePiece:
         Default: -1, if -1 the bos_id = unk_id = 0. otherwise, bos_id = int.
     eos_id: int
         Default: -1, if -1 the bos_id = unk_id = 0. otherwise, bos_id = int.
+    num_sequences: int
+        Default: None
+        If not none, use at most this many sequences to train the tokenizer (for large datasets).
 
     Example
     -------
@@ -88,6 +92,7 @@ class SentencePiece:
         eos_id=-1,
         pad_id=-1,
         unk_id=0,
+        num_sequences=None,
     ):
         if model_type not in ["unigram", "bpe", "char"]:
             raise ValueError("model_type must be one of : [unigram, bpe, char]")
@@ -98,10 +103,11 @@ class SentencePiece:
 
         self.csv_train = csv_train
         self.csv_read = csv_read
-        self.text_file = os.path.join(
-            os.path.dirname(csv_train),
-            os.path.splitext(os.path.basename(csv_train))[0] + ".txt",
-        )
+        if self.csv_train is not None:
+            self.text_file = os.path.join(
+                os.path.dirname(csv_train),
+                os.path.splitext(os.path.basename(csv_train))[0] + ".txt",
+            )
         self.prefix_model_file = os.path.join(
             model_dir, str(vocab_size) + "_" + model_type
         )
@@ -114,6 +120,7 @@ class SentencePiece:
         self.eos_id = str(eos_id)
         self.pad_id = str(pad_id)
         self.unk_id = str(unk_id)
+        self.num_sequences = num_sequences
 
         if not os.path.isfile(self.prefix_model_file + ".model"):
             logger.info("Train tokenizer with type:" + self.model_type)
@@ -148,7 +155,12 @@ class SentencePiece:
             raise ValueError(self.csv_read + "must exist in:" + self.csv_train)
         index_label = headers.index(self.csv_read)
         text_file = open(self.text_file, "w+")
+        row_idx = 0
         for row in reader:
+            if self.num_sequences is not None and row_idx > self.num_sequences:
+               print("Using %d sequences to train the tokenizer." % self.num_sequences)
+               break
+            row_idx += 1
             sent = row[index_label]
             if self.char_format_input:
                 (sent,) = merge_char([sent.split()])

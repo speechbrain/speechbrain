@@ -136,6 +136,10 @@ class NewBobScheduler:
     def load(self, path, end_of_epoch, device=None):
         del end_of_epoch  # Unused in this class
         data = torch.load(path)
+        # This hack needed to load old ASR model.
+        if "hyperparam_value" not in data:
+            data["hyperparam_value"] = 1.0
+            data["metric_values"] = data["losses"]
         self.hyperparam_value = data["hyperparam_value"]
         self.metric_values = data["metric_values"]
         self.current_patient = data["current_patient"]
