@@ -53,7 +53,7 @@ class TransducerBeamSearcher(torch.nn.Module):
         decode_network_lst,
         tjoint,
         classifier_network,
-        blank_id=-1,
+        blank_id,
         beam_size=4,
         nbest=5,
         lm_module=None,
