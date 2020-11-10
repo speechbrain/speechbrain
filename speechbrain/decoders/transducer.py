@@ -56,13 +56,14 @@ class TransducerBeamSearcher(torch.nn.Module):
         expand_beam=2.3,
     )
     >>> import speechbrain as sb
+    >>> from speechbrain.nnet.transducer.transducer_joint import Transducer_joint
     >>> emb = torch.nn.Embedding(5, 3)
     >>> dec = sb.nnet.RNN.GRU(
     ...     hidden_size=5, input_shape=(1, 40, 35), bidirectional=True
     ... )
     >>> lin = sb.nnet.linear.Linear(input_shape=(1, 40, 10), n_neurons=35)
     >>> joint_network= sb.nnet.linear.Linear(input_shape=(1, 1, 40, 35), n_neurons=35)
-    >>> tjoint = sb.nnet.transducer.transducer_joint.Transducer_joint(joint_network, joint="sum")
+    >>> tjoint = Transducer_joint(joint_network, joint="sum")
     >>> searcher = TransducerBeamSearcher(
     ...     decode_network_lst=[emb, dec],
     ...     tjoint=tjoint,
