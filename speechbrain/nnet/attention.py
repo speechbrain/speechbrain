@@ -3,6 +3,7 @@
 Authors
  * Ju-Chieh Chou 2020
  * Jianyuan Zhong 2020
+ * Loren Lugosch 2020
 """
 
 import torch
@@ -225,6 +226,53 @@ class LocationAwareAttention(nn.Module):
 
         return context, attn
 
+class KeyValueAttention(nn.Module):
+    def __init__(self, enc_dim, dec_dim, attn_dim, output_dim):
+        super(KeyValueAttention, self).__init__()
+
+        self.key_linear = nn.Linear(enc_dim, attn_dim)
+        self.query_linear = nn.Linear(dec_dim, attn_dim)
+        self.value_linear = nn.Linear(enc_dim, output_dim)
+        self.scaling = torch.sqrt(torch.tensor(attn_dim).float())
+
+        # reset the encoder states, lengths and masks
+        self.reset()
+
+    def reset(self):
+        """Reset the memory in the attention module.
+        """
+        self.values = None
+        self.keys = None
+        self.mask = None
+
+    def forward(self, enc_states, enc_len, dec_states):
+        """Returns the output of the attention module.
+
+        Arguments
+        ---------
+        enc_states : torch.Tensor
+            The tensor to be attended.
+        enc_len : torch.Tensor
+            The real length (without padding) of enc_states for each sentence.
+        dec_states : torch.Tensor
+            The query tensor.
+
+        """
+
+        if self.keys is None:
+
+            self.keys = self.key_linear(enc_states)
+            self.values = self.value_linear(enc_states)
+            self.mask = length_to_mask(
+                enc_len, max_len=enc_states.size(1), device=enc_states.device
+            ).unsqueeze(2)
+
+        query = self.query_linear(dec_states).unsqueeze(2)
+        scores = torch.matmul(self.keys, query) / self.scaling
+        scores = scores.masked_fill(self.mask == 0, -np.inf)
+        normalized_scores = scores.softmax(1).transpose(1,2)
+        out = torch.matmul(normalized_scores, self.values).squeeze(1)
+        return out, normalized_scores
 
 class MultiheadAttention(nn.Module):
     """ The class is a wrapper of MultiHead Attention for torch.nn.MultiHeadAttention.
