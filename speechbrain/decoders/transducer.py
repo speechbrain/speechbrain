@@ -79,7 +79,7 @@ class TransducerBeamSearcher(torch.nn.Module):
     ...     lm_module=None,
     ...     lm_weight=0.0,
     ... )
-    >>> enc = torch.rand([1, 40, 10])
+    >>> enc = torch.rand([1, 20, 40])
     >>> hyps, scores, _, _ = searcher(enc)
 
     Author:
