@@ -110,11 +110,8 @@ class TransducerBeamSearcher(torch.nn.Module):
         self.lm = lm_module
         self.lm_weight = lm_weight
 
-        if lm_module is not None and lm_weight == 0:
-            raise ValueError(
-                "Language model is provided. \
-                             Set lm_weigt != 0"
-            )
+        if lm_module is None and lm_weight > 0:
+            raise ValueError("Language model is not provided.")
 
         self.state_beam = state_beam
         self.expand_beam = expand_beam
