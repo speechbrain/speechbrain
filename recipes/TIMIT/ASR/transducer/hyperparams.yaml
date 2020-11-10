@@ -54,7 +54,7 @@ joint_dim: 128
 blank_index: !ref <output_neurons> - 1
 
 # Decoding parameters
-beam: 1
+beam: 4
 nbest: 1
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
@@ -124,7 +124,6 @@ emb: !new:speechbrain.nnet.embedding.Embedding
     num_embeddings: !ref <output_neurons>
     consider_as_one_hot: True
     blank_id: !ref <blank_index>
-    #embedding_dim: !ref <emb_size>
 
 dec: !new:speechbrain.nnet.RNN.LiGRU
     input_shape: [null, null, !ref <output_neurons> - 1]
