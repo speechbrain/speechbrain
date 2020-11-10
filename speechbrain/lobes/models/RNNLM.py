@@ -9,7 +9,7 @@ Authors
 """
 import torch
 from torch import nn
-from speechbrain.nnet import Embedding, LSTM, Linear, Sequential, LayerNorm
+import speechbrain as sb
 
 
 class RNNLM(nn.Module):
@@ -59,7 +59,7 @@ class RNNLM(nn.Module):
         embedding_dim=128,
         activation=torch.nn.LeakyReLU,
         dropout=0.15,
-        rnn_class=LSTM,
+        rnn_class=sb.nnet.RNN.LSTM,
         rnn_layers=2,
         rnn_neurons=1024,
         rnn_re_init=False,
@@ -68,7 +68,7 @@ class RNNLM(nn.Module):
         dnn_neurons=512,
     ):
         super().__init__()
-        self.embedding = Embedding(
+        self.embedding = sb.nnet.embedding.Embedding(
             num_embeddings=output_neurons, embedding_dim=embedding_dim
         )
         self.dropout = nn.Dropout(p=dropout)
@@ -82,14 +82,23 @@ class RNNLM(nn.Module):
         self.return_hidden = return_hidden
         self.reshape = False
 
-        self.dnn = Sequential(input_shape=[8, 10, rnn_neurons])
+        self.dnn = sb.nnet.containers.Sequential(
+            input_shape=[None, None, rnn_neurons]
+        )
         for block_index in range(dnn_blocks):
-            self.dnn.append(Linear, n_neurons=dnn_neurons, bias=True)
-            self.dnn.append(LayerNorm)
-            self.dnn.append(activation())
-            self.dnn.append(torch.nn.Dropout(p=dropout))
+            self.dnn.append(
+                sb.nnet.linear.Linear,
+                n_neurons=dnn_neurons,
+                bias=True,
+                layer_name="linear",
+            )
+            self.dnn.append(sb.nnet.normalization.LayerNorm, layer_name="norm")
+            self.dnn.append(activation(), layer_name="act")
+            self.dnn.append(torch.nn.Dropout(p=dropout), layer_name="dropout")
 
-        self.out = Linear(input_size=dnn_neurons, n_neurons=output_neurons)
+        self.out = sb.nnet.linear.Linear(
+            input_size=dnn_neurons, n_neurons=output_neurons
+        )
 
     def forward(self, x, hx=None):
 
