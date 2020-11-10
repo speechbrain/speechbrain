@@ -66,7 +66,7 @@ class TransducerBeamSearcher(torch.nn.Module):
     >>> dec = sb.nnet.RNN.GRU(
     ...     hidden_size=5, input_shape=(1, 40, 35), bidirectional=True
     ... )
-    >>> lin = sb.nnet.linear.Linear(input_shape=(1, 40, 10), n_neurons=35)
+    >>> lin = sb.nnet.linear.Linear(input_shape=(1, 40, 5), n_neurons=35)
     >>> joint_network= sb.nnet.linear.Linear(input_shape=(1, 1, 40, 35), n_neurons=35)
     >>> tjoint = Transducer_joint(joint_network, joint="sum")
     >>> searcher = TransducerBeamSearcher(
