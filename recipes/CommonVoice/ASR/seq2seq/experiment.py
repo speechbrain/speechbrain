@@ -54,7 +54,7 @@ class ASR(sb.core.Brain):
             target_words, target_word_lens, self.hparams.ind2lab, task="encode"
         )
         target_tokens = target_tokens.to(self.device)
-        y_in = sb.data_io.prepend_bos_token(
+        y_in = sb.data_io.data_io.prepend_bos_token(
             target_tokens, self.hparams.bos_index
         )
 
@@ -109,7 +109,7 @@ class ASR(sb.core.Brain):
         abs_length = torch.round(target_token_lens * target_tokens.shape[1])
 
         # Append eos token at the end of the label sequences
-        target_tokens_with_eos = sb.data_io.append_eos_token(
+        target_tokens_with_eos = sb.data_io.data_io.append_eos_token(
             target_tokens, length=abs_length, eos_index=self.hparams.eos_index
         )
 
@@ -142,7 +142,7 @@ class ASR(sb.core.Brain):
 
             # Convert indices to words
             target_words = undo_padding(target_words, target_word_lens)
-            target_words = sb.data_io.convert_index_to_lab(
+            target_words = sb.data_io.data_io.convert_index_to_lab(
                 target_words, self.hparams.ind2lab
             )
 
@@ -187,7 +187,7 @@ class ASR(sb.core.Brain):
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
             old_lr, new_lr = self.hparams.lr_annealing(stage_stats["WER"])
-            sb.nnet.update_learning_rate(self.optimizer, new_lr)
+            sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
             self.hparams.train_logger.log_stats(
                 stats_meta={"epoch": epoch, "lr": old_lr},
                 train_stats=self.train_stats,
@@ -262,9 +262,6 @@ if __name__ == "__main__":
         hparams=hparams,
         opt_class=hparams["opt_class"],
         checkpointer=hparams["checkpointer"],
-        device=hparams["device"],
-        multigpu_count=hparams["multigpu_count"],
-        multigpu_backend=hparams["multigpu_backend"],
     )
 
     # Training
