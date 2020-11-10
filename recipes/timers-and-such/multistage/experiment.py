@@ -1,6 +1,15 @@
 #!/usr/bin/env/python3
 """
 
+Recipe for "multistage" (speech -> ASR -> text -> NLU -> semantics) SLU.
+
+We transcribe each minibatch using a model trained on LibriSpeech,
+then feed the transcriptions into a seq2seq model to map them to semantics.
+
+(The transcriptions could be done offline to make training faster;
+the benefit of doing it online is that we can use augmentation
+and sample many possible transcriptions.)
+
 (Adapted from the LibriSpeech seq2seq ASR recipe written by Ju-Chieh Chou, Mirco Ravanelli, Abdel Heba, and Peter Plantinga.)
 
 Authors
@@ -177,7 +186,7 @@ class SLU(sb.Brain):
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
             old_lr, new_lr = self.hparams.lr_annealing(stage_stats["WER"])
-            sb.nnet.update_learning_rate(self.optimizer, new_lr)
+            sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
             self.hparams.train_logger.log_stats(
                 stats_meta={"epoch": epoch, "lr": old_lr},
                 train_stats=self.train_stats,
@@ -301,10 +310,10 @@ if __name__ == "__main__":
 
     # Test
     slu_brain.hparams.wer_file = (
-        hparams["output_folder"] + "/wer_test_synth.txt"
-    )
-    slu_brain.evaluate(test_synth_set)
-    slu_brain.hparams.wer_file = (
         hparams["output_folder"] + "/wer_test_real.txt"
     )
     slu_brain.evaluate(test_real_set)
+    slu_brain.hparams.wer_file = (
+        hparams["output_folder"] + "/wer_test_synth.txt"
+    )
+    slu_brain.evaluate(test_synth_set)
