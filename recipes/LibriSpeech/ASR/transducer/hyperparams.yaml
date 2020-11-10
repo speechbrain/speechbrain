@@ -3,9 +3,9 @@
 # Encoder: CRDNN model
 # Decoder: GRU + beamsearch + RNNLM
 # Tokens: BPE with unigram
-# losses: CTC+ NLL
+# losses: Transducer
 # Training: Librispeech 960h
-# Authors:  Ju-Chieh Chou, Mirco Ravanelli, Abdel Heba, Peter Plantinga 2020
+# Authors:  Abdel HEBA, Mirco Ravanelli, Sung-Lin Yeh 2020
 # ############################################################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
@@ -160,7 +160,7 @@ enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
     dnn_neurons: !ref <dnn_neurons>
 
 # For MTL CTC over the encoder
-# enc_lin: !new:speechbrain.nnet.Linear
+# enc_lin: !new:speechbrain.nnet.linear.Linear
 #     input_size: !ref <dnn_neurons>
 #     n_neurons: !ref <joint_dim>
 #
