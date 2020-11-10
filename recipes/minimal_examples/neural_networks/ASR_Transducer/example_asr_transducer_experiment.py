@@ -1,7 +1,6 @@
 #!/usr/bin/python
 import os
 import speechbrain as sb
-from speechbrain.decoders.transducer import transducer_greedy_decode
 import pytest
 
 
@@ -17,7 +16,7 @@ class TransducerBrain(sb.Brain):
         _, targets, _ = y
         targets = targets.to(self.device)
         # Prediction network: output-output dependency
-        decoder_input = sb.data_io.prepend_bos_token(
+        decoder_input = sb.data_io.data_io.prepend_bos_token(
             targets, bos_index=self.hparams.blank_id
         )
         PN_output = self.modules.emb(decoder_input)
@@ -33,13 +32,7 @@ class TransducerBrain(sb.Brain):
         if stage == sb.Stage.TRAIN:
             return outputs, lens
         else:
-            hyps, scores = transducer_greedy_decode(
-                TN_output,
-                [self.modules.emb, self.modules.dec, self.modules.dec_lin],
-                self.modules.Tjoint,
-                [self.modules.output],
-                self.hparams.blank_id,
-            )
+            hyps, scores = self.hparams.searcher(TN_output)
             return outputs, lens, hyps
 
     def compute_objectives(self, predictions, targets, stage):
@@ -100,7 +93,6 @@ def main():
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
         hparams=hparams,
-        device=hparams["device"],
     )
     transducer_brain.fit(
         range(hparams["N_epochs"]),
