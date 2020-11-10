@@ -55,9 +55,9 @@ class TransducerBeamSearcher(torch.nn.Module):
         state_beam=2.3,
         expand_beam=2.3,
     )
-    >>> import speechbrain as sb
     >>> from speechbrain.nnet.transducer.transducer_joint import Transducer_joint
-    >>> emb = sb.nnet.embedding(
+    >>> import speechbrain as sb
+    >>> emb = sb.nnet.embedding.Embedding(
     ...     num_embeddings=5,
     ...     embedding_dim=3,
     ...     consider_as_one_hot=True,
