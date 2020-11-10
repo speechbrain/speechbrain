@@ -57,7 +57,12 @@ class TransducerBeamSearcher(torch.nn.Module):
     )
     >>> import speechbrain as sb
     >>> from speechbrain.nnet.transducer.transducer_joint import Transducer_joint
-    >>> emb = torch.nn.Embedding(5, 3)
+    >>> emb = torch.nn.Embedding(
+    ...     num_embeddings=5,
+    ...     embedding_dim=3,
+    ...     consider_as_one_hot=True,
+    ...     blank_id=0
+    ... )
     >>> dec = sb.nnet.RNN.GRU(
     ...     hidden_size=5, input_shape=(1, 40, 35), bidirectional=True
     ... )
