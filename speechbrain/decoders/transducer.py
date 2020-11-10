@@ -72,7 +72,7 @@ class TransducerBeamSearcher(torch.nn.Module):
     >>> searcher = TransducerBeamSearcher(
     ...     decode_network_lst=[emb, dec],
     ...     tjoint=tjoint,
-    ...     classifier_network=lin,
+    ...     classifier_network=[lin],
     ...     blank_id=0,
     ...     beam_size=1,
     ...     nbest=1,
