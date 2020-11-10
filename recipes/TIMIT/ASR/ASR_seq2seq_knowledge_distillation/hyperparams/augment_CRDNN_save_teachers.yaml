@@ -1,6 +1,6 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: !PLACEHOLDER  # e.g, 1234
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/augment_CRDNN/<seed>
 
 # Data files
@@ -12,7 +12,12 @@ csv_test: !ref <data_folder>/test.csv
 # Training parameters
 number_of_epochs: 1
 batch_size: 8
+
+# For DDP, use `python -m speechbrain.ddp experiment.py` to launch experiment
+# These options will be set by that script, and will override these.
 device: 'cuda:0'
+multigpu_count: 0  # Set to number of GPUs if multi-gpu
+multigpu_backend: null  # ['data_parallel', 'ddp_nccl', 'ddp_gloo', 'ddp_mpi']
 
 # Feature parameters
 sample_rate: 16000

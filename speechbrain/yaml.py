@@ -92,7 +92,7 @@ def load_extended_yaml(
     .. code-block:: yaml
 
         key1: {a: !new:object {arg1: 1}}
-        key2: !ref <key1.a>
+        key2: !ref <key1[a]>
 
     Here, ``key2`` will contain a reference to the ``a`` object, so changing
     ``a.arg1`` will also change ``key2.arg1``. If you need a
@@ -160,6 +160,7 @@ def load_extended_yaml(
     yaml.Loader.add_multi_constructor("!new:", _construct_object)
     yaml.Loader.add_multi_constructor("!name:", _construct_name)
     yaml.Loader.add_multi_constructor("!module:", _construct_module)
+    yaml.Loader.add_multi_constructor("!apply:", _apply_function)
 
     hparams = yaml.load(yaml_stream, Loader=yaml.Loader)
 
@@ -197,7 +198,7 @@ def resolve_references(yaml_stream, overrides=None, overrides_must_match=False):
     >>> yaml_string = """
     ... constants:
     ...     a: 3
-    ...     b: !ref <constants.a>
+    ...     b: !ref <constants[a]>
     ... """
     >>> overrides = {'constants': {'a': 4}}
     >>> resolve_references(yaml_string, overrides).getvalue()
@@ -339,6 +340,25 @@ def _construct_module(loader, module_name, node):
     return module
 
 
+def _apply_function(loader, callable_string, node):
+    callable_ = pydoc.locate(callable_string)
+    if callable_ is None:
+        raise ImportError("There is no such callable as %s" % callable_string)
+
+    if not inspect.isroutine(callable_):
+        raise ValueError(
+            f"!apply:{callable_string} should be a callable, but is {callable_}"
+        )
+
+    try:
+        args, kwargs = _load_node(loader, node)
+        return callable_(*args, **kwargs)
+    except TypeError as e:
+        err_msg = "Invalid argument to callable %s" % callable_string
+        e.args = (err_msg, *e.args)
+        raise
+
+
 def deref(ref, full_tree, copy_mode=False):
     """Find the value referred to by a reference in dot-notation
 
@@ -358,19 +378,33 @@ def deref(ref, full_tree, copy_mode=False):
 
     Example
     -------
-    >>> deref('<constants.a.b>', {'constants': {'a': {'b': 'c'}}})
+    >>> deref('constants[a][b]', {'constants': {'a': {'b': 'c'}}})
     'c'
     """
 
+    # Collect the attribute reference
+    attr = None
+    if "." in ref:
+        ref, attr = ref.split(".", maxsplit=1)
+
     # Follow references in dot notation
     branch = full_tree
-    for part in ref[1:-1].split("."):
+    for part in ref.split("["):
+        part = part.strip("]")
         if part not in branch:
             raise ValueError('The reference "%s" is not valid' % ref)
         branch = branch[part]
 
+    # Copy node if requested
     if copy_mode:
         return copy.deepcopy(branch)
+
+    # To refer to an attribute, we add this special node
+    if attr is not None:
+        node = ruamel.yaml.comments.CommentedSeq()
+        node += [branch, attr]
+        node.yaml_set_tag("!apply:getattr")
+        return node
 
     return branch
 
@@ -381,7 +415,7 @@ def recursive_resolve(reference, reference_list, full_tree, copy_mode=False):
     Arguments
     ---------
     reference : str
-        a string containing '<x.y>' in it where x.y refers
+        a string containing '<x[y]>' in it where x[y] refers
         to a scalar node in the file.
     reference_list : list
         list of prior references in the chain, in order
@@ -419,7 +453,7 @@ def recursive_resolve(reference, reference_list, full_tree, copy_mode=False):
 
     # First check for a full match. These replacements preserve type.
     if reference_finder.fullmatch(reference):
-        value = deref(reference, full_tree, copy_mode)
+        value = deref(reference.strip("<>"), full_tree, copy_mode)
         reference_list += [reference]
         return recursive_resolve(value, reference_list, full_tree, copy_mode)
 
@@ -429,7 +463,7 @@ def recursive_resolve(reference, reference_list, full_tree, copy_mode=False):
 
     # Do replacements within the string (interpolation)
     def replace_fn(x, tree=full_tree, copy_mode=copy_mode):
-        return str(deref(x[0], full_tree=tree, copy_mode=copy_mode))
+        return str(deref(x[0].strip("<>"), full_tree=tree, copy_mode=copy_mode))
 
     sub = reference_finder.sub(replace_fn, reference)
     reference = recursive_resolve(sub, reference_list, full_tree, copy_mode)
