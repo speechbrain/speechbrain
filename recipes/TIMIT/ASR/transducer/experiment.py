@@ -18,8 +18,6 @@ import os
 import sys
 import torch
 import speechbrain as sb
-from speechbrain.decoders.transducer import transducer_greedy_decode
-from speechbrain.decoders.transducer import transducer_beam_search_decode
 
 
 # Define training procedure
@@ -62,13 +60,7 @@ class ASR(sb.Brain):
         p_transducer = self.hparams.log_softmax(logits)
 
         if stage == sb.Stage.VALID:
-            hyps, scores = transducer_greedy_decode(
-                x,
-                [self.modules.emb, self.modules.dec, self.modules.dec_lin],
-                self.modules.Tjoint,
-                [self.modules.output],
-                self.hparams.blank_index,
-            )
+            hyps, scores, _, _ = self.Greedysearcher(x)
             return p_transducer, wav_lens, hyps
 
         elif stage == sb.Stage.TEST:
@@ -77,15 +69,7 @@ class ASR(sb.Brain):
                 best_scores,
                 nbest_hyps,
                 nbest_scores,
-            ) = transducer_beam_search_decode(
-                x,
-                [self.modules.emb, self.modules.dec, self.modules.dec_lin],
-                self.modules.Tjoint,
-                [self.modules.output],
-                self.hparams.blank_index,
-                beam=self.hparams.beam,
-                nbest=self.hparams.nbest,
-            )
+            ) = self.Beamsearcher(x)
             return p_transducer, wav_lens, best_hyps
         return p_transducer, wav_lens
 

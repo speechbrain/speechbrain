@@ -163,6 +163,24 @@ model: !new:torch.nn.ModuleList [[
     !ref <output>
 ]]
 
+Greedysearcher: !new:speechbrain.decoders.transducer.TransducerBeamSearcher
+    decode_network_lst: [!ref <emb>, !ref <dec>]
+    tjoint: !ref <Tjoint>
+    classifier_network: [!ref <transducer_lin>]
+    blank_id: !ref <blank_id>
+    beam_size: 1
+    nbest: 1
+
+Beamsearcher: !new:speechbrain.decoders.transducer.TransducerBeamSearcher
+    decode_network_lst: [!ref <emb>, !ref <dec>]
+    tjoint: !ref <Tjoint>
+    classifier_network: [!ref <transducer_lin>]
+    blank_id: !ref <blank_id>
+    beam_size: !ref <beam_size>
+    nbest: !ref <nbest>
+    state_beam: 2.3
+    expand_beam: 2.3
+
 opt_class: !name:torch.optim.Adadelta
     rho: 0.95
     eps: 1.e-8
