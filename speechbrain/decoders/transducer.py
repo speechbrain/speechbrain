@@ -71,9 +71,11 @@ class TransducerBeamSearcher(torch.nn.Module):
         self.lm = lm_module
         self.lm_weight = lm_weight
 
-        if lm_module != None and lm_weight == 0:
-            raise ValueError("Language model is provided. \
-                             Set lm_weigt != 0")
+        if lm_module is not None and lm_weight == 0:
+            raise ValueError(
+                "Language model is provided. \
+                             Set lm_weigt != 0"
+            )
 
         self.state_beam = state_beam
         self.expand_beam = expand_beam
@@ -155,7 +157,7 @@ class TransducerBeamSearcher(torch.nn.Module):
             for i in range(positions.size(0)):
                 # Update hiddens only if
                 # 1- current prediction is non blank
-                if positions[i] != self.blank_id:
+                if positions[i].item() != self.blank_id:
                     hyp["prediction"][i].append(positions[i].item())
                     hyp["logp_scores"][i] += logp_targets[i]
                     input_PN[i][0] = positions[i]
@@ -163,7 +165,10 @@ class TransducerBeamSearcher(torch.nn.Module):
             if len(have_update_hyp) > 0:
                 # Select sentence to update
                 # And do a forward steps + generated hidden
-                selected_input_PN, selected_hidden = self._get_sentence_to_update(
+                (
+                    selected_input_PN,
+                    selected_hidden,
+                ) = self._get_sentence_to_update(
                     have_update_hyp, input_PN, hidden
                 )
                 selected_out_PN, selected_hidden = self._forward_PN(
@@ -280,7 +285,7 @@ class TransducerBeamSearcher(torch.nn.Module):
                         out_PN.unsqueeze(0),
                     )
 
-                    if self.lm != None:
+                    if self.lm is not None:
                         log_probs_lm, hidden_lm = self._lm_forward_step(
                             input_PN, a_best_hyp["hidden_lm"]
                         )
@@ -310,14 +315,14 @@ class TransducerBeamSearcher(torch.nn.Module):
 
                         if positions[j] == self.blank_id:
                             beam_hyps.append(topk_hyp)
-                            if self.lm != None:
+                            if self.lm is not None:
                                 topk_hyp["hidden_lm"] = a_best_hyp["hidden_lm"]
                             continue
 
                         if logp_targets[j] >= best_logp - self.expand_beam:
                             topk_hyp["prediction"].append(positions[j].item())
                             topk_hyp["hidden_dec"] = hidden
-                            if self.lm != None:
+                            if self.lm is not None:
                                 topk_hyp["hidden_lm"] = hidden_lm
                                 topk_hyp["logp_score"] += (
                                     self.lm_weight
@@ -389,7 +394,7 @@ class TransducerBeamSearcher(torch.nn.Module):
         """
         Select and return the updated hiddens and output
         from the Prediction Network
-        
+
         Arguments
         ----------
         selected_sentences : list
@@ -407,20 +412,6 @@ class TransducerBeamSearcher(torch.nn.Module):
         hidden_update_hyp: torch.tensor
             selected hiddens tensor
 
-        Example
-        -------
-            >>> import torch
-            >>> from speechbrain.decoders.transducer import _get_sentence_to_update
-            >>> from speechbrain.nnet.RNN import GRU
-            >>> from speechbrain.nnet.embedding import Embedding
-            >>> blank_id = 34
-            >>> PN_emb = Embedding(num_embeddings=35, consider_as_one_hot=True, blank_id=blank_id)
-            >>> test_emb = PN_emb(torch.Tensor([[1],[2],[10],[6]]).long())
-            >>> PN = GRU(hidden_size=5, input_shape=test_emb.shape)
-            >>> test_PN, hidden = PN(test_emb)
-            >>> selected_sentences = [1,3]
-            >>> selected_output_PN, selected_hidden = _get_sentence_to_update(selected_sentences, test_PN, hidden)
-
         Author:
             Abdelwahab HEBA 2020
         """
@@ -433,7 +424,6 @@ class TransducerBeamSearcher(torch.nn.Module):
         else:
             hidden_update_hyp = hidden[:, selected_sentences, :]
         return selected_output_PN, hidden_update_hyp
-
 
     def _update_hiddens(self, selected_sentences, updated_hidden, hidden):
         """
@@ -453,21 +443,6 @@ class TransducerBeamSearcher(torch.nn.Module):
         torch.tensor
             updated hidden tensor
 
-        Example
-        -------
-            >>> import torch
-            >>> from speechbrain.decoders.transducer import _update_hiddens
-            >>> from speechbrain.nnet.RNN import GRU
-            >>> from speechbrain.nnet.embedding import Embedding
-            >>> blank_id = 34
-            >>> PN_emb = Embedding(num_embeddings=35, consider_as_one_hot=True, blank_id=blank_id)
-            >>> test_emb = PN_emb(torch.Tensor([[1],[2],[10],[6]]).long())
-            >>> PN = GRU(hidden_size=5, input_shape=test_emb.shape)
-            >>> test_PN, hidden = PN(test_emb)
-            >>> selected_sentences = [1,3]
-            >>> updated_hidden = torch.ones((1,2,5))
-            >>> hidden = _update_hiddens(selected_sentences, updated_hidden, hidden)
-
         Author:
             Abdelwahab HEBA 2020
         """
@@ -477,7 +452,6 @@ class TransducerBeamSearcher(torch.nn.Module):
         else:
             hidden[:, selected_sentences, :] = updated_hidden
         return hidden
-
 
     def _forward_PN(self, out_PN, decode_network_lst, hidden=None):
         """
@@ -502,19 +476,6 @@ class TransducerBeamSearcher(torch.nn.Module):
             Hidden tensor to be used for the next step
             by reccurent layers in prediction network
 
-        Example
-        -------
-            >>> import torch
-            >>> from speechbrain.decoders.transducer import _forward_PN
-            >>> from speechbrain.nnet.RNN import GRU
-            >>> from speechbrain.nnet.embedding import Embedding
-            >>> blank_id = 34
-            >>> PN_emb = Embedding(num_embeddings=35, consider_as_one_hot=True, blank_id=blank_id)
-            >>> test_emb = PN_emb(torch.Tensor([[1]]).long())
-            >>> PN = GRU(hidden_size=5, input_shape=test_emb.shape)
-            >>> test_PN, hidden = PN(test_emb)
-            >>> out_PN, hidden = _forward_PN(torch.Tensor([[1]]).long(), [PN_emb, PN], hidden)
-
         Author:
             Abdelwahab HEBA 2020
         """
@@ -530,7 +491,6 @@ class TransducerBeamSearcher(torch.nn.Module):
             else:
                 out_PN = layer(out_PN)
         return out_PN, hidden
-
 
     def _forward_after_joint(self, out, classifier_network):
         """
