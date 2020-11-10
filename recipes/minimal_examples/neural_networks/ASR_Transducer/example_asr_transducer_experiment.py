@@ -32,7 +32,7 @@ class TransducerBrain(sb.Brain):
         if stage == sb.Stage.TRAIN:
             return outputs, lens
         else:
-            hyps, scores = self.hparams.searcher(TN_output)
+            hyps, scores, _, _ = self.hparams.searcher(TN_output)
             return outputs, lens, hyps
 
     def compute_objectives(self, predictions, targets, stage):
