@@ -31,3 +31,10 @@ __all__ = [
     "tokenizers",
     "utils",
 ]
+
+
+class TestThing:
+    # Purely for test purposes.
+    def __init__(self, *args, **kwargs):
+        self.args = args
+        self.kwargs = kwargs
