@@ -283,7 +283,7 @@ class TransducerBeamSearcher(torch.nn.Module):
                         out_PN.unsqueeze(0),
                     )
 
-                    if self.lm is not None:
+                    if self.lm_weight > 0:
                         log_probs_lm, hidden_lm = self._lm_forward_step(
                             input_PN, a_best_hyp["hidden_lm"]
                         )
@@ -313,14 +313,14 @@ class TransducerBeamSearcher(torch.nn.Module):
 
                         if positions[j] == self.blank_id:
                             beam_hyps.append(topk_hyp)
-                            if self.lm is not None:
+                            if self.lm_weight > 0:
                                 topk_hyp["hidden_lm"] = a_best_hyp["hidden_lm"]
                             continue
 
                         if logp_targets[j] >= best_logp - self.expand_beam:
                             topk_hyp["prediction"].append(positions[j].item())
                             topk_hyp["hidden_dec"] = hidden
-                            if self.lm is not None:
+                            if self.lm_weight > 0:
                                 topk_hyp["hidden_lm"] = hidden_lm
                                 topk_hyp["logp_score"] += (
                                     self.lm_weight
