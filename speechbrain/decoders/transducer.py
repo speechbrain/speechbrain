@@ -21,12 +21,10 @@ class TransducerBeamSearcher(torch.nn.Module):
     classifier_network : list
         list of output layers (after performing joint between TN and PN)
         exp: (TN,PN) => joint => classifier_network_list [DNN bloc, Linear..] => chars prob
-    blank_id : int, string
-        The blank symbol/index. Default: -1. If a negative number is given,
-        it is assumed to mean counting down from the maximum possible index,
-        so that -1 refers to the maximum possible index.
+    blank_id : int,
+        The blank symbol/index.
     beam : int
-        The width of beam.
+        The width of beam. Greedy Search is used when beam = 1.
     nbest : int
         Number of hypothesis to keep.
     lm_module: torch.nn.ModuleList
