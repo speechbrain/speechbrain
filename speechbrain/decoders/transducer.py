@@ -510,18 +510,6 @@ class TransducerBeamSearcher(torch.nn.Module):
         torch.tensor
             Outputs a logits tensor [B, U,T, Output_Dim];
 
-        Example
-        -------
-            >>> import torch
-            >>> from speechbrain.decoders.transducer import _forward_after_joint
-            >>> from speechbrain.nnet.linear import Linear
-            >>> inputs = torch.rand(3, 5, 10, 5)
-            >>> Out_lin1 = Linear(input_shape=(3, 5, 10, 5), n_neurons=10)
-            >>> Out_lin2 = Linear(input_shape=(3, 5, 10, 10), n_neurons=15)
-            >>> out = Out_lin1(inputs)
-            >>> out = Out_lin2(out)
-            >>> logits = _forward_after_joint(inputs, [Out_lin1, Out_lin2])
-
         Author:
             Abdelwahab HEBA 2020
         """
