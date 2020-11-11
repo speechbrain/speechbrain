@@ -426,3 +426,108 @@ class CyclicCosineScheduler:
         data = torch.load(path)
         self.losses = data["losses"]
         self.n_steps = data["n_steps"]
+
+
+@checkpoints.register_checkpoint_hooks
+class ReduceLROnPlateau:
+    """Learning rate scheduler with linear annealing technique.
+     The learning rate linearly decays over the epochs between lr_initial
+     and lr_final.
+    Arguments
+    ---------
+    lr_min: float
+        The minimum allowable learning rate
+    factor: float
+        Factor with which to reduce the learning rate
+    patience: int
+        How many
+    Example
+    -------
+    >>> from speechbrain.nnet.optimizers import SGD_Optimizer
+    >>> from speechbrain.nnet.linear import Linear
+    >>> inp_tensor = torch.rand([1,660,3])
+    >>> model = Linear(n_neurons=4)
+    >>> optim = SGD_Optimizer(learning_rate=1.0)
+    >>> output = model(inp_tensor, init_params=True)
+    >>> optim.init_params([model])
+    >>> scheduler = LinearLRScheduler(optim.optim.param_groups[0]["lr"], 0.0, 4)
+    >>> curr_lr,next_lr=scheduler([optim],current_epoch=1, current_loss=10.0)
+    >>> curr_lr,next_lr=scheduler([optim],current_epoch=2, current_loss=10.0)
+    >>> curr_lr,next_lr=scheduler([optim],current_epoch=3, current_loss=10.0)
+    >>> curr_lr,next_lr=scheduler([optim],current_epoch=4, current_loss=10.0)
+    >>> optim.optim.param_groups[0]["lr"]
+    0.0
+    """
+
+    def __init__(
+        self, lr_min=1e-8, factor=0.5, patience=2,
+    ):
+        self.lr_min = lr_min
+        self.factor = factor
+        self.patience = patience
+        self.patience_counter = 0
+        self.losses = []
+
+    def __call__(self, optim_list, current_epoch, current_loss):
+        """
+        Arguments
+        ---------
+        optim_list : list of optimizers
+            The optimizers to update using this scheduler.
+        current_epoch : int
+            Number of times the dataset has been iterated.
+        current_loss : int
+            A number for determining whether to change the learning rate.
+        Returns
+        -------
+        float
+            The learning rate before the update.
+        float
+            The learning rate after the update.
+        """
+        for opt in optim_list:
+            current_lr = opt.optim.param_groups[0]["lr"]
+
+            # last_p_epochs = self.loses[-self.patience:]
+            if current_epoch == 0:
+                next_lr = current_lr
+                self.anchor = current_loss
+            else:
+                if current_loss < self.anchor:
+                    self.patience_counter = 0
+                    next_lr = current_lr
+                    self.anchor = current_loss
+                elif (
+                    current_loss > self.anchor
+                    and self.patience_counter < self.patience
+                ):
+                    self.patience_counter = self.patience_counter + 1
+                    next_lr = current_lr
+                else:
+                    next_lr = current_lr * self.factor
+
+            # impose the lower bound
+            next_lr = max(next_lr, self.lr_min)
+
+            # Changing the learning rate within the optimizer
+            opt.optim.param_groups[0]["lr"] = next_lr
+            opt.optim.param_groups[0]["prev_lr"] = current_lr
+            if next_lr != current_lr:
+                logger.info(
+                    "Changing lr from %.2g to %.2g" % (current_lr, next_lr)
+                )
+        # Updating current loss
+        self.losses.append(current_loss)
+
+        return current_lr, next_lr
+
+    @checkpoints.mark_as_saver
+    def save(self, path):
+        data = {"losses": self.losses}
+        torch.save(data, path)
+
+    @checkpoints.mark_as_loader
+    def load(self, path, end_of_epoch):
+        del end_of_epoch  # Unused in this class
+        data = torch.load(path)
+        self.losses = data["losses"]
