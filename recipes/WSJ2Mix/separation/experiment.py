@@ -7,21 +7,35 @@ Author:
     * Cem Subakan 2020
     * Mirko Bronzi 2020
 """
+
 import argparse
 import logging
 import os
-import sys
+import pprint
+import shutil
+from pathlib import PosixPath
+
+# import itertools as it
+
 import torch
-from torch.cuda.amp import autocast, GradScaler
+import torch.nn.functional as F
+from torch.cuda.amp import GradScaler, autocast
 
 import speechbrain as sb
-from speechbrain.nnet import schedulers
-from speechbrain.utils.data_utils import download_file
-from speechbrain.tokenizers.SentencePiece import SentencePiece
-from speechbrain.utils.data_utils import undo_padding
+from recipes.minimal_examples.neural_networks.separation.example_conv_tasnet import (
+    create_minimal_data,
+)
 from speechbrain.nnet.losses import get_si_snr_with_pitwrapper
+from speechbrain.utils.checkpoints import ckpt_recency
+
+# from speechbrain.utils.train_logger import summarize_average
+
+from speechbrain.data_io.data_io import write_wav_soundfile
+
+# import speechbrain.nnet.lr_schedulers as schedulers
+from tqdm import tqdm
 import numpy as np
-import torch.nn.functional as F
+
 
 logger = logging.getLogger(__name__)
 
@@ -491,8 +505,8 @@ if __name__ == "__main__":
         repo_path = os.path.dirname(os.path.realpath(__file__)) + "/../../../"
         params = create_minimal_data(repo_path, args.config)
         logger.info("setting epoch size to 1 - because --minimal")
-        params.N_epochs = 1
-        params = fix_params_for_orion(params)
+        params["N_epochs"] = 1
+        # params = fix_params_for_orion(params)
     else:
         with open(args.config) as fin:
             params = sb.yaml.load_extended_yaml(fin)
@@ -554,21 +568,21 @@ if __name__ == "__main__":
 
     logger.info(
         "will run on device {} / using mixed precision? {}".format(
-            device, params.mixed_precision
+            device, params["mixed_precision"]
         )
     )
 
-    train_loader = params.train_loader()
-    val_loader = params.val_loader()
-    test_loader = params.test_loader()
+    train_loader = params["train_loader"]()
+    val_loader = params["val_loader"]()
+    test_loader = params["test_loader"]()
 
     ctn = SourceSeparationBrain(
         modules=[
-            params.Encoder,  # .to(device),
-            params.MaskNet,  # .to(device),
-            params.Decoder,  # .to(device),
+            params["Encoder"],  # .to(device),
+            params["MaskNet"],  # .to(device),
+            params["Decoder"],  # .to(device),
         ],
-        optimizer=params.optimizer,
+        optimizer=params["optimizer"],
         first_inputs=[next(iter(train_loader))[0][1]],
         params=params,
         device=device,
@@ -581,20 +595,20 @@ if __name__ == "__main__":
     if args.use_multigpu and torch.cuda.device_count() > 1:
         # ctn.modules[i] = torch.nn.DataParallel(ctn.modules[i]).to(device)
         print("will train on multiple gpus")
-        ctn.params.Encoder = torch.nn.DataParallel(ctn.params.Encoder).to(
+        ctn.params.Encoder = torch.nn.DataParallel(ctn.params["Encoder"]).to(
             device
         )
-        ctn.params.MaskNet = torch.nn.DataParallel(ctn.params.MaskNet).to(
+        ctn.params.MaskNet = torch.nn.DataParallel(ctn.params["MaskNet"]).to(
             device
         )
-        ctn.params.Decoder = torch.nn.DataParallel(ctn.params.Decoder).to(
+        ctn.params.Decoder = torch.nn.DataParallel(ctn.params["Decoder"]).to(
             device
         )
     else:
         print("will train on single gpu")
-        ctn.params.Encoder = ctn.params.Encoder.to(device)
-        ctn.params.MaskNet = ctn.params.MaskNet.to(device)
-        ctn.params.Decoder = ctn.params.Decoder.to(device)
+        ctn.params.Encoder = ctn.params["Encoder"].to(device)
+        ctn.params.MaskNet = ctn.params["MaskNet"].to(device)
+        ctn.params.Decoder = ctn.params["Decoder"].to(device)
 
     params.checkpointer.recover_if_possible(lambda c: -c.meta["av_loss"])
 
@@ -607,13 +621,13 @@ if __name__ == "__main__":
             "Test SI-SNR: %.3f" % -summarize_average(test_stats["loss"])
         )
     else:
-        mlflow.start_run()
+        # mlflow.start_run()
         ctn.fit(
-            range(params.N_epochs),
+            range(params["N_epochs"]),
             train_set=train_loader,
             valid_set=val_loader,
-            progressbar=params.progressbar,
-            early_stopping_with_patience=params.early_stopping_with_patience,
+            progressbar=params["progressbar"],
+            early_stopping_with_patience=params["early_stopping_with_patience"],
         )
         mlflow.end_run()
 

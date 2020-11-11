@@ -13,6 +13,42 @@ import torch.nn.functional as F
 from speechbrain.nnet.losses import get_si_snr_with_pitwrapper
 
 
+def create_minimal_data(repository_folder, config_file_path):
+    tr_csv = os.path.realpath(
+        os.path.join(
+            repository_folder,
+            "samples/audio_samples/sourcesep_samples/minimal_example_convtasnet_tr.csv",
+        )
+    )
+    cv_csv = os.path.realpath(
+        os.path.join(
+            repository_folder,
+            "samples/audio_samples/sourcesep_samples/minimal_example_convtasnet_cv.csv",
+        )
+    )
+    tt_csv = os.path.realpath(
+        os.path.join(
+            repository_folder,
+            "samples/audio_samples/sourcesep_samples/minimal_example_convtasnet_tt.csv",
+        )
+    )
+
+    data_folder = "samples/audio_samples/sourcesep_samples"
+    data_folder = os.path.realpath(os.path.join(repository_folder, data_folder))
+
+    with open(config_file_path) as fin:
+        params = sb.yaml.load_extended_yaml(
+            fin,
+            {
+                "data_folder": data_folder,
+                "tr_csv": tr_csv,
+                "cv_csv": cv_csv,
+                "tt_csv": tt_csv,
+            },
+        )
+    return params
+
+
 class CTN_Brain(sb.Brain):
     def compute_forward(self, mixture, stage):
 
