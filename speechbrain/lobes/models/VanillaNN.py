@@ -7,7 +7,7 @@ import torch
 import speechbrain as sb
 
 
-class VanillaNN(sb.nnet.Sequential):
+class VanillaNN(sb.nnet.containers.Sequential):
     """ A simple vanilla Deep Neural Network.
 
     Arguments
@@ -35,8 +35,13 @@ class VanillaNN(sb.nnet.Sequential):
         dnn_blocks=2,
         dnn_neurons=512,
     ):
-        super().__init__(input_shape)
+        super().__init__(input_shape=input_shape)
 
         for block_index in range(dnn_blocks):
-            self.append(sb.nnet.Linear, n_neurons=dnn_neurons, bias=True)
-            self.append(activation())
+            self.append(
+                sb.nnet.linear.Linear,
+                n_neurons=dnn_neurons,
+                bias=True,
+                layer_name="linear",
+            )
+            self.append(activation(), layer_name="act")
