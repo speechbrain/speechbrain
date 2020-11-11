@@ -14,12 +14,18 @@ from speechbrain.nnet.linear import Linear
 logger = logging.getLogger(__name__)
 
 
-class Sequential(torch.nn.Module):
-    """A sequence of modules inferring shape on construction.
+class Sequential(torch.nn.ModuleDict):
+    """A sequence of modules with potentially inferring shape on construction.
+
+    If layers are passed with names
 
     Arguments
     ---------
-    *layers
+    input_shape : iterable
+        A list or tuple of ints or None, representing the expected shape of an
+        input tensor. None represents a variable length dimension. If no
+        ``input_shape`` is passed, no shape inferenced will be performed
+    *layers, **named_layers
         The inputs are treated as a list of layers to be
         applied in sequence. The output shape of each layer is used to
         infer the shape of the following layer. If a tuple is returned,
@@ -29,7 +35,7 @@ class Sequential(torch.nn.Module):
     Example
     -------
     >>> inputs = torch.rand(10, 40, 50)
-    >>> model = Sequential(inputs.shape)
+    >>> model = Sequential(input_shape=inputs.shape)
     >>> model.append(Linear, n_neurons=100)
     >>> model.append(Linear, n_neurons=200)
     >>> outputs = model(inputs)
@@ -37,27 +43,32 @@ class Sequential(torch.nn.Module):
     torch.Size([10, 40, 200])
     """
 
-    def __init__(self, input_shape, *layers):
+    def __init__(self, *layers, input_shape=None, **named_layers):
         super().__init__()
 
-        # Append layers, passing shape
-        self.layers = torch.nn.ModuleList()
-
         # Replace None dimensions with arbitrary value
-        if None in input_shape:
-            input_shape = list(input_shape)
-            for i, dim in enumerate(input_shape):
-                if i == 0 and dim is None:
-                    input_shape[i] = 1
-                else:
-                    input_shape[i] = dim if dim is not None else 100
         self.input_shape = input_shape
+        if input_shape and None in input_shape:
+            self.input_shape = list(input_shape)
+            for i, dim in enumerate(self.input_shape):
 
-        # Append all the input layers
+                # To reduce size of dummy tensors, use 1 for batch dim
+                if i == 0 and dim is None:
+                    dim = 1
+
+                # Use 64 as nice round arbitrary value, big enough that
+                # halving this dimension a few times doesn't reach 1
+                self.input_shape[i] = dim or 64
+
+        # Append non-named layers
         for layer in layers:
             self.append(layer)
 
-    def append(self, layer, *args, **kwargs):
+        # Append named layers
+        for name, layer in named_layers.items():
+            self.append(layer, layer_name=name)
+
+    def append(self, layer, *args, layer_name=None, **kwargs):
         """Add a layer to the list of layers, inferring shape if necessary.
 
         Arguments
@@ -66,23 +77,36 @@ class Sequential(torch.nn.Module):
             If the layer is a class, it should accept an argument called
             ``input_shape`` which will be inferred and passed. If the layer
             is a module object, it is added as-is.
+        layer_name : str
+            The name of the layer, for reference. If the name is in use,
+            ``_{count}`` will be appended.
         *args, **kwargs
             These are passed to the layer if it is constructed.
         """
 
+        # Compute layer_name
+        if layer_name is None:
+            layer_name = str(len(self))
+        elif layer_name in self:
+            index = 0
+            while f"{layer_name}_{index}" in self:
+                index += 1
+            layer_name = f"{layer_name}_{index}"
+
         # Check if it needs to be constructed with input shape
-        argspec = inspect.getfullargspec(layer)
-        if "input_shape" in argspec.args + argspec.kwonlyargs:
-            layer = layer(*args, input_shape=self.input_shape, **kwargs)
+        if self.input_shape:
+            argspec = inspect.getfullargspec(layer)
+            if "input_shape" in argspec.args + argspec.kwonlyargs:
+                input_shape = self.get_output_shape()
+                layer = layer(*args, input_shape=input_shape, **kwargs)
 
-        self.layers.append(layer)
+        # Finally, append the layer
+        self.add_module(layer_name, layer)
 
-        # Collect shape information for next layer init
+    def get_output_shape(self):
         dummy_input = torch.zeros(self.input_shape)
-        dummy_output = layer(dummy_input)
-        if isinstance(dummy_output, tuple):
-            dummy_output = dummy_output[0]
-        self.input_shape = dummy_output.shape
+        dummy_output = self(dummy_input)
+        return dummy_output.shape
 
     def forward(self, x):
         """
@@ -91,7 +115,7 @@ class Sequential(torch.nn.Module):
         x : tensor
             the input tensor to run through the network.
         """
-        for layer in self.layers:
+        for layer in self.values():
             x = layer(x)
             if isinstance(x, tuple):
                 x = x[0]
@@ -212,7 +236,7 @@ class ConnectBlocks(torch.nn.Module):
             which is used to indicate that the shorcut should be added in.
         """
         if self.new_block:
-            self.blocks.append(Sequential(self.block_input_shape))
+            self.blocks.append(Sequential(input_shape=self.block_input_shape))
             self.new_block = False
 
         end_of_block = False
