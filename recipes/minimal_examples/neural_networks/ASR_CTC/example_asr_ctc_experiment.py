@@ -2,16 +2,6 @@
 import os
 import speechbrain as sb
 
-# TODO: Replace local placeholder Dataset class
-from placeholders import ASRMinimalExampleDataset
-
-# TODO: Replace ASR Dataset transforms:
-from placeholders import torchaudio_load
-
-# TODO: Replace collate fn:
-from placeholders import ASR_example_collation
-from speechbrain.data_io.dataloader import SaveableDataLoader
-
 
 class CTCBrain(sb.Brain):
     def compute_forward(self, x, stage):
@@ -58,38 +48,15 @@ def main():
     data_folder = "../../../../samples/audio_samples/nn_training_samples"
     data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
     with open(hparams_file) as fin:
-        # TODO: Data loading back into YAML:
         hparams = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
-
-        valid_data = ASRMinimalExampleDataset(
-            os.path.join(data_folder, "dev.csv"),
-            audio_transform=torchaudio_load,
-            text_transform=hparams["text_transform"],
-        )
-        test_data = ASRMinimalExampleDataset(
-            os.path.join(data_folder, "dev.csv"),
-            audio_transform=torchaudio_load,
-            text_transform=hparams["text_transform"],
-        )
-
-    # Placeholders:
-    train_loader = SaveableDataLoader(
-        hparams["train_data"],
-        batch_size=hparams["N_batch"],
-        collate_fn=ASR_example_collation,
-    )
-    valid_loader = SaveableDataLoader(
-        valid_data, batch_size=1, collate_fn=ASR_example_collation
-    )
-    test_loader = SaveableDataLoader(
-        test_data, batch_size=1, collate_fn=ASR_example_collation
-    )
 
     ctc_brain = CTCBrain(hparams["modules"], hparams["opt_class"], hparams)
     ctc_brain.fit(
-        range(hparams["N_epochs"]), train_loader, valid_loader,
+        range(hparams["N_epochs"]),
+        hparams["train_loader"],
+        hparams["valid_loader"],
     )
-    ctc_brain.evaluate(test_loader)
+    ctc_brain.evaluate(hparams["test_loader"])
 
     # Check if model overfits for integration test
     assert ctc_brain.train_loss < 3.0
