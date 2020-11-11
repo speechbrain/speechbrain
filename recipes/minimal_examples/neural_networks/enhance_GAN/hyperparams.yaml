@@ -38,28 +38,28 @@ test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
         $data_folder: !ref <data_folder>
 
 generator: !new:speechbrain.nnet.containers.Sequential
-    - [null, null, 1]  # input_shape
-    - !name:speechbrain.nnet.CNN.Conv1d
-      out_channels: 32
-      kernel_size: 11
-    - !new:torch.nn.LeakyReLU
-    - !name:speechbrain.nnet.CNN.Conv1d
-      out_channels: 1
-      kernel_size: 11
-    - !new:torch.nn.Tanh
+    input_shape: [null, null, 1]
+    conv1: !name:speechbrain.nnet.CNN.Conv1d
+        out_channels: 32
+        kernel_size: 11
+    activation: !new:torch.nn.LeakyReLU
+    conv2: !name:speechbrain.nnet.CNN.Conv1d
+        out_channels: 1
+        kernel_size: 11
+    tanh: !new:torch.nn.Tanh
 
 discriminator: !new:speechbrain.nnet.containers.Sequential
-    - [null, null, 1]  # input_shape
-    - !name:speechbrain.nnet.CNN.Conv1d
-      out_channels: 32
-      kernel_size: 11
-      stride: 8
-    - !new:torch.nn.LeakyReLU
-    - !name:speechbrain.nnet.CNN.Conv1d
-      out_channels: 1
-      kernel_size: 11
-      stride: 8
-    - !new:torch.nn.Sigmoid
+    input_shape: [null, null, 1]
+    conv1: !name:speechbrain.nnet.CNN.Conv1d
+        out_channels: 32
+        kernel_size: 11
+        stride: 8
+    activation: !new:torch.nn.LeakyReLU
+    conv2: !name:speechbrain.nnet.CNN.Conv1d
+        out_channels: 1
+        kernel_size: 11
+        stride: 8
+    sigmoid: !new:torch.nn.Sigmoid
 
 modules: {generator: !ref <generator>, discriminator: !ref <discriminator>}
 

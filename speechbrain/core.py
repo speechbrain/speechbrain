@@ -619,7 +619,6 @@ class Brain:
         if progressbar is None:
             progressbar = self.progressbar
 
-        # Use factories to get loaders
         self.train_sampler = None
         if self.rank is not None:
             raise NotImplementedError(

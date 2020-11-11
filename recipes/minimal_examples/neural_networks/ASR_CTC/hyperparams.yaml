@@ -5,9 +5,9 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 
 # Neural Parameters
-N_epochs: 10
+N_epochs: 15
 batch_size: 1
-lr: 0.004
+lr: 0.002
 
 # Model parameters
 activation: !name:torch.nn.LeakyReLU []
@@ -21,7 +21,6 @@ rnn_bidirectional: True
 dnn_blocks: 1
 dnn_neurons: 128
 
-
 # Data:
 data_folder: !PLACEHOLDER
 # TODO: Replace with final implementations
@@ -34,7 +33,6 @@ text_transform: !new:speechbrain.utils.data_utils.FuncPipeline
     - !ref <label_encoder.encode_list>
     - !name:torch.tensor
       dtype: !name:torch.int
-
 
 train_data: !apply:speechbrain.data_io.datasets.SegmentedDataset.from_extended_yaml
     filepath: !ref <data_folder>/train.yaml
@@ -68,9 +66,7 @@ train_loader: !new:speechbrain.data_io.dataloader.SaveableDataloader
     batch_size: !ref <batch_size>
     collate_fn: !name:placeholders.ASR_example_collation
 
-
 compute_features: !new:speechbrain.lobes.features.MFCC
-
 
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
