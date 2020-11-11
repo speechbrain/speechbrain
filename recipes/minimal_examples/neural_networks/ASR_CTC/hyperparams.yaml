@@ -1,16 +1,16 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 # NOTE: Seed does not guarantee replicability with CTC
 seed: 1234
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 
 # TODO:
 # Reintroduce Data specification here.
 
 # Neural Parameters
-N_epochs: 10
+N_epochs: 15
 N_batch: 1
-lr: 0.004
+lr: 0.002
 
 # Model parameters
 activation: !name:torch.nn.LeakyReLU []
@@ -62,4 +62,4 @@ modules:
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
 
-per_stats: !name:speechbrain.ErrorRateStats
+per_stats: !name:speechbrain.utils.metric_stats.ErrorRateStats
