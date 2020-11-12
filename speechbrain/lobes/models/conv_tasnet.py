@@ -151,7 +151,7 @@ class TemporalBlocksSequential(sb.nnet.containers.Sequential):
     """
 
     def __init__(self, input_shape, H, P, R, X, norm_type, causal):
-        super().__init__(input_shape)
+        super().__init__(input_shape=input_shape)
         for r in range(R):
             for x in range(X):
                 dilation = 2 ** x
@@ -164,6 +164,7 @@ class TemporalBlocksSequential(sb.nnet.containers.Sequential):
                     dilation=dilation,
                     norm_type=norm_type,
                     causal=causal,
+                    layer_name=f"temporalblock_{r}_{x}",
                 )
 
 
@@ -194,7 +195,7 @@ class MaskNet(nn.Module):
 
     Example:
     ---------
-    >>> N, B, H, P, X, R, C = 11, 12, 2, 5, 6, 1, 2
+    >>> N, B, H, P, X, R, C = 11, 12, 2, 5, 3, 1, 2
     >>> MaskNet = MaskNet(N, B, H, P, X, R, C)
     >>> mixture_w = torch.randn(10, 100, 11)
     >>> est_mask = MaskNet(mixture_w)
@@ -274,7 +275,7 @@ class MaskNet(nn.Module):
         return est_mask
 
 
-class TemporalBlock(sb.nnet.containers.Sequential):
+class TemporalBlock(torch.nn.Module):
     """
     The conv1d compound layers used in Masknet
 
@@ -318,21 +319,26 @@ class TemporalBlock(sb.nnet.containers.Sequential):
         norm_type="gLN",
         causal=False,
     ):
-        super().__init__(input_shape)
+        super().__init__()
         M, K, B = input_shape
 
+        self.layers = sb.nnet.containers.Sequential(input_shape=input_shape)
+
         # [M, K, B] -> [M, K, H]
-        self.append(
+        self.layers.append(
             sb.nnet.CNN.Conv1d,
             out_channels=out_channels,
             kernel_size=1,
             bias=False,
+            layer_name="conv",
         )
-        self.append(nn.PReLU())
-        self.append(choose_norm(norm_type, out_channels))
+        self.layers.append(nn.PReLU(), layer_name="act")
+        self.layers.append(
+            choose_norm(norm_type, out_channels), layer_name="norm"
+        )
 
         # [M, K, H] -> [M, K, B]
-        self.append(
+        self.layers.append(
             DepthwiseSeparableConv,
             out_channels=B,
             kernel_size=kernel_size,
@@ -341,6 +347,7 @@ class TemporalBlock(sb.nnet.containers.Sequential):
             dilation=dilation,
             norm_type=norm_type,
             causal=causal,
+            layer_name="DSconv",
         )
 
     def forward(self, x):
@@ -356,8 +363,7 @@ class TemporalBlock(sb.nnet.containers.Sequential):
             shape is [M, K, B]
         """
         residual = x
-        for layer in self.layers:
-            x = layer(x)
+        x = self.layers(x)
         return x + residual
 
 
@@ -406,7 +412,7 @@ class DepthwiseSeparableConv(sb.nnet.containers.Sequential):
         norm_type="gLN",
         causal=False,
     ):
-        super().__init__(input_shape)
+        super().__init__(input_shape=input_shape)
 
         batchsize, time, in_channels = input_shape
 
@@ -420,13 +426,14 @@ class DepthwiseSeparableConv(sb.nnet.containers.Sequential):
             dilation=dilation,
             groups=in_channels,
             bias=False,
+            layer_name="conv_0",
         )
 
         if causal:
-            self.append(Chomp1d(padding))
+            self.append(Chomp1d(padding), layer_name="chomp")
 
-        self.append(nn.PReLU())
-        self.append(choose_norm(norm_type, in_channels))
+        self.append(nn.PReLU(), layer_name="act")
+        self.append(choose_norm(norm_type, in_channels), layer_name="act")
 
         # [M, K, H] -> [M, K, B]
         self.append(
@@ -434,6 +441,7 @@ class DepthwiseSeparableConv(sb.nnet.containers.Sequential):
             out_channels=out_channels,
             kernel_size=1,
             bias=False,
+            layer_name="conv_1",
         )
 
 
