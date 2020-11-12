@@ -172,6 +172,35 @@ def load_extended_yaml(
     return hparams
 
 
+class RefTag:
+    yaml_tag = "!ref"
+
+    def __init__(self, yaml_key, prefix="", suffix=""):
+        self.yaml_key = yaml_key
+        self.prefix = prefix
+        self.suffix = suffix
+
+    @classmethod
+    def to_yaml(cls, representer, node):
+        s = "%s<%s>%s" % (node.prefix, node.yaml_key, node.suffix)
+        return representer.represent_scalar(cls.yaml_tag, s)
+
+
+class Placeholder:
+    yaml_tag = "!PLACEHOLDER"
+
+    @classmethod
+    def to_yaml(cls, representer, node):
+        return representer.represent_scalar(cls.yaml_tag, "")
+
+
+def dump_extended_yaml(yaml_tree, output_stream):
+    ruamel_yaml = ruamel.yaml.YAML()
+    ruamel_yaml.register_class(RefTag)
+    ruamel_yaml.register_class(Placeholder)
+    ruamel_yaml.dump(yaml_tree, output_stream)
+
+
 def resolve_references(yaml_stream, overrides=None, overrides_must_match=False):
     r'''Resolves inter-document references, a component of extended YAML.
 
