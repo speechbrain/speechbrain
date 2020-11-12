@@ -7,14 +7,15 @@ seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Folders and train_log file
-data_folder: !PLACEHOLDER # e.,g., /localscratch/voxceleb1
+data_folder: /localscratch/voxceleb1
 output_folder: results/voxceleb1/speaker_verification_plda_xvectors
 save_folder: !ref <output_folder>/save/
 device: 'cuda:0'
 
 # Pretrain from web (as an alternative specify a file)
 embedding_file:
-    https://www.dropbox.com/s/skfz2sme5nw7jji/xvector_model.ckpt?dl=1
+    https://www.dropbox.com/s/uq6vxk3e9zosvwd/xvector_model.ckpt?dl=1
+    #https://www.dropbox.com/s/skfz2sme5nw7jji/xvector_model.ckpt?dl=1
 
 # csv files
 csv_train: !ref <save_folder>/train.csv
@@ -31,11 +32,11 @@ emb_dim: 512
 
 compute_plda: !new:speechbrain.processing.PLDA_LDA.PLDA
     rank_f: 100
-    nb_iter: 3
+    nb_iter: 10
     scaling_factor: 0.05
 
 # Functions
-compute_features: !new:speechbrain.lobes.features.fbank.Fbank
+compute_features: !new:speechbrain.lobes.features.Fbank
     n_mels: !ref <n_mels>
     left_frames: !ref <left_frames>
     right_frames: !ref <right_frames>
@@ -49,7 +50,13 @@ mean_var_norm_emb: !new:speechbrain.processing.features.InputNormalization
     std_norm: False
 
 embedding_model: !new:speechbrain.lobes.models.Xvector.Xvector
-    device: !ref <device>
+    in_channels: !ref <n_mels>
+    activation: !name:torch.nn.LeakyReLU
+    tdnn_blocks: 5
+    tdnn_channels: [512, 512, 512, 512, 1500]
+    tdnn_kernel_sizes: [5, 3, 3, 1, 1]
+    tdnn_dilations: [1, 2, 3, 1, 1]
+    lin_neurons: 512
 
 train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>
