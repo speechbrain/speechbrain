@@ -1,13 +1,33 @@
-#!/usr/bin/python
+#!/usr/bin/python3
+"""Recipe for training speaker embeddings (e.g, xvectors) using the VoxCeleb Dataset.
+We employ an encoder followed by a speaker classifier.
+
+To run this recipe, use the following command:
+> python train_speaker_embeddings.py {hyperparameter_file}
+
+Using your own hyperparameter file or one of the following:
+    hyperparams/train_x_vectors.yaml (for standard xvectors)
+    hyperparams/train_ecapa_tdnn_voxceleb.yaml (for the ecapa+tdnn system)
+
+Author
+    * Mirco Ravanelli 2020
+    * Hwidong Na 2020
+"""
 import os
 import sys
 import torch
 import speechbrain as sb
 
 
-# Trains xvector model
 class XvectorBrain(sb.Brain):
+    """Class for speaker embedding training"
+    """
+
     def compute_forward(self, x, stage):
+        """Computation pipeline based on a encoder + speaker classifier.
+        Data augmentation and environmental corruption are applied to the
+        input speech.
+        """
         ids, wavs, lens = x
         wavs, lens = wavs.to(self.device), lens.to(self.device)
 
@@ -33,6 +53,8 @@ class XvectorBrain(sb.Brain):
         return outputs, lens
 
     def compute_objectives(self, predictions, targets, stage):
+        """Computes the loss using speaker-id as label.
+        """
         predictions, lens = predictions
         uttid, spkid, _ = targets
 
@@ -53,11 +75,12 @@ class XvectorBrain(sb.Brain):
         return loss
 
     def on_stage_start(self, stage, epoch=None):
+        """Gets called at the beginning of an epoch."""
         if stage != sb.Stage.TRAIN:
             self.error_metrics = self.hparams.error_stats()
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
-        """Gets called at the end of a epoch."""
+        """Gets called at the end of an epoch."""
         # Compute/store important stats
         stage_stats = {"loss": stage_loss}
         if stage == sb.Stage.TRAIN:

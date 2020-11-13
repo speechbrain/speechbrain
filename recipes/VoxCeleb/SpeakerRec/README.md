@@ -17,7 +17,7 @@ After training the speaker embeddings, it is possible to perform speaker verific
 `python speaker_verification_plda.py hyperparams/verification_plda_xvector_voxceleb.yaml`
 
 If you didn't train the speaker embedding before, we automatically download the xvector model from the web.
-This system achieves an EER = 6.9 % on voxceleb1, EER = 5.8 % on voxceleb2, and EER = 5.1 % on voxceleb1 + voxceleb2.
+This system achieves an EER = 5.8 % on voxceleb1, EER = 4.7 % on voxceleb2, and EER = 4.3 % on voxceleb1 + voxceleb2.
 These results are all obtained with the official verification split of voxceleb1 (veri\_split.txt)
 
 # Speaker verification with contrastive learning

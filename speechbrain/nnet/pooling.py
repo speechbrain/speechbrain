@@ -266,8 +266,12 @@ class StatisticsPooling(nn.Module):
                 actual_size = int(torch.round(lengths[snt_id] * x.shape[1]))
 
                 # computing statistics
-                mean.append(torch.mean(x[snt_id, 0:actual_size, ...], dim=0))
-                std.append(torch.std(x[snt_id, 0:actual_size, ...], dim=0))
+                mean.append(
+                    torch.mean(x[snt_id, 1 : actual_size - 1, ...], dim=0)
+                )
+                std.append(
+                    torch.std(x[snt_id, 1 : actual_size - 1, ...], dim=0)
+                )
 
             mean = torch.stack(mean)
             std = torch.stack(std)
