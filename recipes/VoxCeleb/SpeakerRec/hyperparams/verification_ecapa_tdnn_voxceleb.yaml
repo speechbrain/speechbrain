@@ -8,20 +8,20 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Folders and train_log file
 voxceleb_source: /network/datasets/restricted/voxceleb_users/voxceleb/voxceleb1
-data_folder: !PLACEHOLDER # e.g, /localscratch/voxceleb1
+data_folder: /localscratch/voxceleb1
 output_folder: results/voxceleb1_2/speaker_verification_ecapa_tdnn
 save_folder: !ref <output_folder>/save/
 device: 'cuda:0'
 
 # Pretrain from web (as an alternative specify a file)
 embedding_file:
-    https://www.dropbox.com/s/ovrzhwnik651rzj/embedding_model.ckpt?dl=1
+    https://www.dropbox.com/s/hqbxfcft0ay9qdy/embedding_model.ckpt?dl=1 # vox1+2
 
 # csv files
 csv_enrol: !ref <save_folder>/enrol.csv
 csv_test: !ref <save_folder>/test.csv
 
-batch_size: 2
+batch_size: 32
 
 # Feature parameters
 n_mels: 80
@@ -30,14 +30,14 @@ right_frames: 0
 deltas: False
 
 # Functions
-compute_features: !new:speechbrain.lobes.features.fbank.Fbank
+compute_features: !new:speechbrain.lobes.features.Fbank
     n_mels: !ref <n_mels>
     left_frames: !ref <left_frames>
     right_frames: !ref <right_frames>
     deltas: !ref <deltas>
 
 embedding_model: !new:speechbrain.lobes.models.ECAPA_TDNN.ECAPA_TDNN
-    device: !ref <device>
+    input_size: !ref <n_mels>
     channels: [512, 512, 512, 512, 1536]
     kernel_sizes: [5, 3, 3, 3, 1]
     dilations: [1, 2, 3, 4, 1]

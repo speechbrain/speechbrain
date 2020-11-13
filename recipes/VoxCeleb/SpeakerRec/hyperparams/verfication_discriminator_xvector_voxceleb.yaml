@@ -7,7 +7,7 @@ seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Folders and train_log file
-data_folder: /localscratch/voxceleb1
+data_folder: /localscratch/voxceleb1_2
 output_folder: results/voxceleb1_2/verification_discriminator_xvectors/
 save_folder: !ref <output_folder>/save/
 train_log: !ref <output_folder>/train_log.txt
@@ -32,7 +32,9 @@ random_segment: False
 # Pretrain from web (as an alternative specify a file)
 pretrain_embeddings: True
 embedding_file:
-    https://www.dropbox.com/s/p51au63q72jabqf/xvector_model.ckpt?dl=1
+    https://www.dropbox.com/s/p51au63q72jabqf/xvector_model.ckpt?dl=1 # vox1+2
+    # https://www.dropbox.com/s/exzbyt4qoabo7v4/embedding_model.ckpt?dl=1 vox2
+    # https://www.dropbox.com/s/skfz2sme5nw7jji/xvector_model.ckpt?dl=1 # vox1
 
 # Feature parameters
 n_mels: 24

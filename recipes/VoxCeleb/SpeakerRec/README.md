@@ -42,7 +42,7 @@ After training the speaker embeddings, it is possible to perform speaker verific
 
 `python speaker_verification_cosine.py hyperparams/verification_ecapa_tdnn_voxceleb.yaml`
 
-This system achieves an EER = 3.4 % on voxceleb1, EER = 1.6 % on voxceleb2, and EER = 1.5 % on voxceleb1 + voxceleb2.
+This system achieves an EER = 3.4 % on voxceleb1, EER = 1.6 % on voxceleb2, and EER = 1.4 % on voxceleb1 + voxceleb2.
 These results are all obtained with the official verification split of voxceleb1 (veri\_split.txt)
 
 # VoxCeleb2 preparation
@@ -79,14 +79,14 @@ Note: To prepare the voxceleb1 + voxceleb2 dataset you have to copy and unpack v
 [Speaker Verification Results with Voxceleb 1]
 | System          | Dataset    | EER  |
 |-----------------|------------|------|
-| Xvector + PLDA  | VoxCeleb 1 | 6.9% |
+| Xvector + PLDA  | VoxCeleb 1 | 5.8% |
 | Xvector + CL    | Voxceleb 1 | 3.8% |
 | ECAPA-TDNN      | Voxceleb 1 | 3.4% |
 
 [Speaker Verification Results with Voxceleb 2]
 | System          | Dataset    | EER  |
 |-----------------|------------|------|
-| Xvector + PLDA  | VoxCeleb 2 | 5.8% |
+| Xvector + PLDA  | VoxCeleb 2 | 4.7% |
 | Xvector + CL    | Voxceleb 2 | 3.1% |
 | ECAPA-TDNN      | Voxceleb 2 | 1.6% |
 
@@ -94,9 +94,9 @@ Note: To prepare the voxceleb1 + voxceleb2 dataset you have to copy and unpack v
 [Speaker Verification Results with Voxceleb 1 + Voxceleb2]
 | System          | Dataset    | EER  |
 |-----------------|------------|------|
-| Xvector + PLDA  | VoxCeleb 2 | 5.2% |
+| Xvector + PLDA  | VoxCeleb 2 | 4.3% |
 | Xvector + CL    | Voxceleb 2 | 2.9% |
-| ECAPA-TDNN      | Voxceleb 2 | 1.5% |
+| ECAPA-TDNN      | Voxceleb 2 | 1.4% |
 
 
 # Resources
