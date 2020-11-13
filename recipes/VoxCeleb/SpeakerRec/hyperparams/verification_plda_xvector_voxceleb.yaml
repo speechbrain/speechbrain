@@ -7,15 +7,16 @@ seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Folders and train_log file
-data_folder: /localscratch/voxceleb1
+data_folder: /localscratch/voxceleb1  # use vox 1, vox2, or vox1+vox2 datasets
 output_folder: results/voxceleb1/speaker_verification_plda_xvectors
 save_folder: !ref <output_folder>/save/
 device: 'cuda:0'
 
 # Pretrain from web (as an alternative specify a file)
 embedding_file:
-    https://www.dropbox.com/s/uq6vxk3e9zosvwd/xvector_model.ckpt?dl=1
-    #https://www.dropbox.com/s/skfz2sme5nw7jji/xvector_model.ckpt?dl=1
+    https://www.dropbox.com/s/uq6vxk3e9zosvwd/xvector_model.ckpt?dl=1  # vox1+2
+    #https://www.dropbox.com/s/p51au63q72jabqf/xvector_model.ckpt?dl=1 # vox2
+    #https://www.dropbox.com/s/skfz2sme5nw7jji/xvector_model.ckpt?dl=1 # vox1
 
 # csv files
 csv_train: !ref <save_folder>/train.csv

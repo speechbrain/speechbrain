@@ -1,4 +1,16 @@
-#!/usr/bin/python
+#!/usr/bin/python3
+"""Recipe for training a speaker verification system based on PLDA using the voxceleb dataset.
+The system employs a pre-trained model followed by a PLDA transformation.
+The pre-trained model is automatically downloaded from the web if not specified.
+
+To run this recipe, run the following command:
+    >  python speaker_verification_plda.py hyperparams/verification_plda_xvector_voxceleb.yaml
+
+Authors
+    * Nauman Dawalatabad 2020
+    * Mirco Ravanelli 2020
+"""
+
 import os
 import sys
 import torch
@@ -15,8 +27,8 @@ from speechbrain.processing.PLDA_LDA import Ndx
 from speechbrain.processing.PLDA_LDA import fast_PLDA_scoring
 
 
-# Definition of the steps for embedding computation from the waveforms
 def compute_embeddings(wavs, lens):
+    """Definition of the steps for embedding computation from the waveforms"""
     with torch.no_grad():
         wavs = wavs.to(params["device"])
         feats = params["compute_features"](wavs)
@@ -29,14 +41,9 @@ def compute_embeddings(wavs, lens):
 
 
 def emb_computation_loop(split, set_loader, stat_file):
-
+    """Computes the embeddings and saves the in a stat file"""
     # Extract embeddings (skip if already done)
     if not os.path.isfile(stat_file):
-        params["mean_var_norm_emb"].glob_mean = torch.zeros(
-            params["emb_dim"], device=params["device"]
-        )
-        params["mean_var_norm_emb.count"] = 0
-
         embeddings = numpy.empty(
             shape=[0, params["emb_dim"]], dtype=numpy.float64
         )
@@ -63,6 +70,7 @@ def emb_computation_loop(split, set_loader, stat_file):
         s = numpy.array([None] * embeddings.shape[0])
         b = numpy.array([[1.0]] * embeddings.shape[0])
 
+        # Stat object (used to collect embeddings)
         stat_obj = StatObject_SB(
             modelset=modelset,
             segset=segset,
@@ -85,6 +93,7 @@ def emb_computation_loop(split, set_loader, stat_file):
 
 
 def compute_EER(scores_plda):
+    """Computes the Equal Error Rate give the PLDA scores"""
     gt_file = os.path.join(params["data_folder"], "meta", "veri_test.txt")
 
     # Create ids, labels, and scoring list for EER evaluation
@@ -117,8 +126,8 @@ def compute_EER(scores_plda):
     return eer
 
 
-# Function for pre-trained model downloads
 def download_and_pretrain():
+    """Downaloads the pre-trained encoder and loads it"""
     save_model_path = params["output_folder"] + "/save/emb.ckpt"
     download_file(params["embedding_file"], save_model_path)
     params["embedding_model"].load_state_dict(
@@ -216,7 +225,7 @@ if __name__ == "__main__":
 
                 # Compute embeddings
                 emb = compute_embeddings(wav, lens)
-                xv = emb.squeeze().cpu().numpy()
+                xv = emb.squeeze(1).cpu().numpy()
                 embeddings = numpy.concatenate((embeddings, xv), axis=0)
 
         # Speaker IDs and utterance IDs
