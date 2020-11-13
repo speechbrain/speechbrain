@@ -195,8 +195,10 @@ def test_load_extended_yaml(tmpdir):
     __import: !include:{test_yaml_file}
         a: !ref <a>
         b: !ref <b>
+    d: !ref <c>
     """
 
     things = load_extended_yaml(yaml, {"b": 3})
     assert things["a"] == things["b"]
     assert things["c"] == 1
+    assert things["d"] == things["c"]

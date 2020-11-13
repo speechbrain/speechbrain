@@ -256,9 +256,10 @@ def _walk_tree_and_resolve(key, current_node, tree, overrides):
                 sub_key, sub_node, tree, overrides
             )
 
-    # Walk mapping and resolve
+    # Walk mapping and resolve. Use list for items, because `!include` tags
+    # can update the dictionary during iteration
     elif isinstance(current_node, dict):
-        for k, sub_node in current_node.items():
+        for k, sub_node in list(current_node.items()):
             sub_key = k if key == "root" else f"{key}[{k}]"
             current_node[k] = _walk_tree_and_resolve(
                 sub_key, sub_node, tree, overrides
@@ -285,7 +286,6 @@ def _walk_tree_and_resolve(key, current_node, tree, overrides):
         # Include external yaml files
         elif tag_value.startswith("!include:"):
             filename = tag_value[len("!include:") :]
-            print(overrides)
 
             # Update overrides with child keys
             if isinstance(current_node, dict):
@@ -293,8 +293,6 @@ def _walk_tree_and_resolve(key, current_node, tree, overrides):
                     recursive_update(overrides, current_node)
                 else:
                     overrides = dict(current_node)
-
-            print(overrides)
 
             with open(filename) as f:
                 included_yaml = resolve_references(f, overrides)
