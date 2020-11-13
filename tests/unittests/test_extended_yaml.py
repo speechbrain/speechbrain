@@ -175,9 +175,11 @@ def test_load_extended_yaml():
     assert things["thing3"].args[0]() == "a string"
 
     # Dumping
+    import os.path
+
     dump_dict = {
         "data_folder": Placeholder(),
-        "examples": {"ex1": RefTag("data_folder", suffix="/ex1.wav")},
+        "examples": {"ex1": RefTag(os.path.join("<data_folder>", "ex1.wav"))},
     }
 
     from io import StringIO
