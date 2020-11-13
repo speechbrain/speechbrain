@@ -1,7 +1,7 @@
 import pytest
 
 
-def test_load_extended_yaml():
+def test_load_extended_yaml(tmpdir):
     from speechbrain.yaml import load_extended_yaml
 
     # Basic functionality
@@ -166,5 +166,37 @@ def test_load_extended_yaml():
     """
     things = load_extended_yaml(yaml)
     assert things["thing2"]() == "a string"
-    print(things["thing3"].args)
     assert things["thing3"].args[0]() == "a string"
+
+    # Placeholder
+    yaml = """
+    a: !PLACEHOLDER
+    """
+    with pytest.raises(ValueError) as excinfo:
+        things = load_extended_yaml(yaml)
+    assert str(excinfo.value) == "'a' is a !PLACEHOLDER and must be replaced."
+
+    # Import
+    imported_yaml = """
+    a: !PLACEHOLDER
+    b: !PLACEHOLDER
+    c: !ref <a> // <b>
+    """
+
+    import os.path
+
+    test_yaml_file = os.path.join(tmpdir, "test.yaml")
+    with open(test_yaml_file, "w") as w:
+        w.write(imported_yaml)
+
+    yaml = f"""
+    a: 3
+    b: !PLACEHOLDER
+    __import: !include:{test_yaml_file}
+        a: !ref <a>
+        b: !ref <b>
+    """
+
+    things = load_extended_yaml(yaml, {"b": 3})
+    assert things["a"] == things["b"]
+    assert things["c"] == 1
