@@ -15,6 +15,8 @@ import sys
 import torch
 import speechbrain as sb
 
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+
 
 # Define training procedure
 class ASR(sb.Brain):
@@ -25,6 +27,7 @@ class ASR(sb.Brain):
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
         phns, phn_lens = phns.to(self.device), phn_lens.to(self.device)
 
+        """
         if stage == sb.Stage.TRAIN:
             if hasattr(self.modules, "env_corrupt"):
                 wavs_noise = self.modules.env_corrupt(wavs, wav_lens)
@@ -33,6 +36,7 @@ class ASR(sb.Brain):
                 phns = torch.cat([phns, phns])
             if hasattr(self.hparams, "augmentation"):
                 wavs = self.hparams.augmentation(wavs, wav_lens)
+        """
 
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.normalize(feats, wav_lens)
@@ -72,9 +76,11 @@ class ASR(sb.Brain):
         ids, phns, phn_lens = targets
         phns, phn_lens = phns.to(self.device), phn_lens.to(self.device)
 
+        """
         if hasattr(self.hparams, "env_corrupt") and stage == sb.Stage.TRAIN:
             phns = torch.cat([phns, phns], dim=0)
             phn_lens = torch.cat([phn_lens, phn_lens], dim=0)
+        """
 
         # Add phn_lens by one for eos token
         abs_length = torch.round(phn_lens * phns.shape[1])
