@@ -9,19 +9,22 @@ To start a DDP experiment with this module, do:
 
 Authors:
  * Peter Plantinga 2020
+ * Abdel HEBA 2020
 """
 import os
 import sys
 import torch
 import argparse
 import subprocess
+import speechbrain as sb
 
 # Parse arguments relevant to ddp, while ignoring the rest
+supported_ddp = ["ddp_nccl", "ddp_gloo", "ddp_mpi"]
 parser = argparse.ArgumentParser()
 parser.add_argument(
     "--multigpu_backend",
-    choices=["ddp_nccl", "ddp_gloo", "ddp_mpi"],
-    default="ddp_nccl",
+    choices=supported_ddp,
+    default=None,
     help="Backend for training with Distributed Data Parallel",
 )
 parser.add_argument(
@@ -41,13 +44,41 @@ parser.add_argument(
     help="Port to use for communicating between processes",
 )
 ddp_args, passed_arglist = parser.parse_known_args(sys.argv[1:])
+# passed_arglist[1] = 'hyperparams.yaml' use it
+# to check the multigpu_{count,backend}
+hparams_file, overrides = sb.parse_arguments(passed_arglist[1:])
+with open(hparams_file) as fin:
+    hparams = sb.load_extended_yaml(fin, overrides)
+
+# Handle the multigpu_backend input
+if ddp_args.multigpu_backend is None:
+    if hparams["multigpu_backend"] is not None:
+        if hparams["multigpu_backend"] in ["ddp_nccl", "ddp_gloo", "ddp_mpi"]:
+            ddp_args.multigpu_backend = hparams["multigpu_backend"]
+        else:
+            print(
+                "Attribute multigpu_backend="
+                + str(hparams["multigpu_backend"])
+                + " in the yaml file"
+            )
+            print("We do support the following ddp:" + str(supported_ddp))
+            print("ddp_nccl is selected by default")
+            ddp_args.multigpu_backend = "ddp_nccl"
+    else:
+        print("No input for multigpu_backend, ddp_nccl is selected")
+        ddp_args.multigpu_backend = "ddp_nccl"
 
 # Pass backend unchanged
 passed_arglist += [f"--multigpu_backend={ddp_args.multigpu_backend}"]
 
-# Pass number of gpus to use, using all if not specified
-if ddp_args.multigpu_count is None:
+# Handle the multigpu_count input
+if ddp_args.multigpu_count is None and int(hparams["multigpu_count"]) > 0:
+    ddp_args.multigpu_count = int(hparams["multigpu_count"])
+else:
+    print("No input for multigpu_count, using all GPUs")
     ddp_args.multigpu_count = torch.cuda.device_count()
+
+
 passed_arglist += [f"--multigpu_count={ddp_args.multigpu_count}"]
 
 # Set appropriate environ objects
@@ -71,7 +102,6 @@ for rank in range(ddp_args.multigpu_count):
     # Build command
     cmd = [sys.executable] + passed_arglist
     cmd += [f"--device=cuda:{rank}"]
-
     # Logfile location for non-root processes
     outfile = os.path.join(ddp_logs_folder, f"log_{rank}.out")
     errfile = os.path.join(ddp_logs_folder, f"log_{rank}.err")
