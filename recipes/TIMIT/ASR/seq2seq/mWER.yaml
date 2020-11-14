@@ -53,7 +53,7 @@ eos_index: !ref <output_neurons> - 1
 min_decode_ratio: 0.0
 max_decode_ratio: 1.0
 beam_size: 16
-n_best: 8
+n_best: 1
 eos_threshold: 1.5
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
@@ -158,7 +158,9 @@ sampler: !new:speechbrain.decoders.seq2seq.S2SRNNBeamSearcher
     eos_index: !ref <eos_index>
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
-    beam_size: !ref <n_best>
+    beam_size: !ref <beam_size>
+    topk: !ref <n_best>
+    #return_log_probs: True
 
 greedy_searcher: !new:speechbrain.decoders.seq2seq.S2SRNNGreedySearcher
     embedding: !ref <emb>

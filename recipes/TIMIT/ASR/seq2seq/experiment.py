@@ -50,19 +50,32 @@ class ASR(sb.Brain):
         y_in = sb.data_io.data_io.prepend_bos_token(
             phns, self.hparams.bos_index
         )
+        # print(phns.shape)
         e_in = self.modules.emb(y_in)
         h, _ = self.modules.dec(e_in, x, wav_lens)
+
+        # n-best hyps for minWER loss
+        hyps, topk_hyps, topk_scores, topk_len = self.hparams.sampler(
+            x, wav_lens
+        )
 
         # output layer for seq2seq log-probabilities
         logits = self.modules.seq_lin(h)
         p_seq = self.hparams.log_softmax(logits)
 
         if stage == sb.Stage.VALID:
-            hyps, scores = self.hparams.greedy_searcher(x, wav_lens)
+            (
+                hyps,
+                topk_hyps,
+                topk_scores,
+                topk_len,
+            ) = self.hparams.greedy_searcher(x, wav_lens)
             return p_ctc, p_seq, wav_lens, hyps
 
         elif stage == sb.Stage.TEST:
-            hyps, scores = self.hparams.beam_searcher(x, wav_lens)
+            hyps, topk_hyps, topk_scores, topk_len = self.hparams.beam_searcher(
+                x, wav_lens
+            )
             return p_ctc, p_seq, wav_lens, hyps
 
         return p_ctc, p_seq, wav_lens
@@ -100,6 +113,7 @@ class ASR(sb.Brain):
 
         # Record losses for posterity
         if stage != sb.Stage.TRAIN:
+            # print(len(hyps))
             self.ctc_metrics.append(ids, p_ctc, phns, wav_lens, phn_lens)
             self.seq_metrics.append(ids, p_seq, phns_with_eos, rel_length)
             self.per_metrics.append(
