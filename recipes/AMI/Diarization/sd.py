@@ -2,6 +2,7 @@
 """
 This recipe implements diarization baseline
 using deep embedding extraction followed by spectral clustering.
+
 We use nearest-neighbor based affinity matrix.
 
 Condition: Oracle VAD and Oracle number of speakers.
@@ -14,26 +15,20 @@ import os
 import sys
 import torch
 import logging
-import speechbrain as sb
-import numpy as np
 import pickle
 import csv
 import glob
 import shutil
-import warnings
 import time
-import diarization as diar
+import numpy as np
+import speechbrain as sb
 from tqdm.contrib import tqdm
-
-from scipy.sparse.linalg import eigsh
-from scipy.sparse.csgraph import laplacian as csgraph_laplacian
 
 from speechbrain.utils.data_utils import download_file
 from speechbrain.data_io.data_io import DataLoaderFactory
 from speechbrain.processing.PLDA_LDA import StatObject_SB
+from speechbrain.processing import diarization as diar
 from speechbrain.utils.DER import DER
-
-# from diarization import *  # noqa F403
 
 np.random.seed(1234)
 
@@ -45,9 +40,7 @@ sys.path.append(os.path.dirname(current_dir))
 from ami_prepare import prepare_ami  # noqa E402
 
 try:
-    from sklearn.neighbors import kneighbors_graph
-    from sklearn.cluster import SpectralClustering
-    from sklearn.cluster._kmeans import k_means
+    import sklearn  # noqa F401
 except ImportError:
     err_msg = "The optional dependency sklearn is used in this module\n"
     err_msg += "Cannot import sklearn. \n"
@@ -86,7 +79,6 @@ def download_and_pretrain():
     )
 
 
-# I think this should be in the recipe
 def embedding_computation_loop(split, set_loader, stat_file):
     """Extracts embeddings for a given dataset loader
     """
@@ -142,149 +134,6 @@ def embedding_computation_loop(split, set_loader, stat_file):
 
 
 ################################################
-
-
-def spectral_embedding_sb(
-    adjacency, n_components=8, norm_laplacian=True, drop_first=True,
-):
-
-    # random_state = check_random_state(random_state)
-
-    # Whether to drop the first eigenvector
-    if drop_first:
-        n_components = n_components + 1
-
-    if not diar.graph_is_connected(adjacency):
-        warnings.warn(
-            "Graph is not fully connected, spectral embedding"
-            " may not work as expected."
-        )
-
-    laplacian, dd = csgraph_laplacian(
-        adjacency, normed=norm_laplacian, return_diag=True
-    )
-
-    laplacian = diar.set_diag(laplacian, 1, norm_laplacian)
-
-    laplacian *= -1
-    # v0 = random_state.uniform(-1, 1, laplacian.shape[0])
-
-    # vals, diffusion_map = eigsh(
-    #    laplacian, k=n_components, sigma=1.0, which="LM", tol=eigen_tol, v0=v0
-    # )
-
-    vals, diffusion_map = eigsh(
-        laplacian, k=n_components, sigma=1.0, which="LM",
-    )
-
-    embedding = diffusion_map.T[n_components::-1]
-
-    if norm_laplacian:
-        embedding = embedding / dd
-
-    embedding = diar.deterministic_vector_sign_flip(embedding)
-    if drop_first:
-        return embedding[1:n_components].T
-    else:
-        return embedding[:n_components].T
-
-
-def spectral_clustering_sb(
-    affinity,
-    n_clusters=8,
-    n_components=None,
-    eigen_solver=None,
-    random_state=None,
-    n_init=10,
-    eigen_tol=0.0,
-    assign_labels="kmeans",
-):
-
-    random_state = diar.check_random_state(random_state)
-    n_components = n_clusters if n_components is None else n_components
-
-    maps = spectral_embedding_sb(
-        affinity, n_components=n_components, drop_first=False,
-    )
-
-    _, labels, _ = k_means(
-        maps, n_clusters, random_state=random_state, n_init=n_init
-    )
-
-    return labels
-
-
-def do_spec_clustering(diary_obj_eval, out_rttm_file, rec_id, k=4):
-    """Performs spectral clustering on embeddings
-    """
-    clust_obj = Spec_Cluster(
-        n_clusters=k,
-        assign_labels="kmeans",
-        random_state=params["seed"],
-        affinity="nearest_neighbors",
-    )
-
-    clust_obj.perform_sc(diary_obj_eval.stat1)
-
-    labels = clust_obj.labels_
-
-    # Convert labels to speaker boundaries
-    subseg_ids = diary_obj_eval.segset
-    lol = []
-
-    for i in range(labels.shape[0]):
-        spkr_id = rec_id + "_" + str(labels[i])
-
-        sub_seg = subseg_ids[i]
-
-        splitted = sub_seg.rsplit("_", 2)
-        rec_id = str(splitted[0])
-        sseg_start = float(splitted[1])
-        sseg_end = float(splitted[2])
-
-        a = [rec_id, sseg_start, sseg_end, spkr_id]
-        lol.append(a)
-
-    # Sorting based on start time of sub-segment
-    lol.sort(key=lambda x: float(x[1]))
-
-    # Merge and split in 2 simple steps: (i) Merge sseg of same speakers then (ii) split different speakers
-    # Step 1: Merge adjacent sub-segments that belong to same speaker (or cluster)
-    lol = diar.merge_ssegs_same_speaker(lol)
-
-    # Step 2: Distribute duration of adjacent overlapping sub-segments belonging to different speakers (or cluster)
-    # Taking mid-point as the splitting time location.
-    lol = diar.distribute_overlap(lol)
-
-    logger.info("Completed diarizing " + rec_id)
-    diar.write_rttm(lol, out_rttm_file)
-
-
-class Spec_Cluster(SpectralClustering):
-    def perform_sc(self, X):
-        """Performs spectral clustering using sklearn on embeddings (X).
-
-        Arguments
-        ---------
-        X : array (n_samples, n_features)
-            Embeddings to be clustered
-        """
-
-        # Computation of affinity matrix
-        connectivity = kneighbors_graph(
-            X,
-            n_neighbors=params["n_neighbors"],
-            include_self=params["include_self"],
-        )
-        self.affinity_matrix_ = 0.5 * (connectivity + connectivity.T)
-
-        # Perform spectral clustering on affinity matrix
-        self.labels_ = spectral_clustering_sb(
-            self.affinity_matrix_,
-            n_clusters=self.n_clusters,
-            assign_labels=self.assign_labels,
-        )
-        return self
 
 
 def diarize_dataset(full_csv, split_type, n_lambdas):
@@ -381,7 +230,9 @@ def diarize_dataset(full_csv, split_type, n_lambdas):
             # Num of speakers tunned on dev set
             num_spkrs = n_lambdas
 
-        do_spec_clustering(diary_obj_dev, out_rttm_file, rec_id, k=num_spkrs)
+        diar.do_spec_clustering(
+            diary_obj_dev, out_rttm_file, rec_id, k=num_spkrs
+        )
 
     # Concatenate individual RTTM files
     # This is not needed but just staying with the standards
@@ -405,7 +256,8 @@ def diarize_dataset(full_csv, split_type, n_lambdas):
 
 
 def dev_tuner(full_csv, split_type):
-    """Tuning n_compenents on dev set. (Basic tunning).
+    """Tuning n_compenents on dev set.
+    This is a very basic tunning. This is work in progress for better way.
     Returns:
         n_lambdas = n_components
     """
