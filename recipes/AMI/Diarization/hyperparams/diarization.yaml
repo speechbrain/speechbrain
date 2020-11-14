@@ -36,7 +36,7 @@ deltas: False
 
 # Xvector model
 emb_dim: 512
-batch_size: 512
+batch_size: 128
 
 # AMI data_prep parameters
 split_type: 'full_corpus_asr'
@@ -49,7 +49,7 @@ overlap: 1.5
 # Cluster parameters
 max_num_spkrs: 10
 min_num_spkrs: 2
-oracle_n_spkrs: False
+oracle_n_spkrs: True
 n_neighbors: 10
 include_self: True
 

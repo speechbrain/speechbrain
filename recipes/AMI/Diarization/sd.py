@@ -20,10 +20,9 @@ import pickle
 import csv
 import glob
 import shutil
-
-# import numbers
 import warnings
 import time
+import diarization as diar
 from tqdm.contrib import tqdm
 
 from scipy.sparse.linalg import eigsh
@@ -33,7 +32,8 @@ from speechbrain.utils.data_utils import download_file
 from speechbrain.data_io.data_io import DataLoaderFactory
 from speechbrain.processing.PLDA_LDA import StatObject_SB
 from speechbrain.utils.DER import DER
-from diarization import *  # noqa F403
+
+# from diarization import *  # noqa F403
 
 np.random.seed(1234)
 
@@ -154,7 +154,7 @@ def spectral_embedding_sb(
     if drop_first:
         n_components = n_components + 1
 
-    if not graph_is_connected(adjacency):  # noqa F405
+    if not diar.graph_is_connected(adjacency):
         warnings.warn(
             "Graph is not fully connected, spectral embedding"
             " may not work as expected."
@@ -164,7 +164,7 @@ def spectral_embedding_sb(
         adjacency, normed=norm_laplacian, return_diag=True
     )
 
-    laplacian = set_diag(laplacian, 1, norm_laplacian)  # noqa F405
+    laplacian = diar.set_diag(laplacian, 1, norm_laplacian)
 
     laplacian *= -1
     # v0 = random_state.uniform(-1, 1, laplacian.shape[0])
@@ -182,7 +182,7 @@ def spectral_embedding_sb(
     if norm_laplacian:
         embedding = embedding / dd
 
-    embedding = deterministic_vector_sign_flip(embedding)  # noqa F405
+    embedding = diar.deterministic_vector_sign_flip(embedding)
     if drop_first:
         return embedding[1:n_components].T
     else:
@@ -200,7 +200,7 @@ def spectral_clustering_sb(
     assign_labels="kmeans",
 ):
 
-    random_state = check_random_state(random_state)  # noqa F405
+    random_state = diar.check_random_state(random_state)
     n_components = n_clusters if n_components is None else n_components
 
     maps = spectral_embedding_sb(
@@ -250,28 +250,14 @@ def do_spec_clustering(diary_obj_eval, out_rttm_file, rec_id, k=4):
 
     # Merge and split in 2 simple steps: (i) Merge sseg of same speakers then (ii) split different speakers
     # Step 1: Merge adjacent sub-segments that belong to same speaker (or cluster)
-    lol = merge_ssegs_same_speaker(lol)  # noqa F405
+    lol = diar.merge_ssegs_same_speaker(lol)
 
     # Step 2: Distribute duration of adjacent overlapping sub-segments belonging to different speakers (or cluster)
     # Taking mid-point as the splitting time location.
-    lol = distribute_overlap(lol)  # noqa F405
+    lol = diar.distribute_overlap(lol)
 
     logger.info("Completed diarizing " + rec_id)
-    write_rttm(lol, out_rttm_file)  # noqa F405
-
-
-# this
-def get_oracle_num_spkrs(rec_id, spkr_info):
-    """Returns actual number of speakers in a recording
-    """
-
-    num_spkrs = 0
-    for line in spkr_info:
-        if rec_id in line:
-            # Since rec_id is prefix for each speaker
-            num_spkrs += 1
-
-    return num_spkrs
+    diar.write_rttm(lol, out_rttm_file)
 
 
 class Spec_Cluster(SpectralClustering):
@@ -359,7 +345,7 @@ def diarize_dataset(full_csv, split_type, n_lambdas):
         new_csv_file = os.path.join(
             params["embedding_dir"], split, rec_id + ".csv"
         )
-        prepare_subset_csv(full_csv, rec_id, new_csv_file)  # noqa F405
+        diar.prepare_subset_csv(full_csv, rec_id, new_csv_file)
 
         # Setup a dataloader for above one recording (above csv)
         diary_set = DataLoaderFactory(
@@ -390,7 +376,7 @@ def diarize_dataset(full_csv, split_type, n_lambdas):
 
         if params["oracle_n_spkrs"] is True:
             # Oracle num of speakers
-            num_spkrs = get_oracle_num_spkrs(rec_id, spkr_info)
+            num_spkrs = diar.get_oracle_num_spkrs(rec_id, spkr_info)
         else:
             # Num of speakers tunned on dev set
             num_spkrs = n_lambdas
