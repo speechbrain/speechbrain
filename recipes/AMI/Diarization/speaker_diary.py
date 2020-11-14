@@ -15,7 +15,6 @@ import sys
 import torch
 import logging
 import speechbrain as sb
-import numpy
 import numpy as np
 import pickle
 import csv
@@ -92,9 +91,7 @@ def embedding_computation_loop(split, set_loader, stat_file):
     # Extract embeddings (skip if already done)
     if not os.path.isfile(stat_file):
 
-        embeddings = numpy.empty(
-            shape=[0, params["emb_dim"]], dtype=numpy.float64
-        )
+        embeddings = np.empty(shape=[0, params["emb_dim"]], dtype=np.float64)
         modelset = []
         segset = []
         with tqdm(set_loader, dynamic_ncols=True) as t:
@@ -111,14 +108,14 @@ def embedding_computation_loop(split, set_loader, stat_file):
 
                 # embedding computation
                 emb = compute_embeddings(wavs, lens).squeeze(1).cpu().numpy()
-                embeddings = numpy.concatenate((embeddings, emb), axis=0)
+                embeddings = np.concatenate((embeddings, emb), axis=0)
 
-        modelset = numpy.array(modelset, dtype="|O")
-        segset = numpy.array(segset, dtype="|O")
+        modelset = np.array(modelset, dtype="|O")
+        segset = np.array(segset, dtype="|O")
 
         # Intialize variables for start, stop and stat0
-        s = numpy.array([None] * embeddings.shape[0])
-        b = numpy.array([[1.0]] * embeddings.shape[0])
+        s = np.array([None] * embeddings.shape[0])
+        b = np.array([[1.0]] * embeddings.shape[0])
 
         stat_obj = StatObject_SB(
             modelset=modelset,
@@ -472,8 +469,7 @@ def check_random_state(seed):
     if isinstance(seed, np.random.RandomState):
         return seed
     raise ValueError(
-        "%r cannot be used to seed a numpy.random.RandomState"
-        " instance" % seed
+        "%r cannot be used to seed a np.random.RandomState" " instance" % seed
     )
 
 

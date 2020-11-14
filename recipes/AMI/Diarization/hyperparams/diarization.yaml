@@ -8,14 +8,13 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Folders
 data_folder: /network/datasets/ami/amicorpus
-manual_annot_folder: /miniscratch/ravanelm/ami_public_manual
-output_folder: results/ami/speaker_diarization_xvector/
+manual_annot_folder: /network/tmp1/dawalatn/AMI_MANUAL/
+output_folder: res1/ami/speaker_diarization_xvector/
 save_folder: !ref <output_folder>/save
 device: 'cuda:0'
 
 # Embedding model
 embedding_file: https://www.dropbox.com/sh/egbd9jsywbsjm45/AADp96m552bo5lsahR5hmmzMa/save/CKPT%2B2020-09-07%2B08-34-27%2B00/embedding_model.ckpt?dl=1 # yamllint disable-line rule:line-length
-#mbedding_file: /miniscratch/ravanelm/xvector_model/emb.ckpt
 model_dir: !ref <save_folder>/emb_model
 
 # Some more exp folders (for cleaner structure)
