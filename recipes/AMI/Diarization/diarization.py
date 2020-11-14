@@ -213,7 +213,7 @@ def graph_is_connected(graph):
         return n_connected_components == 1
     else:
         # dense graph, find all connected components start from node 0
-        # Fix this later
+        # TODO: Fix this later
         return (
             _graph_connected_component(graph, 0).sum()  # noqa F821
             == graph.shape[0]  # noqa F821
@@ -300,3 +300,16 @@ def check_random_state(seed):
     raise ValueError(
         "%r cannot be used to seed a np.random.RandomState" " instance" % seed
     )
+
+
+def get_oracle_num_spkrs(rec_id, spkr_info):
+    """Returns actual number of speakers in a recording
+    """
+
+    num_spkrs = 0
+    for line in spkr_info:
+        if rec_id in line:
+            # Since rec_id is prefix for each speaker
+            num_spkrs += 1
+
+    return num_spkrs
