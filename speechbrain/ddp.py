@@ -53,7 +53,7 @@ with open(hparams_file) as fin:
 # Handle the multigpu_backend input
 if ddp_args.multigpu_backend is None:
     if hparams["multigpu_backend"] is not None:
-        if hparams["multigpu_backend"] in ["ddp_nccl", "ddp_gloo", "ddp_mpi"]:
+        if hparams["multigpu_backend"] in supported_ddp:
             ddp_args.multigpu_backend = hparams["multigpu_backend"]
         else:
             print(
