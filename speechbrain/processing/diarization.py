@@ -1,11 +1,30 @@
 import csv
 import numbers
+import warnings
 import numpy as np
 
 from scipy import sparse
+from scipy.sparse.linalg import eigsh
 from scipy.sparse.csgraph import connected_components
+from scipy.sparse.csgraph import laplacian as csgraph_laplacian
 
 np.random.seed(1234)
+
+try:
+    from sklearn.neighbors import kneighbors_graph
+    from sklearn.cluster import SpectralClustering
+    from sklearn.cluster._kmeans import k_means
+except ImportError:
+    err_msg = "The optional dependency sklearn is used in this module\n"
+    err_msg += "Cannot import sklearn. \n"
+    err_msg += "Please follow the below instructions\n"
+    err_msg += "=============================\n"
+    err_msg += "Using pip:\n"
+    err_msg += "pip install sklearn\n"
+    err_msg += "================================ \n"
+    err_msg += "Using conda:\n"
+    err_msg += "conda install sklearn"
+    raise ImportError(err_msg)
 
 
 def prepare_subset_csv(full_diary_csv, rec_id, out_csv_file):
@@ -302,6 +321,7 @@ def check_random_state(seed):
     )
 
 
+#####################
 def get_oracle_num_spkrs(rec_id, spkr_info):
     """Returns actual number of speakers in a recording
     """
@@ -313,3 +333,150 @@ def get_oracle_num_spkrs(rec_id, spkr_info):
             num_spkrs += 1
 
     return num_spkrs
+
+
+#####################
+
+
+def spectral_embedding_sb(
+    adjacency, n_components=8, norm_laplacian=True, drop_first=True,
+):
+
+    # random_state = check_random_state(random_state)
+
+    # Whether to drop the first eigenvector
+    if drop_first:
+        n_components = n_components + 1
+
+    if not graph_is_connected(adjacency):
+        warnings.warn(
+            "Graph is not fully connected, spectral embedding"
+            " may not work as expected."
+        )
+
+    laplacian, dd = csgraph_laplacian(
+        adjacency, normed=norm_laplacian, return_diag=True
+    )
+
+    laplacian = set_diag(laplacian, 1, norm_laplacian)
+
+    laplacian *= -1
+    # v0 = random_state.uniform(-1, 1, laplacian.shape[0])
+
+    # vals, diffusion_map = eigsh(
+    #    laplacian, k=n_components, sigma=1.0, which="LM", tol=eigen_tol, v0=v0
+    # )
+
+    vals, diffusion_map = eigsh(
+        laplacian, k=n_components, sigma=1.0, which="LM",
+    )
+
+    embedding = diffusion_map.T[n_components::-1]
+
+    if norm_laplacian:
+        embedding = embedding / dd
+
+    embedding = deterministic_vector_sign_flip(embedding)
+    if drop_first:
+        return embedding[1:n_components].T
+    else:
+        return embedding[:n_components].T
+
+
+def spectral_clustering_sb(
+    affinity,
+    n_clusters=8,
+    n_components=None,
+    eigen_solver=None,
+    random_state=None,
+    n_init=10,
+    eigen_tol=0.0,
+    assign_labels="kmeans",
+):
+
+    random_state = check_random_state(random_state)
+    n_components = n_clusters if n_components is None else n_components
+
+    maps = spectral_embedding_sb(
+        affinity, n_components=n_components, drop_first=False,
+    )
+
+    _, labels, _ = k_means(
+        maps, n_clusters, random_state=random_state, n_init=n_init
+    )
+
+    return labels
+
+
+class Spec_Cluster(SpectralClustering):
+    def perform_sc(self, X, n_neighbors=10):
+        """Performs spectral clustering using sklearn on embeddings (X).
+
+        Arguments
+        ---------
+        X : array (n_samples, n_features)
+            Embeddings to be clustered
+        """
+
+        # Computation of affinity matrix
+        connectivity = kneighbors_graph(
+            X, n_neighbors=n_neighbors, include_self=True,
+        )
+        self.affinity_matrix_ = 0.5 * (connectivity + connectivity.T)
+
+        # Perform spectral clustering on affinity matrix
+        self.labels_ = spectral_clustering_sb(
+            self.affinity_matrix_,
+            n_clusters=self.n_clusters,
+            assign_labels=self.assign_labels,
+        )
+        return self
+
+
+#####################
+
+
+def do_spec_clustering(diary_obj_eval, out_rttm_file, rec_id, k=4):
+    """Performs spectral clustering on embeddings
+    """
+    clust_obj = Spec_Cluster(
+        n_clusters=k,
+        assign_labels="kmeans",
+        random_state=1234,
+        affinity="nearest_neighbors",
+    )
+
+    clust_obj.perform_sc(diary_obj_eval.stat1)
+
+    labels = clust_obj.labels_
+
+    # Convert labels to speaker boundaries
+    subseg_ids = diary_obj_eval.segset
+    lol = []
+
+    for i in range(labels.shape[0]):
+        spkr_id = rec_id + "_" + str(labels[i])
+
+        sub_seg = subseg_ids[i]
+
+        splitted = sub_seg.rsplit("_", 2)
+        rec_id = str(splitted[0])
+        sseg_start = float(splitted[1])
+        sseg_end = float(splitted[2])
+
+        a = [rec_id, sseg_start, sseg_end, spkr_id]
+        lol.append(a)
+
+    # Sorting based on start time of sub-segment
+    lol.sort(key=lambda x: float(x[1]))
+
+    # Merge and split in 2 simple steps: (i) Merge sseg of same speakers then (ii) split different speakers
+    # Step 1: Merge adjacent sub-segments that belong to same speaker (or cluster)
+    lol = merge_ssegs_same_speaker(lol)
+
+    # Step 2: Distribute duration of adjacent overlapping sub-segments belonging to different speakers (or cluster)
+    # Taking mid-point as the splitting time location.
+    lol = distribute_overlap(lol)
+
+    # logger.info("Completed diarizing " + rec_id)
+    write_rttm(lol, out_rttm_file)
