@@ -182,7 +182,7 @@ class S2SGreedySearcher(S2SBaseSearcher):
         scores, predictions = log_probs.max(dim=-1)
         scores = scores.sum(dim=1).tolist()
         predictions = batch_filter_seq2seq_output(
-            predictions, eos_id=self.eos_index
+            predictions.tolist(), eos_id=self.eos_index
         )
 
         return predictions, scores
@@ -223,7 +223,7 @@ class S2SRNNGreedySearcher(S2SGreedySearcher):
     ... )
     >>> enc = torch.rand([2, 6, 7])
     >>> wav_len = torch.rand([2])
-    >>> hyps, topk_hyps, topk_scores, topk_len = searcher(enc, wav_len)
+    >>> hyps, scores = searcher(enc, wav_len)
     """
 
     def __init__(self, embedding, decoder, linear, **kwargs):
