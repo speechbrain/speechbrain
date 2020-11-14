@@ -16,7 +16,7 @@ To run this recipe, do the following:
     > python speaker_verification_discriminator.py {hyperparameter_file}
 
 Using your own hyperparameter file or one of the following:
-    hyperparams/verfication_discriminator_xvector_voxceleb1.yaml
+    hyperparams/verfication_discriminator_xvector.yaml
 
 Author
 * Mirco Ravanelli 2020

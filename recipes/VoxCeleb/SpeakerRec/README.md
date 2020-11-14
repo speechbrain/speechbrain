@@ -4,7 +4,7 @@ This folder contains scripts for running speaker identification and verification
 # Training Xvectors
 Run the following command to train xvectors:
 
-`python train_speaker_embeddings.py hyperparams/train_xvector_voxceleb.yaml`
+`python train_speaker_embeddings.py hyperparams/train_x_vectors.yaml`
 
 You can use the same script for voxceleb1, voxceleb2, and voxceleb1+2. Just change the datafolder and the corresponsing number or speakers (1211 vox1, 5994 vox2, 7205 vox1+2).
 For voxceleb1 + voxceleb2, see preparation instructions below).
@@ -14,7 +14,7 @@ The system trains a TDNN for speaker embeddings coupled with a speaker-id classi
 # Speaker verification with PLDA
 After training the speaker embeddings, it is possible to perform speaker verification using PLDA.  You can run it with the following command:
 
-`python speaker_verification_plda.py hyperparams/verification_plda_xvector_voxceleb.yaml`
+`python speaker_verification_plda.py hyperparams/verification_plda_xvector.yaml`
 
 If you didn't train the speaker embedding before, we automatically download the xvector model from the web.
 This system achieves an EER = 5.8 % on voxceleb1, EER = 4.7 % on voxceleb2, and EER = 4.3 % on voxceleb1 + voxceleb2.
@@ -24,7 +24,7 @@ These results are all obtained with the official verification split of voxceleb1
 SpeechBrain supports speaker verification using contrastive learning.
 We employ a pre-trained encoder followed by a binary discriminator. The discriminator is fed with either positive or negative embeddings that are properly sampled from the dataset.  To run this experiment, type the following command:
 
-`python speaker_verification_discriminator.py hyperparams/verfication_discriminator_xvector_voxceleb.yaml`
+`python speaker_verification_discriminator.py hyperparams/verfication_discriminator_xvector.yaml`
 
 If you didn't train the speaker embedding before, we automatically download the xvector model from the web.
 This system achieves an EER = 3.8 % on voxceleb1, EER = 3.1 % on voxceleb2, and EER = 2.9 % on voxceleb1 + voxceleb2.
@@ -33,14 +33,14 @@ These results are all obtained with the official verification split of voxceleb1
 # Speaker verification using ECAPA-TDNN embeddings
 Run the following command to train speaker embeddings using [ECAPA-TDNN](https://arxiv.org/abs/2005.07143):
 
-`python train_speaker_embeddings.py hyperparams/train_ecapa_tdnn_voxceleb.yaml`
+`python train_speaker_embeddings.py hyperparams/train_ecapa_tdnn.yaml`
 
 
 The speaker-id accuracy should be around 98-99% for both voxceleb1 and voceleb2.
 
 After training the speaker embeddings, it is possible to perform speaker verification using cosine similarity.  You can run it with the following command:
 
-`python speaker_verification_cosine.py hyperparams/verification_ecapa_tdnn_voxceleb.yaml`
+`python speaker_verification_cosine.py hyperparams/verification_ecapa_tdnn.yaml`
 
 This system achieves an EER = 3.4 % on voxceleb1, EER = 1.6 % on voxceleb2, and EER = 1.4 % on voxceleb1 + voxceleb2.
 These results are all obtained with the official verification split of voxceleb1 (veri\_split.txt)

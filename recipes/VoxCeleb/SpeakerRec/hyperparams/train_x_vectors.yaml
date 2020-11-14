@@ -3,7 +3,7 @@ seed: 111
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Data (csv) files
-data_folder: /localscratch/voxceleb1/
+data_folder: /localscratch/voxceleb1_2/
 output_folder: !ref results/voxceleb_xvect/<seed>
 save_folder: !ref <output_folder>/save/
 train_log: !ref <output_folder>/train_log.txt
@@ -29,7 +29,7 @@ right_frames: 0
 deltas: False
 
 # Number of speakers
-out_n_neurons: 1211  # 5994 for vox2, 7205 for vox1+vox2
+out_n_neurons: 7205 #1211 for vox1  # 5994 for vox2, 7205 for vox1+vox2
 
 
 # Dataloaders

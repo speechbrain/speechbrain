@@ -7,7 +7,7 @@ seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Folders and train_log file
-data_folder: /localscratch/voxceleb1  # use vox 1, vox2, or vox1+vox2 datasets
+data_folder: /localscratch/voxceleb1_2  # use vox 1, vox2, or vox1+vox2 datasets
 output_folder: results/voxceleb1/speaker_verification_plda_xvectors
 save_folder: !ref <output_folder>/save/
 device: 'cuda:0'

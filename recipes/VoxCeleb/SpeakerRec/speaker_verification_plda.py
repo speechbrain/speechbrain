@@ -4,7 +4,7 @@ The system employs a pre-trained model followed by a PLDA transformation.
 The pre-trained model is automatically downloaded from the web if not specified.
 
 To run this recipe, run the following command:
-    >  python speaker_verification_plda.py hyperparams/verification_plda_xvector_voxceleb.yaml
+    >  python speaker_verification_plda.py hyperparams/verification_plda_xvector.yaml
 
 Authors
     * Nauman Dawalatabad 2020
