@@ -26,8 +26,11 @@ openrir_folder: !ref <data_folder> # e.g. /path/to/RIRS
 number_of_epochs: 50
 batch_size: 8
 lr: 1.0
-device: 'cuda:0'
-ddp_procs: 0  # Set this to number of GPUs for multi-GPU
+# For DDP, use `python -m speechbrain.ddp experiment.py` to launch experiment
+# These options will be set by that script, and will override these.
+device: cuda:0
+multigpu_count: 0  # Set this to number of GPUs for multi-GPU
+multigpu_backend: null
 
 # Feature parameters
 sample_rate: 16000
@@ -54,7 +57,7 @@ joint_dim: 128
 blank_index: !ref <output_neurons> - 1
 
 # Decoding parameters
-beam: 4
+beam_size: 4
 nbest: 1
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
@@ -163,18 +166,18 @@ model: !new:torch.nn.ModuleList [[
 ]]
 
 Greedysearcher: !new:speechbrain.decoders.transducer.TransducerBeamSearcher
-    decode_network_lst: [!ref <emb>, !ref <dec>]
+    decode_network_lst: [!ref <emb>, !ref <dec>, !ref <dec_lin>]
     tjoint: !ref <Tjoint>
-    classifier_network: [!ref <transducer_lin>]
-    blank_id: !ref <blank_id>
+    classifier_network: [!ref <output>]
+    blank_id: !ref <blank_index>
     beam_size: 1
     nbest: 1
 
 Beamsearcher: !new:speechbrain.decoders.transducer.TransducerBeamSearcher
-    decode_network_lst: [!ref <emb>, !ref <dec>]
+    decode_network_lst: [!ref <emb>, !ref <dec>, !ref <dec_lin>]
     tjoint: !ref <Tjoint>
-    classifier_network: [!ref <transducer_lin>]
-    blank_id: !ref <blank_id>
+    classifier_network: [!ref <output>]
+    blank_id: !ref <blank_index>
     beam_size: !ref <beam_size>
     nbest: !ref <nbest>
     state_beam: 2.3
@@ -203,14 +206,12 @@ modules:
     env_corrupt: !ref <env_corrupt>
     augmentation: !ref <augmentation>
 
-jit_module_keys: [enc]
-
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
         model: !ref <model>
+        scheduler: !ref <lr_annealing>
         normalize: !ref <normalize>
-        lr_annealing: !ref <lr_annealing>
         counter: !ref <epoch_counter>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger

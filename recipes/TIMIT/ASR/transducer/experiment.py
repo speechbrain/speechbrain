@@ -6,8 +6,7 @@ To run this recipe, do the following:
 > python experiment.py {hyperparameter file} --data_folder /path/to/TIMIT
 
 Using your own hyperparameter file or one of the following:
- * hyperparams/augment_CRDNN.yaml
- * hyperparams/augment_noise_CRDNN.yaml
+ * hyperparams.yaml
 
 Authors
  * Abdel Heba 2020
@@ -60,7 +59,7 @@ class ASR(sb.Brain):
         p_transducer = self.hparams.log_softmax(logits)
 
         if stage == sb.Stage.VALID:
-            hyps, scores, _, _ = self.Greedysearcher(x)
+            hyps, scores, _, _ = self.hparams.Greedysearcher(x)
             return p_transducer, wav_lens, hyps
 
         elif stage == sb.Stage.TEST:
@@ -69,7 +68,7 @@ class ASR(sb.Brain):
                 best_scores,
                 nbest_hyps,
                 nbest_scores,
-            ) = self.Beamsearcher(x)
+            ) = self.hparams.Beamsearcher(x)
             return p_transducer, wav_lens, best_hyps
         return p_transducer, wav_lens
 
