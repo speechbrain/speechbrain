@@ -3,7 +3,7 @@
 The cosine distance is computed on the top of pre-trained embeddings.
 The pre-trained model is automatically downloaded from the web if not specified.
 To run this recipe, run the following command:
-    >  python speaker_verification_cosine.py hyperparams/verification_ecapa_tdnn_voxceleb.yaml
+    >  python speaker_verification_cosine.py hyperparams/verification_ecapa_tdnn.yaml
 Authors
     * Hwidong Na 2020
     * Mirco Ravanelli 2020

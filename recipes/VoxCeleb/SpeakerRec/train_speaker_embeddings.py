@@ -7,7 +7,7 @@ To run this recipe, use the following command:
 
 Using your own hyperparameter file or one of the following:
     hyperparams/train_x_vectors.yaml (for standard xvectors)
-    hyperparams/train_ecapa_tdnn_voxceleb.yaml (for the ecapa+tdnn system)
+    hyperparams/train_ecapa_tdnn.yaml (for the ecapa+tdnn system)
 
 Author
     * Mirco Ravanelli 2020
