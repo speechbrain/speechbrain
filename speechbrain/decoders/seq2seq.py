@@ -223,7 +223,7 @@ class S2SRNNGreedySearcher(S2SGreedySearcher):
     ... )
     >>> enc = torch.rand([2, 6, 7])
     >>> wav_len = torch.rand([2])
-    >>> hyps, scores = searcher(enc, wav_len)
+    >>> hyps, topk_hyps, topk_scores, topk_len = searcher(enc, wav_len)
     """
 
     def __init__(self, embedding, decoder, linear, **kwargs):
@@ -873,7 +873,7 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
     ... )
     >>> enc = torch.rand([2, 6, 7])
     >>> wav_len = torch.rand([2])
-    >>> hyps, scores = searcher(enc, wav_len)
+    >>> hyps, topk_hyps, topk_scores, topk_len = searcher(enc, wav_len)
     """
 
     def __init__(self, embedding, decoder, linear, temperature=1.0, **kwargs):
@@ -1210,7 +1210,7 @@ def batch_filter_seq2seq_output(prediction, eos_id=-1):
 
     Example
     -------
-        >>> predictions = [torch.IntTensor([1,2,3,4]), torch.IntTensor([2,3,4,5,6])]
+        >>> predictions = [[1,2,3,4], [2,3,4,5,6]]
         >>> predictions = batch_filter_seq2seq_output(predictions, eos_id=4)
         >>> predictions
         [[1, 2, 3], [2, 3]]
