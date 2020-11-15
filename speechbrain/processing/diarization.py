@@ -3,7 +3,7 @@ This script contains basic utility functions for speaker diarization. It has opt
 
 Authors
 -------
- * Nauman Dawalatabad
+ * Nauman Dawalatabad 2020
 """
 
 import csv
@@ -126,7 +126,8 @@ def merge_ssegs_same_speaker(lol):
 
 def distribute_overlap(lol):
     """
-    Distributes the overlapped speech equally among the adjacent segments with different speakers.
+    Distributes the overlapped speech equally among the adjacent segments
+    with different speakers.
 
     Arguments
     ---------
@@ -136,7 +137,8 @@ def distribute_overlap(lol):
     Returns
     -------
     new_lol : list of list
-        new_lol contains the overlapped part equally divided among the adjacent segments with different speaker IDs.
+        new_lol contains the overlapped part equally divided among the adjacent
+        segments with different speaker IDs.
     """
 
     new_lol = []
@@ -239,14 +241,16 @@ def graph_connected_component(graph, node_id):
     Arguments
     ---------
     graph : array-like, shape: (n_samples, n_samples)
-        Adjacency matrix of the graph, non-zero weight means an edge between the nodes
+        Adjacency matrix of the graph, non-zero weight means an edge
+        between the nodes.
     node_id : int
-        The index of the query node of the graph
+        The index of the query node of the graph.
 
     Returns
     -------
     connected_components_matrix : array-like, shape: (n_samples,)
-        An array of bool value indicating the indexes of the nodes belonging to the largest connected components of the given query node.
+        An array of bool value indicating the indexes of the nodes belonging
+        to the largest connected components of the given query node.
     """
 
     n_node = graph.shape[0]
@@ -278,7 +282,8 @@ def graph_is_connected(graph):
 
     Arguments
     ---------
-    graph : array-like or sparse matrix, shape: (n_samples, n_samples) adjacency matrix of the graph, non-zero weight means an edge between the nodes.
+    graph : array-like or sparse matrix, shape: (n_samples, n_samples)
+        Adjacency matrix of the graph, non-zero weight means an edge between the nodes.
 
     Returns
     -------
@@ -297,7 +302,8 @@ def graph_is_connected(graph):
 
 def set_diag(laplacian, value, norm_laplacian):
     """
-    Set the diagonal of the laplacian matrix and convert it to a sparse format well suited for eigenvalue decomposition.
+    Set the diagonal of the laplacian matrix and convert it to a sparse
+    format well suited for eigenvalue decomposition.
 
     Arguments
     ---------
@@ -311,7 +317,8 @@ def set_diag(laplacian, value, norm_laplacian):
     Returns
     -------
     laplacian : array or sparse matrix
-        An array of matrix in a form that is well suited to fast eigenvalue decomposition, depending on the band width of the matrix.
+        An array of matrix in a form that is well suited to fast eigenvalue
+        decomposition, depending on the band width of the matrix.
     """
 
     n_nodes = laplacian.shape[0]
@@ -340,7 +347,9 @@ def set_diag(laplacian, value, norm_laplacian):
 
 def deterministic_vector_sign_flip(u):
     """
-    Modify the sign of vectors for reproducibility. Flips the sign of elements of all the vectors (rows of u) such that the absolute maximum element of each vector is positive.
+    Modify the sign of vectors for reproducibility. Flips the sign of
+    elements of all the vectors (rows of u) such that the absolute
+    maximum element of each vector is positive.
 
     Arguments
     ---------
@@ -387,7 +396,9 @@ def check_random_state(seed):
 
 
 def get_oracle_num_spkrs(rec_id, spkr_info):
-    """Returns actual number of speakers in a recording from the groundtruth. Thi can be used when condition is oracle number of speakers.
+    """
+    Returns actual number of speakers in a recording from the groundtruth.
+    This can be used when the condition is oracle number of speakers.
 
     Arguments
     ---------
@@ -525,50 +536,41 @@ class Spec_Cluster(SpectralClustering):
 #####################
 
 
-def getLamdaGaplist(eig_vals):
-    """
-    Returns the difference (gaps) between the eigen values.
-
-    Arguments
-    ---------
-    eig_vals : list
-        List of eigen values
-
-    Returns
-    -------
-    eig_vals_gap_list : list
-        List of differences (gaps) between adjancent eigen values.
-    """
-
-    eig_vals_gap_list = []
-    for i in range(len(eig_vals) - 1):
-        gap = float(eig_vals[i + 1]) - float(eig_vals[i])
-        # eig_vals_gap_list.append(float(eig_vals[i + 1]) - float(eig_vals[i]))
-        eig_vals_gap_list.append(gap)
-    return eig_vals_gap_list
-
-
 class Spec_Clust_unorm:
     """
-    This class implements the spectral clustering with unnormalized affinity matrix. Useful when affinity matrix is based on cosine similarities.
+    This class implements the spectral clustering with unnormalized affinity matrix.
+    Useful when affinity matrix is based on cosine similarities.
     """
 
     def __init__(self, min_num_spkrs=2, max_num_spkrs=10):
+        """Init"""
         self.min_num_spkrs = min_num_spkrs
         self.max_num_spkrs = max_num_spkrs
 
     def do_spec_clust(self, X, k_oracle, p_val):
+        """
+        Main function for spectral clustering.
 
-        # Similarity matrix
+        Arguments
+        ---------
+        X : array (n_samples, n_features)
+            Embeddings extracted from the model.
+        k_oracle : int
+            Number of speakers (when oracle number of speakers)
+        p_val : float
+            p percent value to prune the affinity matrix
+        """
+
+        # Similarity matrix computation
         sim_mat = self.get_sim_mat(X)
 
-        # Prunning
+        # Refining similarity matrix with p_val
         prunned_sim_mat = self.p_pruning(sim_mat, p_val)
 
         # Symmetrization
         sym_prund_sim_mat = 0.5 * (prunned_sim_mat + prunned_sim_mat.T)
 
-        # Laplaciann
+        # Laplacian calculation
         laplacian = self.get_laplacian(sym_prund_sim_mat)
 
         # Get Spectral Embeddings
@@ -578,11 +580,40 @@ class Spec_Clust_unorm:
         self.cluster_embs(emb, num_of_spk)
 
     def get_sim_mat(self, X):
+        """
+        Returns the similarity matrix based on cosine similarities.
+
+        Arguments
+        ---------
+        X : array (n_samples, n_features)
+            Embeddings extracted from the model.
+
+        Returns
+        -------
+        M : array (n_samples, n_samples)
+            Similarity matrix with cosine similarities between each pair of embedding.
+        """
+
         # Cosine similarities
         M = sklearn.metrics.pairwise.cosine_similarity(X, X)
         return M
 
     def p_pruning(self, A, pval):
+        """
+        Refine the affinity matrix by zeroing less similar values.
+
+        Arguments
+        ---------
+        A : array (n_samples, n_samples)
+            Affinity matrix.
+        pval : float
+            p-value to be retained in each row of the affinity matrix.
+
+        Returns
+        -------
+        A : array (n_samples, n_samples)
+            Prunned affinity matrix based on p_val.
+        """
 
         n_elems = int((1 - pval) * A.shape[0])
 
@@ -597,6 +628,20 @@ class Spec_Clust_unorm:
         return A
 
     def get_laplacian(self, M):
+        """
+        Returns the un-normalized laplacian for the given affinity matrix.
+
+        Arguments
+        ---------
+        M : array (n_samples, n_samples)
+            Affinity matrix.
+
+        Returns
+        ------
+        L : array (n_samples, n_samples)
+            Laplacian matrix.
+        """
+
         M[np.diag_indices(M.shape[0])] = 0
         D = np.sum(np.abs(M), axis=1)
         D = np.diag(D)
@@ -604,13 +649,33 @@ class Spec_Clust_unorm:
         return L
 
     def get_spec_embs(self, L, k_oracle=4):
+        """
+        Returns spectral embeddings and estimates the number of speakers
+        using maximum eigen gap.
+
+        Arguments
+        ---------
+        L : array (n_samples, n_samples)
+            Laplacian matrix.
+        k_oracle : int
+            Number of speakers when condition is oracle number of speakers, else None.
+
+        Returns
+        -------
+        emb : array (n_samples, n_components)
+            Spectral embedding for each sample with n eigen compoenents.
+        num_of_spk : int
+            Estimated number of speakers. If condition is oracle number of
+            speakers then returns k_oracle.
+        """
+
         lambdas, eig_vecs = scipy.linalg.eigh(L)
 
         # if params["oracle_n_spkrs"] is True:
         if k_oracle is not None:
             num_of_spk = k_oracle
         else:
-            lambda_gap_list = getLamdaGaplist(lambdas[1 : self.max_num_spkrs])
+            lambda_gap_list = self.getEigenGaps(lambdas[1 : self.max_num_spkrs])
 
             num_of_spk = (
                 np.argmax(
@@ -629,22 +694,77 @@ class Spec_Clust_unorm:
         return emb, num_of_spk
 
     def cluster_embs(self, emb, k):
+        """
+        Clusters the embeddings using kmeans.
+
+        Arguments
+        ---------
+        emb : array (n_samples, n_components)
+            Spectral embedding for each sample with n eigen compoenents.
+        k : int
+            Number of clusters to kmeans.
+
+        Returns
+        -------
+        self.labels_ : self
+            Labels for each sample embedding.
+        """
         _, self.labels_, _ = k_means(emb, k)
+
+    def getEigenGaps(eig_vals):
+        """
+        Returns the difference (gaps) between the eigen values.
+
+        Arguments
+        ---------
+        eig_vals : list
+            List of eigen values
+
+        Returns
+        -------
+        eig_vals_gap_list : list
+            List of differences (gaps) between adjancent eigen values.
+        """
+
+        eig_vals_gap_list = []
+        for i in range(len(eig_vals) - 1):
+            gap = float(eig_vals[i + 1]) - float(eig_vals[i])
+            # eig_vals_gap_list.append(float(eig_vals[i + 1]) - float(eig_vals[i]))
+            eig_vals_gap_list.append(gap)
+
+        return eig_vals_gap_list
 
 
 #####################
 
 
 def do_spec_clustering(
-    diary_obj_eval, out_rttm_file, rec_id, k, pval, affinity
+    diary_obj, out_rttm_file, rec_id, k, pval, affinity_type
 ):
-    """Performs spectral clustering on embeddings
+    """
+    Performs spectral clustering on embeddings. This function calls specific
+    clustering algorithms as per affinity.
+
+    Arguments
+    ---------
+    diary_obj : StatObject_SB type
+        Contains embeddings in diary_obj.stat1 and segment IDs in diary_obj.segset
+    out_rttm_file : str
+        Path of the output RTTM file.
+    rec_id : str
+        Recording ID for the recording under processing.
+    k : int
+        Number of speaker (None, if it has to be estimated)
+    pval : float
+        pval for prunning affinity matrix
+    affinity_type : str
+        Type of similarity to be used to get affinity matrix (cos or nn)
     """
 
-    if affinity == "cos":
+    if affinity_type == "cos":
         clust_obj = Spec_Clust_unorm(min_num_spkrs=2, max_num_spkrs=10)
         k_oracle = k  # use it only when oracle num of speakers
-        clust_obj.do_spec_clust(diary_obj_eval.stat1, k_oracle, pval)
+        clust_obj.do_spec_clust(diary_obj.stat1, k_oracle, pval)
         labels = clust_obj.labels_
     else:
         clust_obj = Spec_Cluster(
@@ -653,11 +773,11 @@ def do_spec_clustering(
             random_state=1234,
             affinity="nearest_neighbors",
         )
-        clust_obj.perform_sc(diary_obj_eval.stat1)
+        clust_obj.perform_sc(diary_obj.stat1)
         labels = clust_obj.labels_
 
     # Convert labels to speaker boundaries
-    subseg_ids = diary_obj_eval.segset
+    subseg_ids = diary_obj.segset
     lol = []
 
     for i in range(labels.shape[0]):
