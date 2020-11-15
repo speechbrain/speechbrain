@@ -10,7 +10,7 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 7
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/augment_noise_CRDNN/<seed>
+output_folder: !ref results/augment_noise_CRDNN_exp_multigpu/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -20,17 +20,20 @@ data_folder: /localscratch/TIMIT
 csv_train: !ref <data_folder>/train.csv
 csv_valid: !ref <data_folder>/dev.csv
 csv_test: !ref <data_folder>/test.csv
+# If RIRS_NOISES dir exists in /localscratch/xxx_corpus/RIRS_NOISES
+# then data_folder_rirs should be /localscratch/xxx_corpus
+# otherwise the dataset will automatically be downloaded
 openrir_folder: !ref <data_folder> # e.g. /path/to/RIRS
 
 # Training parameters
-number_of_epochs: 50
+number_of_epochs: 30
 batch_size: 8
 lr: 1.0
 # For DDP, use `python -m speechbrain.ddp experiment.py` to launch experiment
 # These options will be set by that script, and will override these.
 device: cuda:0
-multigpu_count: 0  # Set this to number of GPUs for multi-GPU
-multigpu_backend: null
+multigpu_count: 0 # Set this to number of GPUs for multi-GPU
+multigpu_backend: null # ["data_parallel", "ddp_nccl", "ddp_gloo", "ddp_mpi"]
 
 # Feature parameters
 sample_rate: 16000
@@ -59,6 +62,10 @@ blank_index: !ref <output_neurons> - 1
 # Decoding parameters
 beam_size: 4
 nbest: 1
+# by default {state,expand}_beam = 2.3 as mention in paper
+# https://arxiv.org/abs/1904.02619
+state_beam: 1.0
+expand_beam: 1.0
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
@@ -180,8 +187,8 @@ Beamsearcher: !new:speechbrain.decoders.transducer.TransducerBeamSearcher
     blank_id: !ref <blank_index>
     beam_size: !ref <beam_size>
     nbest: !ref <nbest>
-    state_beam: 2.3
-    expand_beam: 2.3
+    state_beam: !ref <state_beam>
+    expand_beam: !ref <expand_beam>
 
 opt_class: !name:torch.optim.Adadelta
     rho: 0.95
@@ -211,7 +218,7 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     recoverables:
         model: !ref <model>
         scheduler: !ref <lr_annealing>
-        normalize: !ref <normalize>
+        normalizer: !ref <normalize>
         counter: !ref <epoch_counter>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
