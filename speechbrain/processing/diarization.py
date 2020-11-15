@@ -1,7 +1,5 @@
 """
-This script contains basic utility functions for speaker diarization.
-It has optional dependency on open source sklearn library.
-A few sklearn functions are modified in this script as per requirement.
+This script contains basic utility functions for speaker diarization. It has optional dependency on open source sklearn library. A few sklearn functions are modified in this script as per requirement.
 
 Authors
 -------
@@ -40,8 +38,19 @@ except ImportError:
 
 
 def prepare_subset_csv(full_diary_csv, rec_id, out_csv_file):
-    """Prepares csv for a given recording ID
     """
+    Prepares csv for a given recording ID
+
+    Arguments
+    ---------
+    full_diary_csv : csv
+        Full csv containing all the recordings
+    rec_id : str
+        The recording ID for which csv has to be prepared
+    out_csv_file : str
+        Path of the output csv file.
+    """
+
     out_csv_head = [full_diary_csv[0]]
     entry = []
     for row in full_diary_csv:
@@ -59,8 +68,22 @@ def prepare_subset_csv(full_diary_csv, rec_id, out_csv_file):
 
 
 def is_overlapped(end1, start2):
-    """Returns True if segments are overlapping
     """
+    Returns True if segments are overlapping
+
+    Arguments
+    ---------
+    end1 : float
+        End time of the first segment.
+    start2 : float
+        Start time of the second segment.
+
+    Returns
+    -------
+    overlaped : bool
+        True of segments overlaped else False.
+    """
+
     if start2 > end1:
         return False
     else:
@@ -68,13 +91,20 @@ def is_overlapped(end1, start2):
 
 
 def merge_ssegs_same_speaker(lol):
-    """Merge adjacent sub-segs from a same speaker.
+    """
+    Merge adjacent sub-segs from a same speaker.
 
     Arguments
     ---------
     lol : list of list
-        Each list -  [rec_id, sseg_start, sseg_end, spkr_id]
+        Each list contains [rec_id, sseg_start, sseg_end, spkr_id].
+
+    Returns
+    -------
+    new_lol : list of list
+        new_lol contains adjacent segments merged from a same speaker ID.
     """
+
     new_lol = []
 
     # Start from the first sub-seg
@@ -95,9 +125,20 @@ def merge_ssegs_same_speaker(lol):
 
 
 def distribute_overlap(lol):
-    """Distributes the overlapped speech equally among the adjacent segments with different speakers.
-    Input list of list: structure [rec_id, sseg_start, sseg_end, spkr_id]
     """
+    Distributes the overlapped speech equally among the adjacent segments with different speakers.
+
+    Arguments
+    ---------
+    lol : list of list
+        lol has each list structure as [rec_id, sseg_start, sseg_end, spkr_id].
+
+    Returns
+    -------
+    new_lol : list of list
+        new_lol contains the overlapped part equally divided among the adjacent segments with different speaker IDs.
+    """
+
     new_lol = []
     sseg = lol[0]
 
@@ -152,8 +193,17 @@ def distribute_overlap(lol):
 
 
 def write_rttm(segs_list, out_rttm_file):
-    """Writes the segment list in RTTM format.
     """
+    Writes the segment list in RTTM format (Standard NIST format).
+
+    Arguments
+    ---------
+    segs_list : list of list
+        Each list contains [rec_id, sseg_start, sseg_end, spkr_id].
+    out_rttm_file : str
+        Path of the output RTTM file
+    """
+
     rttm = []
     rec_id = segs_list[0][0]
 
@@ -182,22 +232,23 @@ def write_rttm(segs_list, out_rttm_file):
 
 
 def graph_connected_component(graph, node_id):
-    """Find the largest graph connected components that contains one
-    given node
-    Parameters
-    ----------
+    """
+    Find the largest graph connected components that contains one
+    given node.
+
+    Arguments
+    ---------
     graph : array-like, shape: (n_samples, n_samples)
-        adjacency matrix of the graph, non-zero weight means an edge
-        between the nodes
+        Adjacency matrix of the graph, non-zero weight means an edge between the nodes
     node_id : int
         The index of the query node of the graph
+
     Returns
     -------
     connected_components_matrix : array-like, shape: (n_samples,)
-        An array of bool value indicating the indexes of the nodes
-        belonging to the largest connected components of the given query
-        node
+        An array of bool value indicating the indexes of the nodes belonging to the largest connected components of the given query node.
     """
+
     n_node = graph.shape[0]
     if sparse.issparse(graph):
         # speed up row-wise access to boolean connection mask
@@ -222,48 +273,47 @@ def graph_connected_component(graph, node_id):
 
 
 def graph_is_connected(graph):
-    """ Return whether the graph is connected (True) or Not (False)
-    Parameters
-    ----------
-    graph : array-like or sparse matrix, shape: (n_samples, n_samples)
-        adjacency matrix of the graph, non-zero weight means an edge
-        between the nodes
+    """
+    Return whether the graph is connected (True) or Not (False)
+
+    Arguments
+    ---------
+    graph : array-like or sparse matrix, shape: (n_samples, n_samples) adjacency matrix of the graph, non-zero weight means an edge between the nodes.
+
     Returns
     -------
     is_connected : bool
         True means the graph is fully connected and False means not
     """
+
     if sparse.isspmatrix(graph):
         # sparse graph, find all the connected components
         n_connected_components, _ = connected_components(graph)
         return n_connected_components == 1
     else:
         # dense graph, find all connected components start from node 0
-        # TODO: Fix this later
-        return (
-            _graph_connected_component(graph, 0).sum()  # noqa F821
-            == graph.shape[0]  # noqa F821
-        )
+        return graph_connected_component(graph, 0).sum() == graph.shape[0]
 
 
 def set_diag(laplacian, value, norm_laplacian):
-    """Set the diagonal of the laplacian matrix and convert it to a
-    sparse format well suited for eigenvalue decomposition
-    Parameters
-    ----------
+    """
+    Set the diagonal of the laplacian matrix and convert it to a sparse format well suited for eigenvalue decomposition.
+
+    Arguments
+    ---------
     laplacian : array or sparse matrix
         The graph laplacian
     value : float
         The value of the diagonal
     norm_laplacian : bool
         Whether the value of the diagonal should be changed or not
+
     Returns
     -------
     laplacian : array or sparse matrix
-        An array of matrix in a form that is well suited to fast
-        eigenvalue decomposition, depending on the band width of the
-        matrix.
+        An array of matrix in a form that is well suited to fast eigenvalue decomposition, depending on the band width of the matrix.
     """
+
     n_nodes = laplacian.shape[0]
     # We need all entries in the diagonal to values
     if not sparse.isspmatrix(laplacian):
@@ -289,18 +339,20 @@ def set_diag(laplacian, value, norm_laplacian):
 
 
 def deterministic_vector_sign_flip(u):
-    """Modify the sign of vectors for reproducibility.
-    Flips the sign of elements of all the vectors (rows of u) such that
-    the absolute maximum element of each vector is positive.
-    Parameters
-    ----------
+    """
+    Modify the sign of vectors for reproducibility. Flips the sign of elements of all the vectors (rows of u) such that the absolute maximum element of each vector is positive.
+
+    Arguments
+    ---------
     u : ndarray
         Array with vectors as its rows.
+
     Returns
     -------
     u_flipped : ndarray with same shape as u
         Array with the sign flipped vectors as its rows.
     """
+
     max_abs_rows = np.argmax(np.abs(u), axis=1)
     signs = np.sign(u[range(u.shape[0]), max_abs_rows])
     u *= signs[:, np.newaxis]
@@ -308,15 +360,18 @@ def deterministic_vector_sign_flip(u):
 
 
 def check_random_state(seed):
-    """Turn seed into a np.random.RandomState instance
-    Parameters
-    ----------
+    """
+    Turn seed into a np.random.RandomState instance.
+
+    Arguments
+    ---------
     seed : None | int | instance of RandomState
         If seed is None, return the RandomState singleton used by np.random.
         If seed is an int, return a new RandomState instance seeded with seed.
         If seed is already a RandomState instance, return it.
         Otherwise raise ValueError.
     """
+
     if seed is None or seed is np.random:
         return np.random.mtrand._rand
     if isinstance(seed, numbers.Integral):
@@ -330,7 +385,14 @@ def check_random_state(seed):
 
 #####################
 def get_oracle_num_spkrs(rec_id, spkr_info):
-    """Returns actual number of speakers in a recording
+    """Returns actual number of speakers in a recording from the groundtruth. Thi can be used when condition is oracle number of speakers.
+
+    Arguments
+    ---------
+    rec_id : str
+        Recording ID for which the number of speakers have to be obtained.
+    spkr_info : list
+        Header of the RTTM file. Starting with `SPKR-INFO`
     """
 
     num_spkrs = 0
