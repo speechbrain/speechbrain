@@ -9,7 +9,7 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 # Folders
 data_folder: /network/datasets/ami/amicorpus
 manual_annot_folder: /network/tmp1/dawalatn/AMI_MANUAL/
-output_folder: res1/ami/speaker_diarization_xvector/
+output_folder: res2/ami/speaker_diarization_xvector/
 save_folder: !ref <output_folder>/save
 device: 'cuda:0'
 
@@ -47,11 +47,10 @@ max_subseg_dur: 3.0
 overlap: 1.5
 
 # Cluster parameters
-max_num_spkrs: 10
+affinity: 'cos'
 min_num_spkrs: 2
-oracle_n_spkrs: True
-n_neighbors: 10
-include_self: True
+max_num_spkrs: 10
+oracle_n_spkrs: False
 
 # DER evaluation parameters
 ignore_overlap: True
