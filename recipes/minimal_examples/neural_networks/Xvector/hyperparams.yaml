@@ -1,6 +1,6 @@
 # Basic parameters
 seed: 1234
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Data (csv) files
 data_folder: !PLACEHOLDER
@@ -23,7 +23,7 @@ deltas: False
 # Number of speakers
 out_n_neurons: 2
 
-train_loader: !new:speechbrain.data_io.DataLoaderFactory
+train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>
     batch_size: !ref <batch_size>
     csv_read: [wav, spk_id]
@@ -31,7 +31,7 @@ train_loader: !new:speechbrain.data_io.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
-valid_loader: !new:speechbrain.data_io.DataLoaderFactory
+valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_valid>
     batch_size: !ref <batch_size>
     csv_read: [wav, spk_id]
@@ -39,13 +39,13 @@ valid_loader: !new:speechbrain.data_io.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
-compute_features: !new:speechbrain.lobes.Fbank
+compute_features: !new:speechbrain.lobes.features.Fbank
     n_mels: !ref <n_mels>
     left_frames: !ref <left_frames>
     right_frames: !ref <right_frames>
     deltas: !ref <deltas>
 
-xvector_model: !new:speechbrain.lobes.Xvector
+xvector_model: !new:speechbrain.lobes.models.Xvector.Xvector
     input_shape: [null, null, !ref <n_mels>]
     activation: !name:torch.nn.LeakyReLU
     tdnn_blocks: 5
@@ -61,7 +61,7 @@ classifier: !new:speechbrain.lobes.models.Xvector.Classifier
     lin_neurons: 512
     out_neurons: !ref <out_n_neurons>
 
-mean_var_norm: !new:speechbrain.processing.InputNormalization
+mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
 
 modules:
@@ -72,8 +72,8 @@ modules:
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
 
-compute_cost: !name:speechbrain.nnet.nll_loss
+compute_cost: !name:speechbrain.nnet.losses.nll_loss
 
-error_stats: !name:speechbrain.MetricStats
-    metric: !name:speechbrain.nnet.classification_error
+error_stats: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !name:speechbrain.nnet.losses.classification_error
         reduction: batch
