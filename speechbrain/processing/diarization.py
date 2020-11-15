@@ -1,6 +1,7 @@
 import csv
 import numbers
 import warnings
+import scipy
 import numpy as np
 
 from scipy import sparse
@@ -11,6 +12,7 @@ from scipy.sparse.csgraph import laplacian as csgraph_laplacian
 np.random.seed(1234)
 
 try:
+    import sklearn
     from sklearn.neighbors import kneighbors_graph
     from sklearn.cluster import SpectralClustering
     from sklearn.cluster._kmeans import k_means
@@ -436,19 +438,116 @@ class Spec_Cluster(SpectralClustering):
 #####################
 
 
-def do_spec_clustering(diary_obj_eval, out_rttm_file, rec_id, k=4):
+def getLamdaGaplist(lambdas):
+    lambda_gap_list = []
+    for i in range(len(lambdas) - 1):
+        lambda_gap_list.append(float(lambdas[i + 1]) - float(lambdas[i]))
+    return lambda_gap_list
+
+
+class Standard_SC:
+    def __init__(self, min_num_spkrs=2, max_num_spkrs=10):
+        self.min_num_spkrs = min_num_spkrs
+        self.max_num_spkrs = max_num_spkrs
+
+    def do_spec_clust(self, X, k_oracle, p_val):
+
+        # Similarity matrix
+        sim_mat = self.get_sim_mat(X)
+
+        # Prunning
+        prunned_sim_mat = self.p_pruning(sim_mat, p_val)
+
+        # Symmetrization
+        sym_prund_sim_mat = 0.5 * (prunned_sim_mat + prunned_sim_mat.T)
+
+        # Laplaciann
+        laplacian = self.get_laplacian(sym_prund_sim_mat)
+
+        # Get Spectral Embeddings
+        emb, num_of_spk = self.get_spec_embs(laplacian, k_oracle)
+
+        # Perform clustering
+        self.cluster_embs(emb, num_of_spk)
+
+    def get_sim_mat(self, X):
+        # Cosine similarities
+        M = sklearn.metrics.pairwise.cosine_similarity(X, X)
+        return M
+
+    def p_pruning(self, A, pval):
+
+        n_elems = int((1 - pval) * A.shape[0])
+
+        # For each row in a affinity matrix
+        for i in range(A.shape[0]):
+            low_indexes = np.argsort(A[i, :])
+            low_indexes = low_indexes[0:n_elems]
+
+            # Replace smaller similarity values by 0s
+            A[i, low_indexes] = 0
+
+        return A
+
+    def get_laplacian(self, M):
+        M[np.diag_indices(M.shape[0])] = 0
+        D = np.sum(np.abs(M), axis=1)
+        D = np.diag(D)
+        L = D - M
+        return L
+
+    def get_spec_embs(self, L, k_oracle=4):
+        lambdas, eig_vecs = scipy.linalg.eigh(L)
+
+        # if params["oracle_n_spkrs"] is True:
+        if k_oracle is not None:
+            num_of_spk = k_oracle
+        else:
+            lambda_gap_list = getLamdaGaplist(lambdas[1 : self.max_num_spkrs])
+
+            num_of_spk = (
+                np.argmax(
+                    lambda_gap_list[
+                        : min(self.max_num_spkrs, len(lambda_gap_list))
+                    ]
+                )
+                + 2
+            )
+
+            if num_of_spk < self.min_num_spkrs:  # params["min_num_spkrs"]:
+                num_of_spk = self.min_num_spkrs  # params["min_num_spkrs"]
+
+        emb = eig_vecs[:, 0:num_of_spk]
+
+        return emb, num_of_spk
+
+    def cluster_embs(self, emb, k):
+        _, self.labels_, _ = k_means(emb, k)
+
+
+#####################
+
+
+def do_spec_clustering(
+    diary_obj_eval, out_rttm_file, rec_id, k, pval, affinity
+):
     """Performs spectral clustering on embeddings
     """
-    clust_obj = Spec_Cluster(
-        n_clusters=k,
-        assign_labels="kmeans",
-        random_state=1234,
-        affinity="nearest_neighbors",
-    )
 
-    clust_obj.perform_sc(diary_obj_eval.stat1)
-
-    labels = clust_obj.labels_
+    if affinity == "cos":
+        clust_obj = Standard_SC(min_num_spkrs=2, max_num_spkrs=10)
+        k_oracle = k  # use it only when oracle num of speakers
+        clust_obj.do_spec_clust(diary_obj_eval.stat1, k_oracle, pval)
+        labels = clust_obj.labels_
+    else:
+        clust_obj = Spec_Cluster(
+            n_clusters=k,
+            assign_labels="kmeans",
+            random_state=1234,
+            affinity="nearest_neighbors",
+        )
+        clust_obj.perform_sc(diary_obj_eval.stat1)
+        labels = clust_obj.labels_
 
     # Convert labels to speaker boundaries
     subseg_ids = diary_obj_eval.segset
@@ -480,3 +579,6 @@ def do_spec_clustering(diary_obj_eval, out_rttm_file, rec_id, k=4):
 
     # logger.info("Completed diarizing " + rec_id)
     write_rttm(lol, out_rttm_file)
+
+
+########################################

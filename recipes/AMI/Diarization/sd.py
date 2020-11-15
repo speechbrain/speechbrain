@@ -19,7 +19,6 @@ import pickle
 import csv
 import glob
 import shutil
-import time
 import numpy as np
 import speechbrain as sb
 from tqdm.contrib import tqdm
@@ -42,8 +41,9 @@ from ami_prepare import prepare_ami  # noqa E402
 try:
     import sklearn  # noqa F401
 except ImportError:
-    err_msg = "The optional dependency sklearn is used in this module\n"
-    err_msg += "Cannot import sklearn. \n"
+    err_msg = (
+        "Cannot import optional dependency `sklearn` used in this module\n"
+    )
     err_msg += "Please follow the below instructions\n"
     err_msg += "=============================\n"
     err_msg += "Using pip:\n"
@@ -136,7 +136,7 @@ def embedding_computation_loop(split, set_loader, stat_file):
 ################################################
 
 
-def diarize_dataset(full_csv, split_type, n_lambdas):
+def diarize_dataset(full_csv, split_type, n_lambdas, pval):
     """Diarizes all the recordings in a given dataset
     """
 
@@ -227,11 +227,20 @@ def diarize_dataset(full_csv, split_type, n_lambdas):
             # Oracle num of speakers
             num_spkrs = diar.get_oracle_num_spkrs(rec_id, spkr_info)
         else:
-            # Num of speakers tunned on dev set
-            num_spkrs = n_lambdas
+            if params["affinity"] == "nn":
+                # Num of speakers tunned on dev set
+                num_spkrs = n_lambdas
+            else:
+                # Will be estimated using max eigen gap for cos based affinity
+                num_spkrs = None
 
         diar.do_spec_clustering(
-            diary_obj_dev, out_rttm_file, rec_id, k=num_spkrs
+            diary_obj_dev,
+            out_rttm_file,
+            rec_id,
+            num_spkrs,
+            pval,
+            params["affinity"],
         )
 
     # Concatenate individual RTTM files
@@ -255,6 +264,50 @@ def diarize_dataset(full_csv, split_type, n_lambdas):
     return concate_rttm_file
 
 
+def dev_p_tuner(full_csv, split_type):
+    """Tuning p_value
+    """
+
+    DER_list = []
+    prange = [
+        0.0025,
+        0.0050,
+        0.006,
+        0.007,
+        0.008,
+        0.009,
+        0.010,
+        0.025,
+        0.050,
+        0.075,
+        0.100,
+    ]
+    n_lambdas = None
+    for p_v in prange:
+        # Process whole dataset for value of p_v
+        concate_rttm_file = diarize_dataset(
+            full_csv, split_type, n_lambdas, p_v
+        )
+
+        ref_rttm = os.path.join(params["ref_rttm_dir"], "fullref_ami_dev.rttm")
+        sys_rttm = concate_rttm_file
+        [MS, FA, SER, DER_] = DER(
+            ref_rttm,
+            sys_rttm,
+            params["ignore_overlap"],
+            params["forgiveness_collar"],
+        )
+
+        msg = "\n[Tuner]: p_val= %f , DER= %s\n" % (p_v, str(round(DER_, 2)),)
+        logger.info(msg)
+        DER_list.append(DER_)
+
+    # Take p_val that gave minmum DER on Dev dataset
+    tuned_p_val = prange[DER_list.index(min(DER_list))]
+
+    return tuned_p_val
+
+
 def dev_tuner(full_csv, split_type):
     """Tuning n_compenents on dev set.
     This is a very basic tunning. This is work in progress for better way.
@@ -263,10 +316,13 @@ def dev_tuner(full_csv, split_type):
     """
 
     DER_list = []
+    pval = None
     for n_lambdas in range(1, params["max_num_spkrs"] + 1):
 
         # Process whole dataset for value of n_lambdas
-        concate_rttm_file = diarize_dataset(full_csv, split_type, n_lambdas)
+        concate_rttm_file = diarize_dataset(
+            full_csv, split_type, n_lambdas, pval
+        )
 
         ref_rttm = os.path.join(params["ref_rttm_dir"], "fullref_ami_dev.rttm")
         sys_rttm = concate_rttm_file
@@ -342,20 +398,19 @@ if __name__ == "__main__":  # noqa: C901
         for row in reader:
             full_csv.append(row)
 
-    # TUNING for num of lambdas
-    if params["oracle_n_spkrs"] is False:
-        a = time.time()
-        n_lambdas = dev_tuner(full_csv, "dev")
-        msg = "Tuning completed! Total time spent in tuning = %s seconds\n" % (
-            str(round(time.time() - a, 2))
-        )
-        logger.info(msg)
+    n_lambdas = None
+    best_pval = None
+    if params["affinity"] == "cos":  # oracle num_spkrs or not doesn't matter
+        # cos: Tune for best pval
+        best_pval = dev_p_tuner(full_csv, "dev")
     else:
-        msg = "Running for Oracle number of speakers"
-        logger.info(msg)
-        n_lambdas = None  # will be taken from groundtruth
+        if params["oracle_n_spkrs"] is False:
+            # nn: Tune num of lambdas (to be updated later)
+            n_lambdas = dev_tuner(full_csv, "dev")
 
-    out_boundaries = diarize_dataset(full_csv, "dev", n_lambdas=n_lambdas)
+    out_boundaries = diarize_dataset(
+        full_csv, "dev", n_lambdas=n_lambdas, pval=best_pval
+    )
 
     # Evaluating on DEV set
     logger.info("Evaluating for AMI Dev. set")
@@ -379,7 +434,9 @@ if __name__ == "__main__":  # noqa: C901
         for row in reader:
             full_csv.append(row)
 
-    out_boundaries = diarize_dataset(full_csv, "eval", n_lambdas=n_lambdas)
+    out_boundaries = diarize_dataset(
+        full_csv, "eval", n_lambdas=n_lambdas, pval=best_pval
+    )
 
     # Evaluating on EVAL set
     logger.info("Evaluating for AMI Eval. set")
