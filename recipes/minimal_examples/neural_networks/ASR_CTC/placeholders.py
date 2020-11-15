@@ -4,10 +4,8 @@ We should replace these one by one as we get stuff done.
 """
 import torch
 import torchaudio
-import os.path
 
 torchaudio.set_audio_backend("soundfile")
-DATAFOLDER = "../../../../samples/audio_samples/nn_training_samples"
 
 # Manually created label to index, index to label mappings
 # NOTE: At the moment, these do not have the blank index.
@@ -106,67 +104,6 @@ ASR_example_ind2label = {
 }
 
 
-class ASRMinimalExampleDataset(torch.utils.data.Dataset):
-    """
-    Dataset which supports the old CSV format, which we have for all the
-    minimal example data subsets.
-
-    This loads four hard coded fields from the given CSV file:
-    - ID
-    - duration
-    - wav
-    - phn
-    However, for now we do nothing with duration.
-    It could be used to get the length order for ascending order Sampling.
-
-    audio_transform and text_transform should be callables or None
-
-    """
-
-    def __init__(
-        self,
-        filepath=os.path.join(DATAFOLDER, "train.csv"),
-        audio_transform=None,
-        text_transform=None,
-    ):
-        # List of (ID, duration, wavpath, phn)
-        self.items = []
-        self.audio_transform = audio_transform
-        self.text_transform = text_transform
-
-        # Next, we read the hardcoded fields from the given CSV file.
-        with open(filepath) as fi:
-            fiterator = iter(fi)
-            header = next(fiterator)
-            field_idx = {
-                fieldname.strip(): i
-                for i, fieldname in enumerate(header.strip().split(","))
-            }
-            for line in fiterator:
-                if not line.strip():
-                    continue
-                fields = line.strip().split(",")
-                ID = fields[field_idx["ID"]]
-                duration = float(fields[field_idx["duration"]])
-                wavpath = fields[field_idx["wav"]].replace(
-                    "$data_folder", DATAFOLDER
-                )
-                phn = fields[field_idx["phn"]].strip()
-                self.items.append((ID, duration, wavpath, phn))
-
-    def __len__(self):
-        return len(self.items)
-
-    def __getitem__(self, idx):
-        # List of (ID, duration, wavpath, phn)
-        ID, duration, wav, phn = self.items[idx]
-        if self.audio_transform is not None:
-            wav = self.audio_transform(wav)
-        if self.text_transform is not None:
-            phn = self.text_transform(phn)
-        return (ID, wav, phn)
-
-
 # Audio transform
 # This could possibly be hardcoded into the Dataset object.
 def torchaudio_load(wavpath):
@@ -189,11 +126,6 @@ class ExampleCategoricalEncoder:
         return [self.ind2label[item] for item in x]
 
 
-# Should all the relevant data be torch tensors when yielded by Dataset?
-def to_int_tensor(x):
-    return torch.tensor(x, dtype=torch.int)
-
-
 def pad_and_stack(sequences, padding_value=0):
     # Basic padding. But something like this should be enough usually.
     num = len(sequences)
@@ -210,7 +142,7 @@ def pad_and_stack(sequences, padding_value=0):
 
 def ASR_example_collation(batch):
     # This is coupled to the ASRMinimalExampleDataset output format.
-    IDs, wavs, phns = zip(*batch)
+    IDs, wavs, phns = zip(*((ex["id"], ex["wav"], ex["phn"]) for ex in batch))
     wavs, wav_lens = pad_and_stack(wavs)
     phns, phn_lens = pad_and_stack(phns)
     # And the output here defines our batch format.

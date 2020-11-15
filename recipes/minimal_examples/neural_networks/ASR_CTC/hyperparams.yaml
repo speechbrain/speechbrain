@@ -43,7 +43,7 @@ train_data: !apply:speechbrain.data_io.datasets.SegmentedDataset.from_extended_y
         wav: !name:placeholders.torchaudio_load
         phn: !ref <text_transform>
 
-dev_data: !apply:speechbrain.data_io.datasets.SegmentedDataset.from_extended_yaml
+valid_data: !apply:speechbrain.data_io.datasets.SegmentedDataset.from_extended_yaml
     filepath: !ref <data_folder>/dev.yaml
     overrides:
         data_root: !ref <data_folder>
@@ -52,18 +52,14 @@ dev_data: !apply:speechbrain.data_io.datasets.SegmentedDataset.from_extended_yam
         wav: !name:placeholders.torchaudio_load
         phn: !ref <text_transform>
 
-test_data: !apply:speechbrain.data_io.datasets.SegmentedDataset.from_extended_yaml
-    filepath: !ref <data_folder>/test.yaml
-    overrides:
-        data_root: !ref <data_folder>
-    data_fields: [wav, phn]
-    data_transforms:
-        wav: !name:placeholders.torchaudio_load
-        phn: !ref <text_transform>
-
-train_loader: !new:speechbrain.data_io.dataloader.SaveableDataloader
+train_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
     dataset: !ref <train_data>
     batch_size: !ref <batch_size>
+    collate_fn: !name:placeholders.ASR_example_collation
+
+valid_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
+    dataset: !ref <valid_data>
+    batch_size: 1
     collate_fn: !name:placeholders.ASR_example_collation
 
 compute_features: !new:speechbrain.lobes.features.MFCC
