@@ -40,7 +40,7 @@ class G2P(sb.Brain):
         x, _ = self.modules.enc(emb_char)
 
         # Prepend bos token at the beginning
-        y_in = sb.data_io.prepend_bos_token(phns, self.hparams.bos)
+        y_in = sb.data_io.data_io.prepend_bos_token(phns, self.hparams.bos)
         e_in = self.modules.emb(y_in)
 
         h, w = self.modules.dec(e_in, x, char_lens)
@@ -67,7 +67,7 @@ class G2P(sb.Brain):
         abs_length = torch.round(phn_lens * phns.shape[1])
 
         # Append eos token at the end of the label sequences
-        phns_with_eos = sb.data_io.append_eos_token(
+        phns_with_eos = sb.data_io.data_io.append_eos_token(
             phns, length=abs_length, eos_index=self.hparams.eos
         )
 
@@ -80,8 +80,12 @@ class G2P(sb.Brain):
         if stage != sb.Stage.TRAIN:
             # Convert indices to words
             phns = undo_padding(phns, phn_lens)
-            phns = sb.data_io.convert_index_to_lab(phns, self.hparams.ind2lab)
-            seq = sb.data_io.convert_index_to_lab(seq, self.hparams.ind2lab)
+            phns = sb.data_io.data_io.convert_index_to_lab(
+                phns, self.hparams.ind2lab
+            )
+            seq = sb.data_io.data_io.convert_index_to_lab(
+                seq, self.hparams.ind2lab
+            )
             self.per_metrics.append(ids, seq, phns)
 
         return loss
@@ -120,7 +124,7 @@ class G2P(sb.Brain):
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
             old_lr, new_lr = self.hparams.lr_annealing(stage_stats["PER"])
-            sb.nnet.update_learning_rate(self.optimizer, new_lr)
+            sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
             if self.root_process:
                 self.hparams.train_logger.log_stats(
                     stats_meta={"epoch": epoch, "lr": old_lr},
