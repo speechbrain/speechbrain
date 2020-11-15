@@ -328,15 +328,13 @@ class TransducerBeamSearcher(torch.nn.Module):
 
                     # Sort outputs at time
                     logp_targets, positions = torch.topk(
-                        log_probs.view(-1)[1:], k=self.beam_size, dim=-1
+                        log_probs.view(-1), k=self.beam_size, dim=-1
                     )
-                    best_logp = logp_targets[0]
-
-                    # concat blank_id
-                    logp_targets = torch.cat(
-                        (logp_targets, log_probs.view(-1)[0:1])
+                    best_logp = (
+                        logp_targets[0]
+                        if positions[0] != blank
+                        else logp_targets[1]
                     )
-                    positions = torch.cat((positions + 1, blank.squeeze(1)))
 
                     # Extend hyp by  selection
                     for j in range(logp_targets.size(0)):
