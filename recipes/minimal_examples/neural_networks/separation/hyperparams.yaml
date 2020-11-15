@@ -8,7 +8,7 @@
 # Basic parameters
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
 use_tensorboard: False
 tensorboard_logs: runs/minimal_example
 output_folder: !ref results/conv_tasnet/<seed>
@@ -27,7 +27,7 @@ progressbar: True
 loss_fn: 'sisnr'
 train_onthefly: False
 
-train_loader: !new:speechbrain.data_io.DataLoaderFactory
+train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_tr>
     batch_size: !ref <N_batch>
     sentence_sorting: random
@@ -35,7 +35,7 @@ train_loader: !new:speechbrain.data_io.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
-val_loader: !new:speechbrain.data_io.DataLoaderFactory
+val_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_cv>
     batch_size: !ref <N_batch>
     sentence_sorting: random
@@ -43,7 +43,7 @@ val_loader: !new:speechbrain.data_io.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
-test_loader: !new:speechbrain.data_io.DataLoaderFactory
+test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_tt>
     batch_size: !ref <N_batch>
     sentence_sorting: random
