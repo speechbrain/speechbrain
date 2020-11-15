@@ -1,3 +1,13 @@
+"""
+This script contains basic utility functions for speaker diarization.
+It has optional dependency on open source sklearn library.
+A few sklearn functions are modified in this script as per requirement.
+
+Authors
+-------
+ * Nauman Dawalatabad
+"""
+
 import csv
 import numbers
 import warnings
@@ -30,7 +40,7 @@ except ImportError:
 
 
 def prepare_subset_csv(full_diary_csv, rec_id, out_csv_file):
-    """Prepares csv for a recording ID
+    """Prepares csv for a given recording ID
     """
     out_csv_head = [full_diary_csv[0]]
     entry = []
@@ -46,9 +56,6 @@ def prepare_subset_csv(full_diary_csv, rec_id, out_csv_file):
         )
         for r in out_csv:
             csv_writer.writerow(r)
-
-    # msg = "Prepared CSV file: " + out_csv_file
-    # logger.info(msg)
 
 
 def is_overlapped(end1, start2):
@@ -169,8 +176,6 @@ def write_rttm(segs_list, out_rttm_file):
         for row in rttm:
             line_str = " ".join(row)
             f.write("%s\n" % line_str)
-
-    # logger.info("Output RTTM saved at: " + out_rttm_file)
 
 
 #######################################
@@ -337,9 +342,6 @@ def get_oracle_num_spkrs(rec_id, spkr_info):
     return num_spkrs
 
 
-#####################
-
-
 def spectral_embedding_sb(
     adjacency, n_components=8, norm_laplacian=True, drop_first=True,
 ):
@@ -363,11 +365,6 @@ def spectral_embedding_sb(
     laplacian = set_diag(laplacian, 1, norm_laplacian)
 
     laplacian *= -1
-    # v0 = random_state.uniform(-1, 1, laplacian.shape[0])
-
-    # vals, diffusion_map = eigsh(
-    #    laplacian, k=n_components, sigma=1.0, which="LM", tol=eigen_tol, v0=v0
-    # )
 
     vals, diffusion_map = eigsh(
         laplacian, k=n_components, sigma=1.0, which="LM",
@@ -514,8 +511,8 @@ class Standard_SC:
                 + 2
             )
 
-            if num_of_spk < self.min_num_spkrs:  # params["min_num_spkrs"]:
-                num_of_spk = self.min_num_spkrs  # params["min_num_spkrs"]
+            if num_of_spk < self.min_num_spkrs:
+                num_of_spk = self.min_num_spkrs
 
         emb = eig_vecs[:, 0:num_of_spk]
 
@@ -579,6 +576,3 @@ def do_spec_clustering(
 
     # logger.info("Completed diarizing " + rec_id)
     write_rttm(lol, out_rttm_file)
-
-
-########################################
