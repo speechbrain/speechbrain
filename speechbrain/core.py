@@ -166,6 +166,11 @@ def parse_arguments(arg_list):
     parser.add_argument(
         "--rank", type=int, help="Rank of process in multiprocessing setup"
     )
+    parser.add_argument(
+        "--local_rank",
+        type=int,
+        help="argument to support torch.distributed.launch",
+    )
     parser.add_argument("--device", help="The device to run the experiment on")
     parser.add_argument(
         "--multigpu_count", type=int, help="Number of gpus to run on"
@@ -176,6 +181,13 @@ def parse_arguments(arg_list):
 
     # Ignore items that are "None", they were not passed
     parsed_args = vars(parser.parse_args(arg_list))
+
+    # overwrite rank and device in yaml
+    if parsed_args["local_rank"] is not None:
+        parsed_args["device"] = parsed_args["local_rank"]
+
+        # avoid parsing "local_rank" to the yaml file
+        del parsed_args["local_rank"]
 
     param_file = parsed_args["param_file"]
     del parsed_args["param_file"]
