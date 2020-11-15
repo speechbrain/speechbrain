@@ -249,7 +249,7 @@ class Transducer(Function):
         )
         ctx.grads = grads
         del alpha, beta, lock, log_p_beta, T, U, log_probs, labels
-        # torch.cuda.empty_cache()
+        torch.cuda.empty_cache()
         if reduction == "mean":
             return -log_p_alpha.mean()
         elif reduction == "sum":
