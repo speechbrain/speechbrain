@@ -384,6 +384,8 @@ def check_random_state(seed):
 
 
 #####################
+
+
 def get_oracle_num_spkrs(rec_id, spkr_info):
     """Returns actual number of speakers in a recording from the groundtruth. Thi can be used when condition is oracle number of speakers.
 
@@ -407,8 +409,20 @@ def get_oracle_num_spkrs(rec_id, spkr_info):
 def spectral_embedding_sb(
     adjacency, n_components=8, norm_laplacian=True, drop_first=True,
 ):
+    """
+    Returns spectral embeddings.
 
-    # random_state = check_random_state(random_state)
+    Arguments
+    ---------
+    adjacency : array-like or sparse graph, shape: (n_samples, n_samples)
+        The adjacency matrix of the graph to embed.
+    n_components : int
+        The dimension of the projection subspace.
+    norm_laplacian : bool
+        If True, then compute normalized Laplacian.
+    drop_first : bool
+        Whether to drop the first eigenvector.
+    """
 
     # Whether to drop the first eigenvector
     if drop_first:
@@ -445,15 +459,24 @@ def spectral_embedding_sb(
 
 
 def spectral_clustering_sb(
-    affinity,
-    n_clusters=8,
-    n_components=None,
-    eigen_solver=None,
-    random_state=None,
-    n_init=10,
-    eigen_tol=0.0,
-    assign_labels="kmeans",
+    affinity, n_clusters=8, n_components=None, random_state=None, n_init=10,
 ):
+    """
+    Performs spectral clustering.
+
+    Arguments
+    ---------
+    affinity : matrix
+        Affinity matrix.
+    n_clusters : int
+        Number of clusters for kmeans.
+    n_components : int
+        Number of components to retain while estimating spectral embeddings.
+    random_state : int
+        A pseudo random number generator used by kmeans.
+     n_init : int
+        Number of time the k-means algorithm will be run with different centroid seeds.
+    """
 
     random_state = check_random_state(random_state)
     n_components = n_clusters if n_components is None else n_components
@@ -471,12 +494,19 @@ def spectral_clustering_sb(
 
 class Spec_Cluster(SpectralClustering):
     def perform_sc(self, X, n_neighbors=10):
-        """Performs spectral clustering using sklearn on embeddings (X).
+        """
+        Performs spectral clustering using sklearn on embeddings.
 
         Arguments
         ---------
         X : array (n_samples, n_features)
             Embeddings to be clustered
+        n_neighbors : int
+            Number of neighbors in estimating affinity matrix.
+
+        Reference
+        ---------
+        https://github.com/scikit-learn/scikit-learn/blob/0fb307bf3/sklearn/cluster/_spectral.py
         """
 
         # Computation of affinity matrix
@@ -487,9 +517,7 @@ class Spec_Cluster(SpectralClustering):
 
         # Perform spectral clustering on affinity matrix
         self.labels_ = spectral_clustering_sb(
-            self.affinity_matrix_,
-            n_clusters=self.n_clusters,
-            assign_labels=self.assign_labels,
+            self.affinity_matrix_, n_clusters=self.n_clusters,
         )
         return self
 
@@ -497,14 +525,34 @@ class Spec_Cluster(SpectralClustering):
 #####################
 
 
-def getLamdaGaplist(lambdas):
-    lambda_gap_list = []
-    for i in range(len(lambdas) - 1):
-        lambda_gap_list.append(float(lambdas[i + 1]) - float(lambdas[i]))
-    return lambda_gap_list
+def getLamdaGaplist(eig_vals):
+    """
+    Returns the difference (gaps) between the eigen values.
+
+    Arguments
+    ---------
+    eig_vals : list
+        List of eigen values
+
+    Returns
+    -------
+    eig_vals_gap_list : list
+        List of differences (gaps) between adjancent eigen values.
+    """
+
+    eig_vals_gap_list = []
+    for i in range(len(eig_vals) - 1):
+        gap = float(eig_vals[i + 1]) - float(eig_vals[i])
+        # eig_vals_gap_list.append(float(eig_vals[i + 1]) - float(eig_vals[i]))
+        eig_vals_gap_list.append(gap)
+    return eig_vals_gap_list
 
 
-class Standard_SC:
+class Spec_Clust_unorm:
+    """
+    This class implements the spectral clustering with unnormalized affinity matrix. Useful when affinity matrix is based on cosine similarities.
+    """
+
     def __init__(self, min_num_spkrs=2, max_num_spkrs=10):
         self.min_num_spkrs = min_num_spkrs
         self.max_num_spkrs = max_num_spkrs
@@ -594,7 +642,7 @@ def do_spec_clustering(
     """
 
     if affinity == "cos":
-        clust_obj = Standard_SC(min_num_spkrs=2, max_num_spkrs=10)
+        clust_obj = Spec_Clust_unorm(min_num_spkrs=2, max_num_spkrs=10)
         k_oracle = k  # use it only when oracle num of speakers
         clust_obj.do_spec_clust(diary_obj_eval.stat1, k_oracle, pval)
         labels = clust_obj.labels_
