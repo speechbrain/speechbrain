@@ -56,10 +56,11 @@ def main():
         hparams["train_loader"],
         hparams["valid_loader"],
     )
-    ctc_brain.evaluate(hparams["test_loader"])
+    # Evaluation is run separately (now just evaluating on valid data)
+    ctc_brain.evaluate(hparams["valid_loader"])
 
     # Check if model overfits for integration test
-    assert ctc_brain.train_loss < 3.0
+    assert ctc_brain.train_loss < 1.0
 
 
 if __name__ == "__main__":
