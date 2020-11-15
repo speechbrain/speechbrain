@@ -75,6 +75,7 @@ class ASR(sb.core.Brain):
         feats = self.hparams.compute_features(wavs)
         current_epoch = self.hparams.epoch_counter.current
         feats = self.hparams.normalize(feats, wav_lens, epoch=current_epoch)
+
         src = self.hparams.CNN(feats)
         enc_out, pred = self.hparams.Transformer(
             src, y_in, wav_lens, pad_idx=self.hparams.pad_index
@@ -89,6 +90,7 @@ class ASR(sb.core.Brain):
         p_seq = self.hparams.log_softmax(pred)
 
         # Compute outputs
+        hyps = None
         if stage == sb.Stage.TRAIN:
             hyps = None
         elif stage == sb.Stage.VALID:
@@ -96,7 +98,7 @@ class ASR(sb.core.Brain):
             current_epoch = self.hparams.epoch_counter.current
             if current_epoch % self.hparams.valid_search_interval == 0:
                 hyps, _ = self.hparams.valid_search(enc_out.detach(), wav_lens)
-        else:
+        elif stage == sb.Stage.TEST:
             hyps, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
 
         return p_ctc, p_seq, wav_lens, hyps, target_tokens, target_tokens_len
@@ -136,9 +138,8 @@ class ASR(sb.core.Brain):
         if stage != sb.Stage.TRAIN:
             current_epoch = self.hparams.epoch_counter.current
             valid_search_interval = self.hparams.valid_search_interval
-            if (
-                current_epoch % valid_search_interval == 0
-                or stage == sb.Stage.TEST
+            if current_epoch % valid_search_interval == 0 or (
+                stage == sb.Stage.TEST
             ):
                 # Decode token terms to words
                 predicted_words = self.hparams.tokenizer(
@@ -152,6 +153,7 @@ class ASR(sb.core.Brain):
                 )
 
                 self.wer_metric.append(ids, predicted_words, target_words)
+
             # compute the accuracy of the one-step-forward prediction
             self.acc_metric.append(p_seq, target_tokens_with_eos, rel_length)
         return loss
@@ -262,14 +264,14 @@ class ASR(sb.core.Brain):
         download_file(self.hparams.lm_ckpt_file, save_model_path)
 
         # Load downloaded model, removing prefix
-        state_dict = torch.load(save_model_path)
+        state_dict = torch.load(save_model_path, map_location=self.device)
         state_dict = {k.split(".", 1)[1]: v for k, v in state_dict.items()}
         self.hparams.lm_model.load_state_dict(state_dict, strict=True)
         self.hparams.lm_model.eval()
         logger.info("loaded LM from {}".format(save_model_path))
 
     def on_fit_start(self):
-        torch.cuda.set_device(self.device)
+        torch.cuda.set_device(self.rank)
         self.checkpointer.add_recoverable("model", self.modules)
         super().on_fit_start()
 
@@ -316,10 +318,11 @@ if __name__ == "__main__":
             valid_set = hparams["valid_loader"]()
             test_clean_set = hparams["test_clean_loader"]()
             test_other_set = hparams["test_other_loader"]()
-            ind2lab = hparams["test_other_loader"].label_dict["wrd"]["index2lab"]
+            ind2lab = hparams["test_other_loader"].label_dict["wrd"][
+                "index2lab"
+            ]
             hparams["ind2lab"] = ind2lab
             hparams["tokenizer"] = tokenizer
-
 
             # Brain class initialization
             asr_brain = ASR(
@@ -345,10 +348,14 @@ if __name__ == "__main__":
                 hparams["output_folder"] + "/wer_test_other.txt"
             )
             asr_brain.evaluate(test_other_set, max_key="ACC")
+            sys.exit()
 
         except KeyboardInterrupt:
             sys.exit()
 
-        except:
+        except Exception:
+            import traceback
+
+            traceback.print_exc()
             msg = "failed with pkl I/O, retrying...."
             print(msg)
