@@ -1,14 +1,18 @@
-#!/usr/bin/python
-"""
-This recipe implements diarization baseline
+#!/usr/bin/python3
+"""This recipe implements diarization baseline
 using deep embedding extraction followed by spectral clustering.
 
-We use nearest-neighbor based affinity matrix.
+To run this recipe, do the following:
+> python experiment.py hyperparams.yaml
 
-Condition: Oracle VAD and Oracle number of speakers.
+Condition: Oracle VAD
 
 Note: There are multiple ways to write this recipe. We chose to iterate over individual files.
 This method is less GPU memory demanding and also makes code easy to understand.
+
+
+Authors
+ * Nauman Dawalatabad 2020
 """
 
 import os
@@ -131,9 +135,6 @@ def embedding_computation_loop(split, set_loader, stat_file):
             stat_obj = pickle.load(in_file)
 
     return stat_obj
-
-
-################################################
 
 
 def diarize_dataset(full_csv, split_type, n_lambdas, pval):
