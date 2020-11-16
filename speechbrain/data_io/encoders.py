@@ -1,6 +1,8 @@
 import torch
 import pickle
-import warnings
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class CategoricalEncoder(object):
@@ -27,9 +29,12 @@ class CategoricalEncoder(object):
 
             for k in dictionary.keys():
                 if isinstance(dictionary[k], dict):
-                    assert (
-                        k != supervision
-                    ), "desired supervision must not contain a dict, Not Supported"
+                    if k == supervision:
+                        logger.error(
+                            "desired supervision must not contain a dict, Not Supported",
+                            exc_info=True,
+                        )
+                        raise NotImplementedError
                     _recursive_helper(dictionary[k], supervision, labels_set)
                 else:
                     # leaf node contains no dict
@@ -39,6 +44,10 @@ class CategoricalEncoder(object):
                         elif isinstance(dictionary[k], (str)):
                             all_labs.add(dictionary[k])
                         else:
+                            logger.error(
+                                "Supervision must be either list, tuple or string, Not Supported",
+                                exc_info=True,
+                            )
                             raise NotImplementedError
 
         all_labs = set()
@@ -49,9 +58,11 @@ class CategoricalEncoder(object):
             self.lab2indx = {key: index for index, key in enumerate(all_labs)}
             self.indx2lab = {key: index for key, index in enumerate(all_labs)}
         else:
-            raise EnvironmentError(
-                "lab2indx and indx2lab must be empty, please use fit right after object instantiation."
+            logger.error(
+                "lab2indx and indx2lab must be empty, please use fit right after object instantiation.",
+                exc_info=True,
             )
+            raise EnvironmentError
 
     def add_elem(self, key, elem=None):
         """
@@ -70,9 +81,12 @@ class CategoricalEncoder(object):
 
         """
         # if no element is provided we simply append to end of label dictionary
-        assert (
-            key not in self.lab2indx.keys()
-        ), "Label already present in label dictionary"
+        if key in self.lab2indx.keys():
+            logger.error(
+                "Label already present in label dictionary", exc_info=True
+            )
+            raise KeyError
+
         max_indx = list(self.indx2lab.keys())[-1]
         if elem is None or elem == (max_indx + 1):
             self.lab2indx[key] = max_indx + 1
@@ -113,10 +127,12 @@ class CategoricalEncoder(object):
             for i, elem in enumerate(x):
                 labels.append(self._index_label_dict(self.lab2indx, elem))
             labels = labels
-
         elif isinstance(x, str):
             labels = [self._index_label_dict(self.lab2indx, x)]
         else:
+            logger.error(
+                "Value to encode must be list, tuple or string", exc_info=True
+            )
             raise NotImplementedError
         return labels
 
@@ -160,7 +176,7 @@ class CategoricalEncoder(object):
         Parameters
         ----------
         x: torch.Tensor
-         one-hot encodeing tensor which has to be decoded to original labels strings.
+         one-hot encoding tensor which has to be decoded to original labels strings.
          Accepts 1d tensor of shape (n_classes) 2d tensor of shape (n_classes, time_steps)
          and 3d tensor of shape (batch, n_classes, time_steps)
 
@@ -195,16 +211,17 @@ class CategoricalEncoder(object):
             raise NotImplementedError
 
     def save(self, path):
-        warnings.warn(
-            "Using pickle right now but we may want to move to something better for big datasets"
-        )
         with open(path, "wb") as f:
             pickle.dump((self.lab2indx, self.indx2lab), f)
 
     def load(self, path):
-        assert not (
-            len(self.lab2indx) or len(self.indx2lab)
-        ), "Use load right after instantiation, lab2indx and indx2lab must be empty otherwise this operation will overwrite them."
+        if len(self.lab2indx) or len(self.indx2lab):
+            logger.error(
+                "Use load right after instantiation, "
+                "lab2indx and indx2lab must be empty otherwise this operation will overwrite them.",
+                exc_info=True,
+            )
+            raise RuntimeError
 
         with open(path, "rb") as f:
             self.lab2indx, self.indx2lab = pickle.load(f)
@@ -215,29 +232,31 @@ class TextEncoder(CategoricalEncoder):
 
         super(TextEncoder, self).__init__()
         self.blank_token = None
-        self.unkw_token = None
+        self.unk_token = None
         self.bos_token = None
         self.eos_token = None
 
-    def add_blank(self, encoding: int, token="<blank>"):
+    def add_blank(self, encoding=None, token="<blank>"):
         self.blank_token = token
         self.add_elem(token, encoding)
 
-    def add_unkw(self, encoding: int, token="<unkw>"):
-        self.unkw_token = token
+    def add_unk(self, encoding=None, token="<unk>"):
+        self.unk_token = token
         self.add_elem(token, encoding)
 
     def add_bos_eos(
         self,
-        bos_encoding: int,
+        bos_encoding=None,
         bos_token="<bos>",
         eos_encoding=None,
         eos_token="<eos>",
     ):
         if not eos_encoding or (eos_encoding == bos_encoding):
-            print(
-                "Only BOS token specified or BOS == EOS, EOS is set implictly equal to BOS"
+            logger.debug(
+                "Only BOS token specified or BOS == EOS, EOS is set implictly equal to BOS",
+                exc_info=True,
             )
+
             self.bos_token = bos_token
             self.eos_token = bos_token
             self.add_elem(bos_token, bos_encoding)
@@ -247,23 +266,25 @@ class TextEncoder(CategoricalEncoder):
             self.eos_token = eos_token
 
     def _index_label_dict(self, label_dict, k):
-        if self.unkw_token:
+        if self.unk_token:
             try:
                 out = label_dict[k]
             except KeyError:
-                out = label_dict[self.unkw_token]
+                out = label_dict[self.unk_token]
             return out
         else:
             try:
                 return label_dict[k]
             except KeyError:
-                print(
+                logger.error(
                     "key {} can't be encoded because it is not in the encoder dictionary, "
                     "either something was meesed up during data preparation or, "
                     "if this happens in test consider using the <unkwown> fallback symbol".format(
                         k
-                    )
+                    ),
+                    exc_info=True,
                 )
+                raise KeyError
 
     def prepend_bos(self, x: (tuple, list, str)):
         if isinstance(x, str):
