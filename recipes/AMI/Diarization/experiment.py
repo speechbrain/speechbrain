@@ -89,7 +89,7 @@ def embedding_computation_loop(split, set_loader, stat_file):
 
     # Extract embeddings (skip if already done)
     if not os.path.isfile(stat_file):
-
+        logger.info(f"Extracting deep embeddings and diarizing")
         embeddings = np.empty(shape=[0, params["emb_dim"]], dtype=np.float64)
         modelset = []
         segset = []
@@ -124,12 +124,12 @@ def embedding_computation_loop(split, set_loader, stat_file):
             stat0=b,
             stat1=embeddings,
         )
-        logger.info(f"Saving Embeddings...")
+        logger.debug(f"Saving Embeddings...")
         stat_obj.save_stat_object(stat_file)
 
     else:
-        logger.info(f"Skipping embedding extraction (as already present)")
-        logger.info(f"Loading previously saved embeddings")
+        logger.debug(f"Skipping embedding extraction (as already present)")
+        logger.debug(f"Loading previously saved embeddings")
 
         with open(stat_file, "rb") as in_file:
             stat_obj = pickle.load(in_file)
@@ -248,7 +248,7 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval):
     # This is not needed but just staying with the standards
     concate_rttm_file = out_rttm_dir + "/sys_output.rttm"
 
-    # logger.info("Concatenating individual RTTM files...")
+    logger.debug("Concatenating individual RTTM files...")
     with open(concate_rttm_file, "w") as cat_file:
         for f in glob.glob(out_rttm_dir + "/*.rttm"):
             if f == concate_rttm_file:
@@ -260,7 +260,7 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval):
         split_type,
         concate_rttm_file,
     )
-    logger.info(msg)
+    logger.debug(msg)
 
     return concate_rttm_file
 
@@ -299,8 +299,6 @@ def dev_p_tuner(full_csv, split_type):
             params["forgiveness_collar"],
         )
 
-        msg = "\n[Tuner]: p_val= %f , DER= %s\n" % (p_v, str(round(DER_, 2)),)
-        logger.info(msg)
         DER_list.append(DER_)
 
     # Take p_val that gave minmum DER on Dev dataset
@@ -311,9 +309,14 @@ def dev_p_tuner(full_csv, split_type):
 
 def dev_tuner(full_csv, split_type):
     """Tuning n_compenents on dev set.
-    This is a very basic tunning. This is work in progress for better way.
-    Returns:
-        n_lambdas = n_components
+    Note: This is a very basic tunning for nn based affinity.
+    This is work in progress till we find a better way.
+
+    Returns
+    -------
+    n_components : int
+        Number of eigen components to be used to obtain eigen embedding and
+        same is also used for number for speakers in kmeans.
     """
 
     DER_list = []
@@ -334,12 +337,6 @@ def dev_tuner(full_csv, split_type):
             params["forgiveness_collar"],
         )
 
-        msg = "[Tuner]: n_lambdas= %d , DER= %s\n" % (
-            n_lambdas,
-            str(round(DER_, 2)),
-        )
-
-        logger.info(msg)
         DER_list.append(DER_)
 
     # Take n_lambdas with minmum DER

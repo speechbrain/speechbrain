@@ -1,5 +1,8 @@
 """
-This script contains basic utility functions for speaker diarization. It has optional dependency on open source sklearn library. A few sklearn functions are modified in this script as per requirement.
+This script contains basic utility functions for speaker diarization.
+This script has optional dependency on open source sklearn library.
+A few sklearn functions are modified in this script as per requirement.
+
 
 Authors
 -------
@@ -540,6 +543,11 @@ class Spec_Clust_unorm:
     """
     This class implements the spectral clustering with unnormalized affinity matrix.
     Useful when affinity matrix is based on cosine similarities.
+
+    Reference
+    ---------
+    Von Luxburg, U. A tutorial on spectral clustering. Stat Comput 17, 395–416 (2007).
+    https://doi.org/10.1007/s11222-007-9033-z
     """
 
     def __init__(self, min_num_spkrs=2, max_num_spkrs=10):
@@ -711,7 +719,7 @@ class Spec_Clust_unorm:
         """
         _, self.labels_, _ = k_means(emb, k)
 
-    def getEigenGaps(eig_vals):
+    def getEigenGaps(self, eig_vals):
         """
         Returns the difference (gaps) between the eigen values.
 

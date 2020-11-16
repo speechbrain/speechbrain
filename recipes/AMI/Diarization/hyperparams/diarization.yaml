@@ -47,10 +47,10 @@ max_subseg_dur: 3.0
 overlap: 1.5
 
 # Cluster parameters
-affinity: 'cos'
+affinity: 'nn'
 min_num_spkrs: 2
 max_num_spkrs: 10
-oracle_n_spkrs: False
+oracle_n_spkrs: True
 
 # DER evaluation parameters
 ignore_overlap: True
