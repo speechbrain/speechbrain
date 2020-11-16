@@ -96,18 +96,18 @@ class DynamicBatchSampler(SequentialSampler):
     def __init__(
         self,
         data_source: SegmentedDataset,
-        max_batch_size: int,
+        max_seq_len: int,
         sorting="descending",
     ):
 
-        if not isinstance(max_batch_size, int) or max_batch_size <= 0:
+        if not isinstance(max_seq_len, int) or max_seq_len <= 0:
             raise ValueError(
                 "max_batch_size should be a positive integer value, "
-                "got max_batch_size={}".format(max_batch_size)
+                "got max_batch_size={}".format(max_seq_len)
             )
 
         self.sorting = sorting
-        self.max_bsz = max_batch_size
+        self.max_bsz = max_seq_len
 
         # sorting data_source
         if len(data_source.examples) == 0:
@@ -121,39 +121,40 @@ class DynamicBatchSampler(SequentialSampler):
                 "in order to be able to sort them and use Dynamic Batching"
             )
 
-        if self.sorting == "ascending":
-            ex_ids = sorted(
-                data_source.ex_ids, key=lambda x: examples[x]["length"]
-            )
-            min_len = examples[ex_ids[0]]["length"]
-        elif self.sorting == "descending":
-            ex_ids = sorted(
-                data_source.ex_ids,
-                key=lambda x: examples[x]["length"],
-                reverse=True,
-            )
-            min_len = examples[ex_ids[-1]]["length"]
-        else:
-            raise ValueError("Sorting must be either ascending or descending")
+        # we always sort in descending at beginning.
+        # WHY ? because we want to account also for the padding into the max_batch_len
 
-        # bucketing data_source examples,
-        t_len = min_len * self.max_bsz
+        ex_ids = sorted(
+            data_source.ex_ids,
+            key=lambda x: examples[x]["length"],
+            reverse=True,
+        )
 
         tot_batches = []
         c_batch = []
         c_batch_len = 0
+        first_len = None  # the first element is the one which is always longer.
         for c_id in ex_ids:
             c_len = examples[c_id]["length"]
-            if c_batch_len == 0 or (c_batch_len + c_len) <= t_len:
+            if first_len is None or (c_batch_len + first_len) <= max_seq_len:
                 c_batch.append(c_id)
-                c_batch_len += c_len
+                first_len = c_len
+                c_batch_len += first_len
             else:
                 # put it in another batch
                 tot_batches.append(c_batch)
                 c_batch = [c_id]
                 c_batch_len = c_len
+                first_len = c_len
 
-        self.bucketed = tot_batches
+        if self.sorting == "ascending":
+            # reverse all
+            self.bucketed = [x[::-1] for x in tot_batches[::-1]]
+        elif self.sorting == "descending":
+            # already in descending
+            self.bucketed = tot_batches
+        else:
+            raise ValueError("Sorting must be either ascending or descending")
 
         super().__init__(data_source)
 
