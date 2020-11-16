@@ -89,25 +89,25 @@ def embedding_computation_loop(split, set_loader, stat_file):
 
     # Extract embeddings (skip if already done)
     if not os.path.isfile(stat_file):
-        logger.info(f"Extracting deep embeddings and diarizing")
+        logger.debug(f"Extracting deep embeddings and diarizing")
         embeddings = np.empty(shape=[0, params["emb_dim"]], dtype=np.float64)
         modelset = []
         segset = []
-        with tqdm(set_loader, dynamic_ncols=True) as t:
-            # different data may have different statistics
-            params["mean_var_norm_emb"].count = 0
+        # with tqdm(set_loader, dynamic_ncols=True) as t:
+        # different data may have different statistics
+        params["mean_var_norm_emb"].count = 0
 
-            for wav in t:
-                ids, wavs, lens = wav[0]
+        for wav in set_loader:  # t:
+            ids, wavs, lens = wav[0]
 
-                mod = [x for x in ids]
-                seg = [x for x in ids]
-                modelset = modelset + mod
-                segset = segset + seg
+            mod = [x for x in ids]
+            seg = [x for x in ids]
+            modelset = modelset + mod
+            segset = segset + seg
 
-                # embedding computation
-                emb = compute_embeddings(wavs, lens).squeeze(1).cpu().numpy()
-                embeddings = np.concatenate((embeddings, emb), axis=0)
+            # embedding computation
+            emb = compute_embeddings(wavs, lens).squeeze(1).cpu().numpy()
+            embeddings = np.concatenate((embeddings, emb), axis=0)
 
         modelset = np.array(modelset, dtype="|O")
         segset = np.array(segset, dtype="|O")
@@ -172,14 +172,15 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval):
 
     # Setting eval modality
     params["embedding_model"].eval()
-
-    for rec_id in all_rec_ids:
+    msg = "Diarizing " + split_type + " set"
+    logger.info(msg)
+    for rec_id in tqdm(all_rec_ids):
 
         tag = "[" + str(split_type) + ": " + str(i) + "/" + N + "]"
         i = i + 1
 
         msg = "Diarizing %s : %s " % (tag, rec_id)
-        logger.info(msg)
+        logger.debug(msg)
 
         if not os.path.exists(os.path.join(params["embedding_dir"], split)):
             os.makedirs(os.path.join(params["embedding_dir"], split))
@@ -263,7 +264,7 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval):
 
 
 def dev_p_tuner(full_csv, split_type):
-    """Tuning p_value
+    """Tuning p_value affinity matrix
     """
 
     DER_list = []
@@ -308,12 +309,6 @@ def dev_tuner(full_csv, split_type):
     """Tuning n_compenents on dev set.
     Note: This is a very basic tunning for nn based affinity.
     This is work in progress till we find a better way.
-
-    Returns
-    -------
-    n_components : int
-        Number of eigen components to be used to obtain eigen embedding and
-        same is also used for number for speakers in kmeans.
     """
 
     DER_list = []
@@ -398,10 +393,14 @@ if __name__ == "__main__":  # noqa: C901
     best_pval = None
     if params["affinity"] == "cos":  # oracle num_spkrs or not doesn't matter
         # cos: Tune for best pval
+        logger.info("Tuning for p-value (Multiple iterations over AMI Dev set)")
         best_pval = dev_p_tuner(full_csv, "dev")
     else:
         if params["oracle_n_spkrs"] is False:
-            # nn: Tune num of lambdas (to be updated later)
+            # nn: Tune num of number of components (to be updated later)
+            logger.info(
+                "Tuning for number of eigen components (Multiple iterations over AMI Dev set)"
+            )
             n_lambdas = dev_tuner(full_csv, "dev")
 
     out_boundaries = diarize_dataset(

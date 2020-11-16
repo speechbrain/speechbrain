@@ -1,5 +1,5 @@
 """
-This script contains basic utility functions for speaker diarization.
+This script contains basic functions used for speaker diarization.
 This script has optional dependency on open source sklearn library.
 A few sklearn functions are modified in this script as per requirement.
 
@@ -48,6 +48,20 @@ except ImportError:
 
 
 def read_rttm(rttm_file_path):
+    """
+    Reads and returns RTTM in list format.
+
+    Arguments
+    ---------
+    rttm_file_path : str
+        Path to the RTTM file to be read.
+
+    Return
+    ------
+    rttm : list
+        List containing rows of RTTM file.
+    """
+
     rttm = []
     with open(rttm_file_path, "r") as f:
         for line in f:
@@ -57,6 +71,18 @@ def read_rttm(rttm_file_path):
 
 
 def write_ders_file(ref_rttm, DER, out_der_file):
+    """
+    Write the final DERs for individual recording.
+
+    Arguments
+    ---------
+    ref_rttm : str
+        Reference RTTM file.
+    DER : array
+        Array containing DER values of each recording.
+    out_der_file : str
+        File to write the DERs.
+    """
 
     rttm = read_rttm(ref_rttm)
     spkr_info = list(filter(lambda x: x.startswith("SPKR-INFO"), rttm))
