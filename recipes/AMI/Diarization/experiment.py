@@ -3,7 +3,7 @@
 using deep embedding extraction followed by spectral clustering.
 
 To run this recipe, do the following:
-> python experiment.py hyperparams/diarization.yaml
+> python experiment.py hyperparams.yaml
 
 Condition: Oracle VAD
 
