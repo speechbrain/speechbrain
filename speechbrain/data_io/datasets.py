@@ -38,7 +38,12 @@ class SegmentedDataset(Dataset):
 
         self.data_transforms = data_transforms
 
-        assert isinstance(self.data_transforms, list)
+        if not isinstance(self.data_transforms, list):
+            raise TypeError(
+                "data_transforms should be a list, got {}".format(
+                    type(self.data_transforms)
+                )
+            )
         for k in self.data_transforms:
             if not callable(k):
                 raise ValueError(
