@@ -10,7 +10,7 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Folders
 data_folder: /network/datasets/ami/amicorpus
-manual_annot_folder: /network/tmp1/dawalatn/AMI_MANUAL/
+manual_annot_folder: /miniscratch/ravanelm/ami_public_manual/
 output_folder: results/ami/sd_xvector/
 save_folder: !ref <output_folder>/save
 device: 'cuda:0'
@@ -38,7 +38,7 @@ deltas: False
 
 # Xvector model
 emb_dim: 512
-batch_size: 128
+batch_size: 512
 
 # AMI data_prep parameters
 split_type: 'full_corpus_asr'
@@ -49,7 +49,7 @@ max_subseg_dur: 3.0
 overlap: 1.5
 
 # Cluster parameters
-affinity: 'cos'
+affinity: 'nn'
 max_num_spkrs: 10
 oracle_n_spkrs: False
 
