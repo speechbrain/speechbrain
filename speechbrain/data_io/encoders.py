@@ -30,11 +30,11 @@ class CategoricalEncoder(object):
             for k in dictionary.keys():
                 if isinstance(dictionary[k], dict):
                     if k == supervision:
-                        logger.error(
-                            "desired supervision must not contain a dict, Not Supported",
-                            exc_info=True,
+                        raise NotImplementedError(
+                            "Desired supervision must be either list, tuple or string, Not Supported, got: {}".format(
+                                type(dictionary[k])
+                            )
                         )
-                        raise NotImplementedError
                     _recursive_helper(dictionary[k], supervision, labels_set)
                 else:
                     # leaf node contains no dict
@@ -44,11 +44,11 @@ class CategoricalEncoder(object):
                         elif isinstance(dictionary[k], (str)):
                             all_labs.add(dictionary[k])
                         else:
-                            logger.error(
-                                "Supervision must be either list, tuple or string, Not Supported",
-                                exc_info=True,
+                            raise NotImplementedError(
+                                "Desired supervision must be either list, tuple or string, Not Supported, got: {}".format(
+                                    type(dictionary[k])
+                                )
                             )
-                            raise NotImplementedError
 
         all_labs = set()
         for data_coll in data_collections:
@@ -58,11 +58,10 @@ class CategoricalEncoder(object):
             self.lab2indx = {key: index for index, key in enumerate(all_labs)}
             self.indx2lab = {key: index for key, index in enumerate(all_labs)}
         else:
-            logger.error(
-                "lab2indx and indx2lab must be empty, please use fit right after object instantiation.",
-                exc_info=True,
+            raise EnvironmentError(
+                "lab2indx and indx2lab must be empty, "
+                "please use fit right after object instantiation."
             )
-            raise EnvironmentError
 
     def add_elem(self, key, elem=None):
         """
@@ -82,10 +81,7 @@ class CategoricalEncoder(object):
         """
         # if no element is provided we simply append to end of label dictionary
         if key in self.lab2indx.keys():
-            logger.error(
-                "Label already present in label dictionary", exc_info=True
-            )
-            raise KeyError
+            raise KeyError("Label already present in label dictionary")
 
         max_indx = list(self.indx2lab.keys())[-1]
         if elem is None or elem == (max_indx + 1):
@@ -130,10 +126,9 @@ class CategoricalEncoder(object):
         elif isinstance(x, str):
             labels = [self._index_label_dict(self.lab2indx, x)]
         else:
-            logger.error(
-                "Value to encode must be list, tuple or string", exc_info=True
+            raise NotImplementedError(
+                "Value to encode must be list, tuple or string"
             )
-            raise NotImplementedError
         return labels
 
     def decode_int(self, x: torch.Tensor):
@@ -216,12 +211,10 @@ class CategoricalEncoder(object):
 
     def load(self, path):
         if len(self.lab2indx) or len(self.indx2lab):
-            logger.error(
+            raise RuntimeError(
                 "Use load right after instantiation, "
-                "lab2indx and indx2lab must be empty otherwise this operation will overwrite them.",
-                exc_info=True,
+                "lab2indx and indx2lab must be empty otherwise this operation will overwrite them."
             )
-            raise RuntimeError
 
         with open(path, "rb") as f:
             self.lab2indx, self.indx2lab = pickle.load(f)
@@ -276,15 +269,13 @@ class TextEncoder(CategoricalEncoder):
             try:
                 return label_dict[k]
             except KeyError:
-                logger.error(
+                raise KeyError(
                     "key {} can't be encoded because it is not in the encoder dictionary, "
                     "either something was meesed up during data preparation or, "
                     "if this happens in test consider using the <unkwown> fallback symbol".format(
                         k
-                    ),
-                    exc_info=True,
+                    )
                 )
-                raise KeyError
 
     def prepend_bos(self, x: (tuple, list, str)):
         if isinstance(x, str):
