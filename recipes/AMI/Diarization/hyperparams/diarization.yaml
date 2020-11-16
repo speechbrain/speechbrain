@@ -1,6 +1,7 @@
 # ##################################################
 # Model: Speaker Diarization Baseline
-# Technique: Deep embedding + spectral clustering
+# Embeddings: Deep embedding
+# Clustering Technique: Spectral clustering
 # Authors: Nauman Dawalatabad 2020
 # #################################################
 
