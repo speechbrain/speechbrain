@@ -1293,9 +1293,9 @@ class HMMAligner(torch.nn.Module):
             acc_hist.append(acc)
 
         acc_hist = torch.tensor(acc_hist)
-        mean_acc = acc_hist.mean().item()
+        mean_acc = acc_hist.mean()
 
-        return mean_acc
+        return mean_acc.unsqueeze(0)
 
     def collapse_alignments(self, alignments):
         """
