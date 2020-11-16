@@ -4,8 +4,8 @@ import speechbrain as sb
 
 
 class CTCBrain(sb.Brain):
-    def compute_forward(self, x, stage):
-        id, wavs, lens = x
+    def compute_forward(self, batch, stage):
+        wavs, lens = batch["wav"]
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.mean_var_norm(feats, lens)
         x = self.modules.model(feats)
@@ -14,13 +14,16 @@ class CTCBrain(sb.Brain):
 
         return outputs, lens
 
-    def compute_objectives(self, predictions, targets, stage):
+    def compute_objectives(self, predictions, batch, stage):
         predictions, lens = predictions
-        ids, phns, phn_lens = targets
+        ids = batch["id"]
+        phns, phn_lens = batch["phn"]
         loss = self.hparams.compute_cost(predictions, phns, lens, phn_lens)
 
         if stage != sb.Stage.TRAIN:
-            seq = sb.decoders.ctc_greedy_decode(predictions, lens, blank_id=-1)
+            seq = sb.decoders.ctc_greedy_decode(
+                predictions, lens, blank_id=self.hparams.blank_index
+            )
             self.per_metrics.append(ids, seq, phns, target_len=phn_lens)
 
         return loss
