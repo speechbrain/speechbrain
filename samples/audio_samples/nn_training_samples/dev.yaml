@@ -1,40 +1,16 @@
-# yamllint disable
-spk1_snt5: # data_obj_id (can be also a collection of files)
-  waveforms:
-    files:
-      - DATASET_ROOT/spk1_snt5.wav # these are unique can be either
-    channels:
-      - [0] # channels used from each file it is a list eg we use channels 0, 2 first file second only channel 0)
-    lengths:
-      - 41600 # length is in samples
-    samplerate: 16000 # must be shared
-  supervision:
-      - spk_id: spk1
-        phones: ["s", "ah", "n", "vcl", "d", "ey", "ih", "z", "dh",
-                 "ax", "vcl", "b", "eh", "s", "cl", "t", "cl", "p", "aa",
-                 "r", "dx", "ax", "v", "dh", "ax", "w", "iy", "cl"]
-        #external:
-         # - alignment_file: ALIGNMENT_ROOT/spk1_snt5.pkl
-
-          #path: True # used for sanity check
-        # we need to define standard names for entries for most tasks e.g.
-        #words, sources (for source sep) etc
-spk2_snt5:
-  waveforms:
-    files:
-      - DATASET_ROOT/spk2_snt5.wav
-    channels:
-      - [0] # channels used from each file it is a list)
-    samplerate: 16000
-    lengths:
-      - 31680
-  supervision: # note if start and stop not specified we take all file
-      - spk_id: spk2
-        phones: ["vcl", "jh", "ah", "m", "cl", "p", "dh", "ax", "f", "eh", "n",
-                 "s", "ae", "n", "hh", "er", "iy", "ah", "cl", "p", "dh", "ax",
-                 "vcl", "b", "ae", "ng", "cl"]
-        #external:
-           #  - alignment_file: ALIGNMENT_ROOT/spk2_snt5.pkl
-             #path: True
-
-
+data_root: !PLACEHOLDER
+examples:
+  spk1_snt5:
+    duration: 2.6
+    wav: !ref <data_root>/spk1_snt5.wav
+    spk_id: spk1
+    ali: !ref <data_root>/spk1_snt5.pkl
+    phn: s ah n vcl d ey ih z dh ax vcl b eh s cl t cl p aa r dx ax v dh ax w iy cl
+    char: s u n d a y i s t h e b e s t p a r t o f t h e w e e k
+  spk2_snt5:
+    duration: 1.98
+    wav: !ref <data_root>/spk2_snt5.wav
+    spk_id: spk2
+    ali: !ref <data_root>/spk2_snt5.pkl
+    phn: vcl jh ah m cl p dh ax f eh n s ae n hh er iy ah cl p dh ax vcl b ae ng cl
+    char: k e n p a I r s l a c k f u l l f l a v o r

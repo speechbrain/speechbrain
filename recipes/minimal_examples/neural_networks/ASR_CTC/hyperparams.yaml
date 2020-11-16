@@ -4,12 +4,9 @@ seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 
-# TODO:
-# Reintroduce Data specification here.
-
 # Neural Parameters
 N_epochs: 15
-N_batch: 1
+batch_size: 1
 lr: 0.002
 
 # Model parameters
@@ -24,7 +21,48 @@ rnn_bidirectional: True
 dnn_blocks: 1
 dnn_neurons: 128
 
-compute_features: !new:speechbrain.lobes.features.mfcc.MFCC
+# Data:
+data_folder: !PLACEHOLDER
+# TODO: Replace with final implementations
+label_encoder: !new:placeholders.ExampleCategoricalEncoder
+    label2ind: !name:placeholders.ASR_example_label2ind
+    ind2label: !name:placeholders.ASR_example_ind2label
+
+text_transform: !new:speechbrain.utils.data_utils.FuncPipeline
+    - !name:speechbrain.utils.data_utils.split_by_whitespace
+    - !ref <label_encoder.encode_list>
+    - !name:torch.tensor
+      dtype: !name:torch.int
+
+train_data: !apply:speechbrain.data_io.datasets.SegmentedDataset.from_extended_yaml
+    filepath: !ref <data_folder>/train.yaml
+    overrides:
+        data_root: !ref <data_folder>
+    data_fields: [wav, phn]
+    data_transforms:
+        wav: !name:placeholders.torchaudio_load
+        phn: !ref <text_transform>
+
+valid_data: !apply:speechbrain.data_io.datasets.SegmentedDataset.from_extended_yaml
+    filepath: !ref <data_folder>/dev.yaml
+    overrides:
+        data_root: !ref <data_folder>
+    data_fields: [wav, phn]
+    data_transforms:
+        wav: !name:placeholders.torchaudio_load
+        phn: !ref <text_transform>
+
+train_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
+    dataset: !ref <train_data>
+    batch_size: !ref <batch_size>
+    collate_fn: !name:placeholders.ASR_example_collation
+
+valid_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
+    dataset: !ref <valid_data>
+    batch_size: 1
+    collate_fn: !name:placeholders.ASR_example_collation
+
+compute_features: !new:speechbrain.lobes.features.MFCC
 
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
