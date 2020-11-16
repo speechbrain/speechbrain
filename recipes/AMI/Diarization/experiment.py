@@ -93,8 +93,8 @@ def embedding_computation_loop(split, set_loader, stat_file):
         embeddings = np.empty(shape=[0, params["emb_dim"]], dtype=np.float64)
         modelset = []
         segset = []
-        # with tqdm(set_loader, dynamic_ncols=True) as t:
-        # different data may have different statistics
+
+        # Different data may have different statistics
         params["mean_var_norm_emb"].count = 0
 
         for wav in set_loader:  # t:
@@ -105,7 +105,7 @@ def embedding_computation_loop(split, set_loader, stat_file):
             modelset = modelset + mod
             segset = segset + seg
 
-            # embedding computation
+            # Embedding computation
             emb = compute_embeddings(wavs, lens).squeeze(1).cpu().numpy()
             embeddings = np.concatenate((embeddings, emb), axis=0)
 
@@ -198,9 +198,9 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval):
         # Setup a dataloader for above one recording (above csv)
         diary_set = DataLoaderFactory(
             new_csv_file,
-            params["diary_loader_eval"].batch_size,
-            params["diary_loader_eval"].csv_read,
-            params["diary_loader_eval"].sentence_sorting,
+            params["diary_loader"].batch_size,
+            params["diary_loader"].csv_read,
+            params["diary_loader"].sentence_sorting,
         )
 
         diary_set_loader = diary_set.forward().get_dataloader()
@@ -212,7 +212,7 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval):
         params["mean_var_norm_emb"].to(params["device"])
 
         # Compute Embeddings
-        diary_obj_dev = embedding_computation_loop(
+        diary_obj = embedding_computation_loop(
             "diary", diary_set_loader, diary_stat_file
         )
 
@@ -234,7 +234,7 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval):
                 num_spkrs = None
 
         diar.do_spec_clustering(
-            diary_obj_dev,
+            diary_obj,
             out_rttm_file,
             rec_id,
             num_spkrs,
