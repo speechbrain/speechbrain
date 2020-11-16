@@ -137,6 +137,17 @@ def embedding_computation_loop(split, set_loader, stat_file):
     return stat_obj
 
 
+"""
+def readRTTM( rttm_file_path ):
+    RTTM = []
+    with open(full_ref_rttm_file, "r") as f:
+        for line in f:
+            entry = line[:-1]
+            RTTM.append(entry)
+    return RTTM
+"""
+
+
 def diarize_dataset(full_csv, split_type, n_lambdas, pval):
     """Diarizes all the recordings in a given dataset
     """
@@ -146,14 +157,16 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval):
         full_ref_rttm_file = (
             params["ref_rttm_dir"] + "/fullref_ami_" + split_type + ".rttm"
         )
-        RTTM = []
-        with open(full_ref_rttm_file, "r") as f:
-            for line in f:
-                entry = line[:-1]
-                RTTM.append(entry)
+        # RTTM = []
+        # with open(full_ref_rttm_file, "r") as f:
+        #    for line in f:
+        #        entry = line[:-1]
+        #        RTTM.append(entry)
+
+        rttm = diar.read_rttm(full_ref_rttm_file)
 
         spkr_info = list(  # noqa F841
-            filter(lambda x: x.startswith("SPKR-INFO"), RTTM)
+            filter(lambda x: x.startswith("SPKR-INFO"), rttm)
         )
 
     # Get all recording IDs in this dataset
@@ -368,6 +381,7 @@ if __name__ == "__main__":  # noqa: C901
         params["csv_dir"],
         params["ref_rttm_dir"],
         params["sys_rttm_dir"],
+        params["der_dir"],
     ]
     for dir_ in exp_dirs:
         if not os.path.exists(dir_):
@@ -412,16 +426,17 @@ if __name__ == "__main__":  # noqa: C901
 
     # Evaluating on DEV set
     logger.info("Evaluating for AMI Dev. set")
-    ref_rttm = os.path.join(params["ref_rttm_dir"], "fullref_ami_dev.rttm")
-    sys_rttm = out_boundaries
+    ref_rttm_dev = os.path.join(params["ref_rttm_dir"], "fullref_ami_dev.rttm")
+    sys_rttm_dev = out_boundaries
     [MS_dev, FA_dev, SER_dev, DER_dev] = DER(
-        ref_rttm,
-        sys_rttm,
+        ref_rttm_dev,
+        sys_rttm_dev,
         params["ignore_overlap"],
         params["forgiveness_collar"],
+        individual_file_scores=True,
     )
     msg = "AMI Dev set: Diarization Error Rate = %s %%\n" % (
-        str(round(DER_dev, 2))
+        str(round(DER_dev[-1], 2))
     )
     logger.info(msg)
 
@@ -438,21 +453,34 @@ if __name__ == "__main__":  # noqa: C901
 
     # Evaluating on EVAL set
     logger.info("Evaluating for AMI Eval. set")
-    ref_rttm = os.path.join(params["ref_rttm_dir"], "fullref_ami_eval.rttm")
-    sys_rttm = out_boundaries
+    ref_rttm_eval = os.path.join(
+        params["ref_rttm_dir"], "fullref_ami_eval.rttm"
+    )
+    sys_rttm_eval = out_boundaries
     [MS_eval, FA_eval, SER_eval, DER_eval] = DER(
-        ref_rttm,
-        sys_rttm,
+        ref_rttm_eval,
+        sys_rttm_eval,
         params["ignore_overlap"],
         params["forgiveness_collar"],
+        individual_file_scores=True,
     )
     msg = "AMI Eval set: Diarization Error Rate = %s %%\n" % (
-        str(round(DER_eval, 2))
+        str(round(DER_eval[-1], 2))
     )
     logger.info(msg)
 
     msg = (
         "Final Diarization Error Rate (%%) on AMI corpus: Dev = %s %% | Eval = %s %%\n"
-        % (str(round(DER_dev, 2)), str(round(DER_eval, 2)))
+        % (str(round(DER_dev[-1], 2)), str(round(DER_eval[-1], 2)))
     )
     logger.info(msg)
+
+    # Writing der for individual files
+    t0 = "oracle" if params["oracle_n_spkrs"] else "est"
+    tag = t0 + "_" + str(params["affinity"]) + ".txt"
+
+    out_der_file = os.path.join(params["der_dir"], "dev_DER_" + tag)
+    diar.write_ders_file(ref_rttm_dev, DER_dev, out_der_file)
+
+    out_der_file = os.path.join(params["der_dir"], "eval_DER_" + tag)
+    diar.write_ders_file(ref_rttm_eval, DER_eval, out_der_file)
