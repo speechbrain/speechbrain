@@ -1,7 +1,4 @@
 from torch.utils.data import Dataset
-import logging
-
-logger = logging.getLogger(__name__)
 
 
 class SegmentedDataset(Dataset):
@@ -44,17 +41,15 @@ class SegmentedDataset(Dataset):
         assert isinstance(self.data_transforms, list)
         for k in self.data_transforms:
             if not callable(k):
-                logger.error(
-                    "Each element in data_transforms dict must be callable",
-                    exc_info=True,
+                raise ValueError(
+                    "Each element in data_transforms dict must be callable"
                 )
 
         if discard_shorter:
             if "length" not in self.examples[self.examples.keys()[0]].keys():
-                logger.error(
+                raise KeyError(
                     "If discard_shorter option wants to be used, "
-                    "each example must have a 'length' key containing the length of the example.",
-                    exc_info=True,
+                    "each example must have a 'length' key containing the length of the example."
                 )
 
             examples = {
@@ -65,10 +60,9 @@ class SegmentedDataset(Dataset):
 
         if discard_longer:
             if "length" not in self.examples[self.examples.keys()[0]].keys():
-                logger.error(
+                raise KeyError(
                     "If discard_shorter option wants to be used, "
-                    "each example must have a 'length' key containing the length of the example.",
-                    exc_info=True,
+                    "each example must have a 'length' key containing the length of the example."
                 )
 
             examples = {
