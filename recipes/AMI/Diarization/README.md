@@ -12,4 +12,4 @@ You can also train the speaker embedding model from scratch using instructions i
 [Diarization Error Rate on AMI. Condition Orcale VAD and Oracle number of speakers]
 | System          | AMI-Dev    | AMI-Eval |
 |-----------------|------------|------|
-| Xvector + SC  | 4.45 % | 4.53% |
+| Xvector + SC  | 4.47 % | 4.49% |
