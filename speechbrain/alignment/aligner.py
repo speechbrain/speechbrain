@@ -1272,7 +1272,7 @@ class HMMAligner(torch.nn.Module):
         >>> phns = [[0., 1.]]
         >>> ends = [[2, 4]]
         >>> mean_acc = aligner.calc_accuracy(alignments, ends, phns)
-        >>> mean_acc
+        >>> mean_acc.item()
         75.0
         """
         acc_hist = []
