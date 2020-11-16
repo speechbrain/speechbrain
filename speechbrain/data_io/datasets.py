@@ -1,4 +1,5 @@
 from torch.utils.data import Dataset
+from speechbrain.yaml import load_extended_yaml
 
 
 class SegmentedDataset(Dataset):
@@ -57,3 +58,17 @@ class SegmentedDataset(Dataset):
                 out[k] = self.data_transforms[k](c_ex[k])
 
         return out
+
+    @classmethod
+    def from_extended_yaml(
+        cls,
+        filepath,
+        *args,
+        overrides=None,
+        overrides_must_match=True,
+        examples_key="examples",
+        **kwargs,
+    ):
+        with open(filepath) as fi:
+            yml = load_extended_yaml(fi, overrides, overrides_must_match)
+            return cls(yml[examples_key], *args, **kwargs)

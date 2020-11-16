@@ -2,23 +2,6 @@
 import os
 import speechbrain as sb
 
-# TODO: Replace local placeholder Dataset class
-from placeholders import ASRMinimalExampleDataset
-
-# TODO: Replace ASR Dataset transforms:
-from placeholders import FuncPipeline
-from placeholders import torchaudio_load
-from placeholders import split_by_whitespace
-from placeholders import ExampleCategoricalEncoder
-from placeholders import to_int_tensor
-
-# TODO: Replace label dict creation
-from placeholders import ASR_example_label2ind, ASR_example_ind2label
-
-# TODO: Replace collate fn:
-from placeholders import ASR_example_collation
-from speechbrain.data_io.dataloader import SaveableDataLoader
-
 
 class CTCBrain(sb.Brain):
     def compute_forward(self, x, stage):
@@ -65,56 +48,19 @@ def main():
     data_folder = "../../../../samples/audio_samples/nn_training_samples"
     data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
     with open(hparams_file) as fin:
-        # TODO: Data loading back into YAML:
-        hparams = sb.yaml.load_extended_yaml(fin)
-
-        # Placeholders:
-        label_encoder = ExampleCategoricalEncoder(
-            label2ind=ASR_example_label2ind, ind2label=ASR_example_ind2label
-        )
-        # TODO: Make proper transforms
-        text_transform = FuncPipeline(
-            split_by_whitespace, label_encoder.encode_list, to_int_tensor
-        )
-
-        # TODO: Convert minimal example CSV to new YAML format
-        train_data = ASRMinimalExampleDataset(
-            os.path.join(data_folder, "train.csv"),
-            audio_transform=torchaudio_load,
-            text_transform=text_transform,
-        )
-        valid_data = ASRMinimalExampleDataset(
-            os.path.join(data_folder, "dev.csv"),
-            audio_transform=torchaudio_load,
-            text_transform=text_transform,
-        )
-        test_data = ASRMinimalExampleDataset(
-            os.path.join(data_folder, "dev.csv"),
-            audio_transform=torchaudio_load,
-            text_transform=text_transform,
-        )
-
-    # Placeholders:
-    train_loader = SaveableDataLoader(
-        train_data,
-        batch_size=hparams["N_batch"],
-        collate_fn=ASR_example_collation,
-    )
-    valid_loader = SaveableDataLoader(
-        valid_data, batch_size=1, collate_fn=ASR_example_collation
-    )
-    test_loader = SaveableDataLoader(
-        test_data, batch_size=1, collate_fn=ASR_example_collation
-    )
+        hparams = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
 
     ctc_brain = CTCBrain(hparams["modules"], hparams["opt_class"], hparams)
     ctc_brain.fit(
-        range(hparams["N_epochs"]), train_loader, valid_loader,
+        range(hparams["N_epochs"]),
+        hparams["train_loader"],
+        hparams["valid_loader"],
     )
-    ctc_brain.evaluate(test_loader)
+    # Evaluation is run separately (now just evaluating on valid data)
+    ctc_brain.evaluate(hparams["valid_loader"])
 
     # Check if model overfits for integration test
-    assert ctc_brain.train_loss < 3.0
+    assert ctc_brain.train_loss < 1.0
 
 
 if __name__ == "__main__":
