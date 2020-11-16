@@ -1,7 +1,8 @@
-# ################################
-# Model: Speaker Diarization Baseline on deep embedding + spectral clustering
+# ##################################################
+# Model: Speaker Diarization Baseline
+# Technique: Deep embedding + spectral clustering
 # Authors: Nauman Dawalatabad 2020
-# ################################
+# #################################################
 
 seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
@@ -25,9 +26,8 @@ sys_rttm_dir: !ref <save_folder>/sys_rttms
 der_dir: !ref <save_folder>/DER
 
 # AMI: csv files
-csv_diary_train: !ref <save_folder>/csv/ami_train.subsegments.csv
-csv_diary_dev: !ref <save_folder>/csv/ami_dev.subsegments.csv
-csv_diary_eval: !ref <save_folder>/csv/ami_eval.subsegments.csv
+csv_diary_dev: !ref <csv_dir>/ami_dev.subsegments.csv
+csv_diary_eval: !ref <csv_dir>/ami_eval.subsegments.csv
 
 # Spectral feature parameters
 n_mels: 24
@@ -49,7 +49,6 @@ overlap: 1.5
 
 # Cluster parameters
 affinity: 'cos'
-min_num_spkrs: 2
 max_num_spkrs: 10
 oracle_n_spkrs: False
 
@@ -80,15 +79,6 @@ embedding_model: !new:speechbrain.lobes.models.Xvector.Xvector
     tdnn_kernel_sizes: [5, 3, 3, 1, 1]
     tdnn_dilations: [1, 2, 3, 1, 1]
     lin_neurons: 512
-
-diary_loader_train: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_diary_train>
-    batch_size: !ref <batch_size>
-    csv_read: [wav]
-    sentence_sorting: original
-    replacements:
-        $data_folder: !ref <data_folder>
-    output_folder: !ref <output_folder>/save/
 
 diary_loader_dev: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_diary_dev>
