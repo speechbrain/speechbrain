@@ -150,6 +150,14 @@ def is_overlapped(end1, start2):
     -------
     overlaped : bool
         True of segments overlaped else False.
+
+    Example
+    -------
+    >>> from speechbrain.processing import diarization as diar
+    >>> diar.is_overlapped(5.5, 3.4)
+    True
+    >>> diar.is_overlapped(5.5, 6.4)
+    False
     """
 
     if start2 > end1:
@@ -171,23 +179,43 @@ def merge_ssegs_same_speaker(lol):
     -------
     new_lol : list of list
         new_lol contains adjacent segments merged from a same speaker ID.
+
+    Example
+    -------
+    >>> from speechbrain.processing import diarization as diar
+    >>> lol=[['r1', 5.5, 7.0, 's1'],
+    ... ['r1', 6.5, 9.0, 's1'],
+    ... ['r1', 8.0, 11.0, 's1'],
+    ... ['r1', 11.5, 13.0, 's2'],
+    ... ['r1', 14.0, 15.0, 's2'],
+    ... ['r1', 14.5, 15.0, 's1']]
+    >>> diar.merge_ssegs_same_speaker(lol)
+    [['r1', 5.5, 11.0, 's1'], ['r1', 11.5, 13.0, 's2'], ['r1', 14.0, 15.0, 's2'], ['r1', 14.5, 15.0, 's1']]
     """
 
     new_lol = []
 
     # Start from the first sub-seg
     sseg = lol[0]
-
+    flag = False
     for i in range(1, len(lol)):
         next_sseg = lol[i]
 
         # IF sub-segments overlap AND has same speaker THEN merge
         if is_overlapped(sseg[2], next_sseg[1]) and sseg[3] == next_sseg[3]:
             sseg[2] = next_sseg[2]  # just update the end time
-
+            # This is important. For the last sseg, if it is the same speaker the merge
+            # Make sure we don't append the last segment once more. Hence, set FLAG=True
+            if i == len(lol) - 1:
+                flag = True
+                new_lol.append(sseg)
         else:
             new_lol.append(sseg)
             sseg = next_sseg
+
+    # Add last segment only when it was skipped earlier.
+    if flag is False:
+        new_lol.append(lol[-1])
 
     return new_lol
 
@@ -207,6 +235,16 @@ def distribute_overlap(lol):
     new_lol : list of list
         new_lol contains the overlapped part equally divided among the adjacent
         segments with different speaker IDs.
+
+    Example
+    -------
+    >>> from speechbrain.processing import diarization as diar
+    >>> lol = [['r1', 5.5, 9.0, 's1'],
+    ... ['r1', 8.0, 11.0, 's2'],
+    ... ['r1', 11.5, 13.0, 's2'],
+    ... ['r1', 12.0, 15.0, 's1']]
+    >>> diar.distribute_overlap(lol)
+    [['r1', 5.5, 8.5, 's1'], ['r1', 8.5, 11.0, 's2'], ['r1', 11.5, 12.5, 's2'], ['r1', 12.5, 15.0, 's1']]
     """
 
     new_lol = []
@@ -474,6 +512,21 @@ def get_oracle_num_spkrs(rec_id, spkr_info):
         Recording ID for which the number of speakers have to be obtained.
     spkr_info : list
         Header of the RTTM file. Starting with `SPKR-INFO`
+
+    Example
+    -------
+    >>> from speechbrain.processing import diarization as diar
+    >>> spkr_info = ['SPKR-INFO ES2011a 0 <NA> <NA> <NA> unknown ES2011a.A <NA> <NA>',
+    ... 'SPKR-INFO ES2011a 0 <NA> <NA> <NA> unknown ES2011a.B <NA> <NA>',
+    ... 'SPKR-INFO ES2011a 0 <NA> <NA> <NA> unknown ES2011a.C <NA> <NA>',
+    ... 'SPKR-INFO ES2011a 0 <NA> <NA> <NA> unknown ES2011a.D <NA> <NA>',
+    ... 'SPKR-INFO ES2011b 0 <NA> <NA> <NA> unknown ES2011b.A <NA> <NA>',
+    ... 'SPKR-INFO ES2011b 0 <NA> <NA> <NA> unknown ES2011b.B <NA> <NA>',
+    ... 'SPKR-INFO ES2011b 0 <NA> <NA> <NA> unknown ES2011b.C <NA> <NA>']
+    >>> diar.get_oracle_num_spkrs('ES2011a', spkr_info)
+    4
+    >>> diar.get_oracle_num_spkrs('ES2011b', spkr_info)
+    3
     """
 
     num_spkrs = 0
