@@ -22,6 +22,7 @@ embedding_dir: !ref <save_folder>/emb
 csv_dir: !ref <save_folder>/csv
 ref_rttm_dir: !ref <save_folder>/ref_rttms
 sys_rttm_dir: !ref <save_folder>/sys_rttms
+der_dir: !ref <save_folder>/DER
 
 # AMI: csv files
 csv_diary_train: !ref <save_folder>/csv/ami_train.subsegments.csv
@@ -47,10 +48,10 @@ max_subseg_dur: 3.0
 overlap: 1.5
 
 # Cluster parameters
-affinity: 'nn'
+affinity: 'cos'
 min_num_spkrs: 2
 max_num_spkrs: 10
-oracle_n_spkrs: True
+oracle_n_spkrs: False
 
 # DER evaluation parameters
 ignore_overlap: True

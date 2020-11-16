@@ -3,6 +3,13 @@ This script contains basic utility functions for speaker diarization.
 This script has optional dependency on open source sklearn library.
 A few sklearn functions are modified in this script as per requirement.
 
+Reference
+---------
+- Von Luxburg, U. A tutorial on spectral clustering. Stat Comput 17, 395–416 (2007).
+  https://doi.org/10.1007/s11222-007-9033-z
+
+- sklearn:
+  https://github.com/scikit-learn/scikit-learn/blob/0fb307bf3/sklearn/cluster/_spectral.py
 
 Authors
 -------
@@ -38,6 +45,38 @@ except ImportError:
     err_msg += "Using conda:\n"
     err_msg += "conda install sklearn"
     raise ImportError(err_msg)
+
+
+def read_rttm(rttm_file_path):
+    rttm = []
+    with open(rttm_file_path, "r") as f:
+        for line in f:
+            entry = line[:-1]
+            rttm.append(entry)
+    return rttm
+
+
+def write_ders_file(ref_rttm, DER, out_der_file):
+
+    rttm = read_rttm(ref_rttm)
+    spkr_info = list(filter(lambda x: x.startswith("SPKR-INFO"), rttm))
+
+    rec_id_list = []
+    count = 0
+
+    with open(out_der_file, "w") as f:
+        for row in spkr_info:
+            a = row.split(" ")
+            rec_id = a[1]
+            if rec_id not in rec_id_list:
+                r = [rec_id, str(round(DER[count], 2))]
+                rec_id_list.append(rec_id)
+                line_str = " ".join(r)
+                f.write("%s\n" % line_str)
+                count += 1
+        r = ["OVERALL ", str(round(DER[count], 2))]
+        line_str = " ".join(r)
+        f.write("%s\n" % line_str)
 
 
 def prepare_subset_csv(full_diary_csv, rec_id, out_csv_file):
