@@ -1,8 +1,10 @@
 from torch.utils.data import Dataset
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class SegmentedDataset(Dataset):
-
     """
     SegmentedDataset handles pre-segmented datasets.
 
@@ -16,7 +18,7 @@ class SegmentedDataset(Dataset):
     Note that transformations include also reading data from a file:
     e.g. {"wav_file": read_wav} where read_wav is a suitable function we provide in data_io.py.
 
-    Finally the specified elements are tranformed an returned from __getitem__
+    Finally the specified elements are transformed an returned from __getitem__
     in a dict where the keys corresponds to the data_fields entried e.g. "wav_file".
 
 
@@ -33,30 +35,27 @@ class SegmentedDataset(Dataset):
         self,
         examples: dict,
         data_transforms=None,
-        length_sorting="random",
         discard_longer=None,
         discard_shorter=None,
     ):
 
         self.data_transforms = data_transforms
-        assert length_sorting in ["random", "ascending", "descending"]
-        if length_sorting in ["ascending", "descending"]:
-            assert (
-                "length" in self.examples[self.examples.keys()[0]].keys()
-            ), "If sorting != random then,' \
-                   ' each example must have a 'length' key containing the length of the example in order to be able to sort them."
-        self.sentence_sorting = length_sorting
 
         assert isinstance(self.data_transforms, list)
         for k in self.data_transforms:
-            assert callable(
-                k
-            ), "Each element in data_transforms dict must be callable"
+            if not callable(k):
+                logger.error(
+                    "Each element in data_transforms dict must be callable",
+                    exc_info=True,
+                )
 
         if discard_shorter:
-            assert (
-                "length" in self.examples[self.examples.keys()[0]].keys()
-            ), "If discard_shorter option wants to be used, each example must have a 'length' key containing the length of the example."
+            if "length" not in self.examples[self.examples.keys()[0]].keys():
+                logger.error(
+                    "If discard_shorter option wants to be used, "
+                    "each example must have a 'length' key containing the length of the example.",
+                    exc_info=True,
+                )
 
             examples = {
                 k: v
@@ -65,9 +64,12 @@ class SegmentedDataset(Dataset):
             }
 
         if discard_longer:
-            assert (
-                "length" in self.examples[self.examples.keys()[0]].keys()
-            ), "If discard_shorter option wants to be used, each example must have a 'length' key containing the length of the example."
+            if "length" not in self.examples[self.examples.keys()[0]].keys():
+                logger.error(
+                    "If discard_shorter option wants to be used, "
+                    "each example must have a 'length' key containing the length of the example.",
+                    exc_info=True,
+                )
 
             examples = {
                 k: v
@@ -77,20 +79,6 @@ class SegmentedDataset(Dataset):
 
         self.examples = examples
         self.ex_ids = list(self.examples.keys())
-
-        # sorting operation
-        if length_sorting == "ascending":
-            self.ex_ids = sorted(
-                self.ex_ids, key=lambda x: self.examples[x]["length"]
-            )
-        elif length_sorting == "descending":
-            self.ex_ids = sorted(
-                examples,
-                key=lambda x: self.examples[x]["length"],
-                reverse=True,
-            )
-        else:
-            pass
 
     def __len__(self):
         return len(self.ex_ids)
