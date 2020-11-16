@@ -17,8 +17,68 @@ import hashlib
 import multiprocessing as mp
 import csv
 import time
+import torchaudio
 
 logger = logging.getLogger(__name__)
+
+
+def read_wav(waveforms_obj):
+    files = waveforms_obj["files"]
+    if not isinstance(files, list):
+        files = [files]
+
+    waveforms = []
+    for f in files:
+        if (
+            "start" not in waveforms_obj.keys()
+            or "stop" not in waveforms_obj.keys()
+        ):
+            tmp, fs = torchaudio.load(f)
+            waveforms.append(tmp)
+        else:
+            num_frames = waveforms_obj["stop"] - waveforms_obj["start"]
+            offset = waveforms_obj["start"]
+            tmp, fs = torchaudio.load(f, num_frames=num_frames, offset=offset)
+            waveforms.append(tmp)
+
+    out = torch.cat(waveforms, 0)
+    if out.size(0) != 1:
+        raise NotImplementedError("Multichannel audio currently not supported")
+
+    return out.squeeze(0)
+
+
+def load_pickle(pickle_path):
+    with open(pickle_path, "r") as f:
+        out = pickle.load(f)
+    return out
+
+
+def to_floatTensor(x: (list, tuple, np.ndarray)):
+    if isinstance(x, torch.Tensor):
+        return x.float()
+    if isinstance(x, np.ndarray):
+        return torch.from_numpy(x).float()
+    else:
+        return torch.tensor(x, dtype=torch.float)
+
+
+def to_doubleTensor(x: (list, tuple, np.ndarray)):
+    if isinstance(x, torch.Tensor):
+        return x.double()
+    if isinstance(x, np.ndarray):
+        return torch.from_numpy(x).double()
+    else:
+        return torch.tensor(x, dtype=torch.double)
+
+
+def to_longTensor(x: (list, tuple, np.ndarray)):
+    if isinstance(x, torch.Tensor):
+        return x.long()
+    if isinstance(x, np.ndarray):
+        return torch.from_numpy(x).long()
+    else:
+        return torch.tensor(x, dtype=torch.long)
 
 
 def convert_index_to_lab(batch, ind2lab):
