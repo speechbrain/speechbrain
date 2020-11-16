@@ -66,6 +66,8 @@ class CategoricalEncoder(object):
     def add_elem(self, key, elem=None):
         """
         update method (adding additional keys not present in the encoder internal state.
+        NOTE: If no element is provided we simply append to end of label dictionary.
+
         Parameters
         ----------
         key: str
@@ -79,7 +81,6 @@ class CategoricalEncoder(object):
         None
 
         """
-        # if no element is provided we simply append to end of label dictionary
         if key in self.lab2indx.keys():
             raise KeyError("Label already present in label dictionary")
 
@@ -88,9 +89,13 @@ class CategoricalEncoder(object):
             self.lab2indx[key] = max_indx + 1
             self.indx2lab[max_indx + 1] = key
         else:
-            assert (
-                0 <= elem <= (max_indx + 1)
-            ), "invalid value specified choose between 0 and len(Encoder)"
+            if not (0 <= elem <= (max_indx + 1)):
+                raise IndexError(
+                    "Invalid value specified choose between 0 and len(Encoder), got {}".format(
+                        elem
+                    )
+                )
+
             self.lab2indx[key] = elem
             orig_key = self.indx2lab[elem]
             self.lab2indx[orig_key] = max_indx + 1
@@ -105,7 +110,7 @@ class CategoricalEncoder(object):
 
         return label_dict[k]
 
-    def encode_int(self, x: (tuple, list, str)):
+    def encode_int(self, x):
         """
         Parameters
         ----------
@@ -131,7 +136,7 @@ class CategoricalEncoder(object):
             )
         return labels
 
-    def decode_int(self, x: torch.Tensor):
+    def decode_int(self, x):
         """
 
         Parameters
@@ -145,6 +150,11 @@ class CategoricalEncoder(object):
         decoded: list
             list containing original labels (strings).
         """
+
+        if not isinstance(x, torch.Tensor):
+            raise TypeError(
+                "Input must be a torch.Tensor, got {}".format(type(x))
+            )
 
         decoded = []
         if x.ndim == 1:  # 1d tensor
@@ -163,9 +173,13 @@ class CategoricalEncoder(object):
             return batch
 
         else:
-            raise NotImplementedError
+            raise NotImplementedError(
+                "Only 1D and 2D tensors are supported got tensor with ndim={}".format(
+                    x.ndim
+                )
+            )
 
-    def decode_one_hot(self, x: torch.Tensor):
+    def decode_one_hot(self, x):
         """
 
         Parameters
@@ -180,6 +194,11 @@ class CategoricalEncoder(object):
         decoded: list
             list containing original labels (strings).
         """
+
+        if not isinstance(x, torch.Tensor):
+            raise TypeError(
+                "Input must be a torch.Tensor, got {}".format(type(x))
+            )
 
         if x.ndim == 1:
             indx = torch.argmax(x)
@@ -203,7 +222,11 @@ class CategoricalEncoder(object):
                 decoded.append(c_batch)
             return decoded
         else:
-            raise NotImplementedError
+            raise NotImplementedError(
+                "Only 1D, 2D and 3D tensors are supported got tensor with ndim={}".format(
+                    x.ndim
+                )
+            )
 
     def save(self, path):
         with open(path, "wb") as f:
@@ -249,7 +272,6 @@ class TextEncoder(CategoricalEncoder):
                 "Only BOS token specified or BOS == EOS, EOS is set implictly equal to BOS",
                 exc_info=True,
             )
-
             self.bos_token = bos_token
             self.eos_token = bos_token
             self.add_elem(bos_token, bos_encoding)
