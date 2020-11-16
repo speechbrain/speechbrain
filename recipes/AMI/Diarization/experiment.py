@@ -3,7 +3,7 @@
 using deep embedding extraction followed by spectral clustering.
 
 To run this recipe, do the following:
-> python experiment.py hyperparams.yaml
+> python experiment.py hyperparams/diarization.yaml
 
 Condition: Oracle VAD
 
@@ -137,17 +137,6 @@ def embedding_computation_loop(split, set_loader, stat_file):
     return stat_obj
 
 
-"""
-def readRTTM( rttm_file_path ):
-    RTTM = []
-    with open(full_ref_rttm_file, "r") as f:
-        for line in f:
-            entry = line[:-1]
-            RTTM.append(entry)
-    return RTTM
-"""
-
-
 def diarize_dataset(full_csv, split_type, n_lambdas, pval):
     """Diarizes all the recordings in a given dataset
     """
@@ -157,11 +146,6 @@ def diarize_dataset(full_csv, split_type, n_lambdas, pval):
         full_ref_rttm_file = (
             params["ref_rttm_dir"] + "/fullref_ami_" + split_type + ".rttm"
         )
-        # RTTM = []
-        # with open(full_ref_rttm_file, "r") as f:
-        #    for line in f:
-        #        entry = line[:-1]
-        #        RTTM.append(entry)
 
         rttm = diar.read_rttm(full_ref_rttm_file)
 
