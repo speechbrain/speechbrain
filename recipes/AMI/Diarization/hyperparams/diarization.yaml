@@ -11,7 +11,7 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 # Folders
 data_folder: /network/datasets/ami/amicorpus
 manual_annot_folder: /network/tmp1/dawalatn/AMI_MANUAL/
-output_folder: res2/ami/speaker_diarization_xvector/
+output_folder: results/ami/sd_xvector/
 save_folder: !ref <output_folder>/save
 device: 'cuda:0'
 
@@ -81,16 +81,7 @@ embedding_model: !new:speechbrain.lobes.models.Xvector.Xvector
     tdnn_dilations: [1, 2, 3, 1, 1]
     lin_neurons: 512
 
-diary_loader_dev: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_diary_dev>
-    batch_size: !ref <batch_size>
-    csv_read: [wav]
-    sentence_sorting: original
-    replacements:
-        $data_folder: !ref <data_folder>
-    output_folder: !ref <output_folder>/save/
-
-diary_loader_eval: !new:speechbrain.data_io.data_io.DataLoaderFactory
+diary_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_diary_eval>
     batch_size: !ref <batch_size>
     csv_read: [wav]
