@@ -29,31 +29,31 @@ label_encoder: !new:placeholders.ExampleCategoricalEncoder
     label2ind: !name:placeholders.ASR_example_label2ind
     ind2label: !name:placeholders.ASR_example_ind2label
 
-text_transform: !new:speechbrain.utils.data_utils.FuncPipeline
-    name: text_transform
-    target: phns
+text_pipeline: !new:speechbrain.utils.data_utils.FuncPipeline
+    name: phn
+    target: phn
     funcs:
         - !name:speechbrain.utils.data_utils.split_by_whitespace
         - !ref <label_encoder.encode_list>
         - !name:speechbrain.data_io.data_io.to_longTensor
 
+audio_pipeline: !new:speechbrain.utils.data_utils.FuncPipeline
+    name: wav
+    target: wav
+    funcs:
+        - !name:speechbrain.data_io.data_io.read_wav
+
 train_data: !apply:speechbrain.data_io.datasets.SegmentedDataset.from_extended_yaml
     filepath: !ref <data_folder>/train.yaml
     overrides:
         data_root: !ref <data_folder>
-    data_fields: [wav, phn]
-    data_transforms:
-        wav: !name:speechbrain.data_io.data_io.read_wav
-        phn: !ref <text_transform>
+    data_transforms: [!ref <text_pipeline>, !ref <audio_pipeline>]
 
 valid_data: !apply:speechbrain.data_io.datasets.SegmentedDataset.from_extended_yaml
     filepath: !ref <data_folder>/dev.yaml
     overrides:
         data_root: !ref <data_folder>
-    data_fields: [wav, phn]
-    data_transforms:
-        wav: !name:speechbrain.data_io.data_io.read_wav
-        phn: !ref <text_transform>
+    data_transforms: [!ref <text_pipeline>, !ref <audio_pipeline>]
 
 train_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
     dataset: !ref <train_data>
