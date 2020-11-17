@@ -8,7 +8,9 @@ import speechbrain as sb
 class LMBrain(sb.Brain):
     def compute_forward(self, y, stage):
         ids, phns, phn_lens = y
-        y_in = sb.data_io.prepend_bos_token(phns, self.hparams.bos_index)
+        y_in = sb.data_io.data_io.prepend_bos_token(
+            phns, self.hparams.bos_index
+        )
         logits = self.modules.model(y_in)
         pout = self.hparams.log_softmax(logits)
         return pout
@@ -20,7 +22,7 @@ class LMBrain(sb.Brain):
         abs_length = torch.round(phn_lens * phns.shape[1])
 
         # Append eos token at the end of the label sequences
-        phns_with_eos = sb.data_io.append_eos_token(
+        phns_with_eos = sb.data_io.data_io.append_eos_token(
             phns, length=abs_length, eos_index=self.hparams.eos_index
         )
 

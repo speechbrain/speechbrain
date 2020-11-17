@@ -14,7 +14,6 @@ import argparse
 import subprocess
 import ruamel.yaml
 import speechbrain as sb
-import torch.distributed as dist
 from io import StringIO
 from datetime import date
 from enum import Enum, auto
@@ -28,6 +27,8 @@ from speechbrain.data_io.data_io import DataLoaderFactory
 logger = logging.getLogger(__name__)
 DEFAULT_LOG_CONFIG = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_LOG_CONFIG = os.path.join(DEFAULT_LOG_CONFIG, "log-config.yaml")
+torch._C._jit_set_profiling_executor(False)
+torch._C._jit_set_profiling_mode(False)
 
 
 def create_experiment_directory(
@@ -80,7 +81,7 @@ def create_experiment_directory(
     # Log exceptions to output automatically
     log_file = os.path.join(experiment_directory, "log.txt")
     logger_overrides = {"handlers": {"file_handler": {"filename": log_file}}}
-    sb.setup_logging(log_config, logger_overrides)
+    sb.utils.logger.setup_logging(log_config, logger_overrides)
     sys.excepthook = _logging_excepthook
 
     # Log beginning of experiment!
@@ -91,7 +92,7 @@ def create_experiment_directory(
 
     # Save system description:
     if save_env_desc:
-        description_str = sb.get_environment_description()
+        description_str = sb.utils.logger.get_environment_description()
         with open(os.path.join(experiment_directory, "env.log"), "w") as fo:
             fo.write(description_str)
 
@@ -162,6 +163,16 @@ def parse_arguments(arg_list):
         "--log_config",
         help="A file storing the configuration options for logging",
     )
+    parser.add_argument(
+        "--rank", type=int, help="Rank of process in multiprocessing setup"
+    )
+    parser.add_argument("--device", help="The device to run the experiment on")
+    parser.add_argument(
+        "--multigpu_count", type=int, help="Number of gpus to run on"
+    )
+    parser.add_argument(
+        "--multigpu_backend", help="data_parallel, ddp_nccl, ddp_gloo, ddp_mpi"
+    )
 
     # Ignore items that are "None", they were not passed
     parsed_args = vars(parser.parse_args(arg_list))
@@ -181,31 +192,11 @@ def parse_arguments(arg_list):
     # Convert to string and append to overrides
     ruamel_yaml = ruamel.yaml.YAML()
     overrides = ruamel_yaml.load(yaml_overrides) or {}
-    sb.recursive_update(overrides, items)
+    sb.utils.data_utils.recursive_update(overrides, items)
     yaml_stream = StringIO()
     ruamel_yaml.dump(overrides, yaml_stream)
 
     return param_file, yaml_stream.getvalue()
-
-
-def ddp_init(rank, brain, args):
-    print(f"Process {rank} reporting in!")
-    os.environ["MASTER_ADDR"] = "localhost"
-    os.environ["MASTER_PORT"] = "12321"
-
-    # Remove the "ddp_" from the backend
-    backend = brain.multigpu_backend[4:]
-    dist.init_process_group(
-        backend=backend, world_size=brain.multigpu_count, rank=rank
-    )
-    brain.device = rank
-    brain.root_process = rank == 0
-
-    # force the models to start and remain synchronized
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-
-    brain._fit(*args)
 
 
 class Stage(Enum):
@@ -271,6 +262,10 @@ class Brain:
         one of {"ddp_nccl", "ddp_gloo", "ddp_mpi", "data_parallel"}
     auto_mix_prec: bool
         If True, automatic mixed-precision is used. Activate it only with cuda.
+    gradient_clipping : float
+        Default implementation of ``fit_batch()`` uses ``clip_grad_norm_``
+    nonfinite_patience : int
+        Number of times to ignore non-finite losses before stopping.
 
     Example
     -------
@@ -286,31 +281,33 @@ class Brain:
     """
 
     def __init__(
-        self,
-        modules=None,
-        opt_class=None,
-        hparams=None,
-        jit_module_keys=None,
-        checkpointer=None,
-        device="cpu",
-        multigpu_count=0,
-        multigpu_backend=None,
-        auto_mix_prec=False,
+        self, modules=None, opt_class=None, hparams=None, checkpointer=None,
     ):
         self.opt_class = opt_class
-        self.jit_module_keys = jit_module_keys
         self.checkpointer = checkpointer
-
-        # root_process and device will be updated if ddp is used
-        self.device = device
         self.root_process = True
-        self.multigpu_count = multigpu_count
-        self.multigpu_backend = multigpu_backend
 
-        self.auto_mix_prec = auto_mix_prec
+        # Arguments passed via the hparams dictionary
+        brain_arg_defaults = {
+            "device": "cpu",
+            "multigpu_count": 0,
+            "multigpu_backend": None,
+            "jit_module_keys": None,
+            "auto_mix_prec": False,
+            "max_grad_norm": 5.0,
+            "nonfinite_patience": 3,
+            "progressbar": True,
+        }
+        for arg, default in brain_arg_defaults.items():
+            if hparams is not None and arg in hparams:
+                setattr(self, arg, hparams[arg])
+            else:
+                setattr(self, arg, default)
+
+        # Put modules on the right device, accessible with dot notation
         self.modules = torch.nn.ModuleDict(modules).to(self.device)
 
-        # Make hyperparams available with simple "dot" notation
+        # Make hyperparams available with dot notation too
         if hparams is not None:
             self.hparams = SimpleNamespace(**hparams)
 
@@ -324,8 +321,30 @@ class Brain:
         )
         if total_params > 0:
             clsname = self.__class__.__name__
-            fmt_num = sb.format_order_of_magnitude(total_params)
+            fmt_num = sb.utils.logger.format_order_of_magnitude(total_params)
             logger.info(f"{fmt_num} trainable parameters in {clsname}")
+
+        # Initialize ddp environment
+        self.rank = os.environ.get("RANK")
+        if self.multigpu_backend and self.multigpu_backend.startswith("ddp"):
+            if self.rank is None:
+                sys.exit(
+                    "To use DDP backend, start your script with:\n\t"
+                    "python -m speechbrain.ddp experiment.py hyperparams.yaml"
+                )
+            else:
+                self.rank = int(self.rank)
+            self.root_process = self.rank == 0
+
+            # Use backend (without "ddp_") to initialize process group
+            backend = self.multigpu_backend[4:]
+            torch.distributed.init_process_group(
+                backend=backend, world_size=self.multigpu_count, rank=self.rank
+            )
+
+            # force the models to start and remain synchronized
+            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.benchmark = False
 
     def compute_forward(self, x, stage):
         """Forward pass, to be overridden by sub-classes.
@@ -483,17 +502,63 @@ class Brain:
                 outputs = self.compute_forward(inputs, Stage.TRAIN)
                 loss = self.compute_objectives(outputs, labels, Stage.TRAIN)
                 self.scaler.scale(loss).backward()
-                self.scaler.step(self.optimizer)
+                if self.check_gradients(loss):
+                    self.scaler.step(self.optimizer)
                 self.optimizer.zero_grad()
                 self.scaler.update()
         else:
             outputs = self.compute_forward(inputs, Stage.TRAIN)
             loss = self.compute_objectives(outputs, labels, Stage.TRAIN)
             loss.backward()
-            self.optimizer.step()
+            if self.check_gradients(loss):
+                self.optimizer.step()
             self.optimizer.zero_grad()
 
         return loss.detach().cpu()
+
+    def check_gradients(self, loss):
+        """Check if gradients are finite and not too large.
+
+        Automatically clips large gradients.
+
+        Arguments
+        ---------
+        loss : tensor
+            The loss tensor after ``backward()`` has been called but
+            before the optimizers ``step()``.
+
+        Returns
+        -------
+        bool
+            Whether or not the optimizer step should be carried out.
+        """
+        if not torch.isfinite(loss):
+            self.nonfinite_count += 1
+
+            # Print helpful debug info
+            logger.warn(f"Loss is {loss}.")
+            for p in self.modules.parameters():
+                if not torch.isfinite(p).all():
+                    logger.warn("Parameter is not finite: " + str(p))
+
+            # Check if patience is exhausted
+            if self.nonfinite_count > self.nonfinite_patience:
+                raise ValueError(
+                    "Loss is not finite and patience is exhausted. "
+                    "To debug, wrap `fit()` with "
+                    "autograd's `detect_anomaly()`, e.g.\n\nwith "
+                    "torch.autograd.detect_anomaly():\n\tbrain.fit(...)"
+                )
+            else:
+                logger.warn("Patience not yet exhausted, ignoring this batch.")
+                return False
+
+        # Clip gradient norm
+        torch.nn.utils.clip_grad_norm_(
+            (p for p in self.modules.parameters()), self.max_grad_norm
+        )
+
+        return True
 
     def evaluate_batch(self, batch, stage):
         """Evaluate one batch, override for different procedure than train.
@@ -522,7 +587,7 @@ class Brain:
         return loss.detach().cpu()
 
     def fit(
-        self, epoch_counter, train_set, valid_set=None, progressbar=True,
+        self, epoch_counter, train_set, valid_set=None, progressbar=None,
     ):
         """Iterate epochs and datasets to improve objective.
 
@@ -550,29 +615,19 @@ class Brain:
         progressbar : bool
             Whether to display the progress of each epoch in a progressbar.
         """
-        if self.multigpu_backend and self.multigpu_backend.startswith("ddp"):
-            self._ddp_fit(epoch_counter, train_set, valid_set, progressbar)
-        else:
-            self._fit(epoch_counter, train_set, valid_set, progressbar)
-
-    def _ddp_fit(self, *args):
-        """Fit on multiple gpus using ddp backend"""
-        torch.multiprocessing.spawn(ddp_init, (self, args), self.multigpu_count)
-
-    def _fit(self, epoch_counter, train_set, valid_set, progressbar):
-        """Adjust parameters based on data."""
         self.on_fit_start()
+
+        if progressbar is None:
+            progressbar = self.progressbar
 
         # Use factories to get loaders
         self.train_sampler = None
         if isinstance(train_set, DataLoaderFactory):
-            if self.multigpu_backend and self.multigpu_backend.startswith(
-                "ddp"
-            ):
+            if self.rank is not None and self.multigpu_count > 0:
                 self.train_sampler = DistributedSampler(
                     dataset=train_set.dataset,
                     num_replicas=self.multigpu_count,
-                    rank=self.device,
+                    rank=self.rank,
                     shuffle=train_set.shuffle,
                 )
             train_set = train_set.get_dataloader(self.train_sampler)
@@ -586,6 +641,9 @@ class Brain:
             self.on_stage_start(Stage.TRAIN, epoch)
             self.modules.train()
             avg_train_loss = 0.0
+
+            # Reset nonfinite count to 0 each epoch
+            self.nonfinite_count = 0
 
             if self.train_sampler is not None:
                 self.train_sampler.set_epoch(epoch)
@@ -637,11 +695,10 @@ class Brain:
                     module = torch.nn.DataParallel(module)
                 elif self.multigpu_backend.startswith("ddp"):
                     module = SyncBatchNorm.convert_sync_batchnorm(module)
-                    module = module.to(self.device)
                     module = DDP(module, device_ids=[self.device])
             self.modules[name] = module
 
-    def evaluate(self, test_set, max_key=None, min_key=None, progressbar=True):
+    def evaluate(self, test_set, max_key=None, min_key=None, progressbar=None):
         """Iterate test_set and evaluate brain performance. By default, loads
         the best-performing checkpoint (as recorded using the checkpointer).
 
@@ -660,6 +717,9 @@ class Brain:
         -------
         average test loss
         """
+        if progressbar is None:
+            progressbar = self.progressbar
+
         # Get test loader from factory
         if isinstance(test_set, DataLoaderFactory):
             test_set = test_set.get_dataloader()
@@ -692,14 +752,7 @@ class Brain:
         float
             The average loss
         """
-        if not torch.isfinite(loss):
-            raise ValueError(
-                "Loss is not finite. To debug, wrap `fit()` with autograd's "
-                "`detect_anomaly()`, e.g.\n\nwith "
-                "torch.autograd.detect_anomaly():\n\tbrain.fit(...)"
-            )
-
-        # Compute moving average
-        avg_loss -= avg_loss / (self.step + 1)
-        avg_loss += float(loss) / (self.step + 1)
+        if torch.isfinite(loss):
+            avg_loss -= avg_loss / (self.step + 1)
+            avg_loss += float(loss) / (self.step + 1)
         return avg_loss
