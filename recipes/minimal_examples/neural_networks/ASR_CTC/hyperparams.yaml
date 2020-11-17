@@ -43,7 +43,7 @@ train_data: !apply:speechbrain.data_io.datasets.SegmentedDataset.from_extended_y
         data_root: !ref <data_folder>
     data_fields: [wav, phn]
     data_transforms:
-        wav: !name:placeholders.torchaudio_load
+        wav: !name:speechbrain.data_io.data_io.read_wav
         phn: !ref <text_transform>
 
 valid_data: !apply:speechbrain.data_io.datasets.SegmentedDataset.from_extended_yaml
@@ -52,7 +52,7 @@ valid_data: !apply:speechbrain.data_io.datasets.SegmentedDataset.from_extended_y
         data_root: !ref <data_folder>
     data_fields: [wav, phn]
     data_transforms:
-        wav: !name:placeholders.torchaudio_load
+        wav: !name:speechbrain.data_io.data_io.read_wav
         phn: !ref <text_transform>
 
 train_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
