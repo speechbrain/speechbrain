@@ -12,6 +12,7 @@ Using your own hyperparameter file or one of the following:
 Author
     * Mirco Ravanelli 2020
     * Hwidong Na 2020
+    * Nauman Dawalatabad 2020
 """
 import os
 import sys

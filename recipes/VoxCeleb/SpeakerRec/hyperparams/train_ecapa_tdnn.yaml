@@ -35,7 +35,7 @@ random_segment: True
 max_frames: 300
 
 # Number of speakers
-out_n_neurons: 7205
+out_n_neurons: 7205 #1211 for vox1  # 5994 for vox2, 7205 for vox1+vox2
 
 # Functions
 compute_features: !new:speechbrain.lobes.features.Fbank
