@@ -9,10 +9,10 @@ seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Folders
-# data+annotation: http://groups.inf.ed.ac.uk/ami/download/
+# data: http://groups.inf.ed.ac.uk/ami/download/
 data_folder: /network/datasets/ami/amicorpus
-manual_annot_folder: /network/tmp1/dawalatn/AMI_MANUAL/
-output_folder: results/ami/sd_xvector/
+manual_annot_folder: /miniscratch/ravanelm/ami_public_manual
+output_folder: results/ami/sd_xvector_new/
 save_folder: !ref <output_folder>/save
 device: 'cuda:0'
 
@@ -50,7 +50,7 @@ max_subseg_dur: 3.0
 overlap: 1.5
 
 # Spectral Clustering parameters
-affinity: 'cos'
+affinity: 'nn' # use 'cos' for cosine affinity
 max_num_spkrs: 10
 oracle_n_spkrs: False
 
