@@ -19,7 +19,7 @@ import torch
 import speechbrain as sb
 
 
-class XvectorBrain(sb.Brain):
+class XvectorBrain(sb.core.Brain):
     """Class for speaker embedding training"
     """
 
@@ -67,7 +67,7 @@ class XvectorBrain(sb.Brain):
         loss = self.hparams.compute_cost(predictions, spkid, lens)
 
         if hasattr(self.hparams.lr_annealing, "on_batch_end"):
-            self.hparams.lr_annealing.on_batch_end([self.optimizer])
+            self.hparams.lr_annealing.on_batch_end(self.optimizer)
 
         if stage != sb.Stage.TRAIN:
             self.error_metrics.append(uttid, predictions, spkid, lens)
