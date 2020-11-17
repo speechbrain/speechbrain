@@ -192,13 +192,13 @@ def test_load_extended_yaml(tmpdir):
     yaml = f"""
     a: 3
     b: !PLACEHOLDER
-    __import: !include:{test_yaml_file}
+    import: !include:{test_yaml_file}
         a: !ref <a>
         b: !ref <b>
-    d: !ref <c>
+    d: !ref <import[c]>
     """
 
     things = load_extended_yaml(yaml, {"b": 3})
     assert things["a"] == things["b"]
-    assert things["c"] == 1
-    assert things["d"] == things["c"]
+    assert things["import"]["c"] == 1
+    assert things["d"] == things["import"]["c"]
