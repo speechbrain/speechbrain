@@ -8,6 +8,7 @@ from speechbrain.utils.metric_stats import MetricStats
 from speechbrain.processing.features import spectral_magnitude
 from speechbrain.nnet.loss.stoi_loss import stoi_loss
 
+torchaudio.set_audio_backend("sox_io")
 
 try:
     from pesq import pesq
@@ -65,7 +66,11 @@ class SEBrain(sb.core.Brain):
                 enhance_path = os.path.join(self.hparams.enhanced_folder, name)
                 if not enhance_path.endswith(".wav"):
                     enhance_path = enhance_path + ".wav"
-                torchaudio.save(enhance_path, wav[: int(length)].cpu(), 16000)
+                torchaudio.save(
+                    enhance_path,
+                    torch.unsqueeze(wav[: int(length)].cpu(), 0),
+                    16000,
+                )
 
         return loss
 
@@ -116,7 +121,7 @@ class SEBrain(sb.core.Brain):
 
         if stage == sb.Stage.VALID:
             old_lr, new_lr = self.hparams.lr_annealing(4.5 - stats["pesq"])
-            sb.nnet.update_learning_rate(self.optimizer, new_lr)
+            sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
 
             if self.hparams.use_tensorboard:
                 valid_stats = {
@@ -210,15 +215,14 @@ if __name__ == "__main__":
 
     se_brain = SEBrain(
         modules=hparams["modules"],
-        hparams=hparams["hparams"],
         opt_class=hparams["opt_class"],
+        hparams=hparams,
         checkpointer=hparams["checkpointer"],
-        device=hparams["device"],
     )
 
     # Load latest checkpoint to resume training
     se_brain.fit(
-        hparams["epoch_counter"],
+        se_brain.hparams.epoch_counter,
         train_set=hparams["train_loader"](),
         valid_set=hparams["valid_loader"](),
     )
