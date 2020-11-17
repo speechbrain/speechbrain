@@ -278,14 +278,15 @@ class ASR(sb.Brain):
         if stage == sb.Stage.VALID:
             old_lr, new_lr = self.hparams.lr_annealing(stage_stats["WER"])
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
-            self.hparams.train_logger.log_stats(
-                stats_meta={"epoch": epoch, "lr": old_lr},
-                train_stats=self.train_stats,
-                valid_stats=stage_stats,
-            )
-            self.checkpointer.save_and_keep_only(
-                meta={"WER": stage_stats["WER"]}, min_keys=["WER"],
-            )
+            if self.root_process:
+                self.hparams.train_logger.log_stats(
+                    stats_meta={"epoch": epoch, "lr": old_lr},
+                    train_stats=self.train_stats,
+                    valid_stats=stage_stats,
+                )
+                self.checkpointer.save_and_keep_only(
+                    meta={"WER": stage_stats["WER"]}, min_keys=["WER"],
+                )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},

@@ -4,7 +4,7 @@
 # Decoder: GRU + beamsearch + RNNLM
 # Tokens: BPE with unigram
 # losses: Transducer
-# Training: Librispeech 960h
+# Training: Librispeech 100h
 # Authors:  Abdel HEBA, Mirco Ravanelli, Sung-Lin Yeh 2020
 # ############################################################################
 
@@ -15,7 +15,7 @@ output_folder: !ref results/CRDNN_BPE_RNNT_LM_100H/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
-lm_ckpt_file: https://www.dropbox.com/s/6uy5m6jaf0t769i/model.ckpt?dl=1
+lm_ckpt_file: https://www.dropbox.com/s/wop14orl69gakhl/model.ckpt?dl=1
 
 # Tokenizer model
 tok_mdl_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
@@ -27,6 +27,7 @@ data_folder: /localscratch/LibriSpeech
 # then data_folder_rirs should be /localscratch/xxx_corpus
 # otherwise the dataset will automatically be downloaded
 data_folder_rirs: !ref <data_folder>
+# for training librispeech over 960H
 #train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
 train_splits: ["train-clean-100"]
 dev_split: dev-clean
@@ -38,15 +39,22 @@ csv_test_other: !ref <data_folder>/test-other.csv
 
 # Training parameters
 number_of_epochs: 3
-number_of_ctc_epochs: 2
-number_of_ce_epochs: 2
 batch_size: 8
 batch_size_valid: 4
 lr: 1.0
-ctc_weight: 0.33
-ce_weight: 0.33
-device: 'cuda'
-ddp_procs: 0  # Set to number of GPUs for multi-gpu training
+# MTL for encoder with CTC (uncomment enc_lin layer)
+#number_of_ctc_epochs: 2
+#ctc_weight: 0.33
+# MTL for decoder with CE (uncomment dec_lin layer)
+#number_of_ce_epochs: 2
+#ce_weight: 0.33
+
+# GPU setup
+device: cuda:0
+multigpu_count: 0  # Set to number of GPUs for multi-gpu training
+multigpu_backend: null # ["data_parallel", "ddp_nccl", "ddp_gloo", "ddp_mpi"]
+
+# Tokenizer
 token_type: unigram  # ["unigram", "bpe", "char"]
 
 # Feature parameters
@@ -67,16 +75,20 @@ rnn_layers: 4
 rnn_neurons: 1024
 rnn_bidirectional: True
 dnn_blocks: 2
-dnn_neurons: 1024
+dnn_neurons: 512
 emb_size: 128
-dec_neurons: 1024
+dec_neurons: 512
 output_neurons: 1000  # index(blank/eos/bos) = 0
-joint_dim: 1024
+joint_dim: 512
 blank_index: 0
 
 # Decoding parameters
 beam_size: 4
 nbest: 1
+# by default {state,expand}_beam = 2.3 as mention in paper
+# https://arxiv.org/abs/1904.02619
+state_beam: 2.3
+expand_beam: 2.3
 lm_weight: 0.50
 
 # LM Model parameters
@@ -204,7 +216,7 @@ transducer_cost: !name:speechbrain.nnet.losses.transducer_loss
 
 lm_model: !new:speechbrain.lobes.models.RNNLM.RNNLM
     output_neurons: !ref <output_neurons>
-    embedding_dim: !ref <emb_size>
+    embedding_dim: !ref <lm_emb_size>
     activation: !ref <lm_activation>
     dropout: !ref <lm_dropout>
     rnn_layers: !ref <lm_rnn_layers>
@@ -235,7 +247,7 @@ Greedysearcher: !new:speechbrain.decoders.transducer.TransducerBeamSearcher
     decode_network_lst: [!ref <emb>, !ref <dec>]
     tjoint: !ref <Tjoint>
     classifier_network: [!ref <transducer_lin>]
-    blank_id: !ref <blank_id>
+    blank_id: !ref <blank_index>
     beam_size: 1
     nbest: 1
 
@@ -243,13 +255,13 @@ Beamsearcher: !new:speechbrain.decoders.transducer.TransducerBeamSearcher
     decode_network_lst: [!ref <emb>, !ref <dec>]
     tjoint: !ref <Tjoint>
     classifier_network: [!ref <transducer_lin>]
-    blank_id: !ref <blank_id>
+    blank_id: !ref <blank_index>
     beam_size: !ref <beam_size>
     nbest: !ref <nbest>
     lm_module: !ref <lm_model>
     lm_weight: !ref <lm_weight>
-    state_beam: 2.3
-    expand_beam: 2.3
+    state_beam: !ref <state_beam>
+    expand_beam: !ref <expand_beam>
 
 opt_class: !name:torch.optim.Adadelta
     lr: !ref <lr>
