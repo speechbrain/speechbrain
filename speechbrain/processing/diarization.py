@@ -20,6 +20,7 @@ import csv
 import numbers
 import warnings
 import scipy
+import pytest
 import numpy as np
 
 from scipy import sparse
@@ -28,6 +29,7 @@ from scipy.sparse.csgraph import connected_components
 from scipy.sparse.csgraph import laplacian as csgraph_laplacian
 
 np.random.seed(1234)
+pytest.importorskip("sklearn")
 
 try:
     import sklearn
