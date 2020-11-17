@@ -339,7 +339,7 @@ def write_rttm(segs_list, out_rttm_file):
 #######################################
 
 
-def graph_connected_component(graph, node_id):
+def _graph_connected_component(graph, node_id):
     """
     Find the largest graph connected components that contains one
     given node.
@@ -382,7 +382,7 @@ def graph_connected_component(graph, node_id):
     return connected_nodes
 
 
-def graph_is_connected(graph):
+def _graph_is_connected(graph):
     """
     Return whether the graph is connected (True) or Not (False)
 
@@ -403,10 +403,10 @@ def graph_is_connected(graph):
         return n_connected_components == 1
     else:
         # dense graph, find all connected components start from node 0
-        return graph_connected_component(graph, 0).sum() == graph.shape[0]
+        return _graph_connected_component(graph, 0).sum() == graph.shape[0]
 
 
-def set_diag(laplacian, value, norm_laplacian):
+def _set_diag(laplacian, value, norm_laplacian):
     """
     Set the diagonal of the laplacian matrix and convert it to a sparse
     format well suited for eigenvalue decomposition.
@@ -451,7 +451,7 @@ def set_diag(laplacian, value, norm_laplacian):
     return laplacian
 
 
-def deterministic_vector_sign_flip(u):
+def _deterministic_vector_sign_flip(u):
     """
     Modify the sign of vectors for reproducibility. Flips the sign of
     elements of all the vectors (rows of u) such that the absolute
@@ -474,7 +474,7 @@ def deterministic_vector_sign_flip(u):
     return u
 
 
-def check_random_state(seed):
+def _check_random_state(seed):
     """
     Turn seed into a np.random.RandomState instance.
 
@@ -554,13 +554,46 @@ def spectral_embedding_sb(
         If True, then compute normalized Laplacian.
     drop_first : bool
         Whether to drop the first eigenvector.
+
+    Returns
+    -------
+    embedding : array
+        Spectral embeddings for each sample
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> from speechbrain.processing import diarization as diar
+    >>> affinity = np.array([[1, 1, 1, 0.5, 0, 0, 0, 0, 0, 0.5],
+    ... [1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
+    ... [1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
+    ... [0.5, 0, 0, 1, 1, 1, 0, 0, 0, 0],
+    ... [0, 0, 0, 1, 1, 1, 0, 0, 0, 0],
+    ... [0, 0, 0, 1, 1, 1, 0, 0, 0, 0],
+    ... [0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
+    ... [0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
+    ... [0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
+    ... [0.5, 0, 0, 0, 0, 0, 1, 1, 1, 1]])
+    >>> embs = diar.spectral_embedding_sb(affinity, 3)
+    >>> # Notice similar embeddings
+    >>> print(np.around(embs , decimals=3))
+    [[ 0.075  0.244  0.285]
+     [ 0.083  0.356 -0.203]
+     [ 0.083  0.356 -0.203]
+     [ 0.26  -0.149  0.154]
+     [ 0.29  -0.218 -0.11 ]
+     [ 0.29  -0.218 -0.11 ]
+     [-0.198 -0.084 -0.122]
+     [-0.198 -0.084 -0.122]
+     [-0.198 -0.084 -0.122]
+     [-0.167 -0.044  0.316]]
     """
 
     # Whether to drop the first eigenvector
     if drop_first:
         n_components = n_components + 1
 
-    if not graph_is_connected(adjacency):
+    if not _graph_is_connected(adjacency):
         warnings.warn(
             "Graph is not fully connected, spectral embedding"
             " may not work as expected."
@@ -570,7 +603,7 @@ def spectral_embedding_sb(
         adjacency, normed=norm_laplacian, return_diag=True
     )
 
-    laplacian = set_diag(laplacian, 1, norm_laplacian)
+    laplacian = _set_diag(laplacian, 1, norm_laplacian)
 
     laplacian *= -1
 
@@ -583,7 +616,7 @@ def spectral_embedding_sb(
     if norm_laplacian:
         embedding = embedding / dd
 
-    embedding = deterministic_vector_sign_flip(embedding)
+    embedding = _deterministic_vector_sign_flip(embedding)
     if drop_first:
         return embedding[1:n_components].T
     else:
@@ -608,9 +641,31 @@ def spectral_clustering_sb(
         A pseudo random number generator used by kmeans.
      n_init : int
         Number of time the k-means algorithm will be run with different centroid seeds.
+
+    Returns
+    -------
+    labels : array
+        Cluster label for each sample
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> from speechbrain.processing import diarization as diar
+    >>> affinity = np.array([[1, 1, 1, 0.5, 0, 0, 0, 0, 0, 0.5],
+    ... [1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
+    ... [1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
+    ... [0.5, 0, 0, 1, 1, 1, 0, 0, 0, 0],
+    ... [0, 0, 0, 1, 1, 1, 0, 0, 0, 0],
+    ... [0, 0, 0, 1, 1, 1, 0, 0, 0, 0],
+    ... [0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
+    ... [0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
+    ... [0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
+    ... [0.5, 0, 0, 0, 0, 0, 1, 1, 1, 1]])
+    >>> labs = diar.spectral_clustering_sb(affinity, 3)
+    >>> # print (labs) # [2 2 2 1 1 1 0 0 0 0]
     """
 
-    random_state = check_random_state(random_state)
+    random_state = _check_random_state(random_state)
     n_components = n_clusters if n_components is None else n_components
 
     maps = spectral_embedding_sb(
@@ -666,6 +721,63 @@ class Spec_Clust_unorm:
     ---------
     Von Luxburg, U. A tutorial on spectral clustering. Stat Comput 17, 395–416 (2007).
     https://doi.org/10.1007/s11222-007-9033-z
+
+    Example
+    -------
+    >>> from speechbrain.processing import diarization as diar
+    >>> clust = diar.Spec_Clust_unorm(min_num_spkrs=2, max_num_spkrs=10)
+    >>> emb = [[ 2.1, 3.1, 4.1, 4.2, 3.1],
+    ... [ 2.2, 3.1, 4.2, 4.2, 3.2],
+    ... [ 2.0, 3.0, 4.0, 4.1, 3.0],
+    ... [ 8.0, 7.0, 7.0, 8.1, 9.0],
+    ... [ 8.1, 7.1, 7.2, 8.1, 9.2],
+    ... [ 8.3, 7.4, 7.0, 8.4, 9.0],
+    ... [ 0.3, 0.4, 0.4, 0.5, 0.8],
+    ... [ 0.4, 0.3, 0.6, 0.7, 0.8],
+    ... [ 0.2, 0.3, 0.2, 0.3, 0.7],
+    ... [ 0.3, 0.4, 0.4, 0.4, 0.7],]
+    >>> # Estimating similarity matrix
+    >>> sim_mat = clust.get_sim_mat(emb)
+    >>> print (np.around(sim_mat[5:,5:], decimals=3))
+    [[1.    0.957 0.961 0.904 0.966]
+     [0.957 1.    0.977 0.982 0.997]
+     [0.961 0.977 1.    0.928 0.972]
+     [0.904 0.982 0.928 1.    0.976]
+     [0.966 0.997 0.972 0.976 1.   ]]
+    >>> # Prunning
+    >>> prunned_sim_mat = clust.p_pruning(sim_mat, 0.3)
+    >>> print (np.around(prunned_sim_mat[5:,5:], decimals=3))
+    [[1.    0.    0.    0.    0.   ]
+     [0.    1.    0.    0.982 0.997]
+     [0.    0.977 1.    0.    0.972]
+     [0.    0.982 0.    1.    0.976]
+     [0.    0.997 0.    0.976 1.   ]]
+    >>> # Symmetrization
+    >>> sym_prund_sim_mat = 0.5 * (prunned_sim_mat + prunned_sim_mat.T)
+    >>> print (np.around(sym_prund_sim_mat[5:,5:], decimals=3))
+    [[1.    0.    0.    0.    0.   ]
+     [0.    1.    0.489 0.982 0.997]
+     [0.    0.489 1.    0.    0.486]
+     [0.    0.982 0.    1.    0.976]
+     [0.    0.997 0.486 0.976 1.   ]]
+    >>> # Laplacian
+    >>> laplacian = clust.get_laplacian(sym_prund_sim_mat)
+    >>> print (np.around(laplacian[5:,5:], decimals=3))
+    [[ 1.999  0.     0.     0.     0.   ]
+     [ 0.     2.468 -0.489 -0.982 -0.997]
+     [ 0.    -0.489  0.975  0.    -0.486]
+     [ 0.    -0.982  0.     1.958 -0.976]
+     [ 0.    -0.997 -0.486 -0.976  2.458]]
+    >>> # Spectral Embeddings
+    >>> spec_emb, num_of_spk = clust.get_spec_embs(laplacian, 3)
+    >>> print(num_of_spk)
+    3
+    >>> # Clustering
+    >>> clust.cluster_embs(spec_emb, num_of_spk)
+    >>> # print (clust.labels_) # [0 0 0 2 2 2 1 1 1 1]
+    >>> # Complete spectral clustering
+    >>> clust.do_spec_clust(emb, k_oracle=3, p_val=0.3)
+    >>> # print(clust.labels_) # [0 0 0 2 2 2 1 1 1 1]
     """
 
     def __init__(self, min_num_spkrs=2, max_num_spkrs=10):
