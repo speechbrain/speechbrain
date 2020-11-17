@@ -297,13 +297,12 @@ def _walk_tree_and_resolve(key, current_node, tree, overrides):
             with open(filename) as f:
                 included_yaml = resolve_references(f, overrides)
 
-            # Append resolved yaml to current tree
+            # Append resolved yaml to current node
             ruamel_yaml = ruamel.yaml.YAML()
-            included_dict = ruamel_yaml.load(included_yaml)
-            recursive_update(tree, included_dict)
+            current_node = ruamel_yaml.load(included_yaml)
+            # recursive_update(current_node, included_dict)
 
-            # Set current node to nothing
-            current_node = None
+            # current_node.yaml_set_tag(None)
 
     # Return node after all resolution is done.
     return current_node
