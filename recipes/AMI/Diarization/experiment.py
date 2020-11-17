@@ -89,7 +89,7 @@ def embedding_computation_loop(split, set_loader, stat_file):
 
     # Extract embeddings (skip if already done)
     if not os.path.isfile(stat_file):
-        logger.debug(f"Extracting deep embeddings and diarizing")
+        logger.debug("Extracting deep embeddings and diarizing")
         embeddings = np.empty(shape=[0, params["emb_dim"]], dtype=np.float64)
         modelset = []
         segset = []
@@ -124,12 +124,12 @@ def embedding_computation_loop(split, set_loader, stat_file):
             stat0=b,
             stat1=embeddings,
         )
-        logger.debug(f"Saving Embeddings...")
+        logger.debug("Saving Embeddings...")
         stat_obj.save_stat_object(stat_file)
 
     else:
-        logger.debug(f"Skipping embedding extraction (as already present)")
-        logger.debug(f"Loading previously saved embeddings")
+        logger.debug("Skipping embedding extraction (as already present)")
+        logger.debug("Loading previously saved embeddings")
 
         with open(stat_file, "rb") as in_file:
             stat_obj = pickle.load(in_file)
