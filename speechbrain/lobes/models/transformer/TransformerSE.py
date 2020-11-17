@@ -59,6 +59,7 @@ class CNNTransformerSE(TransformerInterface):
         activation=nn.LeakyReLU,
         causal=True,
         custom_emb_module=None,
+        normalize_before=False,
     ):
         super().__init__(
             d_model=d_model,
@@ -69,6 +70,7 @@ class CNNTransformerSE(TransformerInterface):
             dropout=dropout,
             activation=activation,
             positional_encoding=False,
+            normalize_before=normalize_before,
         )
 
         self.custom_emb_module = custom_emb_module
