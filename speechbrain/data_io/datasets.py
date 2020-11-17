@@ -1,9 +1,8 @@
-from torch.utils.data import Dataset
 from speechbrain.yaml import load_extended_yaml
+from torch.utils.data import Dataset
 
 
 class SegmentedDataset(Dataset):
-
     """
     SegmentedDataset handles pre-segmented datasets.
 
@@ -17,7 +16,7 @@ class SegmentedDataset(Dataset):
     Note that transformations include also reading data from a file:
     e.g. {"wav_file": read_wav} where read_wav is a suitable function we provide in data_io.py.
 
-    Finally the specified elements are tranformed an returned from __getitem__
+    Finally the specified elements are transformed an returned from __getitem__
     in a dict where the keys corresponds to the data_fields entried e.g. "wav_file".
 
 
@@ -31,17 +30,53 @@ class SegmentedDataset(Dataset):
     """
 
     def __init__(
-        self, examples: dict, data_fields: (list, tuple), data_transforms=None,
+        self,
+        examples: dict,
+        data_transforms,
+        discard_longer=None,
+        discard_shorter=None,
     ):
 
-        self.data_fields = data_fields
         self.data_transforms = data_transforms
 
-        assert isinstance(self.data_transforms, dict)
-        for k in self.data_transforms.keys():
-            assert callable(
-                self.data_transforms[k]
-            ), "Each element in data_transforms dict must be callable"
+        if not isinstance(self.data_transforms, list):
+            raise TypeError(
+                "data_transforms should be a list, got {}".format(
+                    type(self.data_transforms)
+                )
+            )
+        for k in self.data_transforms:
+            if not callable(k):
+                raise ValueError(
+                    "Each element in data_transforms dict must be callable"
+                )
+
+        if discard_shorter:
+            if "length" not in self.examples[self.examples.keys()[0]].keys():
+                raise KeyError(
+                    "If discard_shorter option wants to be used, "
+                    "each example must have a 'length' key containing the length of the example."
+                )
+
+            examples = {
+                k: v
+                for k, v in examples.items()
+                if examples[k]["length"] >= discard_shorter
+            }
+
+        if discard_longer:
+            if "length" not in self.examples[self.examples.keys()[0]].keys():
+                raise KeyError(
+                    "If discard_shorter option wants to be used, "
+                    "each example must have a 'length' key containing the length of the example."
+                )
+
+            examples = {
+                k: v
+                for k, v in examples.items()
+                if examples[k]["length"] <= discard_longer
+            }
+
         self.examples = examples
         self.ex_ids = list(self.examples.keys())
 
@@ -54,8 +89,10 @@ class SegmentedDataset(Dataset):
         out = {"id": ex_id}
 
         for k in c_ex.keys():
-            if k in self.data_fields:
-                out[k] = self.data_transforms[k](c_ex[k])
+            for t_pipeline in self.data_transforms:
+                if t_pipeline.target == k:
+                    pip_name = t_pipeline.name
+                    out[pip_name] = t_pipeline(c_ex[k])
 
         return out
 
