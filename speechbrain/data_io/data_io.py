@@ -23,6 +23,10 @@ logger = logging.getLogger(__name__)
 
 
 def read_wav(waveforms_obj):
+    if isinstance(waveforms_obj, str):
+        tmp, _ = torchaudio.load(waveforms_obj)
+        return tmp[0]
+
     files = waveforms_obj["files"]
     if not isinstance(files, list):
         files = [files]
