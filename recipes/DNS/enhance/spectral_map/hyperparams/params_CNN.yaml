@@ -17,13 +17,13 @@ tensorboard_logs: !ref results/logs/causalCNN/<seed>
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-csv_noise: !ref <data_folder>/tr_noise_small.csv
-csv_clean: !ref <data_folder>/tr_clean_small.csv
+csv_noise: !ref <data_folder>/tr_noise.csv
+csv_clean: !ref <data_folder>/tr_clean.csv
 csv_valid: !ref <data_folder>/valid.csv
 csv_test: !ref <data_folder>/test.csv
 
 # Training Parameters
-N_epochs: 5
+N_epochs: 50
 N_batch: 8
 lr: 0.0002
 device: cuda
