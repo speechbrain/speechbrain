@@ -64,6 +64,7 @@ def load_extended_yaml(
 
         !!python/name: => !name:
         !!python/module: => !module:
+        !!python/object/apply: => !apply:
 
     **References and copies**
 
@@ -103,7 +104,7 @@ def load_extended_yaml(
     .. code-block:: yaml
 
         key1: {a: !new:object {arg1: 1}}
-        key2: !copy <key1.a>
+        key2: !copy <key1[a]>
 
     These will also implement very basic arithmetic, so:
 
@@ -171,6 +172,70 @@ def load_extended_yaml(
         del hparams[key]
 
     return hparams
+
+
+class RefTag:
+    """Class for dumping !ref tags to yaml
+
+    Arguments
+    ---------
+    ref_str : str
+        String including yaml keys in `<key>` notation
+
+    Example
+    -------
+    See ``dump_extended_yaml``
+    """
+
+    yaml_tag = "!ref"
+
+    def __init__(self, ref_str):
+        self.ref_str = ref_str
+
+    @classmethod
+    def to_yaml(cls, representer, node):
+        return representer.represent_scalar(cls.yaml_tag, node.ref_str)
+
+
+class Placeholder:
+    """Class for dumping !PLACEHOLDER tags to yaml
+
+    Example
+    -------
+    See ``dump_extended_yaml``
+    """
+
+    yaml_tag = "!PLACEHOLDER"
+
+    @classmethod
+    def to_yaml(cls, representer, node):
+        return representer.represent_scalar(cls.yaml_tag, "")
+
+
+def dump_extended_yaml(yaml_tree, output_stream, *args, **kwargs):
+    r"""Dump yaml including placeholder and reference tags.
+
+    Arguments
+    ---------
+    yaml_tree : dict
+        An object to dump
+    output_stream : stream
+        A file stream for putting the yaml
+    *args, **kwargs
+        Arguments to forward to ruamel.yaml.YAML().dump()
+
+    Example
+    -------
+    >>> to_yaml = {'a': Placeholder(), 'b': RefTag('<a>')}
+    >>> stringio = StringIO()
+    >>> dump_extended_yaml(to_yaml, stringio)
+    >>> stringio.getvalue()
+    'a: !PLACEHOLDER\nb: !ref <a>\n'
+    """
+    ruamel_yaml = ruamel.yaml.YAML()
+    ruamel_yaml.representer.add_representer(RefTag, RefTag.to_yaml)
+    ruamel_yaml.representer.add_representer(Placeholder, Placeholder.to_yaml)
+    ruamel_yaml.dump(yaml_tree, output_stream, *args, **kwargs)
 
 
 def resolve_references(yaml_stream, overrides=None, overrides_must_match=False):
