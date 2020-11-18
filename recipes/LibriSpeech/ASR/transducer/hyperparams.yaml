@@ -38,7 +38,7 @@ csv_test_other: !ref <data_folder>/test-other.csv
 
 
 # Training parameters
-number_of_epochs: 3
+number_of_epochs: 1
 batch_size: 8
 batch_size_valid: 4
 lr: 1.0
@@ -75,11 +75,10 @@ rnn_layers: 4
 rnn_neurons: 1024
 rnn_bidirectional: True
 dnn_blocks: 2
-dnn_neurons: 512
-emb_size: 128
-dec_neurons: 512
+dnn_neurons: 1024
+dec_neurons: 1024
 output_neurons: 1000  # index(blank/eos/bos) = 0
-joint_dim: 512
+joint_dim: 1024
 blank_index: 0
 
 # Decoding parameters
