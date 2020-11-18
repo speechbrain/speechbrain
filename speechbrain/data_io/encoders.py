@@ -1,6 +1,7 @@
 import torch
 import pickle
 import logging
+from speechbrain.yaml import load_extended_yaml
 
 logger = logging.getLogger(__name__)
 
@@ -91,8 +92,8 @@ class CategoricalEncoder(object):
         else:
             if not (0 <= elem <= (max_indx + 1)):
                 raise IndexError(
-                    "Invalid value specified choose between 0 and len(Encoder), got {}".format(
-                        elem
+                    "Invalid value specified choose between 0 and {}, got {}".format(
+                        len(self.lab2indx), elem
                     )
                 )
 
@@ -241,6 +242,25 @@ class CategoricalEncoder(object):
 
         with open(path, "rb") as f:
             self.lab2indx, self.indx2lab = pickle.load(f)
+
+    @classmethod
+    def fit_from_yaml(
+        cls,
+        data_collections,
+        *args,
+        overrides=None,
+        overrides_must_match=True,
+        **kwargs,
+    ):
+        data = []
+        for d in data_collections:
+            with open(d) as fi:
+                data.append(
+                    load_extended_yaml(fi, overrides, overrides_must_match)
+                )
+        enc = cls()
+        enc.fit([x["examples"] for x in data], *args, **kwargs)
+        return enc
 
 
 class TextEncoder(CategoricalEncoder):
