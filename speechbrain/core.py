@@ -623,7 +623,7 @@ class Brain:
         # Use factories to get loaders
         self.train_sampler = None
         if isinstance(train_set, DataLoaderFactory):
-            if self.rank is not None:
+            if self.rank is not None and self.multigpu_count > 0:
                 self.train_sampler = DistributedSampler(
                     dataset=train_set.dataset,
                     num_replicas=self.multigpu_count,
