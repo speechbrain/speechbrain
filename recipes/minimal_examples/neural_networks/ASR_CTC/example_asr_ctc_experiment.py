@@ -53,8 +53,6 @@ def main():
     with open(hparams_file) as fin:
         hparams = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
 
-    hparams["label_encoder"].add_blank(hparams["blank_index"])
-
     ctc_brain = CTCBrain(hparams["modules"], hparams["opt_class"], hparams)
     ctc_brain.fit(
         range(hparams["N_epochs"]),
