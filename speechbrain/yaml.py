@@ -10,6 +10,7 @@ import ast
 import yaml
 import copy
 import pydoc
+import os.path
 import inspect
 import functools
 import ruamel.yaml
@@ -204,6 +205,11 @@ def resolve_references(yaml_stream, overrides=None, overrides_must_match=False):
     >>> resolve_references(yaml_string, overrides).getvalue()
     'constants:\n  a: 4\n  b: 4\n'
     '''
+    # find imported yaml location relative to main yaml file
+    file_path = None
+    if hasattr(yaml_stream, "name"):
+        file_path = os.path.dirname(os.path.realpath(yaml_stream.name))
+
     # Load once to store references and apply overrides
     # using ruamel.yaml to preserve the tags
     ruamel_yaml = ruamel.yaml.YAML()
@@ -213,9 +219,7 @@ def resolve_references(yaml_stream, overrides=None, overrides_must_match=False):
         if isinstance(overrides, str):
             overrides = ruamel_yaml.load(overrides)
         recursive_update(preview, overrides, must_match=overrides_must_match)
-    _walk_tree_and_resolve(
-        key="root", current_node=preview, tree=preview, overrides=overrides
-    )
+    _walk_tree_and_resolve("root", preview, preview, overrides, file_path)
 
     # Dump back to string so we can load with bells and whistles
     yaml_stream = StringIO()
@@ -225,7 +229,7 @@ def resolve_references(yaml_stream, overrides=None, overrides_must_match=False):
     return yaml_stream
 
 
-def _walk_tree_and_resolve(key, current_node, tree, overrides):
+def _walk_tree_and_resolve(key, current_node, tree, overrides, file_path):
     """A recursive function for resolving ``!ref`` and ``!copy`` tags.
 
     Loads additional yaml files if ``!include:`` tags are used.
@@ -241,6 +245,8 @@ def _walk_tree_and_resolve(key, current_node, tree, overrides):
         The base node in the yaml tree loaded with ruamel.yaml.
     overrides : dict
         A set of overrides to pass to any ``!includes:`` files.
+    file_path : str
+        The location of the directory storing the main yaml file
 
     Returns
     -------
@@ -253,16 +259,15 @@ def _walk_tree_and_resolve(key, current_node, tree, overrides):
         for i, sub_node in enumerate(current_node):
             sub_key = i if key == "root" else f"{key}[{i}]"
             current_node[i] = _walk_tree_and_resolve(
-                sub_key, sub_node, tree, overrides
+                sub_key, sub_node, tree, overrides, file_path
             )
 
-    # Walk mapping and resolve. Use list for items, because `!include` tags
-    # can update the dictionary during iteration
+    # Walk mapping and resolve.
     elif isinstance(current_node, dict):
-        for k, sub_node in list(current_node.items()):
+        for k, sub_node in current_node.items():
             sub_key = k if key == "root" else f"{key}[{k}]"
             current_node[k] = _walk_tree_and_resolve(
-                sub_key, sub_node, tree, overrides
+                sub_key, sub_node, tree, overrides, file_path
             )
 
     # Base case, handle tags
@@ -294,6 +299,8 @@ def _walk_tree_and_resolve(key, current_node, tree, overrides):
                 else:
                     overrides = dict(current_node)
 
+            if file_path is not None:
+                filename = os.path.join(file_path, filename)
             with open(filename) as f:
                 included_yaml = resolve_references(f, overrides)
 
