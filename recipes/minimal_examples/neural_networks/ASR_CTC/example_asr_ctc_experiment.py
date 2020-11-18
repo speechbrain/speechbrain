@@ -52,7 +52,9 @@ def main():
     data_folder = os.path.realpath(os.path.join(experiment_dir, data_folder))
     with open(hparams_file) as fin:
         hparams = sb.yaml.load_extended_yaml(fin, {"data_folder": data_folder})
-    hparams["train_data"][0]
+
+    hparams["label_encoder"].add_blank(hparams["blank_index"])
+
     ctc_brain = CTCBrain(hparams["modules"], hparams["opt_class"], hparams)
     ctc_brain.fit(
         range(hparams["N_epochs"]),

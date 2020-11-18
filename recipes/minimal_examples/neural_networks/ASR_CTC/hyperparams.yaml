@@ -8,7 +8,7 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 N_epochs: 15
 batch_size: 1
 lr: 0.002
-blank_index: 44
+blank_index: 43
 
 # Model parameters
 activation: !name:torch.nn.LeakyReLU []
@@ -25,16 +25,17 @@ dnn_neurons: 128
 # Data:
 data_folder: !PLACEHOLDER
 # TODO: Replace with final implementations
-label_encoder: !new:placeholders.ExampleCategoricalEncoder
-    label2ind: !name:placeholders.ASR_example_label2ind
-    ind2label: !name:placeholders.ASR_example_ind2label
+label_encoder: !apply:speechbrain.data_io.encoders.TextEncoder.fit_from_yaml
+    data_collections: [!ref <data_folder>/train.yaml, !ref <data_folder>/dev.yaml]
+    overrides:
+        data_root: !ref <data_folder>
+    supervision: phn
 
 text_pipeline: !new:speechbrain.utils.data_utils.FuncPipeline
     name: phn
     target: phn
     funcs:
-        - !name:speechbrain.utils.data_utils.split_by_whitespace
-        - !ref <label_encoder.encode_list>
+        - !ref <label_encoder.encode_int>
         - !name:speechbrain.data_io.data_io.to_longTensor
 
 audio_pipeline: !new:speechbrain.utils.data_utils.FuncPipeline
@@ -43,17 +44,22 @@ audio_pipeline: !new:speechbrain.utils.data_utils.FuncPipeline
     funcs:
         - !name:speechbrain.data_io.data_io.read_wav
 
-train_data: !apply:speechbrain.data_io.datasets.SegmentedDataset.from_extended_yaml
-    filepath: !ref <data_folder>/train.yaml
-    overrides:
-        data_root: !ref <data_folder>
-    data_transforms: [!ref <text_pipeline>, !ref <audio_pipeline>]
+data_tf:
+    - !ref <text_pipeline>
+    - !ref <audio_pipeline>
+
 
 valid_data: !apply:speechbrain.data_io.datasets.SegmentedDataset.from_extended_yaml
     filepath: !ref <data_folder>/dev.yaml
     overrides:
         data_root: !ref <data_folder>
-    data_transforms: [!ref <text_pipeline>, !ref <audio_pipeline>]
+    data_transforms: !ref <data_tf>
+
+train_data: !apply:speechbrain.data_io.datasets.SegmentedDataset.from_extended_yaml
+    filepath: !ref <data_folder>/train.yaml
+    overrides:
+        data_root: !ref <data_folder>
+    data_transforms: !ref <data_tf>
 
 train_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
     dataset: !ref <train_data>
