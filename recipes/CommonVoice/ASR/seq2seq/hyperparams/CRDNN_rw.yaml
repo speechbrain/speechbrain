@@ -9,7 +9,7 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 123
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/CRDNN_fr/<seed>
+output_folder: !ref results/CRDNN_rw/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -43,7 +43,7 @@ device: 'cuda'
 # The number of gpu is only needed with ddp_* backend
 # data_parallel takes all the available devices
 multigpu_count: 0
-multigpu_backend: data_parallel
+multigpu_backend: null  # ['data_parallel', 'ddp_nccl', 'ddp_gloo', 'ddp_mpi']
 token_type: unigram  # ["unigram", "bpe", "char"]
 
 # Feature parameters
