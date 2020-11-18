@@ -25,11 +25,12 @@ dnn_neurons: 128
 # Data:
 data_folder: !PLACEHOLDER
 # TODO: Replace with final implementations
-label_encoder: !apply:speechbrain.data_io.encoders.TextEncoder.fit_from_yaml
+label_encoder: !apply:speechbrain.data_io.encoders.CTCTextEncoder.fit_from_yaml
     data_collections: [!ref <data_folder>/train.yaml, !ref <data_folder>/dev.yaml]
     overrides:
         data_root: !ref <data_folder>
     supervision: phn
+    blank_encoding: !ref <blank_index>
 
 text_pipeline: !new:speechbrain.utils.data_utils.FuncPipeline
     name: phn

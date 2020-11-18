@@ -330,3 +330,30 @@ class TextEncoder(CategoricalEncoder):
             return [x, self.eos_token]
         else:
             return x + [self.eos_token]
+
+
+class CTCTextEncoder(TextEncoder):
+    def __init__(self):
+        super().__init__()
+
+    @classmethod
+    def fit_from_yaml(
+        cls,
+        data_collections,
+        *args,
+        overrides=None,
+        overrides_must_match=True,
+        blank_encoding=0,
+        blank_token="<blank>",
+        **kwargs,
+    ):
+        data = []
+        for d in data_collections:
+            with open(d) as fi:
+                data.append(
+                    load_extended_yaml(fi, overrides, overrides_must_match)
+                )
+        enc = cls()
+        enc.fit([x["examples"] for x in data], *args, **kwargs)
+        enc.add_blank(blank_encoding, blank_token)
+        return enc
