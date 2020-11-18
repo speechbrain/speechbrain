@@ -2,7 +2,12 @@ import pytest
 
 
 def test_load_extended_yaml():
-    from speechbrain.yaml import load_extended_yaml
+    from speechbrain.yaml import (
+        load_extended_yaml,
+        RefTag,
+        Placeholder,
+        dump_extended_yaml,
+    )
 
     # Basic functionality
     yaml = """
@@ -168,3 +173,20 @@ def test_load_extended_yaml():
     assert things["thing2"]() == "a string"
     print(things["thing3"].args)
     assert things["thing3"].args[0]() == "a string"
+
+    # Dumping
+    import os.path
+
+    dump_dict = {
+        "data_folder": Placeholder(),
+        "examples": {"ex1": RefTag(os.path.join("<data_folder>", "ex1.wav"))},
+    }
+
+    from io import StringIO
+
+    stringio = StringIO()
+    dump_extended_yaml(dump_dict, stringio)
+    assert stringio.getvalue() == (
+        "data_folder: !PLACEHOLDER\nexamples:\n"
+        "  ex1: !ref <data_folder>/ex1.wav\n"
+    )
