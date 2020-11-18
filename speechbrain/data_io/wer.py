@@ -9,7 +9,7 @@ Authors
  * Aku Rouhe 2020
 """
 import sys
-import speechbrain.utils.edit_distance as edit_distance
+from speechbrain.utils import edit_distance
 
 
 def print_wer_summary(wer_details, file=sys.stdout):
