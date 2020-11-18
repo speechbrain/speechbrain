@@ -53,6 +53,7 @@ class TransformerLM(TransformerInterface):
         self,
         vocab,
         d_model=512,
+        d_embedding=None,
         nhead=8,
         num_encoder_layers=12,
         num_decoder_layers=0,
@@ -74,7 +75,18 @@ class TransformerLM(TransformerInterface):
             normalize_before=normalize_before,
         )
 
-        self.custom_src_module = NormalizedEmbedding(d_model, vocab)
+        self.d_embedding = d_embedding
+        if d_embedding is None:
+            self.d_embedding = d_model
+
+        self.custom_src_module = NormalizedEmbedding(self.d_embedding, vocab)
+
+        self.embedding_proj = None
+        if d_embedding is not None:
+            self.embedding_proj = Linear(
+                input_size=self.d_embedding, n_neurons=d_model
+            )
+
         self.output_proj = ModuleList(
             Linear(input_size=d_model, n_neurons=d_model),
             LayerNorm(d_model, eps=1e-6),
@@ -100,6 +112,8 @@ class TransformerLM(TransformerInterface):
         src_mask, src_key_padding_mask = self.make_masks(src)
 
         src = self.custom_src_module(src)
+        if self.embedding_proj is not None:
+            src = self.embedding_proj(src)
         src = src + self.positional_encoding(src)
         if self.num_encoder_layers > 0:
             encoder_out, _ = self.encoder(

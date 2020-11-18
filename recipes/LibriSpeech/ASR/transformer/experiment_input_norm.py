@@ -65,7 +65,7 @@ class ASR(sb.core.Brain):
         target_tokens, target_tokens_len = self.hparams.tokenizer(
             target_words, target_word_lens, self.hparams.ind2lab, task="encode"
         )
-        y_in = sb.data_io.prepend_bos_token(
+        y_in = sb.data_io.data_io.prepend_bos_token(
             target_tokens, self.hparams.bos_index
         ).to(self.device)
         target_tokens = target_tokens.to(self.device)
@@ -118,7 +118,7 @@ class ASR(sb.core.Brain):
         abs_length = torch.round(target_tokens_len * target_tokens.shape[1])
 
         # Append eos token at the end of the label sequences
-        target_tokens_with_eos = sb.data_io.append_eos_token(
+        target_tokens_with_eos = sb.data_io.data_io.append_eos_token(
             target_tokens, length=abs_length, eos_index=self.hparams.eos_index
         )
         # convert to speechbrain-style relative length
@@ -148,7 +148,7 @@ class ASR(sb.core.Brain):
 
                 # Convert indices to words
                 target_words = undo_padding(target_words, target_word_lens)
-                target_words = sb.data_io.convert_index_to_lab(
+                target_words = sb.data_io.data_io.convert_index_to_lab(
                     target_words, self.hparams.ind2lab
                 )
 
@@ -264,20 +264,13 @@ class ASR(sb.core.Brain):
         download_file(self.hparams.lm_ckpt_file, save_model_path)
 
         # Load downloaded model, removing prefix
-        state_dict = torch.load(save_model_path, map_location=self.device)
+        state_dict = torch.load(
+            save_model_path, map_location=torch.device(self.device)
+        )
         state_dict = {k.split(".", 1)[1]: v for k, v in state_dict.items()}
         self.hparams.lm_model.load_state_dict(state_dict, strict=True)
         self.hparams.lm_model.eval()
         logger.info("loaded LM from {}".format(save_model_path))
-
-    def on_fit_start(self):
-        torch.cuda.set_device(self.rank)
-        self.checkpointer.add_recoverable("model", self.modules)
-        super().on_fit_start()
-
-    def on_evaluate_start(self, max_key=None, min_key=None):
-        self.checkpointer.add_recoverable("model", self.modules)
-        super().on_evaluate_start(max_key=max_key, min_key=min_key)
 
 
 if __name__ == "__main__":
