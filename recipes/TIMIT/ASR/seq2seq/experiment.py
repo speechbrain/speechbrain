@@ -14,6 +14,7 @@ import os
 import sys
 import torch
 import speechbrain as sb
+from torch_edit_distance import compute_wer
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
@@ -50,41 +51,67 @@ class ASR(sb.Brain):
         y_in = sb.data_io.data_io.prepend_bos_token(
             phns, self.hparams.bos_index
         )
-        # print(phns.shape)
         e_in = self.modules.emb(y_in)
         h, _ = self.modules.dec(e_in, x, wav_lens)
-
-        # n-best hyps for minWER loss
-        hyps, topk_hyps, topk_scores, topk_len = self.hparams.sampler(
-            x, wav_lens
-        )
 
         # output layer for seq2seq log-probabilities
         logits = self.modules.seq_lin(h)
         p_seq = self.hparams.log_softmax(logits)
 
         if stage == sb.Stage.VALID:
-            (
+            hyps, topk_hyps, topk_scores, topk_len = self.hparams.beam_searcher(
+                x, wav_lens
+            )
+            # return p_ctc, p_seq, wav_lens, hyps
+            return (
+                p_ctc,
+                p_seq,
+                wav_lens,
                 hyps,
                 topk_hyps,
                 topk_scores,
                 topk_len,
-            ) = self.hparams.greedy_searcher(x, wav_lens)
-            return p_ctc, p_seq, wav_lens, hyps
+            )
 
         elif stage == sb.Stage.TEST:
             hyps, topk_hyps, topk_scores, topk_len = self.hparams.beam_searcher(
                 x, wav_lens
             )
-            return p_ctc, p_seq, wav_lens, hyps
+            return (
+                p_ctc,
+                p_seq,
+                wav_lens,
+                hyps,
+                topk_hyps,
+                topk_scores,
+                topk_len,
+            )
 
-        return p_ctc, p_seq, wav_lens
+        elif stage == sb.Stage.TRAIN:
+            # n-best hyps for minWER loss
+            hyps, topk_hyps, topk_scores, topk_len = self.hparams.sampler(
+                x, wav_lens
+            )
+            return (
+                p_ctc,
+                p_seq,
+                wav_lens,
+                hyps,
+                topk_hyps,
+                topk_scores,
+                topk_len,
+            )
 
     def compute_objectives(self, predictions, targets, stage):
-        if stage == sb.Stage.TRAIN:
-            p_ctc, p_seq, wav_lens = predictions
-        else:
-            p_ctc, p_seq, wav_lens, hyps = predictions
+        (
+            p_ctc,
+            p_seq,
+            wav_lens,
+            hyps,
+            topk_hyps,
+            topk_scores,
+            topk_length,
+        ) = predictions
 
         ids, phns, phn_lens = targets
         phns, phn_lens = phns.to(self.device), phn_lens.to(self.device)
@@ -94,9 +121,30 @@ class ASR(sb.Brain):
             phns = torch.cat([phns, phns], dim=0)
             phn_lens = torch.cat([phn_lens, phn_lens], dim=0)
         """
-
         # Add phn_lens by one for eos token
         abs_length = torch.round(phn_lens * phns.shape[1])
+
+        blank = torch.tensor([self.hparams.blank_index], dtype=torch.int).cuda()
+        space = torch.tensor([], dtype=torch.int).cuda()
+
+        wers = compute_wer(
+            topk_hyps.view(self.hparams.batch_size * self.hparams.topk, -1),
+            torch.repeat_interleave(
+                phns.to(torch.int32), repeats=self.hparams.topk, dim=0
+            ),
+            topk_length.view(-1),
+            torch.repeat_interleave(
+                abs_length.to(torch.int32), repeats=self.hparams.topk, dim=0
+            ),
+            blank,
+            space,
+        )
+        wers = wers.view(self.hparams.batch_size, self.hparams.topk)
+        avg_wers = torch.mean(wers, -1).unsqueeze(1)
+        relative_wers = wers - avg_wers
+        probs = self.hparams.log_softmax(topk_scores)
+        mWER_loss = torch.sum(probs * relative_wers, -1)
+        mWER_loss = mWER_loss.mean()
 
         # Append eos token at the end of the label sequences
         phns_with_eos = sb.data_io.data_io.append_eos_token(
@@ -110,10 +158,10 @@ class ASR(sb.Brain):
         loss_seq = self.hparams.seq_cost(p_seq, phns_with_eos, rel_length)
         loss = self.hparams.ctc_weight * loss_ctc
         loss += (1 - self.hparams.ctc_weight) * loss_seq
+        # loss = mWER_loss * 100  # + loss_seq
 
         # Record losses for posterity
         if stage != sb.Stage.TRAIN:
-            # print(len(hyps))
             self.ctc_metrics.append(ids, p_ctc, phns, wav_lens, phn_lens)
             self.seq_metrics.append(ids, p_seq, phns_with_eos, rel_length)
             self.per_metrics.append(

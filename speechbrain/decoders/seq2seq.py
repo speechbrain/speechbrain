@@ -483,7 +483,8 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 hyps_and_scores["log_probs"][
                     batch_id, num_hyps, : timesteps + 1
                 ] = log_probs
-                hyps_and_scores["scores"][batch_id, num_hyps] = final_scores
+                with torch.no_grad():
+                    hyps_and_scores["scores"][batch_id, num_hyps] = final_scores
                 hyps_and_scores["num_hyps"][batch_id] += 1
 
         return is_eos
@@ -608,7 +609,9 @@ class S2SBeamSearcher(S2SBaseSearcher):
             "hyps_length": torch.zeros(
                 batch_size, self.beam_size, dtype=torch.int32, device=device
             ),
-            "scores": torch.zeros(batch_size, self.beam_size, device=device),
+            "scores": torch.zeros(
+                batch_size, self.beam_size, device=device, requires_grad=True
+            ),
             "log_probs": torch.zeros(
                 batch_size, self.beam_size, max_decode_steps, device=device
             ),
@@ -891,13 +894,13 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
         return hs, c
 
     def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
-        with torch.no_grad():
-            hs, c = memory
-            e = self.emb(inp_tokens)
-            dec_out, hs, c, w = self.dec.forward_step(
-                e, hs, c, enc_states, enc_lens
-            )
-            log_probs = self.softmax(self.fc(dec_out) / self.temperature)
+        # with torch.no_grad():
+        hs, c = memory
+        e = self.emb(inp_tokens)
+        dec_out, hs, c, w = self.dec.forward_step(
+            e, hs, c, enc_states, enc_lens
+        )
+        log_probs = self.softmax(self.fc(dec_out) / self.temperature)
         return log_probs, (hs, c), w
 
     def permute_mem(self, memory, index):
