@@ -1,13 +1,13 @@
-# ###############################
-# Model: Vanilla NN
+# ################################
+# Model: HMM Alignment with a Vanilla MLP
 # Authors:
+# * Elena Rastorgueva 2020
 # * Mirco Ravanelli 2020
 # * Peter Plantinga 2020
-# * Elena Rastorgueva 2020
-# ###############################
+# ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 1234  # e.g, 1234
+seed: 1988
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/vanilla_NN/<seed>
 wer_file: !ref <output_folder>/wer.txt
@@ -15,13 +15,13 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: !PLACEHOLDER  # e.g. /path/to/TIMIT
+data_folder: /localscratch/TIMIT
 csv_train: !ref <data_folder>/train.csv
 csv_valid: !ref <data_folder>/dev.csv
 csv_test: !ref <data_folder>/test.csv
 
 # Training parameters
-number_of_epochs: 5
+number_of_epochs: 10
 batch_size: 256
 lr: 0.0003
 
@@ -31,21 +31,12 @@ device: 'cuda:0'
 multigpu_count: 0  # Set to number of GPUs if multi-gpu
 multigpu_backend: null  # ['data_parallel', 'ddp_nccl', 'ddp_gloo', 'ddp_mpi']
 
-init_training_type: 'ctc' # 'forward' or 'viterbi' or 'ctc'
-switch_training_type: 'forward'
-switch_training_epoch: 2
-
 # Feature parameters
 sample_rate: 16000
 n_fft: 400
 n_mels: 40
 
-# Model parameters
-activation: !name:torch.nn.LeakyReLU
-dnn_blocks: 1
-dnn_neurons: 2000
-
-# hidden states per phoneme
+# HMM parameters
 states_per_phoneme: 3
 
 # Outputs
@@ -53,36 +44,17 @@ ground_truth_phn_set: 61 # {61, 48, 39}
 output_neurons: !ref <ground_truth_phn_set> * <states_per_phoneme> + 1
 blank_index: !ref <ground_truth_phn_set> * <states_per_phoneme>
 
-# Functions
-model: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
-    dnn_blocks: !ref <dnn_blocks>
-    dnn_neurons: !ref <dnn_neurons>
+# Model parameters
+activation: !name:torch.nn.LeakyReLU
+dnn_blocks: 1
+dnn_neurons: 2000
 
-output: !new:speechbrain.nnet.linear.Linear
-    n_neurons: !ref <output_neurons>
-    bias: True
-
-log_softmax: !new:speechbrain.nnet.activations.Softmax
-    apply_log: True
-
-optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
-    learning_rate: !ref <lr>
-
-lr_annealing: !new:speechbrain.nnet.lr_schedulers.NewBobLRScheduler
-    improvement_threshold: 5
-    annealing_factor: 1.0 # 0.9
-    patient: 0
+init_training_type: 'forward' # 'forward' or 'viterbi' or 'ctc'
+switch_training_type: 'forward'
+switch_training_epoch: 2
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
-
-compute_features: !new:speechbrain.lobes.features.fbank.Fbank
-    context: True
-    left_frames: 1
-    right_frames: 1
-    sample_rate: !ref <sample_rate>
-    n_fft: !ref <n_fft>
-    n_mels: !ref <n_mels>
 
 train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>
@@ -105,12 +77,60 @@ test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     output_folder: !ref <output_folder>
     csv_read: [wav, phn, ground_truth_phn_ends]
 
+
+augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+    sample_rate: !ref <sample_rate>
+    speeds: [95, 100, 105]
+
+compute_features: !new:speechbrain.lobes.features.Fbank
+    context: True
+    left_frames: 1
+    right_frames: 1
+    sample_rate: !ref <sample_rate>
+    n_fft: !ref <n_fft>
+    n_mels: !ref <n_mels>
+
+model: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
+    input_shape: [null, null, !ref <n_mels> * 3]
+    dnn_blocks: !ref <dnn_blocks>
+    dnn_neurons: !ref <dnn_neurons>
+    activation: !ref <activation>
+
+output: !new:speechbrain.nnet.linear.Linear
+    input_size: !ref <dnn_neurons>
+    n_neurons: !ref <output_neurons>
+    bias: True
+
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+    apply_log: True
+
 aligner: !new:speechbrain.alignment.aligner.HMMAligner
     states_per_phoneme: !ref <states_per_phoneme>
-    # Loss reduction parameters
     batch_reduction: 'mean'
     input_len_norm: True
     target_len_norm: False
+
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+
+lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
+    initial_value: !ref <lr>
+    improvement_threshold: 5
+    annealing_factor: 1.0
+    patient: 0
+
+modules:
+    model: !ref <model>
+    output: !ref <output>
+    aligner: !ref <aligner>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        model: !ref <model>
+        output: !ref <output>
+        scheduler: !ref <lr_annealing>
+        counter: !ref <epoch_counter>
 
 compute_cost_ctc: !name:speechbrain.nnet.losses.ctc_loss
     blank_index: !ref <blank_index>
@@ -119,17 +139,6 @@ compute_cost_nll: !name:speechbrain.nnet.losses.nll_loss
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
-    summary_fns:
-        loss: !name:speechbrain.utils.train_logger.summarize_average
-        PER: !name:speechbrain.utils.train_logger.summarize_error_rate
-        accuracy: !name:speechbrain.utils.train_logger.summarize_average
 
-checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
-    checkpoints_dir: !ref <save_folder>
-    recoverables:
-        model: !ref <model>
-        output: !ref <output>
-        optimizer: !ref <optimizer>
-        scheduler: !ref <lr_annealing>
-        counter: !ref <epoch_counter>
-        aligner: !ref <aligner>
+accuracy_stats: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !ref <aligner.calc_accuracy>
