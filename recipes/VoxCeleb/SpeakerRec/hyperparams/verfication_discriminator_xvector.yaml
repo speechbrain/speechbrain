@@ -3,12 +3,12 @@
 # Authors: Nauman Dawalatabad & Mirco Ravanelli 2020
 # ################################
 
-seed: 1234
+seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Folders and train_log file
-data_folder: !PLACEHOLDER #e.g, /localscratch/voxceleb2
-output_folder: results/voxceleb1_2/verification_discriminator_xvectors
+data_folder: /localscratch/voxceleb1_2
+output_folder: results/voxceleb1_2/verification_discriminator_xvectors/
 save_folder: !ref <output_folder>/save/
 train_log: !ref <output_folder>/train_log.txt
 
@@ -23,13 +23,18 @@ number_of_epochs: 25
 batch_size: 128
 lr: 0.0002500
 lr_final: 0.00005000
-device: 'cuda:0'
 freeze_embeddings: False
+device: 'cuda'
+multigpu_count: 0  # Set to number of GPUs for multi-gpu training
+multigpu_backend: null  # ["data_parallel", "ddp_nccl", "ddp_gloo", "ddp_mpi"]
+random_segment: False
 
 # Pretrain from web (as an alternative specify a file)
 pretrain_embeddings: True
 embedding_file:
-    https://www.dropbox.com/s/p51au63q72jabqf/xvector_model.ckpt?dl=1
+    https://www.dropbox.com/s/p51au63q72jabqf/xvector_model.ckpt?dl=1 # vox1+2
+    # https://www.dropbox.com/s/exzbyt4qoabo7v4/embedding_model.ckpt?dl=1 vox2
+    # https://www.dropbox.com/s/skfz2sme5nw7jji/xvector_model.ckpt?dl=1 # vox1
 
 # Feature parameters
 n_mels: 24
@@ -38,15 +43,15 @@ right_frames: 0
 deltas: False
 
 # Functions
-compute_features: !new:speechbrain.lobes.features.fbank.Fbank
+compute_features: !new:speechbrain.lobes.features.Fbank
     n_mels: !ref <n_mels>
     left_frames: !ref <left_frames>
     right_frames: !ref <right_frames>
     deltas: !ref <deltas>
 
 embedding_model: !new:speechbrain.lobes.models.Xvector.Xvector
+    in_channels: !ref <n_mels>
     activation: !name:torch.nn.LeakyReLU
-    device: !ref <device>
     tdnn_blocks: 5
     tdnn_channels: [512, 512, 512, 512, 1500]
     tdnn_kernel_sizes: [5, 3, 3, 1, 1]
@@ -55,15 +60,18 @@ embedding_model: !new:speechbrain.lobes.models.Xvector.Xvector
 
 discriminator: !new:speechbrain.lobes.models.Xvector.Discriminator
     activation: !name:torch.nn.LeakyReLU
-    device: !ref <device>
+    input_shape: [null, null, 1024]
     lin_blocks: 1
     lin_neurons: 4096
     out_neurons: 1
 
-epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
-    limit: !ref <number_of_epochs>
+mean_var_norm: !new:speechbrain.processing.features.InputNormalization
+    norm_type: global
 
-env_corrupt: !new:speechbrain.lobes.augment.env_corrupt.EnvCorrupt
+bn_emb: !new:speechbrain.nnet.normalization.BatchNorm1d
+    input_size: 512
+
+env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
     openrir_folder: !ref <data_folder>
     openrir_max_noise_len: 3.0  # seconds
     reverb_prob: 1.0
@@ -72,9 +80,18 @@ env_corrupt: !new:speechbrain.lobes.augment.env_corrupt.EnvCorrupt
     noise_snr_high: 15
     rir_scale_factor: 1.0
 
-augmentation: !new:speechbrain.lobes.augment.tdsa.TimeDomainSpecAugment
+augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
     sample_rate: 16000
     speeds: [100]
+
+modules:
+    compute_features: !ref <compute_features>
+    augmentation: !ref <augmentation>
+    env_corrupt: !ref <env_corrupt>
+    embedding_model: !ref <embedding_model>
+    discriminator: !ref <discriminator>
+    mean_var_norm: !ref <mean_var_norm>
+    bn_emb: !ref <bn_emb>
 
 train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>
@@ -112,20 +129,18 @@ test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
         $data_folder: !ref <data_folder>
     output_folder: !ref <output_folder>/save/
 
-mean_var_norm: !new:speechbrain.processing.features.InputNormalization
-    norm_type: global
-
-bn_emb: !new:speechbrain.nnet.normalization.BatchNorm1d
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
 
 compute_cost: !name:speechbrain.nnet.losses.compute_masked_loss
 
-optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
-    learning_rate: !ref <lr>
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
 
-lr_annealing: !new:speechbrain.nnet.lr_schedulers.LinearLRScheduler
-    lr_initial: !ref <lr>
-    lr_final: !ref <lr_final>
-    N_epochs: !ref <number_of_epochs>
+lr_annealing: !new:speechbrain.nnet.schedulers.LinearScheduler
+    initial_value: !ref <lr>
+    final_value: !ref <lr_final>
+    epoch_count: !ref <number_of_epochs>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
@@ -135,7 +150,6 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     recoverables:
         embedding_model: !ref <embedding_model>
         discriminator: !ref <discriminator>
-        optimizer: !ref <optimizer>
-        normalizer: !ref <mean_var_norm>
+        mean_var_norm: !ref <mean_var_norm>
+        bn_emb: !ref <bn_emb>
         counter: !ref <epoch_counter>
-        mean_var_norm_emb: !ref <bn_emb>

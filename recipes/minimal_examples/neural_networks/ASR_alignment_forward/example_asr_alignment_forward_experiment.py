@@ -57,8 +57,7 @@ def main():
     align_brain.evaluate(hparams["test_loader"]())
 
     # Check that model overfits for integration test
-    assert align_brain.train_loss < 400.0
-
+    assert align_brain.train_loss < 350.0
 
 if __name__ == "__main__":
     main()
