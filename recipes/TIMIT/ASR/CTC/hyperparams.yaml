@@ -13,10 +13,7 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: !PLACEHOLDER  # e.g. /path/to/TIMIT
-csv_train: !ref <data_folder>/train.csv
-csv_valid: !ref <data_folder>/dev.csv
-csv_test: !ref <data_folder>/test.csv
+data_folder: /media/sam/HitachiX360/TIMIT/  # e.g. /path/to/TIMIT
 
 # Training parameters
 number_of_epochs: 50
@@ -53,26 +50,54 @@ blank_index: !ref <output_neurons> - 1
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_train>
-    batch_size: !ref <batch_size>
-    sentence_sorting: ascending
-    output_folder: !ref <output_folder>
-    csv_read: [wav, phn]
+label_encoder: !apply:speechbrain.data_io.encoders.CTCTextEncoder.fit_from_yaml
+    data_collections: [!ref <data_folder>/train.yaml, !ref <data_folder>/dev.yaml]
+    supervision: phn
+    blank_encoding: !ref <blank_index>
 
-valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_valid>
-    batch_size: !ref <batch_size>
-    sentence_sorting: ascending
-    output_folder: !ref <output_folder>
-    csv_read: [wav, phn]
+text_pipeline: !new:speechbrain.utils.data_utils.FuncPipeline
+    name: phn
+    target: phn
+    funcs:
+        - !ref <label_encoder.encode_int>
+        - !name:speechbrain.data_io.data_io.to_longTensor
 
-test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
-    csv_file: !ref <csv_test>
+audio_pipeline: !new:speechbrain.utils.data_utils.FuncPipeline
+    name: wav
+    target: wav
+    funcs:
+        - !name:speechbrain.data_io.data_io.read_wav
+
+data_tf:
+    - !ref <text_pipeline>
+    - !ref <audio_pipeline>
+
+train_data: !apply:speechbrain.data_io.datasets.SegmentedDataset.from_extended_yaml
+    filepath: !ref <data_folder>/train.yaml
+    data_transforms: !ref <data_tf>
+
+valid_data: !apply:speechbrain.data_io.datasets.SegmentedDataset.from_extended_yaml
+    filepath: !ref <data_folder>/dev.yaml
+    data_transforms: !ref <data_tf>
+
+test_data: !apply:speechbrain.data_io.datasets.SegmentedDataset.from_extended_yaml
+    filepath: !ref <data_folder>/test.yaml
+    data_transforms: !ref <data_tf>
+
+train_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
+    dataset: !ref <train_data>
     batch_size: !ref <batch_size>
-    sentence_sorting: ascending
-    output_folder: !ref <output_folder>
-    csv_read: [wav, phn]
+    collate_fn: !name:speechbrain.data_io.dataloader.collate_pad
+
+valid_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
+    dataset: !ref <valid_data>
+    batch_size: !ref <batch_size>
+    collate_fn: !name:speechbrain.data_io.dataloader.collate_pad
+
+test_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
+    dataset: !ref <test_data>
+    batch_size: !ref <batch_size>
+    collate_fn: !name:speechbrain.data_io.dataloader.collate_pad
 
 normalize: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
@@ -132,7 +157,7 @@ modules:
     model: !ref <model>
     output: !ref <output>
     normalize: !ref <normalize>
-    env_corrupt: !ref <env_corrupt>
+    #env_corrupt: !ref <env_corrupt>
 
 jit_module_keys: [model]
 
