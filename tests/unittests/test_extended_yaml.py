@@ -1,7 +1,7 @@
 import pytest
 
 
-def test_load_extended_yaml():
+def test_load_extended_yaml(tmpdir):
     from speechbrain.yaml import (
         load_extended_yaml,
         RefTag,
@@ -171,12 +171,44 @@ def test_load_extended_yaml():
     """
     things = load_extended_yaml(yaml)
     assert things["thing2"]() == "a string"
-    print(things["thing3"].args)
     assert things["thing3"].args[0]() == "a string"
 
-    # Dumping
+    # Placeholder
+    yaml = """
+    a: !PLACEHOLDER
+    """
+    with pytest.raises(ValueError) as excinfo:
+        things = load_extended_yaml(yaml)
+    assert str(excinfo.value) == "'a' is a !PLACEHOLDER and must be replaced."
+
+    # Import
+    imported_yaml = """
+    a: !PLACEHOLDER
+    b: !PLACEHOLDER
+    c: !ref <a> // <b>
+    """
+
     import os.path
 
+    test_yaml_file = os.path.join(tmpdir, "test.yaml")
+    with open(test_yaml_file, "w") as w:
+        w.write(imported_yaml)
+
+    yaml = f"""
+    a: 3
+    b: !PLACEHOLDER
+    import: !include:{test_yaml_file}
+        a: !ref <a>
+        b: !ref <b>
+    d: !ref <import[c]>
+    """
+
+    things = load_extended_yaml(yaml, {"b": 3})
+    assert things["a"] == things["b"]
+    assert things["import"]["c"] == 1
+    assert things["d"] == things["import"]["c"]
+
+    # Dumping
     dump_dict = {
         "data_folder": Placeholder(),
         "examples": {"ex1": RefTag(os.path.join("<data_folder>", "ex1.wav"))},
