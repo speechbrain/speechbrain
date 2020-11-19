@@ -632,7 +632,7 @@ def compute_masked_loss(
     elif reduction == "batchmean":
         loss = loss.sum() / N
     elif reduction == "batch":
-        loss = loss.view(N, -1).sum(1) / mask.view(N, -1).sum(1)
+        loss = loss.reshape(N, -1).sum(1) / mask.reshape(N, -1).sum(1)
 
     if label_smoothing == 0:
         return loss
