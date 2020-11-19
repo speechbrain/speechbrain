@@ -1,3 +1,11 @@
+"""The file implements a CTC/ATT joint beamsearch with dynamic search space proposed in https://www.aclweb.org/anthology/P17-1048.pdf
+
+The code is adapted and modified based on: https://github.com/espnet/espnet/blob/master/espnet/nets/beam_search.py
+
+Authors
+* Jianyuan Zhong
+"""
+
 from itertools import chain
 import logging
 from typing import Any
@@ -360,41 +368,6 @@ class CTCPrefixScorer(PartialScorerInterface):
             presub_score - prev_score, device=x.device, dtype=x.dtype
         )
         return tscore, (presub_score, new_st)
-
-    # def batch_init_state(self, x: torch.Tensor):
-    #     """Get an initial state for decoding.
-    #     Args:
-    #         x (torch.Tensor): The encoded feature tensor
-    #     Returns: initial state
-    #     """
-    #     logp = self.ctc.log_softmax(x.unsqueeze(0))  # assuming batch_size = 1
-    #     xlen = torch.tensor([logp.size(1)])
-    #     self.impl = CTCPrefixScoreTH(logp, xlen, 0, self.eos)
-    #     return None
-
-    # def batch_score_partial(self, y, ids, state, x):
-    #     """Score new token.
-    #     Args:
-    #         y (torch.Tensor): 1D prefix token
-    #         ids (torch.Tensor): torch.int64 next token to score
-    #         state: decoder state for prefix tokens
-    #         x (torch.Tensor): 2D encoder feature that generates ys
-    #     Returns:
-    #         tuple[torch.Tensor, Any]:
-    #             Tuple of a score tensor for y that has a shape `(len(next_tokens),)`
-    #             and next state for ys
-    #     """
-    #     batch_state = (
-    #         (
-    #             torch.stack([s[0] for s in state], dim=2),
-    #             torch.stack([s[1] for s in state]),
-    #             state[0][2],
-    #             state[0][3],
-    #         )
-    #         if state[0] is not None
-    #         else None
-    #     )
-    #     return self.impl(y, batch_state, ids)
 
 
 class TransformerAMScorer(ScorerInterface):
