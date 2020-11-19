@@ -53,7 +53,6 @@ class TransformerLM(TransformerInterface):
         self,
         vocab,
         d_model=512,
-        d_embedding=None,
         nhead=8,
         num_encoder_layers=12,
         num_decoder_layers=0,
@@ -62,6 +61,7 @@ class TransformerLM(TransformerInterface):
         activation=nn.ReLU,
         positional_encoding=True,
         normalize_before=False,
+        d_embedding=None,
     ):
         super().__init__(
             d_model=d_model,
