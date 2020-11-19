@@ -13,8 +13,8 @@ csv_valid: !ref <data_folder>/dev.csv
 csv_test: !ref <data_folder>/test.csv
 
 # Training parameters
-number_of_epochs: 30
-batch_size: 8
+number_of_epochs: 15
+batch_size: 4
 lr: 0.001
 ctc_weight: 0.2
 
@@ -52,8 +52,9 @@ bos_index: !ref <output_neurons> - 1
 eos_index: !ref <output_neurons> - 1
 min_decode_ratio: 0.0
 max_decode_ratio: 1.0
-beam_size: 16
-n_best: 1
+beam_size: 8
+n_best: 4
+topk: 4
 eos_threshold: 1.5
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
@@ -160,7 +161,6 @@ sampler: !new:speechbrain.decoders.seq2seq.S2SRNNBeamSearcher
     max_decode_ratio: !ref <max_decode_ratio>
     beam_size: !ref <beam_size>
     topk: !ref <n_best>
-    #return_log_probs: True
 
 greedy_searcher: !new:speechbrain.decoders.seq2seq.S2SRNNGreedySearcher
     embedding: !ref <emb>
@@ -180,6 +180,7 @@ beam_searcher: !new:speechbrain.decoders.seq2seq.S2SRNNBeamSearcher
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
     beam_size: !ref <beam_size>
+    topk: !ref <n_best>
 
 model: !new:torch.nn.ModuleList
     - [!ref <enc>, !ref <emb>, !ref <dec>, !ref <ctc_lin>, !ref <seq_lin>]
