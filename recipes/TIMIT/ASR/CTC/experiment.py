@@ -16,8 +16,8 @@ import speechbrain as sb
 
 # Define training procedure
 class ASR_Brain(sb.Brain):
-    def compute_forward(self, x, stage):
-        ids, wavs, wav_lens = x
+    def compute_forward(self, batch, stage):
+        wavs, wav_lens = batch["wav"]
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
 
         # Adding augmentation when specified:
@@ -37,9 +37,10 @@ class ASR_Brain(sb.Brain):
 
         return pout, wav_lens
 
-    def compute_objectives(self, predictions, targets, stage):
+    def compute_objectives(self, predictions, batch, stage):
         pout, pout_lens = predictions
-        ids, phns, phn_lens = targets
+        ids = batch["id"]
+        phns, phn_lens = batch["phn"]
         phns, phn_lens = phns.to(self.device), phn_lens.to(self.device)
 
         if stage == sb.Stage.TRAIN and hasattr(self.modules, "env_corrupt"):
@@ -51,10 +52,15 @@ class ASR_Brain(sb.Brain):
 
         if stage != sb.Stage.TRAIN:
             sequence = sb.decoders.ctc_greedy_decode(
-                pout, pout_lens, blank_id=-1
+                pout, pout_lens, blank_id=self.hparams.blank_index
             )
             self.per_metrics.append(
-                ids, sequence, phns, None, phn_lens, self.hparams.ind2lab
+                ids,
+                sequence,
+                phns,
+                None,
+                phn_lens,
+                self.hparams.label_encoder.decode_int,
             )
 
         return loss
@@ -119,24 +125,16 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-    # Prepare data
-    prepare_timit(
-        data_folder=hparams["data_folder"],
-        splits=["train", "dev", "test"],
-        save_folder=hparams["data_folder"],
-    )
-
-    # Collect index to label dictionary for decoding
-    train_set = hparams["train_loader"]()
-    valid_set = hparams["valid_loader"]()
-    hparams["ind2lab"] = hparams["train_loader"].label_dict["phn"]["index2lab"]
-
     asr_brain = ASR_Brain(
-        modules=hparams["modules"],
-        opt_class=hparams["opt_class"],
-        hparams=hparams,
+        hparams["modules"],
+        hparams["opt_class"],
+        hparams,
         checkpointer=hparams["checkpointer"],
     )
+    asr_brain.fit(
+        range(hparams["number_of_epochs"]),
+        hparams["train_loader"],
+        hparams["valid_loader"],
+    )
 
-    asr_brain.fit(asr_brain.hparams.epoch_counter, train_set, valid_set)
-    asr_brain.evaluate(hparams["test_loader"](), min_key="PER")
+    asr_brain.evaluate(hparams["test_loader"], min_key="PER")
