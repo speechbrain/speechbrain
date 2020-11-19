@@ -4,38 +4,27 @@ This folder contains scripts for running speaker identification and verification
 # Training Xvectors
 Run the following command to train xvectors:
 
-`python train_speaker_embeddings.py hyperparams/train_xvector_voxceleb1.yaml` (for voxceleb1)
+`python train_speaker_embeddings.py hyperparams/train_x_vectors.yaml`
 
-`python train_speaker_embeddings.py hyperparams/train_xvector_voxceleb2.yaml` (for voxceleb2, see preparation instructions below).
-
-`python train_speaker_embeddings.py hyperparams/train_xvector_voxceleb1_2.yaml` (for voxceleb1 + voxceleb2, see preparation instructions below).
+You can use the same script for voxceleb1, voxceleb2, and voxceleb1+2. Just change the datafolder and the corresponsing number or speakers (1211 vox1, 5994 vox2, 7205 vox1+2).
+For voxceleb1 + voxceleb2, see preparation instructions below).
 
 The system trains a TDNN for speaker embeddings coupled with a speaker-id classifier. The speaker-id accuracy should be around 97-98% for both voxceleb1 and voceleb2.
 
 # Speaker verification with PLDA
 After training the speaker embeddings, it is possible to perform speaker verification using PLDA.  You can run it with the following command:
 
-`python speaker_verification_plda.py hyperparams/verification_plda_xvector_voxceleb1.yaml` (for voxceleb1)
-
-`python speaker_verification_plda.py hyperparams/verification_plda_xvector_voxceleb2.yaml` (for voxceleb2)
-
-`python speaker_verification_plda.py hyperparams/verification_plda_xvector_voxceleb1_2.yaml` (for voxceleb1 + voxceleb2)
-
+`python speaker_verification_plda.py hyperparams/verification_plda_xvector.yaml`
 
 If you didn't train the speaker embedding before, we automatically download the xvector model from the web.
-This system achieves an EER = 6.9 % on voxceleb1, EER = 5.8 % on voxceleb2, and EER = 5.1 % on voxceleb1 + voxceleb2.
+This system achieves an EER = 5.8 % on voxceleb1, EER = 4.7 % on voxceleb2, and EER = 4.3 % on voxceleb1 + voxceleb2.
 These results are all obtained with the official verification split of voxceleb1 (veri\_split.txt)
 
 # Speaker verification with contrastive learning
 SpeechBrain supports speaker verification using contrastive learning.
 We employ a pre-trained encoder followed by a binary discriminator. The discriminator is fed with either positive or negative embeddings that are properly sampled from the dataset.  To run this experiment, type the following command:
 
-`python speaker_verification_discriminator.py hyperparams/verfication_discriminator_xvector_voxceleb1.yaml`(for voxceleb1)
-
-`python speaker_verification_discriminator.py hyperparams/verfication_discriminator_xvector_voxceleb2.yaml`(for voxceleb2)
-
-`python speaker_verification_discriminator.py hyperparams/verfication_discriminator_xvector_voxceleb1_2.yaml`(for voxceleb1 + voxceleb2)
-
+`python speaker_verification_discriminator.py hyperparams/verfication_discriminator_xvector.yaml`
 
 If you didn't train the speaker embedding before, we automatically download the xvector model from the web.
 This system achieves an EER = 3.8 % on voxceleb1, EER = 3.1 % on voxceleb2, and EER = 2.9 % on voxceleb1 + voxceleb2.
@@ -44,22 +33,16 @@ These results are all obtained with the official verification split of voxceleb1
 # Speaker verification using ECAPA-TDNN embeddings
 Run the following command to train speaker embeddings using [ECAPA-TDNN](https://arxiv.org/abs/2005.07143):
 
-`python train_speaker_embeddings.py hyperparams/train_ecapa_tdnn_voxceleb1.yaml` (for voxceleb1)
-
-`python train_speaker_embeddings.py hyperparams/train_ecapa_tdnn_voxceleb2.yaml` (for voxceleb2, see preparation instructions below).
-
-`python train_speaker_embeddings.py hyperparams/train_ecapa_tdnn_voxceleb1_2.yaml` (for voxceleb2 + voxceleb2).
+`python train_speaker_embeddings.py hyperparams/train_ecapa_tdnn.yaml`
 
 
 The speaker-id accuracy should be around 98-99% for both voxceleb1 and voceleb2.
 
 After training the speaker embeddings, it is possible to perform speaker verification using cosine similarity.  You can run it with the following command:
 
-`python speaker_verification_cosine.py hyperparams/verification_ecapa_tdnn_voxceleb1.yaml` (for voxceleb1)
-`python speaker_verification_cosine.py hyperparams/verification_ecapa_tdnn_voxceleb2.yaml` (for voxceleb2)
-`python speaker_verification_cosine.py hyperparams/verification_ecapa_tdnn_voxceleb1_2.yaml` (for voxceleb1 + voxceleb2)
+`python speaker_verification_cosine.py hyperparams/verification_ecapa_tdnn.yaml`
 
-This system achieves an EER = 3.4 % on voxceleb1, EER = 1.6 % on voxceleb2, and EER = 1.5 % on voxceleb1 + voxceleb2.
+This system achieves an EER = 3.4 % on voxceleb1, EER = 1.6 % on voxceleb2, and EER = 1.4 % on voxceleb1 + voxceleb2.
 These results are all obtained with the official verification split of voxceleb1 (veri\_split.txt)
 
 # VoxCeleb2 preparation
@@ -84,7 +67,6 @@ Go to the voxceleb2 folder and run `unzip vox1_test_wav.zip`.
 
 5. Copy the verification split(`voxceleb1/ meta/veri_test.txt`) into voxceleb2(`voxceleb2/meta/ veri_test.txt`)
 
-
 6. Now everything is ready and you can run voxceleb2 experiments:
 - training embeddings:
 
@@ -97,14 +79,14 @@ Note: To prepare the voxceleb1 + voxceleb2 dataset you have to copy and unpack v
 [Speaker Verification Results with Voxceleb 1]
 | System          | Dataset    | EER  |
 |-----------------|------------|------|
-| Xvector + PLDA  | VoxCeleb 1 | 6.9% |
+| Xvector + PLDA  | VoxCeleb 1 | 5.8% |
 | Xvector + CL    | Voxceleb 1 | 3.8% |
 | ECAPA-TDNN      | Voxceleb 1 | 3.4% |
 
 [Speaker Verification Results with Voxceleb 2]
 | System          | Dataset    | EER  |
 |-----------------|------------|------|
-| Xvector + PLDA  | VoxCeleb 2 | 5.8% |
+| Xvector + PLDA  | VoxCeleb 2 | 4.7% |
 | Xvector + CL    | Voxceleb 2 | 3.1% |
 | ECAPA-TDNN      | Voxceleb 2 | 1.6% |
 
@@ -112,9 +94,9 @@ Note: To prepare the voxceleb1 + voxceleb2 dataset you have to copy and unpack v
 [Speaker Verification Results with Voxceleb 1 + Voxceleb2]
 | System          | Dataset    | EER  |
 |-----------------|------------|------|
-| Xvector + PLDA  | VoxCeleb 2 | 5.2% |
+| Xvector + PLDA  | VoxCeleb 2 | 4.3% |
 | Xvector + CL    | Voxceleb 2 | 2.9% |
-| ECAPA-TDNN      | Voxceleb 2 | 1.5% |
+| ECAPA-TDNN      | Voxceleb 2 | 1.4% |
 
 
 # Resources
