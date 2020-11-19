@@ -320,8 +320,8 @@ class Brain:
                 setattr(self, arg, default)
 
         # Put modules on the right device, accessible with dot notation
-        # self.modules = torch.nn.ModuleDict(modules).to(self.device)
-        self.modules = modules.to(self.device)
+        self.modules = torch.nn.ModuleDict(modules).to(self.device)
+        # self.modules = modules.to(self.device)
 
         # Make hyperparams available with dot notation too
         if hparams is not None:
@@ -705,15 +705,15 @@ class Brain:
         if self.multigpu_backend is None:
             return
 
-        # for name, module in self.modules.items():
-        for module in self.modules:
+        for name, module in self.modules.items():
+            # for module in self.modules:
             if any(p.requires_grad for p in module.parameters()):
                 if self.multigpu_backend == "data_parallel":
                     module = torch.nn.DataParallel(module)
                 elif self.multigpu_backend.startswith("ddp"):
                     module = SyncBatchNorm.convert_sync_batchnorm(module)
                     module = DDP(module, device_ids=[self.device])
-            # self.modules[name] = module
+            self.modules[name] = module
 
     def evaluate(self, test_set, max_key=None, min_key=None, progressbar=None):
         """Iterate test_set and evaluate brain performance. By default, loads

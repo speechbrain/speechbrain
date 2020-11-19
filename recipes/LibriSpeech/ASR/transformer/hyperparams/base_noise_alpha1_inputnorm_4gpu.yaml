@@ -39,8 +39,8 @@ gradient_accumulation: 4
 loss_reduction: 'batchmean'
 rank: null
 local_rank: null
-device: 'cuda'
-multigpu_count: 4  # Set to number of GPUs for multi-gpu training
+device: 'cuda:0'
+multigpu_count: 0  # Set to number of GPUs for multi-gpu training
 multigpu_backend: ddp_nccl
 token_type: unigram # ["unigram", "bpe", "char"]
 

@@ -133,7 +133,8 @@ class ConvBlock(torch.nn.Module):
                 dilation=dilation,
                 layer_name=f"conv_{i}",
             )
-            self.convs.append(norm, layer_name=f"norm_{i}")
+            if norm is not None:
+                self.convs.append(norm, layer_name=f"norm_{i}")
             self.convs.append(activation(), layer_name=f"act_{i}")
             self.convs.append(
                 torch.nn.Dropout(dropout), layer_name=f"dropout_{i}"
