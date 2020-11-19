@@ -14,7 +14,7 @@ output_folder: !ref results/Contextnet_Transformer/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
-lm_ckpt_file: /network/tmp1/jianyuan.zhong/TransformerLM/e16_gelu_noskip_1024/save/CKPT+2020-10-08+10-20-47+00/model.ckpt # yamllint disable-line rule:line-length
+lm_ckpt_file: /scratch/jianyuan/TransformerLM/lr1/e16_gelu_noskip_1024/save/CKPT+2020-10-10+13-09-37+00/model.ckpt # yamllint disable-line rule:line-length
 
 # Tokenizer model
 tok_mdl_file: /network/tmp1/jianyuan.zhong/TransformerLM/e16_gelu_noskip_1024/save/5000_unigram.model # yamllint disable-line rule:line-length
@@ -31,14 +31,16 @@ csv_test_other: !ref <data_folder>/test-other.csv
 data_folder_rirs: !ref <data_folder>
 
 # Training parameters
-number_of_epochs: 150
-batch_size: 16
+number_of_epochs: 100
+batch_size: 8
 lr: 1
 ctc_weight: 0.3
 gradient_accumulation: 4
 loss_reduction: 'batchmean'
+rank: null
+local_rank: null
 device: 'cuda'
-multigpu_count: 2  # Set to number of GPUs for multi-gpu training
+multigpu_count: 4  # Set to number of GPUs for multi-gpu training
 multigpu_backend: ddp_nccl
 token_type: unigram # ["unigram", "bpe", "char"]
 
@@ -50,7 +52,7 @@ n_mels: 80
 ####################### Model parameters ###########################
 
 # Contextnet
-alpha: 0.5
+alpha: 1
 dropout: 0.1
 num_blocks: 9
 conv_channels: (256, 256, 256, 256, 512, 512, 512, 512, 512)
@@ -85,7 +87,7 @@ lm_weight: 0.50
 ctc_weight_decode: 0.70
 
 ####################### Data Loaders ############################
-train_loader: !new:speechbrain.data_io.DataLoaderFactory
+train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>
     batch_size: !ref <batch_size>
     sentence_sorting: random
@@ -94,7 +96,7 @@ train_loader: !new:speechbrain.data_io.DataLoaderFactory
     add_padding_label: True
     drop_last: True
 
-valid_loader: !new:speechbrain.data_io.DataLoaderFactory
+valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_valid>
     batch_size: 4
     sentence_sorting: ascending
@@ -103,7 +105,7 @@ valid_loader: !new:speechbrain.data_io.DataLoaderFactory
     add_padding_label: True
     drop_last: True
 
-test_clean_loader: !new:speechbrain.data_io.DataLoaderFactory
+test_clean_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_test_clean>
     batch_size: 4
     sentence_sorting: ascending
@@ -112,7 +114,7 @@ test_clean_loader: !new:speechbrain.data_io.DataLoaderFactory
     add_padding_label: True
     drop_last: False
 
-test_other_loader: !new:speechbrain.data_io.DataLoaderFactory
+test_other_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_test_other>
     batch_size: 4
     sentence_sorting: ascending
@@ -123,7 +125,7 @@ test_other_loader: !new:speechbrain.data_io.DataLoaderFactory
 
 ############################## models ################################
 tokenizer: !name:speechbrain.tokenizers.SentencePiece.SentencePiece
-    model_dir: /network/tmp1/jianyuan.zhong/TransformerLM/e16_gelu_noskip_1024/save/ # yamllint disable-line rule:line-length
+    model_dir: !ref <save_folder>
     vocab_size: !ref <output_neurons>
     csv_train: !ref <csv_train>
     csv_read: wrd
@@ -157,30 +159,25 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.Transforme
 
 lm_model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM # yamllint disable-line rule:line-length
     vocab: !ref <output_neurons>
-    d_model: 512
-    nhead: 8
+    d_model: 768
+    nhead: 12
     num_encoder_layers: 16
     num_decoder_layers: 0
-    d_ffn: 2048
+    d_ffn: 3076
     dropout: 0.0
     activation: !name:torch.nn.GELU
     normalize_before: False
 
-ctc_lin: !new:speechbrain.nnet.Linear
+ctc_lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <d_model>
     n_neurons: !ref <output_neurons>
 
-seq_lin: !new:speechbrain.nnet.Linear
+seq_lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <d_model>
     n_neurons: !ref <output_neurons>
 
-model: [
-    ["normalize", !ref <normalize>],
-    ["CNN", !ref <CNN>],
-    ["Transformer", !ref <Transformer>],
-    ["seq_lin", !ref <seq_lin>],
-    ["ctc_lin", !ref <ctc_lin>]
-]
+model: !new:torch.nn.ModuleList
+    - [!ref <CNN>, !ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
 
 optimizer: !name:torch.optim.Adam
     lr: 0
@@ -232,7 +229,7 @@ noam_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
 cosine_annealing: !new:speechbrain.nnet.schedulers.CyclicCosineScheduler
     n_warmup_steps: 25000
 
-checkpointer: !new:speechbrain.Checkpointer
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
         model: !ref <model>
@@ -244,14 +241,15 @@ checkpointer: !new:speechbrain.Checkpointer
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-normalize: !new:torch.nn.LayerNorm
-    - !ref <n_mels>
+normalize: !new:speechbrain.processing.features.InputNormalization
+    norm_type: global
+    update_until_epoch: 3
 
-augmentation: !new:speechbrain.lobes.augment.tdsa.TimeDomainSpecAugment
+augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
     sample_rate: !ref <sample_rate>
     speeds: [95, 100, 105]
 
-env_corrupt: !new:speechbrain.lobes.EnvCorrupt
+env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
     openrir_folder: !ref <data_folder_rirs>
     babble_prob: 0.0
     reverb_prob: 0.0
@@ -259,13 +257,13 @@ env_corrupt: !new:speechbrain.lobes.EnvCorrupt
     noise_snr_low: 0
     noise_snr_high: 15
 
-compute_features: !new:speechbrain.lobes.features.fbank.Fbank
+compute_features: !new:speechbrain.lobes.features.Fbank
     sample_rate: !ref <sample_rate>
     n_fft: !ref <n_fft>
     n_mels: !ref <n_mels>
 
-train_logger: !new:speechbrain.FileTrainLogger
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
 
-error_rate_computer: !name:speechbrain.ErrorRateStats
+error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
 acc_computer: !name:speechbrain.AccuracyStats
