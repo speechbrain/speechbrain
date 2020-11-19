@@ -16,7 +16,7 @@ To run this recipe, do the following:
     > python speaker_verification_discriminator.py {hyperparameter_file}
 
 Using your own hyperparameter file or one of the following:
-    hyperparams/verfication_discriminator_xvector_voxceleb1.yaml
+    hyperparams/verfication_discriminator_xvector.yaml
 
 Author
 * Mirco Ravanelli 2020
@@ -27,7 +27,7 @@ import torch
 import random
 import speechbrain as sb
 from tqdm.contrib import tqdm
-from speechbrain.utils.EER import EER
+from speechbrain.utils.metric_stats import EER
 from speechbrain.utils.data_utils import download_file
 
 
@@ -36,19 +36,19 @@ class VerificationBrain(sb.core.Brain):
     def fit_batch(self, batch):
         inputs, _ = batch
         out, target_discrim = self.compute_forward(inputs)
-        loss, stats = self.compute_objectives(out, target_discrim)
+        loss = self.compute_objectives(out, target_discrim)
         loss.backward()
-        self.optimizer.step()
+        if self.check_gradients(loss):
+            self.optimizer.step()
         self.optimizer.zero_grad()
-        stats["loss"] = loss.detach()
-        return stats
+
+        return loss.detach().cpu()
 
     def evaluate_batch(self, batch, stage="test"):
         inputs, target_class = batch
         out, target_discrim = self.compute_forward(inputs, stage=stage)
-        loss, stats = self.compute_objectives(out, target_discrim, stage=stage)
-        stats["loss"] = loss.detach()
-        return stats
+        loss = self.compute_objectives(out, target_discrim, stage=stage)
+        return loss.detach().cpu()
 
     def get_positive_sample(self, wav_anchor, seg_ids):
         """Samples other waveforms from the same speaker (positive samples)
@@ -150,12 +150,12 @@ class VerificationBrain(sb.core.Brain):
         targets = targets.unsqueeze(1).unsqueeze(1)
         return samples, targets
 
-    def data_augmentation(self, wavs, lens, init_params=False):
+    def data_augmentation(self, wavs, lens):
         """Performs data augmentation given a batch of input waveforms.
         """
         # Environmental corruption + waveform augmentation
-        wavs_aug = params.env_corrupt(wavs, lens, init_params)
-        wavs_aug = params.augmentation(wavs_aug, lens, init_params)
+        wavs_aug = self.modules.env_corrupt(wavs, lens)
+        wavs_aug = self.modules.augmentation(wavs_aug, lens)
 
         # Concatenate noisy and clean batches
         wavs = torch.cat([wavs, wavs_aug], dim=0)
@@ -163,21 +163,21 @@ class VerificationBrain(sb.core.Brain):
 
         return wavs, lens
 
-    def compute_embeddings(self, wavs, lens, init_params=False):
+    def compute_embeddings(self, wavs, lens):
         """Computes the embeddings given a batch of input waveforms.
         """
-        feats = params.compute_features(wavs, init_params)
-        feats = params.mean_var_norm(feats, lens)
+        feats = self.modules.compute_features(wavs)
+        feats = self.modules.mean_var_norm(feats, lens)
 
-        if params.freeze_embeddings:
-            params.embedding_model.eval()
+        if self.hparams.freeze_embeddings:
+            self.modules.embedding_model.eval()
             with torch.no_grad():
-                emb = params.embedding_model(feats, init_params=init_params)
+                emb = self.modules.embedding_model(feats)
         else:
-            emb = params.embedding_model(feats, init_params=init_params)
+            emb = self.modules.embedding_model(feats)
 
         # Applying batch normaization
-        emb = params.bn_emb(emb, init_params=init_params)
+        emb = self.modules.bn_emb(emb)
         return emb
 
     def compute_embeddings_loop(self, data_loader):
@@ -190,13 +190,16 @@ class VerificationBrain(sb.core.Brain):
         with torch.no_grad():
             for (batch,) in tqdm(data_loader, dynamic_ncols=True):
                 seg_ids, wavs, lens = batch
-                wavs, lens = wavs.to(params.device), lens.to(params.device)
-                emb = self.compute_embeddings(wavs, lens, init_params=False)
+                wavs, lens = (
+                    wavs.to(self.hparams.device),
+                    lens.to(self.hparams.device),
+                )
+                emb = self.compute_embeddings(wavs, lens)
                 for i, seg_id in enumerate(seg_ids):
                     embedding_dict[seg_id] = emb[i].detach().clone()
         return embedding_dict
 
-    def compute_forward(self, x, stage="train", init_params=False):
+    def compute_forward(self, x, stage="train"):
         """Computes the output of the speaker verification system composed of
         a (pre-trained) speaker embedding newtwork followed by a binary
         discriminator.
@@ -204,19 +207,22 @@ class VerificationBrain(sb.core.Brain):
         seg_ids, wav_anchor, lens = x
 
         # Get positive and negative samples
-        wav_anchor, lens = wav_anchor.to(params.device), lens.to(params.device)
+        wav_anchor, lens = (
+            wav_anchor.to(self.hparams.device),
+            lens.to(self.hparams.device),
+        )
         wav_pos = self.get_positive_sample(wav_anchor, seg_ids)
         wav_neg = self.get_negative_sample(wav_anchor)
         wavs = torch.cat([wav_anchor, wav_pos, wav_neg])
         lens = torch.cat([lens, lens, lens])
 
         # Performing data augmentation and computing the embeddings
-        wavs, lens = self.data_augmentation(wavs, lens, init_params)
-        emb = self.compute_embeddings(wavs, lens, init_params)
+        wavs, lens = self.data_augmentation(wavs, lens)
+        emb = self.compute_embeddings(wavs, lens)
 
         # Feeding positive and negative samples to the discriminator
         samples, target_discrim = self.gather_samples(emb)
-        outputs = params.discriminator(samples, init_params=init_params)
+        outputs = self.modules.discriminator(samples)
 
         return outputs, target_discrim
 
@@ -224,7 +230,7 @@ class VerificationBrain(sb.core.Brain):
         """Computes the Binary Cross-Entropy Loss (BPE) using targets derived
         from positive and negative samples.
         """
-        loss = params.compute_cost(
+        loss = self.hparams.compute_cost(
             torch.nn.BCEWithLogitsLoss(reduction="none"),
             outputs,
             target_discrim,
@@ -235,33 +241,48 @@ class VerificationBrain(sb.core.Brain):
         if stage != "train":
             stats["loss"] = loss
 
-        return loss, stats
+        return loss
 
-    def on_epoch_end(self, epoch, train_stats, valid_stats):
-        EER = self.compute_EER()
-        valid_stats["EER"] = [EER]
+    def on_stage_end(self, stage, stage_loss, epoch=None):
+        """Gets called at the end of a epoch."""
 
-        old_lr, new_lr = params.lr_annealing(
-            [params.optimizer], epoch, valid_stats["loss"]
-        )
-        epoch_stats = {"epoch": epoch, "lr": old_lr}
-        params.train_logger.log_stats(epoch_stats, train_stats, valid_stats)
+        # Compute/store important stats
+        stage_stats = {"loss": stage_loss}
+        if stage == sb.Stage.TRAIN:
+            self.train_stats = stage_stats
+        else:
+            EER = self.compute_EER()
+            stage_stats["ErrorRate"] = EER
 
-        params.checkpointer.save_and_keep_only(
-            meta={"EER": EER}, min_keys=["EER"]
-        )
+        # Perform end-of-iteration things, like annealing, logging, etc.
+        if stage == sb.Stage.VALID:
+            old_lr, new_lr = self.hparams.lr_annealing(epoch)
+            sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
+
+            if self.root_process:
+                self.hparams.train_logger.log_stats(
+                    stats_meta={"epoch": epoch, "lr": old_lr},
+                    train_stats=self.train_stats,
+                    valid_stats=stage_stats,
+                )
+                self.checkpointer.save_and_keep_only(
+                    meta={"ErrorRate": stage_stats["ErrorRate"]},
+                    min_keys=["ErrorRate"],
+                )
 
     def compute_EER(self,):
         """ Computes the EER using the standard voxceleb test split
         """
         # Computing  enrollment and test embeddings
         print("Computing enroll/test embeddings...")
-        self.enrol_dict = self.compute_embeddings_loop(enrol_set_loader)
-        self.test_dict = self.compute_embeddings_loop(test_set_loader)
+        self.enrol_dict = self.compute_embeddings_loop(enrol_set)
+        self.test_dict = self.compute_embeddings_loop(test_set)
 
         print("Computing EER..")
         # Reading standard verification split
-        gt_file = os.path.join(params.data_folder, "meta", "veri_test.txt")
+        gt_file = os.path.join(
+            self.hparams.data_folder, "meta", "veri_test.txt"
+        )
         with open(gt_file) as f:
             veri_test = [line.rstrip() for line in f]
 
@@ -270,7 +291,9 @@ class VerificationBrain(sb.core.Brain):
         )
         del self.enrol_dict, self.test_dict
 
-        eer = EER(torch.tensor(positive_scores), torch.tensor(negative_scores))
+        eer, th = EER(
+            torch.tensor(positive_scores), torch.tensor(negative_scores)
+        )
         return eer * 100
 
     def get_verification_scores(self, veri_test):
@@ -280,7 +303,7 @@ class VerificationBrain(sb.core.Brain):
         labs = []
         positive_scores = []
         negative_scores = []
-        params.discriminator.eval()
+        self.modules.discriminator.eval()
         cnt = 0
 
         # Loop over all the verification tests
@@ -296,10 +319,10 @@ class VerificationBrain(sb.core.Brain):
             samples.append(sample)
 
             # Gathering batches
-            if cnt == params.batch_size - 1 or i == len(veri_test) - 1:
+            if cnt == self.hparams.batch_size - 1 or i == len(veri_test) - 1:
                 samples = torch.cat(samples)
                 with torch.no_grad():
-                    outputs = params.discriminator(samples)
+                    outputs = self.modules.discriminator(samples)
                 scores = torch.sigmoid(outputs)
                 scores.detach()
 
@@ -320,16 +343,20 @@ class VerificationBrain(sb.core.Brain):
     def download_and_pretrain(self):
         """ Downloads the specified pre-trained model
         """
-        save_model_path = params.output_folder + "/save/embedding_model.ckpt"
-        if "http" in params.embedding_file:
-            download_file(params.embedding_file, save_model_path)
-        params.embedding_model.load_state_dict(
+        save_model_path = (
+            hparams["output_folder"] + "/save/embedding_model.ckpt"
+        )
+        if "http" in hparams["embedding_file"]:
+            download_file(hparams["embedding_file"], save_model_path)
+        hparams["embedding_model"].load_state_dict(
             torch.load(save_model_path), strict=True
         )
 
 
-# Begin Recipe!
 if __name__ == "__main__":
+
+    # This flag enable the inbuilt cudnn auto-tuner
+    torch.backends.cudnn.benchmark = True
 
     # This hack needed to import data preparation script from ..
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -337,59 +364,54 @@ if __name__ == "__main__":
     from voxceleb_prepare import prepare_voxceleb  # noqa E402
 
     # Load hyperparameters file with command-line overrides
-    params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
-    with open(params_file) as fin:
-        params = sb.yaml.load_extended_yaml(fin, overrides)
+    hparams_file, overrides = sb.core.parse_arguments(sys.argv[1:])
+    with open(hparams_file) as fin:
+        hparams = sb.yaml.load_extended_yaml(fin, overrides)
 
     # Create experiment directory
     sb.core.create_experiment_directory(
-        experiment_directory=params.output_folder,
-        hyperparams_to_save=params_file,
+        experiment_directory=hparams["output_folder"],
+        hyperparams_to_save=hparams_file,
         overrides=overrides,
     )
 
     # Prepare data from dev of Voxceleb1
     prepare_voxceleb(
-        data_folder=params.data_folder,
-        save_folder=params.save_folder,
+        data_folder=hparams["data_folder"],
+        save_folder=hparams["save_folder"],
         splits=["train", "dev", "test"],
         split_ratio=[90, 10],
         seg_dur=300,
-        rand_seed=params.seed,
+        rand_seed=hparams["seed"],
+        random_segment=hparams["random_segment"],
     )
+
+    # Data loaders
+    train_set = hparams["train_loader"]()
+    valid_set = hparams["valid_loader"]()
+    enrol_set = hparams["enrol_loader"]()
+    enrol_set = enrol_set.get_dataloader()
+    test_set = hparams["test_loader"]()
+    test_set = test_set.get_dataloader()
 
     # Dictionary to store the last waveform read for each speaker
     wav_stored = {}
 
-    # Data loaders
-    train_set = params.train_loader()
-    valid_set = params.valid_loader()
-    enrol_set_loader = params.enrol_loader()
-    test_set_loader = params.test_loader()
-
-    # Speaker verification Model
-    modules = [
-        params.embedding_model,
-        params.discriminator,
-        params.bn_emb,
-    ]
-    first_x, first_y = next(iter(train_set))
-
-    # Object initialization for training the speaker verification model
+    # Brain class initialization
     verifier = VerificationBrain(
-        modules=modules, optimizer=params.optimizer, first_inputs=[first_x],
+        modules=hparams["modules"],
+        opt_class=hparams["opt_class"],
+        hparams=hparams,
+        checkpointer=hparams["checkpointer"],
     )
 
     # Pre-train embeddings
-    if params.pretrain_embeddings:
+    if hparams["pretrain_embeddings"]:
         verifier.download_and_pretrain()
-
-    # Recover checkpoints
-    params.checkpointer.recover_if_possible()
 
     # Train the speaker verification model
     verifier.fit(
-        params.epoch_counter, train_set=train_set, valid_set=valid_set,
+        hparams["epoch_counter"], train_set=train_set, valid_set=valid_set,
     )
 
     print("Speaker verification model training completed!")

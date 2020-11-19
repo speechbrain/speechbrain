@@ -46,15 +46,18 @@ def cu_kernel_forward(log_probs, labels, alpha, log_p, T, U, blank, lock):
     blank: blank indice
     lock: 2D Tensor of (batch x LabelLength) containing bool(1-0) lock for parallel computation
     """
+    # paralalize the forward algorithm over batch and target length dim
     b = cuda.blockIdx.x
     u = cuda.threadIdx.x
     t = 0
     if u <= U[b]:
+        # for each (B,U) Thread
+        # wait the unlock of the previous computation of Alpha[b,U-1,:]
+        # Do the computation over the whole Time sequence on alpha[B,U,:]
+        # and then unlock the target U+1 for computation
         while t < T[b]:
             if u == 0:
-                if t == 0:
-                    alpha[b, 0, 0] = 0
-                else:
+                if t > 0:
                     alpha[b, t, 0] = (
                         alpha[b, t - 1, 0] + log_probs[b, t - 1, 0, blank]
                     )
@@ -68,13 +71,16 @@ def cu_kernel_forward(log_probs, labels, alpha, log_p, T, U, blank, lock):
                             + log_probs[b, 0, u - 1, labels[b, u - 1]]
                         )
                     else:
+                        # compute emission prob
                         emit = (
                             alpha[b, t, u - 1]
                             + log_probs[b, t, u - 1, labels[b, u - 1]]
                         )
+                        # compute no_emission prob
                         no_emit = (
                             alpha[b, t - 1, u] + log_probs[b, t - 1, u, blank]
                         )
+                        # do logsumexp between log_emit and log_no_emit
                         alpha[b, t, u] = max(no_emit, emit) + math.log1p(
                             math.exp(-abs(no_emit - emit))
                         )
@@ -82,10 +88,12 @@ def cu_kernel_forward(log_probs, labels, alpha, log_p, T, U, blank, lock):
                         cuda.atomic.add(lock, (b, u + 1), -1)
                     cuda.atomic.add(lock, (b, u), 1)
                     t += 1
-        if u == 0:
+        if u == U[b]:
+            # for each thread b (utterance)
+            # normalize the loss over time
             log_p[b] = (
                 alpha[b, T[b] - 1, U[b]] + log_probs[b, T[b] - 1, U[b], blank]
-            )
+            ) / T[b]
 
 
 @cuda.jit(
@@ -107,10 +115,15 @@ def cu_kernel_backward(log_probs, labels, beta, log_p, T, U, blank, lock):
     blank: blank indice
     lock: 2D Tensor of (batch x LabelLength) containing bool(1-0) lock for parallel computation
     """
+    # paralalize the forward algorithm over batch and target length dim
     b = cuda.blockIdx.x
     u = cuda.threadIdx.x
     t = T[b] - 1
     if u <= U[b]:
+        # for each (B,U) Thread
+        # wait the unlock of the next computation of beta[b,U+1,:]
+        # Do the computation over the whole Time sequence on beta[B,U,:]
+        # and then unlock the target U-1 for computation
         while t >= 0:
             if u == U[b]:
                 if t == T[b] - 1:
@@ -124,14 +137,18 @@ def cu_kernel_backward(log_probs, labels, beta, log_p, T, U, blank, lock):
             else:
                 if cuda.atomic.add(lock, (b, u), 0) < 0:
                     if t == T[b] - 1:
+                        # do logsumexp between log_emit and log_no_emit
                         beta[b, t, u] = (
                             beta[b, t, u + 1] + log_probs[b, t, u, labels[b, u]]
                         )
                     else:
+                        # compute emission prob
                         emit = (
                             beta[b, t, u + 1] + log_probs[b, t, u, labels[b, u]]
                         )
+                        # compute no_emission prob
                         no_emit = beta[b, t + 1, u] + log_probs[b, t, u, blank]
+                        # do logsumexp between log_emit and log_no_emit
                         beta[b, t, u] = max(no_emit, emit) + math.log1p(
                             math.exp(-abs(no_emit - emit))
                         )
@@ -140,7 +157,9 @@ def cu_kernel_backward(log_probs, labels, beta, log_p, T, U, blank, lock):
                     cuda.atomic.add(lock, (b, u), 1)
                     t -= 1
     if u == 0:
-        log_p[b] = beta[b, 0, 0]
+        # for each thread b (utterance)
+        # normalize the loss over time
+        log_p[b] = beta[b, 0, 0] / T[b]
 
 
 @cuda.jit(
@@ -162,10 +181,11 @@ def cu_kernel_compute_grad(log_probs, labels, alpha, beta, grads, T, U, blank):
     blank: blank indice
     lock: 2D Tensor of (batch x LabelLength) containing bool(1-0) lock for parallel computation
     """
-
-    b = cuda.blockIdx.x
-    t = cuda.threadIdx.x
+    # paralalize the gradient computation over batch and timeseq length dim
+    t = cuda.blockIdx.x
+    b = cuda.threadIdx.x
     if t < T[b]:
+        # compute the gradient for no_emit prob
         if t == 0:
             grads[b, T[b] - 1, U[b], blank] = -math.exp(
                 alpha[b, T[b] - 1, U[b]]
@@ -173,7 +193,6 @@ def cu_kernel_compute_grad(log_probs, labels, alpha, beta, grads, T, U, blank):
                 - beta[b, 0, 0]
             )
 
-        # #if u < U[b] and t < T[b]-1:
         if t < T[b] - 1:
             for u in range(U[b] + 1):
                 grads[b, t, u, blank] = alpha[b, t, u] + beta[b, t + 1, u]
@@ -182,8 +201,7 @@ def cu_kernel_compute_grad(log_probs, labels, alpha, beta, grads, T, U, blank):
                     + log_probs[b, t, u, blank]
                     - beta[b, 0, 0]
                 )
-        # # if k != blank
-        # if t < T[b]:
+        # compute the gradient for emit prob
         for u, l in enumerate(labels[b]):
             if u < U[b]:
                 grads[b, t, u, l] = alpha[b, t, u] + beta[b, t, u + 1]
@@ -207,44 +225,37 @@ class Transducer(Function):
 
     @staticmethod
     def forward(ctx, log_probs, labels, T, U, blank, reduction):
+        log_probs = log_probs.detach()
         B, maxT, maxU, A = log_probs.shape
         grads = torch.zeros(
             (B, maxT, maxU, A), dtype=torch.float32, device=log_probs.device
         )
         alpha = torch.zeros((B, maxT, maxU), device=log_probs.device)
         beta = torch.zeros((B, maxT, maxU), device=log_probs.device)
-        lock_alpha = torch.zeros(
-            (B, maxU), dtype=torch.int32, device=log_probs.device
-        )
-        lock_beta = torch.zeros(
+        lock = torch.zeros(
             (B, maxU), dtype=torch.int32, device=log_probs.device
         )
         log_p_alpha = torch.zeros((B,), device=log_probs.device)
         log_p_beta = torch.zeros((B,), device=log_probs.device)
         cu_kernel_forward[B, maxU](
-            log_probs.detach(),
-            labels,
-            alpha,
-            log_p_alpha,
-            T,
-            U,
-            blank,
-            lock_alpha,
+            log_probs, labels, alpha, log_p_alpha, T, U, blank, lock,
         )
+        lock = lock * 0
         cu_kernel_backward[B, maxU](
-            log_probs.detach(), labels, beta, log_p_beta, T, U, blank, lock_beta
+            log_probs, labels, beta, log_p_beta, T, U, blank, lock
         )
-        cu_kernel_compute_grad[B, maxT](
-            log_probs.detach(), labels, alpha, beta, grads, T, U, blank
+        cu_kernel_compute_grad[maxT, B](
+            log_probs, labels, alpha, beta, grads, T, U, blank
         )
-
         ctx.grads = grads
+        del alpha, beta, lock, log_p_beta, T, U, log_probs, labels
+        torch.cuda.empty_cache()
         if reduction == "mean":
-            return (-(log_p_alpha + log_p_beta) / 2).mean()
+            return -log_p_alpha.mean()
         elif reduction == "sum":
-            return sum(-(log_p_alpha + log_p_beta) / 2)
+            return sum(-log_p_alpha)
         elif reduction == "none":
-            return -(log_p_alpha + log_p_beta) / 2
+            return -log_p_alpha
         else:
             raise Exception("Unexpected reduction {}".format(reduction))
 

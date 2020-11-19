@@ -15,7 +15,7 @@ output_folder: !ref results/CRDNN_BPE_960h_LM/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
-lm_ckpt_file: https://www.dropbox.com/s/6uy5m6jaf0t769i/model.ckpt?dl=1
+lm_ckpt_file: https://www.dropbox.com/s/wop14orl69gakhl/model.ckpt?dl=1
 
 # Tokenizer model
 tok_mdl_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
@@ -36,8 +36,8 @@ csv_test_other: !ref <data_folder>/test-other.csv
 
 
 # Training parameters
-number_of_epochs: 30
-number_of_ctc_epochs: 10
+number_of_epochs: 15
+number_of_ctc_epochs: 5
 batch_size: 8
 lr: 1.0
 ctc_weight: 0.5
