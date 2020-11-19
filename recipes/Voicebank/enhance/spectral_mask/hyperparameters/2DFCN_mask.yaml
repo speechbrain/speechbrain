@@ -5,10 +5,10 @@
 
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 2234
+seed: 3234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
-data_folder: !PLACEHOLDER
+data_folder: /data/member1/user_jasonfu/noisy-vctk-16k
 test_clean_folder: !ref <data_folder>/clean_testset_wav_16k/
 
 output_folder: !ref ./results/2DFCN/<seed>
@@ -67,77 +67,61 @@ test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-conv1: !name:speechbrain.nnet.Conv2d
-    out_channels: !ref <base_channels>
-    kernel_size: !ref <kernel_size>
-conv2: !name:speechbrain.nnet.CNN.Conv2d
-    out_channels: !ref <base_channels>
-    kernel_size: !ref <kernel_size>
-conv3: !name:speechbrain.nnet.CNN.Conv2d
-    out_channels: !ref <base_channels>
-    kernel_size: !ref <kernel_size>
-conv4: !name:speechbrain.nnet.CNN.Conv2d
-    out_channels: !ref <base_channels>
-    kernel_size: !ref <kernel_size>
-conv5: !name:speechbrain.nnet.CNN.Conv2d
-    out_channels: !ref <base_channels>
-    kernel_size: !ref <kernel_size>
-conv6: !name:speechbrain.nnet.CNN.Conv2d
-    out_channels: !ref <base_channels>
-    kernel_size: !ref <kernel_size>
-conv7: !name:speechbrain.nnet.CNN.Conv2d
-    out_channels: !ref <base_channels>
-    kernel_size: !ref <kernel_size>
-conv8: !name:speechbrain.nnet.CNN.Conv2d
-    padding: valid
-    out_channels: 257
-    kernel_size: (257,1)
-
 activation: !new:torch.nn.LeakyReLU
     negative_slope: 0.01
 
 activation_sigmoid: !new:torch.nn.Sigmoid
 
-BN1: !new:speechbrain.nnet.BatchNorm2d
-    input_size: !ref <base_channels>
-BN2: !new:speechbrain.nnet.BatchNorm2d
-    input_size: !ref <base_channels>
-BN3: !new:speechbrain.nnet.BatchNorm2d
-    input_size: !ref <base_channels>
-BN4: !new:speechbrain.nnet.BatchNorm2d
-    input_size: !ref <base_channels>
-BN5: !new:speechbrain.nnet.BatchNorm2d
-    input_size: !ref <base_channels>
-BN6: !new:speechbrain.nnet.BatchNorm2d
-    input_size: !ref <base_channels>
-BN7: !new:speechbrain.nnet.BatchNorm2d
-    input_size: !ref <base_channels>
 
 model: !new:speechbrain.nnet.containers.Sequential
-    - [null, null, !ref <N_fft> // 2 + 1]
-    - !ref <conv1>
-    - !ref <BN1>
-    - !ref <activation>
-    - !ref <conv2>
-    - !ref <BN2>
-    - !ref <activation>
-    - !ref <conv3>
-    - !ref <BN3>
-    - !ref <activation>
-    - !ref <conv4>
-    - !ref <BN4>
-    - !ref <activation>
-    - !ref <conv5>
-    - !ref <BN5>
-    - !ref <activation>
-    - !ref <conv6>
-    - !ref <BN6>
-    - !ref <activation>
-    - !ref <conv7>
-    - !ref <BN7>
-    - !ref <activation>
-    - !ref <conv8>
-    - !ref <activation_sigmoid>
+    input_shape: [!ref <N_batch>, null, !ref <N_fft> // 2 + 1]
+    conv1: !name:speechbrain.nnet.CNN.Conv2d
+        out_channels: !ref <base_channels>
+        kernel_size: !ref <kernel_size>
+    BN1: !new:speechbrain.nnet.normalization.BatchNorm2d
+        input_size: !ref <base_channels>
+    act1: !ref <activation>
+    conv2: !name:speechbrain.nnet.CNN.Conv2d
+        out_channels: !ref <base_channels>
+        kernel_size: !ref <kernel_size>
+    BN2: !new:speechbrain.nnet.normalization.BatchNorm2d
+        input_size: !ref <base_channels>
+    act2: !ref <activation>
+    conv3: !name:speechbrain.nnet.CNN.Conv2d
+        out_channels: !ref <base_channels>
+        kernel_size: !ref <kernel_size>
+    BN3: !new:speechbrain.nnet.normalization.BatchNorm2d
+        input_size: !ref <base_channels>
+    act3: !ref <activation>
+    conv4: !name:speechbrain.nnet.CNN.Conv2d
+        out_channels: !ref <base_channels>
+        kernel_size: !ref <kernel_size>
+    BN4: !new:speechbrain.nnet.normalization.BatchNorm2d
+        input_size: !ref <base_channels>
+    act4: !ref <activation>
+    conv5: !name:speechbrain.nnet.CNN.Conv2d
+        out_channels: !ref <base_channels>
+        kernel_size: !ref <kernel_size>
+    BN5: !new:speechbrain.nnet.normalization.BatchNorm2d
+        input_size: !ref <base_channels>
+    act5: !ref <activation>
+    conv6: !name:speechbrain.nnet.CNN.Conv2d
+        out_channels: !ref <base_channels>
+        kernel_size: !ref <kernel_size>
+    BN6: !new:speechbrain.nnet.normalization.BatchNorm2d
+        input_size: !ref <base_channels>
+    act6: !ref <activation>
+    conv7: !name:speechbrain.nnet.CNN.Conv2d
+        out_channels: !ref <base_channels>
+        kernel_size: !ref <kernel_size>
+    BN7: !new:speechbrain.nnet.normalization.BatchNorm2d
+        input_size: !ref <base_channels>
+    act7: !ref <activation>
+    conv8: !name:speechbrain.nnet.CNN.Conv2d
+        padding: valid
+        out_channels: 257
+        kernel_size: (257,1)
+    act8: !ref <activation_sigmoid>
 
 modules:
     model: !ref <model>
@@ -145,30 +129,25 @@ modules:
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
 
-checkpointer: !new:speechbrain.Checkpointer
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
         model: !ref <model>
         counter: !ref <epoch_counter>
 
-hparams:
-    use_tensorboard: !ref <use_tensorboard>
-    epoch_counter: !ref <epoch_counter>
-    model: !ref <model>
-    enhanced_folder: !ref <enhanced_folder>
-    compute_cost: !name:speechbrain.nnet.mse_loss
-    compute_STFT: !new:speechbrain.processing.features.STFT
-        sample_rate: !ref <Sample_rate>
-        win_length: !ref <Win_length>
-        hop_length: !ref <Hop_length>
-        n_fft: !ref <N_fft>
-        window_fn: !ref <window_fn>
-    compute_ISTFT: !new:speechbrain.processing.features.ISTFT
-        sample_rate: !ref <Sample_rate>
-        win_length: !ref <Win_length>
-        hop_length: !ref <Hop_length>
-        window_fn: !ref <window_fn>
-    mean_var_norm: !new:speechbrain.processing.features.InputNormalization
-        norm_type: sentence
-    train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
-        save_file: !ref <train_log>
+compute_cost: !name:speechbrain.nnet.losses.mse_loss
+compute_STFT: !new:speechbrain.processing.features.STFT
+    sample_rate: !ref <Sample_rate>
+    win_length: !ref <Win_length>
+    hop_length: !ref <Hop_length>
+    n_fft: !ref <N_fft>
+    window_fn: !ref <window_fn>
+compute_ISTFT: !new:speechbrain.processing.features.ISTFT
+    sample_rate: !ref <Sample_rate>
+    win_length: !ref <Win_length>
+    hop_length: !ref <Hop_length>
+    window_fn: !ref <window_fn>
+mean_var_norm: !new:speechbrain.processing.features.InputNormalization
+    norm_type: sentence
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>

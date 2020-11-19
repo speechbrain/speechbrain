@@ -174,7 +174,7 @@ if __name__ == "__main__":
     if hparams["use_tensorboard"]:
         from speechbrain.utils.train_logger import TensorboardLogger
 
-        hparams["hparams"]["tensorboard_train_logger"] = TensorboardLogger(
+        hparams["tensorboard_train_logger"] = TensorboardLogger(
             hparams["tensorboard_logs"]
         )
 
@@ -189,15 +189,14 @@ if __name__ == "__main__":
 
     se_brain = SEBrain(
         modules=hparams["modules"],
-        hparams=hparams["hparams"],
         opt_class=hparams["opt_class"],
+        hparams=hparams,
         checkpointer=hparams["checkpointer"],
-        device=hparams["device"],
     )
 
     # Load latest checkpoint to resume training
     se_brain.fit(
-        hparams["epoch_counter"],
+        se_brain.hparams.epoch_counter,
         train_set=hparams["train_loader"](),
         valid_set=hparams["valid_loader"](),
     )
