@@ -67,7 +67,9 @@ class SEBrain(sb.Brain):
                         self.hparams.enhanced_folder, name
                     )
                     torchaudio.save(
-                        enhance_path, predict_wav[: int(length)].cpu(), 16000
+                        enhance_path,
+                        torch.unsqueeze(pred_wav[: int(length)].cpu(), 0),
+                        16000,
                     )
 
         return loss
