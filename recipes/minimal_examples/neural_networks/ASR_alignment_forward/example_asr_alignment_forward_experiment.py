@@ -59,6 +59,7 @@ def main():
     # Check that model overfits for integration test
     assert align_brain.train_loss < 350.0
 
+
 if __name__ == "__main__":
     main()
 
