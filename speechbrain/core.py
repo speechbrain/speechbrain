@@ -323,7 +323,6 @@ class Brain:
             torch.cuda.set_device(int(self.device[-1]))
         # Put modules on the right device, accessible with dot notation
         self.modules = torch.nn.ModuleDict(modules).to(self.device)
-        # self.modules = modules.to(self.device)
 
         # Make hyperparams available with dot notation too
         if hparams is not None:
@@ -708,7 +707,6 @@ class Brain:
             return
 
         for name, module in self.modules.items():
-            # for module in self.modules:
             if any(p.requires_grad for p in module.parameters()):
                 if self.multigpu_backend == "data_parallel":
                     module = torch.nn.DataParallel(module)
