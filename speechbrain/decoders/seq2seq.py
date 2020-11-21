@@ -1138,7 +1138,7 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
     """
 
     def __init__(
-        self, modules, **kwargs,
+        self, modules, temperature_lm=1.0, **kwargs,
     ):
         super(S2STransformerBeamSearch, self).__init__(**kwargs)
 
@@ -1146,6 +1146,7 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
         self.fc = modules[1]
         self.ctc_fc = modules[2]
         self.softmax = torch.nn.LogSoftmax(dim=-1)
+        self.temperature_lm = temperature_lm
 
     def reset_mem(self, batch_size, device):
         return None
@@ -1176,48 +1177,9 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
         memory = _update_mem(inp_tokens, memory)
         if not next(self.lm_modules.parameters()).is_cuda:
             self.lm_modules.to(inp_tokens.device)
-            self.lm_modules = torch.nn.parallel.DistributedDataParallel(
-                self.lm_modules, device_ids=[inp_tokens.device]
-            )
         logits = self.lm_modules(memory)
-        log_probs = self.softmax(logits)
+        log_probs = self.softmax(logits / self.temperature_lm)
         return log_probs[:, -1, :], memory
-
-
-class S2STransformerGreedySearch(S2SGreedySearcher):
-    """This class implements the greedy decoding
-    for AttentionalRNNDecoder (speechbrain/nnet/RNN.py).
-    See also S2SBaseSearcher() and S2SGreedySearcher().
-
-    Arguments
-    ---------
-    model : torch.nn.Module
-        The model to use for decoding
-    linear : torch.nn.Module
-        A linear output layer
-    **kwargs
-        Arguments to pass to S2SGreedySearcher
-
-    Example:
-    --------
-    >>> # see recipes/LibriSpeech/ASR_transformer/experiment.py
-    """
-
-    def __init__(self, model, linear, **kwargs):
-        super().__init__(**kwargs)
-
-        self.model = model
-        self.fc = linear
-        self.softmax = torch.nn.LogSoftmax(dim=-1)
-
-    def reset_mem(self, batch_size, device):
-        return None
-
-    def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
-        prob_dist, memory = _model_decode(
-            self.model, self.softmax, self.fc, inp_tokens, memory, enc_states
-        )
-        return prob_dist[:, -1, :], memory, None
 
 
 def batch_filter_seq2seq_output(prediction, eos_id=-1):

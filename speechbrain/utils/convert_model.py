@@ -28,7 +28,6 @@ if __name__ == "__main__":
         hparams = sb.load_extended_yaml(f, overrides={"data_folder": "asdf"})
 
     ckpt = torch.load(args.old_ckpt)
-    print(ckpt.keys())
     assert len(hparams[args.hparams_key].state_dict()) == len(ckpt)
 
     new_state_dict = OrderedDict()
