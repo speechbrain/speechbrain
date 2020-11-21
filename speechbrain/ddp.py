@@ -1,116 +1,174 @@
-"""Python module for starting an experiment on multiple processes for DDP.
+r"""
+This is a copy of ``torch.distributed.launch`` git hash 49f0e5d.
 
-This module is based off of the ``multiproc.py`` module in:
-https://github.com/NVIDIA/tacotron2
-
-To start a DDP experiment with this module, do:
-
-> python -m speechbrain.ddp experiment.py hyperparams.yaml
-
-Authors:
- * Peter Plantinga 2020
- * Abdel HEBA 2020
+For docs, see that file.
 """
-import os
+
+
 import sys
-import torch
-import argparse
 import subprocess
-import speechbrain as sb
+import os
+from argparse import ArgumentParser, REMAINDER
 
-# Parse arguments relevant to ddp, while ignoring the rest
-supported_ddp = ["ddp_nccl", "ddp_gloo", "ddp_mpi"]
-parser = argparse.ArgumentParser()
-parser.add_argument(
-    "--multigpu_backend",
-    choices=supported_ddp,
-    default=None,
-    help="Backend for training with Distributed Data Parallel",
-)
-parser.add_argument(
-    "--multigpu_count",
-    type=int,
-    default=None,
-    help="Number of devices to run this experiment on",
-)
-parser.add_argument(
-    "--master_addr",
-    default="127.0.0.1",
-    help="IP address of the master process",
-)
-parser.add_argument(
-    "--master_port",
-    default="12321",
-    help="Port to use for communicating between processes",
-)
-ddp_args, passed_arglist = parser.parse_known_args(sys.argv[1:])
-# passed_arglist[1] = 'hyperparams.yaml' use it
-# to check the multigpu_{count,backend}
-hparams_file, overrides = sb.parse_arguments(passed_arglist[1:])
-with open(hparams_file) as fin:
-    hparams = sb.load_extended_yaml(fin, overrides)
 
-# Handle the multigpu_backend input
-if ddp_args.multigpu_backend is None:
-    if hparams["multigpu_backend"] is not None:
-        if hparams["multigpu_backend"] in supported_ddp:
-            ddp_args.multigpu_backend = hparams["multigpu_backend"]
-        else:
-            print(
-                "Attribute multigpu_backend="
-                + str(hparams["multigpu_backend"])
-                + " in the yaml file"
+def parse_args():
+    """
+    Helper function parsing the command line options
+    @retval ArgumentParser
+    """
+    parser = ArgumentParser(
+        description="PyTorch distributed training launch "
+        "helper utility that will spawn up "
+        "multiple distributed processes"
+    )
+
+    # Optional arguments for the launch helper
+    parser.add_argument(
+        "--nnodes",
+        type=int,
+        default=1,
+        help="The number of nodes to use for distributed " "training",
+    )
+    parser.add_argument(
+        "--node_rank",
+        type=int,
+        default=0,
+        help="The rank of the node for multi-node distributed " "training",
+    )
+    parser.add_argument(
+        "--nproc_per_node",
+        type=int,
+        default=1,
+        help="The number of processes to launch on each node, "
+        "for GPU training, this is recommended to be set "
+        "to the number of GPUs in your system so that "
+        "each process can be bound to a single GPU.",
+    )
+    parser.add_argument(
+        "--master_addr",
+        default="127.0.0.1",
+        type=str,
+        help="Master node (rank 0)'s address, should be either "
+        "the IP address or the hostname of node 0, for "
+        "single node multi-proc training, the "
+        "--master_addr can simply be 127.0.0.1",
+    )
+    parser.add_argument(
+        "--master_port",
+        default=29500,
+        type=int,
+        help="Master node (rank 0)'s free port that needs to "
+        "be used for communication during distributed "
+        "training",
+    )
+    parser.add_argument(
+        "--use_env",
+        default=False,
+        action="store_true",
+        help="Use environment variable to pass "
+        "'local rank'. For legacy reasons, the default value is False. "
+        "If set to True, the script will not pass "
+        "--local_rank as argument, and will instead set LOCAL_RANK.",
+    )
+    parser.add_argument(
+        "-m",
+        "--module",
+        default=False,
+        action="store_true",
+        help="Changes each process to interpret the launch script "
+        "as a python module, executing with the same behavior as"
+        "'python -m'.",
+    )
+    parser.add_argument(
+        "--no_python",
+        default=False,
+        action="store_true",
+        help='Do not prepend the training script with "python" - just exec '
+        "it directly. Useful when the script is not a Python script.",
+    )
+
+    # positional
+    parser.add_argument(
+        "training_script",
+        type=str,
+        help="The full path to the single GPU training "
+        "program/script to be launched in parallel, "
+        "followed by all the arguments for the "
+        "training script",
+    )
+
+    # rest from the training program
+    parser.add_argument("training_script_args", nargs=REMAINDER)
+    return parser.parse_args()
+
+
+def main():
+    args = parse_args()
+
+    # world size in terms of number of processes
+    dist_world_size = args.nproc_per_node * args.nnodes
+
+    # set PyTorch distributed related environmental variables
+    current_env = os.environ.copy()
+    current_env["MASTER_ADDR"] = args.master_addr
+    current_env["MASTER_PORT"] = str(args.master_port)
+    current_env["WORLD_SIZE"] = str(dist_world_size)
+
+    processes = []
+
+    if "OMP_NUM_THREADS" not in os.environ and args.nproc_per_node > 1:
+        current_env["OMP_NUM_THREADS"] = str(1)
+        print(
+            "*****************************************\n"
+            "Setting OMP_NUM_THREADS environment variable for each process "
+            "to be {} in default, to avoid your system being overloaded, "
+            "please further tune the variable for optimal performance in "
+            "your application as needed. \n"
+            "*****************************************".format(
+                current_env["OMP_NUM_THREADS"]
             )
-            print("We do support the following ddp:" + str(supported_ddp))
-            print("ddp_nccl is selected by default")
-            ddp_args.multigpu_backend = "ddp_nccl"
-    else:
-        print("No input for multigpu_backend, ddp_nccl is selected")
-        ddp_args.multigpu_backend = "ddp_nccl"
+        )
 
-# Pass backend unchanged
-passed_arglist += [f"--multigpu_backend={ddp_args.multigpu_backend}"]
+    for local_rank in range(0, args.nproc_per_node):
+        # each process's rank
+        dist_rank = args.nproc_per_node * args.node_rank + local_rank
+        current_env["RANK"] = str(dist_rank)
+        current_env["LOCAL_RANK"] = str(local_rank)
 
-# Handle the multigpu_count input
-if ddp_args.multigpu_count is None and int(hparams["multigpu_count"]) > 0:
-    ddp_args.multigpu_count = int(hparams["multigpu_count"])
-else:
-    print("No input for multigpu_count, using all GPUs")
-    ddp_args.multigpu_count = torch.cuda.device_count()
+        # spawn the processes
+        with_python = not args.no_python
+        cmd = []
+        if with_python:
+            cmd = [sys.executable, "-u"]
+            if args.module:
+                cmd.append("-m")
+        else:
+            if not args.use_env:
+                raise ValueError(
+                    "When using the '--no_python' flag, you must also set the '--use_env' flag."
+                )
+            if args.module:
+                raise ValueError(
+                    "Don't use both the '--no_python' flag and the '--module' flag at the same time."
+                )
+
+        cmd.append(args.training_script)
+
+        if not args.use_env:
+            cmd.append("--local_rank={}".format(local_rank))
+
+        cmd.extend(args.training_script_args)
+
+        process = subprocess.Popen(cmd, env=current_env)
+        processes.append(process)
+
+    for process in processes:
+        process.wait()
+        if process.returncode != 0:
+            raise subprocess.CalledProcessError(
+                returncode=process.returncode, cmd=cmd
+            )
 
 
-passed_arglist += [f"--multigpu_count={ddp_args.multigpu_count}"]
-
-# Set appropriate environ objects
-current_env = os.environ.copy()
-current_env["MASTER_ADDR"] = ddp_args.master_addr
-current_env["MASTER_PORT"] = ddp_args.master_port
-
-# Create logs folder
-ddp_logs_folder = "ddp_logs"
-print(f"Creating logs directory in {ddp_logs_folder} for non-root process logs")
-if not os.path.isdir(ddp_logs_folder):
-    os.mkdir(ddp_logs_folder)
-
-print(f"Starting {ddp_args.multigpu_count} processes")
-workers = []
-for rank in range(ddp_args.multigpu_count):
-
-    # Rank is passed by environment variable to bypass the yaml
-    current_env["RANK"] = str(rank)
-
-    # Build command
-    cmd = [sys.executable] + passed_arglist
-    cmd += [f"--device=cuda:{rank}"]
-    # Logfile location for non-root processes
-    outfile = os.path.join(ddp_logs_folder, f"log_{rank}.out")
-    errfile = os.path.join(ddp_logs_folder, f"log_{rank}.err")
-    stdout = None if rank == 0 else open(outfile, "w")
-    stderr = None if rank == 0 else open(errfile, "w")
-
-    # Spawn process
-    p = subprocess.Popen(cmd, env=current_env, stdout=stdout, stderr=stderr)
-    workers.append(p)
-
-for p in workers:
-    p.wait()
+if __name__ == "__main__":
+    main()

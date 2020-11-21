@@ -26,8 +26,8 @@ class ASR(sb.Brain):
         phns, phn_lens = phns.to(self.device), phn_lens.to(self.device)
 
         if stage == sb.Stage.TRAIN:
-            if hasattr(self.modules, "env_corrupt"):
-                wavs_noise = self.modules.env_corrupt(wavs, wav_lens)
+            if hasattr(self.hparams, "env_corrupt"):
+                wavs_noise = self.hparams.env_corrupt(wavs, wav_lens)
                 wavs = torch.cat([wavs, wavs_noise], dim=0)
                 wav_lens = torch.cat([wav_lens, wav_lens])
                 phns = torch.cat([phns, phns])
@@ -174,7 +174,7 @@ if __name__ == "__main__":
     from timit_prepare import prepare_timit  # noqa E402
 
     # Load hyperparameters file with command-line overrides
-    hparams_file, overrides = sb.parse_arguments(sys.argv[1:])
+    hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, overrides)
 
@@ -200,6 +200,7 @@ if __name__ == "__main__":
     asr_brain = ASR(
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
+        run_opts=run_opts,
         hparams=hparams,
         checkpointer=hparams["checkpointer"],
     )
