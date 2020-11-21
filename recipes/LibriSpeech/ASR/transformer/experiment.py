@@ -44,6 +44,7 @@ logger = logging.getLogger(__name__)
 # Define training procedure
 class ASR(sb.core.Brain):
     def compute_forward(self, x, y, stage):
+        """Forward computations from the waveform batches to the output probabilities."""
         ids, wavs, wav_lens = x
         ids, target_words, target_word_lens = y
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
@@ -104,6 +105,8 @@ class ASR(sb.core.Brain):
         return p_ctc, p_seq, wav_lens, hyps, target_tokens, target_tokens_len
 
     def compute_objectives(self, predictions, targets, stage):
+        """Computes the loss (CTC+NLL) given predictions and targets."""
+
         (
             p_ctc,
             p_seq,
@@ -159,6 +162,7 @@ class ASR(sb.core.Brain):
         return loss
 
     def fit_batch(self, batch):
+        """Train the parameters given a single batch in input"""
         inputs, targets = batch
         predictions = self.compute_forward(inputs, targets, sb.Stage.TRAIN)
         loss = self.compute_objectives(predictions, targets, sb.Stage.TRAIN)
@@ -168,7 +172,9 @@ class ASR(sb.core.Brain):
 
         if self.step % self.hparams.gradient_accumulation == 0:
             # gradient clipping
-            torch.nn.utils.clip_grad_norm_(self.modules.parameters(), 5.0)
+            torch.nn.utils.clip_grad_norm_(
+                self.modules.parameters(), self.hparams.gradient_clipping
+            )
 
             self.optimizer.step()
             self.optimizer.zero_grad()
@@ -319,7 +325,7 @@ if __name__ == "__main__":
 
             # Brain class initialization
             asr_brain = ASR(
-                modules=hparams["model"],
+                modules=hparams["modules"],
                 opt_class=hparams["optimizer"],
                 hparams=hparams,
                 checkpointer=hparams["checkpointer"],

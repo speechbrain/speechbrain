@@ -245,9 +245,7 @@ class ASR(sb.Brain):
         download_file(self.hparams.lm_ckpt_file, save_model_path)
 
         # Load downloaded model, removing prefix
-        state_dict = torch.load(
-            save_model_path, map_location=torch.device(self.device)
-        )
+        state_dict = torch.load(save_model_path, map_location=self.device)
         self.hparams.lm_model.load_state_dict(state_dict, strict=True)
         self.hparams.lm_model.eval()
 
@@ -312,10 +310,6 @@ if __name__ == "__main__":
         asr_brain.load_lm()
 
     # Training
-
-    # wait until all processes have successfully initialized
-    if torch.distributed.is_available():
-        torch.distributed.barrier()
     asr_brain.fit(asr_brain.hparams.epoch_counter, train_set, valid_set)
 
     # Test
