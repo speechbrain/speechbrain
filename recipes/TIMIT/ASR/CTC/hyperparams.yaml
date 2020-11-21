@@ -23,12 +23,6 @@ number_of_epochs: 50
 batch_size: 8
 lr: 1.0
 
-# For DDP, use `python -m speechbrain.ddp experiment.py` to launch experiment
-# These options will be set by that script, and will override these.
-device: 'cuda:0'
-multigpu_count: 0  # Set to number of GPUs if multi-gpu
-multigpu_backend: null  # ['data_parallel', 'ddp_nccl', 'ddp_gloo', 'ddp_mpi']
-
 # Feature parameters
 sample_rate: 16000
 n_fft: 400
@@ -82,13 +76,13 @@ augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
     speeds: [95, 100, 105]
 
 # Can be removed to improve speed
-env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
-    openrir_folder: !ref <data_folder>
-    babble_prob: 0.0
-    reverb_prob: 0.0
-    noise_prob: 1.0
-    noise_snr_low: 0
-    noise_snr_high: 15
+#env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
+#    openrir_folder: !ref <data_folder>
+#    babble_prob: 0.0
+#    reverb_prob: 0.0
+#    noise_prob: 1.0
+#    noise_snr_low: 0
+#    noise_snr_high: 15
 
 compute_features: !new:speechbrain.lobes.features.Fbank
     sample_rate: !ref <sample_rate>
@@ -132,9 +126,6 @@ modules:
     model: !ref <model>
     output: !ref <output>
     normalize: !ref <normalize>
-    env_corrupt: !ref <env_corrupt>
-
-jit_module_keys: [model]
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>

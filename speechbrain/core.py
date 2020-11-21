@@ -12,9 +12,7 @@ import logging
 import inspect
 import argparse
 import subprocess
-import ruamel.yaml
 import speechbrain as sb
-from io import StringIO
 from datetime import date
 from enum import Enum, auto
 from tqdm.contrib import tqdm
@@ -114,101 +112,116 @@ def parse_arguments(arg_list):
     -------
     param_file : str
         The location of the parameters file.
-    overrides : str
-        The yaml-formatted overrides, to pass to ``load_extended_yaml``.
+    run_opts : dict
+        Run options, such as distributed, device, etc.
+    overrides : dict
+        The overrides to pass to ``load_extended_yaml``.
 
     Example
     -------
-    >>> argv = ['hyperparams.yaml', '--seed', '10']
-    >>> filename, overrides = parse_arguments(argv)
+    >>> argv = ['hyperparams.yaml', '--device', 'cuda:1', '--seed', '10']
+    >>> filename, run_opts, overrides = parse_arguments(argv)
     >>> filename
     'hyperparams.yaml'
+    >>> run_opts["device"]
+    'cuda:1'
     >>> overrides
-    'seed: 10\n'
+    'seed: 10'
     """
     parser = argparse.ArgumentParser(
         description="Run a SpeechBrain experiment",
     )
     parser.add_argument(
         "param_file",
+        type=str,
         help="a yaml-formatted file using the extended YAML syntax "
         "defined by SpeechBrain.",
     )
     parser.add_argument(
-        "--yaml_overrides",
-        help="A yaml-formatted string representing a dictionary of "
-        "overrides to the parameters in the param file. The keys of "
-        "the dictionary can use dots to represent levels in the yaml "
-        'hierarchy. For example: "{model.param1: value1}" would '
-        "override the param1 parameter of the model node.",
-    )
-    parser.add_argument(
-        "--output_folder",
-        help="A folder for storing all experiment-related outputs.",
-    )
-    parser.add_argument(
-        "--data_folder", help="A folder containing the data used for training",
-    )
-    parser.add_argument(
-        "--save_folder",
-        help="A folder for storing checkpoints that allow restoring "
-        "progress for testing or re-starting training.",
-    )
-    parser.add_argument(
-        "--seed",
-        type=int,
-        help="A random seed to reproduce experiments on the same machine",
-    )
-    parser.add_argument(
         "--log_config",
+        type=str,
         help="A file storing the configuration options for logging",
     )
     parser.add_argument(
-        "--rank", type=int, help="Rank of process in multiprocessing setup"
+        "--local_rank", type=int, help="Rank on local machine",
     )
     parser.add_argument(
-        "--local_rank",
+        "--device",
+        type=str,
+        default="cuda:0",
+        help="The device to run the experiment on (e.g. 'cuda:0')",
+    )
+    parser.add_argument(
+        "--distributed_count",
         type=int,
-        help="argument to support torch.distributed.launch",
-    )
-    parser.add_argument("--device", help="The device to run the experiment on")
-    parser.add_argument(
-        "--multigpu_count", type=int, help="Number of gpus to run on"
+        help="Number of devices that are used for computation",
     )
     parser.add_argument(
-        "--multigpu_backend", help="data_parallel, ddp_nccl, ddp_gloo, ddp_mpi"
+        "--distributed_backend",
+        type=str,
+        help="One of {data_parallel, ddp_nccl, ddp_gloo, ddp_mpi}",
     )
+    parser.add_argument(
+        "--jit_module_keys",
+        type=str,
+        nargs="*",
+        help="A list of keys in the 'modules' dict to jitify",
+    )
+    parser.add_argument(
+        "--auto_mix_prec",
+        type=bool,
+        default=False,
+        help="If True, automatic mixed-precision is used.",
+    )
+    parser.add_argument(
+        "--max_grad_norm",
+        type=float,
+        default=5.0,
+        help="Gradient norm will be clipped to this value, "
+        "enter negative value to disable.",
+    )
+    parser.add_argument(
+        "--nonfinite_patience",
+        type=int,
+        default=3,
+        help="Max number of batches per epoch to skip if loss is nonfinite.",
+    )
+    parser.add_argument(
+        "--progressbar",
+        type=bool,
+        default=True,
+        help="If True, displays a progressbar indicating dataset progress.",
+    )
+
+    # Accept extra args to override yaml
+    run_opts, overrides = parser.parse_known_args(arg_list)
 
     # Ignore items that are "None", they were not passed
-    parsed_args = vars(parser.parse_args(arg_list))
+    run_opts = {k: v for k, v in vars(run_opts).items() if v is not None}
+    param_file = run_opts["param_file"]
+    del run_opts["param_file"]
 
-    # overwrite rank and device in yaml
-    if parsed_args["local_rank"] is not None:
-        parsed_args["device"] = parsed_args["local_rank"]
+    # Convert overrides to YAML
+    overrides = _convert_to_yaml(overrides)
 
-        # avoid parsing "local_rank" to the yaml file
-        del parsed_args["local_rank"]
+    return param_file, run_opts, overrides
 
-    param_file = parsed_args["param_file"]
-    del parsed_args["param_file"]
 
-    # Convert yaml_overrides to dictionary
-    yaml_overrides = ""
-    if parsed_args["yaml_overrides"] is not None:
-        yaml_overrides = parsed_args["yaml_overrides"]
-        del parsed_args["yaml_overrides"]
+def _convert_to_yaml(overrides):
+    """Convert args to yaml for overrides"""
+    yaml_string = ""
 
-    # Only return non-empty items
-    items = {k: v for k, v in parsed_args.items() if v is not None}
+    # Handle '--arg=val' type args
+    joined_args = "=".join(overrides)
+    split_args = joined_args.split("=")
 
-    # Convert to string and append to overrides
-    ruamel_yaml = ruamel.yaml.YAML()
-    overrides = ruamel_yaml.load(yaml_overrides) or {}
-    sb.utils.data_utils.recursive_update(overrides, items)
-    yaml_stream = StringIO()
-    ruamel_yaml.dump(overrides, yaml_stream)
+    for arg in split_args:
+        if arg.startswith("--"):
+            yaml_string += "\n" + arg[len("--") :] + ":"
+        else:
+            yaml_string += " " + arg
 
-    return param_file, yaml_stream.getvalue()
+    return yaml_string.strip()
 
 
 class Stage(Enum):
@@ -253,31 +266,34 @@ class Brain:
         this will be passed all modules in ``modules`` at the
         beginning of the ``fit()`` method. This behavior can be changed
         by overriding the ``configure_optimizers()`` method.
+    run_opts : dict
+        A set of options to change the runtime environment, including
+            jit_module_keys : list of str
+                List of keys in modules that should be jit compiled.
+            distributed_count : int
+                Number of devices to run on.
+            distributed_backend : str
+                One of {"ddp_nccl", "ddp_gloo", "ddp_mpi", "data_parallel"}
+            device : str
+                The location for performing computations.
+            auto_mix_prec : bool
+                If True, automatic mixed-precision is used.
+                Activate it only with cuda.
+            max_grad_norm : float
+                Default implementation of ``fit_batch()`` uses
+                ``clip_grad_norm_`` with this value.
+            nonfinite_patience : int
+                Number of times to ignore non-finite losses before stopping.
+            progressbar : bool
+                Whether to display a progressbar when training.
     hparams : dict
         Each key:value pair should consist of a string key and a hyperparameter
         that is used within the overridden methods. These will
         be accessible via an ``hparams`` attribute, using "dot" notation:
         e.g. self.hparams.model(x)
-    jit_module_keys : list of str
-        keys from the dictionary passed to ``modules`` to compile with
-        ``torch.jit.script``.
     checkpointer : speechbrain.Checkpointer
         By default, this will be used to load checkpoints, and will have the
         optimizer added to continue training if interrupted.
-    device : str
-        The location for performing computations.
-    multigpu_count : int
-        Number of GPUs to use for computation. With ``"data_parallel"``
-        backend, ``fit()`` is run on one process and multiple GPUs. With one of
-        the three ``ddp`` backends, ``fit()`` is run with one process per GPU.
-    multigpu_backend : str
-        one of {"ddp_nccl", "ddp_gloo", "ddp_mpi", "data_parallel"}
-    auto_mix_prec: bool
-        If True, automatic mixed-precision is used. Activate it only with cuda.
-    gradient_clipping : float
-        Default implementation of ``fit_batch()`` uses ``clip_grad_norm_``
-    nonfinite_patience : int
-        Number of times to ignore non-finite losses before stopping.
 
     Example
     -------
@@ -293,26 +309,31 @@ class Brain:
     """
 
     def __init__(
-        self, modules=None, opt_class=None, hparams=None, checkpointer=None,
+        self,
+        modules=None,
+        opt_class=None,
+        run_opts=None,
+        hparams=None,
+        checkpointer=None,
     ):
         self.opt_class = opt_class
         self.checkpointer = checkpointer
         self.root_process = True
 
-        # Arguments passed via the hparams dictionary
-        brain_arg_defaults = {
+        # Arguments passed via the run opts dictionary
+        run_opt_defaults = {
             "device": "cpu",
-            "multigpu_count": 0,
-            "multigpu_backend": None,
+            "distributed_count": 0,
+            "distributed_backend": None,
             "jit_module_keys": None,
             "auto_mix_prec": False,
             "max_grad_norm": 5.0,
             "nonfinite_patience": 3,
             "progressbar": True,
         }
-        for arg, default in brain_arg_defaults.items():
-            if hparams is not None and arg in hparams:
-                setattr(self, arg, hparams[arg])
+        for arg, default in run_opt_defaults.items():
+            if run_opts is not None and arg in run_opts:
+                setattr(self, arg, run_opts[arg])
             else:
                 setattr(self, arg, default)
 
@@ -338,7 +359,9 @@ class Brain:
 
         # Initialize ddp environment
         self.rank = os.environ.get("RANK")
-        if self.multigpu_backend and self.multigpu_backend.startswith("ddp"):
+        if self.distributed_backend and self.distributed_backend.startswith(
+            "ddp"
+        ):
             if self.rank is None:
                 sys.exit(
                     "To use DDP backend, start your script with:\n\t"
@@ -349,9 +372,11 @@ class Brain:
             self.root_process = self.rank == 0
 
             # Use backend (without "ddp_") to initialize process group
-            backend = self.multigpu_backend[4:]
+            backend = self.distributed_backend[len("ddp_") :]
             torch.distributed.init_process_group(
-                backend=backend, world_size=self.multigpu_count, rank=self.rank
+                backend=backend,
+                world_size=self.distributed_count,
+                rank=self.rank,
             )
 
             # force the models to start and remain synchronized
@@ -424,7 +449,7 @@ class Brain:
 
     def on_fit_start(self):
         """Gets called at the beginning of ``fit()``, on multiple processes
-        if multigpu_count is more than 0 and backend is ddp.
+        if distributed_count is more than 0 and backend is ddp.
 
         Default implementation compiles the jit modules, initializes
         optimizers, and loads the latest checkpoint to resume training.
@@ -433,7 +458,7 @@ class Brain:
         self._compile_jit()
 
         # Wrap modules with parallel backend after jit
-        self._wrap_multigpu()
+        self._wrap_distributed()
 
         # Initialize optimizers after parameters are configured
         self.init_optimizers()
@@ -611,8 +636,8 @@ class Brain:
         * ``evaluate_batch()``
         * ``update_average()``
 
-        If the initialization was done with multigpu_count > 0 and the
-        multigpu_backend is ddp, this method will spawn the correct number
+        If the initialization was done with distributed_count > 0 and the
+        distributed_backend is ddp, this method will spawn the correct number
         of processes and run a portion of the training data on the
         corresponding device.
 
@@ -635,10 +660,10 @@ class Brain:
         # Use factories to get loaders
         self.train_sampler = None
         if isinstance(train_set, DataLoaderFactory):
-            if self.rank is not None and self.multigpu_count > 0:
+            if self.rank is not None and self.distributed_count > 0:
                 self.train_sampler = DistributedSampler(
                     dataset=train_set.dataset,
-                    num_replicas=self.multigpu_count,
+                    num_replicas=self.distributed_count,
                     rank=self.rank,
                     shuffle=train_set.shuffle,
                 )
@@ -696,19 +721,27 @@ class Brain:
             module = torch.jit.script(self.modules[name])
             self.modules[name] = module.to(self.device)
 
-    def _wrap_multigpu(self):
-        """Wrap modules with multigpu wrapper when requested"""
-        if self.multigpu_backend is None:
+    def _wrap_distributed(self):
+        """Wrap modules with distributed wrapper when requested"""
+        if self.distributed_backend is None:
             return
 
-        for name, module in self.modules.items():
-            if any(p.requires_grad for p in module.parameters()):
-                if self.multigpu_backend == "data_parallel":
-                    module = torch.nn.DataParallel(module)
-                elif self.multigpu_backend.startswith("ddp"):
-                    module = SyncBatchNorm.convert_sync_batchnorm(module)
-                    module = DDP(module, device_ids=[self.device])
-            self.modules[name] = module
+        elif self.distributed_backend == "data_parallel":
+            self.modules = torch.nn.DataParallel(self.modules)
+        elif self.distributed_backend.startswith("ddp"):
+            self.modules = SyncBatchNorm.convert_sync_batchnorm(self.modules)
+            self.modules = DDP(self.modules, device_ids=[self.device])
+        else:
+            raise ValueError("Dist backend must be 'data_parallel' or 'ddp_*'")
+
+        # for name, module in self.modules.items():
+        #    if any(p.requires_grad for p in module.parameters()):
+        #        if self.distributed_backend == "data_parallel":
+        #            module = torch.nn.DataParallel(module)
+        #        elif self.distributed_backend.startswith("ddp"):
+        #            module = SyncBatchNorm.convert_sync_batchnorm(module)
+        #            module = DDP(module, device_ids=[self.device])
+        #    self.modules[name] = module
 
     def evaluate(self, test_set, max_key=None, min_key=None, progressbar=None):
         """Iterate test_set and evaluate brain performance. By default, loads
