@@ -10,6 +10,7 @@ import ast
 import yaml
 import copy
 import pydoc
+import os.path
 import inspect
 import functools
 import ruamel.yaml
@@ -269,6 +270,11 @@ def resolve_references(yaml_stream, overrides=None, overrides_must_match=False):
     >>> resolve_references(yaml_string, overrides).getvalue()
     'constants:\n  a: 4\n  b: 4\n'
     '''
+    # find imported yaml location relative to main yaml file
+    file_path = None
+    if hasattr(yaml_stream, "name"):
+        file_path = os.path.dirname(os.path.realpath(yaml_stream.name))
+
     # Load once to store references and apply overrides
     # using ruamel.yaml to preserve the tags
     ruamel_yaml = ruamel.yaml.YAML()
@@ -278,7 +284,7 @@ def resolve_references(yaml_stream, overrides=None, overrides_must_match=False):
         if isinstance(overrides, str):
             overrides = ruamel_yaml.load(overrides)
         recursive_update(preview, overrides, must_match=overrides_must_match)
-    _walk_tree_and_resolve(current_node=preview, tree=preview)
+    _walk_tree_and_resolve("root", preview, preview, overrides, file_path)
 
     # Dump back to string so we can load with bells and whistles
     yaml_stream = StringIO()
@@ -288,47 +294,89 @@ def resolve_references(yaml_stream, overrides=None, overrides_must_match=False):
     return yaml_stream
 
 
-def _walk_tree_and_resolve(current_node, tree):
+def _walk_tree_and_resolve(key, current_node, tree, overrides, file_path):
     """A recursive function for resolving ``!ref`` and ``!copy`` tags.
 
+    Loads additional yaml files if ``!include:`` tags are used.
     Also throws an error if ``!PLACEHOLDER`` tags are encountered.
 
     Arguments
     ---------
+    key : str
+        The fully-qualified path to current node.
     current_node : node
         A node in the yaml tree loaded with ruamel.yaml.
     tree : node
         The base node in the yaml tree loaded with ruamel.yaml.
+    overrides : dict
+        A set of overrides to pass to any ``!includes:`` files.
+    file_path : str
+        The location of the directory storing the main yaml file
 
     Returns
     -------
     yaml.Node
         A yaml tree with all references resolved.
     """
-    if (
-        hasattr(current_node, "tag")
-        and current_node.tag.value == "!PLACEHOLDER"
-    ):
-        MSG = "Replace !PLACEHOLDER values in YAML."
-        raise ValueError(MSG)
-    elif hasattr(current_node, "tag") and current_node.tag.value in [
-        "!ref",
-        "!copy",
-    ]:
-        copy_mode = current_node.tag.value == "!copy"
-        current_node = recursive_resolve(
-            reference=current_node.value,
-            reference_list=[],
-            full_tree=tree,
-            copy_mode=copy_mode,
-        )
-    elif isinstance(current_node, list):
-        for i, item in enumerate(current_node):
-            current_node[i] = _walk_tree_and_resolve(item, tree)
-    elif isinstance(current_node, dict):
-        for k, v in current_node.items():
-            current_node[k] = _walk_tree_and_resolve(v, tree)
 
+    # Walk sequence and resolve
+    if isinstance(current_node, list):
+        for i, sub_node in enumerate(current_node):
+            sub_key = i if key == "root" else f"{key}[{i}]"
+            current_node[i] = _walk_tree_and_resolve(
+                sub_key, sub_node, tree, overrides, file_path
+            )
+
+    # Walk mapping and resolve.
+    elif isinstance(current_node, dict):
+        for k, sub_node in current_node.items():
+            sub_key = k if key == "root" else f"{key}[{k}]"
+            current_node[k] = _walk_tree_and_resolve(
+                sub_key, sub_node, tree, overrides, file_path
+            )
+
+    # Base case, handle tags
+    if hasattr(current_node, "tag"):
+        tag_value = current_node.tag.value or ""
+
+        # Placeholders should have been replaced before now
+        if tag_value == "!PLACEHOLDER":
+            raise ValueError(f"'{key}' is a !PLACEHOLDER and must be replaced.")
+
+        # Resolve references to other nodes
+        elif tag_value in ["!ref", "!copy"]:
+            copy_mode = tag_value == "!copy"
+            current_node = recursive_resolve(
+                reference=current_node.value,
+                reference_list=[],
+                full_tree=tree,
+                copy_mode=copy_mode,
+            )
+
+        # Include external yaml files
+        elif tag_value.startswith("!include:"):
+            filename = tag_value[len("!include:") :]
+
+            # Update overrides with child keys
+            if isinstance(current_node, dict):
+                if overrides:
+                    recursive_update(overrides, current_node)
+                else:
+                    overrides = dict(current_node)
+
+            if file_path is not None:
+                filename = os.path.join(file_path, filename)
+            with open(filename) as f:
+                included_yaml = resolve_references(f, overrides)
+
+            # Append resolved yaml to current node
+            ruamel_yaml = ruamel.yaml.YAML()
+            current_node = ruamel_yaml.load(included_yaml)
+            # recursive_update(current_node, included_dict)
+
+            # current_node.yaml_set_tag(None)
+
+    # Return node after all resolution is done.
     return current_node
 
 
