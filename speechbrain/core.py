@@ -266,6 +266,11 @@ class Brain:
         this will be passed all modules in ``modules`` at the
         beginning of the ``fit()`` method. This behavior can be changed
         by overriding the ``configure_optimizers()`` method.
+    hparams : dict
+        Each key:value pair should consist of a string key and a hyperparameter
+        that is used within the overridden methods. These will
+        be accessible via an ``hparams`` attribute, using "dot" notation:
+        e.g. self.hparams.model(x)
     run_opts : dict
         A set of options to change the runtime environment, including
             jit_module_keys : list of str
@@ -286,11 +291,6 @@ class Brain:
                 Number of times to ignore non-finite losses before stopping.
             progressbar : bool
                 Whether to display a progressbar when training.
-    hparams : dict
-        Each key:value pair should consist of a string key and a hyperparameter
-        that is used within the overridden methods. These will
-        be accessible via an ``hparams`` attribute, using "dot" notation:
-        e.g. self.hparams.model(x)
     checkpointer : speechbrain.Checkpointer
         By default, this will be used to load checkpoints, and will have the
         optimizer added to continue training if interrupted.
@@ -312,8 +312,8 @@ class Brain:
         self,
         modules=None,
         opt_class=None,
-        run_opts=None,
         hparams=None,
+        run_opts=None,
         checkpointer=None,
     ):
         self.opt_class = opt_class

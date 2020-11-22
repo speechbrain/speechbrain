@@ -134,8 +134,8 @@ if __name__ == "__main__":
     asr_brain = ASR_Brain(
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
-        run_opts=run_opts,
         hparams=hparams,
+        run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
 
