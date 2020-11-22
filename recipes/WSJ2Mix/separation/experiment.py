@@ -34,7 +34,7 @@ from speechbrain.nnet.losses import get_si_snr_with_pitwrapper
 
 # from speechbrain.data_io.data_io import write_wav_soundfile
 
-# import speechbrain.nnet.lr_schedulers as schedulers
+import speechbrain.nnet.schedulers as schedulers
 
 # from tqdm import tqdm
 import numpy as np
@@ -52,15 +52,6 @@ def reset_layer_recursively(layer):
 
 
 class SourceSeparationBrain(sb.core.Brain):
-    # def __init__(self, params, device, **kwargs):
-
-    #    super(sb.core.Brain, self).__init__(**kwargs)
-    #    self.params = params
-    #    self.device = device
-    #    self.eval_scores = []
-    #    self.scaler = GradScaler()
-    #    self.inifinite_loss_found = 0
-
     def compute_objectives(self, predictions, targets):
         if self.hparams.loss_fn == "sisnr":
             loss = get_si_snr_with_pitwrapper(targets, predictions)
@@ -192,47 +183,56 @@ class SourceSeparationBrain(sb.core.Brain):
 
     # Todo: I need to convert this on_stage_end
     # def on_epoch_end(self, epoch, train_stats, valid_stats):
+    def on_stage_end(self, stage, stage_loss, epoch):
 
-    #    # I need to figure out what function to use for summary averages
-    #    av_valid_loss = summarize_average(valid_stats["loss"])
-    #    if isinstance(
-    #        self.hparams.lr_scheduler, schedulers.ReduceLROnPlateau
-    #    ) or isinstance(self.hparams.lr_scheduler, schedulers.DPRNNScheduler):
-    #        current_lr, next_lr = self.hparams.lr_scheduler(
-    #            [self.hparams.optimizer], epoch, av_valid_loss
-    #        )
-    #    else:
-    #        # if we do not use the reducelronplateau, we do not change the lr
-    #        next_lr = current_lr = self.hparams.optimizer.optim.param_groups[0][
-    #            "lr"
-    #        ]
+        # I need to figure out what function to use for summary averages
+        stage_stats = {"loss": stage_loss}
+        if stage == sb.Stage.TRAIN:
+            self.train_stats = stage_stats
 
-    #    epoch_stats = {"epoch": epoch, "lr": current_lr}
-    #    self.hparams.train_logger.log_stats(
-    #        epoch_stats, train_stats, valid_stats
-    #    )
+            logger.info("Completed epoch %d" % epoch)
+            logger.info("Train SI-SNR: %.3f" % -stage_loss)
 
-    #    # TODO: find the new implementation for this metric/loss
-    #    av_train_loss = summarize_average(train_stats["loss"])
+        if stage == sb.Stage.VALID:
 
-    #    logger.info("Completed epoch %d" % epoch)
-    #    logger.info(
-    #        "Train SI-SNR: %.3f" % -summarize_average(train_stats["loss"])
-    #    )
-    #    eval_score = summarize_average(valid_stats["loss"])
-    #    self.eval_scores.append(eval_score)
-    #    logger.info("Valid SI-SNR: %.3f" % -eval_score)
-    #    logger.info(
-    #        "Current LR {} New LR on next epoch {}".format(current_lr, next_lr)
-    #    )
+            # av_valid_loss = summarize_average(valid_stats["loss"])
+            if isinstance(
+                self.hparams.lr_scheduler, schedulers.ReduceLROnPlateau
+            ):
+                current_lr, next_lr = self.hparams.lr_scheduler(
+                    [self.optimizer], epoch, stage_loss
+                )
 
-    #    # TODO: check how it works in SB / and check where does this ckpt_recency comes from.
-    #    self.hparams.checkpointer.save_and_keep_only(
-    #        meta={"av_loss": av_valid_loss},
-    #        importance_keys=[ckpt_recency, lambda c: -c.meta["av_loss"]],
-    #    )
+                schedulers.update_learning_rate(self.optimizer, next_lr)
+            else:
+                # if we do not use the reducelronplateau, we do not change the lr
+                next_lr = (
+                    current_lr
+                ) = self.hparams.optimizer.optim.param_groups[0]["lr"]
 
-    # TODO: consider if it's better or not to use the asme signature as the parent.
+            logger.info("Valid SI-SNR: %.3f" % -stage_loss)
+            logger.info(
+                "Current LR {} New LR on next epoch {}".format(
+                    current_lr, next_lr
+                )
+            )
+
+            if self.root_process:
+                self.hparams.train_logger.log_stats(
+                    stats_meta={"epoch": epoch, "lr": current_lr},
+                    train_stats=self.train_stats,
+                    valid_stats=stage_stats,
+                )
+                self.checkpointer.save_and_keep_only(
+                    meta={"SI-SNR": stage_stats["loss"]}, min_keys=["SI-SNR"],
+                )
+
+        if stage == sb.Stage.TEST:
+            self.hparams.train_logger.log_stats(
+                stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
+                test_stats=stage_stats,
+            )
+
     def compute_forward(self, mixture, stage="train", init_params=False):
         """
 

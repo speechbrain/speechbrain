@@ -486,10 +486,10 @@ class ReduceLROnPlateau:
             The learning rate after the update.
         """
         for opt in optim_list:
-            current_lr = opt.optim.param_groups[0]["lr"]
+            current_lr = opt.param_groups[0]["lr"]
 
             # last_p_epochs = self.loses[-self.patience:]
-            if current_epoch == 0:
+            if current_epoch == 1:
                 next_lr = current_lr
                 self.anchor = current_loss
             else:
@@ -505,17 +505,11 @@ class ReduceLROnPlateau:
                     next_lr = current_lr
                 else:
                     next_lr = current_lr * self.factor
+                    self.patience_counter = 0
 
             # impose the lower bound
             next_lr = max(next_lr, self.lr_min)
 
-            # Changing the learning rate within the optimizer
-            opt.optim.param_groups[0]["lr"] = next_lr
-            opt.optim.param_groups[0]["prev_lr"] = current_lr
-            if next_lr != current_lr:
-                logger.info(
-                    "Changing lr from %.2g to %.2g" % (current_lr, next_lr)
-                )
         # Updating current loss
         self.losses.append(current_loss)
 
@@ -523,14 +517,15 @@ class ReduceLROnPlateau:
 
     @checkpoints.mark_as_saver
     def save(self, path):
-        data = {"losses": self.losses}
+        data = {"losses": self.losses, "anchor": self.anchor}
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
-    def load(self, path, end_of_epoch):
+    def load(self, path, end_of_epoch, device=None):
         del end_of_epoch  # Unused in this class
         data = torch.load(path)
         self.losses = data["losses"]
+        self.anchor = data["anchor"]
 
 
 class CyclicLRScheduler:
