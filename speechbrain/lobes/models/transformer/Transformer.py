@@ -80,7 +80,7 @@ class TransformerInterface(nn.Module):
                 normalize_before=normalize_before,
             )
 
-        # initialize the dncoder
+        # initialize the decoder
         if num_decoder_layers > 0:
             if custom_tgt_module is not None:
                 self.custom_tgt_module = custom_tgt_module(d_model)
@@ -688,4 +688,4 @@ def get_lookahead_mask(padded_input):
         .masked_fill(mask == 0, float("-inf"))
         .masked_fill(mask == 1, float(0.0))
     )
-    return mask.detach()
+    return mask.detach().to(padded_input.device)
