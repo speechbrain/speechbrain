@@ -105,6 +105,14 @@ def parse_args():
 def main():
     args = parse_args()
 
+    # Create logs folder
+    ddp_logs_folder = "ddp_logs"
+    print(
+        f"Creating logs directory in {ddp_logs_folder} for non-root process logs"
+    )
+    if not os.path.isdir(ddp_logs_folder):
+        os.mkdir(ddp_logs_folder)
+
     # world size in terms of number of processes
     dist_world_size = args.nproc_per_node * args.nnodes
 
@@ -161,7 +169,19 @@ def main():
         cmd.append("--device=cuda:" + str(local_rank))
         cmd.extend(args.training_script_args)
 
-        process = subprocess.Popen(cmd, env=current_env)
+        # Logfile location for non-root processes
+        if local_rank != 0:
+            outfile = os.path.join(ddp_logs_folder, f"log_{local_rank}.out")
+            errfile = os.path.join(ddp_logs_folder, f"log_{local_rank}.err")
+            stdout = open(outfile, "w")
+            stderr = open(errfile, "w")
+        else:
+            stdout = None
+            stderr = None
+
+        process = subprocess.Popen(
+            cmd, env=current_env, stdout=stdout, stderr=stderr
+        )
         processes.append(process)
 
     for process in processes:
