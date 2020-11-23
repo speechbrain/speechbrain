@@ -59,39 +59,63 @@ def get_verification_scores(veri_test):
     """ Computes positive and negative scores given the verification split.
     """
     scores = []
-    labs = []
     positive_scores = []
     negative_scores = []
-    cnt = 0
+
+    save_file = os.path.join(params["output_folder"], "scores.txt")
+    s_file = open(save_file, "w")
 
     # Cosine similarity initialization
     similarity = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
 
-    # Loop over all the verification tests
-    scores = []
+    # creating cohort for score normalization
+    if params["score_norm"] is not None:
+        train_cohort = torch.stack(list(train_dict.values()))
+
     for i, line in enumerate(veri_test):
 
         # Reading verification file (enrol_file test_file label)
-        labs.append(int(line.split(" ")[0].rstrip().split(".")[0].strip()))
+        lab_pair = int(line.split(" ")[0].rstrip().split(".")[0].strip())
         enrol_id = line.split(" ")[1].rstrip().split(".")[0].strip()
         test_id = line.split(" ")[2].rstrip().split(".")[0].strip()
         enrol = enrol_dict[enrol_id]
         test = test_dict[test_id]
-        scores.append(similarity(enrol, test)[0])
 
-        # Gathering batches
-        if cnt == params["batch_size"] - 1 or i == len(veri_test) - 1:
-            # Putting scores in the corresponding lists
-            for j, score in enumerate(scores):
-                if labs[j] == 1:
-                    positive_scores.append(score)
-                else:
-                    negative_scores.append(score)
-            scores = []
-            labs = []
-            cnt = 0
-            continue
-        cnt = cnt + 1
+        if params["score_norm"] is not None:
+            # Getting norm stats for enrol impostors
+            enrol_rep = enrol.repeat(train_cohort.shape[0], 1, 1)
+            score_e_c = similarity(enrol_rep, train_cohort)
+            mean_e_c = torch.mean(score_e_c, dim=0)
+            std_e_c = torch.std(score_e_c, dim=0)
+
+            # Getting norm stats for test impostors
+            test_rep = test.repeat(train_cohort.shape[0], 1, 1)
+            score_t_c = similarity(test_rep, train_cohort)
+            mean_t_c = torch.mean(score_t_c, dim=0)
+            std_t_c = torch.std(score_t_c, dim=0)
+
+        # Compute the score for the given sentence
+        score = similarity(enrol, test)[0]
+
+        # Perform score normalization
+        if params["score_norm"] == "z-norm":
+            score = (score - mean_e_c) / std_e_c
+        elif params["score_norm"] == "t-norm":
+            score = (score - mean_t_c) / std_t_c
+        elif params["score_norm"] == "s-norm":
+            score = (score - mean_e_c) / std_e_c + (score - mean_t_c) / std_t_c
+            score = 0.5 * score
+
+        # write score file
+        s_file.write("%s %s %i %f\n" % (enrol_id, test_id, lab_pair, score))
+        scores.append(score)
+
+        if lab_pair == 1:
+            positive_scores.append(score)
+        else:
+            negative_scores.append(score)
+
+    s_file.close()
     return positive_scores, negative_scores
 
 
@@ -132,7 +156,9 @@ if __name__ == "__main__":
     prepare_voxceleb(
         data_folder=params["data_folder"],
         save_folder=params["save_folder"],
-        splits=["test"],
+        splits=["train", "dev", "test"],
+        split_ratio=[90, 10],
+        seg_dur=300,
         rand_seed=params["seed"],
         source=params["voxceleb_source"]
         if "voxceleb_source" in params
@@ -143,6 +169,7 @@ if __name__ == "__main__":
     wav_stored = {}
 
     # Data loaders
+    train_set_loader = params["train_loader"]().get_dataloader()
     enrol_set_loader = params["enrol_loader"]().get_dataloader()
     test_set_loader = params["test_loader"]().get_dataloader()
 
@@ -166,6 +193,9 @@ if __name__ == "__main__":
     # Second run (normalization stats are more stable)
     enrol_dict = compute_embedding_loop(enrol_set_loader)
     test_dict = compute_embedding_loop(test_set_loader)
+
+    if params["score_norm"] is not None:
+        train_dict = compute_embedding_loop(train_set_loader)
 
     # Compute the EER
     print("Computing EER..")
