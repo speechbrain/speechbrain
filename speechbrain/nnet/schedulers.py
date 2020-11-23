@@ -430,9 +430,8 @@ class CyclicCosineScheduler:
 
 @checkpoints.register_checkpoint_hooks
 class ReduceLROnPlateau:
-    """Learning rate scheduler with linear annealing technique.
-     The learning rate linearly decays over the epochs between lr_initial
-     and lr_final.
+    """Learning rate scheduler which decreases the learning rate if the loss function of interest gets stuck on a plateau, or starts to increase.
+    The difference from NewBobLRScheduler is that, this one keeps a memory of the last step where do not observe improvement, and compares against that particular loss value as opposed to the most recent loss.
     Arguments
     ---------
     lr_min: float
@@ -440,7 +439,7 @@ class ReduceLROnPlateau:
     factor: float
         Factor with which to reduce the learning rate
     patience: int
-        How many
+        How many epochs to wait before reducing the learning rate
     Example
     -------
     >>> from speechbrain.nnet.optimizers import SGD_Optimizer
@@ -450,13 +449,14 @@ class ReduceLROnPlateau:
     >>> optim = SGD_Optimizer(learning_rate=1.0)
     >>> output = model(inp_tensor, init_params=True)
     >>> optim.init_params([model])
-    >>> scheduler = LinearLRScheduler(optim.optim.param_groups[0]["lr"], 0.0, 4)
+    >>> scheduler = ReduceLROnPlateau(0.25, 0.5, 2)
+    >>> curr_lr,next_lr=scheduler([optim],current_epoch=0, current_loss=10.0)
     >>> curr_lr,next_lr=scheduler([optim],current_epoch=1, current_loss=10.0)
     >>> curr_lr,next_lr=scheduler([optim],current_epoch=2, current_loss=10.0)
     >>> curr_lr,next_lr=scheduler([optim],current_epoch=3, current_loss=10.0)
     >>> curr_lr,next_lr=scheduler([optim],current_epoch=4, current_loss=10.0)
     >>> optim.optim.param_groups[0]["lr"]
-    0.0
+    0.25
     """
 
     def __init__(
@@ -489,11 +489,13 @@ class ReduceLROnPlateau:
             current_lr = opt.param_groups[0]["lr"]
 
             # last_p_epochs = self.loses[-self.patience:]
+            # print(self.patience_counter)
+            # print(self.patience)
             if current_epoch == 1:
                 next_lr = current_lr
                 self.anchor = current_loss
             else:
-                if current_loss < self.anchor:
+                if current_loss <= self.anchor:
                     self.patience_counter = 0
                     next_lr = current_lr
                     self.anchor = current_loss
@@ -505,7 +507,7 @@ class ReduceLROnPlateau:
                     next_lr = current_lr
                 else:
                     next_lr = current_lr * self.factor
-                    self.patience_counter = 0
+                    # self.patience_counter = 0
 
             # impose the lower bound
             next_lr = max(next_lr, self.lr_min)
@@ -517,7 +519,11 @@ class ReduceLROnPlateau:
 
     @checkpoints.mark_as_saver
     def save(self, path):
-        data = {"losses": self.losses, "anchor": self.anchor}
+        data = {
+            "losses": self.losses,
+            "anchor": self.anchor,
+            "patience_counter": self.patience_counter,
+        }
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
@@ -526,6 +532,7 @@ class ReduceLROnPlateau:
         data = torch.load(path)
         self.losses = data["losses"]
         self.anchor = data["anchor"]
+        self.patience_counter = data["patience_counter"]
 
 
 class CyclicLRScheduler:
