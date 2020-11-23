@@ -8,7 +8,7 @@
 #
 seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-experiment_name: 40-dptransf-2x4posenc_16h_gln_Mirco_normbeforenolinnoskip
+experiment_name: 1-newarc-test
 output_folder: !ref results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -29,7 +29,7 @@ progressbar: True
 # This is used only if the wsj0-mix is not already ready to be used.
 # e.g. '/network/tmp1/subakany/wsj0-mix/'
 #
-wsj0mixpath: '/network/tmp1/subakany/wsj-mix/2speakers/'
+wsj0mixpath: '/network/tmp1/subakany/wsj0-mix/2speakers/'
 tr_csv: 'wsj_tr.csv'
 cv_csv: 'wsj_cv.csv'
 tt_csv: 'wsj_tt.csv'
@@ -71,8 +71,11 @@ kernel_stride: 8
 Encoder: !new:speechbrain.lobes.models.dual_path.Encoder
     kernel_size: !ref <kernel_size>
     out_channels: !ref <N_encoder_out>
+
 # cem: when we run the models let's comment out unused blocks.
+#
 # All are provided to give an idea on what's available
+#
 # PTtf: !new:speechbrain.lobes.models.dual_pathrnn.PytorchTransformerBlock
 #    out_channels: !ref <out_channels>
 #    num_layers: 1
@@ -81,37 +84,23 @@ Encoder: !new:speechbrain.lobes.models.dual_path.Encoder
 #    dropout: 0
 #
 SBtfintra: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
-    num_layers: 1
+    num_layers: 8
     d_model: !ref <out_channels>
-    nhead: 16
-    d_ffn: 2048
+    nhead: 8
+    d_ffn: 1024
     dropout: 0
     use_positional_encoding: True
     norm_before: True
 
 SBtfinter: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
-    num_layers: 1
+    num_layers: 8
     d_model: !ref <out_channels>
-    nhead: 16
-    d_ffn: 2048
+    nhead: 8
+    d_ffn: 1024
     dropout: 0
     use_positional_encoding: True
     norm_before: True
 
-    # SBModtf: !new:speechbrain.lobes.models.dual_path.ModularTransformerBlock
-    #    out_channels: !ref <out_channels>
-    #    nhead: 8
-    #    num_layers: 3
-    #    d_ffn: 2048
-    #    dropout: 0
-    # FTtf: !new:speechbrain.lobes.models.dual_path.FastTransformerBlock
-    #  attention_type: 'reformer'  # this is whatever available on fasttf repo.
-    #    out_channels: !ref <out_channels>
-    #    num_layers: 1
-    #    nhead: 8
-    #    d_ffn: 1024
-    #    dropout: 0
-    # IB: !new:speechbrain.lobes.models.dual_path.IdentityBlock
 
 MaskNet: !new:speechbrain.lobes.models.dual_path.Dual_Path_Model
     in_channels: !ref <N_encoder_out>

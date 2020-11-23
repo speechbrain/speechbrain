@@ -136,25 +136,24 @@ class SourceSeparationBrain(sb.core.Brain):
                 predictions = self.compute_forward(inputs)
                 loss = self.compute_objectives(predictions, targets)
 
-                if loss < 999999:  # fix for computational problems
-                    self.scaler.scale(loss).backward()
-                    if self.hparams.clip_grad_norm >= 0:
-                        self.scaler.unscale_(self.optimizer)
-                        torch.nn.utils.clip_grad_norm_(
-                            self.modules.parameters(),
-                            self.hparams.clip_grad_norm,
-                        )
-
-                    self.scaler.step(self.optimizer)
-                    self.scaler.update()
-                else:
-                    self.inifinite_loss_found += 1
-                    logger.info(
-                        "infinite loss! it happened {} times so far - skipping this batch".format(
-                            self.inifinite_loss_found
-                        )
+            if loss < 999999:  # fix for computational problems
+                self.scaler.scale(loss).backward()
+                if self.hparams.clip_grad_norm >= 0:
+                    self.scaler.unscale_(self.optimizer)
+                    torch.nn.utils.clip_grad_norm_(
+                        self.modules.parameters(), self.hparams.clip_grad_norm,
                     )
-                    loss.data = torch.tensor(0).to(self.device)
+
+                self.scaler.step(self.optimizer)
+                self.scaler.update()
+            else:
+                self.inifinite_loss_found += 1
+                logger.info(
+                    "infinite loss! it happened {} times so far - skipping this batch".format(
+                        self.inifinite_loss_found
+                    )
+                )
+                loss.data = torch.tensor(0).to(self.device)
         else:
             predictions = self.compute_forward(inputs)
             loss = self.compute_objectives(predictions, targets)
@@ -315,36 +314,39 @@ if __name__ == "__main__":
             params.wsj0mixpath = args.data_path
 
         # this points to the folder to which we will save the wsj0-mix dataset
-        data_save_dir = params.wsj0mixpath
+        data_save_dir = params["wsj0mixpath"]
 
         # if the dataset is not present, we create the dataset
         if not os.path.exists(data_save_dir):
             from recipes.WSJ2Mix.prepare_data import get_wsj_files
 
-            raise NotImplementedError("We have implemented a function ")
+            raise NotImplementedError(
+                "We have implemented a function for wsj0mix, \
+                  but it is not confirmed to give the same dataset as the original one "
+            )
             # this points to the folder which holds the wsj0 dataset folder
             wsj0path = params.wsj0path
             get_wsj_files(wsj0path, data_save_dir)
 
-        if params.MaskNet.num_spks == 2:
+        if params["MaskNet"].num_spks == 2:
             from recipes.WSJ2Mix.prepare_data import create_wsj_csv
 
-            create_wsj_csv(data_save_dir, params.save_folder)
-        elif params.MaskNet.num_spks == 3:
+            create_wsj_csv(data_save_dir, params["save_folder"])
+        elif params["MaskNet"].num_spks == 3:
             from recipes.WSJ2Mix.prepare_data import create_wsj_csv_3spks
 
-            create_wsj_csv_3spks(data_save_dir, params.save_folder)
+            create_wsj_csv_3spks(data_save_dir, params["save_folder"])
         else:
             raise ValueError("We do not support this many speakers")
 
         tr_csv = os.path.realpath(
-            os.path.join(params.save_folder + "/wsj_tr.csv")
+            os.path.join(params["save_folder"] + "/wsj_tr.csv")
         )
         cv_csv = os.path.realpath(
-            os.path.join(params.save_folder + "/wsj_cv.csv")
+            os.path.join(params["save_folder"] + "/wsj_cv.csv")
         )
         tt_csv = os.path.realpath(
-            os.path.join(params.save_folder + "/wsj_tt.csv")
+            os.path.join(params["save_folder"] + "/wsj_tt.csv")
         )
 
         with open(args.config) as fin:
@@ -353,7 +355,7 @@ if __name__ == "__main__":
             )
         # params = fix_params_for_orion(params)
         # copy the config file for book keeping
-        shutil.copyfile(args.config, params.output_folder + "/config.txt")
+        shutil.copyfile(args.config, params["output_folder"] + "/config.txt")
 
     logger.info(pprint.PrettyPrinter(indent=4).pformat(params))
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -393,7 +395,6 @@ if __name__ == "__main__":
         # )
     else:
 
-        # mlflow.start_run()
         ssb.fit(
             epoch_counter=params["epoch_counter"],
             train_set=train_loader,
@@ -401,15 +402,3 @@ if __name__ == "__main__":
             progressbar=params["progressbar"],
             # early_stopping_with_patience=params["early_stopping_with_patience"],
         )
-
-        # test_stats = ctn.evaluate(test_loader)
-        # logger.info(
-        #    "Test SI-SNR: %.3f" % -summarize_average(test_stats["loss"])
-        # )
-
-        # best_eval = min(ctn.eval_scores)
-        # logger.info("Best result on validation: {}".format(-best_eval))
-
-        # report_results(
-        #    [dict(name="dev_metric", type="objective", value=float(best_eval),)]
-        # )
