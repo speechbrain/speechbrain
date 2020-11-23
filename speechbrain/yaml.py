@@ -209,7 +209,7 @@ def resolve_references(yaml_stream, overrides=None, overrides_must_match=False):
     ruamel_yaml = ruamel.yaml.YAML()
     preview = ruamel_yaml.load(yaml_stream)
 
-    if overrides is not None or overrides != "":
+    if overrides is not None and overrides != "":
         if isinstance(overrides, str):
             overrides = ruamel_yaml.load(overrides)
         recursive_update(preview, overrides, must_match=overrides_must_match)
