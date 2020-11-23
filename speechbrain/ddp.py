@@ -157,6 +157,8 @@ def main():
         if not args.use_env:
             cmd.append("--local_rank={}".format(local_rank))
 
+        # Set the right GPU for each subprocess
+        cmd.append("--device=cuda:" + str(local_rank))
         cmd.extend(args.training_script_args)
 
         process = subprocess.Popen(cmd, env=current_env)
