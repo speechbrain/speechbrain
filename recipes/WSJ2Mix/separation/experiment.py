@@ -136,24 +136,25 @@ class SourceSeparationBrain(sb.core.Brain):
                 predictions = self.compute_forward(inputs)
                 loss = self.compute_objectives(predictions, targets)
 
-            if loss < 999999:  # fix for computational problems
-                self.scaler.scale(loss).backward()
-                if self.hparams.clip_grad_norm >= 0:
-                    self.scaler.unscale_(self.optimizer)
-                    torch.nn.utils.clip_grad_norm_(
-                        self.modules.parameters(), self.hparams.clip_grad_norm
-                    )
+                if loss < 999999:  # fix for computational problems
+                    self.scaler.scale(loss).backward()
+                    if self.hparams.clip_grad_norm >= 0:
+                        self.scaler.unscale_(self.optimizer)
+                        torch.nn.utils.clip_grad_norm_(
+                            self.modules.parameters(),
+                            self.hparams.clip_grad_norm,
+                        )
 
-                self.scaler.step(self.optimizer)
-                self.scaler.update()
-            else:
-                self.inifinite_loss_found += 1
-                logger.info(
-                    "infinite loss! it happened {} times so far - skipping this batch".format(
-                        self.inifinite_loss_found
+                    self.scaler.step(self.optimizer)
+                    self.scaler.update()
+                else:
+                    self.inifinite_loss_found += 1
+                    logger.info(
+                        "infinite loss! it happened {} times so far - skipping this batch".format(
+                            self.inifinite_loss_found
+                        )
                     )
-                )
-                loss.data = torch.tensor(0).to(self.device)
+                    loss.data = torch.tensor(0).to(self.device)
         else:
             predictions = self.compute_forward(inputs)
             loss = self.compute_objectives(predictions, targets)
@@ -185,7 +186,7 @@ class SourceSeparationBrain(sb.core.Brain):
     # def on_epoch_end(self, epoch, train_stats, valid_stats):
     def on_stage_end(self, stage, stage_loss, epoch):
 
-        # I need to figure out what function to use for summary averages
+        print(stage_loss)
         stage_stats = {"loss": stage_loss}
         if stage == sb.Stage.TRAIN:
             self.train_stats = stage_stats
@@ -320,17 +321,10 @@ if __name__ == "__main__":
         if not os.path.exists(data_save_dir):
             from recipes.WSJ2Mix.prepare_data import get_wsj_files
 
+            raise NotImplementedError("We have implemented a function ")
             # this points to the folder which holds the wsj0 dataset folder
             wsj0path = params.wsj0path
             get_wsj_files(wsj0path, data_save_dir)
-
-        # load or create the csv files which enables us to get the speechbrain dataloaders
-        # if not (
-        #    os.path.exists(params.save_folder + "/wsj_tr.csv")
-        #    and os.path.exists(params.save_folder + "/wsj_cv.csv")
-        #    and os.path.exists(params.save_folder + "/wsj_tt.csv")
-        # ):
-        # we always recreate the csv files too keep track of the latest path
 
         if params.MaskNet.num_spks == 2:
             from recipes.WSJ2Mix.prepare_data import create_wsj_csv
@@ -376,12 +370,11 @@ if __name__ == "__main__":
 
     ssb = SourceSeparationBrain(
         modules={
-            "encoder": params["Encoder"],  # .to(device),
-            "masknet": params["MaskNet"],  # .to(device),
-            "decoder": params["Decoder"],  # .to(device),
+            "encoder": params["Encoder"],
+            "masknet": params["MaskNet"],
+            "decoder": params["Decoder"],
         },
         opt_class=params["optimizer"],
-        # first_inputs=[next(iter(train_loader))[0][1]],
         hparams=params,
         checkpointer=params["checkpointer"],
     )
