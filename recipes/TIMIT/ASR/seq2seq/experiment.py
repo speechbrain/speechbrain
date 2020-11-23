@@ -14,7 +14,7 @@ import os
 import sys
 import torch
 import speechbrain as sb
-from torch_edit_distance import compute_wer
+from torch_edit_distance import levenshtein_distance
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
@@ -126,7 +126,7 @@ class ASR(sb.Brain):
 
         blank = torch.tensor([self.hparams.blank_index], dtype=torch.int).cuda()
         space = torch.tensor([], dtype=torch.int).cuda()
-
+        """
         wers = compute_wer(
             topk_hyps.view(self.hparams.batch_size * self.hparams.topk, -1),
             torch.repeat_interleave(
@@ -139,6 +139,20 @@ class ASR(sb.Brain):
             blank,
             space,
         )
+        """
+        wers = levenshtein_distance(
+            topk_hyps.view(self.hparams.batch_size * self.hparams.topk, -1),
+            torch.repeat_interleave(
+                phns.to(torch.int32), repeats=self.hparams.topk, dim=0
+            ),
+            topk_length.view(-1),
+            torch.repeat_interleave(
+                abs_length.to(torch.int32), repeats=self.hparams.topk, dim=0
+            ),
+            blank,
+            space,
+        )
+        wers = torch.sum(wers[:, :3], 1).to(torch.float32)
         wers = wers.view(self.hparams.batch_size, self.hparams.topk)
         avg_wers = torch.mean(wers, -1).unsqueeze(1)
         relative_wers = wers - avg_wers
@@ -154,11 +168,11 @@ class ASR(sb.Brain):
         # convert to speechbrain-style relative length
         rel_length = (abs_length + 1) / phns_with_eos.shape[1]
 
-        loss_ctc = self.hparams.ctc_cost(p_ctc, phns, wav_lens, phn_lens)
-        loss_seq = self.hparams.seq_cost(p_seq, phns_with_eos, rel_length)
-        loss = self.hparams.ctc_weight * loss_ctc
-        loss += (1 - self.hparams.ctc_weight) * loss_seq
-        # loss = mWER_loss * 100  # + loss_seq
+        # loss_ctc = self.hparams.ctc_cost(p_ctc, phns, wav_lens, phn_lens)
+        # loss_seq = self.hparams.seq_cost(p_seq, phns_with_eos, rel_length)
+        # loss = self.hparams.ctc_weight * loss_ctc
+        # loss += (1 - self.hparams.ctc_weight) * loss_seq
+        loss = mWER_loss
 
         # Record losses for posterity
         if stage != sb.Stage.TRAIN:
