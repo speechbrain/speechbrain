@@ -179,8 +179,10 @@ class TransformerASR(TransformerInterface):
         tgt_mask = get_lookahead_mask(tgt)
         tgt = self.custom_tgt_module(tgt)
         tgt = tgt + self.positional_encoding(tgt)
-        prediction, _, _ = self.decoder(tgt, encoder_out, tgt_mask=tgt_mask)
-        return prediction
+        prediction, self_attns, multihead_attns = self.decoder(
+            tgt, encoder_out, tgt_mask=tgt_mask
+        )
+        return prediction, multihead_attns
 
     def _init_params(self):
         for p in self.parameters():
