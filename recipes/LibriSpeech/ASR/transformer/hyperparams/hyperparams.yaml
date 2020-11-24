@@ -41,7 +41,7 @@ loss_reduction: 'batchmean'
 rank: null
 device: 'cuda:0'
 multigpu_count: 0  # Set to number of GPUs for multi-gpu training
-multigpu_backend: ddp_nccl
+multigpu_backend: null
 token_type: unigram # ["unigram", "bpe", "char"]
 
 # Feature parameters
@@ -52,6 +52,7 @@ n_mels: 80
 ####################### Model parameters ###########################
 
 # Contextnet
+# this configuration is adapted from: https://arxiv.org/pdf/2005.03191.pdf
 alpha: 1
 dropout: 0.1
 num_blocks: 9
@@ -212,6 +213,8 @@ test_search: !new:speechbrain.decoders.S2STransformerBeamSearch
     ctc_weight: !ref <ctc_weight_decode>
     lm_weight: !ref <lm_weight>
     lm_modules: !ref <lm_model>
+    temperature: 1.15
+    temperature_lm: 1.15
     using_eos_threshold: False
     length_normalization: True
 
