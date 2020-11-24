@@ -181,11 +181,8 @@ class SourceSeparationBrain(sb.core.Brain):
         loss = self.compute_objectives(predictions, targets)
         return loss.detach()
 
-    # Todo: I need to convert this on_stage_end
-    # def on_epoch_end(self, epoch, train_stats, valid_stats):
     def on_stage_end(self, stage, stage_loss, epoch):
 
-        print(stage_loss)
         stage_stats = {"loss": stage_loss}
         if stage == sb.Stage.TRAIN:
             self.train_stats = stage_stats
@@ -195,7 +192,6 @@ class SourceSeparationBrain(sb.core.Brain):
 
         if stage == sb.Stage.VALID:
 
-            # av_valid_loss = summarize_average(valid_stats["loss"])
             if isinstance(
                 self.hparams.lr_scheduler, schedulers.ReduceLROnPlateau
             ):
@@ -269,7 +265,6 @@ class SourceSeparationBrain(sb.core.Brain):
         return est_source
 
 
-# TODO: complete the main / check the one above from the updated code.
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", help="config file", required=True)
@@ -353,7 +348,7 @@ if __name__ == "__main__":
             params = sb.yaml.load_extended_yaml(
                 fin, {"tr_csv": tr_csv, "cv_csv": cv_csv, "tt_csv": tt_csv}
             )
-        # params = fix_params_for_orion(params)
+
         # copy the config file for book keeping
         shutil.copyfile(args.config, params["output_folder"] + "/config.txt")
 
