@@ -442,21 +442,19 @@ class ReduceLROnPlateau:
         How many epochs to wait before reducing the learning rate
     Example
     -------
-    >>> from speechbrain.nnet.optimizers import SGD_Optimizer
+    >>> from torch.optim import Adam
     >>> from speechbrain.nnet.linear import Linear
     >>> inp_tensor = torch.rand([1,660,3])
-    >>> model = Linear(n_neurons=4)
-    >>> optim = SGD_Optimizer(learning_rate=1.0)
-    >>> output = model(inp_tensor, init_params=True)
-    >>> optim.init_params([model])
+    >>> model = Linear(n_neurons=10, input_size=3)
+    >>> optim = Adam(lr=1.0, params=model.parameters())
+    >>> output = model(inp_tensor)
     >>> scheduler = ReduceLROnPlateau(0.25, 0.5, 2)
-    >>> curr_lr,next_lr=scheduler([optim],current_epoch=0, current_loss=10.0)
     >>> curr_lr,next_lr=scheduler([optim],current_epoch=1, current_loss=10.0)
-    >>> curr_lr,next_lr=scheduler([optim],current_epoch=2, current_loss=10.0)
-    >>> curr_lr,next_lr=scheduler([optim],current_epoch=3, current_loss=10.0)
-    >>> curr_lr,next_lr=scheduler([optim],current_epoch=4, current_loss=10.0)
-    >>> optim.optim.param_groups[0]["lr"]
-    0.25
+    >>> curr_lr,next_lr=scheduler([optim],current_epoch=2, current_loss=11.0)
+    >>> curr_lr,next_lr=scheduler([optim],current_epoch=3, current_loss=13.0)
+    >>> curr_lr,next_lr=scheduler([optim],current_epoch=4, current_loss=14.0)
+    >>> next_lr
+    0.5
     """
 
     def __init__(
@@ -507,7 +505,7 @@ class ReduceLROnPlateau:
                     next_lr = current_lr
                 else:
                     next_lr = current_lr * self.factor
-                    # self.patience_counter = 0
+                    self.patience_counter = 0
 
             # impose the lower bound
             next_lr = max(next_lr, self.lr_min)
