@@ -158,8 +158,11 @@ class SentencePiece:
         row_idx = 0
         for row in reader:
             if self.num_sequences is not None and row_idx > self.num_sequences:
-               print("Using %d sequences to train the tokenizer." % self.num_sequences)
-               break
+                print(
+                    "Using %d sequences to train the tokenizer."
+                    % self.num_sequences
+                )
+                break
             row_idx += 1
             sent = row[index_label]
             if self.char_format_input:

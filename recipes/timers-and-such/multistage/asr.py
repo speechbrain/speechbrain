@@ -7,10 +7,10 @@ Authors
 """
 
 import os
-import sys
 import torch
 import speechbrain as sb
 from speechbrain.tokenizers.SentencePiece import SentencePiece
+
 
 class ASR(sb.Brain):
     def transcribe(self, wavs, wav_lens):
@@ -19,19 +19,24 @@ class ASR(sb.Brain):
             feats = self.hparams.compute_features(wavs)
             feats = self.hparams.normalize(feats, wav_lens)
             encoder_out = self.hparams.enc(feats)
-            predicted_tokens, scores = self.hparams.beam_searcher(encoder_out, wav_lens)
+            predicted_tokens, scores = self.hparams.beam_searcher(
+                encoder_out, wav_lens
+            )
 
             # Check for and fix hypotheses of length 0, which will cause a division-by-zero error in the loss function.
             for t in predicted_tokens:
-                if len(t) == 0: t += [0]
+                if len(t) == 0:
+                    t += [0]
 
-            predicted_tokens_lens = torch.tensor([len(t) for t in predicted_tokens]).float()
+            predicted_tokens_lens = torch.tensor(
+                [len(t) for t in predicted_tokens]
+            ).float()
             predicted_tokens_lens /= predicted_tokens_lens.max()
             predicted_words = self.hparams.tokenizer(
                 predicted_tokens, task="decode_from_list"
             )
-            #print(predicted_words[0])
-            #print("transcript lengths (in tokens): ", [len(t) for t in predicted_tokens])
+            # print(predicted_words[0])
+            # print("transcript lengths (in tokens): ", [len(t) for t in predicted_tokens])
 
             # Pad examples to have same length.
             max_length = max([len(t) for t in predicted_tokens])
@@ -43,7 +48,6 @@ class ASR(sb.Brain):
     def load_tokenizer(self):
         """Loads the sentence piece tokinizer specified in the yaml file"""
         save_model_path = self.hparams.save_folder + "/tok_unigram.model"
-        save_vocab_path = self.hparams.save_folder + "/tok_unigram.vocab"
 
         if hasattr(self.hparams, "tok_mdl_file"):
             self.hparams.tokenizer.sp.load(save_model_path)
@@ -56,6 +60,7 @@ class ASR(sb.Brain):
         state_dict = torch.load(save_model_path)
         self.hparams.lm_model.load_state_dict(state_dict, strict=True)
         self.hparams.lm_model.eval()
+
 
 def get_asr_brain():
     print("Loading ASR model...")

@@ -226,6 +226,7 @@ class LocationAwareAttention(nn.Module):
 
         return context, attn
 
+
 class KeyValueAttention(nn.Module):
     def __init__(self, enc_dim, dec_dim, attn_dim, output_dim):
         super(KeyValueAttention, self).__init__()
@@ -270,9 +271,10 @@ class KeyValueAttention(nn.Module):
         query = self.query_linear(dec_states).unsqueeze(2)
         scores = torch.matmul(self.keys, query) / self.scaling
         scores = scores.masked_fill(self.mask == 0, -np.inf)
-        normalized_scores = scores.softmax(1).transpose(1,2)
+        normalized_scores = scores.softmax(1).transpose(1, 2)
         out = torch.matmul(normalized_scores, self.values).squeeze(1)
         return out, normalized_scores
+
 
 class MultiheadAttention(nn.Module):
     """ The class is a wrapper of MultiHead Attention for torch.nn.MultiHeadAttention.
