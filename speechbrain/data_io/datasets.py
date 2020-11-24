@@ -1,5 +1,8 @@
 from speechbrain.yaml import load_extended_yaml
 from torch.utils.data import Dataset
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class SegmentedDataset(Dataset):
@@ -23,10 +26,23 @@ class SegmentedDataset(Dataset):
      ---------
     Examples : dict
         Dictionary containing single examples (e.g. utterances).
-    data_fields : (list, tuple)
+    data_fields: (list, tuple)
         The class to use for updating the modules' parameters.
     data_transforms : dict
         Dictionary where data transforms for each field is specified.
+    discard_longer: (int, optional)
+        whether to discard examples (e.g. wave files ) longer than specified here.
+        NOTE: when this option is used, examples must have a length attribute.
+        Also be sure that the value here is consistent with the length attribute
+        e.g. both are seconds or both are samples.
+    discard_shorter: (int, optional)
+        whether to discard examples (e.g. wave files ) shorter than specified here.
+        NOTE: when this option is used, examples must have a length attribute.
+        Also be sure that the value here is consistent with the length attribute
+        e.g. both are seconds or both are samples.
+    select_n_examples: (int, optional)
+        select only the first utterances as specified here, useful for debugging and
+        running quick tests.
     """
 
     def __init__(
@@ -35,6 +51,7 @@ class SegmentedDataset(Dataset):
         data_transforms,
         discard_longer=None,
         discard_shorter=None,
+        select_n_examples=None,
     ):
 
         self.data_transforms = data_transforms
@@ -76,6 +93,19 @@ class SegmentedDataset(Dataset):
                 for k, v in examples.items()
                 if examples[k]["length"] <= discard_longer
             }
+
+        if select_n_examples:
+            prev_len = len(list(self.examples.keys()))
+            examples = {
+                k: v
+                for i, (k, v) in enumerate(examples.items())
+                if i < select_n_examples
+            }
+            logger.warning(
+                "Retaining only {} of {} examples because of select_n_examples option.".format(
+                    select_n_examples, prev_len
+                )
+            )
 
         self.examples = examples
         self.ex_ids = list(self.examples.keys())
