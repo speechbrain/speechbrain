@@ -313,6 +313,10 @@ class S2SBeamSearcher(S2SBaseSearcher):
         Default : 0.0
         The weight of LM when performing beam search (λ).
         log P(y|x) + λ log P_LM(y)
+    ctc_weight : float
+        Default : 0.0
+        The weight of CTC probabilities when performing beam search (λ).
+        (1-λ) log P(y|x) + λ log P_CTC(y|x)
     using_max_attn_shift: bool
         Whether using the max_attn_shift constaint. Default: False
     max_attn_shift: int
