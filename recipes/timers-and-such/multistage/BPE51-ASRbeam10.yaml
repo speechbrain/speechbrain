@@ -1,6 +1,6 @@
 # ############################################################################
 # Model: Multistage SLU
-# Encoder: ASR model -> LSTM 
+# Encoder: ASR model -> LSTM
 # Decoder: GRU + beamsearch
 # Tokens: BPE with unigram
 # losses: NLL
@@ -104,8 +104,8 @@ encoder_dim: 256
 enc: !new:experiment.Encoder
     lstm: !new:speechbrain.nnet.RNN.LSTM
         input_shape: [null, null, !ref <emb_size>]
-        bidirectional: true
-        hidden_size: !ref <encoder_dim> 
+        bidirectional: True
+        hidden_size: !ref <encoder_dim>
         num_layers: 2
     linear: !new:speechbrain.nnet.linear.Linear
         input_size: !ref <encoder_dim> * 2
@@ -152,7 +152,8 @@ modules:
     env_corrupt: !ref <env_corrupt>
 
 model: !new:torch.nn.ModuleList
-    - [!ref <enc>, !ref <input_emb>, !ref <output_emb>, !ref <dec>, !ref <seq_lin>]
+    - [!ref <enc>, !ref <input_emb>, !ref <output_emb>,
+       !ref <dec>, !ref <seq_lin>]
 
 beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     embedding: !ref <output_emb>
@@ -203,4 +204,4 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
 
 cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
-        split_tokens: True
+    split_tokens: True
