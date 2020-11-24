@@ -960,11 +960,13 @@ class S2SRNNBeamSearchLM(S2SRNNBeamSearcher):
     ...     "gru", "content", 3, 3, 1, enc_dim=7, input_size=3
     ... )
     >>> lin = sb.nnet.linear.Linear(n_neurons=5, input_size=3)
+    >>> ctc_lin = sb.nnet.linear.Linear(n_neurons=5, input_size=7)
     >>> lm = RNNLM(output_neurons=5, return_hidden=True)
     >>> searcher = S2SRNNBeamSearchLM(
     ...     embedding=emb,
     ...     decoder=dec,
     ...     linear=lin,
+    ...     ctc_linear=ctc_lin,
     ...     language_model=lm,
     ...     bos_index=4,
     ...     eos_index=4,
@@ -983,12 +985,13 @@ class S2SRNNBeamSearchLM(S2SRNNBeamSearcher):
         embedding,
         decoder,
         linear,
+        ctc_linear,
         language_model,
         temperature_lm=1.0,
         **kwargs,
     ):
         super(S2SRNNBeamSearchLM, self).__init__(
-            embedding, decoder, linear, **kwargs
+            embedding, decoder, linear, ctc_linear, **kwargs
         )
 
         self.lm = language_model
