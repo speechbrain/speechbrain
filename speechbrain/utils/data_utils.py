@@ -440,42 +440,6 @@ def batch_pad_right(tensors: list, mode="constant", value=0):
     return batched, torch.tensor(valid)
 
 
-def pad_and_stack(sequences, padding_value=0):
-    """
-        Given a list of torch tensors it batches them together by padding to the right
-        on LAST dimension in order to get same length for all.
-
-        Parameters
-        ----------
-        tensors: list
-            List of tensor we wish to pad together.
-        mode: str
-            Padding mode see torch.nn.functional.pad documentation.
-        value: float
-            Padding value see torch.nn.functional.pad documentation.
-
-        Returns
-        -------
-        tensor: torch.Tensor
-            Padded tensor
-        valid_vals: list
-            List containing proportion for each dimension of original, non-padded values
-
-        """
-    # FIXME moving to batch_pad_right once we support multi-channel audio.
-    # Basic padding. But something like this should be enough usually.
-    num = len(sequences)
-    lens = [s.size(0) for s in sequences]
-    max_len = max(lens)
-    out_dims = (num, max_len)
-    out_tensor = sequences[0].data.new(*out_dims).fill_(padding_value)
-    for i, tensor in enumerate(sequences):
-        length = tensor.size(0)
-        out_tensor[i, :length] = tensor
-    relative_lens = torch.tensor(lens, dtype=torch.float) / max_len
-    return out_tensor, relative_lens
-
-
 def split_by_whitespace(text):
     """A very basic functional version of str.split"""
     return text.split()
