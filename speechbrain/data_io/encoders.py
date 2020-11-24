@@ -64,44 +64,44 @@ class CategoricalEncoder(object):
                 "please use fit right after object instantiation."
             )
 
-    def add_elem(self, key, elem=None):
+    def add_elem(self, label, index=None):
         """
-        update method (adding additional keys not present in the encoder internal state.
-        NOTE: If no element is provided we simply append to end of label dictionary.
+        Update method (adding additional labels not present in the encoder internal state.
+        NOTE: If no element is provided we simply append to end of label dictionary:
+        e.g. there are 40 (from 0 to 39) labels already, for the added label the encoding value (index) will be 40.
 
-        Parameters
+        Arguments
         ----------
-        key: str
-            new key/label that one desires to add to the label_dictionary.
+        label: str
+            new label we want to add.
 
-        elem: int, optional
-            corresponding integer value for the key/label
+        index: int, optional
+            corresponding integer value for the label.
 
         Returns
         -------
         None
-
         """
-        if key in self.lab2indx.keys():
+        if label in self.lab2indx.keys():
             raise KeyError("Label already present in label dictionary")
 
         max_indx = list(self.indx2lab.keys())[-1]
-        if elem is None or elem == (max_indx + 1):
-            self.lab2indx[key] = max_indx + 1
-            self.indx2lab[max_indx + 1] = key
+        if index is None or index == (max_indx + 1):
+            self.lab2indx[label] = max_indx + 1
+            self.indx2lab[max_indx + 1] = index
         else:
-            if not (0 <= elem <= (max_indx + 1)):
+            if not (0 <= index <= (max_indx + 1)):
                 raise IndexError(
                     "Invalid value specified choose between 0 and {}, got {}".format(
-                        len(self.lab2indx), elem
+                        len(self.lab2indx), index
                     )
                 )
 
-            self.lab2indx[key] = elem
-            orig_key = self.indx2lab[elem]
+            self.lab2indx[label] = index
+            orig_key = self.indx2lab[index]
             self.lab2indx[orig_key] = max_indx + 1
             self.indx2lab[max_indx + 1] = orig_key
-            self.indx2lab[elem] = key
+            self.indx2lab[index] = label
 
     def update(self, d: dict):
         for k, v in d.items():
@@ -139,56 +139,79 @@ class CategoricalEncoder(object):
 
     def decode_int(self, x):
         """
+        Decodes a torch.Tensor or list of ints to a list of corresponding labels.
 
-        Parameters
+        Arguments
         ----------
-        x: torch.Tensor
-         tensor containing int values which has to be decoded to original labels strings.
-         Accepts either 1d tensor or 2d tensors where first dimension is batch.
+        x: (torch.Tensor, list, tuple)
+            Torch tensor or list containing int values which has to be decoded to original labels strings.
+            Torch tensors must be 1D with shape (seq_len,) or 2D with shape (batch, seq_len).
+            List and tuples must be one-dimensional or bi-dimensional.
 
         Returns
         -------
         decoded: list
-            list containing original labels (strings).
+            list containing original labels (list of str).
         """
+        if not len(x):
+            return []
 
-        if not isinstance(x, torch.Tensor):
-            raise TypeError(
-                "Input must be a torch.Tensor, got {}".format(type(x))
-            )
+        if isinstance(x, torch.Tensor):
 
-        decoded = []
-        if x.ndim == 1:  # 1d tensor
-            for time_step in range(len(x)):
-                decoded.append(self.indx2lab[x[time_step].item()])
-            return decoded
+            if x.ndim == 1:  # 1d tensor
+                decoded = []
+                for time_step in range(len(x)):
+                    decoded.append(self.indx2lab[x[time_step].item()])
+                return decoded
 
-        elif x.ndim == 2:
-            batch = []  # classes, steps
-            batch_indx = x.size(0)
-            for b in range(batch_indx):
-                c_example = []
-                for time_step in range(len(x[b])):
-                    c_example.append(self.indx2lab[x[b, time_step].item()])
-                batch.append(c_example)
-            return batch
+            elif x.ndim == 2:
+                batch = []  # batch, steps
+                batch_indx = x.size(0)
+                for b in range(batch_indx):
+                    c_example = []
+                    for time_step in range(len(x[b])):
+                        c_example.append(self.indx2lab[x[b, time_step].item()])
+                    batch.append(c_example)
+                return batch
+
+            else:
+                raise NotImplementedError(
+                    "Only 1D and 2D tensors are supported got tensor with ndim={}".format(
+                        x.ndim
+                    )
+                )
+
+        elif isinstance(x, (tuple, list)):
+            if isinstance(x[0], (list, tuple)):  # 2D list
+                batch = []  # classes, steps
+                for b in range(len(x)):
+                    c_example = []
+                    for time_step in range(len(x[b])):
+                        c_example.append(self.indx2lab[x[b][time_step]])
+                    batch.append(c_example)
+                return batch
+            else:  # 1D list
+                decoded = []
+                for time_step in range(len(x)):
+                    decoded.append(self.indx2lab[x[time_step].item()])
+                return decoded
 
         else:
-            raise NotImplementedError(
-                "Only 1D and 2D tensors are supported got tensor with ndim={}".format(
-                    x.ndim
+            raise TypeError(
+                "Input must be a torch.Tensor or list or tuple, got {}".format(
+                    type(x)
                 )
             )
 
     def decode_one_hot(self, x):
         """
 
-        Parameters
+        Arguments
         ----------
         x: torch.Tensor
-         one-hot encoding tensor which has to be decoded to original labels strings.
-         Accepts 1d tensor of shape (n_classes) 2d tensor of shape (n_classes, time_steps)
-         and 3d tensor of shape (batch, n_classes, time_steps)
+            One-hot encoding torch.Tensor which has to be decoded to original labels strings.
+            Accepts 1D tensor of shape (n_classes) 2D tensor of shape (n_classes, time_steps)
+            and 3D tensor of shape (batch, n_classes, time_steps).
 
         Returns
         -------
@@ -312,9 +335,9 @@ class TextEncoder(CategoricalEncoder):
                 return label_dict[k]
             except KeyError:
                 raise KeyError(
-                    "key {} can't be encoded because it is not in the encoder dictionary, "
+                    "Token {} can't be encoded because it is not in the encoding dictionary, "
                     "either something was meesed up during data preparation or, "
-                    "if this happens in test consider using the <unkwown> fallback symbol".format(
+                    "if this happens in test consider using the <unk>, unknown fallback symbol".format(
                         k
                     )
                 )
@@ -345,6 +368,8 @@ class CTCTextEncoder(TextEncoder):
         overrides_must_match=True,
         blank_encoding=0,
         blank_token="<blank>",
+        unk_encoding=1,
+        unk_token=None,
         **kwargs,
     ):
         data = []
@@ -356,4 +381,6 @@ class CTCTextEncoder(TextEncoder):
         enc = cls()
         enc.fit([x["examples"] for x in data], *args, **kwargs)
         enc.add_blank(blank_encoding, blank_token)
+        if unk_token:
+            enc.add_unk(unk_encoding, unk_token)
         return enc
