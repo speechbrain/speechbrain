@@ -25,6 +25,8 @@ class S2SBaseSearcher(torch.nn.Module):
         The index of beginning-of-sequence token.
     eos_index : int
         The index of end-of-sequence token.
+    blank_index: int
+        The index of the blank token.
     min_decode_radio : float
         The ratio of minimum decoding steps to length of encoder states.
     max_decode_radio : float
@@ -42,11 +44,17 @@ class S2SBaseSearcher(torch.nn.Module):
     """
 
     def __init__(
-        self, bos_index, eos_index, min_decode_ratio, max_decode_ratio
+        self,
+        bos_index,
+        eos_index,
+        blank_index,
+        min_decode_ratio,
+        max_decode_ratio,
     ):
         super(S2SBaseSearcher, self).__init__()
         self.bos_index = bos_index
         self.eos_index = eos_index
+        self.blank_index = blank_index
         self.min_decode_ratio = min_decode_ratio
         self.max_decode_ratio = max_decode_ratio
 
@@ -221,6 +229,7 @@ class S2SRNNGreedySearcher(S2SGreedySearcher):
     ...     linear=lin,
     ...     bos_index=4,
     ...     eos_index=4,
+    ...     blank_index=4,
     ...     min_decode_ratio=0,
     ...     max_decode_ratio=1,
     ... )
@@ -267,6 +276,8 @@ class S2SBeamSearcher(S2SBaseSearcher):
         The index of beginning-of-sequence token.
     eos_index : int
         The index of end-of-sequence token.
+    blank_index: int
+        The index of the blank token.
     min_decode_radio : float
         The ratio of minimum decoding steps to length of encoder states.
     max_decode_radio : float
@@ -317,6 +328,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         self,
         bos_index,
         eos_index,
+        blank_index,
         min_decode_ratio,
         max_decode_ratio,
         beam_size,
@@ -335,7 +347,11 @@ class S2SBeamSearcher(S2SBaseSearcher):
         minus_inf=-1e20,
     ):
         super(S2SBeamSearcher, self).__init__(
-            bos_index, eos_index, min_decode_ratio, max_decode_ratio
+            bos_index,
+            eos_index,
+            blank_index,
+            min_decode_ratio,
+            max_decode_ratio,
         )
         self.beam_size = beam_size
         self.topk = topk
@@ -545,7 +561,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             #     enc_lens,
             #     batch_size,
             #     self.beam_size,
-            #     0,
+            #     self.blank_index,
             #     self.eos_index,
             # )
             ctc_scorer = CTCPrefixScoreTH(
@@ -553,7 +569,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 enc_lens,
                 # batch_size,
                 # self.beam_size,
-                0,
+                self.blank_index,
                 self.eos_index,
             )
             ctc_memory = None
@@ -877,6 +893,7 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
     ...     ctc_linear=ctc_lin,
     ...     bos_index=4,
     ...     eos_index=4,
+    ...     blank_index=4,
     ...     min_decode_ratio=0,
     ...     max_decode_ratio=1,
     ...     beam_size=2,
@@ -1158,11 +1175,6 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
         pred = self.model.decode(memory, enc_states)
         prob_dist = self.softmax(self.fc(pred) / self.temperature)
         return prob_dist[:, -1, :], memory, pred[:, -1, :]
-
-    def ctc_forward_step(self, x):
-        logits = self.ctc_fc(x)
-        log_probs = self.softmax(logits)
-        return log_probs
 
     def lm_forward_step(self, inp_tokens, memory):
         memory = _update_mem(inp_tokens, memory)
