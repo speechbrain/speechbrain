@@ -56,6 +56,7 @@ def prepare_TAS(data_folder, type, train_splits):
         "dev-synth",
         "test-synth",
     ]
+    ID_start = 0  # needed to have a unique ID for each audio
     for split in splits:
         new_filename = os.path.join(data_folder, split) + "-type=%s.csv" % type
         if os.path.exists(new_filename):
@@ -83,7 +84,7 @@ def prepare_TAS(data_folder, type, train_splits):
 
         df = pd.read_csv(os.path.join(data_folder, split) + ".csv")
         for i in range(len(df)):
-            ID.append(i)
+            ID.append(ID_start + i)
             signal = read_wav_soundfile(os.path.join(data_folder, df.path[i]))
             duration.append(signal.shape[0] / 16000)
 
@@ -175,6 +176,7 @@ def prepare_TAS(data_folder, type, train_splits):
             }
         )
         new_df.to_csv(new_filename, index=False)
+        ID_start += len(df)
 
     # Merge train splits
     train_splits = [split + "-type=%s.csv" % type for split in train_splits]
