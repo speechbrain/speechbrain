@@ -656,6 +656,13 @@ class S2SBeamSearcher(S2SBaseSearcher):
                     fill_value=self.minus_inf,
                 )
 
+            # adding LM scores to log_prob if lm_weight > 0
+            if self.lm_weight > 0:
+                lm_log_probs, lm_memory = self.lm_forward_step(
+                    inp_tokens, lm_memory
+                )
+                log_probs = log_probs + self.lm_weight * lm_log_probs
+
             # adding CTC scores to log_prob if ctc_weight > 0
             if self.ctc_weight > 0:
                 # g = alived_seq
@@ -674,13 +681,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
                     g, ctc_memory, ctc_candidates
                 )
                 log_probs = log_probs + self.ctc_weight * ctc_log_probs
-
-            # adding LM scores to log_prob if lm_weight > 0
-            if self.lm_weight > 0:
-                lm_log_probs, lm_memory = self.lm_forward_step(
-                    inp_tokens, lm_memory
-                )
-                log_probs = log_probs + self.lm_weight * lm_log_probs
 
             scores = sequence_scores.unsqueeze(1).expand(-1, vocab_size)
             scores = scores + log_probs
