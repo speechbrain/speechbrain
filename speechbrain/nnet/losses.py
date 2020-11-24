@@ -23,8 +23,67 @@ from speechbrain.decoders.ctc import filter_ctc_output
 
 logger = logging.getLogger(__name__)
 
-def min_wer_loss():
-    # WIP
+
+def minWER_loss(
+    hypotheses,
+    targets,
+    hyps_lengths,
+    target_lens,
+    hypotheses_scores,
+    blank_index,
+    separator_index=None,
+    mode="Num_Word_Errors",
+):
+    """
+    Compute minWER loss using torch_edit_distance.
+    This implementation is based on the paper: https://arxiv.org/pdf/1712.01818.pdf (see section 3)
+    We use levenshtein distance function from torch_edit_distance lib
+    which allow us to compute W(y,y_hat) -> the number of word errors in a hypothesis.
+    instead of the WER metric.
+
+    Arguments
+    ---------
+    hypotheses : torch.Tensor
+        Tensor (B, N, H) where H is the maximum
+        length of tokens from N hypotheses each batch (B utt).
+    targets : torch.Tensor
+        Tensor (B, R) where R is the maximum
+        length of tokens for each reference in batch (B utt).
+    hyps_lengths : torch.Tensor
+        Tensor (B, N) representing the
+        number of tokens for each hypothesis in batch (B utt).
+    target_lens : torch.Tensor
+        Tensor (B,) representing the
+        number of tokens for each reference in batch (B utt).
+    hypotheses_scores : torch.Tensor
+        Tensor (B, N) where N is the maximum
+        length of hypotheses from batch.
+    blank_index : int
+        blank index.
+    separator_index : default None,
+        otherwise specify the space index.
+    mode : str, default "Num_word_Errors"
+        for using the number of word errors in a hypothesis.
+        Otherwise "WER" for using WER metric.
+
+    Returns
+    -------
+    torch.tensor
+        minWER loss
+    """
+    from speechbrain.nnet.loss.minWER_loss import minWER_loss
+
+    return minWER_loss(
+        hypotheses,
+        targets,
+        hyps_lengths,
+        target_lens,
+        hypotheses_scores,
+        blank_index,
+        separator_index,
+        mode,
+    )
+
 
 def transducer_loss(
     log_probs, targets, input_lens, target_lens, blank_index, reduction="mean"

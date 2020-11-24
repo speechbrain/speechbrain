@@ -37,8 +37,9 @@ def minWER_loss(
     hyps_length,
     target_lens,
     hypotheses_scores,
-    blank,
-    space=None,
+    blank_index,
+    separator_index=None,
+    mode="Num_Word_Errors",
 ):
     """
     Compute minWER loss using torch_edit_distance.
@@ -49,29 +50,68 @@ def minWER_loss(
 
     Arguments
     ---------
-    hypotheses (torch.Tensor): Tensor (N, H) where H is the maximum
-        length of tokens from N hypotheses.
-    targets (torch.Tensor): Tensor (N, R) where R is the maximum
-        length of tokens from N references.
-    hyps_lengths (torch.IntTensor): Tensor (N,) representing the
-        number of tokens for each hypothesis.
-    target_lens (torch.IntTensor): Tensor (N,) representing the
-        number of tokens for each reference.
-    hypotheses_scores (torch.Tensor): Tensor (B, N) where N is the maximum
+    hypotheses : torch.Tensor
+        Tensor (B, N, H) where H is the maximum
+        length of tokens from N hypotheses each batch (B utt).
+    targets : torch.Tensor
+        Tensor (B, R) where R is the maximum
+        length of tokens for each reference in batch (B utt).
+    hyps_lengths : torch.Tensor
+        Tensor (B, N) representing the
+        number of tokens for each hypothesis in batch (B utt).
+    target_lens : torch.Tensor
+        Tensor (B,) representing the
+        number of tokens for each reference in batch (B utt).
+    hypotheses_scores : torch.Tensor
+        Tensor (B, N) where N is the maximum
         length of hypotheses from batch.
-    blank (int): blank indice.
-    separator: default None, otherwise space indice (int).
-    """
-    blank = torch.tensor([blank], dtype=torch.int).to(hypotheses.device)
-    space_token = [] if space is None else [space]
-    space = torch.tensor(space_token, dtype=torch.int).to(hypotheses.device)
+    blank : int
+        blank index.
+    separator_index : default None,
+        otherwise specify the space index.
+    mode : str, default "Num_word_Errors"
+        for using the number of word errors in a hypothesis.
+        Otherwise "WER" for using WER metric.
 
-    wers = core.levenshtein_distance(
-        hypotheses, targets, hyps_length, target_lens, blank, space,
+    Returns
+    -------
+    torch.tensor
+        minWER loss
+    """
+    batch_size = hypotheses_scores.size(0)
+    topk = hypotheses_scores.size(1)
+    blank_index = torch.tensor([blank_index], dtype=torch.int).to(
+        hypotheses.device
     )
-    wers = wers.view(hypotheses_scores.size(0), hypotheses_scores.size(1))
+    space_token = [] if separator_index is None else [separator_index]
+    separator_index = torch.tensor(space_token, dtype=torch.int).to(
+        hypotheses.device
+    )
+
+    # levenshtein_distance tensor will have 4D dimensions
+    # [ ins, del, sub, utt_len ] so we use the first 3 values
+    levenshtein_distance = core.levenshtein_distance(
+        hypotheses.view(batch_size * topk, -1),
+        torch.repeat_interleave(targets.to(torch.int32), repeats=topk, dim=0),
+        hyps_length.view(-1),
+        torch.repeat_interleave(
+            target_lens.to(torch.int32), repeats=topk, dim=0
+        ),
+        blank_index,
+        separator_index,
+    )
+    # compute the number of word errors for each hypothesis.
+    wers = torch.sum(levenshtein_distance[:, :3], 1, dtype=torch.float32)
+    # if WER, then normalize by utt length
+    if mode == "WER":
+        wers /= wers[:, 3] / levenshtein_distance[:, 3]
+
+    # TODO add reduction option
+    wers = wers.view(batch_size, topk)
     avg_wers = torch.mean(wers, -1).unsqueeze(1)
     relative_wers = wers - avg_wers
+    # compute softmax for the Nbest scores
+    hypotheses_scores = hypotheses_scores.log_softmax(dim=-1)
     mWER_loss = torch.sum(hypotheses_scores * relative_wers, -1)
 
     return mWER_loss.mean()
