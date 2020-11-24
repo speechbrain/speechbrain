@@ -20,7 +20,7 @@ for i in range(len(csv)):
     y[line["ID"]] = {
         "wav": line["wav"],
         "spk_id": line["spk_id"],
-        "phn": line["phn"].splineit(" "),
+        "phn": line["phn"].split(" "),
         "length": int(line["duration"] * 16000),
     }
 
