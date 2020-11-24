@@ -798,6 +798,11 @@ class S2SBeamSearcher(S2SBaseSearcher):
         else:
             return predictions, top_scores
 
+    def ctc_forward_step(self, x):
+        logits = self.ctc_fc(x)
+        log_probs = self.softmax(logits)
+        return log_probs
+
     def permute_mem(self, memory, index):
         """
         This method permutes the seq2seq model memory
@@ -864,10 +869,12 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
     ...     "gru", "content", 3, 3, 1, enc_dim=7, input_size=3
     ... )
     >>> lin = sb.nnet.linear.Linear(n_neurons=5, input_size=3)
+    >>> ctc_lin = sb.nnet.linear.Linear(n_neurons=5, input_size=7)
     >>> searcher = S2SRNNBeamSearcher(
     ...     embedding=emb,
     ...     decoder=dec,
     ...     linear=lin,
+    ...     ctc_linear=ctc_lin,
     ...     bos_index=4,
     ...     eos_index=4,
     ...     min_decode_ratio=0,
@@ -879,11 +886,14 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
     >>> hyps, scores = searcher(enc, wav_len)
     """
 
-    def __init__(self, embedding, decoder, linear, temperature=1.0, **kwargs):
+    def __init__(
+        self, embedding, decoder, linear, ctc_linear, temperature=1.0, **kwargs
+    ):
         super(S2SRNNBeamSearcher, self).__init__(**kwargs)
         self.emb = embedding
         self.dec = decoder
         self.fc = linear
+        self.ctc_fc = ctc_linear
         self.softmax = torch.nn.LogSoftmax(dim=-1)
         self.temperature = temperature
 
