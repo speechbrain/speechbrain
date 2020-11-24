@@ -23,6 +23,38 @@ logger = logging.getLogger(__name__)
 
 
 def read_wav(waveforms_obj):
+    """
+    This function reads a waveform object from .yaml annotation.
+    The object is specified in the .yaml as wav.
+    It can simply denote a path to an torchaudio.read compatible file e.g.
+    wav : /path/to/wav.wav.
+    But also multiple files can be specified, as long as they have the same length:
+    wav:
+        files:
+            - /path/to/wav1.wav
+            - /path/to/wav2.wav
+
+
+    Offset number samples and stop number samples also can be specified to read only a segment within the files.
+    wav:
+        files:
+            - /path/to/wav1.wav
+            - /path/to/wav2.wav
+        start: 8000
+        stop: 16000
+
+    NOTE: multichannel audio is not currently supported #FIXME need to modify feats extraction.
+
+    Arguments
+    ----------
+    waveforms_obj (dict):
+        .yaml annotation wav object: e.g. {"wav": "/path/to/wav.wav"}
+
+    Returns
+    -------
+    out: torch.Tensor
+        audio tensor with shape: (samples, )
+    """
     if isinstance(waveforms_obj, str):
         tmp, _ = torchaudio.load(waveforms_obj)
         return tmp[0]
@@ -53,12 +85,37 @@ def read_wav(waveforms_obj):
 
 
 def load_pickle(pickle_path):
+    """
+    Utility function for loading .pkl pickle files.
+
+    Parameters
+    ----------
+    pickle_path (str):
+        path to pickle file
+
+    Returns
+    -------
+    out (object):
+        python object loaded form pickle
+    """
     with open(pickle_path, "r") as f:
         out = pickle.load(f)
     return out
 
 
 def to_floatTensor(x: (list, tuple, np.ndarray)):
+    """
+
+    Parameters
+    ----------
+    x (list, tuple, np.ndarray):
+        input data to be converted to torch float.
+
+    Returns
+    -------
+    tensor (torch.tensor):
+        data now in torch.tensor float datatype.
+    """
     if isinstance(x, torch.Tensor):
         return x.float()
     if isinstance(x, np.ndarray):
@@ -68,6 +125,18 @@ def to_floatTensor(x: (list, tuple, np.ndarray)):
 
 
 def to_doubleTensor(x: (list, tuple, np.ndarray)):
+    """
+
+        Parameters
+        ----------
+        x (list, tuple, np.ndarray):
+            input data to be converted to torch double.
+
+        Returns
+        -------
+        tensor (torch.tensor):
+            data now in torch.tensor double datatype.
+        """
     if isinstance(x, torch.Tensor):
         return x.double()
     if isinstance(x, np.ndarray):
@@ -77,6 +146,18 @@ def to_doubleTensor(x: (list, tuple, np.ndarray)):
 
 
 def to_longTensor(x: (list, tuple, np.ndarray)):
+    """
+
+        Parameters
+        ----------
+        x (list, tuple, np.ndarray):
+            input data to be converted to torch long.
+
+        Returns
+        -------
+        tensor (torch.tensor):
+            data now in torch.tensor long datatype.
+        """
     if isinstance(x, torch.Tensor):
         return x.long()
     if isinstance(x, np.ndarray):
