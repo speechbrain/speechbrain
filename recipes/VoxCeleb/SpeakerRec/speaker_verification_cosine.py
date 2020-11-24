@@ -26,7 +26,7 @@ def compute_embedding(wavs, lens):
         wavs, lens = wavs.to(params["device"]), lens.to(params["device"])
         feats = params["compute_features"](wavs)
         feats = params["mean_var_norm"](feats, lens)
-        emb = params["embedding_model"](feats)
+        emb = params["embedding_model"](feats, lens)
         emb = params["mean_var_norm_emb"](
             emb, torch.ones(emb.shape[0]).to(params["device"])
         )
@@ -69,7 +69,7 @@ def get_verification_scores(veri_test):
     similarity = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
 
     # creating cohort for score normalization
-    if params["score_norm"] is not None:
+    if "score_norm" in params:
         train_cohort = torch.stack(list(train_dict.values()))
 
     for i, line in enumerate(veri_test):
@@ -81,7 +81,7 @@ def get_verification_scores(veri_test):
         enrol = enrol_dict[enrol_id]
         test = test_dict[test_id]
 
-        if params["score_norm"] is not None:
+        if "score_norm" in params:
             # Getting norm stats for enrol impostors
             enrol_rep = enrol.repeat(train_cohort.shape[0], 1, 1)
             score_e_c = similarity(enrol_rep, train_cohort)
@@ -98,13 +98,15 @@ def get_verification_scores(veri_test):
         score = similarity(enrol, test)[0]
 
         # Perform score normalization
-        if params["score_norm"] == "z-norm":
-            score = (score - mean_e_c) / std_e_c
-        elif params["score_norm"] == "t-norm":
-            score = (score - mean_t_c) / std_t_c
-        elif params["score_norm"] == "s-norm":
-            score = (score - mean_e_c) / std_e_c + (score - mean_t_c) / std_t_c
-            score = 0.5 * score
+        if "score_norm" in params:
+            if params["score_norm"] == "z-norm":
+                score = (score - mean_e_c) / std_e_c
+            elif params["score_norm"] == "t-norm":
+                score = (score - mean_t_c) / std_t_c
+            elif params["score_norm"] == "s-norm":
+                score = (score - mean_e_c) / std_e_c
+                score += (score - mean_t_c) / std_t_c
+                score = 0.5 * score
 
         # write score file
         s_file.write("%s %s %i %f\n" % (enrol_id, test_id, lab_pair, score))
@@ -156,7 +158,7 @@ if __name__ == "__main__":
     prepare_voxceleb(
         data_folder=params["data_folder"],
         save_folder=params["save_folder"],
-        splits=["train", "dev", "test"],
+        splits=["train", "dev", "test"] if "score_norm" in params else ["test"],
         split_ratio=[90, 10],
         seg_dur=300,
         rand_seed=params["seed"],
@@ -169,7 +171,8 @@ if __name__ == "__main__":
     wav_stored = {}
 
     # Data loaders
-    train_set_loader = params["train_loader"]().get_dataloader()
+    if "train_loader" in params:
+        train_set_loader = params["train_loader"]().get_dataloader()
     enrol_set_loader = params["enrol_loader"]().get_dataloader()
     test_set_loader = params["test_loader"]().get_dataloader()
 
@@ -194,7 +197,7 @@ if __name__ == "__main__":
     enrol_dict = compute_embedding_loop(enrol_set_loader)
     test_dict = compute_embedding_loop(test_set_loader)
 
-    if params["score_norm"] is not None:
+    if "score_norm" in params:
         train_dict = compute_embedding_loop(train_set_loader)
 
     # Compute the EER
