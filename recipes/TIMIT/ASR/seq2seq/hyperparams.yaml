@@ -162,6 +162,7 @@ beam_searcher: !new:speechbrain.decoders.seq2seq.S2SRNNBeamSearcher
     embedding: !ref <emb>
     decoder: !ref <dec>
     linear: !ref <seq_lin>
+    ctc_linear: !ref <ctc_lin>
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
     min_decode_ratio: !ref <min_decode_ratio>
