@@ -1080,7 +1080,7 @@ def mask_by_condition(tensor, cond, fill_value):
 
 def _update_mem(inp_tokens, memory):
     """This function is for updating the memory for transformer searches.
-    it is code at each decode step. When being called, it appends the predicted token of the previous step to existing memory.
+    it is called at each decode step. When being called, it appends the predicted token of the previous step to existing memory.
 
     Arguements:
     -----------
@@ -1092,34 +1092,6 @@ def _update_mem(inp_tokens, memory):
     if memory is None:
         return inp_tokens.unsqueeze(1)
     return torch.cat([memory, inp_tokens.unsqueeze(1)], dim=-1)
-
-
-def _model_decode(
-    model, softmax, fc, inp_tokens, memory, enc_states, temperature
-):
-    """This function implements 1 decode step for the transformer searches
-
-    Arguements:
-    -----------
-    model: torch class
-        Transformer model
-    softmax: torch class
-        softmax fuction
-    fc: torch class
-        output linear layer
-    inp_token: tensor
-        predicted token from t-1 step
-    memory: tensor
-        contains all predicted tokens
-    enc_states: tensor
-        encoder states
-    temperature: float
-        the temperature to sample from the acoustic model
-    """
-    memory = _update_mem(inp_tokens, memory)
-    pred = model.decode(memory, enc_states)
-    prob_dist = softmax(fc(pred) / temperature)
-    return prob_dist, memory, pred[:, -1, :]
 
 
 class S2STransformerBeamSearch(S2SBeamSearcher):
@@ -1169,15 +1141,10 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
         return memory
 
     def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
-        prob_dist, memory, attn = _model_decode(
-            self.model,
-            self.fc,
-            inp_tokens,
-            memory,
-            enc_states,
-            self.temperature,
-        )
-        return prob_dist[:, -1, :], memory, attn
+        memory = _update_mem(inp_tokens, memory)
+        pred = self.model.decode(memory, enc_states)
+        prob_dist = self.softmax(self.fc(pred) / self.temperature)
+        return prob_dist[:, -1, :], memory, pred[:, -1, :]
 
     def ctc_forward_step(self, x):
         logits = self.ctc_fc(x)
