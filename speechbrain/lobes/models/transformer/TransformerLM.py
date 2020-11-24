@@ -105,10 +105,7 @@ class TransformerLM(TransformerInterface):
         ----------
         src: tensor
             the sequence to the encoder (required).
-        tgt: tensor
-            the sequence to the decoder (required).
         """
-        src_mask, src_key_padding_mask = None, None
         src_mask, src_key_padding_mask = self.make_masks(src)
 
         src = self.custom_src_module(src)
@@ -124,8 +121,8 @@ class TransformerLM(TransformerInterface):
 
         if self.num_decoder_layers > 0:
             encoder_out, _ = self.decoder(
-                src,
-                src,
+                src=src,
+                tgt=src,
                 tgt_mask=src_mask,
                 tgt_key_padding_mask=src_key_padding_mask,
             )

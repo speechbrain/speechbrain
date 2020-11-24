@@ -98,6 +98,7 @@ class ASR(sb.core.Brain):
             hyps = None
             current_epoch = self.hparams.epoch_counter.current
             if current_epoch % self.hparams.valid_search_interval == 0:
+                # for the sake of efficeincy, we only perform beamsearch with limited capacity and no LM to give user some idea of how the AM is doing
                 hyps, _ = self.hparams.valid_search(enc_out.detach(), wav_lens)
         elif stage == sb.Stage.TEST:
             hyps, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
@@ -124,7 +125,7 @@ class ASR(sb.core.Brain):
         target_tokens_with_eos = sb.data_io.data_io.append_eos_token(
             target_tokens, length=abs_length, eos_index=self.hparams.eos_index
         )
-        # convert to speechbrain-style relative length
+        # convert to relative length
         rel_length = (abs_length + 1) / target_tokens_with_eos.shape[1]
 
         loss_seq = self.hparams.seq_cost(
@@ -180,8 +181,8 @@ class ASR(sb.core.Brain):
             self.optimizer.zero_grad()
 
             # anneal lr every update
-            old_lr, new_lr = self.hparams.noam_annealing(self.optimizer)
-            old_lr, new_lr = self.hparams.cosine_annealing(self.optimizer)
+            self.hparams.noam_annealing(self.optimizer)
+            self.hparams.cosine_annealing(self.optimizer)
 
         return loss.detach()
 
