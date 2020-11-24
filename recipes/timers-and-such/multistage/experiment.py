@@ -25,6 +25,7 @@ from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.data_utils import undo_padding
 from asr import get_asr_brain
 
+
 class Encoder(torch.nn.Module):
     def __init__(self, lstm, linear):
         super(Encoder, self).__init__()
@@ -36,6 +37,7 @@ class Encoder(torch.nn.Module):
         out = self.lstm(out)[0]
         out = self.linear(out)
         return out
+
 
 # Define training procedure
 class SLU(sb.Brain):
@@ -51,7 +53,9 @@ class SLU(sb.Brain):
                 wavs_noise = self.hparams.env_corrupt(wavs, wav_lens)
                 wavs = torch.cat([wavs, wavs_noise], dim=0)
                 wav_lens = torch.cat([wav_lens, wav_lens])
-                target_semantics = torch.cat([target_semantics, target_semantics], dim=0)
+                target_semantics = torch.cat(
+                    [target_semantics, target_semantics], dim=0
+                )
                 target_semantics_lens = torch.cat(
                     [target_semantics_lens, target_semantics_lens]
                 )
@@ -60,7 +64,10 @@ class SLU(sb.Brain):
 
         # Prepare labels
         target_tokens, _ = self.hparams.tokenizer(
-            target_semantics, target_semantics_lens, self.hparams.ind2lab, task="encode"
+            target_semantics,
+            target_semantics_lens,
+            self.hparams.ind2lab,
+            task="encode",
         )
         target_tokens = target_tokens.to(self.device)
         y_in = sb.data_io.data_io.prepend_bos_token(
@@ -68,8 +75,15 @@ class SLU(sb.Brain):
         )
 
         # Forward pass
-        predicted_transcripts, predicted_transcript_lens, _ = self.asr_brain.transcribe(wavs, wav_lens)
-        predicted_transcripts, predicted_transcript_lens = predicted_transcripts.to(self.device), predicted_transcript_lens.to(self.device)
+        (
+            predicted_transcripts,
+            predicted_transcript_lens,
+            _,
+        ) = self.asr_brain.transcribe(wavs, wav_lens)
+        predicted_transcripts, predicted_transcript_lens = (
+            predicted_transcripts.to(self.device),
+            predicted_transcript_lens.to(self.device),
+        )
         embedded_transcripts = self.hparams.input_emb(predicted_transcripts)
         encoder_out = self.hparams.enc(embedded_transcripts)
         e_in = self.hparams.output_emb(y_in)
@@ -83,7 +97,9 @@ class SLU(sb.Brain):
         if stage == sb.Stage.TRAIN and self.batch_count % 20 != 0:
             return p_seq, predicted_transcript_lens
         else:
-            p_tokens, scores = self.hparams.beam_searcher(encoder_out, predicted_transcript_lens)
+            p_tokens, scores = self.hparams.beam_searcher(
+                encoder_out, predicted_transcript_lens
+            )
             return p_seq, predicted_transcript_lens, p_tokens
 
     def compute_objectives(self, predictions, targets, stage):
@@ -96,7 +112,10 @@ class SLU(sb.Brain):
 
         ids, target_semantics, target_semantics_lens = targets
         target_tokens, target_token_lens = self.hparams.tokenizer(
-            target_semantics, target_semantics_lens, self.hparams.ind2lab, task="encode"
+            target_semantics,
+            target_semantics_lens,
+            self.hparams.ind2lab,
+            task="encode",
         )
         target_tokens = target_tokens.to(self.device)
         target_token_lens = target_token_lens.to(self.device)
@@ -130,7 +149,9 @@ class SLU(sb.Brain):
             )
 
             # Convert indices to words
-            target_semantics = undo_padding(target_semantics, target_semantics_lens)
+            target_semantics = undo_padding(
+                target_semantics, target_semantics_lens
+            )
             target_semantics = sb.data_io.data_io.convert_index_to_lab(
                 target_semantics, self.hparams.ind2lab
             )
@@ -141,8 +162,12 @@ class SLU(sb.Brain):
 
             if stage != sb.Stage.TRAIN:
                 # TODO use different metric
-                self.wer_metric.append(ids, predicted_semantics, target_semantics)
-                self.cer_metric.append(ids, predicted_semantics, target_semantics)
+                self.wer_metric.append(
+                    ids, predicted_semantics, target_semantics
+                )
+                self.cer_metric.append(
+                    ids, predicted_semantics, target_semantics
+                )
 
         return loss
 
@@ -213,10 +238,12 @@ class SLU(sb.Brain):
         for p in self.asr_brain.hparams.model.parameters():
             p.requires_grad = False
 
-        self.asr_brain.hparams.beam_searcher.beam_size = self.hparams.ASR_beam_size
+        self.asr_brain.hparams.beam_searcher.beam_size = (
+            self.hparams.ASR_beam_size
+        )
 
         # This seems to be necessary to avoid OOM in the ASR part.
-        self.asr_brain.hparams.beam_searcher.max_decode_ratio = 0.5 #1.0
+        self.asr_brain.hparams.beam_searcher.max_decode_ratio = 0.5  # 1.0
 
     def load_tokenizer(self):
         """Loads the sentence piece tokinizer specified in the yaml file"""
@@ -309,9 +336,7 @@ if __name__ == "__main__":
     slu_brain.fit(slu_brain.hparams.epoch_counter, train_set, valid_set)
 
     # Test
-    slu_brain.hparams.wer_file = (
-        hparams["output_folder"] + "/wer_test_real.txt"
-    )
+    slu_brain.hparams.wer_file = hparams["output_folder"] + "/wer_test_real.txt"
     slu_brain.evaluate(test_real_set)
     slu_brain.hparams.wer_file = (
         hparams["output_folder"] + "/wer_test_synth.txt"
