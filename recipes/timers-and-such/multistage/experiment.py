@@ -272,9 +272,10 @@ class SLU(sb.Brain):
 
 
 if __name__ == "__main__":
-    # This hack needed to import data preparation script from ../..
+    # This hack needed to import data preparation script from ../
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    sys.path.append(os.path.dirname(os.path.dirname(current_dir)))
+    sys.path.append(os.path.dirname(current_dir))
+    from prepare import prepare_TAS
 
     # Load hyperparameters file with command-line overrides
     hparams_file, overrides = sb.parse_arguments(sys.argv[1:])
@@ -289,16 +290,11 @@ if __name__ == "__main__":
     )
 
     # Prepare data
-    """
     prepare_TAS(
         data_folder=hparams["data_folder"],
-        splits=hparams["train_splits"]
-        + [hparams["dev_split"], "test-clean", "test-other"],
-        merge_lst=hparams["train_splits"],
-        merge_name=hparams["csv_train"],
-        save_folder=hparams["data_folder"],
+        type="multistage",
+        train_splits=hparams["train_splits"],
     )
-    """
 
     # Creating tokenizer must be done after preparation
     # Specify the bos_id/eos_id if different from blank_id
