@@ -38,7 +38,7 @@ Authors:
 import torch
 from torch.utils.data import DataLoader
 from torch.utils.data.dataloader import _BaseDataLoaderIter
-from speechbrain.utils.data_utils import pad_and_stack
+from speechbrain.utils.data_utils import batch_pad_right
 import logging
 import functools
 from speechbrain.utils.checkpoints import (
@@ -192,8 +192,6 @@ def collate_pad(example_list, mode="constant", value=0.0):
             out[k].append(ex[k])
 
         if isinstance(out[k][0], (torch.Tensor)):
-            out[k] = pad_and_stack(
-                out[k], padding_value=0
-            )  # mode=mode, value=value)
+            out[k] = batch_pad_right(out[k], mode=mode, value=value)
 
     return out
