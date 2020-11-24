@@ -1,6 +1,6 @@
 # ############################################################################
-# Model: Multistage SLU
-# Encoder: ASR model -> LSTM 
+# Model: Direct SLU
+# Encoder: Pre-trained ASR encoder -> LSTM
 # Decoder: GRU + beamsearch
 # Tokens: BPE with unigram
 # losses: NLL
@@ -15,27 +15,23 @@ output_folder: !ref results/BPE51/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-# Tokenizer model
-#tok_mdl_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
-#tok_voc_file: https://www.dropbox.com/s/7l8z622cpd3t8st/1000_unigram.vocab?dl=1
-
 # Data files
 data_folder: /localscratch/timers-and-such
 # If RIRS_NOISES dir exists in /localscratch/xxx_corpus/RIRS_NOISES
 # then data_folder_rirs should be /localscratch/xxx_corpus
 # otherwise the dataset will automatically be downloaded
 data_folder_rirs: !ref <data_folder>
-train_splits: ["train-synth"] #["train-synth", "train-real"]
+train_splits: ["train-synth", "train-real"]
 dev_split: dev-real
-csv_train: !ref <data_folder>/train-synth-type1.csv
-csv_valid: !ref <data_folder>/<dev_split>-type1.csv
-csv_test_real: !ref <data_folder>/test-real-type1.csv
-csv_test_synth: !ref <data_folder>/test-synth-type1.csv
+csv_train: !ref <data_folder>/train-type=direct.csv
+csv_valid: !ref <data_folder>/<dev_split>-type=direct.csv
+csv_test_real: !ref <data_folder>/test-real-type=direct.csv
+csv_test_synth: !ref <data_folder>/test-synth-type=direct.csv
 
 # Training parameters
 number_of_epochs: 1
-batch_size: 16 #32
-lr: 0.0003 #1.0
+batch_size: 16
+lr: 0.0003
 device: 'cuda'
 ddp_procs: 0  # Set to number of GPUs for multi-gpu training
 token_type: unigram # ["unigram", "bpe", "char"]
@@ -47,7 +43,7 @@ sample_rate: 16000
 emb_size: 128
 dec_neurons: 512
 num_asr_tokens: 1000
-output_neurons: 51 #index(blank/eos/bos) = 0
+output_neurons: 51 # index(blank/eos/bos) = 0
 blank_index: 0
 
 # Decoding parameters
@@ -55,11 +51,9 @@ bos_index: 0
 eos_index: 0
 min_decode_ratio: 0.0
 max_decode_ratio: 10.0
-#ASR_beam_size: 1
 SLU_beam_size: 80
 eos_threshold: 1.5
 temperature: 1.25
-temperature_lm: 1.25
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
@@ -98,7 +92,8 @@ test_synth_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
 normalize: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
 
-# this is hardcoded---it would be better to grab this from the ASR brain somehow, but I'm not sure how best to do that.
+# this is hardcoded---it would be better to grab this
+# from the ASR brain somehow, but I'm not sure how best to do that.
 ASR_encoder_dim: 512
 
 encoder_dim: 256
@@ -106,8 +101,8 @@ encoder_dim: 256
 enc: !new:experiment.Encoder
     lstm: !new:speechbrain.nnet.RNN.LSTM
         input_shape: [null, null, !ref <ASR_encoder_dim>]
-        bidirectional: true
-        hidden_size: !ref <encoder_dim> 
+        bidirectional: True
+        hidden_size: !ref <encoder_dim>
         num_layers: 2
     linear: !new:speechbrain.nnet.linear.Linear
         input_size: !ref <encoder_dim> * 2
@@ -154,7 +149,8 @@ modules:
     env_corrupt: !ref <env_corrupt>
 
 model: !new:torch.nn.ModuleList
-    - [!ref <enc>, !ref <input_emb>, !ref <output_emb>, !ref <dec>, !ref <seq_lin>]
+    - [!ref <enc>, !ref <input_emb>, !ref <output_emb>,
+       !ref <dec>, !ref <seq_lin>]
 
 beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     embedding: !ref <output_emb>
@@ -168,10 +164,6 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     eos_threshold: !ref <eos_threshold>
     temperature: !ref <temperature>
 
-#opt_class: !name:torch.optim.Adadelta
-#    lr: !ref <lr>
-#    rho: 0.95
-#    eps: 1.e-8
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
 
@@ -205,4 +197,4 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
 
 cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
-        split_tokens: True
+    split_tokens: True
