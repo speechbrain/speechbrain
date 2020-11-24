@@ -19,6 +19,7 @@ data_folder: /media/sam/HitachiX360/TIMIT/  # e.g. /path/to/TIMIT
 number_of_epochs: 50
 batch_size: 8
 lr: 1.0
+num_workers: 8
 
 # For DDP, use `python -m speechbrain.ddp experiment.py` to launch experiment
 # These options will be set by that script, and will override these.
@@ -88,16 +89,19 @@ train_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
     dataset: !ref <train_data>
     batch_size: !ref <batch_size>
     collate_fn: !name:speechbrain.data_io.dataloader.collate_pad
+    num_workers: !ref <num_workers>
 
 valid_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
     dataset: !ref <valid_data>
     batch_size: !ref <batch_size>
     collate_fn: !name:speechbrain.data_io.dataloader.collate_pad
+    num_workers: !ref <num_workers>
 
 test_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
     dataset: !ref <test_data>
     batch_size: !ref <batch_size>
     collate_fn: !name:speechbrain.data_io.dataloader.collate_pad
+    num_workers: !ref <num_workers>
 
 normalize: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
