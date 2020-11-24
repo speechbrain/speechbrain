@@ -95,7 +95,7 @@ class SegmentedDataset(Dataset):
             }
 
         if select_n_examples:
-            prev_len = len(list(self.examples.keys()))
+            prev_len = len(list(examples.keys()))
             examples = {
                 k: v
                 for i, (k, v) in enumerate(examples.items())
