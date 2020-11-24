@@ -1094,7 +1094,9 @@ def _update_mem(inp_tokens, memory):
     return torch.cat([memory, inp_tokens.unsqueeze(1)], dim=-1)
 
 
-def _model_decode(model, softmax, fc, inp_tokens, memory, enc_states):
+def _model_decode(
+    model, softmax, fc, inp_tokens, memory, enc_states, temperature
+):
     """This function implements 1 decode step for the transformer searches
 
     Arguements:
@@ -1111,10 +1113,12 @@ def _model_decode(model, softmax, fc, inp_tokens, memory, enc_states):
         contains all predicted tokens
     enc_states: tensor
         encoder states
+    temperature: float
+        the temperature to sample from the acoustic model
     """
     memory = _update_mem(inp_tokens, memory)
     pred = model.decode(memory, enc_states)
-    prob_dist = softmax(fc(pred))
+    prob_dist = softmax(fc(pred) / temperature)
     return prob_dist, memory, pred[:, -1, :]
 
 
@@ -1138,7 +1142,7 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
     """
 
     def __init__(
-        self, modules, temperature_lm=1.0, **kwargs,
+        self, modules, temperature=1.0, temperature_lm=1.0, **kwargs,
     ):
         super(S2STransformerBeamSearch, self).__init__(**kwargs)
 
@@ -1146,6 +1150,8 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
         self.fc = modules[1]
         self.ctc_fc = modules[2]
         self.softmax = torch.nn.LogSoftmax(dim=-1)
+
+        self.temperature = temperature
         self.temperature_lm = temperature_lm
 
     def reset_mem(self, batch_size, device):
@@ -1164,7 +1170,12 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
 
     def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
         prob_dist, memory, attn = _model_decode(
-            self.model, self.softmax, self.fc, inp_tokens, memory, enc_states
+            self.model,
+            self.fc,
+            inp_tokens,
+            memory,
+            enc_states,
+            self.temperature,
         )
         return prob_dist[:, -1, :], memory, attn
 
