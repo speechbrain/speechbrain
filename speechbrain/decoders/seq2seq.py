@@ -987,6 +987,7 @@ class S2SRNNBeamSearchLM(S2SRNNBeamSearcher):
     ...     language_model=lm,
     ...     bos_index=4,
     ...     eos_index=4,
+    ...     blank_index=4,
     ...     min_decode_ratio=0,
     ...     max_decode_ratio=1,
     ...     beam_size=2,
