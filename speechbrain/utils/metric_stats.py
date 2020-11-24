@@ -11,7 +11,6 @@ import speechbrain.data_io.wer as wer_io
 import speechbrain.utils.edit_distance as edit_distance
 from joblib import Parallel, delayed
 from speechbrain.data_io.data_io import (
-    convert_index_to_lab,
     merge_char,
     split_word,
 )
@@ -232,8 +231,8 @@ class ErrorRateStats(MetricStats):
             target = undo_padding(target, target_len)
 
         if ind2lab is not None:
-            predict = convert_index_to_lab(predict, ind2lab)
-            target = convert_index_to_lab(target, ind2lab)
+            predict = ind2lab(predict)
+            target = ind2lab(target)
 
         if self.merge_tokens:
             predict = merge_char(predict)
