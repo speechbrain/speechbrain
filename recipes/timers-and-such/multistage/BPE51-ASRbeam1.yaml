@@ -11,7 +11,7 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 16
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/BPE51-ASRbeam10/<seed>
+output_folder: !ref results/BPE51-ASRbeam1/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
@@ -51,7 +51,7 @@ bos_index: 0
 eos_index: 0
 min_decode_ratio: 0.0
 max_decode_ratio: 10.0
-ASR_beam_size: 10
+ASR_beam_size: 1
 SLU_beam_size: 80
 eos_threshold: 1.5
 temperature: 1.25
