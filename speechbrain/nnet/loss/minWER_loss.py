@@ -7,6 +7,9 @@ Authors
  * Abdelwahab Heba 2020
 """
 import torch
+import pytest
+
+pytest.importorskip("torch_edit_distance_cuda")
 
 try:
     import torch_edit_distance_cuda as core
@@ -14,7 +17,7 @@ except ImportError:
     err_msg = "The optional dependency pytorch-edit-distance is needed to use the minWER loss\n"
     err_msg += "cannot import torch_edit_distance_cuda. To use minWER loss\n"
     err_msg += "Please follow the instructions below or visit\n"
-    err_msg += "https://github.com/1ytic/pytorch-edit-distance"
+    err_msg += "https://github.com/1ytic/pytorch-edit-distance\n"
     err_msg += "================ Export UNIX var + Install =============\n"
     err_msg += "CUDAVER=cuda"
     err_msg += "export PATH=/usr/local/$CUDAVER/bin:$PATH"
