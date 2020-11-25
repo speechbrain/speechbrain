@@ -12,6 +12,7 @@ import urllib.request
 import collections.abc
 import torch
 import tqdm
+import pathlib
 
 
 def undo_padding(batch, lengths):
@@ -261,6 +262,9 @@ def download_file(
                 self.total = tsize
             self.update(b * bsize - self.n)
 
+    # Create the destination directory if it doesn't exist
+    dest_dir = pathlib.Path(dest).resolve().parent
+    dest_dir.mkdir(parents=True, exist_ok=True)
     if "http" not in source:
         shutil.copyfile(source, dest)
 
