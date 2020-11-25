@@ -132,7 +132,7 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
     asr_brain.fit(
-        range(hparams["number_of_epochs"]),
+        asr_brain.hparams.epoch_counter,
         hparams["train_loader"],
         hparams["valid_loader"],
     )
