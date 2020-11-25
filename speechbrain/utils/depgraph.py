@@ -1,6 +1,57 @@
 """
 A dependency graph for finding evaluation order.
 
+Example
+-------
+>>> # The basic use case is that you have a bunch of keys
+>>> # and some of them depend on each other:
+>>> database = []
+>>> functions = {'read': {'func': lambda: (0,1,2),
+...                       'needs': []},
+...              'process': {'func': lambda X: [x**2 for x in X],
+...                          'needs': ['read']},
+...              'save': {'func': lambda x: database.append(x),
+...                       'needs': ['process']},
+...              'print': {'func': lambda x,y: print(x, "became", y),
+...                        'needs': ['read', 'process']},
+...              'auxiliary': {'func': lambda: (1,2,3),
+...                            'needs': []}}
+>>> # If this is user supplied info, so you can't just hardcode the order,
+>>> # a dependency graph may be needed.
+>>> dg = DependencyGraph()
+>>> # In simple cases, you can just encode the dependencies directly:
+>>> for key, conf in functions.items():
+...     for needed in conf["needs"]:
+...         dg.add_edge(key, needed)
+>>> # Now we can evaluate:
+>>> outputs = {}
+>>> for node in dg.get_evaluation_order():
+...     f = functions[node.key]['func']
+...     args = [outputs[needed] for needed in functions[node.key]['needs']]
+...     outputs[node.key] = f(*args)
+(0, 1, 2) became [0, 1, 4]
+>>> # This added nodes implicitly.
+>>> # However, since 'auxiliary' didn't depend on anything,
+>>> # it didn't get added!
+>>> assert 'auxiliary' not in outputs
+>>> # So to be careful, we should also manually add nodes for any thing that
+>>> # is not an intermediate step.
+>>> _ = dg.add_node('auxiliary')
+>>> assert 'auxiliary' in (node.key for node in dg.get_evaluation_order())
+>>> # Arbitrary data can be added to nodes:
+>>> dg2 = DependencyGraph()
+>>> for key, conf in functions.items():
+...     _ = dg2.add_node(key, conf)
+...     for needed in conf["needs"]:
+...         dg2.add_edge(key, needed)
+>>> # Now we get access to the data in evaluation:
+>>> outputs2 = {}
+>>> for key, _, conf in dg2.get_evaluation_order():
+...     f = conf['func']
+...     args = [outputs[needed] for needed in conf['needs']]
+...     outputs[key] = f(*args)
+(0, 1, 2) became [0, 1, 4]
+
 Authors:
     * Aku Rouhe 2020
 """
@@ -41,25 +92,13 @@ class DependencyGraph:
     to/from it.
     Implicit keys and explicit keys can also be mixed.
 
-    Arguments
-    ---------
-    init_with : DependencyGraph, optional
-        Copy from an existing graph
     """
 
-    def __init__(self, init_with=None):
-        if init_with is None:
-            self.digraph = []
-            self.key2ind = {}
-        elif isinstance(init_with, DependencyGraph):
-            self.digraph = init_with.digraph
-            self.key2ind = init_with.key2ind
-        else:
-            raise ValueError(
-                "Don't know how to initialize with {arg}".format(
-                    arg=repr(init_with)
-                )
-            )
+    def __init__(self):
+        self.digraph = []
+        self.key2ind = {}
+        # Guard for manual duplicates (but not implicitly added ones)
+        self._manually_added_keys = []
 
     @staticmethod
     def get_unique_key():
@@ -85,12 +124,21 @@ class DependencyGraph:
         Raises
         ------
         ValueError
-            If node with the given key has already been added.
+            If node with the given key has already been added explicitly
+            (with this method, not "add_edge")
         """
         if key is None:
             key = self.get_unique_key()
-        if key in self.key2ind:
-            raise ValueError("Duplicate key: {key}".format(key=key))
+        elif key in self._manually_added_keys:
+            raise ValueError("Adding duplicate node: {key}".format(key=key))
+        else:
+            self._manually_added_keys.append(key)
+        if key in self.key2ind:  # Implicitly added already; don't add again.
+            ind = self.key2ind[key]
+            node = self.digraph[ind]
+            # All that this operation can do is add data:
+            self.digraph[ind] = DGNode(node.key, node.edges, data)
+            return key
         self.key2ind[key] = len(self.digraph)
         self.digraph.append(DGNode(key, [], data))
         return key
