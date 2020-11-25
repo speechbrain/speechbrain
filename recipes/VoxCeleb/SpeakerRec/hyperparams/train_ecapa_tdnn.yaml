@@ -1,0 +1,133 @@
+# ################################
+# Model: ECAPA-TDNN using AAM-softmax
+# Authors: Hwidong Na 2020
+# ################################
+
+seed: 1234
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+__set_seed_python: !apply:random.seed [!ref <seed>]
+
+# Folders and train_log file
+data_folder: /localscratch/voxceleb1_2
+output_folder: results/voxceleb1_2/ecapa-tdnn
+save_folder: !ref <output_folder>/save/
+train_log: !ref <output_folder>/train_log.txt
+
+# csv files
+csv_train: !ref <save_folder>/train.csv
+csv_valid: !ref <save_folder>/dev.csv
+
+# Training hyperparameters
+number_of_epochs: 100
+batch_size: 64
+lr: 0.001
+base_lr: 0.00000001
+max_lr: !ref <lr>
+step_size: 65000
+device: 'cuda:0'
+
+# Feature parameters
+n_mels: 80
+left_frames: 0
+right_frames: 0
+deltas: False
+random_segment: True
+max_frames: 300
+
+# Number of speakers
+out_n_neurons: 7205 #1211 for vox1  # 5994 for vox2, 7205 for vox1+vox2
+
+# Functions
+compute_features: !new:speechbrain.lobes.features.Fbank
+    n_mels: !ref <n_mels>
+    left_frames: !ref <left_frames>
+    right_frames: !ref <right_frames>
+    deltas: !ref <deltas>
+
+embedding_model: !new:speechbrain.lobes.models.ECAPA_TDNN.ECAPA_TDNN
+    input_size: !ref <n_mels>
+    channels: [512, 512, 512, 512, 1536]
+    kernel_sizes: [5, 3, 3, 3, 1]
+    dilations: [1, 2, 3, 4, 1]
+    attention_channels: 128
+    lin_neurons: 192
+
+classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
+    input_size: 192
+    out_neurons: !ref <out_n_neurons>
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
+    openrir_folder: !ref <data_folder>
+    openrir_max_noise_len: 3.0  # seconds
+    reverb_prob: 1.0
+    noise_prob: 1.0
+    noise_snr_low: 0
+    noise_snr_high: 15
+    rir_scale_factor: 1.0
+
+augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+    sample_rate: 16000
+    speeds: [100]
+
+train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_train>
+    batch_size: !ref <batch_size>
+    csv_read: [wav, spk_id]
+    sentence_sorting: random
+    replacements:
+        $data_folder: !ref <data_folder>
+    output_folder: !ref <output_folder>/save/
+
+valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_valid>
+    batch_size: !ref <batch_size>
+    csv_read: [wav, spk_id]
+    sentence_sorting: random
+    replacements:
+        $data_folder: !ref <data_folder>
+    output_folder: !ref <output_folder>/save/
+
+mean_var_norm: !new:speechbrain.processing.features.InputNormalization
+    norm_type: global
+
+modules:
+    compute_features: !ref <compute_features>
+    augmentation: !ref <augmentation>
+    env_corrupt: !ref <env_corrupt>
+    embedding_model: !ref <embedding_model>
+    classifier: !ref <classifier>
+    mean_var_norm: !ref <mean_var_norm>
+
+compute_cost: !new:speechbrain.nnet.losses.LogSoftmaxWrapper
+    loss_fn: !new:speechbrain.nnet.losses.AdditiveAngularMargin
+        margin: 0.2
+        scale: 30
+
+compute_error: !name:speechbrain.nnet.losses.classification_error
+
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+
+lr_annealing: !new:speechbrain.nnet.schedulers.CyclicLRScheduler
+    base_lr: !ref <base_lr>
+    max_lr: !ref <max_lr>
+    step_size: !ref <step_size>
+
+# Logging + checkpoints
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+error_stats: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !name:speechbrain.nnet.losses.classification_error
+        reduction: batch
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        embedding_model: !ref <embedding_model>
+        classifier: !ref <classifier>
+        normalizer: !ref <mean_var_norm>
+        counter: !ref <epoch_counter>
