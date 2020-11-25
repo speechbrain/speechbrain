@@ -182,7 +182,7 @@ class TransformerASR(TransformerInterface):
         prediction, self_attns, multihead_attns = self.decoder(
             tgt, encoder_out, tgt_mask=tgt_mask
         )
-        return prediction, multihead_attns
+        return prediction, multihead_attns[-1]
 
     def _init_params(self):
         for p in self.parameters():
