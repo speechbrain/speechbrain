@@ -4,8 +4,10 @@ PyTorch compatible samplers
 These determine the order of iteration through a dataset.
 """
 import torch
-from torch.utils.data.sampler import RandomSampler
+from itertools import zip_longest
 import logging
+from torch.utils.data.sampler import RandomSampler, SequentialSampler
+from speechbrain.data_io.datasets import SegmentedDataset
 
 logger = logging.getLogger(__name__)
 
@@ -89,3 +91,55 @@ class ReproducibleRandomSampler(RandomSampler):
     def __iter__(self):
         self.generator.manual_seed(self.seed + self.epoch)
         return super().__iter__()
+
+
+class SortedSampler(SequentialSampler):
+    def __init__(
+        self,
+        data_source: SegmentedDataset,
+        batch_size: int,
+        sorting="ascending",
+    ):
+        super().__init__(data_source)
+
+        self.batch_size = batch_size
+
+        if sorting not in ["descending", "ascending"]:
+            raise ValueError('Sorting must be in ["descending", "ascending"]')
+
+        # sorting data_source
+        if len(data_source.examples) == 0:
+            raise IndexError("Data source must not be empty.")
+
+        examples = data_source.examples
+
+        ex_lengths_pos = [
+            (i, examples[k]["length"]) for i, k in enumerate(data_source.ex_ids)
+        ]
+
+        if "length" not in examples[list(examples.keys())[0]].keys():
+            raise ValueError(
+                "Each example must have a 'length' key containing the length of the example "
+                "in order to be able to sort them and use Dynamic Batching"
+            )
+
+        if sorting == "ascending":
+            ex_lengths_pos = sorted(ex_lengths_pos, key=lambda x: x[-1])
+
+        else:  # descending
+            ex_lengths_pos = sorted(ex_lengths_pos, key=lambda x: x[-1])
+
+        # constructing batches
+        # grouping see https://docs.python.org/3/library/itertools.html#itertools-recipes
+        self.tot_batches = [
+            x
+            for x in zip_longest(
+                *([iter([x[0] for x in ex_lengths_pos])] * self.batch_size)
+            )
+        ]
+
+    def __iter__(self):
+        return iter(self.tot_batches)
+
+    def __len__(self) -> int:
+        return len(self.tot_batches)
