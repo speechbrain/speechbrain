@@ -668,7 +668,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 # g = alived_seq
                 g = memory
                 # block blank token
-                log_probs[:, self.bos_index] = self.minus_inf
+                log_probs[:, self.blank_index] = self.minus_inf
                 if self.ctc_weight != 1.0:
                     # pruning vocab for ctc_scorer
                     # _, ctc_candidates = log_probs.topk(
