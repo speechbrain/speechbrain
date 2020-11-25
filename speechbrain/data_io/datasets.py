@@ -68,32 +68,6 @@ class SegmentedDataset(Dataset):
                     "Each element in data_transforms dict must be callable"
                 )
 
-        if discard_shorter:
-            if "length" not in self.examples[self.examples.keys()[0]].keys():
-                raise KeyError(
-                    "If discard_shorter option wants to be used, "
-                    "each example must have a 'length' key containing the length of the example."
-                )
-
-            examples = {
-                k: v
-                for k, v in examples.items()
-                if examples[k]["length"] >= discard_shorter
-            }
-
-        if discard_longer:
-            if "length" not in self.examples[self.examples.keys()[0]].keys():
-                raise KeyError(
-                    "If discard_shorter option wants to be used, "
-                    "each example must have a 'length' key containing the length of the example."
-                )
-
-            examples = {
-                k: v
-                for k, v in examples.items()
-                if examples[k]["length"] <= discard_longer
-            }
-
         if select_n_examples:
             prev_len = len(list(examples.keys()))
             examples = {
@@ -106,6 +80,32 @@ class SegmentedDataset(Dataset):
                     select_n_examples, prev_len
                 )
             )
+
+        if discard_shorter:
+            if "length" not in examples[list(examples.keys())[0]].keys():
+                raise KeyError(
+                    "If discard_shorter option wants to be used, "
+                    "each example must have a 'length' key containing the length of the example."
+                )
+
+            examples = {
+                k: v
+                for k, v in examples.items()
+                if examples[k]["length"] >= discard_shorter
+            }
+
+        if discard_longer:
+            if "length" not in examples[list(examples.keys())[0]].keys():
+                raise KeyError(
+                    "If discard_shorter option wants to be used, "
+                    "each example must have a 'length' key containing the length of the example."
+                )
+
+            examples = {
+                k: v
+                for k, v in examples.items()
+                if examples[k]["length"] <= discard_longer
+            }
 
         self.examples = examples
         self.ex_ids = list(self.examples.keys())
