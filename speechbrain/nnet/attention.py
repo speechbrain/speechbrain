@@ -228,6 +228,31 @@ class LocationAwareAttention(nn.Module):
 
 
 class KeyValueAttention(nn.Module):
+    """ This class implements a single-headed key-value attention module for seq2seq
+    learning. Ref: "Attention Is All You Need" by Vaswani et al., sec. 3.2.1
+
+    Arguments
+    ---------
+    enc_dim : int
+        Size of the encoder feature vectors from which keys and values are computed.
+    dec_dim : int
+        Size of the decoder feature vectors from which queries are computed.
+    attn_dim : int
+        Size of the attention feature.
+    output_dim : int
+        Size of the output context vector.
+
+    Example
+    -------
+    >>> enc_tensor = torch.rand([4, 10, 20])
+    >>> enc_len = torch.ones([4]) * 10
+    >>> dec_tensor = torch.rand([4, 25])
+    >>> net = KeyValueAttention(enc_dim=20, dec_dim=25, attn_dim=30, output_dim=5)
+    >>> out_tensor, out_weight = net(enc_tensor, enc_len, dec_tensor)
+    >>> out_tensor.shape
+    torch.Size([4, 5])
+    """
+
     def __init__(self, enc_dim, dec_dim, attn_dim, output_dim):
         super(KeyValueAttention, self).__init__()
 
