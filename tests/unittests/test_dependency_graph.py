@@ -64,8 +64,12 @@ def test_dependency_graph():
     dg.add_edge(a_key, b_key)
     eval_order_data = [node.data for node in dg.get_evaluation_order()]
     assert eval_order_data == ["b", "a"]
+    # Adding same key in edge (implicitly) and then explicitly is ok:
     dg = DependencyGraph()
     dg.add_edge("a", "b")
-    dg2 = DependencyGraph(dg)
-    eval_order = [node.key for node in dg2.get_evaluation_order()]
+    dg.add_node("a")
+    eval_order = [node.key for node in dg.get_evaluation_order()]
     assert eval_order == ["b", "a"]
+    # But adding same key twice explicitly will not work:
+    with pytest.raises(ValueError):
+        dg.add_node("a")
