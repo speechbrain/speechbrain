@@ -12,6 +12,9 @@ and sample many possible transcriptions.)
 
 (Adapted from the LibriSpeech seq2seq ASR recipe written by Ju-Chieh Chou, Mirco Ravanelli, Abdel Heba, and Peter Plantinga.)
 
+Run using:
+> python experiment.py BPE51-ASRbeam1.yaml
+
 Authors
  * Loren Lugosch 2020
 """
