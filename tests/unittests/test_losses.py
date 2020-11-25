@@ -113,3 +113,45 @@ def test_transducer_loss():
     )
     out_cost.backward()
     assert out_cost.item() == 2.247833251953125
+
+
+def test_minWER_loss():
+    # Make this its own test since it can only be run
+    # if numba is installed and a GPU is available
+    pytest.importorskip("torch_edit_distance_cuda")
+    if torch.cuda.device_count() == 0:
+        pytest.skip("This test can only be run if a GPU is available")
+
+    from speechbrain.nnet.losses import minWER_loss
+
+    blank = 0
+    separator = 1
+
+    hypotheses = torch.tensor(
+        [
+            [[0, 1, 1, 2, 2, 2, 3], [0, 1, 1, 2, 2, 2, 3]],
+            [[0, 0, 0, 1, 2, 3, 3], [0, 0, 0, 1, 2, 3, 3]],
+        ],
+        dtype=torch.int32,
+    ).cuda()
+    targets = torch.tensor(
+        [[0, 1, 1, 2, 2, 2, 3], [0, 1, 2, 3, 2, 3, 3]], dtype=torch.int32
+    ).cuda()
+    hyp_lens = torch.tensor([[7, 7], [6, 6]], dtype=torch.int32).cuda()
+    target_lens = torch.tensor([7, 3], dtype=torch.int32).cuda()
+    hypotheses_scores = (
+        torch.Tensor([[3.5, 2.6], [10.6, 3.4]]).cuda().requires_grad_()
+    )
+
+    loss = minWER_loss(
+        hypotheses,
+        targets,
+        hyp_lens,
+        target_lens,
+        hypotheses_scores,
+        blank,
+        separator,
+        mode="Num_Word_Errors",
+    )
+    loss.backward()
+    assert loss.item() == 0.0

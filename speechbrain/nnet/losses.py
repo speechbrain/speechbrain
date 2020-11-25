@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 def minWER_loss(
     hypotheses,
     targets,
-    hyps_lengths,
+    hyps_lens,
     target_lens,
     hypotheses_scores,
     blank_index,
@@ -49,7 +49,7 @@ def minWER_loss(
     targets : torch.Tensor
         Tensor (B, R) where R is the maximum
         length of tokens for each reference in batch (B utt).
-    hyps_lengths : torch.Tensor
+    hyps_lens : torch.Tensor
         Tensor (B, N) representing the
         number of tokens for each hypothesis in batch (B utt).
     target_lens : torch.Tensor
@@ -76,7 +76,7 @@ def minWER_loss(
     return minWER_loss(
         hypotheses,
         targets,
-        hyps_lengths,
+        hyps_lens,
         target_lens,
         hypotheses_scores,
         blank_index,

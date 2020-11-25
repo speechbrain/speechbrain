@@ -34,7 +34,7 @@ except ImportError:
 def minWER_loss(
     hypotheses,
     targets,
-    hyps_length,
+    hyps_lens,
     target_lens,
     hypotheses_scores,
     blank_index,
@@ -56,7 +56,7 @@ def minWER_loss(
     targets : torch.Tensor
         Tensor (B, R) where R is the maximum
         length of tokens for each reference in batch (B utt).
-    hyps_lengths : torch.Tensor
+    hyps_lens : torch.Tensor
         Tensor (B, N) representing the
         number of tokens for each hypothesis in batch (B utt).
     target_lens : torch.Tensor
@@ -93,7 +93,7 @@ def minWER_loss(
     levenshtein_distance = core.levenshtein_distance(
         hypotheses.view(batch_size * topk, -1),
         torch.repeat_interleave(targets.to(torch.int32), repeats=topk, dim=0),
-        hyps_length.view(-1),
+        hyps_lens.view(-1),
         torch.repeat_interleave(
             target_lens.to(torch.int32), repeats=topk, dim=0
         ),
@@ -104,7 +104,7 @@ def minWER_loss(
     wers = torch.sum(levenshtein_distance[:, :3], 1, dtype=torch.float32)
     # if WER, then normalize by utt length
     if mode == "WER":
-        wers /= wers[:, 3] / levenshtein_distance[:, 3]
+        wers /= levenshtein_distance[:, 3]
 
     # TODO add reduction option
     wers = wers.view(batch_size, topk)
