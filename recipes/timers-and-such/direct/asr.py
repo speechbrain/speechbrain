@@ -43,8 +43,6 @@ class ASR(sb.Brain):
             predicted_words = self.hparams.tokenizer(
                 predicted_tokens, task="decode_from_list"
             )
-            # print(predicted_words[0])
-            # print("transcript lengths (in tokens): ", [len(t) for t in predicted_tokens])
 
             # Pad examples to have same length.
             max_length = max([len(t) for t in predicted_tokens])
