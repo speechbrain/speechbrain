@@ -33,6 +33,7 @@ def minWER_loss(
     blank_index,
     separator_index=None,
     mode="Num_Word_Errors",
+    reduction="mean",
 ):
     """
     Compute minWER loss using torch_edit_distance.
@@ -73,7 +74,7 @@ def minWER_loss(
     """
     from speechbrain.nnet.loss.minWER_loss import minWER_loss
 
-    return minWER_loss(
+    loss = minWER_loss(
         hypotheses,
         targets,
         hyps_lens,
@@ -83,6 +84,13 @@ def minWER_loss(
         separator_index,
         mode,
     )
+    # return loss according to reduction specified
+    if reduction == "mean" or reduction == "batchmean":
+        return loss.mean()
+    elif reduction == "sum":
+        return loss.sum()
+    else:
+        return loss
 
 
 def transducer_loss(

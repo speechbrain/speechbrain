@@ -7,14 +7,15 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: !PLACEHOLDER  # e.g. /path/to/TIMIT
+data_folder: /localscratch/TIMIT # e.g. /path/to/TIMIT
+openrir_folder: !ref <data_folder>
 csv_train: !ref <data_folder>/train.csv
 csv_valid: !ref <data_folder>/dev.csv
 csv_test: !ref <data_folder>/test.csv
 
 # Training parameters
 number_of_epochs: 15
-batch_size: 4
+batch_size: 5
 lr: 0.001
 ctc_weight: 0.2
 
@@ -54,7 +55,6 @@ min_decode_ratio: 0.0
 max_decode_ratio: 1.0
 beam_size: 8
 n_best: 4
-topk: 4
 eos_threshold: 1.5
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
@@ -90,7 +90,7 @@ augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
 
 # Can be removed to speed up training a little
 env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
-    openrir_folder: !ref <data_folder>
+    openrir_folder: !ref <openrir_folder>
     babble_prob: 0.0
     reverb_prob: 0.0
     noise_prob: 1.0
@@ -147,6 +147,11 @@ log_softmax: !new:speechbrain.nnet.activations.Softmax
 
 ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
     blank_index: !ref <blank_index>
+
+minPER_cost: !name:speechbrain.nnet.losses.minWER_loss
+    blank_index: !ref <blank_index>
+    mode: "Num_Word_Errors" # ["WER", "Num_Word_Errors"]
+    #separator: !ref <separator_index> # If needed
 
 seq_cost: !name:speechbrain.nnet.losses.nll_loss
     label_smoothing: 0.1
@@ -216,14 +221,10 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
 
-ctc_stats: !name:speechbrain.utils.metric_stats.MetricStats
-    metric: !name:speechbrain.nnet.losses.ctc_loss
+mPER_stats: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !name:speechbrain.nnet.losses.minWER_loss
         blank_index: !ref <blank_index>
-        reduction: batch
-
-seq_stats: !name:speechbrain.utils.metric_stats.MetricStats
-    metric: !name:speechbrain.nnet.losses.nll_loss
-        label_smoothing: 0.1
-        reduction: batch
+        mode: "Num_Word_Errors" # ["WER", "Num_Word_Errors"]
+        reduction: "none"
 
 per_stats: !name:speechbrain.utils.metric_stats.ErrorRateStats

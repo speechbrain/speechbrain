@@ -109,7 +109,6 @@ def minWER_loss(
     if mode == "WER":
         wers /= levenshtein_distance[:, 3]
 
-    # TODO add reduction option
     wers = wers.view(batch_size, topk)
     avg_wers = torch.mean(wers, -1).unsqueeze(1)
     relative_wers = wers - avg_wers
@@ -117,4 +116,4 @@ def minWER_loss(
     hypotheses_scores = hypotheses_scores.log_softmax(dim=-1)
     mWER_loss = torch.sum(hypotheses_scores * relative_wers, -1)
 
-    return mWER_loss.mean()
+    return mWER_loss
