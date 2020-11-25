@@ -39,12 +39,12 @@ num_tea: 10
 # distillation parameters
 pretrain: True
 
-# Path to the teacher model to load the weights from
-pretrain_tea_dir: !PLACEHOLDER
+# Path to the student model to load the weights from
+pretrain_st_dir: !PLACEHOLDER
 strategy: best  # [average, best, weighted]
 
 # Temperature : smooth the distribution of output probability
-Temperature: 1
+temperature: 1
 # distillation weight alpha
 alpha: 1
 

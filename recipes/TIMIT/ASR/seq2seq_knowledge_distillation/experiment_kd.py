@@ -9,7 +9,7 @@ import h5py
 from torch.utils.data import DistributedSampler
 from speechbrain.data_io.data_io import DataLoaderFactory
 
-
+# names of variables when loading inference results of pre-trained teachers.
 TEA_KEYS = ["p_ctc_tea", "p_seq_tea", "wer_ctc_tea", "wer_tea"]
 TEA_NAME = ["t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9"]
 
@@ -203,15 +203,15 @@ class ASR(sb.Brain):
         # total loss
         # combine normal supervised training
         loss_ctc = (
-            self.hparams.Temperature
-            * self.hparams.Temperature
+            self.hparams.temperature
+            * self.hparams.temperature
             * self.hparams.alpha
             * ctc_loss_kd
             + (1 - self.hparams.alpha) * loss_ctc_nor
         )
         loss_seq = (
-            self.hparams.Temperature
-            * self.hparams.Temperature
+            self.hparams.temperature
+            * self.hparams.temperature
             * self.hparams.alpha
             * seq2seq_loss_kd
             + (1 - self.hparams.alpha) * loss_seq_nor
@@ -394,47 +394,6 @@ class ASR(sb.Brain):
                     self.hparams.wer_file,
                 )
 
-    def on_fit_start(self):
-        """Gets called at the beginning of ``fit()``, on multiple processes
-        if multigpu_count is more than 0 and backend is ddp.
-
-        Default implementation compiles the jit modules, initializes
-        optimizers, and loads the latest checkpoint to resume training.
-        """
-        # Run this *after* mp.spawn since jit modules cannot be pickled.
-        self._compile_jit()
-
-        # Wrap modules with parallel backend after jit
-        self._wrap_multigpu()
-
-        # Initialize optimizers after parameters are configured
-        self.init_optimizers()
-
-        # initialization strategy
-        if self.hparams.pretrain:
-            # load pre-trained student model except last layer
-            if self.hparams.epoch_counter.current == 0:
-                chpt_path = self.hparams.pretrain_tea_dir + "/model.ckpt"
-                weight_dict = torch.load(chpt_path)
-                # del the last layer
-                key_list = []
-                for k in weight_dict.keys():
-                    key_list.append(k)
-                for k in key_list:
-                    if k.startswith("1") or k.startswith("2"):
-                        del weight_dict[k]
-
-                self.modules.load_state_dict(weight_dict, strict=False)
-            else:
-                # Load latest checkpoint to resume training
-                self.checkpointer.recover_if_possible(
-                    device=torch.device(self.device)
-                )
-        else:
-            self.checkpointer.recover_if_possible(
-                device=torch.device(self.device)
-            )
-
 
 def load_teachers(hparams):
     """
@@ -456,6 +415,24 @@ def load_teachers(hparams):
     test_dict = f["test"]
 
     return [train_dict, valid_dict], test_dict
+
+
+def st_load(hparams, asr_brain):
+    """
+    load pre-trained student model and remove last layer.
+    """
+    print("loading pre-trained student model...")
+    chpt_path = hparams["pretrain_st_dir"] + "/model.ckpt"
+    weight_dict = torch.load(chpt_path)
+    # del the last layer
+    key_list = []
+    for k in weight_dict.keys():
+        key_list.append(k)
+    for k in key_list:
+        if k.startswith("1") or k.startswith("2"):
+            del weight_dict[k]
+
+    asr_brain.modules.load_state_dict(weight_dict, strict=False)
 
 
 if __name__ == "__main__":
@@ -498,7 +475,14 @@ if __name__ == "__main__":
     # load teacher models
     save_dict, test_dict = load_teachers(hparams)
 
+    if hparams["pretrain"]:
+        # load pre-trained student model except last layer
+        if hparams["epoch_counter"].current == 0:
+            st_load(hparams, asr_brain)
+
+    # training
     asr_brain.fit(
         asr_brain.hparams.epoch_counter, save_dict, train_set, valid_set
     )
+    # test
     asr_brain.evaluate(hparams["test_loader"](), test_dict, min_key="PER")
