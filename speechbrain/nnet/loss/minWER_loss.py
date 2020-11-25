@@ -113,7 +113,8 @@ def minWER_loss(
     avg_wers = torch.mean(wers, -1).unsqueeze(1)
     relative_wers = wers - avg_wers
     # compute softmax for the Nbest scores
-    hypotheses_scores = hypotheses_scores.log_softmax(dim=-1)
-    mWER_loss = torch.sum(hypotheses_scores * relative_wers, -1)
+    # hypotheses_scores = hypotheses_scores.log_softmax(dim=-1)
+    hypotheses_scores = hypotheses_scores.softmax(dim=-1)
+    mWER_loss = torch.mean(hypotheses_scores * (relative_wers * 100), -1)
 
     return mWER_loss
