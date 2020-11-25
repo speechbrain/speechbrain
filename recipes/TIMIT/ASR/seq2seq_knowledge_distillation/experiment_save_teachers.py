@@ -80,7 +80,7 @@ class ASR(sb.Brain):
 
                 # output layer for ctc log-probabilities
                 p_ctc_tea = self.hparams.log_softmax(
-                    ctc_logits_tea / self.hparams.T
+                    ctc_logits_tea / self.hparams.temperature
                 )
 
                 # Prepend bos token at the beginning
@@ -92,7 +92,9 @@ class ASR(sb.Brain):
 
                 # output layer for seq2seq log-probabilities
                 seq_logits_tea = tea_seq_lin_list[num](h_tea)
-                p_seq_tea = apply_softmax(seq_logits_tea / self.hparams.T)
+                p_seq_tea = apply_softmax(
+                    seq_logits_tea / self.hparams.temperature
+                )
 
                 # WER from output layer of CTC
                 sequence_ctc = sb.decoders.ctc.ctc_greedy_decode(
@@ -227,67 +229,19 @@ if __name__ == "__main__":
     )
 
     # initialise teacher model variables
-    tea_enc_list = [
-        hparams["tea0_enc"],
-        hparams["tea1_enc"],
-        hparams["tea2_enc"],
-        hparams["tea3_enc"],
-        hparams["tea4_enc"],
-        hparams["tea5_enc"],
-        hparams["tea6_enc"],
-        hparams["tea7_enc"],
-        hparams["tea8_enc"],
-        hparams["tea9_enc"],
-    ]
-    tea_emb_list = [
-        hparams["tea0_emb"],
-        hparams["tea1_emb"],
-        hparams["tea2_emb"],
-        hparams["tea3_emb"],
-        hparams["tea4_emb"],
-        hparams["tea5_emb"],
-        hparams["tea6_emb"],
-        hparams["tea7_emb"],
-        hparams["tea8_emb"],
-        hparams["tea9_emb"],
-    ]
-    tea_dec_list = [
-        hparams["tea0_dec"],
-        hparams["tea1_dec"],
-        hparams["tea2_dec"],
-        hparams["tea3_dec"],
-        hparams["tea4_dec"],
-        hparams["tea5_dec"],
-        hparams["tea6_dec"],
-        hparams["tea7_dec"],
-        hparams["tea8_dec"],
-        hparams["tea9_dec"],
-    ]
-    tea_ctc_lin_list = [
-        hparams["tea0_ctc_lin"],
-        hparams["tea1_ctc_lin"],
-        hparams["tea2_ctc_lin"],
-        hparams["tea3_ctc_lin"],
-        hparams["tea4_ctc_lin"],
-        hparams["tea5_ctc_lin"],
-        hparams["tea6_ctc_lin"],
-        hparams["tea7_ctc_lin"],
-        hparams["tea8_ctc_lin"],
-        hparams["tea9_ctc_lin"],
-    ]
-    tea_seq_lin_list = [
-        hparams["tea0_seq_lin"],
-        hparams["tea1_seq_lin"],
-        hparams["tea2_seq_lin"],
-        hparams["tea3_seq_lin"],
-        hparams["tea4_seq_lin"],
-        hparams["tea5_seq_lin"],
-        hparams["tea6_seq_lin"],
-        hparams["tea7_seq_lin"],
-        hparams["tea8_seq_lin"],
-        hparams["tea9_seq_lin"],
-    ]
+    tea_enc_list = []
+    tea_emb_list = []
+    tea_dec_list = []
+    tea_ctc_lin_list = []
+    tea_seq_lin_list = []
+    for i in range(hparams["num_tea"]):
+        exec("tea_enc_list.append(hparams['tea{}_enc'])".format(i))
+        exec("tea_emb_list.append(hparams['tea{}_emb'])".format(i))
+        exec("tea_dec_list.append(hparams['tea{}_dec'])".format(i))
+        exec("tea_ctc_lin_list.append(hparams['tea{}_ctc_lin'])".format(i))
+        exec("tea_seq_lin_list.append(hparams['tea{}_seq_lin'])".format(i))
 
+    # create ModuleList
     for i in range(hparams["num_tea"]):
         exec(
             "tea{}_modules = torch.nn.ModuleList([tea_enc_list[i], tea_emb_list[i], tea_dec_list[i], tea_ctc_lin_list[i], tea_seq_lin_list[i]])".format(
@@ -309,7 +263,7 @@ if __name__ == "__main__":
 
     asr_brain = ASR(tea_modules_list=tea_modules_list)
 
-    # load teacher models
+    # load pre-trained weights of teacher models
     with open(hparams["tea_models_dir"], "r") as f:
         enter_token = "\n"
         for i, path in enumerate(f.readlines()):

@@ -60,7 +60,7 @@ tea_models_dir: !PLACEHOLDER
 
 # distillation parameters
 # Temperature
-T: 1
+temperature: 1
 # distillation weight alpha
 alpha: 1
 
