@@ -729,7 +729,8 @@ class S2SBeamSearcher(S2SBaseSearcher):
             # Add coverage penalty
             if self.coverage_penalty > 0:
                 cur_attn = torch.index_select(attn, dim=0, index=predecessors)
-                if self.dec.attn_type == "multiheadlocation":
+                # average attn weight of heads when attn_type is multiheadlocation
+                if len(cur_attn.size()) > 2:
                     cur_attn = torch.mean(cur_attn, dim=1)
 
                 # coverage: cumulative attention probability vector
@@ -1179,7 +1180,7 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
         memory = _update_mem(inp_tokens, memory)
         pred, attn = self.model.decode(memory, enc_states)
         prob_dist = self.softmax(self.fc(pred) / self.temperature)
-        return prob_dist[:, -1, :], memory, attn
+        return prob_dist[:, -1, :], memory, attn[:, -1, :]
 
     def lm_forward_step(self, inp_tokens, memory):
         memory = _update_mem(inp_tokens, memory)
