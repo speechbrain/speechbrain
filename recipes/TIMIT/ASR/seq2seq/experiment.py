@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 """Recipe for doing ASR with phoneme targets and joint seq2seq
 and CTC loss on the TIMIT dataset.
-
 To run this recipe, do the following:
 > python experiment.py hyperparams.yaml --data_folder /path/to/TIMIT
-
 Authors
  * Mirco Ravanelli 2020
  * Ju-Chieh Chou 2020
@@ -14,9 +12,6 @@ import os
 import sys
 import torch
 import speechbrain as sb
-from torch_edit_distance import levenshtein_distance
-
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 
 # Define training procedure
@@ -28,7 +23,6 @@ class ASR(sb.Brain):
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
         phns, phn_lens = phns.to(self.device), phn_lens.to(self.device)
 
-        """
         if stage == sb.Stage.TRAIN:
             if hasattr(self.modules, "env_corrupt"):
                 wavs_noise = self.modules.env_corrupt(wavs, wav_lens)
@@ -37,7 +31,6 @@ class ASR(sb.Brain):
                 phns = torch.cat([phns, phns])
             if hasattr(self.hparams, "augmentation"):
                 wavs = self.hparams.augmentation(wavs, wav_lens)
-        """
 
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.normalize(feats, wav_lens)
@@ -59,106 +52,30 @@ class ASR(sb.Brain):
         p_seq = self.hparams.log_softmax(logits)
 
         if stage == sb.Stage.VALID:
-            hyps, topk_hyps, topk_scores, topk_len = self.hparams.beam_searcher(
-                x, wav_lens
-            )
-            # return p_ctc, p_seq, wav_lens, hyps
-            return (
-                p_ctc,
-                p_seq,
-                wav_lens,
-                hyps,
-                topk_hyps,
-                topk_scores,
-                topk_len,
-            )
+            hyps, scores = self.hparams.greedy_searcher(x, wav_lens)
+            return p_ctc, p_seq, wav_lens, hyps
 
         elif stage == sb.Stage.TEST:
-            hyps, topk_hyps, topk_scores, topk_len = self.hparams.beam_searcher(
-                x, wav_lens
-            )
-            return (
-                p_ctc,
-                p_seq,
-                wav_lens,
-                hyps,
-                topk_hyps,
-                topk_scores,
-                topk_len,
-            )
+            hyps, scores = self.hparams.beam_searcher(x, wav_lens)
+            return p_ctc, p_seq, wav_lens, hyps
 
-        elif stage == sb.Stage.TRAIN:
-            # n-best hyps for minWER loss
-            hyps, topk_hyps, topk_scores, topk_len = self.hparams.sampler(
-                x, wav_lens
-            )
-            return (
-                p_ctc,
-                p_seq,
-                wav_lens,
-                hyps,
-                topk_hyps,
-                topk_scores,
-                topk_len,
-            )
+        return p_ctc, p_seq, wav_lens
 
     def compute_objectives(self, predictions, targets, stage):
-        (
-            p_ctc,
-            p_seq,
-            wav_lens,
-            hyps,
-            topk_hyps,
-            topk_scores,
-            topk_length,
-        ) = predictions
+        if stage == sb.Stage.TRAIN:
+            p_ctc, p_seq, wav_lens = predictions
+        else:
+            p_ctc, p_seq, wav_lens, hyps = predictions
 
         ids, phns, phn_lens = targets
         phns, phn_lens = phns.to(self.device), phn_lens.to(self.device)
 
-        """
         if hasattr(self.hparams, "env_corrupt") and stage == sb.Stage.TRAIN:
             phns = torch.cat([phns, phns], dim=0)
             phn_lens = torch.cat([phn_lens, phn_lens], dim=0)
-        """
+
         # Add phn_lens by one for eos token
         abs_length = torch.round(phn_lens * phns.shape[1])
-
-        blank = torch.tensor([self.hparams.blank_index], dtype=torch.int).cuda()
-        space = torch.tensor([], dtype=torch.int).cuda()
-        """
-        wers = compute_wer(
-            topk_hyps.view(self.hparams.batch_size * self.hparams.topk, -1),
-            torch.repeat_interleave(
-                phns.to(torch.int32), repeats=self.hparams.topk, dim=0
-            ),
-            topk_length.view(-1),
-            torch.repeat_interleave(
-                abs_length.to(torch.int32), repeats=self.hparams.topk, dim=0
-            ),
-            blank,
-            space,
-        )
-        """
-        wers = levenshtein_distance(
-            topk_hyps.view(self.hparams.batch_size * self.hparams.topk, -1),
-            torch.repeat_interleave(
-                phns.to(torch.int32), repeats=self.hparams.topk, dim=0
-            ),
-            topk_length.view(-1),
-            torch.repeat_interleave(
-                abs_length.to(torch.int32), repeats=self.hparams.topk, dim=0
-            ),
-            blank,
-            space,
-        )
-        wers = torch.sum(wers[:, :3], 1).to(torch.float32)
-        wers = wers.view(self.hparams.batch_size, self.hparams.topk)
-        avg_wers = torch.mean(wers, -1).unsqueeze(1)
-        relative_wers = wers - avg_wers
-        probs = self.hparams.log_softmax(topk_scores)
-        mWER_loss = torch.sum(probs * relative_wers, -1)
-        mWER_loss = mWER_loss.mean()
 
         # Append eos token at the end of the label sequences
         phns_with_eos = sb.data_io.data_io.append_eos_token(
@@ -168,11 +85,10 @@ class ASR(sb.Brain):
         # convert to speechbrain-style relative length
         rel_length = (abs_length + 1) / phns_with_eos.shape[1]
 
-        # loss_ctc = self.hparams.ctc_cost(p_ctc, phns, wav_lens, phn_lens)
-        # loss_seq = self.hparams.seq_cost(p_seq, phns_with_eos, rel_length)
-        # loss = self.hparams.ctc_weight * loss_ctc
-        # loss += (1 - self.hparams.ctc_weight) * loss_seq
-        loss = mWER_loss
+        loss_ctc = self.hparams.ctc_cost(p_ctc, phns, wav_lens, phn_lens)
+        loss_seq = self.hparams.seq_cost(p_seq, phns_with_eos, rel_length)
+        loss = self.hparams.ctc_weight * loss_ctc
+        loss += (1 - self.hparams.ctc_weight) * loss_seq
 
         # Record losses for posterity
         if stage != sb.Stage.TRAIN:
