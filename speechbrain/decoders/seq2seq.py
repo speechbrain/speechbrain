@@ -469,7 +469,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
                     continue
                 hyp = alived_seq[index, :]
                 log_probs = alived_log_probs[index, :]
-                final_scores = scores[index].item() + self.length_rewarding * (
+                final_scores = scores[index] + self.length_rewarding * (
                     timesteps + 1
                 )
 
@@ -483,8 +483,12 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 hyps_and_scores["log_probs"][
                     batch_id, num_hyps, : timesteps + 1
                 ] = log_probs
-                with torch.no_grad():
-                    hyps_and_scores["scores"][batch_id, num_hyps] = final_scores
+                hyps_and_scores["scores"][batch_id] = torch.cat(
+                    (
+                        hyps_and_scores["scores"][batch_id],
+                        final_scores.unsqueeze(0),
+                    )
+                )
                 hyps_and_scores["num_hyps"][batch_id] += 1
 
         return is_eos
@@ -519,6 +523,9 @@ class S2SBeamSearcher(S2SBaseSearcher):
         """
         predictions, top_log_probs, top_scores = [], [], []
         batch_size = len(hyps_and_scores["scores"])
+        hyps_and_scores["scores"] = torch.stack(
+            hyps_and_scores["scores"], dim=0
+        )
         top_scores, indices = hyps_and_scores["scores"].topk(self.topk, dim=-1)
         indices = (indices + self.beam_offset.unsqueeze(1)).view(
             batch_size * self.topk
@@ -609,14 +616,13 @@ class S2SBeamSearcher(S2SBaseSearcher):
             "hyps_length": torch.zeros(
                 batch_size, self.beam_size, dtype=torch.int32, device=device
             ),
-            "scores": torch.zeros(
-                batch_size, self.beam_size, device=device, requires_grad=True
-            ),
+            "scores": [
+                torch.empty(0, device=device) for _ in range(batch_size)
+            ],
             "log_probs": torch.zeros(
                 batch_size, self.beam_size, max_decode_steps, device=device
             ),
         }
-
         for t in range(max_decode_steps):
             # terminate condition
             if self._check_full_beams(hyps_and_scores, self.beam_size):
