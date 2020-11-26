@@ -729,9 +729,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
             # Add coverage penalty
             if self.coverage_penalty > 0:
                 cur_attn = torch.index_select(attn, dim=0, index=predecessors)
-                # average attn weight of heads when attn_type is multiheadlocation
-                if len(cur_attn.size()) > 2:
-                    cur_attn = torch.mean(cur_attn, dim=1)
 
                 # coverage: cumulative attention probability vector
                 if t == 0:
@@ -743,18 +740,21 @@ class S2SBeamSearcher(S2SBaseSearcher):
                         self.coverage, dim=0, index=predecessors
                     )
                     self.coverage = self.coverage + cur_attn
-                    # Compute coverage penalty and add it to scores
-                    penalty = torch.max(
-                        self.coverage, self.coverage.clone().fill_(0.5)
-                    ).sum(-1)
-                    penalty = penalty - self.coverage.size(-1) * 0.5
-                    penalty = penalty.view(batch_size * self.beam_size)
-                    penalty = (
-                        penalty / (t + 1)
-                        if self.length_normalization
-                        else penalty
-                    )
-                    scores = scores - penalty * self.coverage_penalty
+
+                # the attn of transformer is [batch_size*beam_size, current_step, source_len]
+                if len(cur_attn.size()) > 2:
+                    self.converage = torch.sum(cur_attn, dim=1)
+
+                # Compute coverage penalty and add it to scores
+                penalty = torch.max(
+                    self.coverage, self.coverage.clone().fill_(0.5)
+                ).sum(-1)
+                penalty = penalty - self.coverage.size(-1) * 0.5
+                penalty = penalty.view(batch_size * self.beam_size)
+                penalty = (
+                    penalty / (t + 1) if self.length_normalization else penalty
+                )
+                scores = scores - penalty * self.coverage_penalty
 
             # Update alived_seq
             alived_seq = torch.cat(
@@ -933,6 +933,9 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
                 e, hs, c, enc_states, enc_lens
             )
             log_probs = self.softmax(self.fc(dec_out) / self.temperature)
+        # average attn weight of heads when attn_type is multiheadlocation
+        if self.dec.attn_type == "multiheadlocation":
+            w = torch.mean(w, dim=1)
         return log_probs, (hs, c), w
 
     def permute_mem(self, memory, index):
@@ -1180,7 +1183,7 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
         memory = _update_mem(inp_tokens, memory)
         pred, attn = self.model.decode(memory, enc_states)
         prob_dist = self.softmax(self.fc(pred) / self.temperature)
-        return prob_dist[:, -1, :], memory, attn[:, -1, :]
+        return prob_dist[:, -1, :], memory, attn  # [:, -1, :]
 
     def lm_forward_step(self, inp_tokens, memory):
         memory = _update_mem(inp_tokens, memory)
