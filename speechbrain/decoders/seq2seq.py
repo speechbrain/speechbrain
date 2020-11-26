@@ -734,16 +734,16 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 if t == 0:
                     # Init coverage
                     self.coverage = cur_attn
+
+                # the attn of transformer is [batch_size*beam_size, current_step, source_len]
+                if len(cur_attn.size()) > 2:
+                    self.converage = torch.sum(cur_attn, dim=1)
                 else:
                     # Update coverage
                     self.coverage = torch.index_select(
                         self.coverage, dim=0, index=predecessors
                     )
                     self.coverage = self.coverage + cur_attn
-
-                # the attn of transformer is [batch_size*beam_size, current_step, source_len]
-                if len(cur_attn.size()) > 2:
-                    self.converage = torch.sum(cur_attn, dim=1)
 
                 # Compute coverage penalty and add it to scores
                 penalty = torch.max(
