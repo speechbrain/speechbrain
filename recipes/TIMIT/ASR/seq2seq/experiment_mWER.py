@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""Recipe for doing ASR with phoneme targets and joint seq2seq
-and CTC loss on the TIMIT dataset.
+"""Recipe for doing ASR with phoneme targets and mPER loss on the TIMIT dataset.
 
 To run this recipe, do the following:
 > python experiment_mWER.py mWER.yaml --data_folder /path/to/TIMIT
@@ -89,7 +88,6 @@ class ASR(sb.Brain):
 
         # Add phn_lens by one for eos token
         abs_length = torch.round(phn_lens * phns.shape[1])
-
         loss = self.hparams.minPER_cost(
             topk_hyps, phns, topk_length, abs_length, topk_scores,
         )
@@ -156,14 +154,14 @@ class ASR(sb.Brain):
                 test_stats={"loss": stage_loss, "PER": per},
             )
             with open(self.hparams.wer_file, "w") as w:
-                w.write("CTC loss stats:\n")
-                self.ctc_metrics.write_stats(w)
-                w.write("\nseq2seq loss stats:\n")
-                self.seq_metrics.write_stats(w)
+                w.write("mPER loss stats:\n")
+                self.mPER_metrics.write_stats(w)
+                # w.write("\nseq2seq loss stats:\n")
+                # self.seq_metrics.write_stats(w)
                 w.write("\nPER stats:\n")
                 self.per_metrics.write_stats(w)
                 print(
-                    "CTC, seq2seq, and PER stats written to file",
+                    "mPER loss and PER stats written to file",
                     self.hparams.wer_file,
                 )
 
@@ -178,6 +176,9 @@ if __name__ == "__main__":
     hparams_file, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, overrides)
+    # TODO
+    # download spbrain seq2seq TIMIT model
+    # for fine-tunning with mPER Loss
 
     # Create experiment directory
     sb.create_experiment_directory(
