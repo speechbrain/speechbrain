@@ -1183,7 +1183,7 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
         memory = _update_mem(inp_tokens, memory)
         pred, attn = self.model.decode(memory, enc_states)
         prob_dist = self.softmax(self.fc(pred) / self.temperature)
-        return prob_dist[:, -1, :], memory, attn  # [:, -1, :]
+        return prob_dist[:, -1, :], memory, attn
 
     def lm_forward_step(self, inp_tokens, memory):
         memory = _update_mem(inp_tokens, memory)
