@@ -78,7 +78,7 @@ model: !new:speechbrain.nnet.containers.Sequential
         input_size: 1
         track_running_stats: False
         affine: True
-    conv1: !name:speechbrain.nnet.CNN.Conv1d
+    conv1: !name:speechbrain.nnet.CNN.SincConv
         out_channels: !ref <base_channels>
         kernel_size: !ref <kernel_size>
     IN1: !new:speechbrain.nnet.normalization.InstanceNorm1d
