@@ -2,18 +2,19 @@
 import os
 import sys
 import torch
-import speechbrain as sb
 
+import speechbrain as sb
 from speechbrain.data_io.data_io import prepend_bos_token
 from speechbrain.data_io.data_io import append_eos_token
-from speechbrain.data_io.data_io import merge_csvs
 from speechbrain.utils.checkpoints import ckpt_recency
 from speechbrain.utils.train_logger import summarize_average
+from speechbrain.utils.data_utils import download_file
 
 # This hack needed to import data preparation script from ..
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(current_dir))
 from librispeech_prepare import prepare_librispeech  # noqa E402
+from librispeech_lm_prepare import prepare_lm_corpus  # noqa E402
 
 # Load hyperparameters file with command-line overrides
 params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
@@ -38,15 +39,20 @@ checkpointer = sb.utils.checkpoints.Checkpointer(
     },
 )
 
+steps = 0
+
 
 # Define training procedure
 class LM(sb.core.Brain):
     def compute_forward(self, y, stage="train", init_params=False):
         ids, chars, char_lens = y
+        index2lab = params.label_loader.label_dict["char"]["index2lab"]
+        bpe, _ = params.bpe_tokenizer(
+            chars, char_lens, index2lab, task="encode", init_params=init_params
+        )
+        bpe = bpe.to(params.device)
 
-        chars, char_lens = chars.to(params.device), char_lens.to(params.device)
-
-        y_in = prepend_bos_token(chars, bos_index=params.bos_index)
+        y_in = prepend_bos_token(bpe, bos_index=params.bos_index)
         logits = params.model(y_in, init_params=init_params)
         pout = params.log_softmax(logits)
         return pout
@@ -54,18 +60,22 @@ class LM(sb.core.Brain):
     def compute_objectives(self, predictions, targets, stage="train"):
         pout = predictions
         ids, chars, char_lens = targets
-        chars, char_lens = chars.to(params.device), char_lens.to(params.device)
+        index2lab = params.label_loader.label_dict["char"]["index2lab"]
+        bpe, bpe_lens = params.bpe_tokenizer(
+            chars, char_lens, index2lab, task="encode"
+        )
+        bpe, bpe_lens = bpe.to(params.device), bpe_lens.to(params.device)
 
-        abs_length = torch.round(char_lens * chars.shape[1])
+        abs_length = torch.round(bpe_lens * bpe.shape[1])
 
         # Append eos token at the end of the label sequences
-        chars_with_eos = append_eos_token(
-            chars, length=abs_length, eos_index=params.eos_index
+        bpe_with_eos = append_eos_token(
+            bpe, length=abs_length, eos_index=params.eos_index
         )
 
         # convert to speechbrain-style relative length
-        rel_length = (abs_length + 1) / chars_with_eos.shape[1]
-        loss = params.compute_cost(pout, chars_with_eos, length=rel_length)
+        rel_length = (abs_length + 1) / bpe_with_eos.shape[1]
+        loss = params.compute_cost(pout, bpe_with_eos, length=rel_length)
 
         return loss, {}
 
@@ -73,9 +83,12 @@ class LM(sb.core.Brain):
         inputs = batch[0]
         predictions = self.compute_forward(inputs)
         loss, stats = self.compute_objectives(predictions, inputs)
-        loss.backward()
-        self.optimizer.step()
-        self.optimizer.zero_grad()
+        (loss / params.accu_steps).backward()
+        global steps
+        steps += 1
+        if steps % params.accu_steps == 0:
+            self.optimizer.step()
+            self.optimizer.zero_grad()
         stats["loss"] = loss.detach()
         return stats
 
@@ -99,30 +112,36 @@ class LM(sb.core.Brain):
             importance_keys=[ckpt_recency, lambda c: -c.meta["loss"]],
         )
 
+    def load_tokenizer(self):
+        save_model_path = params.save_folder + "/tok_unigram.model"
+        save_vocab_path = params.save_folder + "/tok_unigram.vocab"
+
+        if hasattr(params, "tok_mdl_file"):
+            download_file(
+                params.tok_mdl_file, save_model_path, replace_existing=True
+            )
+            params.bpe_tokenizer.sp.load(save_model_path)
+        if hasattr(params, "tok_voc_file"):
+            download_file(
+                params.tok_voc_file, save_vocab_path, replace_existing=True
+            )
+
 
 # Prepare data
 prepare_librispeech(
     data_folder=params.data_folder,
-    splits=[
-        "train-clean-100",
-        "train-clean-360",
-        "train-other-500",
-        "dev-clean",
-    ],
+    splits=params.train_splits + [params.dev_split],
+    merge_lst=params.train_splits,
+    merge_name=params.csv_label,
     save_folder=params.data_folder,
 )
-merge_csvs(
+
+prepare_lm_corpus(
     data_folder=params.data_folder,
-    csv_lst=[
-        "train-clean-100.csv",
-        "train-clean-360.csv",
-        "train-other-500.csv",
-    ],
-    merged_csv="train-960.csv",
+    save_folder=params.data_folder,
+    filename=params.filename,
 )
 
-# Using train-clean-100 to generate the same label_dict as ASR model
-# Temporary solution
 _ = params.label_loader()
 train_set = params.train_loader()
 valid_set = params.valid_loader()
@@ -135,6 +154,8 @@ if params.multigpu:
     params.model = torch.nn.DataParallel(params.model)
 # Load latest checkpoint to resume training
 checkpointer.recover_if_possible()
+
+lm_brain.load_tokenizer()
 lm_brain.fit(params.epoch_counter, train_set, valid_set)
 
 # Load best checkpoint for evaluation

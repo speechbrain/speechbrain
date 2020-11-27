@@ -17,10 +17,12 @@ class CNNTransformerSE(TransformerInterface):
 
     Arguements
     ----------
-    output_size: int
-        the number of expected neurons in the output layer.
+    d_model : int
+        the number of expected features in the encoder inputs.
+    output_size : int
+        the number of neurons in the output layer.
     output_activation: torch class
-        the activation function of output layer, (default=ReLU).
+        the activation function of the output layer, (default=ReLU).
     nhead: int
         the number of heads in the multiheadattention models (default=8).
     num_layers: int
@@ -35,17 +37,19 @@ class CNNTransformerSE(TransformerInterface):
         True for causal setting, the model is forbidden to see future frames. (default=True)
     custom_emb_module: torch class
         module that process the input features before the transformer model.
+
     Example
     -------
     >>> src = torch.rand([8, 120, 256])
-    >>> net = CNNTransformerSE(257)
-    >>> out = net.forward(src, init_params=True)
-    >>> print(out.shape)
+    >>> net = CNNTransformerSE(d_model=256, output_size=257)
+    >>> out = net(src)
+    >>> out.shape
     torch.Size([8, 120, 257])
     """
 
     def __init__(
         self,
+        d_model,
         output_size,
         output_activation=nn.ReLU,
         nhead=8,
@@ -55,40 +59,41 @@ class CNNTransformerSE(TransformerInterface):
         activation=nn.LeakyReLU,
         causal=True,
         custom_emb_module=None,
+        normalize_before=False,
     ):
         super().__init__(
+            d_model=d_model,
             nhead=nhead,
             num_encoder_layers=num_layers,
             num_decoder_layers=0,
             d_ffn=d_ffn,
             dropout=dropout,
             activation=activation,
-            return_attention=False,
             positional_encoding=False,
+            normalize_before=normalize_before,
         )
 
         self.custom_emb_module = custom_emb_module
         self.causal = causal
-        self.output_layer = Linear(output_size, bias=False)
+        self.output_layer = Linear(output_size, input_size=d_model, bias=False)
         self.output_activation = output_activation()
 
-    def forward(self, x, src_key_padding_mask=None, init_params=False):
+    def forward(self, x, src_key_padding_mask=None):
         if self.causal:
             self.attn_mask = get_lookahead_mask(x)
         else:
             self.attn_mask = None
 
         if self.custom_emb_module is not None:
-            x = self.custom_emb_module(x, init_params)
+            x = self.custom_emb_module(x)
 
-        encoder_output = self.encoder(
+        encoder_output, _ = self.encoder(
             src=x,
             src_mask=self.attn_mask,
             src_key_padding_mask=src_key_padding_mask,
-            init_params=init_params,
         )
 
-        output = self.output_layer(encoder_output, init_params)
+        output = self.output_layer(encoder_output)
         output = self.output_activation(output)
 
         return output

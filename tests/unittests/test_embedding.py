@@ -13,12 +13,12 @@ def test_embedding():
         num_embeddings=size_dict, consider_as_one_hot=True, blank_id=blank_id,
     )
     inputs = torch.Tensor([10, 5, 2, 0, 39]).long()
-    output = emb(inputs, init_params=True)
+    output = emb(inputs)
     assert output.shape == (5, 39)
 
     # use standard embedding layer
     embedding_dim = 128
     emb = Embedding(num_embeddings=size_dict, embedding_dim=embedding_dim)
     inputs = torch.randint(0, 40, (5, 10))
-    output = emb(inputs, init_params=True)
+    output = emb(inputs)
     assert output.shape == (5, 10, 128)

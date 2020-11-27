@@ -1,6 +1,9 @@
-import os
+"""Non-negative matrix factorization
+
+Authors
+* Cem Subakan
+"""
 import torch
-from speechbrain.data_io.data_io import write_wav_soundfile
 from speechbrain.processing.features import spectral_magnitude
 import speechbrain.processing.features as spf
 
@@ -97,15 +100,7 @@ def NMF_separate_spectra(Whats, Xmix):
 
 
 def reconstruct_results(
-    X1hat,
-    X2hat,
-    X_stft,
-    sample_rate,
-    win_length,
-    hop_length,
-    copy_original_files=True,
-    use_absolute_path=False,
-    datapath="samples/audio_samples/sourcesep_samples",
+    X1hat, X2hat, X_stft, sample_rate, win_length, hop_length,
 ):
 
     """This function reconstructs the separated spectra into waveforms.
@@ -135,42 +130,31 @@ def reconstruct_results(
     hop_length : int (ms)
         the length with which we shift the STFT windows.
 
-    copy_original_files : (bool)
-        If this is true, then this function copies the original files for inspecting the quality of the results.
-
-    use_absolute_path : (bool)
-        If this is true, the variable datapath is used to copy the original files as an absolute path.
-
-    datapath : (str)
-        This sets the
-
-    This function doesn't return.
+    Returns
+    -------
+    x1hats : (list)
+        List of waveforms for source 1
+    x2hats : (list)
+        List of waveforms for source 2
 
     Example
-    ---------
+    -------
     >>> BS, nfft, T = 10, 512, 16000
     >>> sample_rate, win_length, hop_length = 16000, 25, 10
     >>> X1hat = torch.randn(BS, nfft//2 + 1, T)
     >>> X2hat = torch.randn(BS, nfft//2 + 1, T)
     >>> X_stft = torch.randn(BS, nfft//2 + 1, T, 2)
-    >>> reconstruct_results(X1hat, X2hat, X_stft, sample_rate, win_length, hop_length)
-
+    >>> x1hats, x2hats = reconstruct_results(X1hat, X2hat, X_stft, sample_rate, win_length, hop_length)
     """
 
     ISTFT = spf.ISTFT(
         sample_rate=sample_rate, win_length=win_length, hop_length=hop_length
     )
 
-    savepath = "results/save/"
-    if not os.path.exists("results"):
-        os.mkdir("results")
-
-    if not os.path.exists(savepath):
-        os.mkdir(savepath)
-
     phase_mix = spectral_phase(X_stft)
     mag_mix = spectral_magnitude(X_stft, power=2)
 
+    x1hats, x2hats = [], []
     eps = 1e-25
     for i in range(X1hat.shape[0]):
         X1hat_stft = (
@@ -200,34 +184,9 @@ def reconstruct_results(
         shat2 = ISTFT(X2hat_stft.unsqueeze(0).permute(0, 2, 1, 3))
 
         div_factor = 10
-        write_wav_soundfile(
-            shat1 / (div_factor * shat1.std()),
-            savepath + "separated_source1_{}".format(i) + ".wav",
-            16000,
-        )
-        write_wav_soundfile(
-            shat2 / (div_factor * shat2.std()),
-            savepath + "separated_source2_{}".format(i) + ".wav",
-            16000,
-        )
+        x1 = shat1 / (div_factor * shat1.std())
+        x2 = shat2 / (div_factor * shat2.std())
 
-        if copy_original_files:
-
-            if not use_absolute_path:
-                filedir = os.path.dirname(os.path.realpath(__file__))
-                speechbrain_path = os.path.abspath(
-                    os.path.join(filedir, "../..")
-                )
-                copypath = os.path.realpath(
-                    os.path.join(speechbrain_path, datapath)
-                )
-            else:
-                copypath = datapath
-
-            all_files = os.listdir(copypath)
-            wav_files = [fl for fl in all_files if ".wav" in fl]
-
-            for wav_file in wav_files:
-                os.system(
-                    "cp {} {}".format(copypath + "/" + wav_file, savepath)
-                )
+        x1hats.append(x1)
+        x2hats.append(x2)
+    return x1hats, x2hats

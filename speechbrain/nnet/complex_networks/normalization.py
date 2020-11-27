@@ -16,7 +16,10 @@ class ComplexBatchNorm(torch.nn.Module):
 
     Arguments
     ---------
-
+    input_shape : tuple
+        Expected shape of the input.
+    input_size : int
+        Expected size of the input.
     dim: int, optional
         Default: -1
         It defines the axis that should be normalized. It usually correspond to
@@ -44,8 +47,8 @@ class ComplexBatchNorm(torch.nn.Module):
     Example
     -------
     >>> inp_tensor = torch.rand([10, 16, 30])
-    >>> CBN = ComplexBatchNorm()
-    >>> out_tensor = CBN(inp_tensor, init_params=True)
+    >>> CBN = ComplexBatchNorm(input_shape=inp_tensor.shape)
+    >>> out_tensor = CBN(inp_tensor)
     >>> out_tensor.shape
     torch.Size([10, 16, 30])
 
@@ -53,6 +56,8 @@ class ComplexBatchNorm(torch.nn.Module):
 
     def __init__(
         self,
+        input_shape=None,
+        input_size=None,
         dim=-1,
         eps=1e-4,
         momentum=0.1,
@@ -69,56 +74,22 @@ class ComplexBatchNorm(torch.nn.Module):
         self.center = center
         self.track_running_stats = track_running_stats
 
-    def init_params(self, first_input):
-        """
-        Arguments
-        ---------
-        first_input : tensor
-            A first input used for initializing the parameters.
-        """
-
-        self.device = first_input.device
-        self.num_complex_features = self._check_input(first_input)
+        if input_size is None:
+            self.num_complex_features = self._check_input(input_shape)
+        else:
+            self.num_complex_features = input_size // 2
 
         if self.scale:
-            self.gamma_rr = Parameter(
-                torch.empty(
-                    self.num_complex_features,
-                    dtype=torch.float32,
-                    device=self.device,
-                    requires_grad=True,
-                )
-            )
-            self.gamma_ii = Parameter(
-                torch.empty(
-                    self.num_complex_features,
-                    dtype=torch.float32,
-                    device=self.device,
-                    requires_grad=True,
-                )
-            )
-            self.gamma_ri = Parameter(
-                torch.empty(
-                    self.num_complex_features,
-                    dtype=torch.float32,
-                    device=self.device,
-                    requires_grad=True,
-                )
-            )
+            self.gamma_rr = Parameter(torch.empty(self.num_complex_features))
+            self.gamma_ii = Parameter(torch.empty(self.num_complex_features))
+            self.gamma_ri = Parameter(torch.empty(self.num_complex_features))
         else:
             self.register_parameter("gamma_rr", None)
             self.register_parameter("gamma_ii", None)
             self.register_parameter("gamma_ri", None)
 
         if self.center:
-            self.beta = Parameter(
-                torch.empty(
-                    self.num_complex_features * 2,
-                    dtype=torch.float32,
-                    device=self.device,
-                    requires_grad=True,
-                )
-            )  # .to(self.device)
+            self.beta = Parameter(torch.empty(self.num_complex_features * 2))
         else:
             self.register_parameter("beta", None)
 
@@ -167,18 +138,12 @@ class ComplexBatchNorm(torch.nn.Module):
         # "Deep Complex Networks" Trabelsi C. et al.
         if self.track_running_stats:
             if self.center:
-                self.moving_mean = self.moving_mean.zero_().to(self.device)
+                self.moving_mean.zero_()
             if self.scale:
-                self.moving_Vrr = self.moving_Vrr.fill_(1 / np.sqrt(2)).to(
-                    self.device
-                )
-                self.moving_Vii = self.moving_Vii.fill_(1 / np.sqrt(2)).to(
-                    self.device
-                )
-                self.moving_Vri = self.moving_Vri.zero_().to(self.device)
-            self.num_batches_tracked = self.num_batches_tracked.zero_().to(
-                self.device
-            )
+                self.moving_Vrr.fill_(1 / np.sqrt(2))
+                self.moving_Vii.fill_(1 / np.sqrt(2))
+                self.moving_Vri.zero_()
+            self.num_batches_tracked.zero_()
 
     def reset_parameters(self):
         # Simply reset all the parameters.
@@ -191,19 +156,14 @@ class ComplexBatchNorm(torch.nn.Module):
         if self.center:
             self.beta.data.zero_()
 
-    def forward(self, input, init_params=False):
+    def forward(self, input):
         """Returns the normalized input tensor.
 
         Arguments
         ---------
-        x : torch.Tensor (batch, time, [channels])
+        input : torch.Tensor (batch, time, [channels])
             input to normalize. It can be 2d, 3d, 4d.
         """
-
-        # If first call, initialize global parameters
-        if init_params:
-            self.init_params(input)
-
         exponential_average_factor = 0.0
 
         # Initialize moving parameters
@@ -275,30 +235,29 @@ class ComplexBatchNorm(torch.nn.Module):
 
         # Pick the normalized form corresponding
         # to the training phase when we use running stats.
-        if self.training:
-            if self.track_running_stats:
-                if self.center:
-                    self.moving_mean = (
-                        1 - exponential_average_factor
-                    ) * self.moving_mean + exponential_average_factor * mu.view(
-                        self.moving_mean.size()
-                    )
-                if self.scale:
-                    self.moving_Vrr = (
-                        1 - exponential_average_factor
-                    ) * self.moving_Vrr + exponential_average_factor * Vrr.view(
-                        self.moving_Vrr.size()
-                    )
-                    self.moving_Vii = (
-                        1 - exponential_average_factor
-                    ) * self.moving_Vii + exponential_average_factor * Vii.view(
-                        self.moving_Vii.size()
-                    )
-                    self.moving_Vri = (
-                        1 - exponential_average_factor
-                    ) * self.moving_Vri + exponential_average_factor * Vri.view(
-                        self.moving_Vri.size()
-                    )
+        if self.training and self.track_running_stats:
+            if self.center:
+                self.moving_mean = (
+                    1 - exponential_average_factor
+                ) * self.moving_mean + exponential_average_factor * mu.view(
+                    self.moving_mean.size()
+                )
+            if self.scale:
+                self.moving_Vrr = (
+                    1 - exponential_average_factor
+                ) * self.moving_Vrr + exponential_average_factor * Vrr.view(
+                    self.moving_Vrr.size()
+                )
+                self.moving_Vii = (
+                    1 - exponential_average_factor
+                ) * self.moving_Vii + exponential_average_factor * Vii.view(
+                    self.moving_Vii.size()
+                )
+                self.moving_Vri = (
+                    1 - exponential_average_factor
+                ) * self.moving_Vri + exponential_average_factor * Vri.view(
+                    self.moving_Vri.size()
+                )
 
         if self.training or (not self.track_running_stats):
             input_inferred = input_centred if self.center else input
@@ -358,16 +317,16 @@ class ComplexBatchNorm(torch.nn.Module):
 
         return tensor_real, tensor_imag
 
-    def _check_input(self, x):
+    def _check_input(self, input_shape):
         """
         Checks the input and returns the number of complex values.
         """
 
-        if x.shape[self.dim] % 2 == 0:
-            return x.shape[self.dim] // 2
+        if input_shape[self.dim] % 2 == 0:
+            return input_shape[self.dim] // 2
         else:
             msg = "ComplexBatchNorm dim must be dividible by 2 ! Got " + str(
-                x.shape[self.dim]
+                input_shape[self.dim]
             )
             raise ValueError(msg)
 
@@ -379,9 +338,10 @@ class ComplexLayerNorm(torch.nn.Module):
 
     Arguments
     ---------
-
-    num_complex_features: int
-        It is the number of complex neurons to normalize.
+    input_shape : tuple
+        Expected shape of the input.
+    input_size : int
+        Expected size of the input dimension.
     dim: int, optional
         Default: -1
         It defines the axis that should be normalized. It usually correspond to
@@ -401,13 +361,21 @@ class ComplexLayerNorm(torch.nn.Module):
     Example
     -------
     >>> inp_tensor = torch.rand([10, 16, 30])
-    >>> CBN = ComplexLayerNorm()
-    >>> out_tensor = CBN(inp_tensor, init_params=True)
+    >>> CBN = ComplexLayerNorm(input_shape=inp_tensor.shape)
+    >>> out_tensor = CBN(inp_tensor)
     >>> out_tensor.shape
     torch.Size([10, 16, 30])
     """
 
-    def __init__(self, dim=-1, eps=1e-4, scale=True, center=True):
+    def __init__(
+        self,
+        input_shape=None,
+        input_size=None,
+        dim=-1,
+        eps=1e-4,
+        scale=True,
+        center=True,
+    ):
 
         super().__init__()
         self.dim = dim
@@ -415,50 +383,22 @@ class ComplexLayerNorm(torch.nn.Module):
         self.scale = scale
         self.center = center
 
-    def init_params(self, first_input):
-
-        self.device = first_input.device
-        self.num_complex_features = self._check_input(first_input)
+        if input_size is None:
+            self.num_complex_features = self._check_input(input_shape)
+        else:
+            self.num_complex_features = input_size // 2
 
         if self.scale:
-            self.gamma_rr = Parameter(
-                torch.empty(
-                    self.num_complex_features,
-                    dtype=torch.float32,
-                    device=self.device,
-                    requires_grad=True,
-                )
-            )
-            self.gamma_ii = Parameter(
-                torch.empty(
-                    self.num_complex_features,
-                    dtype=torch.float32,
-                    device=self.device,
-                    requires_grad=True,
-                )
-            )
-            self.gamma_ri = Parameter(
-                torch.empty(
-                    self.num_complex_features,
-                    dtype=torch.float32,
-                    device=self.device,
-                    requires_grad=True,
-                )
-            )
+            self.gamma_rr = Parameter(torch.empty(self.num_complex_features))
+            self.gamma_ii = Parameter(torch.empty(self.num_complex_features))
+            self.gamma_ri = Parameter(torch.empty(self.num_complex_features))
         else:
             self.register_parameter("gamma_rr", None)
             self.register_parameter("gamma_ii", None)
             self.register_parameter("gamma_ri", None)
 
         if self.center:
-            self.beta = Parameter(
-                torch.empty(
-                    self.num_complex_features * 2,
-                    dtype=torch.float32,
-                    device=self.device,
-                    requires_grad=True,
-                )
-            )
+            self.beta = Parameter(torch.empty(self.num_complex_features * 2))
         else:
             self.register_parameter("beta", None)
         self.reset_parameters()
@@ -473,10 +413,7 @@ class ComplexLayerNorm(torch.nn.Module):
         if self.center:
             self.beta.data.zero_()
 
-    def forward(self, input, init_params=False):
-
-        if init_params:
-            self.init_params(input)
+    def forward(self, input):
 
         input_shape = input.size()
         ndim = input.dim()
@@ -552,16 +489,16 @@ class ComplexLayerNorm(torch.nn.Module):
             layernorm=True,
         )
 
-    def _check_input(self, x):
+    def _check_input(self, input_shape):
         """
         Checks the input and returns the number of complex values.
         """
 
-        if x.shape[self.dim] % 2 == 0:
-            return x.shape[self.dim] // 2
+        if input_shape[self.dim] % 2 == 0:
+            return input_shape[self.dim] // 2
         else:
             msg = "ComplexBatchNorm dim must be dividble by 2 ! Got " + str(
-                x.shape[self.dim]
+                input_shape[self.dim]
             )
             raise ValueError(msg)
 

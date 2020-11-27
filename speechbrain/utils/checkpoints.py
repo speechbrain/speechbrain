@@ -15,14 +15,13 @@ The interface requires you to specify names for each thing to save. This name
 is used to give the right parameter file to the right object when recovering.
 
 Default saving and loading methods are only added for torch.nn.Modules (and
-their subclasses). If those methods do not work for your object, you can
-specify your own saving and/or loading methods, either for a particular
-instance or a for a class.
+their subclasses), and torch.optim.Optimizers. If those methods do not work for
+your object, you can specify your own saving and/or loading methods, either for
+a particular instance or a for a class.
 
 Example
 -------
->>> from speechbrain.utils.checkpoints import Checkpointer
->>> import tempfile
+>>> # Toy example Module:
 >>> class Recoverable(torch.nn.Module):
 ...     def __init__(self, param):
 ...         super().__init__()
@@ -30,7 +29,6 @@ Example
 ...     def forward(self, x):
 ...         return x * self.param
 >>> model = Recoverable(1.)
->>>
 >>> tempdir = getfixture('tmpdir')
 >>> # In simple cases, the module aims to have a terse syntax,
 >>> # consisting of three steps.
@@ -67,7 +65,7 @@ METAFNAME = f"{CKPT_PREFIX}.yaml"  # Important that this is not .ckpt
 PARAMFILE_EXT = ".ckpt"  # ...because these files will be
 
 
-def torch_recovery(obj, path, end_of_epoch):
+def torch_recovery(obj, path, end_of_epoch, device=None):
     """Loads a torch.nn.Module state_dict from the given path instantly.
 
     This can be made the default for torch.nn.Modules with:
@@ -88,7 +86,10 @@ def torch_recovery(obj, path, end_of_epoch):
         Given object is modified in place
     """
     del end_of_epoch  # Unused
-    obj.load_state_dict(torch.load(path), strict=True)
+    try:
+        obj.load_state_dict(torch.load(path, map_location=device), strict=True)
+    except TypeError:
+        obj.load_state_dict(torch.load(path, map_location=device))
 
 
 def torch_save(obj, path):
@@ -118,9 +119,11 @@ def torch_save(obj, path):
 # These dicts are indexed by class and hold the default checkpoints methods
 DEFAULT_LOAD_HOOKS = {
     torch.nn.Module: torch_recovery,
+    torch.optim.Optimizer: torch_recovery,
 }
 DEFAULT_SAVE_HOOKS = {
     torch.nn.Module: torch_save,
+    torch.optim.Optimizer: torch_save,
 }
 
 
@@ -202,7 +205,7 @@ def register_checkpoint_hooks(cls):
     ...             fo.write(str(self.param))
     ...
     ...     @mark_as_loader
-    ...     def load(self, path, end_of_epoch):
+    ...     def load(self, path, end_of_epoch, device=None):
     ...         del end_of_epoch  # Unused here
     ...         with open(path) as fi:
     ...             self.param = int(fi.read())
@@ -261,7 +264,7 @@ Checkpoints are first filtered and sorted based on this namedtuple.
 Checkpointers put pathlib.Path in path and a dict in meta.
 You can essentially add any info you want to meta when saving a checkpoint.
 The only default key in meta is "unixtime".
-Checkpoint.parameters is a dict from recoverable name to parameter filepath.
+Checkpoint.paramfiles is a dict from recoverable name to parameter filepath.
 """
 
 
@@ -544,6 +547,9 @@ class Checkpointer:
         used, then most recent checkpoint will be returned. No more than
         one of them may be used.
 
+        Most functionality is actually implemented in ``find_checkpoints()``
+        but this is kept as a useful interface.
+
         Arguments
         ---------
         importance_key : callable, optional
@@ -570,6 +576,62 @@ class Checkpointer:
         None
             if no Checkpoints exist/remain after filtering
         """
+        ckpts_found = self.find_checkpoints(
+            importance_key=importance_key,
+            max_key=max_key,
+            min_key=min_key,
+            ckpt_predicate=ckpt_predicate,
+            max_num_checkpoints=None,
+        )
+        if ckpts_found is None:
+            return None
+        else:
+            return ckpts_found[0]
+
+    def find_checkpoints(
+        self,
+        importance_key=None,
+        max_key=None,
+        min_key=None,
+        ckpt_predicate=None,
+        max_num_checkpoints=None,
+    ):
+        """Picks multiple checkpoints.
+
+        If none of ``importance_key``, ``max_key``, and ``min_key`` is
+        used, then the most recent checkpoints will be returned. No more than
+        one of these may be used.
+
+        Arguments
+        ---------
+        importance_key : callable, optional
+            The key function used in sorting.
+            The checkpoint with the highest returned value is picked.
+            The function is called with Checkpoint namedtuples.
+        max_key : str, optional
+            The checkpoint with the highest value for this key will
+            be returned.
+        min_key : str, optional
+            The checkpoint with the lowest value for this key will
+            be returned.
+        ckpt_predicate : callable, optional
+            Before sorting, the list of
+            checkpoints is filtered with this predicate.
+            See the filter builtin.
+            The function is called with Checkpoint namedtuples (see above).
+            By default, all checkpoints are considered.
+        max_num_checkpoints : int, None
+            The maximum number of checkpoints to return, or None to return all
+            found checkpoints.
+
+        Returns
+        -------
+        list
+            List containing at most the max specified number of Checkpoints
+        None
+            if no Checkpoints exist/remain after filtering
+
+        """
         if importance_key is None and min_key is None and max_key is None:
             importance_key = ckpt_recency
 
@@ -591,9 +653,19 @@ class Checkpointer:
 
         ckpts = self.list_checkpoints()
         ckpts = list(filter(ckpt_predicate, ckpts))
+        # First sort by recency, so that importance being equal,
+        # the most checkpoints are returned
+        ckpts = sorted(ckpts, key=ckpt_recency, reverse=True)
         if ckpts:
-            chosen_ckpt = max(ckpts, key=importance_key)
-            return chosen_ckpt
+            ranked_ckpts = sorted(ckpts, key=importance_key, reverse=True)
+            # NOTE: apparently, you can also slice [:None],
+            # and this is the same as [:], so the following if-else is not
+            # strictly speaking needed. However, this feature does not seem to
+            # be documented Python so I don't want to trust it.
+            if max_num_checkpoints is not None:
+                return ranked_ckpts[:max_num_checkpoints]
+            else:  # No max number -> return all ckpts, but just sorted
+                return ranked_ckpts
         else:
             return None  # Be explicit :)
 
@@ -603,6 +675,7 @@ class Checkpointer:
         max_key=None,
         min_key=None,
         ckpt_predicate=None,
+        device=None,
     ):
         """Picks a checkpoint and recovers from that, if one is found.
 
@@ -628,7 +701,8 @@ class Checkpointer:
             See the filter builtin.
             The function is called with Checkpoint namedtuples (see above).
             By default, all checkpoints are considered.
-
+        device : torch.device
+            Device to load models to.
 
         Returns
         -------
@@ -638,15 +712,15 @@ class Checkpointer:
             if no Checkpoints exist/remain after filtering
         """
         chosen_ckpt = self.find_checkpoint(
-            importance_key, max_key, min_key, ckpt_predicate
+            importance_key, max_key, min_key, ckpt_predicate,
         )
         if chosen_ckpt is not None:
-            self.load_checkpoint(chosen_ckpt)
+            self.load_checkpoint(chosen_ckpt, device)
         else:
             logger.info("Would load a checkpoint here, but none found yet.")
         return chosen_ckpt
 
-    def load_checkpoint(self, checkpoint):
+    def load_checkpoint(self, checkpoint, device=None):
         """Loads the specified checkpoint.
 
         Arguments
@@ -654,7 +728,7 @@ class Checkpointer:
         checkpoint : Checkpoint
             Checkpoint to load
         """
-        self._call_load_hooks(checkpoint)
+        self._call_load_hooks(checkpoint, device)
 
     def list_checkpoints(self):
         """List all checkpoints in the checkpoints directory.
@@ -664,7 +738,7 @@ class Checkpointer:
         list
             list of Checkpoint namedtuple (see above)
         """
-        return self._load_checkpoint_extra_data(self._list_checkpoint_dirs())
+        return self._construct_checkpoint_objects(self._list_checkpoint_dirs())
 
     # NOTE: * in arglist -> keyword only arguments
     def delete_checkpoints(
@@ -717,6 +791,9 @@ class Checkpointer:
             raise ValueError("Number of checkpoints to keep must be positive.")
         ckpts = self.list_checkpoints()
         ckpts = list(filter(ckpt_predicate, ckpts))
+        # First sort by recency, so that importance being equal,
+        # the most recent ones are kept
+        ckpts = sorted(ckpts, key=ckpt_recency, reverse=True)
         protected_checkpoints = []
         for importance_key in importance_keys:
             to_keep = sorted(ckpts, key=importance_key, reverse=True)[
@@ -734,7 +811,7 @@ class Checkpointer:
         shutil.rmtree(checkpoint.path)
         logger.info(f"Deleted checkpoint in {checkpoint.path}")
 
-    def _call_load_hooks(self, checkpoint):
+    def _call_load_hooks(self, checkpoint, device=None):
         # This internal function finds the correct hook to call for every
         # recoverable, and calls it.
         logger.info(f"Loading a checkpoint from {checkpoint.path}")
@@ -754,12 +831,14 @@ class Checkpointer:
                     raise RuntimeError(MSG)
             # First see if object has custom load hook:
             if name in self.custom_load_hooks:
-                self.custom_load_hooks[name](obj, loadpath, end_of_epoch)
+                self.custom_load_hooks[name](
+                    obj, loadpath, end_of_epoch, device
+                )
                 continue
             # Otherwise find the default saver for that type:
             default_hook = get_default_hook(obj, DEFAULT_LOAD_HOOKS)
             if default_hook is not None:
-                default_hook(obj, loadpath, end_of_epoch)
+                default_hook(obj, loadpath, end_of_epoch, device)
                 continue
             # If we got here, no custom hook or registered default hook exists
             MSG = f"Don't know how to load {type(obj)}. Register default hook \
@@ -776,13 +855,13 @@ class Checkpointer:
         ]
 
     @staticmethod
-    def _load_checkpoint_extra_data(checkpoint_dirs):
+    def _construct_checkpoint_objects(checkpoint_dirs):
         # This internal method takes a list of individual checkpoint
         # directory paths (as produced by _list_checkpoint_dirs)
         checkpoints = []
         for ckpt_dir in checkpoint_dirs:
             with open(ckpt_dir / METAFNAME) as fi:
-                meta = yaml.safe_load(fi)
+                meta = yaml.load(fi, Loader=yaml.Loader)
             paramfiles = {}
             for ckptfile in ckpt_dir.iterdir():
                 if ckptfile.suffix == PARAMFILE_EXT:
@@ -829,3 +908,112 @@ class Checkpointer:
             fo.write("# yamllint disable\n")
             fo.write(yaml.dump(meta))
         return meta
+
+
+def average_state_dicts(state_dicts):
+    """
+    Produces an average state_dict from an iterator over state_dicts.
+
+    Note that at one time, this keeps two of the state_dicts in memory, which
+    is the minimum memory requirement.
+
+    Arguments
+    ---------
+    state_dicts : iterator, list
+        The state_dicts to average.
+
+    Returns
+    -------
+    state_dict
+        The averaged state_dict
+    """
+    iterator = iter(state_dicts)
+    try:
+        running_sum = next(iterator)
+    except StopIteration:
+        raise ValueError("No state dicts to average.")
+    num_dicts = 1
+    with torch.no_grad():
+        # First sum all state_dicts together:
+        for state_dict in iterator:
+            for pname, param in state_dict.items():
+                running_sum[pname] += param.data
+            num_dicts += 1
+        # Finally, divide by number of dicts:
+        for pname, param in running_sum.items():
+            running_sum[pname] = param.data / float(num_dicts)
+    return running_sum
+
+
+def average_checkpoints(
+    checkpoint_list,
+    recoverable_name,
+    parameter_loader=torch.load,
+    averager=average_state_dicts,
+):
+    """
+    Average parameters from multiple checkpoints.
+
+    Use Checkpointer.find_checkpoints() to get the list of checkpoints to
+    average over.
+    Averaging parameters from some of the last checkpoints in training has been
+    shown to sometimes improve performance.
+
+    The default loader and averager work for standard PyTorch modules.
+
+    Arguments
+    ---------
+    checkpoint_list : list
+        List of checkpoints to average.
+    recoverable_name : str
+        The name of the recoverable, the parameters of which are loaded and
+        averaged.
+    parameter_loader : function
+        A function which takes a single argument, the path to a parameter file,
+        and loads the parameters from that file. By default, torch.load,
+        which produces state_dict dictionaries.
+    averager : function
+        A function which takes an iterator over the parameters from each
+        checkpoint, as loaded by parameter_loader, and produces their average.
+        Note that the function is called with an iterator, so the length is
+        initially unknown; the implementation should simply count the number of
+        different parameter sets as they are yielded. See average_state_dicts
+        above for an example. It is the default averager, and averages
+        state_dicts.
+
+    Returns
+    -------
+    Any
+        The output of the averager function.
+
+    Example
+    -------
+    >>> # Consider this toy Module again:
+    >>> class Recoverable(torch.nn.Module):
+    ...     def __init__(self, param):
+    ...         super().__init__()
+    ...         self.param = torch.nn.Parameter(torch.tensor([param]))
+    ...     def forward(self, x):
+    ...         return x * self.param
+    >>> # Now let's make some checkpoints:
+    >>> model = Recoverable(1.)
+    >>> tempdir = getfixture('tmpdir')
+    >>> checkpointer = Checkpointer(tempdir, {"model": model})
+    >>> for new_param in range(10):
+    ...     model.param.data = torch.tensor([float(new_param)])
+    ...     _ = checkpointer.save_checkpoint()  # Suppress output with assignment
+    >>> # Let's average the 3 latest checkpoints
+    >>> # (parameter values 7, 8, 9 -> avg=8)
+    >>> ckpt_list = checkpointer.find_checkpoints(max_num_checkpoints = 3)
+    >>> averaged_state = average_checkpoints(ckpt_list, "model")
+    >>> # Now load that state in the normal way:
+    >>> _ = model.load_state_dict(averaged_state)  # Suppress output
+    >>> model.param.data
+    tensor([8.])
+    """
+
+    parameter_iterator = (
+        parameter_loader(ckpt.paramfiles[recoverable_name])
+        for ckpt in checkpoint_list
+    )
+    return averager(parameter_iterator)

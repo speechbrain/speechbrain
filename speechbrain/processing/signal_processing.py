@@ -9,6 +9,8 @@ Authors
  * Samuele Cornell 2020
 """
 import torch
+import math
+from packaging import version
 
 
 def compute_amplitude(waveforms, lengths, amp_type="avg", scale="linear"):
@@ -62,7 +64,7 @@ def compute_amplitude(waveforms, lengths, amp_type="avg", scale="linear"):
         raise NotImplementedError
 
 
-def normalize(waveforms, lengths, amp_type="avg"):
+def normalize(waveforms, lengths, amp_type="avg", eps=1e-14):
     """
     This function normalizes a signal to unitary average or peak amplitude.
 
@@ -78,6 +80,8 @@ def normalize(waveforms, lengths, amp_type="avg"):
         Whether one wants to normalize with respect to "avg" or "peak"
         amplitude. Choose between ["avg", "peak"]. Note: for "avg" clipping
         is not prevented and can occur.
+    eps : float
+        A small number to add to the denominator to prevent NaN.
 
     Returns
     -------
@@ -92,7 +96,7 @@ def normalize(waveforms, lengths, amp_type="avg"):
         batch_added = True
         waveforms = waveforms.unsqueeze(0)
 
-    den = compute_amplitude(waveforms, lengths, amp_type)
+    den = compute_amplitude(waveforms, lengths, amp_type) + eps
     if batch_added:
         waveforms = waveforms.squeeze(0)
     return waveforms / den
@@ -236,29 +240,27 @@ def convolve1d(
         before_index = kernel[..., :rotation_index]
         kernel = torch.cat((after_index, zeros, before_index), dim=-1)
 
-        # Compute FFT for both signals
-        f_signal = torch.rfft(waveform, 1)
-        f_kernel = torch.rfft(kernel, 1)
+        # Multiply in frequency domain to convolve in time domain
+        if version.parse(torch.__version__) > version.parse("1.6.0"):
+            import torch.fft as fft
 
-        # Complex multiply
-        sig_real, sig_imag = f_signal.unbind(-1)
-        ker_real, ker_imag = f_kernel.unbind(-1)
-        f_result = torch.stack(
-            [
-                sig_real * ker_real - sig_imag * ker_imag,
-                sig_real * ker_imag + sig_imag * ker_real,
-            ],
-            dim=-1,
-        )
-
-        # Inverse FFT
-        convolved = torch.irfft(f_result, 1)
-
-        # Because we're using `onesided`, sometimes the output's length
-        # is increased by one in the time dimension. Truncate to ensure
-        # that the length is preserved.
-        if convolved.size(-1) > waveform.size(-1):
-            convolved = convolved[..., : waveform.size(-1)]
+            result = fft.rfft(waveform) * fft.rfft(kernel)
+            convolved = fft.irfft(result, n=waveform.size(-1))
+        else:
+            f_signal = torch.rfft(waveform, 1)
+            f_kernel = torch.rfft(kernel, 1)
+            sig_real, sig_imag = f_signal.unbind(-1)
+            ker_real, ker_imag = f_kernel.unbind(-1)
+            f_result = torch.stack(
+                [
+                    sig_real * ker_real - sig_imag * ker_imag,
+                    sig_real * ker_imag + sig_imag * ker_real,
+                ],
+                dim=-1,
+            )
+            convolved = torch.irfft(
+                f_result, 1, signal_sizes=[waveform.size(-1)]
+            )
 
     # Use the implementation given by torch, which should be efficient on GPU
     else:
@@ -424,188 +426,55 @@ def notch_filter(notch_freq, filter_width=101, notch_width=0.05):
     return (hlpf + hhpf).view(1, -1, 1)
 
 
-def cov(xs, average=True):
-    """ Computes the covariance matrices of the signals.
-
-    Arguments:
-    ----------
-    xs : tensor
-        A batch of audio signals in the frequency domain.
-        The tensor must have the following format:
-        (batch, time_step, n_fft, 2, n_mics)
-
-    average : boolean
-        Informs the method if it should return an average
-        (computed on the time dimension) of the covariance
-        matrices. Default value is True.
-
-    Returns
-    -------
-    The covariance matrices. The tensor has the following
-    format: (batch, time_step, n_fft, n_mics + n_pairs)
-
-    Example
-    -------
-    >>> import soundfile as sf
-    >>> import torch
-    >>> from speechbrain.processing.features import STFT
-    >>> from speechbrain.processing.signal_processing import cov
-    >>> signal, fs = sf.read('samples/audio_samples/example_multichannel.wav')
-    >>> signal = torch.tensor(signal).unsqueeze(0)
-    >>> compute_stft = STFT(sample_rate=fs)
-    >>> xs = compute_stft(signal)
-    >>> rxx = cov(xs)
+def overlap_and_add(signal, frame_step):
     """
+    Taken from https://github.com/kaituoxu/Conv-TasNet/blob/master/src/utils.py
 
-    # Formating the real and imaginary parts
-    xs_re = xs[..., 0, :].unsqueeze(4)
-    xs_im = xs[..., 1, :].unsqueeze(4)
+    Reconstructs a signal from a framed representation.
+    Adds potentially overlapping frames of a signal with shape
+    `[..., frames, frame_length]`, offsetting subsequent frames by `frame_step`.
+    The resulting tensor has shape `[..., output_size]` where
+        output_size = (frames - 1) * frame_step + frame_length
+    Args:
+        signal: A [..., frames, frame_length] Tensor. All dimensions may be unknown, and rank must be at least 2.
+        frame_step: An integer denoting overlap offsets. Must be less than or equal to frame_length.
+    Returns:
+        A Tensor with shape [..., output_size] containing the overlap-added frames of signal's inner-most two dimensions.
+        output_size = (frames - 1) * frame_step + frame_length
+    Based on https://github.com/tensorflow/tensorflow/blob/r1.12/tensorflow/contrib/signal/python/ops/reconstruction_ops.py
 
-    # Computing the covariance
-    rxx_re = torch.matmul(xs_re, xs_re.transpose(3, 4)) + torch.matmul(
-        xs_im, xs_im.transpose(3, 4)
+    example:
+    --------
+    >>> signal = torch.randn(5, 20)
+    >>> overlapped = overlap_and_add(signal, 20)
+    >>> overlapped.shape
+    torch.Size([100])
+    """
+    outer_dimensions = signal.size()[:-2]
+    frames, frame_length = signal.size()[-2:]
+
+    subframe_length = math.gcd(
+        frame_length, frame_step
+    )  # gcd=Greatest Common Divisor
+    subframe_step = frame_step // subframe_length
+    subframes_per_frame = frame_length // subframe_length
+    output_size = frame_step * (frames - 1) + frame_length
+    output_subframes = output_size // subframe_length
+
+    subframe_signal = signal.view(*outer_dimensions, -1, subframe_length)
+
+    frame = torch.arange(0, output_subframes).unfold(
+        0, subframes_per_frame, subframe_step
     )
 
-    rxx_im = torch.matmul(xs_im, xs_re.transpose(3, 4)) - torch.matmul(
-        xs_re, xs_im.transpose(3, 4)
+    # frame_old = signal.new_tensor(frame).long()  # signal may in GPU or CPU
+    frame = frame.clone().detach().to(signal.device.type)
+    # print((frame - frame_old).sum())
+    frame = frame.contiguous().view(-1)
+
+    result = signal.new_zeros(
+        *outer_dimensions, output_subframes, subframe_length
     )
-
-    # Selecting the upper triangular part of the covariance matrices
-    n_channels = xs.shape[4]
-    indices = torch.triu_indices(n_channels, n_channels)
-
-    rxx_re = rxx_re[..., indices[0], indices[1]]
-    rxx_im = rxx_im[..., indices[0], indices[1]]
-
-    rxx = torch.stack((rxx_re, rxx_im), 3)
-
-    if average is True:
-        n_time_frames = rxx.shape[1]
-        rxx = torch.mean(rxx, 1, keepdim=True)
-        rxx = rxx.repeat(1, n_time_frames, 1, 1, 1)
-
-    return rxx
-
-
-class GCCPHAT(torch.nn.Module):
-    """ Generalized Cross-Correlation with Phase Transform (GCC-PHAT)
-
-    This class locates the source of a signal by doing a cross-correlation
-    and a phase transform between each pair of microphone. It is assumed
-    that the argument "onesided" of the STFT was set to True.
-
-    Example
-    -------
-    >>> import soundfile as sf
-    >>> import torch
-    >>> from speechbrain.processing.features import STFT
-    >>> from speechbrain.processing.signal_processing import cov, GCCPHAT
-    >>> signal, fs = sf.read('samples/audio_samples/example_multichannel.wav')
-    >>> signal = torch.tensor(signal).unsqueeze(0)
-    >>> compute_stft = STFT(sample_rate=fs)
-    >>> xs = compute_stft(signal)
-    >>> rxx = cov(xs)
-    >>> gccphat = GCCPHAT()
-    >>> xxs = gccphat(rxx)
-    >>> delays = gccphat.find_tdoa(xxs)
-    """
-
-    def __init__(self):
-        super().__init__()
-
-    def forward(self, rxx, eps=1e-20):
-        """ Returns the cross-correlation values for each timestamp.
-        The result has the following format:
-        (batch, time_steps, n_fft, n_mics + n_pairs)
-
-        Arguments
-        ---------
-        rxx : tensor
-            The covariance matrices of the input signal. The tensor must
-            have the following format (batch, time_steps, n_fft/2, 2, n_pairs)
-
-        eps : float
-            A small value to avoid divisions by 0 with the phase transform. The
-            default value is 1e-20.
-        """
-
-        # Extracting the tensors for the operations
-        rxx_values, rxx_indices = torch.unique(rxx, return_inverse=True, dim=1)
-
-        rxx_re = rxx_values[..., 0, :]
-        rxx_im = rxx_values[..., 1, :]
-
-        # Phase transform
-        rxx_abs = torch.sqrt(rxx_re ** 2 + rxx_im ** 2) + eps
-
-        rxx_re_phat = rxx_re / rxx_abs
-        rxx_im_phat = rxx_im / rxx_abs
-
-        rxx_phat = torch.stack((rxx_re_phat, rxx_im_phat), 4)
-
-        # Returning in the temporal domain
-        rxx_phat = rxx_phat.transpose(2, 3)
-        n_samples = int((rxx.shape[2] - 1) * 2)
-
-        xxs = torch.irfft(rxx_phat, signal_ndim=1, signal_sizes=[n_samples])
-        xxs = xxs[:, rxx_indices]
-
-        # Formating the output
-        xxs = xxs.transpose(2, 3)
-
-        return xxs
-
-    def find_tdoa(self, xxs, tdoa_max=None, center=True):
-        """ Returns the time difference of arrival (TDOA) for each
-        timestamp. Since GCC-PHAT uses the covariance matrices to work,
-        find_tdoa() will return delays for every possible pair of microphone
-        (including each microphone compared to itself giving delays of 0).
-        The result will have the following format:
-        (batch, time_steps, n_mics + n_pairs)
-
-        Arguments
-        ---------
-        xxs : tensor
-            The cross-correlation values for each timestamp. The input
-            has the following format: (batch, time_steps, n_fft, n_pairs)
-
-        tdoa_max : int
-            Specifies a range to search for delays. For example, if
-            tdoa_max = 10, the method will restrict its search for delays
-            between -10 and 10 samples. This parameter is optional and its
-            default value is None. When tdoa_max is None, the method will
-            search for delays between -n_fft/2 and n_fft/2 (full range).
-
-        center : bool
-            Specifies if the method should center the delays around 0. For
-            example, if n_fft=400 and that a delay of 390 is found, find_tdoa()
-            will return a delay of -10 rather than 390. This parameter is
-            optional and its default value is set to True.
-        """
-
-        # Setting things up
-        n_fft = xxs.shape[2]
-
-        if tdoa_max is None:
-            tdoa_max = n_fft // 2
-
-        # Splitting the GCC-PHAT values to search in the range
-        slice_1 = xxs[..., 0:tdoa_max, :]
-        slice_2 = xxs[..., -tdoa_max:, :]
-
-        xxs_sliced = torch.cat((slice_1, slice_2), 2)
-
-        # Extracting the delays in the range
-        _, delays = torch.max(xxs_sliced, 2)
-
-        # Adjusting the delays that were affected by the slicing
-        offset = n_fft - xxs_sliced.shape[2]
-
-        idx = delays >= slice_1.shape[2]
-        delays[idx] += offset
-
-        # Centering the delays around 0 if desired
-        if center:
-            delays[idx] -= n_fft
-
-        return delays
+    result.index_add_(-2, frame, subframe_signal)
+    result = result.view(*outer_dimensions, -1)
+    return result

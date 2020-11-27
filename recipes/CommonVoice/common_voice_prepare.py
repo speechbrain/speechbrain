@@ -12,6 +12,7 @@ import os
 import csv
 import re
 import logging
+import torch
 import torchaudio
 import unicodedata
 from tqdm.contrib import tzip
@@ -240,7 +241,7 @@ def convert_mp3_wav(data_folder, tsv_file, path_to_wav, samplerate):
         # Path is at indice 1 in Common Voice tsv files. And .mp3 files
         # are located in datasets/lang/clips/
         mp3_path = data_folder + "/clips/" + line.split("\t")[1]
-        file_name = mp3_path.split(".")[0].split("/")[-1]
+        file_name = mp3_path.split(".")[-2].split("/")[-1]
         new_wav_path = path_to_wav + "/" + file_name + ".wav"
 
         # If corresponding wav file already exists, continue to the next one
@@ -251,6 +252,10 @@ def convert_mp3_wav(data_folder, tsv_file, path_to_wav, samplerate):
         if os.path.isfile(mp3_path):
             try:
                 sig, orig_rate = torchaudio.load(mp3_path)
+
+                # !! STEREO DETECTED, ME MUST GO TO MONO !!
+                if sig.shape[0] == 2:
+                    sig = torch.mean(sig, dim=0).unsqueeze(0)
             except RuntimeError:
                 msg = "Error loading: %s" % (str(len(file_name)))
                 logger.debug(msg)
@@ -338,11 +343,11 @@ def create_csv(
     nb_samples = str(len(loaded_csv))
 
     msg = "Preparing CSV files for %s samples ..." % (str(nb_samples))
-    logger.debug(msg)
+    logger.info(msg)
 
     # Adding some Prints
     msg = "Creating csv lists in %s ..." % (csv_file)
-    logger.debug(msg)
+    logger.info(msg)
 
     csv_lines = [
         [
@@ -365,12 +370,14 @@ def create_csv(
 
     # Start processing lines
     total_duration = 0.0
-    for line in loaded_csv:
+    for line in tzip(loaded_csv):
+
+        line = line[0]
 
         # Path is at indice 1 in Common Voice tsv files. And .mp3 files
         # are located in datasets/lang/clips/
         mp3_path = data_folder + "/clips/" + line.split("\t")[1]
-        file_name = mp3_path.split(".")[0].split("/")[-1]
+        file_name = mp3_path.split(".")[-2].split("/")[-1]
         wav_path = path_to_wav + "/" + file_name + ".wav"
         spk_id = line.split("\t")[0]
         snt_id = file_name
@@ -397,7 +404,7 @@ def create_csv(
         # Important: feel free to specify the text normalization
         # corresponding to your alphabet.
 
-        if language in ["en", "fr", "it"]:
+        if language in ["en", "fr", "it", "rw"]:
             words = re.sub("[^'A-Za-z0-9À-ÖØ-öø-ÿЀ-ӿ]+", " ", words).upper()
         elif language == "ar":
             HAMZA = "\u0621"
@@ -417,6 +424,7 @@ def create_csv(
             words = "".join(
                 [c for c in nfkd_form if not unicodedata.combining(c)]
             )
+            words = words.replace("'", " ")
 
         # Remove multiple spaces
         words = re.sub(" +", " ", words)

@@ -9,6 +9,7 @@ import torch
 import logging
 import csv
 import sentencepiece as spm
+from speechbrain.data_io.data_io import merge_char
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,8 @@ class SentencePiece:
         The directory where the model is saved.
     vocab_size: int, None, optional
         Vocab size for the choosen tokenizer type (BPE, Unigram).
-        The vocab_size is optional for char, and mandatory for BPE & unigram tokenization.
+        The vocab_size is optional for char, and mandatory for BPE & unigram
+        tokenization.
     csv_train: str
         Path of the csv file which is used for learn of create the tokenizer.
     csv_read: str
@@ -38,13 +40,16 @@ class SentencePiece:
         If "bpe", train unsupervised tokenization of piece of words. see:
         https://www.aclweb.org/anthology/P16-1162/
         If "word" take the vocabulary from the input text.
-        If "unigram" do piece of word tokenization using unigram language model, see:
-        https://arxiv.org/abs/1804.10959
+        If "unigram" do piece of word tokenization using unigram language
+        model, see: https://arxiv.org/abs/1804.10959
+    char_format_input : bool
+        Default : False
+        Whether the csv_read entry contains characters format input.
+        (ex. a p p l e _ i s _ g o o d)
     character_coverage: int
-        Default: 1.0,
-        Amount of characters covered by the model,
-        good defaults are: 0.9995 for languages with rich character set like Japanse or Chinese
-        and 1.0 for other languages with small character set.
+        Default: 1.0, Amount of characters covered by the model, good defaults
+        are: 0.9995 for languages with rich character set like Japanse or
+        Chinese and 1.0 for other languages with small character set.
     max_sentencepiece_length: int
         Deault: 10,
         Maximum number of characters for the tokens.
@@ -52,9 +57,6 @@ class SentencePiece:
         Default: -1, if -1 the bos_id = unk_id = 0. otherwise, bos_id = int.
     eos_id: int
         Default: -1, if -1 the bos_id = unk_id = 0. otherwise, bos_id = int.
-    minloglevel: int
-        Default: 1, if 1 then the log(INFO) for BPE training is skipped
-        if 0, the log is printed.
 
     Example
     -------
@@ -67,7 +69,9 @@ class SentencePiece:
     >>> bpe = SentencePiece(model_dir,2000, csv_train, csv_read, model_type)
     >>> batch_seq = torch.Tensor([[1, 2, 2, 1],[1, 2, 1, 0]])
     >>> batch_lens = torch.Tensor([1.0, 0.75])
-    >>> encoded_seq_ids, encoded_seq_pieces = bpe(batch_seq, batch_lens, dict_int2lab, task="encode", init_params=True)
+    >>> encoded_seq_ids, encoded_seq_pieces = bpe(
+    ...     batch_seq, batch_lens, dict_int2lab, task="encode"
+    ... )
     """
 
     def __init__(
@@ -77,13 +81,13 @@ class SentencePiece:
         csv_train=None,
         csv_read=None,
         model_type="unigram",
+        char_format_input=False,
         character_coverage=1.0,
         max_sentencepiece_length=10,
         bos_id=-1,
         eos_id=-1,
         pad_id=-1,
         unk_id=0,
-        minloglevel=1,
     ):
         if model_type not in ["unigram", "bpe", "char"]:
             raise ValueError("model_type must be one of : [unigram, bpe, char]")
@@ -103,13 +107,27 @@ class SentencePiece:
         )
         self.vocab_size = str(vocab_size)
         self.model_type = model_type
+        self.char_format_input = char_format_input
         self.character_coverage = str(character_coverage)
         self.max_sentencepiece_length = str(max_sentencepiece_length)
         self.bos_id = str(bos_id)
         self.eos_id = str(eos_id)
         self.pad_id = str(pad_id)
         self.unk_id = str(unk_id)
-        self.minloglevel = str(minloglevel)
+
+        if not os.path.isfile(self.prefix_model_file + ".model"):
+            logger.info("Train tokenizer with type:" + self.model_type)
+            if not os.path.isfile(self.text_file):
+                self._csv2text()
+            self._train_BPE()
+        else:
+            logger.info("Tokenizer is already trained.")
+        logger.info("==== Loading Tokenizer ===")
+        logger.info("Tokenizer path: " + self.prefix_model_file + ".model")
+        logger.info("Tokenizer vocab_size: " + str(self.vocab_size))
+        logger.info("Tokenizer type: " + self.model_type)
+        self.sp = spm.SentencePieceProcessor()
+        self.sp.load(self.prefix_model_file + ".model")
 
     def _csv2text(self):
         """
@@ -131,15 +149,20 @@ class SentencePiece:
         index_label = headers.index(self.csv_read)
         text_file = open(self.text_file, "w+")
         for row in reader:
-            text_file.write(row[index_label] + "\n")
+            sent = row[index_label]
+            if self.char_format_input:
+                (sent,) = merge_char([sent.split()])
+                sent = " ".join(sent)
+            text_file.write(sent + "\n")
         text_file.close()
         csv_file.close()
         logger.info("Text file created at: " + self.text_file)
 
     def _train_BPE(self):
         """
-        Train tokenizer with unsupervised techniques (BPE, Unigram) using SentencePiece Library.
-        If you use "char" mode, the SentencePiece create a char dict so the vocab_size attribute is not needed.
+        Train tokenizer with unsupervised techniques (BPE, Unigram) using
+        SentencePiece Library. If you use "char" mode, the SentencePiece
+        creates a char dict so the vocab_size attribute is not needed.
         """
         query = (
             "--input="
@@ -160,8 +183,6 @@ class SentencePiece:
             + self.max_sentencepiece_length
             + " --character_coverage="
             + self.character_coverage
-            + " --minloglevel="
-            + self.minloglevel
         )
         if self.model_type not in ["char"]:
             # include vocab_size
@@ -169,74 +190,52 @@ class SentencePiece:
         # Train tokenizer
         spm.SentencePieceTrainer.train(query)
 
-    def init_params(self):
-        """
-        The SentencePiece init_params check if the model is already generated.
-        Otherwise it call the train of the tokenizer.
-
-        This function report the information about the tokenizer used in the experiment.
-        """
-        if not os.path.isfile(self.prefix_model_file + ".model"):
-            logger.info("Train tokenizer with type:" + self.model_type)
-            if not os.path.isfile(self.text_file):
-                self._csv2text()
-            self._train_BPE()
-        else:
-            logger.info("Tokenizer is already trained.")
-        logger.info("==== Loading Tokenizer ===")
-        logger.info("Tokenizer path: " + self.prefix_model_file + ".model")
-        logger.info("Tokenizer vocab_size: " + str(self.vocab_size))
-        logger.info("Tokenizer type: " + self.model_type)
-        self.sp = spm.SentencePieceProcessor()
-        self.sp.load(self.prefix_model_file + ".model")
-
     def __call__(
-        self,
-        batch,
-        batch_lens=None,
-        ind2lab=None,
-        task="encode",
-        init_params=False,
+        self, batch, batch_lens=None, ind2lab=None, task="encode",
     ):
         """
-        This __call__ function implements the tokenizer encoder and decoder (restoring the string of word)
-        for BPE, Regularized BPE (with unigram), and char (speechbrain/nnet/RNN.py).
+        This __call__ function implements the tokenizer encoder and decoder
+        (restoring the string of word) for BPE, Regularized BPE (with unigram),
+        and char (speechbrain/nnet/RNN.py).
 
         Arguments
         ----------
-        batch : tensor.IntTensor or list if ( batch_lens = None and task = "decode_from_list")
-            Containing the original labels. Must be of size: [batch_size, max_length]
+        batch : tensor.IntTensor or list
+            list if ( batch_lens = None and task = "decode_from_list")
+            Contains the original labels. Shape: [batch_size, max_length]
         batch_lens : tensor.LongTensor
             Default: None,
-            Cotaining the relative length of each label sequences. Must be 1D tensor of [batch_size].
+            Cotaining the relative length of each label sequences. Must be 1D
+            tensor of shape: [batch_size].
         ind2lab : dict
-            Dictionnary which map the index from label sequences (batch tensor) to string label.
+            Dictionnary which map the index from label sequences
+            (batch tensor) to string label.
         task: str
             ("encode", "decode", "decode_from_list)
             "encode": convert the batch tensor into sequence of tokens.
                 the output contain a list of (tokens_seq, tokens_lens)
             "decode": convert a tensor of tokens to a list of word sequences.
-            "decode_from_list": convert a list of token sequences to a list of word sequences.
+            "decode_from_list": convert a list of token sequences to a list
+                of word sequences.
         """
-        if init_params:
-            self.init_params()
         if task == "encode" and ind2lab is None:
             raise ValueError("Tokenizer encoder must have the ind2lab function")
 
         if task == "encode":
-            # Convert list of words to bpe ids
+            # Convert list of words/chars to bpe ids
             bpe = []
             max_bpe_len = 0
             batch_lens = (batch_lens * batch.shape[1]).int()
             for i, utt_seq in enumerate(batch):
-                bpe_encode = self.sp.encode_as_ids(
-                    " ".join(
-                        [
-                            ind2lab[int(index)]
-                            for index in utt_seq[: batch_lens[i]]
-                        ]
-                    )
-                )
+                tokens = [
+                    ind2lab[int(index)] for index in utt_seq[: batch_lens[i]]
+                ]
+                if self.char_format_input:
+                    (words_list,) = merge_char([tokens])
+                    sent = " ".join(words_list)
+                else:
+                    sent = " ".join(tokens)
+                bpe_encode = self.sp.encode_as_ids(sent)
                 bpe.append(bpe_encode)
                 # save the longest bpe sequence
                 # it help to compute the relative length of each utterance

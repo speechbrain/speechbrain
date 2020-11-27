@@ -1,9 +1,9 @@
 # Basic parameters
-seed: 1234  # e.g, 1234
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+seed: 1234
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Data (csv) files
-data_folder: !PLACEHOLDER #../../../../samples/voxceleb_samples/wav/
+data_folder: !PLACEHOLDER
 csv_train: !ref <data_folder>/train.csv
 csv_valid: !ref <data_folder>/dev.csv
 csv_test: !ref <data_folder>/test.csv
@@ -23,29 +23,6 @@ deltas: False
 # Number of speakers
 out_n_neurons: 2
 
-# Functions
-compute_features: !new:speechbrain.lobes.features.fbank.Fbank
-    n_mels: !ref <n_mels>
-    left_frames: !ref <left_frames>
-    right_frames: !ref <right_frames>
-    deltas: !ref <deltas>
-
-xvector_model: !new:speechbrain.lobes.models.Xvector.Xvector
-    activation: !name:torch.nn.LeakyReLU
-    device: !ref <device>
-    tdnn_blocks: 5
-    tdnn_channels: [512, 512, 512, 512, 1500]
-    tdnn_kernel_sizes: [5, 3, 3, 1, 1]
-    tdnn_dilations: [1, 2, 3, 1, 1]
-    lin_neurons: 512
-
-classifier: !new:speechbrain.lobes.models.Xvector.Classifier
-    activation: !name:torch.nn.LeakyReLU
-    device: !ref <device>
-    lin_blocks: 1
-    lin_neurons: 512
-    out_neurons: !ref <out_n_neurons>
-
 train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_train>
     batch_size: !ref <batch_size>
@@ -62,12 +39,41 @@ valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
+compute_features: !new:speechbrain.lobes.features.Fbank
+    n_mels: !ref <n_mels>
+    left_frames: !ref <left_frames>
+    right_frames: !ref <right_frames>
+    deltas: !ref <deltas>
+
+xvector_model: !new:speechbrain.lobes.models.Xvector.Xvector
+    in_channels: !ref <n_mels>
+    activation: !name:torch.nn.LeakyReLU
+    tdnn_blocks: 5
+    tdnn_channels: [512, 512, 512, 512, 1500]
+    tdnn_kernel_sizes: [5, 3, 3, 1, 1]
+    tdnn_dilations: [1, 2, 3, 1, 1]
+    lin_neurons: 512
+
+classifier: !new:speechbrain.lobes.models.Xvector.Classifier
+    input_shape: [null, null, 512]
+    activation: !name:torch.nn.LeakyReLU
+    lin_blocks: 1
+    lin_neurons: 512
+    out_neurons: !ref <out_n_neurons>
+
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
 
+modules:
+    xvector_model: !ref <xvector_model>
+    classifier: !ref <classifier>
+    mean_var_norm: !ref <mean_var_norm>
+
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+
 compute_cost: !name:speechbrain.nnet.losses.nll_loss
 
-compute_error: !name:speechbrain.nnet.losses.classification_error
-
-optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
-    learning_rate: !ref <lr>
+error_stats: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !name:speechbrain.nnet.losses.classification_error
+        reduction: batch

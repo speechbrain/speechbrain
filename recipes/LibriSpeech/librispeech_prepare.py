@@ -5,17 +5,20 @@ Download: http://www.openslr.org/12
 
 Author
 ------
-Mirco Ravanelli, Ju-Chieh Chou 2020
+Mirco Ravanelli, Ju-Chieh Chou, Loren Lugosch 2020
 """
 
 import os
 import csv
+import random
+from collections import Counter
 import logging
-from speechbrain.utils.data_utils import get_all_files
+from speechbrain.utils.data_utils import download_file, get_all_files
 from speechbrain.data_io.data_io import (
     read_wav_soundfile,
     load_pkl,
     save_pkl,
+    merge_csvs,
 )
 
 logger = logging.getLogger(__name__)
@@ -28,7 +31,9 @@ def prepare_librispeech(
     splits,
     save_folder,
     select_n_sentences=None,
-    use_lexicon=False,
+    merge_lst=[],
+    merge_name=None,
+    create_lexicon=False,
 ):
     """
     This class prepares the csv files for the LibriSpeech dataset.
@@ -46,8 +51,15 @@ def prepare_librispeech(
     select_n_sentences : int
         Default : None
         If not None, only pick this many sentences.
-    use_lexicon : bool
-        When it is true, using lexicon to generate phonemes columns in the csv file.
+    merge_lst : list
+        List of librispeech splits (e.g, train-clean, train-clean-360,..) to
+        merge in a singe csv file.
+    merge_name: str
+        Name of the merged csv file.
+    create_lexicon: bool
+        If True, it outputs csv files contaning mapping between graphene
+        to phonemes. Use it for training a G2P system.
+
 
     Example
     -------
@@ -60,10 +72,8 @@ def prepare_librispeech(
     splits = splits
     save_folder = save_folder
     select_n_sentences = select_n_sentences
-    use_lexicon = use_lexicon
     conf = {
         "select_n_sentences": select_n_sentences,
-        "use_lexicon": use_lexicon,
     }
 
     # Other variables
@@ -72,13 +82,6 @@ def prepare_librispeech(
         os.makedirs(save_folder)
 
     save_opt = os.path.join(save_folder, OPT_FILE)
-
-    if use_lexicon:
-        lexicon_dict = read_lexicon(
-            os.path.join(data_folder, "librispeech-lexicon.txt")
-        )
-    else:
-        lexicon_dict = {}
 
     # Check if this phase is already done (if so, skip it)
     if skip(splits, save_folder, conf):
@@ -89,6 +92,7 @@ def prepare_librispeech(
     check_librispeech_folders(data_folder, splits)
 
     # create csv files for each split
+    all_texts = {}
     for split_index in range(len(splits)):
 
         split = splits[split_index]
@@ -102,6 +106,7 @@ def prepare_librispeech(
         )
 
         text_dict = text_to_dict(text_lst)
+        all_texts.update(text_dict)
 
         if select_n_sentences is not None:
             n_sentences = select_n_sentences[split_index]
@@ -109,55 +114,150 @@ def prepare_librispeech(
             n_sentences = len(wav_lst)
 
         create_csv(
-            save_folder,
-            wav_lst,
-            text_dict,
-            split,
-            use_lexicon,
-            lexicon_dict,
-            n_sentences,
+            save_folder, wav_lst, text_dict, split, n_sentences,
         )
+
+    # Merging csv file if needed
+    if merge_lst and merge_name is not None:
+        merge_files = [split_libri + ".csv" for split_libri in merge_lst]
+        merge_csvs(
+            data_folder=save_folder, csv_lst=merge_files, merged_csv=merge_name,
+        )
+
+    # Create lexicon.csv and oov.csv
+    if create_lexicon:
+        create_lexicon_and_oov_csv(all_texts, data_folder, save_folder)
 
     # saving options
     save_pkl(conf, save_opt)
 
 
-def read_lexicon(lexicon_path):
+def create_lexicon_and_oov_csv(all_texts, data_folder, save_folder):
     """
-    Read the lexicon into a dictionary.
-    Download link: http://www.openslr.org/resources/11/librispeech-lexicon.txt
+    Creates lexicon csv files useful for traning and testing a
+    graphene-to-phonene (G2P) model.
+
     Arguments
     ---------
-    lexicon_path : string
-        The path of the lexicon.
+    all_text : dict
+        Dictionary contaning text from the librispeech transcriptions
+    data_folder : str
+        Path to the folder where the original LibriSpeech dataset is stored.
+    save_folder : str
+        The directory where to store the csv files.
+    Returns
+    -------
+    None
     """
-    if not os.path.exists(lexicon_path):
-        err_msg = (
-            f"Lexicon path {lexicon_path} does not exist."
-            "Link: http://www.openslr.org/resources/11/librispeech-lexicon.txt"
-        )
-        raise OSError(err_msg)
+    # If the lexicon file does not exist, download it
+    lexicon_url = "http://www.openslr.org/resources/11/librispeech-lexicon.txt"
+    lexicon_path = os.path.join(data_folder, "librispeech-lexicon.txt")
 
-    lexicon_dict = {}
+    if not os.path.isfile(lexicon_path):
+        print("Lexicon file not found. Downloading from %s." % lexicon_url)
+        download_file(lexicon_url, lexicon_path)
 
+    # Get list of all words in the transcripts
+    transcript_words = Counter()
+    for key in all_texts:
+        transcript_words.update(all_texts[key].split("_"))
+
+    # Get list of all words in the lexicon
+    lexicon_words = []
+    lexicon_pronunciations = []
     with open(lexicon_path, "r") as f:
-        for line in f:
-            line_lst = line.split()
-            lexicon_dict[line_lst[0]] = " ".join(line_lst[1:])
-    return lexicon_dict
+        lines = f.readlines()
+        for line in lines:
+            word = line.split()[0]
+            pronunciation = line.split()[1:]
+            lexicon_words.append(word)
+            lexicon_pronunciations.append(pronunciation)
+
+    # Create lexicon.csv
+    header = "ID,duration,graphemes,graphemes_format,graphemes_opts,phonemes,phonemes_format,phonemes_opts\n"
+    lexicon_csv_path = os.path.join(data_folder, "lexicon.csv")
+    with open(lexicon_csv_path, "w") as f:
+        f.write(header)
+        for idx in range(len(lexicon_words)):
+            separated_graphemes = [c for c in lexicon_words[idx]]
+            duration = len(separated_graphemes)
+            graphemes = " ".join(separated_graphemes)
+            pronunciation_no_numbers = [
+                p.strip("0123456789") for p in lexicon_pronunciations[idx]
+            ]
+            phonemes = " ".join(pronunciation_no_numbers)
+            line = (
+                ",".join(
+                    [
+                        str(idx),
+                        str(duration),
+                        graphemes,
+                        "string",
+                        "",
+                        phonemes,
+                        "string",
+                        "",
+                    ]
+                )
+                + "\n"
+            )
+            f.write(line)
+    print("Lexicon written to %s." % lexicon_csv_path)
+
+    # Split lexicon.csv in train, validation, and test splits
+    split_lexicon(data_folder, [98, 1, 1])
+
+
+def split_lexicon(data_folder, split_ratio):
+    """
+    Splits the lexicon.csv file into train, validation, and test csv files
+
+    Arguments
+    ---------
+    data_folder : str
+        Path to the folder contaning the lexicon.csv file to split.
+    split_ratio : list
+        List contaning the training, validation, and test split ratio. Set it
+        to [80, 10, 10] for having 80% of material for training, 10% for valid,
+        and 10 for test.
+
+    Returns
+    -------
+    None
+    """
+    # Reading lexicon.csv
+    lexicon_csv_path = os.path.join(data_folder, "lexicon.csv")
+    with open(lexicon_csv_path, "r") as f:
+        lexicon_lines = f.readlines()
+    # Remove header
+    lexicon_lines = lexicon_lines[1:]
+
+    # Shuffle entries
+    random.shuffle(lexicon_lines)
+
+    # Selecting lines
+    header = "ID,duration,graphemes,graphemes_format,graphemes_opts,phonemes,phonemes_format,phonemes_opts\n"
+
+    tr_snts = int(0.01 * split_ratio[0] * len(lexicon_lines))
+    train_lines = [header] + lexicon_lines[0:tr_snts]
+    valid_snts = int(0.01 * split_ratio[1] * len(lexicon_lines))
+    valid_lines = [header] + lexicon_lines[tr_snts : tr_snts + valid_snts]
+    test_lines = [header] + lexicon_lines[tr_snts + valid_snts :]
+
+    # Saving files
+    with open(os.path.join(data_folder, "lexicon_tr.csv"), "w") as f:
+        f.writelines(train_lines)
+    with open(os.path.join(data_folder, "lexicon_dev.csv"), "w") as f:
+        f.writelines(valid_lines)
+    with open(os.path.join(data_folder, "lexicon_test.csv"), "w") as f:
+        f.writelines(test_lines)
 
 
 def create_csv(
-    save_folder,
-    wav_lst,
-    text_dict,
-    split,
-    use_lexicon,
-    lexicon_dict,
-    select_n_sentences,
+    save_folder, wav_lst, text_dict, split, select_n_sentences,
 ):
     """
-    Create the csv file given a list of wav files.
+    Create the dataset csv file given a list of wav files.
 
     Arguments
     ---------
@@ -169,10 +269,6 @@ def create_csv(
         The dictionary containing the text of each sentence.
     split : str
         The name of the current data split.
-    use_lexicon : bool
-        Whether to use a lexicon or not.
-    lexicon_dict : dict
-        A dictionary for converting words to phones.
     select_n_sentences : int, optional
         The number of sentences to select.
 
@@ -206,10 +302,6 @@ def create_csv(
         ]
     ]
 
-    # add phn column when there is a lexicon.
-    if use_lexicon:
-        csv_lines[0] += ["phn", "phn_format", "phn_opts"]
-
     snt_cnt = 0
     # Processing all the wav files in wav_lst
     for wav_file in wav_lst:
@@ -241,17 +333,6 @@ def create_csv(
             "string",
             "",
         ]
-
-        if use_lexicon:
-            # skip words not in the lexicon
-            phns = " ".join(
-                [
-                    lexicon_dict[wrd]
-                    for wrd in wrds.split("_")
-                    if wrd in lexicon_dict
-                ]
-            )
-            csv_line += [str(phns), "string", ""]
 
         #  Appending current file to the csv_lines list
         csv_lines.append(csv_line)

@@ -10,7 +10,37 @@ import os
 import shutil
 import urllib.request
 import collections.abc
+import torch
 import tqdm
+import pathlib
+
+
+def undo_padding(batch, lengths):
+    """Produces Python lists given a batch of sentences with
+    their corresponding relative lenghts.
+
+    Arguments
+    ---------
+    batch : tensor
+        Batch of sentences gathered in a batch.
+    lenght: tensor
+        Relative length of each sentence in the batch.
+
+    Example
+    -------
+    >>> batch=torch.rand([4,100])
+    >>> lengths=torch.tensor([0.5,0.6,0.7,1.0])
+    >>> snt_list=undo_padding(batch, lengths)
+    >>> len(snt_list)
+    4
+    """
+    batch_max_len = batch.shape[1]
+    as_list = []
+    for seq, seq_length in zip(batch, lengths):
+        actual_size = int(torch.round(seq_length * batch_max_len))
+        seq_true = seq.narrow(0, 0, actual_size)
+        as_list.append(seq_true.tolist())
+    return as_list
 
 
 def get_all_files(
@@ -223,14 +253,24 @@ def recursive_update(d, u, must_match=False):
             d[k] = v
 
 
-def download_file(source, dest, unpack=False, dest_unpack=None):
+def download_file(
+    source, dest, unpack=False, dest_unpack=None, replace_existing=False
+):
     class DownloadProgressBar(tqdm.tqdm):
         def update_to(self, b=1, bsize=1, tsize=None):
             if tsize is not None:
                 self.total = tsize
             self.update(b * bsize - self.n)
 
-    if not os.path.isfile(dest):
+    # Create the destination directory if it doesn't exist
+    dest_dir = pathlib.Path(dest).resolve().parent
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    if "http" not in source:
+        shutil.copyfile(source, dest)
+
+    elif not os.path.isfile(dest) or (
+        os.path.isfile(dest) and replace_existing
+    ):
         print(f"Downloading {source} to {dest}")
         with DownloadProgressBar(
             unit="B", unit_scale=True, miniters=1, desc=source.split("/")[-1]

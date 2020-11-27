@@ -1,0 +1,114 @@
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 2223
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+output_folder: !ref results/RNN/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+# Data files
+data_folder: !PLACEHOLDER # e.g, /localscratch/LibriSpeech
+filename: lm_corpus.h5
+hdf5_train: !ref <data_folder>/<filename>
+
+# Training audio text (used for BPE tokenizer)
+train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
+dev_split: dev-clean
+csv_label: !ref <data_folder>/train.csv
+csv_valid: !ref <data_folder>/<dev_split>.csv
+
+# Tokenizer model
+tok_mdl_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
+tok_voc_file: https://www.dropbox.com/s/7l8z622cpd3t8st/1000_unigram.vocab?dl=1
+
+# Training parameters
+number_of_epochs: 20
+batch_size: 32
+lr: 0.001
+accu_steps: 16 # Gradient accumulation to simulate large batch training
+
+# For DDP, use `python -m speechbrain.ddp experiment.py` to launch experiment
+# These options will be set by that script, and will override these.
+device: 'cuda:0'
+multigpu_count: 0  # Set to number of GPUs if multi-gpu
+multigpu_backend: null  # ['data_parallel', 'ddp_nccl', 'ddp_gloo', 'ddp_mpi']
+
+# Model parameters
+emb_size: 128
+activation: !name:torch.nn.LeakyReLU
+dropout: 0.0
+rnn_layers: 2
+rnn_neurons: 2048
+dnn_blocks: 1
+dnn_neurons: 512
+
+# Outputs
+output_neurons: 1000 # index(blank/eos/bos) = 0
+blank_index: 0
+bos_index: 0
+eos_index: 0
+
+# BPE
+# Specify the bos_id/eos_id if different with blank_id
+bpe_tokenizer: !new:speechbrain.tokenizers.SentencePiece.SentencePiece
+    model_dir: !ref <save_folder>
+    vocab_size: !ref <output_neurons>
+    csv_train: !ref <csv_label>
+    csv_read: char
+    char_format_input: True
+    model_type: "unigram" # ["unigram", "bpe", "char"]
+    character_coverage: 1.0 # for language with large set of chars use 0.9995
+
+# Functions
+model: !new:speechbrain.lobes.models.RNNLM.RNNLM
+    output_neurons: !ref <output_neurons>
+    embedding_dim: !ref <emb_size>
+    activation: !ref <activation>
+    dropout: !ref <dropout>
+    rnn_layers: !ref <rnn_layers>
+    rnn_neurons: !ref <rnn_neurons>
+    dnn_blocks: !ref <dnn_blocks>
+    dnn_neurons: !ref <dnn_neurons>
+
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+    apply_log: True
+
+optimizer: !new:speechbrain.nnet.optimizers.Adam_Optimizer
+    learning_rate: !ref <lr>
+
+lr_annealing: !new:speechbrain.nnet.lr_schedulers.NewBobLRScheduler
+    improvement_threshold: 0.0025
+    annealing_factor: 0.8
+    patient: 0
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+label_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_label>
+    batch_size: !ref <batch_size>
+    sentence_sorting: ascending # This must be the same as the ASR recipe
+    output_folder: !ref <output_folder>
+    csv_read: [char]
+
+train_loader: !new:speechbrain.data_io.data_io.HDF5DataLoaderFactory
+    hdf5_file: !ref <hdf5_train>
+    label_dict_file: !ref <output_folder>/label_dict.pkl
+    batch_size: !ref <batch_size>
+    sentence_sorting: ascending
+    sort_by: wrd
+    output_folder: !ref <output_folder>
+    data_entries: [char]
+
+valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_valid>
+    batch_size: !ref <batch_size>
+    sentence_sorting: ascending
+    output_folder: !ref <output_folder>
+    csv_read: [char]
+
+compute_cost: !name:speechbrain.nnet.losses.nll_loss
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+    summary_fns:
+        loss: !name:speechbrain.utils.train_logger.summarize_average
