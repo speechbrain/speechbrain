@@ -12,7 +12,7 @@ Run using:
 > python experiment.py BPE51.yaml
 
 Authors
- * Loren Lugosch 2020
+ * Loren Lugosch, Mirco Ravanelli 2020
 """
 
 import os
@@ -224,7 +224,7 @@ class SLU(sb.Brain):
             p.requires_grad = False
 
     def load_tokenizer(self):
-        """Loads the sentence piece tokinizer specified in the yaml file"""
+        """Loads the sentence piece tokenizer specified in the yaml file"""
         save_model_path = self.hparams.save_folder + "/tok_unigram.model"
         save_vocab_path = self.hparams.save_folder + "/tok_unigram.vocab"
 
