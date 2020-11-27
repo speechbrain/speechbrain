@@ -5,7 +5,7 @@
 # Tokens: BPE with unigram
 # losses: NLL
 # Training: Timers and Such
-# Authors:  Loren Lugosch 2020
+# Authors:  Loren Lugosch, Mirco Ravanelli 2020
 # ############################################################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
@@ -44,7 +44,6 @@ n_mels: 40
 # Model parameters
 emb_size: 128
 dec_neurons: 512
-num_asr_tokens: 1000
 output_neurons: 51 # index(blank/eos/bos) = 0
 blank_index: 0
 ASR_encoder_dim: 512
@@ -131,10 +130,6 @@ slu_enc: !new:speechbrain.nnet.containers.Sequential
         input_size: !ref <encoder_dim> * 2
         n_neurons: !ref <encoder_dim>
 
-input_emb: !new:speechbrain.nnet.embedding.Embedding
-    num_embeddings: !ref <num_asr_tokens>
-    embedding_dim: !ref <emb_size>
-
 output_emb: !new:speechbrain.nnet.embedding.Embedding
     num_embeddings: !ref <output_neurons>
     embedding_dim: !ref <emb_size>
@@ -165,7 +160,6 @@ env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
 modules:
     asr_enc: !ref <asr_enc>
     slu_enc: !ref <slu_enc>
-    input_emb: !ref <input_emb>
     output_emb: !ref <output_emb>
     dec: !ref <dec>
     seq_lin: !ref <seq_lin>
@@ -173,7 +167,7 @@ modules:
     env_corrupt: !ref <env_corrupt>
 
 model: !new:torch.nn.ModuleList
-    - [!ref <asr_enc>, !ref <slu_enc>, !ref <input_emb>, !ref <output_emb>,
+    - [!ref <asr_enc>, !ref <slu_enc>, !ref <output_emb>,
        !ref <dec>, !ref <seq_lin>]
 
 beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
