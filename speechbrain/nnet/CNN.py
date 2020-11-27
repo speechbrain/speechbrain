@@ -60,7 +60,7 @@ class SincConv(nn.Module):
     Example
     -------
     >>> inp_tensor = torch.rand([10, 16000])
-    >>> conv = SincConv(out_channels=25, kernel_size=11)
+    >>> conv = SincConv(input_shape=inp_tensor.shape, out_channels=25, kernel_size=11)
     >>> out_tensor = conv(inp_tensor)
     >>> out_tensor.shape
     torch.Size([10, 16000, 25])
