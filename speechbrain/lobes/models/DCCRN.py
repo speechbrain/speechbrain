@@ -16,97 +16,95 @@ from speechbrain.nnet.complex_networks.complex_ops import complex_concat
 class DCCRN(nn.Module):
     def __init__(
         self,
+        input_shape,
         conv_channels=[32, 64, 128, 128, 256],
         kernel_size=[3, 5],
-        strides=[2, 1],
         rnn_size=128,
         rnn_layers=2,
         padding="same",
         norm=ComplexBatchNorm,
     ):
         super().__init__()
-        self.conv_channels = conv_channels
-        self.kernel_size = kernel_size
-        self.strides = strides
-        self.rnn_size = rnn_size
-        self.rnn_layers = rnn_layers
-        self.padding = padding
-        self.norm = norm
+        N, T, F, C = input_shape
 
-    def init_params(self, first_input):
-        N, T, F, C = first_input.shape
-        self.device = first_input.device
-
-        self.encoder_convs = nn.ModuleList(
-            [
+        # Encoder layers
+        self.encoder_convs = nn.ModuleList()
+        prev_c = C
+        encoder_size = []
+        for c in conv_channels:
+            self.encoder_convs.append(
                 Encoder_layer(
                     c,
-                    self.kernel_size,
-                    self.strides,
-                    padding=self.padding,
-                    norm=self.norm,
-                ).to(self.device)
-                for c in self.conv_channels
-            ]
+                    kernel_size,
+                    stride=[1, 2],  # halve frequency
+                    input_size=prev_c,
+                    padding=padding,
+                    norm=norm,
+                )
+            )
+            prev_c = c * 2
+            F = self.get_output_size(F, 2, kernel_size[1], 1)
+            encoder_size.append(F)
+
+        # Bottleneck layers
+        # Conv1d layer to transform rnn output back to 4-D
+        # and add semi-causal
+        self.rnn = LSTM(
+            rnn_size, input_shape=[N, T, F, prev_c], num_layers=rnn_layers
+        )
+        self.linear_trans = Conv1d(
+            F * prev_c,
+            3,
+            input_shape=[N, T, rnn_size],
+            stride=1,
+            padding="valid",
         )
 
-        x = first_input
-        # Get the output size of each encoder layers
-        self.encoder_size = []
-        for conv in self.encoder_convs:
-            x = conv(x, init_params=True)
-            self.encoder_size.append(x.shape[2])
-
-        self.rnn = LSTM(self.rnn_size, num_layers=self.rnn_layers,).to(
-            self.device
-        )
-
-        # Linear layer to transform rnn output back to 4-D
-        self.linear_dim = self.encoder_size[-1] * self.conv_channels[-1] * 2
-        self.linear_trans = Conv1d(self.linear_dim, 3, 1, padding="valid").to(
-            self.device
-        )
-
-        self.decoder_convs = nn.ModuleList(
-            [
+        # Decoder layers
+        self.decoder_convs = nn.ModuleList()
+        for c, u in zip(conv_channels[:-1][::-1], encoder_size[:-1][::-1]):
+            self.decoder_convs.append(
                 Decoder_layer(
                     c,
-                    self.kernel_size,
-                    output_size=[T, u],
-                    padding=self.padding,
-                    norm=self.norm,
-                ).to(self.device)
-                for c, u in zip(
-                    self.conv_channels[:-1][::-1], self.encoder_size[:-1][::-1]
+                    kernel_size,
+                    input_size=prev_c * 2,
+                    up_size=u,
+                    padding=padding,
+                    norm=norm,
                 )
-            ]
-        )
+            )
+            prev_c = c * 2
+
         self.decoder_convs.append(
             Decoder_layer(
                 1,
-                self.kernel_size,
-                output_size=[T, F],
-                padding=self.padding,
+                kernel_size,
+                prev_c,
+                input_shape[2],
+                padding=padding,
                 use_norm_act=False,
-            ).to(self.device)
+            )
         )
 
-    def forward(self, x, init_params=False):
-        if init_params:
-            self.init_params(x)
+    def get_output_size(
+        self, L_in: int, stride: int, kernel_size: int, dilation: int
+    ):
+        L_out = (
+            L_in + 2 * kernel_size // 2 - dilation * (kernel_size - 1) - 1
+        ) / stride + 1
+        return int(L_out)
 
+    def forward(self, x):
         encoder_outputs = [x]
         for conv in self.encoder_convs:
-            x = conv(x, init_params=False)
+            x = conv(x)
             encoder_outputs.append(x)
 
         # Apply RNN and reshape back to 4-D
-        rnn_out = self.rnn(x, init_params=init_params)
-
+        rnn_out, _ = self.rnn(x)
         # Semi-causal padding on time axis, kernel size is fixed to 3
         rnn_out = torch.nn.functional.pad(rnn_out, (0, 0, 1, 1))
-        rnn_out = self.linear_trans(rnn_out, init_params=init_params)
-
+        rnn_out = self.linear_trans(rnn_out)
         rnn_out = rnn_out.reshape(
             x.shape[0], x.shape[1], x.shape[2], x.shape[3]
         )
@@ -118,7 +116,7 @@ class DCCRN(nn.Module):
             decoder_out = complex_concat(
                 [skip_, decoder_out], input_type="convolution", channels_axis=3
             )
-            decoder_out = conv(decoder_out, init_params=init_params)
+            decoder_out = conv(decoder_out)
 
         return decoder_out
 
@@ -126,35 +124,30 @@ class DCCRN(nn.Module):
 class Encoder_layer(nn.Module):
     def __init__(
         self,
-        channels,
+        out_channels,
         kernel_size,
-        strides,
+        stride,
+        input_size,
         activation=nn.PReLU,
         norm=ComplexBatchNorm,
         padding="same",
     ):
         super().__init__()
-        self.channels = channels
-        self.kernel_size = kernel_size
-        self.strides = strides
-        self.activation = activation
-        self.norm = norm
-        self.padding = padding
 
-    def init_params(self, first_input):
-        self.device = first_input.device
         self.conv = ComplexConv2d(
-            self.channels, self.kernel_size, self.strides, padding=self.padding
-        ).to(self.device)
-        self.norm = self.norm().to(self.device)
-        self.activation = self.activation().to(self.device)
+            out_channels,
+            kernel_size,
+            input_size=input_size,
+            stride=stride,
+            padding=padding,
+        )
+        self.norm = norm(input_size=out_channels * 2)
+        self.activation = activation()
 
-    def forward(self, x, init_params=False):
-        if init_params:
-            self.init_params(x)
+    def forward(self, x):
 
-        x = self.conv(x, init_params=init_params)
-        x = self.norm(x, init_params=init_params)
+        x = self.conv(x)
+        x = self.norm(x)
         x = self.activation(x)
 
         return x
@@ -163,9 +156,10 @@ class Encoder_layer(nn.Module):
 class Decoder_layer(nn.Module):
     def __init__(
         self,
-        channels,
+        out_channels,
         kernel_size,
-        output_size,
+        input_size,
+        up_size,
         activation=nn.PReLU,
         norm=ComplexBatchNorm,
         padding="same",
@@ -173,23 +167,23 @@ class Decoder_layer(nn.Module):
     ):
         super().__init__()
         self.use_norm_act = use_norm_act
-        self.conv = ComplexConv2d(channels, kernel_size, padding=padding)
+        self.conv = ComplexConv2d(
+            out_channels, kernel_size, input_size=input_size, padding=padding
+        )
         self.up = nn.Upsample(
-            size=output_size, mode="bilinear", align_corners=True
+            size=[up_size, input_size], mode="bilinear", align_corners=True
         )
         if self.use_norm_act:
             self.activation = activation()
-            self.norm = norm()
+            self.norm = norm(input_size=out_channels * 2)
 
-    def forward(self, x, init_params=False):
+    def forward(self, x):
         # Upsample to the expected size
-        x = x.permute([0, 3, 1, 2])
         x = self.up(x)
-        x = x.permute([0, 2, 3, 1])
+        x = self.conv(x)
 
-        x = self.conv(x, init_params=init_params)
         if self.use_norm_act:
-            x = self.norm(x, init_params=init_params)
+            x = self.norm(x)
             x = self.activation(x)
 
         return x

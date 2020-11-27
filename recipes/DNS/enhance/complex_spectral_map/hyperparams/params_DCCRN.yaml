@@ -1,0 +1,119 @@
+# ################################
+# Model: DCCRN model with complex signal approximation
+# Authors: Chien-Feng Liao
+# ################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1234
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+
+# Basic parameters
+data_folder: !PLACEHOLDER
+output_folder: !ref results/complexDCCRN_semicausal/<seed>
+enhanced_folder: !ref <output_folder>/enhanced/
+
+use_tensorboard: False
+tensorboard_logs: !ref results/logs/complexDCCRN_semicausal/<seed>
+train_log: !ref <output_folder>/train_log.txt
+
+# Data files
+csv_noise: !ref <data_folder>/tr_noise.csv
+csv_clean: !ref <data_folder>/tr_clean.csv
+csv_valid: !ref <data_folder>/valid.csv
+csv_test: !ref <data_folder>/test.csv
+
+# Training Parameters
+N_epochs: 50
+N_batch: 2
+lr: 0.001
+
+# For DDP, use `python -m speechbrain.ddp experiment.py` to launch experiment
+# These options will be set by that script, and will override these.
+device: 'cuda:0'
+multigpu_count: 0  # Set to number of GPUs if multi-gpu
+multigpu_backend: null  # ['data_parallel', 'ddp_nccl', 'ddp_gloo', 'ddp_mpi']
+
+# Model Parameters
+conv_channels: (32, 64, 128, 128, 128, 256)
+kernel_size: (3, 5)
+padding_type: causal
+rnn_size: 256
+rnn_layers: 2
+
+mask_activation: !new:torch.nn.Tanh
+norm: !name:speechbrain.nnet.complex_networks.normalization.ComplexLayerNorm
+
+# FFT Parameters
+Sample_rate: 16000
+N_fft: 512
+Win_length: 32
+Hop_length: 16
+
+model: !new:speechbrain.lobes.models.DCCRN.DCCRN
+    input_shape: [!ref <N_batch>, null, !ref <N_fft> // 2 + 1, 2] # input_size
+    conv_channels: !ref <conv_channels>
+    kernel_size: !ref <kernel_size>
+    rnn_size: !ref <rnn_size>
+    rnn_layers: !ref <rnn_layers>
+    padding: !ref <padding_type>
+    norm: !ref <norm>
+
+modules:
+    model: !ref <model>
+
+train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_clean>
+    batch_size: !ref <N_batch>
+    csv_read: [wav]
+    cache: False
+    num_workers: 1
+
+valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_valid>
+    batch_size: !ref <N_batch>
+    csv_read: [wav, target]
+
+test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
+    csv_file: !ref <csv_test>
+    batch_size: !ref <N_batch>
+    csv_read: [wav, target]
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <N_epochs>
+
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <output_folder>/save
+    recoverables:
+        counter: !ref <epoch_counter>
+        model: !ref <model>
+
+add_noise: !new:speechbrain.processing.speech_augmentation.AddNoise
+    csv_file: !ref <csv_noise>
+    snr_low: 0
+    snr_high: 40
+    pad_noise: False
+    start_index: 0
+    csv_read: [wav]
+
+lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
+    initial_value: !ref <lr>
+    annealing_factor: 0.5
+    improvement_threshold: 0.0
+    patient: 5
+
+compute_STFT: !new:speechbrain.processing.features.STFT
+    sample_rate: !ref <Sample_rate>
+    win_length: !ref <Win_length>
+    hop_length: !ref <Hop_length>
+    n_fft: !ref <N_fft>
+
+compute_ISTFT: !new:speechbrain.processing.features.ISTFT
+    sample_rate: !ref <Sample_rate>
+    win_length: !ref <Win_length>
+    hop_length: !ref <Hop_length>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>

@@ -291,7 +291,7 @@ def check_complex_input(input_shape):
         )
 
 
-def check_conv_input(input_shape, channels_axis=1):
+def check_conv_input(input, channels_axis=1):
     """Check the complex-valued shape for a convolutional layer.
 
     Arguments
@@ -299,15 +299,15 @@ def check_conv_input(input_shape, channels_axis=1):
     input_shape : tuple
     channels_axis : int, index of the channel axis.
     """
-    if len(input_shape) not in {3, 4, 5}:
+    if len(input.shape) not in {3, 4, 5}:
         raise Exception(
             "Complex convolution accepts only input of dimension 3, 4 or 5."
             " input.dim = " + str(input.dim())
         )
 
-    nb_channels = input_shape[channels_axis]
+    nb_channels = input.shape[channels_axis]
     if nb_channels % 2 != 0:
-        print("input.size()" + str(input_shape))
+        print("input.size()" + str(input.shape))
         raise Exception(
             "Complex Tensors must have an even number of feature maps."
             " input.size()[1] = " + str(nb_channels)

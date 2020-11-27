@@ -80,7 +80,8 @@ class ComplexConv1d(torch.nn.Module):
         self,
         out_channels,
         kernel_size,
-        input_shape,
+        input_shape=None,
+        input_size=None,
         stride=1,
         dilation=1,
         padding="same",
@@ -104,7 +105,10 @@ class ComplexConv1d(torch.nn.Module):
         self.weight_init = weight_init
 
         check_conv_input(input_shape, channels_axis=-1)
-        self.in_channels = self._check_input(input_shape) // 2
+        if input_size is None:
+            self.in_channels = self._check_input(input_shape)
+        else:
+            self.in_channels = input_size // 2
 
         self.conv = complex_convolution(
             self.in_channels,
@@ -194,7 +198,7 @@ class ComplexConv1d(torch.nn.Module):
                 % (self.kernel_size)
             )
 
-        return in_channels
+        return in_channels // 2
 
 
 class ComplexConv2d(nn.Module):
@@ -262,7 +266,8 @@ class ComplexConv2d(nn.Module):
         self,
         out_channels,
         kernel_size,
-        input_shape,
+        input_shape=None,
+        input_size=None,
         stride=1,
         dilation=1,
         padding="same",
@@ -295,7 +300,10 @@ class ComplexConv2d(nn.Module):
         if isinstance(self.stride, int):
             self.stride = [self.stride, self.stride]
 
-        self.in_channels = self._check_input(input_shape) // 2
+        if input_size is None:
+            self.in_channels = self._check_input(input_shape)
+        else:
+            self.in_channels = input_size // 2
 
         self.conv = complex_convolution(
             self.in_channels,
@@ -311,7 +319,7 @@ class ComplexConv2d(nn.Module):
             weight_init=self.weight_init,
         )
 
-    def forward(self, x, init_params=False):
+    def forward(self, x):
         """Returns the output of the convolution.
 
         Arguments
@@ -320,9 +328,6 @@ class ComplexConv2d(nn.Module):
             input to convolve. 3d or 4d tensors are expected.
 
         """
-        if init_params:
-            self.init_params(x)
-
         # If (batch, time, feature) -> (batch, time, feature, 1)
         if self.unsqueeze:
             x = x.unsqueeze(1)
@@ -416,4 +421,4 @@ class ComplexConv2d(nn.Module):
                 % (self.kernel_size)
             )
 
-        return in_channels
+        return in_channels // 2
