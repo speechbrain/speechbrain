@@ -279,7 +279,7 @@ def check_complex_input(input_shape):
     if len(input_shape) not in {2, 3}:
         raise Exception(
             "Complex linear accepts only input of dimension 2 or 3."
-            " input.dim = " + str(input.dim())
+            " input.dim = " + str(input_shape)
         )
 
     nb_hidden = input_shape[-1]
@@ -291,7 +291,7 @@ def check_complex_input(input_shape):
         )
 
 
-def check_conv_input(input, channels_axis=1):
+def check_conv_input(input_shape, channels_axis=1):
     """Check the complex-valued shape for a convolutional layer.
 
     Arguments
@@ -299,15 +299,15 @@ def check_conv_input(input, channels_axis=1):
     input_shape : tuple
     channels_axis : int, index of the channel axis.
     """
-    if len(input.shape) not in {3, 4, 5}:
+    if len(input_shape) not in {3, 4, 5}:
         raise Exception(
             "Complex convolution accepts only input of dimension 3, 4 or 5."
-            " input.dim = " + str(input.dim())
+            " input.dim = " + str(input_shape)
         )
 
-    nb_channels = input.shape[channels_axis]
+    nb_channels = input_shape[channels_axis]
     if nb_channels % 2 != 0:
-        print("input.size()" + str(input.shape))
+        print("input.size()" + str(input_shape))
         raise Exception(
             "Complex Tensors must have an even number of feature maps."
             " input.size()[1] = " + str(nb_channels)
@@ -324,9 +324,9 @@ def get_real(input, input_type="linear", channels_axis=1):
     channels_axis : int, index of the channel axis.
     """
     if input_type == "linear":
-        check_complex_input(input)
+        check_complex_input(input.shape)
     elif input_type == "convolution":
-        check_conv_input(input, channels_axis=channels_axis)
+        check_conv_input(input.shape, channels_axis=channels_axis)
     else:
         raise Exception(
             "Input_type must be either 'convolution' or 'linear'."
@@ -358,9 +358,9 @@ def get_imag(input, input_type="linear", channels_axis=1):
     channels_axis : int, index of the channel axis.
     """
     if input_type == "linear":
-        check_complex_input(input)
+        check_complex_input(input.shape)
     elif input_type == "convolution":
-        check_conv_input(input, channels_axis=channels_axis)
+        check_conv_input(input.shape, channels_axis=channels_axis)
     else:
         raise Exception(
             "Input_type must be either 'convolution' or 'linear'."
