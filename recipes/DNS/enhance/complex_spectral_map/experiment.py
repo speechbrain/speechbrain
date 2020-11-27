@@ -109,7 +109,7 @@ class SEBrain(sb.core.Brain):
             )
 
         # Write wavs to file
-        if stage == sb.Stage.TEST:
+        if stage == sb.Stage.TEST and self.root_process:
             lens = lens * clean_wav.shape[1]
             for name, wav, length in zip(ids, predictions, lens):
                 enhance_path = os.path.join(self.hparams.enhanced_folder, name)
@@ -171,24 +171,28 @@ class SEBrain(sb.core.Brain):
             old_lr, new_lr = self.hparams.lr_annealing(4.5 - stats["pesq"])
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
 
-            if self.hparams.use_tensorboard:
-                valid_stats = {
-                    "loss": self.loss_metric.scores,
-                    "stoi": self.stoi_metric.scores,
-                    "pesq": self.pesq_metric.scores,
-                }
-                self.hparams.tensorboard_train_logger.log_stats(
-                    {"Epoch": epoch, "lr": old_lr},
-                    self.train_stats,
-                    valid_stats,
-                )
+            # In distributed setting, only want to save model/stats once
+            if self.root_process:
+                if self.hparams.use_tensorboard:
+                    valid_stats = {
+                        "loss": self.loss_metric.scores,
+                        "stoi": self.stoi_metric.scores,
+                        "pesq": self.pesq_metric.scores,
+                    }
+                    self.hparams.tensorboard_train_logger.log_stats(
+                        {"Epoch": epoch, "lr": old_lr},
+                        self.train_stats,
+                        valid_stats,
+                    )
 
-            self.hparams.train_logger.log_stats(
-                {"Epoch": epoch, "lr": old_lr},
-                train_stats={"loss": self.train_loss},
-                valid_stats=stats,
-            )
-            self.checkpointer.save_and_keep_only(meta=stats, max_keys=["pesq"])
+                self.hparams.train_logger.log_stats(
+                    {"Epoch": epoch, "lr": old_lr},
+                    train_stats={"loss": self.train_loss},
+                    valid_stats=stats,
+                )
+                self.checkpointer.save_and_keep_only(
+                    meta=stats, max_keys=["pesq"]
+                )
 
         if stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(

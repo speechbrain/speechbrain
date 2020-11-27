@@ -714,9 +714,9 @@ class ComplexLiGRU_Layer(torch.nn.Module):
 
         # Processing time steps
         if hx is not None:
-            h = self._complex_ligru_cell(w, hx.to(w.device))
+            h = self._complex_ligru_cell(w, hx)
         else:
-            h = self._complex_ligru_cell(w, self.h_init.to(w.device))
+            h = self._complex_ligru_cell(w, self.h_init)
 
         if self.bidirectional:
             h_f, h_b = h.chunk(2, dim=0)
@@ -734,6 +734,7 @@ class ComplexLiGRU_Layer(torch.nn.Module):
             Linearly transformed input.
         """
         hiddens = []
+
         # Sampling dropout mask
         drop_mask = self._sample_drop_mask()
 
@@ -785,7 +786,7 @@ class ComplexLiGRU_Layer(torch.nn.Module):
             self.drop_mask_cnt = self.drop_mask_cnt + self.batch_size
 
         else:
-            drop_mask = self.drop_mask_te.to(self.device)
+            drop_mask = self.drop_mask_te
 
         return drop_mask
 
