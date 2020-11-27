@@ -10,7 +10,7 @@
 seed: 3234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
-data_folder: /data/member1/user_jasonfu/noisy-vctk-16k
+data_folder: /localscratch/noisy-vctk-16k
 test_clean_folder: !ref <data_folder>/clean_testset_wav_16k/
 
 output_folder: !ref ./results/FCN/<seed>
@@ -19,7 +19,7 @@ train_log: !ref <output_folder>/train_log.txt
 enhanced_folder: !ref <output_folder>/FCN_enhanced
 
 # Basic parameters
-use_tensorboard: True
+use_tensorboard: False
 tensorboard_logs: !ref <output_folder>/logs/
 
 # FFT paremeters
