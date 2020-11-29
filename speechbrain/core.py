@@ -347,7 +347,9 @@ class Brain:
                 setattr(self, arg, run_opts[arg])
             else:
                 setattr(self, arg, default)
-
+        # Switch to the right context
+        if "cuda" in self.device:
+            torch.cuda.set_device(int(self.device[-1]))
         # Put modules on the right device, accessible with dot notation
         self.modules = torch.nn.ModuleDict(modules).to(self.device)
 

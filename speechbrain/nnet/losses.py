@@ -49,12 +49,7 @@ def transducer_loss(
     input_lens = (input_lens * log_probs.shape[1]).int()
     target_lens = (target_lens * targets.shape[1]).int()
     return Transducer.apply(
-        log_probs,
-        targets,
-        input_lens,
-        target_lens,
-        blank_index,
-        reduction=reduction,
+        log_probs, targets, input_lens, target_lens, blank_index, reduction
     )
 
 
@@ -632,7 +627,7 @@ def compute_masked_loss(
     elif reduction == "batchmean":
         loss = loss.sum() / N
     elif reduction == "batch":
-        loss = loss.view(N, -1).sum(1) / mask.view(N, -1).sum(1)
+        loss = loss.reshape(N, -1).sum(1) / mask.reshape(N, -1).sum(1)
 
     if label_smoothing == 0:
         return loss
