@@ -198,12 +198,23 @@ def parse_arguments(arg_list):
 
     # Ignore items that are "None", they were not passed
     run_opts = {k: v for k, v in vars(run_opts).items() if v is not None}
+
+    # For DDP, the device args must equal to local_rank used by torch.distributed.lunch
+    # If run_opts["local_rank"] exists
+    # Otherwise use OS.environ["LOCAL_RANK"]
+    if "local_rank" in run_opts:
+        gpu_to_use = run_opts["local_rank"]
+    else:
+        gpu_to_use = os.environ["LOCAL_RANK"]
+
+    # force device arg to be the same as local_rank from torch.distributed.lunch
+    if "cuda" in run_opts["device"]:
+        run_opts["device"] = run_opts["device"][:-1] + str(gpu_to_use)
+
     param_file = run_opts["param_file"]
     del run_opts["param_file"]
 
-    # Convert overrides to YAML
     overrides = _convert_to_yaml(overrides)
-
     return param_file, run_opts, overrides
 
 

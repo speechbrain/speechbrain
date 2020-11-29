@@ -1,5 +1,5 @@
 r"""
-This is a copy of ``torch.distributed.launch`` git hash 49f0e5d.
+This is a copy of ``torch.distributed.launch`` git hash f7a8bf2
 
 For docs, see that file.
 """
@@ -9,6 +9,10 @@ import sys
 import subprocess
 import os
 from argparse import ArgumentParser, REMAINDER
+from typing import Optional, IO
+
+node_local_rank_stdout_filename = "node_{}_local_rank_{}_stdout"
+node_local_rank_stderr_filename = "node_{}_local_rank_{}_stderr"
 
 
 def parse_args():
@@ -86,6 +90,16 @@ def parse_args():
         help='Do not prepend the training script with "python" - just exec '
         "it directly. Useful when the script is not a Python script.",
     )
+    parser.add_argument(
+        "--logdir",
+        default=None,
+        type=str,
+        help=f"""Relative path to write subprocess logs to. Passing in a relative
+        path will create a directory if needed, and write the stdout and stderr to files
+        {node_local_rank_stdout_filename} and {node_local_rank_stderr_filename}. Note that
+        successive runs with the  same path to write logs to will overwrite existing logs,
+        so be sure to save logs as needed.""",
+    )
 
     # positional
     parser.add_argument(
@@ -104,14 +118,6 @@ def parse_args():
 
 def main():
     args = parse_args()
-
-    # Create logs folder
-    ddp_logs_folder = "ddp_logs"
-    print(
-        f"Creating logs directory in {ddp_logs_folder} for non-root process logs"
-    )
-    if not os.path.isdir(ddp_logs_folder):
-        os.mkdir(ddp_logs_folder)
 
     # world size in terms of number of processes
     dist_world_size = args.nproc_per_node * args.nnodes
@@ -136,6 +142,19 @@ def main():
                 current_env["OMP_NUM_THREADS"]
             )
         )
+
+    if args.logdir:
+        # Possibly create the directory to write subprocess log output to.
+        if os.path.exists(args.logdir):
+            if not os.path.isdir(args.logdir):
+                raise ValueError(
+                    "argument --logdir must be a path to a directory."
+                )
+        else:
+            # create the relative directory
+            os.mkdir(os.path.join(os.getcwd(), args.logdir))
+
+    subprocess_file_handles = []
 
     for local_rank in range(0, args.nproc_per_node):
         # each process's rank
@@ -165,31 +184,60 @@ def main():
         if not args.use_env:
             cmd.append("--local_rank={}".format(local_rank))
 
-        # Set the right GPU for each subprocess
-        cmd.append("--device=cuda:" + str(local_rank))
         cmd.extend(args.training_script_args)
 
-        # Logfile location for non-root processes
-        if local_rank != 0:
-            outfile = os.path.join(ddp_logs_folder, f"log_{local_rank}.out")
-            errfile = os.path.join(ddp_logs_folder, f"log_{local_rank}.err")
-            stdout = open(outfile, "w")
-            stderr = open(errfile, "w")
-        else:
-            stdout = None
-            stderr = None
+        stdout_handle: Optional[IO]
+        stderr_handle: Optional[IO]
+        if args.logdir:
+            directory_path = os.path.join(os.getcwd(), args.logdir)
+            node_rank = args.node_rank
+            stdout_file_name = node_local_rank_stdout_filename.format(
+                node_rank, local_rank
+            )
+            stderr_file_name = node_local_rank_stderr_filename.format(
+                node_rank, local_rank
+            )
+            stdout_handle = open(
+                os.path.join(directory_path, stdout_file_name), "w"
+            )
+            stderr_handle = open(
+                os.path.join(directory_path, stderr_file_name), "w"
+            )
+            subprocess_file_handles.append((stdout_handle, stderr_handle))
+            stdout_name = stdout_handle.name
+            stderr_name = stderr_handle.name
+            print(
+                f"""Note: Stdout and stderr for node {node_rank} rank {local_rank} will
+            be written to {stdout_name}, {stderr_name} respectively."""
+            )
 
+        stdout_handle = (
+            None
+            if not subprocess_file_handles
+            else subprocess_file_handles[local_rank][0]
+        )
+        stderr_handle = (
+            None
+            if not subprocess_file_handles
+            else subprocess_file_handles[local_rank][1]
+        )
         process = subprocess.Popen(
-            cmd, env=current_env, stdout=stdout, stderr=stderr
+            cmd, env=current_env, stdout=stdout_handle, stderr=stderr_handle
         )
         processes.append(process)
 
-    for process in processes:
-        process.wait()
-        if process.returncode != 0:
-            raise subprocess.CalledProcessError(
-                returncode=process.returncode, cmd=cmd
-            )
+    try:
+        for process in processes:
+            process.wait()
+            if process.returncode != 0:
+                raise subprocess.CalledProcessError(
+                    returncode=process.returncode, cmd=cmd
+                )
+    finally:
+        # close open file descriptors
+        for (stdout_handle, stderr_handle) in subprocess_file_handles:
+            stdout_handle.close()
+            stderr_handle.close()
 
 
 if __name__ == "__main__":
