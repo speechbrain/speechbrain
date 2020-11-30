@@ -18,8 +18,44 @@ import multiprocessing as mp
 import csv
 import time
 import torchaudio
+import json
 
 logger = logging.getLogger(__name__)
+
+
+def load_json(json_path, replacements_dict={}):
+    """
+    Arguments
+    ----------
+    json_path : str
+        Path to json file
+    replacements_dict : dict
+        Optional dict:
+        e.g. {"<data_folder>": "/home/speechbrain/data"}
+
+    Returns
+    -------
+    out_json : object
+        json data
+    """
+
+    def replace_entries(data_coll, replacements_dict):
+        for k in data_coll.keys():
+            if isinstance(data_coll[k], dict):
+                replace_entries(data_coll[k], replacements_dict)
+            elif isinstance(data_coll[k], str):
+                for repl_k in replacements_dict.keys():
+                    data_coll[k] = data_coll[k].replace(
+                        repl_k, replacements_dict[repl_k]
+                    )
+            else:
+                pass
+        return
+
+    with open(json_path, "r") as f:
+        out_json = json.load(f)
+
+    return replace_entries(out_json, replacements_dict)
 
 
 def read_wav(waveforms_obj):
@@ -47,12 +83,12 @@ def read_wav(waveforms_obj):
 
     Arguments
     ----------
-    waveforms_obj (dict):
+    waveforms_obj : dict
         .yaml annotation wav object: e.g. {"wav": "/path/to/wav.wav"}
 
     Returns
     -------
-    out: torch.Tensor
+    out : torch.Tensor
         audio tensor with shape: (samples, )
     """
     if isinstance(waveforms_obj, str):
@@ -90,12 +126,12 @@ def load_pickle(pickle_path):
 
     Parameters
     ----------
-    pickle_path (str):
+    pickle_path : str
         path to pickle file
 
     Returns
     -------
-    out (object):
+    out : object
         python object loaded form pickle
     """
     with open(pickle_path, "r") as f:
@@ -108,12 +144,12 @@ def to_floatTensor(x: (list, tuple, np.ndarray)):
 
     Parameters
     ----------
-    x (list, tuple, np.ndarray):
+    x : (list, tuple, np.ndarray)
         input data to be converted to torch float.
 
     Returns
     -------
-    tensor (torch.tensor):
+    tensor : torch.tensor
         data now in torch.tensor float datatype.
     """
     if isinstance(x, torch.Tensor):
@@ -129,12 +165,12 @@ def to_doubleTensor(x: (list, tuple, np.ndarray)):
 
         Parameters
         ----------
-        x (list, tuple, np.ndarray):
+        x : (list, tuple, np.ndarray)
             input data to be converted to torch double.
 
         Returns
         -------
-        tensor (torch.tensor):
+        tensor : torch.tensor
             data now in torch.tensor double datatype.
         """
     if isinstance(x, torch.Tensor):
@@ -150,12 +186,12 @@ def to_longTensor(x: (list, tuple, np.ndarray)):
 
         Parameters
         ----------
-        x (list, tuple, np.ndarray):
+        x : (list, tuple, np.ndarray)
             input data to be converted to torch long.
 
         Returns
         -------
-        tensor (torch.tensor):
+        tensor : torch.tensor
             data now in torch.tensor long datatype.
         """
     if isinstance(x, torch.Tensor):

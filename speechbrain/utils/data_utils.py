@@ -343,20 +343,20 @@ def pad_right_to(
 
     Parameters
     ----------
-    tensor: input torch tensor
+    tensor : input torch tensor
         Input tensor whose dimension we need to pad.
-    target_shape: (list, tuple)
+    target_shape : (list, tuple)
         Target shape we want for the target tensor its len must be equal to tensor.ndim
-    mode: str
+    mode : str
         Pad mode, please refer to torch.nn.functional.pad documentation.
-    value: float
+    value : float
         Pad value, please refer to torch.nn.functional.pad documentation.
 
     Returns
     -------
-    tensor: torch.Tensor
+    tensor : torch.Tensor
         Padded tensor
-    valid_vals: list
+    valid_vals : list
         List containing proportion for each dimension of original, non-padded values
 
     """
@@ -387,18 +387,18 @@ def batch_pad_right(tensors: list, mode="constant", value=0):
 
     Parameters
     ----------
-    tensors: list
+    tensors : list
         List of tensor we wish to pad together.
-    mode: str
+    mode : str
         Padding mode see torch.nn.functional.pad documentation.
-    value: float
+    value : float
         Padding value see torch.nn.functional.pad documentation.
 
     Returns
     -------
-    tensor: torch.Tensor
+    tensor : torch.Tensor
         Padded tensor
-    valid_vals: list
+    valid_vals : list
         List containing proportion for each dimension of original, non-padded values
 
     """

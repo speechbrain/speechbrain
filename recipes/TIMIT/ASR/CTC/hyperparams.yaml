@@ -5,7 +5,7 @@
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 1234
+seed: 42
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/augment_noise_CRDNN/<seed>
 wer_file: !ref <output_folder>/wer.txt
@@ -50,15 +50,24 @@ blank_index: !ref <output_neurons> - 1
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
+train_examples: !apply:speechbrain.data_io.data_io.load_json
+    json_path: !ref <data_folder>/train.json
+dev_examples: !apply:speechbrain.data_io.data_io.load_json
+    json_path: !ref <data_folder>/dev.json
+test_examples: !apply:speechbrain.data_io.data_io.load_json
+    json_path: !ref <data_folder>/test.json
+
 label_encoder: !apply:speechbrain.data_io.encoders.CTCTextEncoder.fit_from_yaml
-    data_collections: [!ref <data_folder>/train.yaml, !ref <data_folder>/dev.yaml]
+    data_collections: [!ref <train_examples>, !ref <dev_examples>]
     supervision: phn
     blank_encoding: !ref <blank_index>
+    sup_transform: !name:speechbrain.utils.data_utils.split_by_whitespace
 
 text_pipeline: !new:speechbrain.utils.data_utils.FuncPipeline
     name: phn
     target: phn
     funcs:
+        - !name:speechbrain.utils.data_utils.split_by_whitespace
         - !ref <label_encoder.encode_int>
         - !name:speechbrain.data_io.data_io.to_longTensor
 
@@ -73,25 +82,26 @@ data_tf:
     - !ref <audio_pipeline>
 
 train_data: !apply:speechbrain.data_io.datasets.SegmentedDataset.from_extended_yaml
-    filepath: !ref <data_folder>/train.yaml
+    examples: !ref <train_examples>
     data_transforms: !ref <data_tf>
 
 valid_data: !apply:speechbrain.data_io.datasets.SegmentedDataset.from_extended_yaml
-    filepath: !ref <data_folder>/dev.yaml
+    examples: !ref <dev_examples>
     data_transforms: !ref <data_tf>
 
 test_data: !apply:speechbrain.data_io.datasets.SegmentedDataset.from_extended_yaml
-    filepath: !ref <data_folder>/test.yaml
+    examples: !ref <test_examples>
     data_transforms: !ref <data_tf>
 
-sampler: !new:speechbrain.data_io.sampler.SortedSampler
+
+sampler: !new:speechbrain.data_io.sampler.OrderedSampler
     data_source: !ref <train_data>
-    batch_size: !ref <batch_size>
     sorting: ascending
 
 train_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
     dataset: !ref <train_data>
-    batch_sampler: !ref <sampler>
+    batch_size: !ref <batch_size>
+    sampler: !ref <sampler>
     collate_fn: !name:speechbrain.data_io.dataloader.collate_pad
 
 valid_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
