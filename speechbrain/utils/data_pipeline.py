@@ -1,6 +1,26 @@
 """
 A pipeline for data transformations.
 
+Example
+-------
+>>> #We expect this to be used via extended YAML,
+>>> # for a dataset:
+>>> from speechbrain.yaml import load_extended_yaml
+>>> yamlstring = '''
+... pipeline: !apply:speechbrain.utils.data_pipeline.DataPipeline.from_configuration
+...     funcs:
+...         foo:
+...             func: !name:operator.add
+...             argnames: ["a", "b"]
+...         bar:
+...             func: !name:operator.sub
+...             argnames: ["foo", "b"]
+...     final_names: ["foo", "bar"]
+... '''
+>>> hparams = load_extended_yaml(yamlstring)
+>>> hparams["pipeline"]({"a":1, "b":2})
+{'foo': 3, 'bar': 1}
+
 Author:
     * Aku Rouhe
 """
@@ -13,6 +33,19 @@ FuncConf = collections.namedtuple("FuncConf", ["func", "argnames"])
 
 class DataPipeline:
     """
+    Organises data transformations into a pipeline.
+
+    Example
+    -------
+    >>> pipeline = DataPipeline.from_configuration(
+    ...     funcs={
+    ...         "foo": {"func": lambda x: x.lower(), "argnames": ["text"]},
+    ...         "bar": {"func": lambda x: x[::-1], "argnames": ["foo"]},
+    ...     },
+    ...     final_names=["bar"],
+    ... )
+    >>> pipeline({"text": "Test"})
+    {'bar': 'tset'}
 
     """
 
@@ -28,9 +61,14 @@ class DataPipeline:
         Arguments
         ---------
         funcs : dict
-
+            Nested dict with the format (in YAML notation):
+            <name>:
+                func: <callable> # To be called
+                argnames: <list> # Names of args, either other funcs or in data
+            <name2>: ...
         final_names : list
-            List of names to add in the final output.
+            List of names (either funcs or entries in data)
+            to add in the final output.
         """
         pipeline = cls()
         for name, conf in funcs.items():
@@ -42,6 +80,19 @@ class DataPipeline:
         return pipeline
 
     def add_func(self, name, func, argnames):
+        """
+        Arguments
+        ---------
+        name : str
+            Unique name
+        func : callable
+            To be called
+        argnames : list
+            List of names. When func is called, each name is resolved to
+            either an entry in the data or the output of another func.
+            The func is then called with these as positional arguments,
+            in the same order as specified here.
+        """
         if name in self._func_names:
             raise ValueError(f"Duplicate function name {name}")
         else:
@@ -53,6 +104,17 @@ class DataPipeline:
         self._exec_order = None
 
     def compute_outputs(self, data):
+        """
+        Arguments
+        ---------
+        data : dict
+            Dictionary with named data entries.
+
+        Returns
+        -------
+        dict
+            With keys as in self.final_names
+        """
         if self._exec_order is None:
             self._prepare_run(data)
         intermediate = {}
