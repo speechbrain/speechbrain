@@ -1,4 +1,3 @@
-from speechbrain.yaml import load_extended_yaml
 from torch.utils.data import Dataset
 import logging
 
@@ -35,12 +34,12 @@ class SegmentedDataset(Dataset):
         NOTE: when this option is used, examples must have a length attribute.
         Also be sure that the value here is consistent with the length attribute
         e.g. both are seconds or both are samples.
-    discard_shorter: (int, optional)
+    discard_shorter : (int, optional)
         whether to discard examples (e.g. wave files ) shorter than specified here.
         NOTE: when this option is used, examples must have a length attribute.
         Also be sure that the value here is consistent with the length attribute
         e.g. both are seconds or both are samples.
-    select_n_examples: (int, optional)
+    select_n_examples : (int, optional)
         select only the first utterances as specified here, useful for debugging and
         running quick tests.
     """
@@ -127,15 +126,5 @@ class SegmentedDataset(Dataset):
         return out
 
     @classmethod
-    def from_extended_yaml(
-        cls,
-        filepath,
-        *args,
-        overrides=None,
-        overrides_must_match=True,
-        examples_key="examples",
-        **kwargs,
-    ):
-        with open(filepath) as fi:
-            yml = load_extended_yaml(fi, overrides, overrides_must_match)
-            return cls(yml[examples_key], *args, **kwargs)
+    def from_extended_yaml(cls, examples, data_transforms, **kwargs):
+        return cls(examples, data_transforms, **kwargs)

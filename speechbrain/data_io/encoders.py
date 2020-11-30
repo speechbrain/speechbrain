@@ -1,7 +1,6 @@
 import torch
 import pickle
 import logging
-from speechbrain.yaml import load_extended_yaml
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +20,12 @@ class CategoricalEncoder(object):
     def __len__(self):
         return len(self.lab2indx)
 
-    def fit(self, data_collections: (list, dict), supervision: str):
+    def fit(
+        self,
+        data_collections: (list, dict),
+        supervision: str,
+        sup_transform=None,
+    ):
 
         if isinstance(data_collections, dict):
             data_collections = [data_collections]
@@ -41,9 +45,23 @@ class CategoricalEncoder(object):
                     # leaf node contains no dict
                     if k == supervision:
                         if isinstance(dictionary[k], (list, tuple)):
-                            all_labs.update(set(dictionary[k]))
+                            if sup_transform is not None:
+                                all_labs.update(
+                                    set(sup_transform(dictionary[k]))
+                                )
+                            else:
+                                all_labs.update(set(dictionary[k]))
                         elif isinstance(dictionary[k], (str)):
-                            all_labs.add(dictionary[k])
+                            if sup_transform is not None:
+                                transformed = sup_transform(
+                                    dictionary[k]
+                                )  # we make sure is hashable
+                                if isinstance(transformed, (list, tuple)):
+                                    all_labs.update(set(transformed))
+                                else:
+                                    all_labs.add(transformed)
+                            else:
+                                all_labs.add(dictionary[k])
                         else:
                             raise NotImplementedError(
                                 "Desired supervision must be either list, tuple or string, Not Supported, got: {}".format(
@@ -67,15 +85,18 @@ class CategoricalEncoder(object):
     def add_elem(self, label, index=None):
         """
         Update method (adding additional labels not present in the encoder internal state.
-        NOTE: If no element is provided we simply append to end of label dictionary:
+
+        Note
+        ----------
+        If no element is provided we simply append to end of label dictionary:
         e.g. there are 40 (from 0 to 39) labels already, for the added label the encoding value (index) will be 40.
 
         Arguments
         ----------
-        label: str
+        label : str
             new label we want to add.
 
-        index: int, optional
+        index : int, optional
             corresponding integer value for the label.
 
         Returns
@@ -115,12 +136,12 @@ class CategoricalEncoder(object):
         """
         Parameters
         ----------
-        x: (list, tuple, str)
+        x : (list, tuple, str)
             list, tuple of strings or either a single string which one wants to encode.
 
         Returns
         -------
-        labels: torch.Tensor
+        labels : torch.Tensor
             tensor containing encoded value.
 
         """
@@ -143,14 +164,14 @@ class CategoricalEncoder(object):
 
         Arguments
         ----------
-        x: (torch.Tensor, list, tuple)
+        x : (torch.Tensor, list, tuple)
             Torch tensor or list containing int values which has to be decoded to original labels strings.
             Torch tensors must be 1D with shape (seq_len,) or 2D with shape (batch, seq_len).
             List and tuples must be one-dimensional or bi-dimensional.
 
         Returns
         -------
-        decoded: list
+        decoded : list
             list containing original labels (list of str).
         """
         if not len(x):
@@ -208,7 +229,7 @@ class CategoricalEncoder(object):
 
         Arguments
         ----------
-        x: torch.Tensor
+        x : torch.Tensor
             One-hot encoding torch.Tensor which has to be decoded to original labels strings.
             Accepts 1D tensor of shape (n_classes) 2D tensor of shape (n_classes, time_steps)
             and 3D tensor of shape (batch, n_classes, time_steps).
@@ -266,28 +287,9 @@ class CategoricalEncoder(object):
         with open(path, "rb") as f:
             self.lab2indx, self.indx2lab = pickle.load(f)
 
-    @classmethod
-    def fit_from_yaml(
-        cls,
-        data_collections,
-        *args,
-        overrides=None,
-        overrides_must_match=True,
-        **kwargs,
-    ):
-        data = []
-        for d in data_collections:
-            with open(d) as fi:
-                data.append(
-                    load_extended_yaml(fi, overrides, overrides_must_match)
-                )
-        enc = cls()
-        enc.fit([x["examples"] for x in data], *args, **kwargs)
-        return enc
-
 
 class TextEncoder(CategoricalEncoder):
-    def __init__(self,):
+    def __init__(self):
 
         super(TextEncoder, self).__init__()
         self.blank_token = None
@@ -342,17 +344,25 @@ class TextEncoder(CategoricalEncoder):
                     )
                 )
 
-    def prepend_bos(self, x: (tuple, list, str)):
-        if isinstance(x, str):
-            return [self.bos_token, x]
-        else:
+    def prepend_bos(self, x: list):
+        if isinstance(x, list):
             return [self.bos_token] + x
-
-    def append_eos(self, x: (tuple, list, str)):
-        if isinstance(x, str):
-            return [x, self.eos_token]
         else:
-            return x + [self.eos_token]
+            raise TypeError(
+                "Curently only inputs of type: list are supported, got {}".format(
+                    type(x)
+                )
+            )
+
+    def append_eos(self, x: list):
+        if isinstance(x, list):
+            return x.append(self.eos_token)
+        else:
+            raise TypeError(
+                "Curently only inputs of type: list are supported, got {}".format(
+                    type(x)
+                )
+            )
 
 
 class CTCTextEncoder(TextEncoder):
@@ -364,23 +374,16 @@ class CTCTextEncoder(TextEncoder):
         cls,
         data_collections,
         *args,
-        overrides=None,
-        overrides_must_match=True,
         blank_encoding=0,
         blank_token="<blank>",
         unk_encoding=1,
         unk_token=None,
         **kwargs,
     ):
-        data = []
-        for d in data_collections:
-            with open(d) as fi:
-                data.append(
-                    load_extended_yaml(fi, overrides, overrides_must_match)
-                )
         enc = cls()
-        enc.fit([x["examples"] for x in data], *args, **kwargs)
+
+        enc.fit(data_collections, *args, **kwargs)
         enc.add_blank(blank_encoding, blank_token)
-        if unk_token:
+        if unk_token is not None:
             enc.add_unk(unk_encoding, unk_token)
         return enc

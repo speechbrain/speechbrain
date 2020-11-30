@@ -171,15 +171,15 @@ def collate_pad(example_list, mode="constant", value=0.0):
 
     Parameters
     ----------
-    example_list: list
+    example_list : list
         List of examples with each example being a dictionary.
-    mode: string
+    mode : string
         Padding mode see torch.nn.functional.pad documentation.
-    value: float
+    value : float
         Padding value see torch.nn.functional.pad documentation.
     Returns
     -------
-    batch: dict
+    batch : dict
         Dictionary containing all examples. torch.Tensor are batched together in this dict,
         other datatypes are instead put in a list where each element correspond to a different example.
     """
