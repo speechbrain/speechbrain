@@ -34,17 +34,17 @@ class ASR_Brain(sb.Brain):
 
     def compute_objectives(self, predictions, targets, stage):
         pout, pout_lens = predictions
-        ids, chars, char_lens = targets
-        chars, char_lens = chars.to(self.device), char_lens.to(self.device)
-        loss = self.hparams.compute_cost(pout, chars, pout_lens, char_lens)
-        self.ctc_metrics.append(ids, pout, chars, pout_lens, char_lens)
+        ids, phns, phn_lens = targets
+        phns, phn_lens = phns.to(self.device), phn_lens.to(self.device)
+        loss = self.hparams.compute_cost(pout, phns, pout_lens, phn_lens)
+        self.ctc_metrics.append(ids, pout, phns, pout_lens, phn_lens)
 
         if stage != sb.Stage.TRAIN:
             sequence = sb.decoders.ctc_greedy_decode(
                 pout, pout_lens, blank_id=-1
             )
-            self.cer_metrics.append(
-                ids, sequence, chars, None, char_lens, self.hparams.ind2lab
+            self.per_metrics.append(
+                ids, sequence, phns, None, phn_lens, self.hparams.ind2lab
             )
 
         return loss
@@ -53,16 +53,16 @@ class ASR_Brain(sb.Brain):
         self.ctc_metrics = self.hparams.ctc_stats()
 
         if stage != sb.Stage.TRAIN:
-            self.cer_metrics = self.hparams.cer_stats()
+            self.per_metrics = self.hparams.per_stats()
 
     def on_stage_end(self, stage, stage_loss, epoch):
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
         else:
-            cer = self.cer_metrics.summarize("error_rate")
+            per = self.per_metrics.summarize("error_rate")
 
         if stage == sb.Stage.VALID:
-            old_lr, new_lr = self.hparams.lr_annealing(cer)
+            old_lr, new_lr = self.hparams.lr_annealing(per)
             sb.nnet.update_learning_rate(self.optimizer, new_lr)
 
             # In distributed setting, only want to save model/stats once
@@ -70,23 +70,23 @@ class ASR_Brain(sb.Brain):
                 self.hparams.train_logger.log_stats(
                     stats_meta={"epoch": epoch, "lr": old_lr},
                     train_stats={"loss": self.train_loss},
-                    valid_stats={"loss": stage_loss, "CER": cer},
+                    valid_stats={"loss": stage_loss, "PER": per},
                 )
                 self.checkpointer.save_and_keep_only(
-                    meta={"CER": cer}, min_keys=["CER"],
+                    meta={"PER": per}, min_keys=["PER"],
                 )
 
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
-                test_stats={"loss": stage_loss, "CER": cer},
+                test_stats={"loss": stage_loss, "PER": per},
             )
             with open(self.hparams.wer_file, "w") as w:
                 w.write("CTC loss stats:\n")
                 self.ctc_metrics.write_stats(w)
-                w.write("\nCER stats:\n")
-                self.cer_metrics.write_stats(w)
-                print("CTC and CER stats written to ", self.hparams.wer_file)
+                w.write("\nPER stats:\n")
+                self.per_metrics.write_stats(w)
+                print("CTC and PER stats written to ", self.hparams.wer_file)
 
 
 # Begin Recipe!
@@ -117,7 +117,7 @@ if __name__ == "__main__":
     # Collect index to label dictionary for decoding
     train_set = hparams["train_loader"]()
     valid_set = hparams["valid_loader"]()
-    hparams["ind2lab"] = hparams["train_loader"].label_dict["char"]["index2lab"]
+    hparams["ind2lab"] = hparams["train_loader"].label_dict["phn"]["index2lab"]
 
     # Load pretrained model
     if "pretrained" in hparams:
@@ -128,11 +128,8 @@ if __name__ == "__main__":
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
         hparams=hparams,
-        # jit_module_keys=hparams["jit_module_keys"],
         checkpointer=hparams["checkpointer"],
-        device=hparams["device"],
-        ddp_procs=hparams["ddp_procs"],
     )
 
     asr_brain.fit(asr_brain.hparams.epoch_counter, train_set, valid_set)
-    asr_brain.evaluate(hparams["test_loader"](), min_key="CER")
+    asr_brain.evaluate(hparams["test_loader"](), min_key="PER")
