@@ -23,13 +23,13 @@ import json
 logger = logging.getLogger(__name__)
 
 
-def load_json(json_path, replacements_dict={}):
+def load_json(json_path, overrides={}):
     """
     Arguments
     ----------
     json_path : str
         Path to json file
-    replacements_dict : dict
+    overrides : dict
         Optional dict:
         e.g. {"<data_folder>": "/home/speechbrain/data"}
 
@@ -54,7 +54,8 @@ def load_json(json_path, replacements_dict={}):
 
     with open(json_path, "r") as f:
         out_json = json.load(f)
-    replace_entries(out_json, replacements_dict)
+
+    replace_entries(out_json, overrides)
     return out_json
 
 

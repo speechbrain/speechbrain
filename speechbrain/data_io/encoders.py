@@ -236,7 +236,7 @@ class CategoricalEncoder(object):
 
         Returns
         -------
-        decoded: list
+        decoded : list
             list containing original labels (strings).
         """
 

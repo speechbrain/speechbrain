@@ -24,18 +24,27 @@ dnn_neurons: 128
 
 # Data:
 data_folder: !PLACEHOLDER
-# TODO: Replace with final implementations
-label_encoder: !apply:speechbrain.data_io.encoders.CTCTextEncoder.fit_from_yaml
-    data_collections: [!ref <data_folder>/train.yaml, !ref <data_folder>/dev.yaml]
+
+train_examples: !apply:speechbrain.data_io.data_io.load_json
+    json_path: !ref <data_folder>/train.json
     overrides:
-        data_root: !ref <data_folder>
+        <data_root>: !ref <data_folder>
+dev_examples: !apply:speechbrain.data_io.data_io.load_json
+    json_path: !ref <data_folder>/dev.json
+    overrides:
+        <data_root>: !ref <data_folder>
+
+label_encoder: !apply:speechbrain.data_io.encoders.CTCTextEncoder.fit_from_yaml
+    data_collections: [!ref <train_examples>, !ref <dev_examples>]
     supervision: phn
     blank_encoding: !ref <blank_index>
+    sup_transform: !name:speechbrain.utils.data_utils.split_by_whitespace
 
 text_pipeline: !new:speechbrain.utils.data_utils.FuncPipeline
     name: phn
     target: phn
     funcs:
+        - !name:speechbrain.utils.data_utils.split_by_whitespace
         - !ref <label_encoder.encode_int>
         - !name:speechbrain.data_io.data_io.to_longTensor
 
@@ -49,18 +58,14 @@ data_tf:
     - !ref <text_pipeline>
     - !ref <audio_pipeline>
 
+train_data: !apply:speechbrain.data_io.datasets.SegmentedDataset.from_extended_yaml
+    examples: !ref <train_examples>
+    data_transforms: !ref <data_tf>
 
 valid_data: !apply:speechbrain.data_io.datasets.SegmentedDataset.from_extended_yaml
-    filepath: !ref <data_folder>/dev.yaml
-    overrides:
-        data_root: !ref <data_folder>
+    examples: !ref <dev_examples>
     data_transforms: !ref <data_tf>
 
-train_data: !apply:speechbrain.data_io.datasets.SegmentedDataset.from_extended_yaml
-    filepath: !ref <data_folder>/train.yaml
-    overrides:
-        data_root: !ref <data_folder>
-    data_transforms: !ref <data_tf>
 
 train_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
     dataset: !ref <train_data>

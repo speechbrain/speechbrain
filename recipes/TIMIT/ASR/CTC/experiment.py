@@ -115,6 +115,14 @@ if __name__ == "__main__":
 
     # Load hyperparameters file with command-line overrides
     hparams_file, overrides = sb.parse_arguments(sys.argv[1:])
+
+    # Prepare data
+    prepare_timit(
+        data_folder=overrides,
+        splits=["train", "dev", "test"],
+        save_folder=overrides,
+    )
+
     with open(hparams_file) as fin:
         hparams = sb.load_extended_yaml(fin, overrides)
 
