@@ -54,8 +54,8 @@ def load_json(json_path, replacements_dict={}):
 
     with open(json_path, "r") as f:
         out_json = json.load(f)
-
-    return replace_entries(out_json, replacements_dict)
+    replace_entries(out_json, replacements_dict)
+    return out_json
 
 
 def read_wav(waveforms_obj):
