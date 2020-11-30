@@ -3,7 +3,6 @@
 seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
-
 # Neural Parameters
 N_epochs: 15
 batch_size: 1
@@ -45,7 +44,7 @@ text_pipeline: !new:speechbrain.utils.data_utils.FuncPipeline
     target: phn
     funcs:
         - !name:speechbrain.utils.data_utils.split_by_whitespace
-        - !ref <label_encoder.encode_int>
+        - !ref <label_encoder.encode_sequence>
         - !name:speechbrain.data_io.data_io.to_longTensor
 
 audio_pipeline: !new:speechbrain.utils.data_utils.FuncPipeline
@@ -65,7 +64,6 @@ train_data: !apply:speechbrain.data_io.datasets.SegmentedDataset.from_extended_y
 valid_data: !apply:speechbrain.data_io.datasets.SegmentedDataset.from_extended_yaml
     examples: !ref <dev_examples>
     data_transforms: !ref <data_tf>
-
 
 train_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
     dataset: !ref <train_data>
