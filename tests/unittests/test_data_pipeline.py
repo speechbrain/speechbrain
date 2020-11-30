@@ -40,3 +40,14 @@ def test_data_pipeline():
     result = pipeline({"foo": 1, "bar": 2})
     assert not watcher.called
     assert result["truebar"] == 1
+
+    pipeline = DataPipeline()
+    watcher = MagicMock(return_value=3)
+    pipeline.add_func("foobar", func=watcher, argnames=["foo", "bar"])
+    pipeline.final_names.append("foobar")
+    pipeline.final_names.append("foo")
+    result = pipeline({"foo": 1, "bar": 2})
+    assert watcher.called
+    assert "foo" in result
+    assert "foobar" in result
+    assert "bar" not in result
