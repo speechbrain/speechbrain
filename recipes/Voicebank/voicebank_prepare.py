@@ -11,7 +11,6 @@ Authors:
 """
 
 import os
-import re
 import csv
 import string
 import urllib
@@ -20,10 +19,11 @@ import logging
 import tempfile
 import torchaudio
 from torchaudio.transforms import Resample
-from speechbrain.utils.data_utils import get_all_files
+from speechbrain.utils.data_utils import get_all_files, download_file
 from speechbrain.data_io.data_io import read_wav_soundfile
 
 logger = logging.getLogger(__name__)
+LEXICON_URL = "http://www.openslr.org/resources/11/librispeech-lexicon.txt"
 TRAIN_CSV = "train.csv"
 TEST_CSV = "test.csv"
 VALID_CSV = "valid.csv"
@@ -58,6 +58,98 @@ TRAIN_SPEAKERS = [
     "p282",
     "p286",
 ]
+# Lexicon missing entries
+MISSING_LEXICON = {
+    "CRUCIALLY": "K R UW SH AH L IY",
+    "PAEDOPHILES": "P EH D OW F AY L S",
+    "MR": "M IH S T ER",
+    "BBC": "B IY B IY S IY",
+    "EUPHORIC": "Y UW F AO R IH K",
+    "RACISM": "R EY S IH S M",
+    "MP": "EH M P IY",
+    "RESTRUCTURING": "R IY S T R AH K CH ER IH NG",
+    "OSAMA": "OW S AH M AH",
+    "GUITARIST": "G IH T AA R IH S T",
+    "BLUESHE": "B L UW SH IY",
+    "FLANKER": "F L AY N K ER",
+    "SADDAM": "S AA D AA M",
+    "COVERUP": "K UH V ER UH P",
+    "FBI": "EH F B IY AY",
+    "PREEMPTIVE": "P R IY EH M P T IH V",
+    "FOURYEAR": "F AO R Y IY R",
+    "XRAY": "EH K S R AY",
+    "TALIBAN": "T AE L IH B AA N",
+    "SUPERIMPOSITION": "S UW P ER IH M P OW S IH SH AH N",
+    "GUIDELINES": "G AY D L AY N S",
+    "FINALISED": "F AY N AH L AY Z D",
+    "HALFTIME": "H AE F T AY M",
+    "WINGERS": "W IH NG ER Z",
+    "GM": "J IY EH M",
+    "MCGREGOR": "M AH K G R EH G AO R",
+    "TWODAY": "T UW D EY",
+    "DATABASE": "D EY T AH B EY S",
+    "TELECOM": "T EH L AH K AO M",
+    "SHORTTERM": "SH AO R T ER M",
+    "SHORTFALL": "SH AO R T F AH L",
+    "MCCALL": "M AH K AH L",
+    "HEADTEACHER": "H EH D T IY CH ER",
+    "TAKEOVER": "T EY K OW V ER",
+    "ONETHIRD": "W AH N TH ER D",
+    "TV": "T IY V IY",
+    "SCREENPLAY": "S K R IY N P L EY",
+    "YUGOSLAV": "Y UW G OW S L AA V",
+    "HIBS": "HH IH B Z",
+    "DISPOSALS": "D IH S P OW S AH L Z",
+    "MODERNISATION": "M AA D ER N AH Z EY SH AH N",
+    "REALLIFE": "R IY L AY F",
+    "ONEYEAR": "W AH N Y IY R",
+    "GRASSROOTS": "G R AE S R UW T S",
+    "ARNIE": "AH R N IY",
+    "PARTTIME": "P AH R T AY M",
+    "SHORTLIST": "SH AO R T L IH S T",
+    "OUTPERFORMED": "OW T P ER F AO R M D",
+    "LONGTERM": "L AO NG T ER M",
+    "DAYTODAY": "D EY T UW D EY",
+    "MCPHERSON": "M AH K F ER S AH N",
+    "OUTSOURCING": "OW T S AO R S IH NG",
+    "FULLSCALE": "F UH L S K EY L",
+    "SERGIO": "S ER J IY OW",
+    "HENMAN": "HH EH N M AA N",
+    "MCLEOD": "M AH K L IY AO D",
+    "TIMESCALE": "T AY M S K EY L",
+    "REFURBISHMENT": "R IY F UH R B IH SH M AH N T",
+    "LINEUP": "L AY N UH P",
+    "DOWNBEAT": "D OW N B IY T",
+    "MANDELA": "M AE N D EH L AH",
+    "UNDERAGE": "UH N D ER EY J",
+    "MCNAUGHTON": "M AH K N AW T AH N",
+    "MICKELSON": "M IH K L S AH N",
+    "THREEQUARTERS": "TH R IY K AO R T ER Z",
+    "WEBSITE": "W EH B S AY T",
+    "BLUEITS": "B L UW IH T S",
+    "CEASEFIRE": "S IY S F AY R",
+    "FULLTIME": "F UH L T AY M",
+    "DOCHERTY": "D AH K ER T IY",
+    "RUNNERUP": "R UH N ER AH P",
+    "DOWNTURN": "D OW N T ER N",
+    "EUROS": "Y ER OW S",
+    "FOOTANDMOUTH": "F UH T AE N D M OW TH",
+    "HIGHLIGHTED": "HH AY L AY T AH D",
+    "MIDFIELD": "M IH D F IY L D",
+    "MCKENZIE": "M AH K EH N Z IY",
+    "BENCHMARK": "B EH N CH M AA R K",
+    "MCCONNELL": "M AH K AW N EH L",
+    "UPGRADING": "UH P G R EY D IH NG",
+    "BLUNKETT": "B L UH N K AH T",
+    "RETHINK": "R IY TH IH N K",
+    "UPBEAT": "AH P B IY T",
+    "TELECOMS": "T EH L AH K AO M Z",
+    "APARTHEID": "AH P AH R T HH AY D",
+    "AIRDRIE": "EY R D R IY",
+    "RETHINK": "R IY TH IH N K",
+    "HELPLINE": "HH EH L P L AY N",
+    "CLEARCUT": "K L IY R K UH T",
+}
 
 
 def prepare_voicebank(data_folder, save_folder, valid_speaker_count=2):
@@ -118,6 +210,9 @@ def prepare_voicebank(data_folder, save_folder, valid_speaker_count=2):
         test_txts,
     )
 
+    logger.debug("Creating lexicon...")
+    lexicon = create_lexicon(os.path.join(data_folder, "lexicon.txt"))
+
     logger.debug("Creating csv files for noisy VoiceBank...")
 
     # Creating csv file for training data
@@ -126,17 +221,23 @@ def prepare_voicebank(data_folder, save_folder, valid_speaker_count=2):
     wav_lst_train = get_all_files(
         train_noisy_folder, match_and=extension, exclude_or=valid_speakers,
     )
-    create_csv(wav_lst_train, save_csv_train, train_clean_folder, train_txts)
+    create_csv(
+        wav_lst_train, save_csv_train, train_clean_folder, train_txts, lexicon
+    )
 
     # Creating csv file for validation data
     wav_lst_valid = get_all_files(
         train_noisy_folder, match_and=extension, match_or=valid_speakers,
     )
-    create_csv(wav_lst_valid, save_csv_valid, train_clean_folder, train_txts)
+    create_csv(
+        wav_lst_valid, save_csv_valid, train_clean_folder, train_txts, lexicon
+    )
 
     # Creating csv file for testing data
     wav_lst_test = get_all_files(test_noisy_folder, match_and=extension)
-    create_csv(wav_lst_test, save_csv_test, test_clean_folder, test_txts)
+    create_csv(
+        wav_lst_test, save_csv_test, test_clean_folder, test_txts, lexicon
+    )
 
 
 def skip(*filenames):
@@ -156,7 +257,33 @@ def skip(*filenames):
     return True
 
 
-def create_csv(wav_lst, csv_file, clean_folder, txt_folder):
+def remove_punctuation(a_string):
+    """Remove all punctuation from string"""
+    return a_string.translate(str.maketrans("", "", string.punctuation))
+
+
+def create_lexicon(lexicon_save_filepath):
+    """
+    Creates the lexicon object, downloading if it hasn't been done yet.
+
+    Arguments
+    ---------
+    lexicon_save_filepath : str
+        Path to save the lexicon when downloading
+    """
+    if not os.path.isfile(lexicon_save_filepath):
+        download_file(LEXICON_URL, lexicon_save_filepath)
+
+    lexicon = MISSING_LEXICON
+    for line in open(lexicon_save_filepath):
+        line = line.split()
+        phns = " ".join(p.strip("012") for p in line[1:])
+        lexicon[remove_punctuation(line[0])] = phns
+
+    return lexicon
+
+
+def create_csv(wav_lst, csv_file, clean_folder, txt_folder, lexicon):
     """
     Creates the csv file given a list of wav files.
 
@@ -176,7 +303,8 @@ def create_csv(wav_lst, csv_file, clean_folder, txt_folder):
     csv_lines = [["ID", "duration"]]
     csv_lines[0].extend(["noisy_wav", "noisy_wav_format", "noisy_wav_opts"])
     csv_lines[0].extend(["clean_wav", "clean_wav_format", "clean_wav_opts"])
-    csv_lines[0].extend(["char", "char_format", "char_opts"])
+    csv_lines[0].extend(["wrd", "wrd_format", "wrd_opts"])
+    csv_lines[0].extend(["phn", "phn_format", "phn_opts"])
 
     # Processing all the wav files in the list
     for wav_file in wav_lst:  # ex:p203_122.wav
@@ -193,18 +321,20 @@ def create_csv(wav_lst, csv_file, clean_folder, txt_folder):
         with open(os.path.join(txt_folder, snt_id + ".txt")) as f:
             words = f.read()
 
-        # Strip punctuation and add spaces (excluding repeats).
-        words = words.translate(str.maketrans("", "", string.punctuation))
-        chars = " ".join(words.strip().upper())
-        chars = chars.replace("   ", " _ ")
-        chars = re.sub(r"\s{2,}", r" ", chars)
-        chars = re.sub(r"(.) \1", r"\1\1", chars)
+        # Strip punctuation and add pronunciation
+        words = remove_punctuation(words).strip().upper()
+        phns = " ".join([lexicon[word] for word in words.split()])
+
+        # Put space between every character
+        # chars = " ".join(words)
+        # chars = chars.replace("   ", " _ ")
+        # chars = re.sub(r"\s{2,}", r" ", chars)
+        # chars = re.sub(r"(.) \1", r"\1\1", chars)
 
         # Composition of the csv_line
         csv_line = [snt_id, str(duration)]
-        csv_line.extend([wav_file, "wav", ""])
-        csv_line.extend([clean_wav, "wav", ""])
-        csv_line.extend([chars, "string", ""])
+        csv_line.extend([wav_file, "wav", "", clean_wav, "wav", ""])
+        csv_line.extend([words, "string", "", phns, "string", ""])
 
         # Adding this line to the csv_lines list
         csv_lines.append(csv_line)

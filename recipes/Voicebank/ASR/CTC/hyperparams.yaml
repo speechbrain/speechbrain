@@ -7,8 +7,8 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1236
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-input_type: clean_wav
-output_folder: !ref results/<input_type>/<seed>
+input_type: noisy_wav
+output_folder: !ref results/<input_type>/phn/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -24,7 +24,8 @@ number_of_epochs: 50
 batch_size: 8
 lr: 1.0
 device: 'cuda:0'
-ddp_procs: 0  # Set to number of GPUs if multi-gpu
+multigpu_count: 0  # Set to number of GPUs if multi-gpu
+multigpu_backend: null
 
 # Set this to the path of a pretrained model to load before training
 # pretrained: model_clean_ep3.ckpt
@@ -47,7 +48,7 @@ dnn_blocks: 2
 dnn_neurons: 512
 
 # Outputs
-output_neurons: 44
+output_neurons: 42
 blank_index: !ref <output_neurons> - 1
 
 epoch_counter: !new:speechbrain.EpochCounter
@@ -58,21 +59,21 @@ train_loader: !new:speechbrain.data_io.DataLoaderFactory
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
-    csv_read: [!ref <input_type>, char]
+    csv_read: [!ref <input_type>, phn]
 
 valid_loader: !new:speechbrain.data_io.DataLoaderFactory
     csv_file: !ref <csv_valid>
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
-    csv_read: [!ref <input_type>, char]
+    csv_read: [!ref <input_type>, phn]
 
 test_loader: !new:speechbrain.data_io.DataLoaderFactory
     csv_file: !ref <csv_test>
     batch_size: !ref <batch_size>
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
-    csv_read: [!ref <input_type>, char]
+    csv_read: [!ref <input_type>, phn]
 
 compute_features: !new:speechbrain.lobes.Fbank
     sample_rate: !ref <sample_rate>
@@ -83,7 +84,7 @@ augmentation: !new:speechbrain.lobes.TimeDomainSpecAugment
     sample_rate: !ref <sample_rate>
     speeds: [95, 100, 105]
 
-model: !new:speechbrain.lobes.CRDNN
+model: !new:CRDNN.CRDNN
     input_shape: [null, null, !ref <n_mels>]
     activation: !ref <activation>
     dropout: !ref <dropout>
@@ -91,7 +92,6 @@ model: !new:speechbrain.lobes.CRDNN
     cnn_channels: !ref <cnn_channels>
     cnn_kernelsize: !ref <cnn_kernelsize>
     time_pooling: True
-    rnn_class: !name:speechbrain.nnet.LSTM
     rnn_layers: !ref <rnn_layers>
     rnn_neurons: !ref <rnn_neurons>
     rnn_bidirectional: !ref <rnn_bidirectional>
@@ -126,7 +126,7 @@ modules:
     normalize: !ref <normalize>
     augmentation: !ref <augmentation>
 
-#jit_module_keys: [model]
+jit_module_keys: [model]
 
 checkpointer: !new:speechbrain.Checkpointer
     checkpoints_dir: !ref <save_folder>
@@ -145,7 +145,7 @@ ctc_stats: !name:speechbrain.MetricStats
         blank_index: !ref <blank_index>
         reduction: batch
 
-cer_stats: !name:speechbrain.ErrorRateStats
+per_stats: !name:speechbrain.ErrorRateStats
 
 train_logger: !new:speechbrain.FileTrainLogger
     save_file: !ref <train_log>
