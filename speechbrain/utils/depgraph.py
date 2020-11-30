@@ -186,7 +186,7 @@ class DependencyGraph:
         """
         return not self._find_first_cycle()
 
-    def get_evaluation_order(self):
+    def get_evaluation_order(self, selected_keys=None):
         """
         Finds one valid evaluation order.
 
@@ -199,6 +199,12 @@ class DependencyGraph:
         used for finding an evaluation order, so for very large graphs...
         Ah well, but maybe then you should be using some other solution
         anyway.
+
+        Arguments
+        ---------
+        selected_keys : list, None
+            List of keys. If not None, only the selected keys are guaranteed
+            in the evaluation order (along with the keys they depend on).
 
         Yields
         ------
@@ -232,7 +238,12 @@ class DependencyGraph:
                     yield ind
             yield root_ind
 
-        for start_ind in range(len(self.digraph)):
+        if selected_keys is None:
+            start_inds = range(len(self.digraph))
+        else:
+            start_inds = [self.key2ind[key] for key in selected_keys]
+
+        for start_ind in start_inds:
             for ind in toposort(start_ind, []):
                 yield self.digraph[ind]
 
