@@ -68,7 +68,7 @@ text_pipeline: !new:speechbrain.utils.data_utils.FuncPipeline
     target: phn
     funcs:
         - !name:speechbrain.utils.data_utils.split_by_whitespace
-        - !ref <label_encoder.encode_int>
+        - !ref <label_encoder.encode_sequence>
         - !name:speechbrain.data_io.data_io.to_longTensor
 
 audio_pipeline: !new:speechbrain.utils.data_utils.FuncPipeline

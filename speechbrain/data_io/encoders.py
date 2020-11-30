@@ -132,12 +132,34 @@ class CategoricalEncoder(object):
 
         return label_dict[k]
 
-    def encode_int(self, x):
+    def encode_label(self, x):
         """
         Parameters
         ----------
-        x : (list, tuple, str)
+        x : str
             list, tuple of strings or either a single string which one wants to encode.
+
+        Returns
+        -------
+        labels : int
+            corresponding encoded int value.
+
+        """
+        if isinstance(x, str):
+            labels = self._index_label_dict(self.lab2indx, x)
+        else:
+            raise NotImplementedError(
+                "Value to encode must be a string, got {}".format(type(x))
+            )
+        return labels
+
+    def encode_sequence(self, x):
+        """
+        Parameters
+        ----------
+        x : (list, tuple)
+            list, tuple of strings which one wants to encode one by one e.g.
+            every element of the sequence is a label and we encode it.
 
         Returns
         -------
@@ -145,16 +167,14 @@ class CategoricalEncoder(object):
             tensor containing encoded value.
 
         """
+
         if isinstance(x, (tuple, list)):
-            labels = []
-            for i, elem in enumerate(x):
-                labels.append(self._index_label_dict(self.lab2indx, elem))
-            labels = labels
-        elif isinstance(x, str):
-            labels = [self._index_label_dict(self.lab2indx, x)]
+            labels = list(map(self.encode_label, x))
         else:
             raise NotImplementedError(
-                "Value to encode must be list, tuple or string"
+                "Value to encode must be a list or tuple, got {}".format(
+                    type(x)
+                )
             )
         return labels
 
