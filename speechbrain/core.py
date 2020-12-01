@@ -369,6 +369,7 @@ class Brain:
                 setattr(self, arg, run_opts[arg])
             else:
                 setattr(self, arg, default)
+
         # Switch to the right context
         if "cuda" in self.device:
             torch.cuda.set_device(int(self.device[-1]))
