@@ -372,7 +372,7 @@ class Brain:
             logger.info(f"{fmt_num} trainable parameters in {clsname}")
 
         # Initialize ddp environment
-        if os.environ.get("LOCAL_RANK") != "":
+        if os.environ.get("LOCAL_RANK") is not None:
             self.rank = int(os.environ.get("LOCAL_RANK"))
 
         if self.distributed_backend and self.distributed_backend.startswith(
