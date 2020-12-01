@@ -227,8 +227,7 @@ def parse_arguments(arg_list):
     if "local_rank" in run_opts:
         local_rank = run_opts["local_rank"]
     else:
-        env_local_rank = os.environ["LOCAL_RANK"]
-        if env_local_rank is not None and env_local_rank != "":
+        if "LOCAL_RANK" in os.environ and os.environ["LOCAL_RANK"] != "":
             local_rank = os.environ["LOCAL_RANK"]
 
     # force device arg to be the same as local_rank from torch.distributed.lunch
@@ -406,14 +405,13 @@ class Brain:
         #   GPU0: local_rank=device=0, rank=2
         #   GPU1: local_rank=device=1, rank=3
         if self.distributed_launch:
-            rank = os.environ["RANK"]
-            if rank is None or rank == "":
+            if "RANK" in os.environ is None or os.environ["RANK"] == "":
                 sys.exit(
                     "To use DDP backend, start your script with:\n\t"
                     "python -m torch.distributed.lunch [args]\n"
                     "experiment.py hyperparams.yaml --distributed_backend=nccl"
                 )
-            self.rank = int(rank)
+            self.rank = int(os.environ["RANK"])
             if self.distributed_backend == "nccl":
                 if not torch.distributed.is_nccl_available():
                     logger.info("NCCL is not supported in your machine.")
