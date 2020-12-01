@@ -8,19 +8,14 @@ Author:
     * Mirko Bronzi 2020
 """
 
-import argparse
 import logging
 import os
 import pprint
 import shutil
 
-# from pathlib import PosixPath
-
-# import itertools as it
-
 import torch
 import torch.nn.functional as F
-from torch.cuda.amp import autocast  # , GradScaler
+from torch.cuda.amp import autocast
 
 import speechbrain as sb
 from recipes.minimal_examples.neural_networks.separation.example_conv_tasnet import (
@@ -28,16 +23,13 @@ from recipes.minimal_examples.neural_networks.separation.example_conv_tasnet imp
 )
 from speechbrain.nnet.losses import get_si_snr_with_pitwrapper
 
-# from speechbrain.utils.checkpoints import ckpt_recency
-
-# from speechbrain.utils.train_logger import summarize_average
-
 # from speechbrain.data_io.data_io import write_wav_soundfile
 
 import speechbrain.nnet.schedulers as schedulers
-
-# from tqdm import tqdm
 import numpy as np
+from tqdm import tqdm
+import sys
+import csv
 
 
 logger = logging.getLogger(__name__)
@@ -51,92 +43,161 @@ def reset_layer_recursively(layer):
             reset_layer_recursively(child_layer)
 
 
+def save_audio_results(
+    params, model, test_loader, device, Ntosave=10, justNitems=False
+):
+    # this package is required for SDR computation
+    from mir_eval.separation import bss_eval_sources
+
+    # for some reason speechbrain save method causes clipping, so I am using this one
+    from soundfile import write
+
+    save_path = os.path.join(params["output_folder"], "audio_results")
+    if not os.path.exists(save_path):
+        os.mkdir(save_path)
+
+    fs = 8000
+    all_sdrs = []
+    all_sisnrs = []
+
+    csv_columns = [
+        "sdr",
+        "si-snr",
+    ]
+
+    with open(save_path + "/results.csv", "w") as results_csv:
+        writer = csv.DictWriter(results_csv, fieldnames=csv_columns)
+        writer.writeheader()
+
+        with tqdm(test_loader.get_dataloader(), dynamic_ncols=True) as t:
+            for i, batch in enumerate(t):
+
+                inputs = batch[0][1].to(device)
+                predictions = model.compute_forward(
+                    inputs, stage="test"
+                ).detach()
+                targets = torch.stack(
+                    [
+                        batch[i][1].squeeze()
+                        for i in range(1, model.modules.masknet.num_spks + 1)
+                    ],
+                    dim=0,
+                )
+
+                sdr, _, _, _ = bss_eval_sources(
+                    targets.numpy(), predictions[0].t().cpu().numpy()
+                )
+                sisnr = get_si_snr_with_pitwrapper(
+                    targets.t().unsqueeze(0).to(device), predictions
+                )
+
+                row = {"sdr": sdr.mean(), "si-snr": -sisnr.item()}
+
+                all_sdrs.append(sdr.mean())
+                all_sisnrs.append(-sisnr.item())
+                if i < Ntosave:
+
+                    for ns in range(model.modules.masknet.num_spks):
+                        tosave = predictions[0, :, ns].cpu().numpy()
+                        mx_val = tosave.max()
+                        write(
+                            save_path
+                            + "/item{}_source{}hat.wav".format(i, ns + 1),
+                            tosave / mx_val,
+                            fs,
+                        )
+
+                        tosave = batch[ns + 1][1].cpu().squeeze().numpy()
+                        mx_val = tosave.max()
+                        write(
+                            save_path
+                            + "/item{}_source{}.wav".format(i, ns + 1),
+                            tosave / mx_val,
+                            fs,
+                        )
+
+                    tosave = inputs[0].data.cpu().numpy()
+                    mx_val = tosave.max()
+                    write(
+                        save_path + "/item{}_mixture.wav".format(i),
+                        tosave / mx_val,
+                        fs,
+                    )
+
+                    writer.writerow(row)
+                else:
+                    if justNitems:
+                        break
+
+                t.set_postfix(average_sdr=np.array(all_sdrs).mean())
+            row = {
+                "sdr": np.array(all_sdrs).mean(),
+                "si-snr": np.array(all_sisnrs).mean(),
+            }
+            writer.writerow(row)
+
+    print("Mean SDR is {}".format(np.array(all_sdrs).mean()))
+
+
 class SourceSeparationBrain(sb.core.Brain):
     def compute_objectives(self, predictions, targets):
-        if self.hparams.loss_fn == "sisnr":
-            loss = get_si_snr_with_pitwrapper(targets, predictions)
-            return loss
-        else:
-            raise ValueError("Not Correct Loss Function Type")
+        loss = get_si_snr_with_pitwrapper(targets, predictions)
+        return loss
 
     def fit_batch(self, batch):
-        # train_onthefly option enables data augmentation,
-        # by creating random mixtures within the batch
-        if self.hparams.train_onthefly:
-            bs = batch[0][1].shape[0]
-            perm = torch.randperm(bs)
 
-            T = 24000
-            Tmax = max((batch[0][1].shape[-1] - T) // 10, 1)
-            Ts = torch.randint(0, Tmax, (1,))
-            source1 = batch[1][1][perm, Ts : Ts + T].to(self.device)
-            source2 = batch[2][1][:, Ts : Ts + T].to(self.device)
+        inputs = batch[0][1].to(self.device)
+        targets = torch.cat(
+            [
+                batch[i][1].unsqueeze(-1)
+                for i in range(1, self.hparams.MaskNet.num_spks + 1)
+            ],
+            dim=-1,
+        ).to(self.device)
 
-            ws = torch.ones(2).to(self.device)
-            ws = ws / ws.sum()
-
-            inputs = ws[0] * source1 + ws[1] * source2
-            targets = torch.cat(
-                [source1.unsqueeze(1), source2.unsqueeze(1)], dim=1
-            )
-        else:
-            inputs = batch[0][1].to(self.device)
-            targets = torch.cat(
-                [
-                    batch[i][1].unsqueeze(-1)
-                    for i in range(1, self.hparams.MaskNet.num_spks + 1)
-                ],
-                dim=-1,
-            ).to(self.device)
-
-        if isinstance(
-            self.hparams.MaskNet.dual_mdl[0].intra_mdl,
-            sb.lobes.models.dual_path.DPTNetBlock,
-        ) or isinstance(
-            self.hparams.MaskNet.dual_mdl[0].intra_mdl,
-            sb.lobes.models.dual_path.PTRNNBlock,
-        ):
+        if self.hparams.limit_training_signal_len:
             randstart = np.random.randint(
-                0, 1 + max(0, inputs.shape[1] - 32000)
+                0,
+                1 + max(0, inputs.shape[1] - self.hparams.training_signal_len),
             )
-            targets = targets[:, randstart : randstart + 32000, :]
+            targets = targets[
+                :, randstart : randstart + self.hparams.training_signal_len, :
+            ]
+            inputs = inputs[
+                :, randstart : randstart + self.hparams.training_signal_len
+            ]
 
-        if self.hparams.use_data_augmentation:
+        if self.hparams.use_speedperturb:
             targets = targets.permute(0, 2, 1)
             targets = targets.reshape(-1, targets.shape[-1])
-            wav_lens = torch.tensor([targets.shape[-1]] * targets.shape[0]).to(
-                self.device
+            wav_lens = torch.tensor(
+                [targets.shape[-1]] * targets.shape[0], device=self.device
             )
 
-            targets = self.hparams.augmentation(targets, wav_lens)
+            targets = self.hparams.speedperturb_block(targets, wav_lens)
             targets = targets.reshape(
                 -1, self.hparams.MaskNet.num_spks, targets.shape[-1]
             )
             targets = targets.permute(0, 2, 1)
 
-            if hasattr(self.hparams, "use_data_shuffling"):
-                # only would work for 2 spks
-                perm = torch.randperm(targets.size(0))
-                targets = torch.stack(
-                    [targets[perm, :, 0], targets[:, :, 1]], dim=2
-                )
-
             inputs = targets.sum(-1)
 
-        # TODO: consider if we need this part..
-        # if isinstance(self.params.lr_scheduler, schedulers.NoamScheduler):
-        #     old_lr, new_lr = self.params.lr_scheduler(
-        #         [self.optimizer], None, None
-        #     )
-        #     print("oldlr ", old_lr, "newlr", new_lr)
-        #     print(self.optimizer.optim.param_groups[0]["lr"])
+        if self.hparams.use_waveformdrop:
+            wav_lens = torch.tensor(
+                [inputs.shape[-1]] * inputs.shape[0], device=self.device
+            )
+            inputs = self.hparams.waveformdrop_block(inputs, wav_lens)
+
+        # Note: Other LR schedulers such as NoamScheduler can be used starting from this line
 
         if self.hparams.auto_mix_prec:
             with autocast():
                 predictions = self.compute_forward(inputs)
                 loss = self.compute_objectives(predictions, targets)
 
-            if loss < 999999:  # fix for computational problems
+            if (
+                loss < self.hparams.loss_upper_lim
+            ):  # fix for computational problems
                 self.scaler.scale(loss).backward()
                 if self.hparams.clip_grad_norm >= 0:
                     self.scaler.unscale_(self.optimizer)
@@ -177,7 +238,7 @@ class SourceSeparationBrain(sb.core.Brain):
             dim=-1,
         ).to(self.device)
 
-        predictions = self.compute_forward(inputs, stage="test")
+        predictions = self.compute_forward(inputs)
         loss = self.compute_objectives(predictions, targets)
         return loss.detach()
 
@@ -266,47 +327,24 @@ class SourceSeparationBrain(sb.core.Brain):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--config", help="config file", required=True)
-    parser.add_argument(
-        "--data_path", help="the data path to load the dataset", required=False
-    )
-    parser.add_argument(
-        "--minimal",
-        help="will run a minimal example for debugging",
-        action="store_true",
-    )
-    parser.add_argument(
-        "--test_only",
-        help="will only run testing, and not training",
-        action="store_true",
-    )
-    parser.add_argument(
-        "--use_multigpu",
-        help="will use multigpu in training",
-        action="store_true",
-    )
-    parser.add_argument(
-        "--num_spks", help="number of speakers", type=int, default=2,
-    )
-
-    args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO)
+    hparams_file, overrides = sb.parse_arguments(sys.argv[1:])
 
-    if args.minimal:
+    with open(hparams_file) as fin:
+        params = sb.yaml.load_extended_yaml(fin, overrides)
+
+    if params["minimal"]:
         repo_path = os.path.dirname(os.path.realpath(__file__)) + "/../../../"
-        params = create_minimal_data(repo_path, args.config)
+        params = create_minimal_data(repo_path, hparams_file)
         logger.info("setting epoch size to 1 - because --minimal")
         params["N_epochs"] = 1
-        # params = fix_params_for_orion(params)
     else:
-        with open(args.config) as fin:
-            params = sb.yaml.load_extended_yaml(fin)
 
-        # override the data_path if we want to
-        if args.data_path is not None:
-            params.wsj0mixpath = args.data_path
+        # override the data_path if we want to --
+        # I want to do it speechbrain way not, but I am not sure how to do it
+        # if args.data_path is not None:
+        #     params.wsj0mixpath = args.data_path
 
         # this points to the folder to which we will save the wsj0-mix dataset
         data_save_dir = params["wsj0mixpath"]
@@ -344,13 +382,13 @@ if __name__ == "__main__":
             os.path.join(params["save_folder"] + "/wsj_tt.csv")
         )
 
-        with open(args.config) as fin:
+        with open(hparams_file) as fin:
             params = sb.yaml.load_extended_yaml(
                 fin, {"tr_csv": tr_csv, "cv_csv": cv_csv, "tt_csv": tt_csv}
             )
 
         # copy the config file for book keeping
-        shutil.copyfile(args.config, params["output_folder"] + "/config.txt")
+        shutil.copyfile(hparams_file, params["output_folder"] + "/config.txt")
 
     logger.info(pprint.PrettyPrinter(indent=4).pformat(params))
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -375,19 +413,21 @@ if __name__ == "__main__":
         hparams=params,
         checkpointer=params["checkpointer"],
     )
-    ssb.args = args
 
+    # re-initialize the parameters
     for module in ssb.modules.values():
         reset_layer_recursively(module)
 
-    if args.test_only:
+    if params["test_only"]:
         # save_audio_results(params, ctn, test_loader, device, N=10)
 
         # get the score on the whole test set
-        test_stats = ssb.evaluate(test_loader)
-        # logger.info(
-        #    "Test SI-SNR: %.3f" % -summarize_average(test_stats["loss"])
-        # )
+        test_stats = ssb.evaluate(
+            test_loader, min_key="SI-SNR", progressbar=True
+        )
+        save_audio_results(
+            params, ssb, test_loader, device=device, justNitems=True
+        )
     else:
 
         ssb.fit(
