@@ -202,13 +202,14 @@ def parse_arguments(arg_list):
     # For DDP, the device args must equal to local_rank used by torch.distributed.lunch
     # If run_opts["local_rank"] exists
     # Otherwise use OS.environ["LOCAL_RANK"]
+    gpu_to_use = None
     if "local_rank" in run_opts:
         gpu_to_use = run_opts["local_rank"]
-    else:
+    elif "LOCAL_RANK" in os.environ:
         gpu_to_use = os.environ["LOCAL_RANK"]
 
     # force device arg to be the same as local_rank from torch.distributed.lunch
-    if "cuda" in run_opts["device"]:
+    if "cuda" in run_opts["device"] and gpu_to_use is not None:
         run_opts["device"] = run_opts["device"][:-1] + str(gpu_to_use)
 
     param_file = run_opts["param_file"]
@@ -347,6 +348,7 @@ class Brain:
                 setattr(self, arg, run_opts[arg])
             else:
                 setattr(self, arg, default)
+
         # Switch to the right context
         if "cuda" in self.device:
             torch.cuda.set_device(int(self.device[-1]))
@@ -372,6 +374,7 @@ class Brain:
             logger.info(f"{fmt_num} trainable parameters in {clsname}")
 
         # Initialize ddp environment
+        self.rank = None
         if os.environ.get("LOCAL_RANK") is not None:
             self.rank = int(os.environ.get("LOCAL_RANK"))
 
@@ -737,47 +740,29 @@ class Brain:
 
     def _wrap_distributed(self):
         """Wrap modules with distributed wrapper when requested"""
-        # if self.distributed_backend is None:
-        #     return
-        # elif self.distributed_backend == "data_parallel":
-        #     # if distributed_count = 0 then use all gpu
-        #     # otherwise, specify the set of gpu used
-        #     print("je rentre data_parallel")
-        #     if self.distributed_count == 0:
-        #         self.modules = torch.nn.DataParallel(self.modules)
-        #     else:
-        #         self.modules = torch.nn.DataParallel(self.modules,
-        #         [i for i in range(self.distributed_count)])
-        #     print(self.modules)
-        #     input()
-        # elif self.distributed_backend.startswith("ddp"):
-        #     self.modules = SyncBatchNorm.convert_sync_batchnorm(self.modules)
-        #     self.modules = DDP(self.modules, device_ids=[self.device])
-        # else:
-        #     raise ValueError("Dist backend must be 'data_parallel' or 'ddp_*'")
-        print("je suis _wrap")
-        print(self.distributed_backend)
         if self.distributed_backend is None:
             return
-        else:
+
+        elif self.distributed_backend.startswith("ddp"):
+            self.modules = SyncBatchNorm.convert_sync_batchnorm(self.modules)
+            self.modules = DDP(self.modules, device_ids=[self.device])
+
+        elif self.distributed_backend == "data_parallel":
             for name, module in self.modules.items():
-                print(self.distributed_count)
-                print(range(self.distributed_count))
                 if any(p.requires_grad for p in module.parameters()):
                     # if distributed_count = 0 then use all gpu
                     # otherwise, specify the set of gpu used
-                    if self.distributed_backend == "data_parallel":
-                        if self.distributed_count == 0:
-                            module = torch.nn.DataParallel(module, [0])
-                        else:
-                            module = torch.nn.DataParallel(
-                                module,
-                                [i for i in range(self.distributed_count + 1)],
-                            )
-                    elif self.distributed_backend.startswith("ddp"):
-                        module = SyncBatchNorm.convert_sync_batchnorm(module)
-                        module = DDP(module, device_ids=[self.device])
-                self.modules[name] = module
+                    if self.distributed_count == 0:
+                        module = torch.nn.DataParallel(module, [0])
+                    else:
+                        module = torch.nn.DataParallel(
+                            module,
+                            [i for i in range(self.distributed_count + 1)],
+                        )
+                    self.modules[name] = module
+
+        else:
+            raise ValueError("Dist backend must be 'data_parallel' or 'ddp_*'")
 
     def evaluate(self, test_set, max_key=None, min_key=None, progressbar=None):
         """Iterate test_set and evaluate brain performance. By default, loads
