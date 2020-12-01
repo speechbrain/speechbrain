@@ -2,6 +2,7 @@
 
 Authors
  * Peter Plantinga 2020
+ * Abdel Heba 2020
 """
 
 import os
@@ -142,6 +143,7 @@ def parse_arguments(arg_list):
         type=str,
         help="A file storing the configuration options for logging",
     )
+    # if use_env = False in torch.distributed.lunch then local_rank arg is given
     parser.add_argument(
         "--local_rank", type=int, help="Rank on local machine",
     )
@@ -152,14 +154,28 @@ def parse_arguments(arg_list):
         help="The device to run the experiment on (e.g. 'cuda:0')",
     )
     parser.add_argument(
-        "--distributed_count",
+        "--data_parallel_count",
         type=int,
-        help="Number of devices that are used for computation",
+        default=-1,
+        help="Number of devices that are used for data_parallel computation",
+    )
+    parser.add_argument(
+        "--data_parallel_backend",
+        type=bool,
+        default=False,
+        help="If True, data_parallel is used.",
+    )
+    parser.add_argument(
+        "--distributed_launch",
+        type=bool,
+        default=False,
+        help="if True, use DDP",
     )
     parser.add_argument(
         "--distributed_backend",
         type=str,
-        help="One of {data_parallel, ddp_nccl, ddp_gloo, ddp_mpi}",
+        default="nccl",
+        help="One of {nccl, gloo, mpi}",
     )
     parser.add_argument(
         "--jit_module_keys",
@@ -199,22 +215,26 @@ def parse_arguments(arg_list):
     # Ignore items that are "None", they were not passed
     run_opts = {k: v for k, v in vars(run_opts).items() if v is not None}
 
-    # For DDP, the device args must equal to local_rank used by torch.distributed.lunch
-    # If run_opts["local_rank"] exists
-    # Otherwise use OS.environ["LOCAL_RANK"]
-    if "local_rank" in run_opts:
-        gpu_to_use = run_opts["local_rank"]
-    else:
-        gpu_to_use = os.environ["LOCAL_RANK"]
-
-    # force device arg to be the same as local_rank from torch.distributed.lunch
-    if "cuda" in run_opts["device"]:
-        run_opts["device"] = run_opts["device"][:-1] + str(gpu_to_use)
-
     param_file = run_opts["param_file"]
     del run_opts["param_file"]
 
     overrides = _convert_to_yaml(overrides)
+
+    # For DDP, the device args must equal to local_rank used by torch.distributed.lunch
+    # If run_opts["local_rank"] exists
+    # Otherwise use OS.environ["LOCAL_RANK"]
+    local_rank = None
+    if "local_rank" in run_opts:
+        local_rank = run_opts["local_rank"]
+    else:
+        env_local_rank = os.environ["LOCAL_RANK"]
+        if env_local_rank is not None and env_local_rank != "":
+            local_rank = os.environ["LOCAL_RANK"]
+
+    # force device arg to be the same as local_rank from torch.distributed.lunch
+    if local_rank is not None and "cuda" in run_opts["device"]:
+        run_opts["device"] = run_opts["device"][:-1] + str(local_rank)
+
     return param_file, run_opts, overrides
 
 
@@ -334,8 +354,10 @@ class Brain:
         # Arguments passed via the run opts dictionary
         run_opt_defaults = {
             "device": "cpu",
-            "distributed_count": 0,
-            "distributed_backend": None,
+            "data_parallel_count": -1,
+            "data_parallel_backend": False,
+            "distributed_launch": False,
+            "distributed_backend": "nccl",
             "jit_module_keys": None,
             "auto_mix_prec": False,
             "max_grad_norm": 5.0,
@@ -372,25 +394,41 @@ class Brain:
             logger.info(f"{fmt_num} trainable parameters in {clsname}")
 
         # Initialize ddp environment
-        if os.environ.get("LOCAL_RANK") is not None:
-            self.rank = int(os.environ.get("LOCAL_RANK"))
-
-        if self.distributed_backend and self.distributed_backend.startswith(
-            "ddp"
-        ):
-            if self.rank is None:
+        # local_rank is used to set the right GPU device context
+        # for the current process
+        # rank arg is used to set the right rank of the current process for ddp.
+        # if you have 2 servers with 2 gpu:
+        # server1:
+        #   GPU0: local_rank=device=0, rank=0
+        #   GPU1: local_rank=device=1, rank=1
+        # server2:
+        #   GPU0: local_rank=device=0, rank=2
+        #   GPU1: local_rank=device=1, rank=3
+        if self.distributed_launch:
+            rank = os.environ["RANK"]
+            if rank is None or rank == "":
                 sys.exit(
                     "To use DDP backend, start your script with:\n\t"
-                    "python -m speechbrain.ddp experiment.py hyperparams.yaml"
+                    "python -m torch.distributed.lunch [args]\n"
+                    "experiment.py hyperparams.yaml --distributed_backend=nccl"
                 )
-            self.root_process = self.rank == 0
+            self.rank = int(rank)
+            if self.distributed_backend == "nccl":
+                if not torch.distributed.is_nccl_available():
+                    logger.info("NCCL is not supported in your machine.")
+                    raise ValueError("NCCL is not supported in your machine.")
+            elif self.distributed_backend == "gloo":
+                if not torch.distributed.is_gloo_available():
+                    logger.info("GLOO is not supported in your machine.")
+                    raise ValueError("GLOO is not supported in your machine.")
+            else:
+                if not torch.distributed.is_mpi_available():
+                    logger.info("MPI is not supported in your machine.")
+                    raise ValueError("MPI is not supported in your machine.")
 
-            # Use backend (without "ddp_") to initialize process group
-            backend = self.distributed_backend[len("ddp_") :]
+            self.root_process = self.rank == 0
             torch.distributed.init_process_group(
-                backend=backend,
-                world_size=self.distributed_count,
-                rank=self.rank,
+                backend=self.distributed_backend, rank=self.rank,
             )
 
             # force the models to start and remain synchronized
@@ -674,10 +712,12 @@ class Brain:
         # Use factories to get loaders
         self.train_sampler = None
         if isinstance(train_set, DataLoaderFactory):
-            if self.rank is not None and self.distributed_count > 0:
+            if self.distributed_launch:
+                # num_replicas arg is equal to word_size
+                # and retrieved automatically within
+                # DistributedSampler obj.
                 self.train_sampler = DistributedSampler(
                     dataset=train_set.dataset,
-                    num_replicas=self.distributed_count,
                     rank=self.rank,
                     shuffle=train_set.shuffle,
                 )
@@ -737,46 +777,28 @@ class Brain:
 
     def _wrap_distributed(self):
         """Wrap modules with distributed wrapper when requested"""
-        # if self.distributed_backend is None:
-        #     return
-        # elif self.distributed_backend == "data_parallel":
-        #     # if distributed_count = 0 then use all gpu
-        #     # otherwise, specify the set of gpu used
-        #     print("je rentre data_parallel")
-        #     if self.distributed_count == 0:
-        #         self.modules = torch.nn.DataParallel(self.modules)
-        #     else:
-        #         self.modules = torch.nn.DataParallel(self.modules,
-        #         [i for i in range(self.distributed_count)])
-        #     print(self.modules)
-        #     input()
-        # elif self.distributed_backend.startswith("ddp"):
-        #     self.modules = SyncBatchNorm.convert_sync_batchnorm(self.modules)
-        #     self.modules = DDP(self.modules, device_ids=[self.device])
-        # else:
-        #     raise ValueError("Dist backend must be 'data_parallel' or 'ddp_*'")
-        print("je suis _wrap")
-        print(self.distributed_backend)
-        if self.distributed_backend is None:
+        if not self.distributed_launch and not self.data_parallel_backend:
             return
-        else:
+        elif self.distributed_launch:
             for name, module in self.modules.items():
-                print(self.distributed_count)
-                print(range(self.distributed_count))
                 if any(p.requires_grad for p in module.parameters()):
-                    # if distributed_count = 0 then use all gpu
+                    # for ddp, all module must run on same GPU
+                    module = SyncBatchNorm.convert_sync_batchnorm(module)
+                    module = DDP(module, device_ids=[self.device])
+                self.modules[name] = module
+        else:
+            # data_parallel_backend
+            for name, module in self.modules.items():
+                if any(p.requires_grad for p in module.parameters()):
+                    # if distributed_count = -1 then use all gpu
                     # otherwise, specify the set of gpu used
-                    if self.distributed_backend == "data_parallel":
-                        if self.distributed_count == 0:
-                            module = torch.nn.DataParallel(module, [0])
-                        else:
-                            module = torch.nn.DataParallel(
-                                module,
-                                [i for i in range(self.distributed_count + 1)],
-                            )
-                    elif self.distributed_backend.startswith("ddp"):
-                        module = SyncBatchNorm.convert_sync_batchnorm(module)
-                        module = DDP(module, device_ids=[self.device])
+                    if self.data_parallel_count == -1:
+                        module = torch.nn.DataParallel(module)
+                    else:
+                        module = torch.nn.DataParallel(
+                            module,
+                            [i for i in range(self.distributed_count + 1)],
+                        )
                 self.modules[name] = module
 
     def evaluate(self, test_set, max_key=None, min_key=None, progressbar=None):
