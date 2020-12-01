@@ -743,13 +743,12 @@ class Brain:
         if self.distributed_backend is None:
             return
 
-        elif self.distributed_backend.startswith("ddp"):
-            self.modules = SyncBatchNorm.convert_sync_batchnorm(self.modules)
-            self.modules = DDP(self.modules, device_ids=[self.device])
-
-        elif self.distributed_backend == "data_parallel":
-            for name, module in self.modules.items():
-                if any(p.requires_grad for p in module.parameters()):
+        for name, module in self.modules.items():
+            if any(p.requires_grad for p in module.parameters()):
+                if self.distributed_backend.startswith("ddp"):
+                    module = SyncBatchNorm.convert_sync_batchnorm(module)
+                    module = DDP(module, device_ids=[self.device])
+                elif self.distributed_backend == "data_parallel":
                     # if distributed_count = 0 then use all gpu
                     # otherwise, specify the set of gpu used
                     if self.distributed_count == 0:
@@ -759,10 +758,11 @@ class Brain:
                             module,
                             [i for i in range(self.distributed_count + 1)],
                         )
-                    self.modules[name] = module
-
-        else:
-            raise ValueError("Dist backend must be 'data_parallel' or 'ddp_*'")
+                else:
+                    raise ValueError(
+                        "Distributed backend must be 'data_parallel' or 'ddp_*'"
+                    )
+                self.modules[name] = module
 
     def evaluate(self, test_set, max_key=None, min_key=None, progressbar=None):
         """Iterate test_set and evaluate brain performance. By default, loads
