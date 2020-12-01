@@ -350,6 +350,7 @@ class Brain:
         # Switch to the right context
         if "cuda" in self.device:
             torch.cuda.set_device(int(self.device[-1]))
+
         # Put modules on the right device, accessible with dot notation
         self.modules = torch.nn.ModuleDict(modules).to(self.device)
 
@@ -371,7 +372,9 @@ class Brain:
             logger.info(f"{fmt_num} trainable parameters in {clsname}")
 
         # Initialize ddp environment
-        self.rank = os.environ.get("RANK")
+        if os.environ.get("LOCAL_RANK") != "":
+            self.rank = int(os.environ.get("LOCAL_RANK"))
+
         if self.distributed_backend and self.distributed_backend.startswith(
             "ddp"
         ):
@@ -380,8 +383,6 @@ class Brain:
                     "To use DDP backend, start your script with:\n\t"
                     "python -m speechbrain.ddp experiment.py hyperparams.yaml"
                 )
-            else:
-                self.rank = int(self.rank)
             self.root_process = self.rank == 0
 
             # Use backend (without "ddp_") to initialize process group
@@ -736,25 +737,47 @@ class Brain:
 
     def _wrap_distributed(self):
         """Wrap modules with distributed wrapper when requested"""
+        # if self.distributed_backend is None:
+        #     return
+        # elif self.distributed_backend == "data_parallel":
+        #     # if distributed_count = 0 then use all gpu
+        #     # otherwise, specify the set of gpu used
+        #     print("je rentre data_parallel")
+        #     if self.distributed_count == 0:
+        #         self.modules = torch.nn.DataParallel(self.modules)
+        #     else:
+        #         self.modules = torch.nn.DataParallel(self.modules,
+        #         [i for i in range(self.distributed_count)])
+        #     print(self.modules)
+        #     input()
+        # elif self.distributed_backend.startswith("ddp"):
+        #     self.modules = SyncBatchNorm.convert_sync_batchnorm(self.modules)
+        #     self.modules = DDP(self.modules, device_ids=[self.device])
+        # else:
+        #     raise ValueError("Dist backend must be 'data_parallel' or 'ddp_*'")
+        print("je suis _wrap")
+        print(self.distributed_backend)
         if self.distributed_backend is None:
             return
-
-        elif self.distributed_backend == "data_parallel":
-            self.modules = torch.nn.DataParallel(self.modules)
-        elif self.distributed_backend.startswith("ddp"):
-            self.modules = SyncBatchNorm.convert_sync_batchnorm(self.modules)
-            self.modules = DDP(self.modules, device_ids=[self.device])
         else:
-            raise ValueError("Dist backend must be 'data_parallel' or 'ddp_*'")
-
-        # for name, module in self.modules.items():
-        #    if any(p.requires_grad for p in module.parameters()):
-        #        if self.distributed_backend == "data_parallel":
-        #            module = torch.nn.DataParallel(module)
-        #        elif self.distributed_backend.startswith("ddp"):
-        #            module = SyncBatchNorm.convert_sync_batchnorm(module)
-        #            module = DDP(module, device_ids=[self.device])
-        #    self.modules[name] = module
+            for name, module in self.modules.items():
+                print(self.distributed_count)
+                print(range(self.distributed_count))
+                if any(p.requires_grad for p in module.parameters()):
+                    # if distributed_count = 0 then use all gpu
+                    # otherwise, specify the set of gpu used
+                    if self.distributed_backend == "data_parallel":
+                        if self.distributed_count == 0:
+                            module = torch.nn.DataParallel(module, [0])
+                        else:
+                            module = torch.nn.DataParallel(
+                                module,
+                                [i for i in range(self.distributed_count + 1)],
+                            )
+                    elif self.distributed_backend.startswith("ddp"):
+                        module = SyncBatchNorm.convert_sync_batchnorm(module)
+                        module = DDP(module, device_ids=[self.device])
+                self.modules[name] = module
 
     def evaluate(self, test_set, max_key=None, min_key=None, progressbar=None):
         """Iterate test_set and evaluate brain performance. By default, loads
