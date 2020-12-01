@@ -1,20 +1,25 @@
 # ################################
-# Model: ConvTasnet for source separation
-# Data : WSJ0-2mix-8k-min
-# Author: Cem Subakan
+# Model: SepFormer for source separation
+# https://arxiv.org/abs/2010.13154
+#
+# Dataset : WSJ0-2mix
 # ################################
 # Basic parameters
 # Seed needs to be set at top of yaml, before objects with parameters are made
 #
 seed: 1234
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-experiment_name: 1-newarc-test
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+experiment_name: 1-sepformer
 output_folder: !ref results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 data_folder: ../../../samples/audio_samples/sourcesep_samples
 auto_mix_prec: True
 device: 'cuda:0'
+
+test_only: True
+num_spks: 2
+minimal: True
 
 # Neural Parameters
 N_epochs: 200
@@ -58,10 +63,27 @@ test_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     replacements:
         $data_folder: !ref <data_folder>
 
-use_data_augmentation: True
-augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+loss_upper_lim: 999999  # this is the upper limit for an acceptable loss
+# if True, the training sequences are cut to a specified length
+limit_training_signal_len: False
+# this is the length of sequences if we choose to limit
+# the signal length of training sequences
+training_signal_len: 32000
+
+use_waveformdrop: False
+use_speedperturb: False
+speedperturb_block: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+    perturb_prob: 1.0
+    drop_freq_prob: 0.0
+    drop_chunk_prob: 0.0
     sample_rate: 8000
     speeds: [95, 100, 105]
+
+waveformdrop_block: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+    perturb_prob: 0.0
+    drop_freq_prob: 1.0
+    drop_chunk_prob: 1.0
+    sample_rate: 8000
 
 N_encoder_out: 256
 out_channels: 256
@@ -84,7 +106,7 @@ Encoder: !new:speechbrain.lobes.models.dual_path.Encoder
 #    dropout: 0
 #
 SBtfintra: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
-    num_layers: 8
+    num_layers: 1
     d_model: !ref <out_channels>
     nhead: 8
     d_ffn: 1024
@@ -93,14 +115,13 @@ SBtfintra: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
     norm_before: True
 
 SBtfinter: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
-    num_layers: 8
+    num_layers: 1
     d_model: !ref <out_channels>
     nhead: 8
     d_ffn: 1024
     dropout: 0
     use_positional_encoding: True
     norm_before: True
-
 
 MaskNet: !new:speechbrain.lobes.models.dual_path.Dual_Path_Model
     in_channels: !ref <N_encoder_out>
@@ -139,7 +160,7 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         encoder: !ref <Encoder>
         decoder: !ref <Decoder>
         masknet: !ref <MaskNet>
-        optimizer: !ref <optimizer>
+        # optimizer: !ref <optimizer>
         counter: !ref <epoch_counter>
         lr_scheduler: !ref <lr_scheduler>
 
