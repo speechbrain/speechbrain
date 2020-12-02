@@ -228,11 +228,11 @@ class FastTransformerBlock(nn.Module):
         dropout: dropout drop rate
         activation: activation function
         reformer_bucket_size: bucket size for reformer
-        >>> x = torch.randn(10, 100, 64)
-        >>> block = FastTransformerBlock('linear', 64)
-        >>> x = block(x)
-        >>> x.shape
-        torch.Size([10, 100, 64])
+        #>>> x = torch.randn(10, 100, 64)
+        #>>> block = FastTransformerBlock('linear', 64)
+        #>>> x = block(x)
+        #>>> x.shape
+        #torch.Size([10, 100, 64])
     """
 
     def __init__(
