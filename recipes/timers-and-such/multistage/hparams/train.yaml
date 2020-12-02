@@ -1,6 +1,6 @@
 # ############################################################################
-# Model: Multistage SLU
-# Encoder: ASR model -> LSTM
+# Model: Direct SLU
+# Encoder: Pre-trained ASR encoder -> LSTM
 # Decoder: GRU + beamsearch
 # Tokens: BPE with unigram
 # losses: NLL
@@ -9,9 +9,9 @@
 # ############################################################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 16
+seed: 1986
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/BPE51-ASRbeam1/<seed>
+output_folder: !ref results/BPE51/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
@@ -23,39 +23,38 @@ data_folder: /localscratch/timers-and-such
 data_folder_rirs: !ref <data_folder>
 train_splits: ["train-synth", "train-real"]
 dev_split: dev-real
-csv_train: !ref <data_folder>/train-type=multistage.csv
-csv_valid: !ref <data_folder>/<dev_split>-type=multistage.csv
-csv_test_real: !ref <data_folder>/test-real-type=multistage.csv
-csv_test_synth: !ref <data_folder>/test-synth-type=multistage.csv
+csv_train: !ref <data_folder>/train-type=direct.csv
+csv_valid: !ref <data_folder>/<dev_split>-type=direct.csv
+csv_test_real: !ref <data_folder>/test-real-type=direct.csv
+csv_test_synth: !ref <data_folder>/test-synth-type=direct.csv
+asr_hparam_file: ../../../recipes/LibriSpeech/ASR/seq2seq/hparams/infer.yaml
 
 # Training parameters
 number_of_epochs: 1
 batch_size: 16
 lr: 0.0003
-device: 'cuda'
+device: 'cuda:0'
 ddp_procs: 0  # Set to number of GPUs for multi-gpu training
 token_type: unigram # ["unigram", "bpe", "char"]
 
-# Feature parameters
-sample_rate: 16000
 
-# Model parameters
+# Model params
+sample_rate: 16000
 emb_size: 128
 dec_neurons: 512
 num_asr_tokens: 1000
 output_neurons: 51 # index(blank/eos/bos) = 0
 blank_index: 0
+encoder_dim: 256
 
 # Decoding parameters
 bos_index: 0
 eos_index: 0
 min_decode_ratio: 0.0
 max_decode_ratio: 10.0
-ASR_beam_size: 1
 SLU_beam_size: 80
 eos_threshold: 1.5
 temperature: 1.25
-temperature_lm: 1.25
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
@@ -91,14 +90,14 @@ test_synth_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
 
 
 # Models
-normalize: !new:speechbrain.processing.features.InputNormalization
-    norm_type: global
+asr_model: !new:recipes.LibriSpeech.ASR.seq2seq.infer.ASR_infer
+    hparams_file: !ref <asr_hparam_file>
+    overrides: {'beam_size': 1}
 
-encoder_dim: 256
-
-enc: !new:experiment.Encoder
+slu_enc: !new:speechbrain.nnet.containers.Sequential
+    input_shape: [null, null, !ref <emb_size>]
     lstm: !new:speechbrain.nnet.RNN.LSTM
-        input_shape: [null, null, !ref <emb_size>]
+        input_size: !ref <emb_size>
         bidirectional: True
         hidden_size: !ref <encoder_dim>
         num_layers: 2
@@ -137,17 +136,19 @@ env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
     noise_snr_low: 0
     noise_snr_high: 15
 
+
 modules:
-    enc: !ref <enc>
+    asr_model: !ref <asr_model>
+    slu_enc: !ref <slu_enc>
     input_emb: !ref <input_emb>
     output_emb: !ref <output_emb>
     dec: !ref <dec>
     seq_lin: !ref <seq_lin>
-    normalize: !ref <normalize>
     env_corrupt: !ref <env_corrupt>
 
+
 model: !new:torch.nn.ModuleList
-    - [!ref <enc>, !ref <input_emb>, !ref <output_emb>,
+    - [!ref <asr_model>, !ref <slu_enc>, !ref <input_emb>, !ref <output_emb>,
        !ref <dec>, !ref <seq_lin>]
 
 beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
@@ -161,6 +162,9 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     beam_size: !ref <SLU_beam_size>
     eos_threshold: !ref <eos_threshold>
     temperature: !ref <temperature>
+    using_max_attn_shift: False
+    max_attn_shift: 30
+    coverage_penalty: 1.5
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
@@ -176,7 +180,6 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     recoverables:
         model: !ref <model>
         scheduler: !ref <lr_annealing>
-        normalizer: !ref <normalize>
         counter: !ref <epoch_counter>
 
 augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment

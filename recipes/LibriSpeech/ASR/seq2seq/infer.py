@@ -30,13 +30,13 @@ from speechbrain.tokenizers.SentencePiece import SentencePiece
 
 
 class ASR_infer(torch.nn.Module):
-    def __init__(self, hparams_file="hparams/infer.yaml"):
+    def __init__(self, hparams_file="hparams/infer.yaml", overrides={}):
         """Downloads and Pretrain the moduels specified in the yaml"""
         super().__init__()
 
         # Loading modules defined in the yaml file
         with open(hparams_file) as fin:
-            self.hparams = sb.load_extended_yaml(fin)
+            self.hparams = sb.load_extended_yaml(fin, overrides)
 
         self.device = self.hparams["device"]
 
