@@ -17,7 +17,7 @@ data_folder: ../../../samples/audio_samples/sourcesep_samples
 auto_mix_prec: True
 device: 'cuda:0'
 
-test_only: True
+test_only: False
 num_spks: 2
 minimal: True
 

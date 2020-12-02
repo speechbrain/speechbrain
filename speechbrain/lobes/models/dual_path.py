@@ -8,7 +8,6 @@ import copy
 from speechbrain.nnet.linear import Linear
 from speechbrain.lobes.models.transformer.Transformer import TransformerEncoder
 from speechbrain.lobes.models.transformer.Transformer import PositionalEncoding
-from speechbrain.lobes.models.transformer.TransformerSE import CNNTransformerSE
 import speechbrain.nnet.RNN as SBRNN
 
 
@@ -24,6 +23,12 @@ class GlobalLayerNorm(nn.Module):
        elementwise_affine: a boolean value that when set to True,
           this module has learnable per-element affine parameters
           initialized to ones (for weights) and zeros (for biases).
+
+    Example
+    -------
+    >>> x = torch.randn(5, 10, 20)
+    >>> GLN = GlobalLayerNorm(10, 3)
+    >>> x_norm = GLN(x)
     """
 
     def __init__(self, dim, shape, eps=1e-8, elementwise_affine=True):
@@ -48,9 +53,9 @@ class GlobalLayerNorm(nn.Module):
         # N x 1 x 1
         # cln: mean,var N x 1 x K x S
         # gln: mean,var N x 1 x 1
-        if x.dim() == 4:
-            mean = torch.mean(x, (1, 2, 3), keepdim=True)
-            var = torch.mean((x - mean) ** 2, (1, 2, 3), keepdim=True)
+        if x.dim() == 3:
+            mean = torch.mean(x, (1, 2), keepdim=True)
+            var = torch.mean((x - mean) ** 2, (1, 2), keepdim=True)
             if self.elementwise_affine:
                 x = (
                     self.weight * (x - mean) / torch.sqrt(var + self.eps)
@@ -58,9 +63,10 @@ class GlobalLayerNorm(nn.Module):
                 )
             else:
                 x = (x - mean) / torch.sqrt(var + self.eps)
-        if x.dim() == 3:
-            mean = torch.mean(x, (1, 2), keepdim=True)
-            var = torch.mean((x - mean) ** 2, (1, 2), keepdim=True)
+
+        if x.dim() == 4:
+            mean = torch.mean(x, (1, 2, 3), keepdim=True)
+            var = torch.mean((x - mean) ** 2, (1, 2, 3), keepdim=True)
             if self.elementwise_affine:
                 x = (
                     self.weight * (x - mean) / torch.sqrt(var + self.eps)
@@ -76,6 +82,12 @@ class CumulativeLayerNorm(nn.LayerNorm):
        Calculate Cumulative Layer Normalization
        dim: you want to norm dim
        elementwise_affine: learnable per-element affine parameters
+
+    Example
+    -------
+    >>> x = torch.randn(5, 10, 20)
+    >>> CLN = CumulativeLayerNorm(10)
+    >>> x_norm = CLN(x)
     """
 
     def __init__(self, dim, elementwise_affine=True):
@@ -102,6 +114,9 @@ class CumulativeLayerNorm(nn.LayerNorm):
 
 
 def select_norm(norm, dim, shape):
+    """
+        Just a wrapper to select the normalization type
+    """
     if norm == "gln":
         return GlobalLayerNorm(dim, shape, elementwise_affine=True)
     if norm == "cln":
@@ -114,9 +129,14 @@ def select_norm(norm, dim, shape):
 
 class Encoder(nn.Module):
     """
-       Conv-Tasnet Encoder part
+       Convolutional Encoder Layer
        kernel_size: the length of filters
        out_channels: the number of filters
+    >>> x = torch.randn(2, 1000)
+    >>> encoder = Encoder(kernel_size=4, out_channels=64)
+    >>> h = encoder(x)
+    >>> h.shape
+    torch.Size([2, 64, 499])
     """
 
     def __init__(self, kernel_size=2, out_channels=64, in_channels=1):
@@ -131,7 +151,7 @@ class Encoder(nn.Module):
         )
         self.in_channels = in_channels
 
-    def forward(self, x, init_params=True):
+    def forward(self, x):
         """
           Input:
               x: [B, T], B is batch size, T is times
@@ -149,168 +169,20 @@ class Encoder(nn.Module):
         return x
 
 
-class TransformerBasedEncoder(nn.Module):
-    """
-       The transformer encoder we discussed on slack
-       kernel_size: the length of filters
-       out_channels: the number of filters
-    """
-
-    def __init__(
-        self,
-        kernel_size=2,
-        out_channels=64,
-        in_channels=1,
-        d_ffn=1024,
-        nhead=8,
-        num_layers=1,
-        version=1,
-        use_positional_encoding=False,
-    ):
-        super(TransformerBasedEncoder, self).__init__()
-
-        self.in_channels = in_channels
-        self.kernel_size = kernel_size
-        self.version = version
-        if version == 1:
-            self.conv1d = nn.Conv1d(
-                in_channels=in_channels,
-                out_channels=out_channels,
-                kernel_size=1,
-                stride=1,
-                groups=1,
-                bias=False,
-            )
-            self.pooling = Linear(1)
-        elif version == 2:
-            self.conv1d = nn.Conv1d(
-                in_channels=in_channels,
-                out_channels=out_channels,
-                kernel_size=kernel_size,
-                stride=kernel_size // 2,
-                groups=1,
-                bias=False,
-            )
-        else:
-            raise ValueError("No such version!")
-
-        self.transformer = SBTransformerBlock(
-            num_layers=num_layers,
-            nhead=nhead,
-            dropout=0,
-            d_ffn=d_ffn,
-            use_positional_encoding=use_positional_encoding,
-        )
-
-    def forward(self, x, init_params=True):
-        """
-          Input:
-              x: [B, T], B is batch size, T is times
-          Returns:
-              x: [B, C, T_out]
-              T_out is the number of time steps
-        """
-        # B x T -> B x 1 x T
-        batchsize = x.size(0)
-        if self.in_channels == 1:
-            x = torch.unsqueeze(x, dim=1)
-
-        x = self.conv1d(x)
-        if self.version == 1:
-            x, _ = self._Segmentation(x, self.kernel_size)
-            x = x.permute(0, 3, 2, 1)
-            x = x.reshape(-1, x.size(-2), x.size(-1))
-            x = self.transformer(x, init_params=init_params)
-            x = x.reshape(batchsize, -1, x.size(-2), x.size(-1))
-            x = x.permute(0, 1, 3, 2)
-            x = self.pooling(x, init_params=init_params)
-            x = x.squeeze(-1).permute(0, 2, 1)
-        else:
-            x, gap = self._Segmentation(x, self.kernel_size)
-            x = x.permute(0, 3, 2, 1)
-            x = x.reshape(-1, x.size(-2), x.size(-1))
-            x = self.transformer(x, init_params=init_params)
-            x = x.reshape(batchsize, -1, x.size(-2), x.size(-1))
-            x = x.permute(0, 3, 2, 1)
-            x = self._over_add(x, gap)
-
-        x = F.relu(x)
-
-        return x
-
-    def _padding(self, input, K):
-        """
-           padding the audio times
-           K: chunks of length
-           P: hop size
-           input: [B, N, L]
-        """
-        B, N, L = input.shape
-        P = K // 2
-        gap = K - (P + L % K) % K
-        if gap > 0:
-            pad = torch.Tensor(torch.zeros(B, N, gap)).type(input.type())
-            input = torch.cat([input, pad], dim=2)
-
-        _pad = torch.Tensor(torch.zeros(B, N, P)).type(input.type())
-        input = torch.cat([_pad, input, _pad], dim=2)
-
-        return input, gap
-
-    def _Segmentation(self, input, K):
-        """
-           the segmentation stage splits
-           K: chunks of length
-           P: hop size
-           input: [B, N, L]
-           output: [B, N, K, S]
-        """
-        B, N, L = input.shape
-        P = K // 2
-        input, gap = self._padding(input, K)
-        # [B, N, K, S]
-        input1 = input[:, :, :-P].contiguous().view(B, N, -1, K)
-        input2 = input[:, :, P:].contiguous().view(B, N, -1, K)
-        input = (
-            torch.cat([input1, input2], dim=3).view(B, N, -1, K).transpose(2, 3)
-        )
-
-        return input.contiguous(), gap
-
-    def _over_add(self, input, gap):
-        """
-           Merge sequence
-           input: [B, N, K, S]
-           gap: padding length
-           output: [B, N, L]
-        """
-        B, N, K, S = input.shape
-        P = K // 2
-        # [B, N, S, K]
-        input = input.transpose(2, 3).contiguous().view(B, N, -1, K * 2)
-
-        input1 = input[:, :, :, :K].contiguous().view(B, N, -1)[:, :, P:]
-        input2 = input[:, :, :, K:].contiguous().view(B, N, -1)[:, :, :-P]
-        input = input1 + input2
-        # [B, N, L]
-        if gap > 0:
-            input = input[:, :, :-gap]
-
-        return input
-
-
 class Decoder(nn.ConvTranspose1d):
     """
-        Decoder of the TasNet
-        This module can be seen as the gradient of Conv1d with respect to its input.
-        It is also known as a fractionally-strided convolution
-        or a deconvolution (although it is not an actual deconvolution operation).
+        A decoder layer that consists of ConvTranspose1d
+        >>> x = torch.randn(2, 100, 1000)
+        >>> decoder = Decoder(kernel_size=4, in_channels=100, out_channels=1)
+        >>> h = decoder(x)
+        >>> h.shape
+        torch.Size([2, 1003])
     """
 
     def __init__(self, *args, **kwargs):
         super(Decoder, self).__init__(*args, **kwargs)
 
-    def forward(self, x, init_params=True):
+    def forward(self, x):
         """
         x: [B, N, L]
         """
@@ -328,17 +200,39 @@ class Decoder(nn.ConvTranspose1d):
 
 
 class IdentityBlock:
+    """
+        This block is used when we want to have identity transformation within the Dual_path block
+        >>> x = torch.randn(10, 100)
+        >>> IB = IdentityBlock()
+        >>> xhat = IB(x)
+    """
+
     def _init__(self, **kwargs):
         pass
 
-    def __call__(self, x, init_params=True):
+    def __call__(self, x):
         return x
 
 
 class FastTransformerBlock(nn.Module):
     """
-    This block is used to implement fast transformer models with efficient attention.
-    The implementations are taken from https://fast-transformers.github.io/
+        This block is used to implement fast transformer models with efficient attention.
+        The implementations are taken from https://fast-transformers.github.io/
+
+        attention_type: specifies the type of attention.
+           check https://fast-transformers.github.io/  for details.
+        out_channels: dimensionality of the representation
+        num_layers: number of layers
+        nhead: number of attention heads
+        d_ffn: dimensionality of positional feed forward
+        dropout: dropout drop rate
+        activation: activation function
+        reformer_bucket_size: bucket size for reformer
+        >>> x = torch.randn(10, 100, 64)
+        >>> block = FastTransformerBlock('linear', 64)
+        >>> x = block(x)
+        >>> x.shape
+        torch.Size([10, 100, 64])
     """
 
     def __init__(
@@ -362,8 +256,7 @@ class FastTransformerBlock(nn.Module):
             n_layers=num_layers,
             n_heads=nhead,
             feed_forward_dimensions=d_ffn,
-            query_dimensions=out_channels
-            // nhead,  # @ Mirko: do these make sense?
+            query_dimensions=out_channels // nhead,
             value_dimensions=out_channels // nhead,
             dropout=dropout,
             attention_dropout=dropout,
@@ -374,7 +267,7 @@ class FastTransformerBlock(nn.Module):
         self.attention_type = attention_type
         self.reformer_bucket_size = reformer_bucket_size
 
-    def forward(self, x, init_params=False):
+    def forward(self, x):
         if self.attention_type == "reformer":
 
             # pad zeros at the end
@@ -397,6 +290,16 @@ class FastTransformerBlock(nn.Module):
 
 
 class PyTorchPositionalEncoding(nn.Module):
+    """
+        positional encoder for the pytorch transformer
+        d_model: representation dimensionality
+        dropout: dropout drop prob.
+        max_len: max sequence length
+        >>> x = torch.randn(10, 100, 64)
+        >>> enc = PyTorchPositionalEncoding(64)
+        >>> x = enc(x)
+    """
+
     def __init__(self, d_model, dropout=0.1, max_len=5000):
         super(PyTorchPositionalEncoding, self).__init__()
         self.dropout = nn.Dropout(p=dropout)
@@ -417,6 +320,21 @@ class PyTorchPositionalEncoding(nn.Module):
 
 
 class PytorchTransformerBlock(nn.Module):
+    """
+        out_channels: dimensionality of the representation
+        num_layers: number of layers
+        nhead: number of attention heads
+        d_ffn: dimensionality of positional feed forward
+        dropout: dropout drop rate
+        activation: activation function
+        use_positional_encoding: if true we use a positional encoding
+        >>> x = torch.randn(10, 100, 64)
+        >>> block = PytorchTransformerBlock(64)
+        >>> x = block(x)
+        >>> x.shape
+        torch.Size([10, 100, 64])
+    """
+
     def __init__(
         self,
         out_channels,
@@ -444,13 +362,29 @@ class PytorchTransformerBlock(nn.Module):
         else:
             self.pos_encoder = None
 
-    def forward(self, x, init_params=False):
+    def forward(self, x):
         if self.pos_encoder is not None:
             x = self.pos_encoder(x)
         return self.mdl(x)
 
 
 class SBTransformerBlock(nn.Module):
+    """
+        out_channels: dimensionality of the representation
+        num_layers: number of layers
+        nhead: number of attention heads
+        d_ffn: dimensionality of positional feed forward
+        input_shape: shape of input
+        dropout: dropout drop rate
+        activation: activation function
+        use_positional_encoding: if true we use a positional encoding
+        >>> x = torch.randn(10, 100, 64)
+        >>> block = SBTransformerBlock(1, 64, 8)
+        >>> x = block(x)
+        >>> x.shape
+        torch.Size([10, 100, 64])
+    """
+
     def __init__(
         self,
         num_layers,
@@ -494,7 +428,9 @@ class SBTransformerBlock(nn.Module):
         if use_positional_encoding:
             self.pos_enc = PositionalEncoding(input_size=d_model)
 
-    def forward(self, x, init_params=False):
+    def forward(
+        self, x,
+    ):
         if self.use_positional_encoding:
             pos_enc = self.pos_enc(x)
             return self.mdl(x + pos_enc)[0]
@@ -503,8 +439,23 @@ class SBTransformerBlock(nn.Module):
 
 
 class SBRNNBlock(nn.Module):
+    """
+        RNNBlock for the dual path pipeline
+
+        input_size: dimensionality of the input features
+        hidden_channels: dimensionality of latent layer of the rnn
+        num_layers: number of rnn layers
+        rnn_type: type of the rnn cell
+        dropout: dropout rate
+        bidirectional: if True, bidirectional
+        >>> x = torch.randn(10, 100, 64)
+        >>> rnn = SBRNNBlock(64, 100, 1)
+        >>> x = rnn(x)
+    """
+
     def __init__(
         self,
+        input_size,
         hidden_channels,
         num_layers,
         rnn_type="LSTM",
@@ -515,74 +466,14 @@ class SBRNNBlock(nn.Module):
 
         self.mdl = getattr(SBRNN, rnn_type)(
             hidden_channels,
+            input_size=input_size,
             num_layers=num_layers,
             dropout=dropout,
             bidirectional=bidirectional,
         )
 
-    def forward(self, x, init_params=False):
-        return self.mdl(x, init_params=init_params)
-
-
-class PTRNNBlock(nn.Module):
-    def __init__(
-        self,
-        in_channels,
-        hidden_channels,
-        num_layers,
-        rnn_type="LSTM",
-        dropout=0,
-        bidirectional=True,
-    ):
-        super(PTRNNBlock, self).__init__()
-        from torch.nn.modules.rnn import LSTM
-
-        self.mdl = LSTM(
-            in_channels,
-            hidden_channels,
-            num_layers=num_layers,
-            dropout=dropout,
-            bidirectional=bidirectional,
-            batch_first=True,
-        )
-
-    def forward(self, x, init_params=False):
-        return self.mdl(x)[0]
-
-
-class ModularTransformerBlock(nn.Module):
-    def __init__(
-        self,
-        out_channels,
-        nhead,
-        num_layers,
-        d_ffn=2048,
-        dropout=0.1,
-        activation=nn.LeakyReLU,
-        output_activation=nn.ReLU,
-        causal=False,
-        custom_emb_module=None,
-        num_modules=1,
-        use_group_comm=False,
-    ):
-        super(ModularTransformerBlock, self).__init__()
-
-        self.mdl = CNNTransformerSE(
-            out_channels,
-            output_activation,
-            nhead,
-            num_layers,
-            d_ffn,
-            dropout,
-            activation,
-            causal,
-            custom_emb_module,
-            num_modules,
-            use_group_comm,
-        )
-
-    def forward(self, x, init_params=False):
-        return self.mdl(x, init_params=init_params)
+    def forward(self, x):
+        return self.mdl(x)
 
 
 class DPTNetBlock(nn.Module):
@@ -595,7 +486,7 @@ class DPTNetBlock(nn.Module):
         dropout: the dropout value (default=0.1).
         activation: the activation function of intermediate layer, relu or gelu (default=relu).
     Examples::
-        >>> encoder_layer = nn.TransformerEncoderLayer(d_model=512, nhead=8)
+        >>> encoder_layer = DPTNetBlock(d_model=512, nhead=8)
         >>> src = torch.rand(10, 32, 512)
         >>> out = encoder_layer(src)
     """
@@ -631,7 +522,7 @@ class DPTNetBlock(nn.Module):
             state["activation"] = F.relu
         super(DPTNetBlock, self).__setstate__(state)
 
-    def forward(self, src, init_params=True):
+    def forward(self, src):
 
         ##  type: (Tensor, Optional[Tensor], Optional[Tensor]) -> Tensor
 
@@ -658,11 +549,10 @@ class DPTNetBlock(nn.Module):
         return src
 
 
-# def get_clones(module, N):
-#    return ModuleList([copy.deepcopy(module) for i in range(N)])
-
-
 def _get_activation_fn(activation):
+    """
+        Just a wrapper to get the activation functions
+    """
     if activation == "relu":
         return F.relu
     elif activation == "gelu":
@@ -671,7 +561,19 @@ def _get_activation_fn(activation):
 
 class Dual_Computation_Block(nn.Module):
     """
-#            norm: gln = "Global Norm", cln = "Cumulative Norm", ln = "Layer Norm"
+        intra_mdl : model to process within the chunks
+        inter_mdl : model to process across the chunks
+        out_channels : dimensionality of inter/intra model
+        norm: normalization type
+        skip_around_intra: skip connection around the intra layer
+        linear_layer_after_inter_intra: linear layer or not after inter or intra
+        >>> intra_block = SBTransformerBlock(1, 64, 8)
+        >>> inter_block = SBTransformerBlock(1, 64, 8)
+        >>> dual_comp_block = Dual_Computation_Block(intra_block, inter_block, 64)
+        >>> x = torch.randn(10, 64, 100, 10)
+        >>> x = dual_comp_block(x)
+        >>> x.shape
+        torch.Size([10, 64, 100, 10])
     """
 
     def __init__(
@@ -698,10 +600,10 @@ class Dual_Computation_Block(nn.Module):
 
         # Linear
         if linear_layer_after_inter_intra:
-            self.intra_linear = Linear(out_channels)
-            self.inter_linear = Linear(out_channels)
+            self.intra_linear = Linear(out_channels, input_size=out_channels)
+            self.inter_linear = Linear(out_channels, input_size=out_channels)
 
-    def forward(self, x, init_params=True):
+    def forward(self, x):
         """
            x: [B, N, K, S]
            out: [Spks, B, N, K, S]
@@ -712,12 +614,12 @@ class Dual_Computation_Block(nn.Module):
         intra = x.permute(0, 3, 2, 1).contiguous().view(B * S, K, N)
         # [BS, K, H]
 
-        intra = self.intra_mdl(intra, init_params=init_params)
+        intra = self.intra_mdl(intra)
 
         # [BS, K, N]
         if self.linear_layer_after_inter_intra:
             intra = self.intra_linear(
-                intra.contiguous().view(B * S * K, -1), init_params=init_params
+                intra.contiguous().view(B * S * K, -1)
             ).view(B * S, K, -1)
         # [B, S, K, N]
         intra = intra.view(B, S, K, N)
@@ -734,12 +636,12 @@ class Dual_Computation_Block(nn.Module):
         # [BK, S, N]
         inter = intra.permute(0, 2, 3, 1).contiguous().view(B * K, S, N)
         # [BK, S, H]
-        inter = self.inter_mdl(inter, init_params=init_params)
+        inter = self.inter_mdl(inter)
 
         # [BK, S, N]
         if self.linear_layer_after_inter_intra:
             inter = self.inter_linear(
-                inter.contiguous().view(B * S * K, -1), init_params=init_params
+                inter.contiguous().view(B * S * K, -1)
             ).view(B * K, S, -1)
         # [B, K, S, N]
         inter = inter.view(B, K, S, N)
@@ -754,6 +656,29 @@ class Dual_Computation_Block(nn.Module):
 
 
 class Dual_Path_Model(nn.Module):
+    """
+        The dual path model which is the basis for dualpathrnn, sepformer, dptnet
+        in_channels: number of channels at the output of the encoder
+        out_channels: number of channels that would be inputted to the intra and inter blocks
+        intra_model : model to process within the chunks
+        inter_model : model to process across the chunks
+        num_layers: number of layers of Dual Computation Block
+        norm: normalization type
+        K: chunk length
+        num_spks: number of sources (speakers)
+        skip_around_intra: skip connection around intra
+        linear_layer_after_inter_intra: linear layer after inter and intra
+        use_global_pos_enc: global positional encodings
+        max_length: maximum sequence length
+        >>> intra_block = SBTransformerBlock(1, 64, 8)
+        >>> inter_block = SBTransformerBlock(1, 64, 8)
+        >>> dual_path_model = Dual_Path_Model(64, 64, intra_block, inter_block, num_spks=2)
+        >>> x = torch.randn(10, 64, 2000)
+        >>> x = dual_path_model(x)
+        >>> x.shape
+        torch.Size([2, 10, 64, 2000])
+    """
+
     def __init__(
         self,
         in_channels,
@@ -809,7 +734,7 @@ class Dual_Path_Model(nn.Module):
             nn.Conv1d(out_channels, out_channels, 1), nn.Sigmoid()
         )
 
-    def forward(self, x, init_params=True):
+    def forward(self, x):
         """
            x: [B, N, L]
         """
@@ -819,15 +744,15 @@ class Dual_Path_Model(nn.Module):
         # [B, N, L]
         x = self.conv1d(x)
         if self.use_global_pos_enc:
-            x = self.pos_enc(x.transpose(1, -1), init_params).transpose(
-                1, -1
-            ) + x * (x.size(1) ** 0.5)
+            x = self.pos_enc(x.transpose(1, -1)).transpose(1, -1) + x * (
+                x.size(1) ** 0.5
+            )
 
         # [B, N, K, S]
         x, gap = self._Segmentation(x, self.K)
         # [B, N*spks, K, S]
         for i in range(self.num_layers):
-            x = self.dual_mdl[i](x, init_params=init_params)
+            x = self.dual_mdl[i](x)
 
         # self.dual_mdl[1].inter_mdl.mdl.layers[0].linear1.weight to see the weights
 

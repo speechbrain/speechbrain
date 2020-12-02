@@ -290,7 +290,7 @@ class SourceSeparationBrain(sb.core.Brain):
                 test_stats=stage_stats,
             )
 
-    def compute_forward(self, mixture, stage="train", init_params=False):
+    def compute_forward(self, mixture, stage="train"):
         """
 
         :param mixture: raw audio - dimension [batch_size, time]
@@ -299,9 +299,9 @@ class SourceSeparationBrain(sb.core.Brain):
         :return:
         """
 
-        mixture_w = self.hparams.Encoder(mixture, init_params=init_params)
+        mixture_w = self.hparams.Encoder(mixture)
         # [batch, channel, time / kernel stride]
-        est_mask = self.hparams.MaskNet(mixture_w, init_params=init_params)
+        est_mask = self.hparams.MaskNet(mixture_w)
 
         out = [
             est_mask[i] * mixture_w
