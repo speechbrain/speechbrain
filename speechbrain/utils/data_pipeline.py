@@ -15,7 +15,7 @@ Example
 ...         bar:
 ...             func: !name:operator.sub
 ...             argnames: ["foo", "b"]
-...     final_names: ["foo", "bar"]
+...     output_names: ["foo", "bar"]
 ... '''
 >>> hparams = load_extended_yaml(yamlstring)
 >>> hparams["pipeline"]({"a":1, "b":2})
@@ -42,7 +42,7 @@ class DataPipeline:
     ...         "foo": {"func": lambda x: x.lower(), "argnames": ["text"]},
     ...         "bar": {"func": lambda x: x[::-1], "argnames": ["foo"]},
     ...     },
-    ...     final_names=["bar"],
+    ...     output_names=["bar"],
     ... )
     >>> pipeline({"text": "Test"})
     {'bar': 'tset'}
@@ -50,13 +50,13 @@ class DataPipeline:
     """
 
     def __init__(self):
-        self.final_names = []  # Add names here to produce at output
+        self.output_names = []  # Add names here to produce at output
         self.dg = DependencyGraph()
         self._exec_order = None
         self._func_names = []
 
     @classmethod
-    def from_configuration(cls, funcs, final_names):
+    def from_configuration(cls, funcs, output_names):
         """
         Arguments
         ---------
@@ -66,7 +66,7 @@ class DataPipeline:
                 func: <callable> # To be called
                 argnames: <list> # Names of args, either other funcs or in data
             <name2>: ...
-        final_names : list
+        output_names : list
             List of names (either funcs or entries in data)
             to add in the final output.
         """
@@ -76,7 +76,7 @@ class DataPipeline:
                 pipeline.add_func(name, *conf)
             else:
                 pipeline.add_func(name, **conf)
-        pipeline.final_names = final_names
+        pipeline.output_names = output_names
         return pipeline
 
     def add_func(self, name, func, argnames):
@@ -103,6 +103,21 @@ class DataPipeline:
             self.dg.add_edge(name, depended)
         self._exec_order = None
 
+    def set_output_names(self, *names):
+        """Use this to change the output names
+
+        Also re-evaluates execution order.
+        So if you request different outputs, some parts of the
+        data pipeline may be skipped.
+
+        Arguments
+        ---------
+        *names : str
+            Variable number of names (str) to produce in output.
+        """
+        self.output_names = names
+        self._exec_order = None
+
     def compute_outputs(self, data):
         """
         Arguments
@@ -113,7 +128,7 @@ class DataPipeline:
         Returns
         -------
         dict
-            With keys as in self.final_names
+            With keys as in self.output_names
         """
         if self._exec_order is None:
             self._prepare_run(data)
@@ -130,7 +145,7 @@ class DataPipeline:
             intermediate[name] = func(*args)
         return {
             name: data[name] if name in data else intermediate[name]
-            for name in self.final_names
+            for name in self.output_names
         }
 
     def __call__(self, data):
@@ -141,5 +156,5 @@ class DataPipeline:
             if name in data:
                 raise ValueError(f"Function name {name} appears in data")
         self._exec_order = list(
-            self.dg.get_evaluation_order(selected_keys=self.final_names)
+            self.dg.get_evaluation_order(selected_keys=self.output_names)
         )
