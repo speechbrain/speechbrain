@@ -155,10 +155,11 @@ class SourceSeparationBrain(sb.core.Brain):
         ).to(self.device)
 
         if self.hparams.limit_training_signal_len:
-            randstart = np.random.randint(
+            randstart = torch.randint(
                 0,
                 1 + max(0, inputs.shape[1] - self.hparams.training_signal_len),
-            )
+                (1,),
+            ).item()
             targets = targets[
                 :, randstart : randstart + self.hparams.training_signal_len, :
             ]
