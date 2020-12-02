@@ -23,7 +23,6 @@ from recipes.minimal_examples.neural_networks.separation.example_conv_tasnet imp
 )
 from speechbrain.nnet.losses import get_si_snr_with_pitwrapper
 
-# from speechbrain.data_io.data_io import write_wav_soundfile
 
 import speechbrain.nnet.schedulers as schedulers
 import numpy as np
