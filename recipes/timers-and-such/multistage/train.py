@@ -26,7 +26,6 @@ import speechbrain as sb
 from speechbrain.utils.data_utils import download_file
 from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.data_utils import undo_padding
-from asr import get_asr_brain
 
 
 class Encoder(torch.nn.Module):
@@ -78,37 +77,52 @@ class SLU(sb.Brain):
         )
 
         # Forward pass
-        (
-            predicted_transcripts,
-            predicted_transcript_lens,
-            _,
-        ) = self.asr_brain.transcribe(wavs, wav_lens)
-        predicted_transcripts, predicted_transcript_lens = (
-            predicted_transcripts.to(self.device),
-            predicted_transcript_lens.to(self.device),
+        words, asr_tokens = self.modules.asr_model(wavs.detach(), wav_lens)
+
+        # Pad examples to have same length.
+        max_length = max([len(t) for t in asr_tokens])
+        for t in asr_tokens:
+            t += [0] * (max_length - len(t))
+        asr_tokens = torch.tensor([t for t in asr_tokens])
+
+        # Manage length of predicted tokens
+        asr_tokens_lens = torch.tensor(
+            [max(len(t), 1) for t in asr_tokens]
+        ).float()
+        asr_tokens_lens = asr_tokens_lens / asr_tokens_lens.max()
+
+        asr_tokens, asr_tokens_lens = (
+            asr_tokens.to(self.device),
+            asr_tokens_lens.to(self.device),
         )
-        embedded_transcripts = self.hparams.input_emb(predicted_transcripts)
-        encoder_out = self.hparams.enc(embedded_transcripts)
+        embedded_transcripts = self.hparams.input_emb(asr_tokens)
+        encoder_out = self.hparams.slu_enc(embedded_transcripts)
         e_in = self.hparams.output_emb(y_in)
-        h, _ = self.hparams.dec(e_in, encoder_out, predicted_transcript_lens)
+        h, _ = self.hparams.dec(e_in, encoder_out, asr_tokens_lens)
 
         # Output layer for seq2seq log-probabilities
         logits = self.hparams.seq_lin(h)
         p_seq = self.hparams.log_softmax(logits)
 
         # Compute outputs
-        if stage == sb.Stage.TRAIN and self.batch_count % 20 != 0:
-            return p_seq, predicted_transcript_lens
+        if (
+            stage == sb.Stage.TRAIN
+            and self.batch_count % show_results_every != 0
+        ):
+            return p_seq, asr_tokens_lens
         else:
             p_tokens, scores = self.hparams.beam_searcher(
-                encoder_out, predicted_transcript_lens
+                encoder_out, asr_tokens_lens
             )
-            return p_seq, predicted_transcript_lens, p_tokens
+            return p_seq, asr_tokens_lens, p_tokens
 
     def compute_objectives(self, predictions, targets, stage):
         """Computes the loss (NLL) given predictions and targets."""
 
-        if stage == sb.Stage.TRAIN and self.batch_count % 20 != 0:
+        if (
+            stage == sb.Stage.TRAIN
+            and self.batch_count % show_results_every != 0
+        ):
             p_seq, decoded_transcript_lens = predictions
         else:
             p_seq, decoded_transcript_lens, predicted_tokens = predictions
@@ -145,7 +159,10 @@ class SLU(sb.Brain):
         # (No ctc loss)
         loss = loss_seq
 
-        if stage != sb.Stage.TRAIN or self.batch_count % 20 == 0:
+        if (
+            stage != sb.Stage.TRAIN
+            or self.batch_count % show_results_every == 0
+        ):
             # Decode token terms to words
             predicted_semantics = self.hparams.tokenizer(
                 predicted_tokens, task="decode_from_list"
@@ -164,7 +181,6 @@ class SLU(sb.Brain):
                 print("")
 
             if stage != sb.Stage.TRAIN:
-                # TODO use different metric
                 self.wer_metric.append(
                     ids, predicted_semantics, target_semantics
                 )
@@ -231,23 +247,6 @@ class SLU(sb.Brain):
             with open(self.hparams.wer_file, "w") as w:
                 self.wer_metric.write_stats(w)
 
-    def load_asr(self):
-        """Loads the ASR model."""
-        self.asr_brain = get_asr_brain()
-        self.asr_brain.hparams.model.eval()
-
-        # Even though we use torch.no_grad() with the ASR model elsewhere,
-        # we still need requires_grad = False because of weight decay, etc.
-        for p in self.asr_brain.hparams.model.parameters():
-            p.requires_grad = False
-
-        self.asr_brain.hparams.beam_searcher.beam_size = (
-            self.hparams.ASR_beam_size
-        )
-
-        # This seems to be necessary to avoid OOM in the ASR part.
-        self.asr_brain.hparams.beam_searcher.max_decode_ratio = 0.5  # 1.0
-
     def load_tokenizer(self):
         """Loads the sentence piece tokinizer specified in the yaml file"""
         save_model_path = self.hparams.save_folder + "/tok_unigram.model"
@@ -267,11 +266,6 @@ class SLU(sb.Brain):
                 dest=save_vocab_path,
                 replace_existing=True,
             )
-
-    def init_optimizers(self):
-        """Initializes the optmizers (needed to support DDP)"""
-        self.optimizer = self.opt_class(self.hparams.model.parameters())
-        self.checkpointer.add_recoverable("optimizer", self.optimizer)
 
 
 if __name__ == "__main__":
@@ -328,10 +322,10 @@ if __name__ == "__main__":
         hparams=hparams,
         checkpointer=hparams["checkpointer"],
     )
-    slu_brain.load_asr()
     slu_brain.load_tokenizer()
 
     # Training
+    show_results_every = 250  # plots results every N iterations
     slu_brain.fit(slu_brain.hparams.epoch_counter, train_set, valid_set)
 
     # Test
