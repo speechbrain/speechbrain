@@ -46,7 +46,7 @@ compute_features: !new:speechbrain.lobes.features.Fbank
     deltas: !ref <deltas>
 
 xvector_model: !new:speechbrain.lobes.models.Xvector.Xvector
-    input_shape: [null, null, !ref <n_mels>]
+    in_channels: !ref <n_mels>
     activation: !name:torch.nn.LeakyReLU
     tdnn_blocks: 5
     tdnn_channels: [512, 512, 512, 512, 1500]

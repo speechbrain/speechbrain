@@ -7,16 +7,21 @@ Authors
 
 # import os
 import torch  # noqa: F401
+import torch.nn as nn
 import speechbrain as sb
+from speechbrain.nnet.pooling import StatisticsPooling
+from speechbrain.nnet.CNN import Conv1d
+from speechbrain.nnet.linear import Linear
+from speechbrain.nnet.normalization import BatchNorm1d
 
 
-class Xvector(sb.nnet.containers.Sequential):
+class Xvector(torch.nn.Module):
     """This model extracts XVectors for speaker recognition and diarization.
 
     Arguments
     ---------
-    input_shape : tuple
-        Expected shape of an example input.
+    device : str
+        Device used e.g. "cpu" or "cuda"
     activation : torch class
         A class for constructing the activation layers.
     tdnn_blocks : int
@@ -32,8 +37,8 @@ class Xvector(sb.nnet.containers.Sequential):
 
     Example
     -------
-    >>> input_feats = torch.rand([5, 10, 24])
-    >>> compute_xvect = Xvector(input_shape=input_feats.shape)
+    >>> compute_xvect = Xvector('cpu')
+    >>> input_feats = torch.rand([5, 10, 40])
     >>> outputs = compute_xvect(input_feats)
     >>> outputs.shape
     torch.Size([5, 1, 512])
@@ -41,44 +46,63 @@ class Xvector(sb.nnet.containers.Sequential):
 
     def __init__(
         self,
-        input_shape,
+        device="cpu",
         activation=torch.nn.LeakyReLU,
         tdnn_blocks=5,
         tdnn_channels=[512, 512, 512, 512, 1500],
         tdnn_kernel_sizes=[5, 3, 3, 1, 1],
         tdnn_dilations=[1, 2, 3, 1, 1],
         lin_neurons=512,
+        in_channels=40,
     ):
-        super().__init__(input_shape=input_shape)
 
-        if tdnn_blocks > 0:
-            self.append(sb.nnet.containers.Sequential, layer_name="TDNN")
+        super().__init__()
+        self.blocks = nn.ModuleList()
 
         # TDNN layers
         for block_index in range(tdnn_blocks):
-            block_name = f"block_{block_index}"
-            self.TDNN.append(
-                sb.nnet.containers.Sequential, layer_name=block_name
+            out_channels = tdnn_channels[block_index]
+            self.blocks.extend(
+                [
+                    Conv1d(
+                        in_channels=in_channels,
+                        out_channels=out_channels,
+                        kernel_size=tdnn_kernel_sizes[block_index],
+                        dilation=tdnn_dilations[block_index],
+                    ),
+                    activation(),
+                    BatchNorm1d(input_size=out_channels),
+                ]
             )
-            self.TDNN[block_name].append(
-                sb.nnet.CNN.Conv1d,
-                out_channels=tdnn_channels[block_index],
-                kernel_size=tdnn_kernel_sizes[block_index],
-                dilation=tdnn_dilations[block_index],
-                layer_name="conv",
-            )
-            self.TDNN[block_name].append(activation(), layer_name="act")
-            self.TDNN[block_name].append(
-                sb.nnet.normalization.BatchNorm1d, layer_name="norm"
-            )
+            in_channels = tdnn_channels[block_index]
 
         # Statistical pooling
-        self.append(sb.nnet.pooling.StatisticsPooling(), layer_name="stat_pool")
+        self.blocks.append(StatisticsPooling())
 
         # Final linear transformation
-        self.append(
-            sb.nnet.linear.Linear, n_neurons=lin_neurons, layer_name="out"
+        self.blocks.append(
+            Linear(
+                input_size=out_channels * 2,
+                n_neurons=lin_neurons,
+                bias=True,
+                combine_dims=False,
+            )
         )
+
+    def forward(self, x, lens=None):
+        """Returns the x vectors.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+        """
+
+        for layer in self.blocks:
+            try:
+                x = layer(x, lengths=lens)
+            except TypeError:
+                x = layer(x)
+        return x
 
 
 class Classifier(sb.nnet.containers.Sequential):
@@ -99,8 +123,8 @@ class Classifier(sb.nnet.containers.Sequential):
 
     Example
     -------
-    >>> input_feats = torch.rand([5, 10, 24])
-    >>> compute_xvect = Xvector(input_shape=input_feats.shape)
+    >>> input_feats = torch.rand([5, 10, 40])
+    >>> compute_xvect = Xvector()
     >>> xvects = compute_xvect(input_feats)
     >>> classify = Classifier(input_shape=xvects.shape)
     >>> output = classify(xvects)
@@ -165,8 +189,8 @@ class Discriminator(sb.nnet.containers.Sequential):
 
     Example
     -------
-    >>> input_feats = torch.rand([5, 10, 24])
-    >>> compute_xvect = Xvector(input_feats.shape)
+    >>> input_feats = torch.rand([5, 10, 40])
+    >>> compute_xvect = Xvector()
     >>> xvects = compute_xvect(input_feats)
     >>> classify = Classifier(xvects.shape)
     >>> output = classify(xvects)
