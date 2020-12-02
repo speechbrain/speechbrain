@@ -9,10 +9,10 @@ then feed the features into a seq2seq model to map them to semantics.
 (Adapted from the LibriSpeech seq2seq ASR recipe written by Ju-Chieh Chou, Mirco Ravanelli, Abdel Heba, and Peter Plantinga.)
 
 Run using:
-> python experiment.py BPE51.yaml
+> python train.py hparams/train.yaml
 
 Authors
- * Loren Lugosch 2020
+ * Loren Lugosch, Mirco Ravanelli 2020
 """
 
 import os
@@ -22,20 +22,6 @@ import speechbrain as sb
 from speechbrain.utils.data_utils import download_file
 from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.data_utils import undo_padding
-from asr import get_asr_brain
-
-
-class Encoder(torch.nn.Module):
-    def __init__(self, lstm, linear):
-        super(Encoder, self).__init__()
-        self.lstm = lstm
-        self.linear = linear
-
-    def forward(self, feats):
-        out = feats
-        out = self.lstm(out)[0]
-        out = self.linear(out)
-        return out
 
 
 # Define training procedure
@@ -73,9 +59,14 @@ class SLU(sb.Brain):
             target_tokens, self.hparams.bos_index
         )
 
-        # Forward pass
-        ASR_encoder_out = self.asr_brain.encode(wavs, wav_lens)
-        encoder_out = self.hparams.enc(ASR_encoder_out)
+        # ASR encoder forward pass
+        with torch.no_grad():
+            ASR_encoder_out = self.modules.asr_model.encode(
+                wavs.detach(), wav_lens
+            )
+
+        # SLU forward pass
+        encoder_out = self.hparams.slu_enc(ASR_encoder_out)
         e_in = self.hparams.output_emb(y_in)
         h, _ = self.hparams.dec(e_in, encoder_out, wav_lens)
 
@@ -84,7 +75,10 @@ class SLU(sb.Brain):
         p_seq = self.hparams.log_softmax(logits)
 
         # Compute outputs
-        if stage == sb.Stage.TRAIN and self.batch_count % 20 != 0:
+        if (
+            stage == sb.Stage.TRAIN
+            and self.batch_count % show_results_every != 0
+        ):
             return p_seq, wav_lens
         else:
             p_tokens, scores = self.hparams.beam_searcher(encoder_out, wav_lens)
@@ -92,8 +86,12 @@ class SLU(sb.Brain):
 
     def compute_objectives(self, predictions, targets, stage):
         """Computes the loss (NLL) given predictions and targets."""
+        show_results_every = 100  # plots results every N iterations
 
-        if stage == sb.Stage.TRAIN and self.batch_count % 20 != 0:
+        if (
+            stage == sb.Stage.TRAIN
+            and self.batch_count % show_results_every != 0
+        ):
             p_seq, wav_lens = predictions
         else:
             p_seq, wav_lens, predicted_tokens = predictions
@@ -130,7 +128,10 @@ class SLU(sb.Brain):
         # (No ctc loss)
         loss = loss_seq
 
-        if stage != sb.Stage.TRAIN or self.batch_count % 20 == 0:
+        if (
+            stage != sb.Stage.TRAIN
+            or self.batch_count % show_results_every == 0
+        ):
             # Decode token terms to words
             predicted_semantics = self.hparams.tokenizer(
                 predicted_tokens, task="decode_from_list"
@@ -216,18 +217,8 @@ class SLU(sb.Brain):
             with open(self.hparams.wer_file, "w") as w:
                 self.wer_metric.write_stats(w)
 
-    def load_asr(self):
-        """Loads the ASR model."""
-        self.asr_brain = get_asr_brain()
-        self.asr_brain.hparams.model.eval()
-
-        # Even though we use torch.no_grad() with the ASR model elsewhere,
-        # we still need requires_grad = False because of weight decay, etc.
-        for p in self.asr_brain.hparams.model.parameters():
-            p.requires_grad = False
-
     def load_tokenizer(self):
-        """Loads the sentence piece tokinizer specified in the yaml file"""
+        """Loads the sentence piece tokenizer specified in the yaml file"""
         save_model_path = self.hparams.save_folder + "/tok_unigram.model"
         save_vocab_path = self.hparams.save_folder + "/tok_unigram.vocab"
 
@@ -245,11 +236,6 @@ class SLU(sb.Brain):
                 dest=save_vocab_path,
                 replace_existing=True,
             )
-
-    def init_optimizers(self):
-        """Initializes the optmizers (needed to support DDP)"""
-        self.optimizer = self.opt_class(self.hparams.model.parameters())
-        self.checkpointer.add_recoverable("optimizer", self.optimizer)
 
 
 if __name__ == "__main__":
@@ -306,10 +292,10 @@ if __name__ == "__main__":
         hparams=hparams,
         checkpointer=hparams["checkpointer"],
     )
-    slu_brain.load_asr()
     slu_brain.load_tokenizer()
 
     # Training
+    show_results_every = 100  # plots results every N iterations
     slu_brain.fit(slu_brain.hparams.epoch_counter, train_set, valid_set)
 
     # Test

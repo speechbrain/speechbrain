@@ -27,21 +27,18 @@ csv_train: !ref <data_folder>/train-type=direct.csv
 csv_valid: !ref <data_folder>/<dev_split>-type=direct.csv
 csv_test_real: !ref <data_folder>/test-real-type=direct.csv
 csv_test_synth: !ref <data_folder>/test-synth-type=direct.csv
-asr_enc_file: https://www.dropbox.com/s/cwi4aeqs441vt3v/asr_enc.ckpt?dl=1
+asr_hparam_file: ../../../recipes/LibriSpeech/ASR/seq2seq/hparams/infer.yaml
 
 # Training parameters
 number_of_epochs: 1
 batch_size: 16
 lr: 0.0003
-device: 'cuda'
+device: 'cuda:0'
 ddp_procs: 0  # Set to number of GPUs for multi-gpu training
 token_type: unigram # ["unigram", "bpe", "char"]
 
-# Feature parameters
-sample_rate: 16000
-n_mels: 40
-
 # Model parameters
+sample_rate: 16000
 emb_size: 128
 dec_neurons: 512
 output_neurons: 51 # index(blank/eos/bos) = 0
@@ -92,32 +89,8 @@ test_synth_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
 
 
 # Models
-compute_features: !new:speechbrain.lobes.features.Fbank
-    sample_rate: 16000
-    n_fft: 400
-    n_mels: !ref <n_mels>
-
-normalize: !new:speechbrain.processing.features.InputNormalization
-    norm_type: global
-
-asr_enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
-    input_shape: [null, null, !ref <n_mels>]
-    activation: !name:torch.nn.LeakyReLU
-    dropout: 0.15
-    cnn_blocks: 2
-    cnn_channels: (128, 256)
-    cnn_kernelsize: (3, 3)
-    inter_layer_pooling_size: (2, 2)
-    time_pooling: True
-    time_pooling_size: 4
-    using_2d_pooling: False
-    rnn_class: !name:speechbrain.nnet.RNN.LSTM
-    rnn_layers: 4
-    rnn_neurons: 1024
-    rnn_bidirectional: True
-    rnn_re_init: True
-    dnn_blocks: 2
-    dnn_neurons: !ref <ASR_encoder_dim>
+asr_model: !new:recipes.LibriSpeech.ASR.seq2seq.infer.ASR_infer
+    hparams_file: !ref <asr_hparam_file>
 
 slu_enc: !new:speechbrain.nnet.containers.Sequential
     input_shape: [null, null, !ref <ASR_encoder_dim>]
@@ -158,16 +131,15 @@ env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
     noise_snr_high: 15
 
 modules:
-    asr_enc: !ref <asr_enc>
+    asr_model: !ref <asr_model>
     slu_enc: !ref <slu_enc>
     output_emb: !ref <output_emb>
     dec: !ref <dec>
     seq_lin: !ref <seq_lin>
-    normalize: !ref <normalize>
     env_corrupt: !ref <env_corrupt>
 
 model: !new:torch.nn.ModuleList
-    - [!ref <asr_enc>, !ref <slu_enc>, !ref <output_emb>,
+    - [!ref <asr_model>, !ref <slu_enc>, !ref <output_emb>,
        !ref <dec>, !ref <seq_lin>]
 
 beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
@@ -199,7 +171,6 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     recoverables:
         model: !ref <model>
         scheduler: !ref <lr_annealing>
-        normalizer: !ref <normalize>
         counter: !ref <epoch_counter>
 
 augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment

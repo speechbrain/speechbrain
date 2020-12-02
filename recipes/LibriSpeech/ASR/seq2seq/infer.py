@@ -9,6 +9,7 @@ Example
 >>> import torchaudio
 >>> do_ASR = ASR_infer()
 >>> audio_file='../../../../samples/audio_samples/example2.flac'
+>>> # Make sure your output is sampled at 16 kHz
 >>> wav, fs = torchaudio.load(audio_file)
 >>> wav_lens = torch.tensor([1]).float()
 >>> words, tokens = do_ASR(wav, wav_lens)
@@ -30,7 +31,7 @@ from speechbrain.tokenizers.SentencePiece import SentencePiece
 
 class ASR_infer(torch.nn.Module):
     def __init__(self, hparams_file="hparams/infer.yaml"):
-        """Download and Pretraining of the moduels specified in the yaml"""
+        """Downloads and Pretrain the moduels specified in the yaml"""
         super().__init__()
 
         # Loading modules defined in the yaml file
