@@ -23,10 +23,10 @@ data_folder: /localscratch/timers-and-such
 data_folder_rirs: !ref <data_folder>
 train_splits: ["train-synth", "train-real"]
 dev_split: dev-real
-csv_train: !ref <data_folder>/train-type=direct.csv
-csv_valid: !ref <data_folder>/<dev_split>-type=direct.csv
-csv_test_real: !ref <data_folder>/test-real-type=direct.csv
-csv_test_synth: !ref <data_folder>/test-synth-type=direct.csv
+csv_train: !ref <data_folder>/train-type=multistage.csv
+csv_valid: !ref <data_folder>/<dev_split>-type=multistage.csv
+csv_test_real: !ref <data_folder>/test-real-type=multistage.csv
+csv_test_synth: !ref <data_folder>/test-synth-type=multistage.csv
 asr_hparam_file: ../../../recipes/LibriSpeech/ASR/seq2seq/hparams/infer.yaml
 
 # Training parameters
