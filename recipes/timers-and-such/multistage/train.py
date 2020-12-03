@@ -13,10 +13,10 @@ and sample many possible transcriptions.)
 (Adapted from the LibriSpeech seq2seq ASR recipe written by Ju-Chieh Chou, Mirco Ravanelli, Abdel Heba, and Peter Plantinga.)
 
 Run using:
-> python experiment.py BPE51-ASRbeam1.yaml
+> python train.py hparams/train.yaml
 
 Authors
- * Loren Lugosch 2020
+ * Loren Lugosch, Mirco Ravanelli 2020
 """
 
 import os
@@ -26,19 +26,6 @@ import speechbrain as sb
 from speechbrain.utils.data_utils import download_file
 from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.data_utils import undo_padding
-
-
-class Encoder(torch.nn.Module):
-    def __init__(self, lstm, linear):
-        super(Encoder, self).__init__()
-        self.lstm = lstm
-        self.linear = linear
-
-    def forward(self, feats):
-        out = feats
-        out = self.lstm(out)[0]
-        out = self.linear(out)
-        return out
 
 
 # Define training procedure
@@ -77,7 +64,9 @@ class SLU(sb.Brain):
         )
 
         # Forward pass
-        words, asr_tokens = self.modules.asr_model(wavs.detach(), wav_lens)
+        words, asr_tokens = self.modules.asr_model.transcribe(
+            wavs.detach(), wav_lens
+        )
 
         # Pad examples to have same length.
         max_length = max([len(t) for t in asr_tokens])
