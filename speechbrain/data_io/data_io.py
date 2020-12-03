@@ -79,6 +79,7 @@ def load_json(json_path, replacements={}):
     '/home/ex2.wav'
 
     """
+    # TODO: Example / unittest
     with open(json_path, "r") as f:
         out_json = json.load(f)
     _recursive_format(out_json, replacements)
@@ -112,6 +113,7 @@ def read_audio(waveforms_obj):
     torch.Tensor
         audio tensor with shape: (samples, )
     """
+    # TODO: Example / unittest
     if isinstance(waveforms_obj, str):
         audio, _ = torchaudio.load(waveforms_obj)
         return audio.squeeze(0)
@@ -168,6 +170,7 @@ def read_audio_multichannel(waveforms_obj):
     torch.Tensor
         audio tensor with shape: (samples, )
     """
+    # TODO: Example / unittest
     if isinstance(waveforms_obj, str):
         audio, _ = torchaudio.load(waveforms_obj)
         return audio
