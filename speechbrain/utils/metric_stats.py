@@ -169,12 +169,13 @@ class ErrorRateStats(MetricStats):
     Example
     -------
     >>> cer_stats = ErrorRateStats()
+    >>> i2l = {0: 'a', 1: 'b'}
     >>> cer_stats.append(
     ...     ids=['utterance1'],
     ...     predict=torch.tensor([[0, 1, 1]]),
     ...     target=torch.tensor([[0, 1, 0]]),
     ...     target_len=torch.ones(1),
-    ...     ind2lab={0: 'a', 1: 'b'},
+    ...     ind2lab=lambda batch: [[i2l[int(x)] for x in seq] for seq in batch],
     ... )
     >>> stats = cer_stats.summarize()
     >>> stats['WER']
@@ -219,8 +220,9 @@ class ErrorRateStats(MetricStats):
         target_len : torch.tensor
             The target outputs' relative lengths, used to undo padding if
             there is padding present in the target.
-        ind2lab : dict
-            Mapping from indices to labels, for writing alignments.
+        ind2lab : callable
+            Callable that maps from indices to labels, operating on batches,
+            for writing alignments.
         """
         self.ids.extend(ids)
 
