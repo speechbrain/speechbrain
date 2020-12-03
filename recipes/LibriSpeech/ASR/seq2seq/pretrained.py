@@ -1,13 +1,15 @@
 """
-A "ready-to-use" speech recognizer based on seq2seq a trained with librispeech.
-The class expects input speech signals sampled at 16 kHz. The system achieves
-a WER=3.07% on LibriSpeech test clean. Despite being quite robust, there is no warranty
+A "ready-to-use" English speech recognizer based on the LibriSpeech seq2seq recipe.
+The class can be used either to run only the encoder (encode()) to extract features
+or to run the entire encoder-decoder-attention model (transcribe()) to transcribe the speech.
+It expects input speech signals sampled at 16 kHz. The system achieves
+a WER=3.07% on LibriSpeech test clean. Despite being quite robust, there is no guarantee
 that this model works well for other tasks.
 
 Example
 -------
 >>> import torchaudio
->>> do_ASR = ASR_infer()
+>>> do_ASR = ASR()
 >>> audio_file='../../../../samples/audio_samples/example2.flac'
 >>> # Make sure your output is sampled at 16 kHz
 >>> wav, fs = torchaudio.load(audio_file)
@@ -29,9 +31,14 @@ from speechbrain.utils.data_utils import download_file
 from speechbrain.tokenizers.SentencePiece import SentencePiece
 
 
-class ASR_infer(torch.nn.Module):
-    def __init__(self, hparams_file="hparams/infer.yaml", overrides={}):
-        """Downloads and Pretrain the moduels specified in the yaml"""
+class ASR(torch.nn.Module):
+    def __init__(
+        self,
+        hparams_file="hparams/pretrained.yaml",
+        overrides={},
+        freeze_params=True,
+    ):
+        """Downloads the pretrained modules specified in the yaml"""
         super().__init__()
 
         # Loading modules defined in the yaml file
@@ -47,22 +54,30 @@ class ASR_infer(torch.nn.Module):
         # putting modules on the right device
         self.mod = torch.nn.ModuleDict(self.hparams["modules"]).to(self.device)
 
-        # Pretraining modules
+        # Load pretrained modules
         self.load_tokenizer()
         self.load_lm()
         self.load_asr()
 
+        # If we don't want to backprop, freeze the pretrained parameters
+        if freeze_params:
+            self.mod.asr_model.eval()
+            for p in self.mod.asr_model.parameters():
+                p.requires_grad = False
+            self.mod.lm_model.eval()
+            for p in self.mod.lm_model.parameters():
+                p.requires_grad = False
+
     def encode(self, wavs, wav_lens):
         """Encodes the input audio into a sequence of hidden states"""
-        with torch.no_grad():
-            wavs = wavs.float()
-            wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
-            feats = self.mod.compute_features(wavs)
-            feats = self.mod.normalize(feats, wav_lens)
-            encoder_out = self.mod.asr_encoder(feats)
+        wavs = wavs.float()
+        wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
+        feats = self.mod.compute_features(wavs)
+        feats = self.mod.normalize(feats, wav_lens)
+        encoder_out = self.mod.asr_encoder(feats)
         return encoder_out
 
-    def forward(self, wavs, wav_lens):
+    def transcribe(self, wavs, wav_lens):
         """Transcribes the input audio into a sequence of words"""
         with torch.no_grad():
             wav_lens = wav_lens.to(self.device)
@@ -78,7 +93,7 @@ class ASR_infer(torch.nn.Module):
         return predicted_words, predicted_tokens
 
     def load_tokenizer(self):
-        """Loads the sentence piece tokinizer specified in the yaml file"""
+        """Loads the sentence piece tokenizer specified in the yaml file"""
         save_model_path = os.path.join(
             self.hparams["save_folder"],
             str(self.hparams["output_neurons"]) + "_unigram.model",
@@ -109,9 +124,6 @@ class ASR_infer(torch.nn.Module):
         self.mod.asr_model.load_state_dict(
             torch.load(save_model_path), strict=True
         )
-        self.mod.asr_model.eval()
-        for p in self.mod.asr_model.parameters():
-            p.requires_grad = False
 
     def load_lm(self):
         """Loads the LM specified in the yaml file"""
@@ -123,6 +135,3 @@ class ASR_infer(torch.nn.Module):
         # Load downloaded model, removing prefix
         state_dict = torch.load(save_model_path, map_location=self.device)
         self.mod.lm_model.load_state_dict(state_dict, strict=True)
-        self.mod.lm_model.eval()
-        for p in self.mod.lm_model.parameters():
-            p.requires_grad = False

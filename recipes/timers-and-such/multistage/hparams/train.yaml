@@ -1,11 +1,11 @@
 # ############################################################################
-# Model: Direct SLU
-# Encoder: Pre-trained ASR encoder -> LSTM
+# Model: Multistage SLU
+# Encoder: Pre-trained ASR -> transcript -> LSTM
 # Decoder: GRU + beamsearch
 # Tokens: BPE with unigram
 # losses: NLL
 # Training: Timers and Such
-# Authors:  Loren Lugosch 2020
+# Authors:  Loren Lugosch, Mirco Ravanelli 2020
 # ############################################################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
@@ -27,7 +27,8 @@ csv_train: !ref <data_folder>/train-type=multistage.csv
 csv_valid: !ref <data_folder>/<dev_split>-type=multistage.csv
 csv_test_real: !ref <data_folder>/test-real-type=multistage.csv
 csv_test_synth: !ref <data_folder>/test-synth-type=multistage.csv
-asr_hparam_file: ../../../recipes/LibriSpeech/ASR/seq2seq/hparams/infer.yaml
+asr_hparam_file:
+    ../../../recipes/LibriSpeech/ASR/seq2seq/hparams/pretrained.yaml
 
 # Training parameters
 number_of_epochs: 1
@@ -52,7 +53,8 @@ bos_index: 0
 eos_index: 0
 min_decode_ratio: 0.0
 max_decode_ratio: 10.0
-SLU_beam_size: 80
+asr_beam_size: 1
+slu_beam_size: 80
 eos_threshold: 1.5
 temperature: 1.25
 
@@ -90,9 +92,9 @@ test_synth_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
 
 
 # Models
-asr_model: !new:recipes.LibriSpeech.ASR.seq2seq.infer.ASR_infer
+asr_model: !new:recipes.LibriSpeech.ASR.seq2seq.pretrained.ASR
     hparams_file: !ref <asr_hparam_file>
-    overrides: {'beam_size': 1}
+    overrides: {'beam_size': !ref <asr_beam_size>}
 
 slu_enc: !new:speechbrain.nnet.containers.Sequential
     input_shape: [null, null, !ref <emb_size>]
@@ -159,7 +161,7 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     eos_index: !ref <eos_index>
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
-    beam_size: !ref <SLU_beam_size>
+    beam_size: !ref <slu_beam_size>
     eos_threshold: !ref <eos_threshold>
     temperature: !ref <temperature>
     using_max_attn_shift: False

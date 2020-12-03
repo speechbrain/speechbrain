@@ -10,7 +10,7 @@
 asr_ckpt_file: https://www.dropbox.com/s/bb209th9vcs555j/model.ckpt?dl=1
 lm_ckpt_file: https://www.dropbox.com/s/wop14orl69gakhl/model.ckpt?dl=1
 tok_mdl_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
-save_folder: inference_models
+save_folder: pretrained_models
 
 # Device selection
 device: 'cuda:0'
