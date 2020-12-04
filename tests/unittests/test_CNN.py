@@ -7,7 +7,9 @@ def test_SincConv():
     from speechbrain.nnet.CNN import SincConv
 
     input = torch.rand([4, 16000])
-    convolve = SincConv(out_channels=8, kernel_size=65, padding="same")
+    convolve = SincConv(
+        input_shape=input.shape, out_channels=8, kernel_size=65, padding="same"
+    )
     output = convolve(input)
     assert output.shape[-1] == 8
 
