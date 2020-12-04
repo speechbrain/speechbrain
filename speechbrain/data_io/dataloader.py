@@ -33,7 +33,6 @@ Example
 
 Authors:
   * Aku Rouhe 2020
-  * Samuele Cornell 2020
 """
 from torch.utils.data import DataLoader
 from torch.utils.data.dataloader import _BaseDataLoaderIter
