@@ -1,4 +1,7 @@
 """Batch collation
+
+Authors
+  * Aku Rouhe 2020
 """
 import collections
 import torch
