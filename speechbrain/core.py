@@ -19,6 +19,7 @@ from enum import Enum, auto
 from tqdm.contrib import tqdm
 from types import SimpleNamespace
 from torch.nn import SyncBatchNorm
+from torch.nn import DataParallel as DP
 from torch.utils.data import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel as DDP
 from speechbrain.data_io.data_io import DataLoaderFactory
@@ -369,6 +370,25 @@ class Brain:
             else:
                 setattr(self, arg, default)
 
+        if self.data_parallel_backend and self.distributed_launch:
+            sys.exit(
+                "To use data_parallel backend, start you script with:\n\t"
+                "python experiment.py hyperparams.yaml --data_parallel_backend=True --data_parallel_count=2"
+                "To use DDP backend, start your script with:\n\t"
+                "python -m torch.distributed.lunch [args]\n"
+                "experiment.py hyperparams.yaml --distributed_launch=True --distributed_backend=nccl"
+            )
+
+        # Kill all subprocess generated with torch.distributed.launch
+        # without specifying distributed_launch arg
+        if not self.distributed_launch:
+            if "cuda" in self.device and int(self.device[5:]) > 0:
+                sys.exit(
+                    "Killing process " + str(self.device[5:]) + "\n"
+                    "To use DDP backend, start your script with:\n\t"
+                    "python -m torch.distributed.lunch [args]\n"
+                    "experiment.py hyperparams.yaml --distributed_launch=True --distributed_backend=nccl"
+                )
         # Switch to the right context
         if "cuda" in self.device:
             torch.cuda.set_device(int(self.device[-1]))
@@ -409,7 +429,7 @@ class Brain:
                 sys.exit(
                     "To use DDP backend, start your script with:\n\t"
                     "python -m torch.distributed.lunch [args]\n"
-                    "experiment.py hyperparams.yaml --distributed_backend=nccl"
+                    "experiment.py hyperparams.yaml --distributed_launch=True --distributed_backend=nccl"
                 )
             self.rank = int(os.environ["RANK"])
             if self.distributed_backend == "nccl":
@@ -790,15 +810,15 @@ class Brain:
             for name, module in self.modules.items():
                 if any(p.requires_grad for p in module.parameters()):
                     # if distributed_count = -1 then use all gpu
-                    # otherwise, specify the set of gpu used
+                    # otherwise, specify the set of gpu to use
                     if self.data_parallel_count == -1:
-                        module = torch.nn.DataParallel(module)
+                        module = DP(module)
                     else:
-                        module = torch.nn.DataParallel(
+                        module = DP(
                             module,
-                            [i for i in range(self.distributed_count + 1)],
+                            [i for i in range(self.data_parallel_count + 1)],
                         )
-                self.modules[name] = module
+                    self.modules[name] = module
 
     def evaluate(self, test_set, max_key=None, min_key=None, progressbar=None):
         """Iterate test_set and evaluate brain performance. By default, loads
