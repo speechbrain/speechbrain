@@ -112,8 +112,19 @@ def read_audio(waveforms_obj):
     -------
     torch.Tensor
         audio tensor with shape: (samples, )
+
+    Example
+    -------
+    >>> dummywav = torch.rand(16000)
+    >>> import os
+    >>> tmpfile = os.path.join(str(getfixture('tmpdir')),  "wave.wav")
+    >>> import soundfile as sf
+    >>> sf.write(tmpfile, dummywav, 16000, subtype="float")
+    >>> asr_example = { "wav": tmpfile, "spk_id": "foo", "words": "foo bar"}
+    >>> loaded = read_audio(asr_example["wav"])
+    >>> torch.all(torch.eq(loaded, dummywav))
+    tensor(True)
     """
-    # TODO: Example / unittest
     if isinstance(waveforms_obj, str):
         audio, _ = torchaudio.load(waveforms_obj)
         return audio.squeeze(0)
@@ -169,6 +180,18 @@ def read_audio_multichannel(waveforms_obj):
     -------
     torch.Tensor
         audio tensor with shape: (samples, )
+
+    Example
+    -------
+    >>> dummywav = torch.rand(16000, 2)
+    >>> import os
+    >>> tmpfile = os.path.join(str(getfixture('tmpdir')),  "wave.wav")
+    >>> import soundfile as sf
+    >>> sf.write(tmpfile, dummywav, 16000, subtype="float")
+    >>> asr_example = { "wav": tmpfile, "spk_id": "foo", "words": "foo bar"}
+    >>> loaded = read_audio(asr_example["wav"])
+    >>> torch.all(torch.eq(loaded.transpose(0, 1), dummywav))
+    tensor(True)
     """
     # TODO: Example / unittest
     if isinstance(waveforms_obj, str):
