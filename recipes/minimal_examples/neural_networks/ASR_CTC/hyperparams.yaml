@@ -26,12 +26,12 @@ data_folder: !PLACEHOLDER
 
 train_examples: !apply:speechbrain.data_io.data_io.load_json
     json_path: !ref <data_folder>/train.json
-    overrides:
-        <data_root>: !ref <data_folder>
+    replacements:
+        data_root: !ref <data_folder>
 dev_examples: !apply:speechbrain.data_io.data_io.load_json
     json_path: !ref <data_folder>/dev.json
-    overrides:
-        <data_root>: !ref <data_folder>
+    replacements:
+        data_root: !ref <data_folder>
 
 label_encoder: !apply:speechbrain.data_io.encoders.CTCTextEncoder.fit_from_yaml
     data_collections: [!ref <train_examples>, !ref <dev_examples>]
@@ -51,7 +51,7 @@ audio_pipeline: !new:speechbrain.utils.data_utils.FuncPipeline
     name: wav
     target: wav
     funcs:
-        - !name:speechbrain.data_io.data_io.read_wav
+        - !name:speechbrain.data_io.data_io.read_audio
 
 data_tf:
     - !ref <text_pipeline>
@@ -68,12 +68,12 @@ valid_data: !apply:speechbrain.data_io.datasets.SegmentedDataset.from_extended_y
 train_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
     dataset: !ref <train_data>
     batch_size: !ref <batch_size>
-    collate_fn: !name:speechbrain.data_io.dataloader.collate_pad
+    collate_fn: !name:speechbrain.data_io.batch.PaddedBatch
 
 valid_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
     dataset: !ref <valid_data>
     batch_size: !ref <batch_size>
-    collate_fn: !name:speechbrain.data_io.dataloader.collate_pad
+    collate_fn: !name:speechbrain.data_io.batch.PaddedBatch
 
 compute_features: !new:speechbrain.lobes.features.MFCC
 
