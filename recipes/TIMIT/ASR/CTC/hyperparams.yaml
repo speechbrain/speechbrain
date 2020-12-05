@@ -75,7 +75,7 @@ audio_pipeline: !new:speechbrain.utils.data_utils.FuncPipeline
     name: wav
     target: wav
     funcs:
-        - !name:speechbrain.data_io.data_io.read_wav
+        - !name:speechbrain.data_io.data_io.read_audio
 
 data_tf:
     - !ref <text_pipeline>
@@ -102,17 +102,17 @@ train_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
     dataset: !ref <train_data>
     batch_size: !ref <batch_size>
     sampler: !ref <sampler>
-    collate_fn: !name:speechbrain.data_io.dataloader.collate_pad
+    collate_fn: !name:speechbrain.data_io.batch.PaddedBatch
 
 valid_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
     dataset: !ref <valid_data>
     batch_size: !ref <batch_size>
-    collate_fn: !name:speechbrain.data_io.dataloader.collate_pad
+    collate_fn: !name:speechbrain.data_io.batch.PaddedBatch
 
 test_loader: !new:speechbrain.data_io.dataloader.SaveableDataLoader
     dataset: !ref <test_data>
     batch_size: !ref <batch_size>
-    collate_fn: !name:speechbrain.data_io.dataloader.collate_pad
+    collate_fn: !name:speechbrain.data_io.batch.PaddedBatch
 
 normalize: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
