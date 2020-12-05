@@ -1,16 +1,16 @@
 {
     "spk1_snt6": {
         "spk_id": "spk1",
-        "wav": "<data_root>/spk1_snt6.wav",
-        "ali": "<data_root>/spk1_snt6.pkl",
+        "wav": "{data_root}/spk1_snt6.wav",
+        "ali": "{data_root}/spk1_snt6.pkl",
         "phn": "t   h   e     p   e   n   c   I   l   s   h   a   v   e   a   l   l   b   e   e   n   u   s   e   d",
         "char": "t   h   e     p   e   n   c   I   l   s   h   a   v   e   a   l   l   b   e   e   n   u   s   e   d",
         "length": 36640
     },
     "spk2_snt6": {
         "spk_id": "spk2",
-        "wav": "<data_root>/spk2_snt6.wav",
-        "ali": "<data_root>/spk2_snt6.pkl",
+        "wav": "{data_root}/spk2_snt6.wav",
+        "ali": "{data_root}/spk2_snt6.pkl",
         "phn": "j   u   m   p   t   h   e   f   e   n   c   e   a   n   d   h   u   r   r   y   u   p   t   h   e   b   a   n   k",
         "char": "j   u   m   p   t   h   e   f   e   n   c   e   a   n   d   h   u   r   r   y   u   p   t   h   e   b   a   n   k",
         "length": 28800
