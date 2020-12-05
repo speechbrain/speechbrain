@@ -804,7 +804,7 @@ class Brain:
                     # for ddp, all module must run on same GPU
                     module = SyncBatchNorm.convert_sync_batchnorm(module)
                     module = DDP(module, device_ids=[self.device])
-                self.modules[name] = module
+                    self.modules[name] = module
         else:
             # data_parallel_backend
             for name, module in self.modules.items():
