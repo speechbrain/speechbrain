@@ -1,64 +1,64 @@
 {
     "spk1_snt1": {
         "spk_id": "spk1",
-        "wav": "<data_root>/spk1_snt1.wav",
-        "ali": "<data_root>/spk1_snt1.pkl",
+        "wav": "{data_root}/spk1_snt1.wav",
+        "ali": "{data_root}/spk1_snt1.pkl",
         "phn": "dh ax cl ch ay l vcl d ao l m ow s cl t hh er cl t sil dh ax s m ao l vcl d ao vcl",
         "char": "dh ax cl ch ay l vcl d ao l m ow s cl t hh er cl t sil dh ax s m ao l vcl d ao vcl",
         "length": 45920
     },
     "spk1_snt2": {
         "spk_id": "spk1",
-        "wav": "<data_root>/spk1_snt2.wav",
-        "ali": "<data_root>/spk1_snt2.pkl",
+        "wav": "{data_root}/spk1_snt2.wav",
+        "ali": "{data_root}/spk1_snt2.pkl",
         "phn": "vcl d r aa cl p dh ax cl t uw sil w eh n y uw ae vcl d dh ax f ih vcl g y er",
         "char": "vcl d r aa cl p dh ax cl t uw sil w eh n y uw ae vcl d dh ax f ih vcl g y er",
         "length": 50400
     },
     "spk1_snt3": {
         "spk_id": "spk1",
-        "wav": "<data_root>/spk1_snt3.wav",
-        "ali": "<data_root>/spk1_snt3.pkl",
+        "wav": "{data_root}/spk1_snt3.wav",
+        "ali": "{data_root}/spk1_snt3.pkl",
         "phn": "ae cl t dh ae cl t hh ay l eh v ax l dh iy eh r ih z cl p y uh",
         "char": "ae cl t dh ae cl t hh ay l eh v ax l dh iy eh r ih z cl p y uh",
         "length": 43520
     },
     "spk1_snt4": {
         "spk_id": "spk1",
-        "wav": "<data_root>/spk1_snt4.wav",
-        "ali": "<data_root>/spk1_snt4.pkl",
+        "wav": "{data_root}/spk1_snt4.wav",
+        "ali": "{data_root}/spk1_snt4.pkl",
         "phn": "ey th ih n s cl t r ay cl p r ah n z vcl d aw n dh ax m ih vcl d ax",
         "char": "ey th ih n s cl t r ay cl p r ah n z vcl d aw n dh ax m ih vcl d ax",
         "length": 40480
     },
     "spk2_snt1": {
         "spk_id": "spk2",
-        "wav": "<data_root>/spk2_snt1.wav",
-        "ali": "<data_root>/spk2_snt1.pkl",
+        "wav": "{data_root}/spk2_snt1.wav",
+        "ali": "{data_root}/spk2_snt1.pkl",
         "phn": "w iy er sh ao r dh ax dx w ah n w ao r ih z ih n ah",
         "char": "w iy er sh ao r dh ax dx w ah n w ao r ih z ih n ah",
         "length": 32160
     },
     "spk2_snt2": {
         "spk_id": "spk2",
-        "wav": "<data_root>/spk2_snt2.wav",
-        "ali": "<data_root>/spk2_snt2.pkl",
+        "wav": "{data_root}/spk2_snt2.wav",
+        "ali": "{data_root}/spk2_snt2.pkl",
         "phn": "w ah cl t vcl jh oy dh eh r ih z ih n l ih v ih",
         "char": "w ah cl t vcl jh oy dh eh r ih z ih n l ih v ih",
         "length": 28160
     },
     "spk2_snt3": {
         "spk_id": "spk2",
-        "wav": "<data_root>/spk2_snt3.wav",
-        "ali": "<data_root>/spk2_snt3.pkl",
+        "wav": "{data_root}/spk2_snt3.wav",
+        "ali": "{data_root}/spk2_snt3.pkl",
         "phn": "t eh r ah th ih n sh iy cl t f er m dh iy y eh l ow cl p ae vcl",
         "char": "t eh r ah th ih n sh iy cl t f er m dh iy y eh l ow cl p ae vcl",
         "length": 30080
     },
     "spk2_snt4": {
         "spk_id": "spk2",
-        "wav": "<data_root>/spk2_snt4.wav",
-        "ali": "<data_root>/spk2_snt4.pkl",
+        "wav": "{data_root}/spk2_snt4.wav",
+        "ali": "{data_root}/spk2_snt4.pkl",
         "phn": "m eh n vcl d dh ax cl k ow cl t vcl b ih f ao r y uw vcl g ow aw cl",
         "char": "m eh n vcl d dh ax cl k ow cl t vcl b ih f ao r y uw vcl g ow aw cl",
         "length": 32640
