@@ -35,4 +35,4 @@ python train.py hparams/train.yaml
 | Decoupled (Timers and Such LM) | ? % | ? % |
 | Multistage (LibriSpeech LM) | 75.4 % | 78.2 % |
 | Multistage (Timers and Such LM) | ? % | ? % |
-| Direct | 95.7 % | 75.5 % |
+| Direct | 96.1% $pm$ 0.2% | 74.5% $\pm$ 6.9% |
