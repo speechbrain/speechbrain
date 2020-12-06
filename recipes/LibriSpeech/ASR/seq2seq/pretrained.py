@@ -48,6 +48,11 @@ class ASR(torch.nn.Module):
         self.device = self.hparams["device"]
 
         # Creating directory where pre-trained models are stored
+        if not os.path.isabs(self.hparams["save_folder"]):
+            dirname = os.path.dirname(__file__)
+            self.hparams["save_folder"] = os.path.join(
+                dirname, self.hparams["save_folder"]
+            )
         if not os.path.isdir(self.hparams["save_folder"]):
             os.makedirs(self.hparams["save_folder"])
 
