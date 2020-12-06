@@ -95,7 +95,7 @@ Encoder: !new:speechbrain.lobes.models.dual_path.Encoder
 
 
 SBtfintra: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
-    num_layers: 1
+    num_layers: 8
     d_model: !ref <out_channels>
     nhead: 8
     d_ffn: 1024
@@ -104,7 +104,7 @@ SBtfintra: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
     norm_before: True
 
 SBtfinter: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
-    num_layers: 1
+    num_layers: 8
     d_model: !ref <out_channels>
     nhead: 8
     d_ffn: 1024
