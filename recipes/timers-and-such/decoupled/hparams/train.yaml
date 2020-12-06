@@ -1,6 +1,7 @@
 # ############################################################################
-# Model: Multistage SLU
-# Encoder: Pre-trained ASR -> transcript -> LSTM
+# Model: Decoupled SLU
+# Encoder: transcript -> LSTM
+# (train time: ground truth transcript, test time: from LibriSpeech ASR)
 # Decoder: GRU + beamsearch
 # Tokens: BPE with unigram
 # losses: NLL
