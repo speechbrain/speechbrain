@@ -1,5 +1,5 @@
 #!/usr/bin/env/python3
-"""Recipe for training a neural speech separation system on wsjmix the 
+"""Recipe for training a neural speech separation system on wsjmix the
 dataset. The system employs an encoder, a decoder, and a masking network.
 
 To run this recipe, do the following:
@@ -7,9 +7,9 @@ To run this recipe, do the following:
 > python train.py hparams/dualpath_rnn.yaml
 > python train.py hparams/convtasnet.yaml
 
-The experiment file is flexible enough to support different neural 
+The experiment file is flexible enough to support different neural
 networks. By properly changing the parameter files, you can try
-different architectures. The script supports both wsj2mix and 
+different architectures. The script supports both wsj2mix and
 wsj3mix.
 
 
@@ -45,8 +45,10 @@ class Separation(sb.Brain):
         mix, mix_lens = mix.to(self.device), mix_lens.to(self.device)
 
         # Convert targets to tensor
-        targets = torch.cat([targets[i][1].unsqueeze(-1)
-                             for i in range(self.hparams.num_spks)], dim=-1).to(self.device)
+        targets = torch.cat(
+            [targets[i][1].unsqueeze(-1) for i in range(self.hparams.num_spks)],
+            dim=-1,
+        ).to(self.device)
 
         # Add speech distortions
         if stage == sb.Stage.TRAIN:
@@ -97,7 +99,8 @@ class Separation(sb.Brain):
         if self.hparams.auto_mix_prec:
             with autocast():
                 predictions, targets = self.compute_forward(
-                    mixture, targets, sb.Stage.TRAIN)
+                    mixture, targets, sb.Stage.TRAIN
+                )
                 loss = self.compute_objectives(predictions, targets)
 
             if (
@@ -121,7 +124,8 @@ class Separation(sb.Brain):
                 loss.data = torch.tensor(0).to(self.device)
         else:
             predictions, targets = self.compute_forward(
-                mixture, targets, sb.Stage.TRAIN)
+                mixture, targets, sb.Stage.TRAIN
+            )
             loss = self.compute_objectives(predictions, targets)
             loss.backward()
             if self.hparams.clip_grad_norm >= 0:
@@ -144,7 +148,7 @@ class Separation(sb.Brain):
 
         # Manage audio file saving
         if stage == sb.Stage.TEST and self.hparams.save_audio:
-            if hasattr(self.hparams, 'n_audio_to_save'):
+            if hasattr(self.hparams, "n_audio_to_save"):
                 if self.hparams.n_audio_to_save > 0:
                     self.save_audio(snt_id[0], mixture, targets, predictions)
                     self.hparams.n_audio_to_save += -1
@@ -164,7 +168,9 @@ class Separation(sb.Brain):
         if stage == sb.Stage.VALID:
 
             # Learning rate annealing
-            if isinstance(self.hparams.lr_scheduler, schedulers.ReduceLROnPlateau):
+            if isinstance(
+                self.hparams.lr_scheduler, schedulers.ReduceLROnPlateau
+            ):
                 current_lr, next_lr = self.hparams.lr_scheduler(
                     [self.optimizer], epoch, stage_loss
                 )
@@ -213,10 +219,12 @@ class Separation(sb.Brain):
             recombine = True
             for target in targets:
                 rand_shift = torch.randint(
-                    self.hparams.min_shift, self.hparams.max_shift, (1,))
+                    self.hparams.min_shift, self.hparams.max_shift, (1,)
+                )
                 target[1] = target[1].to(self.device)
                 target[1] = torch.roll(
-                    target[1], shifts=(rand_shift[0],), dims=1)
+                    target[1], shifts=(rand_shift[0],), dims=1
+                )
 
         # Re-combination
         if recombine:
@@ -233,11 +241,16 @@ class Separation(sb.Brain):
         """This function selects a random segment of a given length withing the mixture.
         The corresponding targets are selected accordingly"""
         randstart = torch.randint(
-            0, 1 + max(0, mixture.shape[1] - self.hparams.training_signal_len), (1,),).item()
-        targets = targets[:, randstart: randstart
-                          + self.hparams.training_signal_len, :]
-        mixture = mixture[:, randstart: randstart
-                          + self.hparams.training_signal_len]
+            0,
+            1 + max(0, mixture.shape[1] - self.hparams.training_signal_len),
+            (1,),
+        ).item()
+        targets = targets[
+            :, randstart : randstart + self.hparams.training_signal_len, :
+        ]
+        mixture = mixture[
+            :, randstart : randstart + self.hparams.training_signal_len
+        ]
         return mixture, targets
 
     def reset_layer_recursively(self, layer):
@@ -259,18 +272,11 @@ class Separation(sb.Brain):
         save_file = os.path.join(self.hparams.output_folder, "test_results.csv")
 
         # Variable init
-        fs = hparams["sample_rate"]
         all_sdrs = []
         all_sdrs_i = []
         all_sisnrs = []
         all_sisnrs_i = []
-        csv_columns = [
-            "snt_id",
-            "sdr",
-            "sdr_i",
-            "si-snr",
-            "si-snr_i"
-        ]
+        csv_columns = ["snt_id", "sdr", "sdr_i", "si-snr", "si-snr_i"]
 
         with open(save_file, "w") as results_csv:
             writer = csv.DictWriter(results_csv, fieldnames=csv_columns)
@@ -285,40 +291,43 @@ class Separation(sb.Brain):
                     snt_id = batch[0][0]
                     targets = batch[1:]
                     predictions, targets = self.compute_forward(
-                        mixture, targets, sb.Stage.TEST)
+                        mixture, targets, sb.Stage.TEST
+                    )
 
                     # Compute SI-SNR
                     sisnr = self.compute_objectives(predictions, targets)
 
                     # Compute SI-SNR improvement
                     mixture_signal = torch.stack(
-                        [batch[0][1]] * self.hparams.num_spks, dim=-1)
+                        [batch[0][1]] * self.hparams.num_spks, dim=-1
+                    )
                     mixture_signal = mixture_signal.to(targets.device)
                     sisnr_baseline = self.compute_objectives(
-                        mixture_signal, targets)
+                        mixture_signal, targets
+                    )
                     sisnr_i = sisnr - sisnr_baseline
 
                     # Compute SDR
                     sdr, _, _, _ = bss_eval_sources(
-                        targets[0].t().cpu().numpy(
-                        ), predictions[0].t().detach().cpu().numpy()
+                        targets[0].t().cpu().numpy(),
+                        predictions[0].t().detach().cpu().numpy(),
                     )
 
                     sdr_baseline, _, _, _ = bss_eval_sources(
-                        targets[0].t().cpu().numpy(
-                        ), mixture_signal[0].t().detach().cpu().numpy()
+                        targets[0].t().cpu().numpy(),
+                        mixture_signal[0].t().detach().cpu().numpy(),
                     )
 
                     sdr_i = sdr.mean() - sdr_baseline.mean()
 
                     # Saving on a csv file
                     row = {
-                            "snt_id": snt_id[0], 
-                            "sdr": sdr.mean(), 
-                            "sdr_i": sdr_i,
-                            "si-snr": -sisnr.item(),
-                            "si-snr_i": -sisnr_i.item(),
-                            }
+                        "snt_id": snt_id[0],
+                        "sdr": sdr.mean(),
+                        "sdr_i": sdr_i,
+                        "si-snr": -sisnr.item(),
+                        "si-snr_i": -sisnr_i.item(),
+                    }
                     writer.writerow(row)
 
                     # Metric Accumulation
@@ -355,31 +364,40 @@ class Separation(sb.Brain):
             signal = predictions[0, :, ns]
             signal = signal / signal.abs().max()
             save_file = os.path.join(
-                save_path, "item{}_source{}hat.wav".format(snt_id, ns + 1))
-            torchaudio.save(save_file, signal.unsqueeze(
-                0).cpu(), self.hparams.sample_rate)
+                save_path, "item{}_source{}hat.wav".format(snt_id, ns + 1)
+            )
+            torchaudio.save(
+                save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
+            )
 
             # Original source
             signal = targets[0, :, ns]
             signal = signal / signal.abs().max()
             save_file = os.path.join(
-                save_path, "item{}_source{}.wav".format(snt_id, ns + 1))
-            torchaudio.save(save_file, signal.unsqueeze(
-                0).cpu(), self.hparams.sample_rate)
+                save_path, "item{}_source{}.wav".format(snt_id, ns + 1)
+            )
+            torchaudio.save(
+                save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
+            )
 
         # Mixture
         signal = mixture[1][0, :]
         signal = signal / signal.abs().max()
         save_file = os.path.join(save_path, "item{}_mix.wav".format(snt_id))
-        torchaudio.save(save_file, signal.unsqueeze(
-            0).cpu(), self.hparams.sample_rate)
+        torchaudio.save(
+            save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
+        )
 
 
 if __name__ == "__main__":
     # This hack needed to import data preparation script from ../..
     current_dir = os.path.dirname(os.path.abspath(__file__))
     sys.path.append(os.path.dirname(current_dir))
-    from prepare_data import create_wsj_csv, create_wsj_csv_3spks, get_wsj_files  # noqa E402
+    from prepare_data import (
+        create_wsj_csv,
+        create_wsj_csv_3spks,
+        get_wsj_files,
+    )  # noqa E402
 
     # Load hyperparameters file with command-line overrides
     hparams_file, overrides = sb.parse_arguments(sys.argv[1:])
