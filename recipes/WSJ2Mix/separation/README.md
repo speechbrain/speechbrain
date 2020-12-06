@@ -2,6 +2,11 @@
 
 * This recipe is able to train several different source separation models on WSJ2-Mix, including [Sepformer](https://arxiv.org/abs/2010.13154), [DPRNN](https://arxiv.org/abs/1910.06379) , [ConvTasnet](https://arxiv.org/abs/1809.07454), [DPTNet](https://arxiv.org/abs/2007.13975)
 
+Additional dependency:
+```
+pip install mir_eval
+```
+
 To run it:
 
 ```
