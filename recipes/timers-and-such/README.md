@@ -28,10 +28,10 @@ python train.py hparams/train.yaml
 
 # Performance summary
 
-[Sentence accuracy on Timers and Such v0.1]
+[Sentence accuracy on Timers and Such v0.1, measured using 5 random seeds.]
 | System | Synthetic | Real |
 |----------------- | ------------ | ------|
-| Decoupled (LibriSpeech LM) | 15.4 % | 20.0 % |
+| Decoupled (LibriSpeech LM) | 18.7% $\pm$ 5.1% | 23.6% $\pm$ 7.3% |
 | Decoupled (Timers and Such LM) | ? % | ? % |
 | Multistage (LibriSpeech LM) | 75.4 % | 78.2 % |
 | Multistage (Timers and Such LM) | ? % | ? % |
