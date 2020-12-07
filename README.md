@@ -108,11 +108,11 @@ We define a set of running arguments in SpeechBrain, these arguments can be set 
 - `nonfinite_patience`: 3, Number of times to ignore non-finite losses before stopping.
 - `progressbar`: default True, Whether to display a progressbar when training.
 
-All these args allow you to run a Multigpu experiment (using Data_parallel or Distributed_Data_parallel in signle/multiple machines), use Automatic Mixed Precision Training, use Just In Time (JIT) compiler over your module, do gradient clipping, handling non-finite values and show a progress bar during training.
+All these args allow one to run a multigpu experiment (using Data_parallel or Distributed_Data_parallel in single/multiple machines), use Automatic Mixed Precision Training, use Just In Time (JIT) compiler over your module, do gradient clipping, handling non-finite values and show a progress bar during training.
 
 Important:
 - The command line args will always override the hparams file args.
-- Data Parallel (`data_parallel_backend`) and Distributed Data Parallel (DDP) can't be activated in same time.
+- Data Parallel (`data_parallel_backend`) and Distributed Data Parallel (DDP) can't be activated at the same time.
 
 ### MultiGPU training using Data Parallel
 The common pattern for using MultiGPU training over a single machine with Data Parallel:
@@ -125,7 +125,7 @@ The common pattern for using MultiGPU training over a single machine with Data P
 Important: the batch size for each GPU process will be: `batch_size / data_parallel_count`. So you should consider changing the batch_size value.
 
 ### MultiGPU training using Distributed Data Parallel
-For using DDP, you should consider using `torch.distributed.launch` for setting the subprocess with the right Unix variables `local_rank` and `rank`. The `local_rank` variable allow to set the right `device` arg for each DDP subprocess, the `rank` variable (which is uniq for each subprocess) will be used for registring the subprocess rank to the DDP group. In that way, we can manage multigpu training over multiple machines.
+For using DDP, you should consider using `torch.distributed.launch` for setting the subprocess with the right Unix variables `local_rank` and `rank`. The `local_rank` variable allows setting the right `device` arg for each DDP subprocess, the `rank` variable (which is unique for each subprocess) will be used for registering the subprocess rank to the DDP group. In that way, we can manage multigpu training over multiple machines.
 
 The common pattern for using MultiGPU training with DDP (consider you have 2 servers with 2 GPU:
 ```
