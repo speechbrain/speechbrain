@@ -182,6 +182,8 @@ modules:
     seq_lin: !ref <seq_lin>
     normalize: !ref <normalize>
 
+jit_module_keys: [enc]
+
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:

@@ -95,6 +95,55 @@ model: !new:speechbrain.lobes.models.CRDNN.CRDNN
 
 For more details on yaml and our extensions, see [speechbrain/YAML.md](speechbrain/YAML.md)
 
+### Running arguments
+We define a set of running arguments in SpeechBrain, these arguments can be set from the command line args or an hparams file.
+- `device`: set the device to be used for computation.
+- `data_parallel_backend`: default False, if True, use `data_parallel` for multigpu training on a single machine.
+- `data_parallel_count`: default "-1" (use all gpus), if > 0, use a subset of gpus available [0, 1, ..., data_parallel_count].
+- `distributed_launch`: default False, if True, we assume that we already use `torch.distributed.launch` for multiGPU training. the `local_rank` and `rank` UNIX arguments are then parsed for running multigpu training.
+- `distributed_backend`: default "nccl", options: ["nccl", "gloo", "mpi"], this backend will be used as a DDP communication protocol. See Pytorch Doc for more details.
+- Additional runtime arguments are documented in the Brain class.
+
+You can also override parameters in YAML by passing the name of the parameter as an argument on the command line. For example:
+
+```
+> python experiment.py params.yaml --seed 1234 --data_folder /path/to/folder --num_layers 5
+```
+
+This call would override hyperparameters `seed` and `data_folder` and `num_layers`.
+
+Important:
+- The command line args will always override the hparams file args.
+- Data Parallel (`data_parallel_backend`) and Distributed Data Parallel (DDP) can't be activated at the same time.
+
+### MultiGPU training using Data Parallel
+The common pattern for using MultiGPU training over a single machine with Data Parallel:
+
+```
+> cd recipes/<dataset>/<task>/
+> python experiment.py params.yaml --data_parallel_backend=True --data_parallel_count=2
+```
+
+Important: the batch size for each GPU process will be: `batch_size / data_parallel_count`. So you should consider changing the batch_size value.
+
+### MultiGPU training using Distributed Data Parallel
+For using DDP, you should consider using `torch.distributed.launch` for setting the subprocess with the right Unix variables `local_rank` and `rank`. The `local_rank` variable allows setting the right `device` arg for each DDP subprocess, the `rank` variable (which is unique for each subprocess) will be used for registering the subprocess rank to the DDP group. In that way, we can manage multigpu training over multiple machines.
+
+The common pattern for using MultiGPU training with DDP (suppose you have 2 servers with 2 GPU):
+```
+# Server 1
+cd recipes/<dataset>/<task>/
+python -m torch.distributed.launch --nproc_per_node=2 --nnodes=2 --node=0 --master_addr server_1_adress --master_port 5555 experiment.py hyperparams.yaml --distributed_launch=True --distributed_backend='nccl'
+
+# Server 2
+cd recipes/<dataset>/<task>/
+python -m torch.distributed.launch --nproc_per_node=2 --nnodes=2 --node=1 --master_addr server_1_adress --master_port 5555 experiment.py hyperparams.yaml --distributed_launch=True --distributed_backend='nccl'
+```
+Server 1 will have 2 subprocess (subprocess1: with `local_rank=0`, `rank=0`, and subprocess2: with `local_rank=1`, `rank=1`).
+Server 2 will have 2 subprocess (subprocess1: with `local_rank=0`, `rank=2`, and subprocess2: with `local_rank=1`, `rank=3`).
+
+In this way, the current DDP group will contain 4 GPU.
+
 # Tensor format
 All the tensors within SpeechBrain are formatted using the following convention:
 ```

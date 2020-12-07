@@ -4,6 +4,7 @@ Authors
  * Mirco Ravanelli 2020
  * Ju-Chieh Chou 2020
  * Jianyuan Zhong 2020
+ * Loren Lugosch 2020
 """
 
 import torch
@@ -12,6 +13,7 @@ import torch.nn as nn
 from speechbrain.nnet.attention import (
     ContentBasedAttention,
     LocationAwareAttention,
+    KeyValueAttention,
 )
 from torch import Tensor
 from typing import Optional
@@ -757,6 +759,14 @@ class AttentionalRNNDecoder(nn.Module):
                 conv_channels=self.channels,
                 kernel_size=self.kernel_size,
                 scaling=self.scaling,
+            )
+
+        elif self.attn_type == "keyvalue":
+            self.attn = KeyValueAttention(
+                enc_dim=enc_dim,
+                dec_dim=self.hidden_size,
+                attn_dim=self.attn_dim,
+                output_dim=self.attn_dim,
             )
 
         else:
