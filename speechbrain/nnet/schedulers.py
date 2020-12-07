@@ -133,9 +133,9 @@ class NewBobScheduler:
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
-    def load(self, path, end_of_epoch, device=None):
+    def load(self, path, end_of_epoch, device):
         del end_of_epoch  # Unused in this class
-        del device
+        del device  # Unused in here
         data = torch.load(path)
         self.hyperparam_value = data["hyperparam_value"]
         self.metric_values = data["metric_values"]
@@ -325,7 +325,7 @@ class NoamScheduler:
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
-    def load(self, path, end_of_epoch, device=None):
+    def load(self, path, end_of_epoch, device):
         del end_of_epoch  # Unused in this class
         del device
         data = torch.load(path)
@@ -423,7 +423,7 @@ class CyclicCosineScheduler:
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
-    def load(self, path, end_of_epoch, device=None):
+    def load(self, path, end_of_epoch, device):
         del end_of_epoch  # Unused in this class
         del device  # Unused here
         data = torch.load(path)
@@ -582,8 +582,9 @@ class CyclicLRScheduler:
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
-    def load(self, path, end_of_epoch):
+    def load(self, path, end_of_epoch, device):
         del end_of_epoch  # Unused in this class
+        del device
         data = torch.load(path)
         self.losses = data["losses"]
         self.clr_iterations = data["clr_iterations"]
