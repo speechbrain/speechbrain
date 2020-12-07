@@ -827,14 +827,20 @@ class Brain:
             # data_parallel_backend
             for name, module in self.modules.items():
                 if any(p.requires_grad for p in module.parameters()):
-                    # if distributed_count = -1 then use all gpu
+                    # if distributed_count = -1 then use all gpus
                     # otherwise, specify the set of gpu to use
                     if self.data_parallel_count == -1:
                         module = DP(module)
                     else:
+                        if self.data_parallel_count == 0:
+                            raise ValueError(
+                                "data_parellel_count must be > 1."
+                                "if data_parallel_count = -1, then use all gpus."
+                            )
+
                         module = DP(
                             module,
-                            [i for i in range(self.data_parallel_count + 1)],
+                            [i for i in range(self.data_parallel_count)],
                         )
                     self.modules[name] = module
 
