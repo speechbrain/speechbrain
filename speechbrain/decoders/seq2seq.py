@@ -475,7 +475,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
                             torch.zeros(
                                 hyps_and_scores["hyps"].size(-1)
                                 - (timesteps + 1),
-                                40,
+                                alived_log_probs[index].size(-1),
                                 device=hyp.device,
                             ),
                         ),
@@ -535,6 +535,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         """
         predictions, top_log_probs, top_scores = [], [], []
         batch_size = len(hyps_and_scores["scores"])
+        vocab_size = top_log_probs.size(-1)
         hyps_and_scores["scores"] = torch.stack(
             [torch.stack(s) for s in hyps_and_scores["scores"]], dim=0
         )
@@ -556,7 +557,9 @@ class S2SBeamSearcher(S2SBaseSearcher):
             dim=0,
             index=indices,
         )
-        top_log_probs = top_log_probs.view(batch_size, self.topk, -1, 40)
+        top_log_probs = top_log_probs.view(
+            batch_size, self.topk, -1, vocab_size
+        )
         predictions = torch.index_select(
             hyps_and_scores["hyps"].view(batch_size * self.beam_size, -1),
             dim=0,
@@ -570,6 +573,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         enc_lens = torch.round(enc_states.shape[1] * wav_len).int()
         device = enc_states.device
         batch_size = enc_states.shape[0]
+        vocab_size = self.emb.num_embeddings
 
         # Inflate the enc_states and enc_len by beam_size times
         enc_states = inflate_tensor(enc_states, times=self.beam_size, dim=0)
@@ -600,14 +604,13 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         # keep only the first to make sure no redundancy.
         sequence_scores.index_fill_(0, self.beam_offset, 0.0)
-        print(sequence_scores, self.beam_offset)
 
         # keep the sequences that still not reaches eos.
         alived_seq = torch.empty(
             batch_size * self.beam_size, 0, device=device
         ).long()
 
-        # Keep the log-probabilities of alived sequences.
+        # Keep the log-probabilities of alived sequences. #TODO
         # alived_log_probs = torch.empty(
         #    batch_size * self.beam_size, 0, 40, device=device
         # )
@@ -634,7 +637,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             ),
             "scores": [[] for _ in range(batch_size)],
             "log_probs": [
-                torch.empty(0, max_decode_steps, 40, device=device)
+                torch.empty(0, max_decode_steps, vocab_size, device=device)
                 for _ in range(batch_size)
             ],
         }
@@ -818,7 +821,9 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 topk_hyps,
                 topk_scores,
                 topk_len,
-                alived_log_probs.view(batch_size, self.beam_size, -1, 40),
+                alived_log_probs.view(
+                    batch_size, self.beam_size, -1, vocab_size
+                ),
             )
             # return predictions, topk_hyps, topk_scores, topk_len, log_probs
         else:
