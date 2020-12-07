@@ -43,12 +43,6 @@ lr: 1.0
 ctc_weight: 0.5
 token_type: unigram  # ["unigram", "bpe", "char"]
 
-# For DDP, use `python -m speechbrain.ddp experiment.py` to launch experiment
-# These options will be set by that script, and will override these.
-device: 'cuda:0'
-multigpu_count: 0  # Set to number of GPUs if multi-gpu
-multigpu_backend: null  # ['data_parallel', 'ddp_nccl', 'ddp_gloo', 'ddp_mpi']
-
 # Feature parameters
 sample_rate: 16000
 n_fft: 400

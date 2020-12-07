@@ -117,7 +117,7 @@ if __name__ == "__main__":
     from voxceleb_prepare import prepare_voxceleb  # noqa E402
 
     # Load hyperparameters file with command-line overrides
-    hparams_file, overrides = sb.core.parse_arguments(sys.argv[1:])
+    hparams_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
         hparams = sb.yaml.load_extended_yaml(fin, overrides)
 
@@ -148,6 +148,7 @@ if __name__ == "__main__":
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
         hparams=hparams,
+        run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
 

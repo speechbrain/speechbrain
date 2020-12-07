@@ -26,7 +26,6 @@ csv_test: !ref <data_folder>/test.csv
 N_epochs: 50
 N_batch: 8
 lr: 0.0002
-device: cuda
 
 # Model Parameters
 drop_rate: 0.1
