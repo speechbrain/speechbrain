@@ -22,8 +22,8 @@ class ASR_Brain(sb.Brain):
 
         # Adding augmentation when specified:
         if stage == sb.Stage.TRAIN:
-            if hasattr(self.modules, "env_corrupt"):
-                wavs_noise = self.modules.env_corrupt(wavs, wav_lens)
+            if hasattr(self.hparams, "env_corrupt"):
+                wavs_noise = self.hparams.env_corrupt(wavs, wav_lens)
                 wavs = torch.cat([wavs, wavs_noise], dim=0)
                 wav_lens = torch.cat([wav_lens, wav_lens])
             if hasattr(self.hparams, "augmentation"):
@@ -42,7 +42,7 @@ class ASR_Brain(sb.Brain):
         ids, phns, phn_lens = targets
         phns, phn_lens = phns.to(self.device), phn_lens.to(self.device)
 
-        if stage == sb.Stage.TRAIN and hasattr(self.modules, "env_corrupt"):
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "env_corrupt"):
             phns = torch.cat([phns, phns], dim=0)
             phn_lens = torch.cat([phn_lens, phn_lens], dim=0)
 
