@@ -8,7 +8,7 @@ Authors:
 """
 import torch
 import speechbrain.data_io.wer as wer_io
-import speechbrain.utils.edit_distance as edit_distance
+from speechbrain.utils import edit_distance
 from joblib import Parallel, delayed
 from speechbrain.data_io.data_io import (
     merge_char,
