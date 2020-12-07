@@ -533,9 +533,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             This list contains the log probabilities of each hypothesis.
             The order is the same as predictions.
         """
-        predictions, top_log_probs, top_scores = [], [], []
         batch_size = len(hyps_and_scores["scores"])
-        vocab_size = top_log_probs.size(-1)
         hyps_and_scores["scores"] = torch.stack(
             [torch.stack(s) for s in hyps_and_scores["scores"]], dim=0
         )
@@ -558,7 +556,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             index=indices,
         )
         top_log_probs = top_log_probs.view(
-            batch_size, self.topk, -1, vocab_size
+            batch_size, self.topk, -1, top_log_probs.size(-1)
         )
         predictions = torch.index_select(
             hyps_and_scores["hyps"].view(batch_size * self.beam_size, -1),
