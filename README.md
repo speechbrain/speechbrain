@@ -102,13 +102,15 @@ We define a set of running arguments in SpeechBrain, these arguments can be set 
 - `data_parallel_count`: default "-1" (use all gpus), if > 0, use a subset of gpus available [0, 1, ..., data_parallel_count].
 - `distributed_launch`: default False, if True, we assume that we already use `torch.distributed.launch` for multiGPU training. the `local_rank` and `rank` UNIX arguments are then parsed for running multigpu training.
 - `distributed_backend`: default "nccl", options: ["nccl", "gloo", "mpi"], this backend will be used as a DDP communication protocol. See Pytorch Doc for more details.
-- `jit_module_keys`: default None, expects a list of module names to be compiled by JIT compiler. See Pytorch TorchScript for more details.
-- `auto_mix_prec`: default False, if True, use FP16 tensors. Be sure that your GPU device support FP16 precision.
-- `max_grad_norm`: default 5.0, gradient norm is scaled if it is greater than this value.
-- `nonfinite_patience`: 3, Number of times to ignore non-finite losses before stopping.
-- `progressbar`: default True, Whether to display a progressbar when training.
+- Additional runtime arguments are documented in the Brain class.
 
-All these args allow one to run a multigpu experiment (using Data_parallel or Distributed_Data_parallel in single/multiple machines), use Automatic Mixed Precision Training, use Just In Time (JIT) compiler over your module, do gradient clipping, handling non-finite values and show a progress bar during training.
+You can also override parameters in YAML by passing the name of the parameter as an argument on the command line. For example:
+
+```
+> python experiment.py params.yaml --seed 1234 --data_folder /path/to/folder --num_layers 5
+```
+
+This call would override hyperparameters `seed` and `data_folder` and `num_layers`.
 
 Important:
 - The command line args will always override the hparams file args.
@@ -127,7 +129,7 @@ Important: the batch size for each GPU process will be: `batch_size / data_paral
 ### MultiGPU training using Distributed Data Parallel
 For using DDP, you should consider using `torch.distributed.launch` for setting the subprocess with the right Unix variables `local_rank` and `rank`. The `local_rank` variable allows setting the right `device` arg for each DDP subprocess, the `rank` variable (which is unique for each subprocess) will be used for registering the subprocess rank to the DDP group. In that way, we can manage multigpu training over multiple machines.
 
-The common pattern for using MultiGPU training with DDP (consider you have 2 servers with 2 GPU:
+The common pattern for using MultiGPU training with DDP (suppose you have 2 servers with 2 GPU):
 ```
 # Server 1
 cd recipes/<dataset>/<task>/
