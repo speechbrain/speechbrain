@@ -64,18 +64,12 @@ label_encoder: !apply:speechbrain.data_io.encoders.CTCTextEncoder.fit_from_yaml
     sup_transform: !name:speechbrain.utils.data_utils.split_by_whitespace
 
 text_pipeline: !new:speechbrain.utils.data_utils.FuncPipeline
-    name: phn
-    target: phn
-    funcs:
-        - !name:speechbrain.utils.data_utils.split_by_whitespace
-        - !ref <label_encoder.encode_sequence>
-        - !name:speechbrain.data_io.data_io.to_longTensor
+    - !name:speechbrain.utils.data_utils.split_by_whitespace
+    - !ref <label_encoder.encode_sequence>
+    - !name:speechbrain.data_io.data_io.to_longTensor
 
 audio_pipeline: !new:speechbrain.utils.data_utils.FuncPipeline
-    name: wav
-    target: wav
-    funcs:
-        - !name:speechbrain.data_io.data_io.read_audio
+    - !name:speechbrain.data_io.data_io.read_audio
 
 data_tf:
     - !ref <text_pipeline>
