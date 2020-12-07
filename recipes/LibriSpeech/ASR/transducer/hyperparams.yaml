@@ -49,11 +49,6 @@ lr: 1.0
 #number_of_ce_epochs: 2
 #ce_weight: 0.33
 
-# GPU setup
-device: cuda:0
-multigpu_count: 0  # Set to number of GPUs for multi-gpu training
-multigpu_backend: null # ["data_parallel", "ddp_nccl", "ddp_gloo", "ddp_mpi"]
-
 # Tokenizer
 token_type: unigram  # ["unigram", "bpe", "char"]
 

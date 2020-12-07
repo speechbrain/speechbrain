@@ -341,7 +341,7 @@ def dev_tuner(full_csv, split_type):
 if __name__ == "__main__":  # noqa: C901
 
     # Load hyperparameters file with command-line overrides
-    params_file, overrides = sb.core.parse_arguments(sys.argv[1:])
+    params_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[1:])
 
     with open(params_file) as fin:
         params = sb.yaml.load_extended_yaml(fin, overrides)
