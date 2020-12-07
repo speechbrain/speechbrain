@@ -16,6 +16,8 @@ import sys
 import torch
 import speechbrain as sb
 
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+
 
 # Define training procedure
 class ASR(sb.Brain):
@@ -27,11 +29,13 @@ class ASR(sb.Brain):
         phns, phn_lens = phns.to(self.device), phn_lens.to(self.device)
 
         if stage == sb.Stage.TRAIN:
+            """
             if hasattr(self.modules, "env_corrupt"):
                 wavs_noise = self.modules.env_corrupt(wavs, wav_lens)
                 wavs = torch.cat([wavs, wavs_noise], dim=0)
                 wav_lens = torch.cat([wav_lens, wav_lens])
                 phns = torch.cat([phns, phns])
+            """
             if hasattr(self.hparams, "augmentation"):
                 wavs = self.hparams.augmentation(wavs, wav_lens)
 
@@ -40,9 +44,17 @@ class ASR(sb.Brain):
         x = self.modules.enc(feats)
 
         if stage == sb.Stage.VALID:
-            hyps, topk_hyps, topk_scores, topk_len = self.hparams.beam_searcher(
-                x, wav_lens
+            # set max decoding step to the label length
+            self.hparams.beam_searcher.max_decode_ratio = phns.size(1) / x.size(
+                1
             )
+            (
+                hyps,
+                topk_hyps,
+                topk_scores,
+                topk_len,
+                topk_logprobs,
+            ) = self.hparams.beam_searcher(x, wav_lens)
             # return p_ctc, p_seq, wav_lens, hyps
             return (
                 wav_lens,
@@ -50,55 +62,90 @@ class ASR(sb.Brain):
                 topk_hyps,
                 topk_scores,
                 topk_len,
+                topk_logprobs,
             )
 
         elif stage == sb.Stage.TEST:
-            hyps, topk_hyps, topk_scores, topk_len = self.hparams.beam_searcher(
-                x, wav_lens
-            )
+            (
+                hyps,
+                topk_hyps,
+                topk_scores,
+                topk_len,
+                topk_logprobs,
+            ) = self.hparams.beam_searcher(x, wav_lens)
             return (
                 wav_lens,
                 hyps,
                 topk_hyps,
                 topk_scores,
                 topk_len,
+                topk_logprobs,
             )
 
         elif stage == sb.Stage.TRAIN:
+            # set max decoding step to the label length
+            self.hparams.sampler.max_decode_ratio = phns.size(1) / x.size(1)
             # n-best hyps for minWER loss
-            hyps, topk_hyps, topk_scores, topk_len = self.hparams.sampler(
-                x, wav_lens
-            )
+            (
+                hyps,
+                topk_hyps,
+                topk_scores,
+                topk_len,
+                topk_logprobs,
+            ) = self.hparams.sampler(x, wav_lens)
             return (
                 wav_lens,
                 hyps,
                 topk_hyps,
                 topk_scores,
                 topk_len,
+                topk_logprobs,
             )
 
     def compute_objectives(self, predictions, targets, stage):
-        (wav_lens, hyps, topk_hyps, topk_scores, topk_length,) = predictions
+        (
+            wav_lens,
+            hyps,
+            topk_hyps,
+            topk_scores,
+            topk_length,
+            topk_logprobs,
+        ) = predictions
 
         ids, phns, phn_lens = targets
         phns, phn_lens = phns.to(self.device), phn_lens.to(self.device)
 
+        """
         if hasattr(self.hparams, "env_corrupt") and stage == sb.Stage.TRAIN:
             phns = torch.cat([phns, phns], dim=0)
             phn_lens = torch.cat([phn_lens, phn_lens], dim=0)
+        """
 
         # Add phn_lens by one for eos token
         abs_length = torch.round(phn_lens * phns.shape[1])
 
+        # Append eos token at the end of the label sequences
+        phns_with_eos = sb.data_io.data_io.append_eos_token(
+            phns, length=abs_length, eos_index=self.hparams.eos_index
+        )
+
+        # convert to speechbrain-style relative length
+        rel_length = (abs_length + 1) / phns_with_eos.shape[1]
+
+        loss_seq = self.hparams.seq_cost(
+            topk_logprobs[:, 0], phns_with_eos, rel_length
+        )
         loss = self.hparams.minPER_cost(
             topk_hyps, phns, topk_length, abs_length, topk_scores,
         )
+        loss = loss_seq
 
         # Record losses for posterity
         if stage != sb.Stage.TRAIN:
-            self.mPER_metrics.append(
-                ids, topk_hyps, phns, topk_length, abs_length, topk_scores
-            )
+            # self.seq_metrics.append(ids, topk_logprobs[:, 0], phns_with_eos, rel_length)
+            # self.mPER_metrics.append(
+            #    ids, topk_hyps, phns, topk_length, abs_length, topk_scores
+            # )
             self.per_metrics.append(
                 ids, hyps, phns, None, phn_lens, self.hparams.ind2lab
             )
@@ -122,6 +169,7 @@ class ASR(sb.Brain):
 
     def on_stage_start(self, stage, epoch):
         self.mPER_metrics = self.hparams.mPER_stats()
+        self.seq_metrics = self.hparams.seq_stats()
 
         if stage != sb.Stage.TRAIN:
             self.per_metrics = self.hparams.per_stats()
@@ -142,7 +190,7 @@ class ASR(sb.Brain):
                     train_stats={"loss": self.train_loss},
                     valid_stats={
                         "loss": stage_loss,
-                        "mPER_loss": self.mPER_metrics.summarize("average"),
+                        # "mPER_loss": self.mPER_metrics.summarize("average"),
                         "PER": per,
                     },
                 )
@@ -156,10 +204,10 @@ class ASR(sb.Brain):
                 test_stats={"loss": stage_loss, "PER": per},
             )
             with open(self.hparams.wer_file, "w") as w:
-                w.write("CTC loss stats:\n")
-                self.ctc_metrics.write_stats(w)
-                w.write("\nseq2seq loss stats:\n")
-                self.seq_metrics.write_stats(w)
+                # w.write("CTC loss stats:\n")
+                # self.ctc_metrics.write_stats(w)
+                # w.write("\nseq2seq loss stats:\n")
+                # self.seq_metrics.write_stats(w)
                 w.write("\nPER stats:\n")
                 self.per_metrics.write_stats(w)
                 print(

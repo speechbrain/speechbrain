@@ -468,7 +468,21 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 if num_hyps == self.beam_size:
                     continue
                 hyp = alived_seq[index, :]
-                log_probs = alived_log_probs[index, :]
+                if timesteps != hyps_and_scores["hyps"].size(-1):
+                    log_probs = torch.cat(
+                        (
+                            alived_log_probs[index],
+                            torch.zeros(
+                                hyps_and_scores["hyps"].size(-1)
+                                - (timesteps + 1),
+                                40,
+                                device=hyp.device,
+                            ),
+                        ),
+                        dim=0,
+                    )
+                else:
+                    log_probs = alived_log_probs[index]
                 final_scores = scores[index] + self.length_rewarding * (
                     timesteps + 1
                 )
@@ -480,15 +494,13 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 hyps_and_scores["hyps_length"][batch_id, num_hyps] = (
                     timesteps + 1
                 )
-                hyps_and_scores["log_probs"][
-                    batch_id, num_hyps, : timesteps + 1
-                ] = log_probs
-                hyps_and_scores["scores"][batch_id] = torch.cat(
+                hyps_and_scores["log_probs"][batch_id] = torch.cat(
                     (
-                        hyps_and_scores["scores"][batch_id],
-                        final_scores.unsqueeze(0),
+                        hyps_and_scores["log_probs"][batch_id],
+                        log_probs.unsqueeze(0),
                     )
                 )
+                hyps_and_scores["scores"][batch_id].append(final_scores)
                 hyps_and_scores["num_hyps"][batch_id] += 1
 
         return is_eos
@@ -524,7 +536,10 @@ class S2SBeamSearcher(S2SBaseSearcher):
         predictions, top_log_probs, top_scores = [], [], []
         batch_size = len(hyps_and_scores["scores"])
         hyps_and_scores["scores"] = torch.stack(
-            hyps_and_scores["scores"], dim=0
+            [torch.stack(s) for s in hyps_and_scores["scores"]], dim=0
+        )
+        hyps_and_scores["log_probs"] = torch.stack(
+            hyps_and_scores["log_probs"], dim=0
         )
         top_scores, indices = hyps_and_scores["scores"].topk(self.topk, dim=-1)
         indices = (indices + self.beam_offset.unsqueeze(1)).view(
@@ -541,7 +556,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             dim=0,
             index=indices,
         )
-        top_log_probs = top_log_probs.view(batch_size, self.topk, -1)
+        top_log_probs = top_log_probs.view(batch_size, self.topk, -1, 40)
         predictions = torch.index_select(
             hyps_and_scores["hyps"].view(batch_size * self.beam_size, -1),
             dim=0,
@@ -585,6 +600,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         # keep only the first to make sure no redundancy.
         sequence_scores.index_fill_(0, self.beam_offset, 0.0)
+        print(sequence_scores, self.beam_offset)
 
         # keep the sequences that still not reaches eos.
         alived_seq = torch.empty(
@@ -592,9 +608,9 @@ class S2SBeamSearcher(S2SBaseSearcher):
         ).long()
 
         # Keep the log-probabilities of alived sequences.
-        alived_log_probs = torch.empty(
-            batch_size * self.beam_size, 0, device=device
-        )
+        # alived_log_probs = torch.empty(
+        #    batch_size * self.beam_size, 0, 40, device=device
+        # )
 
         min_decode_steps = int(enc_states.shape[1] * self.min_decode_ratio)
         max_decode_steps = int(enc_states.shape[1] * self.max_decode_ratio)
@@ -616,12 +632,11 @@ class S2SBeamSearcher(S2SBaseSearcher):
             "hyps_length": torch.zeros(
                 batch_size, self.beam_size, dtype=torch.int32, device=device
             ),
-            "scores": [
-                torch.empty(0, device=device) for _ in range(batch_size)
+            "scores": [[] for _ in range(batch_size)],
+            "log_probs": [
+                torch.empty(0, max_decode_steps, 40, device=device)
+                for _ in range(batch_size)
             ],
-            "log_probs": torch.zeros(
-                batch_size, self.beam_size, max_decode_steps, device=device
-            ),
         }
         for t in range(max_decode_steps):
             # terminate condition
@@ -633,7 +648,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             )
 
             # Keep the original value
-            log_probs_clone = log_probs.clone().reshape(batch_size, -1)
+            # log_probs_clone = log_probs.clone() #TODO
             vocab_size = log_probs.shape[-1]
 
             if self.using_max_attn_shift:
@@ -744,18 +759,18 @@ class S2SBeamSearcher(S2SBaseSearcher):
             )
 
             # Takes the log-probabilities
-            beam_log_probs = log_probs_clone[
-                torch.arange(batch_size).unsqueeze(1), candidates
-            ].reshape(batch_size * self.beam_size)
-            alived_log_probs = torch.cat(
-                [
-                    torch.index_select(
-                        alived_log_probs, dim=0, index=predecessors
-                    ),
-                    beam_log_probs.unsqueeze(1),
-                ],
-                dim=-1,
-            )
+            if t == 0:
+                alived_log_probs = log_probs.unsqueeze(1)
+            else:
+                alived_log_probs = torch.cat(
+                    [
+                        torch.index_select(
+                            alived_log_probs, dim=0, index=predecessors
+                        ),
+                        log_probs.unsqueeze(1),
+                    ],
+                    dim=1,
+                )
 
             is_eos = self._update_hyp_and_scores(
                 inp_tokens,
@@ -798,7 +813,14 @@ class S2SBeamSearcher(S2SBaseSearcher):
         )
 
         if self.return_log_probs:
-            return predictions, topk_hyps, topk_scores, topk_len, log_probs
+            return (
+                predictions,
+                topk_hyps,
+                topk_scores,
+                topk_len,
+                alived_log_probs.view(batch_size, self.beam_size, -1, 40),
+            )
+            # return predictions, topk_hyps, topk_scores, topk_len, log_probs
         else:
             return predictions, topk_hyps, topk_scores, topk_len
 

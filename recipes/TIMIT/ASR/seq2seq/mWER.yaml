@@ -1,7 +1,7 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/mWER_CRDNN/<seed>
+output_folder: !ref results/mWER_CRDNN_6/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -14,9 +14,9 @@ csv_valid: !ref <data_folder>/dev.csv
 csv_test: !ref <data_folder>/test.csv
 
 # Training parameters
-number_of_epochs: 15
-batch_size: 5
-lr: 0.001
+number_of_epochs: 100
+batch_size: 8
+lr: 0.0008
 ctc_weight: 0.2
 
 # For DDP, use `python -m speechbrain.ddp experiment.py` to launch experiment
@@ -34,7 +34,7 @@ n_mels: 40
 activation: !name:torch.nn.LeakyReLU
 dropout: 0.15
 cnn_blocks: 2
-cnn_channels: (128, 128)
+cnn_channels: (128, 256)
 cnn_kernelsize: (3, 3)
 rnn_layers: 4
 rnn_neurons: 512
@@ -53,8 +53,8 @@ bos_index: !ref <output_neurons> - 1
 eos_index: !ref <output_neurons> - 1
 min_decode_ratio: 0.0
 max_decode_ratio: 1.0
-beam_size: 8
-n_best: 4
+beam_size: 2
+n_best: 1
 eos_threshold: 1.5
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
@@ -171,6 +171,9 @@ sampler: !new:speechbrain.decoders.seq2seq.S2SRNNBeamSearcher
     beam_size: !ref <beam_size>
     topk: !ref <n_best>
     using_eos_threshold: False
+    return_log_probs: True
+    length_normalization: False
+    using_max_attn_shift: False
 
 greedy_searcher: !new:speechbrain.decoders.seq2seq.S2SRNNGreedySearcher
     embedding: !ref <emb>
@@ -188,9 +191,10 @@ beam_searcher: !new:speechbrain.decoders.seq2seq.S2SRNNBeamSearcher
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
     min_decode_ratio: !ref <min_decode_ratio>
-    max_decode_ratio: !ref <max_decode_ratio>
+    max_decode_ratio: 1.0
     beam_size: !ref <beam_size>
     topk: !ref <n_best>
+    return_log_probs: True
 
 model: !new:torch.nn.ModuleList
     - [!ref <enc>, !ref <emb>, !ref <dec>, !ref <ctc_lin>, !ref <seq_lin>]
@@ -233,3 +237,8 @@ mPER_stats: !name:speechbrain.utils.metric_stats.MetricStats
         reduction: "none"
 
 per_stats: !name:speechbrain.utils.metric_stats.ErrorRateStats
+
+seq_stats: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !name:speechbrain.nnet.losses.nll_loss
+        label_smoothing: 0.1
+        reduction: batch
