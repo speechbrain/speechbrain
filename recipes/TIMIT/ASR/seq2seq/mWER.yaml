@@ -1,7 +1,7 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/mWER_CRDNN_6/<seed>
+output_folder: !ref results/augment_noise_CRDNN/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -12,6 +12,9 @@ openrir_folder: !ref <data_folder>
 csv_train: !ref <data_folder>/train.csv
 csv_valid: !ref <data_folder>/dev.csv
 csv_test: !ref <data_folder>/test.csv
+
+# TODO automatically download the seq2seq model
+# seq2seq_model: https://www.dropbox.com/s/71rlp35ujv0mtsr/seq2seq_TIMIT.tar.gz
 
 # Training parameters
 number_of_epochs: 100
@@ -53,9 +56,10 @@ bos_index: !ref <output_neurons> - 1
 eos_index: !ref <output_neurons> - 1
 min_decode_ratio: 0.0
 max_decode_ratio: 1.0
-beam_size: 2
-n_best: 1
+beam_size: 8
+n_best: 8
 eos_threshold: 1.5
+using_eos_threshold: False
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
@@ -66,7 +70,6 @@ train_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     sentence_sorting: ascending
     output_folder: !ref <output_folder>
     csv_read: [wav, phn]
-    avoid_if_longer_than: 20
 
 valid_loader: !new:speechbrain.data_io.data_io.DataLoaderFactory
     csv_file: !ref <csv_valid>
@@ -142,9 +145,6 @@ ctc_lin: !new:speechbrain.nnet.linear.Linear
 seq_lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <dec_neurons>
     n_neurons: !ref <output_neurons>  # 39 phonemes + 1 eos
-
-softmax: !new:speechbrain.nnet.activations.Softmax
-    apply_log: False
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
