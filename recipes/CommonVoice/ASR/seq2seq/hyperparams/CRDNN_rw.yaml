@@ -36,14 +36,6 @@ number_of_ctc_epochs: 30
 batch_size: 16
 lr: 1.0
 ctc_weight: 0.3
-device: 'cuda'
-
-# Different multi-gpu can be used :
-# ["data_parallel", "ddp_nccl", "ddp_gloo", "ddp_mpi"]
-# The number of gpu is only needed with ddp_* backend
-# data_parallel takes all the available devices
-multigpu_count: 0
-multigpu_backend: null  # ['data_parallel', 'ddp_nccl', 'ddp_gloo', 'ddp_mpi']
 token_type: unigram  # ["unigram", "bpe", "char"]
 
 # Feature parameters
