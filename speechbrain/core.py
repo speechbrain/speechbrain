@@ -339,7 +339,7 @@ class Brain:
     >>> brain.fit(range(1), ([torch.rand(10, 10), torch.rand(10, 10)],))
     """
 
-    def __init__(
+    def __init__(  # noqa: C901
         self,
         modules=None,
         opt_class=None,
@@ -366,9 +366,23 @@ class Brain:
         }
         for arg, default in run_opt_defaults.items():
             if run_opts is not None and arg in run_opts:
+                if arg in hparams:
+                    logger.info(
+                        "Info: "
+                        + arg
+                        + " arg is override by command line input"
+                    )
                 setattr(self, arg, run_opts[arg])
             else:
-                setattr(self, arg, default)
+                # If any arg from run_opt_defaults exist in hparams and
+                # not in command line args "run_opts"
+                if arg in hparams:
+                    logger.info(
+                        "Info: " + arg + " arg from hparam file is used"
+                    )
+                    setattr(self, arg, hparams[arg])
+                else:
+                    setattr(self, arg, default)
 
         if self.data_parallel_backend and self.distributed_launch:
             sys.exit(
@@ -787,6 +801,8 @@ class Brain:
         """This should be run *after* mp.spawn, since jit modules
         cannot be pickled.
         """
+        print("je suis dans _compile_jit")
+        print(self.jit_module_keys)
         if self.jit_module_keys is None:
             return
 
