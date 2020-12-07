@@ -805,6 +805,10 @@ class Brain:
             return
 
         for name in self.jit_module_keys:
+            if name not in self.modules:
+                raise ValueError(
+                    "module" + name + " is not defined in your hparams file."
+                )
             module = torch.jit.script(self.modules[name])
             self.modules[name] = module.to(self.device)
 
