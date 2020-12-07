@@ -1184,7 +1184,7 @@ class InputNormalization(torch.nn.Module):
         torch.save(stats, path)
 
     @mark_as_loader
-    def _load(self, path, end_of_epoch, device=None):
+    def _load(self, path, end_of_epoch, device):
         """Load statistic dictionary.
 
         Arguments
