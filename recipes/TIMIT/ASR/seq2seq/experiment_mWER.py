@@ -42,6 +42,21 @@ class ASR(sb.Brain):
         feats = self.modules.normalize(feats, wav_lens)
         x = self.modules.enc(feats)
 
+        # output layer for ctc log-probabilities
+        logits = self.modules.ctc_lin(x)
+        p_ctc = self.hparams.log_softmax(logits)
+
+        # Prepend bos token at the beginning
+        y_in = sb.data_io.data_io.prepend_bos_token(
+            phns, self.hparams.bos_index
+        )
+        e_in = self.modules.emb(y_in)
+        h, _ = self.modules.dec(e_in, x, wav_lens)
+
+        # output layer for seq2seq log-probabilities
+        logits = self.modules.seq_lin(h)
+        p_seq = self.hparams.log_softmax(logits)
+
         if stage == sb.Stage.VALID:
             # set max decoding step to the label length
             self.hparams.beam_searcher.max_decode_ratio = phns.size(1) / x.size(
@@ -52,16 +67,16 @@ class ASR(sb.Brain):
                 topk_hyps,
                 topk_scores,
                 topk_len,
-                topk_logprobs,
             ) = self.hparams.beam_searcher(x, wav_lens)
             # return p_ctc, p_seq, wav_lens, hyps
             return (
+                p_ctc,
+                p_seq,
                 wav_lens,
                 hyps,
                 topk_hyps,
                 topk_scores,
                 topk_len,
-                topk_logprobs,
             )
 
         elif stage == sb.Stage.TEST:
@@ -70,45 +85,43 @@ class ASR(sb.Brain):
                 topk_hyps,
                 topk_scores,
                 topk_len,
-                topk_logprobs,
             ) = self.hparams.beam_searcher(x, wav_lens)
             return (
+                p_ctc,
+                p_seq,
                 wav_lens,
                 hyps,
                 topk_hyps,
                 topk_scores,
                 topk_len,
-                topk_logprobs,
             )
 
         elif stage == sb.Stage.TRAIN:
             # set max decoding step to the label length
             self.hparams.sampler.max_decode_ratio = phns.size(1) / x.size(1)
             # n-best hyps for minWER loss
-            (
-                hyps,
-                topk_hyps,
-                topk_scores,
-                topk_len,
-                topk_logprobs,
-            ) = self.hparams.sampler(x, wav_lens)
+            (hyps, topk_hyps, topk_scores, topk_len,) = self.hparams.sampler(
+                x, wav_lens
+            )
             return (
+                p_ctc,
+                p_seq,
                 wav_lens,
                 hyps,
                 topk_hyps,
                 topk_scores,
                 topk_len,
-                topk_logprobs,
             )
 
     def compute_objectives(self, predictions, targets, stage):
         (
+            p_ctc,
+            p_seq,
             wav_lens,
             hyps,
             topk_hyps,
             topk_scores,
             topk_length,
-            topk_logprobs,
         ) = predictions
 
         ids, phns, phn_lens = targets
@@ -131,17 +144,19 @@ class ASR(sb.Brain):
         # convert to speechbrain-style relative length
         rel_length = (abs_length + 1) / phns_with_eos.shape[1]
 
-        loss_seq = self.hparams.seq_cost(
-            topk_logprobs[:, 0], phns_with_eos, rel_length
-        )
-        loss = self.hparams.minPER_cost(
-            topk_hyps, phns, topk_length, abs_length, topk_scores,
-        )
-        loss = loss_seq
+        loss_ctc = self.hparams.ctc_cost(p_ctc, phns, wav_lens, phn_lens)
+        loss_seq = self.hparams.seq_cost(p_seq, phns_with_eos, rel_length)
+        loss = self.hparams.ctc_weight * loss_ctc
+        loss += (1 - self.hparams.ctc_weight) * loss_seq
+        # loss = self.hparams.minPER_cost(
+        #    topk_hyps, phns, topk_length, abs_length, topk_scores,
+        # )
+        loss = loss_seq + self.hparams.ctc_weight * loss_ctc
 
         # Record losses for posterity
         if stage != sb.Stage.TRAIN:
-            # self.seq_metrics.append(ids, topk_logprobs[:, 0], phns_with_eos, rel_length)
+            self.ctc_metrics.append(ids, p_ctc, phns, wav_lens, phn_lens)
+            self.seq_metrics.append(ids, p_seq, phns_with_eos, rel_length)
             # self.mPER_metrics.append(
             #    ids, topk_hyps, phns, topk_length, abs_length, topk_scores
             # )
@@ -167,7 +182,8 @@ class ASR(sb.Brain):
         return loss.detach()
 
     def on_stage_start(self, stage, epoch):
-        self.mPER_metrics = self.hparams.mPER_stats()
+        # self.mPER_metrics = self.hparams.mPER_stats()
+        self.ctc_metrics = self.hparams.ctc_stats()
         self.seq_metrics = self.hparams.seq_stats()
 
         if stage != sb.Stage.TRAIN:
@@ -189,6 +205,8 @@ class ASR(sb.Brain):
                     train_stats={"loss": self.train_loss},
                     valid_stats={
                         "loss": stage_loss,
+                        "ctc_loss": self.ctc_metrics.summarize("average"),
+                        "seq_loss": self.seq_metrics.summarize("average"),
                         # "mPER_loss": self.mPER_metrics.summarize("average"),
                         "PER": per,
                     },
@@ -203,10 +221,12 @@ class ASR(sb.Brain):
                 test_stats={"loss": stage_loss, "PER": per},
             )
             with open(self.hparams.wer_file, "w") as w:
+                w.write("CTC loss stats:\n")
+                self.ctc_metrics.write_stats(w)
+                w.write("\nseq2seq loss stats:\n")
+                self.seq_metrics.write_stats(w)
                 w.write("mPER loss stats:\n")
                 self.mPER_metrics.write_stats(w)
-                # w.write("\nseq2seq loss stats:\n")
-                # self.seq_metrics.write_stats(w)
                 w.write("\nPER stats:\n")
                 self.per_metrics.write_stats(w)
                 print(
