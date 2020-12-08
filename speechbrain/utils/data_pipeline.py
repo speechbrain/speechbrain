@@ -8,14 +8,14 @@ Example
 >>> from speechbrain.yaml import load_extended_yaml
 >>> yamlstring = '''
 ... pipeline: !apply:speechbrain.utils.data_pipeline.DataPipeline.from_configuration
-...     funcs:
+...     dynamic_items:
 ...         foo:
 ...             func: !name:operator.add
-...             argnames: ["a", "b"]
+...             argkeys: ["a", "b"]
 ...         bar:
 ...             func: !name:operator.sub
-...             argnames: ["foo", "b"]
-...     output_names: ["foo", "bar"]
+...             argkeys: ["foo", "b"]
+...     output_keys: ["foo", "bar"]
 ... '''
 >>> hparams = load_extended_yaml(yamlstring)
 >>> hparams["pipeline"]({"a":1, "b":2})
@@ -28,7 +28,7 @@ Author:
 import collections
 from speechbrain.utils.depgraph import DependencyGraph
 
-FuncConf = collections.namedtuple("FuncConf", ["func", "argnames"])
+DynamicItemConf = collections.namedtuple("DynamicItemConf", ["func", "argkeys"])
 
 
 class DataPipeline:
@@ -38,73 +38,79 @@ class DataPipeline:
     Example
     -------
     >>> pipeline = DataPipeline.from_configuration(
-    ...     funcs={
-    ...         "foo": {"func": lambda x: x.lower(), "argnames": ["text"]},
-    ...         "bar": {"func": lambda x: x[::-1], "argnames": ["foo"]},
+    ...     dynamic_items={
+    ...         "foo": {"func": lambda x: x.lower(), "argkeys": ["text"]},
+    ...         "bar": {"func": lambda x: x[::-1], "argkeys": ["foo"]},
     ...     },
-    ...     output_names=["bar"],
+    ...     output_keys=["bar"],
     ... )
     >>> pipeline({"text": "Test"})
     {'bar': 'tset'}
 
     """
 
-    def __init__(self):
-        self.output_names = []  # Add names here to produce at output
+    def __init__(self, output_keys=None):
+        if output_keys is None:
+            output_keys = []
+        self.output_keys = output_keys
         self.dg = DependencyGraph()
         self._exec_order = None
-        self._func_names = []
+        self._dynamic_item_keys = []
 
     @classmethod
-    def from_configuration(cls, funcs, output_names):
+    def from_configuration(cls, dynamic_items=None, output_keys=None):
         """
         Arguments
         ---------
-        funcs : dict
+        dynamic_items : dict, optional
             Nested dict with the format (in YAML notation):
-            <name>:
+            <key>:
                 func: <callable> # To be called
-                argnames: <list> # Names of args, either other funcs or in data
-            <name2>: ...
-        output_names : list
-            List of names (either funcs or entries in data)
+                argkeys: <list> # keys of args, either other dynamic_items or in data
+            <key2>: ...
+        output_keys : list, optional
+            List of keys (either dynamic_items or entries in data)
             to add in the final output.
         """
         pipeline = cls()
-        for name, conf in funcs.items():
+        if dynamic_items is None:
+            dynamic_items = {}
+        if output_keys is None:
+            output_keys = []
+        for key, conf in dynamic_items.items():
             if isinstance(conf, list):
-                pipeline.add_func(name, *conf)
+                pipeline.add_dynamic_item(key, *conf)
             else:
-                pipeline.add_func(name, **conf)
-        pipeline.output_names = output_names
+                pipeline.add_dynamic_item(key, **conf)
+        pipeline.output_keys = output_keys
         return pipeline
 
-    def add_func(self, name, func, argnames):
+    def add_dynamic_item(self, key, func, argkeys):
         """
         Arguments
         ---------
-        name : str
-            Unique name
+        key : str
+            Unique key
         func : callable
             To be called
-        argnames : list
-            List of names. When func is called, each name is resolved to
-            either an entry in the data or the output of another func.
+        argkeys : list
+            List of keys. When func is called, each key is resolved to
+            either an entry in the data or the output of another dynamic_item.
             The func is then called with these as positional arguments,
             in the same order as specified here.
         """
-        if name in self._func_names:
-            raise ValueError(f"Duplicate function name {name}")
+        if key in self._dynamic_item_keys:
+            raise ValueError(f"Duplicate function key {key}")
         else:
-            self._func_names.append(name)
-        conf = FuncConf(func, argnames)
-        self.dg.add_node(name, data=conf)
-        for depended in argnames:
-            self.dg.add_edge(name, depended)
+            self._dynamic_item_keys.append(key)
+        conf = DynamicItemConf(func, argkeys)
+        self.dg.add_node(key, data=conf)
+        for depended in argkeys:
+            self.dg.add_edge(key, depended)
         self._exec_order = None
 
-    def set_output_names(self, *names):
-        """Use this to change the output names
+    def set_output_keys(self, *keys):
+        """Use this to change the output keys
 
         Also re-evaluates execution order.
         So if you request different outputs, some parts of the
@@ -112,10 +118,10 @@ class DataPipeline:
 
         Arguments
         ---------
-        *names : str
-            Variable number of names (str) to produce in output.
+        *keys : str
+            Variable number of keys (str) to produce in output.
         """
-        self.output_names = names
+        self.output_keys = keys
         self._exec_order = None
 
     def compute_outputs(self, data):
@@ -123,38 +129,38 @@ class DataPipeline:
         Arguments
         ---------
         data : dict
-            Dictionary with named data entries.
+            Dictionary with data entries by key.
 
         Returns
         -------
         dict
-            With keys as in self.output_names
+            With keys as in self.output_keys
         """
         if self._exec_order is None:
             self._prepare_run(data)
         intermediate = {}
-        for name, edges, conf in self._exec_order:
-            if name in data:
+        for key, edges, conf in self._exec_order:
+            if key in data:
                 continue
-            # It is a func, so conf is a FuncConf, which we can unpack:
-            func, argnames = conf
+            # It is a dynamic_item, so conf is a DynamicItemConf, which we can unpack:
+            func, argkeys = conf
             args = [
-                data[name] if name in data else intermediate[name]
-                for name in argnames
+                data[key] if key in data else intermediate[key]
+                for key in argkeys
             ]
-            intermediate[name] = func(*args)
+            intermediate[key] = func(*args)
         return {
-            name: data[name] if name in data else intermediate[name]
-            for name in self.output_names
+            key: data[key] if key in data else intermediate[key]
+            for key in self.output_keys
         }
 
     def __call__(self, data):
         return self.compute_outputs(data)
 
     def _prepare_run(self, data):
-        for name in self._func_names:
-            if name in data:
-                raise ValueError(f"Function name {name} appears in data")
+        for key in self._dynamic_item_keys:
+            if key in data:
+                raise ValueError(f"Dynamic item key {key} appears in data")
         self._exec_order = list(
-            self.dg.get_evaluation_order(selected_keys=self.output_names)
+            self.dg.get_evaluation_order(selected_keys=self.output_keys)
         )
